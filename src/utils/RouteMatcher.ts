@@ -39,7 +39,25 @@ export class RouteMatcher {
 
           // String path matching
           if (typeof route.path === 'string') {
-            return route.path === req.pathname;
+            // Check for exact match first
+            if (route.path === req.pathname) {
+              return true;
+            }
+
+            // Check for parameterized route (Express-style)
+            if (route.path.includes(':')) {
+              const match = this.matchParameterizedRoute(
+                route.path,
+                req.pathname
+              );
+              if (match.matches) {
+                // Set the extracted parameters
+                req.params = { ...req.params, ...match.params };
+                return true;
+              }
+            }
+
+            return false;
           }
 
           // RegExp path matching
@@ -97,7 +115,17 @@ export class RouteMatcher {
           let pathMatches = false;
 
           if (typeof route.path === 'string') {
+            // Check exact match first
             pathMatches = route.path === req.pathname;
+
+            // Check parameterized route if exact match fails
+            if (!pathMatches && route.path.includes(':')) {
+              const match = this.matchParameterizedRoute(
+                route.path,
+                req.pathname
+              );
+              pathMatches = match.matches;
+            }
           } else if (route.path instanceof RegExp) {
             pathMatches = route.path.test(req.pathname);
           }
@@ -155,5 +183,45 @@ export class RouteMatcher {
         )}`
       );
     }
+  }
+
+  // Helper method to match parameterized routes like /users/:id
+  static matchParameterizedRoute(
+    routePath: string,
+    requestPath: string
+  ): { matches: boolean; params: Record<string, string> } {
+    const params: Record<string, string> = {};
+
+    // Split both paths into segments
+    const routeSegments = routePath
+      .split('/')
+      .filter((segment) => segment.length > 0);
+    const requestSegments = requestPath
+      .split('/')
+      .filter((segment) => segment.length > 0);
+
+    // Must have same number of segments
+    if (routeSegments.length !== requestSegments.length) {
+      return { matches: false, params: {} };
+    }
+
+    // Check each segment
+    for (let i = 0; i < routeSegments.length; i++) {
+      const routeSegment = routeSegments[i];
+      const requestSegment = requestSegments[i];
+
+      if (routeSegment.startsWith(':')) {
+        // Parameter segment - extract the parameter name and value
+        const paramName = routeSegment.substring(1); // Remove the ':'
+        params[paramName] = decodeURIComponent(requestSegment);
+      } else {
+        // Exact match required for non-parameter segments
+        if (routeSegment !== requestSegment) {
+          return { matches: false, params: {} };
+        }
+      }
+    }
+
+    return { matches: true, params };
   }
 }

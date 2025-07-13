@@ -1,5 +1,5 @@
 // Main exports
-export { Zestfx } from './Zestfx';
+export { LitePress } from './LitePress';
 
 // Type exports
 export type {
@@ -18,6 +18,7 @@ export type {
 // Error exports
 export {
   FileSystemError,
+  LitePressError,
   MethodNotAllowedError,
   NotFoundError,
   PayloadTooLargeError,
@@ -25,7 +26,6 @@ export {
   TimeoutError,
   UnsupportedMediaTypeError,
   ValidationError,
-  ZestfxError,
 } from './types';
 
 // Utility exports for advanced usage
