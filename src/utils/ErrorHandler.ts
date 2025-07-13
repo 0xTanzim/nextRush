@@ -1,9 +1,9 @@
 import {
   ErrorHandlerOptions,
   ErrorResponse,
+  LitePressError,
   Request,
   Response,
-  ZestfxError,
 } from '../types';
 
 export class ErrorHandler {
@@ -46,8 +46,8 @@ export class ErrorHandler {
     let code = 'INTERNAL_SERVER_ERROR';
     let details: Record<string, unknown> | undefined;
 
-    // Handle ZestfxError instances
-    if (error instanceof ZestfxError) {
+    // Handle LitePressError instances
+    if (error instanceof LitePressError) {
       statusCode = error.statusCode;
       code = error.code;
       details = error.details;
@@ -125,7 +125,7 @@ export class ErrorHandler {
   static validatePayloadSize(contentLength: number, maxSize?: number): void {
     const limit = maxSize || this.defaultOptions.maxBodySize || 1024 * 1024;
     if (contentLength > limit) {
-      throw new ZestfxError(
+      throw new LitePressError(
         `Payload too large. Maximum allowed: ${limit} bytes`,
         'PAYLOAD_TOO_LARGE',
         413,
@@ -139,7 +139,7 @@ export class ErrorHandler {
     allowedTypes: string[]
   ): void {
     if (!allowedTypes.some((type) => contentType.includes(type))) {
-      throw new ZestfxError(
+      throw new LitePressError(
         `Unsupported content type: ${contentType}`,
         'UNSUPPORTED_MEDIA_TYPE',
         415,
@@ -158,7 +158,7 @@ export class ErrorHandler {
       new Promise<never>((_, reject) => {
         setTimeout(() => {
           reject(
-            new ZestfxError(
+            new LitePressError(
               `${operation} timed out after ${timeoutMs}ms`,
               'TIMEOUT',
               408,

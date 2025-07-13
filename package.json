@@ -1,26 +1,28 @@
 {
-  "name": "zestfx",
-  "version": "1.0.1",
-  "description": "A lightweight, TypeScript-first backend framework with decorators and an Express-like API.",
+  "name": "litepress",
+  "version": "1.0.0",
+  "description": "A lightweight, fast, and modern HTTP server framework for Node.js with TypeScript support and Express-like API.",
   "keywords": [
     "typescript",
-    "decorators",
+    "http",
+    "server",
+    "framework",
     "express",
     "lightweight",
     "backend",
-    "framework",
     "routing",
-    "controller",
-    "oop",
-    "microframework"
+    "api",
+    "fast",
+    "modern",
+    "zero-dependencies"
   ],
-  "homepage": "https://github.com/0xTanzim/Zestfx#readme",
+  "homepage": "https://github.com/0xTanzim/litepress#readme",
   "bugs": {
-    "url": "https://github.com/0xTanzim/Zestfx/issues"
+    "url": "https://github.com/0xTanzim/litepress/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/Zestfx.git"
+    "url": "git+https://github.com/0xTanzim/litepress.git"
   },
   "license": "MIT",
   "author": "Tanzim Hossain <tanzimhossain2@gmail.com>",
@@ -28,12 +30,17 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "examples",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node-dev src/index.ts",
+    "example": "ts-node-dev examples/basic.ts",
+    "example:router": "ts-node-dev src/router-example.ts",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm test",
     "test": "echo \"No test specified\" && exit 0"

@@ -1,6 +1,6 @@
-# Zestfx Enhancement Ideas
+# LitePress Enhancement Ideas
 
-Here are some features to make Zestfx more user-friendly by adding abstraction layers and hiding complexity:
+Here are some features to make LitePress more user-friendly by adding abstraction layers and hiding complexity:
 
 ## 1. Middleware System
 
@@ -14,7 +14,7 @@ app.use('/api', authMiddleware);
 ## 2. Router Implementation
 
 ```typescript
-const userRouter = new Zestfx.Router();
+const userRouter = new LitePress.Router();
 userRouter.get('/:id', getUser);
 userRouter.post('/', createUser);
 
@@ -99,7 +99,7 @@ app.use(sessionPlugin({ secret: 'your-secret' }));
 ## 9. Configuration Management
 
 ```typescript
-const app = new Zestfx({
+const app = new LitePress({
   port: process.env.PORT || 3000,
   environment: process.env.NODE_ENV || 'development',
   trustProxy: true,

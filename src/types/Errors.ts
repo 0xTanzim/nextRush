@@ -1,4 +1,4 @@
-export class ZestfxError extends Error {
+export class LitePressError extends Error {
   public readonly code: string;
   public readonly statusCode: number;
   public readonly details?: Record<string, unknown>;
@@ -10,31 +10,31 @@ export class ZestfxError extends Error {
     details?: Record<string, unknown>
   ) {
     super(message);
-    this.name = 'ZestfxError';
+    this.name = 'LitePressError';
     this.code = code;
     this.statusCode = statusCode;
     this.details = details;
 
     // Ensure the stack trace points to where the error was thrown
-    Error.captureStackTrace(this, ZestfxError);
+    Error.captureStackTrace(this, LitePressError);
   }
 }
 
-export class ValidationError extends ZestfxError {
+export class ValidationError extends LitePressError {
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'VALIDATION_ERROR', 400, details);
     this.name = 'ValidationError';
   }
 }
 
-export class NotFoundError extends ZestfxError {
+export class NotFoundError extends LitePressError {
   constructor(resource: string = 'Resource') {
     super(`${resource} not found`, 'NOT_FOUND', 404);
     this.name = 'NotFoundError';
   }
 }
 
-export class MethodNotAllowedError extends ZestfxError {
+export class MethodNotAllowedError extends LitePressError {
   constructor(method: string, allowedMethods: string[] = []) {
     super(`Method ${method} not allowed`, 'METHOD_NOT_ALLOWED', 405, {
       allowedMethods,
@@ -43,7 +43,7 @@ export class MethodNotAllowedError extends ZestfxError {
   }
 }
 
-export class PayloadTooLargeError extends ZestfxError {
+export class PayloadTooLargeError extends LitePressError {
   constructor(maxSize: number, actualSize: number) {
     super(
       `Payload too large. Max: ${maxSize} bytes, Received: ${actualSize} bytes`,
@@ -55,7 +55,7 @@ export class PayloadTooLargeError extends ZestfxError {
   }
 }
 
-export class UnsupportedMediaTypeError extends ZestfxError {
+export class UnsupportedMediaTypeError extends LitePressError {
   constructor(contentType: string, supportedTypes: string[] = []) {
     super(
       `Unsupported media type: ${contentType}`,
@@ -67,7 +67,7 @@ export class UnsupportedMediaTypeError extends ZestfxError {
   }
 }
 
-export class TimeoutError extends ZestfxError {
+export class TimeoutError extends LitePressError {
   constructor(operation: string, timeout: number) {
     super(
       `Operation '${operation}' timed out after ${timeout}ms`,
@@ -79,7 +79,7 @@ export class TimeoutError extends ZestfxError {
   }
 }
 
-export class FileSystemError extends ZestfxError {
+export class FileSystemError extends LitePressError {
   constructor(operation: string, path: string, originalError?: Error) {
     super(
       `File system error during ${operation}: ${path}`,
@@ -91,7 +91,7 @@ export class FileSystemError extends ZestfxError {
   }
 }
 
-export class RouteError extends ZestfxError {
+export class RouteError extends LitePressError {
   constructor(message: string, route?: string) {
     super(message, 'ROUTE_ERROR', 500, { route });
     this.name = 'RouteError';

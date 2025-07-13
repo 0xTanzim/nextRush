@@ -2,8 +2,14 @@ import { Handler, Method, Path, Route } from '../types';
 import { RouteError, ValidationError } from '../types/Errors';
 import { RouteMatcher } from '../utils/RouteMatcher';
 
+interface Middleware {
+  handler: Handler;
+  path?: Path;
+}
+
 export class RouteManager {
   private routes: Route[] = [];
+  private middlewares: Middleware[] = [];
   private readonly maxRoutes = 1000; // Prevent memory issues
 
   register(method: Method, path: Path, handler: Handler): void {
@@ -157,6 +163,33 @@ export class RouteManager {
     } catch (error) {
       throw new RouteError(`Failed to register HEAD route: ${error}`);
     }
+  }
+
+  // Middleware management
+  addMiddleware(handler: Handler, path?: Path): void {
+    try {
+      if (typeof handler !== 'function') {
+        throw new ValidationError('Middleware must be a function');
+      }
+
+      this.middlewares.push({ handler, path });
+      console.debug(
+        `Added middleware${path ? ` for path ${path}` : ' (global)'}`
+      );
+    } catch (error) {
+      console.error('Error adding middleware:', error);
+      throw error;
+    }
+  }
+
+  getMiddlewares(): Middleware[] {
+    return [...this.middlewares];
+  }
+
+  clearMiddlewares(): void {
+    const count = this.middlewares.length;
+    this.middlewares = [];
+    console.debug(`Cleared ${count} middlewares`);
   }
 
   // Debug and introspection methods

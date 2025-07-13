@@ -4,9 +4,9 @@ import * as path from 'path';
 import { ContentType, FinishedResponse, Response } from '../types';
 import {
   FileSystemError,
+  LitePressError,
   NotFoundError,
   ValidationError,
-  ZestfxError,
 } from '../types/Errors';
 import { ContentTypeUtil } from '../utils';
 
@@ -17,7 +17,7 @@ export class ResponseHandler {
     response.status = function (code: number): Response {
       try {
         if (this.headersSent) {
-          throw new ZestfxError(
+          throw new LitePressError(
             'Cannot set status after headers have been sent',
             'HEADERS_SENT',
             500
@@ -45,7 +45,7 @@ export class ResponseHandler {
     ): FinishedResponse {
       try {
         if (this.headersSent) {
-          throw new ZestfxError(
+          throw new LitePressError(
             'Cannot send JSON after headers have been sent',
             'HEADERS_SENT',
             500
@@ -59,7 +59,7 @@ export class ResponseHandler {
         try {
           jsonString = JSON.stringify(data);
         } catch (jsonError) {
-          throw new ZestfxError(
+          throw new LitePressError(
             'Failed to serialize data to JSON',
             'JSON_SERIALIZATION_ERROR',
             500,
@@ -102,7 +102,7 @@ export class ResponseHandler {
     ): FinishedResponse {
       try {
         if (this.headersSent) {
-          throw new ZestfxError(
+          throw new LitePressError(
             'Cannot send data after headers have been sent',
             'HEADERS_SENT',
             500
@@ -165,7 +165,7 @@ export class ResponseHandler {
       }
 
       if (res.headersSent) {
-        throw new ZestfxError(
+        throw new LitePressError(
           'Cannot serve file after headers have been sent',
           'HEADERS_SENT',
           500
@@ -175,7 +175,7 @@ export class ResponseHandler {
       // Security: prevent directory traversal
       const normalizedPath = path.normalize(relativePath);
       if (normalizedPath.includes('..')) {
-        throw new ZestfxError(
+        throw new LitePressError(
           'Directory traversal not allowed',
           'SECURITY_VIOLATION',
           403,
@@ -199,7 +199,7 @@ export class ResponseHandler {
         // Check file size (prevent serving huge files)
         const maxFileSize = 50 * 1024 * 1024; // 50MB limit
         if (stats.size > maxFileSize) {
-          throw new ZestfxError(
+          throw new LitePressError(
             'File too large to serve',
             'FILE_TOO_LARGE',
             413,
@@ -227,14 +227,14 @@ export class ResponseHandler {
         if (fileError.code === 'ENOENT') {
           throw new NotFoundError(`File: ${relativePath}`);
         } else if (fileError.code === 'EACCES') {
-          throw new ZestfxError(
+          throw new LitePressError(
             'Permission denied accessing file',
             'PERMISSION_DENIED',
             403,
             { path: relativePath }
           );
         } else if (fileError.code === 'EISDIR') {
-          throw new ZestfxError(
+          throw new LitePressError(
             'Path is a directory, not a file',
             'IS_DIRECTORY',
             400,
@@ -250,7 +250,7 @@ export class ResponseHandler {
       // Try to send error response if headers not sent
       if (!res.headersSent) {
         try {
-          if (error instanceof ZestfxError) {
+          if (error instanceof LitePressError) {
             res.status(error.statusCode).json({
               error: error.message,
               code: error.code,

@@ -1,16 +1,17 @@
 import * as http from 'http';
 import { Handler, Method, Path, Request, Response } from '../types';
 import {
+  LitePressError,
   MethodNotAllowedError,
   NotFoundError,
   TimeoutError,
   ValidationError,
-  ZestfxError,
 } from '../types/Errors';
 import { BodyParser, ErrorHandler, RouteMatcher } from '../utils';
 import { RequestHandler } from './RequestHandler';
 import { ResponseHandler } from './ResponseHandler';
 import { RouteManager } from './RouteManager';
+import { Router } from './Router';
 
 export interface ServerOptions {
   timeout?: number;
@@ -115,10 +116,10 @@ export class Server {
             timeout: this.serverOptions.timeout,
           });
         } catch (bodyError) {
-          if (bodyError instanceof ZestfxError) {
+          if (bodyError instanceof LitePressError) {
             throw bodyError;
           }
-          throw new ZestfxError(
+          throw new LitePressError(
             'Failed to parse request body',
             'BODY_PARSE_ERROR',
             400,
@@ -219,7 +220,7 @@ export class Server {
   listen(port: number, callback?: () => void): http.Server {
     try {
       if (this.server) {
-        throw new ZestfxError(
+        throw new LitePressError(
           'Server is already listening',
           'SERVER_ALREADY_LISTENING',
           500
@@ -352,6 +353,88 @@ export class Server {
       this.routeManager.head(path, handler);
     } catch (error) {
       console.error('Error registering HEAD route:', error);
+      throw error;
+    }
+  }
+
+  // Middleware and router mounting methods
+  use(handler: Handler): void;
+  use(path: Path, handler: Handler): void;
+  use(path: Path, router: Router): void;
+  use(
+    pathOrHandlerOrRouter: Path | Handler | Router,
+    handlerOrRouter?: Handler | Router
+  ): void {
+    try {
+      console.log(`🔍 Server.use called with:`, {
+        firstArg: typeof pathOrHandlerOrRouter,
+        secondArg: typeof handlerOrRouter,
+        isFirstRouter:
+          pathOrHandlerOrRouter &&
+          typeof pathOrHandlerOrRouter === 'object' &&
+          'isRouter' in pathOrHandlerOrRouter,
+        isSecondRouter:
+          handlerOrRouter &&
+          typeof handlerOrRouter === 'object' &&
+          'isRouter' in handlerOrRouter,
+      });
+
+      if (typeof pathOrHandlerOrRouter === 'function') {
+        // app.use(middleware)
+        this.routeManager.addMiddleware(pathOrHandlerOrRouter);
+      } else if (
+        pathOrHandlerOrRouter &&
+        typeof pathOrHandlerOrRouter === 'object' &&
+        'isRouter' in pathOrHandlerOrRouter
+      ) {
+        // app.use(router) - mount router at root
+        console.log('🔄 Mounting router at root');
+        this.mountRouter('/', pathOrHandlerOrRouter as Router);
+      } else if (
+        handlerOrRouter &&
+        typeof handlerOrRouter === 'object' &&
+        'isRouter' in handlerOrRouter
+      ) {
+        // app.use('/path', router) - mount router at path
+        console.log(`🔄 Mounting router at path: ${pathOrHandlerOrRouter}`);
+        this.mountRouter(pathOrHandlerOrRouter, handlerOrRouter as Router);
+      } else if (typeof handlerOrRouter === 'function') {
+        // app.use('/path', middleware) - path-specific middleware
+        this.routeManager.addMiddleware(handlerOrRouter, pathOrHandlerOrRouter);
+      }
+    } catch (error) {
+      console.error('Error in use method:', error);
+      throw error;
+    }
+  }
+
+  private mountRouter(basePath: Path, router: Router): void {
+    try {
+      const basePathStr = typeof basePath === 'string' ? basePath : '/';
+      const routes = router.getRoutes(basePathStr);
+      const middlewares = router.getMiddlewares();
+
+      console.log(`🔧 Mounting router at '${basePathStr}'`);
+      console.log(
+        `📊 Router has ${routes.length} routes and ${middlewares.length} middlewares`
+      );
+
+      // Add router's middlewares
+      middlewares.forEach((middleware) => {
+        this.routeManager.addMiddleware(middleware, basePath);
+      });
+
+      // Add router's routes
+      routes.forEach((route) => {
+        console.log(`  📍 Registering: ${route.method} ${route.path}`);
+        this.routeManager.register(route.method, route.path, route.handler);
+      });
+
+      console.log(
+        `✅ Successfully mounted router at ${basePathStr} with ${routes.length} routes`
+      );
+    } catch (error) {
+      console.error('❌ Error mounting router:', error);
       throw error;
     }
   }

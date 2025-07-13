@@ -1,9 +1,9 @@
 import {
+  LitePressError,
   PayloadTooLargeError,
   TimeoutError,
   UnsupportedMediaTypeError,
   ValidationError,
-  ZestfxError,
 } from '../types/Errors';
 import { Request } from '../types/Request';
 
@@ -90,7 +90,7 @@ export class BodyParser {
           } catch (error) {
             cleanup();
             reject(
-              new ZestfxError(
+              new LitePressError(
                 'Error processing request chunk',
                 'CHUNK_PROCESSING_ERROR',
                 400,
@@ -178,7 +178,7 @@ export class BodyParser {
             }
           } catch (error) {
             reject(
-              new ZestfxError(
+              new LitePressError(
                 'Error parsing request body',
                 'BODY_PARSING_ERROR',
                 400,
@@ -195,7 +195,7 @@ export class BodyParser {
         req.on('error', (error) => {
           cleanup();
           reject(
-            new ZestfxError(
+            new LitePressError(
               'Request stream error',
               'REQUEST_STREAM_ERROR',
               400,
@@ -207,7 +207,7 @@ export class BodyParser {
         req.on('aborted', () => {
           cleanup();
           reject(
-            new ZestfxError('Request was aborted', 'REQUEST_ABORTED', 400)
+            new LitePressError('Request was aborted', 'REQUEST_ABORTED', 400)
           );
         });
       });
