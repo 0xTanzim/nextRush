@@ -1,0 +1,74 @@
+# Source files
+src/
+tsconfig.json
+
+# Development files
+node_modules/
+.git/
+.gitignore
+
+# Build artifacts
+*.tsbuildinfo
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Development dependencies
+.eslintrc*
+.prettierrc*
+jest.config*
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Documentation source
+docs/
+*.md.backup
+README-*.md
+
+# Example TypeScript source (keep compiled JS)
+examples/*.ts
+
+# Scripts
+scripts/
+
+# Backup files
+*-BACKUP.md
+*-backup.*
+
+# Development configs
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Keep these files
+!README.md
+!CHANGELOG.md
+!LICENSE

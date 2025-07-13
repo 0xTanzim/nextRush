@@ -1,7 +1,7 @@
 {
   "name": "nextrush",
-  "version": "1.1.0",
-  "description": "A lightweight, fast, and modern HTTP server framework for Node.js with TypeScript support and Express-like API.",
+  "version": "1.1.1",
+  "description": "A modern, fast HTTP server framework for Node.js with Express-compatible API, TypeScript-first design, and clean architecture. Zero dependencies, maximum performance, familiar syntax.",
   "keywords": [
     "typescript",
     "http",
@@ -14,7 +14,15 @@
     "api",
     "fast",
     "modern",
-    "zero-dependencies"
+    "zero-dependencies",
+    "web-framework",
+    "nodejs",
+    "rest-api",
+    "clean-architecture",
+    "dependency-injection",
+    "testable",
+    "middleware",
+    "performance"
   ],
   "homepage": "https://github.com/0xTanzim/nextrush#readme",
   "bugs": {
@@ -25,28 +33,57 @@
     "url": "git+https://github.com/0xTanzim/nextrush.git"
   },
   "license": "MIT",
-  "author": "Tanzim Hossain <tanzimhossain2@gmail.com>",
-  "type": "commonjs",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
-    "examples",
+    "examples/*.js",
     "README.md",
+    "LICENSE",
     "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
     "start": "node dist/index.js",
-    "dev": "ts-node-dev src/index.ts",
-    "prepare": "pnpm build",
-    "prepublishOnly": "pnpm test",
-    "test": "echo \"No test specified\" && exit 0"
+    "dev": "ts-node-dev --respawn --transpile-only examples/express-style.ts",
+    "example:basic": "ts-node examples/basic-usage.ts",
+    "example:express": "node examples/simple-express.js",
+    "example:typescript": "ts-node examples/typescript-example.ts",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build && npm run validate",
+    "validate": "node scripts/validate-package.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "echo \"Add linting here\"",
+    "format": "echo \"Add formatting here\""
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.0.0"
   },
-  "packageManager": "pnpm@10.13.1"
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }
