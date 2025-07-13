@@ -2,7 +2,7 @@ import { Router } from './lib/Router';
 import { Server, ServerOptions } from './lib/Server';
 import { Handler, Path, Request, Response } from './types';
 
-export class LitePress extends Server {
+export class NextRush extends Server {
   constructor(options?: ServerOptions) {
     super(options);
   }
