@@ -13,7 +13,7 @@ export class LitePressError extends Error {
     this.name = 'LitePressError';
     this.code = code;
     this.statusCode = statusCode;
-    this.details = details;
+    this.details = details ?? {};
 
     // Ensure the stack trace points to where the error was thrown
     Error.captureStackTrace(this, LitePressError);

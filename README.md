@@ -1,55 +1,58 @@
-# 🚀 NextRush
+# NextRush 🚀
 
-A **lightweight, fast, and modern HTTP server framework** for Node.js with TypeScript support. Built with simplicity and performance in mind, NextRush provides an Express-like API with enhanced features and better error handling.
+A modern, fast, and testable HTTP server framework for Node.js with TypeScript-first design, clean architecture, and Express-like API. Zero dependencies, maximum performance.
 
-[![npm version](https://badge.fury.io/js/litepress.svg)](https://badge.fury.io/js/litepress)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+## 🌟 Features
 
-## ✨ Why NextRush?
+- **🎯 Express-Compatible API** - Familiar `app.get()`, `req`, `res` syntax
+- **⚡ Zero Dependencies** - Lightweight and fast
+- **🔷 TypeScript First** - Full type safety out of the box
+- **🧪 Testable Architecture** - Clean code with dependency injection
+- **🏗️ Clean Architecture** - Single responsibility, interface-based design
+- **🛡️ Built-in Error Handling** - Comprehensive error management
+- **🔄 Dual API Support** - Choose between Express-style or Context-based APIs
 
-- 🏃‍♂️ **Lightning Fast** - Minimal overhead, maximum performance
-- 📝 **TypeScript First** - Built with TypeScript, includes all type definitions
-- 🛡️ **Enhanced Error Handling** - Comprehensive error handling with stack traces
-- 🧩 **Router Support** - Express-like router system with parameter support
-- 🔧 **Easy to Use** - Familiar API if you've used Express.js
-- 📦 **Zero Dependencies** - Built on Node.js built-ins only
-- 🎯 **Modern** - Uses async/await, promises, and modern JavaScript features
-
-## 🚀 Quick Start
-
-### Installation
+## 📦 Installation
 
 ```bash
-npm install litepress
+npm install nextrush
 # or
-yarn add litepress
+yarn add nextrush
 # or
-pnpm add litepress
+pnpm add nextrush
 ```
 
-### Basic Usage
+## 🚀 Quick Start (Express-Style API)
+
+**This is the recommended approach for most developers** - familiar and easy to use:
 
 ```typescript
-import { NextRush } from 'litepress';
+import { createApp } from 'nextrush';
 
-const app = new NextRush();
+const app = createApp();
 
-// Basic route
+// Middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
+// Routes
 app.get('/', (req, res) => {
   res.json({ message: 'Hello from NextRush!' });
 });
 
-// Route with parameters
 app.get('/users/:id', (req, res) => {
-  const userId = req.params?.id;
-  res.json({ user: { id: userId, name: 'John Doe' } });
+  const userId = req.param('id');
+  res.json({ userId, name: `User ${userId}` });
 });
 
-// POST route with body parsing
 app.post('/users', (req, res) => {
   const userData = req.body;
-  res.json({ message: 'User created', data: userData }, 201);
+  res.status(201).json({
+    message: 'User created',
+    user: { id: Date.now(), ...userData },
+  });
 });
 
 // Start server
@@ -58,459 +61,644 @@ app.listen(3000, () => {
 });
 ```
 
-## 📖 Core Features
+## 🔄 API Comparison
 
-### 🛣️ HTTP Methods
+### Express-Style API (Recommended for most users)
 
-NextRush supports all standard HTTP methods:
+**Pros:**
 
-```typescript
-app.get('/path', handler); // GET
-app.post('/path', handler); // POST
-app.put('/path', handler); // PUT
-app.delete('/path', handler); // DELETE
-app.patch('/path', handler); // PATCH
-app.options('/path', handler); // OPTIONS
-app.head('/path', handler); // HEAD
-```
+- ✅ Familiar Express.js syntax
+- ✅ Easy migration from Express
+- ✅ Quick to learn and use
+- ✅ Extensive middleware ecosystem patterns
 
-### 🧭 Router System
-
-Create modular route handlers with the Router system:
+**Example:**
 
 ```typescript
-import { Router, NextRush } from 'litepress';
-
-const app = new NextRush();
-
-// Create routers
-const userRouter = new Router();
-const adminRouter = new Router();
-
-// Define routes on routers
-userRouter.get('/:id', (req, res) => {
-  res.json({ user: req.params?.id });
-});
-
-userRouter.post('/', (req, res) => {
-  res.json({ message: 'User created', data: req.body }, 201);
-});
-
-adminRouter.get('/dashboard', (req, res) => {
-  res.json({ message: 'Admin dashboard' });
-});
-
-// Mount routers
-app.use('/users', userRouter);
-app.use('/admin', adminRouter);
-
-app.listen(3000);
-```
-
-**Available routes:**
-
-- `GET /users/123` → User details
-- `POST /users` → Create user
-- `GET /admin/dashboard` → Admin dashboard
-
-### 📊 Request & Response Objects
-
-#### Request Object
-
-```typescript
-app.get('/example', (req, res) => {
-  console.log(req.method); // HTTP method
-  console.log(req.pathname); // URL pathname
-  console.log(req.query); // Query parameters
-  console.log(req.params); // Route parameters
-  console.log(req.headers); // Request headers
-  console.log(req.body); // Parsed body (for POST/PUT/PATCH)
-});
-```
-
-#### Response Object
-
-```typescript
-app.get('/example', (req, res) => {
-  // JSON response
-  res.json({ message: 'Hello' });
-
-  // JSON with status code
-  res.json({ data: 'Success' }, 201);
-
-  // Text response
-  res.send('Hello World');
-
-  // Text with status and content type
-  res.send('Hello', 200, 'text/plain');
-
-  // Set headers
-  res.setHeader('Custom-Header', 'value');
-
-  // Status code
-  res.status(404).json({ error: 'Not found' });
-
-  // Serve HTML file
-  await res.serveHtmlFile('./public/index.html');
-});
-```
-
-### 🎯 Route Parameters
-
-NextRush supports Express-style route parameters:
-
-```typescript
-// Single parameter
 app.get('/users/:id', (req, res) => {
-  const id = req.params?.id;
-  res.json({ userId: id });
+  res.json({ userId: req.param('id') });
+});
+```
+
+### Context-Based API (For advanced users)
+
+**Pros:**
+
+- ✅ Better testability
+- ✅ More explicit dependencies
+- ✅ Better TypeScript integration
+- ✅ Cleaner separation of concerns
+
+**Example:**
+
+```typescript
+app.get('/users/:id', async (context: RequestContext) => {
+  const { response, params } = context;
+  response.statusCode = 200;
+  response.setHeader('Content-Type', 'application/json');
+  response.end(JSON.stringify({ userId: params.id }));
+});
+```
+
+## 🎯 When to Use Which API?
+
+### Use Express-Style API when
+
+- 🔄 Migrating from Express.js
+- � Working with a team familiar with Express
+- ⚡ Need to build quickly
+- 📚 Want to leverage existing Express knowledge
+
+### Use Context-Based API when
+
+- 🧪 Writing extensive tests
+- 🏗️ Building large, complex applications
+- 🔷 Want maximum TypeScript safety
+- 🎯 Need precise control over request/response handling
+
+## 📦 Installation
+
+```bash
+npm install nextrush
+```
+
+```bash
+yarn add nextrush
+```
+
+```bash
+pnpm add nextrush
+```
+
+## 🚀 Quick Start
+
+### Hello World in 30 seconds
+
+```typescript
+import { createApp, ResponseHandler } from 'nextrush';
+
+const app = createApp();
+const responseHandler = new ResponseHandler();
+
+app.get('/', async (context) => {
+  responseHandler.json(context.response, {
+    message: 'Hello from NextRush!',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+await app.listen(3000);
+console.log('🚀 Server running on http://localhost:3000');
+```
+
+### Real-World Example
+
+```typescript
+import {
+  createApp,
+  createRouter,
+  ResponseHandler,
+  type RequestContext,
+  type MiddlewareHandler,
+  ValidationError,
+  NotFoundError,
+} from 'nextrush';
+
+const app = createApp();
+const responseHandler = new ResponseHandler();
+
+// Middleware
+const loggingMiddleware: MiddlewareHandler = async (context, next) => {
+  const start = Date.now();
+  console.log(`→ ${context.request.method} ${context.request.pathname}`);
+  await next();
+  console.log(
+    `← ${context.request.method} ${context.request.pathname} (${
+      Date.now() - start
+    }ms)`
+  );
+};
+
+// Routes
+app.use(loggingMiddleware);
+
+app.get('/users/:id', async (context) => {
+  const userId = context.params.id;
+
+  if (!userId || isNaN(Number(userId))) {
+    throw new ValidationError('User ID must be a valid number');
+  }
+
+  // Simulate database lookup
+  const user = {
+    id: userId,
+    name: `User ${userId}`,
+    email: `user${userId}@example.com`,
+  };
+  responseHandler.json(context.response, user);
+});
+
+app.post('/users', async (context) => {
+  const userData = context.body as { name: string; email: string };
+
+  if (!userData.name || !userData.email) {
+    throw new ValidationError('Name and email are required');
+  }
+
+  const newUser = {
+    id: Date.now(),
+    ...userData,
+    createdAt: new Date().toISOString(),
+  };
+
+  responseHandler.json(context.response, newUser, 201);
+});
+
+// Error handling
+app.use(async (context, next) => {
+  try {
+    await next();
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      responseHandler.error(context.response, error.message, 400);
+    } else {
+      responseHandler.error(context.response, 'Internal Server Error', 500);
+    }
+  }
+});
+
+await app.listen(3000);
+```
+
+## 🏗️ Core Concepts
+
+### Application
+
+The main application instance that handles HTTP requests.
+
+```typescript
+import { createApp, Application } from 'nextrush';
+
+// Factory function (recommended)
+const app = createApp();
+
+// Direct instantiation with options
+const app = new Application({
+  timeout: 30000,
+  maxRequestSize: 1024 * 1024, // 1MB
+});
+```
+
+### Routing
+
+Express-like routing with parameter support.
+
+```typescript
+// Basic routes
+app.get('/users', getUsersHandler);
+app.post('/users', createUserHandler);
+app.put('/users/:id', updateUserHandler);
+app.delete('/users/:id', deleteUserHandler);
+
+// Route parameters
+app.get('/users/:id', async (context) => {
+  const userId = context.params.id;
+  // Handle user by ID
 });
 
 // Multiple parameters
-app.get('/users/:userId/posts/:postId', (req, res) => {
-  const { userId, postId } = req.params || {};
-  res.json({ userId, postId });
+app.get('/users/:userId/posts/:postId', async (context) => {
+  const { userId, postId } = context.params;
+  // Handle user's specific post
 });
 
-// Mixed routes
-app.get('/api/:version/users/:id', (req, res) => {
-  const { version, id } = req.params || {};
-  res.json({ apiVersion: version, userId: id });
-});
-```
-
-### 🛡️ Error Handling
-
-NextRush includes comprehensive error handling:
-
-```typescript
-const app = new NextRush({
-  includeStackTrace: true, // Include stack traces in development
-  logErrors: true, // Log errors to console
-  timeout: 30000, // Request timeout in milliseconds
-  maxBodySize: 1024 * 1024, // Max body size (1MB)
-});
-
-app.get('/error-demo', (req, res) => {
-  throw new Error('Something went wrong!');
-  // NextRush will automatically handle this error
+// Query parameters
+app.get('/search', async (context) => {
+  const { q, limit, page } = context.query;
+  // Handle search with query parameters
 });
 ```
 
-### ⚙️ Configuration Options
+### Middleware
+
+Composable middleware functions with async/await support.
 
 ```typescript
-const app = new NextRush({
-  timeout: 30000, // Request timeout (default: 30000ms)
-  maxBodySize: 1024 * 1024, // Max request body size (default: 1MB)
-  includeStackTrace: false, // Include stack traces in errors
-  logErrors: true, // Log errors to console
-  corsEnabled: false, // Enable CORS
-  corsOrigins: ['*'], // Allowed CORS origins
-});
-```
+import { MiddlewareHandler } from 'nextrush';
 
-### 🌐 CORS Support
+// Authentication middleware
+const authMiddleware: MiddlewareHandler = async (context, next) => {
+  const authHeader = context.request.headers.authorization;
 
-```typescript
-const app = new NextRush({
-  corsEnabled: true,
-  corsOrigins: ['http://localhost:3000', 'https://myapp.com'],
-});
-```
-
-## 🔧 Advanced Usage
-
-### Nested Routers
-
-```typescript
-const apiRouter = new Router();
-const v1Router = new Router();
-const userRouter = new Router();
-
-// Define routes
-userRouter.get('/:id', getUserHandler);
-userRouter.post('/', createUserHandler);
-
-// Nest routers
-v1Router.use('/users', userRouter);
-apiRouter.use('/v1', v1Router);
-app.use('/api', apiRouter);
-
-// Results in: /api/v1/users/:id and /api/v1/users/
-```
-
-### File Serving
-
-```typescript
-app.get('/profile', async (req, res) => {
-  await res.serveHtmlFile('./public/profile.html');
-});
-
-app.get('/docs', async (req, res) => {
-  await res.serveHtmlFile('./docs/index.html', 200);
-});
-```
-
-### Custom Headers
-
-```typescript
-app.get('/api/data', (req, res) => {
-  res.setHeader('Cache-Control', 'max-age=3600');
-  res.setHeader('X-API-Version', '1.0');
-  res.json({ data: 'Important data' });
-});
-```
-
-## 📈 Performance
-
-NextRush is designed for performance:
-
-- **Zero external dependencies** - Only uses Node.js built-ins
-- **Efficient routing** - Fast route matching with parameter extraction
-- **Memory efficient** - Minimal memory footprint
-- **TypeScript optimized** - Full type safety without runtime overhead
-
-## 🛠️ Development
-
-### With TypeScript
-
-```typescript
-import { Request, Response, Handler, NextRush } from 'litepress';
-
-const authMiddleware: Handler = (req: Request, res: Response) => {
-  // Type-safe middleware
-  if (!req.headers.authorization) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return responseHandler.error(context.response, 'Unauthorized', 401);
   }
+
+  // Verify token logic here
+  await next();
 };
+
+// CORS middleware
+const corsMiddleware: MiddlewareHandler = async (context, next) => {
+  context.response.setHeader('Access-Control-Allow-Origin', '*');
+  context.response.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PUT, DELETE'
+  );
+  await next();
+};
+
+// Apply middleware
+app.use(authMiddleware);
+app.use(corsMiddleware);
+
+// Route-specific middleware
+app.get('/protected', authMiddleware, protectedHandler);
 ```
 
-### Debugging
+### Response Handling
 
-NextRush includes built-in debugging features:
+Built-in response helpers for common operations.
 
 ```typescript
-const app = new NextRush({ logErrors: true });
+import { ResponseHandler } from 'nextrush';
 
-// Print all registered routes
-app.printRoutes();
+const responseHandler = new ResponseHandler();
 
-// Get route information
-console.log(`Total routes: ${app.getRouteCount()}`);
+// JSON responses
+responseHandler.json(context.response, { data: 'value' });
+responseHandler.json(context.response, { data: 'value' }, 201);
 
-// Validate all routes
-const validation = app.validateRoutes();
-if (!validation.valid) {
-  console.error('Route validation errors:', validation.errors);
+// Text responses
+responseHandler.text(context.response, 'Hello World');
+responseHandler.html(context.response, '<h1>Hello</h1>');
+
+// Redirects
+responseHandler.redirect(context.response, '/new-url');
+responseHandler.redirect(context.response, '/moved', 301);
+
+// Error responses
+responseHandler.error(context.response, 'Not Found', 404);
+
+// Custom headers
+responseHandler.setHeaders(context.response, {
+  'X-API-Version': '1.0',
+  'Cache-Control': 'no-cache',
+});
+```
+
+### Router
+
+Create modular routers for better organization.
+
+```typescript
+import { createRouter } from 'nextrush';
+
+// User router
+const userRouter = createRouter();
+
+userRouter.get('/', getAllUsers);
+userRouter.get('/:id', getUserById);
+userRouter.post('/', createUser);
+userRouter.put('/:id', updateUser);
+userRouter.delete('/:id', deleteUser);
+
+// Admin router
+const adminRouter = createRouter();
+adminRouter.use(adminAuthMiddleware); // Apply to all admin routes
+adminRouter.get('/dashboard', adminDashboard);
+
+// Mount routers
+app.mount('/api/users', userRouter);
+app.mount('/admin', adminRouter);
+```
+
+## 🔧 Advanced Features
+
+### Custom Error Handling
+
+```typescript
+import { ErrorHandler, NextRushError } from 'nextrush';
+
+const errorHandler = new ErrorHandler({
+  includeStack: process.env.NODE_ENV === 'development',
+  logErrors: true,
+  customErrorHandler: (error, context) => {
+    // Send to monitoring service
+    console.error('Application Error:', error);
+  },
+});
+
+const app = createApp({ errorHandler });
+
+// Custom error types
+class CustomError extends NextRushError {
+  constructor(message: string) {
+    super(message, 'CUSTOM_ERROR', 400);
+  }
 }
 ```
 
-## 🎯 Use Cases
-
-### 🌐 Web APIs
-
-Perfect for building REST APIs:
+### Request Body Parsing
 
 ```typescript
-const app = new NextRush();
+import { BodyParser } from 'nextrush';
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+const bodyParser = new BodyParser({
+  maxSize: 10 * 1024 * 1024, // 10MB
+  allowedContentTypes: [
+    'application/json',
+    'application/x-www-form-urlencoded',
+    'text/plain',
+  ],
+  timeout: 30000,
 });
 
-app.get('/api/users', (req, res) => {
-  // Get users from database
-  res.json({ users: [] });
+const app = createApp({
+  requestHandler: new RequestHandler(bodyParser),
 });
 
-app.post('/api/users', (req, res) => {
-  // Create user
-  res.json({ message: 'User created' }, 201);
-});
-```
-
-### 🚀 Microservices
-
-Lightweight and fast for microservices:
-
-```typescript
-const userService = new NextRush({ timeout: 5000 });
-
-userService.get('/users/:id', getUserById);
-userService.post('/users', createUser);
-userService.put('/users/:id', updateUser);
-userService.delete('/users/:id', deleteUser);
-
-userService.listen(3001);
-```
-
-### 🖥️ Web Applications
-
-Simple web server for serving HTML:
-
-```typescript
-const app = new NextRush();
-
-app.get('/', async (req, res) => {
-  await res.serveHtmlFile('./public/index.html');
-});
-
-app.get('/about', async (req, res) => {
-  await res.serveHtmlFile('./public/about.html');
+// Handle JSON data
+app.post('/api/data', async (context) => {
+  const jsonData = context.body; // Automatically parsed
+  responseHandler.json(context.response, { received: jsonData });
 });
 ```
 
-## 🚧 Upcoming Features
+### Type Safety
 
-We're constantly improving NextRush! Here's what's coming:
-
-### 🔄 Middleware System
+Full TypeScript support with custom context types.
 
 ```typescript
-// Coming soon!
-app.use(logger);
-app.use('/api', authMiddleware);
-app.use(cors());
+import { RequestContext } from 'nextrush';
+
+// Extend context with custom properties
+interface CustomContext extends RequestContext {
+  user?: {
+    id: string;
+    name: string;
+    role: string;
+  };
+}
+
+const authMiddleware: MiddlewareHandler = async (
+  context: CustomContext,
+  next
+) => {
+  // Add user to context
+  context.user = await validateToken(context.request.headers.authorization);
+  await next();
+};
+
+const protectedRoute = async (context: CustomContext) => {
+  // Type-safe access to user
+  const userName = context.user?.name;
+  responseHandler.json(context.response, { user: userName });
+};
 ```
 
-### 📁 Static File Serving
+## 🧪 Testing
+
+NextRush is designed for easy testing with dependency injection.
 
 ```typescript
-// Coming soon!
-app.static('/public', './assets');
-app.static('/uploads', './user-uploads');
-```
+// test/app.test.ts
+import { Application, RequestHandler, ErrorHandler } from 'nextrush';
 
-### 🎨 Template Engine Support
+describe('NextRush Application', () => {
+  let app: Application;
+  let mockRequestHandler: jest.Mocked<RequestHandler>;
 
-```typescript
-// Coming soon!
-app.setViewEngine('ejs');
-app.get('/profile', (req, res) => {
-  res.render('profile', { user: req.user });
+  beforeEach(() => {
+    mockRequestHandler = {
+      handle: jest.fn(),
+    } as any;
+
+    app = new Application({
+      requestHandler: mockRequestHandler,
+    });
+  });
+
+  it('should handle requests correctly', async () => {
+    // Test your application with mocked dependencies
+    expect(mockRequestHandler.handle).toHaveBeenCalled();
+  });
 });
 ```
 
-### 🔍 Request Validation
+## 📊 Performance
+
+NextRush offers excellent performance characteristics:
+
+- **Fast startup** - Minimal initialization overhead
+- **Low memory usage** - Efficient request handling
+- **High throughput** - Optimized for concurrent requests
+- **Zero dependencies** - No external dependency overhead
+
+## 🔒 Security Features
+
+Built-in security features to protect your applications:
+
+- **Request validation** - Automatic input sanitization
+- **Path traversal protection** - Prevents directory traversal attacks
+- **Request size limits** - Configurable body size limits
+- **Timeout handling** - Request timeout protection
+
+## 🔄 Migration from Express
+
+NextRush provides a familiar API for Express users:
 
 ```typescript
-// Coming soon!
-app.post(
-  '/users',
-  validate({
-    body: {
-      name: { type: 'string', required: true },
-      email: { type: 'email', required: true },
-    },
-  }),
-  createUserHandler
-);
-```
+// Express
+const express = require('express');
+const app = express();
 
-### 🔌 Plugin System
+app.get('/', (req, res) => {
+  res.json({ message: 'Hello' });
+});
 
-```typescript
-// Coming soon!
-app.use(helmet());
-app.use(compression());
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
-```
+app.listen(3000);
 
-### 📚 OpenAPI Documentation
+// NextRush
+import { createApp, ResponseHandler } from 'nextrush';
 
-```typescript
-// Coming soon!
-app.enableSwagger('/api-docs');
-```
+const app = createApp();
+const responseHandler = new ResponseHandler();
 
-### 🔒 Built-in Authentication
+app.get('/', async (context) => {
+  responseHandler.json(context.response, { message: 'Hello' });
+});
 
-```typescript
-// Coming soon!
-app.use(jwt({ secret: 'your-secret' }));
-app.use(session({ store: 'memory' }));
-```
-
-### 📊 Built-in Monitoring
-
-```typescript
-// Coming soon!
-app.enableMetrics('/metrics');
-app.enableHealthCheck('/health');
+await app.listen(3000);
 ```
 
 ## 📚 API Reference
 
-### NextRush Class
+### Core Classes
+
+- **`Application`** - Main application class
+- **`Router`** - Router for organizing routes
+- **`RequestHandler`** - Handles HTTP request parsing
+- **`ResponseHandler`** - Provides response utilities
+- **`BodyParser`** - Parses request bodies
+- **`ErrorHandler`** - Manages error responses
+
+### Factory Functions
+
+- **`createApp(options?)`** - Create application instance
+- **`createRouter(options?)`** - Create router instance
+
+### Types
+
+- **`RequestContext`** - Request/response context
+- **`RouteHandler`** - Route handler function type
+- **`MiddlewareHandler`** - Middleware function type
+- **`HttpMethod`** - HTTP method types
+- **`ApplicationOptions`** - Application configuration options
+
+## 🌟 Examples
+
+### Basic REST API
 
 ```typescript
-class NextRush {
-  constructor(options?: ServerOptions);
+import { createApp, ResponseHandler, ValidationError } from 'nextrush';
 
-  // HTTP Methods
-  get(path: string, handler: Handler): void;
-  post(path: string, handler: Handler): void;
-  put(path: string, handler: Handler): void;
-  delete(path: string, handler: Handler): void;
-  patch(path: string, handler: Handler): void;
-  options(path: string, handler: Handler): void;
-  head(path: string, handler: Handler): void;
+const app = createApp();
+const responseHandler = new ResponseHandler();
 
-  // Router mounting
-  use(path: string, router: Router): void;
+// In-memory store
+let users = [{ id: 1, name: 'John Doe', email: 'john@example.com' }];
 
-  // Server control
-  listen(port: number, callback?: () => void): Server;
-  close(callback?: () => void): void;
+// GET /users - List all users
+app.get('/users', async (context) => {
+  responseHandler.json(context.response, users);
+});
 
-  // Debugging
-  printRoutes(): void;
-  getRouteCount(): number;
-  validateRoutes(): { valid: boolean; errors: string[] };
-}
+// GET /users/:id - Get user by ID
+app.get('/users/:id', async (context) => {
+  const userId = parseInt(context.params.id);
+  const user = users.find((u) => u.id === userId);
+
+  if (!user) {
+    return responseHandler.error(context.response, 'User not found', 404);
+  }
+
+  responseHandler.json(context.response, user);
+});
+
+// POST /users - Create new user
+app.post('/users', async (context) => {
+  const { name, email } = context.body as any;
+
+  if (!name || !email) {
+    throw new ValidationError('Name and email are required');
+  }
+
+  const newUser = {
+    id: users.length + 1,
+    name,
+    email,
+  };
+
+  users.push(newUser);
+  responseHandler.json(context.response, newUser, 201);
+});
+
+// Error handling
+app.use(async (context, next) => {
+  try {
+    await next();
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      responseHandler.error(context.response, error.message, 400);
+    } else {
+      responseHandler.error(context.response, 'Internal Server Error', 500);
+    }
+  }
+});
+
+await app.listen(3000);
+console.log('🚀 REST API running on http://localhost:3000');
 ```
 
-### Router Class
+### Middleware Example
 
 ```typescript
-class Router {
-  constructor(options?: RouterOptions);
+import { createApp, ResponseHandler, type MiddlewareHandler } from 'nextrush';
 
-  // HTTP Methods (same as NextRush)
-  get(path: string, handler: Handler): Router;
-  post(path: string, handler: Handler): Router;
-  // ... other methods
+const app = createApp();
+const responseHandler = new ResponseHandler();
 
-  // Router nesting
-  use(path: string, router: Router): Router;
+// Request logging middleware
+const logger: MiddlewareHandler = async (context, next) => {
+  const start = Date.now();
+  const { method, pathname } = context.request;
 
-  // Debugging
-  printRoutes(): void;
-  getRouteCount(): number;
-}
+  console.log(`→ ${method} ${pathname}`);
+  await next();
+
+  const duration = Date.now() - start;
+  console.log(
+    `← ${method} ${pathname} ${context.response.statusCode} (${duration}ms)`
+  );
+};
+
+// Rate limiting middleware
+const rateLimit: MiddlewareHandler = async (context, next) => {
+  // Simple rate limiting logic
+  const clientIP = context.request.connection.remoteAddress;
+
+  // Check rate limit for clientIP
+  // If exceeded, return 429 Too Many Requests
+
+  await next();
+};
+
+// Apply middleware globally
+app.use(logger);
+app.use(rateLimit);
+
+app.get('/', async (context) => {
+  responseHandler.json(context.response, { message: 'Hello World!' });
+});
+
+await app.listen(3000);
 ```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## 🔗 Links
 
-- Inspired by Express.js for API design
-- Built with modern Node.js and TypeScript best practices
-- Thanks to all contributors and users!
+- [GitHub Repository](https://github.com/0xTanzim/nextrush)
+- [npm Package](https://www.npmjs.com/package/nextrush)
+- [Issue Tracker](https://github.com/0xTanzim/nextrush/issues)
+- [Documentation](https://github.com/0xTanzim/nextrush#readme)
+- [Changelog](CHANGELOG.md)
 
-## 📞 Support
+## 💖 Support
 
-- 📖 [Documentation](https://github.com/0xTanzim/litepress/wiki)
-- 🐛 [Issue Tracker](https://github.com/0xTanzim/litepress/issues)
-- 💬 [Discussions](https://github.com/0xTanzim/litepress/discussions)
-- 📧 Email: <tanzimhossain2@gmail.com>
+If you find NextRush helpful, please consider:
+
+- ⭐ Starring the repository
+- 🐛 Reporting bugs
+- 💡 Suggesting features
+- 📖 Improving documentation
+- 🤝 Contributing code
 
 ---
 
-**Made with ❤️ by the NextRush team**
+**Built with ❤️ by [Tanzim Hossain](https://github.com/0xTanzim)**
 
-_Start building amazing web applications with NextRush today!_ 🚀
+_NextRush - Fast, Modern, TypeScript-First HTTP Server Framework_
