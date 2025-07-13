@@ -1,15 +1,21 @@
-import { MyExpress } from './MyExpress';
+import { Zestfx } from './Zestfx';
 
-const app = new MyExpress();
+const app = new Zestfx();
 
 app.get('/', (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
-  res.end('Welcome to Home!!!');
+  res.send('Welcome to Home!!!');
 });
 
 app.post('/user', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ received: req.body }));
+  res.json({ received: req.body }, 201);
+});
+
+app.get('/text', (req, res) => {
+  res.send('Hello world as text!', 200, 'text/plain');
+});
+
+app.get('/file', async (req, res) => {
+  await res.serveHtmlFile('./index.html', 200);
 });
 
 app.listen(3000, () => {
