@@ -1,6 +1,6 @@
-import { LitePress, Router } from './LitePress';
+import { NextRush, Router } from './NextRush';
 
-const app = new LitePress();
+const app = new NextRush();
 
 const userRouter = new Router();
 const adminRouter = new Router();
@@ -42,7 +42,7 @@ console.log('✅ All routers mounted');
 // Add some main app routes
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome to LitePress with Router Support!',
+    message: 'Welcome to NextRush with Router Support!',
     routes: [
       'GET /',
       'GET /users/:id',

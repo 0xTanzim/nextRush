@@ -1,5 +1,5 @@
 // Main exports
-export { LitePress } from './LitePress';
+export { NextRush } from './NextRush';
 
 // Type exports
 export type {

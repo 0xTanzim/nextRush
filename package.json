@@ -1,6 +1,6 @@
 {
-  "name": "litepress",
-  "version": "1.0.0",
+  "name": "nextrush",
+  "version": "1.1.0",
   "description": "A lightweight, fast, and modern HTTP server framework for Node.js with TypeScript support and Express-like API.",
   "keywords": [
     "typescript",
@@ -16,13 +16,13 @@
     "modern",
     "zero-dependencies"
   ],
-  "homepage": "https://github.com/0xTanzim/litepress#readme",
+  "homepage": "https://github.com/0xTanzim/nextrush#readme",
   "bugs": {
-    "url": "https://github.com/0xTanzim/litepress/issues"
+    "url": "https://github.com/0xTanzim/nextrush/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/litepress.git"
+    "url": "git+https://github.com/0xTanzim/nextrush.git"
   },
   "license": "MIT",
   "author": "Tanzim Hossain <tanzimhossain2@gmail.com>",
@@ -39,8 +39,6 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node-dev src/index.ts",
-    "example": "ts-node-dev examples/basic.ts",
-    "example:router": "ts-node-dev src/router-example.ts",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm test",
     "test": "echo \"No test specified\" && exit 0"

@@ -1,12 +1,12 @@
-# 🚀 LitePress
+# 🚀 NextRush
 
-A **lightweight, fast, and modern HTTP server framework** for Node.js with TypeScript support. Built with simplicity and performance in mind, LitePress provides an Express-like API with enhanced features and better error handling.
+A **lightweight, fast, and modern HTTP server framework** for Node.js with TypeScript support. Built with simplicity and performance in mind, NextRush provides an Express-like API with enhanced features and better error handling.
 
 [![npm version](https://badge.fury.io/js/litepress.svg)](https://badge.fury.io/js/litepress)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## ✨ Why LitePress?
+## ✨ Why NextRush?
 
 - 🏃‍♂️ **Lightning Fast** - Minimal overhead, maximum performance
 - 📝 **TypeScript First** - Built with TypeScript, includes all type definitions
@@ -31,13 +31,13 @@ pnpm add litepress
 ### Basic Usage
 
 ```typescript
-import { LitePress } from 'litepress';
+import { NextRush } from 'litepress';
 
-const app = new LitePress();
+const app = new NextRush();
 
 // Basic route
 app.get('/', (req, res) => {
-  res.json({ message: 'Hello from LitePress!' });
+  res.json({ message: 'Hello from NextRush!' });
 });
 
 // Route with parameters
@@ -62,7 +62,7 @@ app.listen(3000, () => {
 
 ### 🛣️ HTTP Methods
 
-LitePress supports all standard HTTP methods:
+NextRush supports all standard HTTP methods:
 
 ```typescript
 app.get('/path', handler); // GET
@@ -79,9 +79,9 @@ app.head('/path', handler); // HEAD
 Create modular route handlers with the Router system:
 
 ```typescript
-import { Router, LitePress } from 'litepress';
+import { Router, NextRush } from 'litepress';
 
-const app = new LitePress();
+const app = new NextRush();
 
 // Create routers
 const userRouter = new Router();
@@ -157,7 +157,7 @@ app.get('/example', (req, res) => {
 
 ### 🎯 Route Parameters
 
-LitePress supports Express-style route parameters:
+NextRush supports Express-style route parameters:
 
 ```typescript
 // Single parameter
@@ -181,10 +181,10 @@ app.get('/api/:version/users/:id', (req, res) => {
 
 ### 🛡️ Error Handling
 
-LitePress includes comprehensive error handling:
+NextRush includes comprehensive error handling:
 
 ```typescript
-const app = new LitePress({
+const app = new NextRush({
   includeStackTrace: true, // Include stack traces in development
   logErrors: true, // Log errors to console
   timeout: 30000, // Request timeout in milliseconds
@@ -193,14 +193,14 @@ const app = new LitePress({
 
 app.get('/error-demo', (req, res) => {
   throw new Error('Something went wrong!');
-  // LitePress will automatically handle this error
+  // NextRush will automatically handle this error
 });
 ```
 
 ### ⚙️ Configuration Options
 
 ```typescript
-const app = new LitePress({
+const app = new NextRush({
   timeout: 30000, // Request timeout (default: 30000ms)
   maxBodySize: 1024 * 1024, // Max request body size (default: 1MB)
   includeStackTrace: false, // Include stack traces in errors
@@ -213,7 +213,7 @@ const app = new LitePress({
 ### 🌐 CORS Support
 
 ```typescript
-const app = new LitePress({
+const app = new NextRush({
   corsEnabled: true,
   corsOrigins: ['http://localhost:3000', 'https://myapp.com'],
 });
@@ -264,7 +264,7 @@ app.get('/api/data', (req, res) => {
 
 ## 📈 Performance
 
-LitePress is designed for performance:
+NextRush is designed for performance:
 
 - **Zero external dependencies** - Only uses Node.js built-ins
 - **Efficient routing** - Fast route matching with parameter extraction
@@ -276,7 +276,7 @@ LitePress is designed for performance:
 ### With TypeScript
 
 ```typescript
-import { Request, Response, Handler, LitePress } from 'litepress';
+import { Request, Response, Handler, NextRush } from 'litepress';
 
 const authMiddleware: Handler = (req: Request, res: Response) => {
   // Type-safe middleware
@@ -289,10 +289,10 @@ const authMiddleware: Handler = (req: Request, res: Response) => {
 
 ### Debugging
 
-LitePress includes built-in debugging features:
+NextRush includes built-in debugging features:
 
 ```typescript
-const app = new LitePress({ logErrors: true });
+const app = new NextRush({ logErrors: true });
 
 // Print all registered routes
 app.printRoutes();
@@ -314,7 +314,7 @@ if (!validation.valid) {
 Perfect for building REST APIs:
 
 ```typescript
-const app = new LitePress();
+const app = new NextRush();
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -336,7 +336,7 @@ app.post('/api/users', (req, res) => {
 Lightweight and fast for microservices:
 
 ```typescript
-const userService = new LitePress({ timeout: 5000 });
+const userService = new NextRush({ timeout: 5000 });
 
 userService.get('/users/:id', getUserById);
 userService.post('/users', createUser);
@@ -351,7 +351,7 @@ userService.listen(3001);
 Simple web server for serving HTML:
 
 ```typescript
-const app = new LitePress();
+const app = new NextRush();
 
 app.get('/', async (req, res) => {
   await res.serveHtmlFile('./public/index.html');
@@ -364,7 +364,7 @@ app.get('/about', async (req, res) => {
 
 ## 🚧 Upcoming Features
 
-We're constantly improving LitePress! Here's what's coming:
+We're constantly improving NextRush! Here's what's coming:
 
 ### 🔄 Middleware System
 
@@ -443,10 +443,10 @@ app.enableHealthCheck('/health');
 
 ## 📚 API Reference
 
-### LitePress Class
+### NextRush Class
 
 ```typescript
-class LitePress {
+class NextRush {
   constructor(options?: ServerOptions);
 
   // HTTP Methods
@@ -478,7 +478,7 @@ class LitePress {
 class Router {
   constructor(options?: RouterOptions);
 
-  // HTTP Methods (same as LitePress)
+  // HTTP Methods (same as NextRush)
   get(path: string, handler: Handler): Router;
   post(path: string, handler: Handler): Router;
   // ... other methods
@@ -511,6 +511,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Made with ❤️ by the LitePress team**
+**Made with ❤️ by the NextRush team**
 
-_Start building amazing web applications with LitePress today!_ 🚀
+_Start building amazing web applications with NextRush today!_ 🚀
