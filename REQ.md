@@ -1,5 +1,18 @@
 # NextRush Enhancement Ideas
 
+## Todo list for NextRush
+
+- [x] Implement a middleware system to allow for reusable logic across routes.
+- [x] Create a router implementation to organize routes better.
+- [ ] Introduce a decorator-based routing system for cleaner route definitions.
+- [ ] Enhance request validation with a schema-based approach.
+- [ ] Add static file serving capabilities.
+- [ ] Support for templating engines to render dynamic HTML.
+- [ ] Implement a global error handling mechanism.
+- [ ] Develop a plugin system for extensibility.
+- [ ] Provide configuration management for environment-specific settings.
+- [ ] Enable auto-documentation generation for APIs.
+
 Here are some features to make NextRush more user-friendly by adding abstraction layers and hiding complexity:
 
 ## 1. Middleware System

@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "removeComments": true,
+    "outDir": "dist",
+    "emitDeclarationOnly": false
+  },
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "scripts",
+    "examples",
+    "tests",
+    "node_modules",
+    "src/core/ultimate-abstraction.ts",
+    "src/http/request/ultimate-body-parser.ts",
+    "src/http/response/ultimate-file-server.ts"
+  ]
+}
