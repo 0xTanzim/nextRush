@@ -1,6 +1,6 @@
 /**
  * 🎯 NextRush Type Helpers - Better Developer Experience
- * 
+ *
  * This file provides helper functions and types to improve the TypeScript
  * experience when using NextRush, reducing the need for manual type annotations.
  */
@@ -8,8 +8,15 @@
 import { NextRushRequest, NextRushResponse } from '../types/express';
 
 // Type-safe handler helpers
-export type RequestHandler = (req: NextRushRequest, res: NextRushResponse) => void | Promise<void>;
-export type MiddlewareHandler = (req: NextRushRequest, res: NextRushResponse, next: () => void) => void | Promise<void>;
+export type RequestHandler = (
+  req: NextRushRequest,
+  res: NextRushResponse
+) => void | Promise<void>;
+export type MiddlewareHandler = (
+  req: NextRushRequest,
+  res: NextRushResponse,
+  next: () => void
+) => void | Promise<void>;
 
 /**
  * Helper function to create type-safe route handlers
@@ -31,7 +38,10 @@ export function middleware(fn: MiddlewareHandler): MiddlewareHandler {
  * Create a typed route handler with automatic inference
  */
 export function route<T = any>(
-  handler: (req: NextRushRequest & { body: T }, res: NextRushResponse) => void | Promise<void>
+  handler: (
+    req: NextRushRequest & { body: T },
+    res: NextRushResponse
+  ) => void | Promise<void>
 ): RequestHandler {
   return handler as RequestHandler;
 }

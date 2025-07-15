@@ -85,25 +85,25 @@ export interface NextRushRequest extends IncomingMessage {
   fullUrl(): string;
   is(type: string): boolean;
   accepts(types: string | string[]): string | false;
-  
+
   // Cookie methods
   parseCookies(): Record<string, string>;
-  
+
   // Validation and sanitization
   validate(rules: Record<string, ValidationRule>): ValidationResult;
   sanitize(value: any, options?: SanitizeOptions): any;
-  
+
   // Utility methods
   rateLimit(): RateLimitInfo;
   fingerprint(): string;
   userAgent(): UserAgentInfo;
   timing(): RequestTiming;
-  
+
   // Helper validation methods
   isValidEmail(email: string): boolean;
   isValidUrl(url: string): boolean;
   sanitizeValue(value: any, rule: ValidationRule): any;
-  
+
   // User agent parsing
   parseBrowser(ua: string): string;
   parseOS(ua: string): string;
@@ -129,15 +129,18 @@ export interface NextRushResponse extends ServerResponse {
   // 🚀 NEW: Enhanced response methods
   csv(data: any[], filename?: string): void;
   stream(stream: NodeJS.ReadableStream, contentType?: string): void;
-  
+
   // File operations
-  sendFile(filePath: string, options?: {
-    maxAge?: number;
-    lastModified?: boolean;
-    etag?: boolean;
-    dotfiles?: 'allow' | 'deny' | 'ignore';
-    root?: string;
-  }): void;
+  sendFile(
+    filePath: string,
+    options?: {
+      maxAge?: number;
+      lastModified?: boolean;
+      etag?: boolean;
+      dotfiles?: 'allow' | 'deny' | 'ignore';
+      root?: string;
+    }
+  ): void;
   download(filePath: string, filename?: string, options?: any): void;
 
   // Redirect methods
@@ -153,16 +156,20 @@ export interface NextRushResponse extends ServerResponse {
   get(field: string): string | undefined;
 
   // Cookie methods
-  cookie(name: string, value: string, options?: {
-    maxAge?: number;
-    expires?: Date;
-    path?: string;
-    domain?: string;
-    secure?: boolean;
-    httpOnly?: boolean;
-    sameSite?: 'strict' | 'lax' | 'none';
-    signed?: boolean;
-  }): NextRushResponse;
+  cookie(
+    name: string,
+    value: string,
+    options?: {
+      maxAge?: number;
+      expires?: Date;
+      path?: string;
+      domain?: string;
+      secure?: boolean;
+      httpOnly?: boolean;
+      sameSite?: 'strict' | 'lax' | 'none';
+      signed?: boolean;
+    }
+  ): NextRushResponse;
   clearCookie(name: string, options?: any): NextRushResponse;
 
   // Template rendering

@@ -11,7 +11,19 @@ import { Router } from '../routing/router';
 import { Disposable } from '../types/common';
 import { ExpressHandler, ExpressMiddleware } from '../types/express';
 import { ParsedRequest, ParsedResponse, RequestContext } from '../types/http';
-import { MiddlewareHandler, Path, RouteHandler, HttpMethod } from '../types/routing';
+import {
+  HttpMethod,
+  MiddlewareHandler,
+  Path,
+  RouteHandler,
+} from '../types/routing';
+import {
+  WebSocketHandler,
+  WebSocketMiddleware,
+  WebSocketOptions,
+  WebSocketStats,
+} from '../types/websocket';
+import { WebSocketIntegration } from '../websocket/integration';
 import { SimpleEventEmitter, enableSimpleLogging } from './event-system';
 
 export interface ApplicationOptions {
@@ -30,6 +42,10 @@ export class Application implements Disposable {
   private httpServer?: HttpServer;
   private appOptions: Required<ApplicationOptions>;
   public events?: SimpleEventEmitter; // OPTIONAL: Event system
+
+  // 🚀 WebSocket Integration
+  private wsIntegration = new WebSocketIntegration();
+  public server?: HttpServer; // Expose server for WebSocket integration
 
   constructor(options: ApplicationOptions = {}) {
     this.appOptions = {
@@ -95,7 +111,11 @@ export class Application implements Disposable {
   use(path: string, router: Router): this;
   use(router: Router): this;
   use(
-    pathOrMiddlewareOrRouter: string | MiddlewareHandler | ExpressMiddleware | Router,
+    pathOrMiddlewareOrRouter:
+      | string
+      | MiddlewareHandler
+      | ExpressMiddleware
+      | Router,
     middlewareOrRouter?: MiddlewareHandler | ExpressMiddleware | Router
   ): this {
     // Case 1: app.use(router)
@@ -104,7 +124,10 @@ export class Application implements Disposable {
     }
 
     // Case 2: app.use('/path', router)
-    if (typeof pathOrMiddlewareOrRouter === 'string' && middlewareOrRouter instanceof Router) {
+    if (
+      typeof pathOrMiddlewareOrRouter === 'string' &&
+      middlewareOrRouter instanceof Router
+    ) {
       return this.mountRouter(pathOrMiddlewareOrRouter, middlewareOrRouter);
     }
 
@@ -148,7 +171,10 @@ export class Application implements Disposable {
         this.router.use(contextMiddleware);
       } else {
         // NextRush-style middleware with path filter
-        const pathFilteredMiddleware: MiddlewareHandler = async (context, next) => {
+        const pathFilteredMiddleware: MiddlewareHandler = async (
+          context,
+          next
+        ) => {
           if (!context.request.url?.startsWith(path)) {
             return next();
           }
@@ -159,7 +185,9 @@ export class Application implements Disposable {
       }
     } else {
       // Case 4: app.use(middleware) - Global middleware
-      const mw = pathOrMiddlewareOrRouter as MiddlewareHandler | ExpressMiddleware;
+      const mw = pathOrMiddlewareOrRouter as
+        | MiddlewareHandler
+        | ExpressMiddleware;
 
       if (this.isExpressMiddleware(mw)) {
         const contextMiddleware: MiddlewareHandler = async (context, next) => {
@@ -258,8 +286,16 @@ export class Application implements Disposable {
    * Supports middleware as parameters: app.all('/path', middleware1, middleware2, handler)
    */
   all(path: Path, ...args: any[]): this {
-    const methods: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
-    methods.forEach(method => {
+    const methods: HttpMethod[] = [
+      'GET',
+      'POST',
+      'PUT',
+      'DELETE',
+      'PATCH',
+      'HEAD',
+      'OPTIONS',
+    ];
+    methods.forEach((method) => {
       this.addRoute(method, path, ...args);
     });
     return this;
@@ -289,6 +325,7 @@ export class Application implements Disposable {
     return new Promise((resolve, reject) => {
       try {
         this.httpServer = new HttpServer(this.handleRequest.bind(this));
+        this.server = this.httpServer; // Expose server for WebSocket integration
 
         this.httpServer.timeout = this.appOptions.timeout;
 
@@ -648,5 +685,49 @@ export class Application implements Disposable {
       };
     }
     return middleware;
+  }
+
+  // 🚀 WebSocket Methods
+
+  /**
+   * Enable WebSocket support with zero dependencies
+   */
+  enableWebSocket(options: WebSocketOptions = {}): this {
+    if (!this.server) {
+      // Create server if it doesn't exist
+      this.server = this.httpServer = require('http').createServer();
+    }
+    this.wsIntegration.initWebSocket(this, options);
+    return this;
+  }
+
+  /**
+   * Add WebSocket route handler
+   */
+  ws(path: string, handler: WebSocketHandler): this {
+    this.wsIntegration.ws(path, handler);
+    return this;
+  }
+
+  /**
+   * Add WebSocket middleware
+   */
+  wsUse(middleware: WebSocketMiddleware): this {
+    this.wsIntegration.wsUse(middleware);
+    return this;
+  }
+
+  /**
+   * Get WebSocket statistics
+   */
+  getWebSocketStats(): WebSocketStats | null {
+    return this.wsIntegration.getWebSocketStats();
+  }
+
+  /**
+   * Broadcast to all WebSocket connections
+   */
+  wsBroadcast(data: any, room?: string): void {
+    this.wsIntegration.broadcast(data, room);
   }
 }

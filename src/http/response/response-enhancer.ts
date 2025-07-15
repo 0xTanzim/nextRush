@@ -2,8 +2,8 @@
  * Response enhancer - converts Node.js ServerResponse to Express-style response
  * Enhanced with comprehensive API methods for maximum developer productivity
  */
-import { ServerResponse } from 'http';
 import * as fs from 'fs';
+import { ServerResponse } from 'http';
 import * as path from 'path';
 import { NextRushResponse } from '../../types/express';
 
@@ -60,9 +60,12 @@ export class ResponseEnhancer {
     enhanced.csv = function (data: any[], filename?: string): void {
       this.setHeader('Content-Type', 'text/csv; charset=utf-8');
       if (filename) {
-        this.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        this.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${filename}"`
+        );
       }
-      
+
       if (data.length === 0) {
         this.end('');
         return;
@@ -72,21 +75,26 @@ export class ResponseEnhancer {
       const headers = Object.keys(data[0]);
       const csvRows = [
         headers.join(','),
-        ...data.map(row => 
-          headers.map(header => {
-            const value = row[header];
-            return typeof value === 'string' && value.includes(',') 
-              ? `"${value}"` 
-              : String(value);
-          }).join(',')
-        )
+        ...data.map((row) =>
+          headers
+            .map((header) => {
+              const value = row[header];
+              return typeof value === 'string' && value.includes(',')
+                ? `"${value}"`
+                : String(value);
+            })
+            .join(',')
+        ),
       ];
-      
+
       this.end(csvRows.join('\n'));
     };
 
     // 🚀 NEW: Stream response
-    enhanced.stream = function (stream: NodeJS.ReadableStream, contentType?: string): void {
+    enhanced.stream = function (
+      stream: NodeJS.ReadableStream,
+      contentType?: string
+    ): void {
       if (contentType) {
         this.setHeader('Content-Type', contentType);
       }
@@ -155,7 +163,8 @@ export class ResponseEnhancer {
       let cookie = `${name}=${encodeURIComponent(value)}`;
 
       if (options.maxAge) cookie += `; Max-Age=${options.maxAge}`;
-      if (options.expires) cookie += `; Expires=${options.expires.toUTCString()}`;
+      if (options.expires)
+        cookie += `; Expires=${options.expires.toUTCString()}`;
       if (options.path) cookie += `; Path=${options.path}`;
       if (options.domain) cookie += `; Domain=${options.domain}`;
       if (options.secure) cookie += '; Secure';
@@ -171,26 +180,37 @@ export class ResponseEnhancer {
     };
 
     // Clear cookie
-    enhanced.clearCookie = function (name: string, options: any = {}): NextRushResponse {
-      return this.cookie(name, '', { 
-        ...options, 
+    enhanced.clearCookie = function (
+      name: string,
+      options: any = {}
+    ): NextRushResponse {
+      return this.cookie(name, '', {
+        ...options,
         expires: new Date(0),
-        maxAge: 0
+        maxAge: 0,
       });
     };
 
     // 🚀 NEW: Send file with proper headers
-    enhanced.sendFile = function (filePath: string, options: {
-      maxAge?: number;
-      lastModified?: boolean;
-      etag?: boolean;
-      dotfiles?: 'allow' | 'deny' | 'ignore';
-      root?: string;
-    } = {}): void {
-      const resolvedPath = options.root ? path.resolve(options.root, filePath) : path.resolve(filePath);
-      
+    enhanced.sendFile = function (
+      filePath: string,
+      options: {
+        maxAge?: number;
+        lastModified?: boolean;
+        etag?: boolean;
+        dotfiles?: 'allow' | 'deny' | 'ignore';
+        root?: string;
+      } = {}
+    ): void {
+      const resolvedPath = options.root
+        ? path.resolve(options.root, filePath)
+        : path.resolve(filePath);
+
       // Security check - prevent path traversal
-      if (options.root && !resolvedPath.startsWith(path.resolve(options.root))) {
+      if (
+        options.root &&
+        !resolvedPath.startsWith(path.resolve(options.root))
+      ) {
         this.statusCode = 403;
         this.end('Forbidden');
         return;
@@ -223,11 +243,11 @@ export class ResponseEnhancer {
             '.otf': 'application/font-otf',
             '.svg': 'application/image/svg+xml',
             '.pdf': 'application/pdf',
-            '.txt': 'text/plain'
+            '.txt': 'text/plain',
           };
 
           const mimeType = mimeTypes[ext] || 'application/octet-stream';
-          
+
           // Only set headers if response hasn't been sent
           if (!this.headersSent) {
             this.setHeader('Content-Type', mimeType);
@@ -235,7 +255,10 @@ export class ResponseEnhancer {
 
             // Set cache headers
             if (options.maxAge) {
-              this.setHeader('Cache-Control', `public, max-age=${Math.floor(options.maxAge / 1000)}`);
+              this.setHeader(
+                'Cache-Control',
+                `public, max-age=${Math.floor(options.maxAge / 1000)}`
+              );
             }
 
             if (options.lastModified !== false) {
@@ -251,7 +274,7 @@ export class ResponseEnhancer {
           // Stream the file
           const stream = fs.createReadStream(resolvedPath);
           stream.pipe(this);
-          
+
           stream.on('error', () => {
             if (!this.headersSent) {
               this.statusCode = 500;
@@ -268,9 +291,16 @@ export class ResponseEnhancer {
     };
 
     // 🚀 NEW: Download file (forces download)
-    enhanced.download = function (filePath: string, filename?: string, options: any = {}): void {
+    enhanced.download = function (
+      filePath: string,
+      filename?: string,
+      options: any = {}
+    ): void {
       const downloadName = filename || path.basename(filePath);
-      this.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+      this.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${downloadName}"`
+      );
       this.sendFile(filePath, options);
     };
 
@@ -301,8 +331,14 @@ export class ResponseEnhancer {
     // 🚀 NEW: CORS helpers
     enhanced.cors = function (origin: string = '*'): NextRushResponse {
       this.setHeader('Access-Control-Allow-Origin', origin);
-      this.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      this.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      this.setHeader(
+        'Access-Control-Allow-Methods',
+        'GET, POST, PUT, DELETE, OPTIONS'
+      );
+      this.setHeader(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization'
+      );
       return this;
     };
 
@@ -311,7 +347,10 @@ export class ResponseEnhancer {
       this.setHeader('X-Content-Type-Options', 'nosniff');
       this.setHeader('X-Frame-Options', 'DENY');
       this.setHeader('X-XSS-Protection', '1; mode=block');
-      this.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      this.setHeader(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains'
+      );
       return this;
     };
 
@@ -327,20 +366,29 @@ export class ResponseEnhancer {
         success: true,
         message,
         data,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     };
 
-    enhanced.error = function (message: string, code: number = 500, details?: any): void {
+    enhanced.error = function (
+      message: string,
+      code: number = 500,
+      details?: any
+    ): void {
       this.status(code).json({
         success: false,
         error: message,
         details,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     };
 
-    enhanced.paginate = function (data: any[], page: number, limit: number, total: number): void {
+    enhanced.paginate = function (
+      data: any[],
+      page: number,
+      limit: number,
+      total: number
+    ): void {
       const totalPages = Math.ceil(total / limit);
       this.json({
         success: true,
@@ -351,9 +399,9 @@ export class ResponseEnhancer {
           total,
           totalPages,
           hasNext: page < totalPages,
-          hasPrev: page > 1
+          hasPrev: page > 1,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     };
 
