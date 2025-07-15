@@ -120,11 +120,58 @@ export {
 // Helper utilities
 export * from './helpers';
 
+// 🚀 WebSocket support (zero dependencies)
+export {
+  enhanceApplicationWithWebSocket,
+  WebSocketIntegration,
+  WebSocketServer,
+} from './websocket';
+
+// WebSocket type exports
+export type {
+  ConnectionEvents,
+  NextRushWebSocket,
+  RoomEmitter,
+  RoomInfo,
+  TypedWebSocketEvents,
+  WebSocketCloseCode,
+  WebSocketHandler,
+  WebSocketMessage,
+  WebSocketMiddleware,
+  WebSocketOpcode,
+  WebSocketOptions,
+  WebSocketReadyState,
+  WebSocketStats,
+} from './types/websocket';
+
+// Auto-initialize WebSocket support
+import { enhanceApplicationWithWebSocket } from './websocket';
+
+// Enhance Application with WebSocket capabilities
+enhanceApplicationWithWebSocket();
+
 /**
  * Create a new NextRush application instance
+ * Now with built-in WebSocket support!
+ *
+ * @param options - Application and WebSocket options
+ * @returns NextRush application instance with WebSocket capabilities
  */
-export function createApp(options?: ApplicationOptions): Application {
-  return new Application(options);
+export function createApp(
+  options: ApplicationOptions & {
+    websocket?: boolean | import('./types/websocket').WebSocketOptions;
+  } = {}
+): Application {
+  const { websocket, ...appOptions } = options;
+  const app = new Application(appOptions);
+
+  // Auto-enable WebSocket if requested
+  if (websocket) {
+    const wsOptions = typeof websocket === 'boolean' ? {} : websocket;
+    (app as any).enableWebSocket(wsOptions);
+  }
+
+  return app;
 }
 
 /**

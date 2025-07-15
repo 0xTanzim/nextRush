@@ -2,9 +2,9 @@
  * Request enhancer - converts Node.js IncomingMessage to Express-style request
  * Enhanced with comprehensive request handling capabilities
  */
+import * as crypto from 'crypto';
 import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
-import * as crypto from 'crypto';
 import { NextRushRequest } from '../../types/express';
 
 export class RequestEnhancer {
@@ -86,18 +86,18 @@ export class RequestEnhancer {
         html: ['text/html'],
         text: ['text/plain'],
         form: ['application/x-www-form-urlencoded'],
-        multipart: ['multipart/form-data']
+        multipart: ['multipart/form-data'],
       };
 
       const types = typeMap[type.toLowerCase()] || [type.toLowerCase()];
-      return types.some(t => contentType.toLowerCase().includes(t));
+      return types.some((t) => contentType.toLowerCase().includes(t));
     };
 
     // Check if request accepts certain content types
     enhanced.accepts = function (types: string | string[]): string | false {
       const acceptHeader = this.header('accept') || '*/*';
       const typeArray = Array.isArray(types) ? types : [types];
-      
+
       for (const type of typeArray) {
         if (acceptHeader.includes(type) || acceptHeader.includes('*/*')) {
           return type;
@@ -112,7 +112,7 @@ export class RequestEnhancer {
       if (!cookieHeader) return {};
 
       const cookies: Record<string, string> = {};
-      cookieHeader.split(';').forEach(cookie => {
+      cookieHeader.split(';').forEach((cookie) => {
         const [name, value] = cookie.trim().split('=');
         if (name && value) {
           cookies[name] = decodeURIComponent(value);
@@ -126,7 +126,9 @@ export class RequestEnhancer {
     enhanced.cookies = enhanced.parseCookies();
 
     // 🚀 NEW: Input validation helpers
-    enhanced.validate = function (rules: Record<string, ValidationRule>): ValidationResult {
+    enhanced.validate = function (
+      rules: Record<string, ValidationRule>
+    ): ValidationResult {
       const errors: Record<string, string[]> = {};
       const sanitized: Record<string, any> = {};
 
@@ -135,7 +137,10 @@ export class RequestEnhancer {
         const fieldErrors: string[] = [];
 
         // Required validation
-        if (rule.required && (value === undefined || value === null || value === '')) {
+        if (
+          rule.required &&
+          (value === undefined || value === null || value === '')
+        ) {
           fieldErrors.push(`${field} is required`);
         }
 
@@ -155,10 +160,14 @@ export class RequestEnhancer {
 
           // Length validation
           if (rule.minLength && value.length < rule.minLength) {
-            fieldErrors.push(`${field} must be at least ${rule.minLength} characters`);
+            fieldErrors.push(
+              `${field} must be at least ${rule.minLength} characters`
+            );
           }
           if (rule.maxLength && value.length > rule.maxLength) {
-            fieldErrors.push(`${field} must not exceed ${rule.maxLength} characters`);
+            fieldErrors.push(
+              `${field} must not exceed ${rule.maxLength} characters`
+            );
           }
 
           // Custom validation
@@ -178,12 +187,15 @@ export class RequestEnhancer {
       return {
         isValid: Object.keys(errors).length === 0,
         errors,
-        sanitized
+        sanitized,
       };
     };
 
     // 🚀 NEW: Input sanitization
-    enhanced.sanitize = function (value: any, options: SanitizeOptions = {}): any {
+    enhanced.sanitize = function (
+      value: any,
+      options: SanitizeOptions = {}
+    ): any {
       if (typeof value !== 'string') return value;
 
       let sanitized = value;
@@ -226,7 +238,7 @@ export class RequestEnhancer {
         limit: parseInt(this.header('x-ratelimit-limit') || '0'),
         remaining: parseInt(this.header('x-ratelimit-remaining') || '0'),
         reset: parseInt(this.header('x-ratelimit-reset') || '0'),
-        retryAfter: parseInt(this.header('retry-after') || '0')
+        retryAfter: parseInt(this.header('retry-after') || '0'),
       };
     };
 
@@ -236,23 +248,27 @@ export class RequestEnhancer {
         this.ip(),
         this.header('user-agent') || '',
         this.header('accept-language') || '',
-        this.header('accept-encoding') || ''
+        this.header('accept-encoding') || '',
       ].join('|');
 
-      return crypto.createHash('sha256').update(data).digest('hex').substring(0, 16);
+      return crypto
+        .createHash('sha256')
+        .update(data)
+        .digest('hex')
+        .substring(0, 16);
     };
 
     // 🚀 NEW: User agent parsing
     enhanced.userAgent = function (): UserAgentInfo {
       const ua = this.header('user-agent') || '';
-      
+
       return {
         raw: ua,
         browser: this.parseBrowser(ua),
         os: this.parseOS(ua),
         device: this.parseDevice(ua),
         isBot: this.isBot(ua),
-        isMobile: this.isMobile(ua)
+        isMobile: this.isMobile(ua),
       };
     };
 
@@ -262,7 +278,7 @@ export class RequestEnhancer {
       return {
         start: this.startTime,
         duration: Date.now() - this.startTime,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     };
 
@@ -313,7 +329,7 @@ export class RequestEnhancer {
 
     enhanced.isBot = function (ua: string): boolean {
       const botPatterns = ['bot', 'crawler', 'spider', 'scraper'];
-      return botPatterns.some(pattern => ua.toLowerCase().includes(pattern));
+      return botPatterns.some((pattern) => ua.toLowerCase().includes(pattern));
     };
 
     enhanced.isMobile = function (ua: string): boolean {
