@@ -1,5 +1,5 @@
 /**
- * Core application class - main entry point for the framework
+ * Core Application class - main entry point for the framework
  */
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http';
 import { InternalServerError } from '../errors/custom-errors';
@@ -11,7 +11,8 @@ import { Router } from '../routing/router';
 import { Disposable } from '../types/common';
 import { ExpressHandler, ExpressMiddleware } from '../types/express';
 import { ParsedRequest, ParsedResponse, RequestContext } from '../types/http';
-import { MiddlewareHandler, Path, RouteHandler } from '../types/routing';
+import { MiddlewareHandler, Path, RouteHandler, HttpMethod } from '../types/routing';
+import { SimpleEventEmitter, enableSimpleLogging } from './event-system';
 
 export interface ApplicationOptions {
   router?: Router;
@@ -19,6 +20,7 @@ export interface ApplicationOptions {
   errorHandler?: ErrorHandler;
   timeout?: number;
   maxRequestSize?: number;
+  enableEvents?: boolean; // NEW: Optional event system
 }
 
 export class Application implements Disposable {
@@ -27,6 +29,7 @@ export class Application implements Disposable {
   private errorHandler: ErrorHandler;
   private httpServer?: HttpServer;
   private appOptions: Required<ApplicationOptions>;
+  public events?: SimpleEventEmitter; // OPTIONAL: Event system
 
   constructor(options: ApplicationOptions = {}) {
     this.appOptions = {
@@ -35,162 +38,230 @@ export class Application implements Disposable {
       errorHandler: options.errorHandler || new ErrorHandler(),
       timeout: options.timeout || 30000,
       maxRequestSize: options.maxRequestSize || 1024 * 1024,
+      enableEvents: options.enableEvents !== false, // Default: enabled
       ...options,
     };
 
     this.router = this.appOptions.router;
     this.requestHandler = this.appOptions.requestHandler;
     this.errorHandler = this.appOptions.errorHandler;
+
+    // Initialize optional event system
+    if (this.appOptions.enableEvents) {
+      this.events = new SimpleEventEmitter(true);
+
+      // Enable simple logging in development
+      if (process.env.NODE_ENV !== 'production') {
+        enableSimpleLogging(this.events);
+      }
+    }
   }
 
   /**
-   * Add global middleware (Express-style)
+   * Add event listeners (only if events are enabled)
    */
-  use(middleware: MiddlewareHandler | ExpressMiddleware): this {
-    if (this.isExpressMiddleware(middleware)) {
-      // Convert Express middleware to context middleware
-      const contextMiddleware: MiddlewareHandler = async (context, next) => {
-        const req = RequestEnhancer.enhance(context.request);
-        const res = ResponseEnhancer.enhance(context.response);
-
-        // Set params from context
-        req.params = context.params;
-        req.body = context.body;
-
-        await new Promise<void>((resolve, reject) => {
-          const nextFn = (error?: any) => {
-            if (error) reject(error);
-            else resolve();
-          };
-
-          try {
-            const result = middleware(req, res, nextFn);
-            if (result instanceof Promise) {
-              result.catch(reject);
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
-
-        await next();
-      };
-      this.router.use(contextMiddleware);
-    } else {
-      this.router.use(middleware);
+  on(event: string, listener: (...args: any[]) => void): this {
+    if (this.events) {
+      this.events.on(event, listener);
     }
     return this;
   }
 
   /**
-   * Register a GET route (supports both Express and context style)
+   * Remove event listeners (only if events are enabled)
    */
-  get(
-    path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
-  ): this {
-    const contextHandler = this.convertHandler(handler);
-    const contextMiddleware = middleware.map((mw) =>
-      this.convertMiddleware(mw)
-    );
-    this.router.get(path, contextHandler, ...contextMiddleware);
+  off(event: string, listener: (...args: any[]) => void): this {
+    if (this.events) {
+      this.events.off(event, listener);
+    }
     return this;
+  }
+
+  /**
+   * Enable or disable event tracking
+   */
+  enableEvents(enabled: boolean): this {
+    if (this.events) {
+      this.events.setEnabled(enabled);
+    }
+    return this;
+  }
+
+  /**
+   * Add middleware or mount router (Express-style) - supports global, path-specific, and router mounting
+   */
+  use(middleware: MiddlewareHandler | ExpressMiddleware): this;
+  use(path: string, middleware: MiddlewareHandler | ExpressMiddleware): this;
+  use(path: string, router: Router): this;
+  use(router: Router): this;
+  use(
+    pathOrMiddlewareOrRouter: string | MiddlewareHandler | ExpressMiddleware | Router,
+    middlewareOrRouter?: MiddlewareHandler | ExpressMiddleware | Router
+  ): this {
+    // Case 1: app.use(router)
+    if (pathOrMiddlewareOrRouter instanceof Router && !middlewareOrRouter) {
+      return this.mountRouter('/', pathOrMiddlewareOrRouter);
+    }
+
+    // Case 2: app.use('/path', router)
+    if (typeof pathOrMiddlewareOrRouter === 'string' && middlewareOrRouter instanceof Router) {
+      return this.mountRouter(pathOrMiddlewareOrRouter, middlewareOrRouter);
+    }
+
+    // Case 3: app.use('/path', middleware)
+    if (typeof pathOrMiddlewareOrRouter === 'string' && middlewareOrRouter) {
+      const path = pathOrMiddlewareOrRouter;
+      const mw = middlewareOrRouter as MiddlewareHandler | ExpressMiddleware;
+
+      if (this.isExpressMiddleware(mw)) {
+        const contextMiddleware: MiddlewareHandler = async (context, next) => {
+          // Only apply middleware if path matches
+          if (!context.request.url?.startsWith(path)) {
+            return next();
+          }
+
+          const req = RequestEnhancer.enhance(context.request);
+          const res = ResponseEnhancer.enhance(context.response);
+          req.params = context.params;
+          req.body = context.body;
+
+          await new Promise<void>((resolve, reject) => {
+            const expressNext = (error?: any) => {
+              if (error) {
+                reject(error);
+              } else {
+                next().then(resolve).catch(reject);
+              }
+            };
+
+            try {
+              const result = mw(req, res, expressNext);
+              if (result instanceof Promise) {
+                result.catch(reject);
+              }
+            } catch (error) {
+              reject(error);
+            }
+          });
+        };
+
+        this.router.use(contextMiddleware);
+      } else {
+        // NextRush-style middleware with path filter
+        const pathFilteredMiddleware: MiddlewareHandler = async (context, next) => {
+          if (!context.request.url?.startsWith(path)) {
+            return next();
+          }
+          await mw(context, next);
+        };
+
+        this.router.use(pathFilteredMiddleware);
+      }
+    } else {
+      // Case 4: app.use(middleware) - Global middleware
+      const mw = pathOrMiddlewareOrRouter as MiddlewareHandler | ExpressMiddleware;
+
+      if (this.isExpressMiddleware(mw)) {
+        const contextMiddleware: MiddlewareHandler = async (context, next) => {
+          const req = RequestEnhancer.enhance(context.request);
+          const res = ResponseEnhancer.enhance(context.response);
+          req.params = context.params;
+          req.body = context.body;
+
+          await new Promise<void>((resolve, reject) => {
+            const expressNext = (error?: any) => {
+              if (error) {
+                reject(error);
+              } else {
+                next().then(resolve).catch(reject);
+              }
+            };
+
+            try {
+              const result = mw(req, res, expressNext);
+              if (result instanceof Promise) {
+                result.catch(reject);
+              }
+            } catch (error) {
+              reject(error);
+            }
+          });
+        };
+
+        this.router.use(contextMiddleware);
+      } else {
+        this.router.use(mw);
+      }
+    }
+
+    return this;
+  }
+
+  /**
+   * Register a GET route (supports both Express and context style)
+   * Supports middleware as parameters: app.get('/path', middleware1, middleware2, handler)
+   */
+  get(path: Path, ...args: any[]): this {
+    return this.addRoute('GET', path, ...args);
   }
 
   /**
    * Register a POST route (supports both Express and context style)
+   * Supports middleware as parameters: app.post('/path', middleware1, middleware2, handler)
    */
-  post(
-    path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
-  ): this {
-    const contextHandler = this.convertHandler(handler);
-    const contextMiddleware = middleware.map((mw) =>
-      this.convertMiddleware(mw)
-    );
-    this.router.post(path, contextHandler, ...contextMiddleware);
-    return this;
+  post(path: Path, ...args: any[]): this {
+    return this.addRoute('POST', path, ...args);
   }
 
   /**
    * Register a PUT route (supports both Express and context style)
+   * Supports middleware as parameters: app.put('/path', middleware1, middleware2, handler)
    */
-  put(
-    path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
-  ): this {
-    const contextHandler = this.convertHandler(handler);
-    const contextMiddleware = middleware.map((mw) =>
-      this.convertMiddleware(mw)
-    );
-    this.router.put(path, contextHandler, ...contextMiddleware);
-    return this;
+  put(path: Path, ...args: any[]): this {
+    return this.addRoute('PUT', path, ...args);
   }
 
   /**
    * Register a DELETE route (supports both Express and context style)
+   * Supports middleware as parameters: app.delete('/path', middleware1, middleware2, handler)
    */
-  delete(
-    path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
-  ): this {
-    const contextHandler = this.convertHandler(handler);
-    const contextMiddleware = middleware.map((mw) =>
-      this.convertMiddleware(mw)
-    );
-    this.router.delete(path, contextHandler, ...contextMiddleware);
-    return this;
+  delete(path: Path, ...args: any[]): this {
+    return this.addRoute('DELETE', path, ...args);
   }
 
   /**
    * Register a PATCH route (supports both Express and context style)
+   * Supports middleware as parameters: app.patch('/path', middleware1, middleware2, handler)
    */
-  patch(
-    path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
-  ): this {
-    const contextHandler = this.convertHandler(handler);
-    const contextMiddleware = middleware.map((mw) =>
-      this.convertMiddleware(mw)
-    );
-    this.router.patch(path, contextHandler, ...contextMiddleware);
-    return this;
+  patch(path: Path, ...args: any[]): this {
+    return this.addRoute('PATCH', path, ...args);
   }
 
   /**
    * Register a HEAD route (supports both Express and context style)
+   * Supports middleware as parameters: app.head('/path', middleware1, middleware2, handler)
    */
-  head(
-    path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
-  ): this {
-    const contextHandler = this.convertHandler(handler);
-    const contextMiddleware = middleware.map((mw) =>
-      this.convertMiddleware(mw)
-    );
-    this.router.head(path, contextHandler, ...contextMiddleware);
-    return this;
+  head(path: Path, ...args: any[]): this {
+    return this.addRoute('HEAD', path, ...args);
   }
 
   /**
    * Register an OPTIONS route (supports both Express and context style)
+   * Supports middleware as parameters: app.options('/path', middleware1, middleware2, handler)
    */
-  options(
-    path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
-  ): this {
-    const contextHandler = this.convertHandler(handler);
-    const contextMiddleware = middleware.map((mw) =>
-      this.convertMiddleware(mw)
-    );
-    this.router.options(path, contextHandler, ...contextMiddleware);
+  options(path: Path, ...args: any[]): this {
+    return this.addRoute('OPTIONS', path, ...args);
+  }
+
+  /**
+   * Register a route for all HTTP methods
+   * Supports middleware as parameters: app.all('/path', middleware1, middleware2, handler)
+   */
+  all(path: Path, ...args: any[]): this {
+    const methods: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+    methods.forEach(method => {
+      this.addRoute(method, path, ...args);
+    });
     return this;
   }
 
@@ -258,13 +329,16 @@ export class Application implements Disposable {
   }
 
   /**
-   * Handle incoming HTTP requests
+   * Handle incoming HTTP requests with optional event tracking
    */
   private async handleRequest(
     req: IncomingMessage,
     res: ServerResponse
   ): Promise<void> {
     const startTime = Date.now();
+
+    // Start request tracking (only if events enabled)
+    const requestId = this.events?.emitRequestStart(req) || '';
 
     try {
       // Parse the request
@@ -292,6 +366,9 @@ export class Application implements Disposable {
         res.statusCode = 200;
         res.end();
       }
+
+      // End request tracking (only if events enabled)
+      this.events?.emitRequestEnd(req, res, requestId, startTime);
     } catch (error) {
       // Handle errors
       const context: RequestContext = {
@@ -309,6 +386,9 @@ export class Application implements Disposable {
           : new InternalServerError('Unknown error occurred', {
               originalError: error,
             });
+
+      // Emit error event (only if events enabled)
+      this.events?.emitError(req, normalizedError, requestId);
 
       await this.errorHandler.handle(normalizedError, context);
     }
@@ -369,8 +449,145 @@ export class Application implements Disposable {
     await this.close();
   }
 
-  // Helper methods for converting Express-style handlers to context handlers
+  /**
+   * Generic route registration that handles middleware and handlers flexibly
+   */
+  private addRoute(method: string, path: Path, ...args: any[]): this {
+    if (args.length === 0) {
+      throw new Error(`${method} route ${path} requires at least a handler`);
+    }
 
+    // Last argument is always the handler
+    const handler = args[args.length - 1];
+
+    // Everything before the handler is middleware
+    const middlewares = args.slice(0, -1);
+
+    // Convert handler
+    const contextHandler = this.convertHandler(handler);
+
+    // Convert middleware
+    const contextMiddleware = middlewares.map((mw: any) =>
+      this.convertMiddleware(mw)
+    );
+
+    // Register with router
+    switch (method.toUpperCase()) {
+      case 'GET':
+        this.router.get(path, contextHandler, ...contextMiddleware);
+        break;
+      case 'POST':
+        this.router.post(path, contextHandler, ...contextMiddleware);
+        break;
+      case 'PUT':
+        this.router.put(path, contextHandler, ...contextMiddleware);
+        break;
+      case 'DELETE':
+        this.router.delete(path, contextHandler, ...contextMiddleware);
+        break;
+      case 'PATCH':
+        this.router.patch(path, contextHandler, ...contextMiddleware);
+        break;
+      case 'HEAD':
+        this.router.head(path, contextHandler, ...contextMiddleware);
+        break;
+      case 'OPTIONS':
+        this.router.options(path, contextHandler, ...contextMiddleware);
+        break;
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
+    }
+
+    return this;
+  }
+
+  /**
+   * Apply a middleware preset for common configurations
+   * Usage: app.usePreset('security', { cors: { origin: 'https://example.com' } })
+   */
+  usePreset(presetName: string, options: any = {}): this {
+    const { presets } = require('../middleware/presets');
+
+    if (!presets[presetName]) {
+      throw new Error(
+        `Unknown preset: ${presetName}. Available presets: ${Object.keys(
+          presets
+        ).join(', ')}`
+      );
+    }
+
+    const preset = presets[presetName](options);
+    console.log(`🎯 Applying ${preset.name} preset: ${preset.description}`);
+
+    preset.middlewares.forEach((middleware: any) => {
+      this.use(middleware);
+    });
+
+    return this;
+  }
+
+  /**
+   * Apply middleware to a group/array for easier management
+   * Usage: app.useGroup([middleware1, middleware2, middleware3])
+   */
+  useGroup(middlewares: any[]): this {
+    middlewares.forEach((middleware) => {
+      this.use(middleware);
+    });
+    return this;
+  }
+
+  /**
+   * Create a route group with shared middleware
+   * Usage: app.group('/api', [auth, validation], (router) => { router.get('/users', handler) })
+   */
+  group(
+    path: string,
+    middlewares: any[],
+    callback: (router: any) => void
+  ): this {
+    // Apply path-specific middleware
+    middlewares.forEach((middleware) => {
+      this.use(path, middleware);
+    });
+
+    // Create a router-like object for the callback
+    const groupRouter = {
+      get: (subPath: string, ...args: any[]) => {
+        const fullPath = path + subPath;
+        return this.get(fullPath, ...args);
+      },
+      post: (subPath: string, ...args: any[]) => {
+        const fullPath = path + subPath;
+        return this.post(fullPath, ...args);
+      },
+      put: (subPath: string, ...args: any[]) => {
+        const fullPath = path + subPath;
+        return this.put(fullPath, ...args);
+      },
+      delete: (subPath: string, ...args: any[]) => {
+        const fullPath = path + subPath;
+        return this.delete(fullPath, ...args);
+      },
+      patch: (subPath: string, ...args: any[]) => {
+        const fullPath = path + subPath;
+        return this.patch(fullPath, ...args);
+      },
+    };
+
+    callback(groupRouter);
+    return this;
+  }
+
+  /**
+   * Internal method to mount router with proper context handling
+   */
+  private mountRouter(path: string, router: Router): this {
+    // Use the existing mount method which delegates to the router
+    return this.mount(path, router);
+  }
+
+  // Helper methods for converting Express-style handlers to context handlers
   private isExpressMiddleware(
     middleware: MiddlewareHandler | ExpressMiddleware
   ): middleware is ExpressMiddleware {

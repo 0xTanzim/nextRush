@@ -17,6 +17,11 @@ import { RouterOptions } from './types';
 // Core exports
 export { Application, type ApplicationOptions } from './core/application';
 
+// Middleware exports
+export * from './middleware/built-in';
+export * from './middleware/compose';
+export * from './middleware/presets';
+
 // Type exports
 export type {
   AnyFunction,
@@ -111,6 +116,9 @@ export {
   type ValidationResult,
   type ValidationRule,
 } from './utils';
+
+// Helper utilities
+export * from './helpers';
 
 /**
  * Create a new NextRush application instance

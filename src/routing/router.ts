@@ -2,6 +2,9 @@
  * Router - handles route registration and request routing
  */
 import { MethodNotAllowedError, NotFoundError } from '../errors';
+import { RequestEnhancer } from '../http/request/request-enhancer';
+import { ResponseEnhancer } from '../http/response/response-enhancer';
+import { ExpressHandler, ExpressMiddleware } from '../types/express';
 import { RequestContext } from '../types/http';
 import {
   HttpMethod,
@@ -35,8 +38,9 @@ export class Router {
   /**
    * Add global middleware that runs for all routes
    */
-  use(middleware: MiddlewareHandler): this {
-    this.globalMiddleware.push(middleware);
+  use(middleware: MiddlewareHandler | ExpressMiddleware): this {
+    const convertedMiddleware = this.convertMiddleware(middleware);
+    this.globalMiddleware.push(convertedMiddleware);
     return this;
   }
 
@@ -45,8 +49,8 @@ export class Router {
    */
   get(
     path: Path,
-    handler: RouteHandler,
-    ...middleware: MiddlewareHandler[]
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
   ): this {
     return this.addRoute('GET', path, handler, middleware);
   }
@@ -56,8 +60,8 @@ export class Router {
    */
   post(
     path: Path,
-    handler: RouteHandler,
-    ...middleware: MiddlewareHandler[]
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
   ): this {
     return this.addRoute('POST', path, handler, middleware);
   }
@@ -67,8 +71,8 @@ export class Router {
    */
   put(
     path: Path,
-    handler: RouteHandler,
-    ...middleware: MiddlewareHandler[]
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
   ): this {
     return this.addRoute('PUT', path, handler, middleware);
   }
@@ -78,8 +82,8 @@ export class Router {
    */
   delete(
     path: Path,
-    handler: RouteHandler,
-    ...middleware: MiddlewareHandler[]
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
   ): this {
     return this.addRoute('DELETE', path, handler, middleware);
   }
@@ -89,8 +93,8 @@ export class Router {
    */
   patch(
     path: Path,
-    handler: RouteHandler,
-    ...middleware: MiddlewareHandler[]
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
   ): this {
     return this.addRoute('PATCH', path, handler, middleware);
   }
@@ -190,22 +194,42 @@ export class Router {
   }
 
   /**
-   * Add a route with the specified method
+   * Add a route with the specified method (internal)
    */
-  private addRoute(
+  private registerRoute(
     method: HttpMethod,
     path: Path,
-    handler: RouteHandler,
-    middleware: MiddlewareHandler[]
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[]
   ): this {
+    // Convert Express-style handler to NextRush handler
+    const convertedHandler = this.convertHandler(handler);
+
+    // Convert Express-style middleware to NextRush middleware
+    const convertedMiddleware = middleware.map((mw) =>
+      this.convertMiddleware(mw)
+    );
+
     const route = this.routeManager.createRoute(
       method,
       path,
-      handler,
-      middleware
+      convertedHandler,
+      convertedMiddleware
     );
     this.routeManager.addRoute(route);
     return this;
+  }
+
+  /**
+   * Add a route to this router (public API for mounting)
+   */
+  addRoute(
+    method: HttpMethod,
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this.registerRoute(method, path, handler, middleware);
   }
 
   /**
@@ -281,5 +305,80 @@ export class Router {
       caseSensitive: this.routerOptions.caseSensitive ?? false,
       strict: this.routerOptions.strict ?? false,
     });
+  }
+
+  /**
+   * Check if a handler is an Express-style handler
+   */
+  private isExpressHandler(
+    handler: RouteHandler | ExpressHandler
+  ): handler is ExpressHandler {
+    return handler.length === 2; // Express handler has (req, res)
+  }
+
+  /**
+   * Convert Express-style handler to NextRush handler
+   */
+  private convertHandler(handler: RouteHandler | ExpressHandler): RouteHandler {
+    if (this.isExpressHandler(handler)) {
+      return async (context: RequestContext) => {
+        const req = RequestEnhancer.enhance(context.request);
+        const res = ResponseEnhancer.enhance(context.response);
+
+        // Set params and body from context
+        req.params = context.params;
+        req.body = context.body;
+
+        await handler(req, res);
+      };
+    }
+    return handler;
+  }
+
+  /**
+   * Check if middleware is Express-style
+   */
+  private isExpressMiddleware(
+    middleware: MiddlewareHandler | ExpressMiddleware
+  ): middleware is ExpressMiddleware {
+    return middleware.length === 3; // Express middleware has (req, res, next)
+  }
+
+  /**
+   * Convert Express-style middleware to NextRush middleware
+   */
+  private convertMiddleware(
+    middleware: MiddlewareHandler | ExpressMiddleware
+  ): MiddlewareHandler {
+    if (this.isExpressMiddleware(middleware)) {
+      return async (context: RequestContext, next: () => Promise<void>) => {
+        const req = RequestEnhancer.enhance(context.request);
+        const res = ResponseEnhancer.enhance(context.response);
+
+        // Set params and body from context
+        req.params = context.params;
+        req.body = context.body;
+
+        await new Promise<void>((resolve, reject) => {
+          const expressNext = (error?: any) => {
+            if (error) {
+              reject(error);
+            } else {
+              next().then(resolve).catch(reject);
+            }
+          };
+
+          try {
+            const result = middleware(req, res, expressNext);
+            if (result instanceof Promise) {
+              result.catch(reject);
+            }
+          } catch (error) {
+            reject(error);
+          }
+        });
+      };
+    }
+    return middleware;
   }
 }

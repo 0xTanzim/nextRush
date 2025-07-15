@@ -50,21 +50,16 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "examples/*.js",
+    "dist/**/*",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only examples/express-style.ts",
-    "example:basic": "ts-node examples/basic-usage.ts",
-    "example:express": "node examples/simple-express.js",
-    "example:typescript": "ts-node examples/typescript-example.ts",
+    "dev": "ts-node-dev --respawn --transpile-only examples/index.ts",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build && npm run validate",
     "validate": "node scripts/validate-package.js",
@@ -74,7 +69,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "ts-node": "^10.9.0",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.0.0"
   },

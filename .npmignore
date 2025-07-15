@@ -1,7 +1,7 @@
 # Source files
 src/
 tsconfig.json
-
+examples/
 # Development files
 node_modules/
 .git/
@@ -72,3 +72,15 @@ scripts/
 !README.md
 !CHANGELOG.md
 !LICENSE
+
+
+# .npmignore
+src/
+examples/
+scripts/
+test/
+*.ts
+*.tsx
+*.map
+tsconfig*.json
+node_modules/
