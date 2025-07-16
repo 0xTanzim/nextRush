@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "1.1.1",
+  "version": "1.2.1",
   "description": "A modern, fast HTTP server framework for Node.js with Express-compatible API, TypeScript-first design, and clean architecture. Zero dependencies, maximum performance, familiar syntax.",
   "keywords": [
     "typescript",

@@ -1,6 +1,10 @@
 # Source files
 src/
 tsconfig.json
+
+# Exclude docs to keep package size small
+docs/
+
 examples/
 # Development files
 node_modules/
@@ -46,7 +50,7 @@ jest.config*
 *.spec.ts
 *.spec.js
 
-# Documentation source
+# Documentation source - excluded to keep package small
 docs/
 *.md.backup
 README-*.md

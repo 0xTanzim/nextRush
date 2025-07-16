@@ -7,7 +7,12 @@ import { ErrorHandler } from '../errors/error-handler';
 import { RequestEnhancer } from '../http/request/request-enhancer';
 import { RequestHandler } from '../http/request/request-handler';
 import { ResponseEnhancer } from '../http/response/response-enhancer';
+import { createStaticMiddleware } from '../middleware/static-files';
 import { Router } from '../routing/router';
+import {
+  TemplateManager,
+  createTemplateManager,
+} from '../templating/clean-template-engine';
 import { Disposable } from '../types/common';
 import { ExpressHandler, ExpressMiddleware } from '../types/express';
 import { ParsedRequest, ParsedResponse, RequestContext } from '../types/http';
@@ -35,6 +40,19 @@ export interface ApplicationOptions {
   enableEvents?: boolean; // NEW: Optional event system
 }
 
+export interface StaticOptions {
+  maxAge?: string | number;
+  etag?: boolean;
+  index?: string | string[] | false;
+  dotfiles?: 'allow' | 'deny' | 'ignore';
+  extensions?: string[] | false;
+  immutable?: boolean;
+  redirect?: boolean;
+  setHeaders?: (res: ServerResponse, path: string, stat: any) => void;
+  fallthrough?: boolean;
+  spa?: boolean; // Single Page App support
+}
+
 export class Application implements Disposable {
   private router: Router;
   private requestHandler: RequestHandler;
@@ -46,6 +64,9 @@ export class Application implements Disposable {
   // 🚀 WebSocket Integration
   private wsIntegration = new WebSocketIntegration();
   public server?: HttpServer; // Expose server for WebSocket integration
+
+  // 🚀 Template Engine Integration
+  private templateManager: TemplateManager;
 
   constructor(options: ApplicationOptions = {}) {
     this.appOptions = {
@@ -71,6 +92,9 @@ export class Application implements Disposable {
         enableSimpleLogging(this.events);
       }
     }
+
+    // 🚀 Initialize template engine
+    this.templateManager = createTemplateManager();
   }
 
   /**
@@ -229,63 +253,95 @@ export class Application implements Disposable {
    * Register a GET route (supports both Express and context style)
    * Supports middleware as parameters: app.get('/path', middleware1, middleware2, handler)
    */
-  get(path: Path, ...args: any[]): this {
-    return this.addRoute('GET', path, ...args);
+  get(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
+    return this.addRoute('GET', path, handler, middleware);
   }
 
   /**
    * Register a POST route (supports both Express and context style)
    * Supports middleware as parameters: app.post('/path', middleware1, middleware2, handler)
    */
-  post(path: Path, ...args: any[]): this {
-    return this.addRoute('POST', path, ...args);
+  post(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
+    return this.addRoute('POST', path, handler, middleware);
   }
 
   /**
    * Register a PUT route (supports both Express and context style)
    * Supports middleware as parameters: app.put('/path', middleware1, middleware2, handler)
    */
-  put(path: Path, ...args: any[]): this {
-    return this.addRoute('PUT', path, ...args);
+  put(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
+    return this.addRoute('PUT', path, handler, middleware);
   }
 
   /**
    * Register a DELETE route (supports both Express and context style)
    * Supports middleware as parameters: app.delete('/path', middleware1, middleware2, handler)
    */
-  delete(path: Path, ...args: any[]): this {
-    return this.addRoute('DELETE', path, ...args);
+  delete(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
+    return this.addRoute('DELETE', path, handler, middleware);
   }
 
   /**
    * Register a PATCH route (supports both Express and context style)
    * Supports middleware as parameters: app.patch('/path', middleware1, middleware2, handler)
    */
-  patch(path: Path, ...args: any[]): this {
-    return this.addRoute('PATCH', path, ...args);
+  patch(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
+    return this.addRoute('PATCH', path, handler, middleware);
   }
 
   /**
    * Register a HEAD route (supports both Express and context style)
    * Supports middleware as parameters: app.head('/path', middleware1, middleware2, handler)
    */
-  head(path: Path, ...args: any[]): this {
-    return this.addRoute('HEAD', path, ...args);
+  head(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
+    return this.addRoute('HEAD', path, handler, middleware);
   }
 
   /**
    * Register an OPTIONS route (supports both Express and context style)
    * Supports middleware as parameters: app.options('/path', middleware1, middleware2, handler)
    */
-  options(path: Path, ...args: any[]): this {
-    return this.addRoute('OPTIONS', path, ...args);
+  options(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
+    return this.addRoute('OPTIONS', path, handler, middleware);
   }
 
   /**
    * Register a route for all HTTP methods
    * Supports middleware as parameters: app.all('/path', middleware1, middleware2, handler)
    */
-  all(path: Path, ...args: any[]): this {
+  all(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
     const methods: HttpMethod[] = [
       'GET',
       'POST',
@@ -296,7 +352,7 @@ export class Application implements Disposable {
       'OPTIONS',
     ];
     methods.forEach((method) => {
-      this.addRoute(method, path, ...args);
+      this.addRoute(method, path, handler, middleware);
     });
     return this;
   }
@@ -489,22 +545,17 @@ export class Application implements Disposable {
   /**
    * Generic route registration that handles middleware and handlers flexibly
    */
-  private addRoute(method: string, path: Path, ...args: any[]): this {
-    if (args.length === 0) {
-      throw new Error(`${method} route ${path} requires at least a handler`);
-    }
-
-    // Last argument is always the handler
-    const handler = args[args.length - 1];
-
-    // Everything before the handler is middleware
-    const middlewares = args.slice(0, -1);
-
+  private addRoute(
+    method: string,
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[]
+  ): this {
     // Convert handler
     const contextHandler = this.convertHandler(handler);
 
     // Convert middleware
-    const contextMiddleware = middlewares.map((mw: any) =>
+    const contextMiddleware = middleware.map((mw) =>
       this.convertMiddleware(mw)
     );
 
@@ -590,25 +641,45 @@ export class Application implements Disposable {
 
     // Create a router-like object for the callback
     const groupRouter = {
-      get: (subPath: string, ...args: any[]) => {
+      get: (
+        subPath: string,
+        handler: RouteHandler | ExpressHandler,
+        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+      ) => {
         const fullPath = path + subPath;
-        return this.get(fullPath, ...args);
+        return this.get(fullPath, handler, ...middleware);
       },
-      post: (subPath: string, ...args: any[]) => {
+      post: (
+        subPath: string,
+        handler: RouteHandler | ExpressHandler,
+        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+      ) => {
         const fullPath = path + subPath;
-        return this.post(fullPath, ...args);
+        return this.post(fullPath, handler, ...middleware);
       },
-      put: (subPath: string, ...args: any[]) => {
+      put: (
+        subPath: string,
+        handler: RouteHandler | ExpressHandler,
+        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+      ) => {
         const fullPath = path + subPath;
-        return this.put(fullPath, ...args);
+        return this.put(fullPath, handler, ...middleware);
       },
-      delete: (subPath: string, ...args: any[]) => {
+      delete: (
+        subPath: string,
+        handler: RouteHandler | ExpressHandler,
+        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+      ) => {
         const fullPath = path + subPath;
-        return this.delete(fullPath, ...args);
+        return this.delete(fullPath, handler, ...middleware);
       },
-      patch: (subPath: string, ...args: any[]) => {
+      patch: (
+        subPath: string,
+        handler: RouteHandler | ExpressHandler,
+        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+      ) => {
         const fullPath = path + subPath;
-        return this.patch(fullPath, ...args);
+        return this.patch(fullPath, handler, ...middleware);
       },
     };
 
@@ -729,5 +800,44 @@ export class Application implements Disposable {
    */
   wsBroadcast(data: any, room?: string): void {
     this.wsIntegration.broadcast(data, room);
+  }
+
+  // 🚀 Static File Serving
+
+  /**
+   * Serve static files from a directory
+   * @param mountPath - URL path to mount the static files (e.g., '/public')
+   * @param directory - Local directory path to serve files from
+   * @param options - Configuration options for static file serving
+   */
+  static(
+    mountPath: string,
+    directory: string,
+    options: StaticOptions = {}
+  ): this {
+    const staticMiddleware = createStaticMiddleware(
+      mountPath,
+      directory,
+      options
+    );
+    this.use(staticMiddleware);
+    return this;
+  }
+
+  // 🚀 Template Engine Methods
+
+  /**
+   * Set views directory for template rendering
+   */
+  setViews(viewsPath: string): this {
+    this.templateManager.setViews(viewsPath);
+    return this;
+  }
+
+  /**
+   * Get template manager for advanced operations
+   */
+  getTemplateManager(): TemplateManager {
+    return this.templateManager;
   }
 }

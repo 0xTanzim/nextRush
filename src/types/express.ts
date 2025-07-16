@@ -128,7 +128,15 @@ export interface NextRushResponse extends ServerResponse {
 
   // 🚀 NEW: Enhanced response methods
   csv(data: any[], filename?: string): void;
-  stream(stream: NodeJS.ReadableStream, contentType?: string): void;
+  stream(
+    stream: NodeJS.ReadableStream,
+    contentType?: string,
+    options?: {
+      bufferSize?: number;
+      highWaterMark?: number;
+      enableCompression?: boolean;
+    }
+  ): void;
 
   // File operations
   sendFile(
@@ -139,9 +147,15 @@ export interface NextRushResponse extends ServerResponse {
       etag?: boolean;
       dotfiles?: 'allow' | 'deny' | 'ignore';
       root?: string;
+      headers?: Record<string, string>;
+      acceptRanges?: boolean;
     }
   ): void;
   download(filePath: string, filename?: string, options?: any): void;
+
+  // 🚀 Smart file operations (internal methods)
+  getSmartContentType(filePath: string): string;
+  generateETag(stats: any): string;
 
   // Redirect methods
   redirect(url: string, status?: number): void;
@@ -174,6 +188,10 @@ export interface NextRushResponse extends ServerResponse {
 
   // Template rendering
   render(template: string, data?: any): void;
+
+  // 🚀 Template helper methods
+  getNestedValue(obj: any, path: string): any;
+  isTruthy(value: any): boolean;
 
   // Cache control
   cache(seconds: number): NextRushResponse;
