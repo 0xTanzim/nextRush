@@ -158,6 +158,7 @@ app.post('/upload', (req, res) => {
    ```
 
 3. **🔐 Authentication Middleware** - Basic auth support
+
    ```typescript
    // Need to implement:
    - JWT middleware

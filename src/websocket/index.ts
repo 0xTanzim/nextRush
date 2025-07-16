@@ -4,8 +4,8 @@
  */
 
 export {
-  enhanceApplicationWithWebSocket,
   WebSocketIntegration,
+  enhanceApplicationWithWebSocket,
 } from './integration';
 export { WebSocketServer } from './websocket-server';
 

@@ -4,7 +4,12 @@
 import { MethodNotAllowedError, NotFoundError } from '../errors';
 import { RequestEnhancer } from '../http/request/request-enhancer';
 import { ResponseEnhancer } from '../http/response/response-enhancer';
-import { ExpressHandler, ExpressMiddleware } from '../types/express';
+import {
+  ExpressHandler,
+  ExpressMiddleware,
+  NextRushRequest,
+  NextRushResponse,
+} from '../types/express';
 import { RequestContext } from '../types/http';
 import {
   HttpMethod,
@@ -47,77 +52,702 @@ export class Router {
   /**
    * Register a GET route
    */
+  // Overload 1: Just handler (Express-style)
   get(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  get(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  get(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  get(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  get(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  get(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 7: Three middleware + handler (Express-style)
+  get(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 8: Three middleware + handler (Context-style)
+  get(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  get(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('GET route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('GET', path, handler, middleware);
   }
 
   /**
    * Register a POST route
    */
+  // Overload 1: Just handler (Express-style)
   post(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  post(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  post(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  post(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  post(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  post(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 7: Three middleware + handler (Express-style)
+  post(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 8: Three middleware + handler (Context-style)
+  post(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 4: Three middleware + handler
+  post(
+    path: Path,
+    middleware1: MiddlewareHandler | ExpressMiddleware,
+    middleware2: MiddlewareHandler | ExpressMiddleware,
+    middleware3: MiddlewareHandler | ExpressMiddleware,
+    handler: RouteHandler
+  ): this;
+  post(
+    path: Path,
+    middleware1: MiddlewareHandler | ExpressMiddleware,
+    middleware2: MiddlewareHandler | ExpressMiddleware,
+    middleware3: MiddlewareHandler | ExpressMiddleware,
+    handler: ExpressHandler
+  ): this;
+
+  // Implementation
+  post(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('POST route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('POST', path, handler, middleware);
   }
 
   /**
    * Register a PUT route
    */
+  // Overload 1: Just handler (Express-style)
   put(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  put(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  put(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  put(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  put(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  put(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 7: Three middleware + handler (Express-style)
+  put(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 8: Three middleware + handler (Context-style)
+  put(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  put(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('PUT route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('PUT', path, handler, middleware);
   }
 
   /**
    * Register a DELETE route
    */
+  // Overload 1: Just handler (Express-style)
   delete(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  delete(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  delete(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  delete(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  delete(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  delete(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 7: Three middleware + handler (Express-style)
+  delete(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 8: Three middleware + handler (Context-style)
+  delete(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  delete(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('DELETE route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('DELETE', path, handler, middleware);
   }
 
   /**
    * Register a PATCH route
    */
+  // Overload 1: Just handler (Express-style)
   patch(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  patch(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  patch(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  patch(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  patch(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  patch(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 7: Three middleware + handler (Express-style)
+  patch(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 8: Three middleware + handler (Context-style)
+  patch(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  patch(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('PATCH route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('PATCH', path, handler, middleware);
   }
 
   /**
    * Register a HEAD route
    */
+  // Overload 1: Just handler (Express-style)
   head(
     path: Path,
-    handler: RouteHandler,
-    ...middleware: MiddlewareHandler[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  head(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  head(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  head(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  head(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  head(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 7: Three middleware + handler (Express-style)
+  head(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 8: Three middleware + handler (Context-style)
+  head(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  head(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('HEAD route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('HEAD', path, handler, middleware);
   }
 
   /**
    * Register an OPTIONS route
    */
+  // Overload 1: Just handler (Express-style)
   options(
     path: Path,
-    handler: RouteHandler,
-    ...middleware: MiddlewareHandler[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  options(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  options(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  options(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  options(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  options(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 7: Three middleware + handler (Express-style)
+  options(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 8: Three middleware + handler (Context-style)
+  options(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    middleware3: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  options(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('OPTIONS route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('OPTIONS', path, handler, middleware);
   }
 
@@ -230,6 +860,95 @@ export class Router {
     middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
   ): this {
     return this.registerRoute(method, path, handler, middleware);
+  }
+
+  /**
+   * Internal method for Application class - allows spreading middleware
+   */
+  private _addRoute(
+    method: HttpMethod,
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this.addRoute(method, path, handler, middleware);
+  }
+
+  /**
+   * Internal GET method for Application class
+   */
+  _get(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this._addRoute('GET', path, handler, middleware);
+  }
+
+  /**
+   * Internal POST method for Application class
+   */
+  _post(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this._addRoute('POST', path, handler, middleware);
+  }
+
+  /**
+   * Internal PUT method for Application class
+   */
+  _put(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this._addRoute('PUT', path, handler, middleware);
+  }
+
+  /**
+   * Internal DELETE method for Application class
+   */
+  _delete(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this._addRoute('DELETE', path, handler, middleware);
+  }
+
+  /**
+   * Internal PATCH method for Application class
+   */
+  _patch(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this._addRoute('PATCH', path, handler, middleware);
+  }
+
+  /**
+   * Internal HEAD method for Application class
+   */
+  _head(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this._addRoute('HEAD', path, handler, middleware);
+  }
+
+  /**
+   * Internal OPTIONS method for Application class
+   */
+  _options(
+    path: Path,
+    handler: RouteHandler | ExpressHandler,
+    middleware: (MiddlewareHandler | ExpressMiddleware)[] = []
+  ): this {
+    return this._addRoute('OPTIONS', path, handler, middleware);
   }
 
   /**

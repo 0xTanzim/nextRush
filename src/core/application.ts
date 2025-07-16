@@ -14,7 +14,12 @@ import {
   createTemplateManager,
 } from '../templating/clean-template-engine';
 import { Disposable } from '../types/common';
-import { ExpressHandler, ExpressMiddleware } from '../types/express';
+import {
+  ExpressHandler,
+  ExpressMiddleware,
+  NextRushRequest,
+  NextRushResponse,
+} from '../types/express';
 import { ParsedRequest, ParsedResponse, RequestContext } from '../types/http';
 import {
   HttpMethod,
@@ -253,11 +258,77 @@ export class Application implements Disposable {
    * Register a GET route (supports both Express and context style)
    * Supports middleware as parameters: app.get('/path', middleware1, middleware2, handler)
    */
+  // Overload 1: Just handler (Express-style)
   get(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  get(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  get(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  get(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  get(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  get(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  get(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('GET route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('GET', path, handler, middleware);
   }
 
@@ -265,11 +336,77 @@ export class Application implements Disposable {
    * Register a POST route (supports both Express and context style)
    * Supports middleware as parameters: app.post('/path', middleware1, middleware2, handler)
    */
+  // Overload 1: Just handler (Express-style)
   post(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  post(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  post(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  post(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  post(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  post(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  post(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('POST route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('POST', path, handler, middleware);
   }
 
@@ -277,11 +414,77 @@ export class Application implements Disposable {
    * Register a PUT route (supports both Express and context style)
    * Supports middleware as parameters: app.put('/path', middleware1, middleware2, handler)
    */
+  // Overload 1: Just handler (Express-style)
   put(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  put(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  put(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  put(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  put(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  put(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  put(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('PUT route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('PUT', path, handler, middleware);
   }
 
@@ -289,11 +492,77 @@ export class Application implements Disposable {
    * Register a DELETE route (supports both Express and context style)
    * Supports middleware as parameters: app.delete('/path', middleware1, middleware2, handler)
    */
+  // Overload 1: Just handler (Express-style)
   delete(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  delete(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  delete(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  delete(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  delete(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  delete(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  delete(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('DELETE route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('DELETE', path, handler, middleware);
   }
 
@@ -301,11 +570,77 @@ export class Application implements Disposable {
    * Register a PATCH route (supports both Express and context style)
    * Supports middleware as parameters: app.patch('/path', middleware1, middleware2, handler)
    */
+  // Overload 1: Just handler (Express-style)
   patch(
     path: Path,
-    handler: RouteHandler | ExpressHandler,
-    ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 2: Just handler (Context-style)
+  patch(
+    path: Path,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 3: One middleware + handler (Express-style)
+  patch(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 4: One middleware + handler (Context-style)
+  patch(
+    path: Path,
+    middleware: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Overload 5: Two middleware + handler (Express-style)
+  patch(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse
+    ) => void | Promise<void>
+  ): this;
+
+  // Overload 6: Two middleware + handler (Context-style)
+  patch(
+    path: Path,
+    middleware1: ExpressMiddleware,
+    middleware2: ExpressMiddleware,
+    handler: (context: RequestContext) => void | Promise<void>
+  ): this;
+
+  // Implementation
+  patch(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): this {
+    if (args.length === 0) {
+      throw new Error('PATCH route requires at least a handler');
+    }
+
+    const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
+
     return this.addRoute('PATCH', path, handler, middleware);
   }
 
@@ -562,25 +897,25 @@ export class Application implements Disposable {
     // Register with router
     switch (method.toUpperCase()) {
       case 'GET':
-        this.router.get(path, contextHandler, ...contextMiddleware);
+        this.router._get(path, contextHandler, contextMiddleware);
         break;
       case 'POST':
-        this.router.post(path, contextHandler, ...contextMiddleware);
+        this.router._post(path, contextHandler, contextMiddleware);
         break;
       case 'PUT':
-        this.router.put(path, contextHandler, ...contextMiddleware);
+        this.router._put(path, contextHandler, contextMiddleware);
         break;
       case 'DELETE':
-        this.router.delete(path, contextHandler, ...contextMiddleware);
+        this.router._delete(path, contextHandler, contextMiddleware);
         break;
       case 'PATCH':
-        this.router.patch(path, contextHandler, ...contextMiddleware);
+        this.router._patch(path, contextHandler, contextMiddleware);
         break;
       case 'HEAD':
-        this.router.head(path, contextHandler, ...contextMiddleware);
+        this.router._head(path, contextHandler, contextMiddleware);
         break;
       case 'OPTIONS':
-        this.router.options(path, contextHandler, ...contextMiddleware);
+        this.router._options(path, contextHandler, contextMiddleware);
         break;
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);
@@ -643,43 +978,104 @@ export class Application implements Disposable {
     const groupRouter = {
       get: (
         subPath: string,
-        handler: RouteHandler | ExpressHandler,
-        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+        ...args: (
+          | RouteHandler
+          | ExpressHandler
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[]
       ) => {
         const fullPath = path + subPath;
-        return this.get(fullPath, handler, ...middleware);
+        // Call the implementation directly
+        if (args.length === 0) {
+          throw new Error('GET route requires at least a handler');
+        }
+        const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+        const middleware = args.slice(0, -1) as (
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[];
+        return this.addRoute('GET', fullPath, handler, middleware);
       },
       post: (
         subPath: string,
-        handler: RouteHandler | ExpressHandler,
-        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+        ...args: (
+          | RouteHandler
+          | ExpressHandler
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[]
       ) => {
         const fullPath = path + subPath;
-        return this.post(fullPath, handler, ...middleware);
+        if (args.length === 0) {
+          throw new Error('POST route requires at least a handler');
+        }
+        const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+        const middleware = args.slice(0, -1) as (
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[];
+        return this.addRoute('POST', fullPath, handler, middleware);
       },
       put: (
         subPath: string,
-        handler: RouteHandler | ExpressHandler,
-        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+        ...args: (
+          | RouteHandler
+          | ExpressHandler
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[]
       ) => {
         const fullPath = path + subPath;
-        return this.put(fullPath, handler, ...middleware);
+        if (args.length === 0) {
+          throw new Error('PUT route requires at least a handler');
+        }
+        const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+        const middleware = args.slice(0, -1) as (
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[];
+        return this.addRoute('PUT', fullPath, handler, middleware);
       },
       delete: (
         subPath: string,
-        handler: RouteHandler | ExpressHandler,
-        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+        ...args: (
+          | RouteHandler
+          | ExpressHandler
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[]
       ) => {
         const fullPath = path + subPath;
-        return this.delete(fullPath, handler, ...middleware);
+        if (args.length === 0) {
+          throw new Error('DELETE route requires at least a handler');
+        }
+        const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+        const middleware = args.slice(0, -1) as (
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[];
+        return this.addRoute('DELETE', fullPath, handler, middleware);
       },
       patch: (
         subPath: string,
-        handler: RouteHandler | ExpressHandler,
-        ...middleware: (MiddlewareHandler | ExpressMiddleware)[]
+        ...args: (
+          | RouteHandler
+          | ExpressHandler
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[]
       ) => {
         const fullPath = path + subPath;
-        return this.patch(fullPath, handler, ...middleware);
+        if (args.length === 0) {
+          throw new Error('PATCH route requires at least a handler');
+        }
+        const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
+        const middleware = args.slice(0, -1) as (
+          | MiddlewareHandler
+          | ExpressMiddleware
+        )[];
+        return this.addRoute('PATCH', fullPath, handler, middleware);
       },
     };
 
