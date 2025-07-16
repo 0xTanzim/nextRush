@@ -1,8 +1,18 @@
 # 📚 NextRush API Reference
 
-Complete API reference for all NextRush features.
+## Complete API Documentation
 
-## Core Application
+### Table of Contents
+
+- [Application Class](#application-class)
+- [Request Object](#request-object)
+- [Response Object](#response-object)
+- [Template Engine](#template-engine)
+- [Static File Serving](#static-file-serving)
+- [WebSocket Support](#websocket-support)
+- [Event System](#event-system)
+- [Middleware](#middleware)
+- [Error Handling](#error-handling)
 
 ### `createApp(options?: ApplicationOptions)`
 
