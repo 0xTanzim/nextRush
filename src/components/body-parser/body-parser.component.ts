@@ -3,8 +3,8 @@
  * SOLID-compliant component for parsing request bodies
  */
 
+import { BaseComponent } from '../../core/app/base-component';
 import type { MinimalApplication } from '../../core/interfaces';
-import { BaseComponent } from '../../core/base-component';
 
 /**
  * Body parser options
@@ -32,7 +32,7 @@ export interface BodyParserOptions {
  * Body Parser Component - Handles request body parsing
  */
 export class BodyParserComponent extends BaseComponent {
-  readonly name = 'BodyParser';
+  override readonly name = 'BodyParser';
 
   constructor() {
     super('BodyParser');
@@ -72,17 +72,24 @@ export class BodyParserComponent extends BaseComponent {
       const parsed = JSON.parse(body);
       return parsed;
     } catch (error) {
-      throw new Error(`Invalid JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Invalid JSON: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
   /**
    * Parse URL encoded body
    */
-  parseUrlencoded(body: string, options: BodyParserOptions['urlencoded'] = {}): Record<string, any> {
+  parseUrlencoded(
+    body: string,
+    options: BodyParserOptions['urlencoded'] = {}
+  ): Record<string, any> {
     const params = new URLSearchParams(body);
     const result: Record<string, any> = {};
-    
+
     for (const [key, value] of params.entries()) {
       if (options.extended) {
         // Extended parsing supports nested objects
@@ -91,17 +98,21 @@ export class BodyParserComponent extends BaseComponent {
         result[key] = value;
       }
     }
-    
+
     return result;
   }
 
   /**
    * Set nested value for extended URL encoding
    */
-  private setNestedValue(obj: Record<string, any>, path: string, value: string): void {
-    const keys = path.split('[').map(key => key.replace(']', ''));
+  private setNestedValue(
+    obj: Record<string, any>,
+    path: string,
+    value: string
+  ): void {
+    const keys = path.split('[').map((key) => key.replace(']', ''));
     let current = obj;
-    
+
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
       if (!(key in current)) {
@@ -109,7 +120,7 @@ export class BodyParserComponent extends BaseComponent {
       }
       current = current[key];
     }
-    
+
     current[keys[keys.length - 1]] = value;
   }
 }

@@ -209,8 +209,8 @@ export abstract class BasePlugin
    * @param dependencies - Plugin dependencies
    */
   constructor(
-    name: string, 
-    public readonly version: string = '1.0.0', 
+    name: string,
+    public readonly version: string = '1.0.0',
     public readonly dependencies: string[] = []
   ) {
     super(name);

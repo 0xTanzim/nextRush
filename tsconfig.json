@@ -25,8 +25,8 @@
     "preserveConstEnums": true,
     "stripInternal": true,
     "noImplicitReturns": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
     "useDefineForClassFields": true
@@ -38,6 +38,11 @@
     "**/*.spec.ts",
     "**/*.test.ts",
     "examples",
-    "scripts"
+    "scripts",
+    "src/core/nextrush-app.enterprise.ts",
+    "src/core/app/application-clean.ts",
+    "**/*-archive*",
+    "**/*-deprecated*",
+    "**/*-old*"
   ]
 }

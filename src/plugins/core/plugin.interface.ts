@@ -13,7 +13,7 @@ export enum PluginState {
   INSTALLED = 'installed',
   STARTED = 'started',
   STOPPED = 'stopped',
-  ERROR = 'error'
+  ERROR = 'error',
 }
 
 /**
@@ -130,18 +130,20 @@ export abstract class BasePlugin implements Plugin {
     this.context = context;
     this.state = PluginState.INSTALLED;
     context.logger.info(`Plugin ${this.metadata.name} installed`);
-    
+
     await this.onInstall(context);
   }
 
   public async start(context: PluginContext): Promise<void> {
     if (this.state !== PluginState.INSTALLED) {
-      throw new PluginError(`Cannot start plugin ${this.metadata.name} in state ${this.state}`);
+      throw new PluginError(
+        `Cannot start plugin ${this.metadata.name} in state ${this.state}`
+      );
     }
 
     this.state = PluginState.STARTED;
     context.logger.info(`Plugin ${this.metadata.name} started`);
-    
+
     await this.onStart(context);
   }
 
@@ -152,14 +154,14 @@ export abstract class BasePlugin implements Plugin {
 
     this.state = PluginState.STOPPED;
     context.logger.info(`Plugin ${this.metadata.name} stopped`);
-    
+
     await this.onStop(context);
   }
 
   public async uninstall(context: PluginContext): Promise<void> {
     this.state = PluginState.UNINSTALLED;
     context.logger.info(`Plugin ${this.metadata.name} uninstalled`);
-    
+
     await this.onUninstall(context);
     this.context = undefined;
   }
@@ -206,9 +208,9 @@ export abstract class BasePlugin implements Plugin {
         {
           name: 'state',
           status: this.state === PluginState.STARTED ? 'pass' : 'fail',
-          details: { currentState: this.state }
-        }
-      ]
+          details: { currentState: this.state },
+        },
+      ],
     };
   }
 }

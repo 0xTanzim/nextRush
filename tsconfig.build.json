@@ -19,7 +19,12 @@
     "src/core/ultimate-abstraction.ts",
     "src/core/application-monolith-backup.ts",
     "src/core/refactored-application.ts",
+    "src/core/nextrush-app.enterprise.ts",
+    "src/core/app/application-clean.ts",
     "src/http/request/ultimate-body-parser.ts",
-    "src/http/response/ultimate-file-server.ts"
+    "src/http/response/ultimate-file-server.ts",
+    "**/*-archive*",
+    "**/*-deprecated*",
+    "**/*-old*"
   ]
 }

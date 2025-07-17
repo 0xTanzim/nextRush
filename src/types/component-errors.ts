@@ -52,39 +52,43 @@ export interface StaticFilesError extends ComponentError {
 /**
  * Union type for all component errors
  */
-export type AnyComponentError = RouterError | TemplateError | WebSocketError | StaticFilesError;
+export type AnyComponentError =
+  | RouterError
+  | TemplateError
+  | WebSocketError
+  | StaticFilesError;
 
 /**
  * Error factory for creating typed errors
  */
 export class ComponentErrorFactory {
   static createRouterError(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { method?: string; path?: string; statusCode?: number }
   ): RouterError {
     return new RouterErrorImpl(message, code, context);
   }
 
   static createTemplateError(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { template?: string; engine?: string; statusCode?: number }
   ): TemplateError {
     return new TemplateErrorImpl(message, code, context);
   }
 
   static createWebSocketError(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { connectionId?: string; event?: string; statusCode?: number }
   ): WebSocketError {
     return new WebSocketErrorImpl(message, code, context);
   }
 
   static createStaticFilesError(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { filePath?: string; mimeType?: string; statusCode?: number }
   ): StaticFilesError {
     return new StaticFilesErrorImpl(message, code, context);
@@ -103,8 +107,8 @@ class RouterErrorImpl extends Error implements RouterError {
   readonly path?: string;
 
   constructor(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { method?: string; path?: string; statusCode?: number }
   ) {
     super(message);
@@ -113,7 +117,8 @@ class RouterErrorImpl extends Error implements RouterError {
     if (context?.method !== undefined) this.method = context.method;
     if (context?.path !== undefined) this.path = context.path;
     if (context?.statusCode !== undefined) this.statusCode = context.statusCode;
-    if (context !== undefined) this.context = context as Record<string, unknown>;
+    if (context !== undefined)
+      this.context = context as Record<string, unknown>;
   }
 }
 
@@ -129,8 +134,8 @@ class TemplateErrorImpl extends Error implements TemplateError {
   readonly engine?: string;
 
   constructor(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { template?: string; engine?: string; statusCode?: number }
   ) {
     super(message);
@@ -139,7 +144,8 @@ class TemplateErrorImpl extends Error implements TemplateError {
     if (context?.template !== undefined) this.template = context.template;
     if (context?.engine !== undefined) this.engine = context.engine;
     if (context?.statusCode !== undefined) this.statusCode = context.statusCode;
-    if (context !== undefined) this.context = context as Record<string, unknown>;
+    if (context !== undefined)
+      this.context = context as Record<string, unknown>;
   }
 }
 
@@ -155,17 +161,19 @@ class WebSocketErrorImpl extends Error implements WebSocketError {
   readonly event?: string;
 
   constructor(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { connectionId?: string; event?: string; statusCode?: number }
   ) {
     super(message);
     this.name = 'WebSocketError';
     this.code = code;
-    if (context?.connectionId !== undefined) this.connectionId = context.connectionId;
+    if (context?.connectionId !== undefined)
+      this.connectionId = context.connectionId;
     if (context?.event !== undefined) this.event = context.event;
     if (context?.statusCode !== undefined) this.statusCode = context.statusCode;
-    if (context !== undefined) this.context = context as Record<string, unknown>;
+    if (context !== undefined)
+      this.context = context as Record<string, unknown>;
   }
 }
 
@@ -181,8 +189,8 @@ class StaticFilesErrorImpl extends Error implements StaticFilesError {
   readonly mimeType?: string;
 
   constructor(
-    message: string, 
-    code: string, 
+    message: string,
+    code: string,
     context?: { filePath?: string; mimeType?: string; statusCode?: number }
   ) {
     super(message);
@@ -191,6 +199,7 @@ class StaticFilesErrorImpl extends Error implements StaticFilesError {
     if (context?.filePath !== undefined) this.filePath = context.filePath;
     if (context?.mimeType !== undefined) this.mimeType = context.mimeType;
     if (context?.statusCode !== undefined) this.statusCode = context.statusCode;
-    if (context !== undefined) this.context = context as Record<string, unknown>;
+    if (context !== undefined)
+      this.context = context as Record<string, unknown>;
   }
 }

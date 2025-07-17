@@ -1,0 +1,11 @@
+{
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.git/**": true
+  },
+  "files.hotExit": "off",
+  "workbench.editor.restoreViewState": false,
+  "workbench.editor.enablePreview": false,
+  "copilot.conversation.persistState": false
+}

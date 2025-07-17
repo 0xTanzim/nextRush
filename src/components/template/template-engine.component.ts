@@ -3,14 +3,14 @@
  * SOLID-compliant component for template rendering
  */
 
+import { BaseComponent } from '../../core/app/base-component';
 import type { MinimalApplication } from '../../core/interfaces';
-import { BaseComponent } from '../../core/base-component';
 
 /**
  * Template Engine Component - Provides template rendering capabilities
  */
 export class TemplateEngineComponent extends BaseComponent {
-  readonly name = 'TemplateEngine';
+  override readonly name = 'TemplateEngine';
 
   /**
    * Install template engine capabilities
@@ -58,15 +58,18 @@ export class TemplateEngineComponent extends BaseComponent {
   /**
    * Load and render template from file
    */
-  async renderFile(filePath: string, data: Record<string, any> = {}): Promise<string> {
+  async renderFile(
+    filePath: string,
+    data: Record<string, any> = {}
+  ): Promise<string> {
     const fs = await import('fs/promises');
     const template = await fs.readFile(filePath, 'utf-8');
-    
+
     // Determine engine based on file extension
     if (filePath.endsWith('.mustache')) {
       return this.renderMustache(template, data);
     }
-    
+
     return this.render(template, data);
   }
 }

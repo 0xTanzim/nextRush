@@ -5,26 +5,26 @@
  */
 
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http';
-import { Router } from '../../routing/router';
 import { ErrorHandler } from '../../errors/error-handler';
-import { RequestEnhancer } from '../enhancers/request-enhancer';
-import { ResponseEnhancer } from '../enhancers/response-enhancer';
-import { SimpleEventEmitter } from '../event-system';
+import { Router } from '../../routing/router';
 import {
+  ExpressHandler,
+  ExpressMiddleware,
   NextRushRequest,
   NextRushResponse,
-  ExpressHandler,
-  ExpressMiddleware
 } from '../../types/express';
 import {
   HttpMethod,
-  Path,
-  RouteHandler,
   MiddlewareHandler,
-  Route
+  Path,
+  RequestContext,
+  Route,
+  RouteHandler,
 } from '../../types/routing';
+import { RequestEnhancer } from '../enhancers/request-enhancer';
+import { ResponseEnhancer } from '../enhancers/response-enhancer';
+import { SimpleEventEmitter } from '../event-system';
 import { BaseComponent } from './base-component';
-import { RequestContext } from '../../types/http';
 
 export interface ApplicationOptions {
   router?: Router;
@@ -61,7 +61,11 @@ export interface RouteDefinition {
  * Application interface
  */
 export interface IApplication {
-  listen(port: number | string, hostname?: string | (() => void), callback?: () => void): IApplication;
+  listen(
+    port: number | string,
+    hostname?: string | (() => void),
+    callback?: () => void
+  ): IApplication;
   close(callback?: () => void): IApplication;
 }
 
@@ -114,16 +118,10 @@ export class Application extends BaseComponent implements IApplication {
    * GET method with comprehensive overloads - Express-style compatibility
    */
   // Overload 1: Just handler (Express-style)
-  get(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  get(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  get(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  get(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   get(
@@ -132,7 +130,7 @@ export class Application extends BaseComponent implements IApplication {
     handler: ExpressHandler
   ): Application;
 
-  // Overload 4: One middleware + handler (Context-style)  
+  // Overload 4: One middleware + handler (Context-style)
   get(
     path: Path,
     middleware: ExpressMiddleware,
@@ -174,7 +172,15 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  get(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  get(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     return this.addRoute('GET', path, args);
   }
 
@@ -182,16 +188,10 @@ export class Application extends BaseComponent implements IApplication {
    * POST method with comprehensive overloads - Express-style compatibility
    */
   // Overload 1: Just handler (Express-style)
-  post(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  post(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  post(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  post(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   post(
@@ -224,7 +224,15 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  post(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  post(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     return this.addRoute('POST', path, args);
   }
 
@@ -232,16 +240,10 @@ export class Application extends BaseComponent implements IApplication {
    * PUT method with comprehensive overloads - Express-style compatibility
    */
   // Overload 1: Just handler (Express-style)
-  put(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  put(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  put(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  put(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   put(
@@ -274,7 +276,15 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  put(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  put(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     return this.addRoute('PUT', path, args);
   }
 
@@ -282,16 +292,10 @@ export class Application extends BaseComponent implements IApplication {
    * DELETE method with comprehensive overloads - Express-style compatibility
    */
   // Overload 1: Just handler (Express-style)
-  delete(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  delete(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  delete(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  delete(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   delete(
@@ -324,7 +328,15 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  delete(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  delete(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     return this.addRoute('DELETE', path, args);
   }
 
@@ -332,16 +344,10 @@ export class Application extends BaseComponent implements IApplication {
    * PATCH method with comprehensive overloads - Express-style compatibility
    */
   // Overload 1: Just handler (Express-style)
-  patch(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  patch(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  patch(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  patch(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   patch(
@@ -374,7 +380,15 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  patch(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  patch(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     return this.addRoute('PATCH', path, args);
   }
 
@@ -382,16 +396,10 @@ export class Application extends BaseComponent implements IApplication {
    * HEAD method with comprehensive overloads - Express-style compatibility
    */
   // Overload 1: Just handler (Express-style)
-  head(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  head(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  head(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  head(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   head(
@@ -408,7 +416,15 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  head(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  head(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     return this.addRoute('HEAD', path, args);
   }
 
@@ -416,16 +432,10 @@ export class Application extends BaseComponent implements IApplication {
    * OPTIONS method with comprehensive overloads - Express-style compatibility
    */
   // Overload 1: Just handler (Express-style)
-  options(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  options(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  options(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  options(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   options(
@@ -442,7 +452,15 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  options(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  options(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     return this.addRoute('OPTIONS', path, args);
   }
 
@@ -450,16 +468,10 @@ export class Application extends BaseComponent implements IApplication {
    * ALL method - matches all HTTP methods with comprehensive overloads
    */
   // Overload 1: Just handler (Express-style)
-  all(
-    path: Path,
-    handler: ExpressHandler
-  ): Application;
+  all(path: Path, handler: ExpressHandler): Application;
 
   // Overload 2: Just handler (Context-style)
-  all(
-    path: Path,
-    handler: RouteHandler
-  ): Application;
+  all(path: Path, handler: RouteHandler): Application;
 
   // Overload 3: One middleware + handler (Express-style)
   all(
@@ -476,9 +488,25 @@ export class Application extends BaseComponent implements IApplication {
   ): Application;
 
   // Implementation
-  all(path: Path, ...args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]): Application {
+  all(
+    path: Path,
+    ...args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
+  ): Application {
     // Register for all HTTP methods
-    const methods: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+    const methods: HttpMethod[] = [
+      'GET',
+      'POST',
+      'PUT',
+      'DELETE',
+      'PATCH',
+      'HEAD',
+      'OPTIONS',
+    ];
     for (const method of methods) {
       this.addRoute(method, path, args);
     }
@@ -490,25 +518,105 @@ export class Application extends BaseComponent implements IApplication {
   // ============================================================================
 
   /**
-   * Use middleware with proper overloads
+   * Use middleware with proper overloads - Express-style compatibility
    */
-  use(handler: MiddlewareHandler): Application;
-  use(handler: ExpressMiddleware): Application;
-  use(path: Path, handler: MiddlewareHandler): Application;
-  use(path: Path, handler: ExpressMiddleware): Application;
+  // Global middleware (Express-style)
   use(
-    pathOrHandler: Path | MiddlewareHandler | ExpressMiddleware,
-    handler?: MiddlewareHandler | ExpressMiddleware
+    middleware: (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => void | Promise<void>
   ): Application;
+
+  // Global middleware (Context-style)
   use(
-    pathOrHandler: Path | MiddlewareHandler | ExpressMiddleware,
-    handler?: MiddlewareHandler | ExpressMiddleware
+    middleware: (
+      context: RequestContext,
+      next: () => Promise<void>
+    ) => void | Promise<void>
+  ): Application;
+
+  // Path-specific middleware (Express-style)
+  use(
+    path: Path,
+    middleware: (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => void | Promise<void>
+  ): Application;
+
+  // Path-specific middleware (Context-style)
+  use(
+    path: Path,
+    middleware: (
+      context: RequestContext,
+      next: () => Promise<void>
+    ) => void | Promise<void>
+  ): Application;
+
+  // Router mounting
+  use(path: Path, router: Router): Application;
+
+  // Implementation with flexible parameter handling
+  use(
+    pathOrHandler:
+      | Path
+      | MiddlewareHandler
+      | ExpressMiddleware
+      | ((
+          req: NextRushRequest,
+          res: NextRushResponse,
+          next: () => void
+        ) => void | Promise<void>)
+      | ((
+          context: RequestContext,
+          next: () => Promise<void>
+        ) => void | Promise<void>),
+    handler?:
+      | MiddlewareHandler
+      | ExpressMiddleware
+      | Router
+      | ((
+          req: NextRushRequest,
+          res: NextRushResponse,
+          next: () => void
+        ) => void | Promise<void>)
+      | ((
+          context: RequestContext,
+          next: () => Promise<void>
+        ) => void | Promise<void>)
   ): Application {
+    // Handle different cases based on arguments
     if (typeof pathOrHandler === 'string' || pathOrHandler instanceof RegExp) {
-      if (!handler) throw new Error('Handler is required when path is provided');
-      this.router.use(handler);
+      // Path-specific middleware or router mounting
+      if (!handler) {
+        throw new Error('Handler is required when path is provided');
+      }
+
+      // Check if handler is a Router
+      if (handler instanceof Router) {
+        // For now, convert Router to middleware function
+        const routerMiddleware: MiddlewareHandler = async (
+          context: RequestContext,
+          next: () => Promise<void>
+        ) => {
+          try {
+            await handler.handle(context);
+          } catch (error) {
+            // If router doesn't handle the route, continue to next middleware
+            await next();
+          }
+        };
+        this.router.use(routerMiddleware);
+      } else {
+        // Regular middleware
+        this.router.use(handler as MiddlewareHandler | ExpressMiddleware);
+      }
     } else {
-      this.router.use(pathOrHandler);
+      // Global middleware
+      this.router.use(pathOrHandler as MiddlewareHandler | ExpressMiddleware);
     }
 
     return this;
@@ -526,7 +634,9 @@ export class Application extends BaseComponent implements IApplication {
 
     // Convert handler based on its type
     const convertedHandler = this.convertHandler(handler);
-    const convertedMiddleware = middleware.map(mw => this.convertMiddleware(mw));
+    const convertedMiddleware = middleware.map((mw) =>
+      this.convertMiddleware(mw)
+    );
 
     return {
       id: this.generateRouteId(method, path, name),
@@ -541,7 +651,12 @@ export class Application extends BaseComponent implements IApplication {
    * Register a pre-created route
    */
   addCreatedRoute(route: Route): Application {
-    this.router.addRoute(route.method, route.path, route.handler, route.middleware);
+    this.router.addRoute(
+      route.method,
+      route.path,
+      route.handler,
+      route.middleware
+    );
     return this;
   }
 
@@ -568,7 +683,10 @@ export class Application extends BaseComponent implements IApplication {
   /**
    * Render a template
    */
-  async render(view: string, data: Record<string, unknown> = {}): Promise<string> {
+  async render(
+    view: string,
+    data: Record<string, unknown> = {}
+  ): Promise<string> {
     const fs = await import('fs/promises');
     const path = await import('path');
 
@@ -594,15 +712,18 @@ export class Application extends BaseComponent implements IApplication {
   static(path: string, root?: string, options?: StaticOptions): Application {
     const staticRoot = root || path;
     const staticOptions = options || {};
-    
+
     // Implementation for static file serving
-    this.use(path, async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      // Static file serving logic here
-      console.log(`Serving static files from ${staticRoot} for path ${path}`);
-      console.log(`Static options:`, staticOptions);
-      // TODO: Implement actual static file serving logic
-      next();
-    });
+    this.use(
+      path,
+      async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+        // Static file serving logic here
+        console.log(`Serving static files from ${staticRoot} for path ${path}`);
+        console.log(`Static options:`, staticOptions);
+        // TODO: Implement actual static file serving logic
+        next();
+      }
+    );
 
     return this;
   }
@@ -614,13 +735,17 @@ export class Application extends BaseComponent implements IApplication {
   /**
    * Listen on port - Required by Application
    */
-  listen(port: number | string, hostname?: string | (() => void), callback?: () => void): Application {
+  listen(
+    port: number | string,
+    hostname?: string | (() => void),
+    callback?: () => void
+  ): Application {
     const portNum = typeof port === 'string' ? parseInt(port, 10) : port;
-    
+
     // Handle overloaded parameters
     let host: string | undefined;
     let cb: (() => void) | undefined;
-    
+
     if (typeof hostname === 'string') {
       host = hostname;
       cb = callback;
@@ -654,7 +779,7 @@ export class Application extends BaseComponent implements IApplication {
     } else {
       callback?.();
     }
-    
+
     return this;
   }
 
@@ -679,17 +804,27 @@ export class Application extends BaseComponent implements IApplication {
   private addRoute(
     method: HttpMethod,
     path: Path,
-    args: (RouteHandler | ExpressHandler | MiddlewareHandler | ExpressMiddleware)[]
+    args: (
+      | RouteHandler
+      | ExpressHandler
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[]
   ): Application {
     if (args.length === 0) {
       throw new Error(`${method} route requires at least a handler`);
     }
 
     const handler = args[args.length - 1] as RouteHandler | ExpressHandler;
-    const middleware = args.slice(0, -1) as (MiddlewareHandler | ExpressMiddleware)[];
+    const middleware = args.slice(0, -1) as (
+      | MiddlewareHandler
+      | ExpressMiddleware
+    )[];
 
     const convertedHandler = this.convertHandler(handler);
-    const convertedMiddleware = middleware.map(mw => this.convertMiddleware(mw));
+    const convertedMiddleware = middleware.map((mw) =>
+      this.convertMiddleware(mw)
+    );
 
     this.router.addRoute(method, path, convertedHandler, convertedMiddleware);
 
@@ -713,7 +848,9 @@ export class Application extends BaseComponent implements IApplication {
     };
   }
 
-  private convertMiddleware(middleware: MiddlewareHandler | ExpressMiddleware): MiddlewareHandler {
+  private convertMiddleware(
+    middleware: MiddlewareHandler | ExpressMiddleware
+  ): MiddlewareHandler {
     // If it's already a MiddlewareHandler (takes RequestContext), return as is
     if (middleware.length === 2) {
       return middleware as MiddlewareHandler;
@@ -736,7 +873,11 @@ export class Application extends BaseComponent implements IApplication {
         };
 
         try {
-          const result = (middleware as ExpressMiddleware)(req, res, expressNext);
+          const result = (middleware as ExpressMiddleware)(
+            req,
+            res,
+            expressNext
+          );
           if (result instanceof Promise) {
             result.catch(reject);
           }
@@ -747,8 +888,14 @@ export class Application extends BaseComponent implements IApplication {
     };
   }
 
-  private generateRouteId(method: HttpMethod, path: Path, name?: string): string {
-    const base = name || `${method.toLowerCase()}_${String(path).replace(/[^a-zA-Z0-9]/g, '_')}`;
+  private generateRouteId(
+    method: HttpMethod,
+    path: Path,
+    name?: string
+  ): string {
+    const base =
+      name ||
+      `${method.toLowerCase()}_${String(path).replace(/[^a-zA-Z0-9]/g, '_')}`;
     return `${base}_${Date.now()}`;
   }
 
@@ -765,12 +912,13 @@ export class Application extends BaseComponent implements IApplication {
           params: {},
           query: enhancedReq.query || {},
           body: undefined,
-          startTime: Date.now()
+          startTime: Date.now(),
         };
 
         await this.router.handle(context);
       } catch (error) {
-        const errorObj = error instanceof Error ? error : new Error(String(error));
+        const errorObj =
+          error instanceof Error ? error : new Error(String(error));
 
         // Create minimal context for error handling
         const errorContext = {
@@ -779,7 +927,7 @@ export class Application extends BaseComponent implements IApplication {
           params: {},
           query: {},
           body: undefined,
-          startTime: Date.now()
+          startTime: Date.now(),
         };
 
         await this.errorHandler.handle(errorObj, errorContext);

@@ -22,7 +22,7 @@ export class StaticFileServer {
       maxAge: options.maxAge || 0,
       index: options.index || ['index.html'],
       dotfiles: options.dotfiles || 'ignore',
-      etag: options.etag !== false
+      etag: options.etag !== false,
     };
   }
 
@@ -37,7 +37,7 @@ export class StaticFileServer {
       if (!filePath) return null;
 
       const stats = await fs.stat(filePath);
-      
+
       if (stats.isDirectory()) {
         // Try to serve index files
         for (const indexFile of this.options.index) {
@@ -64,7 +64,10 @@ export class StaticFileServer {
     }
   }
 
-  private async readFile(filePath: string, stats: any): Promise<{
+  private async readFile(
+    filePath: string,
+    stats: any
+  ): Promise<{
     content: Buffer;
     contentType: string;
     etag?: string;
@@ -72,11 +75,11 @@ export class StaticFileServer {
   }> {
     const content = await fs.readFile(filePath);
     const contentType = this.getContentType(filePath);
-    
+
     const result: any = {
       content,
       contentType,
-      lastModified: stats.mtime
+      lastModified: stats.mtime,
     };
 
     if (this.options.etag) {
@@ -88,7 +91,7 @@ export class StaticFileServer {
 
   private resolvePath(requestPath: string): string | null {
     const fullPath = path.resolve(this.options.root, '.' + requestPath);
-    
+
     // Security check - ensure path is within root
     if (!fullPath.startsWith(path.resolve(this.options.root))) {
       return null;
@@ -123,9 +126,9 @@ export class StaticFileServer {
       '.pdf': 'application/pdf',
       '.txt': 'text/plain',
       '.xml': 'application/xml',
-      '.ico': 'image/x-icon'
+      '.ico': 'image/x-icon',
     };
-    
+
     return mimeTypes[ext] || 'application/octet-stream';
   }
 }

@@ -3,15 +3,15 @@
  * SOLID-compliant component for common middleware functions
  */
 
+import { BaseComponent } from '../../core/app/base-component';
 import type { MinimalApplication } from '../../core/interfaces';
-import { BaseComponent } from '../../core/base-component';
 import type { NextRushRequest, NextRushResponse } from '../../types/express';
 
 /**
  * Built-in Middleware Component - Provides common middleware
  */
 export class BuiltInMiddlewareComponent extends BaseComponent {
-  readonly name = 'BuiltInMiddleware';
+  override readonly name = 'BuiltInMiddleware';
 
   constructor() {
     super('BuiltInMiddleware');
@@ -41,15 +41,17 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
   /**
    * CORS middleware
    */
-  cors(options: {
-    origin?: string | string[] | boolean;
-    methods?: string[];
-    allowedHeaders?: string[];
-    credentials?: boolean;
-  } = {}) {
+  cors(
+    options: {
+      origin?: string | string[] | boolean;
+      methods?: string[];
+      allowedHeaders?: string[];
+      credentials?: boolean;
+    } = {}
+  ) {
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       const origin = req.headers.origin as string;
-      
+
       // Set CORS headers
       if (options.origin === true) {
         res.setHeader('Access-Control-Allow-Origin', origin || '*');
@@ -64,11 +66,17 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
       }
 
       if (options.methods) {
-        res.setHeader('Access-Control-Allow-Methods', options.methods.join(', '));
+        res.setHeader(
+          'Access-Control-Allow-Methods',
+          options.methods.join(', ')
+        );
       }
 
       if (options.allowedHeaders) {
-        res.setHeader('Access-Control-Allow-Headers', options.allowedHeaders.join(', '));
+        res.setHeader(
+          'Access-Control-Allow-Headers',
+          options.allowedHeaders.join(', ')
+        );
       }
 
       if (options.credentials) {
@@ -92,10 +100,10 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       if (req.headers['content-type']?.includes('application/json')) {
         let body = '';
-        
+
         req.on('data', (chunk) => {
           body += chunk.toString();
-          
+
           // Check limit
           if (options.limit) {
             const limit = this.parseLimit(options.limit);
@@ -126,12 +134,16 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
    */
   urlencoded(options: { extended?: boolean; limit?: string } = {}) {
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      if (req.headers['content-type']?.includes('application/x-www-form-urlencoded')) {
+      if (
+        req.headers['content-type']?.includes(
+          'application/x-www-form-urlencoded'
+        )
+      ) {
         let body = '';
-        
+
         req.on('data', (chunk) => {
           body += chunk.toString();
-          
+
           // Check limit
           if (options.limit) {
             const limit = this.parseLimit(options.limit);
@@ -145,7 +157,7 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
         req.on('end', () => {
           const params = new URLSearchParams(body);
           req.body = {};
-          
+
           for (const [key, value] of params.entries()) {
             if (options.extended) {
               this.setNestedValue(req.body, key, value);
@@ -153,7 +165,7 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
               req.body[key] = value;
             }
           }
-          
+
           next();
         });
       } else {
@@ -167,10 +179,10 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
    */
   private parseLimit(limit: string): number {
     const units: Record<string, number> = {
-      'b': 1,
-      'kb': 1024,
-      'mb': 1024 * 1024,
-      'gb': 1024 * 1024 * 1024
+      b: 1,
+      kb: 1024,
+      mb: 1024 * 1024,
+      gb: 1024 * 1024 * 1024,
     };
 
     const match = limit.toLowerCase().match(/^(\d+)\s*([a-z]+)?$/);
@@ -178,17 +190,21 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
 
     const value = parseInt(match[1], 10);
     const unit = match[2] || 'b';
-    
+
     return value * (units[unit] || 1);
   }
 
   /**
    * Set nested value for extended URL encoding
    */
-  private setNestedValue(obj: Record<string, any>, path: string, value: string): void {
-    const keys = path.split('[').map(key => key.replace(']', ''));
+  private setNestedValue(
+    obj: Record<string, any>,
+    path: string,
+    value: string
+  ): void {
+    const keys = path.split('[').map((key) => key.replace(']', ''));
     let current = obj;
-    
+
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
       if (!(key in current)) {
@@ -196,7 +212,7 @@ export class BuiltInMiddlewareComponent extends BaseComponent {
       }
       current = current[key];
     }
-    
+
     current[keys[keys.length - 1]] = value;
   }
 }

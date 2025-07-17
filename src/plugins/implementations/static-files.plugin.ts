@@ -3,16 +3,16 @@
  * High-performance static file serving with caching and SPA support
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { promisify } from 'util';
+import { NextRushRequest, NextRushResponse } from '../../types/express';
+import { PluginContext, PluginMetadata } from '../core/plugin.interface';
 import {
   BaseStaticFilesPlugin,
   StaticMountDefinition,
-  StaticMountOptions
+  StaticMountOptions,
 } from '../types/specialized-plugins';
-import { PluginContext, PluginMetadata } from '../core/plugin.interface';
-import { NextRushRequest, NextRushResponse } from '../../types/express';
-import * as path from 'path';
-import * as fs from 'fs';
-import { promisify } from 'util';
 
 const stat = promisify(fs.stat);
 const readFile = promisify(fs.readFile);
@@ -35,11 +35,12 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
   public readonly metadata: PluginMetadata = {
     name: 'NextRush-StaticFiles',
     version: '1.0.0',
-    description: 'Enterprise static file serving with caching, compression, and SPA support',
+    description:
+      'Enterprise static file serving with caching, compression, and SPA support',
     author: 'NextRush Framework',
     category: 'core',
     priority: 70, // Medium-high priority
-    dependencies: []
+    dependencies: [],
   };
 
   private fileCache = new Map<string, FileInfo>();
@@ -52,7 +53,11 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
     this.initializeMimeTypes();
 
     // Bind static method to application
-    (app as any).static = (mountPath: string, rootPath: string, options?: StaticMountOptions) => {
+    (app as any).static = (
+      mountPath: string,
+      rootPath: string,
+      options?: StaticMountOptions
+    ) => {
       this.addMount(mountPath, rootPath, options);
       return app;
     };
@@ -63,14 +68,16 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
   protected async onStart(context: PluginContext): Promise<void> {
     // Pre-cache static files if configured
     await this.preloadFiles();
-    
-    context.logger.info(`Static files plugin started with ${this.mounts.size} mounts`);
+
+    context.logger.info(
+      `Static files plugin started with ${this.mounts.size} mounts`
+    );
   }
 
   protected async onStop(context: PluginContext): Promise<void> {
     // Clear file cache
     this.fileCache.clear();
-    
+
     context.logger.info('Static files plugin stopped');
   }
 
@@ -78,11 +85,15 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
     // Clean up all mounts and cache
     this.mounts.clear();
     this.fileCache.clear();
-    
+
     context.logger.info('Static files plugin uninstalled');
   }
 
-  public override addMount(mountPath: string, rootPath: string, options: StaticMountOptions = {}): void {
+  public override addMount(
+    mountPath: string,
+    rootPath: string,
+    options: StaticMountOptions = {}
+  ): void {
     // Normalize paths
     const normalizedMountPath = this.normalizePath(mountPath);
     const normalizedRootPath = path.resolve(rootPath);
@@ -98,7 +109,7 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
     res: NextRushResponse
   ): Promise<boolean> {
     const requestPath = req.url || '/';
-    
+
     // Find matching mount
     const mount = this.findMount(requestPath);
     if (!mount) {
@@ -118,7 +129,7 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
 
       // Try to serve the file
       const served = await this.serveFile(filePath, mount.options, req, res);
-      
+
       if (!served && mount.options.spa) {
         // SPA fallback - serve index.html
         const indexPath = path.join(mount.rootPath, 'index.html');
@@ -154,7 +165,7 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
       '.woff': 'font/woff',
       '.woff2': 'font/woff2',
       '.ttf': 'font/ttf',
-      '.eot': 'application/vnd.ms-fontobject'
+      '.eot': 'application/vnd.ms-fontobject',
     };
 
     Object.entries(types).forEach(([ext, type]) => {
@@ -202,7 +213,7 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
     try {
       // Check if file exists and get info
       const fileInfo = await this.loadFileInfo(filePath);
-      
+
       if (!fileInfo.stats.isFile()) {
         return false;
       }
@@ -255,7 +266,7 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
       path: filePath,
       stats,
       mimeType,
-      etag
+      etag,
     };
 
     // Cache file info
@@ -312,9 +323,10 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
 
     // Cache control
     if (options.maxAge) {
-      const maxAge = typeof options.maxAge === 'string' 
-        ? parseInt(options.maxAge, 10) 
-        : options.maxAge;
+      const maxAge =
+        typeof options.maxAge === 'string'
+          ? parseInt(options.maxAge, 10)
+          : options.maxAge;
       res.setHeader('Cache-Control', `public, max-age=${maxAge}`);
     }
 
@@ -333,7 +345,7 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
     // Resolve paths and check if file is within root
     const resolvedFilePath = path.resolve(filePath);
     const resolvedRootPath = path.resolve(rootPath);
-    
+
     return resolvedFilePath.startsWith(resolvedRootPath);
   }
 
@@ -346,7 +358,11 @@ export class StaticFilesPlugin extends BaseStaticFilesPlugin {
     return normalized;
   }
 
-  private sendError(res: NextRushResponse, status: number, message: string): void {
+  private sendError(
+    res: NextRushResponse,
+    status: number,
+    message: string
+  ): void {
     if (!res.headersSent) {
       res.writeHead(status, { 'Content-Type': 'text/plain' });
       res.end(message);

@@ -12,7 +12,11 @@ export type TemplatePrimitive = string | number | boolean | null | undefined;
  * Template data structure - can contain primitives, arrays, or nested objects
  */
 export interface TemplateData {
-  [key: string]: TemplatePrimitive | TemplatePrimitive[] | TemplateData | TemplateData[];
+  [key: string]:
+    | TemplatePrimitive
+    | TemplatePrimitive[]
+    | TemplateData
+    | TemplateData[];
 }
 
 /**
@@ -28,7 +32,9 @@ export interface TemplateEngineConfig {
 /**
  * Template helper function type
  */
-export type TemplateHelper = (...args: TemplatePrimitive[]) => TemplatePrimitive;
+export type TemplateHelper = (
+  ...args: TemplatePrimitive[]
+) => TemplatePrimitive;
 
 /**
  * Template rendering options
@@ -44,7 +50,15 @@ export interface TemplateRenderOptions {
  * Template engine interface
  */
 export interface ITemplateEngine {
-  render(template: string, data?: TemplateData, options?: TemplateRenderOptions): string;
-  renderFile(filePath: string, data?: TemplateData, options?: TemplateRenderOptions): Promise<string>;
+  render(
+    template: string,
+    data?: TemplateData,
+    options?: TemplateRenderOptions
+  ): string;
+  renderFile(
+    filePath: string,
+    data?: TemplateData,
+    options?: TemplateRenderOptions
+  ): Promise<string>;
   configure(config: TemplateEngineConfig): void;
 }

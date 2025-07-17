@@ -11,13 +11,16 @@ export { WebSocketComponent } from './websocket/websocket.component';
 
 // Template engine classes
 export {
-  SimpleTemplateEngine,
   AdvancedTemplateEngine,
   MustacheTemplateEngine,
+  SimpleTemplateEngine,
 } from './template/template.component';
 
 // Component types - using proper interfaces
-export type { ExpressRoute, ExpressRouteHandler } from './router/router.component';
+export type {
+  ExpressRoute,
+  ExpressRouteHandler,
+} from './router/router.component';
 export type { StaticOptions } from './static/static-files.component';
 export type {
   NextRushWebSocket,

@@ -3,9 +3,12 @@
  * Defines specific contracts for different types of plugins
  */
 
-import { Plugin, BasePlugin } from '../core/plugin.interface';
-import { NextRushResponse, ExpressHandler as Handler } from '../../types/express';
+import {
+  ExpressHandler as Handler,
+  NextRushResponse,
+} from '../../types/express';
 import { WebSocketHandler } from '../../types/websocket';
+import { BasePlugin, Plugin } from '../core/plugin.interface';
 
 /**
  * Route definition for router plugins
@@ -115,7 +118,11 @@ export interface StaticFilesPlugin extends Plugin {
   /**
    * Add static file mount
    */
-  addMount(mountPath: string, rootPath: string, options?: StaticMountOptions): void;
+  addMount(
+    mountPath: string,
+    rootPath: string,
+    options?: StaticMountOptions
+  ): void;
 
   /**
    * Remove static file mount
@@ -199,7 +206,10 @@ export type TemplateHelper = (...args: unknown[]) => string;
 /**
  * Base Router Plugin Implementation
  */
-export abstract class BaseRouterPlugin extends BasePlugin implements RouterPlugin {
+export abstract class BaseRouterPlugin
+  extends BasePlugin
+  implements RouterPlugin
+{
   protected routes = new Map<string, RouteDefinition>();
 
   public addRoute(definition: RouteDefinition): void {
@@ -227,12 +237,18 @@ export abstract class BaseRouterPlugin extends BasePlugin implements RouterPlugi
 /**
  * Base Middleware Plugin Implementation
  */
-export abstract class BaseMiddlewarePlugin extends BasePlugin implements MiddlewarePlugin {
+export abstract class BaseMiddlewarePlugin
+  extends BasePlugin
+  implements MiddlewarePlugin
+{
   protected options: Record<string, unknown> = {};
 
   public configure(options: Record<string, unknown>): void {
     this.options = { ...this.options, ...options };
-    this.getContext().logger.debug(`Middleware configured with options:`, options);
+    this.getContext().logger.debug(
+      `Middleware configured with options:`,
+      options
+    );
   }
 
   public abstract getMiddleware(): Handler;
@@ -241,7 +257,10 @@ export abstract class BaseMiddlewarePlugin extends BasePlugin implements Middlew
 /**
  * Base WebSocket Plugin Implementation
  */
-export abstract class BaseWebSocketPlugin extends BasePlugin implements WebSocketPlugin {
+export abstract class BaseWebSocketPlugin
+  extends BasePlugin
+  implements WebSocketPlugin
+{
   protected routes = new Map<string, WebSocketRouteDefinition>();
 
   public addRoute(path: string, handler: WebSocketHandler): void {
@@ -266,13 +285,22 @@ export abstract class BaseWebSocketPlugin extends BasePlugin implements WebSocke
 /**
  * Base Static Files Plugin Implementation
  */
-export abstract class BaseStaticFilesPlugin extends BasePlugin implements StaticFilesPlugin {
+export abstract class BaseStaticFilesPlugin
+  extends BasePlugin
+  implements StaticFilesPlugin
+{
   protected mounts = new Map<string, StaticMountDefinition>();
 
-  public addMount(mountPath: string, rootPath: string, options: StaticMountOptions = {}): void {
+  public addMount(
+    mountPath: string,
+    rootPath: string,
+    options: StaticMountOptions = {}
+  ): void {
     const definition: StaticMountDefinition = { mountPath, rootPath, options };
     this.mounts.set(mountPath, definition);
-    this.getContext().logger.debug(`Static mount added: ${mountPath} -> ${rootPath}`);
+    this.getContext().logger.debug(
+      `Static mount added: ${mountPath} -> ${rootPath}`
+    );
   }
 
   public removeMount(mountPath: string): boolean {
@@ -291,7 +319,10 @@ export abstract class BaseStaticFilesPlugin extends BasePlugin implements Static
 /**
  * Base Template Plugin Implementation
  */
-export abstract class BaseTemplatePlugin extends BasePlugin implements TemplatePlugin {
+export abstract class BaseTemplatePlugin
+  extends BasePlugin
+  implements TemplatePlugin
+{
   protected viewsPath?: string | undefined;
   protected options: TemplateEngineOptions = {};
   protected helpers = new Map<string, TemplateHelper>();
@@ -300,14 +331,14 @@ export abstract class BaseTemplatePlugin extends BasePlugin implements TemplateP
   public setViews(path: string, options: TemplateEngineOptions = {}): void {
     this.viewsPath = path;
     this.options = { ...this.options, ...options };
-    
+
     // Register provided helpers and partials
     if (options.helpers) {
       Object.entries(options.helpers).forEach(([name, helper]) => {
         this.registerHelper(name, helper);
       });
     }
-    
+
     if (options.partials) {
       Object.entries(options.partials).forEach(([name, template]) => {
         this.registerPartial(name, template);
@@ -327,5 +358,8 @@ export abstract class BaseTemplatePlugin extends BasePlugin implements TemplateP
     this.getContext().logger.debug(`Template partial registered: ${name}`);
   }
 
-  public abstract render(template: string, data?: Record<string, unknown>): Promise<string>;
+  public abstract render(
+    template: string,
+    data?: Record<string, unknown>
+  ): Promise<string>;
 }

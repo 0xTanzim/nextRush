@@ -4,12 +4,16 @@
  */
 
 import {
+  ExpressHandler as Handler,
+  NextRushRequest,
+  NextRushResponse,
+} from '../../types/express';
+import { PluginContext, PluginMetadata } from '../core/plugin.interface';
+import {
   BaseRouterPlugin,
   RouteDefinition,
-  RouteMatch
+  RouteMatch,
 } from '../types/specialized-plugins';
-import { PluginContext, PluginMetadata } from '../core/plugin.interface';
-import { ExpressHandler as Handler, NextRushRequest, NextRushResponse } from '../../types/express';
 
 /**
  * Route pattern compiler interface
@@ -28,11 +32,12 @@ export class RouterPlugin extends BaseRouterPlugin {
   public readonly metadata: PluginMetadata = {
     name: 'NextRush-Router',
     version: '1.0.0',
-    description: 'Enterprise routing plugin with pattern matching and middleware support',
+    description:
+      'Enterprise routing plugin with pattern matching and middleware support',
     author: 'NextRush Framework',
     category: 'core',
     priority: 100, // High priority - core routing
-    dependencies: []
+    dependencies: [],
   };
 
   private compiledRoutes = new Map<string, CompiledRoute>();
@@ -42,16 +47,25 @@ export class RouterPlugin extends BaseRouterPlugin {
     const app = context.app;
 
     // Bind HTTP methods to the application
-    const httpMethods = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'all'];
-    
-    httpMethods.forEach(method => {
+    const httpMethods = [
+      'get',
+      'post',
+      'put',
+      'delete',
+      'patch',
+      'head',
+      'options',
+      'all',
+    ];
+
+    httpMethods.forEach((method) => {
       (app as any)[method] = (path: string, ...handlers: Handler[]) => {
         this.addRoute({
           method: method.toUpperCase(),
           path,
           handlers,
           middleware: [],
-          options: {}
+          options: {},
         });
         return app;
       };
@@ -69,7 +83,7 @@ export class RouterPlugin extends BaseRouterPlugin {
           path: pathOrHandler,
           handlers: [handler],
           middleware: [],
-          options: {}
+          options: {},
         });
       }
       return app;
@@ -100,7 +114,7 @@ export class RouterPlugin extends BaseRouterPlugin {
 
   public override addRoute(definition: RouteDefinition): void {
     super.addRoute(definition);
-    
+
     // Compile the route immediately for performance
     const key = `${definition.method}:${definition.path}`;
     const compiled = this.compileRoute(definition);
@@ -123,20 +137,23 @@ export class RouterPlugin extends BaseRouterPlugin {
     if (exactRoute) {
       return {
         route: exactRoute.definition,
-        params: {}
+        params: {},
       };
     }
 
     // Try pattern matching
     for (const [, compiled] of this.compiledRoutes) {
-      if (compiled.definition.method !== method.toUpperCase() && compiled.definition.method !== 'ALL') {
+      if (
+        compiled.definition.method !== method.toUpperCase() &&
+        compiled.definition.method !== 'ALL'
+      ) {
         continue;
       }
 
       const match = compiled.pattern.exec(path);
       if (match) {
         const params: Record<string, string> = {};
-        
+
         // Extract parameters
         compiled.paramNames.forEach((name, index) => {
           params[name] = match[index + 1] || '';
@@ -144,7 +161,7 @@ export class RouterPlugin extends BaseRouterPlugin {
 
         return {
           route: compiled.definition,
-          params
+          params,
         };
       }
     }
@@ -196,14 +213,14 @@ export class RouterPlugin extends BaseRouterPlugin {
 
     // Execute middleware and handlers
     let currentIndex = 0;
-    
+
     const next = async (): Promise<void> => {
       if (currentIndex >= handlers.length) {
         return;
       }
 
       const handler = handlers[currentIndex++];
-      
+
       try {
         // Convert Express-style to context-style if needed
         if (this.isExpressStyleHandler(handler)) {
@@ -227,7 +244,7 @@ export class RouterPlugin extends BaseRouterPlugin {
   // Private methods
   private compileRoutes(): void {
     this.compiledRoutes.clear();
-    
+
     for (const [key, route] of this.routes) {
       const compiled = this.compileRoute(route);
       this.compiledRoutes.set(key, compiled);
@@ -256,7 +273,7 @@ export class RouterPlugin extends BaseRouterPlugin {
     return {
       pattern: regex,
       paramNames,
-      definition
+      definition,
     };
   }
 
@@ -271,18 +288,22 @@ export class RouterPlugin extends BaseRouterPlugin {
     res: NextRushResponse,
     next: () => Promise<void>
   ): Promise<void> {
-    const expressHandler = handler as (req: NextRushRequest, res: NextRushResponse, next: () => void) => void | Promise<void>;
-    
+    const expressHandler = handler as (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => void | Promise<void>;
+
     let nextCalled = false;
     const nextWrapper = () => {
       nextCalled = true;
-      next().catch(error => {
+      next().catch((error) => {
         this.getContext().logger.error('Next middleware error:', error);
       });
     };
 
     const result = expressHandler(req, res, nextWrapper);
-    
+
     if (result instanceof Promise) {
       await result;
     }
@@ -299,8 +320,11 @@ export class RouterPlugin extends BaseRouterPlugin {
     res: NextRushResponse,
     next: () => Promise<void>
   ): Promise<void> {
-    const contextHandler = handler as unknown as (context: any, next: () => void) => void | Promise<void>;
-    
+    const contextHandler = handler as unknown as (
+      context: any,
+      next: () => void
+    ) => void | Promise<void>;
+
     const context = {
       request: req,
       response: res,
@@ -310,19 +334,19 @@ export class RouterPlugin extends BaseRouterPlugin {
       headers: req.headers,
       cookies: (req as any).cookies || {},
       session: (req as any).session,
-      user: (req as any).user
+      user: (req as any).user,
     };
 
     let nextCalled = false;
     const nextWrapper = () => {
       nextCalled = true;
-      next().catch(error => {
+      next().catch((error) => {
         this.getContext().logger.error('Next middleware error:', error);
       });
     };
 
     const result = contextHandler(context, nextWrapper);
-    
+
     if (result instanceof Promise) {
       await result;
     }

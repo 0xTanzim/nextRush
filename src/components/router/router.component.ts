@@ -1,7 +1,7 @@
 /**
  * 🚀 Router Component - SOLID Architecture Implementation
  * Handles all HTTP routing with Express.js compatibility
- * 
+ *
  * SOLID Principles Applied:
  * - Single Responsibility: Only handles routing logic
  * - Open/Closed: Extensible for new HTTP methods
@@ -11,12 +11,16 @@
  */
 
 import { IncomingMessage, ServerResponse } from 'http';
-import { BaseComponent } from '../../core/base-component';
+import { BaseComponent } from '../../core/app/base-component';
 import { MinimalApplication } from '../../core/interfaces';
 import { ComponentErrorFactory } from '../../types/component-errors';
-import { Path, RouteHandler as NextRushRouteHandler, MiddlewareHandler } from '../../types/routing';
 import { ExpressHandler, ExpressMiddleware } from '../../types/express';
 import { RequestContext } from '../../types/http';
+import {
+  MiddlewareHandler,
+  RouteHandler as NextRushRouteHandler,
+  Path,
+} from '../../types/routing';
 
 /**
  * Express-style route handler for internal use
@@ -40,7 +44,7 @@ export interface ExpressRoute {
  * Router Component - SOLID Implementation
  */
 export class RouterComponent extends BaseComponent {
-  readonly name = 'Router';
+  override readonly name = 'Router';
   private routes: ExpressRoute[] = [];
   private globalMiddleware: ExpressRouteHandler[] = [];
 
@@ -67,12 +71,26 @@ export class RouterComponent extends BaseComponent {
    */
   private installHttpMethods(app: MinimalApplication): void {
     const methods = [
-      'get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'all'
+      'get',
+      'post',
+      'put',
+      'delete',
+      'patch',
+      'head',
+      'options',
+      'all',
     ] as const;
 
     methods.forEach((method) => {
       // Create adapter function that converts Express handlers to NextRush handlers
-      (app as any)[method] = (path: Path, ...handlers: (ExpressHandler | MiddlewareHandler | NextRushRouteHandler)[]) => {
+      (app as any)[method] = (
+        path: Path,
+        ...handlers: (
+          | ExpressHandler
+          | MiddlewareHandler
+          | NextRushRouteHandler
+        )[]
+      ) => {
         // Convert handlers and route to internal format
         const expressHandlers = this.convertToExpressHandlers(handlers);
         this.addRoute(method.toUpperCase(), String(path), expressHandlers);
@@ -114,15 +132,23 @@ export class RouterComponent extends BaseComponent {
   /**
    * Convert NextRush handlers to Express-style handlers (Adapter Pattern)
    */
-  private convertToExpressHandlers(handlers: (ExpressHandler | MiddlewareHandler | NextRushRouteHandler)[]): ExpressRouteHandler[] {
-    return handlers.map(handler => this.convertHandlerToExpress(handler));
+  private convertToExpressHandlers(
+    handlers: (ExpressHandler | MiddlewareHandler | NextRushRouteHandler)[]
+  ): ExpressRouteHandler[] {
+    return handlers.map((handler) => this.convertHandlerToExpress(handler));
   }
 
   /**
    * Convert individual handler to Express-style (Adapter Pattern)
    */
-  private convertHandlerToExpress(handler: ExpressHandler | MiddlewareHandler | NextRushRouteHandler): ExpressRouteHandler {
-    return (req: IncomingMessage, res: ServerResponse, next: (error?: Error) => void): void | Promise<void> => {
+  private convertHandlerToExpress(
+    handler: ExpressHandler | MiddlewareHandler | NextRushRouteHandler
+  ): ExpressRouteHandler {
+    return (
+      req: IncomingMessage,
+      res: ServerResponse,
+      next: (error?: Error) => void
+    ): void | Promise<void> => {
       try {
         // Check if it's an ExpressHandler (2 params)
         if (handler.length === 2) {
@@ -133,15 +159,15 @@ export class RouterComponent extends BaseComponent {
           next();
           return;
         }
-        
+
         // If it's an ExpressMiddleware (3 params)
         if (handler.length === 3) {
           return (handler as ExpressMiddleware)(req as any, res as any, next);
         }
-        
+
         // If it's a NextRush handler, create a context and adapt
         const context: RequestContext = this.createRequestContext(req, res);
-        
+
         // NextRushRouteHandler (1 param)
         const result = (handler as NextRushRouteHandler)(context);
         if (result && typeof result.then === 'function') {
@@ -157,16 +183,22 @@ export class RouterComponent extends BaseComponent {
   /**
    * Create NextRush RequestContext from Express req/res (Adapter Pattern)
    */
-  private createRequestContext(req: IncomingMessage, res: ServerResponse): RequestContext {
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-    
+  private createRequestContext(
+    req: IncomingMessage,
+    res: ServerResponse
+  ): RequestContext {
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
+
     return {
       request: req as any, // Cast to NextRushRequest
-      response: res as any, // Cast to NextRushResponse  
+      response: res as any, // Cast to NextRushResponse
       params: {},
       query: Object.fromEntries(url.searchParams),
       body: {},
-      startTime: Date.now()
+      startTime: Date.now(),
     };
   }
 
@@ -220,7 +252,10 @@ export class RouterComponent extends BaseComponent {
       // Execute route handler
       await this.executeHandler(route.handler, req, res);
     } catch (error) {
-      this.handleError(error instanceof Error ? error : new Error(String(error)), res);
+      this.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        res
+      );
     }
   }
 
@@ -300,9 +335,9 @@ export class RouterComponent extends BaseComponent {
       'ROUTE_EXECUTION_ERROR',
       { statusCode: 500 }
     );
-    
+
     this.log('error', `Router error: ${routerError.message}`, routerError);
-    
+
     if (!res.headersSent) {
       res.statusCode = routerError.statusCode || 500;
       res.setHeader('Content-Type', 'text/plain');
