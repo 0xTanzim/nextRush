@@ -76,7 +76,7 @@ export class RouteManager {
    * Remove a route by ID
    */
   removeRoute(routeId: string): boolean {
-    for (const [method, routes] of this.routes.entries()) {
+    for (const [method, routes] of Array.from(this.routes.entries())) {
       const index = routes.findIndex((route) => route.id === routeId);
       if (index !== -1) {
         routes.splice(index, 1);
@@ -119,7 +119,7 @@ export class RouteManager {
     }
 
     const allRoutes: Route[] = [];
-    for (const routes of this.routes.values()) {
+    for (const routes of Array.from(this.routes.values())) {
       allRoutes.push(...routes);
     }
     return allRoutes;
@@ -136,7 +136,7 @@ export class RouteManager {
     const routesByMethod = {} as Record<HttpMethod, number>;
     let totalRoutes = 0;
 
-    for (const [method, routes] of this.routes.entries()) {
+    for (const [method, routes] of Array.from(this.routes.entries())) {
       routesByMethod[method as HttpMethod] = routes.length;
       totalRoutes += routes.length;
     }

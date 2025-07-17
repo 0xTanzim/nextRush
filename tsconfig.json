@@ -28,6 +28,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "exactOptionalPropertyTypes": true,
+    "downlevelIteration": true,
     "noImplicitOverride": true,
     "useDefineForClassFields": true
   },
