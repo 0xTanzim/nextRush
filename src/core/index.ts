@@ -2,7 +2,7 @@
  * Core framework exports
  */
 
-export * from './application';
+export * from './app/application';
 
 // Re-export legacy interfaces for backward compatibility
 export * from './interfaces';

@@ -2,7 +2,7 @@
  * Request enhancer - converts Node.js IncomingMessage to Express-style request
  * Enhanced with comprehensive request handling capabilities
  */
-import * as crypto from 'crypto';
+
 import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
 import { NextRushRequest } from '../../types/express';
@@ -16,127 +16,121 @@ export class RequestEnhancer {
     enhanced.query = parsed.query;
     enhanced.pathname = parsed.pathname || '/';
     enhanced.path = enhanced.pathname;
-    enhanced.originalUrl = enhanced.url || '';
+    enhanced.originalUrl = enhanced.url || '/';
 
-    // Initialize params and body
-    enhanced.params = {};
-    enhanced.body = null;
+    // Initialize empty params if not set
+    if (!enhanced.params) {
+      enhanced.params = {};
+    }
 
-    // 🚀 NEW: Initialize enhanced properties
-    enhanced.files = {};
-    enhanced.cookies = {};
-    enhanced.session = {};
-    enhanced.locals = {};
-
-    // Basic helper methods
+    // Add utility methods
     enhanced.param = function (name: string): string | undefined {
-      return this.params[name];
+      return this.params?.[name];
     };
 
-    enhanced.header = enhanced.get = function (
-      name: string
-    ): string | undefined {
-      const key = name.toLowerCase();
-      const headers = this.headers;
-      return headers[key] as string | undefined;
+    enhanced.header = function (name: string): string | undefined {
+      return this.headers[name.toLowerCase()] as string;
     };
 
-    // 🚀 NEW: Enhanced request methods
+    enhanced.get = enhanced.header; // Alias
 
-    // Get request IP address with proxy support
     enhanced.ip = function (): string {
       return (
-        this.header('x-forwarded-for')?.split(',')[0] ||
-        this.header('x-real-ip') ||
-        this.connection.remoteAddress ||
-        this.socket.remoteAddress ||
-        '127.0.0.1'
+        (this.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+        this.connection?.remoteAddress ||
+        this.socket?.remoteAddress ||
+        'unknown'
       );
     };
 
-    // Check if request is secure (HTTPS)
     enhanced.secure = function (): boolean {
       return (
-        (this.connection as any).encrypted ||
-        this.header('x-forwarded-proto') === 'https'
+        this.headers['x-forwarded-proto'] === 'https' ||
+        (this.connection as any)?.encrypted === true
       );
     };
 
-    // Get protocol (http/https)
     enhanced.protocol = function (): string {
       return this.secure() ? 'https' : 'http';
     };
 
-    // Get hostname
     enhanced.hostname = function (): string {
-      return this.header('host')?.split(':')[0] || 'localhost';
+      return (this.headers.host as string)?.split(':')[0] || 'localhost';
     };
 
-    // Get full URL
     enhanced.fullUrl = function (): string {
-      return `${this.protocol()}://${this.header('host')}${this.originalUrl}`;
+      return `${this.protocol()}://${this.headers.host}${this.originalUrl}`;
     };
 
-    // Check request type
+    // 🚀 NEW: Advanced features
     enhanced.is = function (type: string): boolean {
-      const contentType = this.header('content-type') || '';
-      const typeMap: Record<string, string[]> = {
+      const contentType = this.headers['content-type'] as string;
+      if (!contentType) return false;
+
+      const types: Record<string, string[]> = {
         json: ['application/json'],
-        xml: ['application/xml', 'text/xml'],
-        html: ['text/html'],
-        text: ['text/plain'],
         form: ['application/x-www-form-urlencoded'],
+        text: ['text/plain'],
+        html: ['text/html'],
+        xml: ['application/xml', 'text/xml'],
         multipart: ['multipart/form-data'],
       };
 
-      const types = typeMap[type.toLowerCase()] || [type.toLowerCase()];
-      return types.some((t) => contentType.toLowerCase().includes(t));
+      const matchTypes = types[type] || [type];
+      return matchTypes.some((t) => contentType.includes(t));
     };
 
-    // Check if request accepts certain content types
     enhanced.accepts = function (types: string | string[]): string | false {
-      const acceptHeader = this.header('accept') || '*/*';
-      const typeArray = Array.isArray(types) ? types : [types];
+      const accept = this.headers.accept as string;
+      if (!accept) return false;
 
+      const typeArray = Array.isArray(types) ? types : [types];
       for (const type of typeArray) {
-        if (acceptHeader.includes(type) || acceptHeader.includes('*/*')) {
+        if (accept.includes(type)) {
           return type;
         }
       }
       return false;
     };
 
-    // 🚀 NEW: Cookie parsing
-    enhanced.parseCookies = function (): Record<string, string> {
-      const cookieHeader = this.header('cookie');
-      if (!cookieHeader) return {};
+    // Add fresh/stale as properties using getters
+    Object.defineProperty(enhanced, 'fresh', {
+      get: function () {
+        const method = this.method;
+        const status = (this as any).res?.statusCode;
 
-      const cookies: Record<string, string> = {};
-      cookieHeader.split(';').forEach((cookie) => {
-        const [name, value] = cookie.trim().split('=');
-        if (name && value) {
-          cookies[name] = decodeURIComponent(value);
+        // GET or HEAD for success responses
+        if (method !== 'GET' && method !== 'HEAD') return false;
+        if ((status >= 200 && status < 300) || status === 304) {
+          return (
+            this.headers['if-none-match'] === (this as any).res?.getHeader('etag')
+          );
         }
-      });
+        return false;
+      },
+      configurable: true
+    });
 
-      return cookies;
-    };
+    Object.defineProperty(enhanced, 'stale', {
+      get: function () {
+        return !this.fresh;
+      },
+      configurable: true
+    });
 
-    // Parse cookies automatically
-    enhanced.cookies = enhanced.parseCookies();
-
-    // 🚀 NEW: Input validation helpers
-    enhanced.validate = function (
-      rules: Record<string, ValidationRule>
-    ): ValidationResult {
+    // 🚀 NEW: Validation methods
+    enhanced.validate = function (rules: Record<string, any>): {
+      isValid: boolean;
+      errors: Record<string, string[]>;
+      sanitized: Record<string, any>;
+    } {
       const errors: Record<string, string[]> = {};
       const sanitized: Record<string, any> = {};
 
       for (const [field, rule] of Object.entries(rules)) {
-        const value = this.body?.[field] || this.query[field];
+        const value = this.body?.[field];
         const fieldErrors: string[] = [];
 
-        // Required validation
         if (
           rule.required &&
           (value === undefined || value === null || value === '')
@@ -144,123 +138,92 @@ export class RequestEnhancer {
           fieldErrors.push(`${field} is required`);
         }
 
-        if (value !== undefined && value !== null && value !== '') {
-          // Type validation
-          if (rule.type) {
-            if (rule.type === 'email' && !this.isValidEmail(value)) {
-              fieldErrors.push(`${field} must be a valid email`);
-            }
-            if (rule.type === 'number' && isNaN(Number(value))) {
-              fieldErrors.push(`${field} must be a number`);
-            }
-            if (rule.type === 'url' && !this.isValidUrl(value)) {
-              fieldErrors.push(`${field} must be a valid URL`);
-            }
+        if (value && rule.type) {
+          switch (rule.type) {
+            case 'email':
+              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                fieldErrors.push(`${field} must be a valid email`);
+              }
+              break;
+            case 'number':
+              if (isNaN(Number(value))) {
+                fieldErrors.push(`${field} must be a number`);
+              }
+              break;
+            case 'string':
+              if (typeof value !== 'string') {
+                fieldErrors.push(`${field} must be a string`);
+              }
+              break;
           }
+        }
 
-          // Length validation
-          if (rule.minLength && value.length < rule.minLength) {
-            fieldErrors.push(
-              `${field} must be at least ${rule.minLength} characters`
-            );
-          }
-          if (rule.maxLength && value.length > rule.maxLength) {
-            fieldErrors.push(
-              `${field} must not exceed ${rule.maxLength} characters`
-            );
-          }
+        if (value && rule.minLength && value.length < rule.minLength) {
+          fieldErrors.push(`${field} must be at least ${rule.minLength} characters`);
+        }
 
-          // Custom validation
-          if (rule.custom && !rule.custom(value)) {
-            fieldErrors.push(rule.message || `${field} is invalid`);
-          }
-
-          // Sanitize value
-          sanitized[field] = this.sanitizeValue(value, rule);
+        if (value && rule.maxLength && value.length > rule.maxLength) {
+          fieldErrors.push(`${field} must be at most ${rule.maxLength} characters`);
         }
 
         if (fieldErrors.length > 0) {
           errors[field] = fieldErrors;
         }
+
+        // Add to sanitized data
+        if (value !== undefined) {
+          sanitized[field] = value;
+        }
       }
 
-      return {
-        isValid: Object.keys(errors).length === 0,
+      return { 
+        isValid: Object.keys(errors).length === 0, 
         errors,
-        sanitized,
+        sanitized
       };
     };
 
-    // 🚀 NEW: Input sanitization
-    enhanced.sanitize = function (
-      value: any,
-      options: SanitizeOptions = {}
-    ): any {
-      if (typeof value !== 'string') return value;
-
-      let sanitized = value;
-
-      if (options.trim !== false) {
-        sanitized = sanitized.trim();
+    // 🚀 NEW: Sanitization methods
+    enhanced.sanitize = function (options: any = {}): void {
+      if (this.body && typeof this.body === 'object') {
+        this.body = this.sanitizeObject(this.body, options);
       }
+    };
 
-      if (options.escape) {
-        sanitized = sanitized
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#x27;');
+    enhanced.sanitizeObject = function (obj: any, options: any = {}): any {
+      if (!obj || typeof obj !== 'object') return obj;
+      
+      const sanitized: any = Array.isArray(obj) ? [] : {};
+      
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string') {
+          // Basic sanitization
+          sanitized[key] = value
+            .replace(/[<>]/g, '') // Remove potential HTML
+            .trim(); // Trim whitespace
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = this.sanitizeObject(value, options);
+        } else {
+          sanitized[key] = value;
+        }
       }
-
-      if (options.lowercase) {
-        sanitized = sanitized.toLowerCase();
-      }
-
-      if (options.uppercase) {
-        sanitized = sanitized.toUpperCase();
-      }
-
-      if (options.removeHtml) {
-        sanitized = sanitized.replace(/<[^>]*>/g, '');
-      }
-
-      if (options.removeSpecialChars) {
-        sanitized = sanitized.replace(/[^a-zA-Z0-9\s]/g, '');
-      }
-
+      
       return sanitized;
     };
 
     // 🚀 NEW: Rate limiting info
-    enhanced.rateLimit = function (): RateLimitInfo {
+    enhanced.rateLimit = function (): any {
       return {
-        limit: parseInt(this.header('x-ratelimit-limit') || '0'),
-        remaining: parseInt(this.header('x-ratelimit-remaining') || '0'),
-        reset: parseInt(this.header('x-ratelimit-reset') || '0'),
-        retryAfter: parseInt(this.header('retry-after') || '0'),
+        limit: parseInt(this.headers['x-ratelimit-limit'] as string) || 0,
+        remaining:
+          parseInt(this.headers['x-ratelimit-remaining'] as string) || 0,
+        reset: parseInt(this.headers['x-ratelimit-reset'] as string) || 0,
       };
     };
 
-    // 🚀 NEW: Request fingerprinting
-    enhanced.fingerprint = function (): string {
-      const data = [
-        this.ip(),
-        this.header('user-agent') || '',
-        this.header('accept-language') || '',
-        this.header('accept-encoding') || '',
-      ].join('|');
-
-      return crypto
-        .createHash('sha256')
-        .update(data)
-        .digest('hex')
-        .substring(0, 16);
-    };
-
     // 🚀 NEW: User agent parsing
-    enhanced.userAgent = function (): UserAgentInfo {
-      const ua = this.header('user-agent') || '';
+    enhanced.userAgent = function (): any {
+      const ua = (this.headers['user-agent'] as string) || '';
 
       return {
         raw: ua,
@@ -272,38 +235,6 @@ export class RequestEnhancer {
       };
     };
 
-    // 🚀 NEW: Request timing
-    enhanced.startTime = Date.now();
-    enhanced.timing = function (): RequestTiming {
-      return {
-        start: this.startTime,
-        duration: Date.now() - this.startTime,
-        timestamp: new Date().toISOString(),
-      };
-    };
-
-    // Helper methods for validation
-    enhanced.isValidEmail = function (email: string): boolean {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    };
-
-    enhanced.isValidUrl = function (url: string): boolean {
-      try {
-        new URL(url);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    enhanced.sanitizeValue = function (value: any, rule: ValidationRule): any {
-      if (rule.sanitize) {
-        return this.sanitize(value, rule.sanitize);
-      }
-      return value;
-    };
-
-    // User agent parsing helpers
     enhanced.parseBrowser = function (ua: string): string {
       if (ua.includes('Chrome')) return 'Chrome';
       if (ua.includes('Firefox')) return 'Firefox';
@@ -314,7 +245,7 @@ export class RequestEnhancer {
 
     enhanced.parseOS = function (ua: string): string {
       if (ua.includes('Windows')) return 'Windows';
-      if (ua.includes('Mac OS')) return 'macOS';
+      if (ua.includes('Mac')) return 'macOS';
       if (ua.includes('Linux')) return 'Linux';
       if (ua.includes('Android')) return 'Android';
       if (ua.includes('iOS')) return 'iOS';
@@ -336,54 +267,17 @@ export class RequestEnhancer {
       return /Mobile|Android|iPhone|iPad/.test(ua);
     };
 
+    // 🚀 NEW: Request timing
+    enhanced.getRequestTiming = function (): any {
+      return {
+        startTime: (this as any)._startTime || Date.now(),
+        duration: Date.now() - ((this as any)._startTime || Date.now())
+      };
+    };
+
+    // Set start time
+    (enhanced as any)._startTime = Date.now();
+
     return enhanced;
   }
-}
-
-// 🚀 NEW: Type definitions for enhanced request features
-export interface ValidationRule {
-  required?: boolean;
-  type?: 'string' | 'number' | 'email' | 'url' | 'boolean';
-  minLength?: number;
-  maxLength?: number;
-  custom?: (value: any) => boolean;
-  message?: string;
-  sanitize?: SanitizeOptions;
-}
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors: Record<string, string[]>;
-  sanitized: Record<string, any>;
-}
-
-export interface SanitizeOptions {
-  trim?: boolean;
-  escape?: boolean;
-  lowercase?: boolean;
-  uppercase?: boolean;
-  removeHtml?: boolean;
-  removeSpecialChars?: boolean;
-}
-
-export interface RateLimitInfo {
-  limit: number;
-  remaining: number;
-  reset: number;
-  retryAfter: number;
-}
-
-export interface UserAgentInfo {
-  raw: string;
-  browser: string;
-  os: string;
-  device: string;
-  isBot: boolean;
-  isMobile: boolean;
-}
-
-export interface RequestTiming {
-  start: number;
-  duration: number;
-  timestamp: string;
 }

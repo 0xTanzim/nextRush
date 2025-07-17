@@ -86,18 +86,24 @@ export interface NextRushRequest extends IncomingMessage {
   is(type: string): boolean;
   accepts(types: string | string[]): string | false;
 
+  // Fresh/stale properties
+  fresh: boolean;
+  stale: boolean;
+
   // Cookie methods
   parseCookies(): Record<string, string>;
 
   // Validation and sanitization
   validate(rules: Record<string, ValidationRule>): ValidationResult;
   sanitize(value: any, options?: SanitizeOptions): any;
+  sanitizeObject(obj: any, options?: any): any;
 
   // Utility methods
   rateLimit(): RateLimitInfo;
   fingerprint(): string;
   userAgent(): UserAgentInfo;
   timing(): RequestTiming;
+  getRequestTiming(): any;
 
   // Helper validation methods
   isValidEmail(email: string): boolean;
@@ -188,6 +194,9 @@ export interface NextRushResponse extends ServerResponse {
 
   // Template rendering
   render(template: string, data?: any): void;
+
+  // Content type utilities
+  getContentTypeFromExtension(ext: string): string;
 
   // 🚀 Template helper methods
   getNestedValue(obj: any, path: string): any;

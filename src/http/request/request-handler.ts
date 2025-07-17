@@ -1,15 +1,18 @@
 /**
  * Request handler - processes incoming HTTP requests
  */
+
 import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
-import { AsyncHandler } from '../../types/common';
-import { ParsedRequest, RequestParsingOptions } from '../../types/http';
+import { ParsedRequest } from '../../types/http';
 import { BodyParser } from './body-parser';
 
-export class RequestHandler
-  implements AsyncHandler<IncomingMessage, ParsedRequest>
-{
+export interface RequestParsingOptions {
+  parseBody?: boolean;
+  bodyParser?: BodyParser;
+}
+
+export class RequestHandler {
   private bodyParser: BodyParser;
 
   constructor(bodyParser?: BodyParser) {
@@ -22,17 +25,14 @@ export class RequestHandler
     // Parse body for methods that typically have body content
     if (this.shouldParseBody(parsedRequest)) {
       try {
-        const bodyResult = await this.bodyParser.handle(parsedRequest);
-        parsedRequest.body = bodyResult.parsed;
+        const bodyData = await this.bodyParser.handle(parsedRequest);
+        parsedRequest.body = bodyData.parsed;
       } catch (error) {
-        // For GET requests and other methods without body, ignore body parsing errors
-        if (this.requiresBody(parsedRequest)) {
-          throw error;
-        }
-        parsedRequest.body = null;
+        console.warn('Body parsing failed:', error);
+        parsedRequest.body = {};
       }
     } else {
-      parsedRequest.body = null;
+      parsedRequest.body = {};
     }
 
     return parsedRequest;
@@ -46,12 +46,12 @@ export class RequestHandler
 
     // Parse URL and query parameters
     const parsed = parseUrl(enhanced.url || '', true);
-    enhanced.query = parsed.query;
     enhanced.pathname = parsed.pathname || '/';
-    enhanced.originalUrl = enhanced.url || '';
-
-    // Initialize empty params (will be set by router)
+    enhanced.query = parsed.query;
     enhanced.params = {};
+
+    // Add original URL
+    enhanced.originalUrl = enhanced.url || '/';
 
     return enhanced;
   }
@@ -66,21 +66,9 @@ export class RequestHandler
       10
     );
 
-    // Always try to parse if there's content
-    if (contentLength > 0) {
-      return true;
-    }
-
-    // Parse for methods that typically have bodies
-    return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method || '');
-  }
-
-  /**
-   * Determine if the request method requires a body
-   */
-  private requiresBody(request: ParsedRequest): boolean {
-    const method = request.method?.toUpperCase();
-    return ['POST', 'PUT', 'PATCH'].includes(method || '');
+    // Only parse body for methods that typically have body content
+    const methodsWithBody = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    return methodsWithBody.includes(method || '') && contentLength > 0;
   }
 
   /**
@@ -90,21 +78,20 @@ export class RequestHandler
     request: IncomingMessage,
     options: RequestParsingOptions = {}
   ): Promise<ParsedRequest> {
-    const enhanced = this.enhanceRequest(request);
+    const parsedRequest = this.enhanceRequest(request);
 
-    if (options.parseBody && this.shouldParseBody(enhanced)) {
+    if (options.parseBody !== false && this.shouldParseBody(parsedRequest)) {
+      const parser = options.bodyParser || this.bodyParser;
       try {
-        const bodyResult = await this.bodyParser.handle(enhanced);
-        enhanced.body = bodyResult.parsed;
+        const bodyData = await parser.handle(parsedRequest);
+        parsedRequest.body = bodyData.parsed;
       } catch (error) {
-        if (this.requiresBody(enhanced)) {
-          throw error;
-        }
-        enhanced.body = null;
+        console.warn('Body parsing failed:', error);
+        parsedRequest.body = {};
       }
     }
 
-    return enhanced;
+    return parsedRequest;
   }
 
   /**

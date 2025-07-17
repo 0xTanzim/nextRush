@@ -1,9 +1,9 @@
 /**
  * Router - handles route registration and request routing
  */
-import { MethodNotAllowedError, NotFoundError } from '../errors';
 import { RequestEnhancer } from '../http/request/request-enhancer';
 import { ResponseEnhancer } from '../http/response/response-enhancer';
+import { MethodNotAllowedError, NotFoundError } from '../errors';
 import {
   ExpressHandler,
   ExpressMiddleware,
