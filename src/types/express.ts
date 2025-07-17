@@ -65,9 +65,11 @@ export interface NextRushRequest extends IncomingMessage {
   // 🚀 NEW: Enhanced request properties
   files: Record<string, any>;
   cookies: Record<string, string>;
+  signedCookies?: Record<string, string>;
   session: Record<string, any>;
   locals: Record<string, any>;
   startTime: number;
+  id?: string; // Request ID
 
   // Middleware debugging support
   middlewareStack?: string[];
