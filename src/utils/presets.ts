@@ -8,7 +8,7 @@ export function defaultPreset() {
     json: { limit: '10mb' },
     urlencoded: { extended: true, limit: '10mb' },
     static: true,
-    compression: true
+    compression: true,
   };
 }
 
@@ -17,13 +17,13 @@ export function apiPreset() {
     cors: {
       origin: true,
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     },
     json: { limit: '1mb' },
     rateLimit: {
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100 // limit each IP to 100 requests per windowMs
-    }
+      max: 100, // limit each IP to 100 requests per windowMs
+    },
   };
 }
 
@@ -35,8 +35,8 @@ export function webappPreset() {
     session: {
       secret: 'your-secret-key',
       resave: false,
-      saveUninitialized: false
-    }
+      saveUninitialized: false,
+    },
   };
 }
 
@@ -45,12 +45,12 @@ export function securityPreset() {
     helmet: true,
     cors: {
       origin: false,
-      credentials: false
+      credentials: false,
     },
     rateLimit: {
       windowMs: 15 * 60 * 1000,
-      max: 50
+      max: 50,
     },
-    compression: false
+    compression: false,
   };
 }

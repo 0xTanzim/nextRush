@@ -3,15 +3,15 @@
  * SOLID-compliant component for enhancing request objects
  */
 
+import { BaseComponent } from '../../core/app/base-component';
 import type { MinimalApplication } from '../../core/interfaces';
-import { BaseComponent } from '../../core/base-component';
 import type { NextRushRequest } from '../../types/express';
 
 /**
  * Request Enhancer Component - Enhances request objects with additional methods
  */
 export class RequestEnhancerComponent extends BaseComponent {
-  readonly name = 'RequestEnhancer';
+  override readonly name = 'RequestEnhancer';
 
   constructor() {
     super('RequestEnhancer');

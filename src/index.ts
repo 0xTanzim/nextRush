@@ -1,12 +1,12 @@
 /**
  * 🚀 NextRush Framework - Modern Express.js Alternative
- * 
+ *
  * Entry point for the NextRush framework with complete type safety,
  * smart routing, proper overloads, and zero 'any' usage.
- * 
+ *
  * Features:
  * - Full HTTP method overloads for middleware combinations
- * - Smart routing with createRoute functionality  
+ * - Smart routing with createRoute functionality
  * - Express.js compatibility with enhanced type safety
  * - Plugin-based architecture for extensibility
  */
@@ -16,13 +16,19 @@
 // ============================================================================
 
 export { Application } from './core/app/application';
-export type { ApplicationOptions, RouteDefinition, StaticOptions } from './core/app/application';
+export type {
+  ApplicationOptions,
+  RouteDefinition,
+  StaticOptions,
+} from './core/app/application';
 
 // ============================================================================
 // 🎯 CREATE APP FACTORY FUNCTION
 // ============================================================================
 
 import { Application, ApplicationOptions } from './core/app/application';
+import { Router } from './routing/router';
+import type { RouterOptions } from './types/routing';
 
 /**
  * Create a new NextRush application with full type safety
@@ -37,8 +43,6 @@ export function createApp(options: ApplicationOptions = {}): Application {
 
 export { Router } from './routing/router';
 export type { RouterOptions } from './types/routing';
-import { Router } from './routing/router';
-import type { RouterOptions } from './types/routing';
 
 /**
  * Create a new router instance
@@ -53,27 +57,24 @@ export function createRouter(options?: RouterOptions): Router {
 
 // Express-style types (familiar API)
 export type {
+  ExpressHandler,
+  ExpressMiddleware,
   NextRushRequest,
   NextRushResponse,
-  ExpressHandler,
-  ExpressMiddleware
 } from './types/express';
 
 // Context-style types
 export type {
-  RequestContext,
-  RouteHandler,
-  MiddlewareHandler,
   HttpMethod,
+  MiddlewareHandler,
   Path,
-  Route
+  RequestContext,
+  Route,
+  RouteHandler,
 } from './types/routing';
 
 // HTTP types
-export type {
-  ParsedRequest,
-  ParsedResponse
-} from './types/http';
+export type { ParsedRequest, ParsedResponse } from './types/http';
 
 // ============================================================================
 // 🎯 COMPONENT EXPORTS
@@ -88,23 +89,23 @@ export type { Lifecycle } from './core/types/interfaces';
 // 🎯 ERROR HANDLING EXPORTS
 // ============================================================================
 
-export { ErrorHandler } from './errors/error-handler';
 export {
+  InternalServerError,
+  MethodNotAllowedError,
   NextRushError,
   NotFoundError,
-  MethodNotAllowedError,
   ValidationError,
-  InternalServerError
 } from './errors/custom-errors';
+export { ErrorHandler } from './errors/error-handler';
 
 // ============================================================================
 // 🎯 UTILITY EXPORTS
 // ============================================================================
 
-export { compose, pipe, curry, debounce, throttle } from './utils/built-in';
+export { compose, curry, debounce, pipe, throttle } from './utils/built-in';
 
 // ============================================================================
-// 🎯 MIDDLEWARE EXPORTS  
+// 🎯 MIDDLEWARE EXPORTS
 // ============================================================================
 
 // Middleware utilities

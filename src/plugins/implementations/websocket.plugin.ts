@@ -1,15 +1,15 @@
 /**
- * 🌐 WebSocket Plugin - Enterprise WebSocket Implementation  
+ * 🌐 WebSocket Plugin - Enterprise WebSocket Implementation
  * High-performance WebSocket server with routing and middleware support
  */
 
+import { IncomingMessage } from 'http';
+import { WebSocketHandler } from '../../types/websocket';
+import { PluginContext, PluginMetadata } from '../core/plugin.interface';
 import {
   BaseWebSocketPlugin,
-  WebSocketRouteDefinition
+  WebSocketRouteDefinition,
 } from '../types/specialized-plugins';
-import { PluginContext, PluginMetadata } from '../core/plugin.interface';
-import { WebSocketHandler } from '../../types/websocket';
-import { IncomingMessage } from 'http';
 
 /**
  * WebSocket connection interface
@@ -37,12 +37,13 @@ interface WebSocketRouteMatch {
 export class WebSocketPlugin extends BaseWebSocketPlugin {
   public readonly metadata: PluginMetadata = {
     name: 'NextRush-WebSocket',
-    version: '1.0.0', 
-    description: 'Enterprise WebSocket plugin with routing and real-time communication',
+    version: '1.0.0',
+    description:
+      'Enterprise WebSocket plugin with routing and real-time communication',
     author: 'NextRush Framework',
     category: 'core',
     priority: 90, // High priority - core feature
-    dependencies: []
+    dependencies: [],
   };
 
   private server?: any; // WebSocket server instance
@@ -64,8 +65,10 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
     // Initialize WebSocket server (simplified implementation)
     this.initializeWebSocketServer();
     this.compileRoutes();
-    
-    context.logger.info(`WebSocket server started with ${this.routes.size} routes`);
+
+    context.logger.info(
+      `WebSocket server started with ${this.routes.size} routes`
+    );
   }
 
   protected async onStop(context: PluginContext): Promise<void> {
@@ -74,7 +77,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
       await this.closeWebSocketServer();
       this.server = undefined;
     }
-    
+
     this.compiledRoutes.clear();
     context.logger.info('WebSocket server stopped');
   }
@@ -83,18 +86,18 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
     // Clean up all routes and server
     this.routes.clear();
     this.compiledRoutes.clear();
-    
+
     if (this.server) {
       await this.closeWebSocketServer();
       this.server = undefined;
     }
-    
+
     context.logger.info('WebSocket plugin uninstalled');
   }
 
   public override addRoute(path: string, handler: WebSocketHandler): void {
     super.addRoute(path, handler);
-    
+
     // Compile the route for performance
     const compiled = this.compileRoute(path, handler);
     this.compiledRoutes.set(path, compiled);
@@ -118,7 +121,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
   ): boolean {
     const url = request.url || '/';
     const match = this.findRoute(url);
-    
+
     if (!match) {
       return false; // No matching route
     }
@@ -126,13 +129,13 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
     try {
       // Create WebSocket connection
       const wsConnection = this.createWebSocketConnection(socket, head);
-      
+
       // Add params to request
       (request as any).params = match.params;
-      
+
       // Execute handler
       match.route.handler(wsConnection as any, request as any);
-      
+
       return true;
     } catch (error) {
       this.getContext().logger.error('WebSocket upgrade error:', error);
@@ -150,7 +153,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
     if (exactRoute) {
       return {
         route: exactRoute,
-        params: {}
+        params: {},
       };
     }
 
@@ -159,7 +162,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
       const match = compiled.pattern.exec(path);
       if (match) {
         const params: Record<string, string> = {};
-        
+
         // Extract parameters
         compiled.paramNames.forEach((name, index) => {
           params[name] = match[index + 1] || '';
@@ -167,7 +170,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
 
         return {
           route: compiled.definition,
-          params
+          params,
         };
       }
     }
@@ -194,14 +197,17 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
   // Private methods
   private compileRoutes(): void {
     this.compiledRoutes.clear();
-    
+
     for (const [path, route] of this.routes) {
       const compiled = this.compileRoute(path, route.handler);
       this.compiledRoutes.set(path, compiled);
     }
   }
 
-  private compileRoute(path: string, handler: WebSocketHandler): CompiledWebSocketRoute {
+  private compileRoute(
+    path: string,
+    handler: WebSocketHandler
+  ): CompiledWebSocketRoute {
     const paramNames: string[] = [];
     let pattern = path;
 
@@ -223,7 +229,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
     return {
       pattern: regex,
       paramNames,
-      definition: { path, handler }
+      definition: { path, handler },
     };
   }
 
@@ -234,7 +240,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
       connections: new Map(),
       broadcast: (message: string) => {
         this.getContext().logger.debug('Broadcasting message:', message);
-      }
+      },
     };
   }
 
@@ -246,16 +252,22 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
           try {
             connection.close();
           } catch (error) {
-            this.getContext().logger.warn('Error closing WebSocket connection:', error);
+            this.getContext().logger.warn(
+              'Error closing WebSocket connection:',
+              error
+            );
           }
         }
       }
-      
+
       this.getContext().logger.info('WebSocket server closed');
     }
   }
 
-  private createWebSocketConnection(socket: any, head: Buffer): WebSocketConnection {
+  private createWebSocketConnection(
+    socket: any,
+    head: Buffer
+  ): WebSocketConnection {
     // Simplified WebSocket connection wrapper
     // In a real implementation, this would create a proper WebSocket instance
     return {
@@ -271,7 +283,7 @@ export class WebSocketPlugin extends BaseWebSocketPlugin {
       off: (event: string, listener: (...args: any[]) => void) => {
         socket.off(event, listener);
       },
-      readyState: 1 // OPEN
+      readyState: 1, // OPEN
     };
   }
 }

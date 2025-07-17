@@ -3,15 +3,15 @@
  * High-performance template engine with caching and multiple format support
  */
 
+import { PluginContext, PluginMetadata } from '../core/plugin.interface';
 import {
   BaseTemplatePlugin,
   TemplateEngineOptions,
-  TemplateHelper
+  TemplateHelper,
 } from '../types/specialized-plugins';
-import { PluginContext, PluginMetadata } from '../core/plugin.interface';
 // Removed unused Application import
-import * as path from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
 import { promisify } from 'util';
 
 const readFile = promisify(fs.readFile);
@@ -43,11 +43,12 @@ export class TemplatePlugin extends BaseTemplatePlugin {
   public readonly metadata: PluginMetadata = {
     name: 'NextRush-Template',
     version: '1.0.0',
-    description: 'Enterprise template engine with caching and multiple format support',
+    description:
+      'Enterprise template engine with caching and multiple format support',
     author: 'NextRush Framework',
     category: 'core',
     priority: 60, // Medium priority
-    dependencies: []
+    dependencies: [],
   };
 
   private templateCache = new Map<string, TemplateCache>();
@@ -57,12 +58,18 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     const app = context.app;
 
     // Bind template methods to application
-    (app as any).setViews = (viewsPath: string, options?: TemplateEngineOptions) => {
+    (app as any).setViews = (
+      viewsPath: string,
+      options?: TemplateEngineOptions
+    ) => {
       this.setViews(viewsPath, options);
       return app;
     };
 
-    (app as any).render = (template: string, data?: Record<string, unknown>) => {
+    (app as any).render = (
+      template: string,
+      data?: Record<string, unknown>
+    ) => {
       return this.render(template, data);
     };
 
@@ -74,14 +81,14 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     if (this.options.cache) {
       await this.precompileTemplates();
     }
-    
+
     context.logger.info('Template plugin started');
   }
 
   protected async onStop(context: PluginContext): Promise<void> {
     // Clear template cache
     this.templateCache.clear();
-    
+
     context.logger.info('Template plugin stopped');
   }
 
@@ -92,21 +99,27 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     this.partials.clear();
     this.viewsPath = undefined;
     this.options = {};
-    
+
     context.logger.info('Template plugin uninstalled');
   }
 
-  public override setViews(viewsPath: string, options: TemplateEngineOptions = {}): void {
+  public override setViews(
+    viewsPath: string,
+    options: TemplateEngineOptions = {}
+  ): void {
     super.setViews(viewsPath, options);
-    
+
     // Set default engine
     this.defaultEngine = options.engine || 'simple';
-    
+
     // Clear cache when views change
     this.templateCache.clear();
   }
 
-  public override async render(template: string, data: Record<string, unknown> = {}): Promise<string> {
+  public override async render(
+    template: string,
+    data: Record<string, unknown> = {}
+  ): Promise<string> {
     if (!this.viewsPath) {
       throw new Error('Views directory not set. Call setViews() first.');
     }
@@ -114,15 +127,15 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     try {
       // Resolve template path
       const templatePath = this.resolveTemplatePath(template);
-      
+
       // Load and compile template
       const compiled = await this.loadTemplate(templatePath);
-      
+
       // Create rendering context
       const context: TemplateContext = {
         data,
         helpers: this.helpers,
-        partials: this.partials
+        partials: this.partials,
       };
 
       // Render template
@@ -132,7 +145,10 @@ export class TemplatePlugin extends BaseTemplatePlugin {
         return this.renderTemplate(compiled.content, context);
       }
     } catch (error) {
-      this.getContext().logger.error(`Template rendering error for ${template}:`, error);
+      this.getContext().logger.error(
+        `Template rendering error for ${template}:`,
+        error
+      );
       throw new Error(`Template rendering failed: ${(error as Error).message}`);
     }
   }
@@ -140,19 +156,21 @@ export class TemplatePlugin extends BaseTemplatePlugin {
   /**
    * Compile template for better performance
    */
-  public async compileTemplate(templatePath: string): Promise<(data: Record<string, unknown>) => string> {
+  public async compileTemplate(
+    templatePath: string
+  ): Promise<(data: Record<string, unknown>) => string> {
     const template = await this.loadTemplate(templatePath);
-    
+
     if (template.compiled) {
       return template.compiled;
     }
 
     // Create compiled function
     const compiled = this.createCompiledTemplate(template.content);
-    
+
     // Cache compiled template
     template.compiled = compiled;
-    
+
     return compiled;
   }
 
@@ -199,10 +217,10 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     // Load template file
     const content = await readFile(templatePath, 'utf8');
     const stats = await stat(templatePath);
-    
+
     const template: TemplateCache = {
       content,
-      mtime: stats.mtime.getTime()
+      mtime: stats.mtime.getTime(),
     };
 
     // Cache template
@@ -219,7 +237,7 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     // Simple template engine - replace {{variable}} patterns
     rendered = rendered.replace(/\{\{([^}]+)\}\}/g, (match, expression) => {
       const trimmed = expression.trim();
-      
+
       // Handle partials {{> partialName}}
       if (trimmed.startsWith('>')) {
         const partialName = trimmed.substring(1).trim();
@@ -233,7 +251,9 @@ export class TemplatePlugin extends BaseTemplatePlugin {
         const helperName = parts[0];
         const helper = context.helpers.get(helperName);
         if (helper) {
-          const args = parts.slice(1).map((arg: string) => this.resolveValue(arg, context.data));
+          const args = parts
+            .slice(1)
+            .map((arg: string) => this.resolveValue(arg, context.data));
           return helper(...args);
         }
       }
@@ -243,49 +263,62 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     });
 
     // Handle conditionals {{#if condition}} ... {{/if}}
-    rendered = rendered.replace(/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, condition, block) => {
-      const value = this.resolveValue(condition.trim(), context.data);
-      return this.isTruthy(value) ? block : '';
-    });
+    rendered = rendered.replace(
+      /\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
+      (match, condition, block) => {
+        const value = this.resolveValue(condition.trim(), context.data);
+        return this.isTruthy(value) ? block : '';
+      }
+    );
 
     // Handle loops {{#each array}} ... {{/each}}
-    rendered = rendered.replace(/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (match, arrayName, block) => {
-      const array = this.resolveValue(arrayName.trim(), context.data);
-      if (!Array.isArray(array)) {
-        return '';
-      }
+    rendered = rendered.replace(
+      /\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g,
+      (match, arrayName, block) => {
+        const array = this.resolveValue(arrayName.trim(), context.data);
+        if (!Array.isArray(array)) {
+          return '';
+        }
 
-      return array.map((item, index) => {
-        let itemBlock = block;
-        // Replace {{this}} with current item
-        itemBlock = itemBlock.replace(/\{\{this\}\}/g, String(item));
-        // Replace {{@index}} with current index
-        itemBlock = itemBlock.replace(/\{\{@index\}\}/g, String(index));
-        return itemBlock;
-      }).join('');
-    });
+        return array
+          .map((item, index) => {
+            let itemBlock = block;
+            // Replace {{this}} with current item
+            itemBlock = itemBlock.replace(/\{\{this\}\}/g, String(item));
+            // Replace {{@index}} with current index
+            itemBlock = itemBlock.replace(/\{\{@index\}\}/g, String(index));
+            return itemBlock;
+          })
+          .join('');
+      }
+    );
 
     return rendered;
   }
 
-  private createCompiledTemplate(content: string): (data: Record<string, unknown>) => string {
+  private createCompiledTemplate(
+    content: string
+  ): (data: Record<string, unknown>) => string {
     // Pre-compile template for better performance
     return (data: Record<string, unknown>) => {
       const context: TemplateContext = {
         data,
         helpers: this.helpers,
-        partials: this.partials
+        partials: this.partials,
       };
       return this.renderTemplate(content, context);
     };
   }
 
-  private resolveValue(expression: string, data: Record<string, unknown>): string {
+  private resolveValue(
+    expression: string,
+    data: Record<string, unknown>
+  ): string {
     try {
       // Handle dot notation (e.g., user.name)
       const parts = expression.split('.');
       let value: any = data;
-      
+
       for (const part of parts) {
         if (value && typeof value === 'object') {
           value = value[part];
@@ -322,7 +355,7 @@ export class TemplatePlugin extends BaseTemplatePlugin {
     try {
       // Pre-compile common templates like index.html
       const commonTemplates = ['index.html', 'layout.html', 'error.html'];
-      
+
       for (const template of commonTemplates) {
         try {
           const templatePath = path.join(this.viewsPath, template);

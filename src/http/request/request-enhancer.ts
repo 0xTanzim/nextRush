@@ -103,19 +103,20 @@ export class RequestEnhancer {
         if (method !== 'GET' && method !== 'HEAD') return false;
         if ((status >= 200 && status < 300) || status === 304) {
           return (
-            this.headers['if-none-match'] === (this as any).res?.getHeader('etag')
+            this.headers['if-none-match'] ===
+            (this as any).res?.getHeader('etag')
           );
         }
         return false;
       },
-      configurable: true
+      configurable: true,
     });
 
     Object.defineProperty(enhanced, 'stale', {
       get: function () {
         return !this.fresh;
       },
-      configurable: true
+      configurable: true,
     });
 
     // 🚀 NEW: Validation methods
@@ -159,11 +160,15 @@ export class RequestEnhancer {
         }
 
         if (value && rule.minLength && value.length < rule.minLength) {
-          fieldErrors.push(`${field} must be at least ${rule.minLength} characters`);
+          fieldErrors.push(
+            `${field} must be at least ${rule.minLength} characters`
+          );
         }
 
         if (value && rule.maxLength && value.length > rule.maxLength) {
-          fieldErrors.push(`${field} must be at most ${rule.maxLength} characters`);
+          fieldErrors.push(
+            `${field} must be at most ${rule.maxLength} characters`
+          );
         }
 
         if (fieldErrors.length > 0) {
@@ -176,10 +181,10 @@ export class RequestEnhancer {
         }
       }
 
-      return { 
-        isValid: Object.keys(errors).length === 0, 
+      return {
+        isValid: Object.keys(errors).length === 0,
         errors,
-        sanitized
+        sanitized,
       };
     };
 
@@ -192,9 +197,9 @@ export class RequestEnhancer {
 
     enhanced.sanitizeObject = function (obj: any, options: any = {}): any {
       if (!obj || typeof obj !== 'object') return obj;
-      
+
       const sanitized: any = Array.isArray(obj) ? [] : {};
-      
+
       for (const [key, value] of Object.entries(obj)) {
         if (typeof value === 'string') {
           // Basic sanitization
@@ -207,7 +212,7 @@ export class RequestEnhancer {
           sanitized[key] = value;
         }
       }
-      
+
       return sanitized;
     };
 
@@ -271,7 +276,7 @@ export class RequestEnhancer {
     enhanced.getRequestTiming = function (): any {
       return {
         startTime: (this as any)._startTime || Date.now(),
-        duration: Date.now() - ((this as any)._startTime || Date.now())
+        duration: Date.now() - ((this as any)._startTime || Date.now()),
       };
     };
 

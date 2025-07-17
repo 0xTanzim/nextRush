@@ -3,7 +3,7 @@
  * Implements the composition-based architecture pattern
  */
 
-import { MinimalApplication, InternalPlugin } from '../interfaces';
+import { InternalPlugin, MinimalApplication } from '../interfaces';
 
 /**
  * Component Manager Implementation

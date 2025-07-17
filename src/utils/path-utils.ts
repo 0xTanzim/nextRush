@@ -41,7 +41,7 @@ export function matchPath(pattern: string, path: string): PathMatch {
     return {
       path: pattern,
       params: {},
-      isMatch: false
+      isMatch: false,
     };
   }
 
@@ -61,7 +61,7 @@ export function matchPath(pattern: string, path: string): PathMatch {
   return {
     path: pattern,
     params,
-    isMatch: true
+    isMatch: true,
   };
 }
 
@@ -108,5 +108,5 @@ export function joinPaths(...segments: string[]): string {
  * Check if a path matches any of the given patterns
  */
 export function matchesAnyPattern(path: string, patterns: string[]): boolean {
-  return patterns.some(pattern => matchPath(pattern, path).isMatch);
+  return patterns.some((pattern) => matchPath(pattern, path).isMatch);
 }

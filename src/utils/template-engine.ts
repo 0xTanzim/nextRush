@@ -14,7 +14,10 @@ export class SimpleTemplateEngine implements TemplateEngine {
     });
   }
 
-  async renderFile(filePath: string, data: Record<string, any> = {}): Promise<string> {
+  async renderFile(
+    filePath: string,
+    data: Record<string, any> = {}
+  ): Promise<string> {
     const fs = await import('fs/promises');
     const template = await fs.readFile(filePath, 'utf-8');
     return this.render(template, data);
@@ -31,14 +34,19 @@ export class MustacheTemplateEngine implements TemplateEngine {
     });
   }
 
-  async renderFile(filePath: string, data: Record<string, any> = {}): Promise<string> {
+  async renderFile(
+    filePath: string,
+    data: Record<string, any> = {}
+  ): Promise<string> {
     const fs = await import('fs/promises');
     const template = await fs.readFile(filePath, 'utf-8');
     return this.render(template, data);
   }
 }
 
-export function createTemplateEngine(type: 'simple' | 'mustache' = 'simple'): TemplateEngine {
+export function createTemplateEngine(
+  type: 'simple' | 'mustache' = 'simple'
+): TemplateEngine {
   switch (type) {
     case 'mustache':
       return new MustacheTemplateEngine();

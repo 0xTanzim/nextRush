@@ -3,18 +3,18 @@
  * Manages plugin lifecycle, dependencies, and composition
  */
 
+import { EventEmitter } from 'events';
+import { Application } from '../../core/app/application';
 import {
+  HealthStatus,
   Plugin,
-  PluginContext,
   PluginConfig,
+  PluginContext,
+  PluginError,
   PluginLogger,
   PluginRegistry,
   PluginState,
-  PluginError,
-  HealthStatus
 } from './plugin.interface';
-import { Application } from '../../core/app/application';
-import { EventEmitter } from 'events';
 
 /**
  * Plugin manager configuration
@@ -57,7 +57,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
       maxStartupTime: 30000,
       validateDependencies: true,
       autoStart: true,
-      ...config
+      ...config,
     };
     this.logger = new ConsolePluginLogger(this.config.logLevel);
   }
@@ -83,14 +83,16 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
     const pluginConfig: PluginConfig = {
       enabled: true,
       options: {},
-      ...config
+      ...config,
     };
 
     // Validate plugin config
     const validation = plugin.validateConfig?.(pluginConfig);
     if (validation && !validation.isValid) {
       throw new PluginError(
-        `Plugin ${pluginName} configuration is invalid: ${validation.errors.join(', ')}`
+        `Plugin ${pluginName} configuration is invalid: ${validation.errors.join(
+          ', '
+        )}`
       );
     }
 
@@ -99,7 +101,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
       plugin,
       config: pluginConfig,
       dependencies: plugin.metadata.dependencies || [],
-      dependents: new Set()
+      dependents: new Set(),
     };
 
     this.registrations.set(pluginName, registration);
@@ -147,7 +149,11 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
     } catch (error) {
       this.logger.error(`Plugin ${pluginName} installation failed:`, error);
       this.emit('plugin:error', { pluginName, plugin, error });
-      throw new PluginError(`Plugin ${pluginName} installation failed`, pluginName, error as Error);
+      throw new PluginError(
+        `Plugin ${pluginName} installation failed`,
+        pluginName,
+        error as Error
+      );
     }
   }
 
@@ -179,13 +185,17 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
         this.config.maxStartupTime,
         `Plugin ${pluginName} start timeout`
       );
-      
+
       this.logger.info(`Plugin ${pluginName} started successfully`);
       this.emit('plugin:started', { pluginName, plugin });
     } catch (error) {
       this.logger.error(`Plugin ${pluginName} start failed:`, error);
       this.emit('plugin:error', { pluginName, plugin, error });
-      throw new PluginError(`Plugin ${pluginName} start failed`, pluginName, error as Error);
+      throw new PluginError(
+        `Plugin ${pluginName} start failed`,
+        pluginName,
+        error as Error
+      );
     }
   }
 
@@ -214,7 +224,11 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
     } catch (error) {
       this.logger.error(`Plugin ${pluginName} stop failed:`, error);
       this.emit('plugin:error', { pluginName, plugin, error });
-      throw new PluginError(`Plugin ${pluginName} stop failed`, pluginName, error as Error);
+      throw new PluginError(
+        `Plugin ${pluginName} stop failed`,
+        pluginName,
+        error as Error
+      );
     }
   }
 
@@ -243,7 +257,11 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
     } catch (error) {
       this.logger.error(`Plugin ${pluginName} uninstall failed:`, error);
       this.emit('plugin:error', { pluginName, plugin, error });
-      throw new PluginError(`Plugin ${pluginName} uninstall failed`, pluginName, error as Error);
+      throw new PluginError(
+        `Plugin ${pluginName} uninstall failed`,
+        pluginName,
+        error as Error
+      );
     }
   }
 
@@ -252,15 +270,20 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
    */
   public async startAll(): Promise<void> {
     this.isStarted = true;
-    
+
     // Sort plugins by priority (higher priority first)
     const sortedPlugins = Array.from(this.registrations.entries())
       .filter(([, reg]) => reg.config.enabled)
-      .sort(([, a], [, b]) => b.plugin.metadata.priority - a.plugin.metadata.priority);
+      .sort(
+        ([, a], [, b]) =>
+          b.plugin.metadata.priority - a.plugin.metadata.priority
+      );
 
     // Start plugins in dependency order
-    const startOrder = this.resolveDependencyOrder(sortedPlugins.map(([name]) => name));
-    
+    const startOrder = this.resolveDependencyOrder(
+      sortedPlugins.map(([name]) => name)
+    );
+
     for (const pluginName of startOrder) {
       await this.start(pluginName);
     }
@@ -273,8 +296,9 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
    * Stop all plugins
    */
   public async stopAll(): Promise<void> {
-    const activePlugins = Array.from(this.registrations.keys())
-      .filter(name => this.get(name)?.state === PluginState.STARTED);
+    const activePlugins = Array.from(this.registrations.keys()).filter(
+      (name) => this.get(name)?.state === PluginState.STARTED
+    );
 
     // Stop in reverse dependency order
     const stopOrder = this.resolveDependencyOrder(activePlugins).reverse();
@@ -297,11 +321,11 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
    */
   public getHealth(): Record<string, HealthStatus> {
     const health: Record<string, HealthStatus> = {};
-    
+
     for (const [name, registration] of this.registrations) {
       health[name] = registration.plugin.getHealth?.() || {
         status: 'healthy',
-        checks: []
+        checks: [],
       };
     }
 
@@ -318,7 +342,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
   }
 
   public getAll(): Plugin[] {
-    return Array.from(this.registrations.values()).map(reg => reg.plugin);
+    return Array.from(this.registrations.values()).map((reg) => reg.plugin);
   }
 
   public getDependents(pluginName: string): Plugin[] {
@@ -326,7 +350,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
     if (!registration) return [];
 
     return Array.from(registration.dependents)
-      .map(name => this.get(name))
+      .map((name) => this.get(name))
       .filter((plugin): plugin is Plugin => plugin !== undefined);
   }
 
@@ -335,7 +359,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
     if (!registration) return [];
 
     return registration.dependencies
-      .map(name => this.get(name))
+      .map((name) => this.get(name))
       .filter((plugin): plugin is Plugin => plugin !== undefined);
   }
 
@@ -344,7 +368,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
     if (!plugin.metadata?.name) {
       throw new PluginError('Plugin must have a name');
     }
-    
+
     if (!plugin.metadata.version) {
       throw new PluginError('Plugin must have a version');
     }
@@ -367,13 +391,13 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
       app: this.app,
       config: registration.config,
       logger: this.logger,
-      registry: this
+      registry: this,
     };
   }
 
   private updateDependencyGraph(pluginName: string): void {
     const registration = this.registrations.get(pluginName)!;
-    
+
     // Update dependents for each dependency
     for (const depName of registration.dependencies) {
       const depRegistration = this.registrations.get(depName);
@@ -385,7 +409,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
 
   private async validateDependencies(pluginName: string): Promise<void> {
     const registration = this.getRegistration(pluginName);
-    
+
     for (const depName of registration.dependencies) {
       const depPlugin = this.get(depName);
       if (!depPlugin) {
@@ -393,7 +417,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
           `Plugin ${pluginName} depends on ${depName} which is not registered`
         );
       }
-      
+
       if (depPlugin.state === PluginState.UNINSTALLED) {
         await this.install(depName);
       }
@@ -445,7 +469,7 @@ export class PluginManager extends EventEmitter implements PluginRegistry {
       promise,
       new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
-      })
+      }),
     ]);
   }
 }

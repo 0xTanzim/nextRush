@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import { IncomingMessage, ServerResponse } from 'http';
 import * as path from 'path';
-import { BaseComponent } from '../../core/base-component';
+import { BaseComponent } from '../../core/app/base-component';
 import { MinimalApplication } from '../../core/interfaces';
 
 /**
@@ -29,7 +29,7 @@ export interface StaticOptions {
  * Static Files Component - Clean Architecture
  */
 export class StaticFilesComponent extends BaseComponent {
-  readonly name = 'StaticFiles';
+  override readonly name = 'StaticFiles';
   private staticRoutes = new Map<string, StaticOptions>();
   private mimeTypes = new Map<string, string>();
 

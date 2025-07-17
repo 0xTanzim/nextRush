@@ -3,8 +3,8 @@
  * SOLID-compliant component for serving static files
  */
 
+import { BaseComponent } from '../../core/app/base-component';
 import type { MinimalApplication } from '../../core/interfaces';
-import { BaseComponent } from '../../core/base-component';
 import type { NextRushRequest, NextRushResponse } from '../../types/express';
 import { StaticFileServer, type StaticOptions } from '../../utils/static-files';
 
@@ -12,12 +12,12 @@ import { StaticFileServer, type StaticOptions } from '../../utils/static-files';
  * Static Files Component - Serves static files
  */
 export class StaticFilesComponent extends BaseComponent {
-  readonly name = 'StaticFiles';
+  override readonly name = 'StaticFiles';
 
   constructor() {
     super('StaticFiles');
   }
-  
+
   private fileServer: StaticFileServer | null = null;
 
   /**
@@ -53,11 +53,15 @@ export class StaticFilesComponent extends BaseComponent {
    */
   middleware(options: StaticOptions) {
     const server = new StaticFileServer(options);
-    
-    return async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+
+    return async (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => {
       try {
         const result = await server.serveFile(req.url || '/');
-        
+
         if (!result) {
           next();
           return;
@@ -65,10 +69,10 @@ export class StaticFilesComponent extends BaseComponent {
 
         // Set headers
         res.setHeader('Content-Type', result.contentType);
-        
+
         if (result.etag) {
           res.setHeader('ETag', result.etag);
-          
+
           // Check if client has cached version
           if (req.headers['if-none-match'] === result.etag) {
             res.status(304).end();
@@ -94,7 +98,10 @@ export class StaticFilesComponent extends BaseComponent {
   /**
    * Serve a single file
    */
-  async serveFile(requestPath: string, options: StaticOptions): Promise<{
+  async serveFile(
+    requestPath: string,
+    options: StaticOptions
+  ): Promise<{
     content: Buffer;
     contentType: string;
     etag?: string;
@@ -103,7 +110,7 @@ export class StaticFilesComponent extends BaseComponent {
     if (!this.fileServer) {
       this.fileServer = new StaticFileServer(options);
     }
-    
+
     return this.fileServer.serveFile(requestPath);
   }
 }

@@ -1,7 +1,7 @@
 /**
  * 🚀 WebSocket Component - SOLID Architecture Implementation
  * RFC 6455 compliant WebSocket server with zero dependencies
- * 
+ *
  * SOLID Principles Applied:
  * - Single Responsibility: Only handles WebSocket functionality
  * - Open/Closed: Extensible for new WebSocket features
@@ -13,7 +13,7 @@
 import * as crypto from 'crypto';
 import { IncomingMessage, Server } from 'http';
 import { Socket } from 'net';
-import { BaseComponent } from '../../core/base-component';
+import { BaseComponent } from '../../core/app/base-component';
 import { MinimalApplication } from '../../core/interfaces';
 
 export interface WebSocketHandler {
@@ -36,7 +36,7 @@ export interface NextRushWebSocket {
  * WebSocket Component - Clean Architecture
  */
 export class WebSocketComponent extends BaseComponent {
-  readonly name = 'WebSocket';
+  override readonly name = 'WebSocket';
   private server?: Server;
   private connections = new Map<string, NextRushWebSocket>();
   private handlers = new Map<string, WebSocketHandler>();

@@ -13,7 +13,7 @@
 import * as fs from 'fs';
 import { ServerResponse } from 'http';
 import * as path from 'path';
-import { BaseComponent } from '../../core/base-component';
+import { BaseComponent } from '../../core/app/base-component';
 import { MinimalApplication } from '../../core/interfaces';
 import {
   ComponentErrorFactory,
@@ -263,7 +263,7 @@ export class MustacheTemplateEngine implements ITemplateEngine {
  * Template Component - SOLID Implementation
  */
 export class TemplateComponent extends BaseComponent {
-  readonly name = 'Template';
+  override readonly name = 'Template';
   private engines = new Map<string, ITemplateEngine>();
   private viewsPath = 'views';
   private defaultEngine = 'simple';
