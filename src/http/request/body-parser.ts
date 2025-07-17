@@ -1,15 +1,15 @@
 /**
  * Body parser for HTTP requests - follows single responsibility principle
  */
-import {
-  PayloadTooLargeError,
-  RequestTimeoutError,
-  UnsupportedMediaTypeError,
-  ValidationError,
-} from '../../errors';
-import { AsyncHandler } from '../../types/common';
-import { BodyParserOptions, ParsedRequest } from '../../types/http';
-import { isContentType, parseContentType } from '../../utils/content-type';
+
+import { ParsedRequest } from '../../types/http';
+
+export interface BodyParserOptions {
+  maxSize?: number;
+  timeout?: number;
+  allowedContentTypes?: string[];
+  strict?: boolean;
+}
 
 export interface ParsedBody {
   raw: string;
@@ -17,7 +17,7 @@ export interface ParsedBody {
   contentType: string;
 }
 
-export class BodyParser implements AsyncHandler<ParsedRequest, ParsedBody> {
+export class BodyParser {
   private options: Required<BodyParserOptions>;
 
   constructor(options: BodyParserOptions = {}) {
@@ -44,7 +44,7 @@ export class BodyParser implements AsyncHandler<ParsedRequest, ParsedBody> {
     // Validate content length
     this.validateContentLength(contentLength);
 
-    // Validate content type if strict mode
+    // Validate content type
     if (this.options.strict) {
       this.validateContentType(contentType);
     }
@@ -53,140 +53,122 @@ export class BodyParser implements AsyncHandler<ParsedRequest, ParsedBody> {
     const rawBody = await this.readRequestBody(request);
 
     // Parse body based on content type
-    const parsedBody = this.parseBody(rawBody, contentType);
+    const parsedData = this.parseBody(rawBody, contentType);
 
     return {
       raw: rawBody,
-      parsed: parsedBody,
+      parsed: parsedData,
       contentType,
     };
   }
 
   private validateContentLength(contentLength: number): void {
     if (contentLength > this.options.maxSize) {
-      throw new PayloadTooLargeError(this.options.maxSize, contentLength);
+      throw new Error(
+        `Request body too large. Maximum size: ${this.options.maxSize} bytes`
+      );
     }
   }
 
   private validateContentType(contentType: string): void {
-    const isAllowed = this.options.allowedContentTypes.some((allowedType) =>
-      isContentType(contentType, allowedType)
+    const isAllowed = this.options.allowedContentTypes.some((type) =>
+      contentType.includes(type)
     );
 
     if (!isAllowed) {
-      throw new UnsupportedMediaTypeError(
-        contentType,
-        this.options.allowedContentTypes
+      throw new Error(
+        `Unsupported content type: ${contentType}. Allowed: ${this.options.allowedContentTypes.join(
+          ', '
+        )}`
       );
     }
   }
 
   private async readRequestBody(request: ParsedRequest): Promise<string> {
     return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      let totalSize = 0;
-      let timeoutId: NodeJS.Timeout | null = null;
+      let body = '';
+      let size = 0;
 
-      const cleanup = () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-      };
-
-      // Set timeout
-      if (this.options.timeout > 0) {
-        timeoutId = setTimeout(() => {
-          cleanup();
-          reject(new RequestTimeoutError(this.options.timeout));
-        }, this.options.timeout);
-      }
+      const timeout = setTimeout(() => {
+        reject(new Error('Request timeout'));
+      }, this.options.timeout);
 
       request.on('data', (chunk: Buffer) => {
-        totalSize += chunk.length;
+        size += chunk.length;
 
-        if (totalSize > this.options.maxSize) {
-          cleanup();
-          reject(new PayloadTooLargeError(this.options.maxSize, totalSize));
+        if (size > this.options.maxSize) {
+          clearTimeout(timeout);
+          reject(new Error('Request body too large'));
           return;
         }
 
-        chunks.push(chunk);
+        body += chunk.toString('utf8');
       });
 
       request.on('end', () => {
-        cleanup();
-        const body = Buffer.concat(chunks).toString('utf-8');
+        clearTimeout(timeout);
         resolve(body);
       });
 
       request.on('error', (error) => {
-        cleanup();
-        reject(
-          new ValidationError('Request stream error', {
-            originalError: error.message,
-          })
-        );
-      });
-
-      request.on('aborted', () => {
-        cleanup();
-        reject(new ValidationError('Request was aborted'));
+        clearTimeout(timeout);
+        reject(error);
       });
     });
   }
 
   private parseBody(body: string, contentType: string): unknown {
-    const { type } = parseContentType(contentType);
+    if (!body.trim()) {
+      return {};
+    }
 
     try {
-      switch (type) {
-        case 'application/json':
-          return this.parseJSON(body);
-
-        case 'application/x-www-form-urlencoded':
-          return this.parseURLEncoded(body);
-
-        case 'text/plain':
-        default:
-          return body;
+      if (contentType.includes('application/json')) {
+        return this.parseJSON(body);
       }
+
+      if (contentType.includes('application/x-www-form-urlencoded')) {
+        return this.parseURLEncoded(body);
+      }
+
+      // Return as plain text for other content types
+      return body;
     } catch (error) {
-      throw new ValidationError('Failed to parse request body', {
-        contentType,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        body: body.substring(0, 100), // First 100 chars for debugging
-      });
+      if (this.options.strict) {
+        throw new Error(
+          `Failed to parse body: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        );
+      }
+      return body; // Return raw body if parsing fails in non-strict mode
     }
   }
 
   private parseJSON(body: string): unknown {
-    if (!body.trim()) {
-      return {};
+    try {
+      return JSON.parse(body);
+    } catch (error) {
+      throw new Error(
+        `Invalid JSON: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
-    return JSON.parse(body);
   }
 
   private parseURLEncoded(body: string): Record<string, string> {
     const params: Record<string, string> = {};
 
-    if (!body.trim()) {
-      return params;
-    }
+    if (!body) return params;
 
     const pairs = body.split('&');
-
     for (const pair of pairs) {
       const [key, value] = pair.split('=');
-      if (key && value !== undefined) {
-        try {
-          params[decodeURIComponent(key)] = decodeURIComponent(value);
-        } catch (error) {
-          throw new ValidationError('Invalid URL-encoded data', {
-            pair,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
-        }
+      if (key) {
+        params[decodeURIComponent(key)] = value
+          ? decodeURIComponent(value.replace(/\+/g, ' '))
+          : '';
       }
     }
 

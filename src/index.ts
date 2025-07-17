@@ -1,178 +1,44 @@
-import { Application, ApplicationOptions } from './core/application';
-import { Router } from './routing/router';
-import { RouterOptions } from './types';
-
 /**
- * NextRush Framework - Modern, fast, and testable Express.js alternative
- *
- * This is the main entry point for the NextRush framework.
- * It follows the principles of:
- * - Single Responsibility
- * - Dependency Injection
- * - Interface-based Design
- * - Testability
- * - Clear separation of concerns
+ * 🚀 NextRush Framework - Modern Express.js Alternative
+ * 
+ * Entry point for the NextRush framework with complete type safety,
+ * smart routing, proper overloads, and zero 'any' usage.
+ * 
+ * Features:
+ * - Full HTTP method overloads for middleware combinations
+ * - Smart routing with createRoute functionality  
+ * - Express.js compatibility with enhanced type safety
+ * - Plugin-based architecture for extensibility
  */
 
-// Core exports
-export { Application, type ApplicationOptions } from './core/application';
+// ============================================================================
+// 🎯 MAIN APPLICATION EXPORT
+// ============================================================================
 
-// Middleware exports
-export * from './middleware/built-in';
-export * from './middleware/compose';
-export * from './middleware/presets';
+export { Application } from './core/app/application';
+export type { ApplicationOptions, RouteDefinition, StaticOptions } from './core/app/application';
 
-// Type exports
-export type {
-  AnyFunction,
-  AsyncHandler,
-  BodyParserOptions,
-  Configurable,
-  ContentType,
-  DeepPartial,
-  Dict,
-  Disposable,
-  // Express-style types (familiar API)
-  ExpressHandler,
-  ExpressMiddleware,
-  // HTTP types
-  HttpMethod,
-  MiddlewareHandler,
-  NextFunction,
-  NextRushRequest,
-  NextRushResponse,
-  Optional,
-  ParsedRequest,
-  ParsedResponse,
-  // Routing types
-  Path,
-  // Common types
-  Primitive,
-  RequestContext,
-  RequestParsingOptions,
-  ResponseOptions,
-  Route,
-  RouteBuilder,
-  RouteHandler,
-  RouteMatch,
-  RouteMatcher,
-  RouterOptions,
-  SyncHandler,
-} from './types';
+// ============================================================================
+// 🎯 CREATE APP FACTORY FUNCTION
+// ============================================================================
 
-// HTTP handling exports
-export {
-  BodyParser,
-  RequestHandler,
-  ResponseHandler,
-  type ParsedBody,
-  type ResponseData,
-} from './http';
-
-// Routing exports
-export {
-  RouteManager,
-  RouteMatcher as RouteMatcherClass,
-  Router,
-  type RouteManagerOptions,
-  type RouteMatcherOptions,
-} from './routing';
-
-// Error handling exports
-export {
-  ErrorHandler,
-  InternalServerError,
-  MethodNotAllowedError,
-  NextRushError,
-  NotFoundError,
-  PayloadTooLargeError,
-  RequestTimeoutError,
-  UnsupportedMediaTypeError,
-  ValidationError,
-  type ErrorHandlerConfig,
-} from './errors';
-
-// Utility exports
-export {
-  buildContentType,
-  // Content type utilities
-  CONTENT_TYPES,
-  extractParamNames,
-  getExtension,
-  getMimeType,
-  isContentType,
-  isSafePath,
-  isValidObject,
-  joinPaths,
-  matchPath,
-  // Path utilities
-  normalizePath,
-  parseContentType,
-  pathToRegExp,
-  // Validation utilities
-  validate,
-  validateObject,
-  ValidationRules,
-  type ValidationResult,
-  type ValidationRule,
-} from './utils';
-
-// Helper utilities
-export * from './helpers';
-
-// 🚀 WebSocket support (zero dependencies)
-export {
-  enhanceApplicationWithWebSocket,
-  WebSocketIntegration,
-  WebSocketServer,
-} from './websocket';
-
-// WebSocket type exports
-export type {
-  ConnectionEvents,
-  NextRushWebSocket,
-  RoomEmitter,
-  RoomInfo,
-  TypedWebSocketEvents,
-  WebSocketCloseCode,
-  WebSocketHandler,
-  WebSocketMessage,
-  WebSocketMiddleware,
-  WebSocketOpcode,
-  WebSocketOptions,
-  WebSocketReadyState,
-  WebSocketStats,
-} from './types/websocket';
-
-// Auto-initialize WebSocket support
-import { enhanceApplicationWithWebSocket } from './websocket';
-
-// Enhance Application with WebSocket capabilities
-enhanceApplicationWithWebSocket();
+import { Application, ApplicationOptions } from './core/app/application';
 
 /**
- * Create a new NextRush application instance
- * Now with built-in WebSocket support!
- *
- * @param options - Application and WebSocket options
- * @returns NextRush application instance with WebSocket capabilities
+ * Create a new NextRush application with full type safety
  */
-export function createApp(
-  options: ApplicationOptions & {
-    websocket?: boolean | import('./types/websocket').WebSocketOptions;
-  } = {}
-): Application {
-  const { websocket, ...appOptions } = options;
-  const app = new Application(appOptions);
-
-  // Auto-enable WebSocket if requested
-  if (websocket) {
-    const wsOptions = typeof websocket === 'boolean' ? {} : websocket;
-    (app as any).enableWebSocket(wsOptions);
-  }
-
-  return app;
+export function createApp(options: ApplicationOptions = {}): Application {
+  return new Application(options);
 }
+
+// ============================================================================
+// 🎯 ROUTER EXPORTS
+// ============================================================================
+
+export { Router } from './routing/router';
+export type { RouterOptions } from './types/routing';
+import { Router } from './routing/router';
+import type { RouterOptions } from './types/routing';
 
 /**
  * Create a new router instance
@@ -181,5 +47,68 @@ export function createRouter(options?: RouterOptions): Router {
   return new Router(options);
 }
 
-// Default export - Application class for compatibility
+// ============================================================================
+// 🎯 TYPE EXPORTS - COMPREHENSIVE TYPE SYSTEM
+// ============================================================================
+
+// Express-style types (familiar API)
+export type {
+  NextRushRequest,
+  NextRushResponse,
+  ExpressHandler,
+  ExpressMiddleware
+} from './types/express';
+
+// Context-style types
+export type {
+  RequestContext,
+  RouteHandler,
+  MiddlewareHandler,
+  HttpMethod,
+  Path,
+  Route
+} from './types/routing';
+
+// HTTP types
+export type {
+  ParsedRequest,
+  ParsedResponse
+} from './types/http';
+
+// ============================================================================
+// 🎯 COMPONENT EXPORTS
+// ============================================================================
+
+export { BaseComponent } from './core/app/base-component';
+
+// Component types
+export type { Lifecycle } from './core/types/interfaces';
+
+// ============================================================================
+// 🎯 ERROR HANDLING EXPORTS
+// ============================================================================
+
+export { ErrorHandler } from './errors/error-handler';
+export {
+  NextRushError,
+  NotFoundError,
+  MethodNotAllowedError,
+  ValidationError,
+  InternalServerError
+} from './errors/custom-errors';
+
+// ============================================================================
+// 🎯 UTILITY EXPORTS
+// ============================================================================
+
+export { compose, pipe, curry, debounce, throttle } from './utils/built-in';
+
+// ============================================================================
+// 🎯 MIDDLEWARE EXPORTS  
+// ============================================================================
+
+// Middleware utilities
+export { composeMiddleware } from './utils/compose';
+
+// Default export for convenience
 export default Application;

@@ -1,101 +1,112 @@
 /**
- * Path utilities - pure functions for path manipulation and validation
+ * Path Utilities - URL and path matching utilities
  */
 
-/**
- * Normalize path by removing leading/trailing slashes and double slashes
- */
-export function normalizePath(path: string): string {
-  return path
-    .replace(/\/+/g, '/') // Replace multiple slashes with single slash
-    .replace(/^\/+|\/+$/g, ''); // Remove leading and trailing slashes
+export interface PathMatch {
+  path: string;
+  params: Record<string, string>;
+  isMatch: boolean;
 }
 
 /**
- * Join multiple path segments
+ * Convert a path pattern to a regular expression
  */
-export function joinPaths(...segments: string[]): string {
-  return '/' + segments.filter(Boolean).map(normalizePath).join('/');
+export function pathToRegex(path: string): RegExp {
+  // Handle exact matches
+  if (!path.includes(':') && !path.includes('*')) {
+    return new RegExp(`^${escapeRegex(path)}/?$`);
+  }
+
+  // Convert path parameters to regex groups
+  let regexPath = path
+    // Handle :param patterns
+    .replace(/:([^/]+)/g, '([^/]+)')
+    // Handle wildcard patterns
+    .replace(/\*/g, '(.*)');
+
+  // Escape other regex characters
+  regexPath = regexPath.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
+  return new RegExp(`^${regexPath}/?$`);
 }
 
 /**
- * Extract path parameters from URL pattern
- * Example: "/users/:id/posts/:postId" -> ["id", "postId"]
+ * Match a URL path against a pattern
  */
-export function extractParamNames(pattern: string): string[] {
-  const matches = pattern.match(/:([a-zA-Z_$][a-zA-Z0-9_$]*)/g);
-  return matches ? matches.map((match) => match.slice(1)) : [];
-}
+export function matchPath(pattern: string, path: string): PathMatch {
+  const regex = pathToRegex(pattern);
+  const match = path.match(regex);
 
-/**
- * Convert path pattern to RegExp
- * Example: "/users/:id" -> /^\/users\/([^\/]+)$/
- */
-export function pathToRegExp(pattern: string): {
-  regexp: RegExp;
-  paramNames: string[];
-} {
+  if (!match) {
+    return {
+      path: pattern,
+      params: {},
+      isMatch: false
+    };
+  }
+
+  // Extract parameter names from pattern
   const paramNames = extractParamNames(pattern);
+  const params: Record<string, string> = {};
 
-  // Escape special regex characters except for parameter placeholders
-  let regexPattern = pattern
-    .replace(/[.+*?^${}()|[\]\\]/g, '\\$&') // Escape special chars
-    .replace(/:([a-zA-Z_$][a-zA-Z0-9_$]*)/g, '([^/]+)'); // Replace :param with capture group
-
-  // Ensure exact match
-  regexPattern = `^${regexPattern}$`;
+  // Map matched groups to parameter names
+  for (let i = 0; i < paramNames.length; i++) {
+    const paramName = paramNames[i];
+    const paramValue = match[i + 1];
+    if (paramName && paramValue !== undefined) {
+      params[paramName] = decodeURIComponent(paramValue);
+    }
+  }
 
   return {
-    regexp: new RegExp(regexPattern),
-    paramNames,
+    path: pattern,
+    params,
+    isMatch: true
   };
 }
 
 /**
- * Match path against pattern and extract parameters
+ * Extract parameter names from a path pattern
  */
-export function matchPath(
-  path: string,
-  pattern: string | RegExp
-): {
-  isMatch: boolean;
-  params: Record<string, string>;
-} {
-  if (pattern instanceof RegExp) {
-    const match = path.match(pattern);
-    return {
-      isMatch: !!match,
-      params: {}, // RegExp patterns don't extract named params
-    };
+function extractParamNames(pattern: string): string[] {
+  const paramRegex = /:([^/]+)/g;
+  const params: string[] = [];
+  let match;
+
+  while ((match = paramRegex.exec(pattern)) !== null) {
+    params.push(match[1]);
   }
 
-  const { regexp, paramNames } = pathToRegExp(pattern);
-  const match = path.match(regexp);
-
-  if (!match) {
-    return { isMatch: false, params: {} };
-  }
-
-  const params: Record<string, string> = {};
-  paramNames.forEach((name, index) => {
-    params[name] = match[index + 1];
-  });
-
-  return { isMatch: true, params };
+  return params;
 }
 
 /**
- * Validate if path is safe (prevent directory traversal)
+ * Escape special regex characters
  */
-export function isSafePath(path: string): boolean {
-  const normalized = normalizePath(path);
-  return !normalized.includes('..') && !normalized.startsWith('/');
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * Get file extension from path
+ * Normalize a path by removing double slashes and trailing slashes
  */
-export function getExtension(path: string): string {
-  const lastDot = path.lastIndexOf('.');
-  return lastDot === -1 ? '' : path.slice(lastDot);
+export function normalizePath(path: string): string {
+  return path
+    .replace(/\/+/g, '/') // Replace multiple slashes with single slash
+    .replace(/\/$/, '') // Remove trailing slash
+    .replace(/^$/, '/'); // Ensure root path is '/'
+}
+
+/**
+ * Join path segments
+ */
+export function joinPaths(...segments: string[]): string {
+  return normalizePath(segments.join('/'));
+}
+
+/**
+ * Check if a path matches any of the given patterns
+ */
+export function matchesAnyPattern(path: string, patterns: string[]): boolean {
+  return patterns.some(pattern => matchPath(pattern, path).isMatch);
 }

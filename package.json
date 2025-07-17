@@ -1,13 +1,16 @@
 {
   "name": "nextrush",
-  "version": "1.2.0",
-  "description": "A modern, fast HTTP server framework for Node.js with Express-compatible API, TypeScript-first design, and clean architecture. Zero dependencies, maximum performance, familiar syntax.",
+  "version": "1.0.0",
+  "description": "A modern, plugin-based HTTP server framework for Node.js with Express-compatible API, dynamic plugin system, TypeScript-first design, and clean architecture. Zero dependencies, maximum performance, familiar syntax.",
   "keywords": [
     "typescript",
     "http",
     "server",
     "framework",
     "express",
+    "plugins",
+    "dynamic-loading",
+    "modular",
     "lightweight",
     "backend",
     "routing",
@@ -22,7 +25,8 @@
     "dependency-injection",
     "testable",
     "middleware",
-    "performance"
+    "performance",
+    "runtime-plugins"
   ],
   "homepage": "https://github.com/0xTanzim/nextrush#readme",
   "bugs": {
@@ -59,7 +63,9 @@
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only examples/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only examples/production-example.ts",
+    "example": "ts-node examples/production-example.ts",
+    "demo:plugins": "ts-node examples/plugin-system-demo.ts",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build && npm run validate",
     "validate": "node scripts/validate-package.js",

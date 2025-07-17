@@ -5,8 +5,8 @@ import { HttpMethod, RequestContext } from './http';
 
 export type Path = string | RegExp;
 
-// Re-export HttpMethod for convenience
-export { type HttpMethod };
+// Re-export HttpMethod and RequestContext for convenience
+export { type HttpMethod, type RequestContext };
 
 export interface RouteHandler {
   (context: RequestContext): Promise<void> | void;
@@ -28,6 +28,7 @@ export interface Route {
   method: HttpMethod;
   handler: RouteHandler;
   middleware?: MiddlewareHandler[];
+  metadata?: Record<string, any>;
 }
 
 export interface RouteMatch {

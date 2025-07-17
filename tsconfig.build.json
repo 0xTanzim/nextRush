@@ -15,7 +15,10 @@
     "examples",
     "tests",
     "node_modules",
+    "docs",
     "src/core/ultimate-abstraction.ts",
+    "src/core/application-monolith-backup.ts",
+    "src/core/refactored-application.ts",
     "src/http/request/ultimate-body-parser.ts",
     "src/http/response/ultimate-file-server.ts"
   ]
