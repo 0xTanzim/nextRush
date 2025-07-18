@@ -1,53 +1,617 @@
-# NextRush Response API
+# 🚀 NextRush Response API - Complete Guide
 
-## 🚀 **Complete Response Object Documentation**
+**Enterprise-grade response handling with zero dependencies and maximum performance**
 
-The NextRush Response object is an enhanced version of Node.js's `ServerResponse` with powerful Express-style methods and additional utilities for modern web development.
+## 📋 **Table of Contents**
 
-## 📋 **Response Properties**
+| Section                                              | Description                              |
+| ---------------------------------------------------- | ---------------------------------------- |
+| [🎯 Overview](#-overview)                            | Introduction to NextRush Response object |
+| [📊 Status Management](#-status-management)          | HTTP status codes and responses          |
+| [📋 Header Management](#-header-management)          | Response headers and metadata            |
+| [📤 Response Methods](#-response-methods)            | Core response sending methods            |
+| [🎨 Template Rendering](#-template-rendering)        | Server-side rendering support            |
+| [🍪 Cookie Management](#-cookie-management)          | Cookie setting and configuration         |
+| [📁 File Serving](#-file-serving)                    | Static file delivery                     |
+| [🔐 Security Headers](#-security-headers)            | Security-focused response features       |
+| [📱 Content Negotiation](#-content-negotiation)      | Smart content type handling              |
+| [⚡ Performance Features](#-performance-features)    | High-performance response utilities      |
+| [🔍 Compression](#-compression)                      | Response compression support             |
+| [📈 Monitoring & Debugging](#-monitoring--debugging) | Response tracking and debugging          |
 
-### Core Properties
+## 🎯 **Overview**
+
+The NextRush Response object extends Node.js's `ServerResponse` with powerful Express-style methods, comprehensive template rendering, security features, and enterprise-grade capabilities.
 
 ```typescript
-res.locals; // Response-local data for templates
-res.statusCode; // HTTP status code (inherited from ServerResponse)
-res.headersSent; // Whether headers have been sent
+import { NextRushResponse } from 'nextrush';
+
+app.get('/api/user/:id', (req, res: NextRushResponse) => {
+  // ✅ Full TypeScript support with autocomplete
+  res
+    .status(200)
+    .set('X-API-Version', '1.0')
+    .json({
+      user: { id: req.param('id'), name: 'John Doe' },
+      timestamp: new Date().toISOString(),
+    });
+});
 ```
 
-## 🔧 **Status & Headers**
+## 📊 **Status Management**
 
-### Status Management
+### 🎯 **Status Code Methods**
+
+| Method                 | Return Type | Description                 | Example                    |
+| ---------------------- | ----------- | --------------------------- | -------------------------- |
+| `res.status(code)`     | `this`      | Set status code (chainable) | `res.status(201).json({})` |
+| `res.sendStatus(code)` | `void`      | Set status and send message | `res.sendStatus(404)`      |
+
+### 📋 **Common Status Patterns**
 
 ```typescript
-// Set status code (chainable)
-res.status(200);
-res.status(404).json({ error: 'Not found' });
-res.status(500).send('Internal Server Error');
+// ✅ Success responses
+res.status(200).json({ data: users }); // OK
+res.status(201).json({ created: newUser }); // Created
+res.status(204).end(); // No Content
 
-// Common status shortcuts
-res.statusCode = 201; // Direct assignment
+// ⚠️ Client errors
+res.status(400).json({ error: 'Bad request' }); // Bad Request
+res.status(401).json({ error: 'Unauthorized' }); // Unauthorized
+res.status(403).json({ error: 'Forbidden' }); // Forbidden
+res.status(404).json({ error: 'Not found' }); // Not Found
+res.status(409).json({ error: 'Conflict' }); // Conflict
+
+// 🚨 Server errors
+res.status(500).json({ error: 'Internal error' }); // Internal Server Error
+res.status(502).json({ error: 'Bad gateway' }); // Bad Gateway
+res.status(503).json({ error: 'Service unavailable' }); // Service Unavailable
+
+// 🚀 Advanced status handling
+res
+  .status(206) // Partial Content
+  .set('Content-Range', 'bytes 200-1023/1024')
+  .send(partialData);
 ```
 
-### Header Management
+## 📋 **Header Management**
+
+### 📤 **Header Methods**
+
+| Method                    | Return Type           | Description                   | Example                                   |
+| ------------------------- | --------------------- | ----------------------------- | ----------------------------------------- |
+| `res.set(name, value)`    | `this`                | Set single header (chainable) | `res.set('Content-Type', 'json')`         |
+| `res.set(headers)`        | `this`                | Set multiple headers          | `res.set({ 'X-API': '1.0' })`             |
+| `res.header(name, value)` | `this`                | Alias for set()               | `res.header('Cache-Control', 'no-cache')` |
+| `res.get(name)`           | `string \| undefined` | Get header value              | `res.get('content-type')`                 |
+| `res.removeHeader(name)`  | `this`                | Remove header                 | `res.removeHeader('x-powered-by')`        |
+| `res.append(name, value)` | `this`                | Append to header              | `res.append('Set-Cookie', 'id=123')`      |
+
+### 🎯 **Header Examples**
 
 ```typescript
-// Set single header
+// 📋 Single header
 res.set('Content-Type', 'application/json');
-res.header('Cache-Control', 'no-cache'); // Alias
+res.header('Cache-Control', 'max-age=3600');
 
-// Set multiple headers
+// 📦 Multiple headers (efficient)
 res.set({
   'Content-Type': 'application/json',
   'Cache-Control': 'max-age=3600',
-  'X-Powered-By': 'NextRush',
+  'X-API-Version': '2.0',
+  'X-Request-ID': req.id,
 });
 
-// Get header value
+// 🔍 Get header values
 const contentType = res.get('content-type');
+const apiVersion = res.get('x-api-version');
 
-// Remove header
-res.removeHeader('x-powered-by');
+// 🗑️ Remove headers
+res.removeHeader('x-powered-by'); // Remove single
+res.removeHeader('server'); // Security
+
+// 📎 Append to existing headers
+res.append('Set-Cookie', 'sessionId=abc123; HttpOnly');
+res.append('Set-Cookie', 'theme=dark; Path=/');
+
+// ⛓️ Method chaining
+res
+  .status(200)
+  .set('Content-Type', 'application/json')
+  .set('Cache-Control', 'no-cache')
+  .json({ success: true });
 ```
+
+## 📤 **Response Methods**
+
+### 🎯 **Core Response Methods**
+
+| Method             | Description                       | Example                        |
+| ------------------ | --------------------------------- | ------------------------------ |
+| `res.send(data)`   | Send response (auto-detects type) | `res.send('Hello')`            |
+| `res.json(object)` | Send JSON response                | `res.json({ user: 'John' })`   |
+| `res.text(string)` | Send plain text                   | `res.text('Hello World')`      |
+| `res.html(html)`   | Send HTML response                | `res.html('<h1>Hello</h1>')`   |
+| `res.xml(xml)`     | Send XML response                 | `res.xml('<user>John</user>')` |
+| `res.end()`        | End response                      | `res.status(204).end()`        |
+
+### 📋 **Advanced Response Methods**
+
+```typescript
+// 📄 JSON responses with auto-formatting
+res.json({
+  data: users,
+  meta: {
+    total: users.length,
+    page: 1,
+    timestamp: new Date().toISOString(),
+  },
+});
+
+// 📝 Text responses
+res.text('Simple text response');
+
+// 🌐 HTML responses
+res.html(`
+  <html>
+    <head><title>NextRush App</title></head>
+    <body><h1>Welcome!</h1></body>
+  </html>
+`);
+
+// 📊 XML responses
+res.xml(`
+  <?xml version="1.0" encoding="UTF-8"?>
+  <response>
+    <status>success</status>
+    <data>Hello World</data>
+  </response>
+`);
+
+// 📦 Smart send() method - auto-detects type
+res.send({ object: 'becomes JSON' }); // → JSON
+res.send('<h1>HTML</h1>'); // → HTML
+res.send('Plain text'); // → Text
+res.send(Buffer.from('binary')); // → Binary
+
+// 🚀 Streaming responses
+res.set('Content-Type', 'application/octet-stream');
+fs.createReadStream('large-file.zip').pipe(res);
+```
+
+## 🎨 **Template Rendering**
+
+NextRush includes the **Ultimate Template Engine** - zero dependencies, maximum flexibility! 🎨
+
+### 🖼️ **Template Methods**
+
+| Method                             | Description               | Example                                             |
+| ---------------------------------- | ------------------------- | --------------------------------------------------- |
+| `res.render(template, data)`       | Render template with data | `res.render('user.html', { user })`                 |
+| `res.renderString(template, data)` | Render template string    | `res.renderString('<h1>{{title}}</h1>', { title })` |
+
+### 🎯 **Template Examples**
+
+```typescript
+// 🎨 Render template files
+res.render('profile.html', {
+  user: { name: 'John Doe', email: 'john@example.com' },
+  title: 'User Profile',
+  isAdmin: true,
+});
+
+// 📝 Render template strings
+res.renderString(
+  `
+  <div class="user-card">
+    <h2>Welcome, {{user.name}}!</h2>
+    <p>Email: {{user.email}}</p>
+    {{#if isAdmin}}
+      <span class="badge">Admin</span>
+    {{/if}}
+  </div>
+`,
+  {
+    user: { name: 'Jane', email: 'jane@example.com' },
+    isAdmin: false,
+  }
+);
+
+// 🎪 Advanced template features
+res.render('dashboard.html', {
+  users: [
+    { name: 'John', role: 'admin' },
+    { name: 'Jane', role: 'user' },
+  ],
+  stats: {
+    totalUsers: 150,
+    activeUsers: 89,
+    growth: '+12%',
+  },
+  // Template helpers
+  formatDate: (date) => new Date(date).toLocaleDateString(),
+  capitalize: (str) => str.charAt(0).toUpperCase() + str.slice(1),
+});
+
+// 🚀 Template with layouts
+res.render('page.html', {
+  layout: 'layout.html',
+  title: 'My Page',
+  content: 'Page content here',
+});
+```
+
+## 🍪 **Cookie Management**
+
+### 🍪 **Cookie Methods**
+
+| Method                             | Description  | Example                        |
+| ---------------------------------- | ------------ | ------------------------------ |
+| `res.cookie(name, value, options)` | Set cookie   | `res.cookie('theme', 'dark')`  |
+| `res.clearCookie(name, options)`   | Clear cookie | `res.clearCookie('sessionId')` |
+
+### 🎯 **Cookie Examples**
+
+```typescript
+// 🍪 Basic cookies
+res.cookie('username', 'john_doe');
+res.cookie('theme', 'dark');
+
+// 🔐 Secure cookies with options
+res.cookie('sessionId', 'abc123', {
+  httpOnly: true, // Prevent XSS
+  secure: true, // HTTPS only
+  sameSite: 'strict', // CSRF protection
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  path: '/', // Available site-wide
+  domain: '.yourdomain.com', // Subdomain sharing
+});
+
+// 🎯 Authentication cookies
+res.cookie('authToken', jwt.sign({ userId: 123 }), {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+});
+
+// 🗑️ Clear cookies
+res.clearCookie('sessionId');
+res.clearCookie('authToken', {
+  httpOnly: true,
+  secure: true,
+});
+
+// ⛓️ Chaining with responses
+res
+  .cookie('lastVisit', new Date().toISOString())
+  .json({ message: 'Welcome back!' });
+```
+
+## 📁 **File Serving**
+
+### 📂 **File Methods**
+
+| Method                         | Description            | Example                                                   |
+| ------------------------------ | ---------------------- | --------------------------------------------------------- |
+| `res.sendFile(path, options)`  | Send file with headers | `res.sendFile('/path/to/file.pdf')`                       |
+| `res.download(path, filename)` | Force download         | `res.download('/files/report.pdf', 'monthly-report.pdf')` |
+| `res.attachment(filename)`     | Set download headers   | `res.attachment('document.pdf')`                          |
+
+### 🎯 **File Serving Examples**
+
+```typescript
+// 📄 Send files with proper headers
+res.sendFile('/uploads/avatar.jpg', {
+  headers: {
+    'Cache-Control': 'public, max-age=86400',
+    'Content-Type': 'image/jpeg',
+  },
+});
+
+// 💾 Force file downloads
+res.download('/reports/monthly.pdf', 'Monthly-Report-2024.pdf');
+
+// 📎 Set attachment headers
+res.attachment('backup.zip').sendFile('/backups/latest.zip');
+
+// 🚀 Streaming large files
+const fileStream = fs.createReadStream('/large-files/video.mp4');
+res.set({
+  'Content-Type': 'video/mp4',
+  'Content-Disposition': 'inline; filename="video.mp4"',
+  'Cache-Control': 'public, max-age=3600',
+});
+fileStream.pipe(res);
+
+// 📊 File serving with range support (video/audio streaming)
+app.get('/stream/:file', (req, res) => {
+  const range = req.headers.range;
+  const filePath = `/media/${req.params.file}`;
+  const stat = fs.statSync(filePath);
+
+  if (range) {
+    // Handle partial content
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+
+    res.status(206).set({
+      'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': end - start + 1,
+      'Content-Type': 'video/mp4',
+    });
+
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+  } else {
+    res.sendFile(filePath);
+  }
+});
+```
+
+## 🔐 **Security Headers**
+
+### 🛡️ **Security Methods**
+
+```typescript
+// 🔐 Essential security headers
+res.set({
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Referrer-Policy': 'no-referrer',
+  'Content-Security-Policy': "default-src 'self'",
+});
+
+// 🚀 Security helper methods
+res.security({
+  xss: true, // X-XSS-Protection
+  nosniff: true, // X-Content-Type-Options
+  frameguard: 'deny', // X-Frame-Options
+  hsts: {
+    // Strict-Transport-Security
+    maxAge: 31536000,
+    includeSubDomains: true,
+  },
+});
+
+// 🔒 CORS headers
+res.cors({
+  origin: 'https://yourdomain.com',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  headers: ['Content-Type', 'Authorization'],
+});
+```
+
+## 📱 **Content Negotiation**
+
+### 🎯 **Content Type Detection**
+
+```typescript
+// 📱 Smart content negotiation
+app.get('/api/data', (req, res) => {
+  const data = { users: ['John', 'Jane'] };
+
+  const format = req.accepts(['json', 'xml', 'html']);
+
+  switch (format) {
+    case 'json':
+      res.json(data);
+      break;
+    case 'xml':
+      res.xml(
+        `<users>${data.users.map((u) => `<user>${u}</user>`).join('')}</users>`
+      );
+      break;
+    case 'html':
+      res.html(`<ul>${data.users.map((u) => `<li>${u}</li>`).join('')}</ul>`);
+      break;
+    default:
+      res.status(406).json({ error: 'Not Acceptable' });
+  }
+});
+
+// 📄 Conditional responses based on Accept header
+if (req.accepts('application/json')) {
+  res.json({ data: results });
+} else if (req.accepts('text/html')) {
+  res.render('results.html', { results });
+} else {
+  res.status(406).json({ error: 'Format not supported' });
+}
+```
+
+## ⚡ **Performance Features**
+
+### 🚀 **Performance Methods**
+
+```typescript
+// ⚡ Response timing
+const startTime = Date.now();
+
+res.on('finish', () => {
+  const duration = Date.now() - startTime;
+  res.set('X-Response-Time', `${duration}ms`);
+});
+
+// 📊 Content length optimization
+res.set('Content-Length', Buffer.byteLength(responseData));
+
+// 🗜️ Compression hints
+res.set('Vary', 'Accept-Encoding');
+
+// 🎯 ETag support for caching
+const etag = generateETag(responseData);
+res.set('ETag', etag);
+
+if (req.headers['if-none-match'] === etag) {
+  res.sendStatus(304); // Not Modified
+} else {
+  res.json(responseData);
+}
+
+// 🚀 Efficient JSON streaming for large datasets
+app.get('/api/large-dataset', (req, res) => {
+  res.set('Content-Type', 'application/json');
+  res.write('[');
+
+  let first = true;
+  largeDataStream.on('data', (chunk) => {
+    if (!first) res.write(',');
+    res.write(JSON.stringify(chunk));
+    first = false;
+  });
+
+  largeDataStream.on('end', () => {
+    res.write(']');
+    res.end();
+  });
+});
+```
+
+## 🔍 **Compression**
+
+### 🗜️ **Compression Support**
+
+```typescript
+// 🗜️ Manual compression control
+res.set('Content-Encoding', 'gzip');
+res.set('Vary', 'Accept-Encoding');
+
+// 📦 Compression for specific routes
+app.get('/api/large-data', (req, res) => {
+  const data = getLargeDataset();
+
+  if (req.accepts('gzip')) {
+    // Compress large responses
+    res.set('Content-Encoding', 'gzip');
+    const compressed = zlib.gzipSync(JSON.stringify(data));
+    res.send(compressed);
+  } else {
+    res.json(data);
+  }
+});
+
+// 🎯 Smart compression based on size
+const responseSize = Buffer.byteLength(JSON.stringify(data));
+if (responseSize > 1024) {
+  // Compress responses > 1KB
+  res.set('Content-Encoding', 'gzip');
+}
+```
+
+## 📈 **Monitoring & Debugging**
+
+### 🔍 **Response Tracking**
+
+```typescript
+// 📊 Response monitoring
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  // Track response
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`📤 Response ${req.id}:`, {
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      contentLength: res.get('content-length'),
+      contentType: res.get('content-type'),
+    });
+  });
+
+  next();
+});
+
+// 🎯 Response debugging
+res.debug = function (message, data = {}) {
+  console.log(`🔍 Response Debug [${req.id}]:`, message, data);
+  return this;
+};
+
+// Usage
+res
+  .debug('Setting authentication cookie', { userId: 123 })
+  .cookie('authToken', token)
+  .json({ success: true });
+
+// 📈 Performance monitoring
+res.on('pipe', () => {
+  console.log('📡 Starting response stream');
+});
+
+res.on('finish', () => {
+  console.log('✅ Response completed');
+});
+```
+
+## 🎯 **Best Practices**
+
+### ✅ **Recommended Patterns**
+
+| Practice              | ✅ Good                                        | ❌ Avoid                                |
+| --------------------- | ---------------------------------------------- | --------------------------------------- |
+| **Status Setting**    | `res.status(201).json({})`                     | `res.statusCode = 201; res.json({})`    |
+| **Header Management** | `res.set('Content-Type', 'json')`              | `res.setHeader('content-type', 'json')` |
+| **Method Chaining**   | `res.status(200).set('X-API', '1.0').json({})` | Multiple separate calls                 |
+| **Security Headers**  | Always set security headers                    | Rely on defaults                        |
+| **Error Responses**   | Consistent error format                        | Inconsistent error handling             |
+| **Content Type**      | `res.json({})` for objects                     | `res.send({})` for objects              |
+
+### 🚀 **Performance Tips**
+
+```typescript
+// ⚡ Efficient response patterns
+app.get('/api/users', (req, res) => {
+  // 1. Set headers early
+  res.set({
+    'Content-Type': 'application/json',
+    'Cache-Control': 'public, max-age=300',
+    'X-API-Version': '1.0',
+  });
+
+  // 2. Stream large responses
+  if (req.query.export === 'true') {
+    return streamLargeDataset(res);
+  }
+
+  // 3. Use efficient JSON responses
+  res.json({
+    data: users,
+    meta: { total: users.length },
+  });
+});
+
+// 🎯 Conditional responses
+app.get('/api/data', (req, res) => {
+  // Check cache first
+  const etag = generateETag(data);
+  res.set('ETag', etag);
+
+  if (req.headers['if-none-match'] === etag) {
+    return res.sendStatus(304); // Not Modified
+  }
+
+  res.json(data);
+});
+```
+
+## 🎉 **Summary**
+
+The NextRush Response object provides:
+
+- ✅ **Express-compatible API** with enhanced features
+- ✅ **Professional template rendering** with Ultimate Template Engine
+- ✅ **Security-first design** with built-in protection
+- ✅ **Performance optimization** with smart caching and compression
+- ✅ **File serving capabilities** with streaming support
+- ✅ **TypeScript support** with full autocomplete
+- ✅ **Zero dependencies** for maximum reliability
+
+**Ready to deliver amazing web responses with professional-grade features!** 🚀
 
 ## 📤 **Response Methods**
 

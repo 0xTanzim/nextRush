@@ -1,102 +1,941 @@
-# � NextRush Middleware Guide
+# 🎛️ NextRush Middleware Guide
 
-**Making web development easy and fun!**
+**The Complete Guide to Express-Like Middleware with Zero Complexity!**
 
-## 🤔 What is Middleware?
+## 🚀 What Makes NextRush Middleware Special?
 
-Think of middleware like **security guards** and **helpers** for your website:
+NextRush provides a **clean, Express-compatible middleware system** that works exactly like you'd expect - but with **zero dependencies**, **perfect TypeScript support**, and **no ugly type casting**!
 
-- 🛡️ **Security Guard**: Checks if users are allowed to enter
-- 📝 **Logger**: Writes down who visited and when
-- 🧹 **Cleaner**: Organizes data before it reaches your app
-- ⚡ **Speed Booster**: Makes your website faster
+### ✨ Key Features
 
-**Simple Example:**
+- 🎯 **Express-Style DX**: Works exactly like Express.js - no learning curve
+- 🔒 **Type-Safe**: Full IntelliSense support, no `(app as any)` casting needed
+- 🛡️ **Security-First**: Built-in security middleware with sane defaults
+- ⚡ **Zero Dependencies**: All middleware built from scratch for performance
+- 🎛️ **Smart Presets**: Pre-configured stacks for instant setup
+- � **Composable**: Advanced composition functions for complex scenarios
+
+---
+
+## 🎯 Quick Start with Presets
+
+**Want middleware configured perfectly in one line? Use presets!**
+
+### 🛠️ Development Preset - Perfect for Learning
+
+```javascript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+
+// One line setup for development
+app.usePreset('development');
+// ✅ Detailed logging with timestamps and request IDs
+// ✅ CORS enabled for all origins (great for frontend dev)
+// ✅ Basic security headers
+// ✅ Request timing and performance metrics
+// ✅ No rate limiting (easier debugging)
+
+app.get('/api/users', (req, res) => {
+  res.json({ users: [] });
+});
+
+app.listen(3000);
+```
+
+### 🏭 Production Preset - Enterprise Ready
 
 ```javascript
 const app = createApp();
 
-// Add a "security guard" to check API keys
-app.use((req, res, next) => {
-  if (req.headers['api-key'] === 'secret123') {
-    next(); // ✅ Let them through
-  } else {
-    res.status(401).json({ error: 'Not allowed!' }); // ❌ Stop them
-  }
+// One line production setup
+app.usePreset('production');
+// ✅ All security headers (XSS, CSRF, Clickjacking protection)
+// ✅ CORS configured for specific origins
+// ✅ Compression enabled
+// ✅ Rate limiting (100 req/15min)
+// ✅ Performance monitoring
+// ✅ Structured logging
+
+app.listen(3000);
+```
+
+### 📱 API Preset - Perfect for REST APIs
+
+```javascript
+const app = createApp();
+
+// Optimized for API development
+app.usePreset('api');
+// ✅ JSON body parsing with size limits
+// ✅ API-specific CORS headers
+// ✅ Request ID tracking
+// ✅ JSON-formatted logging
+// ✅ Performance timing headers
+// ✅ Security headers optimized for APIs
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 ```
 
----
-
-## 🎯 Super Easy Setup (Presets)
-
-**Don't want to think about middleware? Use presets!**
-
-This is like choosing a ready-made outfit for your app: 😄
-You get everything you need without worrying about details. Pre configured for common tasks! so you can focus on building your app.
-
-### 🛠️ Development (Learning/Testing)
+### 🏢 Full-Featured Preset - Enterprise Applications
 
 ```javascript
-app.usePreset('development');
-// ✅ Perfect for learning NextRush
-// ✅ Shows detailed logs
-// ✅ No security overhead
+const app = createApp();
+
+// Everything enabled for large-scale applications
+app.usePreset('fullFeatured', {
+  cors: {
+    origin: ['https://yourdomain.com', 'https://admin.yourdomain.com'],
+    credentials: true,
+  },
+  logger: {
+    format: 'json', // Structured logging for monitoring
+  },
+});
+// ✅ Comprehensive security (CSP, HSTS, Permissions Policy)
+// ✅ Advanced CORS with credentials
+// ✅ Request/response tracking with IDs
+// ✅ Multiple logging formats (JSON, detailed, simple)
+// ✅ Response compression
+// ✅ Performance timing
+// ✅ Rate limiting with IP tracking
+
+app.listen(3000);
 ```
 
-### 🏭 Production (Real Apps)
+---
+
+## 🛠️ Individual Middleware Functions
+
+**Need fine-grained control? Use individual functions!**
+
+### 🔒 Security Middleware
 
 ```javascript
+import { createApp, cors, helmet, rateLimit } from 'nextrush';
+
+const app = createApp();
+
+// CORS - Handle cross-origin requests
+app.use(
+  cors({
+    origin: 'https://yourdomain.com',
+    credentials: true,
+    maxAge: 86400,
+  })
+);
+
+// Security Headers - Protect against common attacks
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
+  })
+);
+
+// Rate Limiting - Prevent abuse
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per window
+    message: 'Too many requests, please try again later',
+  })
+);
+```
+
+### 📊 Monitoring & Logging
+
+```javascript
+import { logger, requestId, requestTimer } from 'nextrush';
+
+// Request ID - Track requests across your system
+app.use(requestId());
+
+// Request Timing - Monitor performance
+app.use(requestTimer());
+
+// Rich Logging - Multiple formats available
+app.use(
+  logger({
+    format: 'json', // 'simple', 'detailed', 'json'
+    includeHeaders: ['user-agent', 'authorization'],
+    excludePaths: ['/health', '/favicon.ico'],
+  })
+);
+
+// Custom monitoring
+app.use((req, res, next) => {
+  console.log(`📡 ${req.method} ${req.url} - Request ID: ${req.id}`);
+  next();
+});
+```
+
+### ⚡ Performance Middleware
+
+```javascript
+import { compression, caching } from 'nextrush';
+
+// Response Compression - Reduce bandwidth
+app.use(
+  compression({
+    level: 6, // Compression level (1-9)
+    threshold: 1024, // Only compress responses > 1KB
+    filter: (req, res) => {
+      // Custom compression logic
+      return !req.headers['x-no-compression'];
+    },
+  })
+);
+
+// Response Caching - Speed up repeated requests
+app.use(
+  caching({
+    maxAge: 3600, // 1 hour cache
+    etag: true,
+    lastModified: true,
+  })
+);
+```
+
+---
+
+## 🎨 Advanced Composition
+
+**Build complex middleware patterns with composition functions!**
+
+### � Sequential Composition
+
+```javascript
+import { compose, when, unless, named, group } from 'nextrush';
+
+// Combine multiple middleware into one
+const securityStack = compose([
+  helmet(),
+  cors({ origin: 'https://yourdomain.com' }),
+  rateLimit({ max: 100, windowMs: 15 * 60 * 1000 }),
+]);
+
+app.use(securityStack);
+```
+
+### 🎯 Conditional Middleware
+
+```javascript
+// Only apply middleware when condition is met
+const apiAuth = when(
+  (req) => req.url.startsWith('/api/'),
+  (req, res, next) => {
+    if (!req.headers.authorization) {
+      return res.status(401).json({ error: 'Authorization required' });
+    }
+    next();
+  }
+);
+
+// Apply middleware unless condition is met
+const skipHealthCheck = unless(
+  (req) => req.url === '/health',
+  logger({ format: 'detailed' })
+);
+
+app.use(apiAuth);
+app.use(skipHealthCheck);
+```
+
+### 🏷️ Named Middleware Groups
+
+```javascript
+// Create named middleware groups for organization
+const authMiddleware = named('authentication', [
+  requestId(),
+  logger({ format: 'json' }),
+  (req, res, next) => {
+    // JWT verification logic
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token && verifyJWT(token)) {
+      req.user = decodeJWT(token);
+      next();
+    } else {
+      res.status(401).json({ error: 'Invalid token' });
+    }
+  },
+]);
+
+const adminMiddleware = named('admin-only', [
+  authMiddleware,
+  (req, res, next) => {
+    if (req.user?.role === 'admin') {
+      next();
+    } else {
+      res.status(403).json({ error: 'Admin access required' });
+    }
+  },
+]);
+
+// Use named middleware
+app.use('/admin', adminMiddleware);
+```
+
+### � Grouped Middleware
+
+```javascript
+// Group related middleware for reuse
+const apiMiddlewareGroup = group({
+  name: 'api-stack',
+  middleware: [
+    cors({ origin: ['https://app.com', 'https://admin.app.com'] }),
+    helmet({ contentSecurityPolicy: false }), // Relaxed for API
+    rateLimit({ max: 1000, windowMs: 60 * 1000 }), // Higher limits for API
+    logger({ format: 'json' }),
+    compression(),
+  ],
+  options: {
+    skipOn: (req) => req.url === '/api/health',
+    errorHandler: (err, req, res, next) => {
+      console.error('API Middleware Error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    },
+  },
+});
+
+app.use('/api', apiMiddlewareGroup);
+```
+
+---
+
+## 💡 Real-World Examples
+
+### 🏪 E-commerce Application
+
+````javascript
+import { createApp, cors, helmet, rateLimit, logger, compression } from 'nextrush';
+
+const app = createApp();
+
+// Base security for all routes
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "https://cdn.yourdomain.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'"] // Required for payment forms
+    }
+  }
+}));
+
+// CORS for frontend
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://yourdomain.com', 'https://admin.yourdomain.com']
+    : true,
+  credentials: true
+}));
+
+// Different rate limits for different endpoints
+app.use('/api/auth', rateLimit({ max: 5, windowMs: 15 * 60 * 1000 })); // Strict auth limits
+app.use('/api/products', rateLimit({ max: 100, windowMs: 60 * 1000 })); // Generous for browsing
+app.use('/api/orders', rateLimit({ max: 20, windowMs: 60 * 1000 })); // Moderate for orders
+
+// Performance optimizations
+app.use(compression());
+app.use(logger({
+  format: 'json',
+  includeHeaders: ['user-agent', 'referer'],
+  excludePaths: ['/health', '/favicon.ico']
+}));
+
+// Custom middleware for user context
+app.use('/api', (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token) {
+    req.user = verifyToken(token);
+  }
+  next();
+});
+
+
+### 🔐 Multi-Service Architecture
+
+```javascript
+import { createApp, when, unless, group, named } from 'nextrush';
+
+const app = createApp();
+
+// Service identification middleware
+const serviceIdentifier = (req, res, next) => {
+  req.service = req.headers['x-service-name'] || 'unknown';
+  req.version = req.headers['x-api-version'] || 'v1';
+  next();
+};
+
+// Different middleware for different services
+const userServiceMiddleware = when(
+  req => req.service === 'user-service',
+  group([
+    rateLimit({ max: 500, windowMs: 60 * 1000 }),
+    logger({ format: 'detailed' }),
+    (req, res, next) => {
+      req.context = { service: 'users', permissions: ['read', 'write'] };
+      next();
+    }
+  ])
+);
+
+const paymentServiceMiddleware = when(
+  req => req.service === 'payment-service',
+  group([
+    rateLimit({ max: 50, windowMs: 60 * 1000 }), // Stricter limits
+    helmet({ hsts: { maxAge: 31536000 } }), // Extra security
+    logger({ format: 'json', includeBody: true }), // Full audit trail
+    (req, res, next) => {
+      req.context = { service: 'payments', permissions: ['read'], auditRequired: true };
+      next();
+    }
+  ])
+);
+
+app.use(serviceIdentifier);
+app.use(userServiceMiddleware);
+app.use(paymentServiceMiddleware);
+````
+
+### 🎮 Gaming Platform API
+
+```javascript
+const app = createApp();
+
+// Base gaming middleware
+app.usePreset('api', {
+  logger: { format: 'json' },
+  cors: {
+    origin: ['https://game.com', 'https://mobile.game.com'],
+    credentials: true,
+  },
+});
+
+// Player authentication with session management
+const playerAuth = named('player-auth', [
+  (req, res, next) => {
+    const sessionId = req.headers['x-session-id'];
+    const playerId = req.headers['x-player-id'];
+
+    if (validateSession(sessionId, playerId)) {
+      req.player = getPlayer(playerId);
+      next();
+    } else {
+      res.status(401).json({ error: 'Invalid session' });
+    }
+  },
+  (req, res, next) => {
+    // Update last activity
+    updatePlayerActivity(req.player.id);
+    next();
+  },
+]);
+
+// Rate limiting for different game actions
+const gameActionLimits = group([
+  // Generous limits for reading game state
+  when(
+    (req) => req.method === 'GET',
+    rateLimit({ max: 1000, windowMs: 60 * 1000 })
+  ),
+
+  // Moderate limits for game actions
+  when(
+    (req) => req.url.includes('/action/'),
+    rateLimit({ max: 100, windowMs: 60 * 1000 })
+  ),
+
+  // Strict limits for purchases
+  when(
+    (req) => req.url.includes('/purchase/'),
+    rateLimit({ max: 10, windowMs: 60 * 1000 })
+  ),
+]);
+
+app.use('/api/game', playerAuth);
+app.use('/api/game', gameActionLimits);
+```
+
+---
+
+## 🎨 Custom Middleware Patterns
+
+### 🔄 Circuit Breaker Pattern
+
+```javascript
+function circuitBreaker(options = {}) {
+  const { threshold = 5, timeout = 60000 } = options;
+  let failures = 0;
+  let lastFailTime = 0;
+
+  return (req, res, next) => {
+    const now = Date.now();
+
+    // Reset if timeout has passed
+    if (now - lastFailTime > timeout) {
+      failures = 0;
+    }
+
+    // Check if circuit is open
+    if (failures >= threshold) {
+      return res.status(503).json({
+        error: 'Service temporarily unavailable',
+        retryAfter: Math.ceil((timeout - (now - lastFailTime)) / 1000),
+      });
+    }
+
+    // Wrap the response to catch failures
+    const originalSend = res.send;
+    res.send = function (body) {
+      if (res.statusCode >= 500) {
+        failures++;
+        lastFailTime = now;
+      }
+      return originalSend.call(this, body);
+    };
+
+    next();
+  };
+}
+
+// Usage
+app.use('/api/external', circuitBreaker({ threshold: 3, timeout: 30000 }));
+```
+
+### 📊 Request Analytics
+
+```javascript
+function analytics(options = {}) {
+  const { trackHeaders = [], trackQuery = true } = options;
+
+  return (req, res, next) => {
+    const startTime = Date.now();
+
+    // Capture request data
+    const analyticsData = {
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      url: req.url,
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection?.remoteAddress,
+      headers: trackHeaders.reduce((acc, header) => {
+        if (req.headers[header]) acc[header] = req.headers[header];
+        return acc;
+      }, {}),
+      query: trackQuery ? req.query : undefined,
+    };
+
+    // Capture response data when response finishes
+    res.on('finish', () => {
+      analyticsData.statusCode = res.statusCode;
+      analyticsData.responseTime = Date.now() - startTime;
+      analyticsData.contentLength = res.getHeader('content-length');
+
+      // Send to analytics service (async)
+      sendToAnalytics(analyticsData).catch((err) =>
+        console.error('Analytics error:', err)
+      );
+    });
+
+    next();
+  };
+}
+
+// Usage
+app.use(
+  analytics({
+    trackHeaders: ['referer', 'accept-language'],
+    trackQuery: true,
+  })
+);
+```
+
+### 🔐 Advanced Authentication
+
+```javascript
+function flexibleAuth(options = {}) {
+  const { strategies = ['jwt', 'apikey'], optional = false } = options;
+
+  return (req, res, next) => {
+    let authenticated = false;
+    let user = null;
+
+    // Try JWT authentication
+    if (strategies.includes('jwt')) {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        try {
+          user = verifyJWT(token);
+          authenticated = true;
+        } catch (err) {
+          // JWT invalid, try next strategy
+        }
+      }
+    }
+
+    // Try API key authentication
+    if (!authenticated && strategies.includes('apikey')) {
+      const apiKey = req.headers['x-api-key'];
+      if (apiKey) {
+        user = validateApiKey(apiKey);
+        if (user) authenticated = true;
+      }
+    }
+
+    // Try session authentication
+    if (!authenticated && strategies.includes('session')) {
+      const sessionId = req.headers['x-session-id'];
+      if (sessionId) {
+        user = getSessionUser(sessionId);
+        if (user) authenticated = true;
+      }
+    }
+
+    if (authenticated || optional) {
+      req.user = user;
+      req.authenticated = authenticated;
+      next();
+    } else {
+      res.status(401).json({
+        error: 'Authentication required',
+        acceptedMethods: strategies,
+      });
+    }
+  };
+}
+
+// Usage examples
+app.use('/api/public', flexibleAuth({ optional: true })); // User data if available
+app.use('/api/protected', flexibleAuth({ strategies: ['jwt', 'apikey'] })); // Required auth
+app.use('/api/admin', flexibleAuth({ strategies: ['jwt'] })); // JWT only
+```
+
+---
+
+## 🛠️ Built-in Middleware Reference
+
+### 🔒 Security Middleware
+
+```javascript
+// CORS - Cross-Origin Resource Sharing
+app.use(
+  cors({
+    origin: ['https://yourdomain.com'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    maxAge: 86400, // Cache preflight for 24 hours
+  })
+);
+
+// Helmet - Security Headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
+
+// Rate Limiting
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP',
+    standardHeaders: true, // Return rate limit info in headers
+    legacyHeaders: false, // Disable legacy X-RateLimit-* headers
+    skipSuccessfulRequests: false,
+    skipFailedRequests: false,
+  })
+);
+```
+
+### 📊 Monitoring Middleware
+
+```javascript
+// Request ID - Track requests across services
+app.use(
+  requestId({
+    header: 'X-Request-ID',
+    generator: () => crypto.randomUUID(),
+    setHeader: true,
+  })
+);
+
+// Request Timer - Performance monitoring
+app.use(
+  requestTimer({
+    header: 'X-Response-Time',
+    digits: 3, // Precision
+    suffix: true, // Add 'ms' suffix
+  })
+);
+
+// Logger - Comprehensive request logging
+app.use(
+  logger({
+    format: 'combined', // 'simple', 'detailed', 'json', 'combined'
+    level: 'info',
+    includeHeaders: ['user-agent', 'authorization'],
+    excludeHeaders: ['cookie'],
+    includePaths: undefined, // Log all paths
+    excludePaths: ['/health', '/favicon.ico'],
+    colorize: process.env.NODE_ENV !== 'production',
+  })
+);
+```
+
+### ⚡ Performance Middleware
+
+```javascript
+// Compression - Reduce response size
+app.use(
+  compression({
+    level: 6, // Compression level (1-9)
+    threshold: 1024, // Only compress responses > 1KB
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    },
+  })
+);
+
+// Caching - HTTP caching headers
+app.use(
+  caching({
+    maxAge: 3600, // 1 hour
+    etag: true,
+    lastModified: true,
+    cacheControl: 'public',
+    vary: ['Accept-Encoding', 'Authorization'],
+  })
+);
+```
+
+---
+
+## 🎯 Error Handling Patterns
+
+### 🚨 Global Error Handler
+
+```javascript
+// Error logging middleware
+const errorLogger = (err, req, res, next) => {
+  console.error('Error occurred:', {
+    error: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    requestId: req.id,
+  });
+  next(err);
+};
+
+// Error response middleware
+const errorResponder = (err, req, res, next) => {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  res.status(err.status || 500).json({
+    error: err.message,
+    ...(isDevelopment && { stack: err.stack }),
+    requestId: req.id,
+    timestamp: new Date().toISOString(),
+  });
+};
+
+// Apply error handling
+app.use(errorLogger);
+app.use(errorResponder);
+```
+
+### ⚠️ Async Error Handling
+
+```javascript
+// Wrapper for async route handlers
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+// Usage
+app.get(
+  '/api/users',
+  asyncHandler(async (req, res) => {
+    const users = await getUsersFromDatabase();
+    res.json(users);
+  })
+);
+```
+
+---
+
+## 📚 Best Practices
+
+### ✅ Do's
+
+1. **Use presets for quick setup**: `app.usePreset('production')`
+2. **Apply security middleware early**: CORS, Helmet, Rate limiting
+3. **Use request IDs for tracing**: `app.use(requestId())`
+4. **Log important events**: Authentication, errors, performance
+5. **Compose middleware logically**: Security → Logging → Business logic
+6. **Use conditional middleware**: `when()`, `unless()` for flexibility
+7. **Group related middleware**: `group()` and `named()` for organization
+
+### ❌ Don'ts
+
+1. **Don't skip security middleware** in production
+2. **Don't log sensitive data** (passwords, tokens)
+3. **Don't apply heavy middleware** to health check endpoints
+4. **Don't forget error handling** middleware
+5. **Don't use blocking operations** in middleware
+6. **Don't ignore rate limiting** for public APIs
+7. **Don't mix async/sync patterns** inconsistently
+
+### 🏗️ Architecture Tips
+
+```javascript
+// Good: Organized middleware stack
+app.use(requestId());           // 1. Request tracking
+app.use(logger());             // 2. Request logging
+app.use(helmet());             // 3. Security headers
+app.use(cors());               // 4. CORS handling
+app.use(rateLimit());          // 5. Rate limiting
+app.use(compression());        // 6. Response compression
+app.use(bodyParser());         // 7. Body parsing
+
+// Routes
+app.get('/api/users', (req, res) => { ... });
+
+// Error handling (always last)
+app.use(errorLogger);
+app.use(errorResponder);
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### 🐛 Common Issues
+
+**Issue: Middleware not executing**
+
+```javascript
+// Wrong - missing next()
+app.use((req, res, next) => {
+  console.log('Request received');
+  // Missing next() call!
+});
+
+// Correct
+app.use((req, res, next) => {
+  console.log('Request received');
+  next(); // ✅ Don't forget this!
+});
+```
+
+**Issue: CORS errors**
+
+```javascript
+// Wrong - CORS after routes
+app.get('/api/data', (req, res) => res.json({}));
+app.use(cors()); // Too late!
+
+// Correct - CORS before routes
+app.use(cors()); // ✅ Apply early
+app.get('/api/data', (req, res) => res.json({}));
+```
+
+**Issue: Rate limiting not working**
+
+```javascript
+// Make sure rate limiting is applied before routes
+app.use(rateLimit({ max: 100, windowMs: 60000 }));
+app.get('/api/data', handler); // Will be rate limited
+
+// Or apply to specific paths
+app.use('/api/', rateLimit({ max: 100, windowMs: 60000 }));
+```
+
+### 📈 Performance Monitoring
+
+```javascript
+// Monitor middleware performance
+function performanceMonitor(name) {
+  return (req, res, next) => {
+    const start = process.hrtime.bigint();
+
+    res.on('finish', () => {
+      const end = process.hrtime.bigint();
+      const duration = Number(end - start) / 1000000; // Convert to ms
+
+      if (duration > 100) {
+        // Log slow middleware
+        console.warn(`Slow middleware ${name}: ${duration.toFixed(2)}ms`);
+      }
+    });
+
+    next();
+  };
+}
+
+// Usage
+app.use(performanceMonitor('cors'), cors());
+app.use(performanceMonitor('auth'), authMiddleware);
+```
+
+---
+
+## 🎉 Conclusion
+
+NextRush middleware provides:
+
+- ✅ **Zero-dependency** security and performance middleware
+- ✅ **Express-compatible** API with better TypeScript support
+- ✅ **Smart presets** for instant setup
+- ✅ **Advanced composition** for complex scenarios
+- ✅ **Production-ready** defaults with enterprise features
+
+**Start simple with presets, then customize as needed!**
+
+```javascript
+// Start here
+const app = createApp();
 app.usePreset('production');
-// ✅ Security headers
-// ✅ Fast responses
-// ✅ Request tracking
-// ✅ Everything optimized
+app.listen(3000);
+
+// Grow into this
+const app = createApp();
+app.use(requestId());
+app.use(logger({ format: 'json' }));
+app.use(helmet());
+app.use(cors({ origin: process.env.ALLOWED_ORIGINS.split(',') }));
+app.use(rateLimit({ max: 1000, windowMs: 60000 }));
+app.use(compression());
+app.listen(3000);
 ```
 
-### 🚀 API (Building APIs)
-
-```javascript
-app.usePreset('api');
-// ✅ Cross-origin requests
-// ✅ JSON parsing
-// ✅ Performance monitoring
-```
-
-### 🎯 Minimal (Just Basics)
-
-```javascript
-app.usePreset('minimal');
-// ✅ Just request logging
-// ✅ Smallest overhead
-```
-
-## (Use Groups) to apply multiple middleware at once
-
-This is like putting on a jacket that has all the security features you need:
-
-```javascript
-app.useGroup([logger(), helmet(), cors()]);
-// ✅ Applies multiple middleware at once
-// ✅ Great for organizing your app
-```
-
----
-
-## 🧱 Individual Middleware (Custom Setup)
-
-**Want more control? Add middleware one by one:**
-
-### 📝 `logger()` - See What's Happening
-
-**Shows requests in your console**
-
-```javascript
-app.use(logger());
-// Output: GET /api/users - 200 - 45ms
-```
-
-**Why use it?**
+Ready to build amazing web applications! 🚀
 
 - ✅ See what users are requesting
 - ✅ Find slow endpoints

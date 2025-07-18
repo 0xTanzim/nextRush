@@ -163,20 +163,23 @@ export function requestId(
 export function requestTimer(
   options: { header?: string } = {}
 ): ExpressMiddleware {
-  const header = options.header || 'X-Response-Time';
+  const headerName = options.header || 'X-Response-Time';
 
   return (req, res, next) => {
     const start = Date.now();
 
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-      res.setHeader(header, `${duration}ms`);
-    });
+    const originalEnd = res.end;
+    res.end = function (chunk?: any, encoding?: any) {
+      if (!res.headersSent) {
+        const duration = Date.now() - start;
+        res.setHeader(headerName, `${duration}ms`);
+      }
+      return originalEnd.call(this, chunk, encoding);
+    };
 
     next();
   };
 }
-
 /**
  * Compression Middleware
  * Compresses response data
@@ -250,13 +253,13 @@ export function rateLimit(
   };
 }
 
-// Re-export presets
+// Export presets
 export {
   apiPreset,
   developmentPreset,
+  fullFeaturedPreset,
   getPreset,
-  minimalPreset,
-  PRESET_NAMES,
   productionPreset,
-  securityPreset,
-} from '../middleware/presets';
+  type PresetName,
+  type PresetOptions,
+} from './presets';

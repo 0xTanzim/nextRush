@@ -1,60 +1,504 @@
-# NextRush Request API
+# 🚀 NextRush Request API - Complete Guide
 
-## 🚀 **Complete Request Object Documentation**
+**Professional-grade request handling with zero dependencies and maximum performance**
 
-The NextRush Request object is an enhanced version of Node.js's `IncomingMessage` with powerful Express-style methods and additional utilities for modern web development.
+## � **Table of Contents**
 
-## 📋 **Request Properties**
+| Section                                                    | Description                             |
+| ---------------------------------------------------------- | --------------------------------------- |
+| [🎯 Overview](#-overview)                                  | Introduction to NextRush Request object |
+| [📦 Core Properties](#-core-properties)                    | Essential request properties            |
+| [🔧 Basic Methods](#-basic-methods)                        | Fundamental request methods             |
+| [📊 Body Parsing](#-body-parsing)                          | Advanced body parsing capabilities      |
+| [📁 File Handling](#-file-handling)                        | File upload and multipart support       |
+| [🍪 Cookie Management](#-cookie-management)                | Cookie parsing and handling             |
+| [🔐 Security Features](#-security-features)                | Security-focused request methods        |
+| [🔍 Content Type Detection](#-content-type-detection)      | Smart content type handling             |
+| [⚡ Performance Features](#-performance-features)          | High-performance request utilities      |
+| [🧪 Validation & Sanitization](#-validation--sanitization) | Built-in validation system              |
+| [📈 Monitoring & Debugging](#-monitoring--debugging)       | Request tracking and debugging          |
 
-### Core Properties
+## 🎯 **Overview**
+
+The NextRush Request object extends Node.js's `IncomingMessage` with powerful Express-style methods, comprehensive body parsing, file handling, and enterprise-grade features.
 
 ```typescript
-req.params; // Route parameters (e.g., /user/:id → req.params.id)
-req.query; // Query string parameters (?name=value)
-req.body; // Parsed request body (JSON, form data, etc.)
-req.pathname; // URL pathname
-req.originalUrl; // Complete original URL
-req.path; // URL path
+import { NextRushRequest } from 'nextrush';
+
+app.get('/api/user/:id', (req: NextRushRequest, res) => {
+  // ✅ Full TypeScript support with autocomplete
+  const userId = req.param('id');
+  const userAgent = req.header('user-agent');
+  const clientIp = req.ip();
+
+  res.json({
+    userId,
+    userAgent,
+    clientIp,
+    isSecure: req.secure(),
+  });
+});
 ```
 
-### Enhanced Properties
+## � **Core Properties**
+
+### 🎯 **Essential Properties**
+
+| Property          | Type                     | Description                       | Example                          |
+| ----------------- | ------------------------ | --------------------------------- | -------------------------------- |
+| `req.params`      | `Record<string, string>` | Route parameters                  | `req.params.id` from `/user/:id` |
+| `req.query`       | `ParsedUrlQuery`         | Query string parameters           | `req.query.page` from `?page=1`  |
+| `req.body`        | `any`                    | Parsed request body (auto-parsed) | JSON, form data, text, files     |
+| `req.pathname`    | `string`                 | URL pathname                      | `/api/users`                     |
+| `req.originalUrl` | `string`                 | Complete original URL             | `/api/users?page=1`              |
+| `req.path`        | `string`                 | URL path (alias for pathname)     | `/api/users`                     |
+
+### 🚀 **Enhanced Properties**
+
+| Property        | Type                         | Description                | Example                    |
+| --------------- | ---------------------------- | -------------------------- | -------------------------- |
+| `req.files`     | `Record<string, FileUpload>` | Uploaded files (multipart) | `req.files.avatar`         |
+| `req.cookies`   | `Record<string, string>`     | Parsed cookies             | `req.cookies.sessionId`    |
+| `req.session`   | `Record<string, any>`        | Session data storage       | `req.session.user`         |
+| `req.locals`    | `Record<string, any>`        | Request-scoped data        | `req.locals.currentUser`   |
+| `req.startTime` | `number`                     | Request start timestamp    | `Date.now()`               |
+| `req.id`        | `string`                     | Unique request ID          | `req_1642680000000_abc123` |
+
+## 🔧 **Basic Methods**
+
+### 📝 **Parameter & Header Access**
 
 ```typescript
-req.files; // Uploaded files (multipart/form-data)
-req.cookies; // Parsed cookies
-req.session; // Session data
-req.locals; // Request-local data
-req.startTime; // Request start timestamp
-req.middlewareStack; // Middleware execution stack (debugging)
-```
+// 🎯 Get route parameters
+const userId = req.param('id'); // From /user/:id
+const category = req.param('category'); // From /products/:category
 
-## 🔧 **Request Methods**
-
-### Basic Information
-
-```typescript
-// Get route parameter
-const userId = req.param('id');
-
-// Get header value
+// 📋 Get header values
 const userAgent = req.header('user-agent');
-const userAgent = req.get('user-agent'); // Alias
+const contentType = req.get('content-type'); // Alias for header()
+const authorization = req.header('authorization');
 
-// Get request IP (with proxy support)
-const clientIp = req.ip();
-
-// Check if request is secure (HTTPS)
-const isSecure = req.secure();
-
-// Get protocol
+// 🌐 Get client information
+const clientIp = req.ip(); // Smart IP detection with proxy support
+const isSecure = req.secure(); // Check if HTTPS
 const protocol = req.protocol(); // 'http' or 'https'
+const hostname = req.hostname(); // Domain name
+const fullUrl = req.fullUrl(); // Complete URL with protocol
+```
+
+### 🔍 **Content Type Detection**
+
+```typescript
+// ✅ Check content types
+if (req.is('application/json')) {
+  console.log('📄 JSON request');
+}
+
+if (req.isJson()) {
+  // Convenience method
+  console.log('📄 JSON detected');
+}
+
+if (req.isForm()) {
+  // URL-encoded form
+  console.log('📝 Form data detected');
+}
+
+if (req.isMultipart()) {
+  // Multipart/form-data
+  console.log('📁 File upload detected');
+}
+
+// 🎯 Accept header checking
+const acceptsJson = req.accepts('application/json');
+const acceptsHtml = req.accepts(['text/html', 'application/json']);
+```
+
+## 📊 **Body Parsing**
+
+NextRush includes the **Ultimate Body Parser** - zero dependencies, maximum performance! 🚀
+
+### 🔄 **Automatic Body Parsing**
+
+```typescript
+// ✨ Body parsing is AUTOMATIC for all requests!
+app.post('/api/data', (req, res) => {
+  // req.body is already parsed based on Content-Type:
+  // - application/json → JavaScript object
+  // - application/x-www-form-urlencoded → Object with form fields
+  // - multipart/form-data → Object + files in req.files
+  // - text/* → String
+  // - application/octet-stream → Buffer
+
+  console.log('📦 Parsed body:', req.body);
+  console.log('📁 Uploaded files:', req.files);
+
+  res.json({ received: req.body });
+});
+```
+
+### 🎯 **Advanced Body Methods**
+
+| Method                | Return Type                    | Description                  | Example                 |
+| --------------------- | ------------------------------ | ---------------------------- | ----------------------- |
+| `req.parseBody()`     | `Promise<UnifiedParsedResult>` | Get full parsing result      | `await req.parseBody()` |
+| `req.getBody()`       | `Promise<any>`                 | Get parsed body data         | `await req.getBody()`   |
+| `req.json()`          | `Promise<any>`                 | Get body as JSON (validates) | `await req.json()`      |
+| `req.text()`          | `Promise<string>`              | Get body as text             | `await req.text()`      |
+| `req.buffer()`        | `Promise<Buffer>`              | Get body as buffer           | `await req.buffer()`    |
+| `req.isEmpty()`       | `boolean`                      | Check if body is empty       | `req.isEmpty()`         |
+| `req.contentLength()` | `number`                       | Get content length           | `req.contentLength()`   |
+
+```typescript
+// 🎯 Advanced body parsing examples
+app.post('/api/upload', async (req, res) => {
+  try {
+    // Get full parsing result with metadata
+    const parseResult = await req.parseBody();
+    console.log('📊 Parse info:', {
+      parser: parseResult.parser, // 'json', 'multipart', 'urlencoded'
+      hasFiles: parseResult.hasFiles, // Boolean
+      contentType: parseResult.contentType,
+    });
+
+    // Validate JSON specifically
+    if (req.is('application/json')) {
+      const jsonData = await req.json();
+      console.log('✅ Valid JSON:', jsonData);
+    }
+
+    // Get as text for any content type
+    const textData = await req.text();
+    console.log('📝 Text representation:', textData);
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid request body' });
+  }
+});
+```
+
+## 📁 **File Handling**
+
+Professional file upload handling with comprehensive metadata and validation! 🗂️
+
+### 📂 **File Upload Methods**
+
+| Method               | Return Type                           | Description                   | Example                       |
+| -------------------- | ------------------------------------- | ----------------------------- | ----------------------------- |
+| `req.getFiles()`     | `Promise<Record<string, FileUpload>>` | Get all uploaded files        | `await req.getFiles()`        |
+| `req.getFile(name)`  | `Promise<FileUpload \| null>`         | Get single file by field name | `await req.getFile('avatar')` |
+| `req.allFiles()`     | `Promise<FileUpload[]>`               | Get all files as array        | `await req.allFiles()`        |
+| `req.hasFiles()`     | `Promise<boolean>`                    | Check if request has files    | `await req.hasFiles()`        |
+| `req.getFields()`    | `Promise<Record<string, string>>`     | Get form fields (multipart)   | `await req.getFields()`       |
+| `req.getField(name)` | `Promise<string \| null>`             | Get single form field         | `await req.getField('title')` |
+
+### �️ **File Upload Example**
+
+```typescript
+app.post('/api/upload', async (req, res) => {
+  try {
+    // Check if files were uploaded
+    const hasFiles = await req.hasFiles();
+    if (!hasFiles) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    // Get all uploaded files
+    const files = await req.getFiles();
+    console.log('📁 Uploaded files:', Object.keys(files));
+
+    // Get specific file
+    const avatar = await req.getFile('avatar');
+    if (avatar) {
+      console.log('👤 Avatar file:', {
+        originalName: avatar.originalName,
+        filename: avatar.filename,
+        mimetype: avatar.mimetype,
+        size: avatar.size,
+        path: avatar.path,
+      });
+    }
+
+    // Get all files as array for processing
+    const allFiles = await req.allFiles();
+    for (const file of allFiles) {
+      console.log(`📄 Processing ${file.originalName} (${file.size} bytes)`);
+    }
+
+    // Get form fields alongside files
+    const fields = await req.getFields();
+    const title = await req.getField('title');
+
+    res.json({
+      success: true,
+      filesUploaded: allFiles.length,
+      title,
+      files: allFiles.map((f) => ({
+        name: f.originalName,
+        size: f.size,
+        type: f.mimetype,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+```
+
+### 📋 **FileUpload Interface**
+
+```typescript
+interface FileUpload {
+  fieldname: string; // Form field name
+  originalName: string; // Original filename
+  filename: string; // Generated filename
+  mimetype: string; // MIME type
+  size: number; // File size in bytes
+  path: string; // File path on disk
+  buffer?: Buffer; // File data (if memory storage)
+  encoding: string; // File encoding
+  destination?: string; // Upload destination
+}
+```
+
+## 🍪 **Cookie Management**
+
+```typescript
+// 🍪 Access parsed cookies
+const sessionId = req.cookies.sessionId;
+const theme = req.cookies.theme || 'light';
+
+// Example with authentication
+app.get('/api/profile', (req, res) => {
+  const authToken = req.cookies.authToken;
+
+  if (!authToken) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  // Validate token and get user profile
+  const user = validateToken(authToken);
+  res.json({ user });
+});
+```
+
+## 🔐 **Security Features**
+
+### 🛡️ **Security-Focused Methods**
+
+```typescript
+// 🔐 Security information
+const clientIp = req.ip(); // Real client IP (proxy-aware)
+const isSecure = req.secure(); // HTTPS check
+const userAgent = req.header('user-agent'); // User agent string
+
+// 🌐 Origin and referrer validation
+const origin = req.header('origin');
+const referrer = req.header('referer');
+
+// 📊 Request timing for rate limiting
+const requestStart = req.startTime;
+const requestId = req.id;
+
+// Example: Rate limiting by IP
+const rateLimitKey = `rate_limit_${req.ip()}`;
+```
+
+## 🔍 **Content Type Detection**
+
+### 📋 **Smart Content Detection**
+
+```typescript
+// 🎯 Precise content type checking
+if (req.is('application/json')) {
+  console.log('📄 JSON content');
+}
+
+if (req.is('multipart/form-data')) {
+  console.log('📁 File upload');
+}
+
+if (req.is('text/html')) {
+  console.log('🌐 HTML content');
+}
+
+// 📱 Accept header negotiation
+const preferredFormat = req.accepts(['json', 'html', 'xml']);
+switch (preferredFormat) {
+  case 'json':
+    res.json({ data: 'JSON response' });
+    break;
+  case 'html':
+    res.render('template.html', { data: 'HTML response' });
+    break;
+  case 'xml':
+    res
+      .set('Content-Type', 'application/xml')
+      .send('<data>XML response</data>');
+    break;
+  default:
+    res.status(406).json({ error: 'Not acceptable' });
+}
+```
+
+## ⚡ **Performance Features**
+
+### 📈 **High-Performance Utilities**
+
+```typescript
+// ⏱️ Request timing
+const startTime = req.startTime;
+const duration = Date.now() - startTime;
+
+// 📊 Content length optimization
+const contentLength = req.contentLength();
+if (contentLength > 10 * 1024 * 1024) {
+  // 10MB
+  return res.status(413).json({ error: 'Request too large' });
+}
+
+// 🔍 Efficient empty body check
+if (req.isEmpty()) {
+  console.log('📝 Empty request body');
+}
+
+// 🎯 Request ID for tracing
+const requestId = req.id;
+console.log(`🔍 Processing request ${requestId}`);
+```
+
+## 🧪 **Validation & Sanitization**
+
+### ✅ **Built-in Validation System**
+
+```typescript
+// 🧪 Advanced validation example
+app.post('/api/user', async (req, res) => {
+  try {
+    // Validate request has body
+    if (req.isEmpty()) {
+      return res.status(400).json({ error: 'Request body required' });
+    }
+
+    // Get and validate JSON
+    const userData = await req.json();
+
+    // Basic validation
+    if (!userData.email || !userData.name) {
+      return res.status(400).json({
+        error: 'Missing required fields: email, name',
+      });
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userData.email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Success
+    res.json({ success: true, user: userData });
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+});
+```
+
+## 📈 **Monitoring & Debugging**
+
+### 🔍 **Request Tracking & Debugging**
+
+```typescript
+// 🔍 Request debugging information
+app.use((req, res, next) => {
+  console.log(`🚀 Request ${req.id}:`, {
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip(),
+    userAgent: req.header('user-agent'),
+    contentType: req.header('content-type'),
+    contentLength: req.contentLength(),
+    startTime: new Date(req.startTime).toISOString(),
+  });
+
+  next();
+});
+
+// 📊 Performance monitoring
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`⚡ Request ${req.id} completed in ${duration}ms`);
+  });
+
+  next();
+});
+```
+
+## 🎯 **Best Practices**
+
+### ✅ **Recommended Patterns**
+
+| Practice             | ✅ Good                        | ❌ Avoid                           |
+| -------------------- | ------------------------------ | ---------------------------------- |
+| **Parameter Access** | `req.param('id')`              | `req.params.id` (no validation)    |
+| **Header Access**    | `req.header('content-type')`   | `req.headers['content-type']`      |
+| **Body Parsing**     | `await req.json()` (validates) | `req.body` (assumes parsed)        |
+| **File Handling**    | `await req.getFile('upload')`  | `req.files.upload` (may not exist) |
+| **Content Type**     | `req.is('application/json')`   | Manual string comparison           |
+| **IP Detection**     | `req.ip()` (proxy-aware)       | `req.connection.remoteAddress`     |
+
+### 🚀 **Performance Tips**
+
+```typescript
+// ⚡ Efficient request handling
+app.post('/api/data', async (req, res) => {
+  // 1. Early validation
+  if (req.isEmpty()) {
+    return res.status(400).json({ error: 'Body required' });
+  }
+
+  // 2. Content type checking
+  if (!req.is('application/json')) {
+    return res.status(415).json({ error: 'JSON required' });
+  }
+
+  // 3. Size validation
+  if (req.contentLength() > 1024 * 1024) {
+    // 1MB
+    return res.status(413).json({ error: 'Request too large' });
+  }
+
+  // 4. Parse and process
+  const data = await req.json();
+  res.json({ success: true, data });
+});
+```
+
+## 🎉 **Summary**
+
+The NextRush Request object provides:
+
+- ✅ **Express-compatible API** with enhanced features
+- ✅ **Automatic body parsing** for all content types
+- ✅ **Professional file handling** with metadata
+- ✅ **Security-first design** with proxy awareness
+- ✅ **Performance optimization** with smart caching
+- ✅ **TypeScript support** with full autocomplete
+- ✅ **Zero dependencies** for maximum reliability
+
+**Ready to build amazing web applications with professional request handling!** 🚀
 
 // Get hostname
 const host = req.hostname();
 
 // Get full URL
 const fullUrl = req.fullUrl();
-```
+
+````
 
 ### Content Type Detection
 
@@ -75,7 +519,7 @@ if (req.is('application/xml')) {
 // Check accepted response types
 const acceptsJson = req.accepts('json');
 const acceptsHtml = req.accepts(['html', 'json']);
-```
+````
 
 ### Cookie Handling
 

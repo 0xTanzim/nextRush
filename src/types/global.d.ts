@@ -2,6 +2,7 @@
  * Global type augmentation for automatic type inference
  * Eliminates the need to manually import NextRushRequest and NextRushResponse
  */
+import { PresetOptions } from '../plugins/middleware/presets';
 import { NextRushRequest, NextRushResponse } from './express';
 import { RequestContext } from './http';
 import {
@@ -57,7 +58,7 @@ interface PresetOptions {
  * Global type augmentation for Application methods
  * Enables automatic type inference for HTTP methods and middleware
  */
-declare module 'nextrush' {
+declare module '../core/app/application' {
   interface Application {
     /**
      * Register a GET route with Express-style handler
@@ -165,6 +166,11 @@ declare module 'nextrush' {
      * Apply middleware preset
      */
     usePreset(name: string, options?: PresetOptions): this;
+
+    /**
+     * Apply multiple middleware at once
+     */
+    useGroup(middlewares: ExpressMiddleware[]): this;
 
     /**
      * CORS middleware
