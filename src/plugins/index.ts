@@ -20,6 +20,7 @@ export { BodyParserPlugin } from './body-parser/body-parser.plugin';
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
 export { RouterPlugin } from './router/router.plugin';
 export { StaticFilesPlugin } from './static-files/static-files.plugin';
+export { WebSocketPlugin } from './websocket/websocket.plugin';
 
 // ============================================================================
 // 🎯 PLUGIN CREATION HELPER
@@ -30,6 +31,7 @@ import type { PluginRegistry } from './core/base-plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { RouterPlugin } from './router/router.plugin';
 import { StaticFilesPlugin } from './static-files/static-files.plugin';
+import { WebSocketPlugin } from './websocket/websocket.plugin';
 
 /**
  * Create all core plugins for NextRush
@@ -40,6 +42,7 @@ export function createCorePlugins(registry: PluginRegistry) {
     new StaticFilesPlugin(registry),
     new MiddlewarePlugin(registry),
     new BodyParserPlugin(registry),
+    new WebSocketPlugin(registry),
   ];
 }
 
@@ -51,4 +54,5 @@ export const PLUGIN_NAMES = {
   STATIC_FILES: 'StaticFiles',
   MIDDLEWARE: 'Middleware',
   BODY_PARSER: 'BodyParser',
+  WEBSOCKET: 'WebSocket',
 } as const;

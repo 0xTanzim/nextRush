@@ -73,6 +73,27 @@ export interface IApplication {
   close(callback?: () => void): IApplication;
 }
 
+// Import WebSocket types for interface extension
+import type {
+  NextRushWebSocket,
+  WebSocketHandler,
+  WebSocketMiddleware,
+  WebSocketOptions,
+  WebSocketStats,
+} from '../../types/websocket';
+
+// Interface merging to add WebSocket methods to Application
+declare module '../app/application' {
+  interface Application {
+    enableWebSocket(options?: WebSocketOptions): this;
+    ws(path: string, handler: WebSocketHandler): this;
+    wsUse(middleware: WebSocketMiddleware): this;
+    wsBroadcast(data: any, room?: string): this;
+    getWebSocketStats(): WebSocketStats | undefined;
+    getWebSocketConnections(): NextRushWebSocket[];
+  }
+}
+
 /**
  * 🔥 NextRush Application - Enterprise-Grade with Proper Typing
  */
@@ -783,6 +804,9 @@ export class Application extends BaseComponent implements IApplication {
     }
 
     this.httpServer = this.createServer();
+
+    // Emit event that server is created (for WebSocket plugin)
+    this.pluginRegistry.emit('application:server-created');
 
     this.httpServer.listen(portNum, host, () => {
       console.log(`🚀 NextRush server listening on port ${portNum}`);
