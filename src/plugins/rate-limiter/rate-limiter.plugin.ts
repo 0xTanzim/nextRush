@@ -101,7 +101,7 @@ export class MemoryStore implements RateLimiterStore {
 
   async resetAll(): Promise<void> {
     this.store.clear();
-    for (const timer of this.timers.values()) {
+    for (const timer of Array.from(this.timers.values())) {
       clearTimeout(timer);
     }
     this.timers.clear();

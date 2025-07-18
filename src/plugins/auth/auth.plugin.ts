@@ -45,20 +45,24 @@ export interface User {
   email?: string;
   roles?: string[];
   permissions?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
- * JWT payload interface
+ * JWT payload interface for type safety
  */
 export interface JwtPayload {
-  sub: string | number; // Subject (user ID)
-  iat: number; // Issued at
-  exp: number; // Expires at
+  sub?: string | number; // Subject (user ID)
   iss?: string; // Issuer
   aud?: string; // Audience
+  exp?: number; // Expiration time
   nbf?: number; // Not before
-  [key: string]: any; // Additional claims
+  iat?: number; // Issued at
+  jti?: string; // JWT ID
+  roles?: string[]; // User roles
+  permissions?: string[]; // User permissions
+  metadata?: Record<string, unknown>; // Additional user data
+  [key: string]: unknown; // Allow additional claims
 }
 
 /**
@@ -67,7 +71,7 @@ export interface JwtPayload {
 export interface SessionData {
   id: string;
   userId: string | number;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   createdAt: number;
   lastAccess: number;
   expiresAt: number;
@@ -115,7 +119,7 @@ export class MemorySessionStore implements SessionStore {
 
   async cleanup(): Promise<void> {
     const now = Date.now();
-    for (const [id, session] of this.sessions) {
+    for (const [id, session] of Array.from(this.sessions.entries())) {
       if (session.expiresAt <= now) {
         this.sessions.delete(id);
       }
@@ -189,11 +193,17 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // JWT methods
-    (app as any).signJwt = (payload: any, options?: Partial<JwtOptions>) => {
+    (app as Application).signJwt = (
+      payload: Record<string, unknown>,
+      options?: Partial<JwtOptions>
+    ) => {
       return this.signJwt(payload, options);
     };
 
-    (app as any).verifyJwt = (token: string, options?: Partial<JwtOptions>) => {
+    (app as Application).verifyJwt = (
+      token: string,
+      options?: Partial<JwtOptions>
+    ) => {
       return this.verifyJwt(token, options);
     };
 
@@ -332,7 +342,10 @@ export class AuthPlugin extends BasePlugin {
   /**
    * Sign JWT token
    */
-  private signJwt(payload: any, options?: Partial<JwtOptions>): string {
+  private signJwt(
+    payload: Record<string, unknown>,
+    options?: Partial<JwtOptions>
+  ): string {
     if (!this.jwtConfig) {
       throw new Error('JWT not configured. Call app.useJwt() first.');
     }
@@ -385,10 +398,12 @@ export class AuthPlugin extends BasePlugin {
 
       // Convert JWT payload to User object
       const user: User = {
-        id: payload.sub,
-        roles: payload.roles || [],
-        permissions: payload.permissions || [],
-        metadata: payload.metadata || {},
+        id: payload.sub || 'unknown',
+        roles: Array.isArray(payload.roles) ? (payload.roles as string[]) : [],
+        permissions: Array.isArray(payload.permissions)
+          ? (payload.permissions as string[])
+          : [],
+        metadata: (payload.metadata as Record<string, unknown>) || {},
       };
 
       return user;
@@ -424,7 +439,7 @@ export class AuthPlugin extends BasePlugin {
     session.lastAccess = Date.now();
     await this.sessionStore.set(sessionId, session);
 
-    return session.data.user || null;
+    return (session.data.user as User) || null;
   }
 
   /**

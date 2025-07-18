@@ -242,7 +242,7 @@ export class MetricsPlugin extends BasePlugin {
 
       // Track response
       const originalEnd = res.end.bind(res);
-      res.end = (chunk?: any, encoding?: any, cb?: any) => {
+      res.end = ((chunk?: unknown, encoding?: unknown, cb?: unknown) => {
         const endTime = Date.now();
         const duration = endTime - startTime;
         const statusCode = res.statusCode;
@@ -260,8 +260,8 @@ export class MetricsPlugin extends BasePlugin {
         }
 
         // Call original end
-        return originalEnd(chunk, encoding, cb);
-      };
+        return originalEnd(chunk as any, encoding as any, cb as any);
+      }) as typeof res.end;
 
       next();
     };
@@ -337,11 +337,14 @@ export class MetricsPlugin extends BasePlugin {
    * Get health status
    */
   private async getHealth(): Promise<HealthStatus> {
-    const checks: Record<string, any> = {};
+    const checks: Record<
+      string,
+      { status: 'pass' | 'fail' | 'warn'; message?: string; duration?: number }
+    > = {};
     let overallStatus: 'healthy' | 'unhealthy' | 'degraded' = 'healthy';
 
     // Run all health checks
-    for (const [name, check] of this.healthChecks) {
+    for (const [name, check] of Array.from(this.healthChecks.entries())) {
       try {
         const startTime = Date.now();
         const result = await check();
@@ -361,6 +364,7 @@ export class MetricsPlugin extends BasePlugin {
         checks[name] = {
           status: 'fail',
           message: error instanceof Error ? error.message : 'Unknown error',
+          duration: 0,
         };
         overallStatus = 'unhealthy';
       }
@@ -408,7 +412,7 @@ export class MetricsPlugin extends BasePlugin {
   private getCustomMetrics(): Record<string, MetricValue[]> {
     const result: Record<string, MetricValue[]> = {};
 
-    for (const [name, values] of this.customMetrics) {
+    for (const [name, values] of Array.from(this.customMetrics.entries())) {
       result[name] = Array.from(values.values());
     }
 

@@ -26,6 +26,38 @@ import { ResponseEnhancer } from '../enhancers/response-enhancer';
 import { SimpleEventEmitter } from '../event-system';
 import { BaseComponent } from './base-component';
 
+// Import proper types instead of using `any`
+import {
+  CompressionOptions,
+  CorsOptions,
+  EventMiddlewareOptions,
+  EventStats,
+  GlobalRateLimitOptions,
+  HealthCheckFunction,
+  HealthData,
+  HelmetOptions,
+  JsonParserOptions,
+  JwtOptions,
+  JwtSignOptions,
+  JwtVerifyOptions,
+  LoggerOptions,
+  MetricsData,
+  MetricsOptions,
+  MiddlewareFunction,
+  PresetOptions,
+  RateLimitOptions,
+  RawParserOptions,
+  RequestIdOptions,
+  Role,
+  SanitizationOptions,
+  TextParserOptions,
+  TimerOptions,
+  UrlEncodedParserOptions,
+  ValidationSchema,
+  WebSecurityOptions,
+  XssProtectionOptions,
+} from '../../types/plugin-options';
+
 // Import new plugin system
 import { createCorePlugins } from '../../plugins/clean-plugins';
 import { SimplePluginRegistry } from '../../plugins/core/simple-registry';
@@ -99,38 +131,47 @@ declare module '../app/application' {
     getWebSocketStats(): WebSocketStats | undefined;
     getWebSocketConnections(): NextRushWebSocket[];
 
-    // 🎛️ Middleware preset methods
-    usePreset(name: string, options?: any): this;
-    useGroup(middlewares: any[]): this;
+    // 🎛️ Middleware preset methods - PROPERLY TYPED!
+    usePreset(
+      name:
+        | 'development'
+        | 'production'
+        | 'fullFeatured'
+        | 'security'
+        | 'performance'
+        | string,
+      options?: PresetOptions
+    ): this;
+    useGroup(middlewares: MiddlewareFunction[]): this;
 
-    // 🔒 Security middleware methods
-    cors(options?: any): any;
-    helmet(options?: any): any;
+    // 🔒 Security middleware methods - NO MORE `any`!
+    cors(options?: CorsOptions): MiddlewareFunction;
+    helmet(options?: HelmetOptions): MiddlewareFunction;
 
-    // 📦 Body parser methods
-    json(options?: any): any;
-    urlencoded(options?: any): any;
-    text(options?: any): any;
-    raw(options?: any): any;
+    // 📦 Body parser methods - FULLY TYPED!
+    json(options?: JsonParserOptions): MiddlewareFunction;
+    urlencoded(options?: UrlEncodedParserOptions): MiddlewareFunction;
+    text(options?: TextParserOptions): MiddlewareFunction;
+    raw(options?: RawParserOptions): MiddlewareFunction;
 
-    // ⚡ Performance middleware methods
-    compression(options?: any): any;
-    rateLimit(options?: any): any;
+    // ⚡ Performance middleware methods - TYPE SAFE!
+    compression(options?: CompressionOptions): MiddlewareFunction;
+    rateLimit(options?: RateLimitOptions): MiddlewareFunction;
 
-    // 📊 Monitoring middleware methods
-    logger(options?: any): any;
-    requestId(options?: any): any;
-    timer(options?: any): any;
+    // 📊 Monitoring middleware methods - SMART TYPES!
+    logger(options?: LoggerOptions): MiddlewareFunction;
+    requestId(options?: RequestIdOptions): MiddlewareFunction;
+    timer(options?: TimerOptions): MiddlewareFunction;
 
-    // 🔐 Authentication & Authorization methods
-    useJwt(options: any): this;
-    defineRole(role: any): this;
-    signJwt(payload: any, options?: any): string;
-    verifyJwt(token: string, options?: any): any;
-    requireAuth(strategy?: string): any;
+    // 🔐 Authentication & Authorization methods - ZERO `any`!
+    useJwt(options: JwtOptions): this;
+    defineRole(role: Role): this;
+    signJwt(payload: Record<string, any>, options?: JwtSignOptions): string;
+    verifyJwt(token: string, options?: JwtVerifyOptions): Record<string, any>;
+    requireAuth(strategy?: string): MiddlewareFunction;
 
-    // 📊 Metrics & Monitoring methods
-    enableMetrics(options?: any): this;
+    // 📊 Metrics & Monitoring methods - PROPER RETURN TYPES!
+    enableMetrics(options?: MetricsOptions): this;
     incrementCounter(
       name: string,
       labels?: Record<string, string>,
@@ -146,22 +187,22 @@ declare module '../app/application' {
       value: number,
       labels?: Record<string, string>
     ): this;
-    addHealthCheck(name: string, check: any): this;
-    getMetrics(): any;
-    getHealth(): any;
+    addHealthCheck(name: string, check: HealthCheckFunction): this;
+    getMetrics(): MetricsData;
+    getHealth(): HealthData;
 
-    // 🛡️ Rate Limiting methods
-    enableGlobalRateLimit(options?: any): this;
-    useRateLimit(options?: any): any;
-    createRateLimit(options?: any): any;
+    // 🛡️ Rate Limiting methods - TYPED OPTIONS!
+    enableGlobalRateLimit(options?: GlobalRateLimitOptions): this;
+    useRateLimit(options?: RateLimitOptions): MiddlewareFunction;
+    createRateLimit(options?: RateLimitOptions): MiddlewareFunction;
 
-    // 🌐 CORS & Security methods
-    enableCors(options?: any): this;
-    enableSecurityHeaders(): any;
-    enableWebSecurity(options?: any): this;
-    xssProtection(options?: any): any;
+    // 🌐 CORS & Security methods - SMART INTERFACES!
+    enableCors(options?: CorsOptions): this;
+    enableSecurityHeaders(): MiddlewareFunction;
+    enableWebSecurity(options?: WebSecurityOptions): this;
+    xssProtection(options?: XssProtectionOptions): MiddlewareFunction;
 
-    // 🔄 Event-driven architecture methods
+    // 🔄 Event-driven architecture methods - ALREADY PROPERLY TYPED!
     on(event: string, handler: (...args: any[]) => void | Promise<void>): this;
     once(
       event: string,
@@ -172,32 +213,13 @@ declare module '../app/application' {
       handler?: (...args: any[]) => void | Promise<void>
     ): this;
     emit(event: string, ...args: any[]): this;
-    eventMiddleware(options?: {
-      autoEmit?: boolean;
-      events?: string[];
-      includeRequest?: boolean;
-      includeResponse?: boolean;
-    }): any;
-    getEventStats(): any;
+    eventMiddleware(options?: EventMiddlewareOptions): MiddlewareFunction;
+    getEventStats(): EventStats;
     getEventHistory(): any[];
 
-    // 🛡️ Input validation & sanitization methods
-    validate(schema: {
-      [key: string]: {
-        required?: boolean;
-        type?: 'string' | 'number' | 'boolean' | 'email' | 'url';
-        min?: number;
-        max?: number;
-        minLength?: number;
-        maxLength?: number;
-      };
-    }): any;
-    sanitize(options?: {
-      removeHtml?: boolean;
-      escapeHtml?: boolean;
-      trim?: boolean;
-      removeSpecialChars?: boolean;
-    }): any;
+    // 🛡️ Input validation & sanitization methods - ALREADY PROPER!
+    validate(schema: ValidationSchema): MiddlewareFunction;
+    sanitize(options?: SanitizationOptions): MiddlewareFunction;
   }
 }
 
