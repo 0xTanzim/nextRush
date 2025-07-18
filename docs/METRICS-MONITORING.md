@@ -30,7 +30,7 @@ app.enableMetrics({
   collectDefaultMetrics: true, // System metrics
   requestTracking: true, // HTTP request tracking
   format: 'prometheus', // 'prometheus' or 'json'
-  prefix: 'myapp_' // Metric name prefix
+  prefix: 'myapp_', // Metric name prefix
 });
 ```
 
@@ -44,32 +44,32 @@ app.enableMetrics({
   requestTracking: true,
   format: 'json',
   prefix: 'nextrush_',
-  
+
   // Authentication for metrics endpoint
   authentication: (req) => {
     const token = req.headers.authorization;
     return token === 'Bearer secret-metrics-token';
   },
-  
+
   // Custom metrics definitions
   customMetrics: {
     user_registrations: {
       type: 'counter',
       help: 'Total number of user registrations',
-      labels: ['source', 'plan']
+      labels: ['source', 'plan'],
     },
     database_connection_pool: {
       type: 'gauge',
       help: 'Current database connections',
-      labels: ['database']
+      labels: ['database'],
     },
     request_duration: {
       type: 'histogram',
       help: 'Request duration in seconds',
       buckets: [0.1, 0.5, 1, 2, 5],
-      labels: ['method', 'route']
-    }
-  }
+      labels: ['method', 'route'],
+    },
+  },
 });
 ```
 
@@ -87,9 +87,9 @@ app.post('/auth/register', (req, res) => {
   // Registration logic
   app.incrementCounter('user_registrations', {
     source: req.headers['user-agent']?.includes('Mobile') ? 'mobile' : 'web',
-    plan: req.body.plan || 'free'
+    plan: req.body.plan || 'free',
   });
-  
+
   res.json({ success: true });
 });
 ```
@@ -114,24 +114,24 @@ setInterval(() => {
 
 ```typescript
 // Observe histogram values (for timing/duration metrics)
-app.observeHistogram('request_duration', 0.5, { 
-  method: 'GET', 
-  route: '/api/users' 
+app.observeHistogram('request_duration', 0.5, {
+  method: 'GET',
+  route: '/api/users',
 });
 
 // Automatic request duration tracking
 app.use((req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = (Date.now() - start) / 1000;
     app.observeHistogram('request_duration', duration, {
       method: req.method,
       route: req.route?.path || req.path,
-      status: res.statusCode.toString()
+      status: res.statusCode.toString(),
     });
   });
-  
+
   next();
 });
 ```
@@ -155,13 +155,16 @@ app.addHealthCheck('database', async () => {
 app.addHealthCheck('payment_service', async () => {
   try {
     const response = await fetch('https://api.stripe.com/v1/account', {
-      headers: { 'Authorization': `Bearer ${process.env.STRIPE_KEY}` }
+      headers: { Authorization: `Bearer ${process.env.STRIPE_KEY}` },
     });
-    
+
     if (response.ok) {
       return { status: 'pass', message: 'Payment service accessible' };
     } else {
-      return { status: 'warn', message: 'Payment service responding with errors' };
+      return {
+        status: 'warn',
+        message: 'Payment service responding with errors',
+      };
     }
   } catch (error) {
     return { status: 'fail', message: 'Payment service unreachable' };
@@ -173,17 +176,18 @@ app.addHealthCheck('memory', async () => {
   const usage = process.memoryUsage();
   const usedMB = Math.round(usage.heapUsed / 1024 / 1024);
   const totalMB = Math.round(usage.heapTotal / 1024 / 1024);
-  
-  if (usedMB > 512) { // 512MB threshold
-    return { 
-      status: 'warn', 
-      message: `High memory usage: ${usedMB}MB / ${totalMB}MB` 
+
+  if (usedMB > 512) {
+    // 512MB threshold
+    return {
+      status: 'warn',
+      message: `High memory usage: ${usedMB}MB / ${totalMB}MB`,
     };
   }
-  
-  return { 
-    status: 'pass', 
-    message: `Memory usage OK: ${usedMB}MB / ${totalMB}MB` 
+
+  return {
+    status: 'pass',
+    message: `Memory usage OK: ${usedMB}MB / ${totalMB}MB`,
   };
 });
 ```
@@ -303,19 +307,19 @@ nextrush_user_registrations{source="mobile",plan="premium"} 18
 // Track business KPIs
 app.post('/api/orders', async (req, res) => {
   const order = await createOrder(req.body);
-  
+
   // Track order metrics
   app.incrementCounter('orders_created', {
     product: order.product,
     plan: order.plan,
-    country: order.billing.country
+    country: order.billing.country,
   });
-  
+
   app.setGauge('revenue_today', await getTodaysRevenue());
   app.observeHistogram('order_value', order.total, {
-    currency: order.currency
+    currency: order.currency,
   });
-  
+
   res.json({ order });
 });
 ```
@@ -327,25 +331,25 @@ app.post('/api/orders', async (req, res) => {
 const measureDbQuery = (queryName: string) => {
   return async (query: string, params: any[]) => {
     const start = Date.now();
-    
+
     try {
       const result = await database.query(query, params);
       const duration = (Date.now() - start) / 1000;
-      
+
       app.observeHistogram('database_query_duration', duration, {
         query: queryName,
-        status: 'success'
+        status: 'success',
       });
-      
+
       return result;
     } catch (error) {
       const duration = (Date.now() - start) / 1000;
-      
+
       app.observeHistogram('database_query_duration', duration, {
         query: queryName,
-        status: 'error'
+        status: 'error',
       });
-      
+
       app.incrementCounter('database_errors', { query: queryName });
       throw error;
     }
@@ -366,9 +370,9 @@ app.use((err, req, res, next) => {
     type: err.constructor.name,
     route: req.route?.path || req.path,
     method: req.method,
-    status: err.status || 500
+    status: err.status || 500,
   });
-  
+
   // Log error details
   console.error('Error occurred:', {
     message: err.message,
@@ -376,9 +380,9 @@ app.use((err, req, res, next) => {
     url: req.url,
     method: req.method,
     ip: req.ip,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
-  
+
   next(err);
 });
 ```
@@ -435,7 +439,10 @@ scrape_configs:
 ### CloudWatch Integration
 
 ```typescript
-import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
+import {
+  CloudWatchClient,
+  PutMetricDataCommand,
+} from '@aws-sdk/client-cloudwatch';
 
 const cloudwatch = new CloudWatchClient({ region: 'us-east-1' });
 
@@ -443,30 +450,32 @@ const cloudwatch = new CloudWatchClient({ region: 'us-east-1' });
 app.use(async (req, res, next) => {
   res.on('finish', async () => {
     try {
-      await cloudwatch.send(new PutMetricDataCommand({
-        Namespace: 'NextRush/Application',
-        MetricData: [
-          {
-            MetricName: 'RequestCount',
-            Value: 1,
-            Unit: 'Count',
-            Dimensions: [
-              { Name: 'Method', Value: req.method },
-              { Name: 'Route', Value: req.route?.path || req.path }
-            ]
-          },
-          {
-            MetricName: 'ResponseTime',
-            Value: res.get('X-Response-Time'),
-            Unit: 'Milliseconds'
-          }
-        ]
-      }));
+      await cloudwatch.send(
+        new PutMetricDataCommand({
+          Namespace: 'NextRush/Application',
+          MetricData: [
+            {
+              MetricName: 'RequestCount',
+              Value: 1,
+              Unit: 'Count',
+              Dimensions: [
+                { Name: 'Method', Value: req.method },
+                { Name: 'Route', Value: req.route?.path || req.path },
+              ],
+            },
+            {
+              MetricName: 'ResponseTime',
+              Value: res.get('X-Response-Time'),
+              Unit: 'Milliseconds',
+            },
+          ],
+        })
+      );
     } catch (error) {
       console.error('Failed to send metrics to CloudWatch:', error);
     }
   });
-  
+
   next();
 });
 ```
@@ -493,13 +502,13 @@ app.setGauge('db_conn'); // Unclear abbreviation
 app.incrementCounter('http_requests_total', {
   method: 'GET',
   status: '200',
-  endpoint: '/api/users'
+  endpoint: '/api/users',
 });
 
 // Avoid high cardinality labels
 app.incrementCounter('requests', {
   user_id: '12345', // High cardinality!
-  timestamp: Date.now().toString() // Infinite cardinality!
+  timestamp: Date.now().toString(), // Infinite cardinality!
 });
 ```
 
@@ -514,16 +523,16 @@ app.use((req, res, next) => {
     metricBatch.push({
       name: 'http_requests_total',
       value: 1,
-      labels: { method: req.method, status: res.statusCode }
+      labels: { method: req.method, status: res.statusCode },
     });
-    
+
     // Flush batch periodically
     if (metricBatch.length >= 100) {
       flushMetrics(metricBatch);
       metricBatch.length = 0;
     }
   });
-  
+
   next();
 });
 ```
@@ -542,7 +551,7 @@ groups:
           severity: warning
         annotations:
           summary: High error rate detected
-          
+
       - alert: HighMemoryUsage
         expr: nextrush_memory_usage_bytes > 1073741824 # 1GB
         for: 2m
@@ -565,7 +574,7 @@ groups:
 ```typescript
 app.enableMetrics({
   debug: true, // Enable debug logging
-  endpoint: '/debug/metrics'
+  endpoint: '/debug/metrics',
 });
 
 // Manual metrics inspection
@@ -574,7 +583,7 @@ app.get('/debug/metrics-raw', (req, res) => {
   res.json({
     metrics,
     memory: process.memoryUsage(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 ```

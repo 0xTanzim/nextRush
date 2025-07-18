@@ -243,7 +243,7 @@ declare module '../core/app/application' {
     /**
      * 🔐 Authentication & Authorization Methods
      */
-    
+
     /**
      * Configure JWT authentication
      */
@@ -267,7 +267,7 @@ declare module '../core/app/application' {
     /**
      * 📊 Metrics & Monitoring Methods
      */
-    
+
     /**
      * Enable metrics collection and endpoint
      */
@@ -284,8 +284,8 @@ declare module '../core/app/application' {
      * Increment a counter metric
      */
     incrementCounter(
-      name: string, 
-      labels?: Record<string, string>, 
+      name: string,
+      labels?: Record<string, string>,
       value?: number
     ): this;
 
@@ -293,15 +293,15 @@ declare module '../core/app/application' {
      * Set a gauge metric value
      */
     setGauge(
-      name: string, 
-      value: number, 
+      name: string,
+      value: number,
       labels?: Record<string, string>
     ): this;
 
     /**
      * 🛡️ Rate Limiting Methods
      */
-    
+
     /**
      * Enable global rate limiting
      */
@@ -326,7 +326,7 @@ declare module '../core/app/application' {
     /**
      * 🌐 CORS & Security Methods
      */
-    
+
     /**
      * Enable CORS globally
      */
@@ -346,7 +346,7 @@ declare module '../core/app/application' {
     /**
      * 🔄 Event-driven architecture methods
      */
-    
+
     /**
      * Add event listener
      */
@@ -355,12 +355,18 @@ declare module '../core/app/application' {
     /**
      * Add one-time event listener
      */
-    once(event: string, handler: (...args: any[]) => void | Promise<void>): this;
+    once(
+      event: string,
+      handler: (...args: any[]) => void | Promise<void>
+    ): this;
 
     /**
      * Remove event listener
      */
-    off(event: string, handler?: (...args: any[]) => void | Promise<void>): this;
+    off(
+      event: string,
+      handler?: (...args: any[]) => void | Promise<void>
+    ): this;
 
     /**
      * Emit event
@@ -399,7 +405,7 @@ declare module '../core/app/application' {
     /**
      * 🛡️ Input validation & sanitization methods
      */
-    
+
     /**
      * Create validation middleware
      */

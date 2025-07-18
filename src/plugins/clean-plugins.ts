@@ -16,36 +16,36 @@ export type { PluginRegistry } from './core/base-plugin';
 // 🎯 PLUGIN IMPLEMENTATIONS
 // ============================================================================
 
+export { AuthPlugin } from './auth/auth.plugin';
+export { BodyParserPlugin } from './body-parser/body-parser.plugin';
+export { EventDrivenPlugin } from './core/event-driven.plugin';
+export { CorsPlugin } from './cors/cors.plugin';
+export { MetricsPlugin } from './metrics/metrics.plugin';
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
+export { ValidationPlugin } from './middleware/validation.plugin';
+export { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
 export { RouterPlugin } from './router/router.plugin';
 export { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
 export { TemplatePlugin } from './template/template.plugin';
 export { WebSocketPlugin } from './websocket/websocket.plugin';
-export { AuthPlugin } from './auth/auth.plugin';
-export { MetricsPlugin } from './metrics/metrics.plugin';
-export { CorsPlugin } from './cors/cors.plugin';
-export { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
-export { BodyParserPlugin } from './body-parser/body-parser.plugin';
-export { ValidationPlugin } from './middleware/validation.plugin';
-export { EventDrivenPlugin } from './core/event-driven.plugin';
 
 // ============================================================================
 // 🎯 PLUGIN CREATION HELPER
 // ============================================================================
 
+import { AuthPlugin } from './auth/auth.plugin';
+import { BodyParserPlugin } from './body-parser/body-parser.plugin';
 import type { PluginRegistry } from './core/base-plugin';
+import { EventDrivenPlugin } from './core/event-driven.plugin';
+import { CorsPlugin } from './cors/cors.plugin';
+import { MetricsPlugin } from './metrics/metrics.plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
+import { ValidationPlugin } from './middleware/validation.plugin';
+import { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
 import { RouterPlugin } from './router/router.plugin';
 import { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
 import { TemplatePlugin } from './template/template.plugin';
 import { WebSocketPlugin } from './websocket/websocket.plugin';
-import { AuthPlugin } from './auth/auth.plugin';
-import { MetricsPlugin } from './metrics/metrics.plugin';
-import { CorsPlugin } from './cors/cors.plugin';
-import { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
-import { BodyParserPlugin } from './body-parser/body-parser.plugin';
-import { ValidationPlugin } from './middleware/validation.plugin';
-import { EventDrivenPlugin } from './core/event-driven.plugin';
 
 /**
  * Create all core plugins for NextRush

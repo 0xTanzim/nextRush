@@ -1,6 +1,6 @@
 /**
  * 🛡️ Rate Limiter Plugin - NextRush Framework
- * 
+ *
  * Built-in rate limiting with memory and Redis backends.
  * Prevents abuse and controls traffic with configurable windows and limits.
  */
@@ -59,7 +59,11 @@ export class MemoryStore implements RateLimiterStore {
     return this.store.get(key);
   }
 
-  async set(key: string, data: RateLimiterData, windowMs: number): Promise<void> {
+  async set(
+    key: string,
+    data: RateLimiterData,
+    windowMs: number
+  ): Promise<void> {
     this.store.set(key, data);
     this.setExpiry(key, windowMs);
   }
@@ -137,7 +141,7 @@ export class RateLimiterPlugin extends BasePlugin {
     // Add rate limiter method to application
     (app as any).useRateLimit = (options: RateLimiterOptions = {}) => {
       const config = this.mergeOptions(options);
-      
+
       return async (
         req: NextRushRequest,
         res: NextRushResponse,
@@ -151,21 +155,33 @@ export class RateLimiterPlugin extends BasePlugin {
 
           // Generate key for this request
           const key = config.keyGenerator(req);
-          
+
           // Get current data and increment
           const data = await config.store.increment(key, config.windowMs);
-          
+
           // Set rate limit headers
           if (config.standardHeaders) {
             res.setHeader('RateLimit-Limit', config.max.toString());
-            res.setHeader('RateLimit-Remaining', Math.max(0, config.max - data.count).toString());
-            res.setHeader('RateLimit-Reset', new Date(data.resetTime).toISOString());
+            res.setHeader(
+              'RateLimit-Remaining',
+              Math.max(0, config.max - data.count).toString()
+            );
+            res.setHeader(
+              'RateLimit-Reset',
+              new Date(data.resetTime).toISOString()
+            );
           }
 
           if (config.legacyHeaders) {
             res.setHeader('X-RateLimit-Limit', config.max.toString());
-            res.setHeader('X-RateLimit-Remaining', Math.max(0, config.max - data.count).toString());
-            res.setHeader('X-RateLimit-Reset', Math.ceil(data.resetTime / 1000).toString());
+            res.setHeader(
+              'X-RateLimit-Remaining',
+              Math.max(0, config.max - data.count).toString()
+            );
+            res.setHeader(
+              'X-RateLimit-Reset',
+              Math.ceil(data.resetTime / 1000).toString()
+            );
           }
 
           // Check if limit exceeded
@@ -231,7 +247,9 @@ export class RateLimiterPlugin extends BasePlugin {
   /**
    * Merge options with defaults
    */
-  private mergeOptions(options: RateLimiterOptions): Required<RateLimiterOptions> {
+  private mergeOptions(
+    options: RateLimiterOptions
+  ): Required<RateLimiterOptions> {
     return {
       windowMs: options.windowMs || 15 * 60 * 1000, // 15 minutes
       max: options.max || 100,
@@ -254,14 +272,19 @@ export class RateLimiterPlugin extends BasePlugin {
    */
   private defaultKeyGenerator = (req: NextRushRequest): string => {
     const forwarded = req.headers['x-forwarded-for'] as string;
-    const ip = forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress;
+    const ip = forwarded
+      ? forwarded.split(',')[0].trim()
+      : req.socket.remoteAddress;
     return `rate_limit:${ip || 'unknown'}`;
   };
 
   /**
    * Default handler when limit exceeded
    */
-  private defaultHandler = (req: NextRushRequest, res: NextRushResponse): void => {
+  private defaultHandler = (
+    req: NextRushRequest,
+    res: NextRushResponse
+  ): void => {
     // This will be overridden by the merged options
   };
 }

@@ -13,7 +13,7 @@ const app = createApp();
 app.enableGlobalRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 requests per window
-  message: 'Too many requests, please try again later.'
+  message: 'Too many requests, please try again later.',
 });
 
 app.listen(3000);
@@ -40,29 +40,29 @@ app.useRateLimit({
 app.useRateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10,
-  
+
   // Custom key generator (IP-based by default)
   keyGenerator: (req) => {
     return req.headers['x-api-key'] || req.ip;
   },
-  
+
   // Skip rate limiting for certain requests
   skip: (req) => {
     return req.path.startsWith('/health');
   },
-  
+
   // Custom handler when limit exceeded
   handler: (req, res) => {
     res.status(429).json({
       error: 'Rate limit exceeded',
-      retryAfter: '60 seconds'
+      retryAfter: '60 seconds',
     });
   },
-  
+
   // Callback when limit is reached
   onLimitReached: (req, options) => {
     console.log(`Rate limit reached for ${req.ip}`);
-  }
+  },
 });
 ```
 
@@ -72,14 +72,16 @@ app.useRateLimit({
 
 ```typescript
 // Different limits for different routes
-app.get('/api/search', 
+app.get(
+  '/api/search',
   app.useRateLimit({ max: 10, windowMs: 60000 }), // 10 per minute
   (req, res) => {
     res.json({ results: [] });
   }
 );
 
-app.post('/api/login', 
+app.post(
+  '/api/login',
   app.useRateLimit({ max: 3, windowMs: 300000 }), // 3 per 5 minutes
   (req, res) => {
     // Login logic
@@ -90,30 +92,34 @@ app.post('/api/login',
 ### API Key-Based Rate Limiting
 
 ```typescript
-app.use('/api', app.useRateLimit({
-  max: 1000, // 1000 requests per hour
-  windowMs: 60 * 60 * 1000,
-  keyGenerator: (req) => {
-    const apiKey = req.headers['x-api-key'];
-    if (!apiKey) {
-      throw new Error('API key required');
-    }
-    return `api_key:${apiKey}`;
-  }
-}));
+app.use(
+  '/api',
+  app.useRateLimit({
+    max: 1000, // 1000 requests per hour
+    windowMs: 60 * 60 * 1000,
+    keyGenerator: (req) => {
+      const apiKey = req.headers['x-api-key'];
+      if (!apiKey) {
+        throw new Error('API key required');
+      }
+      return `api_key:${apiKey}`;
+    },
+  })
+);
 ```
 
 ### User-Based Rate Limiting
 
 ```typescript
-app.use('/api', 
+app.use(
+  '/api',
   app.requireAuth(), // Ensure user is authenticated
   app.useRateLimit({
     max: 100,
     windowMs: 60 * 60 * 1000,
     keyGenerator: (req) => {
       return `user:${req.user.id}`;
-    }
+    },
   })
 );
 ```
@@ -127,24 +133,32 @@ import Redis from 'ioredis';
 
 class RedisStore implements RateLimiterStore {
   private redis: Redis;
-  
+
   constructor(redisUrl: string) {
     this.redis = new Redis(redisUrl);
   }
-  
+
   async get(key: string): Promise<RateLimiterData | undefined> {
     const data = await this.redis.get(key);
     return data ? JSON.parse(data) : undefined;
   }
-  
-  async set(key: string, data: RateLimiterData, windowMs: number): Promise<void> {
-    await this.redis.setex(key, Math.ceil(windowMs / 1000), JSON.stringify(data));
+
+  async set(
+    key: string,
+    data: RateLimiterData,
+    windowMs: number
+  ): Promise<void> {
+    await this.redis.setex(
+      key,
+      Math.ceil(windowMs / 1000),
+      JSON.stringify(data)
+    );
   }
-  
+
   async increment(key: string, windowMs: number): Promise<RateLimiterData> {
     const now = Date.now();
     const existing = await this.get(key);
-    
+
     if (!existing || now >= existing.resetTime) {
       const data: RateLimiterData = {
         count: 1,
@@ -154,16 +168,16 @@ class RedisStore implements RateLimiterStore {
       await this.set(key, data, windowMs);
       return data;
     }
-    
+
     existing.count++;
     await this.set(key, existing, windowMs);
     return existing;
   }
-  
+
   async reset(key: string): Promise<void> {
     await this.redis.del(key);
   }
-  
+
   async resetAll(): Promise<void> {
     await this.redis.flushall();
   }
@@ -173,7 +187,7 @@ class RedisStore implements RateLimiterStore {
 app.useRateLimit({
   max: 100,
   windowMs: 60000,
-  store: new RedisStore('redis://localhost:6379')
+  store: new RedisStore('redis://localhost:6379'),
 });
 ```
 
@@ -220,11 +234,11 @@ app.useRateLimit({
         details: {
           limit: 100,
           window: '15 minutes',
-          retryAfter: '60 seconds'
-        }
-      }
+          retryAfter: '60 seconds',
+        },
+      },
     });
-  }
+  },
 });
 ```
 
@@ -250,7 +264,7 @@ keyGenerator: (req) => {
   // Use forwarded IP for load balancers
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
   return `rate_limit:${ip}`;
-}
+};
 ```
 
 ## Best Practices
@@ -275,12 +289,12 @@ app.useRateLimit({
   skip: (req) => {
     // Skip rate limiting for health checks
     if (req.path === '/health') return true;
-    
+
     // Skip for internal requests
     if (req.headers['x-internal-request']) return true;
-    
+
     return false;
-  }
+  },
 });
 ```
 
@@ -291,13 +305,13 @@ app.useRateLimit({
   onLimitReached: (req, options) => {
     // Log rate limit violations
     console.warn(`Rate limit exceeded: ${req.ip} - ${req.path}`);
-    
+
     // Send to monitoring system
     metrics.increment('rate_limit.exceeded', {
       ip: req.ip,
-      path: req.path
+      path: req.path,
     });
-  }
+  },
 });
 ```
 
@@ -310,13 +324,13 @@ app.useRateLimit({
 app.use((req, res, next) => {
   const isAuthenticated = req.headers.authorization;
   const limit = isAuthenticated ? 1000 : 100;
-  
-  app.useRateLimit({ 
+
+  app.useRateLimit({
     max: limit,
     windowMs: 60 * 60 * 1000,
     keyGenerator: (req) => {
       return isAuthenticated ? `user:${req.user?.id}` : `ip:${req.ip}`;
-    }
+    },
   })(req, res, next);
 });
 ```
@@ -329,15 +343,15 @@ app.doc('/api/data', 'GET', {
   description: 'This endpoint is rate limited to 100 requests per hour',
   responses: {
     '200': { description: 'Success' },
-    '429': { 
+    '429': {
       description: 'Rate limit exceeded',
       headers: {
         'RateLimit-Limit': { description: 'Request limit per window' },
         'RateLimit-Remaining': { description: 'Requests remaining' },
-        'Retry-After': { description: 'Seconds to wait before retry' }
-      }
-    }
-  }
+        'Retry-After': { description: 'Seconds to wait before retry' },
+      },
+    },
+  },
 });
 ```
 
@@ -360,9 +374,9 @@ app.useRateLimit({
       key: options.keyGenerator(req),
       current: 'current count', // Would need to fetch from store
       limit: options.max,
-      window: options.windowMs
+      window: options.windowMs,
     });
-  }
+  },
 });
 ```
 

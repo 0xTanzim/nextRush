@@ -30,7 +30,7 @@ app.cors({
   origin: 'https://example.com', // Single origin
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
 });
 ```
 
@@ -41,9 +41,9 @@ app.cors({
   origin: [
     'https://app.example.com',
     'https://admin.example.com',
-    'http://localhost:3000'
+    'http://localhost:3000',
   ],
-  credentials: true
+  credentials: true,
 });
 ```
 
@@ -54,20 +54,17 @@ app.cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
-    
+
     // Check against allowed domains
-    const allowedDomains = [
-      'example.com',
-      'subdomain.example.com'
-    ];
-    
+    const allowedDomains = ['example.com', 'subdomain.example.com'];
+
     const hostname = new URL(origin).hostname;
-    const isAllowed = allowedDomains.some(domain => 
-      hostname === domain || hostname.endsWith(`.${domain}`)
+    const isAllowed = allowedDomains.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
     );
-    
+
     callback(null, isAllowed);
-  }
+  },
 });
 ```
 
@@ -85,7 +82,7 @@ app.cors({
   credentials: true,
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['*'],
-  exposedHeaders: ['X-Total-Count', 'X-Request-ID']
+  exposedHeaders: ['X-Total-Count', 'X-Request-ID'],
 });
 ```
 
@@ -93,10 +90,9 @@ app.cors({
 
 ```typescript
 // Secure settings for production
-app.enableCors(CorsPresets.production([
-  'https://myapp.com',
-  'https://admin.myapp.com'
-]));
+app.enableCors(
+  CorsPresets.production(['https://myapp.com', 'https://admin.myapp.com'])
+);
 
 // Equivalent to:
 app.cors({
@@ -105,7 +101,7 @@ app.cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['X-Total-Count'],
-  maxAge: 86400 // 24 hours
+  maxAge: 86400, // 24 hours
 });
 ```
 
@@ -116,19 +112,16 @@ app.cors({
 app.enableCors(CorsPresets.apiOnly());
 
 // With specific origins
-app.enableCors(CorsPresets.apiOnly([
-  'https://partner1.com',
-  'https://partner2.com'
-]));
+app.enableCors(
+  CorsPresets.apiOnly(['https://partner1.com', 'https://partner2.com'])
+);
 ```
 
 ### Strict Preset
 
 ```typescript
 // Very restrictive for sensitive applications
-app.enableCors(CorsPresets.strict([
-  'https://secure-app.com'
-]));
+app.enableCors(CorsPresets.strict(['https://secure-app.com']));
 ```
 
 ## Advanced Features
@@ -137,17 +130,19 @@ app.enableCors(CorsPresets.strict([
 
 ```typescript
 // Different CORS policies for different routes
-app.get('/api/public/*', 
+app.get(
+  '/api/public/*',
   app.cors({ origin: true, credentials: false }),
   (req, res) => {
     res.json({ data: 'public' });
   }
 );
 
-app.get('/api/private/*', 
-  app.cors({ 
+app.get(
+  '/api/private/*',
+  app.cors({
     origin: ['https://secure.example.com'],
-    credentials: true 
+    credentials: true,
   }),
   (req, res) => {
     res.json({ data: 'private' });
@@ -160,16 +155,16 @@ app.get('/api/private/*',
 ```typescript
 app.use((req, res, next) => {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   if (isProduction) {
     app.cors({
       origin: ['https://myapp.com'],
-      credentials: true
+      credentials: true,
     })(req, res, next);
   } else {
     app.cors({
       origin: true,
-      credentials: true
+      credentials: true,
     })(req, res, next);
   }
 });
@@ -184,14 +179,14 @@ app.cors({
     'Authorization',
     'X-API-Key',
     'X-Requested-With',
-    'X-Custom-Header'
+    'X-Custom-Header',
   ],
   exposedHeaders: [
     'X-Total-Count',
     'X-Page-Count',
     'X-Request-ID',
-    'X-Response-Time'
-  ]
+    'X-Response-Time',
+  ],
 });
 ```
 
@@ -202,7 +197,7 @@ app.cors({
 ```typescript
 app.enableWebSecurity({
   origin: ['https://myapp.com'],
-  credentials: true
+  credentials: true,
 });
 
 // This sets:
@@ -222,8 +217,10 @@ app.use(app.enableSecurityHeaders());
 
 // Add custom security headers
 app.use((req, res, next) => {
-  res.setHeader('Content-Security-Policy', 
-    "default-src 'self'; script-src 'self' 'unsafe-inline'");
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'"
+  );
   res.setHeader('X-Custom-Security', 'enabled');
   next();
 });
@@ -237,18 +234,18 @@ app.use((req, res, next) => {
 // Preflight is automatically handled for:
 // - Non-simple methods (PUT, DELETE, PATCH)
 // - Custom headers
-// - Content-Type other than application/x-www-form-urlencoded, 
+// - Content-Type other than application/x-www-form-urlencoded,
 //   multipart/form-data, or text/plain
 
 app.cors({
   // Control preflight caching
   maxAge: 86400, // 24 hours
-  
+
   // Continue to next middleware after preflight
   preflightContinue: false,
-  
+
   // Success status for preflight
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
 });
 ```
 
@@ -256,7 +253,7 @@ app.cors({
 
 ```typescript
 app.cors({
-  preflightContinue: true
+  preflightContinue: true,
 });
 
 // Custom preflight logic
@@ -264,12 +261,12 @@ app.options('*', (req, res) => {
   // Custom preflight validation
   const origin = req.headers.origin;
   const method = req.headers['access-control-request-method'];
-  
+
   if (origin && method) {
     // Log preflight requests
     console.log(`Preflight: ${origin} wants to ${method}`);
   }
-  
+
   res.end();
 });
 ```
@@ -282,7 +279,7 @@ app.options('*', (req, res) => {
 app.cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    
+
     const allowed = ['https://example.com'];
     if (allowed.includes(origin)) {
       callback(null, true);
@@ -291,7 +288,7 @@ app.cors({
       console.warn(`CORS rejected origin: ${origin}`);
       callback(new Error('Not allowed by CORS'), false);
     }
-  }
+  },
 });
 
 // Global error handler
@@ -299,7 +296,7 @@ app.use((err, req, res, next) => {
   if (err.message === 'Not allowed by CORS') {
     res.status(403).json({
       error: 'CORS Error',
-      message: 'Origin not allowed'
+      message: 'Origin not allowed',
     });
   } else {
     next(err);
@@ -316,9 +313,9 @@ const corsOptions = {
   development: CorsPresets.development(),
   production: CorsPresets.production([
     'https://myapp.com',
-    'https://admin.myapp.com'
+    'https://admin.myapp.com',
   ]),
-  test: { origin: 'http://localhost:3000' }
+  test: { origin: 'http://localhost:3000' },
 };
 
 app.enableCors(corsOptions[process.env.NODE_ENV] || corsOptions.development);
@@ -331,12 +328,12 @@ app.enableCors(corsOptions[process.env.NODE_ENV] || corsOptions.development);
 const allowedOrigins = [
   'https://myapp.com',
   'https://admin.myapp.com',
-  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : [])
+  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
 ];
 
 app.cors({
   origin: allowedOrigins,
-  credentials: true
+  credentials: true,
 });
 ```
 
@@ -353,7 +350,7 @@ app.cors({
       callback(null, allowedOrigins.includes(origin));
     }
   },
-  credentials: true
+  credentials: true,
 });
 ```
 
@@ -364,11 +361,11 @@ app.cors({
   origin: (origin, callback) => {
     // Allow mobile apps (no origin header)
     if (!origin) return callback(null, true);
-    
+
     // Check web origins
     callback(null, allowedOrigins.includes(origin));
   },
-  credentials: false // Usually not needed for mobile apps
+  credentials: false, // Usually not needed for mobile apps
 });
 ```
 
@@ -378,7 +375,8 @@ app.cors({
 
 ```typescript
 // Public endpoints - permissive CORS
-app.get('/api/public/*', 
+app.get(
+  '/api/public/*',
   app.cors({ origin: true, credentials: false }),
   (req, res) => {
     res.json({ data: 'public' });
@@ -386,10 +384,11 @@ app.get('/api/public/*',
 );
 
 // Protected endpoints - strict CORS
-app.get('/api/protected/*',
-  app.cors({ 
+app.get(
+  '/api/protected/*',
+  app.cors({
     origin: allowedOrigins,
-    credentials: true 
+    credentials: true,
   }),
   app.requireAuth(),
   (req, res) => {
@@ -414,8 +413,8 @@ app.doc('/api/data', 'GET', {
   description: 'Supports cross-origin requests from allowed domains',
   responses: {
     '200': { description: 'Success' },
-    '403': { description: 'CORS policy violation' }
-  }
+    '403': { description: 'CORS policy violation' },
+  },
 });
 ```
 
@@ -433,12 +432,12 @@ app.doc('/api/data', 'GET', {
 app.cors({
   origin: (origin, callback) => {
     console.log(`CORS request from origin: ${origin}`);
-    
+
     const allowed = allowedOrigins.includes(origin);
     console.log(`Origin ${origin} allowed: ${allowed}`);
-    
+
     callback(null, allowed);
-  }
+  },
 });
 
 // Log all CORS headers
@@ -446,7 +445,7 @@ app.use((req, res, next) => {
   console.log('CORS Headers:', {
     origin: req.headers.origin,
     method: req.headers['access-control-request-method'],
-    headers: req.headers['access-control-request-headers']
+    headers: req.headers['access-control-request-headers'],
   });
   next();
 });

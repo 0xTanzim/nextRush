@@ -1,10 +1,7 @@
 # ⚡ NextRush
 
 > **The Express.js replacement you've been waiting for.**
-> Zero dependencies. TypeScript-first. Built-in everything. Drop-in compatible.[![npm version](https://badge.fury.io/js/nextrush.svg)](https://www.npmjs.com/package/nextrush)
-> [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
-> [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-> [![Downloads](https://img.shields.io/npm/dm/nextrush.svg)](https://www.npmjs.com/package/nextrush)
+> Zero dependencies. TypeScript-first. Built-in everything. Drop-in compatible.[![npm version](https://badge.fury.io/js/nextrush.svg)](https://www.npmjs.com/package/nextrush) > [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/) > [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) > [![Downloads](https://img.shields.io/npm/dm/nextrush.svg)](https://www.npmjs.com/package/nextrush)
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -43,20 +40,20 @@ NextRush is a **modern, type-safe web framework** that provides Express.js compa
 
 NextRush comes with **everything built-in** - no need to install dozens of packages:
 
-| Feature               | NextRush    | Express.js                | Fastify          | Koa                |
-| --------------------- | ----------- | ------------------------- | ---------------- | ------------------ |
-| **Body Parsing**      | ✅ Built-in | ❌ Need middleware        | ✅ Built-in      | ❌ Need middleware |
-| **File Uploads**      | ✅ Built-in | ❌ Need multer            | ❌ Need plugins  | ❌ Need middleware |
-| **Static Files**      | ✅ Built-in | ✅ Built-in               | ❌ Need plugins  | ❌ Need middleware |
-| **WebSocket**         | ✅ Built-in | ❌ Need socket.io         | ❌ Need plugins  | ❌ Need packages   |
-| **Templates**         | ✅ Built-in | ❌ Need engines           | ❌ Need plugins  | ❌ Need packages   |
-| **Input Validation**  | ✅ Built-in | ❌ Need express-validator | ❌ Need plugins  | ❌ Need packages   |
-| **Security Features** | ✅ Built-in | ❌ Need helmet + others   | ❌ Need plugins  | ❌ Need packages   |
-| **Rate Limiting**     | ✅ Built-in | ❌ Need express-rate-limit| ❌ Need plugins  | ❌ Need packages   |
-| **Authentication**    | ✅ Built-in | ❌ Need passport + others | ❌ Need plugins  | ❌ Need packages   |
-| **API Documentation** | ✅ Built-in | ❌ Need swagger packages  | ❌ Need plugins  | ❌ Need packages   |
-| **Metrics/Monitoring**| ✅ Built-in | ❌ Need prom-client + etc | ❌ Need plugins  | ❌ Need packages   |
-| **Zero Dependencies** | ✅ Yes      | ❌ No                     | ❌ No (50+ deps) | ❌ No              |
+| Feature                | NextRush    | Express.js                 | Fastify          | Koa                |
+| ---------------------- | ----------- | -------------------------- | ---------------- | ------------------ |
+| **Body Parsing**       | ✅ Built-in | ❌ Need middleware         | ✅ Built-in      | ❌ Need middleware |
+| **File Uploads**       | ✅ Built-in | ❌ Need multer             | ❌ Need plugins  | ❌ Need middleware |
+| **Static Files**       | ✅ Built-in | ✅ Built-in                | ❌ Need plugins  | ❌ Need middleware |
+| **WebSocket**          | ✅ Built-in | ❌ Need socket.io          | ❌ Need plugins  | ❌ Need packages   |
+| **Templates**          | ✅ Built-in | ❌ Need engines            | ❌ Need plugins  | ❌ Need packages   |
+| **Input Validation**   | ✅ Built-in | ❌ Need express-validator  | ❌ Need plugins  | ❌ Need packages   |
+| **Security Features**  | ✅ Built-in | ❌ Need helmet + others    | ❌ Need plugins  | ❌ Need packages   |
+| **Rate Limiting**      | ✅ Built-in | ❌ Need express-rate-limit | ❌ Need plugins  | ❌ Need packages   |
+| **Authentication**     | ✅ Built-in | ❌ Need passport + others  | ❌ Need plugins  | ❌ Need packages   |
+| **API Documentation**  | ✅ Built-in | ❌ Need swagger packages   | ❌ Need plugins  | ❌ Need packages   |
+| **Metrics/Monitoring** | ✅ Built-in | ❌ Need prom-client + etc  | ❌ Need plugins  | ❌ Need packages   |
+| **Zero Dependencies**  | ✅ Yes      | ❌ No                      | ❌ No (50+ deps) | ❌ No              |
 
 ## 🚀 Quick Start
 
@@ -185,7 +182,7 @@ app.post('/api/data', (req, res) => {
 app.useRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests, please try again later.'
+  message: 'Too many requests, please try again later.',
 });
 
 // CORS with security presets
@@ -194,7 +191,7 @@ app.useCors('production'); // Secure defaults for production
 app.useCors({
   origin: ['https://mydomain.com'],
   credentials: true,
-  methods: ['GET', 'POST']
+  methods: ['GET', 'POST'],
 });
 ```
 
@@ -219,7 +216,7 @@ app.get('/admin/*', app.requireRole('admin'), (req, res) => {
 // Built-in metrics collection
 app.enableMetrics({
   prometheus: true,
-  healthCheck: true
+  healthCheck: true,
 });
 
 // Access metrics
@@ -234,15 +231,15 @@ app.enableMetrics({
 // Enable Swagger documentation
 app.enableApiDocs({
   title: 'My API',
-  version: '1.0.0'
+  version: '1.0.0',
 });
 
 // Document endpoints
 app.doc('/users/:id', 'GET', {
   summary: 'Get user by ID',
   parameters: [
-    { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
-  ]
+    { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+  ],
 });
 
 // Access documentation
