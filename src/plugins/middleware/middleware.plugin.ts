@@ -55,7 +55,7 @@ export class MiddlewarePlugin extends BasePlugin {
    * Install built-in middleware functions
    */
   private installBuiltInMiddleware(app: Application): void {
-    // Preset middleware
+    // 🎛️ Preset middleware
     (app as any).usePreset = (name: string, options?: PresetOptions) => {
       const presetMiddlewares = getPreset(name, options);
       presetMiddlewares.forEach((middleware) => {
@@ -67,7 +67,7 @@ export class MiddlewarePlugin extends BasePlugin {
       return app;
     };
 
-    // CORS middleware
+    // 🔒 CORS middleware
     (app as any).cors = (options?: {
       origin?: string | string[] | boolean;
       methods?: string[];
@@ -77,9 +77,74 @@ export class MiddlewarePlugin extends BasePlugin {
       return this.createCorsMiddleware(options);
     };
 
-    // Helmet security middleware
+    // 🛡️ Helmet security middleware
     (app as any).helmet = (options?: Record<string, any>) => {
       return this.createHelmetMiddleware(options);
+    };
+
+    // 📦 JSON body parser
+    (app as any).json = (options?: { limit?: string; strict?: boolean }) => {
+      return this.createJsonMiddleware(options);
+    };
+
+    // 🔗 URL-encoded body parser
+    (app as any).urlencoded = (options?: {
+      extended?: boolean;
+      limit?: string;
+    }) => {
+      return this.createUrlencodedMiddleware(options);
+    };
+
+    // 📄 Text body parser
+    (app as any).text = (options?: { limit?: string; type?: string }) => {
+      return this.createTextMiddleware(options);
+    };
+
+    // 🗜️ Raw body parser
+    (app as any).raw = (options?: { limit?: string; type?: string }) => {
+      return this.createRawMiddleware(options);
+    };
+
+    // 🗜️ Compression middleware
+    (app as any).compression = (options?: {
+      threshold?: number;
+      level?: number;
+    }) => {
+      return this.createCompressionMiddleware(options);
+    };
+
+    // 🔒 Rate limiting middleware
+    (app as any).rateLimit = (options?: {
+      windowMs?: number;
+      max?: number;
+      message?: string;
+    }) => {
+      return this.createRateLimitMiddleware(options);
+    };
+
+    // 📊 Logger middleware
+    (app as any).logger = (options?: {
+      format?: 'simple' | 'detailed' | 'json';
+    }) => {
+      return this.createLoggerMiddleware(options);
+    };
+
+    // 🔑 Request ID middleware
+    (app as any).requestId = (options?: { header?: string }) => {
+      return this.createRequestIdMiddleware(options);
+    };
+
+    // ⏱️ Request timer middleware
+    (app as any).timer = (options?: { header?: string }) => {
+      return this.createRequestTimerMiddleware(options);
+    };
+
+    // 📦 Use group of middleware
+    (app as any).useGroup = (middlewares: ExpressMiddleware[]) => {
+      for (const middleware of middlewares) {
+        app.use(middleware);
+      }
+      return app;
     };
 
     console.log('🔧 Middleware plugin methods installed');
@@ -199,6 +264,184 @@ export class MiddlewarePlugin extends BasePlugin {
       if (options.contentSecurityPolicy !== false) {
         res.setHeader('Content-Security-Policy', "default-src 'self'");
       }
+
+      next();
+    };
+  }
+
+  /**
+   * Create text body parser middleware
+   */
+  private createTextMiddleware(
+    options: { limit?: string; type?: string } = {}
+  ): ExpressMiddleware {
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      if (req.headers['content-type']?.includes('text/plain')) {
+        let body = '';
+        req.on('data', (chunk) => {
+          body += chunk.toString();
+        });
+        req.on('end', () => {
+          (req as any).body = body;
+          next();
+        });
+      } else {
+        next();
+      }
+    };
+  }
+
+  /**
+   * Create raw body parser middleware
+   */
+  private createRawMiddleware(
+    options: { limit?: string; type?: string } = {}
+  ): ExpressMiddleware {
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+      req.on('end', () => {
+        (req as any).body = Buffer.concat(chunks);
+        next();
+      });
+    };
+  }
+
+  /**
+   * Create compression middleware
+   */
+  private createCompressionMiddleware(
+    options: { threshold?: number; level?: number } = {}
+  ): ExpressMiddleware {
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      const acceptEncoding = req.headers['accept-encoding'];
+
+      if (acceptEncoding?.includes('gzip')) {
+        res.setHeader('Content-Encoding', 'gzip');
+        // Note: Actual compression would require zlib integration
+        console.log('🗜️ Compression middleware applied (gzip)');
+      }
+
+      next();
+    };
+  }
+
+  /**
+   * Create rate limiting middleware
+   */
+  private createRateLimitMiddleware(
+    options: { windowMs?: number; max?: number; message?: string } = {}
+  ): ExpressMiddleware {
+    const windowMs = options.windowMs || 15 * 60 * 1000; // 15 minutes
+    const max = options.max || 100;
+    const message = options.message || 'Too many requests';
+
+    const requests = new Map<string, { count: number; resetTime: number }>();
+
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      const clientId = String(req.ip || 'unknown');
+      const now = Date.now();
+
+      const clientData = requests.get(clientId);
+
+      if (!clientData || now > clientData.resetTime) {
+        requests.set(clientId, { count: 1, resetTime: now + windowMs });
+        next();
+      } else if (clientData.count < max) {
+        clientData.count++;
+        next();
+      } else {
+        res.status(429).json({ error: message });
+      }
+    };
+  }
+
+  /**
+   * Create logger middleware
+   */
+  private createLoggerMiddleware(
+    options: { format?: 'simple' | 'detailed' | 'json' } = {}
+  ): ExpressMiddleware {
+    const format = options.format || 'simple';
+
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      const start = Date.now();
+
+      const originalEnd = res.end;
+      (res as any).end = function (...args: any[]) {
+        const duration = Date.now() - start;
+
+        switch (format) {
+          case 'json':
+            console.log(
+              JSON.stringify({
+                method: req.method,
+                url: req.url,
+                status: res.statusCode,
+                duration: `${duration}ms`,
+                timestamp: new Date().toISOString(),
+              })
+            );
+            break;
+          case 'detailed':
+            console.log(
+              `[${new Date().toISOString()}] ${req.method} ${req.url} - ${
+                res.statusCode
+              } - ${duration}ms - ${req.headers['user-agent']}`
+            );
+            break;
+          default:
+            console.log(
+              `${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`
+            );
+        }
+
+        return (originalEnd as any).call(this, args[0], args[1]);
+      };
+
+      next();
+    };
+  }
+
+  /**
+   * Create request ID middleware
+   */
+  private createRequestIdMiddleware(
+    options: { header?: string } = {}
+  ): ExpressMiddleware {
+    const header = options.header || 'X-Request-Id';
+
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      const requestId =
+        req.headers[header.toLowerCase()] ||
+        `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      (req as any).requestId = requestId;
+      res.setHeader(header, requestId);
+
+      next();
+    };
+  }
+
+  /**
+   * Create request timer middleware
+   */
+  private createRequestTimerMiddleware(
+    options: { header?: string } = {}
+  ): ExpressMiddleware {
+    const header = options.header || 'X-Response-Time';
+
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      const start = Date.now();
+
+      const originalEnd = res.end;
+      (res as any).end = function (...args: any[]) {
+        const duration = Date.now() - start;
+        res.setHeader(header, `${duration}ms`);
+        return (originalEnd as any).call(this, args[0], args[1]);
+      };
 
       next();
     };

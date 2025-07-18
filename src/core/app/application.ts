@@ -91,6 +91,29 @@ declare module '../app/application' {
     wsBroadcast(data: any, room?: string): this;
     getWebSocketStats(): WebSocketStats | undefined;
     getWebSocketConnections(): NextRushWebSocket[];
+
+    // 🎛️ Middleware preset methods
+    usePreset(name: string, options?: any): this;
+    useGroup(middlewares: any[]): this;
+
+    // 🔒 Security middleware methods
+    cors(options?: any): any;
+    helmet(options?: any): any;
+
+    // 📦 Body parser methods
+    json(options?: any): any;
+    urlencoded(options?: any): any;
+    text(options?: any): any;
+    raw(options?: any): any;
+
+    // ⚡ Performance middleware methods
+    compression(options?: any): any;
+    rateLimit(options?: any): any;
+
+    // 📊 Monitoring middleware methods
+    logger(options?: any): any;
+    requestId(options?: any): any;
+    timer(options?: any): any;
   }
 }
 
@@ -647,19 +670,8 @@ export class Application extends BaseComponent implements IApplication {
 
       // Check if handler is a Router
       if (handler instanceof Router) {
-        // For now, convert Router to middleware function
-        const routerMiddleware: MiddlewareHandler = async (
-          context: RequestContext,
-          next: () => Promise<void>
-        ) => {
-          try {
-            await handler.handle(context);
-          } catch (error) {
-            // If router doesn't handle the route, continue to next middleware
-            await next();
-          }
-        };
-        this.router.use(routerMiddleware);
+        // Mount the router with path prefix
+        this.router.mount(pathOrHandler as string, handler);
       } else {
         // Regular middleware
         this.router.use(handler as MiddlewareHandler | ExpressMiddleware);

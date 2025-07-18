@@ -54,6 +54,19 @@ export function createRouter(options?: RouterOptions): Router {
 }
 
 // ============================================================================
+// 🎯 MIDDLEWARE EXPORTS - EXPRESS-LIKE DX
+// ============================================================================
+
+// Middleware composition functions
+export {
+  compose,
+  group,
+  named,
+  unless,
+  when,
+} from './plugins/middleware/composition';
+
+// ============================================================================
 // 🎯 TYPE EXPORTS - COMPREHENSIVE TYPE SYSTEM
 // ============================================================================
 
@@ -119,6 +132,7 @@ export {
 export {
   apiPreset,
   developmentPreset,
+  fullFeaturedPreset,
   getPreset,
   minimalPreset,
   productionPreset,
