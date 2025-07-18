@@ -121,6 +121,65 @@ declare module '../app/application' {
     logger(options?: any): any;
     requestId(options?: any): any;
     timer(options?: any): any;
+
+    // 🔐 Authentication & Authorization methods
+    useJwt(options: any): this;
+    defineRole(role: any): this;
+    signJwt(payload: any, options?: any): string;
+    verifyJwt(token: string, options?: any): any;
+    requireAuth(strategy?: string): any;
+
+    // 📊 Metrics & Monitoring methods
+    enableMetrics(options?: any): this;
+    incrementCounter(name: string, labels?: Record<string, string>, value?: number): this;
+    setGauge(name: string, value: number, labels?: Record<string, string>): this;
+    observeHistogram(name: string, value: number, labels?: Record<string, string>): this;
+    addHealthCheck(name: string, check: any): this;
+    getMetrics(): any;
+    getHealth(): any;
+
+    // 🛡️ Rate Limiting methods
+    enableGlobalRateLimit(options?: any): this;
+    useRateLimit(options?: any): any;
+    createRateLimit(options?: any): any;
+
+    // 🌐 CORS & Security methods
+    enableCors(options?: any): this;
+    enableSecurityHeaders(): any;
+    enableWebSecurity(options?: any): this;
+    xssProtection(options?: any): any;
+
+    // 🔄 Event-driven architecture methods
+    on(event: string, handler: (...args: any[]) => void | Promise<void>): this;
+    once(event: string, handler: (...args: any[]) => void | Promise<void>): this;
+    off(event: string, handler?: (...args: any[]) => void | Promise<void>): this;
+    emit(event: string, ...args: any[]): this;
+    eventMiddleware(options?: {
+      autoEmit?: boolean;
+      events?: string[];
+      includeRequest?: boolean;
+      includeResponse?: boolean;
+    }): any;
+    getEventStats(): any;
+    getEventHistory(): any[];
+
+    // 🛡️ Input validation & sanitization methods
+    validate(schema: {
+      [key: string]: {
+        required?: boolean;
+        type?: 'string' | 'number' | 'boolean' | 'email' | 'url';
+        min?: number;
+        max?: number;
+        minLength?: number;
+        maxLength?: number;
+      };
+    }): any;
+    sanitize(options?: {
+      removeHtml?: boolean;
+      escapeHtml?: boolean;
+      trim?: boolean;
+      removeSpecialChars?: boolean;
+    }): any;
   }
 }
 

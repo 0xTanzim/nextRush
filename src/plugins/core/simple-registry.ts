@@ -26,7 +26,13 @@ export class SimplePluginRegistry implements PluginRegistry {
    */
   installAll(app: Application): void {
     Array.from(this.plugins.values()).forEach((plugin) => {
-      plugin.install(app);
+      try {
+        console.log(`🔌 Installing ${plugin.name} plugin...`);
+        plugin.install(app);
+        console.log(`✅ ${plugin.name} plugin installed successfully`);
+      } catch (error) {
+        console.error(`❌ Failed to install ${plugin.name} plugin:`, error);
+      }
     });
   }
 
@@ -35,7 +41,12 @@ export class SimplePluginRegistry implements PluginRegistry {
    */
   startAll(): void {
     Array.from(this.plugins.values()).forEach((plugin) => {
-      plugin.start();
+      try {
+        console.log(`🚀 Starting ${plugin.name} plugin...`);
+        plugin.start();
+      } catch (error) {
+        console.error(`❌ Failed to start ${plugin.name} plugin:`, error);
+      }
     });
   }
 
