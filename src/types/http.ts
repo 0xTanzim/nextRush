@@ -12,7 +12,8 @@ export type HttpMethod =
   | 'DELETE'
   | 'PATCH'
   | 'HEAD'
-  | 'OPTIONS';
+  | 'OPTIONS'
+  | 'ALL';
 
 export type ContentType =
   | 'application/json'

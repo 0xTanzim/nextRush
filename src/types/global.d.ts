@@ -36,6 +36,17 @@ type ContextMiddleware = (
 ) => void | Promise<void>;
 
 /**
+ * Middleware preset options
+ */
+interface PresetOptions {
+  cors?: boolean | any;
+  helmet?: boolean | any;
+  logger?: boolean | any;
+  bodyParser?: boolean | any;
+  [key: string]: any;
+}
+
+/**
  * Global type augmentation for Application methods
  * Enables automatic type inference for HTTP methods and middleware
  */
@@ -142,6 +153,49 @@ declare module 'nextrush' {
     use(middleware: ContextMiddleware): this;
     use(path: string, middleware: ExpressMiddleware): this;
     use(path: string, middleware: ContextMiddleware): this;
+
+    /**
+     * Apply middleware preset
+     */
+    usePreset(name: string, options?: PresetOptions): this;
+
+    /**
+     * CORS middleware
+     */
+    cors(options?: {
+      origin?: string | string[] | boolean;
+      methods?: string[];
+      credentials?: boolean;
+      headers?: string[];
+    }): ExpressMiddleware;
+
+    /**
+     * Helmet security middleware
+     */
+    helmet(options?: Record<string, any>): ExpressMiddleware;
+
+    /**
+     * JSON body parser middleware
+     */
+    json(options?: { limit?: string; strict?: boolean }): ExpressMiddleware;
+
+    /**
+     * URL-encoded body parser middleware
+     */
+    urlencoded(options?: {
+      extended?: boolean;
+      limit?: string;
+    }): ExpressMiddleware;
+
+    /**
+     * Text body parser middleware
+     */
+    text(options?: { limit?: string; type?: string }): ExpressMiddleware;
+
+    /**
+     * Raw body parser middleware
+     */
+    raw(options?: { limit?: string; type?: string }): ExpressMiddleware;
 
     /**
      * Enable WebSocket support
