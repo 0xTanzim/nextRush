@@ -4,8 +4,8 @@
  * Enhanced template system with multi-syntax support, streaming, and caching
  */
 
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Application } from '../../core/app/application';
 import { BasePlugin, PluginRegistry } from '../core/base-plugin';
 import {

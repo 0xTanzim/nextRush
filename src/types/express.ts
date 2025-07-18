@@ -11,6 +11,8 @@ export interface ValidationRule {
   type?: 'string' | 'number' | 'email' | 'url' | 'boolean';
   minLength?: number;
   maxLength?: number;
+  min?: number;
+  max?: number;
   custom?: (value: any) => boolean;
   message?: string;
   sanitize?: SanitizeOptions;

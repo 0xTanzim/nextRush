@@ -106,13 +106,14 @@ export class NextRushRequestEnhancer {
     // Alias for header
     req.get = req.header;
 
-    // Get client IP
+    // Get client IP with enhanced proxy support
     req.ip = function (): string {
       return (
         (this.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+        (this.headers['x-real-ip'] as string) ||
         this.connection?.remoteAddress ||
         this.socket?.remoteAddress ||
-        'unknown'
+        '127.0.0.1'
       );
     };
 
@@ -122,6 +123,21 @@ export class NextRushRequestEnhancer {
         this.headers['x-forwarded-proto'] === 'https' ||
         (this.connection as any)?.encrypted === true
       );
+    };
+
+    // Get protocol
+    req.protocol = function (): string {
+      return this.secure() ? 'https' : 'http';
+    };
+
+    // Get hostname
+    req.hostname = function (): string {
+      return (this.headers.host as string)?.split(':')[0] || 'localhost';
+    };
+
+    // Get full URL
+    req.fullUrl = function (): string {
+      return `${this.protocol()}://${this.headers.host}${this.originalUrl}`;
     };
 
     // Check if request accepts certain content type
@@ -156,6 +172,217 @@ export class NextRushRequestEnhancer {
 
     (req as any).isMultipart = function (): boolean {
       return this.is('multipart/form-data');
+    };
+
+    // 🍪 Cookie support
+    req.parseCookies = function (): Record<string, string> {
+      if (this.cookies && Object.keys(this.cookies).length > 0) {
+        return this.cookies;
+      }
+
+      const cookies: Record<string, string> = {};
+      const cookieHeader = this.headers.cookie as string;
+
+      if (cookieHeader) {
+        cookieHeader.split(';').forEach((cookie) => {
+          const [name, ...rest] = cookie.trim().split('=');
+          if (name && rest.length > 0) {
+            cookies[name] = decodeURIComponent(rest.join('=') || '');
+          }
+        });
+      }
+
+      this.cookies = cookies;
+      return cookies;
+    };
+
+    // Parse cookies automatically
+    req.parseCookies();
+
+    // 🛡️ Enhanced validation methods
+    req.validate = function (rules: Record<string, any>): {
+      isValid: boolean;
+      errors: Record<string, string[]>;
+      sanitized: Record<string, any>;
+    } {
+      const errors: Record<string, string[]> = {};
+      const sanitized: Record<string, any> = {};
+
+      for (const [field, rule] of Object.entries(rules)) {
+        const value = this.body?.[field];
+        const fieldErrors: string[] = [];
+
+        // Required validation
+        if (
+          rule.required &&
+          (value === undefined || value === null || value === '')
+        ) {
+          fieldErrors.push(`${field} is required`);
+        }
+
+        // Type validation
+        if (value !== undefined && value !== null && rule.type) {
+          switch (rule.type) {
+            case 'email':
+              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                fieldErrors.push(`${field} must be a valid email`);
+              }
+              break;
+            case 'number':
+              if (isNaN(Number(value))) {
+                fieldErrors.push(`${field} must be a number`);
+              } else {
+                sanitized[field] = Number(value);
+              }
+              break;
+            case 'string':
+              if (typeof value !== 'string') {
+                fieldErrors.push(`${field} must be a string`);
+              }
+              break;
+            case 'url':
+              try {
+                new URL(value);
+              } catch {
+                fieldErrors.push(`${field} must be a valid URL`);
+              }
+              break;
+            case 'boolean':
+              if (
+                typeof value !== 'boolean' &&
+                value !== 'true' &&
+                value !== 'false'
+              ) {
+                fieldErrors.push(`${field} must be a boolean`);
+              } else {
+                sanitized[field] =
+                  typeof value === 'boolean' ? value : value === 'true';
+              }
+              break;
+          }
+        }
+
+        // Length validation
+        if (value && typeof value === 'string') {
+          if (rule.minLength && value.length < rule.minLength) {
+            fieldErrors.push(
+              `${field} must be at least ${rule.minLength} characters`
+            );
+          }
+          if (rule.maxLength && value.length > rule.maxLength) {
+            fieldErrors.push(
+              `${field} must be at most ${rule.maxLength} characters`
+            );
+          }
+        }
+
+        // Number range validation
+        if (
+          value !== undefined &&
+          rule.type === 'number' &&
+          !isNaN(Number(value))
+        ) {
+          const numValue = Number(value);
+          if (rule.min !== undefined && numValue < rule.min) {
+            fieldErrors.push(`${field} must be at least ${rule.min}`);
+          }
+          if (rule.max !== undefined && numValue > rule.max) {
+            fieldErrors.push(`${field} must be at most ${rule.max}`);
+          }
+        }
+
+        // Custom validation
+        if (rule.custom && typeof rule.custom === 'function') {
+          const customResult = rule.custom(value);
+          if (customResult !== true) {
+            fieldErrors.push(
+              typeof customResult === 'string'
+                ? customResult
+                : `${field} is invalid`
+            );
+          }
+        }
+
+        if (fieldErrors.length > 0) {
+          errors[field] = fieldErrors;
+        }
+
+        // Add to sanitized data if no type conversion happened
+        if (value !== undefined && !sanitized[field]) {
+          sanitized[field] = value;
+        }
+      }
+
+      return {
+        isValid: Object.keys(errors).length === 0,
+        errors,
+        sanitized,
+      };
+    };
+
+    // 🧹 Enhanced sanitization
+    req.sanitize = function (options: any = {}): void {
+      if (this.body && typeof this.body === 'object') {
+        this.body = this.sanitizeObject(this.body, options);
+      }
+    };
+
+    req.sanitizeObject = function (obj: any, options: any = {}): any {
+      if (!obj || typeof obj !== 'object') return obj;
+
+      const sanitized: any = Array.isArray(obj) ? [] : {};
+
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string') {
+          let sanitizedValue = value.trim();
+
+          if (options.removeHtml !== false) {
+            // Basic HTML sanitization
+            sanitizedValue = sanitizedValue.replace(/<[^>]*>/g, '');
+          }
+
+          if (options.escapeHtml) {
+            sanitizedValue = sanitizedValue
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#x27;');
+          }
+
+          sanitized[key] = sanitizedValue;
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = this.sanitizeObject(value, options);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+
+      return sanitized;
+    };
+
+    // 🔍 Enhanced validation helpers
+    req.isValidEmail = function (email: string): boolean {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
+    req.isValidUrl = function (url: string): boolean {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // JSON validation utility
+    (req as any).isValidJSON = function (str: string): boolean {
+      try {
+        JSON.parse(str);
+        return true;
+      } catch {
+        return false;
+      }
     };
 
     // Initialize required properties

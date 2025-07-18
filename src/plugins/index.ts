@@ -1,8 +1,8 @@
 /**
- * 🔌 NextRush Plugins - Clean Plugin System
+ * 🔌 NextRush Plugins - Enhanced Plugin System
  *
  * Following copilot instructions - all features implemented as plugins
- * inheriting from BasePlugin. Eliminates components architecture.
+ * inheriting from BasePlugin. Includes new enhanced features.
  */
 
 // ============================================================================
@@ -12,15 +12,32 @@
 export { BasePlugin } from './core/base-plugin';
 export type { PluginRegistry } from './core/base-plugin';
 
+// Event-driven architecture
+export { EventDrivenPlugin } from './core/event-driven.plugin';
+
 // ============================================================================
-// 🎯 PLUGIN IMPLEMENTATIONS
+// 🎯 ENHANCED PLUGIN IMPLEMENTATIONS
 // ============================================================================
 
 export { BodyParserPlugin } from './body-parser/body-parser.plugin';
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
+export { ValidationPlugin } from './middleware/validation.plugin';
 export { RouterPlugin } from './router/router.plugin';
-export { StaticFilesPlugin } from './static-files/static-files.plugin';
+export { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
 export { WebSocketPlugin } from './websocket/websocket.plugin';
+
+// Enhanced types
+export type {
+  SanitizationOptions,
+  ValidationResult,
+  ValidationRule,
+  ValidationSchema,
+} from './middleware/validation.plugin';
+
+export type {
+  ProfessionalStaticOptions as EnhancedStaticOptions,
+  ProfessionalStaticOptions,
+} from './static-files/static-files.plugin';
 
 // ============================================================================
 // 🎯 PLUGIN CREATION HELPER
@@ -28,9 +45,11 @@ export { WebSocketPlugin } from './websocket/websocket.plugin';
 
 import { BodyParserPlugin } from './body-parser/body-parser.plugin';
 import type { PluginRegistry } from './core/base-plugin';
+import { EventDrivenPlugin } from './core/event-driven.plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
+import { ValidationPlugin } from './middleware/validation.plugin';
 import { RouterPlugin } from './router/router.plugin';
-import { StaticFilesPlugin } from './static-files/static-files.plugin';
+import { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
 import { WebSocketPlugin } from './websocket/websocket.plugin';
 
 /**
@@ -41,6 +60,8 @@ export function createCorePlugins(registry: PluginRegistry) {
     new RouterPlugin(registry),
     new StaticFilesPlugin(registry),
     new MiddlewarePlugin(registry),
+    new ValidationPlugin(registry),
+    new EventDrivenPlugin(registry),
     new BodyParserPlugin(registry),
     new WebSocketPlugin(registry),
   ];

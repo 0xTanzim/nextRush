@@ -159,14 +159,23 @@ export class ResponseEnhancer {
       return this;
     };
 
-    // Cookie methods
+    // Cookie methods with enhanced options
     enhanced.cookie = function (
       name: string,
       value: string,
-      options?: any
+      options?: {
+        maxAge?: number;
+        expires?: Date;
+        path?: string;
+        domain?: string;
+        secure?: boolean;
+        httpOnly?: boolean;
+        sameSite?: 'strict' | 'lax' | 'none';
+        signed?: boolean;
+      }
     ): NextRushResponse {
       const opts = options || {};
-      let cookie = `${name}=${value}`;
+      let cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
 
       if (opts.maxAge) {
         cookie += `; Max-Age=${opts.maxAge}`;
@@ -190,7 +199,17 @@ export class ResponseEnhancer {
         cookie += `; SameSite=${opts.sameSite}`;
       }
 
-      this.setHeader('Set-Cookie', cookie);
+      // Handle multiple cookies
+      const existingCookies = this.getHeader('Set-Cookie');
+      if (existingCookies) {
+        const cookies = Array.isArray(existingCookies)
+          ? [...existingCookies.map(String), cookie]
+          : [String(existingCookies), cookie];
+        this.setHeader('Set-Cookie', cookies);
+      } else {
+        this.setHeader('Set-Cookie', cookie);
+      }
+
       return this;
     };
 
@@ -198,30 +217,94 @@ export class ResponseEnhancer {
       name: string,
       options?: any
     ): NextRushResponse {
-      const opts = { ...options, expires: new Date(1), maxAge: 0 };
+      const opts = {
+        ...options,
+        expires: new Date(1),
+        maxAge: 0,
+        path: options?.path || '/',
+      };
       return this.cookie(name, '', opts);
     };
 
-    // File operations
-    enhanced.sendFile = function (filePath: string, options?: any): void {
+    // Enhanced file operations
+    enhanced.sendFile = function (
+      filePath: string,
+      options?: {
+        root?: string;
+        maxAge?: number;
+        lastModified?: boolean;
+        etag?: boolean;
+        dotfiles?: 'allow' | 'deny' | 'ignore';
+        cacheControl?: string;
+        immutable?: boolean;
+      }
+    ): void {
       const opts = options || {};
+      const fullPath = opts.root ? path.join(opts.root, filePath) : filePath;
 
-      fs.readFile(filePath)
-        .then((data) => {
-          // Set content type based on file extension
-          const ext = path.extname(filePath).toLowerCase();
+      fs.stat(fullPath)
+        .then((stats) => {
+          if (!stats.isFile()) {
+            this.statusCode = 404;
+            this.end('Not a file');
+            return;
+          }
+
+          // Security check for dotfiles
+          const basename = path.basename(fullPath);
+          if (opts.dotfiles === 'deny' && basename.startsWith('.')) {
+            this.statusCode = 403;
+            this.end('Forbidden');
+            return;
+          }
+
+          // Set content type
+          const ext = path.extname(fullPath).toLowerCase();
           const contentType = this.getContentTypeFromExtension(ext);
           this.setHeader('Content-Type', contentType);
 
+          // Set cache headers
           if (opts.cacheControl) {
             this.setHeader('Cache-Control', opts.cacheControl);
+          } else if (opts.maxAge) {
+            const cacheControl = opts.immutable
+              ? `public, max-age=${opts.maxAge}, immutable`
+              : `public, max-age=${opts.maxAge}`;
+            this.setHeader('Cache-Control', cacheControl);
           }
 
-          this.end(data);
+          // Set ETag if enabled
+          if (opts.etag !== false) {
+            const etag = `"${stats.mtime.getTime()}-${stats.size}"`;
+            this.setHeader('ETag', etag);
+          }
+
+          // Set Last-Modified if enabled
+          if (opts.lastModified !== false) {
+            this.setHeader('Last-Modified', stats.mtime.toUTCString());
+          }
+
+          // Set Content-Length
+          this.setHeader('Content-Length', stats.size.toString());
+
+          return fs.readFile(fullPath);
+        })
+        .then((data) => {
+          if (data) {
+            this.end(data);
+          }
         })
         .catch((error) => {
-          this.statusCode = 404;
-          this.end('File not found');
+          if (error.code === 'ENOENT') {
+            this.statusCode = 404;
+            this.end('File not found');
+          } else if (error.code === 'EACCES') {
+            this.statusCode = 403;
+            this.end('Access denied');
+          } else {
+            this.statusCode = 500;
+            this.end('Internal server error');
+          }
         });
     };
 
@@ -238,11 +321,19 @@ export class ResponseEnhancer {
       this.sendFile(filePath, options);
     };
 
-    // Redirection
+    // Enhanced redirection methods
     enhanced.redirect = function (url: string, status: number = 302): void {
       this.statusCode = status;
       this.setHeader('Location', url);
       this.end();
+    };
+
+    enhanced.redirectPermanent = function (url: string): void {
+      this.redirect(url, 301);
+    };
+
+    enhanced.redirectTemporary = function (url: string): void {
+      this.redirect(url, 302);
     };
 
     // 🚀 NEW: Cache control methods

@@ -50,6 +50,13 @@ export interface StaticOptions {
   immutable?: boolean;
   redirect?: boolean;
   spa?: boolean;
+
+  // 🚀 Professional features
+  compress?: boolean | 'auto';
+  memoryCache?: boolean;
+  acceptRanges?: boolean;
+  cacheControl?: string;
+  setHeaders?: (res: any, path: string) => void;
 }
 
 export interface RouteDefinition {

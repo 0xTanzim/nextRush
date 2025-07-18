@@ -11,6 +11,9 @@
  * - 🔌 UNIFIED PLUGIN ARCHITECTURE following copilot instructions
  * - All features implemented as plugins inheriting from BasePlugin
  * - Components architecture ELIMINATED per copilot instructions
+ * - 🛡️ Enhanced validation and sanitization
+ * - 🔄 Event-driven architecture support
+ * - 📁 Professional-grade static file serving
  */
 
 // ============================================================================
@@ -54,7 +57,7 @@ export function createRouter(options?: RouterOptions): Router {
 }
 
 // ============================================================================
-// 🎯 MIDDLEWARE EXPORTS - EXPRESS-LIKE DX
+// 🎯 ENHANCED MIDDLEWARE EXPORTS - EXPRESS-LIKE DX
 // ============================================================================
 
 // Middleware composition functions
@@ -65,6 +68,21 @@ export {
   unless,
   when,
 } from './plugins/middleware/composition';
+
+// Enhanced validation and sanitization
+export {
+  ValidationPlugin,
+  type SanitizationOptions,
+  type ValidationResult,
+  type ValidationRule,
+  type ValidationSchema,
+} from './plugins';
+
+// Event-driven architecture
+export { EventDrivenPlugin } from './plugins';
+
+// Enhanced static files
+export { StaticFilesPlugin, type ProfessionalStaticOptions } from './plugins';
 
 // ============================================================================
 // 🎯 TYPE EXPORTS - COMPREHENSIVE TYPE SYSTEM

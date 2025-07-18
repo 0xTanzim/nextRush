@@ -340,9 +340,11 @@ export class UltimateTemplateParser {
   }
 
   private parseComponent(): TemplateNode | null {
-    const match = this.input
-      .slice(this.pos)
-      .match(/^<([A-Z][a-zA-Z0-9]*)(.*?)(?:\/>|>(.*?)<\/\1>)/s);
+    const regex = new RegExp(
+      '^<([A-Z][a-zA-Z0-9]*)(.*?)(?:/>|>(.*?)</\\1>)',
+      's'
+    );
+    const match = this.input.slice(this.pos).match(regex);
     if (!match) return this.parseText();
 
     const [fullMatch, name, propsStr, children] = match;
@@ -350,8 +352,8 @@ export class UltimateTemplateParser {
 
     // Parse props
     const props: TemplateContext = {};
-    const propMatches = propsStr.matchAll(
-      /(\w+)=(?:"([^"]*)"|'([^']*)'|{([^}]*)})/g
+    const propMatches = Array.from(
+      propsStr.matchAll(/(\w+)=(?:"([^"]*)"|'([^']*)'|{([^}]*)})/g)
     );
     for (const propMatch of propMatches) {
       const [, key, strValue, strValue2, jsValue] = propMatch;
@@ -1061,7 +1063,8 @@ export class UltimateTemplateRenderer {
       join: (arr: any[], separator: string = ', ') => {
         return Array.isArray(arr) ? arr.join(separator) : String(arr);
       },
-      unique: (arr: any[]) => (Array.isArray(arr) ? [...new Set(arr)] : arr),
+      unique: (arr: any[]) =>
+        Array.isArray(arr) ? Array.from(new Set(arr)) : arr,
       filter: (arr: any[], key: string, value?: any) => {
         if (!Array.isArray(arr)) return arr;
         if (value !== undefined) {
@@ -1204,7 +1207,8 @@ export class UltimateTemplateRenderer {
       skip: (arr: any[], count: number) => {
         return Array.isArray(arr) ? arr.slice(count) : [];
       },
-      unique: (arr: any[]) => (Array.isArray(arr) ? [...new Set(arr)] : arr),
+      unique: (arr: any[]) =>
+        Array.isArray(arr) ? Array.from(new Set(arr)) : arr,
       compact: (arr: any[]) => {
         return Array.isArray(arr)
           ? arr.filter(
