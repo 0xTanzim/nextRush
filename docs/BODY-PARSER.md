@@ -1,487 +1,725 @@
-# 🔄 NextRush Body Parser
+# Body Parser & File Uploads
 
-## Automatic Request Body Parsing with Zero Configuration
+NextRush includes a comprehensive body parser that automatically handles JSON, form data, multipart uploads, and file processing with built-in security features.
 
-NextRush includes a powerful built-in body parser that automatically handles different content types without any configuration. It's designed to be secure, fast, and developer-friendly.
-
-## ✅ Currently Implemented Features
-
-### 📄 JSON Parsing
-
-Automatically parses JSON request bodies:
+## Automatic Body Parsing
 
 ```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+
+// Body parsing is automatic - no configuration needed
+app.post('/api/data', (req, res) => {
+  // JSON body (Content-Type: application/json)
+  console.log('JSON data:', req.body);
+
+  // Form data (Content-Type: application/x-www-form-urlencoded)
+  console.log('Form data:', req.body);
+
+  // Raw body text
+  console.log('Raw body:', req.rawBody);
+
+  res.json({ received: req.body });
+});
+```
+
+## JSON Request Handling
+
+```typescript
+// JSON API endpoint
 app.post('/api/users', (req, res) => {
-  // JSON automatically parsed into req.body
+  // Automatically parsed JSON
   const { name, email, age } = req.body;
 
-  console.log('Parsed data:', { name, email, age });
-  res.json({ message: 'User created', data: req.body });
-});
-
-// Example request:
-// POST /api/users
-// Content-Type: application/json
-// Body: {"name": "John Doe", "email": "john@example.com", "age": 30}
-```
-
-### 📝 Form Data Parsing
-
-Handles URL-encoded form data:
-
-```typescript
-app.post('/contact', (req, res) => {
-  // Form data automatically parsed into req.body
-  const { name, email, message } = req.body;
-
-  res.json({
-    message: 'Contact form submitted',
-    data: { name, email, message },
+  // Built-in validation
+  const validation = req.validate({
+    name: { required: true, minLength: 2, maxLength: 50 },
+    email: { required: true, type: 'email' },
+    age: { type: 'number', min: 13, max: 120 },
   });
-});
 
-// Example request:
-// POST /contact
-// Content-Type: application/x-www-form-urlencoded
-// Body: name=John+Doe&email=john@example.com&message=Hello+World
-```
-
-### 📋 Plain Text Parsing
-
-Supports raw text content:
-
-```typescript
-app.post('/webhook', (req, res) => {
-  // Raw text available in req.body as string
-  const payload = req.body;
-
-  console.log('Webhook payload:', payload);
-  res.json({ received: true, length: payload.length });
-});
-
-// Example request:
-// POST /webhook
-// Content-Type: text/plain
-// Body: "This is plain text content"
-```
-
-### 🛡️ Built-in Security Features
-
-#### Size Limits
-
-```typescript
-// Default limits (configurable)
-const limits = {
-  maxSize: '1MB', // Maximum request body size
-  timeout: '30s', // Request timeout
-  strict: false, // Strict content-type validation
-};
-```
-
-#### Content-Type Validation
-
-```typescript
-// Automatically validates content types
-const allowedTypes = [
-  'application/json',
-  'application/x-www-form-urlencoded',
-  'text/plain',
-];
-```
-
-#### Automatic Error Handling
-
-```typescript
-// Built-in error responses for:
-// - PayloadTooLargeError (413)
-// - RequestTimeoutError (408)
-// - UnsupportedMediaTypeError (415)
-// - ValidationError (400)
-```
-
-## 🚀 Enhanced Request API
-
-NextRush enhances the request object with helpful methods:
-
-### Content Type Checking
-
-```typescript
-app.post('/api/data', (req, res) => {
-  // Check request content type
-  if (req.is('json')) {
-    console.log('JSON request:', req.body);
-  } else if (req.is('form')) {
-    console.log('Form request:', req.body);
-  } else if (req.is('text')) {
-    console.log('Text request:', req.body);
+  if (!validation.isValid) {
+    return res.status(400).json({
+      success: false,
+      errors: validation.errors,
+    });
   }
 
-  res.json({ received: true });
+  // Use sanitized data
+  const userData = validation.sanitized;
+  res.status(201).json({ success: true, user: userData });
 });
 ```
 
-### Accept Header Parsing
+## Form Data Processing
 
 ```typescript
-app.post('/api/flexible', (req, res) => {
-  // Check what client accepts
-  const accepts = req.accepts(['json', 'html', 'text']);
+// HTML form handling
+app.post('/contact', (req, res) => {
+  // Form fields automatically available in req.body
+  const { name, email, subject, message } = req.body;
 
-  if (accepts === 'json') {
-    res.json({ data: req.body });
-  } else if (accepts === 'html') {
-    res.html(`<h1>Received: ${JSON.stringify(req.body)}</h1>`);
-  } else {
-    res.text(`Received: ${JSON.stringify(req.body)}`);
-  }
-});
-```
-
-### Request Information
-
-```typescript
-app.post('/api/info', (req, res) => {
-  const info = {
-    method: req.method,
-    url: req.url,
-    headers: req.headers,
-    contentType: req.header('content-type'),
-    contentLength: req.header('content-length'),
-    userAgent: req.header('user-agent'),
-    ip: req.ip(),
-    secure: req.secure(),
-    protocol: req.protocol(),
+  // Sanitize form input
+  const cleanData = {
+    name: req.sanitize(name, {
+      trim: true,
+      removeHtml: true,
+      maxLength: 100,
+    }),
+    email: req.sanitize(email, {
+      trim: true,
+      lowercase: true,
+    }),
+    subject: req.sanitize(subject, {
+      trim: true,
+      removeHtml: true,
+      maxLength: 200,
+    }),
+    message: req.sanitize(message, {
+      trim: true,
+      removeHtml: true,
+      maxLength: 2000,
+    }),
   };
 
-  res.json({ info, body: req.body });
+  // Validate email
+  if (!req.isValidEmail(cleanData.email)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  // Process contact form...
+  res.json({ success: true, message: 'Message sent!' });
 });
 ```
 
-## ⚠️ Features Coming Soon
+## File Upload Handling
 
-### 🔄 **Enhanced Multipart Form Support**
+### Single File Upload
 
 ```typescript
-// COMING SOON: Advanced file upload handling
-app.post('/upload', (req, res) => {
-  const { files, fields } = req.body; // Multipart auto-parsed
-  const avatar = req.file('avatar'); // Direct file access
-  const data = req.json(); // JSON validation
+// Single file upload
+app.post('/api/upload/avatar', (req, res) => {
+  const file = req.file('avatar');
+
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  // File validation
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+  const maxSize = 5 * 1024 * 1024; // 5MB
+
+  if (!allowedTypes.includes(file.mimetype)) {
+    return res.status(400).json({
+      error: 'Invalid file type. Only JPEG, PNG, and GIF allowed.',
+    });
+  }
+
+  if (file.size > maxSize) {
+    return res.status(400).json({
+      error: 'File too large. Maximum size is 5MB.',
+    });
+  }
+
+  // Generate safe filename
+  const safeFilename = req
+    .sanitize(file.filename, {
+      removeHtml: true,
+      trim: true,
+      maxLength: 100,
+    })
+    .replace(/[^a-zA-Z0-9.-]/g, '_');
+
+  const uniqueFilename = `${Date.now()}-${safeFilename}`;
 
   res.json({
-    files: Object.keys(files),
-    fields: Object.keys(fields),
-    avatar: avatar ? avatar.filename : null,
+    success: true,
+    file: {
+      original: file.filename,
+      saved: uniqueFilename,
+      size: file.size,
+      mimetype: file.mimetype,
+      path: `/uploads/${uniqueFilename}`,
+    },
   });
 });
 ```
 
-**Will include:**
-
-- 📁 Multiple file upload support
-- 🗂️ Field and file separation
-- 💾 Temporary file handling
-- 🔒 File type validation
-- 📊 Upload progress tracking
-- 🚀 Streaming uploads for large files
-
-### 🧩 **Advanced Features**
+### Multiple File Upload
 
 ```typescript
-// COMING SOON: Enhanced body parser features
-app.post('/advanced', (req, res) => {
-  // Advanced validation
-  const validated = req.validate({
-    name: { required: true, type: 'string', minLength: 2 },
-    email: { required: true, type: 'email' },
-    age: { type: 'number', min: 18, max: 120 },
+// Multiple file upload
+app.post('/api/upload/documents', (req, res) => {
+  const files = req.files('documents');
+
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded' });
+  }
+
+  const maxFiles = 10;
+  if (files.length > maxFiles) {
+    return res.status(400).json({
+      error: `Too many files. Maximum ${maxFiles} files allowed.`,
+    });
+  }
+
+  const allowedTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ];
+
+  const maxSizePerFile = 10 * 1024 * 1024; // 10MB per file
+  const uploadedFiles = [];
+  const errors = [];
+
+  files.forEach((file, index) => {
+    // Validate each file
+    if (!allowedTypes.includes(file.mimetype)) {
+      errors.push(`File ${index + 1}: Invalid file type`);
+      return;
+    }
+
+    if (file.size > maxSizePerFile) {
+      errors.push(`File ${index + 1}: File too large (max 10MB)`);
+      return;
+    }
+
+    // Process valid file
+    const safeFilename = req
+      .sanitize(file.filename, {
+        removeHtml: true,
+        trim: true,
+        maxLength: 100,
+      })
+      .replace(/[^a-zA-Z0-9.-]/g, '_');
+
+    const uniqueFilename = `${Date.now()}-${index}-${safeFilename}`;
+
+    uploadedFiles.push({
+      original: file.filename,
+      saved: uniqueFilename,
+      size: file.size,
+      mimetype: file.mimetype,
+    });
   });
 
-  // Advanced parsing
-  const sanitized = req.sanitize({
-    name: { trim: true, escape: true },
-    bio: { removeHtml: true },
-  });
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      errors,
+      uploadedFiles: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+    });
+  }
 
-  res.json({ validated, sanitized });
+  res.json({
+    success: true,
+    files: uploadedFiles,
+    count: uploadedFiles.length,
+  });
 });
 ```
 
-## 🔧 Configuration Options
-
-### Basic Configuration
+### Mixed Form Data with Files
 
 ```typescript
-import NextRush from 'nextrush';
+// Form with both text fields and files
+app.post('/api/posts', (req, res) => {
+  // Text fields
+  const { title, content, category, tags } = req.body;
 
-const app = new NextRush({
-  // Body parser options
-  maxRequestSize: 1024 * 1024 * 10, // 10MB
-  timeout: 60000, // 60 seconds
+  // Files
+  const featuredImage = req.file('featured_image');
+  const attachments = req.files('attachments');
+
+  // Validate text fields
+  const validation = req.validate({
+    title: { required: true, minLength: 5, maxLength: 200 },
+    content: { required: true, minLength: 50 },
+    category: { required: true },
+    tags: { type: 'array', maxLength: 10 },
+  });
+
+  if (!validation.isValid) {
+    return res.status(400).json({ errors: validation.errors });
+  }
+
+  const postData = {
+    ...validation.sanitized,
+    tags: Array.isArray(tags) ? tags : [tags],
+  };
+
+  // Process featured image
+  if (featuredImage) {
+    const imageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!imageTypes.includes(featuredImage.mimetype)) {
+      return res.status(400).json({
+        error: 'Featured image must be JPEG, PNG, or GIF',
+      });
+    }
+
+    postData.featuredImage = {
+      filename: featuredImage.filename,
+      size: featuredImage.size,
+      mimetype: featuredImage.mimetype,
+    };
+  }
+
+  // Process attachments
+  if (attachments && attachments.length > 0) {
+    postData.attachments = attachments.map((file) => ({
+      filename: file.filename,
+      size: file.size,
+      mimetype: file.mimetype,
+    }));
+  }
+
+  res.json({
+    success: true,
+    post: postData,
+  });
 });
 ```
 
-### Advanced Configuration
+## Advanced File Processing
+
+### Image Processing
 
 ```typescript
-// Custom body parser configuration (coming soon)
+// Image upload with processing
+app.post('/api/upload/photo', async (req, res) => {
+  const photo = req.file('photo');
+
+  if (!photo) {
+    return res.status(400).json({ error: 'No photo uploaded' });
+  }
+
+  // Validate image
+  const imageTypes = ['image/jpeg', 'image/png'];
+  if (!imageTypes.includes(photo.mimetype)) {
+    return res.status(400).json({
+      error: 'Only JPEG and PNG images allowed',
+    });
+  }
+
+  try {
+    // Get image dimensions and metadata
+    const imageInfo = await getImageInfo(photo.buffer);
+
+    // Validate dimensions
+    if (imageInfo.width > 4000 || imageInfo.height > 4000) {
+      return res.status(400).json({
+        error: 'Image too large. Maximum 4000x4000 pixels.',
+      });
+    }
+
+    // Create different sizes
+    const sizes = {
+      thumbnail: { width: 150, height: 150 },
+      medium: { width: 500, height: 500 },
+      large: { width: 1200, height: 1200 },
+    };
+
+    const processedImages = {};
+
+    for (const [sizeName, dimensions] of Object.entries(sizes)) {
+      const resized = await resizeImage(photo.buffer, dimensions);
+      const filename = `${Date.now()}-${sizeName}.jpg`;
+
+      // Save to storage (implement your storage logic)
+      await saveFile(filename, resized);
+
+      processedImages[sizeName] = {
+        filename,
+        width: dimensions.width,
+        height: dimensions.height,
+        url: `/uploads/${filename}`,
+      };
+    }
+
+    res.json({
+      success: true,
+      original: {
+        filename: photo.filename,
+        size: photo.size,
+        width: imageInfo.width,
+        height: imageInfo.height,
+      },
+      processed: processedImages,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Image processing failed' });
+  }
+});
+```
+
+### File Type Detection
+
+```typescript
+// Advanced file type validation
+app.post('/api/upload/secure', (req, res) => {
+  const file = req.file('document');
+
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  // Check file signature (magic numbers) not just extension
+  const fileSignature = getFileSignature(file.buffer);
+  const trueMimeType = getMimeTypeFromSignature(fileSignature);
+
+  // Verify MIME type matches file signature
+  if (file.mimetype !== trueMimeType) {
+    return res.status(400).json({
+      error: 'File type mismatch. File may be corrupted or malicious.',
+    });
+  }
+
+  // Scan for malicious content
+  const scanResult = scanFileForMalware(file.buffer);
+  if (!scanResult.safe) {
+    return res.status(400).json({
+      error: 'File contains potentially malicious content',
+    });
+  }
+
+  res.json({
+    success: true,
+    file: {
+      filename: file.filename,
+      size: file.size,
+      mimetype: file.mimetype,
+      verified: true,
+    },
+  });
+});
+
+// File signature detection
+function getFileSignature(buffer) {
+  const signatures = {
+    PDF: [0x25, 0x50, 0x44, 0x46], // %PDF
+    JPEG: [0xff, 0xd8, 0xff],
+    PNG: [0x89, 0x50, 0x4e, 0x47],
+    ZIP: [0x50, 0x4b, 0x03, 0x04],
+    DOC: [0xd0, 0xcf, 0x11, 0xe0],
+  };
+
+  for (const [type, signature] of Object.entries(signatures)) {
+    if (buffer.subarray(0, signature.length).equals(Buffer.from(signature))) {
+      return type;
+    }
+  }
+
+  return 'UNKNOWN';
+}
+```
+
+## Security Features
+
+### File Upload Security
+
+```typescript
+// Secure file upload configuration
+const secureUploadConfig = {
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  maxFiles: 5, // Max 5 files
+  allowedMimeTypes: [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'application/pdf',
+    'text/plain',
+  ],
+  quarantineUntrusted: true, // Quarantine suspicious files
+  scanForViruses: true, // Virus scanning
+  stripMetadata: true, // Remove EXIF data from images
+};
+
+app.post('/api/secure-upload', (req, res) => {
+  const files = req.files() || [];
+
+  // Apply security checks
+  const securityCheck = validateUploadSecurity(files, secureUploadConfig);
+
+  if (!securityCheck.passed) {
+    return res.status(400).json({
+      error: 'Security validation failed',
+      details: securityCheck.errors,
+    });
+  }
+
+  // Process secure files
+  const processedFiles = files.map((file) => ({
+    filename: sanitizeFilename(file.filename),
+    size: file.size,
+    mimetype: file.mimetype,
+    securityScore: securityCheck.scores[file.filename],
+  }));
+
+  res.json({
+    success: true,
+    files: processedFiles,
+  });
+});
+
+function validateUploadSecurity(files, config) {
+  const errors = [];
+  const scores = {};
+
+  // Check file count
+  if (files.length > config.maxFiles) {
+    errors.push(`Too many files. Maximum ${config.maxFiles} allowed.`);
+  }
+
+  files.forEach((file) => {
+    let score = 100;
+
+    // Check file size
+    if (file.size > config.maxFileSize) {
+      errors.push(`File ${file.filename} is too large`);
+      score -= 30;
+    }
+
+    // Check MIME type
+    if (!config.allowedMimeTypes.includes(file.mimetype)) {
+      errors.push(`File type ${file.mimetype} not allowed`);
+      score -= 50;
+    }
+
+    // Check filename for suspicious patterns
+    if (/\.(exe|bat|cmd|scr|com|pif|vbs|js)$/i.test(file.filename)) {
+      errors.push(`Suspicious file extension: ${file.filename}`);
+      score -= 80;
+    }
+
+    // Check for null bytes (directory traversal attempt)
+    if (file.filename.includes('\0')) {
+      errors.push(`Invalid filename: ${file.filename}`);
+      score -= 90;
+    }
+
+    scores[file.filename] = Math.max(0, score);
+  });
+
+  return {
+    passed: errors.length === 0,
+    errors,
+    scores,
+  };
+}
+```
+
+### Input Sanitization
+
+```typescript
+// Comprehensive input sanitization
+app.post('/api/sanitized-data', (req, res) => {
+  // Different sanitization for different field types
+  const sanitizedData = {
+    // Name: remove HTML, trim, limit length
+    name: req.sanitize(req.body.name, {
+      removeHtml: true,
+      trim: true,
+      maxLength: 100,
+      pattern: /^[a-zA-Z\s'-]+$/,
+    }),
+
+    // Email: lowercase, trim, validate
+    email: req.sanitize(req.body.email, {
+      trim: true,
+      lowercase: true,
+      removeHtml: true,
+    }),
+
+    // Bio: allow some HTML, limit length
+    bio: req.sanitize(req.body.bio, {
+      allowedTags: ['p', 'br', 'strong', 'em', 'a'],
+      allowedAttributes: { a: ['href'] },
+      maxLength: 500,
+      removeScripts: true,
+    }),
+
+    // URL: validate and normalize
+    website: req.body.website
+      ? req.sanitize(req.body.website, {
+          isUrl: true,
+          protocols: ['http', 'https'],
+        })
+      : null,
+
+    // Phone: remove non-digits, format
+    phone: req.sanitize(req.body.phone, {
+      removeNonDigits: true,
+      minLength: 10,
+      maxLength: 15,
+    }),
+
+    // Tags: array of strings, sanitized individually
+    tags: (req.body.tags || []).map((tag) =>
+      req.sanitize(tag, {
+        trim: true,
+        removeHtml: true,
+        maxLength: 50,
+        lowercase: true,
+      })
+    ),
+  };
+
+  // Additional validation
+  if (!req.isValidEmail(sanitizedData.email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+
+  if (sanitizedData.website && !req.isValidUrl(sanitizedData.website)) {
+    return res.status(400).json({ error: 'Invalid website URL' });
+  }
+
+  res.json({
+    success: true,
+    data: sanitizedData,
+  });
+});
+```
+
+## Performance Optimization
+
+### Streaming File Uploads
+
+```typescript
+// Handle large file uploads with streaming
+app.post('/api/upload/large', (req, res) => {
+  const maxSize = 100 * 1024 * 1024; // 100MB
+  let uploadedSize = 0;
+
+  req.on('data', (chunk) => {
+    uploadedSize += chunk.length;
+
+    // Check size limit during upload
+    if (uploadedSize > maxSize) {
+      req.destroy();
+      return res.status(413).json({
+        error: 'File too large',
+        maxSize: `${maxSize / 1024 / 1024}MB`,
+      });
+    }
+
+    // Send progress update (optional)
+    if (uploadedSize % (1024 * 1024) === 0) {
+      // Every MB
+      const progress = (uploadedSize / maxSize) * 100;
+      console.log(`Upload progress: ${progress.toFixed(1)}%`);
+    }
+  });
+
+  req.on('end', () => {
+    // Process completed upload
+    const file = req.file();
+
+    res.json({
+      success: true,
+      file: {
+        size: uploadedSize,
+        filename: file.filename,
+      },
+    });
+  });
+
+  req.on('error', (error) => {
+    res.status(400).json({ error: 'Upload failed' });
+  });
+});
+```
+
+### Memory Management
+
+```typescript
+// Configure body parser for memory optimization
 app.configure({
   bodyParser: {
     json: {
-      limit: '10mb',
-      strict: true,
-      reviver: (key, value) => {
-        // Custom JSON parsing logic
-        return value;
-      },
+      limit: '10mb', // JSON size limit
+      strict: true, // Strict JSON parsing
     },
     urlencoded: {
-      limit: '10mb',
-      extended: true,
-      parameterLimit: 1000,
-    },
-    text: {
-      limit: '10mb',
-      type: 'text/*',
+      limit: '10mb', // Form data limit
+      extended: true, // Extended URL encoding
     },
     multipart: {
-      limit: '50mb',
-      fileSize: '10mb',
-      files: 10,
-      fields: 100,
+      limit: '50mb', // File upload limit
+      fileLimit: 10, // Max number of files
+      memoryLimit: '20mb', // Memory usage limit
+      tempDir: '/tmp/uploads', // Temporary directory
+      keepExtensions: true, // Keep file extensions
+    },
+    raw: {
+      limit: '5mb', // Raw body limit
     },
   },
 });
 ```
 
-## 🛡️ Security Best Practices
-
-### 1. Validate Input
+## Testing File Uploads
 
 ```typescript
-app.post('/api/users', (req, res) => {
-  const { name, email } = req.body;
+// Test file upload functionality
+import { createApp } from 'nextrush';
+import request from 'supertest';
+import fs from 'fs';
+import path from 'path';
 
-  // Basic validation
-  if (!name || !email) {
-    return res.status(400).json({
-      error: 'Name and email are required',
-    });
-  }
+describe('File Uploads', () => {
+  let app;
 
-  if (!email.includes('@')) {
-    return res.status(400).json({
-      error: 'Invalid email format',
-    });
-  }
+  beforeEach(() => {
+    app = createApp();
 
-  res.json({ message: 'User created' });
-});
-```
-
-### 2. Size Limits
-
-```typescript
-// Set appropriate limits for your use case
-const app = new NextRush({
-  maxRequestSize: 1024 * 1024 * 5, // 5MB for API endpoints
-});
-
-// Different limits for file uploads (when available)
-app.post('/upload' /* file upload with higher limits */);
-```
-
-### 3. Content-Type Validation
-
-```typescript
-app.post('/api/strict', (req, res) => {
-  // Only accept JSON
-  if (!req.is('json')) {
-    return res.status(415).json({
-      error: 'Only JSON content is accepted',
-    });
-  }
-
-  res.json({ data: req.body });
-});
-```
-
-## 🚀 Real-World Examples
-
-### API Endpoint
-
-```typescript
-// Complete API endpoint with validation
-app.post('/api/products', (req, res) => {
-  try {
-    const { name, price, description, category } = req.body;
-
-    // Validation
-    if (!name || !price || !category) {
-      return res.status(400).json({
-        error: 'Missing required fields',
-        required: ['name', 'price', 'category'],
+    app.post('/test-upload', (req, res) => {
+      const file = req.file('testFile');
+      res.json({
+        hasFile: !!file,
+        filename: file?.filename,
+        size: file?.size,
+        mimetype: file?.mimetype,
       });
-    }
-
-    if (typeof price !== 'number' || price <= 0) {
-      return res.status(400).json({
-        error: 'Price must be a positive number',
-      });
-    }
-
-    // Process the data
-    const product = {
-      id: Date.now(),
-      name: name.trim(),
-      price: parseFloat(price),
-      description: description?.trim() || '',
-      category: category.trim(),
-      createdAt: new Date().toISOString(),
-    };
-
-    res.status(201).json({
-      message: 'Product created successfully',
-      product,
     });
-  } catch (error) {
-    res.status(500).json({
-      error: 'Internal server error',
-    });
-  }
-});
-```
-
-### Contact Form
-
-```typescript
-// Contact form handler
-app.post('/contact', (req, res) => {
-  const { name, email, subject, message } = req.body;
-
-  // Validation
-  const errors = [];
-  if (!name) errors.push('Name is required');
-  if (!email) errors.push('Email is required');
-  if (!message) errors.push('Message is required');
-
-  if (errors.length > 0) {
-    return res.status(400).json({ errors });
-  }
-
-  // Process contact form
-  console.log('Contact form submission:', {
-    name,
-    email,
-    subject,
-    message,
-    timestamp: new Date().toISOString(),
-    ip: req.ip(),
-    userAgent: req.header('user-agent'),
   });
 
-  res.json({
-    message: 'Thank you for your message. We will get back to you soon!',
-    id: Date.now(),
+  test('handles single file upload', async () => {
+    // Create test file
+    const testFile = Buffer.from('test file content');
+
+    const response = await request(app)
+      .post('/test-upload')
+      .attach('testFile', testFile, 'test.txt')
+      .expect(200);
+
+    expect(response.body.hasFile).toBe(true);
+    expect(response.body.filename).toBe('test.txt');
+    expect(response.body.mimetype).toBe('text/plain');
+  });
+
+  test('handles form data with file', async () => {
+    const response = await request(app)
+      .post('/test-upload')
+      .field('name', 'John Doe')
+      .field('email', 'john@example.com')
+      .attach('testFile', Buffer.from('content'), 'document.txt')
+      .expect(200);
+
+    expect(response.body.hasFile).toBe(true);
+  });
+
+  test('rejects files that are too large', async () => {
+    // Create large buffer (simulate large file)
+    const largeFile = Buffer.alloc(20 * 1024 * 1024); // 20MB
+
+    const response = await request(app)
+      .post('/test-upload')
+      .attach('testFile', largeFile, 'large.txt');
+
+    expect(response.status).toBe(413); // Payload too large
   });
 });
 ```
-
-### Webhook Handler
-
-```typescript
-// Webhook endpoint for external services
-app.post('/webhooks/payment', (req, res) => {
-  const signature = req.header('x-signature');
-  const payload = req.body;
-
-  // Verify webhook signature (implement your verification logic)
-  if (!verifyWebhookSignature(payload, signature)) {
-    return res.status(401).json({ error: 'Invalid signature' });
-  }
-
-  // Process webhook
-  console.log('Payment webhook received:', payload);
-
-  // Always respond quickly to webhooks
-  res.json({ received: true });
-
-  // Process asynchronously
-  process.nextTick(() => {
-    processPaymentWebhook(payload);
-  });
-});
-```
-
-## 📊 Performance Tips
-
-### 1. Request Size Limits
-
-```typescript
-// Set appropriate limits based on your needs
-const app = new NextRush({
-  maxRequestSize: 1024 * 1024 * 2, // 2MB for most APIs
-});
-
-// For file upload endpoints, use higher limits when available
-```
-
-### 2. Efficient Processing
-
-```typescript
-app.post('/api/bulk', (req, res) => {
-  const { items } = req.body;
-
-  // Process in batches for large datasets
-  if (Array.isArray(items) && items.length > 100) {
-    // Handle large requests differently
-    return res.status(413).json({
-      error: 'Too many items. Please send in batches of 100 or less.',
-    });
-  }
-
-  res.json({ processed: items.length });
-});
-```
-
-### 3. Caching Responses
-
-```typescript
-app.post('/api/expensive-operation', (req, res) => {
-  const cacheKey = JSON.stringify(req.body);
-
-  // Check cache first (implement your caching logic)
-  const cached = getFromCache(cacheKey);
-  if (cached) {
-    return res.json(cached);
-  }
-
-  // Process and cache result
-  const result = performExpensiveOperation(req.body);
-  setCache(cacheKey, result, 300); // Cache for 5 minutes
-
-  res.json(result);
-});
-```
-
-## 🔮 Roadmap
-
-### Next Release (v2.0)
-
-- ✅ Enhanced multipart/form-data support
-- ✅ File upload handling with streaming
-- ✅ Built-in validation and sanitization
-- ✅ Custom parser registration
-- ✅ Advanced security features
-
-### Future Releases
-
-- 🔄 XML parsing support
-- 📊 Request/response compression
-- 🔒 Built-in rate limiting
-- 📈 Performance monitoring
-- 🧪 Schema validation integration
-
----
-
-**NextRush Body Parser: Automatic, secure, and developer-friendly!** 🔄

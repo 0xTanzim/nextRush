@@ -1,5 +1,5 @@
-import { ParsedRequest } from '../http/request/types';
-import { EnhancedResponse } from '../http/response/types';
+import { EnhancedRequest } from '../core/enhancers/request-enhancer';
+import { EnhancedResponse } from '../core/enhancers/response-enhancer';
 
 export interface ErrorContext {
   message: string;
@@ -17,7 +17,7 @@ export interface ErrorHandlerConfig {
   logErrors?: boolean;
   customHandler?: (
     error: Error,
-    req: ParsedRequest,
+    req: EnhancedRequest,
     res: EnhancedResponse
   ) => void;
 }

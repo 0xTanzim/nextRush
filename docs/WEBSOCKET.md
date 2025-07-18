@@ -1,1146 +1,921 @@
-# 🚀 NextRush WebSocket Documentation
+# WebSocket Guide
 
-## **Zero-Dependency WebSocket Implementation**
+NextRush provides built-in WebSocket support with zero dependencies, room management, and advanced features.
 
-NextRush provides a **production-ready, zero-dependency WebSocket implementation** built with raw Node.js that's **easier to use, fully type-safe, and more powerful** than existing solutions.
-
----
-
-## **📚 Table of Contents**
-
-1. [Quick Start](#quick-start)
-2. [Core Features](#core-features)
-3. [API Reference](#api-reference)
-4. [WebSocket Handlers](#websocket-handlers)
-5. [Room Management](#room-management)
-6. [Middleware System](#middleware-system)
-7. [Event Handling](#event-handling)
-8. [Security Features](#security-features)
-9. [Performance & Monitoring](#performance--monitoring)
-10. [Best Practices](#best-practices)
-11. [Examples](#examples)
-12. [Troubleshooting](#troubleshooting)
-
----
-
-## **🚀 Quick Start**
-
-### **Enable WebSocket Support**
+## Basic WebSocket Usage
 
 ```typescript
 import { createApp } from 'nextrush';
 
 const app = createApp();
 
-// 🔌 Enable WebSocket support (zero dependencies!)
-app.enableWebSocket({
-  maxConnections: 100,
-  pingInterval: 30000,
-  maxMessageSize: 1024 * 1024, // 1MB
-  debug: true
-});
+// Basic WebSocket endpoint
+app.ws('/chat', (socket) => {
+  console.log('Client connected');
 
-// 🎯 Simple WebSocket route
-app.ws('/chat', (socket, req) => {
-  console.log(\`New connection: \${socket.id}\`);
+  // Send welcome message
+  socket.send('Welcome to the chat!');
 
-  socket.send('Welcome to NextRush WebSocket!');
-
+  // Handle incoming messages
   socket.on('message', (data) => {
     console.log('Received:', data);
-    socket.send(\`Echo: \${data}\`);
+    socket.send(`Echo: ${data}`);
+  });
+
+  // Handle client disconnect
+  socket.on('close', () => {
+    console.log('Client disconnected');
+  });
+
+  // Handle errors
+  socket.on('error', (error) => {
+    console.error('WebSocket error:', error);
   });
 });
 
 app.listen(3000, () => {
-  console.log('🚀 WebSocket server ready!');
+  console.log('Server with WebSocket running on port 3000');
 });
 ```
 
-### **Client-Side Connection**
-
-```javascript
-// 🌐 Connect from browser
-const ws = new WebSocket('ws://localhost:3000/chat');
-
-ws.onopen = () => {
-  console.log('Connected!');
-  ws.send('Hello from client!');
-};
-
-ws.onmessage = (event) => {
-  console.log('Received:', event.data);
-};
-```
-
----
-
-## **⭐ Core Features**
-
-### **🔥 Zero Dependencies**
-
-- Built with raw Node.js HTTP upgrade events
-- No external packages required
-- RFC 6455 compliant WebSocket implementation
-
-### **🛡️ Type Safety**
-
-- Full TypeScript support with intelligent IntelliSense
-- Strongly typed event handlers and message types
-- Auto-completion for all WebSocket methods
-
-### **🏠 Advanced Room Management**
-
-- Real-time room join/leave functionality
-- Broadcasting to specific rooms
-- Room metadata and statistics
-
-### **⚡ High Performance**
-
-- Optimized frame parsing and sending
-- Built-in connection pooling
-- Automatic ping/pong heartbeat
-
-### **🔒 Security**
-
-- Origin validation
-- Rate limiting support
-- Secure frame handling
-- Path traversal protection
-
----
-
-## **📖 API Reference**
-
-### **Application Methods**
-
-#### **`app.enableWebSocket(options?: WebSocketOptions)`**
-
-Enable WebSocket support on the application.
+## WebSocket with Route Parameters
 
 ```typescript
-app.enableWebSocket({
-  maxConnections: 100, // Maximum concurrent connections
-  pingInterval: 30000, // Ping interval in milliseconds
-  maxMessageSize: 1048576, // Maximum message size in bytes
-  protocols: [], // Supported WebSocket protocols
-  origins: ['*'], // Allowed origins
-  debug: false, // Enable debug logging
-  maxRooms: 1000, // Maximum number of rooms
-  roomCleanupInterval: 60000, // Room cleanup interval
-});
-```
+// WebSocket with room parameter
+app.ws('/rooms/:roomId', (socket, req) => {
+  const roomId = req.params.roomId;
+  console.log(`Client joined room: ${roomId}`);
 
-#### **`app.ws(path: string, handler: WebSocketHandler)`**
-
-Register a WebSocket route handler.
-
-```typescript
-app.ws('/chat', (socket, req) => {
-  // Handle WebSocket connection
-});
-
-app.ws('/api/*', (socket, req) => {
-  // Wildcard path matching
-});
-```
-
-#### **`app.wsUse(middleware: WebSocketMiddleware)`**
-
-Add WebSocket middleware.
-
-```typescript
-app.wsUse((socket, req, next) => {
-  console.log(\`Connection from: \${socket.ip}\`);
-  socket.metadata.connectedAt = new Date();
-  next();
-});
-```
-
-### **WebSocket Connection Methods**
-
-#### **Core Methods**
-
-```typescript
-// Send message
-socket.send(data: string | Buffer | object): void
-socket.send('Hello World!');
-socket.send({ type: 'message', content: 'Hello' });
-socket.send(Buffer.from('binary data'));
-
-// Close connection
-socket.close(code?: number, reason?: string): void
-socket.close(1000, 'Normal closure');
-
-// Ping/Pong
-socket.ping(data?: Buffer): void
-socket.pong(data?: Buffer): void
-```
-
-#### **Enhanced Methods**
-
-```typescript
-// Room management
-socket.join(room: string): Promise<void>
-socket.leave(room: string): Promise<void>
-await socket.join('general');
-
-// Broadcasting
-socket.broadcast(data: any, room?: string): void
-socket.broadcast('Hello everyone!');
-socket.broadcast('Room message', 'general');
-
-// Room targeting
-socket.to('room-name').send('Message to room');
-socket.to('admin').emit('notification', { alert: 'New user' });
-
-// Event emitting
-socket.emit(event: string, ...args: any[]): void
-socket.emit('notification', { type: 'info', message: 'Hello' });
-```
-
-#### **Event Handling**
-
-```typescript
-// Listen for events
-socket.on(event: string, handler: Function): void
-socket.on('message', (data) => {
-  console.log('Received:', data);
-});
-
-socket.on('join-room', (roomName) => {
-  socket.join(roomName);
-  socket.to(roomName).send(\`User \${socket.id} joined\`);
-});
-
-// One-time events
-socket.once('auth', (token) => {
-  // Handle authentication once
-});
-
-// Remove event listeners
-socket.off('message', handler);
-socket.off('message'); // Remove all handlers
-```
-
----
-
-## **🎯 WebSocket Handlers**
-
-### **Handler Signature**
-
-```typescript
-type WebSocketHandler = (
-  socket: NextRushWebSocket,
-  req: NextRushRequest
-) => void | Promise<void>;
-```
-
-### **Connection Information**
-
-```typescript
-app.ws('/info', (socket, req) => {
-  console.log({
-    id: socket.id,
-    ip: socket.ip,
-    userAgent: socket.userAgent,
-    origin: socket.origin,
-    rooms: Array.from(socket.rooms),
-    connectedAt: socket.connectedAt,
-    isAlive: socket.isAlive,
-  });
-});
-```
-
-### **Message Handling Patterns**
-
-```typescript
-app.ws('/api', (socket, req) => {
-  socket.on('message', async (rawData) => {
-    try {
-      const message = JSON.parse(rawData);
-
-      switch (message.type) {
-        case 'join':
-          await socket.join(message.room);
-          socket.send({ type: 'joined', room: message.room });
-          break;
-
-        case 'chat':
-          socket.to(message.room).send({
-            type: 'message',
-            user: socket.id,
-            text: message.text,
-            timestamp: Date.now(),
-          });
-          break;
-
-        case 'ping':
-          socket.send({ type: 'pong', timestamp: Date.now() });
-          break;
-
-        default:
-          socket.send({ type: 'error', message: 'Unknown message type' });
-      }
-    } catch (error) {
-      socket.send({ type: 'error', message: 'Invalid JSON' });
-    }
-  });
-});
-```
-
----
-
-## **🏠 Room Management**
-
-### **Joining and Leaving Rooms**
-
-```typescript
-app.ws('/chat', async (socket, req) => {
-  // Join default room
-  await socket.join('general');
-
-  // Join multiple rooms
-  await Promise.all([socket.join('users'), socket.join('notifications')]);
-
-  socket.on('message', async (data) => {
-    const msg = JSON.parse(data);
-
-    if (msg.action === 'join-room') {
-      await socket.join(msg.room);
-      socket.to(msg.room).send({
-        type: 'user-joined',
-        user: socket.id,
-        room: msg.room,
-      });
-    }
-
-    if (msg.action === 'leave-room') {
-      await socket.leave(msg.room);
-      socket.to(msg.room).send({
-        type: 'user-left',
-        user: socket.id,
-        room: msg.room,
-      });
-    }
-  });
-});
-```
-
-### **Broadcasting to Rooms**
-
-```typescript
-// Broadcast to all connections
-app.wsBroadcast({
-  type: 'announcement',
-  message: 'Server maintenance in 5 minutes',
-});
-
-// Broadcast to specific room
-app.wsBroadcast({ type: 'event', data: eventData }, 'premium-users');
-
-// From socket connection
-socket.broadcast('Hello everyone!');
-socket.broadcast('Room announcement', 'general');
-
-// Exclude sender
-socket.to('general').send('Message to room excluding sender');
-```
-
-### **Room Information**
-
-```typescript
-// Get room statistics
-app.get('/api/websocket/rooms', (req, res) => {
-  const stats = app.getWebSocketStats();
-  const rooms = stats?.rooms || [];
-
-  res.json({
-    totalRooms: rooms.length,
-    rooms: rooms.map((room) => ({
-      name: room.name,
-      clients: room.clients.size,
-      created: room.created,
-      lastActivity: room.lastActivity,
-    })),
-  });
-});
-```
-
----
-
-## **🔧 Middleware System**
-
-### **Authentication Middleware**
-
-```typescript
-app.wsUse(async (socket, req, next) => {
+  // Access request parameters
+  const userId = req.query.userId;
   const token = req.headers.authorization;
 
+  socket.send(`Welcome to room ${roomId}!`);
+
+  socket.on('message', (data) => {
+    // Broadcast to room (implement room logic)
+    broadcastToRoom(roomId, data, socket);
+  });
+});
+
+// WebSocket with multiple parameters
+app.ws('/games/:gameId/players/:playerId', (socket, req) => {
+  const { gameId, playerId } = req.params;
+
+  socket.gameId = gameId;
+  socket.playerId = playerId;
+
+  socket.send(
+    JSON.stringify({
+      type: 'connected',
+      gameId,
+      playerId,
+    })
+  );
+});
+```
+
+## Room Management
+
+```typescript
+// Room management system
+class RoomManager {
+  constructor() {
+    this.rooms = new Map();
+  }
+
+  joinRoom(roomId, socket) {
+    if (!this.rooms.has(roomId)) {
+      this.rooms.set(roomId, new Set());
+    }
+
+    this.rooms.get(roomId).add(socket);
+    socket.roomId = roomId;
+
+    // Notify others in the room
+    this.broadcastToRoom(
+      roomId,
+      {
+        type: 'user-joined',
+        message: `User joined room ${roomId}`,
+        userCount: this.rooms.get(roomId).size,
+      },
+      socket
+    );
+
+    console.log(
+      `Socket joined room ${roomId}. Total: ${this.rooms.get(roomId).size}`
+    );
+  }
+
+  leaveRoom(socket) {
+    const roomId = socket.roomId;
+    if (!roomId || !this.rooms.has(roomId)) return;
+
+    this.rooms.get(roomId).delete(socket);
+
+    // Clean up empty rooms
+    if (this.rooms.get(roomId).size === 0) {
+      this.rooms.delete(roomId);
+    } else {
+      // Notify others in the room
+      this.broadcastToRoom(roomId, {
+        type: 'user-left',
+        message: `User left room ${roomId}`,
+        userCount: this.rooms.get(roomId).size,
+      });
+    }
+
+    delete socket.roomId;
+  }
+
+  broadcastToRoom(roomId, message, excludeSocket = null) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    const messageStr =
+      typeof message === 'string' ? message : JSON.stringify(message);
+
+    room.forEach((socket) => {
+      if (socket !== excludeSocket && socket.readyState === socket.OPEN) {
+        socket.send(messageStr);
+      }
+    });
+  }
+
+  getRoomUsers(roomId) {
+    const room = this.rooms.get(roomId);
+    return room ? room.size : 0;
+  }
+
+  getAllRooms() {
+    const roomData = {};
+    this.rooms.forEach((sockets, roomId) => {
+      roomData[roomId] = sockets.size;
+    });
+    return roomData;
+  }
+}
+
+const roomManager = new RoomManager();
+
+// WebSocket with room management
+app.ws('/chat/:roomId', (socket, req) => {
+  const roomId = req.params.roomId;
+
+  // Join room
+  roomManager.joinRoom(roomId, socket);
+
+  // Send room info
+  socket.send(
+    JSON.stringify({
+      type: 'room-info',
+      roomId,
+      userCount: roomManager.getRoomUsers(roomId),
+    })
+  );
+
+  // Handle messages
+  socket.on('message', (data) => {
+    try {
+      const message = JSON.parse(data);
+
+      // Broadcast message to room
+      roomManager.broadcastToRoom(roomId, {
+        type: 'chat-message',
+        message: message.text,
+        timestamp: new Date().toISOString(),
+        roomId,
+      });
+    } catch (error) {
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format',
+        })
+      );
+    }
+  });
+
+  // Handle disconnect
+  socket.on('close', () => {
+    roomManager.leaveRoom(socket);
+  });
+});
+```
+
+## Authentication & Authorization
+
+```typescript
+import jwt from 'jsonwebtoken';
+
+// WebSocket authentication middleware
+const authenticateWebSocket = (req, socket) => {
+  const token =
+    req.query.token || req.headers.authorization?.replace('Bearer ', '');
+
   if (!token) {
+    socket.send(
+      JSON.stringify({
+        type: 'error',
+        message: 'Authentication required',
+      })
+    );
     socket.close(1008, 'Authentication required');
-    return;
+    return false;
   }
 
   try {
-    const user = await verifyToken(token);
-    socket.metadata.user = user;
-    socket.metadata.authenticated = true;
-    next();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    return true;
   } catch (error) {
+    socket.send(
+      JSON.stringify({
+        type: 'error',
+        message: 'Invalid token',
+      })
+    );
     socket.close(1008, 'Invalid token');
+    return false;
   }
-});
-```
+};
 
-### **Rate Limiting Middleware**
-
-```typescript
-const rateLimiter = new Map();
-
-app.wsUse((socket, req, next) => {
-  const key = socket.ip;
-  const now = Date.now();
-  const windowMs = 60000; // 1 minute
-  const maxRequests = 100;
-
-  if (!rateLimiter.has(key)) {
-    rateLimiter.set(key, { count: 1, resetTime: now + windowMs });
-    next();
-    return;
+// Protected WebSocket endpoint
+app.ws('/private-chat/:roomId', (socket, req) => {
+  // Authenticate user
+  if (!authenticateWebSocket(req, socket)) {
+    return; // Authentication failed, connection closed
   }
 
-  const limit = rateLimiter.get(key);
+  const { roomId } = req.params;
+  const user = req.user;
 
-  if (now > limit.resetTime) {
-    limit.count = 1;
-    limit.resetTime = now + windowMs;
-    next();
-  } else if (limit.count < maxRequests) {
-    limit.count++;
-    next();
-  } else {
-    socket.close(1008, 'Rate limit exceeded');
-  }
-});
-```
+  console.log(`Authenticated user ${user.email} joined room ${roomId}`);
 
-### **Logging Middleware**
+  // Join room with user info
+  socket.userId = user.id;
+  socket.userEmail = user.email;
+  roomManager.joinRoom(roomId, socket);
 
-```typescript
-app.wsUse((socket, req, next) => {
-  const startTime = Date.now();
-
-  console.log(\`[WS] Connection: \${socket.id} from \${socket.ip}\`);
+  // Send authenticated welcome
+  socket.send(
+    JSON.stringify({
+      type: 'authenticated',
+      user: { id: user.id, email: user.email },
+      roomId,
+    })
+  );
 
   socket.on('message', (data) => {
-    console.log(\`[WS] Message from \${socket.id}: \${data.slice(0, 100)}\`);
-  });
+    try {
+      const message = JSON.parse(data);
 
-  socket.socket.on('close', () => {
-    const duration = Date.now() - startTime;
-    console.log(\`[WS] Disconnection: \${socket.id} (duration: \${duration}ms)\`);
+      // Include user info in broadcast
+      roomManager.broadcastToRoom(roomId, {
+        type: 'chat-message',
+        message: message.text,
+        user: { id: user.id, email: user.email },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format',
+        })
+      );
+    }
   });
-
-  next();
 });
 ```
 
----
+## Real-time Features
 
-## **🎭 Event Handling**
-
-### **Built-in Events**
+### Live Chat Application
 
 ```typescript
-app.ws('/events', (socket, req) => {
-  // Message events
+// Complete chat application
+class ChatServer {
+  constructor() {
+    this.rooms = new Map();
+    this.users = new Map();
+  }
+
+  handleConnection(socket, req) {
+    const { roomId } = req.params;
+    const user = req.user;
+
+    // Store user info
+    this.users.set(socket, { ...user, roomId, joinedAt: new Date() });
+
+    // Join room
+    this.joinRoom(roomId, socket, user);
+
+    // Handle different message types
+    socket.on('message', (data) => {
+      try {
+        const message = JSON.parse(data);
+        this.handleMessage(socket, message);
+      } catch (error) {
+        this.sendError(socket, 'Invalid message format');
+      }
+    });
+
+    socket.on('close', () => {
+      this.handleDisconnect(socket);
+    });
+  }
+
+  joinRoom(roomId, socket, user) {
+    if (!this.rooms.has(roomId)) {
+      this.rooms.set(roomId, {
+        users: new Map(),
+        messages: [],
+        createdAt: new Date(),
+      });
+    }
+
+    const room = this.rooms.get(roomId);
+    room.users.set(socket, user);
+
+    // Send room history
+    socket.send(
+      JSON.stringify({
+        type: 'room-history',
+        messages: room.messages.slice(-50), // Last 50 messages
+        users: Array.from(room.users.values()),
+      })
+    );
+
+    // Notify others
+    this.broadcastToRoom(
+      roomId,
+      {
+        type: 'user-joined',
+        user: { id: user.id, email: user.email },
+        userCount: room.users.size,
+      },
+      socket
+    );
+  }
+
+  handleMessage(socket, message) {
+    const user = this.users.get(socket);
+    if (!user) return;
+
+    const roomId = user.roomId;
+    const room = this.rooms.get(roomId);
+
+    switch (message.type) {
+      case 'chat':
+        this.handleChatMessage(socket, message, user, room);
+        break;
+      case 'typing':
+        this.handleTyping(socket, message, user, roomId);
+        break;
+      case 'private':
+        this.handlePrivateMessage(socket, message, user);
+        break;
+      default:
+        this.sendError(socket, 'Unknown message type');
+    }
+  }
+
+  handleChatMessage(socket, message, user, room) {
+    const chatMessage = {
+      id: Date.now(),
+      type: 'chat-message',
+      text: message.text,
+      user: { id: user.id, email: user.email },
+      timestamp: new Date().toISOString(),
+    };
+
+    // Store message in room history
+    room.messages.push(chatMessage);
+
+    // Keep only last 100 messages
+    if (room.messages.length > 100) {
+      room.messages = room.messages.slice(-100);
+    }
+
+    // Broadcast to room
+    this.broadcastToRoom(user.roomId, chatMessage);
+  }
+
+  handleTyping(socket, message, user, roomId) {
+    this.broadcastToRoom(
+      roomId,
+      {
+        type: 'typing',
+        user: { id: user.id, email: user.email },
+        isTyping: message.isTyping,
+      },
+      socket
+    );
+  }
+
+  handlePrivateMessage(socket, message, user) {
+    const targetUserId = message.targetUserId;
+    const targetSocket = this.findUserSocket(targetUserId);
+
+    if (targetSocket) {
+      targetSocket.send(
+        JSON.stringify({
+          type: 'private-message',
+          text: message.text,
+          from: { id: user.id, email: user.email },
+          timestamp: new Date().toISOString(),
+        })
+      );
+
+      // Send confirmation to sender
+      socket.send(
+        JSON.stringify({
+          type: 'private-message-sent',
+          to: targetUserId,
+          text: message.text,
+        })
+      );
+    } else {
+      this.sendError(socket, 'User not found or offline');
+    }
+  }
+
+  findUserSocket(userId) {
+    for (const [socket, user] of this.users) {
+      if (user.id === userId) {
+        return socket;
+      }
+    }
+    return null;
+  }
+
+  broadcastToRoom(roomId, message, excludeSocket = null) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    const messageStr = JSON.stringify(message);
+
+    room.users.forEach((user, socket) => {
+      if (socket !== excludeSocket && socket.readyState === socket.OPEN) {
+        socket.send(messageStr);
+      }
+    });
+  }
+
+  sendError(socket, message) {
+    socket.send(
+      JSON.stringify({
+        type: 'error',
+        message,
+      })
+    );
+  }
+
+  handleDisconnect(socket) {
+    const user = this.users.get(socket);
+    if (!user) return;
+
+    const roomId = user.roomId;
+    const room = this.rooms.get(roomId);
+
+    if (room) {
+      room.users.delete(socket);
+
+      // Notify others
+      this.broadcastToRoom(roomId, {
+        type: 'user-left',
+        user: { id: user.id, email: user.email },
+        userCount: room.users.size,
+      });
+
+      // Clean up empty rooms
+      if (room.users.size === 0) {
+        this.rooms.delete(roomId);
+      }
+    }
+
+    this.users.delete(socket);
+  }
+}
+
+const chatServer = new ChatServer();
+
+app.ws('/chat/:roomId', (socket, req) => {
+  if (!authenticateWebSocket(req, socket)) return;
+  chatServer.handleConnection(socket, req);
+});
+```
+
+### Live Updates & Notifications
+
+```typescript
+// Live updates system
+class LiveUpdates {
+  constructor() {
+    this.subscribers = new Map();
+  }
+
+  subscribe(channel, socket) {
+    if (!this.subscribers.has(channel)) {
+      this.subscribers.set(channel, new Set());
+    }
+
+    this.subscribers.get(channel).add(socket);
+    socket.channels = socket.channels || new Set();
+    socket.channels.add(channel);
+
+    console.log(`Socket subscribed to ${channel}`);
+  }
+
+  unsubscribe(channel, socket) {
+    const channelSockets = this.subscribers.get(channel);
+    if (channelSockets) {
+      channelSockets.delete(socket);
+
+      if (channelSockets.size === 0) {
+        this.subscribers.delete(channel);
+      }
+    }
+
+    if (socket.channels) {
+      socket.channels.delete(channel);
+    }
+  }
+
+  publish(channel, data) {
+    const channelSockets = this.subscribers.get(channel);
+    if (!channelSockets) return;
+
+    const message = JSON.stringify({
+      type: 'update',
+      channel,
+      data,
+      timestamp: new Date().toISOString(),
+    });
+
+    channelSockets.forEach((socket) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(message);
+      }
+    });
+
+    console.log(`Published to ${channel}: ${channelSockets.size} subscribers`);
+  }
+
+  cleanupSocket(socket) {
+    if (socket.channels) {
+      socket.channels.forEach((channel) => {
+        this.unsubscribe(channel, socket);
+      });
+    }
+  }
+}
+
+const liveUpdates = new LiveUpdates();
+
+// Live updates WebSocket
+app.ws('/live', (socket, req) => {
+  if (!authenticateWebSocket(req, socket)) return;
+
   socket.on('message', (data) => {
-    console.log('Text message:', data);
+    try {
+      const message = JSON.parse(data);
+
+      switch (message.type) {
+        case 'subscribe':
+          liveUpdates.subscribe(message.channel, socket);
+          socket.send(
+            JSON.stringify({
+              type: 'subscribed',
+              channel: message.channel,
+            })
+          );
+          break;
+
+        case 'unsubscribe':
+          liveUpdates.unsubscribe(message.channel, socket);
+          socket.send(
+            JSON.stringify({
+              type: 'unsubscribed',
+              channel: message.channel,
+            })
+          );
+          break;
+
+        default:
+          socket.send(
+            JSON.stringify({
+              type: 'error',
+              message: 'Unknown message type',
+            })
+          );
+      }
+    } catch (error) {
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format',
+        })
+      );
+    }
   });
 
-  // Connection events
-  socket.on('close', (code, reason) => {
-    console.log(\`Connection closed: \${code} - \${reason}\`);
+  socket.on('close', () => {
+    liveUpdates.cleanupSocket(socket);
+  });
+});
+
+// Trigger live updates from API endpoints
+app.post('/api/posts', authenticate, (req, res) => {
+  // Create post logic...
+  const newPost = createPost(req.body);
+
+  // Notify subscribers
+  liveUpdates.publish('posts', {
+    type: 'new-post',
+    post: newPost,
   });
 
-  socket.on('error', (error) => {
-    console.log('Socket error:', error);
+  res.json({ success: true, post: newPost });
+});
+
+app.put('/api/posts/:id', authenticate, (req, res) => {
+  // Update post logic...
+  const updatedPost = updatePost(req.params.id, req.body);
+
+  // Notify subscribers
+  liveUpdates.publish('posts', {
+    type: 'post-updated',
+    post: updatedPost,
   });
 
-  // Ping/Pong events
-  socket.on('ping', () => {
-    console.log('Ping received');
+  liveUpdates.publish(`post-${req.params.id}`, {
+    type: 'updated',
+    post: updatedPost,
   });
+
+  res.json({ success: true, post: updatedPost });
+});
+```
+
+## Error Handling & Reconnection
+
+```typescript
+// WebSocket error handling
+app.ws('/robust-chat/:roomId', (socket, req) => {
+  const { roomId } = req.params;
+
+  // Connection timeout
+  const connectionTimeout = setTimeout(() => {
+    socket.close(1000, 'Connection timeout');
+  }, 60000); // 60 seconds
+
+  // Ping/Pong for connection health
+  const pingInterval = setInterval(() => {
+    if (socket.readyState === socket.OPEN) {
+      socket.ping();
+    }
+  }, 30000); // 30 seconds
 
   socket.on('pong', () => {
-    console.log('Pong received');
+    console.log('Pong received, connection healthy');
   });
-});
-```
 
-### **Custom Events**
+  // Clear timers on close
+  socket.on('close', () => {
+    clearTimeout(connectionTimeout);
+    clearInterval(pingInterval);
+  });
 
-```typescript
-app.ws('/custom', (socket, req) => {
-  // Custom event handling
-  socket.on('user-action', (action, data) => {
-    switch (action) {
-      case 'like':
-        handleLike(socket, data);
-        break;
-      case 'comment':
-        handleComment(socket, data);
-        break;
-      case 'share':
-        handleShare(socket, data);
-        break;
+  // Error handling
+  socket.on('error', (error) => {
+    console.error('WebSocket error:', error);
+
+    // Send error to client before closing
+    if (socket.readyState === socket.OPEN) {
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          message: 'Connection error occurred',
+          code: error.code,
+        })
+      );
     }
   });
 
-  // Event emitting
-  socket.emit('notification', {
-    type: 'welcome',
-    message: 'Welcome to the platform!',
-    timestamp: Date.now()
-  });
-});
-
-function handleLike(socket, data) {
-  // Process like action
-  socket.to(\`post-\${data.postId}\`).emit('like-update', {
-    postId: data.postId,
-    likes: data.newLikeCount,
-    userId: socket.metadata.user?.id
-  });
-}
-```
-
----
-
-## **🔒 Security Features**
-
-### **Origin Validation**
-
-```typescript
-app.enableWebSocket({
-  origins: [
-    'https://myapp.com',
-    'https://admin.myapp.com',
-    'http://localhost:3000', // Development only
-  ],
-});
-```
-
-### **Input Validation**
-
-```typescript
-app.ws('/secure', (socket, req) => {
-  socket.on('message', (rawData) => {
-    // Validate message size
-    if (rawData.length > 10000) {
-      socket.close(1009, 'Message too large');
-      return;
-    }
-
-    // Validate JSON
+  // Message validation
+  socket.on('message', (data) => {
     try {
-      const data = JSON.parse(rawData);
+      const message = JSON.parse(data);
 
       // Validate message structure
-      if (!data.type || typeof data.type !== 'string') {
-        socket.send({ error: 'Invalid message format' });
+      if (!message.type || typeof message.type !== 'string') {
+        throw new Error('Invalid message type');
+      }
+
+      // Rate limiting
+      if (!rateLimitMessage(socket)) {
+        socket.send(
+          JSON.stringify({
+            type: 'error',
+            message: 'Rate limit exceeded',
+          })
+        );
         return;
       }
 
-      // Sanitize input
-      if (data.text) {
-        data.text = data.text.replace(/<script[^>]*>.*?<\\/script>/gi, '');
-      }
-
-      processMessage(socket, data);
+      // Process message...
     } catch (error) {
-      socket.send({ error: 'Invalid JSON' });
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format',
+          details: error.message,
+        })
+      );
     }
   });
 });
-```
 
-### **Connection Limits**
+// Rate limiting for WebSocket messages
+function rateLimitMessage(socket) {
+  const now = Date.now();
+  socket.messageHistory = socket.messageHistory || [];
 
-```typescript
-const connectionsByIP = new Map();
+  // Remove old messages (older than 1 minute)
+  socket.messageHistory = socket.messageHistory.filter(
+    (time) => now - time < 60000
+  );
 
-app.wsUse((socket, req, next) => {
-  const ip = socket.ip;
-  const maxConnectionsPerIP = 10;
-
-  const count = connectionsByIP.get(ip) || 0;
-
-  if (count >= maxConnectionsPerIP) {
-    socket.close(1008, 'Too many connections from this IP');
-    return;
+  // Check rate limit (max 60 messages per minute)
+  if (socket.messageHistory.length >= 60) {
+    return false;
   }
 
-  connectionsByIP.set(ip, count + 1);
-
-  socket.socket.on('close', () => {
-    connectionsByIP.set(ip, Math.max(0, connectionsByIP.get(ip) - 1));
-  });
-
-  next();
-});
-```
-
----
-
-## **📊 Performance & Monitoring**
-
-### **WebSocket Statistics**
-
-```typescript
-app.get('/api/websocket/stats', (req, res) => {
-  const stats = app.getWebSocketStats();
-
-  res.json({
-    connections: stats.connections,
-    rooms: stats.rooms,
-    messagesReceived: stats.messagesReceived,
-    messagesSent: stats.messagesSent,
-    bytesReceived: stats.bytesReceived,
-    bytesSent: stats.bytesSent,
-    uptime: stats.uptime,
-    averageLatency: stats.averageLatency,
-  });
-});
-```
-
-### **Health Monitoring**
-
-```typescript
-app.get('/api/websocket/health', (req, res) => {
-  const connections = app.getWebSocketConnections();
-  const healthyConnections = connections.filter((socket) => socket.isAlive);
-
-  res.json({
-    status: 'healthy',
-    totalConnections: connections.length,
-    healthyConnections: healthyConnections.length,
-    unhealthyConnections: connections.length - healthyConnections.length,
-    timestamp: new Date().toISOString(),
-  });
-});
-```
-
-### **Performance Optimization**
-
-```typescript
-app.enableWebSocket({
-  // Optimize for high throughput
-  maxConnections: 10000,
-  pingInterval: 60000, // Less frequent pings
-  maxMessageSize: 64 * 1024, // Smaller messages
-
-  // Room optimization
-  maxRooms: 5000,
-  roomCleanupInterval: 300000, // 5 minutes
-
-  // Performance monitoring
-  debug: false, // Disable in production
-});
-```
-
----
-
-## **🎯 Best Practices**
-
-### **1. Message Structure**
-
-```typescript
-// ✅ Good: Structured messages
-interface ChatMessage {
-  type: 'chat' | 'join' | 'leave' | 'error';
-  data: any;
-  timestamp: number;
-  userId?: string;
+  socket.messageHistory.push(now);
+  return true;
 }
-
-socket.send({
-  type: 'chat',
-  data: { text: 'Hello!', room: 'general' },
-  timestamp: Date.now(),
-  userId: socket.metadata.user?.id,
-});
-
-// ❌ Bad: Unstructured messages
-socket.send('Hello!');
 ```
 
-### **2. Error Handling**
+## Client-Side JavaScript Example
 
-```typescript
-app.ws('/chat', (socket, req) => {
-  socket.on('message', async (data) => {
-    try {
-      const message = JSON.parse(data);
-      await processMessage(socket, message);
-    } catch (error) {
-      console.error('Message processing error:', error);
-      socket.send({
-        type: 'error',
-        message: 'Failed to process message',
-        timestamp: Date.now()
-      });
-    }
-  });
+```javascript
+// Client-side WebSocket connection
+class ChatClient {
+  constructor(roomId, token) {
+    this.roomId = roomId;
+    this.token = token;
+    this.socket = null;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+  }
 
-  socket.socket.on('error', (error) => {
-    console.error(\`Socket error for \${socket.id}:\`, error);
-  });
-});
-```
+  connect() {
+    const wsUrl = `ws://localhost:3000/chat/${this.roomId}?token=${this.token}`;
+    this.socket = new WebSocket(wsUrl);
 
-### **3. Resource Management**
+    this.socket.onopen = () => {
+      console.log('Connected to chat');
+      this.reconnectAttempts = 0;
+    };
 
-```typescript
-app.ws('/resource-aware', (socket, req) => {
-  // Clean up resources on disconnect
-  socket.socket.on('close', () => {
-    // Clean up user sessions
-    cleanupUserSession(socket.metadata.user?.id);
+    this.socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      this.handleMessage(message);
+    };
 
-    // Remove from active connections
-    removeFromActiveUsers(socket.id);
+    this.socket.onclose = () => {
+      console.log('Disconnected from chat');
+      this.attemptReconnect();
+    };
 
-    // Clean up room subscriptions (automatic)
-  });
+    this.socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+  }
 
-  // Limit room memberships
-  socket.on('join-room', async (roomName) => {
-    if (socket.rooms.size >= 10) {
-      socket.send({ error: 'Too many room memberships' });
-      return;
-    }
-
-    await socket.join(roomName);
-  });
-});
-```
-
-### **4. Graceful Shutdown**
-
-```typescript
-process.on('SIGTERM', async () => {
-  console.log('Shutting down WebSocket server...');
-
-  // Notify all connected clients
-  app.wsBroadcast({
-    type: 'server-shutdown',
-    message: 'Server is shutting down',
-    countdown: 30000,
-  });
-
-  // Wait for clients to disconnect gracefully
-  setTimeout(async () => {
-    await app.close();
-    process.exit(0);
-  }, 30000);
-});
-```
-
----
-
-## **💡 Examples**
-
-### **Real-time Chat Application**
-
-```typescript
-interface ChatUser {
-  id: string;
-  username: string;
-  room: string;
-}
-
-const chatUsers = new Map<string, ChatUser>();
-
-app.ws('/chat', async (socket, req) => {
-  let user: ChatUser | null = null;
-
-  socket.on('message', async (data) => {
-    const message = JSON.parse(data);
-
+  handleMessage(message) {
     switch (message.type) {
-      case 'join':
-        user = {
-          id: socket.id,
-          username: message.username,
-          room: message.room,
-        };
-
-        chatUsers.set(socket.id, user);
-        await socket.join(user.room);
-
-        // Notify room
-        socket.to(user.room).send({
-          type: 'user-joined',
-          username: user.username,
-          room: user.room,
-          timestamp: Date.now(),
-        });
-
-        // Send room users
-        const roomUsers = Array.from(chatUsers.values()).filter(
-          (u) => u.room === user.room
-        );
-
-        socket.send({
-          type: 'room-users',
-          users: roomUsers.map((u) => u.username),
-        });
+      case 'chat-message':
+        this.displayMessage(message);
         break;
-
-      case 'message':
-        if (user) {
-          socket.to(user.room).send({
-            type: 'message',
-            username: user.username,
-            text: message.text,
-            room: user.room,
-            timestamp: Date.now(),
-          });
-        }
+      case 'user-joined':
+        this.displayNotification(`${message.user.email} joined`);
         break;
-
-      case 'typing':
-        if (user) {
-          socket.to(user.room).send({
-            type: 'typing',
-            username: user.username,
-            isTyping: message.isTyping,
-          });
-        }
+      case 'user-left':
+        this.displayNotification(`User left`);
+        break;
+      case 'error':
+        this.displayError(message.message);
         break;
     }
-  });
+  }
 
-  socket.socket.on('close', () => {
-    if (user) {
-      chatUsers.delete(socket.id);
-      socket.to(user.room).send({
-        type: 'user-left',
-        username: user.username,
-        room: user.room,
-        timestamp: Date.now(),
-      });
+  sendMessage(text) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(
+        JSON.stringify({
+          type: 'chat',
+          text: text,
+        })
+      );
     }
-  });
-});
-```
+  }
 
-### **Real-time Gaming**
-
-```typescript
-interface GamePlayer {
-  id: string;
-  x: number;
-  y: number;
-  score: number;
-  room: string;
-}
-
-const gamePlayers = new Map<string, GamePlayer>();
-
-app.ws('/game', async (socket, req) => {
-  let player: GamePlayer | null = null;
-
-  socket.on('message', async (data) => {
-    const message = JSON.parse(data);
-
-    switch (message.type) {
-      case 'join-game':
-        player = {
-          id: socket.id,
-          x: Math.random() * 800,
-          y: Math.random() * 600,
-          score: 0,
-          room: message.gameRoom,
-        };
-
-        gamePlayers.set(socket.id, player);
-        await socket.join(player.room);
-
-        // Send game state
-        const roomPlayers = Array.from(gamePlayers.values()).filter(
-          (p) => p.room === player.room
-        );
-
-        socket.send({
-          type: 'game-state',
-          players: roomPlayers,
-          yourId: socket.id,
-        });
-
-        // Notify other players
-        socket.to(player.room).send({
-          type: 'player-joined',
-          player: player,
-        });
-        break;
-
-      case 'move':
-        if (player) {
-          player.x = message.x;
-          player.y = message.y;
-
-          socket.to(player.room).send({
-            type: 'player-moved',
-            playerId: socket.id,
-            x: player.x,
-            y: player.y,
-          });
-        }
-        break;
-
-      case 'action':
-        if (player) {
-          // Process game action
-          const result = processGameAction(player, message.action);
-
-          socket.to(player.room).send({
-            type: 'game-action',
-            playerId: socket.id,
-            action: message.action,
-            result: result,
-          });
-        }
-        break;
-    }
-  });
-
-  // Game loop for this room
-  const gameInterval = setInterval(() => {
-    if (player) {
-      const roomPlayers = Array.from(gamePlayers.values()).filter(
-        (p) => p.room === player.room
+  attemptReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(
+        `Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`
       );
 
-      if (roomPlayers.length > 0) {
-        socket.to(player.room).send({
-          type: 'game-update',
-          players: roomPlayers,
-          timestamp: Date.now(),
-        });
-      }
+      setTimeout(() => {
+        this.connect();
+      }, 1000 * this.reconnectAttempts); // Exponential backoff
     }
-  }, 1000 / 60); // 60 FPS
+  }
 
-  socket.socket.on('close', () => {
-    clearInterval(gameInterval);
+  displayMessage(message) {
+    // Implement your UI logic
+    console.log(`${message.user.email}: ${message.text}`);
+  }
 
-    if (player) {
-      gamePlayers.delete(socket.id);
-      socket.to(player.room).send({
-        type: 'player-left',
-        playerId: socket.id,
-      });
+  displayNotification(text) {
+    console.log(`Notification: ${text}`);
+  }
+
+  displayError(error) {
+    console.error(`Error: ${error}`);
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.close();
     }
-  });
-});
-```
-
-### **Live Dashboard**
-
-```typescript
-app.ws('/dashboard', (socket, req) => {
-  // Send initial dashboard data
-  socket.send({
-    type: 'dashboard-data',
-    data: getCurrentDashboardData()
-  });
-
-  // Join dashboard updates room
-  socket.join('dashboard-updates');
-
-  socket.on('message', (data) => {
-    const message = JSON.parse(data);
-
-    switch (message.type) {
-      case 'subscribe':
-        message.metrics.forEach(metric => {
-          socket.join(\`metric-\${metric}\`);
-        });
-        break;
-
-      case 'unsubscribe':
-        message.metrics.forEach(metric => {
-          socket.leave(\`metric-\${metric}\`);
-        });
-        break;
-    }
-  });
-});
-
-// Background process to send updates
-setInterval(() => {
-  const metrics = collectMetrics();
-
-  Object.entries(metrics).forEach(([metricName, data]) => {
-    app.wsBroadcast({
-      type: 'metric-update',
-      metric: metricName,
-      data: data,
-      timestamp: Date.now()
-    }, \`metric-\${metricName}\`);
-  });
-}, 5000);
-```
-
----
-
-## **🔧 Troubleshooting**
-
-### **Common Issues**
-
-#### **Connection Fails**
-
-```typescript
-// Check if WebSocket is enabled
-if (!app.getWebSocketStats()) {
-  console.error('WebSocket not enabled. Call app.enableWebSocket() first.');
+  }
 }
 
-// Check server is listening
-app.listen(3000, () => {
-  console.log('✅ Server listening on port 3000');
-  console.log('✅ WebSocket ready at ws://localhost:3000');
-});
+// Usage
+const chatClient = new ChatClient('room123', 'your-jwt-token');
+chatClient.connect();
+
+// Send message
+document.getElementById('sendButton').onclick = () => {
+  const input = document.getElementById('messageInput');
+  chatClient.sendMessage(input.value);
+  input.value = '';
+};
 ```
 
-#### **Messages Not Received**
+## Testing WebSocket
 
 ```typescript
-app.ws('/debug', (socket, req) => {
-  socket.on('message', (data) => {
-    console.log('📨 Message received:', {
-      socketId: socket.id,
-      data: data,
-      length: data.length,
-      type: typeof data
+// Test WebSocket functionality
+import WebSocket from 'ws';
+import { createApp } from 'nextrush';
+
+describe('WebSocket', () => {
+  let app, server;
+
+  beforeEach(() => {
+    app = createApp();
+
+    app.ws('/test', (socket) => {
+      socket.send('welcome');
+      socket.on('message', (data) => {
+        socket.send(`echo: ${data}`);
+      });
     });
 
-    // Echo back to confirm
-    socket.send(\`Received: \${data}\`);
+    server = app.listen(0); // Random port
   });
-});
-```
 
-#### **Room Broadcasting Issues**
+  afterEach(() => {
+    server.close();
+  });
 
-```typescript
-app.ws('/room-debug', async (socket, req) => {
-  await socket.join('test-room');
+  test('WebSocket connection and messaging', (done) => {
+    const port = server.address().port;
+    const ws = new WebSocket(`ws://localhost:${port}/test`);
 
-  socket.on('message', (data) => {
-    console.log('📊 Room info:', {
-      socketRooms: Array.from(socket.rooms),
-      messageData: data,
+    ws.on('open', () => {
+      ws.send('hello');
     });
 
-    // Test broadcast
-    socket.to('test-room').send('Broadcast test');
+    let messageCount = 0;
+    ws.on('message', (data) => {
+      messageCount++;
+
+      if (messageCount === 1) {
+        expect(data.toString()).toBe('welcome');
+      } else if (messageCount === 2) {
+        expect(data.toString()).toBe('echo: hello');
+        ws.close();
+        done();
+      }
+    });
   });
 });
 ```
-
-### **Performance Issues**
-
-#### **High Memory Usage**
-
-```typescript
-// Monitor connection count
-setInterval(() => {
-  const stats = app.getWebSocketStats();
-  if (stats && stats.connections > 1000) {
-    console.warn(\`⚠️ High connection count: \${stats.connections}\`);
-  }
-}, 30000);
-
-// Implement connection limits
-app.enableWebSocket({
-  maxConnections: 5000, // Adjust based on server capacity
-  pingInterval: 30000,  // Reduce ping frequency
-  maxMessageSize: 1024 * 64 // Limit message size
-});
-```
-
-#### **Message Queue Buildup**
-
-```typescript
-app.wsUse((socket, req, next) => {
-  let messageCount = 0;
-  const maxMessagesPerSecond = 10;
-
-  socket.on('message', () => {
-    messageCount++;
-
-    setTimeout(() => {
-      messageCount--;
-    }, 1000);
-
-    if (messageCount > maxMessagesPerSecond) {
-      socket.close(1008, 'Message rate limit exceeded');
-    }
-  });
-
-  next();
-});
-```
-
-### **Debug Mode**
-
-```typescript
-app.enableWebSocket({
-  debug: true, // Enable detailed logging
-});
-
-// Custom debug logging
-app.wsUse((socket, req, next) => {
-  console.log('🔍 Debug info:', {
-    socketId: socket.id,
-    ip: socket.ip,
-    userAgent: socket.userAgent,
-    origin: socket.origin,
-    timestamp: new Date().toISOString(),
-  });
-
-  next();
-});
-```
-
----
-
-## **🎯 Conclusion**
-
-NextRush WebSocket provides a **production-ready, zero-dependency solution** that's:
-
-- ✅ **Easy to use** - Simple, intuitive API
-- ✅ **Type-safe** - Full TypeScript support
-- ✅ **Performant** - Optimized for high throughput
-- ✅ **Secure** - Built-in security features
-- ✅ **Scalable** - Room management and broadcasting
-- ✅ **Zero dependencies** - Pure Node.js implementation
-
-**Ready to build real-time applications with NextRush WebSocket!** 🚀
-
----
-
-## **📚 Additional Resources**
-
-- [NextRush Main Documentation](./README.md)
-- [API Reference](./API-REFERENCE.md)
-- [Examples Repository](../examples/)
-- [WebSocket RFC 6455](https://tools.ietf.org/html/rfc6455)
-
----
-
-_Built with ❤️ by the NextRush team_

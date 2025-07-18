@@ -72,7 +72,7 @@ export class RouteMatcher {
   ): { isMatch: boolean; params: Record<string, string> } {
     if (typeof pattern === 'string') {
       const normalizedPattern = this.normalizePath(pattern);
-      return matchPath(path, normalizedPattern);
+      return matchPath(normalizedPattern, path);
     }
 
     // Handle RegExp patterns

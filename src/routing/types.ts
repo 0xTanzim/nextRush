@@ -1,10 +1,10 @@
-import { ParsedRequest } from '../http/request/types';
-import { EnhancedResponse } from '../http/response/types';
+import { EnhancedRequest } from '../core/enhancers/request-enhancer';
+import { EnhancedResponse } from '../core/enhancers/response-enhancer';
 import { HttpMethod } from '../types/http';
 import { Path } from '../types/routing';
 
 export type RouteHandler = (
-  req: ParsedRequest,
+  req: EnhancedRequest,
   res: EnhancedResponse
 ) => void | Promise<void>;
 
