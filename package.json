@@ -63,7 +63,7 @@
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only examples/production-example.ts",
+    "dev": "ts-node-dev --respawn --transpile-only examples/index.ts",
     "example": "ts-node examples/production-example.ts",
     "demo:plugins": "ts-node examples/plugin-system-demo.ts",
     "prepare": "npm run build",

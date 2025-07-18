@@ -16,7 +16,6 @@ export type { PluginRegistry } from './core/base-plugin';
 // 🎯 PLUGIN IMPLEMENTATIONS
 // ============================================================================
 
-export { BodyParserPlugin } from './body-parser/body-parser.plugin';
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
 export { RouterPlugin } from './router/router.plugin';
 export { StaticFilesPlugin } from './static-files/static-files.plugin';
@@ -25,7 +24,6 @@ export { StaticFilesPlugin } from './static-files/static-files.plugin';
 // 🎯 PLUGIN CREATION HELPER
 // ============================================================================
 
-import { BodyParserPlugin } from './body-parser/body-parser.plugin';
 import type { PluginRegistry } from './core/base-plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { RouterPlugin } from './router/router.plugin';
@@ -39,7 +37,6 @@ export function createCorePlugins(registry: PluginRegistry) {
     new RouterPlugin(registry),
     new StaticFilesPlugin(registry),
     new MiddlewarePlugin(registry),
-    new BodyParserPlugin(registry),
   ];
 }
 
@@ -50,5 +47,4 @@ export const PLUGIN_NAMES = {
   ROUTER: 'Router',
   STATIC_FILES: 'StaticFiles',
   MIDDLEWARE: 'Middleware',
-  BODY_PARSER: 'BodyParser',
 } as const;

@@ -26,6 +26,10 @@ import { ResponseEnhancer } from '../enhancers/response-enhancer';
 import { SimpleEventEmitter } from '../event-system';
 import { BaseComponent } from './base-component';
 
+// Import new plugin system
+import { createCorePlugins } from '../../plugins/clean-plugins';
+import { SimplePluginRegistry } from '../../plugins/core/simple-registry';
+
 export interface ApplicationOptions {
   router?: Router;
   errorHandler?: ErrorHandler;
@@ -80,6 +84,9 @@ export class Application extends BaseComponent implements IApplication {
   public events?: SimpleEventEmitter;
   private viewsDirectory?: string;
 
+  // 🔌 NEW: Plugin System
+  private pluginRegistry!: SimplePluginRegistry;
+
   constructor(applicationOptions: ApplicationOptions = {}) {
     super('Application');
 
@@ -101,6 +108,9 @@ export class Application extends BaseComponent implements IApplication {
     if (this.appOptions.enableEvents) {
       this.events = new SimpleEventEmitter();
     }
+
+    // 🔌 Initialize plugin system
+    this.initializePlugins();
   }
 
   /**
@@ -108,6 +118,25 @@ export class Application extends BaseComponent implements IApplication {
    */
   install(): void {
     // Application is the root component
+  }
+
+  /**
+   * 🔌 Initialize the plugin system
+   */
+  private initializePlugins(): void {
+    this.pluginRegistry = new SimplePluginRegistry();
+
+    // Register core plugins
+    const corePlugins = createCorePlugins(this.pluginRegistry);
+    corePlugins.forEach((plugin) => {
+      this.pluginRegistry.register(plugin);
+    });
+
+    // Install all plugins
+    this.pluginRegistry.installAll(this);
+
+    // Start all plugins
+    this.pluginRegistry.startAll();
   }
 
   // ============================================================================

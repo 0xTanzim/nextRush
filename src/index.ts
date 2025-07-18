@@ -8,7 +8,9 @@
  * - Full HTTP method overloads for middleware combinations
  * - Smart routing with createRoute functionality
  * - Express.js compatibility with enhanced type safety
- * - Plugin-based architecture for extensibility
+ * - 🔌 UNIFIED PLUGIN ARCHITECTURE following copilot instructions
+ * - All features implemented as plugins inheriting from BasePlugin
+ * - Components architecture ELIMINATED per copilot instructions
  */
 
 // ============================================================================
@@ -99,17 +101,29 @@ export {
 export { ErrorHandler } from './errors/error-handler';
 
 // ============================================================================
-// 🎯 UTILITY EXPORTS
-// ============================================================================
-
-export { compose, curry, debounce, pipe, throttle } from './utils/built-in';
-
-// ============================================================================
 // 🎯 MIDDLEWARE EXPORTS
 // ============================================================================
 
-// Middleware utilities
-export { composeMiddleware } from './utils/compose';
+// Built-in middleware functions
+export {
+  compression,
+  cors,
+  helmet,
+  logger,
+  rateLimit,
+  requestId,
+  requestTimer,
+} from './plugins/middleware/built-in';
+
+// Middleware presets
+export {
+  apiPreset,
+  developmentPreset,
+  getPreset,
+  minimalPreset,
+  productionPreset,
+  securityPreset,
+} from './plugins/middleware/presets';
 
 // Default export for convenience
 export default Application;
