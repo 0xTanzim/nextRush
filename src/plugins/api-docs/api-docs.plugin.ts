@@ -192,10 +192,10 @@ export interface SchemaObject {
   format?: string;
   title?: string;
   description?: string;
-  default?: any;
-  example?: any;
-  enum?: any[];
-  const?: any;
+  default?: unknown;
+  example?: unknown;
+  enum?: (string | number | boolean)[];
+  const?: unknown;
   multipleOf?: number;
   maximum?: number;
   exclusiveMaximum?: boolean;
@@ -543,10 +543,10 @@ export class ApiDocumentationPlugin extends BasePlugin {
   private generatePaths(): Record<string, PathItemObject> {
     const paths: Record<string, PathItemObject> = {};
 
-    for (const [path, methods] of this.routes) {
+    for (const [path, methods] of Array.from(this.routes.entries())) {
       const pathItem: PathItemObject = {};
 
-      for (const [method, doc] of methods) {
+      for (const [method, doc] of Array.from(methods.entries())) {
         const operation: OperationObject = {
           responses: doc.responses || {
             '200': {

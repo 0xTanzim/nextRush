@@ -1,6 +1,7 @@
 /**
  * Global type augmentation for automatic type inference
  * Eliminates the need to manually import NextRushRequest and NextRushResponse
+ * 🎯 ZERO `any` usage - Full type safety for all options!
  */
 import { PresetOptions } from '../plugins/middleware/presets';
 import { NextRushRequest, NextRushResponse } from './express';
@@ -12,6 +13,29 @@ import {
   WebSocketOptions,
   WebSocketStats,
 } from './websocket';
+
+// 🎯 Import ALL proper types to eliminate `any` usage
+import {
+  CompressionOptions,
+  CorsOptions,
+  EventStats,
+  HelmetOptions,
+  JsonParserOptions,
+  LoggerOptions,
+  MetricsOptions,
+  MiddlewareFunction,
+  RateLimitOptions,
+  RawParserOptions,
+  SanitizationOptions,
+  TextParserOptions,
+  UrlEncodedParserOptions,
+  ValidationSchema,
+  WebSecurityOptions,
+  XssProtectionOptions,
+} from './plugin-options';
+
+// Also import StaticOptions from Application
+import '../core/app/application';
 
 /**
  * Express-style handler type
@@ -44,14 +68,26 @@ type ContextMiddleware = (
 ) => void | Promise<void>;
 
 /**
- * Middleware preset options
+ * 🎯 Smart Middleware Preset Options - NO MORE `any`!
+ * Full IntelliSense support for all preset configurations
  */
-interface PresetOptions {
-  cors?: boolean | any;
-  helmet?: boolean | any;
-  logger?: boolean | any;
-  bodyParser?: boolean | any;
-  [key: string]: any;
+interface SmartPresetOptions {
+  cors?: boolean | CorsOptions;
+  helmet?: boolean | HelmetOptions;
+  logger?: boolean | LoggerOptions;
+  bodyParser?:
+    | boolean
+    | {
+        json?: boolean | JsonParserOptions;
+        urlencoded?: boolean | UrlEncodedParserOptions;
+        text?: boolean | TextParserOptions;
+        raw?: boolean | RawParserOptions;
+      };
+  compression?: boolean | CompressionOptions;
+  rateLimit?: boolean | RateLimitOptions;
+  metrics?: boolean | MetricsOptions;
+  xssProtection?: boolean | XssProtectionOptions;
+  webSecurity?: boolean | WebSecurityOptions;
 }
 
 /**
@@ -185,7 +221,7 @@ declare module '../core/app/application' {
     /**
      * Helmet security middleware
      */
-    helmet(options?: Record<string, any>): ExpressMiddleware;
+    helmet(options?: HelmetOptions): ExpressMiddleware;
 
     /**
      * JSON body parser middleware
@@ -315,13 +351,7 @@ declare module '../core/app/application' {
     /**
      * Create a rate limiter middleware
      */
-    useRateLimit(options?: {
-      windowMs?: number;
-      max?: number;
-      message?: string;
-      statusCode?: number;
-      keyGenerator?: (req: any) => string;
-    }): any;
+    useRateLimit(options?: RateLimitOptions): MiddlewareFunction;
 
     /**
      * 🌐 CORS & Security Methods
@@ -341,7 +371,7 @@ declare module '../core/app/application' {
     /**
      * Enable XSS protection
      */
-    xssProtection(options?: Record<string, any>): any;
+    xssProtection(options?: XssProtectionOptions): MiddlewareFunction;
 
     /**
      * 🔄 Event-driven architecture methods
@@ -381,17 +411,12 @@ declare module '../core/app/application' {
       events?: string[];
       includeRequest?: boolean;
       includeResponse?: boolean;
-    }): any;
+    }): MiddlewareFunction;
 
     /**
      * Get event statistics
      */
-    getEventStats(): {
-      totalEvents: number;
-      activeListeners: number;
-      eventHistory: number;
-      pipelines: number;
-    };
+    getEventStats(): EventStats;
 
     /**
      * Get event history
@@ -409,31 +434,17 @@ declare module '../core/app/application' {
     /**
      * Create validation middleware
      */
-    validate(schema: {
-      [key: string]: {
-        required?: boolean;
-        type?: 'string' | 'number' | 'boolean' | 'email' | 'url';
-        min?: number;
-        max?: number;
-        minLength?: number;
-        maxLength?: number;
-      };
-    }): any;
+    validate(schema: ValidationSchema): MiddlewareFunction;
 
     /**
      * Create sanitization middleware
      */
-    sanitize(options?: {
-      removeHtml?: boolean;
-      escapeHtml?: boolean;
-      trim?: boolean;
-      removeSpecialChars?: boolean;
-    }): any;
+    sanitize(options?: SanitizationOptions): MiddlewareFunction;
 
     /**
      * Static file server
      */
-    static(path: string, directory: string, options?: any): this;
+    static(path: string, directory: string, options?: StaticOptions): this;
 
     /**
      * Set template views directory
