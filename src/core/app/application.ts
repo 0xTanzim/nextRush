@@ -722,16 +722,34 @@ export class Application extends BaseComponent implements IApplication {
   // 🎯 TEMPLATE ENGINE SUPPORT
   // ============================================================================
 
+  private templateEngine?: any;
+  private templateOptions: any = {
+    cache: process.env.NODE_ENV === 'production',
+    defaultExtension: '.html',
+    syntax: 'auto',
+  };
+
   /**
-   * Set views directory
+   * Set views directory with options
    */
-  setViews(viewsPath: string): Application {
+  setViews(viewsPath: string, options?: any): Application {
     this.viewsDirectory = viewsPath;
+    if (options) {
+      this.templateOptions = { ...this.templateOptions, ...options };
+    }
     return this;
   }
 
   /**
-   * Render a template
+   * Set the template engine for Ultimate Template support
+   */
+  setTemplateEngine(engine: any): this {
+    this.templateEngine = engine;
+    return this;
+  }
+
+  /**
+   * Render a template with Ultimate Template Engine
    */
   async render(
     view: string,
@@ -740,16 +758,40 @@ export class Application extends BaseComponent implements IApplication {
     const fs = await import('fs/promises');
     const path = await import('path');
 
-    const fullPath = this.viewsDirectory
-      ? path.join(this.viewsDirectory, view)
-      : view;
+    // Determine template path
+    let fullPath = view;
+    if (this.viewsDirectory) {
+      fullPath = path.join(this.viewsDirectory, view);
 
-    const template = await fs.readFile(fullPath, 'utf-8');
+      // Add default extension if not present
+      if (!path.extname(fullPath) && this.templateOptions.defaultExtension) {
+        fullPath += this.templateOptions.defaultExtension;
+      }
+    }
 
-    // Simple template rendering (can be extended)
-    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      return data[key] !== undefined ? String(data[key]) : match;
-    });
+    try {
+      const template = await fs.readFile(fullPath, 'utf-8');
+
+      // Use Ultimate Template Engine if available
+      if (this.templateEngine) {
+        return await this.templateEngine.render(
+          template,
+          data,
+          this.templateOptions
+        );
+      }
+
+      // Fallback to simple template rendering
+      return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+        return data[key] !== undefined ? String(data[key]) : match;
+      });
+    } catch (error) {
+      throw new Error(
+        `Template rendering failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+    }
   }
 
   // ============================================================================
@@ -957,6 +999,9 @@ export class Application extends BaseComponent implements IApplication {
       try {
         const enhancedReq = RequestEnhancer.enhance(req);
         const enhancedRes = ResponseEnhancer.enhance(res);
+
+        // Add application reference to request for template rendering
+        (enhancedReq as any).app = this;
 
         // Create request context for router
         const context = {

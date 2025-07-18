@@ -88,3 +88,9 @@ test/
 *.map
 tsconfig*.json
 node_modules/
+
+
+/mnt/storage/project/MyExpress/src/examples
+
+mnt/storage/project/MyExpress/src/examples/
+/mnt/storage/project/MyExpress/src/examples/

@@ -412,10 +412,25 @@ export class ResponseEnhancer {
       };
     }
 
-    // 🎨 Template rendering with conditional support and helpers
+    // 🎨 Template rendering - Use Application's render method if available
     if (!enhanced.render) {
-      enhanced.render = async (template: string, data: any = {}) => {
+      enhanced.render = async (
+        template: string,
+        data: any = {},
+        options?: any
+      ) => {
         try {
+          // Check if we have a NextRush application instance with render method
+          const req = enhanced.req as any;
+          if (req && req.app && typeof req.app.render === 'function') {
+            // Use the application's render method (includes views directory resolution)
+            const html = await req.app.render(template, data);
+            enhanced.setHeader('Content-Type', 'text/html; charset=utf-8');
+            enhanced.end(html);
+            return;
+          }
+
+          // Fallback to direct file reading (for backward compatibility)
           const templateContent = await fs.promises.readFile(template, 'utf-8');
 
           // Simple template replacement
@@ -454,9 +469,13 @@ export class ResponseEnhancer {
             }
           );
 
-          enhanced.html(rendered);
+          enhanced.setHeader('Content-Type', 'text/html; charset=utf-8');
+          enhanced.end(rendered);
         } catch (error) {
-          enhanced.status(500).json({ error: 'Template rendering failed' });
+          enhanced.status(500).json({
+            error: 'Template rendering failed',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          });
         }
       };
     }
