@@ -25,27 +25,27 @@ export class SimplePluginRegistry implements PluginRegistry {
    * Install all plugins into the application
    */
   installAll(app: Application): void {
-    for (const plugin of this.plugins.values()) {
+    Array.from(this.plugins.values()).forEach((plugin) => {
       plugin.install(app);
-    }
+    });
   }
 
   /**
    * Start all plugins
    */
   startAll(): void {
-    for (const plugin of this.plugins.values()) {
+    Array.from(this.plugins.values()).forEach((plugin) => {
       plugin.start();
-    }
+    });
   }
 
   /**
    * Stop all plugins
    */
   stopAll(): void {
-    for (const plugin of this.plugins.values()) {
+    Array.from(this.plugins.values()).forEach((plugin) => {
       plugin.stop();
-    }
+    });
   }
 
   /**

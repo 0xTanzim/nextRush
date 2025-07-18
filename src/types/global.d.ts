@@ -4,6 +4,13 @@
  */
 import { NextRushRequest, NextRushResponse } from './express';
 import { RequestContext } from './http';
+import {
+  NextRushWebSocket,
+  WebSocketHandler,
+  WebSocketMiddleware,
+  WebSocketOptions,
+  WebSocketStats,
+} from './websocket';
 
 /**
  * Express-style handler type
@@ -198,9 +205,34 @@ declare module 'nextrush' {
     raw(options?: { limit?: string; type?: string }): ExpressMiddleware;
 
     /**
-     * Enable WebSocket support
+     * Enable WebSocket support with options
      */
-    ws(path: string, handler: (socket: WebSocket, request?: any) => void): this;
+    enableWebSocket(options?: WebSocketOptions): this;
+
+    /**
+     * WebSocket route handler
+     */
+    ws(path: string, handler: WebSocketHandler): this;
+
+    /**
+     * WebSocket middleware
+     */
+    wsUse(middleware: WebSocketMiddleware): this;
+
+    /**
+     * Broadcast to WebSocket connections
+     */
+    wsBroadcast(data: any, room?: string): this;
+
+    /**
+     * Get WebSocket statistics
+     */
+    getWebSocketStats(): WebSocketStats | undefined;
+
+    /**
+     * Get WebSocket connections
+     */
+    getWebSocketConnections(): NextRushWebSocket[];
 
     /**
      * Serve static files

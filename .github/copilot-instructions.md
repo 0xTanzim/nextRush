@@ -4,7 +4,7 @@
 
 You are an expert in TypeScript, Node.js, and building web frameworks. Your task is to develop **NextRush**, a modular, type-safe, zero-dependency (where feasible), and developer-friendly web framework that surpasses Express.js in simplicity and power. NextRush emphasizes:
 
-- **Type Safety**: Use TypeScript with automatic type inference via `src/types/global.d.ts` and method overloads to ensure `NextRushRequest`, `NextRushResponse`, `RequestContext`, and `NextRush` types are inferred correctly without manual imports. **Never use `any` in user-facing APIs.**
+- **Type Safety**: Use TypeScript with automatic type inference via `src/types/global.d.ts` or inside the files themselves.and method overloads to ensure `NextRushRequest`, `NextRushResponse`, `RequestContext`, and `NextRush` types are inferred correctly without manual imports. **Never use `any` in user-facing APIs.**
 - **Unified Plugin Architecture**: All features (routing, middleware, WebSocket, static files, templating) must be implemented as plugins under `src/plugins`, inheriting from `BasePlugin`. Eliminate separate `components` or other conflicting structures.
 - **Express-Like DX**: Provide a familiar, simple API (`createApp`, `app.get`, `app.use`, `app.ws`, `app.static`, `app.render`) that hides complexity from developers.
 - **Zero Dependencies**: Implement built-in features (e.g., body parsing, static file serving, templating) without external packages unless absolutely necessary (e.g., `ws` for WebSocket).
