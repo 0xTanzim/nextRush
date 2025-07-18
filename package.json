@@ -86,8 +86,5 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
-  },
-  "dependencies": {
-    "ws": "^8.18.3"
   }
 }

@@ -5,6 +5,7 @@
 ### Table of Contents
 
 - [Application Class](#application-class)
+- [Body Parser System](#body-parser-system) 🆕
 - [Request Object](#request-object)
 - [Response Object](#response-object)
 - [Template Engine](#template-engine)
@@ -31,6 +32,87 @@ const app = createApp({
 
 - `timeout`: Request timeout in milliseconds (default: 30000)
 - `maxRequestSize`: Maximum request size in bytes (default: 1MB)
+
+---
+
+## Body Parser System
+
+NextRush includes the **Ultimate Body Parser** - a zero-dependency, type-safe, inheritance-based parsing system that automatically handles all request body formats! 🚀
+
+### Automatic Body Parsing
+
+```javascript
+const app = createApp();
+
+// ✨ Body parsing is AUTOMATIC!
+app.post('/api/data', (req, res) => {
+  console.log('📦 Parsed body:', req.body);
+  res.json({ received: req.body });
+});
+
+// Works with ANY content type:
+// ✅ JSON: application/json
+// ✅ Forms: application/x-www-form-urlencoded
+// ✅ Files: multipart/form-data
+// ✅ Text: text/plain
+// ✅ Binary: application/octet-stream
+```
+
+### Manual Parser Usage
+
+```javascript
+import { UltimateBodyParser } from 'nextrush/parsers';
+
+const parser = new UltimateBodyParser({
+  maxSize: 50 * 1024 * 1024, // 50MB limit
+  encoding: 'utf8',
+  strict: false,
+});
+
+app.post('/custom', async (req, res) => {
+  try {
+    const result = await parser.parse(req);
+    console.log(`🎯 Parser: ${result.parser}`);
+    console.log(`📊 Size: ${result.size} bytes`);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+```
+
+### Parser-Specific Middleware
+
+```javascript
+// JSON only
+app.post('/api/json', parser.json({ strict: true }), (req, res) =>
+  res.json(req.body)
+);
+
+// Form data only
+app.post('/forms/submit', parser.urlencoded({ extended: true }), (req, res) =>
+  res.redirect('/success')
+);
+
+// File uploads only
+app.post(
+  '/upload',
+  parser.multipart({ maxFileSize: 50 * 1024 * 1024 }),
+  (req, res) => {
+    const { file } = req.body;
+    console.log(`📦 Uploaded: ${file.filename}`);
+    res.json({ success: true });
+  }
+);
+```
+
+### 📚 Detailed Documentation
+
+For complete body parser documentation, see:
+
+- **[🚀 Ultimate Body Parser Guide](./BODY-PARSER-ULTIMATE.md)** - Complete overview with examples
+- **[🛠️ Implementation Guide](./BODY-PARSER-GUIDE.md)** - Step-by-step usage guide
+- **[🔧 API Reference](./BODY-PARSER-API.md)** - Complete API documentation
 
 ---
 
