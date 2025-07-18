@@ -241,11 +241,191 @@ declare module '../core/app/application' {
     getWebSocketConnections(): NextRushWebSocket[];
 
     /**
-     * Serve static files
-     * @param path - Mount path
-     * @param directory - Directory to serve
-     * @param options - Static file options
-     * @returns Application instance for chaining
+     * 🔐 Authentication & Authorization Methods
+     */
+    
+    /**
+     * Configure JWT authentication
+     */
+    useJwt(options: {
+      secret: string;
+      expiresIn?: string;
+      algorithm?: string;
+    }): this;
+
+    /**
+     * Define user role with permissions
+     */
+    defineRole(role: {
+      name: string;
+      permissions: Array<{
+        resource: string;
+        action: string;
+      }>;
+    }): this;
+
+    /**
+     * 📊 Metrics & Monitoring Methods
+     */
+    
+    /**
+     * Enable metrics collection and endpoint
+     */
+    enableMetrics(options?: {
+      endpoint?: string;
+      enableHealthCheck?: boolean;
+      collectDefaultMetrics?: boolean;
+      requestTracking?: boolean;
+      format?: 'prometheus' | 'json';
+      prefix?: string;
+    }): this;
+
+    /**
+     * Increment a counter metric
+     */
+    incrementCounter(
+      name: string, 
+      labels?: Record<string, string>, 
+      value?: number
+    ): this;
+
+    /**
+     * Set a gauge metric value
+     */
+    setGauge(
+      name: string, 
+      value: number, 
+      labels?: Record<string, string>
+    ): this;
+
+    /**
+     * 🛡️ Rate Limiting Methods
+     */
+    
+    /**
+     * Enable global rate limiting
+     */
+    enableGlobalRateLimit(options?: {
+      windowMs?: number;
+      max?: number;
+      message?: string;
+      statusCode?: number;
+    }): this;
+
+    /**
+     * Create a rate limiter middleware
+     */
+    useRateLimit(options?: {
+      windowMs?: number;
+      max?: number;
+      message?: string;
+      statusCode?: number;
+      keyGenerator?: (req: any) => string;
+    }): any;
+
+    /**
+     * 🌐 CORS & Security Methods
+     */
+    
+    /**
+     * Enable CORS globally
+     */
+    enableCors(options?: {
+      origin?: string | string[] | boolean;
+      methods?: string[];
+      credentials?: boolean;
+      allowedHeaders?: string[];
+      exposedHeaders?: string[];
+    }): this;
+
+    /**
+     * Enable XSS protection
+     */
+    xssProtection(options?: Record<string, any>): any;
+
+    /**
+     * 🔄 Event-driven architecture methods
+     */
+    
+    /**
+     * Add event listener
+     */
+    on(event: string, handler: (...args: any[]) => void | Promise<void>): this;
+
+    /**
+     * Add one-time event listener
+     */
+    once(event: string, handler: (...args: any[]) => void | Promise<void>): this;
+
+    /**
+     * Remove event listener
+     */
+    off(event: string, handler?: (...args: any[]) => void | Promise<void>): this;
+
+    /**
+     * Emit event
+     */
+    emit(event: string, ...args: any[]): this;
+
+    /**
+     * Create event middleware
+     */
+    eventMiddleware(options?: {
+      autoEmit?: boolean;
+      events?: string[];
+      includeRequest?: boolean;
+      includeResponse?: boolean;
+    }): any;
+
+    /**
+     * Get event statistics
+     */
+    getEventStats(): {
+      totalEvents: number;
+      activeListeners: number;
+      eventHistory: number;
+      pipelines: number;
+    };
+
+    /**
+     * Get event history
+     */
+    getEventHistory(): Array<{
+      event: string;
+      data: any;
+      timestamp: Date;
+    }>;
+
+    /**
+     * 🛡️ Input validation & sanitization methods
+     */
+    
+    /**
+     * Create validation middleware
+     */
+    validate(schema: {
+      [key: string]: {
+        required?: boolean;
+        type?: 'string' | 'number' | 'boolean' | 'email' | 'url';
+        min?: number;
+        max?: number;
+        minLength?: number;
+        maxLength?: number;
+      };
+    }): any;
+
+    /**
+     * Create sanitization middleware
+     */
+    sanitize(options?: {
+      removeHtml?: boolean;
+      escapeHtml?: boolean;
+      trim?: boolean;
+      removeSpecialChars?: boolean;
+    }): any;
+
+    /**
+     * Static file server
      */
     static(path: string, directory: string, options?: any): this;
 

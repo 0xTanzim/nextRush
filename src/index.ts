@@ -132,6 +132,43 @@ export {
 export { ErrorHandler } from './errors/error-handler';
 
 // ============================================================================
+// 🎯 PLUGINS & ENHANCED FEATURES EXPORTS
+// ============================================================================
+
+// Enhanced authentication exports
+export { CommonRoles } from './plugins/auth/auth.plugin';
+
+// Enhanced CORS exports  
+export { CorsPresets } from './plugins/cors/cors.plugin';
+
+// Plugin types
+export type {
+  JwtOptions,
+  SessionOptions, 
+  User,
+  Permission,
+  Role,
+} from './plugins/auth/auth.plugin';
+
+export type {
+  MetricsOptions,
+  CustomMetric,
+  RequestMetrics,
+  SystemMetrics,
+  HealthStatus,
+} from './plugins/metrics/metrics.plugin';
+
+export type {
+  RateLimiterOptions,
+  RateLimiterStore,
+  RateLimiterData,
+} from './plugins/rate-limiter/rate-limiter.plugin';
+
+export type {
+  CorsOptions,
+} from './plugins/cors/cors.plugin';
+
+// ============================================================================
 // 🎯 MIDDLEWARE EXPORTS
 // ============================================================================
 

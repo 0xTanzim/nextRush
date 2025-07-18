@@ -34,6 +34,10 @@ NextRush is a **modern, type-safe web framework** that provides Express.js compa
 - 📝 **TypeScript-first** with automatic type inference
 - 🔄 **Express.js compatible** - drop-in replacement
 - ⚡ **Performance optimized** with smart caching
+- 🛡️ **Built-in rate limiting** and CORS protection
+- 🔐 **JWT & session authentication** with RBAC
+- 📊 **Metrics & monitoring** with health checks
+- 📚 **Auto API documentation** with Swagger UI
 
 ## 🏗️ What Makes NextRush Different
 
@@ -48,6 +52,10 @@ NextRush comes with **everything built-in** - no need to install dozens of packa
 | **Templates**         | ✅ Built-in | ❌ Need engines           | ❌ Need plugins  | ❌ Need packages   |
 | **Input Validation**  | ✅ Built-in | ❌ Need express-validator | ❌ Need plugins  | ❌ Need packages   |
 | **Security Features** | ✅ Built-in | ❌ Need helmet + others   | ❌ Need plugins  | ❌ Need packages   |
+| **Rate Limiting**     | ✅ Built-in | ❌ Need express-rate-limit| ❌ Need plugins  | ❌ Need packages   |
+| **Authentication**    | ✅ Built-in | ❌ Need passport + others | ❌ Need plugins  | ❌ Need packages   |
+| **API Documentation** | ✅ Built-in | ❌ Need swagger packages  | ❌ Need plugins  | ❌ Need packages   |
+| **Metrics/Monitoring**| ✅ Built-in | ❌ Need prom-client + etc | ❌ Need plugins  | ❌ Need packages   |
 | **Zero Dependencies** | ✅ Yes      | ❌ No                     | ❌ No (50+ deps) | ❌ No              |
 
 ## 🚀 Quick Start
@@ -170,6 +178,78 @@ app.post('/api/data', (req, res) => {
 });
 ```
 
+### **🛡️ Built-in Rate Limiting & CORS**
+
+```typescript
+// Enterprise-grade rate limiting
+app.useRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests, please try again later.'
+});
+
+// CORS with security presets
+app.useCors('production'); // Secure defaults for production
+// Or custom configuration
+app.useCors({
+  origin: ['https://mydomain.com'],
+  credentials: true,
+  methods: ['GET', 'POST']
+});
+```
+
+### **🔐 Built-in Authentication**
+
+```typescript
+// JWT authentication
+app.useAuth('jwt', { secret: 'your-secret' });
+
+// Session-based authentication
+app.useAuth('session', { store: 'redis' });
+
+// Role-based access control
+app.get('/admin/*', app.requireRole('admin'), (req, res) => {
+  res.json({ message: 'Admin only area' });
+});
+```
+
+### **📊 Metrics & Monitoring**
+
+```typescript
+// Built-in metrics collection
+app.enableMetrics({
+  prometheus: true,
+  healthCheck: true
+});
+
+// Access metrics
+// GET /metrics - Prometheus format
+// GET /health - Health check endpoint
+// GET /metrics/json - JSON format
+```
+
+### **📚 Auto API Documentation**
+
+```typescript
+// Enable Swagger documentation
+app.enableApiDocs({
+  title: 'My API',
+  version: '1.0.0'
+});
+
+// Document endpoints
+app.doc('/users/:id', 'GET', {
+  summary: 'Get user by ID',
+  parameters: [
+    { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+  ]
+});
+
+// Access documentation
+// GET /swagger - Interactive Swagger UI
+// GET /api-docs.json - OpenAPI specification
+```
+
 ## 📚 Documentation
 
 ### **🚀 Getting Started**
@@ -186,6 +266,14 @@ app.post('/api/data', (req, res) => {
 - 🌐 [**WebSocket**](./docs/WEBSOCKET.md) - Real-time communication & room management
 - 🎨 [**Template Engine**](./docs/TEMPLATE-ENGINE.md) - Server-side rendering & templates
 - 📊 [**Body Parser**](./docs/BODY-PARSER.md) - File uploads, parsing, security
+
+### **🚀 Enhanced Features**
+
+- 🛡️ [**Rate Limiting**](./docs/RATE-LIMITING.md) - Built-in request throttling & DDoS protection
+- 🌐 [**CORS Configuration**](./docs/CORS.md) - Cross-origin resource sharing with security presets
+- 🔐 [**Authentication**](./docs/AUTHENTICATION.md) - JWT, sessions, and role-based access control
+- 📊 [**Metrics & Monitoring**](./docs/METRICS-MONITORING.md) - Performance tracking & health checks
+- 📚 [**API Documentation**](./docs/API-DOCUMENTATION.md) - Auto-generated Swagger docs from code
 
 ### **🏗️ Advanced Topics**
 
@@ -243,6 +331,9 @@ NextRush is built for **enterprise-grade applications** with:
 - ✅ Session handling
 - ✅ CORS, CSRF, XSS protection
 - ✅ Rate limiting and request throttling
+- ✅ JWT & session authentication with RBAC
+- ✅ Built-in metrics & monitoring (Prometheus compatible)
+- ✅ Auto API documentation with Swagger UI
 - ✅ Compression (gzip, brotli)
 - ✅ Static file caching with ETags
 - ✅ WebSocket rooms and authentication

@@ -22,18 +22,22 @@ app.listen(3000);
 
 ## 📋 **Core Features**
 
-| Feature             | Status | Description                                             |
-| ------------------- | ------ | ------------------------------------------------------- |
-| 🛣️ **Routing**      | ✅     | Express-like routing with full HTTP methods support     |
-| 🔧 **Middleware**   | ✅     | Global and route-specific middleware with presets       |
-| 📁 **Static Files** | ✅     | Professional static serving with compression & caching  |
-| 🌐 **WebSocket**    | ✅     | Zero-dependency WebSocket with rooms & authentication   |
-| 🎨 **Templates**    | ✅     | Multi-syntax template engine (Mustache, JSX-like, etc.) |
-| 🛡️ **Validation**   | ✅     | Built-in input validation and sanitization              |
-| 📊 **Body Parser**  | ✅     | Ultimate body parsing with file uploads                 |
-| ⚡ **Events**       | ✅     | Event-driven architecture with pipelines                |
-| 🍪 **Cookies**      | ✅     | Cookie parsing and management                           |
-| 🔒 **Security**     | ✅     | Built-in security headers and XSS protection            |
+| Feature               | Status | Description                                             |
+| --------------------- | ------ | ------------------------------------------------------- |
+| 🛣️ **Routing**        | ✅     | Express-like routing with full HTTP methods support     |
+| 🔧 **Middleware**     | ✅     | Global and route-specific middleware with presets       |
+| 📁 **Static Files**   | ✅     | Professional static serving with compression & caching  |
+| 🌐 **WebSocket**      | ✅     | Zero-dependency WebSocket with rooms & authentication   |
+| 🎨 **Templates**      | ✅     | Multi-syntax template engine (Mustache, JSX-like, etc.) |
+| 🛡️ **Validation**     | ✅     | Built-in input validation and sanitization              |
+| 📊 **Body Parser**    | ✅     | Ultimate body parsing with file uploads                 |
+| ⚡ **Events**         | ✅     | Event-driven architecture with pipelines                |
+| 🍪 **Cookies**        | ✅     | Cookie parsing and management                           |
+| 🔒 **Security**       | ✅     | Built-in security headers and XSS protection            |
+| 🔐 **Authentication** | ✅     | JWT & session-based auth with RBAC                     |
+| 📊 **Metrics**        | ✅     | Prometheus-compatible metrics & health checks           |
+| 🛡️ **Rate Limiting**  | ✅     | Built-in rate limiting with flexible configuration      |
+| 🌐 **CORS**           | ✅     | Smart CORS handling with security defaults              |
 
 ---
 

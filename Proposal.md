@@ -8,17 +8,17 @@ To finalize `NextRush` as a fully capable, modular, production-ready web framewo
 
 ## 📋 Task-Based Proposal with Priority Rankings
 
-| #   | Feature Name                         | Priority  | Type         | Description                                                                                        |
-| --- | ------------------------------------ | --------- | ------------ | -------------------------------------------------------------------------------------------------- |
-| 1️⃣  | **Built-in Rate Limiting**           | 🔥 High   | Plugin       | Prevents abuse and controls traffic with pluggable memory or Redis backends.                       |
-| 2️⃣  | **Automatic CORS Handling**          | 🔥 High   | Core Utility | Adds `app.cors(options)` or auto-enable via config to handle cross-origin headers easily.          |
-| 3️⃣  | **API Documentation Generator**      | 🔥 High   | Plugin       | Generates Swagger/OpenAPI docs automatically based on decorators or metadata.                      |
-| 4️⃣  | **Auth Plugin (JWT, Session, RBAC)** | 🔥 High   | Plugin       | Provides pluggable authentication strategies with built-in RBAC/PBAC support.                      |
-| 5️⃣  | **Async/Await Middleware Pipeline**  | 🔥 High   | Core         | Enables native async middlewares with proper `try/catch` error flow (`async (req, res, next)`).    |
-| 6️⃣  | **Hot Reloadable Plugin System**     | ⚡ Medium | Core/Plugin  | Reloads custom plugins/services without restarting the whole server (ideal for dev-time).          |
-| 7️⃣  | **Built-in Metrics & Monitoring**    | ⚡ Medium | Plugin       | Prometheus/JSON metrics at `/metrics`, memory usage, request timings, etc.                         |
-| 8️⃣  | **Server-Sent Events (SSE)**         | 🔄 Medium | Core Plugin  | Adds native support for `res.sse()` streaming — useful for real-time logs, dashboards.             |
-| 9️⃣  | **Request Pipeline API**             | ✅ Low    | Core Utility | Introduces `app.pipeline()` for functional chaining of request logic (pre-middleware abstraction). |
+| #                        | Feature Name                         | Priority     | Type                                                                                               | Description                                                                                     |
+| ------------------------ | ------------------------------------ | ------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1️⃣                       | **Built-in Rate Limiting**           | 🔥 High      | Plugin                                                                                             | Prevents abuse and controls traffic with pluggable memory or Redis backends.                    |
+| 2️⃣                       | **Automatic CORS Handling**          | 🔥 High      | Core Utility                                                                                       | Adds `app.cors(options)` or auto-enable via config to handle cross-origin headers easily.       |
+| 3️⃣                       | **API Documentation Generator**      | 🔥 High      | Plugin                                                                                             | Generates Swagger/OpenAPI docs automatically based on decorators or metadata.                   |
+| 4️⃣                       | **Auth Plugin (JWT, Session, RBAC)** | 🔥 High      | Plugin                                                                                             | Provides pluggable authentication strategies with built-in RBAC/PBAC support.                   |
+| 5️⃣                       | **Async/Await Middleware Pipeline**  | 🔥 High      | Core                                                                                               | Enables native async middlewares with proper `try/catch` error flow (`async (req, res, next)`). |
+| 6️⃣                       | **Hot Reloadable Plugin System**     | ⚡ Medium    | Core/Plugin                                                                                        | Reloads custom plugins/services without restarting the whole server (ideal for dev-time).       |
+| 7️⃣                       | **Built-in Metrics & Monitoring**    | ⚡ Medium    | Plugin                                                                                             | Prometheus/JSON metrics at `/metrics`, memory usage, request timings, etc.                      |
+| 8️⃣                       |
+| **Request Pipeline API** | ✅ Low                               | Core Utility | Introduces `app.pipeline()` for functional chaining of request logic (pre-middleware abstraction). |
 
 ---
 
@@ -35,6 +35,7 @@ To finalize `NextRush` as a fully capable, modular, production-ready web framewo
 - Expose utility `app.cors()` or `use(corsOptions)`.
 - Smart defaults (`*`, allowed methods, credentials).
 - Support per-route CORS override.
+- - xssProtection() and other security headers.
 
 ### **🧩 TASK 3 – API Documentation Generator**
 
@@ -71,12 +72,6 @@ To finalize `NextRush` as a fully capable, modular, production-ready web framewo
 
 - Expose at `/metrics` endpoint
 - Optional Prometheus support
-
-### **🧩 TASK 8 – Server-Sent Events (SSE)**
-
-- Expose `res.sse()` method
-- Manage SSE connections & keep-alive
-- Add example use-case: `tail logs`, `realtime dashboard`
 
 ### **🧩 TASK 9 – Request Pipeline API**
 
