@@ -34,7 +34,7 @@ app.listen(3000);
 | ⚡ **Events**         | ✅     | Event-driven architecture with pipelines                |
 | 🍪 **Cookies**        | ✅     | Cookie parsing and management                           |
 | 🔒 **Security**       | ✅     | Built-in security headers and XSS protection            |
-| 🔐 **Authentication** | ✅     | JWT & session-based auth with RBAC                     |
+| 🔐 **Authentication** | ✅     | JWT & session-based auth with RBAC                      |
 | 📊 **Metrics**        | ✅     | Prometheus-compatible metrics & health checks           |
 | 🛡️ **Rate Limiting**  | ✅     | Built-in rate limiting with flexible configuration      |
 | 🌐 **CORS**           | ✅     | Smart CORS handling with security defaults              |

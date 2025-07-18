@@ -1,6 +1,6 @@
 /**
  * 📊 Metrics & Monitoring Plugin - NextRush Framework
- * 
+ *
  * Built-in monitoring with request tracking, performance metrics,
  * and Prometheus-compatible endpoint.
  */
@@ -87,11 +87,14 @@ export interface HealthStatus {
   timestamp: number;
   uptime: number;
   version?: string;
-  checks: Record<string, {
-    status: 'pass' | 'fail' | 'warn';
-    message?: string;
-    duration?: number;
-  }>;
+  checks: Record<
+    string,
+    {
+      status: 'pass' | 'fail' | 'warn';
+      message?: string;
+      duration?: number;
+    }
+  >;
 }
 
 /**
@@ -103,7 +106,10 @@ export class MetricsPlugin extends BasePlugin {
   private startTime: number;
   private requestMetrics: RequestMetrics;
   private customMetrics = new Map<string, Map<string, MetricValue>>();
-  private healthChecks = new Map<string, () => Promise<{ status: 'pass' | 'fail' | 'warn'; message?: string }>>();
+  private healthChecks = new Map<
+    string,
+    () => Promise<{ status: 'pass' | 'fail' | 'warn'; message?: string }>
+  >();
 
   constructor(registry: PluginRegistry) {
     super(registry);
@@ -135,7 +141,7 @@ export class MetricsPlugin extends BasePlugin {
     // Configure metrics
     (app as any).enableMetrics = (options: MetricsOptions = {}) => {
       this.options = { ...this.options, ...options };
-      
+
       // Add request tracking middleware if enabled
       if (this.options.requestTracking) {
         (app as any).use(this.createRequestTrackingMiddleware());
@@ -153,22 +159,40 @@ export class MetricsPlugin extends BasePlugin {
     };
 
     // Custom metrics methods
-    (app as any).incrementCounter = (name: string, labels?: Record<string, string>, value: number = 1) => {
+    (app as any).incrementCounter = (
+      name: string,
+      labels?: Record<string, string>,
+      value: number = 1
+    ) => {
       this.incrementCounter(name, labels, value);
       return app;
     };
 
-    (app as any).setGauge = (name: string, value: number, labels?: Record<string, string>) => {
+    (app as any).setGauge = (
+      name: string,
+      value: number,
+      labels?: Record<string, string>
+    ) => {
       this.setGauge(name, value, labels);
       return app;
     };
 
-    (app as any).observeHistogram = (name: string, value: number, labels?: Record<string, string>) => {
+    (app as any).observeHistogram = (
+      name: string,
+      value: number,
+      labels?: Record<string, string>
+    ) => {
       this.observeHistogram(name, value, labels);
       return app;
     };
 
-    (app as any).addHealthCheck = (name: string, check: () => Promise<{ status: 'pass' | 'fail' | 'warn'; message?: string }>) => {
+    (app as any).addHealthCheck = (
+      name: string,
+      check: () => Promise<{
+        status: 'pass' | 'fail' | 'warn';
+        message?: string;
+      }>
+    ) => {
       this.healthChecks.set(name, check);
       return app;
     };
@@ -205,15 +229,16 @@ export class MetricsPlugin extends BasePlugin {
    */
   private createRequestTrackingMiddleware() {
     const self = this; // Capture 'this' context
-    
+
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       const startTime = Date.now();
       const method = req.method || 'UNKNOWN';
-      
+
       // Increment active requests
       self.requestMetrics.active++;
       self.requestMetrics.total++;
-      self.requestMetrics.byMethod[method] = (self.requestMetrics.byMethod[method] || 0) + 1;
+      self.requestMetrics.byMethod[method] =
+        (self.requestMetrics.byMethod[method] || 0) + 1;
 
       // Track response
       const originalEnd = res.end.bind(res);
@@ -224,9 +249,11 @@ export class MetricsPlugin extends BasePlugin {
 
         // Update metrics
         self.requestMetrics.active--;
-        self.requestMetrics.byStatus[statusCode] = (self.requestMetrics.byStatus[statusCode] || 0) + 1;
+        self.requestMetrics.byStatus[statusCode] =
+          (self.requestMetrics.byStatus[statusCode] || 0) + 1;
         self.requestMetrics.totalResponseTime += duration;
-        self.requestMetrics.averageResponseTime = self.requestMetrics.totalResponseTime / self.requestMetrics.total;
+        self.requestMetrics.averageResponseTime =
+          self.requestMetrics.totalResponseTime / self.requestMetrics.total;
 
         if (statusCode >= 400) {
           self.requestMetrics.errors++;
@@ -252,7 +279,7 @@ export class MetricsPlugin extends BasePlugin {
         }
 
         const metrics = await this.getMetrics();
-        
+
         if (this.options.format === 'json') {
           res.setHeader('Content-Type', 'application/json');
           res.json(metrics);
@@ -273,9 +300,13 @@ export class MetricsPlugin extends BasePlugin {
     return async (req: NextRushRequest, res: NextRushResponse) => {
       try {
         const health = await this.getHealth();
-        const statusCode = health.status === 'healthy' ? 200 : 
-                          health.status === 'degraded' ? 206 : 503;
-        
+        const statusCode =
+          health.status === 'healthy'
+            ? 200
+            : health.status === 'degraded'
+            ? 206
+            : 503;
+
         res.status(statusCode).json(health);
       } catch (error) {
         res.status(503).json({
@@ -315,7 +346,7 @@ export class MetricsPlugin extends BasePlugin {
         const startTime = Date.now();
         const result = await check();
         const duration = Date.now() - startTime;
-        
+
         checks[name] = {
           ...result,
           duration,
@@ -350,7 +381,7 @@ export class MetricsPlugin extends BasePlugin {
     const memUsage = process.memoryUsage();
     const memTotal = os.totalmem();
     const memUsed = memTotal - os.freemem();
-    
+
     return {
       uptime: Date.now() - this.startTime,
       memory: {
@@ -376,22 +407,30 @@ export class MetricsPlugin extends BasePlugin {
    */
   private getCustomMetrics(): Record<string, MetricValue[]> {
     const result: Record<string, MetricValue[]> = {};
-    
+
     for (const [name, values] of this.customMetrics) {
       result[name] = Array.from(values.values());
     }
-    
+
     return result;
   }
 
   /**
    * Increment counter metric
    */
-  private incrementCounter(name: string, labels?: Record<string, string>, value: number = 1): void {
+  private incrementCounter(
+    name: string,
+    labels?: Record<string, string>,
+    value: number = 1
+  ): void {
     const key = this.createMetricKey(name, labels);
     const metricMap = this.customMetrics.get(name) || new Map();
-    const existing = metricMap.get(key) || { value: 0, labels, timestamp: Date.now() };
-    
+    const existing = metricMap.get(key) || {
+      value: 0,
+      labels,
+      timestamp: Date.now(),
+    };
+
     existing.value += value;
     existing.timestamp = Date.now();
     metricMap.set(key, existing);
@@ -401,27 +440,39 @@ export class MetricsPlugin extends BasePlugin {
   /**
    * Set gauge metric
    */
-  private setGauge(name: string, value: number, labels?: Record<string, string>): void {
+  private setGauge(
+    name: string,
+    value: number,
+    labels?: Record<string, string>
+  ): void {
     const key = this.createMetricKey(name, labels);
     const metricMap = this.customMetrics.get(name) || new Map();
-    
+
     metricMap.set(key, {
       value,
       labels,
       timestamp: Date.now(),
     });
-    
+
     this.customMetrics.set(name, metricMap);
   }
 
   /**
    * Observe histogram metric
    */
-  private observeHistogram(name: string, value: number, labels?: Record<string, string>): void {
+  private observeHistogram(
+    name: string,
+    value: number,
+    labels?: Record<string, string>
+  ): void {
     const key = this.createMetricKey(name, labels);
     const metricMap = this.customMetrics.get(name) || new Map();
-    const existing = metricMap.get(key) || { value: 0, labels, timestamp: Date.now() };
-    
+    const existing = metricMap.get(key) || {
+      value: 0,
+      labels,
+      timestamp: Date.now(),
+    };
+
     // Simple histogram implementation (could be enhanced)
     existing.value = value; // For simplicity, store latest value
     existing.timestamp = Date.now();
@@ -432,16 +483,19 @@ export class MetricsPlugin extends BasePlugin {
   /**
    * Create metric key from name and labels
    */
-  private createMetricKey(name: string, labels?: Record<string, string>): string {
+  private createMetricKey(
+    name: string,
+    labels?: Record<string, string>
+  ): string {
     if (!labels || Object.keys(labels).length === 0) {
       return name;
     }
-    
+
     const labelStr = Object.entries(labels)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}="${v}"`)
       .join(',');
-    
+
     return `${name}{${labelStr}}`;
   }
 
@@ -453,11 +507,15 @@ export class MetricsPlugin extends BasePlugin {
     const prefix = this.options.prefix || '';
 
     // Request metrics
-    lines.push(`# HELP ${prefix}http_requests_total Total number of HTTP requests`);
+    lines.push(
+      `# HELP ${prefix}http_requests_total Total number of HTTP requests`
+    );
     lines.push(`# TYPE ${prefix}http_requests_total counter`);
     lines.push(`${prefix}http_requests_total ${metrics.request.total}`);
 
-    lines.push(`# HELP ${prefix}http_requests_active Number of active HTTP requests`);
+    lines.push(
+      `# HELP ${prefix}http_requests_active Number of active HTTP requests`
+    );
     lines.push(`# TYPE ${prefix}http_requests_active gauge`);
     lines.push(`${prefix}http_requests_active ${metrics.request.active}`);
 
@@ -473,16 +531,21 @@ export class MetricsPlugin extends BasePlugin {
 
     lines.push(`# HELP ${prefix}uptime_seconds Uptime in seconds`);
     lines.push(`# TYPE ${prefix}uptime_seconds counter`);
-    lines.push(`${prefix}uptime_seconds ${Math.floor(metrics.system.uptime / 1000)}`);
+    lines.push(
+      `${prefix}uptime_seconds ${Math.floor(metrics.system.uptime / 1000)}`
+    );
 
     // Custom metrics
     for (const [name, values] of Object.entries(metrics.custom)) {
       lines.push(`# HELP ${prefix}${name} Custom metric`);
       lines.push(`# TYPE ${prefix}${name} gauge`);
-      
+
       for (const value of values as MetricValue[]) {
-        const labels = value.labels ? 
-          Object.entries(value.labels).map(([k, v]) => `${k}="${v}"`).join(',') : '';
+        const labels = value.labels
+          ? Object.entries(value.labels)
+              .map(([k, v]) => `${k}="${v}"`)
+              .join(',')
+          : '';
         const labelStr = labels ? `{${labels}}` : '';
         lines.push(`${prefix}${name}${labelStr} ${value.value}`);
       }

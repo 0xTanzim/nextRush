@@ -1,6 +1,6 @@
 /**
  * 🔐 Auth Plugin - NextRush Framework
- * 
+ *
  * Built-in authentication system with JWT, session tokens, and RBAC support.
  * Provides secure route guards, claims, and permissions management.
  */
@@ -199,7 +199,11 @@ export class AuthPlugin extends BasePlugin {
 
     // Authentication middleware
     (app as any).requireAuth = (strategy: 'jwt' | 'session' = 'jwt') => {
-      return async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      return async (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         try {
           let user: User | null = null;
 
@@ -229,9 +233,13 @@ export class AuthPlugin extends BasePlugin {
 
     // Role-based access control
     (app as any).requireRole = (...roles: string[]) => {
-      return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      return (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         const user = (req as any).user as User;
-        
+
         if (!user) {
           return res.status(401).json({
             error: 'Unauthorized',
@@ -239,7 +247,7 @@ export class AuthPlugin extends BasePlugin {
           });
         }
 
-        if (!user.roles || !roles.some(role => user.roles!.includes(role))) {
+        if (!user.roles || !roles.some((role) => user.roles!.includes(role))) {
           return res.status(403).json({
             error: 'Forbidden',
             message: 'Insufficient permissions',
@@ -252,9 +260,13 @@ export class AuthPlugin extends BasePlugin {
 
     // Permission-based access control
     (app as any).requirePermission = (resource: string, action: string) => {
-      return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      return (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         const user = (req as any).user as User;
-        
+
         if (!user) {
           return res.status(401).json({
             error: 'Unauthorized',
@@ -263,7 +275,7 @@ export class AuthPlugin extends BasePlugin {
         }
 
         const hasPermission = this.checkPermission(user, resource, action);
-        
+
         if (!hasPermission) {
           return res.status(403).json({
             error: 'Forbidden',
@@ -276,7 +288,10 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // Session management
-    (app as any).createSession = async (userId: string | number, data: Record<string, any> = {}) => {
+    (app as any).createSession = async (
+      userId: string | number,
+      data: Record<string, any> = {}
+    ) => {
       return this.createSession(userId, data);
     };
 
@@ -324,7 +339,7 @@ export class AuthPlugin extends BasePlugin {
 
     const config = { ...this.jwtConfig, ...options };
     const now = Math.floor(Date.now() / 1000);
-    
+
     const jwtPayload: JwtPayload = {
       ...payload,
       iat: now,
@@ -333,9 +348,14 @@ export class AuthPlugin extends BasePlugin {
 
     if (config.issuer) jwtPayload.iss = config.issuer;
     if (config.audience) jwtPayload.aud = config.audience;
-    if (config.notBefore) jwtPayload.nbf = now + this.parseExpiry(config.notBefore);
+    if (config.notBefore)
+      jwtPayload.nbf = now + this.parseExpiry(config.notBefore);
 
-    return this.createJwt(jwtPayload, config.secret, config.algorithm || 'HS256');
+    return this.createJwt(
+      jwtPayload,
+      config.secret,
+      config.algorithm || 'HS256'
+    );
   }
 
   /**
@@ -362,7 +382,7 @@ export class AuthPlugin extends BasePlugin {
     const token = authHeader.slice(7);
     try {
       const payload = this.verifyJwt(token);
-      
+
       // Convert JWT payload to User object
       const user: User = {
         id: payload.sub,
@@ -380,7 +400,9 @@ export class AuthPlugin extends BasePlugin {
   /**
    * Authenticate using session
    */
-  private async authenticateSession(req: NextRushRequest): Promise<User | null> {
+  private async authenticateSession(
+    req: NextRushRequest
+  ): Promise<User | null> {
     if (!this.sessionConfig) {
       throw new Error('Sessions not configured. Call app.useSession() first.');
     }
@@ -408,7 +430,10 @@ export class AuthPlugin extends BasePlugin {
   /**
    * Create new session
    */
-  private async createSession(userId: string | number, data: Record<string, any> = {}): Promise<string> {
+  private async createSession(
+    userId: string | number,
+    data: Record<string, any> = {}
+  ): Promise<string> {
     if (!this.sessionConfig) {
       throw new Error('Sessions not configured. Call app.useSession() first.');
     }
@@ -433,13 +458,19 @@ export class AuthPlugin extends BasePlugin {
   /**
    * Check user permission
    */
-  private checkPermission(user: User, resource: string, action: string): boolean {
+  private checkPermission(
+    user: User,
+    resource: string,
+    action: string
+  ): boolean {
     // Direct permission check
     if (user.permissions) {
-      const hasDirectPermission = user.permissions.some(perm => {
+      const hasDirectPermission = user.permissions.some((perm) => {
         const [permResource, permAction] = perm.split(':');
-        return (permResource === resource || permResource === '*') &&
-               (permAction === action || permAction === '*');
+        return (
+          (permResource === resource || permResource === '*') &&
+          (permAction === action || permAction === '*')
+        );
       });
       if (hasDirectPermission) return true;
     }
@@ -460,11 +491,16 @@ export class AuthPlugin extends BasePlugin {
   /**
    * Check if role has permission
    */
-  private roleHasPermission(role: Role, resource: string, action: string): boolean {
+  private roleHasPermission(
+    role: Role,
+    resource: string,
+    action: string
+  ): boolean {
     // Check direct permissions
-    const hasPermission = role.permissions.some(perm =>
-      (perm.resource === resource || perm.resource === '*') &&
-      (perm.action === action || perm.action === '*')
+    const hasPermission = role.permissions.some(
+      (perm) =>
+        (perm.resource === resource || perm.resource === '*') &&
+        (perm.action === action || perm.action === '*')
     );
 
     if (hasPermission) return true;
@@ -473,7 +509,10 @@ export class AuthPlugin extends BasePlugin {
     if (role.inherits) {
       for (const parentRoleName of role.inherits) {
         const parentRole = this.roles.get(parentRoleName);
-        if (parentRole && this.roleHasPermission(parentRole, resource, action)) {
+        if (
+          parentRole &&
+          this.roleHasPermission(parentRole, resource, action)
+        ) {
           return true;
         }
       }
@@ -487,34 +526,47 @@ export class AuthPlugin extends BasePlugin {
    */
   private parseExpiry(expiry: string | number): number {
     if (typeof expiry === 'number') return expiry;
-    
+
     const match = expiry.match(/^(\d+)([smhd])$/);
     if (!match) throw new Error('Invalid expiry format');
-    
+
     const value = parseInt(match[1]);
     const unit = match[2];
-    
+
     switch (unit) {
-      case 's': return value;
-      case 'm': return value * 60;
-      case 'h': return value * 60 * 60;
-      case 'd': return value * 24 * 60 * 60;
-      default: throw new Error('Invalid expiry unit');
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 60 * 60;
+      case 'd':
+        return value * 24 * 60 * 60;
+      default:
+        throw new Error('Invalid expiry unit');
     }
   }
 
   /**
    * Create JWT token (simplified implementation)
    */
-  private createJwt(payload: JwtPayload, secret: string, algorithm: string): string {
+  private createJwt(
+    payload: JwtPayload,
+    secret: string,
+    algorithm: string
+  ): string {
     const header = {
       typ: 'JWT',
       alg: algorithm,
     };
 
-    const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url');
-    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    
+    const encodedHeader = Buffer.from(JSON.stringify(header)).toString(
+      'base64url'
+    );
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
+      'base64url'
+    );
+
     const signature = crypto
       .createHmac(algorithm.toLowerCase().replace('hs', 'sha'), secret)
       .update(`${encodedHeader}.${encodedPayload}`)
@@ -526,14 +578,18 @@ export class AuthPlugin extends BasePlugin {
   /**
    * Parse and verify JWT token
    */
-  private parseJwt(token: string, secret: string, algorithm: string): JwtPayload {
+  private parseJwt(
+    token: string,
+    secret: string,
+    algorithm: string
+  ): JwtPayload {
     const parts = token.split('.');
     if (parts.length !== 3) {
       throw new Error('Invalid JWT format');
     }
 
     const [headerPart, payloadPart, signaturePart] = parts;
-    
+
     // Verify signature
     const expectedSignature = crypto
       .createHmac(algorithm.toLowerCase().replace('hs', 'sha'), secret)
@@ -545,8 +601,10 @@ export class AuthPlugin extends BasePlugin {
     }
 
     // Parse payload
-    const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString());
-    
+    const payload = JSON.parse(
+      Buffer.from(payloadPart, 'base64url').toString()
+    );
+
     // Check expiry
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
       throw new Error('JWT expired');
@@ -565,8 +623,8 @@ export class AuthPlugin extends BasePlugin {
    */
   private parseCookies(cookieHeader: string): Record<string, string> {
     const cookies: Record<string, string> = {};
-    
-    cookieHeader.split(';').forEach(cookie => {
+
+    cookieHeader.split(';').forEach((cookie) => {
       const [name, value] = cookie.trim().split('=');
       if (name && value) {
         cookies[name] = decodeURIComponent(value);
@@ -583,9 +641,7 @@ export class AuthPlugin extends BasePlugin {
 export const CommonRoles = {
   admin: (): Role => ({
     name: 'admin',
-    permissions: [
-      { resource: '*', action: '*' }
-    ],
+    permissions: [{ resource: '*', action: '*' }],
   }),
 
   user: (): Role => ({

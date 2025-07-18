@@ -13,7 +13,7 @@ const app = createApp();
 app.enableApiDocs({
   title: 'My API',
   description: 'RESTful API built with NextRush',
-  version: '1.0.0'
+  version: '1.0.0',
 });
 
 // Document your routes
@@ -27,12 +27,12 @@ app.doc('/api/users', 'GET', {
         'application/json': {
           schema: {
             type: 'array',
-            items: { $ref: '#/components/schemas/User' }
-          }
-        }
-      }
-    }
-  }
+            items: { $ref: '#/components/schemas/User' },
+          },
+        },
+      },
+    },
+  },
 });
 
 // Access documentation
@@ -55,7 +55,7 @@ app.enableApiDocs({
   docsPath: '/docs',
   swaggerUiPath: '/swagger',
   jsonPath: '/api-docs.json',
-  enableSwaggerUI: true
+  enableSwaggerUI: true,
 });
 ```
 
@@ -66,57 +66,57 @@ app.enableApiDocs({
   title: 'Enterprise API',
   description: 'Production-ready API with comprehensive documentation',
   version: '1.0.0',
-  
+
   // Server configuration
   servers: [
     {
       url: 'https://api.example.com/v1',
-      description: 'Production server'
+      description: 'Production server',
     },
     {
       url: 'https://staging-api.example.com/v1',
-      description: 'Staging server'
+      description: 'Staging server',
     },
     {
       url: 'http://localhost:3000',
-      description: 'Development server'
-    }
+      description: 'Development server',
+    },
   ],
-  
+
   // Contact information
   contact: {
     name: 'API Support',
     url: 'https://example.com/support',
-    email: 'api-support@example.com'
+    email: 'api-support@example.com',
   },
-  
+
   // License information
   license: {
     name: 'MIT',
-    url: 'https://opensource.org/licenses/MIT'
+    url: 'https://opensource.org/licenses/MIT',
   },
-  
+
   // API tags for organization
   tags: [
     {
       name: 'Users',
-      description: 'User management operations'
+      description: 'User management operations',
     },
     {
       name: 'Posts',
-      description: 'Blog post operations'
+      description: 'Blog post operations',
     },
     {
       name: 'Auth',
-      description: 'Authentication and authorization'
-    }
+      description: 'Authentication and authorization',
+    },
   ],
-  
+
   // External documentation
   externalDocs: {
     description: 'Find more info here',
-    url: 'https://docs.example.com'
-  }
+    url: 'https://docs.example.com',
+  },
 });
 ```
 
@@ -136,27 +136,27 @@ app.doc('/api/users/:id', 'GET', {
       in: 'path',
       required: true,
       description: 'User ID',
-      schema: { type: 'string' }
-    }
+      schema: { type: 'string' },
+    },
   ],
   responses: {
     '200': {
       description: 'User found',
       content: {
         'application/json': {
-          schema: { $ref: '#/components/schemas/User' }
-        }
-      }
+          schema: { $ref: '#/components/schemas/User' },
+        },
+      },
     },
     '404': {
       description: 'User not found',
       content: {
         'application/json': {
-          schema: { $ref: '#/components/schemas/Error' }
-        }
-      }
-    }
-  }
+          schema: { $ref: '#/components/schemas/Error' },
+        },
+      },
+    },
+  },
 });
 
 // Implement the route
@@ -181,28 +181,28 @@ app.doc('/api/users', 'POST', {
     required: true,
     content: {
       'application/json': {
-        schema: { $ref: '#/components/schemas/CreateUserRequest' }
-      }
-    }
+        schema: { $ref: '#/components/schemas/CreateUserRequest' },
+      },
+    },
   },
   responses: {
     '201': {
       description: 'User created successfully',
       content: {
         'application/json': {
-          schema: { $ref: '#/components/schemas/User' }
-        }
-      }
+          schema: { $ref: '#/components/schemas/User' },
+        },
+      },
     },
     '400': {
       description: 'Invalid input',
       content: {
         'application/json': {
-          schema: { $ref: '#/components/schemas/ValidationError' }
-        }
-      }
-    }
-  }
+          schema: { $ref: '#/components/schemas/ValidationError' },
+        },
+      },
+    },
+  },
 });
 ```
 
@@ -218,40 +218,40 @@ app.doc('/api/users', 'GET', {
       name: 'page',
       in: 'query',
       description: 'Page number (1-based)',
-      schema: { type: 'integer', minimum: 1, default: 1 }
+      schema: { type: 'integer', minimum: 1, default: 1 },
     },
     {
       name: 'limit',
       in: 'query',
       description: 'Number of users per page',
-      schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 }
+      schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
     },
     {
       name: 'search',
       in: 'query',
       description: 'Search users by name or email',
-      schema: { type: 'string' }
+      schema: { type: 'string' },
     },
     {
       name: 'role',
       in: 'query',
       description: 'Filter by user role',
-      schema: { 
+      schema: {
         type: 'string',
-        enum: ['admin', 'user', 'moderator']
-      }
-    }
+        enum: ['admin', 'user', 'moderator'],
+      },
+    },
   ],
   responses: {
     '200': {
       description: 'List of users',
       content: {
         'application/json': {
-          schema: { $ref: '#/components/schemas/UserListResponse' }
-        }
-      }
-    }
-  }
+          schema: { $ref: '#/components/schemas/UserListResponse' },
+        },
+      },
+    },
+  },
 });
 ```
 
@@ -262,14 +262,12 @@ app.doc('/api/protected-endpoint', 'GET', {
   summary: 'Protected endpoint',
   description: 'Requires valid JWT token',
   tags: ['Protected'],
-  security: [
-    { bearerAuth: [] }
-  ],
+  security: [{ bearerAuth: [] }],
   responses: {
     '200': { description: 'Success' },
     '401': { description: 'Unauthorized' },
-    '403': { description: 'Forbidden' }
-  }
+    '403': { description: 'Forbidden' },
+  },
 });
 ```
 
@@ -286,35 +284,35 @@ app.addSchema('User', {
     id: {
       type: 'string',
       description: 'Unique user identifier',
-      example: 'user_123'
+      example: 'user_123',
     },
     email: {
       type: 'string',
       format: 'email',
       description: 'User email address',
-      example: 'user@example.com'
+      example: 'user@example.com',
     },
     name: {
       type: 'string',
       description: 'User full name',
-      example: 'John Doe'
+      example: 'John Doe',
     },
     role: {
       type: 'string',
       enum: ['admin', 'user', 'moderator'],
       description: 'User role',
-      example: 'user'
+      example: 'user',
     },
     createdAt: {
       type: 'string',
       format: 'date-time',
       description: 'Account creation timestamp',
-      example: '2023-07-19T10:30:00Z'
+      example: '2023-07-19T10:30:00Z',
     },
     profile: {
-      $ref: '#/components/schemas/UserProfile'
-    }
-  }
+      $ref: '#/components/schemas/UserProfile',
+    },
+  },
 });
 
 app.addSchema('UserProfile', {
@@ -323,18 +321,18 @@ app.addSchema('UserProfile', {
     avatar: {
       type: 'string',
       format: 'uri',
-      description: 'Profile picture URL'
+      description: 'Profile picture URL',
     },
     bio: {
       type: 'string',
       description: 'User biography',
-      maxLength: 500
+      maxLength: 500,
     },
     location: {
       type: 'string',
-      description: 'User location'
-    }
-  }
+      description: 'User location',
+    },
+  },
 });
 
 app.addSchema('CreateUserRequest', {
@@ -344,18 +342,18 @@ app.addSchema('CreateUserRequest', {
     email: {
       type: 'string',
       format: 'email',
-      description: 'User email address'
+      description: 'User email address',
     },
     password: {
       type: 'string',
       minLength: 8,
-      description: 'User password (minimum 8 characters)'
+      description: 'User password (minimum 8 characters)',
     },
     name: {
       type: 'string',
-      description: 'User full name'
-    }
-  }
+      description: 'User full name',
+    },
+  },
 });
 ```
 
@@ -364,12 +362,18 @@ app.addSchema('CreateUserRequest', {
 ```typescript
 // Use predefined common schemas
 app.addSchema('Error', CommonSchemas.Error());
-app.addSchema('UserListResponse', CommonSchemas.PaginatedResponse({
-  $ref: '#/components/schemas/User'
-}));
-app.addSchema('SuccessResponse', CommonSchemas.SuccessResponse({
-  $ref: '#/components/schemas/User'
-}));
+app.addSchema(
+  'UserListResponse',
+  CommonSchemas.PaginatedResponse({
+    $ref: '#/components/schemas/User',
+  })
+);
+app.addSchema(
+  'SuccessResponse',
+  CommonSchemas.SuccessResponse({
+    $ref: '#/components/schemas/User',
+  })
+);
 ```
 
 ## Security Schemes
@@ -381,7 +385,7 @@ app.addSecurityScheme('bearerAuth', {
   type: 'http',
   scheme: 'bearer',
   bearerFormat: 'JWT',
-  description: 'JWT token for API authentication'
+  description: 'JWT token for API authentication',
 });
 ```
 
@@ -392,7 +396,7 @@ app.addSecurityScheme('apiKey', {
   type: 'apiKey',
   in: 'header',
   name: 'X-API-Key',
-  description: 'API key for external service access'
+  description: 'API key for external service access',
 });
 ```
 
@@ -409,10 +413,10 @@ app.addSecurityScheme('oauth2', {
       scopes: {
         'read:users': 'Read user information',
         'write:users': 'Modify user information',
-        'admin': 'Administrative access'
-      }
-    }
-  }
+        admin: 'Administrative access',
+      },
+    },
+  },
 });
 ```
 
@@ -435,8 +439,8 @@ app.doc('/api/users', 'POST', {
               email: 'admin@example.com',
               password: 'secure_password_123',
               name: 'Admin User',
-              role: 'admin'
-            }
+              role: 'admin',
+            },
           },
           regular: {
             summary: 'Regular user example',
@@ -444,13 +448,13 @@ app.doc('/api/users', 'POST', {
             value: {
               email: 'user@example.com',
               password: 'user_password_456',
-              name: 'John Doe'
-            }
-          }
-        }
-      }
-    }
-  }
+              name: 'John Doe',
+            },
+          },
+        },
+      },
+    },
+  },
 });
 ```
 
@@ -465,24 +469,24 @@ app.doc('/api/users', 'GET', {
       headers: {
         'X-Total-Count': {
           description: 'Total number of users',
-          schema: { type: 'integer' }
+          schema: { type: 'integer' },
         },
         'X-Page-Count': {
           description: 'Total number of pages',
-          schema: { type: 'integer' }
+          schema: { type: 'integer' },
         },
         'X-Rate-Limit': {
           description: 'Requests remaining in current window',
-          schema: { type: 'integer' }
-        }
+          schema: { type: 'integer' },
+        },
       },
       content: {
         'application/json': {
-          schema: { $ref: '#/components/schemas/UserListResponse' }
-        }
-      }
-    }
-  }
+          schema: { $ref: '#/components/schemas/UserListResponse' },
+        },
+      },
+    },
+  },
 });
 ```
 
@@ -498,8 +502,8 @@ app.doc('/api/users/:id/avatar', 'POST', {
       name: 'id',
       in: 'path',
       required: true,
-      schema: { type: 'string' }
-    }
+      schema: { type: 'string' },
+    },
   ],
   requestBody: {
     content: {
@@ -510,16 +514,16 @@ app.doc('/api/users/:id/avatar', 'POST', {
             avatar: {
               type: 'string',
               format: 'binary',
-              description: 'Avatar image file'
+              description: 'Avatar image file',
             },
             description: {
               type: 'string',
-              description: 'Optional description'
-            }
-          }
-        }
-      }
-    }
+              description: 'Optional description',
+            },
+          },
+        },
+      },
+    },
   },
   responses: {
     '200': {
@@ -532,14 +536,14 @@ app.doc('/api/users/:id/avatar', 'POST', {
               url: {
                 type: 'string',
                 format: 'uri',
-                description: 'URL of uploaded avatar'
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+                description: 'URL of uploaded avatar',
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 });
 ```
 
@@ -552,15 +556,12 @@ app.doc('/api/users/:id/avatar', 'POST', {
 const userSchema = {
   email: { required: true, type: 'email' },
   password: { required: true, minLength: 8 },
-  name: { required: false, type: 'string' }
+  name: { required: false, type: 'string' },
 };
 
-app.post('/api/users',
-  app.validate(userSchema),
-  (req, res) => {
-    // Route logic
-  }
-);
+app.post('/api/users', app.validate(userSchema), (req, res) => {
+  // Route logic
+});
 
 // Auto-generate documentation from validation schema
 app.doc('/api/users', 'POST', {
@@ -568,10 +569,10 @@ app.doc('/api/users', 'POST', {
   requestBody: {
     content: {
       'application/json': {
-        schema: validationSchemaToOpenAPI(userSchema)
-      }
-    }
-  }
+        schema: validationSchemaToOpenAPI(userSchema),
+      },
+    },
+  },
 });
 ```
 
@@ -579,7 +580,8 @@ app.doc('/api/users', 'POST', {
 
 ```typescript
 // Document protected routes
-app.get('/api/admin/users',
+app.get(
+  '/api/admin/users',
   app.requireAuth('jwt'),
   app.requireRole('admin'),
   (req, res) => {
@@ -595,8 +597,8 @@ app.doc('/api/admin/users', 'GET', {
   responses: {
     '200': { description: 'Success' },
     '401': { description: 'Authentication required' },
-    '403': { description: 'Admin role required' }
-  }
+    '403': { description: 'Admin role required' },
+  },
 });
 ```
 
@@ -611,12 +613,12 @@ app.get('/swagger', (req, res) => {
     .swagger-ui .info .title { color: #1976d2; }
     .swagger-ui .scheme-container { background: #f5f5f5; }
   `;
-  
+
   const html = generateSwaggerUI().replace(
     '</head>',
     `<style>${customCSS}</style></head>`
   );
-  
+
   res.send(html);
 });
 ```
@@ -634,8 +636,8 @@ app.enableApiDocs({
         height: 40px;
       }
     `,
-    customSiteTitle: 'My API Documentation'
-  }
+    customSiteTitle: 'My API Documentation',
+  },
 });
 ```
 
@@ -649,7 +651,7 @@ const TAGS = {
   AUTH: 'Authentication',
   USERS: 'User Management',
   POSTS: 'Blog Posts',
-  ADMIN: 'Administration'
+  ADMIN: 'Administration',
 };
 
 app.doc('/auth/login', 'POST', { tags: [TAGS.AUTH] });
@@ -671,14 +673,14 @@ app.addSchema('ValidationError', {
       type: 'object',
       additionalProperties: {
         type: 'array',
-        items: { type: 'string' }
+        items: { type: 'string' },
       },
       example: {
         email: ['Must be a valid email address'],
-        password: ['Must be at least 8 characters']
-      }
-    }
-  }
+        password: ['Must be at least 8 characters'],
+      },
+    },
+  },
 });
 
 // Use consistently across all endpoints
@@ -687,26 +689,26 @@ const standardResponses = {
     description: 'Validation error',
     content: {
       'application/json': {
-        schema: { $ref: '#/components/schemas/ValidationError' }
-      }
-    }
+        schema: { $ref: '#/components/schemas/ValidationError' },
+      },
+    },
   },
   '401': {
     description: 'Authentication required',
     content: {
       'application/json': {
-        schema: { $ref: '#/components/schemas/Error' }
-      }
-    }
+        schema: { $ref: '#/components/schemas/Error' },
+      },
+    },
   },
   '500': {
     description: 'Internal server error',
     content: {
       'application/json': {
-        schema: { $ref: '#/components/schemas/Error' }
-      }
-    }
-  }
+        schema: { $ref: '#/components/schemas/Error' },
+      },
+    },
+  },
 };
 ```
 
@@ -719,13 +721,13 @@ app.enableApiDocs({
   servers: [
     {
       url: 'https://api.example.com/v2',
-      description: 'Production v2'
+      description: 'Production v2',
     },
     {
       url: 'https://api.example.com/v1',
-      description: 'Legacy v1 (deprecated)'
-    }
-  ]
+      description: 'Legacy v1 (deprecated)',
+    },
+  ],
 });
 ```
 
@@ -742,11 +744,11 @@ app.doc('/api/users', 'GET', {
       headers: {
         'Retry-After': {
           description: 'Seconds to wait before retry',
-          schema: { type: 'integer' }
-        }
-      }
-    }
-  }
+          schema: { type: 'integer' },
+        },
+      },
+    },
+  },
 });
 ```
 

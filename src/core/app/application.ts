@@ -131,9 +131,21 @@ declare module '../app/application' {
 
     // 📊 Metrics & Monitoring methods
     enableMetrics(options?: any): this;
-    incrementCounter(name: string, labels?: Record<string, string>, value?: number): this;
-    setGauge(name: string, value: number, labels?: Record<string, string>): this;
-    observeHistogram(name: string, value: number, labels?: Record<string, string>): this;
+    incrementCounter(
+      name: string,
+      labels?: Record<string, string>,
+      value?: number
+    ): this;
+    setGauge(
+      name: string,
+      value: number,
+      labels?: Record<string, string>
+    ): this;
+    observeHistogram(
+      name: string,
+      value: number,
+      labels?: Record<string, string>
+    ): this;
     addHealthCheck(name: string, check: any): this;
     getMetrics(): any;
     getHealth(): any;
@@ -151,8 +163,14 @@ declare module '../app/application' {
 
     // 🔄 Event-driven architecture methods
     on(event: string, handler: (...args: any[]) => void | Promise<void>): this;
-    once(event: string, handler: (...args: any[]) => void | Promise<void>): this;
-    off(event: string, handler?: (...args: any[]) => void | Promise<void>): this;
+    once(
+      event: string,
+      handler: (...args: any[]) => void | Promise<void>
+    ): this;
+    off(
+      event: string,
+      handler?: (...args: any[]) => void | Promise<void>
+    ): this;
     emit(event: string, ...args: any[]): this;
     eventMiddleware(options?: {
       autoEmit?: boolean;

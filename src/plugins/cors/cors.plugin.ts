@@ -1,6 +1,6 @@
 /**
  * 🌐 CORS Plugin - NextRush Framework
- * 
+ *
  * Built-in Cross-Origin Resource Sharing (CORS) handling with smart defaults
  * and flexible configuration options.
  */
@@ -13,7 +13,14 @@ import { BasePlugin, PluginRegistry } from '../core/base-plugin';
  * CORS configuration options
  */
 export interface CorsOptions {
-  origin?: string | string[] | boolean | ((origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => void);
+  origin?:
+    | string
+    | string[]
+    | boolean
+    | ((
+        origin: string | undefined,
+        callback: (err: Error | null, allow?: boolean) => void
+      ) => void);
   methods?: string | string[];
   allowedHeaders?: string | string[];
   exposedHeaders?: string | string[];
@@ -56,7 +63,7 @@ export class CorsPlugin extends BasePlugin {
     // Add CORS middleware method
     (app as any).cors = (options: CorsOptions = {}) => {
       const config = this.buildCorsConfig(options);
-      
+
       return async (
         req: NextRushRequest,
         res: NextRushResponse,
@@ -68,7 +75,7 @@ export class CorsPlugin extends BasePlugin {
 
           // Check if origin is allowed
           const isOriginAllowed = await config.origin(origin);
-          
+
           // Set origin header
           if (isOriginAllowed) {
             res.setHeader('Access-Control-Allow-Origin', origin || '*');
@@ -83,33 +90,53 @@ export class CorsPlugin extends BasePlugin {
 
           // Set exposed headers
           if (config.exposedHeaders.length > 0) {
-            res.setHeader('Access-Control-Expose-Headers', config.exposedHeaders.join(', '));
+            res.setHeader(
+              'Access-Control-Expose-Headers',
+              config.exposedHeaders.join(', ')
+            );
           }
 
           // Handle preflight requests
           if (config.preflight && method === 'OPTIONS') {
             // Set allowed methods
-            res.setHeader('Access-Control-Allow-Methods', config.methods.join(', '));
-            
+            res.setHeader(
+              'Access-Control-Allow-Methods',
+              config.methods.join(', ')
+            );
+
             // Set allowed headers
-            const requestHeaders = req.headers['access-control-request-headers'];
+            const requestHeaders =
+              req.headers['access-control-request-headers'];
             if (requestHeaders) {
               if (config.allowedHeaders.includes('*')) {
                 res.setHeader('Access-Control-Allow-Headers', requestHeaders);
               } else {
                 const allowedRequestHeaders = requestHeaders
                   .split(',')
-                  .map(h => h.trim())
-                  .filter(h => config.allowedHeaders.includes(h.toLowerCase()) || config.allowedHeaders.includes('*'));
-                
+                  .map((h) => h.trim())
+                  .filter(
+                    (h) =>
+                      config.allowedHeaders.includes(h.toLowerCase()) ||
+                      config.allowedHeaders.includes('*')
+                  );
+
                 if (allowedRequestHeaders.length > 0) {
-                  res.setHeader('Access-Control-Allow-Headers', allowedRequestHeaders.join(', '));
+                  res.setHeader(
+                    'Access-Control-Allow-Headers',
+                    allowedRequestHeaders.join(', ')
+                  );
                 } else {
-                  res.setHeader('Access-Control-Allow-Headers', config.allowedHeaders.join(', '));
+                  res.setHeader(
+                    'Access-Control-Allow-Headers',
+                    config.allowedHeaders.join(', ')
+                  );
                 }
               }
             } else {
-              res.setHeader('Access-Control-Allow-Headers', config.allowedHeaders.join(', '));
+              res.setHeader(
+                'Access-Control-Allow-Headers',
+                config.allowedHeaders.join(', ')
+              );
             }
 
             // Set max age
@@ -140,18 +167,29 @@ export class CorsPlugin extends BasePlugin {
 
     // Add security headers method
     (app as any).enableSecurityHeaders = () => {
-      return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      return (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         // CORS-related security headers
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-Frame-Options', 'DENY');
         res.setHeader('X-XSS-Protection', '1; mode=block');
         res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-        res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-        
+        res.setHeader(
+          'Permissions-Policy',
+          'geolocation=(), microphone=(), camera=()'
+        );
+
         // HTTPS security headers (only set if HTTPS)
-        const isSecure = (req as any).secure || req.headers['x-forwarded-proto'] === 'https';
+        const isSecure =
+          (req as any).secure || req.headers['x-forwarded-proto'] === 'https';
         if (isSecure) {
-          res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+          res.setHeader(
+            'Strict-Transport-Security',
+            'max-age=31536000; includeSubDomains; preload'
+          );
         }
 
         next();
@@ -188,7 +226,9 @@ export class CorsPlugin extends BasePlugin {
   private buildCorsConfig(options: CorsOptions): CorsConfig {
     const config: CorsConfig = {
       origin: this.buildOriginChecker(options.origin),
-      methods: this.normalizeArray(options.methods || ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE']),
+      methods: this.normalizeArray(
+        options.methods || ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE']
+      ),
       allowedHeaders: this.normalizeArray(options.allowedHeaders || ['*']),
       exposedHeaders: this.normalizeArray(options.exposedHeaders || []),
       credentials: options.credentials === true,
@@ -207,7 +247,9 @@ export class CorsPlugin extends BasePlugin {
   /**
    * Build origin checker function
    */
-  private buildOriginChecker(origin: CorsOptions['origin']): (origin: string | undefined) => Promise<boolean> {
+  private buildOriginChecker(
+    origin: CorsOptions['origin']
+  ): (origin: string | undefined) => Promise<boolean> {
     if (origin === undefined || origin === true) {
       return async () => true;
     }
@@ -221,7 +263,8 @@ export class CorsPlugin extends BasePlugin {
     }
 
     if (Array.isArray(origin)) {
-      return async (requestOrigin) => requestOrigin ? origin.includes(requestOrigin) : false;
+      return async (requestOrigin) =>
+        requestOrigin ? origin.includes(requestOrigin) : false;
     }
 
     if (typeof origin === 'function') {
@@ -247,7 +290,7 @@ export class CorsPlugin extends BasePlugin {
   private normalizeArray(value: string | string[] | undefined): string[] {
     if (!value) return [];
     if (typeof value === 'string') {
-      return value.split(',').map(s => s.trim());
+      return value.split(',').map((s) => s.trim());
     }
     return value;
   }

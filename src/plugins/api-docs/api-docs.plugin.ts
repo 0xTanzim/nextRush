@@ -1,6 +1,6 @@
 /**
  * 📚 API Documentation Generator Plugin - NextRush Framework
- * 
+ *
  * Automatically generates OpenAPI/Swagger documentation from route metadata
  * and serves interactive documentation interface.
  */
@@ -392,12 +392,15 @@ export class ApiDocumentationPlugin extends BasePlugin {
     // Configure API documentation
     (app as any).enableApiDocs = (options: ApiDocsOptions = {}) => {
       this.options = { ...this.options, ...options };
-      
+
       // Add documentation endpoints
       (app as any).get(this.options.jsonPath, this.createSpecHandler());
-      
+
       if (this.options.enableSwaggerUI) {
-        (app as any).get(this.options.swaggerUiPath, this.createSwaggerUIHandler());
+        (app as any).get(
+          this.options.swaggerUiPath,
+          this.createSwaggerUIHandler()
+        );
         (app as any).get(this.options.docsPath, this.createDocsHandler());
       }
 
@@ -405,7 +408,11 @@ export class ApiDocumentationPlugin extends BasePlugin {
     };
 
     // Document route method
-    (app as any).doc = (path: string, method: string, documentation: RouteDocumentation) => {
+    (app as any).doc = (
+      path: string,
+      method: string,
+      documentation: RouteDocumentation
+    ) => {
       const methodRoutes = this.routes.get(path) || new Map();
       methodRoutes.set(method.toLowerCase(), documentation);
       this.routes.set(path, methodRoutes);
@@ -422,7 +429,10 @@ export class ApiDocumentationPlugin extends BasePlugin {
     };
 
     // Document security schemes
-    (app as any).addSecurityScheme = (name: string, scheme: SecuritySchemeObject) => {
+    (app as any).addSecurityScheme = (
+      name: string,
+      scheme: SecuritySchemeObject
+    ) => {
       if (!this.components.securitySchemes) {
         this.components.securitySchemes = {};
       }
@@ -543,10 +553,10 @@ export class ApiDocumentationPlugin extends BasePlugin {
               description: 'Successful response',
               content: {
                 'application/json': {
-                  schema: { type: 'object' }
-                }
-              }
-            }
+                  schema: { type: 'object' },
+                },
+              },
+            },
           },
         };
 
@@ -633,17 +643,17 @@ export const CommonSchemas = {
     properties: {
       error: {
         type: 'string',
-        description: 'Error type'
+        description: 'Error type',
       },
       message: {
         type: 'string',
-        description: 'Error message'
+        description: 'Error message',
       },
       details: {
         type: 'object',
-        description: 'Additional error details'
-      }
-    }
+        description: 'Additional error details',
+      },
+    },
   }),
 
   PaginatedResponse: (itemSchema: SchemaObject): SchemaObject => ({
@@ -652,25 +662,25 @@ export const CommonSchemas = {
     properties: {
       data: {
         type: 'array',
-        items: itemSchema
+        items: itemSchema,
       },
       total: {
         type: 'integer',
-        description: 'Total number of items'
+        description: 'Total number of items',
       },
       page: {
         type: 'integer',
-        description: 'Current page number'
+        description: 'Current page number',
       },
       limit: {
         type: 'integer',
-        description: 'Items per page'
+        description: 'Items per page',
       },
       hasNext: {
         type: 'boolean',
-        description: 'Whether there are more pages'
-      }
-    }
+        description: 'Whether there are more pages',
+      },
+    },
   }),
 
   SuccessResponse: (dataSchema?: SchemaObject): SchemaObject => ({
@@ -679,16 +689,16 @@ export const CommonSchemas = {
     properties: {
       success: {
         type: 'boolean',
-        enum: [true]
+        enum: [true],
       },
       message: {
         type: 'string',
-        description: 'Success message'
+        description: 'Success message',
       },
       data: dataSchema || {
         type: 'object',
-        description: 'Response data'
-      }
-    }
-  })
+        description: 'Response data',
+      },
+    },
+  }),
 };

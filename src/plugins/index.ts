@@ -28,11 +28,11 @@ export { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/st
 export { WebSocketPlugin } from './websocket/websocket.plugin';
 
 // 🚀 NEW FEATURE PLUGINS (From Final Proposal)
-export { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
-export { CorsPlugin } from './cors/cors.plugin';
-export { AuthPlugin } from './auth/auth.plugin';
-export { MetricsPlugin } from './metrics/metrics.plugin';
 export { ApiDocumentationPlugin } from './api-docs/api-docs.plugin';
+export { AuthPlugin } from './auth/auth.plugin';
+export { CorsPlugin } from './cors/cors.plugin';
+export { MetricsPlugin } from './metrics/metrics.plugin';
+export { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
 
 // Enhanced types
 export type {
@@ -49,60 +49,58 @@ export type {
 
 // 🚀 NEW PLUGIN TYPES
 export type {
+  RateLimiterData,
   RateLimiterOptions,
   RateLimiterStore,
-  RateLimiterData,
 } from './rate-limiter/rate-limiter.plugin';
 
-export type {
-  CorsOptions,
-} from './cors/cors.plugin';
+export type { CorsOptions } from './cors/cors.plugin';
 
 export type {
   JwtOptions,
-  SessionOptions,
-  User,
   Permission,
   Role,
+  SessionOptions,
+  User,
 } from './auth/auth.plugin';
 
 export type {
-  MetricsOptions,
   CustomMetric,
+  HealthStatus,
+  MetricsOptions,
   RequestMetrics,
   SystemMetrics,
-  HealthStatus,
 } from './metrics/metrics.plugin';
 
 export type {
   ApiDocsOptions,
-  RouteDocumentation,
   OpenAPISpec,
+  RouteDocumentation,
   SchemaObject,
 } from './api-docs/api-docs.plugin';
 
 // Presets and helpers
-export { CorsPresets } from './cors/cors.plugin';
-export { CommonRoles } from './auth/auth.plugin';
 export { CommonSchemas } from './api-docs/api-docs.plugin';
+export { CommonRoles } from './auth/auth.plugin';
+export { CorsPresets } from './cors/cors.plugin';
 
 // ============================================================================
 // 🎯 PLUGIN CREATION HELPER
 // ============================================================================
 
+import { ApiDocumentationPlugin } from './api-docs/api-docs.plugin';
+import { AuthPlugin } from './auth/auth.plugin';
 import { BodyParserPlugin } from './body-parser/body-parser.plugin';
 import type { PluginRegistry } from './core/base-plugin';
 import { EventDrivenPlugin } from './core/event-driven.plugin';
+import { CorsPlugin } from './cors/cors.plugin';
+import { MetricsPlugin } from './metrics/metrics.plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { ValidationPlugin } from './middleware/validation.plugin';
+import { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
 import { RouterPlugin } from './router/router.plugin';
 import { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
 import { WebSocketPlugin } from './websocket/websocket.plugin';
-import { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
-import { CorsPlugin } from './cors/cors.plugin';
-import { AuthPlugin } from './auth/auth.plugin';
-import { MetricsPlugin } from './metrics/metrics.plugin';
-import { ApiDocumentationPlugin } from './api-docs/api-docs.plugin';
 
 /**
  * Create all core plugins for NextRush
