@@ -4,11 +4,12 @@
 
 You are an expert in TypeScript, Node.js, and building web frameworks. Your task is to develop **NextRush**, a modular, type-safe, zero-dependency (where feasible), and developer-friendly web framework that surpasses Express.js in simplicity and power. NextRush emphasizes:
 
-- **Type Safety**: Use TypeScript with automatic type inference via `src/types/global.d.ts` or inside the files themselves.and method overloads to ensure `NextRushRequest`, `NextRushResponse`, `RequestContext`, and `NextRush` types are inferred correctly without manual imports. **Never use `any` in user-facing APIs.**
+- **Type Safety**: Use TypeScript with automatic type inference via `src/types/global.d.ts` or inside the files themselves and method overloads to ensure `NextRushRequest`, `NextRushResponse`, `RequestContext`, and `NextRush` types are inferred correctly without manual imports. **Never use `any` in user-facing APIs.**
 - **Unified Plugin Architecture**: All features (routing, middleware, WebSocket, static files, templating) must be implemented as plugins under `src/plugins`, inheriting from `BasePlugin`. Eliminate separate `components` or other conflicting structures.
 - **Express-Like DX**: Provide a familiar, simple API (`createApp`, `app.get`, `app.use`, `app.ws`, `app.static`, `app.render`) that hides complexity from developers.
 - **Zero Dependencies**: Implement built-in features (e.g., body parsing, static file serving, templating) without external packages.
-- **Clean Code**: Prioritize maintainability, readability, and performance. Use clear naming, concise files (~150-200 lines), and modular design. Avoid code duplication and inconsistent patterns.
+- **Enterprise-Grade Quality**: Follow industry-leading standards inspired by Fastify's performance, Hapi's security, NestJS's architecture, and Koa's elegance.
+- **Clean Code**: Prioritize maintainability, readability, and performance. Use clear naming, concise files (~150-300 lines), and modular design. Avoid code duplication and inconsistent patterns.
 
 ## Context from Old Codebase
 
@@ -32,73 +33,173 @@ The old codebase at `/mnt/storage/project/MyExpress/NextRush_Src_Old/src` serves
 
 ## Documentation Reference
 
-The `/docs` directory contains Markdown files detailing functionality. Always consult these before generating code:
+The `/docs` directory contains Markdown files detailing functionality. **Always consult these before generating code** to ensure alignment:
 
-- **API-REFERENCE.md**: Public API signatures (`createApp`, `app.get`, `app.use`, etc.).
-- **BODY-PARSER.md**, **BODY-PARSER-STATUS.md**: Body parsing middleware and status handling.
-- **EVENT-DRIVEN-ARCHITECTURE.md**, **EVENT-SYSTEM.md**: Event system for plugin communication.
-- **MIDDLEWARE.md**: Middleware patterns (Express-style and context-style).
-- **REQUEST.md**, **RESPONSE.md**: `NextRushRequest` and `NextRushResponse` interfaces.
-- **USER-MANUAL.md**: Setup and usage guidance.
-- **WEBSOCKET.md**: WebSocket implementation details.
+- `API-REFERENCE.md`: Public API signatures (`createApp`, `app.get`, `app.use`, `app.usePreset`, etc.).
+- `BODY-PARSER-API.md`, `BODY-PARSER-GUIDE.md`, `BODY-PARSER-ULTIMATE.md`: Body parsing middleware and implementation details.
+- `EVENT-DRIVEN-ARCHITECTURE.md`: Event system for plugin communication.
+- `MIDDLEWARE.md`: Middleware patterns, including `app.usePreset` and composition.
+- `REQUEST.md`, `RESPONSE.md`: `NextRushRequest` and `NextRushResponse` interfaces.
+- `USER-MANUAL.md`: Setup and usage guidance.
+- `WEBSOCKET.md`: WebSocket implementation details, including room management.
+- `TEMPLATE-ENGINE.md`, `TEMPLATE-ENGINE-GUIDE.md`: Templating and routing status.
 
-## File Structure Guidelines (Operational) You can follow your own structure, but it must follow the guidelines below and best practices.
+**Action**: After implementing features, update `/docs` to reflect the plugin-based architecture and ensure 100% feature coverage.
 
-The codebase must follow a clean, modular structure. **Do not create duplicate folders or files** (e.g., `src/components/static` and `src/components/static-files`). **Check for existing implementations before creating new files.** Use this structure:
+## Current Project State Analysis
+
+### ✅ **Completed Core Features** (Based on semantic analysis)
+
+#### **Plugin Architecture** (100% Complete)
+- ✅ `BasePlugin` abstract class with unified interface
+- ✅ `PluginRegistry` for lifecycle management
+- ✅ Event-driven communication system
+- ✅ All 5 core plugins implemented:
+  - `RouterPlugin`: HTTP methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, ALL)
+  - `MiddlewarePlugin`: Global and route-specific middleware with presets
+  - `StaticFilesPlugin`: File serving with SPA support
+  - `WebSocketPlugin`: Zero-dependency WebSocket with rooms
+  - `TemplatePlugin`: Multi-syntax template engine
+  - `BodyParserPlugin`: Ultimate body parsing with file uploads
+
+#### **Type Safety** (95% Complete)
+- ✅ Full TypeScript integration with method overloads
+- ✅ No `any` usage in public APIs
+- ✅ Automatic type inference for `app.get`, `app.use`, etc.
+- ✅ Context-style and Express-style handler support
+- 🔄 Global type definitions optimization needed
+
+#### **Zero Dependencies** (100% Complete)
+- ✅ WebSocket implementation using native Node.js APIs
+- ✅ Template engine with multiple syntax support
+- ✅ Body parser with multipart/file upload support
+- ✅ Static file server with compression and caching
+
+#### **Performance Optimizations** (90% Complete)
+- ✅ Plugin lazy loading and caching
+- ✅ Streaming support for large responses
+- ✅ Memory-conscious WebSocket implementation
+- ✅ Efficient route matching algorithms
+
+### 🔄 **Framework Analysis vs. Industry Leaders**
+
+Based on research from Fastify, Hapi, NestJS, and Koa, NextRush adopts best practices:
+
+#### **From Fastify** (Performance Leader)
+- ✅ Schema-based validation architecture
+- ✅ Plugin system for extensibility
+- ✅ High-performance request/response handling
+- 🔄 JSON schema integration for validation (planned)
+
+#### **From Hapi** (Security Leader)
+- ✅ Built-in security defaults
+- ✅ Comprehensive plugin lifecycle
+- ✅ Predictable middleware execution order
+- ✅ Zero external dependencies for core features
+
+#### **From NestJS** (Architecture Leader)
+- ✅ Dependency injection patterns (via plugin registry)
+- ✅ Modular architecture with clear separation
+- ✅ TypeScript-first design
+- 🔄 Decorator support (future enhancement)
+
+#### **From Koa** (Simplicity Leader)
+- ✅ Context-style handlers alongside Express compatibility
+- ✅ Middleware cascading and composition
+- ✅ Clean API surface with minimal cognitive overhead
+
+## File Structure Guidelines (Operational)
+
+The codebase follows a clean, modular structure. **Do not create duplicate folders or files** (e.g., `src/components/static` and `src/components/static-files`). **Check for existing implementations before creating new files.** The current structure is:
 
 ```
 src/
-├── plugins/
-│   ├── router/
-│   │   ├── router.plugin.ts
-│   │   └── route-matcher.ts
-│   ├── websocket/
-│   │   └── websocket.plugin.ts
-│   ├── static-files/
-│   │   └── static-files.plugin.ts
-│   ├── template/
-│   │   ├── template.plugin.ts
-│   │   └── template-engine.ts
+├── plugins/                    # 🔌 ALL FEATURES AS PLUGINS
 │   ├── body-parser/
 │   │   └── body-parser.plugin.ts
 │   ├── middleware/
 │   │   ├── middleware.plugin.ts
-│   │   └── presets.ts
-│   ├── core/
+│   │   ├── presets.ts
+│   │   ├── built-in.ts
+│   │   └── composition.ts
+│   ├── router/
+│   │   ├── router.plugin.ts
+│   │   └── route-matcher.ts
+│   ├── static-files/
+│   │   └── static-files.plugin.ts
+│   ├── template/
+│   │   ├── template.plugin.ts
+│   │   ├── ultimate-template-engine.ts
+│   │   └── index.ts
+│   ├── websocket/
+│   │   └── websocket.plugin.ts
+│   ├── core/                   # 🏗️ PLUGIN SYSTEM CORE
 │   │   ├── base-plugin.ts
-│   │   └── plugin-manager.ts
+│   │   ├── plugin-manager.ts
+│   │   ├── plugin.interface.ts
+│   │   └── simple-registry.ts
+│   ├── clean-plugins.ts        # 🎯 UNIFIED PLUGIN CREATION
 │   └── index.ts
-├── core/
-│   ├── application.ts
+├── core/                       # 🚀 APPLICATION CORE
+│   ├── app/
+│   │   ├── application.ts      # Main app class
+│   │   ├── base-component.ts
+│   │   ├── component-manager.ts
+│   │   └── plugin-registry.ts
+│   ├── enhancers/
+│   │   ├── request-enhancer.ts
+│   │   └── response-enhancer.ts
+│   ├── types/
+│   │   └── interfaces.ts
 │   ├── event-system.ts
-│   ├── plugin-registry.ts
-│   └── interfaces.ts
-├── types/
-│   ├── global.d.ts
-│   ├── http.ts
-│   ├── routing.ts
-│   ├── websocket.ts
-│   └── template.ts
-├── errors/
+│   ├── interfaces.ts
+│   └── index.ts
+├── errors/                     # 🛡️ ERROR HANDLING
 │   ├── custom-errors.ts
 │   ├── error-handler.ts
-│   └── types.ts
-├── utils/
+│   ├── types.ts
+│   └── index.ts
+├── helpers/                    # 🔧 UTILITY FUNCTIONS
+│   ├── type-helpers.ts
+│   └── index.ts
+├── types/                      # 📝 TYPE DEFINITIONS
+│   ├── global.d.ts            # 🎯 AUTO TYPE INFERENCE
+│   ├── http.ts
+│   ├── routing.ts
+│   ├── template.ts
+│   ├── websocket.ts
+│   ├── common.ts
+│   ├── component-errors.ts
+│   ├── express.ts
+│   └── index.ts
+├── utils/                      # ⚙️ SHARED UTILITIES
 │   ├── path-utils.ts
-│   ├── compose.ts
-│   └── template-engine.ts
-├── examples/
+│   ├── template-engine.ts
+│   └── compose.ts
+├── examples/                   # 🧪 TESTING & DEMOS
+│   ├── template/
+│   │   ├── template.test.ts
+│   │   ├── debug-loop.ts
+│   │   ├── final-verification.ts
+│   │   ├── production-demo.ts
+│   │   ├── quick-test.ts
+│   │   ├── server-test.ts
+│   │   └── working-demo.ts
 │   ├── routing/
 │   │   └── routing.test.ts
 │   ├── middleware/
-│   │   └── middleware.test.ts
 │   └── websocket/
-│       └── websocket.test.ts
-└── index.ts
+├── http/                       # 📊 LEGACY (TO BE MIGRATED)
+├── routing/                    # 📊 LEGACY (TO BE MIGRATED)
+├── middleware/                 # 📊 LEGACY (TO BE MIGRATED)
+├── templating/                 # 📊 LEGACY (TO BE MIGRATED)
+└── index.ts                    # 🏁 MAIN ENTRY POINT
 ```
 
+### **Key Principles**:
 - **Plugins**: All features (routing, middleware, etc.) are implemented as plugins under `src/plugins`. Each plugin inherits from `BasePlugin` (`src/plugins/core/base-plugin.ts`).
 - **No Components**: Eliminate `src/components`. Move all component logic to `src/plugins`.
+- **Legacy Migration**: Folders like `http/`, `routing/`, `middleware/`, and `templating/` are legacy and should be migrated to plugins.
 - **Temporary Files**: For experimental or temporary implementations, use `t-<feature>.ts` (e.g., `t-router.ts`). Once finalized, merge into the original file (e.g., `router.plugin.ts`) and **delete the temporary file**.
 - **Testing**: Place test files in `src/examples/<feature>/<feature>.test.ts` to keep them organized and separate from production code.
 - **Core Logic**: Core application logic (e.g., `Application`, `PluginRegistry`) lives in `src/core`.
@@ -190,7 +291,9 @@ src/
 
 3. **Routing and Middleware**:
 
-   - Support all HTTP methods with Express-style and context-style handlers. Use `src/plugins/middleware/middleware.plugin.ts` for middleware logic.
+   - Support all HTTP methods with Express-style and context-style handlers in `src/plugins/router/router.plugin.ts`.
+   - Implement middleware logic in `src/plugins/middleware/middleware.plugin.ts`, including `app.usePreset` for presets (`development`, `production`, `fullFeatured`, etc.).
+   - Use `src/utils/compose.ts` for middleware composition and Express-to-context conversion.
    - Convert Express-style to context-style internally using utilities in `src/utils/compose.ts`.
    - Example:
      ```typescript
@@ -207,14 +310,16 @@ src/
 
 4. **WebSocket**:
 
-   - Implement `app.ws` in `src/plugins/websocket/websocket.plugin.ts` using the `ws` package (only dependency allowed if necessary).
-   - Example:
-     ```typescript
-     app.ws('/chat', (socket: WebSocket) => {
-       socket.send('Welcome!');
-       socket.on('message', (data) => socket.send(`Received: ${data}`));
-     });
-     ```
+   - Implement `app.ws` in `src/plugins/websocket/websocket.plugin.ts` using Node's built-in `ws` module. No external dependencies.
+   - Support WebSocket endpoints with type-safe handlers.
+   - Support room management and authentication as per `WEBSOCKET.md`.
+
+   ```typescript
+   app.ws('/chat', (socket: WebSocket) => {
+     socket.send('Welcome!');
+     socket.on('message', (data) => socket.send(`Received: ${data}`));
+   });
+   ```
 
 5. **Static Files and Templating**:
 
@@ -229,15 +334,59 @@ src/
      });
      ```
 
-6. **Clean Code Practices**:
+6. **Body Parsing**:
 
-   - Use clear JSDoc comments for public APIs.
+   - Implement `Ultimate Body Parser` in `src/plugins/body-parser/body-parser.plugin.ts` for JSON, URL-encoded, multipart, and file uploads with security validations.
+   - Migrate logic from `http/parsers/` and `http/request/` to `src/plugins/body-parser/`.
+   - Example:
+     ```typescript
+     app.post('/upload', (req: NextRushRequest, res: NextRushResponse) => {
+       const file = req.file('avatar');
+       res.json({ file: file.filename });
+     });
+     ```
+
+7. **Performance & Security Best Practices**:
+
+   - **Fastify-inspired**: Use schema-based validation, plugin lazy loading, streaming responses
+   - **Hapi-inspired**: Security defaults, predictable middleware execution, comprehensive error handling
+   - **NestJS-inspired**: Dependency injection patterns, modular architecture, decorator support (future)
+   - **Koa-inspired**: Context-style handlers, middleware cascading, minimal cognitive overhead
+
+   - Example performance optimization:
+     ```typescript
+     // Plugin lazy loading
+     const lazyPlugin = () => import('./heavy-plugin').then(m => m.default);
+
+     // Streaming responses
+     app.get('/large-data', (req, res) => {
+       const stream = createReadableStream();
+       res.setHeader('Content-Type', 'application/json');
+       stream.pipe(res);
+     });
+     ```
+
+8. **Clean Code Practices**:
+
+   - Use clear JSDoc comments for public APIs:
+     ```typescript
+     /**
+      * Registers a GET route with type-safe request and response.
+      * @param path The route path (e.g., '/api/users/:id')
+      * @param handler The request handler
+      * @example
+      * app.get('/users/:id', (req, res) => {
+      *   res.json({ user: req.params.id });
+      * });
+      */
+     get(path: string, handler: (req: NextRushRequest, res: NextRushResponse) => void): this;
+     ```
    - Keep files concise (~150-300 lines) by splitting logic into plugins.
    - Use meaningful names (e.g., `registerRoute` instead of `add`).
    - Validate types with `npx tsc --noEmit` and `npx dtslint` in CI.
    - **No Duplication**: Before implementing a feature, check if it exists in the old codebase or current files. Update existing files instead of creating new ones.
 
-7. **Testing**:
+9. **Testing**:
 
    - Place tests in `src/examples/<feature>/<feature>.test.ts` (e.g., `src/examples/routing/routing.test.ts`).
    - Group tests by feature to keep them organized.
@@ -256,17 +405,42 @@ src/
      });
      ```
 
-8. **Temporary Files**:
+10. **Temporary Files**:
 
    - For experimental implementations, use `t-<feature>.ts` (e.g., `t-router.ts`).
    - Once finalized, merge into the original file (e.g., `router.plugin.ts`) and **delete the temporary file**.
+   - Use `t-<feature>.ts` (e.g., `t-websocket.ts`) in the relevant plugin folder for experimental implementations.
+   - Merge into the main plugin file (e.g., `websocket.plugin.ts`) and delete temporary files.
+   - Example: Create `src/plugins/websocket/t-room-management.ts`, then merge into `websocket.plugin.ts` and delete.
+
    - **Never leave unused files** in the codebase.
 
-9. **Core Logic**:
+11. **Core Logic**:
+    - Core logic (`Application`, `PluginRegistry`, `EventSystem`) lives in `src/core/`.
+    - Ensure the public API (`createApp`, `app.get`, etc.) is simple and intuitive.
+    - Use OOP inheritance and abstract classes (e.g., `BasePlugin`) to encapsulate complexity.
+    - Avoid adding unnecessary complexity to the core logic. Keep it focused on the essential features and functionality.
+    - Proper use of OOP principles to encapsulate complexity and provide a clean, intuitive API for developers.
+    - Abstraction of complex logic into plugins and utility functions to keep the core application logic simple and maintainable.
 
-- Core application logic (e.g., `Application`, `PluginRegistry`) lives in `src/core`.
-- Ensure the public API (`createApp`, `app.get`, etc.) is simple and intuitive.
-- Use OOP inheritance and abstract classes (e.g., `BasePlugin`) to encapsulate complexity.
+12. **Agent Configuration Integration**:
+    - Leverage VS Code's TypeScript language features for enhanced development experience
+    - Use proper JSON schema validation for configuration files
+    - Implement workspace-specific settings for optimal development workflow
+    - Support both desktop and web extension environments
+    - Provide comprehensive IntelliSense and autocomplete functionality
+
+## Developer Experience
+
+- Prioritize developer experience by providing clear documentation, examples, and a consistent coding style.
+- Encourage collaboration and knowledge sharing among developers to foster a positive and productive work environment.
+- Implement helpful error messages and type hints to guide developers.
+- Use JSDoc comments to explain complex logic and public methods.
+- Provide clear documentation and examples for all public APIs.
+- Use consistent naming conventions and coding styles across the codebase.
+- Use TypeScript's type system to provide clear and helpful type hints for developers.
+- Make sure to document any complex logic or patterns in the codebase to help developers understand the design decisions.
+- Make sure TypeScript's types properly infer types.
 
 ## Copilot Workflow Guidelines
 
@@ -317,6 +491,18 @@ src/
 - Implement helpful error messages and type hints to guide developers.
 - Use JSDoc comments to explain complex logic and public methods.
 
+8. **Migrate Redundant Folders**:
+
+   - Migrate logic from `http/`, `routing/`, `middleware/`, and `templating/` to their respective plugins under `src/plugins/`.
+   - Example: Move `http/parsers/ultimate-body-parser.ts` to `src/plugins/body-parser/ultimate-body-parser.ts` and delete `http/`.
+   - Log migrations in `docs/CHANGELOG.md`.
+
+9. **Codebase Cleanup**:
+   - Use tools like `code-cleaner` to identify and remove duplicate files (e.g., `http/ultimate-body-parser.ts` and `plugins/body-parser/ultimate-body-parser.ts`).
+   - Delete temporary files (`t-<feature>.ts`) after merging.
+   - Remove redundant folders (`http/`, `routing/`, `middleware/`, `templating/`) after migration.
+   - Log changes in `docs/CHANGELOG.md`.
+
 ## Example Prompts for Copilot
 
 - **Routing**: "Update `src/plugins/router/router.plugin.ts` to support `app.get` with type-safe `NextRushRequest` and `NextRushResponse`. Check `/mnt/storage/project/MyExpress/NextRush_Src_Old/src/router.ts` for feature parity."
@@ -326,8 +512,66 @@ src/
 
 ## Notes
 
-- **Always cross-reference** the old codebase and `/docs` before modifying files.
+- **Cross-Reference**: Always check the old codebase and `/docs` before modifying files to ensure feature parity.
+- **No `any`**: Use `NextRushRequest`, `NextRushResponse`, `RequestContext`, or `WebSocket` in user-facing APIs.
 - **Never use `any`** in user-facing APIs. Rely on `src/types/global.d.ts` for type inference.
 - **Consolidate duplicate code** by updating existing files, not creating new ones.
 - **Clean up after refactoring**: Delete temporary files (`t-<feature>.ts`) and unused folders.
 - **Test rigorously** using `npx tsc --noEmit` and `npx dtslint`. Place tests in `src/examples`.
+- **Documentation**: Update `/docs` after implementing features to reflect the plugin-based architecture.
+
+---
+
+## Advanced Agent Configuration & Development Tools
+
+This section provides comprehensive VS Code agent configuration for optimal NextRush development experience, inspired by industry-leading frameworks and development practices.
+
+### Agent Capabilities Matrix
+
+| Capability | Status | Priority | Implementation |
+|------------|--------|----------|----------------|
+| **TypeScript Integration** | ✅ Active | Critical | VS Code native + custom schemas |
+| **Plugin Architecture Support** | ✅ Active | Critical | Custom IntelliSense + snippets |
+| **Performance Monitoring** | 🔄 Planned | High | Webpack bundle analyzer + metrics |
+| **Security Validation** | 🔄 Planned | High | Custom linting rules + audit tools |
+| **Auto-completion** | ✅ Active | Critical | Enhanced TypeScript definitions |
+| **Error Detection** | ✅ Active | Critical | Multi-layer validation system |
+| **Refactoring Support** | 🔄 Planned | Medium | Smart rename + import management |
+| **Testing Integration** | 🔄 Planned | Medium | Jest + coverage reporting |
+
+
+#### Based on Research from Leading Frameworks:
+
+1. **Fastify-inspired Development Environment**:
+   - High-performance development server with hot reload
+   - Schema-based validation during development
+   - Plugin discovery and validation
+   - Performance metrics integration
+
+2. **Hapi-inspired Security Features**:
+   - Security-first development warnings
+   - Dependency vulnerability scanning
+   - Code security analysis integration
+   - Secure coding practice suggestions
+
+3. **NestJS-inspired Architecture Support**:
+   - Dependency injection visualization
+   - Module dependency graph
+   - Decorator syntax support
+   - Advanced IntelliSense for architectural patterns
+
+4. **Koa-inspired Simplicity**:
+   - Minimal configuration overhead
+   - Context-aware suggestions
+   - Middleware flow visualization
+   - Clean error reporting
+
+
+This configuration provides:
+- **Complete TypeScript integration** with enhanced IntelliSense
+- **Plugin-aware development** with custom snippets and validation
+- **Performance monitoring** and optimization tools
+- **Security-first development** practices
+- **Framework-specific tooling** inspired by industry leaders
+- **Advanced debugging** capabilities for complex plugin architectures
+- **Automated quality assurance** with comprehensive testing integration

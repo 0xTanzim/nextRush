@@ -1,11 +1,90 @@
 {
+  "typescript.tsdk": "./node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  "typescript.suggest.completeJSDocs": true,
+  "typescript.workspaceSymbols.scope": "allOpenProjects",
+  "typescript.inlayHints.parameterNames.enabled": "literals",
+  "typescript.inlayHints.functionLikeReturnTypes.enabled": true,
+  "typescript.inlayHints.variableTypes.enabled": false,
+  "typescript.experimental.expandableHover": true,
+  
+  // NextRush-specific configurations
   "files.watcherExclude": {
     "**/node_modules/**": true,
     "**/dist/**": true,
-    "**/.git/**": true
+    "**/.git/**": true,
+    "**/NextRush_Src_Old/**": true
   },
+  "search.exclude": {
+    "**/NextRush_Src_Old/**": true,
+    "**/dist/**": true
+  },
+  
+  // Plugin development optimizations
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": false,
+    "strings": true
+  },
+  "editor.suggest.snippetsPreventQuickSuggestions": false,
+  "editor.parameterHints.enabled": true,
+  "editor.codeLens": true,
+  
+  // Performance optimizations
   "files.hotExit": "off",
   "workbench.editor.restoreViewState": false,
   "workbench.editor.enablePreview": false,
-  "copilot.conversation.persistState": false
+  "copilot.conversation.persistState": false,
+  
+  // Code formatting
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit",
+    "source.fixAll.eslint": "explicit"
+  },
+  
+  // File associations for NextRush
+  "files.associations": {
+    "*.nextrush": "typescript",
+    "*.plugin.ts": "typescript"
+  },
+  
+  // IntelliSense optimizations
+  "typescript.suggest.includeAutomaticOptionalChainCompletions": true,
+  "typescript.suggest.includeCompletionsForImportStatements": true,
+  "typescript.suggest.paths": true,
+  
+  // Error highlighting
+  "typescript.validate.enable": true,
+  "typescript.reportStyleChecksAsWarnings": true,
+  
+  // Plugin-specific settings
+  "emmet.includeLanguages": {
+    "typescript": "html"
+  },
+  
+  // NextRush framework development
+  "nextRush.pluginValidation": true,
+  "nextRush.typeInference": "strict",
+  "nextRush.autoImports": true,
+  
+  // Development server settings
+  "liveServer.settings.donotShowInfoMsg": true,
+  "liveServer.settings.donotVerifyTags": true,
+  
+  // Git configuration
+  "git.ignoreLimitWarning": true,
+  "git.autofetch": true,
+  
+  // Terminal configuration
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "terminal.integrated.profiles.linux": {
+    "zsh": {
+      "path": "/usr/bin/zsh",
+      "args": ["-l"]
+    }
+  }
 }

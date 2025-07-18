@@ -17,15 +17,15 @@ export function pathToRegex(path: string): RegExp {
     return new RegExp(`^${escapeRegex(path)}/?$`);
   }
 
+  // Escape special regex characters FIRST, but preserve : and * for parameter conversion
+  let regexPath = path.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
   // Convert path parameters to regex groups
-  let regexPath = path
+  regexPath = regexPath
     // Handle :param patterns
     .replace(/:([^/]+)/g, '([^/]+)')
     // Handle wildcard patterns
     .replace(/\*/g, '(.*)');
-
-  // Escape other regex characters
-  regexPath = regexPath.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
 
   return new RegExp(`^${regexPath}/?$`);
 }

@@ -18,7 +18,7 @@ export type { PluginRegistry } from './core/base-plugin';
 
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
 export { RouterPlugin } from './router/router.plugin';
-export { StaticFilesPlugin } from './static-files/static-files.plugin';
+export { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
 export { TemplatePlugin } from './template/template.plugin';
 export { WebSocketPlugin } from './websocket/websocket.plugin';
 
@@ -29,7 +29,7 @@ export { WebSocketPlugin } from './websocket/websocket.plugin';
 import type { PluginRegistry } from './core/base-plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { RouterPlugin } from './router/router.plugin';
-import { StaticFilesPlugin } from './static-files/static-files.plugin';
+import { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
 import { TemplatePlugin } from './template/template.plugin';
 import { WebSocketPlugin } from './websocket/websocket.plugin';
 

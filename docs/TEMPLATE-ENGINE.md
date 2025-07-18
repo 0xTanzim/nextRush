@@ -1,146 +1,8 @@
-# 🎭 NextRush Ultimate Template Engine Documentation
+# Template Engine Guide
 
-## Table of Contents
+NextRush includes a powerful, zero-dependency template engine that supports multiple syntaxes and advanced features.
 
-1. [Overview](#overview)
-2. [Features](#features)
-3. [Quick Start](#quick-start)
-4. [API Reference](#api-reference)
-5. [Template Syntax](#template-syntax)
-6. [Plugin Integration](#plugin-integration)
-7. [Performance](#performance)
-8. [Examples](#examples)
-9. [Advanced Usage](#advanced-usage)
-10. [Troubleshooting](#troubleshooting)
-
-## Overview
-
-The NextRush Ultimate Template Engine is a powerful, flexible, and zero-dependency template system designed for the NextRush web framework. It supports multiple template syntaxes, streaming rendering, component systems, and advanced features like layouts and partials.
-
-### Key Benefits
-
-- 🎯 **Multi-syntax support**: Handlebars, JSX-style, Mustache, and custom syntaxes
-- 🔥 **Streaming rendering**: High-performance output for large templates
-- 🧩 **Component system**: Reusable template components with slots
-- 📁 **Smart path resolution**: Automatic template discovery and aliasing
-- 🎨 **Layout inheritance**: Powerful layout system for consistent designs
-- 🛡️ **Type-safe**: Full TypeScript support with strict type checking
-- ⚡ **Caching**: Template compilation caching for production performance
-- 🌐 **i18n ready**: Built-in internationalization support
-- 🧪 **Testing utilities**: Comprehensive testing and debugging tools
-
-## Features
-
-### Multi-Syntax Template Support
-
-#### Handlebars Syntax
-
-```html
-<!-- Basic variables -->
-<h1>{{title}}</h1>
-<p>Welcome {{user.name}}!</p>
-
-<!-- Conditionals -->
-{{#if user.isLoggedIn}}
-<p>Hello {{user.name}}!</p>
-{{else}}
-<p>Please log in</p>
-{{/if}}
-
-<!-- Loops -->
-{{#each items}}
-<div class="item">{{name}} - ${{price}}</div>
-{{/each}}
-
-<!-- Helpers -->
-{{formatDate createdAt "YYYY-MM-DD"}} {{uppercase title}}
-```
-
-#### JSX-Style Syntax
-
-```html
-<!-- Variables -->
-<h1><%= title %></h1>
-<p>Welcome <%= user.name %>!</p>
-
-<!-- Code blocks -->
-<% if (user.isLoggedIn) { %>
-<p>Hello <%= user.name %>!</p>
-<% } else { %>
-<p>Please log in</p>
-<% } %>
-
-<!-- Loops -->
-<% for (const item of items) { %>
-<div class="item"><%= item.name %> - $<%= item.price %></div>
-<% } %>
-```
-
-#### Component Syntax
-
-```html
-<!-- Component usage -->
-<UserCard name="{{user.name}}" avatar="{{user.avatar}}">
-  <div slot="bio">
-    <p>{{user.bio}}</p>
-  </div>
-</UserCard>
-
-<!-- Component with children -->
-<Layout title="{{pageTitle}}">
-  <main>{{content}}</main>
-</Layout>
-```
-
-### Advanced Features
-
-#### Layout System
-
-```html
-<!-- layout.html -->
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>{{title}}</title>
-  </head>
-  <body>
-    <header>{{> header}}</header>
-    <main>{{content}}</main>
-    <footer>{{> footer}}</footer>
-  </body>
-</html>
-
-<!-- page.html -->
---- layout: layout title: My Page ---
-<h1>Page Content</h1>
-<p>This content will be inserted into the layout.</p>
-```
-
-#### Frontmatter Support
-
-```html
----
-layout: base
-title: Blog Post
-author: Jane Doe
-date: 2024-01-15
-tags: [nextjs, templates, web]
----
-
-<article>
-  <h1>{{title}}</h1>
-  <p>By {{author}} on {{formatDate date}}</p>
-  <div class="content">
-    <!-- Template content here -->
-  </div>
-</article>
-```
-
-## Quick Start
-
-### Installation
-
-The template engine is included with NextRush by default. To use it in your application:
+## Basic Template Rendering
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -148,779 +10,638 @@ import { createApp } from 'nextrush';
 const app = createApp();
 
 // Set views directory
-app.setViews('./views', {
-  cache: process.env.NODE_ENV === 'production',
-  defaultExtension: '.html',
-  syntax: 'auto', // Automatically detect syntax
+app.setViews('./views');
+
+// Render template
+app.get('/profile/:id', (req, res) => {
+  const user = {
+    id: req.params.id,
+    name: 'John Doe',
+    email: 'john@example.com',
+    isActive: true,
+    posts: ['Post 1', 'Post 2', 'Post 3'],
+  };
+
+  res.render('profile.html', { user });
 });
 
-// Use in routes
-app.get('/', (req, res) => {
-  res.render('index', {
-    title: 'Welcome to NextRush',
-    user: { name: 'Developer' },
-  });
-});
+app.listen(3000);
 ```
 
-### Basic Template Structure
+## Template Syntax
 
-Create a template file `views/index.html`:
+### Mustache-Style Variables
 
 ```html
+<!-- views/profile.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{user.name}} - Profile</title>
+  </head>
+  <body>
+    <h1>Welcome, {{user.name}}!</h1>
+    <p>Email: {{user.email}}</p>
+    <p>ID: {{user.id}}</p>
+
+    <!-- Escaped content (safe) -->
+    <p>Bio: {{user.bio}}</p>
+
+    <!-- Unescaped content (use with caution) -->
+    <div>{{{user.htmlContent}}}</div>
+  </body>
+</html>
+```
+
+### Conditionals
+
+```html
+<!-- Conditional rendering -->
+{{#if user.isActive}}
+<span class="status active">User is active</span>
+{{/if}} {{#unless user.isActive}}
+<span class="status inactive">User is inactive</span>
+{{/unless}}
+
+<!-- If-else statements -->
+{{#if user.isAdmin}}
+<a href="/admin">Admin Panel</a>
+{{else}}
+<span>Regular User</span>
+{{/if}}
+
+<!-- Multiple conditions -->
+{{#if user.isActive}} {{#if user.isVerified}}
+<span class="badge verified">Verified User</span>
+{{else}}
+<span class="badge unverified">Unverified User</span>
+{{/if}} {{/if}}
+```
+
+### Loops and Iterations
+
+```html
+<!-- Loop through arrays -->
+<ul>
+  {{#each user.posts}}
+  <li>{{this}}</li>
+  {{/each}}
+</ul>
+
+<!-- Loop with index -->
+<ol>
+  {{#each user.posts}}
+  <li data-index="{{@index}}">{{this}}</li>
+  {{/each}}
+</ol>
+
+<!-- Loop through objects -->
+{{#each user.metadata}}
+<p><strong>{{@key}}:</strong> {{this}}</p>
+{{/each}}
+
+<!-- Empty state -->
+{{#each user.posts}}
+<div class="post">{{this}}</div>
+{{else}}
+<p>No posts available</p>
+{{/each}}
+```
+
+### Nested Data Access
+
+```html
+<!-- Nested object properties -->
+<h2>{{user.profile.displayName}}</h2>
+<p>
+  Location: {{user.profile.location.city}}, {{user.profile.location.country}}
+</p>
+
+<!-- Array access -->
+<p>Latest post: {{user.posts.0}}</p>
+<p>Second post: {{user.posts.1}}</p>
+
+<!-- Complex nested structures -->
+{{#each user.projects}}
+<div class="project">
+  <h3>{{title}}</h3>
+  <p>{{description}}</p>
+
+  {{#each technologies}}
+  <span class="tech-tag">{{name}} ({{version}})</span>
+  {{/each}}
+</div>
+{{/each}}
+```
+
+## Advanced Features
+
+### Partials (Template Includes)
+
+```html
+<!-- views/partials/header.html -->
+<header>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/about">About</a>
+    {{#if user}}
+    <a href="/profile">Profile</a>
+    <a href="/logout">Logout</a>
+    {{else}}
+    <a href="/login">Login</a>
+    {{/if}}
+  </nav>
+</header>
+
+<!-- views/main.html -->
 <!DOCTYPE html>
 <html>
   <head>
     <title>{{title}}</title>
   </head>
   <body>
-    <h1>{{title}}</h1>
-    <p>Hello {{user.name}}!</p>
+    {{> header}}
 
-    {{#if user.hobbies}}
-    <h2>Your hobbies:</h2>
-    <ul>
-      {{#each user.hobbies}}
-      <li>{{this}}</li>
-      {{/each}}
-    </ul>
-    {{/if}}
+    <main>
+      <h1>{{pageTitle}}</h1>
+      {{content}}
+    </main>
+
+    {{> footer}}
   </body>
 </html>
 ```
 
-## API Reference
-
-### NextRush Integration
-
-#### app.setViews(directory, options?)
-
-Set the views directory and template options.
+### Custom Helpers
 
 ```typescript
+// Register custom template helpers
 app.setViews('./views', {
-  cache: boolean, // Enable template caching
-  defaultExtension: string, // Default file extension
-  syntax: string, // Template syntax ('auto', 'handlebars', 'jsx', 'mustache')
-  watchFiles: boolean, // Watch for file changes in development
-  streaming: boolean, // Enable streaming rendering
-});
-```
-
-#### app.setTemplateEngine(options)
-
-Configure template engine options.
-
-```typescript
-app.setTemplateEngine({
-  syntax: 'handlebars',
-  cache: true,
   helpers: {
-    formatDate: (date) => new Date(date).toLocaleDateString(),
-    uppercase: (str) => str.toUpperCase(),
+    // Format date helper
+    formatDate: (date) => {
+      return new Date(date).toLocaleDateString();
+    },
+
+    // Uppercase helper
+    upper: (text) => {
+      return text.toUpperCase();
+    },
+
+    // Math operations
+    add: (a, b) => a + b,
+    multiply: (a, b) => a * b,
+
+    // String operations
+    truncate: (text, length = 50) => {
+      return text.length > length ? text.substring(0, length) + '...' : text;
+    },
+
+    // Conditional helpers
+    eq: (a, b) => a === b,
+    gt: (a, b) => a > b,
+    lt: (a, b) => a < b,
+
+    // JSON stringify for debugging
+    json: (obj) => JSON.stringify(obj, null, 2),
   },
-  filters: {
-    reverse: (arr) => [...arr].reverse(),
-    take: (arr, n) => arr.slice(0, n),
+});
+
+// Use helpers in templates
+app.get('/posts', (req, res) => {
+  const posts = [
+    {
+      title: 'First Post',
+      content: 'This is a very long post content that needs to be truncated...',
+      createdAt: '2024-01-15',
+      views: 150,
+    },
+  ];
+
+  res.render('posts.html', { posts });
+});
+```
+
+```html
+<!-- views/posts.html -->
+<div class="posts">
+  {{#each posts}}
+  <article class="post">
+    <h2>{{upper title}}</h2>
+    <p>{{truncate content 100}}</p>
+    <div class="meta">
+      <span>Published: {{formatDate createdAt}}</span>
+      <span>Views: {{views}}</span>
+
+      {{#if (gt views 100)}}
+      <span class="badge popular">Popular</span>
+      {{/if}}
+    </div>
+
+    <!-- Debug info (development only) -->
+    {{#if @root.debug}}
+    <pre>{{json this}}</pre>
+    {{/if}}
+  </article>
+  {{/each}}
+</div>
+```
+
+### Layouts and Inheritance
+
+```typescript
+// Set default layout
+app.setViews('./views', {
+  layout: 'layouts/main.html',
+});
+
+// Render with custom layout
+app.get('/admin', (req, res) => {
+  res.render(
+    'admin/dashboard.html',
+    { title: 'Admin Dashboard' },
+    { layout: 'layouts/admin.html' }
+  );
+});
+
+// Render without layout
+app.get('/api/template', (req, res) => {
+  res.render('email/welcome.html', { user: req.user }, { layout: false });
+});
+```
+
+```html
+<!-- views/layouts/main.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{title}} - My Site</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+    {{#if additionalCSS}} {{#each additionalCSS}}
+    <link rel="stylesheet" href="{{this}}" />
+    {{/each}} {{/if}}
+  </head>
+  <body>
+    {{> header}}
+
+    <main class="content">{{{body}}}</main>
+
+    {{> footer}}
+
+    <script src="/assets/app.js"></script>
+    {{#if additionalJS}} {{#each additionalJS}}
+    <script src="{{this}}"></script>
+    {{/each}} {{/if}}
+  </body>
+</html>
+
+<!-- views/admin/dashboard.html -->
+<div class="admin-dashboard">
+  <h1>Admin Dashboard</h1>
+  <div class="stats">
+    <div class="stat">
+      <h3>{{stats.users}}</h3>
+      <p>Total Users</p>
+    </div>
+    <div class="stat">
+      <h3>{{stats.posts}}</h3>
+      <p>Total Posts</p>
+    </div>
+  </div>
+</div>
+```
+
+### Template Compilation and Caching
+
+```typescript
+// Configure template engine
+app.setViews('./views', {
+  cache: process.env.NODE_ENV === 'production', // Cache in production
+  extension: '.html', // Default extension
+  encoding: 'utf8', // File encoding
+
+  // Watch for changes in development
+  watch: process.env.NODE_ENV === 'development',
+
+  // Compilation options
+  compile: {
+    removeComments: true, // Remove HTML comments
+    minifyHTML: process.env.NODE_ENV === 'production',
+    preserveWhitespace: false, // Remove extra whitespace
+  },
+
+  // Error handling
+  strict: true, // Throw errors for undefined variables
+
+  // Custom delimiters
+  delimiters: {
+    start: '{{',
+    end: '}}',
   },
 });
 ```
 
-#### res.render(template, data, options?)
+## Template Organization
 
-Render a template and send the response.
+### Directory Structure
+
+```text
+views/
+├── layouts/
+│   ├── main.html           # Default layout
+│   ├── admin.html          # Admin layout
+│   └── email.html          # Email layout
+├── partials/
+│   ├── header.html         # Navigation header
+│   ├── footer.html         # Site footer
+│   ├── sidebar.html        # Sidebar component
+│   └── forms/
+│       ├── login.html      # Login form
+│       └── contact.html    # Contact form
+├── pages/
+│   ├── home.html           # Homepage
+│   ├── about.html          # About page
+│   └── contact.html        # Contact page
+├── user/
+│   ├── profile.html        # User profile
+│   ├── settings.html       # User settings
+│   └── dashboard.html      # User dashboard
+├── admin/
+│   ├── dashboard.html      # Admin dashboard
+│   ├── users.html          # User management
+│   └── posts.html          # Post management
+└── email/
+    ├── welcome.html        # Welcome email
+    ├── reset-password.html # Password reset
+    └── notification.html   # Notifications
+```
+
+### Template Inheritance Chain
 
 ```typescript
-app.get('/profile/:id', async (req, res) => {
-  const user = await getUserById(req.params.id);
+// Complex template rendering with data preprocessing
+app.get('/user/:id', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await getUserById(userId);
 
-  res.render(
-    'profile',
+    if (!user) {
+      return res.status(404).render('errors/404.html', {
+        title: 'User Not Found',
+        message: 'The requested user does not exist',
+      });
+    }
+
+    // Prepare template data
+    const templateData = {
+      title: `${user.name} - Profile`,
+      user: {
+        ...user,
+        avatarUrl: user.avatar || '/assets/default-avatar.png',
+        joinedDate: new Date(user.createdAt).toLocaleDateString(),
+        postCount: user.posts.length,
+        isOwnProfile: req.user && req.user.id === user.id,
+      },
+      posts: user.posts.map((post) => ({
+        ...post,
+        excerpt: post.content.substring(0, 150) + '...',
+        publishedDate: new Date(post.createdAt).toLocaleDateString(),
+      })),
+      additionalCSS: ['/assets/profile.css'],
+      additionalJS: ['/assets/profile.js'],
+    };
+
+    res.render('user/profile.html', templateData);
+  } catch (error) {
+    res.status(500).render('errors/500.html', {
+      title: 'Server Error',
+      error:
+        process.env.NODE_ENV === 'development'
+          ? error.message
+          : 'Internal server error',
+    });
+  }
+});
+```
+
+## Email Templates
+
+```typescript
+// Email template rendering
+const sendWelcomeEmail = async (user) => {
+  try {
+    const emailHTML = await app.renderTemplate(
+      'email/welcome.html',
+      {
+        user: {
+          name: user.name,
+          email: user.email,
+        },
+        siteName: 'NextRush App',
+        siteUrl: process.env.SITE_URL,
+        unsubscribeUrl: `${process.env.SITE_URL}/unsubscribe?token=${user.unsubscribeToken}`,
+      },
+      { layout: 'layouts/email.html' }
+    );
+
+    // Send email using your email service
+    await sendEmail({
+      to: user.email,
+      subject: 'Welcome to NextRush App!',
+      html: emailHTML,
+    });
+  } catch (error) {
+    console.error('Failed to send welcome email:', error);
+  }
+};
+
+// API endpoint for email preview (development)
+if (process.env.NODE_ENV === 'development') {
+  app.get('/preview/email/:template', (req, res) => {
+    const sampleData = {
+      user: {
+        name: 'John Doe',
+        email: 'john@example.com',
+      },
+      siteName: 'NextRush App',
+      siteUrl: 'http://localhost:3000',
+    };
+
+    res.render(`email/${req.params.template}.html`, sampleData, {
+      layout: 'layouts/email.html',
+    });
+  });
+}
+```
+
+```html
+<!-- views/email/welcome.html -->
+<div class="email-content">
+  <h1>Welcome to {{siteName}}, {{user.name}}!</h1>
+
+  <p>Thank you for joining our platform. We're excited to have you on board!</p>
+
+  <div class="cta">
+    <a href="{{siteUrl}}/login" class="button">Get Started</a>
+  </div>
+
+  <p>If you have any questions, feel free to reply to this email.</p>
+
+  <div class="footer">
+    <p>Best regards,<br />The {{siteName}} Team</p>
+    <p><a href="{{unsubscribeUrl}}">Unsubscribe</a></p>
+  </div>
+</div>
+```
+
+## Performance Optimization
+
+### Template Precompilation
+
+```typescript
+// Precompile templates for production
+if (process.env.NODE_ENV === 'production') {
+  app.precompileTemplates('./views', {
+    outputDir: './compiled-templates',
+    minify: true,
+    gzip: true,
+  });
+
+  // Use precompiled templates
+  app.setViews('./compiled-templates', {
+    precompiled: true,
+    cache: true,
+  });
+}
+```
+
+### Template Caching Strategy
+
+```typescript
+// Custom template caching
+const templateCache = new Map();
+
+app.setViews('./views', {
+  cache: true,
+  cacheSize: 100, // Max cached templates
+  cacheTTL: 3600000, // 1 hour TTL
+
+  // Custom cache implementation
+  customCache: {
+    get: (key) => templateCache.get(key),
+    set: (key, value, ttl) => {
+      templateCache.set(key, {
+        value,
+        expires: Date.now() + ttl,
+      });
+    },
+    has: (key) => {
+      const item = templateCache.get(key);
+      if (item && item.expires > Date.now()) {
+        return true;
+      }
+      templateCache.delete(key);
+      return false;
+    },
+  },
+});
+```
+
+## Error Handling
+
+```typescript
+// Template error handling
+app.setViews('./views', {
+  onError: (error, templatePath, data) => {
+    console.error(`Template error in ${templatePath}:`, error);
+
+    // Log template data for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Template data:', JSON.stringify(data, null, 2));
+    }
+
+    // Return fallback template or error page
+    return `
+      <div class="template-error">
+        <h1>Template Error</h1>
+        <p>${error.message}</p>
+        ${
+          process.env.NODE_ENV === 'development'
+            ? `<pre>${error.stack}</pre>`
+            : ''
+        }
+      </div>
+    `;
+  },
+});
+
+// Global error templates
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+
+  res.status(status).render(
+    `errors/${status}.html`,
     {
-      user,
-      title: `${user.name}'s Profile`,
+      title: `Error ${status}`,
+      error: err,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : null,
     },
     {
-      layout: 'main',
-      streaming: true, // Enable streaming for this render
+      layout: 'layouts/error.html',
     }
   );
 });
 ```
 
-### Direct Usage
-
-#### UltimateTemplateParser
-
-Parse template strings into AST nodes.
+## Testing Templates
 
 ```typescript
-import { UltimateTemplateParser } from 'nextrush/template';
+// Test template rendering
+import { createApp } from 'nextrush';
 
-const parser = new UltimateTemplateParser(templateString, {
-  engine: 'handlebars',
-});
+describe('Template Engine', () => {
+  let app;
 
-const parseResult = parser.parse();
-console.log(parseResult.nodes);
-console.log(parseResult.metadata);
-```
-
-#### UltimateTemplateRenderer
-
-Render parsed templates with data.
-
-```typescript
-import { UltimateTemplateRenderer } from 'nextrush/template';
-
-const renderer = new UltimateTemplateRenderer({
-  cache: true,
-  helpers: {
-    formatPrice: (price) => `$${price.toFixed(2)}`,
-  },
-});
-
-const html = await renderer.render(parseResult.nodes, data);
-```
-
-### Streaming Rendering
-
-For large templates or real-time rendering:
-
-```typescript
-app.get('/large-report', (req, res) => {
-  res.render('report', reportData, {
-    streaming: true,
+  beforeEach(() => {
+    app = createApp();
+    app.setViews('./test-views');
   });
-});
 
-// Or directly
-const stream = await renderer.renderStream(nodes, data);
-stream.pipe(res);
-```
+  test('renders simple template', async () => {
+    // Create test template
+    const testTemplate = '<h1>{{title}}</h1><p>{{message}}</p>';
 
-## Template Syntax
-
-### Variables
-
-#### Basic Variables
-
-```html
-{{name}}
-<!-- Handlebars -->
-<%= name %>
-<!-- JSX-style -->
-{{{rawHtml}}}
-<!-- Unescaped HTML -->
-<%- rawHtml %>
-<!-- Unescaped JSX-style -->
-```
-
-#### Object Properties
-
-```html
-{{user.name}} {{user.profile.avatar}} {{items[0].title}}
-```
-
-#### Array Access
-
-```html
-{{users[0].name}} {{colors[index]}}
-```
-
-### Conditionals
-
-#### Handlebars Style
-
-```html
-{{#if condition}}
-<p>Condition is true</p>
-{{else}}
-<p>Condition is false</p>
-{{/if}} {{#unless disabled}}
-<button>Click me</button>
-{{/unless}}
-```
-
-#### JSX Style
-
-```html
-<% if (condition) { %>
-<p>Condition is true</p>
-<% } else { %>
-<p>Condition is false</p>
-<% } %>
-```
-
-### Loops
-
-#### Handlebars Each
-
-```html
-{{#each items}}
-<div class="item">
-  <h3>{{name}}</h3>
-  <p>Index: {{@index}}</p>
-  <p>Key: {{@key}}</p>
-  <p>First: {{@first}}</p>
-  <p>Last: {{@last}}</p>
-</div>
-{{/each}}
-```
-
-#### JSX Style Loops
-
-```html
-<% for (const item of items) { %>
-<div class="item">
-  <h3><%= item.name %></h3>
-</div>
-<% } %> <% items.forEach((item, index) => { %>
-<div data-index="<%= index %>"><%= item.name %></div>
-<% }); %>
-```
-
-### Helpers and Filters
-
-#### Built-in Helpers
-
-```html
-{{formatDate date "YYYY-MM-DD"}} {{uppercase title}} {{lowercase description}}
-{{capitalize name}} {{truncate text 100}} {{json object}} {{length array}}
-```
-
-#### Custom Helpers
-
-```typescript
-app.setTemplateEngine({
-  helpers: {
-    formatPrice(price, currency = 'USD') {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-      }).format(price);
-    },
-
-    timeAgo(date) {
-      const now = new Date();
-      const diff = now.getTime() - new Date(date).getTime();
-      const minutes = Math.floor(diff / 60000);
-
-      if (minutes < 60) return `${minutes} minutes ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours} hours ago`;
-      const days = Math.floor(hours / 24);
-      return `${days} days ago`;
-    },
-  },
-});
-```
-
-#### Using Custom Helpers
-
-```html
-<div class="product">
-  <h3>{{name}}</h3>
-  <p class="price">{{formatPrice price "EUR"}}</p>
-  <span class="time">{{timeAgo createdAt}}</span>
-</div>
-```
-
-### Partials
-
-#### Including Partials
-
-```html
-{{> header}} {{> navigation user}} {{> footer year=2024}}
-```
-
-#### Partial with Context
-
-```html
-{{#each posts}} {{> post-card title=title author=author date=publishedAt}}
-{{/each}}
-```
-
-### Components
-
-#### Component Definition
-
-```html
-<!-- components/UserCard.html -->
-<div class="user-card">
-  <img src="{{avatar}}" alt="{{name}}'s avatar" />
-  <h3>{{name}}</h3>
-  <p>{{email}}</p>
-  <div class="bio">{{> slot "bio"}}</div>
-  <div class="actions">{{> slot "actions"}}</div>
-</div>
-```
-
-#### Component Usage
-
-```html
-<UserCard name="{{user.name}}" email="{{user.email}}" avatar="{{user.avatar}}">
-  <div slot="bio">
-    <p>{{user.bio}}</p>
-    <p>Joined {{formatDate user.joinedAt}}</p>
-  </div>
-
-  <div slot="actions">
-    <button onclick="sendMessage('{{user.id}}')">Message</button>
-    <button onclick="follow('{{user.id}}')">Follow</button>
-  </div>
-</UserCard>
-```
-
-## Plugin Integration
-
-### Creating a Template Plugin
-
-```typescript
-import { TemplatePlugin } from 'nextrush/plugins';
-
-const templatePlugin = new TemplatePlugin(registry, {
-  views: './views',
-  cache: true,
-  defaultExtension: '.html',
-  syntax: 'auto',
-});
-
-// Register with application
-app.use(templatePlugin);
-```
-
-### Custom Template Engine
-
-```typescript
-import {
-  UltimateTemplateParser,
-  UltimateTemplateRenderer,
-} from 'nextrush/template';
-
-class CustomTemplateEngine {
-  private parser: UltimateTemplateParser;
-  private renderer: UltimateTemplateRenderer;
-
-  constructor(options = {}) {
-    this.parser = new UltimateTemplateParser('', options);
-    this.renderer = new UltimateTemplateRenderer(options);
-  }
-
-  async render(templatePath: string, data: object): Promise<string> {
-    const template = await fs.readFile(templatePath, 'utf8');
-    this.parser = new UltimateTemplateParser(template);
-    const parseResult = this.parser.parse();
-    return this.renderer.render(parseResult.nodes, data);
-  }
-}
-```
-
-## Performance
-
-### Caching Strategies
-
-#### Template Compilation Caching
-
-```typescript
-app.setTemplateEngine({
-  cache: true, // Cache compiled templates
-  cacheSize: 100, // Maximum cached templates
-  cacheTTL: 3600000, // Cache TTL in milliseconds
-});
-```
-
-#### Streaming for Large Templates
-
-```typescript
-// Use streaming for templates that generate large output
-app.get('/report', (req, res) => {
-  res.render('large-report', data, {
-    streaming: true,
-  });
-});
-```
-
-### Performance Optimization Tips
-
-1. **Enable caching in production**:
-
-   ```typescript
-   app.setViews('./views', {
-     cache: process.env.NODE_ENV === 'production',
-   });
-   ```
-
-2. **Use streaming for large outputs**:
-
-   ```typescript
-   res.render('large-template', data, { streaming: true });
-   ```
-
-3. **Precompile templates**:
-
-   ```typescript
-   // Build step - precompile templates
-   const compiledTemplates = await compileTemplates('./views');
-   ```
-
-4. **Minimize helper complexity**:
-
-   ```typescript
-   // Good - simple helper
-   helpers: {
-     formatDate: (date) => date.toLocaleDateString();
-   }
-
-   // Avoid - complex computation in helper
-   helpers: {
-     complexCalculation: (data) => {
-       // Heavy computation here
-     };
-   }
-   ```
-
-## Examples
-
-### Basic Blog
-
-#### Layout Template (`layouts/base.html`)
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{title}} - My Blog</title>
-    <link rel="stylesheet" href="/styles/main.css" />
-  </head>
-  <body>
-    <header>{{> header}}</header>
-
-    <main>{{content}}</main>
-
-    <footer>{{> footer}}</footer>
-
-    <script src="/scripts/main.js"></script>
-  </body>
-</html>
-```
-
-#### Blog Post Template (`posts/show.html`)
-
-```html
----
-layout: base
----
-
-<article class="blog-post">
-  <header>
-    <h1>{{post.title}}</h1>
-    <div class="meta">
-      <span class="author">By {{post.author.name}}</span>
-      <time>{{formatDate post.publishedAt "MMMM DD, YYYY"}}</time>
-      <div class="tags">
-        {{#each post.tags}}
-        <span class="tag">{{this}}</span>
-        {{/each}}
-      </div>
-    </div>
-  </header>
-
-  <div class="content">{{{post.content}}}</div>
-
-  {{#if post.author}} {{> author-bio author=post.author}} {{/if}}
-
-  <section class="comments">
-    <h3>Comments</h3>
-    {{#each comments}} {{> comment-card comment=this}} {{/each}}
-  </section>
-</article>
-```
-
-#### Route Handler
-
-```typescript
-app.get('/posts/:slug', async (req, res) => {
-  const post = await getPostBySlug(req.params.slug);
-  const comments = await getCommentsByPostId(post.id);
-
-  if (!post) {
-    return res.status(404).render('404', {
-      title: 'Post Not Found',
-    });
-  }
-
-  res.render('posts/show', {
-    title: post.title,
-    post,
-    comments,
-  });
-});
-```
-
-### E-commerce Product Listing
-
-#### Product Grid Template
-
-```html
-<div class="product-grid">
-  {{#each products}}
-  <ProductCard
-    id="{{id}}"
-    name="{{name}}"
-    price="{{price}}"
-    image="{{image}}"
-    rating="{{rating}}"
-    onSale="{{onSale}}"
-  >
-    <div slot="badges">
-      {{#if onSale}}
-      <span class="badge sale">Sale</span>
-      {{/if}} {{#if featured}}
-      <span class="badge featured">Featured</span>
-      {{/if}}
-    </div>
-
-    <div slot="actions">
-      <button class="btn btn-primary" onclick="addToCart('{{id}}')">
-        Add to Cart
-      </button>
-      <button class="btn btn-secondary" onclick="addToWishlist('{{id}}')">
-        ♥
-      </button>
-    </div>
-  </ProductCard>
-  {{/each}}
-</div>
-
-{{#unless products}}
-<div class="empty-state">
-  <h3>No products found</h3>
-  <p>Try adjusting your search or filters.</p>
-</div>
-{{/unless}}
-```
-
-### API Response Template
-
-#### JSON API Template
-
-```html
-<% const formatApiResponse = (data, status = 'success') => { return { status,
-timestamp: new Date().toISOString(), data: data || null, meta: { count:
-Array.isArray(data) ? data.length : (data ? 1 : 0), version: '1.0.0' } }; }; %>
-<%= JSON.stringify(formatApiResponse(responseData), null, 2) %>
-```
-
-#### XML API Template
-
-```html
-<?xml version="1.0" encoding="UTF-8"?>
-<response>
-  <status>{{status}}</status>
-  <timestamp>{{timestamp}}</timestamp>
-  <data>
-    {{#if users}}
-    <users>
-      {{#each users}}
-      <user id="{{id}}">
-        <name>{{name}}</name>
-        <email>{{email}}</email>
-        <createdAt>{{createdAt}}</createdAt>
-      </user>
-      {{/each}}
-    </users>
-    {{/if}}
-  </data>
-</response>
-```
-
-## Advanced Usage
-
-### Custom Syntax Support
-
-#### Creating a Custom Parser
-
-```typescript
-import { UltimateTemplateParser } from 'nextrush/template';
-
-class CustomSyntaxParser extends UltimateTemplateParser {
-  constructor(template: string) {
-    super(template, { engine: 'custom' });
-  }
-
-  protected parseVariable(): TemplateNode | null {
-    // Custom variable syntax: ${variable}
-    if (this.peek(2) === '${') {
-      const start = this.pos;
-      this.pos += 2;
-
-      const key = this.parseIdentifier();
-
-      if (this.peek() === '}') {
-        this.pos++;
-        return {
-          type: 'variable',
-          key,
-          escape: true,
-          start,
-          end: this.pos,
-        };
-      }
-    }
-
-    return super.parseVariable();
-  }
-}
-```
-
-### Internationalization
-
-#### i18n Setup
-
-```typescript
-app.setTemplateEngine({
-  i18n: {
-    defaultLocale: 'en',
-    locales: ['en', 'es', 'fr'],
-    directory: './locales',
-  },
-  helpers: {
-    t: (key, locale) => i18n.translate(key, locale),
-    tn: (key, count, locale) => i18n.translatePlural(key, count, locale),
-  },
-});
-```
-
-#### i18n Templates
-
-```html
-<h1>{{t "welcome.title" locale}}</h1>
-<p>{{t "welcome.message" locale}}</p>
-
-<div class="stats">
-  <span>{{tn "items.count" itemCount locale}}</span>
-  <span>{{tn "users.online" onlineUsers locale}}</span>
-</div>
-```
-
-### Testing Templates
-
-#### Template Testing Utilities
-
-```typescript
-import { testTemplateRender } from 'nextrush/template/testing';
-
-describe('User Profile Template', () => {
-  test('renders user information correctly', async () => {
-    const result = await testTemplateRender('profile', {
-      user: {
-        name: 'John Doe',
-        email: 'john@example.com',
-        verified: true,
-      },
+    const result = await app.renderTemplate('test.html', {
+      title: 'Test Title',
+      message: 'Test Message',
     });
 
-    expect(result.html).toContain('John Doe');
-    expect(result.html).toContain('john@example.com');
-    expect(result.html).toContain('verified');
+    expect(result).toContain('<h1>Test Title</h1>');
+    expect(result).toContain('<p>Test Message</p>');
   });
 
-  test('handles missing user gracefully', async () => {
-    const result = await testTemplateRender('profile', {});
+  test('handles conditionals', async () => {
+    const template = '{{#if showContent}}<div>{{content}}</div>{{/if}}';
 
-    expect(result.html).toContain('Guest User');
-    expect(result.errors).toHaveLength(0);
+    const result = await app.renderTemplate('conditional.html', {
+      showContent: true,
+      content: 'Hello World',
+    });
+
+    expect(result).toContain('<div>Hello World</div>');
+  });
+
+  test('loops through arrays', async () => {
+    const template = '{{#each items}}<li>{{this}}</li>{{/each}}';
+
+    const result = await app.renderTemplate('loop.html', {
+      items: ['Item 1', 'Item 2', 'Item 3'],
+    });
+
+    expect(result).toContain('<li>Item 1</li>');
+    expect(result).toContain('<li>Item 2</li>');
+    expect(result).toContain('<li>Item 3</li>');
   });
 });
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-#### Template Not Found
-
-```
-Error: Template not found: /path/to/template.html
-```
-
-**Solutions:**
-
-1. Check the views directory path
-2. Verify the template file exists
-3. Check file permissions
-4. Ensure the correct file extension
-
-#### Compilation Errors
-
-```
-Error: Unexpected token at line 15, column 23
-```
-
-**Solutions:**
-
-1. Check template syntax
-2. Ensure proper opening/closing tags
-3. Validate frontmatter YAML syntax
-4. Check for unescaped quotes
-
-#### Performance Issues
-
-```
-Warning: Template rendering is slow
-```
-
-**Solutions:**
-
-1. Enable template caching
-2. Use streaming for large templates
-3. Optimize helpers and filters
-4. Reduce template complexity
-
-### Debug Mode
-
-Enable debug mode for detailed error information:
-
-```typescript
-app.setTemplateEngine({
-  debug: true,
-  logLevel: 'verbose',
-});
-```
-
-### Error Handling
-
-#### Custom Error Templates
-
-```typescript
-app.setTemplateEngine({
-  errorTemplate: 'errors/template-error',
-  onError: (error, templatePath, data) => {
-    console.error('Template error:', error);
-
-    // Custom error handling
-    if (process.env.NODE_ENV === 'development') {
-      return renderDebugTemplate(error, templatePath, data);
-    }
-
-    return renderErrorTemplate(error);
-  },
-});
-```
-
-#### Graceful Error Recovery
-
-```html
-{{#try}} {{dangerousHelper data}} {{catch error}}
-<div class="error">Something went wrong: {{error.message}}</div>
-{{/try}}
-```
-
----
-
-**🎉 Congratulations!** You now have a comprehensive understanding of the NextRush Ultimate Template Engine. This powerful system provides everything you need to build dynamic, high-performance web applications with beautiful, maintainable templates.
-
-For more examples and advanced usage patterns, check out the [NextRush Examples Repository](https://github.com/nextrush/examples) and the [Template Engine Playground](https://nextrush.dev/playground/templates).

@@ -1,5 +1,21 @@
 /**
- * Request Enhancer - NextRush-compatible request enhancement
+ * Request Enhancer - NextRush-c    // Enhanced request methods
+    ip(): string;
+    secure(): boolean;
+    protocol(): string;
+    hostname(): string;
+    fullUrl(): string;
+    is(type: string): boolean;
+    accepts(types: string | string[]): string | false;
+
+    // Cookie methods
+    parseCookies(): Record<string, string>;
+
+    // Validation and sanitization
+    validate(rules: any): any;
+    sanitize(value: any, options?: any): any;
+    isValidEmail(email: string): boolean;
+    isValidUrl(url: string): boolean; enhancement
  */
 
 import { IncomingMessage } from 'http';

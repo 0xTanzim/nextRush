@@ -1,0 +1,115 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "NextRush: Debug Framework",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/index.ts",
+      "preLaunchTask": "NextRush: Build Framework",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "nextrush:*"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "NextRush: Debug Plugin",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/examples/${input:pluginName}/${input:pluginName}.test.ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "NextRush: Debug WebSocket",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/examples/websocket/websocket-demo.ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "nextrush:websocket"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "NextRush: Debug Template Engine",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/examples/template/template-demo.ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "nextrush:template"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "NextRush: Debug Middleware",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/api/middleware-test.ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "nextrush:middleware"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "NextRush: Debug Body Parser",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/body-parser-test.ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "nextrush:bodyparser"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "NextRush: Attach to Process",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "skipFiles": ["<node_internals>/**"],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "pluginName",
+      "description": "Plugin name to debug",
+      "default": "router",
+      "type": "pickString",
+      "options": [
+        "router",
+        "middleware",
+        "template",
+        "websocket",
+        "static-files",
+        "body-parser"
+      ]
+    }
+  ]
+}

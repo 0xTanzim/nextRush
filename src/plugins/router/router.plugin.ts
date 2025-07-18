@@ -33,6 +33,7 @@ export class RouterPlugin extends BasePlugin {
   name = 'Router';
 
   private routes: RouteDefinition[] = [];
+  private app?: Application; // Store reference to app
 
   constructor(registry: PluginRegistry) {
     super(registry);
@@ -42,6 +43,9 @@ export class RouterPlugin extends BasePlugin {
    * Install router capabilities into the application
    */
   install(app: Application): void {
+    // Store app reference
+    this.app = app;
+
     // Router capabilities are already built into Application class
     // This plugin now just provides additional utilities and events
     console.log(
@@ -198,6 +202,12 @@ export class RouterPlugin extends BasePlugin {
     };
 
     this.routes.push(route);
+
+    // FIXED: Actually register the route with the Application's router
+    if (this.app) {
+      (this.app as any).router.addRoute(method, path, handler, middleware);
+    }
+
     this.emit('router:routeRegistered', method, path);
   }
 
