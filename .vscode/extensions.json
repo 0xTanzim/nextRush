@@ -5,38 +5,37 @@
     "bradlc.vscode-tailwindcss",
     "esbenp.prettier-vscode",
     "ms-vscode.vscode-eslint",
-    
+
     // Plugin Development Support
     "ms-vscode.vscode-json",
     "redhat.vscode-yaml",
     "ms-vscode.vscode-markdown",
-    
+
     // Testing & Debugging
     "ms-vscode.vscode-jest",
     "hbenl.vscode-test-explorer",
     "ms-vscode.vscode-node-debug2",
-    
+
     // Framework-specific
     "bradlc.vscode-xml",
     "ms-vscode.vscode-css",
     "ms-vscode.vscode-html",
-    
+
     // Performance & Analysis
     "ms-vscode.vscode-webpack-analyzer",
     "streetsidesoftware.code-spell-checker",
-    
+
     // Git & Collaboration
     "mhutchie.git-graph",
     "eamodio.gitlens",
-    
+
     // Documentation
     "yzhang.markdown-all-in-one",
     "davidanson.vscode-markdownlint",
-    
+
     // Additional Productivity
     "ms-vscode.vscode-npm-script-lens",
     "christian-kohler.path-intellisense",
-    "ms-vscode.vscode-typescript-tslint-plugin",
     "formulahendry.auto-rename-tag",
     "ms-vscode.vscode-file-downloader"
   ],
