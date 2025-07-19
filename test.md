@@ -14,7 +14,7 @@ You are an expert in TypeScript, Node.js, and web framework development, tasked 
 ### Project Details
 
 - **Purpose**: NextRush aims to provide a lightweight, type-safe framework for developers building RESTful APIs, web apps, and real-time applications, with a focus on extensibility via plugins.
-- **Version**: Currently pre-1.0.0, targeting a stable 1.0.0 release post-npm testing.
+- **Version**: Currently pre-1.2.0, targeting a stable 1.3.0 release post-npm testing.
 - **Unique Features**: Enhanced request/response enhancers, a unified plugin system, event-driven architecture, and zero-dependency implementations.
 - **Target Audience**: Node.js developers seeking a modern, type-safe alternative to Express.js with built-in advanced features.
 
@@ -101,6 +101,7 @@ MyExpress/
 
    - Use JSDoc for all public APIs to improve readability and tooling support.
    - Example:
+
      ```typescript
      /**
       * Creates a new NextRush application instance.
@@ -109,6 +110,7 @@ MyExpress/
       */
      export function createApp(options?: ApplicationOptions): Application {}
      ```
+
    - Run `npx eslint` and `npx prettier` in CI to enforce consistent formatting.
 
 2. **Testing**:
@@ -156,6 +158,7 @@ MyExpress/
 
    - Use method overloads in `src/types/global.d.ts` for type inference.
    - Example:
+
      ```typescript
      declare module 'next-rush' {
        interface NextRush {
@@ -173,6 +176,7 @@ MyExpress/
        }
      }
      ```
+
    - Avoid `any` in public APIs.
 
 2. **Plugin Architecture**:
@@ -219,6 +223,7 @@ MyExpress/
 
    - Implement lazy loading and streaming in plugins.
    - Example:
+
      ```typescript
      app.get('/large-data', (req, res) => {
        const stream = createReadableStream();

@@ -1,7 +1,18 @@
 # ⚡ NextRush
 
-> **The Express.js replacement you've been waiting for.**
-> Zero dependencies. TypeScript-first. Built-in everything. Drop-in compatible.[![npm version](https://badge.fury.io/js/nextrush.svg)](https://www.npmjs.com/package/nextrush) > [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/) > [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) > [![Downloads](https://img.shields.io/npm/dm/nextrush.svg)](https://www.npmjs.com/package/nextrush)
+> **The Modern Express.js Replacement You've Been Waiting For**
+> Zero dependencies. TypeScript-first. Built-in everything. Drop-in compatible.
+
+<div align="center">
+
+[![npm version](https://badge.fury.io/js/nextrush.svg)](https://www.npmjs.com/package/nextrush)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://img.shields.io/npm/dm/nextrush.svg)](https://www.npmjs.com/package/nextrush)
+[![Build Status](https://img.shields.io/github/workflow/status/0xTanzim/nextRush/CI)](https://github.com/0xTanzim/nextRush/actions)
+[![Coverage](https://img.shields.io/codecov/c/github/0xTanzim/nextRush)](https://codecov.io/gh/0xTanzim/nextRush)
+
+</div>
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -13,11 +24,21 @@ app.get('/', (req, res) => {
 });
 
 app.listen(3000);
+// 🚀 That's it! Full Express.js compatibility with enhanced features built-in
 ```
 
 ## 🚀 Why NextRush?
 
-NextRush is a **modern, type-safe web framework** that provides Express.js compatibility with **enhanced features, better performance, and zero dependencies**. It's designed for developers who want the simplicity of Express with the power of modern web development.
+NextRush is a **modern, enterprise-grade web framework** that provides Express.js compatibility with **enhanced features, better performance, and zero dependencies**. Built for developers who want Express.js simplicity with modern web development power.
+
+### 🔥 **What Makes NextRush Special**
+
+- 🛡️ **Built-in Security** - Validation, sanitization, XSS protection out of the box
+- 📦 **Zero Dependencies** - No bloat, just pure performance
+- 🚀 **Express Compatible** - Drop-in replacement for existing Express.js apps
+- 🎯 **TypeScript First** - Full type safety with intelligent autocompletion
+- ⚡ **Performance Focused** - Optimized for production workloads
+- 🔌 **Everything Built-in** - No need for dozens of middleware packages
 
 ### **🔥 Key Features**
 
@@ -36,34 +57,49 @@ NextRush is a **modern, type-safe web framework** that provides Express.js compa
 - 📊 **Metrics & monitoring** with health checks
 - 📚 **Auto API documentation** with Swagger UI
 
-## 🏗️ What Makes NextRush Different
+## 🏗️ **NextRush vs The Competition**
 
-NextRush comes with **everything built-in** - no need to install dozens of packages:
+**Why choose NextRush over Express.js, Fastify, or Koa?**
 
-| Feature                | NextRush    | Express.js                 | Fastify          | Koa                |
-| ---------------------- | ----------- | -------------------------- | ---------------- | ------------------ |
-| **Body Parsing**       | ✅ Built-in | ❌ Need middleware         | ✅ Built-in      | ❌ Need middleware |
-| **File Uploads**       | ✅ Built-in | ❌ Need multer             | ❌ Need plugins  | ❌ Need middleware |
-| **Static Files**       | ✅ Built-in | ✅ Built-in                | ❌ Need plugins  | ❌ Need middleware |
-| **WebSocket**          | ✅ Built-in | ❌ Need socket.io          | ❌ Need plugins  | ❌ Need packages   |
-| **Templates**          | ✅ Built-in | ❌ Need engines            | ❌ Need plugins  | ❌ Need packages   |
-| **Input Validation**   | ✅ Built-in | ❌ Need express-validator  | ❌ Need plugins  | ❌ Need packages   |
-| **Security Features**  | ✅ Built-in | ❌ Need helmet + others    | ❌ Need plugins  | ❌ Need packages   |
-| **Rate Limiting**      | ✅ Built-in | ❌ Need express-rate-limit | ❌ Need plugins  | ❌ Need packages   |
-| **Authentication**     | ✅ Built-in | ❌ Need passport + others  | ❌ Need plugins  | ❌ Need packages   |
-| **API Documentation**  | ✅ Built-in | ❌ Need swagger packages   | ❌ Need plugins  | ❌ Need packages   |
-| **Metrics/Monitoring** | ✅ Built-in | ❌ Need prom-client + etc  | ❌ Need plugins  | ❌ Need packages   |
-| **Zero Dependencies**  | ✅ Yes      | ❌ No                      | ❌ No (50+ deps) | ❌ No              |
+| Feature                    | NextRush |         Express.js         |     Fastify     |        Koa         |
+| -------------------------- | :------: | :------------------------: | :-------------: | :----------------: |
+| **Zero Dependencies**      |    ✅    |             ❌             |       ❌        |         ❌         |
+| **TypeScript First**       |    ✅    |             ⚠️             |       ✅        |         ⚠️         |
+| **Built-in Body Parser**   |    ✅    |     ❌ Need middleware     |       ✅        | ❌ Need middleware |
+| **Built-in File Uploads**  |    ✅    |       ❌ Need multer       | ❌ Need plugins | ❌ Need middleware |
+| **Built-in WebSocket**     |    ✅    |     ❌ Need socket.io      | ❌ Need plugins |  ❌ Need packages  |
+| **Built-in Templates**     |    ✅    |      ❌ Need engines       | ❌ Need plugins |  ❌ Need packages  |
+| **Built-in Validation**    |    ✅    | ❌ Need express-validator  | ❌ Need plugins |  ❌ Need packages  |
+| **Built-in Security**      |    ✅    |  ❌ Need helmet + others   | ❌ Need plugins |  ❌ Need packages  |
+| **Built-in Rate Limiting** |    ✅    | ❌ Need express-rate-limit | ❌ Need plugins |  ❌ Need packages  |
+| **Built-in Auth**          |    ✅    | ❌ Need passport + others  | ❌ Need plugins |  ❌ Need packages  |
+| **API Docs Generation**    |    ✅    |  ❌ Need swagger packages  | ❌ Need plugins |  ❌ Need packages  |
+| **Express Compatible**     |    ✅    |             ✅             |       ❌        |         ❌         |
+| **Performance**            |    🚀    |             ⚡             |       🚀        |         ⚡         |
 
-## 🚀 Quick Start
+### **The Bottom Line**
+
+- **Express.js**: Great, but requires 15+ packages for production features
+- **Fastify**: Fast, but 50+ dependencies and different API
+- **Koa**: Minimal, but requires many packages for basic features
+- **NextRush**: Everything built-in, zero dependencies, Express-compatible
+
+## 🚀 **Quick Start**
 
 ### **Installation**
 
 ```bash
+# NPM
 npm install nextrush
+
+# Yarn
+yarn add nextrush
+
+# PNPM
+pnpm add nextrush
 ```
 
-### **Basic Server**
+### **Your First NextRush App**
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -71,24 +107,40 @@ import { createApp } from 'nextrush';
 const app = createApp();
 
 // Express.js style - works unchanged!
-app.get('/users/:id', (req, res) => {
+app.get('/api/users/:id', (req, res) => {
   const { id } = req.params;
-  res.json({ user: id, ip: req.ip() });
+  res.json({
+    user: id,
+    ip: req.ip(), // Enhanced request
+    secure: req.secure(), // Built-in utilities
+  });
 });
 
-// Enhanced features built-in
-app.post('/upload', (req, res) => {
+// Enhanced features work out of the box
+app.post('/api/upload', (req, res) => {
   const file = req.file('document'); // Auto file parsing
   const data = req.body; // Auto JSON parsing
-  res.json({ uploaded: file.filename });
+  const validation = req.validate({
+    // Built-in validation
+    title: { required: true, type: 'string' },
+  });
+
+  if (!validation.isValid) {
+    return res.status(400).json({ errors: validation.errors });
+  }
+
+  res.json({
+    uploaded: file?.filename,
+    data: validation.sanitized,
+  });
 });
 
 app.listen(3000, () => {
-  console.log('🚀 Server running on http://localhost:3000');
+  console.log('🚀 NextRush server running on http://localhost:3000');
 });
 ```
 
-## 🎯 Express.js Migration
+### **🔄 Migrating from Express.js?**
 
 **Most Express.js code works unchanged!** Just replace the import:
 
@@ -97,302 +149,401 @@ app.listen(3000, () => {
 - const app = express();
 + import { createApp } from 'nextrush';
 + const app = createApp();
++ const app = new Application();
 
+// Everything else stays exactly the same!
 app.get('/', (req, res) => {
-  res.json({ message: 'Works the same!' });
+  res.json({ message: 'Works perfectly!' });
 });
 ```
 
 **[📖 Complete Migration Guide →](./docs/MIGRATION.md)**
 
-## 🔥 Enhanced Features
+## 🔥 **Built-in Superpowers**
 
-### **🛡️ Built-in Security**
+### **🛡️ Security & Validation - Zero Configuration**
 
 ```typescript
-app.post('/secure', (req, res) => {
-  // Input validation
+app.post('/api/secure', (req, res) => {
+  // Input validation with detailed error messages
   const validation = req.validate({
     email: { required: true, type: 'email' },
-    age: { type: 'number', min: 18 },
+    age: { type: 'number', min: 18, max: 120 },
+    name: { required: true, minLength: 2 },
   });
 
-  // Data sanitization
-  const clean = req.sanitize(req.body.text, {
+  if (!validation.isValid) {
+    return res.status(400).json({ errors: validation.errors });
+  }
+
+  // Data sanitization (XSS, HTML stripping, etc.)
+  const clean = req.sanitize(req.body.bio, {
     removeHtml: true,
     escape: true,
+    trim: true,
   });
 
-  res.json({ clean, valid: validation.isValid });
+  res.json({
+    message: 'Data is clean and validated!',
+    sanitized: clean,
+  });
 });
 ```
 
-### **📁 Professional Static Files**
+### **📁 Professional Static Files - Production Ready**
 
 ```typescript
-// Compression, caching, SPA support - all built-in
+// Enterprise-grade static file serving
 app.static('/assets', './public', {
-  compression: true, // Auto gzip/brotli
-  caching: true, // Smart ETags
+  compression: true, // Auto gzip/brotli compression
+  caching: true, // Smart ETags and cache headers
   spa: true, // Single Page App support
+  maxAge: '1y', // Cache control headers
+  headers: {
+    // Custom headers
+    'X-Powered-By': 'NextRush',
+  },
+});
+
+// Multiple static directories
+app.static('/uploads', './uploads', {
+  maxAge: '30d',
+  index: false,
 });
 ```
 
-### **🌐 WebSocket Support**
+### **🌐 WebSocket - Real-time Made Easy**
 
 ```typescript
-// Zero-dependency WebSocket with rooms
+// Zero-dependency WebSocket with room management
 app.ws('/chat/:room', (socket, req) => {
   const room = req.params.room;
+  const userId = req.query.userId;
+
+  // Join room automatically
   socket.join(room);
-  socket.broadcast.to(room).send('User joined!');
+
+  // Broadcast to room
+  socket.broadcast.to(room).send(`User ${userId} joined ${room}`);
+
+  // Handle messages
+  socket.on('message', (data) => {
+    socket.broadcast.to(room).send(data);
+  });
+
+  // Handle disconnect
+  socket.on('close', () => {
+    socket.broadcast.to(room).send(`User ${userId} left`);
+  });
 });
 ```
 
-### **🎨 Template Engine**
+### **🎨 Template Engine - Multi-Syntax Support**
 
 ```typescript
-// Multi-syntax support (Mustache, Handlebars, EJS)
+// Support for Mustache, Handlebars, EJS, and more
 app.setViews('./views');
 
 app.get('/profile/:id', (req, res) => {
-  res.render('profile.html', {
-    user: { name: 'John', id: req.params.id },
+  res.render('profile.mustache', {
+    user: {
+      name: 'John Doe',
+      id: req.params.id,
+      avatar: '/uploads/avatar.jpg',
+    },
+    title: 'User Profile',
+  });
+});
+
+// Render with partials and helpers
+app.get('/dashboard', (req, res) => {
+  res.render('dashboard.html', {
+    user: req.user,
+    stats: await getStats(),
+    timestamp: new Date().toISOString(),
   });
 });
 ```
 
-### **📊 Ultimate Body Parser**
+### **📊 Body Parser - Handle Everything**
 
 ```typescript
-// JSON, forms, files - all automatic
+// Automatic parsing of JSON, forms, files
 app.post('/api/data', (req, res) => {
-  const data = req.body; // Auto-parsed JSON/forms
-  const avatar = req.file('avatar'); // Auto-parsed files
-  const files = req.files(); // Multiple files
+  // JSON and form data - automatically parsed
+  const { title, description } = req.body;
 
-  res.json({ data, avatar: avatar.filename });
+  // Single file upload
+  const avatar = req.file('avatar');
+
+  // Multiple files
+  const documents = req.files('documents');
+
+  // File validation built-in
+  if (avatar && !avatar.isImage()) {
+    return res.status(400).json({ error: 'Avatar must be an image' });
+  }
+
+  res.json({
+    data: { title, description },
+    avatar: avatar?.filename,
+    documents: documents?.map((f) => f.filename),
+  });
 });
 ```
 
-### **🛡️ Built-in Rate Limiting & CORS**
+### **🛡️ Rate Limiting & CORS - Enterprise Security**
 
 ```typescript
-// Enterprise-grade rate limiting
-app.useRateLimit({
+// Built-in rate limiting with multiple strategies
+app.rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests, please try again later.',
+  max: 100, // 100 requests per window
+  message: 'Too many requests, please slow down',
+  skipSuccessfulRequests: true,
 });
 
 // CORS with security presets
-app.useCors('production'); // Secure defaults for production
-// Or custom configuration
-app.useCors({
-  origin: ['https://mydomain.com'],
+app.cors('production'); // Secure defaults for production
+
+// Or detailed configuration
+app.cors({
+  origin: ['https://mydomain.com', 'https://app.mydomain.com'],
   credentials: true,
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 });
 ```
 
-### **🔐 Built-in Authentication**
+### **🔐 Authentication & Authorization - Built-in**
 
 ```typescript
 // JWT authentication
-app.useAuth('jwt', { secret: 'your-secret' });
-
-// Session-based authentication
-app.useAuth('session', { store: 'redis' });
+app.use(
+  '/api',
+  app.auth('jwt', {
+    secret: process.env.JWT_SECRET,
+    algorithms: ['HS256'],
+  })
+);
 
 // Role-based access control
 app.get('/admin/*', app.requireRole('admin'), (req, res) => {
-  res.json({ message: 'Admin only area' });
+  res.json({ message: 'Admin area', user: req.user });
 });
+
+// Session-based authentication
+app.use(
+  '/dashboard',
+  app.auth('session', {
+    secret: process.env.SESSION_SECRET,
+    store: 'redis',
+    cookie: { secure: true, httpOnly: true },
+  })
+);
 ```
 
-### **📊 Metrics & Monitoring**
+### **📊 Metrics & Monitoring - Production Insights**
 
 ```typescript
-// Built-in metrics collection
+// Enable comprehensive metrics
 app.enableMetrics({
-  prometheus: true,
-  healthCheck: true,
+  prometheus: true, // Prometheus format metrics
+  healthCheck: true, // Health check endpoint
+  performance: true, // Performance monitoring
 });
 
-// Access metrics
-// GET /metrics - Prometheus format
-// GET /health - Health check endpoint
+// Custom metrics
+app.use((req, res, next) => {
+  app.metrics.increment('requests.total', {
+    method: req.method,
+    path: req.route?.path || 'unknown',
+  });
+  next();
+});
+
+// Access endpoints:
+// GET /metrics      - Prometheus format
+// GET /health       - Health check
 // GET /metrics/json - JSON format
 ```
 
-### **📚 Auto API Documentation**
+### **📚 API Documentation - Auto-Generated**
 
 ```typescript
 // Enable Swagger documentation
 app.enableApiDocs({
-  title: 'My API',
+  title: 'My Amazing API',
   version: '1.0.0',
+  description: 'Built with NextRush',
+  servers: [{ url: 'https://api.mydomain.com' }],
 });
 
-// Document endpoints
-app.doc('/users/:id', 'GET', {
-  summary: 'Get user by ID',
-  parameters: [
-    { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-  ],
-});
+// Document endpoints automatically
+app
+  .get('/users/:id', (req, res) => {
+    // Documentation inferred from route and validation
+    res.json({ user: req.params.id });
+  })
+  .doc({
+    summary: 'Get user by ID',
+    tags: ['Users'],
+    parameters: [
+      { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+    ],
+    responses: {
+      200: { description: 'User found' },
+      404: { description: 'User not found' },
+    },
+  });
 
-// Access documentation
-// GET /swagger - Interactive Swagger UI
+// Access documentation:
+// GET /swagger      - Interactive Swagger UI
 // GET /api-docs.json - OpenAPI specification
 ```
 
-## 📚 Documentation
+## 📚 **Complete Documentation**
 
 ### **🚀 Getting Started**
 
-- 📖 [**Complete Documentation**](./docs/README.md) - Central API reference
-- 🚀 [**Getting Started Guide**](./docs/GETTING-STARTED.md) - Installation & setup
-- 🔄 [**Migration from Express.js**](./docs/MIGRATION.md) - Step-by-step guide
+- 📖 [**Complete Documentation Hub**](./docs/README.md) - Central API reference
+- 🚀 [**Getting Started Guide**](./docs/GETTING-STARTED.md) - From zero to production
+- 🔄 [**Express.js Migration Guide**](./docs/MIGRATION.md) - Seamless transition from Express.js
+- 📖 [**Framework Overview**](./docs/Overview.md) - Architecture and core concepts
 
-### **📋 Feature Guides**
+### **🏗️ Core Framework**
 
-- 🛣️ [**Routing & Middleware**](./docs/ROUTING.md) - HTTP methods, middleware, parameters
-- 🛡️ [**Security**](./docs/SECURITY.md) - Input validation, sanitization, authentication
-- 📁 [**Static Files**](./docs/STATIC-FILES.md) - Professional file serving & optimization
-- 🌐 [**WebSocket**](./docs/WEBSOCKET.md) - Real-time communication & room management
-- 🎨 [**Template Engine**](./docs/TEMPLATE-ENGINE.md) - Server-side rendering & templates
-- 📊 [**Body Parser**](./docs/BODY-PARSER.md) - File uploads, parsing, security
+- 🏛️ [**Application Class**](./docs/Application.md) - Main application setup and configuration
+- 📡 [**Request Enhancement**](./docs/Request.md) - Enhanced request object with utilities
+- 📤 [**Response Enhancement**](./docs/Response.md) - Enhanced response object with methods
+- 🛣️ [**Routing System**](./docs/Routing.md) - HTTP routing, parameters, and middleware
+- � [**Middleware System**](./docs/Middleware.md) - Middleware management and composition
+- 🎭 [**Event System**](./docs/EventSystem.md) - Event-driven architecture
+- ⚙️ [**Configuration**](./docs/Configuration.md) - Environment and application configuration
 
-### **🚀 Enhanced Features**
+### **📋 Core Features**
 
-- 🛡️ [**Rate Limiting**](./docs/RATE-LIMITING.md) - Built-in request throttling & DDoS protection
-- 🌐 [**CORS Configuration**](./docs/CORS.md) - Cross-origin resource sharing with security presets
-- 🔐 [**Authentication**](./docs/AUTHENTICATION.md) - JWT, sessions, and role-based access control
-- 📊 [**Metrics & Monitoring**](./docs/METRICS-MONITORING.md) - Performance tracking & health checks
-- 📚 [**API Documentation**](./docs/API-DOCUMENTATION.md) - Auto-generated Swagger docs from code
+- 📊 [**Body Parser**](./docs/BodyParser.md) - Request body parsing and file uploads
+- 📁 [**Static Files**](./docs/StaticFiles.md) - Professional static file serving
+- 🎨 [**Template Engine**](./docs/TemplateEngine.md) - Server-side rendering support
+- 🌐 [**WebSocket Support**](./docs/WebSocket.md) - Real-time communication and rooms
+- 🛡️ [**Input Validation**](./docs/Validation.md) - Data validation and sanitization
 
-### **🏗️ Advanced Topics**
+### **🛡️ Security & Performance**
 
-- ⚡ [**Performance**](./docs/PERFORMANCE.md) - Optimization techniques
-- 🧪 [**Testing**](./docs/TESTING.md) - Unit & integration testing
-- 🚀 [**Deployment**](./docs/DEPLOYMENT.md) - Production deployment
-- 🔌 [**Plugin Development**](./docs/PLUGINS.md) - Extending NextRush
+- �️ [**Security Guide**](./docs/SECURITY.md) - Comprehensive security features
+- 🔐 [**Authentication**](./docs/Authentication.md) - JWT, sessions, and RBAC
+- 🛡️ [**Rate Limiting**](./docs/RateLimit.md) - Request throttling and DDoS protection
+- 🌐 [**CORS Configuration**](./docs/CORS.md) - Cross-origin resource sharing
+- ⚡ [**Performance Optimization**](./docs/Performance.md) - Production best practices
+- 📊 [**Metrics & Monitoring**](./docs/Metrics.md) - Performance tracking and health checks
 
-## 🔧 Framework Comparison
+### **🚀 Advanced Features**
 
-### **vs Express.js**
+- 📚 [**API Documentation**](./docs/ApiDocs.md) - Auto-generated Swagger documentation
+- 📋 [**API Reference**](./docs/API.md) - Complete API documentation
+- ❌ [**Error Handling**](./docs/ErrorHandling.md) - Comprehensive error management
+- 🔌 [**Plugin Development**](./docs/Plugins.md) - Extending NextRush functionality
 
-- ✅ **Built-in security** (no middleware needed)
-- ✅ **Zero dependencies** for core features
-- ✅ **TypeScript-first** with auto-inference
-- ✅ **Enhanced request/response** objects
-- ✅ **Built-in file uploads** (no multer needed)
-- ✅ **Drop-in compatible** with existing code
-
-### **vs Fastify**
-
-- ✅ **Zero dependencies** (Fastify has 50+ dependencies)
-- ✅ **Express.js compatible** (easier migration)
-- ✅ **Built-in WebSocket** (no plugins needed)
-- ✅ **Multi-syntax templates** built-in
-- ✅ **Built-in file uploads** (no plugins needed)
-
-### **vs Koa**
-
-- ✅ **Express.js style** handlers (familiar API)
-- ✅ **Built-in body parsing** (no middleware)
-- ✅ **Professional static files** built-in
-- ✅ **Better TypeScript** support
-- ✅ **Built-in security features** (no packages needed)
-
-## 🏆 Production Ready
+## 🏆 **Production Ready Features**
 
 NextRush is built for **enterprise-grade applications** with:
 
-- 🔒 **Security-first** design with secure defaults
-- ⚡ **High performance** optimized for production workloads
-- 🛡️ **Comprehensive error handling** and logging
-- 📊 **Memory efficient** with smart caching
-- 🔧 **Zero-config** deployment ready
-- 📈 **Scalable architecture** for microservices
+- 🔒 **Security-First Design** - Secure defaults, input validation, XSS protection
+- ⚡ **High Performance** - Optimized for production workloads, smart caching
+- 🛡️ **Comprehensive Error Handling** - Detailed logging and error tracking
+- 📊 **Memory Efficient** - Smart memory management and garbage collection
+- 🔧 **Zero-Config Deployment** - Works out of the box in any environment
+- 📈 **Horizontally Scalable** - Built for microservices and cloud deployment
 
-## 📦 Ecosystem
-
-### **Supported Features**
-
-- ✅ All HTTP methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
-- ✅ Express.js middleware compatibility
-- ✅ File uploads with security validation
-- ✅ Cookie parsing and management
-- ✅ Session handling
-- ✅ CORS, CSRF, XSS protection
-- ✅ Rate limiting and request throttling
-- ✅ JWT & session authentication with RBAC
-- ✅ Built-in metrics & monitoring (Prometheus compatible)
-- ✅ Auto API documentation with Swagger UI
-- ✅ Compression (gzip, brotli)
-- ✅ Static file caching with ETags
-- ✅ WebSocket rooms and authentication
-- ✅ Template partials and helpers
-- ✅ Environment-based configuration
-
-### **TypeScript Support**
+## 💻 **TypeScript Excellence**
 
 ```typescript
-// Full type safety with auto-inference
+// Full type safety with intelligent autocompletion
 app.get('/users/:id', (req, res) => {
-  req.params.id; // ✅ string
-  req.body; // ✅ any (or use generics)
-  req.ip(); // ✅ string
-  res.json({}); // ✅ type-safe
+  // req.params.id is automatically typed as string
+  const userId: string = req.params.id;
+
+  // req.body gets proper typing with generics
+  const data: UserCreateData = req.body;
+
+  // Response methods are fully typed
+  res.json({ user: userId, timestamp: Date.now() });
+  //  ^^^^ TypeScript knows this returns JSON
+});
+
+// Generic support for request/response typing
+interface CreateUserRequest {
+  name: string;
+  email: string;
+  age: number;
+}
+
+app.post<CreateUserRequest>('/users', (req, res) => {
+  // req.body is now properly typed as CreateUserRequest
+  const { name, email, age } = req.body;
+  //      ^^^^ Full autocompletion and type checking
 });
 ```
 
-## 🌟 Community & Support
+## 🌟 **Community & Support**
 
-### **📞 Getting Help**
+### **📞 Get Help**
 
-- 📖 **Documentation**: [./docs/README.md](./docs/README.md)
-- 💬 **GitHub Discussions**: [Ask questions & share ideas](https://github.com/0xTanzim/nextRush/discussions)
-- 🐛 **Issues**: [Report bugs & request features](https://github.com/0xTanzim/nextRush/issues)
-- 📧 **Email**: [tanzimhossain2@gmail.com](mailto:tanzimhossain2@gmail.com)
+- 📖 **Documentation**: [Complete Guides](./docs/README.md)
+- 💬 **GitHub Discussions**: [Ask Questions & Share Ideas](https://github.com/0xTanzim/nextRush/discussions)
+- 🐛 **Issues**: [Report Bugs & Request Features](https://github.com/0xTanzim/nextRush/issues)
+- 📧 **Email Support**: [tanzimhossain2@gmail.com](mailto:tanzimhossain2@gmail.com)
 
 ### **🤝 Contributing**
 
-We welcome contributions! Check out our:
+We welcome contributions! Check out:
 
-- 🔧 **[Contributing Guide](./CONTRIBUTING.md)**
-- 🎯 **[Development Setup](./docs/DEVELOPMENT.md)**
-- 📋 **[Feature Roadmap](./ROADMAP.md)**
+- � **[Issues](https://github.com/0xTanzim/nextRush/issues)** - Report bugs & request features
+- 💬 **[Discussions](https://github.com/0xTanzim/nextRush/discussions)** - Community discussions
+- 📋 **[GitHub Repository](https://github.com/0xTanzim/nextRush)** - Source code and contributions
 
 ### **📈 Roadmap**
 
-- 🔜 **GraphQL integration**
-- 🔜 **Database ORM adapters**
-- 🔜 **Microservice utilities**
-- 🔜 **Monitoring & metrics**
-- 🔜 **Serverless deployment**
+- 🔜 **GraphQL Integration** - Built-in GraphQL support
+- 🔜 **Database ORM Adapters** - Prisma, TypeORM integration
+- 🔜 **Microservice Utilities** - Service discovery, circuit breakers
+- 🔜 **Advanced Monitoring** - Distributed tracing, APM integration
+- 🔜 **Serverless Deployment** - AWS Lambda, Vercel support
 
-## ⭐ Show Your Support
+## ⭐ **Show Your Support**
 
-If NextRush helps your project, please consider:
+If NextRush makes your development easier, please consider:
 
-- ⭐ **Star this repository**
-- 🐦 **Share on Twitter** with `#NextRush`
+- ⭐ **Star this repository** on GitHub
+- 🐦 **Share on social media** with `#NextRush`
 - 📝 **Write a blog post** about your experience
 - 🗣️ **Tell your team** about NextRush
+- 💬 **Join our community** discussions
 
-## 📄 License
+<!-- ## 📊 **Performance Benchmarks**
+
+```
+Framework Comparison (req/sec):
+┌─────────────┬─────────────┬─────────────┬─────────────┐
+│ Framework   │ Hello World │ JSON API    │ Static Files│
+├─────────────┼─────────────┼─────────────┼─────────────┤
+│ NextRush    │ 45,230      │ 38,920      │ 52,100      │
+│ Express.js  │ 42,180      │ 35,640      │ 48,300      │
+│ Fastify     │ 48,920      │ 41,200      │ 51,800      │
+│ Koa         │ 39,800      │ 32,100      │ 44,600      │
+└─────────────┴─────────────┴─────────────┴─────────────┘
+
+* Benchmarks run on Node.js 18.x, 4 CPU cores, 8GB RAM
+* NextRush matches Fastify performance with zero dependencies
+``` -->
+
+## 📄 **License**
 
 **MIT License** - see [LICENSE](./LICENSE) file for details.
 
 ---
 
-<div align="center">
+## Built with ❤️ by developers, for developers
 
-**Built with ❤️ by developers, for developers**
-
-[⭐ Star on GitHub](https://github.com/0xTanzim/nextRush) • [📖 Read the Docs](./docs/README.md) • [🚀 Get Started](./docs/GETTING-STARTED.md)
-
-</div>
+[⭐ Star on GitHub](https://github.com/0xTanzim/nextRush) • [📖 Documentation](./docs/README.md) • [🚀 Get Started](./docs/GETTING-STARTED.md)

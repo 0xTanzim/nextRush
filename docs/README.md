@@ -1,41 +1,49 @@
 # 📚 NextRush Framework Documentation
 
-> **Complete Developer Guide & API Reference**
+> **Complete Developer Guide & API Reference for NextRush**
 
-Welcome to the NextRush documentation! This guide covers everything you need to build modern, high-performance web applications with NextRush.
+Welcome to the comprehensive documentation for NextRush - the modern, TypeScript-first web framework that provides Express.js compatibility with enhanced features and zero dependencies.
 
-## 🚀 Quick Start
+## 🚀 **Quick Navigation**
 
-- **New to NextRush?** Start with [Getting Started](./GETTING-STARTED.md)
-- **Migrating from Express.js?** See [Migration Guide](./MIGRATION.md)
-- **Need specific features?** Jump to the relevant guide below
+### **New to NextRush?**
 
-## 📖 Core Guides
+- 🚀 [**Getting Started**](./GETTING-STARTED.md) - Installation, setup, and your first app
+- 🔄 [**Migration Guide**](./MIGRATION.md) - Seamless transition from Express.js
+- 📖 [**Overview**](./Overview.md) - Framework introduction and key concepts
 
-### **Essential Reading**
+### **Core Documentation**
 
-- 🚀 [**Getting Started**](./GETTING-STARTED.md) - Installation, setup, and first steps
-- 🔄 [**Migration Guide**](./MIGRATION.md) - Express.js to NextRush migration
-- 🛣️ [**Routing & Middleware**](./ROUTING.md) - HTTP methods, middleware, parameters
+- 🏗️ [**Application Class**](./Application.md) - Main application setup and configuration
+- 📡 [**Request Enhancement**](./Request.md) - Enhanced request object with utilities
+- � [**Response Enhancement**](./Response.md) - Enhanced response object with methods
+- 🛣️ [**Routing System**](./Routing.md) - HTTP routing, parameters, and middleware
 
-### **Feature Guides**
+### **Built-in Features**
 
-- 🛡️ [**Security**](./SECURITY.md) - Input validation, sanitization, authentication
-- 📁 [**Static Files**](./STATIC-FILES.md) - Professional file serving with optimization
-- 🌐 [**WebSocket**](./WEBSOCKET.md) - Real-time communication and room management
-- 🎨 [**Template Engine**](./TEMPLATE-ENGINE.md) - Server-side rendering and templates
-- 📊 [**Body Parser**](./BODY-PARSER.md) - Request parsing and file uploads
+- � [**Middleware System**](./Middleware.md) - Middleware management and composition
+- 📊 [**Body Parser**](./BodyParser.md) - Request body parsing and file uploads
+- 📁 [**Static Files**](./StaticFiles.md) - Professional static file serving
+- 🎨 [**Template Engine**](./TemplateEngine.md) - Server-side rendering support
 
-### **Advanced Topics**
+### **Security & Performance**
 
-- ⚡ [**Performance**](./PERFORMANCE.md) - Optimization techniques and best practices
-- 🧪 [**Testing**](./TESTING.md) - Unit testing and integration testing
-- 🚀 [**Deployment**](./DEPLOYMENT.md) - Production deployment guide
-- 🔌 [**Plugin Development**](./PLUGINS.md) - Extending NextRush with custom plugins
+- 🛡️ [**Security & Validation**](./SECURITY.md) - Input validation, sanitization, auth
+- 🛡️ [**Rate Limiting**](./RateLimit.md) - Request throttling and DDoS protection
+- 🌐 [**CORS Configuration**](./CORS.md) - Cross-origin resource sharing
+- 📊 [**Metrics & Monitoring**](./Metrics.md) - Performance tracking and health checks
 
-## 🎯 API Quick Reference
+### **Advanced Features**
 
-### Application Setup
+- 🌐 [**WebSocket Support**](./WebSocket.md) - Real-time communication and rooms
+- 🔐 [**Authentication**](./Authentication.md) - JWT, sessions, and RBAC
+- � [**API Documentation**](./ApiDocs.md) - Auto-generated Swagger documentation
+- 🎭 [**Event System**](./EventSystem.md) - Event-driven architecture
+- ❌ [**Error Handling**](./ErrorHandling.md) - Comprehensive error management
+
+## 🎯 **Quick Reference**
+
+### **Application Setup**
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -43,18 +51,50 @@ import { createApp } from 'nextrush';
 const app = createApp();
 
 // Basic routing
-app.get('/', (req, res) => res.json({ message: 'Hello!' }));
+app.get('/', (req, res) => res.json({ message: 'Hello NextRush!' }));
 app.post('/api/data', (req, res) => res.json(req.body));
 
-// Static files
-app.static('/assets', './public', { compression: true });
+// Built-in features
+app.bodyParser(); // Auto body parsing
+app.cors(); // CORS protection
+app.rateLimit({ max: 100 }); // Rate limiting
+app.static('/public', './public'); // Static files
+
+app.listen(3000);
+```
+
+### **Enhanced Request/Response**
+
+```typescript
+app.post('/api/users', (req, res) => {
+  // Enhanced request features
+  const ip = req.ip(); // Get client IP
+  const isSecure = req.secure(); // Check HTTPS
+  const userAgent = req.userAgent(); // Parse user agent
+
+  // Built-in validation
+  const validation = req.validate({
+    email: { required: true, type: 'email' },
+    name: { required: true, minLength: 2 },
+  });
+
+  // File handling
+  const avatar = req.file('avatar');
+
+  // Enhanced response
+  res.json({ success: true, data: validation.sanitized });
+  res.cache(3600); // Set cache headers
+  res.compress(); // Enable compression
+});
+```
 
 // WebSocket
 app.ws('/chat', (socket) => socket.send('Welcome!'));
 
 // Start server
 app.listen(3000);
-```
+
+````
 
 ### Enhanced Request Methods
 
@@ -78,7 +118,7 @@ app.get('/info', (req, res) => {
     }),
   });
 });
-```
+````
 
 ### Enhanced Response Methods
 
@@ -733,7 +773,9 @@ app.use((req, res) => {
 ### Type Definitions
 
 ```typescript
-import { NextRushRequest, NextRushResponse, Application } from 'nextrush';
+import { NextRushRequest, NextRushResponse, createApp } from 'nextrush';
+
+const app = createApp();
 
 // Typed route handlers
 app.get('/users/:id', (req: NextRushRequest, res: NextRushResponse) => {
@@ -1038,36 +1080,90 @@ app.delete('/api/users/:id', (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('🚀 REST API running on port 3000');
+  console.log('🚀 NextRush server running on port 3000');
 });
 ```
 
+### **WebSocket Integration**
+
+```typescript
+// Real-time communication
+app.ws('/chat/:room', (socket, req) => {
+  const room = req.params.room;
+  socket.join(room);
+
+  socket.on('message', (data) => {
+    socket.broadcast.to(room).send(data);
+  });
+});
+```
+
+### **Authentication & Security**
+
+```typescript
+// Built-in JWT authentication
+app.use('/api', app.auth('jwt', { secret: process.env.JWT_SECRET }));
+
+// Role-based access control
+app.get('/admin/*', app.requireRole('admin'), (req, res) => {
+  res.json({ user: req.user, role: req.user.role });
+});
+
+// Input validation and sanitization
+app.post('/api/users', (req, res) => {
+  const validation = req.validate({
+    email: { required: true, type: 'email' },
+    name: { required: true, minLength: 2 },
+  });
+
+  if (!validation.isValid) {
+    return res.status(400).json({ errors: validation.errors });
+  }
+
+  res.json({ success: true });
+});
+```
+
+## 🏗️ **Architecture Overview**
+
+NextRush follows a **plugin-based architecture** where features are modularly integrated:
+
+- **🏗️ Application Core** - Main application class and HTTP server management
+- **📡 Request/Response Enhancement** - Extended functionality for handling requests
+- **🔌 Plugin System** - Modular features (auth, CORS, rate limiting, etc.)
+- **🛣️ Routing Engine** - Advanced routing with parameter validation
+- **🎭 Event System** - Event-driven architecture for monitoring and hooks
+
+## 📋 **Feature Matrix**
+
+| Feature           | Status      | Documentation                         |
+| ----------------- | ----------- | ------------------------------------- |
+| HTTP Routing      | ✅ Complete | [Routing](./Routing.md)               |
+| Middleware System | ✅ Complete | [Middleware](./Middleware.md)         |
+| Body Parsing      | ✅ Complete | [Body Parser](./BodyParser.md)        |
+| File Uploads      | ✅ Complete | [Body Parser](./BodyParser.md)        |
+| Static Files      | ✅ Complete | [Static Files](./StaticFiles.md)      |
+| Template Engine   | ✅ Complete | [Templates](./TemplateEngine.md)      |
+| WebSocket         | ✅ Complete | [WebSocket](./WebSocket.md)           |
+| Authentication    | ✅ Complete | [Authentication](./Authentication.md) |
+| Rate Limiting     | ✅ Complete | [Rate Limiting](./RateLimit.md)       |
+| CORS              | ✅ Complete | [CORS](./CORS.md)                     |
+| Input Validation  | ✅ Complete | [Security](./SECURITY.md)             |
+| API Documentation | ✅ Complete | [API Docs](./ApiDocs.md)              |
+| Metrics           | ✅ Complete | [Metrics](./Metrics.md)               |
+| Error Handling    | ✅ Complete | [Error Handling](./ErrorHandling.md)  |
+
+## 🚀 **Getting Help**
+
+- 📖 **Read the guides above** for detailed feature documentation
+- 💬 **GitHub Discussions**: [Ask questions](https://github.com/0xTanzim/nextRush/discussions)
+- 🐛 **GitHub Issues**: [Report bugs](https://github.com/0xTanzim/nextRush/issues)
+- 📧 **Email**: [tanzimhossain2@gmail.com](mailto:tanzimhossain2@gmail.com)
+
+## 🤝 **Contributing**
+
+We welcome contributions! See our [Contributing Guide](../CONTRIBUTING.md) and [Development Setup](./DEVELOPMENT.md).
+
 ---
 
-## 🎯 What's NOT Included (Honest Documentation)
-
-This documentation only covers **implemented features**. NextRush does NOT currently include:
-
-- ❌ `app.validate()` method (use `req.validate()` instead)
-- ❌ `app.xssProtection()` method
-- ❌ `app.eventMiddleware()` method
-- ❌ `app.pipeline()` method
-- ❌ Built-in rate limiting
-- ❌ Automatic CORS handling
-- ❌ Built-in authentication
-
-**What IS included and working:**
-
-- ✅ All HTTP routing methods
-- ✅ Professional static file serving
-- ✅ WebSocket support
-- ✅ Template engine
-- ✅ Body parsing (JSON, form, files)
-- ✅ Request enhancement (IP, validation, sanitization)
-- ✅ Response enhancement (CSV, cookies)
-- ✅ Full TypeScript support
-- ✅ Express.js compatibility
-
----
-
-**NextRush Framework - Honest, reliable, and production-ready** 🚀
+**[⬅️ Back to Main README](../README.md)** | **[🚀 Get Started](./GETTING-STARTED.md)** | **[� Migrate from Express](./MIGRATION.md)**

@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "A modern, plugin-based HTTP server framework for Node.js with Express-compatible API, dynamic plugin system, TypeScript-first design, and clean architecture. Zero dependencies, maximum performance, familiar syntax.",
   "keywords": [
     "typescript",
