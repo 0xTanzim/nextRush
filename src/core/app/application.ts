@@ -75,6 +75,15 @@ export interface ApplicationOptions {
   strict?: boolean;
   // 🚀 NEW: Performance optimization options
   pluginMode?: PluginMode; // Choose plugin loading strategy for performance
+  // 🚀 NEW: Body parser configuration
+  bodyParser?: {
+    debug?: boolean;
+    maxSize?: number;
+    timeout?: number;
+    enableStreaming?: boolean;
+    autoDetectContentType?: boolean;
+    [key: string]: any;
+  };
 }
 
 interface InternalApplicationOptions {
@@ -87,6 +96,15 @@ interface InternalApplicationOptions {
   caseSensitive: boolean;
   strict: boolean;
   pluginMode: PluginMode; // 🚀 Add plugin mode to internal options
+  bodyParser?: {
+    // 🚀 Add bodyParser to internal options
+    debug?: boolean;
+    maxSize?: number;
+    timeout?: number;
+    enableStreaming?: boolean;
+    autoDetectContentType?: boolean;
+    [key: string]: any;
+  };
 }
 
 export interface StaticOptions {
@@ -278,6 +296,10 @@ export class Application extends BaseComponent implements IApplication {
       caseSensitive: applicationOptions.caseSensitive || false,
       strict: applicationOptions.strict || false,
       pluginMode: applicationOptions.pluginMode || PluginMode.PERFORMANCE, // 🚀 Default to performance mode
+      // 🚀 FIXED: Pass bodyParser options conditionally to avoid undefined assignment
+      ...(applicationOptions.bodyParser && {
+        bodyParser: applicationOptions.bodyParser,
+      }),
     };
 
     this.router = this.appOptions.router;
@@ -1090,7 +1112,11 @@ export class Application extends BaseComponent implements IApplication {
       const req = RequestEnhancer.enhance(context.request);
       const res = ResponseEnhancer.enhance(context.response);
       req.params = context.params;
-      req.body = context.body;
+
+      // 🚨 FIXED: Don't override req.body if it already exists (parsed by MegaUltimateParser)
+      if (req.body === undefined && context.body !== undefined) {
+        req.body = context.body;
+      }
 
       await (handler as ExpressHandler)(req, res);
     };
@@ -1109,7 +1135,11 @@ export class Application extends BaseComponent implements IApplication {
       const req = RequestEnhancer.enhance(context.request);
       const res = ResponseEnhancer.enhance(context.response);
       req.params = context.params;
-      req.body = context.body;
+
+      // 🚨 FIXED: Don't override req.body if it already exists (parsed by MegaUltimateParser)
+      if (req.body === undefined && context.body !== undefined) {
+        req.body = context.body;
+      }
 
       await new Promise<void>((resolve, reject) => {
         const expressNext = (error?: unknown) => {

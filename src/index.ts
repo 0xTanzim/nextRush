@@ -196,11 +196,14 @@ export type {
 
 export type {
   CustomMetric,
+  HealthCheckFunction,
+  HealthCheckResult,
   HealthStatus,
   MetricsOptions,
+  MetricValue,
   RequestMetrics,
   SystemMetrics,
-} from './plugins/metrics/metrics.plugin';
+} from './plugins/metrics/interfaces';
 
 export type {
   RateLimiterData,

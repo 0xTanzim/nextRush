@@ -16,6 +16,7 @@ import {
 
 /**
  * Compose multiple middleware into a single middleware function
+ * Optimized for performance with minimal function calls
  *
  * @example
  * const authFlow = compose(checkApiKey, checkUser, rateLimit);
@@ -24,6 +25,15 @@ import {
 export function compose(
   ...middlewares: ExpressMiddleware[]
 ): ExpressMiddleware {
+  // Early optimization for common cases
+  if (middlewares.length === 0) {
+    return (req, res, next) => next();
+  }
+
+  if (middlewares.length === 1) {
+    return middlewares[0];
+  }
+
   return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
     let index = 0;
 
@@ -36,9 +46,11 @@ export function compose(
       try {
         middleware(req, res, executeNext);
       } catch (error) {
-        console.error('❌ Middleware error:', error);
-        if (res.headersSent) return;
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('❌ Middleware composition error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Internal server error' });
+        }
+        // Don't call next() on error to prevent further execution
       }
     }
 

@@ -20,7 +20,8 @@ export { EventDrivenPlugin } from './core/event-driven.plugin';
 // ============================================================================
 
 // Core plugins
-export { BodyParserPlugin } from './body-parser/body-parser.plugin';
+export { BodyParserPlugin } from './body-parser/body-parser-v2.plugin';
+export { LoggerPlugin } from './logger/logger.plugin';
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
 export { ValidationPlugin } from './middleware/validation.plugin';
 export { RouterPlugin } from './router/router.plugin';
@@ -66,11 +67,14 @@ export type {
 
 export type {
   CustomMetric,
+  HealthCheckFunction,
+  HealthCheckResult,
   HealthStatus,
   MetricsOptions,
+  MetricValue,
   RequestMetrics,
   SystemMetrics,
-} from './metrics/metrics.plugin';
+} from './metrics/interfaces';
 
 export type {
   ApiDocsOptions,
@@ -90,7 +94,7 @@ export { CorsPresets } from './cors/cors.plugin';
 
 import { ApiDocumentationPlugin } from './api-docs/api-docs.plugin';
 import { AuthPlugin } from './auth/auth.plugin';
-import { BodyParserPlugin } from './body-parser/body-parser.plugin';
+import { BodyParserPlugin } from './body-parser/body-parser-v2.plugin';
 import type { PluginRegistry } from './core/base-plugin';
 import { EventDrivenPlugin } from './core/event-driven.plugin';
 import { CorsPlugin } from './cors/cors.plugin';

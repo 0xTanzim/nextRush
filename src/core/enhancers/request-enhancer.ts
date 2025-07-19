@@ -102,7 +102,8 @@ export class RequestEnhancer {
     // Initialize properties
     enhanced.params = enhanced.params || {};
     enhanced.query = enhanced.query || {};
-    enhanced.body = enhanced.body || {};
+    // 🚨 FIXED: Don't initialize body - let MegaUltimateParser handle it
+    // enhanced.body = enhanced.body || {}; // REMOVED - causes conflicts with body parser
     enhanced.pathname = req.url?.split('?')[0] || '/';
     enhanced.originalUrl = req.url || '/';
     enhanced.path = enhanced.pathname;

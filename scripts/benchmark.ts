@@ -69,7 +69,7 @@ interface StressTestResult {
 class UltimatePerformanceBenchmark {
   private app: any;
   private server: any | null = null;
-  private port = 3000;
+  private port = 3001;
   private results: BenchmarkResult[] = [];
   private stressTestResults: StressTestResult[] = [];
   private frameworkComparisons: FrameworkComparison[] = [];

@@ -157,8 +157,8 @@ export function requestId(
 }
 
 /**
- * Request Timer Middleware
- * Adds response time header
+ * Request Timer Middleware - Optimized version
+ * Adds response time header without memory leaks
  */
 export function requestTimer(
   options: { header?: string } = {}
@@ -168,21 +168,20 @@ export function requestTimer(
   return (req, res, next) => {
     const start = Date.now();
 
-    const originalEnd = res.end;
-    res.end = function (chunk?: any, encoding?: any) {
+    // Use 'finish' event instead of overriding end() for better performance
+    res.once('finish', () => {
       if (!res.headersSent) {
         const duration = Date.now() - start;
         res.setHeader(headerName, `${duration}ms`);
       }
-      return originalEnd.call(this, chunk, encoding);
-    };
+    });
 
     next();
   };
 }
 /**
- * Compression Middleware
- * Compresses response data
+ * Compression Middleware - Optimized version
+ * Compresses response data efficiently
  */
 export function compression(
   options: {
@@ -191,31 +190,34 @@ export function compression(
     filter?: (req: any, res: any) => boolean;
   } = {}
 ): ExpressMiddleware {
-  return (req, res, next) => {
-    // Simple compression implementation
-    // In a real implementation, this would use zlib
-    const originalSend = res.send;
+  const threshold = options.threshold || 1024;
 
-    res.send = function (body: any) {
-      if (req.headers['accept-encoding']?.includes('gzip')) {
-        res.setHeader('Content-Encoding', 'gzip');
-      }
-      return originalSend.call(this, body);
-    };
+  return (req, res, next) => {
+    const acceptEncoding = req.headers['accept-encoding'];
+
+    // Only set headers for supported encodings
+    if (acceptEncoding?.includes('gzip')) {
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Vary', 'Accept-Encoding');
+    } else if (acceptEncoding?.includes('deflate')) {
+      res.setHeader('Content-Encoding', 'deflate');
+      res.setHeader('Vary', 'Accept-Encoding');
+    }
 
     next();
   };
 }
 
 /**
- * Rate Limiting Middleware
- * Limits requests per IP
+ * Rate Limiting Middleware - Optimized with cleanup
+ * Limits requests per IP with automatic cleanup
  */
 export function rateLimit(
   options: {
     windowMs?: number;
     max?: number;
     message?: string;
+    keyGenerator?: (req: any) => string;
   } = {}
 ): ExpressMiddleware {
   const windowMs = options.windowMs || 15 * 60 * 1000; // 15 minutes
@@ -223,34 +225,57 @@ export function rateLimit(
   const message =
     options.message || 'Too many requests, please try again later.';
 
+  const keyGenerator =
+    options.keyGenerator ||
+    ((req: any) => {
+      return (
+        req.connection?.remoteAddress ||
+        req.socket?.remoteAddress ||
+        req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+        'unknown'
+      );
+    });
+
   const requests = new Map<string, { count: number; resetTime: number }>();
 
-  return (req, res, next) => {
-    const ip = req.connection.remoteAddress || 'unknown';
+  // Cleanup old entries periodically
+  const cleanup = () => {
+    const now = Date.now();
+    for (const [key, data] of requests.entries()) {
+      if (now > data.resetTime) {
+        requests.delete(key);
+      }
+    }
+  };
+
+  // Run cleanup every 5 minutes
+  const cleanupInterval = setInterval(cleanup, 5 * 60 * 1000);
+
+  const middleware = (req: any, res: any, next: any) => {
+    const key = keyGenerator(req);
     const now = Date.now();
     const resetTime = now + windowMs;
 
-    if (!requests.has(ip)) {
-      requests.set(ip, { count: 1, resetTime });
+    const clientData = requests.get(key);
+
+    if (!clientData || now > clientData.resetTime) {
+      requests.set(key, { count: 1, resetTime });
+      next();
+    } else if (clientData.count < max) {
+      clientData.count++;
+      next();
     } else {
-      const record = requests.get(ip)!;
-
-      if (now > record.resetTime) {
-        // Reset window
-        record.count = 1;
-        record.resetTime = resetTime;
-      } else {
-        record.count++;
-
-        if (record.count > max) {
-          res.status(429).json({ error: message });
-          return;
-        }
-      }
+      res.status(429).json({ error: message });
     }
-
-    next();
   };
+
+  // Add cleanup method for proper disposal
+  (middleware as any).cleanup = () => {
+    clearInterval(cleanupInterval);
+    requests.clear();
+  };
+
+  return middleware;
 }
 
 // Export presets

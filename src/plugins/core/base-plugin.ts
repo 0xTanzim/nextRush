@@ -8,12 +8,13 @@
 import { Application } from '../../core/app/application';
 
 /**
- * Plugin Registry interface for event system
+ * Plugin Registry interface for event system and plugin access
  */
 export interface PluginRegistry {
   emit(event: string, ...args: any[]): void;
   on(event: string, listener: (...args: any[]) => void): void;
   off(event: string, listener: (...args: any[]) => void): void;
+  getPlugin?(name: string): BasePlugin | undefined;
 }
 
 /**
