@@ -89,7 +89,7 @@ export {
 export { EventDrivenPlugin } from './plugins';
 
 // Enhanced static files
-export { StaticFilesPlugin, type ProfessionalStaticOptions } from './plugins';
+export { StaticFilesPlugin } from './plugins';
 
 // Template engine
 export {

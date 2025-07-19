@@ -15,7 +15,7 @@ import { BodyParserPlugin } from './body-parser/body-parser.plugin';
 import type { PluginRegistry } from './core/base-plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { RouterPlugin } from './router/router.plugin';
-import { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
+import { StaticFilesPlugin } from './static-files/static-files.plugin';
 
 /**
  * Create only essential plugins for maximum performance
