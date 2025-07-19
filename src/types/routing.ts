@@ -20,6 +20,12 @@ export interface RouterOptions {
   caseSensitive?: boolean;
   strict?: boolean;
   mergeParams?: boolean;
+  // Performance optimization options
+  useOptimizedMatcher?: boolean;
+  enableCaching?: boolean;
+  cacheSize?: number;
+  enablePrefixOptimization?: boolean;
+  enableMetrics?: boolean;
 }
 
 export interface Route {

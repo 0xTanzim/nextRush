@@ -238,30 +238,33 @@ app.ws('/chat/:room', (socket, req) => {
 });
 ```
 
-### **🎨 Template Engine - Multi-Syntax Support**
+### **🎨 Template Engine - Super Simple Setup**
 
 ```typescript
-// Support for Mustache, Handlebars, EJS, and more
-app.setViews('./views');
+import { createApp, quickTemplate } from 'nextrush';
 
-app.get('/profile/:id', (req, res) => {
-  res.render('profile.mustache', {
-    user: {
-      name: 'John Doe',
-      id: req.params.id,
-      avatar: '/uploads/avatar.jpg',
-    },
-    title: 'User Profile',
+const app = createApp();
+
+// ONE LINE SETUP! 🎉
+app.setTemplateEngine(quickTemplate());
+
+// Render templates with built-in helpers
+app.get('/welcome/:name', (req, res) => {
+  res.render('Hello {{name}}! Price: {{currency 29.99}}', {
+    name: req.params.name,
   });
 });
 
-// Render with partials and helpers
-app.get('/dashboard', (req, res) => {
-  res.render('dashboard.html', {
-    user: req.user,
-    stats: await getStats(),
-    timestamp: new Date().toISOString(),
-  });
+// Custom helpers made easy
+app.setTemplateEngine(
+  quickTemplate({
+    badge: (type: string, text: string) => `[${type.toUpperCase()}] ${text}`,
+    timeAgo: (minutes: number) => `${minutes} minutes ago`,
+  })
+);
+
+app.get('/status', (req, res) => {
+  res.render('{{badge "success" "All systems operational"}} {{timeAgo 5}}', {});
 });
 ```
 
