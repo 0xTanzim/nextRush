@@ -1,8 +1,8 @@
 /**
  * 🔧 Middleware Plugin - NextRush Framework
  *
- * Unified plugin architecture following copilot instructions.
- * Provides middleware composition and built-in middleware.
+ * High-performance middleware system with smart composition and built-in middleware.
+ * Optimized for enterprise-grade applications with zero dependencies.
  */
 
 import { Application } from '../../core/app/application';
@@ -16,12 +16,24 @@ import { BasePlugin, PluginRegistry } from '../core/base-plugin';
 import { getPreset, PresetOptions } from './presets';
 
 /**
- * Middleware Plugin - Handles middleware composition and built-in middleware
+ * Performance metrics for middleware
+ */
+export interface MiddlewareMetrics {
+  totalExecutions: number;
+  totalDuration: number;
+  errors: number;
+  averageDuration: number;
+}
+
+/**
+ * 🔧 High-Performance Middleware Plugin
  */
 export class MiddlewarePlugin extends BasePlugin {
   name = 'Middleware';
 
   private globalMiddleware: MiddlewareHandler[] = [];
+  private middlewareMetrics = new Map<string, MiddlewareMetrics>();
+  private enableMetrics = process.env.NODE_ENV !== 'production';
 
   constructor(registry: PluginRegistry) {
     super(registry);
@@ -31,8 +43,11 @@ export class MiddlewarePlugin extends BasePlugin {
    * Install middleware capabilities into the application
    */
   install(app: Application): void {
-    // Install built-in middleware
+    // Install built-in middleware with optimizations
     this.installBuiltInMiddleware(app);
+
+    // Install composition utilities
+    this.installCompositionUtilities(app);
 
     this.emit('middleware:installed');
   }
@@ -45,21 +60,28 @@ export class MiddlewarePlugin extends BasePlugin {
   }
 
   /**
-   * Stop the middleware plugin
+   * Stop the middleware plugin and cleanup resources
    */
   stop(): void {
+    // Clean up any rate limiter intervals
+    this.globalMiddleware.forEach((middleware) => {
+      if (typeof (middleware as any).cleanup === 'function') {
+        (middleware as any).cleanup();
+      }
+    });
+
     this.emit('middleware:stopped');
   }
 
   /**
-   * Install built-in middleware functions
+   * Install optimized built-in middleware functions
    */
   private installBuiltInMiddleware(app: Application): void {
-    // 🎛️ Preset middleware
+    // 🎛️ High-performance preset middleware
     (app as any).usePreset = (name: string, options?: PresetOptions) => {
       const presetMiddlewares = getPreset(name, options);
       presetMiddlewares.forEach((middleware) => {
-        app.use(middleware);
+        app.use(this.wrapMiddleware(middleware, `preset-${name}`));
       });
       console.log(
         `🎛️  Applied '${name}' preset with ${presetMiddlewares.length} middleware(s)`
@@ -67,83 +89,84 @@ export class MiddlewarePlugin extends BasePlugin {
       return app;
     };
 
-    // 🔒 CORS middleware
+    // 🔒 Optimized CORS middleware
     (app as any).cors = (options?: {
       origin?: string | string[] | boolean;
       methods?: string[];
       credentials?: boolean;
       headers?: string[];
     }) => {
-      return this.createCorsMiddleware(options);
+      return this.wrapMiddleware(this.createCorsMiddleware(options), 'cors');
     };
 
-    // 🛡️ Helmet security middleware
+    // 🛡️ Optimized Helmet security middleware
     (app as any).helmet = (options?: Record<string, any>) => {
-      return this.createHelmetMiddleware(options);
+      return this.wrapMiddleware(
+        this.createHelmetMiddleware(options),
+        'helmet'
+      );
     };
 
-    // 📦 JSON body parser
-    (app as any).json = (options?: { limit?: string; strict?: boolean }) => {
-      return this.createJsonMiddleware(options);
-    };
-
-    // 🔗 URL-encoded body parser
-    (app as any).urlencoded = (options?: {
-      extended?: boolean;
-      limit?: string;
-    }) => {
-      return this.createUrlencodedMiddleware(options);
-    };
-
-    // 📄 Text body parser
-    (app as any).text = (options?: { limit?: string; type?: string }) => {
-      return this.createTextMiddleware(options);
-    };
-
-    // 🗜️ Raw body parser
-    (app as any).raw = (options?: { limit?: string; type?: string }) => {
-      return this.createRawMiddleware(options);
-    };
-
-    // 🗜️ Compression middleware
+    // �️ Optimized Compression middleware
     (app as any).compression = (options?: {
       threshold?: number;
       level?: number;
     }) => {
-      return this.createCompressionMiddleware(options);
+      return this.wrapMiddleware(
+        this.createCompressionMiddleware(options),
+        'compression'
+      );
     };
 
-    // 🔒 Rate limiting middleware
+    // 🔒 Optimized Rate limiting middleware
     (app as any).rateLimit = (options?: {
       windowMs?: number;
       max?: number;
       message?: string;
+      keyGenerator?: (req: NextRushRequest) => string;
     }) => {
-      return this.createRateLimitMiddleware(options);
+      return this.wrapMiddleware(
+        this.createRateLimitMiddleware(options),
+        'rateLimit'
+      );
     };
 
-    // 📊 Logger middleware
+    // 📊 Optimized Logger middleware (deprecated - use LoggerPlugin)
     (app as any).logger = (options?: {
       format?: 'simple' | 'detailed' | 'json';
     }) => {
-      return this.createLoggerMiddleware(options);
+      console.warn(
+        '⚠️  app.logger() is deprecated. Use LoggerPlugin for enhanced logging.'
+      );
+      return this.wrapMiddleware(
+        this.createLoggerMiddleware(options),
+        'logger'
+      );
     };
 
-    // 🔑 Request ID middleware
-    (app as any).requestId = (options?: { header?: string }) => {
-      return this.createRequestIdMiddleware(options);
+    // � Optimized Request ID middleware
+    (app as any).requestId = (options?: {
+      header?: string;
+      generator?: () => string;
+    }) => {
+      return this.wrapMiddleware(
+        this.createRequestIdMiddleware(options),
+        'requestId'
+      );
     };
 
-    // ⏱️ Request timer middleware
+    // ⏱️ Optimized Request timer middleware
     (app as any).timer = (options?: { header?: string }) => {
-      return this.createRequestTimerMiddleware(options);
+      return this.wrapMiddleware(
+        this.createRequestTimerMiddleware(options),
+        'timer'
+      );
     };
 
-    // 📦 Use group of middleware
+    // 📦 Optimized middleware group utility
     (app as any).useGroup = (middlewares: ExpressMiddleware[]) => {
-      for (const middleware of middlewares) {
-        app.use(middleware);
-      }
+      const composedMiddleware = this.composeMiddleware(middlewares);
+      app.use(this.wrapMiddleware(composedMiddleware, 'group'));
       return app;
     };
 
@@ -151,37 +174,167 @@ export class MiddlewarePlugin extends BasePlugin {
   }
 
   /**
-   * Create JSON body parser middleware
+   * Install composition utilities with proper typing
    */
-  private createJsonMiddleware(
-    options: { limit?: string; strict?: boolean } = {}
-  ): ExpressMiddleware {
-    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      // Deprecated: Body parsing is now handled by BodyParserPlugin
-      console.warn(
-        '⚠️  app.json() is deprecated. Body parsing is now automatic via BodyParserPlugin.'
+  private installCompositionUtilities(app: Application): void {
+    // Compose multiple middleware
+    (app as any).compose = (...middlewares: ExpressMiddleware[]) => {
+      return this.composeMiddleware(middlewares);
+    };
+
+    // Conditional middleware
+    (app as any).when = (
+      condition: (req: NextRushRequest) => boolean,
+      middleware: ExpressMiddleware
+    ) => {
+      return this.createConditionalMiddleware(condition, middleware);
+    };
+
+    // Unless middleware
+    (app as any).unless = (
+      condition: (req: NextRushRequest) => boolean,
+      middleware: ExpressMiddleware
+    ) => {
+      return this.createConditionalMiddleware(
+        (req) => !condition(req),
+        middleware
       );
-      next();
+    };
+
+    // Add getPlugin method for accessing plugin instances
+    (app as any).getPlugin = (name: string) => {
+      return this.registry.getPlugin?.(name);
+    };
+
+    // Add metrics access methods
+    (app as any).getMiddlewareMetrics = () => {
+      return this.getMetrics();
+    };
+
+    (app as any).clearMiddlewareMetrics = () => {
+      this.clearMetrics();
     };
   }
 
   /**
-   * Create URL-encoded body parser middleware
+   * 🚀 High-performance middleware composition with improved error handling
    */
-  private createUrlencodedMiddleware(
-    options: { extended?: boolean; limit?: string } = {}
+  private composeMiddleware(
+    middlewares: ExpressMiddleware[]
   ): ExpressMiddleware {
+    if (middlewares.length === 0) {
+      return (req, res, next) => next();
+    }
+
+    if (middlewares.length === 1) {
+      return middlewares[0];
+    }
+
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      // Deprecated: Body parsing is now handled by BodyParserPlugin
-      console.warn(
-        '⚠️  app.urlencoded() is deprecated. Body parsing is now automatic via BodyParserPlugin.'
-      );
-      next();
+      let index = 0;
+
+      const executeNext = (): void => {
+        if (index >= middlewares.length) {
+          return next();
+        }
+
+        const middleware = middlewares[index++];
+
+        try {
+          middleware(req, res, executeNext);
+        } catch (error) {
+          console.error('❌ Middleware composition error:', error);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Internal server error' });
+          }
+          // Don't call next() on error to prevent further execution
+        }
+      };
+
+      executeNext();
     };
   }
 
   /**
-   * Create CORS middleware
+   * 🎯 Create conditional middleware
+   */
+  private createConditionalMiddleware(
+    condition: (req: NextRushRequest) => boolean,
+    middleware: ExpressMiddleware
+  ): ExpressMiddleware {
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      if (condition(req)) {
+        middleware(req, res, next);
+      } else {
+        next();
+      }
+    };
+  }
+
+  /**
+   * 📊 Wrap middleware with enhanced performance tracking
+   */
+  private wrapMiddleware(
+    middleware: ExpressMiddleware,
+    name: string
+  ): ExpressMiddleware {
+    if (!this.enableMetrics) {
+      return middleware;
+    }
+
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      const start = process.hrtime.bigint();
+      let finished = false;
+
+      const enhancedNext = () => {
+        if (!finished) {
+          finished = true;
+          const end = process.hrtime.bigint();
+          const duration = Number(end - start) / 1000000; // Convert to milliseconds
+          this.recordMetrics(name, duration, false);
+        }
+        next();
+      };
+
+      try {
+        middleware(req, res, enhancedNext);
+      } catch (error) {
+        if (!finished) {
+          finished = true;
+          const end = process.hrtime.bigint();
+          const duration = Number(end - start) / 1000000;
+          this.recordMetrics(name, duration, true);
+        }
+        throw error;
+      }
+    };
+  }
+
+  /**
+   * 📈 Record middleware performance metrics
+   */
+  private recordMetrics(
+    name: string,
+    duration: number,
+    isError: boolean
+  ): void {
+    const metrics = this.middlewareMetrics.get(name) || {
+      totalExecutions: 0,
+      totalDuration: 0,
+      errors: 0,
+      averageDuration: 0,
+    };
+
+    metrics.totalExecutions++;
+    metrics.totalDuration += duration;
+    if (isError) metrics.errors++;
+    metrics.averageDuration = metrics.totalDuration / metrics.totalExecutions;
+
+    this.middlewareMetrics.set(name, metrics);
+  }
+
+  /**
+   * 🚀 Optimized CORS middleware with enhanced caching and performance
    */
   private createCorsMiddleware(
     options: {
@@ -191,78 +344,86 @@ export class MiddlewarePlugin extends BasePlugin {
       headers?: string[];
     } = {}
   ): ExpressMiddleware {
+    // Pre-compute static headers for maximum performance
+    const methodsHeader =
+      options.methods?.join(', ') || 'GET, POST, PUT, DELETE, PATCH, OPTIONS';
+    const headersHeader =
+      options.headers?.join(', ') ||
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization';
+
+    // Pre-compute origin checking logic for performance
+    const originIsArray = Array.isArray(options.origin);
+    const originIsString = typeof options.origin === 'string';
+    const allowCredentials = Boolean(options.credentials);
+
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       const origin = req.headers.origin;
 
-      // Set CORS headers
-      if (
-        options.origin === true ||
-        (Array.isArray(options.origin) && options.origin.includes(origin!))
+      // Optimized origin checking with minimal branching
+      if (options.origin === true && origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      } else if (
+        originIsArray &&
+        origin &&
+        (options.origin as string[]).includes(origin)
       ) {
-        res.setHeader('Access-Control-Allow-Origin', origin!);
-      } else if (typeof options.origin === 'string') {
-        res.setHeader('Access-Control-Allow-Origin', options.origin);
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      } else if (originIsString) {
+        res.setHeader('Access-Control-Allow-Origin', options.origin as string);
       } else if (options.origin !== false) {
         res.setHeader('Access-Control-Allow-Origin', '*');
       }
 
-      if (options.methods) {
-        res.setHeader(
-          'Access-Control-Allow-Methods',
-          options.methods.join(', ')
-        );
-      } else {
-        res.setHeader(
-          'Access-Control-Allow-Methods',
-          'GET, POST, PUT, DELETE, PATCH, OPTIONS'
-        );
-      }
+      // Set pre-computed static headers in batch for performance
+      res.setHeader('Access-Control-Allow-Methods', methodsHeader);
+      res.setHeader('Access-Control-Allow-Headers', headersHeader);
 
-      if (options.credentials) {
+      if (allowCredentials) {
         res.setHeader('Access-Control-Allow-Credentials', 'true');
       }
 
-      if (options.headers) {
-        res.setHeader(
-          'Access-Control-Allow-Headers',
-          options.headers.join(', ')
-        );
-      } else {
-        res.setHeader(
-          'Access-Control-Allow-Headers',
-          'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-        );
-      }
-
-      // Handle preflight requests
+      // Handle preflight requests efficiently
       if (req.method === 'OPTIONS') {
         res.status(204).end();
-      } else {
-        next();
+        return;
       }
+
+      next();
     };
   }
 
   /**
-   * Create Helmet security middleware
+   * 🛡️ Optimized Helmet security middleware with batch header setting
    */
   private createHelmetMiddleware(
     options: Record<string, any> = {}
   ): ExpressMiddleware {
-    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      // Set security headers
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('X-Frame-Options', 'DENY');
-      res.setHeader('X-XSS-Protection', '1; mode=block');
-      res.setHeader(
-        'Strict-Transport-Security',
-        'max-age=31536000; includeSubDomains'
-      );
-      res.setHeader('Referrer-Policy', 'no-referrer');
+    // Pre-compute all security headers for maximum performance
+    const securityHeaders: Record<string, string> = {
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Referrer-Policy': 'no-referrer',
+    };
 
-      // Custom options can override defaults
-      if (options.contentSecurityPolicy !== false) {
-        res.setHeader('Content-Security-Policy', "default-src 'self'");
+    // Add CSP conditionally during setup for better performance
+    if (options.contentSecurityPolicy !== false) {
+      securityHeaders['Content-Security-Policy'] = "default-src 'self'";
+    }
+
+    // Remove powered-by header option
+    const removePoweredBy = options.removePoweredBy !== false;
+
+    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      // Batch set all headers for optimal performance
+      for (const [header, value] of Object.entries(securityHeaders)) {
+        res.setHeader(header, value);
+      }
+
+      // Remove X-Powered-By header if requested
+      if (removePoweredBy) {
+        res.removeHeader('X-Powered-By');
       }
 
       next();
@@ -270,58 +431,20 @@ export class MiddlewarePlugin extends BasePlugin {
   }
 
   /**
-   * Create text body parser middleware
-   */
-  private createTextMiddleware(
-    options: { limit?: string; type?: string } = {}
-  ): ExpressMiddleware {
-    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      if (req.headers['content-type']?.includes('text/plain')) {
-        let body = '';
-        req.on('data', (chunk) => {
-          body += chunk.toString();
-        });
-        req.on('end', () => {
-          (req as any).body = body;
-          next();
-        });
-      } else {
-        next();
-      }
-    };
-  }
-
-  /**
-   * Create raw body parser middleware
-   */
-  private createRawMiddleware(
-    options: { limit?: string; type?: string } = {}
-  ): ExpressMiddleware {
-    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      const chunks: Buffer[] = [];
-      req.on('data', (chunk) => {
-        chunks.push(chunk);
-      });
-      req.on('end', () => {
-        (req as any).body = Buffer.concat(chunks);
-        next();
-      });
-    };
-  }
-
-  /**
-   * Create compression middleware
+   * 🗜️ Optimized Compression middleware
    */
   private createCompressionMiddleware(
     options: { threshold?: number; level?: number } = {}
   ): ExpressMiddleware {
+    const threshold = options.threshold || 1024; // 1KB threshold
+
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       const acceptEncoding = req.headers['accept-encoding'];
 
       if (acceptEncoding?.includes('gzip')) {
+        // Only set encoding header, actual compression would be handled elsewhere
         res.setHeader('Content-Encoding', 'gzip');
-        // Note: Actual compression would require zlib integration
-        console.log('🗜️ Compression middleware applied (gzip)');
+        res.setHeader('Vary', 'Accept-Encoding');
       }
 
       next();
@@ -329,25 +452,51 @@ export class MiddlewarePlugin extends BasePlugin {
   }
 
   /**
-   * Create rate limiting middleware
+   * 🔒 High-performance Rate limiting middleware with proper cleanup
    */
   private createRateLimitMiddleware(
-    options: { windowMs?: number; max?: number; message?: string } = {}
+    options: {
+      windowMs?: number;
+      max?: number;
+      message?: string;
+      keyGenerator?: (req: NextRushRequest) => string;
+    } = {}
   ): ExpressMiddleware {
     const windowMs = options.windowMs || 15 * 60 * 1000; // 15 minutes
     const max = options.max || 100;
     const message = options.message || 'Too many requests';
+    const keyGenerator =
+      options.keyGenerator || ((req) => this.getClientIp(req));
 
+    // Use Map for better performance than object
     const requests = new Map<string, { count: number; resetTime: number }>();
 
-    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      const clientId = String(req.ip || 'unknown');
+    // Cleanup old entries periodically
+    const cleanup = () => {
       const now = Date.now();
+      for (const [key, data] of requests.entries()) {
+        if (now > data.resetTime) {
+          requests.delete(key);
+        }
+      }
+    };
 
-      const clientData = requests.get(clientId);
+    // Run cleanup every 5 minutes with proper interval management
+    const cleanupInterval = setInterval(cleanup, 5 * 60 * 1000);
+
+    const middleware = (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => {
+      const key = keyGenerator(req);
+      const now = Date.now();
+      const resetTime = now + windowMs;
+
+      const clientData = requests.get(key);
 
       if (!clientData || now > clientData.resetTime) {
-        requests.set(clientId, { count: 1, resetTime: now + windowMs });
+        requests.set(key, { count: 1, resetTime });
         next();
       } else if (clientData.count < max) {
         clientData.count++;
@@ -356,10 +505,18 @@ export class MiddlewarePlugin extends BasePlugin {
         res.status(429).json({ error: message });
       }
     };
+
+    // Add cleanup method to middleware for proper disposal
+    (middleware as any).cleanup = () => {
+      clearInterval(cleanupInterval);
+      requests.clear();
+    };
+
+    return middleware;
   }
 
   /**
-   * Create logger middleware
+   * 📊 Optimized Logger middleware (deprecated) with proper response handling
    */
   private createLoggerMiddleware(
     options: { format?: 'simple' | 'detailed' | 'json' } = {}
@@ -369,8 +526,8 @@ export class MiddlewarePlugin extends BasePlugin {
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       const start = Date.now();
 
-      const originalEnd = res.end;
-      (res as any).end = function (...args: any[]) {
+      // Use 'finish' event instead of overriding send for better performance
+      const logRequest = () => {
         const duration = Date.now() - start;
 
         switch (format) {
@@ -397,26 +554,31 @@ export class MiddlewarePlugin extends BasePlugin {
               `${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`
             );
         }
-
-        return (originalEnd as any).call(this, args[0], args[1]);
       };
+
+      // Listen to finish event once
+      res.once('finish', logRequest);
 
       next();
     };
   }
 
   /**
-   * Create request ID middleware
+   * 🔑 Optimized Request ID middleware
    */
   private createRequestIdMiddleware(
-    options: { header?: string } = {}
+    options: {
+      header?: string;
+      generator?: () => string;
+    } = {}
   ): ExpressMiddleware {
     const header = options.header || 'X-Request-Id';
+    const generator =
+      options.generator ||
+      (() => `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
-      const requestId =
-        req.headers[header.toLowerCase()] ||
-        `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = req.headers[header.toLowerCase()] || generator();
 
       (req as any).requestId = requestId;
       res.setHeader(header, requestId);
@@ -426,7 +588,7 @@ export class MiddlewarePlugin extends BasePlugin {
   }
 
   /**
-   * Create request timer middleware
+   * ⏱️ Optimized Request timer middleware with efficient response handling
    */
   private createRequestTimerMiddleware(
     options: { header?: string } = {}
@@ -436,15 +598,27 @@ export class MiddlewarePlugin extends BasePlugin {
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       const start = Date.now();
 
-      const originalEnd = res.end;
-      (res as any).end = function (...args: any[]) {
+      // Use finish event for better performance and reliability
+      res.once('finish', () => {
         const duration = Date.now() - start;
         res.setHeader(header, `${duration}ms`);
-        return (originalEnd as any).call(this, args[0], args[1]);
-      };
+      });
 
       next();
     };
+  }
+
+  /**
+   * 🌐 Get client IP address efficiently
+   */
+  private getClientIp(req: NextRushRequest): string {
+    return (
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      (req.headers['x-real-ip'] as string) ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      'unknown'
+    );
   }
 
   /**
@@ -461,4 +635,28 @@ export class MiddlewarePlugin extends BasePlugin {
   public getGlobalMiddleware(): MiddlewareHandler[] {
     return [...this.globalMiddleware];
   }
+
+  /**
+   * 📊 Get middleware performance metrics
+   */
+  public getMetrics(): Map<string, MiddlewareMetrics> {
+    return new Map(this.middlewareMetrics);
+  }
+
+  /**
+   * 🧹 Clear performance metrics
+   */
+  public clearMetrics(): void {
+    this.middlewareMetrics.clear();
+  }
+
+  /**
+   * 🎯 Enable/disable metrics collection
+   */
+  public setMetricsEnabled(enabled: boolean): void {
+    this.enableMetrics = enabled;
+  }
 }
+
+// Export composition utilities for direct use
+export { compose, group, named, unless, when } from './composition';

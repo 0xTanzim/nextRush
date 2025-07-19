@@ -29,14 +29,14 @@ NextRush provides **simple yet powerful metrics and monitoring** with enterprise
 
 ## ✨ Key Features
 
-| Feature | Description | Benefit |
-|---------|-------------|---------|
-| **📊 Simple Metrics** | Counter, gauge, histogram APIs | Easy to add to any application |
-| **🏥 Health Checks** | Built-in and custom health monitoring | Reliable service monitoring |
-| **📈 Prometheus Format** | Industry-standard metrics format | Works with existing tools |
-| **🎯 Auto-Collection** | HTTP requests tracked automatically | Zero-config monitoring |
-| **💾 Memory Efficient** | Automatic cleanup and optimization | Production ready |
-| **🔒 Secure** | Optional authentication for endpoints | Enterprise security |
+| Feature                  | Description                           | Benefit                        |
+| ------------------------ | ------------------------------------- | ------------------------------ |
+| **📊 Simple Metrics**    | Counter, gauge, histogram APIs        | Easy to add to any application |
+| **🏥 Health Checks**     | Built-in and custom health monitoring | Reliable service monitoring    |
+| **📈 Prometheus Format** | Industry-standard metrics format      | Works with existing tools      |
+| **🎯 Auto-Collection**   | HTTP requests tracked automatically   | Zero-config monitoring         |
+| **💾 Memory Efficient**  | Automatic cleanup and optimization    | Production ready               |
+| **🔒 Secure**            | Optional authentication for endpoints | Enterprise security            |
 
 ---
 
@@ -77,9 +77,9 @@ app.enableMetrics({
       name: 'user_registrations_total',
       type: 'counter',
       help: 'Total user registrations',
-      labels: ['source', 'plan']
-    }
-  ]
+      labels: ['source', 'plan'],
+    },
+  ],
 });
 
 // Track custom events
@@ -87,9 +87,9 @@ app.post('/register', (req, res) => {
   // Increment counter with labels
   app.incrementCounter('user_registrations_total', {
     source: 'web',
-    plan: req.body.plan || 'free'
+    plan: req.body.plan || 'free',
   });
-  
+
   res.json({ success: true });
 });
 
@@ -102,25 +102,25 @@ app.listen(3000);
 
 ### Core Methods
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `enableMetrics(options?)` | `(options?: MetricsOptions) => Application` | Enable metrics collection and endpoints |
-| `incrementCounter(name, labels?, value?)` | `(name: string, labels?: Record<string, string>, value?: number) => void` | Increment a counter metric |
-| `setGauge(name, value, labels?)` | `(name: string, value: number, labels?: Record<string, string>) => void` | Set a gauge metric value |
-| `observeHistogram(name, value, labels?)` | `(name: string, value: number, labels?: Record<string, string>) => void` | Record a histogram observation |
-| `addHealthCheck(name, check)` | `(name: string, check: HealthCheckFunction) => void` | Register a health check |
-| `removeHealthCheck(name)` | `(name: string) => void` | Remove a health check |
-| `getMetrics()` | `() => string` | Get metrics in Prometheus format |
-| `getHealth()` | `() => Promise<HealthStatus>` | Get current health status |
+| Method                                    | Signature                                                                 | Description                             |
+| ----------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------- |
+| `enableMetrics(options?)`                 | `(options?: MetricsOptions) => Application`                               | Enable metrics collection and endpoints |
+| `incrementCounter(name, labels?, value?)` | `(name: string, labels?: Record<string, string>, value?: number) => void` | Increment a counter metric              |
+| `setGauge(name, value, labels?)`          | `(name: string, value: number, labels?: Record<string, string>) => void`  | Set a gauge metric value                |
+| `observeHistogram(name, value, labels?)`  | `(name: string, value: number, labels?: Record<string, string>) => void`  | Record a histogram observation          |
+| `addHealthCheck(name, check)`             | `(name: string, check: HealthCheckFunction) => void`                      | Register a health check                 |
+| `removeHealthCheck(name)`                 | `(name: string) => void`                                                  | Remove a health check                   |
+| `getMetrics()`                            | `() => string`                                                            | Get metrics in Prometheus format        |
+| `getHealth()`                             | `() => Promise<HealthStatus>`                                             | Get current health status               |
 
 ### Configuration Interface
 
 ```typescript
 interface MetricsOptions {
-  endpoint?: string;                    // Default: '/metrics'
-  enableHealthCheck?: boolean;          // Default: true
-  collectDefaultMetrics?: boolean;      // Default: true
-  prefix?: string;                      // Default: 'nextrush_'
+  endpoint?: string; // Default: '/metrics'
+  enableHealthCheck?: boolean; // Default: true
+  collectDefaultMetrics?: boolean; // Default: true
+  prefix?: string; // Default: 'nextrush_'
   defaultLabels?: Record<string, string>;
   customMetrics?: CustomMetric[];
   authentication?: (req: NextRushRequest) => boolean;
@@ -131,12 +131,12 @@ interface MetricsOptions {
 
 ```typescript
 interface CustomMetric {
-  name: string;                         // Metric name
+  name: string; // Metric name
   type: 'counter' | 'gauge' | 'histogram' | 'summary';
-  help: string;                         // Description
-  labels?: string[];                    // Label names
-  buckets?: number[];                   // Histogram buckets
-  quantiles?: number[];                 // Summary quantiles
+  help: string; // Description
+  labels?: string[]; // Label names
+  buckets?: number[]; // Histogram buckets
+  quantiles?: number[]; // Summary quantiles
 }
 ```
 
@@ -152,6 +152,7 @@ type HealthCheckFunction = () => Promise<{
 ### Response Types
 
 #### HealthStatus
+
 ```typescript
 interface HealthStatus {
   status: 'healthy' | 'unhealthy' | 'degraded';
@@ -162,6 +163,7 @@ interface HealthStatus {
 ```
 
 #### HealthCheckResult
+
 ```typescript
 interface HealthCheckResult {
   status: 'pass' | 'fail' | 'warn';
@@ -185,7 +187,7 @@ const defaultOptions: MetricsOptions = {
   prefix: 'nextrush_',
   defaultLabels: {},
   customMetrics: [],
-  authentication: undefined
+  authentication: undefined,
 };
 ```
 
@@ -193,8 +195,8 @@ const defaultOptions: MetricsOptions = {
 
 ```typescript
 app.enableMetrics({
-  endpoint: '/internal/metrics',        // Internal endpoint
-  prefix: 'myservice_',                 // Service-specific prefix
+  endpoint: '/internal/metrics', // Internal endpoint
+  prefix: 'myservice_', // Service-specific prefix
   defaultLabels: {
     service: process.env.SERVICE_NAME,
     version: process.env.APP_VERSION,
@@ -203,7 +205,7 @@ app.enableMetrics({
   authentication: (req) => {
     // Simple API key auth
     return req.headers['x-api-key'] === process.env.METRICS_API_KEY;
-  }
+  },
 });
 ```
 
@@ -225,39 +227,39 @@ app.enableMetrics({
       name: 'orders_total',
       type: 'counter',
       help: 'Total orders processed',
-      labels: ['status', 'payment_method']
+      labels: ['status', 'payment_method'],
     },
     {
       name: 'cart_value_histogram',
       type: 'histogram',
       help: 'Shopping cart values',
-      buckets: [10, 50, 100, 500, 1000]
-    }
-  ]
+      buckets: [10, 50, 100, 500, 1000],
+    },
+  ],
 });
 
 // Order processing
 app.post('/orders', async (req, res) => {
   try {
     const order = await processOrder(req.body);
-    
+
     // Track successful order
     app.incrementCounter('orders_total', {
       status: 'completed',
-      payment_method: order.paymentMethod
+      payment_method: order.paymentMethod,
     });
-    
+
     // Track cart value
     app.observeHistogram('cart_value_histogram', order.total);
-    
+
     res.json(order);
   } catch (error) {
     // Track failed order
     app.incrementCounter('orders_total', {
       status: 'failed',
-      payment_method: 'unknown'
+      payment_method: 'unknown',
     });
-    
+
     res.status(500).json({ error: 'Order processing failed' });
   }
 });
@@ -288,13 +290,16 @@ app.addHealthCheck('database', async () => {
 app.addHealthCheck('payment_api', async () => {
   try {
     const response = await fetch('https://api.payment.com/health', {
-      timeout: 3000
+      timeout: 3000,
     });
-    
+
     if (response.ok) {
       return { status: 'pass', message: 'Payment API healthy' };
     } else {
-      return { status: 'warn', message: `Payment API returned ${response.status}` };
+      return {
+        status: 'warn',
+        message: `Payment API returned ${response.status}`,
+      };
     }
   } catch (error) {
     return { status: 'fail', message: 'Payment API unreachable' };
@@ -304,7 +309,7 @@ app.addHealthCheck('payment_api', async () => {
 // Custom health endpoint with detailed info
 app.get('/admin/health', async (req, res) => {
   const health = await app.getHealth();
-  
+
   // Add custom information
   const detailed = {
     ...health,
@@ -312,7 +317,7 @@ app.get('/admin/health', async (req, res) => {
     build: process.env.BUILD_NUMBER,
     environment: process.env.NODE_ENV,
   };
-  
+
   res.status(health.status === 'healthy' ? 200 : 503).json(detailed);
 });
 ```
@@ -331,26 +336,26 @@ app.enableMetrics({
       type: 'histogram',
       help: 'API response times',
       labels: ['method', 'route', 'status_class'],
-      buckets: [0.1, 0.5, 1, 2, 5]
-    }
-  ]
+      buckets: [0.1, 0.5, 1, 2, 5],
+    },
+  ],
 });
 
 // Custom monitoring middleware
 app.use((req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = (Date.now() - start) / 1000;
     const statusClass = Math.floor(res.statusCode / 100) + 'xx';
-    
+
     app.observeHistogram('api_response_time_seconds', duration, {
       method: req.method,
       route: req.route?.path || 'unknown',
-      status_class: statusClass
+      status_class: statusClass,
     });
   });
-  
+
   next();
 });
 ```
@@ -371,13 +376,13 @@ The metrics plugin uses a **modular architecture** for maintainability and perfo
 
 ### Component Responsibilities
 
-| Component | Purpose | Size |
-|-----------|---------|------|
-| `MetricsPlugin` | Main API and coordination | ~220 lines |
-| `MetricsStorage` | High-performance metric storage | ~120 lines |
-| `HealthCheckManager` | Health check orchestration | ~90 lines |
-| `PrometheusFormatter` | Prometheus format output | ~130 lines |
-| `SystemMonitor` | System metrics collection | ~80 lines |
+| Component             | Purpose                         | Size       |
+| --------------------- | ------------------------------- | ---------- |
+| `MetricsPlugin`       | Main API and coordination       | ~220 lines |
+| `MetricsStorage`      | High-performance metric storage | ~120 lines |
+| `HealthCheckManager`  | Health check orchestration      | ~90 lines  |
+| `PrometheusFormatter` | Prometheus format output        | ~130 lines |
+| `SystemMonitor`       | System metrics collection       | ~80 lines  |
 
 ### Benefits of Modular Design
 
@@ -400,8 +405,8 @@ app.observeHistogram('request_duration_seconds');
 
 // ❌ Bad: Unclear or inconsistent names
 app.incrementCounter('reqs');
-app.setGauge('connections_active');  // Inconsistent ordering
-app.observeHistogram('duration');    // Too generic
+app.setGauge('connections_active'); // Inconsistent ordering
+app.observeHistogram('duration'); // Too generic
 ```
 
 ### Label Usage
@@ -411,13 +416,13 @@ app.observeHistogram('duration');    // Too generic
 app.incrementCounter('http_requests_total', {
   method: 'GET',
   status: '200',
-  endpoint: '/api/users'  // Limited set of values
+  endpoint: '/api/users', // Limited set of values
 });
 
 // ❌ Bad: High cardinality labels
 app.incrementCounter('http_requests_total', {
-  user_id: '12345',      // Unbounded values
-  request_id: 'abc-123'  // Unique per request
+  user_id: '12345', // Unbounded values
+  request_id: 'abc-123', // Unique per request
 });
 ```
 
@@ -430,11 +435,11 @@ app.addHealthCheck('redis', async () => {
     const start = Date.now();
     await redis.ping();
     const duration = Date.now() - start;
-    
+
     if (duration > 1000) {
       return { status: 'warn', message: `Redis slow: ${duration}ms` };
     }
-    
+
     return { status: 'pass', message: 'Redis healthy' };
   } catch (error) {
     return { status: 'fail', message: error.message };
@@ -459,7 +464,8 @@ app.addHealthCheck('external_api', async () => {
 
 **Problem**: Metrics consuming too much memory
 
-**Solution**: 
+**Solution**:
+
 ```typescript
 // Monitor metric cardinality
 app.get('/admin/metrics-stats', (req, res) => {
@@ -467,7 +473,10 @@ app.get('/admin/metrics-stats', (req, res) => {
   res.json({
     metricCount: stats.metricCount,
     memoryUsage: stats.memoryUsage,
-    recommendation: stats.metricCount > 10000 ? 'Consider reducing label cardinality' : 'Normal'
+    recommendation:
+      stats.metricCount > 10000
+        ? 'Consider reducing label cardinality'
+        : 'Normal',
   });
 });
 ```
@@ -477,23 +486,30 @@ app.get('/admin/metrics-stats', (req, res) => {
 **Problem**: Health endpoint responding slowly
 
 **Solution**:
+
 ```typescript
 // Add timeout wrapper
 const withTimeout = (check: HealthCheckFunction, timeoutMs: number = 5000) => {
   return async () => {
     return Promise.race([
       check(),
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
-      )
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Timeout after ${timeoutMs}ms`)),
+          timeoutMs
+        )
+      ),
     ]);
   };
 };
 
-app.addHealthCheck('database', withTimeout(async () => {
-  await db.ping();
-  return { status: 'pass' };
-}, 3000));
+app.addHealthCheck(
+  'database',
+  withTimeout(async () => {
+    await db.ping();
+    return { status: 'pass' };
+  }, 3000)
+);
 ```
 
 #### Missing Metrics
@@ -501,6 +517,7 @@ app.addHealthCheck('database', withTimeout(async () => {
 **Problem**: Custom metrics not appearing
 
 **Solution**:
+
 ```typescript
 // Verify metric registration
 app.enableMetrics({
@@ -508,14 +525,14 @@ app.enableMetrics({
     {
       name: 'my_metric_total',
       type: 'counter',
-      help: 'My custom metric'
-    }
-  ]
+      help: 'My custom metric',
+    },
+  ],
 });
 
 // Ensure you're using the correct name
-app.incrementCounter('my_metric_total');  // ✅ Correct
-app.incrementCounter('my_metric');        // ❌ Wrong
+app.incrementCounter('my_metric_total'); // ✅ Correct
+app.incrementCounter('my_metric'); // ❌ Wrong
 ```
 
 ### Debug Mode
@@ -530,7 +547,7 @@ app.get('/debug/metrics', (req, res) => {
   res.json({
     metricNames: app.getMetricsStorage().getMetricNames(),
     healthChecks: app.getHealthManager().getCheckNames(),
-    systemMetrics: app.getSystemMonitor().getMetrics()
+    systemMetrics: app.getSystemMonitor().getMetrics(),
   });
 });
 ```
@@ -546,4 +563,4 @@ app.get('/debug/metrics', (req, res) => {
 
 ---
 
-*NextRush Metrics Plugin - Simple, powerful monitoring for modern applications* 🚀
+_NextRush Metrics Plugin - Simple, powerful monitoring for modern applications_ 🚀

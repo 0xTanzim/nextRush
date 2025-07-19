@@ -17,9 +17,10 @@ export type { PluginRegistry } from './core/base-plugin';
 // ============================================================================
 
 export { AuthPlugin } from './auth/auth.plugin';
-export { BodyParserPlugin } from './body-parser/body-parser.plugin';
+export { BodyParserPlugin } from './body-parser/body-parser-v2.plugin';
 export { EventDrivenPlugin } from './core/event-driven.plugin';
 export { CorsPlugin } from './cors/cors.plugin';
+export { LoggerPlugin } from './logger/logger.plugin';
 export { MetricsPlugin } from './metrics/metrics.plugin';
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
 export { ValidationPlugin } from './middleware/validation.plugin';
@@ -34,10 +35,11 @@ export { WebSocketPlugin } from './websocket/websocket.plugin';
 // ============================================================================
 
 import { AuthPlugin } from './auth/auth.plugin';
-import { BodyParserPlugin } from './body-parser/body-parser.plugin';
+import { BodyParserPlugin } from './body-parser/body-parser-v2.plugin';
 import type { PluginRegistry } from './core/base-plugin';
 import { EventDrivenPlugin } from './core/event-driven.plugin';
 import { CorsPlugin } from './cors/cors.plugin';
+import { LoggerPlugin } from './logger/logger.plugin';
 import { MetricsPlugin } from './metrics/metrics.plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { ValidationPlugin } from './middleware/validation.plugin';
@@ -53,16 +55,17 @@ import { WebSocketPlugin } from './websocket/websocket.plugin';
 export function createCorePlugins(registry: PluginRegistry) {
   return [
     new RouterPlugin(registry), // Core routing capabilities
-    new StaticFilesPlugin(registry), // Static file serving
     new MiddlewarePlugin(registry), // Middleware support
-    new WebSocketPlugin(registry), // WebSocket support
-    new TemplatePlugin(registry), // Template engine plugin
-    new AuthPlugin(registry), // Authentication & authorization
+    new BodyParserPlugin(registry), // Body parsing
+    new StaticFilesPlugin(registry), // Static file serving
+    new LoggerPlugin(registry), // Logging system
     new MetricsPlugin(registry), // Metrics & monitoring
+    new ValidationPlugin(registry), // Input validation & XSS protection
+    new TemplatePlugin(registry), // Template engine plugin
+    new WebSocketPlugin(registry), // WebSocket support
+    new AuthPlugin(registry), // Authentication & authorization
     new CorsPlugin(registry), // CORS support
     new RateLimiterPlugin(registry), // Rate limiting
-    new BodyParserPlugin(registry), // Body parsing
-    new ValidationPlugin(registry), // Input validation & XSS protection
     new EventDrivenPlugin(registry), // Event-driven architecture
   ];
 }
@@ -72,16 +75,17 @@ export function createCorePlugins(registry: PluginRegistry) {
  */
 export const PLUGIN_NAMES = {
   ROUTER: 'Router',
-  STATIC_FILES: 'StaticFiles',
   MIDDLEWARE: 'Middleware',
-  WEBSOCKET: 'WebSocket',
-  TEMPLATE: 'Template',
-  VALIDATION: 'Validation',
   BODY_PARSER: 'BodyParser',
-  EVENT_DRIVEN: 'EventDriven',
-  RATE_LIMITER: 'RateLimiter',
-  CORS: 'CORS',
-  AUTH: 'Auth',
+  STATIC_FILES: 'StaticFiles',
+  LOGGER: 'Logger',
   METRICS: 'Metrics',
+  VALIDATION: 'Validation',
+  TEMPLATE: 'Template',
+  WEBSOCKET: 'WebSocket',
+  AUTH: 'Auth',
+  CORS: 'CORS',
+  RATE_LIMITER: 'RateLimiter',
+  EVENT_DRIVEN: 'EventDriven',
   API_DOCS: 'ApiDocumentation',
 } as const;

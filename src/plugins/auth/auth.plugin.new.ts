@@ -1,6 +1,6 @@
 /**
  * 🔐 Auth Plugin - NextRush Framework
- * 
+ *
  * Modular authentication system with JWT, sessions, and RBAC support.
  * Provides secure route guards, claims, and permissions management.
  */
@@ -8,32 +8,32 @@
 import { Application } from '../../core/app/application';
 import { NextRushRequest, NextRushResponse } from '../../types/express';
 import { BasePlugin, PluginRegistry } from '../core/base-plugin';
-import { 
-  JwtOptions, 
-  SessionOptions, 
-  User, 
-  AuthStrategy, 
-  MiddlewareFunction,
+import { AuthAuthenticator } from './authenticator';
+import {
   AuthConfig,
-  Role
+  AuthStrategy,
+  JwtOptions,
+  MiddlewareFunction,
+  Role,
+  SessionOptions,
+  User,
 } from './interfaces';
 import { JwtManager } from './jwt-manager';
-import { SessionManager, MemorySessionStore } from './session-manager';
-import { RbacManager, CommonRoles } from './rbac-manager';
-import { AuthAuthenticator } from './authenticator';
+import { CommonRoles, RbacManager } from './rbac-manager';
+import { MemorySessionStore, SessionManager } from './session-manager';
 
 /**
  * 🔐 Optimized Auth Plugin
  */
 export class AuthPlugin extends BasePlugin {
   name = 'Auth';
-  
+
   // Core managers
   private jwtManager?: JwtManager;
   private sessionManager?: SessionManager;
   private rbacManager: RbacManager;
   private authenticator: AuthAuthenticator;
-  
+
   // Configuration
   private config: Partial<AuthConfig> = {};
 
@@ -53,7 +53,7 @@ export class AuthPlugin extends BasePlugin {
     this.installAuthMiddleware(app);
     this.installRbacMethods(app);
     this.installUtilityMethods(app);
-    
+
     this.emit('auth:installed');
   }
 
@@ -100,15 +100,15 @@ export class AuthPlugin extends BasePlugin {
     // Full auth configuration
     (app as any).configureAuth = (config: AuthConfig) => {
       this.config = { ...config };
-      
+
       if (config.jwt) {
         (app as any).useJwt(config.jwt);
       }
-      
+
       if (config.session) {
         (app as any).useSession(config.session);
       }
-      
+
       return app;
     };
   }
@@ -129,10 +129,7 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // Verify JWT token
-    (app as any).verifyJwt = (
-      token: string,
-      options?: Partial<JwtOptions>
-    ) => {
+    (app as any).verifyJwt = (token: string, options?: Partial<JwtOptions>) => {
       if (!this.jwtManager) {
         throw new Error('JWT not configured. Call app.verifyJwt() first.');
       }
@@ -166,7 +163,9 @@ export class AuthPlugin extends BasePlugin {
       data: Record<string, any> = {}
     ): Promise<string> => {
       if (!this.sessionManager) {
-        throw new Error('Sessions not configured. Call app.useSession() first.');
+        throw new Error(
+          'Sessions not configured. Call app.useSession() first.'
+        );
       }
       return this.sessionManager.create(userId, data);
     };
@@ -174,7 +173,9 @@ export class AuthPlugin extends BasePlugin {
     // Get session
     (app as any).getSession = async (sessionId: string) => {
       if (!this.sessionManager) {
-        throw new Error('Sessions not configured. Call app.useSession() first.');
+        throw new Error(
+          'Sessions not configured. Call app.useSession() first.'
+        );
       }
       return this.sessionManager.get(sessionId);
     };
@@ -185,7 +186,9 @@ export class AuthPlugin extends BasePlugin {
       data: Record<string, any>
     ): Promise<boolean> => {
       if (!this.sessionManager) {
-        throw new Error('Sessions not configured. Call app.useSession() first.');
+        throw new Error(
+          'Sessions not configured. Call app.useSession() first.'
+        );
       }
       return this.sessionManager.update(sessionId, data);
     };
@@ -193,7 +196,9 @@ export class AuthPlugin extends BasePlugin {
     // Destroy session
     (app as any).destroySession = async (sessionId: string): Promise<void> => {
       if (!this.sessionManager) {
-        throw new Error('Sessions not configured. Call app.useSession() first.');
+        throw new Error(
+          'Sessions not configured. Call app.useSession() first.'
+        );
       }
       return this.sessionManager.destroy(sessionId);
     };
@@ -201,14 +206,18 @@ export class AuthPlugin extends BasePlugin {
     // Session utilities
     (app as any).touchSession = async (sessionId: string): Promise<boolean> => {
       if (!this.sessionManager) {
-        throw new Error('Sessions not configured. Call app.useSession() first.');
+        throw new Error(
+          'Sessions not configured. Call app.useSession() first.'
+        );
       }
       return this.sessionManager.touch(sessionId);
     };
 
     (app as any).getSessionStats = async () => {
       if (!this.sessionManager) {
-        throw new Error('Sessions not configured. Call app.useSession() first.');
+        throw new Error(
+          'Sessions not configured. Call app.useSession() first.'
+        );
       }
       return this.sessionManager.getStats();
     };
@@ -219,11 +228,17 @@ export class AuthPlugin extends BasePlugin {
    */
   private installAuthMiddleware(app: Application): void {
     // Main authentication middleware
-    (app as any).requireAuth = (strategy: AuthStrategy = 'jwt'): MiddlewareFunction => {
-      return async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+    (app as any).requireAuth = (
+      strategy: AuthStrategy = 'jwt'
+    ): MiddlewareFunction => {
+      return async (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         try {
           const result = await this.authenticator.authenticate(req, strategy);
-          
+
           if (!result.user) {
             return res.status(401).json({
               error: 'Unauthorized',
@@ -244,16 +259,22 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // Optional authentication (won't fail if no auth)
-    (app as any).optionalAuth = (strategy: AuthStrategy = 'jwt'): MiddlewareFunction => {
-      return async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+    (app as any).optionalAuth = (
+      strategy: AuthStrategy = 'jwt'
+    ): MiddlewareFunction => {
+      return async (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         try {
           const result = await this.authenticator.authenticate(req, strategy);
-          
+
           if (result.user) {
             (req as any).user = result.user;
             (req as any).authStrategy = strategy;
           }
-          
+
           next();
         } catch (error) {
           // Continue without authentication
@@ -263,11 +284,20 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // Multi-strategy authentication
-    (app as any).requireAnyAuth = (...strategies: AuthStrategy[]): MiddlewareFunction => {
-      return async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+    (app as any).requireAnyAuth = (
+      ...strategies: AuthStrategy[]
+    ): MiddlewareFunction => {
+      return async (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         try {
-          const result = await this.authenticator.authenticateMultiple(req, strategies);
-          
+          const result = await this.authenticator.authenticateMultiple(
+            req,
+            strategies
+          );
+
           if (!result.user) {
             return res.status(401).json({
               error: 'Unauthorized',
@@ -307,7 +337,11 @@ export class AuthPlugin extends BasePlugin {
 
     // Role-based middleware
     (app as any).requireRole = (...roles: string[]): MiddlewareFunction => {
-      return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+      return (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         const user = (req as any).user as User;
 
         if (!user) {
@@ -329,8 +363,15 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // Permission-based middleware
-    (app as any).requirePermission = (resource: string, action: string): MiddlewareFunction => {
-      return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+    (app as any).requirePermission = (
+      resource: string,
+      action: string
+    ): MiddlewareFunction => {
+      return (
+        req: NextRushRequest,
+        res: NextRushResponse,
+        next: () => void
+      ) => {
         const user = (req as any).user as User;
 
         if (!user) {
@@ -352,7 +393,11 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // Check permission utility
-    (app as any).hasPermission = (user: User, resource: string, action: string): boolean => {
+    (app as any).hasPermission = (
+      user: User,
+      resource: string,
+      action: string
+    ): boolean => {
       return this.rbacManager.hasPermission(user, resource, action);
     };
 
@@ -372,7 +417,10 @@ export class AuthPlugin extends BasePlugin {
     };
 
     // Check if request is authenticated
-    (app as any).isAuthenticated = async (req: NextRushRequest, strategy?: AuthStrategy): Promise<boolean> => {
+    (app as any).isAuthenticated = async (
+      req: NextRushRequest,
+      strategy?: AuthStrategy
+    ): Promise<boolean> => {
       return this.authenticator.isAuthenticated(req, strategy);
     };
 
@@ -409,6 +457,6 @@ export class AuthPlugin extends BasePlugin {
 }
 
 // Export common roles and interfaces
+export * from './interfaces';
 export { CommonRoles } from './rbac-manager';
 export { MemorySessionStore } from './session-manager';
-export * from './interfaces';

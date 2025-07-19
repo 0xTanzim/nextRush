@@ -11,7 +11,7 @@
 // 🎯 ESSENTIAL PLUGINS ONLY (Performance Mode)
 // ============================================================================
 
-import { BodyParserPlugin } from './body-parser/body-parser.plugin';
+import { BodyParserPlugin } from './body-parser/body-parser-v2.plugin';
 import type { PluginRegistry } from './core/base-plugin';
 import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { RouterPlugin } from './router/router.plugin';
@@ -37,11 +37,13 @@ export function createDevelopmentPlugins(registry: PluginRegistry) {
   // Import only when needed (lazy loading)
   const { MetricsPlugin } = require('./metrics/metrics.plugin');
   const { ValidationPlugin } = require('./middleware/validation.plugin');
+  const { AuthPlugin } = require('./auth/auth.plugin');
 
   return [
     ...createPerformancePlugins(registry),
     new MetricsPlugin(registry), // 📊 Metrics for debugging
     new ValidationPlugin(registry), // ✅ Input validation for safety
+    new AuthPlugin(registry), // 🔐 Authentication for development
   ];
 }
 
