@@ -1,6 +1,6 @@
 /**
  * 📁 NextRush Static Files Plugin
- * 
+ *
  * Enterprise-grade static file serving with:
  * - 🗜️ Smart compression (gzip/brotli)
  * - 💾 Intelligent LRU caching
@@ -23,12 +23,12 @@ import { CompressionHandler } from './compression-handler';
 import { MimeTypeHandler } from './mime-handler';
 import { RangeHandler } from './range-handler';
 import { SecurityHandler } from './security-handler';
-import { 
-  StaticOptions, 
-  StaticMount, 
-  CacheEntry, 
+import {
+  CacheEntry,
+  DEFAULT_STATIC_OPTIONS,
+  StaticMount,
+  StaticOptions,
   StaticStats,
-  DEFAULT_STATIC_OPTIONS 
 } from './types';
 
 const stat = promisify(fs.stat);
@@ -58,7 +58,7 @@ export class StaticFilesPlugin extends BasePlugin {
     filesCached: 0,
     cacheSize: 0,
     mounts: 0,
-    uptime: Date.now()
+    uptime: Date.now(),
   };
 
   // Maintenance
@@ -113,14 +113,14 @@ export class StaticFilesPlugin extends BasePlugin {
    */
   getStats(): StaticStats & { cache: any } {
     const cacheStats = this.cacheManager.getStats();
-    
+
     return {
       ...this.stats,
       filesCached: cacheStats.entryCount,
       cacheSize: cacheStats.totalSize,
       mounts: this.mounts.length,
       uptime: Date.now() - this.stats.uptime,
-      cache: cacheStats
+      cache: cacheStats,
     };
   }
 
@@ -142,13 +142,15 @@ export class StaticFilesPlugin extends BasePlugin {
         throw new Error(`Path is not a directory: ${resolvedRootPath}`);
       }
     } catch (error) {
-      console.warn(`[StaticFiles] Warning: Directory not found: ${resolvedRootPath}`);
+      console.warn(
+        `[StaticFiles] Warning: Directory not found: ${resolvedRootPath}`
+      );
     }
 
     const mount: StaticMount = {
       mountPath: normalizedMountPath,
       rootPath: resolvedRootPath,
-      options: { ...DEFAULT_STATIC_OPTIONS, ...options }
+      options: { ...DEFAULT_STATIC_OPTIONS, ...options },
     };
 
     this.mounts.push(mount);
@@ -176,7 +178,11 @@ export class StaticFilesPlugin extends BasePlugin {
       // Security validation
       const securityCheck = this.securityHandler.validateRequest(req);
       if (!securityCheck.valid) {
-        this.securityHandler.logSecurityEvent('Invalid request', req, securityCheck.reason);
+        this.securityHandler.logSecurityEvent(
+          'Invalid request',
+          req,
+          securityCheck.reason
+        );
         res.status(400).end('Bad Request');
         return;
       }
@@ -186,7 +192,12 @@ export class StaticFilesPlugin extends BasePlugin {
       // Try each mount
       for (const mount of this.mounts) {
         if (this.isPathUnderMount(requestPath, mount.mountPath)) {
-          const served = await this.serveFromMount(req, res, mount, requestPath);
+          const served = await this.serveFromMount(
+            req,
+            res,
+            mount,
+            requestPath
+          );
           if (served) {
             return;
           }
@@ -214,7 +225,9 @@ export class StaticFilesPlugin extends BasePlugin {
 
     // Security checks
     if (!this.securityHandler.isPathSafe(filePath, mount.rootPath)) {
-      this.securityHandler.logSecurityEvent('Path traversal attempt', req, { filePath });
+      this.securityHandler.logSecurityEvent('Path traversal attempt', req, {
+        filePath,
+      });
       return false;
     }
 
@@ -295,7 +308,7 @@ export class StaticFilesPlugin extends BasePlugin {
     stats: fs.Stats
   ): Promise<boolean> {
     const options = mount.options;
-    
+
     // Check conditional requests first (304 responses)
     if (this.handleConditionalRequest(req, res, stats, options)) {
       return true;
@@ -308,7 +321,7 @@ export class StaticFilesPlugin extends BasePlugin {
     if (!cacheEntry) {
       // Read and process file
       cacheEntry = await this.createCacheEntry(filePath, stats, options);
-      
+
       if (this.shouldCache(stats.size, options)) {
         this.cacheManager.set(cacheKey, cacheEntry);
       }
@@ -344,19 +357,23 @@ export class StaticFilesPlugin extends BasePlugin {
       etag,
       lastModified: stats.mtime,
       size: stats.size,
-      compressible: this.compressionHandler.shouldCompress(content, mimeType)
+      compressible: this.compressionHandler.shouldCompress(content, mimeType),
     };
 
     // Apply compression if enabled and beneficial
     if (options.compress && entry.compressible) {
-      const compressionType = options.compress === true ? 'auto' : options.compress;
+      const compressionType =
+        options.compress === true ? 'auto' : options.compress;
       const compressed = await this.compressionHandler.compressContent(
-        content, 
+        content,
         compressionType
       );
-      
+
       if (compressed) {
-        entry.compressed = { [compressed.encoding === 'br' ? 'brotli' : compressed.encoding]: compressed.data };
+        entry.compressed = {
+          [compressed.encoding === 'br' ? 'brotli' : compressed.encoding]:
+            compressed.data,
+        };
         entry.encoding = compressed.encoding;
       }
     }
@@ -389,7 +406,9 @@ export class StaticFilesPlugin extends BasePlugin {
     if (options.lastModified) {
       const ifModifiedSince = req.headers['if-modified-since'];
       if (ifModifiedSince) {
-        const modifiedSince = new Date(Array.isArray(ifModifiedSince) ? ifModifiedSince[0] : ifModifiedSince);
+        const modifiedSince = new Date(
+          Array.isArray(ifModifiedSince) ? ifModifiedSince[0] : ifModifiedSince
+        );
         if (stats.mtime <= modifiedSince) {
           res.status(304).end();
           return true;
@@ -453,16 +472,22 @@ export class StaticFilesPlugin extends BasePlugin {
     let encoding: string | undefined;
 
     if (cacheEntry.compressed && options.compress) {
-      const acceptEncoding = req.headers['accept-encoding'] as string || '';
-      
+      const acceptEncoding = (req.headers['accept-encoding'] as string) || '';
+
       // Check for brotli support
-      if (cacheEntry.compressed.brotli && this.compressionHandler.acceptsEncoding(acceptEncoding, 'br')) {
+      if (
+        cacheEntry.compressed.brotli &&
+        this.compressionHandler.acceptsEncoding(acceptEncoding, 'br')
+      ) {
         content = cacheEntry.compressed.brotli;
         encoding = 'br';
         this.stats.compressionHits++;
       }
-      // Check for gzip support  
-      else if (cacheEntry.compressed.gzip && this.compressionHandler.acceptsEncoding(acceptEncoding, 'gzip')) {
+      // Check for gzip support
+      else if (
+        cacheEntry.compressed.gzip &&
+        this.compressionHandler.acceptsEncoding(acceptEncoding, 'gzip')
+      ) {
         content = cacheEntry.compressed.gzip;
         encoding = 'gzip';
         this.stats.compressionHits++;
@@ -519,10 +544,9 @@ export class StaticFilesPlugin extends BasePlugin {
     res: NextRushResponse,
     mount: StaticMount
   ): Promise<boolean> {
-    const fallbackFile = typeof mount.options.spa === 'string' 
-      ? mount.options.spa 
-      : 'index.html';
-    
+    const fallbackFile =
+      typeof mount.options.spa === 'string' ? mount.options.spa : 'index.html';
+
     const fallbackPath = path.join(mount.rootPath, fallbackFile);
 
     try {
@@ -538,16 +562,17 @@ export class StaticFilesPlugin extends BasePlugin {
    */
   private setCacheControl(res: NextRushResponse, options: StaticOptions): void {
     if (options.maxAge) {
-      const maxAge = typeof options.maxAge === 'number' 
-        ? options.maxAge 
-        : this.parseMaxAge(options.maxAge);
-      
+      const maxAge =
+        typeof options.maxAge === 'number'
+          ? options.maxAge
+          : this.parseMaxAge(options.maxAge);
+
       let cacheControl = `public, max-age=${maxAge}`;
-      
+
       if (options.immutable) {
         cacheControl += ', immutable';
       }
-      
+
       res.setHeader('Cache-Control', cacheControl);
     }
   }
@@ -556,8 +581,10 @@ export class StaticFilesPlugin extends BasePlugin {
    * Utility methods
    */
   private shouldCache(size: number, options: StaticOptions): boolean {
-    return options.memoryCache !== false && 
-           size <= (options.maxFileSize || 2 * 1024 * 1024);
+    return (
+      options.memoryCache !== false &&
+      size <= (options.maxFileSize || 2 * 1024 * 1024)
+    );
   }
 
   private isPathUnderMount(requestPath: string, mountPath: string): boolean {
@@ -578,7 +605,12 @@ export class StaticFilesPlugin extends BasePlugin {
 
   private parseMaxAge(maxAge: string): number {
     const units: Record<string, number> = {
-      s: 1, m: 60, h: 3600, d: 86400, w: 604800, y: 31536000
+      s: 1,
+      m: 60,
+      h: 3600,
+      d: 86400,
+      w: 604800,
+      y: 31536000,
     };
 
     const match = maxAge.match(/^(\d+)([smhdwy]?)$/);

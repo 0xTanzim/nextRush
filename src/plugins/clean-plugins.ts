@@ -25,7 +25,7 @@ export { MiddlewarePlugin } from './middleware/middleware.plugin';
 export { ValidationPlugin } from './middleware/validation.plugin';
 export { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
 export { RouterPlugin } from './router/router.plugin';
-export { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
+export { StaticFilesPlugin } from './static-files/static-files.plugin';
 export { TemplatePlugin } from './template/template.plugin';
 export { WebSocketPlugin } from './websocket/websocket.plugin';
 
@@ -43,7 +43,7 @@ import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { ValidationPlugin } from './middleware/validation.plugin';
 import { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
 import { RouterPlugin } from './router/router.plugin';
-import { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
+import { StaticFilesPlugin } from './static-files/static-files.plugin';
 import { TemplatePlugin } from './template/template.plugin';
 import { WebSocketPlugin } from './websocket/websocket.plugin';
 

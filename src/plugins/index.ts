@@ -24,7 +24,7 @@ export { BodyParserPlugin } from './body-parser/body-parser.plugin';
 export { MiddlewarePlugin } from './middleware/middleware.plugin';
 export { ValidationPlugin } from './middleware/validation.plugin';
 export { RouterPlugin } from './router/router.plugin';
-export { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
+export { StaticFilesPlugin } from './static-files/static-files.plugin';
 export { WebSocketPlugin } from './websocket/websocket.plugin';
 
 // 🚀 NEW FEATURE PLUGINS (From Final Proposal)
@@ -43,9 +43,9 @@ export type {
 } from './middleware/validation.plugin';
 
 export type {
-  ProfessionalStaticOptions as EnhancedStaticOptions,
-  ProfessionalStaticOptions,
-} from './static-files/static-files.plugin';
+  StaticOptions as EnhancedStaticOptions,
+  StaticOptions,
+} from './static-files/types';
 
 // 🚀 NEW PLUGIN TYPES
 export type {
@@ -99,7 +99,7 @@ import { MiddlewarePlugin } from './middleware/middleware.plugin';
 import { ValidationPlugin } from './middleware/validation.plugin';
 import { RateLimiterPlugin } from './rate-limiter/rate-limiter.plugin';
 import { RouterPlugin } from './router/router.plugin';
-import { ProfessionalStaticPlugin as StaticFilesPlugin } from './static-files/static-files.plugin';
+import { StaticFilesPlugin } from './static-files/static-files.plugin';
 import { WebSocketPlugin } from './websocket/websocket.plugin';
 
 /**
