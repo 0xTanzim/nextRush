@@ -20,6 +20,7 @@ import {
   RequestContext,
   Route,
   RouteHandler,
+  RouterOptions,
 } from '../../types/routing';
 import { RequestEnhancer } from '../enhancers/request-enhancer';
 import { ResponseEnhancer } from '../enhancers/response-enhancer';
@@ -59,11 +60,12 @@ import {
 } from '../../types/plugin-options';
 
 // Import new plugin system
-import { createCorePlugins } from '../../plugins/clean-plugins';
 import { SimplePluginRegistry } from '../../plugins/core/simple-registry';
+import { createPlugins, PluginMode } from '../../plugins/performance-plugins';
 
 export interface ApplicationOptions {
   router?: Router;
+  routerOptions?: RouterOptions; // Only used during construction, not stored
   errorHandler?: ErrorHandler;
   timeout?: number;
   maxRequestSize?: number;
@@ -71,6 +73,20 @@ export interface ApplicationOptions {
   enableWebSocket?: boolean;
   caseSensitive?: boolean;
   strict?: boolean;
+  // 🚀 NEW: Performance optimization options
+  pluginMode?: PluginMode; // Choose plugin loading strategy for performance
+}
+
+interface InternalApplicationOptions {
+  router: Router;
+  errorHandler: ErrorHandler;
+  timeout: number;
+  maxRequestSize: number;
+  enableEvents: boolean;
+  enableWebSocket: boolean;
+  caseSensitive: boolean;
+  strict: boolean;
+  pluginMode: PluginMode; // 🚀 Add plugin mode to internal options
 }
 
 export interface StaticOptions {
@@ -230,7 +246,7 @@ export class Application extends BaseComponent implements IApplication {
   private router: Router;
   private errorHandler: ErrorHandler;
   private httpServer?: HttpServer;
-  private appOptions: Required<ApplicationOptions>;
+  private appOptions: InternalApplicationOptions;
   public events?: SimpleEventEmitter;
   private viewsDirectory?: string;
 
@@ -240,8 +256,20 @@ export class Application extends BaseComponent implements IApplication {
   constructor(applicationOptions: ApplicationOptions = {}) {
     super('Application');
 
+    // Create optimized router with performance options
+    const routerOptions = {
+      caseSensitive: applicationOptions.caseSensitive || false,
+      strict: applicationOptions.strict || false,
+      useOptimizedMatcher: true,
+      enableCaching: true,
+      cacheSize: 20000, // 🚀 Increased cache size for better performance
+      enablePrefixOptimization: true,
+      enableMetrics: false, // Disabled for maximum performance
+      ...(applicationOptions.routerOptions || {}),
+    };
+
     this.appOptions = {
-      router: applicationOptions.router || new Router(),
+      router: applicationOptions.router || new Router(routerOptions),
       errorHandler: applicationOptions.errorHandler || new ErrorHandler(),
       timeout: applicationOptions.timeout || 30000,
       maxRequestSize: applicationOptions.maxRequestSize || 1024 * 1024,
@@ -249,7 +277,7 @@ export class Application extends BaseComponent implements IApplication {
       enableWebSocket: applicationOptions.enableWebSocket !== false,
       caseSensitive: applicationOptions.caseSensitive || false,
       strict: applicationOptions.strict || false,
-      ...applicationOptions,
+      pluginMode: applicationOptions.pluginMode || PluginMode.PERFORMANCE, // 🚀 Default to performance mode
     };
 
     this.router = this.appOptions.router;
@@ -276,9 +304,16 @@ export class Application extends BaseComponent implements IApplication {
   private initializePlugins(): void {
     this.pluginRegistry = new SimplePluginRegistry();
 
-    // Register core plugins
-    const corePlugins = createCorePlugins(this.pluginRegistry);
-    corePlugins.forEach((plugin) => {
+    // 🚀 PERFORMANCE OPTIMIZATION: Use performance plugins by default
+    const pluginMode = this.appOptions.pluginMode || PluginMode.PERFORMANCE;
+
+    if (pluginMode === PluginMode.PERFORMANCE) {
+      console.log('🚀 Performance mode: Loading 4 essential plugins only');
+    }
+
+    // Register plugins based on performance mode
+    const plugins = createPlugins(this.pluginRegistry, pluginMode);
+    plugins.forEach((plugin) => {
       this.pluginRegistry.register(plugin);
     });
 

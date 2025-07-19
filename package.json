@@ -72,6 +72,7 @@
     "validate": "node scripts/validate-package.js",
     "validate:architecture": "ts-node scripts/validate-architecture.ts",
     "benchmark": "ts-node scripts/benchmark.ts",
+    "benchmark:compare": "ts-node scripts/compare-benchmarks.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:plugins": "ts-node src/examples/template/template.test.ts",
     "lint": "echo \"Add linting here\"",

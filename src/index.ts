@@ -43,6 +43,13 @@ export function createApp(options: ApplicationOptions = {}): Application {
 }
 
 // ============================================================================
+// 🎯 PERFORMANCE PLUGINS EXPORT
+// ============================================================================
+
+export { PluginMode } from './plugins/performance-plugins';
+export type { createPlugins } from './plugins/performance-plugins';
+
+// ============================================================================
 // 🎯 ROUTER EXPORTS
 // ============================================================================
 
@@ -83,6 +90,43 @@ export { EventDrivenPlugin } from './plugins';
 
 // Enhanced static files
 export { StaticFilesPlugin, type ProfessionalStaticOptions } from './plugins';
+
+// Template engine
+export {
+  advancedTemplate,
+  benchmarkTemplate,
+  compareTemplateEngines,
+  createSlotMap,
+  // 🎯 Simple Template Functions for Super Easy DX
+  createTemplate,
+  escapeHTML,
+  evaluateCondition,
+  getValue,
+  parseFrontmatter,
+  quickTemplate,
+  resolveTemplatePath,
+  TemplateHelperManager,
+  testTemplateRender,
+  UltimateTemplateParser,
+  UltimateTemplateRenderer,
+  validateTemplateSyntax,
+  webTemplate,
+} from './plugins/template/ultimate-template-engine';
+
+export type {
+  CompileResult,
+  FilterRegistry,
+  HelperRegistry,
+  I18nConfig,
+  ParseResult,
+  RenderOptions,
+  // Simple template options
+  SimpleTemplateOptions,
+  TemplateContext,
+  TemplateNode,
+  TemplateOptions,
+  TestRenderResult,
+} from './plugins/template/ultimate-template-engine';
 
 // ============================================================================
 // 🎯 TYPE EXPORTS - COMPREHENSIVE TYPE SYSTEM

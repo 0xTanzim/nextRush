@@ -2,80 +2,210 @@
 
 ## Introduction
 
-The NextRush framework provides a powerful, flexible template engine that supports multiple syntax styles including Mustache, Handlebars-like expressions, and simple variable interpolation. The template system offers file-based rendering, data interpolation, and a clean API for server-side rendering without external dependencies.
+The NextRush framework provides a **super simple** template engine with amazing developer experience! Our philosophy: **one-line setup, zero configuration needed**. The template system supports multiple syntax styles including Mustache, Handlebars-like expressions, and simple variable interpolation, but hides all complexity behind clean APIs.
 
-## Public APIs
+## 🚀 Quick Start (Super Simple!)
 
-### Template Engine Interface
-
-| Interface        | Description                     |
-| ---------------- | ------------------------------- |
-| `TemplateEngine` | Base template engine interface. |
-
-#### TemplateEngine Methods
-
-| Method                       | Signature                                                          | Description                       |
-| ---------------------------- | ------------------------------------------------------------------ | --------------------------------- |
-| `render(template, data)`     | `(template: string, data: Record<string, any>) => string`          | Render template string with data. |
-| `renderFile(filePath, data)` | `(filePath: string, data: Record<string, any>) => Promise<string>` | Render template file with data.   |
-
-### Application Template Methods
-
-| Method                      | Signature                                                       | Description                        |
-| --------------------------- | --------------------------------------------------------------- | ---------------------------------- |
-| `setViews(viewsPath)`       | `(viewsPath: string) => Application`                            | Set views directory for templates. |
-| `setTemplateEngine(engine)` | `(engine: TemplateEngine) => Application`                       | Set custom template engine.        |
-| `render(view, data?)`       | `(view: string, data?: Record<string, any>) => Promise<string>` | Render template with data.         |
-
-### Response Template Methods
-
-| Method                | Signature                                            | Description                        |
-| --------------------- | ---------------------------------------------------- | ---------------------------------- |
-| `render(view, data?)` | `(view: string, data?: Record<string, any>) => void` | Render and send template response. |
-
-### Built-in Template Engines
-
-| Class                    | Description                          |
-| ------------------------ | ------------------------------------ |
-| `SimpleTemplateEngine`   | Basic variable interpolation engine. |
-| `MustacheTemplateEngine` | Mustache-style template engine.      |
-
-### Factory Functions
-
-| Function               | Signature                                          | Description                      |
-| ---------------------- | -------------------------------------------------- | -------------------------------- |
-| `createTemplateEngine` | `(type: 'simple' \| 'mustache') => TemplateEngine` | Create template engine instance. |
-
-## Usage Examples
-
-### Basic Template Setup
+### One-Line Setup
 
 ```typescript
-import { createApp, createTemplateEngine } from 'nextrush';
+import { createApp, quickTemplate } from 'nextrush';
 
 const app = createApp();
 
-// Set views directory
-app.setViews('./views');
+// ONE LINE SETUP! 🎉
+app.setTemplateEngine(quickTemplate());
 
-// Use built-in simple template engine
-app.setTemplateEngine(createTemplateEngine('simple'));
-
-// Basic template rendering
-app.get('/hello/:name', (req, res) => {
-  res.render('hello.html', {
-    name: req.params.name,
-    title: 'Welcome',
-  });
+app.get('/', (req, res) => {
+  res.render('Hello {{name}}!', { name: 'World' });
 });
-
-app.listen(3000);
 ```
 
-### Template File Structure
+### With Custom Helpers
+
+```typescript
+import { createApp, quickTemplate } from 'nextrush';
+
+const app = createApp();
+
+// Add custom helpers easily
+app.setTemplateEngine(
+  quickTemplate({
+    greet: (name: string) => `Hello ${name}!`,
+    bold: (text: string) => `<strong>${text}</strong>`,
+  })
+);
+
+app.get('/custom', (req, res) => {
+  res.render('{{greet name}} {{bold "Welcome!"}}', { name: 'Developer' });
+});
+```
+
+### Web Template (Pre-loaded Helpers)
+
+```typescript
+import { createApp, webTemplate } from 'nextrush';
+
+const app = createApp();
+
+// Web template has common helpers built-in
+app.setTemplateEngine(webTemplate());
+
+app.get('/web', (req, res) => {
+  res.render(
+    `
+    <h1>{{user.name}}</h1>
+    <p>{{stripHTML user.bio}}</p>
+    <pre>{{json data}}</pre>
+  `,
+    {
+      user: { name: 'John', bio: 'A <script>dev</script>' },
+      data: { status: 'success' },
+    }
+  );
+});
+```
+
+## Simple Template Functions
+
+### Quick Setup Functions
+
+| Function           | Description                             | Use Case              |
+| ------------------ | --------------------------------------- | --------------------- |
+| `quickTemplate()`  | One-line setup with built-in helpers    | Most common use case  |
+| `webTemplate()`    | Pre-loaded with web development helpers | Web apps, APIs        |
+| `createTemplate()` | Customizable setup (still simple!)      | Custom configurations |
+
+### Built-in Helpers (Always Available)
+
+| Helper       | Example                  | Output          |
+| ------------ | ------------------------ | --------------- |
+| `formatDate` | `{{formatDate date}}`    | `12/25/2024`    |
+| `currency`   | `{{currency 29.99}}`     | `$29.99`        |
+| `pluralize`  | `{{pluralize 2 "item"}}` | `items`         |
+| `uppercase`  | `{{uppercase "hello"}}`  | `HELLO`         |
+| `lowercase`  | `{{lowercase "HELLO"}}`  | `hello`         |
+| `timeAgo`    | `{{timeAgo date}}`       | `5 minutes ago` |
+| `truncate`   | `{{truncate text 20}}`   | `Short text...` |
+| `capitalize` | `{{capitalize "hello"}}` | `Hello`         |
+
+### Web Template Helpers
+
+| Helper      | Example                | Description            |
+| ----------- | ---------------------- | ---------------------- |
+| `json`      | `{{json data}}`        | Pretty JSON output     |
+| `truncate`  | `{{truncate text 50}}` | Truncate with ellipsis |
+| `stripHTML` | `{{stripHTML html}}`   | Remove HTML tags       |
+| `urlEncode` | `{{urlEncode url}}`    | URL encode string      |
+
+## Public APIs
+
+### Simple Template Options
+
+```typescript
+interface SimpleTemplateOptions {
+  cache?: boolean; // Enable caching (default: true)
+  helpers?: object; // Custom helpers
+  debug?: boolean; // Debug mode (default: dev mode)
+}
+```
+
+### Application Template Methods
+
+| Method                      | Signature                                              | Description            |
+| --------------------------- | ------------------------------------------------------ | ---------------------- |
+| `setTemplateEngine(engine)` | `(engine: TemplateEngine) => Application`              | Set template engine    |
+| `render(template, data?)`   | `(template: string, data?: object) => Promise<string>` | Render template string |
+
+### Response Template Methods
+
+| Method                | Signature                               | Description                       |
+| --------------------- | --------------------------------------- | --------------------------------- |
+| `render(view, data?)` | `(view: string, data?: object) => void` | Render and send template response |
+
+## Advanced Usage (When You Need It)
+
+### Custom Template Engine
+
+```typescript
+import { createTemplate } from 'nextrush';
+
+const advancedTemplate = createTemplate({
+  cache: true,
+  debug: process.env.NODE_ENV !== 'production',
+  helpers: {
+    formatCurrency: (amount: number, currency = 'USD') =>
+      new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+      }).format(amount),
+
+    timeAgo: (date: Date) => {
+      const diff = Date.now() - date.getTime();
+      const minutes = Math.floor(diff / 60000);
+      return minutes < 60
+        ? `${minutes}m ago`
+        : `${Math.floor(minutes / 60)}h ago`;
+    },
+  },
+});
+
+app.setTemplateEngine(advancedTemplate);
+```
+
+## Legacy API (For Complex Setups)
+
+> ⚠️ **Note**: Only use this if you need advanced customization. For 99% of use cases, use the simple functions above!
+
+### Built-in Template Classes
+
+| Class                      | Description                                          |
+| -------------------------- | ---------------------------------------------------- |
+| `UltimateTemplateParser`   | Multi-syntax template parser (Handlebars, JSX, etc.) |
+| `UltimateTemplateRenderer` | High-performance template rendering engine           |
+| `TemplateHelperManager`    | Helper and filter management system                  |
+
+### Complex Setup Example
+
+```typescript
+// ❌ DON'T DO THIS (too complex!)
+const templateEngine = {
+  async render(
+    templateContent: string,
+    data: Record<string, any>
+  ): Promise<string> {
+    const validation = validateTemplateSyntax(templateContent);
+    if (!validation.valid) {
+      throw new Error(`Template syntax error: ${validation.errors.join(', ')}`);
+    }
+
+    const parser = new UltimateTemplateParser(templateContent, {
+      cache: true,
+      helpers: {
+        formatDate: (date: Date) => date.toLocaleDateString(),
+        currency: (amount: number) => `$${amount.toFixed(2)}`,
+      },
+    });
+
+    const parseResult = parser.parse();
+    const renderer = new UltimateTemplateRenderer({
+      cache: true,
+      debug: process.env.NODE_ENV !== 'production',
+    });
+
+    return renderer.render(parseResult.nodes, data);
+  },
+};
+
+// ✅ DO THIS INSTEAD (super simple!)
+app.setTemplateEngine(quickTemplate());
+```
+
+## Template File Structure
 
 ```html
 <!-- views/hello.html -->
+--- title: "{{title}}" layout: main ---
 <!DOCTYPE html>
 <html>
   <head>
@@ -83,21 +213,57 @@ app.listen(3000);
   </head>
   <body>
     <h1>Hello, {{name}}!</h1>
-    <p>Welcome to NextRush template engine.</p>
+    <p>Welcome to NextRush Ultimate Template Engine.</p>
+
+    {{#if features}}
+    <h2>Features:</h2>
+    <ul>
+      {{#each features}}
+      <li>{{this}}</li>
+      {{/each}}
+    </ul>
+    {{/if}}
   </body>
 </html>
 ```
 
-### Mustache Template Engine
+### Advanced Template Features
 
 ```typescript
-import { createApp, createTemplateEngine } from 'nextrush';
+import { createApp } from 'nextrush';
+import {
+  UltimateTemplateRenderer,
+  UltimateTemplateParser,
+  TemplateHelperManager,
+} from 'nextrush/template';
 
 const app = createApp();
 
-// Configure Mustache template engine
-app.setViews('./templates');
-app.setTemplateEngine(createTemplateEngine('mustache'));
+// Configure advanced template engine with helpers
+const templateOptions = {
+  cache: true,
+  views: './views',
+  partials: './views/partials',
+  components: './views/components',
+  helpers: {
+    formatDate: (date: Date) => date.toLocaleDateString(),
+    uppercase: (str: string) => str.toUpperCase(),
+  },
+};
+
+const templateEngine = {
+  async render(
+    templateContent: string,
+    data: Record<string, any>
+  ): Promise<string> {
+    const parser = new UltimateTemplateParser(templateContent, templateOptions);
+    const parseResult = parser.parse();
+    const renderer = new UltimateTemplateRenderer(templateOptions);
+    return renderer.render(parseResult.nodes, data);
+  },
+};
+
+app.setTemplateEngine(templateEngine);
 
 // Render with Mustache syntax
 app.get('/user/:id', async (req, res) => {
@@ -151,25 +317,47 @@ app.listen(3000);
 </html>
 ```
 
-### Custom Template Engine
+### Custom Template Engine Integration
 
 ```typescript
-import { createApp, TemplateEngine } from 'nextrush';
+import { createApp } from 'nextrush';
+import {
+  UltimateTemplateRenderer,
+  UltimateTemplateParser,
+  TemplateHelperManager,
+  TemplateOptions,
+} from 'nextrush/template';
 
-// Create custom template engine
-class CustomTemplateEngine implements TemplateEngine {
-  render(template: string, data: Record<string, any> = {}): string {
-    // Custom template processing logic
-    return template.replace(/\\$\\{([^}]+)\\}/g, (match, key) => {
-      const keys = key.split('.');
-      let value = data;
+// Create custom template engine wrapper
+class NextRushTemplateEngine {
+  private parser: UltimateTemplateParser;
+  private renderer: UltimateTemplateRenderer;
 
-      for (const k of keys) {
-        value = value?.[k];
-      }
-
-      return value !== undefined ? String(value) : match;
+  constructor(options: TemplateOptions = {}) {
+    this.renderer = new UltimateTemplateRenderer({
+      cache: true,
+      helpers: {
+        formatCurrency: (amount: number) => `$${amount.toFixed(2)}`,
+        timeAgo: (date: Date) => {
+          const now = new Date();
+          const diff = now.getTime() - date.getTime();
+          const minutes = Math.floor(diff / 60000);
+          return minutes < 60
+            ? `${minutes}m ago`
+            : `${Math.floor(minutes / 60)}h ago`;
+        },
+      },
+      ...options,
     });
+  }
+
+  async render(
+    template: string,
+    data: Record<string, any> = {}
+  ): Promise<string> {
+    this.parser = new UltimateTemplateParser(template);
+    const parseResult = this.parser.parse();
+    return this.renderer.render(parseResult.nodes, data);
   }
 
   async renderFile(
@@ -184,11 +372,17 @@ class CustomTemplateEngine implements TemplateEngine {
 
 const app = createApp();
 
-// Use custom template engine
+// Use NextRush template engine
 app.setViews('./views');
-app.setTemplateEngine(new CustomTemplateEngine());
+app.setTemplateEngine(
+  new NextRushTemplateEngine({
+    cache: process.env.NODE_ENV === 'production',
+    views: './views',
+    partials: './views/partials',
+  })
+);
 
-// Render with custom syntax: ${variable.property}
+// Render with enhanced syntax
 app.get('/profile', (req, res) => {
   res.render('profile.html', {
     user: {
@@ -207,14 +401,53 @@ app.listen(3000);
 ### Advanced Template Rendering
 
 ```typescript
-import { createApp, createTemplateEngine } from 'nextrush';
+import { createApp } from 'nextrush';
+import {
+  UltimateTemplateRenderer,
+  UltimateTemplateParser,
+  testTemplateRender,
+  validateTemplateSyntax,
+} from 'nextrush/template';
 
 const app = createApp();
 
 app.setViews('./views');
-app.setTemplateEngine(createTemplateEngine('mustache'));
 
-// Complex data rendering
+// Setup template engine with advanced features
+const templateEngine = {
+  async render(
+    templateContent: string,
+    data: Record<string, any>
+  ): Promise<string> {
+    // Validate template syntax first
+    const validation = validateTemplateSyntax(templateContent);
+    if (!validation.valid) {
+      throw new Error(`Template syntax error: ${validation.errors.join(', ')}`);
+    }
+
+    const parser = new UltimateTemplateParser(templateContent, {
+      cache: true,
+      helpers: {
+        formatDate: (date: Date) => date.toLocaleDateString(),
+        currency: (amount: number) => `$${amount.toFixed(2)}`,
+        pluralize: (count: number, word: string) =>
+          count === 1 ? word : word + 's',
+      },
+    });
+
+    const parseResult = parser.parse();
+    const renderer = new UltimateTemplateRenderer({
+      cache: true,
+      debug: process.env.NODE_ENV !== 'production',
+    });
+
+    return renderer.render(parseResult.nodes, data);
+  },
+};
+
+app.setTemplateEngine(templateEngine);
+
+// Complex data rendering with helpers
 app.get('/dashboard', async (req, res) => {
   const user = req.user;
   const stats = await getDashboardStats(user.id);
@@ -233,7 +466,7 @@ app.get('/dashboard', async (req, res) => {
       id: post.id,
       title: post.title,
       excerpt: post.content.substring(0, 100) + '...',
-      publishedAt: new Date(post.createdAt).toLocaleDateString(),
+      publishedAt: new Date(post.createdAt),
       viewCount: post.views,
     })),
     hasRecentPosts: stats.recentPosts.length > 0,
@@ -242,12 +475,61 @@ app.get('/dashboard', async (req, res) => {
 
   res.render('dashboard.html', templateData);
 });
+```
+
+### Template with Helpers Example
+
+```html
+<!-- views/dashboard.html -->
+--- title: Dashboard layout: main ---
+<div class="dashboard">
+  <header>
+    <img src="{{user.avatar}}" alt="{{user.name}}" />
+    <h1>Welcome back, {{user.name}}!</h1>
+  </header>
+
+  <section class="stats">
+    <div class="stat">
+      <span class="number">{{stats.totalPosts}}</span>
+      <span class="label">{{pluralize stats.totalPosts "Post"}}</span>
+    </div>
+    <div class="stat">
+      <span class="number">{{stats.totalViews}}</span>
+      <span class="label">Views</span>
+    </div>
+    <div class="stat">
+      <span class="number">{{stats.totalLikes}}</span>
+      <span class="label">{{pluralize stats.totalLikes "Like"}}</span>
+    </div>
+  </section>
+
+  <section class="recent-posts">
+    <h2>Recent Posts</h2>
+    {{#if hasRecentPosts}} {{#each recentPosts}}
+    <article>
+      <h3>{{title}}</h3>
+      <p>{{excerpt}}</p>
+      <footer>
+        <time>{{formatDate publishedAt}}</time>
+        <span>{{viewCount}} views</span>
+      </footer>
+    </article>
+    {{/each}} {{else}}
+    <p>No recent posts to display.</p>
+    {{/if}}
+  </section>
+
+  <footer>
+    <p>&copy; {{currentYear}} NextRush Dashboard</p>
+  </footer>
+</div>
+```
 
 // Direct template rendering (without response)
 app.get('/api/template/:name', async (req, res) => {
-  try {
-    const templateName = req.params.name;
-    const data = req.body;
+try {
+const templateName = req.params.name;
+const data = req.body;
 
     const html = await app.render(`${templateName}.html`, data);
 
@@ -256,26 +538,63 @@ app.get('/api/template/:name', async (req, res) => {
       html: html,
       template: templateName,
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
+
+} catch (error) {
+res.status(500).json({
+success: false,
+error: error.message,
+});
+}
 });
 
 app.listen(3000);
-```
+
+````
 
 ### Error Handling in Templates
 
 ```typescript
-import { createApp, createTemplateEngine } from 'nextrush';
+import { createApp } from 'nextrush';
+import {
+  UltimateTemplateRenderer,
+  UltimateTemplateParser,
+  validateTemplateSyntax
+} from 'nextrush/template';
 
 const app = createApp();
 
 app.setViews('./views');
-app.setTemplateEngine(createTemplateEngine('mustache'));
+
+// Template engine with error handling
+const templateEngine = {
+  async render(templateContent: string, data: Record<string, any>): Promise<string> {
+    try {
+      // Validate template first
+      const validation = validateTemplateSyntax(templateContent);
+      if (!validation.valid) {
+        throw new Error(`Template syntax errors: ${validation.errors.join(', ')}`);
+      }
+
+      const parser = new UltimateTemplateParser(templateContent, {
+        debug: process.env.NODE_ENV !== 'production'
+      });
+      const parseResult = parser.parse();
+
+      const renderer = new UltimateTemplateRenderer({
+        debug: process.env.NODE_ENV !== 'production'
+      });
+
+      return renderer.render(parseResult.nodes, data);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Template rendering failed');
+      }
+      throw error; // Show detailed error in development
+    }
+  }
+};
+
+app.setTemplateEngine(templateEngine);
 
 // Template error handling
 app.get('/content/:slug', async (req, res) => {
@@ -295,7 +614,7 @@ app.get('/content/:slug', async (req, res) => {
         title: content.title,
         body: content.body,
         author: content.author,
-        publishedAt: new Date(content.createdAt).toLocaleDateString(),
+        publishedAt: new Date(content.createdAt),
       },
       meta: {
         title: content.title,
@@ -317,55 +636,52 @@ app.get('/content/:slug', async (req, res) => {
 });
 
 app.listen(3000);
-```
+````
 
 ### Template Caching
 
 ```typescript
-import { createApp, TemplateEngine } from 'nextrush';
+import { createApp } from 'nextrush';
+import {
+  UltimateTemplateRenderer,
+  UltimateTemplateParser,
+} from 'nextrush/template';
 
-// Template engine with caching
-class CachedTemplateEngine implements TemplateEngine {
-  private cache = new Map<string, string>();
-  private baseEngine: TemplateEngine;
-
-  constructor(baseEngine: TemplateEngine) {
-    this.baseEngine = baseEngine;
-  }
-
-  render(template: string, data: Record<string, any> = {}): string {
-    return this.baseEngine.render(template, data);
-  }
-
-  async renderFile(
-    filePath: string,
-    data: Record<string, any> = {}
+// Template engine with built-in caching
+const templateEngine = {
+  async render(
+    templateContent: string,
+    data: Record<string, any>
   ): Promise<string> {
-    // Check cache in production
-    if (process.env.NODE_ENV === 'production' && this.cache.has(filePath)) {
-      const template = this.cache.get(filePath)!;
-      return this.render(template, data);
-    }
+    const parser = new UltimateTemplateParser(templateContent, {
+      cache: process.env.NODE_ENV === 'production', // Enable caching in production
+    });
 
-    // Read and cache template
-    const fs = await import('fs/promises');
-    const template = await fs.readFile(filePath, 'utf-8');
+    const parseResult = parser.parse();
 
-    if (process.env.NODE_ENV === 'production') {
-      this.cache.set(filePath, template);
-    }
+    const renderer = new UltimateTemplateRenderer({
+      cache: process.env.NODE_ENV === 'production', // Enable caching in production
+      debug: process.env.NODE_ENV !== 'production',
+    });
 
-    return this.render(template, data);
-  }
-}
+    return renderer.render(parseResult.nodes, data);
+  },
+};
 
 const app = createApp();
 
 // Use cached template engine
 app.setViews('./views');
-app.setTemplateEngine(
-  new CachedTemplateEngine(createTemplateEngine('mustache'))
-);
+app.setTemplateEngine(templateEngine);
+
+// Templates will be automatically cached in production
+app.get('/cached-page', (req, res) => {
+  res.render('page.html', {
+    title: 'Cached Page',
+    content: 'This template is cached in production for better performance.',
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.listen(3000);
 ```
@@ -380,12 +696,42 @@ app.setViews('./views');
 app.setTemplateEngine(createTemplateEngine('simple'));
 ```
 
-### Mustache Configuration
+### Ultimate Template Engine Configuration
 
 ```typescript
-// Mustache template engine
+import { createApp } from 'nextrush';
+import {
+  UltimateTemplateRenderer,
+  UltimateTemplateParser,
+  TemplateOptions,
+} from 'nextrush/template';
+
+const templateOptions: TemplateOptions = {
+  cache: true,
+  views: './templates',
+  partials: './templates/partials',
+  encoding: 'utf8',
+  defaultExtension: '.html',
+  helpers: {
+    formatDate: (date: Date) => date.toLocaleDateString(),
+    currency: (amount: number) => `$${amount.toFixed(2)}`,
+  },
+};
+
+const templateEngine = {
+  async render(
+    templateContent: string,
+    data: Record<string, any>
+  ): Promise<string> {
+    const parser = new UltimateTemplateParser(templateContent, templateOptions);
+    const parseResult = parser.parse();
+    const renderer = new UltimateTemplateRenderer(templateOptions);
+    return renderer.render(parseResult.nodes, data);
+  },
+};
+
 app.setViews('./templates');
-app.setTemplateEngine(createTemplateEngine('mustache'));
+app.setTemplateEngine(templateEngine);
 ```
 
 ### Custom Engine Configuration

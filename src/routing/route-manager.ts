@@ -1,5 +1,6 @@
 /**
  * Route manager - handles route storage and management
+ * Now with performance optimizations for NextRush v1.0
  */
 import { ValidationError } from '../errors';
 import {
@@ -9,35 +10,73 @@ import {
   Route,
   RouteHandler,
 } from '../types/routing';
-import { RouteMatcher, RouteMatcherOptions } from './route-matcher';
+import { OptimizedRouteManager } from './optimized-route-manager';
+import { RouteMatcher, RouteMatcherOptions } from './route-matcher-deprecated';
 
 export interface RouteManagerOptions extends RouteMatcherOptions {
   maxRoutes?: number;
+  useOptimizedMatcher?: boolean; // New option to enable optimization
+  enableMetrics?: boolean;
+  cacheSize?: number;
+  enableCaching?: boolean; // New option to enable optimized routes
+  enableOptimizedRoutes?: boolean; // New option to enable optimized routes
+  enablePrefixOptimization?: boolean; // New option for prefix optimization
+  // Include RouteMatcherOptions properties explicitly
+  caseSensitive?: boolean;
+  strict?: boolean;
 }
 
 export class RouteManager {
-  private routes = new Map<string, Route[]>(); // Group by method
-  private matcher: RouteMatcher;
+  private routes = new Map<string, Route[]>(); // Group by method (legacy)
+  private matcher?: RouteMatcher; // Legacy matcher
+  private optimizedManager?: OptimizedRouteManager; // New optimized manager
   private options: RouteManagerOptions;
+  private useOptimized: boolean;
 
   constructor(options: RouteManagerOptions = {}) {
     this.options = {
-      maxRoutes: 1000,
+      maxRoutes: 10000, // Increased default limit to match OptimizedRouteManager
+      enableOptimizedRoutes: true,
+      enableCaching: true,
       caseSensitive: false,
       strict: false,
+      cacheSize: 1000,
+      enablePrefixOptimization: true,
       ...options,
     };
 
-    this.matcher = new RouteMatcher({
-      caseSensitive: this.options.caseSensitive ?? false,
-      strict: this.options.strict ?? false,
-    });
+    this.useOptimized = this.options.useOptimizedMatcher ?? true;
+
+    if (this.useOptimized) {
+      // Use the new optimized route manager
+      this.optimizedManager = new OptimizedRouteManager({
+        maxRoutes: this.options.maxRoutes ?? 10000,
+        caseSensitive: this.options.caseSensitive ?? false,
+        strict: this.options.strict ?? false,
+        enableMetrics: this.options.enableMetrics ?? false,
+        cacheSize: this.options.cacheSize ?? 1000,
+        enableBatchOperations: true,
+        enablePrefixOptimization: true,
+      });
+    } else {
+      // Use legacy matcher for backward compatibility
+      this.matcher = new RouteMatcher({
+        caseSensitive: this.options.caseSensitive ?? false,
+        strict: this.options.strict ?? false,
+      });
+    }
   }
 
   /**
    * Add a route to the manager
    */
   addRoute(route: Route): void {
+    if (this.useOptimized && this.optimizedManager) {
+      this.optimizedManager.addRoute(route);
+      return;
+    }
+
+    // Legacy implementation
     this.validateRoute(route);
 
     if (!this.routes.has(route.method)) {
@@ -63,7 +102,7 @@ export class RouteManager {
       (sum, routes) => sum + routes.length,
       0
     );
-    if (totalRoutes >= this.options.maxRoutes!) {
+    if (totalRoutes >= (this.options.maxRoutes ?? 10000)) {
       throw new ValidationError(
         `Maximum number of routes (${this.options.maxRoutes}) exceeded`
       );
@@ -73,9 +112,27 @@ export class RouteManager {
   }
 
   /**
+   * Add multiple routes in batch (optimized version only)
+   */
+  addRoutes(routes: Route[]): void {
+    if (this.useOptimized && this.optimizedManager) {
+      this.optimizedManager.addRoutes(routes);
+      return;
+    }
+
+    // Fallback to individual additions for legacy mode
+    routes.forEach((route) => this.addRoute(route));
+  }
+
+  /**
    * Remove a route by ID
    */
   removeRoute(routeId: string): boolean {
+    if (this.useOptimized && this.optimizedManager) {
+      return this.optimizedManager.removeRoute(routeId);
+    }
+
+    // Legacy implementation
     for (const [method, routes] of Array.from(this.routes.entries())) {
       const index = routes.findIndex((route) => route.id === routeId);
       if (index !== -1) {
@@ -93,7 +150,16 @@ export class RouteManager {
    * Find matching route for a request
    */
   findRoute(method: HttpMethod, path: string): Route | null {
+    if (this.useOptimized && this.optimizedManager) {
+      const match = this.optimizedManager.findRoute(method, path);
+      return match?.route || null;
+    }
+
+    // Legacy implementation
     const routes = this.routes.get(method) || [];
+    if (!this.matcher) {
+      return null;
+    }
     const match = this.matcher.findMatch(path, routes);
     return match?.route || null;
   }
@@ -105,7 +171,16 @@ export class RouteManager {
     method: HttpMethod,
     path: string
   ): { route: Route; params: Record<string, string> } | null {
+    if (this.useOptimized && this.optimizedManager) {
+      const match = this.optimizedManager.findRoute(method, path);
+      return match ? { route: match.route, params: match.params } : null;
+    }
+
+    // Legacy implementation
     const routes = this.routes.get(method) || [];
+    if (!this.matcher) {
+      return null;
+    }
     const match = this.matcher.findMatch(path, routes);
     return match ? { route: match.route, params: match.params } : null;
   }
@@ -114,6 +189,14 @@ export class RouteManager {
    * Get all routes for a specific method
    */
   getRoutes(method?: HttpMethod): Route[] {
+    if (this.useOptimized && this.optimizedManager) {
+      if (method) {
+        return this.optimizedManager.getRoutesByMethod(method);
+      }
+      return this.optimizedManager.getAllRoutes();
+    }
+
+    // Legacy implementation
     if (method) {
       return [...(this.routes.get(method) || [])];
     }
@@ -132,7 +215,22 @@ export class RouteManager {
     totalRoutes: number;
     routesByMethod: Record<HttpMethod, number>;
     methods: HttpMethod[];
+    performanceStats?: any;
   } {
+    if (this.useOptimized && this.optimizedManager) {
+      const optimizedStats = this.optimizedManager.getPerformanceStats();
+      return {
+        totalRoutes: optimizedStats.totalRoutes,
+        routesByMethod: optimizedStats.routesByMethod as Record<
+          HttpMethod,
+          number
+        >,
+        methods: Object.keys(optimizedStats.routesByMethod) as HttpMethod[],
+        performanceStats: optimizedStats,
+      };
+    }
+
+    // Legacy implementation
     const routesByMethod = {} as Record<HttpMethod, number>;
     let totalRoutes = 0;
 
@@ -152,7 +250,23 @@ export class RouteManager {
    * Clear all routes
    */
   clear(): void {
+    if (this.useOptimized && this.optimizedManager) {
+      this.optimizedManager.clear();
+      return;
+    }
+
+    // Legacy implementation
     this.routes.clear();
+  }
+
+  /**
+   * Optimize routes based on access patterns (optimized version only)
+   */
+  optimizeRoutes(): void {
+    if (this.useOptimized && this.optimizedManager) {
+      this.optimizedManager.optimizeRoutes();
+    }
+    // Legacy mode doesn't support optimization
   }
 
   /**
@@ -171,6 +285,22 @@ export class RouteManager {
       handler,
       middleware: middleware || [],
     };
+  }
+
+  /**
+   * Get a specific route by ID
+   */
+  getRoute(routeId: string): Route | undefined {
+    if (this.useOptimized && this.optimizedManager) {
+      return this.optimizedManager.getRoute(routeId);
+    }
+
+    // Legacy implementation
+    for (const routes of Array.from(this.routes.values())) {
+      const route = routes.find((r) => r.id === routeId);
+      if (route) return route;
+    }
+    return undefined;
   }
 
   private validateRoute(route: Route): void {
@@ -220,9 +350,13 @@ export class RouteManager {
    */
   configure(options: Partial<RouteManagerOptions>): void {
     this.options = { ...this.options, ...options };
-    this.matcher.configure({
-      caseSensitive: this.options.caseSensitive ?? false,
-      strict: this.options.strict ?? false,
-    });
+
+    // Only configure legacy matcher if it exists
+    if (!this.useOptimized && this.matcher) {
+      this.matcher.configure({
+        caseSensitive: this.options.caseSensitive ?? false,
+        strict: this.options.strict ?? false,
+      });
+    }
   }
 }
