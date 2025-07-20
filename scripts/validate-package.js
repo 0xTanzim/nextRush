@@ -54,25 +54,45 @@ try {
 try {
   const nextrush = require(path.join(__dirname, '..', 'dist/index.js'));
 
-  const expectedExports = [
+  // Runtime exports (actual JavaScript objects/functions)
+  const expectedRuntimeExports = [
     'Application',
     'createApp',
     'createRouter',
     'Router',
-    'ResponseHandler',
-    'RequestHandler',
-    'BodyParser',
     'ErrorHandler',
+    'BodyParserPlugin',
   ];
 
-  for (const exportName of expectedExports) {
+  for (const exportName of expectedRuntimeExports) {
     if (!(exportName in nextrush)) {
-      console.error(`❌ Missing export: ${exportName}`);
+      console.error(`❌ Missing runtime export: ${exportName}`);
       process.exit(1);
     }
   }
 
-  console.log('✅ All expected exports available');
+  console.log('✅ All expected runtime exports available');
+
+  // Check that main types are included in .d.ts file
+  const typesPath = path.join(__dirname, '..', 'dist/index.d.ts');
+  const typesContent = fs.readFileSync(typesPath, 'utf8');
+  
+  const expectedTypes = [
+    'RequestHandler',
+    'NextRushRequest',
+    'NextRushResponse',
+    'MiddlewareHandler',
+    'RouteHandler',
+  ];
+
+  for (const typeName of expectedTypes) {
+    if (!typesContent.includes(`type ${typeName}`) && !typesContent.includes(`interface ${typeName}`)) {
+      console.error(`❌ Missing type definition: ${typeName}`);
+      process.exit(1);
+    }
+  }
+
+  console.log('✅ All expected type definitions available');
 } catch (error) {
   console.error('❌ Error importing package:', error.message);
   process.exit(1);

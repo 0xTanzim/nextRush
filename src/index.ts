@@ -1,4 +1,53 @@
 /**
+ * 🚀 NextRush Framework - Modern/**
+ * Plugin methods interface for proper TypeScript IntelliSense
+ */
+export interface PluginMethods {
+  // Backward compatibility methods
+  listen(
+    port: number | string,
+    hostname?: string | (() => void),
+    callback?: () => void
+  ): this;
+  close(callback?: () => void): this;
+  startServer(
+    port: number | string,
+    hostname?: string | (() => void),
+    callback?: () => void
+  ): this;
+  shutdown(callback?: () => void): this;
+
+  // Middleware Plugin Methods
+  usePreset(name: string, options?: any): this;
+  useGroup(middlewares: any[]): this;
+  cors(options?: any): any;
+  helmet(options?: any): any;
+  compression(options?: any): any;
+  rateLimit(options?: any): any;
+  logger(options?: any): any;
+  requestId(options?: any): any;
+  timer(options?: any): any;
+  compose(...middlewares: any[]): any;
+  when(condition: any, middleware: any): any;
+  unless(condition: any, middleware: any): any;
+  getPlugin(name: string): any;
+  getMiddlewareMetrics(): any;
+  clearMiddlewareMetrics(): void;
+
+  // WebSocket Plugin Methods (if available)
+  ws?(path: string, handler: any): this;
+  enableWebSocket?(options?: any): this;
+  wsBroadcast?(data: any, room?: string): this;
+  getWebSocketStats?(): any;
+  getWebSocketConnections?(): any;
+}
+
+/**
+ * Extended Application type with all plugin methods for proper TypeScript IntelliSense
+ */
+export type ExtendedApplication = Application & PluginMethods;
+
+/**
  * 🚀 NextRush Framework - Modern Express.js Alternative
  *
  * Entry point for the NextRush framework with complete type safety,
@@ -32,14 +81,22 @@ export type {
 // ============================================================================
 
 import { Application, ApplicationOptions } from './core/app/application';
+import { PluginMode } from './plugins/performance-plugins';
 import { Router } from './routing/router';
 import type { RouterOptions } from './types/routing';
 
 /**
  * Create a new NextRush application with full type safety
  */
-export function createApp(options: ApplicationOptions = {}): Application {
-  return new Application(options);
+export function createApp(
+  options: ApplicationOptions = {}
+): ExtendedApplication {
+  // Default to FULL_FEATURES mode to include WebSocket and all plugins
+  const defaultOptions = {
+    pluginMode: PluginMode.FULL_FEATURES,
+    ...options,
+  };
+  return new Application(defaultOptions) as ExtendedApplication;
 }
 
 // ============================================================================
@@ -176,6 +233,26 @@ export {
 export { ErrorHandler } from './errors/error-handler';
 
 // ============================================================================
+// 🎯 MIDDLEWARE AND HANDLER TYPE EXPORTS
+// ============================================================================
+
+export type {
+  AsyncMiddleware,
+  ErrorMiddleware,
+  ErrorRequestHandler,
+  Middleware,
+  NextFunction,
+  RequestHandler,
+} from './middleware/types';
+
+// ============================================================================
+// 🎯 BODY PARSER EXPORTS
+// ============================================================================
+
+export { BodyParserPlugin } from './plugins/body-parser/body-parser-v2.plugin';
+export type { BodyParserOptions } from './types/http';
+
+// ============================================================================
 // 🎯 PLUGINS & ENHANCED FEATURES EXPORTS
 // ============================================================================
 
@@ -239,6 +316,55 @@ export {
   productionPreset,
   securityPreset,
 } from './plugins/middleware/presets';
+
+// ============================================================================
+// 🎯 TYPE FORCE OVERRIDE - ENSURE LISTEN METHOD IS AVAILABLE
+// ============================================================================
+
+// Force TypeScript to recognize that Application has listen and close methods
+declare module './core/app/application' {
+  interface Application {
+    /**
+     * Start the server - backward compatibility
+     * @param port Port number or string
+     * @param hostname Optional hostname or callback
+     * @param callback Optional callback
+     * @returns Application instance
+     */
+    listen(
+      port: number | string,
+      hostname?: string | (() => void),
+      callback?: () => void
+    ): Application;
+
+    /**
+     * Close the server - backward compatibility
+     * @param callback Optional callback
+     * @returns Application instance
+     */
+    close(callback?: () => void): Application;
+
+    /**
+     * Start the server - new method
+     * @param port Port number or string
+     * @param hostname Optional hostname or callback
+     * @param callback Optional callback
+     * @returns Application instance
+     */
+    startServer(
+      port: number | string,
+      hostname?: string | (() => void),
+      callback?: () => void
+    ): Application;
+
+    /**
+     * Stop the server - new method
+     * @param callback Optional callback
+     * @returns Application instance
+     */
+    shutdown(callback?: () => void): Application;
+  }
+}
 
 // Default export for convenience
 export default Application;
