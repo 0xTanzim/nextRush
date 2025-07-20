@@ -218,9 +218,10 @@ export type { CorsOptions } from './plugins/cors/cors.plugin';
 // ============================================================================
 
 // Built-in middleware functions
+// NOTE: CORS has been moved to the CorsPlugin for enterprise features
 export {
   compression,
-  cors,
+  // cors, // Removed - use app.cors() via CorsPlugin instead
   helmet,
   logger,
   rateLimit,

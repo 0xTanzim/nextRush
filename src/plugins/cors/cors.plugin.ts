@@ -1,163 +1,46 @@
 /**
- * 🌐 CORS Plugin - NextRush Framework
+ * 🔥 CORS Plugin - NextRush Framework (Optimized & Modular)
  *
- * Built-in Cross-Origin Resource Sharing (CORS) handling with smart defaults
- * and flexible configuration options.
+ * High-performance, memory-optimized CORS handling with:
+ * - Smart origin caching for performance
+ * - Zero memory leaks with cleanup hooks
+ * - Enterprise-grade security features
+ * - Comprehensive metrics collection
+ * - Modular architecture following OCP principles
  */
 
 import { Application } from '../../core/app/application';
 import { NextRushRequest, NextRushResponse } from '../../types/express';
 import { BasePlugin, PluginRegistry } from '../core/base-plugin';
+import { CorsMetricsCollector } from './metrics-collector';
+import { OriginValidator } from './origin-validator';
+import { CorsPresets } from './presets';
+import { SecurityHeadersManager, SecurityPresets } from './security-headers';
+import { CorsConfig, CorsOptions, SecurityHeadersConfig } from './types';
 
 /**
- * CORS configuration options
- */
-export interface CorsOptions {
-  origin?:
-    | string
-    | string[]
-    | boolean
-    | ((
-        origin: string | undefined,
-        callback: (err: Error | null, allow?: boolean) => void
-      ) => void);
-  methods?: string | string[];
-  allowedHeaders?: string | string[];
-  exposedHeaders?: string | string[];
-  credentials?: boolean;
-  maxAge?: number;
-  preflightContinue?: boolean;
-  optionsSuccessStatus?: number;
-  preflight?: boolean;
-}
-
-/**
- * Internal CORS configuration
- */
-interface CorsConfig {
-  origin: (origin: string | undefined) => Promise<boolean>;
-  methods: string[];
-  allowedHeaders: string[];
-  exposedHeaders: string[];
-  credentials: boolean;
-  maxAge?: number;
-  preflightContinue: boolean;
-  optionsSuccessStatus: number;
-  preflight: boolean;
-}
-
-/**
- * 🌐 CORS Plugin
+ * 🔥 High-Performance CORS Plugin
  */
 export class CorsPlugin extends BasePlugin {
   name = 'CORS';
+
+  private originValidator: OriginValidator | null = null;
+  private metricsCollector: CorsMetricsCollector | null = null;
+  private securityHeaders: SecurityHeadersManager | null = null;
 
   constructor(registry: PluginRegistry) {
     super(registry);
   }
 
   /**
-   * Install CORS capabilities
+   * 🚀 Install CORS capabilities with performance optimization
    */
   install(app: Application): void {
-    // Add CORS middleware method
-    (app as any).cors = (options: CorsOptions = {}) => {
-      const config = this.buildCorsConfig(options);
+    // Initialize security headers manager
+    this.securityHeaders = new SecurityHeadersManager();
 
-      return async (
-        req: NextRushRequest,
-        res: NextRushResponse,
-        next: () => void
-      ) => {
-        try {
-          const origin = req.headers.origin;
-          const method = req.method?.toUpperCase();
-
-          // Check if origin is allowed
-          const isOriginAllowed = await config.origin(origin);
-
-          // Set origin header
-          if (isOriginAllowed) {
-            res.setHeader('Access-Control-Allow-Origin', origin || '*');
-          } else if (typeof options.origin === 'boolean' && options.origin) {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-          }
-
-          // Set credentials header
-          if (config.credentials) {
-            res.setHeader('Access-Control-Allow-Credentials', 'true');
-          }
-
-          // Set exposed headers
-          if (config.exposedHeaders.length > 0) {
-            res.setHeader(
-              'Access-Control-Expose-Headers',
-              config.exposedHeaders.join(', ')
-            );
-          }
-
-          // Handle preflight requests
-          if (config.preflight && method === 'OPTIONS') {
-            // Set allowed methods
-            res.setHeader(
-              'Access-Control-Allow-Methods',
-              config.methods.join(', ')
-            );
-
-            // Set allowed headers
-            const requestHeaders =
-              req.headers['access-control-request-headers'];
-            if (requestHeaders) {
-              if (config.allowedHeaders.includes('*')) {
-                res.setHeader('Access-Control-Allow-Headers', requestHeaders);
-              } else {
-                const allowedRequestHeaders = requestHeaders
-                  .split(',')
-                  .map((h) => h.trim())
-                  .filter(
-                    (h) =>
-                      config.allowedHeaders.includes(h.toLowerCase()) ||
-                      config.allowedHeaders.includes('*')
-                  );
-
-                if (allowedRequestHeaders.length > 0) {
-                  res.setHeader(
-                    'Access-Control-Allow-Headers',
-                    allowedRequestHeaders.join(', ')
-                  );
-                } else {
-                  res.setHeader(
-                    'Access-Control-Allow-Headers',
-                    config.allowedHeaders.join(', ')
-                  );
-                }
-              }
-            } else {
-              res.setHeader(
-                'Access-Control-Allow-Headers',
-                config.allowedHeaders.join(', ')
-              );
-            }
-
-            // Set max age
-            if (config.maxAge !== undefined) {
-              res.setHeader('Access-Control-Max-Age', config.maxAge.toString());
-            }
-
-            // End preflight request or continue
-            if (!config.preflightContinue) {
-              res.status(config.optionsSuccessStatus).end();
-              return;
-            }
-          }
-
-          next();
-        } catch (error) {
-          console.error('CORS error:', error);
-          next(); // Continue on error
-        }
-      };
-    };
+    // Add optimized CORS middleware method
+    (app as any).cors = this.createCorsMiddleware.bind(this);
 
     // Add global CORS enabler
     (app as any).enableCors = (options: CorsOptions = {}) => {
@@ -166,75 +49,272 @@ export class CorsPlugin extends BasePlugin {
     };
 
     // Add security headers method
-    (app as any).enableSecurityHeaders = () => {
-      return (
-        req: NextRushRequest,
-        res: NextRushResponse,
-        next: () => void
-      ) => {
-        // CORS-related security headers
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('X-Frame-Options', 'DENY');
-        res.setHeader('X-XSS-Protection', '1; mode=block');
-        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-        res.setHeader(
-          'Permissions-Policy',
-          'geolocation=(), microphone=(), camera=()'
-        );
-
-        // HTTPS security headers (only set if HTTPS)
-        const isSecure =
-          (req as any).secure || req.headers['x-forwarded-proto'] === 'https';
-        if (isSecure) {
-          res.setHeader(
-            'Strict-Transport-Security',
-            'max-age=31536000; includeSubDomains; preload'
-          );
-        }
-
-        next();
-      };
+    (app as any).enableSecurityHeaders = (config?: SecurityHeadersConfig) => {
+      if (config) {
+        this.securityHeaders!.updateConfig(config);
+      }
+      return this.securityHeaders!.middleware();
     };
 
-    // Add method to enable both CORS and security headers
-    (app as any).enableWebSecurity = (corsOptions: CorsOptions = {}) => {
-      (app as any).use((app as any).enableSecurityHeaders());
+    // Add comprehensive web security method
+    (app as any).enableWebSecurity = (
+      corsOptions: CorsOptions = {},
+      securityConfig?: SecurityHeadersConfig
+    ) => {
+      (app as any).use((app as any).enableSecurityHeaders(securityConfig));
       (app as any).use((app as any).cors(corsOptions));
       return app;
     };
+
+    // Add CORS presets access
+    (app as any).CorsPresets = CorsPresets;
+    (app as any).SecurityPresets = SecurityPresets;
 
     this.emit('cors:installed');
   }
 
   /**
-   * Start the CORS plugin
+   * 🚀 Create optimized CORS middleware
    */
-  start(): void {
-    this.emit('cors:started');
+  private createCorsMiddleware(options: CorsOptions = {}) {
+    const config = this.buildCorsConfig(options);
+
+    // Initialize components if metrics enabled
+    if (config.enableMetrics && !this.metricsCollector) {
+      this.metricsCollector = new CorsMetricsCollector();
+    }
+
+    // Initialize origin validator with caching
+    if (!this.originValidator) {
+      this.originValidator = new OriginValidator(
+        config.cacheTtl,
+        config.cacheOrigins
+      );
+    }
+
+    return async (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => {
+      const startTime = process.hrtime.bigint();
+      let allowed = false;
+      let cacheHit = false;
+
+      try {
+        const origin = req.headers.origin;
+        const method = req.method?.toUpperCase();
+
+        // Validate origin with caching
+        allowed = await this.originValidator!.validateOrigin(
+          origin,
+          config.origin
+        );
+
+        // Set CORS headers for allowed origins
+        if (allowed) {
+          this.setCorsHeaders(req, res, config, origin);
+        }
+
+        // Handle preflight requests
+        if (config.preflight && method === 'OPTIONS') {
+          await this.handlePreflightRequest(req, res, config, allowed);
+
+          // Record metrics
+          if (this.metricsCollector) {
+            const endTime = process.hrtime.bigint();
+            const responseTime = Number(endTime - startTime) / 1000000; // Convert to milliseconds
+            this.metricsCollector.recordRequest(
+              'preflight',
+              allowed,
+              cacheHit,
+              responseTime
+            );
+          }
+
+          if (!config.preflightContinue) {
+            res.status(config.optionsSuccessStatus).end();
+            return;
+          }
+        }
+
+        // Record metrics for simple requests
+        if (this.metricsCollector && method !== 'OPTIONS') {
+          const endTime = process.hrtime.bigint();
+          const responseTime = Number(endTime - startTime) / 1000000;
+          this.metricsCollector.recordRequest(
+            'simple',
+            allowed,
+            cacheHit,
+            responseTime
+          );
+        }
+
+        next();
+      } catch (error) {
+        console.error('CORS middleware error:', error);
+
+        // Record error in metrics
+        if (this.metricsCollector) {
+          const endTime = process.hrtime.bigint();
+          const responseTime = Number(endTime - startTime) / 1000000;
+          this.metricsCollector.recordRequest(
+            'simple',
+            false,
+            false,
+            responseTime
+          );
+        }
+
+        next(); // Continue on error to avoid breaking the request
+      }
+    };
   }
 
   /**
-   * Stop the CORS plugin
+   * 🚀 Set CORS headers efficiently
    */
-  stop(): void {
-    this.emit('cors:stopped');
+  private setCorsHeaders(
+    req: NextRushRequest,
+    res: NextRushResponse,
+    config: CorsConfig,
+    origin?: string
+  ): void {
+    // Set origin header
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+
+    // Set credentials header
+    if (config.credentials) {
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+
+    // Set exposed headers
+    if (config.exposedHeaders.length > 0) {
+      res.setHeader(
+        'Access-Control-Expose-Headers',
+        config.exposedHeaders.join(', ')
+      );
+    }
+
+    // Add Vary header for proper caching
+    this.addVaryHeader(res, 'Origin');
   }
 
   /**
-   * Build CORS configuration from options
+   * 🚀 Handle preflight requests optimally
+   */
+  private async handlePreflightRequest(
+    req: NextRushRequest,
+    res: NextRushResponse,
+    config: CorsConfig,
+    allowed: boolean
+  ): Promise<void> {
+    if (!allowed) {
+      return; // Don't set preflight headers for disallowed origins
+    }
+
+    // Set allowed methods
+    res.setHeader('Access-Control-Allow-Methods', config.methods.join(', '));
+
+    // Handle requested headers efficiently
+    const requestedHeaders = req.headers['access-control-request-headers'];
+    if (requestedHeaders) {
+      this.setAllowedHeaders(res, config, requestedHeaders);
+    } else if (config.allowedHeaders.length > 0) {
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        config.allowedHeaders.join(', ')
+      );
+    }
+
+    // Set max age for caching
+    if (config.maxAge !== undefined) {
+      res.setHeader('Access-Control-Max-Age', config.maxAge.toString());
+    }
+
+    // Add Vary headers for proper caching
+    this.addVaryHeader(
+      res,
+      'Origin, Access-Control-Request-Method, Access-Control-Request-Headers'
+    );
+  }
+
+  /**
+   * 🚀 Set allowed headers with smart filtering
+   */
+  private setAllowedHeaders(
+    res: NextRushResponse,
+    config: CorsConfig,
+    requestedHeaders: string
+  ): void {
+    if (config.allowedHeaders.includes('*')) {
+      res.setHeader('Access-Control-Allow-Headers', requestedHeaders);
+      return;
+    }
+
+    const requested = requestedHeaders
+      .split(',')
+      .map((h) => h.trim().toLowerCase())
+      .filter((h) => h.length > 0);
+
+    const allowed = requested.filter((header) =>
+      config.allowedHeaders.some(
+        (allowedHeader) =>
+          allowedHeader.toLowerCase() === header || allowedHeader === '*'
+      )
+    );
+
+    if (allowed.length > 0) {
+      res.setHeader('Access-Control-Allow-Headers', allowed.join(', '));
+    }
+  }
+
+  /**
+   * 🚀 Add Vary header efficiently
+   */
+  private addVaryHeader(res: NextRushResponse, varyValue: string): void {
+    const existingVary = res.getHeader('Vary');
+    if (existingVary) {
+      const varyHeaders = Array.isArray(existingVary)
+        ? existingVary.join(', ')
+        : existingVary.toString();
+
+      if (!varyHeaders.includes(varyValue)) {
+        res.setHeader('Vary', `${varyHeaders}, ${varyValue}`);
+      }
+    } else {
+      res.setHeader('Vary', varyValue);
+    }
+  }
+
+  /**
+   * 🚀 Build optimized CORS configuration
    */
   private buildCorsConfig(options: CorsOptions): CorsConfig {
     const config: CorsConfig = {
-      origin: this.buildOriginChecker(options.origin),
-      methods: this.normalizeArray(
-        options.methods || ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE']
+      origin: options.origin || false,
+      methods: this.normalizeStringArray(
+        options.methods || [
+          'GET',
+          'HEAD',
+          'PUT',
+          'PATCH',
+          'POST',
+          'DELETE',
+          'OPTIONS',
+        ]
       ),
-      allowedHeaders: this.normalizeArray(options.allowedHeaders || ['*']),
-      exposedHeaders: this.normalizeArray(options.exposedHeaders || []),
+      allowedHeaders: this.normalizeStringArray(
+        options.allowedHeaders || ['*']
+      ),
+      exposedHeaders: this.normalizeStringArray(options.exposedHeaders || []),
       credentials: options.credentials === true,
       preflightContinue: options.preflightContinue === true,
       optionsSuccessStatus: options.optionsSuccessStatus || 204,
       preflight: options.preflight !== false,
+      cacheOrigins: options.cacheOrigins !== false,
+      cacheTtl: options.cacheTtl || 300000, // 5 minutes default
+      enableMetrics: options.enableMetrics !== false,
     };
 
     if (options.maxAge !== undefined) {
@@ -245,112 +325,72 @@ export class CorsPlugin extends BasePlugin {
   }
 
   /**
-   * Build origin checker function
+   * 🚀 Normalize string or array to array efficiently
    */
-  private buildOriginChecker(
-    origin: CorsOptions['origin']
-  ): (origin: string | undefined) => Promise<boolean> {
-    if (origin === undefined || origin === true) {
-      return async () => true;
-    }
-
-    if (origin === false) {
-      return async () => false;
-    }
-
-    if (typeof origin === 'string') {
-      return async (requestOrigin) => origin === requestOrigin;
-    }
-
-    if (Array.isArray(origin)) {
-      return async (requestOrigin) =>
-        requestOrigin ? origin.includes(requestOrigin) : false;
-    }
-
-    if (typeof origin === 'function') {
-      return (requestOrigin) => {
-        return new Promise((resolve) => {
-          origin(requestOrigin, (err, allow) => {
-            if (err) {
-              resolve(false);
-            } else {
-              resolve(allow === true);
-            }
-          });
-        });
-      };
-    }
-
-    return async () => false;
-  }
-
-  /**
-   * Normalize string or array to array
-   */
-  private normalizeArray(value: string | string[] | undefined): string[] {
+  private normalizeStringArray(value: string | string[] | undefined): string[] {
     if (!value) return [];
     if (typeof value === 'string') {
-      return value.split(',').map((s) => s.trim());
+      return value
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
     }
     return value;
   }
+
+  /**
+   * 🚀 Get CORS metrics (if enabled)
+   */
+  getMetrics() {
+    return this.metricsCollector?.getMetrics() || null;
+  }
+
+  /**
+   * 🚀 Get cache statistics
+   */
+  getCacheStats() {
+    return this.originValidator?.getCacheStats() || null;
+  }
+
+  /**
+   * 🚀 Start the CORS plugin
+   */
+  start(): void {
+    this.emit('cors:started');
+  }
+
+  /**
+   * 🚀 Stop the CORS plugin with cleanup
+   */
+  stop(): void {
+    this.cleanup();
+    this.emit('cors:stopped');
+  }
+
+  /**
+   * 🚀 Cleanup resources to prevent memory leaks
+   */
+  private cleanup(): void {
+    if (this.originValidator) {
+      this.originValidator.cleanup();
+      this.originValidator = null;
+    }
+
+    if (this.metricsCollector) {
+      this.metricsCollector.reset();
+      this.metricsCollector = null;
+    }
+  }
+
+  /**
+   * 🚀 Plugin cleanup hook
+   */
+  onCleanup(): void {
+    this.cleanup();
+  }
 }
 
-/**
- * Predefined CORS configurations
- */
-export const CorsPresets = {
-  /**
-   * Allow all origins - suitable for public APIs
-   */
-  allowAll: (): CorsOptions => ({
-    origin: true,
-    credentials: false,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['*'],
-  }),
-
-  /**
-   * Strict CORS - only specified origins
-   */
-  strict: (allowedOrigins: string[]): CorsOptions => ({
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }),
-
-  /**
-   * Development-friendly CORS
-   */
-  development: (): CorsOptions => ({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['*'],
-    exposedHeaders: ['X-Total-Count', 'X-Request-ID'],
-  }),
-
-  /**
-   * Production-safe CORS
-   */
-  production: (allowedOrigins: string[]): CorsOptions => ({
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['X-Total-Count'],
-    maxAge: 86400, // 24 hours
-  }),
-
-  /**
-   * API-only CORS (no credentials)
-   */
-  apiOnly: (allowedOrigins?: string[]): CorsOptions => ({
-    origin: allowedOrigins || true,
-    credentials: false,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-    maxAge: 3600, // 1 hour
-  }),
-};
+// Export presets for easy access
+export { CorsPresets } from './presets';
+export { SecurityPresets } from './security-headers';
+export * from './types';
