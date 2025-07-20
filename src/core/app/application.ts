@@ -28,35 +28,6 @@ import { SimpleEventEmitter } from '../event-system';
 import { BaseComponent } from './base-component';
 
 // Import proper types instead of using `any`
-import {
-  CompressionOptions,
-  EventMiddlewareOptions,
-  EventStats,
-  GlobalRateLimitOptions,
-  HealthCheckFunction,
-  HealthData,
-  HelmetOptions,
-  JsonParserOptions,
-  JwtOptions,
-  JwtSignOptions,
-  JwtVerifyOptions,
-  LoggerOptions,
-  MetricsData,
-  MetricsOptions,
-  MiddlewareFunction,
-  PresetOptions,
-  RateLimitOptions,
-  RawParserOptions,
-  RequestIdOptions,
-  Role,
-  SanitizationOptions,
-  TextParserOptions,
-  TimerOptions,
-  UrlEncodedParserOptions,
-  ValidationSchema,
-  WebSecurityOptions,
-  XssProtectionOptions,
-} from '../../types/plugin-options';
 
 // Import new plugin system
 import { SimplePluginRegistry } from '../../plugins/core/simple-registry';
@@ -137,132 +108,28 @@ export interface RouteDefinition {
  * Application interface
  */
 export interface IApplication {
+  startServer(
+    port: number | string,
+    hostname?: string | (() => void),
+    callback?: () => void
+  ): Application;
+  shutdown(callback?: () => void): Application;
+
+  // Backward compatibility aliases
   listen(
     port: number | string,
     hostname?: string | (() => void),
     callback?: () => void
-  ): IApplication;
-  close(callback?: () => void): IApplication;
+  ): Application;
+  close(callback?: () => void): Application;
 }
 
 // Import WebSocket types for interface extension
-import { CorsOptions } from '../../plugins';
-import type {
-  NextRushWebSocket,
-  WebSocketHandler,
-  WebSocketMiddleware,
-  WebSocketOptions,
-  WebSocketStats,
-} from '../../types/websocket';
-
-// Interface merging to add WebSocket methods to Application
-declare module '../app/application' {
-  interface Application {
-    enableWebSocket(options?: WebSocketOptions): this;
-    ws(path: string, handler: WebSocketHandler): this;
-    wsUse(middleware: WebSocketMiddleware): this;
-    wsBroadcast(data: any, room?: string): this;
-    getWebSocketStats(): WebSocketStats | undefined;
-    getWebSocketConnections(): NextRushWebSocket[];
-
-    // 🎛️ Middleware preset methods - PROPERLY TYPED!
-    usePreset(
-      name:
-        | 'development'
-        | 'production'
-        | 'fullFeatured'
-        | 'security'
-        | 'performance'
-        | string,
-      options?: PresetOptions
-    ): this;
-    useGroup(middlewares: MiddlewareFunction[]): this;
-
-    // 🔒 Security middleware methods - NO MORE `any`!
-    cors(options?: CorsOptions): MiddlewareFunction;
-    helmet(options?: HelmetOptions): MiddlewareFunction;
-
-    // 📦 Body parser methods - FULLY TYPED!
-    json(options?: JsonParserOptions): MiddlewareFunction;
-    urlencoded(options?: UrlEncodedParserOptions): MiddlewareFunction;
-    text(options?: TextParserOptions): MiddlewareFunction;
-    raw(options?: RawParserOptions): MiddlewareFunction;
-
-    // ⚡ Performance middleware methods - TYPE SAFE!
-    compression(options?: CompressionOptions): MiddlewareFunction;
-    rateLimit(options?: RateLimitOptions): MiddlewareFunction;
-
-    // 📊 Monitoring middleware methods - SMART TYPES!
-    logger(options?: LoggerOptions): MiddlewareFunction;
-    requestId(options?: RequestIdOptions): MiddlewareFunction;
-    timer(options?: TimerOptions): MiddlewareFunction;
-
-    // 🔐 Authentication & Authorization methods - ZERO `any`!
-    useJwt(options: JwtOptions): this;
-    defineRole(role: Role): this;
-    signJwt(payload: Record<string, any>, options?: JwtSignOptions): string;
-    verifyJwt(token: string, options?: JwtVerifyOptions): Record<string, any>;
-    requireAuth(strategy?: string): MiddlewareFunction;
-
-    // 📊 Metrics & Monitoring methods - PROPER RETURN TYPES!
-    enableMetrics(options?: MetricsOptions): this;
-    incrementCounter(
-      name: string,
-      labels?: Record<string, string>,
-      value?: number
-    ): this;
-    setGauge(
-      name: string,
-      value: number,
-      labels?: Record<string, string>
-    ): this;
-    observeHistogram(
-      name: string,
-      value: number,
-      labels?: Record<string, string>
-    ): this;
-    addHealthCheck(name: string, check: HealthCheckFunction): this;
-    getMetrics(): MetricsData;
-    getHealth(): HealthData;
-
-    // 🛡️ Rate Limiting methods - TYPED OPTIONS!
-    enableGlobalRateLimit(options?: GlobalRateLimitOptions): this;
-    useRateLimit(options?: RateLimitOptions): MiddlewareFunction;
-    createRateLimit(options?: RateLimitOptions): MiddlewareFunction;
-
-    // 🌐 CORS & Security methods - SMART INTERFACES!
-    enableCors(options?: CorsOptions): this;
-    enableSecurityHeaders(): MiddlewareFunction;
-    enableWebSecurity(options?: WebSecurityOptions): this;
-    xssProtection(options?: XssProtectionOptions): MiddlewareFunction;
-
-    // 🔄 Event-driven architecture methods - ALREADY PROPERLY TYPED!
-    on(event: string, handler: (...args: any[]) => void | Promise<void>): this;
-    once(
-      event: string,
-      handler: (...args: any[]) => void | Promise<void>
-    ): this;
-    off(
-      event: string,
-      handler?: (...args: any[]) => void | Promise<void>
-    ): this;
-    emit(event: string, ...args: any[]): this;
-    eventMiddleware(options?: EventMiddlewareOptions): MiddlewareFunction;
-    getEventStats(): EventStats;
-    getEventHistory(): any[];
-
-    // 🛡️ Input validation & sanitization methods - ALREADY PROPER!
-    validate(schema: ValidationSchema): MiddlewareFunction;
-    sanitize(options?: SanitizationOptions): MiddlewareFunction;
-
- 
-  }
-}
 
 /**
  * 🔥 NextRush Application - Enterprise-Grade with Proper Typing
  */
-export class Application extends BaseComponent implements IApplication {
+export class Application extends BaseComponent {
   private router: Router;
   private errorHandler: ErrorHandler;
   private httpServer?: HttpServer;
@@ -319,7 +186,13 @@ export class Application extends BaseComponent implements IApplication {
    * Install method required by BaseComponent
    */
   install(): void {
-    // Application is the root component
+    // Install all plugins
+    this.initializePlugins();
+  }
+
+  // TEST METHOD to verify compilation
+  testMethod(): string {
+    return 'test works';
   }
 
   /**
@@ -1004,7 +877,7 @@ export class Application extends BaseComponent implements IApplication {
   /**
    * Listen on port - Required by Application
    */
-  listen(
+  startServer(
     port: number | string,
     hostname?: string | (() => void),
     callback?: () => void
@@ -1038,7 +911,7 @@ export class Application extends BaseComponent implements IApplication {
   /**
    * Close the server - Required by Application
    */
-  close(callback?: () => void): Application {
+  shutdown(callback?: () => void): Application {
     if (this.httpServer) {
       this.httpServer.close((error) => {
         if (error) {
@@ -1053,6 +926,26 @@ export class Application extends BaseComponent implements IApplication {
     }
 
     return this;
+  }
+
+  /**
+   * Backward compatibility alias for startServer
+   * @deprecated Use startServer instead
+   */
+  listen(
+    port: number | string,
+    hostname?: string | (() => void),
+    callback?: () => void
+  ): Application {
+    return this.startServer(port, hostname, callback);
+  }
+
+  /**
+   * Backward compatibility alias for shutdown
+   * @deprecated Use shutdown instead
+   */
+  close(callback?: () => void): Application {
+    return this.shutdown(callback);
   }
 
   /**

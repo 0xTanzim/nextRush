@@ -2,7 +2,7 @@
 
 > **🎓 Educational Web Framework Project - My First NPM Package Journey**
 >
-> **⚠️ IMPORTANT: This is a LEARNING PROJECT and my first experience building a web framework.** > **NOT recommended for production use. Built for educational purposes only.**
+> **⚠️ IMPORTANT: This is a LEARNING PROJECT and my first experience building a web framework.** > **NOT recommended for production use. Built for educational purposes only.** 
 
 ## 📚 **Learning Project Notice**
 
@@ -16,12 +16,6 @@ This project represents my **first attempt** at building a Node.js web framework
 - Web server fundamentals
 
 **🚨 For Production Use**: Please consider**📚 Educatio**📚 Educational Resources:\*\*
-
-- [⭐ Star on GitHub](https://github.com/0xTanzim/nextRush) - Support learning in public
-- [📖 Complete Learning Journey](./LESSONS-LEARNED.md) - Detailed insights and mistakes
-- [📋 Project Status](./PROJECT-STATUS.md) - Final achievements and outcomes
-- [🚪 Exit Plan](./EXIT-PLAN.md) - How to properly conclude a learning projectesources:\*\*
-
 - [⭐ Star on GitHub](https://github.com/0xTanzim/nextRush) - Support learning in public
 - [📖 Complete Learning Journey](./LESSONS-LEARNED.md) - Detailed insights and mistakes
 - [📋 Project Status](./PROJECT-STATUS.md) - Final achievements and outcomes

@@ -466,19 +466,38 @@ declare module '../core/app/application' {
      * @param port - Port number
      * @param hostname - Optional hostname
      * @param callback - Optional callback
-     * @returns Promise that resolves when server starts
+     * @returns Application instance for chaining
      */
     listen(
-      port: number,
-      hostname?: string,
+      port: number | string,
+      hostname?: string | (() => void),
       callback?: () => void
-    ): Promise<void>;
+    ): this;
+
+    /**
+     * Start the server (new method name)
+     * @param port - Port number
+     * @param hostname - Optional hostname
+     * @param callback - Optional callback
+     * @returns Application instance for chaining
+     */
+    startServer(
+      port: number | string,
+      hostname?: string | (() => void),
+      callback?: () => void
+    ): this;
 
     /**
      * Stop the server
-     * @returns Promise that resolves when server stops
+     * @returns Application instance for chaining
      */
-    close(): Promise<void>;
+    close(callback?: () => void): this;
+
+    /**
+     * Stop the server (new method name)
+     * @returns Application instance for chaining
+     */
+    shutdown(callback?: () => void): this;
   }
 }
 

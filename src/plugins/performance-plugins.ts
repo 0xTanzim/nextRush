@@ -84,7 +84,7 @@ export enum PluginMode {
  */
 export function createPlugins(
   registry: PluginRegistry,
-  mode: PluginMode = PluginMode.PERFORMANCE
+  mode: PluginMode = PluginMode.FULL_FEATURES
 ) {
   switch (mode) {
     case PluginMode.PERFORMANCE:

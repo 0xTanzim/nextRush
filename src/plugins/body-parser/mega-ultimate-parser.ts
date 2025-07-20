@@ -22,6 +22,7 @@
  */
 
 import type { IncomingMessage } from 'http';
+import { tmpdir } from 'os';
 import { StringDecoder } from 'string_decoder';
 
 /** 🔍 Debug logging identifier for cleanup tracking */
@@ -192,7 +193,7 @@ export class MegaUltimateParser {
       maxFiles: options.maxFiles || 10,
       maxFileSize: options.maxFileSize || 5 * 1024 * 1024, // 5MB
       memoryStorage: options.memoryStorage ?? true,
-      uploadDir: options.uploadDir || require('os').tmpdir(),
+      uploadDir: options.uploadDir || tmpdir(),
       encoding: options.encoding || 'utf8',
     };
 
