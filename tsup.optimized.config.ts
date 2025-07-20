@@ -1,77 +1,126 @@
 import { defineConfig } from 'tsup';
 
-export default defineConfig({
-  // 🎯 Entry point - only src/index.ts
-  entry: ['src/index.ts'],
+export default defineConfig([
+  // 🔥 CommonJS build - require() support
+  {
+    entry: ['src/index.ts'],
+    format: ['cjs'],
+    outDir: 'dist',
+    outExtension: () => ({ js: '.js' }),
+    dts: true,
+    sourcemap: false,
+    clean: true,
+    splitting: false,
+    treeshake: false,
+    minify: false,
+    target: 'node18',
+    platform: 'node',
+    bundle: true,
 
-  // Output formats
-  format: ['cjs', 'esm'],
+    // 🚫 External Node.js built-ins for CommonJS
+    external: [
+      'node:*',
+      'fs',
+      'fs/promises',
+      'path',
+      'http',
+      'https',
+      'crypto',
+      'os',
+      'url',
+      'stream',
+      'events',
+      'util',
+      'zlib',
+      'string_decoder',
+      'buffer',
+      'child_process',
+      'cluster',
+      'net',
+      'tls',
+      'dgram',
+      'dns',
+      'module',
+      'querystring',
+      'worker_threads',
+    ],
 
-  // Generate TypeScript declarations
-  dts: true,
-
-  // Clean output directory
-  clean: true,
-
-  // 🚀 OPTIMIZATION SETTINGS
-  minify: true, // Enable minification for smaller builds
-  sourcemap: false, // Disable source maps to reduce size
-  treeshake: true, // Aggressive tree-shaking
-  keepNames: false, // Remove function names to save space
-
-  // 📦 Bundle only src/ files
-  bundle: true,
-  splitting: false,
-
-  // 🚫 External dependencies (don't bundle Node.js built-ins)
-  external: [
-    'node:*',
-    'fs',
-    'path',
-    'http',
-    'https',
-    'url',
-    'stream',
-    'crypto',
-    'buffer',
-    'events',
-    'util',
-    'querystring',
-    'worker_threads',
-    'child_process',
-    'cluster',
-    'os',
-    'zlib',
-  ],
-
-  // 🎯 Target and platform
-  target: 'node18',
-  platform: 'node',
-
-  // 📁 Output configuration
-  outDir: 'dist',
-  tsconfig: 'tsconfig.build.json',
-
-  // 🔧 Build optimizations
-  esbuildOptions(options) {
-    // Fix the named/default export warning
-    options.mainFields = ['module', 'main'];
-    options.conditions = ['node'];
-
-    // Additional optimizations
-    options.drop = ['console', 'debugger']; // Remove console.log and debugger statements
-    options.legalComments = 'none'; // Remove legal comments to save space
+    esbuildOptions(options) {
+      options.keepNames = true;
+      options.platform = 'node';
+      options.format = 'cjs';
+      options.packages = 'external';
+      options.mainFields = ['main', 'module'];
+      options.conditions = ['node', 'require', 'default'];
+    },
   },
 
-  // 🌍 Environment
-  define: {
-    'process.env.NODE_ENV': '"production"',
-  },
+  // 🔥 ES Modules build - NEUTRAL platform to prevent require() polyfill
+  {
+    entry: ['src/index.ts'],
+    format: ['esm'],
+    outDir: 'dist',
+    outExtension: () => ({ js: '.mjs' }),
+    dts: false,
+    sourcemap: false,
+    clean: false,
+    splitting: false,
+    treeshake: false,
+    minify: false,
+    target: 'esnext',
+    platform: 'neutral',
+    bundle: true,
 
-  // 📝 Output extensions
-  outExtension({ format }) {
-    return {
-      js: format === 'cjs' ? '.js' : '.mjs',
-    };
+    // 🚫 External Node.js built-ins to prevent require() polyfills
+    external: [
+      'node:*',
+      'fs',
+      'fs/promises',
+      'path',
+      'http',
+      'https',
+      'crypto',
+      'os',
+      'url',
+      'stream',
+      'events',
+      'util',
+      'zlib',
+      'string_decoder',
+      'buffer',
+      'child_process',
+      'cluster',
+      'net',
+      'tls',
+      'dgram',
+      'dns',
+      'module',
+      'querystring',
+      'worker_threads',
+    ],
+
+    esbuildOptions(options) {
+      options.keepNames = true;
+      options.platform = 'node';
+      options.format = 'esm';
+
+      // 🎯 Force external packages to prevent bundling Node.js modules
+      options.packages = 'external';
+      options.mainFields = ['module', 'main'];
+      options.conditions = ['node', 'import', 'module', 'default'];
+
+      // � CRITICAL: Force pure ES module output
+      // This prevents esbuild from injecting CommonJS compatibility code
+      options.target = ['esnext'];
+      options.supported = {
+        'dynamic-import': true,
+        'import-meta': true,
+      };
+
+      // 💡 Remove any CommonJS compatibility injections
+      options.inject = [];
+      options.banner = undefined;
+      options.footer = undefined;
+    },
   },
-});
+]);
