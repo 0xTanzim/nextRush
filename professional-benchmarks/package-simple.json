@@ -1,0 +1,32 @@
+{
+  "name": "nextrush-professional-benchmarks",
+  "version": "1.0.0",
+  "description": "Professional benchmarking environment for NextRush using industry-standard tools",
+  "type": "module",
+  "scripts": {
+    "benchmark": "node src/orchestrator.js",
+    "benchmark:nextrush": "node src/orchestrator.js --framework=nextrush",
+    "benchmark:express": "node src/orchestrator.js --framework=express",
+    "benchmark:compare": "node src/orchestrator.js --compare nextrush,express,fastify",
+    "profile": "node src/profiler.js",
+    "analyze": "node src/analyzer.js",
+    "report": "node src/reporter.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "fastify": "^4.28.1",
+    "yargs": "^17.7.2",
+    "chalk": "^5.3.0"
+  },
+  "keywords": [
+    "benchmark",
+    "performance",
+    "nextrush",
+    "autocannon",
+    "clinic",
+    "artillery",
+    "k6"
+  ],
+  "author": "NextRush Team",
+  "license": "MIT"
+}
