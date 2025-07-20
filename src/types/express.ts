@@ -11,6 +11,8 @@ export interface ValidationRule {
   type?: 'string' | 'number' | 'email' | 'url' | 'boolean';
   minLength?: number;
   maxLength?: number;
+  min?: number;
+  max?: number;
   custom?: (value: any) => boolean;
   message?: string;
   sanitize?: SanitizeOptions;
@@ -65,9 +67,11 @@ export interface NextRushRequest extends IncomingMessage {
   // 🚀 NEW: Enhanced request properties
   files: Record<string, any>;
   cookies: Record<string, string>;
+  signedCookies?: Record<string, string>;
   session: Record<string, any>;
   locals: Record<string, any>;
   startTime: number;
+  id?: string; // Request ID
 
   // Middleware debugging support
   middlewareStack?: string[];
@@ -86,18 +90,24 @@ export interface NextRushRequest extends IncomingMessage {
   is(type: string): boolean;
   accepts(types: string | string[]): string | false;
 
+  // Fresh/stale properties
+  fresh: boolean;
+  stale: boolean;
+
   // Cookie methods
   parseCookies(): Record<string, string>;
 
   // Validation and sanitization
   validate(rules: Record<string, ValidationRule>): ValidationResult;
   sanitize(value: any, options?: SanitizeOptions): any;
+  sanitizeObject(obj: any, options?: any): any;
 
   // Utility methods
   rateLimit(): RateLimitInfo;
   fingerprint(): string;
   userAgent(): UserAgentInfo;
   timing(): RequestTiming;
+  getRequestTiming(): any;
 
   // Helper validation methods
   isValidEmail(email: string): boolean;
@@ -188,6 +198,9 @@ export interface NextRushResponse extends ServerResponse {
 
   // Template rendering
   render(template: string, data?: any): void;
+
+  // Content type utilities
+  getContentTypeFromExtension(ext: string): string;
 
   // 🚀 Template helper methods
   getNestedValue(obj: any, path: string): any;

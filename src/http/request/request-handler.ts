@@ -1,39 +1,37 @@
 /**
  * Request handler - processes incoming HTTP requests
+ *
+ * ❌ DEPRECATED: This module is replaced by MegaUltimateParser
+ *
+ * 🚨 PERFORMANCE WARNING: This creates duplicate request processing!
+ * Use BodyParserPlugin instead for better performance.
  */
+
 import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
-import { AsyncHandler } from '../../types/common';
-import { ParsedRequest, RequestParsingOptions } from '../../types/http';
-import { BodyParser } from './body-parser';
+import { ParsedRequest } from '../../types/http';
 
-export class RequestHandler
-  implements AsyncHandler<IncomingMessage, ParsedRequest>
-{
-  private bodyParser: BodyParser;
+export interface RequestParsingOptions {
+  parseBody?: boolean;
+}
 
-  constructor(bodyParser?: BodyParser) {
-    this.bodyParser = bodyParser || new BodyParser();
+export class RequestHandler {
+  constructor() {
+    // ❌ DEPRECATED: Body parsing now handled by BodyParserPlugin
+    console.warn(
+      '[NEXTRUSH_DEPRECATED_2025] RequestHandler is deprecated. Use BodyParserPlugin instead.'
+    );
   }
 
   async handle(request: IncomingMessage): Promise<ParsedRequest> {
     const parsedRequest = this.enhanceRequest(request);
 
-    // Parse body for methods that typically have body content
-    if (this.shouldParseBody(parsedRequest)) {
-      try {
-        const bodyResult = await this.bodyParser.handle(parsedRequest);
-        parsedRequest.body = bodyResult.parsed;
-      } catch (error) {
-        // For GET requests and other methods without body, ignore body parsing errors
-        if (this.requiresBody(parsedRequest)) {
-          throw error;
-        }
-        parsedRequest.body = null;
-      }
-    } else {
-      parsedRequest.body = null;
-    }
+    // ❌ DEPRECATED: Body parsing now handled by BodyParserPlugin
+    // Use BodyParserPlugin for automatic body parsing instead
+    console.warn(
+      '[NEXTRUSH_DEPRECATED_2025] RequestHandler.handle() body parsing is deprecated.'
+    );
+    parsedRequest.body = {}; // Empty body - use BodyParserPlugin instead
 
     return parsedRequest;
   }
@@ -46,12 +44,12 @@ export class RequestHandler
 
     // Parse URL and query parameters
     const parsed = parseUrl(enhanced.url || '', true);
-    enhanced.query = parsed.query;
     enhanced.pathname = parsed.pathname || '/';
-    enhanced.originalUrl = enhanced.url || '';
-
-    // Initialize empty params (will be set by router)
+    enhanced.query = parsed.query;
     enhanced.params = {};
+
+    // Add original URL
+    enhanced.originalUrl = enhanced.url || '/';
 
     return enhanced;
   }
@@ -66,51 +64,39 @@ export class RequestHandler
       10
     );
 
-    // Always try to parse if there's content
-    if (contentLength > 0) {
-      return true;
-    }
-
-    // Parse for methods that typically have bodies
-    return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method || '');
-  }
-
-  /**
-   * Determine if the request method requires a body
-   */
-  private requiresBody(request: ParsedRequest): boolean {
-    const method = request.method?.toUpperCase();
-    return ['POST', 'PUT', 'PATCH'].includes(method || '');
+    // Only parse body for methods that typically have body content
+    const methodsWithBody = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    return methodsWithBody.includes(method || '') && contentLength > 0;
   }
 
   /**
    * Parse specific parts of the request
+   *
+   * ❌ DEPRECATED: Use BodyParserPlugin instead
    */
   async parseRequest(
     request: IncomingMessage,
     options: RequestParsingOptions = {}
   ): Promise<ParsedRequest> {
-    const enhanced = this.enhanceRequest(request);
+    const parsedRequest = this.enhanceRequest(request);
 
-    if (options.parseBody && this.shouldParseBody(enhanced)) {
-      try {
-        const bodyResult = await this.bodyParser.handle(enhanced);
-        enhanced.body = bodyResult.parsed;
-      } catch (error) {
-        if (this.requiresBody(enhanced)) {
-          throw error;
-        }
-        enhanced.body = null;
-      }
-    }
+    // ❌ DEPRECATED: Body parsing now handled by BodyParserPlugin
+    console.warn(
+      '[NEXTRUSH_DEPRECATED_2025] RequestHandler.parseRequest() is deprecated. Use BodyParserPlugin instead.'
+    );
+    parsedRequest.body = {}; // Empty body - use BodyParserPlugin instead
 
-    return enhanced;
+    return parsedRequest;
   }
 
   /**
    * Configure the body parser
+   *
+   * ❌ DEPRECATED: Use BodyParserPlugin configuration instead
    */
-  configureBodyParser(options: Parameters<BodyParser['configure']>[0]): void {
-    this.bodyParser.configure(options);
+  configureBodyParser(options: any): void {
+    console.warn(
+      '[NEXTRUSH_DEPRECATED_2025] RequestHandler.configureBodyParser() is deprecated. Configure BodyParserPlugin instead.'
+    );
   }
 }

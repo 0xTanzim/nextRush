@@ -5,8 +5,8 @@ import { HttpMethod, RequestContext } from './http';
 
 export type Path = string | RegExp;
 
-// Re-export HttpMethod for convenience
-export { type HttpMethod };
+// Re-export HttpMethod and RequestContext for convenience
+export { type HttpMethod, type RequestContext };
 
 export interface RouteHandler {
   (context: RequestContext): Promise<void> | void;
@@ -20,6 +20,12 @@ export interface RouterOptions {
   caseSensitive?: boolean;
   strict?: boolean;
   mergeParams?: boolean;
+  // Performance optimization options
+  useOptimizedMatcher?: boolean;
+  enableCaching?: boolean;
+  cacheSize?: number;
+  enablePrefixOptimization?: boolean;
+  enableMetrics?: boolean;
 }
 
 export interface Route {
@@ -28,6 +34,7 @@ export interface Route {
   method: HttpMethod;
   handler: RouteHandler;
   middleware?: MiddlewareHandler[];
+  metadata?: Record<string, any>;
 }
 
 export interface RouteMatch {

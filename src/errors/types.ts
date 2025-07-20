@@ -1,5 +1,9 @@
-import { ParsedRequest } from '../http/request/types';
-import { EnhancedResponse } from '../http/response/types';
+/**
+ * 🔥 Error Types and Interfaces - Legacy Compatibility
+ * This file provides backward compatibility for existing error types
+ */
+import { EnhancedRequest } from '../core/enhancers/request-enhancer';
+import { EnhancedResponse } from '../core/enhancers/response-enhancer';
 
 export interface ErrorContext {
   message: string;
@@ -12,17 +16,19 @@ export interface ErrorContext {
   stack?: string;
 }
 
-export interface ErrorHandlerConfig {
+export interface LegacyErrorHandlerConfig {
   includeStack?: boolean;
   logErrors?: boolean;
   customHandler?: (
     error: Error,
-    req: ParsedRequest,
+    req: EnhancedRequest,
     res: EnhancedResponse
   ) => void;
 }
 
-export class NextRushError extends Error {
+// Legacy NextRushError for backward compatibility - DO NOT USE FOR NEW CODE
+// Use the one in custom-errors.ts instead
+export class LegacyNextRushError extends Error {
   constructor(
     message: string,
     public readonly code: string,
@@ -30,6 +36,6 @@ export class NextRushError extends Error {
     public readonly details?: Record<string, unknown>
   ) {
     super(message);
-    this.name = 'NextRushError';
+    this.name = 'LegacyNextRushError';
   }
 }

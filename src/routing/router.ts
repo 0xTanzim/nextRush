@@ -37,6 +37,12 @@ export class Router {
     this.routeManager = new RouteManager({
       caseSensitive: this.routerOptions.caseSensitive ?? false,
       strict: this.routerOptions.strict ?? false,
+      useOptimizedMatcher: this.routerOptions.useOptimizedMatcher ?? true,
+      enableCaching: this.routerOptions.enableCaching ?? true,
+      cacheSize: this.routerOptions.cacheSize ?? 10000,
+      enablePrefixOptimization:
+        this.routerOptions.enablePrefixOptimization ?? true,
+      enableMetrics: this.routerOptions.enableMetrics ?? false,
     });
   }
 
@@ -1046,7 +1052,12 @@ export class Router {
 
         // Set params and body from context
         req.params = context.params;
-        req.body = context.body;
+
+        // CRITICAL FIX: Only set context.body if req.body is undefined
+        // This prevents overriding body set by body parser
+        if (req.body === undefined && context.body !== undefined) {
+          req.body = context.body;
+        }
 
         await handler(req, res);
       };
@@ -1076,7 +1087,12 @@ export class Router {
 
         // Set params and body from context
         req.params = context.params;
-        req.body = context.body;
+
+        // CRITICAL FIX: Only set context.body if req.body is undefined
+        // This prevents overriding body set by body parser
+        if (req.body === undefined && context.body !== undefined) {
+          req.body = context.body;
+        }
 
         await new Promise<void>((resolve, reject) => {
           const expressNext = (error?: any) => {
