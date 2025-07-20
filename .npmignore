@@ -1,96 +1,91 @@
-# Source files
+# ===== DEVELOPMENT SOURCE CODE =====
+# TypeScript source (only ship compiled JS)
 src/
-tsconfig.json
+tsconfig*.json
+*.ts
+*.tsx
+*.map
 
-# Exclude docs to keep package size small
+# ===== DOCUMENTATION & EXAMPLES =====
+# Development docs (keep only essential docs)
 docs/
-
 examples/
-# Development files
-node_modules/
-.git/
-.gitignore
+*.md.backup
+README-*.md
 
-# Build artifacts
-*.tsbuildinfo
+# Example TypeScript source
+examples/*.ts
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-.nyc_output/
-
-# Development dependencies
-.eslintrc*
-.prettierrc*
-jest.config*
+# ===== TESTING & BENCHMARKS =====
+# Test files
+test/
+tests/
 *.test.ts
 *.test.js
 *.spec.ts
 *.spec.js
 
-# Documentation source - excluded to keep package small
-docs/
-*.md.backup
-README-*.md
+# Benchmark results (CRITICAL: NO BENCHMARK DATA IN NPM!)
+benchmark/
+professional-benchmarks/
+professional-benchmarks/**
+benchmark-results.json
+**/results/
+**/clinic/
+*.clinic
 
-# Example TypeScript source (keep compiled JS)
-examples/*.ts
+# Coverage
+coverage/
+.nyc_output/
 
+# ===== DEVELOPMENT TOOLS =====
 # Scripts
 scripts/
 
-# Backup files
+# Development configs
+.env*
+.eslintrc*
+.prettierrc*
+jest.config*
+
+# ===== BUILD ARTIFACTS =====
+# TypeScript build info
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ===== DEPENDENCIES =====
+node_modules/
+
+# ===== IDE & OS FILES =====
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ===== LOGS =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== BACKUP & LEGACY =====
+# Backup files (NO GARBAGE!)
 *-BACKUP.md
 *-backup.*
+*.backup
+*.bak
+*.old
+BACKUPS/
+NextRush_Src_Old/
 
-# Development configs
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Keep these files
+# ===== ALLOW ESSENTIAL FILES =====
+# Keep these essential files for npm
 !README.md
 !CHANGELOG.md
 !LICENSE
-
-
-# .npmignore
-src/
-examples/
-scripts/
-test/
-*.ts
-*.tsx
-*.map
-tsconfig*.json
-node_modules/
-
-
-/mnt/storage/project/MyExpress/src/examples
-
-mnt/storage/project/MyExpress/src/examples/
-/mnt/storage/project/MyExpress/src/examples/
+!package.json
+!dist/

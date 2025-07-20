@@ -1,0 +1,159 @@
+# 🔥 Artillery Stress Testing Scenario
+#
+# This scenario pushes the application to its limits with:
+# - Sudden traffic spikes
+# - High connection counts
+# - Extended duration testing
+# - Memory pressure simulation
+
+config:
+  target: "http://localhost:3000"
+  phases:
+    # Phase 1: Baseline (30 seconds)
+    - duration: 30
+      arrivalRate: 10
+      name: "Baseline load"
+
+    # Phase 2: Sudden spike (30 seconds)
+    - duration: 30
+      arrivalRate: 200
+      name: "Traffic spike"
+
+    # Phase 3: Sustained high load (180 seconds)
+    - duration: 180
+      arrivalRate: 100
+      name: "Sustained stress"
+
+    # Phase 4: Extreme spike (30 seconds)
+    - duration: 30
+      arrivalRate: 500
+      name: "Extreme load spike"
+
+    # Phase 5: Recovery test (60 seconds)
+    - duration: 60
+      arrivalRate: 500
+      rampTo: 10
+      name: "Recovery phase"
+
+  # Aggressive HTTP settings for stress testing
+  http:
+    timeout: 5
+    pool: 100
+
+  # Memory and CPU intensive settings
+  variables:
+    large_payload_size: 10000
+    concurrent_requests: 20
+
+# Stress test scenarios
+scenarios:
+  # CPU intensive scenario (40% of traffic)
+  - name: "CPU stress test"
+    weight: 40
+    flow:
+      # Multiple rapid requests to stress CPU
+      - loop:
+          - get:
+              url: "/json"
+        count: "{{ concurrent_requests }}"
+
+      # Parameter parsing stress
+      - get:
+          url: "/users/{{ $randomInt(1, 10000) }}/posts/{{ $randomInt(1, 10000) }}"
+
+      # Complex query processing
+      - get:
+          url: "/search"
+          qs:
+            q: "{{ $randomString(100) }}"
+            page: "{{ $randomInt(1, 1000) }}"
+            limit: "{{ $randomInt(10, 100) }}"
+            sort: "{{ $randomString(20) }}"
+            filter: "{{ $randomString(50) }}"
+
+  # Memory pressure scenario (30% of traffic)
+  - name: "Memory stress test"
+    weight: 30
+    flow:
+      # Large payload requests
+      - post:
+          url: "/data"
+          json:
+            large_data: "{{ $randomString(large_payload_size) }}"
+            array_data:
+              - "{{ $randomString(1000) }}"
+              - "{{ $randomString(1000) }}"
+              - "{{ $randomString(1000) }}"
+              - "{{ $randomString(1000) }}"
+              - "{{ $randomString(1000) }}"
+            metadata:
+              timestamp: "{{ $timestamp }}"
+              user_id: "{{ $randomInt(1, 100000) }}"
+              session_id: "{{ $randomString(50) }}"
+
+      # Rapid-fire requests to stress garbage collection
+      - loop:
+          - get:
+              url: "/health"
+        count: 10
+
+  # Connection stress scenario (20% of traffic)
+  - name: "Connection stress test"
+    weight: 20
+    flow:
+      # Simulate long-polling behavior
+      - get:
+          url: "/json"
+
+      # Multiple parallel requests
+      - parallel:
+          - get:
+              url: "/"
+          - get:
+              url: "/health"
+          - get:
+              url: "/plaintext"
+          - post:
+              url: "/data"
+              json:
+                test: "parallel_request"
+
+      # Error recovery testing
+      - get:
+          url: "/error"
+          expect:
+            - statusCode: 500
+
+  # Error cascade scenario (10% of traffic)
+  - name: "Error cascade test"
+    weight: 10
+    flow:
+      # Generate errors to test error handling under load
+      - get:
+          url: "/error"
+          expect:
+            - statusCode: 500
+
+      # Test recovery after errors
+      - get:
+          url: "/health"
+
+      # Mixed error/success pattern
+      - loop:
+          - get:
+              url: "/{{ $randomInt(1, 2) === 1 ? '' : 'error' }}"
+        count: 5
+
+# Stress test expectations (more lenient than normal load testing)
+expect:
+  # Response time under extreme load (allow up to 5 seconds)
+  - expression: "response.time < 5000"
+    as: "Response time under 5000ms during stress"
+
+  # Error rate threshold (allow up to 5% errors under extreme stress)
+  - expression: "rate(response.status >= 500) < 0.05"
+    as: "Server error rate under 5%"
+
+  # Client error rate (allow up to 2% 4xx errors)
+  - expression: "rate(response.status >= 400 && response.status < 500) < 0.02"
+    as: "Client error rate under 2%"

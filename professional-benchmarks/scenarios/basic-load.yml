@@ -1,0 +1,132 @@
+# 🎯 Artillery Basic Load Testing Scenario
+#
+# This scenario simulates realistic web application traffic with:
+# - Warm up phase (low load)
+# - Ramp up phase (increasing load)
+# - Sustained load phase (peak load)
+# - Cool down phase (decreasing load)
+
+config:
+  target: "http://localhost:3000"
+  phases:
+    # Phase 1: Warm up (30 seconds)
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm up phase"
+
+    # Phase 2: Ramp up (60 seconds)
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp up load"
+
+    # Phase 3: Sustained load (120 seconds)
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained peak load"
+
+    # Phase 4: Cool down (30 seconds)
+    - duration: 30
+      arrivalRate: 50
+      rampTo: 5
+      name: "Cool down phase"
+
+  # HTTP configuration
+  http:
+    timeout: 10
+
+  # Performance monitoring
+  engines:
+    http:
+      pool: 50 # Connection pool size
+
+# Test scenarios with realistic user behavior
+scenarios:
+  # Main application flow (70% of traffic)
+  - name: "Main application flow"
+    weight: 70
+    flow:
+      # Homepage visit
+      - get:
+          url: "/"
+          capture:
+            - json: "$.timestamp"
+              as: "start_time"
+
+      # API data fetch
+      - get:
+          url: "/json"
+          capture:
+            - json: "$.data.message"
+              as: "message"
+
+      # Health check (simulate monitoring)
+      - get:
+          url: "/health"
+
+      # Small delay between requests (realistic user behavior)
+      - think: 1
+
+  # API-heavy workflow (20% of traffic)
+  - name: "API workflow"
+    weight: 20
+    flow:
+      # User profile fetch
+      - get:
+          url: "/users/{{ $randomInt(1, 1000) }}/posts/{{ $randomInt(1, 100) }}"
+
+      # Search functionality
+      - get:
+          url: "/search"
+          qs:
+            q: "{{ $randomString() }}"
+            page: "{{ $randomInt(1, 10) }}"
+            limit: "10"
+
+      # Data submission
+      - post:
+          url: "/data"
+          json:
+            user_id: "{{ $randomInt(1, 1000) }}"
+            action: "test_action"
+            timestamp: "{{ start_time }}"
+            data: "{{ message }}"
+
+      - think: 2
+
+  # Error simulation (5% of traffic)
+  - name: "Error handling"
+    weight: 5
+    flow:
+      - get:
+          url: "/error"
+          expect:
+            - statusCode: 500
+
+      - think: 1
+
+  # Simple GET requests (5% of traffic)
+  - name: "Simple requests"
+    weight: 5
+    flow:
+      # Fast plaintext response
+      - get:
+          url: "/plaintext"
+
+      # Multiple rapid requests
+      - loop:
+          - get:
+              url: "/json"
+        count: 3
+
+      - think: 0.5
+
+# Performance expectations and assertions
+expect:
+  # Response time thresholds
+  - expression: "response.time < 1000"
+    as: "Response time under 1000ms"
+
+  # Error rate threshold (less than 1%)
+  - expression: "rate(response.status >= 400) < 0.01"
+    as: "Error rate under 1%"
