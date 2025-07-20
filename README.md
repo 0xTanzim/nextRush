@@ -1,16 +1,33 @@
-# ⚡ NextRush
+# ⚡ NextRush - Learning Project
 
-> **The Modern Express.js Replacement You've Been Waiting For**
-> Zero dependencies. TypeScript-first. Built-in everything. Drop-in compatible.
+> **🎓 Educational Web Framework Project - My First NPM Package Journey**
+>
+> **⚠️ IMPORTANT: This is a LEARNING PROJECT and my first experience building a web framework.** > **NOT recommended for production use. Built for educational purposes only.**
+
+## 📚 **Learning Project Notice**
+
+This project represents my **first attempt** at building a Node.js web framework and publishing an NPM package. It was created as a **learning experience** to understand:
+
+- Framework architecture and design patterns
+- TypeScript development and type safety
+- NPM package development and publishing
+- Plugin-based architectures
+- Performance optimization techniques
+- Web server fundamentals
+
+**🚨 For Production Use**: Please consider established frameworks like Express.js, Fastify, Koa, or Hapi instead.
+
+**📖 Learning Documentation**: See [LESSONS-LEARNED.md](./LESSONS-LEARNED.md) for detailed insights from this project.
+
+---
 
 <div align="center">
 
-[![npm version](https://badge.fury.io/js/nextrush.svg)](https://www.npmjs.com/package/nextrush)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![Learning Project](https://img.shields.io/badge/Status-Learning%20Project-orange.svg)](https://github.com/0xTanzim/nextRush)
+[![First NPM Package](https://img.shields.io/badge/Experience-First%20NPM%20Package-blue.svg)](https://www.npmjs.com/package/nextrush)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Learning-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Downloads](https://img.shields.io/npm/dm/nextrush.svg)](https://www.npmjs.com/package/nextrush)
-[![Build Status](https://img.shields.io/github/workflow/status/0xTanzim/nextRush/CI)](https://github.com/0xTanzim/nextRush/actions)
-[![Coverage](https://img.shields.io/codecov/c/github/0xTanzim/nextRush)](https://codecov.io/gh/0xTanzim/nextRush)
+[![Educational](https://img.shields.io/badge/Purpose-Educational-green.svg)](https://github.com/0xTanzim/nextRush)
 
 </div>
 
@@ -24,12 +41,59 @@ app.get('/', (req, res) => {
 });
 
 app.listen(3000);
-// 🚀 That's it! Full Express.js compatibility with enhanced features built-in
+// 🚀 Educational Express.js-compatible API with built-in features
 ```
 
-## 🚀 Why NextRush?
+## 🎓 About This Learning Project
 
-NextRush is a **modern, enterprise-grade web framework** that provides Express.js compatibility with **enhanced features, better performance, and zero dependencies**. Built for developers who want Express.js simplicity with modern web development power.
+**NextRush v1.0** represents my **first journey into framework development** and NPM package publishing. This project was built as an educational experience to learn:
+
+### 📚 **What I Learned:**
+
+- **Framework Architecture**: Understanding how web frameworks work internally
+- **Plugin Systems**: Designing extensible, modular architectures
+- **TypeScript Development**: Advanced type systems and API design
+- **Performance Testing**: Benchmarking, profiling, and optimization techniques
+- **NPM Publishing**: Package development, versioning, and distribution
+- **Open Source Development**: Documentation, community engagement, and maintenance
+
+### 🏗️ **Technical Achievements:**
+
+- ✅ **Zero Dependencies** - Built everything from Node.js primitives
+- ✅ **Express.js Compatibility** - Drop-in replacement API design
+- ✅ **Plugin Architecture** - Modular, extensible system
+- ✅ **TypeScript-First** - Full type safety and IntelliSense support
+- ✅ **Comprehensive Benchmarking** - Professional performance testing suite
+- ✅ **Complete Documentation** - Extensive guides and API references
+
+### 📊 **Learning Outcomes:**
+
+- **Architecture Planning** is more important than coding speed
+- **Simple solutions** often outperform complex optimizations
+- **Testing** should come before features, not after
+- **Plugin systems** must be designed from day 1, not retrofitted
+- **Performance** comes from good architecture, not micro-optimizations
+
+### 🚀 **Next Steps:**
+
+This project has taught me invaluable lessons about framework development. The knowledge gained will be applied to **NextRush v2.0** - a complete rewrite with proper architecture planning and incremental development.
+
+**📖 Detailed Learning Journey**: See [LESSONS-LEARNED.md](./LESSONS-LEARNED.md) for comprehensive insights.
+
+---
+
+## ⚠️ **Production Use Disclaimer**
+
+While NextRush includes many enterprise-grade features and achieves decent performance (1,400 RPS), it was built as a **learning project** and my **first attempt** at framework development.
+
+**For Production Applications**, please use proven frameworks:
+
+- **Express.js** - The standard Node.js framework
+- **Fastify** - High-performance alternative
+- **Koa** - Minimalist, modern framework
+- **Hapi** - Enterprise-focused framework
+
+---
 
 ### 🔥 **What Makes NextRush Special**
 
@@ -61,30 +125,112 @@ NextRush is a **modern, enterprise-grade web framework** that provides Express.j
 
 **Why choose NextRush over Express.js, Fastify, or Koa?**
 
-| Feature                    | NextRush |         Express.js         |     Fastify     |        Koa         |
-| -------------------------- | :------: | :------------------------: | :-------------: | :----------------: |
-| **Zero Dependencies**      |    ✅    |             ❌             |       ❌        |         ❌         |
-| **TypeScript First**       |    ✅    |             ⚠️             |       ✅        |         ⚠️         |
-| **Built-in Body Parser**   |    ✅    |     ❌ Need middleware     |       ✅        | ❌ Need middleware |
-| **Built-in File Uploads**  |    ✅    |       ❌ Need multer       | ❌ Need plugins | ❌ Need middleware |
-| **Built-in WebSocket**     |    ✅    |     ❌ Need socket.io      | ❌ Need plugins |  ❌ Need packages  |
-| **Built-in Templates**     |    ✅    |      ❌ Need engines       | ❌ Need plugins |  ❌ Need packages  |
-| **Built-in Validation**    |    ✅    | ❌ Need express-validator  | ❌ Need plugins |  ❌ Need packages  |
-| **Built-in Security**      |    ✅    |  ❌ Need helmet + others   | ❌ Need plugins |  ❌ Need packages  |
-| **Built-in Rate Limiting** |    ✅    | ❌ Need express-rate-limit | ❌ Need plugins |  ❌ Need packages  |
-| **Built-in Auth**          |    ✅    | ❌ Need passport + others  | ❌ Need plugins |  ❌ Need packages  |
-| **API Docs Generation**    |    ✅    |  ❌ Need swagger packages  | ❌ Need plugins |  ❌ Need packages  |
-| **Express Compatible**     |    ✅    |             ✅             |       ❌        |         ❌         |
-| **Performance**            |    🚀    |             ⚡             |       🚀        |         ⚡         |
+| Feature                    | NextRush |         Express.js         |     Fastify     |        Koa         |       Hapi       |
+| -------------------------- | :------: | :------------------------: | :-------------: | :----------------: | :--------------: |
+| **Zero Dependencies**      |    ✅    |             ❌             |       ❌        |         ❌         |        ❌        |
+| **TypeScript First**       |    ✅    |             ⚠️             |       ✅        |         ⚠️         |        ⚠️        |
+| **Built-in Body Parser**   |    ✅    |     ❌ Need middleware     |       ✅        | ❌ Need middleware |        ✅        |
+| **Built-in File Uploads**  |    ✅    |       ❌ Need multer       | ❌ Need plugins | ❌ Need middleware | ❌ Need plugins  |
+| **Built-in WebSocket**     |    ✅    |     ❌ Need socket.io      | ❌ Need plugins |  ❌ Need packages  | ❌ Need packages |
+| **Built-in Templates**     |    ✅    |      ❌ Need engines       | ❌ Need plugins |  ❌ Need packages  |        ⚠️        |
+| **Built-in Validation**    |    ✅    | ❌ Need express-validator  | ❌ Need plugins |  ❌ Need packages  |        ✅        |
+| **Built-in Security**      |    ✅    |  ❌ Need helmet + others   | ❌ Need plugins |  ❌ Need packages  |        ✅        |
+| **Built-in Rate Limiting** |    ✅    | ❌ Need express-rate-limit | ❌ Need plugins |  ❌ Need packages  |        ✅        |
+| **Built-in Auth**          |    ✅    | ❌ Need passport + others  | ❌ Need plugins |  ❌ Need packages  |        ⚠️        |
+| **API Docs Generation**    |    ✅    |  ❌ Need swagger packages  | ❌ Need plugins |  ❌ Need packages  | ❌ Need packages |
+| **Express Compatible**     |    ✅    |             ✅             |       ❌        |         ❌         |        ❌        |
+| **Performance Ranking**    | **5th**  |          **2nd**           |     **3rd**     |      **1st**       |     **4th**      |
+
+## � **Real-World Benchmark Results**
+
+> Latest benchmarks run on Node.js v24.4.1, Intel i5-8300H, 8 cores, 15GB RAM
+
+### 🏆 **Framework Performance Comparison**
+
+| Rank | Framework    | Version | Avg RPS   | Avg Latency | Memory Usage | Success Rate |
+| ---- | ------------ | ------- | --------- | ----------- | ------------ | ------------ |
+| 🥇   | **Koa**      | 3.0.0   | **3,600** | **1.54ms**  | 70MB         | 100%         |
+| 🥈   | **Express**  | 5.1.0   | **2,130** | **2.34ms**  | 122MB        | 100%         |
+| 🥉   | **Fastify**  | 5.4.0   | **1,700** | **2.35ms**  | 70MB         | 100%         |
+| 4️⃣   | **Hapi**     | 21.4.0  | **1,560** | **2.59ms**  | 72MB         | 100%         |
+| 5️⃣   | **NextRush** | 1.3.0   | **1,400** | **2.71ms**  | 75MB         | 100%         |
+
+### 🎯 **Test Scenarios Performance**
+
+#### Simple Route (Hello World)
+
+- NextRush: **556 RPS** @ 1.8ms latency
+- Express: **3,220 RPS** @ 0.31ms latency
+- Fastify: **611 RPS** @ 1.63ms latency
+
+#### JSON API Response
+
+- NextRush: **567 RPS** @ 1.76ms latency
+- Express: **3,360 RPS** @ 0.30ms latency
+- Koa: **3,740 RPS** @ 0.27ms latency
+
+#### POST Body Parsing
+
+- NextRush: **583 RPS** @ 1.71ms latency
+- Express: **527 RPS** @ 1.89ms latency
+- Koa: **2,830 RPS** @ 0.35ms latency
+
+### 🧠 **Memory & Resource Analysis**
+
+**Memory Efficiency Comparison:**
+
+- NextRush: **75MB** - Moderate usage with full feature set
+- Express: **122MB** - Higher usage due to multiple dependencies
+- Fastify: **70MB** - Lean but requires plugins for features
+- Koa: **70MB** - Minimal base, memory grows with packages
+- Hapi: **72MB** - Enterprise features with good efficiency
+
+**Key Insights:**
+
+- **NextRush** has **zero memory leaks** detected across all test scenarios
+- **Plugin Architecture** allows selective feature loading (Performance mode uses only 4 essential plugins)
+- **Memory Monitoring** built-in with metrics endpoint for production monitoring
+- **GC Optimization** - Smart buffer pooling reduces garbage collection pressure
 
 ### **The Bottom Line**
 
-- **Express.js**: Great, but requires 15+ packages for production features
-- **Fastify**: Fast, but 50+ dependencies and different API
-- **Koa**: Minimal, but requires many packages for basic features
-- **NextRush**: Everything built-in, zero dependencies, Express-compatible
+- **Koa**: Fastest overall, but minimal features requiring many packages
+- **Express.js**: Great performance, but requires 15+ packages for production features
+- **Fastify**: Good performance with more features, but complex plugin ecosystem
+- **Hapi**: Enterprise features built-in, moderate performance
+- **NextRush**: **Everything built-in with zero dependencies** - trading some raw speed for convenience and completeness
+
+> **NextRush Philosophy**: We prioritize **developer productivity** and **zero-dependency deployment** over raw performance. While we're working on performance optimizations, our 1,400 RPS is sufficient for most applications while providing a complete, production-ready framework out of the box.
+
+### 🔬 **Benchmark Methodology**
+
+Our comprehensive benchmarking uses professional tools and real-world scenarios:
+
+**Tools Used:**
+
+- **Autocannon** - HTTP load testing with connection pooling
+- **Artillery** - Stress testing with complex scenarios
+- **Clinic.js** - Performance profiling and bottleneck analysis
+- **K6** - Load testing with detailed metrics
+- **Custom Memory Monitoring** - Real-time resource tracking
+
+**Test Scenarios:**
+
+- Simple routes, JSON responses, middleware chains
+- Parameter parsing, error handling, large payloads
+- POST body parsing, nested routes, static file serving
+- Query parameters, headers, WebSocket connections
+
+**Metrics Collected:**
+
+- Requests per second (RPS), latency percentiles (P50, P95, P99)
+- Memory usage (heap, RSS, external), CPU utilization
+- Memory leak detection, garbage collection pressure
+- Network throughput, connection management
 
 ## 🚀 **Quick Start**
+
+> **Performance Note**: NextRush includes a **Performance Mode** for production deployments that loads only essential plugins for maximum speed. See [Performance Optimization Guide](./docs/Performance.md) for details.
 
 ### **Installation**
 
@@ -102,9 +248,17 @@ pnpm add nextrush
 ### **Your First NextRush App**
 
 ```typescript
-import { createApp } from 'nextrush';
+import { createApp, PluginMode } from 'nextrush';
 
+// For development - full features
 const app = createApp();
+
+// For production - performance optimized (1,400+ RPS)
+// const app = createApp({
+//   pluginMode: PluginMode.PERFORMANCE,
+//   enableEvents: false,
+//   enableWebSocket: false
+// });
 
 // Express.js style - works unchanged!
 app.get('/api/users/:id', (req, res) => {
@@ -514,32 +668,81 @@ We welcome contributions! Check out:
 - 🔜 **Advanced Monitoring** - Distributed tracing, APM integration
 - 🔜 **Serverless Deployment** - AWS Lambda, Vercel support
 
-## ⭐ **Show Your Support**
+## 📚 **Learning Project Documentation**
 
-If NextRush makes your development easier, please consider:
+This repository contains comprehensive documentation about my framework development journey:
 
-- ⭐ **Star this repository** on GitHub
-- 🐦 **Share on social media** with `#NextRush`
-- 📝 **Write a blog post** about your experience
-- 🗣️ **Tell your team** about NextRush
-- 💬 **Join our community** discussions
+### **📖 Key Documents**
 
-<!-- ## 📊 **Performance Benchmarks**
+- 🎓 **[LESSONS-LEARNED.md](./LESSONS-LEARNED.md)** - Detailed insights from building my first framework
+- 📋 **[PROJECT-STATUS.md](./PROJECT-STATUS.md)** - Final project report and achievements
+- 🚪 **[EXIT-PLAN.md](./EXIT-PLAN.md)** - Project closure and archival plan
+- 📊 **[Benchmark Results](./benchmark/results/)** - Performance testing reports
+- 🔬 **[Professional Benchmarks](./professional-benchmarks/)** - Advanced testing suite
 
-```
-Framework Comparison (req/sec):
-┌─────────────┬─────────────┬─────────────┬─────────────┐
-│ Framework   │ Hello World │ JSON API    │ Static Files│
-├─────────────┼─────────────┼─────────────┼─────────────┤
-│ NextRush    │ 45,230      │ 38,920      │ 52,100      │
-│ Express.js  │ 42,180      │ 35,640      │ 48,300      │
-│ Fastify     │ 48,920      │ 41,200      │ 51,800      │
-│ Koa         │ 39,800      │ 32,100      │ 44,600      │
-└─────────────┴─────────────┴─────────────┴─────────────┘
+### **🎯 Educational Value**
 
-* Benchmarks run on Node.js 18.x, 4 CPU cores, 8GB RAM
-* NextRush matches Fastify performance with zero dependencies
-``` -->
+This project serves as a complete case study for:
+
+- Framework development challenges and solutions
+- Architecture decision consequences
+- Performance optimization techniques
+- NPM package development process
+- First-time open source project management
+
+---
+
+## ⭐ **Show Your Support for This Learning Journey**
+
+If this learning project helps other developers understand framework development:
+
+- ⭐ **Star this repository** to help others find it
+- 🎓 **Share your own learning projects** with `#LearningInPublic`
+- 📝 **Document your development journey** for others to learn from
+- 🗣️ **Encourage other developers** to build ambitious learning projects
+- 💬 **Share feedback** about what you learned from this codebase
+
+### **🎓 For Aspiring Framework Developers**
+
+If you're inspired to build your own framework:
+
+1. Read [LESSONS-LEARNED.md](./LESSONS-LEARNED.md) first
+2. Plan your architecture before coding
+3. Start simple and build incrementally
+4. Document your journey for others
+5. Don't be afraid to make mistakes - they're the best teachers!
+
+## � **Performance & Optimization Roadmap**
+
+### 📈 **Current Status (v1.3.0)**
+
+NextRush currently ranks **5th out of 5** in raw performance benchmarks, but **1st in developer experience and built-in features**:
+
+- **Current Performance**: 1,400 RPS avg (sufficient for most applications)
+- **Memory Usage**: 75MB (competitive with other frameworks)
+- **Zero Dependencies**: Complete framework without external packages
+- **Express Compatibility**: Drop-in replacement for existing Express apps
+
+### 🎯 **Performance Improvement Plan**
+
+We're actively working on performance optimizations while maintaining our zero-dependency philosophy:
+
+1. **Route Matching Optimization** - Implementing trie-based routing for O(1) lookups
+2. **Buffer Pooling** - Reducing GC pressure with smart buffer management
+3. **Streaming Support** - Zero-copy transfers for large payloads
+4. **Plugin Mode Optimization** - Performance mode with minimal plugins (already implemented)
+5. **HTTP Keep-Alive** - Reducing TCP handshake overhead
+
+### 🔍 **Benchmark Details**
+
+Our benchmarks test real-world scenarios across multiple dimensions:
+
+- **11 Different Test Cases**: Simple routes, JSON responses, middleware chains, parameter parsing, error handling, large payloads, POST echo, nested routes, static files, query parameters, headers
+- **Memory Monitoring**: Peak usage, leaks detection, GC pressure analysis
+- **Professional Tools**: Autocannon, Artillery, Clinic.js for comprehensive analysis
+- **Cross-Platform**: Testing on multiple Node.js versions and operating systems
+
+> **View full benchmark reports**: [Benchmark Results](./benchmark/results/) | [Professional Benchmarks](./professional-benchmarks/results/)
 
 ## 📄 **License**
 

@@ -146,6 +146,7 @@ export interface IApplication {
 }
 
 // Import WebSocket types for interface extension
+import { CorsOptions } from '../../plugins';
 import type {
   NextRushWebSocket,
   WebSocketHandler,
@@ -153,7 +154,6 @@ import type {
   WebSocketOptions,
   WebSocketStats,
 } from '../../types/websocket';
-import { CorsOptions } from '../../plugins';
 
 // Interface merging to add WebSocket methods to Application
 declare module '../app/application' {
@@ -254,6 +254,8 @@ declare module '../app/application' {
     // 🛡️ Input validation & sanitization methods - ALREADY PROPER!
     validate(schema: ValidationSchema): MiddlewareFunction;
     sanitize(options?: SanitizationOptions): MiddlewareFunction;
+
+ 
   }
 }
 

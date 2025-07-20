@@ -1,17 +1,20 @@
 {
   "name": "nextrush",
   "version": "1.3.0",
-  "description": "A modern, plugin-based HTTP server framework for Node.js with Express-compatible API, dynamic plugin system, TypeScript-first design, and clean architecture. Zero dependencies, maximum performance, familiar syntax.",
+  "description": "🎓 LEARNING PROJECT: My first attempt at building a Node.js web framework with Express-compatible API. Educational purposes only - NOT recommended for production use. Features TypeScript, zero dependencies, and plugin architecture.",
   "keywords": [
+    "learning-project",
+    "educational",
+    "first-npm-package",
     "typescript",
     "http",
     "server",
     "framework",
-    "express",
+    "express-compatible",
     "plugins",
-    "dynamic-loading",
+    "zero-dependencies",
     "modular",
-    "lightweight",
+    "student-project",
     "backend",
     "routing",
     "api",
@@ -47,8 +50,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
       "require": "./dist/index.js",
-      "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
@@ -59,7 +62,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsup --config tsup.optimized.config.ts",
+    "build:watch": "tsup --config tsup.optimized.config.ts --watch",
+    "build:dev": "NODE_ENV=development tsup --config tsup.config.ts --watch",
+    "build:prod": "NODE_ENV=production tsup --config tsup.optimized.config.ts --minify",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "start": "node dist/index.js",
@@ -68,7 +74,7 @@
     "example": "ts-node examples/production-example.ts",
     "demo:plugins": "ts-node examples/plugin-system-demo.ts",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build && npm run validate",
+    "prepublishOnly": "npm run build:prod && npm run validate",
     "validate": "node scripts/validate-package.js",
     "validate:architecture": "ts-node scripts/validate-architecture.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -81,8 +87,9 @@
     "@types/node": "^20.0.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.0.0",
-    "typedoc": "^0.25.0"
+    "tsup": "^8.5.0",
+    "typedoc": "^0.25.0",
+    "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=18.0.0",
