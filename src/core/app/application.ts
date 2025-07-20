@@ -30,7 +30,6 @@ import { BaseComponent } from './base-component';
 // Import proper types instead of using `any`
 import {
   CompressionOptions,
-  CorsOptions,
   EventMiddlewareOptions,
   EventStats,
   GlobalRateLimitOptions,
@@ -154,6 +153,7 @@ import type {
   WebSocketOptions,
   WebSocketStats,
 } from '../../types/websocket';
+import { CorsOptions } from '../../plugins';
 
 // Interface merging to add WebSocket methods to Application
 declare module '../app/application' {

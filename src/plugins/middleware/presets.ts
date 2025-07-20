@@ -3,6 +3,9 @@
  *
  * Pre-configured middleware stacks for common use cases.
  * Following copilot instructions - everything is now plugin-based.
+ *
+ * NOTE: CORS functionality now uses the enterprise-grade CorsPlugin
+ * instead of built-in middleware for better performance and features.
  */
 
 import { ExpressMiddleware } from '../../types/express';
@@ -22,6 +25,7 @@ export interface PresetOptions {
 
 /**
  * Development preset - Perfect for learning and debugging
+ * Uses enterprise CORS plugin for consistency
  */
 export function developmentPreset(
   options: PresetOptions = {}
@@ -36,9 +40,14 @@ export function developmentPreset(
     });
   }
 
-  // Basic CORS for development
+  // NOTE: CORS is handled by the CorsPlugin - use app.cors() instead
+  // The presets focus on other middleware while CORS is plugin-managed
   if (options.cors !== false) {
     middlewares.push((req, res, next) => {
+      // Placeholder for compatibility - recommend using app.cors() instead
+      console.warn(
+        'Preset CORS is deprecated. Use app.cors() for enterprise features.'
+      );
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader(
         'Access-Control-Allow-Methods',

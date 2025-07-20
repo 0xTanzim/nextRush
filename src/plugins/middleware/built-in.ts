@@ -7,63 +7,9 @@
 
 import { ExpressMiddleware } from '../../types/express';
 
-/**
- * CORS Middleware
- * Cross-Origin Resource Sharing with full configuration
- */
-export function cors(
-  options: {
-    origin?: string | string[] | boolean;
-    methods?: string[];
-    credentials?: boolean;
-    headers?: string[];
-  } = {}
-): ExpressMiddleware {
-  return (req, res, next) => {
-    const origin = req.headers.origin;
-
-    // Set CORS headers
-    if (
-      options.origin === true ||
-      (Array.isArray(options.origin) && options.origin.includes(origin!))
-    ) {
-      res.setHeader('Access-Control-Allow-Origin', origin!);
-    } else if (typeof options.origin === 'string') {
-      res.setHeader('Access-Control-Allow-Origin', options.origin);
-    } else if (options.origin !== false) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-
-    if (options.methods) {
-      res.setHeader('Access-Control-Allow-Methods', options.methods.join(', '));
-    } else {
-      res.setHeader(
-        'Access-Control-Allow-Methods',
-        'GET, POST, PUT, DELETE, PATCH, OPTIONS'
-      );
-    }
-
-    if (options.credentials) {
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
-
-    if (options.headers) {
-      res.setHeader('Access-Control-Allow-Headers', options.headers.join(', '));
-    } else {
-      res.setHeader(
-        'Access-Control-Allow-Headers',
-        'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-      );
-    }
-
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-      res.status(204).end();
-    } else {
-      next();
-    }
-  };
-}
+// NOTE: CORS functionality has been moved to the dedicated CORS plugin
+// located at src/plugins/cors/ for enterprise-grade performance and features.
+// Use app.cors() which is provided by the CorsPlugin instead of this built-in function.
 
 /**
  * Helmet Security Middleware

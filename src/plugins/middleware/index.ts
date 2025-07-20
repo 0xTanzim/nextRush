@@ -11,9 +11,10 @@ export { MiddlewarePlugin } from './middleware.plugin';
 export { compose, group, named, unless, when } from './composition';
 
 // Built-in middleware functions - optimized standalone functions
+// NOTE: CORS moved to CorsPlugin for enterprise features
 export {
   compression,
-  cors,
+  // cors, // Removed - use app.cors() via CorsPlugin instead
   helmet,
   logger,
   rateLimit,

@@ -8,20 +8,7 @@
  * - ✅ No typos or configuration mistakes
  */
 
-// ============================================================================
-// 🔒 Security & CORS Options
-// ============================================================================
-
-export interface CorsOptions {
-  origin?: string | string[] | boolean | ((origin: string) => boolean);
-  methods?: string | string[];
-  allowedHeaders?: string | string[];
-  exposedHeaders?: string | string[];
-  credentials?: boolean;
-  maxAge?: number;
-  preflightContinue?: boolean;
-  optionsSuccessStatus?: number;
-}
+import { CorsOptions } from '../plugins';
 
 export interface HelmetOptions {
   contentSecurityPolicy?:

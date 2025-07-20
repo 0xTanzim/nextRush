@@ -138,22 +138,6 @@ export type AsyncMiddlewareFactory<TOptions = any> = (
   options?: TOptions
 ) => AsyncMiddleware;
 
-// Built-in middleware option types
-export interface CorsOptions {
-  origin?:
-    | string
-    | string[]
-    | boolean
-    | ((origin: string | undefined, req: any) => boolean);
-  methods?: string | string[];
-  allowedHeaders?: string | string[];
-  exposedHeaders?: string | string[];
-  credentials?: boolean;
-  maxAge?: number;
-  preflightContinue?: boolean;
-  optionsSuccessStatus?: number;
-}
-
 export interface HelmetOptions {
   contentSecurityPolicy?:
     | boolean
