@@ -57,6 +57,13 @@ export interface RequestTiming {
 
 // Express-style Request interface - Enhanced with comprehensive request handling
 export interface NextRushRequest extends IncomingMessage {
+  // 🎯 CORE HTTP PROPERTIES (explicitly defined for IntelliSense)
+  // Override the optional types from IncomingMessage to be required in NextRush context
+  method: NonNullable<IncomingMessage['method']>; // string (guaranteed in NextRush)
+  url: NonNullable<IncomingMessage['url']>; // string (guaranteed in NextRush)
+  headers: IncomingMessage['headers'];
+
+  // NextRush specific properties
   params: Record<string, string>;
   query: ParsedUrlQuery;
   body: any;
