@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "🎓 LEARNING PROJECT: My first attempt at building a Node.js web framework with Express-compatible API. Educational purposes only - NOT recommended for production use. Features TypeScript, zero dependencies, and plugin architecture.",
   "keywords": [
     "learning-project",
