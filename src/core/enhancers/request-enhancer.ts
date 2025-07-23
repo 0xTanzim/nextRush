@@ -22,10 +22,6 @@ import { IncomingMessage } from 'http';
 import { ParsedUrlQuery } from 'querystring';
 
 export interface EnhancedRequest extends IncomingMessage {
-  // 🎯 Override HTTP properties to be required (NextRush guarantees these exist)
-  method: string;
-  url: string;
-
   params: Record<string, string>;
   query: ParsedUrlQuery;
   body: any;

@@ -94,10 +94,10 @@ class ProfessionalBenchmarkOrchestrator {
       frameworks: ['nextrush', 'express', 'fastify'],
       tools: ['autocannon', 'clinic', 'artillery', 'k6'], // Re-enabled K6!
       outputDir: path.join(__dirname, '../results'),
-      duration: 30,
-      connections: 100,
-      rate: 1000,
-      warmup: 5,
+      duration: 60, // Longer duration for better measurement
+      connections: 500, // Much higher connection count
+      rate: 5000, // Much higher rate limit
+      warmup: 10, // Longer warmup
       ...options,
     };
 
@@ -193,7 +193,9 @@ class ProfessionalBenchmarkOrchestrator {
   }
 
   async runAutocannon(framework, port) {
-    const progress = new ProgressIndicator('Running Autocannon HTTP Load Test');
+    const progress = new ProgressIndicator(
+      'Running Autocannon High-Performance Load Test'
+    );
     progress.start();
 
     const url = `http://localhost:${port}`;
@@ -204,14 +206,21 @@ class ProfessionalBenchmarkOrchestrator {
       '../node_modules/.bin/autocannon'
     );
 
+    // Aggressive autocannon settings for better differentiation
     const command = [
       autocannonPath,
       '-c',
-      this.options.connections,
+      this.options.connections, // 500 connections
       '-d',
-      this.options.duration,
+      this.options.duration, // 60 seconds
       '-R',
+      this.options.rate, // 5000 RPS target
+      '--pipelining',
+      '10', // Enable pipelining for higher throughput
+      '--overallRate',
       this.options.rate,
+      '--bailout',
+      '10', // Stop if 10 consecutive errors
       '--json',
       url,
     ].join(' ');
@@ -219,7 +228,7 @@ class ProfessionalBenchmarkOrchestrator {
     try {
       const { stdout } = await withTimeout(
         execAsync(command),
-        (this.options.duration + 10) * 1000, // 10s buffer
+        (this.options.duration + 15) * 1000, // 15s buffer
         'Autocannon'
       );
 
@@ -230,13 +239,18 @@ class ProfessionalBenchmarkOrchestrator {
 
       const rpsResult = `(${result.requests.average.toFixed(
         0
-      )} RPS, ${result.latency.average.toFixed(2)}ms)`;
+      )} RPS, ${result.latency.average.toFixed(
+        2
+      )}ms avg, ${result.latency.p99.toFixed(2)}ms p99)`;
       progress.stop(true, rpsResult);
 
       this.results.autocannon[framework] = {
         rps: result.requests.average,
         latency: result.latency.average,
+        p95: result.latency.p95,
+        p99: result.latency.p99,
         throughput: result.throughput.average,
+        errors: result.errors,
       };
     } catch (error) {
       progress.stop(false, error.message);
@@ -342,24 +356,67 @@ class ProfessionalBenchmarkOrchestrator {
     );
     await fs.mkdir(path.dirname(outputFile), { recursive: true });
 
-    // Create a focused Artillery config for faster execution
+    // Create a focused Artillery config for aggressive testing
     const config = {
       config: {
         target: `http://localhost:${port}`,
         phases: [
-          { duration: 10, arrivalRate: 10, name: 'Warm up' },
-          { duration: 20, arrivalRate: 50, name: 'Load test' },
+          { duration: 15, arrivalRate: 50, name: 'Warm up' },
+          { duration: 30, arrivalRate: 200, rampTo: 500, name: 'Ramp up' },
+          { duration: 60, arrivalRate: 500, name: 'Sustained high load' },
+          { duration: 15, arrivalRate: 800, name: 'Peak load spike' },
         ],
-        timeout: 10, // 10 second timeout for requests
+        timeout: 5, // 5 second timeout for requests
       },
       scenarios: [
         {
-          name: 'Quick mixed load',
-          weight: 100,
+          name: 'High-intensity mixed load',
+          weight: 60,
           flow: [
             { get: { url: '/' } },
-            { get: { url: '/api/users' } },
-            { post: { url: '/api/users', json: { name: 'Test User' } } },
+            { get: { url: '/json' } },
+            { get: { url: '/plaintext' } },
+            {
+              loop: [{ get: { url: '/api/users/{{ $randomInt(1, 1000) }}' } }],
+              count: 5,
+            },
+          ],
+        },
+        {
+          name: 'CPU-intensive operations',
+          weight: 30,
+          flow: [
+            {
+              get: {
+                url: '/users/{{ $randomInt(1, 10000) }}/posts/{{ $randomInt(1, 10000) }}',
+              },
+            },
+            {
+              get: {
+                url: '/search?q={{ $randomString(100) }}&page={{ $randomInt(1, 100) }}',
+              },
+            },
+            {
+              post: {
+                url: '/data',
+                json: {
+                  data: '{{ $randomString(1000) }}',
+                  array: [
+                    '{{ $randomString(200) }}',
+                    '{{ $randomString(200) }}',
+                    '{{ $randomString(200) }}',
+                  ],
+                },
+              },
+            },
+          ],
+        },
+        {
+          name: 'Error handling test',
+          weight: 10,
+          flow: [
+            { get: { url: '/error', expect: [{ statusCode: 500 }] } },
+            { get: { url: '/health' } },
           ],
         },
       ],
@@ -379,10 +436,10 @@ class ProfessionalBenchmarkOrchestrator {
 
       const command = `${artilleryPath} run --output ${outputFile} ${configFile}`;
 
-      // Run with shorter timeout
+      // Run with longer timeout for aggressive testing
       await withTimeout(
         execAsync(command),
-        40000, // 40 second total timeout
+        140000, // 140 second total timeout (120s test + 20s buffer)
         'Artillery execution'
       );
 
@@ -412,30 +469,66 @@ class ProfessionalBenchmarkOrchestrator {
     );
     await fs.mkdir(path.dirname(outputFile), { recursive: true });
 
-    // Create focused K6 script for faster execution
+    // Create aggressive K6 script for better differentiation
     const k6Script = `
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '10s', target: 20 },  // Ramp up
-    { duration: '20s', target: 100 }, // Stay at 100 users
-    { duration: '10s', target: 0 },   // Ramp down
+    { duration: '20s', target: 100 },  // Ramp up to 100 users
+    { duration: '60s', target: 300 },  // Ramp up to 300 users
+    { duration: '60s', target: 500 },  // Ramp up to 500 users
+    { duration: '30s', target: 800 },  // Spike to 800 users
+    { duration: '20s', target: 0 },    // Ramp down
   ],
   thresholds: {
-    http_req_duration: ['p(95)<500'],
+    http_req_duration: ['p(95)<1000', 'p(99)<2000'],
+    http_req_failed: ['rate<0.05'], // Less than 5% errors
   },
 };
 
 export default function () {
+  // High-intensity request pattern
   const responses = http.batch([
     { method: 'GET', url: 'http://localhost:${port}/' },
-    { method: 'GET', url: 'http://localhost:${port}/api/users' },
-    { method: 'POST', url: 'http://localhost:${port}/api/users', body: JSON.stringify({ name: 'K6 User' }), params: { headers: { 'Content-Type': 'application/json' } } },
+    { method: 'GET', url: 'http://localhost:${port}/json' },
+    { method: 'GET', url: 'http://localhost:${port}/plaintext' },
+    { method: 'GET', url: 'http://localhost:${port}/health' },
   ]);
 
   responses.forEach(r => check(r, { 'status is 200': (r) => r.status === 200 }));
+
+  // API intensive operations
+  const userId = Math.floor(Math.random() * 1000) + 1;
+  const postId = Math.floor(Math.random() * 100) + 1;
+
+  const apiRes = http.get(\`http://localhost:${port}/users/\${userId}/posts/\${postId}\`);
+  check(apiRes, { 'API response is 200': (r) => r.status === 200 });
+
+  // Search operation with complex query
+  const searchRes = http.get(\`http://localhost:${port}/search?q=\${Math.random().toString(36)}&page=\${Math.floor(Math.random() * 100)}\`);
+  check(searchRes, { 'Search response is 200': (r) => r.status === 200 });
+
+  // POST operation with large payload
+  const postData = {
+    data: 'x'.repeat(1000), // 1KB payload
+    user_id: userId,
+    timestamp: Date.now(),
+    metadata: {
+      test: true,
+      load: 'high',
+      payload: 'x'.repeat(500)
+    }
+  };
+
+  const postRes = http.post(\`http://localhost:${port}/data\`, JSON.stringify(postData), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  check(postRes, { 'POST response is 200': (r) => r.status === 200 });
+
+  // Minimal sleep for maximum pressure
+  sleep(0.1);
 }
 `;
 
@@ -448,7 +541,7 @@ export default function () {
 
       await withTimeout(
         execAsync(command),
-        50000, // 50 second timeout
+        210000, // 210 second timeout (190s test + 20s buffer)
         'K6 execution'
       );
       progress.stop(true, `(results saved to ${outputFile})`);
@@ -560,16 +653,31 @@ export default function () {
   }
 
   async warmupServer(url) {
-    console.log(chalk.gray(`    🔥 Warming up server...`));
+    console.log(
+      chalk.gray(
+        `    🔥 Intensive warmup (warming up for ${this.options.warmup}s)...`
+      )
+    );
 
     try {
-      // Use local autocannon from node_modules
+      // Use local autocannon from node_modules with aggressive warmup
       const autocannonPath = path.join(
         __dirname,
         '../node_modules/.bin/autocannon'
       );
-      const command = `${autocannonPath} -c 10 -d ${this.options.warmup} ${url}`;
+      const command = `${autocannonPath} -c 50 -d ${this.options.warmup} -R 1000 ${url}`;
       await execAsync(command);
+
+      // Additional warmup for different endpoints
+      const warmupCommands = [
+        `${autocannonPath} -c 20 -d 3 ${url}/json`,
+        `${autocannonPath} -c 20 -d 3 ${url}/health`,
+        `${autocannonPath} -c 20 -d 3 ${url}/plaintext`,
+      ];
+
+      for (const cmd of warmupCommands) {
+        await execAsync(cmd);
+      }
     } catch (error) {
       console.warn(chalk.yellow(`    ⚠️ Warmup failed: ${error.message}`));
     }

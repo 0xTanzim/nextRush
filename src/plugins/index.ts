@@ -28,8 +28,6 @@ export { RouterPlugin } from './router/router.plugin';
 export { StaticFilesPlugin } from './static-files/static-files.plugin';
 export { WebSocketPlugin } from './websocket/websocket.plugin';
 
-// 🚀 NEW FEATURE PLUGINS (From Final Proposal)
-export { ApiDocumentationPlugin } from './api-docs/api-docs.plugin';
 export { AuthPlugin } from './auth/auth.plugin';
 export { CorsPlugin } from './cors/cors.plugin';
 export { MetricsPlugin } from './metrics/metrics.plugin';
@@ -76,15 +74,8 @@ export type {
   SystemMetrics,
 } from './metrics/interfaces';
 
-export type {
-  ApiDocsOptions,
-  OpenAPISpec,
-  RouteDocumentation,
-  SchemaObject,
-} from './api-docs/api-docs.plugin';
-
 // Presets and helpers
-export { CommonSchemas } from './api-docs/api-docs.plugin';
+
 export { CommonRoles } from './auth/auth.plugin';
 export { CorsPresets } from './cors/cors.plugin';
 
@@ -92,7 +83,6 @@ export { CorsPresets } from './cors/cors.plugin';
 // 🎯 PLUGIN CREATION HELPER
 // ============================================================================
 
-import { ApiDocumentationPlugin } from './api-docs/api-docs.plugin';
 import { AuthPlugin } from './auth/auth.plugin';
 import { BodyParserPlugin } from './body-parser/body-parser-v2.plugin';
 import type { PluginRegistry } from './core/base-plugin';
@@ -131,7 +121,6 @@ export function createEnhancedPlugins(registry: PluginRegistry) {
     new CorsPlugin(registry),
     new AuthPlugin(registry),
     new MetricsPlugin(registry),
-    new ApiDocumentationPlugin(registry),
   ];
 }
 

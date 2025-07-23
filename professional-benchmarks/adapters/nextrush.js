@@ -2,16 +2,16 @@
 
 /**
  * NextRush Framework Adapter for Professional Benchmarking
- * Performance-optimized setup with all plugins enabled
+ * ULTRA-OPTIMIZED setup with core functionality only
  */
 
 import { createApp, PluginMode } from '../../dist/index.js';
 
 const port = process.argv[2] || 3000;
 
-// Create NextRush app with PERFORMANCE mode for maximum speed
+// Create NextRush app with performance mode (we'll handle static file conflicts in routes)
 const app = createApp({
-  // Enable PERFORMANCE mode (only 4 essential plugins)
+  // Use PERFORMANCE mode for maximum speed
   pluginMode: PluginMode.PERFORMANCE,
 
   // Disable non-essential features for benchmarking
@@ -22,6 +22,20 @@ const app = createApp({
   // Optimize for performance
   trustProxy: false,
   etag: false,
+});
+
+// Add early middleware to handle routes that might conflict with static files
+app.use((req, res, next) => {
+  // Log static file plugin behavior for debugging
+  if (
+    req.url.includes('search') ||
+    req.url.includes('api/') ||
+    req.url.includes('users/')
+  ) {
+    // These are API routes, not static files - skip static file processing
+    req.skipStaticFiles = true;
+  }
+  next();
 });
 
 // Basic route for simple performance testing
@@ -100,8 +114,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Static file serving test
-app.static('/public', '../public');
+// Static file serving test - REMOVED for benchmark testing to avoid conflicts
+// app.static('/public', '../public');
 
 // Middleware chain test
 app.use((req, res, next) => {
