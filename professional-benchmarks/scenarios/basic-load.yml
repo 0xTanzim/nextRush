@@ -1,132 +1,187 @@
-# 🎯 Artillery Basic Load Testing Scenario
+# 🎯 Artillery High-Performance Load Testing Scenario
 #
-# This scenario simulates realistic web application traffic with:
-# - Warm up phase (low load)
-# - Ramp up phase (increasing load)
-# - Sustained load phase (peak load)
-# - Cool down phase (decreasing load)
+# This scenario pushes frameworks to their limits with:
+# - Aggressive warm up phase (high initial load)
+# - Intensive ramp up phase (exponential growth)
+# - Extreme sustained load phase (maximum throughput)
+# - Stress recovery phase (testing resilience)
 
 config:
   target: "http://localhost:3000"
   phases:
-    # Phase 1: Warm up (30 seconds)
-    - duration: 30
-      arrivalRate: 5
-      name: "Warm up phase"
-
-    # Phase 2: Ramp up (60 seconds)
-    - duration: 60
-      arrivalRate: 10
-      rampTo: 50
-      name: "Ramp up load"
-
-    # Phase 3: Sustained load (120 seconds)
-    - duration: 120
+    # Phase 1: Aggressive Warm up (20 seconds)
+    - duration: 20
       arrivalRate: 50
-      name: "Sustained peak load"
+      name: "Aggressive warm up"
 
-    # Phase 4: Cool down (30 seconds)
+    # Phase 2: Explosive Ramp up (40 seconds)
+    - duration: 40
+      arrivalRate: 100
+      rampTo: 500
+      name: "Explosive ramp up"
+
+    # Phase 3: Maximum sustained load (90 seconds)
+    - duration: 90
+      arrivalRate: 500
+      name: "Maximum sustained load"
+
+    # Phase 4: Spike test (20 seconds)
+    - duration: 20
+      arrivalRate: 1000
+      name: "Traffic spike test"
+
+    # Phase 5: Recovery test (30 seconds)
     - duration: 30
-      arrivalRate: 50
-      rampTo: 5
-      name: "Cool down phase"
+      arrivalRate: 1000
+      rampTo: 100
+      name: "Recovery phase"
 
-  # HTTP configuration
+  # High-performance HTTP configuration
   http:
-    timeout: 10
+    timeout: 5
+    pool: 200 # Large connection pool
 
-  # Performance monitoring
-  engines:
-    http:
-      pool: 50 # Connection pool size
+  # CPU and memory intensive settings
+  variables:
+    payload_size: 5000
+    concurrent_bursts: 50
 
-# Test scenarios with realistic user behavior
+# High-intensity test scenarios designed to differentiate framework performance
 scenarios:
-  # Main application flow (70% of traffic)
-  - name: "Main application flow"
-    weight: 70
+  # CPU-intensive workflow (40% of traffic)
+  - name: "CPU-intensive operations"
+    weight: 40
     flow:
-      # Homepage visit
+      # Burst of rapid requests to stress CPU
+      - loop:
+          - get:
+              url: "/json"
+        count: "{{ concurrent_bursts }}"
+
+      # Complex parameter parsing
       - get:
-          url: "/"
+          url: "/users/{{ $randomInt(1, 10000) }}/posts/{{ $randomInt(1, 10000) }}"
           capture:
-            - json: "$.timestamp"
-              as: "start_time"
+            - json: "$.userId"
+              as: "user_id"
 
-      # API data fetch
-      - get:
-          url: "/json"
-          capture:
-            - json: "$.data.message"
-              as: "message"
-
-      # Health check (simulate monitoring)
-      - get:
-          url: "/health"
-
-      # Small delay between requests (realistic user behavior)
-      - think: 1
-
-  # API-heavy workflow (20% of traffic)
-  - name: "API workflow"
-    weight: 20
-    flow:
-      # User profile fetch
-      - get:
-          url: "/users/{{ $randomInt(1, 1000) }}/posts/{{ $randomInt(1, 100) }}"
-
-      # Search functionality
+      # Heavy query processing
       - get:
           url: "/search"
           qs:
-            q: "{{ $randomString() }}"
-            page: "{{ $randomInt(1, 10) }}"
-            limit: "10"
+            q: "{{ $randomString(200) }}"
+            page: "{{ $randomInt(1, 1000) }}"
+            limit: "{{ $randomInt(50, 200) }}"
+            sort: "{{ $randomString(50) }}"
+            filter: "{{ $randomString(100) }}"
 
-      # Data submission
+      # No delay - maximum stress
+      - think: 0.1
+
+  # Memory pressure workflow (30% of traffic)
+  - name: "Memory-intensive operations"
+    weight: 30
+    flow:
+      # Large payload POST requests
       - post:
           url: "/data"
           json:
-            user_id: "{{ $randomInt(1, 1000) }}"
-            action: "test_action"
-            timestamp: "{{ start_time }}"
-            data: "{{ message }}"
+            large_payload: "{{ $randomString(payload_size) }}"
+            user_data:
+              id: "{{ user_id || $randomInt(1, 100000) }}"
+              name: "{{ $randomString(100) }}"
+              email: "{{ $randomString(50) }}@test.com"
+              metadata: "{{ $randomString(1000) }}"
+            array_data:
+              - "{{ $randomString(500) }}"
+              - "{{ $randomString(500) }}"
+              - "{{ $randomString(500) }}"
+              - "{{ $randomString(500) }}"
+              - "{{ $randomString(500) }}"
 
-      - think: 2
+      # Rapid API calls to stress memory allocation
+      - loop:
+          - get:
+              url: "/api/users/{{ $randomInt(1, 1000) }}"
+        count: 20
 
-  # Error simulation (5% of traffic)
-  - name: "Error handling"
+      # Middleware chain test
+      - get:
+          url: "/middleware-test"
+
+      - think: 0.05
+
+  # High-throughput mixed workflow (25% of traffic)
+  - name: "High-throughput mixed operations"
+    weight: 25
+    flow:
+      # Parallel requests to maximize concurrent load
+      - parallel:
+          - get:
+              url: "/"
+          - get:
+              url: "/health"
+          - get:
+              url: "/plaintext"
+          - post:
+              url: "/api/users"
+              json:
+                name: "Benchmark User {{ $randomInt(1, 10000) }}"
+                email: "bench{{ $randomInt(1, 10000) }}@test.com"
+
+      # CRUD operations burst
+      - loop:
+          - get:
+              url: "/api/users"
+          - post:
+              url: "/api/users"
+              json:
+                name: "Test {{ $randomInt(1, 1000) }}"
+          - put:
+              url: "/api/users/{{ $randomInt(1, 100) }}"
+              json:
+                name: "Updated User"
+          - delete:
+              url: "/api/users/{{ $randomInt(1, 100) }}"
+        count: 5
+
+      # No thinking time for maximum pressure
+      - think: 0
+
+  # Error handling and recovery (5% of traffic)
+  - name: "Error handling stress test"
     weight: 5
     flow:
+      # Generate errors to test error handling under extreme load
       - get:
           url: "/error"
           expect:
             - statusCode: 500
 
-      - think: 1
-
-  # Simple GET requests (5% of traffic)
-  - name: "Simple requests"
-    weight: 5
-    flow:
-      # Fast plaintext response
-      - get:
-          url: "/plaintext"
-
-      # Multiple rapid requests
+      # Recovery pattern
       - loop:
+          - get:
+              url: "/health"
           - get:
               url: "/json"
         count: 3
 
-      - think: 0.5
+      # Mixed error/success to test resilience
+      - get:
+          url: "/{{ $randomInt(1, 10) <= 7 ? 'json' : 'error' }}"
 
-# Performance expectations and assertions
+      - think: 0.02
+
+# Aggressive performance expectations for framework differentiation
 expect:
-  # Response time thresholds
-  - expression: "response.time < 1000"
-    as: "Response time under 1000ms"
+  # Tighter response time thresholds to show differences
+  - expression: "response.time < 500"
+    as: "Response time under 500ms"
 
-  # Error rate threshold (less than 1%)
-  - expression: "rate(response.status >= 400) < 0.01"
-    as: "Error rate under 1%"
+  # Very strict error rate (less than 0.5%)
+  - expression: "rate(response.status >= 400) < 0.005"
+    as: "Error rate under 0.5%"
+
+  # Throughput expectations
+  - expression: "rate(response.status == 200) > 400"
+    as: "Success rate above 400 RPS"
