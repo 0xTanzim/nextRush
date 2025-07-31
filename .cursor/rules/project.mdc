@@ -1,3 +1,6 @@
+---
+alwaysApply: true
+---
 # GitHub Copilot Instructions for NextRush Project
 
 
@@ -36,63 +39,6 @@ You are an expert in TypeScript, Node.js, and web framework development, tasked 
 - **Critical Issues**: Poor benchmark results and bad developer experience due to unoptimized code, memory leaks, unbounded concurrency, and duplicate files. Copilot must focus on fixing these with high-performance solutions.
 
 ## Current Project State
-
-### File Structure
-
-```
-MyExpress/
-├── dist/                  # Compiled output
-├── docs/                  # Markdown documentation
-├── examples/              # Test and demo files for each feature
-│   ├── routing/
-│   ├── middleware/
-│   ├── websocket/
-│   └── template/
-├── public/                # Static files for serving
-├── scripts/               # Shell scripts for build and utilities
-├── src/                   # Source code
-│   ├── core/             # Application core logic
-│   │   ├── app/         # Application class and registry
-│   │   ├── enhancers/   # Request/response enhancers
-│   │   ├── types/       # Core interfaces
-│   │   ├── plugin-loader.ts  # Dynamic plugin loading
-│   │   ├── event-system.ts
-│   │   └── index.ts
-│   ├── errors/           # Error handling
-│   ├── helpers/          # Utility functions
-│   ├── plugins/          # All features as plugins
-│   │   ├── api-docs/
-│   │   ├── auth/
-│   │   ├── body-parser/
-│   │   ├── core/        # Plugin base classes and abstract classes
-│   │   ├── cors/
-│   │   ├── metrics/
-│   │   ├── middleware/
-│   │   ├── rate-limiter/
-│   │   ├── router/
-│   │   ├── static-files/
-│   │   ├── template/
-│   │   ├── websocket/
-│   │   ├── clean-plugins.ts
-│   │   └── index.ts
-│   ├── types/            # Type definitions
-│   ├── utils/            # Shared utilities
-│   │   ├── worker-pool.ts  # Worker thread management
-│   │   ├── fd-pool.ts     # File descriptor pooling
-│   │   └── buffer-pool.ts # Buffer pooling
-│   └── index.ts          # Main entry point
-├── benchmark-results.json
-├── CODEBASE-ANALYSIS-REPORT.md
-├── LICENSE
-├── package.json
-├── PERFORMANCE-ANALYSIS.md
-├── PERFORMANCE-SUMMARY.md
-├── pnpm-lock.yaml
-├── README.md
-├── tsconfig.build.json
-├── tsconfig.json
-├── tsconfig.tsbuildinfo
-```
 
 ### Completed Features
 

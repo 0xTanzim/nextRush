@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+---
+
+1. Always write test for the code you write.
+2. Makes sure the code you write is easy to understand and maintain.
+3. Code should not be larger, maintain LOC 150 - 350.
+4. Follow the SOLID principles.
+5. Follow the DRY principle.
+6. Follow the YAGNI principle.
+7. Base Class create for reduce repitition.
+8. Abstract Class create for reduce repitition.
+9. Use power of typescript to create type safe code.
+10. Abstract Class power use.
+
+
+---
+
+again Always write test for the code you write. Makes sure test are pass...
+
+---
+
+write docs for the feature , profesonlly write docs. public api should be well documented.
+and user friendly docs. also write docs in the code use like tsdoc or jsdoc.
