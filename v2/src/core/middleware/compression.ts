@@ -1,44 +1,32 @@
 /**
- * Compression Middleware for NextRush v2
- *
- * Provides response compression functionality
+ * Compression middleware for NextRush v2
  *
  * @packageDocumentation
  */
 
-import type { Context } from '@/types/context';
-import { pipeline } from 'node:stream/promises';
-import {
-  constants,
-  createBrotliCompress,
-  createDeflate,
-  createGzip,
-} from 'node:zlib';
-import type { CompressionOptions, Middleware } from './types';
+import type { CompressionOptions } from '@/core/middleware/types';
+import type { Context, Middleware } from '@/types/context';
+import { pipeline } from 'node:stream';
+import { createBrotliCompress, createDeflate, createGzip } from 'node:zlib';
 
 /**
  * Default compression options
  */
-const DEFAULT_COMPRESSION_OPTIONS: CompressionOptions = {
+const defaultCompressionOptions: Required<CompressionOptions> = {
   level: 6,
   threshold: 1024,
   filter: () => true,
-  contentType: ['text/*', 'application/*', 'json'],
-  exclude: [],
+  contentType: ['text/*', 'application/json', 'application/xml'],
+  exclude: ['image/*', 'video/*', 'audio/*'],
   gzip: true,
   deflate: true,
   brotli: false,
   windowBits: 15,
   memLevel: 8,
   strategy: 0,
-  chunkSize: 16 * 1024,
-  // dictionary is optional, so we don't set it in defaults
+  chunkSize: 16384,
+  dictionary: Buffer.alloc(0),
 };
-
-/**
- * Supported compression algorithms
- */
-type CompressionAlgorithm = 'gzip' | 'deflate' | 'br';
 
 /**
  * Check if content type should be compressed
@@ -47,16 +35,18 @@ function shouldCompressContentType(
   contentType: string,
   options: Required<CompressionOptions>
 ): boolean {
-  // Check exclusions first
-  for (const exclude of options.exclude) {
-    if (contentType.includes(exclude)) {
+  if (!contentType) return false;
+
+  // Check exclude list first
+  for (const excludePattern of options.exclude) {
+    if (contentType.startsWith(excludePattern.replace('*', ''))) {
       return false;
     }
   }
 
-  // Check inclusions
-  for (const include of options.contentType) {
-    if (contentType.includes(include.replace('*', ''))) {
+  // Check include list
+  for (const includePattern of options.contentType) {
+    if (contentType.startsWith(includePattern.replace('*', ''))) {
       return true;
     }
   }
@@ -65,38 +55,41 @@ function shouldCompressContentType(
 }
 
 /**
- * Get the best compression algorithm based on Accept-Encoding header
+ * Get best compression algorithm based on Accept-Encoding header
  */
 function getBestCompression(
   acceptEncoding: string,
   options: Required<CompressionOptions>
-): CompressionAlgorithm | null {
-  const algorithms: CompressionAlgorithm[] = [];
-
-  if (options.brotli) algorithms.push('br');
-  if (options.gzip) algorithms.push('gzip');
-  if (options.deflate) algorithms.push('deflate');
-
-  // Parse Accept-Encoding header
-  const accepted = acceptEncoding
+): 'gzip' | 'deflate' | 'br' | null {
+  const algorithms = acceptEncoding
     .toLowerCase()
     .split(',')
-    .map(s => s.trim().split(';')[0]);
+    .map(a => a.trim())
+    .map(a => a.split(';')[0].trim()); // Remove quality values
 
-  for (const algorithm of algorithms) {
-    if (accepted.includes(algorithm)) {
-      return algorithm;
-    }
+  // Check for brotli support
+  if (options.brotli && algorithms.includes('br')) {
+    return 'br';
+  }
+
+  // Check for gzip support
+  if (options.gzip && algorithms.includes('gzip')) {
+    return 'gzip';
+  }
+
+  // Check for deflate support
+  if (options.deflate && algorithms.includes('deflate')) {
+    return 'deflate';
   }
 
   return null;
 }
 
 /**
- * Create compression stream based on algorithm
+ * Create compression stream
  */
 function createCompressionStream(
-  algorithm: CompressionAlgorithm,
+  algorithm: 'gzip' | 'deflate' | 'br',
   options: Required<CompressionOptions>
 ) {
   switch (algorithm) {
@@ -109,7 +102,6 @@ function createCompressionStream(
         chunkSize: options.chunkSize,
         dictionary: options.dictionary,
       });
-
     case 'deflate':
       return createDeflate({
         level: options.level,
@@ -119,14 +111,13 @@ function createCompressionStream(
         chunkSize: options.chunkSize,
         dictionary: options.dictionary,
       });
-
     case 'br':
       return createBrotliCompress({
         params: {
-          [constants.BROTLI_PARAM_QUALITY]: options.level,
+          0: options.quality || 6, // BROTLI_PARAM_QUALITY
+          1: options.chunkSize || 16384, // BROTLI_PARAM_SIZE_HINT
         },
       });
-
     default:
       throw new Error(`Unsupported compression algorithm: ${algorithm}`);
   }
@@ -134,34 +125,17 @@ function createCompressionStream(
 
 /**
  * Create compression middleware
- *
- * @param options - Compression configuration options
- * @returns Compression middleware function
- *
- * @example
- * ```typescript
- * import { compression } from '@/core/middleware/compression';
- *
- * const app = createApp();
- *
- * // Basic compression
- * app.use(compression());
- *
- * // Advanced compression
- * app.use(compression({
- *   level: 9,
- *   threshold: 2048,
- *   filter: (ctx) => ctx.path.startsWith('/api'),
- *   contentType: ['text/*', 'application/json'],
- * }));
- * ```
  */
 export function compression(options: CompressionOptions = {}): Middleware {
-  const config = { ...DEFAULT_COMPRESSION_OPTIONS, ...options };
+  // Merge with defaults
+  const config: Required<CompressionOptions> = {
+    ...defaultCompressionOptions,
+    ...options,
+  };
 
-  return async (ctx: Context, next: () => Promise<void>): Promise<void> => {
-    // Check if compression should be applied
-    if (!config.filter?.(ctx)) {
+  return async (ctx: Context, next: () => Promise<void>) => {
+    // Check if response should be compressed
+    if (!config.filter(ctx)) {
       await next();
       return;
     }
@@ -189,12 +163,7 @@ export function compression(options: CompressionOptions = {}): Middleware {
         const contentType = Array.isArray(value) ? value[0] : value;
 
         // Check if content should be compressed
-        if (
-          !shouldCompressContentType(
-            contentType,
-            config as Required<CompressionOptions>
-          )
-        ) {
+        if (!shouldCompressContentType(contentType || '', config)) {
           originalSetHeader.call(this, name, value);
           return ctx.res;
         }
@@ -204,16 +173,14 @@ export function compression(options: CompressionOptions = {}): Middleware {
         originalSetHeader.call(this, 'Vary', 'Accept-Encoding');
 
         // Create compression stream
-        compressionStream = createCompressionStream(
-          algorithm,
-          config as Required<CompressionOptions>
-        );
+        compressionStream = createCompressionStream(algorithm, config);
         compressed = true;
       }
 
       originalSetHeader.call(this, name, value);
       return ctx.res;
     };
+
     // Override write to compress data
     ctx.res.write = function (
       chunk: unknown,
@@ -224,7 +191,12 @@ export function compression(options: CompressionOptions = {}): Middleware {
         (compressionStream as any).write(chunk, encoding, callback);
         return true;
       }
-      return originalWrite.call(this, chunk, encoding as BufferEncoding, callback);
+      return originalWrite.call(
+        this,
+        chunk,
+        encoding as BufferEncoding,
+        callback
+      );
     };
 
     // Override end to finalize compression
@@ -240,17 +212,37 @@ export function compression(options: CompressionOptions = {}): Middleware {
         (compressionStream as any).end();
 
         // Pipe compressed data to response
-        pipeline(compressionStream, ctx.res).catch(error => {
-          // eslint-disable-next-line no-console
-          console.error('Compression error:', error);
-          // Fallback to uncompressed response
-          if (chunk) {
-            originalWrite.call(ctx.res, chunk, (encoding as BufferEncoding) || 'utf8');
+        pipeline(
+          compressionStream,
+          ctx.res as NodeJS.WritableStream,
+          (error: NodeJS.ErrnoException | null) => {
+            if (error) {
+              // eslint-disable-next-line no-console
+              console.error('Compression error:', error);
+              // Fallback to uncompressed response
+              if (chunk) {
+                originalWrite.call(
+                  ctx.res,
+                  chunk,
+                  (encoding as BufferEncoding) || 'utf8'
+                );
+              }
+              originalEnd.call(
+                ctx.res,
+                chunk,
+                (encoding as BufferEncoding) || 'utf8',
+                callback
+              );
+            }
           }
-          originalEnd.call(ctx.res, callback);
-        });
+        );
       } else {
-        originalEnd.call(this, chunk, (encoding as BufferEncoding) || 'utf8', callback);
+        originalEnd.call(
+          this,
+          chunk,
+          (encoding as BufferEncoding) || 'utf8',
+          callback
+        );
       }
       return ctx.res;
     };
@@ -261,78 +253,61 @@ export function compression(options: CompressionOptions = {}): Middleware {
 
 /**
  * Create compression middleware with specific algorithm
- *
- * @param algorithm - Compression algorithm to use
- * @param options - Compression configuration options
- * @returns Compression middleware function
  */
 export function compressionWithAlgorithm(
-  algorithm: CompressionAlgorithm,
+  algorithm: 'gzip' | 'deflate' | 'br',
   options: CompressionOptions = {}
 ): Middleware {
-  return compression({
+  const config = {
     ...options,
     gzip: algorithm === 'gzip',
     deflate: algorithm === 'deflate',
     brotli: algorithm === 'br',
-  });
+  };
+
+  return compression(config);
 }
 
 /**
- * Create gzip compression middleware
- *
- * @param options - Compression configuration options
- * @returns Gzip compression middleware function
+ * Gzip-only compression middleware
  */
 export function gzip(options: CompressionOptions = {}): Middleware {
   return compressionWithAlgorithm('gzip', options);
 }
 
 /**
- * Create deflate compression middleware
- *
- * @param options - Compression configuration options
- * @returns Deflate compression middleware function
+ * Deflate-only compression middleware
  */
 export function deflate(options: CompressionOptions = {}): Middleware {
   return compressionWithAlgorithm('deflate', options);
 }
 
 /**
- * Create brotli compression middleware
- *
- * @param options - Compression configuration options
- * @returns Brotli compression middleware function
+ * Brotli-only compression middleware
  */
 export function brotli(options: CompressionOptions = {}): Middleware {
   return compressionWithAlgorithm('br', options);
 }
 
 /**
- * Create compression middleware with metrics
- *
- * @param options - Compression configuration options
- * @returns Compression middleware function with performance monitoring
+ * Compression middleware with performance metrics
  */
 export function compressionWithMetrics(
   options: CompressionOptions = {}
 ): Middleware {
   const compressionMiddleware = compression(options);
 
-  return async (ctx: Context, next: () => Promise<void>): Promise<void> => {
-    const start = process.hrtime.bigint();
+  return async (ctx: Context, next: () => Promise<void>) => {
+    const startTime = Date.now();
 
-    await compressionMiddleware(ctx, async () => {
-      const end = process.hrtime.bigint();
-      const duration = Number(end - start) / 1000000; // Convert to milliseconds
+    await compressionMiddleware(ctx, next);
 
-      if (duration > 1) {
-        // eslint-disable-next-line no-console
-        console.warn(`Slow compression: ${duration.toFixed(3)}ms`);
-      }
+    const duration = Date.now() - startTime;
 
-      await next();
-    });
+    // Log slow compression operations
+    if (duration > 100) {
+      console.warn(`Slow compression operation: ${duration}ms`);
+    }
   };
 }
 
@@ -358,5 +333,5 @@ export const compressionUtils = {
   /**
    * Default compression options
    */
-  DEFAULT_OPTIONS: DEFAULT_COMPRESSION_OPTIONS,
+  DEFAULT_OPTIONS: defaultCompressionOptions,
 };

@@ -64,9 +64,7 @@ describe('Logger Middleware', () => {
 
       await middleware(ctx, () => Promise.resolve());
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('GET')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('GET'));
     });
 
     it('should log with custom format', async () => {

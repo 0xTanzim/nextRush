@@ -165,10 +165,8 @@ export function helmetWithMetrics(options: HelmetOptions = {}): Middleware {
       const end = process.hrtime.bigint();
       const duration = Number(end - start) / 1000000; // Convert to milliseconds
 
-      if (duration > 1) {
-        // eslint-disable-next-line no-console
-        console.warn(`Slow Helmet processing: ${duration.toFixed(3)}ms`);
-      }
+      // Store duration in context for external monitoring
+      (ctx as any).helmetDuration = duration;
 
       await next();
     });

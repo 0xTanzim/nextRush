@@ -1,55 +1,86 @@
 /**
- * NextRush v2 - A modern, type-safe, and high-performance Node.js web framework
+ * NextRush v2 - Main Entry Point
  *
  * @packageDocumentation
- * @example
- * ```typescript
- * import { createApp } from 'nextrush-v2';
- *
- * const app = createApp();
- *
- * app.use(async (ctx, next) => {
- *   console.log(`${ctx.method} ${ctx.path}`);
- *   await next();
- * });
- *
- * app.get('/hello', async (ctx) => {
- *   ctx.res.json({ message: 'Hello, World!' });
- * });
- *
- * app.listen(3000, () => {
- *   console.log('Server running on http://localhost:3000');
- * });
- * ```
  */
 
 // Core exports
-export {
-  createApp,
-  type Application,
-  type ApplicationOptions,
-} from '@/core/app/application';
-export { createRouter, type Router } from '@/core/router';
+export { createApp } from '@/core/app/application';
+export { createContext } from '@/core/app/context';
 
-// Context and types
-export type { Context, Middleware, Next } from '@/types/context';
+// Type exports
 export type {
-  NextRushRequest as Request,
-  NextRushResponse as Response,
-} from '@/types/http';
+  Application,
+  Context,
+  Middleware,
+  RouteConfig,
+  RouteHandler,
+  Router,
+} from '@/types/context';
+
+export type { NextRushRequest, NextRushResponse } from '@/types/http';
 
 // Error exports
 export {
+  AuthenticationError,
+  AuthenticationExceptionFilter,
+  AuthorizationError,
+  AuthorizationExceptionFilter,
   BadRequestError,
+  ConflictError,
+  DatabaseError,
+  ErrorFactory,
+  ForbiddenError,
+  GlobalExceptionFilter,
   InternalServerError,
+  MethodNotAllowedError,
+  NetworkError,
   NextRushError,
   NotFoundError,
+  NotFoundExceptionFilter,
+  RateLimitError,
+  RateLimitExceptionFilter,
+  ServiceUnavailableError,
+  TimeoutError,
+  TooManyRequestsError,
+  UnauthorizedError,
+  UnprocessableEntityError,
   ValidationError,
+  ValidationExceptionFilter,
+  type ExceptionFilter,
 } from '@/errors/custom-errors';
 
+// Logger Plugin exports
+export {
+  ConsoleTransport,
+  createDevLogger,
+  createLogger,
+  createMinimalLogger,
+  createProdLogger,
+  FileTransport,
+  HttpTransport,
+  LoggerPlugin,
+  LogLevel,
+  StreamTransport,
+  type LogEntry,
+  type LoggerConfig,
+  type Transport,
+} from '@/plugins/logger';
+
+// Middleware exports
+export { json, raw, text, urlencoded } from '@/core/middleware/body-parser';
+export { compression } from '@/core/middleware/compression';
+export { cors } from '@/core/middleware/cors';
+export { helmet } from '@/core/middleware/helmet';
+export { logger } from '@/core/middleware/logger';
+export { rateLimit } from '@/core/middleware/rate-limiter';
+export { requestId } from '@/core/middleware/request-id';
+export { timer } from '@/core/middleware/timer';
+
 // Utility exports
-export { joinPaths, resolvePath } from '@/utils/path-utils';
-export { sanitizeInput, validateRequest } from '@/utils/validation';
+export { RequestEnhancer } from '@/core/enhancers/request-enhancer';
+export { ResponseEnhancer } from '@/core/enhancers/response-enhancer';
+export { createRouter } from '@/core/router';
 
 // Version info
 export const VERSION = '2.0.0-alpha.1';

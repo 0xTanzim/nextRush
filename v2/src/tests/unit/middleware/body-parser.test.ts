@@ -4,6 +4,7 @@
  * Tests for JSON, URL-encoded, raw, and text body parsing
  */
 
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bodyParserUtils,
   json,
@@ -12,7 +13,6 @@ import {
   urlencoded,
 } from '../../../core/middleware/body-parser';
 import type { Context } from '../../../types/context';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 function createMockContext(overrides: Partial<Context> = {}): Context {
   return {
@@ -67,19 +67,14 @@ describe('Body Parser Middleware', () => {
 
     it('should handle malformed JSON', async () => {
       const middleware = json();
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
 
       ctx.req.headers['content-type'] = 'application/json';
       ctx.req.body = '{ invalid json }';
 
       await middleware(ctx, () => Promise.resolve());
 
-      expect(consoleSpy).toHaveBeenCalled();
+      expect(ctx.status).toBe(400);
       expect(ctx.body).toBeUndefined();
-
-      consoleSpy.mockRestore();
     });
 
     it('should respect size limit', async () => {

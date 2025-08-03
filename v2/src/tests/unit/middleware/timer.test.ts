@@ -17,7 +17,6 @@ import {
 import type { Context } from '../../../types/context';
 
 // Mock process.hrtime.bigint for tests
-const originalHrtime = process.hrtime;
 beforeEach(() => {
   process.hrtime = () => [0, 0] as [number, number];
   (process as any).hrtime.bigint = () => BigInt(0);
@@ -612,7 +611,6 @@ describe('Timer Middleware', () => {
       const middleware = timer();
 
       // Mock negative time scenario
-      const originalHrtime = process.hrtime;
       vi.spyOn(process, 'hrtime').mockReturnValue({
         bigint: () => BigInt(-1000000), // Negative time
       } as any);
