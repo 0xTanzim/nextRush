@@ -255,27 +255,27 @@ export class HighPerformanceRouter {
       this.register(route.method, route.path, () => {});
     }
 
-    const startTime = performance.now();
+    const startTime = process.hrtime.bigint();
 
     // Benchmark static route lookup
     for (let i = 0; i < iterations; i++) {
       this.find('GET', '/users');
     }
-    const staticLookup = performance.now() - startTime;
+    const staticLookup = Number(process.hrtime.bigint() - startTime);
 
     // Benchmark parameterized route lookup
-    const paramStart = performance.now();
+    const paramStart = process.hrtime.bigint();
     for (let i = 0; i < iterations; i++) {
       this.find('GET', '/users/123');
     }
-    const paramLookup = performance.now() - paramStart;
+    const paramLookup = Number(process.hrtime.bigint() - paramStart);
 
     // Benchmark registration
-    const regStart = performance.now();
+    const regStart = process.hrtime.bigint();
     for (let i = 0; i < iterations; i++) {
       this.register('GET', `/test/${i}`, () => {});
     }
-    const registration = performance.now() - regStart;
+    const registration = Number(process.hrtime.bigint() - regStart);
 
     return {
       staticLookup,

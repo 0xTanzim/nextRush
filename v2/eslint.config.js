@@ -15,6 +15,7 @@ export default [
         project: './tsconfig.json',
       },
       globals: {
+        // Node.js globals
         console: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
@@ -22,16 +23,40 @@ export default [
         __dirname: 'readonly',
         __filename: 'readonly',
         setTimeout: 'readonly',
-        NodeJS: 'readonly',
-        globalThis: 'readonly',
-        URLSearchParams: 'readonly',
-        WebSocket: 'readonly',
-        BufferEncoding: 'readonly',
-        URL: 'readonly',
-        fetch: 'readonly',
+        clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        setImmediate: 'readonly',
+        clearImmediate: 'readonly',
         require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+
+        // Web APIs available in Node.js
+        performance: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        WebSocket: 'readonly',
+        fetch: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        crypto: 'readonly',
+
+        // TypeScript types
+        NodeJS: 'readonly',
+        globalThis: 'readonly',
+        BufferEncoding: 'readonly',
+        NodeRequire: 'readonly',
+        NodeModule: 'readonly',
+
+        // Additional Node.js built-ins
+        EventEmitter: 'readonly',
+        EventTarget: 'readonly',
+        AbortController: 'readonly',
+        AbortSignal: 'readonly',
+        ReadableStream: 'readonly',
+        WritableStream: 'readonly',
+        TransformStream: 'readonly',
       },
     },
     plugins: {

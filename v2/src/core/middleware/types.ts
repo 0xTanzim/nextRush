@@ -4,8 +4,7 @@
  * @packageDocumentation
  */
 
-import type { Context, NextRushResponse } from '@/types/context';
-import { NextRushRequest } from '@/types/http';
+import type { Context } from '@/types/context';
 
 /**
  * Standard middleware function signature
@@ -136,35 +135,7 @@ export interface BodyParserOptions {
   };
 }
 
-/**
- * JSON parser options
- */
-export interface JsonOptions {
-  /** Size limit */
-  limit?: string;
-  /** Strict mode */
-  strict?: boolean;
-  /** Content type */
-  type?: string;
-  /** Verify function */
-  verify?: (req: NextRushRequest, res: NextRushResponse, buf: Buffer) => void;
-}
-
-/**
- * URL-encoded parser options
- */
-export interface UrlencodedOptions {
-  /** Extended mode */
-  extended?: boolean;
-  /** Size limit */
-  limit?: string;
-  /** Parameter limit */
-  parameterLimit?: number;
-  /** Content type */
-  type?: string;
-  /** Verify function */
-  verify?: (req: NextRushRequest, res: NextRushResponse, buf: Buffer) => void;
-}
+// Removed JsonOptions and UrlencodedOptions - now using enhanced body parser types
 
 /**
  * Rate limiter options
