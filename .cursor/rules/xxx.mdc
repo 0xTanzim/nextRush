@@ -22,3 +22,12 @@ again Always write test for the code you write. Makes sure test are pass...
 
 write docs for the feature , profesonlly write docs. public api should be well documented.
 and user friendly docs. also write docs in the code use like tsdoc or jsdoc.
+
+
+---
+for type use see we have NextrushRequest, NextrushResponse, RequestContext, Nextrush. use those not use any.  as much possible use those type.
+
+
+---
+
+for typescript you can use `extend` to extend the type.

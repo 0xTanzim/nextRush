@@ -225,11 +225,8 @@ export function corsWithMetrics(options: CorsOptions = {}): Middleware {
       const end = process.hrtime.bigint();
       const duration = Number(end - start) / 1000000; // Convert to milliseconds
 
-      // Log slow CORS processing
-      if (duration > 1) {
-        // eslint-disable-next-line no-console
-        console.warn(`Slow CORS processing: ${duration.toFixed(3)}ms`);
-      }
+      // Store duration in context for external monitoring
+      (ctx as any).corsDuration = duration;
 
       await next();
     });

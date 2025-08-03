@@ -8,7 +8,17 @@ import { createContext } from '@/core/app/context';
 import { RequestEnhancer } from '@/core/enhancers/request-enhancer';
 import { ResponseEnhancer } from '@/core/enhancers/response-enhancer';
 import { Router as RouterClass } from '@/core/router';
-import { NextRushError } from '@/errors/custom-errors';
+import { HighPerformanceRouter } from '@/core/router/high-performance-router';
+import {
+  GlobalExceptionFilter,
+  NextRushError,
+  type ExceptionFilter,
+} from '@/errors/custom-errors';
+import {
+  LoggerPlugin,
+  createDevLogger,
+  createProdLogger,
+} from '@/plugins/logger';
 import type {
   Application,
   Context,
@@ -27,7 +37,7 @@ import {
 } from 'node:http';
 
 // Import built-in middleware
-import { json, urlencoded } from '@/core/middleware/body-parser';
+import { json, raw, text, urlencoded } from '@/core/middleware/body-parser';
 import { compression } from '@/core/middleware/compression';
 import { cors } from '@/core/middleware/cors';
 import { helmet } from '@/core/middleware/helmet';
@@ -73,7 +83,8 @@ import type {
 export class NextRushApplication extends EventEmitter implements Application {
   private server: Server;
   private middleware: Middleware[] = [];
-  private routes: Map<string, RouteHandler> = new Map();
+  private highPerformanceRouter: HighPerformanceRouter =
+    new HighPerformanceRouter();
   private options: Required<ApplicationOptions>;
   private isShuttingDown = false;
 
@@ -93,6 +104,7 @@ export class NextRushApplication extends EventEmitter implements Application {
         engine: 'simple',
         directory: 'views',
       },
+      keepAlive: 10000, // 10 seconds
       ...options,
     };
 
@@ -157,52 +169,40 @@ export class NextRushApplication extends EventEmitter implements Application {
       if (i >= this.middleware.length) {
         // Execute route handler when middleware is complete
         await this.executeRoute(ctx);
-
         return;
       }
 
       const middleware = this.middleware[i];
       if (middleware) {
-        console.log(`Executing middleware ${i + 1}/${this.middleware.length}`);
+        // Only log in debug mode for performance
+        if (this.options.debug) {
+          console.log(
+            `Executing middleware ${i + 1}/${this.middleware.length}`
+          );
+        }
         await middleware(ctx, () => dispatch(i + 1));
       } else {
         await dispatch(i + 1);
       }
     };
 
-    console.log(`Total middleware count: ${this.middleware.length}`);
+    // Only log in debug mode for performance
+    if (this.options.debug) {
+      console.log(`Total middleware count: ${this.middleware.length}`);
+    }
     await dispatch(0);
   }
 
   /**
-   * Execute route handler
+   * Execute route with high-performance router
    */
   private async executeRoute(ctx: Context): Promise<void> {
-    const routeKey = `${ctx.method}:${ctx.path}`;
-    let handler = this.routes.get(routeKey);
+    const match = this.highPerformanceRouter.find(ctx.method, ctx.path);
 
-    // If exact match not found, try parameterized route matching
-    if (!handler) {
-      for (const [registeredRouteKey, routeHandler] of this.routes) {
-        const colonIndex = registeredRouteKey.indexOf(':');
-        if (colonIndex === -1) continue;
-
-        const registeredMethod = registeredRouteKey.substring(0, colonIndex);
-        const registeredPath = registeredRouteKey.substring(colonIndex + 1);
-
-        if (
-          registeredMethod === ctx.method &&
-          registeredPath &&
-          this.matchRoute(registeredPath, ctx.path, ctx)
-        ) {
-          handler = routeHandler;
-          break;
-        }
-      }
-    }
-
-    if (handler) {
-      await handler(ctx);
+    if (match) {
+      // Set parameters from router match
+      ctx.params = match.params;
+      await match.handler(ctx);
     } else {
       ctx.status = 404;
       ctx.res.statusCode = 404;
@@ -318,7 +318,7 @@ export class NextRushApplication extends EventEmitter implements Application {
       // Register middleware
       console.log('Registering middleware:', typeof middlewareOrPrefix);
       this.middleware.push(middlewareOrPrefix as Middleware);
-    } else if (router) {
+    } else if (router && typeof middlewareOrPrefix === 'string') {
       // Register router with prefix
       const routerRoutes = router.getRoutes();
       const routerMiddleware = router.getMiddleware();
@@ -329,8 +329,10 @@ export class NextRushApplication extends EventEmitter implements Application {
       // Add router routes with prefix
       for (const [routeKey, handler] of routerRoutes) {
         const [method, path] = routeKey.split(':');
-        const fullPath = `${middlewareOrPrefix}${path}`;
-        this.routes.set(`${method}:${fullPath}`, handler);
+        if (method && path) {
+          const fullPath = `${middlewareOrPrefix}${path}`;
+          this.highPerformanceRouter.register(method, fullPath, handler);
+        }
       }
     }
 
@@ -345,27 +347,16 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
-   * Register a route with the application
+   * Register a route with high-performance router
    */
   private registerRoute(
     method: string,
     path: string,
     handler: RouteHandler | RouteConfig
   ): void {
-    const routeKey = `${method}:${path}`;
-
-    if (typeof handler === 'object') {
-      // Fastify-style route config
-      this.routes.set(routeKey, handler.handler);
-
-      // Add route-specific middleware
-      if (handler.middleware) {
-        this.middleware.push(...handler.middleware);
-      }
-    } else {
-      // Simple handler function
-      this.routes.set(routeKey, handler);
-    }
+    const routeHandler =
+      typeof handler === 'object' ? handler.handler : handler;
+    this.highPerformanceRouter.register(method, path, routeHandler);
   }
 
   /**
@@ -493,6 +484,10 @@ export class NextRushApplication extends EventEmitter implements Application {
     return urlencoded(options);
   }
 
+  public text(options: { limit?: string; type?: string } = {}): Middleware {
+    return text(options);
+  }
+
   /**
    * Create rate limiter middleware
    *
@@ -566,6 +561,251 @@ export class NextRushApplication extends EventEmitter implements Application {
    */
   public timer(options: TimerOptions = {}): Middleware {
     return timer(options);
+  }
+
+  /**
+   * Create automatic smart body parser middleware
+   *
+   * Automatically detects and parses request bodies based on content-type:
+   * - application/json -> JSON parsing
+   * - application/x-www-form-urlencoded -> URL-encoded parsing
+   * - text/* -> Text parsing
+   * - multipart/form-data -> Form data parsing (basic)
+   *
+   * @param options - Smart body parser configuration options
+   * @returns Smart body parser middleware function
+   *
+   * @example
+   * ```typescript
+   * const app = createApp();
+   *
+   * // Automatic body parsing
+   * app.use(app.smartBodyParser());
+   *
+   * // With custom options
+   * app.use(app.smartBodyParser({
+   *   json: { limit: '10mb' },
+   *   urlencoded: { extended: true },
+   *   text: { limit: '1mb' }
+   * }));
+   * ```
+   */
+  public smartBodyParser(
+    options: {
+      json?: JsonOptions;
+      urlencoded?: UrlencodedOptions;
+      text?: { limit?: string; type?: string };
+      raw?: { limit?: string; type?: string };
+    } = {}
+  ): Middleware {
+    return async (ctx, next) => {
+      const contentType = ctx.headers['content-type'] || '';
+      const method = ctx.method.toUpperCase();
+
+      // Skip for GET, HEAD, OPTIONS requests
+      if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        return next();
+      }
+
+      // Skip if body is already parsed
+      if (ctx.body !== undefined) {
+        return next();
+      }
+
+      try {
+        // JSON parsing
+        if (contentType.includes('application/json')) {
+          const jsonMiddleware = json(options.json || {});
+          await jsonMiddleware(ctx, next);
+          return;
+        }
+
+        // URL-encoded parsing
+        if (contentType.includes('application/x-www-form-urlencoded')) {
+          const urlencodedMiddleware = urlencoded(options.urlencoded || {});
+          await urlencodedMiddleware(ctx, next);
+          return;
+        }
+
+        // Text parsing
+        if (contentType.startsWith('text/')) {
+          const textMiddleware = text(options.text || {});
+          await textMiddleware(ctx, next);
+          return;
+        }
+
+        // Raw parsing for other content types
+        if (contentType && !contentType.includes('multipart/form-data')) {
+          const rawMiddleware = raw(options.raw || {});
+          await rawMiddleware(ctx, next);
+          return;
+        }
+
+        // For multipart/form-data or no content-type, set empty body
+        ctx.body = undefined;
+        await next();
+      } catch (error) {
+        // Handle parsing errors gracefully
+        ctx.status = 400;
+        ctx.res.json({
+          error: 'Invalid request body',
+          message:
+            error instanceof Error ? error.message : 'Body parsing failed',
+          statusCode: 400,
+        });
+      }
+    };
+  }
+
+  /**
+   * Create exception filter middleware
+   *
+   * Provides NestJS-style exception handling with custom error classes
+   * and automatic error response formatting.
+   *
+   * @param filters - Array of exception filters to use
+   * @returns Exception filter middleware function
+   *
+   * @example
+   * ```typescript
+   * const app = createApp();
+   *
+   * // Global exception filter
+   * app.use(app.exceptionFilter());
+   *
+   * // With custom filters
+   * app.use(app.exceptionFilter([
+   *   new ValidationExceptionFilter(),
+   *   new AuthenticationExceptionFilter(),
+   *   new GlobalExceptionFilter()
+   * ]));
+   * ```
+   */
+  public exceptionFilter(
+    filters: ExceptionFilter[] = [new GlobalExceptionFilter()]
+  ): Middleware {
+    return async (ctx, next) => {
+      try {
+        await next();
+      } catch (error) {
+        // Find the appropriate filter for this error type
+        const filter = filters.find(f => {
+          if (f.constructor.name === 'GlobalExceptionFilter') {
+            return true; // Global filter catches all
+          }
+
+          // Check if filter has exceptions property (from @Catch decorator)
+          const filterClass = f.constructor as any;
+          if (filterClass.exceptions) {
+            return filterClass.exceptions.some(
+              (ExceptionClass: any) => error instanceof ExceptionClass
+            );
+          }
+
+          return false;
+        });
+
+        if (filter) {
+          await filter.catch(error as Error, ctx);
+        } else {
+          // Fallback to global error handling
+          const globalFilter = new GlobalExceptionFilter();
+          await globalFilter.catch(error as Error, ctx);
+        }
+      }
+    };
+  }
+
+  /**
+   * Create advanced logger plugin
+   *
+   * Provides comprehensive logging capabilities similar to Winston/Pino
+   * with multiple transports, structured logging, and performance optimization.
+   *
+   * @param config - Logger configuration options
+   * @returns Logger plugin instance
+   *
+   * @example
+   * ```typescript
+   * const app = createApp();
+   *
+   * // Development logger
+   * const logger = app.createLogger({
+   *   level: 'debug',
+   *   requestLogging: true,
+   *   performance: true
+   * });
+   * logger.install(app);
+   *
+   * // Use logger in routes
+   * app.get('/users', ctx => {
+   *   app.logger.info('Fetching users', { userId: ctx.params.id });
+   *   ctx.res.json({ users: [] });
+   * });
+   * ```
+   */
+  public createLogger(
+    config: {
+      level?:
+        | 'error'
+        | 'warn'
+        | 'info'
+        | 'http'
+        | 'verbose'
+        | 'debug'
+        | 'silly';
+      transports?: any[];
+      format?: 'json' | 'text' | 'combined';
+      colorize?: boolean;
+      timestamp?: boolean;
+      context?: string;
+      requestLogging?: boolean;
+      performance?: boolean;
+      structured?: boolean;
+    } = {}
+  ): LoggerPlugin {
+    // Convert string log levels to LogLevel enum
+    const loggerConfig = {
+      ...config,
+      level: config.level ? this.convertLogLevel(config.level) : undefined,
+    };
+    return new LoggerPlugin(loggerConfig as any);
+  }
+
+  private convertLogLevel(level: string): number {
+    const levelMap: Record<string, number> = {
+      error: 0,
+      warn: 1,
+      info: 2,
+      debug: 3,
+      trace: 4,
+      http: 2, // Same as info
+      verbose: 3, // Same as debug
+      silly: 4, // Same as trace
+    };
+    return levelMap[level] ?? 2; // Default to info
+  }
+
+  /**
+   * Create development logger
+   *
+   * Optimized for development with debug level, colors, and detailed logging.
+   *
+   * @returns Development logger plugin
+   */
+  public createDevLogger(): LoggerPlugin {
+    return createDevLogger();
+  }
+
+  /**
+   * Create production logger
+   *
+   * Optimized for production with info level, JSON format, and file logging.
+   *
+   * @returns Production logger plugin
+   */
+  public createProdLogger(): LoggerPlugin {
+    return createProdLogger();
   }
 }
 

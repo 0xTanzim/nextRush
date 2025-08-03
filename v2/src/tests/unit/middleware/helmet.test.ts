@@ -60,11 +60,9 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
 
 describe('Helmet Middleware', () => {
   let ctx: Context;
-  let next: () => Promise<void>;
 
   beforeEach(() => {
     ctx = createMockContext();
-    next = async () => {};
   });
 
   describe('helmet()', () => {

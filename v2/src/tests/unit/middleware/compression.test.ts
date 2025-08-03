@@ -286,18 +286,20 @@ describe('Compression Middleware', () => {
     });
 
     it('should warn for slow compression', async () => {
-      const middleware = compressionWithMetrics();
+      const middleware = compressionWithMetrics({
+        level: 9, // Use highest compression level to make it slower
+        threshold: 0,
+      });
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      // Mock slow performance
-      const originalHrtime = process.hrtime;
+      // Mock Date.now to simulate slow compression
+      const originalDateNow = Date.now;
       let callCount = 0;
-      const mockHrtime = () => [0, 0] as [number, number];
-      mockHrtime.bigint = () => {
+      Date.now = vi.fn(() => {
         callCount++;
-        return callCount === 1 ? BigInt(0) : BigInt(5000000); // 5ms difference
-      };
-      process.hrtime = mockHrtime as any;
+        if (callCount === 1) return originalDateNow();
+        return originalDateNow() + 150; // Simulate 150ms delay
+      });
 
       ctx.req.headers['accept-encoding'] = 'gzip';
       // Set content type to trigger compression
@@ -315,7 +317,7 @@ describe('Compression Middleware', () => {
         expect.stringContaining('Slow compression')
       );
 
-      process.hrtime = originalHrtime;
+      Date.now = originalDateNow;
       consoleSpy.mockRestore();
     });
   });

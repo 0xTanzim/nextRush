@@ -15,6 +15,7 @@ import type {
   TimerOptions,
   UrlencodedOptions,
 } from '@/core/middleware/types';
+import type { ExceptionFilter } from '@/errors/custom-errors';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { ParsedUrlQuery } from 'node:querystring';
 import { NextRushRequest } from './http';
@@ -134,6 +135,8 @@ export interface Context {
   idempotent(): boolean;
   /** Check if request is cacheable */
   cacheable(): boolean;
+  /** Set response header (Koa-style) */
+  set(name: string, value: string | number | string[]): void;
 }
 
 /**
@@ -265,6 +268,8 @@ export interface Application {
   json(options?: JsonOptions): Middleware;
   /** Create URL-encoded body parser middleware */
   urlencoded(options?: UrlencodedOptions): Middleware;
+  /** Create text body parser middleware */
+  text(options?: { limit?: string; type?: string }): Middleware;
   /** Create rate limiter middleware */
   rateLimit(options?: RateLimiterOptions): Middleware;
   /** Create logger middleware */
@@ -275,4 +280,23 @@ export interface Application {
   requestId(options?: RequestIdOptions): Middleware;
   /** Create timer middleware */
   timer(options?: TimerOptions): Middleware;
+  /** Create smart body parser middleware */
+  smartBodyParser(options?: {
+    json?: JsonOptions;
+    urlencoded?: UrlencodedOptions;
+    text?: { limit?: string; type?: string };
+    raw?: { limit?: string; type?: string };
+  }): Middleware;
+  /** Create exception filter middleware */
+  exceptionFilter(filters?: ExceptionFilter[]): Middleware;
+
+  /** Logger instance (set by LoggerPlugin) - overrides logger method when plugin is installed */
+  loggerInstance?: {
+    error: (message: string, context?: Record<string, unknown>) => void;
+    warn: (message: string, context?: Record<string, unknown>) => void;
+    info: (message: string, context?: Record<string, unknown>) => void;
+    debug: (message: string, context?: Record<string, unknown>) => void;
+    trace: (message: string, context?: Record<string, unknown>) => void;
+    log: (message: string, context?: Record<string, unknown>) => void;
+  };
 }

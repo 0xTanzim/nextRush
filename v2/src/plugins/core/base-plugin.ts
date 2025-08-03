@@ -1,12 +1,16 @@
 /**
  * Base plugin class for NextRush v2
- * 
+ *
  * @packageDocumentation
  */
 
 import type { Application } from '@/core/app/application';
-import type { NextRushRequest, NextRushResponse, Middleware } from '@/types/http';
 import { PluginError } from '@/errors/custom-errors';
+import type {
+  Middleware,
+  NextRushRequest,
+  NextRushResponse,
+} from '@/types/http';
 
 /**
  * Plugin interface
@@ -71,17 +75,17 @@ export interface PluginMetadata {
 
 /**
  * Base plugin class that all plugins should extend
- * 
+ *
  * @example
  * ```typescript
  * import { BasePlugin } from 'nextrush-v2';
  * import type { Application } from 'nextrush-v2';
- * 
+ *
  * export class MyPlugin extends BasePlugin {
  *   name = 'MyPlugin';
  *   version = '1.0.0';
  *   description = 'A custom plugin';
- * 
+ *
  *   install(app: Application): void {
  *     // Plugin installation logic
  *     app.use((req, res, next) => {
@@ -89,11 +93,11 @@ export interface PluginMetadata {
  *       next();
  *     });
  *   }
- * 
+ *
  *   async init(): Promise<void> {
  *     // Plugin initialization
  *   }
- * 
+ *
  *   async cleanup(): Promise<void> {
  *     // Plugin cleanup
  *   }
@@ -103,6 +107,7 @@ export interface PluginMetadata {
 export abstract class BasePlugin implements Plugin {
   public abstract name: string;
   public abstract version: string;
+  public abstract onInstall(app: Application): void;
   public description?: string;
   public author?: string;
   public homepage?: string;
@@ -121,7 +126,11 @@ export abstract class BasePlugin implements Plugin {
    */
   public install(app: Application): void {
     if (this.isInstalled) {
-      throw new PluginError(`Plugin ${this.name} is already installed`, this.name, this.version);
+      throw new PluginError(
+        `Plugin ${this.name} is already installed`,
+        this.name,
+        500
+      );
     }
 
     this.app = app;
@@ -129,19 +138,23 @@ export abstract class BasePlugin implements Plugin {
 
     // Validate configuration
     if (this.validateConfig && !this.validateConfig()) {
-      throw new PluginError(`Invalid configuration for plugin ${this.name}`, this.name, this.version);
+      throw new PluginError(
+        `Invalid configuration for plugin ${this.name}`,
+        this.name,
+        500
+      );
     }
 
     // Call the abstract install method
     this.onInstall(app);
 
     // Initialize if init method exists
-    if (this.init) {
-      this.init().catch((error) => {
+    if ((this as any).init) {
+      (this as any).init().catch((error: any) => {
         throw new PluginError(
           `Failed to initialize plugin ${this.name}: ${error.message}`,
           this.name,
-          this.version
+          500
         );
       });
     }
@@ -150,7 +163,6 @@ export abstract class BasePlugin implements Plugin {
   /**
    * Abstract method that plugins must implement
    */
-  protected abstract onInstall(app: Application): void;
 
   /**
    * Get plugin metadata
@@ -159,13 +171,13 @@ export abstract class BasePlugin implements Plugin {
     return {
       name: this.name,
       version: this.version,
-      description: this.description,
-      author: this.author,
-      homepage: this.homepage,
-      license: this.license,
-      keywords: this.keywords,
-      dependencies: this.dependencies,
-      conflicts: this.conflicts
+      description: this.description || '',
+      author: this.author || '',
+      homepage: this.homepage || '',
+      license: this.license || '',
+      keywords: this.keywords || [],
+      dependencies: this.dependencies || [],
+      conflicts: this.conflicts || [],
     };
   }
 
@@ -209,10 +221,14 @@ export abstract class BasePlugin implements Plugin {
    */
   protected registerMiddleware(middleware: Middleware): void {
     if (!this.app) {
-      throw new PluginError(`Plugin ${this.name} is not installed`, this.name, this.version);
+      throw new PluginError(
+        `Plugin ${this.name} is not installed`,
+        this.name,
+        500
+      );
     }
 
-    this.app.use(middleware);
+    this.app.use(middleware as any);
   }
 
   /**
@@ -257,7 +273,13 @@ export abstract class BasePlugin implements Plugin {
   /**
    * Create a middleware that wraps the plugin's functionality
    */
-  protected createMiddleware(handler: (req: NextRushRequest, res: NextRushResponse, next: () => void) => void): Middleware {
+  protected createMiddleware(
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => void
+  ): Middleware {
     return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
       try {
         handler(req, res, next);
@@ -271,8 +293,18 @@ export abstract class BasePlugin implements Plugin {
   /**
    * Create an async middleware that wraps the plugin's functionality
    */
-  protected createAsyncMiddleware(handler: (req: NextRushRequest, res: NextRushResponse, next: () => void) => Promise<void>): Middleware {
-    return async (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+  protected createAsyncMiddleware(
+    handler: (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => Promise<void>
+  ): Middleware {
+    return async (
+      req: NextRushRequest,
+      res: NextRushResponse,
+      next: () => void
+    ) => {
       try {
         await handler(req, res, next);
       } catch (error) {
@@ -307,7 +339,7 @@ export abstract class BasePlugin implements Plugin {
       version: this.version,
       installed: this.isInstalled,
       initialized: this.isInitialized,
-      config: this.config
+      config: this.config,
     };
   }
-} 
+}

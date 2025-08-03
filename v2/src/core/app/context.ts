@@ -82,7 +82,12 @@ export function createContext(
     href: url.href,
     search: url.search,
     searchParams: url.searchParams,
-    status: 200, // Default status
+    get status(): number {
+      return (enhancedRes as any).statusCode || 200;
+    },
+    set status(code: number) {
+      (enhancedRes as any).statusCode = code;
+    },
     responseHeaders: {}, // To track headers set via ctx.set
 
     // Context methods (Koa-style)
@@ -124,6 +129,12 @@ export function createContext(
 
     cacheable(): boolean {
       return this.method === 'GET' && this.status === 200;
+    },
+
+    // Set response header (Koa-style)
+    set(name: string, value: string | number | string[]): void {
+      (enhancedRes as any).setHeader(name, value);
+      this.responseHeaders[name] = value;
     },
   };
 

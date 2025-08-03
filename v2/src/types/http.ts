@@ -32,6 +32,8 @@ export interface ApplicationOptions {
     engine: string;
     directory: string;
   };
+  /** HTTP keep-alive timeout in milliseconds */
+  keepAlive?: number;
 }
 
 /**

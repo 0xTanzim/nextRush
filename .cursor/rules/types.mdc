@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+check the types folder and undersatnd the our types.
+
+always use types not any untill very rare cases.
+
+we have types for req, res like NextrushRequest, NextrushResponse. laso for context.
+
+akso see we have app type. app types in Application
+
+you can create complex type. extend types.
+
+use typescript full power. it have create complex types.
+
+we can use complex types for best practices.

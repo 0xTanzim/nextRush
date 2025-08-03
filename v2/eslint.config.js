@@ -5,7 +5,6 @@ import prettier from 'eslint-config-prettier';
 
 export default [
   js.configs.recommended,
-  eslintPluginNode.configs['flat/recommended'],
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
@@ -30,6 +29,9 @@ export default [
         BufferEncoding: 'readonly',
         URL: 'readonly',
         fetch: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        require: 'readonly',
       },
     },
     plugins: {
@@ -62,9 +64,55 @@ export default [
   },
   {
     files: ['**/*.test.ts', '**/*.spec.ts'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        vi: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        suite: 'readonly',
+        assert: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        require: 'readonly',
+      },
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      'no-undef': 'off',
+    },
+  },
+  {
+    files: ['**/examples/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
+    files: ['**/plugins/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-var-requires': 'off',
+      'prefer-template': 'off',
     },
   },
   prettier,

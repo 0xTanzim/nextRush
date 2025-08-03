@@ -155,7 +155,7 @@ export class ResponseEnhancer {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
-              : enhanced.status;
+              : (enhanced.status as unknown as number);
         }
         enhanced.end(JSON.stringify(data));
       };
@@ -171,7 +171,7 @@ export class ResponseEnhancer {
             enhanced.statusCode =
               typeof enhanced.status === 'function'
                 ? enhanced.statusCode
-                : enhanced.status;
+                : (enhanced.status as unknown as number);
           }
           enhanced.end(data);
         }
@@ -188,7 +188,7 @@ export class ResponseEnhancer {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
-              : enhanced.status;
+              : (enhanced.status as unknown as number);
         }
         enhanced.end(data);
       };
@@ -204,7 +204,7 @@ export class ResponseEnhancer {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
-              : enhanced.status;
+              : (enhanced.status as unknown as number);
         }
         enhanced.end(data);
       };
@@ -220,7 +220,7 @@ export class ResponseEnhancer {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
-              : enhanced.status;
+              : (enhanced.status as unknown as number);
         }
         enhanced.end(data);
       };
@@ -244,7 +244,7 @@ export class ResponseEnhancer {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
-              : enhanced.status;
+              : (enhanced.status as unknown as number);
         }
         enhanced.end(csvContent);
       };

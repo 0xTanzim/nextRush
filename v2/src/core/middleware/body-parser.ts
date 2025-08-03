@@ -292,51 +292,48 @@ export function json(options: JsonOptions = {}): Middleware {
 
   return async (ctx: Context, next: () => Promise<void>): Promise<void> => {
     const contentType = ctx.req.headers['content-type'] || '';
-    console.log(
-      `JSON middleware: contentType=${contentType}, config.type=${config.type}`
-    );
 
-    if (contentType.includes(config.type)) {
-      try {
-        try {
-          const parsedBody = await parseJsonBody(ctx.req, limit);
-          ctx.body = parsedBody;
-          // Patch: also assign to ctx.req.body for test/mocks
-          if (typeof ctx.req.body === 'string') {
-            ctx.req.body = parsedBody;
-          }
-        } catch (error) {
-          if (error instanceof Error && error.message === 'Payload too large') {
-            ctx.status = 413;
-            ctx.body = undefined;
-            if (typeof ctx.res.json === 'function') {
-              ctx.res.json({ error: 'Payload too large' });
-            }
-            return;
-          }
-          throw error;
-        }
-      } catch (error) {
-        console.log(`JSON middleware caught error: ${error}`);
-        ctx.status = 400;
+    // Early exit if content type doesn't match
+    if (!contentType.includes(config.type)) {
+      return next();
+    }
+
+    try {
+      const parsedBody = await parseJsonBody(ctx.req, limit);
+      ctx.body = parsedBody;
+      // Patch: also assign to ctx.req.body for test/mocks
+      if (typeof ctx.req.body === 'string') {
+        ctx.req.body = parsedBody;
+      }
+    } catch (error) {
+      // Handle payload too large error
+      if (error instanceof Error && error.message === 'Payload too large') {
+        ctx.status = 413;
         ctx.body = undefined;
-        // eslint-disable-next-line no-console
-        console.error('JSON parsing error:', error);
         if (typeof ctx.res.json === 'function') {
-          ctx.res.statusCode = ctx.status;
-          console.log(`Sending 400 response for malformed JSON`);
-          ctx.res.json({
-            error: 'Invalid JSON',
-            message:
-              error instanceof Error ? error.message : 'JSON parsing failed',
-          });
+          ctx.res.json({ error: 'Payload too large' });
         }
-        console.log(
-          `JSON middleware returning early with status: ${ctx.status}`
-        );
         return;
       }
+
+      // Handle JSON parsing errors
+      ctx.status = 400;
+      ctx.body = undefined;
+      if (typeof ctx.res.json === 'function') {
+        ctx.res.statusCode = ctx.status;
+        ctx.res.json({
+          error: {
+            name: 'Error',
+            code: 'INVALID_JSON',
+            statusCode: 400,
+            message:
+              error instanceof Error ? error.message : 'JSON parsing failed',
+          },
+        });
+      }
+      return;
     }
+
     await next();
   };
 }
@@ -367,38 +364,40 @@ export function urlencoded(options: UrlencodedOptions = {}): Middleware {
   return async (ctx: Context, next: () => Promise<void>): Promise<void> => {
     const contentType = ctx.req.headers['content-type'] || '';
 
-    if (contentType.includes(config.type)) {
-      try {
-        try {
-          const body = await parseUrlencodedBody(
-            ctx.req,
-            limit,
-            config.extended,
-            config.parameterLimit
-          );
-          ctx.body = body;
-          // Patch: also assign to ctx.req.body for test/mocks
-          if (typeof ctx.req.body === 'string') {
-            ctx.req.body = body;
-          }
-        } catch (error) {
-          if (error instanceof Error && error.message === 'Payload too large') {
-            ctx.status = 413;
-            ctx.body = undefined;
-            if (typeof ctx.res.json === 'function') {
-              ctx.res.json({ error: 'Payload too large' });
-            }
-            return;
-          }
-          throw error;
-        }
-      } catch (error) {
-        ctx.status = 400;
+    // Early exit if content type doesn't match
+    if (!contentType.includes(config.type)) {
+      return next();
+    }
+
+    try {
+      const body = await parseUrlencodedBody(
+        ctx.req,
+        limit,
+        config.extended,
+        config.parameterLimit
+      );
+      ctx.body = body;
+      // Patch: also assign to ctx.req.body for test/mocks
+      if (typeof ctx.req.body === 'string') {
+        ctx.req.body = body;
+      }
+    } catch (error) {
+      // Handle payload too large error
+      if (error instanceof Error && error.message === 'Payload too large') {
+        ctx.status = 413;
+        ctx.body = undefined;
         if (typeof ctx.res.json === 'function') {
-          ctx.res.json({ error: 'Invalid URL-encoded body' });
+          ctx.res.json({ error: 'Payload too large' });
         }
         return;
       }
+
+      // Handle URL-encoded parsing errors
+      ctx.status = 400;
+      if (typeof ctx.res.json === 'function') {
+        ctx.res.json({ error: 'Invalid URL-encoded body' });
+      }
+      return;
     }
 
     await next();
@@ -437,37 +436,36 @@ export function raw(
   return async (ctx: Context, next: () => Promise<void>): Promise<void> => {
     const contentType = ctx.req.headers['content-type'] || '';
 
-    if (contentType.includes(config.type)) {
-      // Handle mock context for testing
-      if (ctx.req.body) {
-        let buffer: Buffer;
-
-        if (typeof ctx.req.body === 'string') {
-          buffer = Buffer.from(ctx.req.body);
-        } else if (Buffer.isBuffer(ctx.req.body)) {
-          buffer = ctx.req.body;
-        } else {
-          await next();
-          return;
-        }
-
-        if (buffer.length > limit) {
-          ctx.status = 413;
-          ctx.body = undefined;
-          if (typeof ctx.res.json === 'function') {
-            ctx.res.json({ error: 'Payload too large' });
-          }
-          return;
-        }
-
-        ctx.body = buffer;
-        await next();
-      } else {
-        await next();
-      }
-    } else {
-      await next();
+    // Early exit if content type doesn't match
+    if (!contentType.includes(config.type)) {
+      return next();
     }
+
+    // Handle mock context for testing
+    if (ctx.req.body) {
+      let buffer: Buffer;
+
+      if (typeof ctx.req.body === 'string') {
+        buffer = Buffer.from(ctx.req.body);
+      } else if (Buffer.isBuffer(ctx.req.body)) {
+        buffer = ctx.req.body;
+      } else {
+        return next();
+      }
+
+      if (buffer.length > limit) {
+        ctx.status = 413;
+        ctx.body = undefined;
+        if (typeof ctx.res.json === 'function') {
+          ctx.res.json({ error: 'Payload too large' });
+        }
+        return;
+      }
+
+      ctx.body = buffer;
+    }
+
+    await next();
   };
 }
 
@@ -490,67 +488,69 @@ export function text(
   return async (ctx: Context, next: () => Promise<void>): Promise<void> => {
     const contentType = ctx.req.headers['content-type'] || '';
 
-    if (contentType.includes(config.type)) {
-      // Handle mock context for testing
-      if (ctx.req.body && typeof ctx.req.body === 'string') {
-        const body = ctx.req.body;
-        if (body.length > limit) {
-          ctx.status = 413;
-          ctx.body = undefined;
-          if (typeof ctx.res.json === 'function') {
-            ctx.res.json({ error: 'Payload too large' });
-          }
-          return;
-        }
-        ctx.body = body;
-        await next();
-        return;
-      }
-
-      return new Promise((resolve, reject) => {
-        let data = '';
-        let size = 0;
-
-        if (typeof ctx.req.on === 'function') {
-          ctx.req.on('data', (chunk: Buffer) => {
-            size += chunk.length;
-            if (size > limit) {
-              if (typeof ctx.req.destroy === 'function') {
-                ctx.req.destroy(new Error('Payload too large'));
-              }
-              return;
-            }
-            data += chunk.toString();
-          });
-
-          ctx.req.on('end', () => {
-            try {
-              ctx.body = data;
-              resolve();
-            } catch (error) {
-              ctx.status = 400;
-              if (typeof ctx.res.json === 'function') {
-                ctx.res.json({ error: 'Invalid text body' });
-              }
-              reject(error);
-            }
-          });
-
-          ctx.req.on('error', (error: Error) => {
-            ctx.status = 400;
-            if (typeof ctx.res.json === 'function') {
-              ctx.res.json({ error: 'Body parsing error' });
-            }
-            reject(error);
-          });
-        } else {
-          // Fallback for mock context
-          resolve();
-        }
-      });
+    // Early exit if content type doesn't match
+    if (!contentType.includes(config.type)) {
+      return next();
     }
 
-    await next();
+    // Handle mock context for testing
+    if (ctx.req.body && typeof ctx.req.body === 'string') {
+      const body = ctx.req.body;
+      if (body.length > limit) {
+        ctx.status = 413;
+        ctx.body = undefined;
+        if (typeof ctx.res.json === 'function') {
+          ctx.res.json({ error: 'Payload too large' });
+        }
+        return;
+      }
+      ctx.body = body;
+      return next();
+    }
+
+    // Handle real HTTP requests
+    return new Promise((resolve, reject) => {
+      let data = '';
+      let size = 0;
+
+      if (typeof ctx.req.on === 'function') {
+        ctx.req.on('data', (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > limit) {
+            if (typeof ctx.req.destroy === 'function') {
+              ctx.req.destroy(new Error('Payload too large'));
+            }
+            return;
+          }
+          data += chunk.toString();
+        });
+
+        ctx.req.on('end', async () => {
+          try {
+            ctx.body = data;
+            await next();
+            resolve();
+          } catch (error) {
+            ctx.status = 400;
+            if (typeof ctx.res.json === 'function') {
+              ctx.res.json({ error: 'Invalid text body' });
+            }
+            reject(error);
+          }
+        });
+
+        ctx.req.on('error', (error: Error) => {
+          ctx.status = 400;
+          if (typeof ctx.res.json === 'function') {
+            ctx.res.json({ error: 'Body parsing error' });
+          }
+          reject(error);
+        });
+      } else {
+        // Fallback for mock context
+        resolve();
+      }
+    });
   };
 }
 

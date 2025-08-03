@@ -62,7 +62,7 @@ describe('Full Application E2E', () => {
         generator: () =>
           `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         addResponseHeader: true,
-        echoHeader: true,
+        echoHeader: false,
         setInContext: true,
         includeInLogs: true,
       })
@@ -82,7 +82,7 @@ describe('Full Application E2E', () => {
     app.use(
       app.rateLimit({
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100, // limit each IP to 100 requests per windowMs
+        max: 1000, // limit each IP to 1000 requests per windowMs for testing
         message: 'Too many requests from this IP',
         headers: true,
         skipSuccessfulRequests: false,

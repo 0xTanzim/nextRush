@@ -41,7 +41,7 @@ export class ValidationError extends Error {
     errors: Array<{ field: string; message: string; value?: unknown }>
   ): ValidationError {
     const error = new ValidationError('Validation failed');
-    (error as any).errors = errors;
+    (error as ValidationError & { errors: typeof errors }).errors = errors;
     return error;
   }
 }
