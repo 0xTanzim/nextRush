@@ -58,12 +58,8 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
 
 describe('Middleware Index', () => {
   describe('Core Middleware Exports', () => {
-    it('should export body parser middleware', () => {
-      expect(middleware).toHaveProperty('json');
-      expect(middleware).toHaveProperty('urlencoded');
-      expect(middleware).toHaveProperty('raw');
-      expect(middleware).toHaveProperty('text');
-      expect(middleware).toHaveProperty('bodyParserUtils');
+    it('should export enhanced body parser middleware', () => {
+      expect(middleware).toHaveProperty('enhancedBodyParser');
     });
 
     it('should export compression middleware', () => {
@@ -130,7 +126,7 @@ describe('Middleware Index', () => {
   describe('Middleware Functionality', () => {
     it('should create functional middleware instances', () => {
       // Test that middleware functions can be called
-      expect(typeof middleware.json).toBe('function');
+      expect(typeof middleware.enhancedBodyParser).toBe('function');
       expect(typeof middleware.cors).toBe('function');
       expect(typeof middleware.helmet).toBe('function');
       expect(typeof middleware.logger).toBe('function');
@@ -163,7 +159,6 @@ describe('Middleware Index', () => {
 
   describe('Utility Exports', () => {
     it('should export utility functions', () => {
-      expect(middleware).toHaveProperty('bodyParserUtils');
       expect(middleware).toHaveProperty('compressionUtils');
       expect(middleware).toHaveProperty('corsUtils');
       expect(middleware).toHaveProperty('helmetUtils');
@@ -174,9 +169,14 @@ describe('Middleware Index', () => {
     });
 
     it('should have utility functions with expected properties', () => {
-      expect(middleware.bodyParserUtils).toHaveProperty('parseSize');
-      expect(middleware.bodyParserUtils).toHaveProperty('parseJsonBody');
-      expect(middleware.bodyParserUtils).toHaveProperty('parseUrlencodedBody');
+      // Enhanced body parser doesn't export separate utils, it's all integrated
+      expect(middleware.compressionUtils).toBeDefined();
+      expect(middleware.corsUtils).toBeDefined();
+      expect(middleware.helmetUtils).toBeDefined();
+      expect(middleware.loggerUtils).toBeDefined();
+      expect(middleware.rateLimitUtils).toBeDefined();
+      expect(middleware.requestIdUtils).toBeDefined();
+      expect(middleware.timerUtils).toBeDefined();
 
       expect(middleware.compressionUtils).toHaveProperty(
         'shouldCompressContentType'

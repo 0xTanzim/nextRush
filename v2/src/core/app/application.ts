@@ -37,9 +37,9 @@ import {
 } from 'node:http';
 
 // Import built-in middleware
-import { json, raw, text, urlencoded } from '@/core/middleware/body-parser';
 import { compression } from '@/core/middleware/compression';
 import { cors } from '@/core/middleware/cors';
+import { enhancedBodyParser } from '@/core/middleware/enhanced-body-parser';
 import { helmet } from '@/core/middleware/helmet';
 import { logger } from '@/core/middleware/logger';
 import { rateLimit } from '@/core/middleware/rate-limiter';
@@ -49,12 +49,10 @@ import type {
   CompressionOptions,
   CorsOptions,
   HelmetOptions,
-  JsonOptions,
   LoggerOptions,
   RateLimiterOptions,
   RequestIdOptions,
   TimerOptions,
-  UrlencodedOptions,
 } from '@/core/middleware/types';
 
 /**
@@ -470,8 +468,8 @@ export class NextRushApplication extends EventEmitter implements Application {
    * app.use(app.urlencoded({ extended: true }));
    * ```
    */
-  public json(options: JsonOptions = {}): Middleware {
-    return json(options);
+  public json(options: any = {}): Middleware {
+    return enhancedBodyParser({ ...options, autoDetectContentType: false });
   }
 
   /**
@@ -480,12 +478,12 @@ export class NextRushApplication extends EventEmitter implements Application {
    * @param options - URL-encoded parser configuration options
    * @returns URL-encoded parser middleware function
    */
-  public urlencoded(options: UrlencodedOptions = {}): Middleware {
-    return urlencoded(options);
+  public urlencoded(options: any = {}): Middleware {
+    return enhancedBodyParser({ ...options, autoDetectContentType: false });
   }
 
   public text(options: { limit?: string; type?: string } = {}): Middleware {
-    return text(options);
+    return enhancedBodyParser({ ...options, autoDetectContentType: false });
   }
 
   /**
@@ -592,69 +590,23 @@ export class NextRushApplication extends EventEmitter implements Application {
    */
   public smartBodyParser(
     options: {
-      json?: JsonOptions;
-      urlencoded?: UrlencodedOptions;
-      text?: { limit?: string; type?: string };
-      raw?: { limit?: string; type?: string };
+      maxSize?: number;
+      timeout?: number;
+      enableStreaming?: boolean;
+      streamingThreshold?: number;
+      poolSize?: number;
+      fastValidation?: boolean;
+      autoDetectContentType?: boolean;
+      strictContentType?: boolean;
+      debug?: boolean;
+      maxFiles?: number;
+      maxFileSize?: number;
+      memoryStorage?: boolean;
+      encoding?: BufferEncoding;
+      enableMetrics?: boolean;
     } = {}
   ): Middleware {
-    return async (ctx, next) => {
-      const contentType = ctx.headers['content-type'] || '';
-      const method = ctx.method.toUpperCase();
-
-      // Skip for GET, HEAD, OPTIONS requests
-      if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-        return next();
-      }
-
-      // Skip if body is already parsed
-      if (ctx.body !== undefined) {
-        return next();
-      }
-
-      try {
-        // JSON parsing
-        if (contentType.includes('application/json')) {
-          const jsonMiddleware = json(options.json || {});
-          await jsonMiddleware(ctx, next);
-          return;
-        }
-
-        // URL-encoded parsing
-        if (contentType.includes('application/x-www-form-urlencoded')) {
-          const urlencodedMiddleware = urlencoded(options.urlencoded || {});
-          await urlencodedMiddleware(ctx, next);
-          return;
-        }
-
-        // Text parsing
-        if (contentType.startsWith('text/')) {
-          const textMiddleware = text(options.text || {});
-          await textMiddleware(ctx, next);
-          return;
-        }
-
-        // Raw parsing for other content types
-        if (contentType && !contentType.includes('multipart/form-data')) {
-          const rawMiddleware = raw(options.raw || {});
-          await rawMiddleware(ctx, next);
-          return;
-        }
-
-        // For multipart/form-data or no content-type, set empty body
-        ctx.body = undefined;
-        await next();
-      } catch (error) {
-        // Handle parsing errors gracefully
-        ctx.status = 400;
-        ctx.res.json({
-          error: 'Invalid request body',
-          message:
-            error instanceof Error ? error.message : 'Body parsing failed',
-          statusCode: 400,
-        });
-      }
-    };
+    return enhancedBodyParser(options);
   }
 
   /**

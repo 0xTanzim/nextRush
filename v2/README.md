@@ -17,6 +17,7 @@ NextRush v2 combines the best of Express.js and Koa to provide an intuitive, typ
 - **📝 Object-Based Routes**: Fastify-style route configuration without imports
 - **🛡️ Type Safety**: Full TypeScript support with automatic type inference
 - **🎯 Enhanced Response Methods**: `ctx.res.json()`, `ctx.res.html()`, `ctx.res.csv()`, etc.
+- **🔥 Enhanced Body Parser**: Zero-copy buffer operations with intelligent content-type detection
 - **🔒 Zero Dependencies**: Built on Node.js native APIs
 - **⚙️ Flexible Configuration**: Easy setup with sensible defaults
 
@@ -246,6 +247,17 @@ const app = createApp({
     directory: 'views',
   },
 });
+
+// Enhanced body parser configuration
+app.use(
+  app.smartBodyParser({
+    maxSize: 10 * 1024 * 1024, // 10MB
+    timeout: 30000, // 30 seconds
+    enableStreaming: true,
+    autoDetectContentType: true,
+    enableMetrics: true,
+  })
+);
 ```
 
 ## 📖 API Reference
@@ -346,11 +358,54 @@ NextRush v2 is built for performance:
 - **Type Safety**: Compile-time optimizations
 - **Efficient Routing**: Fast route matching
 - **Memory Efficient**: Optimized for Node.js
+- **Enhanced Body Parser**: Zero-copy buffer operations with intelligent caching
+
+## 🔥 Enhanced Body Parser
+
+NextRush v2 includes a powerful enhanced body parser with enterprise-grade features:
+
+### Features
+
+- **Zero-copy buffer operations** using Node.js raw power
+- **Cross-platform compatibility** (Node.js, Bun, Deno)
+- **AI-like content type auto-detection**
+- **Streaming parser** with backpressure handling
+- **Memory-pooled buffer management**
+- **CPU-optimized parsing** with vectorized operations
+- **Smart caching** and pre-compiled patterns
+- **Enterprise-grade error handling**
+- **Real-time performance metrics** collection
+
+### Usage
+
+```typescript
+// Automatic content-type detection and parsing
+app.use(app.smartBodyParser());
+
+// Advanced configuration
+app.use(
+  app.smartBodyParser({
+    maxSize: 10 * 1024 * 1024, // 10MB
+    enableStreaming: true,
+    autoDetectContentType: true,
+    enableMetrics: true,
+  })
+);
+
+// Handles JSON, URL-encoded, text, multipart, and raw data automatically
+app.post('/api/data', ctx => {
+  const data = ctx.body; // Already parsed based on content-type
+  ctx.res.json({ received: data });
+});
+```
+
+See [Enhanced Body Parser Guide](./docs/guides/enhanced-body-parser.md) for detailed documentation.
 
 ## 📚 Documentation
 
 - [Express-like Design](./docs/Express-like-Design.md) - Learn about the Express-like API
 - [Router System](./docs/Router-System.md) - Modular routing guide
+- [Enhanced Body Parser](./docs/guides/enhanced-body-parser.md) - Enterprise-grade body parsing
 - [Migration Guide](./docs/guides/migration.md) - Migrate from v1 to v2
 
 ## 🤝 Contributing

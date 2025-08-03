@@ -8,12 +8,10 @@ import type {
   CompressionOptions,
   CorsOptions,
   HelmetOptions,
-  JsonOptions,
   LoggerOptions,
   RateLimiterOptions,
   RequestIdOptions,
   TimerOptions,
-  UrlencodedOptions,
 } from '@/core/middleware/types';
 import type { ExceptionFilter } from '@/errors/custom-errors';
 import { IncomingMessage, ServerResponse } from 'node:http';
@@ -265,9 +263,9 @@ export interface Application {
   /** Create helmet middleware */
   helmet(options?: HelmetOptions): Middleware;
   /** Create JSON body parser middleware */
-  json(options?: JsonOptions): Middleware;
+  json(options?: any): Middleware;
   /** Create URL-encoded body parser middleware */
-  urlencoded(options?: UrlencodedOptions): Middleware;
+  urlencoded(options?: any): Middleware;
   /** Create text body parser middleware */
   text(options?: { limit?: string; type?: string }): Middleware;
   /** Create rate limiter middleware */
@@ -282,10 +280,20 @@ export interface Application {
   timer(options?: TimerOptions): Middleware;
   /** Create smart body parser middleware */
   smartBodyParser(options?: {
-    json?: JsonOptions;
-    urlencoded?: UrlencodedOptions;
-    text?: { limit?: string; type?: string };
-    raw?: { limit?: string; type?: string };
+    maxSize?: number;
+    timeout?: number;
+    enableStreaming?: boolean;
+    streamingThreshold?: number;
+    poolSize?: number;
+    fastValidation?: boolean;
+    autoDetectContentType?: boolean;
+    strictContentType?: boolean;
+    debug?: boolean;
+    maxFiles?: number;
+    maxFileSize?: number;
+    memoryStorage?: boolean;
+    encoding?: BufferEncoding;
+    enableMetrics?: boolean;
   }): Middleware;
   /** Create exception filter middleware */
   exceptionFilter(filters?: ExceptionFilter[]): Middleware;
