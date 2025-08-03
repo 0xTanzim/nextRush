@@ -54,8 +54,9 @@ describe('Full Application E2E', () => {
       })
     );
 
-    app.use(app.json({ limit: '10mb', strict: true }));
-    app.use(app.urlencoded({ extended: true, limit: '10mb' }));
+    // Add body parser middleware
+    app.use(app.smartBodyParser());
+
     app.use(
       app.requestId({
         headerName: 'X-Request-ID',
@@ -433,7 +434,8 @@ describe('Full Application E2E', () => {
 
     app.post('/api/posts/:postId/comments', ctx => {
       const { postId } = ctx.params;
-      const { content } = ctx.body as { content: string };
+      const body = (ctx.body as { content?: string }) || {};
+      const { content } = body;
 
       if (!content) {
         ctx.res.status(400).json({

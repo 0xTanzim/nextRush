@@ -24,7 +24,7 @@ export interface LogEntry {
   error?: Error;
 }
 
-export interface LoggerConfig {
+export interface LoggerConfig extends Record<string, unknown> {
   level?: LogLevel;
   format?: 'json' | 'text' | 'simple';
   timestamp?: boolean;
@@ -41,10 +41,9 @@ export class LoggerPlugin extends BasePlugin {
   public name = 'Logger';
   public version = '1.0.0';
 
-  private config: LoggerConfig;
+  public override config: LoggerConfig;
   private entries: LogEntry[] = [];
   private flushTimer?: NodeJS.Timeout;
-  private isInstalled = false;
   private _transports: Transport[] = [];
   private eventListeners: Map<string, Array<(entry: LogEntry) => void>> =
     new Map();
@@ -66,7 +65,7 @@ export class LoggerPlugin extends BasePlugin {
     this._transports.push(new ConsoleTransport(this.config.level));
   }
 
-  onInstall(app: Application): void {
+  override onInstall(app: Application): void {
     // Add logger methods to the application
     app.loggerInstance = {
       error: this.error.bind(this),
@@ -158,30 +157,7 @@ export class LoggerPlugin extends BasePlugin {
     }
   }
 
-  private formatEntry(entry: LogEntry): string {
-    const timestamp = this.config.timestamp
-      ? (entry.timestamp as Date).toISOString()
-      : '';
-
-    const levelStr = LogLevel[entry.level as LogLevel];
-    const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : '';
-
-    switch (this.config.format) {
-      case 'json':
-        return JSON.stringify({
-          timestamp: (entry.timestamp as Date).toISOString(),
-          level: levelStr,
-          message: entry.message,
-          context: entry.context,
-        });
-
-      case 'simple':
-        return `${levelStr}: ${entry.message}`;
-
-      default:
-        return `${timestamp} [${levelStr}] ${entry.message}${contextStr}`;
-    }
-  }
+  // Removed unused formatEntry method
 
   private flush(): void {
     if (this.entries.length === 0) {
@@ -209,46 +185,7 @@ export class LoggerPlugin extends BasePlugin {
     }
   }
 
-  private writeToFile(
-    options: Record<string, unknown> = {},
-    entries: LogEntry[]
-  ): void {
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
-
-    const logDir =
-      (options.logDir as string) || path.join(process.cwd(), 'logs');
-    const filename =
-      (options.filename as string) ||
-      `app-${new Date().toISOString().split('T')[0]}.log`;
-    const logPath = path.join(logDir, filename);
-
-    // Ensure log directory exists
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-
-    const logContent =
-      entries.map(entry => this.formatEntry(entry)).join(os.EOL) + os.EOL;
-
-    fs.appendFileSync(logPath, logContent);
-  }
-
-  private writeToStream(
-    options: Record<string, unknown> = {},
-    entries: LogEntry[]
-  ): void {
-    const stream = options.stream as NodeJS.WritableStream;
-    if (!stream || typeof stream.write !== 'function') {
-      console.warn('Invalid stream transport');
-      return;
-    }
-
-    for (const entry of entries) {
-      stream.write(this.formatEntry(entry) + '\n');
-    }
-  }
+  // Removed unused writeToFile and writeToStream methods
 
   /**
    * Write latest entry to all transports
@@ -297,7 +234,7 @@ export class LoggerPlugin extends BasePlugin {
     this.writeToTransports();
   }
 
-  log(message: string, context?: Record<string, unknown>): void {
+  override log(message: string, context?: Record<string, unknown>): void {
     this.info(message, context);
   }
 
@@ -324,7 +261,9 @@ export class LoggerPlugin extends BasePlugin {
         transport instanceof StreamTransport
       ) {
         transport.level =
-          typeof level === 'string' ? level.toLowerCase() : LogLevel[logLevel].toLowerCase();
+          typeof level === 'string'
+            ? level.toLowerCase()
+            : LogLevel[logLevel].toLowerCase();
       }
     });
   }

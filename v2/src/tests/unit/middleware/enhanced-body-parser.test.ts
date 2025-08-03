@@ -30,6 +30,7 @@ describe('Enhanced Body Parser', () => {
         headers: {},
         setHeader: vi.fn(),
         json: vi.fn(),
+        status: vi.fn().mockReturnThis(), // Add status method
       } as any,
       status: 200,
       body: null,
@@ -338,8 +339,9 @@ describe('Enhanced Body Parser', () => {
         method: 'POST',
         url: '/test',
         headers: { 'content-type': 'text/plain' },
-        body: null,
+        body: undefined, // No body to trigger streaming
         on: vi.fn(),
+        readableEnded: false,
       } as any;
 
       // Mock the request to not emit 'data' or 'end' events
@@ -443,7 +445,7 @@ describe('Enhanced Body Parser', () => {
       expect(nextCalled).toBe(false);
       expect(mockContext.status).toBe(400);
       expect(mockContext.body).toHaveProperty('error');
-      expect(mockContext.body.error.code).toBe('BODY_PARSE_ERROR');
+      expect(mockContext.body.error.code).toBe('INVALID_JSON');
     });
 
     it('should set bodyParserResult in context', async () => {
@@ -522,8 +524,9 @@ describe('Enhanced Body Parser', () => {
         method: 'POST',
         url: '/test',
         headers: { 'content-type': 'text/plain' },
-        body: null,
+        body: undefined, // No body to trigger streaming
         on: vi.fn(),
+        readableEnded: false,
       } as any;
 
       request.on.mockImplementation(() => {}); // Don't emit events

@@ -8,10 +8,8 @@ import { createContext } from '@/core/app/context';
 import { RequestEnhancer } from '@/core/enhancers/request-enhancer';
 import { ResponseEnhancer } from '@/core/enhancers/response-enhancer';
 import { Router as RouterClass } from '@/core/router';
-import { HighPerformanceRouter } from '@/core/router/high-performance-router';
 import {
   GlobalExceptionFilter,
-  NextRushError,
   type ExceptionFilter,
 } from '@/errors/custom-errors';
 import {
@@ -54,6 +52,7 @@ import type {
   RequestIdOptions,
   TimerOptions,
 } from '@/core/middleware/types';
+import type { NextRushRequest, NextRushResponse } from '@/types/http';
 
 /**
  * NextRush Application class with Koa-style middleware and Express-like design
@@ -79,10 +78,9 @@ import type {
  * ```
  */
 export class NextRushApplication extends EventEmitter implements Application {
-  private server: Server;
+  private server!: Server;
   private middleware: Middleware[] = [];
-  private highPerformanceRouter: HighPerformanceRouter =
-    new HighPerformanceRouter();
+  private internalRouter: RouterClass = new RouterClass();
   private options: Required<ApplicationOptions>;
   private isShuttingDown = false;
 
@@ -111,44 +109,87 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
-   * Create the HTTP server
+   * Create HTTP server
    */
   private createServer(): Server {
-    return createServer(async (req: IncomingMessage, res: ServerResponse) => {
-      // Handle the request stream manually to prevent it from being consumed
-      await this.handleRequest(req, res);
+    return createServer(this.handleRequest.bind(this));
+  }
+
+  /**
+   * Setup event handlers
+   */
+  private setupEventHandlers(): void {
+    this.on('error', error => {
+      console.error('Application error:', error);
     });
   }
 
   /**
-   * Setup event handlers for graceful shutdown
-   */
-  private setupEventHandlers(): void {
-    process.on('SIGTERM', () => this.shutdown());
-    process.on('SIGINT', () => this.shutdown());
-  }
-
-  /**
-   * Handle incoming HTTP requests
+   * Handle incoming requests
    */
   private async handleRequest(
     req: IncomingMessage,
     res: ServerResponse
   ): Promise<void> {
-    try {
-      // Create context with raw request for body parsing
-      const ctx = createContext(req as any, res as any, this.options);
+    // Create context with proper type casting
+    const ctx = createContext(
+      req as NextRushRequest,
+      res as NextRushResponse,
+      this.options
+    );
 
-      // Execute middleware (body parser will work with raw request)
-      await this.executeMiddleware(ctx);
+    // Find the exception filter middleware
+    const exceptionFilter = this.middleware.find(middleware => {
+      // Check if this middleware is an exception filter
+      return (
+        middleware.toString().includes('exceptionFilter') ||
+        middleware.toString().includes('ExceptionFilter')
+      );
+    });
 
-      // Enhance request and response after body parsing
-      const enhancedReq = RequestEnhancer.enhance(req);
-      const enhancedRes = ResponseEnhancer.enhance(res);
-      ctx.req = enhancedReq as any;
-      ctx.res = enhancedRes as any;
-    } catch (error) {
-      this.handleError(error, res);
+    if (exceptionFilter) {
+      // Wrap the entire request handling in the exception filter
+      await exceptionFilter(ctx, async () => {
+        try {
+          // Execute middleware (body parser will work with raw request)
+          await this.executeMiddleware(ctx);
+
+          // Enhance request and response after body parsing
+          const enhancedReq = RequestEnhancer.enhance(req);
+          const enhancedRes = ResponseEnhancer.enhance(res);
+
+          // Copy the parsed body from context to the enhanced request
+          enhancedReq.body = ctx.body;
+          ctx.req = enhancedReq as unknown as NextRushRequest;
+          ctx.res = enhancedRes as unknown as NextRushResponse;
+
+          // Execute route
+          await this.executeRoute(ctx);
+        } catch (error) {
+          // Re-throw the error so it can be caught by the exception filter
+          throw error;
+        }
+      });
+    } else {
+      // No exception filter found, use basic error handling
+      try {
+        // Execute middleware (body parser will work with raw request)
+        await this.executeMiddleware(ctx);
+
+        // Enhance request and response after body parsing
+        const enhancedReq = RequestEnhancer.enhance(req);
+        const enhancedRes = ResponseEnhancer.enhance(res);
+
+        // Copy the parsed body from context to the enhanced request
+        enhancedReq.body = ctx.body;
+        ctx.req = enhancedReq as unknown as NextRushRequest;
+        ctx.res = enhancedRes as unknown as NextRushResponse;
+
+        // Execute route
+        await this.executeRoute(ctx);
+      } catch (error) {
+        this.handleError(error, res);
+      }
     }
   }
 
@@ -156,108 +197,55 @@ export class NextRushApplication extends EventEmitter implements Application {
    * Execute middleware stack
    */
   private async executeMiddleware(ctx: Context): Promise<void> {
-    let index = -1;
-
     const dispatch = async (i: number): Promise<void> => {
-      if (i <= index) {
-        throw new Error('next() called multiple times');
-      }
-      index = i;
-
-      if (i >= this.middleware.length) {
-        // Execute route handler when middleware is complete
-        await this.executeRoute(ctx);
+      if (i === this.middleware.length) {
         return;
       }
 
       const middleware = this.middleware[i];
       if (middleware) {
-        // Only log in debug mode for performance
-        if (this.options.debug) {
-          console.log(
-            `Executing middleware ${i + 1}/${this.middleware.length}`
-          );
-        }
         await middleware(ctx, () => dispatch(i + 1));
-      } else {
-        await dispatch(i + 1);
       }
     };
 
-    // Only log in debug mode for performance
-    if (this.options.debug) {
-      console.log(`Total middleware count: ${this.middleware.length}`);
-    }
     await dispatch(0);
   }
 
   /**
-   * Execute route with high-performance router
+   * Execute route handler
    */
   private async executeRoute(ctx: Context): Promise<void> {
-    const match = this.highPerformanceRouter.find(ctx.method, ctx.path);
+    const match = this.internalRouter.find(ctx.method, ctx.path);
 
     if (match) {
-      // Set parameters from router match
+      // Set route parameters in context
       ctx.params = match.params;
+
+      // Execute the route handler
       await match.handler(ctx);
     } else {
-      ctx.status = 404;
-      ctx.res.statusCode = 404;
-      ctx.res.json({ error: 'Not Found' });
+      // No route found
+      ctx.res.status(404).json({ error: 'Not Found' });
     }
-  }
-
-  /**
-   * Match route with parameters
-   */
-  private matchRoute(pattern: string, path: string, ctx: Context): boolean {
-    const patternParts = pattern.split('/');
-    const pathParts = path.split('/');
-
-    if (patternParts.length !== pathParts.length) {
-      return false;
-    }
-
-    const params: Record<string, string> = {};
-
-    for (let i = 0; i < patternParts.length; i++) {
-      const patternPart = patternParts[i];
-      const pathPart = pathParts[i];
-
-      if (patternPart && patternPart.startsWith(':')) {
-        // This is a parameter
-        const paramName = patternPart.slice(1);
-        if (pathPart) {
-          params[paramName] = pathPart;
-        }
-      } else if (patternPart !== pathPart) {
-        // Static parts must match exactly
-        return false;
-      }
-    }
-
-    // Set the params in the context
-    ctx.params = params;
-    return true;
   }
 
   /**
    * Handle errors
    */
   private handleError(error: unknown, res: ServerResponse): void {
-    const statusCode = error instanceof NextRushError ? error.statusCode : 500;
-    const message =
-      error instanceof Error ? error.message : 'Internal Server Error';
+    console.error('Request error:', error);
 
-    // Check if headers have already been sent
     if (!res.headersSent) {
-      res.statusCode = statusCode;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: message, statusCode }));
+      const errorMessage =
+        error instanceof Error ? error.message : 'Internal Server Error';
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: 'Internal Server Error',
+          message: errorMessage,
+        })
+      );
     }
-
-    this.emit('error', error);
   }
 
   /**
@@ -301,35 +289,29 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
-   * Register middleware or router
+   * Register middleware or sub-router
    */
   public use(middleware: Middleware): this;
-  /**
-   * Register router with prefix
-   */
   public use(prefix: string, router: Router): this;
   public use(middlewareOrPrefix: Middleware | string, router?: Router): this {
-    if (
-      typeof middlewareOrPrefix === 'function' ||
-      typeof middlewareOrPrefix === 'object'
-    ) {
+    if (typeof middlewareOrPrefix === 'function') {
       // Register middleware
-      console.log('Registering middleware:', typeof middlewareOrPrefix);
-      this.middleware.push(middlewareOrPrefix as Middleware);
-    } else if (router && typeof middlewareOrPrefix === 'string') {
-      // Register router with prefix
-      const routerRoutes = router.getRoutes();
-      const routerMiddleware = router.getMiddleware();
+      this.middleware.push(middlewareOrPrefix);
+    } else if (router) {
+      // Register sub-router
+      const subRouter = router as any;
+      const subRoutes = subRouter.getRoutes();
+      const subMiddleware = subRouter.getMiddleware();
 
-      // Add router middleware
-      this.middleware.push(...routerMiddleware);
+      // Add sub-router middleware
+      this.middleware.push(...subMiddleware);
 
-      // Add router routes with prefix
-      for (const [routeKey, handler] of routerRoutes) {
+      // Add sub-router routes with prefix
+      for (const [routeKey, handler] of subRoutes) {
         const [method, path] = routeKey.split(':');
         if (method && path) {
           const fullPath = `${middlewareOrPrefix}${path}`;
-          this.highPerformanceRouter.register(method, fullPath, handler);
+          this.registerRoute(method, fullPath, handler);
         }
       }
     }
@@ -338,14 +320,14 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
-   * Create a new router instance
+   * Create router instance
    */
   public router(): Router {
     return new RouterClass();
   }
 
   /**
-   * Register a route with high-performance router
+   * Register a route with the router
    */
   private registerRoute(
     method: string,
@@ -354,7 +336,27 @@ export class NextRushApplication extends EventEmitter implements Application {
   ): void {
     const routeHandler =
       typeof handler === 'object' ? handler.handler : handler;
-    this.highPerformanceRouter.register(method, path, routeHandler);
+
+    // Use the router's HTTP method methods
+    switch (method) {
+      case 'GET':
+        this.internalRouter.get(path, routeHandler);
+        break;
+      case 'POST':
+        this.internalRouter.post(path, routeHandler);
+        break;
+      case 'PUT':
+        this.internalRouter.put(path, routeHandler);
+        break;
+      case 'DELETE':
+        this.internalRouter.delete(path, routeHandler);
+        break;
+      case 'PATCH':
+        this.internalRouter.patch(path, routeHandler);
+        break;
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
+    }
   }
 
   /**
@@ -388,11 +390,28 @@ export class NextRushApplication extends EventEmitter implements Application {
     this.isShuttingDown = true;
     this.emit('shutdown');
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Server shutdown timeout'));
+      }, 5000);
+
       this.server.close(() => {
+        clearTimeout(timeout);
         this.emit('closed');
         resolve();
       });
+
+      // Force close if normal close doesn't work
+      setTimeout(() => {
+        try {
+          this.server.unref();
+          clearTimeout(timeout);
+          resolve();
+        } catch (error) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      }, 3000);
     });
   }
 

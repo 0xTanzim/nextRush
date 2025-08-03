@@ -147,6 +147,9 @@ export class ResponseEnhancer {
     // Core response methods
     if (!enhanced.json) {
       enhanced.json = (data: unknown) => {
+        if (enhanced.headersSent || enhanced.finished) {
+          return; // Don't write if response has already been sent
+        }
         if (!enhanced.headersSent) {
           enhanced.setHeader('Content-Type', 'application/json');
         }
@@ -163,6 +166,9 @@ export class ResponseEnhancer {
 
     if (!enhanced.send) {
       enhanced.send = (data: string | Buffer | object) => {
+        if (enhanced.headersSent || enhanced.finished) {
+          return; // Don't write if response has already been sent
+        }
         if (typeof data === 'object' && !Buffer.isBuffer(data)) {
           enhanced.json(data);
         } else {
@@ -180,6 +186,9 @@ export class ResponseEnhancer {
 
     if (!enhanced.html) {
       enhanced.html = (data: string) => {
+        if (enhanced.headersSent || enhanced.finished) {
+          return; // Don't write if response has already been sent
+        }
         if (!enhanced.headersSent) {
           enhanced.setHeader('Content-Type', 'text/html');
         }
@@ -196,6 +205,9 @@ export class ResponseEnhancer {
 
     if (!enhanced.text) {
       enhanced.text = (data: string) => {
+        if (enhanced.headersSent || enhanced.finished) {
+          return; // Don't write if response has already been sent
+        }
         if (!enhanced.headersSent) {
           enhanced.setHeader('Content-Type', 'text/plain');
         }
@@ -212,6 +224,9 @@ export class ResponseEnhancer {
 
     if (!enhanced.xml) {
       enhanced.xml = (data: string) => {
+        if (enhanced.headersSent || enhanced.finished) {
+          return; // Don't write if response has already been sent
+        }
         if (!enhanced.headersSent) {
           enhanced.setHeader('Content-Type', 'application/xml');
         }
