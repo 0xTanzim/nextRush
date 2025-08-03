@@ -1,0 +1,47 @@
+{
+  "name": "@nextrush/benchmarks",
+  "version": "2.0.0",
+  "description": "Comprehensive benchmarking suite for NextRush v2",
+  "type": "module",
+  "main": "src/orchestrator.ts",
+  "scripts": {
+    "benchmark": "tsx src/orchestrator.ts",
+    "quick": "tsx src/simple-benchmark.ts",
+    "comprehensive": "tsx src/comprehensive-benchmark.ts",
+    "test": "vitest",
+    "build": "tsc",
+    "clean": "rm -rf dist reports"
+  },
+  "dependencies": {
+    "@fastify/compress": "^7.0.3",
+    "@fastify/cors": "^9.0.1",
+    "@fastify/helmet": "^11.1.1",
+    "@fastify/rate-limit": "^9.1.0",
+    "@koa/cors": "^5.0.0",
+    "autocannon": "^8.0.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "fastify": "^4.24.3",
+    "helmet": "^7.1.0",
+    "koa": "^2.14.2",
+    "koa-bodyparser": "^4.4.1",
+    "koa-compress": "^5.1.1",
+    "koa-helmet": "^7.1.0",
+    "koa-ratelimit": "^5.1.0",
+    "nextrush-v2": "workspace:*",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -32,7 +32,7 @@ describe('NextRush v2 Features E2E Tests', () => {
   beforeAll(async () => {
     app = createApp({ port: 0 });
 
-    // Add smart body parser
+    // Add body parser middleware
     app.use(app.smartBodyParser());
 
     // Add exception filter
@@ -142,7 +142,6 @@ describe('NextRush v2 Features E2E Tests', () => {
 
   afterAll(async () => {
     await app.shutdown();
-    server.close();
   });
 
   describe('Smart Body Parser', () => {

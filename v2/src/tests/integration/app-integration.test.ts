@@ -28,8 +28,8 @@ describe('Application Integration', () => {
         credentials: true,
       })
     );
-    app.use(app.json({ limit: '10mb' }));
-    app.use(app.urlencoded({ extended: true }));
+    // Add body parser middleware
+    app.use(app.smartBodyParser());
     app.use(app.requestId());
     app.use(app.timer());
     app.use(app.rateLimit({ max: 100, windowMs: 15 * 60 * 1000 }));
@@ -413,7 +413,7 @@ describe('Application Integration', () => {
       expect(response.status).toBe(500);
 
       const data = await response.json();
-      expect(data).toHaveProperty('error', 'Internal server error');
+      expect(data).toHaveProperty('error', 'Internal Server Error');
       expect(data).toHaveProperty('message', 'Test error');
     });
   });

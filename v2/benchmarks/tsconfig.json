@@ -1,0 +1,34 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../src/*"],
+      "@benchmarks/*": ["./src/*"],
+      "@tools/*": ["../tools/*"]
+    },
+    "types": ["node", "vitest/globals"],
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*",
+    "demo.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "results",
+    "reports",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "references": [
+    {
+      "path": "../"
+    }
+  ]
+} 

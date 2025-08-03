@@ -20,8 +20,8 @@ describe('Body Parser Integration', () => {
       debug: true,
     });
 
-    // Set up middleware
-    app.use(app.json());
+    // Set up middleware (body parser is automatically applied)
+    app.use(app.smartBodyParser());
     app.use(app.logger());
 
     // Test route
@@ -73,6 +73,6 @@ describe('Body Parser Integration', () => {
 
     const data = (await response.json()) as { received: unknown };
     expect(response.status).toBe(200);
-    expect(data.received).toBeUndefined();
+    expect(data.received).toBeNull();
   });
 });

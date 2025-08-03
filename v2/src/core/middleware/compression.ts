@@ -65,7 +65,7 @@ function getBestCompression(
     .toLowerCase()
     .split(',')
     .map(a => a.trim())
-    .map(a => a.split(';')[0].trim()); // Remove quality values
+    .map(a => a.split(';')[0]?.trim() || ''); // Remove quality values
 
   // Check for brotli support
   if (options.brotli && algorithms.includes('br')) {
@@ -114,7 +114,7 @@ function createCompressionStream(
     case 'br':
       return createBrotliCompress({
         params: {
-          0: options.quality || 6, // BROTLI_PARAM_QUALITY
+          0: options.level || 6, // BROTLI_PARAM_QUALITY
           1: options.chunkSize || 16384, // BROTLI_PARAM_SIZE_HINT
         },
       });
@@ -195,7 +195,7 @@ export function compression(options: CompressionOptions = {}): Middleware {
         this,
         chunk,
         encoding as BufferEncoding,
-        callback
+        callback as (error?: Error | null) => void
       );
     };
 
