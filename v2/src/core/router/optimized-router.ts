@@ -114,6 +114,13 @@ class PathSplitter {
   private static readonly CACHE_SIZE = 100;
   private static pathCache = new Map<string, string[]>();
 
+  /**
+   * Get cache size for statistics
+   */
+  static getCacheSize(): number {
+    return this.pathCache.size;
+  }
+
   static split(path: string): string[] {
     if (path === '/' || path === '') return [];
 
@@ -336,38 +343,6 @@ export class OptimizedRouter implements RouterInterface {
   }
 
   /**
-   * Recursively collect all routes from the tree
-   */
-  private collectRoutes(
-    node: OptimizedRadixNode,
-    currentPath: string,
-    routes: Map<string, RouteHandler>
-  ): void {
-    // Add handlers from current node
-    for (const [method, handler] of node.handlers) {
-      const routeKey = `${method}:${currentPath}`;
-      routes.set(routeKey, handler);
-    }
-
-    // Recursively collect from children
-    for (const [path, child] of node.children) {
-      const childPath = currentPath ? `${currentPath}/${path}` : `/${path}`;
-      this.collectRoutes(child, childPath, routes);
-    }
-
-    // Collect from parameter child
-    if (node.paramChild) {
-      const paramName = node.paramChild.paramName;
-      if (paramName) {
-        const paramPath = currentPath
-          ? `${currentPath}/:${paramName}`
-          : `/:${paramName}`;
-        this.collectRoutes(node.paramChild, paramPath, routes);
-      }
-    }
-  }
-
-  /**
    * Get router middleware
    */
   public getMiddleware(): Middleware[] {
@@ -386,9 +361,7 @@ export class OptimizedRouter implements RouterInterface {
       pool: poolStats,
       performance: {
         totalRoutes: this.getTotalRoutes(),
-        pathCacheSize:
-          (PathSplitter as { pathCache?: Map<string, string[]> }).pathCache
-            ?.size || 0,
+        pathCacheSize: PathSplitter.getCacheSize(),
       },
     };
   }

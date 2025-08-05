@@ -131,3 +131,7 @@ security-report.*
 
 find-my-way
 find-my-way/
+
+
+/v2/benchmarks/reports/
+v2/benchmarks/reports/
