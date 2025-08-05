@@ -129,3 +129,5 @@ security-report.*
 # Optional eslint cache
 .eslintcache
 
+find-my-way
+find-my-way/

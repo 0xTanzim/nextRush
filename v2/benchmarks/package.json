@@ -6,8 +6,13 @@
   "main": "src/orchestrator.ts",
   "scripts": {
     "benchmark": "tsx src/orchestrator.ts",
+    "apache-bench": "tsx src/orchestrator.ts apache-bench",
+    "comprehensive-with-ab": "tsx src/orchestrator.ts comprehensive-with-ab",
     "quick": "tsx src/simple-benchmark.ts",
     "comprehensive": "tsx src/comprehensive-benchmark.ts",
+    "minimal": "tsx src/minimal-benchmark.ts",
+    "fair": "tsx src/fair-benchmark.ts",
+    "install-tools": "chmod +x scripts/install-apache-bench.sh && ./scripts/install-apache-bench.sh",
     "test": "vitest",
     "build": "tsc",
     "clean": "rm -rf dist reports"

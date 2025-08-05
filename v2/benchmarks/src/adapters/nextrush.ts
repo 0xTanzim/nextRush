@@ -16,12 +16,11 @@ export class NextRushAdapter implements BenchmarkAdapter {
   private port: number = 0;
 
   async setup(): Promise<{ port: number; server: Server }> {
-    // Create NextRush v2 application with all features
+    // Create NextRush v2 application
     this.app = createApp({
       port: 0, // Let OS assign port
       host: 'localhost',
       trustProxy: true,
-      enableLogging: false, // Disable for benchmarks
     });
 
     // Register comprehensive middleware stack
@@ -54,7 +53,7 @@ export class NextRushAdapter implements BenchmarkAdapter {
     });
 
     this.app.get('/api/users/:id', ctx => {
-      const id = parseInt(ctx.params.id);
+      const id = parseInt(ctx.params['id'] || '0');
       if (id === 404) {
         ctx.status = 404;
         ctx.res.json({ error: 'User not found' });
@@ -74,13 +73,13 @@ export class NextRushAdapter implements BenchmarkAdapter {
     });
 
     this.app.put('/api/users/:id', ctx => {
-      const id = parseInt(ctx.params.id);
+      const id = parseInt(ctx.params['id'] || '0');
       const body = ctx.body as { name?: string; email?: string };
       ctx.res.json({ id, ...body, updated: true });
     });
 
     this.app.delete('/api/users/:id', ctx => {
-      const id = parseInt(ctx.params.id);
+      const id = parseInt(ctx.params['id'] || '0');
       ctx.status = 204;
     });
 
@@ -113,7 +112,7 @@ export class NextRushAdapter implements BenchmarkAdapter {
 
     // Error handling
     this.app.get('/api/error/:type', ctx => {
-      const type = ctx.params.type;
+      const type = ctx.params['type'];
       switch (type) {
         case '400':
           ctx.status = 400;
@@ -143,16 +142,23 @@ export class NextRushAdapter implements BenchmarkAdapter {
       });
     });
 
-    // Static file serving (if available)
-    try {
-      this.app.use('/static', this.app.static('public'));
-    } catch (error) {
-      // Static files not available in this version
-    }
-
     // Start server
-    this.server = await this.app.listen();
-    this.port = (this.server.address() as any).port;
+    this.server = this.app.listen();
+
+    // Wait for server to be ready and get port
+    await new Promise<void>(resolve => {
+      const checkServer = () => {
+        const address = this.server?.address();
+        if (address) {
+          this.port = (address as any).port;
+          console.log(`📡 NextRush server started on port ${this.port}`);
+          resolve();
+        } else {
+          setTimeout(checkServer, 100);
+        }
+      };
+      checkServer();
+    });
 
     return { port: this.port, server: this.server };
   }

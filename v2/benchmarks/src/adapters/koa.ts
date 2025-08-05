@@ -11,7 +11,6 @@ import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import helmet from 'koa-helmet';
-import rateLimit from 'koa-ratelimit';
 
 export class KoaAdapter {
   private app: Koa;
@@ -32,23 +31,23 @@ export class KoaAdapter {
     // Performance middleware
     this.app.use(compress());
 
-    // Rate limiting
-    const db = new Map();
-    this.app.use(
-      rateLimit({
-        driver: 'memory',
-        db: db,
-        duration: 15 * 60 * 1000, // 15 minutes
-        max: 1000, // limit each IP to 1000 requests per duration
-        errorMessage: 'Too many requests from this IP',
-        id: (ctx: any) => ctx.ip,
-        headers: {
-          remaining: 'X-RateLimit-Remaining',
-          reset: 'X-RateLimit-Reset',
-          total: 'X-RateLimit-Total',
-        },
-      })
-    );
+    // Rate limiting - DISABLED for benchmarks
+    // const db = new Map();
+    // this.app.use(
+    //   rateLimit({
+    //     driver: 'memory',
+    //     db: db,
+    //     duration: 15 * 60 * 1000, // 15 minutes
+    //     max: 1000, // limit each IP to 1000 requests per duration
+    //     errorMessage: 'Too many requests from this IP',
+    //     id: (ctx: any) => ctx.ip,
+    //     headers: {
+    //       remaining: 'X-RateLimit-Remaining',
+    //       reset: 'X-RateLimit-Reset',
+    //       total: 'X-RateLimit-Total',
+    //     },
+    //   })
+    // );
 
     // Body parsing
     this.app.use(
