@@ -7,15 +7,11 @@
  * @packageDocumentation
  */
 
-import type {
-  Middleware,
-  RouteConfig,
-  RouteHandler,
-  Router as RouterInterface,
-} from '@/types/context';
-
 // Re-export the optimized router as the main implementation
-export { OptimizedRouter as Router, createOptimizedRouter as createRouter } from './optimized-router';
+export {
+  OptimizedRouter as Router,
+  createOptimizedRouter as createRouter,
+} from './optimized-router';
 
 // For backward compatibility, also export the original class name
 export { OptimizedRouter } from './optimized-router';
