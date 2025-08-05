@@ -308,10 +308,14 @@ export class NextRushApplication extends EventEmitter implements Application {
 
       // Add sub-router routes with prefix
       for (const [routeKey, handler] of subRoutes) {
-        const [method, path] = routeKey.split(':');
-        if (method && path) {
-          const fullPath = `${middlewareOrPrefix}${path}`;
-          this.registerRoute(method, fullPath, handler);
+        const colonIndex = routeKey.indexOf(':');
+        if (colonIndex !== -1) {
+          const method = routeKey.substring(0, colonIndex);
+          const path = routeKey.substring(colonIndex + 1);
+          if (method && path) {
+            const fullPath = `${middlewareOrPrefix}${path}`;
+            this.registerRoute(method, fullPath, handler);
+          }
         }
       }
     }

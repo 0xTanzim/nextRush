@@ -9,7 +9,6 @@
 import compress from '@fastify/compress';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 export class FastifyAdapter {
@@ -34,18 +33,18 @@ export class FastifyAdapter {
     // Performance plugins
     await this.app.register(compress);
 
-    // Rate limiting
-    await this.app.register(rateLimit, {
-      max: 1000,
-      timeWindow: '15 minutes',
-      errorResponseBuilder: (req: any, context: any) => ({
-        code: 429,
-        error: 'Too Many Requests',
-        message: `Rate limit exceeded, retry in ${context.after}`,
-        date: Date.now(),
-        expiresIn: context.ttl,
-      }),
-    });
+    // Rate limiting - DISABLED for benchmarks
+    // await this.app.register(rateLimit, {
+    //   max: 1000,
+    //   timeWindow: '15 minutes',
+    //   errorResponseBuilder: (req: any, context: any) => ({
+    //     code: 429,
+    //     error: 'Too Many Requests',
+    //     message: `Rate limit exceeded, retry in ${context.after}`,
+    //     date: Date.now(),
+    //     expiresIn: context.ttl,
+    //   }),
+    // });
 
     // Request logging
     this.app.addHook('onResponse', (request: any, reply: any, done: any) => {
