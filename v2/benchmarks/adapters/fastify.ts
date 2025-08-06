@@ -10,16 +10,11 @@ export class FastifyAdapter {
   private server: any = null;
 
   constructor() {
-    this.app = Fastify({
-      logger: false,
-      disableRequestLogging: true,
-      trustProxy: false,
-    });
+    this.app = Fastify({ logger: false });
     this.setupRoutes();
   }
 
   private setupRoutes(): void {
-    // Exactly same responses as other frameworks
     this.app.get('/hello', async () => {
       return 'Hello World!';
     });
@@ -29,7 +24,7 @@ export class FastifyAdapter {
     });
 
     this.app.post('/echo', async (request: any) => {
-      return request.body || {};
+      return request.body;
     });
   }
 

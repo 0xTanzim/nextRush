@@ -34,15 +34,24 @@ import {
   type ServerResponse,
 } from 'node:http';
 
-// Import built-in middleware
-import { compression } from '@/core/middleware/compression';
-import { cors } from '@/core/middleware/cors';
-import { enhancedBodyParser } from '@/core/middleware/enhanced-body-parser';
-import { helmet } from '@/core/middleware/helmet';
-import { logger } from '@/core/middleware/logger';
-import { rateLimit } from '@/core/middleware/rate-limiter';
-import { requestId } from '@/core/middleware/request-id';
-import { timer } from '@/core/middleware/timer';
+// Import DI system
+import { createSafeConfiguration } from '@/core/config/validation';
+import {
+  createContainer,
+  createMiddlewareFactory,
+  registerDefaultMiddleware,
+  type DIContainer,
+  type MiddlewareFactory,
+} from '@/core/di';
+
+// Import SafeContext system
+import {
+  createSafeContext,
+  createSafeMiddleware,
+} from '@/core/context/immutable';
+
+// Import built-in middleware types for backward compatibility
+import type { EnhancedBodyParserOptions } from '@/core/middleware/enhanced-body-parser';
 import type {
   CompressionOptions,
   CorsOptions,
@@ -83,26 +92,19 @@ export class NextRushApplication extends EventEmitter implements Application {
   private internalRouter: RouterClass = new RouterClass();
   private options: Required<ApplicationOptions>;
   private isShuttingDown = false;
+  private container: DIContainer;
+  private middlewareFactory: MiddlewareFactory;
 
   constructor(options: ApplicationOptions = {}) {
     super();
 
-    this.options = {
-      port: 3000,
-      host: 'localhost',
-      debug: false,
-      trustProxy: false,
-      maxBodySize: 1024 * 1024, // 1MB
-      timeout: 30000, // 30 seconds
-      cors: true,
-      static: 'public',
-      template: {
-        engine: 'simple',
-        directory: 'views',
-      },
-      keepAlive: 10000, // 10 seconds
-      ...options,
-    };
+    // Create safe configuration with validation
+    this.options = createSafeConfiguration(options);
+
+    // Initialize DI container and middleware factory
+    this.container = createContainer();
+    registerDefaultMiddleware(this.container);
+    this.middlewareFactory = createMiddlewareFactory(this.container);
 
     this.server = this.createServer();
     this.setupEventHandlers();
@@ -112,7 +114,16 @@ export class NextRushApplication extends EventEmitter implements Application {
    * Create HTTP server
    */
   private createServer(): Server {
-    return createServer(this.handleRequest.bind(this));
+    return createServer((req, res) => {
+      // Handle async request processing without blocking
+      this.handleRequest(req, res).catch(error => {
+        console.error('Request handling error:', error);
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.end('Internal Server Error');
+        }
+      });
+    });
   }
 
   /**
@@ -152,29 +163,6 @@ export class NextRushApplication extends EventEmitter implements Application {
       if (exceptionFilter) {
         // Wrap the entire request handling in the exception filter
         await exceptionFilter(ctx, async () => {
-          try {
-            // Execute middleware with async boundary
-            await this.executeMiddlewareWithBoundary(ctx);
-
-            // Enhance request and response after body parsing
-            const enhancedReq = RequestEnhancer.enhance(req);
-            const enhancedRes = ResponseEnhancer.enhance(res);
-
-            // Copy the parsed body from context to the enhanced request
-            enhancedReq.body = ctx.body;
-            ctx.req = enhancedReq as unknown as NextRushRequest;
-            ctx.res = enhancedRes as unknown as NextRushResponse;
-
-            // Execute route with async boundary
-            await this.executeRouteWithBoundary(ctx);
-          } catch (error) {
-            // Re-throw the error so it can be caught by the exception filter
-            throw error;
-          }
-        });
-      } else {
-        // No exception filter found, use basic error handling
-        try {
           // Execute middleware with async boundary
           await this.executeMiddlewareWithBoundary(ctx);
 
@@ -189,9 +177,23 @@ export class NextRushApplication extends EventEmitter implements Application {
 
           // Execute route with async boundary
           await this.executeRouteWithBoundary(ctx);
-        } catch (error) {
-          this.handleError(error, res);
-        }
+        });
+      } else {
+        // No exception filter found, use basic error handling
+        // Execute middleware with async boundary
+        await this.executeMiddlewareWithBoundary(ctx);
+
+        // Enhance request and response after body parsing
+        const enhancedReq = RequestEnhancer.enhance(req);
+        const enhancedRes = ResponseEnhancer.enhance(res);
+
+        // Copy the parsed body from context to the enhanced request
+        enhancedReq.body = ctx.body;
+        ctx.req = enhancedReq as unknown as NextRushRequest;
+        ctx.res = enhancedRes as unknown as NextRushResponse;
+
+        // Execute route with async boundary
+        await this.executeRouteWithBoundary(ctx);
       }
     };
 
@@ -205,36 +207,40 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
-   * Execute middleware stack with async boundary
+   * Execute middleware stack with SafeContext protection against race conditions
    */
   private async executeMiddlewareWithBoundary(ctx: Context): Promise<void> {
-    const dispatch = async (i: number): Promise<void> => {
-      if (i === this.middleware.length) {
+    // Create safe context wrapper to prevent race conditions
+    let safeCtx = createSafeContext(ctx);
+    let index = 0;
+
+    const dispatch = async (): Promise<void> => {
+      if (index >= this.middleware.length) {
         return;
       }
 
-      const middleware = this.middleware[i];
+      const middleware = this.middleware[index++];
       if (middleware) {
-        // Add async boundary between middleware executions
-        await new Promise<void>(resolve => {
-          setImmediate(async () => {
-            try {
-              await middleware(ctx, () => dispatch(i + 1));
-              resolve();
-            } catch (error) {
-              // Re-throw to be handled by the caller
-              throw error;
-            }
-          });
-        });
+        // Execute middleware with safe context
+        // Convert regular middleware to work with SafeContext temporarily
+        const safeMiddleware = createSafeMiddleware(middleware);
+        const result = await safeMiddleware(safeCtx, dispatch);
+
+        // Update safeCtx if middleware returned a new context
+        if (result) {
+          safeCtx = result;
+        }
       }
     };
 
-    await dispatch(0);
+    await dispatch();
+
+    // Commit final context state back to original context
+    safeCtx.commit();
   }
 
   /**
-   * Execute route handler with async boundary
+   * Execute route handler with high-performance direct execution
    */
   private async executeRouteWithBoundary(ctx: Context): Promise<void> {
     const match = this.internalRouter.find(ctx.method, ctx.path);
@@ -243,39 +249,11 @@ export class NextRushApplication extends EventEmitter implements Application {
       // Set route parameters in context
       ctx.params = match.params;
 
-      // Execute the route handler with async boundary
-      await new Promise<void>((resolve, reject) => {
-        setImmediate(async () => {
-          try {
-            await match.handler(ctx);
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
+      // Direct execution for maximum performance - no setImmediate overhead
+      await match.handler(ctx);
     } else {
       // No route found
       ctx.res.status(404).json({ error: 'Not Found' });
-    }
-  }
-
-  /**
-   * Handle errors
-   */
-  private handleError(error: unknown, res: ServerResponse): void {
-    console.error('Request error:', error);
-
-    if (!res.headersSent) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Internal Server Error';
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: 'Internal Server Error',
-          message: errorMessage,
-        })
-      );
     }
   }
 
@@ -397,13 +375,31 @@ export class NextRushApplication extends EventEmitter implements Application {
   /**
    * Start the server
    */
-  public listen(port?: number, host?: string, callback?: () => void): Server {
-    const listenPort = port ?? this.options.port;
-    const listenHost = host ?? this.options.host;
+  public listen(
+    port?: number,
+    host?: string | (() => void),
+    callback?: () => void
+  ): Server {
+    let actualPort: number;
+    let actualHost: string;
+    let actualCallback: (() => void) | undefined;
 
-    this.server.listen(listenPort, listenHost, () => {
-      this.emit('listening', { port: listenPort, host: listenHost });
-      callback?.();
+    // Handle overloaded parameters
+    if (typeof host === 'function') {
+      // listen(port, callback)
+      actualPort = port ?? this.options.port;
+      actualHost = this.options.host;
+      actualCallback = host;
+    } else {
+      // listen(port, host, callback)
+      actualPort = port ?? this.options.port;
+      actualHost = host ?? this.options.host;
+      actualCallback = callback;
+    }
+
+    this.server.listen(actualPort, actualHost, () => {
+      this.emit('listening', { port: actualPort, host: actualHost });
+      actualCallback?.();
     });
 
     return this.server;
@@ -453,214 +449,80 @@ export class NextRushApplication extends EventEmitter implements Application {
   // ==================== MIDDLEWARE FACTORY METHODS ====================
 
   /**
-   * Create CORS middleware
-   *
-   * @param options - CORS configuration options
-   * @returns CORS middleware function
-   *
-   * @example
-   * ```typescript
-   * const app = createApp();
-   *
-   * // Basic CORS
-   * app.use(app.cors());
-   *
-   * // Advanced CORS
-   * app.use(app.cors({
-   *   origin: ['https://app.example.com'],
-   *   credentials: true,
-   *   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-   * }));
-   * ```
+   * Create CORS middleware - now delegated to middleware factory
    */
   public cors(options: CorsOptions = {}): Middleware {
-    return cors(options);
+    return this.middlewareFactory.createCors(options);
   }
 
   /**
-   * Create helmet middleware
-   *
-   * @param options - Helmet configuration options
-   * @returns Helmet middleware function
-   *
-   * @example
-   * ```typescript
-   * const app = createApp();
-   *
-   * // Basic security headers
-   * app.use(app.helmet());
-   *
-   * // Advanced security headers
-   * app.use(app.helmet({
-   *   contentSecurityPolicy: {
-   *     directives: {
-   *       defaultSrc: ["'self'"],
-   *       scriptSrc: ["'self'"],
-   *     },
-   *   },
-   * }));
-   * ```
+   * Create helmet middleware - now delegated to middleware factory
    */
   public helmet(options: HelmetOptions = {}): Middleware {
-    return helmet(options);
+    return this.middlewareFactory.createHelmet(options);
   }
 
   /**
-   * Create body parser middleware
-   *
-   * @param options - Body parser configuration options
-   * @returns Body parser middleware function
-   *
-   * @example
-   * ```typescript
-   * const app = createApp();
-   *
-   * // JSON body parser
-   * app.use(app.json({ limit: '10mb' }));
-   *
-   * // URL-encoded body parser
-   * app.use(app.urlencoded({ extended: true }));
-   * ```
+   * Create JSON body parser middleware - now delegated to middleware factory
    */
-  public json(options: any = {}): Middleware {
-    return enhancedBodyParser({ ...options, autoDetectContentType: false });
+  public json(options: EnhancedBodyParserOptions = {}): Middleware {
+    return this.middlewareFactory.createJson(options);
   }
 
   /**
-   * Create URL-encoded body parser middleware
-   *
-   * @param options - URL-encoded parser configuration options
-   * @returns URL-encoded parser middleware function
+   * Create URL-encoded body parser middleware - now delegated to middleware factory
    */
-  public urlencoded(options: any = {}): Middleware {
-    return enhancedBodyParser({ ...options, autoDetectContentType: false });
-  }
-
-  public text(options: { limit?: string; type?: string } = {}): Middleware {
-    return enhancedBodyParser({ ...options, autoDetectContentType: false });
+  public urlencoded(options: EnhancedBodyParserOptions = {}): Middleware {
+    return this.middlewareFactory.createUrlencoded(options);
   }
 
   /**
-   * Create rate limiter middleware
-   *
-   * @param options - Rate limiter configuration options
-   * @returns Rate limiter middleware function
-   *
-   * @example
-   * ```typescript
-   * const app = createApp();
-   *
-   * // Basic rate limiting
-   * app.use(app.rateLimit({
-   *   windowMs: 15 * 60 * 1000, // 15 minutes
-   *   max: 100, // limit each IP to 100 requests per windowMs
-   * }));
-   * ```
+   * Create text body parser middleware - now delegated to middleware factory
+   */
+  public text(options: EnhancedBodyParserOptions = {}): Middleware {
+    return this.middlewareFactory.createText(options);
+  }
+
+  /**
+   * Create rate limiter middleware - now delegated to middleware factory
    */
   public rateLimit(options: RateLimiterOptions = {}): Middleware {
-    return rateLimit(options);
+    return this.middlewareFactory.createRateLimit(options);
   }
 
   /**
-   * Create logger middleware
-   *
-   * @param options - Logger configuration options
-   * @returns Logger middleware function
-   *
-   * @example
-   * ```typescript
-   * const app = createApp();
-   *
-   * // Basic logging
-   * app.use(app.logger());
-   *
-   * // Detailed logging
-   * app.use(app.logger({
-   *   format: 'detailed',
-   *   includeHeaders: true,
-   * }));
-   * ```
+   * Create logger middleware - now delegated to middleware factory
    */
   public logger(options: LoggerOptions = {}): Middleware {
-    return logger(options);
+    return this.middlewareFactory.createLogger(options);
   }
 
   /**
-   * Create compression middleware
-   *
-   * @param options - Compression configuration options
-   * @returns Compression middleware function
+   * Create compression middleware - now delegated to middleware factory
    */
   public compression(options: CompressionOptions = {}): Middleware {
-    return compression(options);
+    return this.middlewareFactory.createCompression(options);
   }
 
   /**
-   * Create request ID middleware
-   *
-   * @param options - Request ID configuration options
-   * @returns Request ID middleware function
+   * Create request ID middleware - now delegated to middleware factory
    */
   public requestId(options: RequestIdOptions = {}): Middleware {
-    return requestId(options);
+    return this.middlewareFactory.createRequestId(options);
   }
 
   /**
-   * Create timer middleware
-   *
-   * @param options - Timer configuration options
-   * @returns Timer middleware function
+   * Create timer middleware - now delegated to middleware factory
    */
   public timer(options: TimerOptions = {}): Middleware {
-    return timer(options);
+    return this.middlewareFactory.createTimer(options);
   }
 
   /**
-   * Create automatic smart body parser middleware
-   *
-   * Automatically detects and parses request bodies based on content-type:
-   * - application/json -> JSON parsing
-   * - application/x-www-form-urlencoded -> URL-encoded parsing
-   * - text/* -> Text parsing
-   * - multipart/form-data -> Form data parsing (basic)
-   *
-   * @param options - Smart body parser configuration options
-   * @returns Smart body parser middleware function
-   *
-   * @example
-   * ```typescript
-   * const app = createApp();
-   *
-   * // Automatic body parsing
-   * app.use(app.smartBodyParser());
-   *
-   * // With custom options
-   * app.use(app.smartBodyParser({
-   *   json: { limit: '10mb' },
-   *   urlencoded: { extended: true },
-   *   text: { limit: '1mb' }
-   * }));
-   * ```
+   * Create smart body parser middleware - now delegated to middleware factory
    */
-  public smartBodyParser(
-    options: {
-      maxSize?: number;
-      timeout?: number;
-      enableStreaming?: boolean;
-      streamingThreshold?: number;
-      poolSize?: number;
-      fastValidation?: boolean;
-      autoDetectContentType?: boolean;
-      strictContentType?: boolean;
-      debug?: boolean;
-      maxFiles?: number;
-      maxFileSize?: number;
-      memoryStorage?: boolean;
-      encoding?: BufferEncoding;
-      enableMetrics?: boolean;
-    } = {}
-  ): Middleware {
-    return enhancedBodyParser(options);
+  public smartBodyParser(options: EnhancedBodyParserOptions = {}): Middleware {
+    return this.middlewareFactory.createSmartBodyParser(options);
   }
 
   /**

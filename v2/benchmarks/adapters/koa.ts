@@ -5,7 +5,6 @@
 
 import Router from '@koa/router';
 import Koa from 'koa';
-import bodyParser from 'koa-bodyparser';
 
 export class KoaAdapter {
   private app: Koa;
@@ -13,17 +12,12 @@ export class KoaAdapter {
 
   constructor() {
     this.app = new Koa();
-
-    // Essential middleware for fair comparison
-    this.app.use(bodyParser());
-
     this.setupRoutes();
   }
 
   private setupRoutes(): void {
     const router = new Router();
 
-    // Exactly same responses as other frameworks
     router.get('/hello', ctx => {
       ctx.body = 'Hello World!';
     });
@@ -33,7 +27,7 @@ export class KoaAdapter {
     });
 
     router.post('/echo', ctx => {
-      ctx.body = ctx.request.body || {};
+      ctx.body = ctx.request.body;
     });
 
     this.app.use(router.routes());

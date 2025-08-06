@@ -4,33 +4,28 @@
  */
 
 import express from 'express';
+import type { Server } from 'http';
 
 export class ExpressAdapter {
-  private app: any;
-  private server: any = null;
+  private app: express.Application;
+  private server: Server | null = null;
 
   constructor() {
     this.app = express();
-
-    // Essential middleware for fair comparison
-    this.app.use(express.json());
-    this.app.use(express.text());
-
     this.setupRoutes();
   }
 
   private setupRoutes(): void {
-    // Exactly same responses as other frameworks
-    this.app.get('/hello', (_req: any, res: any) => {
+    this.app.get('/hello', (req, res) => {
       res.send('Hello World!');
     });
 
-    this.app.get('/json', (_req: any, res: any) => {
+    this.app.get('/json', (req, res) => {
       res.json({ message: 'Hello World!', timestamp: Date.now() });
     });
 
-    this.app.post('/echo', (req: any, res: any) => {
-      res.json(req.body || {});
+    this.app.post('/echo', (req, res) => {
+      res.json(req.body);
     });
   }
 

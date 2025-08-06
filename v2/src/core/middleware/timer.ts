@@ -102,7 +102,7 @@ export function timer(options: TimerOptions = {}): Middleware {
       const originalEnd = ctx.res.end;
       ctx.res.end = function (chunk?: any, encoding?: any, cb?: any) {
         // Set response time header before sending
-        if (config.header && !ctx.res.headersSent) {
+        if (config.header && ctx.res && !ctx.res.headersSent) {
           try {
             const end = process.hrtime
               ? process.hrtime.bigint?.() || BigInt(0)

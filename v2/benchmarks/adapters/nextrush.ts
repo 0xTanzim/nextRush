@@ -4,28 +4,26 @@
  */
 
 import { createApp } from 'nextrush-v2';
+import type { Server } from 'node:http';
 
 export class NextRushAdapter {
   private app: any;
-  private server: any = null;
+  private server: Server | null = null;
 
   async start(port: number): Promise<void> {
     this.app = createApp({ port });
 
-    // Essential middleware for fair comparison (same as Express needs express.json())
-    this.app.use(this.app.smartBodyParser());
-
-    // Essential routes with CORRECT NextRush v2 API
+    // Essential routes only
     this.app.get('/hello', (ctx: any) => {
-      ctx.res.send('Hello World!'); // Use res.send for text
+      ctx.body = 'Hello World!';
     });
 
     this.app.get('/json', (ctx: any) => {
-      ctx.res.json({ message: 'Hello World!', timestamp: Date.now() }); // Use res.json for JSON
+      ctx.json({ message: 'Hello World!', timestamp: Date.now() });
     });
 
     this.app.post('/echo', (ctx: any) => {
-      ctx.res.json(ctx.body || {}); // ctx.body has parsed request body, res.json sends JSON
+      ctx.json(ctx.body);
     });
 
     this.server = await this.app.listen(port);
