@@ -199,6 +199,7 @@ export function createSafeConfiguration(
   const safeDefaults: Required<ApplicationOptions> = {
     port: 3000,
     host: 'localhost',
+
     debug: false,
     trustProxy: false,
     maxBodySize: 1024 * 1024, // 1MB
