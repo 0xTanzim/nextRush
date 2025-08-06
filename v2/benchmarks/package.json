@@ -1,22 +1,27 @@
 {
   "name": "@nextrush/benchmarks",
-  "version": "2.0.0",
-  "description": "Comprehensive benchmarking suite for NextRush v2",
+  "version": "2.0.0-alpha.1",
+  "description": "NextRush v2 Professional Benchmarking Suite",
   "type": "module",
-  "main": "src/orchestrator.ts",
+  "main": "src/cli.ts",
   "scripts": {
-    "benchmark": "tsx src/orchestrator.ts",
-    "apache-bench": "tsx src/orchestrator.ts apache-bench",
-    "comprehensive-with-ab": "tsx src/orchestrator.ts comprehensive-with-ab",
-    "quick": "tsx src/simple-benchmark.ts",
-    "comprehensive": "tsx src/comprehensive-benchmark.ts",
-    "minimal": "tsx src/minimal-benchmark.ts",
-    "fair": "tsx src/fair-benchmark.ts",
-    "install-tools": "chmod +x scripts/install-apache-bench.sh && ./scripts/install-apache-bench.sh",
-    "test": "vitest",
     "build": "tsc",
-    "clean": "rm -rf dist reports"
+    "test": "echo 'No tests needed for benchmarks'",
+    "bench": "tsx src/simple-bench.ts",
+    "bench:compare": "tsx src/simple-bench.ts compare",
+    "setup:tools": "bash scripts/install-tools.sh",
+    "clean": "rm -rf dist reports node_modules temp-backup"
   },
+  "keywords": [
+    "benchmark",
+    "performance",
+    "http",
+    "nodejs",
+    "docker",
+    "professional"
+  ],
+  "author": "NextRush Team",
+  "license": "MIT",
   "dependencies": {
     "@fastify/compress": "^7.0.3",
     "@fastify/cors": "^9.0.1",
@@ -41,10 +46,13 @@
     "ora": "^8.0.1"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/koa": "^2.15.0",
+    "@types/koa__router": "^12.0.4",
+    "@types/koa-bodyparser": "^4.3.12",
     "@types/node": "^20.10.0",
     "tsx": "^4.20.3",
-    "typescript": "^5.3.0",
-    "vitest": "^1.0.0"
+    "typescript": "^5.3.0"
   },
   "engines": {
     "node": ">=18.0.0"

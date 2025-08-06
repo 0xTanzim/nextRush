@@ -4,6 +4,7 @@
  * @packageDocumentation
  */
 
+import type { EnhancedBodyParserOptions } from '@/core/middleware/enhanced-body-parser';
 import type {
   CompressionOptions,
   CorsOptions,
@@ -263,11 +264,11 @@ export interface Application {
   /** Create helmet middleware */
   helmet(options?: HelmetOptions): Middleware;
   /** Create JSON body parser middleware */
-  json(options?: any): Middleware;
+  json(options?: EnhancedBodyParserOptions): Middleware;
   /** Create URL-encoded body parser middleware */
-  urlencoded(options?: any): Middleware;
+  urlencoded(options?: EnhancedBodyParserOptions): Middleware;
   /** Create text body parser middleware */
-  text(options?: { limit?: string; type?: string }): Middleware;
+  text(options?: EnhancedBodyParserOptions): Middleware;
   /** Create rate limiter middleware */
   rateLimit(options?: RateLimiterOptions): Middleware;
   /** Create logger middleware */
@@ -279,22 +280,7 @@ export interface Application {
   /** Create timer middleware */
   timer(options?: TimerOptions): Middleware;
   /** Create smart body parser middleware */
-  smartBodyParser(options?: {
-    maxSize?: number;
-    timeout?: number;
-    enableStreaming?: boolean;
-    streamingThreshold?: number;
-    poolSize?: number;
-    fastValidation?: boolean;
-    autoDetectContentType?: boolean;
-    strictContentType?: boolean;
-    debug?: boolean;
-    maxFiles?: number;
-    maxFileSize?: number;
-    memoryStorage?: boolean;
-    encoding?: BufferEncoding;
-    enableMetrics?: boolean;
-  }): Middleware;
+  smartBodyParser(options?: EnhancedBodyParserOptions): Middleware;
   /** Create exception filter middleware */
   exceptionFilter(filters?: ExceptionFilter[]): Middleware;
 

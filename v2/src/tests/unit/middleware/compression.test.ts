@@ -11,7 +11,7 @@ import {
   compressionWithMetrics,
 } from '@/core/middleware/compression';
 import type { Context } from '@/types/context';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Node.js modules
 vi.mock('node:os', () => ({
@@ -26,18 +26,27 @@ vi.mock('node:zlib', () => ({
   },
   createGzip: vi.fn(() => ({
     on: vi.fn(),
-    write: vi.fn(),
+    write: vi.fn(() => true),
     end: vi.fn(),
+    pipe: vi.fn(),
+    unpipe: vi.fn(),
+    destroy: vi.fn(),
   })),
   createDeflate: vi.fn(() => ({
     on: vi.fn(),
-    write: vi.fn(),
+    write: vi.fn(() => true),
     end: vi.fn(),
+    pipe: vi.fn(),
+    unpipe: vi.fn(),
+    destroy: vi.fn(),
   })),
   createBrotliCompress: vi.fn(() => ({
     on: vi.fn(),
-    write: vi.fn(),
+    write: vi.fn(() => true),
     end: vi.fn(),
+    pipe: vi.fn(),
+    unpipe: vi.fn(),
+    destroy: vi.fn(),
   })),
 }));
 
@@ -46,6 +55,9 @@ describe('Compression Middleware', () => {
   let mockNext: () => Promise<void>;
 
   beforeEach(() => {
+    // Clear all mocks to ensure test isolation
+    vi.clearAllMocks();
+
     const mockSetHeader = vi.fn();
     const mockGetHeader = vi.fn();
     const mockRemoveHeader = vi.fn();
@@ -96,6 +108,11 @@ describe('Compression Middleware', () => {
     };
 
     mockNext = vi.fn().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    // Restore all mocks after each test
+    vi.restoreAllMocks();
   });
 
   describe('compression()', () => {
@@ -253,7 +270,7 @@ describe('Compression Middleware', () => {
 
       // Mock the compression stream to throw an error during construction
       const { createGzip } = await import('node:zlib');
-      vi.mocked(createGzip).mockImplementation(() => {
+      const createGzipSpy = vi.mocked(createGzip).mockImplementation(() => {
         throw new Error('Compression stream creation failed');
       });
 
@@ -261,7 +278,10 @@ describe('Compression Middleware', () => {
       await middleware(mockContext, mockNext);
 
       expect(consoleSpy).toHaveBeenCalled();
+
+      // Properly restore mocks
       consoleSpy.mockRestore();
+      createGzipSpy.mockRestore();
     });
   });
 

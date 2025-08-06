@@ -21,6 +21,7 @@ describe('Application Integration', () => {
     });
 
     // Set up comprehensive middleware stack
+    app.use(app.exceptionFilter()); // Add exception filter first
     app.use(app.helmet());
     app.use(
       app.cors({
@@ -412,9 +413,10 @@ describe('Application Integration', () => {
       const response = await fetch(`http://localhost:${PORT}/error`);
       expect(response.status).toBe(500);
 
-      const data = await response.json();
-      expect(data).toHaveProperty('error', 'Internal Server Error');
-      expect(data).toHaveProperty('message', 'Test error');
+      const data = (await response.json()) as any;
+      expect(data).toHaveProperty('error');
+      expect(data.error).toHaveProperty('message', 'Internal Server Error');
+      expect(data.error).toHaveProperty('statusCode', 500);
     });
   });
 

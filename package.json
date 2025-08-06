@@ -1,0 +1,6 @@
+{
+	"dependencies": {
+		"tsyringe": "^4.10.0",
+		"reflect-metadata": "^0.2.2"
+	}
+}
