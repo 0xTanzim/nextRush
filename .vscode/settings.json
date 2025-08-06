@@ -86,5 +86,18 @@
       "path": "/usr/bin/zsh",
       "args": ["-l"]
     }
-  }
+  },
+  "chat.agentSessionsViewLocation": "view",
+  "inlineChat.notebookAgent": true,
+  "github.copilot.chat.agent.thinkingTool": true,
+  "terminal.integrated.tabs.defaultColor": "terminal.ansiGreen",
+  "github.copilot.chat.codesearch.enabled": true,
+  "github.copilot.chat.scopeSelection": true,
+  "github.copilot.chat.editor.temporalContext.enabled": true,
+  "github.copilot.chat.edits.temporalContext.enabled": true,
+  "github.copilot.chat.enableRetryAfterFilteredResponse": true,
+  "github.copilot.chat.generateTests.codeLens": true,
+  "github.copilot.chat.languageContext.typescript.enabled": true,
+  "github.copilot.chat.newWorkspace.useContext7": true,
+  "github.copilot.chat.notebook.followCellExecution.enabled": true
 }

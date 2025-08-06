@@ -170,11 +170,17 @@ export class RequestEnhancer {
     }
 
     // Security helpers
-    if (!enhanced.secure) {
+    if (!Object.prototype.hasOwnProperty.call(enhanced, 'secure') || enhanced.secure === undefined) {
       const proto = enhanced.headers['x-forwarded-proto'] as string;
       const connection = enhanced.connection || enhanced.socket;
-      enhanced.secure =
-        proto === 'https' || (connection as any)?.encrypted === true;
+      const isSecure = proto === 'https' || (connection as any)?.encrypted === true;
+      
+      Object.defineProperty(enhanced, 'secure', {
+        value: isSecure,
+        writable: true,
+        enumerable: true,
+        configurable: true
+      });
     }
 
     if (!enhanced.protocol) {
