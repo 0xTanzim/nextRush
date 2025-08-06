@@ -242,6 +242,12 @@ export interface CompressionOptions {
   chunkSize?: number;
   /** Dictionary */
   dictionary?: Buffer;
+  /** Enable adaptive compression based on CPU usage */
+  adaptive?: boolean;
+  /** Maximum CPU usage threshold for adaptive compression (percentage) */
+  maxCpuUsage?: number;
+  /** Backpressure threshold for skipping compression */
+  backpressureThreshold?: number;
 }
 
 /**

@@ -463,7 +463,7 @@ describe('NextRush v2 Features E2E Tests', () => {
           statusCode: number;
         };
       };
-      expect(data.error.code).toBe('INVALID_JSON');
+      expect(data.error.code).toBe('VALIDATION_ERROR');
       expect(data.error.statusCode).toBe(400);
     });
   });

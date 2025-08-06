@@ -4,7 +4,7 @@
  * @packageDocumentation
  */
 
-import { createContext } from '@/core/app/context';
+import { createContext, releaseContext } from '@/core/app/context';
 import { RequestEnhancer } from '@/core/enhancers/request-enhancer';
 import { ResponseEnhancer } from '@/core/enhancers/response-enhancer';
 import { Router as RouterClass } from '@/core/router';
@@ -147,12 +147,36 @@ export class NextRushApplication extends EventEmitter implements Application {
       );
     });
 
-    if (exceptionFilter) {
-      // Wrap the entire request handling in the exception filter
-      await exceptionFilter(ctx, async () => {
+    // Add async boundary to prevent event loop blocking
+    const executeRequestWithBoundary = async (): Promise<void> => {
+      if (exceptionFilter) {
+        // Wrap the entire request handling in the exception filter
+        await exceptionFilter(ctx, async () => {
+          try {
+            // Execute middleware with async boundary
+            await this.executeMiddlewareWithBoundary(ctx);
+
+            // Enhance request and response after body parsing
+            const enhancedReq = RequestEnhancer.enhance(req);
+            const enhancedRes = ResponseEnhancer.enhance(res);
+
+            // Copy the parsed body from context to the enhanced request
+            enhancedReq.body = ctx.body;
+            ctx.req = enhancedReq as unknown as NextRushRequest;
+            ctx.res = enhancedRes as unknown as NextRushResponse;
+
+            // Execute route with async boundary
+            await this.executeRouteWithBoundary(ctx);
+          } catch (error) {
+            // Re-throw the error so it can be caught by the exception filter
+            throw error;
+          }
+        });
+      } else {
+        // No exception filter found, use basic error handling
         try {
-          // Execute middleware (body parser will work with raw request)
-          await this.executeMiddleware(ctx);
+          // Execute middleware with async boundary
+          await this.executeMiddlewareWithBoundary(ctx);
 
           // Enhance request and response after body parsing
           const enhancedReq = RequestEnhancer.enhance(req);
@@ -163,40 +187,27 @@ export class NextRushApplication extends EventEmitter implements Application {
           ctx.req = enhancedReq as unknown as NextRushRequest;
           ctx.res = enhancedRes as unknown as NextRushResponse;
 
-          // Execute route
-          await this.executeRoute(ctx);
+          // Execute route with async boundary
+          await this.executeRouteWithBoundary(ctx);
         } catch (error) {
-          // Re-throw the error so it can be caught by the exception filter
-          throw error;
+          this.handleError(error, res);
         }
-      });
-    } else {
-      // No exception filter found, use basic error handling
-      try {
-        // Execute middleware (body parser will work with raw request)
-        await this.executeMiddleware(ctx);
-
-        // Enhance request and response after body parsing
-        const enhancedReq = RequestEnhancer.enhance(req);
-        const enhancedRes = ResponseEnhancer.enhance(res);
-
-        // Copy the parsed body from context to the enhanced request
-        enhancedReq.body = ctx.body;
-        ctx.req = enhancedReq as unknown as NextRushRequest;
-        ctx.res = enhancedRes as unknown as NextRushResponse;
-
-        // Execute route
-        await this.executeRoute(ctx);
-      } catch (error) {
-        this.handleError(error, res);
       }
+    };
+
+    // Execute with async boundary to prevent event loop blocking
+    try {
+      await executeRequestWithBoundary();
+    } finally {
+      // Release context back to pool for reuse
+      releaseContext(ctx);
     }
   }
 
   /**
-   * Execute middleware stack
+   * Execute middleware stack with async boundary
    */
-  private async executeMiddleware(ctx: Context): Promise<void> {
+  private async executeMiddlewareWithBoundary(ctx: Context): Promise<void> {
     const dispatch = async (i: number): Promise<void> => {
       if (i === this.middleware.length) {
         return;
@@ -204,7 +215,18 @@ export class NextRushApplication extends EventEmitter implements Application {
 
       const middleware = this.middleware[i];
       if (middleware) {
-        await middleware(ctx, () => dispatch(i + 1));
+        // Add async boundary between middleware executions
+        await new Promise<void>(resolve => {
+          setImmediate(async () => {
+            try {
+              await middleware(ctx, () => dispatch(i + 1));
+              resolve();
+            } catch (error) {
+              // Re-throw to be handled by the caller
+              throw error;
+            }
+          });
+        });
       }
     };
 
@@ -212,17 +234,26 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
-   * Execute route handler
+   * Execute route handler with async boundary
    */
-  private async executeRoute(ctx: Context): Promise<void> {
+  private async executeRouteWithBoundary(ctx: Context): Promise<void> {
     const match = this.internalRouter.find(ctx.method, ctx.path);
 
     if (match) {
       // Set route parameters in context
       ctx.params = match.params;
 
-      // Execute the route handler
-      await match.handler(ctx);
+      // Execute the route handler with async boundary
+      await new Promise<void>((resolve, reject) => {
+        setImmediate(async () => {
+          try {
+            await match.handler(ctx);
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
     } else {
       // No route found
       ctx.res.status(404).json({ error: 'Not Found' });
