@@ -31,6 +31,8 @@ export interface LoggerConfig extends Record<string, unknown> {
   colors?: boolean;
   maxEntries?: number;
   flushInterval?: number;
+  maxMemoryUsage?: number; // Maximum memory usage in MB
+  asyncFlush?: boolean; // Use async flushing
   transports?: Array<{
     type: 'console' | 'file' | 'stream';
     options?: Record<string, unknown>;
@@ -57,6 +59,8 @@ export class LoggerPlugin extends BasePlugin {
       colors: true,
       maxEntries: 1000,
       flushInterval: 5000,
+      maxMemoryUsage: 50, // 50MB default
+      asyncFlush: true, // Enable async flushing by default
       transports: [{ type: 'console' }],
       ...config,
     };
@@ -146,6 +150,9 @@ export class LoggerPlugin extends BasePlugin {
 
     this.entries.push(entry);
 
+    // Check memory usage and flush if necessary
+    this.checkMemoryUsage();
+
     // Limit entries
     if (this.entries.length > this.config.maxEntries!) {
       this.entries = this.entries.slice(-this.config.maxEntries!);
@@ -154,6 +161,28 @@ export class LoggerPlugin extends BasePlugin {
     // Immediate flush for error and warn levels
     if (level <= LogLevel.WARN) {
       this.flush();
+    }
+  }
+
+  /**
+   * Check memory usage and flush if necessary
+   */
+  private checkMemoryUsage(): void {
+    if (!this.config.maxMemoryUsage) {
+      return;
+    }
+
+    const memoryUsage = process.memoryUsage();
+    const heapUsedMB = memoryUsage.heapUsed / 1024 / 1024;
+
+    if (heapUsedMB > this.config.maxMemoryUsage) {
+      // Force flush to free memory
+      this.flush();
+
+      // If still over limit, clear some entries
+      if (this.entries.length > this.config.maxEntries! / 2) {
+        this.entries = this.entries.slice(-this.config.maxEntries! / 2);
+      }
     }
   }
 
@@ -167,12 +196,19 @@ export class LoggerPlugin extends BasePlugin {
     const entriesToFlush = [...this.entries];
     this.entries = [];
 
-    // Write to all transports
-    this._transports.forEach(transport => {
-      this.writeToTransport(transport, entriesToFlush);
-    });
-
-    this.info('Logger plugin installed');
+    if (this.config.asyncFlush) {
+      // Async flush to prevent blocking
+      setImmediate(() => {
+        this._transports.forEach(transport => {
+          this.writeToTransport(transport, entriesToFlush);
+        });
+      });
+    } else {
+      // Synchronous flush
+      this._transports.forEach(transport => {
+        this.writeToTransport(transport, entriesToFlush);
+      });
+    }
   }
 
   private writeToTransport(transport: Transport, entries: LogEntry[]): void {

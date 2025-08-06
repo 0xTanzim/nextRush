@@ -252,21 +252,27 @@ describe('Advanced Logger Plugin', () => {
       logger.install(app);
     });
 
-    it('should log error messages', () => {
+    it('should log error messages', async () => {
       const consoleSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 
       (app as any).logger.error('Error message', { error: 'test' });
 
+      // Wait for async flush
+      await new Promise(resolve => setImmediate(resolve));
+
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
 
-    it('should log warn messages', () => {
+    it('should log warn messages', async () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       (app as any).logger.warn('Warning message', { warning: 'test' });
+
+      // Wait for async flush
+      await new Promise(resolve => setImmediate(resolve));
 
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();

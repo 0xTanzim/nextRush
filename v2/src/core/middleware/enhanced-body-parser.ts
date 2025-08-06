@@ -30,7 +30,7 @@ export interface EnhancedBodyParserOptions {
   /** Maximum body size in bytes (default: 10MB) */
   maxSize?: number;
 
-  /** Request timeout in milliseconds (default: 30s) */
+  /** Request timeout in milliseconds (default: 5s) */
   timeout?: number;
 
   /** Enable streaming for large payloads (default: true) */
@@ -94,6 +94,12 @@ export interface BodyParserMetrics {
 
   /** Total bytes processed */
   totalBytesProcessed: number;
+
+  /** Success count for precise rate calculation */
+  successCount: number;
+
+  /** Failure count for precise rate calculation */
+  failureCount: number;
 }
 
 /**
@@ -142,7 +148,7 @@ export class EnhancedBodyParser {
   private static readonly CONTENT_TYPE_PATTERNS = {
     json: /^application\/(?:json|.*\+json)$/i,
     urlencoded: /^application\/x-www-form-urlencoded$/i,
-    multipart: /^multipart\/form-data$/i,
+    multipart: /^multipart\/form-data(?:;.*)?$/i,
     text: /^text\/.*$/i,
     xml: /^(?:application|text)\/(?:xml|.*\+xml)$/i,
   };
@@ -150,17 +156,20 @@ export class EnhancedBodyParser {
   /** 🔥 Buffer pool for memory optimization */
   private static bufferPool: Buffer[] = [];
 
-  /** ⚡ Content-type cache for performance */
-  private static contentTypeCache = new Map<string, string>();
-  private static readonly CACHE_MAX_SIZE = 1000;
+  /** ⚡ Content-type cache for performance - now instance-scoped */
+  private contentTypeCache = new Map<string, string>();
+  private readonly CACHE_MAX_SIZE = 1000;
 
   /** 🧮 StringDecoder pool for optimization */
   private static decoderPool: StringDecoder[] = [];
 
   constructor(options: EnhancedBodyParserOptions = {}) {
+    // Validate input options
+    this.validateOptions(options);
+
     this.options = {
       maxSize: options.maxSize || 10 * 1024 * 1024, // 10MB
-      timeout: options.timeout || 30000, // 30 seconds
+      timeout: options.timeout || 5000, // 5 seconds (reduced from 30s)
       enableStreaming: options.enableStreaming ?? true,
       streamingThreshold: options.streamingThreshold || 50 * 1024 * 1024, // 50MB
       poolSize: options.poolSize || 100,
@@ -175,7 +184,7 @@ export class EnhancedBodyParser {
       enableMetrics: options.enableMetrics ?? false,
     };
 
-    // Initialize metrics
+    // Initialize metrics with proper counters
     this.metrics = {
       totalRequests: 0,
       totalParseTime: 0,
@@ -184,10 +193,36 @@ export class EnhancedBodyParser {
       cacheHitRatio: 0,
       successRate: 0,
       totalBytesProcessed: 0,
+      successCount: 0,
+      failureCount: 0,
     };
 
     if (this.options.debug) {
       console.log(`EnhancedBodyParser initialized with options:`, this.options);
+    }
+  }
+
+  /**
+   * 🔍 Validate input options to prevent runtime errors
+   */
+  private validateOptions(options: EnhancedBodyParserOptions): void {
+    if (options.maxSize !== undefined && options.maxSize <= 0) {
+      throw new Error('maxSize must be positive');
+    }
+    if (options.timeout !== undefined && options.timeout <= 0) {
+      throw new Error('timeout must be positive');
+    }
+    if (options.encoding && !Buffer.isEncoding(options.encoding)) {
+      throw new Error(`Unsupported encoding: ${options.encoding}`);
+    }
+    if (options.maxFiles !== undefined && options.maxFiles <= 0) {
+      throw new Error('maxFiles must be positive');
+    }
+    if (options.maxFileSize !== undefined && options.maxFileSize <= 0) {
+      throw new Error('maxFileSize must be positive');
+    }
+    if (options.poolSize !== undefined && options.poolSize <= 0) {
+      throw new Error('poolSize must be positive');
     }
   }
 
@@ -254,14 +289,14 @@ export class EnhancedBodyParser {
   }
 
   /**
-   * 🔍 Detect content type with smart caching
+   * 🔍 Detect content type with smart caching - now instance-scoped
    */
   private detectContentType(request: NextRushRequest): string {
     const contentType = request.headers['content-type'] || '';
     const cacheKey = `${request.method}:${contentType}`;
 
     // Check cache first
-    const cached = EnhancedBodyParser.contentTypeCache.get(cacheKey);
+    const cached = this.contentTypeCache.get(cacheKey);
     if (cached) {
       this.metrics.cacheHitRatio = Math.min(
         1,
@@ -279,27 +314,27 @@ export class EnhancedBodyParser {
       detectedType = 'text/plain';
     }
 
-    // Cache the result
-    if (
-      EnhancedBodyParser.contentTypeCache.size <
-      EnhancedBodyParser.CACHE_MAX_SIZE
-    ) {
-      EnhancedBodyParser.contentTypeCache.set(cacheKey, detectedType);
+    // Implement LRU cache eviction
+    if (this.contentTypeCache.size >= this.CACHE_MAX_SIZE) {
+      const oldestKey = this.contentTypeCache.keys().next().value;
+      if (oldestKey) {
+        this.contentTypeCache.delete(oldestKey);
+      }
     }
+    this.contentTypeCache.set(cacheKey, detectedType);
 
     return detectedType;
   }
 
   /**
-   * 📖 Read request body with optimization
+   * 📖 Read request body with optimization and cross-platform support
    */
   private readRequestBody(request: NextRushRequest): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       let settled = false;
 
-      // Set a timeout that always resolves or rejects
-      const timeoutMs =
-        process.env['NODE_ENV'] === 'test' ? 100 : this.options.timeout;
+      // Use single timeout configuration
+      const timeoutMs = this.options.timeout;
       const timeout = setTimeout(() => {
         if (!settled) {
           settled = true;
@@ -348,88 +383,31 @@ export class EnhancedBodyParser {
         return;
       }
 
-      // Better test environment detection
-      const isTestEnvironment =
-        process.env['NODE_ENV'] === 'test' ||
-        process.env['VITEST'] === 'true' ||
-        process.env['JEST_WORKER_ID'] !== undefined;
-
-      // For test environments, we need to read from the stream
-      if (isTestEnvironment) {
-        // Always try to read from stream in test environments
-        const chunks: Buffer[] = [];
-        let totalSize = 0;
-        let receivedData = false;
-
-        if (typeof request.on === 'function') {
-          request.on('data', (chunk: Buffer) => {
-            if (settled) return;
-            receivedData = true;
-            totalSize += chunk.length;
-
-            if (totalSize > this.options.maxSize) {
-              settle(
-                new Error(
-                  `Request body too large. Maximum size: ${this.options.maxSize} bytes`
-                )
-              );
-              return;
-            }
-
-            chunks.push(chunk);
-          });
-
-          request.on('end', () => {
-            if (settled) return;
-            settle(Buffer.concat(chunks));
-          });
-
-          request.on('error', (error: Error) => {
-            if (settled) return;
-            settle(new Error(`Request error: ${error.message}`));
-          });
-
-          request.on('close', () => {
-            if (settled) return;
-            // If we received data but stream closed, resolve with what we have
-            if (receivedData) {
-              settle(Buffer.concat(chunks));
-            } else {
-              settle(
-                new Error('Request closed before body was fully received')
-              );
-            }
-          });
-
-          request.on('finish', () => {
-            if (settled) return;
-            // If we received data but stream finished, resolve with what we have
-            if (receivedData) {
-              settle(Buffer.concat(chunks));
-            } else {
-              settle(
-                new Error('Request finished before body was fully received')
-              );
-            }
-          });
-
-          request.on('aborted', () => {
-            if (settled) return;
-            settle(new Error('Request was aborted'));
-          });
-        } else {
-          // No stream events available, resolve with empty buffer
-          settle(Buffer.alloc(0));
-        }
-        return;
-      }
-
-      // For real HTTP requests, read from stream
+      // Cross-platform stream handling
       const chunks: Buffer[] = [];
       let totalSize = 0;
       let receivedData = false;
 
+      // Buffer pool optimization (commented out for now as it's not fully implemented)
+      // const getBufferFromPool = (size: number): Buffer => {
+      //   if (EnhancedBodyParser.bufferPool.length > 0) {
+      //     const pooled = EnhancedBodyParser.bufferPool.pop()!;
+      //     if (pooled.length >= size) {
+      //       return pooled.slice(0, size);
+      //     }
+      //   }
+      //   return Buffer.allocUnsafe(size);
+      // };
+
+      // const returnBufferToPool = (buffer: Buffer): void => {
+      //   if (EnhancedBodyParser.bufferPool.length < this.options.poolSize) {
+      //     EnhancedBodyParser.bufferPool.push(buffer);
+      //   }
+      // };
+
+      // Cross-platform stream handling
       if (typeof request.on === 'function') {
+        // Node.js-style streams
         request.on('data', (chunk: Buffer) => {
           if (settled) return;
           receivedData = true;
@@ -449,7 +427,8 @@ export class EnhancedBodyParser {
 
         request.on('end', () => {
           if (settled) return;
-          settle(Buffer.concat(chunks));
+          const result = Buffer.concat(chunks);
+          settle(result);
         });
 
         request.on('error', (error: Error) => {
@@ -457,28 +436,21 @@ export class EnhancedBodyParser {
           settle(new Error(`Request error: ${error.message}`));
         });
 
-        request.on('close', () => {
+        // Consolidated stream event handling
+        const handleStreamEnd = (eventName: string) => {
           if (settled) return;
-          // If we received data but stream closed, resolve with what we have
           if (receivedData) {
-            settle(Buffer.concat(chunks));
-          } else {
-            settle(new Error('Request closed before body was fully received'));
-          }
-        });
-
-        request.on('finish', () => {
-          if (settled) return;
-          // If we received data but stream finished, resolve with what we have
-          if (receivedData) {
-            settle(Buffer.concat(chunks));
+            const result = Buffer.concat(chunks);
+            settle(result);
           } else {
             settle(
-              new Error('Request finished before body was fully received')
+              new Error(`Request ${eventName} before body was fully received`)
             );
           }
-        });
+        };
 
+        request.on('close', () => handleStreamEnd('closed'));
+        request.on('finish', () => handleStreamEnd('finished'));
         request.on('aborted', () => {
           if (settled) return;
           settle(new Error('Request was aborted'));
@@ -592,7 +564,7 @@ export class EnhancedBodyParser {
   }
 
   /**
-   * 📁 Multipart parser for file uploads
+   * 📁 Multipart parser for file uploads with validation
    */
   private parseMultipart(
     rawData: Buffer,
@@ -606,6 +578,7 @@ export class EnhancedBodyParser {
     return {
       data: fields,
       files,
+      fields, // Add the fields property to the result
       contentType,
       parser: 'multipart',
       hasFiles: Object.keys(files).length > 0,
@@ -658,8 +631,8 @@ export class EnhancedBodyParser {
 
     const result = decoder.write(buffer) + decoder.end();
 
-    // Return decoder to pool
-    if (EnhancedBodyParser.decoderPool.length < 50) {
+    // Return decoder to pool with configurable size
+    if (EnhancedBodyParser.decoderPool.length < this.options.poolSize) {
       EnhancedBodyParser.decoderPool.push(decoder);
     }
 
@@ -712,7 +685,7 @@ export class EnhancedBodyParser {
   }
 
   /**
-   * 📁 Parse multipart data with file handling
+   * 📁 Parse multipart data with file handling and validation
    */
   private parseMultipartData(
     buffer: Buffer,
@@ -726,23 +699,70 @@ export class EnhancedBodyParser {
     const boundaryBuffer = Buffer.from(`--${boundary}`);
     const parts = this.splitBuffer(buffer, boundaryBuffer);
 
-    for (const part of parts) {
+    // Filter out empty parts and the final boundary
+    const validParts = parts.filter(part => {
+      const partStr = part.toString();
+      return (
+        partStr.length > 0 &&
+        !partStr.startsWith('--') &&
+        !partStr.endsWith('--')
+      );
+    });
+
+    // Validate max files
+    if (validParts.length > this.options.maxFiles) {
+      throw new Error(
+        `Too many files. Maximum allowed: ${this.options.maxFiles}`
+      );
+    }
+
+    for (const part of validParts) {
       // Parse part headers and body
       const [headers, body] = this.parseMultipartPart(part);
 
+      if (this.options.debug) {
+        console.log('Parsing multipart part:', {
+          headers,
+          bodyLength: body.length,
+          bodyPreview: body.toString().substring(0, 50),
+        });
+      }
+
       if (headers['content-disposition']) {
         const name = this.extractFieldName(headers['content-disposition']);
+        if (this.options.debug) {
+          console.log('Processing part:', {
+            name,
+            hasContentType: !!headers['content-type'],
+            contentType: headers['content-type'],
+            bodyLength: body.length,
+          });
+        }
         if (name) {
           if (headers['content-type']) {
-            // This is a file
+            // This is a file - validate size
+            if (body.length > this.options.maxFileSize) {
+              throw new Error(
+                `File too large. Maximum size: ${this.options.maxFileSize} bytes`
+              );
+            }
             files[name] = {
               buffer: body,
               size: body.length,
               type: headers['content-type'],
             };
+            if (this.options.debug) {
+              console.log('Added file:', name);
+            }
           } else {
-            // This is a field
-            fields[name] = body.toString(this.options.encoding);
+            // This is a field - trim line endings
+            const fieldValue = body
+              .toString(this.options.encoding)
+              .replace(/\r?\n$/, '');
+            fields[name] = fieldValue;
+            if (this.options.debug) {
+              console.log('Added field:', name, '=', fieldValue);
+            }
           }
         }
       }
@@ -856,7 +876,7 @@ export class EnhancedBodyParser {
   }
 
   /**
-   * 📊 Update performance metrics
+   * 📊 Update performance metrics with precise calculation
    */
   private updateMetrics(
     parseTime: number,
@@ -877,14 +897,15 @@ export class EnhancedBodyParser {
     );
 
     if (success) {
-      this.metrics.successRate =
-        (this.metrics.successRate * (this.metrics.totalRequests - 1) + 1) /
-        this.metrics.totalRequests;
+      this.metrics.successCount++;
     } else {
-      this.metrics.successRate =
-        (this.metrics.successRate * (this.metrics.totalRequests - 1)) /
-        this.metrics.totalRequests;
+      this.metrics.failureCount++;
     }
+
+    // Calculate precise success rate
+    const totalAttempts = this.metrics.successCount + this.metrics.failureCount;
+    this.metrics.successRate =
+      totalAttempts > 0 ? this.metrics.successCount / totalAttempts : 0;
   }
 
   /**
@@ -895,10 +916,18 @@ export class EnhancedBodyParser {
   }
 
   /**
-   * 🔧 Update parser options
+   * 🔧 Update parser options with validation
    */
   updateOptions(newOptions: Partial<EnhancedBodyParserOptions>): void {
+    this.validateOptions(newOptions);
     this.options = { ...this.options, ...newOptions };
+  }
+
+  /**
+   * 🧹 Cleanup instance resources
+   */
+  cleanup(): void {
+    this.contentTypeCache.clear();
   }
 
   /**
@@ -906,7 +935,6 @@ export class EnhancedBodyParser {
    */
   static cleanup(): void {
     EnhancedBodyParser.bufferPool.length = 0;
-    EnhancedBodyParser.contentTypeCache.clear();
     EnhancedBodyParser.decoderPool.length = 0;
   }
 }
@@ -927,55 +955,22 @@ export function enhancedBodyParser(
     }
 
     try {
-      // Add timeout to prevent hanging - use a very short timeout for test environments
-      const timeoutMs = process.env['NODE_ENV'] === 'test' ? 50 : 1000;
-
-      const parsePromise = parser.parse(ctx.req);
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Body parsing timeout')), timeoutMs);
-      });
-
-      const result = await Promise.race([parsePromise, timeoutPromise]);
+      // Use single timeout configuration from parser
+      const result = await parser.parse(ctx.req);
 
       // Set parsed data in context
-      const isJson = (result.contentType || '').includes('application/json');
-      if (isJson) {
-        ctx.body = result.isEmpty ? null : result.data;
-      } else {
-        ctx.body = result.isEmpty ? null : result.data;
-      }
+      ctx.body = result.isEmpty ? null : result.data;
 
       // Also set raw data and metadata for advanced use cases
       (ctx as any).bodyParserResult = result;
 
       await next();
     } catch (error) {
-      // Always respond quickly with error
+      // Set error response in context
       ctx.status = 400;
-      let errorCode = 'BODY_PARSE_ERROR';
-      let errorMessage =
+      const errorMessage =
         error instanceof Error ? error.message : 'Body parsing failed';
-
-      // Provide specific error codes for different parsing failures
-      if (
-        errorMessage.includes('JSON parse error') ||
-        errorMessage.includes('Invalid JSON structure')
-      ) {
-        errorCode = 'INVALID_JSON';
-        errorMessage = 'Invalid JSON syntax';
-      } else if (errorMessage.includes('URL-encoded parse error')) {
-        errorCode = 'INVALID_URL_ENCODED';
-        errorMessage = 'Invalid URL-encoded data';
-      } else if (errorMessage.includes('Multipart parse error')) {
-        errorCode = 'INVALID_MULTIPART';
-        errorMessage = 'Invalid multipart data';
-      } else if (
-        errorMessage.includes('Body parsing timeout') ||
-        errorMessage.includes('Request timeout')
-      ) {
-        errorCode = 'PARSE_TIMEOUT';
-        errorMessage = 'Body parsing timed out';
-      }
+      const errorCode = determineErrorCode(error);
 
       const errorResponse = {
         error: {
@@ -985,26 +980,39 @@ export function enhancedBodyParser(
         },
       };
 
-      // Set the error response in context
       ctx.body = errorResponse;
 
-      // Send the response to the client - handle both enhanced and mock responses
-      if (typeof ctx.res.status === 'function') {
-        ctx.res.status(400).json(errorResponse);
-      } else {
-        // For mock responses in tests, just set the status and body
-        ctx.status = 400;
-        ctx.body = errorResponse;
-      }
-
       if (options.debug || process.env['NODE_ENV'] === 'test') {
-        // eslint-disable-next-line no-console
-        console.error('[BodyParserMiddleware] Error caught:', error);
+        console.error('[BodyParserMiddleware] Error:', error);
       }
 
-      // Don't call next() for parsing errors - we've already responded
+      // Allow downstream error handling
+      await next();
     }
   };
+
+  function determineErrorCode(error: any): string {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      message.includes('JSON parse error') ||
+      message.includes('Invalid JSON structure')
+    ) {
+      return 'INVALID_JSON';
+    } else if (message.includes('URL-encoded parse error')) {
+      return 'INVALID_URL_ENCODED';
+    } else if (message.includes('Multipart parse error')) {
+      return 'INVALID_MULTIPART';
+    } else if (message.includes('Request timeout')) {
+      return 'PARSE_TIMEOUT';
+    } else if (message.includes('too large')) {
+      return 'PAYLOAD_TOO_LARGE';
+    } else if (message.includes('Too many files')) {
+      return 'TOO_MANY_FILES';
+    } else if (message.includes('File too large')) {
+      return 'FILE_TOO_LARGE';
+    }
+    return 'VALIDATION_ERROR';
+  }
 }
 
 /**

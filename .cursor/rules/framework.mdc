@@ -1,0 +1,105 @@
+---
+alwaysApply: true
+---
+You are building a **high-performance, testable, modular backend framework** from scratch — designed for enterprise use and inspired by the best ideas from leading frameworks (e.g., Spring Boot, NestJS, FastAPI, Express, Django, Go-kit, Fiber, etc.).
+
+Your task is to **architect and implement** a backend framework that supports modern backend development principles.
+
+---
+
+🧠 Framework Design Philosophy:
+
+- **Clean Architecture**: Use the principles of hexagonal architecture / onion / layered architecture.
+- **Modularity**: All components must be independently testable, replaceable, and follow the SOLID principles.
+- **Pluggability**: Support middleware/plugins/hooks system like Express or NestJS.
+- **Developer Ergonomics**: Offer elegant DX with strong typing, decorators/annotations (where supported), and intuitive APIs.
+- **Performance**: Low-latency, high-throughput, with async/non-blocking capabilities where possible.
+- **Scalability**: Designed for microservices, cloud-native workloads, and containerized deployment.
+- **Testability First**: Every module must be fully testable in isolation with dependency injection and mocking support.
+- **Security**: Built-in support for AuthN/AuthZ, input validation, sanitization, and common security headers.
+- **Observability**: Support structured logging, tracing, metrics, and exception tracking out-of-the-box.
+- **Configurability**: Offer configuration abstraction with support for environment overrides, secrets, and profiles.
+
+---
+
+📦 Core Framework Components:
+
+1. **Core Kernel**:
+   - Dependency Injection Container
+   - Lifecycle Hooks (boot, init, shutdown)
+   - Configuration Manager
+   - Module Loader / Plugin System
+
+2. **HTTP Layer**:
+   - Lightweight, fast routing engine (with route grouping, middleware chains, etc.)
+   - Request/Response abstraction
+   - Parameter and body parsing
+   - Middleware support
+
+3. **Controller Layer**:
+   - Declarative controllers
+   - Support for REST, RPC, WebSockets
+   - Route decorators / annotations
+   - Auto-documentation (Swagger/OpenAPI generator)
+
+4. **Service Layer**:
+   - Singleton and scoped service lifecycle
+   - Business logic abstraction
+   - Transaction support
+
+5. **Data Layer**:
+   - Repository pattern (abstract DB access)
+   - Support for ORM/ODM integration
+   - Query builder or DSL
+
+6. **Event System**:
+   - Domain Events (for DDD)
+   - Pub/Sub messaging
+   - Async task scheduling / background workers
+
+7. **Auth System**:
+   - Role-based access control (RBAC)
+   - Policy-based access control (PBAC)
+   - JWT/OAuth2/Auth0 compatibility
+
+8. **Validation & Error Handling**:
+   - Declarative validation (schemas or decorators)
+   - Unified exception handling pipeline
+
+9. **Dev Experience Tools**:
+   - CLI for scaffolding, testing, running
+   - Hot-reload and debug tooling
+   - Testing utilities (mocks, test harness)
+
+10. **Observability**:
+    - Logging (structured)
+    - Metrics (Prometheus/OpenTelemetry)
+    - Tracing
+    - Error reporting
+
+---
+
+📐 Patterns & Principles to Apply:
+
+- SOLID, DRY, YAGNI, KISS
+- DDD: bounded contexts, aggregates, services, repositories
+- CQRS & Event Sourcing (optionally supported)
+- Middleware and interceptors
+- Strategy, Factory, Adapter, Proxy patterns where needed
+- Clean separation between infrastructure and domain code
+
+---
+
+🎯 Your Goals:
+
+- Architect it in a way that a team can **build production services with confidence**
+- Prioritize **testability, security, and developer velocity**
+- Think about **enterprise adoption**: extensibility, documentation, performance
+- Benchmark against existing frameworks and **innovate** where possible
+- Ensure everything is **modular, type-safe, and cleanly separated**
+
+---
+
+Write every module like you’re building a battle-tested foundation for large-scale, production-grade applications.
+
+Ensure every part is **fully testable, well-structured**, and based on modern engineering practices used by teams at companies like **Netflix, Amazon, Google, and Stripe**.
