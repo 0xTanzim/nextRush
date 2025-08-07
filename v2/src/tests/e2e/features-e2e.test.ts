@@ -8,11 +8,14 @@ import {
   AuthenticationError,
   AuthenticationExceptionFilter,
   AuthorizationError,
+  AuthorizationExceptionFilter,
   BadRequestError,
   BadRequestExceptionFilter,
   ConflictError,
+  ConflictExceptionFilter,
   GlobalExceptionFilter,
   NotFoundError,
+  NotFoundExceptionFilter,
   RateLimitError,
   RateLimitExceptionFilter,
   ValidationError,
@@ -38,10 +41,13 @@ describe('NextRush v2 Features E2E Tests', () => {
     // Add exception filter
     app.use(
       app.exceptionFilter([
-        new BadRequestExceptionFilter(),
         new ValidationExceptionFilter(),
-        new RateLimitExceptionFilter(),
+        new BadRequestExceptionFilter(),
+        new NotFoundExceptionFilter(),
         new AuthenticationExceptionFilter(),
+        new AuthorizationExceptionFilter(),
+        new ConflictExceptionFilter(),
+        new RateLimitExceptionFilter(),
         new GlobalExceptionFilter(),
       ])
     );

@@ -531,6 +531,54 @@ export function Catch(...exceptions: Array<new (...args: any[]) => Error>) {
 @Catch(ValidationError, BadRequestError)
 export class ValidationExceptionFilter implements ExceptionFilter {
   async catch(error: Error, ctx: any): Promise<void> {
+    // Handle ValidationError with proper field and value
+    if (error instanceof ValidationError) {
+      ctx.status = error.statusCode;
+      ctx.res.json({
+        error: {
+          name: 'ValidationError',
+          message: error.message,
+          code: error.code,
+          statusCode: error.statusCode,
+          timestamp: new Date().toISOString(),
+          field: error.field,
+          value: error.value,
+        },
+      });
+      return;
+    }
+
+    // Handle BadRequestError
+    if (error instanceof BadRequestError) {
+      ctx.status = error.statusCode;
+      ctx.res.json({
+        error: {
+          name: 'BadRequestError',
+          message: error.message,
+          code: error.code,
+          statusCode: error.statusCode,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+
+    // Check if it's a NextRushError with VALIDATION_ERROR code (from body parser)
+    if (error instanceof NextRushError && error.code === 'VALIDATION_ERROR') {
+      ctx.status = error.statusCode;
+      ctx.res.json({
+        error: {
+          name: 'ValidationError',
+          message: error.message,
+          code: error.code,
+          statusCode: error.statusCode,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+
+    // Fallback for other errors
     ctx.status = 400;
     ctx.res.json({
       error: {
@@ -539,8 +587,6 @@ export class ValidationExceptionFilter implements ExceptionFilter {
         code: 'VALIDATION_ERROR',
         statusCode: 400,
         timestamp: new Date().toISOString(),
-        field: (error as ValidationError).field,
-        value: (error as ValidationError).value,
       },
     });
   }
@@ -599,6 +645,8 @@ export class NotFoundExceptionFilter implements ExceptionFilter {
         statusCode: 404,
         timestamp: new Date().toISOString(),
         path: ctx.path,
+        method: ctx.method,
+        requestId: ctx.id,
       },
     });
   }
@@ -617,6 +665,25 @@ export class BadRequestExceptionFilter implements ExceptionFilter {
         message: error.message,
         code: 'BAD_REQUEST',
         statusCode: 400,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+}
+
+/**
+ * Exception Filter for conflict errors
+ */
+@Catch(ConflictError)
+export class ConflictExceptionFilter implements ExceptionFilter {
+  async catch(error: Error, ctx: any): Promise<void> {
+    ctx.status = 409;
+    ctx.res.json({
+      error: {
+        name: 'ConflictError',
+        message: error.message,
+        code: 'CONFLICT',
+        statusCode: 409,
         timestamp: new Date().toISOString(),
       },
     });

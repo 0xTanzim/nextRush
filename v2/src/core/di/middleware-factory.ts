@@ -12,9 +12,9 @@ import { SERVICE_TOKENS } from '@/core/di/container';
 import type { Middleware } from '@/types/context';
 
 // Import middleware creation functions
+import { smartBodyParser } from '@/core/middleware/body-parser';
 import { compression } from '@/core/middleware/compression';
 import { cors } from '@/core/middleware/cors';
-import { enhancedBodyParser } from '@/core/middleware/enhanced-body-parser';
 import { helmet } from '@/core/middleware/helmet';
 import { logger } from '@/core/middleware/logger';
 import { rateLimit } from '@/core/middleware/rate-limiter';
@@ -22,7 +22,7 @@ import { requestId } from '@/core/middleware/request-id';
 import { timer } from '@/core/middleware/timer';
 
 // Import middleware option types
-import type { EnhancedBodyParserOptions } from '@/core/middleware/enhanced-body-parser';
+import type { EnhancedBodyParserOptions } from '@/core/middleware/body-parser/types';
 import type {
   CompressionOptions,
   CorsOptions,
@@ -116,7 +116,7 @@ export class DefaultMiddlewareFactory implements MiddlewareFactory {
       >(SERVICE_TOKENS.BODY_PARSER_MIDDLEWARE);
       return bodyParserFactory({ ...options, autoDetectContentType: false });
     } catch {
-      return enhancedBodyParser({ ...options, autoDetectContentType: false });
+      return smartBodyParser({ ...options, autoDetectContentType: false });
     }
   }
 
@@ -130,7 +130,7 @@ export class DefaultMiddlewareFactory implements MiddlewareFactory {
       >(SERVICE_TOKENS.BODY_PARSER_MIDDLEWARE);
       return bodyParserFactory({ ...options, autoDetectContentType: false });
     } catch {
-      return enhancedBodyParser({ ...options, autoDetectContentType: false });
+      return smartBodyParser({ ...options, autoDetectContentType: false });
     }
   }
 
@@ -144,7 +144,7 @@ export class DefaultMiddlewareFactory implements MiddlewareFactory {
       >(SERVICE_TOKENS.BODY_PARSER_MIDDLEWARE);
       return bodyParserFactory({ ...options, autoDetectContentType: false });
     } catch {
-      return enhancedBodyParser({ ...options, autoDetectContentType: false });
+      return smartBodyParser({ ...options, autoDetectContentType: false });
     }
   }
 
@@ -158,7 +158,7 @@ export class DefaultMiddlewareFactory implements MiddlewareFactory {
       >(SERVICE_TOKENS.BODY_PARSER_MIDDLEWARE);
       return bodyParserFactory(options);
     } catch {
-      return enhancedBodyParser(options);
+      return smartBodyParser(options);
     }
   }
 
@@ -228,7 +228,7 @@ export function registerDefaultMiddleware(container: DIContainer): void {
   container.singleton(SERVICE_TOKENS.HELMET_MIDDLEWARE, () => helmet);
   container.singleton(
     SERVICE_TOKENS.BODY_PARSER_MIDDLEWARE,
-    () => enhancedBodyParser
+    () => smartBodyParser
   );
   container.singleton(SERVICE_TOKENS.COMPRESSION_MIDDLEWARE, () => compression);
   container.singleton(SERVICE_TOKENS.RATE_LIMITER_MIDDLEWARE, () => rateLimit);
