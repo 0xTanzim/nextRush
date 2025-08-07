@@ -4,6 +4,10 @@
  * Tests the complete application from a user perspective
  */
 
+import {
+  GlobalExceptionFilter,
+  ValidationExceptionFilter,
+} from '@/errors/custom-errors/index';
 import { createApp } from '@/index';
 import type { Application } from '@/types/context';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,6 +25,15 @@ describe('Full Application E2E', () => {
     });
 
     // Set up production-like middleware stack
+
+    // Add exception filter first
+    app.use(
+      app.exceptionFilter([
+        new ValidationExceptionFilter(),
+        new GlobalExceptionFilter(),
+      ])
+    );
+
     app.use(
       app.helmet({
         contentSecurityPolicy: {

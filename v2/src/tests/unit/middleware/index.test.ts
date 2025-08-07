@@ -24,7 +24,7 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
       statusCode: 200,
       headers,
       setHeader: (name: string, value: string | string[]) => {
-        headers[name] = Array.isArray(value) ? value[0] : value;
+        headers[name] = Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
       },
       getHeader: (name: string) => headers[name],
       write: () => {},
@@ -58,8 +58,8 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
 
 describe('Middleware Index', () => {
   describe('Core Middleware Exports', () => {
-    it('should export enhanced body parser middleware', () => {
-      expect(middleware).toHaveProperty('enhancedBodyParser');
+    it('should export smart body parser middleware', () => {
+      expect(middleware).toHaveProperty('smartBodyParser');
     });
 
     it('should export compression middleware', () => {
@@ -126,7 +126,7 @@ describe('Middleware Index', () => {
   describe('Middleware Functionality', () => {
     it('should create functional middleware instances', () => {
       // Test that middleware functions can be called
-      expect(typeof middleware.enhancedBodyParser).toBe('function');
+      expect(typeof middleware.smartBodyParser).toBe('function');
       expect(typeof middleware.cors).toBe('function');
       expect(typeof middleware.helmet).toBe('function');
       expect(typeof middleware.logger).toBe('function');

@@ -4,7 +4,7 @@
  * @packageDocumentation
  */
 
-import type { EnhancedBodyParserOptions } from '@/core/middleware/enhanced-body-parser';
+import type { EnhancedBodyParserOptions } from '@/core/middleware/body-parser/types';
 import type {
   CompressionOptions,
   CorsOptions,

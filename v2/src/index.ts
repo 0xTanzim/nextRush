@@ -67,9 +67,9 @@ export {
 } from '@/plugins/logger';
 
 // Middleware exports
+export { smartBodyParser as bodyParser } from '@/core/middleware/body-parser';
 export { compression } from '@/core/middleware/compression';
 export { cors } from '@/core/middleware/cors';
-export { enhancedBodyParser } from '@/core/middleware/enhanced-body-parser';
 export { helmet } from '@/core/middleware/helmet';
 export { logger } from '@/core/middleware/logger';
 export { rateLimit } from '@/core/middleware/rate-limiter';
