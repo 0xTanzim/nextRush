@@ -80,7 +80,7 @@ export interface Context {
   /** Route parameters */
   params: Record<string, string>;
   /** Request ID for tracing */
-  id: string;
+  id: string | undefined;
   /** Request ID for logging (alternative to id) */
   requestId?: string;
   /** Request-specific logger */
