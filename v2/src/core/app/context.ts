@@ -6,11 +6,10 @@
 
 import { RequestEnhancer } from '@/core/enhancers/request-enhancer';
 import { ResponseEnhancer } from '@/core/enhancers/response-enhancer';
+import { parseQueryString } from '@/core/middleware/body-parser/utils';
 import type { Context, NextRushResponse } from '@/types/context';
 import type { ApplicationOptions, NextRushRequest } from '@/types/http';
-import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { URL } from 'node:url';
 
 /**
  * Context pool for performance optimization
@@ -69,27 +68,32 @@ export function createContext(
   const enhancedReq = isEnhancedReq ? req : RequestEnhancer.enhance(req);
   const enhancedRes = isEnhancedRes ? res : ResponseEnhancer.enhance(res);
 
-  // Optimized URL parsing - parse once and reuse
+  // Fast path parsing - avoid expensive URL constructor
   const method = req.method || 'GET';
+  const url = req.url || '/';
   const host = req.headers.host || 'localhost';
   const protocol =
     req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-  const url = new URL(req.url || '/', `${protocol}://${host}`);
 
-  // Optimized IP detection - calculate once
-  const ip =
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-    (req.headers['x-real-ip'] as string) ||
-    (req.socket as any)?.remoteAddress ||
-    '127.0.0.1';
+  // Fast path extraction
+  const pathEnd = url.indexOf('?');
+  const path = pathEnd === -1 ? url : url.slice(0, pathEnd);
 
-  // Optimized security detection - calculate once
+  // Fast IP detection - avoid string operations
+  const forwardedFor = req.headers['x-forwarded-for'] as string;
+  const ip = forwardedFor
+    ? forwardedFor.split(',')[0]?.trim() || '127.0.0.1'
+    : (req.headers['x-real-ip'] as string) ||
+      (req.socket as any)?.remoteAddress ||
+      '127.0.0.1';
+
+  // Fast security detection
   const secure =
     req.headers['x-forwarded-proto'] === 'https' ||
     (req.socket as any)?.encrypted === true;
 
-  // Optimized hostname detection - calculate once
-  const hostname = req.headers.host?.split(':')[0] || 'localhost';
+  // Fast hostname detection
+  const hostname = host.split(':')[0] || 'localhost';
 
   // Use context pool for better performance
   const ctx = ContextPool.acquire() as Context;
@@ -99,24 +103,58 @@ export function createContext(
   ctx.res = enhancedRes as any;
   ctx.body = undefined; // Will be set by body parser middleware
   ctx.method = method;
-  ctx.url = req.url || '/';
-  ctx.path = url.pathname;
+  ctx.url = url;
+  ctx.path = path;
   ctx.headers = req.headers;
-  ctx.query = Object.fromEntries(url.searchParams);
   ctx.params = {};
-  ctx.id = randomUUID();
+  // Generate ID only if not in production mode (for development/debugging)
+  ctx.id =
+    process.env['NODE_ENV'] === 'production'
+      ? undefined
+      : `ctx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   ctx.state = {};
   ctx.startTime = Date.now();
   ctx.ip = ip;
   ctx.secure = secure;
   ctx.protocol = protocol;
   ctx.hostname = hostname;
-  ctx.host = url.host;
-  ctx.origin = url.origin;
-  ctx.href = url.href;
-  ctx.search = url.search;
-  ctx.searchParams = url.searchParams;
+  ctx.host = host;
+  ctx.origin = `${protocol}://${host}`;
+  ctx.href = `${protocol}://${host}${url}`;
+  ctx.search = pathEnd === -1 ? '' : url.slice(pathEnd);
   ctx.responseHeaders = {}; // To track headers set via ctx.set
+
+  // Lazy load expensive properties only when accessed
+  let _query: Record<string, string | string[]> = {};
+  let _searchParams: URLSearchParams | undefined;
+
+  Object.defineProperty(ctx, 'query', {
+    get() {
+      if (Object.keys(_query).length === 0 && ctx.search) {
+        _query = parseQueryString(ctx.search.slice(1));
+      }
+      return _query;
+    },
+    set(value) {
+      _query = value;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  Object.defineProperty(ctx, 'searchParams', {
+    get() {
+      if (!_searchParams && ctx.search) {
+        _searchParams = new URLSearchParams(ctx.search.slice(1));
+      }
+      return _searchParams || new URLSearchParams();
+    },
+    set(value) {
+      _searchParams = value;
+    },
+    enumerable: true,
+    configurable: true,
+  });
 
   // Define getter/setter for status to avoid property creation overhead
   Object.defineProperty(ctx, 'status', {

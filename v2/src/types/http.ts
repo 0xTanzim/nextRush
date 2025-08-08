@@ -113,13 +113,11 @@ export type ResponseHandler = (
 ) => void | Promise<void>;
 
 /**
- * Middleware function
+ * Middleware function (ctx-style)
+ * NOTE: In v2, middleware must be (ctx, next). This alias ensures a single canonical type.
+ * @deprecated Import Middleware from '@/types/context' instead.
  */
-export type Middleware = (
-  req: NextRushRequest,
-  res: NextRushResponse,
-  next: () => void
-) => void | Promise<void>;
+export type Middleware = import('@/types/context').Middleware;
 
 /**
  * WebSocket handler function

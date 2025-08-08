@@ -6,11 +6,7 @@
 
 import type { Application } from '@/core/app/application';
 import { PluginError } from '@/errors/custom-errors';
-import type {
-  Middleware,
-  NextRushRequest,
-  NextRushResponse,
-} from '@/types/http';
+import type { Context, Middleware } from '@/types/context';
 
 /**
  * Plugin interface
@@ -274,18 +270,15 @@ export abstract class BasePlugin implements Plugin {
    * Create a middleware that wraps the plugin's functionality
    */
   protected createMiddleware(
-    handler: (
-      req: NextRushRequest,
-      res: NextRushResponse,
-      next: () => void
-    ) => void
+    handler: (ctx: Context, next: () => Promise<void>) => void | Promise<void>
   ): Middleware {
-    return (req: NextRushRequest, res: NextRushResponse, next: () => void) => {
+    return async (ctx: Context, next: () => Promise<void>) => {
       try {
-        handler(req, res, next);
+        await handler(ctx, next);
       } catch (error) {
         this.logError('Middleware error', error as Error);
-        next();
+        // rethrow to let upstream error handlers manage it
+        throw error;
       }
     };
   }
@@ -294,22 +287,14 @@ export abstract class BasePlugin implements Plugin {
    * Create an async middleware that wraps the plugin's functionality
    */
   protected createAsyncMiddleware(
-    handler: (
-      req: NextRushRequest,
-      res: NextRushResponse,
-      next: () => void
-    ) => Promise<void>
+    handler: (ctx: Context, next: () => Promise<void>) => Promise<void>
   ): Middleware {
-    return async (
-      req: NextRushRequest,
-      res: NextRushResponse,
-      next: () => void
-    ) => {
+    return async (ctx: Context, next: () => Promise<void>) => {
       try {
-        await handler(req, res, next);
+        await handler(ctx, next);
       } catch (error) {
         this.logError('Async middleware error', error as Error);
-        next();
+        throw error;
       }
     };
   }

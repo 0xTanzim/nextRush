@@ -5,8 +5,6 @@
  */
 
 import { createContext, releaseContext } from '@/core/app/context';
-import { RequestEnhancer } from '@/core/enhancers/request-enhancer';
-import { ResponseEnhancer } from '@/core/enhancers/response-enhancer';
 import { Router as RouterClass } from '@/core/router';
 import {
   GlobalExceptionFilter,
@@ -166,14 +164,8 @@ export class NextRushApplication extends EventEmitter implements Application {
           // Execute middleware with async boundary
           await this.executeMiddlewareWithBoundary(ctx);
 
-          // Enhance request and response after body parsing
-          const enhancedReq = RequestEnhancer.enhance(req);
-          const enhancedRes = ResponseEnhancer.enhance(res);
-
-          // Copy the parsed body from context to the enhanced request
-          enhancedReq.body = ctx.body;
-          ctx.req = enhancedReq as unknown as NextRushRequest;
-          ctx.res = enhancedRes as unknown as NextRushResponse;
+          // Copy the parsed body from context to the already enhanced request
+          ctx.req.body = ctx.body;
 
           // Execute route with async boundary
           await this.executeRouteWithBoundary(ctx);
@@ -183,14 +175,8 @@ export class NextRushApplication extends EventEmitter implements Application {
         // Execute middleware with async boundary
         await this.executeMiddlewareWithBoundary(ctx);
 
-        // Enhance request and response after body parsing
-        const enhancedReq = RequestEnhancer.enhance(req);
-        const enhancedRes = ResponseEnhancer.enhance(res);
-
-        // Copy the parsed body from context to the enhanced request
-        enhancedReq.body = ctx.body;
-        ctx.req = enhancedReq as unknown as NextRushRequest;
-        ctx.res = enhancedRes as unknown as NextRushResponse;
+        // Copy the parsed body from context to the already enhanced request
+        ctx.req.body = ctx.body;
 
         // Execute route with async boundary
         await this.executeRouteWithBoundary(ctx);
@@ -438,7 +424,7 @@ export class NextRushApplication extends EventEmitter implements Application {
           this.server.unref();
           clearTimeout(timeout);
           resolve();
-        } catch (error) {
+        } catch {
           clearTimeout(timeout);
           resolve();
         }
