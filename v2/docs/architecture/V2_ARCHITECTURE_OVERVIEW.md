@@ -117,13 +117,18 @@ NextRush v2 implements a custom, zero-dependency DI container system:
 ### Usage Example:
 
 ```typescript
-import { DIContainer } from '@/core/di/container';
+import { createContainer, ServiceLifetime } from 'nextrush-v2';
 
-const container = new DIContainer();
+const container = createContainer();
 
 // Register services
-container.register('userService', UserService);
-container.registerSingleton('logger', Logger);
+container.register({
+  token: 'userService',
+  lifetime: ServiceLifetime.SINGLETON,
+  factory: () => new UserService(),
+});
+
+container.singleton('logger', () => new Logger());
 
 // Resolve dependencies
 const userService = container.resolve<UserService>('userService');
@@ -201,7 +206,7 @@ NextRush v2 provides a comprehensive built-in middleware system:
 ### Middleware Pattern:
 
 ```typescript
-type Middleware = (ctx: Context, next: Next) => Promise<void>;
+type Middleware = (ctx: Context, next: () => Promise<void>) => Promise<void>;
 
 // Usage
 app.use(async (ctx, next) => {

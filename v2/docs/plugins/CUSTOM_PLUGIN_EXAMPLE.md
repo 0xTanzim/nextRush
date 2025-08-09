@@ -29,8 +29,8 @@ We'll create a `TemplateEnginePlugin` that provides template rendering capabilit
 
 ```typescript
 // src/plugins/template/template.plugin.ts
-import { BasePlugin } from '@/plugins/core/base-plugin';
-import type { Application, Context } from '@/types/context';
+import { BasePlugin, type Application, type Middleware } from 'nextrush-v2';
+import type { Context } from 'nextrush-v2';
 
 export interface TemplateEngineConfig {
   engine: 'ejs' | 'handlebars' | 'pug';
@@ -112,10 +112,10 @@ export class TemplateEnginePlugin extends BasePlugin {
   }
 
   private createTemplateMiddleware(): Middleware {
-    return (ctx: Context, next) => {
+    return async (ctx: Context, next) => {
       // ✅ Add template to context for request-specific access
       (ctx as any).template = this.templateInstance;
-      next();
+      await next();
     };
   }
 
@@ -241,9 +241,7 @@ app.get('/content', ctx => {
 ```typescript
 // ✅ Validate template plugin installation
 class TemplateGuard {
-  static requireTemplate(
-    app: Application
-  ): asserts app is Application & {
+  static requireTemplate(app: Application): asserts app is Application & {
     template: NonNullable<Application['template']>;
   } {
     if (!app.template) {

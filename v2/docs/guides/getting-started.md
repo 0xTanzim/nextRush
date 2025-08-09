@@ -14,6 +14,7 @@ This guide will walk you through creating your first NextRush v2 application wit
 - [Error Handling](#error-handling)
 - [Testing Your App](#testing-your-app)
 - [Next Steps](#next-steps)
+- [Serving Static Files](#serving-static-files)
 
 ## ✅ **Prerequisites**
 
@@ -69,10 +70,7 @@ Create `tsconfig.json`:
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "baseUrl": "./src"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
@@ -156,9 +154,11 @@ const app = createApp({
 app.use(app.helmet());
 app.use(app.cors());
 
-// Body parsing
-app.use(app.json({ limit: '10mb' }));
-app.use(app.urlencoded({ extended: true }));
+// Body parsing (recommended)
+app.use(app.smartBodyParser());
+// Or individually
+app.use(app.json());
+app.use(app.urlencoded());
 
 // Request tracking
 app.use(app.requestId());
@@ -352,6 +352,28 @@ app.get('/api/users/:id', ctx => {
 ```
 
 ## 🧪 **Testing Your App**
+
+## 🖼️ **Serving Static Files**
+
+Add a static file server in under a minute:
+
+```typescript
+import { createApp, StaticFilesPlugin } from 'nextrush-v2';
+
+const app = createApp();
+
+// Serve ./public at /static with sensible caching
+new StaticFilesPlugin({
+  root: __dirname + '/public',
+  prefix: '/static',
+  maxAge: 3600,
+  immutable: true,
+}).install(app);
+
+app.listen(3000);
+```
+
+Open `http://localhost:3000/static/index.html` or `/static/logo.png`.
 
 ### **Manual Testing**
 

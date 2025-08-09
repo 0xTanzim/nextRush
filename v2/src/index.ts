@@ -66,6 +66,12 @@ export {
   type Transport,
 } from '@/plugins/logger';
 
+// Static Files Plugin
+export {
+  StaticFilesPlugin,
+  type StaticFilesOptions,
+} from '@/plugins/static-files/static-files.plugin';
+
 // Middleware exports
 export { smartBodyParser as bodyParser } from '@/core/middleware/body-parser';
 export { compression } from '@/core/middleware/compression';

@@ -1,0 +1,3 @@
+export * from './core/base-plugin';
+export * from './logger';
+export * from './static-files/static-files.plugin';

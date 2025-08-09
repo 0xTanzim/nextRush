@@ -76,6 +76,11 @@ export interface NextRushResponse extends ServerResponse {
   xml(data: string): NextRushResponse;
   /** Send file response */
   file(path: string, options?: { root?: string }): NextRushResponse;
+  /** Send file response (alias) */
+  sendFile(
+    path: string,
+    options?: { root?: string; etag?: boolean }
+  ): NextRushResponse;
   /** Send download response */
   download(path: string, filename?: string): NextRushResponse;
   /** Redirect response */

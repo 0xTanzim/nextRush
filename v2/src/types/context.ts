@@ -33,8 +33,16 @@ export interface NextRushResponse extends ServerResponse {
   csv(data: string): NextRushResponse;
   /** Send XML response */
   xml(data: string): NextRushResponse;
+  /** Send file response (alias) */
+  file(
+    path: string,
+    options?: { root?: string; etag?: boolean }
+  ): NextRushResponse;
   /** Send file response */
-  file(path: string, options?: { root?: string }): NextRushResponse;
+  sendFile(
+    path: string,
+    options?: { root?: string; etag?: boolean }
+  ): NextRushResponse;
   /** Send download response */
   download(path: string, filename?: string): NextRushResponse;
   /** Redirect response */
@@ -136,6 +144,8 @@ export interface Context {
   cacheable(): boolean;
   /** Set response header (Koa-style) */
   set(name: string, value: string | number | string[]): void;
+  /** Send a file using the enhanced response */
+  sendFile(path: string, options?: { root?: string; etag?: boolean }): void;
 }
 
 /**

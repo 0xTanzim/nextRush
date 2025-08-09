@@ -26,8 +26,8 @@ Welcome to the NextRush v2 documentation! This comprehensive guide will help you
 ### **Architecture & Design**
 
 - **[Plugin Architecture](./architecture/PLUGIN_ARCHITECTURE_ANALYSIS.md)** - Plugin system design and analysis
-- **[Enhanced Request/Response](./Enhanced-Request-Response.md)** - Request/response enhancement system
-- **[Express-like Design](./Express-like-Design.md)** - Design principles and patterns
+- **[Enhanced Request/Response](./api/Enhanced-Request-Response.md)** - Request/response enhancement system
+- **[Express-like Design](./architecture/Express-like-Design.md)** - Design principles and patterns
 
 ### **Guides**
 

@@ -85,6 +85,7 @@
     "example:basic": "tsx src/examples/basic-server.ts",
     "example:simple": "tsx src/examples/simple-server.ts",
     "example:plugins": "tsx src/examples/plugin-demo.ts",
+    "playground": "tsx src/examples/playground.ts",
     "example:websocket": "tsx src/examples/websocket-server.ts"
   },
   "devDependencies": {
