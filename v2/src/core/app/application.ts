@@ -115,7 +115,7 @@ export class NextRushApplication extends EventEmitter implements Application {
    * Create HTTP server
    */
   private createServer(): Server {
-    return createServer((req, res) => {
+    const server = createServer((req, res) => {
       // Handle async request processing without blocking
       this.handleRequest(req, res).catch(error => {
         console.error('Request handling error:', error);
@@ -125,6 +125,17 @@ export class NextRushApplication extends EventEmitter implements Application {
         }
       });
     });
+
+    // Connection tuning: leverage validated options
+    // Keep-alive timeout controls how long to keep idle sockets open
+    server.keepAliveTimeout = this.options.keepAlive;
+    // Request timeout protects against hanging requests
+    server.requestTimeout = this.options.timeout;
+    // Ensure headers timeout exceeds keep-alive to avoid premature teardown
+    const safetyBufferMs = 1000;
+    server.headersTimeout = this.options.keepAlive + safetyBufferMs;
+
+    return server;
   }
 
   /**
