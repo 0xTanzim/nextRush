@@ -221,6 +221,14 @@ export function createContext(
     this.responseHeaders[name] = value;
   };
 
+  // Convenience: ctx.sendFile delegates to enhanced response
+  (ctx as any).sendFile = function (
+    path: string,
+    options?: { root?: string; etag?: boolean }
+  ): void {
+    (enhancedRes as any).sendFile(path, options);
+  };
+
   return ctx;
 }
 

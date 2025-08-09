@@ -109,7 +109,7 @@ test-results/
 coverage/
 
 # Documentation build
-docs/api/
+# docs/api/
 
 # Benchmark results
 benchmark-results/

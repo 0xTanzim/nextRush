@@ -60,7 +60,7 @@ app.post('/users', async ctx => {
   ctx.res.json({ message: 'User created', name, email });
 });
 
-// Object-based route config (no imports needed!)
+// Object-based route config
 app.post('/users', {
   handler: async ctx => {
     const { name, email } = ctx.body as { name?: string; email?: string };
