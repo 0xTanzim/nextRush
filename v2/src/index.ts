@@ -16,6 +16,10 @@ export type {
   RouteConfig,
   RouteHandler,
   Router,
+  WSConnection,
+  WSHandler,
+  WSMiddleware,
+  WebSocketPluginOptions,
 } from '@/types/context';
 
 export type { NextRushRequest, NextRushResponse } from '@/types/http';

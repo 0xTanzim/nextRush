@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { WSRoomManager } from './room-manager';
-import type { WSConnection } from './types';
+import type { WSConnection } from '@/types/context';
 
 export class RawWSConnection extends EventEmitter implements WSConnection {
   public id = randomUUID();
