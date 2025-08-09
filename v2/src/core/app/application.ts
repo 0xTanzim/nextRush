@@ -193,36 +193,52 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
-   * Execute middleware stack with SafeContext protection against race conditions
+   * Execute middleware stack.
+   * - Production: run directly on ctx for maximum performance.
+   * - Debug mode: wrap with SafeContext for diagnostics.
    */
   private async executeMiddlewareWithBoundary(ctx: Context): Promise<void> {
-    // Create safe context wrapper to prevent race conditions
-    let safeCtx = createSafeContext(ctx);
-    let index = 0;
+    if (this.options.debug) {
+      // Debug mode: keep SafeContext to detect misuse during development
+      let safeCtx = createSafeContext(ctx);
+      let index = 0;
 
+      const dispatch = async (): Promise<void> => {
+        if (index >= this.middleware.length) {
+          return;
+        }
+
+        const middleware = this.middleware[index++];
+        if (middleware) {
+          const safeMiddleware = createSafeMiddleware(middleware);
+          const result = await safeMiddleware(safeCtx, dispatch);
+
+          if (result) {
+            safeCtx = result;
+          }
+        }
+      };
+
+      await dispatch();
+      safeCtx.commit();
+      return;
+    }
+
+    // Production: direct execution without SafeContext wrapping
+    let index = 0;
     const dispatch = async (): Promise<void> => {
       if (index >= this.middleware.length) {
         return;
       }
-
       const middleware = this.middleware[index++];
-      if (middleware) {
-        // Execute middleware with safe context
-        // Convert regular middleware to work with SafeContext temporarily
-        const safeMiddleware = createSafeMiddleware(middleware);
-        const result = await safeMiddleware(safeCtx, dispatch);
-
-        // Update safeCtx if middleware returned a new context
-        if (result) {
-          safeCtx = result;
-        }
+      if (!middleware) return;
+      const result = middleware(ctx, dispatch);
+      if (result instanceof Promise) {
+        await result;
       }
     };
 
     await dispatch();
-
-    // Commit final context state back to original context
-    safeCtx.commit();
   }
 
   /**
@@ -233,7 +249,11 @@ export class NextRushApplication extends EventEmitter implements Application {
 
     if (match) {
       // Set route parameters in context
-      ctx.params = match.params;
+      // Freeze params to make them read-only for the rest of the pipeline
+      const frozenParams = Object.freeze({
+        ...match.params,
+      }) as unknown as typeof ctx.params;
+      ctx.params = frozenParams;
 
       // Direct execution for maximum performance - no setImmediate overhead
       await match.handler(ctx);

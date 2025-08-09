@@ -132,11 +132,17 @@ export function createContext(
     get() {
       if (Object.keys(_query).length === 0 && ctx.search) {
         _query = parseQueryString(ctx.search.slice(1));
+        // Freeze once to ensure read-only semantics for consumers
+        Object.freeze(_query);
       }
       return _query;
     },
     set(value) {
       _query = value;
+      // Keep consistent behavior: if value is an object, freeze it to enforce immutability-by-design
+      if (value && typeof value === 'object') {
+        Object.freeze(_query);
+      }
     },
     enumerable: true,
     configurable: true,
