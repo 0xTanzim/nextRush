@@ -138,7 +138,7 @@ export function requestId(options: RequestIdOptions = {}): Middleware {
       if (!requestId && !config.echoHeader) {
         try {
           requestId = config.generator();
-        } catch (error) {
+        } catch {
           // Fallback to UUID if generator fails
           requestId = generateUUID();
         }

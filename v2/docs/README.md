@@ -9,6 +9,7 @@ Welcome to the NextRush v2 documentation! This comprehensive guide will help you
 - **[Application](./api/application.md)** - Core application class and methods
 - **[Context](./api/context.md)** - Request/response context system
 - **[Routing](./api/routing.md)** - Route handling and URL patterns
+- **[WebSocket](./api/websocket.md)** - Real-time WebSocket server implementation
 - **[Middleware](./api/middleware.md)** - Built-in middleware and custom middleware
 - **[Features](./api/features.md)** - Advanced features and capabilities
 - **[Plugins](./api/plugins.md)** - Plugin system and development

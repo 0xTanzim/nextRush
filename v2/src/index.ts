@@ -73,7 +73,16 @@ export {
 } from '@/plugins/static-files/static-files.plugin';
 
 // Template Plugin
-export { TemplatePlugin, type TemplatePluginOptions } from '@/plugins/template/template.plugin';
+export {
+  TemplatePlugin,
+  type TemplatePluginOptions,
+} from '@/plugins/template/template.plugin';
+
+// WebSocket Plugin
+export {
+  WebSocketPlugin,
+  type WSContext,
+} from '@/plugins/websocket/websocket.plugin';
 
 // Middleware exports
 export { smartBodyParser as bodyParser } from '@/core/middleware/body-parser';
