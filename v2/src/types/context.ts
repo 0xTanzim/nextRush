@@ -19,6 +19,89 @@ import { IncomingMessage, ServerResponse } from 'node:http';
 import { ParsedUrlQuery } from 'node:querystring';
 import { NextRushRequest } from './http';
 
+// ============================================================================
+// WebSocket Types - Centralized here for better IntelliSense
+// ============================================================================
+
+/**
+ * WebSocket connection interface
+ */
+export interface WSConnection {
+  /** Unique connection ID */
+  id: string;
+  /** WebSocket request URL */
+  url: string;
+  /** Connection alive status */
+  isAlive: boolean;
+  /** Last pong timestamp */
+  lastPong: number;
+  /** Send message to client */
+  send(data: string | Buffer): void;
+  /** Close connection */
+  close(code?: number, reason?: string): void;
+  /** Join a room */
+  join(room: string): void;
+  /** Leave a room */
+  leave(room: string): void;
+  /** Listen for incoming messages */
+  onMessage(listener: (data: string | Buffer) => void): void;
+  /** Listen for connection close */
+  onClose(listener: (code: number, reason: string) => void): void;
+}
+
+/**
+ * WebSocket route handler type
+ */
+export type WSHandler = (
+  socket: WSConnection,
+  req: IncomingMessage
+) => void | Promise<void>;
+
+/**
+ * WebSocket middleware type
+ */
+export type WSMiddleware = (
+  socket: WSConnection,
+  req: IncomingMessage,
+  next: () => void
+) => void | Promise<void>;
+
+/**
+ * WebSocket plugin options
+ */
+export interface WebSocketPluginOptions {
+  /** Accepted paths (exact or wildcard *) */
+  path?: string | string[];
+  /** Ping interval in milliseconds */
+  heartbeatMs?: number;
+  /** Close if no pong within this timeout */
+  pongTimeoutMs?: number;
+  /** Maximum concurrent connections */
+  maxConnections?: number;
+  /** Maximum message size in bytes */
+  maxMessageSize?: number;
+  /** Allowed origins for CORS */
+  allowOrigins?: (string | RegExp)[];
+  /** Custom client verification */
+  verifyClient?: (req: IncomingMessage) => Promise<boolean> | boolean;
+  /** Debug mode */
+  debug?: boolean;
+}
+
+/**
+ * Default WebSocket plugin options
+ */
+export const DEFAULT_WS_OPTIONS: Required<WebSocketPluginOptions> = {
+  path: '/ws',
+  heartbeatMs: 30000,
+  pongTimeoutMs: 45000,
+  maxConnections: 10000,
+  maxMessageSize: 1 << 20, // 1MB
+  allowOrigins: [],
+  verifyClient: () => true,
+  debug: false,
+};
+
 /**
  * Enhanced response object with Express-like methods
  */
@@ -315,4 +398,15 @@ export interface Application {
     trace: (message: string, context?: Record<string, unknown>) => void;
     log: (message: string, context?: Record<string, unknown>) => void;
   };
+
+  // ============================================================================  
+  // WebSocket Methods - Available when WebSocketPlugin is installed
+  // ============================================================================
+  
+  /** Register a WebSocket route (exact path or with trailing * wildcard) */
+  ws?: (path: string, handler: WSHandler) => Application;
+  /** Register a WebSocket middleware executed before the handler */
+  wsUse?: (middleware: WSMiddleware) => Application;
+  /** Broadcast a message to all sockets or a specific room */
+  wsBroadcast?: (message: string, room?: string) => Application;
 }

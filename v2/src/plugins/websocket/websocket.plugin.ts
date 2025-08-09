@@ -4,20 +4,23 @@
  */
 
 import { BasePlugin } from '@/plugins/core/base-plugin';
-import type { Application, Context, Middleware, Next } from '@/types/context';
+import type { 
+  Application, 
+  Context, 
+  Middleware, 
+  Next,
+  WSConnection,
+  WSHandler,
+  WSMiddleware,
+  WebSocketPluginOptions
+} from '@/types/context';
+import { DEFAULT_WS_OPTIONS } from '@/types/context';
 import { createHash } from 'node:crypto';
 import { IncomingMessage, Server } from 'node:http';
 import { Socket } from 'node:net';
 import { RawWSConnection } from './connection';
 import { reject, verifyOrigin } from './handshake';
 import { WSRoomManager } from './room-manager';
-import type {
-  WebSocketPluginOptions,
-  WSConnection,
-  WSHandler,
-  WSMiddleware,
-} from './types';
-import { DEFAULT_OPTIONS } from './types';
 
 /**
  * Enhanced Context with WebSocket functionality
@@ -63,7 +66,7 @@ export class WebSocketPlugin extends BasePlugin {
     super();
 
     this.options = {
-      ...DEFAULT_OPTIONS,
+      ...DEFAULT_WS_OPTIONS,
       ...options,
     } as Required<WebSocketPluginOptions>;
 
@@ -96,25 +99,20 @@ export class WebSocketPlugin extends BasePlugin {
 
     app.use(websocketMiddleware);
 
-    // Add WebSocket route registration method to app
-    (app as any).ws = (path: string, handler: WSHandler): Application => {
+    // Strongly typed augmentation (cast once then assign for clarity)
+    const appWithWS = app as Application;
+
+    appWithWS.ws = (path: string, handler: WSHandler): Application => {
       this.routes.set(path, handler);
-      return app;
+      return appWithWS;
     };
-
-    // Add WebSocket middleware method to app
-    (app as any).wsUse = (middleware: WSMiddleware): Application => {
+    appWithWS.wsUse = (middleware: WSMiddleware): Application => {
       this.middlewares.push(middleware);
-      return app;
+      return appWithWS;
     };
-
-    // Add WebSocket broadcast method to app
-    (app as any).wsBroadcast = (
-      message: string,
-      room?: string
-    ): Application => {
+    appWithWS.wsBroadcast = (message: string, room?: string): Application => {
       this.broadcast(message, room);
-      return app;
+      return appWithWS;
     };
 
     // Setup HTTP upgrade handling

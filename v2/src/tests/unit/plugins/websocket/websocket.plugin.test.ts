@@ -1,4 +1,4 @@
-import type { WebSocketPluginOptions } from '@/plugins/websocket/types';
+import type { WebSocketPluginOptions } from '@/types/context';
 import { WebSocketPlugin } from '@/plugins/websocket/websocket.plugin';
 import type { Application } from '@/types/context';
 import { IncomingMessage, Server } from 'node:http';

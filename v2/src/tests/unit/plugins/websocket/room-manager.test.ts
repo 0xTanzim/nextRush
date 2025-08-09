@@ -1,5 +1,5 @@
 import { WSRoomManager } from '@/plugins/websocket/room-manager';
-import type { WSConnection } from '@/plugins/websocket/types';
+import type { WSConnection } from '@/types/context';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('WSRoomManager', () => {

@@ -12,7 +12,7 @@ const app = createApp();
 const wsPlugin = new WebSocketPlugin();
 wsPlugin.install(app);
 
-// Simple echo endpoint
+// Simple echo endpoint - now with proper typing!
 app.ws('/echo', socket => {
   process.stdout.write('📡 Echo client connected\n');
   socket.send('Welcome to echo server!');
