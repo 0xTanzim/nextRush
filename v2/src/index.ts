@@ -12,14 +12,20 @@ export { createContext } from '@/core/app/context';
 export type {
   Application,
   Context,
+  DotfilesPolicy,
   Middleware,
   RouteConfig,
   RouteHandler,
   Router,
+  StaticFilesOptions,
+  StatsLike,
+  TemplateHelper,
+  TemplatePluginOptions,
+  TemplateRenderOptions,
+  WebSocketPluginOptions,
   WSConnection,
   WSHandler,
   WSMiddleware,
-  WebSocketPluginOptions,
 } from '@/types/context';
 
 export type { NextRushRequest, NextRushResponse } from '@/types/http';
@@ -71,16 +77,10 @@ export {
 } from '@/plugins/logger';
 
 // Static Files Plugin
-export {
-  StaticFilesPlugin,
-  type StaticFilesOptions,
-} from '@/plugins/static-files/static-files.plugin';
+export { StaticFilesPlugin } from '@/plugins/static-files/static-files.plugin';
 
 // Template Plugin
-export {
-  TemplatePlugin,
-  type TemplatePluginOptions,
-} from '@/plugins/template/template.plugin';
+export { TemplatePlugin } from '@/plugins/template/template.plugin';
 
 // WebSocket Plugin
 export {

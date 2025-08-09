@@ -1,9 +1,9 @@
+import type { WSConnection } from '@/types/context';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { WSRoomManager } from './room-manager';
-import type { WSConnection } from '@/types/context';
 
 export class RawWSConnection extends EventEmitter implements WSConnection {
   public id = randomUUID();
@@ -78,7 +78,9 @@ export class RawWSConnection extends EventEmitter implements WSConnection {
 
   private setupListeners(): void {
     // Use ArrayBufferLike so both ArrayBuffer and SharedArrayBuffer backed Buffers are assignable
-    let buffer: Buffer<ArrayBufferLike> = Buffer.alloc(0) as Buffer<ArrayBufferLike>;
+    let buffer: Buffer<ArrayBufferLike> = Buffer.alloc(
+      0
+    ) as Buffer<ArrayBufferLike>;
 
     this.socket.on('data', chunk => {
       buffer = Buffer.concat([buffer, chunk]);

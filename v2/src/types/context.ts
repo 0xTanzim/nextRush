@@ -263,6 +263,78 @@ export type RouteHandler = (ctx: Context) => Promise<void> | void;
  */
 export type ErrorHandler = (error: Error, ctx: Context) => Promise<void> | void;
 
+// ============================================================================
+// Plugin Types - Static Files
+// ============================================================================
+
+/** Dotfiles policy for static files */
+export type DotfilesPolicy = 'ignore' | 'deny' | 'allow';
+
+/** Options for StaticFilesPlugin */
+export interface StaticFilesOptions {
+  /** Absolute directory to serve files from */
+  root: string;
+  /** URL prefix to mount under, e.g., "/static"; default: '' (root) */
+  prefix?: `/${string}` | '';
+  /** Default index file to serve for directories; set false to disable */
+  index?: string | false;
+  /** If true, call next() on 404 instead of sending 404; default: false */
+  fallthrough?: boolean;
+  /** If true, redirect directory request without trailing slash to slash; default: true */
+  redirect?: boolean;
+  /** Send Cache-Control max-age seconds; default: 0 (no explicit caching) */
+  maxAge?: number;
+  /** Add immutable directive to Cache-Control when maxAge > 0; default: false */
+  immutable?: boolean;
+  /** Control dotfiles serving; default: 'ignore' (404) */
+  dotfiles?: DotfilesPolicy;
+  /** Additional extensions to try when file not found (e.g., ['.html']); default: [] */
+  extensions?: string[];
+  /** Hook to customize headers */
+  setHeaders?: (ctx: Context, absolutePath: string, stat: StatsLike) => void;
+}
+
+/** Stats-like interface for static files */
+export interface StatsLike {
+  isFile(): boolean;
+  isDirectory(): boolean;
+  size: number;
+  mtime: Date;
+}
+
+// ============================================================================
+// Plugin Types - Template Engine
+// ============================================================================
+
+/** Options for TemplatePlugin */
+export interface TemplatePluginOptions {
+  /** Directory containing template files */
+  viewsDir?: string;
+  /** Enable template caching; default: true */
+  cache?: boolean;
+  /** Custom helper functions */
+  helpers?: Record<string, (value: unknown, ...args: unknown[]) => unknown>;
+  /** Preloaded partial templates */
+  partials?: Record<string, string>;
+  /** Enable loading partials from viewsDir; default: true */
+  enableFilePartials?: boolean;
+  /** File extension for partials; default: '.html' */
+  partialExt?: string;
+}
+
+/** Template helper function type */
+export type TemplateHelper = (value: unknown, ...args: unknown[]) => unknown;
+
+/** Template render options */
+export interface TemplateRenderOptions {
+  /** Layout template to wrap content in */
+  layout?: string;
+}
+
+// ============================================================================
+// Plugin Types - END
+// ============================================================================
+
 /**
  * Route configuration object (Fastify-style)
  */
@@ -399,14 +471,43 @@ export interface Application {
     log: (message: string, context?: Record<string, unknown>) => void;
   };
 
-  // ============================================================================  
+  // ============================================================================
   // WebSocket Methods - Available when WebSocketPlugin is installed
   // ============================================================================
-  
+
   /** Register a WebSocket route (exact path or with trailing * wildcard) */
   ws?: (path: string, handler: WSHandler) => Application;
   /** Register a WebSocket middleware executed before the handler */
   wsUse?: (middleware: WSMiddleware) => Application;
   /** Broadcast a message to all sockets or a specific room */
   wsBroadcast?: (message: string, room?: string) => Application;
+
+  // ============================================================================
+  // Static Files Methods - Available when StaticFilesPlugin is installed
+  // ============================================================================
+
+  /** Register a static files route */
+  static?: (
+    prefix: string,
+    root: string,
+    options?: StaticFilesOptions
+  ) => Application;
+
+  // ============================================================================
+  // Template Methods - Available when TemplatePlugin is installed
+  // ============================================================================
+
+  /** Register template engine and view directory */
+  setViewEngine?: (
+    engine: string,
+    viewsDir?: string,
+    options?: TemplatePluginOptions
+  ) => Application;
+  /** Add template helper */
+  helper?: (
+    name: string,
+    fn: (value: unknown, ...args: unknown[]) => unknown
+  ) => Application;
+  /** Add template partial */
+  partial?: (name: string, template: string) => Application;
 }

@@ -767,28 +767,31 @@ graphql.install(app);
 
 ### Static Files Plugin
 
-```typescript
-// Planned - Static file serving
-import { StaticFilesPlugin } from '@/plugins/static-files';
+Already implemented. See full guide: `docs/plugins/STATIC_FILES_PLUGIN.md`.
 
-const staticFiles = new StaticFilesPlugin({
-  root: './public',
+```typescript
+import { StaticFilesPlugin } from '@/plugins/static-files/static-files.plugin';
+
+new StaticFilesPlugin({
+  root: path.join(__dirname, 'public'),
   prefix: '/static',
-});
-staticFiles.install(app);
+  maxAge: 3600,
+  immutable: true,
+}).install(app);
 ```
 
 ### Template Plugin
 
-```typescript
-// Planned - Template rendering
-import { TemplatePlugin } from '@/plugins/template';
+Implemented with a custom built-in engine (no external engine string option).
+See: `docs/api/template.md`.
 
-const template = new TemplatePlugin({
-  engine: 'ejs',
-  views: './views',
-});
-template.install(app);
+```typescript
+import { TemplatePlugin } from '@/plugins/template/template.plugin';
+
+new TemplatePlugin({
+  viewsDir: path.join(__dirname, 'views'),
+  cache: process.env.NODE_ENV === 'production',
+}).install(app);
 ```
 
 This plugin architecture provides a flexible, extensible foundation for building web applications with NextRush v2.

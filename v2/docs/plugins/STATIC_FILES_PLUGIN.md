@@ -32,6 +32,7 @@ Access: `/static/images/logo.png`, `/static/app.js`, etc.
 - Optional `index.html` for directories and redirect to trailing slash
 - Dotfiles policy: `ignore` (404), `deny` (403), or `allow`
 - Hook for custom headers via `setHeaders`
+- Extension fallback (e.g. request `/about` resolves `/about.html` when `extensions: ['.html']`)
 
 ## API
 
@@ -88,6 +89,10 @@ new StaticFilesPlugin({
   fallthrough: true,
   setHeaders: (ctx, abs, stat) => {
     ctx.res.setHeader('X-Static-Served', '1');
+    // Example: set immutable only for hashed assets
+    if (/\.[a-f0-9]{8,}\./.test(abs)) {
+      ctx.res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
   },
 }).install(app);
 ```
@@ -105,6 +110,48 @@ new StaticFilesPlugin({
 - If `index: false` and directory requested, returns 403 or falls through
 - `fallthrough: true` defers to later middleware on 404
 - Range requests respond with 206 or 416
+- Unsatisfiable Range (e.g. `Range: bytes=999999-`) yields 416 with `Content-Range: bytes */<size>`
+- Extension resolution stops at first match in order of `extensions`
+- Dotfiles processed after resolution; `deny` => 403, `ignore` => 404
+
+### Extension Fallback Details
+
+When `extensions` is provided, and the exact path is not found, the plugin
+appends each extension in order and serves the first existing file.
+
+```ts
+new StaticFilesPlugin({
+  root: rootDir,
+  extensions: ['.html', '.htm', '.txt'],
+});
+// Request /about -> tries /about.html, /about.htm, /about.txt
+```
+
+### Disabling Directory Index
+
+Set `index: false` to prevent serving `index.html`. A directory request will:
+
+1. Redirect to trailing slash if `redirect: true` and missing `/`
+2. Return 403 (or call `next()` if `fallthrough: true`)
+
+### Immutable Caching
+
+If `immutable: true` and `maxAge > 0`, the header will include `immutable`.
+Use this only for revisioned assets (e.g. `/app.8f3c1a2b.js`).
+
+### Unsatisfiable Ranges
+
+Client requesting a range entirely outside file size receives `416` with
+`Content-Range: bytes */<size>` per RFC 7233.
+
+### Internals Overview
+
+Core logic split for maintainability:
+
+- `static-files.plugin.ts`: Option normalization & middleware wiring
+- `static-utils.ts`: Pure helpers (path safety, ETag, freshness, range parsing, streaming)
+
+This separation enables focused unit tests and future reuse without coupling.
 
 ## Testing
 
@@ -114,3 +161,6 @@ Integration tests cover:
 - 304 conditional GET, Range requests
 - Directory index + redirects, dotfiles policy
 - Path traversal prevention, fallthrough behavior
+- Extension fallback ordering
+- 416 unsatisfiable range handling
+- Immutable caching header presence
