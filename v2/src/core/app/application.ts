@@ -92,6 +92,9 @@ export class NextRushApplication extends EventEmitter implements Application {
   private isShuttingDown = false;
   private container: DIContainer;
   private middlewareFactory: MiddlewareFactory;
+  // Cache for exception filter middleware to avoid per-request scanning
+  private cachedExceptionFilter: Middleware | null = null;
+  private static readonly EXCEPTION_FILTER_MARK = Symbol('ExceptionFilter');
 
   constructor(options: ApplicationOptions = {}) {
     super();
@@ -134,6 +137,24 @@ export class NextRushApplication extends EventEmitter implements Application {
   }
 
   /**
+   * Get cached exception filter or scan once and cache it
+   */
+  private getOrFindExceptionFilter(): Middleware | null {
+    if (this.cachedExceptionFilter !== null) {
+      return this.cachedExceptionFilter;
+    }
+    const found = this.middleware.find(mw => {
+      const marked =
+        (mw as any)[NextRushApplication.EXCEPTION_FILTER_MARK] === true;
+      if (marked) return true;
+      const s = mw.toString();
+      return s.includes('exceptionFilter') || s.includes('ExceptionFilter');
+    });
+    this.cachedExceptionFilter = found ?? null;
+    return this.cachedExceptionFilter;
+  }
+
+  /**
    * Handle incoming requests
    */
   private async handleRequest(
@@ -147,14 +168,8 @@ export class NextRushApplication extends EventEmitter implements Application {
       this.options
     );
 
-    // Find the exception filter middleware
-    const exceptionFilter = this.middleware.find(middleware => {
-      // Check if this middleware is an exception filter
-      return (
-        middleware.toString().includes('exceptionFilter') ||
-        middleware.toString().includes('ExceptionFilter')
-      );
-    });
+    // Find the exception filter middleware (cached once discovered)
+    const exceptionFilter = this.getOrFindExceptionFilter();
 
     // Add async boundary to prevent event loop blocking
     const executeRequestWithBoundary = async (): Promise<void> => {
@@ -172,13 +187,8 @@ export class NextRushApplication extends EventEmitter implements Application {
         });
       } else {
         // No exception filter found, use basic error handling
-        // Execute middleware with async boundary
         await this.executeMiddlewareWithBoundary(ctx);
-
-        // Copy the parsed body from context to the already enhanced request
         ctx.req.body = ctx.body;
-
-        // Execute route with async boundary
         await this.executeRouteWithBoundary(ctx);
       }
     };
@@ -312,6 +322,8 @@ export class NextRushApplication extends EventEmitter implements Application {
     if (typeof middlewareOrPrefix === 'function') {
       // Register middleware
       this.middleware.push(middlewareOrPrefix);
+      // Invalidate cached exception filter when middleware changes
+      this.cachedExceptionFilter = null;
     } else if (router) {
       // Register sub-router
       const subRouter = router as any;
@@ -320,6 +332,8 @@ export class NextRushApplication extends EventEmitter implements Application {
 
       // Add sub-router middleware
       this.middleware.push(...subMiddleware);
+      // Invalidate cached exception filter when middleware changes
+      this.cachedExceptionFilter = null;
 
       // Add sub-router routes with prefix
       for (const [routeKey, handler] of subRoutes) {
@@ -558,7 +572,7 @@ export class NextRushApplication extends EventEmitter implements Application {
   public exceptionFilter(
     filters: ExceptionFilter[] = [new GlobalExceptionFilter()]
   ): Middleware {
-    return async (ctx, next) => {
+    const middleware: Middleware = async (ctx, next) => {
       try {
         await next();
       } catch (error) {
@@ -588,6 +602,11 @@ export class NextRushApplication extends EventEmitter implements Application {
         }
       }
     };
+    // Mark this middleware as an exception filter for O(1) detection
+    (middleware as any)[NextRushApplication.EXCEPTION_FILTER_MARK] = true;
+    // Cache immediately to avoid first-request scan
+    this.cachedExceptionFilter = middleware;
+    return middleware;
   }
 
   /**
