@@ -295,7 +295,7 @@ export class ResponseEnhancer {
 
           const stream = createReadStream(filePath);
           stream.pipe(enhanced);
-        } catch (error) {
+        } catch (_error) {
           enhanced.status(404).json({ error: 'File not found' });
         }
       };

@@ -31,7 +31,7 @@ function formatDuration(duration: number, options: TimerOptions): string {
   if (options.customFormat) {
     try {
       return options.customFormat(duration);
-    } catch (error) {
+    } catch {
       // Fallback to default format if custom format fails
       return `${duration.toFixed(options.digits)}${options.suffix}`;
     }
@@ -110,8 +110,8 @@ export function timer(options: TimerOptions = {}): Middleware {
             const duration = Number(end - start) / 1000000; // Convert to milliseconds
             const formattedDuration = formatDuration(duration, config);
             ctx.res.setHeader(config.header, formattedDuration);
-          } catch (error) {
-            // Headers already sent, ignore
+          } catch {
+            // Ignore header set errors
           }
         }
         return originalEnd.call(this, chunk, encoding, cb);
@@ -134,7 +134,7 @@ export function timer(options: TimerOptions = {}): Middleware {
         try {
           const formattedDuration = formatDuration(duration, config);
           ctx.res.setHeader(config.header, formattedDuration);
-        } catch (error) {
+        } catch {
           // Headers already sent, ignore
         }
       }
@@ -143,7 +143,7 @@ export function timer(options: TimerOptions = {}): Middleware {
       if (config.includeEndTime && ctx.res?.setHeader && !ctx.res.headersSent) {
         try {
           ctx.res.setHeader('X-Request-End', endTime.toString());
-        } catch (error) {
+        } catch {
           // Headers already sent, ignore
         }
       }
@@ -157,7 +157,7 @@ export function timer(options: TimerOptions = {}): Middleware {
         try {
           const formattedDuration = formatDuration(duration, config);
           ctx.res.setHeader('X-Request-Duration', formattedDuration);
-        } catch (error) {
+        } catch {
           // Headers already sent, ignore
         }
       }

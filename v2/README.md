@@ -13,7 +13,9 @@ NextRush v2 combines the best of Express.js and Koa to provide an intuitive, typ
 
 - **🚀 Express-like API**: Familiar `ctx.req`, `ctx.res`, `ctx.body` design
 - **⚡ Koa-style Async Middleware**: Powerful async middleware for performance
-- **🔧 Modular Router System**: Organize routes with `app.router()` and `createRouter()`
+- **� WebSocket Support**: RFC 6455-compliant WebSocket server with zero dependencies
+- **🏠 Room Management**: Built-in room-based broadcasting for real-time apps
+- **�🔧 Modular Router System**: Organize routes with `app.router()` and `createRouter()`
 - **📝 Object-Based Routes**: Fastify-style route configuration without imports
 - **🛡️ Type Safety**: Full TypeScript support with automatic type inference
 - **🎯 Enhanced Response Methods**: `ctx.res.json()`, `ctx.res.html()`, `ctx.res.csv()`, etc.
@@ -229,6 +231,88 @@ apiRouter.use('/admin', adminRouter);
 app.use(apiRouter);
 ```
 
+### WebSocket Support
+
+NextRush v2 includes a production-ready WebSocket implementation with zero dependencies:
+
+```typescript
+import { createApp, WebSocketPlugin } from 'nextrush-v2';
+
+const app = createApp();
+
+// Install WebSocket plugin
+const wsPlugin = new WebSocketPlugin({
+  path: '/ws',
+  heartbeatMs: 30000,
+  maxConnections: 1000,
+});
+wsPlugin.install(app);
+
+// Simple echo server
+app.ws('/ws', socket => {
+  socket.send('Welcome to NextRush v2 WebSocket!');
+
+  socket.onMessage(data => {
+    console.log('Received:', data);
+    socket.send(`Echo: ${data}`);
+  });
+
+  socket.onClose((code, reason) => {
+    console.log(`Connection closed: ${code} - ${reason}`);
+  });
+});
+
+// Room-based chat system
+app.ws('/chat/*', socket => {
+  // Extract room from URL
+  const room = socket.url.split('/').pop() || 'general';
+
+  // Join room
+  socket.join(room);
+
+  // Welcome message
+  socket.send(`Welcome to room: ${room}`);
+
+  // Handle messages
+  socket.onMessage(data => {
+    // Broadcast to all users in the room
+    app.wsBroadcast(`${room}: ${data}`, room);
+  });
+
+  // Leave room on disconnect
+  socket.onClose(() => socket.leave(room));
+});
+
+// WebSocket middleware for authentication
+app.wsUse(async (socket, req, next) => {
+  const url = new URL(req.url!, `http://${req.headers.host}`);
+  const token = url.searchParams.get('token');
+
+  if (!token || !isValidToken(token)) {
+    return socket.close(1008, 'Authentication failed');
+  }
+
+  next();
+});
+```
+
+**Client Usage:**
+
+```javascript
+// Browser WebSocket client
+const ws = new WebSocket('ws://localhost:3000/chat/general');
+ws.onopen = () => ws.send('Hello everyone!');
+ws.onmessage = (event) => console.log('Received:', event.data);
+
+// Test with curl
+curl -i -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  -H "Sec-WebSocket-Version: 13" \
+  http://localhost:3000/ws
+```
+
+````
+
 ## 🔧 Configuration
 
 ```typescript
@@ -258,7 +342,7 @@ app.use(
     enableMetrics: true,
   })
 );
-```
+````
 
 ## 📖 API Reference
 
@@ -348,6 +432,34 @@ describe('Application', () => {
   });
 });
 ```
+
+## 🎮 Playground & Examples
+
+The `playground/` directory contains working examples and battle-tested implementations:
+
+### WebSocket Examples
+
+```bash
+# Run simple WebSocket echo server
+node playground/websocket-test.js
+
+# Run comprehensive WebSocket battle tests
+./playground/websocket-battle-test.sh
+
+# Test with curl
+curl -i -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  -H "Sec-WebSocket-Version: 13" \
+  http://localhost:3001/ws
+```
+
+### Available Playground Files
+
+- **`websocket-test.js`** - Simple WebSocket server with echo functionality
+- **`websocket-chat-demo.js`** - Full-featured chat system with rooms and HTML client
+- **`websocket-battle-test.sh`** - Comprehensive test suite for WebSocket functionality
+
+These examples demonstrate production-ready patterns and can be used as starting points for your own applications.
 
 ## 🚀 Performance
 

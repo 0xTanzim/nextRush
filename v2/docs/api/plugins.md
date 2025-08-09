@@ -7,6 +7,8 @@ NextRush v2 uses a plugin-based architecture that allows you to extend the frame
 - [Plugin Architecture](#plugin-architecture)
 - [Logger Plugin](#logger-plugin)
 - [Static Files Plugin](#static-files-plugin)
+- [WebSocket Plugin](#websocket-plugin)
+- [Template Plugin](#template-plugin)
 - [Plugin Development](#plugin-development)
 - [Plugin Best Practices](#plugin-best-practices)
 
@@ -354,6 +356,97 @@ describe('Logger Plugin', () => {
   });
 });
 ```
+
+## WebSocket Plugin
+
+Production-ready WebSocket server with RFC 6455 compliance and zero external dependencies.
+
+### Quick Start
+
+```typescript
+import { createApp, WebSocketPlugin } from 'nextrush-v2';
+
+const app = createApp();
+
+// Install WebSocket plugin
+const wsPlugin = new WebSocketPlugin({
+  path: '/ws',
+  heartbeatMs: 30000,
+  maxConnections: 1000,
+});
+wsPlugin.install(app);
+
+// Simple echo handler
+app.ws('/ws', socket => {
+  socket.send('Welcome!');
+
+  socket.onMessage(data => {
+    socket.send(`Echo: ${data}`);
+  });
+
+  socket.onClose((code, reason) => {
+    console.log(`Disconnected: ${code} - ${reason}`);
+  });
+});
+
+app.listen(3000);
+```
+
+### Key Features
+
+- **🔌 RFC 6455 Compliant** - Full WebSocket protocol implementation
+- **🏠 Room Management** - Built-in broadcasting and room system
+- **🛡️ Zero Dependencies** - Pure Node.js implementation
+- **⚡ High Performance** - Optimized for production workloads
+- **🔒 Security** - Origin validation, rate limiting, size limits
+- **🧪 Battle Tested** - 100+ comprehensive tests
+
+### Advanced Usage
+
+```typescript
+// Room-based chat system
+app.ws('/chat/*', socket => {
+  const room = socket.url.split('/').pop() || 'general';
+  socket.join(room);
+
+  socket.onMessage(data => {
+    app.wsBroadcast(`${room}: ${data}`, room);
+  });
+
+  socket.onClose(() => socket.leave(room));
+});
+
+// Authentication middleware
+app.wsUse(async (socket, req, next) => {
+  const token = new URL(
+    req.url!,
+    `http://${req.headers.host}`
+  ).searchParams.get('token');
+
+  if (!isValidToken(token)) {
+    return socket.close(1008, 'Authentication failed');
+  }
+
+  next();
+});
+```
+
+### Configuration Options
+
+```typescript
+interface WebSocketPluginOptions {
+  path?: string | string[]; // WebSocket paths (supports wildcards)
+  heartbeatMs?: number; // Ping interval (default: 30000)
+  pongTimeoutMs?: number; // Pong timeout (default: 60000)
+  maxConnections?: number; // Connection limit (default: 1000)
+  maxMessageSize?: number; // Message size limit (default: 16MB)
+  allowOrigins?: (string | RegExp)[]; // CORS origins
+  verifyClient?: (req) => boolean; // Custom verification
+  debug?: boolean; // Debug logging
+}
+```
+
+For complete documentation and examples, see [WebSocket API Documentation](./websocket.md).
 
 ## Plugin Development
 
