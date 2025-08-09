@@ -1,5 +1,5 @@
-import { EventEmitter } from 'node:events';
 import type { WSConnection } from '@/types/context';
+import { EventEmitter } from 'node:events';
 
 export class WSRoomManager extends EventEmitter {
   private rooms = new Map<string, Set<WSConnection>>();

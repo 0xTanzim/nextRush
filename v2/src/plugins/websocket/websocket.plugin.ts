@@ -4,15 +4,15 @@
  */
 
 import { BasePlugin } from '@/plugins/core/base-plugin';
-import type { 
-  Application, 
-  Context, 
-  Middleware, 
+import type {
+  Application,
+  Context,
+  Middleware,
   Next,
   WSConnection,
   WSHandler,
   WSMiddleware,
-  WebSocketPluginOptions
+  WebSocketPluginOptions,
 } from '@/types/context';
 import { DEFAULT_WS_OPTIONS } from '@/types/context';
 import { createHash } from 'node:crypto';
