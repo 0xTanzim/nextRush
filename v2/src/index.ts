@@ -72,6 +72,9 @@ export {
   type StaticFilesOptions,
 } from '@/plugins/static-files/static-files.plugin';
 
+// Template Plugin
+export { TemplatePlugin, type TemplatePluginOptions } from '@/plugins/template/template.plugin';
+
 // Middleware exports
 export { smartBodyParser as bodyParser } from '@/core/middleware/body-parser';
 export { compression } from '@/core/middleware/compression';

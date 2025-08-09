@@ -33,6 +33,12 @@ export interface NextRushResponse extends ServerResponse {
   csv(data: string): NextRushResponse;
   /** Send XML response */
   xml(data: string): NextRushResponse;
+  /** Render HTML from a template string or a template name under viewsDir */
+  render(
+    templateOrName: string,
+    data?: Record<string, unknown>,
+    options?: { layout?: string }
+  ): Promise<void>;
   /** Send file response (alias) */
   file(
     path: string,
@@ -146,6 +152,12 @@ export interface Context {
   set(name: string, value: string | number | string[]): void;
   /** Send a file using the enhanced response */
   sendFile(path: string, options?: { root?: string; etag?: boolean }): void;
+  /** Render HTML from a template string or a template name under viewsDir */
+  render(
+    templateOrName: string,
+    data?: Record<string, unknown>,
+    options?: { layout?: string }
+  ): Promise<void>;
 }
 
 /**
