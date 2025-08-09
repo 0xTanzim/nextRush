@@ -8,19 +8,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream, statSync } from 'node:fs';
 import type { ServerResponse } from 'node:http';
 import { extname } from 'node:path';
-
-/**
- * Cookie options interface
- */
-interface CookieOptions {
-  maxAge?: number;
-  expires?: Date;
-  path?: string;
-  domain?: string;
-  secure?: boolean;
-  httpOnly?: boolean;
-  sameSite?: 'Strict' | 'Lax' | 'None';
-}
+import { type CookieOptions, serializeCookie } from '../../utils/cookies.js';
 
 /**
  * File options interface
@@ -295,7 +283,7 @@ export class ResponseEnhancer {
 
           const stream = createReadStream(filePath);
           stream.pipe(enhanced);
-        } catch (_error) {
+        } catch {
           enhanced.status(404).json({ error: 'File not found' });
         }
       };
@@ -398,30 +386,7 @@ export class ResponseEnhancer {
         value: string,
         options?: CookieOptions
       ) => {
-        let cookie = `${name}=${encodeURIComponent(value)}`;
-
-        if (options?.maxAge) {
-          cookie += `; Max-Age=${options.maxAge}`;
-        }
-        if (options?.expires) {
-          cookie += `; Expires=${options.expires.toUTCString()}`;
-        }
-        if (options?.path) {
-          cookie += `; Path=${options.path}`;
-        }
-        if (options?.domain) {
-          cookie += `; Domain=${options.domain}`;
-        }
-        if (options?.secure) {
-          cookie += '; Secure';
-        }
-        if (options?.httpOnly) {
-          cookie += '; HttpOnly';
-        }
-        if (options?.sameSite) {
-          cookie += `; SameSite=${options.sameSite}`;
-        }
-
+        const cookie = serializeCookie(name, value, options);
         enhanced.setHeader('Set-Cookie', cookie);
         return enhanced;
       };
@@ -460,11 +425,11 @@ export class ResponseEnhancer {
     // Template helper methods
     if (!enhanced.getNestedValue) {
       enhanced.getNestedValue = (obj: unknown, path: string) => {
-        return path.split('.').reduce((current: any, key: string) => {
-          return current && current[key] !== undefined
-            ? current[key]
-            : undefined;
-        }, obj);
+        return path.split('.').reduce((current: Record<string, unknown> | null, key: string) => {
+          return current && typeof current === 'object' && key in current
+            ? current[key] as Record<string, unknown> | null
+            : null;
+        }, obj as Record<string, unknown> | null);
       };
     }
 

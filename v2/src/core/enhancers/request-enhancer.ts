@@ -4,6 +4,11 @@
  * @packageDocumentation
  */
 
+import {
+  parseCookies,
+  PARSED_COOKIES_SYMBOL,
+  type CookieParseResult,
+} from '@/utils/cookies';
 import type { IncomingMessage } from 'node:http';
 import type { ParsedUrlQuery } from 'node:querystring';
 import { URL } from 'node:url';
@@ -170,16 +175,20 @@ export class RequestEnhancer {
     }
 
     // Security helpers
-    if (!Object.prototype.hasOwnProperty.call(enhanced, 'secure') || enhanced.secure === undefined) {
+    if (
+      !Object.prototype.hasOwnProperty.call(enhanced, 'secure') ||
+      enhanced.secure === undefined
+    ) {
       const proto = enhanced.headers['x-forwarded-proto'] as string;
       const connection = enhanced.connection || enhanced.socket;
-      const isSecure = proto === 'https' || (connection as any)?.encrypted === true;
-      
+      const isSecure =
+        proto === 'https' || (connection as any)?.encrypted === true;
+
       Object.defineProperty(enhanced, 'secure', {
         value: isSecure,
         writable: true,
         enumerable: true,
-        configurable: true
+        configurable: true,
       });
     }
 
@@ -251,33 +260,38 @@ export class RequestEnhancer {
       };
     }
 
-    // Cookie parsing
+    // Cookie parsing with performance optimization and caching
     if (!enhanced.parseCookies) {
       enhanced.parseCookies = () => {
-        const cookies: Record<string, string> = {};
-        const cookieHeader = enhanced.headers.cookie as string;
-
-        if (cookieHeader) {
-          cookieHeader.split(';').forEach(cookie => {
-            const [name, ...valueParts] = cookie.trim().split('=');
-            if (name && valueParts.length > 0) {
-              const value = valueParts.join('=');
-              try {
-                cookies[name] = decodeURIComponent(value);
-              } catch {
-                cookies[name] = value;
-              }
-            }
-          });
+        // Check if cookies are already cached
+        if ((enhanced as any)[PARSED_COOKIES_SYMBOL]) {
+          return (enhanced as any)[PARSED_COOKIES_SYMBOL] as CookieParseResult;
         }
 
-        return cookies;
+        // Use optimized cookie parser
+        const cookieHeader = enhanced.headers.cookie as string;
+        const parsed = parseCookies(cookieHeader || '');
+
+        // Cache the result to avoid re-parsing
+        (enhanced as any)[PARSED_COOKIES_SYMBOL] = parsed;
+
+        return parsed;
       };
     }
 
-    // Auto-parse cookies
+    // Lazy cookie property with getter
     if (!enhanced.cookies || Object.keys(enhanced.cookies).length === 0) {
-      enhanced.cookies = enhanced.parseCookies();
+      // Use lazy evaluation - only parse when first accessed
+      Object.defineProperty(enhanced, 'cookies', {
+        get() {
+          if (!(enhanced as any)[PARSED_COOKIES_SYMBOL]) {
+            (enhanced as any)[PARSED_COOKIES_SYMBOL] = enhanced.parseCookies();
+          }
+          return (enhanced as any)[PARSED_COOKIES_SYMBOL];
+        },
+        configurable: true,
+        enumerable: true,
+      });
     }
 
     // Validation framework
