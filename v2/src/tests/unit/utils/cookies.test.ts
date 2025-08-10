@@ -1,17 +1,17 @@
 /**
  * Cookie Utilities Tests
- * 
+ *
  * Comprehensive test suite for high-performance cookie handling
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { 
-  parseCookies, 
-  serializeCookie, 
-  signCookie, 
-  unsignCookie, 
-  validateCookieValue,
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
   CookieJar,
+  parseCookies,
+  serializeCookie,
+  signCookie,
+  unsignCookie,
+  validateCookieValue,
 } from '../../../utils/cookies.js';
 
 describe('Cookie Utilities', () => {
@@ -28,7 +28,7 @@ describe('Cookie Utilities', () => {
       const result = parseCookies('name=value; foo=bar');
       expect(result).toEqual({
         name: 'value',
-        foo: 'bar'
+        foo: 'bar',
       });
     });
 
@@ -36,7 +36,7 @@ describe('Cookie Utilities', () => {
       const result = parseCookies('name=hello%20world; special=%40%23%24');
       expect(result).toEqual({
         name: 'hello world',
-        special: '@#$'
+        special: '@#$',
       });
     });
 
@@ -44,15 +44,17 @@ describe('Cookie Utilities', () => {
       const result = parseCookies('empty=; hasValue=test');
       expect(result).toEqual({
         empty: '',
-        hasValue: 'test'
+        hasValue: 'test',
       });
     });
 
     it('should handle malformed cookies gracefully', () => {
-      const result = parseCookies('valid=good; =invalid; badformat; another=value');
+      const result = parseCookies(
+        'valid=good; =invalid; badformat; another=value'
+      );
       expect(result).toEqual({
         valid: 'good',
-        another: 'value'
+        another: 'value',
       });
     });
 
@@ -60,7 +62,7 @@ describe('Cookie Utilities', () => {
       const result = parseCookies('quoted="hello world"; normal=value');
       expect(result).toEqual({
         quoted: 'hello world',
-        normal: 'value'
+        normal: 'value',
       });
     });
 
@@ -68,7 +70,7 @@ describe('Cookie Utilities', () => {
       const result = parseCookies('spaced = " value " ; normal=clean');
       expect(result).toEqual({
         spaced: ' value ',
-        normal: 'clean'
+        normal: 'clean',
       });
     });
 
@@ -80,14 +82,14 @@ describe('Cookie Utilities', () => {
     it('should handle single cookie', () => {
       const result = parseCookies('single=value');
       expect(result).toEqual({
-        single: 'value'
+        single: 'value',
       });
     });
 
     it('should handle Unicode values', () => {
       const result = parseCookies('unicode=%E2%9C%A8%F0%9F%8D%AA');
       expect(result).toEqual({
-        unicode: '✨🍪'
+        unicode: '✨🍪',
       });
     });
   });
@@ -120,7 +122,9 @@ describe('Cookie Utilities', () => {
     });
 
     it('should add Domain option', () => {
-      const result = serializeCookie('name', 'value', { domain: '.example.com' });
+      const result = serializeCookie('name', 'value', {
+        domain: '.example.com',
+      });
       expect(result).toBe('name=value; Domain=.example.com');
     });
 
@@ -146,7 +150,7 @@ describe('Cookie Utilities', () => {
         domain: '.example.com',
         secure: true,
         httpOnly: true,
-        sameSite: 'Strict'
+        sameSite: 'Strict',
       });
       expect(result).toBe(
         'session=abc123; Max-Age=3600; Path=/; Domain=.example.com; Secure; HttpOnly; SameSite=Strict'
@@ -156,30 +160,30 @@ describe('Cookie Utilities', () => {
     it('should apply security defaults in production', () => {
       const originalEnv = process.env['NODE_ENV'];
       process.env['NODE_ENV'] = 'production';
-      
+
       const result = serializeCookie('name', 'value');
       expect(result).toBe('name=value; Secure; HttpOnly; SameSite=Strict');
-      
+
       process.env['NODE_ENV'] = originalEnv;
     });
 
     it('should not apply security defaults in development', () => {
       const originalEnv = process.env['NODE_ENV'];
       process.env['NODE_ENV'] = 'development';
-      
+
       const result = serializeCookie('name', 'value');
       expect(result).toBe('name=value');
-      
+
       process.env['NODE_ENV'] = originalEnv;
     });
 
     it('should override security defaults when explicitly set', () => {
       const originalEnv = process.env['NODE_ENV'];
       process.env['NODE_ENV'] = 'production';
-      
+
       const result = serializeCookie('name', 'value', { secure: false });
       expect(result).toBe('name=value; HttpOnly; SameSite=Strict');
-      
+
       process.env['NODE_ENV'] = originalEnv;
     });
   });
@@ -333,7 +337,7 @@ describe('Cookie Utilities', () => {
       const obj = jar.toObject();
       expect(obj).toEqual({
         session: 'abc123',
-        theme: 'dark'
+        theme: 'dark',
       });
     });
 
@@ -347,17 +351,17 @@ describe('Cookie Utilities', () => {
 
     it('should report size', () => {
       expect(jar.size()).toBe(0);
-      
+
       jar.set('cookie1', 'value1');
       expect(jar.size()).toBe(1);
-      
+
       jar.set('cookie2', 'value2');
       expect(jar.size()).toBe(2);
     });
 
     it('should check existence', () => {
       expect(jar.has('missing')).toBe(false);
-      
+
       jar.set('existing', 'value');
       expect(jar.has('existing')).toBe(true);
     });
@@ -366,8 +370,11 @@ describe('Cookie Utilities', () => {
   describe('Performance', () => {
     it('should parse large cookie strings efficiently', () => {
       // Generate large cookie string
-      const cookies = Array.from({ length: 100 }, (_, i) => `cookie${i}=value${i}`).join('; ');
-      
+      const cookies = Array.from(
+        { length: 100 },
+        (_, i) => `cookie${i}=value${i}`
+      ).join('; ');
+
       const start = performance.now();
       const result = parseCookies(cookies);
       const end = performance.now();
@@ -378,24 +385,24 @@ describe('Cookie Utilities', () => {
 
     it('should serialize cookies efficiently', () => {
       const start = performance.now();
-      
+
       for (let i = 0; i < 1000; i++) {
         serializeCookie(`cookie${i}`, `value${i}`, {
           maxAge: 3600,
           path: '/',
           httpOnly: true,
           secure: true,
-          sameSite: 'Strict'
+          sameSite: 'Strict',
         });
       }
-      
+
       const end = performance.now();
       expect(end - start).toBeLessThan(50); // Should be under 50ms for 1000 cookies
     });
 
     it('should handle memory efficiently with CookieJar', () => {
       const jar = new CookieJar();
-      
+
       // Add many cookies
       for (let i = 0; i < 10000; i++) {
         jar.set(`cookie${i}`, `value${i}`);
@@ -432,7 +439,8 @@ describe('Cookie Utilities', () => {
         // Both operations are too fast to measure - this is fine
         expect(true).toBe(true);
       } else {
-        const ratio = Math.max(time1, time2) / Math.max(Math.min(time1, time2), 0.001);
+        const ratio =
+          Math.max(time1, time2) / Math.max(Math.min(time1, time2), 0.001);
         expect(ratio).toBeLessThan(10); // Allow 10x variance for timing variations
       }
     });
@@ -440,7 +448,7 @@ describe('Cookie Utilities', () => {
     it('should handle injection attempts safely', () => {
       const maliciousValue = 'value"; HttpOnly; Secure';
       const result = serializeCookie('test', maliciousValue);
-      
+
       // Should be properly encoded
       expect(result).toMatch(/^test=value%22%3B%20HttpOnly%3B%20Secure$/);
     });

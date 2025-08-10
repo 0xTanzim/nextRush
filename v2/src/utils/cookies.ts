@@ -1,6 +1,6 @@
 /**
  * High-Performance Cookie Utilities for NextRush v2
- * 
+ *
  * Features:
  * - ⚡ Ultra-fast cookie parsing with lazy evaluation
  * - 🔒 Built-in signing/verification (HMAC-SHA256)
@@ -8,7 +8,7 @@
  * - 📦 JSON serialization helpers
  * - 🎯 Zero-copy parsing where possible
  * - 💾 Minimal memory allocations
- * 
+ *
  * Performance optimizations:
  * - Single-pass parsing
  * - Efficient string operations
@@ -81,13 +81,13 @@ export const SECURE_COOKIE_DEFAULTS: Partial<CookieOptions> = {
 
 /**
  * ⚡ Ultra-fast cookie parsing with single-pass algorithm
- * 
+ *
  * Performance optimizations:
  * - Single loop through the cookie string
  * - Minimal string operations
  * - Lazy URL decoding (only when needed)
  * - Efficient whitespace handling
- * 
+ *
  * @param cookieHeader Raw cookie header string
  * @returns Parsed cookies object
  */
@@ -122,18 +122,19 @@ export function parseCookies(cookieHeader: string): CookieParseResult {
     // Extract cookie segment
     const segment = cookieHeader.slice(pos, nextSemi);
     const eqPos = segment.indexOf('=');
-    
+
     if (eqPos > 0) {
       const name = segment.slice(0, eqPos).trim();
       const value = segment.slice(eqPos + 1).trim();
-      
-      if (name && !cookies[name]) { // First occurrence wins
+
+      if (name && !cookies[name]) {
+        // First occurrence wins
         cookies[name] = tryDecodeURIComponent(value);
       }
     }
 
     pos = nextSemi + 1;
-    
+
     // Skip whitespace after semicolon
     while (pos < len && cookieHeader[pos] === ' ') {
       pos++;
@@ -146,7 +147,7 @@ export function parseCookies(cookieHeader: string): CookieParseResult {
 /**
  * Safe URL component decoding with fallback
  * Also handles quoted values properly
- * 
+ *
  * @param value Value to decode
  * @returns Decoded value or original if decode fails
  */
@@ -155,7 +156,7 @@ function tryDecodeURIComponent(value: string): string {
   if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
     value = value.slice(1, -1);
   }
-  
+
   try {
     // Only decode if it contains encoded characters
     if (value.includes('%')) {
@@ -169,7 +170,7 @@ function tryDecodeURIComponent(value: string): string {
 
 /**
  * ⚡ High-performance cookie serialization
- * 
+ *
  * @param name Cookie name
  * @param value Cookie value
  * @param options Cookie options
@@ -192,7 +193,7 @@ export function serializeCookie(
   // Apply security defaults in production unless explicitly overridden
   const isProduction = process.env['NODE_ENV'] === 'production';
   const finalOptions = { ...options };
-  
+
   if (isProduction) {
     finalOptions.secure = options.secure !== false; // Default true, can be explicitly false
     finalOptions.httpOnly = options.httpOnly !== false; // Default true, can be explicitly false
@@ -243,7 +244,7 @@ export function serializeCookie(
 
 /**
  * 🔒 Sign a cookie value with HMAC-SHA256
- * 
+ *
  * @param value Value to sign
  * @param secret Secret key for signing
  * @returns Signed value in format: value.signature
@@ -262,12 +263,15 @@ export function signCookie(value: string, secret: string): string {
 
 /**
  * 🔒 Verify and unsign a cookie value
- * 
+ *
  * @param signedValue Signed cookie value
  * @param secret Secret key for verification
  * @returns Original value if valid, false if invalid
  */
-export function unsignCookie(signedValue: string, secret: string): string | false {
+export function unsignCookie(
+  signedValue: string,
+  secret: string
+): string | false {
   if (!secret) {
     return false;
   }
@@ -305,7 +309,7 @@ export function unsignCookie(signedValue: string, secret: string): string | fals
 
 /**
  * 📦 Serialize value as JSON cookie
- * 
+ *
  * @param value Value to serialize
  * @returns JSON string or original value if serialization fails
  */
@@ -323,7 +327,7 @@ export function serializeJsonValue(value: unknown): string {
 
 /**
  * 📦 Deserialize JSON cookie value
- * 
+ *
  * @param value JSON string value
  * @returns Parsed value or original string if parsing fails
  */
@@ -333,7 +337,9 @@ export function deserializeJsonValue(value: string): unknown {
   }
 
   // Quick check if it looks like JSON
-  if (!(value.startsWith('{') || value.startsWith('[') || value.startsWith('"'))) {
+  if (
+    !(value.startsWith('{') || value.startsWith('[') || value.startsWith('"'))
+  ) {
     return value;
   }
 
@@ -346,7 +352,7 @@ export function deserializeJsonValue(value: string): unknown {
 
 /**
  * 🛡️ Validate cookie value for security
- * 
+ *
  * @param value Cookie value
  * @param maxSize Maximum size in bytes (default: 4096)
  * @returns True if valid, false otherwise
@@ -367,7 +373,7 @@ export function validateCookieValue(value: string, maxSize = 4096): boolean {
   }
 
   // Check for control characters (reject all control chars including tab)
-  // eslint-disable-next-line no-control-regex  
+  // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1F\x7F]/.test(value)) {
     return false;
   }
@@ -377,7 +383,7 @@ export function validateCookieValue(value: string, maxSize = 4096): boolean {
 
 /**
  * 🎯 Create secure cookie options with defaults
- * 
+ *
  * @param options User options
  * @returns Options with security defaults applied
  */
@@ -388,7 +394,7 @@ export function createSecureCookieOptions(
     ...SECURE_COOKIE_DEFAULTS,
     ...options,
     // Always ensure secure in production
-    secure: options.secure ?? (process.env['NODE_ENV'] === 'production'),
+    secure: options.secure ?? process.env['NODE_ENV'] === 'production',
   };
 }
 
@@ -398,7 +404,7 @@ export function createSecureCookieOptions(
 export const CookieMetrics = {
   parseTime: 0,
   parseCalls: 0,
-  
+
   startParse(): () => void {
     const start = process.hrtime.bigint();
     return () => {
