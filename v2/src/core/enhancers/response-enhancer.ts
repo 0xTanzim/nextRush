@@ -425,11 +425,14 @@ export class ResponseEnhancer {
     // Template helper methods
     if (!enhanced.getNestedValue) {
       enhanced.getNestedValue = (obj: unknown, path: string) => {
-        return path.split('.').reduce((current: Record<string, unknown> | null, key: string) => {
-          return current && typeof current === 'object' && key in current
-            ? current[key] as Record<string, unknown> | null
-            : null;
-        }, obj as Record<string, unknown> | null);
+        return path.split('.').reduce(
+          (current: Record<string, unknown> | null, key: string) => {
+            return current && typeof current === 'object' && key in current
+              ? (current[key] as Record<string, unknown> | null)
+              : null;
+          },
+          obj as Record<string, unknown> | null
+        );
       };
     }
 

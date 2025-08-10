@@ -28,11 +28,11 @@ const app = new NextRushApp();
 ### Reading Cookies
 
 ```typescript
-app.get('/profile', (ctx) => {
+app.get('/profile', ctx => {
   // Access parsed cookies
   const sessionId = ctx.req.cookies.session_id;
   const preferences = ctx.req.cookies.user_preferences;
-  
+
   ctx.res.json({ sessionId, preferences });
 });
 ```
@@ -40,20 +40,20 @@ app.get('/profile', (ctx) => {
 ### Setting Cookies
 
 ```typescript
-app.post('/login', (ctx) => {
+app.post('/login', ctx => {
   const { username } = ctx.body;
-  
+
   // Simple cookie
   ctx.res.cookie('username', username);
-  
+
   // Secure cookie with options
   ctx.res.cookie('session_id', generateSessionId(), {
     httpOnly: true,
     secure: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'strict'
+    sameSite: 'strict',
   });
-  
+
   ctx.res.json({ status: 'logged in' });
 });
 ```
@@ -61,30 +61,30 @@ app.post('/login', (ctx) => {
 ### Signed Cookies
 
 ```typescript
-app.post('/secure-data', (ctx) => {
+app.post('/secure-data', ctx => {
   const secret = process.env.COOKIE_SECRET || 'your-secret-key';
-  
+
   // Set signed cookie
   ctx.res.cookie('secure_data', 'sensitive-value', {
     signed: true,
-    secret: secret
+    secret: secret,
   });
-  
+
   ctx.res.json({ status: 'data secured' });
 });
 
-app.get('/secure-data', (ctx) => {
+app.get('/secure-data', ctx => {
   const secret = process.env.COOKIE_SECRET || 'your-secret-key';
-  
+
   // Read signed cookie
   const signedValue = ctx.req.cookies.secure_data;
   const unsignedValue = unsignCookie(signedValue, secret);
-  
+
   if (unsignedValue === false) {
     ctx.res.status(400).json({ error: 'Invalid cookie signature' });
     return;
   }
-  
+
   ctx.res.json({ data: unsignedValue });
 });
 ```
@@ -102,11 +102,12 @@ const cookieHeader = 'session=abc123; theme=dark; lang=en';
 const cookies = parseCookies(cookieHeader);
 
 console.log(cookies.session); // 'abc123'
-console.log(cookies.theme);   // 'dark'
-console.log(cookies.lang);    // 'en'
+console.log(cookies.theme); // 'dark'
+console.log(cookies.lang); // 'en'
 ```
 
 **Features:**
+
 - Single-pass parsing for maximum performance
 - Handles quoted values and special characters
 - URL decoding with fallback
@@ -129,12 +130,13 @@ const secure = serializeCookie('session', 'abc123', {
   secure: true,
   maxAge: 3600000,
   sameSite: 'strict',
-  path: '/api'
+  path: '/api',
 });
 // → 'session=abc123; Max-Age=3600; Path=/api; HttpOnly; Secure; SameSite=Strict'
 ```
 
 **Production Security Defaults:**
+
 - `httpOnly: true` (prevents XSS)
 - `secure: true` (HTTPS only)
 - `sameSite: 'strict'` (CSRF protection)
@@ -152,6 +154,7 @@ const signed = signCookie('user-data', secret);
 ```
 
 **Security Features:**
+
 - HMAC-SHA256 signing
 - Base64URL encoding
 - Timing-safe comparison
@@ -175,6 +178,7 @@ if (originalValue !== false) {
 ```
 
 **Security Features:**
+
 - Timing-attack resistant verification
 - Signature validation
 - Returns `false` for invalid signatures
@@ -221,15 +225,15 @@ Complete list of supported cookie attributes:
 
 ```typescript
 interface CookieOptions {
-  domain?: string;        // Cookie domain
-  path?: string;          // Cookie path (default: '/')
-  expires?: Date;         // Expiration date
-  maxAge?: number;        // Max age in milliseconds
-  httpOnly?: boolean;     // HTTP-only flag
-  secure?: boolean;       // Secure flag
+  domain?: string; // Cookie domain
+  path?: string; // Cookie path (default: '/')
+  expires?: Date; // Expiration date
+  maxAge?: number; // Max age in milliseconds
+  httpOnly?: boolean; // HTTP-only flag
+  secure?: boolean; // Secure flag
   sameSite?: 'strict' | 'lax' | 'none'; // SameSite policy
-  signed?: boolean;       // Enable signing
-  secret?: string;        // Secret for signing
+  signed?: boolean; // Enable signing
+  secret?: string; // Secret for signing
   encode?: (value: string) => string; // Custom encoder
 }
 ```
@@ -237,6 +241,7 @@ interface CookieOptions {
 ### Security Options Explained
 
 #### httpOnly
+
 Prevents JavaScript access to the cookie, protecting against XSS attacks.
 
 ```typescript
@@ -244,6 +249,7 @@ ctx.res.cookie('session', sessionId, { httpOnly: true });
 ```
 
 #### secure
+
 Ensures cookie is only sent over HTTPS connections.
 
 ```typescript
@@ -251,7 +257,9 @@ ctx.res.cookie('token', token, { secure: true });
 ```
 
 #### sameSite
+
 Controls cross-site request behavior:
+
 - `'strict'`: Never sent with cross-site requests
 - `'lax'`: Sent with top-level navigation
 - `'none'`: Always sent (requires `secure: true`)
@@ -261,12 +269,13 @@ ctx.res.cookie('csrf', token, { sameSite: 'strict' });
 ```
 
 #### signed
+
 Enables HMAC signing for tamper detection.
 
 ```typescript
-ctx.res.cookie('user_id', userId, { 
-  signed: true, 
-  secret: process.env.COOKIE_SECRET 
+ctx.res.cookie('user_id', userId, {
+  signed: true,
+  secret: process.env.COOKIE_SECRET,
 });
 ```
 
@@ -275,18 +284,19 @@ ctx.res.cookie('user_id', userId, {
 Cookies are automatically parsed and available on the request object:
 
 ```typescript
-app.get('/dashboard', (ctx) => {
+app.get('/dashboard', ctx => {
   // Cookies are lazily parsed and cached
   const sessionId = ctx.req.cookies.session_id;
   const userId = ctx.req.cookies.user_id;
   const theme = ctx.req.cookies.theme || 'light';
-  
+
   // Parsed cookies are cached using symbols for performance
   const sameSession = ctx.req.cookies.session_id; // Uses cached value
 });
 ```
 
 **Performance Features:**
+
 - Lazy evaluation (parsed on first access)
 - Symbol-based caching for security
 - Memory-efficient property descriptors
@@ -296,16 +306,16 @@ app.get('/dashboard', (ctx) => {
 Cookie setting methods are available on the response object:
 
 ```typescript
-app.post('/settings', (ctx) => {
+app.post('/settings', ctx => {
   const { theme, language } = ctx.body;
-  
+
   // Set multiple cookies
   ctx.res.cookie('theme', theme);
   ctx.res.cookie('language', language, { maxAge: 365 * 24 * 60 * 60 * 1000 });
-  
+
   // Clear cookies
   ctx.res.clearCookie('old_session');
-  
+
   ctx.res.json({ status: 'preferences saved' });
 });
 ```
@@ -344,7 +354,7 @@ Cookie Serialization Benchmarks:
 ctx.res.cookie('user_role', 'admin', {
   signed: true,
   secret: process.env.COOKIE_SECRET,
-  httpOnly: true
+  httpOnly: true,
 });
 
 // ❌ Bad - Unsigned sensitive data
@@ -356,9 +366,9 @@ ctx.res.cookie('user_role', 'admin');
 ```typescript
 // ✅ Good - Security flags applied
 ctx.res.cookie('session', sessionId, {
-  httpOnly: true,    // Prevent XSS
-  secure: true,      // HTTPS only
-  sameSite: 'strict' // CSRF protection
+  httpOnly: true, // Prevent XSS
+  secure: true, // HTTPS only
+  sameSite: 'strict', // CSRF protection
 });
 
 // ❌ Bad - No security flags
@@ -371,7 +381,7 @@ ctx.res.cookie('session', sessionId);
 // ✅ Good - Explicit expiration
 ctx.res.cookie('remember_me', token, {
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  httpOnly: true
+  httpOnly: true,
 });
 
 // ✅ Good - Session cookie
@@ -383,15 +393,15 @@ ctx.res.cookie('temp_data', data); // Expires on browser close
 ```typescript
 import { validateCookieValue } from '@/utils/cookies';
 
-app.post('/api/data', (ctx) => {
+app.post('/api/data', ctx => {
   const userInput = ctx.body.value;
-  
+
   // Validate before setting cookie
   if (!validateCookieValue(userInput)) {
     ctx.res.status(400).json({ error: 'Invalid cookie value' });
     return;
   }
-  
+
   ctx.res.cookie('user_data', userInput);
 });
 ```
@@ -408,9 +418,9 @@ if (!secret) {
 ctx.res.cookie('secure_data', data, { signed: true, secret });
 
 // ❌ Bad - Hard-coded secret
-ctx.res.cookie('secure_data', data, { 
-  signed: true, 
-  secret: 'hardcoded-secret' 
+ctx.res.cookie('secure_data', data, {
+  signed: true,
+  secret: 'hardcoded-secret',
 });
 ```
 
@@ -441,37 +451,37 @@ import { signCookie, unsignCookie } from '@/utils/cookies';
 
 class SessionManager {
   private secret: string;
-  
+
   constructor(secret: string) {
     this.secret = secret;
   }
-  
+
   createSession(ctx: Context, userData: any): void {
     const sessionData = JSON.stringify(userData);
     const signedSession = signCookie(sessionData, this.secret);
-    
+
     ctx.res.cookie('session', signedSession, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'strict'
+      sameSite: 'strict',
     });
   }
-  
+
   getSession(ctx: Context): any | null {
     const signedSession = ctx.req.cookies.session;
     if (!signedSession) return null;
-    
+
     const sessionData = unsignCookie(signedSession, this.secret);
     if (sessionData === false) return null;
-    
+
     try {
       return JSON.parse(sessionData);
     } catch {
       return null;
     }
   }
-  
+
   destroySession(ctx: Context): void {
     ctx.res.clearCookie('session');
   }
@@ -483,34 +493,34 @@ class SessionManager {
 ```typescript
 class ShoppingCart {
   private secret: string;
-  
+
   constructor(secret: string) {
     this.secret = secret;
   }
-  
+
   getCart(ctx: Context): CartItem[] {
     const cartCookie = ctx.req.cookies.shopping_cart;
     if (!cartCookie) return [];
-    
+
     const cartData = unsignCookie(cartCookie, this.secret);
     if (cartData === false) return [];
-    
+
     try {
       return JSON.parse(cartData);
     } catch {
       return [];
     }
   }
-  
+
   saveCart(ctx: Context, items: CartItem[]): void {
     const cartData = JSON.stringify(items);
     const signedCart = signCookie(cartData, this.secret);
-    
+
     ctx.res.cookie('shopping_cart', signedCart, {
       signed: true,
       secret: this.secret,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      httpOnly: true
+      httpOnly: true,
     });
   }
 }
@@ -523,23 +533,23 @@ class UserPreferences {
   static save(ctx: Context, preferences: UserPrefs): void {
     // Non-sensitive data can use regular cookies
     ctx.res.cookie('theme', preferences.theme, {
-      maxAge: 365 * 24 * 60 * 60 * 1000 // 1 year
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
     });
-    
+
     ctx.res.cookie('language', preferences.language, {
-      maxAge: 365 * 24 * 60 * 60 * 1000
+      maxAge: 365 * 24 * 60 * 60 * 1000,
     });
-    
+
     ctx.res.cookie('timezone', preferences.timezone, {
-      maxAge: 365 * 24 * 60 * 60 * 1000
+      maxAge: 365 * 24 * 60 * 60 * 1000,
     });
   }
-  
+
   static load(ctx: Context): UserPrefs {
     return {
       theme: ctx.req.cookies.theme || 'light',
       language: ctx.req.cookies.language || 'en',
-      timezone: ctx.req.cookies.timezone || 'UTC'
+      timezone: ctx.req.cookies.timezone || 'UTC',
     };
   }
 }
@@ -560,7 +570,7 @@ app.get('/data', (req, res) => {
 });
 
 // NextRush v2
-app.get('/data', (ctx) => {
+app.get('/data', ctx => {
   const value = ctx.req.cookies.data;
   const signedValue = unsignCookie(ctx.req.cookies.secure, secret);
   ctx.res.cookie('new', 'value', { httpOnly: true });
@@ -604,7 +614,7 @@ const cleanSecret = secret.trim();
 // For cross-origin requests
 ctx.res.cookie('cross_site', value, {
   sameSite: 'none',
-  secure: true // Required with sameSite: 'none'
+  secure: true, // Required with sameSite: 'none'
 });
 ```
 
@@ -612,32 +622,32 @@ ctx.res.cookie('cross_site', value, {
 
 ### Utility Functions
 
-| Function | Description | Performance |
-|----------|-------------|------------|
-| `parseCookies()` | Parse cookie header | ~2M ops/sec |
-| `serializeCookie()` | Serialize cookie with options | ~3M ops/sec |
-| `signCookie()` | HMAC sign cookie value | ~1.2M ops/sec |
-| `unsignCookie()` | Verify signed cookie | ~1.2M ops/sec |
-| `validateCookieValue()` | Validate cookie value format | ~5M ops/sec |
+| Function                | Description                   | Performance   |
+| ----------------------- | ----------------------------- | ------------- |
+| `parseCookies()`        | Parse cookie header           | ~2M ops/sec   |
+| `serializeCookie()`     | Serialize cookie with options | ~3M ops/sec   |
+| `signCookie()`          | HMAC sign cookie value        | ~1.2M ops/sec |
+| `unsignCookie()`        | Verify signed cookie          | ~1.2M ops/sec |
+| `validateCookieValue()` | Validate cookie value format  | ~5M ops/sec   |
 
 ### Classes
 
-| Class | Description | Use Case |
-|-------|-------------|----------|
-| `CookieJar` | Cookie collection manager | Advanced cookie operations |
-| `CookieError` | Cookie-specific errors | Error handling |
+| Class         | Description               | Use Case                   |
+| ------------- | ------------------------- | -------------------------- |
+| `CookieJar`   | Cookie collection manager | Advanced cookie operations |
+| `CookieError` | Cookie-specific errors    | Error handling             |
 
 ### Request Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property          | Type        | Description           |
+| ----------------- | ----------- | --------------------- |
 | `ctx.req.cookies` | `CookieMap` | Parsed cookies (lazy) |
 
 ### Response Methods
 
-| Method | Description | Example |
-|--------|-------------|---------|
-| `ctx.res.cookie()` | Set cookie | `ctx.res.cookie('name', 'value')` |
-| `ctx.res.clearCookie()` | Clear cookie | `ctx.res.clearCookie('name')` |
+| Method                  | Description  | Example                           |
+| ----------------------- | ------------ | --------------------------------- |
+| `ctx.res.cookie()`      | Set cookie   | `ctx.res.cookie('name', 'value')` |
+| `ctx.res.clearCookie()` | Clear cookie | `ctx.res.clearCookie('name')`     |
 
 This comprehensive cookie system provides enterprise-grade security, performance, and flexibility while maintaining a clean, intuitive API.
