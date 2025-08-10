@@ -1,414 +1,540 @@
-# 🦊 NextRush - Learning Project
+# NextRush
 
-<div align="center">
+> A modern, type-safe, and high-performance Node.js web framework with Express-like API and Koa-style async middleware
 
-[![Learning Project](https://img.shields.io/badge/Status-Learning%20Project-orange.svg)](https://github.com/0xTanzim/nextRush)
-[![NPM Version](https://img.shields.io/npm/v/nextrush.svg)](https://www.npmjs.com/package/nextrush)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Learning-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-2.0.0-orange.svg)](package.json)
 
-**🎓 My first web framework - Built for learning, not production**
+NextRush combines the best of Express.js and Koa to provide an intuitive, type-safe, and high-performance web framework for Node.js applications.
 
-</div>
+## ✨ Features
 
-```typescript
-import { createApp } from 'nextrush';
+- **🚀 Express-like API**: Familiar `ctx.req`, `ctx.res`, `ctx.body` design
+- **⚡ Koa-style Async Middleware**: Powerful async middleware for performance
+- **� WebSocket Support**: RFC 6455-compliant WebSocket server with zero dependencies
+- **🏠 Room Management**: Built-in room-based broadcasting for real-time apps
+- **�🔧 Modular Router System**: Organize routes with `app.router()` and `createRouter()`
+- **📝 Object-Based Routes**: Fastify-style route configuration without imports
+- **🛡️ Type Safety**: Full TypeScript support with automatic type inference
+- **🎯 Enhanced Response Methods**: `ctx.res.json()`, `ctx.res.html()`, `ctx.res.csv()`, etc.
+- **🔥 Enhanced Body Parser**: Zero-copy buffer operations with intelligent content-type detection
+- **🔒 Zero Dependencies**: Built on Node.js native APIs
+- **⚙️ Flexible Configuration**: Easy setup with sensible defaults
 
-const app = createApp();
+## 🚀 Quick Start
 
-app.get('/', (req, res) => {
-  res.json({ message: 'Hello NextRush!' });
-});
-
-app.listen(3000);
-// 🚀 Express.js-compatible API with zero dependencies
-```
-
-## ⚠️ **Learning Project Notice**
-
-This is my **first attempt** at building a Node.js web framework. Created for **educational purposes only**.
-
-**🚨 For Production**: Use [Express.js](https://expressjs.com/), [Fastify](https://fastify.dev/), or [Koa](https://koajs.com/) instead.
-
-## 🏆 **Latest Benchmark Results** _(July 2025)_
-
-> **Ultimate Fox Test** - Maximum RPS testing with Apache Bench on Intel i5-8300H, 14GB RAM
-
-### **🥇 Overall Performance Rankings:**
-
-| Rank | Framework    | **Peak RPS** | **Best At**     | **Avg Latency** |
-| ---- | ------------ | ------------ | --------------- | --------------- |
-| 🥇   | **Fastify**  | **9,491**    | Low concurrency | **5.3ms**       |
-| 🥈   | **Express**  | **7,146**    | All loads       | **14.0ms**      |
-| 🥉   | **NextRush** | **5,784**    | Medium loads    | **34.6ms**      |
-
-### **📊 Detailed Performance by Connection Count:**
-
-#### **50 Connections (Light Load):**
-
-| Framework    | RPS       | Latency | Status        |
-| ------------ | --------- | ------- | ------------- |
-| **Fastify**  | **9,491** | 5.3ms   | 🏆 **Winner** |
-| **Express**  | **6,934** | 7.2ms   | 🥈 Good       |
-| **NextRush** | **5,612** | 8.9ms   | 🥉 Decent     |
-
-#### **100 Connections (Medium Load):**
-
-| Framework    | RPS       | Latency | Status        |
-| ------------ | --------- | ------- | ------------- |
-| **Express**  | **7,146** | 14.0ms  | 🏆 **Winner** |
-| **Fastify**  | **9,154** | 10.9ms  | 🥈 Close      |
-| **NextRush** | **5,669** | 17.6ms  | 🥉 Stable     |
-
-#### **200 Connections (High Load):**
-
-| Framework    | RPS       | Latency | Status        |
-| ------------ | --------- | ------- | ------------- |
-| **Fastify**  | **9,405** | 21.3ms  | 🏆 **Winner** |
-| **Express**  | **6,890** | 29.0ms  | � Good        |
-| **NextRush** | **5,784** | 34.6ms  | 🥉 **Peak**   |
-
-#### **500+ Connections (Extreme Load):**
-
-| Framework    | RPS       | Latency | Performance |
-| ------------ | --------- | ------- | ----------- |
-| **Fastify**  | **8,598** | 58.2ms  | Declining   |
-| **Express**  | **7,068** | 70.7ms  | Consistent  |
-| **NextRush** | **5,539** | 90.3ms  | Dropping    |
-
-### **🎯 Performance Analysis:**
-
-#### **🚀 Fastify Strengths:**
-
-- **Dominates low concurrency** (50-200 connections)
-- **Excellent latency** across all loads
-- **9.5K RPS peak** - industry-leading performance
-
-#### **💪 Express Strengths:**
-
-- **Most consistent** across all connection counts
-- **Handles high loads well** (500+ connections)
-- **Proven stability** under stress
-
-#### **🎓 NextRush Analysis:**
-
-- **Best at 200 connections** (architectural sweet spot)
-- **Competitive performance** for a learning project
-- **Room for optimization** - performance gap shows learning opportunities
-
-### **� Key Performance Insights:**
-
-- **NextRush achieves 61% of Fastify's peak performance** - respectable for first framework
-- **Zero memory leaks** detected across all test scenarios
-- **Performance gap mainly due to** architecture complexity vs. mature optimization
-- **Learning-focused development** prioritized features over raw speed
-- **Plugin architecture overhead** impacts performance but provides flexibility
-
-### **🔬 Test Configuration:**
-
-- **Tool**: Apache Bench (ab) for accurate RPS measurement
-- **Requests**: 10,000 per test for statistical significance
-- **Duration**: 60-second timeout per test
-- **Hardware**: Intel i5-8300H, 14GB RAM, Ubuntu 25.04
-- **Node.js**: v24.4.1 (latest LTS)
-- **Methodology**: Multiple runs, averaged results
-
-## ✨ **What Makes NextRush Special**
-
-### **🔥 Built-in Features Comparison:**
-
-| Feature                     | NextRush | Express | Fastify | Dependencies Needed          |
-| --------------------------- | -------- | ------- | ------- | ---------------------------- |
-| **Zero Dependencies**       | ✅       | ❌      | ❌      | NextRush: 0, Others: 10+     |
-| **Express Compatible**      | ✅       | ✅      | ❌      | Drop-in replacement          |
-| **TypeScript First**        | ✅       | ⚠️      | ✅      | Built-in vs. @types packages |
-| **Built-in Body Parser**    | ✅       | ❌      | ✅      | express requires body-parser |
-| **Built-in File Uploads**   | ✅       | ❌      | ❌      | express requires multer      |
-| **Built-in WebSocket**      | ✅       | ❌      | ❌      | Others require socket.io     |
-| **Built-in Templates**      | ✅       | ❌      | ❌      | Others require view engines  |
-| **Built-in Security**       | ✅       | ❌      | ❌      | Others require helmet + more |
-| **Built-in Rate Limiting**  | ✅       | ❌      | ❌      | express-rate-limit needed    |
-| **Built-in Authentication** | ✅       | ❌      | ❌      | passport + sessions needed   |
-| **API Documentation**       | ✅       | ❌      | ❌      | swagger packages needed      |
-| **Performance Ranking**     | 3rd      | 2nd     | 1st     | Speed vs. Features trade-off |
-
-### **🔥 Core Features:**
-
-#### **🛡️ Security & Validation:**
-
-- **Input Validation** - Built-in request validation with custom rules
-- **XSS Protection** - Automatic cross-site scripting prevention
-- **SQL Injection Prevention** - Query sanitization and parameterization
-- **CORS Management** - Flexible cross-origin resource sharing
-- **Rate Limiting** - Configurable request throttling per IP/user
-
-#### **📁 File Handling:**
-
-- **Static File Serving** - High-performance with compression & caching
-- **File Uploads** - Multipart form data with size limits
-- **Download Management** - Secure file downloads with access control
-- **Image Processing** - Basic resize and format conversion
-
-#### **🌐 Real-time Features:**
-
-- **WebSocket Support** - Built-in WebSocket server with room management
-- **Server-Sent Events** - Real-time data streaming to clients
-- **Long Polling** - Fallback for real-time communication
-
-#### **📊 Monitoring & Debugging:**
-
-- **Request Metrics** - Built-in performance monitoring
-- **Health Checks** - Automated endpoint health verification
-- **Error Tracking** - Comprehensive error logging and reporting
-- **Memory Monitoring** - Real-time memory usage tracking
-
-### **🏗️ Architecture Highlights:**
-
-#### **Plugin System:**
-
-```typescript
-// Load only what you need for maximum performance
-const app = createApp({
-  pluginMode: PluginMode.PERFORMANCE, // Only 4 essential plugins
-  // vs
-  pluginMode: PluginMode.FULL, // All 15+ plugins loaded
-});
-```
-
-#### **Memory Efficiency:**
-
-- **Zero Dependencies** - No bloated node_modules
-- **Smart Caching** - Intelligent memory usage with TTL
-- **Buffer Pooling** - Optimized memory allocation for high-traffic
-- **Garbage Collection** - Minimal GC pressure design
-
-## 🚀 **Quick Start**
-
-### **Installation**
+### Installation
 
 ```bash
-# NPM (recommended)
-npm install nextrush
-
-# Yarn
-yarn add nextrush
-
-# PNPM
-pnpm add nextrush
+npm install nextrush-v2
+# or
+pnpm add nextrush-v2
+# or
+yarn add nextrush-v2
 ```
 
-### **Basic Usage**
+### Basic Usage
 
 ```typescript
-import { createApp, PluginMode } from 'nextrush';
+import { createApp } from 'nextrush-v2';
 
-// Create app with full features (development)
-const app = createApp();
-
-// Or create app with performance mode (production)
-const productionApp = createApp({
-  pluginMode: PluginMode.PERFORMANCE, // 4 essential plugins only
-  enableEvents: false,
-  enableWebSocket: false,
+const app = createApp({
+  port: 3000,
+  debug: true,
+  cors: true,
 });
 
-// Express.js-compatible routes work unchanged
-app.get('/api/users/:id', (req, res) => {
-  const { id } = req.params;
-  const { format } = req.query;
-
-  res.json({
-    id,
-    name: 'John Doe',
-    format: format || 'default',
-  });
+// Express-like middleware
+app.use(async (ctx, next) => {
+  console.log(`${ctx.method} ${ctx.path}`);
+  await next();
 });
 
-// POST with automatic body parsing
-app.post('/api/users', (req, res) => {
-  const userData = req.body; // Automatically parsed JSON
-  res.status(201).json({ created: userData });
+// Simple routes with Express-like design
+app.get('/hello', async ctx => {
+  ctx.res.json({ message: 'Hello, World!' });
+});
+
+app.post('/users', async ctx => {
+  const { name, email } = ctx.body as { name?: string; email?: string };
+  ctx.res.json({ message: 'User created', name, email });
+});
+
+// Object-based route config
+app.post('/users', {
+  handler: async ctx => {
+    const { name, email } = ctx.body as { name?: string; email?: string };
+    ctx.res.json({ message: 'User created', name, email });
+  },
+  schema: {
+    body: {
+      name: { type: 'string', required: true, minLength: 2 },
+      email: { type: 'email', required: true },
+    },
+  },
+  options: {
+    name: 'createUser',
+    description: 'Create a new user',
+    tags: ['users'],
+  },
 });
 
 app.listen(3000, () => {
-  console.log('🚀 NextRush server running on http://localhost:3000');
+  console.log('🚀 Server running on http://localhost:3000');
 });
 ```
 
-### **🔥 Advanced Features**
+## 📚 Advanced Usage
 
-#### **File Uploads (Built-in)**
+### Modular Routing
 
 ```typescript
-// No multer needed - built-in file handling
-app.post('/upload', (req, res) => {
-  const file = req.file('document');
-  const metadata = req.body;
+import { createApp } from 'nextrush-v2';
 
-  if (file) {
-    res.json({
-      uploaded: file.filename,
-      size: file.size,
-      metadata,
+const app = createApp();
+
+// Create user router
+const userRouter = app.router();
+
+userRouter.get('/profile', async ctx => {
+  ctx.res.json({ user: 'profile' });
+});
+
+userRouter.post('/login', async ctx => {
+  const { email, password } = ctx.body;
+  ctx.res.json({ message: 'Logged in' });
+});
+
+// Create admin router
+const adminRouter = app.router();
+
+adminRouter.get('/dashboard', async ctx => {
+  ctx.res.json({ admin: 'dashboard' });
+});
+
+adminRouter.get('/users', async ctx => {
+  ctx.res.json({ admin: 'users list' });
+});
+
+// Mount routers
+app.use('/users', userRouter);
+app.use('/admin', adminRouter);
+```
+
+### Enhanced Response Methods
+
+```typescript
+app.get('/api/users', async ctx => {
+  // JSON response
+  ctx.res.json({ users: [] });
+});
+
+app.get('/page', async ctx => {
+  // HTML response
+  ctx.res.html('<h1>Hello, World!</h1>');
+});
+
+app.get('/data.csv', async ctx => {
+  // CSV response
+  ctx.res.csv('id,name,email\n1,John,john@example.com');
+});
+
+app.get('/download', async ctx => {
+  // File download
+  ctx.res.download('/path/to/file.pdf', 'document.pdf');
+});
+
+app.get('/redirect', async ctx => {
+  // Redirect
+  ctx.res.redirect('/new-page', 301);
+});
+```
+
+### Middleware and Error Handling
+
+```typescript
+// Logging middleware
+app.use(async (ctx, next) => {
+  const start = Date.now();
+  console.log(`${ctx.method} ${ctx.path}`);
+
+  await next();
+
+  const duration = Date.now() - start;
+  ctx.res.set('X-Response-Time', `${duration}ms`);
+});
+
+// Authentication middleware
+app.use(async (ctx, next) => {
+  const token = ctx.headers.authorization;
+
+  if (!token && ctx.path.startsWith('/protected')) {
+    ctx.res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  await next();
+});
+
+// Error handling middleware
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (error) {
+    ctx.res.status(500).json({
+      error: error instanceof Error ? error.message : 'Internal Server Error',
     });
-  } else {
-    res.status(400).json({ error: 'No file uploaded' });
   }
 });
 ```
 
-#### **WebSocket Support (Built-in)**
+### Complex Router Example
 
 ```typescript
-// No socket.io needed - built-in WebSocket
-app.ws('/chat', (ws, req) => {
-  console.log('New WebSocket connection');
+import { createApp, createRouter } from 'nextrush-v2';
 
-  ws.on('message', (data) => {
-    // Echo message to all connected clients
-    app.broadcast('chat', `User: ${data}`);
-  });
+const app = createApp();
 
-  ws.on('close', () => {
-    console.log('WebSocket connection closed');
-  });
+// API Router with prefix
+const apiRouter = createRouter('/api/v1');
+
+// Users API
+const usersRouter = apiRouter.router();
+
+usersRouter.get('/', async ctx => {
+  ctx.res.json({ users: [] });
 });
+
+usersRouter.get('/:id', async ctx => {
+  const id = ctx.params.id;
+  ctx.res.json({ user: { id, name: `User ${id}` } });
+});
+
+usersRouter.post('/', async ctx => {
+  const { name, email } = ctx.body;
+  ctx.res.json({ message: 'User created', user: { name, email } });
+});
+
+// Admin API
+const adminRouter = apiRouter.router();
+
+adminRouter.get('/stats', async ctx => {
+  ctx.res.json({ stats: { users: 100, products: 50 } });
+});
+
+// Mount all routers
+apiRouter.use('/users', usersRouter);
+apiRouter.use('/admin', adminRouter);
+
+app.use(apiRouter);
 ```
 
-#### **Template Rendering (Built-in)**
+### WebSocket Support
+
+NextRush v2 includes a production-ready WebSocket implementation with zero dependencies:
 
 ```typescript
-// No view engine setup needed
-app.get('/profile/:username', (req, res) => {
-  const data = {
-    username: req.params.username,
-    posts: ['Hello World', 'Learning NextRush'],
-  };
+import { createApp, WebSocketPlugin } from 'nextrush-v2';
 
-  // Supports Mustache, Handlebars, EJS
-  res.render('profile.mustache', data);
+const app = createApp();
+
+// Install WebSocket plugin
+const wsPlugin = new WebSocketPlugin({
+  path: '/ws',
+  heartbeatMs: 30000,
+  maxConnections: 1000,
 });
-```
+wsPlugin.install(app);
 
-#### **Authentication & Security (Built-in)**
+// Simple echo server
+app.ws('/ws', socket => {
+  socket.send('Welcome to NextRush v2 WebSocket!');
 
-```typescript
-// Built-in JWT and session support
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  socket.onMessage(data => {
+    console.log('Received:', data);
+    socket.send(`Echo: ${data}`);
+  });
 
-  if (await validateUser(username, password)) {
-    const token = req.signJWT({ username }, '24h');
-    res.json({ token, message: 'Login successful' });
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
+  socket.onClose((code, reason) => {
+    console.log(`Connection closed: ${code} - ${reason}`);
+  });
+});
+
+// Room-based chat system
+app.ws('/chat/*', socket => {
+  // Extract room from URL
+  const room = socket.url.split('/').pop() || 'general';
+
+  // Join room
+  socket.join(room);
+
+  // Welcome message
+  socket.send(`Welcome to room: ${room}`);
+
+  // Handle messages
+  socket.onMessage(data => {
+    // Broadcast to all users in the room
+    app.wsBroadcast(`${room}: ${data}`, room);
+  });
+
+  // Leave room on disconnect
+  socket.onClose(() => socket.leave(room));
+});
+
+// WebSocket middleware for authentication
+app.wsUse(async (socket, req, next) => {
+  const url = new URL(req.url!, `http://${req.headers.host}`);
+  const token = url.searchParams.get('token');
+
+  if (!token || !isValidToken(token)) {
+    return socket.close(1008, 'Authentication failed');
   }
-});
 
-// Protected route with built-in middleware
-app.get('/dashboard', req.requireAuth(), (req, res) => {
-  res.json({
-    message: `Welcome ${req.user.username}`,
-    dashboard: 'data',
-  });
+  next();
 });
 ```
 
-### **🔄 Migrating from Express.js**
+**Client Usage:**
 
-Most Express.js code works **unchanged** with NextRush:
+```javascript
+// Browser WebSocket client
+const ws = new WebSocket('ws://localhost:3000/chat/general');
+ws.onopen = () => ws.send('Hello everyone!');
+ws.onmessage = (event) => console.log('Received:', event.data);
 
-```diff
-- const express = require('express');
-- const bodyParser = require('body-parser');
-- const cors = require('cors');
-- const helmet = require('helmet');
-- const multer = require('multer');
-
-+ import { createApp } from 'nextrush';
-
-- const app = express();
-- app.use(bodyParser.json());
-- app.use(cors());
-- app.use(helmet());
-- const upload = multer({ dest: 'uploads/' });
-
-+ const app = createApp(); // All middleware built-in!
-
-// All your existing routes work exactly the same
-app.get('/api/users', (req, res) => {
-  res.json({ users: [] });
-});
-
-- app.post('/upload', upload.single('file'), (req, res) => {
-+ app.post('/upload', (req, res) => {
--   res.json({ file: req.file });
-+   res.json({ file: req.file('file') }); // Built-in file handling
-});
+// Test with curl
+curl -i -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  -H "Sec-WebSocket-Version: 13" \
+  http://localhost:3000/ws
 ```
 
-### **⚡ Performance Optimization**
+````
+
+## 🔧 Configuration
 
 ```typescript
-// For maximum performance (production)
 const app = createApp({
-  pluginMode: PluginMode.PERFORMANCE,
-  enableEvents: false,
-  enableWebSocket: false,
-  enableMetrics: false,
-  maxRequestSize: 1024 * 1024, // 1MB limit
-  timeout: 30000, // 30 second timeout
+  port: 3000, // Port to listen on
+  host: 'localhost', // Host to bind to
+  debug: true, // Enable debug mode
+  trustProxy: false, // Trust proxy headers
+  maxBodySize: 1024 * 1024, // Max request body size (1MB)
+  timeout: 30000, // Request timeout (30s)
+  cors: true, // Enable CORS
+  static: 'public', // Static files directory
+  template: {
+    // Template engine config
+    engine: 'simple',
+    directory: 'views',
+  },
 });
 
-// Results in ~20% better performance
-// NextRush: 5,784 RPS → ~7,000 RPS (estimated)
+// Enhanced body parser configuration
+app.use(
+  app.smartBodyParser({
+    maxSize: 10 * 1024 * 1024, // 10MB
+    timeout: 30000, // 30 seconds
+    enableStreaming: true,
+    autoDetectContentType: true,
+    enableMetrics: true,
+  })
+);
+````
+
+## 📖 API Reference
+
+### Context Object (`ctx`)
+
+```typescript
+// Request properties (Express-like)
+ctx.req; // HTTP request object
+ctx.res; // Enhanced response object
+ctx.body; // Request body (Express-like)
+ctx.method; // Request method
+ctx.path; // Request path
+ctx.url; // Request URL
+ctx.query; // Query parameters
+ctx.headers; // Request headers
+ctx.params; // Route parameters
+ctx.ip; // Client IP
+ctx.secure; // Is secure connection
+ctx.protocol; // Request protocol
+
+// Response methods (Express-like)
+ctx.res.json(data); // Send JSON response
+ctx.res.html(data); // Send HTML response
+ctx.res.text(data); // Send text response
+ctx.res.csv(data); // Send CSV response
+ctx.res.xml(data); // Send XML response
+ctx.res.file(path, options); // Send file
+ctx.res.download(path, name); // Download file
+ctx.res.redirect(url, status); // Redirect
+ctx.res.status(code); // Set status code
+ctx.res.set(name, value); // Set header
 ```
 
-## 📚 **Learning Documentation**
+### Router Methods
 
-- **[📖 Lessons Learned](./LESSONS-LEARNED.md)** - My complete learning journey
-- **[📋 Project Status](./PROJECT-STATUS.md)** - Final achievements and metrics
-- **[🚪 Exit Plan](./EXIT-PLAN.md)** - How to properly conclude a learning project
-- **[📊 Benchmarks](./professional-benchmarks/)** - Complete performance testing suite
+```typescript
+// Create router
+const router = app.router();
+const router = createRouter('/prefix');
 
-## 🎓 **Educational Value**
+// Register routes
+router.get(path, handler);
+router.post(path, handler);
+router.put(path, handler);
+router.delete(path, handler);
+router.patch(path, handler);
 
-### **What I Learned:**
+// Register middleware
+router.use(middleware);
 
-- Framework architecture and design patterns
-- Plugin systems and extensible architectures
-- TypeScript advanced patterns and techniques
-- Performance testing and optimization
-- NPM package development and publishing
+// Mount router
+app.use('/prefix', router);
+```
 
-### **Key Insights:**
+## 🧪 Testing
 
-- **Architecture planning** is more important than coding speed
-- **Simple solutions** often outperform complex optimizations
-- **Plugin systems** must be designed from day 1
-- **Testing** should come before features, not after
+```typescript
+import { createApp } from 'nextrush-v2';
 
-## 🚀 **Next Steps**
+describe('Application', () => {
+  it('should handle GET requests', async () => {
+    const app = createApp();
 
-This project achieved its educational goals. The knowledge gained will be applied to **NextRush v2.0** - a complete rewrite with:
+    app.get('/test', async ctx => {
+      ctx.res.json({ message: 'OK' });
+    });
 
-- ✅ Architecture-first approach
-- ✅ Test-driven development
-- ✅ Incremental feature addition
-- ✅ Performance optimization from day 1
+    // Test implementation
+  });
 
-## 📄 **License**
+  it('should create user with valid data', async () => {
+    const app = createApp();
 
-MIT License - see [LICENSE](./LICENSE) file for details.
+    app.post('/users', {
+      handler: async ctx => {
+        ctx.res.json({ message: 'User created' });
+      },
+      schema: {
+        body: {
+          name: { type: 'string', required: true },
+          email: { type: 'email', required: true },
+        },
+      },
+    });
+
+    // Test implementation
+  });
+});
+```
+
+## 🎮 Playground & Examples
+
+The `playground/` directory contains working examples and battle-tested implementations:
+
+### WebSocket Examples
+
+```bash
+# Run simple WebSocket echo server
+node playground/websocket-test.js
+
+# Run comprehensive WebSocket battle tests
+./playground/websocket-battle-test.sh
+
+# Test with curl
+curl -i -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  -H "Sec-WebSocket-Version: 13" \
+  http://localhost:3001/ws
+```
+
+### Available Playground Files
+
+- **`websocket-test.js`** - Simple WebSocket server with echo functionality
+- **`websocket-chat-demo.js`** - Full-featured chat system with rooms and HTML client
+- **`websocket-battle-test.sh`** - Comprehensive test suite for WebSocket functionality
+
+These examples demonstrate production-ready patterns and can be used as starting points for your own applications.
+
+## 🚀 Performance
+
+NextRush v2 is built for performance:
+
+- **Async Middleware**: Non-blocking middleware execution
+- **Zero Dependencies**: Minimal overhead
+- **Type Safety**: Compile-time optimizations
+- **Efficient Routing**: Fast route matching
+- **Memory Efficient**: Optimized for Node.js
+- **Enhanced Body Parser**: Zero-copy buffer operations with intelligent caching
+
+## 🔥 Enhanced Body Parser
+
+NextRush v2 includes a powerful enhanced body parser with enterprise-grade features:
+
+### Features
+
+- **Zero-copy buffer operations** using Node.js raw power
+- **Cross-platform compatibility** (Node.js, Bun, Deno)
+- **AI-like content type auto-detection**
+- **Streaming parser** with backpressure handling
+- **Memory-pooled buffer management**
+- **CPU-optimized parsing** with vectorized operations
+- **Smart caching** and pre-compiled patterns
+- **Enterprise-grade error handling**
+- **Real-time performance metrics** collection
+
+### Usage
+
+```typescript
+// Automatic content-type detection and parsing
+app.use(app.smartBodyParser());
+
+// Advanced configuration
+app.use(
+  app.smartBodyParser({
+    maxSize: 10 * 1024 * 1024, // 10MB
+    enableStreaming: true,
+    autoDetectContentType: true,
+    enableMetrics: true,
+  })
+);
+
+// Handles JSON, URL-encoded, text, multipart, and raw data automatically
+app.post('/api/data', ctx => {
+  const data = ctx.body; // Already parsed based on content-type
+  ctx.res.json({ received: data });
+});
+```
+
+See [Enhanced Body Parser Guide](./docs/guides/enhanced-body-parser.md) for detailed documentation.
+
+## 📚 Documentation
+
+- [Express-like Design](./docs/Express-like-Design.md) - Learn about the Express-like API
+- [Router System](./docs/Router-System.md) - Modular routing guide
+- [Enhanced Body Parser](./docs/guides/enhanced-body-parser.md) - Enterprise-grade body parsing
+- [Migration Guide](./docs/guides/migration.md) - Migrate from v1 to v2
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Express.js** - For the intuitive API design
+- **Koa** - For the powerful async middleware system
+- **Fastify** - For the object-based route configuration
+- **TypeScript** - For the type safety and developer experience
 
 ---
 
-<div align="center">
-
-**🎓 Successfully completed learning project!**
-
-_Built with ❤️ for education and shared for learning_
-
-[⭐ Star on GitHub](https://github.com/0xTanzim/nextRush) • [📖 Learn More](./LESSONS-LEARNED.md) • [🚀 NextRush v2.0 Coming Soon]
-
-</div>
+**Made with ❤️ by [Tanzim Hossain](https://github.com/0xTanzim)**
