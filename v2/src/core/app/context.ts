@@ -4,11 +4,18 @@
  * @packageDocumentation
  */
 
-import { RequestEnhancer } from '@/core/enhancers/request-enhancer';
-import { ResponseEnhancer } from '@/core/enhancers/response-enhancer';
+import {
+  RequestEnhancer,
+  type EnhancedRequest,
+} from '@/core/enhancers/request-enhancer';
+import {
+  ResponseEnhancer,
+  type EnhancedResponse,
+} from '@/core/enhancers/response-enhancer';
 import { parseQueryString } from '@/core/middleware/body-parser/utils';
 import type { Context, NextRushResponse } from '@/types/context';
 import type { ApplicationOptions, NextRushRequest } from '@/types/http';
+import type { CookieOptions } from '@/utils/cookies';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 /**
@@ -103,7 +110,7 @@ export function createContext(
   ctx.res = enhancedRes as any;
 
   // Ensure ctx.body and ctx.req.body are synchronized
-  ctx.body = enhancedReq.body; // Reference the same body from enhanced request
+  (ctx as any).body = (enhancedReq as EnhancedRequest).body; // Reference the same body from enhanced request
 
   ctx.method = method;
   ctx.url = url;
@@ -236,26 +243,26 @@ export function createContext(
 
   // ctx.json() - most used method (99% of APIs)
   (ctx as any).json = function (data: unknown): void {
-    enhancedRes.json(data);
+    (enhancedRes as EnhancedResponse).json(data);
   };
 
   // ctx.send() - second most used
   (ctx as any).send = function (data: string | Buffer | object): void {
-    enhancedRes.send(data);
+    (enhancedRes as EnhancedResponse).send(data);
   };
 
   // ctx.redirect() - common for redirects
   (ctx as any).redirect = function (url: string, statusCode?: number): void {
-    enhancedRes.redirect(url, statusCode);
+    (enhancedRes as EnhancedResponse).redirect(url, statusCode);
   };
 
   // ctx.cookie() - common for session management
   (ctx as any).cookie = function (
     name: string,
     value: string,
-    options?: any
-  ): any {
-    return enhancedRes.cookie(name, value, options);
+    options?: CookieOptions
+  ): EnhancedResponse {
+    return (enhancedRes as EnhancedResponse).cookie(name, value, options);
   };
 
   return ctx;
