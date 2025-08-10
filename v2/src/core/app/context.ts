@@ -101,7 +101,10 @@ export function createContext(
   // Set optimized properties
   ctx.req = enhancedReq as any;
   ctx.res = enhancedRes as any;
-  ctx.body = undefined; // Will be set by body parser middleware
+
+  // Ensure ctx.body and ctx.req.body are synchronized
+  ctx.body = enhancedReq.body; // Reference the same body from enhanced request
+
   ctx.method = method;
   ctx.url = url;
   ctx.path = path;
@@ -227,6 +230,32 @@ export function createContext(
     options?: { root?: string; etag?: boolean }
   ): void {
     (enhancedRes as any).sendFile(path, options);
+  };
+
+  // Convenience methods for better DX - most popular response methods
+
+  // ctx.json() - most used method (99% of APIs)
+  (ctx as any).json = function (data: unknown): void {
+    enhancedRes.json(data);
+  };
+
+  // ctx.send() - second most used
+  (ctx as any).send = function (data: string | Buffer | object): void {
+    enhancedRes.send(data);
+  };
+
+  // ctx.redirect() - common for redirects
+  (ctx as any).redirect = function (url: string, statusCode?: number): void {
+    enhancedRes.redirect(url, statusCode);
+  };
+
+  // ctx.cookie() - common for session management
+  (ctx as any).cookie = function (
+    name: string,
+    value: string,
+    options?: any
+  ): any {
+    return enhancedRes.cookie(name, value, options);
   };
 
   return ctx;

@@ -15,6 +15,7 @@ import type {
   TimerOptions,
 } from '@/core/middleware/types';
 import type { ExceptionFilter } from '@/errors/custom-errors';
+import type { CookieOptions } from '@/utils/cookies';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { ParsedUrlQuery } from 'node:querystring';
 import { NextRushRequest } from './http';
@@ -116,6 +117,10 @@ export interface NextRushResponse extends ServerResponse {
   csv(data: string): NextRushResponse;
   /** Send XML response */
   xml(data: string): NextRushResponse;
+  /** Send any data type response */
+  send(data: string | Buffer | object): void;
+  /** Stream response */
+  stream(stream: NodeJS.ReadableStream, contentType?: string): void;
   /** Render HTML from a template string or a template name under viewsDir */
   render(
     templateOrName: string,
@@ -136,14 +141,22 @@ export interface NextRushResponse extends ServerResponse {
   download(path: string, filename?: string): NextRushResponse;
   /** Redirect response */
   redirect(url: string, status?: number): NextRushResponse;
+  /** Permanent redirect (301) */
+  redirectPermanent(url: string): NextRushResponse;
+  /** Temporary redirect (307) */
+  redirectTemporary(url: string): NextRushResponse;
   /** Set response status */
   status(code: number): NextRushResponse;
   /** Set response header */
   set(name: string, value: string | number | string[]): NextRushResponse;
+  /** Set response header (alias) */
+  header(field: string, value: string): NextRushResponse;
   /** Get response header */
   get(name: string): string | number | string[] | undefined;
   /** Remove response header */
   remove(name: string): NextRushResponse;
+  /** Remove response header (implementation method) */
+  removeHeader(field: string): NextRushResponse;
   /** Set response type */
   type(type: string): NextRushResponse;
   /** Set response length */
@@ -152,6 +165,44 @@ export interface NextRushResponse extends ServerResponse {
   etag(etag: string): NextRushResponse;
   /** Set response last modified */
   lastModified(date: Date): NextRushResponse;
+  /** Set cookie */
+  cookie(
+    name: string,
+    value: string,
+    options?: CookieOptions
+  ): NextRushResponse;
+  /** Clear cookie */
+  clearCookie(name: string, options?: CookieOptions): NextRushResponse;
+  /** Set cache headers */
+  cache(seconds: number): NextRushResponse;
+  /** Disable caching */
+  noCache(): NextRushResponse;
+  /** Set CORS headers */
+  cors(origin?: string): NextRushResponse;
+  /** Set security headers */
+  security(): NextRushResponse;
+  /** Enable compression hint */
+  compress(): NextRushResponse;
+  /** Send success response */
+  success(data: unknown, message?: string): void;
+  /** Send error response */
+  error(message: string, code?: number, details?: unknown): void;
+  /** Send paginated response */
+  paginate(data: unknown[], page: number, limit: number, total: number): void;
+  /** Get content type from file extension */
+  getContentTypeFromExtension(ext: string): string;
+  /** Get smart content type from file path */
+  getSmartContentType(filePath: string): string;
+  /** Generate ETag from stats */
+  generateETag(stats: unknown): string;
+  /** Convert data to CSV */
+  convertToCSV(data: unknown[]): string;
+  /** Add timing header */
+  time(label?: string): NextRushResponse;
+  /** Get nested value from object */
+  getNestedValue(obj: unknown, path: string): unknown;
+  /** Check if value is truthy */
+  isTruthy(value: unknown): boolean;
 }
 
 /**
@@ -241,6 +292,20 @@ export interface Context {
     data?: Record<string, unknown>,
     options?: { layout?: string }
   ): Promise<void>;
+
+  // Convenience methods for better DX (most popular response methods)
+  /** Send JSON response (convenience for ctx.res.json) */
+  json(data: unknown): void;
+  /** Send response data (convenience for ctx.res.send) */
+  send(data: string | Buffer | object): void;
+  /** Redirect response (convenience for ctx.res.redirect) */
+  redirect(url: string, statusCode?: number): void;
+  /** Set cookie (convenience for ctx.res.cookie) */
+  cookie(
+    name: string,
+    value: string,
+    options?: CookieOptions
+  ): NextRushResponse;
 }
 
 /**

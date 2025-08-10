@@ -40,6 +40,7 @@ export interface EnhancedResponse extends ServerResponse {
 
   // File operations
   sendFile(filePath: string, options?: FileOptions): void;
+  file(filePath: string, options?: FileOptions): EnhancedResponse;
   download(filePath: string, filename?: string, options?: FileOptions): void;
 
   // Smart file operations
@@ -55,7 +56,12 @@ export interface EnhancedResponse extends ServerResponse {
   set(field: string | Record<string, string>, value?: string): EnhancedResponse;
   header(field: string, value: string): EnhancedResponse;
   removeHeader(field: string): EnhancedResponse;
+  remove(field: string): EnhancedResponse;
   get(field: string): string | undefined;
+  type(type: string): EnhancedResponse;
+  length(length: number): EnhancedResponse;
+  etag(etag: string): EnhancedResponse;
+  lastModified(date: Date): EnhancedResponse;
 
   // Cookie methods
   cookie(
@@ -611,6 +617,56 @@ export class ResponseEnhancer {
         }
 
         return csvRows.join('\n');
+      };
+    }
+
+    // Missing methods that are declared in TypeScript interface
+
+    // Alias for sendFile
+    if (!enhanced.file) {
+      enhanced.file = (path: string, options?: FileOptions) => {
+        enhanced.sendFile(path, options);
+        return enhanced;
+      };
+    }
+
+    // Alias for removeHeader
+    if (!enhanced.remove) {
+      enhanced.remove = (field: string) => {
+        enhanced.removeHeader(field);
+        return enhanced;
+      };
+    }
+
+    // Set content type
+    if (!enhanced.type) {
+      enhanced.type = (type: string) => {
+        enhanced.setHeader('Content-Type', type);
+        return enhanced;
+      };
+    }
+
+    // Set content length
+    if (!enhanced.length) {
+      enhanced.length = (length: number) => {
+        enhanced.setHeader('Content-Length', length.toString());
+        return enhanced;
+      };
+    }
+
+    // Set ETag
+    if (!enhanced.etag) {
+      enhanced.etag = (etag: string) => {
+        enhanced.setHeader('ETag', etag);
+        return enhanced;
+      };
+    }
+
+    // Set Last-Modified
+    if (!enhanced.lastModified) {
+      enhanced.lastModified = (date: Date) => {
+        enhanced.setHeader('Last-Modified', date.toUTCString());
+        return enhanced;
       };
     }
 

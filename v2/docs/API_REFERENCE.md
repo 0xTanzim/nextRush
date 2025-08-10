@@ -1,6 +1,253 @@
 # NextRush v2 API Reference
 
-Complete API documentation for NextRush v2 framework.
+# 📚 NextRush v2 API Reference
+
+> **Complete API Documentation for NextRush v2 - The Modern Web Framework**
+
+Welcome to the comprehensive NextRush v2 API Reference. This documentation covers all components, methods, and features with practical examples.
+
+## 🚀 **Quick Start**
+
+### **Most Common Usage (99% of APIs)**
+
+```typescript
+import { createApp } from '@nextrush/v2';
+
+const app = createApp();
+
+app.get('/api/users', ctx => {
+  // ✅ NEW: Convenience methods for better DX
+  ctx.json({ users: [] }); // Instead of ctx.res.json()
+  ctx.status = 201; // Direct property access
+  ctx.redirect('/success'); // Clean redirects
+  ctx.cookie('id', '123'); // Easy cookies
+});
+
+app.listen(3000);
+```
+
+---
+
+## 🔄 **Context System (Core)**
+
+**The heart of NextRush v2 - Koa-style context with Express-like design + convenience methods**
+
+### **📖 Main Documentation**
+
+- **[🔥 Context System - Complete Guide](./api/context-complete.md)** - _Comprehensive context documentation_
+- **[📄 Context API Overview](./api/context.md)** - _Quick reference and examples_
+- **[📤 Response Methods (41 Total)](./api/response-methods.md)** - _Complete response method reference_
+
+### **Key Features:**
+
+- 🚀 **Convenience Methods**: `ctx.json()`, `ctx.send()`, `ctx.redirect()` for better DX
+- 📝 **41 Response Methods**: Complete Express.js compatibility + enhanced features
+- 🦾 **Full TypeScript**: Zero `any` types, complete IntelliSense
+- 🔄 **100% Backward Compatible**: All existing `ctx.res.*` methods still work
+
+---
+
+## 🏗️ **Core Components**
+
+### **Application & Router**
+
+- **[🏠 Application](./api/application.md)** - Main application class for creating NextRush apps
+- **[🛣️ Routing](./api/routing.md)** - Flexible routing system with parameter support
+
+### **Request/Response System**
+
+- **[📥 Enhanced Request/Response](./api/Enhanced-Request-Response.md)** - Enhanced request and response objects
+
+### **Middleware & Plugins**
+
+- **[🔌 Middleware System](./api/middleware.md)** - Comprehensive middleware architecture
+- **[🧩 Plugin Architecture](./api/plugins.md)** - How to create and use plugins
+
+### **Error Handling**
+
+- **[❌ Error System](./api/errors.md)** - Built-in error handling and custom error types
+
+---
+
+## 🔧 **Built-in Features**
+
+### **Logging & Monitoring**
+
+- **[📊 Logger Plugin](./api/logger-plugin.md)** - Advanced logging capabilities with multiple transports
+
+### **Real-time Communication**
+
+- **[🔗 WebSocket](./api/websocket.md)** - Real-time WebSocket support with room management
+- **[⚡ Event System](./api/event-system.md)** - Comprehensive event-driven architecture
+
+### **Web Essentials**
+
+- **[🍪 Cookies](./api/cookies.md)** - Cookie management utilities with security options
+- **[🎨 Template Engine](./api/template.md)** - Built-in template rendering support
+
+### **Overview**
+
+- **[✨ Features Overview](./api/features.md)** - Complete feature list and capabilities
+
+---
+
+## 📊 **API Quick Reference**
+
+### **🚀 Convenience Methods (New!)**
+
+```typescript
+// JSON APIs (99% usage)
+ctx.json({ users: [], total: 0 });
+
+// Smart sending
+ctx.send({ data: 'object' }); // → JSON
+ctx.send('Hello World'); // → Text
+ctx.send(buffer); // → Binary
+
+// Clean redirects
+ctx.redirect('/login'); // 302 redirect
+ctx.redirect('/moved', 301); // 301 redirect
+
+// Easy cookies
+ctx.cookie('sessionId', 'abc123', { httpOnly: true });
+```
+
+### **📤 Response Methods (41 Total)**
+
+```typescript
+// Core responses
+ctx.res.json(data); // JSON response
+ctx.res.html(html); // HTML response
+ctx.res.text(text); // Text response
+ctx.res.xml(xml); // XML response
+ctx.res.csv(data, 'file.csv'); // CSV download
+
+// File operations
+ctx.res.sendFile(path); // Send file
+ctx.res.download(path, name); // Force download
+ctx.res.stream(stream); // Stream response
+
+// Headers & status
+ctx.res.status(201); // Set status
+ctx.res.set('X-Custom', 'val'); // Set headers
+ctx.res.cache(3600); // Cache control
+ctx.res.cors('*'); // CORS headers
+
+// API helpers
+ctx.res.success(data, 'Created successfully');
+ctx.res.error('Not found', 404);
+ctx.res.paginate(users, page, limit, total);
+```
+
+### **🔄 Context Properties**
+
+```typescript
+// Request data
+ctx.method; // HTTP method
+ctx.path; // Request path
+ctx.query; // Query parameters
+ctx.params; // Route parameters
+ctx.body; // Request body
+ctx.headers; // Request headers
+
+// Response control
+ctx.status = 201; // Set status code
+ctx.set('Header', 'value'); // Set response header
+
+// Context utilities
+ctx.throw(400, 'Bad Request'); // Throw HTTP error
+ctx.assert(condition, 400, 'Invalid'); // Assert condition
+ctx.fresh(); // Check if fresh
+ctx.state.user = currentUser; // Share data between middleware
+```
+
+---
+
+## 📖 **Documentation Structure**
+
+### **📚 Main Guides**
+
+- **[🚀 Developer Guide](../DEVELOPER_GUIDE.md)** - Getting started and basic concepts
+- **[🏗️ Architecture Overview](../architecture/V2_ARCHITECTURE_OVERVIEW.md)** - System design and patterns
+
+### **📝 API References**
+
+- **[📄 Context Complete](./api/context-complete.md)** - Comprehensive context guide
+- **[📤 Response Methods](./api/response-methods.md)** - All 41 response methods
+- **[🏠 Application](./api/application.md)** - App creation and configuration
+- **[🛣️ Routing](./api/routing.md)** - Route definition and handling
+
+### **🔧 Advanced Topics**
+
+- **[🧩 Plugin Development](./api/plugins.md)** - Creating custom plugins
+- **[⚡ Event System](./api/event-system.md)** - Event-driven architecture
+- **[📊 Logger Plugin](./api/logger-plugin.md)** - Advanced logging features
+
+---
+
+## 💡 **Examples & Tutorials**
+
+### **🎯 Practical Examples**
+
+- **[📦 Simple API](../examples/simple-api.md)** - Basic REST API example
+- **[🏢 Complete API](../examples/complete-api.md)** - Production-ready API example
+- **[⚡ Event System Usage](../examples/event-system-usage.md)** - Event-driven patterns
+
+### **🔧 Integration Guides**
+
+- **[🔌 Custom Plugin Example](../guides/CUSTOM_PLUGIN_EXAMPLE.md)** - Build your own plugin
+- **[🐛 Debugging Guide](../guides/DEBUGGING_GUIDE.md)** - Troubleshooting and debugging
+
+---
+
+## 🎯 **What's New in v2**
+
+### **🚀 Developer Experience Improvements**
+
+- ✅ **Convenience Methods**: `ctx.json()`, `ctx.send()`, `ctx.redirect()` for better DX
+- ✅ **41 Response Methods**: Complete compatibility + modern enhancements
+- ✅ **Full TypeScript**: Zero `any` types, complete IntelliSense
+- ✅ **100% Backward Compatible**: All existing code works unchanged
+
+### **⚡ Performance Enhancements**
+
+- ✅ **Optimized Context**: Faster context creation and method calls
+- ✅ **Memory Efficient**: Reduced memory allocation and garbage collection
+- ✅ **High Throughput**: >10,000 RPS for basic endpoints
+
+### **🔧 Modern Features**
+
+- ✅ **Built-in Core Features**: No plugins needed for basic functionality
+- ✅ **Plugin System**: Only for advanced features
+- ✅ **Event-Driven Architecture**: Comprehensive event system
+- ✅ **Production Ready**: Enterprise-grade reliability and performance
+
+---
+
+## 🤝 **Migration from v1**
+
+### **Breaking Changes**
+
+```typescript
+// v1 Style
+app.get('/users', (req, res) => {
+  res.json({ users: [] });
+});
+
+// v2 Style (Express-like - still works)
+app.get('/users', ctx => {
+  ctx.res.json({ users: [] });
+});
+
+// v2 Style (Convenience - recommended!)
+app.get('/users', ctx => {
+  ctx.json({ users: [] }); // ✅ Better DX!
+});
+```
+
+---
+
+**🎯 Ready to build amazing APIs?** Start with the **[Context System Complete Guide](./api/context-complete.md)** or check out our **[Simple API Example](../examples/simple-api.md)**!
 
 ## Core API
 

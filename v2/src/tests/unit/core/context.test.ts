@@ -184,7 +184,6 @@ describe('Context Creation', () => {
   describe('Enhanced Response Integration', () => {
     it('should have enhanced response methods', () => {
       const ctx = createContext(mockReq, mockRes, options);
-
       expect(typeof ctx.res.json).toBe('function');
       expect(typeof ctx.res.html).toBe('function');
       expect(typeof ctx.res.text).toBe('function');
