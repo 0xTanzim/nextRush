@@ -17,6 +17,9 @@ build/
 *.swo
 *.sublime-*
 
+# GitHub Actions local secrets
+.secrets
+
 # OS files
 .DS_Store
 .DS_Store?

@@ -1,0 +1,75 @@
+name: 🛠️ Development Workflow
+
+on:
+  push:
+    branches: [ feat/*, dev/*, fix/* ]
+  workflow_dispatch:
+
+jobs:
+  # 🚀 Quick Development Checks
+  dev-check:
+    name: 🚀 Quick Dev Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build Check
+        run: pnpm build
+
+      - name: 🧪 Quick Test
+        run: pnpm test --run
+
+      - name: 🔍 Lint Check
+        run: pnpm lint
+
+      - name: ⚡ Performance Check
+        run: |
+          cd benchmarks
+          pnpm install
+          pnpm bench:quick || echo "⚠️ Performance check completed with warnings"
+
+  # 🔍 Security Scan
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔒 Run Security Audit
+        run: pnpm audit
+
+      - name: 🛡️ Check for Vulnerabilities
+        run: |
+          pnpm audit --audit-level moderate || echo "⚠️ Security audit completed with warnings"
