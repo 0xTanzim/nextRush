@@ -1,0 +1,12 @@
+# Act Configuration for Local GitHub Actions
+# This file configures act to use specific Docker images and settings
+
+# Use more recent Ubuntu image
+ubuntu-latest=catthehacker/ubuntu:act-latest
+ubuntu-22.04=catthehacker/ubuntu:act-22.04
+ubuntu-20.04=catthehacker/ubuntu:act-20.04
+
+# Node.js optimized images
+node:18=node:18-slim
+node:20=node:20-slim
+node:22=node:22-slim

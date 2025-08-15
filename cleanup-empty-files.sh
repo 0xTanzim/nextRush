@@ -4,12 +4,12 @@
 # This script removes empty files that VS Code might restore
 
 echo "🔍 Searching for empty files..."
-EMPTY_COUNT=$(find /mnt/storage/project/MyExpress/v2 -type f -empty | wc -l)
+EMPTY_COUNT=$(find /mnt/storage/project/MyExpress -type f -empty | wc -l)
 
 if [ "$EMPTY_COUNT" -gt 0 ]; then
     echo "🚨 Found $EMPTY_COUNT empty files!"
     echo "📋 List of empty files:"
-    find /mnt/storage/project/MyExpress/v2 -type f -empty
+    find /mnt/storage/project/MyExpress -type f -empty
 
     echo ""
     read -p "❓ Delete all empty files? (y/N): " -n 1 -r
@@ -17,10 +17,10 @@ if [ "$EMPTY_COUNT" -gt 0 ]; then
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "🗑️ Deleting empty files..."
-        find /mnt/storage/project/MyExpress/v2 -type f -empty -delete
+        find /mnt/storage/project/MyExpress/ -type f -empty -delete
 
         echo "📁 Removing empty directories..."
-        find /mnt/storage/project/MyExpress/v2 -type d -empty -delete
+        find /mnt/storage/project/MyExpress/ -type d -empty -delete
 
         echo "✅ Cleanup complete!"
 

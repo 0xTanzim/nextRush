@@ -1,0 +1,160 @@
+name: 🚀 NextRush CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, feat/v2-alpha ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # 🧪 Test Job
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build Project
+        run: pnpm build
+
+      - name: 🧪 Run Unit Tests
+        run: pnpm test
+
+      - name: 📊 Run Coverage
+        run: pnpm test:coverage
+
+      - name: ⚡ Run Performance Tests
+        run: |
+          cd benchmarks
+          pnpm install
+          pnpm bench
+
+      - name: 📤 Upload Coverage Reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  # 🏗️ Build Job
+  build:
+    name: 🏗️ Build & Package
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build Project
+        run: pnpm build
+
+      - name: 📦 Pack for NPM
+        run: pnpm pack
+
+      - name: 📤 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextrush-package
+          path: |
+            dist/
+            *.tgz
+
+  # 🚀 Release Job (only on main branch)
+  release:
+    name: 🚀 Release to NPM
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build Project
+        run: pnpm build
+
+      - name: 🚀 Publish to NPM
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # 🔍 Quality Checks
+  quality:
+    name: 🔍 Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🎨 Run Prettier Check
+        run: pnpm format:check
+
+      - name: 🔍 Run ESLint
+        run: pnpm lint
+
+      - name: 🏗️ Type Check
+        run: pnpm type-check
