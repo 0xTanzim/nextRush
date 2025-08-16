@@ -3,7 +3,7 @@
  * @module tests/unit/plugins/index
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Plugins Index', () => {
   describe('Module Exports', () => {
@@ -39,7 +39,7 @@ describe('Plugins Index', () => {
 
     it('should export all plugins correctly', async () => {
       const pluginExports = await import('../../../plugins/index');
-      
+
       expect(Object.keys(pluginExports)).toContain('BasePlugin');
       expect(Object.keys(pluginExports)).toContain('LoggerPlugin');
       expect(Object.keys(pluginExports)).toContain('StaticFilesPlugin');

@@ -1,7 +1,7 @@
 /**
  * @file Tests for validation utilities
  * @description Comprehensive tests for NextRush v2 validation utilities
- * 
+ *
  * This test file covers:
  * - ValidationError class functionality
  * - Input validation functions
@@ -10,12 +10,12 @@
  * - Edge cases and error handling
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { 
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
   ValidationError,
-  validateRequest,
   sanitizeInput,
-  validateAndSanitize
+  validateAndSanitize,
+  validateRequest,
 } from '../../../utils/validation';
 
 // Mock context type for testing
@@ -56,7 +56,7 @@ describe('Validation Utils', () => {
     it('should create validation error for multiple fields', () => {
       const errors = [
         { field: 'name', message: 'is required' },
-        { field: 'email', message: 'must be valid' }
+        { field: 'email', message: 'must be valid' },
       ];
       const error = ValidationError.forFields(errors);
       expect(error.message).toBe('Validation failed');
@@ -75,22 +75,24 @@ describe('Validation Utils', () => {
         query: {},
         params: {},
         headers: {},
-        cookies: {}
+        cookies: {},
       };
     });
 
     it('should validate required fields', () => {
       const schema = {
-        name: { required: true }
+        name: { required: true },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should pass validation with valid required field', () => {
       mockContext.body = { name: 'John Doe' };
       const schema = {
-        name: { required: true }
+        name: { required: true },
       };
 
       const result = validateRequest(mockContext as any, schema);
@@ -100,118 +102,144 @@ describe('Validation Utils', () => {
     it('should validate string type', () => {
       mockContext.body = { name: 123 };
       const schema = {
-        name: { type: 'string' }
+        name: { type: 'string' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate number type', () => {
       mockContext.body = { age: '25' };
       const schema = {
-        age: { type: 'number' }
+        age: { type: 'number' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate boolean type', () => {
       mockContext.body = { active: 'true' };
       const schema = {
-        active: { type: 'boolean' }
+        active: { type: 'boolean' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate array type', () => {
       mockContext.body = { tags: 'tag1,tag2' };
       const schema = {
-        tags: { type: 'array' }
+        tags: { type: 'array' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate object type', () => {
       mockContext.body = { metadata: 'not an object' };
       const schema = {
-        metadata: { type: 'object' }
+        metadata: { type: 'object' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate minimum length', () => {
       mockContext.body = { name: 'Jo' };
       const schema = {
-        name: { type: 'string', minLength: 3 }
+        name: { type: 'string', minLength: 3 },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate maximum length', () => {
       mockContext.body = { name: 'John Doe Smith Johnson' };
       const schema = {
-        name: { type: 'string', maxLength: 10 }
+        name: { type: 'string', maxLength: 10 },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate minimum value', () => {
       mockContext.body = { age: 15 };
       const schema = {
-        age: { type: 'number', min: 18 }
+        age: { type: 'number', min: 18 },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate maximum value', () => {
       mockContext.body = { age: 150 };
       const schema = {
-        age: { type: 'number', max: 120 }
+        age: { type: 'number', max: 120 },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate pattern', () => {
       mockContext.body = { code: 'invalid' };
       const schema = {
-        code: { type: 'string', pattern: '^[A-Z]{3}[0-9]{3}$' }
+        code: { type: 'string', pattern: '^[A-Z]{3}[0-9]{3}$' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate enum values', () => {
       mockContext.body = { status: 'invalid' };
       const schema = {
-        status: { enum: ['active', 'inactive', 'pending'] }
+        status: { enum: ['active', 'inactive', 'pending'] },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate email format', () => {
       mockContext.body = { email: 'invalid-email' };
       const schema = {
-        email: { type: 'email' }
+        email: { type: 'email' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should validate URL format', () => {
       mockContext.body = { website: 'not-a-url' };
       const schema = {
-        website: { type: 'url' }
+        website: { type: 'url' },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should use custom validation function', () => {
@@ -220,11 +248,13 @@ describe('Validation Utils', () => {
         password: {
           validate: (value: unknown) => {
             return typeof value === 'string' && value.length >= 8;
-          }
-        }
+          },
+        },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should handle custom validation function errors', () => {
@@ -233,30 +263,32 @@ describe('Validation Utils', () => {
         data: {
           validate: () => {
             throw new Error('Custom validation error');
-          }
-        }
+          },
+        },
       };
 
-      expect(() => validateRequest(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateRequest(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
 
     it('should pass valid validation', () => {
-      mockContext.body = { 
+      mockContext.body = {
         name: 'John Doe',
         age: 25,
         email: 'john@example.com',
         active: true,
         tags: ['user', 'admin'],
-        metadata: { role: 'admin' }
+        metadata: { role: 'admin' },
       };
-      
+
       const schema = {
         name: { required: true, type: 'string', minLength: 2, maxLength: 50 },
         age: { type: 'number', min: 18, max: 100 },
         email: { type: 'email' },
         active: { type: 'boolean' },
         tags: { type: 'array' },
-        metadata: { type: 'object' }
+        metadata: { type: 'object' },
       };
 
       const result = validateRequest(mockContext as any, schema);
@@ -294,16 +326,16 @@ describe('Validation Utils', () => {
         name: '  John  ',
         script: '<script>alert()</script>',
         nested: {
-          value: 'javascript:void(0)'
-        }
+          value: 'javascript:void(0)',
+        },
       };
       const result = sanitizeInput(input);
       expect(result).toEqual({
         name: 'John',
         script: 'scriptalert()/script',
         nested: {
-          value: 'void(0)'
-        }
+          value: 'void(0)',
+        },
       });
     });
 
@@ -326,44 +358,46 @@ describe('Validation Utils', () => {
       mockContext = {
         body: {
           name: '  <script>John</script>  ',
-          email: 'john@example.com'
+          email: 'john@example.com',
         },
         method: 'POST',
         path: '/test',
         query: {},
         params: {},
         headers: {},
-        cookies: {}
+        cookies: {},
       };
     });
 
     it('should validate and sanitize input', () => {
       const schema = {
         name: { required: true, type: 'string' },
-        email: { required: true, type: 'email' }
+        email: { required: true, type: 'email' },
       };
 
       const result = validateAndSanitize(mockContext as any, schema);
       expect(result).toEqual({
         name: 'scriptJohn/script',
-        email: 'john@example.com'
+        email: 'john@example.com',
       });
     });
 
     it('should throw validation error before sanitization', () => {
       mockContext.body = { name: 123 };
       const schema = {
-        name: { required: true, type: 'string' }
+        name: { required: true, type: 'string' },
       };
 
-      expect(() => validateAndSanitize(mockContext as any, schema)).toThrow(ValidationError);
+      expect(() => validateAndSanitize(mockContext as any, schema)).toThrow(
+        ValidationError
+      );
     });
   });
 
   describe('Module Exports', () => {
     it('should export all required functions and classes', async () => {
       const validation = await import('../../../utils/validation');
-      
+
       expect(validation.ValidationError).toBeDefined();
       expect(validation.validateRequest).toBeDefined();
       expect(validation.sanitizeInput).toBeDefined();
@@ -372,7 +406,7 @@ describe('Validation Utils', () => {
 
     it('should have correct function types', async () => {
       const validation = await import('../../../utils/validation');
-      
+
       expect(typeof validation.ValidationError).toBe('function');
       expect(typeof validation.validateRequest).toBe('function');
       expect(typeof validation.sanitizeInput).toBe('function');

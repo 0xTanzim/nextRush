@@ -1,7 +1,7 @@
 /**
  * @file Tests for multipart parser
  * @description Tests for NextRush v2 multipart body parser
- * 
+ *
  * This test file covers:
  * - MultipartParser class functionality
  * - Parser interface compliance
@@ -10,8 +10,11 @@
  * - Error handling
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { MultipartParser, getMultipartParser } from '../../../../../core/middleware/body-parser/multipart-parser';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  MultipartParser,
+  getMultipartParser,
+} from '../../../../../core/middleware/body-parser/multipart-parser';
 
 describe('Multipart Parser', () => {
   describe('MultipartParser Class', () => {
@@ -31,12 +34,15 @@ describe('Multipart Parser', () => {
 
     it('should return placeholder result for multipart content', async () => {
       const rawData = Buffer.from('test multipart data');
-      const contentType = 'multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW';
+      const contentType =
+        'multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW';
 
       const result = await parser.parse(rawData, contentType);
 
       expect(result).toBeDefined();
-      expect(result.data).toEqual({ message: 'Multipart parsing not yet implemented' });
+      expect(result.data).toEqual({
+        message: 'Multipart parsing not yet implemented',
+      });
       expect(result.contentType).toBe(contentType);
       expect(result.parser).toBe('multipart');
       expect(result.hasFiles).toBe(false);
@@ -51,7 +57,7 @@ describe('Multipart Parser', () => {
         'multipart/form-data; boundary=abc123',
         'multipart/form-data; boundary=----WebKitFormBoundary',
         'multipart/mixed',
-        'multipart/alternative'
+        'multipart/alternative',
       ];
 
       for (const contentType of contentTypes) {
@@ -68,7 +74,9 @@ describe('Multipart Parser', () => {
       const result = await parser.parse(rawData, contentType);
 
       expect(result).toBeDefined();
-      expect(result.data).toEqual({ message: 'Multipart parsing not yet implemented' });
+      expect(result.data).toEqual({
+        message: 'Multipart parsing not yet implemented',
+      });
       expect(result.isEmpty).toBe(false); // Placeholder always returns false
     });
 
@@ -102,13 +110,13 @@ describe('Multipart Parser', () => {
     it('should implement singleton pattern', () => {
       const parser1 = getMultipartParser();
       const parser2 = getMultipartParser();
-      
+
       expect(parser1).toBe(parser2); // Same instance
     });
 
     it('should return same instance across multiple calls', () => {
       const instances = Array.from({ length: 10 }, () => getMultipartParser());
-      
+
       // All instances should be the same reference
       for (let i = 1; i < instances.length; i++) {
         expect(instances[i]).toBe(instances[0]);
@@ -128,7 +136,9 @@ describe('Multipart Parser', () => {
 
       const result = await parser.parse(rawData, contentType);
 
-      expect(result.data).toEqual({ message: 'Multipart parsing not yet implemented' });
+      expect(result.data).toEqual({
+        message: 'Multipart parsing not yet implemented',
+      });
       expect(result.contentType).toBe(contentType);
       expect(result.parser).toBe('multipart');
     });
@@ -146,7 +156,8 @@ Content-Type: text/plain\r
 file content\r
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--\r
 `);
-      const contentType = 'multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW';
+      const contentType =
+        'multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW';
 
       const result = await parser.parse(rawData, contentType);
 
@@ -161,7 +172,7 @@ file content\r
         'multipart/form-data; boundary=""',
         'multipart/form-data; boundary=',
         'multipart/form-data; charset=utf-8; boundary=test',
-        'multipart/form-data; boundary=test; charset=utf-8'
+        'multipart/form-data; boundary=test; charset=utf-8',
       ];
 
       for (const contentType of testCases) {
@@ -193,7 +204,7 @@ file content\r
         null as any,
         undefined as any,
         'invalid/type',
-        'text/plain'
+        'text/plain',
       ];
 
       for (const contentType of invalidContentTypes) {
@@ -250,22 +261,28 @@ file content\r
 
   describe('Module Exports', () => {
     it('should export MultipartParser class', async () => {
-      const module = await import('../../../../../core/middleware/body-parser/multipart-parser');
-      
+      const module = await import(
+        '../../../../../core/middleware/body-parser/multipart-parser'
+      );
+
       expect(module.MultipartParser).toBeDefined();
       expect(typeof module.MultipartParser).toBe('function');
     });
 
     it('should export getMultipartParser function', async () => {
-      const module = await import('../../../../../core/middleware/body-parser/multipart-parser');
-      
+      const module = await import(
+        '../../../../../core/middleware/body-parser/multipart-parser'
+      );
+
       expect(module.getMultipartParser).toBeDefined();
       expect(typeof module.getMultipartParser).toBe('function');
     });
 
     it('should allow instantiation of MultipartParser', async () => {
-      const { MultipartParser } = await import('../../../../../core/middleware/body-parser/multipart-parser');
-      
+      const { MultipartParser } = await import(
+        '../../../../../core/middleware/body-parser/multipart-parser'
+      );
+
       const parser = new MultipartParser();
       expect(parser).toBeInstanceOf(MultipartParser);
     });
