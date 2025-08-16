@@ -17,6 +17,7 @@
 import type {
   Middleware,
   RouteConfig,
+  RouteData,
   RouteHandler,
   Router as RouterInterface,
 } from '@/types/context';
@@ -26,7 +27,7 @@ import type {
  */
 interface OptimizedRadixNode {
   path: string;
-  handlers: Map<string, RouteHandler>;
+  handlers: Map<string, RouteData>;
   children: Map<string, OptimizedRadixNode>;
   paramChild?: OptimizedRadixNode; // Single parameter child for O(1) access
   isParam: boolean;
@@ -41,6 +42,7 @@ interface OptimizedRadixNode {
  */
 interface OptimizedRouteMatch {
   handler: RouteHandler;
+  middleware: Middleware[];
   params: Record<string, string>;
   path: string;
 }
@@ -333,8 +335,8 @@ export class OptimizedRouter implements RouterInterface {
   /**
    * Get all registered routes for sub-router integration
    */
-  public getRoutes(): Map<string, RouteHandler> {
-    const routes = new Map<string, RouteHandler>();
+  public getRoutes(): Map<string, RouteData> {
+    const routes = new Map<string, RouteData>();
     this.collectRoutesIterative(this.root, '', routes);
     return routes;
   }
@@ -439,15 +441,29 @@ export class OptimizedRouter implements RouterInterface {
   ): OptimizedRouteMatch | null {
     // Fast root path check
     if (path === '/' || path === '') {
-      const handler = this.root.handlers.get(method);
-      return handler ? { handler, params: {}, path } : null;
+      const routeData = this.root.handlers.get(method);
+      return routeData
+        ? {
+            handler: routeData.handler,
+            middleware: routeData.middleware,
+            params: {},
+            path,
+          }
+        : null;
     }
 
     // Ultra-fast path splitting
     const pathParts = PathSplitter.split(path);
     if (pathParts.length === 0) {
-      const handler = this.root.handlers.get(method);
-      return handler ? { handler, params: {}, path } : null;
+      const routeData = this.root.handlers.get(method);
+      return routeData
+        ? {
+            handler: routeData.handler,
+            middleware: routeData.middleware,
+            params: {},
+            path,
+          }
+        : null;
     }
 
     let currentNode = this.root;
@@ -486,8 +502,15 @@ export class OptimizedRouter implements RouterInterface {
     }
 
     // Final handler check
-    const handler = currentNode.handlers.get(method);
-    return handler ? { handler, params, path } : null;
+    const routeData = currentNode.handlers.get(method);
+    return routeData
+      ? {
+          handler: routeData.handler,
+          middleware: routeData.middleware,
+          params,
+          path,
+        }
+      : null;
   }
 
   /**
@@ -508,19 +531,34 @@ export class OptimizedRouter implements RouterInterface {
 
     if (typeof handler === 'function') {
       actualHandler = handler;
+      console.log(
+        `📝 Registering function handler for ${method} ${fullPath} - No middleware`
+      );
     } else {
       actualHandler = handler.handler;
       if (handler.middleware) {
         routeMiddleware = Array.isArray(handler.middleware)
           ? handler.middleware
           : [handler.middleware];
-        this.middleware.push(...routeMiddleware);
+        console.log(
+          `📝 Registering RouteConfig for ${method} ${fullPath} - Found ${routeMiddleware.length} middleware`
+        );
+      } else {
+        console.log(
+          `📝 Registering RouteConfig for ${method} ${fullPath} - No middleware in config`
+        );
       }
     }
 
+    // Create route data with handler and middleware
+    const routeData: RouteData = {
+      handler: actualHandler,
+      middleware: routeMiddleware,
+    };
+
     // Handle root path case
     if (pathParts.length === 0) {
-      currentNode.handlers.set(method, actualHandler);
+      currentNode.handlers.set(method, routeData);
       return;
     }
 
@@ -574,7 +612,7 @@ export class OptimizedRouter implements RouterInterface {
     }
 
     // Set handler at final node
-    currentNode.handlers.set(method, actualHandler);
+    currentNode.handlers.set(method, routeData);
   }
 
   /**
@@ -583,7 +621,7 @@ export class OptimizedRouter implements RouterInterface {
   private collectRoutesIterative(
     startNode: OptimizedRadixNode,
     startPath: string,
-    routes: Map<string, RouteHandler>
+    routes: Map<string, RouteData>
   ): void {
     const stack: Array<{ node: OptimizedRadixNode; path: string }> = [
       { node: startNode, path: startPath },
@@ -593,9 +631,9 @@ export class OptimizedRouter implements RouterInterface {
       const { node, path } = stack.pop()!;
 
       // Add handlers at current node
-      for (const [method, handler] of node.handlers) {
+      for (const [method, routeData] of node.handlers) {
         const routeKey = `${method}:${path || '/'}`;
-        routes.set(routeKey, handler);
+        routes.set(routeKey, routeData);
       }
 
       // Add children to stack

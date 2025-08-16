@@ -362,9 +362,13 @@ describe('OptimizedRouter', () => {
       expect(match).toBeDefined();
       expect(match?.handler).toBe(handler);
 
-      const middlewareList = router.getMiddleware();
-      expect(middlewareList).toHaveLength(1);
-      expect(middlewareList[0]).toBe(middleware);
+      // Check route-specific middleware from the match
+      expect(match?.middleware).toHaveLength(1);
+      expect(match?.middleware[0]).toBe(middleware);
+
+      // Router getMiddleware() should return router-level middleware (empty in this case)
+      const routerMiddleware = router.getMiddleware();
+      expect(routerMiddleware).toHaveLength(0);
     });
   });
 
