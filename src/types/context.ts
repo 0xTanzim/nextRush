@@ -534,6 +534,51 @@ export interface Application {
   /** Create exception filter middleware */
   exceptionFilter(filters?: ExceptionFilter[]): Middleware;
 
+  // ============================================================================
+  // Event System - Built-in core functionality
+  // ============================================================================
+
+  /** Simple Events API for Express-style event handling */
+  events: {
+    /** Emit a simple string-based event */
+    emit(eventName: string, data?: any): Promise<void>;
+    /** Listen for a simple string-based event */
+    on(
+      eventName: string,
+      handler: (data: any) => void | Promise<void>
+    ): () => void;
+    /** Listen for a simple string-based event (once) */
+    once(
+      eventName: string,
+      handler?: (data: any) => void | Promise<void>
+    ): Promise<any>;
+    /** Remove all listeners for an event */
+    off(eventName: string): void;
+    /** Remove all listeners */
+    removeAllListeners(): void;
+    /** Get list of event names that have listeners */
+    eventNames(): string[];
+    /** Get number of listeners for an event */
+    listenerCount(eventName: string): number;
+    /** Get maximum number of listeners */
+    getMaxListeners(): number;
+    /** Set maximum number of listeners */
+    setMaxListeners(n: number): any;
+  };
+
+  /** Advanced Event System for CQRS and Event Sourcing */
+  eventSystem: {
+    /** Emit events */
+    emit(event: any): Promise<void>;
+    /** Subscribe to events */
+    subscribe(
+      eventType: string,
+      handler: (event: any) => void | Promise<void>
+    ): { unsubscribe(): void };
+    /** Additional advanced methods available but not typed here for brevity */
+    [key: string]: any;
+  };
+
   /** Logger instance (set by LoggerPlugin) - overrides logger method when plugin is installed */
   loggerInstance?: {
     error: (message: string, context?: Record<string, unknown>) => void;
