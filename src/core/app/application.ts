@@ -276,8 +276,48 @@ export class NextRushApplication extends EventEmitter implements Application {
       }) as unknown as typeof ctx.params;
       ctx.params = frozenParams;
 
-      // Direct execution for maximum performance - no setImmediate overhead
-      await match.handler(ctx);
+      // Debug logging
+      if (this.options.debug) {
+        console.log(`🎯 Route match found: ${ctx.method} ${ctx.path}`);
+        console.log(
+          `📋 Route has ${match.middleware ? match.middleware.length : 0} middleware`
+        );
+        console.log(
+          `🔧 Middleware:`,
+          match.middleware?.map(m => m.name || 'anonymous')
+        );
+      }
+
+      // Execute route-specific middleware first
+      if (match.middleware && match.middleware.length > 0) {
+        let index = 0;
+        const dispatch = async (): Promise<void> => {
+          if (index >= match.middleware.length) {
+            // All middleware executed, now run the handler
+            if (this.options.debug) {
+              console.log(`🚀 All middleware complete, executing handler`);
+            }
+            await match.handler(ctx);
+            return;
+          }
+          const middleware = match.middleware[index++];
+          if (middleware) {
+            if (this.options.debug) {
+              console.log(
+                `⚡ Executing middleware ${index}/${match.middleware.length}: ${middleware.name || 'anonymous'}`
+              );
+            }
+            await middleware(ctx, dispatch);
+          }
+        };
+        await dispatch();
+      } else {
+        // No route middleware, execute handler directly
+        if (this.options.debug) {
+          console.log(`🏃 No route middleware, executing handler directly`);
+        }
+        await match.handler(ctx);
+      }
     } else {
       // No route found
       ctx.res.status(404).json({ error: 'Not Found' });
@@ -347,14 +387,22 @@ export class NextRushApplication extends EventEmitter implements Application {
       this.cachedExceptionFilter = null;
 
       // Add sub-router routes with prefix
-      for (const [routeKey, handler] of subRoutes) {
+      for (const [routeKey, routeData] of subRoutes) {
         const colonIndex = routeKey.indexOf(':');
         if (colonIndex !== -1) {
           const method = routeKey.substring(0, colonIndex);
           const path = routeKey.substring(colonIndex + 1);
           if (method && path) {
             const fullPath = `${middlewareOrPrefix}${path}`;
-            this.registerRoute(method, fullPath, handler);
+            // Convert RouteData back to RouteConfig for registration
+            const routeConfig: RouteConfig = {
+              handler: routeData.handler,
+              middleware:
+                routeData.middleware.length > 0
+                  ? routeData.middleware
+                  : undefined,
+            };
+            this.registerRoute(method, fullPath, routeConfig);
           }
         }
       }
@@ -378,25 +426,23 @@ export class NextRushApplication extends EventEmitter implements Application {
     path: string,
     handler: RouteHandler | RouteConfig
   ): void {
-    const routeHandler =
-      typeof handler === 'object' ? handler.handler : handler;
-
-    // Use the router's HTTP method methods
+    // Pass the entire handler (function or RouteConfig) to the router
+    // The router will handle extracting the handler and middleware
     switch (method) {
       case 'GET':
-        this.internalRouter.get(path, routeHandler);
+        this.internalRouter.get(path, handler);
         break;
       case 'POST':
-        this.internalRouter.post(path, routeHandler);
+        this.internalRouter.post(path, handler);
         break;
       case 'PUT':
-        this.internalRouter.put(path, routeHandler);
+        this.internalRouter.put(path, handler);
         break;
       case 'DELETE':
-        this.internalRouter.delete(path, routeHandler);
+        this.internalRouter.delete(path, handler);
         break;
       case 'PATCH':
-        this.internalRouter.patch(path, routeHandler);
+        this.internalRouter.patch(path, handler);
         break;
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);

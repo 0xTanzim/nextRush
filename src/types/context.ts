@@ -438,6 +438,14 @@ export interface RouteConfig {
 }
 
 /**
+ * Route data with handler and middleware
+ */
+export interface RouteData {
+  handler: RouteHandler;
+  middleware: Middleware[];
+}
+
+/**
  * Router interface for modular routing
  */
 export interface Router {
@@ -458,7 +466,7 @@ export interface Router {
   /** Get router middleware */
   getMiddleware(): Middleware[];
   /** Get router routes */
-  getRoutes(): Map<string, RouteHandler>;
+  getRoutes(): Map<string, RouteData>;
 }
 
 /**
