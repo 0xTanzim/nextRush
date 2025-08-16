@@ -10,17 +10,25 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      // Only measure coverage for source files
+      include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'node_modules/',
         'dist/',
+        // Exclude top-level benchmarks folder from coverage
+        'benchmarks/**',
+        // Exclude all tests from coverage reports
+        'src/tests/**',
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.spec.{ts,tsx}',
+        'src/**/__tests__/**',
         'v1/',
         '**/*.d.ts',
         '**/*.config.ts',
         '**/coverage/**',
         '**/.{idea,git,cache,output,temp}/**',
         '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
-        'src/tests/integration/**',
-        'src/tests/e2e/**',
+        'src/examples/**',
       ],
     },
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
