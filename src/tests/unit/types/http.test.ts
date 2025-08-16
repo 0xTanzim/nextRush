@@ -1,7 +1,7 @@
 /**
  * @file Tests for HTTP types
  * @description Tests for NextRush v2 HTTP type definitions
- * 
+ *
  * This test file covers:
  * - HTTP interface validation
  * - Request/Response type validation
@@ -9,7 +9,7 @@
  * - Type safety and constraints
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('HTTP Types', () => {
   describe('Type Definitions', () => {
@@ -31,9 +31,9 @@ describe('HTTP Types', () => {
         static: './public',
         template: {
           engine: 'ejs',
-          directory: './views'
+          directory: './views',
         },
-        keepAlive: 5000
+        keepAlive: 5000,
       };
 
       // Type validation - should compile without errors
@@ -54,7 +54,7 @@ describe('HTTP Types', () => {
       const minimalOptions = {};
       const partialOptions = {
         port: 8080,
-        debug: true
+        debug: true,
       };
 
       // All fields should be optional
@@ -73,12 +73,15 @@ describe('HTTP Types', () => {
         url: '/api/users/123?page=1&limit=10',
         headers: {
           'content-type': 'application/json',
-          'authorization': 'Bearer token123'
-        }
+          authorization: 'Bearer token123',
+        },
       };
 
       // Type validation - should compile without errors
-      expect(mockRequest.body).toEqual({ name: 'test', email: 'test@example.com' });
+      expect(mockRequest.body).toEqual({
+        name: 'test',
+        email: 'test@example.com',
+      });
       expect(mockRequest.params.id).toBe('123');
       expect(mockRequest.params.userId).toBe('456');
       expect(mockRequest.query.page).toBe('1');
@@ -92,7 +95,7 @@ describe('HTTP Types', () => {
         body: 'plain text body',
         params: {},
         query: {},
-        path: '/text'
+        path: '/text',
       };
 
       // Object body
@@ -100,7 +103,7 @@ describe('HTTP Types', () => {
         body: { user: { name: 'John', age: 30 } },
         params: {},
         query: {},
-        path: '/json'
+        path: '/json',
       };
 
       // Array body
@@ -108,7 +111,7 @@ describe('HTTP Types', () => {
         body: [1, 2, 3, 4, 5],
         params: {},
         query: {},
-        path: '/array'
+        path: '/array',
       };
 
       // Buffer body
@@ -116,7 +119,7 @@ describe('HTTP Types', () => {
         body: Buffer.from('binary data'),
         params: {},
         query: {},
-        path: '/binary'
+        path: '/binary',
       };
 
       expect(stringRequest.body).toBe('plain text body');
@@ -129,7 +132,7 @@ describe('HTTP Types', () => {
       const params = {
         id: '123',
         slug: 'test-post',
-        category: 'tech'
+        category: 'tech',
       };
 
       // All param values should be strings
@@ -147,7 +150,7 @@ describe('HTTP Types', () => {
         limit: '10',
         search: 'test query',
         tags: ['tag1', 'tag2'], // Can be arrays
-        active: 'true'
+        active: 'true',
       };
 
       expect(query.page).toBe('1');
@@ -161,7 +164,7 @@ describe('HTTP Types', () => {
     it('should handle template engine configuration', () => {
       const templateConfig = {
         engine: 'handlebars',
-        directory: './templates'
+        directory: './templates',
       };
 
       expect(templateConfig.engine).toBe('handlebars');
@@ -175,7 +178,7 @@ describe('HTTP Types', () => {
         port: 3000,
         maxBodySize: 1024 * 1024 * 10, // 10MB
         timeout: 30 * 1000, // 30 seconds
-        keepAlive: 60 * 1000 // 60 seconds
+        keepAlive: 60 * 1000, // 60 seconds
       };
 
       expect(typeof numericOptions.port).toBe('number');
@@ -192,7 +195,7 @@ describe('HTTP Types', () => {
       const booleanOptions = {
         debug: true,
         trustProxy: false,
-        cors: true
+        cors: true,
       };
 
       expect(typeof booleanOptions.debug).toBe('boolean');
@@ -214,7 +217,7 @@ describe('HTTP Types', () => {
         body: undefined,
         params: {},
         query: {},
-        path: '/test'
+        path: '/test',
       };
 
       expect(mockIncomingMessage.method).toBe('GET');
@@ -228,7 +231,7 @@ describe('HTTP Types', () => {
         single: 'value',
         multiple: ['value1', 'value2'],
         empty: '',
-        undefined: undefined
+        undefined: undefined,
       };
 
       expect(parsedQuery.single).toBe('value');
@@ -247,20 +250,23 @@ describe('HTTP Types', () => {
         url: '/api/users',
         headers: {
           'content-type': 'application/json',
-          'content-length': '100'
+          'content-length': '100',
         },
-        
+
         // Enhanced properties
         body: { name: 'John', email: 'john@example.com' },
         params: { id: '123' },
         query: { include: 'profile' },
-        path: '/api/users'
+        path: '/api/users',
       };
 
       expect(enhancedRequest.method).toBe('POST');
       expect(enhancedRequest.url).toBe('/api/users');
       expect(enhancedRequest.headers['content-type']).toBe('application/json');
-      expect(enhancedRequest.body).toEqual({ name: 'John', email: 'john@example.com' });
+      expect(enhancedRequest.body).toEqual({
+        name: 'John',
+        email: 'john@example.com',
+      });
       expect(enhancedRequest.params.id).toBe('123');
       expect(enhancedRequest.query.include).toBe('profile');
       expect(enhancedRequest.path).toBe('/api/users');
@@ -274,20 +280,20 @@ describe('HTTP Types', () => {
               name: 'John Doe',
               preferences: {
                 theme: 'dark',
-                notifications: true
-              }
-            }
-          }
+                notifications: true,
+              },
+            },
+          },
         },
         params: {
           userId: '123',
-          profileId: '456'
+          profileId: '456',
         },
         query: {
           include: ['profile', 'settings'],
-          format: 'json'
+          format: 'json',
         },
-        path: '/api/users/123/profile/456'
+        path: '/api/users/123/profile/456',
       };
 
       expect(complexRequest.body.user.profile.name).toBe('John Doe');
@@ -302,10 +308,10 @@ describe('HTTP Types', () => {
   describe('Module Structure', () => {
     it('should export type definitions correctly', async () => {
       const module = await import('../../../types/http');
-      
+
       // Check that module is properly structured
       expect(typeof module).toBe('object');
-      
+
       // Note: Type-only exports cannot be tested at runtime
       // but this ensures the module loads without errors
     });
@@ -319,7 +325,7 @@ describe('HTTP Types', () => {
         body: undefined,
         params: { id: '123' },
         query: { page: '1' },
-        path: '/users'
+        path: '/users',
       };
 
       expect(expressLikeRequest.method).toBe('GET');
@@ -337,12 +343,12 @@ describe('HTTP Types', () => {
           body: { data: 'test' },
           params: {},
           query: {},
-          path: '/api/data'
+          path: '/api/data',
         },
         res: {
           statusCode: 200,
-          headers: {}
-        }
+          headers: {},
+        },
       };
 
       expect(middlewareContext.req.method).toBe('POST');

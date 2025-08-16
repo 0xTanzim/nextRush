@@ -1,7 +1,7 @@
 /**
  * @file Tests for event system types
  * @description Tests for NextRush v2 event system type definitions
- * 
+ *
  * This test file covers:
  * - Event type interface validation
  * - Metadata type validation
@@ -10,7 +10,7 @@
  * - Event emission types
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Event Types', () => {
   describe('Type Definitions', () => {
@@ -27,7 +27,7 @@ describe('Event Types', () => {
         correlationId: 'corr-123',
         source: 'test-source',
         version: 1,
-        customField: 'custom-value'
+        customField: 'custom-value',
       };
 
       // Type validation - should compile without errors
@@ -42,16 +42,16 @@ describe('Event Types', () => {
     it('should validate Event interface with generic types', () => {
       const event = {
         type: 'user.created' as const,
-        data: { 
+        data: {
           userId: '123',
-          email: 'test@example.com' 
+          email: 'test@example.com',
         },
         metadata: {
           id: 'event-id',
           timestamp: Date.now(),
           source: 'user-service',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       // Type validation - should compile without errors
@@ -82,14 +82,14 @@ describe('Event Types', () => {
         type: 'user.created',
         data: {
           userId: '123',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         metadata: {
           id: 'event-123',
           timestamp: Date.now(),
           source: 'user-service',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       expect(userEvent.type).toBe('user.created');
@@ -104,8 +104,8 @@ describe('Event Types', () => {
           id: 'test-id',
           timestamp: Date.now(),
           source: 'test',
-          version: 1
-        }
+          version: 1,
+        },
       } as const;
 
       // These should be readonly - TypeScript will catch mutations at compile time
@@ -128,7 +128,7 @@ describe('Event Types', () => {
         version: 1,
         userId: 'user-123',
         traceId: 'trace-456',
-        spanId: 'span-789'
+        spanId: 'span-789',
       };
 
       expect(customMetadata.userId).toBe('user-123');
@@ -145,8 +145,8 @@ describe('Event Types', () => {
           id: 'str-1',
           timestamp: Date.now(),
           source: 'logger',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       // Number data
@@ -157,8 +157,8 @@ describe('Event Types', () => {
           id: 'num-1',
           timestamp: Date.now(),
           source: 'metrics',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       // Array data
@@ -169,8 +169,8 @@ describe('Event Types', () => {
           id: 'arr-1',
           timestamp: Date.now(),
           source: 'batch',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       expect(stringEvent.data).toBe('Hello World');
@@ -186,22 +186,22 @@ describe('Event Types', () => {
           customer: {
             id: 'cust-456',
             name: 'John Doe',
-            email: 'john@example.com'
+            email: 'john@example.com',
           },
           items: [
             { id: 'item-1', quantity: 2, price: 10.99 },
-            { id: 'item-2', quantity: 1, price: 25.50 }
+            { id: 'item-2', quantity: 1, price: 25.5 },
           ],
           total: 47.48,
-          createdAt: new Date()
+          createdAt: new Date(),
         },
         metadata: {
           id: 'order-event-1',
           timestamp: Date.now(),
           source: 'order-service',
           version: 1,
-          correlationId: 'order-flow-123'
-        }
+          correlationId: 'order-flow-123',
+        },
       };
 
       expect(complexEvent.data.orderId).toBe('order-123');
@@ -231,14 +231,14 @@ describe('Event Types', () => {
       const strictEvent: StrictEvent = {
         type: 'strict.test',
         data: {
-          value: 123
+          value: 123,
         },
         metadata: {
           id: 'strict-1',
           timestamp: Date.now(),
           source: 'test',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       expect(strictEvent.type).toBe('strict.test');
@@ -254,8 +254,8 @@ describe('Event Types', () => {
           timestamp: Date.now(),
           source: 'test',
           version: 1,
-          correlationId: undefined // Optional field
-        }
+          correlationId: undefined, // Optional field
+        },
       };
 
       expect(eventWithOptional.metadata.correlationId).toBeUndefined();
@@ -269,8 +269,8 @@ describe('Event Types', () => {
           id: 'unk-1',
           timestamp: Date.now(),
           source: 'test',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       expect(unknownEvent.data).toBeDefined();
@@ -281,10 +281,10 @@ describe('Event Types', () => {
   describe('Module Structure', () => {
     it('should export type definitions correctly', async () => {
       const module = await import('../../../types/events');
-      
+
       // Check that module is properly structured
       expect(typeof module).toBe('object');
-      
+
       // Note: Type-only exports cannot be tested at runtime
       // but this ensures the module loads without errors
     });
@@ -296,14 +296,14 @@ describe('Event Types', () => {
         data: {
           aggregateId: 'agg-123',
           version: 2,
-          changes: ['field1', 'field2']
+          changes: ['field1', 'field2'],
         },
         metadata: {
           id: 'domain-1',
           timestamp: Date.now(),
           source: 'domain-service',
-          version: 1
-        }
+          version: 1,
+        },
       };
 
       // Integration event pattern
@@ -312,15 +312,15 @@ describe('Event Types', () => {
         data: {
           externalId: 'ext-456',
           syncStatus: 'completed',
-          records: 100
+          records: 100,
         },
         metadata: {
           id: 'int-1',
           timestamp: Date.now(),
           source: 'integration-service',
           version: 1,
-          correlationId: 'sync-batch-789'
-        }
+          correlationId: 'sync-batch-789',
+        },
       };
 
       expect(domainEvent.type).toBe('domain.aggregate.event');
