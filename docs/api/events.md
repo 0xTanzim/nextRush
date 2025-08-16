@@ -1,70 +1,101 @@
 # Event System API Reference
 
-NextRush v2 features a powerful event-driven architecture that enables loose coupling, extensibility, and reactive programming patterns throughout your application.
+NextRush v2 features a powerful **hybrid event-driven architecture** that provides both beginner-friendly Express-style events and enterprise-grade CQRS/Event Sourcing capabilities.
 
 ## What it is
 
-The Event System is a type-safe, high-performance event emitter that allows components to communicate through events without direct dependencies. It supports async/await patterns, error handling, and middleware-like event processing.
+The Event System offers two complementary APIs:
+
+1. **Simple Events API** (`app.events`) - Express-style event emitter for straightforward event handling
+2. **Advanced Event System** (`app.eventSystem`) - Full CQRS/Event Sourcing with commands, queries, and domain events
+
+Both APIs work together seamlessly, allowing you to start simple and scale to enterprise patterns as needed.
 
 ## When to use
 
-Use the Event System for:
+**Simple Events API** for:
 
-- Decoupling business logic from HTTP handlers
-- Background task processing
-- Real-time notifications and webhooks
-- Plugin communication and extensibility
-- Audit logging and analytics
-- Cache invalidation and data synchronization
-- Workflow orchestration
+- Basic event-driven programming
+- Express.js migration
+- Straightforward notifications
+- Quick prototyping
 
-## TypeScript signature
+**Advanced Event System** for:
+
+- CQRS (Command Query Responsibility Segregation)
+- Event Sourcing and Domain Events
+- Complex business workflows
+- Enterprise-scale applications
+
+## TypeScript Signatures
+
+### Simple Events API
 
 ```typescript
-interface EventSystem {
+interface SimpleEventsAPI {
   // Event emission
-  emit<T = any>(event: string, data: T): Promise<void>;
-  emitSync<T = any>(event: string, data: T): void;
+  emit(event: string, data: any): Promise<void>;
 
   // Event listening
-  on<T = any>(event: string, handler: EventHandler<T>): void;
-  once<T = any>(event: string, handler: EventHandler<T>): void;
-  off(event: string, handler?: EventHandler): void;
+  on(event: string, handler: (data: any) => void | Promise<void>): void;
+  once(event: string, handler: (data: any) => void | Promise<void>): void;
 
-  // Event middleware
-  use(middleware: EventMiddleware): void;
-
-  // Lifecycle
-  start(): Promise<void>;
-  stop(): Promise<void>;
+  // Event management
+  off(event: string, handler?: Function): void;
+  listeners(event: string): Function[];
 }
+```
 
-type EventHandler<T = any> = (
-  data: T,
-  context: EventContext
-) => Promise<void> | void;
-type EventMiddleware = (
-  event: string,
-  data: any,
-  context: EventContext,
-  next: () => Promise<void>
-) => Promise<void>;
+### Advanced Event System
+
+```typescript
+interface NextRushEventSystem {
+  // Generic dispatch for commands, queries, and events
+  dispatch<T = any>(operation: Command | Query | Event): Promise<T>;
+
+  // Event operations
+  emit<T extends Event>(event: T): Promise<void>;
+  subscribe<T extends Event>(
+    eventType: string,
+    handler: EventHandler<T>
+  ): EventSubscription;
+
+  // CQRS operations
+  executeCommand<TCommand extends Command, TResult = void>(
+    command: TCommand
+  ): Promise<TResult>;
+  executeQuery<TQuery extends Query, TResult = unknown>(
+    query: TQuery
+  ): Promise<TResult>;
+
+  // Handler registration
+  registerCommandHandler<TCommand extends Command>(
+    commandType: string,
+    handler: CommandHandler<TCommand>
+  ): void;
+  registerQueryHandler<TQuery extends Query>(
+    queryType: string,
+    handler: QueryHandler<TQuery>
+  ): void;
+}
 ```
 
 ---
 
-# 🎯 Core Event Operations
+# 🎯 Simple Events API
 
-## emit() - Async event emission
+The Simple Events API provides an Express-style interface that's familiar and easy to use. Perfect for getting started or migrating from other frameworks.
 
-**What it is**: Emits an event asynchronously, waiting for all handlers to complete.
+## emit() - Emit an event
 
-**When to use**: When you need to ensure all event handlers complete before continuing.
+**What it is**: Emits an event with data, triggering all registered handlers asynchronously.
+
+**When to use**: When you need to notify multiple parts of your application about something that happened.
 
 **Signature**:
 
 ```typescript
-emit<T = any>(event: string, data: T): Promise<void>
+emit(event: string, data: any): Promise<void>
 ```
 
 **Example**:
@@ -82,7 +113,7 @@ app.post('/auth/register', async ctx => {
     // Create user in database
     const user = await db.user.create(userData);
 
-    // Emit user registration event
+    // Emit user registration event - simple and clean!
     await app.events.emit('user.registered', {
       userId: user.id,
       email: user.email,
@@ -117,71 +148,16 @@ app.events.on('user.registered', async data => {
 });
 ```
 
-## emitSync() - Synchronous event emission
-
-**What it is**: Emits an event synchronously without waiting for handlers to complete.
-
-**When to use**: Fire-and-forget events, logging, non-critical notifications.
-
-**Signature**:
-
-```typescript
-emitSync<T = any>(event: string, data: T): void
-```
-
-**Example**:
-
-```typescript
-// Quick logging and metrics
-app.get('/api/users', async ctx => {
-  const startTime = Date.now();
-
-  // Synchronous event for request tracking
-  app.events.emitSync('request.started', {
-    method: ctx.method,
-    path: ctx.path,
-    ip: ctx.ip,
-    timestamp: new Date(),
-  });
-
-  const users = await db.user.findMany();
-  const duration = Date.now() - startTime;
-
-  // Synchronous performance tracking
-  app.events.emitSync('request.completed', {
-    method: ctx.method,
-    path: ctx.path,
-    duration,
-    responseSize: JSON.stringify(users).length,
-  });
-
-  ctx.json(users);
-});
-
-// Fast handlers for sync events
-app.events.on('request.started', data => {
-  console.log(`→ ${data.method} ${data.path} from ${data.ip}`);
-});
-
-app.events.on('request.completed', data => {
-  console.log(`← ${data.method} ${data.path} ${data.duration}ms`);
-});
-```
-
----
-
-# 👂 Event Listeners
-
-## on() - Persistent event listener
+## on() - Register event handler
 
 **What it is**: Registers a handler that responds to every occurrence of an event.
 
-**When to use**: Ongoing event processing, permanent handlers, system monitoring.
+**When to use**: For ongoing event processing, permanent handlers, system monitoring.
 
 **Signature**:
 
 ```typescript
-on<T = any>(event: string, handler: EventHandler<T>): void
+on(event: string, handler: (data: any) => void | Promise<void>): void
 ```
 
 **Example**:
@@ -189,22 +165,21 @@ on<T = any>(event: string, handler: EventHandler<T>): void
 ```typescript
 // Order processing workflow
 app.events.on('order.created', async orderData => {
+  console.log(`New order created: ${orderData.orderId}`);
+
   // Validate inventory
   const available = await inventory.check(orderData.items);
   if (!available) {
     await app.events.emit('order.failed', {
-      orderId: orderData.id,
+      orderId: orderData.orderId,
       reason: 'insufficient_inventory',
     });
     return;
   }
 
-  // Reserve inventory
-  await inventory.reserve(orderData.items, orderData.id);
-
   // Process payment
   await app.events.emit('payment.process', {
-    orderId: orderData.id,
+    orderId: orderData.orderId,
     amount: orderData.total,
     customerId: orderData.customerId,
   });
@@ -221,26 +196,14 @@ app.events.on('payment.succeeded', async paymentData => {
   });
 });
 
-app.events.on('payment.failed', async paymentData => {
-  // Release inventory
-  await inventory.release(paymentData.orderId);
-
-  // Notify customer
-  await app.events.emit('order.failed', {
-    orderId: paymentData.orderId,
-    reason: 'payment_failed',
-  });
-});
-
 // Usage in order endpoint
 app.post('/orders', async ctx => {
   const orderData = ctx.body as CreateOrderData;
-
   const order = await db.order.create(orderData);
 
   // Start order processing workflow
   await app.events.emit('order.created', {
-    id: order.id,
+    orderId: order.id,
     customerId: order.customerId,
     items: order.items,
     total: order.total,
@@ -251,7 +214,7 @@ app.post('/orders', async ctx => {
 });
 ```
 
-## once() - One-time event listener
+## once() - One-time event handler
 
 **What it is**: Registers a handler that responds only to the first occurrence of an event, then removes itself.
 
@@ -260,7 +223,7 @@ app.post('/orders', async ctx => {
 **Signature**:
 
 ```typescript
-once<T = any>(event: string, handler: EventHandler<T>): void
+once(event: string, handler: (data: any) => void | Promise<void>): void
 ```
 
 **Example**:
@@ -290,19 +253,6 @@ app.events.once('database.connected', async () => {
   });
 });
 
-// Feature flag initialization
-app.events.once('features.loaded', async features => {
-  if (features.newUserFlow) {
-    // Register handlers for new user flow
-    app.events.on('user.registered', newUserOnboardingHandler);
-  }
-
-  if (features.advancedAnalytics) {
-    // Enable advanced analytics
-    app.events.on('*', analyticsHandler);
-  }
-});
-
 // Server startup
 app.listen(3000, async () => {
   await connectDatabase();
@@ -310,7 +260,7 @@ app.listen(3000, async () => {
 });
 ```
 
-## off() - Remove event listener
+## off() - Remove event handler
 
 **What it is**: Removes specific event handlers or all handlers for an event.
 
@@ -319,552 +269,551 @@ app.listen(3000, async () => {
 **Signature**:
 
 ```typescript
-off(event: string, handler?: EventHandler): void
+off(event: string, handler?: Function): void
 ```
 
 **Example**:
 
 ```typescript
 // Dynamic feature management
-class FeatureManager {
-  private handlers = new Map<string, EventHandler[]>();
+const notificationHandler = async data => {
+  await websocket.broadcast('notification', data);
+};
 
-  enableFeature(featureName: string) {
-    switch (featureName) {
-      case 'realtime_notifications':
-        const notificationHandler = async data => {
-          await websocket.broadcast('notification', data);
-        };
-        app.events.on('notification.created', notificationHandler);
-        this.handlers.set('realtime_notifications', [notificationHandler]);
-        break;
+// Enable feature
+app.events.on('notification.created', notificationHandler);
 
-      case 'audit_logging':
-        const auditHandler = async data => {
-          await auditLog.record(data);
-        };
-        app.events.on('user.*', auditHandler);
-        app.events.on('order.*', auditHandler);
-        this.handlers.set('audit_logging', [auditHandler]);
-        break;
-    }
-  }
+// Disable feature later
+app.events.off('notification.created', notificationHandler);
 
-  disableFeature(featureName: string) {
-    const handlers = this.handlers.get(featureName);
-    if (handlers) {
-      handlers.forEach(handler => {
-        switch (featureName) {
-          case 'realtime_notifications':
-            app.events.off('notification.created', handler);
-            break;
-          case 'audit_logging':
-            app.events.off('user.*', handler);
-            app.events.off('order.*', handler);
-            break;
-        }
-      });
-      this.handlers.delete(featureName);
-    }
-  }
-}
+// Remove all handlers for an event
+app.events.off('notification.created');
 
 // Test cleanup
 afterEach(() => {
   // Remove all test handlers
-  app.events.off('test.*');
-
-  // Remove specific handler
-  app.events.off('user.created', testUserHandler);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  // Stop processing new events
-  app.events.off('*');
-
-  // Wait for in-flight events to complete
-  await app.events.stop();
-
-  process.exit(0);
+  app.events.off('test.event');
 });
 ```
 
 ---
 
-# 🔧 Event Middleware
+# 🏢 Advanced Event System API
 
-## use() - Event middleware
+The Advanced Event System provides enterprise-grade CQRS, Event Sourcing, and Domain-Driven Design patterns. Use this for complex business logic and scalable architectures.
 
-**What it is**: Registers middleware that processes all events before they reach handlers.
+## dispatch() - Generic operation dispatch
 
-**When to use**: Logging, validation, transformation, rate limiting, security.
+**What it is**: Universal dispatch method that can handle Commands, Queries, or Events.
+
+**When to use**: When you want a unified interface for all CQRS operations.
 
 **Signature**:
 
 ```typescript
-use(middleware: EventMiddleware): void
+dispatch<T = any>(operation: Command | Query | Event): Promise<T>
 ```
 
 **Example**:
 
 ```typescript
-// Event logging middleware
-app.events.use(async (event, data, context, next) => {
-  const startTime = Date.now();
+import { createApp } from 'nextrush';
 
-  console.log(`📡 Event: ${event}`, {
-    timestamp: new Date().toISOString(),
-    eventId: context.eventId,
-    data: JSON.stringify(data).slice(0, 100) + '...',
-  });
+const app = createApp();
 
-  try {
-    await next();
-    const duration = Date.now() - startTime;
-    console.log(`✅ Event completed: ${event} (${duration}ms)`);
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    console.error(`❌ Event failed: ${event} (${duration}ms)`, error);
-    throw error;
+// Define commands, queries, and events
+interface CreateUserCommand {
+  type: 'CreateUser';
+  data: { name: string; email: string };
+  metadata: { id: string; timestamp: Date; correlationId: string };
+}
+
+interface GetUserQuery {
+  type: 'GetUser';
+  parameters: { userId: string };
+  metadata: { id: string; timestamp: Date };
+}
+
+interface UserCreatedEvent {
+  type: 'user.created';
+  data: { userId: string; email: string };
+  timestamp: Date;
+  metadata: { aggregateId: string; version: number };
+}
+
+// Register handlers
+app.eventSystem.registerCommandHandler(
+  'CreateUser',
+  async (command: CreateUserCommand) => {
+    const user = await db.user.create(command.data);
+
+    // Emit domain event
+    await app.eventSystem.emit({
+      type: 'user.created',
+      data: { userId: user.id, email: user.email },
+      timestamp: new Date(),
+      metadata: { aggregateId: user.id, version: 1 },
+    });
+
+    return user;
   }
+);
+
+app.eventSystem.registerQueryHandler('GetUser', async (query: GetUserQuery) => {
+  return await db.user.findById(query.parameters.userId);
 });
 
-// Event validation middleware
-app.events.use(async (event, data, context, next) => {
-  // Validate event data structure
-  if (event.startsWith('user.')) {
-    if (!data.userId) {
-      throw new Error(`User events must include userId: ${event}`);
-    }
-  }
-
-  if (event.startsWith('order.')) {
-    if (!data.orderId) {
-      throw new Error(`Order events must include orderId: ${event}`);
-    }
-  }
-
-  await next();
-});
-
-// Rate limiting middleware
-const eventCounts = new Map<string, number>();
-
-app.events.use(async (event, data, context, next) => {
-  const key = `${event}:${context.source || 'unknown'}`;
-  const count = eventCounts.get(key) || 0;
-
-  if (count > 1000) {
-    console.warn(`Rate limit exceeded for event: ${event}`);
-    return; // Skip processing
-  }
-
-  eventCounts.set(key, count + 1);
-
-  // Reset counts every minute
-  setTimeout(() => {
-    eventCounts.delete(key);
-  }, 60000);
-
-  await next();
-});
-
-// Security middleware
-app.events.use(async (event, data, context, next) => {
-  // Filter sensitive data
-  if (data.password) {
-    data = { ...data, password: '[REDACTED]' };
-  }
-
-  if (data.creditCard) {
-    data = { ...data, creditCard: '[REDACTED]' };
-  }
-
-  // Add security context
-  context.security = {
-    filtered: true,
-    timestamp: Date.now(),
+// Usage with dispatch
+app.post('/users', async ctx => {
+  const command: CreateUserCommand = {
+    type: 'CreateUser',
+    data: ctx.body,
+    metadata: {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      correlationId: ctx.id,
+    },
   };
 
-  await next();
+  try {
+    const user = await app.eventSystem.dispatch(command);
+    ctx.json({ user }, 201);
+  } catch (error) {
+    ctx.res.status(500).json({ error: error.message });
+  }
 });
 
-// Error handling middleware
-app.events.use(async (event, data, context, next) => {
-  try {
-    await next();
-  } catch (error) {
-    // Log error with context
-    console.error('Event processing error:', {
-      event,
-      eventId: context.eventId,
-      error: error.message,
-      stack: error.stack,
-      data,
-    });
-
-    // Emit error event for monitoring
-    await app.events.emitSync('system.error', {
-      originalEvent: event,
-      error: error.message,
+app.get('/users/:id', async ctx => {
+  const query: GetUserQuery = {
+    type: 'GetUser',
+    parameters: { userId: ctx.params.id },
+    metadata: {
+      id: crypto.randomUUID(),
       timestamp: new Date(),
+    },
+  };
+
+  const user = await app.eventSystem.dispatch(query);
+  ctx.json({ user });
+});
+```
+
+## executeCommand() - Command execution
+
+**What it is**: Executes commands in a CQRS architecture for write operations.
+
+**When to use**: When you need to modify state with proper command validation and event sourcing.
+
+**Signature**:
+
+```typescript
+executeCommand<TCommand extends Command, TResult = void>(command: TCommand): Promise<TResult>
+```
+
+**Example**:
+
+```typescript
+// E-commerce order command handling
+interface PlaceOrderCommand {
+  type: 'PlaceOrder';
+  data: {
+    customerId: string;
+    items: Array<{ productId: string; quantity: number; price: number }>;
+    shippingAddress: Address;
+    paymentMethodId: string;
+  };
+  metadata: { id: string; timestamp: Date; correlationId: string };
+}
+
+// Register command handler
+app.eventSystem.registerCommandHandler(
+  'PlaceOrder',
+  async (command: PlaceOrderCommand) => {
+    const { customerId, items, shippingAddress, paymentMethodId } =
+      command.data;
+
+    // Business logic validation
+    const customer = await db.customer.findById(customerId);
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    // Check inventory
+    for (const item of items) {
+      const product = await db.product.findById(item.productId);
+      if (!product || product.inventory < item.quantity) {
+        throw new Error(`Insufficient inventory for product ${item.productId}`);
+      }
+    }
+
+    // Create order
+    const order = await db.order.create({
+      customerId,
+      items,
+      shippingAddress,
+      paymentMethodId,
+      total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      status: 'pending',
     });
 
-    // Re-throw for proper error handling
-    throw error;
+    // Emit domain events
+    await app.eventSystem.emit({
+      type: 'order.placed',
+      data: {
+        orderId: order.id,
+        customerId,
+        items,
+        total: order.total,
+      },
+      timestamp: new Date(),
+      metadata: {
+        aggregateId: order.id,
+        aggregateType: 'Order',
+        version: 1,
+      },
+    });
+
+    return order;
   }
+);
+
+// Usage in endpoint
+app.post('/orders', async ctx => {
+  const command: PlaceOrderCommand = {
+    type: 'PlaceOrder',
+    data: ctx.body,
+    metadata: {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      correlationId: ctx.id,
+    },
+  };
+
+  try {
+    const order = await app.eventSystem.executeCommand(command);
+    ctx.json({ order }, 201);
+  } catch (error) {
+    ctx.res.status(400).json({ error: error.message });
+  }
+});
+```
+
+## executeQuery() - Query execution
+
+**What it is**: Executes queries in a CQRS architecture for read operations.
+
+**When to use**: When you need optimized read operations separate from write models.
+
+**Signature**:
+
+```typescript
+executeQuery<TQuery extends Query, TResult = unknown>(query: TQuery): Promise<TResult>
+```
+
+**Example**:
+
+```typescript
+// Customer order history query
+interface GetCustomerOrdersQuery {
+  type: 'GetCustomerOrders';
+  parameters: {
+    customerId: string;
+    page?: number;
+    limit?: number;
+    status?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  };
+  metadata: { id: string; timestamp: Date };
+}
+
+// Register query handler
+app.eventSystem.registerQueryHandler(
+  'GetCustomerOrders',
+  async (query: GetCustomerOrdersQuery) => {
+    const {
+      customerId,
+      page = 1,
+      limit = 10,
+      status,
+      dateFrom,
+      dateTo,
+    } = query.parameters;
+
+    let queryBuilder = db.order
+      .where('customerId', customerId)
+      .orderBy('createdAt', 'desc');
+
+    if (status) {
+      queryBuilder = queryBuilder.where('status', status);
+    }
+
+    if (dateFrom) {
+      queryBuilder = queryBuilder.where('createdAt', '>=', dateFrom);
+    }
+
+    if (dateTo) {
+      queryBuilder = queryBuilder.where('createdAt', '<=', dateTo);
+    }
+
+    const orders = await queryBuilder
+      .offset((page - 1) * limit)
+      .limit(limit)
+      .select();
+
+    const total = await queryBuilder.count();
+
+    return {
+      orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+);
+
+// Usage in endpoint
+app.get('/customers/:id/orders', async ctx => {
+  const query: GetCustomerOrdersQuery = {
+    type: 'GetCustomerOrders',
+    parameters: {
+      customerId: ctx.params.id,
+      page: parseInt(ctx.query.page) || 1,
+      limit: parseInt(ctx.query.limit) || 10,
+      status: ctx.query.status,
+      dateFrom: ctx.query.dateFrom ? new Date(ctx.query.dateFrom) : undefined,
+      dateTo: ctx.query.dateTo ? new Date(ctx.query.dateTo) : undefined,
+    },
+    metadata: {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  };
+
+  const result = await app.eventSystem.executeQuery(query);
+  ctx.json(result);
+});
+```
+
+## subscribe() - Event subscription
+
+**What it is**: Subscribe to domain events in the advanced event system.
+
+**When to use**: When you need to handle domain events with full type safety and metadata.
+
+**Signature**:
+
+```typescript
+subscribe<T extends Event>(eventType: string, handler: EventHandler<T>): EventSubscription
+```
+
+**Example**:
+
+```typescript
+// Inventory management through event subscriptions
+app.eventSystem.subscribe('order.placed', async event => {
+  const { orderId, items } = event.data;
+
+  // Reserve inventory for each item
+  for (const item of items) {
+    await db.inventory.update(item.productId, {
+      available: db.raw('available - ?', [item.quantity]),
+      reserved: db.raw('reserved + ?', [item.quantity]),
+    });
+
+    // Emit inventory reserved event
+    await app.eventSystem.emit({
+      type: 'inventory.reserved',
+      data: {
+        productId: item.productId,
+        quantity: item.quantity,
+        orderId,
+      },
+      timestamp: new Date(),
+      metadata: {
+        aggregateId: item.productId,
+        aggregateType: 'Product',
+        causationId: event.metadata.id,
+      },
+    });
+  }
+});
+
+// Payment processing subscription
+app.eventSystem.subscribe('order.placed', async event => {
+  const { orderId, total, customerId } = event.data;
+
+  try {
+    // Process payment
+    const payment = await paymentService.charge({
+      amount: total,
+      customerId,
+      orderId,
+    });
+
+    await app.eventSystem.emit({
+      type: 'payment.succeeded',
+      data: {
+        orderId,
+        paymentId: payment.id,
+        amount: total,
+      },
+      timestamp: new Date(),
+      metadata: {
+        aggregateId: orderId,
+        aggregateType: 'Order',
+        causationId: event.metadata.id,
+      },
+    });
+  } catch (error) {
+    await app.eventSystem.emit({
+      type: 'payment.failed',
+      data: {
+        orderId,
+        error: error.message,
+        amount: total,
+      },
+      timestamp: new Date(),
+      metadata: {
+        aggregateId: orderId,
+        aggregateType: 'Order',
+        causationId: event.metadata.id,
+      },
+    });
+  }
+});
+
+// Order fulfillment subscription
+app.eventSystem.subscribe('payment.succeeded', async event => {
+  const { orderId } = event.data;
+
+  // Update order status
+  await db.order.update(orderId, { status: 'confirmed' });
+
+  // Create fulfillment record
+  const fulfillment = await db.fulfillment.create({
+    orderId,
+    status: 'pending',
+    estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+  });
+
+  await app.eventSystem.emit({
+    type: 'order.confirmed',
+    data: {
+      orderId,
+      fulfillmentId: fulfillment.id,
+      estimatedDelivery: fulfillment.estimatedDelivery,
+    },
+    timestamp: new Date(),
+    metadata: {
+      aggregateId: orderId,
+      aggregateType: 'Order',
+      causationId: event.metadata.id,
+    },
+  });
 });
 ```
 
 ---
 
-# 🔄 Event Patterns
+# 🔄 Hybrid Patterns and Best Practices
 
-## Wildcards and namespacing
+## Choosing Between APIs
 
-**What it is**: Pattern matching for event names using wildcards and hierarchical naming.
+### Start Simple, Scale Advanced
 
-**When to use**: Grouped event handling, category-based listeners, debugging.
-
-**Example**:
+Begin with the Simple Events API for straightforward event-driven programming, then migrate to the Advanced Event System as your requirements grow.
 
 ```typescript
-// Namespace-based event organization
-const events = {
-  user: {
-    registered: 'user.registered',
-    updated: 'user.updated',
-    deleted: 'user.deleted',
-    loginAttempt: 'user.login.attempt',
-    loginSuccess: 'user.login.success',
-    loginFailure: 'user.login.failure',
-  },
-  order: {
-    created: 'order.created',
-    confirmed: 'order.confirmed',
-    shipped: 'order.shipped',
-    delivered: 'order.delivered',
-    cancelled: 'order.cancelled',
-  },
-  payment: {
-    initiated: 'payment.initiated',
-    processing: 'payment.processing',
-    succeeded: 'payment.succeeded',
-    failed: 'payment.failed',
-    refunded: 'payment.refunded',
-  },
-};
-
-// Wildcard listeners
-app.events.on('user.*', async (data, context) => {
-  // Handle all user events
-  await auditLog.record({
-    category: 'user',
-    event: context.event,
-    userId: data.userId,
-    timestamp: new Date(),
-  });
-});
-
-app.events.on('user.login.*', async (data, context) => {
-  // Handle all login events
-  await securityLog.record({
-    event: context.event,
-    userId: data.userId,
-    ip: data.ip,
-    userAgent: data.userAgent,
-    success: context.event.endsWith('.success'),
-  });
-});
-
-app.events.on('*.failed', async (data, context) => {
-  // Handle all failure events
-  await alerting.sendAlert({
-    type: 'failure',
-    event: context.event,
-    data,
-    severity: 'warning',
-  });
-});
-
-// Multi-level wildcards
-app.events.on('**', async (data, context) => {
-  // Handle ALL events (use sparingly)
-  await metrics.increment(`events.${context.event.replace(/\./g, '_')}`);
-});
-
-// Usage with namespaced events
-await app.events.emit(events.user.registered, {
+// Start with Simple Events API
+app.events.emit('user.registered', {
   userId: '123',
   email: 'user@example.com',
 });
 
-await app.events.emit(events.order.created, {
-  orderId: 'order-456',
-  userId: '123',
-  total: 99.99,
+// Later, migrate to Advanced Event System for complex business logic
+await app.eventSystem.dispatch({
+  type: 'RegisterUser',
+  data: { email: 'user@example.com', name: 'John Doe' },
+  metadata: { id: crypto.randomUUID(), timestamp: new Date() },
 });
 ```
 
-## Event composition and chaining
+### Use Both APIs Together
 
-**What it is**: Creating complex workflows by chaining events together.
-
-**When to use**: Multi-step processes, workflow orchestration, saga patterns.
-
-**Example**:
+The Simple and Advanced APIs work seamlessly together. Events emitted through the Simple API flow through the same underlying event system.
 
 ```typescript
-// E-commerce order processing saga
-class OrderSaga {
-  async handleOrderCreated(orderData) {
-    try {
-      // Step 1: Validate inventory
-      await app.events.emit('inventory.validate', {
-        orderId: orderData.id,
-        items: orderData.items,
-      });
-    } catch (error) {
-      await app.events.emit('order.failed', {
-        orderId: orderData.id,
-        step: 'inventory_validation',
-        error: error.message,
-      });
-    }
-  }
+// Simple API emits events
+app.events.emit('order.created', { orderId: '123' });
 
-  async handleInventoryValidated(data) {
-    try {
-      // Step 2: Reserve inventory
-      await app.events.emit('inventory.reserve', {
-        orderId: data.orderId,
-        items: data.validatedItems,
-      });
-    } catch (error) {
-      await app.events.emit('order.failed', {
-        orderId: data.orderId,
-        step: 'inventory_reservation',
-        error: error.message,
-      });
-    }
-  }
+// Advanced API can subscribe to the same events
+app.eventSystem.subscribe('order.created', async event => {
+  // Handle with full domain event metadata
+  console.log('Order created:', event.data);
+  console.log('Event metadata:', event.metadata);
+});
+```
 
-  async handleInventoryReserved(data) {
-    try {
-      // Step 3: Process payment
-      await app.events.emit('payment.process', {
-        orderId: data.orderId,
-        amount: data.totalAmount,
-        paymentMethod: data.paymentMethod,
-      });
-    } catch (error) {
-      // Compensate by releasing inventory
-      await app.events.emit('inventory.release', {
-        orderId: data.orderId,
-      });
+## Migration from Express.js
 
-      await app.events.emit('order.failed', {
-        orderId: data.orderId,
-        step: 'payment_processing',
-        error: error.message,
-      });
-    }
-  }
+NextRush's Simple Events API provides a familiar migration path from Express.js EventEmitter patterns:
 
-  async handlePaymentSucceeded(data) {
-    try {
-      // Step 4: Fulfill order
-      await app.events.emit('fulfillment.process', {
-        orderId: data.orderId,
-      });
+```typescript
+// Express.js style (works in NextRush!)
+app.events.on('user.login', data => {
+  console.log(`User ${data.userId} logged in`);
+});
 
-      // Step 5: Send confirmation
-      await app.events.emit('notification.send', {
-        type: 'order_confirmed',
-        userId: data.userId,
-        orderId: data.orderId,
-      });
+app.events.emit('user.login', { userId: '123', ip: req.ip });
 
-      // Final step: Mark order as confirmed
-      await app.events.emit('order.confirmed', {
-        orderId: data.orderId,
-        confirmedAt: new Date(),
-      });
-    } catch (error) {
-      await app.events.emit('order.failed', {
-        orderId: data.orderId,
-        step: 'fulfillment',
-        error: error.message,
-      });
-    }
-  }
+// Enhanced with async support
+app.events.on('user.login', async data => {
+  await auditLog.record('user_login', data);
+  await updateLastSeen(data.userId);
+});
+
+await app.events.emit('user.login', { userId: '123', ip: req.ip });
+```
+
+## Event Namespacing
+
+Use consistent event naming conventions for better organization:
+
+```typescript
+// Simple Events API - string-based namespacing
+app.events.emit('user.registered', data);
+app.events.emit('user.updated', data);
+app.events.emit('user.deleted', data);
+
+app.events.emit('order.created', data);
+app.events.emit('order.confirmed', data);
+app.events.emit('order.shipped', data);
+
+// Advanced Event System - structured event types
+interface UserRegisteredEvent {
+  type: 'user.registered';
+  data: { userId: string; email: string };
+  timestamp: Date;
+  metadata: { aggregateId: string; version: number };
 }
 
-const orderSaga = new OrderSaga();
-
-// Register saga handlers
-app.events.on('order.created', orderSaga.handleOrderCreated.bind(orderSaga));
-app.events.on(
-  'inventory.validated',
-  orderSaga.handleInventoryValidated.bind(orderSaga)
-);
-app.events.on(
-  'inventory.reserved',
-  orderSaga.handleInventoryReserved.bind(orderSaga)
-);
-app.events.on(
-  'payment.succeeded',
-  orderSaga.handlePaymentSucceeded.bind(orderSaga)
-);
-
-// Error handling and compensation
-app.events.on('order.failed', async data => {
-  console.error(`Order ${data.orderId} failed at step: ${data.step}`);
-
-  // Notify customer
-  await app.events.emit('notification.send', {
-    type: 'order_failed',
-    userId: data.userId,
-    orderId: data.orderId,
-    reason: data.error,
-  });
-
-  // Trigger cleanup if needed
-  await app.events.emit('order.cleanup', {
-    orderId: data.orderId,
-    step: data.step,
-  });
-});
+interface OrderCreatedEvent {
+  type: 'order.created';
+  data: { orderId: string; customerId: string; total: number };
+  timestamp: Date;
+  metadata: { aggregateId: string; aggregateType: 'Order'; version: number };
+}
 ```
 
 ---
 
-# 🔄 Lifecycle Management
+# 🎯 Complete Hybrid Event System Example
 
-## start() / stop() - Event system lifecycle
-
-**What it is**: Methods to control the event system lifecycle and manage resources.
-
-**When to use**: Application startup/shutdown, testing setup/teardown, graceful restarts.
-
-**Signature**:
-
-```typescript
-start(): Promise<void>
-stop(): Promise<void>
-```
-
-**Example**:
-
-```typescript
-// Application lifecycle management
-class Application {
-  constructor() {
-    this.app = createApp();
-    this.isShuttingDown = false;
-  }
-
-  async start() {
-    try {
-      // Start event system
-      await this.app.events.start();
-      console.log('✅ Event system started');
-
-      // Register event handlers
-      this.registerEventHandlers();
-
-      // Start HTTP server
-      this.server = this.app.listen(3000);
-      console.log('🚀 Server started on port 3000');
-
-      // Emit application ready event
-      await this.app.events.emit('app.started', {
-        timestamp: new Date(),
-        version: process.env.APP_VERSION,
-      });
-    } catch (error) {
-      console.error('Failed to start application:', error);
-      process.exit(1);
-    }
-  }
-
-  async stop() {
-    if (this.isShuttingDown) return;
-    this.isShuttingDown = true;
-
-    console.log('🛑 Shutting down application...');
-
-    try {
-      // Emit shutdown event
-      await this.app.events.emit('app.stopping', {
-        timestamp: new Date(),
-      });
-
-      // Stop accepting new HTTP requests
-      this.server.close();
-
-      // Wait for in-flight events to complete
-      await this.app.events.stop();
-      console.log('✅ Event system stopped');
-
-      // Close database connections
-      await database.close();
-
-      console.log('✅ Application shutdown complete');
-      process.exit(0);
-    } catch (error) {
-      console.error('Error during shutdown:', error);
-      process.exit(1);
-    }
-  }
-
-  registerEventHandlers() {
-    // Register cleanup handlers
-    this.app.events.on('app.stopping', async () => {
-      // Cancel all background jobs
-      await jobQueue.stop();
-
-      // Close external connections
-      await redis.disconnect();
-      await messageQueue.close();
-    });
-  }
-}
-
-// Graceful shutdown handling
-const app = new Application();
-
-process.on('SIGTERM', () => app.stop());
-process.on('SIGINT', () => app.stop());
-
-// Start application
-app.start().catch(console.error);
-
-// Testing lifecycle
-describe('Event System', () => {
-  beforeEach(async () => {
-    await app.events.start();
-  });
-
-  afterEach(async () => {
-    await app.events.stop();
-  });
-
-  test('should handle user registration', async () => {
-    const handler = jest.fn();
-    app.events.on('user.registered', handler);
-
-    await app.events.emit('user.registered', { userId: '123' });
-
-    expect(handler).toHaveBeenCalledWith({ userId: '123' }, expect.any(Object));
-  });
-});
-```
-
----
-
-# 🎯 Complete Event System Example
+This example shows both Simple and Advanced APIs working together in a real application:
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -872,40 +821,12 @@ import type { Context } from 'nextrush/types';
 
 const app = createApp();
 
-// Event middleware for logging
-app.events.use(async (event, data, context, next) => {
-  console.log(`📡 Event: ${event}`, {
-    eventId: context.eventId,
-    timestamp: new Date().toISOString(),
-  });
+// ==================== SIMPLE EVENTS API ====================
 
-  const startTime = Date.now();
-
-  try {
-    await next();
-    const duration = Date.now() - startTime;
-    console.log(`✅ Event completed: ${event} (${duration}ms)`);
-  } catch (error) {
-    console.error(`❌ Event failed: ${event}`, error);
-    throw error;
-  }
-});
-
-// Event middleware for metrics
-app.events.use(async (event, data, context, next) => {
-  const metric = `events.${event.replace(/\./g, '_')}`;
-
-  try {
-    await next();
-    metrics.increment(`${metric}.success`);
-  } catch (error) {
-    metrics.increment(`${metric}.error`);
-    throw error;
-  }
-});
-
-// User management events
+// Basic logging for all simple events
 app.events.on('user.registered', async data => {
+  console.log(`New user registered: ${data.email}`);
+
   // Send welcome email
   await emailService.send({
     to: data.email,
@@ -923,143 +844,205 @@ app.events.on('user.registered', async data => {
   });
 });
 
-app.events.on('user.registered', async data => {
-  // Track analytics
-  await analytics.track('User Registered', {
-    userId: data.userId,
-    email: data.email,
-    source: data.source,
-    timestamp: data.registeredAt,
-  });
-});
-
-// Order processing events
+// Order processing with simple events
 app.events.on('order.created', async orderData => {
-  // Validate inventory
-  const items = await inventory.validate(orderData.items);
+  console.log(`Order created: ${orderData.orderId}`);
 
-  if (items.some(item => !item.available)) {
+  // Simple inventory check
+  const available = await inventory.check(orderData.items);
+  if (!available) {
     await app.events.emit('order.failed', {
-      orderId: orderData.id,
+      orderId: orderData.orderId,
       reason: 'insufficient_inventory',
-      unavailableItems: items.filter(item => !item.available),
     });
     return;
   }
 
-  // Reserve inventory
-  await inventory.reserve(orderData.items, orderData.id);
-
   // Process payment
   await app.events.emit('payment.process', {
-    orderId: orderData.id,
+    orderId: orderData.orderId,
     amount: orderData.total,
-    customerId: orderData.customerId,
-    paymentMethodId: orderData.paymentMethodId,
   });
 });
 
-app.events.on('payment.succeeded', async paymentData => {
-  // Fulfill order
-  await fulfillment.create({
-    orderId: paymentData.orderId,
-    shippingAddress: paymentData.shippingAddress,
-  });
+// ==================== ADVANCED EVENT SYSTEM ====================
 
-  // Send confirmation
-  await app.events.emit('order.confirmed', {
-    orderId: paymentData.orderId,
-    paymentId: paymentData.paymentId,
-    confirmedAt: new Date(),
-  });
-});
+// Define sophisticated command and event types
+interface CreateUserCommand {
+  type: 'CreateUser';
+  data: { name: string; email: string; source: string };
+  metadata: { id: string; timestamp: Date; correlationId: string };
+}
 
-app.events.on('payment.failed', async paymentData => {
-  // Release reserved inventory
-  await inventory.release(paymentData.orderId);
+interface UserCreatedEvent {
+  type: 'user.created';
+  data: { userId: string; email: string; name: string };
+  timestamp: Date;
+  metadata: {
+    aggregateId: string;
+    aggregateType: 'User';
+    version: number;
+    correlationId: string;
+  };
+}
 
-  // Notify customer
-  await app.events.emit('notification.send', {
-    userId: paymentData.customerId,
-    type: 'payment_failed',
-    data: {
-      orderId: paymentData.orderId,
-      reason: paymentData.error,
-    },
-  });
-});
+// Advanced command handler
+app.eventSystem.registerCommandHandler(
+  'CreateUser',
+  async (command: CreateUserCommand) => {
+    const { name, email, source } = command.data;
 
-// Notification events
-app.events.on('notification.send', async notificationData => {
-  const user = await db.user.findById(notificationData.userId);
+    // Business rule validation
+    const existingUser = await db.user.findByEmail(email);
+    if (existingUser) {
+      throw new Error('User already exists');
+    }
 
-  if (user.preferences.email) {
-    await emailService.send({
-      to: user.email,
-      template: notificationData.type,
-      data: notificationData.data,
-    });
+    // Create user aggregate
+    const user = await db.user.create({ name, email, source });
+
+    // Emit domain event
+    await app.eventSystem.emit({
+      type: 'user.created',
+      data: { userId: user.id, email, name },
+      timestamp: new Date(),
+      metadata: {
+        aggregateId: user.id,
+        aggregateType: 'User',
+        version: 1,
+        correlationId: command.metadata.correlationId,
+      },
+    } as UserCreatedEvent);
+
+    return user;
   }
+);
 
-  if (user.preferences.push) {
-    await pushService.send({
-      userId: user.id,
-      title: getNotificationTitle(notificationData.type),
-      body: getNotificationBody(notificationData.type, notificationData.data),
-    });
-  }
+// Advanced event subscription with full metadata
+app.eventSystem.subscribe('user.created', async (event: UserCreatedEvent) => {
+  const { userId, email, name } = event.data;
 
-  // Real-time notification via WebSocket
-  if (user.isOnline) {
-    await websocket.send(user.socketId, {
-      type: 'notification',
-      data: notificationData,
-    });
-  }
-});
+  // Advanced analytics with correlation tracking
+  await analytics.track('User Created', {
+    userId,
+    email,
+    name,
+    correlationId: event.metadata.correlationId,
+    aggregateVersion: event.metadata.version,
+    timestamp: event.timestamp,
+  });
 
-// System events
-app.events.on('system.error', async errorData => {
-  // Log to monitoring service
-  await monitoring.recordError(errorData);
-
-  // Send alert if critical
-  if (errorData.severity === 'critical') {
-    await alerting.send({
-      channel: 'ops-alerts',
-      message: `Critical error: ${errorData.message}`,
-      data: errorData,
-    });
-  }
-});
-
-// Audit logging for all user actions
-app.events.on('user.*', async (data, context) => {
-  await auditLog.record({
-    event: context.event,
-    userId: data.userId,
-    timestamp: new Date(),
-    metadata: data,
+  // Emit simple event for basic handlers
+  await app.events.emit('user.registered', {
+    userId,
+    email,
+    name,
+    registeredAt: event.timestamp,
   });
 });
 
-// HTTP endpoints that emit events
-app.post('/auth/register', async ctx => {
-  const userData = ctx.body as RegisterData;
+// Complex business workflow with CQRS
+interface ProcessOrderCommand {
+  type: 'ProcessOrder';
+  data: {
+    customerId: string;
+    items: Array<{ productId: string; quantity: number; price: number }>;
+    shippingAddress: Address;
+    paymentMethodId: string;
+  };
+  metadata: { id: string; timestamp: Date; correlationId: string };
+}
+
+app.eventSystem.registerCommandHandler(
+  'ProcessOrder',
+  async (command: ProcessOrderCommand) => {
+    const { customerId, items, shippingAddress, paymentMethodId } =
+      command.data;
+
+    // Create order aggregate
+    const order = await db.order.create({
+      customerId,
+      items,
+      shippingAddress,
+      paymentMethodId,
+      total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      status: 'pending',
+    });
+
+    // Emit domain event
+    await app.eventSystem.emit({
+      type: 'order.placed',
+      data: {
+        orderId: order.id,
+        customerId,
+        items,
+        total: order.total,
+      },
+      timestamp: new Date(),
+      metadata: {
+        aggregateId: order.id,
+        aggregateType: 'Order',
+        version: 1,
+        correlationId: command.metadata.correlationId,
+      },
+    });
+
+    return order;
+  }
+);
+
+// Saga pattern for order processing
+app.eventSystem.subscribe('order.placed', async event => {
+  const { orderId, items } = event.data;
 
   try {
-    const user = await db.user.create({
-      name: userData.name,
-      email: userData.email,
-      password: await hashPassword(userData.password),
-    });
+    // Reserve inventory using domain events
+    for (const item of items) {
+      await app.eventSystem.dispatch({
+        type: 'ReserveInventory',
+        data: { productId: item.productId, quantity: item.quantity, orderId },
+        metadata: {
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          correlationId: event.metadata.correlationId,
+        },
+      });
+    }
 
-    // Emit registration event
+    // Emit simple event for basic handlers
+    await app.events.emit('order.created', {
+      orderId,
+      items,
+      total: event.data.total,
+    });
+  } catch (error) {
+    await app.eventSystem.emit({
+      type: 'order.failed',
+      data: { orderId, error: error.message },
+      timestamp: new Date(),
+      metadata: {
+        aggregateId: orderId,
+        aggregateType: 'Order',
+        causationId: event.metadata.id,
+      },
+    });
+  }
+});
+
+// ==================== HTTP ENDPOINTS ====================
+
+// Simple endpoint using Simple Events API
+app.post('/auth/register', async ctx => {
+  const userData = ctx.body as { name: string; email: string };
+
+  try {
+    const user = await db.user.create(userData);
+
+    // Use simple events for straightforward notification
     await app.events.emit('user.registered', {
       userId: user.id,
       name: user.name,
       email: user.email,
-      source: 'web',
       registeredAt: user.createdAt,
     });
 
@@ -1068,85 +1051,81 @@ app.post('/auth/register', async ctx => {
       201
     );
   } catch (error) {
-    await app.events.emitSync('system.error', {
-      message: 'User registration failed',
-      error: error.message,
-      severity: 'warning',
-      context: { userData },
-    });
-
     ctx.res.status(500).json({ error: 'Registration failed' });
   }
 });
 
-app.post('/orders', async ctx => {
-  const orderData = ctx.body as CreateOrderData;
+// Advanced endpoint using CQRS
+app.post('/users', async ctx => {
+  const command: CreateUserCommand = {
+    type: 'CreateUser',
+    data: { ...ctx.body, source: 'api' },
+    metadata: {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      correlationId: ctx.id,
+    },
+  };
 
   try {
-    const order = await db.order.create({
-      customerId: ctx.state.user.id,
-      items: orderData.items,
-      total: calculateTotal(orderData.items),
-      shippingAddress: orderData.shippingAddress,
-      paymentMethodId: orderData.paymentMethodId,
-    });
-
-    // Start order processing workflow
-    await app.events.emit('order.created', {
-      id: order.id,
-      customerId: order.customerId,
-      items: order.items,
-      total: order.total,
-      shippingAddress: order.shippingAddress,
-      paymentMethodId: order.paymentMethodId,
-    });
-
-    ctx.json({ order }, 201);
+    const user = await app.eventSystem.dispatch(command);
+    ctx.json({ user }, 201);
   } catch (error) {
-    await app.events.emitSync('system.error', {
-      message: 'Order creation failed',
-      error: error.message,
-      severity: 'warning',
-      context: { orderData, userId: ctx.state.user.id },
-    });
-
-    ctx.res.status(500).json({ error: 'Order creation failed' });
+    ctx.res.status(400).json({ error: error.message });
   }
 });
 
-// Graceful startup and shutdown
-app.events.once('app.ready', async () => {
-  console.log('🎉 Application is ready to handle requests');
+// Complex business operation using CQRS
+app.post('/orders', async ctx => {
+  const command: ProcessOrderCommand = {
+    type: 'ProcessOrder',
+    data: ctx.body,
+    metadata: {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      correlationId: ctx.id,
+    },
+  };
 
-  // Warm up caches
-  await cache.warmup();
-
-  // Start background jobs
-  await jobScheduler.start();
+  try {
+    const order = await app.eventSystem.dispatch(command);
+    ctx.json({ order }, 201);
+  } catch (error) {
+    ctx.res.status(400).json({ error: error.message });
+  }
 });
 
-process.on('SIGTERM', async () => {
-  console.log('📤 Received SIGTERM, shutting down gracefully...');
+// ==================== CROSS-API INTEGRATION ====================
 
-  await app.events.emit('app.stopping', {
-    timestamp: new Date(),
-    reason: 'SIGTERM',
+// Simple events trigger advanced workflows
+app.events.on('payment.succeeded', async data => {
+  // Simple event triggers advanced command
+  await app.eventSystem.dispatch({
+    type: 'FulfillOrder',
+    data: { orderId: data.orderId },
+    metadata: {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      correlationId: data.correlationId || crypto.randomUUID(),
+    },
   });
+});
 
-  // Stop event system
-  await app.events.stop();
-
-  process.exit(0);
+// Advanced events trigger simple notifications
+app.eventSystem.subscribe('order.fulfilled', async event => {
+  // Advanced event triggers simple notification
+  await app.events.emit('order.shipped', {
+    orderId: event.data.orderId,
+    trackingNumber: event.data.trackingNumber,
+    shippedAt: event.timestamp,
+  });
 });
 
 // Start the application
-app.listen(3000, async () => {
-  await app.events.start();
-
-  await app.events.emit('app.ready', {
-    timestamp: new Date(),
-    version: process.env.APP_VERSION || '1.0.0',
-  });
+app.listen(3000, () => {
+  console.log('🚀 NextRush hybrid event system ready');
+  console.log('📡 Simple Events API: app.events.emit/on/once');
+  console.log('🏢 Advanced Event System: app.eventSystem.dispatch/subscribe');
 });
 
 export default app;
@@ -1154,26 +1133,59 @@ export default app;
 
 ---
 
-## Performance notes
+## Performance Notes
 
-- Use `emitSync()` for non-critical, fire-and-forget events
-- Event middleware executes in order - place expensive operations last
-- Use wildcards sparingly as they can impact performance
-- Consider event batching for high-frequency events
+- **Simple Events API**: Optimized for ease of use and Express.js compatibility
+- **Advanced Event System**: Optimized for enterprise-scale event processing with CQRS patterns
+- Use `app.events` for straightforward event-driven programming
+- Use `app.eventSystem` for complex business logic and domain events
+- Both APIs share the same underlying event infrastructure for consistent performance
 
-## Security notes
+## Security Notes
 
-- Validate event data in middleware to prevent injection attacks
-- Filter sensitive data before emitting events
-- Use namespaces to control event access in multi-tenant applications
-- Log security-relevant events for audit trails
+- **Event Data Validation**: Validate event data in handlers to prevent injection attacks
+- **Sensitive Data**: Filter sensitive data before emitting events in both APIs
+- **Access Control**: Use proper authentication and authorization for event handlers
+- **Audit Trails**: Both APIs support comprehensive logging for security and compliance
 
-## See also
+## Migration Guide
+
+### From Express.js EventEmitter
+
+```typescript
+// Express.js style
+app.on('user.login', data => {
+  /* handler */
+});
+app.emit('user.login', data);
+
+// NextRush Simple Events API (compatible!)
+app.events.on('user.login', data => {
+  /* handler */
+});
+await app.events.emit('user.login', data);
+```
+
+### From Simple to Advanced API
+
+```typescript
+// Start with Simple Events API
+app.events.emit('order.created', { orderId: '123' });
+
+// Migrate to Advanced Event System
+await app.eventSystem.dispatch({
+  type: 'CreateOrder',
+  data: { customerId: '456', items: [...] },
+  metadata: { id: crypto.randomUUID(), timestamp: new Date() }
+});
+```
+
+## See Also
 
 - [Context API](./context.md) - Using events within request context
-- [Middleware guide](./middleware.md) - Event-driven middleware patterns
 - [Application API](./application.md) - Application-level event configuration
-- [Plugin system](../plugins/) - Plugin communication via events
+- [Plugin System](../plugins/) - Plugin communication via events
+- [CQRS Guide](../guides/cqrs.md) - Advanced CQRS patterns with NextRush
 
 ---
 

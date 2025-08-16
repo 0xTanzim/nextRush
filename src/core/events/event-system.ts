@@ -545,6 +545,46 @@ export class NextRushEventSystem {
       console.log('No event store available for persistence');
     }
   }
+
+  // ==================== Generic Dispatch Method ====================
+
+  /**
+   * Generic dispatch method for commands, queries, or events
+   * This provides a unified interface for different operation types
+   */
+  async dispatch<T = any>(operation: Command | Query | Event): Promise<T> {
+    // Check if it's a command
+    if (
+      'type' in operation &&
+      'metadata' in operation &&
+      !('data' in operation && 'timestamp' in operation)
+    ) {
+      return (await this.executeCommand(operation as Command)) as T;
+    }
+
+    // Check if it's a query
+    if (
+      'type' in operation &&
+      'metadata' in operation &&
+      'parameters' in operation
+    ) {
+      return (await this.executeQuery(operation as Query)) as T;
+    }
+
+    // Otherwise treat as event
+    if (
+      'type' in operation &&
+      'data' in operation &&
+      'timestamp' in operation
+    ) {
+      await this.emit(operation as Event);
+      return undefined as T;
+    }
+
+    throw new Error(
+      'Invalid operation type for dispatch. Must be Command, Query, or Event.'
+    );
+  }
 }
 
 /**

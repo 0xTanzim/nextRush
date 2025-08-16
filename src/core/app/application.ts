@@ -48,6 +48,13 @@ import {
   createSafeMiddleware,
 } from '@/core/context/immutable';
 
+// Import Event System
+import { NextRushEventSystem } from '@/core/events/event-system';
+import {
+  createSimpleEventsAPI,
+  type SimpleEventsAPI,
+} from '@/core/events/simple-events';
+
 // Import built-in middleware types for backward compatibility
 import type { EnhancedBodyParserOptions } from '@/core/middleware/body-parser/types';
 import type {
@@ -96,11 +103,19 @@ export class NextRushApplication extends EventEmitter implements Application {
   private cachedExceptionFilter: Middleware | null = null;
   private static readonly EXCEPTION_FILTER_MARK = Symbol('ExceptionFilter');
 
+  // Event System Integration
+  private _eventSystem: NextRushEventSystem;
+  private _simpleEvents: SimpleEventsAPI;
+
   constructor(options: ApplicationOptions = {}) {
     super();
 
     // Create safe configuration with validation
     this.options = createSafeConfiguration(options);
+
+    // Initialize Event System
+    this._eventSystem = new NextRushEventSystem();
+    this._simpleEvents = createSimpleEventsAPI(this._eventSystem);
 
     // Initialize DI container and middleware factory
     this.container = createContainer();
@@ -487,6 +502,32 @@ export class NextRushApplication extends EventEmitter implements Application {
    */
   public getServer(): Server {
     return this.server;
+  }
+
+  /**
+   * Get simple events API for Express-style event handling
+   *
+   * @example
+   * ```typescript
+   * app.events.emit('user.created', { userId: '123' });
+   * app.events.on('user.created', (data) => console.log(data));
+   * ```
+   */
+  public get events(): SimpleEventsAPI {
+    return this._simpleEvents;
+  }
+
+  /**
+   * Get advanced event system for CQRS and Event Sourcing
+   *
+   * @example
+   * ```typescript
+   * app.eventSystem.dispatch(new CreateUserCommand({ name: 'John' }));
+   * app.eventSystem.subscribe(UserCreatedEvent, handler);
+   * ```
+   */
+  public get eventSystem(): NextRushEventSystem {
+    return this._eventSystem;
   }
 
   /**
