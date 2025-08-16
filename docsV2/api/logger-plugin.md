@@ -32,7 +32,7 @@ const app = createApp();
 
 // Basic logger
 const logger = new LoggerPlugin();
-app.use(logger);
+logger.install(app);
 
 // Access logger in your app
 app.get('/users', async ctx => {
@@ -484,7 +484,7 @@ const logger = new LoggerPlugin({
   ],
 });
 
-app.use(logger);
+logger.install(app);
 
 // Routes with logging
 app.get('/users/:id', async ctx => {
@@ -550,7 +550,7 @@ if (process.env.LOG_ENDPOINT) {
   );
 }
 
-app.use(logger);
+logger.install(app);
 
 // Error monitoring
 logger.on('log', entry => {
@@ -606,7 +606,7 @@ class DatabaseTransport implements Transport {
 const logger = new LoggerPlugin();
 logger.addTransport(new DatabaseTransport());
 
-app.use(logger);
+logger.install(app);
 ```
 
 ---
