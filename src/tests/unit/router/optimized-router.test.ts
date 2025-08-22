@@ -497,6 +497,408 @@ describe('OptimizedRouter', () => {
     });
   });
 
+  describe('Multi-Level Routing Tests', () => {
+    describe('Complex Parameter Patterns', () => {
+      it('should handle /root/:param_1/abc/:param2', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({
+            param_1: ctx.params.param_1,
+            param2: ctx.params.param2,
+            message: 'Multi-level route match',
+          });
+        };
+
+        router.get('/root/:param_1/abc/:param2', handler);
+        const match = router.find('GET', '/root/value1/abc/value2');
+
+        expect(match).toBeDefined();
+        expect(match?.handler).toBe(handler);
+        expect(match?.params).toEqual({
+          param_1: 'value1',
+          param2: 'value2',
+        });
+        expect(match?.path).toBe('/root/value1/abc/value2');
+      });
+
+      it('should handle /root/:param_1/abc/:param2/xyz/:param3', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({
+            param_1: ctx.params.param_1,
+            param2: ctx.params.param2,
+            param3: ctx.params.param3,
+            message: 'Deep multi-level route match',
+          });
+        };
+
+        router.get('/root/:param_1/abc/:param2/xyz/:param3', handler);
+        const match = router.find(
+          'GET',
+          '/root/user123/abc/post456/xyz/comment789'
+        );
+
+        expect(match).toBeDefined();
+        expect(match?.handler).toBe(handler);
+        expect(match?.params).toEqual({
+          param_1: 'user123',
+          param2: 'post456',
+          param3: 'comment789',
+        });
+        expect(match?.path).toBe('/root/user123/abc/post456/xyz/comment789');
+      });
+
+      it('should handle multiple routes with same prefix but different parameters', () => {
+        const handler1 = async (ctx: Context) => {
+          ctx.res.json({ route: 'handler1', params: ctx.params });
+        };
+        const handler2 = async (ctx: Context) => {
+          ctx.res.json({ route: 'handler2', params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2', handler1);
+        router.get('/root/:param_1/abc/:param2/xyz/:param3', handler2);
+
+        // Test shorter route
+        const match1 = router.find('GET', '/root/test1/abc/test2');
+        expect(match1).toBeDefined();
+        expect(match1?.handler).toBe(handler1);
+        expect(match1?.params).toEqual({ param_1: 'test1', param2: 'test2' });
+
+        // Test longer route
+        const match2 = router.find('GET', '/root/test1/abc/test2/xyz/test3');
+        expect(match2).toBeDefined();
+        expect(match2?.handler).toBe(handler2);
+        expect(match2?.params).toEqual({
+          param_1: 'test1',
+          param2: 'test2',
+          param3: 'test3',
+        });
+      });
+    });
+
+    describe('Advanced Multi-Level Parameter Scenarios', () => {
+      it('should handle different HTTP methods on same multi-level route', () => {
+        const getHandler = async (ctx: Context) => {
+          ctx.res.json({ method: 'GET', params: ctx.params });
+        };
+        const postHandler = async (ctx: Context) => {
+          ctx.res.json({ method: 'POST', params: ctx.params });
+        };
+        const deleteHandler = async (ctx: Context) => {
+          ctx.res.json({ method: 'DELETE', params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2', getHandler);
+        router.post('/root/:param_1/abc/:param2', postHandler);
+        router.delete('/root/:param_1/abc/:param2', deleteHandler);
+
+        const getMatch = router.find('GET', '/root/user1/abc/data1');
+        const postMatch = router.find('POST', '/root/user1/abc/data1');
+        const deleteMatch = router.find('DELETE', '/root/user1/abc/data1');
+
+        expect(getMatch?.handler).toBe(getHandler);
+        expect(postMatch?.handler).toBe(postHandler);
+        expect(deleteMatch?.handler).toBe(deleteHandler);
+
+        // All should have the same parameters
+        const expectedParams = { param_1: 'user1', param2: 'data1' };
+        expect(getMatch?.params).toEqual(expectedParams);
+        expect(postMatch?.params).toEqual(expectedParams);
+        expect(deleteMatch?.params).toEqual(expectedParams);
+      });
+
+      it('should handle mixed static and dynamic segments', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({
+            action: 'mixed-segments',
+            params: ctx.params,
+          });
+        };
+
+        // Pattern: /api/v1/users/:userId/posts/:postId/comments/:commentId/likes
+        router.get(
+          '/api/v1/users/:userId/posts/:postId/comments/:commentId/likes',
+          handler
+        );
+
+        const match = router.find(
+          'GET',
+          '/api/v1/users/john123/posts/post456/comments/comment789/likes'
+        );
+
+        expect(match).toBeDefined();
+        expect(match?.handler).toBe(handler);
+        expect(match?.params).toEqual({
+          userId: 'john123',
+          postId: 'post456',
+          commentId: 'comment789',
+        });
+      });
+
+      it('should handle parameter names with underscores and numbers', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({
+            params: ctx.params,
+            message: 'Complex parameter names',
+          });
+        };
+
+        router.get(
+          '/api/:api_version/users/:user_id_123/data/:data_param_v2',
+          handler
+        );
+        const match = router.find(
+          'GET',
+          '/api/v2.1/users/user_456/data/dataset_789'
+        );
+
+        expect(match).toBeDefined();
+        expect(match?.params).toEqual({
+          api_version: 'v2.1',
+          user_id_123: 'user_456',
+          data_param_v2: 'dataset_789',
+        });
+      });
+
+      it('should handle very deep multi-level routes', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({
+            depth: 'very-deep',
+            params: ctx.params,
+          });
+        };
+
+        // 8 levels deep with alternating static/dynamic segments
+        router.get(
+          '/level1/:p1/level2/:p2/level3/:p3/level4/:p4/level5/:p5',
+          handler
+        );
+
+        const match = router.find(
+          'GET',
+          '/level1/val1/level2/val2/level3/val3/level4/val4/level5/val5'
+        );
+
+        expect(match).toBeDefined();
+        expect(match?.params).toEqual({
+          p1: 'val1',
+          p2: 'val2',
+          p3: 'val3',
+          p4: 'val4',
+          p5: 'val5',
+        });
+      });
+
+      it('should handle URL-encoded parameter values', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2', handler);
+
+        // Test with URL-encoded values
+        const match = router.find(
+          'GET',
+          '/root/hello%20world/abc/test%2Bvalue'
+        );
+
+        expect(match).toBeDefined();
+        expect(match?.params).toEqual({
+          param_1: 'hello%20world', // Router doesn't decode - that's handled by HTTP layer
+          param2: 'test%2Bvalue',
+        });
+      });
+
+      it('should handle numeric parameter values', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2/xyz/:param3', handler);
+
+        const match = router.find('GET', '/root/123/abc/456/xyz/789');
+
+        expect(match).toBeDefined();
+        expect(match?.params).toEqual({
+          param_1: '123',
+          param2: '456',
+          param3: '789',
+        });
+      });
+
+      it('should handle parameter values with special characters', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2', handler);
+
+        const match = router.find('GET', '/root/user-123_test/abc/data.json');
+
+        expect(match).toBeDefined();
+        expect(match?.params).toEqual({
+          param_1: 'user-123_test',
+          param2: 'data.json',
+        });
+      });
+
+      it('should not match incomplete multi-level routes', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2/xyz/:param3', handler);
+
+        // Should not match incomplete paths
+        expect(router.find('GET', '/root/value1')).toBeNull();
+        expect(router.find('GET', '/root/value1/abc')).toBeNull();
+        expect(router.find('GET', '/root/value1/abc/value2')).toBeNull();
+        expect(router.find('GET', '/root/value1/abc/value2/xyz')).toBeNull();
+
+        // Should match complete path
+        const completeMatch = router.find(
+          'GET',
+          '/root/value1/abc/value2/xyz/value3'
+        );
+        expect(completeMatch).toBeDefined();
+        expect(completeMatch?.params).toEqual({
+          param_1: 'value1',
+          param2: 'value2',
+          param3: 'value3',
+        });
+      });
+
+      it('should handle overlapping multi-level routes with different structures', () => {
+        const handler1 = async (ctx: Context) => {
+          ctx.res.json({ route: 'static-abc', params: ctx.params });
+        };
+        const handler2 = async (ctx: Context) => {
+          ctx.res.json({ route: 'param-abc', params: ctx.params });
+        };
+        const handler3 = async (ctx: Context) => {
+          ctx.res.json({ route: 'param-param', params: ctx.params });
+        };
+
+        router.get('/root/static/abc/:param2', handler1);
+        router.get('/root/:param_1/abc/:param2', handler2);
+        router.get('/root/:param_1/:segment/:param2', handler3);
+
+        // Static route should match first
+        const staticMatch = router.find('GET', '/root/static/abc/value');
+        expect(staticMatch?.handler).toBe(handler1);
+        expect(staticMatch?.params).toEqual({ param2: 'value' });
+
+        // Dynamic route with abc should match
+        const dynamicMatch = router.find('GET', '/root/dynamic/abc/value');
+        expect(dynamicMatch?.handler).toBe(handler2);
+        expect(dynamicMatch?.params).toEqual({
+          param_1: 'dynamic',
+          param2: 'value',
+        });
+
+        // Fully dynamic route should match when middle segment is not 'abc'
+        const fullyDynamicMatch = router.find('GET', '/root/dynamic/xyz/value');
+        expect(fullyDynamicMatch?.handler).toBe(handler3);
+        expect(fullyDynamicMatch?.params).toEqual({
+          param_1: 'dynamic',
+          segment: 'xyz',
+          param2: 'value',
+        });
+      });
+    });
+
+    describe('Performance Tests for Multi-Level Routes', () => {
+      it('should handle many multi-level routes efficiently', () => {
+        // Register many complex multi-level routes
+        for (let i = 0; i < 100; i++) {
+          router.get(
+            `/root/:param${i}/abc/:param${i}_2/xyz/:param${i}_3`,
+            async (ctx: Context) => {
+              ctx.res.json({ route: i, params: ctx.params });
+            }
+          );
+        }
+
+        // Test performance
+        const start = performance.now();
+        for (let i = 0; i < 1000; i++) {
+          const match = router.find('GET', '/root/val1/abc/val2/xyz/val3');
+          expect(match).toBeDefined();
+        }
+        const end = performance.now();
+
+        expect(end - start).toBeLessThan(200); // Should complete efficiently
+      });
+
+      it('should cache multi-level parameter routes effectively', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2/xyz/:param3', handler);
+
+        // First call populates cache
+        const match1 = router.find('GET', '/root/test1/abc/test2/xyz/test3');
+        expect(match1).toBeDefined();
+
+        // Second call should hit cache and be identical
+        const match2 = router.find('GET', '/root/test1/abc/test2/xyz/test3');
+        expect(match2).toBeDefined();
+        expect(match1).toBe(match2); // Should be same cached object
+
+        // Different parameters should not hit cache but create new matches
+        const match3 = router.find('GET', '/root/diff1/abc/diff2/xyz/diff3');
+        expect(match3).toBeDefined();
+        expect(match3).not.toBe(match1);
+        expect(match3?.params).toEqual({
+          param_1: 'diff1',
+          param2: 'diff2',
+          param3: 'diff3',
+        });
+      });
+    });
+
+    describe('Edge Cases for Multi-Level Routes', () => {
+      it('should handle empty parameter values', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2', handler);
+
+        // This should not match because parameters cannot be empty
+        expect(router.find('GET', '/root//abc/value')).toBeNull();
+        expect(router.find('GET', '/root/value/abc/')).toBeNull();
+        expect(router.find('GET', '/root//abc/')).toBeNull();
+      });
+
+      it('should handle routes with trailing slashes on multi-level routes', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2', handler);
+
+        // Test with trailing slash
+        const match = router.find('GET', '/root/value1/abc/value2/');
+        expect(match).toBeDefined();
+        expect(match?.params).toEqual({ param_1: 'value1', param2: 'value2' });
+      });
+
+      it('should reject routes that do not match the exact pattern', () => {
+        const handler = async (ctx: Context) => {
+          ctx.res.json({ params: ctx.params });
+        };
+
+        router.get('/root/:param_1/abc/:param2/xyz/:param3', handler);
+
+        // These should not match
+        expect(router.find('GET', '/root/val1/def/val2/xyz/val3')).toBeNull(); // 'def' instead of 'abc'
+        expect(router.find('GET', '/root/val1/abc/val2/uvw/val3')).toBeNull(); // 'uvw' instead of 'xyz'
+        expect(router.find('GET', '/other/val1/abc/val2/xyz/val3')).toBeNull(); // 'other' instead of 'root'
+      });
+    });
+  });
+
   describe('createOptimizedRouter', () => {
     it('should create router with prefix', () => {
       const router = createOptimizedRouter('/api');
@@ -517,6 +919,20 @@ describe('OptimizedRouter', () => {
 
       // The cache size should be configurable
       expect(stats.cache.size).toBe(0);
+    });
+
+    it('should create router with prefix for multi-level routes', () => {
+      const router = createOptimizedRouter('/api/v2');
+      const handler = async (ctx: Context) => {
+        ctx.res.json({ params: ctx.params });
+      };
+
+      router.get('/root/:param_1/abc/:param2', handler);
+      const match = router.find('GET', '/api/v2/root/value1/abc/value2');
+
+      expect(match).toBeDefined();
+      expect(match?.handler).toBe(handler);
+      expect(match?.params).toEqual({ param_1: 'value1', param2: 'value2' });
     });
   });
 });
