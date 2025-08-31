@@ -1,8 +1,14 @@
+---
+applyTo: '**/*.ts'
+description: 'NextRush v2 Coding Guidelines'
+---
+
 # 📝 NextRush v2 Coding Guidelines
 
 ## 🎯 **Core Principles**
 
 ### **1. Type Safety First**
+
 ```typescript
 // ✅ ALWAYS use proper types
 import type { Context, Middleware, RouteHandler } from '@/types/context';
@@ -19,6 +25,7 @@ const badMiddleware = async (ctx: any, next: any) => {
 ```
 
 ### **2. SOLID Principles**
+
 ```typescript
 // ✅ Single Responsibility Principle
 class UserService {
@@ -29,7 +36,7 @@ class UserService {
 
 class UserController {
   constructor(private userService: UserService) {}
-  
+
   async getUser(ctx: Context): Promise<void> {
     // Only handles HTTP concerns
   }
@@ -50,6 +57,7 @@ class LoggerPlugin extends BasePlugin {
 ```
 
 ### **3. Performance Optimization**
+
 ```typescript
 // ✅ Efficient data structures
 const routeMap = new Map<string, RouteHandler>(); // O(1) lookup
@@ -58,11 +66,11 @@ const middlewareSet = new Set<Middleware>(); // Unique middleware
 // ✅ Memory management
 class BufferPool {
   private pool: Buffer[] = [];
-  
+
   acquire(size: number): Buffer {
     return this.pool.pop() ?? Buffer.allocUnsafe(size).fill(0);
   }
-  
+
   release(buffer: Buffer): void {
     this.pool.push(buffer);
   }
@@ -74,6 +82,7 @@ class BufferPool {
 ## 📁 **File Structure Guidelines**
 
 ### **1. Core Files (src/core/)**
+
 ```
 src/core/
 ├── app/
@@ -95,6 +104,7 @@ src/core/
 ```
 
 ### **2. Plugin Files (src/plugins/)**
+
 ```
 src/plugins/
 ├── logger/
@@ -110,6 +120,7 @@ src/plugins/
 ```
 
 ### **3. Type Files (src/types/)**
+
 ```
 src/types/
 ├── context.ts            # Context types
@@ -123,28 +134,30 @@ src/types/
 ## 🔧 **Code Quality Standards**
 
 ### **1. File Size Limits**
+
 - **Core files**: 150-350 lines maximum
 - **Plugin files**: 200-400 lines maximum
 - **Type files**: 100-200 lines maximum
 - **Test files**: 100-300 lines maximum
 
 ### **2. Function Complexity**
+
 ```typescript
 // ✅ Simple, focused functions
 async function validateUser(user: User): Promise<ValidationResult> {
   const errors: string[] = [];
-  
+
   if (!user.email) {
     errors.push('Email is required');
   }
-  
+
   if (!user.name) {
     errors.push('Name is required');
   }
-  
+
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -155,6 +168,7 @@ async function processUserData(user: any, options: any, callback: any) {
 ```
 
 ### **3. Error Handling**
+
 ```typescript
 // ✅ Proper error handling
 async function createUser(userData: CreateUserDto): Promise<User> {
@@ -178,6 +192,7 @@ async function createUser(userData: CreateUserDto): Promise<User> {
 ## 🧪 **Testing Guidelines**
 
 ### **1. Test Structure**
+
 ```typescript
 // ✅ Comprehensive test structure
 describe('UserService', () => {
@@ -221,15 +236,16 @@ describe('UserService', () => {
       const invalidId = '';
 
       // Act & Assert
-      await expect(userService.findById(invalidId))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(userService.findById(invalidId)).rejects.toThrow(
+        ValidationError
+      );
     });
   });
 });
 ```
 
 ### **2. Test Coverage Requirements**
+
 - **Unit tests**: 90%+ line coverage
 - **Integration tests**: 80%+ line coverage
 - **E2E tests**: Critical user flows only
@@ -237,6 +253,7 @@ describe('UserService', () => {
 - **Error scenarios**: All error paths
 
 ### **3. Mock Strategy**
+
 ```typescript
 // ✅ Proper mocking
 const createMockContext = (overrides: Partial<Context> = {}): Context => ({
@@ -265,7 +282,7 @@ const createMockContext = (overrides: Partial<Context> = {}): Context => ({
   searchParams: new URLSearchParams(),
   status: 200,
   responseHeaders: {},
-  ...overrides
+  ...overrides,
 });
 ```
 
@@ -274,6 +291,7 @@ const createMockContext = (overrides: Partial<Context> = {}): Context => ({
 ## 🚀 **Performance Guidelines**
 
 ### **1. Memory Management**
+
 ```typescript
 // ✅ Proper memory management
 class RequestContextPool {
@@ -300,17 +318,18 @@ class RequestContextPool {
 ```
 
 ### **2. Async/Await Best Practices**
+
 ```typescript
 // ✅ Proper async handling
 async function handleRequest(ctx: Context): Promise<void> {
   try {
     const user = await userService.findById(ctx.params.id);
-    
+
     if (!user) {
       ctx.res.status(404).json({ error: 'User not found' });
       return;
     }
-    
+
     ctx.res.json(user);
   } catch (error) {
     ctx.logger?.error('Failed to handle request', { error });
@@ -326,6 +345,7 @@ function badHandleRequest(ctx: Context): void {
 ```
 
 ### **3. Efficient Data Structures**
+
 ```typescript
 // ✅ Use appropriate data structures
 class RouteMatcher {
@@ -356,6 +376,7 @@ class RouteMatcher {
 ## 🔒 **Security Guidelines**
 
 ### **1. Input Validation**
+
 ```typescript
 // ✅ Always validate input
 import { z } from 'zod';
@@ -373,9 +394,9 @@ async function createUser(ctx: Context): Promise<void> {
     ctx.res.json(user);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      ctx.res.status(400).json({ 
-        error: 'Validation failed', 
-        details: error.errors 
+      ctx.res.status(400).json({
+        error: 'Validation failed',
+        details: error.errors,
       });
       return;
     }
@@ -385,15 +406,16 @@ async function createUser(ctx: Context): Promise<void> {
 ```
 
 ### **2. Error Information**
+
 ```typescript
 // ✅ Don't leak sensitive information
 async function handleError(error: Error, ctx: Context): Promise<void> {
   // Log full error for debugging
-  ctx.logger?.error('Request failed', { 
-    error: error.message, 
+  ctx.logger?.error('Request failed', {
+    error: error.message,
     stack: error.stack,
     path: ctx.path,
-    method: ctx.method 
+    method: ctx.method,
   });
 
   // Send safe error to client
@@ -412,17 +434,18 @@ async function handleError(error: Error, ctx: Context): Promise<void> {
 ## 📚 **Documentation Guidelines**
 
 ### **1. JSDoc Comments**
-```typescript
+
+````typescript
 /**
  * Creates a new user in the system
- * 
+ *
  * @param userData - User data to create
  * @param options - Creation options
  * @returns Promise<User> - Created user object
  * @throws ValidationError - If user data is invalid
  * @throws ConflictError - If user already exists
  * @throws DatabaseError - If database operation fails
- * 
+ *
  * @example
  * ```typescript
  * const user = await createUser({
@@ -432,15 +455,16 @@ async function handleError(error: Error, ctx: Context): Promise<void> {
  * ```
  */
 async function createUser(
-  userData: CreateUserDto, 
+  userData: CreateUserDto,
   options?: CreateUserOptions
 ): Promise<User> {
   // Implementation
 }
-```
+````
 
 ### **2. README Files**
-```markdown
+
+````markdown
 # User Service
 
 Handles user-related operations including creation, retrieval, and updates.
@@ -455,12 +479,13 @@ const userService = new UserService(userRepository);
 // Create a user
 const user = await userService.create({
   name: 'John Doe',
-  email: 'john@example.com'
+  email: 'john@example.com',
 });
 
 // Find a user
 const user = await userService.findById('123');
 ```
+````
 
 ## API
 
@@ -469,15 +494,19 @@ const user = await userService.findById('123');
 Creates a new user in the system.
 
 **Parameters:**
+
 - `userData` - User data to create
 
 **Returns:**
+
 - Promise<User> - Created user object
 
 **Throws:**
+
 - ValidationError - If user data is invalid
 - ConflictError - If user already exists
-```
+
+````
 
 ---
 
@@ -496,9 +525,10 @@ app.get('/users', async (ctx) => {
   // or
   ctx.body = { users: [] };
 });
-```
+````
 
 ### **2. Plugin Migration**
+
 ```typescript
 // v1: Everything was a plugin
 const routerPlugin = new RouterPlugin();
@@ -518,6 +548,7 @@ loggerPlugin.install(app);
 ## 🎯 **Quality Checklist**
 
 ### **Before Committing**
+
 - [ ] All tests pass
 - [ ] Code coverage >= 90%
 - [ ] No TypeScript errors
@@ -527,10 +558,11 @@ loggerPlugin.install(app);
 - [ ] Security reviewed
 
 ### **Code Review Checklist**
+
 - [ ] Follows SOLID principles
 - [ ] Proper error handling
 - [ ] Type safety maintained
 - [ ] Performance optimized
 - [ ] Security considerations
 - [ ] Test coverage adequate
-- [ ] Documentation complete 
+- [ ] Documentation complete

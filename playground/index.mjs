@@ -1,3 +1,4 @@
+/*eslint no-undef: "error"*/
 import {
   createApp,
   createRouter,
@@ -6,9 +7,7 @@ import {
   WebSocketPlugin,
 } from '../dist/index.mjs';
 
-const app = createApp({
-  
-});
+const app = createApp({});
 const userRouter = createRouter();
 
 const ws = new WebSocketPlugin({
@@ -23,6 +22,16 @@ app.ws('/echo', socket => {
 
   socket.onMessage(data => {
     socket.send(`Echo: ${data}`);
+  });
+});
+
+app.wsBroadcast('/broadcast', socket => {
+  socket.send('Welcome to the broadcast channel! 📢');
+
+  socket.onMessage(data => {
+    app.wsBroadcast('/broadcast', socket => {
+      socket.send(`Broadcast: ${data}`);
+    });
   });
 });
 

@@ -502,6 +502,7 @@ export interface Application {
   /** Create router */
   router(): Router;
   /** Start the server */
+  listen(port?: number, callback?: () => void): unknown;
   listen(port?: number, host?: string, callback?: () => void): unknown;
   /** Get the underlying HTTP server */
   getServer(): unknown;

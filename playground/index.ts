@@ -1,8 +1,15 @@
-import { createApp, createRouter, LoggerPlugin, StaticFilesPlugin, WebSocketPlugin } from '../dist/index.mjs';
+import type { Context, Next, WSConnection } from '../dist/index.mjs';
+import {
+  createApp,
+  createRouter,
+  LoggerPlugin,
+  LogLevel,
+  StaticFilesPlugin,
+  WebSocketPlugin,
+  withWebSocket,
+} from '../dist/index.mjs';
 
-const app = createApp({
-
-});
+const app = createApp({});
 const userRouter = createRouter();
 
 const ws = new WebSocketPlugin({
@@ -12,28 +19,41 @@ const ws = new WebSocketPlugin({
 });
 ws.install(app);
 
-app.ws('/echo', socket => {
+// Get typed WebSocket app with perfect type intelligence
+const wsApp = withWebSocket(app);
+
+wsApp.ws('/echo', (socket: WSConnection) => {
   socket.send('Welcome! 👋');
 
-  socket.onMessage(data => {
+  socket.onMessage((data: string | Buffer) => {
     socket.send(`Echo: ${data}`);
   });
 });
 
+// Create a broadcast WS route; join a room and broadcast incoming messages to that room
+wsApp.ws('/broadcast', (socket: WSConnection) => {
+  socket.send('Welcome to the broadcast channel! 📢');
+  socket.join('broadcast');
+
+  socket.onMessage((data: string | Buffer) => {
+    // Broadcast the raw message to everyone in the 'broadcast' room
+    wsApp.wsBroadcast(String(data), 'broadcast');
+  });
+});
 
 const logger = new LoggerPlugin({
-  level: 'info',
+  level: LogLevel.INFO,
   format: 'json',
-  transports: ['console', 'file'],
+  transports: [
+    { type: 'console', options: {} },
+    { type: 'file', options: { filename: 'app.log' } },
+  ],
 });
 logger.install(app);
-
-
 
 const staticFiles = new StaticFilesPlugin({
   root: './public',
   maxAge: 3600,
-  gzip: true,
 });
 staticFiles.install(app);
 
@@ -69,10 +89,10 @@ app.get('/users', {
 });
 userRouter.get('/profile', async ctx => ctx.json({ user: 'profile' }));
 
-app.use('user', userRouter);
+app.use('/user', userRouter);
 
-const requireAuth = async (ctx, next) => {
-  const token = ctx.headers.authorization;
+const requireAuth = async (ctx: Context, next: Next) => {
+  const token = ctx.headers.authorization as string | undefined;
   ctx.state.user = { id: 1, name: 'John Doe' };
   await next();
 };

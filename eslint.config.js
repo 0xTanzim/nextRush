@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
 import prettier from 'eslint-config-prettier';
+import globals from 'globals';
 
 export default [
   js.configs.recommended,
@@ -15,6 +16,7 @@ export default [
         project: './tsconfig.json',
       },
       globals: {
+        ...globals.browser,
         // Node.js globals
         console: 'readonly',
         process: 'readonly',

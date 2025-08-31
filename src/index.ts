@@ -14,6 +14,7 @@ export type {
   Context,
   DotfilesPolicy,
   Middleware,
+  Next,
   RouteConfig,
   RouteHandler,
   Router,
@@ -84,9 +85,12 @@ export { TemplatePlugin } from '@/plugins/template/template.plugin';
 
 // WebSocket Plugin
 export {
+  hasWebSocketSupport,
   WebSocketPlugin,
+  withWebSocket,
+  type WebSocketApplication,
   type WSContext,
-} from '@/plugins/websocket/websocket.plugin';
+} from '@/plugins/websocket';
 
 // Middleware exports
 export { smartBodyParser as bodyParser } from '@/core/middleware/body-parser';
