@@ -467,9 +467,11 @@ export class NextRushApplication extends EventEmitter implements Application {
   /**
    * Start the server
    */
+  public listen(port?: number, callback?: () => void): Server;
+  public listen(port?: number, host?: string, callback?: () => void): Server;
   public listen(
     port?: number,
-    host?: string | (() => void),
+    hostOrCallback?: string | (() => void),
     callback?: () => void
   ): Server {
     let actualPort: number;
@@ -477,15 +479,15 @@ export class NextRushApplication extends EventEmitter implements Application {
     let actualCallback: (() => void) | undefined;
 
     // Handle overloaded parameters
-    if (typeof host === 'function') {
+    if (typeof hostOrCallback === 'function') {
       // listen(port, callback)
       actualPort = port ?? this.options.port;
       actualHost = this.options.host;
-      actualCallback = host;
+      actualCallback = hostOrCallback;
     } else {
       // listen(port, host, callback)
       actualPort = port ?? this.options.port;
-      actualHost = host ?? this.options.host;
+      actualHost = hostOrCallback ?? this.options.host;
       actualCallback = callback;
     }
 

@@ -99,20 +99,23 @@ export class WebSocketPlugin extends BasePlugin {
 
     app.use(websocketMiddleware);
 
-    // Strongly typed augmentation (cast once then assign for clarity)
-    const appWithWS = app as Application;
-
-    appWithWS.ws = (path: string, handler: WSHandler): Application => {
+    // Add WebSocket methods to application (TypeScript will understand these as required after plugin install)
+    (app as any).ws = (path: string, handler: WSHandler): Application => {
       this.routes.set(path, handler);
-      return appWithWS;
+      return app;
     };
-    appWithWS.wsUse = (middleware: WSMiddleware): Application => {
+
+    (app as any).wsUse = (middleware: WSMiddleware): Application => {
       this.middlewares.push(middleware);
-      return appWithWS;
+      return app;
     };
-    appWithWS.wsBroadcast = (message: string, room?: string): Application => {
+
+    (app as any).wsBroadcast = (
+      message: string,
+      room?: string
+    ): Application => {
       this.broadcast(message, room);
-      return appWithWS;
+      return app;
     };
 
     // Setup HTTP upgrade handling

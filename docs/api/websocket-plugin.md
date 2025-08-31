@@ -30,7 +30,8 @@ Use the WebSocket Plugin when you need:
 ## Quick start
 
 ```typescript
-import { createApp, WebSocketPlugin } from 'nextrush';
+import { createApp, WebSocketPlugin, withWebSocket } from 'nextrush';
+import type { WSConnection } from 'nextrush';
 
 const app = createApp();
 
@@ -41,25 +42,28 @@ const wsPlugin = new WebSocketPlugin({
 
 wsPlugin.install(app);
 
+// Get typed WebSocket application
+const wsApp = withWebSocket(app);
+
 // Define WebSocket handlers
-app.ws('/chat', (socket, req) => {
+wsApp.ws('/chat', (socket: WSConnection) => {
   console.log('New WebSocket connection:', socket.id);
 
   // Join a room
   socket.join('general');
 
   // Listen for messages
-  socket.onMessage(data => {
+  socket.onMessage((data: string | Buffer) => {
     const message = JSON.parse(data.toString());
 
-    // Broadcast to all clients in room
-    socket.broadcast(
-      'general',
+    // Broadcast to all clients in room using app-level broadcast
+    wsApp.wsBroadcast(
       JSON.stringify({
         user: message.user,
         text: message.text,
         timestamp: Date.now(),
-      })
+      }),
+      'general'
     );
   });
 
@@ -262,7 +266,14 @@ interface WebSocketPluginOptions {
 
 # Application Methods
 
-When the plugin is installed, it adds WebSocket methods to the application:
+When the plugin is installed, it adds WebSocket methods to the application. To get proper TypeScript support and ensure the methods are available, use the `withWebSocket` utility:
+
+```typescript
+import { withWebSocket } from 'nextrush';
+
+const wsApp = withWebSocket(app); // Get typed WebSocket application
+wsApp.ws('/path', handler); // Now has perfect type intelligence
+```
 
 ## app.ws(path, handler)
 
@@ -277,35 +288,44 @@ app.ws(path: string, handler: WSHandler): Application
 - `path` (string): WebSocket endpoint path
 - `handler` (WSHandler): WebSocket connection handler
 
+**WSHandler signature:**
+
+```typescript
+type WSHandler = (socket: WSConnection) => void | Promise<void>;
+```
+
 **Example:**
 
 ```typescript
 // Chat room handler
-app.ws('/chat/:room', (socket, req) => {
-  const url = new URL(req.url || '', 'http://localhost');
+wsApp.ws('/chat/:room', (socket: WSConnection) => {
+  // Extract room from socket.url if needed
+  const url = new URL(socket.url, 'http://localhost');
   const room = url.pathname.split('/')[2];
 
   socket.join(`chat:${room}`);
 
-  socket.onMessage(data => {
+  socket.onMessage((data: string | Buffer) => {
     const message = JSON.parse(data.toString());
-    socket.broadcast(
-      `chat:${room}`,
+    wsApp.wsBroadcast(
       JSON.stringify({
         ...message,
         timestamp: Date.now(),
-      })
+      }),
+      `chat:${room}`
     );
   });
 });
 
 // Notification handler
-app.ws('/notifications', (socket, req) => {
-  const userId = getUserIdFromRequest(req);
-  socket.join(`user:${userId}`);
-
-  // Send pending notifications
-  sendPendingNotifications(socket, userId);
+wsApp.ws('/notifications', (socket: WSConnection) => {
+  const url = new URL(socket.url, 'http://localhost');
+  const userId = url.searchParams.get('userId');
+  if (userId) {
+    socket.join(`user:${userId}`);
+    // Send pending notifications
+    sendPendingNotifications(socket, userId);
+  }
 });
 ```
 
@@ -321,30 +341,42 @@ app.wsUse(middleware: WSMiddleware): Application
 
 - `middleware` (WSMiddleware): WebSocket middleware function
 
+**WSMiddleware signature:**
+
+```typescript
+type WSMiddleware = (
+  socket: WSConnection,
+  req: IncomingMessage,
+  next: () => void
+) => void | Promise<void>;
+```
+
 **Example:**
 
 ```typescript
 // Authentication middleware
-app.wsUse(async (socket, req, next) => {
-  const url = new URL(req.url || '', 'http://localhost');
-  const token = url.searchParams.get('token');
+wsApp.wsUse(
+  async (socket: WSConnection, req: IncomingMessage, next: () => void) => {
+    const url = new URL(req.url || '', 'http://localhost');
+    const token = url.searchParams.get('token');
 
-  if (!token) {
-    socket.close(1008, 'Authentication required');
-    return;
-  }
+    if (!token) {
+      socket.close(1008, 'Authentication required');
+      return;
+    }
 
-  try {
-    const user = await verifyJWT(token);
-    (socket as any).user = user; // Attach user to socket
-    next();
-  } catch {
-    socket.close(1008, 'Invalid token');
+    try {
+      const user = await verifyJWT(token);
+      (socket as any).user = user; // Attach user to socket
+      next();
+    } catch {
+      socket.close(1008, 'Invalid token');
+    }
   }
-});
+);
 
 // Logging middleware
-app.wsUse((socket, req, next) => {
+wsApp.wsUse((socket: WSConnection, req: IncomingMessage, next: () => void) => {
   console.log(
     `WebSocket connection: ${socket.id} from ${req.socket.remoteAddress}`
   );
@@ -353,7 +385,7 @@ app.wsUse((socket, req, next) => {
 
 // Rate limiting middleware
 const rateLimits = new Map();
-app.wsUse((socket, req, next) => {
+wsApp.wsUse((socket: WSConnection, req: IncomingMessage, next: () => void) => {
   const clientIP = req.socket.remoteAddress;
   const now = Date.now();
   const minute = Math.floor(now / 60000);
@@ -437,9 +469,10 @@ interface WSConnection {
   close(code?: number, reason?: string): void; // Close connection
   join(room: string): void; // Join room
   leave(room: string): void; // Leave room
-  broadcast(room: string, data: string | Buffer): void; // Broadcast to room
   onMessage(listener: (data: string | Buffer) => void): void; // Message handler
   onClose(listener: (code: number, reason: string) => void): void; // Close handler
+  ping(): void; // Send ping frame
+  markAlive(): void; // Mark connection as alive
 }
 ```
 
@@ -502,24 +535,29 @@ socket.onClose(() => {
 });
 ```
 
-### broadcast(room, data)
+### Room Broadcasting
 
-Send message to all connections in a room:
+To broadcast messages to rooms, use the application-level `wsBroadcast` method:
 
 ```typescript
-// Broadcast to room (excluding sender)
-socket.broadcast(
-  'general',
-  JSON.stringify({
-    type: 'message',
-    user: 'John',
-    text: 'Hello everyone!',
-  })
-);
+// In a WebSocket handler
+wsApp.ws('/chat', (socket: WSConnection) => {
+  socket.join('general');
 
-// Include sender in broadcast
-socket.send(message); // Send to self
-socket.broadcast('general', message); // Send to others
+  socket.onMessage((data: string | Buffer) => {
+    const message = data.toString();
+
+    // Broadcast to all connections in 'general' room
+    wsApp.wsBroadcast(message, 'general');
+  });
+});
+
+// From HTTP routes or elsewhere
+app.post('/api/notify', ctx => {
+  const { message, room } = ctx.body as any;
+  wsApp.wsBroadcast(message, room);
+  ctx.res.json({ success: true });
+});
 ```
 
 ### onMessage(listener)
@@ -613,7 +651,8 @@ app.use(async (ctx, next) => {
 ## Real-time Chat Application
 
 ```typescript
-import { createApp, WebSocketPlugin } from 'nextrush';
+import { createApp, WebSocketPlugin, withWebSocket } from 'nextrush';
+import type { WSConnection } from 'nextrush';
 
 const app = createApp();
 
@@ -631,39 +670,44 @@ const wsPlugin = new WebSocketPlugin({
 
 wsPlugin.install(app);
 
+// Get typed WebSocket app
+const wsApp = withWebSocket(app);
+
 // Store active users
 const activeUsers = new Map();
 
 // Authentication middleware
-app.wsUse(async (socket, req, next) => {
-  const url = new URL(req.url || '', 'http://localhost');
-  const token = url.searchParams.get('token');
+wsApp.wsUse(
+  async (socket: WSConnection, req: IncomingMessage, next: () => void) => {
+    const url = new URL(req.url || '', 'http://localhost');
+    const token = url.searchParams.get('token');
 
-  try {
-    const user = await verifyJWT(token);
-    (socket as any).user = user;
-    activeUsers.set(socket.id, user);
-    next();
-  } catch {
-    socket.close(1008, 'Invalid authentication');
+    try {
+      const user = await verifyJWT(token);
+      (socket as any).user = user;
+      activeUsers.set(socket.id, user);
+      next();
+    } catch {
+      socket.close(1008, 'Invalid authentication');
+    }
   }
-});
+);
 
 // Chat handler
-app.ws('/chat', (socket, req) => {
+wsApp.ws('/chat', (socket: WSConnection) => {
   const user = (socket as any).user;
 
   // Join general room
   socket.join('general');
 
   // Announce user joined
-  socket.broadcast(
-    'general',
+  wsApp.wsBroadcast(
     JSON.stringify({
       type: 'user_joined',
       user: { id: user.id, name: user.name },
       timestamp: Date.now(),
-    })
+    }),
+    'general'
   );
 
   // Send user list
@@ -675,22 +719,22 @@ app.ws('/chat', (socket, req) => {
   );
 
   // Handle messages
-  socket.onMessage(data => {
+  socket.onMessage((data: string | Buffer) => {
     try {
       const message = JSON.parse(data.toString());
 
       switch (message.type) {
         case 'chat_message':
           // Broadcast to all users in general room
-          socket.broadcast(
-            'general',
+          wsApp.wsBroadcast(
             JSON.stringify({
               type: 'message',
               id: generateMessageId(),
               user: { id: user.id, name: user.name },
               text: message.text,
               timestamp: Date.now(),
-            })
+            }),
+            'general'
           );
           break;
 
@@ -711,13 +755,13 @@ app.ws('/chat', (socket, req) => {
 
         case 'typing':
           // Broadcast typing indicator
-          socket.broadcast(
-            'general',
+          wsApp.wsBroadcast(
             JSON.stringify({
               type: 'typing',
               user: { id: user.id, name: user.name },
               isTyping: message.isTyping,
-            })
+            }),
+            'general'
           );
           break;
       }
@@ -736,13 +780,13 @@ app.ws('/chat', (socket, req) => {
     activeUsers.delete(socket.id);
 
     // Announce user left
-    socket.broadcast(
-      'general',
+    wsApp.wsBroadcast(
       JSON.stringify({
         type: 'user_left',
         user: { id: user.id, name: user.name },
         timestamp: Date.now(),
-      })
+      }),
+      'general'
     );
   });
 });
@@ -751,7 +795,7 @@ app.ws('/chat', (socket, req) => {
 app.post('/api/admin/broadcast', async ctx => {
   const { message, room = 'general' } = ctx.body as any;
 
-  app.wsBroadcast(
+  wsApp.wsBroadcast(
     JSON.stringify({
       type: 'system_message',
       message,
@@ -769,7 +813,8 @@ app.listen(3000);
 ## Live Dashboard with Metrics
 
 ```typescript
-import { createApp, WebSocketPlugin } from 'nextrush';
+import { createApp, WebSocketPlugin, withWebSocket } from 'nextrush';
+import type { WSConnection } from 'nextrush';
 
 const app = createApp();
 
@@ -779,16 +824,17 @@ const wsPlugin = new WebSocketPlugin({
 });
 
 wsPlugin.install(app);
+const wsApp = withWebSocket(app);
 
 // Dashboard WebSocket handler
-app.ws('/dashboard', (socket, req) => {
+wsApp.ws('/dashboard', (socket: WSConnection) => {
   // Join dashboard room
   socket.join('dashboard');
 
   // Send initial metrics
   sendMetrics(socket);
 
-  socket.onMessage(data => {
+  socket.onMessage((data: string | Buffer) => {
     const message = JSON.parse(data.toString());
 
     if (message.type === 'subscribe') {
@@ -804,7 +850,7 @@ app.ws('/dashboard', (socket, req) => {
 setInterval(() => {
   const metrics = collectSystemMetrics();
 
-  app.wsBroadcast(
+  wsApp.wsBroadcast(
     JSON.stringify({
       type: 'metrics_update',
       data: metrics,
@@ -819,7 +865,7 @@ app.post('/api/orders', async ctx => {
   const order = await createOrder(ctx.body);
 
   // Notify dashboard of new order
-  app.wsBroadcast(
+  wsApp.wsBroadcast(
     JSON.stringify({
       type: 'new_order',
       order: order,
@@ -854,7 +900,8 @@ function sendMetrics(socket: WSConnection) {
 ## Gaming Application with Rooms
 
 ```typescript
-import { createApp, WebSocketPlugin } from 'nextrush';
+import { createApp, WebSocketPlugin, withWebSocket } from 'nextrush';
+import type { WSConnection } from 'nextrush';
 
 const app = createApp();
 
@@ -864,13 +911,14 @@ const wsPlugin = new WebSocketPlugin({
 });
 
 wsPlugin.install(app);
+const wsApp = withWebSocket(app);
 
 // Game state storage
 const games = new Map();
 
 // Game WebSocket handler
-app.ws('/game/:gameId', (socket, req) => {
-  const url = new URL(req.url || '', 'http://localhost');
+wsApp.ws('/game/:gameId', (socket: WSConnection) => {
+  const url = new URL(socket.url, 'http://localhost');
   const gameId = url.pathname.split('/')[2];
   const playerId = url.searchParams.get('playerId');
 
@@ -905,17 +953,17 @@ app.ws('/game/:gameId', (socket, req) => {
   );
 
   // Notify other players
-  socket.broadcast(
-    `game:${gameId}`,
+  wsApp.wsBroadcast(
     JSON.stringify({
       type: 'player_joined',
       playerId,
       playerCount: game.players.size,
-    })
+    }),
+    `game:${gameId}`
   );
 
   // Handle game moves
-  socket.onMessage(data => {
+  socket.onMessage((data: string | Buffer) => {
     const message = JSON.parse(data.toString());
 
     switch (message.type) {
@@ -924,20 +972,20 @@ app.ws('/game/:gameId', (socket, req) => {
           applyMove(game, message.move);
 
           // Broadcast move to all players
-          socket.broadcast(
-            `game:${gameId}`,
+          wsApp.wsBroadcast(
             JSON.stringify({
               type: 'move_made',
               playerId,
               move: message.move,
               board: game.board,
-            })
+            }),
+            `game:${gameId}`
           );
 
           // Check for game over
           const winner = checkWinner(game);
           if (winner) {
-            app.wsBroadcast(
+            wsApp.wsBroadcast(
               JSON.stringify({
                 type: 'game_over',
                 winner,
@@ -958,14 +1006,14 @@ app.ws('/game/:gameId', (socket, req) => {
 
       case 'chat':
         // Game chat
-        socket.broadcast(
-          `game:${gameId}`,
+        wsApp.wsBroadcast(
           JSON.stringify({
             type: 'chat_message',
             playerId,
             message: message.text,
             timestamp: Date.now(),
-          })
+          }),
+          `game:${gameId}`
         );
         break;
     }
@@ -976,13 +1024,13 @@ app.ws('/game/:gameId', (socket, req) => {
     game.players.delete(playerId);
 
     // Notify remaining players
-    socket.broadcast(
-      `game:${gameId}`,
+    wsApp.wsBroadcast(
       JSON.stringify({
         type: 'player_left',
         playerId,
         playerCount: game.players.size,
-      })
+      }),
+      `game:${gameId}`
     );
 
     // Cleanup empty games
@@ -995,9 +1043,32 @@ app.ws('/game/:gameId', (socket, req) => {
 
 ---
 
-# TypeScript Support
+## TypeScript Support
 
-Full TypeScript support with proper type definitions:
+**Important: Using the withWebSocket Pattern**
+
+To get perfect TypeScript support and ensure WebSocket methods are available, always use the `withWebSocket` utility after installing the plugin:
+
+```typescript
+import { createApp, WebSocketPlugin, withWebSocket } from 'nextrush';
+import type { WSConnection } from 'nextrush';
+
+const app = createApp();
+const wsPlugin = new WebSocketPlugin({ path: '/ws' });
+wsPlugin.install(app);
+
+// ✅ Get typed WebSocket application with guaranteed method availability
+const wsApp = withWebSocket(app);
+
+// Now you have perfect type intelligence and runtime safety
+wsApp.ws('/echo', (socket: WSConnection) => {
+  socket.onMessage((data: string | Buffer) => {
+    socket.send(`Echo: ${data}`);
+  });
+});
+```
+
+**Full TypeScript Support:**
 
 ```typescript
 import type {
@@ -1006,7 +1077,9 @@ import type {
   WSConnection,
   WSHandler,
   WSMiddleware,
+  WebSocketApplication,
 } from 'nextrush';
+import { withWebSocket, hasWebSocketSupport } from 'nextrush';
 
 // Type-safe configuration
 const options: WebSocketPluginOptions = {
@@ -1020,9 +1093,9 @@ const options: WebSocketPluginOptions = {
 };
 
 // Type-safe handlers
-const chatHandler: WSHandler = (socket, req) => {
+const chatHandler: WSHandler = (socket: WSConnection) => {
   // TypeScript knows socket is WSConnection
-  socket.onMessage(data => {
+  socket.onMessage((data: string | Buffer) => {
     // data is string | Buffer
     const message = data.toString();
     socket.send(`Echo: ${message}`);
@@ -1030,7 +1103,11 @@ const chatHandler: WSHandler = (socket, req) => {
 };
 
 // Type-safe middleware
-const authMiddleware: WSMiddleware = (socket, req, next) => {
+const authMiddleware: WSMiddleware = (
+  socket: WSConnection,
+  req: IncomingMessage,
+  next: () => void
+) => {
   // Full type safety
   const token = new URL(req.url || '', 'http://localhost').searchParams.get(
     'token'
@@ -1042,6 +1119,16 @@ const authMiddleware: WSMiddleware = (socket, req, next) => {
     socket.close(1008, 'Authentication required');
   }
 };
+
+// Usage with perfect type intelligence
+const wsApp: WebSocketApplication = withWebSocket(app);
+wsApp.ws('/chat', chatHandler);
+wsApp.wsUse(authMiddleware);
+
+// Type guard for conditional usage
+if (hasWebSocketSupport(app)) {
+  app.ws('/conditional', chatHandler); // TypeScript knows this is safe
+}
 ```
 
 ---
