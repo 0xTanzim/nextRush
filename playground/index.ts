@@ -5,6 +5,7 @@ import {
   LoggerPlugin,
   LogLevel,
   StaticFilesPlugin,
+  TemplatePlugin,
   WebSocketPlugin,
   withWebSocket,
 } from '../dist/index.mjs';
@@ -45,7 +46,7 @@ const logger = new LoggerPlugin({
   level: LogLevel.INFO,
   format: 'json',
   transports: [
-    { type: 'console', options: {} },
+    { type: 'console' },
     { type: 'file', options: { filename: 'app.log' } },
   ],
 });
@@ -54,8 +55,27 @@ logger.install(app);
 const staticFiles = new StaticFilesPlugin({
   root: './public',
   maxAge: 3600,
+  immutable: true,
+  setHeaders: (ctx, path) => {
+    // Don't cache the main HTML file
+    if (path.endsWith('index.html')) {
+      ctx.res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
 });
 staticFiles.install(app);
+
+// Basic template plugin
+const templatePlugin = new TemplatePlugin({
+  viewsDir: './views',
+  cache: true,
+  partialExt: '.html',
+  helpers: {
+    currency: value => `$${Number(value).toFixed(2)}`,
+  },
+});
+
+templatePlugin.install(app);
 
 app.use((ctx, next) => {
   console.log(`Request received: ${ctx.method} ${ctx.path}`);
