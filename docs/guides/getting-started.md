@@ -97,10 +97,10 @@ app.post('/users', async ctx => {
 });
 ```
 
-### 2. Express-style methods
+### 2. Enhanced API methods
 
 ```typescript
-// Familiar Express.js syntax
+// Express-inspired helpers on Koa context
 app.get('/users/:id', async ctx => {
   const user = await findUser(ctx.params.id);
   ctx.res.json(user);
@@ -205,7 +205,7 @@ app.get('/users', async ctx => {
   });
 });
 
-// 2. Express-style with validation
+// 2. Enhanced API with validation
 app.get('/users/:id', async ctx => {
   const { id } = ctx.params;
   const user = users.find(u => u.id === id);
@@ -337,7 +337,7 @@ app.get('/demo', async ctx => {
   ctx.json({ data: 'response' }); // JSON response
   ctx.send('text response'); // Text response
   ctx.redirect('/other-page'); // Redirect
-  ctx.res.status(201).json(data); // Express-style
+  ctx.res.status(201).json(data); // Enhanced API helpers
 });
 ```
 

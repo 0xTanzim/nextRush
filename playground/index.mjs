@@ -17,6 +17,7 @@ const ws = new WebSocketPlugin({
 });
 ws.install(app);
 
+
 app.ws('/echo', socket => {
   socket.send('Welcome! 👋');
 
