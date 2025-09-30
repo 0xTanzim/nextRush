@@ -1,12 +1,14 @@
 # Event System API Reference
 
-NextRush v2 features a powerful **hybrid event-driven architecture** that provides both beginner-friendly Express-style events and enterprise-grade CQRS/Event Sourcing capabilities.
+# Event-Driven Architecture
+
+NextRush v2 features a powerful **hybrid event-driven architecture** that provides both a simple event API (inspired by Node.js EventEmitter) and enterprise-grade CQRS/Event Sourcing capabilities.
 
 ## What it is
 
 The Event System offers two complementary APIs:
 
-1. **Simple Events API** (`app.events`) - Express-style event emitter for straightforward event handling
+1. **Simple Events API** (`app.events`) - Node.js EventEmitter-style interface for straightforward event handling
 2. **Advanced Event System** (`app.eventSystem`) - Full CQRS/Event Sourcing with commands, queries, and domain events
 
 Both APIs work together seamlessly, allowing you to start simple and scale to enterprise patterns as needed.
@@ -84,7 +86,9 @@ interface NextRushEventSystem {
 
 # 🎯 Simple Events API
 
-The Simple Events API provides an Express-style interface that's familiar and easy to use. Perfect for getting started or migrating from other frameworks.
+## Simple Events API
+
+The Simple Events API provides a familiar EventEmitter-style interface that's easy to use. Perfect for getting started or migrating from other frameworks.
 
 ## emit() - Emit an event
 

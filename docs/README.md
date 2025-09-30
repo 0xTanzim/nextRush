@@ -1,10 +1,10 @@
 # NextRush v2 Documentation
 
-Welcome to NextRush v2 - a high-performance, type-safe web framework that combines Express-like design, Fastify-style routing, and modern convenience methods.
+Welcome to NextRush v2 - a high-performance, type-safe web framework built on **Koa-style middleware** with **Express-inspired helpers**, **Fastify-style routing**, and modern convenience methods.
 
 ## What you get
 
-NextRush v2 gives you three routing styles in one framework: Express-like methods, Fastify-style configuration, and modern convenience methods.
+NextRush v2 gives you three API styles on a Koa-style foundation: Convenience methods, Enhanced API (Express-inspired helpers), and Fastify-style configuration.
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -18,7 +18,7 @@ app.get('/users/:id', async (ctx: Context) => {
 
   // Three ways to send responses:
   ctx.json({ id: userId, name: 'Ada' }); // Convenience method
-  ctx.res.json({ id: userId, name: 'Ada' }); // Express-style
+  ctx.res.json({ id: userId, name: 'Ada' }); // Enhanced API
   ctx.send({ id: userId, name: 'Ada' }); // Smart send method
 });
 
@@ -72,8 +72,8 @@ Visit http://localhost:3000/hello and see your API in action.
 ### Core concepts
 
 - **[Application](./api/application.md)** - Create and configure your app
-- **[Context](./api/context.md)** - Handle requests and responses with Koa-style context
-- **[Routing](./api/routing.md)** - Define routes with multiple styles (Express, Fastify, Koa)
+- **[Context](./api/context.md)** - Koa-style context enhanced with Express-inspired helpers
+- **[Routing](./api/routing.md)** - Define routes with multiple API styles on Koa-style middleware
 - **[Middleware](./api/middleware.md)** - Built-in middleware and custom middleware
 
 ### Advanced features
@@ -97,14 +97,14 @@ Visit http://localhost:3000/hello and see your API in action.
 
 ## Key features
 
-**Three routing styles**: Express-like methods, Fastify-style config, or convenience methods
+**Three API styles**: Convenience methods, Enhanced API (Express-inspired), or Fastify-style config
 
 ```typescript
-// Express-style methods
-app.get('/users', ctx => ctx.res.json(users));
-
 // Convenience methods (recommended)
 app.get('/users', ctx => ctx.json(users));
+
+// Enhanced API (Express-inspired helpers)
+app.get('/users', ctx => ctx.res.json(users));
 
 // Fastify-style configuration
 app.get('/users', {

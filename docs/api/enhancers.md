@@ -1,6 +1,8 @@
 # Request/Response Enhancers API Reference
 
-Request and Response Enhancers add Express-like functionality to NextRush v2's HTTP objects, providing familiar methods and properties for web development.
+# Request and Response Enhancers
+
+Request and Response Enhancers add **Express-inspired helper methods** to NextRush v2's **Koa-style context**, providing familiar APIs while maintaining Koa's async middleware architecture.
 
 ## What it is
 
@@ -10,7 +12,7 @@ Enhancers extend the basic Node.js `IncomingMessage` and `ServerResponse` object
 
 Enhancers are used automatically by NextRush v2, but you can also use them directly when:
 
-- Building custom middleware that needs Express-like functionality
+- Building custom middleware that needs Express-inspired helper methods
 - Creating utilities that work with HTTP objects
 - Extending the framework with additional functionality
 
@@ -57,9 +59,9 @@ interface EnhancedResponse extends ServerResponse {
 
 ---
 
-# 📥 Request Enhancer
+## Request Enhancer
 
-The Request Enhancer adds Express-like properties and methods to incoming HTTP requests.
+The Request Enhancer adds Express-inspired helper properties and methods to incoming HTTP requests in the Koa-style context.
 
 ## Basic properties
 
@@ -187,9 +189,9 @@ app.post('/comments', async ctx => {
 
 ---
 
-# 📤 Response Enhancer
+## Response Enhancer
 
-The Response Enhancer adds Express-like methods to HTTP responses.
+The Response Enhancer adds Express-inspired helper methods to HTTP responses in the Koa-style context.
 
 ## Basic responses
 
@@ -419,7 +421,7 @@ const server = createServer((req, res) => {
   const enhancedReq = RequestEnhancer.enhance(req);
   const enhancedRes = ResponseEnhancer.enhance(res);
 
-  // Now you can use Express-like methods
+  // Now you can use Express-inspired helper methods
   console.log('Path:', enhancedReq.pathname);
   console.log('Cookies:', enhancedReq.cookies);
 

@@ -1,6 +1,8 @@
 # Context API Reference
 
-The Context object is the heart of NextRush v2. It contains all request and response information with Express-like design and modern convenience methods.
+# Context Object
+
+The Context object is the heart of NextRush v2. It's a **Koa-style context** enhanced with **Express-inspired helper methods** and modern convenience APIs.
 
 ## What it is
 
@@ -212,9 +214,9 @@ app.post('/login', async ctx => {
 });
 ```
 
-## Express-style response (ctx.res)
+## Enhanced response API (ctx.res)
 
-All Express.js response methods are available via `ctx.res`:
+Express-inspired helper methods are available via `ctx.res` on the Koa-style context:
 
 ### ctx.res.json(data)
 

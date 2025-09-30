@@ -4,7 +4,7 @@
 
 **The Modern, Type-Safe Web Framework for Node.js**
 
-_Express-like simplicity • Koa-style power • Fastify-level performance_
+_Koa-style elegance • Express-inspired helpers • Fastify-level performance_
 
 [![npm version](https://img.shields.io/npm/v/nextrush?color=brightgreen&style=for-the-badge)](https://www.npmjs.com/package/nextrush)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -37,11 +37,11 @@ NextRush v2 is the **next evolution** of Node.js web frameworks, combining the b
 
 ### 🏆 **Three Frameworks in One**
 
-| **Express-like** | **Koa-style**     | **Fastify-inspired**   |
-| ---------------- | ----------------- | ---------------------- |
-| `ctx.res.json()` | `ctx.body = data` | `{ handler, schema }`  |
-| Familiar syntax  | Async middleware  | Advanced configuration |
-| Easy migration   | Performance power | Type validation        |
+| **Convenience** | **Koa-style Enhanced** | **Fastify-inspired**   |
+| --------------- | ---------------------- | ---------------------- |
+| `ctx.json()`    | `ctx.res.json()`       | `{ handler, schema }`  |
+| Clean & simple  | Express-like helpers   | Advanced configuration |
+| Recommended     | Familiar syntax        | Type validation        |
 
 ### ⚡ **Performance That Scales**
 
@@ -70,9 +70,9 @@ app.get('/users', async ctx => {
   ctx.json(await getUsers()); // Clean & simple
 });
 
-// 🔧 Express-like (Familiar)
+// 🔧 Koa-style Enhanced (Express-inspired helpers)
 app.get('/users', async ctx => {
-  ctx.res.json(await getUsers()); // Works like Express
+  ctx.res.json(await getUsers()); // Express-like methods on Koa context
 });
 
 // ⚙️ Fastify-style (Advanced)
@@ -217,7 +217,7 @@ app.listen(3000);
 
 ## 🎭 **Multiple Programming Styles**
 
-NextRush v2 supports **three different programming styles** - use whichever feels most comfortable:
+NextRush v2 is **Koa-style at its core** with **three different API styles** - use whichever feels most comfortable:
 
 ### 🎯 **Convenience Methods** _(Recommended)_
 
@@ -239,7 +239,7 @@ app.post('/users', async ctx => {
 });
 ```
 
-### � **Express-like Style** _(Familiar)_
+### 🔧 **Enhanced API** _(Express-inspired helpers)_
 
 ```typescript
 app.get('/users/:id', async ctx => {
@@ -250,12 +250,12 @@ app.get('/users/:id', async ctx => {
     return;
   }
 
-  ctx.res.json(user); // 🔧 Works like Express
+  ctx.res.json(user); // 🔧 Express-inspired helpers on Koa context
 });
 
 app.post('/users', async ctx => {
   const user = await createUser(ctx.body);
-  ctx.res.status(201).json(user); // 🔧 Express-style chaining
+  ctx.res.status(201).json(user); // 🔧 Chainable helper methods
 });
 ```
 

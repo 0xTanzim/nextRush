@@ -1,6 +1,6 @@
 # Routing Guide
 
-NextRush v2 supports three routing styles: Express-like methods, Fastify-style configuration, and modern convenience methods. Use whichever feels most comfortable.
+NextRush v2 is built on **Koa-style middleware** and offers **three API styles**: Convenience methods, Enhanced API (Express-inspired helpers), and Fastify-style configuration. Use whichever feels most comfortable.
 
 ## What you get
 
@@ -20,7 +20,7 @@ app.get('/users/:id', async ctx => {
   ctx.json({ id: ctx.params.id });
 });
 
-// 2. Express-style (familiar syntax)
+// 2. Enhanced API (Express-inspired helpers on Koa context)
 app.get('/users/:id', async ctx => {
   ctx.res.json({ id: ctx.params.id });
 });
@@ -35,9 +35,9 @@ app.get('/users/:id', {
 });
 ```
 
-## Express-style routing
+## Enhanced API routing
 
-Familiar Express.js syntax with enhanced performance.
+Express-inspired helper methods on Koa-style context for familiar syntax with enhanced performance.
 
 ### Basic routes
 
@@ -579,7 +579,7 @@ app.get('/health', async ctx => {
   ctx.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Express-style routes
+// Enhanced API routes (Express-inspired helpers)
 app.get('/users', async ctx => {
   const users = await getUsers();
   ctx.res.json(users);
