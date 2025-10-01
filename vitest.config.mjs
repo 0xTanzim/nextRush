@@ -43,13 +43,13 @@ export default defineConfig({
     },
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     exclude: ['node_modules', 'dist', 'v1'],
-    // Run test files in parallel but tests within files sequentially
-    fileParallelism: true,
-    pool: 'threads',
+    // Run test files sequentially to avoid port conflicts (act/CI environment)
+    fileParallelism: false,
+    maxConcurrency: 1,
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        singleThread: false,
-        isolate: true,
+      forks: {
+        singleFork: true,
       },
     },
   },
