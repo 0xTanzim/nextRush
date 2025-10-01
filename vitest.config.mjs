@@ -1,5 +1,15 @@
 import { resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { WebSocket } from 'ws';
 import { defineConfig } from 'vitest/config';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = resolve(__filename, '..');
+
+// Polyfill WebSocket for Node.js < 22
+if (!globalThis.WebSocket) {
+  globalThis.WebSocket = WebSocket;
+}
 
 export default defineConfig({
   test: {
@@ -33,11 +43,14 @@ export default defineConfig({
     },
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     exclude: ['node_modules', 'dist', 'v1'],
-    fileParallelism: false,
-    // Run orchestration tests sequentially to avoid port conflicts
-    sequence: {
-      setupFiles: 'parallel',
-      hooks: 'parallel',
+    // Run test files in parallel but tests within files sequentially
+    fileParallelism: true,
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: false,
+        isolate: true,
+      },
     },
   },
   resolve: {

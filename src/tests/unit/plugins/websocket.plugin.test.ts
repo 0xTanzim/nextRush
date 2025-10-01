@@ -201,17 +201,15 @@ describe('WebSocketPlugin', () => {
     await app.shutdown();
   });
 
-  it(
-    'closes on ping/pong timeout (raw TCP without pong)',
-    async () => {
-      const app = createApp();
-      new WebSocketPlugin({
-        path: '/ws',
-        heartbeatMs: 50,
-        pongTimeoutMs: 120,
-      }).install(app as any);
-      (app as any).ws('/ws', () => {});
-      const server = app.listen(0) as unknown as Server;
+  it('closes on ping/pong timeout (raw TCP without pong)', async () => {
+    const app = createApp();
+    new WebSocketPlugin({
+      path: '/ws',
+      heartbeatMs: 50,
+      pongTimeoutMs: 120,
+    }).install(app as any);
+    (app as any).ws('/ws', () => {});
+    const server = app.listen(0) as unknown as Server;
     await new Promise<void>(r =>
       (server as Server).once('listening', () => r())
     );
@@ -253,9 +251,7 @@ describe('WebSocketPlugin', () => {
       // Ignore socket destroy errors
     }
     await app.shutdown();
-  },
-    30000
-  ); // 30s timeout for CI environments
+  }, 30000); // 30s timeout for CI environments
 
   it('rejects messages larger than maxMessageSize', async () => {
     const app = createApp();

@@ -7,13 +7,16 @@
  */
 
 import { createApp, type Application } from '@/core/app/application';
+import type { Server } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Middleware Chain Management', () => {
   let app: Application;
+  let server: Server | null = null;
+  let port: number;
 
   beforeEach(() => {
-    app = createApp({ port: 3015 });
+    app = createApp();
   });
 
   afterEach(async () => {
@@ -41,10 +44,12 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ success: true });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      await fetch('http://localhost:3015/order-test');
+      await fetch('http://localhost:${port}/order-test');
 
       expect(executionOrder).toEqual([
         'middleware1-start',
@@ -71,10 +76,12 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ timestamp: ctx.state['asyncStart'] });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/async-boundary');
+      const response = await fetch('http://localhost:${port}/async-boundary');
       const data = (await response.json()) as any;
 
       expect(data.timestamp).toBeDefined();
@@ -95,10 +102,12 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ error: 'Should not reach' });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/blocked');
+      const response = await fetch('http://localhost:${port}/blocked');
       const data = (await response.json()) as any;
 
       expect(response.status).toBe(403);
@@ -125,10 +134,12 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ success: true });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/error-test');
+      const response = await fetch('http://localhost:${port}/error-test');
       const data = (await response.json()) as any;
 
       expect(errorCaught).toBe(true);
@@ -159,12 +170,14 @@ describe('Middleware Chain Management', () => {
         });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Make concurrent requests
       const promises = Array.from({ length: 5 }, () =>
-        fetch('http://localhost:3015/race-test')
+        fetch('http://localhost:${port}/race-test')
       );
 
       const responses = await Promise.all(promises);
@@ -201,10 +214,12 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ counter: ctx.state['counter'] });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/mutation-test');
+      const response = await fetch('http://localhost:${port}/mutation-test');
       const data = (await response.json()) as any;
 
       expect(data.counter).toBe(2);
@@ -236,10 +251,12 @@ describe('Middleware Chain Management', () => {
         });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/commit-test');
+      const response = await fetch('http://localhost:${port}/commit-test');
       const data = (await response.json()) as any;
 
       expect(data.original).toBe('modified');
@@ -269,10 +286,12 @@ describe('Middleware Chain Management', () => {
         originalConsoleError(...args);
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/exception-test');
+      const response = await fetch('http://localhost:${port}/exception-test');
 
       // Should handle error gracefully
       expect(response.status).toBe(500);
@@ -300,10 +319,12 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ success: true });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/wrapped-test');
+      const response = await fetch('http://localhost:${port}/wrapped-test');
       const data = (await response.json()) as any;
 
       expect(requestWrapped).toBe(true);
@@ -317,10 +338,12 @@ describe('Middleware Chain Management', () => {
         throw new Error('No filter error');
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/no-filter-error');
+      const response = await fetch('http://localhost:${port}/no-filter-error');
 
       // Should still handle error, but with basic handling
       expect(response.status).toBe(500);
@@ -343,10 +366,12 @@ describe('Middleware Chain Management', () => {
         });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/enhanced-test', {
+      const response = await fetch('http://localhost:${port}/enhanced-test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -374,10 +399,12 @@ describe('Middleware Chain Management', () => {
         });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/body-copy-test', {
+      const response = await fetch('http://localhost:${port}/body-copy-test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -402,10 +429,12 @@ describe('Middleware Chain Management', () => {
         requestCompleted = true;
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/memory-test');
+      const response = await fetch('http://localhost:${port}/memory-test');
 
       // Wait a bit to ensure cleanup
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -427,12 +456,14 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ length: data.length });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Make many concurrent requests
       const promises = Array.from({ length: 100 }, () =>
-        fetch('http://localhost:3015/concurrency-test')
+        fetch('http://localhost:${port}/concurrency-test')
       );
 
       const responses = await Promise.all(promises);
@@ -466,10 +497,12 @@ describe('Middleware Chain Management', () => {
         ctx.res.json({ executionTime });
       });
 
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/performance-test');
+      const response = await fetch('http://localhost:${port}/performance-test');
       const data = (await response.json()) as any;
 
       // Execution should be fast (direct execution, no setImmediate overhead)
@@ -477,10 +510,12 @@ describe('Middleware Chain Management', () => {
     });
 
     it('should handle route not found efficiently', async () => {
-      app.listen(3015);
+      server = app.listen(0) as unknown as Server;
+      await new Promise<void>(r => server!.once('listening', () => r()));
+      port = (server!.address() as any).port;
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch('http://localhost:3015/non-existent-route');
+      const response = await fetch('http://localhost:${port}/non-existent-route');
       const data = (await response.json()) as any;
 
       expect(response.status).toBe(404);
