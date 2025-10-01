@@ -141,24 +141,9 @@ export class LoggerPlugin extends BasePlugin {
       this.entries = this.entries.slice(-this.config.maxEntries!);
     }
 
-    // Immediate flush for error and warn levels, but don't clear entries
+    // Immediate write for error and warn levels (don't remove from entries)
     if (level <= LogLevel.WARN) {
-      // Write to transports immediately but keep the entry
-      const entry = this.entries[this.entries.length - 1];
-      if (entry) {
-        this._transports.forEach(transport => {
-          try {
-            const result = transport.write(entry);
-            if (result instanceof Promise) {
-              result.catch(error => {
-                console.error('Transport error:', error);
-              });
-            }
-          } catch (error) {
-            console.error('Transport error:', error);
-          }
-        });
-      }
+      this.writeToTransports();
     }
   }
 
@@ -190,7 +175,6 @@ export class LoggerPlugin extends BasePlugin {
     }
 
     const entriesToFlush = [...this.entries];
-    this.entries = [];
 
     if (this.config.asyncFlush) {
       // Async flush to prevent blocking
@@ -198,12 +182,18 @@ export class LoggerPlugin extends BasePlugin {
         this._transports.forEach(transport => {
           this.writeToTransport(transport, entriesToFlush);
         });
+        // Clear entries after writing
+        if (this.entries.length === entriesToFlush.length) {
+          this.entries = [];
+        }
       });
     } else {
       // Synchronous flush
       this._transports.forEach(transport => {
         this.writeToTransport(transport, entriesToFlush);
       });
+      // Clear entries after writing
+      this.entries = [];
     }
   }
 
@@ -369,15 +359,20 @@ export class LoggerPlugin extends BasePlugin {
     // Write to transports to trigger error handling
     this.writeToTransports();
 
-    // Emit event with string level for compatibility
+    // Emit event with complete entry data
     const entry = this.entries[this.entries.length - 1];
-    const eventEntry = {
-      ...entry,
-      level: typeof level === 'string' ? level : LogLevel[level],
-    };
-    const listeners = this.eventListeners.get('log');
-    if (listeners) {
-      listeners.forEach(listener => listener(eventEntry as LogEntry));
+    if (entry) {
+      const eventEntry = {
+        ...entry,
+        level: typeof level === 'string' ? level : LogLevel[logLevel],
+        message: entry.message,
+        context: entry.context,
+        timestamp: entry.timestamp,
+      };
+      const listeners = this.eventListeners.get('log');
+      if (listeners) {
+        listeners.forEach(listener => listener(eventEntry as LogEntry));
+      }
     }
   }
 

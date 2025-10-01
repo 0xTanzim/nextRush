@@ -7,25 +7,47 @@ export function verifyOrigin(
   allow: (string | RegExp)[]
 ): boolean {
   if (!allow || allow.length === 0) return true;
-  const origin = req.headers.origin || '';
+  const origin = req.headers.origin;
+  if (!origin) return false; // No origin header = reject when origins are specified
   return allow.some(rule =>
     typeof rule === 'string' ? rule === origin : rule.test(origin)
   );
 }
 
 export function reject(socket: Socket, code: number, reason: string): void {
+  const response =
+    `HTTP/1.1 ${code} ${reason}\r\n` +
+    'Connection: close\r\n' +
+    'Content-Length: 0\r\n' +
+    '\r\n';
+
   try {
-    socket.write(
-      `HTTP/1.1 ${code} ${reason}\r\n` +
-        'Connection: close\r\n' +
-        'Content-Length: 0\r\n' +
-        '\r\n'
-    );
-  } finally {
+    // Write response synchronously for immediate feedback
+    socket.write(response);
+
+    // Schedule cleanup after giving time for data to be sent
+    // This ensures the response reaches the client before socket closes
+    setImmediate(() => {
+      try {
+        socket.end();
+      } catch {
+        // Ignore errors
+      }
+      // Give a tiny bit more time before destroy
+      setTimeout(() => {
+        try {
+          socket.destroy();
+        } catch {
+          // Ignore errors when destroying socket
+        }
+      }, 10);
+    });
+  } catch (error) {
+    // If write fails, just destroy the socket
     try {
       socket.destroy();
     } catch {
-      // Ignore errors when destroying socket
+      // Ignore errors
     }
   }
 }
