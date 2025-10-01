@@ -272,13 +272,16 @@ describe('Path Utils', () => {
   describe('getFileModifiedTime', () => {
     it('should return file modification time', () => {
       const testFile = join(testDir, 'test.txt');
+      const beforeWrite = Date.now();
       writeFileSync(testFile, 'test content');
+      const afterWrite = Date.now();
 
       const modTime = getFileModifiedTime(testFile);
 
       expect(modTime).toBeInstanceOf(Date);
-      expect(modTime.getTime()).toBeLessThanOrEqual(Date.now());
-      expect(modTime.getTime()).toBeGreaterThan(Date.now() - 5000); // Within 5 seconds
+      // File modification time should be between write start and write end + small buffer
+      expect(modTime.getTime()).toBeGreaterThanOrEqual(beforeWrite - 1000); // 1s before write
+      expect(modTime.getTime()).toBeLessThanOrEqual(afterWrite + 1000); // 1s after write
     });
 
     it('should throw for non-existent files', () => {

@@ -72,4 +72,4 @@ describe('Status Handling Integration Test', () => {
     const data = await response.json();
     expect(data).toEqual({ error: 'Both styles work' });
   });
-}); 
+});
