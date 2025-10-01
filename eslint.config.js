@@ -8,6 +8,7 @@ export default [
   js.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/*test.ts'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
@@ -90,8 +91,14 @@ export default [
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.spec.ts'],
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/*test.ts'],
     languageOptions: {
+      parser: typescriptParser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
+        // Don't require project for test files
+      },
       globals: {
         describe: 'readonly',
         it: 'readonly',
@@ -110,6 +117,8 @@ export default [
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-unused-vars': 'off',
       'no-console': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

@@ -45,6 +45,17 @@ class ReportGenerator {
 
         if (fs.existsSync(k6Path)) {
           try {
+            const stats = fs.statSync(k6Path);
+            const fileSizeMB = stats.size / (1024 * 1024);
+
+            // Skip files larger than 50MB (they're raw metric dumps, not summaries)
+            if (fileSizeMB > 50) {
+              console.log(
+                `⚠️  Skipped ${k6File} (${fileSizeMB.toFixed(0)}MB - too large, contains raw metrics instead of summary)`
+              );
+              continue;
+            }
+
             // K6 outputs line-delimited JSON, parse last line (summary)
             const content = fs.readFileSync(k6Path, 'utf8');
             const lines = content.trim().split('\n');
@@ -52,7 +63,7 @@ class ReportGenerator {
             this.k6Results[framework][test] = summary;
             console.log(`✅ Loaded ${k6File}`);
           } catch (err) {
-            console.log(`⚠️  Failed to parse ${k6File}`);
+            console.log(`⚠️  Failed to parse ${k6File}: ${err.message}`);
           }
         }
       }
@@ -87,7 +98,7 @@ class ReportGenerator {
     for (const test of TESTS) {
       sections.push(`### ${test.toUpperCase()}\n`);
       sections.push(
-        '| Framework | RPS | Latency p50 | Latency p95 | Latency p99 | Throughput |'
+        '| Framework | RPS | Latency p50 | Latency p99 | Latency Avg | Throughput |'
       );
       sections.push(
         '|-----------|-----|-------------|-------------|-------------|------------|'
@@ -102,8 +113,8 @@ class ReportGenerator {
             framework,
             rps: data.rps,
             p50: data.latency.p50,
-            p95: data.latency.p95,
             p99: data.latency.p99,
+            mean: data.latency.mean,
             throughput: data.throughput,
           });
         }
@@ -114,7 +125,7 @@ class ReportGenerator {
       for (const result of results) {
         const throughputMB = (result.throughput / 1024 / 1024).toFixed(2);
         sections.push(
-          `| **${result.framework}** | ${Math.round(result.rps).toLocaleString()} | ${result.p50}ms | ${result.p95}ms | ${result.p99}ms | ${throughputMB} MB/s |`
+          `| **${result.framework}** | ${Math.round(result.rps).toLocaleString()} | ${result.p50}ms | ${result.p99}ms | ${result.mean.toFixed(2)}ms | ${throughputMB} MB/s |`
         );
       }
       sections.push('\n');
@@ -180,7 +191,8 @@ class ReportGenerator {
       for (const test of TESTS) {
         if (this.autocannonResults[framework][test]) {
           totalRps += this.autocannonResults[framework][test].rps;
-          totalLatency += this.autocannonResults[framework][test].latency.p95;
+          // Use p99 latency since p95 doesn't exist in autocannon results
+          totalLatency += this.autocannonResults[framework][test].latency.p99;
           count++;
         }
       }
@@ -204,7 +216,7 @@ class ReportGenerator {
       sections.push(
         `- **Average RPS**: ${winnerStats.avgRps.toLocaleString()}`
       );
-      sections.push(`- **Average p95 Latency**: ${winnerStats.avgLatency}ms\n`);
+      sections.push(`- **Average p99 Latency**: ${winnerStats.avgLatency}ms\n`);
     }
 
     // Comparative analysis for NextRush
