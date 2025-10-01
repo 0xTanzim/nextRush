@@ -44,6 +44,7 @@ export function reject(socket: Socket, code: number, reason: string): void {
     });
   } catch (error) {
     // If write fails, just destroy the socket
+    console.error('Failed to reject WebSocket handshake:', error);
     try {
       socket.destroy();
     } catch {
