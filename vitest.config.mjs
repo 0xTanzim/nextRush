@@ -1,7 +1,7 @@
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { WebSocket } from 'ws';
 import { defineConfig } from 'vitest/config';
+import { WebSocket } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, '..');
