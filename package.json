@@ -1,7 +1,7 @@
 {
   "name": "nextrush",
   "version": "2.0.0",
-  "description": "🚀 NextRush v2 - Modern, type-safe Node.js web framework with Koa-style context, Express-like helpers, and built-in WebSocket support. 13,000+ RPS with zero dependencies.",
+  "description": "🚀 NextRush v2 - Enterprise-grade Node.js framework with built-in security, validation, WebSocket, templates, events (CQRS), logging, and DI. 13,261 RPS, zero dependencies, full TypeScript support.",
   "keywords": [
     "web-framework",
     "typescript",
@@ -16,7 +16,16 @@
     "async-middleware",
     "modern",
     "fast",
-    "clean-architecture"
+    "clean-architecture",
+    "websocket",
+    "cqrs",
+    "event-sourcing",
+    "validation",
+    "security",
+    "template-engine",
+    "dependency-injection",
+    "enterprise",
+    "production-ready"
   ],
   "homepage": "https://github.com/0xTanzim/nextrush#readme",
   "bugs": {
@@ -49,10 +58,10 @@
     "README.md",
     "LICENSE"
   ],
-  "packageManager": "pnpm@10.15.0",
+  "packageManager": "pnpm@9.12.3",
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=10.15.0"
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
   },
   "scripts": {
     "tsc": "tsc --noEmit",
@@ -81,17 +90,10 @@
     "prepublishOnly": "npm run build:prod && npm run validate",
     "act": "act",
     "act:list": "act -l",
-    "act:dev": "act -W .github/workflows/local.yml -j dev-check-local",
-    "act:build": "act -W .github/workflows/local.yml -j build-test-local",
-    "act:ci": "act -W .github/workflows/ci.yml",
-    "act:test": "act -W .github/workflows/ci.yml -j test",
-    "act:quality": "act -W .github/workflows/ci.yml -j quality",
     "act:dry": "act --dryrun",
-    "act:push": "act push",
-    "act:pr": "act pull_request",
     "validate": "npm run lint && npm run format:check && npm run type-check && npm run test",
-    "docs:generate": "typedoc --out docs/api src/index.ts",
-    "docs:serve": "npx serve docs/api",
+    "docs:generate": "typedoc --out docsx/api src/index.ts",
+    "docs:serve": "npx serve docsx/api",
     "bench:quick": "node performance/scripts/quick-bench.js"
   },
   "devDependencies": {
@@ -104,6 +106,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^17.21.3",
     "eslint-plugin-prettier": "^5.5.3",
+    "globals": "^16.4.0",
     "prettier": "^3.6.2",
     "tsup": "^8.5.0",
     "tsx": "^4.20.3",

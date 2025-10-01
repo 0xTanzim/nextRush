@@ -52,7 +52,8 @@ class BenchmarkAnalyzer {
       for (const test of TESTS) {
         if (this.results[framework][test]) {
           totalRps += this.results[framework][test].rps;
-          totalLatency += this.results[framework][test].latency.p95;
+          // Use p99 latency since p95 doesn't exist in autocannon results
+          totalLatency += this.results[framework][test].latency.p99;
           count++;
         }
       }
@@ -84,7 +85,7 @@ class BenchmarkAnalyzer {
 
     // Summary Table
     report.push('## Summary (Average Across All Tests)\n');
-    report.push('| Framework | Avg RPS | Avg Latency (p95) | Tests |');
+    report.push('| Framework | Avg RPS | Avg Latency (p99) | Tests |');
     report.push('|-----------|---------|-------------------|-------|');
 
     // Sort by RPS
@@ -103,10 +104,10 @@ class BenchmarkAnalyzer {
     for (const test of TESTS) {
       report.push(`## Test: ${test.toUpperCase()}\n`);
       report.push(
-        '| Framework | RPS | Latency p50 | Latency p95 | Latency p99 |'
+        '| Framework | RPS | Latency p50 | Latency p99 | Latency Avg | Throughput |'
       );
       report.push(
-        '|-----------|-----|-------------|-------------|-------------|'
+        '|-----------|-----|-------------|-------------|-------------|------------|'
       );
 
       const testResults = [];
@@ -118,8 +119,9 @@ class BenchmarkAnalyzer {
             framework,
             rps: data.rps,
             p50: data.latency.p50,
-            p95: data.latency.p95,
             p99: data.latency.p99,
+            mean: data.latency.mean,
+            throughput: data.throughput,
           });
         }
       }
@@ -128,8 +130,9 @@ class BenchmarkAnalyzer {
       testResults.sort((a, b) => b.rps - a.rps);
 
       for (const result of testResults) {
+        const throughputMB = (result.throughput / 1024 / 1024).toFixed(2);
         report.push(
-          `| **${result.framework}** | ${Math.round(result.rps).toLocaleString()} | ${result.p50}ms | ${result.p95}ms | ${result.p99}ms |`
+          `| **${result.framework}** | ${Math.round(result.rps).toLocaleString()} | ${result.p50}ms | ${result.p99}ms | ${result.mean.toFixed(2)}ms | ${throughputMB} MB/s |`
         );
       }
       report.push('\n');

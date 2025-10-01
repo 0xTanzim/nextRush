@@ -239,7 +239,7 @@ export class RouteCompiler {
    * Advanced: Analyze middleware for sync/async and inline accordingly
    * TODO: Use this for future optimizations to inline sync middleware
    */
-  // @ts-ignore - Reserved for future use
+  // @ts-expect-error - Reserved for future use
   private analyzeMiddleware(middleware: Middleware[]): {
     sync: Middleware[];
     async: Middleware[];

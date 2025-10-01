@@ -1,0 +1,187 @@
+name: 📦 Publish to NPM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to publish (e.g., v2.0.0)"
+        required: true
+        type: string
+
+jobs:
+  # 🔍 Pre-publish Validation
+  validate:
+    name: 🔍 Pre-publish Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🎨 Check Formatting
+        run: pnpm format:check
+
+      - name: 🔍 Lint Code
+        run: pnpm lint
+
+      - name: 🏗️ Type Check
+        run: pnpm type-check
+
+      - name: 🧪 Run Tests
+        run: pnpm test:all
+
+      - name: 📊 Check Coverage
+        run: pnpm test:coverage
+
+  # 🏗️ Build Package
+  build:
+    name: 🏗️ Build Package
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build Production Bundle
+        run: pnpm build:prod
+
+      - name: 📦 Create Package Tarball
+        run: pnpm pack
+
+      - name: 📤 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextrush-package
+          path: |
+            dist/
+            nextrush-*.tgz
+          retention-days: 7
+
+  # 🧪 Test Package Installation
+  test-install:
+    name: 🧪 Test Package Installation
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nextrush-package
+
+      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: 📦 Test Package Installation
+        run: |
+          mkdir test-install
+          cd test-install
+          npm init -y
+          npm install ../nextrush-*.tgz
+          node -e "const nextrush = require('nextrush'); console.log('✅ Package installed successfully');"
+
+  # 🚀 Publish to NPM
+  publish:
+    name: 🚀 Publish to NPM
+    runs-on: ubuntu-latest
+    needs: [validate, build, test-install]
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/nextrush
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build Production Bundle
+        run: pnpm build:prod
+
+      - name: 🔍 Verify Package Contents
+        run: |
+          echo "📦 Package contents:"
+          npm pack --dry-run
+
+      - name: 🚀 Publish to NPM
+        run: pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: ✅ Publish Success
+        run: |
+          echo "✅ Successfully published to NPM!"
+          echo "📦 Package: https://www.npmjs.com/package/nextrush"
+          echo "🎉 Version: $(node -p "require('./package.json').version")"
+
+  # 📢 Notify Success
+  notify:
+    name: 📢 Notify Success
+    runs-on: ubuntu-latest
+    needs: publish
+    if: success()
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🎉 Create Success Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = require('./package.json').version;
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `🎉 Successfully published **nextrush v${version}** to NPM!\n\n📦 https://www.npmjs.com/package/nextrush`
+            });
