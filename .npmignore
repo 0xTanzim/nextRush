@@ -82,6 +82,16 @@ yarn-error.log*
 BACKUPS/
 NextRush_Src_Old/
 
+coverage/
+coverage
+performance/
+performance
+playground/
+playground
+
+scripts
+scripts/
+
 # ===== ALLOW ESSENTIAL FILES =====
 # Keep these essential files for npm
 !README.md
