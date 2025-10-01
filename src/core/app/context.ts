@@ -31,10 +31,24 @@ class ContextPool {
 
   static release(ctx: Partial<Context>): void {
     if (this.pool.length < this.MAX_POOL_SIZE) {
-      // Clear the context for reuse
-      Object.keys(ctx).forEach(key => {
-        delete (ctx as any)[key];
-      });
+      // ⚡ Optimized: Reset properties instead of deleting (avoids V8 deoptimization)
+      ctx.req = undefined as any;
+      ctx.res = undefined as any;
+      ctx.method = undefined as any;
+      ctx.url = undefined as any;
+      ctx.path = undefined as any;
+      ctx.query = undefined as any;
+      ctx.params = undefined as any;
+      ctx.body = undefined as any;
+      ctx.headers = undefined as any;
+      ctx.status = undefined as any;
+      ctx.id = undefined as any;
+      ctx.ip = undefined as any;
+      ctx.secure = undefined as any;
+      ctx.protocol = undefined as any;
+      ctx.state = undefined as any;
+      ctx.cookie = undefined as any;
+
       this.pool.push(ctx);
     }
   }
@@ -117,11 +131,12 @@ export function createContext(
   ctx.path = path;
   ctx.headers = req.headers;
   ctx.params = {};
-  // Generate ID only if not in production mode (for development/debugging)
-  ctx.id =
-    process.env['NODE_ENV'] === 'production'
-      ? undefined
-      : `ctx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  // ⚡ Optimized: Skip ID generation in production (zero overhead)
+  if (process.env['NODE_ENV'] !== 'production') {
+    ctx.id = `ctx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
   ctx.state = {};
   ctx.startTime = Date.now();
   ctx.ip = ip;

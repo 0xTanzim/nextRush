@@ -58,7 +58,11 @@ describe('ResponseEnhancer', () => {
       enhancedRes.json(data);
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'application/json'
+        'application/json; charset=utf-8'
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Length',
+        expect.any(String)
       );
       expect(mockRes.end).toHaveBeenCalledWith(JSON.stringify(data));
     });
@@ -68,7 +72,11 @@ describe('ResponseEnhancer', () => {
       enhancedRes.html(html);
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'text/html'
+        'text/html; charset=utf-8'
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Length',
+        expect.any(String)
       );
       expect(mockRes.end).toHaveBeenCalledWith(html);
     });
@@ -78,17 +86,25 @@ describe('ResponseEnhancer', () => {
       enhancedRes.text(text);
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'text/plain'
+        'text/plain; charset=utf-8'
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Length',
+        expect.any(String)
       );
       expect(mockRes.end).toHaveBeenCalledWith(text);
     });
 
     it('should send XML response', () => {
-      const xml = '<?xml version="1.0"?><data></data>';
+      const xml = '<root>data</root>';
       enhancedRes.xml(xml);
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'application/xml'
+        'application/xml; charset=utf-8'
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Length',
+        expect.any(String)
       );
       expect(mockRes.end).toHaveBeenCalledWith(xml);
     });
@@ -98,7 +114,11 @@ describe('ResponseEnhancer', () => {
       enhancedRes.send({ message: 'Hello' });
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'application/json'
+        'application/json; charset=utf-8'
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Length',
+        expect.any(String)
       );
       expect(mockRes.end).toHaveBeenCalledWith('{"message":"Hello"}');
 
@@ -264,7 +284,11 @@ describe('ResponseEnhancer', () => {
       enhancedRes.render(template, data);
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'text/html'
+        'text/html; charset=utf-8'
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Length',
+        expect.any(String)
       );
       expect(mockRes.end).toHaveBeenCalledWith('<h1>Hello</h1><p>World</p>');
     });
@@ -378,9 +402,13 @@ describe('ResponseEnhancer', () => {
       enhancedRes.success(data, 'User created successfully');
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'application/json'
+        'application/json; charset=utf-8'
       );
-      const actualCall = vi.mocked(mockRes.end).mock.calls[0][0];
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Length',
+        expect.any(String)
+      );
+      const actualCall = vi.mocked(mockRes.end).mock.calls[0]?.[0];
       const actualData = JSON.parse(actualCall as string);
       expect(actualData.success).toBe(true);
       expect(actualData.data).toEqual(data);
@@ -392,8 +420,8 @@ describe('ResponseEnhancer', () => {
 
     it('should send error response', () => {
       enhancedRes.error('User not found', 404, { userId: 123 });
-      expect(enhancedRes.statusCode).toBe(404);
-      const actualCall = vi.mocked(mockRes.end).mock.calls[0][0];
+      expect(mockRes.statusCode).toBe(404);
+      const actualCall = vi.mocked(mockRes.end).mock.calls[0]?.[0];
       const actualData = JSON.parse(actualCall as string);
       expect(actualData.success).toBe(false);
       expect(actualData.error).toBe('User not found');
@@ -406,7 +434,8 @@ describe('ResponseEnhancer', () => {
     it('should send paginated response', () => {
       const data = [{ id: 1 }, { id: 2 }];
       enhancedRes.paginate(data, 1, 10, 25);
-      const actualCall = vi.mocked(mockRes.end).mock.calls[0][0];
+      expect(mockRes.statusCode).toBe(200);
+      const actualCall = vi.mocked(mockRes.end).mock.calls[0]?.[0];
       const actualData = JSON.parse(actualCall as string);
       expect(actualData.success).toBe(true);
       expect(actualData.data).toEqual(data);

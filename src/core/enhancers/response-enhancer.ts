@@ -9,6 +9,7 @@ import { createReadStream, statSync } from 'node:fs';
 import type { ServerResponse } from 'node:http';
 import { extname } from 'node:path';
 import { type CookieOptions, serializeCookie } from '../../utils/cookies.js';
+import { FastHeaderBuilder } from '../../utils/header-buffers.js';
 
 /**
  * File options interface
@@ -144,9 +145,7 @@ export class ResponseEnhancer {
         if (enhanced.headersSent || enhanced.finished) {
           return; // Don't write if response has already been sent
         }
-        if (!enhanced.headersSent) {
-          enhanced.setHeader('Content-Type', 'application/json');
-        }
+        const jsonString = JSON.stringify(data);
         // Ensure statusCode is set
         if (enhanced.status) {
           enhanced.statusCode =
@@ -154,7 +153,20 @@ export class ResponseEnhancer {
               ? enhanced.statusCode
               : (enhanced.status as unknown as number);
         }
-        enhanced.end(JSON.stringify(data));
+        // Use writeHead for performance if available, otherwise setHeader for compatibility
+        if (typeof enhanced.writeHead === 'function') {
+          const headers = FastHeaderBuilder.jsonHeaders(
+            Buffer.byteLength(jsonString)
+          );
+          enhanced.writeHead(enhanced.statusCode, headers);
+        } else {
+          enhanced.setHeader('Content-Type', 'application/json; charset=utf-8');
+          enhanced.setHeader(
+            'Content-Length',
+            Buffer.byteLength(jsonString).toString()
+          );
+        }
+        enhanced.end(jsonString);
       };
     }
 
@@ -183,15 +195,25 @@ export class ResponseEnhancer {
         if (enhanced.headersSent || enhanced.finished) {
           return; // Don't write if response has already been sent
         }
-        if (!enhanced.headersSent) {
-          enhanced.setHeader('Content-Type', 'text/html');
-        }
         // Ensure statusCode is set
         if (enhanced.status) {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
               : (enhanced.status as unknown as number);
+        }
+        // Use writeHead for performance if available, otherwise setHeader for compatibility
+        if (typeof enhanced.writeHead === 'function') {
+          const headers = FastHeaderBuilder.htmlHeaders(
+            Buffer.byteLength(data)
+          );
+          enhanced.writeHead(enhanced.statusCode, headers);
+        } else {
+          enhanced.setHeader('Content-Type', 'text/html; charset=utf-8');
+          enhanced.setHeader(
+            'Content-Length',
+            Buffer.byteLength(data).toString()
+          );
         }
         enhanced.end(data);
       };
@@ -202,15 +224,25 @@ export class ResponseEnhancer {
         if (enhanced.headersSent || enhanced.finished) {
           return; // Don't write if response has already been sent
         }
-        if (!enhanced.headersSent) {
-          enhanced.setHeader('Content-Type', 'text/plain');
-        }
         // Ensure statusCode is set
         if (enhanced.status) {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
               : (enhanced.status as unknown as number);
+        }
+        // Use writeHead for performance if available, otherwise setHeader for compatibility
+        if (typeof enhanced.writeHead === 'function') {
+          const headers = FastHeaderBuilder.textHeaders(
+            Buffer.byteLength(data)
+          );
+          enhanced.writeHead(enhanced.statusCode, headers);
+        } else {
+          enhanced.setHeader('Content-Type', 'text/plain; charset=utf-8');
+          enhanced.setHeader(
+            'Content-Length',
+            Buffer.byteLength(data).toString()
+          );
         }
         enhanced.end(data);
       };
@@ -221,15 +253,23 @@ export class ResponseEnhancer {
         if (enhanced.headersSent || enhanced.finished) {
           return; // Don't write if response has already been sent
         }
-        if (!enhanced.headersSent) {
-          enhanced.setHeader('Content-Type', 'application/xml');
-        }
         // Ensure statusCode is set
         if (enhanced.status) {
           enhanced.statusCode =
             typeof enhanced.status === 'function'
               ? enhanced.statusCode
               : (enhanced.status as unknown as number);
+        }
+        // Use writeHead for performance if available, otherwise setHeader for compatibility
+        if (typeof enhanced.writeHead === 'function') {
+          const headers = FastHeaderBuilder.xmlHeaders(Buffer.byteLength(data));
+          enhanced.writeHead(enhanced.statusCode, headers);
+        } else {
+          enhanced.setHeader('Content-Type', 'application/xml; charset=utf-8');
+          enhanced.setHeader(
+            'Content-Length',
+            Buffer.byteLength(data).toString()
+          );
         }
         enhanced.end(data);
       };

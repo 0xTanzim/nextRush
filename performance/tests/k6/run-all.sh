@@ -9,9 +9,9 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-SERVERS_DIR="$PROJECT_ROOT/performance/servers"
-TESTS_DIR="$PROJECT_ROOT/performance/tests/k6"
-RESULTS_DIR="$PROJECT_ROOT/performance/results"
+SERVERS_DIR="$PROJECT_ROOT/servers"
+TESTS_DIR="$PROJECT_ROOT/tests/k6"
+RESULTS_DIR="$PROJECT_ROOT/results"
 
 FRAMEWORKS=("nextrush" "express" "koa" "fastify")
 TESTS=("hello" "params" "query" "post" "mixed")
