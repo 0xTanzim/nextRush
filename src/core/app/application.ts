@@ -68,6 +68,12 @@ import type {
 } from '@/core/middleware/types';
 import type { NextRushRequest, NextRushResponse } from '@/types/http';
 
+// Import Application Compiler
+import {
+  createApplicationCompiler,
+  type ApplicationCompiler,
+} from '@/core/compiler';
+
 /**
  * NextRush Application class with Koa-style middleware and Express-like design
  *
@@ -99,6 +105,7 @@ export class NextRushApplication extends EventEmitter implements Application {
   private isShuttingDown = false;
   private container: DIContainer;
   private middlewareFactory: MiddlewareFactory;
+  private compiler: ApplicationCompiler;
   // Cache for exception filter middleware to avoid per-request scanning
   private cachedExceptionFilter: Middleware | null = null;
   private static readonly EXCEPTION_FILTER_MARK = Symbol('ExceptionFilter');
@@ -121,6 +128,9 @@ export class NextRushApplication extends EventEmitter implements Application {
     this.container = createContainer();
     registerDefaultMiddleware(this.container);
     this.middlewareFactory = createMiddlewareFactory(this.container);
+
+    // Initialize compiler for pre-compilation
+    this.compiler = createApplicationCompiler();
 
     this.server = this.createServer();
     this.setupEventHandlers();
@@ -291,6 +301,18 @@ export class NextRushApplication extends EventEmitter implements Application {
       }) as unknown as typeof ctx.params;
       ctx.params = frozenParams;
 
+      // 🔥 USE COMPILED HANDLER if available (ultra-fast path!)
+      if (match.compiled) {
+        // ✨ Pre-compiled handler with inlined middleware - maximum performance!
+        // Smart execution: sync if possible, async if needed
+        const result = match.compiled(ctx);
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+        return;
+      }
+
+      // Fallback: Regular handler execution (development mode)
       // Debug logging
       if (this.options.debug) {
         console.log(`🎯 Route match found: ${ctx.method} ${ctx.path}`);
@@ -491,10 +513,32 @@ export class NextRushApplication extends EventEmitter implements Application {
       actualCallback = callback;
     }
 
-    this.server.listen(actualPort, actualHost, () => {
-      this.emit('listening', { port: actualPort, host: actualHost });
-      actualCallback?.();
-    });
+    // Pre-compile routes and dependencies for maximum performance
+    if (process.env['NODE_ENV'] === 'production') {
+      this.compiler
+        .compile(this.internalRouter, this.container)
+        .then(() => {
+          // Start server AFTER compilation
+          this.server.listen(actualPort, actualHost, () => {
+            this.emit('listening', { port: actualPort, host: actualHost });
+            actualCallback?.();
+          });
+        })
+        .catch(err => {
+          console.error('❌ Compilation failed:', err);
+          // Start server anyway
+          this.server.listen(actualPort, actualHost, () => {
+            this.emit('listening', { port: actualPort, host: actualHost });
+            actualCallback?.();
+          });
+        });
+    } else {
+      // Development mode: skip compilation, start immediately
+      this.server.listen(actualPort, actualHost, () => {
+        this.emit('listening', { port: actualPort, host: actualHost });
+        actualCallback?.();
+      });
+    }
 
     return this.server;
   }

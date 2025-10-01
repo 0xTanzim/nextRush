@@ -45,6 +45,7 @@ interface OptimizedRouteMatch {
   middleware: Middleware[];
   params: Record<string, string>;
   path: string;
+  compiled?: (ctx: any) => Promise<void>; // ✨ Compiled handler for maximum performance
 }
 
 /**
@@ -192,6 +193,8 @@ export class OptimizedRouter implements RouterInterface {
   private maxPoolSize = 200; // Increased pool size for better performance
   private poolHits = 0;
   private poolMisses = 0;
+  // ⚡ Static route fast path - O(1) lookup for routes without params (e.g., /, /health, /api)
+  private readonly staticRoutes = new Map<string, OptimizedRouteMatch>();
 
   constructor(prefix: string = '', cacheSize: number = 1000) {
     this.prefix = prefix;
@@ -349,6 +352,60 @@ export class OptimizedRouter implements RouterInterface {
   }
 
   /**
+   * 🔥 Inject compiled handler for a route (used by compiler)
+   * This allows the pre-compilation system to inject optimized handlers
+   */
+  public setCompiledHandler(
+    method: string,
+    pattern: string,
+    compiledExecute: (ctx: any) => Promise<void>
+  ): void {
+    // Update in static routes if it exists
+    const staticKey = `${method}:${pattern}`;
+    const staticRoute = this.staticRoutes.get(staticKey);
+    if (staticRoute) {
+      staticRoute.compiled = compiledExecute;
+      return;
+    }
+
+    // Otherwise need to find in tree
+    const pathParts = PathSplitter.split(pattern);
+    let currentNode = this.root;
+
+    // Navigate to the route node
+    for (const part of pathParts) {
+      if (!part) continue;
+
+      if (PathSplitter.isParameterized(part)) {
+        if (currentNode.paramChild) {
+          currentNode = currentNode.paramChild;
+        } else {
+          return; // Route not found
+        }
+      } else if (part === '*') {
+        if (currentNode.wildcardChild) {
+          currentNode = currentNode.wildcardChild;
+        } else {
+          return; // Route not found
+        }
+      } else {
+        const child = currentNode.children.get(part);
+        if (child) {
+          currentNode = child;
+        } else {
+          return; // Route not found
+        }
+      }
+    }
+
+    // Update the handler with compiled version (store in node data)
+    const routeData = currentNode.handlers.get(method);
+    if (routeData) {
+      (routeData as any).compiled = compiledExecute;
+    }
+  }
+
+  /**
    * Get comprehensive cache and performance statistics
    */
   public getCacheStats() {
@@ -439,6 +496,14 @@ export class OptimizedRouter implements RouterInterface {
     method: string,
     path: string
   ): OptimizedRouteMatch | null {
+    // ⚡ FAST PATH: Check static routes FIRST for O(1) lookup
+    // This bypasses tree traversal entirely for routes without params
+    const staticKey = `${method}:${path}`;
+    const staticRoute = this.staticRoutes.get(staticKey);
+    if (staticRoute) {
+      return staticRoute;
+    }
+
     // Fast root path check
     if (path === '/' || path === '') {
       const routeData = this.root.handlers.get(method);
@@ -531,22 +596,12 @@ export class OptimizedRouter implements RouterInterface {
 
     if (typeof handler === 'function') {
       actualHandler = handler;
-      console.log(
-        `📝 Registering function handler for ${method} ${fullPath} - No middleware`
-      );
     } else {
       actualHandler = handler.handler;
       if (handler.middleware) {
         routeMiddleware = Array.isArray(handler.middleware)
           ? handler.middleware
           : [handler.middleware];
-        console.log(
-          `📝 Registering RouteConfig for ${method} ${fullPath} - Found ${routeMiddleware.length} middleware`
-        );
-      } else {
-        console.log(
-          `📝 Registering RouteConfig for ${method} ${fullPath} - No middleware in config`
-        );
       }
     }
 
@@ -559,6 +614,14 @@ export class OptimizedRouter implements RouterInterface {
     // Handle root path case
     if (pathParts.length === 0) {
       currentNode.handlers.set(method, routeData);
+      // ⚡ Add to static route fast path
+      const staticKey = `${method}:${fullPath}`;
+      this.staticRoutes.set(staticKey, {
+        handler: actualHandler,
+        middleware: routeMiddleware,
+        params: {},
+        path: fullPath,
+      });
       return;
     }
 
@@ -613,6 +676,17 @@ export class OptimizedRouter implements RouterInterface {
 
     // Set handler at final node
     currentNode.handlers.set(method, routeData);
+
+    // ⚡ Add to static route fast path if no params or wildcards
+    if (!fullPath.includes(':') && !fullPath.includes('*')) {
+      const staticKey = `${method}:${fullPath}`;
+      this.staticRoutes.set(staticKey, {
+        handler: actualHandler,
+        middleware: routeMiddleware,
+        params: {},
+        path: fullPath,
+      });
+    }
   }
 
   /**

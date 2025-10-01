@@ -64,7 +64,7 @@ export interface NextRushRequest extends IncomingMessage {
 export interface NextRushResponse extends ServerResponse {
   /** Set response status code */
   status(code: number): NextRushResponse;
-  /** Send JSON response */
+  /** Send JSON response (fast by default) */
   json(data: unknown): NextRushResponse;
   /** Send HTML response */
   html(data: string): NextRushResponse;

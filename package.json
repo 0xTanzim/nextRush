@@ -1,7 +1,7 @@
 {
   "name": "nextrush",
   "version": "2.0.0",
-  "description": "🚀 NextRush - A modern, type-safe, and high-performance Node.js web framework with Koa-style middleware and Fastify-style routes",
+  "description": "🚀 NextRush v2 - Modern, type-safe Node.js web framework with Koa-style context, Express-like helpers, and built-in WebSocket support. 13,000+ RPS with zero dependencies.",
   "keywords": [
     "web-framework",
     "typescript",
@@ -64,6 +64,7 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/examples/basic-server.ts",
     "test": "vitest run src/tests/unit",
+    "test:file": "node scripts/test-file.js",
     "test:unit": "vitest run src/tests/unit",
     "test:integration": "vitest run src/tests/integration",
     "test:e2e": "vitest run src/tests/e2e",
@@ -91,12 +92,7 @@
     "validate": "npm run lint && npm run format:check && npm run type-check && npm run test",
     "docs:generate": "typedoc --out docs/api src/index.ts",
     "docs:serve": "npx serve docs/api",
-    "benchmark": "tsx src/benchmarks/run-benchmarks.ts",
-    "example:basic": "tsx src/examples/basic-server.ts",
-    "example:simple": "tsx src/examples/simple-server.ts",
-    "example:plugins": "tsx src/examples/plugin-demo.ts",
-    "playground": "tsx src/examples/playground.ts",
-    "example:websocket": "tsx src/examples/websocket-server.ts"
+    "bench:quick": "node performance/scripts/quick-bench.js"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",

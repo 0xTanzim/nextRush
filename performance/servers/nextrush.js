@@ -24,7 +24,7 @@ app.use(
   })
 );
 
-// Test Routes
+// Test Routes (Fast by default!)
 
 // 1. Hello World - Baseline performance
 app.get('/', async ctx => {

@@ -8,8 +8,6 @@
 const autocannon = require('autocannon');
 const fs = require('fs');
 const path = require('path');
-const fs = require('fs');
-const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const FRAMEWORK = process.env.FRAMEWORK || 'unknown';

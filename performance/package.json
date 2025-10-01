@@ -6,6 +6,7 @@
   "scripts": {
     "setup": "pnpm install",
     "bench": "./scripts/run-all.sh",
+    "bench:quick": "./scripts/quick-benchmark.sh",
     "bench:autocannon": "./tests/autocannon/run-all.sh",
     "bench:k6": "./tests/k6/run-all.sh",
     "analyze": "node scripts/analyze.js",
