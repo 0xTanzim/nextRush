@@ -5,7 +5,7 @@
  */
 
 // Core exports
-export { createApp } from '@/core/app/application';
+export { createApp, NextRushApplication } from '@/core/app/application';
 export { createContext } from '@/core/app/context';
 
 // Type exports

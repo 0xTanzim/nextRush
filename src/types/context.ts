@@ -505,7 +505,7 @@ export interface Application {
   listen(port?: number, callback?: () => void): unknown;
   listen(port?: number, host?: string, callback?: () => void): unknown;
   /** Get the underlying HTTP server */
-  getServer(): unknown;
+  getServer(): import('http').Server;
   /** Gracefully shutdown the application */
   shutdown(): Promise<void>;
 
