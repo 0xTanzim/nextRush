@@ -148,7 +148,7 @@ describe('Full Application E2E', () => {
         resolve();
       });
 
-      server.on('error', (err) => {
+      server.on('error', err => {
         console.error('Server failed to start:', err);
         reject(err);
       });
