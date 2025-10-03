@@ -141,9 +141,21 @@ describe('Full Application E2E', () => {
       }
     });
 
-    server = app.listen(PORT, 'localhost', () => {
-      console.log(`E2E test server started on port ${PORT}`);
+    // Wait for server to be ready
+    await new Promise<void>((resolve, reject) => {
+      server = app.listen(PORT, 'localhost', () => {
+        console.log(`E2E test server started on port ${PORT}`);
+        resolve();
+      });
+
+      server.on('error', (err) => {
+        console.error('Server failed to start:', err);
+        reject(err);
+      });
     });
+
+    // Additional readiness check - wait for server to accept connections
+    await new Promise(resolve => setTimeout(resolve, 100));
   });
 
   afterAll(async () => {

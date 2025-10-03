@@ -148,7 +148,21 @@ describe('Application Integration', () => {
       }
     });
 
-    server = app.listen(PORT);
+    // Wait for server to be ready
+    await new Promise<void>((resolve, reject) => {
+      server = app.listen(PORT, () => {
+        console.log(`Integration test server started on port ${PORT}`);
+        resolve();
+      });
+
+      server.on('error', (err: Error) => {
+        console.error('Server failed to start:', err);
+        reject(err);
+      });
+    });
+
+    // Additional readiness check
+    await new Promise(resolve => setTimeout(resolve, 100));
   });
 
   afterAll(async () => {

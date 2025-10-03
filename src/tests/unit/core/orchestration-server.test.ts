@@ -6,6 +6,7 @@ import { createApp } from '@/index';
 import type { Application } from '@/types/context';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { withUniquePort } from '../../helpers/port-manager';
+import { startServerAndWait } from '../../helpers/server-ready';
 
 describe('Server Manager Orchestration', () => {
   let app: Application;
@@ -38,7 +39,7 @@ describe('Server Manager Orchestration', () => {
           });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -61,7 +62,7 @@ describe('Server Manager Orchestration', () => {
           ctx.res.json({ status: 'running' });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -93,7 +94,7 @@ describe('Server Manager Orchestration', () => {
           });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -127,7 +128,7 @@ describe('Server Manager Orchestration', () => {
           });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -155,7 +156,7 @@ describe('Server Manager Orchestration', () => {
           throw new Error('Server orchestration error');
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -175,7 +176,7 @@ describe('Server Manager Orchestration', () => {
           ctx.res.json({ status: 'recovered' });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -206,7 +207,7 @@ describe('Server Manager Orchestration', () => {
           });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -241,7 +242,7 @@ describe('Server Manager Orchestration', () => {
           });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -271,7 +272,7 @@ describe('Server Manager Orchestration', () => {
           });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
@@ -299,7 +300,7 @@ describe('Server Manager Orchestration', () => {
           });
         });
 
-        app.listen(port);
+        await startServerAndWait(app, port);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {

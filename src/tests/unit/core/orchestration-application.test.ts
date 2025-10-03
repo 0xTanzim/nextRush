@@ -13,6 +13,7 @@ import { createApp } from '@/index';
 import type { Application } from '@/types/context';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { withUniquePort } from '../../helpers/port-manager';
+import { startServerAndWait } from '../../helpers/server-ready';
 
 describe('Application Orchestrator', () => {
   let app: Application;
@@ -54,8 +55,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/orchestration-test`
@@ -96,8 +97,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           await fetch(`http://localhost:${port}/multi-coordination`);
 
@@ -123,8 +124,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(`http://localhost:${port}/error-test`);
 
@@ -160,8 +161,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/enhanced-test`
@@ -199,8 +200,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(`http://localhost:${port}/async-test`);
           const data = (await response.json()) as any;
@@ -236,8 +237,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/pipeline-test`
@@ -270,8 +271,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(`http://localhost:${port}/event-test`);
           const data = (await response.json()) as any;
@@ -291,8 +292,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/error-tracking`
@@ -313,8 +314,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(`http://localhost:${port}/app-error`);
 
@@ -347,8 +348,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const startTime = Date.now();
           const response = await fetch(
@@ -383,8 +384,8 @@ describe('Application Orchestrator', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(`http://localhost:${port}/memory-test`);
           const data = (await response.json()) as any;
