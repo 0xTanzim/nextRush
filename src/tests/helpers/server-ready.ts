@@ -42,11 +42,11 @@ export async function startServerAndWait(
   extraWaitMs = 100
 ): Promise<unknown> {
   const server = await waitForServerReady(app, port, host);
-  
+
   // Additional wait for network stack readiness (important in Docker/CI)
   if (extraWaitMs > 0) {
     await new Promise(resolve => setTimeout(resolve, extraWaitMs));
   }
-  
+
   return server;
 }
