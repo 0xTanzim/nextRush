@@ -44,7 +44,17 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "v1","**/*.test.ts", "**/*.spec.ts", "performance", "docs", "docsx","**/*test.ts", "playground", "coverage", "scripts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "v1",
+    "performance",
+    "docs",
+    "docsx",
+    "playground",
+    "coverage",
+    "scripts"
+  ],
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"

@@ -5,16 +5,16 @@
  * in a real application scenario.
  *
  * @version 2.0.0
+ *
  */
 
-import type { NextRushApplication } from '@/core/app/application';
 import { smartBodyParser } from '@/core/middleware/body-parser';
-import { createApp } from '@/index';
+import { createApp, type Application } from '@/index';
 import http from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('E2E Event System Integration', () => {
-  let app: NextRushApplication;
+  let app: Application;
   let server: http.Server;
 
   beforeEach(() => {
@@ -212,7 +212,7 @@ describe('E2E Event System Integration', () => {
       });
 
       // Start server
-      server = app.getServer();
+      server = app.getServer() as http.Server;
       await new Promise<void>(resolve => {
         server.listen(0, () => resolve());
       });
@@ -291,7 +291,7 @@ describe('E2E Event System Integration', () => {
       });
 
       // Start server
-      server = app.getServer();
+      server = app.getServer() as http.Server;
       await new Promise<void>(resolve => {
         server.listen(0, () => resolve());
       });
@@ -364,7 +364,7 @@ describe('E2E Event System Integration', () => {
       });
 
       // Start server
-      server = app.getServer();
+      server = app.getServer() as http.Server;
       await new Promise<void>(resolve => {
         server.listen(0, () => resolve());
       });
