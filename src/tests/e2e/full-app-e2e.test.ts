@@ -7,7 +7,7 @@
 import {
   GlobalExceptionFilter,
   ValidationExceptionFilter,
-} from '@/errors/custom-errors/index';
+} from '@/errors/custom-errors';
 import { createApp } from '@/index';
 import type { Application } from '@/types/context';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -148,7 +148,7 @@ describe('Full Application E2E', () => {
         resolve();
       });
 
-      server.on('error', err => {
+      server.on('error', (err: Error) => {
         console.error('Server failed to start:', err);
         reject(err);
       });
@@ -732,7 +732,7 @@ describe('Full Application E2E', () => {
       );
       expect(response.status).toBe(200);
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
       expect(data).toHaveProperty('posts');
       expect(data).toHaveProperty('pagination');
       expect(Array.isArray(data.posts)).toBe(true);
@@ -744,7 +744,7 @@ describe('Full Application E2E', () => {
       );
       expect(response.status).toBe(200);
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
       expect(data).toHaveProperty('posts');
       expect(Array.isArray(data.posts)).toBe(true);
     });
@@ -801,7 +801,7 @@ describe('Full Application E2E', () => {
       );
       expect(response.status).toBe(200);
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
       expect(data).toHaveProperty('comments');
       expect(data).toHaveProperty('pagination');
       expect(Array.isArray(data.comments)).toBe(true);

@@ -2,7 +2,7 @@ name: 🚀 NextRush CI/CD Pipeline
 
 on:
   push:
-    branches: [main, feat/v2-alpha]
+    branches: [main, feat/*]
   pull_request:
     branches: [main]
 
