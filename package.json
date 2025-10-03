@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "2.0.0",
+  "version": "2.0.01",
   "description": "🚀 NextRush v2 - Enterprise-grade Node.js framework with built-in security, validation, WebSocket, templates, events (CQRS), logging, and DI. 13,261 RPS, zero dependencies, full TypeScript support.",
   "keywords": [
     "web-framework",
