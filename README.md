@@ -10,7 +10,8 @@ _Koa-style Context • Express-inspired API • Enterprise Features Built-in_
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-1652%20Passing-brightgreen?style=for-the-badge)](https://github.com/0xTanzim/nextrush)
+[![Tests](https://img.shields.io/badge/Tests-1461%20Passing-brightgreen?style=for-the-badge)](https://github.com/0xTanzim/nextrush)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-brightgreen?style=for-the-badge)](https://github.com/0xTanzim/nextrush)
 
 ```typescript
 import { createApp } from 'nextrush';
@@ -25,7 +26,7 @@ app.listen(3000);
 // Server running at http://localhost:3000
 ```
 
-[**📖 Documentation**](./docs) • [**🎮 Examples**](./examples) • [**🚀 Quick Start**](#-quick-start) • [**💡 Why NextRush?**](#-why-nextrush-v2)
+[**📖 Documentation**](./docs)  • [**🚀 Quick Start**](#-quick-start) • [**💡 Why NextRush?**](#-why-nextrush-v2)
 
 </div>
 
@@ -38,6 +39,38 @@ app.listen(3000);
 Unlike other frameworks that require dozens of plugins for production use, NextRush v2 includes security middleware, validation, templating, WebSocket support, and advanced logging out of the box. Choose your preferred API style: convenience methods, Express-like helpers, or Fastify-style configuration.
 
 **Built for teams that value type safety, developer experience, and production readiness without the plugin fatigue.**
+
+---
+
+## 🎯 Zero Dependencies Philosophy
+
+**NextRush v2 is built with ZERO runtime dependencies.** Every feature—from routing to WebSocket support—is implemented using only Node.js core modules.
+
+### Why Zero Dependencies?
+
+- **🔒 Security** - No third-party vulnerabilities in your supply chain
+- **⚡ Faster Installs** - No dependency resolution, instant setup
+- **🛡️ Stability** - No breaking changes from external packages
+- **🔍 Full Control** - Every line of code is maintainable and auditable
+- **🚀 Performance** - Optimized for Node.js internals, no abstraction overhead
+
+```bash
+# Check it yourself! Only devDependencies, ZERO runtime deps
+npm ls --production --depth=0
+# Result: (empty)
+```
+
+**Every framework claims to be "lightweight." NextRush v2 proves it.**
+
+| Framework       | Runtime Dependencies                 |
+| --------------- | ------------------------------------ |
+| **NextRush v2** | **0** ⭐                             |
+| Express         | 34+ packages                         |
+| Koa             | 0 (but needs plugins for everything) |
+| Fastify         | 20+ packages                         |
+| Hapi            | 50+ packages                         |
+
+> **Built-in features without the dependency hell.** Security, validation, WebSocket, templates, logging, CQRS—all implemented with pure Node.js.
 
 ---
 
@@ -55,11 +88,12 @@ NextRush v2 represents the evolution of Node.js web frameworks, synthesizing pro
 
 ### ⚡ Performance That Scales
 
-- **Zero Dependencies** - Pure Node.js core, minimal footprint
+- **Zero Dependencies** - Pure Node.js core, no third-party overhead
 - **13,261 RPS Average** - Competitive with established frameworks
 - **Optimized Router** - O(1) static path lookup, pre-compiled routes
-- **Memory Efficient** - ~60KB baseline overhead
+- **Memory Efficient** - ~60KB baseline, smallest footprint in class
 - **Smart Caching** - Template caching, efficient buffer management
+- **No Supply Chain Tax** - Every feature optimized for Node.js internals
 
 ### 🛡️ Enterprise Features Built-In
 
@@ -148,21 +182,21 @@ app.get('/users', {
 
 ### 🌟 Core Features Comparison
 
-| Feature                       | NextRush v2     | Express         | Fastify         | Koa             |
-| ----------------------------- | --------------- | --------------- | --------------- | --------------- |
-| **Security Middleware**       | Built-in        | Plugin required | Plugin required | Plugin required |
-| **Validation & Sanitization** | Built-in        | Plugin required | Built-in        | Plugin required |
-| **Template Engine**           | Built-in        | Plugin required | Plugin required | Plugin required |
-| **WebSocket Support**         | Built-in        | Plugin required | Plugin required | Plugin required |
-| **Event System (CQRS)**       | Dual system     | Plugin required | Plugin required | Plugin required |
-| **Advanced Logging**          | Plugin included | Plugin required | Plugin required | Plugin required |
-| **Error Classes**             | 8 custom types  | Basic           | Basic           | Basic           |
-| **Dependency Injection**      | Built-in        | Plugin required | Plugin required | Plugin required |
-| **Smart Body Parser**         | Auto-detection  | Plugin required | Built-in        | Plugin required |
-| **Static File Serving**       | Plugin included | Built-in        | Plugin required | Plugin required |
-| **TypeScript Support**        | First-class     | Community       | First-class     | Community       |
-| **Dependencies**              | Zero            | Many            | Many            | Zero            |
-| **Performance (RPS)**         | ~13,261         | ~11,030         | ~22,717         | ~17,547         |
+| Feature                       | NextRush v2     | Express         | Fastify         | Koa               |
+| ----------------------------- | --------------- | --------------- | --------------- | ----------------- |
+| **Security Middleware**       | Built-in        | Plugin required | Plugin required | Plugin required   |
+| **Validation & Sanitization** | Built-in        | Plugin required | Built-in        | Plugin required   |
+| **Template Engine**           | Built-in        | Plugin required | Plugin required | Plugin required   |
+| **WebSocket Support**         | Built-in        | Plugin required | Plugin required | Plugin required   |
+| **Event System (CQRS)**       | Dual system     | Plugin required | Plugin required | Plugin required   |
+| **Advanced Logging**          | Plugin included | Plugin required | Plugin required | Plugin required   |
+| **Error Classes**             | 8 custom types  | Basic           | Basic           | Basic             |
+| **Dependency Injection**      | Built-in        | Plugin required | Plugin required | Plugin required   |
+| **Smart Body Parser**         | Auto-detection  | Plugin required | Built-in        | Plugin required   |
+| **Static File Serving**       | Plugin included | Built-in        | Plugin required | Plugin required   |
+| **TypeScript Support**        | First-class     | Community       | First-class     | Community         |
+| **Dependencies**              | **0** ⭐        | 34+ packages    | 20+ packages    | 0 (needs plugins) |
+| **Performance (RPS)**         | ~13,261         | ~11,030         | ~22,717         | ~17,547           |
 
 ---
 
@@ -190,7 +224,7 @@ app.get('/users', {
 - **Advanced Logging** - Structured logs with multiple transports
 - **Security** - CORS, Helmet, Rate Limiting included
 - **Validation** - Schema validation & input sanitization
-- **Testing** - Test-friendly design, 1652 passing tests
+- **Testing** - Test-friendly design, 1461 passing tests
 - **Static Files** - High-performance file serving
 - **Compression** - Gzip & Brotli support
 

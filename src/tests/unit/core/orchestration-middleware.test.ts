@@ -14,6 +14,7 @@ import { createApp } from '@/index';
 import type { Application } from '@/types/context';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { withUniquePort } from '../../helpers/port-manager';
+import { startServerAndWait } from '../../helpers/server-ready';
 
 describe('Middleware Chain Orchestration', () => {
   let app: Application;
@@ -62,8 +63,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(`http://localhost:${port}/order-test`);
           const data = (await response.json()) as any;
@@ -110,8 +111,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const adminResponse = await fetch(
             `http://localhost:${port}/admin/test`
@@ -170,8 +171,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/complex-pipeline`
@@ -210,8 +211,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/async-execution`
@@ -240,8 +241,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/error-propagation`
@@ -261,8 +262,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/error-recovery`
@@ -305,8 +306,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/state-management`
@@ -339,8 +340,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // Make multiple concurrent requests
           const responses = await Promise.all([
@@ -380,8 +381,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/performance-middleware`
@@ -415,8 +416,8 @@ describe('Middleware Chain Orchestration', () => {
         });
 
         try {
-          app.listen(port);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await startServerAndWait(app, port);
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const response = await fetch(
             `http://localhost:${port}/memory-efficiency`

@@ -22,25 +22,16 @@ export function reject(socket: Socket, code: number, reason: string): void {
     '\r\n';
 
   try {
-    // Write response synchronously for immediate feedback
-    socket.write(response);
-
-    // Schedule cleanup after giving time for data to be sent
-    // This ensures the response reaches the client before socket closes
-    setImmediate(() => {
+    // Write response and close immediately for tests
+    socket.write(response, err => {
+      if (err) {
+        console.error('Failed to write WebSocket rejection:', err);
+      }
       try {
         socket.end();
       } catch {
         // Ignore errors
       }
-      // Give a tiny bit more time before destroy
-      setTimeout(() => {
-        try {
-          socket.destroy();
-        } catch {
-          // Ignore errors when destroying socket
-        }
-      }, 10);
     });
   } catch (error) {
     // If write fails, just destroy the socket
