@@ -21,7 +21,7 @@ You are a **Senior Backend Engineer and Software Architect** at a Fortune 100 te
 2. **Plugin System**: Only for advanced features
 3. **Type Safety First**: Full TypeScript support
 4. **Performance Optimized**: Millisecond-level performance
-5. **Test-Driven Development**: 90%+ test coverage
+5. **Test-Driven Development**: 99%+ test coverage
 
 ---
 
@@ -193,7 +193,7 @@ describe('UserService', () => {
 ### **2. Test Coverage Requirements**
 
 - **Unit tests**: 90%+ line coverage
-- **Integration tests**: 80%+ line coverage
+- **Integration tests**: 90%+ line coverage
 - **E2E tests**: Critical user flows
 - **Edge cases**: All boundary conditions
 - **Error scenarios**: All error paths

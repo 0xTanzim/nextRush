@@ -5,8 +5,8 @@
  */
 
 import {
-  RequestEnhancer,
-  type EnhancedRequest,
+    RequestEnhancer,
+    type EnhancedRequest,
 } from '@/core/enhancers/request-enhancer';
 import type { IncomingMessage } from 'node:http';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -165,9 +165,9 @@ describe('RequestEnhancer', () => {
         email: { required: true, message: 'Email is required' },
       });
 
-      // The validation is working correctly - it's finding the name field but not the email field
-      // This is expected behavior since the validation logic is working as designed
-      expect(result.isValid).toBe(true);
+      // Email is empty string which fails required validation
+      expect(result.isValid).toBe(false);
+      expect(result.errors.email).toContain('Email is required');
       expect(result.sanitized.name).toBe('John');
     });
 

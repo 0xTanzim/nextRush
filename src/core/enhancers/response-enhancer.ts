@@ -4,12 +4,28 @@
  * @packageDocumentation
  */
 
-import { createHash } from 'node:crypto';
 import { createReadStream, statSync } from 'node:fs';
 import type { ServerResponse } from 'node:http';
-import { extname } from 'node:path';
 import { type CookieOptions, serializeCookie } from '../../utils/cookies.js';
 import { FastHeaderBuilder } from '../../utils/header-buffers.js';
+import { canWriteResponse } from '../utils/response-guard.js';
+
+// Import extracted modules
+import {
+  convertToCSV as _convertToCSV,
+} from './response/data-converters.js';
+import {
+  generateETag as _generateETag,
+  type FileStats,
+} from './response/file-handler.js';
+import {
+  getContentTypeFromExtension as _getContentTypeFromExtension,
+  getSmartContentType as _getSmartContentType,
+} from './response/mime-types.js';
+import {
+  getNestedValue as _getNestedValue,
+  isTruthy as _isTruthy,
+} from './response/template-helpers.js';
 
 /**
  * File options interface
@@ -142,7 +158,7 @@ export class ResponseEnhancer {
     // Core response methods
     if (!enhanced.json) {
       enhanced.json = (data: unknown) => {
-        if (enhanced.headersSent || enhanced.finished) {
+        if (!canWriteResponse(enhanced)) {
           return; // Don't write if response has already been sent
         }
         const jsonString = JSON.stringify(data);
@@ -172,7 +188,7 @@ export class ResponseEnhancer {
 
     if (!enhanced.send) {
       enhanced.send = (data: string | Buffer | object) => {
-        if (enhanced.headersSent || enhanced.finished) {
+        if (!canWriteResponse(enhanced)) {
           return; // Don't write if response has already been sent
         }
         if (typeof data === 'object' && !Buffer.isBuffer(data)) {
@@ -192,7 +208,7 @@ export class ResponseEnhancer {
 
     if (!enhanced.html) {
       enhanced.html = (data: string) => {
-        if (enhanced.headersSent || enhanced.finished) {
+        if (!canWriteResponse(enhanced)) {
           return; // Don't write if response has already been sent
         }
         // Ensure statusCode is set
@@ -221,7 +237,7 @@ export class ResponseEnhancer {
 
     if (!enhanced.text) {
       enhanced.text = (data: string) => {
-        if (enhanced.headersSent || enhanced.finished) {
+        if (!canWriteResponse(enhanced)) {
           return; // Don't write if response has already been sent
         }
         // Ensure statusCode is set
@@ -250,7 +266,7 @@ export class ResponseEnhancer {
 
     if (!enhanced.xml) {
       enhanced.xml = (data: string) => {
-        if (enhanced.headersSent || enhanced.finished) {
+        if (!canWriteResponse(enhanced)) {
           return; // Don't write if response has already been sent
         }
         // Ensure statusCode is set
@@ -353,16 +369,13 @@ export class ResponseEnhancer {
     // Smart file operations
     if (!enhanced.getSmartContentType) {
       enhanced.getSmartContentType = (filePath: string) => {
-        const ext = extname(filePath).toLowerCase();
-        return enhanced.getContentTypeFromExtension(ext);
+        return _getSmartContentType(filePath);
       };
     }
 
     if (!enhanced.generateETag) {
-      enhanced.generateETag = (stats: { size: number; mtime: Date }) => {
-        const hash = createHash('md5');
-        hash.update(`${stats.size}-${stats.mtime.getTime()}`);
-        return `"${hash.digest('hex')}"`;
+      enhanced.generateETag = (stats: FileStats) => {
+        return _generateETag(stats);
       };
     }
 
@@ -471,26 +484,13 @@ export class ResponseEnhancer {
     // Template helper methods
     if (!enhanced.getNestedValue) {
       enhanced.getNestedValue = (obj: unknown, path: string) => {
-        return path.split('.').reduce(
-          (current: Record<string, unknown> | null, key: string) => {
-            return current && typeof current === 'object' && key in current
-              ? (current[key] as Record<string, unknown> | null)
-              : null;
-          },
-          obj as Record<string, unknown> | null
-        );
+        return _getNestedValue(obj, path);
       };
     }
 
     if (!enhanced.isTruthy) {
       enhanced.isTruthy = (value: unknown) => {
-        return (
-          value !== null &&
-          value !== undefined &&
-          value !== false &&
-          value !== 0 &&
-          value !== ''
-        );
+        return _isTruthy(value);
       };
     }
 
@@ -606,23 +606,7 @@ export class ResponseEnhancer {
     // Content type utilities
     if (!enhanced.getContentTypeFromExtension) {
       enhanced.getContentTypeFromExtension = (ext: string) => {
-        const mimeTypes: Record<string, string> = {
-          '.html': 'text/html',
-          '.css': 'text/css',
-          '.js': 'application/javascript',
-          '.json': 'application/json',
-          '.xml': 'application/xml',
-          '.txt': 'text/plain',
-          '.png': 'image/png',
-          '.jpg': 'image/jpeg',
-          '.jpeg': 'image/jpeg',
-          '.gif': 'image/gif',
-          '.svg': 'image/svg+xml',
-          '.pdf': 'application/pdf',
-          '.zip': 'application/zip',
-          '.csv': 'text/csv',
-        };
-        return mimeTypes[ext] || 'application/octet-stream';
+        return _getContentTypeFromExtension(ext);
       };
     }
 
@@ -641,22 +625,7 @@ export class ResponseEnhancer {
     // Helper method for CSV conversion
     if (!enhanced.convertToCSV) {
       enhanced.convertToCSV = (data: unknown[]) => {
-        if (!Array.isArray(data) || data.length === 0) {
-          return '';
-        }
-
-        const headers = Object.keys(data[0] as Record<string, unknown>);
-        const csvRows = [headers.join(',')];
-
-        for (const row of data) {
-          const values = headers.map(header => {
-            const value = (row as Record<string, unknown>)[header];
-            return `"${String(value || '').replace(/"/g, '""')}"`;
-          });
-          csvRows.push(values.join(','));
-        }
-
-        return csvRows.join('\n');
+        return _convertToCSV(data);
       };
     }
 

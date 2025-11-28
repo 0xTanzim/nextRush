@@ -3,7 +3,7 @@
  * Tests complete business workflows end-to-end
  */
 
-import { NextRushEventSystem } from '@/core/events/event-system';
+import { NextRushEventSystem } from '@/core/events';
 import { createApp } from '@/index';
 import type { Server } from 'http';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';

@@ -1,239 +1,231 @@
-# Performance Benchmarks
+# 🚀 NextRush v2 Performance Benchmark Suite
 
-Professional performance benchmarks comparing **NextRush v2** against **Express**, **Koa**, and **Fastify**.
+Enterprise-grade performance benchmarks comparing **NextRush v2** against **Express**, **Fastify**, **Koa**, and **Hono**.
 
-## 🎯 Methodology
-
-### Fairness Principles
-
-1. **Identical Routes** - All frameworks implement the exact same routes with identical logic
-2. **Production Mode** - All frameworks run in production mode (no debug logging)
-3. **Minimal Middleware** - Only essential middleware (body parser for JSON routes)
-4. **Same Environment** - Sequential tests on the same hardware
-5. **Multiple Runs** - Each test runs 3 times, median result reported
-6. **Warm-up Phase** - 30s warm-up before each test
-
-### Test Scenarios
-
-| Scenario             | Route                         | Purpose                               |
-| -------------------- | ----------------------------- | ------------------------------------- |
-| **Hello World**      | `GET /`                       | Baseline throughput, minimal overhead |
-| **Route Parameters** | `GET /users/:id`              | Router performance, param parsing     |
-| **Query Strings**    | `GET /search?q=test&limit=10` | Query parsing efficiency              |
-| **POST JSON**        | `POST /users`                 | Body parser performance               |
-| **Mixed Workload**   | All routes combined           | Real-world traffic pattern            |
-
-### Metrics Tracked
-
-- **Requests/sec (RPS)** - Throughput
-- **Latency p50** - Median latency
-- **Latency p95** - 95th percentile
-- **Latency p99** - 99th percentile
-- **Memory (RSS)** - Process memory
-- **CPU %** - CPU utilization
-- **Errors** - Error rate
-
-### Tools Used
-
-- **[autocannon](https://github.com/mcollina/autocannon)** - HTTP/1.1 benchmarking (created by Fastify team)
-- **[k6](https://k6.io/)** - Modern load testing
-- **[pidusage](https://github.com/soyuka/pidusage)** - System resource monitoring
-
-## 🚀 Quick Start
-
-### Prerequisites
+## 📊 Quick Commands
 
 ```bash
-# Install k6 (for Ubuntu/Debian)
-sudo gpg -k
-sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-sudo apt-get update
-sudo apt-get install k6
-
-# Or install via snap
-sudo snap install k6
-```
-
-### Install Dependencies
-
-```bash
-cd performance
+# Install dependencies
 pnpm install
+
+# Run all frameworks benchmark
+pnpm bench:all                    # Full benchmark (~15 min)
+pnpm bench:all:quick              # Quick benchmark (~5 min)
+
+# Run NextRush-only benchmark (for development iteration)
+pnpm bench:nextrush               # Full NextRush benchmark
+pnpm bench:nextrush:quick         # Quick NextRush benchmark
+pnpm bench:nextrush --label "v2.1 fix"  # With label
+
+# Compare and analyze
+pnpm bench:nextrush:history       # View all benchmark runs
+pnpm bench:nextrush:compare       # Compare latest with previous
+pnpm bench:nextrush:compare 1 3   # Compare specific runs
+pnpm bench:nextrush:trend         # Show performance trend
+
+# Analyze existing results
+pnpm analyze                      # Generate analysis report
+
+# Cleanup
+pnpm clean:all                    # Remove all results
+pnpm clean:nextrush               # Remove NextRush results only
+pnpm clean:comparison             # Remove comparison results only
 ```
 
-### Run All Benchmarks
+## 🎯 Test Configuration
 
-```bash
-# Run complete benchmark suite (autocannon + k6)
-pnpm bench
+| Setting | Full Mode | Quick Mode |
+|---------|-----------|------------|
+| **Duration** | 30s per test | 10s per test |
+| **Connections** | 100 | 100 |
+| **Pipelining** | 10 | 10 |
+| **Warmup** | 3s | 3s |
+| **Total Time** | ~15 min (all) | ~5 min (all) |
 
-# Or run specific tests
-pnpm bench:hello     # Hello World test
-pnpm bench:params    # Route parameters test
-pnpm bench:query     # Query strings test
-pnpm bench:post      # POST JSON test
-pnpm bench:mixed     # Mixed workload test
+## 📦 Frameworks Tested
+
+| Framework | Description | Version |
+|-----------|-------------|---------|
+| **NextRush v2** | Our framework | 2.0.x |
+| **Express** | Most popular | 5.x |
+| **Fastify** | High performance | 5.x |
+| **Koa** | Lightweight/Modern | 3.x |
+| **Hono** | Ultra-fast | 4.x |
+
+## 🧪 Test Scenarios
+
+| Scenario | Route | Purpose |
+|----------|-------|---------|
+| **Hello World** | `GET /` | Baseline throughput |
+| **Route Parameters** | `GET /users/:id` | Router performance |
+| **Query Strings** | `GET /search?q=test&limit=10` | Query parsing |
+| **POST JSON** | `POST /users` | Body parser performance |
+| **Mixed Workload** | All routes | Real-world simulation |
+
+## 📁 Results Structure
+
 ```
-
-### Generate Report
-
-```bash
-# Analyze results and generate markdown report
-pnpm analyze
-pnpm report
-```
-
-## 📊 Test Configuration
-
-### Autocannon Settings
-
-```javascript
-{
-  connections: 100,      // Concurrent connections
-  duration: 40,         // Test duration (seconds)
-  pipelining: 10,       // Requests per connection
-  warmup: 30            // Warm-up duration (seconds)
-}
-```
-
-### K6 Settings
-
-```javascript
-{
-  vus: 100,             // Virtual users
-  duration: '60s',      // Test duration
-  thresholds: {
-    http_req_duration: ['p(95)<100'],  // 95% under 100ms
-    http_req_failed: ['rate<0.01']     // Error rate < 1%
-  }
-}
+results/
+├── nextrush/                      # NextRush-only benchmarks
+│   ├── latest/                    # Always points to latest
+│   │   ├── results.json          # Raw JSON data
+│   │   └── REPORT.md             # Human-readable report
+│   ├── 2025-01-15_14-30-00/      # Timestamped results
+│   │   ├── results.json
+│   │   └── REPORT.md
+│   └── README.md
+├── comparison/                    # Multi-framework comparisons
+│   ├── latest/
+│   │   ├── results.json
+│   │   ├── REPORT.md
+│   │   ├── nextrush.json
+│   │   ├── express.json
+│   │   ├── fastify.json
+│   │   ├── koa.json
+│   │   └── hono.json
+│   └── 2025-01-15_14-30-00/
+└── BENCHMARK_RESULTS.md          # Legacy analysis (from analyze command)
 ```
 
 ## 🏗️ Project Structure
 
 ```
 performance/
-├── servers/              # Test servers for each framework
-│   ├── nextrush.js      # NextRush v2 server
-│   ├── express.js       # Express server
-│   ├── koa.js          # Koa server
-│   └── fastify.js      # Fastify server
-├── tests/
-│   ├── autocannon/     # Autocannon tests
-│   │   ├── hello.js
-│   │   ├── params.js
-│   │   ├── query.js
-│   │   ├── post.js
-│   │   ├── mixed.js
-│   │   └── run-all.sh
-│   └── k6/            # K6 load tests
-│       ├── hello.js
-│       ├── params.js
-│       ├── query.js
-│       ├── post.js
-│       ├── mixed.js
-│       └── run-all.sh
+├── servers/                       # Test servers for each framework
+│   ├── nextrush.js               # NextRush v2 (ESM, uses dist/)
+│   ├── express.js                # Express (ESM)
+│   ├── fastify.js                # Fastify (ESM)
+│   ├── koa.js                    # Koa (ESM)
+│   └── hono.js                   # Hono (ESM)
 ├── scripts/
-│   ├── run-benchmark.sh    # Master benchmark script
-│   ├── run-single.js       # Run single test
-│   ├── analyze.js          # Results analyzer
-│   └── generate-report.js  # Report generator
-├── results/                # Test results (JSON, CSV, MD)
+│   ├── benchmark-all.js          # All frameworks benchmark
+│   ├── nextrush-benchmark.js     # NextRush-only benchmark
+│   ├── nextrush-compare.js       # Comparison & history tool
+│   └── analyze.js                # Results analyzer
+├── results/                       # Benchmark results
 ├── package.json
 └── README.md
 ```
 
-## 📈 Expected Results
+## 🔧 Server Implementations
 
-Based on design and optimizations:
+All servers implement identical routes:
 
-| Framework       | RPS (Expected) | Latency p95 | Memory  |
-| --------------- | -------------- | ----------- | ------- |
-| **NextRush v2** | ~45,000        | < 25ms      | < 100MB |
-| **Fastify**     | ~47,000        | < 20ms      | < 80MB  |
-| **Koa**         | ~35,000        | < 30ms      | < 70MB  |
-| **Express**     | ~10,000        | < 100ms     | < 50MB  |
+```javascript
+// 1. Hello World
+GET  /                → { message: "Hello World" }
 
-_Actual results will be updated after running benchmarks_
+// 2. Route Parameters
+GET  /users/:id       → { id, name, email }
 
-## 🔬 Test Environment
+// 3. Query Strings
+GET  /search          → { query, limit, results: [...] }
 
-### Hardware
+// 4. POST JSON
+POST /users           → { success: true, user: {...} }
+```
 
-- **CPU**: [Will be auto-detected]
-- **RAM**: [Will be auto-detected]
-- **OS**: [Will be auto-detected]
-- **Node.js**: [Will be auto-detected]
+## 📈 Metrics Tracked
 
-### Configuration
+- **RPS (Requests/sec)** - Throughput capacity
+- **Latency p50** - Median response time
+- **Latency p99** - 99th percentile (tail latency)
+- **Throughput** - Data transfer rate (MB/s)
+- **Errors** - Error count during test
+- **Timeouts** - Request timeout count
 
-- `NODE_ENV=production`
-- Single process (no clustering for clarity)
-- No external middleware except body parser
-- Keep-alive enabled
-- HTTP/1.1
+## ⚖️ Benchmark Fairness
 
-## 🎓 Understanding the Results
+We take fairness seriously. Here's what we do to ensure unbiased comparisons:
 
-### Requests/sec (RPS)
+### Body Parser Configuration
+- **NextRush**: Body parser applied ONLY to POST routes (not globally)
+- **Express**: `express.json()` is lightweight but global (fair trade-off)
+- **Fastify**: Built-in lazy parsing (only parses when accessed)
+- **Koa**: Body parser applied ONLY to POST routes (not globally)
+- **Hono**: Lazy parsing (only when `c.req.json()` called)
 
-- Higher is better
-- Indicates maximum throughput
-- Real-world apps rarely need > 10,000 RPS per instance
+### Framework Optimizations
+- **Fastify**: Default config (no extra optimizations like `ignoreTrailingSlash`)
+- **All frameworks**: No logging middleware
+- **All frameworks**: Production mode enabled
 
-### Latency (p50, p95, p99)
+### What We DON'T Do
+❌ No hidden optimizations for NextRush
+❌ No extra middleware on competitors
+❌ No unfair configuration differences
 
-- Lower is better
-- **p50** - 50% of requests finish faster
-- **p95** - 95% of requests finish faster (important for UX)
-- **p99** - 99% of requests finish faster (tail latency)
+### Disclosure
+- Results may vary based on hardware and system load
+- Run multiple times for consistent results
+- These are synthetic benchmarks - real-world performance depends on your use case
 
-### Memory Usage
+## 🎓 Best Practices
 
-- Lower is better for density
-- Important for cloud costs
-- NextRush v2 uses context pooling for efficiency
+### For Development Iteration
 
-### Trade-offs
+```bash
+# Make code changes, then quickly verify performance
+pnpm bench:nextrush:quick --label "fixed hot path"
+pnpm bench:nextrush:compare
+```
 
-- **NextRush v2**: Balance of performance, features, and DX
-- **Fastify**: Fastest, but less flexible
-- **Koa**: Minimal, requires more middleware
-- **Express**: Mature ecosystem, but slower
+### For Release Validation
 
-## 📝 Contributing
+```bash
+# Full benchmark before release
+pnpm bench:all --label "v2.1.0 release"
+```
 
-To add a new benchmark:
+### For Tracking Trends
 
-1. Create server in `servers/[framework].js`
-2. Add test in `tests/autocannon/[test-name].js`
-3. Add k6 test in `tests/k6/[test-name].js`
-4. Update `run-benchmark.sh`
-5. Run and validate results
+```bash
+# View historical performance
+pnpm bench:nextrush:history
+pnpm bench:nextrush:trend
+```
 
-## ⚠️ Disclaimer
+## ⚠️ Important Notes
 
-- Benchmarks are run on virtual hardware (GitHub Actions)
-- Results can vary due to "noisy neighbor" effect
-- These tests measure framework overhead, not real-world app performance
-- Your mileage may vary based on:
-  - Hardware specifications
-  - Network conditions
-  - Application logic complexity
-  - Middleware usage
+1. **Build First**: Run `pnpm build` in the main project before benchmarking NextRush
+2. **Close Applications**: Close other CPU-intensive apps for consistent results
+3. **Multiple Runs**: Run 2-3 times to verify consistency
+4. **Use Labels**: Always add descriptive labels for code changes
+5. **Production Mode**: All servers run with `NODE_ENV=production`
+
+## 🔬 Environment Detection
+
+The benchmark automatically detects and reports:
+- Node.js version
+- Platform (Linux/macOS/Windows)
+- CPU model and cores
+- Available memory
+- Test timestamp
+
+## 📊 Sample Output
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     🏆 BENCHMARK RESULTS                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────┬──────────────┬───────────────┬───────────────┬──────────┐
+│ Rank         │ Framework    │ Avg RPS       │ Latency (p50) │ Tests    │
+├──────────────┼──────────────┼───────────────┼───────────────┼──────────┤
+│ 🥇 1st       │ hono       │      26,252 │     44.40ms │      5/5 │
+│ 🥈 2nd       │ fastify    │      24,500 │     48.00ms │      5/5 │
+│ 🥉 3rd       │ nextrush   │      18,175 │     57.00ms │      5/5 │
+│    4th       │ koa        │      15,200 │     65.00ms │      5/5 │
+│    5th       │ express    │      10,500 │     95.00ms │      5/5 │
+└──────────────┴──────────────┴───────────────┴───────────────┴──────────┘
+```
 
 ## 📚 References
 
-- [Fastify Benchmarks](https://github.com/fastify/benchmarks)
-- [Autocannon Documentation](https://github.com/mcollina/autocannon)
-- [K6 Documentation](https://k6.io/docs/)
-- [Node.js Performance Best Practices](https://nodejs.org/en/docs/guides/simple-profiling/)
-
-## 📄 License
-
-MIT - Same as NextRush v2
+- [Autocannon](https://github.com/mcollina/autocannon) - HTTP/1.1 benchmarking
+- [K6](https://k6.io/) - Modern load testing
+- [Fastify Benchmarks](https://github.com/fastify/benchmarks) - Inspiration
 
 ---
 
-**Made with ❤️ for NextRush v2 - Proving performance claims with data**
+**Made with ❤️ for NextRush v2 - Performance you can trust, measured with precision**

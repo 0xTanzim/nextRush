@@ -7,11 +7,11 @@
  * @version 2.0.0
  */
 
-import { NextRushEventSystem } from '@/core/events/event-system';
 import {
-  createSimpleEventsAPI,
-  SimpleEventsAPI,
-} from '@/core/events/simple-events';
+    createSimpleEventsAPI,
+    NextRushEventSystem,
+    SimpleEventsAPI,
+} from '@/core/events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('SimpleEventsAPI', () => {

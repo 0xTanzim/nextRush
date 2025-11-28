@@ -5,12 +5,21 @@
  * - Production mode
  * - Built-in JSON parser
  * - No logging
+ *
+ * FAIRNESS NOTE:
+ * - Removed ignoreTrailingSlash and caseSensitive options
+ *   to ensure fair comparison with other frameworks that
+ *   don't have these optimizations enabled by default.
+ * - Fastify's built-in body parser is lazy (only parses POST)
+ *   so no need for route-specific configuration.
  */
 
-const fastify = require('fastify')({
+import Fastify from 'fastify';
+
+const fastify = Fastify({
   logger: false,
-  ignoreTrailingSlash: true,
-  caseSensitive: true,
+  // NOTE: Removed ignoreTrailingSlash and caseSensitive for fair comparison
+  // These give Fastify a slight edge that other frameworks don't have
 });
 
 // Test Routes
@@ -82,4 +91,4 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-module.exports = { fastify };
+export { fastify };

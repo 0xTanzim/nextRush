@@ -1,9 +1,14 @@
 /**
  * Request Enhancer for NextRush v2
  *
+ * Enhances Node.js IncomingMessage with Express-like features.
+ * Uses extracted modules for better maintainability.
+ *
  * @packageDocumentation
  */
 
+import { detectClientIP } from '@/core/utils/ip-detector';
+import { extractPath } from '@/core/utils/url-parser';
 import {
   parseCookies,
   PARSED_COOKIES_SYMBOL,
@@ -11,32 +16,34 @@ import {
 } from '@/utils/cookies';
 import type { IncomingMessage } from 'node:http';
 import type { ParsedUrlQuery } from 'node:querystring';
-import { URL } from 'node:url';
 
-/**
- * Validation rule interface
- */
-interface ValidationRule {
-  required?: boolean;
-  type?: 'email' | 'url' | 'number';
-  minLength?: number;
-  maxLength?: number;
-  message?: string;
-  custom?: (value: unknown) => boolean;
-  sanitize?: Record<string, unknown>;
-}
-
-/**
- * Sanitize options interface
- */
-interface SanitizeOptions {
-  trim?: boolean;
-  lowercase?: boolean;
-  uppercase?: boolean;
-  removeHtml?: boolean;
-  escape?: boolean;
-  removeSpecialChars?: boolean;
-}
+// Import extracted modules
+import {
+  acceptsType,
+  isContentType,
+} from './request/content-negotiator';
+import {
+  generateFingerprint,
+  getDefaultRateLimitInfo,
+  getRequestTiming
+} from './request/fingerprint';
+import {
+  isBot,
+  isMobile,
+  parseBrowser,
+  parseDevice,
+  parseOS,
+  parseUserAgent
+} from './request/user-agent-parser';
+import {
+  isValidEmail,
+  isValidUrl,
+  sanitize,
+  sanitizeObject,
+  validate,
+  type SanitizeOptions,
+  type ValidationRule
+} from './request/validation-engine';
 
 /**
  * Enhanced request interface with Express-like properties and methods
@@ -136,7 +143,7 @@ export class RequestEnhancer {
     enhanced.params = enhanced.params || {};
     enhanced.query = enhanced.query || {};
     enhanced.body = enhanced.body || undefined; // Initialize body property
-    enhanced.pathname = req.url?.split('?')[0] || '/';
+    enhanced.pathname = extractPath(req.url || '/');
     enhanced.originalUrl = req.url || '/';
     enhanced.path = enhanced.pathname;
     enhanced.files = enhanced.files || {};
@@ -158,20 +165,12 @@ export class RequestEnhancer {
       enhanced.get = (name: string) => enhanced.header(name);
     }
 
-    // Enhanced IP detection with proxy support
+    // Enhanced IP detection with proxy support (using shared utility)
     if (!enhanced.ip) {
-      const xForwardedFor = enhanced.headers['x-forwarded-for'] as string;
-      const xRealIp = enhanced.headers['x-real-ip'] as string;
-      const connectionRemoteAddress = (enhanced.socket as any)?.remoteAddress;
-
-      if (xForwardedFor) {
-        // X-Forwarded-For can contain multiple IPs, take the first one
-        enhanced.ip = xForwardedFor.split(',')[0]?.trim() || '127.0.0.1';
-      } else if (xRealIp) {
-        enhanced.ip = xRealIp;
-      } else {
-        enhanced.ip = connectionRemoteAddress || '127.0.0.1';
-      }
+      enhanced.ip = detectClientIP(
+        enhanced.headers,
+        (enhanced.socket as any)?.remoteAddress
+      );
     }
 
     // Security helpers
@@ -214,50 +213,14 @@ export class RequestEnhancer {
         }`;
     }
 
-    // Content type checking
+    // Content type checking - delegates to extracted module
     if (!enhanced.is) {
-      enhanced.is = (type: string) => {
-        const contentType = (enhanced.headers['content-type'] as string) || '';
-
-        const typeMap: Record<string, string> = {
-          json: 'application/json',
-          html: 'text/html',
-          xml: 'application/xml',
-          text: 'text/plain',
-          form: 'application/x-www-form-urlencoded',
-          multipart: 'multipart/form-data',
-        };
-
-        const checkType = typeMap[type] || type;
-        return contentType.toLowerCase().includes(checkType.toLowerCase());
-      };
+      enhanced.is = (type: string) => isContentType(enhanced.headers, type);
     }
 
-    // Accept header parsing
+    // Accept header parsing - delegates to extracted module
     if (!enhanced.accepts) {
-      enhanced.accepts = (types: string | string[]) => {
-        const acceptHeader = (enhanced.headers.accept as string) || '*/*';
-        const typeArray = Array.isArray(types) ? types : [types];
-
-        for (const type of typeArray) {
-          const typeMap: Record<string, string> = {
-            json: 'application/json',
-            html: 'text/html',
-            xml: 'application/xml',
-            text: 'text/plain',
-          };
-
-          const checkType = typeMap[type] || type;
-          if (
-            acceptHeader.includes(checkType) ||
-            acceptHeader.includes('*/*')
-          ) {
-            return type;
-          }
-        }
-
-        return false;
-      };
+      enhanced.accepts = (types: string | string[]) => acceptsType(enhanced.headers, types);
     }
 
     // Cookie parsing with performance optimization and caching
@@ -294,249 +257,60 @@ export class RequestEnhancer {
       });
     }
 
-    // Validation framework
+    // Validation framework - delegates to extracted module
     if (!enhanced.validate) {
       enhanced.validate = (rules: Record<string, ValidationRule>) => {
-        const errors: Record<string, string[]> = {};
-        const sanitized: Record<string, unknown> = {};
-
-        for (const [field, rule] of Object.entries(rules)) {
-          const value =
-            (enhanced.body as Record<string, unknown>)?.[field] ||
-            enhanced.query[field] ||
-            enhanced.params[field];
-          const fieldErrors: string[] = [];
-
-          // Required validation
-          if (
-            rule.required &&
-            (value === undefined || value === null || value === '')
-          ) {
-            fieldErrors.push(rule.message || `${field} is required`);
-            continue;
-          }
-
-          // Only process validation if value exists and is not empty
-          if (value !== undefined && value !== null && value !== '') {
-            // Type validation
-            if (rule.type) {
-              if (
-                rule.type === 'email' &&
-                !enhanced.isValidEmail(String(value))
-              ) {
-                fieldErrors.push(
-                  rule.message || `${field} must be a valid email`
-                );
-              } else if (
-                rule.type === 'url' &&
-                !enhanced.isValidUrl(String(value))
-              ) {
-                fieldErrors.push(
-                  rule.message || `${field} must be a valid URL`
-                );
-              } else if (rule.type === 'number' && isNaN(Number(value))) {
-                fieldErrors.push(rule.message || `${field} must be a number`);
-              }
-            }
-
-            // Length validation
-            if (rule.minLength && String(value).length < rule.minLength) {
-              fieldErrors.push(
-                rule.message ||
-                  `${field} must be at least ${rule.minLength} characters`
-              );
-            }
-            if (rule.maxLength && String(value).length > rule.maxLength) {
-              fieldErrors.push(
-                rule.message ||
-                  `${field} must be no more than ${rule.maxLength} characters`
-              );
-            }
-
-            // Custom validation
-            if (
-              rule.custom &&
-              typeof rule.custom === 'function' &&
-              !rule.custom(value)
-            ) {
-              fieldErrors.push(
-                rule.message || `${field} failed custom validation`
-              );
-            }
-
-            // Sanitize value
-            let sanitizedValue: unknown = value;
-            if (rule.sanitize) {
-              sanitizedValue = enhanced.sanitize(
-                value,
-                rule.sanitize as SanitizeOptions
-              );
-            }
-
-            (sanitized as Record<string, unknown>)[field] = sanitizedValue;
-          }
-
-          if (fieldErrors.length > 0) {
-            errors[field] = fieldErrors;
-          }
-        }
-
-        return {
-          isValid: Object.keys(errors).length === 0,
-          errors,
-          sanitized,
+        // Merge body, query, and params into a single data object
+        const data = {
+          ...(enhanced.body as Record<string, unknown> || {}),
+          ...(enhanced.query as Record<string, unknown>),
+          ...enhanced.params,
         };
+        return validate(data, rules);
       };
     }
 
-    // Data sanitization
+    // Data sanitization - delegates to extracted module
     if (!enhanced.sanitize) {
       enhanced.sanitize = (value: unknown, options: SanitizeOptions = {}) => {
-        if (typeof value !== 'string') return value;
-
-        let sanitized = value as string;
-
-        if (options.trim) {
-          sanitized = sanitized.trim();
-        }
-
-        if (options.lowercase) {
-          sanitized = sanitized.toLowerCase();
-        }
-
-        if (options.uppercase) {
-          sanitized = sanitized.toUpperCase();
-        }
-
-        if (options.removeHtml) {
-          sanitized = sanitized.replace(/<[^>]*>/g, '');
-        }
-
-        if (options.escape) {
-          sanitized = sanitized
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#x27;');
-        }
-
-        if (options.removeSpecialChars) {
-          sanitized = sanitized.replace(/[^a-zA-Z0-9\s]/g, '');
-        }
-
-        return sanitized;
+        return sanitize(value, options);
       };
     }
 
-    // Email validation
+    // Email validation - delegates to extracted module
     if (!enhanced.isValidEmail) {
-      enhanced.isValidEmail = (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-      };
+      enhanced.isValidEmail = isValidEmail;
     }
 
-    // URL validation
+    // URL validation - delegates to extracted module
     if (!enhanced.isValidUrl) {
-      enhanced.isValidUrl = (url: string) => {
-        try {
-          new URL(url);
-          return true;
-        } catch {
-          return false;
-        }
-      };
+      enhanced.isValidUrl = isValidUrl;
     }
 
-    // Request fingerprinting
+    // Request fingerprinting - delegates to extracted module
     if (!enhanced.fingerprint) {
-      enhanced.fingerprint = () => {
-        const userAgent = enhanced.headers['user-agent'] || '';
-        const accept = enhanced.headers.accept || '';
-        const acceptLanguage = enhanced.headers['accept-language'] || '';
-        const ip = enhanced.ip;
-
-        const fingerprint = `${ip}-${userAgent}-${accept}-${acceptLanguage}`;
-        return Buffer.from(fingerprint).toString('base64').substring(0, 16);
-      };
+      enhanced.fingerprint = () => generateFingerprint(enhanced.headers, enhanced.ip);
     }
 
-    // User agent parsing
+    // User agent parsing - delegates to extracted module
     if (!enhanced.userAgent) {
-      enhanced.userAgent = () => {
-        const ua = (enhanced.headers['user-agent'] as string) || '';
-
-        const isMobile = /Mobile|Android|iPhone|iPad|iPhone OS/.test(ua);
-        const isBot = /bot|crawler|spider|crawling/i.test(ua);
-
-        let browser = 'Unknown';
-        if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
-        else if (ua.includes('Firefox')) browser = 'Firefox';
-        else if (ua.includes('Safari') && !ua.includes('Chrome'))
-          browser = 'Safari';
-        else if (ua.includes('Edge')) browser = 'Edge';
-        else if (ua.includes('AppleWebKit')) browser = 'Chrome'; // Fallback for Chrome
-
-        let os = 'Unknown';
-        if (ua.includes('Windows')) os = 'Windows';
-        else if (ua.includes('Mac')) os = 'macOS';
-        else if (ua.includes('Linux')) os = 'Linux';
-        else if (ua.includes('Android')) os = 'Android';
-        else if (ua.includes('iOS') || ua.includes('iPhone OS')) os = 'iOS';
-
-        let device = 'Desktop';
-        if (isMobile) device = 'Mobile';
-        if (ua.includes('Tablet') || ua.includes('iPad')) device = 'Tablet';
-
-        return {
-          raw: ua,
-          browser,
-          os,
-          device,
-          isMobile,
-          isBot,
-        };
-      };
+      enhanced.userAgent = () => parseUserAgent(enhanced.headers['user-agent'] as string);
     }
 
-    // Request timing
+    // Request timing - delegates to extracted module
     if (!enhanced.timing) {
-      enhanced.timing = () => ({
-        start: enhanced.startTime,
-        duration: Date.now() - enhanced.startTime,
-        timestamp: new Date().toISOString(),
-      });
+      enhanced.timing = () => getRequestTiming(enhanced.startTime);
     }
 
-    // Rate limit info (placeholder)
+    // Rate limit info - delegates to extracted module
     if (!enhanced.rateLimit) {
-      enhanced.rateLimit = () => ({
-        limit: 100,
-        remaining: 99,
-        reset: Date.now() + 3600000,
-        retryAfter: 0,
-      });
+      enhanced.rateLimit = getDefaultRateLimitInfo;
     }
 
-    // Helper for sanitizing objects
+    // Helper for sanitizing objects - delegates to extracted module
     if (!enhanced.sanitizeObject) {
-      enhanced.sanitizeObject = (obj: unknown, options: any = {}) => {
-        if (typeof obj !== 'object' || obj === null) return obj;
-
-        const sanitized: any = {};
-        for (const [key, value] of Object.entries(
-          obj as Record<string, unknown>
-        )) {
-          if (typeof value === 'string') {
-            sanitized[key] = enhanced.sanitize(value, options);
-          } else if (typeof value === 'object' && value !== null) {
-            sanitized[key] = enhanced.sanitizeObject(value, options);
-          } else {
-            sanitized[key] = value;
-          }
-        }
-        return sanitized;
+      enhanced.sanitizeObject = (obj: unknown, options: SanitizeOptions = {}) => {
+        return sanitizeObject(obj, options);
       };
     }
 
@@ -545,47 +319,30 @@ export class RequestEnhancer {
       enhanced.getRequestTiming = () => enhanced.timing();
     }
 
-    // User agent parsing methods
+    // User agent parsing methods - delegate to extracted module
     if (!enhanced.sanitizeValue) {
       enhanced.sanitizeValue = (value: unknown, rule: any) =>
-        enhanced.sanitize(value, rule?.sanitize);
+        sanitize(value, rule?.sanitize);
     }
 
     if (!enhanced.parseBrowser) {
-      enhanced.parseBrowser = (ua: string) => {
-        if (ua.includes('Chrome')) return 'Chrome';
-        if (ua.includes('Firefox')) return 'Firefox';
-        if (ua.includes('Safari')) return 'Safari';
-        if (ua.includes('Edge')) return 'Edge';
-        return 'Unknown';
-      };
+      enhanced.parseBrowser = parseBrowser;
     }
 
     if (!enhanced.parseOS) {
-      enhanced.parseOS = (ua: string) => {
-        if (ua.includes('Windows')) return 'Windows';
-        if (ua.includes('Mac')) return 'macOS';
-        if (ua.includes('Linux')) return 'Linux';
-        if (ua.includes('Android')) return 'Android';
-        if (ua.includes('iOS')) return 'iOS';
-        return 'Unknown';
-      };
+      enhanced.parseOS = parseOS;
     }
 
     if (!enhanced.parseDevice) {
-      enhanced.parseDevice = (ua: string) => {
-        if (ua.includes('Mobile')) return 'Mobile';
-        if (ua.includes('Tablet')) return 'Tablet';
-        return 'Desktop';
-      };
+      enhanced.parseDevice = parseDevice;
     }
 
     if (!enhanced.isBot) {
-      enhanced.isBot = (ua: string) => /bot|crawler|spider|crawling/i.test(ua);
+      enhanced.isBot = isBot;
     }
 
     if (!enhanced.isMobile) {
-      enhanced.isMobile = (ua: string) => /Mobile|Android|iPhone|iPad/.test(ua);
+      enhanced.isMobile = isMobile;
     }
 
     return enhanced;

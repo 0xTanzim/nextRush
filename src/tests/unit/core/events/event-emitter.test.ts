@@ -12,17 +12,17 @@ import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
-  NextRushEventEmitter,
-  createEvent,
-  createEventMetadata,
-  isEventOfType,
-} from '@/core/events/event-emitter';
+    NextRushEventEmitter,
+    createEvent,
+    createEventMetadata,
+    isEventOfType,
+} from '@/core/events';
 
 import type {
-  Event,
-  EventHandlerDefinition,
-  EventPipelineConfig,
-  EventSubscription,
+    Event,
+    EventHandlerDefinition,
+    EventPipelineConfig,
+    EventSubscription,
 } from '@/types/events';
 
 // Test event types

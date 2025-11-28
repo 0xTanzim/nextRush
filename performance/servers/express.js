@@ -7,7 +7,7 @@
  * - No logging middleware
  */
 
-const express = require('express');
+import express from 'express';
 
 const app = express();
 
@@ -79,4 +79,4 @@ process.on('SIGINT', () => {
   });
 });
 
-module.exports = { app, server };
+export { app, server };

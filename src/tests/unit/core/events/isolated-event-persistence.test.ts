@@ -1,5 +1,5 @@
+import { NextRushEventSystem } from '@/core/events';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { NextRushEventSystem } from '../../../../core/events/event-system';
 
 describe('Isolated Event Persistence Test', () => {
   let eventSystem: NextRushEventSystem;

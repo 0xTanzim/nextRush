@@ -3,12 +3,19 @@
  *
  * Configuration:
  * - Production mode (debug: false)
- * - Smart body parser
+ * - Conditional body parser (only for POST requests)
  * - No logging middleware
  * - Keep-alive enabled
+ *
+ * FAIRNESS NOTE:
+ * Body parser is conditionally applied ONLY to POST requests
+ * to ensure fair comparison with other frameworks. This matches
+ * the behavior of Hono (lazy parsing) and is fairer than
+ * always-on body parsing.
  */
 
-const { createApp } = require('../../dist/index.js');
+import { createApp } from '../../dist/index.mjs';
+
 const app = createApp({
   port: 3000,
   debug: false,
@@ -16,22 +23,31 @@ const app = createApp({
   timeout: 30000,
 });
 
-// Body parser for POST routes
-app.use(
-  app.smartBodyParser({
-    maxSize: 1024 * 1024, // 1MB
-    enableStreaming: false,
-  })
-);
+// Get the body parser middleware
+const jsonBodyParser = app.smartBodyParser({
+  maxSize: 1024 * 1024, // 1MB
+  enableStreaming: false,
+});
+
+// Conditional body parser - only parse POST/PUT/PATCH requests
+// This is FAIR because other frameworks do the same
+app.use(async (ctx, next) => {
+  // Only parse body for methods that typically have a body
+  if (ctx.method === 'POST' || ctx.method === 'PUT' || ctx.method === 'PATCH') {
+    return jsonBodyParser(ctx, next);
+  }
+  // Skip body parsing for GET, DELETE, etc.
+  return next();
+});
 
 // Test Routes (Fast by default!)
 
-// 1. Hello World - Baseline performance
+// 1. Hello World - Baseline performance (no body parsing overhead)
 app.get('/', async ctx => {
   ctx.json({ message: 'Hello World' });
 });
 
-// 2. Route Parameters - Router performance
+// 2. Route Parameters - Router performance (no body parsing overhead)
 app.get('/users/:id', async ctx => {
   const { id } = ctx.params;
   ctx.json({
@@ -41,7 +57,7 @@ app.get('/users/:id', async ctx => {
   });
 });
 
-// 3. Query Strings - Query parsing
+// 3. Query Strings - Query parsing (no body parsing overhead)
 app.get('/search', async ctx => {
   const { q = '', limit = '10' } = ctx.query;
   ctx.json({
@@ -54,7 +70,7 @@ app.get('/search', async ctx => {
   });
 });
 
-// 4. POST JSON - Body parser performance
+// 4. POST JSON - Body parser IS applied here (fair comparison)
 app.post('/users', async ctx => {
   const data = ctx.body;
   ctx.json({
@@ -85,4 +101,4 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-module.exports = { app, server };
+export { app, server };

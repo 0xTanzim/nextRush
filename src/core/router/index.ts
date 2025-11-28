@@ -7,11 +7,25 @@
  * @packageDocumentation
  */
 
-// Re-export the optimized router as the main implementation
+// Main router implementation
 export {
-  OptimizedRouter as Router,
-  createOptimizedRouter as createRouter,
+    OptimizedRouter, OptimizedRouter as Router,
+    createOptimizedRouter as createRouter
 } from './optimized-router';
 
-// For backward compatibility, also export the original class name
-export { OptimizedRouter } from './optimized-router';
+// Utilities
+export { ParamPool } from './param-pool';
+export { PathSplitter } from './path-splitter';
+export { RouteCache, type RouteCacheStats } from './route-cache';
+export { RouteTree } from './route-tree';
+export { StaticRouteMap } from './static-routes';
+
+// Types
+export type {
+    CacheStats,
+    OptimizedRadixNode,
+    OptimizedRouteMatch,
+    PoolStats,
+    RouteData,
+    RouterStats
+} from './types';

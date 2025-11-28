@@ -3,29 +3,34 @@
  *
  * Configuration:
  * - Production mode
- * - koa-bodyparser for JSON
+ * - koa-bodyparser ONLY on POST routes (fair comparison)
  * - koa-router for routing
  * - No logging middleware
+ *
+ * FAIRNESS NOTE:
+ * Body parser is applied ONLY to POST routes to ensure fair
+ * comparison with other frameworks. This matches the behavior
+ * of Hono where body parsing only happens when actually needed.
  */
 
-const Koa = require('koa');
-const Router = require('koa-router');
-const bodyParser = require('koa-bodyparser');
+import Koa from 'koa';
+import bodyParser from 'koa-bodyparser';
+import Router from 'koa-router';
 
 const app = new Koa();
 const router = new Router();
 
-// Body parser for POST routes
-app.use(bodyParser({ jsonLimit: '1mb' }));
+// Body parser middleware (will be applied conditionally)
+const parseBody = bodyParser({ jsonLimit: '1mb' });
 
 // Test Routes
 
-// 1. Hello World - Baseline performance
+// 1. Hello World - Baseline performance (no body parser overhead)
 router.get('/', async ctx => {
   ctx.body = { message: 'Hello World' };
 });
 
-// 2. Route Parameters - Router performance
+// 2. Route Parameters - Router performance (no body parser overhead)
 router.get('/users/:id', async ctx => {
   const { id } = ctx.params;
   ctx.body = {
@@ -35,7 +40,7 @@ router.get('/users/:id', async ctx => {
   };
 });
 
-// 3. Query Strings - Query parsing
+// 3. Query Strings - Query parsing (no body parser overhead)
 router.get('/search', async ctx => {
   const { q = '', limit = '10' } = ctx.query;
   ctx.body = {
@@ -48,8 +53,8 @@ router.get('/search', async ctx => {
   };
 });
 
-// 4. POST JSON - Body parser performance
-router.post('/users', async ctx => {
+// 4. POST JSON - Body parser applied ONLY here (fair comparison)
+router.post('/users', parseBody, async ctx => {
   const data = ctx.request.body;
   ctx.body = {
     success: true,
@@ -86,4 +91,4 @@ process.on('SIGINT', () => {
   });
 });
 
-module.exports = { app, server };
+export { app, server };

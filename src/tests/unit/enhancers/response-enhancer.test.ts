@@ -5,8 +5,8 @@
  */
 
 import {
-  ResponseEnhancer,
-  type EnhancedResponse,
+    ResponseEnhancer,
+    type EnhancedResponse,
 } from '@/core/enhancers/response-enhancer';
 import type { ServerResponse } from 'node:http';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -161,7 +161,7 @@ describe('ResponseEnhancer', () => {
       enhancedRes.sendFile('/path/to/file.txt');
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
-        'text/plain'
+        'text/plain; charset=utf-8'
       );
       expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Length', 1024);
     });
@@ -178,10 +178,10 @@ describe('ResponseEnhancer', () => {
   describe('Smart File Operations', () => {
     it('should get content type from extension', () => {
       expect(enhancedRes.getContentTypeFromExtension('.html')).toBe(
-        'text/html'
+        'text/html; charset=utf-8'
       );
       expect(enhancedRes.getContentTypeFromExtension('.json')).toBe(
-        'application/json'
+        'application/json; charset=utf-8'
       );
       expect(enhancedRes.getContentTypeFromExtension('.unknown')).toBe(
         'application/octet-stream'
@@ -456,14 +456,16 @@ describe('ResponseEnhancer', () => {
   describe('Content Type Utilities', () => {
     it('should get content type from extension', () => {
       expect(enhancedRes.getContentTypeFromExtension('.html')).toBe(
-        'text/html'
+        'text/html; charset=utf-8'
       );
-      expect(enhancedRes.getContentTypeFromExtension('.css')).toBe('text/css');
+      expect(enhancedRes.getContentTypeFromExtension('.css')).toBe(
+        'text/css; charset=utf-8'
+      );
       expect(enhancedRes.getContentTypeFromExtension('.js')).toBe(
-        'application/javascript'
+        'application/javascript; charset=utf-8'
       );
       expect(enhancedRes.getContentTypeFromExtension('.json')).toBe(
-        'application/json'
+        'application/json; charset=utf-8'
       );
       expect(enhancedRes.getContentTypeFromExtension('.png')).toBe('image/png');
       expect(enhancedRes.getContentTypeFromExtension('.pdf')).toBe(

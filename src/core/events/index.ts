@@ -1,80 +1,95 @@
 /**
  * NextRush v2 Event System - Complete Export
  *
- * @version 2.0.0
- * @author NextRush Core Team
+ * This module provides a complete event-driven architecture with:
+ * - High-performance event emission and subscription
+ * - CQRS (Command/Query Responsibility Segregation)
+ * - Event Sourcing with aggregate streams
+ * - Pipeline-based event processing
+ * - Simple string-based event API facade
+ *
+ * @packageDocumentation
  */
 
-// Core Event System
+// ============================================================================
+// Event System (Main entry point)
+// ============================================================================
+
 export {
-  createDefaultEventSystem,
-  createEventSystem,
-  EventSystemBuilder,
-  NextRushEventSystem,
-} from './event-system';
+  createDefaultEventSystem, createEventSystem, createEventSystemBuilder, EventSystemBuilder, NextRushEventSystem, type CommandHandler, type EventSystemConfig, type QueryHandler
+} from './system';
 
-export type {
-  CommandHandler,
-  EventSystemConfig,
-  QueryHandler,
-} from './event-system';
+// ============================================================================
+// Simple Events API (Express-style facade)
+// ============================================================================
 
+export {
+  createSimpleEventsAPI, SimpleEventsAPI, type SimpleEventHandler
+} from './system';
+
+// ============================================================================
 // Event Emitter
-export {
-  createEvent,
-  createEventMetadata,
-  isEventOfType,
-  NextRushEventEmitter,
-} from './event-emitter';
+// ============================================================================
 
+export { NextRushEventEmitter } from './emitter';
+
+// ============================================================================
 // Event Store
+// ============================================================================
+
 export {
   createEventStore,
-  EventStoreBuilder,
-  EventStoreFactory,
-  InMemoryEventStore,
-  PersistentEventStore,
-} from './event-store';
+  createEventStoreInstance, EventStoreBuilder, EventStoreFactory, InMemoryEventStore,
+  PersistentEventStore, type EventStoreOptions, type EventStoreType, type LoadByAggregateOptions, type LoadByCorrelationOptions, type LoadByTypeOptions
+} from './store';
 
-// Re-export types from types/events
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+export {
+  createDomainEvent, createEvent, createEventMetadata, DEFAULT_EVENT_SOURCE,
+  DEFAULT_EVENT_VERSION, generateEventId,
+  generatePrefixedId, isDomainEvent, isEventOfType
+} from './utils/event-helpers';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+export {
+  EMITTER_CONSTANTS, PIPELINE_ERROR_STRATEGIES, STORE_CONSTANTS,
+  SYSTEM_CONSTANTS,
+  SYSTEM_EVENT_TYPES
+} from './utils/constants';
+
+// ============================================================================
+// Types (re-exported from types/events)
+// ============================================================================
+
 export type {
   ApplicationStartedEvent,
-  ApplicationStoppedEvent,
-  BaseEventMetadata,
+  ApplicationStoppedEvent, BaseEventMetadata,
+  // Built-in events
   BuiltInEvent,
   BuiltInEventType,
-  BuiltInSystemEvent,
-  Command,
-  DomainEvent,
+  BuiltInSystemEvent, Command, DomainEvent,
   // Base types
-  Event,
-  // Bus types
-  EventBus,
-  EventEmitter,
-  EventFilter,
+  Event, EventBus,
+  // Emitter types
+  EventEmitter, EventFilter,
   // Handler types
   EventHandler,
   EventHandlerDefinition,
   // Metrics types
   EventMetrics,
-  EventPipelineConfig,
   // Pipeline types
+  EventPipelineConfig,
   EventPipelineMiddleware,
   EventPipelineStage,
   // Store types
   EventStore,
-  EventStoreStats,
-  EventSubscription,
-  EventTransformer,
-  MemoryWarningEvent,
-  PerformanceWarningEvent,
-  PipelineStats,
-  PluginErrorEvent,
-  PluginLoadedEvent,
-  Query,
-  RequestCompletedEvent,
-  RequestFailedEvent,
-  // Built-in events
-  RequestStartedEvent,
-  SystemEvent,
+  EventStoreStats, EventSubscription, EventTransformer, MemoryWarningEvent,
+  PerformanceWarningEvent, PipelineStats, PluginErrorEvent, PluginLoadedEvent, Query, RequestCompletedEvent,
+  RequestFailedEvent, RequestStartedEvent, SystemEvent
 } from '../../types/events';
