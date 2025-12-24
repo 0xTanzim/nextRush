@@ -1,0 +1,62 @@
+{
+  "name": "@nextrush/template",
+  "version": "3.0.0-alpha.1",
+  "description": "Modern template engine for NextRush - Mustache-like syntax with helpers, partials, layouts, and streaming",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "nextrush",
+    "template",
+    "templating",
+    "mustache",
+    "handlebars",
+    "html",
+    "render"
+  ],
+  "author": "Tanzim Hossain <tanzimhossain2@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xtanzim/nextrush.git",
+    "directory": "packages/plugins/template"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@nextrush/core": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
+  },
+  "peerDependencies": {
+    "@nextrush/core": "^3.0.0-alpha.1"
+  },
+  "peerDependenciesMeta": {
+    "@nextrush/core": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
