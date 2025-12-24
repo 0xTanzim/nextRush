@@ -1,0 +1,58 @@
+{
+  "name": "nextrush",
+  "version": "3.0.0-alpha.1",
+  "description": "Minimal, modular, blazing fast Node.js framework",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "framework",
+    "web",
+    "http",
+    "server",
+    "minimal",
+    "fast",
+    "typescript",
+    "nodejs"
+  ],
+  "author": "NextRush Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xtanzim/nextrush.git",
+    "directory": "packages/nextrush"
+  },
+  "homepage": "https://nextrush.dev",
+  "bugs": {
+    "url": "https://github.com/0xtanzim/nextrush/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@nextrush/core": "workspace:*",
+    "@nextrush/router": "workspace:*",
+    "@nextrush/adapter-node": "workspace:*",
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  }
+}
