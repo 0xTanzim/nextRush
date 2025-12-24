@@ -2,9 +2,9 @@
  * @nextrush/core - Application Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { Application, createApp } from '../application';
 import type { Context, Middleware, Plugin } from '@nextrush/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Application, createApp } from '../application';
 
 // Mock context for testing
 function createMockContext(overrides: Partial<Context> = {}): Context {

@@ -2,9 +2,9 @@
  * @nextrush/core - Middleware Composition Tests
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { compose, isMiddleware, flattenMiddleware } from '../middleware';
 import type { Context, Middleware } from '@nextrush/types';
+import { describe, expect, it, vi } from 'vitest';
+import { compose, flattenMiddleware, isMiddleware } from '../middleware';
 
 // Mock context for testing
 function createMockContext(): Context {

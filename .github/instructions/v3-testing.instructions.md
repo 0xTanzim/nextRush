@@ -69,7 +69,7 @@ describe('compose', () => {
 
   it('should execute middleware in order', async () => {
     const order: number[] = [];
-    
+
     const middleware: Middleware[] = [
       async (ctx, next) => { order.push(1); await next(); order.push(4); },
       async (ctx, next) => { order.push(2); await next(); order.push(3); },
