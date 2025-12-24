@@ -1,0 +1,62 @@
+{
+  "name": "@nextrush/static",
+  "version": "3.0.0-alpha.1",
+  "description": "High-performance static file serving middleware for NextRush",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "nextrush",
+    "static",
+    "files",
+    "serve",
+    "middleware",
+    "http",
+    "server"
+  ],
+  "author": "NextRush Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nextrush/nextrush.git",
+    "directory": "packages/plugins/static"
+  },
+  "bugs": {
+    "url": "https://github.com/nextrush/nextrush/issues"
+  },
+  "homepage": "https://github.com/nextrush/nextrush#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@nextrush/core": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@nextrush/core": {
+      "optional": true
+    }
+  }
+}
