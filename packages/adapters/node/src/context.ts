@@ -8,17 +8,47 @@
  */
 
 import type {
-  Context,
-  ContextState,
-  HttpMethod,
-  IncomingHeaders,
-  QueryParams,
-  RawHttp,
-  ResponseBody,
-  RouteParams,
+    Context,
+    ContextState,
+    HttpMethod,
+    IncomingHeaders,
+    QueryParams,
+    RawHttp,
+    ResponseBody,
+    RouteParams,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { parseQueryString } from './utils';
+
+/**
+ * HTTP error class for ctx.throw()
+ */
+export class HttpError extends Error {
+  readonly status: number;
+  readonly expose: boolean;
+
+  constructor(status: number, message?: string) {
+    const defaultMessages: Record<number, string> = {
+      400: 'Bad Request',
+      401: 'Unauthorized',
+      403: 'Forbidden',
+      404: 'Not Found',
+      405: 'Method Not Allowed',
+      409: 'Conflict',
+      422: 'Unprocessable Entity',
+      429: 'Too Many Requests',
+      500: 'Internal Server Error',
+      502: 'Bad Gateway',
+      503: 'Service Unavailable',
+    };
+
+    super(message ?? defaultMessages[status] ?? 'Unknown Error');
+    this.name = 'HttpError';
+    this.status = status;
+    this.expose = status < 500;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
 
 /**
  * Node.js Context implementation
@@ -195,6 +225,26 @@ export class NodeContext implements Context {
   async next(): Promise<void> {
     if (this._next) {
       await this._next();
+    }
+  }
+
+  // ===========================================================================
+  // Error Helpers
+  // ===========================================================================
+
+  /**
+   * Throw an HTTP error
+   */
+  throw(status: number, message?: string): never {
+    throw new HttpError(status, message);
+  }
+
+  /**
+   * Assert a condition, throw if falsy
+   */
+  assert(condition: unknown, status: number, message?: string): asserts condition {
+    if (!condition) {
+      throw new HttpError(status, message);
     }
   }
 

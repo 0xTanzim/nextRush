@@ -1,0 +1,63 @@
+{
+  "name": "@nextrush/cookies",
+  "version": "3.0.0-alpha.1",
+  "description": "Cookie parsing and serialization middleware for NextRush",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "nextrush",
+    "middleware",
+    "cookies",
+    "cookie-parser",
+    "http",
+    "web"
+  ],
+  "author": "NextRush Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nextrush/nextrush.git",
+    "directory": "packages/middleware/cookies"
+  },
+  "bugs": {
+    "url": "https://github.com/nextrush/nextrush/issues"
+  },
+  "homepage": "https://github.com/nextrush/nextrush#readme",
+  "dependencies": {
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsup": "^8.0.0",
+    "vitest": "^2.0.0",
+    "rimraf": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

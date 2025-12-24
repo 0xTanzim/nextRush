@@ -13,7 +13,7 @@ export { createHandler, listen, serve } from './adapter';
 export type { ServeOptions, ServerInstance } from './adapter';
 
 // Context
-export { NodeContext, createNodeContext } from './context';
+export { HttpError, NodeContext, createNodeContext } from './context';
 
 // Utilities
 export { getContentLength, getContentType, parseQueryString } from './utils';

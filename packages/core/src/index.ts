@@ -12,7 +12,7 @@
 
 // Application
 export { Application, createApp } from './application';
-export type { ApplicationOptions, ListenCallback } from './application';
+export type { ApplicationOptions, ErrorHandler, ListenCallback } from './application';
 
 // Middleware
 export { compose, flattenMiddleware, isMiddleware } from './middleware';
@@ -20,15 +20,15 @@ export type { ComposedMiddleware } from './middleware';
 
 // Errors
 export {
-  BadRequestError, createHttpError, ForbiddenError, HttpError, InternalServerError, NextRushError, NotFoundError, UnauthorizedError
+    BadRequestError, ForbiddenError, HttpError, InternalServerError, NextRushError, NotFoundError, UnauthorizedError, createHttpError
 } from './errors';
 
 // Re-export types for convenience
 export type {
-  Context, ContextState, HttpMethod,
-  HttpStatusCode, Middleware,
-  Next, Plugin,
-  PluginWithHooks, QueryParams, RouteHandler, RouteParams
+    Context, ContextState, HttpMethod,
+    HttpStatusCode, Middleware,
+    Next, Plugin,
+    PluginWithHooks, QueryParams, RouteHandler, RouteParams
 } from '@nextrush/types';
 
 // Re-export constants

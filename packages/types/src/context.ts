@@ -211,6 +211,42 @@ export interface Context {
   redirect(url: string, status?: number): void;
 
   // =========================================================================
+  // ERROR HELPERS
+  // =========================================================================
+
+  /**
+   * Throw an HTTP error - stops execution and triggers error handler
+   *
+   * @param status - HTTP status code
+   * @param message - Error message (optional)
+   * @throws HttpError
+   *
+   * @example
+   * ```typescript
+   * ctx.throw(404, 'User not found');
+   * ctx.throw(401); // Uses default message "Unauthorized"
+   * ```
+   */
+  throw(status: number, message?: string): never;
+
+  /**
+   * Assert a condition, throw if falsy
+   *
+   * @param condition - Condition to check
+   * @param status - HTTP status code if assertion fails
+   * @param message - Error message (optional)
+   * @throws HttpError if condition is falsy
+   *
+   * @example
+   * ```typescript
+   * ctx.assert(user, 404, 'User not found');
+   * ctx.assert(user.isAdmin, 403, 'Admin access required');
+   * ctx.assert(ctx.body, 400); // Uses default "Bad Request"
+   * ```
+   */
+  assert(condition: unknown, status: number, message?: string): asserts condition;
+
+  // =========================================================================
   // HEADER HELPERS
   // =========================================================================
 

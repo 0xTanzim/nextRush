@@ -8,19 +8,19 @@
  */
 
 import type {
-  Context,
-  HttpMethod,
-  Middleware,
-  RouteHandler,
-  RouteMatch,
-  RouterOptions,
+    Context,
+    HttpMethod,
+    Middleware,
+    RouteHandler,
+    RouteMatch,
+    RouterOptions,
 } from '@nextrush/types';
 import {
-  createNode,
-  NodeType,
-  parseSegments,
-  type HandlerEntry,
-  type RadixNode,
+    createNode,
+    NodeType,
+    parseSegments,
+    type HandlerEntry,
+    type RadixNode,
 } from './radix-tree';
 
 /**
@@ -203,6 +203,53 @@ export class Router {
 
   route(method: HttpMethod, path: string, ...handlers: RouteHandler[]): this {
     this.addRoute(method, path, handlers);
+    return this;
+  }
+
+  /**
+   * Register a redirect route from one path to another
+   *
+   * @param from - Source path to redirect from
+   * @param to - Target path or URL to redirect to
+   * @param status - HTTP status code (default: 301 permanent redirect)
+   * @returns this for chaining
+   *
+   * @example
+   * ```typescript
+   * // Permanent redirect (301)
+   * router.redirect('/old-page', '/new-page');
+   *
+   * // Temporary redirect (302)
+   * router.redirect('/temp', '/destination', 302);
+   *
+   * // Redirect to external URL
+   * router.redirect('/docs', 'https://docs.example.com');
+   *
+   * // With parameters - redirects /users/:id to /profiles/:id
+   * router.redirect('/users/:id', '/profiles/:id');
+   * ```
+   */
+  redirect(from: string, to: string, status: 301 | 302 | 303 | 307 | 308 = 301): this {
+    const redirectHandler: RouteHandler = (ctx: Context) => {
+      // Support parameter interpolation in target path
+      let targetPath = to;
+
+      // Replace :param placeholders with actual values from ctx.params
+      if (ctx.params && targetPath.includes(':')) {
+        for (const [key, value] of Object.entries(ctx.params)) {
+          targetPath = targetPath.replace(`:${key}`, value);
+        }
+      }
+
+      ctx.status = status;
+      ctx.set('Location', targetPath);
+      ctx.body = '';
+    };
+
+    // Register for all common methods that might be redirected
+    this.addRoute('GET', from, [redirectHandler]);
+    this.addRoute('HEAD', from, [redirectHandler]);
+
     return this;
   }
 
@@ -418,6 +465,208 @@ export class Router {
       ctx.status = 405;
       ctx.set('Allow', allowed.join(', '));
     };
+  }
+
+  // ===========================================================================
+  // Route Groups
+  // ===========================================================================
+
+  /**
+   * Create a route group with shared prefix and middleware
+   *
+   * @param prefix - Path prefix for all routes in the group
+   * @param middlewareOrCallback - Middleware array or callback function
+   * @param callback - Callback function if middleware is provided
+   * @returns this for chaining
+   *
+   * @example
+   * ```typescript
+   * // Simple group with prefix
+   * router.group('/api', (r) => {
+   *   r.get('/users', listUsers);
+   *   r.get('/posts', listPosts);
+   * });
+   *
+   * // Group with middleware
+   * router.group('/admin', [authMiddleware], (r) => {
+   *   r.get('/dashboard', dashboard);
+   *   r.post('/settings', updateSettings);
+   * });
+   *
+   * // Nested groups
+   * router.group('/api/v1', (r) => {
+   *   r.group('/users', [rateLimit], (ur) => {
+   *     ur.get('/', listUsers);
+   *     ur.get('/:id', getUser);
+   *   });
+   * });
+   * ```
+   */
+  group(
+    prefix: string,
+    middlewareOrCallback: Middleware[] | ((router: Router) => void),
+    callback?: (router: Router) => void
+  ): this {
+    let middleware: Middleware[] = [];
+    let cb: (router: Router) => void;
+
+    if (Array.isArray(middlewareOrCallback)) {
+      middleware = middlewareOrCallback;
+      if (!callback) {
+        throw new Error('Callback function is required when providing middleware array');
+      }
+      cb = callback;
+    } else {
+      cb = middlewareOrCallback;
+    }
+
+    // Create a temporary router to collect routes
+    const groupRouter = new GroupRouter(this, prefix, middleware);
+
+    // Execute callback with the group router
+    cb(groupRouter as unknown as Router);
+
+    return this;
+  }
+
+  /**
+   * Internal method to add route with group context
+   * @internal
+   */
+  _addGroupRoute(
+    method: HttpMethod,
+    path: string,
+    handlers: RouteHandler[],
+    groupMiddleware: Middleware[]
+  ): void {
+    this.addRoute(method, path, handlers, groupMiddleware);
+  }
+}
+
+/**
+ * Internal router class for handling route groups
+ * Wraps the parent router and adds prefix/middleware to all routes
+ * @internal
+ */
+class GroupRouter {
+  private readonly parent: Router;
+  private readonly prefix: string;
+  private readonly middleware: Middleware[];
+
+  constructor(parent: Router, prefix: string, middleware: Middleware[]) {
+    this.parent = parent;
+    this.prefix = prefix;
+    this.middleware = middleware;
+  }
+
+  private fullPath(path: string): string {
+    // Handle root path in group
+    if (path === '/' || path === '') {
+      return this.prefix;
+    }
+    // Combine prefix and path
+    const cleanPrefix = this.prefix.endsWith('/') ? this.prefix.slice(0, -1) : this.prefix;
+    const cleanPath = path.startsWith('/') ? path : '/' + path;
+    return cleanPrefix + cleanPath;
+  }
+
+  get(path: string, ...handlers: RouteHandler[]): this {
+    this.parent._addGroupRoute('GET', this.fullPath(path), handlers, this.middleware);
+    return this;
+  }
+
+  post(path: string, ...handlers: RouteHandler[]): this {
+    this.parent._addGroupRoute('POST', this.fullPath(path), handlers, this.middleware);
+    return this;
+  }
+
+  put(path: string, ...handlers: RouteHandler[]): this {
+    this.parent._addGroupRoute('PUT', this.fullPath(path), handlers, this.middleware);
+    return this;
+  }
+
+  delete(path: string, ...handlers: RouteHandler[]): this {
+    this.parent._addGroupRoute('DELETE', this.fullPath(path), handlers, this.middleware);
+    return this;
+  }
+
+  patch(path: string, ...handlers: RouteHandler[]): this {
+    this.parent._addGroupRoute('PATCH', this.fullPath(path), handlers, this.middleware);
+    return this;
+  }
+
+  head(path: string, ...handlers: RouteHandler[]): this {
+    this.parent._addGroupRoute('HEAD', this.fullPath(path), handlers, this.middleware);
+    return this;
+  }
+
+  options(path: string, ...handlers: RouteHandler[]): this {
+    this.parent._addGroupRoute('OPTIONS', this.fullPath(path), handlers, this.middleware);
+    return this;
+  }
+
+  all(path: string, ...handlers: RouteHandler[]): this {
+    for (const method of HTTP_METHODS) {
+      this.parent._addGroupRoute(method, this.fullPath(path), handlers, this.middleware);
+    }
+    return this;
+  }
+
+  /**
+   * Register a redirect within the group
+   */
+  redirect(from: string, to: string, status: 301 | 302 | 303 | 307 | 308 = 301): this {
+    const redirectHandler: RouteHandler = (ctx: Context) => {
+      let targetPath = to;
+
+      if (ctx.params && targetPath.includes(':')) {
+        for (const [key, value] of Object.entries(ctx.params)) {
+          targetPath = targetPath.replace(`:${key}`, value);
+        }
+      }
+
+      ctx.status = status;
+      ctx.set('Location', targetPath);
+      ctx.body = '';
+    };
+
+    this.parent._addGroupRoute('GET', this.fullPath(from), [redirectHandler], this.middleware);
+    this.parent._addGroupRoute('HEAD', this.fullPath(from), [redirectHandler], this.middleware);
+
+    return this;
+  }
+
+  /**
+   * Nested group support
+   */
+  group(
+    prefix: string,
+    middlewareOrCallback: Middleware[] | ((router: GroupRouter) => void),
+    callback?: (router: GroupRouter) => void
+  ): this {
+    let nestedMiddleware: Middleware[] = [];
+    let cb: (router: GroupRouter) => void;
+
+    if (Array.isArray(middlewareOrCallback)) {
+      nestedMiddleware = middlewareOrCallback;
+      if (!callback) {
+        throw new Error('Callback function is required when providing middleware array');
+      }
+      cb = callback;
+    } else {
+      cb = middlewareOrCallback;
+    }
+
+    // Create nested group with combined prefix and middleware
+    const nestedRouter = new GroupRouter(
+      this.parent,
+      this.fullPath(prefix),
+      [...this.middleware, ...nestedMiddleware]
+    );
+
+    cb(nestedRouter);
+
+    return this;
   }
 }
 

@@ -11,6 +11,11 @@ import type { Context, Middleware, Plugin } from '@nextrush/types';
 import { compose } from './middleware';
 
 /**
+ * Error handler function type
+ */
+export type ErrorHandler = (error: Error, ctx: Context) => void | Promise<void>;
+
+/**
  * Application options
  */
 export interface ApplicationOptions {
@@ -57,6 +62,11 @@ export class Application {
    * Installed plugins
    */
   private readonly plugins: Map<string, Plugin> = new Map();
+
+  /**
+   * Custom error handler
+   */
+  private _errorHandler: ErrorHandler | null = null;
 
   /**
    * Application options
@@ -129,11 +139,42 @@ export class Application {
   }
 
   // ===========================================================================
+  // Error Handling
+  // ===========================================================================
+
+  /**
+   * Set custom error handler
+   *
+   * @param handler - Error handler function
+   * @returns this for chaining
+   *
+   * @example
+   * ```typescript
+   * app.onError((error, ctx) => {
+   *   console.error('Request failed:', error);
+   *
+   *   if (error instanceof ValidationError) {
+   *     ctx.status = 400;
+   *     ctx.json({ error: error.message, details: error.details });
+   *     return;
+   *   }
+   *
+   *   ctx.status = 500;
+   *   ctx.json({ error: 'Internal Server Error' });
+   * });
+   * ```
+   */
+  onError(handler: ErrorHandler): this {
+    this._errorHandler = handler;
+    return this;
+  }
+
+  // ===========================================================================
   // Plugin System
   // ===========================================================================
 
   /**
-   * Install a plugin
+   * Install a plugin (synchronous)
    *
    * @param plugin - Plugin to install
    * @returns this for chaining
@@ -148,16 +189,35 @@ export class Application {
       throw new Error(`Plugin "${plugin.name}" is already installed`);
     }
 
-    // Install the plugin
     const result = plugin.install(this);
 
-    // Handle async installation
     if (result instanceof Promise) {
-      // For async plugins, we need to handle this differently
-      // In v3, we might want to make app.start() async
-      throw new Error('Async plugin installation is not yet supported. Use synchronous install().');
+      throw new Error(
+        `Plugin "${plugin.name}" has async install(). Use app.pluginAsync() instead.`
+      );
     }
 
+    this.plugins.set(plugin.name, plugin);
+    return this;
+  }
+
+  /**
+   * Install a plugin asynchronously
+   *
+   * @param plugin - Plugin to install
+   * @returns Promise that resolves when plugin is installed
+   *
+   * @example
+   * ```typescript
+   * await app.pluginAsync(new DatabasePlugin({ connectionString: '...' }));
+   * ```
+   */
+  async pluginAsync(plugin: Plugin): Promise<this> {
+    if (this.plugins.has(plugin.name)) {
+      throw new Error(`Plugin "${plugin.name}" is already installed`);
+    }
+
+    await plugin.install(this);
     this.plugins.set(plugin.name, plugin);
     return this;
   }
@@ -198,32 +258,50 @@ export class Application {
       try {
         await fn(ctx);
       } catch (error) {
-        // Default error handling
-        // Plugins/middleware can add more sophisticated error handling
-        this.handleError(error, ctx);
+        await this.handleError(error, ctx);
       }
     };
   }
 
   /**
+   * Handle errors - uses custom handler if set, otherwise default
+   */
+  private async handleError(error: unknown, ctx: Context): Promise<void> {
+    const err = error instanceof Error ? error : new Error(String(error));
+
+    // Use custom error handler if set
+    if (this._errorHandler) {
+      try {
+        await this._errorHandler(err, ctx);
+        return;
+      } catch (handlerError) {
+        // If custom handler throws, fall through to default handling
+        console.error('Error handler threw:', handlerError);
+      }
+    }
+
+    // Default error handling
+    this.defaultErrorHandler(err, ctx);
+  }
+
+  /**
    * Default error handler
    */
-  private handleError(error: unknown, ctx: Context): void {
+  private defaultErrorHandler(error: Error, ctx: Context): void {
     // Log in development
     if (!this.isProduction) {
       console.error('Request error:', error);
     }
 
     // Set error response
-    if (error instanceof Error && 'status' in error) {
-      ctx.status = (error as Error & { status: number }).status;
+    if ('status' in error && typeof error.status === 'number') {
+      ctx.status = error.status;
     } else {
       ctx.status = 500;
     }
 
     // Only expose error message in development
-    const message =
-      error instanceof Error && !this.isProduction ? error.message : 'Internal Server Error';
+    const message = !this.isProduction ? error.message : 'Internal Server Error';
 
     ctx.json({ error: message });
   }

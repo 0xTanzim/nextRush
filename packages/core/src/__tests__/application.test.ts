@@ -255,4 +255,166 @@ describe('Application', () => {
       expect(app.hasPlugin('cleanup-test')).toBe(false);
     });
   });
+
+  describe('onError()', () => {
+    it('should register custom error handler', () => {
+      const errorHandler = vi.fn();
+      const result = app.onError(errorHandler);
+
+      expect(result).toBe(app);
+    });
+
+    it('should use custom error handler when error occurs', async () => {
+      const errorHandler = vi.fn((_error, ctx) => {
+        ctx.status = 400;
+        ctx.json({ custom: 'error' });
+      });
+
+      app.onError(errorHandler);
+
+      app.use(async () => {
+        throw new Error('Test error');
+      });
+
+      const handler = app.callback();
+      const ctx = createMockContext();
+
+      await handler(ctx);
+
+      expect(errorHandler).toHaveBeenCalled();
+      expect(ctx.json).toHaveBeenCalledWith({ custom: 'error' });
+    });
+
+    it('should pass error and context to handler', async () => {
+      const errorHandler = vi.fn();
+
+      app.onError(errorHandler);
+
+      const testError = new Error('Specific error');
+      app.use(async () => {
+        throw testError;
+      });
+
+      const handler = app.callback();
+      const ctx = createMockContext();
+
+      await handler(ctx);
+
+      expect(errorHandler).toHaveBeenCalledWith(testError, ctx);
+    });
+
+    it('should fall back to default handler if custom handler throws', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const errorHandler = vi.fn(() => {
+        throw new Error('Handler error');
+      });
+
+      app.onError(errorHandler);
+
+      app.use(async () => {
+        throw new Error('Original error');
+      });
+
+      const handler = app.callback();
+      const ctx = createMockContext();
+
+      await handler(ctx);
+
+      expect(ctx.status).toBe(500);
+      expect(ctx.json).toHaveBeenCalledWith({ error: 'Original error' });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should support async error handlers', async () => {
+      const errorHandler = vi.fn(async (_error, ctx) => {
+        await new Promise(resolve => setTimeout(resolve, 1));
+        ctx.status = 503;
+        ctx.json({ async: 'handler' });
+      });
+
+      app.onError(errorHandler);
+
+      app.use(async () => {
+        throw new Error('Test');
+      });
+
+      const handler = app.callback();
+      const ctx = createMockContext();
+
+      await handler(ctx);
+
+      expect(errorHandler).toHaveBeenCalled();
+      expect(ctx.json).toHaveBeenCalledWith({ async: 'handler' });
+    });
+  });
+
+  describe('pluginAsync()', () => {
+    it('should install async plugin', async () => {
+      const plugin: Plugin = {
+        name: 'async-plugin',
+        install: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const result = await app.pluginAsync(plugin);
+
+      expect(result).toBe(app);
+      expect(plugin.install).toHaveBeenCalledWith(app);
+      expect(app.hasPlugin('async-plugin')).toBe(true);
+    });
+
+    it('should wait for async installation', async () => {
+      let installed = false;
+
+      const plugin: Plugin = {
+        name: 'slow-plugin',
+        install: vi.fn(async () => {
+          await new Promise(resolve => setTimeout(resolve, 10));
+          installed = true;
+        }),
+      };
+
+      await app.pluginAsync(plugin);
+
+      expect(installed).toBe(true);
+    });
+
+    it('should throw if async plugin already installed', async () => {
+      const plugin: Plugin = {
+        name: 'dup-async',
+        install: vi.fn().mockResolvedValue(undefined),
+      };
+
+      await app.pluginAsync(plugin);
+
+      await expect(app.pluginAsync(plugin)).rejects.toThrow(
+        'Plugin "dup-async" is already installed'
+      );
+    });
+
+    it('should work with synchronous install in pluginAsync', async () => {
+      const plugin: Plugin = {
+        name: 'sync-via-async',
+        install: vi.fn(),
+      };
+
+      await app.pluginAsync(plugin);
+
+      expect(app.hasPlugin('sync-via-async')).toBe(true);
+    });
+  });
+
+  describe('plugin() with async install', () => {
+    it('should throw helpful error for async plugins', () => {
+      const plugin: Plugin = {
+        name: 'async-in-sync',
+        install: vi.fn().mockResolvedValue(undefined),
+      };
+
+      expect(() => app.plugin(plugin)).toThrow(
+        'Plugin "async-in-sync" has async install(). Use app.pluginAsync() instead.'
+      );
+    });
+  });
 });

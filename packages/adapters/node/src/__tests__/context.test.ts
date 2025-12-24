@@ -256,6 +256,159 @@ describe('NodeContext', () => {
   });
 });
 
+describe('throw()', () => {
+  let req: IncomingMessage;
+  let res: ServerResponse;
+  let ctx: NodeContext;
+
+  beforeEach(() => {
+    req = createMockReq();
+    res = createMockRes();
+    ctx = new NodeContext(req, res);
+  });
+
+  it('should throw HttpError with status and message', () => {
+    expect(() => ctx.throw(404, 'User not found')).toThrow('User not found');
+    try {
+      ctx.throw(404, 'User not found');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe('User not found');
+      expect((error as { status: number }).status).toBe(404);
+    }
+  });
+
+  it('should throw HttpError with default message for status', () => {
+    try {
+      ctx.throw(401);
+    } catch (error) {
+      expect((error as Error).message).toBe('Unauthorized');
+      expect((error as { status: number }).status).toBe(401);
+    }
+  });
+
+  it('should throw 400 Bad Request', () => {
+    try {
+      ctx.throw(400);
+    } catch (error) {
+      expect((error as Error).message).toBe('Bad Request');
+      expect((error as { status: number }).status).toBe(400);
+    }
+  });
+
+  it('should throw 403 Forbidden', () => {
+    try {
+      ctx.throw(403);
+    } catch (error) {
+      expect((error as Error).message).toBe('Forbidden');
+      expect((error as { status: number }).status).toBe(403);
+    }
+  });
+
+  it('should throw 500 Internal Server Error', () => {
+    try {
+      ctx.throw(500);
+    } catch (error) {
+      expect((error as Error).message).toBe('Internal Server Error');
+      expect((error as { status: number }).status).toBe(500);
+      expect((error as { expose: boolean }).expose).toBe(false);
+    }
+  });
+
+  it('should set expose=true for client errors (4xx)', () => {
+    try {
+      ctx.throw(404);
+    } catch (error) {
+      expect((error as { expose: boolean }).expose).toBe(true);
+    }
+  });
+
+  it('should set expose=false for server errors (5xx)', () => {
+    try {
+      ctx.throw(503);
+    } catch (error) {
+      expect((error as { expose: boolean }).expose).toBe(false);
+    }
+  });
+});
+
+describe('assert()', () => {
+  let req: IncomingMessage;
+  let res: ServerResponse;
+  let ctx: NodeContext;
+
+  beforeEach(() => {
+    req = createMockReq();
+    res = createMockRes();
+    ctx = new NodeContext(req, res);
+  });
+
+  it('should not throw when condition is truthy', () => {
+    expect(() => ctx.assert(true, 400)).not.toThrow();
+    expect(() => ctx.assert(1, 400)).not.toThrow();
+    expect(() => ctx.assert('value', 400)).not.toThrow();
+    expect(() => ctx.assert({}, 400)).not.toThrow();
+    expect(() => ctx.assert([], 400)).not.toThrow();
+  });
+
+  it('should throw when condition is false', () => {
+    expect(() => ctx.assert(false, 400, 'Validation failed')).toThrow('Validation failed');
+  });
+
+  it('should throw when condition is null', () => {
+    expect(() => ctx.assert(null, 404, 'Not found')).toThrow('Not found');
+  });
+
+  it('should throw when condition is undefined', () => {
+    expect(() => ctx.assert(undefined, 404, 'Not found')).toThrow('Not found');
+  });
+
+  it('should throw when condition is 0', () => {
+    expect(() => ctx.assert(0, 400, 'Invalid value')).toThrow('Invalid value');
+  });
+
+  it('should throw when condition is empty string', () => {
+    expect(() => ctx.assert('', 400, 'Empty value')).toThrow('Empty value');
+  });
+
+  it('should use default message when not provided', () => {
+    try {
+      ctx.assert(false, 400);
+    } catch (error) {
+      expect((error as Error).message).toBe('Bad Request');
+    }
+  });
+
+  it('should set correct status code', () => {
+    try {
+      ctx.assert(null, 404, 'Resource not found');
+    } catch (error) {
+      expect((error as { status: number }).status).toBe(404);
+    }
+  });
+
+  it('should work with user authentication pattern', () => {
+    const user = null;
+    expect(() => ctx.assert(user, 401, 'Authentication required')).toThrow('Authentication required');
+  });
+
+  it('should work with authorization pattern', () => {
+    const user = { isAdmin: false };
+    expect(() => ctx.assert(user.isAdmin, 403, 'Admin access required')).toThrow('Admin access required');
+  });
+
+  it('should work with body validation pattern', () => {
+    ctx.body = null;
+    expect(() => ctx.assert(ctx.body, 400, 'Request body required')).toThrow('Request body required');
+  });
+
+  it('should narrow type with asserts', () => {
+    const maybeUser: { name: string } | null = { name: 'John' };
+    ctx.assert(maybeUser, 404, 'User not found');
+    expect(maybeUser.name).toBe('John');
+  });
+});
+
 describe('createNodeContext', () => {
   it('should create NodeContext instance', () => {
     const req = createMockReq();

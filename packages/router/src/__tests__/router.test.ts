@@ -320,4 +320,278 @@ describe('Router', () => {
       expect(order).toEqual([1, 2, 3]);
     });
   });
+
+  describe('route groups', () => {
+    it('should create a group with prefix', () => {
+      router.group('/api', (r) => {
+        r.get('/users', vi.fn());
+        r.get('/posts', vi.fn());
+      });
+
+      expect(router.match('GET', '/api/users')).not.toBeNull();
+      expect(router.match('GET', '/api/posts')).not.toBeNull();
+    });
+
+    it('should create a group with middleware', async () => {
+      const order: number[] = [];
+      const groupMiddleware = vi.fn(async (_ctx: Context, next?: () => Promise<void>) => {
+        order.push(1);
+        if (next) await next();
+      });
+
+      const handler = vi.fn(async () => {
+        order.push(2);
+      });
+
+      router.group('/admin', [groupMiddleware], (r) => {
+        r.get('/dashboard', handler);
+      });
+
+      const ctx = createMockContext({ method: 'GET', path: '/admin/dashboard' });
+      await router.routes()(ctx, async () => {});
+
+      expect(groupMiddleware).toHaveBeenCalled();
+      expect(handler).toHaveBeenCalled();
+      expect(order).toEqual([1, 2]);
+    });
+
+    it('should support nested groups', () => {
+      router.group('/api', (r) => {
+        r.group('/v1', (v1) => {
+          v1.get('/users', vi.fn());
+        });
+        r.group('/v2', (v2) => {
+          v2.get('/users', vi.fn());
+        });
+      });
+
+      expect(router.match('GET', '/api/v1/users')).not.toBeNull();
+      expect(router.match('GET', '/api/v2/users')).not.toBeNull();
+    });
+
+    it('should combine middleware in nested groups', async () => {
+      const order: number[] = [];
+
+      const outerMw = vi.fn(async (_ctx: Context, next?: () => Promise<void>) => {
+        order.push(1);
+        if (next) await next();
+      });
+
+      const innerMw = vi.fn(async (_ctx: Context, next?: () => Promise<void>) => {
+        order.push(2);
+        if (next) await next();
+      });
+
+      const handler = vi.fn(async () => {
+        order.push(3);
+      });
+
+      router.group('/api', [outerMw], (r) => {
+        r.group('/users', [innerMw], (ur) => {
+          ur.get('/', handler);
+        });
+      });
+
+      const ctx = createMockContext({ method: 'GET', path: '/api/users' });
+      await router.routes()(ctx, async () => {});
+
+      expect(order).toEqual([1, 2, 3]);
+    });
+
+    it('should support all HTTP methods in groups', () => {
+      router.group('/api', (r) => {
+        r.get('/resource', vi.fn());
+        r.post('/resource', vi.fn());
+        r.put('/resource/:id', vi.fn());
+        r.delete('/resource/:id', vi.fn());
+        r.patch('/resource/:id', vi.fn());
+      });
+
+      expect(router.match('GET', '/api/resource')).not.toBeNull();
+      expect(router.match('POST', '/api/resource')).not.toBeNull();
+      expect(router.match('PUT', '/api/resource/1')).not.toBeNull();
+      expect(router.match('DELETE', '/api/resource/1')).not.toBeNull();
+      expect(router.match('PATCH', '/api/resource/1')).not.toBeNull();
+    });
+
+    it('should handle root path in groups', () => {
+      router.group('/api', (r) => {
+        r.get('/', vi.fn());
+      });
+
+      expect(router.match('GET', '/api')).not.toBeNull();
+    });
+
+    it('should extract params in group routes', () => {
+      router.group('/users', (r) => {
+        r.get('/:id', vi.fn());
+        r.get('/:id/posts/:postId', vi.fn());
+      });
+
+      const match1 = router.match('GET', '/users/42');
+      expect(match1?.params.id).toBe('42');
+
+      const match2 = router.match('GET', '/users/1/posts/2');
+      expect(match2?.params.id).toBe('1');
+      expect(match2?.params.postid).toBe('2');
+    });
+
+    it('should throw if callback is missing with middleware array', () => {
+      expect(() => {
+        router.group('/api', [vi.fn()] as any);
+      }).toThrow('Callback function is required');
+    });
+
+    it('should support .all() in groups', () => {
+      router.group('/api', (r) => {
+        r.all('/any', vi.fn());
+      });
+
+      expect(router.match('GET', '/api/any')).not.toBeNull();
+      expect(router.match('POST', '/api/any')).not.toBeNull();
+      expect(router.match('PUT', '/api/any')).not.toBeNull();
+    });
+  });
+
+  describe('redirect', () => {
+    it('should register redirect route with default 301 status', async () => {
+      router.redirect('/old', '/new');
+
+      const match = router.match('GET', '/old');
+      expect(match).not.toBeNull();
+
+      const ctx = createMockContext({ method: 'GET', path: '/old' });
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.status).toBe(301);
+      expect(ctx.set).toHaveBeenCalledWith('Location', '/new');
+    });
+
+    it('should support custom redirect status codes', async () => {
+      router.redirect('/temp', '/destination', 302);
+
+      const ctx = createMockContext({ method: 'GET', path: '/temp' });
+      const match = router.match('GET', '/temp');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.status).toBe(302);
+    });
+
+    it('should support 303 See Other', async () => {
+      router.redirect('/see-other', '/target', 303);
+
+      const ctx = createMockContext({ method: 'GET', path: '/see-other' });
+      const match = router.match('GET', '/see-other');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.status).toBe(303);
+    });
+
+    it('should support 307 Temporary Redirect', async () => {
+      router.redirect('/temporary', '/target', 307);
+
+      const ctx = createMockContext({ method: 'GET', path: '/temporary' });
+      const match = router.match('GET', '/temporary');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.status).toBe(307);
+    });
+
+    it('should support 308 Permanent Redirect', async () => {
+      router.redirect('/permanent', '/target', 308);
+
+      const ctx = createMockContext({ method: 'GET', path: '/permanent' });
+      const match = router.match('GET', '/permanent');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.status).toBe(308);
+    });
+
+    it('should register redirect for HEAD method', () => {
+      router.redirect('/old', '/new');
+
+      const headMatch = router.match('HEAD', '/old');
+      expect(headMatch).not.toBeNull();
+    });
+
+    it('should redirect to external URLs', async () => {
+      router.redirect('/docs', 'https://docs.example.com');
+
+      const ctx = createMockContext({ method: 'GET', path: '/docs' });
+      const match = router.match('GET', '/docs');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.set).toHaveBeenCalledWith('Location', 'https://docs.example.com');
+    });
+
+    it('should support parameter interpolation in target path', async () => {
+      router.redirect('/users/:id', '/profiles/:id');
+
+      const ctx = createMockContext({
+        method: 'GET',
+        path: '/users/42',
+        params: { id: '42' },
+      });
+
+      const match = router.match('GET', '/users/42');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.set).toHaveBeenCalledWith('Location', '/profiles/42');
+    });
+
+    it('should support multiple parameters in redirect', async () => {
+      router.redirect('/old/:type/:id', '/new/:type/item/:id');
+
+      const ctx = createMockContext({
+        method: 'GET',
+        path: '/old/product/123',
+        params: { type: 'product', id: '123' },
+      });
+
+      const match = router.match('GET', '/old/product/123');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.set).toHaveBeenCalledWith('Location', '/new/product/item/123');
+    });
+
+    it('should set empty body on redirect', async () => {
+      router.redirect('/old', '/new');
+
+      const ctx = createMockContext({ method: 'GET', path: '/old' });
+      const match = router.match('GET', '/old');
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.body).toBe('');
+    });
+
+    it('should work in route groups', async () => {
+      router.group('/api/v1', (r) => {
+        r.redirect('/old-endpoint', '/api/v2/new-endpoint');
+      });
+
+      const match = router.match('GET', '/api/v1/old-endpoint');
+      expect(match).not.toBeNull();
+
+      const ctx = createMockContext({
+        method: 'GET',
+        path: '/api/v1/old-endpoint',
+      });
+      await match!.handler(ctx, async () => {});
+
+      expect(ctx.status).toBe(301);
+      expect(ctx.set).toHaveBeenCalledWith('Location', '/api/v2/new-endpoint');
+    });
+
+    it('should support chaining', () => {
+      const result = router
+        .redirect('/a', '/b')
+        .redirect('/c', '/d')
+        .get('/e', vi.fn());
+
+      expect(result).toBe(router);
+      expect(router.match('GET', '/a')).not.toBeNull();
+      expect(router.match('GET', '/c')).not.toBeNull();
+      expect(router.match('GET', '/e')).not.toBeNull();
+    });
+  });
 });
