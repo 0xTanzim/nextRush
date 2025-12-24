@@ -68,7 +68,16 @@ export class Router {
    * Normalize path based on router options
    */
   private normalizePath(path: string): string {
-    let normalized = this.opts.prefix + path;
+    // Handle prefix with trailing slash and path with leading slash
+    let prefix = this.opts.prefix;
+    if (prefix.endsWith('/') && path.startsWith('/')) {
+      prefix = prefix.slice(0, -1);
+    }
+
+    let normalized = prefix + path;
+
+    // Remove any double slashes
+    normalized = normalized.replace(/\/+/g, '/');
 
     // Only lowercase for case-insensitive matching of static segments
     // Parameter names are preserved separately in parseSegments
@@ -257,7 +266,10 @@ export class Router {
    * Match a route and return handler + params
    */
   match(method: HttpMethod, path: string): RouteMatch | null {
-    const normalized = this.opts.caseSensitive ? path : path.toLowerCase();
+    let normalized = this.opts.caseSensitive ? path : path.toLowerCase();
+
+    // Normalize double slashes
+    normalized = normalized.replace(/\/+/g, '/');
 
     // For strict mode, keep trailing slash; otherwise remove it
     let cleanPath = normalized;
