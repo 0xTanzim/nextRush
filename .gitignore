@@ -8,10 +8,13 @@ dist/
 build/
 **/dist/
 **/build/
-# draft/
+
+# Turbo cache
+.turbo/
+**/.turbo/
+
 # ===== DEVELOPMENT FILES =====
 # IDE & Editor files
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -53,56 +56,27 @@ pids
 *.pid.lock
 
 # ===== BENCHMARK & TEST RESULTS =====
-# Benchmark result files (CRITICAL: NO RESULTS IN NPM!)
+# Benchmark result files
 benchmark-results.json
 **/benchmark-results.json
 **/results/
-professional-benchmarks/results/
-professional-benchmarks/results/**
-
-
-
-benchmark/results/
-benchmark/dist/
 
 # Test artifacts
 coverage/
+**/coverage/
 .nyc_output/
 *.lcov
-
-# ===== LEGACY & BACKUP FILES =====
-# Old code and backups (NO GARBAGE IN NPM!)
-NextRush_Src_Old/
-BACKUPS/
-backup/
-*.backup
-*.bak
-*.old
-*.orig
-*.tmp
-
-# Example files (exclude from production)
-examples/
 
 # ===== TYPESCRIPT BUILD ARTIFACTS =====
 *.tsbuildinfo
 tsconfig.tsbuildinfo
 
 # ===== NPM & PACKAGE MANAGERS =====
-# Package manager locks (keep pnpm-lock.yaml for consistency)
-# npm-shrinkwrap.json
+# Keep pnpm-lock.yaml for consistency
 package-lock.json
 yarn.lock
 
-# ===== CLINIC.JS & PERFORMANCE TOOLS =====
-# Clinic.js generated files
-clinic/
-**/clinic/
-*.clinic
-isolate-*.log
-
 # ===== TEMPORARY FILES =====
-# Temporary directories
 tmp/
 temp/
 .tmp/
@@ -114,44 +88,16 @@ temp/
 .next/
 .nuxt/
 
-# ===== SECURITY & SENSITIVE =====
-# Security scan results
-.security/
-security-report.*
-
 # ===== MISC DEVELOPMENT =====
-# ESLint cache
 .eslintcache
-
-# Prettier cache
 .prettierache
-
-# Optional npm cache directory
 .npm
 
-# Optional eslint cache
-.eslintcache
+# Clinic.js
+clinic/
+**/clinic/
+*.clinic
+isolate-*.log
 
-find-my-way
-find-my-way/
-
-
-/v2/benchmarks/reports/
-v2/benchmarks/reports/
-
+# Cursor AI
 .cursor
-
-.github/instrcution-copilote
-
-
-
-v2/benchmarks/temp-backup
-v2/benchmarks/temp-backup/
-
-
-/mnt/storage/project/MyExpress/v2/coverage
-/mnt/storage/project/MyExpress/v2/coverage/
-
-v2/coverage
-
-/v1

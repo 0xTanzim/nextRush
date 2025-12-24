@@ -1,0 +1,67 @@
+{
+  "name": "@nextrush/core",
+  "version": "3.0.0-alpha.1",
+  "description": "Core functionality for NextRush framework - Application, Context, Middleware",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "clean": "rm -rf dist .turbo"
+  },
+  "keywords": [
+    "nextrush",
+    "framework",
+    "http",
+    "server",
+    "middleware",
+    "context"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/0xTanzim/nextrush/issues"
+  },
+  "homepage": "https://github.com/0xTanzim/nextrush#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,5 +1,6 @@
 packages:
-  - "."
-  - "performance"
-  - "tools/*"
-  - "examples/*"
+  - 'packages/*'
+  - 'packages/middleware/*'
+  - 'packages/plugins/*'
+  - 'packages/adapters/*'
+  - 'apps/*'
