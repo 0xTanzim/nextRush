@@ -1,0 +1,52 @@
+{
+  "name": "@nextrush/rate-limit",
+  "version": "3.0.0-alpha.1",
+  "description": "Production-grade rate limiting middleware for NextRush with multiple algorithms",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.9"
+  },
+  "keywords": [
+    "nextrush",
+    "rate-limit",
+    "rate-limiter",
+    "middleware",
+    "token-bucket",
+    "sliding-window",
+    "api-limit",
+    "throttle"
+  ],
+  "author": "NextRush Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xtanzim/nextrush.git",
+    "directory": "packages/middleware/rate-limit"
+  }
+}
