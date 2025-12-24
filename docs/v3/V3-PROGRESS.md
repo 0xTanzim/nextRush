@@ -11,12 +11,14 @@
 | Category | Completed | Total | Progress |
 |----------|-----------|-------|----------|
 | Core Packages | 4 | 4 | ✅ 100% |
-| Middleware Packages | 0 | 6 | 🔲 0% |
+| Middleware Packages | 4 | 6 | ✅ 67% |
 | Plugin Packages | 0 | 4 | 🔲 0% |
 | Meta Package | 0 | 1 | 🔲 0% |
 | Documentation | 1 | 5 | 🔲 20% |
 
-**Tests**: 157 passing across all packages (42 core + 74 router + 41 adapter-node)
+**Tests**: 497 passing across all packages
+- Core: 42 | Router: 74 | Adapter-Node: 41
+- Errors: 172 | CORS: 39 | Helmet: 64 | Body-Parser: 65
 
 ---
 
@@ -31,13 +33,19 @@
 | `@nextrush/router` | ✅ Done | 3.0.0-alpha.1 | 74 | ~550 | Full edge case support |
 | `@nextrush/adapter-node` | ✅ Done | 3.0.0-alpha.1 | 41 | ~400 | Node.js HTTP adapter |
 
-### 🔲 Middleware Layer (NOT STARTED)
+### ✅ Middleware Layer (Phase 2 COMPLETE)
+
+| Package | Status | Version | Tests | LOC | Notes |
+|---------|--------|---------|-------|-----|-------|
+| `@nextrush/errors` | ✅ Done | 3.0.0-alpha.1 | 172 | ~600 | HTTP errors, error handler middleware |
+| `@nextrush/cors` | ✅ Done | 3.0.0-alpha.1 | 39 | ~250 | Full CORS support with preflights |
+| `@nextrush/helmet` | ✅ Done | 3.0.0-alpha.1 | 64 | ~300 | Security headers (CSP, HSTS, etc.) |
+| `@nextrush/body-parser` | ✅ Done | 3.0.0-alpha.1 | 65 | ~600 | JSON, form, text, raw parsing |
+
+### 🔲 Additional Middleware (Future)
 
 | Package | Status | Priority | Description |
 |---------|--------|----------|-------------|
-| `@nextrush/cors` | 🔲 Not Started | P0 | CORS headers |
-| `@nextrush/helmet` | 🔲 Not Started | P0 | Security headers |
-| `@nextrush/body-parser` | 🔲 Not Started | P0 | JSON/form body parsing |
 | `@nextrush/compression` | 🔲 Not Started | P1 | Response compression |
 | `@nextrush/rate-limit` | 🔲 Not Started | P1 | Rate limiting |
 | `@nextrush/request-id` | 🔲 Not Started | P2 | Request ID generation |
@@ -50,12 +58,6 @@
 | `@nextrush/static` | 🔲 Not Started | P1 | Static file serving |
 | `@nextrush/websocket` | 🔲 Not Started | P2 | WebSocket support |
 | `@nextrush/events` | 🔲 Not Started | P2 | Event system (CQRS) |
-
-### 🔲 Error Handling (PROPOSED)
-
-| Package | Status | Priority | Description |
-|---------|--------|----------|-------------|
-| `@nextrush/errors` | 📋 Proposed | P0 | Standardized error classes |
 
 ### 🔲 Meta Package (NOT STARTED)
 

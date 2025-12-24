@@ -5,7 +5,7 @@
  * unicode, overlapping routes, and performance scenarios.
  */
 
-import type { Context, HttpMethod, RouteHandler } from '@nextrush/types';
+import type { Context, RouteHandler } from '@nextrush/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRouter, Router } from '../router';
 
