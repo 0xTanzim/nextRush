@@ -20,6 +20,14 @@ import Router from 'koa-router';
 const app = new Koa();
 const router = new Router();
 
+// Suppress EPIPE errors during high-load benchmarks
+app.on('error', (err) => {
+  if (err.code === 'EPIPE' || err.code === 'ECONNRESET') {
+    return;
+  }
+  console.error('Koa server error:', err);
+});
+
 // Body parser middleware (will be applied conditionally)
 const parseBody = bodyParser({ jsonLimit: '1mb' });
 

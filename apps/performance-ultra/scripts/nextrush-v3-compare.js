@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * 📈 NextRush Benchmark Comparison Tool
+ * 📈 NextRush v3 Benchmark Comparison Tool
  *
  * Compare benchmark results over time to track performance improvements
- * and regressions.
+ * and regressions for NextRush v3.
  *
  * Features:
  * - List all benchmark history with dates and labels
@@ -13,13 +13,13 @@
  * - Highlight improvements and regressions
  *
  * Usage:
- *   pnpm bench:nextrush:history           # List all runs
- *   pnpm bench:nextrush:compare           # Compare latest with previous
- *   pnpm bench:nextrush:compare <id1> <id2>  # Compare specific runs
- *   pnpm bench:nextrush:compare --trend   # Show trend over last 5 runs
+ *   pnpm bench:v3:history           # List all runs
+ *   pnpm bench:v3:compare           # Compare latest with previous
+ *   pnpm bench:v3:compare <id1> <id2>  # Compare specific runs
+ *   pnpm bench:v3:compare --trend   # Show trend over last 5 runs
  *
  * @author NextRush Team
- * @version 2.0.0
+ * @version 3.0.0
  */
 
 import fs from 'fs';
@@ -29,7 +29,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PERFORMANCE_DIR = path.join(__dirname, '..');
-const RESULTS_BASE = path.join(PERFORMANCE_DIR, 'results', 'nextrush');
+const RESULTS_BASE = path.join(PERFORMANCE_DIR, 'results', 'nextrush-v3');
 
 // Colors for terminal output
 const c = {
@@ -152,14 +152,14 @@ function showHistory() {
   const runs = getAllRuns();
 
   if (runs.length === 0) {
-    console.log(`${c.yellow}No benchmark results found.${c.reset}`);
-    console.log(`Run ${c.cyan}pnpm bench:nextrush${c.reset} to create your first benchmark.`);
+    console.log(`${c.yellow}No benchmark results found for NextRush v3.${c.reset}`);
+    console.log(`Run ${c.cyan}pnpm bench:v3${c.reset} to create your first benchmark.`);
     return;
   }
 
   console.log('');
   console.log(`${c.magenta}╔══════════════════════════════════════════════════════════════════════════════════════╗${c.reset}`);
-  console.log(`${c.magenta}║${c.reset}                        ${c.bold}📊 NextRush Benchmark History${c.reset}                               ${c.magenta}║${c.reset}`);
+  console.log(`${c.magenta}║${c.reset}                        ${c.bold}📊 NextRush v3 Benchmark History${c.reset}                            ${c.magenta}║${c.reset}`);
   console.log(`${c.magenta}╚══════════════════════════════════════════════════════════════════════════════════════╝${c.reset}`);
   console.log('');
 
@@ -197,9 +197,9 @@ function showHistory() {
   console.log(`${c.dim}Total: ${runs.length} benchmark run(s)${c.reset}`);
   console.log('');
   console.log(`${c.yellow}💡 Commands:${c.reset}`);
-  console.log(`   ${c.cyan}pnpm bench:nextrush:compare${c.reset}         Compare latest with previous`);
-  console.log(`   ${c.cyan}pnpm bench:nextrush:compare 1 3${c.reset}     Compare run #1 with run #3`);
-  console.log(`   ${c.cyan}pnpm bench:nextrush:trend${c.reset}           Show performance trend`);
+  console.log(`   ${c.cyan}pnpm bench:v3:compare${c.reset}         Compare latest with previous`);
+  console.log(`   ${c.cyan}pnpm bench:v3:compare 1 3${c.reset}     Compare run #1 with run #3`);
+  console.log(`   ${c.cyan}pnpm bench:v3:trend${c.reset}           Show performance trend`);
   console.log('');
 }
 
@@ -211,7 +211,7 @@ function compareRuns(id1, id2) {
 
   if (runs.length < 2) {
     console.log(`${c.yellow}Need at least 2 benchmark runs to compare.${c.reset}`);
-    console.log(`Run ${c.cyan}pnpm bench:nextrush${c.reset} to create more benchmarks.`);
+    console.log(`Run ${c.cyan}pnpm bench:v3${c.reset} to create more benchmarks.`);
     return;
   }
 
@@ -223,7 +223,7 @@ function compareRuns(id1, id2) {
     run2 = runs.find((r) => r.id === parseInt(id2, 10));
 
     if (!run1 || !run2) {
-      console.log(`${c.red}Invalid run ID(s). Use ${c.cyan}pnpm bench:nextrush:history${c.red} to see available runs.${c.reset}`);
+      console.log(`${c.red}Invalid run ID(s). Use ${c.cyan}pnpm bench:v3:history${c.red} to see available runs.${c.reset}`);
       return;
     }
   } else {
@@ -233,7 +233,7 @@ function compareRuns(id1, id2) {
 
   console.log('');
   console.log(`${c.cyan}╔══════════════════════════════════════════════════════════════════════════════════════╗${c.reset}`);
-  console.log(`${c.cyan}║${c.reset}                        ${c.bold}📈 Benchmark Comparison${c.reset}                                       ${c.cyan}║${c.reset}`);
+  console.log(`${c.cyan}║${c.reset}                        ${c.bold}📈 NextRush v3 Benchmark Comparison${c.reset}                                   ${c.cyan}║${c.reset}`);
   console.log(`${c.cyan}╚══════════════════════════════════════════════════════════════════════════════════════╝${c.reset}`);
   console.log('');
 
@@ -402,13 +402,13 @@ function main() {
 
   if (args.includes('--help') || args.includes('-h')) {
     console.log('');
-    console.log(`${c.bold}NextRush Benchmark Comparison Tool${c.reset}`);
+    console.log(`${c.bold}NextRush v3 Benchmark Comparison Tool${c.reset}`);
     console.log('');
     console.log('Usage:');
-    console.log(`  ${c.cyan}pnpm bench:nextrush:history${c.reset}         List all benchmark runs`);
-    console.log(`  ${c.cyan}pnpm bench:nextrush:compare${c.reset}         Compare latest with previous`);
-    console.log(`  ${c.cyan}pnpm bench:nextrush:compare 1 3${c.reset}     Compare run #1 with run #3`);
-    console.log(`  ${c.cyan}pnpm bench:nextrush:trend${c.reset}           Show performance trend`);
+    console.log(`  ${c.cyan}pnpm bench:v3:history${c.reset}         List all benchmark runs`);
+    console.log(`  ${c.cyan}pnpm bench:v3:compare${c.reset}         Compare latest with previous`);
+    console.log(`  ${c.cyan}pnpm bench:v3:compare 1 3${c.reset}     Compare run #1 with run #3`);
+    console.log(`  ${c.cyan}pnpm bench:v3:trend${c.reset}           Show performance trend`);
     console.log('');
     return;
   }

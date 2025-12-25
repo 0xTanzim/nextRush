@@ -1,0 +1,37 @@
+{
+  "name": "nextrush-performance-benchmarksx",
+  "version": "3.0.0",
+  "description": "Enterprise-grade performance benchmarks for NextRush v3 vs Express, Fastify, Koa, and Hono",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "pnpm install",
+    "bench": "node scripts/benchmark-all.js",
+    "bench:quick": "node scripts/benchmark-all.js --quick",
+    "bench:v3": "node scripts/nextrush-v3-benchmark.js",
+    "bench:v3:quick": "node scripts/nextrush-v3-benchmark.js --quick",
+    "bench:v3:compare": "node scripts/nextrush-v3-compare.js",
+    "bench:v3:history": "node scripts/nextrush-v3-compare.js --history",
+    "bench:v3:trend": "node scripts/nextrush-v3-compare.js --trend",
+    "clean": "rm -rf results",
+    "clean:all": "rm -rf results"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.13.1",
+    "autocannon": "^8.0.0",
+    "express": "^5.1.0",
+    "fastify": "^5.6.1",
+    "hono": "^4.6.0",
+    "koa": "^3.0.1",
+    "koa-bodyparser": "^4.4.1",
+    "koa-router": "^14.0.0",
+    "nextrushx": "workspace:*",
+    "@nextrush/body-parser": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "nextrush": "^2.0.1"
+  }
+}

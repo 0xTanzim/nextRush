@@ -14,7 +14,7 @@
  * always-on body parsing.
  */
 
-import { createApp } from '../../dist/index.mjs';
+import { createApp } from 'nextrush';
 
 const app = createApp({
   port: 3000,
