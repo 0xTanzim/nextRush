@@ -1,0 +1,21 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "composite": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@nextrush/types": ["../../types/src/index.ts"],
+      "@nextrush/core": ["../../core/src/index.ts"],
+      "@nextrush/router": ["../../router/src/index.ts"],
+      "@nextrush/decorators": ["../../decorators/src/index.ts"],
+      "@nextrush/di": ["../../di/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}
