@@ -20,18 +20,22 @@
 |---------|-------------|--------|
 | `@nextrush/types` | Shared TypeScript types | ✅ Ready |
 | `@nextrush/core` | Application, Middleware | ✅ Ready |
-| `@nextrush/router` | Radix tree routing | 🚧 Coming |
-| `@nextrush/adapter-node` | Node.js HTTP adapter | 🚧 Coming |
-| `@nextrush/cors` | CORS middleware | 🚧 Coming |
-| `@nextrush/body-parser` | Body parsing middleware | 🚧 Coming |
-| `nextrush` | Meta package | 🚧 Coming |
+| `@nextrush/router` | Radix tree routing | ✅ Ready |
+| `@nextrush/adapter-node` | Node.js HTTP adapter | ✅ Ready |
+| `@nextrush/di` | Dependency Injection | ✅ Ready |
+| `@nextrush/decorators` | Controller Decorators | ✅ Ready |
+| `@nextrush/events` | Type-safe Event Emitter | ✅ Ready |
+| `@nextrush/template` | Universal Template Engine | ✅ Ready |
+| `@nextrush/static` | Static File Serving | ✅ Ready |
+| `@nextrush/websocket` | WebSocket Support | ✅ Ready |
+| `@nextrush/rate-limit` | Rate Limiting | ✅ Ready |
+| `@nextrush/dev` | Hot-reload Dev Server | ✅ Ready |
+| `nextrush` | Meta package | ✅ Ready |
 
 ## 🚀 Quick Start
 
 ```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
+import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
 const router = createRouter();
@@ -42,23 +46,22 @@ router.get('/users/:id', async (ctx) => {
   ctx.json({ id, name: 'John' });
 });
 
-router.post('/users', async (ctx) => {
-  const userData = ctx.body; // Input
-  ctx.status = 201;
-  ctx.json({ user: userData }); // Output
-});
-
-// Modern middleware syntax
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next(); // Clean, modern syntax
-  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
-});
-
 app.use(router.routes());
 
-listen(app, { port: 3000 });
+listen(app, 3000);
 ```
+
+## 🗺️ Roadmap to v3 Stable
+
+- [x] **Modular Monorepo** - Turborepo + pnpm workspaces
+- [x] **Core Refactor** - Minimal core (< 3,000 LOC)
+- [x] **High-Performance Router** - Radix tree implementation
+- [x] **Essential Middleware** - CORS, Body Parser, Rate Limit, etc.
+- [x] **Plugin System** - Events, Static, WebSocket, Templates
+- [ ] **Documentation Site** - VitePress powered docs
+- [ ] **CI/CD Pipeline** - Automated testing and publishing
+- [ ] **Stable Release** - v3.0.0 GA
+
 
 ## 🎯 Design Philosophy
 

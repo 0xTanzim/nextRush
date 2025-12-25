@@ -7,6 +7,8 @@
  * @packageDocumentation
  */
 
+import { StringDecoder } from 'string_decoder';
+
 /**
  * Minimal context interface for body-parser middleware
  */
@@ -14,10 +16,12 @@ export interface BodyParserContext {
   method: string;
   path: string;
   headers: Record<string, string | string[] | undefined>;
-  req: {
-    on(event: 'data', listener: (chunk: Buffer) => void): void;
-    on(event: 'end', listener: () => void): void;
-    on(event: 'error', listener: (err: Error) => void): void;
+  raw: {
+    req: {
+      on(event: 'data', listener: (chunk: Buffer) => void): void;
+      on(event: 'end', listener: () => void): void;
+      on(event: 'error', listener: (err: Error) => void): void;
+    };
   };
   body?: unknown;
   rawBody?: Buffer;
@@ -105,6 +109,41 @@ export class BodyParserError extends Error {
   }
 }
 
+// ============================================================================
+// PERFORMANCE OPTIMIZATIONS
+// ============================================================================
+
+/**
+ * Optimized buffer to string conversion using StringDecoder
+ */
+function bufferToString(buffer: Buffer): string {
+  if (buffer.length === 0) return '';
+
+  // Fast path for small buffers
+  if (buffer.length < 1024) {
+    return buffer.toString('utf8');
+  }
+
+  // Use StringDecoder for large buffers (better performance)
+  const decoder = new StringDecoder('utf8');
+  return decoder.write(buffer) + decoder.end();
+}
+
+// Pre-compiled content-type pattern for JSON
+const JSON_CONTENT_TYPE_PATTERN = /^application\/(?:json|[^;]*\+json)(?:;|$)/i;
+
+/**
+ * Fast content-type check for JSON
+ */
+function isJsonContentType(contentType: string | undefined): boolean {
+  if (!contentType) return false;
+  return JSON_CONTENT_TYPE_PATTERN.test(contentType);
+}
+
+// ============================================================================
+// CORE FUNCTIONS
+// ============================================================================
+
 /**
  * Parse limit string to bytes (e.g., '1mb' -> 1048576)
  */
@@ -169,31 +208,39 @@ function getContentLength(headers: Record<string, string | string[] | undefined>
 }
 
 /**
- * Read body from request stream
+ * OPTIMIZED: Read body from request stream
+ *
+ * Key optimizations:
+ * 1. Inline handlers to avoid closure allocation
+ * 2. Single chunk optimization (avoid concat for most requests)
+ * 3. Content-length pre-validation
  */
-async function readBody(
+function readBody(
   ctx: BodyParserContext,
   limit: number
 ): Promise<Buffer> {
+  const contentLength = getContentLength(ctx.headers);
+
+  // Pre-check content-length if available (synchronous rejection)
+  if (contentLength !== undefined && contentLength > limit) {
+    return Promise.reject(new BodyParserError(
+      `Request body too large (${contentLength} bytes exceeds ${limit} byte limit)`,
+      413,
+      'ENTITY_TOO_LARGE'
+    ));
+  }
+
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let received = 0;
+    let rejected = false;
 
-    const contentLength = getContentLength(ctx.headers);
+    const onData = (chunk: Buffer): void => {
+      if (rejected) return;
 
-    // Pre-check content-length if available
-    if (contentLength !== undefined && contentLength > limit) {
-      reject(new BodyParserError(
-        `Request body too large (${contentLength} bytes exceeds ${limit} byte limit)`,
-        413,
-        'ENTITY_TOO_LARGE'
-      ));
-      return;
-    }
-
-    ctx.req.on('data', (chunk: Buffer) => {
       received += chunk.length;
       if (received > limit) {
+        rejected = true;
         reject(new BodyParserError(
           `Request body too large (exceeds ${limit} byte limit)`,
           413,
@@ -202,19 +249,33 @@ async function readBody(
         return;
       }
       chunks.push(chunk);
-    });
+    };
 
-    ctx.req.on('end', () => {
-      resolve(Buffer.concat(chunks));
-    });
+    const onEnd = (): void => {
+      if (rejected) return;
+      // Single chunk optimization: avoid Buffer.concat for most requests
+      if (chunks.length === 0) {
+        resolve(Buffer.alloc(0));
+      } else if (chunks.length === 1) {
+        resolve(chunks[0]!);
+      } else {
+        resolve(Buffer.concat(chunks, received));
+      }
+    };
 
-    ctx.req.on('error', (err: Error) => {
+    const onError = (err: Error): void => {
+      if (rejected) return;
+      rejected = true;
       reject(new BodyParserError(
         `Error reading request body: ${err.message}`,
         400,
         'BODY_READ_ERROR'
       ));
-    });
+    };
+
+    ctx.raw.req.on('data', onData);
+    ctx.raw.req.on('end', onEnd);
+    ctx.raw.req.on('error', onError);
   });
 }
 
@@ -341,6 +402,7 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
 
   const limitBytes = parseLimit(limit, 1024 * 1024); // 1MB default
   const types = Array.isArray(type) ? type : [type];
+  const useSimpleCheck = types.length === 1 && types[0] === 'application/json';
 
   return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip non-body methods
@@ -349,14 +411,18 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
       return;
     }
 
-    // Check content type
+    // Check content type (optimized path for default case)
     const contentType = getContentType(ctx.headers);
-    if (!matchContentType(contentType, types)) {
+    const isMatch = useSimpleCheck
+      ? isJsonContentType(contentType)
+      : matchContentType(contentType, types);
+
+    if (!isMatch) {
       if (next) await next();
       return;
     }
 
-    // Read body
+    // Read body with optimizations
     const buffer = await readBody(ctx, limitBytes);
 
     if (rawBody) {
@@ -370,8 +436,8 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
       return;
     }
 
-    // Parse JSON
-    const str = buffer.toString('utf-8');
+    // Parse JSON with optimized string conversion
+    const str = bufferToString(buffer);
 
     try {
       const parsed = JSON.parse(str, reviver);
@@ -461,8 +527,8 @@ export function urlencoded(options: UrlEncodedOptions = {}): BodyParserMiddlewar
       return;
     }
 
-    // Parse URL-encoded
-    const str = buffer.toString('utf-8');
+    // Parse URL-encoded with optimized string conversion
+    const str = bufferToString(buffer);
 
     try {
       ctx.body = parseUrlEncoded(str, extended, parameterLimit);
@@ -532,7 +598,10 @@ export function text(options: TextOptions = {}): BodyParserMiddleware {
       }
     }
 
-    ctx.body = buffer.toString(charset as BufferEncoding);
+    // Use optimized conversion for UTF-8
+    ctx.body = charset === 'utf-8' || charset === 'utf8'
+      ? bufferToString(buffer)
+      : buffer.toString(charset as BufferEncoding);
 
     if (next) await next();
   };

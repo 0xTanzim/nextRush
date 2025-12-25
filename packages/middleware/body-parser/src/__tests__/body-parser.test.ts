@@ -32,11 +32,13 @@ function createMockContext(
     method,
     path: '/',
     headers,
-    req: {
-      on: (event: string, listener: (arg?: Buffer | Error) => void) => {
-        emitter.on(event, listener);
-      },
-    } as BodyParserContext['req'],
+    raw: {
+      req: {
+        on: (event: string, listener: (arg?: Buffer | Error) => void) => {
+          emitter.on(event, listener);
+        },
+      } as BodyParserContext['raw']['req'],
+    },
   };
 
   // Emit body data after a tick
