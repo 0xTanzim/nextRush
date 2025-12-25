@@ -16,6 +16,8 @@ export {
 
     // Content types
     ContentType,
+    // HTTP methods tuple for iteration
+    HTTP_METHODS,
     // Status codes
     HttpStatus, type CommonHttpMethod, type ContentTypeValue,
     // Method types

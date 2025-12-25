@@ -7,8 +7,7 @@
  * @packageDocumentation
  */
 
-import type { Context } from '@nextrush/types';
-import type { CompressionEncoding, CompressionMiddleware, CompressionOptions } from './types';
+import type { CompressionEncoding, CompressionMiddleware, CompressionOptions, NodeContext } from './types';
 import {
     compressData,
     DEFAULT_COMPRESSIBLE_TYPES,
@@ -19,7 +18,7 @@ import {
 } from './utils';
 
 export type {
-    CompressionAlgorithm, CompressionEncoding, CompressionInfo, CompressionMiddleware, CompressionOptions
+    CompressionAlgorithm, CompressionEncoding, CompressionInfo, CompressionMiddleware, CompressionOptions, NodeContext
 } from './types';
 
 export {
@@ -74,7 +73,7 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
   return async function compressionMiddleware(
-    ctx: Context,
+    ctx: NodeContext,
     next?: () => Promise<void>
   ): Promise<void> {
     if (next) {
@@ -117,7 +116,7 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
 /**
  * Check if response should be compressed
  */
-function shouldCompressResponse(ctx: Context, options: CompressionOptions): boolean {
+function shouldCompressResponse(ctx: NodeContext, options: CompressionOptions): boolean {
   if (ctx.method === 'HEAD') return false;
 
   const status = ctx.status;
@@ -127,22 +126,22 @@ function shouldCompressResponse(ctx: Context, options: CompressionOptions): bool
     return false;
   }
 
-  const contentEncoding = ctx.raw?.res?.getHeader?.('content-encoding');
+  const contentEncoding = ctx.raw.res.getHeader('content-encoding');
   if (contentEncoding && contentEncoding !== 'identity') {
     return false;
   }
 
-  const contentType = ctx.raw?.res?.getHeader?.('content-type') as string | undefined;
+  const contentType = ctx.raw.res.getHeader('content-type') as string | undefined;
   return shouldCompress(contentType, options);
 }
 
 /**
  * Get response body from context
  */
-function getResponseBody(ctx: Context): string | Buffer | object | null {
-  const res = ctx.raw?.res as { body?: unknown } | undefined;
-  if (res?.body !== undefined) {
-    return res.body as string | Buffer | object;
+function getResponseBody(ctx: NodeContext): string | Buffer | object | null {
+  const body = ctx.raw.res.body;
+  if (body !== undefined) {
+    return body as string | Buffer | object;
   }
 
   return null;
@@ -152,22 +151,19 @@ function getResponseBody(ctx: Context): string | Buffer | object | null {
  * Set compressed response on context
  */
 function setCompressedResponse(
-  ctx: Context,
+  ctx: NodeContext,
   compressed: Buffer,
   encoding: CompressionEncoding
 ): void {
   ctx.set('Content-Encoding', encoding);
   ctx.set('Content-Length', compressed.length);
 
-  const vary = ctx.raw?.res?.getHeader?.('vary') as string | undefined;
+  const vary = ctx.raw.res.getHeader('vary') as string | undefined;
   if (!vary?.includes('Accept-Encoding')) {
     ctx.set('Vary', vary ? `${vary}, Accept-Encoding` : 'Accept-Encoding');
   }
 
-  const res = ctx.raw?.res as { body?: unknown } | undefined;
-  if (res) {
-    res.body = compressed;
-  }
+  ctx.raw.res.body = compressed;
 }
 
 /**

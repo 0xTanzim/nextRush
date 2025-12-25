@@ -2,12 +2,12 @@
  * @nextrush/types - HTTP Type Definitions
  *
  * Core HTTP types used across the NextRush framework.
- * These types provide a clean abstraction over Node.js HTTP primitives.
+ * These types provide a clean abstraction over HTTP primitives,
+ * designed to work across multiple runtimes (Node.js, Bun, Deno, Edge).
  *
  * @packageDocumentation
  */
 
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Readable } from 'node:stream';
 
 // ============================================================================
@@ -32,6 +32,19 @@ export type HttpMethod =
  * Common HTTP methods for convenience
  */
 export type CommonHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
+/**
+ * HTTP methods as readonly tuple for iteration
+ */
+export const HTTP_METHODS = [
+  'GET',
+  'POST',
+  'PUT',
+  'DELETE',
+  'PATCH',
+  'HEAD',
+  'OPTIONS',
+] as const satisfies readonly HttpMethod[];
 
 // ============================================================================
 // HTTP Headers Types
@@ -123,12 +136,18 @@ export type ResponseBody =
 // ============================================================================
 
 /**
- * Raw Node.js HTTP objects
- * Provides escape hatch for advanced use cases
+ * Raw HTTP objects - generic to support multiple runtimes
+ *
+ * For Node.js: RawHttp<IncomingMessage, ServerResponse>
+ * For Bun: RawHttp<Request, Response>
+ * For Edge: RawHttp<Request, ResponseInit>
+ *
+ * @typeParam TReq - Raw request type for the runtime
+ * @typeParam TRes - Raw response type for the runtime
  */
-export interface RawHttp {
-  readonly req: IncomingMessage;
-  readonly res: ServerResponse;
+export interface RawHttp<TReq = unknown, TRes = unknown> {
+  readonly req: TReq;
+  readonly res: TRes;
 }
 
 // ============================================================================

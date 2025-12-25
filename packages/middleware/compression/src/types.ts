@@ -1,4 +1,22 @@
 import type { Context } from '@nextrush/types';
+import type { ServerResponse } from 'node:http';
+
+/**
+ * Node.js response with getHeader method
+ */
+export interface NodeResponse extends ServerResponse {
+  body?: unknown;
+}
+
+/**
+ * Node.js specific context for compression middleware
+ */
+export interface NodeContext extends Context {
+  readonly raw: {
+    readonly req: unknown;
+    readonly res: NodeResponse;
+  };
+}
 
 /**
  * Compression algorithm type
@@ -59,7 +77,7 @@ export interface CompressionOptions {
   /**
    * Custom filter function to determine if response should be compressed
    */
-  filter?: (ctx: Context) => boolean;
+  filter?: (ctx: NodeContext) => boolean;
 
   /**
    * Memory level for zlib (1-9)
@@ -87,6 +105,6 @@ export interface CompressionInfo {
  * Compression middleware function type
  */
 export type CompressionMiddleware = (
-  ctx: Context,
+  ctx: NodeContext,
   next?: () => Promise<void>
 ) => Promise<void>;

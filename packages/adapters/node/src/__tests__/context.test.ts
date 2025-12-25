@@ -100,7 +100,9 @@ describe('NodeContext', () => {
       ctx.json({ message: 'hello' });
 
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json; charset=utf-8');
-      expect(res.end).toHaveBeenCalledWith('{"message":"hello"}');
+      // Response is sent as Buffer for performance optimization
+      const expectedBuffer = Buffer.from('{"message":"hello"}', 'utf8');
+      expect(res.end).toHaveBeenCalledWith(expectedBuffer);
     });
 
     it('should set status code', () => {

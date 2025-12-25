@@ -8,14 +8,14 @@
  */
 
 import type {
-    Context,
-    ContextState,
-    HttpMethod,
-    IncomingHeaders,
-    QueryParams,
-    RawHttp,
-    ResponseBody,
-    RouteParams,
+  Context,
+  ContextState,
+  HttpMethod,
+  IncomingHeaders,
+  QueryParams,
+  RawHttp,
+  ResponseBody,
+  RouteParams,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { parseQueryString } from './utils';
@@ -51,16 +51,21 @@ export class HttpError extends Error {
 }
 
 /**
+ * Node.js-specific RawHttp type
+ */
+type NodeRawHttp = RawHttp<IncomingMessage, ServerResponse>;
+
+/**
  * Node.js Context implementation
  */
-export class NodeContext implements Context {
+export class NodeContext implements Omit<Context, 'raw'> {
   readonly method: HttpMethod;
   readonly url: string;
   readonly path: string;
   readonly query: QueryParams;
   readonly headers: IncomingHeaders;
   readonly ip: string;
-  readonly raw: RawHttp;
+  readonly raw: NodeRawHttp;
 
   body: unknown = undefined;
   params: RouteParams = {};
@@ -120,13 +125,13 @@ export class NodeContext implements Context {
     if (this._responded) return;
     this._responded = true;
 
-    const body = JSON.stringify(data);
     const res = this.raw.res;
+    const buffer = Buffer.from(JSON.stringify(data), 'utf8');
 
     res.statusCode = this.status;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Length', Buffer.byteLength(body));
-    res.end(body);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
   }
 
   send(data: ResponseBody): void {

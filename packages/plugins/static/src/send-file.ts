@@ -6,16 +6,15 @@
  * @packageDocumentation
  */
 
-import type { Context } from '@nextrush/types';
 import { createReadStream, promises as fsp } from 'node:fs';
-import type { NormalizedStaticOptions, StatsLike } from './static.types';
+import type { NodeContext, NormalizedStaticOptions, StatsLike } from './static.types';
 import { generateETag, getMimeType, isFresh, parseRange } from './utils';
 
 /**
  * Set common response headers for file serving
  */
 function setFileHeaders(
-  ctx: Context,
+  ctx: NodeContext,
   absolutePath: string,
   stat: StatsLike,
   options: NormalizedStaticOptions
@@ -71,7 +70,7 @@ function setFileHeaders(
  * - Full file streaming
  */
 export async function sendFile(
-  ctx: Context,
+  ctx: NodeContext,
   absolutePath: string,
   stat: StatsLike,
   options: NormalizedStaticOptions
@@ -146,7 +145,7 @@ export async function sendFile(
  * Stream file to response with error handling
  */
 function streamToResponse(
-  ctx: Context,
+  ctx: NodeContext,
   stream: ReturnType<typeof createReadStream>
 ): Promise<void> {
   return new Promise((resolve, reject) => {

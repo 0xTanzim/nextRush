@@ -7,13 +7,14 @@
  * @packageDocumentation
  */
 
-import type {
-    Context,
-    HttpMethod,
-    Middleware,
-    RouteHandler,
-    RouteMatch,
-    RouterOptions,
+import {
+    HTTP_METHODS,
+    type Context,
+    type HttpMethod,
+    type Middleware,
+    type RouteHandler,
+    type RouteMatch,
+    type RouterOptions,
 } from '@nextrush/types';
 import {
     createNode,
@@ -22,19 +23,6 @@ import {
     type HandlerEntry,
     type RadixNode,
 } from './radix-tree';
-
-/**
- * HTTP methods array for iteration
- */
-const HTTP_METHODS: HttpMethod[] = [
-  'GET',
-  'POST',
-  'PUT',
-  'DELETE',
-  'PATCH',
-  'HEAD',
-  'OPTIONS',
-];
 
 /**
  * Router class - High-performance radix tree router

@@ -97,9 +97,13 @@ export function createBuiltinAdapter(config: BuiltinConfig = {}): TemplateAdapte
       options: AdapterRenderOptions = {}
     ): Promise<string> {
       const template = await loadTemplate(filename);
-      let html = await template.renderAsync(data, options);
 
-      const layoutName = options.layout ?? config.layout;
+      // Separate layout from other options to avoid double rendering
+      // or treating layout name as template source
+      const { layout, ...renderOptions } = options;
+      let html = await template.renderAsync(data, renderOptions as any);
+
+      const layoutName = layout ?? config.layout;
       if (layoutName) {
         html = await applyLayout(html, layoutName, data);
       }

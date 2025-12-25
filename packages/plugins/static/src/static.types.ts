@@ -6,7 +6,23 @@
  * @packageDocumentation
  */
 
-import type { Context } from '@nextrush/types';
+import type { Context, Next } from '@nextrush/types';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+/**
+ * Node.js specific context with typed raw HTTP objects
+ */
+export interface NodeContext extends Context {
+  readonly raw: {
+    readonly req: IncomingMessage;
+    readonly res: ServerResponse;
+  };
+}
+
+/**
+ * Node.js specific middleware type
+ */
+export type NodeMiddleware = (ctx: NodeContext, next: Next) => void | Promise<void>;
 
 /**
  * Policy for handling dotfiles (files starting with .)
@@ -98,7 +114,7 @@ export interface StaticOptions {
    * Custom headers hook
    * Called before sending file to customize headers
    */
-  setHeaders?: (ctx: Context, absolutePath: string, stat: StatsLike) => void;
+  setHeaders?: (ctx: NodeContext, absolutePath: string, stat: StatsLike) => void;
 
   /**
    * Enable ETag generation for conditional requests
@@ -138,7 +154,7 @@ export interface NormalizedStaticOptions {
   immutable: boolean;
   dotfiles: DotfilesPolicy;
   extensions: string[];
-  setHeaders?: (ctx: Context, absolutePath: string, stat: StatsLike) => void;
+  setHeaders?: (ctx: NodeContext, absolutePath: string, stat: StatsLike) => void;
   etag: boolean;
   lastModified: boolean;
   acceptRanges: boolean;
@@ -156,7 +172,7 @@ export interface RangeResult {
 /**
  * Extended context with static file properties
  */
-export interface StaticContext extends Context {
+export interface StaticContext extends NodeContext {
   /** Static file being served (set by middleware) */
   staticFile?: {
     path: string;

@@ -219,6 +219,17 @@ async function readBody(
 }
 
 /**
+ * Safely decode URI component, returning original on failure
+ */
+function safeDecodeURIComponent(str: string): string {
+  try {
+    return decodeURIComponent(str.replace(/\+/g, ' '));
+  } catch {
+    return str;
+  }
+}
+
+/**
  * Parse URL-encoded string to object
  */
 function parseUrlEncoded(
@@ -242,16 +253,17 @@ function parseUrlEncoded(
 
     const eqIndex = pair.indexOf('=');
     const key = eqIndex === -1
-      ? decodeURIComponent(pair.replace(/\+/g, ' '))
-      : decodeURIComponent(pair.slice(0, eqIndex).replace(/\+/g, ' '));
+      ? safeDecodeURIComponent(pair)
+      : safeDecodeURIComponent(pair.slice(0, eqIndex));
     const value = eqIndex === -1
       ? ''
-      : decodeURIComponent(pair.slice(eqIndex + 1).replace(/\+/g, ' '));
+      : safeDecodeURIComponent(pair.slice(eqIndex + 1));
+
+    if (!key) continue;
 
     if (extended && key.includes('[')) {
       setNestedValue(result, key, value);
     } else {
-      // Handle array notation for non-extended
       if (key in result) {
         const existing = result[key];
         if (Array.isArray(existing)) {

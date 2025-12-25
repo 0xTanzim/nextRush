@@ -741,9 +741,9 @@ export function compile(source: string, options: CompileOptions = {}): CompiledT
 
       if (renderOptions.layout) {
         const layoutCompiled = compile(renderOptions.layout, opts);
-        result = layoutCompiled.render(
+        return layoutCompiled.render(
           { ...data, ...renderOptions.layoutData, body: result },
-          renderOptions
+          { ...renderOptions, layout: undefined }
         );
       }
 
@@ -759,9 +759,9 @@ export function compile(source: string, options: CompileOptions = {}): CompiledT
 
       if (renderOptions.layout) {
         const layoutCompiled = compile(renderOptions.layout, opts);
-        result = await layoutCompiled.renderAsync(
+        return layoutCompiled.renderAsync(
           { ...data, ...renderOptions.layoutData, body: result },
-          renderOptions
+          { ...renderOptions, layout: undefined }
         );
       }
 

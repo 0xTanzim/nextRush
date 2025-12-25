@@ -13,39 +13,41 @@
  * @module @nextrush/static
  */
 
-import type { Context, Middleware, Next } from '@nextrush/types';
+import type { Middleware, Next } from '@nextrush/types';
 import { join, resolve } from 'node:path';
 import { sendFile } from './send-file';
-import type { NormalizedStaticOptions, StaticOptions } from './static.types';
+import type { NodeContext, NodeMiddleware, NormalizedStaticOptions, StaticOptions } from './static.types';
 import {
-  isDotfile,
-  normalizePrefix,
-  safeJoin,
-  statSafe,
-  stripPrefix,
+    isDotfile,
+    normalizePrefix,
+    safeJoin,
+    statSafe,
+    stripPrefix,
 } from './utils';
 
 // Re-export types
 export type {
-  DotfilesPolicy,
-  NormalizedStaticOptions,
-  RangeResult,
-  StaticContext,
-  StaticOptions,
-  StatsLike
+    DotfilesPolicy,
+    NodeContext,
+    NodeMiddleware,
+    NormalizedStaticOptions,
+    RangeResult,
+    StaticContext,
+    StaticOptions,
+    StatsLike
 } from './static.types';
 
 // Re-export utilities
 export {
-  generateETag,
-  getMimeType,
-  isDotfile,
-  isFresh,
-  normalizePrefix,
-  parseRange,
-  safeJoin,
-  statSafe,
-  stripPrefix
+    generateETag,
+    getMimeType,
+    isDotfile,
+    isFresh,
+    normalizePrefix,
+    parseRange,
+    safeJoin,
+    statSafe,
+    stripPrefix
 } from './utils';
 
 export { sendFile } from './send-file';
@@ -91,7 +93,7 @@ function normalizeOptions(options: StaticOptions): NormalizedStaticOptions {
  * Send error response or call next middleware
  */
 async function failOrNext(
-  ctx: Context,
+  ctx: NodeContext,
   next: Next,
   status: number,
   message: string,
@@ -149,7 +151,7 @@ export function serveStatic(options: StaticOptions): Middleware {
   const opts = normalizeOptions(options);
   const { root, prefix, fallthrough } = opts;
 
-  return async function staticMiddleware(ctx: Context, next: Next): Promise<void> {
+  const staticMiddleware: NodeMiddleware = async (ctx, next) => {
     // Only handle GET and HEAD
     if (ctx.method !== 'GET' && ctx.method !== 'HEAD') {
       return next();
@@ -258,6 +260,8 @@ export function serveStatic(options: StaticOptions): Middleware {
     // Serve the file
     return sendFile(ctx, finalPath, stat, opts);
   };
+
+  return staticMiddleware as Middleware;
 }
 
 /**
@@ -283,7 +287,7 @@ export const staticFiles = serveStatic;
 export function createSendFile(options: Omit<StaticOptions, 'prefix'>) {
   const opts = normalizeOptions({ ...options, prefix: '' });
 
-  return async function send(ctx: Context, relativePath: string): Promise<boolean> {
+  return async function send(ctx: NodeContext, relativePath: string): Promise<boolean> {
     const absolutePath = safeJoin(opts.root, relativePath);
     if (!absolutePath) {
       return false;

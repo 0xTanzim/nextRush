@@ -7,8 +7,20 @@
 import type { QueryParams } from '@nextrush/types';
 
 /**
+ * Safely decode URI component, returning original on failure
+ */
+function safeDecodeURIComponent(str: string): string {
+  try {
+    return decodeURIComponent(str.replace(/\+/g, ' '));
+  } catch {
+    return str;
+  }
+}
+
+/**
  * Parse query string into object
  * Simple implementation without external dependencies
+ * Safe against malformed URI components
  */
 export function parseQueryString(qs: string): QueryParams {
   const result: QueryParams = {};
@@ -18,18 +30,20 @@ export function parseQueryString(qs: string): QueryParams {
   const pairs = qs.split('&');
 
   for (const pair of pairs) {
+    if (!pair) continue;
+
     const eqIndex = pair.indexOf('=');
     if (eqIndex === -1) {
-      // Key only, no value
-      const key = decodeURIComponent(pair);
-      result[key] = '';
+      const key = safeDecodeURIComponent(pair);
+      if (key) result[key] = '';
       continue;
     }
 
-    const key = decodeURIComponent(pair.slice(0, eqIndex));
-    const value = decodeURIComponent(pair.slice(eqIndex + 1));
+    const key = safeDecodeURIComponent(pair.slice(0, eqIndex));
+    const value = safeDecodeURIComponent(pair.slice(eqIndex + 1));
 
-    // Handle array values (multiple same keys)
+    if (!key) continue;
+
     const existing = result[key];
     if (existing === undefined) {
       result[key] = value;
