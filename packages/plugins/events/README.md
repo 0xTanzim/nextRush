@@ -249,6 +249,30 @@ app.use(async (ctx) => {
 });
 ```
 
+## Type Helper: WithEvents<T>
+
+The `WithEvents<T>` type helper makes it easy to type functions that accept an app with events:
+
+```typescript
+import type { WithEvents } from '@nextrush/events';
+
+interface MyEvents {
+  'user:created': { id: string };
+  'user:deleted': { id: string };
+}
+
+// Use in function signatures
+function setupUserRoutes(app: WithEvents<MyEvents>) {
+  app.events.emit('user:created', { id: '1' }); // ✅ Typed
+}
+
+// Combine with other app properties
+function initApp(app: Application & WithEvents<MyEvents>) {
+  app.use((ctx) => { /* ... */ });
+  app.events.on('user:created', (data) => console.log(data));
+}
+```
+
 ## Organize Event Handlers
 
 ```typescript

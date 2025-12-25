@@ -1,16 +1,16 @@
 # @nextrush/cookies
 
-Cookie parsing and serialization middleware for NextRush.
+Secure cookie parsing and serialization middleware for NextRush. Features HMAC signing, secure presets, and a clean API.
 
 ## Installation
 
 ```bash
+npm install @nextrush/cookies
+# or
 pnpm add @nextrush/cookies
 ```
 
-## Usage
-
-### Basic Cookie Middleware
+## Quick Start
 
 ```typescript
 import { createApp } from '@nextrush/core';
@@ -47,7 +47,14 @@ app.post('/logout', async (ctx) => {
 serve(app, 3000);
 ```
 
-### Signed Cookies
+## Features
+
+- **Simple API**: Get, set, delete with clean interface
+- **Signed Cookies**: HMAC-based tamper detection
+- **Secure Presets**: One-liner for production-safe defaults
+- **Zero Dependencies**: Pure TypeScript implementation
+
+## Signed Cookies
 
 For tamper-proof cookies, use signed cookies:
 

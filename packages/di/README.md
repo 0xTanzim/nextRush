@@ -93,6 +93,23 @@ class UserService {
 }
 ```
 
+#### `@AutoInjectable()`
+
+Allow instantiation with `new` while still supporting auto-injection.
+
+```typescript
+@AutoInjectable()
+class FeatureService {
+  constructor(private logger?: Logger) {}
+}
+
+// Can instantiate with new - logger is auto-injected
+const service = new FeatureService();
+
+// Or provide manually
+const service2 = new FeatureService(customLogger);
+```
+
 ### Container
 
 #### `container.register(token, provider)`

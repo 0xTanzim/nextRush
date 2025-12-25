@@ -222,6 +222,17 @@ This middleware includes several security measures:
 - **Conditional requests**: Returns 304 when appropriate
 - **Range requests**: Supports partial content for seeking/resuming
 
+## Aliases
+
+The package exports `staticFiles` as an alias for `serveStatic` (Express-style naming):
+
+```typescript
+import { staticFiles } from '@nextrush/static';
+
+// Equivalent to serveStatic
+app.use(staticFiles({ root: './public' }));
+```
+
 ## License
 
 MIT

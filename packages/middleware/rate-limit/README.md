@@ -240,7 +240,7 @@ app.use(rateLimit({
 
 ## Programmatic Access
 
-Access rate limit info and reset functionality:
+Access rate limit info, reset functionality, and lifecycle methods:
 
 ```typescript
 const limiter = rateLimit({ max: 100, window: '1m' });
@@ -252,6 +252,23 @@ console.log(info.remaining, info.resetTime);
 
 // Reset rate limit for a key
 await limiter.reset('user:123');
+
+// Clean shutdown (clears cleanup intervals and cache)
+await limiter.shutdown();
+```
+
+### Graceful Shutdown
+
+For production deployments, call `shutdown()` to clean up resources:
+
+```typescript
+const limiter = rateLimit({ max: 100, window: '1m' });
+app.use(limiter);
+
+process.on('SIGTERM', async () => {
+  await limiter.shutdown();
+  process.exit(0);
+});
 ```
 
 ## Error Handling
