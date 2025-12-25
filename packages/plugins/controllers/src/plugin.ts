@@ -6,22 +6,22 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { createContainer, type ContainerInterface } from '@nextrush/di';
+import { container as globalContainer, type ContainerInterface } from '@nextrush/di';
 import type { Router } from '@nextrush/router';
 import type { Plugin } from '@nextrush/types';
 import 'reflect-metadata';
 import {
-    discoverControllers,
-    getControllersFromResults,
-    getErrorsFromResults,
+  discoverControllers,
+  getControllersFromResults,
+  getErrorsFromResults,
 } from './discovery.js';
 import { RouteRegistrationError } from './errors.js';
 import { ControllerRegistry } from './registry.js';
 import type {
-    ControllersPluginOptions,
-    ControllersPluginState,
-    RegisteredController,
-    ResolvedOptions,
+  ControllersPluginOptions,
+  ControllersPluginState,
+  RegisteredController,
+  ResolvedOptions,
 } from './types.js';
 
 const DEFAULT_INCLUDE = ['**/*.ts', '**/*.js'];
@@ -184,7 +184,7 @@ export class ControllersPlugin implements Plugin {
       include: options.include ?? DEFAULT_INCLUDE,
       exclude: options.exclude ?? DEFAULT_EXCLUDE,
       controllers: options.controllers ?? [],
-      container: options.container ?? createContainer(),
+      container: options.container ?? globalContainer,
       middleware: options.middleware ?? [],
       debug: options.debug ?? false,
       prefix: options.prefix ?? '',
@@ -283,7 +283,7 @@ export function registerController(
   controller: Function,
   container?: ContainerInterface
 ): void {
-  const registry = new ControllerRegistry(container ?? createContainer(), '', [], false);
+  const registry = new ControllerRegistry(container ?? globalContainer, '', [], false);
 
   const registered = registry.register(controller);
 

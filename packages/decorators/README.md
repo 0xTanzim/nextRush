@@ -2,13 +2,34 @@
 
 Decorator-based metadata for building HTTP controllers in NextRush. This package provides `@Controller`, route decorators (`@Get`, `@Post`, etc.), and parameter decorators (`@Body`, `@Param`, `@Query`, etc.).
 
+## Features
+
+- 🎮 **@Controller** - Marks class as HTTP controller **with automatic DI registration**
+- 🛤️ **Route Decorators** - `@Get`, `@Post`, `@Put`, `@Delete`, `@Patch`
+- 📦 **Parameter Decorators** - `@Body`, `@Param`, `@Query`, `@Header`, `@Ctx`
+- 🔄 **Auto DI** - `@Controller` automatically makes the class injectable
+
+## ⚠️ Runtime Requirements
+
+| Runtime | Support | Recommended |
+|---------|---------|-------------|
+| **@swc-node/register** | ✅ Full | **✅ Yes** |
+| **tsc + node** | ✅ Full | ✅ Yes |
+| **tsx / esbuild** | ❌ No | ❌ No |
+| **ts-node --esm** | ⚠️ Limited | ❌ No |
+
+See [Controllers README](../plugins/controllers/README.md) for detailed setup.
+
 ## Installation
 
 ```bash
 pnpm add @nextrush/decorators reflect-metadata
+
+# For development
+pnpm add -D @swc-node/register @swc/core typescript
 ```
 
-**TypeScript Configuration:**
+## TypeScript Configuration
 
 ```json
 {
@@ -27,8 +48,12 @@ pnpm add @nextrush/decorators reflect-metadata
 import 'reflect-metadata';
 import { Controller, Get, Post, Delete, Body, Param, Query } from '@nextrush/decorators';
 
+// @Controller includes DI registration - no need for @Service()!
 @Controller('/users')
 class UserController {
+  // Dependencies are automatically injected
+  constructor(private userService: UserService) {}
+
   @Get()
   findAll(@Query('page') page: string, @Query('limit') limit: string) {
     return { page, limit };
@@ -36,12 +61,12 @@ class UserController {
 
   @Get('/:id')
   findOne(@Param('id') id: string) {
-    return { id };
+    return this.userService.findOne(id);
   }
 
   @Post()
   create(@Body() data: CreateUserDto) {
-    return data;
+    return this.userService.create(data);
   }
 
   @Delete('/:id')
@@ -55,7 +80,24 @@ class UserController {
 
 ### `@Controller(path?)`
 
-Marks a class as an HTTP controller.
+Marks a class as an HTTP controller **and registers it for dependency injection**.
+
+**You do NOT need `@Service()` when using `@Controller()`!**
+
+```typescript
+// ✅ Correct - @Controller includes DI
+@Controller('/users')
+class UserController {
+  constructor(private userService: UserService) {}  // Auto-injected!
+}
+
+// ❌ Redundant - Don't use both!
+@Controller('/users')
+@Service()  // NOT NEEDED!
+class UserController {}
+```
+
+### Controller Options
 
 ```typescript
 // With explicit path
@@ -71,8 +113,6 @@ class UserController {}
 class UserProfileController {} // → '/user-profile'
 ```
 
-**Options:**
-
 | Option | Type | Description |
 |--------|------|-------------|
 | `path` | `string` | Base path prefix |
@@ -83,8 +123,6 @@ class UserProfileController {} // → '/user-profile'
 ## Route Decorators
 
 ### `@Get(path?, options?)`
-
-Marks a method as handling HTTP GET requests.
 
 ```typescript
 @Controller('/users')
@@ -100,10 +138,11 @@ class UserController {
 }
 ```
 
-### Other HTTP Methods
+### All HTTP Methods
 
 | Decorator | HTTP Method |
 |-----------|-------------|
+| `@Get()` | GET |
 | `@Post()` | POST |
 | `@Put()` | PUT |
 | `@Delete()` | DELETE |
@@ -112,7 +151,7 @@ class UserController {
 | `@Options()` | OPTIONS |
 | `@All()` | All methods |
 
-**Route Options:**
+### Route Options
 
 | Option | Type | Description |
 |--------|------|-------------|
@@ -124,8 +163,6 @@ class UserController {
 ## Parameter Decorators
 
 ### `@Body(property?, options?)`
-
-Injects the request body.
 
 ```typescript
 // Entire body
@@ -143,8 +180,6 @@ create(@Body({ transform: validateUser }) data: CreateUserDto) {}
 
 ### `@Param(name?, options?)`
 
-Injects route parameters.
-
 ```typescript
 // All params
 @Get('/:id/:action')
@@ -154,14 +189,12 @@ handle(@Param() params: { id: string; action: string }) {}
 @Get('/:id')
 findOne(@Param('id') id: string) {}
 
-// With transform
+// With transform to number
 @Get('/:id')
 findOne(@Param('id', { transform: Number }) id: number) {}
 ```
 
 ### `@Query(name?, options?)`
-
-Injects query parameters.
 
 ```typescript
 // All query params
@@ -172,23 +205,23 @@ findAll(@Query() query: Record<string, string>) {}
 @Get()
 findAll(@Query('page') page: string) {}
 
-// With default value
+// With default value and transform
 @Get()
-findAll(@Query('limit', { defaultValue: 10, transform: Number }) limit: number) {}
+findAll(
+  @Query('limit', { defaultValue: 10, transform: Number }) limit: number
+) {}
 ```
 
 ### `@Header(name?, options?)`
 
-Injects request headers.
-
 ```typescript
-// All headers
-@Get()
-handle(@Header() headers: Record<string, string>) {}
-
 // Specific header
 @Get()
 handle(@Header('authorization') auth: string) {}
+
+// All headers
+@Get()
+handle(@Header() headers: Record<string, string>) {}
 ```
 
 ### `@Ctx()`
@@ -217,7 +250,7 @@ download(@Res() res: ServerResponse) {}
 
 ## Metadata Readers
 
-Utility functions to read decorator metadata (used by `@nextrush/controllers`).
+Utility functions to read decorator metadata (used internally by `@nextrush/controllers`).
 
 ```typescript
 import {
@@ -243,14 +276,6 @@ getRouteMetadata(UserController);
 // Get params for a method
 getParamMetadata(UserController, 'findOne');
 // [{ source: 'param', index: 0, name: 'id' }]
-
-// Get full definition
-getControllerDefinition(UserController);
-// { target, controller, routes, params }
-
-// Build full route path
-buildFullPath({ path: '/users', version: 'v1' }, { path: '/:id' });
-// '/v1/users/:id'
 ```
 
 ## API Reference

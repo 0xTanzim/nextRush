@@ -10,16 +10,65 @@ Lightweight dependency injection container for NextRush v3.
 - 📝 **Production-Grade Errors** - Actionable guidance for fixes
 - 🧪 **Test-Friendly** - Easy mocking and isolation
 
+## ⚠️ Runtime Requirements
+
+**This package requires `emitDecoratorMetadata` support at runtime.**
+
+| Runtime | Support | Recommended |
+|---------|---------|-------------|
+| **@swc-node/register** | ✅ Full | **✅ Yes** |
+| **tsc + node** | ✅ Full | ✅ Yes |
+| **tsx / esbuild** | ❌ No | ❌ No |
+| **ts-node --esm** | ⚠️ Limited | ❌ No |
+
+### Why?
+
+TypeScript's `emitDecoratorMetadata` option emits runtime type information that allows the DI container to automatically resolve constructor dependencies. Without it, you get errors like:
+
+```
+TypeInfo not known for "UserService"
+```
+
+**Solution**: Use `@swc-node/register` for development:
+
+```bash
+pnpm add -D @swc-node/register @swc/core
+```
+
+```json
+{
+  "scripts": {
+    "dev": "node --import @swc-node/register/esm-register src/index.ts"
+  }
+}
+```
+
 ## Installation
 
 ```bash
-pnpm add @nextrush/di
+pnpm add @nextrush/di reflect-metadata
+
+# For development with decorator support
+pnpm add -D @swc-node/register @swc/core typescript
+```
+
+## TypeScript Configuration
+
+**Required** `tsconfig.json` settings:
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
 ```
 
 ## Quick Start
 
 ```typescript
-import 'reflect-metadata';
+import 'reflect-metadata';  // Must be first!
 import { Service, Repository, container } from '@nextrush/di';
 
 // Define a repository
@@ -30,19 +79,15 @@ class UserRepository {
   }
 }
 
-// Define a service with dependency
+// Define a service with automatic dependency injection
 @Service()
 class UserService {
-  constructor(private repo: UserRepository) {}
+  constructor(private repo: UserRepository) {}  // Auto-injected!
 
   getUsers() {
     return this.repo.findAll();
   }
 }
-
-// Register dependencies
-container.register(UserRepository, { useClass: UserRepository });
-container.register(UserService, { useClass: UserService });
 
 // Resolve with automatic injection
 const userService = container.resolve(UserService);
@@ -81,14 +126,16 @@ class UserRepository {
 
 #### `@inject(token)`
 
-Explicitly inject a dependency by token.
+Explicitly inject a dependency by token. Use for interfaces or custom tokens.
 
 ```typescript
+const DATABASE_TOKEN = Symbol('Database');
+
 @Service()
 class UserService {
   constructor(
-    @inject('DATABASE_URL') private dbUrl: string,
-    @inject(IUserRepository) private repo: IUserRepository
+    @inject(DATABASE_TOKEN) private db: IDatabase,
+    @inject('API_KEY') private apiKey: string
   ) {}
 }
 ```
@@ -225,16 +272,43 @@ try {
 }
 ```
 
-## TypeScript Configuration
+## Troubleshooting
 
-Requires these `tsconfig.json` settings:
+### Error: "TypeInfo not known for X"
 
-```json
-{
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
-  }
+**Cause**: `emitDecoratorMetadata` is not being emitted at runtime.
+
+**Fix**: Use `@swc-node/register` instead of `tsx`:
+
+```bash
+# ❌ Doesn't work
+npx tsx src/index.ts
+
+# ✅ Works
+node --import @swc-node/register/esm-register src/index.ts
+```
+
+### Error: "reflect-metadata not found"
+
+**Cause**: `reflect-metadata` must be imported before decorators.
+
+**Fix**: Import it first in your entry point:
+
+```typescript
+import 'reflect-metadata';  // MUST be first!
+import { Service } from '@nextrush/di';
+```
+
+### Constructor parameters not injected
+
+**Cause**: Class is missing `@Service()` decorator.
+
+**Fix**: Add the decorator:
+
+```typescript
+@Service()  // Required for DI!
+class MyService {
+  constructor(private dep: SomeDependency) {}
 }
 ```
 

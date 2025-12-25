@@ -22,8 +22,8 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 export interface DevOptions {
   entry?: string;
@@ -32,23 +32,56 @@ export interface DevOptions {
   inspectPort?: number;
   env?: Record<string, string>;
   clearScreen?: boolean;
+  watch?: string[];
 }
 
-const DEFAULT_ENTRIES = [
-  './src/index.ts',
-  './src/app.ts',
-  './src/server.ts',
-  './index.ts',
-  './app.ts',
-] as const;
-
 function findEntry(): string {
+  const cwd = process.cwd();
+
+  // 1. Try package.json
+  try {
+    const pkgPath = join(cwd, 'package.json');
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+
+      // Check "main" or "module"
+      const main = pkg.main || pkg.module;
+      if (main) {
+        // If it's already a .ts file
+        if (main.endsWith('.ts') && existsSync(resolve(cwd, main))) {
+          return main;
+        }
+
+        // If it's a .js file in dist, try to find corresponding .ts in src
+        if (main.endsWith('.js')) {
+          const tsEntry = main.replace('dist/', 'src/').replace('.js', '.ts');
+          if (existsSync(resolve(cwd, tsEntry))) {
+            return tsEntry;
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Check common defaults
+  const DEFAULT_ENTRIES = [
+    'src/index.ts',
+    'src/main.ts',
+    'src/app.ts',
+    'src/server.ts',
+    'index.ts',
+    'main.ts',
+    'app.ts',
+    'server.ts',
+  ];
+
   for (const entry of DEFAULT_ENTRIES) {
-    if (existsSync(resolve(process.cwd(), entry))) {
+    if (existsSync(resolve(cwd, entry))) {
       return entry;
     }
   }
-  return './src/index.ts';
+
+  return 'src/index.ts';
 }
 
 function log(message: string): void {
@@ -57,7 +90,7 @@ function log(message: string): void {
 }
 
 /**
- * Start development server with tsx watch
+ * Start development server with SWC and Node.js watch
  *
  * @example
  * ```typescript
@@ -73,6 +106,7 @@ function log(message: string): void {
 export function dev(entry?: string, options: DevOptions = {}): ChildProcess {
   const resolvedEntry = entry || options.entry || findEntry();
   const port = options.port || 3000;
+  const cwd = process.cwd();
 
   if (options.clearScreen !== false) {
     console.clear();
@@ -82,13 +116,29 @@ export function dev(entry?: string, options: DevOptions = {}): ChildProcess {
   log(`Starting ${resolvedEntry}`);
   log(`Port: ${port}`);
 
-  const args = ['watch', '--clear-screen=false'];
-
-  if (options.inspect) {
-    args.push(`--inspect=${options.inspectPort || 9229}`);
+  // Build watch paths
+  const watchPaths = options.watch || [];
+  if (watchPaths.length === 0) {
+    // Default: watch src if it exists, otherwise watch current dir
+    if (existsSync(resolve(cwd, 'src'))) {
+      watchPaths.push('src');
+    } else {
+      watchPaths.push('.');
+    }
   }
 
-  args.push(resolvedEntry);
+  // Use node --watch with @swc-node/register for decorator metadata support
+  const args = [
+    '--watch',
+    ...watchPaths.map(p => `--watch-path=${p}`),
+    '--import',
+    '@swc-node/register/esm-register',
+    resolvedEntry,
+  ];
+
+  if (options.inspect) {
+    args.unshift(`--inspect=${options.inspectPort || 9229}`);
+  }
 
   const env: Record<string, string> = {
     ...process.env as Record<string, string>,
@@ -97,18 +147,13 @@ export function dev(entry?: string, options: DevOptions = {}): ChildProcess {
     ...options.env,
   };
 
-  const child = spawn('tsx', args, {
+  const child = spawn('node', args, {
     stdio: 'inherit',
     env,
-    cwd: process.cwd(),
+    cwd,
   });
 
   child.on('error', (err) => {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      console.error('\n\x1b[31mError: tsx not found.\x1b[0m');
-      console.error('Install it with: pnpm add -D tsx\n');
-      process.exit(1);
-    }
     console.error('Error:', err.message);
   });
 
@@ -144,6 +189,12 @@ export function cli(): void {
     } else if (arg === '--inspect-port') {
       const inspectArg = args[++i];
       if (inspectArg) options.inspectPort = parseInt(inspectArg, 10);
+    } else if (arg === '--watch' || arg === '-w') {
+      const watchArg = args[++i];
+      if (watchArg) {
+        if (!options.watch) options.watch = [];
+        options.watch.push(watchArg);
+      }
     } else if (arg === '--help' || arg === '-h') {
       console.log(`
 \x1b[36m⚡ NextRush Dev Server\x1b[0m
@@ -152,6 +203,7 @@ Usage: nextrush-dev [entry] [options]
 
 Options:
   --port, -p <port>    Port number (default: 3000)
+  --watch, -w <path>   Additional path to watch (can be used multiple times)
   --inspect            Enable Node.js inspector
   --inspect-port       Inspector port (default: 9229)
   --help, -h           Show this help
@@ -160,6 +212,7 @@ Examples:
   nextrush-dev
   nextrush-dev ./src/app.ts
   nextrush-dev --port 4000
+  nextrush-dev --watch ./src --watch ./config
   nextrush-dev ./src/app.ts --port 4000 --inspect
 `);
       process.exit(0);
@@ -169,15 +222,4 @@ Examples:
   }
 
   dev(entry, options);
-}
-
-// Auto-detect if running as CLI
-const isMainModule = process.argv[1] && (
-  process.argv[1].endsWith('nextrush-dev') ||
-  process.argv[1].endsWith('nextrush-dev.js') ||
-  process.argv[1].includes('@nextrush/dev')
-);
-
-if (isMainModule) {
-  cli();
 }

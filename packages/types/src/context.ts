@@ -368,9 +368,7 @@ export type Next = () => Promise<void>;
  * });
  * ```
  */
-export type Middleware =
-  | ((ctx: Context) => void | Promise<void>)
-  | ((ctx: Context, next: Next) => void | Promise<void>);
+export type Middleware = (ctx: Context, next: Next) => void | Promise<void>;
 
 /**
  * Route handler type (alias for middleware)

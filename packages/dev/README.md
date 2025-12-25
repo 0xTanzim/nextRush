@@ -1,13 +1,13 @@
 # @nextrush/dev
 
-> Simple dev server for NextRush - powered by tsx
+> Simple dev server for NextRush - powered by SWC
 
-No custom watchers. No complexity. Just works.
+No custom watchers. No complexity. Just works. Supports TypeScript decorators and Dependency Injection out of the box.
 
 ## Installation
 
 ```bash
-pnpm add -D @nextrush/dev tsx
+pnpm add -D @nextrush/dev
 ```
 
 ## Usage
@@ -60,13 +60,11 @@ Options:
 
 ## How it works
 
-This package simply spawns `tsx watch` under the hood:
+This package spawns `node --watch` with `@swc-node/register` for high-performance TypeScript execution with full decorator metadata support:
 
 ```bash
-tsx watch ./src/index.ts
+node --watch --import @swc-node/register/esm-register ./src/index.ts
 ```
-
-That's it. No reinventing the wheel.
 
 ## Auto-detection
 
@@ -80,7 +78,7 @@ If no entry file is specified, it looks for:
 ## Requirements
 
 - Node.js >= 20.0.0
-- `tsx` package (bundled as dependency)
+- `@swc-node/register` and `@swc/core` (bundled as dependencies)
 
 ## License
 

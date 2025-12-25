@@ -26,7 +26,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.10.0"
   },
   "devDependencies": {
     "@nextrush/types": "workspace:*",

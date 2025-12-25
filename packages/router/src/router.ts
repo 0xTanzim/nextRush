@@ -8,20 +8,20 @@
  */
 
 import {
-    HTTP_METHODS,
-    type Context,
-    type HttpMethod,
-    type Middleware,
-    type RouteHandler,
-    type RouteMatch,
-    type RouterOptions,
+  HTTP_METHODS,
+  type Context,
+  type HttpMethod,
+  type Middleware,
+  type RouteHandler,
+  type RouteMatch,
+  type RouterOptions,
 } from '@nextrush/types';
 import {
-    createNode,
-    NodeType,
-    parseSegments,
-    type HandlerEntry,
-    type RadixNode,
+  createNode,
+  NodeType,
+  parseSegments,
+  type HandlerEntry,
+  type RadixNode,
 } from './radix-tree';
 
 /**
@@ -404,12 +404,20 @@ export class Router {
         if (index < chain.length) {
           const mw = chain[index++];
           if (mw) {
+            // Wire up ctx.next() if the context supports it
+            if (typeof (ctx as any).setNext === 'function') {
+              (ctx as any).setNext(dispatch);
+            }
             await mw(ctx, dispatch);
           } else {
             await dispatch();
           }
         } else {
           // Finally call the handler
+          // Wire up ctx.next() to a no-op for the final handler
+          if (typeof (ctx as any).setNext === 'function') {
+            (ctx as any).setNext(async () => {});
+          }
           await match.handler(ctx, async () => {});
         }
       };

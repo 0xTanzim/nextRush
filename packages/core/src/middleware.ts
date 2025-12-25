@@ -90,9 +90,16 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         return;
       }
 
+      const nextFn = () => dispatch(i + 1);
+
+      // Wire up ctx.next() if the context supports it
+      if (typeof (ctx as any).setNext === 'function') {
+        (ctx as any).setNext(nextFn);
+      }
+
       // Call the middleware with context and next function
       // Support both (ctx) and (ctx, next) signatures
-      await fn(ctx, () => dispatch(i + 1));
+      await fn(ctx, nextFn);
     }
 
     return dispatch(0);
