@@ -2,9 +2,9 @@
 
 Controller plugin for NextRush - **automatic controller discovery**, DI integration, and route building for decorator-based controllers.
 
-## Development
+## 🚀 Development
 
-For the best development experience with decorator support, use `@nextrush/dev`:
+For the best development experience with full decorator and DI support, we highly recommend using **`@nextrush/dev`**.
 
 ```bash
 pnpm add -D @nextrush/dev
@@ -20,7 +20,16 @@ Then in your `package.json`:
 }
 ```
 
-This automatically handles TypeScript execution, file watching, and decorator metadata support.
+### Why nextrush-dev?
+
+TypeScript decorators with constructor injection require **`emitDecoratorMetadata`** to work. Most modern fast runners (like `tsx` or `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing DI to fail.
+
+| Runtime | Decorator Metadata | Recommended |
+|---------|-------------------|-------------|
+| **nextrush-dev** | ✅ Full Support | **✅ Highly Recommended** |
+| **tsc + node** | ✅ Full Support | ✅ Yes (Production) |
+| **tsx / esbuild** | ❌ Not Supported | ❌ No |
+| **ts-node --esm** | ⚠️ Issues | ❌ No |
 
 ## Installation
 

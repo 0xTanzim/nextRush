@@ -9,24 +9,39 @@ Decorator-based metadata for building HTTP controllers in NextRush. This package
 - 📦 **Parameter Decorators** - `@Body`, `@Param`, `@Query`, `@Header`, `@Ctx`
 - 🔄 **Auto DI** - `@Controller` automatically makes the class injectable
 
-## ⚠️ Runtime Requirements
+## 🚀 Development
 
-| Runtime | Support | Recommended |
-|---------|---------|-------------|
-| **@swc-node/register** | ✅ Full | **✅ Yes** |
-| **tsc + node** | ✅ Full | ✅ Yes |
-| **tsx / esbuild** | ❌ No | ❌ No |
-| **ts-node --esm** | ⚠️ Limited | ❌ No |
+For the best development experience with full decorator and DI support, we highly recommend using **`@nextrush/dev`**.
 
-See [Controllers README](../plugins/controllers/README.md) for detailed setup.
+```bash
+pnpm add -D @nextrush/dev
+```
+
+Then in your `package.json`:
+
+```json
+{
+  "scripts": {
+    "dev": "nextrush-dev"
+  }
+}
+```
+
+### Why nextrush-dev?
+
+TypeScript decorators with constructor injection require **`emitDecoratorMetadata`** to work. Most modern fast runners (like `tsx` or `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing DI to fail.
+
+| Runtime | Decorator Metadata | Recommended |
+|---------|-------------------|-------------|
+| **nextrush-dev** | ✅ Full Support | **✅ Highly Recommended** |
+| **tsc + node** | ✅ Full Support | ✅ Yes (Production) |
+| **tsx / esbuild** | ❌ Not Supported | ❌ No |
+| **ts-node --esm** | ⚠️ Issues | ❌ No |
 
 ## Installation
 
 ```bash
 pnpm add @nextrush/decorators reflect-metadata
-
-# For development
-pnpm add -D @swc-node/register @swc/core typescript
 ```
 
 ## TypeScript Configuration

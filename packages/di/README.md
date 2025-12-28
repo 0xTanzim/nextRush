@@ -10,46 +10,43 @@ Lightweight dependency injection container for NextRush v3.
 - 📝 **Production-Grade Errors** - Actionable guidance for fixes
 - 🧪 **Test-Friendly** - Easy mocking and isolation
 
-## ⚠️ Runtime Requirements
+## 🚀 Development
 
-**This package requires `emitDecoratorMetadata` support at runtime.**
+For the best development experience with full decorator and DI support, we highly recommend using **`@nextrush/dev`**.
 
-| Runtime | Support | Recommended |
-|---------|---------|-------------|
-| **@swc-node/register** | ✅ Full | **✅ Yes** |
-| **tsc + node** | ✅ Full | ✅ Yes |
-| **tsx / esbuild** | ❌ No | ❌ No |
-| **ts-node --esm** | ⚠️ Limited | ❌ No |
+```bash
+pnpm add -D @nextrush/dev
+```
+
+Then in your `package.json`:
+
+```json
+{
+  "scripts": {
+    "dev": "nextrush-dev"
+  }
+}
+```
 
 ### Why?
 
-TypeScript's `emitDecoratorMetadata` option emits runtime type information that allows the DI container to automatically resolve constructor dependencies. Without it, you get errors like:
+TypeScript's `emitDecoratorMetadata` option emits runtime type information that allows the DI container to automatically resolve constructor dependencies. Most modern fast runners (like `tsx` or `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing errors like:
 
 ```
 TypeInfo not known for "UserService"
 ```
 
-**Solution**: Use `@swc-node/register` for development:
-
-```bash
-pnpm add -D @swc-node/register @swc/core
-```
-
-```json
-{
-  "scripts": {
-    "dev": "node --import @swc-node/register/esm-register src/index.ts"
-  }
-}
-```
+| Runtime | Decorator Metadata | Recommended |
+|---------|-------------------|-------------|
+| **nextrush-dev** | ✅ Full Support | **✅ Highly Recommended** |
+| **tsc + node** | ✅ Full Support | ✅ Yes (Production) |
+| **tsx / esbuild** | ❌ Not Supported | ❌ No |
+| **ts-node --esm** | ⚠️ Issues | ❌ No |
 
 ## Installation
 
 ```bash
 pnpm add @nextrush/di reflect-metadata
-
-# For development with decorator support
-pnpm add -D @swc-node/register @swc/core typescript
 ```
 
 ## TypeScript Configuration
@@ -278,14 +275,14 @@ try {
 
 **Cause**: `emitDecoratorMetadata` is not being emitted at runtime.
 
-**Fix**: Use `@swc-node/register` instead of `tsx`:
+**Fix**: Use `@nextrush/dev` for development. It automatically handles metadata emission.
 
 ```bash
-# ❌ Doesn't work
+# ❌ Doesn't work (no decorator metadata)
 npx tsx src/index.ts
 
-# ✅ Works
-node --import @swc-node/register/esm-register src/index.ts
+# ✅ Works (full decorator support)
+npx nextrush-dev
 ```
 
 ### Error: "reflect-metadata not found"
