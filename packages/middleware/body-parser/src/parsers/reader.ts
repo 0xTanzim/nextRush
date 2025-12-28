@@ -2,6 +2,7 @@
  * @nextrush/body-parser - Body Reader
  *
  * Core functionality for reading request body streams.
+ * Supports all runtimes: Node.js, Bun, Deno, Edge.
  *
  * @packageDocumentation
  */
@@ -12,20 +13,93 @@ import { concatBuffers } from '../utils/buffer.js';
 import { getContentLength } from '../utils/content-type.js';
 
 /**
- * Read body from request stream with proper cleanup.
+ * Read body from request using cross-runtime BodySource API.
  *
  * Features:
- * - Size limit enforcement (pre-check and streaming)
- * - Request abort/close handling (prevents memory leaks)
- * - Single-chunk optimization (avoids allocation for most requests)
- * - Proper event listener cleanup
+ * - Cross-runtime support (Node.js, Bun, Deno, Edge)
+ * - Size limit enforcement (pre-check and post-read validation)
+ * - Automatic fallback to legacy Node.js stream reading
+ * - Proper error handling with descriptive messages
  *
  * @param ctx - Request context
  * @param limit - Maximum body size in bytes
  * @returns Promise resolving to body buffer
  * @throws BodyParserError on size limit, abort, or stream error
+ *
+ * @example
+ * ```typescript
+ * // Works on any runtime
+ * const buffer = await readBody(ctx, 1024 * 1024); // 1MB limit
+ * const text = buffer.toString('utf-8');
+ * ```
  */
-export function readBody(ctx: BodyParserContext, limit: number): Promise<Buffer> {
+export async function readBody(ctx: BodyParserContext, limit: number): Promise<Buffer> {
+  // Modern cross-runtime path: use bodySource if available
+  if (ctx.bodySource) {
+    return readBodyFromSource(ctx, limit);
+  }
+
+  // Legacy Node.js path: use raw.req stream
+  if (ctx.raw?.req) {
+    return readBodyFromNodeStream(ctx, limit);
+  }
+
+  // No body source available - return empty buffer
+  return Buffer.alloc(0);
+}
+
+/**
+ * Read body using the modern BodySource API
+ *
+ * Works on Node.js, Bun, Deno, and Edge runtimes.
+ */
+async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promise<Buffer> {
+  const bodySource = ctx.bodySource!;
+
+  // Pre-check Content-Length if available (synchronous rejection)
+  const contentLength = bodySource.contentLength ?? getContentLength(ctx.headers);
+  if (contentLength !== undefined && contentLength > limit) {
+    throw Errors.entityTooLarge(contentLength, limit);
+  }
+
+  try {
+    // Read body as Uint8Array using cross-runtime API
+    const uint8Array = await bodySource.buffer();
+
+    // Post-read size check (for chunked transfers without Content-Length)
+    if (uint8Array.length > limit) {
+      throw Errors.entityTooLargeStreaming(limit);
+    }
+
+    // Convert Uint8Array to Buffer for consistency with existing code
+    return Buffer.from(uint8Array);
+  } catch (err) {
+    // Re-throw BodyParserError
+    if (err instanceof Error && err.name === 'BodyParserError') {
+      throw err;
+    }
+
+    // Handle BodySource-specific errors
+    if (err instanceof Error) {
+      if (err.name === 'BodyConsumedError') {
+        throw Errors.bodyReadError('Body has already been consumed');
+      }
+      if (err.name === 'BodyTooLargeError') {
+        throw Errors.entityTooLargeStreaming(limit);
+      }
+      throw Errors.bodyReadError(err.message);
+    }
+
+    throw Errors.bodyReadError('Unknown error reading body');
+  }
+}
+
+/**
+ * Read body using Node.js stream API (legacy fallback)
+ *
+ * @deprecated Prefer using BodySource for cross-runtime compatibility.
+ */
+function readBodyFromNodeStream(ctx: BodyParserContext, limit: number): Promise<Buffer> {
   // Pre-check Content-Length if available (synchronous rejection)
   const contentLength = getContentLength(ctx.headers);
 
@@ -37,6 +111,7 @@ export function readBody(ctx: BodyParserContext, limit: number): Promise<Buffer>
     const chunks: Buffer[] = [];
     let received = 0;
     let finished = false;
+    const req = ctx.raw!.req!;
 
     /**
      * Clean up all event listeners
@@ -46,11 +121,11 @@ export function readBody(ctx: BodyParserContext, limit: number): Promise<Buffer>
       finished = true;
 
       try {
-        ctx.raw.req.off('data', onData);
-        ctx.raw.req.off('end', onEnd);
-        ctx.raw.req.off('error', onError);
-        ctx.raw.req.off('close', onClose);
-        ctx.raw.req.off('aborted', onAborted);
+        req.off('data', onData);
+        req.off('end', onEnd);
+        req.off('error', onError);
+        req.off('close', onClose);
+        req.off('aborted', onAborted);
       } catch {
         // Ignore cleanup errors (request may already be destroyed)
       }
@@ -111,16 +186,16 @@ export function readBody(ctx: BodyParserContext, limit: number): Promise<Buffer>
     };
 
     // Check if request is already destroyed
-    if (ctx.raw.req.destroyed) {
+    if (req.destroyed) {
       reject(Errors.requestClosed());
       return;
     }
 
     // Attach event listeners
-    ctx.raw.req.on('data', onData);
-    ctx.raw.req.on('end', onEnd);
-    ctx.raw.req.on('error', onError);
-    ctx.raw.req.on('close', onClose);
-    ctx.raw.req.on('aborted', onAborted);
+    req.on('data', onData);
+    req.on('end', onEnd);
+    req.on('error', onError);
+    req.on('close', onClose);
+    req.on('aborted', onAborted);
   });
 }
