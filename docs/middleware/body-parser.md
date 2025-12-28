@@ -1,23 +1,536 @@
-# Body Parser Architecture & Performance
+# Body Parser
 
-## Executive Summary
+> Secure HTTP request body parsing with built-in protection against common web vulnerabilities.
 
-The NextRush v3 body-parser achieves **71% better performance** than v2 on POST JSON requests (22,553 vs 13,158 req/sec) through architectural improvements and performance optimizations.
+## The Problem
 
-### Performance Comparison
+Every web application that accepts user input through HTTP request bodies faces the same challenges:
 
-| Metric | v2 | v3 | Improvement |
-|--------|-----|-----|-------------|
-| **POST JSON** | 13,158 req/sec | 22,553 req/sec | **+71.40%** ⚡ |
-| Hello World | 21,100 req/sec | 37,858 req/sec | +79.42% |
-| Route Params | 21,636 req/sec | 35,936 req/sec | +66.10% |
+**Security risks are everywhere.** Attackers can exploit prototype pollution through malicious `__proto__` keys, exhaust server memory with oversized payloads, or crash your application with deeply nested structures. Most developers don't even know these vulnerabilities exist until they're exploited.
 
-**Test Configuration:**
-- Tool: Autocannon
-- Connections: 100
-- Duration: 10 seconds
-- Pipelining: 10
-- Payload: `{ name: 'John Doe', email: 'john@example.com' }` (~45 bytes)
+**Inconsistent handling causes bugs.** Different content types require different parsing strategies. JSON needs strict validation. URL-encoded forms have their own encoding quirks. Without a unified approach, you end up with scattered parsing logic and inconsistent error handling.
+
+**Performance matters at scale.** Naive implementations buffer entire request bodies before parsing, wasting memory and CPU. When your API handles thousands of requests per second, every millisecond of parsing overhead compounds.
+
+## How NextRush Approaches This
+
+NextRush's body-parser treats **security as a first-class feature**, not an afterthought.
+
+Instead of blindly parsing whatever comes in, every request body passes through validation layers:
+
+1. **Size limits** enforced during streaming (not after buffering)
+2. **Content-Type routing** to the appropriate parser
+3. **Security validation** that blocks prototype pollution attempts
+4. **Proper cleanup** that prevents memory leaks from aborted connections
+
+The result is a body parser that is both **secure by default** and **fast in production**.
+
+## Mental Model
+
+Think of the body-parser as a **security checkpoint** between raw HTTP and your application code:
+
+```
+Raw HTTP Request
+       │
+       ▼
+┌──────────────────────────────────────┐
+│       Body Parser Middleware         │
+├──────────────────────────────────────┤
+│ 1. Check method (skip GET/HEAD)      │
+│ 2. Match Content-Type                │
+│ 3. Validate Content-Length           │
+│ 4. Stream with size checks           │
+│ 5. Parse content                     │
+│ 6. Security validation               │
+│ 7. Populate ctx.body                 │
+└──────────────────────────────────────┘
+       │
+       ▼
+  ctx.body = { ... }   ← Safe, validated data
+```
+
+Anything that doesn't pass validation is rejected with a clear error code. Your route handlers only ever see safe, validated data.
+
+## Installation
+
+```bash
+pnpm add @nextrush/body-parser
+```
+
+## Basic Usage
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { serve } from '@nextrush/adapter-node';
+import { json } from '@nextrush/body-parser';
+
+const app = createApp();
+
+// Parse JSON request bodies
+app.use(json());
+
+app.post('/users', async (ctx) => {
+  // ctx.body contains the parsed JSON
+  const { name, email } = ctx.body as { name: string; email: string };
+
+  ctx.status = 201;
+  ctx.json({ id: Date.now(), name, email });
+});
+
+await serve(app, { port: 3000 });
+```
+
+::: info What happens behind the scenes
+When `json()` middleware runs:
+1. Checks if request method has a body (skips GET, HEAD, OPTIONS, DELETE)
+2. Reads Content-Type header and matches against `application/json`
+3. Validates Content-Length against the configured limit (default: 1MB)
+4. Streams request body while checking size during streaming
+5. Parses JSON with `JSON.parse()`
+6. Sets `ctx.body` to the parsed result
+7. Continues to next middleware
+:::
+
+## Parsers
+
+### JSON Parser
+
+Parse `application/json` request bodies.
+
+```typescript
+import { json } from '@nextrush/body-parser';
+
+app.use(json({
+  limit: '1mb',              // Maximum body size
+  strict: true,              // Only accept objects and arrays
+  type: ['application/json'], // Content types to match
+  rawBody: false,            // Store raw buffer in ctx.rawBody
+  reviver: undefined,        // JSON.parse reviver function
+}));
+```
+
+**When to use:** API endpoints that receive JSON payloads.
+
+**Default behavior:**
+- Accepts bodies up to 1MB
+- Strict mode: rejects JSON primitives (`"string"`, `123`, `true`, `null`)
+- Empty bodies return `{}` in strict mode
+
+### URL-Encoded Parser
+
+Parse `application/x-www-form-urlencoded` form data.
+
+```typescript
+import { urlencoded } from '@nextrush/body-parser';
+
+app.use(urlencoded({
+  limit: '100kb',           // Maximum body size
+  extended: true,           // Parse nested objects
+  parameterLimit: 1000,     // Maximum number of parameters
+  depth: 5,                 // Maximum nesting depth
+}));
+```
+
+**When to use:** HTML form submissions.
+
+**Extended parsing examples:**
+
+```typescript
+// Input: user[name]=Alice&user[email]=alice@test.com
+// Result: { user: { name: 'Alice', email: 'alice@test.com' } }
+
+// Input: tags[]=js&tags[]=ts
+// Result: { tags: ['js', 'ts'] }
+
+// Input: items[0]=a&items[1]=b
+// Result: { items: ['a', 'b'] }
+```
+
+### Text Parser
+
+Parse `text/plain` request bodies.
+
+```typescript
+import { text } from '@nextrush/body-parser';
+
+app.use(text({
+  limit: '100kb',
+  defaultCharset: 'utf-8',
+  type: ['text/plain'],
+}));
+```
+
+**When to use:** Plain text uploads, log ingestion, simple webhooks.
+
+### Raw Parser
+
+Parse request bodies as raw `Buffer`.
+
+```typescript
+import { raw } from '@nextrush/body-parser';
+
+app.use(raw({
+  limit: '10mb',
+  type: ['application/octet-stream', 'image/*'],
+}));
+
+app.post('/upload', async (ctx) => {
+  const buffer = ctx.body as Buffer;
+  console.log(`Received ${buffer.length} bytes`);
+});
+```
+
+**When to use:** Binary file uploads, image processing.
+
+### Combined Parser
+
+Handle multiple content types with one middleware.
+
+```typescript
+import { bodyParser } from '@nextrush/body-parser';
+
+app.use(bodyParser({
+  json: { limit: '5mb', strict: true },
+  urlencoded: { extended: true },
+  text: false,   // Disable text parsing
+  raw: false,    // Disable raw parsing
+}));
+```
+
+**When to use:** APIs that accept both JSON and form data.
+
+::: tip JSON and URL-encoded only by default
+The combined parser only enables JSON and URL-encoded by default. Text and raw must be explicitly configured.
+:::
+
+## Security Features
+
+### Prototype Pollution Protection
+
+The URL-encoded parser blocks prototype pollution attacks:
+
+```typescript
+// Malicious input: __proto__[polluted]=true
+// Result: BodyParserError with code 'PROTOTYPE_POLLUTION'
+
+// Malicious input: constructor[prototype][admin]=true
+// Result: BodyParserError with code 'PROTOTYPE_POLLUTION'
+```
+
+These keys are blocked: `__proto__`, `constructor`, `prototype`
+
+### DoS Protection
+
+Multiple layers prevent denial-of-service:
+
+```typescript
+app.use(urlencoded({
+  limit: '100kb',       // Total body size limit
+  parameterLimit: 100,  // Maximum parameters
+  depth: 3,             // Maximum nesting depth
+}));
+```
+
+### Memory Leak Prevention
+
+Event listeners are properly cleaned up when requests abort:
+
+```typescript
+// When client disconnects mid-request:
+// - All event listeners (data, end, error, close, aborted) removed
+// - No memory leak
+// - BodyParserError thrown with code 'REQUEST_ABORTED'
+```
+
+### Charset Validation
+
+Only safe charsets are accepted:
+
+```typescript
+// ✅ Supported: utf-8, ascii, latin1, base64, hex, utf16le
+// ❌ Rejected: unknown or dangerous charsets
+```
+
+## Error Handling
+
+All parsing errors throw `BodyParserError` with detailed information:
+
+```typescript
+import { json, BodyParserError } from '@nextrush/body-parser';
+
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (error) {
+    if (error instanceof BodyParserError) {
+      ctx.status = error.status;
+      ctx.json({
+        error: error.message,
+        code: error.code,
+      });
+      return;
+    }
+    throw error;
+  }
+});
+
+app.use(json());
+```
+
+### Error Codes
+
+| Code | Status | When it happens |
+|------|--------|-----------------|
+| `ENTITY_TOO_LARGE` | 413 | Body exceeds size limit |
+| `INVALID_JSON` | 400 | JSON syntax error |
+| `STRICT_MODE_VIOLATION` | 400 | JSON is primitive in strict mode |
+| `TOO_MANY_PARAMETERS` | 413 | URL-encoded parameter limit exceeded |
+| `DEPTH_EXCEEDED` | 400 | URL-encoded nesting too deep |
+| `PROTOTYPE_POLLUTION` | 400 | Detected `__proto__`, `constructor`, or `prototype` |
+| `UNSUPPORTED_CHARSET` | 415 | Unknown charset |
+| `REQUEST_ABORTED` | 400 | Client disconnected |
+
+## Common Patterns
+
+### API with Error Handling
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { serve } from '@nextrush/adapter-node';
+import { json, BodyParserError } from '@nextrush/body-parser';
+
+const app = createApp();
+
+// Global error handler
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (error) {
+    if (error instanceof BodyParserError) {
+      ctx.status = error.status;
+      ctx.json({ error: error.message, code: error.code });
+      return;
+    }
+    console.error('Unhandled error:', error);
+    ctx.status = 500;
+    ctx.json({ error: 'Internal server error' });
+  }
+});
+
+// Body parser
+app.use(json({ limit: '1mb' }));
+
+// Routes
+app.post('/api/users', async (ctx) => {
+  const { name, email } = ctx.body as { name: string; email: string };
+
+  if (!name || !email) {
+    ctx.status = 400;
+    ctx.json({ error: 'name and email are required' });
+    return;
+  }
+
+  ctx.status = 201;
+  ctx.json({ id: Date.now(), name, email });
+});
+
+await serve(app, { port: 3000 });
+```
+
+### Webhook Signature Verification
+
+Use `rawBody` to access the original buffer for signature verification:
+
+```typescript
+import { json } from '@nextrush/body-parser';
+import { createHmac } from 'node:crypto';
+
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!;
+
+app.use(json({ rawBody: true }));
+
+app.post('/webhook', async (ctx) => {
+  const signature = ctx.get('X-Signature');
+  const rawBody = ctx.rawBody as Buffer;
+
+  const expected = createHmac('sha256', WEBHOOK_SECRET)
+    .update(rawBody)
+    .digest('hex');
+
+  if (signature !== expected) {
+    ctx.throw(401, 'Invalid signature');
+  }
+
+  // Process verified webhook
+  const payload = ctx.body;
+  // ...
+});
+```
+
+### Multiple Content Types
+
+```typescript
+import { json, urlencoded, text, raw } from '@nextrush/body-parser';
+
+// JSON for API
+app.use(json({ type: ['application/json', 'application/*+json'] }));
+
+// Forms
+app.use(urlencoded({ extended: true }));
+
+// Plain text
+app.use(text({ type: ['text/plain', 'text/csv'] }));
+
+// Binary uploads
+app.use(raw({ type: ['application/octet-stream', 'image/*'], limit: '50mb' }));
+```
+
+## Size Limits
+
+Limits accept numbers (bytes) or human-readable strings:
+
+```typescript
+// These are equivalent
+json({ limit: 1048576 })
+json({ limit: '1mb' })
+json({ limit: '1024kb' })
+
+// Common values
+json({ limit: '100kb' })  // 100 KB
+json({ limit: '5mb' })    // 5 MB
+json({ limit: '1gb' })    // 1 GB
+```
+
+## Performance
+
+The body-parser is optimized for production:
+
+- **StringDecoder** for efficient UTF-8 handling on large buffers
+- **Single-chunk optimization** avoids `Buffer.concat` for most requests
+- **Pre-compiled regex** patterns for Content-Type matching
+- **Content-Length pre-check** rejects oversized bodies before reading
+- **Proper event cleanup** prevents memory leaks
+
+::: info Benchmark results
+POST JSON achieves **22,500+ requests/second** on typical hardware (100 connections, 45-byte payload).
+:::
+
+## Common Mistakes
+
+### Mistake 1: Forgetting the body parser
+
+```typescript
+// ❌ ctx.body is undefined
+app.post('/users', async (ctx) => {
+  console.log(ctx.body); // undefined!
+});
+
+// ✅ Add body parser middleware
+app.use(json());
+app.post('/users', async (ctx) => {
+  console.log(ctx.body); // { name: 'Alice', ... }
+});
+```
+
+### Mistake 2: Wrong middleware order
+
+```typescript
+// ❌ Error handler won't catch body parser errors
+app.use(json());
+app.use(errorHandler);  // Too late!
+
+// ✅ Error handler before body parser
+app.use(errorHandler);
+app.use(json());
+```
+
+### Mistake 3: Setting limit too high
+
+```typescript
+// ❌ 1GB limit is a DoS vulnerability
+app.use(json({ limit: '1gb' }));
+
+// ✅ Set reasonable limits based on use case
+app.use(json({ limit: '5mb' }));  // Most APIs
+app.use(json({ limit: '50mb' })); // File metadata
+```
+
+## When NOT to Use
+
+This body-parser is **not designed for**:
+
+- **File uploads (multipart/form-data)** - Use `@nextrush/multipart` (planned)
+- **Streaming large files** - Use `@nextrush/streaming` (planned)
+- **GraphQL** - Use graphql-specific middleware
+- **Protocol Buffers** - Write a custom parser
+
+## TypeScript Types
+
+All types are exported:
+
+```typescript
+import type {
+  JsonOptions,
+  UrlEncodedOptions,
+  TextOptions,
+  RawOptions,
+  BodyParserOptions,
+  BodyParserError,
+  BodyParserErrorCode,
+} from '@nextrush/body-parser';
+```
+
+## API Reference
+
+### `json(options?)`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `limit` | `string \| number` | `'1mb'` | Maximum body size |
+| `strict` | `boolean` | `true` | Only accept objects/arrays |
+| `type` | `string \| string[]` | `['application/json']` | Content types to match |
+| `rawBody` | `boolean` | `false` | Store raw buffer in ctx.rawBody |
+| `reviver` | `function` | `undefined` | JSON.parse reviver |
+
+### `urlencoded(options?)`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `limit` | `string \| number` | `'100kb'` | Maximum body size |
+| `extended` | `boolean` | `true` | Parse nested objects |
+| `parameterLimit` | `number` | `1000` | Maximum parameters |
+| `depth` | `number` | `5` | Maximum nesting depth |
+| `type` | `string \| string[]` | `['application/x-www-form-urlencoded']` | Content types |
+| `rawBody` | `boolean` | `false` | Store raw buffer |
+
+### `text(options?)`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `limit` | `string \| number` | `'100kb'` | Maximum body size |
+| `defaultCharset` | `string` | `'utf-8'` | Fallback charset |
+| `type` | `string \| string[]` | `['text/plain']` | Content types |
+| `rawBody` | `boolean` | `false` | Store raw buffer |
+
+### `raw(options?)`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `limit` | `string \| number` | `'100kb'` | Maximum body size |
+| `type` | `string \| string[]` | `['application/octet-stream']` | Content types |
+
+### `bodyParser(options?)`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `json` | `JsonOptions \| false` | `{}` | JSON parser options |
+| `urlencoded` | `UrlEncodedOptions \| false` | `{}` | URL-encoded options |
+| `text` | `TextOptions \| false` | `undefined` | Text parser (disabled) |
+| `raw` | `RawOptions \| false` | `undefined` | Raw parser (disabled) |
+
+---
+
+## Architecture Deep Dive
 
 ---
 
