@@ -2,12 +2,23 @@
 
 Request identification middleware for NextRush. Generate unique request IDs for tracing, logging, and debugging distributed systems.
 
+## Features
+
+- **UUID Generation**: Cryptographically secure unique IDs via `crypto.randomUUID()`
+- **Security Validated**: Incoming IDs validated for format, length, and injection attacks
+- **Correlation IDs**: Pass-through IDs from upstream services with validation
+- **Trace IDs**: Distributed tracing support
+- **Multi-Runtime**: Works on Node.js, Bun, Deno, Cloudflare Workers
+- **Zero Dependencies**: Pure TypeScript implementation
+
 ## Installation
 
 ```bash
 npm install @nextrush/request-id
 # or
 pnpm add @nextrush/request-id
+# or
+bun add @nextrush/request-id
 ```
 
 ## Quick Start
@@ -27,56 +38,43 @@ app.get('/api/data', (ctx) => {
 });
 ```
 
-## Features
+**Response Header:**
 
-- **UUID Generation**: Unique IDs for every request
-- **Correlation IDs**: Pass-through IDs from upstream services
-- **Trace IDs**: Distributed tracing support
-- **Header Customization**: Configure request/response headers
-- **Zero Dependencies**: Uses Node.js crypto module
+```
+X-Request-Id: 550e8400-e29b-41d4-a716-446655440000
+```
 
-## Middleware Options
+## Middleware Functions
 
 ### requestId(options?)
 
-Basic request identification:
+Basic request identification with UUID generation:
 
 ```typescript
+import { requestId } from '@nextrush/request-id';
+
+// Basic usage - generates UUID v4
+app.use(requestId());
+
+// Trust incoming IDs (validated)
+app.use(requestId({ trustIncoming: true }));
+
+// Custom generator
 app.use(requestId({
-  // Response header name (default: 'X-Request-Id')
-  header: 'X-Request-Id',
-
-  // Request header to trust (default: 'X-Request-Id')
-  requestHeader: 'X-Request-Id',
-
-  // Trust incoming header (default: true)
-  trustHeader: true,
-
-  // Custom ID generator
-  generator: () => crypto.randomUUID(),
-
-  // State key (default: 'requestId')
-  stateKey: 'requestId',
+  generator: () => `req-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }));
 ```
 
 ### correlationId(options?)
 
-For service-to-service tracing:
+For service-to-service request correlation:
 
 ```typescript
 import { correlationId } from '@nextrush/request-id';
 
-app.use(correlationId({
-  // Header name (default: 'X-Correlation-Id')
-  header: 'X-Correlation-Id',
-
-  // Trust upstream header (default: true)
-  trustHeader: true,
-
-  // State key (default: 'correlationId')
-  stateKey: 'correlationId',
-}));
+app.use(correlationId());
+// Header: X-Correlation-Id
+// State: ctx.state.correlationId
 ```
 
 ### traceId(options?)
@@ -86,73 +84,99 @@ For distributed tracing systems:
 ```typescript
 import { traceId } from '@nextrush/request-id';
 
-app.use(traceId({
-  // Header name (default: 'X-Trace-Id')
-  header: 'X-Trace-Id',
-
-  // Trust upstream header (default: true)
-  trustHeader: true,
-
-  // State key (default: 'traceId')
-  stateKey: 'traceId',
-}));
+app.use(traceId());
+// Header: X-Trace-Id
+// State: ctx.state.traceId
 ```
 
-## Context API
+## Options Reference
 
-After applying middleware:
+### RequestIdOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `header` | `string` | `'X-Request-Id'` | Header name for request ID |
+| `generator` | `() => string` | `crypto.randomUUID` | Custom ID generator |
+| `trustIncoming` | `boolean` | `true` | Trust valid incoming IDs |
+| `validator` | `(id: string) => boolean` | `isValidUuid` | Custom ID validator |
+| `maxLength` | `number` | `128` | Maximum ID length allowed |
+| `stateKey` | `string` | `'requestId'` | Key in `ctx.state` |
+| `exposeHeader` | `boolean` | `true` | Set response header |
+
+## Security Features
+
+### Incoming ID Validation
+
+When `trustIncoming: true`, incoming IDs are validated before use:
 
 ```typescript
-// Access IDs
-ctx.state.requestId      // Unique request ID
-ctx.state.correlationId  // Correlation ID (if middleware added)
-ctx.state.traceId        // Trace ID (if middleware added)
+// Default: Only accept UUID v4 format
+app.use(requestId());
+// ✅ Accepts: 550e8400-e29b-41d4-a716-446655440000
+// ❌ Rejects: arbitrary-string-123
+
+// Permissive: Accept any safe alphanumeric ID
+import { permissiveValidator } from '@nextrush/request-id';
+app.use(requestId({ validator: permissiveValidator }));
+// ✅ Accepts: my-custom-id-123
+// ❌ Rejects: id-with:colons or id\r\ninjection
 ```
 
-## Response Headers
+### Protection Against
 
-By default, the request ID is sent in the response:
+- **CRLF Injection**: IDs with `\r\n` are rejected
+- **Null Byte Injection**: IDs with `\x00` are rejected
+- **Header Overflow**: IDs exceeding `maxLength` (default: 128) are rejected
+- **Format Attacks**: Only alphanumeric, hyphen, underscore allowed
 
-```
-HTTP/1.1 200 OK
-X-Request-Id: 550e8400-e29b-41d4-a716-446655440000
-```
-
-Disable response header:
+### Validation Functions
 
 ```typescript
-app.use(requestId({
-  setResponseHeader: false,
-}));
+import {
+  isValidUuid,        // UUID v4 format check
+  isSafeId,           // Safe characters only
+  isValidLength,      // Length within bounds
+  validateId,         // Combined validation
+  createValidator,    // Create custom validator
+  defaultValidator,   // UUID validator (default)
+  permissiveValidator // Safe alphanumeric validator
+} from '@nextrush/request-id';
+
+// Custom validator example
+const myValidator = (id: string) =>
+  id.startsWith('myapp-') && isSafeId(id);
+
+app.use(requestId({ validator: myValidator }));
 ```
 
-## Custom Generators
+## Microservices Pattern
 
-### Sequential IDs
-
-```typescript
-let counter = 0;
-app.use(requestId({
-  generator: () => `req-${++counter}`,
-}));
-```
-
-### Prefixed IDs
+Pass IDs between services with validation:
 
 ```typescript
-app.use(requestId({
-  generator: () => `svc-api-${crypto.randomUUID()}`,
-}));
-```
+// API Gateway
+app.use(requestId());
+app.use(correlationId());
 
-### Short IDs
+app.get('/api/users/:id', async (ctx) => {
+  const response = await fetch('http://user-service/users/' + ctx.params.id, {
+    headers: {
+      'X-Request-Id': ctx.state.requestId as string,
+      'X-Correlation-Id': ctx.state.correlationId as string,
+    },
+  });
+  ctx.json(await response.json());
+});
 
-```typescript
-import { randomBytes } from 'crypto';
+// User Service - trusts gateway IDs
+app.use(requestId({ trustIncoming: true }));
+app.use(correlationId({ trustIncoming: true }));
 
-app.use(requestId({
-  generator: () => randomBytes(8).toString('hex'),
-}));
+app.get('/users/:id', (ctx) => {
+  // Same IDs as gateway (if valid)
+  console.log('Request:', ctx.state.requestId);
+  console.log('Correlation:', ctx.state.correlationId);
+});
 ```
 
 ## Integration with Logging
@@ -163,104 +187,119 @@ import { logger } from '@nextrush/logger';
 
 app.use(requestId());
 app.use(logger({
-  // Include request ID in log output
   customProps: (ctx) => ({
     requestId: ctx.state.requestId,
   }),
 }));
 ```
 
-## Microservices Pattern
+## Custom Generators
 
-Pass IDs between services:
-
-```typescript
-// API Gateway
-app.use(requestId());
-app.use(correlationId());
-
-app.get('/api/users/:id', async (ctx) => {
-  // Forward IDs to downstream service
-  const response = await fetch('http://user-service/users/' + ctx.params.id, {
-    headers: {
-      'X-Request-Id': ctx.state.requestId,
-      'X-Correlation-Id': ctx.state.correlationId,
-    },
-  });
-  ctx.json(await response.json());
-});
-
-// User Service
-app.use(requestId({ trustHeader: true }));
-app.use(correlationId({ trustHeader: true }));
-
-app.get('/users/:id', (ctx) => {
-  // Same IDs as gateway
-  console.log(ctx.state.requestId, ctx.state.correlationId);
-});
-```
-
-## OpenTelemetry Integration
+### Prefixed IDs
 
 ```typescript
-import { traceId } from '@nextrush/request-id';
-
-app.use(traceId({
-  header: 'traceparent',
-  generator: () => {
-    // OpenTelemetry trace ID format
-    const traceId = crypto.randomBytes(16).toString('hex');
-    const spanId = crypto.randomBytes(8).toString('hex');
-    return `00-${traceId}-${spanId}-01`;
-  },
+app.use(requestId({
+  generator: () => `api-${crypto.randomUUID()}`,
 }));
+// api-550e8400-e29b-41d4-a716-446655440000
 ```
+
+### Short IDs
+
+```typescript
+app.use(requestId({
+  generator: () => crypto.randomUUID().split('-')[0],
+}));
+// 550e8400
+```
+
+### Timestamped IDs
+
+```typescript
+app.use(requestId({
+  generator: () => `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+}));
+// 1699999999999-550e8400
+```
+
+## Constants & Utilities
+
+```typescript
+import {
+  // Constants
+  DEFAULT_HEADER,         // 'X-Request-Id'
+  CORRELATION_HEADER,     // 'X-Correlation-Id'
+  TRACE_HEADER,           // 'X-Trace-Id'
+  DEFAULT_STATE_KEY,      // 'requestId'
+  CORRELATION_STATE_KEY,  // 'correlationId'
+  TRACE_STATE_KEY,        // 'traceId'
+  DEFAULT_MAX_LENGTH,     // 128
+
+  // Generator
+  defaultGenerator,       // crypto.randomUUID()
+} from '@nextrush/request-id';
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  RequestIdOptions,
+  CorrelationIdOptions,
+  TraceIdOptions,
+  IdGenerator,
+  IdValidator,
+  RequestIdContext,
+  Middleware,
+} from '@nextrush/request-id';
+```
+
+## Multi-Runtime Support
+
+Uses only universal APIs compatible with all JavaScript runtimes:
+
+- **Node.js** ≥20
+- **Bun** ≥1.0
+- **Deno** ≥1.0
+- **Cloudflare Workers**
+- **Vercel Edge**
+
+## Performance
+
+- Overhead: < 0.01ms per request
+- Memory: Minimal allocations
+- Build size: ~2.49 KB ESM, ~8.27 KB types
 
 ## API Reference
 
 ### Exports
 
-```typescript
-import {
-  requestId,      // Request ID middleware
-  correlationId,  // Correlation ID middleware
-  traceId,        // Trace ID middleware
-  generateId,     // Utility: generate UUID
-} from '@nextrush/request-id';
-```
-
-### Types
-
-```typescript
-interface RequestIdOptions {
-  header?: string;
-  requestHeader?: string;
-  trustHeader?: boolean;
-  generator?: () => string;
-  stateKey?: string;
-  setResponseHeader?: boolean;
-}
-
-interface CorrelationIdOptions {
-  header?: string;
-  trustHeader?: boolean;
-  stateKey?: string;
-}
-
-interface TraceIdOptions {
-  header?: string;
-  trustHeader?: boolean;
-  stateKey?: string;
-}
-```
+| Export | Type | Description |
+|--------|------|-------------|
+| `requestId` | Function | Request ID middleware |
+| `correlationId` | Function | Correlation ID middleware |
+| `traceId` | Function | Trace ID middleware |
+| `isValidUuid` | Function | UUID v4 validator |
+| `isSafeId` | Function | Safe character validator |
+| `isValidLength` | Function | Length validator |
+| `validateId` | Function | Combined validator |
+| `createValidator` | Function | Create custom validator |
+| `defaultValidator` | Constant | UUID validator |
+| `permissiveValidator` | Constant | Alphanumeric validator |
+| `defaultGenerator` | Function | UUID generator |
+| `DEFAULT_HEADER` | Constant | `'X-Request-Id'` |
+| `CORRELATION_HEADER` | Constant | `'X-Correlation-Id'` |
+| `TRACE_HEADER` | Constant | `'X-Trace-Id'` |
+| `DEFAULT_MAX_LENGTH` | Constant | `128` |
 
 ## Best Practices
 
 1. **Always use request IDs** in production for debugging
-2. **Trust headers** only from known upstream services
-3. **Include IDs** in all log messages
-4. **Forward IDs** to downstream services
-5. **Use correlation IDs** for user-initiated request chains
+2. **Use UUID format** by default for maximum uniqueness
+3. **Validate incoming IDs** to prevent injection attacks
+4. **Include IDs** in all log messages
+5. **Forward IDs** to downstream services
+6. **Use correlation IDs** for user-initiated request chains
 
 ## License
 

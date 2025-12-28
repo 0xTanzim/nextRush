@@ -1,6 +1,15 @@
 # @nextrush/timer
 
-High-resolution request timing middleware for NextRush. Measure response times with nanosecond precision and Server-Timing support.
+High-resolution request timing middleware for NextRush. Measure response times with microsecond precision and Server-Timing support.
+
+## Features
+
+- **High Resolution**: Uses `performance.now()` for sub-millisecond precision
+- **Server-Timing**: Native browser DevTools integration
+- **Multi-Runtime**: Works on Node.js, Bun, Deno, Cloudflare Workers
+- **Security Hardened**: RFC 7230 compliant header sanitization
+- **Zero Dependencies**: Pure TypeScript implementation
+- **Detailed Mode**: Capture full timing information with start/end timestamps
 
 ## Installation
 
@@ -8,6 +17,8 @@ High-resolution request timing middleware for NextRush. Measure response times w
 npm install @nextrush/timer
 # or
 pnpm add @nextrush/timer
+# or
+bun add @nextrush/timer
 ```
 
 ## Quick Start
@@ -22,45 +33,43 @@ const app = createApp();
 app.use(timer());
 
 app.get('/api/data', (ctx) => {
-  // Access timing info
+  // Access timing info after next()
   console.log('Response time:', ctx.state.responseTime);
   ctx.json({ data: 'Hello' });
 });
 ```
 
-## Features
+**Response Header:**
 
-- **High Resolution**: Uses `process.hrtime.bigint()` for nanosecond precision
-- **Server-Timing**: Native browser DevTools integration
-- **Custom Metrics**: Track database queries, cache hits, external calls
-- **Low Overhead**: Minimal performance impact
-- **Zero Dependencies**: Pure TypeScript implementation
+```
+X-Response-Time: 12.34ms
+```
 
-## Middleware Options
+## Middleware Functions
 
 ### timer(options?)
 
-Basic request timing:
+Basic request timing middleware:
 
 ```typescript
+import { timer } from '@nextrush/timer';
+
+// Basic usage
+app.use(timer());
+
+// With options
 app.use(timer({
-  // Response header name (default: 'X-Response-Time')
-  header: 'X-Response-Time',
-
-  // Header value suffix (default: 'ms')
-  suffix: 'ms',
-
-  // Decimal precision (default: 2)
-  precision: 2,
-
-  // State key (default: 'responseTime')
-  stateKey: 'responseTime',
+  header: 'X-Duration',      // Custom header name
+  suffix: ' ms',             // Custom suffix
+  precision: 3,              // Decimal places (max: 6)
+  stateKey: 'duration',      // ctx.state key
+  exposeHeader: true,        // Set response header
 }));
 ```
 
 ### responseTime(options?)
 
-Alias for `timer()`:
+Alias for `timer()` with common naming:
 
 ```typescript
 import { responseTime } from '@nextrush/timer';
@@ -70,209 +79,271 @@ app.use(responseTime());
 
 ### serverTiming(options?)
 
-Add Server-Timing headers for DevTools:
+Uses the standard `Server-Timing` header format, visible in browser DevTools:
 
 ```typescript
 import { serverTiming } from '@nextrush/timer';
 
 app.use(serverTiming());
+// Header: Server-Timing: total;dur=123.45
+```
 
-app.get('/api/users', async (ctx) => {
-  // Add custom timing metrics
-  ctx.timing.start('db');
-  const users = await db.query('SELECT * FROM users');
-  ctx.timing.end('db');
+With description:
 
-  ctx.timing.start('serialize');
-  const json = JSON.stringify(users);
-  ctx.timing.end('serialize');
+```typescript
+app.use(serverTiming({
+  metric: 'api',
+  description: 'API Response Time',
+}));
+// Header: Server-Timing: api;dur=123.45;desc="API Response Time"
+```
 
-  ctx.json(users);
+### detailedTimer(options?)
+
+Captures complete timing information:
+
+```typescript
+import { detailedTimer } from '@nextrush/timer';
+import type { TimingResult } from '@nextrush/timer';
+
+app.use(detailedTimer({ detailed: true }));
+
+app.use(async (ctx) => {
+  await ctx.next();
+
+  const timing = ctx.state.responseTime as TimingResult;
+  console.log({
+    duration: timing.duration,    // 123.45
+    formatted: timing.formatted,  // "123.45ms"
+    start: timing.start,          // 1234567890.123
+    end: timing.end,              // 1234568013.573
+  });
 });
 ```
 
-**Response Header:**
+## Options Reference
 
-```
-Server-Timing: db;dur=45.2, serialize;dur=2.1, total;dur=50.5
-```
+### TimerOptions
 
-## Context API
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `header` | `string` | `'X-Response-Time'` | Response header name |
+| `suffix` | `string` | `'ms'` | Time unit suffix |
+| `precision` | `number` | `2` | Decimal places (0-6) |
+| `stateKey` | `string` | `'responseTime'` | Key in `ctx.state` |
+| `exposeHeader` | `boolean` | `true` | Set response header |
+| `now` | `() => number` | `performance.now` | Time getter function |
 
-After applying middleware:
+### ServerTimingOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `metric` | `string` | `'total'` | Metric name |
+| `description` | `string` | - | Optional description |
+| `precision` | `number` | `2` | Decimal places (0-6) |
+| `stateKey` | `string` | `'responseTime'` | Key in `ctx.state` |
+| `exposeHeader` | `boolean` | `true` | Set response header |
+| `now` | `() => number` | `performance.now` | Time getter function |
+
+### DetailedTimerOptions
+
+Extends `TimerOptions` with:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `detailed` | `boolean` | `false` | Store `TimingResult` object |
+
+## Context State
+
+### Basic Timer
 
 ```typescript
-// Timer middleware
-ctx.state.responseTime   // Response time in ms (number)
-ctx.state.startTime      // Request start time (bigint)
+app.use(timer());
 
-// Server-Timing middleware
-ctx.timing.start(name)   // Start a named timer
-ctx.timing.end(name)     // End a named timer
-ctx.timing.add(name, ms) // Add a metric with known duration
-ctx.timing.get(name)     // Get timer duration
-```
-
-## Server-Timing API
-
-Track multiple operations:
-
-```typescript
-app.use(serverTiming());
-
-app.get('/api/dashboard', async (ctx) => {
-  // Database query
-  ctx.timing.start('db-users');
-  const users = await db.getUsers();
-  ctx.timing.end('db-users');
-
-  // Cache lookup
-  ctx.timing.start('cache');
-  const cached = await cache.get('stats');
-  ctx.timing.end('cache');
-
-  // External API call
-  ctx.timing.start('external-api');
-  const external = await fetch('https://api.example.com/data');
-  ctx.timing.end('external-api');
-
-  // Add pre-calculated timing
-  ctx.timing.add('render', 5.2);
-
-  ctx.json({ users, cached, external });
+app.use(async (ctx) => {
+  await ctx.next();
+  // ctx.state.responseTime: number (e.g., 123.45)
 });
 ```
 
-**Result in Browser DevTools:**
-
-```
-Server-Timing: db-users;dur=32.5, cache;dur=1.2, external-api;dur=125.3, render;dur=5.2, total;dur=170.4
-```
-
-## Adding Descriptions
-
-Include human-readable descriptions:
+### Detailed Timer
 
 ```typescript
-ctx.timing.start('db', 'Database Query');
-ctx.timing.end('db');
-// Server-Timing: db;desc="Database Query";dur=32.5
+app.use(detailedTimer({ detailed: true }));
+
+app.use(async (ctx) => {
+  await ctx.next();
+  const timing = ctx.state.responseTime as TimingResult;
+  // timing.duration: number
+  // timing.formatted: string
+  // timing.start: number
+  // timing.end: number
+});
 ```
 
-## Response Headers
+## Multiple Timing Metrics
 
-### X-Response-Time
+Compose multiple Server-Timing headers for detailed breakdown:
+
+```typescript
+app.use(async (ctx) => {
+  // Database timing
+  const dbStart = performance.now();
+  await db.query('SELECT * FROM users');
+  const dbTime = performance.now() - dbStart;
+
+  // Set custom Server-Timing metric
+  ctx.set('Server-Timing', `db;dur=${dbTime.toFixed(2)};desc="Database"`);
+
+  await ctx.next();
+});
+
+// Total timing
+app.use(serverTiming({ metric: 'total' }));
+```
+
+**Result:**
 
 ```
-X-Response-Time: 45.23ms
+Server-Timing: db;dur=32.50;desc="Database", total;dur=45.23
 ```
 
-### Server-Timing
+## Browser DevTools Integration
 
-```
-Server-Timing: db;dur=32.5, cache;dur=1.2;desc="Redis Lookup", total;dur=45.2
+Server-Timing headers are visible in:
+
+- **Chrome DevTools**: Network → Request → Timing tab
+- **Firefox DevTools**: Network → Timings column
+- **Safari Web Inspector**: Network → Resource details
+
+## Security
+
+### Header Injection Prevention
+
+All metric names are sanitized per RFC 7230 token rules:
+
+```typescript
+// CRLF sequences removed
+serverTiming({ metric: 'api\r\nEvil: header' })
+// Result: "apiEvilheader;dur=..."
+
+// Control characters removed from descriptions
+serverTiming({ metric: 'api', description: 'Test\x00value' })
+// Result: "api;dur=...;desc=\"Testvalue\""
+
+// Quotes escaped in descriptions
+serverTiming({ description: 'Test "quoted" value' })
+// Result: "...;desc=\"Test \\\"quoted\\\" value\""
 ```
 
-## Integration with Logging
+### Precision Clamping
+
+Precision is automatically clamped to valid range (0-6):
+
+```typescript
+timer({ precision: 10 })  // Clamped to 6
+timer({ precision: -1 })  // Clamped to 0
+```
+
+## Multi-Runtime Support
+
+Uses only universal APIs compatible with all JavaScript runtimes:
+
+- **Node.js** ≥20
+- **Bun** ≥1.0
+- **Deno** ≥1.0
+- **Cloudflare Workers**
+- **Vercel Edge**
+
+```typescript
+// Custom time getter for alternative runtimes
+app.use(timer({
+  now: () => Date.now(), // Fallback for environments without performance.now()
+}));
+```
+
+## Testing
+
+Use the `now` option to mock time in tests:
 
 ```typescript
 import { timer } from '@nextrush/timer';
-import { logger } from '@nextrush/logger';
+import { describe, it, expect, vi } from 'vitest';
 
-app.use(timer());
-app.use(logger({
-  customProps: (ctx) => ({
-    responseTime: ctx.state.responseTime,
-  }),
-}));
+describe('timing', () => {
+  it('should measure duration', async () => {
+    let time = 0;
+    const mockNow = vi.fn(() => {
+      time += 100;
+      return time;
+    });
+
+    const middleware = timer({ now: mockNow });
+    const ctx = createMockContext();
+
+    await middleware(ctx);
+
+    expect(ctx.state.responseTime).toBe(100);
+  });
+});
 ```
 
-## Conditional Timing
-
-Skip timing for specific routes:
+## Constants & Utilities
 
 ```typescript
-app.use(timer({
-  skip: (ctx) => ctx.path === '/health',
-}));
+import {
+  // Constants
+  DEFAULT_HEADER,        // 'X-Response-Time'
+  SERVER_TIMING_HEADER,  // 'Server-Timing'
+  DEFAULT_SUFFIX,        // 'ms'
+  DEFAULT_PRECISION,     // 2
+  MAX_PRECISION,         // 6
+  DEFAULT_STATE_KEY,     // 'responseTime'
+  DEFAULT_METRIC,        // 'total'
+
+  // Utilities
+  defaultTimeGetter,     // () => performance.now()
+} from '@nextrush/timer';
 ```
 
-## Custom Header Format
+## TypeScript Types
 
 ```typescript
-app.use(timer({
-  // Custom format function
-  format: (ms) => `${ms.toFixed(3)} milliseconds`,
-}));
-// X-Response-Time: 45.234 milliseconds
+import type {
+  TimerOptions,
+  ServerTimingOptions,
+  DetailedTimerOptions,
+  TimingResult,
+  TimeGetter,
+  TimerContext,
+  Middleware,
+} from '@nextrush/timer';
 ```
 
-## Low-Level Timing Utilities
+## Performance
 
-```typescript
-import { startTimer, endTimer, formatDuration } from '@nextrush/timer';
-
-const start = startTimer();
-// ... operation
-const duration = endTimer(start);
-console.log(formatDuration(duration)); // "45.23ms"
-```
+- Overhead: < 0.01ms per request
+- Memory: Minimal (no allocations in hot path)
+- Build size: ~3.15 KB ESM, ~7 KB types
 
 ## API Reference
 
 ### Exports
 
-```typescript
-import {
-  timer,           // Basic timing middleware
-  responseTime,    // Alias for timer
-  serverTiming,    // Server-Timing middleware
-  startTimer,      // Utility: start high-res timer
-  endTimer,        // Utility: end timer, get duration
-  formatDuration,  // Utility: format ms to string
-} from '@nextrush/timer';
-```
-
-### Types
-
-```typescript
-interface TimerOptions {
-  header?: string;
-  suffix?: string;
-  precision?: number;
-  stateKey?: string;
-  skip?: (ctx: Context) => boolean;
-  format?: (ms: number) => string;
-}
-
-interface ServerTimingOptions {
-  includeTotal?: boolean;
-  totalName?: string;
-  precision?: number;
-}
-
-interface TimingAPI {
-  start(name: string, description?: string): void;
-  end(name: string): number;
-  add(name: string, duration: number, description?: string): void;
-  get(name: string): number | undefined;
-  getAll(): Map<string, TimingEntry>;
-}
-```
-
-## Performance Considerations
-
-- Timer overhead is typically < 0.01ms
-- Server-Timing adds minimal header size
-- Use `skip` option for high-frequency endpoints
-
-## Browser DevTools
-
-Server-Timing is visible in:
-
-1. **Chrome DevTools** → Network tab → Select request → Timing tab
-2. **Firefox DevTools** → Network tab → Timings column
-3. **Safari Web Inspector** → Network tab → Resource details
+| Export | Type | Description |
+|--------|------|-------------|
+| `timer` | Function | Basic timing middleware |
+| `responseTime` | Function | Alias for `timer` |
+| `serverTiming` | Function | Server-Timing middleware |
+| `detailedTimer` | Function | Extended timing with timestamps |
+| `DEFAULT_HEADER` | Constant | `'X-Response-Time'` |
+| `SERVER_TIMING_HEADER` | Constant | `'Server-Timing'` |
+| `DEFAULT_SUFFIX` | Constant | `'ms'` |
+| `DEFAULT_PRECISION` | Constant | `2` |
+| `MAX_PRECISION` | Constant | `6` |
+| `DEFAULT_STATE_KEY` | Constant | `'responseTime'` |
+| `DEFAULT_METRIC` | Constant | `'total'` |
+| `defaultTimeGetter` | Function | `performance.now()` wrapper |
 
 ## License
 
