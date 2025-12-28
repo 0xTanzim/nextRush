@@ -1,14 +1,23 @@
 # @nextrush/adapter-node
 
-Node.js HTTP adapter for NextRush. Connect your NextRush application to Node's built-in HTTP server.
+> **Node.js HTTP Adapter for NextRush** — Production-ready server with zero dependencies
 
-## Installation
+[![npm version](https://img.shields.io/npm/v/@nextrush/adapter-node)](https://www.npmjs.com/package/@nextrush/adapter-node)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)](https://nodejs.org/)
 
-```bash
-npm install @nextrush/adapter-node
-# or
-pnpm add @nextrush/adapter-node
-```
+The Node.js adapter connects NextRush applications to Node's built-in HTTP server with **zero external dependencies** and **maximum performance**.
+
+## Why Node.js?
+
+Node.js remains the **most mature** runtime for server-side JavaScript:
+
+| Aspect | Node.js Advantage |
+|--------|-------------------|
+| Ecosystem | 2M+ npm packages |
+| Stability | LTS releases, enterprise-proven |
+| Performance | Highly optimized V8 engine |
+| Hosting | Supported everywhere |
 
 ## Quick Start
 
@@ -18,26 +27,35 @@ import { serve } from '@nextrush/adapter-node';
 
 const app = createApp();
 
-app.get('/', (ctx) => {
-  ctx.json({ message: 'Hello World' });
+app.use(async (ctx) => {
+  ctx.json({
+    message: 'Hello from Node.js!',
+    runtime: ctx.runtime,  // 'node'
+    pid: process.pid
+  });
 });
 
-// Start server on port 3000
-serve(app, 3000);
+serve(app, 3000, () => {
+  console.log('Server running at http://localhost:3000');
+});
 ```
 
-## Features
+## Installation
 
-- **Zero Dependencies**: Uses Node.js built-in `http` module
-- **Full Context Support**: Complete request/response handling
-- **Graceful Shutdown**: Built-in shutdown hooks
-- **HTTPS Support**: Easy SSL/TLS configuration
-- **Cluster Mode**: Multi-process server support
-- **Unix Sockets**: Support for socket-based servers
+```bash
+# npm
+npm install @nextrush/adapter-node @nextrush/core
 
-## API
+# pnpm
+pnpm add @nextrush/adapter-node @nextrush/core
 
-### serve(app, port, callback?)
+# yarn
+yarn add @nextrush/adapter-node @nextrush/core
+```
+
+## API Reference
+
+### `serve(app, port, callback?)`
 
 Start an HTTP server on the specified port.
 
@@ -56,7 +74,17 @@ serve(app, 3000, () => {
 const server = serve(app, 3000);
 ```
 
-### listen(app, options)
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `app` | `Application` | NextRush application instance |
+| `port` | `number` | Port number to listen on |
+| `callback` | `() => void` | Optional callback when server starts |
+
+**Returns:** `http.Server` — Node.js HTTP server instance
+
+### `listen(app, options)`
 
 More flexible server configuration.
 
@@ -70,7 +98,17 @@ const server = listen(app, {
 });
 ```
 
-### createHandler(app)
+**Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `port` | `number` | `3000` | Port number |
+| `host` | `string` | `'127.0.0.1'` | Host to bind |
+| `socket` | `string` | - | Unix socket path |
+| `callback` | `() => void` | - | Startup callback |
+| `ssl` | `object` | - | HTTPS options |
+
+### `createHandler(app)`
 
 Create a request handler for use with existing servers.
 
@@ -82,6 +120,55 @@ const handler = createHandler(app);
 const server = createServer(handler);
 
 server.listen(3000);
+```
+
+## NodeContext
+
+The `NodeContext` class provides the execution context for Node.js requests:
+
+```typescript
+interface NodeContext extends Context {
+  // Runtime information
+  readonly runtime: 'node';
+  readonly bodySource: NodeBodySource;
+
+  // Request data
+  readonly path: string;
+  readonly method: string;
+  readonly query: Record<string, string>;
+  readonly params: Record<string, string>;
+  readonly headers: Record<string, string>;
+
+  // Raw Node.js objects
+  readonly raw: {
+    req: IncomingMessage;
+    res: ServerResponse;
+  };
+
+  // Response methods
+  json(data: unknown): void;
+  send(body: string | Buffer): void;
+  html(content: string): void;
+  redirect(url: string, status?: number): void;
+}
+```
+
+### Body Parsing
+
+Parse request bodies using the cross-runtime `BodySource` interface:
+
+```typescript
+app.use(async (ctx) => {
+  // Using bodySource (cross-runtime compatible)
+  const text = await ctx.bodySource.text();
+  const buffer = await ctx.bodySource.buffer();
+
+  // Stream access for large bodies
+  const stream = ctx.bodySource.stream();
+
+  // Or use body-parser middleware
+  // ctx.body already parsed when using @nextrush/body-parser
+});
 ```
 
 ## Configuration
@@ -96,7 +183,7 @@ serve(app, {
 
 // Environment-based
 serve(app, {
-  port: process.env.PORT || 3000,
+  port: parseInt(process.env.PORT || '3000'),
   host: process.env.HOST || '127.0.0.1',
 });
 ```
@@ -105,9 +192,9 @@ serve(app, {
 
 ```typescript
 import { readFileSync } from 'fs';
-import { serve } from '@nextrush/adapter-node';
+import { listen } from '@nextrush/adapter-node';
 
-serve(app, {
+listen(app, {
   port: 443,
   ssl: {
     key: readFileSync('server.key'),
@@ -119,7 +206,7 @@ serve(app, {
 ### Unix Socket
 
 ```typescript
-serve(app, {
+listen(app, {
   socket: '/var/run/myapp.sock',
 });
 ```
@@ -179,6 +266,8 @@ server.listen(443);
 
 ### With Cluster
 
+Scale to multiple CPU cores:
+
 ```typescript
 import cluster from 'cluster';
 import os from 'os';
@@ -186,17 +275,19 @@ import { serve } from '@nextrush/adapter-node';
 
 if (cluster.isPrimary) {
   const numCPUs = os.cpus().length;
+  console.log(`Primary ${process.pid} starting ${numCPUs} workers`);
 
   for (let i = 0; i < numCPUs; i++) {
     cluster.fork();
   }
 
   cluster.on('exit', (worker) => {
-    console.log(`Worker ${worker.process.pid} died`);
+    console.log(`Worker ${worker.process.pid} died, restarting...`);
     cluster.fork();
   });
 } else {
   serve(app, 3000);
+  console.log(`Worker ${process.pid} started`);
 }
 ```
 
@@ -210,7 +301,7 @@ const app = createApp({
   proxy: true,  // Trust proxy headers
 });
 
-app.get('/ip', (ctx) => {
+app.use(async (ctx) => {
   // Uses X-Forwarded-For when behind proxy
   ctx.json({ ip: ctx.ip });
 });
@@ -218,80 +309,166 @@ app.get('/ip', (ctx) => {
 serve(app, 3000);
 ```
 
-## Request Context
-
-The adapter creates a full NextRush context from Node's request/response:
+## Routing with @nextrush/router
 
 ```typescript
-app.get('/info', (ctx) => {
-  ctx.json({
-    method: ctx.method,       // HTTP method
-    path: ctx.path,           // Request path
-    url: ctx.url,             // Full URL
-    headers: ctx.headers,     // Request headers
-    query: ctx.query,         // Query parameters
-    ip: ctx.ip,               // Client IP
-  });
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-node';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/api/users', async (ctx) => {
+  ctx.json({ users: [] });
+});
+
+router.get('/api/users/:id', async (ctx) => {
+  ctx.json({ id: ctx.params.id });
+});
+
+router.post('/api/users', async (ctx) => {
+  const body = await ctx.bodySource.text();
+  ctx.status = 201;
+  ctx.json({ created: true, data: JSON.parse(body) });
+});
+
+app.use(router.routes());
+
+serve(app, 3000);
+```
+
+## Middleware Compatibility
+
+All NextRush middleware works seamlessly:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+import { serve } from '@nextrush/adapter-node';
+
+const app = createApp();
+
+// CORS middleware
+app.use(cors());
+
+// Body parsing
+app.use(json());
+
+// Request timing
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const duration = Date.now() - start;
+  ctx.set('X-Response-Time', `${duration}ms`);
+});
+
+app.use(async (ctx) => {
+  ctx.json({ ok: true });
+});
+
+serve(app, 3000);
+```
+
+## Error Handling
+
+```typescript
+app.use(async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    ctx.status = error.status || 500;
+    ctx.json({
+      error: error.message,
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
 });
 ```
 
-## Response Handling
+## Performance Tips
+
+The adapter is optimized for maximum throughput:
+
+### 1. Stream Large Responses
 
 ```typescript
-app.get('/download', (ctx) => {
-  ctx.set('Content-Disposition', 'attachment; filename="file.txt"');
-  ctx.body = 'File content';
-});
-
-app.get('/stream', (ctx) => {
-  ctx.set('Content-Type', 'text/event-stream');
-  // Stream responses work automatically
+app.use(async (ctx) => {
+  const stream = createReadStream('large-file.json');
+  ctx.type = 'application/json';
+  ctx.body = stream;
 });
 ```
 
-## API Reference
+### 2. Use Connection Keep-Alive
 
-### Exports
+```typescript
+// Keep-alive is enabled by default
+// Explicit configuration:
+const server = serve(app, 3000);
+server.keepAliveTimeout = 60000; // 60 seconds
+```
+
+### 3. Enable Compression
+
+```typescript
+import { compression } from '@nextrush/compression';
+
+app.use(compression());
+```
+
+## TypeScript
+
+Full TypeScript support with intelligent types:
+
+```typescript
+import type { NodeContext } from '@nextrush/adapter-node';
+import type { Middleware } from '@nextrush/core';
+
+// Type-safe middleware
+const logger: Middleware<NodeContext> = async (ctx) => {
+  console.log(`${ctx.method} ${ctx.path}`);
+  await ctx.next();
+};
+```
+
+## Exports
 
 ```typescript
 import {
-  serve,            // Start HTTP server
-  listen,           // Flexible server start
-  createHandler,    // Create request handler
-  gracefulShutdown, // Shutdown helper
+  // Server functions
+  serve,
+  listen,
+  createHandler,
+  gracefulShutdown,
+
+  // Context
+  NodeContext,
+  createNodeContext,
+
+  // Body source
+  NodeBodySource,
+
+  // Types
+  type ServeOptions,
+  type ShutdownOptions,
+  type Runtime,
+  type BodySource,
 } from '@nextrush/adapter-node';
 ```
 
-### Types
+## Related Packages
 
-```typescript
-interface ServeOptions {
-  port?: number;
-  host?: string;
-  socket?: string;
-  callback?: () => void;
-  ssl?: {
-    key: Buffer | string;
-    cert: Buffer | string;
-    ca?: Buffer | string;
-  };
-}
-
-interface ShutdownOptions {
-  timeout?: number;
-  signals?: string[];
-  onShutdown?: () => Promise<void>;
-}
-```
-
-## Performance
-
-The adapter is optimized for performance:
-
-- **Zero copying**: Streams requests/responses directly
-- **Minimal overhead**: Thin wrapper over Node's HTTP
-- **Keep-alive**: Connection reuse enabled by default
+| Package | Description |
+|---------|-------------|
+| [@nextrush/core](../core) | Core application and middleware |
+| [@nextrush/router](../router) | High-performance routing |
+| [@nextrush/adapter-bun](../adapters/bun) | Bun runtime adapter |
+| [@nextrush/adapter-deno](../adapters/deno) | Deno runtime adapter |
+| [@nextrush/adapter-edge](../adapters/edge) | Edge runtime adapter |
+| [@nextrush/runtime](../runtime) | Runtime detection utilities |
 
 ## License
 
-MIT
+MIT © NextRush Contributors

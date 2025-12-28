@@ -1,0 +1,52 @@
+{
+  "name": "@nextrush/adapter-edge",
+  "version": "3.0.0-alpha.1",
+  "description": "Edge runtime adapter for NextRush (Cloudflare Workers, Vercel Edge, etc.)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*",
+    "@nextrush/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "tsup": "^8.5.1",
+    "vitest": "^3.1.4"
+  },
+  "keywords": [
+    "nextrush",
+    "adapter",
+    "edge",
+    "cloudflare",
+    "workers",
+    "vercel",
+    "http",
+    "framework"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xtanzim/nextrush.git",
+    "directory": "packages/adapters/edge"
+  }
+}

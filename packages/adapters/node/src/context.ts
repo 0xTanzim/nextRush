@@ -8,16 +8,19 @@
  */
 
 import type {
-  Context,
-  ContextState,
-  HttpMethod,
-  IncomingHeaders,
-  QueryParams,
-  RawHttp,
-  ResponseBody,
-  RouteParams,
+    BodySource,
+    Context,
+    ContextState,
+    HttpMethod,
+    IncomingHeaders,
+    QueryParams,
+    RawHttp,
+    ResponseBody,
+    RouteParams,
+    Runtime,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createEmptyBodySource, NodeBodySource } from './body-source';
 import { parseQueryString } from './utils';
 
 /**
@@ -56,9 +59,14 @@ export class HttpError extends Error {
 type NodeRawHttp = RawHttp<IncomingMessage, ServerResponse>;
 
 /**
+ * HTTP methods that typically don't have a body
+ */
+const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
+
+/**
  * Node.js Context implementation
  */
-export class NodeContext implements Omit<Context, 'raw'> {
+export class NodeContext implements Context {
   readonly method: HttpMethod;
   readonly url: string;
   readonly path: string;
@@ -66,6 +74,8 @@ export class NodeContext implements Omit<Context, 'raw'> {
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly raw: NodeRawHttp;
+  readonly runtime: Runtime = 'node';
+  readonly bodySource: BodySource;
 
   body: unknown = undefined;
   params: RouteParams = {};
@@ -92,6 +102,11 @@ export class NodeContext implements Omit<Context, 'raw'> {
 
     this.headers = req.headers as IncomingHeaders;
     this.ip = this.getClientIp(req);
+
+    // Create body source (empty for methods without body)
+    this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
+      ? createEmptyBodySource()
+      : new NodeBodySource(req);
   }
 
   /**

@@ -1,0 +1,50 @@
+{
+  "name": "@nextrush/adapter-bun",
+  "version": "3.0.0-alpha.1",
+  "description": "Bun HTTP adapter for NextRush",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*",
+    "@nextrush/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.9.3",
+    "tsup": "^8.5.1",
+    "vitest": "^3.2.4"
+  },
+  "keywords": [
+    "nextrush",
+    "adapter",
+    "bun",
+    "http",
+    "framework"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xtanzim/nextrush.git",
+    "directory": "packages/adapters/bun"
+  }
+}

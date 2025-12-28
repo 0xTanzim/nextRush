@@ -1,11 +1,11 @@
 /**
- * @nextrush/adapter-node - Node.js HTTP Adapter
+ * @nextrush/adapter-deno - Deno HTTP Adapter
  *
- * This package provides the Node.js HTTP adapter for NextRush.
- * It connects the Application to Node.js's http.createServer.
+ * This package provides the Deno HTTP adapter for NextRush.
+ * It connects the Application to Deno.serve() for secure, modern runtime.
  *
  * @packageDocumentation
- * @module @nextrush/adapter-node
+ * @module @nextrush/adapter-deno
  */
 
 // Adapter
@@ -13,14 +13,14 @@ export { createHandler, listen, serve } from './adapter';
 export type { ServeOptions, ServerInstance } from './adapter';
 
 // Context
-export { HttpError, NodeContext, createNodeContext } from './context';
+export { DenoContext, HttpError, createDenoContext } from './context';
 
 // Body Source
 export {
     BodyConsumedError,
-    BodyTooLargeError, EmptyBodySource,
-    NodeBodySource, createEmptyBodySource,
-    createNodeBodySource
+    BodyTooLargeError, DenoBodySource,
+    EmptyBodySource, createDenoBodySource,
+    createEmptyBodySource
 } from './body-source';
 
 // Utilities

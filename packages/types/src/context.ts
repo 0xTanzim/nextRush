@@ -13,6 +13,7 @@
  */
 
 import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody } from './http';
+import type { BodySource, Runtime } from './runtime';
 
 // ============================================================================
 // Route Parameters
@@ -326,19 +327,60 @@ export interface Context {
   // =========================================================================
 
   /**
-   * Raw Node.js HTTP objects
+   * Raw HTTP objects (platform-specific)
    * Escape hatch for advanced use cases
+   *
+   * @remarks
+   * The type of `raw` depends on the adapter:
+   * - Node.js: `{ req: IncomingMessage, res: ServerResponse }`
+   * - Bun/Deno/Edge: `{ req: Request, res: Response | undefined }`
    *
    * @example
    * ```typescript
-   * // Access raw request
+   * // Node.js adapter
    * ctx.raw.req.socket.remoteAddress;
    *
-   * // Access raw response
-   * ctx.raw.res.writeHead(200);
+   * // Web API adapter (Bun/Deno/Edge)
+   * ctx.raw.req.headers.get('authorization');
    * ```
    */
   readonly raw: RawHttp;
+
+  // =========================================================================
+  // RUNTIME & BODY SOURCE
+  // =========================================================================
+
+  /**
+   * Current JavaScript runtime
+   *
+   * @remarks
+   * Useful for runtime-specific optimizations or conditional logic.
+   *
+   * @example
+   * ```typescript
+   * if (ctx.runtime === 'bun') {
+   *   // Bun-specific optimization
+   * }
+   * ```
+   */
+  readonly runtime: Runtime;
+
+  /**
+   * Body source for cross-runtime body reading
+   *
+   * @remarks
+   * Used by body parsers to read request bodies in a runtime-agnostic way.
+   * Most applications should use `ctx.body` (set by body-parser middleware)
+   * instead of accessing `bodySource` directly.
+   *
+   * @example
+   * ```typescript
+   * // In a custom body parser
+   * const text = await ctx.bodySource.text();
+   * const json = JSON.parse(text);
+   * ```
+   */
+  readonly bodySource: BodySource;
 }
 
 // ============================================================================

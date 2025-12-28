@@ -7,8 +7,7 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   minify: false,
-  target: 'node20',
+  target: 'esnext',
   outDir: 'dist',
-  external: ['@nextrush/types'],
-  skipNodeModulesBundle: true,
+  external: ['bun'],
 });

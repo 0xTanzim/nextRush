@@ -33,7 +33,36 @@ export type SupportedCharset =
   | 'utf-16le';
 
 /**
- * Node.js request stream interface (minimal)
+ * Body source interface for cross-runtime body reading
+ *
+ * @remarks
+ * This interface is a minimal version of BodySource from @nextrush/types.
+ * It allows body-parser to work independently without importing types package.
+ */
+export interface BodyParserBodySource {
+  /** Read the body as a UTF-8 string */
+  text(): Promise<string>;
+
+  /** Read the body as a Uint8Array buffer */
+  buffer(): Promise<Uint8Array>;
+
+  /** Read the body as JSON */
+  json<T = unknown>(): Promise<T>;
+
+  /** Whether the body has been consumed */
+  readonly consumed: boolean;
+
+  /** Content length from headers (if available) */
+  readonly contentLength: number | undefined;
+
+  /** Content type from headers (if available) */
+  readonly contentType: string | undefined;
+}
+
+/**
+ * Node.js request stream interface (minimal) - DEPRECATED
+ *
+ * @deprecated Use BodyParserBodySource instead. This is kept for backward compatibility.
  */
 export interface RequestStream {
   on(event: 'data', listener: (chunk: Buffer) => void): this;
@@ -52,6 +81,13 @@ export interface RequestStream {
  * This interface defines the minimum requirements for a context object
  * to work with body-parser middleware. It is designed to be compatible
  * with NextRush Context while remaining decoupled from core.
+ *
+ * @remarks
+ * The body-parser supports two modes:
+ * 1. **Modern (cross-runtime)**: Uses `ctx.bodySource` for Node, Bun, Deno, Edge
+ * 2. **Legacy (Node.js only)**: Uses `ctx.raw.req` stream events
+ *
+ * If both are available, `bodySource` takes priority for better performance.
  */
 export interface BodyParserContext {
   /** HTTP method (GET, POST, etc.) */
@@ -63,16 +99,29 @@ export interface BodyParserContext {
   /** Request headers (lowercase keys) */
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
 
-  /** Raw Node.js request/response objects */
-  readonly raw: {
-    readonly req: RequestStream;
+  /**
+   * Body source for cross-runtime body reading
+   *
+   * @remarks
+   * Modern adapters (Node, Bun, Deno, Edge) provide this for unified body reading.
+   * This is the preferred way to read request bodies.
+   */
+  readonly bodySource?: BodyParserBodySource;
+
+  /**
+   * Raw platform-specific request/response objects
+   *
+   * @deprecated For body reading, prefer `bodySource` for cross-runtime compatibility.
+   */
+  readonly raw?: {
+    readonly req?: RequestStream;
   };
 
   /** Parsed request body (set by body-parser) */
   body?: unknown;
 
   /** Raw request body buffer (optional, when rawBody option is true) */
-  rawBody?: Buffer;
+  rawBody?: Buffer | Uint8Array;
 }
 
 /**

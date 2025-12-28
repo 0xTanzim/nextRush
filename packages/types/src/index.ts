@@ -81,3 +81,18 @@ export {
     // Router options
     type RouterOptions
 } from './router';
+
+// ============================================================================
+// Runtime Types
+// ============================================================================
+
+export {
+
+    // Body source abstraction
+    type BodySource,
+    type BodySourceOptions,
+    // Runtime detection
+    type Runtime,
+    type RuntimeCapabilities,
+    type RuntimeInfo
+} from './runtime';
