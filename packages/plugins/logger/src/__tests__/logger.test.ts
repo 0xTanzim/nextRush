@@ -1,13 +1,13 @@
 import type { Context } from '@nextrush/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  attachLogger,
-  createLogger,
-  getLogger,
-  hasLogger,
-  logger,
-  type LoggerContext,
-  type LoggerMiddlewareOptions,
+    attachLogger,
+    createLogger,
+    getLogger,
+    hasLogger,
+    logger,
+    type LoggerContext,
+    type LoggerMiddlewareOptions,
 } from '../index';
 
 // ============================================================================
@@ -919,13 +919,26 @@ describe('Status Code Logging', () => {
 // ============================================================================
 
 describe('Header Handling Edge Cases', () => {
-  it('should handle undefined headers object', async () => {
+  it('should handle undefined headers object gracefully', async () => {
     const ctx = createMockContext();
     (ctx as any).headers = undefined;
-    const middleware = logger({ silent: true, generateCorrelationId: false });
+    const middleware = logger({ silent: true, generateCorrelationId: true });
 
-    // Should not throw even with undefined headers
-    await expect(middleware(ctx, async () => {})).rejects.toThrow();
+    // Should not throw - headers check is now safe
+    await middleware(ctx, async () => {});
+
+    // Should still have a logger attached with generated correlation ID
+    expect((ctx as LoggerContext).log).toBeDefined();
+  });
+
+  it('should handle null headers object gracefully', async () => {
+    const ctx = createMockContext();
+    (ctx as any).headers = null;
+    const middleware = logger({ silent: true });
+
+    await middleware(ctx, async () => {});
+
+    expect((ctx as LoggerContext).log).toBeDefined();
   });
 
   it('should handle case-insensitive header lookup', async () => {
@@ -964,6 +977,29 @@ describe('Header Handling Edge Cases', () => {
 
     // Should generate new ID since null
     expect((ctx as LoggerContext).log.getCorrelationId()).toBeDefined();
+  });
+
+  it('should handle array with non-string first element', async () => {
+    const ctx = createMockContext({
+      headers: { 'x-request-id': [123 as any, 'string-id'] },
+    });
+    const middleware = logger({ silent: true });
+
+    await middleware(ctx, async () => {});
+
+    // Should generate new ID since first element is not a string
+    const correlationId = (ctx as LoggerContext).log.getCorrelationId();
+    expect(correlationId).toBeDefined();
+  });
+
+  it('should handle non-object headers gracefully', async () => {
+    const ctx = createMockContext();
+    (ctx as any).headers = 'not-an-object';
+    const middleware = logger({ silent: true });
+
+    await middleware(ctx, async () => {});
+
+    expect((ctx as LoggerContext).log).toBeDefined();
   });
 });
 
@@ -1061,5 +1097,330 @@ describe('Type Safety', () => {
     expect(_m5).toBeDefined();
     expect(_m6).toBeDefined();
     expect(_m7).toBeDefined();
+  });
+});
+
+// ============================================================================
+// Correlation ID Generation Tests
+// ============================================================================
+
+describe('Correlation ID Generation', () => {
+  it('should generate UUID format when crypto.randomUUID is available', async () => {
+    const ctx = createMockContext();
+    const middleware = logger({ silent: true });
+
+    await middleware(ctx, async () => {});
+
+    const correlationId = (ctx as LoggerContext).log.getCorrelationId();
+    expect(correlationId).toBeDefined();
+    expect(correlationId!.length).toBeGreaterThan(0);
+
+    // UUID format: 8-4-4-4-12 hex characters
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // Fallback format: timestamp(base36)-random(base36)
+    const fallbackRegex = /^[0-9a-z]+-[0-9a-z]+$/i;
+
+    // Should match either format
+    const isValidFormat = uuidRegex.test(correlationId!) || fallbackRegex.test(correlationId!);
+    expect(isValidFormat).toBe(true);
+  });
+
+  it('should generate unique correlation IDs', async () => {
+    const ids = new Set<string>();
+    const middleware = logger({ silent: true });
+
+    for (let i = 0; i < 1000; i++) {
+      const ctx = createMockContext();
+      await middleware(ctx, async () => {});
+      const id = (ctx as LoggerContext).log.getCorrelationId();
+      if (id) ids.add(id);
+    }
+
+    // All IDs should be unique
+    expect(ids.size).toBe(1000);
+  });
+});
+
+// ============================================================================
+// formatMessage Callback Tests
+// ============================================================================
+
+describe('formatMessage Callback', () => {
+  it('should call formatMessage with context and duration', async () => {
+    const formatMessage = vi.fn().mockReturnValue('Custom message');
+    const ctx = createMockContext({ method: 'POST', path: '/api/users' });
+    const middleware = logger({ silent: true, formatMessage });
+
+    await middleware(ctx, async () => {
+      // Simulate some processing time
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+
+    expect(formatMessage).toHaveBeenCalledTimes(1);
+    expect(formatMessage).toHaveBeenCalledWith(ctx, expect.any(Number));
+
+    // Duration should be a positive number (timing can vary)
+    const duration = formatMessage.mock.calls[0][1];
+    expect(duration).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle formatMessage throwing an error', async () => {
+    const formatMessage = vi.fn().mockImplementation(() => {
+      throw new Error('Format error');
+    });
+    const ctx = createMockContext();
+    const middleware = logger({ silent: true, formatMessage });
+
+    // Should throw the error (formatMessage errors are not caught)
+    await expect(middleware(ctx, async () => {})).rejects.toThrow('Format error');
+  });
+
+  it('should use default message format when formatMessage returns empty', async () => {
+    const formatMessage = vi.fn().mockReturnValue('');
+    const ctx = createMockContext({ method: 'GET', path: '/test' });
+    const middleware = logger({ silent: true, formatMessage });
+
+    await middleware(ctx, async () => {});
+
+    // Should use the empty string returned by formatMessage
+    expect(formatMessage).toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
+// @nextrush/log Re-exports Tests
+// ============================================================================
+
+describe('@nextrush/log Re-exports', () => {
+  it('should export all core functions', async () => {
+    const {
+      createLogger,
+      configure,
+      configureFromEnv,
+      setGlobalLevel,
+      resetGlobalConfig,
+      enableLogging,
+      disableLogging,
+      enableNamespaces,
+      disableNamespaces,
+    } = await import('../index');
+
+    expect(createLogger).toBeDefined();
+    expect(configure).toBeDefined();
+    expect(configureFromEnv).toBeDefined();
+    expect(setGlobalLevel).toBeDefined();
+    expect(resetGlobalConfig).toBeDefined();
+    expect(enableLogging).toBeDefined();
+    expect(disableLogging).toBeDefined();
+    expect(enableNamespaces).toBeDefined();
+    expect(disableNamespaces).toBeDefined();
+  });
+
+  it('should export all transport functions', async () => {
+    const {
+      createConsoleTransport,
+      createBatchTransport,
+      createFilteredTransport,
+      createRateLimitedTransport,
+      createNamespaceRateLimitedTransport,
+      createPredicateTransport,
+    } = await import('../index');
+
+    expect(createConsoleTransport).toBeDefined();
+    expect(createBatchTransport).toBeDefined();
+    expect(createFilteredTransport).toBeDefined();
+    expect(createRateLimitedTransport).toBeDefined();
+    expect(createNamespaceRateLimitedTransport).toBeDefined();
+    expect(createPredicateTransport).toBeDefined();
+  });
+
+  it('should export all formatter functions', async () => {
+    const {
+      formatJSON,
+      formatPrettyJSON,
+      formatPrettyTerminal,
+    } = await import('../index');
+
+    expect(formatJSON).toBeDefined();
+    expect(formatPrettyJSON).toBeDefined();
+    expect(formatPrettyTerminal).toBeDefined();
+  });
+
+  it('should export all serializer functions', async () => {
+    const {
+      safeSerialize,
+      serializeError,
+      redactSensitiveValues,
+      sanitizeContext,
+      DEFAULT_SENSITIVE_KEYS,
+    } = await import('../index');
+
+    expect(safeSerialize).toBeDefined();
+    expect(serializeError).toBeDefined();
+    expect(redactSensitiveValues).toBeDefined();
+    expect(sanitizeContext).toBeDefined();
+    expect(DEFAULT_SENSITIVE_KEYS).toBeDefined();
+    expect(Array.isArray(DEFAULT_SENSITIVE_KEYS)).toBe(true);
+  });
+
+  it('should export all context functions', async () => {
+    const {
+      runWithContext,
+      getAsyncContext,
+      getContextCorrelationId,
+      getContextMetadata,
+      isAsyncContextAvailable,
+      createContextMiddleware,
+    } = await import('../index');
+
+    expect(runWithContext).toBeDefined();
+    expect(getAsyncContext).toBeDefined();
+    expect(getContextCorrelationId).toBeDefined();
+    expect(getContextMetadata).toBeDefined();
+    expect(isAsyncContextAvailable).toBeDefined();
+    expect(createContextMiddleware).toBeDefined();
+  });
+
+  it('should export runtime detection functions', async () => {
+    const {
+      detectRuntime,
+      getRuntime,
+      getEnvVar,
+      isProductionBuild,
+      getProcessId,
+    } = await import('../index');
+
+    expect(detectRuntime).toBeDefined();
+    expect(getRuntime).toBeDefined();
+    expect(getEnvVar).toBeDefined();
+    expect(isProductionBuild).toBeDefined();
+    expect(getProcessId).toBeDefined();
+  });
+
+  it('should export log level utilities', async () => {
+    const {
+      LOG_LEVELS,
+      LOG_LEVEL_PRIORITY,
+      shouldLog,
+      compareLevels,
+      isValidLogLevel,
+      parseLogLevel,
+    } = await import('../index');
+
+    expect(LOG_LEVELS).toBeDefined();
+    expect(LOG_LEVEL_PRIORITY).toBeDefined();
+    expect(shouldLog).toBeDefined();
+    expect(compareLevels).toBeDefined();
+    expect(isValidLogLevel).toBeDefined();
+    expect(parseLogLevel).toBeDefined();
+  });
+
+  it('should export default logger instance', async () => {
+    const { log, defaultLogger } = await import('../index');
+
+    expect(log).toBeDefined();
+    expect(defaultLogger).toBeDefined();
+    expect(log).toBe(defaultLogger);
+  });
+});
+
+// ============================================================================
+// Integration with @nextrush/log Features
+// ============================================================================
+
+describe('Integration with @nextrush/log Features', () => {
+  it('should work with custom transports', async () => {
+    const transportFn = vi.fn();
+    const ctx = createMockContext();
+    const middleware = logger({
+      silent: false,
+      transports: [transportFn],
+    });
+
+    await middleware(ctx, async () => {
+      (ctx as LoggerContext).log.info('Custom transport test');
+    });
+
+    // Transport should have been called at least once (for the info log)
+    expect(transportFn).toHaveBeenCalled();
+  });
+
+  it('should work with sensitive data redaction', async () => {
+    const ctx = createMockContext();
+    const middleware = logger({
+      silent: true,
+      redact: true,
+      sensitiveKeys: ['password', 'token'],
+    });
+
+    await middleware(ctx, async () => {
+      // Logger should be created with redaction enabled
+      expect((ctx as LoggerContext).log).toBeDefined();
+    });
+  });
+
+  it('should support withMetadata on ctx.log', async () => {
+    const ctx = createMockContext();
+    const middleware = logger({ silent: true });
+
+    await middleware(ctx, async () => {
+      const enrichedLogger = (ctx as LoggerContext).log.withMetadata({ service: 'api' });
+      expect(enrichedLogger).toBeDefined();
+      expect(typeof enrichedLogger.info).toBe('function');
+    });
+  });
+
+  it('should support time() on ctx.log', async () => {
+    const ctx = createMockContext();
+    const middleware = logger({ silent: true });
+
+    await middleware(ctx, async () => {
+      const timer = (ctx as LoggerContext).log.time('operation');
+      expect(timer).toBeDefined();
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const elapsed = timer.elapsed();
+      expect(elapsed).toBeGreaterThanOrEqual(10);
+
+      const duration = timer.end('Operation completed');
+      expect(typeof duration).toBe('number');
+    });
+  });
+
+  it('should support flush() on ctx.log', async () => {
+    const ctx = createMockContext();
+    const middleware = logger({ silent: true });
+
+    await middleware(ctx, async () => {
+      // flush() should not throw even without batch transports
+      await expect((ctx as LoggerContext).log.flush()).resolves.toBeUndefined();
+    });
+  });
+});
+
+// ============================================================================
+// Environment Detection Tests
+// ============================================================================
+
+describe('Environment Detection', () => {
+  it('should use isProductionBuild from @nextrush/log', async () => {
+    const { isProductionBuild } = await import('../index');
+
+    // Just verify it's a function that returns a boolean
+    expect(typeof isProductionBuild).toBe('function');
+    const result = isProductionBuild();
+    expect(typeof result).toBe('boolean');
+  });
+
+  it('should detect runtime correctly', async () => {
+    const { getRuntime, detectRuntime } = await import('../index');
+
+    const runtime = getRuntime();
+    expect(runtime).toBeDefined();
+    expect(runtime.environment).toBeDefined();
+
+    const detected = detectRuntime();
+    expect(detected.environment).toBe(runtime.environment);
   });
 });

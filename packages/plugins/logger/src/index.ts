@@ -36,55 +36,71 @@
 // ============================================================================
 
 export {
-  addGlobalTransport,
-  clearGlobalTransports, compareLevels,
-  // Configuration
-  configure,
-  configureFromEnv, containsSensitivePattern, createBatchTransport,
-  // Transports
-  createConsoleTransport, createContextMiddleware, createFilteredTransport,
-  // Core
-  createLogger, createNamespaceRateLimitedTransport, createPredicateTransport,
-  createRateLimitedTransport, DEFAULT_SENSITIVE_KEYS, logger as defaultLogger,
-  // Runtime
-  detectRuntime, disableLogging, disableNamespaces, enableLogging, enableNamespaces,
-  // Formatters
-  formatJSON,
-  formatPrettyJSON,
-  formatPrettyTerminal, formatPrettyTimestamp,
-  // Utilities
-  formatTimestamp, getAsyncContext,
-  getContextCorrelationId,
-  getContextMetadata, getEnvVar, getGlobalConfig, getProcessId, getRuntime, getTime, isAsyncContextAvailable, isError, isNamespaceEnabled, isProductionBuild, isValidLogLevel, log, LOG_LEVEL_PRIORITY,
-  // Levels
-  LOG_LEVELS, Logger, mergeSensitiveKeys, onConfigChange, parseLogLevel, redactSensitiveValues, resetGlobalConfig,
-  // Context (AsyncLocalStorage)
-  runWithContext,
-  // Serializers
-  safeSerialize, sanitizeContext, scopedLogger, serializeError, setGlobalLevel, shouldLog, shouldRedact, type AsyncLogContext,
-  // Types
-  type BatchTransport,
-  type BatchTransportOptions, type GlobalLoggerConfig, type ILogger,
-  type LogContext,
-  type LogEntry,
-  type LoggerOptions,
-  type LogLevel,
-  type LogTransport, type NamespaceRateLimits, type PerformanceMetrics, type RateLimitOptions,
-  type RateLimitStats, type RuntimeEnvironment,
-  type RuntimeInfo,
-  type SerializedError,
-  type Timer
+    addGlobalTransport,
+    clearGlobalTransports, compareLevels,
+    // Configuration
+    configure,
+    configureFromEnv, containsSensitivePattern, createBatchTransport,
+    // Transports
+    createConsoleTransport, createContextMiddleware, createFilteredTransport,
+    // Core
+    createLogger, createNamespaceRateLimitedTransport, createPredicateTransport,
+    createRateLimitedTransport, DEFAULT_SENSITIVE_KEYS, logger as defaultLogger,
+    // Runtime
+    detectRuntime, disableLogging, disableNamespaces, enableLogging, enableNamespaces,
+    // Formatters
+    formatJSON,
+    formatPrettyJSON,
+    formatPrettyTerminal, formatPrettyTimestamp,
+    // Utilities
+    formatTimestamp, getAsyncContext,
+    getContextCorrelationId,
+    getContextMetadata, getEnvVar, getGlobalConfig, getProcessId, getRuntime, getTime, isAsyncContextAvailable, isError, isNamespaceEnabled, isProductionBuild, isValidLogLevel, log, LOG_LEVEL_PRIORITY,
+    // Levels
+    LOG_LEVELS, Logger, mergeSensitiveKeys, onConfigChange, parseLogLevel, redactSensitiveValues, resetGlobalConfig,
+    // Context (AsyncLocalStorage)
+    runWithContext,
+    // Serializers
+    safeSerialize, sanitizeContext, scopedLogger, serializeError, setGlobalLevel, shouldLog, shouldRedact, type AsyncLogContext,
+    // Types
+    type BatchTransport,
+    type BatchTransportOptions, type GlobalLoggerConfig, type ILogger,
+    type LogContext,
+    type LogEntry,
+    type LoggerOptions,
+    type LogLevel,
+    type LogTransport, type NamespaceRateLimits, type PerformanceMetrics, type RateLimitOptions,
+    type RateLimitStats, type RuntimeEnvironment,
+    type RuntimeInfo,
+    type SerializedError,
+    type Timer
 } from '@nextrush/log';
 
 // ============================================================================
 // NextRush-specific Types
 // ============================================================================
 
-import { createLogger, type ILogger, type LoggerOptions, type LogLevel } from '@nextrush/log';
+import { createLogger, isProductionBuild, type ILogger, type LoggerOptions, type LogLevel } from '@nextrush/log';
 import type { Context, Middleware } from '@nextrush/types';
 
 /**
  * Extended context with logger attached
+ *
+ * Use this type when you need typed access to ctx.log
+ *
+ * @example
+ * ```typescript
+ * import type { LoggerContext } from '@nextrush/logger';
+ *
+ * app.get('/users', async (ctx) => {
+ *   (ctx as LoggerContext).log.info('Processing request');
+ * });
+ *
+ * // Or use the hasLogger type guard
+ * if (hasLogger(ctx)) {
+ *   ctx.log.info('Now typed correctly');
+ * }
+ * ```
  */
 export interface LoggerContext extends Context {
   /** Request-scoped logger with correlation ID */
@@ -158,9 +174,16 @@ export interface LoggerMiddlewareOptions extends LoggerOptions {
 // ============================================================================
 
 /**
- * Generate a unique correlation ID
+ * Generate a unique correlation ID using crypto when available
+ * Falls back to timestamp + random for environments without crypto
  */
 function generateCorrelationId(): string {
+  // Use crypto.randomUUID() when available (Node.js 19+, modern browsers, Deno, Bun)
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  // Fallback: timestamp + random (sufficient for most use cases)
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 10);
   return `${timestamp}-${random}`;
@@ -168,16 +191,22 @@ function generateCorrelationId(): string {
 
 /**
  * Get correlation ID from request headers
+ * Handles string and array header values safely
  */
 function getCorrelationIdFromHeaders(
   ctx: Context,
   headerName: string,
 ): string | undefined {
+  // Safety check for undefined headers
+  if (!ctx.headers || typeof ctx.headers !== 'object') {
+    return undefined;
+  }
+
   const value = ctx.headers[headerName.toLowerCase()];
   if (typeof value === 'string' && value.length > 0) {
     return value;
   }
-  if (Array.isArray(value) && value.length > 0) {
+  if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
     return value[0];
   }
   return undefined;
@@ -201,13 +230,6 @@ function getLogLevelForStatus(
     return options.clientErrorLevel;
   }
   return options.successLevel;
-}
-
-/**
- * Check if running in production
- */
-function isProduction(): boolean {
-  return process.env['NODE_ENV'] === 'production';
 }
 
 // ============================================================================
@@ -255,7 +277,7 @@ export function logger(options: LoggerMiddlewareOptions = {}): Middleware {
     successLevel = 'info',
     clientErrorLevel = 'warn',
     serverErrorLevel = 'error',
-    logRequestStart = !isProduction(),
+    logRequestStart = !isProductionBuild(),
     correlationIdHeader = 'x-request-id',
     generateCorrelationId: shouldGenerateId = true,
     context: loggerContext = 'nextrush',

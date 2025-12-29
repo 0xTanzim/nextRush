@@ -10,10 +10,10 @@ Plugins are self-contained packages that add functionality to your NextRush appl
 |--------|-------------|--------|
 | [Template](/plugins/template) | Multi-engine template system with 70+ helpers | ✅ Stable |
 | Controllers | Controller-based routing with decorators | ✅ Stable |
-| Logger | Structured logging with log levels | 🚧 In Progress |
-| Static | Static file serving | 🚧 In Progress |
-| Events | Application-wide event system | 🚧 In Progress |
-| WebSocket | Real-time WebSocket support | 🚧 In Progress |
+| [Logger](/plugins/logger) | Request logging and application logging | ✅ Stable |
+| [Static](/plugins/static) | Static file serving | 🚧 In Progress |
+| [Events](/plugins/events) | Application-wide event system | 🚧 In Progress |
+| [WebSocket](/plugins/websocket) | Real-time WebSocket support | ✅ Stable |
 
 ## Using Plugins
 
