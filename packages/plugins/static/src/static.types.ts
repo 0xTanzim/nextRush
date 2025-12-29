@@ -139,6 +139,29 @@ export interface StaticOptions {
    * @default 1048576 (1MB)
    */
   highWaterMark?: number;
+
+  /**
+   * Follow symbolic links
+   * When false (default), symlinks are not followed and return 404
+   * When true, symlinks are resolved but destination must still be within root
+   * @default false
+   * @security Set to true only if you trust all content in the root directory
+   */
+  followSymlinks?: boolean;
+
+  /**
+   * Enable X-Content-Type-Options: nosniff header
+   * Prevents MIME type sniffing attacks
+   * @default true
+   */
+  xContentTypeOptions?: boolean;
+
+  /**
+   * Timeout for streaming operations in milliseconds
+   * Set to 0 to disable timeout
+   * @default 30000 (30 seconds)
+   */
+  streamTimeout?: number;
 }
 
 /**
@@ -159,6 +182,9 @@ export interface NormalizedStaticOptions {
   lastModified: boolean;
   acceptRanges: boolean;
   highWaterMark: number;
+  followSymlinks: boolean;
+  xContentTypeOptions: boolean;
+  streamTimeout: number;
 }
 
 /**

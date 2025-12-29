@@ -1,20 +1,19 @@
 # @nextrush/template
 
-Universal template engine for NextRush with multi-engine support.
+> Modern, secure template engine for NextRush with Mustache-like syntax, 70+ helpers, partials, layouts, and multi-engine support.
 
 ## Highlights
 
+- **🔒 Security First** - Blocks prototype pollution, path traversal, XSS, and infinite recursion
 - **🔌 Multi-Engine Support** - Use EJS, Handlebars, Nunjucks, Pug, Eta, or the built-in engine
 - **🎯 Simple One-Liner Setup** - Get started with just `app.use(template())`
 - **🚀 Zero Dependencies** - Built-in engine requires no external dependencies
-- **⚡ Production Ready** - Automatic caching, layouts, and helpers
+- **⚡ Production Ready** - Automatic caching, layouts, and 70+ helpers
 - **📝 Express Compatible** - Familiar `ctx.render()` API
 
 ## Installation
 
 ```bash
-npm install @nextrush/template
-# or
 pnpm add @nextrush/template
 ```
 
@@ -23,20 +22,11 @@ pnpm add @nextrush/template
 Install only the engines you need:
 
 ```bash
-# EJS
-npm install ejs
-
-# Handlebars
-npm install handlebars
-
-# Nunjucks
-npm install nunjucks
-
-# Pug
-npm install pug
-
-# Eta (modern EJS alternative)
-npm install eta
+pnpm add ejs          # For EJS
+pnpm add handlebars   # For Handlebars
+pnpm add nunjucks     # For Nunjucks
+pnpm add pug          # For Pug
+pnpm add eta          # For Eta (modern EJS)
 ```
 
 ## Quick Start
@@ -513,6 +503,53 @@ template.render({ trustedHtml: '<b>Bold</b>' });
 // => '<b>Bold</b>'
 ```
 
+### Prototype Pollution Protection
+
+Access to dangerous properties is blocked (based on CVE-2021-23369):
+
+```html
+{{__proto__}}              <!-- Returns empty -->
+{{constructor}}            <!-- Returns empty -->
+{{obj.__proto__.polluted}} <!-- Returns empty -->
+{{obj | get "constructor"}}<!-- Returns empty -->
+```
+
+### Path Traversal Protection
+
+Template file paths are validated to prevent reading arbitrary files:
+
+```typescript
+await ctx.render('../../../etc/passwd', {});
+// Throws: Path traversal detected: "../../../etc/passwd" contains ".." segments
+
+await ctx.render('/etc/passwd', {});
+// Throws: Path traversal detected: "/etc/passwd" resolves outside the views directory
+```
+
+### Recursion Protection
+
+Infinite partial and layout loops are prevented:
+
+```typescript
+// If partial 'recursive' includes {{>recursive}}
+await ctx.render('page', {}, { partials: { recursive: '{{>recursive}}' } });
+// Throws: Maximum template nesting depth (100) exceeded
+
+// If layout A includes layout B which includes layout A
+await ctx.render('page', {}, { layout: 'A' });
+// Throws: Maximum template nesting depth exceeded
+```
+
+### Security Summary
+
+| Vulnerability | Protection |
+|--------------|------------|
+| XSS (Cross-Site Scripting) | HTML escaping enabled by default |
+| Prototype Pollution | Blocked properties: `__proto__`, `constructor`, `prototype` |
+| Path Traversal | Path validation, root directory enforcement |
+| DoS via Recursion | Max nesting depth (100) for partials/layouts |
+| ReDoS | Safe regex patterns in parser |
+
 ## Performance
 
 The template engine is optimized for performance:
@@ -521,6 +558,40 @@ The template engine is optimized for performance:
 - **Efficient Rendering**: Minimal allocations during rendering
 - **Caching**: Built-in template caching for file-based templates
 - **Benchmarks**: Handles 10,000+ items in under 500ms
+
+## Runtime Compatibility
+
+| Runtime | String Rendering | File Rendering |
+|---------|-----------------|----------------|
+| Node.js 20+ | ✅ Full support | ✅ Full support |
+| Bun | ✅ Full support | ✅ Full support |
+| Deno | ✅ Full support | ✅ With `--allow-read` |
+| Edge (Cloudflare/Vercel) | ✅ Full support | ❌ No filesystem |
+
+For edge runtimes without filesystem access, use string rendering:
+
+```typescript
+import { compile } from '@nextrush/template';
+
+// Pre-compile templates at build time
+const homeTemplate = compile(`
+  <h1>{{title}}</h1>
+  <p>Welcome, {{user.name}}!</p>
+`);
+
+// Render at runtime (no filesystem needed)
+export default {
+  async fetch(request) {
+    const html = homeTemplate.render({
+      title: 'Welcome',
+      user: { name: 'Edge User' }
+    });
+    return new Response(html, {
+      headers: { 'Content-Type': 'text/html' }
+    });
+  }
+};
+```
 
 ## Error Handling
 

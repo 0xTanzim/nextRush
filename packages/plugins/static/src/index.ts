@@ -68,6 +68,9 @@ const DEFAULT_OPTIONS: Omit<NormalizedStaticOptions, 'root'> = {
   lastModified: true,
   acceptRanges: true,
   highWaterMark: 1048576, // 1MB
+  followSymlinks: false, // Security: don't follow symlinks by default
+  xContentTypeOptions: true, // Security: prevent MIME sniffing
+  streamTimeout: 30000, // 30 seconds default timeout
 };
 
 /**
@@ -86,6 +89,7 @@ function normalizeOptions(options: StaticOptions): NormalizedStaticOptions {
     root,
     prefix: normalizePrefix(options.prefix),
     maxAge: Math.max(0, options.maxAge ?? 0),
+    streamTimeout: options.streamTimeout ?? DEFAULT_OPTIONS.streamTimeout,
   };
 }
 
@@ -149,7 +153,7 @@ async function failOrNext(
  */
 export function serveStatic(options: StaticOptions): Middleware {
   const opts = normalizeOptions(options);
-  const { root, prefix, fallthrough } = opts;
+  const { root, prefix, fallthrough, followSymlinks } = opts;
 
   const staticMiddleware: NodeMiddleware = async (ctx, next) => {
     // Only handle GET and HEAD
@@ -191,15 +195,15 @@ export function serveStatic(options: StaticOptions): Middleware {
       return failOrNext(ctx, next, 403, 'Forbidden', fallthrough);
     }
 
-    // Stat the file
-    let stat = await statSafe(absolutePath);
+    // Stat the file (symlink-safe)
+    let stat = await statSafe(absolutePath, followSymlinks, root);
     let finalPath = absolutePath;
 
     // Try extension fallbacks if not found
     if (!stat && opts.extensions.length > 0) {
       for (const ext of opts.extensions) {
         const extPath = absolutePath + (ext.startsWith('.') ? ext : `.${ext}`);
-        const extStat = await statSafe(extPath);
+        const extStat = await statSafe(extPath, followSymlinks, root);
         if (extStat?.isFile()) {
           stat = extStat;
           finalPath = extPath;
@@ -222,7 +226,7 @@ export function serveStatic(options: StaticOptions): Middleware {
       // Serve index file
       if (opts.index) {
         const indexPath = join(finalPath, opts.index);
-        const indexStat = await statSafe(indexPath);
+        const indexStat = await statSafe(indexPath, followSymlinks, root);
         if (indexStat?.isFile()) {
           // Check dotfiles for index
           if (isDotfile(indexPath) && opts.dotfiles !== 'allow') {
@@ -286,14 +290,15 @@ export const staticFiles = serveStatic;
  */
 export function createSendFile(options: Omit<StaticOptions, 'prefix'>) {
   const opts = normalizeOptions({ ...options, prefix: '' });
+  const { followSymlinks, root } = opts;
 
   return async function send(ctx: NodeContext, relativePath: string): Promise<boolean> {
-    const absolutePath = safeJoin(opts.root, relativePath);
+    const absolutePath = safeJoin(root, relativePath);
     if (!absolutePath) {
       return false;
     }
 
-    const stat = await statSafe(absolutePath);
+    const stat = await statSafe(absolutePath, followSymlinks, root);
     if (!stat?.isFile()) {
       return false;
     }

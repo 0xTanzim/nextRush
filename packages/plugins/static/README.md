@@ -1,16 +1,17 @@
 # @nextrush/static
 
-High-performance static file serving middleware for NextRush.
+High-performance, security-first static file serving middleware for NextRush.
 
 ## Features
 
-- 🔒 **Path traversal protection** - Secure by default
-- ⚡ **Smart caching** - ETag, Last-Modified, Cache-Control
-- 📦 **Range requests** - Support for partial content (HTTP 206)
-- 🔧 **Configurable dotfiles** - ignore, deny, or allow
-- 📄 **Extension fallbacks** - Serve `page.html` for `/page`
-- 📁 **Directory index** - Auto-serve `index.html`
-- 🌊 **Streaming** - Efficient handling of large files
+- 🔒 **Security-First** - Symlink protection, path traversal prevention, X-Content-Type-Options
+- ⚡ **Smart Caching** - ETag, Last-Modified, Cache-Control with immutable support
+- 📦 **Range Requests** - HTTP 206 Partial Content for seeking and resuming
+- 🔧 **Flexible Dotfiles** - Ignore, deny, or allow hidden files
+- 📄 **Extension Fallbacks** - Serve `page.html` for `/page`
+- 📁 **Directory Index** - Auto-serve `index.html` with redirect
+- 🌊 **Efficient Streaming** - Small files buffered, large files streamed with timeout
+- 🎯 **TOCTOU Safe** - Verifies file integrity after read
 
 ## Installation
 
@@ -83,6 +84,17 @@ interface StaticOptions {
 
   // Threshold for streaming vs single-read (default: 1MB)
   highWaterMark?: number;
+
+  // Follow symbolic links (default: false)
+  // When false, symlinks return 404
+  // When true, symlinks are resolved but must stay within root
+  followSymlinks?: boolean;
+
+  // Set X-Content-Type-Options: nosniff (default: true)
+  xContentTypeOptions?: boolean;
+
+  // Timeout for streaming operations in ms (default: 30000)
+  streamTimeout?: number;
 }
 ```
 
@@ -109,16 +121,19 @@ app.use(serveStatic({
 ### SPA (Single Page Application)
 
 ```typescript
+import { createSendFile } from '@nextrush/static';
+
+const sendPublicFile = createSendFile({ root: './dist' });
+
 // Let 404s fall through to the SPA handler
 app.use(serveStatic({
   root: './dist',
   fallthrough: true,
 }));
 
-// SPA fallback
+// SPA fallback for client-side routing
 app.use(async (ctx) => {
-  // Serve index.html for all routes
-  await sendFile(ctx, 'index.html');
+  await sendPublicFile(ctx, 'index.html');
 });
 ```
 
@@ -161,6 +176,69 @@ app.use(serveStatic({
 }));
 ```
 
+### Symlink Handling
+
+```typescript
+// Enable symlink following (use with caution)
+app.use(serveStatic({
+  root: './public',
+  followSymlinks: true, // Symlinks are resolved and validated
+}));
+```
+
+## Security
+
+This middleware includes comprehensive security measures:
+
+### Path Traversal Prevention
+
+- Blocks `..` and `../` sequences (including URL-encoded variants)
+- Blocks null bytes (`%00`)
+- Blocks double slashes (`//`)
+- Validates resolved path is within root directory
+
+### Symlink Protection
+
+By default (`followSymlinks: false`), symbolic links return 404. When enabled:
+
+- Symlinks are resolved using `realpath()`
+- Destination path is verified to be within root
+- Symlinks pointing outside root are blocked with 404
+
+### MIME Sniffing Prevention
+
+X-Content-Type-Options: nosniff is set by default, preventing browsers from MIME-type sniffing responses away from the declared Content-Type.
+
+### Range Request Safety
+
+- Large range values beyond `Number.MAX_SAFE_INTEGER` are rejected
+- Only single ranges supported (multi-range attacks blocked)
+- Invalid ranges return 416 Range Not Satisfiable
+
+### Stream Timeout
+
+Streaming operations timeout after 30 seconds by default (configurable), preventing slow-loris style attacks from keeping connections open indefinitely.
+
+### TOCTOU Mitigation
+
+For small files read into memory, the actual content size is verified against the original stat. If the file was modified between stat and read, headers are updated to reflect actual size.
+
+## Runtime Compatibility
+
+This package uses only Node.js built-in modules:
+
+- `node:fs` - File system operations
+- `node:path` - Path manipulation
+- `node:http` - Type definitions only
+
+**Supported Runtimes:**
+
+| Runtime | Version | Status |
+|---------|---------|--------|
+| Node.js | 20+ | ✅ Full support |
+| Bun | 1.0+ | ✅ Full support |
+| Deno | 1.37+ | ✅ With Node compatibility |
+
 ## Utilities
 
 The package also exports utility functions:
@@ -172,17 +250,17 @@ import {
   isDotfile,      // Check if path contains dotfile
 
   // File operations
-  statSafe,       // Safe fs.stat wrapper
+  statSafe,       // Safe fs.stat wrapper with symlink protection
 
   // Caching
   generateETag,   // Generate weak ETag from file stats
   isFresh,        // Check if request is fresh (304 eligible)
 
   // Range requests
-  parseRange,     // Parse Range header
+  parseRange,     // Parse Range header with safety checks
 
   // MIME types
-  getMimeType,    // Get MIME type for file extension
+  getMimeType,    // Get MIME type for file extension (50+ types)
 
   // File sending
   sendFile,       // Low-level file sending with streaming
@@ -206,19 +284,10 @@ app.get('/download/:file', async (ctx) => {
 });
 ```
 
-## Security
-
-This middleware includes several security measures:
-
-1. **Path traversal prevention** - Blocks `..`, encoded variants, and null bytes
-2. **Dotfile protection** - Hides dotfiles by default
-3. **Directory listing disabled** - Only serves specific files or index
-4. **Safe symlink handling** - Resolves to canonical paths
-
 ## Performance
 
-- **Small files**: Read into memory for single response
-- **Large files**: Streamed efficiently
+- **Small files** (< 1MB): Read into memory for single response
+- **Large files** (≥ 1MB): Streamed efficiently with configurable highWaterMark
 - **Conditional requests**: Returns 304 when appropriate
 - **Range requests**: Supports partial content for seeking/resuming
 
@@ -232,6 +301,27 @@ import { staticFiles } from '@nextrush/static';
 // Equivalent to serveStatic
 app.use(staticFiles({ root: './public' }));
 ```
+
+## MIME Types
+
+50+ MIME types are supported out of the box:
+
+| Extension | Content-Type |
+|-----------|--------------|
+| `.html`, `.htm` | `text/html; charset=utf-8` |
+| `.css` | `text/css; charset=utf-8` |
+| `.js`, `.mjs`, `.cjs` | `application/javascript; charset=utf-8` |
+| `.json` | `application/json; charset=utf-8` |
+| `.png` | `image/png` |
+| `.jpg`, `.jpeg` | `image/jpeg` |
+| `.svg` | `image/svg+xml` |
+| `.woff2` | `font/woff2` |
+| `.mp4` | `video/mp4` |
+| `.pdf` | `application/pdf` |
+| `.wasm` | `application/wasm` |
+| Unknown | `application/octet-stream` |
+
+See source code for complete list.
 
 ## License
 

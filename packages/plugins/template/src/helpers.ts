@@ -56,6 +56,8 @@ export const trim: ValueHelper = (value) => {
 
 /**
  * Truncate string to specified length
+ * @remarks If the suffix length is greater than or equal to the target length,
+ * the result will be clamped to prevent negative slice lengths.
  */
 export const truncate: ValueHelper = (value, length = 50, suffix = '...') => {
   if (value === null || value === undefined) return '';
@@ -64,7 +66,10 @@ export const truncate: ValueHelper = (value, length = 50, suffix = '...') => {
   const suf = String(suffix);
 
   if (str.length <= len) return str;
-  return str.slice(0, len - suf.length) + suf;
+
+  // Clamp to ensure we don't get negative length
+  const maxLength = Math.max(0, len - suf.length);
+  return str.slice(0, maxLength) + suf;
 };
 
 /**
@@ -487,6 +492,24 @@ export const indexOf: ValueHelper = (value, item) => {
 };
 
 // ============================================================================
+// Security: Blocked Properties (Prototype Pollution Prevention)
+// ============================================================================
+
+/**
+ * Properties blocked from object access to prevent prototype pollution.
+ * Based on CVE-2021-23369 (Handlebars) and similar vulnerabilities.
+ */
+const BLOCKED_PROPERTIES = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+]);
+
+// ============================================================================
 // Object Helpers
 // ============================================================================
 
@@ -515,7 +538,8 @@ export const entries: ValueHelper = (value) => {
 };
 
 /**
- * Get property from object
+ * Get property from object by path.
+ * @remarks Blocks access to dangerous prototype properties to prevent prototype pollution.
  */
 export const get: ValueHelper = (value, path, defaultValue = undefined) => {
   if (value === null || value === undefined) return defaultValue;
@@ -524,6 +548,11 @@ export const get: ValueHelper = (value, path, defaultValue = undefined) => {
   let current: unknown = value;
 
   for (const part of parts) {
+    // Security: Block access to dangerous prototype properties
+    if (BLOCKED_PROPERTIES.has(part)) {
+      return defaultValue;
+    }
+
     if (current === null || current === undefined) return defaultValue;
     current = (current as Record<string, unknown>)[part];
   }

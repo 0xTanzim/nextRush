@@ -12,6 +12,11 @@ import { extname, normalize, resolve, sep } from 'node:path';
 import type { RangeResult, StatsLike } from './static.types';
 
 /**
+ * Maximum safe integer for range parsing to prevent overflow
+ */
+const MAX_RANGE_VALUE = Number.MAX_SAFE_INTEGER;
+
+/**
  * Strip prefix from path
  */
 export function stripPrefix(pathname: string, prefix: string): string {
@@ -48,15 +53,58 @@ export function safeJoin(root: string, urlPath: string): string | null {
 
 /**
  * Safely stat a file, returning null on error
+ * Uses lstat by default to not follow symlinks
+ *
+ * @param path - Absolute path to stat
+ * @param followSymlinks - Whether to follow symlinks (default: false)
+ * @param root - Root directory for symlink validation (required if followSymlinks=true)
  */
-export async function statSafe(path: string): Promise<StatsLike | null> {
+export async function statSafe(
+  path: string,
+  followSymlinks = false,
+  root?: string
+): Promise<StatsLike | null> {
   try {
-    const s = await fsp.stat(path);
+    // Use lstat to check if it's a symlink first
+    const lstats = await fsp.lstat(path);
+
+    if (lstats.isSymbolicLink()) {
+      if (!followSymlinks) {
+        // Symlinks not allowed - treat as not found
+        return null;
+      }
+
+      // Resolve the symlink and verify it's within root
+      if (!root) {
+        // Safety: if no root provided, reject symlinks
+        return null;
+      }
+
+      const realPath = await fsp.realpath(path);
+      const normalizedRoot = resolve(root);
+
+      // Verify resolved path is within root
+      if (realPath !== normalizedRoot && !realPath.startsWith(normalizedRoot + sep)) {
+        // Symlink points outside root - security violation
+        return null;
+      }
+
+      // Now safe to stat the resolved path
+      const s = await fsp.stat(path);
+      return {
+        size: s.size,
+        mtime: s.mtime,
+        isFile: () => s.isFile(),
+        isDirectory: () => s.isDirectory(),
+      };
+    }
+
+    // Not a symlink, return lstats directly
     return {
-      size: s.size,
-      mtime: s.mtime,
-      isFile: () => s.isFile(),
-      isDirectory: () => s.isDirectory(),
+      size: lstats.size,
+      mtime: lstats.mtime,
+      isFile: () => lstats.isFile(),
+      isDirectory: () => lstats.isDirectory(),
     };
   } catch {
     return null;
@@ -112,6 +160,8 @@ export function isFresh(ctx: Context, stat: StatsLike, etag: string): boolean {
  * Returns null for invalid/unsatisfiable ranges
  *
  * Supports: bytes=start-end, bytes=start-, bytes=-suffix
+ *
+ * Security: Validates integers are within safe bounds to prevent overflow
  */
 export function parseRange(
   rangeHeader: string,
@@ -144,14 +194,14 @@ export function parseRange(
   if (startStr === '') {
     // Suffix range: -500 means last 500 bytes
     const suffix = parseInt(endStr, 10);
-    if (Number.isNaN(suffix) || suffix <= 0) {
+    if (Number.isNaN(suffix) || suffix <= 0 || suffix > MAX_RANGE_VALUE) {
       return null;
     }
     start = Math.max(0, size - suffix);
     end = size - 1;
   } else {
     start = parseInt(startStr, 10);
-    if (Number.isNaN(start) || start < 0) {
+    if (Number.isNaN(start) || start < 0 || start > MAX_RANGE_VALUE) {
       return null;
     }
 
@@ -160,7 +210,7 @@ export function parseRange(
       end = size - 1;
     } else {
       end = parseInt(endStr, 10);
-      if (Number.isNaN(end)) {
+      if (Number.isNaN(end) || end > MAX_RANGE_VALUE) {
         return null;
       }
     }

@@ -49,10 +49,30 @@
     "vitest": "^2.1.9"
   },
   "peerDependencies": {
-    "@nextrush/core": "^3.0.0-alpha.1"
+    "@nextrush/core": "^3.0.0-alpha.1",
+    "ejs": "^3.0.0",
+    "eta": "^3.0.0",
+    "handlebars": "^4.0.0",
+    "nunjucks": "^3.0.0",
+    "pug": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "@nextrush/core": {
+      "optional": true
+    },
+    "ejs": {
+      "optional": true
+    },
+    "eta": {
+      "optional": true
+    },
+    "handlebars": {
+      "optional": true
+    },
+    "nunjucks": {
+      "optional": true
+    },
+    "pug": {
       "optional": true
     }
   },

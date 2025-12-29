@@ -9,12 +9,12 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  createAdapter,
-  createBuiltinAdapter,
-  getAvailableEngines,
-  hasAdapter,
-  registerAdapter,
-  type TemplateAdapter,
+    createAdapter,
+    createBuiltinAdapter,
+    getAvailableEngines,
+    hasAdapter,
+    registerAdapter,
+    type TemplateAdapter,
 } from '../adapters';
 
 const TEST_VIEWS_DIR = join(process.cwd(), '.test-views-adapters');
@@ -197,6 +197,55 @@ describe('Template Adapters', () => {
       await writeFile(join(TEST_VIEWS_DIR, 'page.html'), '<h1>{{title}}</h1>');
       const result = await adapter.renderFile('page', { title: 'Welcome' }, { layout: 'layout' });
       expect(result).toBe('<html><h1>Welcome</h1></html>');
+    });
+  });
+
+  describe('Built-in Adapter Security', () => {
+    let adapter: TemplateAdapter;
+
+    beforeEach(async () => {
+      await mkdir(TEST_VIEWS_DIR, { recursive: true });
+      adapter = createBuiltinAdapter({
+        root: TEST_VIEWS_DIR,
+        ext: '.html',
+        cache: false,
+      });
+    });
+
+    afterEach(async () => {
+      try {
+        await rm(TEST_VIEWS_DIR, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    });
+
+    describe('Path Traversal Prevention', () => {
+      it('should reject path with .. segments', async () => {
+        await writeFile(join(TEST_VIEWS_DIR, 'test.html'), 'Test');
+        await expect(adapter.renderFile('../test', {})).rejects.toThrow(/Path traversal detected/);
+      });
+
+      it('should reject path with multiple .. segments', async () => {
+        await expect(adapter.renderFile('../../etc/passwd', {})).rejects.toThrow(/Path traversal detected/);
+      });
+
+      it('should reject absolute paths outside root', async () => {
+        await expect(adapter.renderFile('/etc/passwd', {})).rejects.toThrow(/Path traversal detected/);
+      });
+
+      it('should reject encoded path traversal attempts', async () => {
+        // Normalized paths should still be caught
+        await expect(adapter.renderFile('subdir/../../../etc/passwd', {})).rejects.toThrow(/Path traversal detected/);
+      });
+
+      it('should allow valid subdirectory paths', async () => {
+        const subdir = join(TEST_VIEWS_DIR, 'subdir');
+        await mkdir(subdir, { recursive: true });
+        await writeFile(join(subdir, 'nested.html'), 'Nested: {{value}}');
+        const result = await adapter.renderFile('subdir/nested', { value: 'test' });
+        expect(result).toBe('Nested: test');
+      });
     });
   });
 

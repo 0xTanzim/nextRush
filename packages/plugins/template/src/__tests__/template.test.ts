@@ -11,17 +11,17 @@ import { compile } from '../compiler';
 import { createEngine } from '../engine';
 import * as helpers from '../helpers';
 import {
-  parse,
-  TemplateParseError,
-  validate,
+    parse,
+    TemplateParseError,
+    validate,
 } from '../parser';
 import type {
-  BlockNode,
-  CommentNode,
-  PartialNode,
-  RawNode,
-  TextNode,
-  VariableNode,
+    BlockNode,
+    CommentNode,
+    PartialNode,
+    RawNode,
+    TextNode,
+    VariableNode,
 } from '../template.types';
 
 // ============================================================================
@@ -673,6 +673,73 @@ describe('Built-in Helpers', () => {
       expect(helpers.conditional(false, 'yes', 'no')).toBe('no');
     });
   });
+
+  describe('Edge Cases', () => {
+    describe('truncate edge cases', () => {
+      it('should handle suffix longer than target length', () => {
+        // When suffix is longer than target length, result should be just the suffix
+        const result = helpers.truncate('hello world', 2, '...');
+        expect(result).toBe('...');
+      });
+
+      it('should handle suffix equal to target length', () => {
+        const result = helpers.truncate('hello world', 3, '...');
+        expect(result).toBe('...');
+      });
+
+      it('should clamp to prevent negative slice', () => {
+        const result = helpers.truncate('hello', 1, '.....');
+        expect(result).toBe('.....');
+      });
+
+      it('should work normally when length > suffix length', () => {
+        const result = helpers.truncate('hello world', 8, '...');
+        expect(result).toBe('hello...');
+      });
+    });
+
+    describe('divide edge cases', () => {
+      it('should return empty string for division by zero', () => {
+        expect(helpers.divide(10, 0)).toBe('');
+      });
+
+      it('should return empty string for null dividend', () => {
+        expect(helpers.divide(null, 5)).toBe('');
+      });
+
+      it('should handle NaN divisor', () => {
+        expect(helpers.divide(10, NaN)).toBe('');
+      });
+    });
+
+    describe('mod edge cases', () => {
+      it('should return empty string for mod by zero', () => {
+        expect(helpers.mod(10, 0)).toBe('');
+      });
+    });
+
+    describe('get helper security', () => {
+      it('should block __proto__ access', () => {
+        const obj = { name: 'test' };
+        expect(helpers.get(obj, '__proto__')).toBe(undefined);
+      });
+
+      it('should block constructor access', () => {
+        const obj = { name: 'test' };
+        expect(helpers.get(obj, 'constructor')).toBe(undefined);
+      });
+
+      it('should block prototype in path', () => {
+        const obj = { nested: { value: 'test' } };
+        expect(helpers.get(obj, '__proto__.polluted')).toBe(undefined);
+      });
+
+      it('should allow normal nested access', () => {
+        const obj = { a: { b: { c: 'deep' } } };
+        expect(helpers.get(obj, 'a.b.c')).toBe('deep');
+      });
+    });
+  });
 });
 
 // ============================================================================
@@ -997,6 +1064,91 @@ describe('Security', () => {
       const template = compile('{{& html}}');
       const result = template.render({ html: '<i>italic</i>' });
       expect(result).toBe('<i>italic</i>');
+    });
+  });
+
+  describe('Prototype Pollution Prevention', () => {
+    it('should block __proto__ access in variables', () => {
+      const template = compile('{{__proto__}}');
+      const result = template.render({});
+      expect(result).toBe('');
+    });
+
+    it('should block constructor access in variables', () => {
+      const template = compile('{{constructor}}');
+      const result = template.render({});
+      expect(result).toBe('');
+    });
+
+    it('should block prototype access in nested paths', () => {
+      const template = compile('{{obj.__proto__}}');
+      const result = template.render({ obj: { name: 'test' } });
+      expect(result).toBe('');
+    });
+
+    it('should block constructor.constructor RCE attempts', () => {
+      const template = compile('{{constructor.constructor}}');
+      const result = template.render({});
+      expect(result).toBe('');
+    });
+
+    it('should block __proto__ in nested property access', () => {
+      const template = compile('{{a.__proto__.polluted}}');
+      const result = template.render({ a: {} });
+      expect(result).toBe('');
+    });
+
+    it('should block prototype in get helper', () => {
+      const template = compile('{{obj | get "__proto__"}}');
+      const result = template.render({ obj: { name: 'test' } });
+      expect(result).toBe('');
+    });
+
+    it('should block constructor in get helper', () => {
+      const template = compile('{{obj | get "constructor"}}');
+      const result = template.render({ obj: { name: 'test' } });
+      expect(result).toBe('');
+    });
+
+    it('should allow legitimate property access', () => {
+      const template = compile('{{user.name}}');
+      const result = template.render({ user: { name: 'Alice' } });
+      expect(result).toBe('Alice');
+    });
+  });
+
+  describe('Recursion Protection', () => {
+    it('should prevent infinite partial recursion', () => {
+      const template = compile('{{>recursive}}', {
+        partials: {
+          recursive: '{{>recursive}}' // Self-referencing partial
+        }
+      });
+
+      expect(() => template.render({})).toThrow(/Maximum template nesting depth/);
+    });
+
+    it('should prevent mutual partial recursion', () => {
+      const template = compile('{{>a}}', {
+        partials: {
+          a: '{{>b}}',
+          b: '{{>a}}' // Mutual recursion
+        }
+      });
+
+      expect(() => template.render({})).toThrow(/Maximum template nesting depth/);
+    });
+
+    it('should allow reasonable partial nesting', () => {
+      const template = compile('{{>level1}}', {
+        partials: {
+          level1: '1{{>level2}}',
+          level2: '2{{>level3}}',
+          level3: '3'
+        }
+      });
+
+      expect(template.render({})).toBe('123');
     });
   });
 

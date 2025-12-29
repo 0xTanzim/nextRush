@@ -177,6 +177,12 @@ export interface RenderOptions {
   layout?: string;
   /** Layout data */
   layoutData?: Record<string, unknown>;
+  /**
+   * Internal: Current recursion depth for partial/layout rendering.
+   * Used to prevent infinite recursion attacks.
+   * @internal
+   */
+  _depth?: number;
 }
 
 /**

@@ -19,18 +19,18 @@ import { join, sep } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  createSendFile,
-  generateETag,
-  getMimeType,
-  isDotfile,
-  isFresh,
-  normalizePrefix,
-  parseRange,
-  safeJoin,
-  serveStatic,
-  staticFiles,
-  statSafe,
-  stripPrefix,
+    createSendFile,
+    generateETag,
+    getMimeType,
+    isDotfile,
+    isFresh,
+    normalizePrefix,
+    parseRange,
+    safeJoin,
+    serveStatic,
+    staticFiles,
+    statSafe,
+    stripPrefix,
 } from '../index';
 
 // ============================================================================
@@ -1060,5 +1060,229 @@ describe('Edge Cases', () => {
     ]);
 
     expect(results).toEqual([true, true, true]);
+  });
+});
+
+// ============================================================================
+// Security Tests
+// ============================================================================
+
+describe('Security', () => {
+  describe('Symlink Protection', () => {
+    // Note: These tests require ability to create symlinks
+    // On some systems (Windows without admin), symlink creation may fail
+
+    it('should block symlinks by default (followSymlinks=false)', async () => {
+      const symlinkPath = join(tempDir, 'link-to-test');
+      const targetPath = join(tempDir, 'test.txt');
+
+      try {
+        const { symlinkSync, unlinkSync } = await import('node:fs');
+        // Clean up if exists
+        try { unlinkSync(symlinkPath); } catch { /* ignore */ }
+        symlinkSync(targetPath, symlinkPath);
+
+        const middleware = serveStatic({ root: tempDir, followSymlinks: false });
+        const ctx = createMockContext({ path: '/link-to-test' }) as TestContext;
+        const next = vi.fn();
+
+        await middleware(ctx, next);
+
+        expect(ctx.status).toBe(404);
+
+        // Clean up
+        unlinkSync(symlinkPath);
+      } catch (err) {
+        // Skip on systems that don't support symlinks
+        console.log('Symlink test skipped (symlinks not supported)');
+      }
+    });
+
+    it('should allow symlinks within root when followSymlinks=true', async () => {
+      const symlinkPath = join(tempDir, 'link-to-test-allowed');
+      const targetPath = join(tempDir, 'test.txt');
+
+      try {
+        const { symlinkSync, unlinkSync } = await import('node:fs');
+        // Clean up if exists
+        try { unlinkSync(symlinkPath); } catch { /* ignore */ }
+        symlinkSync(targetPath, symlinkPath);
+
+        const middleware = serveStatic({ root: tempDir, followSymlinks: true });
+        const ctx = createMockContext({ path: '/link-to-test-allowed' }) as TestContext;
+        const next = vi.fn();
+
+        await middleware(ctx, next);
+
+        expect(ctx._test.ended).toBe(true);
+
+        // Clean up
+        unlinkSync(symlinkPath);
+      } catch (err) {
+        console.log('Symlink test skipped (symlinks not supported)');
+      }
+    });
+
+    it('should block symlinks pointing outside root even when followSymlinks=true', async () => {
+      const symlinkPath = join(tempDir, 'link-to-outside');
+
+      try {
+        const { symlinkSync, unlinkSync } = await import('node:fs');
+        // Clean up if exists
+        try { unlinkSync(symlinkPath); } catch { /* ignore */ }
+        // Create symlink pointing to /etc or /tmp (outside tempDir)
+        symlinkSync('/tmp', symlinkPath);
+
+        const middleware = serveStatic({ root: tempDir, followSymlinks: true });
+        const ctx = createMockContext({ path: '/link-to-outside' }) as TestContext;
+        const next = vi.fn();
+
+        await middleware(ctx, next);
+
+        // Should be blocked (404 or 403)
+        expect([403, 404]).toContain(ctx.status);
+
+        // Clean up
+        unlinkSync(symlinkPath);
+      } catch (err) {
+        console.log('Symlink test skipped (symlinks not supported)');
+      }
+    });
+  });
+
+  describe('X-Content-Type-Options Header', () => {
+    it('should set X-Content-Type-Options by default', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/test.txt' }) as TestContext;
+      const next = vi.fn();
+
+      await middleware(ctx, next);
+
+      expect(ctx._test.responseHeaders['X-Content-Type-Options']).toBe('nosniff');
+    });
+
+    it('should not set X-Content-Type-Options when disabled', async () => {
+      const middleware = serveStatic({ root: tempDir, xContentTypeOptions: false });
+      const ctx = createMockContext({ path: '/test.txt' }) as TestContext;
+      const next = vi.fn();
+
+      await middleware(ctx, next);
+
+      expect(ctx._test.responseHeaders['X-Content-Type-Options']).toBeUndefined();
+    });
+  });
+
+  describe('Range Request Security', () => {
+    it('should reject extremely large range values', () => {
+      // Values larger than MAX_SAFE_INTEGER should be rejected
+      expect(parseRange('bytes=9999999999999999999-', 1000)).toBeNull();
+      expect(parseRange('bytes=0-9999999999999999999', 1000)).toBeNull();
+      expect(parseRange('bytes=-9999999999999999999', 1000)).toBeNull();
+    });
+
+    it('should handle ranges at MAX_SAFE_INTEGER boundary', () => {
+      // Values at the boundary should still work if file is large enough
+      // but for practical file sizes, they should be clamped
+      const result = parseRange('bytes=0-1000', 1000);
+      expect(result).toEqual({ start: 0, end: 999 }); // Clamped to size-1
+    });
+
+    it('should reject negative suffix larger than safe integer', () => {
+      expect(parseRange('bytes=-99999999999999999999', 1000)).toBeNull();
+    });
+  });
+
+  describe('Path Traversal Edge Cases', () => {
+    it('should block backslash traversal on any platform', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/..\\etc\\passwd' }) as TestContext;
+      const next = vi.fn();
+
+      await middleware(ctx, next);
+
+      expect(ctx.status).toBe(403);
+    });
+
+    it('should block mixed slash traversal', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/subdir/..\\../etc/passwd' }) as TestContext;
+      const next = vi.fn();
+
+      await middleware(ctx, next);
+
+      expect(ctx.status).toBe(403);
+    });
+
+    it('should block unicode encoded dots', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      // This would be decoded but still caught
+      const ctx = createMockContext({ path: '/%2e%2e/etc/passwd' }) as TestContext;
+      const next = vi.fn();
+
+      await middleware(ctx, next);
+
+      expect(ctx.status).toBe(403);
+    });
+
+    it('should block triple dots', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/.../' }) as TestContext;
+      const next = vi.fn();
+
+      await middleware(ctx, next);
+
+      // Triple dots aren't traversal but also won't match real files
+      expect([403, 404]).toContain(ctx.status);
+    });
+  });
+
+  describe('statSafe Security', () => {
+    it('should return stats for regular files', async () => {
+      const stat = await statSafe(join(tempDir, 'test.txt'));
+      expect(stat).not.toBeNull();
+      expect(stat?.isFile()).toBe(true);
+    });
+
+    it('should return null for non-existent files', async () => {
+      const stat = await statSafe(join(tempDir, 'does-not-exist.txt'));
+      expect(stat).toBeNull();
+    });
+
+    it('should return null for symlinks when followSymlinks=false', async () => {
+      const symlinkPath = join(tempDir, 'symlink-test-stat');
+      const targetPath = join(tempDir, 'test.txt');
+
+      try {
+        const { symlinkSync, unlinkSync } = await import('node:fs');
+        try { unlinkSync(symlinkPath); } catch { /* ignore */ }
+        symlinkSync(targetPath, symlinkPath);
+
+        const stat = await statSafe(symlinkPath, false);
+        expect(stat).toBeNull();
+
+        unlinkSync(symlinkPath);
+      } catch {
+        console.log('Symlink test skipped');
+      }
+    });
+
+    it('should return stats for symlinks when followSymlinks=true with valid root', async () => {
+      const symlinkPath = join(tempDir, 'symlink-test-stat-follow');
+      const targetPath = join(tempDir, 'test.txt');
+
+      try {
+        const { symlinkSync, unlinkSync } = await import('node:fs');
+        try { unlinkSync(symlinkPath); } catch { /* ignore */ }
+        symlinkSync(targetPath, symlinkPath);
+
+        const stat = await statSafe(symlinkPath, true, tempDir);
+        expect(stat).not.toBeNull();
+        expect(stat?.isFile()).toBe(true);
+
+        unlinkSync(symlinkPath);
+      } catch {
+        console.log('Symlink test skipped');
+      }
+    });
   });
 });

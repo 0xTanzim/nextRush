@@ -10,18 +10,18 @@
 import { createHelperRegistry } from './helpers';
 import { parse } from './parser';
 import type {
-  ASTNode,
-  BlockNode,
-  CompiledTemplate,
-  CompileOptions,
-  ExpressionArg,
-  HelperCall,
-  HelperContext,
-  HelperFn,
-  PartialNode,
-  RenderOptions,
-  ValueHelper,
-  VariableNode,
+    ASTNode,
+    BlockNode,
+    CompiledTemplate,
+    CompileOptions,
+    ExpressionArg,
+    HelperCall,
+    HelperContext,
+    HelperFn,
+    PartialNode,
+    RenderOptions,
+    ValueHelper,
+    VariableNode,
 } from './template.types';
 
 // ============================================================================
@@ -57,6 +57,32 @@ function escapeHtml(str: string): string {
 }
 
 // ============================================================================
+// Security: Blocked Properties (Prototype Pollution Prevention)
+// ============================================================================
+
+/**
+ * Properties that are blocked from template access to prevent prototype pollution attacks.
+ * Based on CVE-2021-23369 (Handlebars) and similar vulnerabilities.
+ */
+const BLOCKED_PROPERTIES = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+  '__proto__',
+]);
+
+/**
+ * Check if a property name is safe to access
+ */
+function isSafeProperty(name: string): boolean {
+  return !BLOCKED_PROPERTIES.has(name);
+}
+
+// ============================================================================
 // Value Resolution
 // ============================================================================
 
@@ -67,6 +93,11 @@ function getNestedValue(obj: unknown, path: string): unknown {
   let current: unknown = obj;
 
   for (const part of parts) {
+    // Security: Block access to dangerous prototype properties
+    if (!isSafeProperty(part)) {
+      return undefined;
+    }
+
     if (current === null || current === undefined) return undefined;
 
     if (typeof current === 'object' && part in (current as Record<string, unknown>)) {
@@ -194,6 +225,12 @@ function isTruthy(value: unknown): boolean {
 // Render Context
 // ============================================================================
 
+/**
+ * Maximum nesting depth for partials and layouts to prevent infinite recursion.
+ * This prevents template stack overflow attacks like {{>a}} where partial 'a' includes itself.
+ */
+const MAX_RECURSION_DEPTH = 100;
+
 interface RenderContext {
   data: Record<string, unknown>;
   root: Record<string, unknown>;
@@ -202,6 +239,8 @@ interface RenderContext {
   partials: Map<string, string | CompiledTemplate>;
   options: Required<CompileOptions>;
   renderOptions: RenderOptions;
+  /** Current recursion depth for partial/layout rendering */
+  depth: number;
 }
 
 // ============================================================================
@@ -586,6 +625,14 @@ async function renderCustomBlockAsync(
 }
 
 function renderPartial(node: PartialNode, ctx: RenderContext): string {
+  // Security: Check recursion depth to prevent infinite partial loops
+  if (ctx.depth >= MAX_RECURSION_DEPTH) {
+    throw new Error(
+      `Maximum template nesting depth (${MAX_RECURSION_DEPTH}) exceeded. ` +
+      `Check for circular partial references involving "${node.name}".`
+    );
+  }
+
   const partial = ctx.partials.get(node.name);
   if (!partial) {
     if (ctx.options.strict) {
@@ -606,13 +653,21 @@ function renderPartial(node: PartialNode, ctx: RenderContext): string {
 
   if (typeof partial === 'string') {
     const compiled = compile(partial, ctx.options);
-    return compiled.render(partialData, ctx.renderOptions);
+    return compiled.render(partialData, { ...ctx.renderOptions, _depth: ctx.depth + 1 });
   }
 
-  return partial.render(partialData, ctx.renderOptions);
+  return partial.render(partialData, { ...ctx.renderOptions, _depth: ctx.depth + 1 });
 }
 
 async function renderPartialAsync(node: PartialNode, ctx: RenderContext): Promise<string> {
+  // Security: Check recursion depth to prevent infinite partial loops
+  if (ctx.depth >= MAX_RECURSION_DEPTH) {
+    throw new Error(
+      `Maximum template nesting depth (${MAX_RECURSION_DEPTH}) exceeded. ` +
+      `Check for circular partial references involving "${node.name}".`
+    );
+  }
+
   const partial = ctx.partials.get(node.name);
   if (!partial) {
     if (ctx.options.strict) {
@@ -633,10 +688,10 @@ async function renderPartialAsync(node: PartialNode, ctx: RenderContext): Promis
 
   if (typeof partial === 'string') {
     const compiled = compile(partial, ctx.options);
-    return compiled.renderAsync(partialData, ctx.renderOptions);
+    return compiled.renderAsync(partialData, { ...ctx.renderOptions, _depth: ctx.depth + 1 });
   }
 
-  return partial.renderAsync(partialData, ctx.renderOptions);
+  return partial.renderAsync(partialData, { ...ctx.renderOptions, _depth: ctx.depth + 1 });
 }
 
 // ============================================================================
@@ -692,7 +747,7 @@ export function compile(source: string, options: CompileOptions = {}): CompiledT
 
   const createContext = (
     data: Record<string, unknown>,
-    renderOptions: RenderOptions
+    renderOptions: RenderOptions & { _depth?: number }
   ): RenderContext => {
     // Start with built-in helpers, then compile-time helpers, then render-time helpers
     const helpers = createHelperRegistry();
@@ -728,6 +783,7 @@ export function compile(source: string, options: CompileOptions = {}): CompiledT
       partials,
       options: opts,
       renderOptions,
+      depth: renderOptions._depth ?? 0,
     };
   };
 
@@ -737,13 +793,22 @@ export function compile(source: string, options: CompileOptions = {}): CompiledT
 
     render(data: Record<string, unknown> = {}, renderOptions: RenderOptions = {}): string {
       const ctx = createContext(data, renderOptions);
+
+      // Security: Check layout recursion depth
+      if (ctx.depth >= MAX_RECURSION_DEPTH) {
+        throw new Error(
+          `Maximum template nesting depth (${MAX_RECURSION_DEPTH}) exceeded. ` +
+          `Check for circular layout references.`
+        );
+      }
+
       let result = renderNodes(ast.body, ctx);
 
       if (renderOptions.layout) {
         const layoutCompiled = compile(renderOptions.layout, opts);
         return layoutCompiled.render(
           { ...data, ...renderOptions.layoutData, body: result },
-          { ...renderOptions, layout: undefined }
+          { ...renderOptions, layout: undefined, _depth: ctx.depth + 1 }
         );
       }
 
@@ -755,13 +820,22 @@ export function compile(source: string, options: CompileOptions = {}): CompiledT
       renderOptions: RenderOptions = {}
     ): Promise<string> {
       const ctx = createContext(data, renderOptions);
+
+      // Security: Check layout recursion depth
+      if (ctx.depth >= MAX_RECURSION_DEPTH) {
+        throw new Error(
+          `Maximum template nesting depth (${MAX_RECURSION_DEPTH}) exceeded. ` +
+          `Check for circular layout references.`
+        );
+      }
+
       let result = await renderNodesAsync(ast.body, ctx);
 
       if (renderOptions.layout) {
         const layoutCompiled = compile(renderOptions.layout, opts);
         return layoutCompiled.renderAsync(
           { ...data, ...renderOptions.layoutData, body: result },
-          { ...renderOptions, layout: undefined }
+          { ...renderOptions, layout: undefined, _depth: ctx.depth + 1 }
         );
       }
 
