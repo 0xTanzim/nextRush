@@ -1,12 +1,68 @@
 # @nextrush/errors
 
-Standardized HTTP error handling for NextRush. Type-safe error classes, factory functions, and middleware for consistent API responses.
+> Standardized HTTP error handling that eliminates response inconsistency and builds API client trust.
+
+## The Problem
+
+Every API returns errors differently. This creates chaos for both developers and API consumers:
+
+**Inconsistent error responses** plague every backend project. One endpoint returns `{error: "..."}`, another returns `{message: "..."}`, and a third leaks stack traces in production. API clients can't reliably handle errors because there's no standard format.
+
+**Internal errors leak to users.** A database connection timeout becomes `PostgreSQL connection failed on pool 'primary'` in the API response. Security researchers see your infrastructure. Users see confusing technical jargon instead of actionable messages.
+
+**Manual error formatting is tedious.** Every route handler manually sets status codes, constructs JSON responses, and decides what to expose. Copy-paste error handling leads to bugs. Forgetting `try-catch` crashes the server.
+
+**No programmatic error handling.** API clients resort to parsing error messages with regex because there are no stable error codes. A typo in an error message breaks production integrations.
+
+## How NextRush Approaches This
+
+NextRush treats **errors as API contracts**, not exceptions.
+
+Every error has three responsibilities:
+1. **HTTP status code** - Semantic meaning for browsers and clients
+2. **Human message** - Clear explanation for developers/users
+3. **Machine code** - Stable identifier for programmatic handling
+
+The framework distinguishes between **client-safe errors** (4xx) and **server-internal errors** (5xx) with an `expose` flag. Client errors show detailed messages. Server errors hide implementation details by default.
+
+All errors serialize to a consistent JSON format automatically. No manual response formatting. No leaked stack traces. No security risks.
+
+## Mental Model
+
+Think of errors as **structured API responses**, not crashes.
+
+### Errors Are Contracts
+
+```
+User Request → Handler Logic → Error Thrown → Middleware Catches → JSON Response
+```
+
+When you throw `NotFoundError`, you're declaring an API contract:
+- **Status:** 404 Not Found
+- **Code:** `NOT_FOUND`
+- **Message:** Custom message you provide
+- **Format:** Consistent JSON structure
+
+### The Expose Flag
+
+Every error has an `expose` flag that acts as a **privacy boundary**:
+
+```typescript
+// Client errors (4xx): expose = true by default
+throw new NotFoundError('User #123 not found');
+// → Client sees: {"message": "User #123 not found", "code": "NOT_FOUND"}
+
+// Server errors (5xx): expose = false by default
+throw new InternalServerError('Redis connection timeout');
+// → Client sees: {"message": "Internal Server Error", "code": "INTERNAL_ERROR"}
+// → Server logs: Full error with stack trace
+```
+
+This prevents security leaks while maintaining debuggability.
 
 ## Installation
 
 ```bash
-npm install @nextrush/errors
-# or
 pnpm add @nextrush/errors
 ```
 
@@ -18,7 +74,7 @@ import { errorHandler, NotFoundError, BadRequestError } from '@nextrush/errors';
 
 const app = createApp();
 
-// Add error handling middleware
+// Add error handling middleware FIRST
 app.use(errorHandler());
 
 app.get('/users/:id', (ctx) => {
@@ -34,8 +90,40 @@ app.post('/users', (ctx) => {
     throw new BadRequestError('Email is required');
   }
   // Create user...
+  ctx.json({ success: true });
 });
+
+// Request: GET /users/999
+// Response: 404 Not Found
+// {
+//   "error": "NotFoundError",
+//   "message": "User not found",
+//   "code": "NOT_FOUND",
+//   "status": 404
+// }
+
+// Request: POST /users (no email)
+// Response: 400 Bad Request
+// {
+//   "error": "BadRequestError",
+//   "message": "Email is required",
+//   "code": "BAD_REQUEST",
+//   "status": 400
+// }
 ```
+
+## What NextRush Does Automatically
+
+When you throw an `HttpError` with error middleware enabled:
+
+1. **Catches the error** - No uncaught exceptions crash your server
+2. **Sets HTTP status** - Correct status code from error class
+3. **Formats JSON response** - Consistent `{error, message, code, status}` structure
+4. **Applies expose flag** - Hides sensitive 5xx details, shows 4xx details
+5. **Logs appropriately** - 5xx logged as errors, 4xx as warnings
+6. **Preserves stack traces** - Full debugging in development, hidden in production
+
+You don't write error handling code. You **declare error states** and NextRush handles the rest.
 
 ## Features
 
@@ -391,14 +479,200 @@ interface ValidationIssue {
 }
 ```
 
+```
+
+## Common Mistakes
+
+### Mistake 1: Using Generic Errors for Specific Cases
+
+```typescript
+// ❌ Don't do this
+throw new Error('User not found');
+// → Returns 500 Internal Server Error, no error code
+
+// ✅ Do this instead
+throw new NotFoundError('User not found');
+// → Returns 404 Not Found with NOT_FOUND code
+```
+
+**Why it's wrong:** Generic JavaScript `Error` becomes 500 Internal Server Error. The client can't distinguish between "not found" and "server crash".
+
+### Mistake 2: Exposing Internal Implementation Details
+
+```typescript
+// ❌ Don't do this
+throw new InternalServerError('PostgreSQL connection timeout on pool "primary"', {
+  expose: true  // Leaks infrastructure details!
+});
+
+// ✅ Do this instead
+throw new InternalServerError('Database temporarily unavailable');
+// expose defaults to false for 5xx errors
+// Full error logged server-side for debugging
+```
+
+**Why it's wrong:** Exposing database names, connection pools, or internal service names helps attackers understand your infrastructure.
+
+### Mistake 3: Forgetting Error Middleware
+
+```typescript
+// ❌ Errors won't be formatted
+const app = createApp();
+
+app.get('/users', (ctx) => {
+  throw new NotFoundError('User not found'); // Crashes or returns HTML error page!
+});
+
+// ✅ Add errorHandler BEFORE routes
+const app = createApp();
+app.use(errorHandler()); // This catches and formats errors
+
+app.get('/users', (ctx) => {
+  throw new NotFoundError('User not found'); // Returns proper JSON
+});
+```
+
+### Mistake 4: Using Errors for Control Flow
+
+```typescript
+// ❌ Don't use errors for expected business logic
+async function getUser(id: string): Promise<User> {
+  const user = await db.findUser(id);
+  if (!user) throw new NotFoundError(); // Too expensive for expected case
+  return user;
+}
+
+// ✅ Use nullable returns for expected cases
+async function getUser(id: string): Promise<User | null> {
+  return await db.findUser(id);
+}
+
+// ✅ Throw errors at the HTTP boundary
+app.get('/users/:id', async (ctx) => {
+  const user = await getUser(ctx.params.id);
+  if (!user) throw new NotFoundError('User not found');
+  ctx.json(user);
+});
+```
+
+**Why it's wrong:** Throwing errors for control flow is expensive (stack trace construction) and makes code harder to reason about.
+
+### Mistake 5: Missing Error Codes for API Clients
+
+```typescript
+// ❌ Clients can't handle errors programmatically
+throw new BadRequestError('Invalid email format');
+// Response: {"message": "Invalid email format"} // No code!
+
+// ✅ Include error codes
+throw new BadRequestError('Invalid email format', {
+  code: 'INVALID_EMAIL',
+});
+// Response: {"message": "Invalid email format", "code": "INVALID_EMAIL"}
+
+// Client can now:
+if (error.code === 'INVALID_EMAIL') {
+  // Show email field error
+}
+```
+
+## When NOT to Use
+
+### Don't Use for Validation in Reusable Libraries
+
+If you're building a reusable library (not an HTTP handler), return validation results instead of throwing:
+
+```typescript
+// ❌ Don't throw in library code
+export function validateEmail(email: string): string {
+  if (!isValid(email)) throw new InvalidEmailError(); // Caller can't control behavior
+  return email;
+}
+
+// ✅ Return validation result
+export function validateEmail(email: string): { valid: boolean; error?: string } {
+  return isValid(email)
+    ? { valid: true }
+    : { valid: false, error: 'Invalid email format' };
+}
+
+// ✅ Throw at the HTTP boundary
+app.post('/users', (ctx) => {
+  const result = validateEmail(ctx.body.email);
+  if (!result.valid) {
+    throw new BadRequestError(result.error!, { code: 'INVALID_EMAIL' });
+  }
+});
+```
+
+**Why:** Libraries should be composable. Throwing errors forces a specific error handling strategy on consumers.
+
+### Don't Use for Expected Empty Results
+
+```typescript
+// ❌ Don't throw for queries that might return nothing
+async function searchUsers(query: string): Promise<User[]> {
+  const users = await db.search(query);
+  if (users.length === 0) throw new NotFoundError(); // Expected case!
+  return users;
+}
+
+// ✅ Return empty arrays for "no results"
+async function searchUsers(query: string): Promise<User[]> {
+  return await db.search(query); // Empty array is valid
+}
+
+// ✅ Only throw when the resource *should* exist
+app.get('/users/:id', async (ctx) => {
+  const user = await db.getById(ctx.params.id);
+  if (!user) throw new NotFoundError(); // Specific ID should exist
+  ctx.json(user);
+});
+```
+
+### Don't Use for Non-HTTP Contexts
+
+```typescript
+// ❌ Don't use HTTP errors in background jobs
+async function processQueue() {
+  const job = await queue.pop();
+  if (!job) throw new NotFoundError(); // Wrong abstraction!
+}
+
+// ✅ Use domain-specific errors or return values
+async function processQueue() {
+  const job = await queue.pop();
+  if (!job) return { processed: false, reason: 'queue_empty' };
+  // Process job...
+  return { processed: true };
+}
+```
+
+## Runtime Compatibility
+
+Works on all NextRush-supported runtimes:
+
+| Runtime | Supported | Notes |
+|---------|-----------|-------|
+| Node.js 20+ | ✅ | Full support |
+| Bun 1.0+ | ✅ | Full support |
+| Deno 2.0+ | ✅ | Full support |
+| Cloudflare Workers | ✅ | Full support |
+| Vercel Edge Runtime | ✅ | Full support |
+
+**Zero external dependencies.** Uses only standard JavaScript `Error` APIs and NextRush types.
+
 ## Best Practices
 
 1. **Use specific errors**: `NotFoundError` over generic `HttpError`
 2. **Include error codes**: Help API consumers handle errors programmatically
-3. **Don't expose internals**: Set `expose: false` for sensitive errors
-4. **Log all errors**: Use the middleware's logging option
+3. **Don't expose internals**: Keep `expose: false` for 5xx errors (default)
+4. **Add error middleware first**: Before all routes
 5. **Validate early**: Throw validation errors at the start of handlers
+6. **Return nulls for expected "not found"**: Throw errors only at HTTP boundaries
 
 ## License
 
 MIT
+
+````
