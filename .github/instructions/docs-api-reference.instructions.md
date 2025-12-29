@@ -1,6 +1,6 @@
 ---
 description: 'API reference documentation standards for NextRush packages. Defines consistent format for documenting functions, types, interfaces, and examples across all NextRush packages.'
-applyTo: 'apps/docs/src/api/**/*.md, apps/docs/src/packages/**/*.md, docs/api/**/*.md, packages/**/docs/**/*.md, *.md'
+applyTo: '**'
 ---
 
 # NextRush API Documentation Standards

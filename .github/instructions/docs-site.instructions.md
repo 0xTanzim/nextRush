@@ -1,6 +1,6 @@
 ---
 description: 'World-class documentation site standards for NextRush v3. Blueprint for creating framework documentation that drives adoption, builds trust, and delivers exceptional developer experience.'
-applyTo: 'apps/docs/**/*.md, docs/**/*.md, *.md'
+applyTo: '**'
 ---
 
 # NextRush Documentation Site Standards

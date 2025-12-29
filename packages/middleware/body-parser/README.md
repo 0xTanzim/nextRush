@@ -624,6 +624,20 @@ This body-parser is **not designed for**:
 
 ---
 
+## Runtime Compatibility
+
+This package works across all JavaScript runtimes:
+
+| Runtime | Supported |
+|---------|-----------|
+| Node.js 20+ | ✅ |
+| Bun | ✅ |
+| Deno | ✅ |
+| Cloudflare Workers | ✅ |
+| Vercel Edge Runtime | ✅ |
+
+---
+
 ## See Also
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed architecture documentation

@@ -1,6 +1,6 @@
 ---
 description: 'Content strategy and writing workflow for NextRush documentation. Defines the editorial process, content hierarchy, and decision frameworks for creating world-class developer documentation.'
-applyTo: 'apps/docs/**/*.md, docs/**/*.md, *.md '
+applyTo: '**'
 ---
 
 # NextRush Documentation Content Strategy

@@ -1,24 +1,29 @@
 # @nextrush/timer
 
-High-resolution request timing middleware for NextRush. Measure response times with microsecond precision and Server-Timing support.
+> Precision request timing with microsecond accuracy and Server-Timing API support.
 
-## Features
+## The Problem
 
-- **High Resolution**: Uses `performance.now()` for sub-millisecond precision
-- **Server-Timing**: Native browser DevTools integration
-- **Multi-Runtime**: Works on Node.js, Bun, Deno, Cloudflare Workers
-- **Security Hardened**: RFC 7230 compliant header sanitization
-- **Zero Dependencies**: Pure TypeScript implementation
-- **Detailed Mode**: Capture full timing information with start/end timestamps
+Performance monitoring requires accurate timing data:
+
+**Milliseconds hide latency spikes.** When your P99 latency is 5ms but P99.9 is 50ms, millisecond precision can miss the tail latency that affects real users.
+
+**Manual timing is error-prone.** Calculating `Date.now()` differences in every handler leads to inconsistent measurement points and forgotten timings.
+
+**Server-Timing headers are underutilized.** Browsers and APM tools can consume timing data via the Server-Timing header, but most apps don't implement it.
+
+## What NextRush Does Differently
+
+- **High-resolution timing** using `performance.now()` for sub-millisecond precision
+- **Automatic Server-Timing headers** for browser DevTools integration
+- **Multiple output formats** (ms, μs, human-readable)
+- **RFC 7230 compliant** header sanitization for security
+- **Zero dependencies** with pure TypeScript implementation
 
 ## Installation
 
 ```bash
-npm install @nextrush/timer
-# or
 pnpm add @nextrush/timer
-# or
-bun add @nextrush/timer
 ```
 
 ## Quick Start

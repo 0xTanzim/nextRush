@@ -1,3 +1,4 @@
+import { DEFAULT_CLEANUP_INTERVAL, DEFAULT_MAX_ENTRIES } from '../constants';
 import type { RateLimitStore, StoreEntry } from '../types';
 
 /**
@@ -8,6 +9,8 @@ export interface MemoryStoreOptions {
   cleanupInterval?: number;
   /** Disable automatic cleanup */
   disableCleanup?: boolean;
+  /** Maximum number of entries to prevent DoS (default: 100000) */
+  maxEntries?: number;
 }
 
 /**
@@ -16,21 +19,29 @@ export interface MemoryStoreOptions {
  * Features:
  * - Automatic cleanup of expired entries
  * - O(1) operations for get/set/increment
+ * - Maximum entries limit to prevent DoS
  * - Suitable for single-server deployments
  *
  * Limitations:
  * - Not shared across server instances
  * - Lost on server restart
- * - Memory grows with unique keys
+ * - Memory grows with unique keys (capped by maxEntries)
  *
  * For distributed systems, use Redis store.
  */
 export class MemoryStore implements RateLimitStore {
   private readonly entries = new Map<string, StoreEntry & { expiresAt: number }>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly maxEntries: number;
 
   constructor(options: MemoryStoreOptions = {}) {
-    const { cleanupInterval = 60_000, disableCleanup = false } = options;
+    const {
+      cleanupInterval = DEFAULT_CLEANUP_INTERVAL,
+      disableCleanup = false,
+      maxEntries = DEFAULT_MAX_ENTRIES,
+    } = options;
+
+    this.maxEntries = maxEntries;
 
     if (!disableCleanup && cleanupInterval > 0) {
       this.cleanupTimer = setInterval(() => {
@@ -58,6 +69,15 @@ export class MemoryStore implements RateLimitStore {
   }
 
   async set(key: string, entry: StoreEntry, ttlMs: number): Promise<void> {
+    // Enforce max entries limit to prevent DoS
+    if (!this.entries.has(key) && this.entries.size >= this.maxEntries) {
+      // Evict oldest entry (first in Map iteration order)
+      const oldestKey = this.entries.keys().next().value;
+      if (oldestKey) {
+        this.entries.delete(oldestKey);
+      }
+    }
+
     this.entries.set(key, {
       ...entry,
       expiresAt: Date.now() + ttlMs,
@@ -69,6 +89,14 @@ export class MemoryStore implements RateLimitStore {
     const entry = this.entries.get(key);
 
     if (!entry || now > entry.expiresAt) {
+      // Enforce max entries limit to prevent DoS
+      if (!this.entries.has(key) && this.entries.size >= this.maxEntries) {
+        const oldestKey = this.entries.keys().next().value;
+        if (oldestKey) {
+          this.entries.delete(oldestKey);
+        }
+      }
+
       this.entries.set(key, {
         count: 1,
         windowStart: now,

@@ -46,8 +46,14 @@ function createMockContext(cookieHeader?: string) {
       if (field.toLowerCase() === 'cookie') return cookieHeader;
       return undefined;
     }),
-    next: vi.fn().mockResolvedValue(undefined),
   };
+}
+
+/**
+ * Create mock next function
+ */
+function createNext() {
+  return vi.fn().mockResolvedValue(undefined);
 }
 
 describe('cookies middleware', () => {
@@ -60,8 +66,9 @@ describe('cookies middleware', () => {
     it('should add cookies to context state', async () => {
       const middleware = cookies();
       const ctx = createMockContext();
+      const next = createNext();
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       expect(ctx.state.cookies).toBeDefined();
       const cookieApi = ctx.state.cookies as CookieContext;
@@ -74,10 +81,11 @@ describe('cookies middleware', () => {
     it('should call next middleware', async () => {
       const middleware = cookies();
       const ctx = createMockContext();
+      const next = createNext();
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
-      expect(ctx.next).toHaveBeenCalled();
+      expect(next).toHaveBeenCalled();
     });
   });
 
@@ -85,8 +93,9 @@ describe('cookies middleware', () => {
     it('should get a cookie value', async () => {
       const middleware = cookies();
       const ctx = createMockContext('session=abc123');
+      const next = createNext();
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       const cookieApi = ctx.state.cookies as CookieContext;
       expect(cookieApi.get('session')).toBe('abc123');
@@ -95,8 +104,9 @@ describe('cookies middleware', () => {
     it('should return undefined for missing cookie', async () => {
       const middleware = cookies();
       const ctx = createMockContext('session=abc123');
+      const next = createNext();
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       const cookieApi = ctx.state.cookies as CookieContext;
       expect(cookieApi.get('missing')).toBeUndefined();
@@ -105,8 +115,9 @@ describe('cookies middleware', () => {
     it('should handle multiple cookies', async () => {
       const middleware = cookies();
       const ctx = createMockContext('name=value; session=abc123; token=xyz');
+      const next = createNext();
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       const cookieApi = ctx.state.cookies as CookieContext;
       expect(cookieApi.get('name')).toBe('value');
@@ -120,12 +131,12 @@ describe('cookies middleware', () => {
       const middleware = cookies();
       const ctx = createMockContext();
 
-      ctx.next = vi.fn(async () => {
+      const next = vi.fn(async () => {
         const cookieApi = ctx.state.cookies as CookieContext;
         cookieApi.set('session', 'abc123');
       });
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('session=abc123'));
     });
@@ -134,7 +145,7 @@ describe('cookies middleware', () => {
       const middleware = cookies();
       const ctx = createMockContext();
 
-      ctx.next = vi.fn(async () => {
+      const next = vi.fn(async () => {
         const cookieApi = ctx.state.cookies as CookieContext;
         cookieApi.set('session', 'abc123', {
           httpOnly: true,
@@ -143,11 +154,11 @@ describe('cookies middleware', () => {
         });
       });
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       expect(ctx.set).toHaveBeenCalledWith(
         'Set-Cookie',
-        expect.stringMatching(/session=abc123.*Max-Age=3600.*Path=\/.*HttpOnly.*Secure/),
+        expect.stringMatching(/session=abc123.*Path=\/.*Max-Age=3600.*HttpOnly.*Secure/),
       );
     });
   });
@@ -157,12 +168,12 @@ describe('cookies middleware', () => {
       const middleware = cookies();
       const ctx = createMockContext('session=abc123');
 
-      ctx.next = vi.fn(async () => {
+      const next = vi.fn(async () => {
         const cookieApi = ctx.state.cookies as CookieContext;
         cookieApi.delete('session');
       });
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('session='));
       expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('Max-Age=0'));
@@ -173,8 +184,9 @@ describe('cookies middleware', () => {
     it('should return all cookies', async () => {
       const middleware = cookies();
       const ctx = createMockContext('name=value; session=abc123');
+      const next = createNext();
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       const cookieApi = ctx.state.cookies as CookieContext;
       expect(cookieApi.all()).toEqual({
@@ -186,8 +198,9 @@ describe('cookies middleware', () => {
     it('should return empty object when no cookies', async () => {
       const middleware = cookies();
       const ctx = createMockContext();
+      const next = createNext();
 
-      await middleware(ctx as never);
+      await middleware(ctx as never, next);
 
       const cookieApi = ctx.state.cookies as CookieContext;
       expect(cookieApi.all()).toEqual({});
@@ -197,42 +210,44 @@ describe('cookies middleware', () => {
 
 describe('signedCookies middleware', () => {
   it('should create middleware function', () => {
-    const middleware = signedCookies('secret');
+    const middleware = signedCookies({ secret: 'secret' });
     expect(typeof middleware).toBe('function');
   });
 
   it('should throw for missing secret', () => {
-    expect(() => signedCookies('')).toThrow('Secret key is required');
+    expect(() => signedCookies({ secret: '' })).toThrow('signedCookies requires a secret string');
   });
 
   it('should add signedCookies to context state', async () => {
-    const middleware = signedCookies('secret');
+    const middleware = signedCookies({ secret: 'secret' });
     const ctx = createMockContext();
+    const next = createNext();
 
-    await middleware(ctx as never);
+    await middleware(ctx as never, next);
 
     expect(ctx.state.signedCookies).toBeDefined();
   });
 
   it('should set signed cookies', async () => {
-    const middleware = signedCookies('secret');
+    const middleware = signedCookies({ secret: 'secret' });
     const ctx = createMockContext();
 
-    ctx.next = vi.fn(async () => {
+    const next = vi.fn(async () => {
       const signedApi = ctx.state.signedCookies as { set: (n: string, v: string) => Promise<void> };
       await signedApi.set('session', 'abc123');
     });
 
-    await middleware(ctx as never);
+    await middleware(ctx as never, next);
 
     expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringMatching(/session=abc123\..+/));
   });
 
   it('should return undefined for tampered cookie', async () => {
-    const middleware = signedCookies('secret');
+    const middleware = signedCookies({ secret: 'secret' });
     const ctx = createMockContext('session=tampered.invalidsignature');
+    const next = createNext();
 
-    await middleware(ctx as never);
+    await middleware(ctx as never, next);
 
     const signedApi = ctx.state.signedCookies as { get: (n: string) => Promise<string | undefined> };
     const result = await signedApi.get('session');
@@ -240,15 +255,15 @@ describe('signedCookies middleware', () => {
   });
 
   it('should delete signed cookies', async () => {
-    const middleware = signedCookies('secret');
+    const middleware = signedCookies({ secret: 'secret' });
     const ctx = createMockContext('session=abc123.signature');
 
-    ctx.next = vi.fn(async () => {
+    const next = vi.fn(async () => {
       const signedApi = ctx.state.signedCookies as { delete: (n: string) => void };
       signedApi.delete('session');
     });
 
-    await middleware(ctx as never);
+    await middleware(ctx as never, next);
 
     expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('session='));
     expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('Max-Age=0'));
@@ -264,12 +279,12 @@ describe('helper functions', () => {
       expect(options.secure).toBe(true);
       expect(options.sameSite).toBe('strict');
       expect(options.path).toBe('/');
-      expect(options.maxAge).toBe(86400);
     });
 
-    it('should accept custom maxAge', () => {
-      const options = secureOptions(7 * 24 * 60 * 60);
+    it('should accept custom options', () => {
+      const options = secureOptions({ maxAge: 604800 });
       expect(options.maxAge).toBe(604800);
+      expect(options.secure).toBe(true);
     });
   });
 
@@ -278,7 +293,6 @@ describe('helper functions', () => {
       const options = sessionOptions();
 
       expect(options.httpOnly).toBe(true);
-      expect(options.secure).toBe(true);
       expect(options.sameSite).toBe('lax');
       expect(options.path).toBe('/');
       expect(options.maxAge).toBeUndefined();

@@ -1,6 +1,31 @@
 # @nextrush/helmet
 
-Security headers middleware for NextRush. Protect your app from common web vulnerabilities with sensible defaults and fine-grained control.
+> Enterprise-grade HTTP security headers with defense-in-depth protection.
+
+## The Problem
+
+Modern web applications face a gauntlet of browser-based attacks. Each requires specific HTTP headers to mitigate:
+
+**XSS attacks exploit missing CSP.** Without Content-Security-Policy, attackers can inject malicious scripts that steal cookies, redirect users, or modify page content.
+
+**Clickjacking tricks users into hidden actions.** Missing X-Frame-Options allows attackers to embed your site in invisible iframes and trick users into clicking buttons they can't see.
+
+**MIME sniffing creates attack vectors.** Browsers "helpfully" guess content types, which attackers exploit to execute JavaScript hidden in uploaded files.
+
+**Information leakage exposes your stack.** Default server headers like `X-Powered-By: Express` help attackers target known vulnerabilities.
+
+## What NextRush Does Differently
+
+NextRush's Helmet middleware provides **defense-in-depth** through multiple security layers:
+
+- **Content-Security-Policy** blocks XSS and injection attacks
+- **Strict-Transport-Security** enforces HTTPS connections
+- **X-Frame-Options** prevents clickjacking
+- **X-Content-Type-Options** stops MIME sniffing
+- **Referrer-Policy** controls information leakage
+- **Permissions-Policy** restricts browser features
+
+All headers are **configurable per-environment**, with secure defaults for production.
 
 ## Installation
 
@@ -309,6 +334,18 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 ```
+
+## Runtime Compatibility
+
+This package works across all JavaScript runtimes:
+
+| Runtime | Supported |
+|---------|-----------|
+| Node.js 20+ | ✅ |
+| Bun | ✅ |
+| Deno | ✅ |
+| Cloudflare Workers | ✅ |
+| Vercel Edge Runtime | ✅ |
 
 ## License
 

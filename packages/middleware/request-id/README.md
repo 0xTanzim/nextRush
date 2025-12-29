@@ -1,24 +1,29 @@
 # @nextrush/request-id
 
-Request identification middleware for NextRush. Generate unique request IDs for tracing, logging, and debugging distributed systems.
+> Unique request identification with ID spoofing protection and distributed tracing support.
 
-## Features
+## The Problem
 
-- **UUID Generation**: Cryptographically secure unique IDs via `crypto.randomUUID()`
-- **Security Validated**: Incoming IDs validated for format, length, and injection attacks
-- **Correlation IDs**: Pass-through IDs from upstream services with validation
-- **Trace IDs**: Distributed tracing support
-- **Multi-Runtime**: Works on Node.js, Bun, Deno, Cloudflare Workers
-- **Zero Dependencies**: Pure TypeScript implementation
+Debugging distributed systems without request IDs is like finding a needle in a haystack:
+
+**Correlating logs across services is impossible.** When a request fails, you need to search through multiple service logs with no way to connect them.
+
+**ID spoofing creates audit trail gaps.** If clients can inject arbitrary request IDs, attackers can pollute your logs or exploit ID-based systems.
+
+**Log injection attacks via headers.** Malicious request IDs containing newlines or special characters can exploit logging systems.
+
+## What NextRush Does Differently
+
+- **Cryptographically secure ID generation** using `crypto.randomUUID()`
+- **ID validation** to prevent spoofing and injection attacks
+- **Configurable trust levels** for upstream proxy headers
+- **Multiple header support** for compatibility (X-Request-ID, X-Correlation-ID, X-Trace-ID)
+- **Log injection protection** through sanitization
 
 ## Installation
 
 ```bash
-npm install @nextrush/request-id
-# or
 pnpm add @nextrush/request-id
-# or
-bun add @nextrush/request-id
 ```
 
 ## Quick Start

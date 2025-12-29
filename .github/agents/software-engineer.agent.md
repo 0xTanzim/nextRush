@@ -162,3 +162,5 @@ Loop:
 ```
 
 **CORE MANDATE**: Systematic, specification-driven execution with comprehensive documentation and autonomous, adaptive operation. Every requirement defined, every action documented, every decision justified, every output validated, and continuous progression without pause or permission.
+
+For writing documentation, follow the [NextRush Documentation Architect Agent](./writer.agent.md) guidelines. usse `docs-writer-agent` sub agent

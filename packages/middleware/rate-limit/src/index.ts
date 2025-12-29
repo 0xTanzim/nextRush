@@ -8,6 +8,7 @@
  * - Tiered rate limits (anonymous, authenticated, premium)
  * - Shared IP handling (proxies, corporate NAT)
  * - IETF-compliant headers
+ * - CIDR notation for whitelist/blacklist
  * - Zero dependencies
  *
  * @example Simple usage
@@ -45,11 +46,28 @@
  * }));
  * ```
  *
+ * @example CIDR whitelist
+ * ```typescript
+ * app.use(rateLimit({
+ *   whitelist: ['192.168.0.0/16', '10.0.0.0/8', '127.0.0.1'],
+ * }));
+ * ```
+ *
  * @packageDocumentation
  */
 
 import type { Context, Middleware } from '@nextrush/types';
 import { getAlgorithm } from './algorithms';
+import {
+    DEFAULT_ALGORITHM,
+    DEFAULT_BLACKLIST_MULTIPLIER,
+    DEFAULT_CLEANUP_INTERVAL,
+    DEFAULT_KEY_PREFIX,
+    DEFAULT_MAX,
+    DEFAULT_MESSAGE,
+    DEFAULT_STATUS_CODE,
+    DEFAULT_WINDOW,
+} from './constants';
 import { createMemoryStore } from './stores';
 import type {
     RateLimitInfo,
@@ -59,6 +77,7 @@ import type {
     TieredRateLimitOptions,
 } from './types';
 import { extractClientIp, isIpInList, parseWindow, setRateLimitHeaders } from './utils';
+import { validateOptions, validateTieredOptions } from './validation';
 
 export type {
     Algorithm, KeyGenerator, OnRateLimited, RateLimitAlgorithm, RateLimitHandler, RateLimitInfo, RateLimitMiddleware, RateLimitOptions, RateLimitStore, SkipFunction, StoreEntry,
@@ -66,10 +85,36 @@ export type {
 } from './types';
 
 export { algorithms, fixedWindow, getAlgorithm, slidingWindow, tokenBucket } from './algorithms';
-export { createMemoryStore, MemoryStore } from './stores';
-export { LEGACY_HEADERS, setRateLimitHeaders, STANDARD_HEADERS } from './utils/headers';
-export { defaultKeyGenerator, extractClientIp, isIpInList, normalizeIp } from './utils/key-generator';
+export {
+    CIDR_MAX_IPV4,
+    CIDR_MAX_IPV6,
+    CIDR_PATTERN,
+    DEFAULT_ALGORITHM,
+    DEFAULT_BLACKLIST_MULTIPLIER,
+    DEFAULT_CLEANUP_INTERVAL,
+    DEFAULT_KEY_PREFIX,
+    DEFAULT_MAX,
+    DEFAULT_MAX_ENTRIES,
+    DEFAULT_MESSAGE,
+    DEFAULT_STATUS_CODE,
+    DEFAULT_WINDOW,
+    DEFAULT_WINDOW_MS,
+    IPV4_MAPPED_PREFIX,
+    IPV4_MAX_OCTET,
+    IPV4_OCTET_COUNT,
+    IPV6_PATTERN,
+    LEGACY_HEADERS,
+    PROXY_HEADERS,
+    RETRY_AFTER_HEADER,
+    STANDARD_HEADERS,
+    TIME_UNITS,
+    WINDOW_PATTERN
+} from './constants';
+export { createMemoryStore, MemoryStore, type MemoryStoreOptions } from './stores';
+export { LEGACY_HEADERS as LEGACY_RATE_LIMIT_HEADERS, setRateLimitHeaders, STANDARD_HEADERS as STANDARD_RATE_LIMIT_HEADERS } from './utils/headers';
+export { defaultKeyGenerator, extractClientIp, isIpInList, isValidIpv4, isValidIpv6, normalizeIp } from './utils/key-generator';
 export { formatDuration, parseWindow } from './utils/parse-window';
+export { isValidIpFormat, RateLimitValidationError, SAFE_DEFAULTS, validateOptions, validateTieredOptions } from './validation';
 
 const DEFAULT_OPTIONS: Required<
   Pick<
@@ -89,18 +134,18 @@ const DEFAULT_OPTIONS: Required<
     | 'disableCleanup'
   >
 > = {
-  algorithm: 'token-bucket',
-  max: 100,
-  window: '1m',
+  algorithm: DEFAULT_ALGORITHM,
+  max: DEFAULT_MAX,
+  window: DEFAULT_WINDOW,
   trustProxy: false,
   standardHeaders: true,
   legacyHeaders: true,
   includeRetryAfter: true,
-  message: 'Too many requests, please try again later.',
-  statusCode: 429,
-  blacklistMultiplier: 0.5,
+  message: DEFAULT_MESSAGE,
+  statusCode: DEFAULT_STATUS_CODE,
+  blacklistMultiplier: DEFAULT_BLACKLIST_MULTIPLIER,
   draftIetfHeaders: false,
-  cleanupInterval: 60_000,
+  cleanupInterval: DEFAULT_CLEANUP_INTERVAL,
   disableCleanup: false,
 };
 
@@ -121,8 +166,12 @@ const DEFAULT_OPTIONS: Required<
  *   keyGenerator: (ctx) => ctx.get('X-API-Key') || ctx.ip
  * }));
  * ```
+ *
+ * @throws {RateLimitValidationError} If options are invalid
  */
 export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
+  validateOptions(options);
+
   const config = { ...DEFAULT_OPTIONS, ...options };
 
   const windowMs = parseWindow(config.window);
@@ -134,7 +183,7 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
 
   const keyGenerator = config.keyGenerator ?? ((ctx: Context) => {
     const ip = extractClientIp(ctx, config.trustProxy);
-    return `rl:${ip}`;
+    return `${DEFAULT_KEY_PREFIX}${ip}`;
   });
 
   const defaultHandler = async (ctx: Context, info: RateLimitInfo): Promise<void> => {
@@ -233,15 +282,15 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
  *   tierResolver: (ctx) => ctx.state.user?.tier || 'anonymous'
  * }));
  * ```
+ *
+ * @throws {RateLimitValidationError} If options are invalid
  */
 export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddleware {
+  validateTieredOptions(options);
+
   const { tiers, tierResolver, defaultTier, ...baseOptions } = options;
 
   const tierNames = Object.keys(tiers);
-  if (tierNames.length === 0) {
-    throw new Error('At least one tier must be defined');
-  }
-
   const firstTier = tierNames[0] as string;
   const fallbackTier: string = defaultTier ?? firstTier;
 
@@ -253,23 +302,23 @@ export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddl
     tierStores.set(
       name,
       baseOptions.store ?? createMemoryStore({
-        cleanupInterval: baseOptions.cleanupInterval ?? 60_000,
+        cleanupInterval: baseOptions.cleanupInterval ?? DEFAULT_CLEANUP_INTERVAL,
         disableCleanup: baseOptions.disableCleanup ?? false,
       })
     );
-    tierAlgorithms.set(name, getAlgorithm(baseOptions.algorithm ?? 'token-bucket'));
+    tierAlgorithms.set(name, getAlgorithm(baseOptions.algorithm ?? DEFAULT_ALGORITHM));
     tierWindowMs.set(name, parseWindow(config.window));
   }
 
   const keyGenerator = baseOptions.keyGenerator ?? ((ctx: Context) => {
     const ip = extractClientIp(ctx, baseOptions.trustProxy ?? false);
-    return `rl:${ip}`;
+    return `${DEFAULT_KEY_PREFIX}${ip}`;
   });
 
   const defaultHandler = async (ctx: Context, info: RateLimitInfo): Promise<void> => {
-    ctx.status = baseOptions.statusCode ?? 429;
+    ctx.status = baseOptions.statusCode ?? DEFAULT_STATUS_CODE;
     ctx.json({
-      error: baseOptions.message ?? 'Too many requests, please try again later.',
+      error: baseOptions.message ?? DEFAULT_MESSAGE,
       retryAfter: info.resetIn,
     });
   };

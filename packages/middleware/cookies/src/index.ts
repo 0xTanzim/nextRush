@@ -41,17 +41,56 @@
  * ```
  */
 
-// Middleware
-export { cookies, secureOptions, sessionOptions, signedCookies } from './middleware';
+/**
+ * @nextrush/cookies - Cookie Middleware for NextRush
+ *
+ * Secure cookie parsing and serialization with RFC 6265 compliance.
+ *
+ * Features:
+ * - HTTP Response Splitting (CRLF) prevention
+ * - Cookie prefix validation (__Secure-, __Host-)
+ * - Domain and path validation
+ * - HMAC-SHA256 cookie signing with key rotation
+ * - Runtime-compatible (Node.js, Bun, Deno, Edge)
+ *
+ * @packageDocumentation
+ * @module @nextrush/cookies
+ */
 
-// Utilities
-export { createDeleteCookie, parseCookies, serializeCookie, signCookie, unsignCookie } from './utils';
+// Middleware
+export { cookies, secureOptions, sessionOptions, signedCookies } from './middleware.js';
+
+// Serialization
+export {
+    createDeleteCookie, createHostPrefixCookie, createSecurePrefixCookie, serializeCookie
+} from './serializer.js';
+
+// Parsing
+export { getCookie, getCookieNames, hasCookie, parseCookies } from './parser.js';
+export type { ParseOptions } from './parser.js';
+
+// Signing
+export {
+    signCookie, timingSafeEqual, unsignCookie,
+    unsignCookieWithRotation
+} from './signing.js';
+export type { SigningKeys } from './signing.js';
+
+// Validation
+export {
+    SecurityError, isPublicSuffix, isValidCookieName,
+    isValidCookieValue, isValidDomain, isValidPath, sanitizeCookieValue, validateCookieOptions, validateCookiePrefix
+} from './validation.js';
+
+// Constants
+export {
+    COMMON_PUBLIC_SUFFIXES, COOKIE_PREFIXES, DEFAULT_COOKIE_OPTIONS, MAX_COOKIE_SIZE,
+    MAX_NAME_LENGTH,
+    MAX_VALUE_LENGTH
+} from './constants.js';
 
 // Types
 export type {
-    CookieContext,
-    CookieMiddlewareOptions,
-    CookieOptions,
-    CookieState,
-    ParsedCookies
-} from './types';
+    CookieContext, CookieMiddlewareOptions, CookieOptions, CookiePriority, CookieState, ParsedCookies,
+    SameSiteValue, SignedCookieContext, SignedCookieMiddlewareOptions, SignedCookieState
+} from './types.js';

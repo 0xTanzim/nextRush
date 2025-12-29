@@ -1,3 +1,5 @@
+import { TIME_UNITS, WINDOW_PATTERN } from '../constants';
+
 /**
  * Parse window duration string to milliseconds
  *
@@ -14,7 +16,7 @@ export function parseWindow(window: string | number): number {
     return window;
   }
 
-  const match = window.match(/^(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|minute|minutes|h|hr|hour|hours|d|day|days)$/i);
+  const match = window.match(WINDOW_PATTERN);
 
   if (!match?.[1] || !match[2]) {
     throw new Error(
@@ -25,25 +27,7 @@ export function parseWindow(window: string | number): number {
   const value = parseFloat(match[1]);
   const unit = match[2].toLowerCase();
 
-  const multipliers: Record<string, number> = {
-    s: 1000,
-    sec: 1000,
-    second: 1000,
-    seconds: 1000,
-    m: 60_000,
-    min: 60_000,
-    minute: 60_000,
-    minutes: 60_000,
-    h: 3_600_000,
-    hr: 3_600_000,
-    hour: 3_600_000,
-    hours: 3_600_000,
-    d: 86_400_000,
-    day: 86_400_000,
-    days: 86_400_000,
-  };
-
-  const multiplier = multipliers[unit];
+  const multiplier = TIME_UNITS[unit];
   if (!multiplier) {
     throw new Error(`Unknown time unit: "${unit}"`);
   }

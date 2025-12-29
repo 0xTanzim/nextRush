@@ -1,6 +1,6 @@
 ---
 description: 'Human-first documentation standards for NextRush. Teach intent, mental models, and architectural reasoning. Avoid magic, boilerplate, and API-first explanations.'
-applyTo: '**/*.md'
+applyTo: '**'
 ---
 
 # NextRush Documentation Instructions

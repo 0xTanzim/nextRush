@@ -2,16 +2,30 @@
  * @nextrush/cookies - Cookie Middleware
  *
  * Middleware for parsing and setting cookies in NextRush applications.
+ * Includes security hardening: CRLF prevention, prefix validation, domain validation.
  *
  * @packageDocumentation
  */
 
 import type { Context, Middleware } from '@nextrush/types';
-import type { CookieContext, CookieMiddlewareOptions, CookieOptions, ParsedCookies } from './types';
-import { createDeleteCookie, parseCookies, serializeCookie, signCookie, unsignCookie } from './utils';
+import { parseCookies } from './parser.js';
+import { createDeleteCookie, serializeCookie } from './serializer.js';
+import { signCookie, unsignCookieWithRotation } from './signing.js';
+import type {
+    CookieContext,
+    CookieMiddlewareOptions,
+    CookieOptions,
+    ParsedCookies,
+    SignedCookieContext,
+    SignedCookieMiddlewareOptions
+} from './types.js';
+
+// ============================================================================
+// State Types
+// ============================================================================
 
 /**
- * State with cookies extension
+ * Extended state interface with cookies.
  */
 interface StateWithCookies {
   cookies: CookieContext;
@@ -19,12 +33,30 @@ interface StateWithCookies {
 }
 
 /**
- * Create cookie middleware
+ * Extended state interface with signed cookies.
+ */
+interface StateWithSignedCookies {
+  signedCookies: SignedCookieContext;
+  [key: string]: unknown;
+}
+
+// ============================================================================
+// Cookie Middleware
+// ============================================================================
+
+/**
+ * Create cookie middleware.
  *
- * Parses cookies from request and provides helpers for setting cookies.
- * Adds `ctx.state.cookies` with get, set, delete, and all methods.
+ * Parses incoming cookies and provides `ctx.state.cookies` for
+ * getting, setting, and deleting cookies.
  *
- * @param options - Middleware configuration
+ * Security Features:
+ * - CRLF injection prevention
+ * - Cookie prefix validation (__Secure-, __Host-)
+ * - Domain/path validation
+ * - Size limit enforcement
+ *
+ * @param options - Middleware options
  * @returns Cookie middleware
  *
  * @example
@@ -34,241 +66,268 @@ interface StateWithCookies {
  *
  * const app = createApp();
  *
- * // Basic usage
  * app.use(cookies());
  *
- * // With signed cookies
- * app.use(cookies({ secret: 'your-secret-key' }));
+ * app.use(async (ctx) => {
+ *   // Get a cookie
+ *   const session = ctx.state.cookies?.get('session');
  *
- * app.get('/profile', async (ctx) => {
- *   const session = ctx.state.cookies.get('session');
- *   if (!session) {
- *     ctx.state.cookies.set('session', 'new-session-id', {
- *       httpOnly: true,
- *       secure: true,
- *       maxAge: 86400
- *     });
- *   }
+ *   // Set a cookie (secure by default)
+ *   ctx.state.cookies?.set('theme', 'dark', {
+ *     maxAge: 86400,
+ *     httpOnly: true
+ *   });
+ *
+ *   // Delete a cookie
+ *   ctx.state.cookies?.delete('old-cookie');
+ *
  *   ctx.json({ session });
  * });
  * ```
  */
 export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
-  const { decode = decodeURIComponent } = options;
+  const { decode } = options;
 
-  return async (ctx: Context) => {
-    // Parse cookies from request header
-    const cookieHeader = ctx.get('cookie');
-    const parsed = parseCookies(cookieHeader, decode);
+  return async function cookiesMiddleware(ctx: Context, next) {
+    // Parse incoming cookies from request header
+    const cookieHeader = ctx.get?.('cookie') ?? ctx.headers?.cookie;
+    const parsed = parseCookies(cookieHeader as string | undefined, {
+      decode: decode === undefined
+    });
+
+    // Apply custom decode if provided
+    if (decode) {
+      for (const [name, value] of Object.entries(parsed)) {
+        try {
+          parsed[name] = decode(value);
+        } catch {
+          // Keep original value on decode error
+        }
+      }
+    }
 
     // Track Set-Cookie headers to send
     const setCookies: string[] = [];
 
     // Create cookie context
     const cookieContext: CookieContext = {
-      /**
-       * Get a cookie value
-       */
       get(name: string): string | undefined {
         return parsed[name];
       },
 
-      /**
-       * Set a cookie
-       */
       set(name: string, value: string, cookieOptions: CookieOptions = {}): void {
         const serialized = serializeCookie(name, value, {
           path: '/',
-          ...cookieOptions,
+          ...cookieOptions
         });
         setCookies.push(serialized);
+        // Update parsed cookies for subsequent reads
+        parsed[name] = value;
       },
 
-      /**
-       * Delete a cookie by setting it to expire
-       */
       delete(name: string, cookieOptions: Pick<CookieOptions, 'domain' | 'path'> = {}): void {
         const serialized = createDeleteCookie(name, {
           path: '/',
-          ...cookieOptions,
+          ...cookieOptions
         });
         setCookies.push(serialized);
+        delete parsed[name];
       },
 
-      /**
-       * Get all parsed cookies
-       */
       all(): ParsedCookies {
         return { ...parsed };
       },
+
+      has(name: string): boolean {
+        return name in parsed;
+      }
     };
 
     // Add to state
     (ctx.state as StateWithCookies).cookies = cookieContext;
 
     // Continue to next middleware
-    await ctx.next();
+    await next();
 
     // Set cookies on response
     if (setCookies.length > 0) {
-      // Get existing Set-Cookie headers
-      const raw = ctx.raw as { res?: { getHeader: (name: string) => string | string[] | number | undefined } };
-      const existing = raw.res?.getHeader?.('Set-Cookie');
-
-      let allCookies: string[];
-      if (Array.isArray(existing)) {
-        allCookies = [...existing, ...setCookies];
-      } else if (typeof existing === 'string') {
-        allCookies = [existing, ...setCookies];
-      } else {
-        allCookies = setCookies;
-      }
-
-      // Set all cookies
-      for (let i = 0; i < allCookies.length; i++) {
-        const cookie = allCookies[i];
-        if (i === 0 && cookie) {
-          ctx.set('Set-Cookie', cookie);
-        } else if (cookie) {
-          // Append additional cookies
-          const rawRes = raw.res as { setHeader?: (name: string, value: string[]) => void };
-          rawRes.setHeader?.('Set-Cookie', allCookies);
-          break;
-        }
-      }
+      setResponseCookies(ctx, setCookies);
     }
   };
 }
 
+// ============================================================================
+// Signed Cookie Middleware
+// ============================================================================
+
 /**
- * Create signed cookie middleware
+ * Create signed cookie middleware.
  *
- * Enhanced version that supports signed cookies for tamper detection.
+ * Enhanced version that supports HMAC-signed cookies for tamper detection.
+ * Supports key rotation for seamless secret updates.
  *
- * @param secret - Secret key for signing
- * @param options - Additional options
+ * @param options - Options with required secret
  * @returns Signed cookie middleware
  *
  * @example
  * ```typescript
  * import { signedCookies } from '@nextrush/cookies';
  *
- * app.use(signedCookies('your-secret-key'));
+ * app.use(signedCookies({
+ *   secret: process.env.COOKIE_SECRET!,
+ *   previousSecrets: [process.env.OLD_SECRET!] // For key rotation
+ * }));
  *
- * app.get('/auth', async (ctx) => {
+ * app.use(async (ctx) => {
  *   // Set a signed cookie
- *   await ctx.state.signedCookies.set('user', 'john', { httpOnly: true });
+ *   await ctx.state.signedCookies?.set('user', 'john', { httpOnly: true });
  *
  *   // Get and verify a signed cookie
- *   const user = await ctx.state.signedCookies.get('user');
+ *   const user = await ctx.state.signedCookies?.get('user');
+ *   if (user === undefined) {
+ *     // Cookie was tampered with or doesn't exist
+ *   }
  * });
  * ```
  */
-export function signedCookies(
-  secret: string,
-  options: Omit<CookieMiddlewareOptions, 'secret' | 'signed'> = {},
-): Middleware {
+export function signedCookies(options: SignedCookieMiddlewareOptions): Middleware {
+  const { secret, previousSecrets } = options;
+
   if (!secret || typeof secret !== 'string') {
-    throw new TypeError('Secret key is required for signed cookies');
+    throw new TypeError('signedCookies requires a secret string');
   }
 
-  const { decode = decodeURIComponent } = options;
-
-  return async (ctx: Context) => {
-    const cookieHeader = ctx.get('cookie');
-    const parsed = parseCookies(cookieHeader, decode);
+  return async function signedCookiesMiddleware(ctx: Context, next) {
+    const cookieHeader = ctx.get?.('cookie') ?? ctx.headers?.cookie;
+    const parsed = parseCookies(cookieHeader as string | undefined);
     const setCookies: string[] = [];
 
     // Signed cookie context with async methods
-    const signedContext = {
-      /**
-       * Get and verify a signed cookie
-       */
+    const signedContext: SignedCookieContext = {
       async get(name: string): Promise<string | undefined> {
         const value = parsed[name];
         if (!value) return undefined;
-        return unsignCookie(value, secret);
+
+        // Verify signature with key rotation support
+        return unsignCookieWithRotation(value, {
+          current: secret,
+          previous: previousSecrets
+        });
       },
 
-      /**
-       * Set a signed cookie
-       */
       async set(name: string, value: string, cookieOptions: CookieOptions = {}): Promise<void> {
         const signedValue = await signCookie(value, secret);
         const serialized = serializeCookie(name, signedValue, {
           path: '/',
-          ...cookieOptions,
+          ...cookieOptions
         });
         setCookies.push(serialized);
       },
 
-      /**
-       * Delete a signed cookie
-       */
       delete(name: string, cookieOptions: Pick<CookieOptions, 'domain' | 'path'> = {}): void {
         const serialized = createDeleteCookie(name, {
           path: '/',
-          ...cookieOptions,
+          ...cookieOptions
         });
         setCookies.push(serialized);
-      },
-
-      /**
-       * Get all raw cookies (not verified)
-       */
-      allRaw(): ParsedCookies {
-        return { ...parsed };
-      },
+      }
     };
 
     // Add to state
-    const state = ctx.state as { signedCookies: typeof signedContext };
-    state.signedCookies = signedContext;
+    (ctx.state as StateWithSignedCookies).signedCookies = signedContext;
 
-    await ctx.next();
+    await next();
 
     // Set cookies on response
     if (setCookies.length > 0) {
-      for (const cookie of setCookies) {
-        ctx.set('Set-Cookie', cookie);
-      }
+      setResponseCookies(ctx, setCookies);
     }
   };
 }
 
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
 /**
- * Helper to create secure cookie options for production
+ * Set cookies on the response.
+ * Handles both standard and Node.js-specific response objects.
+ */
+function setResponseCookies(ctx: Context, cookies: string[]): void {
+  // Try ctx.set for each cookie (Koa-style)
+  if (typeof ctx.set === 'function') {
+    for (const cookie of cookies) {
+      ctx.set('Set-Cookie', cookie);
+    }
+    return;
+  }
+
+  // Try response object (if available)
+  const response = (ctx as { response?: { headers?: Record<string, string | string[]> } }).response;
+  if (response?.headers) {
+    const existing = response.headers['set-cookie'];
+    let allCookies: string[];
+
+    if (Array.isArray(existing)) {
+      allCookies = [...existing, ...cookies];
+    } else if (typeof existing === 'string') {
+      allCookies = [existing, ...cookies];
+    } else {
+      allCookies = cookies;
+    }
+
+    response.headers['set-cookie'] = allCookies as unknown as string;
+    return;
+  }
+
+  // Node.js raw response fallback
+  const raw = ctx.raw as { res?: { setHeader?: (name: string, value: string[]) => void } };
+  if (raw?.res?.setHeader) {
+    raw.res.setHeader('Set-Cookie', cookies);
+  }
+}
+
+/**
+ * Create secure cookie options for production.
  *
- * @param maxAge - Cookie max age in seconds (default: 1 day)
+ * @param options - Additional options to merge
  * @returns Secure cookie options
  *
  * @example
  * ```typescript
- * ctx.state.cookies.set('session', value, secureOptions());
- * ctx.state.cookies.set('session', value, secureOptions(7 * 24 * 60 * 60)); // 7 days
+ * ctx.state.cookies?.set('session', value, secureOptions({ maxAge: 86400 }));
  * ```
  */
-export function secureOptions(maxAge: number = 86400): CookieOptions {
+export function secureOptions(options: CookieOptions = {}): CookieOptions {
   return {
+    ...options,
     httpOnly: true,
     secure: true,
     sameSite: 'strict',
-    path: '/',
-    maxAge,
+    path: options.path ?? '/'
   };
 }
 
 /**
- * Helper to create session cookie options
- * These cookies are deleted when the browser closes
+ * Create session cookie options.
+ * These cookies are deleted when the browser closes.
  *
+ * @param options - Additional options to merge
  * @returns Session cookie options
+ *
+ * @example
+ * ```typescript
+ * ctx.state.cookies?.set('session', value, sessionOptions());
+ * ```
  */
-export function sessionOptions(): CookieOptions {
+export function sessionOptions(options: CookieOptions = {}): CookieOptions {
   return {
+    ...options,
     httpOnly: true,
-    secure: true,
     sameSite: 'lax',
-    path: '/',
+    path: options.path ?? '/',
+    // No maxAge or expires = session cookie
+    maxAge: undefined,
+    expires: undefined
   };
 }

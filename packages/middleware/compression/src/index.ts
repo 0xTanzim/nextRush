@@ -1,226 +1,96 @@
 /**
  * @nextrush/compression
  *
- * High-performance response compression middleware for NextRush.
- * Supports Gzip, Brotli, and Deflate with automatic content negotiation.
+ * High-performance, multi-runtime response compression middleware for NextRush.
+ * Supports Gzip, Deflate, and Brotli with automatic content negotiation.
+ *
+ * Features:
+ * - Web Compression Streams API for runtime compatibility
+ * - Automatic content negotiation via Accept-Encoding
+ * - Content-type based filtering
+ * - Size threshold to skip small responses
+ * - BREACH attack mitigation option
+ * - Works in Node.js, Bun, Deno, and Edge runtimes
  *
  * @packageDocumentation
- */
-
-import type { CompressionEncoding, CompressionMiddleware, CompressionOptions, NodeContext } from './types';
-import {
-    compressData,
-    DEFAULT_COMPRESSIBLE_TYPES,
-    DEFAULT_EXCLUDED_TYPES,
-    meetsThreshold,
-    negotiateEncoding,
-    shouldCompress,
-} from './utils';
-
-export type {
-    CompressionAlgorithm, CompressionEncoding, CompressionInfo, CompressionMiddleware, CompressionOptions, NodeContext
-} from './types';
-
-export {
-    compressData,
-    createCompressionStream,
-    DEFAULT_COMPRESSIBLE_TYPES,
-    DEFAULT_EXCLUDED_TYPES, meetsThreshold, negotiateEncoding,
-    shouldCompress
-} from './utils';
-
-/**
- * Default compression options
- */
-const DEFAULT_OPTIONS: Required<Omit<CompressionOptions, 'filter' | 'flush'>> = {
-  gzip: true,
-  deflate: true,
-  brotli: true,
-  level: 6,
-  threshold: 1024,
-  contentTypes: DEFAULT_COMPRESSIBLE_TYPES,
-  exclude: DEFAULT_EXCLUDED_TYPES,
-  memLevel: 8,
-};
-
-/**
- * Create compression middleware
  *
- * @example
+ * @example Basic Usage
  * ```typescript
  * import { createApp } from '@nextrush/core';
  * import { compression } from '@nextrush/compression';
  *
  * const app = createApp();
- *
- * // Basic usage - auto-selects best encoding
  * app.use(compression());
+ * ```
  *
- * // Custom options
+ * @example With Options
+ * ```typescript
  * app.use(compression({
- *   level: 9,              // Maximum compression
- *   threshold: 512,        // Compress responses > 512 bytes
- *   brotli: true,          // Enable Brotli (best compression)
- * }));
- *
- * // Filter specific routes
- * app.use(compression({
- *   filter: (ctx) => !ctx.path.startsWith('/api/stream'),
+ *   level: 9,        // Maximum compression
+ *   threshold: 512,  // Compress responses > 512 bytes
+ *   brotli: true,    // Enable Brotli (where supported)
  * }));
  * ```
  */
-export function compression(options: CompressionOptions = {}): CompressionMiddleware {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  return async function compressionMiddleware(
-    ctx: NodeContext,
-    next?: () => Promise<void>
-  ): Promise<void> {
-    if (next) {
-      await next();
-    } else if (ctx.next) {
-      await ctx.next();
-    }
+// ============================================================================
+// Middleware Exports (Primary API)
+// ============================================================================
 
-    if (!shouldCompressResponse(ctx, opts)) {
-      return;
-    }
+export {
+    brotli, compression, deflate, getCompressionInfo, gzip, secureCompressionOptions, wasCompressed
+} from './middleware.js';
 
-    const acceptEncoding = ctx.get('accept-encoding');
-    const encoding = negotiateEncoding(acceptEncoding, opts);
+export { compression as default } from './middleware.js';
 
-    if (!encoding) {
-      return;
-    }
+// ============================================================================
+// Compressor Exports
+// ============================================================================
 
-    const body = getResponseBody(ctx);
-    if (!body) {
-      return;
-    }
+export {
+    compress,
+    compressData,
+    compressToBuffer,
+    detectCapabilities, estimateCompressedSize, getBestAvailableEncoding, isCompressionBeneficial, isEncodingSupported
+} from './compressor.js';
 
-    if (!meetsThreshold(body, opts.threshold)) {
-      return;
-    }
+// ============================================================================
+// Content Negotiation Exports
+// ============================================================================
 
-    try {
-      const data = typeof body === 'string' ? body : Buffer.isBuffer(body) ? body : JSON.stringify(body);
-      const compressed = await compressData(data, encoding, opts);
+export {
+    acceptsCompression,
+    getAcceptedEncodings, getEncodingQuality, isEncodingAccepted, negotiateEncoding, parseAcceptEncoding, selectEncoding
+} from './negotiation.js';
 
-      setCompressedResponse(ctx, compressed, encoding);
-    } catch {
-      // Compression failed, send uncompressed
-    }
-  };
-}
+// ============================================================================
+// Content Type Detection Exports
+// ============================================================================
 
-/**
- * Check if response should be compressed
- */
-function shouldCompressResponse(ctx: NodeContext, options: CompressionOptions): boolean {
-  if (ctx.method === 'HEAD') return false;
+export {
+    extractMimeType, getCompressionRecommendation, isAlreadyCompressed, isBinaryContent, isCompressible, isTextContent, matchesAnyPattern, matchesPattern
+} from './content-type.js';
 
-  const status = ctx.status;
-  if (status === 204 || status === 304) return false;
+// ============================================================================
+// Constants Exports
+// ============================================================================
 
-  if (options.filter && !options.filter(ctx)) {
-    return false;
-  }
+export {
+    COMPRESSION_ENCODINGS, DEFAULT_COMPRESSIBLE_TYPES, DEFAULT_COMPRESSION_LEVEL, DEFAULT_EXCLUDED_TYPES, DEFAULT_OPTIONS, DEFAULT_THRESHOLD, ENCODING_PRIORITY, MAX_BROTLI_LEVEL,
+    MAX_COMPRESSION_RATIO,
+    MAX_IN_MEMORY_SIZE, MAX_ZLIB_LEVEL, NO_BODY_METHODS,
+    NO_COMPRESS_STATUS_CODES, VARY_HEADER
+} from './constants.js';
 
-  const contentEncoding = ctx.raw.res.getHeader('content-encoding');
-  if (contentEncoding && contentEncoding !== 'identity') {
-    return false;
-  }
+// ============================================================================
+// Type Exports
+// ============================================================================
 
-  const contentType = ctx.raw.res.getHeader('content-type') as string | undefined;
-  return shouldCompress(contentType, options);
-}
+export type {
+    AcceptEncodingEntry, CompressionAlgorithm, CompressionEncoding, CompressionErrorCodeType, CompressionInfo, CompressionMiddleware, CompressionOptions, CompressionResult, CompressionState, NegotiationResult, ResolvedCompressionOptions, RuntimeCapabilities, WebCompressionFormat
+} from './types.js';
 
-/**
- * Get response body from context
- */
-function getResponseBody(ctx: NodeContext): string | Buffer | object | null {
-  const body = ctx.raw.res.body;
-  if (body !== undefined) {
-    return body as string | Buffer | object;
-  }
-
-  return null;
-}
-
-/**
- * Set compressed response on context
- */
-function setCompressedResponse(
-  ctx: NodeContext,
-  compressed: Buffer,
-  encoding: CompressionEncoding
-): void {
-  ctx.set('Content-Encoding', encoding);
-  ctx.set('Content-Length', compressed.length);
-
-  const vary = ctx.raw.res.getHeader('vary') as string | undefined;
-  if (!vary?.includes('Accept-Encoding')) {
-    ctx.set('Vary', vary ? `${vary}, Accept-Encoding` : 'Accept-Encoding');
-  }
-
-  ctx.raw.res.body = compressed;
-}
-
-/**
- * Gzip-only compression middleware
- *
- * @example
- * ```typescript
- * app.use(gzip({ level: 9 }));
- * ```
- */
-export function gzip(
-  options: Omit<CompressionOptions, 'gzip' | 'deflate' | 'brotli'> = {}
-): CompressionMiddleware {
-  return compression({
-    ...options,
-    gzip: true,
-    deflate: false,
-    brotli: false,
-  });
-}
-
-/**
- * Deflate-only compression middleware
- *
- * @example
- * ```typescript
- * app.use(deflate({ level: 6 }));
- * ```
- */
-export function deflate(
-  options: Omit<CompressionOptions, 'gzip' | 'deflate' | 'brotli'> = {}
-): CompressionMiddleware {
-  return compression({
-    ...options,
-    gzip: false,
-    deflate: true,
-    brotli: false,
-  });
-}
-
-/**
- * Brotli-only compression middleware
- *
- * @example
- * ```typescript
- * app.use(brotli({ level: 4 })); // Level 4 is good balance for dynamic content
- * ```
- */
-export function brotli(
-  options: Omit<CompressionOptions, 'gzip' | 'deflate' | 'brotli'> = {}
-): CompressionMiddleware {
-  return compression({
-    ...options,
-    gzip: false,
-    deflate: false,
-    brotli: true,
-  });
-}
-
-export default compression;
+export {
+    CompressionError,
+    CompressionErrorCode
+} from './types.js';

@@ -2,16 +2,27 @@ import type { Context } from '@nextrush/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     createMemoryStore,
+    DEFAULT_ALGORITHM,
+    DEFAULT_BLACKLIST_MULTIPLIER,
+    DEFAULT_MAX,
+    DEFAULT_MESSAGE,
+    DEFAULT_STATUS_CODE,
+    DEFAULT_WINDOW,
     extractClientIp,
     fixedWindow,
     getAlgorithm,
     isIpInList,
+    isValidIpv4,
+    isValidIpv6,
     normalizeIp,
     parseWindow,
     rateLimit,
+    RateLimitValidationError,
     slidingWindow,
     tieredRateLimit,
     tokenBucket,
+    validateOptions,
+    validateTieredOptions,
 } from '../index';
 
 function createMockContext(overrides: Partial<Context> = {}): Context {
@@ -725,5 +736,253 @@ describe('Edge Cases', () => {
     expect(info?.remaining).toBe(100);
 
     await middleware.shutdown();
+  });
+});
+
+describe('Constants', () => {
+  it('should export default values', () => {
+    expect(DEFAULT_ALGORITHM).toBe('token-bucket');
+    expect(DEFAULT_MAX).toBe(100);
+    expect(DEFAULT_WINDOW).toBe('1m');
+    expect(DEFAULT_STATUS_CODE).toBe(429);
+    expect(DEFAULT_MESSAGE).toBe('Too many requests, please try again later.');
+    expect(DEFAULT_BLACKLIST_MULTIPLIER).toBe(0.5);
+  });
+});
+
+describe('CIDR Support', () => {
+  describe('isIpInList with CIDR', () => {
+    it('should match IP in CIDR range', () => {
+      expect(isIpInList('192.168.1.50', ['192.168.1.0/24'])).toBe(true);
+      expect(isIpInList('192.168.1.255', ['192.168.1.0/24'])).toBe(true);
+      expect(isIpInList('192.168.1.0', ['192.168.1.0/24'])).toBe(true);
+    });
+
+    it('should not match IP outside CIDR range', () => {
+      expect(isIpInList('192.168.2.1', ['192.168.1.0/24'])).toBe(false);
+      expect(isIpInList('10.0.0.1', ['192.168.1.0/24'])).toBe(false);
+    });
+
+    it('should handle /8 CIDR (Class A)', () => {
+      expect(isIpInList('10.255.255.255', ['10.0.0.0/8'])).toBe(true);
+      expect(isIpInList('10.0.0.1', ['10.0.0.0/8'])).toBe(true);
+      expect(isIpInList('11.0.0.1', ['10.0.0.0/8'])).toBe(false);
+    });
+
+    it('should handle /16 CIDR (Class B)', () => {
+      expect(isIpInList('172.16.255.255', ['172.16.0.0/16'])).toBe(true);
+      expect(isIpInList('172.17.0.1', ['172.16.0.0/16'])).toBe(false);
+    });
+
+    it('should handle /32 CIDR (single host)', () => {
+      expect(isIpInList('192.168.1.100', ['192.168.1.100/32'])).toBe(true);
+      expect(isIpInList('192.168.1.101', ['192.168.1.100/32'])).toBe(false);
+    });
+
+    it('should handle mixed list (CIDR and exact IPs)', () => {
+      const list = ['192.168.0.0/16', '10.0.0.1', '127.0.0.1'];
+      expect(isIpInList('192.168.50.100', list)).toBe(true);
+      expect(isIpInList('10.0.0.1', list)).toBe(true);
+      expect(isIpInList('127.0.0.1', list)).toBe(true);
+      expect(isIpInList('8.8.8.8', list)).toBe(false);
+    });
+  });
+
+  it('should use CIDR whitelist in middleware', async () => {
+    const middleware = rateLimit({
+      max: 1,
+      window: '1m',
+      whitelist: ['192.168.0.0/16'],
+    });
+
+    const ctx = createMockContext({ ip: '192.168.50.100' });
+    const helpers = getTestHelpers(ctx);
+
+    await middleware(ctx);
+    await middleware(ctx);
+    await middleware(ctx);
+
+    expect(helpers.wasNextCalled()).toBe(true);
+    expect(ctx.status).toBe(200);
+
+    await middleware.shutdown();
+  });
+
+  it('should use CIDR blacklist in middleware', async () => {
+    const middleware = rateLimit({
+      max: 10,
+      window: '1m',
+      blacklist: ['192.168.1.0/24'],
+      blacklistMultiplier: 0.1, // 10 * 0.1 = 1
+    });
+
+    const ctx = createMockContext({ ip: '192.168.1.50' });
+
+    await middleware(ctx);
+    await middleware(ctx);
+
+    expect(ctx.status).toBe(429);
+
+    await middleware.shutdown();
+  });
+});
+
+describe('IP Validation', () => {
+  describe('isValidIpv4', () => {
+    it('should validate correct IPv4', () => {
+      expect(isValidIpv4('192.168.1.1')).toBe(true);
+      expect(isValidIpv4('0.0.0.0')).toBe(true);
+      expect(isValidIpv4('255.255.255.255')).toBe(true);
+    });
+
+    it('should reject invalid IPv4', () => {
+      expect(isValidIpv4('256.1.1.1')).toBe(false);
+      expect(isValidIpv4('1.1.1')).toBe(false);
+      expect(isValidIpv4('1.1.1.1.1')).toBe(false);
+      expect(isValidIpv4('not-an-ip')).toBe(false);
+      expect(isValidIpv4('01.01.01.01')).toBe(false); // Leading zeros
+    });
+  });
+
+  describe('isValidIpv6', () => {
+    it('should validate correct IPv6', () => {
+      expect(isValidIpv6('::1')).toBe(true);
+      expect(isValidIpv6('::')).toBe(true);
+      expect(isValidIpv6('2001:db8::1')).toBe(true);
+    });
+
+    it('should reject invalid IPv6', () => {
+      expect(isValidIpv6('192.168.1.1')).toBe(false);
+      expect(isValidIpv6('not-ipv6')).toBe(false);
+    });
+  });
+});
+
+describe('Validation', () => {
+  describe('validateOptions', () => {
+    it('should accept valid options', () => {
+      expect(() => validateOptions({})).not.toThrow();
+      expect(() => validateOptions({ max: 100 })).not.toThrow();
+      expect(() => validateOptions({ max: 100, window: '1m' })).not.toThrow();
+    });
+
+    it('should reject invalid max', () => {
+      expect(() => validateOptions({ max: 0 })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ max: -1 })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ max: 1.5 })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ max: NaN })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject invalid burstLimit', () => {
+      expect(() => validateOptions({ burstLimit: 0 })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ burstLimit: -1 })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject invalid statusCode', () => {
+      expect(() => validateOptions({ statusCode: 99 })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ statusCode: 600 })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject invalid blacklistMultiplier', () => {
+      expect(() => validateOptions({ blacklistMultiplier: -0.1 })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ blacklistMultiplier: 1.5 })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject invalid algorithm', () => {
+      expect(() => validateOptions({ algorithm: 'invalid' as never })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject non-function handlers', () => {
+      expect(() => validateOptions({ keyGenerator: 'string' as never })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ skip: 'string' as never })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ handler: 'string' as never })).toThrow(RateLimitValidationError);
+    });
+  });
+
+  describe('validateTieredOptions', () => {
+    it('should accept valid tiered options', () => {
+      expect(() => validateTieredOptions({
+        tiers: { free: { max: 10, window: '1m' } },
+        tierResolver: () => 'free',
+      })).not.toThrow();
+    });
+
+    it('should reject empty tiers', () => {
+      expect(() => validateTieredOptions({
+        tiers: {},
+        tierResolver: () => 'any',
+      })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject invalid tier config', () => {
+      expect(() => validateTieredOptions({
+        tiers: { free: { max: 0, window: '1m' } },
+        tierResolver: () => 'free',
+      })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject non-function tierResolver', () => {
+      expect(() => validateTieredOptions({
+        tiers: { free: { max: 10, window: '1m' } },
+        tierResolver: 'string' as never,
+      })).toThrow(RateLimitValidationError);
+    });
+
+    it('should reject invalid defaultTier', () => {
+      expect(() => validateTieredOptions({
+        tiers: { free: { max: 10, window: '1m' } },
+        tierResolver: () => 'free',
+        defaultTier: 'nonexistent',
+      })).toThrow(RateLimitValidationError);
+    });
+  });
+
+  it('should throw validation errors from rateLimit()', () => {
+    expect(() => rateLimit({ max: -1 })).toThrow(RateLimitValidationError);
+    expect(() => rateLimit({ statusCode: 99 })).toThrow(RateLimitValidationError);
+  });
+
+  it('should throw validation errors from tieredRateLimit()', () => {
+    expect(() => tieredRateLimit({
+      tiers: {},
+      tierResolver: () => 'any',
+    })).toThrow();
+  });
+});
+
+describe('MemoryStore Max Entries', () => {
+  it('should evict oldest entry when max entries reached', async () => {
+    const store = createMemoryStore({ maxEntries: 3, disableCleanup: true });
+
+    await store.set('key1', { count: 1, windowStart: Date.now() }, 60000);
+    await store.set('key2', { count: 1, windowStart: Date.now() }, 60000);
+    await store.set('key3', { count: 1, windowStart: Date.now() }, 60000);
+
+    expect(store.size).toBe(3);
+
+    // Adding key4 should evict key1
+    await store.set('key4', { count: 1, windowStart: Date.now() }, 60000);
+
+    expect(store.size).toBe(3);
+    expect(await store.get('key1')).toBeNull();
+    expect(await store.get('key4')).not.toBeNull();
+
+    await store.shutdown();
+  });
+
+  it('should not evict when updating existing key', async () => {
+    const store = createMemoryStore({ maxEntries: 2, disableCleanup: true });
+
+    await store.set('key1', { count: 1, windowStart: Date.now() }, 60000);
+    await store.set('key2', { count: 1, windowStart: Date.now() }, 60000);
+
+    // Update key1 (should not evict)
+    await store.set('key1', { count: 2, windowStart: Date.now() }, 60000);
+
+    expect(store.size).toBe(2);
+    const entry = await store.get('key1');
+    expect(entry?.count).toBe(2);
+
+    await store.shutdown();
   });
 });
