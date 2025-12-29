@@ -14,7 +14,7 @@ import type {
     TypedEventEmitter,
     Unsubscribe,
 } from './types';
-import { DEFAULT_EMITTER_OPTIONS } from './types';
+import { DEFAULT_EMITTER_OPTIONS, MAX_EVENT_NAME_LENGTH } from './types';
 
 const WILDCARD = '*';
 
@@ -53,7 +53,7 @@ export class EventEmitter<T extends EventMap = EventMap>
   implements TypedEventEmitter<T>
 {
   private readonly handlers = new Map<string, Set<HandlerEntry<unknown>>>();
-  private readonly options: Required<Omit<EventEmitterOptions, 'onError'>> & {
+  private options: Required<Omit<EventEmitterOptions, 'onError'>> & {
     onError?: EventEmitterOptions['onError'];
   };
 
@@ -62,6 +62,22 @@ export class EventEmitter<T extends EventMap = EventMap>
       ...DEFAULT_EMITTER_OPTIONS,
       ...options,
     };
+  }
+
+  /**
+   * Validate an event name.
+   * @throws {TypeError} If event name is invalid
+   * @throws {RangeError} If event name exceeds maximum length
+   */
+  private validateEventName(event: string): void {
+    if (typeof event !== 'string' || event.length === 0) {
+      throw new TypeError('Event name must be a non-empty string');
+    }
+    if (event.length > MAX_EVENT_NAME_LENGTH) {
+      throw new RangeError(
+        `Event name exceeds maximum length of ${MAX_EVENT_NAME_LENGTH} characters`
+      );
+    }
   }
 
   /**
@@ -82,7 +98,7 @@ export class EventEmitter<T extends EventMap = EventMap>
    * ```
    */
   on<K extends EventNames<T>>(event: K, handler: EventHandler<T[K]>): Unsubscribe {
-    return this.addHandler(event, handler, false);
+    return this.addHandler(event, handler, false, false);
   }
 
   /**
@@ -100,7 +116,30 @@ export class EventEmitter<T extends EventMap = EventMap>
    * ```
    */
   once<K extends EventNames<T>>(event: K, handler: EventHandler<T[K]>): Unsubscribe {
-    return this.addHandler(event, handler, true);
+    return this.addHandler(event, handler, true, false);
+  }
+
+  /**
+   * Subscribe to an event, prepending to the handler list.
+   * The handler will be called before other handlers.
+   *
+   * @param event - Event name
+   * @param handler - Handler function
+   * @returns Unsubscribe function
+   */
+  prepend<K extends EventNames<T>>(event: K, handler: EventHandler<T[K]>): Unsubscribe {
+    return this.addHandler(event, handler, false, true);
+  }
+
+  /**
+   * Subscribe to an event once, prepending to the handler list.
+   *
+   * @param event - Event name
+   * @param handler - Handler function
+   * @returns Unsubscribe function
+   */
+  prependOnce<K extends EventNames<T>>(event: K, handler: EventHandler<T[K]>): Unsubscribe {
+    return this.addHandler(event, handler, true, true);
   }
 
   /**
@@ -140,6 +179,7 @@ export class EventEmitter<T extends EventMap = EventMap>
    * @param event - Event name
    * @param data - Event data
    * @returns Promise that resolves when all handlers complete
+   * @throws {AggregateError} When errorIsolation is false and handlers throw
    *
    * @example
    * ```typescript
@@ -148,14 +188,27 @@ export class EventEmitter<T extends EventMap = EventMap>
    */
   async emit<K extends EventNames<T>>(event: K, data: T[K]): Promise<void> {
     const promises: Promise<void>[] = [];
-    const handlersToRemove: Array<{ event: string; entry: HandlerEntry<unknown> }> =
-      [];
+    const errors: Error[] = [];
+
+    // Collect handlers to execute (snapshot to handle modifications during iteration)
+    const handlersToExecute: Array<{
+      eventKey: string;
+      entry: HandlerEntry<unknown>;
+      payload: unknown;
+    }> = [];
 
     // Direct event handlers
     const directHandlers = this.handlers.get(event);
     if (directHandlers) {
       for (const entry of directHandlers) {
-        promises.push(this.executeHandler(event, entry, data, handlersToRemove));
+        // Remove once handlers BEFORE execution to prevent race conditions
+        if (entry.once) {
+          directHandlers.delete(entry);
+          if (directHandlers.size === 0) {
+            this.handlers.delete(event);
+          }
+        }
+        handlersToExecute.push({ eventKey: event, entry, payload: data });
       }
     }
 
@@ -163,9 +216,17 @@ export class EventEmitter<T extends EventMap = EventMap>
     const wildcardHandlers = this.handlers.get(WILDCARD);
     if (wildcardHandlers && event !== WILDCARD) {
       for (const entry of wildcardHandlers) {
-        promises.push(
-          this.executeHandler(WILDCARD, entry, { event, data }, handlersToRemove)
-        );
+        if (entry.once) {
+          wildcardHandlers.delete(entry);
+          if (wildcardHandlers.size === 0) {
+            this.handlers.delete(WILDCARD);
+          }
+        }
+        handlersToExecute.push({
+          eventKey: WILDCARD,
+          entry,
+          payload: { event, data },
+        });
       }
     }
 
@@ -173,25 +234,35 @@ export class EventEmitter<T extends EventMap = EventMap>
     for (const [pattern, handlers] of this.handlers) {
       if (this.matchesPattern(event, pattern)) {
         for (const entry of handlers) {
-          promises.push(
-            this.executeHandler(pattern, entry, { event, data }, handlersToRemove)
-          );
+          if (entry.once) {
+            handlers.delete(entry);
+            if (handlers.size === 0) {
+              this.handlers.delete(pattern);
+            }
+          }
+          handlersToExecute.push({
+            eventKey: pattern,
+            entry,
+            payload: { event, data },
+          });
         }
       }
+    }
+
+    // Execute all handlers
+    for (const { eventKey, entry, payload } of handlersToExecute) {
+      promises.push(this.executeHandler(eventKey, entry, payload, errors));
     }
 
     // Wait for all handlers
     await Promise.allSettled(promises);
 
-    // Remove once handlers
-    for (const { event: e, entry } of handlersToRemove) {
-      const handlers = this.handlers.get(e);
-      if (handlers) {
-        handlers.delete(entry);
-        if (handlers.size === 0) {
-          this.handlers.delete(e);
-        }
-      }
+    // Throw AggregateError if errorIsolation is false and there were errors
+    if (!this.options.errorIsolation && errors.length > 0) {
+      throw new AggregateError(
+        errors,
+        `${errors.length} handler(s) failed for event '${event}'`
+      );
     }
   }
 
@@ -235,11 +306,63 @@ export class EventEmitter<T extends EventMap = EventMap>
     return Array.from(this.handlers.keys());
   }
 
+  /**
+   * Get all handlers for an event.
+   *
+   * @param event - Event name
+   * @returns Array of handler functions
+   */
+  listeners<K extends EventNames<T>>(event: K): EventHandler<T[K]>[] {
+    const handlers = this.handlers.get(event);
+    if (!handlers) return [];
+    return Array.from(handlers).map((entry) => entry.handler as EventHandler<T[K]>);
+  }
+
+  /**
+   * Check if an event has listeners.
+   *
+   * @param event - Event name (optional, checks any if omitted)
+   * @returns True if listeners exist
+   */
+  hasListeners(event?: string): boolean {
+    if (event !== undefined) {
+      return (this.handlers.get(event)?.size ?? 0) > 0;
+    }
+    return this.handlers.size > 0;
+  }
+
+  /**
+   * Set the maximum number of listeners per event before warning.
+   *
+   * @param n - Maximum listeners (0 = unlimited, no warnings)
+   * @returns This emitter for chaining
+   * @throws {RangeError} If n is not a non-negative integer
+   */
+  setMaxListeners(n: number): this {
+    if (!Number.isInteger(n) || n < 0) {
+      throw new RangeError('maxListeners must be a non-negative integer');
+    }
+    this.options.maxListeners = n;
+    return this;
+  }
+
+  /**
+   * Get the maximum listeners setting.
+   *
+   * @returns Maximum listeners
+   */
+  getMaxListeners(): number {
+    return this.options.maxListeners;
+  }
+
   private addHandler<D>(
     event: string,
     handler: EventHandler<D>,
-    once: boolean
+    once: boolean,
+    prepend: boolean
   ): Unsubscribe {
+    this.validateEventName(event);
+
     let handlers = this.handlers.get(event);
 
     if (!handlers) {
@@ -248,7 +371,19 @@ export class EventEmitter<T extends EventMap = EventMap>
     }
 
     const entry: HandlerEntry<D> = { handler, once };
-    handlers.add(entry as HandlerEntry<unknown>);
+
+    if (prepend) {
+      // Create new Set with entry first, then existing handlers
+      const newHandlers = new Set<HandlerEntry<unknown>>();
+      newHandlers.add(entry as HandlerEntry<unknown>);
+      for (const existing of handlers) {
+        newHandlers.add(existing);
+      }
+      this.handlers.set(event, newHandlers);
+      handlers = newHandlers;
+    } else {
+      handlers.add(entry as HandlerEntry<unknown>);
+    }
 
     // Memory leak warning
     if (
@@ -263,9 +398,12 @@ export class EventEmitter<T extends EventMap = EventMap>
     }
 
     return () => {
-      handlers!.delete(entry as HandlerEntry<unknown>);
-      if (handlers!.size === 0) {
-        this.handlers.delete(event);
+      const currentHandlers = this.handlers.get(event);
+      if (currentHandlers) {
+        currentHandlers.delete(entry as HandlerEntry<unknown>);
+        if (currentHandlers.size === 0) {
+          this.handlers.delete(event);
+        }
       }
     };
   }
@@ -274,18 +412,14 @@ export class EventEmitter<T extends EventMap = EventMap>
     event: string,
     entry: HandlerEntry<unknown>,
     data: unknown,
-    handlersToRemove: Array<{ event: string; entry: HandlerEntry<unknown> }>
+    errors: Error[]
   ): Promise<void> {
-    if (entry.once) {
-      handlersToRemove.push({ event, entry });
-    }
-
     try {
       await entry.handler(data);
     } catch (error) {
-      if (this.options.errorIsolation) {
-        const err = error instanceof Error ? error : new Error(String(error));
+      const err = error instanceof Error ? error : new Error(String(error));
 
+      if (this.options.errorIsolation) {
         if (this.options.onError) {
           try {
             this.options.onError(err, event);
@@ -296,7 +430,8 @@ export class EventEmitter<T extends EventMap = EventMap>
           console.error(`[nextrush/events] Handler error for '${event}':`, err);
         }
       } else {
-        throw error;
+        // Collect errors for AggregateError
+        errors.push(err);
       }
     }
   }

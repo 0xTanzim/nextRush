@@ -11,6 +11,8 @@ Type-safe event emitter for NextRush v3 - simple, fast, and async-ready.
 - 🔌 **Plugin Integration** - Direct `app.events` access
 - 📦 **Zero Dependencies** - Lightweight and fast
 - ⚠️ **Memory Leak Warnings** - Alerts for potential leaks
+- 🔒 **Security Hardened** - Input validation, race-safe handlers
+- 🌐 **Universal Runtime** - Node.js, Bun, Deno, edge runtimes
 
 ## Installation
 
@@ -180,6 +182,79 @@ app.events.clear('user:created'); // Clear specific event
 app.events.clear();               // Clear all
 ```
 
+#### `listeners(event)`
+
+Get an array of handlers for an event. Returns a copy (safe to iterate).
+
+```typescript
+const handlers = app.events.listeners('user:created');
+console.log(`${handlers.length} handlers registered`);
+```
+
+#### `hasListeners(event?)`
+
+Check if listeners exist without getting the full list.
+
+```typescript
+if (app.events.hasListeners('user:created')) {
+  await app.events.emit('user:created', data);
+}
+
+// Check if any listeners exist
+if (app.events.hasListeners()) {
+  console.log('Event system is active');
+}
+```
+
+#### `eventNames()`
+
+Get all registered event names.
+
+```typescript
+const events = app.events.eventNames();
+// ['user:created', 'user:deleted', 'order:placed']
+```
+
+#### `prepend(event, handler)`
+
+Add a handler at the beginning of the handler list.
+
+```typescript
+// Security handler runs first
+app.events.prepend('user:created', (data) => {
+  validateUserData(data);
+});
+```
+
+#### `prependOnce(event, handler)`
+
+Add a one-time handler at the beginning of the handler list.
+
+```typescript
+// Run initialization before other handlers, once
+app.events.prependOnce('app:ready', () => {
+  console.log('First handler to run on app:ready');
+});
+```
+
+#### `setMaxListeners(n)`
+
+Configure max listeners at runtime.
+
+```typescript
+app.events.setMaxListeners(20); // Allow more listeners
+app.events.setMaxListeners(0);  // Disable warning
+```
+
+#### `getMaxListeners()`
+
+Get the current max listeners setting.
+
+```typescript
+const max = app.events.getMaxListeners();
+console.log(`Max listeners: ${max}`);
+```
+
 ## Wildcard Events
 
 ### All Events (`*`)
@@ -227,6 +302,82 @@ app.plugin(eventsPlugin({
     logger.error(`Handler error for ${eventName}:`, error);
   }
 }));
+```
+
+### Strict Mode (AggregateError)
+
+With `errorIsolation: false`, all handlers run but errors are collected and thrown as an `AggregateError`:
+
+```typescript
+const events = createEvents({ errorIsolation: false });
+
+events.on('test', () => { throw new Error('Error 1'); });
+events.on('test', () => { throw new Error('Error 2'); });
+events.on('test', () => console.log('Still runs!')); // ✅ Executes
+
+try {
+  await events.emit('test', {});
+} catch (error) {
+  if (error instanceof AggregateError) {
+    console.log(`${error.errors.length} handlers failed`);
+    for (const e of error.errors) {
+      console.error(e.message);
+    }
+  }
+}
+```
+
+## Security Features
+
+### Event Name Validation
+
+Event names are validated to prevent abuse:
+
+```typescript
+// Maximum length: 256 characters
+events.emit('a'.repeat(257), data); // ❌ Throws TypeError
+
+// Must be a string
+events.emit(123, data);     // ❌ Throws TypeError
+events.emit(null, data);    // ❌ Throws TypeError
+
+// Empty strings are invalid
+events.emit('', data);      // ❌ Throws TypeError
+```
+
+### Race-Safe Once Handlers
+
+Once handlers are removed synchronously before execution, preventing race conditions:
+
+```typescript
+// Safe: handler runs exactly once even with concurrent emits
+events.once('init', () => {
+  console.log('Only runs once');
+});
+
+// Concurrent emits are safe
+await Promise.all([
+  events.emit('init', {}),
+  events.emit('init', {}),
+  events.emit('init', {}),
+]);
+// Output: "Only runs once" (exactly once)
+```
+
+### Plugin Property Name Validation
+
+The plugin validates the property name to prevent prototype pollution:
+
+```typescript
+// ✅ Valid property names
+app.plugin(eventsPlugin());                        // Default: 'events'
+app.plugin(eventsPlugin({ propertyName: 'bus' }));
+app.plugin(eventsPlugin({ propertyName: '$events' }));
+
+// ❌ Invalid property names throw
+app.plugin(eventsPlugin({ propertyName: '' }));
+app.plugin(eventsPlugin({ propertyName: '123abc' }));
+app.plugin(eventsPlugin({ propertyName: 'has-dash' }));
 ```
 
 ## Use in Middleware
@@ -300,6 +451,29 @@ registerUserEvents(app.events);
 | Retry | Built-in | DIY (simple) |
 
 v3 follows Unix philosophy: **do one thing well**.
+
+## Runtime Compatibility
+
+| Runtime | Version | Support | Notes |
+|---------|---------|---------|-------|
+| Node.js | 20+ | ✅ Full | Primary target |
+| Bun | 1.0+ | ✅ Full | Native ES modules |
+| Deno | 1.37+ | ✅ Full | Via npm: specifier |
+| Cloudflare Workers | - | ✅ Full | Edge-compatible |
+| Vercel Edge | - | ✅ Full | Edge-compatible |
+
+**Zero Node.js-specific APIs**: Uses only `Map`, `Set`, `Promise`, `console`, and `AggregateError`.
+
+## Constants
+
+The package exports validation constants for advanced use cases:
+
+```typescript
+import { MAX_EVENT_NAME_LENGTH, VALID_PROPERTY_NAME } from '@nextrush/events';
+
+console.log(MAX_EVENT_NAME_LENGTH); // 256
+console.log(VALID_PROPERTY_NAME);   // /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
+```
 
 ## License
 

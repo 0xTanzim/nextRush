@@ -5,6 +5,18 @@
  */
 
 /**
+ * Maximum allowed length for event names.
+ * Prevents memory issues from extremely long event names.
+ */
+export const MAX_EVENT_NAME_LENGTH = 256;
+
+/**
+ * Valid property name pattern for plugin integration.
+ * Must be a valid JavaScript identifier.
+ */
+export const VALID_PROPERTY_NAME = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+
+/**
  * Event handler function type.
  *
  * @template T - Event data type
@@ -133,4 +145,42 @@ export interface TypedEventEmitter<T extends EventMap = EventMap> {
    * @param event - Event name (optional, clears all if omitted)
    */
   clear(event?: string): void;
+
+  /**
+   * Get all event names with registered handlers.
+   *
+   * @returns Array of event names
+   */
+  eventNames(): string[];
+
+  /**
+   * Get all handlers for an event.
+   *
+   * @param event - Event name
+   * @returns Array of handler functions
+   */
+  listeners<K extends EventNames<T>>(event: K): EventHandler<T[K]>[];
+
+  /**
+   * Check if an event has listeners.
+   *
+   * @param event - Event name (optional, checks any if omitted)
+   * @returns True if listeners exist
+   */
+  hasListeners(event?: string): boolean;
+
+  /**
+   * Set the maximum number of listeners per event.
+   *
+   * @param n - Maximum listeners (0 = unlimited)
+   * @returns This emitter for chaining
+   */
+  setMaxListeners(n: number): this;
+
+  /**
+   * Get the maximum listeners setting.
+   *
+   * @returns Maximum listeners
+   */
+  getMaxListeners(): number;
 }

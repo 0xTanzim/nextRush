@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createEvents, EventEmitter, eventsPlugin } from '../index';
+import { createEvents, EventEmitter, eventsPlugin, MAX_EVENT_NAME_LENGTH, VALID_PROPERTY_NAME } from '../index';
 
 // Test events interface - use [key: string] for EventMap compatibility
 type TestEvents = {
@@ -210,7 +210,7 @@ describe('EventEmitter', () => {
       );
     });
 
-    it('should propagate errors when errorIsolation is false', async () => {
+    it('should throw AggregateError when errorIsolation is false', async () => {
       const strictEmitter = new EventEmitter<TestEvents>({
         errorIsolation: false,
       });
@@ -221,11 +221,10 @@ describe('EventEmitter', () => {
 
       strictEmitter.on('user:created', handler);
 
-      // With Promise.allSettled, errors are caught but not rethrown by default
-      // When errorIsolation is false, we rethrow in executeHandler
-      // But Promise.allSettled in emit() still catches it
-      // So we test that the handler was called and threw
-      await strictEmitter.emit('user:created', { id: '1', name: 'Alice' });
+      // When errorIsolation is false, errors are collected and thrown as AggregateError
+      await expect(
+        strictEmitter.emit('user:created', { id: '1', name: 'Alice' })
+      ).rejects.toBeInstanceOf(AggregateError);
 
       expect(handler).toHaveBeenCalledOnce();
     });
@@ -586,5 +585,477 @@ describe('Edge Cases', () => {
       null,
       undefined,
     ]);
+  });
+});
+
+// ============================================================================
+// NEW TESTS: Event Name Validation
+// ============================================================================
+
+describe('Event Name Validation', () => {
+  let emitter: EventEmitter<TestEvents>;
+
+  beforeEach(() => {
+    emitter = new EventEmitter<TestEvents>();
+  });
+
+  it('should reject empty event name', () => {
+    expect(() => emitter.on('' as string, vi.fn())).toThrow(TypeError);
+    expect(() => emitter.on('' as string, vi.fn())).toThrow('non-empty string');
+  });
+
+  it('should reject non-string event name', () => {
+    expect(() => emitter.on(123 as unknown as string, vi.fn())).toThrow(TypeError);
+    expect(() => emitter.on(null as unknown as string, vi.fn())).toThrow(TypeError);
+    expect(() => emitter.on(undefined as unknown as string, vi.fn())).toThrow(TypeError);
+  });
+
+  it('should reject event name exceeding max length', () => {
+    const longName = 'a'.repeat(MAX_EVENT_NAME_LENGTH + 1);
+    expect(() => emitter.on(longName, vi.fn())).toThrow(RangeError);
+    expect(() => emitter.on(longName, vi.fn())).toThrow(`${MAX_EVENT_NAME_LENGTH}`);
+  });
+
+  it('should accept event name at max length', () => {
+    const maxName = 'a'.repeat(MAX_EVENT_NAME_LENGTH);
+    expect(() => emitter.on(maxName, vi.fn())).not.toThrow();
+  });
+
+  it('should handle special characters in event names', async () => {
+    const handler = vi.fn();
+    emitter.on('user:created:v2' as string, handler);
+    emitter.on('user.created' as string, handler);
+    emitter.on('user-created' as string, handler);
+    emitter.on('user_created' as string, handler);
+
+    await emitter.emit('user:created:v2' as string, { id: '1', name: 'test' });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ============================================================================
+// NEW TESTS: New Methods (listeners, hasListeners, setMaxListeners, prepend)
+// ============================================================================
+
+describe('listeners() Method', () => {
+  it('should return empty array for non-existent event', () => {
+    const emitter = createEvents<TestEvents>();
+    expect(emitter.listeners('user:created')).toEqual([]);
+  });
+
+  it('should return array of handlers', () => {
+    const emitter = createEvents<TestEvents>();
+    const handler1 = vi.fn();
+    const handler2 = vi.fn();
+
+    emitter.on('user:created', handler1);
+    emitter.on('user:created', handler2);
+
+    const listeners = emitter.listeners('user:created');
+    expect(listeners).toHaveLength(2);
+    expect(listeners).toContain(handler1);
+    expect(listeners).toContain(handler2);
+  });
+
+  it('should return a copy, not the internal array', () => {
+    const emitter = createEvents<TestEvents>();
+    const handler = vi.fn();
+    emitter.on('user:created', handler);
+
+    const listeners = emitter.listeners('user:created');
+    listeners.pop(); // Modify the returned array
+
+    expect(emitter.listenerCount('user:created')).toBe(1);
+  });
+});
+
+describe('hasListeners() Method', () => {
+  it('should return false when no listeners', () => {
+    const emitter = createEvents<TestEvents>();
+    expect(emitter.hasListeners()).toBe(false);
+    expect(emitter.hasListeners('user:created')).toBe(false);
+  });
+
+  it('should return true when listeners exist', () => {
+    const emitter = createEvents<TestEvents>();
+    emitter.on('user:created', vi.fn());
+
+    expect(emitter.hasListeners()).toBe(true);
+    expect(emitter.hasListeners('user:created')).toBe(true);
+    expect(emitter.hasListeners('user:deleted')).toBe(false);
+  });
+});
+
+describe('setMaxListeners() / getMaxListeners()', () => {
+  it('should get default maxListeners', () => {
+    const emitter = createEvents<TestEvents>();
+    expect(emitter.getMaxListeners()).toBe(10);
+  });
+
+  it('should set maxListeners', () => {
+    const emitter = createEvents<TestEvents>();
+    emitter.setMaxListeners(50);
+    expect(emitter.getMaxListeners()).toBe(50);
+  });
+
+  it('should return this for chaining', () => {
+    const emitter = createEvents<TestEvents>();
+    const result = emitter.setMaxListeners(20);
+    expect(result).toBe(emitter);
+  });
+
+  it('should allow 0 to disable warnings', () => {
+    const emitter = createEvents<TestEvents>();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    emitter.setMaxListeners(0);
+    for (let i = 0; i < 100; i++) {
+      emitter.on('user:created', vi.fn());
+    }
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('should reject negative values', () => {
+    const emitter = createEvents<TestEvents>();
+    expect(() => emitter.setMaxListeners(-1)).toThrow(RangeError);
+  });
+
+  it('should reject non-integer values', () => {
+    const emitter = createEvents<TestEvents>();
+    expect(() => emitter.setMaxListeners(1.5)).toThrow(RangeError);
+    expect(() => emitter.setMaxListeners(NaN)).toThrow(RangeError);
+  });
+});
+
+describe('prepend() / prependOnce()', () => {
+  it('should add handler at the front', async () => {
+    const emitter = createEvents<TestEvents>();
+    const order: number[] = [];
+
+    emitter.on('user:created', () => { order.push(1); });
+    emitter.on('user:created', () => { order.push(2); });
+    emitter.prepend('user:created', () => { order.push(0); });
+
+    await emitter.emit('user:created', { id: '1', name: 'Alice' });
+
+    expect(order).toEqual([0, 1, 2]);
+  });
+
+  it('prependOnce should only call once', async () => {
+    const emitter = createEvents<TestEvents>();
+    const handler = vi.fn();
+
+    emitter.prependOnce('user:created', handler);
+
+    await emitter.emit('user:created', { id: '1', name: 'Alice' });
+    await emitter.emit('user:created', { id: '2', name: 'Bob' });
+
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('prependOnce should be at front', async () => {
+    const emitter = createEvents<TestEvents>();
+    const order: number[] = [];
+
+    emitter.on('user:created', () => { order.push(1); });
+    emitter.prependOnce('user:created', () => { order.push(0); });
+
+    await emitter.emit('user:created', { id: '1', name: 'Alice' });
+
+    expect(order).toEqual([0, 1]);
+  });
+});
+
+// ============================================================================
+// NEW TESTS: AggregateError for errorIsolation=false
+// ============================================================================
+
+describe('AggregateError with errorIsolation=false', () => {
+  it('should throw AggregateError when handlers fail', async () => {
+    const emitter = new EventEmitter<TestEvents>({ errorIsolation: false });
+
+    emitter.on('user:created', () => { throw new Error('Error 1'); });
+    emitter.on('user:created', () => { throw new Error('Error 2'); });
+
+    await expect(emitter.emit('user:created', { id: '1', name: 'Alice' }))
+      .rejects.toBeInstanceOf(AggregateError);
+  });
+
+  it('should collect all errors in AggregateError', async () => {
+    const emitter = new EventEmitter<TestEvents>({ errorIsolation: false });
+
+    emitter.on('user:created', () => { throw new Error('Error 1'); });
+    emitter.on('user:created', () => { throw new Error('Error 2'); });
+
+    try {
+      await emitter.emit('user:created', { id: '1', name: 'Alice' });
+    } catch (e) {
+      expect(e).toBeInstanceOf(AggregateError);
+      const aggError = e as AggregateError;
+      expect(aggError.errors).toHaveLength(2);
+      expect(aggError.message).toContain('2 handler(s) failed');
+    }
+  });
+
+  it('should not throw if no errors', async () => {
+    const emitter = new EventEmitter<TestEvents>({ errorIsolation: false });
+
+    emitter.on('user:created', vi.fn());
+
+    await expect(emitter.emit('user:created', { id: '1', name: 'Alice' }))
+      .resolves.not.toThrow();
+  });
+});
+
+// ============================================================================
+// NEW TESTS: Race Condition Prevention for once()
+// ============================================================================
+
+describe('Once Handler Race Condition Prevention', () => {
+  it('should only call once handler once even with concurrent emits', async () => {
+    const emitter = createEvents<TestEvents>();
+    const handler = vi.fn();
+
+    emitter.once('user:created', handler);
+
+    // Fire multiple emits concurrently
+    await Promise.all([
+      emitter.emit('user:created', { id: '1', name: 'One' }),
+      emitter.emit('user:created', { id: '2', name: 'Two' }),
+      emitter.emit('user:created', { id: '3', name: 'Three' }),
+    ]);
+
+    // Handler should only be called once
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('should remove once handler immediately before execution', async () => {
+    const emitter = createEvents<TestEvents>();
+    const calls: string[] = [];
+
+    emitter.once('user:created', async (data) => {
+      await new Promise(r => setTimeout(r, 50));
+      calls.push(data.id);
+    });
+
+    // Start first emit (slow handler)
+    const emit1 = emitter.emit('user:created', { id: '1', name: 'One' });
+
+    // Immediately start second emit
+    const emit2 = emitter.emit('user:created', { id: '2', name: 'Two' });
+
+    await Promise.all([emit1, emit2]);
+
+    // Only first emit should have called the handler
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toBe('1');
+  });
+});
+
+// ============================================================================
+// NEW TESTS: Plugin Property Name Validation
+// ============================================================================
+
+describe('Plugin Property Name Validation', () => {
+  it('should accept valid property names', () => {
+    expect(() => eventsPlugin({ propertyName: 'events' })).not.toThrow();
+    expect(() => eventsPlugin({ propertyName: 'myEvents' })).not.toThrow();
+    expect(() => eventsPlugin({ propertyName: '_events' })).not.toThrow();
+    expect(() => eventsPlugin({ propertyName: '$events' })).not.toThrow();
+    expect(() => eventsPlugin({ propertyName: 'events123' })).not.toThrow();
+  });
+
+  it('should reject invalid property names', () => {
+    expect(() => eventsPlugin({ propertyName: '123events' })).toThrow(TypeError);
+    expect(() => eventsPlugin({ propertyName: 'my-events' })).toThrow(TypeError);
+    expect(() => eventsPlugin({ propertyName: 'my events' })).toThrow(TypeError);
+    expect(() => eventsPlugin({ propertyName: '' })).toThrow(TypeError);
+  });
+
+  it('should accept JavaScript reserved words as valid identifiers', () => {
+    // These are all valid JS identifiers (can be used as property names)
+    expect(() => eventsPlugin({ propertyName: 'constructor' })).not.toThrow();
+    expect(() => eventsPlugin({ propertyName: '__proto__' })).not.toThrow();
+    expect(() => eventsPlugin({ propertyName: 'prototype' })).not.toThrow();
+  });
+});
+
+// ============================================================================
+// NEW TESTS: Edge Cases and Security
+// ============================================================================
+
+describe('Security and Edge Cases', () => {
+  it('should handle prototype pollution attempts safely', async () => {
+    const emitter = createEvents<TestEvents>();
+
+    // These should work as normal event names (they're valid strings)
+    emitter.on('constructor' as string, vi.fn());
+    emitter.on('toString' as string, vi.fn());
+
+    // The emitter's prototype should not be affected
+    expect(typeof emitter.on).toBe('function');
+    expect(typeof emitter.emit).toBe('function');
+  });
+
+  it('should handle circular event emission', async () => {
+    const emitter = createEvents<TestEvents>();
+    let count = 0;
+    const maxCalls = 5;
+
+    emitter.on('user:created', async () => {
+      count++;
+      if (count < maxCalls) {
+        await emitter.emit('user:created', { id: String(count), name: 'Loop' });
+      }
+    });
+
+    await emitter.emit('user:created', { id: '0', name: 'Start' });
+
+    expect(count).toBe(maxCalls);
+  });
+
+  it('should handle handler that throws non-Error object', async () => {
+    const emitter = createEvents<TestEvents>();
+    const onError = vi.fn();
+    const emitterWithHandler = new EventEmitter<TestEvents>({ onError });
+
+    emitterWithHandler.on('user:created', () => {
+      throw 'string error'; // eslint-disable-line no-throw-literal
+    });
+    emitterWithHandler.on('user:created', () => {
+      throw { message: 'object error' }; // eslint-disable-line no-throw-literal
+    });
+    emitterWithHandler.on('user:created', () => {
+      throw 42; // eslint-disable-line no-throw-literal
+    });
+
+    await emitterWithHandler.emit('user:created', { id: '1', name: 'Alice' });
+
+    expect(onError).toHaveBeenCalledTimes(3);
+    // All errors should be wrapped as Error instances
+    for (const call of onError.mock.calls) {
+      expect(call[0]).toBeInstanceOf(Error);
+    }
+  });
+
+  it('should handle destroy() being called multiple times', () => {
+    const plugin = eventsPlugin<TestEvents>();
+    plugin.events.on('user:created', vi.fn());
+
+    expect(() => {
+      plugin.destroy?.();
+      plugin.destroy?.();
+      plugin.destroy?.();
+    }).not.toThrow();
+
+    expect(plugin.events.listenerCount()).toBe(0);
+  });
+
+  it('should work correctly after clear()', async () => {
+    const emitter = createEvents<TestEvents>();
+    const handler = vi.fn();
+
+    emitter.on('user:created', handler);
+    emitter.clear();
+
+    // Should be able to add handlers again
+    emitter.on('user:created', handler);
+    await emitter.emit('user:created', { id: '1', name: 'Alice' });
+
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('should handle adding handler during emit', async () => {
+    const emitter = createEvents<TestEvents>();
+    const laterHandler = vi.fn();
+
+    emitter.on('user:created', () => {
+      // Add handler during emit
+      emitter.on('user:created', laterHandler);
+    });
+
+    await emitter.emit('user:created', { id: '1', name: 'Alice' });
+
+    // The later handler should NOT be called during this emit
+    // because we take a snapshot before iterating
+    expect(laterHandler).not.toHaveBeenCalled();
+
+    // But should be called on next emit
+    await emitter.emit('user:created', { id: '2', name: 'Bob' });
+    expect(laterHandler).toHaveBeenCalledOnce();
+  });
+});
+
+// ============================================================================
+// NEW TESTS: Pattern Matching Edge Cases
+// ============================================================================
+
+describe('Pattern Matching Edge Cases', () => {
+  it('should not match partial patterns without :*', async () => {
+    const emitter = createEvents<TestEvents>();
+    const handler = vi.fn();
+
+    emitter.on('user' as string, handler);
+
+    await emitter.emit('user:created', { id: '1', name: 'Alice' });
+
+    // 'user' should NOT match 'user:created' without :*
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('should handle multiple colons in event name', async () => {
+    const emitter = createEvents<TestEvents>();
+    const handler = vi.fn();
+
+    emitter.on('app:user:*' as string, handler);
+
+    await emitter.emit('app:user:created' as string, { id: '1', name: 'Alice' });
+    await emitter.emit('app:user:deleted' as string, { id: '1' });
+    await emitter.emit('app:order:placed' as string, { orderId: '1', total: 100 });
+
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle empty prefix with :*', async () => {
+    const emitter = createEvents<TestEvents>();
+    const handler = vi.fn();
+
+    emitter.on(':*' as string, handler);
+
+    await emitter.emit(':test' as string, 'data');
+
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('should not double-call for exact match and pattern', async () => {
+    const emitter = createEvents<TestEvents>();
+    const exactHandler = vi.fn();
+    const patternHandler = vi.fn();
+
+    emitter.on('user:created', exactHandler);
+    emitter.on('user:*' as string, patternHandler);
+
+    await emitter.emit('user:created', { id: '1', name: 'Alice' });
+
+    expect(exactHandler).toHaveBeenCalledOnce();
+    expect(patternHandler).toHaveBeenCalledOnce();
+  });
+});
+
+// ============================================================================
+// NEW TESTS: Constants Export
+// ============================================================================
+
+describe('Constants Export', () => {
+  it('should export MAX_EVENT_NAME_LENGTH', () => {
+    expect(MAX_EVENT_NAME_LENGTH).toBe(256);
+  });
+
+  it('should export VALID_PROPERTY_NAME regex', () => {
+    expect(VALID_PROPERTY_NAME).toBeInstanceOf(RegExp);
+    expect(VALID_PROPERTY_NAME.test('validName')).toBe(true);
+    expect(VALID_PROPERTY_NAME.test('123invalid')).toBe(false);
   });
 });

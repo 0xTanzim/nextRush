@@ -29,16 +29,17 @@
 
 export { EventEmitter } from './emitter';
 export type {
-  EventEmitterOptions,
-  EventHandler,
-  EventMap,
-  EventNames,
-  TypedEventEmitter,
-  Unsubscribe
+    EventEmitterOptions,
+    EventHandler,
+    EventMap,
+    EventNames,
+    TypedEventEmitter,
+    Unsubscribe
 } from './types';
 
 import { EventEmitter } from './emitter';
 import type { EventEmitterOptions, EventMap } from './types';
+import { VALID_PROPERTY_NAME } from './types';
 
 /**
  * Plugin interface (minimal, to avoid circular deps)
@@ -90,6 +91,7 @@ export function createEvents<T extends EventMap = EventMap>(
 export interface EventsPluginOptions extends EventEmitterOptions {
   /**
    * Property name on the app instance.
+   * Must be a valid JavaScript identifier.
    * @default 'events'
    */
   propertyName?: string;
@@ -104,6 +106,7 @@ export interface EventsPluginOptions extends EventEmitterOptions {
  * @template T - Event map type
  * @param options - Plugin options
  * @returns NextRush plugin
+ * @throws {TypeError} If propertyName is not a valid JavaScript identifier
  *
  * @example Basic Usage
  * ```typescript
@@ -156,6 +159,14 @@ export function eventsPlugin<T extends EventMap = EventMap>(
   options: EventsPluginOptions = {}
 ): Plugin & { events: EventEmitter<T> } {
   const { propertyName = 'events', ...emitterOptions } = options;
+
+  // Validate property name
+  if (!VALID_PROPERTY_NAME.test(propertyName)) {
+    throw new TypeError(
+      `Invalid property name '${propertyName}'. Must be a valid JavaScript identifier.`
+    );
+  }
+
   const emitter = new EventEmitter<T>(emitterOptions);
 
   return {
@@ -191,7 +202,7 @@ export function eventsPlugin<T extends EventMap = EventMap>(
 }
 
 // Convenience re-export for better tree-shaking
-export { DEFAULT_EMITTER_OPTIONS } from './types';
+export { DEFAULT_EMITTER_OPTIONS, MAX_EVENT_NAME_LENGTH, VALID_PROPERTY_NAME } from './types';
 
 // ============================================================================
 // Type Augmentation Helper
