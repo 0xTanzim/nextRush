@@ -39,6 +39,8 @@ export {
     ControllerError,
     ControllerResolutionError,
     DiscoveryError,
+    GuardRejectionError,
+    HttpError,
     MissingParameterError,
     NoRoutesError,
     NotAControllerError,
@@ -58,8 +60,10 @@ export {
     Patch,
     Post,
     Put,
-    Query
+    Query,
+    UseGuard
 } from '@nextrush/decorators';
+export type { GuardContext, GuardFn } from '@nextrush/decorators';
 export {
     Repository,
     Service,

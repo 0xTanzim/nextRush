@@ -1,12 +1,48 @@
 # @nextrush/router
 
-High-performance radix tree router for NextRush. O(k) route matching with full parameter support.
+> High-performance radix tree router for NextRush. O(k) route matching where k = path length, not route count.
+
+## The Problem
+
+Traditional array-based routers iterate through all routes to find a match. With 1,000 routes, that's 1,000 comparisons per request. Route order matters. Performance degrades linearly.
+
+## How NextRush Approaches This
+
+The router uses a **radix tree** (compact prefix tree):
+- Routes share common prefixes in the tree structure
+- Matching is O(k) where k is path length (typically 10-50 characters)
+- Route count doesn't affect matching speed
+- Memory efficient: shared prefixes stored once
+
+## Mental Model
+
+```
+Routes:
+  /users
+  /users/:id
+  /users/:id/posts
+  /products
+  /products/:id
+
+Tree:
+  /
+  ├── users
+  │   └── /:id
+  │       └── /posts
+  └── products
+      └── /:id
+```
+
+When matching `/users/123/posts`:
+1. Match `/` → found
+2. Match `users` → found
+3. Match `/:id` → captures `123`
+4. Match `/posts` → found
+5. Return handler + params
 
 ## Installation
 
 ```bash
-npm install @nextrush/router
-# or
 pnpm add @nextrush/router
 ```
 

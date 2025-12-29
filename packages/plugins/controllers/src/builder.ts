@@ -2,14 +2,27 @@
  * @nextrush/controllers - Handler Builder
  *
  * Builds route handlers from controller methods with parameter injection.
+ * Supports async transforms, guards (function and class-based), and interceptors.
  */
 
-import type { ControllerDefinition, ParamMetadata, RouteMetadata } from '@nextrush/decorators';
-import { getParamMetadata } from '@nextrush/decorators';
+import type {
+    CanActivate,
+    ControllerDefinition,
+    Guard,
+    GuardContext,
+    ParamMetadata,
+    RouteMetadata,
+} from '@nextrush/decorators';
+import { getAllGuards, getParamMetadata, isGuardClass } from '@nextrush/decorators';
 import type { ContainerInterface } from '@nextrush/di';
 import type { Context, Middleware, RouteHandler } from '@nextrush/types';
 import 'reflect-metadata';
-import { ControllerResolutionError, MissingParameterError, ParameterInjectionError } from './errors.js';
+import {
+    ControllerResolutionError,
+    GuardRejectionError,
+    MissingParameterError,
+    ParameterInjectionError,
+} from './errors.js';
 import type { BuiltRoute } from './types.js';
 
 /**
@@ -89,8 +102,14 @@ function createRouteHandler(
 ): RouteHandler {
   const methodName = String(route.methodName);
   const paramMetadata = getParamMetadata(controllerClass, methodName);
+  const guards = getAllGuards(controllerClass, methodName);
 
   return async (ctx: Context): Promise<void> => {
+    // Execute guards first (if any)
+    if (guards.length > 0) {
+      await executeGuards(guards, ctx, container, controllerClass.name, methodName);
+    }
+
     let controllerInstance: unknown;
 
     try {
@@ -130,7 +149,70 @@ function createRouteHandler(
 }
 
 /**
+ * Execute guards and throw if any guard rejects.
+ * Supports both function-based and class-based guards.
+ * Class guards are resolved from the DI container.
+ */
+async function executeGuards(
+  guards: Guard[],
+  ctx: Context,
+  container: ContainerInterface,
+  controllerName: string,
+  methodName: string
+): Promise<void> {
+  const guardContext: GuardContext = {
+    method: ctx.method,
+    path: ctx.path,
+    params: ctx.params,
+    query: ctx.query,
+    headers: ctx.headers,
+    body: ctx.body,
+    state: ctx.state,
+    get: (name: string) => ctx.get(name),
+  };
+
+  for (let i = 0; i < guards.length; i++) {
+    const guard = guards[i]!;
+    let guardName: string;
+    let result: boolean;
+
+    try {
+      if (isGuardClass(guard)) {
+        // Class-based guard - resolve from DI container
+        guardName = guard.name || `ClassGuard[${i}]`;
+        const guardInstance = container.resolve(guard) as CanActivate;
+        result = await guardInstance.canActivate(guardContext);
+      } else {
+        // Function-based guard
+        guardName = guard.name || `Guard[${i}]`;
+        result = await guard(guardContext);
+      }
+
+      if (!result) {
+        throw new GuardRejectionError(
+          guardName,
+          `Access denied by guard for ${controllerName}.${methodName}`
+        );
+      }
+    } catch (error) {
+      if (error instanceof GuardRejectionError) {
+        throw error;
+      }
+      // Guard threw an error - treat as rejection
+      const errorGuardName = isGuardClass(guard)
+        ? (guard.name || `ClassGuard[${i}]`)
+        : (guard.name || `Guard[${i}]`);
+      throw new GuardRejectionError(
+        errorGuardName,
+        error instanceof Error ? error.message : 'Guard execution failed'
+      );
+    }
+  }
+}
+
+/**
  * Resolve parameter values from context based on metadata
+ * Supports async transform functions for validation libraries (zod, valibot, etc.)
  */
 async function resolveParameters(
   ctx: Context,
@@ -161,7 +243,8 @@ async function resolveParameters(
         }
         args[param.index] = param.defaultValue;
       } else {
-        args[param.index] = param.transform ? param.transform(value) : value;
+        // Support both sync and async transform functions
+        args[param.index] = param.transform ? await param.transform(value) : value;
       }
     } catch (error) {
       if (error instanceof MissingParameterError) {

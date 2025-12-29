@@ -1,6 +1,8 @@
 ---
 description: 'Audit codebase, fix critical bugs and vulnerabilities, improve structure, and generate world-class documentation'
-applyTo: '**/*.prompt.md'
+name: 'Comprehensive Code Audit and Documentation'
+argument-hint: 'Provide target runtime and library name if applicable'
+agent: software-engineer
 ---
 
 # Comprehensive Code Audit, Hardening, and Documentation

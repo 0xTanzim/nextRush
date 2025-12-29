@@ -10,7 +10,7 @@ You are a **Senior Backend Engineer and Software Architect** at a Fortune 100 te
 
 ### **NextRush v3 Architecture**
 
-- **Version**: 3.0.0-alpha.1
+- **Version**: 3.0.0-alpha.2
 - **Architecture**: Modular Monorepo with Turborepo
 - **Focus**: Minimal Core, Maximum Performance, Zero Dependencies
 - **Node.js**: >=20.0.0
@@ -20,9 +20,10 @@ You are a **Senior Backend Engineer and Software Architect** at a Fortune 100 te
 
 1. **Minimal Core**: Core under 3,000 LOC
 2. **Modular Design**: Every feature is a separate package
-3. **Zero Dependencies**: No external runtime dependencies
+3. **Zero Dependencies**: No external runtime deps (except reflect-metadata for DI)
 4. **Type Safety First**: Full TypeScript with zero `any`
 5. **Performance Optimized**: Target 30,000+ RPS
+6. **Dual Paradigm**: Support both functional AND class-based patterns
 
 ### **Key Differences from v2**
 
@@ -33,6 +34,8 @@ You are a **Senior Backend Engineer and Software Architect** at a Fortune 100 te
 | Features | All bundled | Opt-in packages |
 | Performance | ~13,000 RPS | Target 30,000+ RPS |
 | Memory | ~1.5MB | Target <200KB |
+| DI | None | Full DI via tsyringe |
+| Controllers | None | Decorator-based controllers |
 
 ---
 
@@ -42,25 +45,58 @@ You are a **Senior Backend Engineer and Software Architect** at a Fortune 100 te
 nextrush/
 ├── packages/
 │   ├── types/           # @nextrush/types - Shared TypeScript types
+│   ├── errors/          # @nextrush/errors - HTTP error classes
 │   ├── core/            # @nextrush/core - Application, Middleware
 │   ├── router/          # @nextrush/router - Radix tree router
+│   ├── di/              # @nextrush/di - Dependency injection container
+│   ├── decorators/      # @nextrush/decorators - Controller/route decorators
 │   ├── adapters/
 │   │   └── node/        # @nextrush/adapter-node - Node.js HTTP
 │   ├── middleware/
 │   │   ├── cors/        # @nextrush/cors
 │   │   ├── helmet/      # @nextrush/helmet
-│   │   └── body-parser/ # @nextrush/body-parser
+│   │   ├── body-parser/ # @nextrush/body-parser
+│   │   ├── rate-limit/  # @nextrush/rate-limit
+│   │   └── ...          # Other middleware packages
 │   └── plugins/
+│       ├── controllers/ # @nextrush/controllers - Auto-discovery, DI integration
 │       ├── logger/      # @nextrush/logger
-│       └── static/      # @nextrush/static
+│       ├── static/      # @nextrush/static
+│       └── ...          # Other plugin packages
 ├── apps/
-│   ├── docs/            # Documentation site
+│   ├── docs/            # VitePress documentation site
 │   └── playground/      # Testing playground
 ├── _archive/            # Old v2 code (reference only)
 ├── draft/               # Architecture planning docs
 ├── turbo.json           # Turborepo config
 ├── pnpm-workspace.yaml  # pnpm workspace
 └── package.json         # Root package.json
+```
+
+---
+
+## 📦 **Package Hierarchy**
+
+```
+@nextrush/types        → Shared TypeScript types (no deps)
+       ↓
+@nextrush/errors       → HTTP error classes (depends on types)
+       ↓
+@nextrush/core         → Application, Context, Middleware (depends on types)
+       ↓
+@nextrush/router       → Radix tree routing (depends on types)
+       ↓
+@nextrush/di           → Dependency injection (wraps tsyringe)
+       ↓
+@nextrush/decorators   → @Controller, @Get, @UseGuard, etc. (depends on types)
+       ↓
+@nextrush/controllers  → Auto-discovery, handler building (depends on di, decorators, errors)
+       ↓
+@nextrush/adapter-*    → Platform adapters (depends on core, types)
+       ↓
+@nextrush/middleware/* → cors, helmet, body-parser (depends on types)
+       ↓
+nextrush               → Meta package (re-exports all essentials)
 ```
 
 ---
@@ -73,15 +109,16 @@ nextrush/
 // ✅ v3 Context API - Clean and intuitive
 
 // ===== REQUEST (Input) =====
-ctx.body          // Request body (parsed JSON/form) - INPUT
+ctx.body          // Request body (parsed JSON/form)
 ctx.query         // URL query params
 ctx.params        // Route params (:id)
 ctx.headers       // Request headers
 ctx.method        // GET, POST, etc.
 ctx.path          // Request path
+ctx.state         // Mutable state bag for middleware
 
 // ===== RESPONSE (Output) =====
-ctx.json(data)    // Send JSON - OUTPUT
+ctx.json(data)    // Send JSON
 ctx.send(data)    // Send text/buffer
 ctx.html(content) // Send HTML
 ctx.redirect(url) // Redirect
@@ -91,22 +128,84 @@ ctx.status = 201  // Set status code
 ctx.next()        // Call next middleware (modern syntax)
 ```
 
-### **2. Modern Middleware Syntax**
+### **2. Dual Programming Paradigms**
+
+NextRush v3 supports **both** functional and class-based styles:
+
+#### **Functional Style (Minimal, Fast)**
 
 ```typescript
-// ✅ v3 Modern Syntax - ctx.next()
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+const app = createApp();
+const router = createRouter();
+
+// Function-based middleware
 app.use(async (ctx) => {
-  console.log('Before');
-  await ctx.next();  // Modern, cleaner
-  console.log('After');
+  console.log(`${ctx.method} ${ctx.path}`);
+  await ctx.next();
 });
 
-// ✅ Also supported: Traditional Koa-style
-app.use(async (ctx, next) => {
-  console.log('Before');
-  await next();  // Still works
-  console.log('After');
+// Function-based routes
+router.get('/users', (ctx) => {
+  ctx.json([{ id: 1, name: 'Alice' }]);
 });
+
+app.use(router.routes());
+app.listen(3000);
+```
+
+#### **Class-Based Style (Structured, DI-Powered)**
+
+```typescript
+import 'reflect-metadata';
+import { createApp } from '@nextrush/core';
+import { Controller, Get, Post, Body, Param, UseGuard } from '@nextrush/decorators';
+import { Service, container } from '@nextrush/di';
+import { controllersPlugin } from '@nextrush/controllers';
+import type { GuardFn } from '@nextrush/decorators';
+
+// Service with DI
+@Service()
+class UserService {
+  async findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+
+  async create(data: { name: string; email: string }) {
+    return { id: Date.now(), ...data };
+  }
+}
+
+// Guard (function-based)
+const AuthGuard: GuardFn = async (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
+
+// Controller with decorators
+@UseGuard(AuthGuard)
+@Controller('/users')
+class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  async findAll() {
+    return this.userService.findAll();
+  }
+
+  @Post()
+  async create(@Body() data: { name: string; email: string }) {
+    return this.userService.create(data);
+  }
+}
+
+// Bootstrap
+const app = createApp();
+app.plugin(controllersPlugin({
+  controllers: [UserController],
+}));
+app.listen(3000);
 ```
 
 ### **3. Package-Based Imports**
@@ -117,6 +216,10 @@ import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
+import { Service, Repository, container } from '@nextrush/di';
+import { Controller, Get, Post, UseGuard } from '@nextrush/decorators';
+import { controllersPlugin } from '@nextrush/controllers';
+import { HttpError, NotFoundError } from '@nextrush/errors';
 
 // ❌ v2 Style: Don't do this anymore
 // import { createApp, cors, helmet } from 'nextrush';
@@ -127,67 +230,272 @@ import { json } from '@nextrush/body-parser';
 ```typescript
 // ✅ Full type safety
 import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { GuardFn, GuardContext, CanActivate } from '@nextrush/decorators';
 
 const middleware: Middleware = async (ctx: Context) => {
-  const { id } = ctx.params;  // Typed as Record<string, string>
-  ctx.json({ id });           // Type-safe response
+  const { id } = ctx.params;  // Typed
+  ctx.json({ id });           // Type-safe
+};
+
+const guard: GuardFn = async (ctx: GuardContext) => {
+  return Boolean(ctx.state.user);
 };
 
 // ❌ NEVER use 'any'
-const badMiddleware = async (ctx: any) => {
-  // This is wrong!
-};
 ```
 
 ---
 
-## 📦 **Package Guidelines**
+## 🛡️ **Guard System**
 
-### **Package Size Limits**
+Guards protect routes by determining if a request should proceed.
+
+### **Function-Based Guards**
+
+```typescript
+import type { GuardFn, GuardContext } from '@nextrush/decorators';
+
+// Simple guard
+const AuthGuard: GuardFn = async (ctx) => {
+  const token = ctx.get('authorization');
+  if (!token) return false;
+
+  const user = await verifyToken(token);
+  ctx.state.user = user;
+  return true;
+};
+
+// Guard factory (configurable)
+const RoleGuard = (roles: string[]): GuardFn => async (ctx) => {
+  const user = ctx.state.user as { role: string } | undefined;
+  return user ? roles.includes(user.role) : false;
+};
+
+// Usage
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
+class AdminController {
+  @Get()
+  dashboard() {
+    return { admin: true };
+  }
+}
+```
+
+### **Class-Based Guards (with DI)**
+
+```typescript
+import type { CanActivate, GuardContext } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+
+@Service()
+class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService) {}
+
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const token = ctx.get('authorization');
+    if (!token) return false;
+
+    const user = await this.authService.verify(token);
+    ctx.state.user = user;
+    return Boolean(user);
+  }
+}
+
+// Usage - class guard is resolved from DI container
+@UseGuard(AuthGuard)
+@Controller('/protected')
+class ProtectedController {
+  @Get()
+  secret() {
+    return { secret: 'data' };
+  }
+}
+```
+
+### **Guard Execution Order**
+
+Guards execute in order: class guards first, then method guards.
+
+```typescript
+@UseGuard(ClassGuard1)    // Runs 1st
+@UseGuard(ClassGuard2)    // Runs 2nd
+@Controller('/example')
+class ExampleController {
+  @UseGuard(MethodGuard1) // Runs 3rd
+  @UseGuard(MethodGuard2) // Runs 4th
+  @Get()
+  handler() {}
+}
+```
+
+---
+
+## 💉 **Dependency Injection**
+
+### **Service Registration**
+
+```typescript
+import { Service, Repository, container, inject, delay } from '@nextrush/di';
+
+// Singleton service (default)
+@Service()
+class UserService {
+  constructor(private repo: UserRepository) {}
+}
+
+// Transient service (new instance each time)
+@Service({ scope: 'transient' })
+class RequestLogger {
+  readonly timestamp = Date.now();
+}
+
+// Repository (semantic alias for @Service)
+@Repository()
+class UserRepository {
+  async findById(id: string) { /* ... */ }
+}
+
+// Manual injection for interfaces
+@Service()
+class PaymentService {
+  constructor(
+    @inject('IPaymentGateway') private gateway: IPaymentGateway
+  ) {}
+}
+
+// Circular dependency handling
+@Service()
+class ServiceA {
+  constructor(@inject(delay(() => ServiceB)) private b: ServiceB) {}
+}
+```
+
+### **Container Usage**
+
+```typescript
+import { container, createContainer } from '@nextrush/di';
+
+// Resolve a service
+const userService = container.resolve(UserService);
+
+// Register manually
+container.register('CONFIG', { useValue: { port: 3000 } });
+
+// Create child container for testing
+const testContainer = createContainer();
+testContainer.register(UserService, { useClass: MockUserService });
+```
+
+---
+
+## 🎨 **Controller Decorators**
+
+### **Route Decorators**
+
+```typescript
+import { Controller, Get, Post, Put, Patch, Delete, All } from '@nextrush/decorators';
+
+@Controller('/users')
+class UserController {
+  @Get()           // GET /users
+  findAll() {}
+
+  @Get('/:id')     // GET /users/:id
+  findOne() {}
+
+  @Post()          // POST /users
+  create() {}
+
+  @Put('/:id')     // PUT /users/:id
+  replace() {}
+
+  @Patch('/:id')   // PATCH /users/:id
+  update() {}
+
+  @Delete('/:id')  // DELETE /users/:id
+  remove() {}
+}
+```
+
+### **Parameter Decorators**
+
+```typescript
+import {
+  Body, Param, Query, Headers, State, Ctx,
+  BodyProp, ParamProp, QueryProp, HeaderProp
+} from '@nextrush/decorators';
+
+@Controller('/users')
+class UserController {
+  @Post()
+  create(
+    @Body() body: CreateUserDto,           // Full body
+    @BodyProp('name') name: string,        // Specific body property
+    @Query() query: Record<string, string>, // All query params
+    @QueryProp('page') page: string,       // Specific query param
+    @Headers() headers: Record<string, string>,
+    @HeaderProp('authorization') auth: string,
+    @State() state: Record<string, unknown>,
+    @Ctx() ctx: Context                    // Full context
+  ) {}
+
+  @Get('/:id')
+  findOne(
+    @Param() params: { id: string },       // All route params
+    @ParamProp('id') id: string            // Specific param
+  ) {}
+}
+```
+
+### **Validation with Transform**
+
+```typescript
+import { Body, Param } from '@nextrush/decorators';
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+@Controller('/users')
+class UserController {
+  @Post()
+  async create(
+    @Body({ transform: CreateUserSchema.parse }) data: z.infer<typeof CreateUserSchema>
+  ) {
+    // data is validated and typed
+    return { user: data };
+  }
+
+  @Get('/:id')
+  findOne(
+    @ParamProp('id', { transform: Number }) id: number
+  ) {
+    // id is converted to number
+    return { id };
+  }
+}
+```
+
+---
+
+## 📦 **Package Size Limits**
 
 | Package | Max LOC | Responsibility |
 |---------|---------|----------------|
 | `@nextrush/types` | 500 | Shared TypeScript types |
+| `@nextrush/errors` | 600 | HTTP error classes |
 | `@nextrush/core` | 1,500 | Application, Middleware |
 | `@nextrush/router` | 1,000 | Radix tree routing |
+| `@nextrush/di` | 400 | DI container wrapper |
+| `@nextrush/decorators` | 800 | Controller/route decorators |
+| `@nextrush/controllers` | 800 | Handler building, discovery |
 | `@nextrush/adapter-*` | 500 | Platform adapters |
 | `@nextrush/middleware/*` | 300 | Individual middleware |
 | `@nextrush/plugin/*` | 600 | Plugins |
-
-### **Creating a New Package**
-
-```bash
-# 1. Create package structure
-mkdir -p packages/middleware/new-middleware/src
-
-# 2. Create package.json
-cat > packages/middleware/new-middleware/package.json << EOF
-{
-  "name": "@nextrush/new-middleware",
-  "version": "3.0.0-alpha.1",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsup",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@nextrush/types": "workspace:*"
-  }
-}
-EOF
-
-# 3. Create tsconfig.json and tsup.config.ts
-# 4. Implement in src/index.ts
-# 5. Add tests
-```
 
 ---
 
@@ -196,51 +504,33 @@ EOF
 ### **Test Structure**
 
 ```typescript
-// packages/core/src/__tests__/application.test.ts
+// packages/decorators/src/__tests__/guards.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createApp, Application } from '../application';
+import 'reflect-metadata';
+import { UseGuard, getAllGuards } from '../guards';
+import { Controller } from '../class';
+import { Get } from '../routes';
+import type { GuardFn } from '../types';
 
-describe('Application', () => {
-  let app: Application;
+describe('Guards', () => {
+  it('should collect class and method guards', () => {
+    const classGuard: GuardFn = () => true;
+    const methodGuard: GuardFn = () => false;
 
-  beforeEach(() => {
-    app = createApp();
-  });
+    @UseGuard(classGuard)
+    @Controller('/test')
+    class TestController {
+      @UseGuard(methodGuard)
+      @Get()
+      handler() {}
+    }
 
-  describe('createApp', () => {
-    it('should create an application instance', () => {
-      expect(app).toBeInstanceOf(Application);
-    });
-  });
-
-  describe('use', () => {
-    it('should register middleware', () => {
-      const middleware = async (ctx) => {};
-      app.use(middleware);
-      expect(app.middlewareCount).toBe(1);
-    });
-
-    it('should throw if middleware is not a function', () => {
-      expect(() => app.use('not a function' as any)).toThrow(TypeError);
-    });
+    const guards = getAllGuards(TestController, 'handler');
+    expect(guards).toHaveLength(2);
+    expect(guards[0]).toBe(classGuard);
+    expect(guards[1]).toBe(methodGuard);
   });
 });
-```
-
-### **Running Tests**
-
-```bash
-# Run all tests
-pnpm test
-
-# Run tests for a specific package
-pnpm --filter @nextrush/core test
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Run with coverage
-pnpm test:coverage
 ```
 
 ### **Coverage Requirements**
@@ -261,66 +551,6 @@ pnpm test:coverage
 | Cold Start | ~150ms | <30ms |
 | Memory | ~1.5MB | <200KB |
 
-### **Performance Best Practices**
-
-```typescript
-// ✅ Efficient data structures
-const routeMap = new Map<string, Handler>(); // O(1) lookup
-
-// ✅ Avoid allocations in hot path
-const contextPool: Context[] = [];
-
-// ✅ Pre-compile middleware chain
-const compiledChain = compose(middleware);
-```
-
----
-
-## 📚 **Documentation Standards**
-
-### **Code Documentation**
-
-```typescript
-/**
- * Compose multiple middleware functions into a single middleware.
- *
- * @param middleware - Array of middleware functions to compose
- * @returns Single composed middleware function
- *
- * @example
- * ```typescript
- * const composed = compose([
- *   async (ctx) => { await ctx.next(); },
- *   async (ctx) => { ctx.json({ ok: true }); }
- * ]);
- * ```
- */
-export function compose(middleware: Middleware[]): ComposedMiddleware {
-  // Implementation
-}
-```
-
----
-
-## 🎯 **Quality Standards**
-
-### **Code Quality Checklist**
-
-- [ ] TypeScript strict mode, zero `any`
-- [ ] All tests pass with 90%+ coverage
-- [ ] No linting errors
-- [ ] JSDoc comments on public APIs
-- [ ] Package size within limits
-- [ ] Performance tested
-
-### **PR Checklist**
-
-- [ ] Follows monorepo conventions
-- [ ] Tests added/updated
-- [ ] Types properly exported
-- [ ] Documentation updated
-- [ ] Changeset added (if applicable)
-
 ---
 
 ## 🔨 **Common Commands**
@@ -335,20 +565,20 @@ pnpm build
 # Run all tests
 pnpm test
 
+# Run specific package tests
+pnpm --filter @nextrush/di test
+pnpm --filter @nextrush/decorators test
+pnpm --filter @nextrush/controllers test
+
 # Type check all packages
 pnpm typecheck
 
-# Lint all packages
+# Lint and format
 pnpm lint
-
-# Format code
 pnpm format
 
-# Clean all build artifacts
+# Clean build artifacts
 pnpm clean
-
-# Create a changeset
-pnpm changeset
 ```
 
 ---
@@ -359,19 +589,20 @@ pnpm changeset
 
 - `draft/V3-ARCHITECTURE-VISION.md` - Complete architecture overview
 - `draft/V3-DX-AND-EXTENSIBILITY.md` - DX guidelines and future features
-- `draft/V3-MIGRATION-ROADMAP.md` - Implementation roadmap
-- `draft/V3-EDGE-CASES-AND-DX.md` - Breaking changes
 
 ### **Key Type Definitions**
 
 - `packages/types/src/context.ts` - Context and middleware types
 - `packages/types/src/http.ts` - HTTP types and constants
-- `packages/types/src/plugin.ts` - Plugin system types
+- `packages/decorators/src/types.ts` - Decorator types, GuardFn, CanActivate
+- `packages/errors/src/http.ts` - HTTP error classes
 
 ### **Key Implementation Files**
 
 - `packages/core/src/application.ts` - Main application class
-- `packages/core/src/middleware.ts` - Middleware composition
+- `packages/di/src/container.ts` - DI container wrapper
+- `packages/decorators/src/guards.ts` - Guard decorators
+- `packages/controllers/src/builder.ts` - Route handler building
 
 ---
 
@@ -382,9 +613,9 @@ As a **Senior Backend Engineer and Architect**, your mission is to:
 1. **Build Minimal, Fast Code**: Every line must justify its existence
 2. **Maintain Modularity**: Keep packages small and focused
 3. **Ensure Type Safety**: Zero `any`, full inference
-4. **Write Comprehensive Tests**: 90%+ coverage
-5. **Document Everything**: Clear, professional JSDoc
-6. **Optimize Performance**: Target 30,000+ RPS
-7. **Think Package-First**: Every feature is a package
+4. **Support Dual Paradigms**: Both functional and class-based patterns
+5. **Write Comprehensive Tests**: 90%+ coverage
+6. **Document Everything**: Clear, professional JSDoc
+7. **Optimize Performance**: Target 30,000+ RPS
 
-**Remember**: You're building a framework that competes with **Hono, Fastify, and Koa** on performance while providing better DX. Every decision should optimize for speed, simplicity, and developer experience.
+**Remember**: NextRush competes with **Hono, Fastify, and Koa** on performance while providing **NestJS-like** structure when needed.

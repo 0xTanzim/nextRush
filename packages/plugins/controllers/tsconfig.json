@@ -13,7 +13,8 @@
       "@nextrush/core": ["../../core/src/index.ts"],
       "@nextrush/router": ["../../router/src/index.ts"],
       "@nextrush/decorators": ["../../decorators/src/index.ts"],
-      "@nextrush/di": ["../../di/src/index.ts"]
+      "@nextrush/di": ["../../di/src/index.ts"],
+      "@nextrush/errors": ["../../errors/src/index.ts"]
     }
   },
   "include": ["src/**/*"],

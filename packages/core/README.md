@@ -1,12 +1,43 @@
 # @nextrush/core
 
-The core module of the NextRush framework. Provides the application instance, middleware composition, and foundational APIs.
+> The minimal core of NextRush: Application, middleware composition, and plugin system.
+
+## The Problem
+
+Backend frameworks often bundle everything together. You pay for features you don't use:
+- Routing logic when you only need middleware composition
+- Body parsing when you're building a proxy
+- Complex plugin systems when you need simple extensibility
+
+## How NextRush Approaches This
+
+`@nextrush/core` provides **only the essentials**:
+
+- **Application**: Middleware registration and plugin management
+- **Middleware Composition**: Koa-style `compose()` for async middleware chains
+- **Plugin System**: Simple, typed plugin interface
+- **Error Handling**: Configurable error handlers with production/development modes
+
+Everything else (routing, body parsing, authentication) lives in separate packages.
+
+## Mental Model
+
+Think of the core as a **middleware pipeline manager**:
+
+```
+Request → [Middleware 1] → [Middleware 2] → [Handler] → [Middleware 2] → [Middleware 1] → Response
+              ↓                ↓              ↓             ↑                ↑
+          Before           Before          Execute       After            After
+```
+
+Each middleware can:
+1. Do something before calling `ctx.next()`
+2. Call `await ctx.next()` to pass control downstream
+3. Do something after `ctx.next()` returns
 
 ## Installation
 
 ```bash
-npm install @nextrush/core
-# or
 pnpm add @nextrush/core
 ```
 
@@ -14,24 +45,32 @@ pnpm add @nextrush/core
 
 ```typescript
 import { createApp } from '@nextrush/core';
-import { serve } from '@nextrush/adapter-node';
+import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 
+// Middleware with modern ctx.next() syntax
+app.use(async (ctx) => {
+  console.log(`→ ${ctx.method} ${ctx.path}`);
+  await ctx.next();
+  console.log(`← ${ctx.status}`);
+});
+
+// Handler (final middleware)
 app.use(async (ctx) => {
   ctx.json({ message: 'Hello World' });
 });
 
-serve(app, 3000);
+listen(app, { port: 3000 });
 ```
 
 ## Features
 
 - **Minimal Core**: Under 1,500 LOC
-- **Middleware Pipeline**: Koa-style async middleware
-- **Plugin System**: Extensible via plugins
-- **Zero Dependencies**: Pure TypeScript
-- **Type Safe**: Full TypeScript support
+- **Middleware Pipeline**: Koa-style async middleware with `ctx.next()`
+- **Plugin System**: Extensible via typed plugins
+- **Error Handling**: Production-safe error responses
+- **Zero Dependencies**: Pure TypeScript (except adapter)
 
 ## Application
 
@@ -71,17 +110,21 @@ interface AppOptions {
 
 ## Middleware
 
-### Basic Middleware
+### Modern Syntax (ctx.next)
 
 ```typescript
-// Modern syntax
+// ctx.next() is a method on the context
 app.use(async (ctx) => {
-  console.log(`${ctx.method} ${ctx.path}`);
-  await ctx.next();
-  console.log(`Response: ${ctx.status}`);
+  console.log('Before');
+  await ctx.next();  // Call next middleware
+  console.log('After');
 });
+```
 
-// Traditional Koa syntax
+### Traditional Koa Syntax
+
+```typescript
+// next is passed as second argument (Koa compatibility)
 app.use(async (ctx, next) => {
   console.log('Before');
   await next();
@@ -120,13 +163,14 @@ app.use(async (ctx) => {
 ### Conditional Middleware
 
 ```typescript
-// Skip middleware based on condition
+// Skip middleware based on path
 app.use(async (ctx) => {
   if (ctx.path === '/health') {
-    return ctx.next(); // Skip this middleware
+    return ctx.next(); // Skip to next
   }
 
-  // Do something
+  // Apply logic only to non-health routes
+  ctx.set('X-Request-Time', Date.now().toString());
   await ctx.next();
 });
 ```

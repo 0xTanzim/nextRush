@@ -226,6 +226,36 @@ const testContainer = createContainer();
 testContainer.register(UserService, { useClass: MockUserService });
 ```
 
+## Integration with Guards
+
+Class-based guards implementing `CanActivate` are resolved from the DI container, enabling dependency injection:
+
+```typescript
+import { Service } from '@nextrush/di';
+import type { CanActivate, GuardContext } from '@nextrush/decorators';
+
+@Service()
+class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService) {}  // Injected!
+
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const token = ctx.get('authorization');
+    if (!token) return false;
+
+    const user = await this.authService.verify(token);
+    ctx.state.user = user;
+    return Boolean(user);
+  }
+}
+
+// Usage with @UseGuard
+@UseGuard(AuthGuard)  // Resolved from DI container
+@Controller('/protected')
+class ProtectedController {}
+```
+
+The `@nextrush/controllers` plugin automatically detects class guards and resolves them from the container.
+
 ## Circular Dependencies
 
 Use `delay()` to break circular dependencies:

@@ -1,42 +1,44 @@
 # @nextrush/decorators
 
-Decorator-based metadata for building HTTP controllers in NextRush. This package provides `@Controller`, route decorators (`@Get`, `@Post`, etc.), and parameter decorators (`@Body`, `@Param`, `@Query`, etc.).
+> Decorator-based metadata for building HTTP controllers with guards, dependency injection, and type-safe parameter extraction.
 
-## Features
+## The Problem
 
-- 🎮 **@Controller** - Marks class as HTTP controller **with automatic DI registration**
-- 🛤️ **Route Decorators** - `@Get`, `@Post`, `@Put`, `@Delete`, `@Patch`
-- 📦 **Parameter Decorators** - `@Body`, `@Param`, `@Query`, `@Header`, `@Ctx`
-- 🔄 **Auto DI** - `@Controller` automatically makes the class injectable
+Building structured APIs in Node.js often leads to scattered route definitions, manual parameter parsing, and inconsistent authentication checks. Without a declarative system:
 
-## 🚀 Development
+- Route handlers mix business logic with request parsing
+- Authentication checks are copy-pasted across handlers
+- Parameter validation is ad-hoc and error-prone
+- Testing requires mocking the entire HTTP layer
 
-For the best development experience with full decorator and DI support, we highly recommend using **`@nextrush/dev`**.
+## How NextRush Approaches This
 
-```bash
-pnpm add -D @nextrush/dev
+NextRush decorators provide **declarative contracts** for HTTP controllers:
+
+- **`@Controller`** defines the class as an HTTP boundary with DI integration
+- **Route decorators** (`@Get`, `@Post`, etc.) declare endpoint paths and methods
+- **Parameter decorators** (`@Body`, `@Param`, `@Query`) extract and transform request data
+- **`@UseGuard`** protects routes with authentication/authorization checks
+
+Decorators are **runtime metadata**, not build-time transformations. They store information that `@nextrush/controllers` reads to build optimized route handlers.
+
+## Mental Model
+
+Think of decorators as **annotations that declare intent**:
+
+```
+@Controller('/users')        ← "This class handles /users/* routes"
+  └── constructor(UserService) ← "Inject UserService dependency"
+  └── @UseGuard(AuthGuard)    ← "Require authentication for all routes"
+  └── @Get('/:id')            ← "GET /users/:id calls this method"
+      └── @Param('id')        ← "Extract 'id' from route params"
 ```
 
-Then in your `package.json`:
-
-```json
-{
-  "scripts": {
-    "dev": "nextrush-dev"
-  }
-}
-```
-
-### Why nextrush-dev?
-
-TypeScript decorators with constructor injection require **`emitDecoratorMetadata`** to work. Most modern fast runners (like `tsx` or `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing DI to fail.
-
-| Runtime | Decorator Metadata | Recommended |
-|---------|-------------------|-------------|
-| **nextrush-dev** | ✅ Full Support | **✅ Highly Recommended** |
-| **tsc + node** | ✅ Full Support | ✅ Yes (Production) |
-| **tsx / esbuild** | ❌ Not Supported | ❌ No |
-| **ts-node --esm** | ⚠️ Issues | ❌ No |
+The `@nextrush/controllers` plugin reads this metadata and builds:
+1. Route registrations with the router
+2. Handler functions that extract parameters
+3. Guard chains that run before handlers
+4. DI resolution for controller instances
 
 ## Installation
 
@@ -44,7 +46,7 @@ TypeScript decorators with constructor injection require **`emitDecoratorMetadat
 pnpm add @nextrush/decorators reflect-metadata
 ```
 
-## TypeScript Configuration
+**Required `tsconfig.json` settings:**
 
 ```json
 {
@@ -55,23 +57,50 @@ pnpm add @nextrush/decorators reflect-metadata
 }
 ```
 
-> **Note:** Stage 3 decorators don't support parameter decorators. We use legacy decorators for full feature support.
+## Development Runtime
+
+TypeScript decorators require `emitDecoratorMetadata` to emit runtime type information. Most modern runners (`tsx`, `node --experimental-strip-types`) strip types without emitting metadata.
+
+**Use `@nextrush/dev` for development:**
+
+```bash
+pnpm add -D @nextrush/dev
+```
+
+```json
+{
+  "scripts": {
+    "dev": "nextrush-dev"
+  }
+}
+```
+
+| Runtime | Decorator Metadata | Recommended |
+|---------|-------------------|-------------|
+| **nextrush-dev** | ✅ Full Support | ✅ Development |
+| **tsc + node** | ✅ Full Support | ✅ Production |
+| **tsx / esbuild** | ❌ Not Supported | ❌ No |
 
 ## Quick Start
 
 ```typescript
 import 'reflect-metadata';
-import { Controller, Get, Post, Delete, Body, Param, Query } from '@nextrush/decorators';
+import { Controller, Get, Post, Body, Param, UseGuard } from '@nextrush/decorators';
+import type { GuardFn } from '@nextrush/decorators';
 
-// @Controller includes DI registration - no need for @Service()!
+// Function-based guard
+const AuthGuard: GuardFn = async (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
+
+@UseGuard(AuthGuard)
 @Controller('/users')
 class UserController {
-  // Dependencies are automatically injected
   constructor(private userService: UserService) {}
 
   @Get()
-  findAll(@Query('page') page: string, @Query('limit') limit: string) {
-    return { page, limit };
+  findAll() {
+    return this.userService.findAll();
   }
 
   @Get('/:id')
@@ -80,14 +109,121 @@ class UserController {
   }
 
   @Post()
-  create(@Body() data: CreateUserDto) {
+  create(@Body() data: { name: string; email: string }) {
     return this.userService.create(data);
   }
+}
+```
 
-  @Delete('/:id')
-  remove(@Param('id') id: string) {
-    return { deleted: id };
+## Guard System
+
+Guards determine if a request should proceed to the handler. They run **before** the route handler and can reject requests.
+
+### Function-Based Guards
+
+Simple functions that receive `GuardContext` and return boolean:
+
+```typescript
+import type { GuardFn, GuardContext } from '@nextrush/decorators';
+
+const AuthGuard: GuardFn = async (ctx) => {
+  const token = ctx.get('authorization');
+  if (!token) return false;
+
+  const user = await verifyToken(token);
+  ctx.state.user = user;
+  return Boolean(user);
+};
+
+// Guard factory for dynamic configuration
+const RoleGuard = (roles: string[]): GuardFn => async (ctx) => {
+  const user = ctx.state.user as { role: string } | undefined;
+  return user ? roles.includes(user.role) : false;
+};
+```
+
+### Class-Based Guards (with DI)
+
+Implement `CanActivate` interface for guards that need dependency injection:
+
+```typescript
+import { Service } from '@nextrush/di';
+import type { CanActivate, GuardContext } from '@nextrush/decorators';
+
+@Service()
+class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService) {}
+
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const token = ctx.get('authorization');
+    if (!token) return false;
+
+    const user = await this.authService.verify(token);
+    ctx.state.user = user;
+    return Boolean(user);
   }
+}
+```
+
+### Applying Guards
+
+```typescript
+// Controller-level (applies to all routes)
+@UseGuard(AuthGuard)
+@Controller('/admin')
+class AdminController {
+  @Get()
+  dashboard() { }  // Protected by AuthGuard
+}
+
+// Method-level (applies to specific route)
+@Controller('/users')
+class UserController {
+  @Get()
+  findAll() { }  // Public
+
+  @UseGuard(AdminGuard)
+  @Delete('/:id')
+  remove(@Param('id') id: string) { }  // Admin only
+}
+
+// Multiple guards (all must pass)
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
+class AdminController { }
+```
+
+### Guard Execution Order
+
+Guards execute in declaration order: class guards first, then method guards.
+
+```typescript
+@UseGuard(ClassGuard1)    // Runs 1st
+@UseGuard(ClassGuard2)    // Runs 2nd
+@Controller('/example')
+class ExampleController {
+  @UseGuard(MethodGuard1) // Runs 3rd
+  @UseGuard(MethodGuard2) // Runs 4th
+  @Get()
+  handler() {}
+}
+```
+
+### GuardContext
+
+Guards receive a minimal context (not the full `Context`) to prevent response manipulation:
+
+```typescript
+interface GuardContext {
+  readonly method: string;
+  readonly path: string;
+  readonly params: Record<string, string>;
+  readonly query: Record<string, string | string[] | undefined>;
+  readonly headers: Record<string, string | string[] | undefined>;
+  readonly body: unknown;
+  readonly state: Record<string, unknown>;
+  get(name: string): string | undefined;
 }
 ```
 
@@ -95,49 +231,38 @@ class UserController {
 
 ### `@Controller(path?)`
 
-Marks a class as an HTTP controller **and registers it for dependency injection**.
-
-**You do NOT need `@Service()` when using `@Controller()`!**
-
-```typescript
-// ✅ Correct - @Controller includes DI
-@Controller('/users')
-class UserController {
-  constructor(private userService: UserService) {}  // Auto-injected!
-}
-
-// ❌ Redundant - Don't use both!
-@Controller('/users')
-@Service()  // NOT NEEDED!
-class UserController {}
-```
-
-### Controller Options
+Marks a class as an HTTP controller **with automatic DI registration**.
 
 ```typescript
 // With explicit path
 @Controller('/users')
 class UserController {}
 
-// With options
-@Controller({ path: '/users', version: 'v1', tags: ['users'] })
-class UserController {}
-
 // Auto-derived path (removes 'Controller' suffix, converts to kebab-case)
 @Controller()
 class UserProfileController {} // → '/user-profile'
+
+// With options
+@Controller({ path: '/users', version: 'v1', tags: ['users'] })
+class UserController {}
 ```
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `path` | `string` | Base path prefix |
-| `version` | `string` | API version (e.g., 'v1' → '/v1/users') |
-| `middleware` | `MiddlewareRef[]` | Controller-level middleware |
-| `tags` | `string[]` | Documentation tags |
+**You do NOT need `@Service()` when using `@Controller()`!**
+
+```typescript
+// ✅ Correct
+@Controller('/users')
+class UserController {
+  constructor(private userService: UserService) {}  // Auto-injected
+}
+
+// ❌ Redundant
+@Controller('/users')
+@Service()  // NOT NEEDED
+class UserController {}
+```
 
 ## Route Decorators
-
-### `@Get(path?, options?)`
 
 ```typescript
 @Controller('/users')
@@ -148,49 +273,54 @@ class UserController {
   @Get('/:id')     // GET /users/:id
   findOne() {}
 
-  @Get('/search', { description: 'Search users' })
-  search() {}
+  @Post()          // POST /users
+  create() {}
+
+  @Put('/:id')     // PUT /users/:id
+  replace() {}
+
+  @Patch('/:id')   // PATCH /users/:id
+  update() {}
+
+  @Delete('/:id')  // DELETE /users/:id
+  remove() {}
+
+  @All('/webhook') // All methods
+  webhook() {}
 }
 ```
 
-### All HTTP Methods
-
-| Decorator | HTTP Method |
-|-----------|-------------|
-| `@Get()` | GET |
-| `@Post()` | POST |
-| `@Put()` | PUT |
-| `@Delete()` | DELETE |
-| `@Patch()` | PATCH |
-| `@Head()` | HEAD |
-| `@Options()` | OPTIONS |
-| `@All()` | All methods |
-
 ### Route Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `middleware` | `MiddlewareRef[]` | Route-specific middleware |
-| `statusCode` | `number` | Response status code |
-| `description` | `string` | Route description |
-| `deprecated` | `boolean` | Mark as deprecated |
+```typescript
+@Get('/search', {
+  statusCode: 200,
+  description: 'Search users',
+  deprecated: false,
+})
+search() {}
+```
 
 ## Parameter Decorators
 
 ### `@Body(property?, options?)`
 
 ```typescript
-// Entire body
+// Full body
 @Post()
 create(@Body() data: CreateUserDto) {}
 
 // Specific property
 @Post()
-updateEmail(@Body('email') email: string) {}
+create(@Body('name') name: string) {}
 
-// With transform
+// With sync transform
 @Post()
-create(@Body({ transform: validateUser }) data: CreateUserDto) {}
+create(@Body({ transform: JSON.parse }) data: object) {}
+
+// With async transform (e.g., Zod validation)
+@Post()
+create(@Body({ transform: UserSchema.parseAsync }) data: User) {}
 ```
 
 ### `@Param(name?, options?)`
@@ -204,7 +334,7 @@ handle(@Param() params: { id: string; action: string }) {}
 @Get('/:id')
 findOne(@Param('id') id: string) {}
 
-// With transform to number
+// With transform
 @Get('/:id')
 findOne(@Param('id', { transform: Number }) id: number) {}
 ```
@@ -214,15 +344,12 @@ findOne(@Param('id', { transform: Number }) id: number) {}
 ```typescript
 // All query params
 @Get()
-findAll(@Query() query: Record<string, string>) {}
+search(@Query() query: Record<string, string>) {}
 
-// Specific query param
+// Specific param with default
 @Get()
-findAll(@Query('page') page: string) {}
-
-// With default value and transform
-@Get()
-findAll(
+paginate(
+  @Query('page', { defaultValue: 1, transform: Number }) page: number,
   @Query('limit', { defaultValue: 10, transform: Number }) limit: number
 ) {}
 ```
@@ -230,42 +357,57 @@ findAll(
 ### `@Header(name?, options?)`
 
 ```typescript
-// Specific header
 @Get()
-handle(@Header('authorization') auth: string) {}
-
-// All headers
-@Get()
-handle(@Header() headers: Record<string, string>) {}
+handle(
+  @Header('authorization') auth: string,
+  @Header('x-request-id') requestId?: string
+) {}
 ```
 
 ### `@Ctx()`
 
-Injects the full NextRush Context object.
+Inject the full NextRush Context when you need response methods:
 
 ```typescript
 @Get('/:id')
 findOne(@Ctx() ctx: Context) {
-  const id = ctx.params.id;
-  ctx.json({ id });
+  const user = this.userService.findOne(ctx.params.id);
+  if (!user) {
+    ctx.status = 404;
+    ctx.json({ error: 'User not found' });
+    return;
+  }
+  ctx.json(user);
 }
 ```
 
-### `@Req()` / `@Res()`
+### Transform Functions
 
-Injects raw request/response objects (adapter-specific).
+Transforms can be sync or async, enabling integration with validation libraries:
 
 ```typescript
-@Post('/upload')
-upload(@Req() req: IncomingMessage) {}
+import { z } from 'zod';
 
-@Get('/download')
-download(@Res() res: ServerResponse) {}
+const CreateUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+@Controller('/users')
+class UserController {
+  @Post()
+  async create(
+    @Body({ transform: CreateUserSchema.parseAsync }) data: z.infer<typeof CreateUserSchema>
+  ) {
+    // data is validated and typed
+    return this.userService.create(data);
+  }
+}
 ```
 
 ## Metadata Readers
 
-Utility functions to read decorator metadata (used internally by `@nextrush/controllers`).
+Read decorator metadata programmatically (used internally by `@nextrush/controllers`):
 
 ```typescript
 import {
@@ -273,14 +415,14 @@ import {
   getControllerMetadata,
   getRouteMetadata,
   getParamMetadata,
-  getControllerDefinition,
-  buildFullPath,
+  getAllGuards,
+  isGuardClass,
 } from '@nextrush/decorators';
 
 // Check if class is a controller
 isController(UserController); // true
 
-// Get controller metadata
+// Get controller path
 getControllerMetadata(UserController);
 // { path: '/users', version: undefined, ... }
 
@@ -288,9 +430,12 @@ getControllerMetadata(UserController);
 getRouteMetadata(UserController);
 // [{ method: 'GET', path: '/', ... }, ...]
 
-// Get params for a method
-getParamMetadata(UserController, 'findOne');
-// [{ source: 'param', index: 0, name: 'id' }]
+// Get all guards for a route
+getAllGuards(UserController, 'findOne');
+// [AuthGuard, RoleGuard]
+
+// Check guard type
+isGuardClass(AuthGuard); // true for class, false for function
 ```
 
 ## API Reference
@@ -298,6 +443,21 @@ getParamMetadata(UserController, 'findOne');
 ### Types
 
 ```typescript
+// Guard types
+type GuardFn = (ctx: GuardContext) => boolean | Promise<boolean>;
+
+interface CanActivate {
+  canActivate(ctx: GuardContext): boolean | Promise<boolean>;
+}
+
+type Guard = GuardFn | Constructor<CanActivate>;
+
+// Transform type (sync or async)
+type TransformFn<TInput = unknown, TOutput = unknown> =
+  | ((value: TInput) => TOutput)
+  | ((value: TInput) => Promise<TOutput>);
+
+// Metadata types
 interface ControllerMetadata {
   path: string;
   version?: string;
@@ -327,6 +487,77 @@ interface ParamMetadata {
 
 type RouteMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
 type ParamSource = 'body' | 'query' | 'param' | 'header' | 'ctx' | 'req' | 'res';
+```
+
+### Exports
+
+```typescript
+// Decorators
+export { Controller, Get, Post, Put, Patch, Delete, Head, Options, All };
+export { Body, Param, Query, Header, Ctx, Req, Res };
+export { UseGuard };
+
+// Types
+export type { GuardFn, GuardContext, CanActivate, Guard, Constructor };
+export type { ControllerMetadata, RouteMetadata, ParamMetadata, TransformFn };
+
+// Metadata readers
+export { isController, getControllerMetadata, getRouteMetadata, getParamMetadata };
+export { getAllGuards, getClassGuards, getMethodGuards, isGuardClass };
+
+// Type guards
+export { isValidHttpMethod, isValidParamSource };
+```
+
+## Common Mistakes
+
+### Mistake 1: Using @Service with @Controller
+
+```typescript
+// ❌ Wrong - redundant
+@Controller('/users')
+@Service()
+class UserController {}
+
+// ✅ Correct - @Controller includes DI
+@Controller('/users')
+class UserController {}
+```
+
+### Mistake 2: Running with tsx
+
+```typescript
+// ❌ Won't work - no decorator metadata
+npx tsx src/index.ts
+
+// ✅ Works - full decorator support
+npx nextrush-dev
+```
+
+### Mistake 3: Forgetting reflect-metadata
+
+```typescript
+// ❌ Wrong - decorators won't work
+import { Controller } from '@nextrush/decorators';
+
+// ✅ Correct - must be first import
+import 'reflect-metadata';
+import { Controller } from '@nextrush/decorators';
+```
+
+### Mistake 4: Guards modifying response
+
+```typescript
+// ❌ Wrong - guards shouldn't send responses
+const BadGuard: GuardFn = (ctx) => {
+  ctx.json({ error: 'Not allowed' }); // GuardContext has no json()!
+  return false;
+};
+
+// ✅ Correct - just return false, let error handler respond
+const GoodGuard: GuardFn = (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
 ```
 
 ## License

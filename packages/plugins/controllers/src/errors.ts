@@ -2,24 +2,37 @@
  * @nextrush/controllers - Error Classes
  *
  * Production-grade error classes with actionable messages.
+ * Client errors (4xx) extend HttpError for proper status codes.
  */
+
+import {
+  BadRequestError,
+  ForbiddenError,
+  HttpError,
+  InternalServerError,
+  type HttpErrorOptions,
+} from '@nextrush/errors';
 
 /**
- * Base error class for controller-related errors
+ * Base error class for controller-related server errors.
+ * These are 500-level errors that indicate server-side issues.
+ *
+ * Note: We use `declare` for name/message to help TypeScript's declaration
+ * emitter recognize that these are inherited from Error via @nextrush/errors.
  */
-export class ControllerError extends Error {
-  readonly code: string;
+export class ControllerError extends InternalServerError {
+  declare name: string;
+  declare message: string;
 
-  constructor(message: string, code: string) {
-    super(message);
+  constructor(message: string, code: string, options?: HttpErrorOptions) {
+    super(message, { code, ...options });
     this.name = 'ControllerError';
-    this.code = code;
-    Error.captureStackTrace?.(this, this.constructor);
   }
 }
 
 /**
- * Error thrown when a class is not a valid controller
+ * Error thrown when a class is not a valid controller.
+ * This is a server configuration error (500).
  */
 export class NotAControllerError extends ControllerError {
   constructor(className: string) {
@@ -38,7 +51,8 @@ export class NotAControllerError extends ControllerError {
 }
 
 /**
- * Error thrown when controller has no routes defined
+ * Error thrown when controller has no routes defined.
+ * This is a server configuration error (500).
  */
 export class NoRoutesError extends ControllerError {
   constructor(className: string) {
@@ -60,11 +74,11 @@ export class NoRoutesError extends ControllerError {
 }
 
 /**
- * Error thrown when file discovery fails
+ * Error thrown when file discovery fails.
+ * This is a server configuration error (500).
  */
 export class DiscoveryError extends ControllerError {
   readonly filePath: string;
-  readonly cause?: Error;
 
   constructor(filePath: string, reason: string, cause?: Error) {
     super(
@@ -73,22 +87,21 @@ export class DiscoveryError extends ControllerError {
         `Possible fixes:\n` +
         `  1. Ensure the file exists and is accessible\n` +
         `  2. Check for syntax errors in the file\n` +
-        `  3. Verify the file exports controller classes\n` +
-        (cause ? `\nOriginal error: ${cause.message}` : ''),
-      'DISCOVERY_ERROR'
+        `  3. Verify the file exports controller classes\n`,
+      'DISCOVERY_ERROR',
+      { cause }
     );
     this.name = 'DiscoveryError';
     this.filePath = filePath;
-    this.cause = cause;
   }
 }
 
 /**
- * Error thrown when DI resolution fails for a controller
+ * Error thrown when DI resolution fails for a controller.
+ * This is a server configuration error (500).
  */
 export class ControllerResolutionError extends ControllerError {
   readonly controllerName: string;
-  readonly cause?: Error;
 
   constructor(controllerName: string, cause?: Error) {
     super(
@@ -97,27 +110,27 @@ export class ControllerResolutionError extends ControllerError {
         `  1. Controller is not registered in the DI container\n` +
         `  2. Controller has unresolvable dependencies\n` +
         `  3. Circular dependency detected\n\n` +
-        `To fix, ensure the controller is decorated with @Service or @Controller:\n\n` +
-        `  import { Service } from '@nextrush/di';\n` +
+        `Note: @Controller automatically registers with DI - no @Service() needed!\n\n` +
         `  import { Controller } from '@nextrush/decorators';\n\n` +
         `  @Controller('/path')\n` +
-        `  @Service()\n` +
         `  class ${controllerName} {\n` +
         `    constructor(private readonly service: SomeService) { }\n` +
-        `  }\n` +
-        (cause ? `\nOriginal error: ${cause.message}` : ''),
-      'CONTROLLER_RESOLUTION_ERROR'
+        `  }\n`,
+      'CONTROLLER_RESOLUTION_ERROR',
+      { cause }
     );
     this.name = 'ControllerResolutionError';
     this.controllerName = controllerName;
-    this.cause = cause;
   }
 }
 
 /**
- * Error thrown when parameter injection fails
+ * Error thrown when parameter injection fails.
+ * This is a CLIENT error (400) - the request is malformed.
  */
-export class ParameterInjectionError extends ControllerError {
+export class ParameterInjectionError extends BadRequestError {
+  declare name: string;
+  declare message: string;
   readonly controllerName: string;
   readonly methodName: string;
   readonly paramIndex: number;
@@ -129,13 +142,16 @@ export class ParameterInjectionError extends ControllerError {
     reason: string
   ) {
     super(
-      `Failed to inject parameter at index ${paramIndex} for ` +
-        `"${controllerName}.${methodName}".\n\n` +
-        `Reason: ${reason}\n\n` +
-        `Check that the parameter decorator is correctly applied:\n\n` +
-        `  @Get('/:id')\n` +
-        `  ${methodName}(@Param('id') id: string) { }\n`,
-      'PARAMETER_INJECTION_ERROR'
+      `Invalid parameter at index ${paramIndex} for "${controllerName}.${methodName}": ${reason}`,
+      {
+        code: 'PARAMETER_INJECTION_ERROR',
+        details: {
+          controller: controllerName,
+          method: methodName,
+          parameterIndex: paramIndex,
+          reason,
+        },
+      }
     );
     this.name = 'ParameterInjectionError';
     this.controllerName = controllerName;
@@ -145,9 +161,12 @@ export class ParameterInjectionError extends ControllerError {
 }
 
 /**
- * Error thrown when a required parameter is missing
+ * Error thrown when a required parameter is missing.
+ * This is a CLIENT error (400) - the request is incomplete.
  */
-export class MissingParameterError extends ControllerError {
+export class MissingParameterError extends BadRequestError {
+  declare name: string;
+  declare message: string;
   readonly controllerName: string;
   readonly methodName: string;
   readonly paramName: string;
@@ -159,12 +178,15 @@ export class MissingParameterError extends ControllerError {
     paramName: string,
     source: string
   ) {
-    super(
-      `Required parameter "${paramName}" is missing from ${source} ` +
-        `for "${controllerName}.${methodName}".\n\n` +
-        `The client request must include this parameter.\n`,
-      'MISSING_PARAMETER'
-    );
+    super(`Required ${source} parameter "${paramName}" is missing`, {
+      code: 'MISSING_PARAMETER',
+      details: {
+        parameter: paramName,
+        source,
+        controller: controllerName,
+        method: methodName,
+      },
+    });
     this.name = 'MissingParameterError';
     this.controllerName = controllerName;
     this.methodName = methodName;
@@ -174,13 +196,13 @@ export class MissingParameterError extends ControllerError {
 }
 
 /**
- * Error thrown when route registration fails
+ * Error thrown when route registration fails.
+ * This is a server configuration error (500).
  */
 export class RouteRegistrationError extends ControllerError {
   readonly controllerName: string;
   readonly method: string;
   readonly path: string;
-  readonly cause?: Error;
 
   constructor(
     controllerName: string,
@@ -190,16 +212,38 @@ export class RouteRegistrationError extends ControllerError {
     cause?: Error
   ) {
     super(
-      `Failed to register route ${method} ${path} ` +
-        `from controller "${controllerName}".\n\n` +
-        `Reason: ${reason}\n` +
-        (cause ? `\nOriginal error: ${cause.message}` : ''),
-      'ROUTE_REGISTRATION_ERROR'
+      `Failed to register route ${method} ${path} from controller "${controllerName}".\n\n` +
+        `Reason: ${reason}\n`,
+      'ROUTE_REGISTRATION_ERROR',
+      { cause }
     );
     this.name = 'RouteRegistrationError';
     this.controllerName = controllerName;
     this.method = method;
     this.path = path;
-    this.cause = cause;
   }
 }
+
+/**
+ * Error thrown when a guard rejects the request.
+ * This is a CLIENT error (403) - access denied.
+ */
+export class GuardRejectionError extends ForbiddenError {
+  declare name: string;
+  declare message: string;
+  readonly guardName: string;
+
+  constructor(guardName: string, message?: string) {
+    super(message ?? 'Access denied', {
+      code: 'GUARD_REJECTED',
+      details: { guard: guardName },
+    });
+    this.name = 'GuardRejectionError';
+    this.guardName = guardName;
+  }
+}
+
+/**
+ * Re-export HttpError for type checking in consumers
+ */
+export { HttpError };

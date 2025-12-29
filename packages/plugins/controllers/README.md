@@ -1,16 +1,407 @@
 # @nextrush/controllers
 
-Controller plugin for NextRush - **automatic controller discovery**, DI integration, and route building for decorator-based controllers.
+> Connect decorators, dependency injection, and routing into automatic controller registration with guards and parameter extraction.
 
-## 🚀 Development
+## The Problem
 
-For the best development experience with full decorator and DI support, we highly recommend using **`@nextrush/dev`**.
+Decorator-based controllers don't wire themselves. Without a connection layer:
+
+- You write boilerplate to register each route from decorated methods
+- Guards need manual execution before each handler
+- Parameter extraction logic is duplicated across handlers
+- DI resolution happens ad-hoc with no error handling
+
+## How NextRush Approaches This
+
+`@nextrush/controllers` is the **integration layer** that reads decorator metadata and builds optimized route handlers:
+
+1. **Discovery**: Find controller classes (manual or auto-discovery)
+2. **Metadata Reading**: Extract `@Controller`, `@Get`/`@Post`, `@Body`/`@Param` metadata
+3. **Guard Chain Building**: Collect class and method guards in execution order
+4. **Handler Building**: Create route handlers with parameter injection
+5. **Route Registration**: Register handlers with the router
+
+This happens once at startup. At runtime, handlers are pre-built and optimized.
+
+## Mental Model
+
+Think of this plugin as a **compiler for controllers**:
+
+```
+@Controller + @Get + @Body + @UseGuard
+              ↓
+    [controllersPlugin reads metadata]
+              ↓
+    Built route handler:
+      1. Execute guards (class → method order)
+      2. Resolve controller from DI
+      3. Extract & transform parameters
+      4. Call controller method
+      5. Send response
+```
+
+## Installation
+
+```bash
+pnpm add @nextrush/controllers @nextrush/di @nextrush/decorators reflect-metadata
+```
+
+**Required `tsconfig.json` settings:**
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
+```
+
+## Quick Start
+
+```typescript
+import 'reflect-metadata';
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { listen } from '@nextrush/adapter-node';
+import { controllersPlugin } from '@nextrush/controllers';
+import { Controller, Get, Post, Body, Param, UseGuard } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+import type { GuardFn } from '@nextrush/decorators';
+
+// Service with DI
+@Service()
+class UserService {
+  findAll() { return [{ id: 1, name: 'Alice' }]; }
+  findOne(id: string) { return { id, name: 'Alice' }; }
+  create(data: { name: string }) { return { id: Date.now(), ...data }; }
+}
+
+// Guard
+const AuthGuard: GuardFn = (ctx) => Boolean(ctx.get('authorization'));
+
+// Controller
+@UseGuard(AuthGuard)
+@Controller('/users')
+class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() { return this.userService.findAll(); }
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) { return this.userService.findOne(id); }
+
+  @Post()
+  create(@Body() data: { name: string }) { return this.userService.create(data); }
+}
+
+// Bootstrap
+async function main() {
+  const app = createApp();
+  const router = createRouter();
+
+  app.plugin(controllersPlugin({
+    router,
+    controllers: [UserController],
+    prefix: '/api',
+  }));
+
+  app.use(router.routes());
+  listen(app, { port: 3000 });
+}
+
+main();
+```
+
+## Handler Building Pipeline
+
+When you call `controllersPlugin()`, this is what happens for each controller:
+
+### 1. Validate Controller
+
+```typescript
+// Checks:
+// - Has @Controller decorator → NotAControllerError if missing
+// - Has at least one route decorator → NoRoutesError if missing
+```
+
+### 2. Collect Guards
+
+```typescript
+// Collects guards in order:
+// 1. Class-level guards (from @UseGuard on class)
+// 2. Method-level guards (from @UseGuard on method)
+
+// Guards can be functions or classes implementing CanActivate
+const guards = getAllGuards(UserController, 'findOne');
+// [AuthGuard, RoleGuard] (if both applied)
+```
+
+### 3. Build Handler Function
+
+For each route method, a handler is created:
+
+```typescript
+// Pseudo-code of the generated handler:
+async function handler(ctx: Context) {
+  // 1. Execute guards (in order)
+  for (const guard of guards) {
+    if (isGuardClass(guard)) {
+      const instance = container.resolve(guard);
+      if (!await instance.canActivate(guardContext)) {
+        throw new GuardRejectionError(guard.name);
+      }
+    } else {
+      if (!await guard(guardContext)) {
+        throw new GuardRejectionError('Guard');
+      }
+    }
+  }
+
+  // 2. Resolve controller from DI
+  const controller = container.resolve(UserController);
+
+  // 3. Extract parameters (with async transform support)
+  const args = await resolveParameters(ctx, paramMetadata);
+
+  // 4. Call method
+  const result = await controller.findOne(...args);
+
+  // 5. Send response (if not already sent)
+  if (result !== undefined) {
+    ctx.json(result);
+  }
+}
+```
+
+### 4. Register Routes
+
+```typescript
+// Routes are registered with the router:
+router.get('/api/users', handler1);
+router.get('/api/users/:id', handler2);
+router.post('/api/users', handler3);
+```
+
+## Guard Execution
+
+Guards protect routes by running before the handler. Both function-based and class-based guards are supported:
+
+### Function Guards
+
+```typescript
+const AuthGuard: GuardFn = async (ctx) => {
+  const token = ctx.get('authorization');
+  if (!token) return false;
+
+  const user = await verifyToken(token);
+  ctx.state.user = user;
+  return Boolean(user);
+};
+```
+
+### Class Guards (with DI)
+
+```typescript
+@Service()
+class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService) {}
+
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const token = ctx.get('authorization');
+    if (!token) return false;
+
+    const user = await this.authService.verify(token);
+    ctx.state.user = user;
+    return Boolean(user);
+  }
+}
+```
+
+### Guard Resolution
+
+The plugin detects guard type using `isGuardClass()`:
+- **Function guards**: Called directly with `GuardContext`
+- **Class guards**: Resolved from DI container, then `canActivate()` called
+
+### Guard Rejection
+
+When a guard returns `false` or throws:
+
+```typescript
+// Results in:
+throw new GuardRejectionError('AuthGuard', 'Access denied by guard');
+
+// HTTP Response:
+// Status: 403 Forbidden
+// Body: { "error": "GuardRejectionError", "message": "Access denied", "code": "GUARD_REJECTED" }
+```
+
+## Parameter Extraction
+
+Parameters are extracted from the request based on decorator metadata:
+
+### Extraction Sources
+
+| Decorator | Source | Example |
+|-----------|--------|---------|
+| `@Body()` | `ctx.body` | Full request body |
+| `@Body('name')` | `ctx.body.name` | Specific body property |
+| `@Param()` | `ctx.params` | All route parameters |
+| `@Param('id')` | `ctx.params.id` | Specific route parameter |
+| `@Query()` | `ctx.query` | All query parameters |
+| `@Query('page')` | `ctx.query.page` | Specific query parameter |
+| `@Header('auth')` | `ctx.get('auth')` | Specific header |
+| `@Ctx()` | `ctx` | Full context object |
+
+### Async Transform Support
+
+Transform functions can be async, enabling validation library integration:
+
+```typescript
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+@Controller('/users')
+class UserController {
+  @Post()
+  async create(
+    @Body({ transform: UserSchema.parseAsync }) data: z.infer<typeof UserSchema>
+  ) {
+    // data is validated and typed
+    return this.userService.create(data);
+  }
+}
+```
+
+### Missing Parameters
+
+Required parameters throw `MissingParameterError` (400):
+
+```typescript
+// If @Body('email') is required but not provided:
+throw new MissingParameterError(
+  'UserController',
+  'create',
+  'email',
+  'body'
+);
+
+// HTTP Response:
+// Status: 400 Bad Request
+// Body: { "message": "Required body parameter \"email\" is missing", "code": "MISSING_PARAMETER" }
+```
+
+## Plugin Options
+
+```typescript
+interface ControllersPluginOptions {
+  // Required: Router instance for route registration
+  router: Router;
+
+  // Manual controller registration
+  controllers?: Function[];
+
+  // Auto-discovery options
+  root?: string;              // Directory to scan (default: './src')
+  include?: string[];         // Glob patterns (default: ['**/*.ts', '**/*.js'])
+  exclude?: string[];         // Exclude patterns (default: tests, node_modules)
+
+  // Route configuration
+  prefix?: string;            // Global route prefix (e.g., '/api')
+  middleware?: Middleware[];  // Global middleware for all routes
+
+  // DI container (uses global container by default)
+  container?: ContainerInterface;
+
+  // Debugging
+  debug?: boolean;            // Log discovered routes
+  strict?: boolean;           // Throw on discovery errors
+}
+```
+
+### Manual Registration
+
+```typescript
+app.plugin(controllersPlugin({
+  router,
+  controllers: [UserController, ProductController],
+  prefix: '/api',
+}));
+```
+
+### Auto-Discovery
+
+```typescript
+await app.pluginAsync(controllersPlugin({
+  router,
+  root: './src',
+  include: ['**/*.controller.ts'],
+  exclude: ['**/*.test.ts', '**/__tests__/**'],
+  prefix: '/api',
+  debug: true,
+}));
+```
+
+## Error Hierarchy
+
+All errors extend `HttpError` from `@nextrush/errors` with proper status codes:
+
+### Server Errors (5xx)
+
+| Error | Code | Description |
+|-------|------|-------------|
+| `NotAControllerError` | 500 | Class missing `@Controller` |
+| `NoRoutesError` | 500 | Controller has no route decorators |
+| `ControllerResolutionError` | 500 | DI failed to resolve controller |
+| `RouteRegistrationError` | 500 | Route registration failed |
+| `DiscoveryError` | 500 | File discovery failed |
+
+### Client Errors (4xx)
+
+| Error | Code | Description |
+|-------|------|-------------|
+| `MissingParameterError` | 400 | Required parameter not provided |
+| `ParameterInjectionError` | 400 | Parameter transform/validation failed |
+| `GuardRejectionError` | 403 | Guard returned false |
+
+### Error Usage
+
+```typescript
+import {
+  GuardRejectionError,
+  MissingParameterError,
+  ControllerResolutionError,
+} from '@nextrush/controllers';
+
+// In error handling middleware:
+app.use(async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    if (error instanceof GuardRejectionError) {
+      ctx.status = 403;
+      ctx.json({ error: 'Access denied', guard: error.guardName });
+    } else if (error instanceof MissingParameterError) {
+      ctx.status = 400;
+      ctx.json({ error: error.message, parameter: error.paramName });
+    }
+  }
+});
+```
+
+## Development Runtime
+
+Use `@nextrush/dev` for development (decorator metadata support):
 
 ```bash
 pnpm add -D @nextrush/dev
 ```
-
-Then in your `package.json`:
 
 ```json
 {
@@ -20,358 +411,125 @@ Then in your `package.json`:
 }
 ```
 
-### Why nextrush-dev?
+## API Reference
 
-TypeScript decorators with constructor injection require **`emitDecoratorMetadata`** to work. Most modern fast runners (like `tsx` or `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing DI to fail.
-
-| Runtime | Decorator Metadata | Recommended |
-|---------|-------------------|-------------|
-| **nextrush-dev** | ✅ Full Support | **✅ Highly Recommended** |
-| **tsc + node** | ✅ Full Support | ✅ Yes (Production) |
-| **tsx / esbuild** | ❌ Not Supported | ❌ No |
-| **ts-node --esm** | ⚠️ Issues | ❌ No |
-
-## Installation
-
-```bash
-pnpm add @nextrush/controllers @nextrush/di @nextrush/decorators reflect-metadata
-```
-
-## Project Setup
-
-### 1. TypeScript Configuration (`tsconfig.json`)
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "strict": true
-  }
-}
-```
-
-### 2. Entry Point (`src/index.ts`)
+### Exports
 
 ```typescript
-import 'reflect-metadata';  // Must be first import!
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
-import { controllersPlugin } from '@nextrush/controllers';
+// Plugin
+export { controllersPlugin } from './plugin';
 
-async function main() {
-  const app = createApp();
-  const router = createRouter();
+// Types
+export type { ControllersPluginOptions, BuiltRoute } from './types';
 
-  // Auto-discover all controllers in ./src
-  await app.pluginAsync(
-    controllersPlugin({
-      router,
-      root: './src',
-      prefix: '/api',
-      debug: true,
-    })
-  );
+// Errors
+export {
+  ControllerError,
+  NotAControllerError,
+  NoRoutesError,
+  DiscoveryError,
+  ControllerResolutionError,
+  ParameterInjectionError,
+  MissingParameterError,
+  RouteRegistrationError,
+  GuardRejectionError,
+} from './errors';
 
-  app.use(router.routes());
-  listen(app, { port: 3000 });
-}
+// Re-exports from @nextrush/decorators (convenience)
+export {
+  Controller, Get, Post, Put, Patch, Delete,
+  Body, Param, Query, Header, Ctx,
+  UseGuard,
+} from '@nextrush/decorators';
 
-main().catch(console.error);
+// Re-exports from @nextrush/di (convenience)
+export { Service, Repository, container } from '@nextrush/di';
 ```
 
-## Quick Start
+## Common Mistakes
 
-### Creating a Controller
+### Mistake 1: Forgetting reflect-metadata
 
 ```typescript
-// src/controllers/user.controller.ts
-import { Controller, Get, Post, Body, Param } from '@nextrush/controllers';
+// ❌ Wrong - DI won't work
+import { Controller } from '@nextrush/decorators';
 
-// @Controller automatically includes DI registration - no @Service() needed!
-@Controller('/users')
-export class UserController {
-  constructor(private readonly userService: UserService) {}
-
-  @Get()
-  findAll() {
-    return this.userService.findAll();
-  }
-
-  @Get('/:id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(id);
-  }
-
-  @Post()
-  create(@Body() data: { name: string }) {
-    return this.userService.create(data);
-  }
-}
+// ✅ Correct - must be first import
+import 'reflect-metadata';
+import { Controller } from '@nextrush/decorators';
 ```
 
-### Creating a Service
+### Mistake 2: Not awaiting pluginAsync for auto-discovery
 
 ```typescript
-// src/services/user.service.ts
-import { Service } from '@nextrush/controllers';
+// ❌ Wrong - routes won't be registered
+app.plugin(controllersPlugin({ router, root: './src' }));
+app.use(router.routes());
+listen(app);
 
-@Service()
-export class UserService {
-  private users = [
-    { id: '1', name: 'John' },
-    { id: '2', name: 'Jane' },
-  ];
-
-  findAll() {
-    return this.users;
-  }
-
-  findOne(id: string) {
-    return this.users.find((u) => u.id === id);
-  }
-
-  create(data: { name: string }) {
-    const user = { id: String(Date.now()), ...data };
-    this.users.push(user);
-    return user;
-  }
-}
+// ✅ Correct - wait for discovery
+await app.pluginAsync(controllersPlugin({ router, root: './src' }));
+app.use(router.routes());
+listen(app);
 ```
 
-That's it! Run with `pnpm dev` and your controllers are auto-discovered.
+### Mistake 3: Guards sending responses
 
-## Important: @Controller vs @Service
-
-| Decorator | Use For | DI Included |
-|-----------|---------|-------------|
-| `@Controller('/path')` | HTTP controllers | ✅ Yes (auto) |
-| `@Service()` | Business logic services | ✅ Yes |
-| `@Repository()` | Data access layer | ✅ Yes |
-
-**You do NOT need both `@Controller` and `@Service` on the same class!**
+Guards receive `GuardContext`, not full `Context`. They cannot send responses:
 
 ```typescript
-// ✅ Correct - @Controller includes DI
-@Controller('/users')
-export class UserController {
-  constructor(private userService: UserService) {}
-}
+// ❌ Wrong - GuardContext has no json()
+const BadGuard: GuardFn = (ctx) => {
+  ctx.json({ error: 'Denied' }); // TypeError!
+  return false;
+};
 
-// ❌ Redundant - @Service is not needed
-@Controller('/users')
-@Service()  // <- This is unnecessary!
-export class UserController {
-  constructor(private userService: UserService) {}
-}
-```
-
-## Auto-Discovery Options
-
-```typescript
-controllersPlugin({
-  router,
-  root: './src',
-
-  // Glob patterns to include (default)
-  include: ['**/*.ts', '**/*.js'],
-
-  // Glob patterns to exclude (default)
-  exclude: [
-    '**/*.test.ts',
-    '**/*.spec.ts',
-    '**/node_modules/**',
-    '**/dist/**',
-    '**/__tests__/**',
-  ],
-
-  // Global route prefix
-  prefix: '/api/v1',
-
-  // Throw on discovery errors (default: false)
-  strict: false,
-
-  // Enable debug logging
-  debug: true,
-});
-```
-
-## Parameter Decorators
-
-```typescript
-@Controller('/example')
-export class ExampleController {
-  @Post('/submit')
-  submit(
-    @Body() body: CreateDto,           // Full request body
-    @Body('name') name: string,        // Specific body property
-    @Param('id') id: string,           // Route parameter
-    @Query('page') page: string,       // Query string parameter
-    @Header('authorization') auth: string,  // Request header
-    @Ctx() ctx: Context,               // Full context object
-  ) {
-    // ...
-  }
-}
-```
-
-### Parameter Transform
-
-```typescript
-@Controller('/products')
-export class ProductController {
-  @Get()
-  findAll(
-    @Query('page', { defaultValue: 1, transform: Number }) page: number,
-    @Query('limit', { defaultValue: 10, transform: Number }) limit: number
-  ) {
-    return { page, limit };
-  }
-}
-```
-
-## Dependency Injection
-
-### Constructor Injection (Automatic)
-
-```typescript
-@Service()
-class Logger {
-  log(message: string) {
-    console.log(`[LOG] ${message}`);
-  }
-}
-
-@Service()
-class UserService {
-  constructor(private logger: Logger) {}  // Auto-injected!
-
-  findAll() {
-    this.logger.log('Finding all users');
-    return [];
-  }
-}
-
-@Controller('/users')
-export class UserController {
-  constructor(private userService: UserService) {}  // Auto-injected!
-}
-```
-
-### Interface Injection (Using Tokens)
-
-```typescript
-import { inject, createContainer } from '@nextrush/controllers';
-
-const DATABASE_TOKEN = Symbol('Database');
-
-interface IDatabase {
-  query(sql: string): Promise<unknown>;
-}
-
-@Service()
-class PostgresDatabase implements IDatabase {
-  async query(sql: string) { /* ... */ }
-}
-
-@Controller('/data')
-export class DataController {
-  constructor(
-    @inject(DATABASE_TOKEN) private db: IDatabase
-  ) {}
-}
-
-// Register the implementation
-const container = createContainer();
-container.register(DATABASE_TOKEN, { useClass: PostgresDatabase });
-
-app.pluginAsync(controllersPlugin({
-  router,
-  root: './src',
-  container,
-}));
+// ✅ Correct - return false, let error handler respond
+const GoodGuard: GuardFn = (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
 ```
 
 ## Troubleshooting
 
-### Error: "TypeInfo not known for Controller"
+### "TypeInfo not known for Controller"
 
-**Cause**: Decorator metadata is not being emitted.
+**Cause**: `emitDecoratorMetadata` not enabled or using tsx/esbuild.
 
-**Fix**: Use `@nextrush/dev` for development. It automatically handles metadata emission.
+**Fix**: Use `@nextrush/dev` or compile with `tsc`.
 
-### Error: "TypeScript parameter property is not supported"
+### "Controller has no routes defined"
 
-**Cause**: Standard Node.js strip-only mode can't handle `private readonly` in constructors.
+**Cause**: Missing `@Get`/`@Post` decorators on methods.
 
-**Fix**: Use `@nextrush/dev` or compile with `tsc` first.
-
-### Error: "No controllers found"
-
-**Cause**: Files not matching include patterns or discovery errors.
-
-**Fix**: Enable debug mode and check patterns:
+**Fix**: Add route decorators:
 
 ```typescript
-controllersPlugin({
-  router,
-  root: './src',
-  debug: true,  // See what's being scanned
-  strict: true, // Throw on any discovery error
-});
-```
-
-### Missing `reflect-metadata`
-
-**Cause**: `reflect-metadata` must be imported before any decorators run.
-
-**Fix**: Import it first in your entry point:
-
-```typescript
-import 'reflect-metadata';  // MUST be first!
-import { createApp } from '@nextrush/core';
-// ... rest of imports
-```
-
-## API Reference
-
-### Decorators
-
-| Decorator | Description |
-|-----------|-------------|
-| `@Controller(path?)` | Mark class as HTTP controller (includes DI) |
-| `@Service()` | Mark class as injectable service |
-| `@Repository()` | Mark class as data repository |
-| `@Get(path?)` | HTTP GET route |
-| `@Post(path?)` | HTTP POST route |
-| `@Put(path?)` | HTTP PUT route |
-| `@Delete(path?)` | HTTP DELETE route |
-| `@Patch(path?)` | HTTP PATCH route |
-| `@Body(prop?)` | Inject request body |
-| `@Param(name?)` | Inject route parameter |
-| `@Query(name?)` | Inject query parameter |
-| `@Header(name?)` | Inject request header |
-| `@Ctx()` | Inject full Context |
-
-### Plugin Options
-
-```typescript
-interface ControllersPluginOptions {
-  router: Router;              // Required: Router instance
-  root?: string;               // Directory to scan
-  include?: string[];          // Glob patterns to include
-  exclude?: string[];          // Glob patterns to exclude
-  controllers?: Function[];    // Manual controller list
-  prefix?: string;             // Global route prefix
-  middleware?: Middleware[];   // Global middleware
-  container?: ContainerInterface;  // Custom DI container
-  strict?: boolean;            // Throw on errors
-  debug?: boolean;             // Enable logging
+@Controller('/users')
+class UserController {
+  @Get()  // ← Required!
+  findAll() { }
 }
+```
+
+### "Access denied" but guard should pass
+
+**Cause**: Guard is returning `undefined` instead of `true`.
+
+**Fix**: Ensure guard returns boolean:
+
+```typescript
+// ❌ Wrong - returns undefined if no token
+const BadGuard: GuardFn = (ctx) => {
+  const token = ctx.get('auth');
+  if (token) return true;
+  // Missing return false!
+};
+
+// ✅ Correct - always returns boolean
+const GoodGuard: GuardFn = (ctx) => {
+  return Boolean(ctx.get('auth'));
+};
 ```
 
 ## License

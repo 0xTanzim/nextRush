@@ -119,9 +119,9 @@ async function scanDirectory(
 async function importControllers(
   filePath: string,
   debug: boolean
-): Promise<{ controllers: Function[]; errors: Error[] }> {
+): Promise<{ controllers: Function[]; errors: DiscoveryError[] }> {
   const controllers: Function[] = [];
-  const errors: Error[] = [];
+  const errors: DiscoveryError[] = [];
 
   try {
     // Convert to file URL for ESM import
@@ -219,8 +219,8 @@ export function getControllersFromResults(results: DiscoveryResult[]): Function[
 /**
  * Get all errors from discovery results
  */
-export function getErrorsFromResults(results: DiscoveryResult[]): Error[] {
-  const errors: Error[] = [];
+export function getErrorsFromResults(results: DiscoveryResult[]): DiscoveryError[] {
+  const errors: DiscoveryError[] = [];
 
   for (const result of results) {
     errors.push(...result.errors);

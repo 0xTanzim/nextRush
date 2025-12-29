@@ -24,6 +24,7 @@
   "dependencies": {
     "@nextrush/decorators": "workspace:*",
     "@nextrush/di": "workspace:*",
+    "@nextrush/errors": "workspace:*",
     "@nextrush/types": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },

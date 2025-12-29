@@ -11,4 +11,13 @@ export default defineConfig({
   treeshake: true,
   minify: false,
   splitting: false,
+  external: [
+    '@nextrush/core',
+    '@nextrush/decorators',
+    '@nextrush/di',
+    '@nextrush/errors',
+    '@nextrush/router',
+    '@nextrush/types',
+    'reflect-metadata',
+  ],
 });

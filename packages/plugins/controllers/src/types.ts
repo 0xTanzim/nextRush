@@ -7,6 +7,7 @@
 import type { ControllerDefinition } from '@nextrush/decorators';
 import type { ContainerInterface } from '@nextrush/di';
 import type { Middleware, RouteHandler } from '@nextrush/types';
+import type { DiscoveryError } from './errors.js';
 
 /**
  * Options for the controllers plugin
@@ -136,7 +137,7 @@ export interface DiscoveryResult {
   readonly controllers: Function[];
 
   /** Any errors during discovery */
-  readonly errors: Error[];
+  readonly errors: DiscoveryError[];
 }
 
 /**

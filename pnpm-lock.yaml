@@ -484,6 +484,9 @@ importers:
       '@nextrush/di':
         specifier: workspace:*
         version: link:../../di
+      '@nextrush/errors':
+        specifier: workspace:*
+        version: link:../../errors
       '@nextrush/types':
         specifier: workspace:*
         version: link:../../types
