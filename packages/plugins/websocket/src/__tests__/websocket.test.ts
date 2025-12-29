@@ -3,8 +3,16 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RoomManager } from '../room-manager';
+import { MaxRoomsExceededError, RoomManager } from '../room-manager';
 import type { WSConnection } from '../types';
+import {
+    DEFAULT_MAX_ROOMS_PER_CONNECTION,
+    DEFAULT_WS_OPTIONS,
+    escapeRegex,
+    MAX_ROOM_NAME_LENGTH,
+    validateRoomName,
+    WS_READY_STATE_OPEN,
+} from '../types';
 
 // Mock connection for testing
 function createMockConnection(id: string): WSConnection {
@@ -63,6 +71,62 @@ describe('RoomManager', () => {
 
       expect(roomManager.getRooms(conn)).toContain('room-1');
       expect(roomManager.getRooms(conn)).toContain('room-2');
+    });
+
+    it('should reject empty room name', () => {
+      const conn = createMockConnection('conn-1');
+      expect(() => roomManager.join(conn, '')).toThrow(TypeError);
+      expect(() => roomManager.join(conn, '')).toThrow('cannot be empty');
+    });
+
+    it('should reject room name exceeding max length', () => {
+      const conn = createMockConnection('conn-1');
+      const longName = 'a'.repeat(MAX_ROOM_NAME_LENGTH + 1);
+      expect(() => roomManager.join(conn, longName)).toThrow(TypeError);
+      expect(() => roomManager.join(conn, longName)).toThrow('exceeds maximum length');
+    });
+
+    it('should accept room name at max length', () => {
+      const conn = createMockConnection('conn-1');
+      const maxName = 'a'.repeat(MAX_ROOM_NAME_LENGTH);
+      roomManager.join(conn, maxName);
+      expect(roomManager.isInRoom(conn, maxName)).toBe(true);
+    });
+
+    it('should throw MaxRoomsExceededError when limit reached', () => {
+      const maxRooms = 3;
+      const manager = new RoomManager(maxRooms);
+      const conn = createMockConnection('conn-1');
+
+      manager.join(conn, 'room-1');
+      manager.join(conn, 'room-2');
+      manager.join(conn, 'room-3');
+
+      expect(() => manager.join(conn, 'room-4')).toThrow(MaxRoomsExceededError);
+    });
+
+    it('should allow rejoining same room without throwing', () => {
+      const maxRooms = 3;
+      const manager = new RoomManager(maxRooms);
+      const conn = createMockConnection('conn-1');
+
+      manager.join(conn, 'room-1');
+      manager.join(conn, 'room-2');
+      manager.join(conn, 'room-3');
+
+      // Rejoining same room should not throw
+      expect(() => manager.join(conn, 'room-1')).not.toThrow();
+    });
+
+    it('should allow unlimited rooms when maxRoomsPerConnection is 0', () => {
+      const manager = new RoomManager(0);
+      const conn = createMockConnection('conn-1');
+
+      for (let i = 0; i < 200; i++) {
+        manager.join(conn, `room-${i}`);
+      }
+
+      expect(manager.getRooms(conn)).toHaveLength(200);
     });
   });
 
@@ -148,6 +212,95 @@ describe('RoomManager', () => {
       expect(roomManager.getAllRooms()).toHaveLength(0);
     });
   });
+
+  describe('broadcastJson', () => {
+    it('should handle JSON.stringify errors gracefully', () => {
+      const conn = createMockConnection('conn-1');
+      roomManager.join(conn, 'room-1');
+
+      // Create circular reference
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+
+      // Should not throw
+      expect(() => roomManager.broadcastJson('room-1', circular)).not.toThrow();
+      expect(conn.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setMaxRoomsPerConnection', () => {
+    it('should update max rooms limit', () => {
+      roomManager.setMaxRoomsPerConnection(5);
+      expect(roomManager.getMaxRoomsPerConnection()).toBe(5);
+    });
+  });
+});
+
+describe('validateRoomName', () => {
+  it('should accept valid room names', () => {
+    expect(() => validateRoomName('chat')).not.toThrow();
+    expect(() => validateRoomName('room-123')).not.toThrow();
+    expect(() => validateRoomName('user:alice')).not.toThrow();
+    expect(() => validateRoomName('a')).not.toThrow();
+  });
+
+  it('should reject non-string values', () => {
+    expect(() => validateRoomName(null as unknown as string)).toThrow('must be a string');
+    expect(() => validateRoomName(123 as unknown as string)).toThrow('must be a string');
+    expect(() => validateRoomName(undefined as unknown as string)).toThrow('must be a string');
+  });
+
+  it('should reject empty strings', () => {
+    expect(() => validateRoomName('')).toThrow('cannot be empty');
+  });
+
+  it('should reject strings exceeding max length', () => {
+    const longName = 'a'.repeat(MAX_ROOM_NAME_LENGTH + 1);
+    expect(() => validateRoomName(longName)).toThrow('exceeds maximum length');
+  });
+});
+
+describe('escapeRegex', () => {
+  it('should escape special regex characters', () => {
+    expect(escapeRegex('.')).toBe('\\.');
+    expect(escapeRegex('.*')).toBe('\\.\\*');
+    expect(escapeRegex('example.com')).toBe('example\\.com');
+    expect(escapeRegex('a+b')).toBe('a\\+b');
+    expect(escapeRegex('a?b')).toBe('a\\?b');
+    expect(escapeRegex('[abc]')).toBe('\\[abc\\]');
+    expect(escapeRegex('(a|b)')).toBe('\\(a\\|b\\)');
+    expect(escapeRegex('^start$end')).toBe('\\^start\\$end');
+  });
+
+  it('should not modify alphanumeric characters', () => {
+    expect(escapeRegex('abc123')).toBe('abc123');
+    expect(escapeRegex('hello-world')).toBe('hello-world');
+  });
+});
+
+describe('Constants', () => {
+  it('should export MAX_ROOM_NAME_LENGTH', () => {
+    expect(MAX_ROOM_NAME_LENGTH).toBe(256);
+  });
+
+  it('should export DEFAULT_MAX_ROOMS_PER_CONNECTION', () => {
+    expect(DEFAULT_MAX_ROOMS_PER_CONNECTION).toBe(100);
+  });
+
+  it('should export WS_READY_STATE_OPEN', () => {
+    expect(WS_READY_STATE_OPEN).toBe(1);
+  });
+
+  it('should export DEFAULT_WS_OPTIONS with correct values', () => {
+    expect(DEFAULT_WS_OPTIONS.path).toEqual(['/']);
+    expect(DEFAULT_WS_OPTIONS.maxPayload).toBe(1048576);
+    expect(DEFAULT_WS_OPTIONS.heartbeatInterval).toBe(30000);
+    expect(DEFAULT_WS_OPTIONS.clientTimeout).toBe(60000);
+    expect(DEFAULT_WS_OPTIONS.maxConnections).toBe(0);
+    expect(DEFAULT_WS_OPTIONS.maxRoomsPerConnection).toBe(100);
+    expect(DEFAULT_WS_OPTIONS.allowedOrigins).toEqual([]);
+    expect(DEFAULT_WS_OPTIONS.perMessageDeflate).toBe(false);
+  });
 });
 
 describe('createWebSocket', () => {
@@ -214,5 +367,99 @@ describe('WebSocketServer options', () => {
     });
 
     expect(wss).toBeDefined();
+  });
+
+  it('should accept maxRoomsPerConnection option', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket({
+      maxRoomsPerConnection: 50,
+    });
+
+    expect(wss).toBeDefined();
+  });
+
+  it('should accept allowedOrigins option', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket({
+      allowedOrigins: ['https://example.com', 'https://*.example.com'],
+    });
+
+    expect(wss).toBeDefined();
+  });
+});
+
+describe('WebSocketServer API', () => {
+  it('should export getConnections method', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(typeof wss.getConnections).toBe('function');
+    expect(wss.getConnections()).toEqual([]);
+  });
+
+  it('should export getConnectionCount method', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(typeof wss.getConnectionCount).toBe('function');
+    expect(wss.getConnectionCount()).toBe(0);
+  });
+
+  it('should export broadcast method', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(typeof wss.broadcast).toBe('function');
+  });
+
+  it('should export broadcastJson method', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(typeof wss.broadcastJson).toBe('function');
+  });
+
+  it('should export getRooms method', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(typeof wss.getRooms).toBe('function');
+    expect(wss.getRooms()).toEqual([]);
+  });
+
+  it('should export closeAll method', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(typeof wss.closeAll).toBe('function');
+  });
+
+  it('should export close method', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(typeof wss.close).toBe('function');
+  });
+});
+
+describe('Exports', () => {
+  it('should export all required types and classes', async () => {
+    const exports = await import('../index');
+
+    // Factory functions
+    expect(typeof exports.createWebSocket).toBe('function');
+    expect(typeof exports.withWebSocket).toBe('function');
+
+    // Classes
+    expect(exports.WebSocketServer).toBeDefined();
+    expect(exports.Connection).toBeDefined();
+    expect(exports.RoomManager).toBeDefined();
+    expect(exports.MaxRoomsExceededError).toBeDefined();
+
+    // Constants
+    expect(exports.MAX_ROOM_NAME_LENGTH).toBe(256);
+    expect(exports.DEFAULT_MAX_ROOMS_PER_CONNECTION).toBe(100);
+    expect(exports.WS_READY_STATE_OPEN).toBe(1);
+    expect(exports.DEFAULT_WS_OPTIONS).toBeDefined();
   });
 });

@@ -6,10 +6,10 @@
  * @packageDocumentation
  */
 
-import type { IncomingMessage } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import type { WSConnection } from './types';
+import type { IncomingMessage } from 'node:http';
 import type { RoomManager } from './room-manager';
+import { WS_READY_STATE_OPEN, type WSConnection } from './types';
 
 /**
  * Internal ws instance interface (avoids external type dependency)
@@ -56,7 +56,7 @@ export class Connection implements WSConnection {
   }
 
   get isOpen(): boolean {
-    return this.ws.readyState === 1;
+    return this.ws.readyState === WS_READY_STATE_OPEN;
   }
 
   send(data: string | Buffer): void {
@@ -66,7 +66,12 @@ export class Connection implements WSConnection {
   }
 
   json(data: unknown): void {
-    this.send(JSON.stringify(data));
+    try {
+      this.send(JSON.stringify(data));
+    } catch {
+      // JSON.stringify can fail on circular references or BigInt
+      // Silently ignore to prevent crashing the server
+    }
   }
 
   close(code = 1000, reason = 'Normal closure'): void {

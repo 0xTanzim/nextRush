@@ -9,6 +9,21 @@
 import type { IncomingMessage } from 'node:http';
 
 /**
+ * Maximum room name length to prevent memory exhaustion attacks
+ */
+export const MAX_ROOM_NAME_LENGTH = 256;
+
+/**
+ * Default maximum rooms a single connection can join
+ */
+export const DEFAULT_MAX_ROOMS_PER_CONNECTION = 100;
+
+/**
+ * WebSocket ready state: OPEN
+ */
+export const WS_READY_STATE_OPEN = 1;
+
+/**
  * WebSocket connection representing a single client
  */
 export interface WSConnection {
@@ -128,6 +143,7 @@ export interface WebSocketOptions {
 
   /**
    * Client timeout in milliseconds (no pong response)
+   * Connections that don't respond to ping within this time are terminated
    * @default 60000 (60 seconds)
    */
   clientTimeout?: number;
@@ -139,7 +155,15 @@ export interface WebSocketOptions {
   maxConnections?: number;
 
   /**
+   * Maximum rooms a single connection can join (0 for unlimited)
+   * @default 100
+   */
+  maxRoomsPerConnection?: number;
+
+  /**
    * Allowed origins for CORS (empty array allows all)
+   * When origins are configured, requests without Origin header are denied
+   * Supports wildcards: 'https://*.example.com'
    * @default []
    */
   allowedOrigins?: string[];
@@ -215,6 +239,33 @@ export const DEFAULT_WS_OPTIONS: Required<
   heartbeatInterval: 30000, // 30 seconds
   clientTimeout: 60000, // 60 seconds
   maxConnections: 0, // unlimited
+  maxRoomsPerConnection: 100, // default limit
   allowedOrigins: [], // allow all
   perMessageDeflate: false,
 };
+
+/**
+ * Escape special regex characters in a string
+ * Used for origin pattern matching
+ */
+export function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Validate a room name
+ * @throws TypeError if invalid
+ */
+export function validateRoomName(room: string): void {
+  if (typeof room !== 'string') {
+    throw new TypeError('Room name must be a string');
+  }
+  if (room.length === 0) {
+    throw new TypeError('Room name cannot be empty');
+  }
+  if (room.length > MAX_ROOM_NAME_LENGTH) {
+    throw new TypeError(
+      `Room name exceeds maximum length of ${MAX_ROOM_NAME_LENGTH} characters`
+    );
+  }
+}

@@ -6,7 +6,21 @@
  * @packageDocumentation
  */
 
-import type { WSConnection } from './types';
+import {
+    DEFAULT_MAX_ROOMS_PER_CONNECTION,
+    validateRoomName,
+    type WSConnection,
+} from './types';
+
+/**
+ * Error thrown when a connection tries to join too many rooms
+ */
+export class MaxRoomsExceededError extends Error {
+  constructor(maxRooms: number) {
+    super(`Connection cannot join more than ${maxRooms} rooms`);
+    this.name = 'MaxRoomsExceededError';
+  }
+}
 
 /**
  * Room manager for WebSocket connections
@@ -23,10 +37,32 @@ export class RoomManager {
   /** Map of connection to set of rooms */
   private connectionRooms = new Map<WSConnection, Set<string>>();
 
+  /** Maximum rooms per connection (0 = unlimited) */
+  private maxRoomsPerConnection: number;
+
+  constructor(maxRoomsPerConnection = DEFAULT_MAX_ROOMS_PER_CONNECTION) {
+    this.maxRoomsPerConnection = maxRoomsPerConnection;
+  }
+
   /**
    * Add a connection to a room
+   * @throws TypeError if room name is invalid
+   * @throws MaxRoomsExceededError if connection is in too many rooms
    */
   join(connection: WSConnection, room: string): void {
+    validateRoomName(room);
+
+    // Check max rooms per connection
+    const connRooms = this.connectionRooms.get(connection);
+    if (
+      this.maxRoomsPerConnection > 0 &&
+      connRooms &&
+      connRooms.size >= this.maxRoomsPerConnection &&
+      !connRooms.has(room) // Allow rejoining same room
+    ) {
+      throw new MaxRoomsExceededError(this.maxRoomsPerConnection);
+    }
+
     let roomSet = this.rooms.get(room);
     if (!roomSet) {
       roomSet = new Set();
@@ -34,12 +70,12 @@ export class RoomManager {
     }
     roomSet.add(connection);
 
-    let connRooms = this.connectionRooms.get(connection);
-    if (!connRooms) {
-      connRooms = new Set();
-      this.connectionRooms.set(connection, connRooms);
+    let roomsForConn = connRooms;
+    if (!roomsForConn) {
+      roomsForConn = new Set();
+      this.connectionRooms.set(connection, roomsForConn);
     }
-    connRooms.add(room);
+    roomsForConn.add(room);
   }
 
   /**
@@ -146,7 +182,12 @@ export class RoomManager {
    * Broadcast JSON to all connections in a room
    */
   broadcastJson(room: string, data: unknown, exclude?: WSConnection): void {
-    this.broadcast(room, JSON.stringify(data), exclude);
+    try {
+      this.broadcast(room, JSON.stringify(data), exclude);
+    } catch {
+      // JSON.stringify can fail on circular references or BigInt
+      // Silently ignore to prevent crashing the server
+    }
   }
 
   /**
@@ -155,5 +196,19 @@ export class RoomManager {
   clear(): void {
     this.rooms.clear();
     this.connectionRooms.clear();
+  }
+
+  /**
+   * Set max rooms per connection
+   */
+  setMaxRoomsPerConnection(max: number): void {
+    this.maxRoomsPerConnection = max;
+  }
+
+  /**
+   * Get max rooms per connection
+   */
+  getMaxRoomsPerConnection(): number {
+    return this.maxRoomsPerConnection;
   }
 }

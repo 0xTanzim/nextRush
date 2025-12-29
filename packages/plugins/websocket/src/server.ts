@@ -12,6 +12,7 @@ import { Connection } from './connection';
 import { RoomManager } from './room-manager';
 import {
     DEFAULT_WS_OPTIONS,
+    escapeRegex,
     type WebSocketOptions,
     type WSConnection,
     type WSHandler,
@@ -72,10 +73,10 @@ async function loadWsLibrary(): Promise<WsModule> {
  */
 export class WebSocketServer {
   private wss: WsServerInstance | null = null;
-  private readonly connections = new Set<WSConnection>();
+  private readonly connections = new Map<WSConnection, { isAlive: boolean }>();
   private readonly routes = new Map<string, WSHandler>();
   private readonly middlewares: WSMiddleware[] = [];
-  private readonly roomManager = new RoomManager();
+  private readonly roomManager: RoomManager;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private initialized = false;
 
@@ -98,6 +99,7 @@ export class WebSocketServer {
       onClose: options.onClose,
       onError: options.onError,
     };
+    this.roomManager = new RoomManager(this.resolvedOptions.maxRoomsPerConnection);
   }
 
   /**
@@ -234,6 +236,7 @@ export class WebSocketServer {
 
   /**
    * Verify origin header
+   * When allowedOrigins is configured, requests without Origin header are denied
    */
   private verifyOrigin(request: IncomingMessage): boolean {
     if (this.resolvedOptions.allowedOrigins.length === 0) {
@@ -241,13 +244,18 @@ export class WebSocketServer {
     }
 
     const origin = request.headers.origin;
-    if (!origin) return true;
+
+    // When origins are configured, missing Origin header is denied
+    // This prevents bypassing CORS by omitting the header
+    if (!origin) return false;
 
     return this.resolvedOptions.allowedOrigins.some((allowed) => {
       if (allowed === '*') return true;
       if (allowed === origin) return true;
       if (allowed.includes('*')) {
-        const pattern = new RegExp('^' + allowed.replace(/\*/g, '.*') + '$');
+        // Escape special regex chars EXCEPT *, then convert * to .*
+        const escaped = escapeRegex(allowed).replace(/\\\*/g, '.*');
+        const pattern = new RegExp('^' + escaped + '$');
         return pattern.test(origin);
       }
       return false;
@@ -307,11 +315,21 @@ export class WebSocketServer {
     path: string
   ): void {
     const connection = new Connection(ws, request, this.roomManager);
-    this.connections.add(connection);
 
-    connection.on('close', () => {
+    // Track connection with isAlive for heartbeat
+    this.connections.set(connection, { isAlive: true });
+
+    // Track pong responses for heartbeat
+    connection.on('pong', () => {
+      const state = this.connections.get(connection);
+      if (state) {
+        state.isAlive = true;
+      }
+    });
+
+    connection.on('close', (code: number, reason: string) => {
       this.connections.delete(connection);
-      this.customCallbacks.onClose?.(connection, 1000, 'Normal closure');
+      this.customCallbacks.onClose?.(connection, code, reason);
     });
 
     connection.on('error', (error) => {
@@ -388,15 +406,27 @@ export class WebSocketServer {
 
   /**
    * Start heartbeat timer
+   * Pings all connections and terminates those that don't respond
    */
   private startHeartbeat(): void {
     this.heartbeatTimer = setInterval(() => {
-      for (const conn of this.connections) {
+      for (const [conn, state] of this.connections) {
         const connection = conn as Connection;
+
         if (!connection.isOpen) {
           this.connections.delete(conn);
           continue;
         }
+
+        // If connection didn't respond to previous ping, terminate it
+        if (!state.isAlive) {
+          connection.close(1001, 'Connection timeout');
+          this.connections.delete(conn);
+          continue;
+        }
+
+        // Mark as not alive until pong received
+        state.isAlive = false;
         connection.ping();
       }
     }, this.resolvedOptions.heartbeatInterval);
@@ -408,7 +438,7 @@ export class WebSocketServer {
    * Get all active connections
    */
   getConnections(): WSConnection[] {
-    return Array.from(this.connections);
+    return Array.from(this.connections.keys());
   }
 
   /**
@@ -422,7 +452,7 @@ export class WebSocketServer {
    * Broadcast to all connections
    */
   broadcast(data: string | Buffer, exclude?: WSConnection): void {
-    for (const conn of this.connections) {
+    for (const conn of this.connections.keys()) {
       if (exclude && conn === exclude) continue;
       try {
         conn.send(data);
@@ -436,7 +466,11 @@ export class WebSocketServer {
    * Broadcast JSON to all connections
    */
   broadcastJson(data: unknown, exclude?: WSConnection): void {
-    this.broadcast(JSON.stringify(data), exclude);
+    try {
+      this.broadcast(JSON.stringify(data), exclude);
+    } catch {
+      // JSON.stringify can fail on circular references or BigInt
+    }
   }
 
   /**
@@ -479,7 +513,7 @@ export class WebSocketServer {
    * Close all connections
    */
   closeAll(code = 1000, reason = 'Server shutdown'): void {
-    for (const conn of this.connections) {
+    for (const conn of this.connections.keys()) {
       conn.close(code, reason);
     }
     this.connections.clear();

@@ -121,13 +121,21 @@ export async function withWebSocket(
 
 // Re-export types
 export type {
-  WebSocketOptions, WSConnection,
-  WSHandler,
-  WSMiddleware,
-  WSRoute
+    WebSocketOptions, WSConnection,
+    WSHandler,
+    WSMiddleware,
+    WSRoute
+} from './types';
+
+// Re-export constants
+export {
+    DEFAULT_MAX_ROOMS_PER_CONNECTION,
+    DEFAULT_WS_OPTIONS,
+    MAX_ROOM_NAME_LENGTH,
+    WS_READY_STATE_OPEN
 } from './types';
 
 // Re-export classes for advanced usage
 export { Connection } from './connection';
-export { RoomManager } from './room-manager';
+export { MaxRoomsExceededError, RoomManager } from './room-manager';
 export { WebSocketServer } from './server';

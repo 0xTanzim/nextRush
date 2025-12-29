@@ -2,6 +2,17 @@
 
 WebSocket support for NextRush with rooms, broadcasting, and simple DX.
 
+## Features
+
+- **🏭 Factory Pattern** - Explicit, typed API with `createWebSocket()`
+- **🚪 Room Support** - Join, leave, and broadcast to rooms with validation
+- **📡 Broadcasting** - Send to all connections or specific rooms
+- **🔒 Authentication** - Custom client verification and origin validation
+- **💓 Heartbeat** - Automatic connection health checks with timeout detection
+- **🔌 Middleware** - WebSocket-specific middleware support
+- **🛡️ Security Hardened** - Origin validation, room limits, input validation
+- **📦 Node.js Native** - Uses the battle-tested `ws` library
+
 ## Installation
 
 ```bash
@@ -9,6 +20,8 @@ npm install @nextrush/websocket ws
 # or
 pnpm add @nextrush/websocket ws
 ```
+
+> **Note:** This package is Node.js only. For Bun, Deno, or edge runtimes, use their native WebSocket APIs.
 
 ## Quick Start
 
@@ -29,8 +42,8 @@ wss.on('/chat', (conn) => {
     conn.send(`Echo: ${msg}`);
   });
 
-  conn.on('close', () => {
-    console.log('Client disconnected');
+  conn.on('close', (code, reason) => {
+    console.log('Client disconnected:', code, reason);
   });
 });
 
@@ -43,15 +56,6 @@ const server = app.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
 });
 ```
-
-## Features
-
-- **🏭 Factory Pattern** - Explicit, typed API with `createWebSocket()`
-- **🚪 Room Support** - Join, leave, and broadcast to rooms
-- **📡 Broadcasting** - Send to all connections or specific rooms
-- **🔒 Authentication** - Custom client verification
-- **💓 Heartbeat** - Automatic connection health checks
-- **🔌 Middleware** - WebSocket-specific middleware support
 
 ## API
 
@@ -67,10 +71,17 @@ const wss = createWebSocket({
   // Heartbeat interval in ms (default: 30000, 0 to disable)
   heartbeatInterval: 30000,
 
+  // Client timeout - connections that don't respond to ping are terminated
+  clientTimeout: 60000,
+
   // Max connections (default: 0 = unlimited)
   maxConnections: 1000,
 
-  // Allowed origins (default: [] = all)
+  // Max rooms per connection (default: 100, 0 = unlimited)
+  maxRoomsPerConnection: 100,
+
+  // Allowed origins - when set, requests without Origin header are denied
+  // Supports wildcards: 'https://*.example.com'
   allowedOrigins: ['https://example.com'],
 
   // Custom authentication
@@ -81,7 +92,7 @@ const wss = createWebSocket({
 
   // Connection lifecycle hooks
   onConnection: (conn) => console.log('Connected:', conn.id),
-  onClose: (conn, code, reason) => console.log('Closed:', code),
+  onClose: (conn, code, reason) => console.log('Closed:', code, reason),
   onError: (conn, error) => console.error('Error:', error),
 });
 ```
@@ -201,6 +212,11 @@ conn.leave('chat');
 conn.leaveAll();
 ```
 
+**Room name validation:**
+- Must be a non-empty string
+- Maximum length: 256 characters
+- Connections have a default limit of 100 rooms (configurable via `maxRoomsPerConnection`)
+
 ### conn.broadcast(room, data)
 
 Broadcast to room (excluding self).
@@ -289,7 +305,86 @@ import type {
   WSMiddleware,
   WebSocketOptions,
 } from '@nextrush/websocket';
+
+// Constants
+import {
+  MAX_ROOM_NAME_LENGTH,        // 256
+  DEFAULT_MAX_ROOMS_PER_CONNECTION, // 100
+  WS_READY_STATE_OPEN,         // 1
+  DEFAULT_WS_OPTIONS,
+} from '@nextrush/websocket';
+
+// Classes for advanced usage
+import {
+  WebSocketServer,
+  Connection,
+  RoomManager,
+  MaxRoomsExceededError,
+} from '@nextrush/websocket';
 ```
+
+## Security Features
+
+### Origin Validation
+
+When `allowedOrigins` is configured:
+
+```typescript
+const wss = createWebSocket({
+  allowedOrigins: [
+    'https://example.com',
+    'https://*.example.com', // Wildcard support
+  ],
+});
+```
+
+- Requests without Origin header are **denied** (prevents bypass)
+- Wildcard patterns support `*` (e.g., `https://*.example.com`)
+- Special regex characters in origins are properly escaped
+
+### Room Limits
+
+Prevent memory exhaustion attacks:
+
+```typescript
+const wss = createWebSocket({
+  maxRoomsPerConnection: 50, // Default: 100, 0 = unlimited
+});
+```
+
+- Room names are validated (non-empty, max 256 characters)
+- Connections cannot join more rooms than the configured limit
+
+### Heartbeat & Timeout
+
+Dead connections are automatically detected and terminated:
+
+```typescript
+const wss = createWebSocket({
+  heartbeatInterval: 30000, // Ping every 30 seconds
+  clientTimeout: 60000,     // Terminate if no pong within 60 seconds
+});
+```
+
+### Connection Limits
+
+```typescript
+const wss = createWebSocket({
+  maxConnections: 1000, // 0 = unlimited
+  maxPayload: 1024 * 1024, // 1MB max message size
+});
+```
+
+## Runtime Compatibility
+
+| Runtime | Support | Notes |
+|---------|---------|-------|
+| Node.js 20+ | ✅ Full | Primary target, uses `ws` library |
+| Bun | ❌ | Use Bun's native WebSocket API |
+| Deno | ❌ | Use Deno's native WebSocket API |
+| Edge runtimes | ❌ | Use platform-specific WebSocket APIs |
+
+This package uses Node.js-specific APIs (`node:http`, `node:net`, `node:crypto`) and the `ws` library. For other runtimes, use their native WebSocket implementations.
 
 ## License
 
