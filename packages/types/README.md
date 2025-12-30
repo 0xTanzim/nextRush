@@ -1,134 +1,99 @@
 # @nextrush/types
 
-Shared TypeScript type definitions for the NextRush framework. This package provides all core interfaces and types used across NextRush packages.
+> Shared TypeScript type definitions for the NextRush framework.
+
+## The Problem
+
+Backend frameworks often have types scattered across packages. This creates:
+- Circular dependencies between packages
+- Inconsistent interfaces across the ecosystem
+- Difficulty extending or augmenting types
+
+## How NextRush Approaches This
+
+`@nextrush/types` is the **single source of truth** for all NextRush types:
+
+- **Zero dependencies**: Pure TypeScript definitions
+- **Zero runtime code**: Only exports types and constants
+- **Foundation package**: All NextRush packages depend on this
 
 ## Installation
 
 ```bash
-npm install @nextrush/types
-# or
 pnpm add @nextrush/types
 ```
 
-## Overview
-
-This package is the foundation of NextRush's type system. It provides:
-
-- **Context types**: Request/response context interfaces
-- **HTTP types**: Methods, status codes, headers
-- **Middleware types**: Middleware function signatures
-- **Plugin types**: Plugin system interfaces
-- **Router types**: Route matching and parameters
-
-## Core Types
-
-### Context
-
-The `Context` interface represents the request/response lifecycle:
+## Quick Start
 
 ```typescript
-import type { Context, State } from '@nextrush/types';
+import type { Context, Middleware, Plugin } from '@nextrush/types';
+import { HttpStatus, ContentType } from '@nextrush/types';
+
+const middleware: Middleware = async (ctx, next) => {
+  ctx.status = HttpStatus.OK;
+  await next();
+};
+```
+
+## Context Types
+
+The `Context` interface is the heart of NextRush:
+
+```typescript
+import type { Context, ContextState, RouteParams, QueryParams } from '@nextrush/types';
 
 const handler = async (ctx: Context) => {
-  // Request properties
-  ctx.method;      // HTTP method
-  ctx.path;        // Request path
-  ctx.url;         // Full URL
-  ctx.headers;     // Request headers
-  ctx.query;       // Query parameters
-  ctx.params;      // Route parameters
-  ctx.body;        // Request body (parsed)
+  // Request (read-only)
+  ctx.method;      // HttpMethod
+  ctx.url;         // Full URL with query
+  ctx.path;        // Path without query
+  ctx.query;       // QueryParams
+  ctx.headers;     // IncomingHeaders
   ctx.ip;          // Client IP
+  ctx.params;      // RouteParams (from router)
+  ctx.body;        // unknown (from body parser)
 
-  // Response methods
-  ctx.json(data);  // Send JSON response
-  ctx.send(data);  // Send text/buffer
-  ctx.html(str);   // Send HTML
-  ctx.redirect(url); // Redirect
+  // Response
+  ctx.status = 201;
+  ctx.json({ created: true });
+  ctx.send('text');
+  ctx.html('<h1>Hello</h1>');
+  ctx.redirect('/new-url');
 
-  // Response properties
-  ctx.status = 200;
-  ctx.set('Header', 'value');
-};
-```
+  // Headers
+  ctx.set('X-Custom', 'value');
+  ctx.get('Authorization');
 
-### State
+  // Error helpers
+  ctx.throw(404, 'Not found');
+  ctx.assert(user, 404, 'User not found');
 
-Custom state for middleware data sharing:
+  // State (for middleware data)
+  ctx.state.user = { id: '123' };
 
-```typescript
-import type { Context, State } from '@nextrush/types';
-
-interface MyState extends State {
-  user: { id: string; name: string };
-  requestId: string;
-}
-
-const handler = async (ctx: Context<MyState>) => {
-  ctx.state.user;      // Typed!
-  ctx.state.requestId; // Typed!
-};
-```
-
-### Middleware
-
-```typescript
-import type { Middleware, Next } from '@nextrush/types';
-
-// Standard middleware
-const middleware: Middleware = async (ctx, next) => {
-  console.log('Before');
-  await next();
-  console.log('After');
-};
-
-// Modern syntax (ctx.next)
-const modernMiddleware: Middleware = async (ctx) => {
-  console.log('Before');
+  // Middleware flow
   await ctx.next();
-  console.log('After');
+
+  // Raw access (platform-specific)
+  ctx.raw.req;     // Raw request
+  ctx.raw.res;     // Raw response
+  ctx.runtime;     // 'node' | 'bun' | 'deno' | 'edge'
+  ctx.bodySource;  // BodySource for parsers
 };
 ```
 
-### Plugin
+### Context Options
 
 ```typescript
-import type { Plugin, PluginContext } from '@nextrush/types';
+import type { ContextOptions } from '@nextrush/types';
 
-interface MyPluginOptions {
-  enabled: boolean;
-}
-
-const myPlugin: Plugin<MyPluginOptions> = {
-  name: 'my-plugin',
-  version: '1.0.0',
-
-  install(app, options) {
-    // Plugin installation logic
-    app.use(async (ctx) => {
-      if (options.enabled) {
-        // Do something
-      }
-      await ctx.next();
-    });
-  },
-};
-```
-
-### Router
-
-```typescript
-import type {
-  Router,
-  Route,
-  RouteHandler,
-  RouteParams,
-  MatchResult,
-} from '@nextrush/types';
-
-const handler: RouteHandler = async (ctx) => {
-  const { id } = ctx.params as { id: string };
-  ctx.json({ id });
+// Used by adapters to create contexts
+const options: ContextOptions = {
+  method: 'GET',
+  url: '/users?page=1',
+  headers: { 'content-type': 'application/json' },
+  ip: '127.0.0.1',
+  raw: { req, res },
 };
 ```
 
@@ -137,216 +102,284 @@ const handler: RouteHandler = async (ctx) => {
 ### Methods
 
 ```typescript
-import type { HttpMethod } from '@nextrush/types';
+import type { HttpMethod, CommonHttpMethod } from '@nextrush/types';
+import { HTTP_METHODS } from '@nextrush/types';
 
 const method: HttpMethod = 'GET';
-// 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'
+// 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | 'TRACE' | 'CONNECT'
+
+const common: CommonHttpMethod = 'POST';
+// 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+
+// Iterate over methods
+for (const m of HTTP_METHODS) {
+  console.log(m);
+}
 ```
 
 ### Status Codes
 
 ```typescript
 import { HttpStatus } from '@nextrush/types';
+import type { HttpStatusCode } from '@nextrush/types';
 
-ctx.status = HttpStatus.OK;           // 200
-ctx.status = HttpStatus.CREATED;      // 201
-ctx.status = HttpStatus.NOT_FOUND;    // 404
+ctx.status = HttpStatus.OK;              // 200
+ctx.status = HttpStatus.CREATED;         // 201
+ctx.status = HttpStatus.BAD_REQUEST;     // 400
+ctx.status = HttpStatus.UNAUTHORIZED;    // 401
+ctx.status = HttpStatus.FORBIDDEN;       // 403
+ctx.status = HttpStatus.NOT_FOUND;       // 404
 ctx.status = HttpStatus.INTERNAL_SERVER_ERROR; // 500
+
+// Type for status code values
+const status: HttpStatusCode = 200;
+```
+
+### Content Types
+
+```typescript
+import { ContentType } from '@nextrush/types';
+import type { ContentTypeValue } from '@nextrush/types';
+
+ctx.set('Content-Type', ContentType.JSON);   // 'application/json'
+ctx.set('Content-Type', ContentType.HTML);   // 'text/html'
+ctx.set('Content-Type', ContentType.TEXT);   // 'text/plain'
+ctx.set('Content-Type', ContentType.FORM);   // 'application/x-www-form-urlencoded'
+ctx.set('Content-Type', ContentType.MULTIPART); // 'multipart/form-data'
 ```
 
 ### Headers
 
 ```typescript
-import type { Headers, HeaderValue } from '@nextrush/types';
+import type { IncomingHeaders, OutgoingHeaders } from '@nextrush/types';
 
-const headers: Headers = {
-  'content-type': 'application/json',
-  'x-custom': ['value1', 'value2'],
+// Request headers (read-only)
+const incoming: IncomingHeaders = ctx.headers;
+
+// Response headers (writable)
+const outgoing: OutgoingHeaders = {
+  'Content-Type': 'application/json',
+  'X-Request-Id': '123',
 };
 ```
 
-## Type Reference
-
-### Request Types
+### Body Types
 
 ```typescript
-import type {
-  // Core request
-  Context,
-  State,
+import type { ParsedBody, ResponseBody } from '@nextrush/types';
 
-  // HTTP
-  HttpMethod,
-  HttpStatus,
-  Headers,
-  HeaderValue,
+// Request body after parsing
+const body: ParsedBody = ctx.body;
+// string | Buffer | Record<string, unknown> | unknown[] | null | undefined
 
-  // Query and params
-  QueryParams,
-  RouteParams,
-
-  // Body types
-  RequestBody,
-  ParsedBody,
-} from '@nextrush/types';
+// Response body types
+const response: ResponseBody = { data: 'value' };
+// string | Buffer | Readable | Record<string, unknown> | unknown[] | null | undefined
 ```
 
-### Response Types
+## Middleware Types
 
 ```typescript
-import type {
-  // Response methods
-  JsonResponse,
-  HtmlResponse,
-  RedirectResponse,
-  SendResponse,
+import type { Middleware, Next, RouteHandler } from '@nextrush/types';
 
-  // Status and headers
-  StatusCode,
-  ResponseHeaders,
-} from '@nextrush/types';
-```
-
-### Middleware Types
-
-```typescript
-import type {
-  Middleware,
-  Next,
-  ComposedMiddleware,
-  MiddlewareStack,
-} from '@nextrush/types';
-```
-
-### Plugin Types
-
-```typescript
-import type {
-  Plugin,
-  PluginContext,
-  PluginOptions,
-  PluginInstaller,
-} from '@nextrush/types';
-```
-
-### Router Types
-
-```typescript
-import type {
-  Router,
-  Route,
-  RouteHandler,
-  RouteMatch,
-  MatchResult,
-  RouterOptions,
-} from '@nextrush/types';
-```
-
-### Utility Types
-
-```typescript
-import type {
-  // Helpers
-  MaybePromise,
-  Awaitable,
-  DeepPartial,
-  DeepReadonly,
-
-  // Validation
-  Validator,
-  ValidationResult,
-} from '@nextrush/types';
-```
-
-## Type Augmentation
-
-Extend built-in types for your application:
-
-```typescript
-// types/nextrush.d.ts
-import '@nextrush/types';
-
-declare module '@nextrush/types' {
-  interface State {
-    user?: {
-      id: string;
-      email: string;
-      role: 'admin' | 'user';
-    };
-    session?: {
-      id: string;
-      expiresAt: Date;
-    };
-  }
-}
-```
-
-Now `ctx.state.user` and `ctx.state.session` are properly typed everywhere.
-
-## Creating Typed Middleware
-
-```typescript
-import type { Middleware, Context, State } from '@nextrush/types';
-
-interface AuthState extends State {
-  user: { id: string };
-}
-
-// Type-safe middleware
-const authMiddleware: Middleware<AuthState> = async (ctx, next) => {
-  const token = ctx.get('Authorization');
-  if (!token) {
-    ctx.status = 401;
-    ctx.json({ error: 'Unauthorized' });
-    return;
-  }
-
-  ctx.state.user = await validateToken(token);
+// Middleware function
+const middleware: Middleware = async (ctx, next) => {
+  console.log('Before');
   await next();
+  console.log('After');
 };
 
-// Use in handlers
-const protectedHandler = async (ctx: Context<AuthState>) => {
-  ctx.json({ userId: ctx.state.user.id }); // Typed!
+// Next function type
+const callNext: Next = async () => {
+  // ...
+};
+
+// Route handler (alias for Middleware)
+const handler: RouteHandler = async (ctx) => {
+  ctx.json({ ok: true });
 };
 ```
 
-## Creating Typed Plugins
+## Plugin Types
 
 ```typescript
-import type { Plugin } from '@nextrush/types';
+import type { Plugin, PluginFactory, PluginWithHooks, PluginMeta, ApplicationLike } from '@nextrush/types';
 
-interface LoggerOptions {
-  level: 'debug' | 'info' | 'warn' | 'error';
-  format: 'json' | 'pretty';
-}
-
-const loggerPlugin: Plugin<LoggerOptions> = {
-  name: 'logger',
+// Basic plugin
+const plugin: Plugin = {
+  name: 'my-plugin',
   version: '1.0.0',
-  defaults: {
-    level: 'info',
-    format: 'json',
-  },
 
-  install(app, options) {
-    // options is typed as LoggerOptions
+  install(app: ApplicationLike) {
     app.use(async (ctx, next) => {
-      if (options.level === 'debug') {
-        console.log(`${ctx.method} ${ctx.path}`);
-      }
       await next();
     });
   },
+
+  destroy() {
+    // Cleanup on shutdown
+  },
+};
+
+// Plugin with lifecycle hooks
+const advancedPlugin: PluginWithHooks = {
+  name: 'advanced',
+  install(app) {},
+
+  onRequest(ctx) {},
+  onResponse(ctx) {},
+  onError(error, ctx) {},
+  extendContext(ctx) {},
+};
+
+// Plugin factory pattern
+const createPlugin: PluginFactory<{ debug: boolean }> = (options) => ({
+  name: 'configurable',
+  install(app) {
+    if (options?.debug) {
+      // Debug mode
+    }
+  },
+});
+```
+
+## Router Types
+
+```typescript
+import type { Router, Route, RouteMatch, RouterOptions, RoutePattern, RouteParam } from '@nextrush/types';
+
+// Route definition
+const route: Route = {
+  method: 'GET',
+  path: '/users/:id',
+  handler: async (ctx) => ctx.json({ id: ctx.params.id }),
+  middleware: [],
+};
+
+// Route match result
+const match: RouteMatch = {
+  handler: route.handler,
+  params: { id: '123' },
+  middleware: [],
+};
+
+// Router options
+const options: RouterOptions = {
+  prefix: '/api/v1',
+  caseSensitive: false,
+  strict: false,
 };
 ```
 
-## Best Practices
+## Runtime Types
 
-1. **Import types with `import type`**: Prevents runtime imports
-2. **Use State generics**: For type-safe middleware data
-3. **Augment module types**: Extend State globally for your app
-4. **Avoid `any`**: Use `unknown` and narrow with type guards
+```typescript
+import type { Runtime, RuntimeInfo, RuntimeCapabilities, BodySource } from '@nextrush/types';
+
+// Supported runtimes
+const runtime: Runtime = 'node';
+// 'node' | 'bun' | 'deno' | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown'
+
+// Runtime capabilities
+const caps: RuntimeCapabilities = {
+  nodeStreams: true,
+  webStreams: true,
+  fileSystem: true,
+  webSocket: true,
+  fetch: true,
+  cryptoSubtle: true,
+  workers: true,
+};
+
+// Body source for parsers
+const bodySource: BodySource = ctx.bodySource;
+await bodySource.text();    // Read as string
+await bodySource.buffer();  // Read as Uint8Array
+await bodySource.json();    // Read as JSON
+bodySource.stream();        // Get underlying stream
+bodySource.consumed;        // Check if already read
+bodySource.contentLength;   // Content-Length header
+bodySource.contentType;     // Content-Type header
+```
+
+## Raw HTTP Types
+
+```typescript
+import type { RawHttp } from '@nextrush/types';
+
+// Generic raw access
+const raw: RawHttp = ctx.raw;
+raw.req;  // Platform request
+raw.res;  // Platform response
+
+// Type with generics for platform-specific typing
+import type { IncomingMessage, ServerResponse } from 'http';
+const nodeRaw: RawHttp<IncomingMessage, ServerResponse> = ctx.raw;
+```
+
+## API Reference
+
+### Exports
+
+```typescript
+import {
+  // Constants (runtime values)
+  HttpStatus,
+  HTTP_METHODS,
+  ContentType,
+} from '@nextrush/types';
+
+import type {
+  // Context
+  Context,
+  ContextOptions,
+  ContextState,
+  RouteParams,
+  QueryParams,
+  Middleware,
+  Next,
+  RouteHandler,
+
+  // HTTP
+  HttpMethod,
+  CommonHttpMethod,
+  HttpStatusCode,
+  ContentTypeValue,
+  IncomingHeaders,
+  OutgoingHeaders,
+  ParsedBody,
+  ResponseBody,
+  RawHttp,
+
+  // Plugin
+  Plugin,
+  PluginWithHooks,
+  PluginFactory,
+  PluginMeta,
+  ApplicationLike,
+
+  // Router
+  Router,
+  Route,
+  RouteMatch,
+  RouterOptions,
+  RoutePattern,
+  RouteParam,
+
+  // Runtime
+  Runtime,
+  RuntimeInfo,
+  RuntimeCapabilities,
+  BodySource,
+  BodySourceOptions,
+} from '@nextrush/types';
+```
+
+## Package Size
+
+- **Bundle**: ~1 KB (mostly constants)
+- **Types**: ~22 KB
+- **Dependencies**: None
 
 ## License
 

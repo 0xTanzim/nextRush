@@ -1,12 +1,13 @@
 {
   "name": "@nextrush/dev",
-  "version": "3.0.0-alpha.1",
-  "description": "Development server for NextRush - powered by tsx",
+  "version": "3.0.0-alpha.2",
+  "description": "Development server and build tools for NextRush - multi-runtime support",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
+    "nextrush": "./bin/nextrush.js",
     "nextrush-dev": "./bin/nextrush-dev.js"
   },
   "exports": {
@@ -23,14 +24,20 @@
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "keywords": [
     "nextrush",
     "dev",
     "development",
+    "build",
     "watch",
-    "tsx"
+    "cli",
+    "multi-runtime",
+    "node",
+    "bun",
+    "deno"
   ],
   "author": "NextRush Team",
   "license": "MIT",
@@ -50,6 +57,7 @@
   "devDependencies": {
     "@types/node": "^22.14.1",
     "tsup": "^8.5.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }

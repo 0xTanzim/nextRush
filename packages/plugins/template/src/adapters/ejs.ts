@@ -43,7 +43,7 @@ async function loadEjs(): Promise<EjsModule> {
   if (ejsModule) return ejsModule;
 
   try {
-    // @ts-expect-error - EJS is an optional peer dependency
+    // @ts-ignore - EJS is an optional peer dependency
     ejsModule = await import('ejs') as unknown as EjsModule;
     return ejsModule;
   } catch {

@@ -9,5 +9,12 @@ export default defineConfig({
   minify: false,
   target: 'node20',
   outDir: 'dist',
-  external: ['@nextrush/types', '@nextrush/core'],
+  external: [
+    '@nextrush/types',
+    '@nextrush/core',
+    // Node.js built-ins - keep node: prefix for Deno compatibility
+    'node:fs',
+    'node:fs/promises',
+    'node:path',
+  ],
 });

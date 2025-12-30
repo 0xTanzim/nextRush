@@ -10,10 +10,10 @@
 
 import { extname } from 'node:path';
 import type {
-  AdapterConfig,
-  AdapterRenderOptions,
-  TemplateAdapter,
-  TemplateData,
+    AdapterConfig,
+    AdapterRenderOptions,
+    TemplateAdapter,
+    TemplateData,
 } from './types';
 
 interface EtaConfig extends AdapterConfig {
@@ -47,7 +47,8 @@ async function loadEta(): Promise<EtaModule> {
   if (etaModule) return etaModule;
 
   try {
-    // @ts-expect-error - Eta is an optional peer dependency
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Eta is an optional peer dependency
     etaModule = await import('eta') as unknown as EtaModule;
     return etaModule;
   } catch {

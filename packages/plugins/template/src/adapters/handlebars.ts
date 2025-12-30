@@ -46,7 +46,7 @@ async function loadHandlebars(): Promise<HandlebarsModule> {
   if (hbsModule) return hbsModule;
 
   try {
-    // @ts-expect-error - Handlebars is an optional peer dependency
+    // @ts-ignore - Handlebars is an optional peer dependency
     hbsModule = await import('handlebars') as unknown as HandlebarsModule;
     return hbsModule;
   } catch {

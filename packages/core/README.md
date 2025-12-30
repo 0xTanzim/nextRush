@@ -9,6 +9,8 @@ Backend frameworks often bundle everything together. You pay for features you do
 - Body parsing when you're building a proxy
 - Complex plugin systems when you need simple extensibility
 
+This creates bloat. Cold starts suffer. Memory usage grows. Debugging becomes harder.
+
 ## How NextRush Approaches This
 
 `@nextrush/core` provides **only the essentials**:
@@ -18,7 +20,7 @@ Backend frameworks often bundle everything together. You pay for features you do
 - **Plugin System**: Simple, typed plugin interface
 - **Error Handling**: Configurable error handlers with production/development modes
 
-Everything else (routing, body parsing, authentication) lives in separate packages.
+Everything else (routing, body parsing, authentication) lives in separate packages. You install what you use.
 
 ## Mental Model
 
@@ -31,9 +33,11 @@ Request → [Middleware 1] → [Middleware 2] → [Handler] → [Middleware 2] �
 ```
 
 Each middleware can:
-1. Do something before calling `ctx.next()`
+1. Do something before calling `ctx.next()` or `next()`
 2. Call `await ctx.next()` to pass control downstream
 3. Do something after `ctx.next()` returns
+
+This is the "onion model" - requests flow inward, responses flow outward.
 
 ## Installation
 
@@ -49,28 +53,20 @@ import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 
-// Middleware with modern ctx.next() syntax
-app.use(async (ctx) => {
+// Logging middleware
+app.use(async (ctx, next) => {
   console.log(`→ ${ctx.method} ${ctx.path}`);
-  await ctx.next();
+  await next();
   console.log(`← ${ctx.status}`);
 });
 
-// Handler (final middleware)
+// Handler
 app.use(async (ctx) => {
   ctx.json({ message: 'Hello World' });
 });
 
 listen(app, { port: 3000 });
 ```
-
-## Features
-
-- **Minimal Core**: Under 1,500 LOC
-- **Middleware Pipeline**: Koa-style async middleware with `ctx.next()`
-- **Plugin System**: Extensible via typed plugins
-- **Error Handling**: Production-safe error responses
-- **Zero Dependencies**: Pure TypeScript (except adapter)
 
 ## Application
 
@@ -79,52 +75,64 @@ listen(app, { port: 3000 });
 ```typescript
 import { createApp, Application } from '@nextrush/core';
 
-// Factory function
+// Factory function (recommended)
 const app = createApp();
 
 // With options
 const app = createApp({
-  proxy: true,           // Trust proxy headers
-  env: 'production',     // Environment
-  keys: ['secret1'],     // Signing keys
+  env: 'production',  // 'development' | 'production' | 'test'
+  proxy: true,        // Trust proxy headers (X-Forwarded-*)
 });
 ```
 
 ### Application Options
 
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `env` | `'development' \| 'production' \| 'test'` | `process.env.NODE_ENV` | Environment mode |
+| `proxy` | `boolean` | `false` | Trust proxy headers |
+
+### Application Properties
+
 ```typescript
-interface AppOptions {
-  // Trust X-Forwarded-* headers
-  proxy?: boolean;
-
-  // Environment (default: process.env.NODE_ENV)
-  env?: string;
-
-  // Keys for signing cookies
-  keys?: string[];
-
-  // Maximum listeners for events
-  maxListeners?: number;
-}
+app.isProduction;    // boolean - true if env === 'production'
+app.isRunning;       // boolean - true after app.start() called
+app.middlewareCount; // number - count of registered middleware
+app.options;         // ApplicationOptions - readonly config
 ```
 
 ## Middleware
 
-### Modern Syntax (ctx.next)
+### Registration
 
 ```typescript
-// ctx.next() is a method on the context
-app.use(async (ctx) => {
-  console.log('Before');
-  await ctx.next();  // Call next middleware
-  console.log('After');
+// Single middleware
+app.use(async (ctx, next) => {
+  await next();
 });
+
+// Multiple middleware
+app.use(middleware1, middleware2, middleware3);
+
+// Method chaining
+app.use(cors())
+   .use(helmet())
+   .use(json());
 ```
 
-### Traditional Koa Syntax
+### Two Syntax Styles
+
+NextRush supports both modern and traditional Koa-style middleware:
 
 ```typescript
-// next is passed as second argument (Koa compatibility)
+// Modern syntax (ctx.next)
+app.use(async (ctx) => {
+  console.log('Before');
+  await ctx.next();
+  console.log('After');
+});
+
+// Traditional Koa syntax (next parameter)
 app.use(async (ctx, next) => {
   console.log('Before');
   await next();
@@ -132,24 +140,28 @@ app.use(async (ctx, next) => {
 });
 ```
 
+Both styles work identically. Use whichever you prefer.
+
 ### Middleware Order
 
+Middleware executes in registration order (onion model):
+
 ```typescript
-app.use(async (ctx) => {
+app.use(async (ctx, next) => {
   console.log('1: Start');
-  await ctx.next();
+  await next();
   console.log('1: End');
 });
 
-app.use(async (ctx) => {
+app.use(async (ctx, next) => {
   console.log('2: Start');
-  await ctx.next();
+  await next();
   console.log('2: End');
 });
 
 app.use(async (ctx) => {
   console.log('3: Handler');
-  ctx.body = 'Hello';
+  ctx.json({ ok: true });
 });
 
 // Output:
@@ -163,79 +175,113 @@ app.use(async (ctx) => {
 ### Conditional Middleware
 
 ```typescript
-// Skip middleware based on path
-app.use(async (ctx) => {
+app.use(async (ctx, next) => {
+  // Skip middleware for health checks
   if (ctx.path === '/health') {
-    return ctx.next(); // Skip to next
+    return next();
   }
 
-  // Apply logic only to non-health routes
-  ctx.set('X-Request-Time', Date.now().toString());
-  await ctx.next();
+  // Apply logic to other routes
+  const start = Date.now();
+  await next();
+  console.log(`${ctx.path} took ${Date.now() - start}ms`);
+});
+```
+
+### Early Termination
+
+Skip remaining middleware by not calling `next()`:
+
+```typescript
+app.use(async (ctx, next) => {
+  if (!ctx.get('Authorization')) {
+    ctx.status = 401;
+    ctx.json({ error: 'Unauthorized' });
+    return; // Don't call next()
+  }
+  await next();
 });
 ```
 
 ## Context
 
-The context object encapsulates the request and response:
+The Context (`ctx`) object provides access to request data and response methods.
 
-### Request Properties
+### Request Properties (Read-only)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ctx.method` | `HttpMethod` | HTTP method (GET, POST, etc.) |
+| `ctx.url` | `string` | Full URL with query string |
+| `ctx.path` | `string` | Path without query string |
+| `ctx.query` | `QueryParams` | Parsed query parameters |
+| `ctx.headers` | `IncomingHeaders` | Request headers |
+| `ctx.ip` | `string` | Client IP address |
+| `ctx.runtime` | `Runtime` | Current JS runtime |
+| `ctx.raw` | `RawHttp` | Raw platform objects |
+| `ctx.bodySource` | `BodySource` | Body stream for parsers |
+
+### Request Body
 
 ```typescript
-app.use(async (ctx) => {
-  ctx.method;         // HTTP method
-  ctx.path;           // Request path
-  ctx.url;            // Full URL
-  ctx.originalUrl;    // Original URL before modifications
-  ctx.headers;        // Request headers
-  ctx.query;          // Parsed query string
-  ctx.querystring;    // Raw query string
-  ctx.host;           // Host header
-  ctx.hostname;       // Hostname
-  ctx.protocol;       // http or https
-  ctx.ip;             // Client IP
-  ctx.ips;            // Proxy IPs
-  ctx.secure;         // Is HTTPS?
-  ctx.fresh;          // Is response fresh?
+// ctx.body is set by body parser middleware
+import { json } from '@nextrush/body-parser';
+
+app.use(json());
+
+app.post('/users', async (ctx) => {
+  const { name, email } = ctx.body as CreateUserDto;
+  ctx.json({ name, email });
 });
 ```
 
-### Request Methods
+### Route Parameters
 
 ```typescript
-app.use(async (ctx) => {
-  ctx.get('Content-Type');      // Get header
-  ctx.accepts('json', 'html');  // Content negotiation
-  ctx.acceptsEncodings();       // Accept-Encoding
-  ctx.acceptsCharsets();        // Accept-Charset
-  ctx.acceptsLanguages();       // Accept-Language
-  ctx.is('json');               // Check content type
+// Set by router when route matches
+app.get('/users/:id', (ctx) => {
+  const { id } = ctx.params;
+  ctx.json({ id });
 });
 ```
 
-### Response Properties
+### Response
+
+| Property/Method | Description |
+|-----------------|-------------|
+| `ctx.status` | Set HTTP status code (default: 200) |
+| `ctx.json(data)` | Send JSON response |
+| `ctx.send(data)` | Send text, buffer, or stream |
+| `ctx.html(content)` | Send HTML response |
+| `ctx.redirect(url, status?)` | Redirect to URL |
+| `ctx.set(field, value)` | Set response header |
+| `ctx.get(field)` | Get request header |
 
 ```typescript
 app.use(async (ctx) => {
-  ctx.status = 200;             // Set status
-  ctx.message = 'OK';           // Status message
-  ctx.body = 'Hello';           // Response body
-  ctx.length = 5;               // Content length
-  ctx.type = 'text/plain';      // Content type
+  // Set status
+  ctx.status = 201;
+
+  // Set headers
+  ctx.set('X-Request-Id', '12345');
+  ctx.set('Cache-Control', 'no-cache');
+
+  // Send JSON
+  ctx.json({ created: true });
 });
 ```
 
-### Response Methods
+### Error Helpers
 
 ```typescript
 app.use(async (ctx) => {
-  ctx.set('X-Custom', 'value');           // Set header
-  ctx.append('Set-Cookie', 'a=1');        // Append header
-  ctx.remove('X-Powered-By');             // Remove header
-  ctx.redirect('/new-url');               // Redirect
-  ctx.json({ data: 'value' });            // Send JSON
-  ctx.send('text');                       // Send text/buffer
-  ctx.html('<h1>Hello</h1>');             // Send HTML
+  // Throw HTTP error
+  ctx.throw(404, 'User not found');
+  ctx.throw(401); // Uses default message
+
+  // Assert condition
+  ctx.assert(user, 404, 'User not found');
+  ctx.assert(user.isAdmin, 403, 'Admin required');
 });
 ```
 
@@ -244,23 +290,84 @@ app.use(async (ctx) => {
 Share data between middleware:
 
 ```typescript
-app.use(async (ctx) => {
-  ctx.state.user = await getUser(ctx);
-  await ctx.next();
+// Auth middleware
+app.use(async (ctx, next) => {
+  ctx.state.user = await validateToken(ctx.get('Authorization'));
+  await next();
 });
 
-app.use(async (ctx) => {
-  console.log(ctx.state.user); // Access shared state
+// Handler
+app.get('/profile', (ctx) => {
+  const user = ctx.state.user;
+  ctx.json({ user });
 });
 ```
 
-### Throw Errors
+### Raw Access
+
+Access platform-specific objects:
 
 ```typescript
+// Node.js adapter
+ctx.raw.req;  // IncomingMessage
+ctx.raw.res;  // ServerResponse
+
+// Bun/Deno/Edge adapters
+ctx.raw.req;  // Request (Web API)
+```
+
+## Error Handling
+
+### Custom Error Handler
+
+```typescript
+app.onError((error, ctx) => {
+  console.error('Request failed:', error);
+
+  if (error.status) {
+    ctx.status = error.status;
+  } else {
+    ctx.status = 500;
+  }
+
+  ctx.json({
+    error: error.message,
+    code: error.code || 'UNKNOWN',
+  });
+});
+```
+
+### Default Behavior
+
+Without a custom handler:
+- **Development**: Error message exposed, stack logged
+- **Production**: Generic "Internal Server Error" message
+
+```typescript
+// Production mode hides sensitive details
+const app = createApp({ env: 'production' });
+
+app.use(async () => {
+  throw new Error('Database connection failed'); // User sees "Internal Server Error"
+});
+```
+
+### Error Classes
+
+```typescript
+import {
+  HttpError,
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  InternalServerError,
+} from '@nextrush/core';
+
 app.use(async (ctx) => {
-  ctx.throw(404, 'User not found');
-  ctx.throw(400, 'Bad request', { code: 'INVALID_INPUT' });
-  ctx.assert(ctx.params.id, 400, 'ID required');
+  throw new NotFoundError('User not found');
+  throw new BadRequestError('Invalid email');
+  throw new UnauthorizedError('Token expired');
 });
 ```
 
@@ -275,8 +382,21 @@ import { loggerPlugin } from '@nextrush/logger';
 
 const app = createApp();
 
+// Synchronous plugins
 app.plugin(eventsPlugin());
 app.plugin(loggerPlugin({ level: 'info' }));
+
+// Async plugins
+await app.pluginAsync(databasePlugin({ uri: '...' }));
+```
+
+### Plugin API
+
+```typescript
+app.plugin(plugin);              // Install sync plugin
+await app.pluginAsync(plugin);   // Install async plugin
+app.hasPlugin('plugin-name');    // Check if installed
+app.getPlugin('plugin-name');    // Get plugin instance
 ```
 
 ### Creating Plugins
@@ -288,25 +408,25 @@ interface MyPluginOptions {
   debug: boolean;
 }
 
-const myPlugin: Plugin<MyPluginOptions> = {
-  name: 'my-plugin',
-  version: '1.0.0',
+function myPlugin(options: MyPluginOptions): Plugin {
+  return {
+    name: 'my-plugin',
 
-  install(app, options) {
-    // Add middleware
-    app.use(async (ctx, next) => {
-      if (options.debug) {
-        console.log(ctx.path);
-      }
-      await next();
-    });
+    install(app) {
+      // Add middleware
+      app.use(async (ctx, next) => {
+        if (options.debug) {
+          console.log(`${ctx.method} ${ctx.path}`);
+        }
+        await next();
+      });
+    },
 
-    // Extend app
-    app.myFeature = () => {
-      // Custom functionality
-    };
-  },
-};
+    destroy() {
+      // Cleanup on app.close()
+    },
+  };
+}
 
 // Usage
 app.plugin(myPlugin({ debug: true }));
@@ -314,73 +434,70 @@ app.plugin(myPlugin({ debug: true }));
 
 ## Middleware Composition
 
-### compose(middleware)
+### compose()
 
-Compose multiple middleware into one:
+Combine multiple middleware into one:
 
 ```typescript
 import { compose } from '@nextrush/core';
 
-const combined = compose([
-  async (ctx, next) => {
-    console.log('First');
-    await next();
-  },
-  async (ctx, next) => {
-    console.log('Second');
-    await next();
-  },
+const security = compose([
+  cors(),
+  helmet(),
+  rateLimit(),
 ]);
 
-app.use(combined);
+app.use(security);
 ```
 
-## Error Handling
+### Utilities
 
 ```typescript
-app.use(async (ctx, next) => {
-  try {
-    await next();
-  } catch (err) {
-    ctx.status = err.status || 500;
-    ctx.json({
-      error: err.message,
-      code: err.code,
-    });
+import { isMiddleware, flattenMiddleware } from '@nextrush/core';
 
-    // Emit error event
-    ctx.app.emit('error', err, ctx);
-  }
-});
+// Check if value is middleware
+isMiddleware(fn); // true/false
 
-// Listen for errors
-app.on('error', (err, ctx) => {
-  console.error('Error:', err);
-});
+// Flatten nested arrays
+flattenMiddleware([mw1, [mw2, mw3]]); // [mw1, mw2, mw3]
 ```
 
-## Application Events
+## Lifecycle
+
+### Starting
 
 ```typescript
-app.on('error', (err, ctx) => {
-  console.error('Application error:', err);
-});
+// Adapters call app.start() internally
+app.start();
+console.log(app.isRunning); // true
 ```
 
-## Request Handling
-
-### Handle Requests
+### Shutdown
 
 ```typescript
-import { createApp } from '@nextrush/core';
+// Graceful shutdown
+await app.close();
 
-const app = createApp();
+// This:
+// 1. Sets isRunning = false
+// 2. Calls destroy() on all plugins (reverse order)
+// 3. Clears plugin registry
+```
 
-// Get the request handler callback
+## Request Handler
+
+Get the callback for HTTP server integration:
+
+```typescript
 const callback = app.callback();
 
-// Use with any HTTP server
+// Use with Node.js http
+import http from 'http';
 http.createServer(callback).listen(3000);
+
+// Or use an adapter (recommended)
+import { listen } from '@nextrush/adapter-node';
+listen(app, { port: 3000 });
 ```
 
 ## API Reference
@@ -389,9 +506,28 @@ http.createServer(callback).listen(3000);
 
 ```typescript
 import {
-  createApp,     // Create application instance
-  Application,   // Application class
-  compose,       // Compose middleware
+  // Application
+  createApp,
+  Application,
+
+  // Middleware
+  compose,
+  isMiddleware,
+  flattenMiddleware,
+
+  // Errors
+  HttpError,
+  NextRushError,
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  InternalServerError,
+  createHttpError,
+
+  // Re-exports from @nextrush/types
+  HttpStatus,
+  ContentType,
 } from '@nextrush/core';
 ```
 
@@ -399,50 +535,43 @@ import {
 
 ```typescript
 import type {
-  AppOptions,
-  Callback,
+  // Application
+  ApplicationOptions,
+  ErrorHandler,
+  ListenCallback,
   ComposedMiddleware,
+
+  // Context & Middleware (from @nextrush/types)
+  Context,
+  ContextState,
+  Middleware,
+  Next,
+  Plugin,
+  RouteHandler,
+  RouteParams,
+  QueryParams,
+  HttpMethod,
+  HttpStatusCode,
 } from '@nextrush/core';
-
-interface AppOptions {
-  proxy?: boolean;
-  env?: string;
-  keys?: string[];
-  maxListeners?: number;
-}
 ```
 
-### Application Methods
+## Runtime Compatibility
 
-```typescript
-const app = createApp();
+| Runtime | Supported |
+|---------|-----------|
+| Node.js 20+ | ✅ |
+| Bun 1.0+ | ✅ |
+| Deno 2.0+ | ✅ |
+| Cloudflare Workers | ✅ |
+| Vercel Edge Runtime | ✅ |
 
-// Middleware
-app.use(middleware);
+The core package uses only standard JavaScript APIs. Runtime-specific code lives in adapters.
 
-// Plugins
-app.plugin(plugin, options?);
+## Package Size
 
-// Events
-app.on(event, handler);
-app.emit(event, ...args);
-
-// HTTP server integration
-app.callback();
-
-// Properties
-app.env;           // Environment
-app.proxy;         // Trust proxy
-app.middleware;    // Middleware stack
-```
-
-## Best Practices
-
-1. **Use specific middleware packages**: CORS, body-parser, etc.
-2. **Handle errors globally**: Add error handling middleware first
-3. **Keep middleware focused**: Single responsibility principle
-4. **Use state for sharing**: Pass data via `ctx.state`
-5. **Avoid mutations**: Don't modify request/response objects directly
+- **Bundle**: ~10 KB
+- **Types**: ~8 KB
+- **Dependencies**: Only `@nextrush/types`
 
 ## License
 

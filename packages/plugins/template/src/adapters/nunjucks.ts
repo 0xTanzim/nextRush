@@ -49,7 +49,7 @@ async function loadNunjucks(): Promise<NunjucksModule> {
   if (nunjucksModule) return nunjucksModule;
 
   try {
-    // @ts-expect-error - Nunjucks is an optional peer dependency
+    // @ts-ignore - Nunjucks is an optional peer dependency
     nunjucksModule = await import('nunjucks') as unknown as NunjucksModule;
     return nunjucksModule;
   } catch {

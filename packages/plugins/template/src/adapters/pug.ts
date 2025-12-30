@@ -44,7 +44,7 @@ async function loadPug(): Promise<PugModule> {
   if (pugModule) return pugModule;
 
   try {
-    // @ts-expect-error - Pug is an optional peer dependency
+    // @ts-ignore - Pug is an optional peer dependency
     pugModule = await import('pug') as unknown as PugModule;
     return pugModule;
   } catch {

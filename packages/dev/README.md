@@ -1,6 +1,24 @@
 # @nextrush/dev
 
-> Development server for NextRush with full decorator and DI support.
+> Development server and build tools for NextRush with multi-runtime support.
+
+## Quick Start
+
+```bash
+# Install
+pnpm add -D @nextrush/dev
+
+# Start development server (auto-detects everything)
+npx nextrush dev
+
+# Build for production
+npx nextrush build
+```
+
+That's it! No configuration needed. The CLI auto-detects:
+- Entry file (`src/index.ts`, `src/main.ts`, etc.)
+- Runtime (Node.js, Bun, or Deno)
+- TypeScript settings from `tsconfig.json`
 
 ## The Problem
 
@@ -17,37 +35,23 @@ class UserController {
 Reflect.metadata('design:paramtypes', [UserService])
 ```
 
-Without this metadata, the DI container sees `undefined` for constructor parameters and fails with:
+Without this metadata, the DI container cannot resolve constructor parameters:
 ```
 TypeInfo not known for UserController
 ```
 
-### The Problem with Modern Runners
+### The Problem with Modern Bundlers
 
-Most modern fast TypeScript runners **strip types without emitting decorator metadata**:
+Most modern bundlers **strip types without emitting decorator metadata**:
 
-| Runtime | Speed | Decorator Metadata | DI Works? |
-|---------|-------|-------------------|-----------|
+| Tool | Speed | Decorator Metadata | DI Works? |
+|------|-------|-------------------|-----------|
+| `tsup` / `esbuild` | ⚡ Fast | ❌ Not emitted | ❌ No |
 | `tsx` | ⚡ Fast | ❌ Not emitted | ❌ No |
 | `node --strip-types` | ⚡ Fast | ❌ Not emitted | ❌ No |
-| `esbuild` | ⚡ Fast | ❌ Not emitted | ❌ No |
-| `ts-node` | 🐢 Slow | ⚠️ Unreliable ESM | ⚠️ Issues |
-| `tsc + node` | 🐢 Build step | ✅ Emitted | ✅ Yes |
-| **nextrush-dev** | ⚡ Fast | ✅ Emitted | ✅ Yes |
-
-## How nextrush-dev Works
-
-`nextrush-dev` uses SWC (via `@swc-node/register`) which properly emits decorator metadata:
-
-```bash
-# Under the hood:
-node --watch --import @swc-node/register/esm-register ./src/index.ts
-```
-
-SWC is:
-- **Fast**: Native Rust implementation, 10-20x faster than `tsc`
-- **Compatible**: Supports `emitDecoratorMetadata` and `experimentalDecorators`
-- **Watch-enabled**: Uses Node.js 20+ native `--watch` for file changes
+| `tsc` | 🐢 Build step | ✅ Emitted | ✅ Yes |
+| **`nextrush dev`** | ⚡ Fast | ✅ Emitted | ✅ Yes |
+| **`nextrush build`** | ⚡ Fast | ✅ Emitted | ✅ Yes |
 
 ## Installation
 
@@ -55,48 +59,145 @@ SWC is:
 pnpm add -D @nextrush/dev
 ```
 
-## Usage
+## Commands
 
-### CLI (Recommended)
+### `nextrush dev` - Development Server
+
+Start a development server with hot reload and decorator support.
 
 ```bash
-# Auto-detects entry file (src/index.ts, src/app.ts, etc.)
-npx nextrush-dev
+# Auto-detects entry file
+npx nextrush dev
 
 # Specify entry file
-npx nextrush-dev ./src/server.ts
+npx nextrush dev ./src/server.ts
 
 # Custom port
-npx nextrush-dev --port 4000
+npx nextrush dev --port 4000
 
 # Enable debugger
-npx nextrush-dev --inspect
+npx nextrush dev --inspect
 ```
 
-### Package.json Scripts
+**Options:**
+
+| Option | Alias | Default | Description |
+|--------|-------|---------|-------------|
+| `--port` | `-p` | `3000` | Port number |
+| `--watch` | `-w` | `src` | Paths to watch (repeatable) |
+| `--inspect` | - | `false` | Enable Node.js inspector |
+| `--inspect-port` | - | `9229` | Inspector port |
+| `--no-clear` | - | - | Don't clear screen on start |
+| `--verbose` | `-v` | `false` | Verbose output |
+
+### `nextrush build` - Production Build
+
+Build for production with SWC, emitting decorator metadata.
+
+```bash
+# Build with defaults
+npx nextrush build
+
+# Custom output directory
+npx nextrush build --outDir dist
+
+# Minify output
+npx nextrush build --minify
+
+# Target ES2020
+npx nextrush build --target es2020
+```
+
+**Options:**
+
+| Option | Alias | Default | Description |
+|--------|-------|---------|-------------|
+| `--outDir` | `-o` | `dist` | Output directory |
+| `--target` | `-t` | `es2022` | Target ES version |
+| `--sourcemap` | - | `true` | Generate sourcemaps |
+| `--no-sourcemap` | - | - | Disable sourcemaps |
+| `--minify` | `-m` | `false` | Minify output |
+| `--no-decorator-metadata` | - | - | Skip decorator metadata |
+| `--no-clean` | - | - | Don't clean output directory |
+| `--verbose` | `-v` | `false` | Verbose output |
+
+## Package.json Scripts
 
 ```json
 {
   "scripts": {
-    "dev": "nextrush-dev",
-    "dev:debug": "nextrush-dev --inspect"
+    "dev": "nextrush dev",
+    "build": "nextrush build",
+    "start": "node dist/index.js"
   }
 }
 ```
 
-### Programmatic API
+## Multi-Runtime Support
+
+The CLI automatically detects and adapts to your runtime environment:
+
+| Runtime | Dev Server | Production Build | Decorator Metadata |
+|---------|------------|------------------|-------------------|
+| **Node.js** | ✅ `--watch` + tsx | ✅ @swc/core | ✅ Full support |
+| **Bun** | ✅ Native `--watch` | ✅ Native bundler | ✅ Full support |
+| **Deno** | ✅ Native `--watch` | ✅ npm:@swc/core | ✅ Full support |
+
+### How It Works
+
+**Node.js:**
+- Dev: Uses `node --watch` with `tsx` or `@swc-node/register` for TypeScript
+- Build: Uses `@swc/core` transform API with `decoratorMetadata: true`
+
+**Bun:**
+- Dev: Native TypeScript execution with `bun --watch`
+- Build: Native `Bun.build()` bundler (preserves decorator metadata!)
+
+**Deno:**
+- Dev: Native TypeScript execution with `deno run --watch`
+- Build: Uses `npm:@swc/core` for consistent decorator metadata emission
+
+### Runtime Detection
+
+```typescript
+import { detectRuntime, getRuntimeInfo } from '@nextrush/dev';
+
+const runtime = detectRuntime(); // 'node' | 'bun' | 'deno'
+const info = getRuntimeInfo();
+// {
+//   runtime: 'node',
+//   version: '22.0.0',
+//   supportsTypeScript: false,
+//   supportsWatch: true,
+//   needsSwc: true
+// }
+```
+
+## Programmatic API (Optional)
+
+> **Note:** The programmatic API is optional. Most users only need the CLI commands (`nextrush dev` and `nextrush build`), which auto-detect everything.
+
+The programmatic API is useful for:
+- Build tool integration
+- Custom build scripts
+- Monorepo setups
+- Testing frameworks
+
+### `dev(entry?, options?): Promise<SpawnResult>`
+
+Start the development server programmatically.
 
 ```typescript
 import { dev } from '@nextrush/dev';
 
 // Simple - auto-detect entry
-dev();
+await dev();
 
 // With entry file
-dev('./src/app.ts');
+await dev('./src/app.ts');
 
 // With options
-dev('./src/app.ts', {
+await dev('./src/app.ts', {
   port: 4000,
   inspect: true,
   watch: ['./src', './config'],
@@ -104,31 +205,56 @@ dev('./src/app.ts', {
 });
 ```
 
-## CLI Options
+**DevOptions:**
 
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `entry` | `string` | auto | Entry file path |
+| `port` | `number` | `3000` | Port number |
+| `inspect` | `boolean` | `false` | Enable debugger |
+| `inspectPort` | `number` | `9229` | Debugger port |
+| `watch` | `string[]` | `['src']` | Watch paths |
+| `env` | `Record<string, string>` | `{}` | Environment variables |
+| `clearScreen` | `boolean` | `true` | Clear screen on start |
+| `verbose` | `boolean` | `false` | Verbose output |
+
+### `build(entry?, options?): Promise<void>`
+
+Build for production programmatically.
+
+```typescript
+import { build } from '@nextrush/dev';
+
+// Simple
+await build();
+
+// With options
+await build('./src/index.ts', {
+  outDir: 'dist',
+  minify: true,
+  sourcemap: true,
+  target: 'es2022',
+});
 ```
-Usage: nextrush-dev [entry] [options]
 
-Options:
-  --port, -p <port>     Port number (default: 3000)
-  --watch, -w <path>    Additional path to watch (can be used multiple times)
-  --inspect             Enable Node.js inspector
-  --inspect-port        Inspector port (default: 9229)
-  --help, -h            Show help
+**BuildOptions:**
 
-Examples:
-  nextrush-dev
-  nextrush-dev ./src/app.ts
-  nextrush-dev --port 4000
-  nextrush-dev --watch ./src --watch ./config
-  nextrush-dev ./src/app.ts --port 4000 --inspect
-```
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `entry` | `string` | auto | Entry file path |
+| `outDir` | `string` | `'dist'` | Output directory |
+| `target` | `string` | `'es2022'` | ES target |
+| `sourcemap` | `boolean` | `true` | Generate sourcemaps |
+| `minify` | `boolean` | `false` | Minify output |
+| `decoratorMetadata` | `boolean` | `true` | Emit decorator metadata |
+| `clean` | `boolean` | `true` | Clean output first |
+| `verbose` | `boolean` | `false` | Verbose output |
 
 ## Auto-Detection
 
-If no entry file is specified, `nextrush-dev` searches for:
+Entry file detection order:
 
-1. `package.json` `main` field (converted from `dist/` to `src/`)
+1. `package.json` `main` field (converts `dist/` to `src/`)
 2. `src/index.ts`
 3. `src/main.ts`
 4. `src/app.ts`
@@ -149,59 +275,76 @@ If no entry file is specified, `nextrush-dev` searches for:
 }
 ```
 
-## Production Build
+## Why Not Just Use tsup/esbuild?
 
-For production, compile with `tsc` and run the JavaScript:
+**tl;dr**: They don't emit decorator metadata, breaking DI.
 
-```json
-{
-  "scripts": {
-    "dev": "nextrush-dev",
-    "build": "tsc",
-    "start": "node dist/index.js"
-  }
+```typescript
+// Your code
+@Service()
+class UserService {
+  constructor(private db: Database) {}
 }
+
+// After tsup/esbuild (metadata LOST):
+let UserService = class { constructor(db) {} };
+
+// After nextrush build (metadata PRESERVED):
+let UserService = class { constructor(db) {} };
+Reflect.defineMetadata("design:paramtypes", [Database], UserService);
 ```
 
-## When to Use What
-
-| Use Case | Command |
-|----------|---------|
-| Local development | `nextrush-dev` |
-| Production | `tsc && node dist/index.js` |
-| CI/CD build | `tsc` |
-| Testing | `vitest` (supports decorators natively) |
+The `nextrush build` command uses SWC with `decoratorMetadata: true`, which properly emits the reflection metadata required by tsyringe and other DI containers.
 
 ## API Reference
 
-### `dev(entry?, options?): ChildProcess`
+### Runtime Detection
 
-Start the development server.
+```typescript
+import {
+  detectRuntime,    // () => 'node' | 'bun' | 'deno'
+  getRuntimeInfo,   // () => RuntimeInfo
+  isNode,           // () => boolean
+  isBun,            // () => boolean
+  isDeno,           // () => boolean
+} from '@nextrush/dev';
+```
 
-**Parameters:**
+### Configuration
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `entry` | `string` | Entry file path (auto-detected if not provided) |
-| `options` | `DevOptions` | Configuration options |
+```typescript
+import {
+  findEntry,        // () => string
+  loadConfig,       // () => Promise<NextRushConfig>
+  getDefaultWatchPaths, // () => string[]
+} from '@nextrush/dev';
+```
 
-**DevOptions:**
+## Production Readiness
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `entry` | `string` | auto | Entry file path |
-| `port` | `number` | `3000` | Port number (set as `PORT` env var) |
-| `inspect` | `boolean` | `false` | Enable Node.js debugger |
-| `inspectPort` | `number` | `9229` | Debugger port |
-| `watch` | `string[]` | `['src']` | Paths to watch for changes |
-| `env` | `Record<string, string>` | `{}` | Additional environment variables |
-| `clearScreen` | `boolean` | `true` | Clear screen on restart |
+### Current Status: Beta
 
-**Returns:** `ChildProcess` - Node.js child process handle
+This package is functional and tested across all major runtimes:
 
-### `cli(): void`
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Node.js dev | ✅ Stable | Full support |
+| Node.js build | ✅ Stable | Full decorator metadata |
+| Bun dev | ✅ Stable | Native support |
+| Bun build | ✅ Stable | Full decorator metadata |
+| Deno dev | ✅ Stable | Native support |
+| Deno build | ✅ Stable | Uses npm:@swc/core |
 
-Run the CLI with `process.argv` arguments.
+### All Runtimes Support Decorator Metadata
+
+All three runtimes (`nextrush build`) now properly emit decorator metadata:
+- **Node.js**: @swc/core transform API
+- **Bun**: Native bundler preserves metadata
+- **Deno**: npm:@swc/core via npm specifier
+
+### Architecture Documentation
+
+For a deep dive into how this package works, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## License
 
