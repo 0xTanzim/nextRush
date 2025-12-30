@@ -148,7 +148,7 @@ Headers set:
 - Content-Type: text/css; charset=utf-8
 - Content-Length: 4096
 - ETag: W/"abc123"
-- Last-Modified: Thu, 01 Jan 2024 00:00:00 GMT
+- Last-Modified: Thu, 01 Jan 2025 00:00:00 GMT
 - Cache-Control: public, max-age=3600 (if configured)
 - Accept-Ranges: bytes
 - X-Content-Type-Options: nosniff

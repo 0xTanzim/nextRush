@@ -3,7 +3,7 @@
 > Multi-Runtime Support Strategy for Node.js, Bun, Deno, and Edge Environments
 
 **Status:** Draft
-**Created:** 2024-12-28
+**Created:** 2025-12-28
 **Authors:** NextRush Core Team
 
 ---

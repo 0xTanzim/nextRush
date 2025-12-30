@@ -172,7 +172,7 @@ app.use(errorHandler({
     "type": "NotFoundError",
     "message": "User not found",
     "code": "NOT_FOUND",
-    "timestamp": "2024-01-15T10:30:00.000Z",
+    "timestamp": "2025-01-15T10:30:00.000Z",
     "requestId": "req-abc123"
   }
 }

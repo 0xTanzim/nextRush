@@ -420,3 +420,54 @@ describe('createNodeContext', () => {
     expect(ctx).toBeInstanceOf(NodeContext);
   });
 });
+
+describe('runtime detection', () => {
+  it('should have runtime property from getRuntime()', () => {
+    const req = createMockReq();
+    const res = createMockRes();
+    const ctx = new NodeContext(req, res);
+
+    // Runtime should be detected dynamically, not hardcoded
+    expect(ctx.runtime).toBeDefined();
+    expect(typeof ctx.runtime).toBe('string');
+    // In test environment with Node.js, it should detect 'node'
+    expect(['node', 'bun', 'deno', 'edge', 'unknown']).toContain(ctx.runtime);
+  });
+
+  it('should detect Node.js runtime in vitest environment', () => {
+    const req = createMockReq();
+    const res = createMockRes();
+    const ctx = new NodeContext(req, res);
+
+    // Since we're running in Node.js (via vitest), expect 'node'
+    // Note: If running under Bun, this would be 'bun'
+    if (typeof globalThis !== 'undefined' && 'Bun' in globalThis) {
+      expect(ctx.runtime).toBe('bun');
+    } else {
+      expect(ctx.runtime).toBe('node');
+    }
+  });
+
+  it('should have consistent runtime across multiple contexts', () => {
+    const req1 = createMockReq();
+    const res1 = createMockRes();
+    const ctx1 = new NodeContext(req1, res1);
+
+    const req2 = createMockReq();
+    const res2 = createMockRes();
+    const ctx2 = new NodeContext(req2, res2);
+
+    // Runtime detection should be consistent
+    expect(ctx1.runtime).toBe(ctx2.runtime);
+  });
+
+  it('should be a valid runtime value', () => {
+    const req = createMockReq();
+    const res = createMockRes();
+    const ctx = new NodeContext(req, res);
+
+    // Valid runtime values as defined in @nextrush/types
+    const validRuntimes = ['node', 'bun', 'deno', 'edge', 'unknown'];
+    expect(validRuntimes).toContain(ctx.runtime);
+  });
+});

@@ -7,17 +7,18 @@
  * @packageDocumentation
  */
 
+import { getRuntime } from '@nextrush/runtime';
 import type {
-    BodySource,
-    Context,
-    ContextState,
-    HttpMethod,
-    IncomingHeaders,
-    QueryParams,
-    RawHttp,
-    ResponseBody,
-    RouteParams,
-    Runtime,
+  BodySource,
+  Context,
+  ContextState,
+  HttpMethod,
+  IncomingHeaders,
+  QueryParams,
+  RawHttp,
+  ResponseBody,
+  RouteParams,
+  Runtime,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
@@ -74,7 +75,7 @@ export class NodeContext implements Context {
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly raw: NodeRawHttp;
-  readonly runtime: Runtime = 'node';
+  readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
   body: unknown = undefined;
@@ -87,6 +88,7 @@ export class NodeContext implements Context {
 
   constructor(req: IncomingMessage, res: ServerResponse) {
     this.raw = { req, res };
+    this.runtime = getRuntime();
     this.method = (req.method?.toUpperCase() ?? 'GET') as HttpMethod;
     this.url = req.url ?? '/';
 

@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "@nextrush/types": "workspace:*",
-    "@nextrush/core": "workspace:*"
+    "@nextrush/core": "workspace:*",
+    "@nextrush/runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",

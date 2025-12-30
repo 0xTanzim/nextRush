@@ -128,7 +128,7 @@ export default defineConfig({
     // Footer
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2024-present NextRush Contributors',
+      copyright: 'Copyright © 2025-present NextRush Contributors',
     },
 
     // Carbon ads (optional)

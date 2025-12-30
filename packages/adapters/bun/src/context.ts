@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { getRuntime } from '@nextrush/runtime';
 import type {
   BodySource,
   Context,
@@ -99,7 +100,7 @@ export class BunContext implements Context {
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly raw: BunRawHttp;
-  readonly runtime: Runtime = 'bun';
+  readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
   body: unknown = undefined;
@@ -114,6 +115,7 @@ export class BunContext implements Context {
   constructor(request: Request, clientIp?: string) {
     this.raw = { req: request, res: undefined };
     this.method = request.method.toUpperCase() as HttpMethod;
+    this.runtime = getRuntime();
 
     // Parse URL
     const urlObj = new URL(request.url);

@@ -44,7 +44,7 @@ export default createCloudflareHandler(app);
 # wrangler.toml
 name = "my-nextrush-worker"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2025-01-01"
 ```
 
 ### Vercel Edge Functions

@@ -467,7 +467,7 @@ import type {
 # wrangler.toml
 name = "my-api"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2025-01-01"
 
 # Deploy
 wrangler deploy

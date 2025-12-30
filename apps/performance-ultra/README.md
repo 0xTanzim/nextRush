@@ -188,13 +188,13 @@ The benchmark displays results in a formatted table:
 ```
 results/
 ├── comparison/           # Multi-framework comparison results
-│   ├── 2024-12-25_14-30-15/  # Timestamped results
+│   ├── 2025-12-25_14-30-15/  # Timestamped results
 │   │   ├── results.json      # Raw JSON data
 │   │   ├── REPORT.md         # Markdown report
 │   │   └── [framework].json  # Individual framework results
 │   └── latest/               # Symlink to latest results
 └── nextrush-v3/         # NextRush v3 dedicated results
-    ├── 2024-12-25_14-30-15/
+    ├── 2025-12-25_14-30-15/
     │   ├── results.json
     │   └── REPORT.md
     └── latest/

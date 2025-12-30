@@ -303,10 +303,10 @@ The built-in engine includes 70+ helpers organized by category.
 
 | Helper | Usage | Result |
 |--------|-------|--------|
-| `formatDate` | `{{date \| formatDate "YYYY-MM-DD"}}` | `"2024-12-29"` |
+| `formatDate` | `{{date \| formatDate "YYYY-MM-DD"}}` | `"2025-12-29"` |
 | `timeAgo` | `{{date \| timeAgo}}` | `"2 hours ago"` |
 | `now` | `{{now}}` | Current ISO timestamp |
-| `year` | `{{date \| year}}` | `2024` |
+| `year` | `{{date \| year}}` | `2025` |
 | `month` | `{{date \| month}}` | `12` (1-12) |
 | `day` | `{{date \| day}}` | `29` |
 
@@ -496,7 +496,7 @@ Layouts wrap page content with common structure (headers, footers, navigation):
   </main>
 
   <footer>
-    <p>&copy; 2024 My App</p>
+    <p>&copy; 2025 My App</p>
   </footer>
 </body>
 </html>

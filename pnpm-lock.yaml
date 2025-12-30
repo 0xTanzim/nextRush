@@ -126,6 +126,9 @@ importers:
       '@nextrush/di':
         specifier: workspace:*
         version: link:../../packages/di
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       nextrushx:
         specifier: workspace:*
         version: link:../../packages/nextrush
@@ -137,47 +140,14 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/__integration__:
-    devDependencies:
-      '@nextrush/adapter-node':
-        specifier: workspace:*
-        version: link:../adapters/node
-      '@nextrush/controllers':
-        specifier: workspace:*
-        version: link:../plugins/controllers
-      '@nextrush/core':
-        specifier: workspace:*
-        version: link:../core
-      '@nextrush/decorators':
-        specifier: workspace:*
-        version: link:../decorators
-      '@nextrush/di':
-        specifier: workspace:*
-        version: link:../di
-      '@nextrush/errors':
-        specifier: workspace:*
-        version: link:../errors
-      '@nextrush/router':
-        specifier: workspace:*
-        version: link:../router
-      '@nextrush/types':
-        specifier: workspace:*
-        version: link:../types
-      reflect-metadata:
-        specifier: ^0.2.2
-        version: 0.2.2
-      typescript:
-        specifier: ^5.8.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9))
-
   packages/adapters/bun:
     dependencies:
       '@nextrush/core':
         specifier: workspace:*
         version: link:../../core
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../runtime
       '@nextrush/types':
         specifier: workspace:*
         version: link:../../types
@@ -200,6 +170,9 @@ importers:
       '@nextrush/core':
         specifier: workspace:*
         version: link:../../core
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../runtime
       '@nextrush/types':
         specifier: workspace:*
         version: link:../../types
@@ -238,6 +211,9 @@ importers:
       '@nextrush/core':
         specifier: workspace:*
         version: link:../../core
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../runtime
       '@nextrush/types':
         specifier: workspace:*
         version: link:../../types
@@ -508,12 +484,30 @@ importers:
         specifier: workspace:*
         version: link:../types
     devDependencies:
+      '@nextrush/body-parser':
+        specifier: workspace:*
+        version: link:../middleware/body-parser
+      '@nextrush/compression':
+        specifier: workspace:*
+        version: link:../middleware/compression
+      '@nextrush/cors':
+        specifier: workspace:*
+        version: link:../middleware/cors
+      '@nextrush/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@nextrush/helmet':
+        specifier: workspace:*
+        version: link:../middleware/helmet
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.7)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.3)(@vitest/ui@2.1.9)
 
   packages/plugins/controllers:
     dependencies:

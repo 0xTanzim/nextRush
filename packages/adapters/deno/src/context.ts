@@ -6,17 +6,18 @@
  * @packageDocumentation
  */
 
+import { getRuntime } from '@nextrush/runtime';
 import type {
-    BodySource,
-    Context,
-    ContextState,
-    HttpMethod,
-    IncomingHeaders,
-    QueryParams,
-    RawHttp,
-    ResponseBody,
-    RouteParams,
-    Runtime,
+  BodySource,
+  Context,
+  ContextState,
+  HttpMethod,
+  IncomingHeaders,
+  QueryParams,
+  RawHttp,
+  ResponseBody,
+  RouteParams,
+  Runtime,
 } from '@nextrush/types';
 import { createEmptyBodySource, DenoBodySource } from './body-source';
 import { parseQueryString } from './utils';
@@ -99,7 +100,7 @@ export class DenoContext implements Context {
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly raw: DenoRawHttp;
-  readonly runtime: Runtime = 'deno';
+  readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
   body: unknown = undefined;
@@ -114,6 +115,7 @@ export class DenoContext implements Context {
   constructor(request: Request, connInfo?: { remoteAddr?: { hostname: string } }) {
     this.raw = { req: request, res: undefined };
     this.method = request.method.toUpperCase() as HttpMethod;
+    this.runtime = getRuntime();
 
     // Parse URL
     const urlObj = new URL(request.url);

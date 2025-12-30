@@ -19,7 +19,10 @@
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "framework",
@@ -52,7 +55,13 @@
     "@nextrush/types": "workspace:*"
   },
   "devDependencies": {
+    "@nextrush/body-parser": "workspace:*",
+    "@nextrush/cors": "workspace:*",
+    "@nextrush/helmet": "workspace:*",
+    "@nextrush/compression": "workspace:*",
+    "@nextrush/errors": "workspace:*",
     "tsup": "^8.5.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.8"
   }
 }
