@@ -7,16 +7,16 @@
  */
 
 import type {
-    BodySource,
-    Context,
-    ContextState,
-    HttpMethod,
-    IncomingHeaders,
-    QueryParams,
-    RawHttp,
-    ResponseBody,
-    RouteParams,
-    Runtime,
+  BodySource,
+  Context,
+  ContextState,
+  HttpMethod,
+  IncomingHeaders,
+  QueryParams,
+  RawHttp,
+  ResponseBody,
+  RouteParams,
+  Runtime,
 } from '@nextrush/types';
 import { BunBodySource, createEmptyBodySource } from './body-source';
 import { parseQueryString } from './utils';
@@ -343,8 +343,11 @@ export class BunContext implements Context {
    * @returns Web API Response object
    */
   getResponse(): Response {
-    // Sync status from context
-    this._responseBuilder.status = this.status;
+    // Only sync status from context if response builder hasn't set a specific status
+    // (e.g., redirect sets its own status)
+    if (!this._responded) {
+      this._responseBuilder.status = this.status;
+    }
 
     return new Response(this._responseBuilder.body, {
       status: this._responseBuilder.status,

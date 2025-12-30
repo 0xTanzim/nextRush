@@ -7,16 +7,16 @@
  */
 
 import type {
-    BodySource,
-    Context,
-    ContextState,
-    HttpMethod,
-    IncomingHeaders,
-    QueryParams,
-    RawHttp,
-    ResponseBody,
-    RouteParams,
-    Runtime,
+  BodySource,
+  Context,
+  ContextState,
+  HttpMethod,
+  IncomingHeaders,
+  QueryParams,
+  RawHttp,
+  ResponseBody,
+  RouteParams,
+  Runtime,
 } from '@nextrush/types';
 import { createEmptyBodySource, EdgeBodySource } from './body-source';
 import { detectEdgeRuntime, parseQueryString } from './utils';
@@ -373,7 +373,11 @@ export class EdgeContext implements Context {
    * Get the built Response object
    */
   getResponse(): Response {
-    this._responseBuilder.status = this.status;
+    // Only sync status from context if response builder hasn't set a specific status
+    // (e.g., redirect sets its own status)
+    if (!this._responded) {
+      this._responseBuilder.status = this.status;
+    }
 
     return new Response(this._responseBuilder.body, {
       status: this._responseBuilder.status,

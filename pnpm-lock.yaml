@@ -137,6 +137,42 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/__integration__:
+    devDependencies:
+      '@nextrush/adapter-node':
+        specifier: workspace:*
+        version: link:../adapters/node
+      '@nextrush/controllers':
+        specifier: workspace:*
+        version: link:../plugins/controllers
+      '@nextrush/core':
+        specifier: workspace:*
+        version: link:../core
+      '@nextrush/decorators':
+        specifier: workspace:*
+        version: link:../decorators
+      '@nextrush/di':
+        specifier: workspace:*
+        version: link:../di
+      '@nextrush/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@nextrush/router':
+        specifier: workspace:*
+        version: link:../router
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../types
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9))
+
   packages/adapters/bun:
     dependencies:
       '@nextrush/core':
@@ -157,7 +193,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9)
+        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9))
 
   packages/adapters/deno:
     dependencies:
@@ -176,7 +212,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.1.4
-        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9)
+        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9))
 
   packages/adapters/edge:
     dependencies:
@@ -195,7 +231,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.1.4
-        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9)
+        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9))
 
   packages/adapters/node:
     dependencies:
@@ -280,7 +316,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9)
+        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9))
 
   packages/di:
     dependencies:
@@ -640,7 +676,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9)
+        version: 3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9))
 
   packages/types:
     devDependencies:
@@ -6743,7 +6779,7 @@ snapshots:
       - supports-color
       - terser
 
-  vitest@3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9):
+  vitest@3.2.4(@types/node@22.19.3)(@vitest/ui@2.1.9(vitest@2.1.9)):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4

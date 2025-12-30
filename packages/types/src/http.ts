@@ -121,11 +121,18 @@ export type ParsedBody =
 
 /**
  * Supported response body types
+ *
+ * @remarks
+ * Includes Uint8Array and ArrayBuffer for Web API compatibility
+ * across all runtimes (Node.js, Bun, Deno, Edge).
  */
 export type ResponseBody =
   | string
   | Buffer
+  | Uint8Array
+  | ArrayBuffer
   | Readable
+  | ReadableStream
   | Record<string, unknown>
   | unknown[]
   | null
