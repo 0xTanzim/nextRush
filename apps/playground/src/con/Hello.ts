@@ -1,5 +1,5 @@
 import { Controller, Ctx, Get } from '@nextrush/controllers';
-import type { Context } from 'nextrushx';
+import type { Context } from 'nextrush';
 
 // Note: Constructor DI requires decorator metadata (emitDecoratorMetadata)
 // which is NOT available when using tsx/esbuild

@@ -19,7 +19,7 @@
     "@nextrush/dev": "workspace:*",
     "@nextrush/di": "workspace:*",
     "@nextrush/runtime": "workspace:*",
-    "nextrushx": "workspace:*",
+    "nextrush": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {

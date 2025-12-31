@@ -8,7 +8,7 @@ dist/
 build/
 **/dist/
 **/build/
-
+apps/docs/.vitepress/cache
 # Turbo cache
 .turbo/
 **/.turbo/

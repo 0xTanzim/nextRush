@@ -70,10 +70,11 @@ export type {
     HttpStatusCode, Middleware,
     Next,
     Plugin,
-    RouteHandler
+    RouteHandler,
+    Runtime
 } from '@nextrush/types';
 
 export { ContentType, HttpStatus } from '@nextrush/types';
 
 // Version
-export const VERSION = '3.0.0-alpha.1';
+export const VERSION = '3.0.0-alpha.2';

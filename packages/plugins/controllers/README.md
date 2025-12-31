@@ -60,11 +60,7 @@ pnpm add @nextrush/controllers @nextrush/di @nextrush/decorators reflect-metadat
 ## Quick Start
 
 ```typescript
-import 'reflect-metadata';
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
-import { controllersPlugin } from '@nextrush/controllers';
+// src/controllers/user.controller.ts
 import { Controller, Get, Post, Body, Param, UseGuard } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
 import type { GuardFn } from '@nextrush/decorators';
@@ -80,10 +76,10 @@ class UserService {
 // Guard
 const AuthGuard: GuardFn = (ctx) => Boolean(ctx.get('authorization'));
 
-// Controller
+// Controller (auto-discovered from ./src directory)
 @UseGuard(AuthGuard)
 @Controller('/users')
-class UserController {
+export class UserController {
   constructor(private userService: UserService) {}
 
   @Get()
@@ -95,17 +91,29 @@ class UserController {
   @Post()
   create(@Body() data: { name: string }) { return this.userService.create(data); }
 }
+```
 
-// Bootstrap
+```typescript
+// src/index.ts
+import 'reflect-metadata';
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { listen } from '@nextrush/adapter-node';
+import { controllersPlugin } from '@nextrush/controllers';
+
 async function main() {
   const app = createApp();
   const router = createRouter();
 
-  app.plugin(controllersPlugin({
-    router,
-    controllers: [UserController],
-    prefix: '/api',
-  }));
+  // Auto-discover controllers from ./src directory
+  await app.pluginAsync(
+    controllersPlugin({
+      router,
+      root: './src',           // Scan this directory for @Controller classes
+      prefix: '/api',          // Add prefix to all routes: /api/users
+      debug: true,             // Log discovered controllers at startup
+    })
+  );
 
   app.use(router.routes());
   listen(app, { port: 3000 });
@@ -325,9 +333,14 @@ interface ControllersPluginOptions {
 }
 ```
 
-### Manual Registration
+### Manual Registration (Deprecated)
+
+::: warning Deprecated
+Manual registration is only for testing. Prefer auto-discovery with `root` option.
+:::
 
 ```typescript
+// ❌ Deprecated - only for testing
 app.plugin(controllersPlugin({
   router,
   controllers: [UserController, ProductController],
@@ -335,16 +348,17 @@ app.plugin(controllersPlugin({
 }));
 ```
 
-### Auto-Discovery
+### Auto-Discovery (Recommended)
 
 ```typescript
+// ✅ Recommended - auto-discovers all @Controller classes
 await app.pluginAsync(controllersPlugin({
   router,
-  root: './src',
-  include: ['**/*.controller.ts'],
+  root: './src',                         // Directory to scan
+  include: ['**/*.controller.ts'],       // Only files matching pattern
   exclude: ['**/*.test.ts', '**/__tests__/**'],
   prefix: '/api',
-  debug: true,
+  debug: true,                           // Log discovered controllers
 }));
 ```
 

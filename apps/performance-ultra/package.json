@@ -25,7 +25,7 @@
     "koa": "^3.0.1",
     "koa-bodyparser": "^4.4.1",
     "koa-router": "^14.0.0",
-    "nextrushx": "workspace:*",
+    "nextrush-v3": "workspace:nextrush@*",
     "@nextrush/body-parser": "workspace:*"
   },
   "engines": {

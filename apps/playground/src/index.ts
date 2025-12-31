@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 
 import { controllersPlugin } from '@nextrush/controllers';
-import { createApp, createRouter, listen } from 'nextrushx';
+import type { Context } from 'nextrush';
+import { createApp, createRouter, listen } from 'nextrush';
 
 async function main() {
   const app = createApp();
@@ -15,7 +16,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Basic JSON response
-  router.get('/', (ctx) => {
+  router.get('/', (ctx: Context) => {
     ctx.json({
       message: 'Welcome to NextRush v3!',
       styles: {
@@ -26,7 +27,7 @@ async function main() {
   });
 
   // Health check endpoint
-  router.get('/health', (ctx) => {
+  router.get('/health', (ctx: Context) => {
     ctx.json({
       status: 'healthy',
       uptime: process.uptime(),
@@ -35,7 +36,7 @@ async function main() {
   });
 
   // Echo endpoint with query params
-  router.get('/echo', (ctx) => {
+  router.get('/echo', (ctx: Context) => {
     ctx.json({
       method: ctx.method,
       path: ctx.path,
@@ -48,7 +49,7 @@ async function main() {
   });
 
   // Simple GET with data
-  router.get('/users', (ctx) => {
+  router.get('/users', (ctx: Context) => {
     ctx.json([
       { id: 1, name: 'Alice', role: 'admin' },
       { id: 2, name: 'Bob', role: 'user' },
@@ -57,7 +58,7 @@ async function main() {
   });
 
   // Route params example
-  router.get('/users/:id', (ctx) => {
+  router.get('/users/:id', (ctx: Context) => {
     const users = [
       { id: 1, name: 'Alice', email: 'alice@example.com' },
       { id: 2, name: 'Bob', email: 'bob@example.com' },
@@ -77,7 +78,7 @@ async function main() {
   });
 
   // POST with body (requires body-parser middleware)
-  router.post('/users', (ctx) => {
+  router.post('/users', (ctx: Context) => {
     const body = ctx.body as { name?: string; email?: string } | undefined;
 
     if (!body?.name || !body?.email) {

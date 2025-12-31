@@ -1,22 +1,32 @@
 # NextRush
 
-> Minimal, Modular, Blazing Fast Node.js Framework
+> Minimal, modular, high-performance Node.js framework
 
 [![npm version](https://img.shields.io/npm/v/nextrush.svg)](https://www.npmjs.com/package/nextrush)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-≥20-339933?logo=node.js)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
 
-## Philosophy
+## Why NextRush?
 
-**This meta package provides essentials only:**
+- **Fast** — 50-60% faster than Express, competes with Fastify and Hono
+- **Minimal** — Core under 3,000 lines of code
+- **Modular** — Install only what you need
+- **Type-Safe** — Full TypeScript with zero `any`
+- **Zero Dependencies** — No external runtime dependencies in core
 
-- `createApp` - Create application
+## This Package
+
+**`nextrush` is a meta package that re-exports the essentials:**
+
+- `createApp` - Create application instance
 - `createRouter` - Create router
-- `listen` / `serve` - Start server
+- `listen` / `serve` - Start HTTP server
 - `compose` - Compose middleware
-- Error classes (HttpError, NotFoundError, etc.)
-- Essential types (Context, Middleware, Plugin, etc.)
+- Error classes (`HttpError`, `NotFoundError`, `BadRequestError`, etc.)
+- TypeScript types (`Context`, `Middleware`, `Plugin`, etc.)
 
-**Middleware and plugins are installed separately.** This is intentional - you only pay for what you use.
+**Middleware and plugins are installed separately.** This is intentional — you only pay for what you use.
 
 ## Installation
 
@@ -40,6 +50,19 @@ app.use(router.routes());
 
 listen(app, 3000);
 ```
+
+## Performance
+
+Benchmark results on Intel i5-8300H (8 cores), Node.js v25.1.0:
+
+| Framework | Hello World | POST JSON | Mixed Workload |
+|-----------|-------------|-----------|----------------|
+| Fastify | 46,542 RPS | 20,000 RPS | 45,988 RPS |
+| **NextRush v3** | **36,092 RPS** | **17,826 RPS** | **38,061 RPS** |
+| Hono | 36,288 RPS | 12,405 RPS | 35,672 RPS |
+| Express | 22,128 RPS | 14,081 RPS | 22,745 RPS |
+
+> Performance varies by hardware. See [full benchmarks](https://nextrush.dev/benchmark).
 
 ## Adding Middleware
 
@@ -72,10 +95,11 @@ This meta package re-exports from:
 
 | Package | Exports |
 |---------|---------|
-| `@nextrush/core` | `createApp`, `Application`, `compose`, errors |
+| `@nextrush/core` | `createApp`, `Application`, `compose` |
 | `@nextrush/router` | `createRouter`, `Router` |
 | `@nextrush/adapter-node` | `listen`, `serve`, `createHandler` |
-| `@nextrush/types` | `Context`, `Middleware`, `Plugin`, `HttpStatus`, etc. |
+| `@nextrush/types` | `Context`, `Middleware`, `Plugin`, `HttpStatus` |
+| `@nextrush/errors` | `HttpError`, `NotFoundError`, `BadRequestError`, etc. |
 
 ## Available Packages
 
@@ -159,4 +183,4 @@ console.log(VERSION); // '3.0.0-alpha.1'
 
 ## License
 
-MIT © NextRush Team
+MIT © [Tanzim Hossain](https://github.com/0xTanzim)

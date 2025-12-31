@@ -20,6 +20,6 @@
     "cli-table3": "^0.6.3",
     "hono": "^4.11.1",
     "nextrush": "^2.0.1",
-    "nextrushx": "workspace:*"
+    "nextrush-v3": "workspace:nextrush@*"
   }
 }
