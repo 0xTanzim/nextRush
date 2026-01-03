@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/runtime",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "Runtime detection and cross-runtime abstractions for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -47,7 +47,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xtanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/runtime"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
   }
 }

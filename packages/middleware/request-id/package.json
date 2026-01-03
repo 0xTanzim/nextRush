@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/request-id",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "Request ID middleware for NextRush - generates unique identifiers for distributed tracing",
   "type": "module",
   "main": "./dist/index.js",
@@ -39,11 +39,21 @@
     "tracing",
     "middleware"
   ],
-  "author": "NextRush Team",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xtanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/middleware/request-id"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

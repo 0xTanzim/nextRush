@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/websocket",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "WebSocket plugin for NextRush with rooms, broadcasting, and simple DX",
   "type": "module",
   "main": "./dist/index.js",
@@ -44,14 +44,21 @@
     "rooms",
     "channels"
   ],
-  "author": "NextRush Team",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xtanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/plugins/websocket"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -3,9 +3,27 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [],
+  "linked": [
+    [
+      "@nextrush/types",
+      "@nextrush/errors",
+      "@nextrush/core",
+      "@nextrush/router",
+      "@nextrush/runtime",
+      "nextrush",
+      "@nextrush/adapter-node"
+    ],
+    [
+      "@nextrush/di",
+      "@nextrush/decorators",
+      "@nextrush/controllers"
+    ]
+  ],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": [
+    "@nextrush/dev",
+    "nextrush-monorepo"
+  ]
 }

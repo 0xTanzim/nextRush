@@ -1,561 +1,345 @@
 ---
-description: 'Content strategy and writing workflow for NextRush documentation. Defines the editorial process, content hierarchy, and decision frameworks for creating world-class developer documentation.'
+description: 'Editorial content strategy and workflow for the NextRush documentation. Defines what to write, when to write it, and how documentation evolves over time.'
 applyTo: '**'
 ---
 
 # NextRush Documentation Content Strategy
 
-This instruction file guides the **content creation process** for NextRush documentation.
+This file defines the **editorial strategy** for the NextRush documentation.
 
-It complements `docs-site.instructions.md` (structure) and `nextrush-docs.instructions.md` (philosophy) with actionable writing workflows.
+It guides **what content to create**, **when to create it**, and **how documentation evolves** as the framework grows.
 
----
-
-## Content Hierarchy
-
-### Priority 1: Critical Path (Must Have Day 1)
-
-These pages determine whether developers adopt NextRush:
-
-| Page | Purpose | Success Metric |
-|------|---------|----------------|
-| `getting-started/introduction.md` | Sell the vision | Time on page > 2 min |
-| `getting-started/quick-start.md` | First success | < 5 min to working app |
-| `concepts/context.md` | Core mental model | Reduces "how do I..." issues |
-| `concepts/middleware.md` | Understand the flow | Enables custom middleware |
-
-### Priority 2: Core Understanding (Week 1)
-
-These pages enable productive development:
-
-- `concepts/application.md`
-- `concepts/routing.md`
-- `concepts/plugins.md`
-- `guides/rest-api.md`
-- All middleware package docs
-
-### Priority 3: Advanced Usage (Month 1)
-
-These pages serve power users:
-
-- `guides/authentication.md`
-- `guides/database.md`
-- `guides/testing.md`
-- `guides/deployment.md`
-- Plugin development guides
-
-### Priority 4: Reference (Ongoing)
-
-These pages are looked up, not read:
-
-- `api/*.md`
-- `packages/*.md` (detailed sections)
-- TypeScript type definitions
+This file does **not** define writing style, UI usage, or page structure.
+Those concerns are handled by other instruction files.
 
 ---
 
-## Content Decision Framework
+## Scope
 
-### When to Write a New Page
+Use this file when deciding:
 
-Ask these questions:
+* Which documentation to write next
+* Whether to create a new page or update an existing one
+* How to prioritize documentation work
+* How to review, maintain, and evolve documentation
+* How to handle migrations, terminology, and long-term consistency
 
-1. **Is this a distinct concept?** → New concept page
-2. **Is this a multi-step process?** → New guide/tutorial
-3. **Is this package-specific?** → Add to package docs
-4. **Is this a common question?** → FAQ or troubleshooting
-5. **Is this API reference?** → API docs
+Do not use this file for:
 
-### When to Update vs. Create
-
-| Situation | Action |
-|-----------|--------|
-| New feature in existing package | Update package page |
-| Breaking change | Update + migration guide |
-| Common question pattern | Add to troubleshooting |
-| Entirely new concept | New concept page |
-| New integration pattern | New guide |
-
-### Content Length Guidelines
-
-| Content Type | Length | Why |
-|-------------|--------|-----|
-| Introduction | 500-800 words | Set the stage, don't overwhelm |
-| Concept page | 800-1500 words | Teach one thing well |
-| Tutorial | 1500-2500 words | Step-by-step needs detail |
-| Package docs | 1000-2000 words | Complete reference |
-| API reference | Per-function | Lookup, not reading |
+* Sentence phrasing
+* Tone or voice rules
+* MDX components or visuals
+* Page layout templates
 
 ---
 
-## Writing Workflow
+## Content Hierarchy & Priorities
 
-### Phase 1: Research (Before Writing)
+Documentation work must follow this priority order.
 
-Before writing any documentation page:
+### Priority 1 — Critical Path (Day 1)
 
-1. **Read the source code** - Understand what actually happens
-2. **Find existing issues** - What confuses people?
-3. **Check competing docs** - How do Express, Koa, Fastify explain this?
-4. **Identify the pain** - What problem does this solve?
+These pages determine whether a developer adopts NextRush.
 
-### Phase 2: Outline (Structure First)
+| Area            | Goal                             |
+| --------------- | -------------------------------- |
+| Getting Started | First success in under 5 minutes |
+| Quick Start     | Working app without confusion    |
+| Core Concepts   | Correct mental model early       |
+| Middleware Flow | Understanding execution order    |
 
-Create an outline following the template:
+If these pages are weak, nothing else matters.
 
-```markdown
-# [Title]
+---
 
-## The Problem
-- Pain point 1
-- Pain point 2
+### Priority 2 — Core Productivity (Week 1)
 
-## Mental Model
-- Key insight
-- Analogy if helpful
+These pages enable real work:
 
-## Basic Usage
-- Minimal example
+* Application lifecycle
+* Routing patterns
+* Plugin system
+* Core middleware packages
+* Basic REST API guides
 
-## How It Works
-- Step 1
-- Step 2
-- Step 3
+These pages should reduce “how do I…” questions.
 
-## Common Patterns
-- Pattern 1
-- Pattern 2
+---
 
-## Common Mistakes
-- Mistake 1
-- Mistake 2
+### Priority 3 — Advanced Usage (Month 1)
 
-## When NOT to Use
-- Misuse case 1
-```
+These pages serve experienced users:
 
-### Phase 3: First Draft (Get It Down)
+* Authentication patterns
+* Database integration
+* Testing strategies
+* Deployment and production concerns
+* Custom plugin development
 
-Write without editing:
-- Focus on explaining, not polishing
-- Include all code examples (even if rough)
-- Mark uncertain areas with `[TODO: verify]`
+These are not required for first adoption.
 
-### Phase 4: Technical Review
+---
+
+### Priority 4 — Reference (Ongoing)
+
+These pages are **looked up**, not read:
+
+* API reference
+* Package configuration details
+* Type definitions
+
+They must be accurate, not verbose.
+
+---
+
+## Decision Framework
+
+### When to Create a New Page
+
+Create a new page when:
+
+* A concept cannot be explained clearly within an existing page
+* A task requires multiple ordered steps
+* A new package introduces new mental models
+* A pattern appears repeatedly in issues or discussions
+
+---
+
+### When to Update an Existing Page
+
+Update an existing page when:
+
+* A new feature extends an existing concept
+* Defaults or behavior change
+* A common mistake emerges
+* Users misunderstand an existing feature
+
+Avoid duplicating information across pages.
+
+---
+
+### New Page vs Update Matrix
+
+| Situation                       | Action                   |
+| ------------------------------- | ------------------------ |
+| New feature in existing package | Update package page      |
+| Breaking change                 | Update + migration guide |
+| Repeated user confusion         | Add troubleshooting      |
+| Entirely new concept            | New concept page         |
+| New integration pattern         | New guide                |
+
+---
+
+## Editorial Workflow
+
+### Phase 1 — Research
+
+Before writing:
+
+1. Read the source code
+2. Identify default behavior
+3. Review related issues and discussions
+4. Check how similar frameworks explain the same idea
+5. Identify the real user pain
+
+Do not write before understanding the behavior fully.
+
+---
+
+### Phase 2 — Outline
+
+Create a clear outline before drafting:
+
+* Problem
+* Core idea
+* Basic usage
+* Key behaviors
+* Common mistakes
+* Next steps
+
+Do not optimize language at this stage.
+
+---
+
+### Phase 3 — Draft
+
+During drafting:
+
+* Focus on correctness first
+* Include all required examples
+* Mark uncertainty explicitly
+* Do not polish prematurely
+
+Completeness matters more than elegance.
+
+---
+
+### Phase 4 — Technical Review
 
 Verify:
-- [ ] Code examples run correctly
-- [ ] API signatures match implementation
-- [ ] Default values are accurate
-- [ ] Performance claims are tested
 
-### Phase 5: Editorial Review
+* Code examples work
+* API signatures match implementation
+* Defaults are correct
+* Performance claims are accurate
+* Edge cases are documented
 
-Check:
-- [ ] No forbidden phrases
-- [ ] Active voice throughout
-- [ ] Consistent terminology
-- [ ] Appropriate length
-- [ ] Clear next steps
-
-### Phase 6: User Testing
-
-Ideal: Have someone unfamiliar with the feature:
-1. Read the page
-2. Try to implement the feature
-3. Note where they got stuck
-4. Revise based on feedback
+Incorrect documentation is treated as a bug.
 
 ---
 
-## Terminology Consistency
+### Phase 5 — Editorial Review
 
-### Official Terms
+Check for:
 
-Use these exact terms consistently:
+* Clear purpose
+* Logical flow
+* No duplicated content
+* Correct terminology
+* Clear next steps
 
-| Term | Use | Don't Use |
-|------|-----|-----------|
-| Context | `ctx` | request context, req/res |
-| Middleware | middleware | handler, interceptor |
-| Plugin | plugin | extension, module |
-| Handler | handler | controller, endpoint |
-| Route | route | path, endpoint |
-| Application | app, Application | server, instance |
-
-### Capitalization
-
-| Term | Capitalization |
-|------|---------------|
-| NextRush | Always capitalized |
-| Context | Capitalize when noun, lowercase in code |
-| JavaScript | Always capitalized |
-| TypeScript | Always capitalized |
-| Node.js | Always with `.js` |
-| npm/pnpm | Always lowercase |
-
-### Code Conventions
-
-```typescript
-// Variable naming in examples
-const app = createApp();           // Always 'app'
-const router = createRouter();     // Always 'router'
-const ctx = ...;                   // Always 'ctx'
-const middleware = ...;            // Describe the purpose
-
-// Function naming in examples
-async function handleUsers(ctx) {} // Descriptive handlers
-async function authMiddleware(ctx) {} // Middleware naming
-```
+Pages without a clear goal must be revised.
 
 ---
 
-## Code Example Standards
+## Terminology Governance
 
-### Example Categories
+### Canonical Terms
 
-1. **Minimal Examples** - Prove a concept works
-2. **Practical Examples** - Show real-world usage
-3. **Complete Examples** - Production-ready code
+Use these terms consistently across all documentation:
 
-### Minimal Example
+| Concept              | Approved Term     |
+| -------------------- | ----------------- |
+| Request context      | Context (`ctx`)   |
+| Middleware unit      | Middleware        |
+| Extension mechanism  | Plugin            |
+| Request handler      | Handler           |
+| URL mapping          | Route             |
+| Application instance | Application / app |
 
-```typescript
-// Purpose: Show ctx.json() works
-import { createApp } from '@nextrush/core';
-
-const app = createApp();
-
-app.get('/', (ctx) => {
-  ctx.json({ message: 'Hello' });
-});
-```
-
-### Practical Example
-
-```typescript
-// Purpose: Show a realistic use case
-import { createApp } from '@nextrush/core';
-import { json } from '@nextrush/body-parser';
-
-const app = createApp();
-
-app.use(json());
-
-app.post('/users', async (ctx) => {
-  const { name, email } = ctx.body;
-
-  // Validate
-  if (!name || !email) {
-    ctx.status = 400;
-    ctx.json({ error: 'Name and email required' });
-    return;
-  }
-
-  // Create user (simulated)
-  const user = { id: Date.now(), name, email };
-
-  ctx.status = 201;
-  ctx.json({ user });
-});
-```
-
-### Complete Example
-
-```typescript
-// Purpose: Production-ready reference
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { json } from '@nextrush/body-parser';
-import { cors } from '@nextrush/cors';
-import { helmet } from '@nextrush/helmet';
-import { rateLimit } from '@nextrush/rate-limit';
-
-const app = createApp();
-const router = createRouter();
-
-// Security middleware
-app.use(helmet());
-app.use(cors({ origin: process.env.ALLOWED_ORIGINS }));
-app.use(rateLimit({ max: 100, window: '15m' }));
-
-// Body parsing
-app.use(json({ limit: '1mb' }));
-
-// Request logging
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  console.log(`${ctx.method} ${ctx.path} ${ctx.status} ${Date.now() - start}ms`);
-});
-
-// Routes
-router.get('/health', (ctx) => {
-  ctx.json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
-
-router.get('/users/:id', async (ctx) => {
-  const { id } = ctx.params;
-  const user = await db.users.findById(id);
-
-  if (!user) {
-    ctx.status = 404;
-    ctx.json({ error: 'User not found' });
-    return;
-  }
-
-  ctx.json({ user });
-});
-
-router.post('/users', async (ctx) => {
-  const { name, email } = ctx.body;
-
-  if (!name || !email) {
-    ctx.status = 400;
-    ctx.json({ error: 'Name and email are required' });
-    return;
-  }
-
-  const user = await db.users.create({ name, email });
-
-  ctx.status = 201;
-  ctx.json({ user });
-});
-
-// Mount router
-app.use(router.routes());
-
-// Error handling
-app.use(async (ctx) => {
-  try {
-    await ctx.next();
-  } catch (error) {
-    console.error('Unhandled error:', error);
-    ctx.status = 500;
-    ctx.json({ error: 'Internal server error' });
-  }
-});
-
-// Start server
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
-```
+Avoid synonyms that introduce ambiguity.
 
 ---
 
-## Error Message Documentation
+### Capitalization Rules
 
-### Documenting Errors
-
-Every error a user might encounter should be documented:
-
-```markdown
-### "Cannot read properties of undefined (reading 'body')"
-
-**Cause:** You're accessing `ctx.body` without using a body parser.
-
-**Solution:**
-
-```typescript
-import { json } from '@nextrush/body-parser';
-
-app.use(json()); // Add this before your routes
-
-app.post('/users', async (ctx) => {
-  const data = ctx.body; // Now works
-});
-```
-```
-
-### Error Documentation Checklist
-
-- [ ] Error message quoted exactly
-- [ ] Cause explained simply
-- [ ] Solution with working code
-- [ ] Related errors linked
+| Term       | Rule                                   |
+| ---------- | -------------------------------------- |
+| NextRush   | Always capitalized                     |
+| Context    | Capitalized as noun, lowercase in code |
+| JavaScript | Always capitalized                     |
+| TypeScript | Always capitalized                     |
+| Node.js    | Always include `.js`                   |
+| npm / pnpm | Always lowercase                       |
 
 ---
 
-## Migration Guide Standards
+## Code Example Strategy
 
-When documenting migrations between versions:
+Documentation examples fall into three categories:
 
-### Structure
+1. **Minimal** — prove a concept works
+2. **Practical** — show realistic usage
+3. **Complete** — production reference
 
-```markdown
-# Migrating from v[X] to v[Y]
+Each page should clearly signal which category an example belongs to.
 
-## Breaking Changes
-
-### 1. [Change Name]
-
-**Before (v[X]):**
-```typescript
-// Old code
-```
-
-**After (v[Y]):**
-```typescript
-// New code
-```
-
-**Why this changed:** [Brief explanation]
-
-**Migration steps:**
-1. Step 1
-2. Step 2
-3. Step 3
-
-### 2. [Next Change]
-
-[Same structure]
-
-## Deprecations
-
-| Deprecated | Replacement | Removal Version |
-|------------|-------------|-----------------|
-| `oldMethod()` | `newMethod()` | v4.0.0 |
-
-## New Features
-
-[Brief overview with links to full docs]
-
-## Need Help?
-
-- [GitHub Discussions](link)
-- [Migration FAQ](link)
-```
+Avoid mixing categories without explanation.
 
 ---
 
-## Search Optimization
+## Error & Troubleshooting Strategy
 
-### Page Titles
+Document errors when:
 
-- Use descriptive, searchable titles
-- Include the feature name
-- Keep under 60 characters
+* The error message is non-obvious
+* The mistake is common
+* The fix is simple but unclear
 
-Good: "Body Parser - Parse JSON and Form Data"
-Bad: "Request Body Handling"
+Each error entry must include:
 
-### Headings
-
-- Use question-based headings when appropriate
-- Include keywords users search for
-
-Good: "How do I parse JSON request bodies?"
-Bad: "JSON Parsing"
-
-### Content Keywords
-
-Include natural variations of terms:
-- "parse JSON" / "JSON parsing" / "JSON body"
-- "authentication" / "auth" / "login"
-- "database" / "DB" / "data storage"
+* Exact error message
+* Clear cause
+* Working solution
+* Links to related docs
 
 ---
 
-## Accessibility Standards
+## Migration Documentation Strategy
 
-### Alt Text for Images
+Migration guides are required for breaking changes.
 
-```markdown
-![Middleware execution flow: Request enters from left, passes through middlewares 1, 2, 3 to handler, then back through 3, 2, 1 to response](./middleware-flow.png)
-```
+Each migration guide must include:
 
-### Code Block Labels
+* Before and after examples
+* Reason for the change
+* Step-by-step migration path
+* Deprecation timelines
+* Links to updated docs
 
-Always include language identifier:
-
-```typescript
-// Not just ```
-```
-
-### Link Text
-
-Good: "Learn about [middleware composition](link)"
-Bad: "Click [here](link) to learn more"
+Migration docs must be discoverable from the changelog.
 
 ---
 
-## Review Checklist
+## Maintenance & Review Cycle
 
-### Self-Review
+### Continuous Maintenance
 
-Before requesting review:
+Update documentation when:
 
-- [ ] Spellcheck passed
-- [ ] All code examples tested
-- [ ] Links verified
-- [ ] Follows template structure
-- [ ] No forbidden phrases
-- [ ] Consistent terminology
+* Behavior changes
+* Defaults change
+* Confusion appears in issues
+* New best practices emerge
 
-### Peer Review Focus
-
-Reviewers should check:
-
-- [ ] Technical accuracy
-- [ ] Completeness for the target audience
-- [ ] Clarity of explanations
-- [ ] Code example correctness
-- [ ] Consistency with existing docs
-
-### Final Review
-
-Before publishing:
-
-- [ ] Cross-links to related pages added
-- [ ] Table of contents updated (if auto-generated)
-- [ ] Changelog entry added (for significant changes)
-- [ ] Search keywords verified
+Stale documentation is worse than missing documentation.
 
 ---
 
-## Continuous Improvement
-
-### Feedback Sources
-
-Monitor and incorporate:
-
-1. **GitHub Issues** - "how do I..." questions
-2. **GitHub Discussions** - common confusions
-3. **Search Analytics** - what people can't find
-4. **User Feedback** - "was this helpful?" ratings
-
-### Quarterly Review
+### Periodic Review
 
 Every quarter:
 
-1. Review most-visited pages for staleness
-2. Check for outdated code examples
-3. Update version numbers
+1. Review most visited pages
+2. Check for outdated examples
+3. Verify version numbers
 4. Remove deprecated patterns
-5. Add new common questions
-
-### Community Contributions
-
-When accepting community docs contributions:
-
-1. Apply same quality standards
-2. Ensure consistent voice/tone
-3. Verify technical accuracy
-4. Credit contributors appropriately
+5. Add newly discovered FAQs
 
 ---
 
-## Final Principles
+## Community Contributions
 
-1. **Write for the frustrated developer at 2 AM** - Clear, direct, no fluff
-2. **Assume intelligence, not knowledge** - Explain concepts, not condescend
-3. **Show, then tell** - Code first, explanation second
-4. **One page, one purpose** - Don't overload pages
-5. **Update ruthlessly** - Stale docs are worse than no docs
+When reviewing community documentation contributions:
 
-The goal is not comprehensive documentation.
-The goal is **effective** documentation.
+* Apply the same standards as core docs
+* Verify technical accuracy
+* Ensure consistent terminology
+* Preserve contributor credit
 
-Every word must earn its place.
+Quality is more important than speed.
+
+---
+
+## Final Principle
+
+Documentation decisions must always optimize for this user:
+
+> **A developer who is blocked and needs a clear answer right now.**
+
+If a page does not unblock that user, it needs revision.
+
+```
+
+---
+
+## Final state (you’re done with instructions)
+
+You now have a **clean, non-overlapping, professional set**:
+
+1. `docs-site.instructions.md` → structure & standards
+2. `docs-writing.instructions.md` → language & explanation
+3. `docs-mdx-ui.instructions.md` → MDX, visuals, UI
+4. `docs-content-strategy.instructions.md` → **editorial strategy**
+
+This is **exactly how serious OSS projects structure Copilot rules**.

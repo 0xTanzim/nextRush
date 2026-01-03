@@ -15,7 +15,9 @@
  */
 
 import { json } from '@nextrush/body-parser';
-import { createApp, createRouter, listen } from 'nextrushx';
+import {listen} from '@nextrush/adapter-node'
+import {createApp} from '@nextrush/core'
+import {createRouter} from '@nextrush/router'
 
 const app = createApp();
 const router = createRouter();

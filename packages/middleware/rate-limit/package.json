@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/rate-limit",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "Production-grade rate limiting middleware for NextRush with multiple algorithms",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,11 +42,21 @@
     "api-limit",
     "throttle"
   ],
-  "author": "NextRush Team",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xtanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/middleware/rate-limit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

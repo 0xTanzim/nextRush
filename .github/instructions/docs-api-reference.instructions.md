@@ -1,192 +1,187 @@
 ---
-description: 'API reference documentation standards for NextRush packages. Defines consistent format for documenting functions, types, interfaces, and examples across all NextRush packages.'
-applyTo: '**'
+description: 'Standards for writing precise, scannable, and accurate API reference documentation for NextRush packages.'
+applyTo: '**/api/**/*.md, **/packages/**/*.md'
 ---
 
-# NextRush API Documentation Standards
+# NextRush API Reference Documentation Instructions
 
-This instruction file defines how to write **API reference documentation** for NextRush packages.
+This file defines how to write **API reference documentation** for NextRush packages.
 
-API docs are lookup material, not learning material. Optimize for **findability and precision**.
+API reference documentation is **lookup material**, not teaching material.
+Optimize for **speed, accuracy, and predictability**.
+
+Do not explain concepts here — link to concept or guide pages instead.
+
+---
+
+## Scope
+
+Use these rules when documenting:
+
+* Exported functions
+* Classes
+* Interfaces and types
+* Middleware APIs
+* Plugin APIs
+* Context properties and methods
+
+Do **not** use these rules for:
+
+* Tutorials or guides
+* Concept explanations
+* Architecture discussions
+* Marketing or landing pages
 
 ---
 
 ## Core Principles
 
-### 1. Scannable, Not Readable
+### 1. Optimized for Scanning
 
-API docs are scanned, not read. Design for:
-- Quick visual scanning
-- Predictable structure
-- Copy-paste examples
+API docs must be:
 
-### 2. Complete, Not Minimal
+* Predictable in structure
+* Easy to skim
+* Easy to search
+* Easy to copy
 
-Include everything a developer needs:
-- All parameters
-- All return values
-- All type definitions
-- Working examples
-
-### 3. Accurate, Not Aspirational
-
-Document what exists today:
-- Test all code examples
-- Verify default values against source
-- Update when code changes
+Avoid long paragraphs.
 
 ---
 
-## Function Documentation Template
+### 2. Complete and Explicit
 
-Every exported function must be documented as follows:
+Every API entry must document:
 
-```markdown
-### `functionName(param1, param2, options?)`
+* Parameters
+* Defaults
+* Return values
+* Errors
+* Side effects (if any)
 
-[One sentence describing what this function does and when to use it.]
+Missing information is treated as incorrect documentation.
+
+---
+
+### 3. Strict Accuracy
+
+* Verify signatures against source code
+* Verify default values
+* Test all examples
+* Update docs immediately when APIs change
+
+Outdated API docs are considered bugs.
+
+---
+
+## Function Documentation
+
+Document every exported function using this structure.
+
+````markdown
+### `functionName(...)`
+
+One sentence describing what the function does and when to use it.
 
 **Signature:**
-
-```typescript
+```ts
 function functionName(
   param1: ParamType,
-  param2: AnotherType,
   options?: OptionsType
 ): ReturnType
-```
+````
 
 **Parameters:**
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `param1` | `ParamType` | Yes | - | What this parameter does |
-| `param2` | `AnotherType` | Yes | - | What this parameter does |
-| `options` | `OptionsType` | No | `{}` | Configuration options |
+| Name | Type | Required | Default | Description |
+| ---- | ---- | -------- | ------- | ----------- |
 
-**Options:**
+**Options:** (only if applicable)
 
 | Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `option1` | `string` | `'default'` | What this option does |
-| `option2` | `number` | `100` | What this option does |
-| `option3` | `boolean` | `false` | What this option does |
+| ------ | ---- | ------- | ----------- |
 
 **Returns:**
+`ReturnType` — Description of the returned value.
 
-`ReturnType` - Description of what is returned
-
-**Throws:**
+**Throws:** (only if applicable)
 
 | Error | Condition |
-|-------|-----------|
-| `TypeError` | When param1 is not a string |
-| `RangeError` | When param2 is negative |
+| ----- | --------- |
 
 **Example:**
 
-```typescript
+```ts
 import { functionName } from '@nextrush/package';
 
-// Basic usage
-const result = functionName('value', 42);
-
-// With options
-const result = functionName('value', 42, {
-  option1: 'custom',
-  option2: 200
-});
+functionName('value', { option: true });
 ```
 
 **See Also:**
 
-- [`relatedFunction()`](#relatedfunction)
-- [Related Guide](/guides/related-topic)
-```
+* Related APIs
+* Related guides
+
+````
 
 ---
 
-## Type Documentation Template
+## Type & Interface Documentation
 
-Every exported type/interface must be documented:
+Document every exported type or interface.
 
 ```markdown
 ### `TypeName`
 
-[One sentence describing what this type represents.]
+One sentence describing what this type represents.
 
-```typescript
+```ts
 interface TypeName {
-  /**
-   * Description of property1
-   * @default 'default value'
-   */
   property1: string;
-
-  /**
-   * Description of property2
-   */
-  property2: number;
-
-  /**
-   * Optional property with default behavior
-   * @default undefined
-   */
-  property3?: boolean;
+  property2?: number;
 }
-```
+````
 
 **Properties:**
 
 | Property | Type | Required | Default | Description |
-|----------|------|----------|---------|-------------|
-| `property1` | `string` | Yes | `'default'` | What this property does |
-| `property2` | `number` | Yes | - | What this property does |
-| `property3` | `boolean` | No | `undefined` | What this property does |
+| -------- | ---- | -------- | ------- | ----------- |
 
 **Example:**
 
-```typescript
-const config: TypeName = {
-  property1: 'custom',
-  property2: 42,
-  property3: true
+```ts
+const value: TypeName = {
+  property1: 'example'
 };
 ```
-```
+
+````
 
 ---
 
-## Class Documentation Template
+## Class Documentation
 
-For classes:
+For exported classes:
 
 ```markdown
 ### `ClassName`
 
-[One sentence describing what this class does.]
+One sentence describing the responsibility of this class.
 
 #### Constructor
-
-```typescript
-new ClassName(param1: Type, options?: Options)
-```
+```ts
+new ClassName(param: Type, options?: Options)
+````
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `param1` | `Type` | Yes | What this parameter does |
-| `options` | `Options` | No | Configuration options |
+| Name | Type | Required | Description |
+| ---- | ---- | -------- | ----------- |
 
 **Example:**
 
-```typescript
-import { ClassName } from '@nextrush/package';
-
-const instance = new ClassName('value', {
-  option: true
-});
+```ts
+const instance = new ClassName('value');
 ```
 
 #### Properties
@@ -194,625 +189,213 @@ const instance = new ClassName('value', {
 ##### `instance.propertyName`
 
 **Type:** `PropertyType`
-
-[Description of what this property contains.]
-
-```typescript
-console.log(instance.propertyName); // PropertyType
-```
+Description.
 
 #### Methods
 
-##### `instance.methodName(param)`
+##### `instance.methodName(...)`
 
-[Description of what this method does.]
+One sentence description.
 
-**Parameters:**
+**Signature:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `param` | `Type` | Yes | What this parameter does |
-
-**Returns:** `ReturnType`
+```ts
+methodName(param: Type): ReturnType
+```
 
 **Example:**
 
-```typescript
-const result = instance.methodName('value');
+```ts
+instance.methodName('value');
 ```
-```
+
+````
 
 ---
 
 ## Context API Documentation
 
-The Context object requires special documentation format:
+Context APIs must be documented with **behavior clarity**.
+
+For each property or method:
+- State the type
+- Describe behavior
+- List side effects
+- Mention lifecycle timing if relevant
 
 ```markdown
-## Context API
-
-The `Context` object (`ctx`) provides access to request data and response methods.
-
-### Request Properties
-
-#### `ctx.method`
-
-**Type:** `'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'`
-
-The HTTP method of the request.
-
-```typescript
-app.use(async (ctx) => {
-  console.log(ctx.method); // 'GET'
-});
-```
-
-#### `ctx.path`
-
-**Type:** `string`
-
-The request path without query string.
-
-```typescript
-// Request: GET /users/123?include=posts
-console.log(ctx.path); // '/users/123'
-```
-
-### Response Methods
-
 #### `ctx.json(data)`
 
 Send a JSON response.
 
 **Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `data` | `unknown` | Data to serialize as JSON |
+| Name | Type | Description |
+|------|------|-------------|
 
 **Behavior:**
 - Sets `Content-Type: application/json`
-- Serializes data with `JSON.stringify()`
-- Does not call `ctx.next()` automatically
+- Serializes with `JSON.stringify`
+- Does not call `ctx.next()`
 
-```typescript
-ctx.json({ users: [] });
-ctx.json({ error: 'Not found' });
-```
+```ts
+ctx.json({ ok: true });
+````
 
-#### `ctx.send(data)`
-
-Send a response body.
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `data` | `string \| Buffer \| Readable` | Response body |
-
-**Behavior:**
-- Sets `Content-Type` based on data type
-- Strings: `text/plain`
-- Buffers: `application/octet-stream`
-- Streams: pipes to response
-
-```typescript
-ctx.send('Hello World');
-ctx.send(Buffer.from([0x48, 0x69]));
-```
-```
+````
 
 ---
 
-## Middleware Documentation Format
+## Middleware API Documentation
 
-For middleware packages:
+Middleware documentation must include:
+
+1. What the middleware does
+2. How to create it
+3. Default behavior
+4. Configuration options
+5. Example usage
 
 ```markdown
-# @nextrush/[middleware-name]
-
-> [One-liner description]
-
-## Installation
-
-```bash
-pnpm add @nextrush/[middleware-name]
-```
-
-## Quick Start
-
-```typescript
-import { createApp } from '@nextrush/core';
-import { middlewareName } from '@nextrush/[middleware-name]';
-
-const app = createApp();
-
-app.use(middlewareName());
-
-app.listen(3000);
-```
-
-## API
-
 ### `middlewareName(options?)`
 
-Create the middleware function.
+Create middleware.
 
 **Signature:**
-
-```typescript
+```ts
 function middlewareName(options?: MiddlewareOptions): Middleware
-```
+````
 
-**Options:**
+**Default Behavior:**
+Describe what happens with no options.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `option1` | `string` | `'value'` | What this option does |
-| `option2` | `number` | `100` | What this option does |
+**Example:**
 
-**Returns:** `Middleware` - Middleware function for use with `app.use()`
-
-**Example with all options:**
-
-```typescript
-app.use(middlewareName({
-  option1: 'custom',
-  option2: 200
-}));
-```
-
-## Default Behavior
-
-When used with no options:
-
-```typescript
+```ts
 app.use(middlewareName());
 ```
 
-The middleware will:
-1. [What it does first]
-2. [What it does second]
-3. [What it does third]
-
-## Configuration Recipes
-
-### Recipe: [Use Case Name]
-
-```typescript
-app.use(middlewareName({
-  // Configuration for this use case
-}));
-```
-
-### Recipe: [Another Use Case]
-
-```typescript
-app.use(middlewareName({
-  // Configuration for this use case
-}));
-```
-
-## TypeScript Types
-
-```typescript
-import type {
-  MiddlewareOptions,
-  // Other exported types
-} from '@nextrush/[middleware-name]';
-```
-
-### `MiddlewareOptions`
-
-```typescript
-interface MiddlewareOptions {
-  option1?: string;
-  option2?: number;
-}
-```
-```
+````
 
 ---
 
-## Plugin Documentation Format
+## Plugin API Documentation
 
-For plugin packages:
+Plugin documentation must include:
 
-```markdown
-# @nextrush/[plugin-name]
+- Installation
+- Initialization API
+- Context extensions
+- Application extensions
+- Events (if any)
 
-> [One-liner description]
-
-## Installation
-
-```bash
-pnpm add @nextrush/[plugin-name]
-```
-
-## Quick Start
-
-```typescript
-import { createApp } from '@nextrush/core';
-import { pluginName } from '@nextrush/[plugin-name]';
-
-const app = createApp();
-
-app.plugin(pluginName({
-  // Required options
-}));
-
-app.listen(3000);
-```
-
-## Why Use This Plugin?
-
-[2-3 paragraphs explaining the problem this plugin solves]
-
-## API
-
-### `pluginName(options)`
-
-Create the plugin instance.
-
-**Signature:**
-
-```typescript
-function pluginName(options: PluginOptions): Plugin
-```
-
-**Options:**
-
-| Option | Type | Required | Default | Description |
-|--------|------|----------|---------|-------------|
-| `required1` | `string` | Yes | - | What this does |
-| `optional1` | `number` | No | `100` | What this does |
-
-**Returns:** `Plugin` - Plugin instance for use with `app.plugin()`
-
-## Context Extensions
-
-This plugin extends the context with:
-
-### `ctx.pluginMethod()`
-
-[Description]
-
-```typescript
-app.get('/example', async (ctx) => {
-  await ctx.pluginMethod();
-});
-```
-
-## Application Extensions
-
-This plugin extends the application with:
-
-### `app.pluginProperty`
-
-[Description]
-
-```typescript
-console.log(app.pluginProperty);
-```
-
-## Events
-
-This plugin emits the following events:
-
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `eventName` | `EventPayload` | When this event fires |
-
-```typescript
-app.on('eventName', (payload) => {
-  console.log(payload);
-});
-```
-```
+Do not re-explain plugin concepts here — link to the plugin guide.
 
 ---
 
-## Documentation Consistency Rules
+## Tables & Formatting Rules
 
-### Parameter Tables
+### Table Column Order
 
-Always use this column order:
-1. Parameter/Option/Property name
+Always use this order:
+1. Name
 2. Type
-3. Required (Yes/No) or Default
+3. Required or Default
 4. Description
+
+---
 
 ### Type Formatting
 
-```markdown
-<!-- Primitives -->
-`string`, `number`, `boolean`, `null`, `undefined`
+Use inline code formatting:
 
-<!-- Arrays -->
-`string[]`, `Array<string>`
-
-<!-- Objects -->
-`Record<string, unknown>`, `object`
-
-<!-- Unions -->
-`string | number`, `'option1' | 'option2'`
-
-<!-- Functions -->
-`(param: Type) => ReturnType`
-
-<!-- Complex types -->
-`OptionsType` (linked to type definition)
-```
-
-### Code Block Headers
-
-Always specify the language:
-
-```typescript
-// TypeScript (default for NextRush)
-```
-
-```javascript
-// JavaScript (when showing alternative)
-```
-
-```bash
-# Shell commands
-```
-
-```json
-// JSON configuration
-```
-
-### Default Value Documentation
-
-Always document defaults, even when `undefined`:
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `true` | Whether feature is enabled |
-| `timeout` | `30000` | Timeout in milliseconds |
-| `callback` | `undefined` | Optional callback function |
+- Primitives: `string`, `number`, `boolean`
+- Unions: `'a' | 'b'`
+- Arrays: `Type[]`
+- Functions: `(arg: Type) => ReturnType`
+- Named types: link to definitions
 
 ---
 
-## API Versioning
-
-When APIs change between versions:
+## Versioning & Deprecation
 
 ### Deprecation
 
 ```markdown
-### `oldFunction()`
-
 ::: warning Deprecated
-This function is deprecated and will be removed in v4.0.0.
-Use [`newFunction()`](#newfunction) instead.
+This API is deprecated and will be removed in vX.Y.Z.
+Use `newApi()` instead.
 :::
-
-[Rest of documentation]
-```
-
-### Version-Specific Behavior
-
-```markdown
-### `functionName()`
-
-**Version differences:**
-
-| Version | Behavior |
-|---------|----------|
-| v3.0.0 | Original behavior |
-| v3.1.0 | Added `option2` parameter |
-| v3.2.0 | Changed default for `option1` |
-```
+````
 
 ### Breaking Changes
 
 ```markdown
-::: danger Breaking Change in v3.0.0
-This function's signature changed from `func(a, b)` to `func(options)`.
-See [migration guide](/guides/migration-v3) for details.
+::: danger Breaking Change
+The API signature changed in vX.Y.Z.
+See the migration guide for details.
 :::
 ```
 
 ---
 
-## Examples Quality Standards
+## Examples Rules
 
-### Every API Must Have Examples
+Every API must include:
 
-No function should be documented without at least:
-1. Basic usage example
-2. Example with options (if applicable)
+* At least one basic example
+* An options example if configurable
+* Error example if errors are common
 
-### Example Requirements
+Examples must be:
 
-```typescript
-// ✅ Good: Complete, runnable, shows result
-import { json } from '@nextrush/body-parser';
-
-const app = createApp();
-app.use(json({ limit: '1mb' }));
-
-app.post('/users', async (ctx) => {
-  console.log(ctx.body); // { name: 'Alice' }
-  ctx.json({ received: true });
-});
-
-// Request:
-// curl -X POST -H "Content-Type: application/json" \
-//      -d '{"name":"Alice"}' http://localhost:3000/users
-
-// Response:
-// {"received":true}
-```
-
-```typescript
-// ❌ Bad: Incomplete, no context
-app.use(json({ limit: '1mb' }));
-```
-
-### Show Both Success and Error Cases
-
-```typescript
-// Success case
-const result = validateEmail('user@example.com');
-console.log(result); // true
-
-// Error case
-const invalid = validateEmail('not-an-email');
-console.log(invalid); // false
-```
+* Runnable
+* Minimal
+* Context-complete
 
 ---
 
 ## Cross-Referencing
 
-### Internal Links
+* Link related APIs within the same page
+* Link to guides for usage patterns
+* Link types to their definitions
 
-Link to related APIs within the same package:
-
-```markdown
-See [`relatedFunction()`](#relatedfunction) for more details.
-```
-
-### External Links
-
-Link to other packages or guides:
-
-```markdown
-See [@nextrush/router](/packages/router) for routing documentation.
-See [Middleware Guide](/guides/middleware) for usage patterns.
-```
-
-### Type Links
-
-Link types to their definitions:
-
-```markdown
-**Returns:** [`Context`](/api/types#context) - The request context
-```
+Avoid broken or circular links.
 
 ---
 
-## TypeScript-First Documentation
+## TypeScript-First
 
-### Show Types Inline
-
-```typescript
-// Good: Types visible
-const app: Application = createApp();
-const ctx: Context = /* ... */;
-
-// Also acceptable: Inferred types mentioned in text
-const app = createApp(); // Returns Application
-```
-
-### Export All Types
-
-Document that types are exported:
-
-```typescript
-// Types can be imported for use in your code
-import type {
-  Application,
-  Context,
-  Middleware,
-  Plugin
-} from '@nextrush/core';
-```
-
-### Generic Type Documentation
-
-```markdown
-### `createStore<T>(initial: T): Store<T>`
-
-Create a typed store.
-
-**Type Parameters:**
-
-| Parameter | Constraint | Description |
-|-----------|------------|-------------|
-| `T` | `object` | The store state type |
-
-**Example:**
-
-```typescript
-interface UserState {
-  name: string;
-  email: string;
-}
-
-const store = createStore<UserState>({
-  name: '',
-  email: ''
-});
-```
-```
+* Use TypeScript by default
+* Mention inferred types where useful
+* Document exported types explicitly
 
 ---
 
-## Automated API Docs
+## Final API Documentation Checklist
 
-### JSDoc Standards
-
-Source code should use JSDoc that can generate docs:
-
-```typescript
-/**
- * Parse JSON request bodies and populate ctx.body.
- *
- * @param options - Configuration options
- * @returns Middleware function
- *
- * @example
- * ```typescript
- * app.use(json({ limit: '1mb' }));
- * ```
- *
- * @see {@link JsonOptions} for available options
- * @since 3.0.0
- */
-export function json(options?: JsonOptions): Middleware {
-  // ...
-}
-```
-
-### TypeDoc Integration
-
-When using TypeDoc for auto-generated API docs:
-- Ensure JSDoc is complete in source
-- Link auto-generated pages from hand-written guides
-- Review generated docs for accuracy
-
----
-
-## Final Checklist
-
-Before publishing API documentation:
+Before publishing:
 
 ### Accuracy
-- [ ] All function signatures match source code
-- [ ] All default values verified
-- [ ] All type definitions accurate
-- [ ] All examples tested
+
+* [ ] Signatures verified
+* [ ] Defaults verified
+* [ ] Examples tested
 
 ### Completeness
-- [ ] All exported functions documented
-- [ ] All exported types documented
-- [ ] All parameters documented
-- [ ] All options documented
-- [ ] At least one example per function
 
-### Consistency
-- [ ] Table column order consistent
-- [ ] Type formatting consistent
-- [ ] Example style consistent
-- [ ] Cross-references use correct format
+* [ ] All exports documented
+* [ ] All parameters documented
+* [ ] All options documented
 
 ### Usability
-- [ ] Can find any function in < 10 seconds
-- [ ] Can copy-paste examples directly
-- [ ] Types are importable as shown
-- [ ] Error conditions documented
+
+* [ ] API can be found quickly
+* [ ] Examples can be copied directly
+* [ ] Errors are documented clearly
+
+---
+
+## Final Rule
+
+> **If a developer cannot answer “how do I call this?” in under 10 seconds, the API documentation has failed.**

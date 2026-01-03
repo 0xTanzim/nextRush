@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/static",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "High-performance static file serving middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,7 +12,10 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -31,11 +34,15 @@
     "http",
     "server"
   ],
-  "author": "NextRush Team",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nextrush/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/plugins/static"
   },
   "bugs": {
@@ -58,5 +65,8 @@
     "@nextrush/core": {
       "optional": true
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

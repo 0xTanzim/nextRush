@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/events",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "Type-safe event emitter for NextRush - simple, fast, and async-ready",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,11 +34,15 @@
     "typescript",
     "async"
   ],
-  "author": "NextRush Team",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nextrush/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/plugins/events"
   },
   "bugs": {
@@ -59,5 +63,8 @@
   "devDependencies": {
     "@nextrush/core": "workspace:*",
     "@nextrush/types": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

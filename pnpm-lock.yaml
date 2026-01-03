@@ -81,33 +81,6 @@ importers:
         specifier: ^3.5.0
         version: 3.5.26(typescript@5.9.3)
 
-  apps/performance:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^1.19.7
-        version: 1.19.7(hono@4.11.1)
-      '@nextrush/body-parser':
-        specifier: workspace:*
-        version: link:../../packages/middleware/body-parser
-      autocannon:
-        specifier: ^7.15.0
-        version: 7.15.0
-      chalk:
-        specifier: ^5.3.0
-        version: 5.6.2
-      cli-table3:
-        specifier: ^0.6.3
-        version: 0.6.5
-      hono:
-        specifier: ^4.11.1
-        version: 4.11.1
-      nextrush:
-        specifier: ^2.0.1
-        version: 2.0.1
-      nextrush-v3:
-        specifier: workspace:nextrush@*
-        version: link:../../packages/nextrush
-
   apps/performance-ultra:
     dependencies:
       nextrush:
@@ -117,9 +90,24 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.1
         version: 1.19.7(hono@4.11.1)
+      '@nextrush/adapter-node':
+        specifier: workspace:*
+        version: link:../../packages/adapters/node
       '@nextrush/body-parser':
         specifier: workspace:*
         version: link:../../packages/middleware/body-parser
+      '@nextrush/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@nextrush/router':
+        specifier: workspace:*
+        version: link:../../packages/router
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       autocannon:
         specifier: ^8.0.0
         version: 8.0.0
@@ -141,9 +129,6 @@ importers:
       koa-router:
         specifier: ^14.0.0
         version: 14.0.0
-      nextrush-v3:
-        specifier: workspace:nextrush@*
-        version: link:../../packages/nextrush
 
   apps/playground:
     dependencies:
@@ -510,6 +495,9 @@ importers:
       '@nextrush/core':
         specifier: workspace:*
         version: link:../core
+      '@nextrush/errors':
+        specifier: workspace:*
+        version: link:../errors
       '@nextrush/router':
         specifier: workspace:*
         version: link:../router
@@ -517,21 +505,6 @@ importers:
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@nextrush/body-parser':
-        specifier: workspace:*
-        version: link:../middleware/body-parser
-      '@nextrush/compression':
-        specifier: workspace:*
-        version: link:../middleware/compression
-      '@nextrush/cors':
-        specifier: workspace:*
-        version: link:../middleware/cors
-      '@nextrush/errors':
-        specifier: workspace:*
-        version: link:../errors
-      '@nextrush/helmet':
-        specifier: workspace:*
-        version: link:../middleware/helmet
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.7)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
@@ -2238,10 +2211,6 @@ packages:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
 
-  autocannon@7.15.0:
-    resolution: {integrity: sha512-NaP2rQyA+tcubOJMFv2+oeW9jv2pq/t+LM6BL3cfJic0HEfscEcnWgAyU5YovE/oTHUzAgTliGdLPR+RQAWUbg==}
-    hasBin: true
-
   autocannon@8.0.0:
     resolution: {integrity: sha512-fMMcWc2JPFcUaqHeR6+PbmEpTxCrPZyBUM95oG4w3ngJ8NfBNas/ZXA+pTHXLqJ0UlFVTcy05GC25WxKx/M20A==}
     hasBin: true
@@ -2329,10 +2298,6 @@ packages:
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
-
-  chalk@5.6.2:
-    resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
-    engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
 
   char-spinner@1.0.1:
     resolution: {integrity: sha512-acv43vqJ0+N0rD+Uw3pDHSxP30FHrywu2NO6/wBaHChJIizpDeBUd6NjqhNhy9LGaEAhZAXn46QzmlAvIWd16g==}
@@ -4110,9 +4075,6 @@ packages:
 
   stylis@4.3.6:
     resolution: {integrity: sha512-yQ3rwFWRfwNUY7H5vpU0wfdkNSnvnJinhF9830Swlaxl03zsOjCfmX0ugac+3LtK0lYSgwL/KXc8oYL3mG4YFQ==}
-
-  subarg@1.0.0:
-    resolution: {integrity: sha512-RIrIdRY0X1xojthNcVtgT9sjpOGagEUKpZdgBUi054OEPFo282yg+zE+t1Rj3+RqKq2xStL7uUHhY+AjbC4BXg==}
 
   sucrase@3.35.1:
     resolution: {integrity: sha512-DhuTmvZWux4H1UOnWMB3sk0sbaCVOoQZjv8u1rDoTV0HTdGem9hkAZtl4JZy8P2z4Bg0nT+YMeOFyVr4zcG5Tw==}
@@ -6169,32 +6131,6 @@ snapshots:
 
   atomic-sleep@1.0.0: {}
 
-  autocannon@7.15.0:
-    dependencies:
-      chalk: 4.1.2
-      char-spinner: 1.0.1
-      cli-table3: 0.6.5
-      color-support: 1.1.3
-      cross-argv: 2.0.0
-      form-data: 4.0.5
-      has-async-hooks: 1.0.0
-      hdr-histogram-js: 3.0.1
-      hdr-histogram-percentiles-obj: 3.0.0
-      http-parser-js: 0.5.10
-      hyperid: 3.3.0
-      lodash.chunk: 4.2.0
-      lodash.clonedeep: 4.5.0
-      lodash.flatten: 4.4.0
-      manage-path: 2.0.0
-      on-net-listen: 1.1.2
-      pretty-bytes: 5.6.0
-      progress: 2.0.3
-      reinterval: 1.1.0
-      retimer: 3.0.0
-      semver: 7.7.3
-      subarg: 1.0.0
-      timestring: 6.0.0
-
   autocannon@8.0.0:
     dependencies:
       '@minimistjs/subarg': 1.0.0
@@ -6323,8 +6259,6 @@ snapshots:
     dependencies:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
-
-  chalk@5.6.2: {}
 
   char-spinner@1.0.1: {}
 
@@ -8259,10 +8193,6 @@ snapshots:
       js-tokens: 9.0.1
 
   stylis@4.3.6: {}
-
-  subarg@1.0.0:
-    dependencies:
-      minimist: 1.2.8
 
   sucrase@3.35.1:
     dependencies:

@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/dev",
-  "version": "3.0.0-alpha.2",
+  "version": "3.0.0",
   "description": "Development server and build tools for NextRush - multi-runtime support",
   "type": "module",
   "main": "./dist/index.js",
@@ -39,11 +39,15 @@
     "bun",
     "deno"
   ],
-  "author": "NextRush Team",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xtanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/dev"
   },
   "engines": {
@@ -59,5 +63,8 @@
     "tsup": "^8.5.1",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

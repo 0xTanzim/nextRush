@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/decorators",
-  "version": "3.0.0-alpha.2",
+  "version": "3.0.0",
   "description": "Metadata-only decorators for NextRush controllers",
   "type": "module",
   "main": "./dist/index.js",
@@ -46,6 +46,21 @@
     "routing",
     "typescript"
   ],
-  "author": "NextRush Team",
-  "license": "MIT"
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/decorators"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }

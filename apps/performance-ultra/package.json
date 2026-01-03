@@ -18,15 +18,19 @@
   },
   "devDependencies": {
     "@hono/node-server": "^1.13.1",
+    "@nextrush/body-parser": "workspace:*",
+    "@nextrush/runtime": "workspace:*",
+    "@nextrush/router": "workspace:*",
+    "@nextrush/core": "workspace:*",
+    "@nextrush/types": "workspace:*",
+    "@nextrush/adapter-node": "workspace:*",
     "autocannon": "^8.0.0",
     "express": "^5.1.0",
     "fastify": "^5.6.1",
     "hono": "^4.6.0",
     "koa": "^3.0.1",
     "koa-bodyparser": "^4.4.1",
-    "koa-router": "^14.0.0",
-    "nextrush-v3": "workspace:nextrush@*",
-    "@nextrush/body-parser": "workspace:*"
+    "koa-router": "^14.0.0"
   },
   "engines": {
     "node": ">=20.0.0"

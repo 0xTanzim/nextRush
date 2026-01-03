@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/template",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "Modern template engine for NextRush - Mustache-like syntax with helpers, partials, layouts, and streaming",
   "type": "module",
   "main": "./dist/index.js",
@@ -32,11 +32,15 @@
     "html",
     "render"
   ],
-  "author": "Tanzim Hossain <tanzimhossain2@gmail.com>",
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xtanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
     "directory": "packages/plugins/template"
   },
   "dependencies": {
@@ -78,5 +82,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

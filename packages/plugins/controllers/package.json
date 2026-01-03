@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/controllers",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "Controller plugin for NextRush - automatic discovery, DI integration, and route registration",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,10 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -39,7 +42,28 @@
     "@nextrush/core": "workspace:*",
     "@nextrush/router": "workspace:*"
   },
-  "keywords": ["nextrush", "controllers", "decorators", "di", "plugin"],
-  "author": "NextRush Team",
-  "license": "MIT"
+  "keywords": [
+    "nextrush",
+    "controllers",
+    "decorators",
+    "di",
+    "plugin"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/plugins/controllers"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }

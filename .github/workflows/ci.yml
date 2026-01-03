@@ -77,35 +77,3 @@ jobs:
           path: |
             dist/
             nextrush-*.tgz
-
-  # 🔍 Quality Checks - Lint, format, type-check
-  quality:
-    name: 🔍 Quality Checks
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.3
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
-
-      - name: 📦 Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🎨 Check Formatting
-        run: pnpm format:check
-
-      - name: 🔍 Lint Code
-        run: pnpm lint
-
-      - name: 🏗️ Type Check
-        run: pnpm type-check

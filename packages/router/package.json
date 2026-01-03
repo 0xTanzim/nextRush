@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/router",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0",
   "description": "High-performance radix tree router for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -50,5 +50,18 @@
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/router"
+  },
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
   }
 }
