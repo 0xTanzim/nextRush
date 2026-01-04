@@ -1,0 +1,358 @@
+---
+title: "@nextrush/di"
+description: "Lightweight dependency injection with automatic resolution and lifecycle management."
+---
+
+# @nextrush/di
+
+Manage dependencies with automatic injection and scoping.
+
+The DI container resolves constructor dependencies automatically, supports singleton and transient scopes, detects circular dependencies, and provides production-grade error messages.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/di reflect-metadata
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/di reflect-metadata
+```
+
+---
+
+## Quick Start
+
+```typescript
+import 'reflect-metadata';
+import { Service, Repository, container } from '@nextrush/di';
+
+@Repository()
+class UserRepository {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Service()
+class UserService {
+  constructor(private repo: UserRepository) {}
+
+  getUsers() {
+    return this.repo.findAll();
+  }
+}
+
+// Resolve with automatic dependency injection
+const userService = container.resolve(UserService);
+console.log(userService.getUsers());
+```
+
+---
+
+## Service Decorators
+
+### @Service
+
+Register a class as a singleton service:
+
+```typescript
+@Service()
+class UserService {
+  // Singleton by default - same instance every resolve
+}
+```
+
+### @Repository
+
+Semantic alias for `@Service`, use for data access:
+
+```typescript
+@Repository()
+class UserRepository {
+  // Also singleton
+}
+```
+
+### @AutoInjectable
+
+Allow direct instantiation with DI:
+
+```typescript
+@AutoInjectable()
+class Handler {
+  constructor(private service: UserService) {}
+}
+
+// Create directly - dependencies still injected
+const handler = new Handler();
+```
+
+---
+
+## Scopes
+
+Control instance lifecycle:
+
+### Singleton (Default)
+
+Same instance for all resolves:
+
+```typescript
+@Service()
+class ConfigService {
+  readonly startTime = Date.now();
+}
+
+const a = container.resolve(ConfigService);
+const b = container.resolve(ConfigService);
+console.log(a === b);  // true
+```
+
+### Transient
+
+New instance for each resolve:
+
+```typescript
+@Service({ scope: 'transient' })
+class RequestContext {
+  readonly id = Math.random();
+}
+
+const a = container.resolve(RequestContext);
+const b = container.resolve(RequestContext);
+console.log(a === b);  // false
+```
+
+---
+
+## Manual Registration
+
+Register dependencies manually:
+
+### Class Provider
+
+```typescript
+// Register implementation
+container.register(IUserService, { useClass: UserServiceImpl });
+```
+
+### Value Provider
+
+```typescript
+// Register constant value
+container.register('CONFIG', { useValue: { port: 3000 } });
+```
+
+### Factory Provider
+
+```typescript
+// Register factory function
+container.register('DB_CONNECTION', {
+  useFactory: () => createDatabaseConnection(),
+});
+```
+
+---
+
+## Token Injection
+
+Inject by token instead of type:
+
+```typescript
+import { inject } from '@nextrush/di';
+
+@Service()
+class PaymentService {
+  constructor(
+    @inject('STRIPE_KEY') private stripeKey: string,
+    @inject('PaymentGateway') private gateway: IPaymentGateway,
+  ) {}
+}
+
+// Register tokens
+container.register('STRIPE_KEY', { useValue: 'sk_test_...' });
+container.register('PaymentGateway', { useClass: StripeGateway });
+```
+
+---
+
+## Child Containers
+
+Create isolated containers for testing:
+
+```typescript
+import { createContainer } from '@nextrush/di';
+
+// Create child container
+const testContainer = createContainer();
+
+// Register test doubles
+testContainer.register(UserRepository, { useClass: MockUserRepository });
+
+// Resolve with mocks
+const service = testContainer.resolve(UserService);
+```
+
+---
+
+## Circular Dependencies
+
+Handle circular references with `delay`:
+
+```typescript
+import { Service, inject, delay } from '@nextrush/di';
+
+@Service()
+class ServiceA {
+  constructor(@inject(delay(() => ServiceB)) private b: ServiceB) {}
+}
+
+@Service()
+class ServiceB {
+  constructor(@inject(delay(() => ServiceA)) private a: ServiceA) {}
+}
+```
+
+---
+
+## Error Handling
+
+The container provides detailed error messages:
+
+```typescript
+import {
+  DIError,
+  DependencyResolutionError,
+  CircularDependencyError,
+  MissingDependencyError,
+} from '@nextrush/di';
+
+try {
+  container.resolve(UnregisteredService);
+} catch (error) {
+  if (error instanceof MissingDependencyError) {
+    console.log('Service not registered:', error.token);
+  }
+  if (error instanceof CircularDependencyError) {
+    console.log('Circular dependency:', error.path);
+  }
+}
+```
+
+### Error Types
+
+| Error | Cause |
+|-------|-------|
+| `DependencyResolutionError` | Cannot resolve a dependency |
+| `CircularDependencyError` | Circular dependency detected |
+| `MissingDependencyError` | Token not registered |
+| `InvalidProviderError` | Invalid provider configuration |
+| `TypeInferenceError` | Cannot infer constructor types |
+| `ContainerDisposedError` | Container already disposed |
+
+---
+
+## Container API
+
+```typescript
+// Resolve a service
+const service = container.resolve(UserService);
+
+// Check if registered
+container.isRegistered(UserService);
+
+// Clear all registrations
+container.reset();
+
+// Dispose (cleanup singletons)
+container.dispose();
+```
+
+---
+
+## Best Practices
+
+### 1. Single Responsibility
+
+```typescript
+// ✅ Good: focused service
+@Service()
+class EmailService {
+  send(to: string, subject: string, body: string) {}
+}
+
+// ❌ Bad: does too much
+@Service()
+class UserService {
+  createUser() {}
+  sendEmail() {}  // Should be separate
+  generateReport() {}  // Should be separate
+}
+```
+
+### 2. Interface Segregation
+
+```typescript
+// Define interfaces
+interface IUserRepository {
+  find(id: string): Promise<User>;
+}
+
+// Register with interface token
+container.register('IUserRepository', { useClass: UserRepository });
+
+// Inject by interface
+@Service()
+class UserService {
+  constructor(@inject('IUserRepository') private repo: IUserRepository) {}
+}
+```
+
+### 3. Test with Mocks
+
+```typescript
+// Production
+container.register(EmailService, { useClass: EmailService });
+
+// Test
+const testContainer = createContainer();
+testContainer.register(EmailService, { useClass: MockEmailService });
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  ContainerInterface,
+  Provider,
+  Token,
+  Scope,
+  ServiceOptions,
+  Constructor,
+} from '@nextrush/di';
+
+import {
+  Service,
+  Repository,
+  AutoInjectable,
+  container,
+  createContainer,
+  inject,
+  delay,
+} from '@nextrush/di';
+```
+
+---
+
+## Related
+
+- [DI Overview](/docs/packages/di) — DI & Decorators overview
+- [@nextrush/decorators](/docs/packages/di/decorators) — Controller decorators
+- [@nextrush/controllers](/docs/packages/plugins/controllers) — Controller plugin

@@ -1,0 +1,158 @@
+---
+title: NextRush Documentation
+description: Build blazing fast backend APIs with NextRush — minimal, modular, and type-safe.
+---
+
+# Welcome to NextRush
+
+NextRush is a **minimal, modular, and blazing fast** Node.js backend framework designed for developers who value clarity over magic.
+
+<Callout type="info" title="Current Version">
+  NextRush v3 is in active development. The APIs are stabilizing and ready for early adopters.
+</Callout>
+
+## Why NextRush?
+
+Most backend frameworks fall into two camps:
+
+1. **Minimalist but limiting** — Great for prototypes, frustrating at scale.
+2. **Feature-rich but opaque** — Powerful, but hides too much from you.
+
+NextRush offers a third path: **minimal core, modular features, maximum transparency**.
+
+<FeatureGrid>
+  <Feature icon="⚡" title="Blazing Fast" description="30,000+ requests per second with radix tree routing." />
+  <Feature icon="🎯" title="Type Safe" description="Full TypeScript with zero `any`. Errors caught at compile time." />
+  <Feature icon="📦" title="Modular" description="27+ packages. Install what you need, nothing more." />
+  <Feature icon="🌐" title="Multi-Runtime" description="Node.js, Bun, Deno, and Edge. Deploy anywhere." />
+  <Feature icon="🔌" title="Extensible" description="Plugin system for controllers, WebSocket, static files, and more." />
+  <Feature icon="🛡️" title="Secure" description="Helmet, CORS, rate limiting — production security built-in." />
+</FeatureGrid>
+
+## Quick Start
+
+Get a working API in under 2 minutes:
+
+<PackageInstall packages={["nextrush"]} />
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello NextRush!' });
+});
+
+router.get('/users/:id', (ctx) => {
+  ctx.json({ id: ctx.params.id });
+});
+
+app.use(router.routes());
+listen(app, 3000);
+```
+
+```bash title="Terminal"
+npx tsx src/index.ts
+# → Server listening on http://localhost:3000
+```
+
+## Choose Your Path
+
+<Cards>
+  <Card
+    title="Getting Started"
+    description="Install NextRush and build your first API in 5 minutes."
+    href="/docs/getting-started"
+  />
+  <Card
+    title="Core Concepts"
+    description="Understand Context, Middleware, Routing, and Plugins."
+    href="/docs/concepts"
+  />
+  <Card
+    title="Packages"
+    description="Explore all 27+ packages with detailed documentation."
+    href="/docs/packages"
+  />
+  <Card
+    title="Guides"
+    description="Step-by-step tutorials for authentication, databases, and more."
+    href="/docs/guides"
+  />
+</Cards>
+
+## Design Philosophy
+
+NextRush is built on these principles:
+
+| Principle | What It Means |
+|-----------|---------------|
+| **Minimal Core** | Core is under 3,000 lines of code. No bloat. |
+| **Explicit Over Implicit** | No hidden magic. You see what happens. |
+| **Composition Over Inheritance** | Build with functions and middleware, not deep class hierarchies. |
+| **Type Safety First** | TypeScript from the ground up. Zero `any` allowed. |
+| **Performance Matters** | Every feature is benchmarked. Slow code doesn't ship. |
+
+## Two Programming Styles
+
+NextRush supports both functional and class-based patterns. Choose what fits your project:
+
+<Tabs items={["Functional", "Class-Based"]}>
+  <Tab value="Functional">
+    ```typescript title="Functional Style"
+    import { createApp, createRouter, listen } from 'nextrush';
+
+    const app = createApp();
+    const router = createRouter();
+
+    // Simple, direct, minimal
+    router.get('/users', (ctx) => {
+      ctx.json([{ id: 1, name: 'Alice' }]);
+    });
+
+    app.use(router.routes());
+    listen(app, 3000);
+    ```
+
+    Best for: Simple APIs, microservices, quick prototypes.
+  </Tab>
+  <Tab value="Class-Based">
+    ```typescript title="Class-Based Style"
+    import 'reflect-metadata';
+    import { createApp, listen } from 'nextrush';
+    import { Controller, Get, Service } from '@nextrush/decorators';
+    import { controllersPlugin } from '@nextrush/controllers';
+
+    @Service()
+    class UserService {
+      findAll() {
+        return [{ id: 1, name: 'Alice' }];
+      }
+    }
+
+    @Controller('/users')
+    class UserController {
+      constructor(private users: UserService) {}
+
+      @Get()
+      list() {
+        return this.users.findAll();
+      }
+    }
+
+    const app = createApp();
+    app.plugin(controllersPlugin({ controllers: [UserController] }));
+    listen(app, 3000);
+    ```
+
+    Best for: Large applications, teams preferring structure, DI patterns.
+  </Tab>
+</Tabs>
+
+## What's Next?
+
+Ready to build? Start with the [Getting Started guide](/docs/getting-started) to install NextRush and create your first API.
+
+Have questions? Check out the [GitHub Discussions](https://github.com/0xtanzim/nextrush/discussions) or open an issue.

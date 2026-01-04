@@ -1,0 +1,192 @@
+---
+title: "Changelog"
+description: "Release history and changes for NextRush v3."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Changelog
+
+All notable changes to NextRush v3 are documented here.
+
+---
+
+## Versioning
+
+NextRush follows [Semantic Versioning](https://semver.org/):
+
+- **Major** (3.x.x): Breaking changes
+- **Minor** (x.1.x): New features, backward compatible
+- **Patch** (x.x.1): Bug fixes, backward compatible
+
+---
+
+## v3.0.0-alpha.2
+
+**Release Date**: January 2026
+
+### What's New
+
+- **Controllers Plugin**: Auto-discovery and registration of controllers
+- **Guards System**: Function and class-based guards for route protection
+- **Dev Tools**: CLI for development and production builds
+- **Multi-Runtime**: Support for Node.js, Bun, Deno, and Edge runtimes
+
+### Packages
+
+| Package | Version | Status |
+|---------|---------|--------|
+| `nextrush` | 3.0.0-alpha.2 | Alpha |
+| `@nextrush/core` | 3.0.0-alpha.2 | Alpha |
+| `@nextrush/router` | 3.0.0-alpha.2 | Alpha |
+| `@nextrush/di` | 3.0.0-alpha.2 | Alpha |
+| `@nextrush/decorators` | 3.0.0-alpha.2 | Alpha |
+| `@nextrush/controllers` | 3.0.0-alpha.2 | Alpha |
+| `@nextrush/dev` | 3.0.0-alpha.2 | Alpha |
+
+### Breaking Changes from v2
+
+<Callout type="warn">
+v3 is a complete rewrite. Migration from v2 requires significant changes.
+</Callout>
+
+#### Package Structure
+
+v2 was a single package. v3 is a modular monorepo:
+
+```typescript
+// v2
+import { createApp, cors, helmet } from 'nextrush';
+
+// v3
+import { createApp } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+```
+
+#### Context API
+
+```typescript
+// v2 - Koa-style
+ctx.body = { message: 'Hello' };
+
+// v3 - DX-first
+ctx.json({ message: 'Hello' });
+```
+
+#### Middleware
+
+```typescript
+// v2 - next() returned
+app.use(async (ctx, next) => {
+  await next();
+});
+
+// v3 - same, but also ctx.next()
+app.use(async (ctx) => {
+  await ctx.next();
+});
+```
+
+---
+
+## v3.0.0-alpha.1
+
+**Release Date**: December 2025
+
+### Initial Alpha Release
+
+First public alpha release of NextRush v3.
+
+### Core Features
+
+- Application class with middleware composition
+- Radix tree router with high performance
+- Node.js adapter
+- Basic error handling
+- TypeScript-first design
+
+### Known Issues
+
+- Controllers plugin not yet available
+- Some middleware packages incomplete
+- Documentation in progress
+
+---
+
+## Migration Guide
+
+### From v2 to v3
+
+#### Step 1: Update Dependencies
+
+```bash
+# Remove v2
+npm uninstall nextrush
+
+# Install v3
+npm install nextrush
+
+# Install middleware separately
+npm install @nextrush/cors @nextrush/body-parser
+```
+
+#### Step 2: Update Imports
+
+```typescript
+// Before (v2)
+import { createApp, cors, json } from 'nextrush';
+
+// After (v3)
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+```
+
+#### Step 3: Update Context Usage
+
+```typescript
+// Before (v2)
+router.get('/', (ctx) => {
+  ctx.body = { message: 'Hello' };
+  ctx.status = 200;
+});
+
+// After (v3)
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello' });
+  // Status 200 is default
+});
+```
+
+#### Step 4: Update Middleware
+
+```typescript
+// Before (v2)
+app.use(cors({ origin: '*' }));
+
+// After (v3) - same API, different import
+import { cors } from '@nextrush/cors';
+app.use(cors({ origin: '*' }));
+```
+
+#### Step 5: Update Server Start
+
+```typescript
+// Before (v2)
+app.listen(3000);
+
+// After (v3)
+import { listen } from 'nextrush';
+listen(app, 3000);
+```
+
+---
+
+## Upgrade Support
+
+Having trouble upgrading?
+
+- Check the [documentation](/docs)
+- Open an [issue](https://github.com/0xtanzim/nextrush/issues)
+- Ask in [discussions](https://github.com/0xtanzim/nextrush/discussions)

@@ -1,0 +1,294 @@
+---
+title: "@nextrush/timer"
+description: "Measure request duration with high-resolution timing and Server-Timing support."
+---
+
+# @nextrush/timer
+
+Measure how long requests take to process.
+
+Response timing helps identify slow endpoints and monitor performance. This middleware uses high-resolution timing (`performance.now()`) for sub-millisecond accuracy and supports the Server-Timing header for browser DevTools integration.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/timer
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/timer
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { timer } from '@nextrush/timer';
+
+const app = createApp();
+
+// Add timing to all requests
+app.use(timer());
+
+// Response includes: X-Response-Time: 12.34ms
+```
+
+---
+
+## Variants
+
+### Basic Timer
+
+```typescript
+import { timer } from '@nextrush/timer';
+
+app.use(timer());
+// Header: X-Response-Time: 12.34ms
+```
+
+### Response Time
+
+Alias with customizable options:
+
+```typescript
+import { responseTime } from '@nextrush/timer';
+
+app.use(responseTime({
+  header: 'X-Response-Time',
+  suffix: 'ms',
+  precision: 2,
+}));
+```
+
+### Server-Timing
+
+For browser DevTools integration:
+
+```typescript
+import { serverTiming } from '@nextrush/timer';
+
+app.use(serverTiming());
+// Header: Server-Timing: total;dur=12.34;desc="Total request time"
+```
+
+### Detailed Timer
+
+Get full timing breakdown:
+
+```typescript
+import { detailedTimer } from '@nextrush/timer';
+
+app.use(detailedTimer());
+
+app.use(async (ctx) => {
+  // Access detailed timing
+  const timing = ctx.state.timing;
+
+  ctx.json({
+    startTime: timing.start,
+    endTime: timing.end,
+    duration: timing.duration,
+  });
+});
+```
+
+---
+
+## Configuration
+
+```typescript
+app.use(timer({
+  // Response header name
+  header: 'X-Response-Time',
+
+  // Time unit suffix
+  suffix: 'ms',
+
+  // Decimal precision
+  precision: 2,
+
+  // State key for duration
+  stateKey: 'responseTime',
+}));
+```
+
+---
+
+## Accessing Duration
+
+Get timing in your handlers:
+
+```typescript
+app.use(timer({ stateKey: 'responseTime' }));
+
+app.use(async (ctx) => {
+  await ctx.next();
+
+  // After response
+  const duration = ctx.state.responseTime;
+  console.log(`Request took ${duration}ms`);
+});
+```
+
+---
+
+## Server-Timing Header
+
+The `serverTiming()` middleware creates headers understood by browser DevTools:
+
+```typescript
+app.use(serverTiming({
+  metric: 'total',
+  description: 'Total processing time',
+}));
+```
+
+Response header:
+
+```http
+Server-Timing: total;dur=45.23;desc="Total processing time"
+```
+
+View in Chrome DevTools → Network → Timing tab.
+
+---
+
+## Multiple Metrics
+
+Track multiple timing segments:
+
+```typescript
+app.use(async (ctx) => {
+  const timings: string[] = [];
+
+  // Database query
+  const dbStart = performance.now();
+  await database.query();
+  timings.push(`db;dur=${performance.now() - dbStart}`);
+
+  // External API
+  const apiStart = performance.now();
+  await fetch('https://api.example.com');
+  timings.push(`api;dur=${performance.now() - apiStart}`);
+
+  ctx.set('Server-Timing', timings.join(', '));
+  ctx.json({ ok: true });
+});
+```
+
+---
+
+## Detailed Timing
+
+Get start and end timestamps:
+
+```typescript
+import { detailedTimer } from '@nextrush/timer';
+
+app.use(detailedTimer({
+  stateKey: 'timing',
+}));
+
+app.use(async (ctx) => {
+  await ctx.next();
+
+  const { start, end, duration } = ctx.state.timing;
+
+  // Log to monitoring service
+  await metrics.record({
+    path: ctx.path,
+    startTime: start,
+    endTime: end,
+    durationMs: duration,
+  });
+});
+```
+
+---
+
+## Custom Time Getter
+
+Use custom time source:
+
+```typescript
+import { timer } from '@nextrush/timer';
+
+app.use(timer({
+  timeGetter: () => {
+    // Custom high-resolution time
+    return process.hrtime.bigint() / 1_000_000n;
+  },
+}));
+```
+
+---
+
+## Precision Control
+
+Control decimal places:
+
+```typescript
+// 2 decimal places (default)
+app.use(timer({ precision: 2 }));
+// X-Response-Time: 12.34ms
+
+// Integer only
+app.use(timer({ precision: 0 }));
+// X-Response-Time: 12ms
+
+// High precision
+app.use(timer({ precision: 4 }));
+// X-Response-Time: 12.3456ms
+```
+
+---
+
+## Constants
+
+Default values:
+
+```typescript
+import {
+  DEFAULT_HEADER,        // 'X-Response-Time'
+  DEFAULT_SUFFIX,        // 'ms'
+  DEFAULT_PRECISION,     // 2
+  DEFAULT_STATE_KEY,     // 'responseTime'
+  SERVER_TIMING_HEADER,  // 'Server-Timing'
+  MAX_PRECISION,         // 6
+} from '@nextrush/timer';
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  TimerOptions,
+  ServerTimingOptions,
+  DetailedTimerOptions,
+  TimingResult
+} from '@nextrush/timer';
+import { timer, serverTiming, detailedTimer } from '@nextrush/timer';
+
+const options: TimerOptions = {
+  header: 'X-Response-Time',
+  precision: 2,
+};
+
+app.use(timer(options));
+```
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/packages/middleware) — All middleware packages
+- [@nextrush/request-id](/docs/packages/middleware/request-id) — Request tracking
+- [@nextrush/compression](/docs/packages/middleware/compression) — Response compression

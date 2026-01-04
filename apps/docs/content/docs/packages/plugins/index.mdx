@@ -1,0 +1,180 @@
+---
+title: "Plugin Packages"
+description: "Extend NextRush with controllers, logging, static files, WebSocket, events, and templates."
+---
+
+# Plugin Packages
+
+NextRush plugins extend your application with powerful features. Each plugin integrates seamlessly with the core application through the standardized plugin interface.
+
+---
+
+## Available Plugins
+
+```mermaid
+graph LR
+    subgraph Application
+        app[NextRush App]
+    end
+
+    subgraph Plugins
+        ctrl[controllers]
+        log[logger]
+        static[static]
+        ws[websocket]
+        events[events]
+        tpl[template]
+    end
+
+    app --> ctrl
+    app --> log
+    app --> static
+    app --> ws
+    app --> events
+    app --> tpl
+```
+
+---
+
+## Quick Reference
+
+| Package | Purpose | Use Case |
+|---------|---------|----------|
+| [@nextrush/controllers](/docs/packages/plugins/controllers) | Decorator-based controllers | Structured REST APIs |
+| [@nextrush/logger](/docs/packages/plugins/logger) | Request logging | Observability, debugging |
+| [@nextrush/static](/docs/packages/plugins/static) | Static file serving | Frontend assets, downloads |
+| [@nextrush/websocket](/docs/packages/plugins/websocket) | Real-time communication | Chat, live updates |
+| [@nextrush/events](/docs/packages/plugins/events) | Event emitter | Decoupled architecture |
+| [@nextrush/template](/docs/packages/plugins/template) | HTML rendering | Server-side pages |
+
+---
+
+## Installation Pattern
+
+Install plugins as needed:
+
+```bash tab="npm"
+npm install @nextrush/controllers @nextrush/logger
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/controllers @nextrush/logger
+```
+
+---
+
+## Plugin Interface
+
+All NextRush plugins implement a consistent interface:
+
+```typescript
+interface Plugin {
+  name: string;
+  version?: string;
+  install(app: Application): void | Promise<void>;
+  destroy?(): void | Promise<void>;
+}
+```
+
+### Using Plugins
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { controllersPlugin } from '@nextrush/controllers';
+import { eventsPlugin } from '@nextrush/events';
+
+const app = createApp();
+
+// Register plugins
+app.plugin(controllersPlugin({ controllers: [UserController] }));
+app.plugin(eventsPlugin());
+```
+
+---
+
+## Plugin Categories
+
+### Architecture Plugins
+
+These plugins add structural patterns:
+
+- **Controllers** — Class-based route handlers with decorators
+- **Events** — Decoupled communication between components
+
+### Feature Plugins
+
+These plugins add capabilities:
+
+- **Logger** — Request/response logging
+- **Static** — File serving
+- **WebSocket** — Real-time communication
+- **Template** — HTML rendering
+
+---
+
+## Combining Plugins
+
+Plugins work together:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { controllersPlugin } from '@nextrush/controllers';
+import { logger } from '@nextrush/logger';
+import { serveStatic } from '@nextrush/static';
+
+const app = createApp();
+
+// Request logging
+app.use(logger());
+
+// Static files
+app.use(serveStatic({ root: './public' }));
+
+// API controllers
+app.plugin(controllersPlugin({
+  controllers: [UserController, ProductController],
+}));
+```
+
+---
+
+## Creating Custom Plugins
+
+Build your own plugins:
+
+```typescript
+import type { Plugin } from '@nextrush/types';
+
+const myPlugin: Plugin = {
+  name: 'my-plugin',
+  version: '1.0.0',
+
+  install(app) {
+    // Add middleware
+    app.use(async (ctx) => {
+      ctx.state.myValue = 'hello';
+      await ctx.next();
+    });
+
+    // Extend app
+    (app as any).myMethod = () => 'custom method';
+  },
+
+  destroy() {
+    // Cleanup on shutdown
+  },
+};
+
+app.plugin(myPlugin);
+```
+
+---
+
+## Next Steps
+
+Explore individual plugin documentation:
+
+- [Controllers](/docs/packages/plugins/controllers) — Structured APIs with decorators
+- [Logger](/docs/packages/plugins/logger) — Request logging
+- [Static](/docs/packages/plugins/static) — File serving
+- [WebSocket](/docs/packages/plugins/websocket) — Real-time features

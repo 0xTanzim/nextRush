@@ -1,0 +1,318 @@
+---
+title: "@nextrush/body-parser"
+description: "Parse JSON, URL-encoded, text, and raw request bodies with size limits."
+---
+
+# @nextrush/body-parser
+
+Parse incoming request bodies before your handlers process them.
+
+HTTP request bodies arrive as streams. This middleware reads and parses them into usable JavaScript objects, handling JSON, URL-encoded forms, plain text, and raw binary data.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/body-parser
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/body-parser
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { bodyParser } from '@nextrush/body-parser';
+
+const app = createApp();
+
+// Parse all supported content types
+app.use(bodyParser());
+
+app.use(async (ctx) => {
+  // Access parsed body
+  console.log(ctx.body);
+  ctx.json({ received: ctx.body });
+});
+```
+
+---
+
+## Individual Parsers
+
+Parse specific content types only:
+
+### JSON
+
+```typescript
+import { json } from '@nextrush/body-parser';
+
+app.use(json());
+// Parses: application/json, application/json-patch+json, etc.
+```
+
+### URL-Encoded
+
+```typescript
+import { urlencoded } from '@nextrush/body-parser';
+
+app.use(urlencoded());
+// Parses: application/x-www-form-urlencoded
+```
+
+### Text
+
+```typescript
+import { text } from '@nextrush/body-parser';
+
+app.use(text());
+// Parses: text/plain, text/html, etc.
+```
+
+### Raw Binary
+
+```typescript
+import { raw } from '@nextrush/body-parser';
+
+app.use(raw());
+// Parses: application/octet-stream
+```
+
+---
+
+## Configuration
+
+### JSON Options
+
+```typescript
+app.use(json({
+  // Maximum body size
+  limit: '1mb',
+
+  // Strict JSON mode (arrays/objects only)
+  strict: true,
+
+  // Custom content types
+  type: ['application/json', 'application/*+json'],
+
+  // Custom reviver function
+  reviver: (key, value) => value,
+}));
+```
+
+### URL-Encoded Options
+
+```typescript
+app.use(urlencoded({
+  // Maximum body size
+  limit: '100kb',
+
+  // Enable nested objects (a[b]=c)
+  extended: true,
+
+  // Maximum nesting depth
+  depth: 5,
+
+  // Maximum parameters
+  parameterLimit: 1000,
+}));
+```
+
+### Text Options
+
+```typescript
+app.use(text({
+  // Maximum body size
+  limit: '100kb',
+
+  // Default charset
+  defaultCharset: 'utf-8',
+
+  // Custom content types
+  type: ['text/plain', 'text/html'],
+}));
+```
+
+### Raw Options
+
+```typescript
+app.use(raw({
+  // Maximum body size
+  limit: '5mb',
+
+  // Custom content types
+  type: 'application/octet-stream',
+}));
+```
+
+---
+
+## Combined Parser
+
+The `bodyParser()` function combines all parsers:
+
+```typescript
+app.use(bodyParser({
+  json: { limit: '1mb' },
+  urlencoded: { extended: true },
+  text: { limit: '100kb' },
+  raw: false,  // Disable raw parsing
+}));
+```
+
+---
+
+## Size Limits
+
+Protect against large payload attacks:
+
+```typescript
+// String format
+app.use(json({ limit: '1mb' }));
+
+// Number (bytes)
+app.use(json({ limit: 1048576 }));
+
+// Supported units: b, kb, mb, gb
+app.use(json({ limit: '500kb' }));
+```
+
+---
+
+## Error Handling
+
+Body parser throws errors for invalid input:
+
+```typescript
+import { BodyParserError, Errors } from '@nextrush/body-parser';
+
+app.use(async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    if (error instanceof BodyParserError) {
+      switch (error.code) {
+        case Errors.ENTITY_TOO_LARGE:
+          ctx.status = 413;
+          ctx.json({ error: 'Request body too large' });
+          break;
+        case Errors.PARSE_FAILED:
+          ctx.status = 400;
+          ctx.json({ error: 'Invalid JSON' });
+          break;
+        case Errors.UNSUPPORTED_CHARSET:
+          ctx.status = 415;
+          ctx.json({ error: 'Unsupported encoding' });
+          break;
+        default:
+          throw error;
+      }
+    }
+  }
+});
+```
+
+### Error Codes
+
+| Code | Description |
+|------|-------------|
+| `ENTITY_TOO_LARGE` | Body exceeds limit |
+| `PARSE_FAILED` | Invalid JSON/form data |
+| `UNSUPPORTED_CHARSET` | Unknown character encoding |
+| `UNSUPPORTED_MEDIA_TYPE` | Unrecognized content type |
+| `STREAM_ERROR` | Stream reading failed |
+
+---
+
+## Reading Raw Body
+
+Access the raw body buffer:
+
+```typescript
+import { readBody } from '@nextrush/body-parser';
+
+app.use(async (ctx) => {
+  const buffer = await readBody(ctx, { limit: '1mb' });
+  const text = buffer.toString('utf-8');
+});
+```
+
+---
+
+## Skipping Methods
+
+Body parser automatically skips bodyless methods:
+
+- `GET`
+- `HEAD`
+- `DELETE`
+- `OPTIONS`
+
+You don't need to filter these manually.
+
+---
+
+## Utilities
+
+### Content Type Detection
+
+```typescript
+import {
+  getContentType,
+  isJsonContentType,
+  matchContentType
+} from '@nextrush/body-parser';
+
+// Get content type
+getContentType(ctx);  // 'application/json'
+
+// Check if JSON
+isJsonContentType('application/json');  // true
+
+// Match patterns
+matchContentType('application/json', 'application/*');  // true
+```
+
+### Size Parsing
+
+```typescript
+import { parseLimit, formatBytes } from '@nextrush/body-parser';
+
+parseLimit('1mb');     // 1048576
+formatBytes(1048576);  // '1 MB'
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  JsonOptions,
+  UrlEncodedOptions,
+  BodyParserOptions
+} from '@nextrush/body-parser';
+import { json, urlencoded, bodyParser } from '@nextrush/body-parser';
+
+const jsonOpts: JsonOptions = {
+  limit: '1mb',
+  strict: true,
+};
+
+app.use(json(jsonOpts));
+```
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/packages/middleware) — All middleware packages
+- [@nextrush/cors](/docs/packages/middleware/cors) — CORS handling
+- [@nextrush/rate-limit](/docs/packages/middleware/rate-limit) — Rate limiting

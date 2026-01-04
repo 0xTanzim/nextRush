@@ -1,0 +1,584 @@
+---
+title: "Database Integration"
+description: "Connect NextRush to databases with proper patterns for production applications."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+# Database Integration
+
+Connect NextRush to databases using clean architecture patterns.
+
+This example shows patterns that work with any database. We'll demonstrate with:
+- In-memory (for learning)
+- SQLite with better-sqlite3
+- PostgreSQL with Drizzle ORM
+
+---
+
+## Architecture Pattern
+
+NextRush recommends the **Repository Pattern** for database access:
+
+```
+Controller → Service → Repository → Database
+```
+
+- **Controller**: HTTP handling, request/response
+- **Service**: Business logic, validation
+- **Repository**: Data access, queries
+- **Database**: Actual storage
+
+This separation makes code testable and database-agnostic.
+
+---
+
+## Repository Pattern
+
+### Base Interface
+
+```typescript title="src/repositories/base.repository.ts"
+export interface BaseRepository<T, CreateDto, UpdateDto> {
+  findAll(): Promise<T[]>;
+  findById(id: string): Promise<T | null>;
+  create(data: CreateDto): Promise<T>;
+  update(id: string, data: UpdateDto): Promise<T | null>;
+  delete(id: string): Promise<boolean>;
+}
+```
+
+### User Repository
+
+```typescript title="src/repositories/user.repository.ts"
+import { Repository } from '@nextrush/di';
+import type { BaseRepository } from './base.repository';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+}
+
+export interface CreateUserDto {
+  name: string;
+  email: string;
+}
+
+export interface UpdateUserDto {
+  name?: string;
+  email?: string;
+}
+
+@Repository()
+export class UserRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
+  // Implementation varies by database
+  async findAll(): Promise<User[]> {
+    throw new Error('Not implemented');
+  }
+
+  async findById(id: string): Promise<User | null> {
+    throw new Error('Not implemented');
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    throw new Error('Not implemented');
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User | null> {
+    throw new Error('Not implemented');
+  }
+
+  async delete(id: string): Promise<boolean> {
+    throw new Error('Not implemented');
+  }
+}
+```
+
+---
+
+## SQLite with better-sqlite3
+
+Fast, file-based database. Great for small apps and development.
+
+### Setup
+
+```bash
+npm install better-sqlite3
+npm install -D @types/better-sqlite3
+```
+
+### Database Connection
+
+```typescript title="src/database/sqlite.ts"
+import Database from 'better-sqlite3';
+import { Service } from '@nextrush/di';
+
+@Service()
+export class DatabaseService {
+  private db: Database.Database;
+
+  constructor() {
+    this.db = new Database('app.db');
+    this.db.pragma('journal_mode = WAL');  // Better performance
+    this.init();
+  }
+
+  private init() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+  }
+
+  get connection(): Database.Database {
+    return this.db;
+  }
+
+  close() {
+    this.db.close();
+  }
+}
+```
+
+### Repository Implementation
+
+```typescript title="src/repositories/user.sqlite.repository.ts"
+import { Repository } from '@nextrush/di';
+import { DatabaseService } from '../database/sqlite';
+import type { User, CreateUserDto, UpdateUserDto, BaseRepository } from './user.repository';
+
+@Repository()
+export class UserSqliteRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
+  constructor(private database: DatabaseService) {}
+
+  private get db() {
+    return this.database.connection;
+  }
+
+  async findAll(): Promise<User[]> {
+    const rows = this.db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();
+    return rows.map(this.toUser);
+  }
+
+  async findById(id: string): Promise<User | null> {
+    const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    return row ? this.toUser(row) : null;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    const row = this.db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    return row ? this.toUser(row) : null;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    this.db.prepare(`
+      INSERT INTO users (id, name, email, created_at)
+      VALUES (?, ?, ?, ?)
+    `).run(id, data.name, data.email, createdAt);
+
+    return { id, name: data.name, email: data.email, createdAt: new Date(createdAt) };
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User | null> {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    if (data.name !== undefined) {
+      updates.push('name = ?');
+      values.push(data.name);
+    }
+    if (data.email !== undefined) {
+      updates.push('email = ?');
+      values.push(data.email);
+    }
+
+    if (updates.length > 0) {
+      values.push(id);
+      this.db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    }
+
+    return this.findById(id);
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = this.db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    return result.changes > 0;
+  }
+
+  private toUser(row: unknown): User {
+    const r = row as { id: string; name: string; email: string; created_at: string };
+    return {
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      createdAt: new Date(r.created_at),
+    };
+  }
+}
+```
+
+---
+
+## PostgreSQL with Drizzle ORM
+
+Type-safe ORM for production applications.
+
+### Setup
+
+```bash
+npm install drizzle-orm postgres
+npm install -D drizzle-kit
+```
+
+### Schema Definition
+
+```typescript title="src/database/schema.ts"
+import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+```
+
+### Database Connection
+
+```typescript title="src/database/drizzle.ts"
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { Service } from '@nextrush/di';
+import * as schema from './schema';
+
+@Service()
+export class DrizzleService {
+  private client: ReturnType<typeof postgres>;
+  public db: ReturnType<typeof drizzle<typeof schema>>;
+
+  constructor() {
+    const connectionString = process.env.DATABASE_URL || 'postgres://localhost:5432/myapp';
+    this.client = postgres(connectionString);
+    this.db = drizzle(this.client, { schema });
+  }
+
+  async close() {
+    await this.client.end();
+  }
+}
+```
+
+### Repository Implementation
+
+```typescript title="src/repositories/user.drizzle.repository.ts"
+import { Repository } from '@nextrush/di';
+import { eq } from 'drizzle-orm';
+import { DrizzleService } from '../database/drizzle';
+import { users, type User, type NewUser } from '../database/schema';
+import type { BaseRepository, CreateUserDto, UpdateUserDto } from './user.repository';
+
+@Repository()
+export class UserDrizzleRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
+  constructor(private drizzle: DrizzleService) {}
+
+  private get db() {
+    return this.drizzle.db;
+  }
+
+  async findAll(): Promise<User[]> {
+    return this.db.select().from(users).orderBy(users.createdAt);
+  }
+
+  async findById(id: string): Promise<User | null> {
+    const [user] = await this.db.select().from(users).where(eq(users.id, id));
+    return user || null;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    const [user] = await this.db.select().from(users).where(eq(users.email, email));
+    return user || null;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    const [user] = await this.db.insert(users).values(data).returning();
+    return user;
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User | null> {
+    const [user] = await this.db.update(users).set(data).where(eq(users.id, id)).returning();
+    return user || null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = await this.db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
+  }
+}
+```
+
+---
+
+## Service Layer
+
+Services contain business logic, independent of database choice:
+
+```typescript title="src/services/user.service.ts"
+import { Service } from '@nextrush/di';
+import { NotFoundError, ConflictError, BadRequestError } from 'nextrush';
+import { UserRepository } from '../repositories/user.repository';
+import type { User, CreateUserDto, UpdateUserDto } from '../repositories/user.repository';
+
+@Service()
+export class UserService {
+  constructor(private repo: UserRepository) {}
+
+  async findAll(): Promise<User[]> {
+    return this.repo.findAll();
+  }
+
+  async findById(id: string): Promise<User> {
+    const user = await this.repo.findById(id);
+    if (!user) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+    return user;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    // Validation
+    if (!data.name?.trim()) {
+      throw new BadRequestError('Name is required');
+    }
+    if (!data.email?.trim()) {
+      throw new BadRequestError('Email is required');
+    }
+
+    // Check duplicate
+    const existing = await this.repo.findByEmail(data.email);
+    if (existing) {
+      throw new ConflictError('Email already exists');
+    }
+
+    return this.repo.create({
+      name: data.name.trim(),
+      email: data.email.toLowerCase().trim(),
+    });
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User> {
+    const existing = await this.repo.findById(id);
+    if (!existing) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+
+    const updated = await this.repo.update(id, {
+      name: data.name?.trim(),
+      email: data.email?.toLowerCase().trim(),
+    });
+
+    return updated!;
+  }
+
+  async delete(id: string): Promise<void> {
+    const deleted = await this.repo.delete(id);
+    if (!deleted) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+  }
+}
+```
+
+---
+
+## Controller
+
+```typescript title="src/controllers/user.controller.ts"
+import { Controller, Get, Post, Put, Delete, Body, Param, Ctx } from '@nextrush/decorators';
+import type { Context } from 'nextrush';
+import { UserService } from '../services/user.service';
+import type { CreateUserDto, UpdateUserDto } from '../repositories/user.repository';
+
+@Controller('/users')
+export class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  async findAll() {
+    const users = await this.userService.findAll();
+    return { data: users };
+  }
+
+  @Get('/:id')
+  async findOne(@Param('id') id: string) {
+    const user = await this.userService.findById(id);
+    return { data: user };
+  }
+
+  @Post()
+  async create(@Body() data: CreateUserDto, @Ctx() ctx: Context) {
+    const user = await this.userService.create(data);
+    ctx.status = 201;
+    return { data: user };
+  }
+
+  @Put('/:id')
+  async update(@Param('id') id: string, @Body() data: UpdateUserDto) {
+    const user = await this.userService.update(id, data);
+    return { data: user };
+  }
+
+  @Delete('/:id')
+  async remove(@Param('id') id: string, @Ctx() ctx: Context) {
+    await this.userService.delete(id);
+    ctx.status = 204;
+  }
+}
+```
+
+---
+
+## Entry Point
+
+```typescript title="src/index.ts"
+import 'reflect-metadata';
+
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+import { controllersPlugin } from '@nextrush/controllers';
+import { container } from '@nextrush/di';
+
+import { UserController } from './controllers/user.controller';
+import { UserRepository } from './repositories/user.repository';
+import { UserSqliteRepository } from './repositories/user.sqlite.repository';
+// Or: import { UserDrizzleRepository } from './repositories/user.drizzle.repository';
+
+async function main() {
+  const app = createApp();
+  const router = createRouter();
+
+  // Register the repository implementation
+  container.register(UserRepository, { useClass: UserSqliteRepository });
+  // Or: container.register(UserRepository, { useClass: UserDrizzleRepository });
+
+  // Middleware
+  app.use(cors());
+  app.use(json());
+
+  // Controllers
+  app.plugin(controllersPlugin({
+    router,
+    controllers: [UserController],
+  }));
+
+  app.use(router.routes());
+
+  listen(app, 3000, () => {
+    console.log('Database API running at http://localhost:3000');
+  });
+}
+
+main().catch(console.error);
+```
+
+<Callout type="info">
+By registering `UserRepository` with a specific implementation, you can swap databases without changing business logic.
+</Callout>
+
+---
+
+## Testing with Mocks
+
+```typescript title="src/services/user.service.test.ts"
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { UserService } from './user.service';
+import type { UserRepository } from '../repositories/user.repository';
+
+describe('UserService', () => {
+  let service: UserService;
+  let mockRepo: UserRepository;
+
+  beforeEach(() => {
+    mockRepo = {
+      findAll: vi.fn().mockResolvedValue([]),
+      findById: vi.fn().mockResolvedValue(null),
+      findByEmail: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockImplementation((data) => ({
+        id: '1',
+        ...data,
+        createdAt: new Date(),
+      })),
+      update: vi.fn(),
+      delete: vi.fn().mockResolvedValue(true),
+    };
+
+    service = new UserService(mockRepo);
+  });
+
+  it('should create user', async () => {
+    const user = await service.create({
+      name: 'Test',
+      email: 'test@example.com',
+    });
+
+    expect(user.name).toBe('Test');
+    expect(mockRepo.create).toHaveBeenCalled();
+  });
+
+  it('should throw on duplicate email', async () => {
+    mockRepo.findByEmail = vi.fn().mockResolvedValue({ id: '1' });
+
+    await expect(
+      service.create({ name: 'Test', email: 'existing@example.com' })
+    ).rejects.toThrow('Email already exists');
+  });
+});
+```
+
+---
+
+## Database Options
+
+<Cards>
+  <Card
+    title="SQLite"
+    description="Fast file-based database for small apps."
+  />
+  <Card
+    title="PostgreSQL"
+    description="Full-featured SQL database for production."
+  />
+  <Card
+    title="MySQL"
+    description="Popular relational database."
+  />
+  <Card
+    title="MongoDB"
+    description="Document database for flexible schemas."
+  />
+</Cards>
+
+All work with the same repository pattern. Only the repository implementation changes.
+
+---
+
+## Next Steps
+
+- [Class-Based API](/docs/examples/class-based-api) — Full class-based example
+- [Authentication](/docs/examples/authentication) — Add user authentication
+- [Testing Guide](/docs/guides/testing) — Test database code

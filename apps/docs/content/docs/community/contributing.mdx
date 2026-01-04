@@ -1,0 +1,464 @@
+---
+title: "Contributing"
+description: "How to contribute to NextRush — from setup to pull request."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Contributing to NextRush
+
+Thank you for your interest in contributing to NextRush!
+
+This guide covers everything you need to know to contribute effectively.
+
+---
+
+## Quick Start
+
+<Steps>
+
+<Step>
+
+### Fork and Clone
+
+```bash
+# Fork on GitHub, then:
+git clone https://github.com/YOUR_USERNAME/nextrush.git
+cd nextrush
+```
+
+</Step>
+
+<Step>
+
+### Install Dependencies
+
+```bash
+# Install pnpm if needed
+npm install -g pnpm
+
+# Install project dependencies
+pnpm install
+```
+
+</Step>
+
+<Step>
+
+### Build Packages
+
+```bash
+pnpm build
+```
+
+</Step>
+
+<Step>
+
+### Run Tests
+
+```bash
+pnpm test
+```
+
+</Step>
+
+<Step>
+
+### Create Branch
+
+```bash
+git checkout -b feature/your-feature
+```
+
+</Step>
+
+</Steps>
+
+---
+
+## Repository Structure
+
+NextRush is a monorepo using Turborepo and pnpm workspaces:
+
+```
+nextrush/
+├── packages/
+│   ├── core/           # @nextrush/core
+│   ├── router/         # @nextrush/router
+│   ├── di/             # @nextrush/di
+│   ├── decorators/     # @nextrush/decorators
+│   ├── errors/         # @nextrush/errors
+│   ├── types/          # @nextrush/types
+│   ├── runtime/        # @nextrush/runtime
+│   ├── dev/            # @nextrush/dev
+│   ├── nextrush/       # nextrush (meta package)
+│   ├── adapters/       # Platform adapters
+│   │   ├── node/       # @nextrush/adapter-node
+│   │   ├── bun/        # @nextrush/adapter-bun
+│   │   ├── deno/       # @nextrush/adapter-deno
+│   │   └── edge/       # @nextrush/adapter-edge
+│   ├── middleware/     # Middleware packages
+│   │   ├── cors/
+│   │   ├── body-parser/
+│   │   └── ...
+│   └── plugins/        # Plugin packages
+│       ├── controllers/
+│       ├── logger/
+│       └── ...
+├── apps/
+│   ├── docs/           # Documentation site
+│   └── playground/     # Testing playground
+├── draft/              # Architecture documents
+└── turbo.json          # Turborepo config
+```
+
+---
+
+## Development Workflow
+
+### Running Commands
+
+```bash
+# Build all packages
+pnpm build
+
+# Run all tests
+pnpm test
+
+# Run tests for specific package
+pnpm --filter @nextrush/core test
+
+# Type check
+pnpm typecheck
+
+# Lint
+pnpm lint
+
+# Format
+pnpm format
+
+# Clean build artifacts
+pnpm clean
+```
+
+### Package Development
+
+When working on a specific package:
+
+```bash
+cd packages/core
+
+# Run tests in watch mode
+pnpm test:watch
+
+# Build package
+pnpm build
+
+# Type check
+pnpm typecheck
+```
+
+### Documentation
+
+```bash
+cd apps/docs
+
+# Start dev server
+pnpm dev
+
+# Build docs
+pnpm build
+```
+
+---
+
+## Code Style
+
+### TypeScript
+
+- **Strict mode**: Always use strict TypeScript
+- **No any**: Avoid `any` type; use `unknown` if needed
+- **Explicit types**: Export interfaces and types explicitly
+- **ESM**: Use ES modules (`import`/`export`)
+
+### File Structure
+
+```typescript
+// 1. Type imports
+import type { Context, Middleware } from '@nextrush/types';
+
+// 2. Value imports
+import { compose } from './middleware';
+
+// 3. Types/interfaces (export first)
+export interface MyOptions {
+  enabled: boolean;
+}
+
+// 4. Implementation
+export function myFunction(options: MyOptions): void {
+  // ...
+}
+```
+
+### Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Files | kebab-case | `body-parser.ts` |
+| Types/Interfaces | PascalCase | `RouterOptions` |
+| Functions | camelCase | `createRouter` |
+| Constants | UPPER_SNAKE | `DEFAULT_TIMEOUT` |
+| Private fields | underscore prefix | `_internal` |
+
+### Comments
+
+```typescript
+// Good: Explain WHY, not WHAT
+// Rate limit is per-IP to prevent abuse from single sources
+const rateLimit = createRateLimiter({ keyGenerator: (ctx) => ctx.ip });
+
+// Bad: Obvious comment
+// Create router
+const router = createRouter();
+```
+
+---
+
+## Testing
+
+### Test Structure
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+
+describe('MyFeature', () => {
+  describe('basic functionality', () => {
+    it('should do something', () => {
+      expect(result).toBe(expected);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle empty input', () => {
+      // ...
+    });
+  });
+
+  describe('error cases', () => {
+    it('should throw on invalid input', () => {
+      expect(() => fn(null)).toThrow();
+    });
+  });
+});
+```
+
+### Test Guidelines
+
+- **One assertion per test** when possible
+- **Descriptive names**: `should return 404 when user not found`
+- **Test behavior, not implementation**
+- **No mocking unless necessary**
+
+### Coverage Requirements
+
+- **Unit tests**: 90%+ line coverage
+- **All exports**: Every public function tested
+- **Error paths**: All error scenarios covered
+
+---
+
+## Pull Request Process
+
+### Before Submitting
+
+- [ ] Tests pass: `pnpm test`
+- [ ] Types check: `pnpm typecheck`
+- [ ] Lint passes: `pnpm lint`
+- [ ] Documentation updated (if needed)
+- [ ] Changeset added (if needed)
+
+### PR Title Format
+
+```
+type(scope): description
+
+Examples:
+feat(router): add wildcard route support
+fix(core): handle async middleware errors
+docs(guides): add authentication guide
+chore(deps): update typescript to 5.x
+```
+
+### Types
+
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation
+- `chore`: Maintenance
+- `refactor`: Code change without feature/fix
+- `test`: Adding tests
+- `perf`: Performance improvement
+
+### Review Process
+
+1. **Automated checks** — CI must pass
+2. **Code review** — At least one approval
+3. **Documentation** — Updated if needed
+4. **Merge** — Squash and merge
+
+---
+
+## Adding a New Package
+
+<Steps>
+
+<Step>
+
+### Create Package Structure
+
+```bash
+mkdir -p packages/middleware/my-middleware/src
+cd packages/middleware/my-middleware
+```
+
+</Step>
+
+<Step>
+
+### Create package.json
+
+```json
+{
+  "name": "@nextrush/my-middleware",
+  "version": "3.0.0-alpha.1",
+  "description": "Description here",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
+  }
+}
+```
+
+</Step>
+
+<Step>
+
+### Create tsconfig.json
+
+```json
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
+```
+
+</Step>
+
+<Step>
+
+### Create tsup.config.ts
+
+```typescript
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: ['esm'],
+  dts: true,
+  clean: true,
+  sourcemap: true,
+});
+```
+
+</Step>
+
+<Step>
+
+### Implement and Test
+
+```typescript
+// src/index.ts
+import type { Middleware } from '@nextrush/types';
+
+export interface MyMiddlewareOptions {
+  // ...
+}
+
+export function myMiddleware(options?: MyMiddlewareOptions): Middleware {
+  return async (ctx, next) => {
+    // Implementation
+    await next();
+  };
+}
+```
+
+</Step>
+
+</Steps>
+
+---
+
+## Documentation Contributions
+
+### Writing Guidelines
+
+- **Human-first**: Explain concepts before code
+- **Show examples**: Include runnable code
+- **Be accurate**: Test all code examples
+- **Keep current**: Update when APIs change
+
+### Structure
+
+Every doc page should have:
+
+1. Title and description
+2. Problem explanation
+3. Solution overview
+4. Code examples
+5. Common issues
+6. Next steps
+
+See the [Documentation Instructions](https://github.com/0xtanzim/nextrush/tree/main/.github/instructions) for detailed guidelines.
+
+---
+
+## Getting Help
+
+- **Questions**: Open a [Discussion](https://github.com/0xtanzim/nextrush/discussions)
+- **Bugs**: Open an [Issue](https://github.com/0xtanzim/nextrush/issues)
+- **Code review**: Request review on your PR
+
+<Callout type="info">
+First-time contributors: Look for issues labeled `good first issue`.
+</Callout>
+
+---
+
+## Thank You!
+
+Every contribution helps make NextRush better. Whether it's fixing a typo, reporting a bug, or implementing a feature—your help is appreciated.

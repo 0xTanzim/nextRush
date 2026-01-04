@@ -1,0 +1,359 @@
+---
+title: "@nextrush/cookies"
+description: "Secure cookie parsing and serialization with signing support."
+---
+
+# @nextrush/cookies
+
+Handle HTTP cookies with secure defaults and signing support.
+
+Cookies are essential for sessions, authentication, and client-side state. This middleware provides parsing, setting, and optional HMAC-SHA256 signing with RFC 6265 compliance.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/cookies
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/cookies
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { cookies } from '@nextrush/cookies';
+
+const app = createApp();
+
+// Add cookie middleware
+app.use(cookies());
+
+app.use(async (ctx) => {
+  // Read a cookie
+  const session = ctx.state.cookies.get('session');
+
+  // Set a cookie
+  ctx.state.cookies.set('session', 'user-123', {
+    httpOnly: true,
+    secure: true,
+    maxAge: 86400,
+  });
+
+  ctx.json({ session });
+});
+```
+
+---
+
+## Reading Cookies
+
+```typescript
+app.use(async (ctx) => {
+  // Get single cookie
+  const token = ctx.state.cookies.get('token');
+
+  // Get all cookies
+  const all = ctx.state.cookies.getAll();
+
+  // Check if cookie exists
+  const hasSession = ctx.state.cookies.has('session');
+
+  ctx.json({ token, all, hasSession });
+});
+```
+
+---
+
+## Setting Cookies
+
+```typescript
+app.use(async (ctx) => {
+  // Simple cookie
+  ctx.state.cookies.set('name', 'value');
+
+  // With options
+  ctx.state.cookies.set('session', 'user-123', {
+    httpOnly: true,      // Not accessible via JavaScript
+    secure: true,        // HTTPS only
+    sameSite: 'strict',  // CSRF protection
+    maxAge: 86400,       // 1 day in seconds
+    path: '/',
+    domain: '.example.com',
+  });
+
+  ctx.json({ ok: true });
+});
+```
+
+---
+
+## Cookie Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `httpOnly` | `boolean` | `false` | Block JavaScript access |
+| `secure` | `boolean` | `false` | HTTPS only |
+| `sameSite` | `'strict' \| 'lax' \| 'none'` | — | CSRF protection |
+| `maxAge` | `number` | — | Lifetime in seconds |
+| `expires` | `Date` | — | Expiration date |
+| `path` | `string` | `'/'` | URL path scope |
+| `domain` | `string` | — | Domain scope |
+| `priority` | `'low' \| 'medium' \| 'high'` | — | Chrome priority hint |
+
+---
+
+## Deleting Cookies
+
+```typescript
+app.use(async (ctx) => {
+  // Delete cookie
+  ctx.state.cookies.delete('session');
+
+  // Delete with options (must match set options)
+  ctx.state.cookies.delete('session', {
+    path: '/',
+    domain: '.example.com',
+  });
+
+  ctx.json({ ok: true });
+});
+```
+
+---
+
+## Secure Presets
+
+Use built-in secure configurations:
+
+### Session Cookies
+
+```typescript
+import { cookies, sessionOptions } from '@nextrush/cookies';
+
+app.use(cookies());
+
+app.use(async (ctx) => {
+  ctx.state.cookies.set('session', 'user-123', sessionOptions);
+});
+```
+
+`sessionOptions` includes:
+- `httpOnly: true`
+- `secure: true`
+- `sameSite: 'lax'`
+- `path: '/'`
+
+### Secure Cookies
+
+```typescript
+import { cookies, secureOptions } from '@nextrush/cookies';
+
+app.use(async (ctx) => {
+  ctx.state.cookies.set('auth', 'token', secureOptions);
+});
+```
+
+`secureOptions` includes:
+- `httpOnly: true`
+- `secure: true`
+- `sameSite: 'strict'`
+
+---
+
+## Signed Cookies
+
+Prevent cookie tampering with HMAC signatures:
+
+```typescript
+import { signedCookies } from '@nextrush/cookies';
+
+app.use(signedCookies({
+  keys: ['secret-key-1', 'secret-key-2'],  // Key rotation
+}));
+
+app.use(async (ctx) => {
+  // Set signed cookie
+  ctx.state.cookies.set('user', 'user-123');
+  // Actually sets: user=user-123.HMAC_SIGNATURE
+
+  // Get and verify signed cookie
+  const user = ctx.state.cookies.get('user');
+  // Returns null if signature invalid
+
+  ctx.json({ user });
+});
+```
+
+### Key Rotation
+
+Support multiple keys for seamless rotation:
+
+```typescript
+app.use(signedCookies({
+  keys: [
+    'new-secret-key',   // Sign with first key
+    'old-secret-key',   // Verify with any key
+  ],
+}));
+```
+
+---
+
+## Cookie Prefixes
+
+Security prefixes for enhanced protection:
+
+### `__Secure-` Prefix
+
+```typescript
+import { createSecurePrefixCookie } from '@nextrush/cookies';
+
+// Must have secure: true
+const cookie = createSecurePrefixCookie('token', 'value', {
+  secure: true,
+});
+// Sets: __Secure-token=value
+```
+
+### `__Host-` Prefix
+
+```typescript
+import { createHostPrefixCookie } from '@nextrush/cookies';
+
+// Must have secure: true, path: '/', no domain
+const cookie = createHostPrefixCookie('session', 'value');
+// Sets: __Host-session=value
+```
+
+---
+
+## Parsing Utilities
+
+Low-level cookie parsing:
+
+```typescript
+import {
+  parseCookies,
+  getCookie,
+  getCookieNames,
+  hasCookie
+} from '@nextrush/cookies';
+
+// Parse cookie header
+const cookies = parseCookies('name=value; session=abc');
+
+// Get specific cookie
+const session = getCookie('name=value; session=abc', 'session');
+
+// Get all cookie names
+const names = getCookieNames('name=value; session=abc');
+
+// Check existence
+const exists = hasCookie('name=value', 'name');
+```
+
+---
+
+## Serialization Utilities
+
+Low-level cookie serialization:
+
+```typescript
+import { serializeCookie, createDeleteCookie } from '@nextrush/cookies';
+
+// Serialize cookie
+const header = serializeCookie('name', 'value', {
+  httpOnly: true,
+  secure: true,
+});
+
+// Create delete cookie header
+const deleteHeader = createDeleteCookie('name', { path: '/' });
+```
+
+---
+
+## Signing Utilities
+
+Manual cookie signing:
+
+```typescript
+import {
+  signCookie,
+  unsignCookie,
+  unsignCookieWithRotation
+} from '@nextrush/cookies';
+
+// Sign a value
+const signed = await signCookie('value', 'secret-key');
+
+// Verify and extract value
+const value = await unsignCookie(signed, 'secret-key');
+
+// Verify with key rotation
+const valueRotated = await unsignCookieWithRotation(signed, [
+  'new-key',
+  'old-key',
+]);
+```
+
+---
+
+## Validation
+
+Validate cookie names and values:
+
+```typescript
+import {
+  isValidCookieName,
+  isValidCookieValue,
+  validateCookieOptions
+} from '@nextrush/cookies';
+
+// Validate name (no special chars)
+isValidCookieName('session');  // true
+isValidCookieName('my=cookie');  // false
+
+// Validate value
+isValidCookieValue('abc123');  // true
+
+// Validate options
+validateCookieOptions({ secure: true, sameSite: 'none' });
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  CookieOptions,
+  CookieState,
+  SignedCookieMiddlewareOptions
+} from '@nextrush/cookies';
+import { cookies, signedCookies } from '@nextrush/cookies';
+
+const options: CookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'strict',
+};
+
+app.use(cookies());
+```
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/packages/middleware) — All middleware packages
+- [@nextrush/helmet](/docs/packages/middleware/helmet) — Security headers
+- [@nextrush/rate-limit](/docs/packages/middleware/rate-limit) — Rate limiting

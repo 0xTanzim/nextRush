@@ -1,0 +1,368 @@
+---
+title: "@nextrush/helmet"
+description: "Security headers middleware with CSP, HSTS, and modern browser protections."
+---
+
+# @nextrush/helmet
+
+Set security headers following OWASP recommendations.
+
+HTTP security headers protect against common web vulnerabilities like XSS, clickjacking, and MIME sniffing. This middleware sets multiple headers with secure defaults, reducing your security attack surface.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/helmet
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/helmet
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { helmet } from '@nextrush/helmet';
+
+const app = createApp();
+
+// Secure defaults for all headers
+app.use(helmet());
+```
+
+This sets the following headers:
+
+| Header | Purpose |
+|--------|---------|
+| `Content-Security-Policy` | Prevent XSS attacks |
+| `X-Content-Type-Options` | Prevent MIME sniffing |
+| `X-Frame-Options` | Prevent clickjacking |
+| `Strict-Transport-Security` | Force HTTPS |
+| `Referrer-Policy` | Control referrer info |
+| `X-XSS-Protection` | Legacy XSS filter |
+| `Permissions-Policy` | Control browser features |
+
+---
+
+## Configuration
+
+Customize individual headers:
+
+```typescript
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: {
+    action: 'deny',
+  },
+}));
+```
+
+---
+
+## Presets
+
+Built-in configurations for common scenarios:
+
+### Strict (Production)
+
+```typescript
+import { strictHelmet } from '@nextrush/helmet';
+
+// Maximum security headers
+app.use(strictHelmet());
+```
+
+### Development
+
+```typescript
+import { devHelmet } from '@nextrush/helmet';
+
+// Relaxed for local development
+app.use(devHelmet());
+```
+
+### API Servers
+
+```typescript
+import { apiHelmet } from '@nextrush/helmet';
+
+// Optimized for JSON APIs
+app.use(apiHelmet());
+```
+
+### Static Sites
+
+```typescript
+import { staticHelmet } from '@nextrush/helmet';
+
+// For static file serving
+app.use(staticHelmet());
+```
+
+### Logout Response
+
+```typescript
+import { logoutHelmet } from '@nextrush/helmet';
+
+// Clear site data on logout
+app.use(logoutHelmet());
+```
+
+---
+
+## Content Security Policy
+
+CSP prevents XSS by controlling what resources can load.
+
+### Basic CSP
+
+```typescript
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://cdn.example.com'],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://api.example.com'],
+    },
+  },
+}));
+```
+
+### CSP Builder
+
+Fluent API for complex policies:
+
+```typescript
+import { createCspBuilder, buildCspHeader } from '@nextrush/helmet';
+
+const csp = createCspBuilder()
+  .defaultSrc("'self'")
+  .scriptSrc("'self'", 'https://cdn.example.com')
+  .styleSrc("'self'", "'unsafe-inline'")
+  .build();
+
+app.use(helmet({
+  contentSecurityPolicy: { directives: csp },
+}));
+```
+
+### CSP with Nonces
+
+For inline scripts without `unsafe-inline`:
+
+```typescript
+import { buildCspWithNonce, generateNonce } from '@nextrush/helmet';
+
+app.use(async (ctx) => {
+  const nonce = generateNonce();
+  ctx.state.cspNonce = nonce;
+
+  const csp = buildCspWithNonce({
+    nonce,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+    },
+  });
+
+  ctx.set('Content-Security-Policy', csp);
+  await ctx.next();
+});
+```
+
+Use in HTML:
+
+```html
+<script nonce="${ctx.state.cspNonce}">
+  console.log('Allowed!');
+</script>
+```
+
+---
+
+## HSTS (HTTP Strict Transport Security)
+
+Force HTTPS connections:
+
+```typescript
+app.use(helmet({
+  hsts: {
+    maxAge: 31536000,      // 1 year
+    includeSubDomains: true,
+    preload: true,         // Submit to preload list
+  },
+}));
+```
+
+:::warning
+Only enable `preload: true` if you're ready to submit to the [HSTS Preload List](https://hstspreload.org). This is permanent.
+:::
+
+---
+
+## Permissions Policy
+
+Control browser features:
+
+```typescript
+import {
+  createPermissionsPolicyBuilder,
+  restrictivePermissionsPolicy
+} from '@nextrush/helmet';
+
+// Using builder
+const policy = createPermissionsPolicyBuilder()
+  .camera('none')
+  .microphone('none')
+  .geolocation('self')
+  .build();
+
+app.use(helmet({
+  permissionsPolicy: {
+    features: policy,
+  },
+}));
+
+// Or use restrictive preset
+app.use(helmet({
+  permissionsPolicy: {
+    features: restrictivePermissionsPolicy,
+  },
+}));
+```
+
+---
+
+## Individual Headers
+
+Apply specific headers only:
+
+```typescript
+import {
+  contentSecurityPolicy,
+  hsts,
+  frameguard,
+  noSniff,
+  referrerPolicy
+} from '@nextrush/helmet';
+
+// Only CSP
+app.use(contentSecurityPolicy({
+  directives: { defaultSrc: ["'self'"] },
+}));
+
+// Only HSTS
+app.use(hsts({ maxAge: 31536000 }));
+
+// Only frameguard
+app.use(frameguard({ action: 'deny' }));
+
+// Only noSniff
+app.use(noSniff());
+
+// Only referrer policy
+app.use(referrerPolicy({ policy: 'strict-origin-when-cross-origin' }));
+```
+
+---
+
+## Disabling Headers
+
+Disable specific headers when needed:
+
+```typescript
+app.use(helmet({
+  contentSecurityPolicy: false,  // Disable CSP
+  hsts: false,                   // Disable HSTS
+}));
+```
+
+---
+
+## CSP Analysis
+
+Analyze CSP for security issues:
+
+```typescript
+import { analyzeCsp, analyzeCspSecurity } from '@nextrush/helmet';
+
+const directives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'", "'unsafe-inline'"],
+};
+
+const analysis = analyzeCspSecurity(directives);
+// Returns warnings about unsafe-inline
+```
+
+---
+
+## Validation Utilities
+
+```typescript
+import {
+  isValidCspDirective,
+  isUnsafeCspValue,
+  validateHstsOptions
+} from '@nextrush/helmet';
+
+// Check CSP directive
+isValidCspDirective('scriptSrc');  // true
+
+// Check unsafe values
+isUnsafeCspValue("'unsafe-inline'");  // true
+
+// Validate HSTS
+validateHstsOptions({ maxAge: 31536000 });
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  HelmetOptions,
+  ContentSecurityPolicyDirectives,
+  StrictTransportSecurityOptions
+} from '@nextrush/helmet';
+import { helmet } from '@nextrush/helmet';
+
+const options: HelmetOptions = {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+    },
+  },
+};
+
+app.use(helmet(options));
+```
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/packages/middleware) — All middleware packages
+- [@nextrush/cors](/docs/packages/middleware/cors) — CORS handling
+- [@nextrush/rate-limit](/docs/packages/middleware/rate-limit) — Rate limiting

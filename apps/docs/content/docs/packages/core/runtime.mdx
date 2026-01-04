@@ -1,0 +1,414 @@
+---
+title: "@nextrush/runtime"
+description: Runtime detection and cross-runtime abstractions
+---
+
+# @nextrush/runtime
+
+Detect JavaScript runtimes and use cross-runtime abstractions for consistent behavior across Node.js, Bun, Deno, and Edge.
+
+<PackageInstall packages={["@nextrush/runtime"]} />
+
+<Callout type="info" title="Usually Included">
+Runtime detection is included in adapters. Install directly only when building custom adapters or tooling.
+</Callout>
+
+## What It Provides
+
+```typescript
+// Runtime detection
+import {
+  detectRuntime,
+  getRuntime,
+  getRuntimeVersion,
+  getRuntimeInfo,
+  getRuntimeCapabilities,
+} from '@nextrush/runtime';
+
+// Runtime checks
+import {
+  isRuntime,
+  isNode,
+  isBun,
+  isDeno,
+  isEdge,
+} from '@nextrush/runtime';
+
+// Body source abstraction
+import {
+  WebBodySource,
+  EmptyBodySource,
+  createWebBodySource,
+  createEmptyBodySource,
+} from '@nextrush/runtime';
+
+// Types
+import type {
+  Runtime,
+  RuntimeInfo,
+  RuntimeCapabilities,
+  BodySource,
+  BodySourceOptions,
+} from '@nextrush/runtime';
+```
+
+## Runtime Detection
+
+### Basic Usage
+
+```typescript
+import { getRuntime, getRuntimeVersion } from '@nextrush/runtime';
+
+const runtime = getRuntime();
+// 'node' | 'bun' | 'deno' | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown'
+
+const version = getRuntimeVersion();
+// '20.10.0' (Node.js)
+// '1.0.0' (Bun)
+// '1.38.0' (Deno)
+```
+
+### Detection Order
+
+Runtime detection checks in this order (most specific first):
+
+1. **Bun** — has global `Bun` object
+2. **Deno** — has global `Deno` object
+3. **Cloudflare Workers** — `navigator.userAgent` includes "Cloudflare-Workers"
+4. **Vercel Edge** — has `process.env.VERCEL_REGION`
+5. **Node.js** — has `process.versions.node`
+6. **Generic Edge** — has `Request`/`Response` but not Node.js
+7. **Unknown** — none of the above
+
+### detectRuntime() vs getRuntime()
+
+```typescript
+import { detectRuntime, getRuntime } from '@nextrush/runtime';
+
+// detectRuntime() - always runs detection
+const runtime1 = detectRuntime(); // Runs detection logic
+
+// getRuntime() - cached (recommended for production)
+const runtime2 = getRuntime();  // First call: detects and caches
+const runtime3 = getRuntime();  // Subsequent calls: returns cached value
+```
+
+Use `getRuntime()` in production code for better performance.
+
+## Runtime Checks
+
+Convenience functions for common checks:
+
+```typescript
+import { isNode, isBun, isDeno, isEdge, isRuntime } from '@nextrush/runtime';
+
+if (isNode()) {
+  // Node.js specific code
+}
+
+if (isBun()) {
+  // Bun specific optimization
+}
+
+if (isDeno()) {
+  // Deno specific code
+}
+
+if (isEdge()) {
+  // Edge runtime (Cloudflare, Vercel Edge, etc.)
+}
+
+// Check for specific runtime
+if (isRuntime('cloudflare-workers')) {
+  // Cloudflare Workers specific code
+}
+```
+
+## Runtime Capabilities
+
+Different runtimes support different features. Check before using runtime-specific APIs:
+
+```typescript
+import { getRuntimeCapabilities } from '@nextrush/runtime';
+
+const caps = getRuntimeCapabilities();
+
+if (caps.fileSystem) {
+  // Safe to use fs operations
+  await fs.readFile('config.json');
+}
+
+if (caps.webStreams) {
+  // Safe to use ReadableStream
+  return new ReadableStream({ /* ... */ });
+}
+
+if (caps.cryptoSubtle) {
+  // Safe to use crypto.subtle
+  await crypto.subtle.digest('SHA-256', data);
+}
+```
+
+### Capabilities by Runtime
+
+| Capability | Node.js | Bun | Deno | Edge |
+|------------|---------|-----|------|------|
+| `nodeStreams` | ✅ | ✅ | ❌ | ❌ |
+| `webStreams` | ✅ | ✅ | ✅ | ✅ |
+| `fileSystem` | ✅ | ✅ | ✅ | ❌ |
+| `webSocket` | ✅ | ✅ | ✅ | ✅ |
+| `fetch` | ✅ | ✅ | ✅ | ✅ |
+| `cryptoSubtle` | ✅ | ✅ | ✅ | ✅ |
+| `workers` | ✅ | ✅ | ✅ | ⚠️ |
+
+<Callout type="warn" title="Edge Runtimes Have No Filesystem">
+Edge runtimes (Cloudflare Workers, Vercel Edge) cannot access the filesystem. Use KV stores or external storage instead.
+</Callout>
+
+## Complete Runtime Info
+
+Get everything at once:
+
+```typescript
+import { getRuntimeInfo } from '@nextrush/runtime';
+
+const info = getRuntimeInfo();
+
+console.log(info);
+// {
+//   runtime: 'node',
+//   version: '20.10.0',
+//   capabilities: {
+//     nodeStreams: true,
+//     webStreams: true,
+//     fileSystem: true,
+//     webSocket: true,
+//     fetch: true,
+//     cryptoSubtle: true,
+//     workers: true,
+//   }
+// }
+```
+
+## Body Source Abstraction
+
+`BodySource` provides a unified API for reading request bodies across runtimes:
+
+```typescript
+interface BodySource {
+  text(): Promise<string>;
+  json<T = unknown>(): Promise<T>;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  blob(): Promise<Blob>;
+  readonly consumed: boolean;
+}
+```
+
+### WebBodySource
+
+For Web API-based runtimes (Bun, Deno, Edge):
+
+```typescript
+import { WebBodySource, createWebBodySource } from '@nextrush/runtime';
+
+// From a Request object
+const request = new Request('https://example.com', {
+  method: 'POST',
+  body: JSON.stringify({ name: 'Alice' }),
+});
+
+const bodySource = createWebBodySource(request.body, {
+  limit: 1024 * 1024, // 1MB limit
+});
+
+const data = await bodySource.json();
+// { name: 'Alice' }
+```
+
+### EmptyBodySource
+
+For requests with no body:
+
+```typescript
+import { createEmptyBodySource } from '@nextrush/runtime';
+
+const emptyBody = createEmptyBodySource();
+
+await emptyBody.text();  // ''
+await emptyBody.json();  // throws SyntaxError
+```
+
+### Body Source Errors
+
+```typescript
+import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
+
+try {
+  const text = await bodySource.text();
+  const json = await bodySource.json(); // Error: body already consumed
+} catch (err) {
+  if (err instanceof BodyConsumedError) {
+    console.log('Body was already read');
+  }
+}
+
+// With size limit
+const bodySource = createWebBodySource(request.body, {
+  limit: 1024, // 1KB
+});
+
+try {
+  await bodySource.text(); // Error if body > 1KB
+} catch (err) {
+  if (err instanceof BodyTooLargeError) {
+    console.log('Body exceeds size limit');
+  }
+}
+```
+
+## Practical Examples
+
+### Runtime-Specific Optimization
+
+```typescript
+import { getRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
+
+async function hashData(data: ArrayBuffer): Promise<ArrayBuffer> {
+  const caps = getRuntimeCapabilities();
+
+  if (caps.cryptoSubtle) {
+    // Use native crypto
+    return crypto.subtle.digest('SHA-256', data);
+  }
+
+  // Fallback to polyfill
+  const { createHash } = await import('crypto-polyfill');
+  return createHash('sha256').update(data).digest();
+}
+```
+
+### Conditional File System Access
+
+```typescript
+import { getRuntimeCapabilities } from '@nextrush/runtime';
+
+async function loadConfig(): Promise<Config> {
+  const caps = getRuntimeCapabilities();
+
+  if (caps.fileSystem) {
+    // Node.js, Bun, Deno - read from file
+    const fs = await import('fs/promises');
+    const content = await fs.readFile('config.json', 'utf-8');
+    return JSON.parse(content);
+  }
+
+  // Edge runtime - use environment variables or KV
+  return {
+    port: Number(process.env.PORT) || 3000,
+    // ...
+  };
+}
+```
+
+### Runtime-Aware Logging
+
+```typescript
+import { getRuntimeInfo } from '@nextrush/runtime';
+
+function logStartup() {
+  const { runtime, version } = getRuntimeInfo();
+
+  console.log(`Starting on ${runtime}${version ? ` v${version}` : ''}`);
+  // "Starting on node v20.10.0"
+  // "Starting on bun v1.0.0"
+  // "Starting on cloudflare-workers"
+}
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Runtime,
+  RuntimeInfo,
+  RuntimeCapabilities,
+  BodySource,
+  BodySourceOptions,
+} from '@nextrush/runtime';
+
+// Runtime union type
+type Runtime =
+  | 'node'
+  | 'bun'
+  | 'deno'
+  | 'cloudflare-workers'
+  | 'vercel-edge'
+  | 'edge'
+  | 'unknown';
+
+// Capabilities interface
+interface RuntimeCapabilities {
+  nodeStreams: boolean;
+  webStreams: boolean;
+  fileSystem: boolean;
+  webSocket: boolean;
+  fetch: boolean;
+  cryptoSubtle: boolean;
+  workers: boolean;
+}
+
+// Runtime info
+interface RuntimeInfo {
+  runtime: Runtime;
+  version: string | undefined;
+  capabilities: RuntimeCapabilities;
+}
+```
+
+## API Reference
+
+### Detection Functions
+
+| Function | Return Type | Description |
+|----------|-------------|-------------|
+| `detectRuntime()` | `Runtime` | Detect runtime (always runs) |
+| `getRuntime()` | `Runtime` | Get cached runtime |
+| `getRuntimeVersion()` | `string \| undefined` | Get runtime version |
+| `getRuntimeCapabilities()` | `RuntimeCapabilities` | Get capabilities |
+| `getRuntimeInfo()` | `RuntimeInfo` | Get complete info |
+
+### Check Functions
+
+| Function | Return Type | Description |
+|----------|-------------|-------------|
+| `isRuntime(runtime)` | `boolean` | Check specific runtime |
+| `isNode()` | `boolean` | Check if Node.js |
+| `isBun()` | `boolean` | Check if Bun |
+| `isDeno()` | `boolean` | Check if Deno |
+| `isEdge()` | `boolean` | Check if any edge runtime |
+
+### Body Source
+
+| Export | Description |
+|--------|-------------|
+| `WebBodySource` | Body source from Web Request |
+| `EmptyBodySource` | Empty body placeholder |
+| `createWebBodySource(body, options?)` | Create from ReadableStream |
+| `createEmptyBodySource()` | Create empty body source |
+| `BodyConsumedError` | Thrown when body already read |
+| `BodyTooLargeError` | Thrown when body exceeds limit |
+| `DEFAULT_BODY_LIMIT` | Default size limit (1MB) |
+
+## See Also
+
+<Cards>
+  <Card title="Adapters" href="/docs/packages/adapters">
+    Runtime adapters use this package internally.
+  </Card>
+  <Card title="@nextrush/types" href="/docs/packages/core/types">
+    Runtime type definitions.
+  </Card>
+  <Card title="@nextrush/body-parser" href="/docs/packages/middleware/body-parser">
+    Uses BodySource for parsing.
+  </Card>
+</Cards>

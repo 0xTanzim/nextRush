@@ -1,25 +1,38 @@
 {
-  "name": "@nextrush/docs",
-  "version": "3.0.0-alpha.2",
+  "name": "docs",
+  "version": "0.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview",
-    "lint": "prettier --check src/**/*.md",
-    "lint:fix": "prettier --write src/**/*.md"
+    "build": "next build",
+    "dev": "next dev",
+    "start": "serve out",
+    "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "postinstall": "fumadocs-mdx",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@orama/orama": "^3.1.18",
+    "fumadocs-core": "16.4.3",
+    "fumadocs-mdx": "14.2.4",
+    "fumadocs-ui": "16.4.3",
+    "lucide-react": "^0.562.0",
+    "mermaid": "^11.12.2",
+    "next": "16.1.1",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
-    "@braintree/sanitize-url": "^7.1.1",
-    "cytoscape": "^3.33.1",
-    "cytoscape-cose-bilkent": "^4.1.0",
-    "dayjs": "^1.11.19",
-    "debug": "^4.4.3",
-    "mermaid": "^11.12.2",
-    "prettier": "^3.3.0",
-    "vitepress": "^1.5.0",
-    "vitepress-plugin-mermaid": "^2.0.17",
-    "vue": "^3.5.0"
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^24.10.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "16.1.1",
+    "postcss": "^8.5.6",
+    "serve": "^14.2.5",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3"
   }
 }

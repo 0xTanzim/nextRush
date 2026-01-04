@@ -1,0 +1,347 @@
+---
+title: "@nextrush/websocket"
+description: "WebSocket support with rooms, broadcasting, and route-based handlers."
+---
+
+# @nextrush/websocket
+
+Add real-time communication with WebSocket support.
+
+The WebSocket plugin provides route-based handlers, room management for organized messaging, and broadcasting capabilities. It uses a factory pattern for clean, decoupled design.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/websocket
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/websocket
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createWebSocket } from '@nextrush/websocket';
+
+const app = createApp();
+const wss = createWebSocket();
+
+// Define WebSocket routes
+wss.on('/chat', (conn) => {
+  conn.on('message', (msg) => {
+    conn.send(`Echo: ${msg}`);
+  });
+
+  conn.on('close', () => {
+    console.log('Connection closed');
+  });
+});
+
+// Start server and attach WebSocket
+const server = app.listen(3000, () => {
+  wss.attach(server);
+  console.log('Server running on port 3000');
+});
+```
+
+---
+
+## Configuration
+
+```typescript
+const wss = createWebSocket({
+  // Heartbeat interval (ms)
+  heartbeatInterval: 30000,
+
+  // Maximum message size
+  maxPayload: 1024 * 1024,  // 1MB
+
+  // Maximum connections
+  maxConnections: 1000,
+
+  // Authentication
+  verifyClient: async (req) => {
+    const token = req.headers['authorization'];
+    return validateToken(token);
+  },
+});
+```
+
+---
+
+## Route-Based Handlers
+
+Define handlers for different paths:
+
+```typescript
+// Chat route
+wss.on('/chat', (conn) => {
+  conn.on('message', (msg) => {
+    conn.broadcast('chat', msg);
+  });
+});
+
+// Notifications route
+wss.on('/notifications', (conn) => {
+  conn.on('message', (msg) => {
+    // Handle notification subscription
+  });
+});
+
+// Wildcard route
+wss.on('*', (conn) => {
+  // Catches all unmatched paths
+});
+```
+
+---
+
+## Connection Events
+
+```typescript
+wss.on('/chat', (conn) => {
+  // Message received
+  conn.on('message', (data) => {
+    console.log('Received:', data);
+  });
+
+  // Connection closed
+  conn.on('close', (code, reason) => {
+    console.log(`Closed: ${code} - ${reason}`);
+  });
+
+  // Error occurred
+  conn.on('error', (err) => {
+    console.error('Error:', err);
+  });
+});
+```
+
+---
+
+## Rooms
+
+Organize connections into groups:
+
+```typescript
+wss.on('/chat', (conn) => {
+  // Join a room
+  conn.join('general');
+
+  // Leave a room
+  conn.leave('general');
+
+  // Broadcast to room (excludes sender)
+  conn.broadcast('general', 'Hello everyone!');
+
+  // Send to all in room (includes sender)
+  conn.room('general').send('Announcement');
+});
+```
+
+### Multiple Rooms
+
+```typescript
+wss.on('/chat', (conn, req) => {
+  const userId = req.headers['x-user-id'];
+
+  // Join multiple rooms
+  conn.join('general');
+  conn.join(`user:${userId}`);
+
+  conn.on('message', (msg) => {
+    const data = JSON.parse(msg);
+
+    if (data.type === 'direct') {
+      // Send to specific user's room
+      conn.room(`user:${data.to}`).send(data.message);
+    } else {
+      // Broadcast to general
+      conn.broadcast('general', msg);
+    }
+  });
+});
+```
+
+---
+
+## Middleware
+
+Add middleware for authentication, logging, etc.:
+
+```typescript
+// Authentication middleware
+wss.use(async (conn, req, next) => {
+  const token = req.headers['authorization'];
+
+  if (!token) {
+    conn.close(4001, 'Unauthorized');
+    return;
+  }
+
+  const user = await verifyToken(token);
+  conn.data.user = user;
+
+  await next();
+});
+
+// Logging middleware
+wss.use(async (conn, req, next) => {
+  console.log(`New connection to ${req.url}`);
+  await next();
+  console.log('Connection handler completed');
+});
+```
+
+---
+
+## Sending Messages
+
+```typescript
+wss.on('/chat', (conn) => {
+  // Send string
+  conn.send('Hello!');
+
+  // Send JSON
+  conn.send(JSON.stringify({ type: 'greeting', data: 'Hello!' }));
+
+  // Send binary
+  conn.send(new Uint8Array([1, 2, 3]));
+});
+```
+
+---
+
+## Broadcasting
+
+Send to multiple connections:
+
+```typescript
+wss.on('/chat', (conn) => {
+  conn.join('general');
+
+  // Broadcast to room (excludes sender)
+  conn.broadcast('general', 'User joined');
+
+  // Send to all room members (includes sender)
+  const room = conn.room('general');
+  room.send('Announcement');
+
+  // Room info
+  console.log(`Room has ${room.size} members`);
+});
+```
+
+---
+
+## Authentication
+
+Verify connections before accepting:
+
+```typescript
+const wss = createWebSocket({
+  verifyClient: async (req) => {
+    const token = req.headers['authorization']?.replace('Bearer ', '');
+
+    if (!token) {
+      return false;  // Reject connection
+    }
+
+    try {
+      const user = await verifyJWT(token);
+      req.user = user;  // Attach to request
+      return true;
+    } catch {
+      return false;
+    }
+  },
+});
+
+wss.on('/protected', (conn, req) => {
+  const user = req.user;  // Access authenticated user
+  console.log(`User ${user.id} connected`);
+});
+```
+
+---
+
+## Integration Helper
+
+Simplified server integration:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createWebSocket, withWebSocket } from '@nextrush/websocket';
+
+const app = createApp();
+const wss = createWebSocket();
+
+wss.on('/chat', (conn) => {
+  conn.on('message', (msg) => conn.send(msg));
+});
+
+// Auto-attach when server starts
+await withWebSocket(app, wss, 3000, () => {
+  console.log('Server with WebSocket running');
+});
+```
+
+---
+
+## Connection Data
+
+Store per-connection data:
+
+```typescript
+wss.on('/chat', (conn, req) => {
+  // Store data
+  conn.data.username = req.headers['x-username'];
+  conn.data.joinedAt = Date.now();
+
+  // Access later
+  conn.on('message', (msg) => {
+    console.log(`${conn.data.username}: ${msg}`);
+  });
+});
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  WebSocketOptions,
+  WSConnection,
+  WSHandler,
+  WSMiddleware
+} from '@nextrush/websocket';
+
+import { createWebSocket, WebSocketServer } from '@nextrush/websocket';
+
+interface ConnectionData {
+  userId: string;
+  username: string;
+}
+
+const wss = createWebSocket();
+
+wss.on('/chat', (conn: WSConnection<ConnectionData>) => {
+  conn.data.userId = 'user-123';
+});
+```
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/packages/plugins) — All plugin packages
+- [@nextrush/events](/docs/packages/plugins/events) — Event emitter

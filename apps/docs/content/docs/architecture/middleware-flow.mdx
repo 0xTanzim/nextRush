@@ -1,0 +1,390 @@
+---
+title: Middleware Flow
+description: How NextRush composes middleware into an execution pipeline — the onion model, composition, and best practices.
+---
+
+import { Mermaid } from '@/components/mdx';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Middleware Flow
+
+Middleware is how you intercept and transform requests and responses. Understanding middleware composition is essential for building NextRush applications.
+
+## The Onion Model
+
+NextRush uses Koa-style middleware composition. Each middleware wraps around the next, forming layers like an onion.
+
+```ts
+app.use(async (ctx) => {
+  console.log('1 - before');
+  await ctx.next();
+  console.log('1 - after');
+});
+
+app.use(async (ctx) => {
+  console.log('2 - before');
+  await ctx.next();
+  console.log('2 - after');
+});
+
+app.use(async (ctx) => {
+  console.log('3 - handler');
+  ctx.json({ message: 'Hello' });
+});
+```
+
+**Output order:**
+
+```
+1 - before
+2 - before
+3 - handler
+2 - after
+1 - after
+```
+
+The request flows **inward** through middleware, then the response flows **outward** in reverse order.
+
+<Mermaid chart={`
+graph LR
+    subgraph "Middleware Stack"
+        direction LR
+        A[Middleware 1] --> B[Middleware 2]
+        B --> C[Handler]
+        C --> D[Middleware 2]
+        D --> E[Middleware 1]
+    end
+
+    Request --> A
+    E --> Response
+`} />
+
+## How Composition Works
+
+The `compose()` function transforms an array of middleware into a single function:
+
+```ts
+import { compose } from '@nextrush/core';
+
+const middleware = [
+  async (ctx, next) => { /* ... */ await next(); },
+  async (ctx, next) => { /* ... */ await next(); },
+  async (ctx, next) => { /* ... */ },
+];
+
+const composed = compose(middleware);
+
+// Now you can call:
+await composed(ctx);
+```
+
+**Under the hood**, composition creates a recursive dispatch function:
+
+```ts
+// Simplified implementation
+function compose(middleware) {
+  return function(ctx, finalNext) {
+    let index = -1;
+
+    async function dispatch(i) {
+      if (i <= index) throw new Error('next() called multiple times');
+      index = i;
+
+      const fn = i < middleware.length ? middleware[i] : finalNext;
+      if (!fn) return;
+
+      await fn(ctx, () => dispatch(i + 1));
+    }
+
+    return dispatch(0);
+  };
+}
+```
+
+Key behaviors:
+
+- **Sequential execution** — Middleware runs in registration order
+- **Async support** — `await next()` waits for all downstream middleware
+- **Single next() call** — Calling `next()` twice throws an error
+
+## Middleware Patterns
+
+### 1. Pass-Through Middleware
+
+Runs code without modifying the request/response:
+
+```ts
+// Logging middleware
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+});
+```
+
+### 2. Request Modification
+
+Modifies the request before downstream middleware sees it:
+
+```ts
+// Body parser middleware
+app.use(async (ctx) => {
+  if (ctx.method !== 'GET' && ctx.get('content-type')?.includes('json')) {
+    const text = await ctx.bodySource.text();
+    ctx.body = JSON.parse(text);
+  }
+  await ctx.next();
+});
+```
+
+### 3. Response Modification
+
+Modifies the response after downstream middleware completes:
+
+```ts
+// Compression middleware
+app.use(async (ctx) => {
+  await ctx.next();
+
+  // Compress response body if needed
+  if (shouldCompress(ctx)) {
+    ctx.body = await compress(ctx.body);
+    ctx.set('Content-Encoding', 'gzip');
+  }
+});
+```
+
+### 4. Short-Circuit Middleware
+
+Returns early without calling downstream middleware:
+
+```ts
+// Cache middleware
+app.use(async (ctx) => {
+  const cached = cache.get(ctx.path);
+
+  if (cached) {
+    ctx.json(cached);
+    return; // Don't call next()
+  }
+
+  await ctx.next();
+
+  // Cache the response
+  cache.set(ctx.path, ctx.body);
+});
+```
+
+### 5. Error Handling Middleware
+
+Catches errors from downstream middleware:
+
+```ts
+app.use(async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    ctx.status = error.status || 500;
+    ctx.json({
+      error: error.message,
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    });
+  }
+});
+```
+
+## State Management
+
+Use `ctx.state` to pass data between middleware:
+
+```ts
+// Auth middleware sets user
+app.use(async (ctx) => {
+  const token = ctx.get('authorization')?.split(' ')[1];
+
+  if (token) {
+    ctx.state.user = await verifyToken(token);
+  }
+
+  await ctx.next();
+});
+
+// Later middleware reads user
+app.use(async (ctx) => {
+  if (!ctx.state.user) {
+    ctx.throw(401, 'Authentication required');
+  }
+  await ctx.next();
+});
+
+// Handler uses user
+router.get('/profile', (ctx) => {
+  ctx.json(ctx.state.user);
+});
+```
+
+<Callout>
+`ctx.state` is the recommended way to share data. Don't modify `ctx` with custom properties — TypeScript won't catch errors.
+</Callout>
+
+## Middleware Order Matters
+
+Registration order determines execution order:
+
+```ts
+// Correct order
+app.use(errorHandler());    // 1. Catch all errors
+app.use(requestId());       // 2. Add request ID for tracing
+app.use(logger());          // 3. Log requests
+app.use(cors());            // 4. Handle CORS preflight
+app.use(helmet());          // 5. Set security headers
+app.use(bodyParser());      // 6. Parse request body
+app.use(auth());            // 7. Authenticate user
+app.use(router.routes());   // 8. Handle routes
+```
+
+**Why this order?**
+
+1. **Error handler first** — Catches errors from all middleware
+2. **Request ID early** — Available for logging
+3. **Logger before business logic** — Logs all requests
+4. **CORS before body parsing** — Preflight requests don't have bodies
+5. **Security headers** — Applied to all responses
+6. **Body parser before routes** — Routes need parsed body
+7. **Auth before routes** — Protected routes need user
+8. **Router last** — After all setup is complete
+
+## Composing Middleware Groups
+
+Group related middleware for reusability:
+
+```ts
+// security.ts
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+import { rateLimit } from '@nextrush/rate-limit';
+
+export function security(options = {}) {
+  return compose([
+    cors(options.cors),
+    helmet(options.helmet),
+    rateLimit(options.rateLimit),
+  ]);
+}
+
+// app.ts
+app.use(security({
+  cors: { origin: 'https://example.com' },
+  rateLimit: { windowMs: 60000, max: 100 },
+}));
+```
+
+## Common Mistakes
+
+### Forgetting to call next()
+
+```ts
+// Bug: Response never sent for non-cached requests
+app.use(async (ctx) => {
+  const cached = cache.get(ctx.path);
+  if (cached) {
+    ctx.json(cached);
+    return;
+  }
+  // Missing: await ctx.next();
+});
+```
+
+### Calling next() multiple times
+
+```ts
+// Bug: Throws "next() called multiple times"
+app.use(async (ctx) => {
+  await ctx.next();
+  if (ctx.status === 404) {
+    await ctx.next(); // Error!
+  }
+});
+```
+
+### Not awaiting next()
+
+```ts
+// Bug: After code runs before downstream completes
+app.use(async (ctx) => {
+  const start = Date.now();
+  ctx.next(); // Missing await!
+  console.log(`Took ${Date.now() - start}ms`); // Runs immediately
+});
+```
+
+### Modifying response after it's sent
+
+```ts
+// Bug: Headers already sent
+app.use(async (ctx) => {
+  await ctx.next();
+  ctx.set('X-Custom', 'value'); // May fail if response is sent
+});
+```
+
+## Performance Tips
+
+### 1. Minimize middleware count
+
+Each middleware adds overhead. Combine related logic:
+
+```ts
+// Instead of 3 separate middleware
+app.use(setRequestId());
+app.use(setStartTime());
+app.use(logRequest());
+
+// Use one middleware
+app.use(async (ctx) => {
+  ctx.state.requestId = crypto.randomUUID();
+  ctx.state.startTime = Date.now();
+  await ctx.next();
+  console.log(`${ctx.state.requestId} ${Date.now() - ctx.state.startTime}ms`);
+});
+```
+
+### 2. Early exit when possible
+
+```ts
+// Skip expensive logic when not needed
+app.use(async (ctx) => {
+  if (ctx.method === 'OPTIONS') {
+    return ctx.next(); // Skip auth for preflight
+  }
+
+  // Expensive auth logic here
+  await ctx.next();
+});
+```
+
+### 3. Use conditional middleware
+
+```ts
+// Only apply middleware to certain paths
+function when(predicate, middleware) {
+  return async (ctx, next) => {
+    if (predicate(ctx)) {
+      await middleware(ctx, next);
+    } else {
+      await next();
+    }
+  };
+}
+
+app.use(when(
+  ctx => ctx.path.startsWith('/api'),
+  rateLimit({ max: 100 })
+));
+```
+
+## Next Steps
+
+- See middleware in action in the [request lifecycle](/docs/architecture/request-lifecycle)
+- Learn about [runtime compatibility](/docs/architecture/runtime-compatibility) for cross-platform middleware
+- Explore the [package hierarchy](/docs/architecture/package-hierarchy) for available middleware packages

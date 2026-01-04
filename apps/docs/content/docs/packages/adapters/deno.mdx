@@ -1,0 +1,268 @@
+---
+title: "@nextrush/adapter-deno"
+description: "Native Deno HTTP adapter with TypeScript-first design and secure defaults."
+---
+
+# @nextrush/adapter-deno
+
+Connect your NextRush application to [Deno](https://deno.land)'s native HTTP server.
+
+Deno provides secure-by-default execution with TypeScript support out of the box. This adapter bridges NextRush's middleware system to Deno's native `Deno.serve()` API.
+
+---
+
+## Installation
+
+Import directly in Deno (no npm required):
+
+```typescript
+import { createApp } from 'npm:@nextrush/core';
+import { serve } from 'npm:@nextrush/adapter-deno';
+```
+
+Or with import maps in `deno.json`:
+
+```json
+{
+  "imports": {
+    "@nextrush/core": "npm:@nextrush/core",
+    "@nextrush/adapter-deno": "npm:@nextrush/adapter-deno"
+  }
+}
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-deno';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({ runtime: 'deno', message: 'Hello World!' });
+});
+
+listen(app, 3000);
+// Output: 🚀 NextRush listening on http://localhost:3000 (Deno)
+```
+
+Run with Deno:
+
+```bash
+deno run --allow-net src/main.ts
+```
+
+---
+
+## API Reference
+
+### `serve(app, options?)`
+
+Start the HTTP server with full configuration control.
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { serve } from '@nextrush/adapter-deno';
+
+const app = createApp();
+
+const server = serve(app, {
+  port: 3000,
+  hostname: '0.0.0.0',
+  onListen: ({ port, hostname }) => {
+    console.log(`Server running at http://${hostname}:${port}`);
+  },
+  onError: (error) => {
+    console.error('Server error:', error);
+  },
+});
+```
+
+#### ServeOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `port` | `number` | `3000` | Port to listen on |
+| `hostname` | `string` | `'0.0.0.0'` | Hostname to bind to |
+| `onListen` | `(info) => void` | — | Callback when server starts |
+| `onError` | `(error) => void` | — | Custom error handler |
+| `cert` | `string` | — | TLS certificate (PEM format) |
+| `key` | `string` | — | TLS private key (PEM format) |
+
+#### ServerInstance
+
+The returned server instance provides control methods:
+
+```typescript
+interface ServerInstance {
+  server: DenoServer;       // Underlying Deno server
+  port: number;             // Actual port
+  hostname: string;         // Actual hostname
+
+  close(): Promise<void>;   // Graceful shutdown
+  address(): { port, hostname };
+  finished: Promise<void>;  // Resolves when server stops
+}
+```
+
+---
+
+### `listen(app, port?)`
+
+Quick-start shorthand with default logging.
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-deno';
+
+const app = createApp();
+const server = listen(app, 3000);
+// Output: 🚀 NextRush listening on http://localhost:3000 (Deno)
+```
+
+---
+
+### `createHandler(app)`
+
+Create a raw handler for advanced use cases.
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createHandler } from '@nextrush/adapter-deno';
+
+const app = createApp();
+const handler = createHandler(app);
+
+// Use directly with Deno.serve
+Deno.serve({ handler, port: 3000 });
+```
+
+---
+
+## TLS/HTTPS
+
+Enable HTTPS with TLS certificates:
+
+```typescript
+import { serve } from '@nextrush/adapter-deno';
+
+const server = serve(app, {
+  port: 443,
+  cert: await Deno.readTextFile('./cert.pem'),
+  key: await Deno.readTextFile('./key.pem'),
+});
+```
+
+---
+
+## Deno Permissions
+
+NextRush requires network permission to run:
+
+```bash
+# Minimum required
+deno run --allow-net app.ts
+
+# With file access (for static files, etc.)
+deno run --allow-net --allow-read app.ts
+
+# Development (more permissive)
+deno run --allow-all app.ts
+```
+
+---
+
+## Server Lifecycle
+
+### Waiting for Server Finish
+
+Deno adapter exposes a `finished` promise:
+
+```typescript
+const server = serve(app, { port: 3000 });
+
+// Wait for server to complete (useful in scripts)
+await server.finished;
+```
+
+### Graceful Shutdown
+
+Handle server shutdown properly:
+
+```typescript
+const server = serve(app, { port: 3000 });
+
+Deno.addSignalListener('SIGTERM', async () => {
+  console.log('Shutting down...');
+  await server.close();  // Closes app + server
+  Deno.exit(0);
+});
+```
+
+---
+
+## Client IP Access
+
+The adapter extracts client IP from Deno's connection info:
+
+```typescript
+app.use(async (ctx) => {
+  // Available via context
+  const ip = ctx.ip;  // From remoteAddr
+  ctx.json({ clientIp: ip });
+});
+```
+
+---
+
+## Deno Deploy
+
+For Deno Deploy, use `createHandler` directly:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createHandler } from '@nextrush/adapter-deno';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({
+    message: 'Hello from Deno Deploy!',
+    region: Deno.env.get('DENO_REGION'),
+  });
+});
+
+// Export handler for Deno Deploy
+Deno.serve({ handler: createHandler(app) });
+```
+
+---
+
+## TypeScript
+
+Full TypeScript support with Deno's native TS:
+
+```typescript
+import type { Application } from '@nextrush/core';
+import type { ServeOptions, ServerInstance } from '@nextrush/adapter-deno';
+import { serve, listen, createHandler } from '@nextrush/adapter-deno';
+
+const options: ServeOptions = {
+  port: 3000,
+  hostname: '0.0.0.0',
+};
+
+const server: ServerInstance = serve(app, options);
+```
+
+---
+
+## Related
+
+- [Adapters Overview](/docs/packages/adapters) — Understanding runtime adapters
+- [@nextrush/adapter-node](/docs/packages/adapters/node) — Node.js adapter
+- [@nextrush/adapter-bun](/docs/packages/adapters/bun) — Bun adapter
+- [@nextrush/adapter-edge](/docs/packages/adapters/edge) — Edge runtime adapter

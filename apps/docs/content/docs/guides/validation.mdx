@@ -1,0 +1,524 @@
+---
+title: Request Validation
+description: Validate and transform request data with Zod in NextRush applications
+---
+
+# Request Validation
+
+User input is inherently untrusted. This guide shows how to validate and transform request data using Zod with NextRush.
+
+## The Problem
+
+Without validation:
+
+- **Type safety is a lie** — TypeScript types don't exist at runtime
+- **Security vulnerabilities** — malformed input can crash your app
+- **Silent failures** — invalid data propagates through your system
+- **Poor user experience** — users don't know what went wrong
+
+## Installation
+
+```bash
+npm install zod @nextrush/body-parser
+```
+
+## Basic Validation
+
+### Functional Approach
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { json } from '@nextrush/body-parser';
+import { z } from 'zod';
+import { BadRequestError } from '@nextrush/errors';
+
+const app = createApp();
+const router = createRouter();
+
+app.use(json());
+
+// Define schema
+const CreateUserSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  email: z.string().email('Invalid email format'),
+  age: z.number().int().min(18, 'Must be at least 18').optional(),
+});
+
+// Validate in route
+router.post('/api/users', (ctx) => {
+  const result = CreateUserSchema.safeParse(ctx.body);
+
+  if (!result.success) {
+    throw new BadRequestError('Validation failed', {
+      code: 'VALIDATION_ERROR',
+      expose: true,
+      details: {
+        errors: result.error.flatten().fieldErrors,
+      },
+    });
+  }
+
+  // result.data is now typed as { name: string; email: string; age?: number }
+  const user = createUser(result.data);
+  ctx.status = 201;
+  ctx.json({ data: user });
+});
+
+app.use(router.routes());
+```
+
+### Class-Based with Decorators
+
+Use the transform option in parameter decorators:
+
+```typescript
+import 'reflect-metadata';
+import { Controller, Post, Body } from '@nextrush/decorators';
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  age: z.number().int().min(18).optional(),
+});
+
+type CreateUserInput = z.infer<typeof CreateUserSchema>;
+
+@Controller('/api/users')
+class UsersController {
+  @Post()
+  async create(
+    @Body({ transform: CreateUserSchema.parse }) data: CreateUserInput
+  ) {
+    // data is already validated and typed
+    const user = await this.userService.create(data);
+    return { data: user };
+  }
+}
+```
+
+## Validation Helper
+
+Create a reusable validation helper:
+
+```typescript title="src/utils/validate.ts"
+import { z, ZodSchema, ZodError } from 'zod';
+import { BadRequestError } from '@nextrush/errors';
+
+export function validate<T>(schema: ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+
+  if (!result.success) {
+    throw new BadRequestError('Validation failed', {
+      code: 'VALIDATION_ERROR',
+      expose: true,
+      details: formatZodErrors(result.error),
+    });
+  }
+
+  return result.data;
+}
+
+function formatZodErrors(error: ZodError) {
+  const fieldErrors: Record<string, string[]> = {};
+
+  for (const issue of error.issues) {
+    const path = issue.path.join('.');
+    if (!fieldErrors[path]) {
+      fieldErrors[path] = [];
+    }
+    fieldErrors[path].push(issue.message);
+  }
+
+  return { fields: fieldErrors };
+}
+```
+
+Use it in routes:
+
+```typescript
+import { validate } from './utils/validate';
+
+router.post('/api/users', (ctx) => {
+  const data = validate(CreateUserSchema, ctx.body);
+  // data is validated and typed
+  ctx.json({ data: createUser(data) });
+});
+```
+
+## Common Schemas
+
+### User Input
+
+```typescript
+const CreateUserSchema = z.object({
+  name: z.string()
+    .min(1, 'Name is required')
+    .max(100, 'Name too long'),
+  email: z.string()
+    .email('Invalid email')
+    .toLowerCase(), // Transform to lowercase
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Must contain uppercase letter')
+    .regex(/[0-9]/, 'Must contain number'),
+  age: z.number().int().min(18).max(150).optional(),
+});
+```
+
+### Update Input (Partial)
+
+```typescript
+// All fields optional for updates
+const UpdateUserSchema = CreateUserSchema.partial();
+
+// Or pick specific fields
+const UpdateUserSchema = CreateUserSchema.pick({
+  name: true,
+  email: true,
+}).partial();
+```
+
+### Query Parameters
+
+```typescript
+const PaginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  sort: z.enum(['asc', 'desc']).default('desc'),
+});
+
+router.get('/api/users', (ctx) => {
+  const query = validate(PaginationSchema, ctx.query);
+  // query.page, query.limit, query.sort are typed and have defaults
+});
+```
+
+### Route Parameters
+
+```typescript
+const IdParamSchema = z.object({
+  id: z.string().uuid('Invalid ID format'),
+});
+
+router.get('/api/users/:id', (ctx) => {
+  const { id } = validate(IdParamSchema, ctx.params);
+  // id is validated as a UUID
+});
+```
+
+## Validation Middleware
+
+Create middleware that validates all requests:
+
+```typescript title="src/middleware/validate.ts"
+import { z, ZodSchema } from 'zod';
+import type { Middleware } from '@nextrush/types';
+import { BadRequestError } from '@nextrush/errors';
+
+interface ValidationSchemas {
+  body?: ZodSchema;
+  query?: ZodSchema;
+  params?: ZodSchema;
+}
+
+export function validateRequest(schemas: ValidationSchemas): Middleware {
+  return async (ctx) => {
+    const errors: Record<string, unknown> = {};
+
+    if (schemas.body) {
+      const result = schemas.body.safeParse(ctx.body);
+      if (!result.success) {
+        errors.body = result.error.flatten().fieldErrors;
+      } else {
+        ctx.body = result.data;
+      }
+    }
+
+    if (schemas.query) {
+      const result = schemas.query.safeParse(ctx.query);
+      if (!result.success) {
+        errors.query = result.error.flatten().fieldErrors;
+      }
+      // Note: ctx.query is read-only, store in state
+      ctx.state.validatedQuery = result.success ? result.data : ctx.query;
+    }
+
+    if (schemas.params) {
+      const result = schemas.params.safeParse(ctx.params);
+      if (!result.success) {
+        errors.params = result.error.flatten().fieldErrors;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      throw new BadRequestError('Validation failed', {
+        code: 'VALIDATION_ERROR',
+        expose: true,
+        details: { errors },
+      });
+    }
+
+    await ctx.next();
+  };
+}
+```
+
+Use as route-specific middleware:
+
+```typescript
+const createUserSchemas = {
+  body: CreateUserSchema,
+};
+
+router.post('/api/users',
+  validateRequest(createUserSchemas),
+  (ctx) => {
+    // ctx.body is now validated
+    const user = createUser(ctx.body);
+    ctx.status = 201;
+    ctx.json({ data: user });
+  }
+);
+```
+
+## Advanced Patterns
+
+### Conditional Validation
+
+```typescript
+const ConditionalSchema = z.object({
+  type: z.enum(['personal', 'business']),
+  name: z.string(),
+  // Required only for business type
+  companyName: z.string().optional(),
+  taxId: z.string().optional(),
+}).refine(
+  (data) => {
+    if (data.type === 'business') {
+      return !!data.companyName && !!data.taxId;
+    }
+    return true;
+  },
+  {
+    message: 'Business accounts require companyName and taxId',
+    path: ['type'],
+  }
+);
+```
+
+### Cross-Field Validation
+
+```typescript
+const PasswordSchema = z.object({
+  password: z.string().min(8),
+  confirmPassword: z.string(),
+}).refine(
+  (data) => data.password === data.confirmPassword,
+  {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  }
+);
+```
+
+### Async Validation
+
+```typescript
+const UniqueEmailSchema = z.object({
+  email: z.string().email(),
+}).refine(
+  async (data) => {
+    const exists = await db.users.findByEmail(data.email);
+    return !exists;
+  },
+  {
+    message: 'Email already in use',
+    path: ['email'],
+  }
+);
+
+// Use parseAsync for async validation
+router.post('/api/users', async (ctx) => {
+  const data = await UniqueEmailSchema.parseAsync(ctx.body);
+  // ...
+});
+```
+
+### Transform and Sanitize
+
+```typescript
+const UserInputSchema = z.object({
+  name: z.string()
+    .trim()
+    .min(1)
+    .transform((s) => s.replace(/\s+/g, ' ')), // Normalize whitespace
+  email: z.string()
+    .email()
+    .toLowerCase()
+    .trim(),
+  username: z.string()
+    .toLowerCase()
+    .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
+});
+```
+
+### Nested Objects
+
+```typescript
+const AddressSchema = z.object({
+  street: z.string().min(1),
+  city: z.string().min(1),
+  country: z.string().length(2), // ISO country code
+  zipCode: z.string().optional(),
+});
+
+const CreateOrderSchema = z.object({
+  items: z.array(z.object({
+    productId: z.string().uuid(),
+    quantity: z.number().int().min(1),
+  })).min(1, 'At least one item required'),
+  shippingAddress: AddressSchema,
+  billingAddress: AddressSchema.optional(),
+});
+```
+
+## Error Response Format
+
+When validation fails, return structured errors:
+
+```json
+{
+  "error": "BadRequestError",
+  "message": "Validation failed",
+  "code": "VALIDATION_ERROR",
+  "status": 400,
+  "details": {
+    "fields": {
+      "email": ["Invalid email format"],
+      "password": [
+        "Password must be at least 8 characters",
+        "Must contain uppercase letter"
+      ],
+      "age": ["Must be at least 18"]
+    }
+  }
+}
+```
+
+## Type Inference
+
+Extract TypeScript types from schemas:
+
+```typescript
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  email: z.string().email(),
+  role: z.enum(['user', 'admin']),
+});
+
+// Infer the type
+type User = z.infer<typeof UserSchema>;
+// { id: string; name: string; email: string; role: 'user' | 'admin' }
+
+// For input types (without defaults applied)
+type UserInput = z.input<typeof UserSchema>;
+
+// For output types (with transforms applied)
+type UserOutput = z.output<typeof UserSchema>;
+```
+
+## Best Practices
+
+### 1. Validate at the Boundary
+
+Validate input as soon as it enters your system:
+
+```typescript
+// ✅ Validate immediately
+router.post('/api/users', (ctx) => {
+  const data = validate(CreateUserSchema, ctx.body);
+  // From here, data is trusted
+});
+
+// ❌ Don't pass unvalidated data around
+router.post('/api/users', (ctx) => {
+  createUser(ctx.body); // Unvalidated!
+});
+```
+
+### 2. Use Schema Libraries for Complex Validation
+
+```typescript
+// ❌ Manual validation is error-prone
+if (!body.email || !body.email.includes('@')) {
+  throw new BadRequestError('Invalid email');
+}
+
+// ✅ Schema validation is declarative and complete
+const schema = z.object({
+  email: z.string().email(),
+});
+```
+
+### 3. Return Helpful Error Messages
+
+```typescript
+// ❌ Vague error
+z.string().min(1, 'Invalid');
+
+// ✅ Helpful error
+z.string().min(1, 'Name is required');
+z.string().email('Please enter a valid email address');
+z.number().min(18, 'You must be at least 18 years old');
+```
+
+### 4. Coerce Query Parameters
+
+Query parameters are always strings:
+
+```typescript
+// ❌ Won't work - query params are strings
+z.object({ page: z.number() });
+
+// ✅ Coerce strings to numbers
+z.object({ page: z.coerce.number() });
+```
+
+### 5. Separate Input and Output Types
+
+```typescript
+// Input schema (what API accepts)
+const CreateUserInput = z.object({
+  name: z.string(),
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+
+// Output schema (what API returns) - no password!
+const UserResponse = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  email: z.string().email(),
+  createdAt: z.string().datetime(),
+});
+```
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Error Handling"
+    description="Handle validation errors properly."
+    href="/docs/guides/error-handling"
+  />
+  <Card
+    title="Testing"
+    description="Test your validation logic."
+    href="/docs/guides/testing"
+  />
+</Cards>

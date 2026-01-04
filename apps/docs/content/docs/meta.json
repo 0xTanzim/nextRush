@@ -1,0 +1,22 @@
+{
+  "title": "Documentation",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "getting-started",
+    "---Concepts---",
+    "concepts",
+    "---Architecture---",
+    "architecture",
+    "---Packages---",
+    "packages",
+    "---Guides---",
+    "guides",
+    "---Examples---",
+    "examples",
+    "---Benchmarks---",
+    "benchmarks",
+    "---Community---",
+    "community"
+  ]
+}

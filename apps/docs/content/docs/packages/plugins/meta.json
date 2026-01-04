@@ -1,0 +1,4 @@
+{
+  "title": "Plugins",
+  "pages": ["index", "controllers", "logger", "static", "websocket", "events", "template"]
+}

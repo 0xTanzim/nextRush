@@ -1,0 +1,344 @@
+---
+title: "@nextrush/adapter-edge"
+description: "Universal edge runtime adapter for Cloudflare Workers, Vercel Edge, and Netlify Edge."
+---
+
+# @nextrush/adapter-edge
+
+Connect your NextRush application to edge computing platforms.
+
+Edge runtimes execute code at the network edge, close to users. This adapter provides a universal interface that works across Cloudflare Workers, Vercel Edge Functions, Netlify Edge Functions, and any platform supporting the Web Fetch API.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/adapter-edge
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/adapter-edge
+```
+
+---
+
+## Quick Start
+
+The edge adapter creates a standard fetch handler:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createFetchHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({ message: 'Hello from the Edge!' });
+});
+
+export default createFetchHandler(app);
+```
+
+---
+
+## Platform-Specific Handlers
+
+### Cloudflare Workers
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createCloudflareHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({
+    message: 'Hello from Cloudflare Workers!',
+    colo: ctx.raw.req.cf?.colo,  // Cloudflare datacenter
+  });
+});
+
+export default createCloudflareHandler(app);
+```
+
+Deploy with Wrangler:
+
+```bash
+wrangler publish
+```
+
+---
+
+### Vercel Edge Functions
+
+```typescript
+// api/hello.ts
+import { createApp } from '@nextrush/core';
+import { createVercelHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({
+    message: 'Hello from Vercel Edge!',
+    region: process.env.VERCEL_REGION,
+  });
+});
+
+export const config = { runtime: 'edge' };
+export default createVercelHandler(app);
+```
+
+---
+
+### Netlify Edge Functions
+
+```typescript
+// netlify/edge-functions/api.ts
+import { createApp } from '@nextrush/core';
+import { createNetlifyHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({ message: 'Hello from Netlify Edge!' });
+});
+
+export default createNetlifyHandler(app);
+```
+
+Configure in `netlify.toml`:
+
+```toml
+[[edge_functions]]
+path = "/api/*"
+function = "api"
+```
+
+---
+
+## API Reference
+
+### `createFetchHandler(app, options?)`
+
+Create a universal fetch handler for any edge platform.
+
+```typescript
+import { createFetchHandler } from '@nextrush/adapter-edge';
+
+const handler = createFetchHandler(app, {
+  onError: (error, ctx) => {
+    console.error('Edge error:', error);
+    return new Response('Error', { status: 500 });
+  },
+});
+```
+
+#### FetchHandlerOptions
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `onError` | `(error, ctx) => Response` | Custom error handler |
+
+---
+
+### `createCloudflareHandler(app, options?)`
+
+Create a Cloudflare Workers module export.
+
+```typescript
+import { createCloudflareHandler } from '@nextrush/adapter-edge';
+
+// Returns { fetch: FetchHandler }
+export default createCloudflareHandler(app);
+```
+
+---
+
+### `createVercelHandler(app, options?)`
+
+Create a Vercel Edge Function handler.
+
+```typescript
+import { createVercelHandler } from '@nextrush/adapter-edge';
+
+export const config = { runtime: 'edge' };
+export default createVercelHandler(app);
+```
+
+---
+
+### `createNetlifyHandler(app, options?)`
+
+Create a Netlify Edge Function handler.
+
+```typescript
+import { createNetlifyHandler } from '@nextrush/adapter-edge';
+
+export default createNetlifyHandler(app);
+```
+
+---
+
+### `createHandler(app, options?)`
+
+Alias for `createFetchHandler`. Use for generic edge deployments.
+
+```typescript
+import { createHandler } from '@nextrush/adapter-edge';
+
+export default { fetch: createHandler(app) };
+```
+
+---
+
+## Error Handling
+
+Customize error responses for edge environments:
+
+```typescript
+const handler = createFetchHandler(app, {
+  onError: (error, ctx) => {
+    // Log to edge logging service
+    console.error('Request failed:', {
+      path: ctx.path,
+      error: error.message,
+    });
+
+    // Return custom error response
+    return new Response(
+      JSON.stringify({
+        error: 'Service temporarily unavailable',
+        requestId: ctx.state.requestId,
+      }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  },
+});
+```
+
+---
+
+## Edge Context
+
+The edge adapter provides an execution context for platform-specific features:
+
+```typescript
+app.use(async (ctx) => {
+  // Access execution context (waitUntil, etc.)
+  const execCtx = ctx.raw.executionContext;
+
+  // Fire-and-forget async operations
+  execCtx?.waitUntil(
+    fetch('https://analytics.example.com/track', {
+      method: 'POST',
+      body: JSON.stringify({ path: ctx.path }),
+    })
+  );
+
+  ctx.json({ ok: true });
+});
+```
+
+---
+
+## Cloudflare Bindings
+
+Access Cloudflare bindings (KV, D1, R2, etc.):
+
+```typescript
+// Define env type
+interface Env {
+  MY_KV: KVNamespace;
+  MY_DB: D1Database;
+}
+
+// Access in middleware
+app.use(async (ctx) => {
+  const env = ctx.raw.env as Env;
+
+  const value = await env.MY_KV.get('key');
+  ctx.json({ value });
+});
+```
+
+---
+
+## Edge Limitations
+
+Edge runtimes have constraints compared to Node.js:
+
+| Feature | Edge Support |
+|---------|--------------|
+| `fs` module | ❌ Not available |
+| `child_process` | ❌ Not available |
+| Native modules | ❌ Not available |
+| WebSocket | ⚠️ Platform-specific |
+| Long-running tasks | ⚠️ Time limits apply |
+| Request body | ✅ Streaming supported |
+| Fetch API | ✅ Full support |
+
+Design your application with these constraints in mind.
+
+---
+
+## Cold Start Optimization
+
+Minimize cold start times:
+
+```typescript
+// ✅ Good: Create app at module level
+const app = createApp();
+app.use(/* middleware */);
+
+const handler = createFetchHandler(app);
+export default { fetch: handler };
+
+// ❌ Avoid: Creating app per request
+export default {
+  fetch: (req) => {
+    const app = createApp();  // Cold start overhead
+    return createFetchHandler(app)(req);
+  }
+};
+```
+
+---
+
+## TypeScript
+
+Full type support for edge environments:
+
+```typescript
+import type { Application } from '@nextrush/core';
+import type {
+  FetchHandler,
+  FetchHandlerOptions
+} from '@nextrush/adapter-edge';
+import {
+  createFetchHandler,
+  createCloudflareHandler,
+  createVercelHandler,
+  createNetlifyHandler,
+} from '@nextrush/adapter-edge';
+
+const options: FetchHandlerOptions = {
+  onError: (error, ctx) => new Response('Error', { status: 500 }),
+};
+
+const handler: FetchHandler = createFetchHandler(app, options);
+```
+
+---
+
+## Related
+
+- [Adapters Overview](/docs/packages/adapters) — Understanding runtime adapters
+- [@nextrush/adapter-node](/docs/packages/adapters/node) — Node.js adapter
+- [@nextrush/adapter-bun](/docs/packages/adapters/bun) — Bun adapter
+- [@nextrush/adapter-deno](/docs/packages/adapters/deno) — Deno adapter
+- [@nextrush/runtime](/docs/packages/core/runtime) — Runtime detection utilities

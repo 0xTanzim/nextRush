@@ -1,0 +1,299 @@
+---
+title: "@nextrush/compression"
+description: "Multi-runtime response compression with Gzip, Deflate, and Brotli support."
+---
+
+# @nextrush/compression
+
+Compress HTTP responses to reduce bandwidth and improve load times.
+
+Response compression significantly reduces payload sizes, especially for text-based content like JSON, HTML, and CSS. This middleware uses the Web Compression Streams API for broad runtime compatibility.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/compression
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/compression
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { compression } from '@nextrush/compression';
+
+const app = createApp();
+
+// Enable compression with defaults
+app.use(compression());
+```
+
+---
+
+## Configuration
+
+```typescript
+app.use(compression({
+  // Compression level (1-9, higher = smaller but slower)
+  level: 6,
+
+  // Minimum size to compress (bytes)
+  threshold: 1024,
+
+  // Enable Brotli compression
+  brotli: true,
+
+  // Filter by content type
+  filter: (ctx) => {
+    return /text|json|javascript|css/.test(ctx.type || '');
+  },
+}));
+```
+
+---
+
+## Compression Algorithms
+
+### Gzip (Default)
+
+Most widely supported compression:
+
+```typescript
+import { gzip } from '@nextrush/compression';
+
+app.use(gzip({ level: 6 }));
+```
+
+### Brotli
+
+Better compression ratios, modern browser support:
+
+```typescript
+import { brotli } from '@nextrush/compression';
+
+app.use(brotli({ level: 4 }));
+```
+
+### Deflate
+
+Legacy compression:
+
+```typescript
+import { deflate } from '@nextrush/compression';
+
+app.use(deflate({ level: 6 }));
+```
+
+---
+
+## Content Negotiation
+
+The middleware automatically selects the best encoding based on `Accept-Encoding`:
+
+```typescript
+// Client sends: Accept-Encoding: gzip, br
+// Server responds with Brotli (if supported) or Gzip
+
+app.use(compression({ brotli: true }));
+```
+
+Priority order:
+1. Brotli (`br`) — best compression
+2. Gzip (`gzip`) — widest support
+3. Deflate (`deflate`) — fallback
+
+---
+
+## Threshold
+
+Skip compression for small responses:
+
+```typescript
+app.use(compression({
+  threshold: 1024,  // Only compress > 1KB
+}));
+
+// Or disable threshold
+app.use(compression({
+  threshold: 0,  // Compress everything
+}));
+```
+
+---
+
+## Content Type Filtering
+
+Control which responses to compress:
+
+```typescript
+app.use(compression({
+  filter: (ctx) => {
+    const type = ctx.type || '';
+
+    // Compress text-based content
+    if (/text|json|xml|javascript|css/.test(type)) {
+      return true;
+    }
+
+    // Don't compress images, videos, etc.
+    return false;
+  },
+}));
+```
+
+---
+
+## Skip Already Compressed
+
+The middleware skips already-compressed content:
+
+- Images (JPEG, PNG, WebP, GIF)
+- Videos (MP4, WebM)
+- Audio (MP3, AAC)
+- Archives (ZIP, GZIP, BROTLI)
+
+```typescript
+import { isAlreadyCompressed } from '@nextrush/compression';
+
+// Check manually
+isAlreadyCompressed('image/jpeg');  // true
+isAlreadyCompressed('text/html');   // false
+```
+
+---
+
+## BREACH Attack Mitigation
+
+For sensitive data with CSRF tokens:
+
+```typescript
+import { secureCompressionOptions } from '@nextrush/compression';
+
+// Adds random padding to prevent BREACH attacks
+app.use(compression(secureCompressionOptions));
+```
+
+---
+
+## Compression Info
+
+Access compression statistics:
+
+```typescript
+import { getCompressionInfo, wasCompressed } from '@nextrush/compression';
+
+app.use(compression());
+
+app.use(async (ctx) => {
+  await ctx.next();
+
+  if (wasCompressed(ctx)) {
+    const info = getCompressionInfo(ctx);
+    console.log(`Compressed: ${info.originalSize} → ${info.compressedSize}`);
+  }
+});
+```
+
+---
+
+## Utilities
+
+### Content Negotiation
+
+```typescript
+import {
+  negotiateEncoding,
+  getAcceptedEncodings,
+  parseAcceptEncoding
+} from '@nextrush/compression';
+
+// Get best encoding for client
+const encoding = negotiateEncoding(ctx.get('accept-encoding'));
+
+// Get all accepted encodings
+const encodings = getAcceptedEncodings(ctx.get('accept-encoding'));
+```
+
+### Content Type Detection
+
+```typescript
+import {
+  isCompressible,
+  isTextContent,
+  isBinaryContent
+} from '@nextrush/compression';
+
+isCompressible('application/json');  // true
+isTextContent('text/html');          // true
+isBinaryContent('image/png');        // true
+```
+
+### Manual Compression
+
+```typescript
+import { compress, compressData } from '@nextrush/compression';
+
+// Compress a buffer
+const compressed = await compress(buffer, 'gzip', { level: 6 });
+
+// Compress with auto-detection
+const result = await compressData(data, {
+  encoding: 'br',
+  level: 4,
+});
+```
+
+---
+
+## Runtime Support
+
+Works across all runtimes:
+
+| Runtime | Gzip | Brotli | Deflate |
+|---------|------|--------|---------|
+| Node.js | ✅ | ✅ | ✅ |
+| Bun | ✅ | ✅ | ✅ |
+| Deno | ✅ | ✅ | ✅ |
+| Edge | ✅ | ⚠️ | ✅ |
+
+:::tip
+Brotli support in Edge runtimes varies by provider. The middleware falls back to Gzip automatically.
+:::
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  CompressionOptions,
+  CompressionEncoding,
+  CompressionInfo
+} from '@nextrush/compression';
+import { compression } from '@nextrush/compression';
+
+const options: CompressionOptions = {
+  level: 6,
+  threshold: 1024,
+  brotli: true,
+};
+
+app.use(compression(options));
+```
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/packages/middleware) — All middleware packages
+- [@nextrush/body-parser](/docs/packages/middleware/body-parser) — Request body parsing
+- [@nextrush/helmet](/docs/packages/middleware/helmet) — Security headers

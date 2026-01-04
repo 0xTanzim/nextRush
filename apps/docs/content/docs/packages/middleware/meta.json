@@ -1,0 +1,4 @@
+{
+  "title": "Middleware",
+  "pages": ["index", "cors", "helmet", "body-parser", "rate-limit", "compression", "cookies", "request-id", "timer"]
+}

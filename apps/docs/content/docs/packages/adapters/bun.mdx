@@ -1,0 +1,261 @@
+---
+title: "@nextrush/adapter-bun"
+description: "Native Bun HTTP adapter with hot reload support and maximum performance."
+---
+
+# @nextrush/adapter-bun
+
+Connect your NextRush application to [Bun](https://bun.sh)'s native HTTP server.
+
+Bun's built-in server offers exceptional performance with zero external dependencies. This adapter bridges NextRush's middleware system to Bun's native `Bun.serve()` API.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/adapter-bun
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/adapter-bun
+```
+
+```bash tab="bun"
+bun add @nextrush/adapter-bun
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-bun';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({ runtime: 'bun', message: 'Hello World!' });
+});
+
+listen(app, 3000);
+// Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
+```
+
+Run with Bun:
+
+```bash
+bun run src/index.ts
+```
+
+---
+
+## API Reference
+
+### `serve(app, options?)`
+
+Start the HTTP server with full configuration control.
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { serve } from '@nextrush/adapter-bun';
+
+const app = createApp();
+
+const server = serve(app, {
+  port: 3000,
+  hostname: '0.0.0.0',
+  development: true,
+  onListen: ({ port, hostname }) => {
+    console.log(`Server running at http://${hostname}:${port}`);
+  },
+  onError: (error) => {
+    console.error('Server error:', error);
+  },
+});
+```
+
+#### ServeOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `port` | `number` | `3000` | Port to listen on |
+| `hostname` | `string` | `'0.0.0.0'` | Hostname to bind to |
+| `onListen` | `(info) => void` | — | Callback when server starts |
+| `onError` | `(error) => void` | — | Custom error handler |
+| `tls` | `TLSOptions` | — | TLS/HTTPS configuration |
+| `maxRequestBodySize` | `number` | `128MB` | Maximum request body size |
+| `development` | `boolean` | `false` | Enable development mode |
+
+#### ServerInstance
+
+The returned server instance provides control methods:
+
+```typescript
+interface ServerInstance {
+  server: BunServer;        // Underlying Bun server
+  port: number;             // Actual port
+  hostname: string;         // Actual hostname
+
+  close(): Promise<void>;   // Graceful shutdown
+  address(): { port, hostname };
+  reload(options?): void;   // Hot reload configuration
+}
+```
+
+---
+
+### `listen(app, port?)`
+
+Quick-start shorthand with default logging.
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-bun';
+
+const app = createApp();
+const server = listen(app, 3000);
+// Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
+```
+
+---
+
+### `createHandler(app)`
+
+Create a raw fetch handler for advanced use cases.
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createHandler } from '@nextrush/adapter-bun';
+
+const app = createApp();
+const handler = createHandler(app);
+
+// Use directly with Bun.serve
+Bun.serve({
+  fetch: handler,
+  port: 3000,
+});
+```
+
+---
+
+## TLS/HTTPS
+
+Enable HTTPS with TLS certificates:
+
+```typescript
+import { serve } from '@nextrush/adapter-bun';
+
+const server = serve(app, {
+  port: 443,
+  tls: {
+    cert: Bun.file('./cert.pem'),
+    key: Bun.file('./key.pem'),
+    ca: Bun.file('./ca.pem'),  // Optional CA certificate
+  },
+});
+```
+
+---
+
+## Hot Reload
+
+Bun adapter supports runtime configuration reload:
+
+```typescript
+const server = serve(app, { port: 3000 });
+
+// Later: change port without restart
+server.reload({ port: 4000 });
+```
+
+This is useful for development workflows where you need to change server configuration dynamically.
+
+---
+
+## Request Body Limits
+
+Configure maximum request body size:
+
+```typescript
+const server = serve(app, {
+  port: 3000,
+  // 10MB limit
+  maxRequestBodySize: 10 * 1024 * 1024,
+});
+```
+
+Bun's default is 128MB. Set this lower for APIs that don't need large uploads.
+
+---
+
+## Development Mode
+
+Enable development mode for additional logging:
+
+```typescript
+const server = serve(app, {
+  port: 3000,
+  development: true,  // Enables Bun's dev logging
+});
+```
+
+---
+
+## Graceful Shutdown
+
+Handle server shutdown properly:
+
+```typescript
+const server = serve(app, { port: 3000 });
+
+process.on('SIGTERM', async () => {
+  console.log('Shutting down...');
+  await server.close();  // Closes app + server
+  process.exit(0);
+});
+```
+
+---
+
+## Client IP Access
+
+The adapter automatically extracts client IP from Bun's `requestIP()`:
+
+```typescript
+app.use(async (ctx) => {
+  // Available via context
+  const ip = ctx.ip;  // Extracted from Bun server
+  ctx.json({ clientIp: ip });
+});
+```
+
+---
+
+## TypeScript
+
+Full TypeScript support with proper types:
+
+```typescript
+import type { Application } from '@nextrush/core';
+import type { ServeOptions, ServerInstance } from '@nextrush/adapter-bun';
+import { serve, listen, createHandler } from '@nextrush/adapter-bun';
+
+const options: ServeOptions = {
+  port: 3000,
+  development: process.env.NODE_ENV !== 'production',
+};
+
+const server: ServerInstance = serve(app, options);
+```
+
+---
+
+## Related
+
+- [Adapters Overview](/docs/packages/adapters) — Understanding runtime adapters
+- [@nextrush/adapter-node](/docs/packages/adapters/node) — Node.js adapter
+- [@nextrush/adapter-edge](/docs/packages/adapters/edge) — Edge runtime adapter
+- [@nextrush/runtime](/docs/packages/core/runtime) — Runtime detection utilities

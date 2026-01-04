@@ -1,0 +1,527 @@
+---
+title: "Authentication"
+description: "Implement JWT authentication with guards and protected routes."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Authentication Example
+
+Implement JWT authentication with guards.
+
+This example demonstrates:
+- JWT token generation
+- Authentication middleware
+- Guard-based protection
+- Role-based access control
+- Refresh token flow
+
+---
+
+## Project Setup
+
+```bash
+mkdir auth-api && cd auth-api
+npm init -y
+
+# Core packages
+npm install nextrush @nextrush/controllers @nextrush/decorators @nextrush/di
+npm install @nextrush/cors @nextrush/body-parser
+npm install reflect-metadata
+
+# Auth packages
+npm install jsonwebtoken bcryptjs
+npm install -D @types/jsonwebtoken @types/bcryptjs
+
+# Dev tools
+npm install -D @nextrush/dev typescript @types/node
+```
+
+---
+
+## File Structure
+
+```
+src/
+├── index.ts
+├── controllers/
+│   ├── auth.controller.ts
+│   └── user.controller.ts
+├── services/
+│   ├── auth.service.ts
+│   └── user.service.ts
+├── guards/
+│   ├── auth.guard.ts
+│   └── role.guard.ts
+├── middleware/
+│   └── auth.middleware.ts
+└── types/
+    └── index.ts
+```
+
+---
+
+## Types
+
+```typescript title="src/types/index.ts"
+export interface User {
+  id: string;
+  email: string;
+  password: string;  // hashed
+  role: 'user' | 'admin';
+  createdAt: string;
+}
+
+export interface JwtPayload {
+  sub: string;  // user id
+  email: string;
+  role: string;
+  iat: number;
+  exp: number;
+}
+
+export interface LoginDto {
+  email: string;
+  password: string;
+}
+
+export interface RegisterDto {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+```
+
+---
+
+## Auth Service
+
+```typescript title="src/services/auth.service.ts"
+import { Service } from '@nextrush/di';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { UnauthorizedError, BadRequestError, ConflictError } from 'nextrush';
+import type { User, JwtPayload, LoginDto, RegisterDto, TokenResponse } from '../types';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_EXPIRES_IN = '15m';
+const REFRESH_EXPIRES_IN = '7d';
+
+@Service()
+export class AuthService {
+  // In-memory user store (use database in production)
+  private users: Map<string, User> = new Map();
+  private refreshTokens: Set<string> = new Set();
+
+  constructor() {
+    // Seed admin user
+    this.createUser('admin@example.com', 'admin123', 'admin');
+  }
+
+  private async createUser(email: string, password: string, role: 'user' | 'admin' = 'user'): Promise<User> {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user: User = {
+      id: Date.now().toString(),
+      email,
+      password: hashedPassword,
+      role,
+      createdAt: new Date().toISOString(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  async register(data: RegisterDto): Promise<TokenResponse> {
+    // Validate
+    if (!data.email || !data.password) {
+      throw new BadRequestError('Email and password are required');
+    }
+
+    if (data.password.length < 6) {
+      throw new BadRequestError('Password must be at least 6 characters');
+    }
+
+    // Check duplicate
+    const existing = Array.from(this.users.values()).find(u => u.email === data.email);
+    if (existing) {
+      throw new ConflictError('Email already registered');
+    }
+
+    // Create user
+    const user = await this.createUser(data.email, data.password);
+
+    // Generate tokens
+    return this.generateTokens(user);
+  }
+
+  async login(data: LoginDto): Promise<TokenResponse> {
+    // Validate
+    if (!data.email || !data.password) {
+      throw new BadRequestError('Email and password are required');
+    }
+
+    // Find user
+    const user = Array.from(this.users.values()).find(u => u.email === data.email);
+    if (!user) {
+      throw new UnauthorizedError('Invalid credentials');
+    }
+
+    // Verify password
+    const isValid = await bcrypt.compare(data.password, user.password);
+    if (!isValid) {
+      throw new UnauthorizedError('Invalid credentials');
+    }
+
+    // Generate tokens
+    return this.generateTokens(user);
+  }
+
+  async refresh(refreshToken: string): Promise<TokenResponse> {
+    if (!refreshToken || !this.refreshTokens.has(refreshToken)) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    try {
+      const payload = jwt.verify(refreshToken, JWT_SECRET) as JwtPayload;
+      const user = this.users.get(payload.sub);
+
+      if (!user) {
+        throw new UnauthorizedError('User not found');
+      }
+
+      // Invalidate old refresh token
+      this.refreshTokens.delete(refreshToken);
+
+      // Generate new tokens
+      return this.generateTokens(user);
+    } catch {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+  }
+
+  async logout(refreshToken: string): Promise<void> {
+    this.refreshTokens.delete(refreshToken);
+  }
+
+  verifyToken(token: string): JwtPayload {
+    try {
+      return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    } catch {
+      throw new UnauthorizedError('Invalid or expired token');
+    }
+  }
+
+  getUserById(id: string): User | undefined {
+    return this.users.get(id);
+  }
+
+  private generateTokens(user: User): TokenResponse {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+
+    // Store refresh token
+    this.refreshTokens.add(refreshToken);
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 15 * 60, // 15 minutes in seconds
+    };
+  }
+}
+```
+
+---
+
+## Guards
+
+```typescript title="src/guards/auth.guard.ts"
+import type { GuardFn } from '@nextrush/decorators';
+import { container } from '@nextrush/di';
+import { AuthService } from '../services/auth.service';
+
+export const AuthGuard: GuardFn = async (ctx) => {
+  const authHeader = ctx.headers['authorization'];
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = authHeader.slice(7); // Remove 'Bearer '
+
+  try {
+    const authService = container.resolve(AuthService);
+    const payload = authService.verifyToken(token);
+
+    // Store user info in state
+    ctx.state.user = {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    };
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+```
+
+```typescript title="src/guards/role.guard.ts"
+import type { GuardFn } from '@nextrush/decorators';
+
+interface AuthUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
+export const RoleGuard = (allowedRoles: string[]): GuardFn => async (ctx) => {
+  const user = ctx.state.user as AuthUser | undefined;
+
+  if (!user) {
+    return false;
+  }
+
+  return allowedRoles.includes(user.role);
+};
+
+// Convenience guard for admin-only routes
+export const AdminGuard = RoleGuard(['admin']);
+```
+
+---
+
+## Auth Controller
+
+```typescript title="src/controllers/auth.controller.ts"
+import { Controller, Post, Body, Ctx, Header } from '@nextrush/decorators';
+import type { Context } from 'nextrush';
+import { AuthService } from '../services/auth.service';
+import type { LoginDto, RegisterDto } from '../types';
+
+@Controller('/auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post('/register')
+  async register(@Body() data: RegisterDto, @Ctx() ctx: Context) {
+    const tokens = await this.authService.register(data);
+    ctx.status = 201;
+    return tokens;
+  }
+
+  @Post('/login')
+  async login(@Body() data: LoginDto) {
+    return this.authService.login(data);
+  }
+
+  @Post('/refresh')
+  async refresh(@Body() body: { refreshToken: string }) {
+    return this.authService.refresh(body.refreshToken);
+  }
+
+  @Post('/logout')
+  async logout(@Body() body: { refreshToken: string }, @Ctx() ctx: Context) {
+    await this.authService.logout(body.refreshToken);
+    ctx.status = 204;
+  }
+}
+```
+
+---
+
+## Protected Controller
+
+```typescript title="src/controllers/user.controller.ts"
+import { Controller, Get, UseGuard, Ctx } from '@nextrush/decorators';
+import type { Context } from 'nextrush';
+import { AuthGuard } from '../guards/auth.guard';
+import { AdminGuard } from '../guards/role.guard';
+import { AuthService } from '../services/auth.service';
+
+@UseGuard(AuthGuard)  // All routes require authentication
+@Controller('/users')
+export class UserController {
+  constructor(private authService: AuthService) {}
+
+  // GET /users/me - Current user profile
+  @Get('/me')
+  getProfile(@Ctx() ctx: Context) {
+    const user = ctx.state.user as { id: string; email: string; role: string };
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
+  }
+
+  // GET /users/admin - Admin only
+  @UseGuard(AdminGuard)
+  @Get('/admin')
+  adminDashboard() {
+    return {
+      message: 'Welcome, admin!',
+      stats: { users: 100, orders: 500 },
+    };
+  }
+}
+```
+
+---
+
+## Entry Point
+
+```typescript title="src/index.ts"
+import 'reflect-metadata';
+
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+import { controllersPlugin } from '@nextrush/controllers';
+
+import { AuthController } from './controllers/auth.controller';
+import { UserController } from './controllers/user.controller';
+
+async function main() {
+  const app = createApp();
+  const router = createRouter();
+
+  // Middleware
+  app.use(cors());
+  app.use(json());
+
+  // Logging
+  app.use(async (ctx, next) => {
+    const start = Date.now();
+    await next();
+    console.log(`${ctx.method} ${ctx.path} - ${ctx.status} (${Date.now() - start}ms)`);
+  });
+
+  // Controllers
+  app.plugin(controllersPlugin({
+    router,
+    controllers: [AuthController, UserController],
+  }));
+
+  app.use(router.routes());
+
+  // 404
+  app.use((ctx) => {
+    ctx.status = 404;
+    ctx.json({ error: 'Not Found' });
+  });
+
+  listen(app, 3000, () => {
+    console.log('Auth API running at http://localhost:3000');
+    console.log('');
+    console.log('Endpoints:');
+    console.log('  POST /auth/register  - Register new user');
+    console.log('  POST /auth/login     - Login');
+    console.log('  POST /auth/refresh   - Refresh tokens');
+    console.log('  POST /auth/logout    - Logout');
+    console.log('  GET  /users/me       - Current user (auth required)');
+    console.log('  GET  /users/admin    - Admin only');
+    console.log('');
+    console.log('Test admin: admin@example.com / admin123');
+  });
+}
+
+main().catch(console.error);
+```
+
+---
+
+## Testing the API
+
+```bash
+# Register
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password123"}'
+
+# Login
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin123"}'
+# Returns: {"accessToken":"...","refreshToken":"...","expiresIn":900}
+
+# Access protected route
+curl http://localhost:3000/users/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Admin route
+curl http://localhost:3000/users/admin \
+  -H "Authorization: Bearer ADMIN_ACCESS_TOKEN"
+
+# Refresh token
+curl -X POST http://localhost:3000/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"YOUR_REFRESH_TOKEN"}'
+```
+
+---
+
+## Security Best Practices
+
+<Callout type="warn">
+This example is simplified for learning. In production:
+</Callout>
+
+1. **Use environment variables** for JWT secret
+2. **Store users in a database**, not memory
+3. **Use Redis** for refresh tokens with TTL
+4. **Add rate limiting** to auth endpoints
+5. **Use HTTPS** in production
+6. **Hash passwords** with higher cost factor
+7. **Validate email format** properly
+8. **Add account lockout** after failed attempts
+
+```typescript
+// Production configuration
+const JWT_SECRET = process.env.JWT_SECRET!;
+const BCRYPT_ROUNDS = 12;
+
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be at least 32 characters');
+}
+```
+
+---
+
+## Error Responses
+
+The API returns consistent error responses:
+
+```json
+// 400 Bad Request
+{ "error": "Email and password are required" }
+
+// 401 Unauthorized
+{ "error": "Invalid credentials" }
+
+// 403 Forbidden
+{ "error": "Forbidden" }
+
+// 409 Conflict
+{ "error": "Email already registered" }
+```
+
+---
+
+## Next Steps
+
+- [Database Integration](/docs/examples/database) — Store users in a database
+- [Rate Limiting](/docs/packages/middleware/rate-limit) — Protect auth endpoints
+- [Guards Guide](/docs/guides/class-based#guards) — More guard patterns

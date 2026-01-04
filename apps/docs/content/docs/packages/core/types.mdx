@@ -1,0 +1,442 @@
+---
+title: "@nextrush/types"
+description: Shared TypeScript type definitions for the NextRush ecosystem
+---
+
+# @nextrush/types
+
+The types package provides shared TypeScript definitions for the entire NextRush ecosystem. It has **zero runtime dependencies**.
+
+<PackageInstall packages={["@nextrush/types"]} dev={true} />
+
+<Callout type="info" title="Peer Dependency">
+This package is typically installed as a peer dependency of other NextRush packages. You rarely need to install it directly.
+</Callout>
+
+## What It Provides
+
+```typescript
+// Context and middleware types
+import type {
+  Context,
+  ContextState,
+  ContextOptions,
+  Middleware,
+  Next,
+  RouteHandler,
+  RouteParams,
+  QueryParams,
+} from '@nextrush/types';
+
+// HTTP types
+import type {
+  HttpMethod,
+  CommonHttpMethod,
+  HttpStatusCode,
+  IncomingHeaders,
+  OutgoingHeaders,
+  ParsedBody,
+  ResponseBody,
+  RawHttp,
+} from '@nextrush/types';
+
+// HTTP constants
+import { HttpStatus, ContentType, HTTP_METHODS } from '@nextrush/types';
+
+// Plugin types
+import type {
+  Plugin,
+  PluginWithHooks,
+  PluginFactory,
+  PluginMeta,
+  ApplicationLike,
+} from '@nextrush/types';
+
+// Router types
+import type {
+  Router,
+  RouterOptions,
+  Route,
+  RouteMatch,
+  RouteParam,
+  RoutePattern,
+} from '@nextrush/types';
+
+// Runtime types
+import type {
+  Runtime,
+  RuntimeInfo,
+  RuntimeCapabilities,
+  BodySource,
+  BodySourceOptions,
+} from '@nextrush/types';
+```
+
+## Context Interface
+
+The `Context` interface is the heart of NextRush. It provides unified access to request data and response methods.
+
+### Design Philosophy
+
+```typescript
+// INPUT (Request)
+ctx.method      // HTTP method
+ctx.url         // Full URL with query
+ctx.path        // Path without query
+ctx.query       // Parsed query params
+ctx.params      // Route parameters
+ctx.headers     // Request headers
+ctx.body        // Parsed request body
+ctx.ip          // Client IP
+
+// OUTPUT (Response)
+ctx.status      // Status code
+ctx.json()      // Send JSON
+ctx.send()      // Send text/buffer
+ctx.html()      // Send HTML
+ctx.redirect()  // Redirect
+
+// SHARED
+ctx.state       // Middleware state bag
+ctx.next()      // Call next middleware
+```
+
+### Full Interface
+
+```typescript
+interface Context {
+  // Request (read-only)
+  readonly method: HttpMethod;
+  readonly url: string;
+  readonly path: string;
+  readonly query: QueryParams;
+  readonly headers: IncomingHeaders;
+  readonly ip: string;
+  readonly runtime: Runtime;
+  readonly raw: RawHttp;
+  readonly bodySource: BodySource;
+
+  // Request body (set by body parser)
+  body: unknown;
+
+  // Route params (set by router)
+  params: RouteParams;
+
+  // Response
+  status: number;
+  json(data: unknown): void;
+  send(data: ResponseBody): void;
+  html(content: string): void;
+  redirect(url: string, status?: number): void;
+
+  // Headers
+  get(field: string): string | undefined;
+  set(field: string, value: string | number): void;
+
+  // Error helpers
+  throw(status: number, message?: string): never;
+  assert(condition: unknown, status: number, message?: string): asserts condition;
+
+  // Middleware
+  next(): Promise<void>;
+
+  // State
+  state: ContextState;
+}
+```
+
+## Middleware Type
+
+Middleware supports **both** modern and Koa-style syntax:
+
+```typescript
+// Modern syntax: ctx.next()
+const middleware: Middleware = async (ctx) => {
+  console.log('Before');
+  await ctx.next();
+  console.log('After');
+};
+
+// Koa-style: (ctx, next) parameter
+const middleware: Middleware = async (ctx, next) => {
+  console.log('Before');
+  await next();
+  console.log('After');
+};
+```
+
+The type signature supports both:
+
+```typescript
+type Next = () => Promise<void>;
+type Middleware = (ctx: Context, next: Next) => void | Promise<void>;
+type RouteHandler = Middleware; // Alias
+```
+
+## HTTP Types
+
+### HttpMethod
+
+```typescript
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+type CommonHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
+// Tuple for iteration
+const HTTP_METHODS: readonly HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+```
+
+### HttpStatusCode
+
+```typescript
+type HttpStatusCode =
+  | 200 | 201 | 204              // Success
+  | 301 | 302 | 304              // Redirect
+  | 400 | 401 | 403 | 404 | 405  // Client error
+  | 500 | 501 | 502 | 503;       // Server error
+```
+
+### Constants
+
+```typescript
+// HTTP status codes
+const HttpStatus = {
+  OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
+  MOVED_PERMANENTLY: 301,
+  FOUND: 302,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  INTERNAL_SERVER_ERROR: 500,
+  // ... and more
+} as const;
+
+// Content types
+const ContentType = {
+  JSON: 'application/json',
+  HTML: 'text/html',
+  TEXT: 'text/plain',
+  FORM: 'application/x-www-form-urlencoded',
+  MULTIPART: 'multipart/form-data',
+  // ... and more
+} as const;
+```
+
+## Plugin Types
+
+```typescript
+interface Plugin {
+  /** Unique plugin name */
+  name: string;
+
+  /** Install the plugin on an application */
+  install(app: ApplicationLike): void | Promise<void>;
+
+  /** Optional cleanup on app.close() */
+  destroy?(): void | Promise<void>;
+}
+
+interface PluginWithHooks extends Plugin {
+  /** Called when app starts */
+  onStart?(app: ApplicationLike): void | Promise<void>;
+
+  /** Called on each request */
+  onRequest?(ctx: Context): void | Promise<void>;
+
+  /** Called on each response */
+  onResponse?(ctx: Context): void | Promise<void>;
+
+  /** Called on error */
+  onError?(error: Error, ctx: Context): void | Promise<void>;
+}
+```
+
+## Router Types
+
+```typescript
+interface RouterOptions {
+  /** Path prefix for all routes */
+  prefix?: string;
+
+  /** Case-sensitive matching (default: false) */
+  caseSensitive?: boolean;
+
+  /** Strict trailing slash (default: false) */
+  strict?: boolean;
+}
+
+interface RouteMatch {
+  /** Route handler function */
+  handler: RouteHandler;
+
+  /** Extracted route parameters */
+  params: RouteParams;
+
+  /** Route-specific middleware */
+  middleware: Middleware[];
+}
+
+interface Route {
+  method: HttpMethod;
+  path: string;
+  handler: RouteHandler;
+  middleware?: Middleware[];
+}
+```
+
+## Runtime Types
+
+```typescript
+type Runtime = 'node' | 'bun' | 'deno' | 'edge';
+
+interface RuntimeInfo {
+  name: Runtime;
+  version: string;
+}
+
+interface RuntimeCapabilities {
+  /** Native fetch support */
+  fetch: boolean;
+
+  /** File system access */
+  fileSystem: boolean;
+
+  /** Worker threads support */
+  workers: boolean;
+
+  /** WebSocket support */
+  webSocket: boolean;
+
+  /** Streams support */
+  streams: boolean;
+
+  /** Crypto support */
+  crypto: boolean;
+}
+```
+
+## Body Source
+
+Cross-runtime abstraction for reading request bodies:
+
+```typescript
+interface BodySource {
+  /** Read body as text */
+  text(): Promise<string>;
+
+  /** Read body as JSON */
+  json<T = unknown>(): Promise<T>;
+
+  /** Read body as ArrayBuffer */
+  arrayBuffer(): Promise<ArrayBuffer>;
+
+  /** Read body as Blob */
+  blob(): Promise<Blob>;
+
+  /** Check if body has been consumed */
+  readonly consumed: boolean;
+}
+
+interface BodySourceOptions {
+  /** Maximum body size in bytes */
+  limit?: number;
+
+  /** Expected content type */
+  contentType?: string;
+}
+```
+
+## Type Utilities
+
+### RouteParams and QueryParams
+
+```typescript
+// Route params are always strings
+type RouteParams = Record<string, string>;
+
+// Query params can be string, array, or undefined
+type QueryParams = Record<string, string | string[] | undefined>;
+
+// Usage
+const id: string = ctx.params.id;
+const page: string | string[] | undefined = ctx.query.page;
+```
+
+### ContextState
+
+```typescript
+// Default state is Record<string, unknown>
+type ContextState = Record<string, unknown>;
+
+// Type your state for better safety
+interface AppState extends ContextState {
+  user?: { id: string; email: string };
+  requestId: string;
+}
+
+// Usage
+ctx.state.user = { id: '123', email: 'user@example.com' };
+```
+
+## Common Import Patterns
+
+### Type-Only Imports
+
+```typescript
+// Import types only (no runtime code)
+import type { Context, Middleware, Plugin } from '@nextrush/types';
+```
+
+### Constants
+
+```typescript
+// Import runtime constants
+import { HttpStatus, ContentType, HTTP_METHODS } from '@nextrush/types';
+
+ctx.status = HttpStatus.NOT_FOUND;
+ctx.set('Content-Type', ContentType.JSON);
+```
+
+### Extending Types
+
+```typescript
+import type { Context, ContextState } from '@nextrush/types';
+
+// Extend context state
+interface MyAppState extends ContextState {
+  user: { id: string; role: 'admin' | 'user' };
+  locale: string;
+}
+
+// Use in middleware
+const authMiddleware = async (ctx: Context) => {
+  const state = ctx.state as MyAppState;
+  state.user = await authenticate(ctx);
+  await ctx.next();
+};
+```
+
+## Why Zero Dependencies?
+
+The types package has no runtime dependencies because:
+
+1. **Tree-shaking**: Types are erased at compile time
+2. **No bloat**: Installing types doesn't add bundle size
+3. **Fast installs**: No transitive dependencies to resolve
+4. **Safe sharing**: Can be used by any package without conflicts
+
+## See Also
+
+<Cards>
+  <Card title="@nextrush/core" href="/docs/packages/core/core">
+    Application and middleware that use these types.
+  </Card>
+  <Card title="Context Concept" href="/docs/concepts/context">
+    Deep dive into the Context API.
+  </Card>
+  <Card title="@nextrush/errors" href="/docs/packages/core/errors">
+    HTTP error classes.
+  </Card>
+</Cards>

@@ -1,0 +1,165 @@
+---
+title: "Examples"
+description: "Complete, working code examples for common NextRush patterns and use cases."
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+# Examples
+
+Real, runnable code examples demonstrating NextRush patterns.
+
+Each example is self-contained and can be copied directly into your project.
+
+---
+
+## Quick Navigation
+
+<Cards>
+  <Card
+    title="Hello World"
+    description="Minimal setup to get NextRush running."
+    href="/docs/examples/hello-world"
+  />
+  <Card
+    title="REST API"
+    description="Build a complete REST API with CRUD operations."
+    href="/docs/examples/rest-api"
+  />
+  <Card
+    title="Class-Based API"
+    description="Structured API with decorators and DI."
+    href="/docs/examples/class-based-api"
+  />
+  <Card
+    title="Authentication"
+    description="JWT authentication with guards."
+    href="/docs/examples/authentication"
+  />
+  <Card
+    title="Database Integration"
+    description="Connect to databases with proper patterns."
+    href="/docs/examples/database"
+  />
+</Cards>
+
+---
+
+## Choose Your Style
+
+NextRush supports two programming styles. Choose based on your needs:
+
+### Functional Style
+
+Best for:
+- Simple APIs
+- Microservices
+- Maximum performance
+- Teams preferring functions
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/users', (ctx) => {
+  ctx.json([{ id: 1, name: 'Alice' }]);
+});
+
+app.use(router.routes());
+listen(app, 3000);
+```
+
+### Class-Based Style
+
+Best for:
+- Larger applications
+- Teams preferring OOP
+- Dependency injection needs
+- Structured codebases
+
+```typescript
+import 'reflect-metadata';
+import { createApp, listen } from 'nextrush';
+import { Controller, Get } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+import { controllersPlugin } from '@nextrush/controllers';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+
+const app = createApp();
+app.plugin(controllersPlugin({ controllers: [UserController] }));
+listen(app, 3000);
+```
+
+---
+
+## Running Examples
+
+All examples assume you have NextRush installed:
+
+```bash
+# Create a new project
+mkdir my-api && cd my-api
+npm init -y
+
+# Install NextRush
+npm install nextrush
+
+# For class-based examples, also install:
+npm install @nextrush/decorators @nextrush/di @nextrush/controllers reflect-metadata
+```
+
+Run with the NextRush dev tools:
+
+```bash
+# Install dev tools
+npm install -D @nextrush/dev
+
+# Start development server
+npx nextrush dev
+```
+
+---
+
+## Example Structure
+
+Each example follows this structure:
+
+```
+example/
+├── src/
+│   ├── index.ts          # Entry point
+│   ├── routes/           # Route handlers (functional)
+│   │   └── users.ts
+│   ├── controllers/      # Controllers (class-based)
+│   │   └── user.controller.ts
+│   ├── services/         # Business logic
+│   │   └── user.service.ts
+│   └── middleware/       # Custom middleware
+│       └── auth.ts
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## Next Steps
+
+Start with [Hello World](/docs/examples/hello-world) for the basics, then explore more complex examples.

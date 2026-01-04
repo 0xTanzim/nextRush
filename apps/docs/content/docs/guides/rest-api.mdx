@@ -1,0 +1,500 @@
+---
+title: Building REST APIs
+description: Step-by-step guide to building production-ready REST APIs with NextRush
+---
+
+# Building REST APIs
+
+This guide walks you through building a production-ready REST API with NextRush.
+
+You'll learn how to structure routes, handle request bodies, validate input, and return proper responses.
+
+## What You'll Build
+
+A user management API with these endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/users` | List all users |
+| `GET` | `/api/users/:id` | Get user by ID |
+| `POST` | `/api/users` | Create a user |
+| `PUT` | `/api/users/:id` | Update a user |
+| `DELETE` | `/api/users/:id` | Delete a user |
+
+## Prerequisites
+
+Install the required packages:
+
+```bash
+npm install @nextrush/core @nextrush/router @nextrush/adapter-node @nextrush/body-parser @nextrush/errors
+```
+
+## Project Structure
+
+```
+src/
+├── index.ts          # Application entry point
+├── routes/
+│   └── users.ts      # User routes
+├── services/
+│   └── user.ts       # Business logic
+└── types/
+    └── user.ts       # Type definitions
+```
+
+## Step 1: Define Your Types
+
+Start with clear type definitions:
+
+```typescript title="src/types/user.ts"
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateUserInput {
+  name: string;
+  email: string;
+}
+
+export interface UpdateUserInput {
+  name?: string;
+  email?: string;
+}
+```
+
+## Step 2: Create a Service Layer
+
+Separate business logic from HTTP handling:
+
+```typescript title="src/services/user.ts"
+import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
+
+// In-memory store for demonstration
+const users = new Map<string, User>();
+
+export const userService = {
+  findAll(): User[] {
+    return Array.from(users.values());
+  },
+
+  findById(id: string): User | undefined {
+    return users.get(id);
+  },
+
+  create(input: CreateUserInput): User {
+    const id = crypto.randomUUID();
+    const now = new Date();
+
+    const user: User = {
+      id,
+      name: input.name,
+      email: input.email,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    users.set(id, user);
+    return user;
+  },
+
+  update(id: string, input: UpdateUserInput): User | undefined {
+    const existing = users.get(id);
+    if (!existing) return undefined;
+
+    const updated: User = {
+      ...existing,
+      ...input,
+      updatedAt: new Date(),
+    };
+
+    users.set(id, updated);
+    return updated;
+  },
+
+  delete(id: string): boolean {
+    return users.delete(id);
+  },
+};
+```
+
+## Step 3: Define Routes
+
+Create your API routes using the router:
+
+```typescript title="src/routes/users.ts"
+import { createRouter } from '@nextrush/router';
+import { NotFoundError, BadRequestError } from '@nextrush/errors';
+import { userService } from '../services/user';
+import type { CreateUserInput, UpdateUserInput } from '../types/user';
+
+export const usersRouter = createRouter();
+
+// GET /api/users - List all users
+usersRouter.get('/api/users', (ctx) => {
+  const users = userService.findAll();
+  ctx.json({
+    data: users,
+    total: users.length,
+  });
+});
+
+// GET /api/users/:id - Get user by ID
+usersRouter.get('/api/users/:id', (ctx) => {
+  const { id } = ctx.params;
+  const user = userService.findById(id);
+
+  if (!user) {
+    throw new NotFoundError(`User with ID "${id}" not found`);
+  }
+
+  ctx.json({ data: user });
+});
+
+// POST /api/users - Create user
+usersRouter.post('/api/users', (ctx) => {
+  const body = ctx.body as CreateUserInput;
+
+  // Basic validation
+  if (!body.name || !body.email) {
+    throw new BadRequestError('Name and email are required');
+  }
+
+  const user = userService.create(body);
+
+  ctx.status = 201;
+  ctx.json({ data: user });
+});
+
+// PUT /api/users/:id - Update user
+usersRouter.put('/api/users/:id', (ctx) => {
+  const { id } = ctx.params;
+  const body = ctx.body as UpdateUserInput;
+
+  const user = userService.update(id, body);
+
+  if (!user) {
+    throw new NotFoundError(`User with ID "${id}" not found`);
+  }
+
+  ctx.json({ data: user });
+});
+
+// DELETE /api/users/:id - Delete user
+usersRouter.delete('/api/users/:id', (ctx) => {
+  const { id } = ctx.params;
+  const deleted = userService.delete(id);
+
+  if (!deleted) {
+    throw new NotFoundError(`User with ID "${id}" not found`);
+  }
+
+  ctx.status = 204;
+  ctx.send('');
+});
+```
+
+## Step 4: Set Up the Application
+
+Wire everything together:
+
+```typescript title="src/index.ts"
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-node';
+import { json } from '@nextrush/body-parser';
+import { errorHandler, notFoundHandler } from '@nextrush/errors';
+import { usersRouter } from './routes/users';
+
+const app = createApp();
+
+// Error handling (must be first)
+app.use(errorHandler({
+  includeStack: process.env.NODE_ENV !== 'production',
+}));
+
+// Parse JSON bodies
+app.use(json());
+
+// Mount routes
+app.use(usersRouter.routes());
+
+// 404 handler (must be last)
+app.use(notFoundHandler());
+
+// Start server
+listen(app, { port: 3000 });
+console.log('API running at http://localhost:3000');
+```
+
+## Step 5: Test Your API
+
+Test with curl or any HTTP client:
+
+```bash
+# Create a user
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice", "email": "alice@example.com"}'
+
+# List all users
+curl http://localhost:3000/api/users
+
+# Get a specific user (replace ID)
+curl http://localhost:3000/api/users/abc123
+
+# Update a user
+curl -X PUT http://localhost:3000/api/users/abc123 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice Updated"}'
+
+# Delete a user
+curl -X DELETE http://localhost:3000/api/users/abc123
+```
+
+## Adding Response Formatting
+
+For consistent API responses, create a helper:
+
+```typescript title="src/utils/response.ts"
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: {
+    message: string;
+    code: string;
+  };
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+  };
+}
+
+export function success<T>(data: T, meta?: ApiResponse<T>['meta']): ApiResponse<T> {
+  return {
+    success: true,
+    data,
+    meta,
+  };
+}
+
+export function paginated<T>(
+  items: T[],
+  total: number,
+  page: number,
+  limit: number
+): ApiResponse<T[]> {
+  return {
+    success: true,
+    data: items,
+    meta: { total, page, limit },
+  };
+}
+```
+
+Use it in your routes:
+
+```typescript
+import { success, paginated } from '../utils/response';
+
+// GET /api/users
+usersRouter.get('/api/users', (ctx) => {
+  const users = userService.findAll();
+  ctx.json(success(users, { total: users.length }));
+});
+
+// GET /api/users/:id
+usersRouter.get('/api/users/:id', (ctx) => {
+  const user = userService.findById(ctx.params.id);
+  if (!user) throw new NotFoundError('User not found');
+  ctx.json(success(user));
+});
+```
+
+## Adding Pagination
+
+For large datasets, add pagination:
+
+```typescript
+usersRouter.get('/api/users', (ctx) => {
+  const page = parseInt(ctx.query.page || '1', 10);
+  const limit = parseInt(ctx.query.limit || '10', 10);
+
+  const allUsers = userService.findAll();
+  const start = (page - 1) * limit;
+  const users = allUsers.slice(start, start + limit);
+
+  ctx.json(paginated(users, allUsers.length, page, limit));
+});
+```
+
+## Using Class-Based Controllers
+
+For larger applications, consider class-based controllers:
+
+```typescript title="src/controllers/users.controller.ts"
+import 'reflect-metadata';
+import { Controller, Get, Post, Put, Delete, Body, Param } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+import { NotFoundError, BadRequestError } from '@nextrush/errors';
+import type { CreateUserInput, UpdateUserInput } from '../types/user';
+
+@Service()
+class UserService {
+  private users = new Map<string, User>();
+
+  findAll() {
+    return Array.from(this.users.values());
+  }
+
+  findById(id: string) {
+    return this.users.get(id);
+  }
+
+  create(input: CreateUserInput) {
+    const user = { id: crypto.randomUUID(), ...input, createdAt: new Date(), updatedAt: new Date() };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  update(id: string, input: UpdateUserInput) {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...input, updatedAt: new Date() };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  delete(id: string) {
+    return this.users.delete(id);
+  }
+}
+
+@Controller('/api/users')
+export class UsersController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() {
+    return { data: this.userService.findAll() };
+  }
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) {
+    const user = this.userService.findById(id);
+    if (!user) throw new NotFoundError('User not found');
+    return { data: user };
+  }
+
+  @Post()
+  create(@Body() input: CreateUserInput) {
+    if (!input.name || !input.email) {
+      throw new BadRequestError('Name and email are required');
+    }
+    return { data: this.userService.create(input) };
+  }
+
+  @Put('/:id')
+  update(@Param('id') id: string, @Body() input: UpdateUserInput) {
+    const user = this.userService.update(id, input);
+    if (!user) throw new NotFoundError('User not found');
+    return { data: user };
+  }
+
+  @Delete('/:id')
+  remove(@Param('id') id: string) {
+    if (!this.userService.delete(id)) {
+      throw new NotFoundError('User not found');
+    }
+    return { success: true };
+  }
+}
+```
+
+Bootstrap with the controllers plugin:
+
+```typescript title="src/index.ts"
+import 'reflect-metadata';
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-node';
+import { json } from '@nextrush/body-parser';
+import { controllersPlugin } from '@nextrush/controllers';
+import { UsersController } from './controllers/users.controller';
+
+const app = createApp();
+
+app.use(json());
+app.plugin(controllersPlugin({
+  controllers: [UsersController],
+}));
+
+listen(app, { port: 3000 });
+```
+
+## Common Patterns
+
+### Route Grouping
+
+```typescript
+const v1Router = createRouter();
+
+v1Router.get('/api/v1/users', usersHandler);
+v1Router.get('/api/v1/posts', postsHandler);
+
+const v2Router = createRouter();
+v2Router.get('/api/v2/users', usersV2Handler);
+
+app.use(v1Router.routes());
+app.use(v2Router.routes());
+```
+
+### Request Logging
+
+```typescript
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const duration = Date.now() - start;
+  console.log(`${ctx.method} ${ctx.path} ${ctx.status} - ${duration}ms`);
+});
+```
+
+### Content Negotiation
+
+```typescript
+usersRouter.get('/api/users/:id', (ctx) => {
+  const user = userService.findById(ctx.params.id);
+  if (!user) throw new NotFoundError('User not found');
+
+  const accept = ctx.get('accept') || 'application/json';
+
+  if (accept.includes('text/html')) {
+    ctx.html(`<h1>${user.name}</h1><p>${user.email}</p>`);
+  } else {
+    ctx.json({ data: user });
+  }
+});
+```
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Error Handling"
+    description="Learn about structured error handling patterns."
+    href="/docs/guides/error-handling"
+  />
+  <Card
+    title="Validation"
+    description="Add request validation with Zod."
+    href="/docs/guides/validation"
+  />
+  <Card
+    title="Testing"
+    description="Test your API endpoints."
+    href="/docs/guides/testing"
+  />
+</Cards>

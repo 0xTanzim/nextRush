@@ -1,0 +1,14 @@
+{
+  "title": "Guides",
+  "description": "Step-by-step tutorials for common patterns and use cases",
+  "pages": [
+    "index",
+    "rest-api",
+    "class-based",
+    "dev-tools",
+    "error-handling",
+    "validation",
+    "custom-middleware",
+    "testing"
+  ]
+}

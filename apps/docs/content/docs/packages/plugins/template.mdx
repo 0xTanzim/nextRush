@@ -1,0 +1,365 @@
+---
+title: "@nextrush/template"
+description: "Universal template engine supporting EJS, Handlebars, Nunjucks, Pug, and more."
+---
+
+# @nextrush/template
+
+Render HTML templates with your favorite template engine.
+
+The template plugin provides a unified API for multiple template engines, including a built-in Mustache-like engine with zero dependencies. Switch engines without changing your code.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/template
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/template
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { template } from '@nextrush/template';
+
+const app = createApp();
+
+// Use built-in engine (no extra dependencies)
+app.use(template({ root: './views' }));
+
+app.get('/', async (ctx) => {
+  await ctx.render('home', { title: 'Hello World' });
+});
+```
+
+---
+
+## Supported Engines
+
+| Engine | Package | Install |
+|--------|---------|---------|
+| Built-in | — | Included |
+| EJS | `ejs` | `npm install ejs` |
+| Handlebars | `handlebars` | `npm install handlebars` |
+| Nunjucks | `nunjucks` | `npm install nunjucks` |
+| Pug | `pug` | `npm install pug` |
+| Eta | `eta` | `npm install eta` |
+
+---
+
+## Using Different Engines
+
+### EJS
+
+```typescript
+// npm install ejs
+app.use(template('ejs', { root: './views' }));
+```
+
+```html
+<!-- views/home.ejs -->
+<h1><%= title %></h1>
+<ul>
+  <% users.forEach(user => { %>
+    <li><%= user.name %></li>
+  <% }) %>
+</ul>
+```
+
+### Handlebars
+
+```typescript
+// npm install handlebars
+app.use(template('handlebars', {
+  root: './views',
+  ext: '.hbs',
+}));
+```
+
+```html
+<!-- views/home.hbs -->
+<h1>{{title}}</h1>
+<ul>
+  {{#each users}}
+    <li>{{name}}</li>
+  {{/each}}
+</ul>
+```
+
+### Nunjucks
+
+```typescript
+// npm install nunjucks
+app.use(template('nunjucks', { root: './views' }));
+```
+
+```html
+<!-- views/home.njk -->
+<h1>{{ title }}</h1>
+<ul>
+  {% for user in users %}
+    <li>{{ user.name }}</li>
+  {% endfor %}
+</ul>
+```
+
+### Pug
+
+```typescript
+// npm install pug
+app.use(template('pug', { root: './views' }));
+```
+
+```text
+// views/home.pug
+h1= title
+ul
+  each user in users
+    li= user.name
+```
+
+---
+
+## Configuration
+
+```typescript
+app.use(template('ejs', {
+  // Views directory
+  root: './views',
+
+  // File extension
+  ext: '.ejs',
+
+  // Layout file
+  layout: 'layouts/main',
+
+  // Cache templates (auto in production)
+  cache: process.env.NODE_ENV === 'production',
+
+  // Custom helpers
+  helpers: {
+    formatPrice: (value) => `$${value.toFixed(2)}`,
+  },
+}));
+```
+
+---
+
+## Rendering Templates
+
+```typescript
+app.get('/', async (ctx) => {
+  // Render with data
+  await ctx.render('home', {
+    title: 'Welcome',
+    users: [
+      { name: 'Alice' },
+      { name: 'Bob' },
+    ],
+  });
+});
+```
+
+The `ctx.state` is automatically merged with render data:
+
+```typescript
+app.use(async (ctx) => {
+  ctx.state.currentYear = new Date().getFullYear();
+  await ctx.next();
+});
+
+app.get('/', async (ctx) => {
+  // currentYear is available in template
+  await ctx.render('home', { title: 'Hello' });
+});
+```
+
+---
+
+## Layouts
+
+Define a base layout:
+
+```typescript
+app.use(template('handlebars', {
+  root: './views',
+  layout: 'layouts/main',
+}));
+```
+
+```html
+<!-- views/layouts/main.hbs -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{title}}</title>
+</head>
+<body>
+  {{{body}}}
+</body>
+</html>
+```
+
+```html
+<!-- views/home.hbs -->
+<h1>{{title}}</h1>
+<p>Content goes here</p>
+```
+
+---
+
+## Helpers
+
+Add custom helpers:
+
+```typescript
+app.use(template('handlebars', {
+  root: './views',
+  helpers: {
+    uppercase: (str) => str.toUpperCase(),
+    formatDate: (date) => new Date(date).toLocaleDateString(),
+    json: (obj) => JSON.stringify(obj, null, 2),
+  },
+}));
+```
+
+Use in templates:
+
+```html
+<h1>{{uppercase title}}</h1>
+<p>Published: {{formatDate createdAt}}</p>
+```
+
+---
+
+## Built-in Engine
+
+The default engine uses Mustache-like syntax:
+
+```typescript
+app.use(template({ root: './views' }));
+```
+
+```html
+<!-- views/home.html -->
+<h1>{{title}}</h1>
+
+{{#if user}}
+  <p>Welcome, {{user.name}}!</p>
+{{/if}}
+
+{{#each items}}
+  <li>{{name}} - {{price}}</li>
+{{/each}}
+
+{{#unless loggedIn}}
+  <a href="/login">Login</a>
+{{/unless}}
+```
+
+### Built-in Syntax
+
+| Syntax | Description |
+|--------|-------------|
+| `{{var}}` | Output escaped value |
+| `{{{var}}}` | Output raw HTML |
+| `{{#if}}...{{/if}}` | Conditional |
+| `{{#unless}}...{{/unless}}` | Negative conditional |
+| `{{#each}}...{{/each}}` | Iteration |
+| `{{!-- comment --}}` | Comment |
+
+---
+
+## Standalone Rendering
+
+Render templates without middleware:
+
+```typescript
+import { render, renderAsync } from '@nextrush/template';
+
+// Sync rendering
+const html = render('Hello {{name}}!', { name: 'World' });
+
+// Async rendering
+const html = await renderAsync('Hello {{name}}!', { name: 'World' });
+```
+
+---
+
+## Template Plugin
+
+Use as a plugin:
+
+```typescript
+import { templatePlugin } from '@nextrush/template';
+
+app.plugin(templatePlugin('ejs', {
+  root: './views',
+}));
+```
+
+---
+
+## Custom Adapters
+
+Register custom template engines:
+
+```typescript
+import { registerAdapter, createAdapter } from '@nextrush/template';
+
+registerAdapter('custom', (config) => ({
+  render: async (source, data) => {
+    // Custom rendering logic
+    return processedHtml;
+  },
+  renderFile: async (filename, data) => {
+    const source = await readFile(filename);
+    return processedHtml;
+  },
+}));
+
+app.use(template('custom', { root: './views' }));
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  TemplateOptions,
+  TemplateData,
+  EngineName,
+  TemplateAdapter,
+} from '@nextrush/template';
+
+import {
+  template,
+  templatePlugin,
+  render,
+  createAdapter,
+} from '@nextrush/template';
+
+const options: TemplateOptions = {
+  root: './views',
+  cache: true,
+};
+
+app.use(template('ejs', options));
+```
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/packages/plugins) — All plugin packages
+- [@nextrush/static](/docs/packages/plugins/static) — Static file serving

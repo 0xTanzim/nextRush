@@ -1,0 +1,337 @@
+---
+title: "@nextrush/static"
+description: "High-performance static file serving with caching, range requests, and security."
+---
+
+# @nextrush/static
+
+Serve static files with production-grade performance and security.
+
+The static middleware handles file serving with ETag caching, range requests for media streaming, path traversal protection, and configurable dotfile handling.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/static
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/static
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { serveStatic } from '@nextrush/static';
+
+const app = createApp();
+
+// Serve files from ./public
+app.use(serveStatic({ root: './public' }));
+```
+
+Access files:
+- `./public/style.css``http://localhost:3000/style.css`
+- `./public/images/logo.png``http://localhost:3000/images/logo.png`
+
+---
+
+## Configuration
+
+```typescript
+app.use(serveStatic({
+  // Required: directory to serve
+  root: './public',
+
+  // URL prefix
+  prefix: '/static',
+
+  // Index file for directories
+  index: 'index.html',
+
+  // Cache control (seconds)
+  maxAge: 86400,
+
+  // Immutable cache (for hashed assets)
+  immutable: false,
+
+  // Dotfile handling: 'ignore', 'deny', 'allow'
+  dotfiles: 'ignore',
+
+  // Extension fallbacks
+  extensions: ['html', 'htm'],
+
+  // Enable ETag
+  etag: true,
+
+  // Enable Last-Modified
+  lastModified: true,
+
+  // Enable range requests
+  acceptRanges: true,
+
+  // Redirect directories to add trailing slash
+  redirect: true,
+
+  // Fall through if file not found
+  fallthrough: false,
+}));
+```
+
+---
+
+## URL Prefix
+
+Serve at a specific path:
+
+```typescript
+app.use(serveStatic({
+  root: './public',
+  prefix: '/static',
+}));
+
+// ./public/style.css → /static/style.css
+```
+
+---
+
+## Caching
+
+### Basic Caching
+
+```typescript
+app.use(serveStatic({
+  root: './public',
+  maxAge: 86400,  // 1 day
+  etag: true,
+  lastModified: true,
+}));
+```
+
+### Immutable Assets
+
+For fingerprinted files (e.g., `app.a1b2c3.js`):
+
+```typescript
+app.use(serveStatic({
+  root: './dist',
+  maxAge: 31536000,  // 1 year
+  immutable: true,    // Cache-Control: immutable
+}));
+```
+
+---
+
+## SPA (Single Page Application)
+
+Let client-side routing handle 404s:
+
+```typescript
+app.use(serveStatic({
+  root: './dist',
+  fallthrough: true,
+}));
+
+// Fallback to index.html for client routing
+app.use(async (ctx) => {
+  if (ctx.path.startsWith('/api')) {
+    ctx.status = 404;
+    ctx.json({ error: 'Not found' });
+    return;
+  }
+  // Serve index.html for all other routes
+  await sendFile(ctx, './dist/index.html');
+});
+```
+
+---
+
+## Dotfiles
+
+Control handling of hidden files:
+
+```typescript
+// Ignore (return 404)
+app.use(serveStatic({ root: './public', dotfiles: 'ignore' }));
+
+// Deny (return 403)
+app.use(serveStatic({ root: './public', dotfiles: 'deny' }));
+
+// Allow (serve normally)
+app.use(serveStatic({ root: './public', dotfiles: 'allow' }));
+```
+
+---
+
+## Extension Fallbacks
+
+Try multiple extensions:
+
+```typescript
+app.use(serveStatic({
+  root: './public',
+  extensions: ['html', 'htm'],
+}));
+
+// /about → tries /about, /about.html, /about.htm
+```
+
+---
+
+## Range Requests
+
+Enabled by default for video/audio streaming:
+
+```typescript
+app.use(serveStatic({
+  root: './media',
+  acceptRanges: true,  // default
+}));
+```
+
+Supports `Range` header for partial content delivery.
+
+---
+
+## Security
+
+### Path Traversal Protection
+
+Built-in protection against `../` attacks:
+
+```typescript
+// Automatically blocked:
+// /static/../../../etc/passwd
+// /static/..%2F..%2Fetc/passwd
+```
+
+### Symlink Handling
+
+```typescript
+app.use(serveStatic({
+  root: './public',
+  followSymlinks: false,  // default: don't follow
+}));
+```
+
+### MIME Sniffing Prevention
+
+```typescript
+app.use(serveStatic({
+  root: './public',
+  xContentTypeOptions: true,  // X-Content-Type-Options: nosniff
+}));
+```
+
+---
+
+## Sending Individual Files
+
+Use `createSendFile` for custom routes:
+
+```typescript
+import { createSendFile } from '@nextrush/static';
+
+const sendPublicFile = createSendFile({ root: './public' });
+
+app.get('/download/:file', async (ctx) => {
+  const success = await sendPublicFile(ctx, ctx.params.file);
+  if (!success) {
+    ctx.status = 404;
+    ctx.json({ error: 'File not found' });
+  }
+});
+```
+
+---
+
+## Low-Level API
+
+Direct file sending:
+
+```typescript
+import { sendFile, statSafe, safeJoin } from '@nextrush/static';
+
+app.get('/custom/:file', async (ctx) => {
+  const root = './files';
+  const path = safeJoin(root, ctx.params.file);
+
+  if (!path) {
+    ctx.status = 403;
+    return;
+  }
+
+  const stat = await statSafe(path);
+  if (!stat?.isFile()) {
+    ctx.status = 404;
+    return;
+  }
+
+  await sendFile(ctx, path, stat, { maxAge: 3600 });
+});
+```
+
+---
+
+## Utilities
+
+```typescript
+import {
+  getMimeType,
+  generateETag,
+  isFresh,
+  parseRange,
+  isDotfile,
+} from '@nextrush/static';
+
+// Get MIME type
+getMimeType('style.css');  // 'text/css'
+
+// Generate ETag
+generateETag(stat);  // '"abc123"'
+
+// Check if cached
+isFresh(ctx);  // true/false
+
+// Parse range header
+parseRange('bytes=0-1023', fileSize);
+
+// Check dotfile
+isDotfile('.env');  // true
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  StaticOptions,
+  NodeContext,
+  DotfilesPolicy
+} from '@nextrush/static';
+
+import { serveStatic, createSendFile, sendFile } from '@nextrush/static';
+
+const options: StaticOptions = {
+  root: './public',
+  maxAge: 86400,
+};
+
+app.use(serveStatic(options));
+```
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/packages/plugins) — All plugin packages
+- [@nextrush/compression](/docs/packages/middleware/compression) — Response compression
+- [@nextrush/helmet](/docs/packages/middleware/helmet) — Security headers

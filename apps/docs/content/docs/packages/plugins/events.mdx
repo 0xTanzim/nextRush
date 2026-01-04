@@ -1,0 +1,309 @@
+---
+title: "@nextrush/events"
+description: "Type-safe event emitter for decoupled application architecture."
+---
+
+# @nextrush/events
+
+Build decoupled applications with a type-safe event system.
+
+The events plugin provides a fast, async-ready event emitter with full TypeScript support. Use it for communication between components without tight coupling.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/events
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/events
+```
+
+---
+
+## Quick Start
+
+### With NextRush
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { eventsPlugin } from '@nextrush/events';
+
+const app = createApp();
+app.plugin(eventsPlugin());
+
+// Subscribe to events
+app.events.on('user:created', (data) => {
+  console.log('User created:', data);
+});
+
+// Emit events
+app.events.emit('user:created', { id: '1', name: 'Alice' });
+```
+
+### Standalone
+
+```typescript
+import { createEvents } from '@nextrush/events';
+
+const events = createEvents();
+
+events.on('message', (data) => {
+  console.log('Message:', data);
+});
+
+events.emit('message', { text: 'Hello!' });
+```
+
+---
+
+## Type-Safe Events
+
+Define your event map for full type safety:
+
+```typescript
+import { createEvents, eventsPlugin } from '@nextrush/events';
+
+// Define event types
+interface AppEvents {
+  'user:created': { id: string; name: string; email: string };
+  'user:deleted': { id: string };
+  'order:placed': { orderId: string; total: number };
+}
+
+// Standalone usage
+const events = createEvents<AppEvents>();
+
+events.on('user:created', (data) => {
+  // data is typed as { id: string; name: string; email: string }
+  console.log(data.name);
+});
+
+// TypeScript error: 'invalid' is not a valid event
+events.emit('invalid', {});
+
+// TypeScript error: missing 'email' property
+events.emit('user:created', { id: '1', name: 'Alice' });
+```
+
+---
+
+## Plugin Configuration
+
+```typescript
+app.plugin(eventsPlugin({
+  // Property name on app (default: 'events')
+  propertyName: 'events',
+
+  // Maximum listeners per event
+  maxListeners: 100,
+
+  // Enable debug logging
+  debug: false,
+}));
+```
+
+---
+
+## Event Handlers
+
+### Basic Handler
+
+```typescript
+events.on('user:created', (data) => {
+  console.log('User created:', data);
+});
+```
+
+### Async Handler
+
+```typescript
+events.on('order:placed', async (data) => {
+  await sendOrderConfirmation(data.orderId);
+  await updateInventory(data);
+});
+```
+
+### One-Time Handler
+
+```typescript
+events.once('app:started', () => {
+  console.log('App started (runs only once)');
+});
+```
+
+---
+
+## Removing Handlers
+
+```typescript
+// Store the unsubscribe function
+const unsubscribe = events.on('user:created', handler);
+
+// Later: remove the handler
+unsubscribe();
+
+// Or remove by reference
+events.off('user:created', handler);
+
+// Remove all handlers for an event
+events.off('user:created');
+
+// Clear all handlers
+events.clear();
+```
+
+---
+
+## Emitting Events
+
+```typescript
+// Fire and forget
+events.emit('user:created', { id: '1', name: 'Alice' });
+
+// Async: wait for all handlers
+await events.emit('order:placed', { orderId: '123', total: 99.99 });
+```
+
+---
+
+## Use in Middleware
+
+```typescript
+app.use(async (ctx) => {
+  // Emit event with request data
+  await app.events.emit('request:received', {
+    method: ctx.method,
+    path: ctx.path,
+    ip: ctx.ip,
+  });
+
+  await ctx.next();
+
+  // Emit completion event
+  await app.events.emit('request:completed', {
+    path: ctx.path,
+    status: ctx.status,
+  });
+});
+```
+
+---
+
+## Use in Controllers
+
+```typescript
+import { Controller, Post, Body } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+
+@Service()
+class UserService {
+  constructor(private events: EventEmitter<AppEvents>) {}
+
+  async createUser(data: CreateUserDto) {
+    const user = await database.users.create(data);
+
+    // Emit event after creation
+    await this.events.emit('user:created', user);
+
+    return user;
+  }
+}
+```
+
+---
+
+## Error Handling
+
+Handle errors in event handlers:
+
+```typescript
+events.on('user:created', async (data) => {
+  try {
+    await sendWelcomeEmail(data);
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    // Don't throw - other handlers should still run
+  }
+});
+```
+
+---
+
+## Type Augmentation
+
+For full IntelliSense on `app.events`:
+
+```typescript
+// types/events.d.ts
+import type { EventEmitter } from '@nextrush/events';
+
+interface AppEvents {
+  'user:created': { id: string; name: string };
+  'user:deleted': { id: string };
+}
+
+declare module '@nextrush/core' {
+  interface Application {
+    events: EventEmitter<AppEvents>;
+  }
+}
+```
+
+---
+
+## Helper Type
+
+Use `WithEvents` for typed function parameters:
+
+```typescript
+import type { WithEvents } from '@nextrush/events';
+
+interface MyEvents {
+  'user:created': { id: string };
+}
+
+function setupUserHandlers(app: WithEvents<MyEvents>) {
+  app.events.on('user:created', (data) => {
+    console.log('User created:', data.id);
+  });
+}
+```
+
+---
+
+## Constants
+
+```typescript
+import {
+  DEFAULT_EMITTER_OPTIONS,
+  MAX_EVENT_NAME_LENGTH
+} from '@nextrush/events';
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  EventMap,
+  EventHandler,
+  EventEmitterOptions,
+  TypedEventEmitter,
+  Unsubscribe,
+} from '@nextrush/events';
+
+import { EventEmitter, createEvents, eventsPlugin } from '@nextrush/events';
+```
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/packages/plugins) — All plugin packages
+- [@nextrush/websocket](/docs/packages/plugins/websocket) — Real-time communication

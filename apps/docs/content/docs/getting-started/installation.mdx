@@ -1,0 +1,150 @@
+---
+title: Installation
+description: Install NextRush and set up your development environment
+---
+
+# Installation
+
+NextRush requires **Node.js 20** or later. It also works with Bun and Deno.
+
+## Prerequisites
+
+Before installing NextRush, ensure you have:
+
+- **Node.js 20+** — [Download](https://nodejs.org/) or use a version manager like [nvm](https://github.com/nvm-sh/nvm)
+- **A package manager** — pnpm (recommended), npm, yarn, or bun
+
+<Callout type="tip" title="Why Node.js 20?">
+  Node.js 20 brings native fetch, better ESM support, and performance improvements that NextRush relies on. Older versions may work but are not officially supported.
+</Callout>
+
+## Install NextRush
+
+Choose your preferred package manager:
+
+<PackageInstall packages={["nextrush"]} />
+
+The `nextrush` package is a meta-package that includes the most common modules:
+
+- `@nextrush/core` — Application and middleware
+- `@nextrush/router` — HTTP routing
+- `@nextrush/adapter-node` — Node.js HTTP server adapter
+
+## Verify Installation
+
+Create a simple test file to verify everything is working:
+
+```typescript title="test.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ status: 'ok', framework: 'NextRush' });
+});
+
+app.use(router.routes());
+listen(app, 3000);
+
+console.log('Server running at http://localhost:3000');
+```
+
+Run it:
+
+```bash
+npx tsx test.ts
+```
+
+Open `http://localhost:3000` in your browser. You should see:
+
+```json
+{ "status": "ok", "framework": "NextRush" }
+```
+
+## TypeScript Configuration
+
+NextRush is written in TypeScript and provides full type definitions. For the best experience, use these `tsconfig.json` settings:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}
+```
+
+<Callout type="info" title="Decorators and DI">
+  If you plan to use class-based controllers with dependency injection, you'll need additional configuration. See the [Controllers guide](/docs/guides/controllers) for details.
+</Callout>
+
+## Installing Individual Packages
+
+For more control, install packages individually:
+
+<PackageInstall packages={["@nextrush/core", "@nextrush/router", "@nextrush/adapter-node"]} />
+
+This is useful when:
+
+- You want to minimize bundle size
+- You're using a different runtime adapter (Bun, Deno, Edge)
+- You need fine-grained control over versions
+
+## Optional Packages
+
+NextRush provides many optional packages for common needs:
+
+### Middleware
+
+<PackageInstall packages={["@nextrush/cors", "@nextrush/helmet", "@nextrush/body-parser"]} />
+
+### Plugins
+
+<PackageInstall packages={["@nextrush/controllers", "@nextrush/logger", "@nextrush/static"]} />
+
+### Runtime Adapters
+
+<PackageInstall packages={["@nextrush/adapter-bun", "@nextrush/adapter-deno", "@nextrush/adapter-edge"]} />
+
+## Development Tools
+
+For a better development experience, install these tools:
+
+<PackageInstall packages={["tsx"]} dev={["typescript", "@types/node"]} />
+
+- **tsx** — Run TypeScript directly without compilation
+- **typescript** — TypeScript compiler
+- **@types/node** — Node.js type definitions
+
+## Project Structure
+
+A typical NextRush project looks like this:
+
+```
+my-api/
+├── src/
+│   ├── index.ts          # Application entry point
+│   ├── routes/           # Route handlers
+│   │   ├── users.ts
+│   │   └── products.ts
+│   └── middleware/       # Custom middleware
+│       └── auth.ts
+├── package.json
+└── tsconfig.json
+```
+
+<Callout type="tip" title="No Prescribed Structure">
+  NextRush doesn't force a specific project structure. Organize your code in a way that makes sense for your team.
+</Callout>
+
+## Next Steps
+
+Now that NextRush is installed, head to the [Quick Start](/docs/getting-started/quick-start) guide to build your first API.

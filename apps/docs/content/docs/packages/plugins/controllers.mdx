@@ -1,0 +1,325 @@
+---
+title: "@nextrush/controllers"
+description: "Decorator-based controllers with automatic DI, route registration, and guards."
+---
+
+# @nextrush/controllers
+
+Build structured APIs with class-based controllers and decorators.
+
+The controllers plugin connects NextRush's decorator system with dependency injection, enabling a NestJS-like development experience while maintaining NextRush's performance characteristics.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/controllers @nextrush/decorators @nextrush/di reflect-metadata
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/controllers @nextrush/decorators @nextrush/di reflect-metadata
+```
+
+:::warning
+Ensure `reflect-metadata` is imported at the entry point of your application before any decorated classes.
+:::
+
+---
+
+## Quick Start
+
+```typescript
+import 'reflect-metadata';
+import { createApp } from '@nextrush/core';
+import { controllersPlugin, Controller, Get, Service } from '@nextrush/controllers';
+
+// Define a service
+@Service()
+class GreetingService {
+  greet(name: string) {
+    return `Hello, ${name}!`;
+  }
+}
+
+// Define a controller
+@Controller('/hello')
+class HelloController {
+  constructor(private greeting: GreetingService) {}
+
+  @Get('/:name')
+  sayHello(@Param('name') name: string) {
+    return { message: this.greeting.greet(name) };
+  }
+}
+
+// Bootstrap
+const app = createApp();
+
+app.plugin(controllersPlugin({
+  controllers: [HelloController],
+}));
+
+app.listen(3000);
+```
+
+---
+
+## Decorators
+
+The package re-exports all decorators from `@nextrush/decorators`:
+
+### Controller Decorator
+
+```typescript
+@Controller('/users')
+class UserController {
+  // Routes inherit /users prefix
+}
+
+@Controller({ prefix: '/api/v1/users', version: '1' })
+class VersionedController {}
+```
+
+### Route Decorators
+
+```typescript
+@Controller('/items')
+class ItemController {
+  @Get()           // GET /items
+  list() {}
+
+  @Get('/:id')     // GET /items/:id
+  findOne() {}
+
+  @Post()          // POST /items
+  create() {}
+
+  @Put('/:id')     // PUT /items/:id
+  replace() {}
+
+  @Patch('/:id')   // PATCH /items/:id
+  update() {}
+
+  @Delete('/:id')  // DELETE /items/:id
+  remove() {}
+}
+```
+
+### Parameter Decorators
+
+```typescript
+@Controller('/users')
+class UserController {
+  @Post()
+  create(
+    @Body() data: CreateUserDto,           // Full body
+    @Query() query: Record<string, string>, // All query params
+    @Query('page') page: string,           // Specific query
+    @Param('id') id: string,               // Route param
+    @Header('authorization') auth: string, // Header
+    @Ctx() ctx: Context,                   // Full context
+  ) {}
+}
+```
+
+### Guard Decorator
+
+```typescript
+import type { GuardFn } from '@nextrush/controllers';
+
+const AuthGuard: GuardFn = async (ctx) => {
+  return Boolean(ctx.headers['authorization']);
+};
+
+@UseGuard(AuthGuard)
+@Controller('/protected')
+class ProtectedController {
+  @Get()
+  secret() {
+    return { secret: 'data' };
+  }
+}
+```
+
+---
+
+## Dependency Injection
+
+The plugin integrates with `@nextrush/di`:
+
+### Services
+
+```typescript
+import { Service, Repository } from '@nextrush/controllers';
+
+@Service()
+class UserService {
+  constructor(private repo: UserRepository) {}
+
+  async findAll() {
+    return this.repo.find();
+  }
+}
+
+@Repository()
+class UserRepository {
+  async find() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+```
+
+### Custom Container
+
+```typescript
+import { createContainer, controllersPlugin } from '@nextrush/controllers';
+
+const container = createContainer();
+
+// Register custom dependencies
+container.register('CONFIG', { useValue: { apiKey: 'secret' } });
+
+app.plugin(controllersPlugin({
+  controllers: [MyController],
+  container,
+}));
+```
+
+---
+
+## Plugin Options
+
+```typescript
+interface ControllersPluginOptions {
+  // Controller classes to register
+  controllers: Function[];
+
+  // Custom DI container
+  container?: ContainerInterface;
+
+  // Route prefix for all controllers
+  prefix?: string;
+
+  // Auto-discover controllers from directories
+  discovery?: DiscoveryOptions;
+}
+```
+
+---
+
+## Controller Discovery
+
+Auto-discover controllers from directories:
+
+```typescript
+import { controllersPlugin, discoverControllers } from '@nextrush/controllers';
+
+const discovered = await discoverControllers({
+  patterns: ['./src/controllers/**/*.controller.ts'],
+  exclude: ['**/*.test.ts'],
+});
+
+app.plugin(controllersPlugin({
+  controllers: discovered,
+}));
+```
+
+---
+
+## Error Handling
+
+The plugin provides specific error types:
+
+```typescript
+import {
+  ControllerError,
+  GuardRejectionError,
+  MissingParameterError,
+  ParameterInjectionError,
+} from '@nextrush/controllers';
+
+app.use(async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    if (error instanceof GuardRejectionError) {
+      ctx.status = 403;
+      ctx.json({ error: 'Forbidden' });
+      return;
+    }
+    if (error instanceof MissingParameterError) {
+      ctx.status = 400;
+      ctx.json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+});
+```
+
+---
+
+## Controller Registry
+
+Access registered controllers programmatically:
+
+```typescript
+import { ControllerRegistry } from '@nextrush/controllers';
+
+const registry = new ControllerRegistry();
+
+// Register controller
+registry.register(UserController);
+
+// Get all routes
+const routes = registry.getRoutes();
+```
+
+---
+
+## Building Routes
+
+Low-level route building API:
+
+```typescript
+import { buildRoutes } from '@nextrush/controllers';
+
+const routes = buildRoutes(UserController, container);
+
+// routes: Array<{ method, path, handler }>
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  ControllersPluginOptions,
+  DiscoveryOptions,
+  RegisteredController,
+  BuiltRoute,
+} from '@nextrush/controllers';
+
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuard,
+  Service,
+  container,
+} from '@nextrush/controllers';
+```
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/packages/plugins) — All plugin packages
+- [@nextrush/decorators](/docs/packages/di/decorators) — Decorator definitions
+- [@nextrush/di](/docs/packages/di) — Dependency injection

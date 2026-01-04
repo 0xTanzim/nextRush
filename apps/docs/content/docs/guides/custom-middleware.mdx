@@ -1,0 +1,577 @@
+---
+title: Custom Middleware
+description: Create your own middleware to extend NextRush functionality
+---
+
+# Custom Middleware
+
+Middleware is the backbone of NextRush applications. This guide shows how to create your own middleware for logging, authentication, rate limiting, and more.
+
+## Understanding Middleware
+
+Middleware in NextRush follows the **onion model**:
+
+```
+Request → [MW1] → [MW2] → [MW3] → Handler
+         ↓         ↓        ↓
+Response ← [MW1] ← [MW2] ← [MW3] ←
+```
+
+Each middleware can:
+- Execute code before the handler
+- Execute code after the handler
+- Modify the request or response
+- Short-circuit the chain (skip remaining middleware)
+
+## Basic Middleware Structure
+
+```typescript
+import type { Middleware } from '@nextrush/types';
+
+const myMiddleware: Middleware = async (ctx) => {
+  // Before: runs before downstream middleware
+  console.log('Before:', ctx.method, ctx.path);
+
+  await ctx.next(); // Call next middleware
+
+  // After: runs after downstream middleware returns
+  console.log('After:', ctx.status);
+};
+```
+
+## Middleware Factory Pattern
+
+For configurable middleware, use a factory function:
+
+```typescript
+interface LoggerOptions {
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  timestamp?: boolean;
+}
+
+function logger(options: LoggerOptions = {}): Middleware {
+  const { level = 'info', timestamp = true } = options;
+
+  return async (ctx) => {
+    const start = Date.now();
+    const time = timestamp ? new Date().toISOString() : '';
+
+    await ctx.next();
+
+    const duration = Date.now() - start;
+    console.log(`[${level.toUpperCase()}] ${time} ${ctx.method} ${ctx.path} ${ctx.status} - ${duration}ms`);
+  };
+}
+
+// Usage
+app.use(logger({ level: 'debug', timestamp: true }));
+```
+
+## Common Middleware Examples
+
+### Request Logger
+
+```typescript
+function requestLogger(): Middleware {
+  return async (ctx) => {
+    const start = Date.now();
+    const requestId = crypto.randomUUID();
+
+    // Add request ID to state for tracing
+    ctx.state.requestId = requestId;
+
+    // Log request
+    console.log(`→ [${requestId}] ${ctx.method} ${ctx.path}`);
+
+    await ctx.next();
+
+    // Log response
+    const duration = Date.now() - start;
+    console.log(`← [${requestId}] ${ctx.status} (${duration}ms)`);
+  };
+}
+```
+
+### Response Time Header
+
+```typescript
+function responseTime(): Middleware {
+  return async (ctx) => {
+    const start = Date.now();
+
+    await ctx.next();
+
+    const duration = Date.now() - start;
+    ctx.set('X-Response-Time', `${duration}ms`);
+  };
+}
+```
+
+### Authentication Middleware
+
+```typescript
+import { UnauthorizedError } from '@nextrush/errors';
+
+interface AuthOptions {
+  exclude?: string[];
+  tokenHeader?: string;
+}
+
+function auth(options: AuthOptions = {}): Middleware {
+  const { exclude = [], tokenHeader = 'authorization' } = options;
+
+  return async (ctx) => {
+    // Skip auth for excluded paths
+    if (exclude.some(path => ctx.path.startsWith(path))) {
+      return ctx.next();
+    }
+
+    const token = ctx.get(tokenHeader);
+
+    if (!token) {
+      throw new UnauthorizedError('Authentication required');
+    }
+
+    // Verify token (implement your own logic)
+    try {
+      const user = await verifyToken(token.replace('Bearer ', ''));
+      ctx.state.user = user;
+    } catch {
+      throw new UnauthorizedError('Invalid token');
+    }
+
+    await ctx.next();
+  };
+}
+
+// Usage
+app.use(auth({
+  exclude: ['/api/auth/login', '/api/health'],
+}));
+```
+
+### Role-Based Access Control
+
+```typescript
+import { ForbiddenError } from '@nextrush/errors';
+
+function requireRole(...roles: string[]): Middleware {
+  return async (ctx) => {
+    const user = ctx.state.user;
+
+    if (!user) {
+      throw new UnauthorizedError('Not authenticated');
+    }
+
+    if (!roles.includes(user.role)) {
+      throw new ForbiddenError(`Required role: ${roles.join(' or ')}`);
+    }
+
+    await ctx.next();
+  };
+}
+
+// Usage on specific routes
+router.delete('/api/users/:id',
+  requireRole('admin'),
+  deleteUserHandler
+);
+```
+
+### Request ID Middleware
+
+```typescript
+function requestId(): Middleware {
+  return async (ctx) => {
+    // Use incoming header or generate new
+    const id = ctx.get('x-request-id') || crypto.randomUUID();
+
+    ctx.state.requestId = id;
+    ctx.set('X-Request-Id', id);
+
+    await ctx.next();
+  };
+}
+```
+
+### Timeout Middleware
+
+```typescript
+import { ServiceUnavailableError } from '@nextrush/errors';
+
+function timeout(ms: number): Middleware {
+  return async (ctx) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), ms);
+
+    try {
+      await Promise.race([
+        ctx.next(),
+        new Promise((_, reject) => {
+          controller.signal.addEventListener('abort', () => {
+            reject(new ServiceUnavailableError('Request timeout'));
+          });
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+}
+
+// Usage
+app.use(timeout(30000)); // 30 second timeout
+```
+
+### Cache Control
+
+```typescript
+interface CacheOptions {
+  maxAge?: number;
+  private?: boolean;
+  noStore?: boolean;
+}
+
+function cacheControl(options: CacheOptions = {}): Middleware {
+  const { maxAge = 0, private: isPrivate = false, noStore = false } = options;
+
+  return async (ctx) => {
+    await ctx.next();
+
+    // Only cache successful GET requests
+    if (ctx.method !== 'GET' || ctx.status >= 400) {
+      return;
+    }
+
+    if (noStore) {
+      ctx.set('Cache-Control', 'no-store');
+    } else {
+      const directives = [];
+      if (isPrivate) directives.push('private');
+      else directives.push('public');
+      if (maxAge > 0) directives.push(`max-age=${maxAge}`);
+      ctx.set('Cache-Control', directives.join(', '));
+    }
+  };
+}
+
+// Usage
+router.get('/api/config', cacheControl({ maxAge: 3600 }), configHandler);
+router.get('/api/user', cacheControl({ private: true }), userHandler);
+```
+
+### Compression Response Middleware
+
+```typescript
+import { gzipSync } from 'node:zlib';
+
+function compress(options: { threshold?: number } = {}): Middleware {
+  const { threshold = 1024 } = options;
+
+  return async (ctx) => {
+    await ctx.next();
+
+    // Check if response should be compressed
+    const acceptEncoding = ctx.get('accept-encoding') || '';
+    const body = ctx.state.responseBody;
+
+    if (!acceptEncoding.includes('gzip')) return;
+    if (!body || typeof body !== 'string') return;
+    if (body.length < threshold) return;
+
+    // Compress (simplified - real impl would intercept ctx.json/ctx.send)
+    const compressed = gzipSync(body);
+    ctx.set('Content-Encoding', 'gzip');
+    ctx.send(compressed);
+  };
+}
+```
+
+### Request Validation Middleware
+
+```typescript
+import { z, ZodSchema } from 'zod';
+import { BadRequestError } from '@nextrush/errors';
+
+function validateBody<T>(schema: ZodSchema<T>): Middleware {
+  return async (ctx) => {
+    const result = schema.safeParse(ctx.body);
+
+    if (!result.success) {
+      throw new BadRequestError('Validation failed', {
+        code: 'VALIDATION_ERROR',
+        expose: true,
+        details: {
+          errors: result.error.flatten().fieldErrors,
+        },
+      });
+    }
+
+    ctx.body = result.data;
+    await ctx.next();
+  };
+}
+
+// Usage
+const CreateUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+router.post('/api/users',
+  validateBody(CreateUserSchema),
+  createUserHandler
+);
+```
+
+## Middleware Composition
+
+### Combining Multiple Middleware
+
+```typescript
+import { compose } from '@nextrush/core';
+
+// Create a composed middleware
+const apiMiddleware = compose([
+  requestId(),
+  requestLogger(),
+  responseTime(),
+  auth({ exclude: ['/api/health'] }),
+]);
+
+// Use as single middleware
+app.use(apiMiddleware);
+```
+
+### Conditional Middleware
+
+```typescript
+function conditional(
+  condition: (ctx: Context) => boolean,
+  middleware: Middleware
+): Middleware {
+  return async (ctx) => {
+    if (condition(ctx)) {
+      return middleware(ctx);
+    }
+    await ctx.next();
+  };
+}
+
+// Only log in development
+app.use(conditional(
+  () => process.env.NODE_ENV !== 'production',
+  requestLogger()
+));
+```
+
+### Path-Based Middleware
+
+```typescript
+function pathPrefix(prefix: string, middleware: Middleware): Middleware {
+  return async (ctx) => {
+    if (ctx.path.startsWith(prefix)) {
+      return middleware(ctx);
+    }
+    await ctx.next();
+  };
+}
+
+// Auth only for /api routes
+app.use(pathPrefix('/api', auth()));
+```
+
+## Error Handling in Middleware
+
+### Catching Errors
+
+```typescript
+function errorBoundary(): Middleware {
+  return async (ctx) => {
+    try {
+      await ctx.next();
+    } catch (error) {
+      // Log the error
+      console.error('Middleware caught error:', error);
+
+      // Re-throw for error handler middleware
+      throw error;
+    }
+  };
+}
+```
+
+### Transforming Errors
+
+```typescript
+function transformErrors(): Middleware {
+  return async (ctx) => {
+    try {
+      await ctx.next();
+    } catch (error) {
+      // Transform database errors to HTTP errors
+      if (error.code === 'P2025') {
+        throw new NotFoundError('Resource not found');
+      }
+      if (error.code === 'P2002') {
+        throw new ConflictError('Resource already exists');
+      }
+      throw error;
+    }
+  };
+}
+```
+
+## Testing Middleware
+
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+
+function createMockContext(overrides = {}) {
+  return {
+    method: 'GET',
+    path: '/test',
+    status: 200,
+    state: {},
+    get: vi.fn(),
+    set: vi.fn(),
+    json: vi.fn(),
+    next: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+describe('requestId middleware', () => {
+  it('should generate request ID', async () => {
+    const middleware = requestId();
+    const ctx = createMockContext();
+
+    await middleware(ctx);
+
+    expect(ctx.state.requestId).toBeDefined();
+    expect(ctx.set).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
+    expect(ctx.next).toHaveBeenCalled();
+  });
+
+  it('should use existing request ID header', async () => {
+    const middleware = requestId();
+    const ctx = createMockContext({
+      get: vi.fn((header) => {
+        if (header === 'x-request-id') return 'existing-id';
+        return undefined;
+      }),
+    });
+
+    await middleware(ctx);
+
+    expect(ctx.state.requestId).toBe('existing-id');
+  });
+});
+```
+
+## Best Practices
+
+### 1. Always Call `ctx.next()`
+
+Unless intentionally short-circuiting:
+
+```typescript
+// ❌ Breaks the chain
+async (ctx) => {
+  console.log('Before');
+  // Forgot ctx.next()!
+};
+
+// ✅ Continues the chain
+async (ctx) => {
+  console.log('Before');
+  await ctx.next();
+  console.log('After');
+};
+```
+
+### 2. Handle Errors Properly
+
+```typescript
+// ❌ Swallows errors
+async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    // Error disappears!
+  }
+};
+
+// ✅ Re-throws or handles properly
+async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    console.error(error);
+    throw error; // Re-throw for error handler
+  }
+};
+```
+
+### 3. Order Matters
+
+```typescript
+// ✅ Correct order
+app.use(errorHandler());    // 1. Catch errors
+app.use(requestId());       // 2. Add request ID
+app.use(requestLogger());   // 3. Log requests
+app.use(auth());            // 4. Authenticate
+app.use(router.routes());   // 5. Handle routes
+app.use(notFoundHandler()); // 6. 404 for unmatched
+
+// ❌ Wrong order
+app.use(router.routes());   // Routes before auth!
+app.use(auth());            // Too late
+```
+
+### 4. Keep Middleware Focused
+
+```typescript
+// ❌ Does too much
+async (ctx) => {
+  // Logging
+  // Auth
+  // Validation
+  // Caching
+  await ctx.next();
+};
+
+// ✅ Single responsibility
+app.use(requestLogger());
+app.use(auth());
+app.use(validation());
+app.use(caching());
+```
+
+### 5. Use TypeScript
+
+```typescript
+import type { Middleware, Context } from '@nextrush/types';
+
+// Type your middleware
+const myMiddleware: Middleware = async (ctx: Context) => {
+  // Full type safety
+  ctx.state.customData = 'value';
+  await ctx.next();
+};
+```
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Testing"
+    description="Test your middleware and application."
+    href="/docs/guides/testing"
+  />
+  <Card
+    title="Architecture"
+    description="Understand middleware flow in depth."
+    href="/docs/architecture/middleware-flow"
+  />
+</Cards>

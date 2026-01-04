@@ -1,0 +1,336 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* ============================================
+   NextRush "Electric Rush" Design System
+   ============================================ */
+
+:root {
+  /* Primary Colors */
+  --rush-blue: #3b82f6;
+  --rush-purple: #8b5cf6;
+  --rush-cyan: #22d3ee;
+  --rush-green: #22c55e;
+
+  /* Gradients */
+  --rush-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  --rush-gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #22d3ee 100%);
+
+  /* Semantic Colors */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+}
+
+/* Dark theme (default) */
+.dark,
+:root {
+  --bg-base: #09090b;
+  --bg-card: #18181b;
+  --bg-hover: #27272a;
+  --bg-border: #3f3f46;
+
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+
+  /* Fumadocs theme overrides for dark mode */
+  --fd-background: var(--bg-base);
+  --fd-muted: var(--bg-card);
+  --fd-card: var(--bg-card);
+  --fd-card-foreground: var(--text-primary);
+  --fd-popover: var(--bg-card);
+  --fd-popover-foreground: var(--text-primary);
+  --fd-primary: var(--rush-blue);
+  --fd-primary-foreground: #ffffff;
+  --fd-secondary: var(--bg-hover);
+  --fd-secondary-foreground: var(--text-primary);
+  --fd-accent: var(--rush-purple);
+  --fd-accent-foreground: #ffffff;
+  --fd-border: var(--bg-border);
+  --fd-ring: var(--rush-blue);
+  --fd-foreground: var(--text-primary);
+  --fd-muted-foreground: var(--text-secondary);
+}
+
+/* Light theme */
+.light {
+  --bg-base: #ffffff;
+  --bg-card: #f4f4f5;
+  --bg-hover: #e4e4e7;
+  --bg-border: #d4d4d8;
+
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+
+  /* Light mode specific color adjustments for better contrast */
+  --rush-cyan: #0891b2;
+  --rush-blue: #2563eb;
+  --rush-purple: #7c3aed;
+
+  --fd-background: var(--bg-base);
+  --fd-muted: var(--bg-card);
+  --fd-card: var(--bg-card);
+  --fd-card-foreground: var(--text-primary);
+  --fd-popover: var(--bg-base);
+  --fd-popover-foreground: var(--text-primary);
+  --fd-primary: var(--rush-blue);
+  --fd-primary-foreground: #ffffff;
+  --fd-secondary: var(--bg-hover);
+  --fd-secondary-foreground: var(--text-primary);
+  --fd-accent: var(--rush-purple);
+  --fd-accent-foreground: #ffffff;
+  --fd-border: var(--bg-border);
+  --fd-ring: var(--rush-blue);
+  --fd-foreground: var(--text-primary);
+  --fd-muted-foreground: var(--text-secondary);
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+
+body {
+  font-feature-settings: 'ss01', 'ss02', 'cv01', 'cv02';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Code blocks */
+code,
+pre,
+kbd {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+}
+
+/* ============================================
+   Custom Components
+   ============================================ */
+
+/* Gradient text utility */
+.gradient-text {
+  background: var(--rush-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-accent {
+  background: var(--rush-gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient border */
+.gradient-border {
+  position: relative;
+  border-radius: 0.75rem;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--rush-gradient);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Glow effect */
+.glow {
+  box-shadow:
+    0 0 20px rgba(59, 130, 246, 0.3),
+    0 0 60px rgba(139, 92, 246, 0.2);
+}
+
+.glow-hover:hover {
+  box-shadow:
+    0 0 30px rgba(59, 130, 246, 0.4),
+    0 0 80px rgba(139, 92, 246, 0.3);
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: all 0.2s ease-in-out;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--rush-blue);
+}
+
+/* Button styles */
+.btn-primary {
+  background: var(--rush-gradient);
+  color: white;
+  font-weight: 500;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--bg-border);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-outline:hover {
+  border-color: var(--rush-blue);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* ============================================
+   Code Block Enhancements
+   ============================================ */
+
+/* Code block container */
+[data-rehype-pretty-code-figure] {
+  margin: 1.5rem 0;
+}
+
+[data-rehype-pretty-code-figure] pre {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--bg-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+/* Code title/filename */
+[data-rehype-pretty-code-title] {
+  background: var(--bg-hover);
+  border: 1px solid var(--bg-border);
+  border-bottom: none;
+  border-radius: 0.75rem 0.75rem 0 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+[data-rehype-pretty-code-title] + pre {
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+/* Line highlighting */
+[data-highlighted-line] {
+  background: rgba(59, 130, 246, 0.15);
+  border-left: 2px solid var(--rush-blue);
+  margin: 0 -1rem;
+  padding: 0 1rem;
+}
+
+/* Word highlighting */
+[data-highlighted-chars] {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+}
+
+/* ============================================
+   Callout Styles
+   ============================================ */
+
+.callout-tip {
+  border-left-color: var(--success) !important;
+}
+
+.callout-warning {
+  border-left-color: var(--warning) !important;
+}
+
+.callout-danger {
+  border-left-color: var(--danger) !important;
+}
+
+.callout-info {
+  border-left-color: var(--info) !important;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(59, 130, 246, 0.3),
+      0 0 60px rgba(139, 92, 246, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(59, 130, 246, 0.5),
+      0 0 80px rgba(139, 92, 246, 0.3);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* ============================================
+   Scrollbar Styling (Dark Mode)
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ============================================
+   Selection
+   ============================================ */
+
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: var(--text-primary);
+}

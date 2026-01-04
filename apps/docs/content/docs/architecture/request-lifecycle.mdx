@@ -1,0 +1,326 @@
+---
+title: Request Lifecycle
+description: Follow a request through NextRush from arrival to response — understanding the complete execution flow.
+---
+
+import { Mermaid } from '@/components/mdx';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Request Lifecycle
+
+Understanding how requests flow through NextRush helps you write better middleware and debug issues faster.
+
+## The Complete Flow
+
+When an HTTP request arrives, it passes through these stages:
+
+<Mermaid chart={`
+sequenceDiagram
+    participant Client
+    participant Adapter
+    participant Middleware
+    participant Router
+    participant Handler
+
+    Client->>Adapter: HTTP Request
+    Adapter->>Adapter: Create Context
+    Adapter->>Middleware: ctx
+
+    loop Each Middleware
+        Middleware->>Middleware: Before code
+        Middleware->>Middleware: await ctx.next()
+    end
+
+    Middleware->>Router: ctx
+    Router->>Router: Match route
+    Router->>Handler: ctx with params
+    Handler->>Handler: Process request
+    Handler-->>Router: Return/ctx.json()
+
+    loop Each Middleware (reverse)
+        Middleware->>Middleware: After code
+    end
+
+    Adapter-->>Client: HTTP Response
+`} />
+
+## Stage by Stage
+
+<Steps>
+<Step>
+### Adapter Receives Request
+
+The adapter is the first to receive the raw HTTP request from the runtime.
+
+```ts
+// What happens inside @nextrush/adapter-node
+import { createServer } from 'node:http';
+
+const server = createServer(async (req, res) => {
+  // 1. Create Context from raw request
+  const ctx = createNodeContext(req, res);
+
+  // 2. Call the application handler
+  await handler(ctx);
+
+  // 3. Send response (handled by context methods)
+});
+```
+
+The adapter's job is to:
+
+- Parse the incoming request URL, method, and headers
+- Create a fresh `Context` object
+- Call the application's handler
+- Ensure the response is sent
+
+</Step>
+
+<Step>
+### Context Creation
+
+A new `Context` object is created for each request. It contains:
+
+**Request properties (read-only):**
+
+```ts
+ctx.method   // 'GET', 'POST', 'PUT', 'DELETE', etc.
+ctx.url      // '/users/123?page=1'
+ctx.path     // '/users/123'
+ctx.query    // { page: '1' }
+ctx.headers  // { 'content-type': 'application/json', ... }
+ctx.ip       // '192.168.1.1'
+```
+
+**Response state (mutable):**
+
+```ts
+ctx.status   // Initially 200
+ctx.body     // Initially undefined (set by body parser)
+ctx.params   // Initially {} (set by router)
+ctx.state    // {} — your middleware state bag
+```
+
+**Response methods:**
+
+```ts
+ctx.json(data)    // Send JSON response
+ctx.send(data)    // Send text/buffer
+ctx.html(str)     // Send HTML
+ctx.redirect(url) // Redirect
+ctx.set(k, v)     // Set response header
+```
+
+</Step>
+
+<Step>
+### Middleware Execution
+
+Middleware runs in registration order. Each middleware can:
+
+- Run code **before** calling `next()`
+- Call `await ctx.next()` to continue to the next middleware
+- Run code **after** `next()` returns
+- Skip `next()` to short-circuit (e.g., return cached response)
+
+```ts
+// Example: Timing middleware
+app.use(async (ctx) => {
+  // BEFORE: Runs first
+  const start = Date.now();
+
+  // Continue to next middleware
+  await ctx.next();
+
+  // AFTER: Runs after all downstream middleware complete
+  const ms = Date.now() - start;
+  ctx.set('X-Response-Time', `${ms}ms`);
+});
+```
+
+The composed middleware behaves like an onion:
+
+```
+Request enters →
+
+  ┌─────────────────────────────────────────┐
+  │  Middleware 1 (before)                  │
+  │  ┌─────────────────────────────────┐    │
+  │  │  Middleware 2 (before)          │    │
+  │  │  ┌─────────────────────────┐    │    │
+  │  │  │  Middleware 3 (before)  │    │    │
+  │  │  │  ┌─────────────────┐    │    │    │
+  │  │  │  │    Handler      │    │    │    │
+  │  │  │  └─────────────────┘    │    │    │
+  │  │  │  Middleware 3 (after)   │    │    │
+  │  │  └─────────────────────────┘    │    │
+  │  │  Middleware 2 (after)           │    │
+  │  └─────────────────────────────────┘    │
+  │  Middleware 1 (after)                   │
+  └─────────────────────────────────────────┘
+
+                             ← Response exits
+```
+
+</Step>
+
+<Step>
+### Route Matching
+
+The router middleware matches the request path against registered routes.
+
+```ts
+const router = createRouter();
+
+router.get('/users', listUsers);           // Static route
+router.get('/users/:id', getUser);         // Param route
+router.get('/files/*', serveFile);         // Wildcard route
+
+app.use(router.routes());
+```
+
+**Matching process:**
+
+1. Check static routes first (O(1) Map lookup)
+2. Fall back to radix tree for dynamic routes (O(k) where k is path length)
+3. Extract route parameters into `ctx.params`
+4. Call the matched handler
+
+```ts
+// For request: GET /users/123
+// Matches: router.get('/users/:id', getUser)
+// ctx.params becomes: { id: '123' }
+```
+
+<Callout>
+Route matching performance is O(k) where k is the URL path length — not the number of routes. Whether you have 10 or 10,000 routes, lookup time is the same.
+</Callout>
+
+</Step>
+
+<Step>
+### Handler Execution
+
+The matched handler runs with the populated context:
+
+```ts
+async function getUser(ctx) {
+  const { id } = ctx.params;
+
+  const user = await db.users.findById(id);
+
+  if (!user) {
+    ctx.status = 404;
+    ctx.json({ error: 'User not found' });
+    return;
+  }
+
+  ctx.json(user);
+}
+```
+
+**For class-based controllers**, the flow is more involved:
+
+1. Execute guards (class-level, then method-level)
+2. Resolve controller instance from DI container
+3. Extract parameters using decorators (`@Body`, `@Param`, etc.)
+4. Call the controller method
+5. Serialize return value as JSON
+
+```ts
+@UseGuard(AuthGuard)
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get('/:id')
+  async findOne(@Param('id') id: string) {
+    return this.users.findById(id);
+  }
+}
+```
+
+</Step>
+
+<Step>
+### Response Sent
+
+After the handler completes and middleware unwinds, the response is sent.
+
+```ts
+// These methods finalize the response:
+ctx.json({ data });         // Sets Content-Type: application/json
+ctx.html('<h1>Hi</h1>');    // Sets Content-Type: text/html
+ctx.send('text');           // Sets Content-Type: text/plain
+ctx.redirect('/login');     // Sets Location header + 302 status
+```
+
+The adapter converts the Context state into the platform's response format:
+
+- **Node.js**: Writes to `ServerResponse`
+- **Bun/Deno**: Returns a `Response` object
+- **Edge**: Returns a `Response` object
+
+</Step>
+</Steps>
+
+## Error Handling
+
+Errors can occur at any stage. NextRush handles them consistently:
+
+```ts
+// Option 1: Use ctx.throw() for HTTP errors
+ctx.throw(404, 'User not found');
+ctx.throw(401); // Uses default message "Unauthorized"
+
+// Option 2: Throw any error (becomes 500)
+throw new Error('Database connection failed');
+
+// Option 3: Use HTTP error classes
+import { NotFoundError } from '@nextrush/errors';
+throw new NotFoundError('User not found');
+```
+
+**Custom error handling:**
+
+```ts
+app.onError((error, ctx) => {
+  console.error('Request failed:', error);
+
+  if (error.status) {
+    ctx.status = error.status;
+    ctx.json({ error: error.message });
+  } else {
+    ctx.status = 500;
+    ctx.json({ error: 'Internal Server Error' });
+  }
+});
+```
+
+## Performance Characteristics
+
+| Stage | Complexity | Notes |
+|-------|------------|-------|
+| Context creation | O(1) | Object allocation |
+| Middleware execution | O(n) | n = number of middleware |
+| Static route match | O(1) | Map lookup |
+| Dynamic route match | O(k) | k = path length |
+| Parameter extraction | O(p) | p = number of params |
+| JSON serialization | O(d) | d = data size |
+
+**Typical request timing:**
+
+- Context creation: ~0.01ms
+- Middleware chain (5 middleware): ~0.1ms
+- Route matching: ~0.02ms
+- Handler execution: depends on your code
+- Response serialization: ~0.05ms
+
+## Next Steps
+
+Now that you understand the request lifecycle:
+
+- Learn how [middleware composition](/docs/architecture/middleware-flow) works in detail
+- See how NextRush achieves [runtime compatibility](/docs/architecture/runtime-compatibility)
+- Explore the [package hierarchy](/docs/architecture/package-hierarchy)

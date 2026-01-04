@@ -1,0 +1,277 @@
+---
+title: Quick Start
+description: Build your first NextRush API in 5 minutes
+---
+
+# Quick Start
+
+In this guide, you'll build a simple REST API with NextRush. By the end, you'll have a working API with routes, middleware, and JSON responses.
+
+**Time required:** ~5 minutes
+
+## Step 1: Create a New Project
+
+Start with a fresh directory:
+
+```bash
+mkdir my-nextrush-api
+cd my-nextrush-api
+pnpm init -y
+```
+
+## Step 2: Install Dependencies
+
+<PackageInstall packages={["nextrush"]} dev={["tsx", "typescript", "@types/node"]} />
+
+## Step 3: Create the Entry Point
+
+Create `src/index.ts`:
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+// Create the application
+const app = createApp();
+
+// Create a router for organizing routes
+const router = createRouter();
+
+// Define routes
+router.get('/', (ctx) => {
+  ctx.json({
+    name: 'My API',
+    version: '1.0.0',
+    status: 'healthy',
+  });
+});
+
+router.get('/users', (ctx) => {
+  ctx.json([
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ]);
+});
+
+router.get('/users/:id', (ctx) => {
+  const { id } = ctx.params;
+  ctx.json({
+    id: Number(id),
+    name: 'Alice',
+    email: 'alice@example.com',
+  });
+});
+
+// Register routes
+app.use(router.routes());
+
+// Start the server
+listen(app, 3000);
+console.log('🚀 Server running at http://localhost:3000');
+```
+
+## Step 4: Run the Server
+
+```bash
+npx tsx src/index.ts
+```
+
+You should see:
+
+```
+🚀 Server running at http://localhost:3000
+```
+
+## Step 5: Test Your API
+
+Open another terminal and test the endpoints:
+
+```bash
+# Root endpoint
+curl http://localhost:3000/
+# → {"name":"My API","version":"1.0.0","status":"healthy"}
+
+# List users
+curl http://localhost:3000/users
+# → [{"id":1,"name":"Alice",...},{"id":2,"name":"Bob",...}]
+
+# Get user by ID
+curl http://localhost:3000/users/1
+# → {"id":1,"name":"Alice","email":"alice@example.com"}
+```
+
+## Adding Middleware
+
+Middleware runs before your route handlers. Let's add a simple logger:
+
+```typescript title="src/index.ts" {4-11,16}
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+// Logger middleware
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const ms = Date.now() - start;
+  console.log(`${ctx.method} ${ctx.path} - ${ms}ms`);
+});
+
+// ... routes
+
+app.use(router.routes());
+listen(app, 3000);
+```
+
+<Callout type="info" title="Middleware Order Matters">
+  Middleware runs in the order you define it. The logger above runs **before** the router because we registered it first.
+</Callout>
+
+Now when you make requests, you'll see timing logs:
+
+```
+GET / - 2ms
+GET /users - 1ms
+GET /users/1 - 1ms
+```
+
+## Adding Built-in Middleware
+
+NextRush provides production-ready middleware. Let's add CORS and security headers:
+
+<PackageInstall packages={["@nextrush/cors", "@nextrush/helmet"]} />
+
+```typescript title="src/index.ts" {1,5-6}
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+
+const app = createApp();
+
+// Security middleware
+app.use(helmet());
+app.use(cors());
+
+// ... rest of your code
+```
+
+## Handling POST Requests
+
+To accept JSON bodies, add the body parser:
+
+<PackageInstall packages={["@nextrush/body-parser"]} />
+
+```typescript title="src/index.ts"
+import { json } from '@nextrush/body-parser';
+
+// Parse JSON bodies
+app.use(json());
+
+// Now you can handle POST requests
+router.post('/users', (ctx) => {
+  const { name, email } = ctx.body as { name: string; email: string };
+
+  // In a real app, you'd save to a database
+  const newUser = {
+    id: Date.now(),
+    name,
+    email,
+  };
+
+  ctx.status = 201;
+  ctx.json(newUser);
+});
+```
+
+Test it:
+
+```bash
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Charlie","email":"charlie@example.com"}'
+```
+
+## Complete Example
+
+Here's the complete code with everything we've covered:
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+import { json } from '@nextrush/body-parser';
+
+const app = createApp();
+const router = createRouter();
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(json());
+
+// Logger
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+});
+
+// Routes
+router.get('/', (ctx) => {
+  ctx.json({ name: 'My API', version: '1.0.0' });
+});
+
+router.get('/users', (ctx) => {
+  ctx.json([
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' },
+  ]);
+});
+
+router.get('/users/:id', (ctx) => {
+  ctx.json({ id: Number(ctx.params.id), name: 'Alice' });
+});
+
+router.post('/users', (ctx) => {
+  const { name, email } = ctx.body as { name: string; email: string };
+  ctx.status = 201;
+  ctx.json({ id: Date.now(), name, email });
+});
+
+// Start
+app.use(router.routes());
+listen(app, 3000);
+console.log('🚀 Server running at http://localhost:3000');
+```
+
+## Common Mistakes
+
+<Callout type="warning" title="Forgetting ctx.next()">
+  If you write middleware that doesn't call `await ctx.next()`, the request will hang. Always call `ctx.next()` unless you're intentionally short-circuiting the request.
+</Callout>
+
+<Callout type="warning" title="Middleware Order">
+  Register middleware **before** `router.routes()`. Middleware registered after won't run for your routes.
+</Callout>
+
+## What's Next?
+
+You've built a working API with routing, middleware, and JSON handling. Here's where to go next:
+
+<Cards>
+  <Card
+    title="Core Concepts"
+    description="Deep dive into Context, Middleware, and Routing."
+    href="/docs/concepts"
+  />
+  <Card
+    title="Packages"
+    description="Explore all available packages and middleware."
+    href="/docs/packages"
+  />
+  <Card
+    title="Guides"
+    description="Authentication, databases, deployment, and more."
+    href="/docs/guides"
+  />
+</Cards>

@@ -1,0 +1,460 @@
+---
+title: DI & Decorators
+description: How NextRush implements dependency injection and decorator-based metadata for class-based controllers
+---
+
+import { Mermaid } from '@/components/mdx';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+# DI & Decorators
+
+NextRush provides a complete dependency injection system and decorator infrastructure for building structured, testable applications. This page explains how it works internally.
+
+## The Mental Model
+
+NextRush's class-based system has three layers:
+
+<Mermaid chart={`
+flowchart TB
+    subgraph "Layer 1: Decorators"
+        A["@Controller, @Get, @Body"] --> B[Metadata Storage]
+    end
+
+    subgraph "Layer 2: DI Container"
+        C["@Service, @Repository"] --> D[Container Registry]
+        D --> E[Dependency Graph]
+    end
+
+    subgraph "Layer 3: Controllers Plugin"
+        F[controllersPlugin] --> G[Read Metadata]
+        G --> H[Resolve from DI]
+        H --> I[Build Routes]
+    end
+
+    B --> G
+    E --> H
+`} />
+
+1. **Decorators** (`@nextrush/decorators`) — Store metadata on classes and methods
+2. **DI Container** (`@nextrush/di`) — Manage service lifecycle and resolution
+3. **Controllers Plugin** (`@nextrush/controllers`) — Connect everything together
+
+## How Decorators Work
+
+### The Metadata Problem
+
+TypeScript decorators are functions that run at class definition time. But decorators alone can't communicate information between files or to later code.
+
+The solution: **metadata storage** using `reflect-metadata`.
+
+```typescript
+// When you write this:
+@Controller('/users')
+class UserController {
+  @Get('/:id')
+  findById() {}
+}
+
+// This happens at load time:
+Reflect.defineMetadata('nextrush:controller', { path: '/users' }, UserController);
+Reflect.defineMetadata('nextrush:routes', [{ method: 'GET', path: '/:id' }], UserController.prototype, 'findById');
+```
+
+### Metadata Keys
+
+NextRush uses these metadata keys:
+
+| Key | Target | Stores |
+|-----|--------|--------|
+| `nextrush:controller` | Class | Path, options |
+| `nextrush:routes` | Method | HTTP method, path |
+| `nextrush:params` | Method | Parameter sources, transforms |
+| `nextrush:guards` | Class/Method | Guard functions or classes |
+| `design:paramtypes` | Class | Constructor parameter types (for DI) |
+
+### Reading Metadata
+
+The controllers plugin reads metadata to build routes:
+
+```typescript
+import { getControllerDefinition } from '@nextrush/decorators';
+
+const definition = getControllerDefinition(UserController);
+// {
+//   path: '/users',
+//   routes: [
+//     { method: 'GET', path: '/:id', propertyKey: 'findById', params: [...] }
+//   ],
+//   guards: [...]
+// }
+```
+
+## How DI Works
+
+### Container Architecture
+
+NextRush's DI container is a wrapper around [tsyringe](https://github.com/microsoft/tsyringe) with enhanced error messages.
+
+<Mermaid chart={`
+flowchart LR
+    subgraph Registration
+        A["@Service()"] --> B[Register in Container]
+        C["@Repository()"] --> B
+    end
+
+    subgraph Resolution
+        D[container.resolve] --> E{Is Registered?}
+        E -->|Yes| F[Get/Create Instance]
+        E -->|No| G[Read design:paramtypes]
+        G --> H[Resolve Dependencies]
+        H --> F
+    end
+
+    F --> I[Return Instance]
+`} />
+
+### The Decorator Metadata Problem
+
+DI containers need to know constructor parameter types at runtime:
+
+```typescript
+@Service()
+class UserService {
+  constructor(private db: DatabaseService) {}
+}
+```
+
+How does the container know `db` is a `DatabaseService`? TypeScript types are erased at runtime!
+
+The answer: `emitDecoratorMetadata`. When enabled, TypeScript emits:
+
+```javascript
+// Compiled output includes:
+Reflect.defineMetadata("design:paramtypes", [DatabaseService], UserService);
+```
+
+<Callout type="warn" title="Critical Requirement">
+Most bundlers (esbuild, tsup, tsx) don't emit `design:paramtypes`. Use `nextrush dev` and `nextrush build` which use SWC with proper metadata emission.
+</Callout>
+
+### Resolution Algorithm
+
+When you call `container.resolve(UserService)`:
+
+1. Check if instance exists (singleton scope)
+2. If not, read `design:paramtypes` metadata
+3. Recursively resolve each dependency
+4. Create instance with resolved dependencies
+5. Store for future requests (if singleton)
+
+```typescript
+// Pseudocode
+function resolve<T>(token: Constructor<T>): T {
+  // 1. Check singleton cache
+  if (singletonCache.has(token)) {
+    return singletonCache.get(token);
+  }
+
+  // 2. Get constructor parameters
+  const paramTypes = Reflect.getMetadata('design:paramtypes', token);
+  // paramTypes = [DatabaseService]
+
+  // 3. Resolve dependencies recursively
+  const deps = paramTypes.map(dep => resolve(dep));
+  // deps = [<DatabaseService instance>]
+
+  // 4. Create instance
+  const instance = new token(...deps);
+
+  // 5. Cache if singleton
+  if (isSingleton(token)) {
+    singletonCache.set(token, instance);
+  }
+
+  return instance;
+}
+```
+
+### Scopes
+
+| Scope | Behavior | Use Case |
+|-------|----------|----------|
+| `singleton` (default) | One instance for entire app | Services, repositories |
+| `transient` | New instance per resolution | Request-scoped data |
+
+```typescript
+@Service()  // singleton by default
+class DatabaseService {}
+
+@Service({ scope: 'transient' })
+class RequestLogger {
+  readonly timestamp = Date.now();  // Different each time
+}
+```
+
+### Circular Dependencies
+
+The container detects circular dependencies:
+
+```typescript
+@Service()
+class ServiceA {
+  constructor(private b: ServiceB) {}  // ServiceB needs ServiceA
+}
+
+@Service()
+class ServiceB {
+  constructor(private a: ServiceA) {}  // ServiceA needs ServiceB
+}
+
+// Error: Circular dependency detected: ServiceA → ServiceB → ServiceA
+```
+
+Use `delay()` to break cycles:
+
+```typescript
+import { delay, inject } from '@nextrush/di';
+
+@Service()
+class ServiceA {
+  constructor(@inject(delay(() => ServiceB)) private b: ServiceB) {}
+}
+```
+
+## How Controllers Plugin Works
+
+The `controllersPlugin` connects decorators, DI, and the router:
+
+<Mermaid chart={`
+sequenceDiagram
+    participant App as Application
+    participant Plugin as controllersPlugin
+    participant Dec as Decorators
+    participant DI as Container
+    participant Router as Router
+
+    App->>Plugin: plugin(controllersPlugin({ controllers }))
+    Plugin->>Dec: getControllerDefinition(controller)
+    Dec-->>Plugin: { path, routes, guards }
+
+    loop For each route
+        Plugin->>DI: container.resolve(controller)
+        DI-->>Plugin: controller instance
+        Plugin->>Plugin: buildHandler(instance, route)
+        Plugin->>Router: router[method](path, handler)
+    end
+`} />
+
+### Route Handler Building
+
+For each controller method, the plugin builds a handler:
+
+```typescript
+// Your code:
+@Controller('/users')
+class UserController {
+  @Get('/:id')
+  findById(@Param('id') id: string) {
+    return { id };
+  }
+}
+
+// Plugin generates this handler:
+async function handler(ctx: Context) {
+  // 1. Run guards
+  for (const guard of guards) {
+    const allowed = await guard(ctx);
+    if (!allowed) {
+      ctx.status = 403;
+      ctx.json({ error: 'Forbidden' });
+      return;
+    }
+  }
+
+  // 2. Extract parameters
+  const args = [];
+  for (const param of paramMetadata) {
+    let value;
+    switch (param.source) {
+      case 'param': value = ctx.params[param.name]; break;
+      case 'query': value = ctx.query[param.name]; break;
+      case 'body': value = ctx.body; break;
+      // ...
+    }
+    if (param.transform) {
+      value = await param.transform(value);
+    }
+    args.push(value);
+  }
+
+  // 3. Call method
+  const result = await controller[methodName](...args);
+
+  // 4. Send response
+  if (result !== undefined) {
+    ctx.json(result);
+  }
+}
+```
+
+### Guard Execution
+
+Guards are collected from both class and method levels:
+
+```typescript
+@UseGuard(ClassGuard)
+@Controller('/users')
+class UserController {
+  @UseGuard(MethodGuard)
+  @Get('/:id')
+  findById() {}
+}
+
+// Guards execute in order:
+// 1. ClassGuard
+// 2. MethodGuard
+```
+
+If any guard returns `false`, the request stops with 403.
+
+## Package Responsibilities
+
+### @nextrush/decorators
+
+Pure metadata — no runtime behavior:
+
+```typescript
+// Stores metadata only
+export { Controller } from './class.js';      // @Controller
+export { Get, Post, ... } from './routes.js'; // @Get, @Post
+export { Body, Param, ... } from './params.js'; // @Body, @Param
+export { UseGuard } from './guards.js';       // @UseGuard
+
+// Reads metadata
+export { getControllerDefinition } from './metadata.js';
+```
+
+### @nextrush/di
+
+Container management:
+
+```typescript
+// Container
+export { container, createContainer } from './container.js';
+
+// Registration decorators
+export { Service, Repository, AutoInjectable } from './decorators.js';
+
+// Resolution helpers
+export { inject, delay } from './decorators.js';
+```
+
+### @nextrush/controllers
+
+Orchestration layer:
+
+```typescript
+// The plugin
+export { controllersPlugin } from './plugin.js';
+
+// Re-exports for convenience
+export { Controller, Get, Post, ... } from '@nextrush/decorators';
+export { Service, Repository, container } from '@nextrush/di';
+```
+
+## Why This Architecture?
+
+### Separation of Concerns
+
+| Package | Responsibility |
+|---------|----------------|
+| `@nextrush/decorators` | Define what routes exist |
+| `@nextrush/di` | Manage object lifecycle |
+| `@nextrush/controllers` | Connect everything |
+
+You can use decorators without DI, or DI without controllers.
+
+### Testability
+
+Services and controllers are plain classes:
+
+```typescript
+// Test without framework
+const mockRepo = { findById: () => ({ id: '1' }) };
+const service = new UserService(mockRepo as any);
+const result = service.findById('1');
+```
+
+### Tree Shaking
+
+If you don't use class-based controllers, these packages aren't bundled:
+
+```typescript
+// Functional style — no DI packages included
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+```
+
+## Under the Hood: Reflect Metadata
+
+The entire system depends on `reflect-metadata`:
+
+```typescript
+// Store metadata
+Reflect.defineMetadata(key, value, target);
+Reflect.defineMetadata(key, value, target, propertyKey);
+
+// Read metadata
+Reflect.getMetadata(key, target);
+Reflect.getMetadata(key, target, propertyKey);
+
+// Check existence
+Reflect.hasMetadata(key, target);
+```
+
+This is why `import 'reflect-metadata'` must be first.
+
+## Common Issues
+
+### "TypeInfo not known for X"
+
+The DI container can't find constructor types. Causes:
+
+1. Missing `emitDecoratorMetadata` in tsconfig
+2. Using wrong bundler (esbuild/tsx instead of nextrush dev)
+3. Missing `reflect-metadata` import
+4. Class not decorated with `@Service()` or `@Repository()`
+
+### "Circular dependency detected"
+
+Services depend on each other. Fix:
+
+1. Refactor to remove cycle
+2. Use `delay()` for lazy resolution
+3. Extract shared logic to third service
+
+### "Controller has no routes"
+
+Controller decorated but no route methods. Check:
+
+1. Methods have `@Get()`, `@Post()`, etc.
+2. Decorators are imported from correct package
+3. `reflect-metadata` imported before decorators
+
+## Next Steps
+
+<Cards>
+  <Card title="Class-Based Controllers Guide" href="/docs/guides/class-based">
+    Practical guide to building with DI and decorators.
+  </Card>
+  <Card title="Dev Tools Guide" href="/docs/guides/dev-tools">
+    Set up proper build tools for decorator metadata.
+  </Card>
+  <Card title="Controllers Package" href="/docs/packages/plugins/controllers">
+    Full API reference for the controllers plugin.
+  </Card>
+  <Card title="DI Package" href="/docs/packages/core/di">
+    Full API reference for dependency injection.
+  </Card>
+</Cards>

@@ -1,6 +1,6 @@
 ---
 description: 'Rules for using MDX, UI components, visuals, and layout to build a modern, human-friendly documentation experience for NextRush.'
-applyTo: '**/*.mdx'
+applyTo: '**'
 ---
 
 

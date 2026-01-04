@@ -1,0 +1,435 @@
+---
+title: "@nextrush/errors"
+description: Standardized HTTP error classes with proper status codes
+---
+
+# @nextrush/errors
+
+HTTP error classes for consistent error handling across your NextRush application.
+
+<PackageInstall packages={["@nextrush/errors"]} />
+
+<Callout type="info" title="Usually Included">
+Most users install `nextrush` which includes common error classes. Install `@nextrush/errors` directly for the full error hierarchy.
+</Callout>
+
+## What It Provides
+
+```typescript
+// Base classes
+import { HttpError, NextRushError } from '@nextrush/errors';
+
+// 4xx Client Errors
+import {
+  BadRequestError,         // 400
+  UnauthorizedError,       // 401
+  ForbiddenError,          // 403
+  NotFoundError,           // 404
+  MethodNotAllowedError,   // 405
+  ConflictError,           // 409
+  UnprocessableEntityError,// 422
+  TooManyRequestsError,    // 429
+  // ... and more
+} from '@nextrush/errors';
+
+// 5xx Server Errors
+import {
+  InternalServerError,     // 500
+  NotImplementedError,     // 501
+  BadGatewayError,         // 502
+  ServiceUnavailableError, // 503
+  GatewayTimeoutError,     // 504
+  // ... and more
+} from '@nextrush/errors';
+
+// Validation errors
+import {
+  ValidationError,
+  RequiredFieldError,
+  TypeMismatchError,
+  RangeError,
+  PatternError,
+} from '@nextrush/errors';
+
+// Factory functions
+import {
+  createError,
+  badRequest,
+  unauthorized,
+  forbidden,
+  notFound,
+  // ... and more
+} from '@nextrush/errors';
+
+// Middleware
+import { errorHandler, notFoundHandler, catchAsync } from '@nextrush/errors';
+```
+
+## Basic Usage
+
+```typescript
+import { NotFoundError, BadRequestError } from '@nextrush/errors';
+
+router.get('/users/:id', async (ctx) => {
+  const user = await db.users.findById(ctx.params.id);
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  ctx.json(user);
+});
+
+router.post('/users', async (ctx) => {
+  const { email } = ctx.body as { email?: string };
+
+  if (!email) {
+    throw new BadRequestError('Email is required');
+  }
+
+  // ...
+});
+```
+
+## Error Classes
+
+### HttpError Base Class
+
+All HTTP errors extend `HttpError`:
+
+```typescript
+class HttpError extends Error {
+  status: number;      // HTTP status code
+  code: string;        // Machine-readable code
+  expose: boolean;     // Whether to expose message to client
+  details?: unknown;   // Additional error details
+  cause?: Error;       // Original error
+}
+```
+
+### 4xx Client Errors
+
+| Class | Status | Default Code | Use Case |
+|-------|--------|--------------|----------|
+| `BadRequestError` | 400 | `BAD_REQUEST` | Invalid input |
+| `UnauthorizedError` | 401 | `UNAUTHORIZED` | Auth required |
+| `ForbiddenError` | 403 | `FORBIDDEN` | Access denied |
+| `NotFoundError` | 404 | `NOT_FOUND` | Resource missing |
+| `MethodNotAllowedError` | 405 | `METHOD_NOT_ALLOWED` | Wrong HTTP method |
+| `ConflictError` | 409 | `CONFLICT` | State conflict |
+| `UnprocessableEntityError` | 422 | `UNPROCESSABLE_ENTITY` | Validation failed |
+| `TooManyRequestsError` | 429 | `TOO_MANY_REQUESTS` | Rate limited |
+
+### 5xx Server Errors
+
+| Class | Status | Default Code | Use Case |
+|-------|--------|--------------|----------|
+| `InternalServerError` | 500 | `INTERNAL_SERVER_ERROR` | Unexpected error |
+| `NotImplementedError` | 501 | `NOT_IMPLEMENTED` | Feature missing |
+| `BadGatewayError` | 502 | `BAD_GATEWAY` | Upstream error |
+| `ServiceUnavailableError` | 503 | `SERVICE_UNAVAILABLE` | Temporarily down |
+| `GatewayTimeoutError` | 504 | `GATEWAY_TIMEOUT` | Upstream timeout |
+
+<Callout type="info" title="5xx Errors Don't Expose Messages">
+Server errors (`5xx`) have `expose: false` by default. In production, clients see "Internal Server Error" instead of the actual message.
+</Callout>
+
+## Error Options
+
+All error classes accept an options object:
+
+```typescript
+interface HttpErrorOptions {
+  code?: string;              // Override default code
+  expose?: boolean;           // Override expose behavior
+  details?: Record<string, unknown>;  // Additional data
+  cause?: Error;              // Original error
+}
+```
+
+### Examples
+
+```typescript
+// Custom error code
+throw new BadRequestError('Invalid email format', {
+  code: 'INVALID_EMAIL',
+});
+
+// With details
+throw new UnprocessableEntityError('Validation failed', {
+  details: {
+    fields: [
+      { field: 'email', message: 'Invalid format' },
+      { field: 'age', message: 'Must be positive' },
+    ],
+  },
+});
+
+// Wrapping original error
+try {
+  await database.query(sql);
+} catch (err) {
+  throw new InternalServerError('Database query failed', {
+    cause: err as Error,
+  });
+}
+
+// Rate limit with retry-after
+throw new TooManyRequestsError('Rate limit exceeded', {
+  retryAfter: 60, // seconds
+});
+```
+
+## Validation Errors
+
+Specialized errors for input validation:
+
+```typescript
+import {
+  ValidationError,
+  RequiredFieldError,
+  TypeMismatchError,
+  RangeError,
+  PatternError,
+  LengthError,
+} from '@nextrush/errors';
+
+// Generic validation error
+throw new ValidationError('Invalid input', {
+  details: {
+    issues: [
+      { path: ['email'], message: 'Required' },
+      { path: ['age'], message: 'Must be number' },
+    ],
+  },
+});
+
+// Field-specific errors
+throw new RequiredFieldError('email');
+throw new TypeMismatchError('age', 'number', 'string');
+throw new RangeError('age', 0, 120);
+throw new PatternError('email', /^[^@]+@[^@]+$/);
+throw new LengthError('password', 8, 100);
+```
+
+## Factory Functions
+
+Create errors without `new`:
+
+```typescript
+import {
+  createError,
+  badRequest,
+  unauthorized,
+  forbidden,
+  notFound,
+  conflict,
+  tooManyRequests,
+  internalError,
+} from '@nextrush/errors';
+
+// Generic factory
+throw createError(400, 'Invalid input');
+throw createError(404, 'User not found', { code: 'USER_NOT_FOUND' });
+
+// Named factories
+throw badRequest('Invalid email');
+throw unauthorized('Token expired');
+throw forbidden('Admin only');
+throw notFound('User not found');
+throw conflict('Email already exists');
+throw tooManyRequests('Rate limit exceeded');
+throw internalError('Database connection failed');
+```
+
+## Error Utilities
+
+### isHttpError()
+
+Type guard to check if an error is an HttpError:
+
+```typescript
+import { isHttpError } from '@nextrush/errors';
+
+try {
+  await someOperation();
+} catch (err) {
+  if (isHttpError(err)) {
+    console.log(err.status, err.code);
+  } else {
+    throw new InternalServerError('Unexpected error', { cause: err });
+  }
+}
+```
+
+### getErrorStatus()
+
+Get status code from any error:
+
+```typescript
+import { getErrorStatus } from '@nextrush/errors';
+
+const status = getErrorStatus(error); // 500 if not HttpError
+```
+
+### getSafeErrorMessage()
+
+Get error message safe for client exposure:
+
+```typescript
+import { getSafeErrorMessage } from '@nextrush/errors';
+
+const message = getSafeErrorMessage(error);
+// Returns actual message if expose=true, otherwise generic message
+```
+
+## Error Middleware
+
+### errorHandler()
+
+Global error handling middleware:
+
+```typescript
+import { errorHandler } from '@nextrush/errors';
+
+// Basic usage
+app.use(errorHandler());
+
+// With options
+app.use(errorHandler({
+  // Log all errors
+  log: true,
+
+  // Custom logger
+  logger: console.error,
+
+  // Include stack in development
+  includeStack: process.env.NODE_ENV !== 'production',
+
+  // Custom response format
+  format: (error, ctx) => ({
+    success: false,
+    error: {
+      code: error.code || 'UNKNOWN',
+      message: error.expose ? error.message : 'An error occurred',
+    },
+  }),
+}));
+```
+
+### notFoundHandler()
+
+Catch-all 404 handler:
+
+```typescript
+import { notFoundHandler } from '@nextrush/errors';
+
+// Add after all routes
+app.use(router.routes());
+app.use(notFoundHandler());
+
+// With custom message
+app.use(notFoundHandler({ message: 'Route not found' }));
+```
+
+### catchAsync()
+
+Wrap async handlers to catch errors:
+
+```typescript
+import { catchAsync } from '@nextrush/errors';
+
+// Without catchAsync - errors might not be caught
+router.get('/users', async (ctx) => {
+  const users = await db.users.findAll(); // Unhandled if throws
+  ctx.json(users);
+});
+
+// With catchAsync - errors are caught and passed to error handler
+router.get('/users', catchAsync(async (ctx) => {
+  const users = await db.users.findAll();
+  ctx.json(users);
+}));
+```
+
+## Complete Example
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import {
+  errorHandler,
+  notFoundHandler,
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+} from '@nextrush/errors';
+
+const app = createApp();
+const router = createRouter();
+
+// Error handler first (catches all downstream errors)
+app.use(errorHandler({
+  log: true,
+  includeStack: !app.isProduction,
+}));
+
+// Routes
+router.get('/users/:id', async (ctx) => {
+  const user = await db.users.findById(ctx.params.id);
+
+  if (!user) {
+    throw new NotFoundError(`User ${ctx.params.id} not found`);
+  }
+
+  ctx.json(user);
+});
+
+router.post('/users', async (ctx) => {
+  const { email, password } = ctx.body as Record<string, unknown>;
+
+  if (!email || !password) {
+    throw new BadRequestError('Email and password required');
+  }
+
+  const existing = await db.users.findByEmail(email);
+  if (existing) {
+    throw new ConflictError('Email already registered');
+  }
+
+  const user = await db.users.create({ email, password });
+  ctx.status = 201;
+  ctx.json(user);
+});
+
+app.use(router.routes());
+
+// 404 handler last
+app.use(notFoundHandler());
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  HttpErrorOptions,
+  ValidationIssue,
+  ErrorHandlerOptions,
+  ErrorMiddleware,
+  ErrorContext,
+} from '@nextrush/errors';
+```
+
+## See Also
+
+<Cards>
+  <Card title="@nextrush/core" href="/docs/packages/core/core">
+    Application error handling with app.onError().
+  </Card>
+  <Card title="Context API" href="/docs/concepts/context">
+    ctx.throw() and ctx.assert() methods.
+  </Card>
+  <Card title="@nextrush/types" href="/docs/packages/core/types">
+    TypeScript type definitions.
+  </Card>
+</Cards>

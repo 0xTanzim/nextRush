@@ -1,0 +1,449 @@
+---
+title: "@nextrush/core"
+description: Application class, middleware composition, and plugin system
+---
+
+# @nextrush/core
+
+The core package provides the foundation of every NextRush application: the Application class, middleware composition, and plugin system.
+
+<PackageInstall packages={["@nextrush/core"]} />
+
+<Callout type="info" title="Usually Included">
+Most users install `nextrush` which includes this package. Install `@nextrush/core` directly only when using non-Node.js runtimes or building custom tooling.
+</Callout>
+
+## What It Provides
+
+```typescript
+// Application
+import { Application, createApp } from '@nextrush/core';
+import type { ApplicationOptions, ErrorHandler } from '@nextrush/core';
+
+// Middleware utilities
+import { compose, isMiddleware, flattenMiddleware } from '@nextrush/core';
+import type { ComposedMiddleware } from '@nextrush/core';
+
+// Re-exported types for convenience
+import type { Context, Middleware, Plugin } from '@nextrush/core';
+
+// Re-exported constants
+import { HttpStatus, ContentType } from '@nextrush/core';
+```
+
+## Application
+
+The `Application` class is the container for your middleware stack and plugins.
+
+### Creating an Application
+
+```typescript
+import { createApp } from '@nextrush/core';
+
+// Default options
+const app = createApp();
+
+// With options
+const app = createApp({
+  env: 'production',
+  proxy: true,
+});
+```
+
+### Application Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `env` | `'development' \| 'production' \| 'test'` | `process.env.NODE_ENV` or `'development'` | Environment mode |
+| `proxy` | `boolean` | `false` | Trust proxy headers (`X-Forwarded-For`) |
+
+### Environment Mode
+
+```typescript
+// Development: verbose errors, stack traces logged
+const app = createApp({ env: 'development' });
+
+// Production: minimal error info, no stack traces
+const app = createApp({ env: 'production' });
+
+// Test: for automated testing
+const app = createApp({ env: 'test' });
+```
+
+### Proxy Mode
+
+Enable when behind a reverse proxy (nginx, AWS ALB, Cloudflare):
+
+```typescript
+const app = createApp({ proxy: true });
+
+// Now ctx.ip respects X-Forwarded-For header
+```
+
+## Middleware Registration
+
+### Basic Usage
+
+```typescript
+// Single middleware
+app.use(async (ctx) => {
+  console.log(`${ctx.method} ${ctx.path}`);
+  await ctx.next();
+});
+
+// Multiple middleware at once
+app.use(cors(), helmet(), json());
+
+// Method chaining
+app.use(cors())
+   .use(helmet())
+   .use(json())
+   .use(router.routes());
+```
+
+### Two Syntax Styles
+
+Both work identically—use whichever you prefer:
+
+```typescript
+// Modern: ctx.next()
+app.use(async (ctx) => {
+  console.log('Before');
+  await ctx.next();
+  console.log('After');
+});
+
+// Koa-style: (ctx, next) parameter
+app.use(async (ctx, next) => {
+  console.log('Before');
+  await next();
+  console.log('After');
+});
+```
+
+### Execution Order
+
+Middleware executes in registration order using the **onion model**:
+
+<Mermaid chart="
+sequenceDiagram
+    participant R as Request
+    participant M1 as Middleware 1
+    participant M2 as Middleware 2
+    participant H as Handler
+
+    R->>M1: Enter
+    M1->>M1: Before next()
+    M1->>M2: await next()
+    M2->>M2: Before next()
+    M2->>H: await next()
+    H->>H: Handle request
+    H-->>M2: Return
+    M2->>M2: After next()
+    M2-->>M1: Return
+    M1->>M1: After next()
+    M1-->>R: Response
+"/>
+
+```typescript
+app.use(async (ctx) => {
+  console.log('1: before');
+  await ctx.next();
+  console.log('1: after');
+});
+
+app.use(async (ctx) => {
+  console.log('2: before');
+  await ctx.next();
+  console.log('2: after');
+});
+
+app.use((ctx) => {
+  console.log('3: handler');
+  ctx.json({ ok: true });
+});
+
+// Output:
+// 1: before
+// 2: before
+// 3: handler
+// 2: after
+// 1: after
+```
+
+## Error Handling
+
+### Custom Error Handler
+
+```typescript
+app.onError((error, ctx) => {
+  console.error('Request failed:', error);
+
+  // Handle specific error types
+  if ('status' in error && typeof error.status === 'number') {
+    ctx.status = error.status;
+  } else {
+    ctx.status = 500;
+  }
+
+  ctx.json({
+    error: error.message,
+    // Include stack in development
+    ...(app.options.env === 'development' && { stack: error.stack }),
+  });
+});
+```
+
+### Default Error Behavior
+
+Without a custom handler:
+
+| Environment | Error Message | Stack Trace | Console Log |
+|-------------|---------------|-------------|-------------|
+| `development` | Full message | Hidden | Logged |
+| `production` | "Internal Server Error" | Hidden | Hidden |
+
+## Plugin System
+
+Plugins extend the application without modifying core code.
+
+### Installing Plugins
+
+```typescript
+// Synchronous plugin
+app.plugin(loggerPlugin({ level: 'info' }));
+
+// Async plugin (database connections, etc.)
+await app.pluginAsync(databasePlugin({ uri: '...' }));
+```
+
+### Plugin Utilities
+
+```typescript
+// Check if installed
+if (app.hasPlugin('logger')) {
+  console.log('Logger is active');
+}
+
+// Get plugin instance
+const logger = app.getPlugin<LoggerPlugin>('logger');
+```
+
+### Plugin Rules
+
+```typescript
+// ❌ Duplicate plugin throws error
+app.plugin(loggerPlugin());
+app.plugin(loggerPlugin()); // Error: Plugin "logger" is already installed
+
+// ❌ Async plugin with sync method throws
+app.plugin(asyncPlugin); // Error: Use app.pluginAsync() instead
+```
+
+## Middleware Composition
+
+### compose()
+
+Combine multiple middleware into a single function:
+
+```typescript
+import { compose } from '@nextrush/core';
+
+const security = compose([
+  cors(),
+  helmet(),
+  rateLimit({ max: 100 }),
+]);
+
+// Use as single middleware
+app.use(security);
+```
+
+### Utility Functions
+
+```typescript
+import { isMiddleware, flattenMiddleware } from '@nextrush/core';
+
+// Type guard
+if (isMiddleware(fn)) {
+  app.use(fn);
+}
+
+// Flatten nested arrays
+const flat = flattenMiddleware([
+  mw1,
+  [mw2, mw3],
+  [[mw4]],
+]);
+// Result: [mw1, mw2, mw3, mw4]
+```
+
+## Application Lifecycle
+
+### Request Handler
+
+Adapters use `app.callback()` to get the request handler:
+
+```typescript
+const handler = app.callback();
+
+// Handler signature: (ctx: Context) => Promise<void>
+```
+
+### Starting
+
+Adapters call `app.start()` when the server begins:
+
+```typescript
+app.start();
+console.log(app.isRunning); // true
+```
+
+### Graceful Shutdown
+
+```typescript
+await app.close();
+
+// This:
+// 1. Sets isRunning = false
+// 2. Calls destroy() on plugins (reverse order)
+// 3. Clears plugin registry
+```
+
+Example shutdown hook:
+
+```typescript
+process.on('SIGTERM', async () => {
+  console.log('Shutting down...');
+  await app.close();
+  process.exit(0);
+});
+```
+
+## Application Properties
+
+```typescript
+app.isProduction    // boolean — true if env === 'production'
+app.isRunning       // boolean — true after start() called
+app.middlewareCount // number — count of registered middleware
+app.options         // ApplicationOptions — readonly config
+```
+
+## Complete Example
+
+```typescript
+import { createApp, compose } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-node';
+
+const app = createApp({
+  env: process.env.NODE_ENV as 'production' | 'development',
+  proxy: true,
+});
+
+// Error handler
+app.onError((error, ctx) => {
+  console.error(error);
+  ctx.status = error.status || 500;
+  ctx.json({ error: error.message });
+});
+
+// Middleware
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+});
+
+// Router
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'healthy' }));
+app.use(router.routes());
+
+// Start server
+serve(app, { port: 3000 });
+```
+
+## TypeScript Types
+
+```typescript
+import { createApp, Application } from '@nextrush/core';
+import type {
+  ApplicationOptions,
+  ErrorHandler,
+  ListenCallback,
+  ComposedMiddleware,
+} from '@nextrush/core';
+
+// Type the application
+const app: Application = createApp();
+
+// Type the error handler
+const errorHandler: ErrorHandler = (error, ctx) => {
+  ctx.status = 500;
+  ctx.json({ error: error.message });
+};
+
+app.onError(errorHandler);
+```
+
+## API Reference
+
+### Application Class
+
+| Property/Method | Type | Description |
+|-----------------|------|-------------|
+| `app.use(...mw)` | `Application` | Register middleware (chainable) |
+| `app.plugin(plugin)` | `Application` | Install sync plugin |
+| `app.pluginAsync(plugin)` | `Promise<Application>` | Install async plugin |
+| `app.hasPlugin(name)` | `boolean` | Check if plugin is installed |
+| `app.getPlugin<T>(name)` | `T \| undefined` | Get plugin instance |
+| `app.onError(handler)` | `Application` | Set custom error handler |
+| `app.callback()` | `(ctx) => Promise<void>` | Get request handler |
+| `app.start()` | `void` | Mark app as running |
+| `app.close()` | `Promise<void>` | Graceful shutdown |
+| `app.isProduction` | `boolean` | Is production environment |
+| `app.isRunning` | `boolean` | Is server running |
+| `app.middlewareCount` | `number` | Middleware count |
+| `app.options` | `ApplicationOptions` | Readonly config |
+
+### compose()
+
+```typescript
+function compose(middleware: Middleware[]): ComposedMiddleware
+```
+
+Composes multiple middleware into a single function using the onion model.
+
+### isMiddleware()
+
+```typescript
+function isMiddleware(fn: unknown): fn is Middleware
+```
+
+Type guard to check if a value is a valid middleware function.
+
+### flattenMiddleware()
+
+```typescript
+function flattenMiddleware(arr: (Middleware | Middleware[])[]): Middleware[]
+```
+
+Flattens nested middleware arrays into a single array.
+
+## See Also
+
+<Cards>
+  <Card title="@nextrush/router" href="/docs/packages/core/router">
+    High-performance radix tree routing.
+  </Card>
+  <Card title="@nextrush/types" href="/docs/packages/core/types">
+    TypeScript type definitions.
+  </Card>
+  <Card title="Middleware Concept" href="/docs/concepts/middleware">
+    Deep dive into the middleware pipeline.
+  </Card>
+  <Card title="Plugins Concept" href="/docs/concepts/plugins">
+    How plugins extend applications.
+  </Card>
+</Cards>

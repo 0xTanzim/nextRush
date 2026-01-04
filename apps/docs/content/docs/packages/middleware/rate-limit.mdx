@@ -1,0 +1,372 @@
+---
+title: "@nextrush/rate-limit"
+description: "Production-grade rate limiting with multiple algorithms and tiered limits."
+---
+
+# @nextrush/rate-limit
+
+Protect your API from abuse with configurable request throttling.
+
+Rate limiting prevents excessive requests from overwhelming your server. This middleware supports multiple algorithms, tiered limits for different user types, and IETF-compliant response headers.
+
+---
+
+## Installation
+
+```bash tab="npm"
+npm install @nextrush/rate-limit
+```
+
+```bash tab="pnpm"
+pnpm add @nextrush/rate-limit
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { rateLimit } from '@nextrush/rate-limit';
+
+const app = createApp();
+
+// Default: 100 requests per minute per IP
+app.use(rateLimit());
+```
+
+---
+
+## Configuration
+
+```typescript
+app.use(rateLimit({
+  max: 1000,        // Requests allowed
+  window: '15m',    // Time window
+
+  // Optional
+  algorithm: 'sliding-window',
+  trustProxy: true,
+  message: 'Too many requests',
+  statusCode: 429,
+}));
+```
+
+### Window Formats
+
+```typescript
+// String formats
+'1m'   // 1 minute
+'15m'  // 15 minutes
+'1h'   // 1 hour
+'1d'   // 1 day
+
+// Number (milliseconds)
+60000  // 1 minute
+```
+
+---
+
+## Algorithms
+
+Choose the algorithm that fits your use case:
+
+### Token Bucket (Default)
+
+Allows bursts while maintaining average rate:
+
+```typescript
+app.use(rateLimit({
+  algorithm: 'token-bucket',
+  max: 100,
+  window: '1m',
+  burstLimit: 10,  // Allow 10 extra in burst
+}));
+```
+
+**Best for:** APIs where occasional bursts are acceptable.
+
+### Sliding Window
+
+Smooth, accurate limiting without burst allowance:
+
+```typescript
+app.use(rateLimit({
+  algorithm: 'sliding-window',
+  max: 100,
+  window: '1m',
+}));
+```
+
+**Best for:** Strict rate enforcement, billing-sensitive APIs.
+
+### Fixed Window
+
+Simple counter that resets at window boundaries:
+
+```typescript
+app.use(rateLimit({
+  algorithm: 'fixed-window',
+  max: 100,
+  window: '1m',
+}));
+```
+
+**Best for:** Simple use cases, lower memory usage.
+
+---
+
+## Tiered Rate Limits
+
+Different limits for different user types:
+
+```typescript
+import { tieredRateLimit } from '@nextrush/rate-limit';
+
+app.use(tieredRateLimit({
+  tiers: {
+    anonymous: { max: 60, window: '1m' },
+    authenticated: { max: 1000, window: '1m' },
+    premium: { max: 10000, window: '1m' },
+  },
+  tierResolver: (ctx) => {
+    return ctx.state.user?.tier || 'anonymous';
+  },
+}));
+```
+
+---
+
+## Key Generation
+
+Control how requests are grouped:
+
+```typescript
+app.use(rateLimit({
+  // By API key
+  keyGenerator: (ctx) => {
+    return ctx.get('X-API-Key') || ctx.ip;
+  },
+}));
+
+// By user ID
+app.use(rateLimit({
+  keyGenerator: (ctx) => {
+    return ctx.state.user?.id || ctx.ip;
+  },
+}));
+
+// By endpoint
+app.use(rateLimit({
+  keyGenerator: (ctx) => {
+    return `${ctx.ip}:${ctx.path}`;
+  },
+}));
+```
+
+---
+
+## Whitelist & Blacklist
+
+### IP Whitelist
+
+Skip rate limiting for trusted IPs:
+
+```typescript
+app.use(rateLimit({
+  whitelist: [
+    '127.0.0.1',
+    '192.168.0.0/16',    // CIDR notation
+    '10.0.0.0/8',
+  ],
+}));
+```
+
+### IP Blacklist
+
+Apply stricter limits to suspicious IPs:
+
+```typescript
+app.use(rateLimit({
+  max: 100,
+  blacklist: ['1.2.3.4', '5.6.7.0/24'],
+  blacklistMultiplier: 0.1,  // 10% of normal limit
+}));
+```
+
+---
+
+## Response Headers
+
+Standard rate limit headers are set automatically:
+
+```http
+RateLimit-Limit: 100
+RateLimit-Remaining: 95
+RateLimit-Reset: 1640000000
+Retry-After: 45
+```
+
+Configure headers:
+
+```typescript
+app.use(rateLimit({
+  standardHeaders: true,   // RateLimit-* headers
+  legacyHeaders: true,     // X-RateLimit-* headers
+  includeRetryAfter: true,
+  draftIetfHeaders: false, // Draft IETF format
+}));
+```
+
+---
+
+## Skip Conditions
+
+Skip rate limiting for specific requests:
+
+```typescript
+app.use(rateLimit({
+  skip: (ctx) => {
+    // Skip health checks
+    if (ctx.path === '/health') return true;
+
+    // Skip internal requests
+    if (ctx.get('X-Internal-Request')) return true;
+
+    return false;
+  },
+}));
+```
+
+---
+
+## Rate Limit Events
+
+Handle rate limit events:
+
+```typescript
+app.use(rateLimit({
+  onRateLimited: async (ctx, info) => {
+    console.log(`Rate limited: ${ctx.ip}`, {
+      remaining: info.remaining,
+      resetIn: info.resetIn,
+    });
+
+    // Log to monitoring service
+    await metrics.increment('rate_limited', {
+      ip: ctx.ip,
+      path: ctx.path,
+    });
+  },
+}));
+```
+
+---
+
+## Custom Handlers
+
+Customize the rate limit response:
+
+```typescript
+app.use(rateLimit({
+  handler: async (ctx, info) => {
+    ctx.status = 429;
+    ctx.json({
+      error: 'Rate limit exceeded',
+      retryAfter: info.resetIn,
+      limit: info.limit,
+      remaining: 0,
+    });
+  },
+}));
+```
+
+---
+
+## Proxy Support
+
+When behind a reverse proxy:
+
+```typescript
+app.use(rateLimit({
+  trustProxy: true,  // Trust X-Forwarded-For
+}));
+```
+
+The middleware checks these headers in order:
+1. `X-Forwarded-For`
+2. `X-Real-IP`
+3. `CF-Connecting-IP` (Cloudflare)
+4. Socket address
+
+---
+
+## Custom Store
+
+Use external stores for distributed systems:
+
+```typescript
+import { rateLimit, type RateLimitStore } from '@nextrush/rate-limit';
+
+const redisStore: RateLimitStore = {
+  async get(key) { /* ... */ },
+  async set(key, value, ttl) { /* ... */ },
+  async increment(key, ttl) { /* ... */ },
+  async reset(key) { /* ... */ },
+};
+
+app.use(rateLimit({
+  store: redisStore,
+}));
+```
+
+---
+
+## Middleware Methods
+
+The rate limit middleware exposes control methods:
+
+```typescript
+const limiter = rateLimit({ max: 100 });
+app.use(limiter);
+
+// Reset a specific key
+await limiter.reset('rate-limit:127.0.0.1');
+
+// Get current info
+const info = await limiter.getInfo('rate-limit:127.0.0.1');
+
+// Cleanup on shutdown
+await limiter.shutdown();
+```
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import type {
+  RateLimitOptions,
+  RateLimitInfo,
+  TieredRateLimitOptions
+} from '@nextrush/rate-limit';
+import { rateLimit, tieredRateLimit } from '@nextrush/rate-limit';
+
+const options: RateLimitOptions = {
+  max: 100,
+  window: '1m',
+  algorithm: 'sliding-window',
+};
+
+app.use(rateLimit(options));
+```
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/packages/middleware) — All middleware packages
+- [@nextrush/cors](/docs/packages/middleware/cors) — CORS handling
+- [@nextrush/helmet](/docs/packages/middleware/helmet) — Security headers

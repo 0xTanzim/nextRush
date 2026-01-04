@@ -1,0 +1,528 @@
+---
+title: Error Handling
+description: Structured error handling patterns for production NextRush applications
+---
+
+# Error Handling
+
+Proper error handling separates amateur APIs from production-ready ones.
+
+This guide covers NextRush's error system and how to use it effectively.
+
+## The Problem
+
+Most Node.js applications handle errors poorly:
+
+- **Generic 500 errors** — users get no useful information
+- **Leaked stack traces** — attackers learn about your system
+- **Inconsistent responses** — each error looks different
+- **No error codes** — machines can't parse error reasons
+
+NextRush's `@nextrush/errors` package solves all of these.
+
+## Installation
+
+```bash
+npm install @nextrush/errors
+```
+
+## HTTP Error Classes
+
+NextRush provides typed error classes for every HTTP status code:
+
+### Client Errors (4xx)
+
+```typescript
+import {
+  BadRequestError,      // 400
+  UnauthorizedError,    // 401
+  ForbiddenError,       // 403
+  NotFoundError,        // 404
+  ConflictError,        // 409
+  UnprocessableEntityError, // 422
+  TooManyRequestsError, // 429
+} from '@nextrush/errors';
+
+// Basic usage
+throw new NotFoundError('User not found');
+
+// With custom error code
+throw new BadRequestError('Invalid email format', {
+  code: 'INVALID_EMAIL',
+});
+
+// With additional details (exposed to client)
+throw new UnprocessableEntityError('Validation failed', {
+  code: 'VALIDATION_ERROR',
+  expose: true,
+  details: {
+    fields: {
+      email: 'Invalid email format',
+      age: 'Must be at least 18',
+    },
+  },
+});
+```
+
+### Server Errors (5xx)
+
+```typescript
+import {
+  InternalServerError,   // 500
+  NotImplementedError,   // 501
+  BadGatewayError,       // 502
+  ServiceUnavailableError, // 503
+  GatewayTimeoutError,   // 504
+} from '@nextrush/errors';
+
+// Server errors don't expose details by default
+throw new InternalServerError('Database connection failed');
+
+// For maintenance mode
+throw new ServiceUnavailableError('System under maintenance', {
+  retryAfter: 3600, // seconds
+});
+```
+
+## HttpError Base Class
+
+All error classes extend `HttpError`:
+
+```typescript
+import { HttpError } from '@nextrush/errors';
+
+// Check if error is an HTTP error
+if (error instanceof HttpError) {
+  console.log(error.status);  // HTTP status code
+  console.log(error.code);    // Machine-readable code
+  console.log(error.expose);  // Whether to show to client
+  console.log(error.details); // Additional information
+}
+```
+
+## Error Handler Middleware
+
+The `errorHandler` middleware catches errors and formats responses:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-node';
+import { errorHandler, NotFoundError } from '@nextrush/errors';
+
+const app = createApp();
+
+// Add error handler FIRST
+app.use(errorHandler());
+
+// Your routes
+app.use(async (ctx) => {
+  if (ctx.path === '/error') {
+    throw new NotFoundError('Resource not found');
+  }
+  ctx.json({ hello: 'world' });
+});
+
+listen(app, { port: 3000 });
+```
+
+### Response Format
+
+When an `HttpError` is thrown, the response looks like:
+
+```json
+{
+  "error": "NotFoundError",
+  "message": "Resource not found",
+  "code": "NOT_FOUND",
+  "status": 404
+}
+```
+
+For errors with details:
+
+```json
+{
+  "error": "UnprocessableEntityError",
+  "message": "Validation failed",
+  "code": "VALIDATION_ERROR",
+  "status": 422,
+  "details": {
+    "fields": {
+      "email": "Invalid email format"
+    }
+  }
+}
+```
+
+## Configuration Options
+
+### Include Stack Traces (Development Only)
+
+```typescript
+app.use(errorHandler({
+  includeStack: process.env.NODE_ENV !== 'production',
+}));
+```
+
+Response with stack:
+
+```json
+{
+  "error": "Error",
+  "message": "Something went wrong",
+  "code": "INTERNAL_ERROR",
+  "status": 500,
+  "stack": [
+    "Error: Something went wrong",
+    "    at handler (src/routes.ts:15:11)",
+    "    at ..."
+  ]
+}
+```
+
+### Custom Logger
+
+```typescript
+import { createLogger } from 'your-logging-library';
+
+const logger = createLogger();
+
+app.use(errorHandler({
+  logger: (error, ctx) => {
+    logger.error({
+      error: error.message,
+      stack: error.stack,
+      method: ctx.method,
+      path: ctx.path,
+    });
+  },
+}));
+```
+
+### Custom Response Transformer
+
+```typescript
+app.use(errorHandler({
+  transform: (error, ctx) => {
+    // Return your custom error format
+    return {
+      success: false,
+      error: {
+        type: error.name,
+        message: error instanceof HttpError && error.expose
+          ? error.message
+          : 'An error occurred',
+        code: error instanceof HttpError ? error.code : 'UNKNOWN',
+        requestId: ctx.state.requestId,
+      },
+    };
+  },
+}));
+```
+
+### Type-Specific Handlers
+
+```typescript
+import { ValidationError } from '@nextrush/errors';
+
+app.use(errorHandler({
+  handlers: new Map([
+    [ValidationError, (error, ctx) => {
+      ctx.status = 400;
+      ctx.json({
+        error: 'Validation Error',
+        issues: error.issues,
+      });
+    }],
+  ]),
+}));
+```
+
+## Factory Functions
+
+For quick error creation:
+
+```typescript
+import {
+  badRequest,
+  notFound,
+  unauthorized,
+  forbidden,
+  conflict,
+  tooManyRequests,
+  internalError,
+  serviceUnavailable,
+} from '@nextrush/errors';
+
+// Simple usage
+throw notFound('User not found');
+throw badRequest('Invalid input');
+throw unauthorized('Authentication required');
+
+// These are equivalent:
+throw notFound('User not found');
+throw new NotFoundError('User not found');
+```
+
+## Checking Error Types
+
+```typescript
+import { isHttpError, getErrorStatus, getSafeErrorMessage } from '@nextrush/errors';
+
+try {
+  await someOperation();
+} catch (error) {
+  if (isHttpError(error)) {
+    // It's an HttpError instance
+    console.log(error.status, error.code);
+  }
+
+  // Get status (500 for non-HTTP errors)
+  const status = getErrorStatus(error);
+
+  // Get safe message (hides internal error details)
+  const message = getSafeErrorMessage(error, 'production');
+}
+```
+
+## Not Found Handler
+
+Catch requests that don't match any route:
+
+```typescript
+import { notFoundHandler } from '@nextrush/errors';
+
+// Add at the END of middleware chain
+app.use(notFoundHandler());
+
+// Custom message
+app.use(notFoundHandler('Endpoint does not exist'));
+```
+
+## Async Error Handling
+
+The `catchAsync` helper ensures async errors are properly caught:
+
+```typescript
+import { catchAsync, NotFoundError } from '@nextrush/errors';
+
+router.get('/users/:id', catchAsync(async (ctx) => {
+  const user = await db.users.findById(ctx.params.id);
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  ctx.json(user);
+}));
+```
+
+## Validation Errors
+
+For input validation failures:
+
+```typescript
+import { ValidationError } from '@nextrush/errors';
+
+function validateUser(data: unknown) {
+  const issues = [];
+
+  if (!data.name) {
+    issues.push({ field: 'name', message: 'Name is required' });
+  }
+
+  if (!data.email?.includes('@')) {
+    issues.push({ field: 'email', message: 'Invalid email format' });
+  }
+
+  if (issues.length > 0) {
+    throw new ValidationError('Validation failed', issues);
+  }
+}
+
+router.post('/users', (ctx) => {
+  validateUser(ctx.body);
+  // ... create user
+});
+```
+
+## Best Practices
+
+### 1. Use Specific Error Types
+
+```typescript
+// ❌ Generic error
+throw new Error('Not found');
+
+// ✅ Specific HTTP error
+throw new NotFoundError('User not found');
+```
+
+### 2. Include Error Codes
+
+```typescript
+// ❌ No error code
+throw new BadRequestError('Invalid input');
+
+// ✅ Machine-readable code
+throw new BadRequestError('Invalid input', {
+  code: 'INVALID_USER_INPUT',
+});
+```
+
+### 3. Don't Expose Internal Errors
+
+```typescript
+// ❌ Exposes internal details
+throw new InternalServerError(dbError.message);
+
+// ✅ Generic message, log internally
+console.error('Database error:', dbError);
+throw new InternalServerError('Unable to process request');
+```
+
+### 4. Add Context with Details
+
+```typescript
+// ❌ Just a message
+throw new NotFoundError('User not found');
+
+// ✅ Include helpful details
+throw new NotFoundError('User not found', {
+  details: {
+    id: userId,
+    suggestion: 'Check if the user ID is correct',
+  },
+});
+```
+
+### 5. Order Middleware Correctly
+
+```typescript
+const app = createApp();
+
+// 1. Error handler FIRST
+app.use(errorHandler());
+
+// 2. Other middleware
+app.use(json());
+app.use(cors());
+
+// 3. Routes
+app.use(router.routes());
+
+// 4. 404 handler LAST
+app.use(notFoundHandler());
+```
+
+## Complete Example
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-node';
+import { json } from '@nextrush/body-parser';
+import { createRouter } from '@nextrush/router';
+import {
+  errorHandler,
+  notFoundHandler,
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+  ConflictError,
+} from '@nextrush/errors';
+
+const app = createApp();
+const router = createRouter();
+
+// Error handling
+app.use(errorHandler({
+  includeStack: process.env.NODE_ENV !== 'production',
+  logger: (error, ctx) => {
+    console.error(`[${ctx.method} ${ctx.path}]`, error.message);
+  },
+}));
+
+// Middleware
+app.use(json());
+
+// Routes
+router.post('/api/users', async (ctx) => {
+  const { email, password } = ctx.body as { email?: string; password?: string };
+
+  // Validate input
+  if (!email || !password) {
+    throw new BadRequestError('Email and password are required', {
+      code: 'MISSING_FIELDS',
+      details: {
+        missing: [
+          !email && 'email',
+          !password && 'password',
+        ].filter(Boolean),
+      },
+    });
+  }
+
+  // Check for duplicates
+  const exists = await db.users.findByEmail(email);
+  if (exists) {
+    throw new ConflictError('User already exists', {
+      code: 'DUPLICATE_EMAIL',
+      details: { email },
+    });
+  }
+
+  // Create user
+  const user = await db.users.create({ email, password });
+  ctx.status = 201;
+  ctx.json({ data: user });
+});
+
+router.get('/api/users/:id', async (ctx) => {
+  const user = await db.users.findById(ctx.params.id);
+
+  if (!user) {
+    throw new NotFoundError(`User ${ctx.params.id} not found`, {
+      code: 'USER_NOT_FOUND',
+    });
+  }
+
+  ctx.json({ data: user });
+});
+
+// Mount routes
+app.use(router.routes());
+
+// 404 for unmatched routes
+app.use(notFoundHandler('Endpoint not found'));
+
+listen(app, { port: 3000 });
+```
+
+## Error Response Reference
+
+| Error Class | Status | Default Code |
+|-------------|--------|--------------|
+| `BadRequestError` | 400 | `BAD_REQUEST` |
+| `UnauthorizedError` | 401 | `UNAUTHORIZED` |
+| `ForbiddenError` | 403 | `FORBIDDEN` |
+| `NotFoundError` | 404 | `NOT_FOUND` |
+| `ConflictError` | 409 | `CONFLICT` |
+| `UnprocessableEntityError` | 422 | `UNPROCESSABLE_ENTITY` |
+| `TooManyRequestsError` | 429 | `TOO_MANY_REQUESTS` |
+| `InternalServerError` | 500 | `INTERNAL_SERVER_ERROR` |
+| `ServiceUnavailableError` | 503 | `SERVICE_UNAVAILABLE` |
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Validation"
+    description="Add request validation with Zod."
+    href="/docs/guides/validation"
+  />
+  <Card
+    title="Custom Middleware"
+    description="Create your own middleware."
+    href="/docs/guides/custom-middleware"
+  />
+</Cards>

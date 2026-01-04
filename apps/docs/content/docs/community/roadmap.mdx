@@ -1,0 +1,182 @@
+---
+title: "Roadmap"
+description: "What's coming next for NextRush — planned features and future direction."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Roadmap
+
+This roadmap outlines the planned development for NextRush v3.
+
+<Callout type="info">
+Roadmaps are subject to change based on community feedback and priorities.
+</Callout>
+
+---
+
+## Current Status
+
+**Version**: 3.0.0-alpha.2
+
+NextRush v3 is in **alpha**. Core functionality is working, but APIs may change before stable release.
+
+---
+
+## Phase 1: Core Stability ✅
+
+*Status: Complete*
+
+### Completed
+
+- [x] Application core with middleware composition
+- [x] High-performance radix tree router
+- [x] Node.js adapter
+- [x] Error handling system
+- [x] Type definitions package
+- [x] Runtime detection
+
+---
+
+## Phase 2: Developer Experience 🚧
+
+*Status: In Progress*
+
+### Completed
+
+- [x] Dependency injection container
+- [x] Decorator system for controllers
+- [x] Controllers plugin with auto-discovery
+- [x] Guard system for route protection
+- [x] Dev tools CLI (`@nextrush/dev`)
+
+### In Progress
+
+- [ ] Hot module reload in development
+- [ ] Better error messages with stack traces
+- [ ] VS Code extension for debugging
+
+### Planned
+
+- [ ] CLI for project scaffolding
+- [ ] Interactive mode for `nextrush dev`
+
+---
+
+## Phase 3: Production Readiness
+
+*Status: Planned*
+
+### Middleware Completion
+
+- [ ] Complete rate limiting with Redis support
+- [ ] Session management
+- [ ] CSRF protection
+- [ ] Request validation with Zod/Yup
+
+### Performance
+
+- [ ] Comprehensive benchmarking suite
+- [ ] Performance monitoring hooks
+- [ ] Memory optimization
+
+### Security
+
+- [ ] Security audit
+- [ ] Dependency vulnerability scanning
+- [ ] Security best practices guide
+
+---
+
+## Phase 4: Ecosystem
+
+*Status: Planned*
+
+### Adapters
+
+- [ ] Bun adapter optimization
+- [ ] Deno adapter completion
+- [ ] Edge adapter (Cloudflare Workers)
+- [ ] AWS Lambda adapter
+- [ ] Vercel adapter
+
+### Integrations
+
+- [ ] OpenAPI/Swagger generation
+- [ ] GraphQL plugin
+- [ ] WebSocket improvements
+- [ ] Server-Sent Events
+
+### Database
+
+- [ ] Drizzle ORM integration guide
+- [ ] Prisma integration guide
+- [ ] Database migration patterns
+
+---
+
+## Phase 5: Documentation & Community
+
+*Status: Ongoing*
+
+### Documentation
+
+- [x] Getting started guides
+- [x] Core concepts
+- [x] Package documentation
+- [ ] Video tutorials
+- [ ] API reference completion
+- [ ] Cookbook with recipes
+
+### Community
+
+- [ ] Discord server
+- [ ] Example repository
+- [ ] Starter templates
+- [ ] Plugin ecosystem guide
+
+---
+
+## Long-term Vision
+
+### Framework Goals
+
+1. **Performance**: Maintain 30,000+ RPS for simple apps
+2. **Bundle size**: Keep core under 200KB
+3. **Developer experience**: Zero-config where possible
+4. **Type safety**: 100% TypeScript coverage
+5. **Flexibility**: Support both functional and class-based patterns
+
+### Non-Goals
+
+- Replacing Express/Fastify for all use cases
+- Building a full-stack framework (like Next.js)
+- Supporting legacy Node.js versions (< 20)
+
+---
+
+## Release Schedule
+
+| Version | Type | Target | Focus |
+|---------|------|--------|-------|
+| 3.0.0-alpha.3 | Alpha | Q1 2026 | DX improvements |
+| 3.0.0-beta.1 | Beta | Q2 2026 | API stability |
+| 3.0.0 | Stable | Q3 2026 | Production ready |
+
+---
+
+## Feature Requests
+
+Want to influence the roadmap?
+
+- **Vote on issues**: 👍 existing feature requests
+- **Open discussions**: Propose new ideas
+- **Contribute**: Help implement features
+
+[Open a Feature Request](https://github.com/0xtanzim/nextrush/issues/new?template=feature_request.md)
+
+---
+
+## Changelog
+
+See the [Changelog](/docs/community/changelog) for what's already been released.
