@@ -38,7 +38,7 @@ router.get('/users', (ctx) => {
   ctx.json([{ id: 1, name: 'Alice' }]);
 });
 
-app.use(router.routes());
+app.route('/', router);
 ```
 
 ```ts title="Class-based style"
@@ -207,8 +207,8 @@ router.post('/users', createUser);
 router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 
-// Mount router as middleware
-app.use(router.routes());
+// Mount router on app
+app.route('/api', router);
 ```
 
 Route parameters are extracted automatically:

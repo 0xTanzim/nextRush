@@ -462,6 +462,47 @@ isMiddleware(fn); // true/false
 flattenMiddleware([mw1, [mw2, mw3]]); // [mw1, mw2, mw3]
 ```
 
+## Router Composition
+
+Mount routers directly on the application using `app.route()` — Hono-style composition:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+const app = createApp();
+
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+const posts = createRouter();
+posts.get('/', (ctx) => ctx.json([]));
+
+// Mount directly — clean like Hono!
+app.route('/api/users', users);
+app.route('/api/posts', posts);
+```
+
+### Benefits over Classic Pattern
+
+| Classic Pattern | Hono-Style Composition |
+|-----------------|------------------------|
+| `router.use('/users', usersRouter)` then `app.use(router.routes())` | `app.route('/users', users)` |
+| Requires main router | Direct mounting |
+| Extra `.routes()` call | No extra calls |
+
+### Classic Pattern Still Works
+
+```typescript
+// The traditional approach still works
+const router = createRouter();
+router.use('/users', usersRouter);
+router.use('/posts', postsRouter);
+app.use(router.routes());
+```
+
 ## Lifecycle
 
 ### Starting

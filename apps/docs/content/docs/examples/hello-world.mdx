@@ -24,7 +24,7 @@ router.get('/', (ctx) => {
   ctx.json({ message: 'Hello, NextRush!' });
 });
 
-app.use(router.routes());
+app.route('/', router);
 
 listen(app, 3000, () => {
   console.log('Server running at http://localhost:3000');
@@ -86,7 +86,7 @@ router.get('/', (ctx) => {
   ctx.json({ message: 'Hello, NextRush!' });
 });
 
-app.use(router.routes());
+app.route('/', router);
 
 listen(app, 3000, () => {
   console.log('Server running at http://localhost:3000');
@@ -157,10 +157,16 @@ router.get('/', (ctx) => {
 
 ### Mounting Routes
 
-Register the router's routes with the application:
+Mount the router on the application using `app.route()`:
 
 ```typescript
-app.use(router.routes());
+app.route('/', router);
+```
+
+This is Hono-style composition. You can also use the classic pattern:
+
+```typescript
+app.route('/', router);
 ```
 
 ### Starting the Server
@@ -179,23 +185,25 @@ listen(app, 3000);
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
-const router = createRouter();
 
-// Root
-router.get('/', (ctx) => {
+// Root router
+const root = createRouter();
+root.get('/', (ctx) => {
   ctx.json({ message: 'Hello, NextRush!' });
 });
 
-// Health check
-router.get('/health', (ctx) => {
+// Health router
+const health = createRouter();
+health.get('/', (ctx) => {
   ctx.json({
     status: 'ok',
     uptime: process.uptime(),
   });
 });
 
-// Echo endpoint
-router.get('/echo', (ctx) => {
+// Echo router
+const echo = createRouter();
+echo.get('/', (ctx) => {
   ctx.json({
     method: ctx.method,
     path: ctx.path,
@@ -203,12 +211,18 @@ router.get('/echo', (ctx) => {
   });
 });
 
-// Route with parameters
-router.get('/users/:id', (ctx) => {
+// Users router with parameters
+const users = createRouter();
+users.get('/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 
-app.use(router.routes());
+// Mount all routers
+app.route('/', root);
+app.route('/health', health);
+app.route('/echo', echo);
+app.route('/users', users);
+
 listen(app, 3000);
 ```
 
@@ -224,22 +238,24 @@ import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 
 const app = createApp();
-const router = createRouter();
 
-// Middleware
+// Middleware (runs before all routes)
 app.use(cors());
 app.use(json());
 
 // Routes
-router.get('/', (ctx) => {
+const api = createRouter();
+api.get('/', (ctx) => {
   ctx.json({ message: 'Hello, NextRush!' });
 });
 
-router.post('/echo', (ctx) => {
+api.post('/echo', (ctx) => {
   ctx.json({ received: ctx.body });
 });
 
-app.use(router.routes());
+// Mount
+app.route('/api', api);
+
 listen(app, 3000);
 ```
 

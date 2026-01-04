@@ -139,7 +139,6 @@ import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 
 const app = createApp();
-const router = createRouter();
 
 // Function-based middleware
 app.use(async (ctx) => {
@@ -147,12 +146,24 @@ app.use(async (ctx) => {
   await ctx.next();
 });
 
-// Function-based routes
-router.get('/users', (ctx) => {
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => {
   ctx.json([{ id: 1, name: 'Alice' }]);
 });
+users.get('/:id', (ctx) => {
+  ctx.json({ id: ctx.params.id });
+});
 
-app.use(router.routes());
+const posts = createRouter();
+posts.get('/', (ctx) => {
+  ctx.json([]);
+});
+
+// Mount routers — Hono-style composition
+app.route('/users', users);
+app.route('/posts', posts);
+
 app.listen(3000);
 ```
 
@@ -183,7 +194,7 @@ const AuthGuard: GuardFn = async (ctx) => {
   return Boolean(ctx.get('authorization'));
 };
 
-// Controller with decorators
+// Controller with decorators (auto-discovered from ./src)
 @UseGuard(AuthGuard)
 @Controller('/users')
 class UserController {
@@ -200,11 +211,15 @@ class UserController {
   }
 }
 
-// Bootstrap
+// Bootstrap with auto-discovery (recommended)
 const app = createApp();
+
 app.plugin(controllersPlugin({
-  controllers: [UserController],
+  root: './src',           // Auto-discover all @Controller classes
+  prefix: '/api',          // Add /api prefix to all routes
+  debug: true,             // Log discovered controllers
 }));
+
 app.listen(3000);
 ```
 

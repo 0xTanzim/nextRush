@@ -28,20 +28,7 @@
  * @packageDocumentation
  * @module nextrush
  *
- * @example Quick Start (Functional)
- * ```typescript
- * import { createApp, createRouter, listen } from 'nextrush';
- *
- * const app = createApp();
- * const router = createRouter();
- *
- * router.get('/', (ctx) => {
- *   ctx.json({ message: 'Hello NextRush!' });
- * });
- *
- * app.use(router.routes());
- * listen(app, 3000);
- * ```
+ * @example Quick Start (Functional)\n * ```typescript\n * import { createApp, createRouter, listen } from 'nextrush';\n *\n * const app = createApp();\n * const router = createRouter();\n *\n * router.get('/', (ctx) => {\n *   ctx.json({ message: 'Hello NextRush!' });\n * });\n *\n * app.route('/', router);\n * listen(app, 3000);\n * ```
  *
  * @example With Middleware (install separately)
  * ```typescript
@@ -92,7 +79,7 @@ export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 // ============================================
 // ROUTER: Radix Tree Routing
 // ============================================
-export { createRouter, Router } from '@nextrush/router';
+export { Router, createRouter } from '@nextrush/router';
 export type { RouterOptions } from '@nextrush/router';
 
 // ============================================
@@ -107,15 +94,15 @@ export type { ServeOptions, ServerInstance } from '@nextrush/adapter-node';
 export {
     BadGatewayError,
     // 4xx Client Errors
-    BadRequestError, catchAsync, ConflictError,
-    // Factory functions
-    createError,
-    // Error handling middleware
-    errorHandler, ForbiddenError, GatewayTimeoutError,
+    BadRequestError, ConflictError, ForbiddenError, GatewayTimeoutError,
     // Base
     HttpError,
     // 5xx Server Errors
-    InternalServerError, isHttpError, MethodNotAllowedError, NextRushError, NotFoundError, notFoundHandler, NotImplementedError, ServiceUnavailableError, TooManyRequestsError, UnauthorizedError, UnprocessableEntityError
+    InternalServerError, MethodNotAllowedError, NextRushError, NotFoundError, NotImplementedError, ServiceUnavailableError, TooManyRequestsError, UnauthorizedError, UnprocessableEntityError, catchAsync,
+    // Factory functions
+    createError,
+    // Error handling middleware
+    errorHandler, isHttpError, notFoundHandler
 } from '@nextrush/errors';
 
 export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';

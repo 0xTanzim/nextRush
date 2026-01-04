@@ -36,20 +36,7 @@ pnpm add nextrush
 
 ## Quick Start
 
-```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-
-const app = createApp();
-const router = createRouter();
-
-router.get('/', (ctx) => {
-  ctx.json({ message: 'Hello NextRush!' });
-});
-
-app.use(router.routes());
-
-listen(app, 3000);
-```
+```typescript\nimport { createApp, createRouter, listen } from 'nextrush';\n\nconst app = createApp();\nconst router = createRouter();\n\nrouter.get('/', (ctx) => {\n  ctx.json({ message: 'Hello NextRush!' });\n});\n\napp.route('/', router);\n\nlisten(app, 3000);\n```
 
 ## Performance
 

@@ -118,7 +118,7 @@ app.use(urlencoded());
 app.use(compression());
 
 // 7. Your application routes
-app.use(router.routes());
+app.route('/', router);
 ```
 
 ---

@@ -242,7 +242,8 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ id, name: 'John Doe' });
 });
 
-app.use(router.routes());
+// Mount router — Hono-style
+app.route('/', router);
 
 // Start server
 serve(app, {

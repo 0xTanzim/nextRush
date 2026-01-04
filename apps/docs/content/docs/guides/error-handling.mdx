@@ -409,7 +409,7 @@ app.use(json());
 app.use(cors());
 
 // 3. Routes
-app.use(router.routes());
+app.route('/api', router);
 
 // 4. 404 handler LAST
 app.use(notFoundHandler());
@@ -490,7 +490,7 @@ router.get('/api/users/:id', async (ctx) => {
 });
 
 // Mount routes
-app.use(router.routes());
+app.route('/api', router);
 
 // 404 for unmatched routes
 app.use(notFoundHandler('Endpoint not found'));

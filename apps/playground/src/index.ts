@@ -112,8 +112,8 @@ async function main() {
 
   console.log('✓ Class-based controllers registered\n');
 
-  // Mount router
-  app.use(router.routes());
+  // Mount router - Hono-style
+  app.route('/', router);
 
   // Start server
   const port = parseInt(process.env.PORT || '3000', 10);

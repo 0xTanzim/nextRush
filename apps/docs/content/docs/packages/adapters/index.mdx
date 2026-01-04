@@ -64,7 +64,7 @@ const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ runtime: 'node' }));
 
-app.use(router.routes());
+app.route('/', router);
 listen(app, 3000);
 ```
 
@@ -80,7 +80,7 @@ const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ runtime: 'bun' }));
 
-app.use(router.routes());
+app.route('/', router);
 serve(app, { port: 3000 });
 ```
 
@@ -96,7 +96,7 @@ const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ runtime: 'deno' }));
 
-app.use(router.routes());
+app.route('/', router);
 await serve(app, { port: 3000 });
 ```
 
@@ -112,7 +112,7 @@ const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ runtime: 'edge' }));
 
-app.use(router.routes());
+app.route('/', router);
 
 export default {
   fetch: createHandler(app),
@@ -166,7 +166,7 @@ router.get('/health', (ctx) => {
   ctx.json({ status: 'healthy' });
 });
 
-app.use(router.routes());
+app.route('/', router);
 ```
 
 Then deploy anywhere:

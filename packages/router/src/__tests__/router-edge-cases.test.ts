@@ -414,4 +414,73 @@ describe('Router Edge Cases', () => {
       expect(match?.params.itemid).toBe('456');
     });
   });
+
+  describe('mount() method (Hono-style)', () => {
+    it('should mount sub-router at prefix using mount()', () => {
+      const subRouter = createRouter();
+      subRouter.get('/items', vi.fn());
+      subRouter.get('/items/:id', vi.fn());
+
+      router.mount('/api', subRouter);
+
+      expect(router.match('GET', '/api/items')).not.toBeNull();
+      expect(router.match('GET', '/api/items/123')).not.toBeNull();
+    });
+
+    it('should be equivalent to use(path, router)', () => {
+      const subRouter1 = createRouter();
+      subRouter1.get('/test', vi.fn());
+
+      const subRouter2 = createRouter();
+      subRouter2.get('/test', vi.fn());
+
+      const router1 = createRouter();
+      const router2 = createRouter();
+
+      router1.use('/api', subRouter1);
+      router2.mount('/api', subRouter2);
+
+      const match1 = router1.match('GET', '/api/test');
+      const match2 = router2.match('GET', '/api/test');
+
+      expect(match1).not.toBeNull();
+      expect(match2).not.toBeNull();
+    });
+
+    it('should support chaining', () => {
+      const users = createRouter();
+      users.get('/', vi.fn());
+
+      const posts = createRouter();
+      posts.get('/', vi.fn());
+
+      router.mount('/users', users).mount('/posts', posts);
+
+      expect(router.match('GET', '/users')).not.toBeNull();
+      expect(router.match('GET', '/posts')).not.toBeNull();
+    });
+
+    it('should preserve route params from sub-router', () => {
+      const subRouter = createRouter();
+      subRouter.get('/:userId/posts/:postId', vi.fn());
+
+      router.mount('/api', subRouter);
+
+      const match = router.match('GET', '/api/123/posts/456');
+      expect(match?.params.userid).toBe('123');
+      expect(match?.params.postid).toBe('456');
+    });
+
+    it('should support nested mounting', () => {
+      const deepRouter = createRouter();
+      deepRouter.get('/deep', vi.fn());
+
+      const midRouter = createRouter();
+      midRouter.mount('/mid', deepRouter);
+
+      router.mount('/top', midRouter);
+
+      expect(router.match('GET', '/top/mid/deep')).not.toBeNull();
+    });
+  });
 });

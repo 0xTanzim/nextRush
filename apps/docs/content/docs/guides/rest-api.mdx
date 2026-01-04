@@ -219,7 +219,7 @@ app.use(errorHandler({
 app.use(json());
 
 // Mount routes
-app.use(usersRouter.routes());
+app.route('/api', usersRouter);
 
 // 404 handler (must be last)
 app.use(notFoundHandler());
@@ -447,8 +447,8 @@ v1Router.get('/api/v1/posts', postsHandler);
 const v2Router = createRouter();
 v2Router.get('/api/v2/users', usersV2Handler);
 
-app.use(v1Router.routes());
-app.use(v2Router.routes());
+app.route('/api/v1', v1Router);
+app.route('/api/v2', v2Router);
 ```
 
 ### Request Logging

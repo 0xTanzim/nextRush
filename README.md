@@ -42,21 +42,20 @@ pnpm add nextrush
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
+
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+users.post('/', (ctx) => ctx.json({ received: ctx.body }));
+
+// Mount routers — Hono-style composition
+app.route('/users', users);
+
+// Simple routes directly on app
 const router = createRouter();
-
-router.get('/', (ctx) => {
-  ctx.json({ message: 'Hello NextRush!' });
-});
-
-router.get('/users/:id', (ctx) => {
-  ctx.json({ id: ctx.params.id });
-});
-
-router.post('/users', (ctx) => {
-  ctx.json({ received: ctx.body });
-});
-
-app.use(router.routes());
+router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush!' }));
+app.route('/', router);
 
 listen(app, 3000);
 ```

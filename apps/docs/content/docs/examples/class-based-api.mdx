@@ -308,7 +308,6 @@ import { createApp, createRouter, listen } from 'nextrush';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 import { controllersPlugin } from '@nextrush/controllers';
-import { UserController } from './controllers/user.controller';
 
 async function main() {
   const app = createApp();
@@ -325,14 +324,16 @@ async function main() {
     console.log(`${ctx.method} ${ctx.path} - ${ctx.status} (${Date.now() - start}ms)`);
   });
 
-  // Register controllers
+  // Auto-discover all controllers in ./src
   app.plugin(controllersPlugin({
     router,
-    controllers: [UserController],
+    root: './src',
+    prefix: '/api',
+    debug: true,
   }));
 
   // Mount router
-  app.use(router.routes());
+  app.route('/api', router);
 
   // 404 handler
   app.use((ctx) => {
@@ -352,6 +353,24 @@ main().catch(console.error);
 <Callout type="warn">
 `import 'reflect-metadata'` MUST be the first import. This enables decorator metadata.
 </Callout>
+
+When the app starts, you'll see the auto-discovery output:
+
+```
+[Controllers] Starting auto-discovery in: ./src
+[Controllers] Discovered: UserController from ./src/controllers/user.controller.ts
+[Controllers] Registered: UserController
+  GET     /api/users
+  GET     /api/users/:id
+  POST    /api/users
+  PUT     /api/users/:id
+  PATCH   /api/users/:id
+  DELETE  /api/users/:id
+[Controllers] Initialized with 6 routes
+Class-based API running at http://localhost:3000
+```
+
+No manual imports or controller arrays needed. Add a new controller file anywhere in `./src` with the `@Controller` decorator, and it's automatically discovered and registered.
 
 ---
 

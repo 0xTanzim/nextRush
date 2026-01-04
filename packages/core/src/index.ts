@@ -12,7 +12,7 @@
 
 // Application
 export { Application, createApp } from './application';
-export type { ApplicationOptions, ErrorHandler, ListenCallback } from './application';
+export type { ApplicationOptions, ErrorHandler, ListenCallback, Routable } from './application';
 
 // Middleware
 export { compose, flattenMiddleware, isMiddleware } from './middleware';

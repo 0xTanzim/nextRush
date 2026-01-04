@@ -325,7 +325,7 @@ Catch-all 404 handler:
 import { notFoundHandler } from '@nextrush/errors';
 
 // Add after all routes
-app.use(router.routes());
+app.route('/', router);
 app.use(notFoundHandler());
 
 // With custom message
@@ -402,7 +402,7 @@ router.post('/users', async (ctx) => {
   ctx.json(user);
 });
 
-app.use(router.routes());
+app.route('/', router);
 
 // 404 handler last
 app.use(notFoundHandler());

@@ -91,7 +91,7 @@ router.get('/users/:id', async (ctx) => {
   ctx.json({ user });
 });
 
-app.use(router.routes());
+app.route('/api', router);
 ```
 
 ### Class-Based Style

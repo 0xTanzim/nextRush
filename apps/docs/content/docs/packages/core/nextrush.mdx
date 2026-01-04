@@ -72,7 +72,7 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 
-app.use(router.routes());
+app.route('/', router);
 listen(app, 3000);
 ```
 
@@ -229,7 +229,7 @@ router.delete('/users/:id', (ctx) => {
   ctx.send(null);
 });
 
-app.use(router.routes());
+app.route('/', router);
 listen(app, 3000);
 ```
 
@@ -248,7 +248,7 @@ router.get('/', (ctx) => ctx.json({ ok: true }));
 app.use(errorHandler());
 
 // Routes
-app.use(router.routes());
+app.route('/', router);
 
 // 404 fallback
 app.use(notFoundHandler());
@@ -274,7 +274,7 @@ app.use(json());
 // Routes
 const router = createRouter();
 router.get('/', (ctx) => ctx.json({ ok: true }));
-app.use(router.routes());
+app.route('/', router);
 
 listen(app, 3000);
 ```
@@ -328,7 +328,7 @@ const app = createApp();
 const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ runtime: 'bun' }));
-app.use(router.routes());
+app.route('/', router);
 
 serve(app, { port: 3000 });
 ```
@@ -346,7 +346,7 @@ const app = createApp();
 const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ runtime: 'deno' }));
-app.use(router.routes());
+app.route('/', router);
 
 serve(app, { port: 3000 });
 ```

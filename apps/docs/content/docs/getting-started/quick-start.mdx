@@ -33,11 +33,9 @@ import { createApp, createRouter, listen } from 'nextrush';
 // Create the application
 const app = createApp();
 
-// Create a router for organizing routes
-const router = createRouter();
-
-// Define routes
-router.get('/', (ctx) => {
+// Create feature routers
+const health = createRouter();
+health.get('/', (ctx) => {
   ctx.json({
     name: 'My API',
     version: '1.0.0',
@@ -45,14 +43,15 @@ router.get('/', (ctx) => {
   });
 });
 
-router.get('/users', (ctx) => {
+const users = createRouter();
+users.get('/', (ctx) => {
   ctx.json([
     { id: 1, name: 'Alice', email: 'alice@example.com' },
     { id: 2, name: 'Bob', email: 'bob@example.com' },
   ]);
 });
 
-router.get('/users/:id', (ctx) => {
+users.get('/:id', (ctx) => {
   const { id } = ctx.params;
   ctx.json({
     id: Number(id),
@@ -61,8 +60,9 @@ router.get('/users/:id', (ctx) => {
   });
 });
 
-// Register routes
-app.use(router.routes());
+// Mount routers — Hono-style composition
+app.route('/', health);
+app.route('/users', users);
 
 // Start the server
 listen(app, 3000);
@@ -103,13 +103,12 @@ curl http://localhost:3000/users/1
 
 Middleware runs before your route handlers. Let's add a simple logger:
 
-```typescript title="src/index.ts" {4-11,16}
+```typescript title="src/index.ts" {7-12}
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
-const router = createRouter();
 
-// Logger middleware
+// Logger middleware (runs before routes)
 app.use(async (ctx) => {
   const start = Date.now();
   await ctx.next();
@@ -117,14 +116,16 @@ app.use(async (ctx) => {
   console.log(`${ctx.method} ${ctx.path} - ${ms}ms`);
 });
 
-// ... routes
+// Create and mount routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+app.route('/users', users);
 
-app.use(router.routes());
 listen(app, 3000);
 ```
 
 <Callout type="info" title="Middleware Order Matters">
-  Middleware runs in the order you define it. The logger above runs **before** the router because we registered it first.
+  Middleware runs in the order you define it. The logger above runs **before** the routers because we registered it first.
 </Callout>
 
 Now when you make requests, you'll see timing logs:
@@ -202,7 +203,6 @@ import { helmet } from '@nextrush/helmet';
 import { json } from '@nextrush/body-parser';
 
 const app = createApp();
-const router = createRouter();
 
 // Middleware
 app.use(helmet());
@@ -216,30 +216,35 @@ app.use(async (ctx) => {
   console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
 });
 
-// Routes
-router.get('/', (ctx) => {
+// Feature routers
+const health = createRouter();
+health.get('/', (ctx) => {
   ctx.json({ name: 'My API', version: '1.0.0' });
 });
 
-router.get('/users', (ctx) => {
+const users = createRouter();
+users.get('/', (ctx) => {
   ctx.json([
     { id: 1, name: 'Alice' },
     { id: 2, name: 'Bob' },
   ]);
 });
 
-router.get('/users/:id', (ctx) => {
+users.get('/:id', (ctx) => {
   ctx.json({ id: Number(ctx.params.id), name: 'Alice' });
 });
 
-router.post('/users', (ctx) => {
+users.post('/', (ctx) => {
   const { name, email } = ctx.body as { name: string; email: string };
   ctx.status = 201;
   ctx.json({ id: Date.now(), name, email });
 });
 
+// Mount routers
+app.route('/', health);
+app.route('/users', users);
+
 // Start
-app.use(router.routes());
 listen(app, 3000);
 console.log('🚀 Server running at http://localhost:3000');
 ```
@@ -251,7 +256,7 @@ console.log('🚀 Server running at http://localhost:3000');
 </Callout>
 
 <Callout type="warning" title="Middleware Order">
-  Register middleware **before** `router.routes()`. Middleware registered after won't run for your routes.
+  Register middleware **before** mounting routers with `app.route()`. Middleware registered after won't run for your routes.
 </Callout>
 
 ## What's Next?

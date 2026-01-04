@@ -67,21 +67,7 @@ pnpm add nextrush @nextrush/cors @nextrush/body-parser
 pnpm add nextrush @nextrush/decorators @nextrush/di @nextrush/controllers
 ```
 
-## Quick Example
-
-```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-
-const app = createApp();
-const router = createRouter();
-
-router.get('/', (ctx) => {
-  ctx.json({ message: 'Hello NextRush v3!' });
-});
-
-app.use(router.routes());
-listen(app, 3000);
-```
+## Quick Example\n\n```typescript\nimport { createApp, createRouter, listen } from 'nextrush';\n\nconst app = createApp();\nconst router = createRouter();\n\nrouter.get('/', (ctx) => {\n  ctx.json({ message: 'Hello NextRush v3!' });\n});\n\napp.route('/', router);\nlisten(app, 3000);\n```
 
 ## Breaking Changes from v2
 

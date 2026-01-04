@@ -59,7 +59,7 @@ const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 
-app.use(router.routes());
+app.route('/', router);
 listen(app, 3000);
 ```
 
@@ -151,7 +151,7 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 
-app.use(router.routes());
+app.route('/', router);
 ```
 
 ## The Errors Package

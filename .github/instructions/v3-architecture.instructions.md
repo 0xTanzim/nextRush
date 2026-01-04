@@ -203,13 +203,7 @@ Connects DI, decorators, and router to auto-register controllers.
 ### Usage
 
 ```typescript
-import { controllersPlugin } from '@nextrush/controllers';
-
-const app = createApp();
-app.plugin(controllersPlugin({
-  controllers: [UserController, ProductController],
-  container: container, // Optional: custom DI container
-}));
+### Usage\n\n```typescript\nimport { controllersPlugin } from '@nextrush/controllers';\n\nconst app = createApp();\nconst router = createRouter();\n\n// Auto-discovery (recommended)\napp.plugin(controllersPlugin({\n  router,\n  root: './src',           // Scan for @Controller classes\n  prefix: '/api',          // Add prefix to all routes\n  debug: true,             // Log discovered controllers\n}));\n\napp.route('/', router);\n```
 ```
 
 ### Handler Building Pipeline

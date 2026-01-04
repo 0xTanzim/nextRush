@@ -14,10 +14,10 @@
  * always-on body parsing.
  */
 
+import { listen } from '@nextrush/adapter-node';
 import { json } from '@nextrush/body-parser';
-import {listen} from '@nextrush/adapter-node'
-import {createApp} from '@nextrush/core'
-import {createRouter} from '@nextrush/router'
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 
 const app = createApp();
 const router = createRouter();
@@ -63,7 +63,8 @@ router.post('/users', json(), async (ctx) => {
   });
 });
 
-app.use(router.routes());
+// Mount router - Hono-style
+app.route('/', router);
 
 // Start server
 const port = process.env.PORT || 3000;

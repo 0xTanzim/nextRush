@@ -39,17 +39,15 @@ Get a working API in under 2 minutes:
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
-const router = createRouter();
 
-router.get('/', (ctx) => {
-  ctx.json({ message: 'Hello NextRush!' });
-});
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
-router.get('/users/:id', (ctx) => {
-  ctx.json({ id: ctx.params.id });
-});
+// Mount directly on app — Hono-style composition
+app.route('/users', users);
 
-app.use(router.routes());
 listen(app, 3000);
 ```
 
@@ -105,14 +103,18 @@ NextRush supports both functional and class-based patterns. Choose what fits you
     import { createApp, createRouter, listen } from 'nextrush';
 
     const app = createApp();
-    const router = createRouter();
 
-    // Simple, direct, minimal
-    router.get('/users', (ctx) => {
-      ctx.json([{ id: 1, name: 'Alice' }]);
-    });
+    // Feature routers
+    const users = createRouter();
+    users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 
-    app.use(router.routes());
+    const posts = createRouter();
+    posts.get('/', (ctx) => ctx.json([]));
+
+    // Mount directly — Hono-style composition
+    app.route('/users', users);
+    app.route('/posts', posts);
+
     listen(app, 3000);
     ```
 

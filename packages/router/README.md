@@ -63,7 +63,7 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ userId: ctx.params.id });
 });
 
-app.use(router.routes());
+app.route('/', router);
 app.listen(3000);
 ```
 
@@ -147,7 +147,7 @@ api.get('/users', listUsers);      // GET /api/v1/users
 api.get('/users/:id', getUser);    // GET /api/v1/users/:id
 api.post('/users', createUser);    // POST /api/v1/users
 
-app.use(api.routes());
+app.route('/', api);
 ```
 
 ### Nested Groups
@@ -166,7 +166,7 @@ router.group('/api', (api) => {
   });
 });
 
-app.use(router.routes());
+app.route('/', router);
 ```
 
 ### Group Middleware
@@ -235,7 +235,9 @@ Supported status codes: `301`, `302`, `303`, `307`, `308`
 
 ## Sub-Router Mounting
 
-Compose routers together:
+Compose routers together using `mount()` or `use()`:
+
+### Using mount() (Recommended)
 
 ```typescript
 const userRouter = createRouter();
@@ -248,11 +250,36 @@ postRouter.get('/', listPosts);
 postRouter.get('/:id', getPost);
 
 const api = createRouter();
+api.mount('/users', userRouter);  // Clean explicit mounting
+api.mount('/posts', postRouter);
+
+app.route('/api', api);
+// Results in: /api/users, /api/users/:id, /api/posts, /api/posts/:id
+```
+
+### Using use() (Classic Pattern)
+
+The traditional `use()` method also works:
+
+```typescript
+const api = createRouter();
 api.use('/users', userRouter);
 api.use('/posts', postRouter);
 
-app.use(api.routes());
-// Results in: /users, /users/:id, /posts, /posts/:id
+app.route('/api', api);
+// Or classic: app.use(api.routes());
+```
+
+### Direct App Mounting (Hono-Style)
+
+For the cleanest DX, mount routers directly on the app:
+
+```typescript
+import { createApp } from '@nextrush/core';
+
+const app = createApp();
+app.route('/users', userRouter);  // No routes() call needed!
+app.route('/posts', postRouter);
 ```
 
 ## Allowed Methods
@@ -260,7 +287,7 @@ app.use(api.routes());
 Automatically handle 405 Method Not Allowed:
 
 ```typescript
-app.use(router.routes());
+app.route('/', router);
 app.use(router.allowedMethods());
 
 // GET /users → 200 OK (if GET handler exists)
@@ -400,6 +427,22 @@ router.use(path: string, subRouter: Router): Router
 router.use(subRouter: Router): Router
 ```
 
+#### `router.mount(path, subRouter)`
+
+Mount a sub-router at a path prefix. This is an alias for `use(path, router)` with clearer intent.
+
+```typescript
+router.mount(path: string, subRouter: Router): Router
+```
+
+**Example:**
+
+```typescript
+const api = createRouter();
+api.mount('/users', userRouter);
+api.mount('/posts', postRouter);
+```
+
 #### `router.match(method, path)`
 
 Match a route and return handler + params.
@@ -468,7 +511,7 @@ router.get('/users/:id', getUser);
 router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 
-app.use(router.routes());
+app.route('/', router);
 ```
 
 ### API Versioning
@@ -480,8 +523,8 @@ v1.get('/users', v1UsersHandler);
 const v2 = createRouter({ prefix: '/api/v2' });
 v2.get('/users', v2UsersHandler);
 
-app.use(v1.routes());
-app.use(v2.routes());
+app.route('/', v1);
+app.route('/', v2);
 ```
 
 ### Catch-All for SPA
@@ -503,11 +546,14 @@ router.get('/*', (ctx) => {
 // ❌ Routes not mounted
 const router = createRouter();
 router.get('/users', handler);
-// Missing: app.use(router.routes())
+// Missing: app.route('/api', router)
 
-// ✅ Correct
+// ✅ Recommended: Use app.route()
 const router = createRouter();
 router.get('/users', handler);
+app.route('/api', router);
+
+// ✅ Also works: Classic pattern
 app.use(router.routes());
 ```
 

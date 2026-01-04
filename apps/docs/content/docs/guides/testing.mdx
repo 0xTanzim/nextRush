@@ -315,7 +315,7 @@ function createTestApp() {
     ctx.json({ data: { id: '123', name, email } });
   });
 
-  app.use(router.routes());
+  app.route('/', router);
 
   return app;
 }

@@ -13,7 +13,7 @@ router.get('/', (ctx) => {
   ctx.json({ message: 'Hello NextRush!' });
 });
 
-app.use(router.routes());
+app.route('/', router);
 listen(app, 3000);`;
 
 export function Hero() {
@@ -145,10 +145,10 @@ export function Hero() {
                   <span className="text-[#fafafa]">{'}'});</span>
                   {'\n\n'}
                   <span className="text-[#fafafa]">app.</span>
-                  <span className="text-[#79c0ff]">use</span>
-                  <span className="text-[#fafafa]">(router.</span>
-                  <span className="text-[#79c0ff]">routes</span>
-                  <span className="text-[#fafafa]">());</span>
+                  <span className="text-[#79c0ff]">route</span>
+                  <span className="text-[#fafafa]">(</span>
+                  <span className="text-[#a5d6ff]">&apos;/&apos;</span>
+                  <span className="text-[#fafafa]">, router);</span>
                   {'\n'}
                   <span className="text-[#79c0ff]">listen</span>
                   <span className="text-[#fafafa]">(app, </span>

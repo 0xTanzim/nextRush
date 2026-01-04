@@ -240,7 +240,7 @@ app.use(cors());            // 4. Handle CORS preflight
 app.use(helmet());          // 5. Set security headers
 app.use(bodyParser());      // 6. Parse request body
 app.use(auth());            // 7. Authenticate user
-app.use(router.routes());   // 8. Handle routes
+app.route('/', router);     // 8. Handle routes
 ```
 
 **Why this order?**

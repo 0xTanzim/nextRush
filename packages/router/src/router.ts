@@ -8,20 +8,20 @@
  */
 
 import {
-  HTTP_METHODS,
-  type Context,
-  type HttpMethod,
-  type Middleware,
-  type RouteHandler,
-  type RouteMatch,
-  type RouterOptions,
+    HTTP_METHODS,
+    type Context,
+    type HttpMethod,
+    type Middleware,
+    type RouteHandler,
+    type RouteMatch,
+    type RouterOptions,
 } from '@nextrush/types';
 import {
-  createNode,
-  NodeType,
-  parseSegments,
-  type HandlerEntry,
-  type RadixNode,
+    createNode,
+    NodeType,
+    parseSegments,
+    type HandlerEntry,
+    type RadixNode,
 } from './radix-tree';
 
 /**
@@ -260,7 +260,44 @@ export class Router {
   }
 
   /**
-   * Mount a sub-router
+   * Mount a sub-router at a path prefix (Hono-style)
+   *
+   * This is the explicit API for mounting sub-routers.
+   * Equivalent to `router.use(path, subRouter)` but more semantic.
+   *
+   * @param path - Path prefix for the sub-router
+   * @param router - Router instance to mount
+   * @returns this for chaining
+   *
+   * @example
+   * ```typescript
+   * // Create modular routers
+   * const users = createRouter();
+   * users.get('/', listUsers);
+   * users.get('/:id', getUser);
+   *
+   * const posts = createRouter();
+   * posts.get('/', listPosts);
+   *
+   * // Mount sub-routers
+   * const api = createRouter();
+   * api.mount('/users', users);
+   * api.mount('/posts', posts);
+   *
+   * // Or use on main router
+   * const router = createRouter();
+   * router.mount('/api', api);
+   *
+   * app.use(router.routes());
+   * ```
+   */
+  mount(path: string, router: Router): this {
+    this.mountRouter(path, router);
+    return this;
+  }
+
+  /**
+   * Mount a sub-router (internal)
    */
   private mountRouter(prefix: string, router: Router): void {
     // Copy all routes from sub-router with prefix

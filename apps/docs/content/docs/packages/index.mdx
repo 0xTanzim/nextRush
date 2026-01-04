@@ -103,7 +103,7 @@ const router = createRouter();
 
 router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 
-app.use(router.routes());
+app.route('/', router);
 listen(app, 3000);
 ```
 
@@ -189,7 +189,7 @@ app.use(json());
 const router = createRouter();
 router.get('/users', (ctx) => ctx.json([]));
 
-app.use(router.routes());
+app.route('/', router);
 listen(app, 3000);
 ```
 

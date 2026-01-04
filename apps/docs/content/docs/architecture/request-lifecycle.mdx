@@ -177,7 +177,7 @@ router.get('/users', listUsers);           // Static route
 router.get('/users/:id', getUser);         // Param route
 router.get('/files/*', serveFile);         // Wildcard route
 
-app.use(router.routes());
+app.route('/', router);
 ```
 
 **Matching process:**

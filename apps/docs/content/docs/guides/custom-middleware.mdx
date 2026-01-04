@@ -521,11 +521,11 @@ app.use(errorHandler());    // 1. Catch errors
 app.use(requestId());       // 2. Add request ID
 app.use(requestLogger());   // 3. Log requests
 app.use(auth());            // 4. Authenticate
-app.use(router.routes());   // 5. Handle routes
+app.route('/', router);     // 5. Handle routes
 app.use(notFoundHandler()); // 6. 404 for unmatched
 
 // ❌ Wrong order
-app.use(router.routes());   // Routes before auth!
+app.route('/', router);   // Routes before auth!
 app.use(auth());            // Too late
 ```
 

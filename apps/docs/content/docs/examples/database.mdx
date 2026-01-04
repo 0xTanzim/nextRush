@@ -486,7 +486,7 @@ async function main() {
     controllers: [UserController],
   }));
 
-  app.use(router.routes());
+  app.route('/', router);
 
   listen(app, 3000, () => {
     console.log('Database API running at http://localhost:3000');

@@ -70,9 +70,48 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ userId: ctx.params.id });
 });
 
-// Mount routes on the app
-app.use(router.routes());
+// Mount router — Hono-style composition (recommended)
+app.route('/api', router);
 ```
+
+## Router Composition
+
+NextRush supports Hono-style direct router mounting with `app.route()`:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+users.post('/', (ctx) => ctx.json({ created: true }));
+
+const posts = createRouter();
+posts.get('/', (ctx) => ctx.json([]));
+posts.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+// Mount directly on app — clean like Hono!
+const app = createApp();
+app.route('/api/users', users);
+app.route('/api/posts', posts);
+```
+
+This is the **recommended pattern** for composing routers. Benefits:
+- No need to create a main router just for mounting
+- No `router.routes()` call required
+- Clean, Hono-like DX
+
+### Classic Pattern (Still Works)
+
+The traditional approach with `router.routes()` still works:
+
+```typescript title="Classic Mounting"
+const router = createRouter();
+router.use('/users', usersRouter);
+router.use('/posts', postsRouter);
+app.route('/', router);
 
 ## HTTP Methods
 
@@ -240,30 +279,66 @@ router.redirect('/users/:id', '/profiles/:id');
 
 Compose routers for modular code organization:
 
-```typescript title="users.ts"
-export const userRouter = createRouter();
-userRouter.get('/', listUsers);
-userRouter.get('/:id', getUser);
-userRouter.post('/', createUser);
+```typescript title="routes/users.ts"
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter();
+router.get('/', listUsers);
+router.get('/:id', getUser);
+router.post('/', createUser);
+
+export default router;
 ```
 
-```typescript title="posts.ts"
-export const postRouter = createRouter();
-postRouter.get('/', listPosts);
-postRouter.get('/:id', getPost);
+```typescript title="routes/posts.ts"
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter();
+router.get('/', listPosts);
+router.get('/:id', getPost);
+
+export default router;
 ```
 
 ```typescript title="app.ts"
-import { userRouter } from './users';
-import { postRouter } from './posts';
+import { createApp } from '@nextrush/core';
+import users from './routes/users';
+import posts from './routes/posts';
 
+const app = createApp();
+
+// Mount routers directly — Hono-style composition
+app.route('/users', users);
+app.route('/posts', posts);
+
+// Result:
+// GET /users, GET /users/:id, POST /users
+// GET /posts, GET /posts/:id
+```
+
+### mount() Method
+
+Use `router.mount()` for nesting routers within routers:
+
+```typescript
+const api = createRouter();
+api.mount('/users', usersRouter);
+api.mount('/posts', postsRouter);
+
+app.route('/api', api);
+// GET /api/users, GET /api/posts, etc.
+```
+
+### Legacy Pattern
+
+The classic `router.use('/path', subRouter)` still works:
+
+```typescript
 const api = createRouter();
 api.use('/users', userRouter);
 api.use('/posts', postRouter);
 
-app.use(api.routes());
-// GET /users, GET /users/:id, POST /users
-// GET /posts, GET /posts/:id
+app.route('/', api);
 ```
 
 ## Allowed Methods
@@ -271,7 +346,7 @@ app.use(api.routes());
 Handle 405 Method Not Allowed automatically:
 
 ```typescript
-app.use(router.routes());
+app.route('/', router);
 app.use(router.allowedMethods());
 ```
 
@@ -348,14 +423,20 @@ router.delete('/users/:id', deleteUser);
 ### API Versioning
 
 ```typescript
-const v1 = createRouter({ prefix: '/api/v1' });
+const v1 = createRouter();
 v1.get('/users', v1UsersHandler);
 
-const v2 = createRouter({ prefix: '/api/v2' });
+const v2 = createRouter();
 v2.get('/users', v2UsersHandler);
 
-app.use(v1.routes());
-app.use(v2.routes());
+// Recommended: Direct mounting
+app.route('/api/v1', v1);
+app.route('/api/v2', v2);
+
+// Or with prefix option
+const v3 = createRouter({ prefix: '/api/v3' });
+v3.get('/users', v3UsersHandler);
+app.route('/api/v3', v3);
 ```
 
 ### SPA Fallback
@@ -423,6 +504,7 @@ Creates a new router instance.
 | `redirect` | `(from, to, status?)` | Register redirect |
 | `group` | `(prefix, [middleware], callback)` | Create route group |
 | `use` | `(path?, router)` | Mount sub-router |
+| `mount` | `(path, router)` | Mount sub-router (Hono-style alias) |
 | `routes` | `()` | Get routes middleware |
 | `allowedMethods` | `()` | Get 405 handler middleware |
 

@@ -38,6 +38,14 @@ export interface ApplicationOptions {
 export type ListenCallback = () => void;
 
 /**
+ * Routable interface - any object with routes() method
+ * This allows mounting Router instances without circular dependency
+ */
+export interface Routable {
+  routes(): Middleware;
+}
+
+/**
  * The Application class
  *
  * @example
@@ -135,6 +143,86 @@ export class Application {
       }
       this.middlewareStack.push(mw);
     }
+    return this;
+  }
+
+  // ===========================================================================
+  // Router Mounting (Hono-style)
+  // ===========================================================================
+
+  /**
+   * Mount a router at a path prefix
+   *
+   * This is the Hono-style API for mounting routers directly on the app.
+   * The router's routes will only match requests that start with the given prefix.
+   *
+   * @param path - Path prefix for the router (e.g., '/api/users')
+   * @param router - Router instance to mount
+   * @returns this for chaining
+   *
+   * @example
+   * ```typescript
+   * // Create modular routers
+   * const users = createRouter();
+   * users.get('/', listUsers);
+   * users.get('/:id', getUser);
+   * users.post('/', createUser);
+   *
+   * const posts = createRouter();
+   * posts.get('/', listPosts);
+   * posts.get('/:id', getPost);
+   *
+   * // Mount directly on app - clean like Hono!
+   * const app = createApp();
+   * app.route('/api/users', users);
+   * app.route('/api/posts', posts);
+   *
+   * listen(app, 3000);
+   * ```
+   */
+  route(path: string, router: Routable): this {
+    const routerMiddleware = router.routes();
+    const normalizedPrefix = path.endsWith('/') ? path.slice(0, -1) : path;
+
+    const mountedMiddleware: Middleware = async (ctx, next) => {
+      // Check if path matches prefix
+      if (!ctx.path.startsWith(normalizedPrefix)) {
+        return next ? next() : undefined;
+      }
+
+      // Handle exact prefix match (e.g., /api/users matches /api/users)
+      const pathAfterPrefix = ctx.path.slice(normalizedPrefix.length);
+      if (pathAfterPrefix.length > 0 && !pathAfterPrefix.startsWith('/')) {
+        // Path doesn't match prefix boundary (e.g., /api/usersxxx)
+        return next ? next() : undefined;
+      }
+
+      // Store original path in state for potential recovery
+      const originalPath = ctx.path;
+      ctx.state._originalPath = originalPath;
+      ctx.state._routePrefix = normalizedPrefix;
+
+      // Use a proxy or wrapper to provide modified path view
+      // We create a path-adjusted context view for the router
+      const adjustedPath = pathAfterPrefix || '/';
+
+      // Create a proxy that intercepts path access
+      const ctxProxy = new Proxy(ctx, {
+        get(target, prop) {
+          if (prop === 'path') {
+            return adjustedPath;
+          }
+          return Reflect.get(target, prop);
+        },
+      });
+
+      // Execute router middleware with adjusted context
+      await routerMiddleware(ctxProxy as Context, async () => {
+        if (next) await next();
+      });
+    };
+
+    this.middlewareStack.push(mountedMiddleware);
     return this;
   }
 

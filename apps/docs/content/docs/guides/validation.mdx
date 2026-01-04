@@ -65,7 +65,7 @@ router.post('/api/users', (ctx) => {
   ctx.json({ data: user });
 });
 
-app.use(router.routes());
+app.route('/api', router);
 ```
 
 ### Class-Based with Decorators

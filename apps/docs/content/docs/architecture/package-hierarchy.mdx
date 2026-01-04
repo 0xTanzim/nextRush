@@ -280,7 +280,7 @@ const app = createApp();
 const router = createRouter();
 
 router.get('/', ctx => ctx.json({ hello: 'world' }));
-app.use(router.routes());
+app.route('/', router);
 listen(app, { port: 3000 });
 ```
 
@@ -297,7 +297,7 @@ const app = createApp();
 const router = createRouter();
 
 router.get('/', ctx => ctx.json({ hello: 'world' }));
-app.use(router.routes());
+app.route('/', router);
 listen(app, { port: 3000 });
 ```
 
@@ -322,7 +322,7 @@ app.use(rateLimit({ windowMs: 60000, max: 100 }));
 
 const router = createRouter();
 router.get('/', ctx => ctx.json({ hello: 'world' }));
-app.use(router.routes());
+app.route('/', router);
 
 listen(app, { port: 3000 });
 ```

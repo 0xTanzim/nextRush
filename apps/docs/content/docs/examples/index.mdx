@@ -57,19 +57,7 @@ Best for:
 - Maximum performance
 - Teams preferring functions
 
-```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-
-const app = createApp();
-const router = createRouter();
-
-router.get('/users', (ctx) => {
-  ctx.json([{ id: 1, name: 'Alice' }]);
-});
-
-app.use(router.routes());
-listen(app, 3000);
-```
+```typescript\nimport { createApp, createRouter, listen } from 'nextrush';\n\nconst app = createApp();\nconst router = createRouter();\n\nrouter.get('/users', (ctx) => {\n  ctx.json([{ id: 1, name: 'Alice' }]);\n});\n\napp.route('/', router);\nlisten(app, 3000);\n```
 
 ### Class-Based Style
 

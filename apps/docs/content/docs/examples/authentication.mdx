@@ -415,7 +415,7 @@ async function main() {
     controllers: [AuthController, UserController],
   }));
 
-  app.use(router.routes());
+  app.route('/', router);
 
   // 404
   app.use((ctx) => {

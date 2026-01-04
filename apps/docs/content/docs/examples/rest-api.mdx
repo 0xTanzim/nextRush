@@ -58,7 +58,6 @@ users.set('2', { id: '2', name: 'Bob', email: 'bob@example.com', createdAt: new 
 
 // App setup
 const app = createApp();
-const router = createRouter();
 
 // Middleware
 app.use(cors());
@@ -73,11 +72,13 @@ app.use(async (ctx, next) => {
 });
 
 // ============================================
-// ROUTES
+// USER ROUTES
 // ============================================
 
-// GET /users - List all users
-router.get('/users', (ctx) => {
+const userRouter = createRouter();
+
+// GET / - List all users
+userRouter.get('/', (ctx) => {
   const userList = Array.from(users.values());
   ctx.json({
     data: userList,
@@ -85,8 +86,8 @@ router.get('/users', (ctx) => {
   });
 });
 
-// GET /users/:id - Get user by ID
-router.get('/users/:id', (ctx) => {
+// GET /:id - Get user by ID
+userRouter.get('/:id', (ctx) => {
   const user = users.get(ctx.params.id);
 
   if (!user) {
@@ -96,8 +97,8 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ data: user });
 });
 
-// POST /users - Create user
-router.post('/users', (ctx) => {
+// POST / - Create user
+userRouter.post('/', (ctx) => {
   const body = ctx.body as CreateUserDto;
 
   // Validation
@@ -135,8 +136,8 @@ router.post('/users', (ctx) => {
   ctx.json({ data: user });
 });
 
-// PUT /users/:id - Replace user
-router.put('/users/:id', (ctx) => {
+// PUT /:id - Replace user
+userRouter.put('/:id', (ctx) => {
   const { id } = ctx.params;
   const body = ctx.body as CreateUserDto;
 
@@ -162,8 +163,8 @@ router.put('/users/:id', (ctx) => {
   ctx.json({ data: user });
 });
 
-// PATCH /users/:id - Update user
-router.patch('/users/:id', (ctx) => {
+// PATCH /:id - Update user
+userRouter.patch('/:id', (ctx) => {
   const { id } = ctx.params;
   const body = ctx.body as Partial<CreateUserDto>;
 
@@ -182,8 +183,8 @@ router.patch('/users/:id', (ctx) => {
   ctx.json({ data: updated });
 });
 
-// DELETE /users/:id - Delete user
-router.delete('/users/:id', (ctx) => {
+// DELETE /:id - Delete user
+userRouter.delete('/:id', (ctx) => {
   const { id } = ctx.params;
 
   if (!users.has(id)) {
@@ -195,8 +196,12 @@ router.delete('/users/:id', (ctx) => {
   ctx.send('');
 });
 
-// Mount routes
-app.use(router.routes());
+// ============================================
+// MOUNT ROUTES
+// ============================================
+
+// Mount user router — Hono-style composition
+app.route('/users', userRouter);
 
 // 404 handler
 app.use((ctx) => {
@@ -398,20 +403,47 @@ router.post('/users', (ctx) => {
 
 ## File Structure
 
-For larger APIs, organize your code:
+For larger APIs, organize your code with separate router files:
 
 ```
 src/
 ├── index.ts              # Entry point
 ├── routes/
-│   ├── index.ts          # Route aggregation
-│   └── users.ts          # User routes
+│   ├── users.ts          # User router
+│   ├── posts.ts          # Post router
+│   └── admin.ts          # Admin router
 ├── services/
 │   └── user.service.ts   # Business logic
 ├── types/
 │   └── user.ts           # Type definitions
 └── middleware/
     └── logger.ts         # Custom middleware
+```
+
+```typescript title="src/routes/users.ts"
+import { createRouter } from 'nextrush';
+
+const router = createRouter();
+
+router.get('/', listUsers);
+router.get('/:id', getUser);
+router.post('/', createUser);
+
+export default router;
+```
+
+```typescript title="src/index.ts"
+import { createApp, listen } from 'nextrush';
+import users from './routes/users';
+import posts from './routes/posts';
+
+const app = createApp();
+
+// Mount routers — Hono-style composition
+app.route('/users', users);
+app.route('/posts', posts);
+
+listen(app, 3000);
 ```
 
 ---

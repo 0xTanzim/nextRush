@@ -319,21 +319,22 @@ import { serve } from '@nextrush/adapter-node';
 const app = createApp();
 const router = createRouter();
 
-router.get('/api/users', async (ctx) => {
+router.get('/users', async (ctx) => {
   ctx.json({ users: [] });
 });
 
-router.get('/api/users/:id', async (ctx) => {
+router.get('/users/:id', async (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 
-router.post('/api/users', async (ctx) => {
+router.post('/users', async (ctx) => {
   const body = await ctx.bodySource.text();
   ctx.status = 201;
   ctx.json({ created: true, data: JSON.parse(body) });
 });
 
-app.use(router.routes());
+// Mount router — Hono-style
+app.route('/api', router);
 
 serve(app, 3000);
 ```

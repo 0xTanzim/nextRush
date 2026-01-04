@@ -115,7 +115,7 @@ async function main() {
     })
   );
 
-  app.use(router.routes());
+  app.route('/', router);
   listen(app, { port: 3000 });
 }
 
@@ -478,12 +478,12 @@ import { Controller } from '@nextrush/decorators';
 ```typescript
 // ❌ Wrong - routes won't be registered
 app.plugin(controllersPlugin({ router, root: './src' }));
-app.use(router.routes());
+app.route('/', router);
 listen(app);
 
 // ✅ Correct - wait for discovery
 await app.pluginAsync(controllersPlugin({ router, root: './src' }));
-app.use(router.routes());
+app.route('/', router);
 listen(app);
 ```
 

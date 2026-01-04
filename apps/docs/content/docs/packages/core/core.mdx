@@ -97,8 +97,47 @@ app.use(cors(), helmet(), json());
 // Method chaining
 app.use(cors())
    .use(helmet())
-   .use(json())
-   .use(router.routes());
+   .use(json());
+```
+
+## Router Composition
+
+Mount routers directly on the application using `app.route()` — Hono-style composition:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+const app = createApp();
+
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+const posts = createRouter();
+posts.get('/', (ctx) => ctx.json([]));
+
+// Mount directly — clean like Hono!
+app.route('/api/users', users);
+app.route('/api/posts', posts);
+```
+
+### Benefits over Classic Pattern
+
+| Classic Pattern | Hono-Style Composition |
+|-----------------|------------------------|
+| `router.use('/users', usersRouter)` then `app.use(router.routes())` | `app.route('/users', users)` |
+| Requires main router | Direct mounting |
+| Extra `.routes()` call | No extra calls |
+
+### Classic Pattern Still Works
+
+```typescript
+const router = createRouter();
+router.use('/users', usersRouter);
+router.use('/posts', postsRouter);
+app.route('/', router);
 ```
 
 ### Two Syntax Styles
@@ -355,10 +394,17 @@ app.use(async (ctx) => {
   console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
 });
 
-// Router
-const router = createRouter();
-router.get('/health', (ctx) => ctx.json({ status: 'healthy' }));
-app.use(router.routes());
+// Feature routers
+const health = createRouter();
+health.get('/', (ctx) => ctx.json({ status: 'healthy' }));
+
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+// Mount routers — Hono-style composition
+app.route('/health', health);
+app.route('/users', users);
 
 // Start server
 serve(app, { port: 3000 });
@@ -394,6 +440,7 @@ app.onError(errorHandler);
 | Property/Method | Type | Description |
 |-----------------|------|-------------|
 | `app.use(...mw)` | `Application` | Register middleware (chainable) |
+| `app.route(path, router)` | `Application` | Mount router at path (Hono-style) |
 | `app.plugin(plugin)` | `Application` | Install sync plugin |
 | `app.pluginAsync(plugin)` | `Promise<Application>` | Install async plugin |
 | `app.hasPlugin(name)` | `boolean` | Check if plugin is installed |

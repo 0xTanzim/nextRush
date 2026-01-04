@@ -127,8 +127,51 @@ app.use(cors(), helmet(), json());
 // Method chaining
 app.use(cors())
    .use(helmet())
-   .use(json())
-   .use(router.routes());
+   .use(json());
+```
+
+## Router Composition
+
+Mount routers directly on the application using `app.route()`:
+
+```typescript title="Hono-Style Composition"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+const app = createApp();
+
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+const posts = createRouter();
+posts.get('/', (ctx) => ctx.json([]));
+
+// Mount directly — clean like Hono!
+app.route('/users', users);
+app.route('/posts', posts);
+```
+
+This is the **recommended pattern** for composing routers:
+- No need to create a main router just for mounting
+- No `router.routes()` call required
+- Clean, Hono-like DX
+
+### Classic Pattern Still Works
+
+The classic `router.routes()` approach is still supported:
+
+```typescript
+const router = createRouter();
+router.use('/users', usersRouter);
+router.use('/posts', postsRouter);
+
+// Classic pattern - still works
+app.route('/', router);
+
+// But app.route() is recommended
+app.route('/api', router);
 ```
 
 ### Middleware Order
@@ -337,10 +380,17 @@ app.use(async (ctx) => {
   console.log(`${ctx.method} ${ctx.path} ${ctx.status} ${Date.now() - start}ms`);
 });
 
-// Routes
-const router = createRouter();
-router.get('/health', (ctx) => ctx.json({ status: 'healthy' }));
-app.use(router.routes());
+// Feature routers
+const health = createRouter();
+health.get('/', (ctx) => ctx.json({ status: 'healthy' }));
+
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+// Mount routers — Hono-style composition
+app.route('/health', health);
+app.route('/users', users);
 
 // Start server
 serve(app, {
@@ -357,22 +407,25 @@ serve(app, {
 // ❌ Router defined but not mounted
 const router = createRouter();
 router.get('/users', handler);
-// Missing: app.use(router.routes())
+// Missing: app.route('/users', router) or app.use(router.routes())
 
-// ✅ Mount the router
-app.use(router.routes());
+// ✅ Recommended: Mount with app.route()
+app.route('/api', router);
+
+// ✅ Or classic: Mount with routes()
+app.route('/', router);
 ```
 
 ### Wrong Middleware Order
 
 ```typescript
 // ❌ Error handler after routes (can't catch route errors)
-app.use(router.routes());
+app.route('/api', router);
 app.use(errorHandler);
 
 // ✅ Error handler first (catches all errors)
 app.use(errorHandler);
-app.use(router.routes());
+app.route('/api', router);
 ```
 
 ### Async Plugin with Sync Method
@@ -424,6 +477,7 @@ app.onError(errorHandler);
 | Property/Method | Type | Description |
 |-----------------|------|-------------|
 | `app.use(...mw)` | `Application` | Register middleware (chainable) |
+| `app.route(path, router)` | `Application` | Mount router at path (Hono-style) |
 | `app.plugin(plugin)` | `Application` | Install sync plugin |
 | `app.pluginAsync(plugin)` | `Promise<Application>` | Install async plugin |
 | `app.hasPlugin(name)` | `boolean` | Check if plugin is installed |
