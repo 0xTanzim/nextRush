@@ -1,6 +1,19 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@nextrush/body-parser': path.resolve(__dirname, '../middleware/body-parser/src'),
+      '@nextrush/compression': path.resolve(__dirname, '../middleware/compression/src'),
+      '@nextrush/cors': path.resolve(__dirname, '../middleware/cors/src'),
+      '@nextrush/helmet': path.resolve(__dirname, '../middleware/helmet/src'),
+      '@nextrush/errors': path.resolve(__dirname, '../errors/src'),
+      '@nextrush/core': path.resolve(__dirname, '../core/src'),
+      '@nextrush/router': path.resolve(__dirname, '../router/src'),
+      '@nextrush/types': path.resolve(__dirname, '../types/src'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',

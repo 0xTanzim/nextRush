@@ -181,45 +181,47 @@ export class Application {
    * ```
    */
   route(path: string, router: Routable): this {
+    // Root mount optimization: skip all prefix processing
+    if (path === '/' || path === '') {
+      this.middlewareStack.push(router.routes());
+      return this;
+    }
+
     const routerMiddleware = router.routes();
     const normalizedPrefix = path.endsWith('/') ? path.slice(0, -1) : path;
+    const prefixLen = normalizedPrefix.length;
 
     const mountedMiddleware: Middleware = async (ctx, next) => {
-      // Check if path matches prefix
-      if (!ctx.path.startsWith(normalizedPrefix)) {
+      const currentPath = ctx.path;
+
+      // Fast prefix check
+      if (!currentPath.startsWith(normalizedPrefix)) {
         return next ? next() : undefined;
       }
 
-      // Handle exact prefix match (e.g., /api/users matches /api/users)
-      const pathAfterPrefix = ctx.path.slice(normalizedPrefix.length);
-      if (pathAfterPrefix.length > 0 && !pathAfterPrefix.startsWith('/')) {
-        // Path doesn't match prefix boundary (e.g., /api/usersxxx)
+      // Check prefix boundary (avoid /api/usersxxx matching /api/users)
+      const charAfterPrefix = currentPath.charCodeAt(prefixLen);
+      if (charAfterPrefix && charAfterPrefix !== 47) {
+        // 47 = '/'
         return next ? next() : undefined;
       }
 
-      // Store original path in state for potential recovery
-      const originalPath = ctx.path;
-      ctx.state._originalPath = originalPath;
+      // Direct path manipulation (no Proxy - fast!)
+      const adjustedPath = currentPath.slice(prefixLen) || '/';
+      (ctx as { path: string }).path = adjustedPath;
+
+      // Store original for recovery
+      ctx.state._originalPath = currentPath;
       ctx.state._routePrefix = normalizedPrefix;
 
-      // Use a proxy or wrapper to provide modified path view
-      // We create a path-adjusted context view for the router
-      const adjustedPath = pathAfterPrefix || '/';
-
-      // Create a proxy that intercepts path access
-      const ctxProxy = new Proxy(ctx, {
-        get(target, prop) {
-          if (prop === 'path') {
-            return adjustedPath;
-          }
-          return Reflect.get(target, prop);
-        },
-      });
-
-      // Execute router middleware with adjusted context
-      await routerMiddleware(ctxProxy as Context, async () => {
-        if (next) await next();
-      });
+      try {
+        await routerMiddleware(ctx, async () => {
+          if (next) await next();
+        });
+      } finally {
+        // Restore original path
+        (ctx as { path: string }).path = currentPath;
+      }
     };
 
     this.middlewareStack.push(mountedMiddleware);
