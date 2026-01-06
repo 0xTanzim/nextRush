@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { Middleware, RouteHandler } from './context';
+import type { Context, Middleware, RouteHandler } from './context';
 import type { HttpMethod } from './http';
 
 // ============================================================================
@@ -38,6 +38,8 @@ export interface RouteMatch {
   params: Record<string, string>;
   /** Combined middleware stack */
   middleware: Middleware[];
+  /** Pre-compiled executor for fast dispatch (internal) */
+  executor?: (ctx: Context) => Promise<void>;
 }
 
 // ============================================================================

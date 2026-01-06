@@ -17,8 +17,10 @@ import {
     type RouterOptions,
 } from '@nextrush/types';
 import {
+    compileExecutor,
     createNode,
     NodeType,
+    NOOP_NEXT,
     parseSegments,
     type HandlerEntry,
     type RadixNode,
@@ -135,9 +137,13 @@ export class Router {
       combinedMiddleware.push(mw as unknown as Middleware);
     }
 
+    // Pre-compile executor at registration time (not per-request!)
+    const executor = compileExecutor(finalHandler, combinedMiddleware);
+
     const entry: HandlerEntry = {
       handler: finalHandler,
       middleware: combinedMiddleware,
+      executor,
     };
 
     node.handlers.set(method, entry);
@@ -359,6 +365,7 @@ export class Router {
       handler: result.handler,
       params,
       middleware: [...this.routerMiddleware, ...result.middleware],
+      executor: result.executor,
     };
   }
 
@@ -419,6 +426,10 @@ export class Router {
    * ```
    */
   routes(): Middleware {
+    // Capture router-level middleware once
+    const routerMiddleware = this.routerMiddleware;
+    const hasRouterMiddleware = routerMiddleware.length > 0;
+
     return async (ctx: Context, next?: () => Promise<void>): Promise<void> => {
       const match = this.match(ctx.method as HttpMethod, ctx.path);
 
@@ -431,35 +442,37 @@ export class Router {
       // Set params on context
       ctx.params = match.params;
 
-      // Build middleware chain: router middleware + route middleware + handler
-      const chain: Middleware[] = [...match.middleware];
+      // FAST PATH: No router-level middleware - use pre-compiled executor directly
+      if (!hasRouterMiddleware && match.executor) {
+        await match.executor(ctx);
+        return;
+      }
 
-      // Execute middleware chain, then handler
-      let index = 0;
+      // Slower path: Has router-level middleware, need to chain them
+      if (hasRouterMiddleware) {
+        let index = 0;
+        const routerMwLen = routerMiddleware.length;
 
-      const dispatch = async (): Promise<void> => {
-        if (index < chain.length) {
-          const mw = chain[index++];
-          if (mw) {
-            // Wire up ctx.next() if the context supports it
-            if (typeof (ctx as any).setNext === 'function') {
-              (ctx as any).setNext(dispatch);
-            }
-            await mw(ctx, dispatch);
+        const dispatchRouterMw = async (): Promise<void> => {
+          if (index < routerMwLen) {
+            const mw = routerMiddleware[index++]!;
+            await mw(ctx, dispatchRouterMw);
           } else {
-            await dispatch();
+            // After router middleware, use pre-compiled executor
+            if (match.executor) {
+              await match.executor(ctx);
+            } else {
+              await match.handler(ctx, NOOP_NEXT);
+            }
           }
-        } else {
-          // Finally call the handler
-          // Wire up ctx.next() to a no-op for the final handler
-          if (typeof (ctx as any).setNext === 'function') {
-            (ctx as any).setNext(async () => {});
-          }
-          await match.handler(ctx, async () => {});
-        }
-      };
+        };
 
-      await dispatch();
+        await dispatchRouterMw();
+        return;
+      }
+
+      // Fallback: No executor (shouldn't happen but be safe)
+      await match.handler(ctx, NOOP_NEXT);
     };
   }
 

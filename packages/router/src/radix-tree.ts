@@ -8,7 +8,7 @@
  * @internal
  */
 
-import type { HttpMethod, Middleware, RouteHandler } from '@nextrush/types';
+import type { Context, HttpMethod, Middleware, RouteHandler } from '@nextrush/types';
 
 /**
  * Node type enumeration
@@ -43,11 +43,78 @@ export interface RadixNode {
 }
 
 /**
- * Handler entry with middleware
+ * Handler entry with middleware and pre-compiled executor
  */
 export interface HandlerEntry {
   handler: RouteHandler;
   middleware: Middleware[];
+  /** Pre-compiled executor for fast dispatch (no closure per request) */
+  executor?: (ctx: Context) => Promise<void>;
+}
+
+/**
+ * No-op next function - reusable, zero allocation
+ * @internal
+ */
+export const NOOP_NEXT = async (): Promise<void> => {};
+
+/**
+ * Compile an executor for a route handler with middleware
+ * This creates the executor ONCE at registration time, not per-request
+ * @internal
+ */
+export function compileExecutor(
+  handler: RouteHandler,
+  middleware: Middleware[]
+): (ctx: Context) => Promise<void> {
+  const len = middleware.length;
+
+  // FAST PATH: No middleware - direct handler call
+  if (len === 0) {
+    return async (ctx: Context) => {
+      await handler(ctx, NOOP_NEXT);
+    };
+  }
+
+  // FAST PATH: Single middleware
+  if (len === 1) {
+    const mw = middleware[0]!;
+    return async (ctx: Context) => {
+      await mw(ctx, async () => {
+        await handler(ctx, NOOP_NEXT);
+      });
+    };
+  }
+
+  // FAST PATH: Two middleware (very common)
+  if (len === 2) {
+    const mw0 = middleware[0]!;
+    const mw1 = middleware[1]!;
+    return async (ctx: Context) => {
+      await mw0(ctx, async () => {
+        await mw1(ctx, async () => {
+          await handler(ctx, NOOP_NEXT);
+        });
+      });
+    };
+  }
+
+  // General case: Build recursive dispatch
+  // Note: This closure is created ONCE at registration, not per request
+  return async (ctx: Context): Promise<void> => {
+    let index = 0;
+
+    const dispatch = async (): Promise<void> => {
+      if (index < len) {
+        const mw = middleware[index++]!;
+        await mw(ctx, dispatch);
+      } else {
+        await handler(ctx, NOOP_NEXT);
+      }
+    };
+
+    await dispatch();
+  };
 }
 
 /**

@@ -9,16 +9,16 @@
 
 import { getRuntime } from '@nextrush/runtime';
 import type {
-  BodySource,
-  Context,
-  ContextState,
-  HttpMethod,
-  IncomingHeaders,
-  QueryParams,
-  RawHttp,
-  ResponseBody,
-  RouteParams,
-  Runtime,
+    BodySource,
+    Context,
+    ContextState,
+    HttpMethod,
+    IncomingHeaders,
+    QueryParams,
+    RawHttp,
+    ResponseBody,
+    RouteParams,
+    Runtime,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
@@ -143,12 +143,12 @@ export class NodeContext implements Context {
     this._responded = true;
 
     const res = this.raw.res;
-    const buffer = Buffer.from(JSON.stringify(data), 'utf8');
+    const json = JSON.stringify(data);
 
     res.statusCode = this.status;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Length', buffer.length);
-    res.end(buffer);
+    res.setHeader('Content-Length', Buffer.byteLength(json));
+    res.end(json);
   }
 
   send(data: ResponseBody): void {
