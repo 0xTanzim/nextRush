@@ -116,10 +116,6 @@ importers:
         version: 5.9.3
 
   apps/performance-ultra:
-    dependencies:
-      nextrush:
-        specifier: ^2.0.1
-        version: 2.0.1
     devDependencies:
       '@hono/node-server':
         specifier: ^1.13.1
@@ -5245,10 +5241,6 @@ packages:
         optional: true
       sass:
         optional: true
-
-  nextrush@2.0.1:
-    resolution: {integrity: sha512-jPvs/v5VcrhTYvy3hDrY7cBqkbbr+pCJQkj4D7V/LvS5YFCTc46kj45AKXJfSd90IDXyUWo91WqWVitCP5upUw==}
-    engines: {node: '>=18.0.0', pnpm: '>=9.0.0'}
 
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
@@ -11876,8 +11868,6 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
-
-  nextrush@2.0.1: {}
 
   node-releases@2.0.27: {}
 

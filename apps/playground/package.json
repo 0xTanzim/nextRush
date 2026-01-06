@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "build:next": "nextrush build",
     "start": "node dist/index.js",
     "dev": "nextrush-dev",
     "test": "echo 'No tests configured'"

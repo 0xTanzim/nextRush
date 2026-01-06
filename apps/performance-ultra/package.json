@@ -1,5 +1,5 @@
 {
-  "name": "nextrush-performance-benchmarksx",
+  "name": "nextrush-performance-benchmarks",
   "version": "3.0.0",
   "description": "Enterprise-grade performance benchmarks for NextRush v3 vs Express, Fastify, Koa, and Hono",
   "private": true,
@@ -35,7 +35,5 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "dependencies": {
-    "nextrush": "^2.0.1"
-  }
+  "dependencies": {}
 }

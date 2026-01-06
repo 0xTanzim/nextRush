@@ -32,7 +32,7 @@ router.get('/users/:id', async (ctx) => {
   const { id } = ctx.params;
   ctx.json({
     id,
-    name: `User ${id}`,
+    name: `User ${id}` ,
     email: `user${id}@example.com`,
   });
 });
@@ -63,7 +63,7 @@ router.post('/users', json(), async (ctx) => {
   });
 });
 
-// Mount router - Hono-style
+
 app.route('/', router);
 
 // Start server
