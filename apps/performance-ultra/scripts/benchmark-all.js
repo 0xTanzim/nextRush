@@ -47,7 +47,8 @@ const WARMUP_TIME = 3000;
 const SERVER_TIMEOUT = 15000;
 const PORT = 3000;
 
-const AVAILABLE_FRAMEWORKS = ['nextrush-v3', 'nextrush', 'express', 'fastify', 'koa', 'hono'];
+// Only include supported frameworks. Use "nextrush-v3" for NextRush.
+const AVAILABLE_FRAMEWORKS = ['nextrush-v3', 'express', 'fastify', 'koa', 'hono'];
 
 const TESTS = [
   {

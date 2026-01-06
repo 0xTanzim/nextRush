@@ -103,4 +103,5 @@
   "github.copilot.chat.languageContext.typescript.enabled": true,
   "github.copilot.chat.newWorkspace.useContext7": true,
   "github.copilot.chat.notebook.followCellExecution.enabled": true
+
 }

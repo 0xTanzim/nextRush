@@ -344,7 +344,6 @@ Update the `AVAILABLE_FRAMEWORKS` array in `benchmark-all.js`:
 ```javascript
 const AVAILABLE_FRAMEWORKS = [
   'nextrush-v3',
-  'nextrush',
   'express',
   'fastify',
   'koa',
@@ -571,5 +570,4 @@ For issues or questions:
 
 ---
 
-*Generated for NextRush v3 Performance Benchmarks Suite*</content>
-<parameter name="filePath">/home/tanzim/project/nextrush/apps/performance-ultra/README.md
+*Generated for NextRush v3 Performance Benchmarks Suite*
