@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import type { Application } from '@nextrush/core';
+import type { Application, Logger } from '@nextrush/core';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createNodeContext } from './context';
 
@@ -47,6 +47,11 @@ export interface ServeOptions {
    * @default 5000 (5 seconds)
    */
   keepAliveTimeout?: number;
+
+  /**
+   * Logger for adapter diagnostics. Defaults to app.logger.
+   */
+  logger?: Logger;
 }
 
 /**
@@ -73,10 +78,12 @@ export interface ServerInstance {
  * Create HTTP request handler for Application
  */
 export function createHandler(
-  app: Application
+  app: Application,
+  options: { logger?: Logger } = {}
 ): (req: IncomingMessage, res: ServerResponse) => void {
   const handler = app.callback();
   const trustProxy = app.options.proxy ?? false;
+  const logger = options.logger ?? app.logger;
 
   return (req: IncomingMessage, res: ServerResponse): void => {
     const ctx = createNodeContext(req, res, { trustProxy });
@@ -98,7 +105,7 @@ export function createHandler(
       },
       (error: Error) => {
         // Error handling
-        console.error('Request error:', error);
+        logger.error('Request error:', error);
 
         if (!res.headersSent) {
           res.statusCode = 500;
@@ -144,7 +151,8 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     keepAliveTimeout = 5000,
   } = options;
 
-  const handler = createHandler(app);
+  const logger = options.logger ?? app.logger;
+  const handler = createHandler(app, { logger });
   const server = createServer(handler);
 
   // Configure timeouts
@@ -156,7 +164,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     if (onError) {
       onError(error);
     } else {
-      console.error('Server error:', error);
+      logger.error('Server error:', error);
     }
   });
 
@@ -178,13 +186,15 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
         host,
         address: () => info,
         close: async () => {
-          await app.close();
-          return new Promise<void>((res, rej) => {
+          // 1. Stop accepting new connections
+          await new Promise<void>((res, rej) => {
             server.close((err) => {
               if (err) rej(err);
               else res();
             });
           });
+          // 2. Destroy plugins after server is fully drained
+          await app.close();
         },
       });
     });
@@ -210,7 +220,7 @@ export async function listen(app: Application, port: number = 3000): Promise<Ser
   return serve(app, {
     port,
     onListen: ({ port: p }) => {
-      console.log(`🚀 NextRush listening on http://localhost:${p}`);
+      app.logger.info(`🚀 NextRush listening on http://localhost:${p}`);
     },
   });
 }

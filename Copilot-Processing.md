@@ -1,4 +1,4 @@
-# Copilot Processing — Phases 1-5
+# Copilot Processing — Phase 7: Critical Fixes (8 issues) — Phases 1-5
 
 ## User Request
 Execute improvement plan Phases 1-4 (Security, Error Architecture, Type System, Performance)
@@ -227,3 +227,34 @@ All 7 P0 security fixes implemented. 29/29 builds, 56/56 tests.
 - Updated test imports across 4 adapter test files
 
 ### Verification: 29/29 builds, 56/56 tests — ALL PASS
+
+---
+
+## Phase 6: DX & Quality of Life — COMPLETED
+
+### Tasks Completed
+1. **6.1** Fix `errorHandler()` type signature — Uses `Context`/`Middleware`/`Next` from `@nextrush/types` instead of custom `ErrorContext`
+2. **6.2** Make `close()` resilient — `Promise.allSettled()` pattern, continues destroying all plugins even if one fails
+3. **6.3** Replace `console.*` with pluggable Logger — Added `Logger` interface, `NOOP_LOGGER` default, wired through core + adapter-node
+4. **6.4** Guard mutations after `start()` — `assertNotRunning()` blocks `use()`, `route()`, `plugin()`, `pluginAsync()` after app starts
+5. **6.5** Fix graceful shutdown order — `server.close()` (stop connections) runs BEFORE `app.close()` (destroy plugins)
+6. **6.6** Wire `PluginWithHooks` lifecycle hooks — `onRequest`, `onResponse`, `onError`, `extendContext` now called in `callback()`
+
+### Files Modified
+- `packages/core/src/application.ts` (Logger, assertNotRunning, close resilience, plugin hooks)
+- `packages/core/src/index.ts` (Logger export)
+- `packages/core/src/__tests__/application.test.ts` (17 new tests)
+- `packages/errors/src/middleware.ts` (Context type alignment)
+- `packages/errors/src/__tests__/middleware.test.ts` (Context mock updated)
+- `packages/adapters/node/src/adapter.ts` (Logger wiring, shutdown order fix)
+
+### Verification: 59/60 test files, 2367/2367 tests pass (1 pre-existing failure: @nextrush/body-parser not found)
+
+---
+
+## Audit Report Consolidation — COMPLETED
+
+- Deleted 12 old report files (00-11)
+- Created consolidated `report/REMAINING-ISSUES.md` with 39 remaining issues:
+  - 8 Critical, 7 High, 12 Medium, 8 Low, 4 Info/DX
+  - Recommended Phases 7-10 for next work

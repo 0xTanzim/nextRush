@@ -2,7 +2,7 @@
  * @nextrush/core - Application Tests
  */
 
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Plugin, PluginWithHooks } from '@nextrush/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Application, createApp } from '../application';
 
@@ -197,22 +197,23 @@ describe('Application', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const errorSpy = vi.fn();
+      const loggedApp = createApp({
+        logger: { info: vi.fn(), warn: vi.fn(), error: errorSpy, debug: vi.fn() },
+      });
 
-      app.use(async () => {
+      loggedApp.use(async () => {
         throw new Error('Test error');
       });
 
-      const handler = app.callback();
+      const handler = loggedApp.callback();
       const ctx = createMockContext();
 
       await handler(ctx);
 
       expect(ctx.status).toBe(500);
       expect(ctx.json).toHaveBeenCalledWith({ error: 'Test error' });
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
+      expect(errorSpy).toHaveBeenCalled();
     });
 
     it('should hide error details in production', async () => {
@@ -329,7 +330,7 @@ describe('Application', () => {
 
     it('should support async error handlers', async () => {
       const errorHandler = vi.fn(async (_error, ctx) => {
-        await new Promise(resolve => setTimeout(resolve, 1));
+        await new Promise((resolve) => setTimeout(resolve, 1));
         ctx.status = 503;
         ctx.json({ async: 'handler' });
       });
@@ -370,7 +371,7 @@ describe('Application', () => {
       const plugin: Plugin = {
         name: 'slow-plugin',
         install: vi.fn(async () => {
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10));
           installed = true;
         }),
       };
@@ -415,6 +416,218 @@ describe('Application', () => {
       expect(() => app.plugin(plugin)).toThrow(
         'Plugin "async-in-sync" has async install(). Use app.pluginAsync() instead.'
       );
+    });
+  });
+
+  // ===========================================================================
+  // Phase 6: DX & Quality of Life
+  // ===========================================================================
+
+  describe('Logger', () => {
+    it('should use NOOP_LOGGER by default (no console output)', () => {
+      const defaultApp = createApp();
+      expect(defaultApp.logger).toBeDefined();
+      // NOOP_LOGGER methods should not throw
+      defaultApp.logger.info('test');
+      defaultApp.logger.warn('test');
+      defaultApp.logger.error('test');
+      defaultApp.logger.debug('test');
+    });
+
+    it('should accept a custom logger', () => {
+      const customLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+
+      const loggedApp = createApp({ logger: customLogger });
+      expect(loggedApp.logger).toBe(customLogger);
+    });
+
+    it('should use custom logger in error handling', async () => {
+      const customLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+
+      const loggedApp = createApp({ logger: customLogger });
+      loggedApp.use(() => {
+        throw new Error('test error');
+      });
+
+      const handler = loggedApp.callback();
+      const ctx = createMockContext();
+      await handler(ctx);
+
+      expect(customLogger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('assertNotRunning()', () => {
+    it('should prevent use() after start()', () => {
+      app.start();
+      expect(() => app.use(vi.fn())).toThrow('Cannot call use() after the application has started');
+    });
+
+    it('should prevent route() after start()', () => {
+      app.start();
+      expect(() => app.route('/', { routes: () => [] })).toThrow(
+        'Cannot call route() after the application has started'
+      );
+    });
+
+    it('should prevent plugin() after start()', () => {
+      app.start();
+      const plugin: Plugin = { name: 'late', install: vi.fn() };
+      expect(() => app.plugin(plugin)).toThrow(
+        'Cannot call plugin() after the application has started'
+      );
+    });
+
+    it('should prevent pluginAsync() after start()', async () => {
+      app.start();
+      const plugin: Plugin = { name: 'late-async', install: vi.fn() };
+      await expect(app.pluginAsync(plugin)).rejects.toThrow(
+        'Cannot call pluginAsync() after the application has started'
+      );
+    });
+
+    it('should allow registration before start()', () => {
+      expect(() => app.use(vi.fn())).not.toThrow();
+      expect(() => app.plugin({ name: 'early', install: vi.fn() })).not.toThrow();
+    });
+  });
+
+  describe('close() resilience', () => {
+    it('should not throw when a plugin destroy fails', async () => {
+      app.plugin({
+        name: 'failing-plugin',
+        install: vi.fn(),
+        destroy: () => {
+          throw new Error('destroy boom');
+        },
+      });
+
+      // Should not throw — returns errors array
+      const errors = await app.close();
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toBe('destroy boom');
+    });
+
+    it('should destroy all plugins even if one fails', async () => {
+      const destroyA = vi.fn();
+      const destroyC = vi.fn();
+
+      app.plugin({ name: 'a', install: vi.fn(), destroy: destroyA });
+      app.plugin({
+        name: 'b',
+        install: vi.fn(),
+        destroy: () => {
+          throw new Error('b fails');
+        },
+      });
+      app.plugin({ name: 'c', install: vi.fn(), destroy: destroyC });
+
+      await app.close();
+
+      expect(destroyA).toHaveBeenCalled();
+      expect(destroyC).toHaveBeenCalled();
+    });
+
+    it('should clear all plugins after close', async () => {
+      app.plugin({ name: 'clearable', install: vi.fn() });
+      expect(app.hasPlugin('clearable')).toBe(true);
+
+      await app.close();
+      expect(app.hasPlugin('clearable')).toBe(false);
+    });
+  });
+
+  describe('PluginWithHooks lifecycle', () => {
+    it('should call onRequest before middleware', async () => {
+      const order: string[] = [];
+
+      const hookedPlugin: PluginWithHooks = {
+        name: 'request-hook',
+        install: vi.fn(),
+        onRequest: () => {
+          order.push('onRequest');
+        },
+      };
+
+      app.plugin(hookedPlugin);
+      app.use(() => {
+        order.push('middleware');
+      });
+
+      const handler = app.callback();
+      await handler(createMockContext());
+
+      expect(order).toEqual(['onRequest', 'middleware']);
+    });
+
+    it('should call onResponse after middleware', async () => {
+      const order: string[] = [];
+
+      const hookedPlugin: PluginWithHooks = {
+        name: 'response-hook',
+        install: vi.fn(),
+        onResponse: () => {
+          order.push('onResponse');
+        },
+      };
+
+      app.plugin(hookedPlugin);
+      app.use(async (ctx) => {
+        order.push('middleware');
+        await ctx.next();
+      });
+
+      const handler = app.callback();
+      await handler(createMockContext());
+
+      expect(order).toEqual(['middleware', 'onResponse']);
+    });
+
+    it('should call onError when middleware throws', async () => {
+      const onError = vi.fn();
+
+      const hookedPlugin: PluginWithHooks = {
+        name: 'error-hook',
+        install: vi.fn(),
+        onError,
+      };
+
+      app.plugin(hookedPlugin);
+      app.use(() => {
+        throw new Error('boom');
+      });
+
+      const handler = app.callback();
+      await handler(createMockContext());
+
+      expect(onError).toHaveBeenCalledWith(expect.any(Error), expect.any(Object));
+    });
+
+    it('should call extendContext before onRequest', async () => {
+      const hookedPlugin: PluginWithHooks = {
+        name: 'extend-ctx',
+        install: vi.fn(),
+        extendContext: (ctx: Context) => {
+          (ctx.state as Record<string, unknown>)['extended'] = true;
+        },
+        onRequest: (ctx: Context) => {
+          expect((ctx.state as Record<string, unknown>)['extended']).toBe(true);
+        },
+      };
+
+      app.plugin(hookedPlugin);
+      const handler = app.callback();
+      await handler(createMockContext());
     });
   });
 });

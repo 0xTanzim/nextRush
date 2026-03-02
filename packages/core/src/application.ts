@@ -7,13 +7,31 @@
  * @packageDocumentation
  */
 
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Plugin, PluginWithHooks } from '@nextrush/types';
 import { compose } from './middleware';
 
 /**
  * Error handler function type
  */
 export type ErrorHandler = (error: Error, ctx: Context) => void | Promise<void>;
+
+/**
+ * Logger interface for pluggable logging
+ */
+export interface Logger {
+  error(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
+}
+
+/** No-op logger — default when no logger is configured */
+const NOOP_LOGGER: Logger = {
+  error() {},
+  warn() {},
+  info() {},
+  debug() {},
+};
 
 /**
  * Application options
@@ -30,6 +48,12 @@ export interface ApplicationOptions {
    * @default false
    */
   proxy?: boolean;
+
+  /**
+   * Custom logger. Defaults to no-op (silent).
+   * Pass `console` to use standard console output.
+   */
+  logger?: Logger;
 }
 
 /**
@@ -77,6 +101,11 @@ export class Application {
   private _errorHandler: ErrorHandler | null = null;
 
   /**
+   * Pluggable logger
+   */
+  readonly logger: Logger;
+
+  /**
    * Application options
    */
   readonly options: ApplicationOptions;
@@ -91,6 +120,7 @@ export class Application {
       env: options.env ?? 'development',
       proxy: options.proxy ?? false,
     };
+    this.logger = options.logger ?? NOOP_LOGGER;
   }
 
   /**
@@ -112,6 +142,16 @@ export class Application {
    */
   get middlewareCount(): number {
     return this.middlewareStack.length;
+  }
+
+  /**
+   * Throws if the app is already running.
+   * Prevents configuration mutations after start().
+   */
+  private assertNotRunning(method: string): void {
+    if (this._isRunning) {
+      throw new Error(`Cannot call ${method}() after the application has started`);
+    }
   }
 
   // ===========================================================================
@@ -137,6 +177,7 @@ export class Application {
    * ```
    */
   use(...middleware: Middleware[]): this {
+    this.assertNotRunning('use');
     for (const mw of middleware) {
       if (typeof mw !== 'function') {
         throw new TypeError('Middleware must be a function');
@@ -181,6 +222,7 @@ export class Application {
    * ```
    */
   route(path: string, router: Routable): this {
+    this.assertNotRunning('route');
     // Root mount optimization: skip all prefix processing
     if (path === '/' || path === '') {
       this.middlewareStack.push(router.routes());
@@ -280,6 +322,7 @@ export class Application {
    * ```
    */
   plugin(plugin: Plugin): this {
+    this.assertNotRunning('plugin');
     if (this.plugins.has(plugin.name)) {
       throw new Error(`Plugin "${plugin.name}" is already installed`);
     }
@@ -308,6 +351,7 @@ export class Application {
    * ```
    */
   async pluginAsync(plugin: Plugin): Promise<this> {
+    this.assertNotRunning('pluginAsync');
     if (this.plugins.has(plugin.name)) {
       throw new Error(`Plugin "${plugin.name}" is already installed`);
     }
@@ -349,10 +393,38 @@ export class Application {
   callback(): (ctx: Context) => Promise<void> {
     const fn = compose(this.middlewareStack);
 
+    // Collect plugins that implement lifecycle hooks (once at build time)
+    const hookPlugins = Array.from(this.plugins.values()).filter(
+      (p): p is PluginWithHooks =>
+        'onRequest' in p || 'onResponse' in p || 'onError' in p || 'extendContext' in p
+    );
+
     return async (ctx: Context): Promise<void> => {
       try {
+        // Extend context and run onRequest hooks
+        for (const p of hookPlugins) {
+          if (p.extendContext) p.extendContext(ctx);
+          if (p.onRequest) await p.onRequest(ctx);
+        }
+
         await fn(ctx);
+
+        // Run onResponse hooks
+        for (const p of hookPlugins) {
+          if (p.onResponse) await p.onResponse(ctx);
+        }
       } catch (error) {
+        // Run onError hooks
+        const err = error instanceof Error ? error : new Error(String(error));
+        for (const p of hookPlugins) {
+          if (p.onError) {
+            try {
+              await p.onError(err, ctx);
+            } catch {
+              // Swallowing hook errors to avoid masking the original error
+            }
+          }
+        }
         await this.handleError(error, ctx);
       }
     };
@@ -371,7 +443,7 @@ export class Application {
         return;
       } catch (handlerError) {
         // If custom handler throws, fall through to default handling
-        console.error('Error handler threw:', handlerError);
+        this.logger.error('Error handler threw:', handlerError);
       }
     }
 
@@ -385,7 +457,7 @@ export class Application {
   private defaultErrorHandler(error: Error, ctx: Context): void {
     // Log in development
     if (!this.isProduction) {
-      console.error('Request error:', error);
+      this.logger.error('Request error:', error);
     }
 
     // Set error response
@@ -415,21 +487,33 @@ export class Application {
 
   /**
    * Graceful shutdown
-   * Destroys all plugins that have a destroy method
+   * Destroys all plugins that have a destroy method.
+   * Uses Promise.allSettled to ensure all plugins are destroyed
+   * even if some throw errors.
+   *
+   * @returns Array of errors from plugins that failed to destroy (empty on success)
    */
-  async close(): Promise<void> {
+  async close(): Promise<Error[]> {
     this._isRunning = false;
 
-    // Destroy plugins in reverse order
+    // Destroy plugins in reverse order using allSettled for resilience
     const pluginArray = Array.from(this.plugins.values()).reverse();
+    const destroyPromises = pluginArray
+      .filter((p) => typeof p.destroy === 'function')
+      .map((p) =>
+        Promise.resolve()
+          .then(() => p.destroy!())
+          .catch((err: unknown) => {
+            throw err instanceof Error ? err : new Error(String(err));
+          })
+      );
 
-    for (const plugin of pluginArray) {
-      if (plugin.destroy) {
-        await plugin.destroy();
-      }
-    }
-
+    const results = await Promise.allSettled(destroyPromises);
     this.plugins.clear();
+
+    return results
+      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      .map((r) => r.reason as Error);
   }
 }
 

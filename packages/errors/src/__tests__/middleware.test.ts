@@ -2,19 +2,37 @@
  * @nextrush/errors - Middleware Tests
  */
 
+import type { Context } from '@nextrush/types';
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestError, InternalServerError, NotFoundError } from '../http-errors';
-import { catchAsync, errorHandler, notFoundHandler, type ErrorContext } from '../middleware';
+import { catchAsync, errorHandler, notFoundHandler } from '../middleware';
 
-function createMockContext(): ErrorContext {
+function createMockContext(): Context {
   const ctx = {
     method: 'GET',
+    url: '/test',
     path: '/test',
+    query: {},
+    headers: {},
+    ip: '127.0.0.1',
+    body: undefined,
+    params: {},
     status: 200,
     json: vi.fn(),
-  };
+    send: vi.fn(),
+    html: vi.fn(),
+    redirect: vi.fn(),
+    set: vi.fn(),
+    get: vi.fn(),
+    next: vi.fn().mockResolvedValue(undefined),
+    state: {},
+    responded: false,
+    raw: { req: {} as never, res: {} as never },
+  } as unknown as Context;
   return ctx;
 }
+
+const noop = async (): Promise<void> => {};
 
 describe('errorHandler', () => {
   describe('basic functionality', () => {
@@ -162,9 +180,10 @@ describe('errorHandler', () => {
   describe('handlers option', () => {
     it('should use custom handler for specific error type', async () => {
       const customHandler = vi.fn();
-      const handlers = new Map<new (...args: unknown[]) => Error, (error: Error, ctx: ErrorContext) => void>([
-        [NotFoundError as unknown as new (...args: unknown[]) => Error, customHandler]
-      ]);
+      const handlers = new Map<
+        new (...args: unknown[]) => Error,
+        (error: Error, ctx: Context) => void
+      >([[NotFoundError as unknown as new (...args: unknown[]) => Error, customHandler]]);
       const handler = errorHandler({ handlers });
       const ctx = createMockContext();
       const error = new NotFoundError('Not found');
@@ -179,9 +198,10 @@ describe('errorHandler', () => {
 
     it('should fall back to default for unhandled types', async () => {
       const customHandler = vi.fn();
-      const handlers = new Map<new (...args: unknown[]) => Error, (error: Error, ctx: ErrorContext) => void>([
-        [NotFoundError as unknown as new (...args: unknown[]) => Error, customHandler]
-      ]);
+      const handlers = new Map<
+        new (...args: unknown[]) => Error,
+        (error: Error, ctx: Context) => void
+      >([[NotFoundError as unknown as new (...args: unknown[]) => Error, customHandler]]);
       const handler = errorHandler({ handlers });
       const ctx = createMockContext();
 
@@ -226,7 +246,7 @@ describe('notFoundHandler', () => {
     const handler = notFoundHandler();
     const ctx = createMockContext();
 
-    await handler(ctx);
+    await handler(ctx, noop);
 
     expect(ctx.status).toBe(404);
     expect(ctx.json).toHaveBeenCalledWith({
@@ -242,7 +262,7 @@ describe('notFoundHandler', () => {
     const handler = notFoundHandler('Resource does not exist');
     const ctx = createMockContext();
 
-    await handler(ctx);
+    await handler(ctx, noop);
 
     expect(ctx.json).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Resource does not exist' })
@@ -254,7 +274,7 @@ describe('notFoundHandler', () => {
     const ctx = createMockContext();
     ctx.status = 200;
 
-    await handler(ctx);
+    await handler(ctx, noop);
 
     expect(ctx.status).toBe(404);
     expect(ctx.json).toHaveBeenCalled();
@@ -265,7 +285,7 @@ describe('notFoundHandler', () => {
     const ctx = createMockContext();
     ctx.status = 404;
 
-    await handler(ctx);
+    await handler(ctx, noop);
 
     expect(ctx.json).toHaveBeenCalled();
   });
@@ -275,7 +295,7 @@ describe('notFoundHandler', () => {
     const ctx = createMockContext();
     ctx.status = 201;
 
-    await handler(ctx);
+    await handler(ctx, noop);
 
     expect(ctx.status).toBe(201);
     expect(ctx.json).not.toHaveBeenCalled();
@@ -288,9 +308,9 @@ describe('catchAsync', () => {
     const handler = catchAsync(innerHandler);
     const ctx = createMockContext();
 
-    await handler(ctx);
+    await handler(ctx, noop);
 
-    expect(innerHandler).toHaveBeenCalledWith(ctx, undefined);
+    expect(innerHandler).toHaveBeenCalledWith(ctx, noop);
   });
 
   it('should re-throw errors', async () => {
@@ -299,7 +319,7 @@ describe('catchAsync', () => {
     const handler = catchAsync(innerHandler);
     const ctx = createMockContext();
 
-    await expect(handler(ctx)).rejects.toThrow(error);
+    await expect(handler(ctx, noop)).rejects.toThrow(error);
   });
 
   it('should pass next to inner handler', async () => {
@@ -321,13 +341,11 @@ describe('Integration scenarios', () => {
     const ctx = createMockContext();
 
     await errHandler(ctx, async () => {
-      await notFoundHdlr(ctx);
+      await notFoundHdlr(ctx, noop);
     });
 
     expect(ctx.status).toBe(404);
-    expect(ctx.json).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'NOT_FOUND' })
-    );
+    expect(ctx.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'NOT_FOUND' }));
   });
 
   it('should handle thrown NotFoundError in route', async () => {

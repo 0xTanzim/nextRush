@@ -6,11 +6,14 @@
  * @packageDocumentation
  */
 
+import type { Context, Middleware, Next } from '@nextrush/types';
 import { HttpError, NextRushError } from './base';
 
 /**
- * Minimal context interface for error handling
- * This avoids circular dependencies with @nextrush/types
+ * Minimal context interface for error handling.
+ *
+ * @deprecated Use `Context` from `@nextrush/types` instead.
+ * Kept for backward compatibility — will be removed in v4.
  */
 export interface ErrorContext {
   method: string;
@@ -20,12 +23,12 @@ export interface ErrorContext {
 }
 
 /**
- * Error handler middleware function type
+ * Error handler middleware function type.
+ *
+ * @deprecated Use `Middleware` from `@nextrush/types` instead.
+ * Kept for backward compatibility — will be removed in v4.
  */
-export type ErrorMiddleware = (
-  ctx: ErrorContext,
-  next?: () => Promise<void>
-) => Promise<void>;
+export type ErrorMiddleware = Middleware;
 
 /**
  * Error handler options
@@ -35,19 +38,19 @@ export interface ErrorHandlerOptions {
   includeStack?: boolean;
 
   /** Custom error logger */
-  logger?: (error: Error, ctx: ErrorContext) => void;
+  logger?: (error: Error, ctx: Context) => void;
 
   /** Custom error transformer */
-  transform?: (error: Error, ctx: ErrorContext) => Record<string, unknown>;
+  transform?: (error: Error, ctx: Context) => Record<string, unknown>;
 
   /** Handle specific error types */
-  handlers?: Map<new (...args: unknown[]) => Error, (error: Error, ctx: ErrorContext) => void>;
+  handlers?: Map<new (...args: unknown[]) => Error, (error: Error, ctx: Context) => void>;
 }
 
 /**
  * Default error logger
  */
-function defaultLogger(error: Error, ctx: ErrorContext): void {
+function defaultLogger(error: Error, ctx: Context): void {
   const status = error instanceof HttpError ? error.status : 500;
 
   if (status >= 500) {
@@ -71,14 +74,12 @@ function defaultLogger(error: Error, ctx: ErrorContext): void {
  * }));
  * ```
  */
-export function errorHandler(options: ErrorHandlerOptions = {}): ErrorMiddleware {
+export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
   const { includeStack = false, logger = defaultLogger, transform, handlers } = options;
 
-  return async (ctx: ErrorContext, next?: () => Promise<void>): Promise<void> => {
+  return async (ctx: Context, next: Next): Promise<void> => {
     try {
-      if (next) {
-        await next();
-      }
+      await next();
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
 
@@ -128,7 +129,7 @@ export function errorHandler(options: ErrorHandlerOptions = {}): ErrorMiddleware
         }
 
         if (includeStack && err.stack) {
-          body.stack = err.stack.split('\n').map(line => line.trim());
+          body.stack = err.stack.split('\n').map((line) => line.trim());
         }
       }
 
@@ -146,8 +147,9 @@ export function errorHandler(options: ErrorHandlerOptions = {}): ErrorMiddleware
  * app.use(notFoundHandler());
  * ```
  */
-export function notFoundHandler(message = 'Not Found'): ErrorMiddleware {
-  return async (ctx: ErrorContext): Promise<void> => {
+export function notFoundHandler(message = 'Not Found'): Middleware {
+  return async (ctx: Context, next: Next): Promise<void> => {
+    await next();
     // Only handle if response hasn't been sent
     if (ctx.status === 200 || ctx.status === 404) {
       ctx.status = 404;
@@ -174,10 +176,8 @@ export function notFoundHandler(message = 'Not Found'): ErrorMiddleware {
  * }));
  * ```
  */
-export function catchAsync(
-  handler: (ctx: ErrorContext, next?: () => Promise<void>) => Promise<void>
-): ErrorMiddleware {
-  return async (ctx: ErrorContext, next?: () => Promise<void>): Promise<void> => {
+export function catchAsync(handler: (ctx: Context, next: Next) => Promise<void>): Middleware {
+  return async (ctx: Context, next: Next): Promise<void> => {
     try {
       await handler(ctx, next);
     } catch (error) {
