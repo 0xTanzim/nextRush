@@ -34,6 +34,7 @@ NextRush v2 proved we can build a full-featured framework. Now we need to prove 
 > **"Minimal core, maximum power, zero compromise."**
 
 NextRush v3 will be:
+
 - **Minimal**: Core under 3,000 LOC
 - **Modular**: Every feature is opt-in
 - **Fast**: Target 30,000+ RPS
@@ -58,13 +59,13 @@ Secondary:
 
 ### 1.4 Success Metrics
 
-| Metric | v2 Current | v3 Target | Industry Best |
-|--------|------------|-----------|---------------|
-| Core Size | 25,000 LOC | <3,000 LOC | ~2,500 (Koa) |
-| Cold Start | ~150ms | <30ms | ~20ms (Hono) |
-| Memory | ~1.5MB | <200KB | ~100KB (Koa) |
-| RPS | ~13,000 | >30,000 | ~40,000 (Fastify) |
-| Time to First Route | ~50ms | <10ms | ~5ms |
+| Metric              | v2 Current | v3 Target  | Industry Best     |
+| ------------------- | ---------- | ---------- | ----------------- |
+| Core Size           | 25,000 LOC | <3,000 LOC | ~2,500 (Koa)      |
+| Cold Start          | ~150ms     | <30ms      | ~20ms (Hono)      |
+| Memory              | ~1.5MB     | <200KB     | ~100KB (Koa)      |
+| RPS                 | ~13,000    | >30,000    | ~40,000 (Fastify) |
+| Time to First Route | ~50ms      | <10ms      | ~5ms              |
 
 ---
 
@@ -73,30 +74,35 @@ Secondary:
 ### 2.1 Core Principles
 
 #### Principle 1: Minimal Core
+
 ```
 The core should do ONE thing: handle HTTP requests with middleware.
 Everything else is an extension.
 ```
 
 #### Principle 2: Opt-In Complexity
+
 ```
 Simple by default, powerful when needed.
 A hello world should be 3 lines, not 30.
 ```
 
 #### Principle 3: Zero-Cost Abstractions
+
 ```
 If you don't use a feature, you pay nothing.
 Not in bundle size, not in memory, not in CPU.
 ```
 
 #### Principle 4: Composition Over Configuration
+
 ```
 Build applications by composing small, focused packages.
 No magic, no hidden behavior.
 ```
 
 #### Principle 5: TypeScript First
+
 ```
 Types are not afterthoughts. They guide the API design.
 Inference should work naturally.
@@ -306,22 +312,22 @@ nextrush/
 
 ### 4.2 Package Responsibilities
 
-| Package | Responsibility | Size Target |
-|---------|---------------|-------------|
-| `@nextrush/core` | Application, Context, Middleware chain | <1,500 LOC |
-| `@nextrush/router` | Route matching, Radix tree | <1,000 LOC |
-| `@nextrush/types` | Shared TypeScript types | <500 LOC |
-| `@nextrush/adapter-node` | Node.js HTTP binding | <500 LOC |
-| `@nextrush/cors` | CORS headers | <200 LOC |
-| `@nextrush/helmet` | Security headers | <200 LOC |
-| `@nextrush/body-parser` | Request body parsing | <800 LOC |
-| `@nextrush/compression` | Response compression | <400 LOC |
-| `@nextrush/rate-limit` | Rate limiting | <300 LOC |
-| `@nextrush/logger` | Advanced logging plugin | <600 LOC |
-| `@nextrush/static` | Static file serving | <400 LOC |
-| `@nextrush/websocket` | WebSocket support | <500 LOC |
-| `@nextrush/events` | Event system (CQRS) | <1,500 LOC |
-| `nextrush` | Meta package (re-exports) | <100 LOC |
+| Package                  | Responsibility                         | Size Target |
+| ------------------------ | -------------------------------------- | ----------- |
+| `@nextrush/core`         | Application, Context, Middleware chain | <1,500 LOC  |
+| `@nextrush/router`       | Route matching, Radix tree             | <1,000 LOC  |
+| `@nextrush/types`        | Shared TypeScript types                | <500 LOC    |
+| `@nextrush/adapter-node` | Node.js HTTP binding                   | <500 LOC    |
+| `@nextrush/cors`         | CORS headers                           | <200 LOC    |
+| `@nextrush/helmet`       | Security headers                       | <200 LOC    |
+| `@nextrush/body-parser`  | Request body parsing                   | <800 LOC    |
+| `@nextrush/compression`  | Response compression                   | <400 LOC    |
+| `@nextrush/rate-limit`   | Rate limiting                          | <300 LOC    |
+| `@nextrush/logger`       | Advanced logging plugin                | <600 LOC    |
+| `@nextrush/static`       | Static file serving                    | <400 LOC    |
+| `@nextrush/websocket`    | WebSocket support                      | <500 LOC    |
+| `@nextrush/events`       | Event system (CQRS)                    | <1,500 LOC  |
+| `nextrush`               | Meta package (re-exports)              | <100 LOC    |
 
 ---
 
@@ -338,14 +344,7 @@ export { createContext } from './context';
 export { compose } from './middleware';
 export { NextRushError } from './errors';
 
-export type {
-  App,
-  Context,
-  Middleware,
-  Next,
-  Plugin,
-  PluginContext,
-} from './types';
+export type { App, Context, Middleware, Next, Plugin, PluginContext } from './types';
 ```
 
 ### 5.2 Application Class (v3)
@@ -392,7 +391,7 @@ export class Application {
    * Get plugin by name
    */
   getPlugin<T extends Plugin>(name: string): T | undefined {
-    return this.plugins.find(p => p.name === name) as T | undefined;
+    return this.plugins.find((p) => p.name === name) as T | undefined;
   }
 }
 
@@ -428,9 +427,9 @@ export interface Context {
   status: number;
 
   // Response methods (action-oriented DX)
-  json(data: unknown): void;      // Send JSON response
-  send(data: unknown): void;      // Send text/buffer/stream
-  html(content: string): void;    // Send HTML response
+  json(data: unknown): void; // Send JSON response
+  send(data: unknown): void; // Send text/buffer/stream
+  html(content: string): void; // Send HTML response
   redirect(url: string, status?: number): void;
 
   // Header helpers
@@ -438,7 +437,7 @@ export interface Context {
   get(field: string): string | undefined;
 
   // ===== MIDDLEWARE =====
-  next(): Promise<void>;          // Modern syntax: ctx.next()
+  next(): Promise<void>; // Modern syntax: ctx.next()
 
   // ===== STATE =====
   state: Record<string, unknown>;
@@ -453,8 +452,8 @@ export interface Context {
 // Middleware supports both syntaxes
 export type Next = () => Promise<void>;
 export type Middleware =
-  | ((ctx: Context) => Promise<void>)                    // Modern: ctx.next()
-  | ((ctx: Context, next: Next) => Promise<void>);       // Traditional
+  | ((ctx: Context) => Promise<void>) // Modern: ctx.next()
+  | ((ctx: Context, next: Next) => Promise<void>); // Traditional
 ```
 
 ### 5.4 Middleware Composition (v3)
@@ -468,7 +467,7 @@ import type { Context, Middleware, Next } from './types';
  * Koa-style composition with async/await
  */
 export function compose(middleware: Middleware[]): Middleware {
-  return async function(ctx: Context, next?: Next): Promise<void> {
+  return async function (ctx: Context, next?: Next): Promise<void> {
     let index = -1;
 
     async function dispatch(i: number): Promise<void> {
@@ -541,7 +540,7 @@ export interface PluginContext {
     "@changesets/cli": "^2.27.0",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^2.0.0"
+    "vitest": "^4.0.18"
   }
 }
 ```
@@ -631,7 +630,7 @@ import { createApp } from 'nextrush';
 const app = createApp();
 
 app.get('/', (ctx) => {
-  ctx.json({ message: 'Hello World' });  // Clean response
+  ctx.json({ message: 'Hello World' }); // Clean response
 });
 
 app.listen(3000);
@@ -663,7 +662,7 @@ app.use(json());
 // Logging middleware example
 app.use(async (ctx) => {
   const start = Date.now();
-  await ctx.next();  // Modern syntax!
+  await ctx.next(); // Modern syntax!
   console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
 });
 
@@ -672,7 +671,7 @@ const router = createRouter();
 
 router.get('/users', async (ctx) => {
   const users = await db.users.findAll();
-  ctx.json({ users });  // Send JSON response
+  ctx.json({ users }); // Send JSON response
 });
 
 router.get('/users/:id', async (ctx) => {
@@ -689,7 +688,7 @@ router.post('/users', async (ctx) => {
   // ctx.body = parsed request body (input)
   const user = await db.users.create(ctx.body);
   ctx.status = 201;
-  ctx.json({ user });  // ctx.json() = send response (output)
+  ctx.json({ user }); // ctx.json() = send response (output)
 });
 
 // Mount router
@@ -707,24 +706,24 @@ listen(app, { port: 3000 }, () => {
 // Clear distinction between input and output
 
 // ===== REQUEST (Input) =====
-ctx.body          // Request body (parsed JSON/form) - INPUT
-ctx.query         // URL query params
-ctx.params        // Route params (:id)
-ctx.headers       // Request headers
-ctx.method        // GET, POST, etc.
-ctx.path          // Request path
-ctx.ip            // Client IP
+ctx.body; // Request body (parsed JSON/form) - INPUT
+ctx.query; // URL query params
+ctx.params; // Route params (:id)
+ctx.headers; // Request headers
+ctx.method; // GET, POST, etc.
+ctx.path; // Request path
+ctx.ip; // Client IP
 
 // ===== RESPONSE (Output) =====
-ctx.json(data)    // Send JSON - OUTPUT
-ctx.send(data)    // Send text/buffer
-ctx.html(content) // Send HTML
-ctx.redirect(url) // Redirect
-ctx.status        // Set status code
-ctx.set(k, v)     // Set response header
+ctx.json(data); // Send JSON - OUTPUT
+ctx.send(data); // Send text/buffer
+ctx.html(content); // Send HTML
+ctx.redirect(url); // Redirect
+ctx.status; // Set status code
+ctx.set(k, v); // Set response header
 
 // ===== MIDDLEWARE =====
-ctx.next()        // Call next middleware
+ctx.next(); // Call next middleware
 ```
 
 ### 7.4 Meta Package API
@@ -741,12 +740,7 @@ export { createRouter } from '@nextrush/router';
 export { listen } from '@nextrush/adapter-node';
 
 // Types
-export type {
-  Context,
-  Middleware,
-  Next,
-  Plugin,
-} from '@nextrush/core';
+export type { Context, Middleware, Next, Plugin } from '@nextrush/core';
 
 // Extend Application with listen method for convenience
 import { Application } from '@nextrush/core';
@@ -758,7 +752,7 @@ declare module '@nextrush/core' {
   }
 }
 
-Application.prototype.listen = function(port: number, callback?: () => void) {
+Application.prototype.listen = function (port: number, callback?: () => void) {
   nodeListen(this, { port }, callback);
 };
 ```
@@ -805,29 +799,35 @@ app.use(router.routes());
 
 ### 8.1 Benchmark Targets
 
-| Metric | v2 | v3 Target | Stretch Goal |
-|--------|-----|-----------|--------------|
-| Hello World RPS | 13,000 | 30,000 | 40,000 |
-| JSON Response RPS | 11,000 | 25,000 | 35,000 |
-| Param Route RPS | 10,000 | 22,000 | 30,000 |
-| 5 Middleware Chain | 9,000 | 20,000 | 28,000 |
-| Cold Start | 150ms | 30ms | 15ms |
-| Memory (baseline) | 1.5MB | 200KB | 100KB |
-| Memory (1000 routes) | 10MB | 2MB | 1MB |
+| Metric               | v2     | v3 Target | Stretch Goal |
+| -------------------- | ------ | --------- | ------------ |
+| Hello World RPS      | 13,000 | 30,000    | 40,000       |
+| JSON Response RPS    | 11,000 | 25,000    | 35,000       |
+| Param Route RPS      | 10,000 | 22,000    | 30,000       |
+| 5 Middleware Chain   | 9,000  | 20,000    | 28,000       |
+| Cold Start           | 150ms  | 30ms      | 15ms         |
+| Memory (baseline)    | 1.5MB  | 200KB     | 100KB        |
+| Memory (1000 routes) | 10MB   | 2MB       | 1MB          |
 
 ### 8.2 Performance Optimizations
 
 #### 8.2.1 Zero-Allocation Hot Path
+
 ```typescript
 // Reuse objects in hot path
 const contextPool: Context[] = [];
 const paramObjectPool: Record<string, string>[] = [];
 
-function acquireContext(): Context { /* from pool */ }
-function releaseContext(ctx: Context): void { /* to pool */ }
+function acquireContext(): Context {
+  /* from pool */
+}
+function releaseContext(ctx: Context): void {
+  /* to pool */
+}
 ```
 
 #### 8.2.2 Pre-Compiled Routes
+
 ```typescript
 // Compile middleware chain at startup
 const compiledRoutes = new Map<string, CompiledRoute>();
@@ -838,6 +838,7 @@ router.on('route:added', (route) => {
 ```
 
 #### 8.2.3 Static Route Fast Path
+
 ```typescript
 // O(1) lookup for static routes
 const staticRoutes = new Map<string, Handler>();
@@ -860,13 +861,13 @@ function match(method: string, path: string): Match | null {
 
 ### 9.1 Breaking Changes from v2
 
-| Change | v2 | v3 | Migration |
-|--------|-----|-----|-----------|
-| Import path | `import { createApp } from 'nextrush'` | Same (meta package) | No change needed |
-| Router | Built-in | Separate package | `import { createRouter } from '@nextrush/router'` |
-| Middleware | `app.cors()` | `import { cors } from '@nextrush/cors'` | Explicit imports |
-| Events | Built-in | Plugin | `import { EventsPlugin } from '@nextrush/events'` |
-| Context | Heavy | Minimal | Some methods move to helpers |
+| Change      | v2                                     | v3                                      | Migration                                         |
+| ----------- | -------------------------------------- | --------------------------------------- | ------------------------------------------------- |
+| Import path | `import { createApp } from 'nextrush'` | Same (meta package)                     | No change needed                                  |
+| Router      | Built-in                               | Separate package                        | `import { createRouter } from '@nextrush/router'` |
+| Middleware  | `app.cors()`                           | `import { cors } from '@nextrush/cors'` | Explicit imports                                  |
+| Events      | Built-in                               | Plugin                                  | `import { EventsPlugin } from '@nextrush/events'` |
+| Context     | Heavy                                  | Minimal                                 | Some methods move to helpers                      |
 
 ### 9.2 Migration Guide Preview
 
@@ -894,7 +895,7 @@ app.use(helmet());
 app.use(json());
 
 app.get('/users', async (ctx) => {
-  ctx.body = { users: [] };  // Simplified response
+  ctx.body = { users: [] }; // Simplified response
 });
 
 listen(app, 3000);
@@ -905,6 +906,7 @@ listen(app, 3000);
 ## 10. Implementation Phases
 
 ### Phase 1: Foundation (Weeks 1-2)
+
 - [ ] Set up monorepo with Turborepo + pnpm
 - [ ] Create `@nextrush/types` package
 - [ ] Create `@nextrush/core` package (minimal)
@@ -912,28 +914,33 @@ listen(app, 3000);
 - [ ] Achieve 30,000 RPS on hello world
 
 ### Phase 2: Adapters (Weeks 3-4)
+
 - [ ] Create `@nextrush/adapter-node`
 - [ ] Port context creation
 - [ ] Port request handling
 - [ ] Benchmark and optimize
 
 ### Phase 3: Essential Middleware (Weeks 5-6)
+
 - [ ] Create `@nextrush/cors`
 - [ ] Create `@nextrush/helmet`
 - [ ] Create `@nextrush/body-parser`
 - [ ] Create `@nextrush/compression`
 
 ### Phase 4: Plugins (Weeks 7-8)
+
 - [ ] Create `@nextrush/logger`
 - [ ] Create `@nextrush/static`
 - [ ] Create `@nextrush/websocket`
 
 ### Phase 5: Advanced Features (Weeks 9-10)
+
 - [ ] Create `@nextrush/events` (CQRS)
 - [ ] Create `@nextrush/rate-limit`
 - [ ] Create `@nextrush/template`
 
 ### Phase 6: Meta Package & Docs (Weeks 11-12)
+
 - [ ] Create `nextrush` meta package
 - [ ] Write comprehensive documentation
 - [ ] Create migration guide
@@ -945,6 +952,7 @@ listen(app, 3000);
 ## 11. Success Criteria
 
 ### 11.1 Technical Success
+
 - [ ] Core under 3,000 LOC
 - [ ] 30,000+ RPS on hello world
 - [ ] <30ms cold start
@@ -953,6 +961,7 @@ listen(app, 3000);
 - [ ] 90%+ test coverage
 
 ### 11.2 DX Success
+
 - [ ] 3-line hello world
 - [ ] Full type inference
 - [ ] Clear error messages
@@ -960,6 +969,7 @@ listen(app, 3000);
 - [ ] Migration guide works
 
 ### 11.3 Ecosystem Success
+
 - [ ] All v2 features available as packages
 - [ ] Easy to extend with custom packages
 - [ ] Active community contributions
@@ -1017,14 +1027,14 @@ nextrush (meta)
 
 ## Appendix B: Decision Log
 
-| Decision | Choice | Reason |
-|----------|--------|--------|
-| Monorepo tool | Turborepo | Fast, simple, works with pnpm |
-| Package manager | pnpm | Fast, strict, workspace support |
-| Build tool | tsup | Fast, zero-config, ESM support |
-| Test framework | Vitest | Fast, ESM native, good DX |
-| Versioning | Changesets | Monorepo versioning support |
+| Decision        | Choice     | Reason                          |
+| --------------- | ---------- | ------------------------------- |
+| Monorepo tool   | Turborepo  | Fast, simple, works with pnpm   |
+| Package manager | pnpm       | Fast, strict, workspace support |
+| Build tool      | tsup       | Fast, zero-config, ESM support  |
+| Test framework  | Vitest     | Fast, ESM native, good DX       |
+| Versioning      | Changesets | Monorepo versioning support     |
 
 ---
 
-*End of Architecture Vision Document*
+_End of Architecture Vision Document_
