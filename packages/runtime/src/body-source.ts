@@ -85,8 +85,12 @@ export abstract class AbstractBodySource implements BodySource {
     contentType: string | undefined,
     options: BodySourceOptions = {}
   ) {
-    this.contentLength =
-      typeof contentLength === 'string' ? parseInt(contentLength, 10) || undefined : contentLength;
+    if (typeof contentLength === 'string') {
+      const parsed = parseInt(contentLength, 10);
+      this.contentLength = Number.isNaN(parsed) ? undefined : parsed;
+    } else {
+      this.contentLength = contentLength;
+    }
 
     this.contentType = contentType;
 
@@ -195,8 +199,42 @@ export class WebBodySource extends AbstractBodySource {
   }
 
   protected async _buffer(): Promise<Uint8Array> {
-    const arrayBuffer = await this.request.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+    // If no body stream, use arrayBuffer() fast path
+    if (!this.request.body) {
+      const arrayBuffer = await this.request.arrayBuffer();
+      return new Uint8Array(arrayBuffer);
+    }
+
+    // Stream body with incremental size enforcement to prevent memory DoS
+    const reader = this.request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        totalBytes += value.byteLength;
+        if (totalBytes > this.options.limit) {
+          reader.cancel();
+          throw new BodyTooLargeError(this.options.limit, totalBytes);
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    // Concatenate chunks into single Uint8Array
+    if (chunks.length === 1) return chunks[0]!;
+    const result = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return result;
   }
 
   protected _stream(): ReadableStream<Uint8Array> {

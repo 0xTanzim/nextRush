@@ -6,13 +6,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-    BodyConsumedError,
-    BodyTooLargeError,
-    createEmptyBodySource,
-    createWebBodySource,
-    DEFAULT_BODY_LIMIT,
-    EmptyBodySource,
-    WebBodySource
+  BodyConsumedError,
+  BodyTooLargeError,
+  createEmptyBodySource,
+  createWebBodySource,
+  DEFAULT_BODY_LIMIT,
+  EmptyBodySource,
+  WebBodySource,
 } from '../body-source.js';
 
 describe('BodySource', () => {
@@ -128,9 +128,9 @@ describe('BodySource', () => {
       const source = new WebBodySource(request);
       // Note: Content-Length may or may not be set depending on Request implementation
       // Just verify it's a number or undefined
-      expect(
-        source.contentLength === undefined || typeof source.contentLength === 'number'
-      ).toBe(true);
+      expect(source.contentLength === undefined || typeof source.contentLength === 'number').toBe(
+        true
+      );
     });
 
     it('should track consumed state', async () => {
@@ -289,6 +289,106 @@ describe('BodySource', () => {
       const stream = source.stream();
 
       expect(stream).toBeInstanceOf(ReadableStream);
+    });
+  });
+
+  describe('Content-Length 0 parsing', () => {
+    it('should parse Content-Length 0 as 0, not undefined', () => {
+      const request = new Request('http://example.com', {
+        method: 'POST',
+        body: '',
+        headers: { 'content-length': '0' },
+      });
+
+      const source = new WebBodySource(request);
+      expect(source.contentLength).toBe(0);
+    });
+
+    it('should parse Content-Length with valid values', () => {
+      const request = new Request('http://example.com', {
+        method: 'POST',
+        body: 'test',
+        headers: { 'content-length': '4' },
+      });
+
+      const source = new WebBodySource(request);
+      expect(source.contentLength).toBe(4);
+    });
+
+    it('should return undefined for non-numeric Content-Length', () => {
+      const request = new Request('http://example.com', {
+        method: 'POST',
+        body: 'test',
+        headers: { 'content-length': 'invalid' },
+      });
+
+      const source = new WebBodySource(request);
+      expect(source.contentLength).toBeUndefined();
+    });
+  });
+
+  describe('Streaming body size enforcement', () => {
+    it('should abort stream when body exceeds limit during read', async () => {
+      // Create a body larger than the limit
+      const largeBody = 'x'.repeat(200);
+      const request = new Request('http://example.com', {
+        method: 'POST',
+        body: largeBody,
+      });
+
+      const source = new WebBodySource(request, { limit: 50 });
+
+      await expect(source.buffer()).rejects.toThrow(BodyTooLargeError);
+    });
+
+    it('should read body that fits within limit', async () => {
+      const body = 'x'.repeat(50);
+      const request = new Request('http://example.com', {
+        method: 'POST',
+        body,
+      });
+
+      const source = new WebBodySource(request, { limit: 100 });
+      const buffer = await source.buffer();
+
+      expect(buffer.length).toBe(50);
+    });
+
+    it('should reject body without Content-Length that exceeds limit during streaming', async () => {
+      // Simulate a streamed body without Content-Length pre-check
+      const chunks = ['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee'];
+      const stream = new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) {
+            controller.enqueue(new TextEncoder().encode(chunk));
+          }
+          controller.close();
+        },
+      });
+
+      const request = new Request('http://example.com', {
+        method: 'POST',
+        body: stream,
+        // @ts-expect-error - duplex required for streaming body
+        duplex: 'half',
+      });
+
+      const source = new WebBodySource(request, { limit: 10 });
+
+      await expect(source.buffer()).rejects.toThrow(BodyTooLargeError);
+    });
+
+    it('should return single chunk directly without concatenation', async () => {
+      const body = 'small';
+      const request = new Request('http://example.com', {
+        method: 'POST',
+        body,
+      });
+
+      const source = new WebBodySource(request, { limit: 1024 });
+      const buffer = await source.buffer();
+
+      expect(new TextDecoder().decode(buffer)).toBe('small');
     });
   });
 });

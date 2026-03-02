@@ -178,3 +178,28 @@ describe('Runtime Detection Edge Cases', () => {
     expect(validRuntimes).toContain(runtime);
   });
 });
+
+describe('Vercel Edge Detection Order', () => {
+  beforeEach(() => {
+    resetRuntimeCache();
+  });
+
+  it('should detect Node.js even when VERCEL_REGION is set', () => {
+    // Simulate Node.js on Vercel (serverless functions)
+    // process.versions.node exists AND VERCEL_REGION is set
+    const originalRegion = process.env['VERCEL_REGION'];
+    process.env['VERCEL_REGION'] = 'iad1';
+
+    try {
+      const runtime = detectRuntime();
+      // Must be 'node', NOT 'vercel-edge', because process.versions.node exists
+      expect(runtime).toBe('node');
+    } finally {
+      if (originalRegion === undefined) {
+        delete process.env['VERCEL_REGION'];
+      } else {
+        process.env['VERCEL_REGION'] = originalRegion;
+      }
+    }
+  });
+});

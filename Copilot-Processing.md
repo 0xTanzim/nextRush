@@ -1,4 +1,4 @@
-# Copilot Processing — Phases 1-4
+# Copilot Processing — Phases 1-5
 
 ## User Request
 Execute improvement plan Phases 1-4 (Security, Error Architecture, Type System, Performance)
@@ -98,10 +98,22 @@ Execute improvement plan Phases 1-4 (Security, Error Architecture, Type System, 
 
 **Validation:** Build 29/29 ✅ | Router 100/100 ✅ | Adapter-node 64/64 ✅ | Runtime 45/45 ✅
 
-### Phase 5: Runtime & Detection Fixes (P1) — ~2.5 hr
-1. Fix Vercel Edge detection order
-2. Implement streaming body size check
-3. Fix Content-Length 0 parsing
+### Phase 5: Runtime & Detection Fixes (P1) — ✅ DONE
+1. ~~Fix Vercel Edge detection order~~ ✅ — Swapped Node.js check before Vercel Edge
+2. ~~Implement streaming body size check~~ ✅ — WebBodySource now streams with byte counting
+3. ~~Fix Content-Length 0 parsing~~ ✅ — `parseInt || undefined` → `Number.isNaN` check
+
+**Files Modified (3):**
+- `packages/runtime/src/detection.ts` (task 5.1)
+- `packages/runtime/src/body-source.ts` (tasks 5.2, 5.3)
+- `packages/adapters/node/src/body-source.ts` (task 5.3)
+
+**Tests Added (3 files):**
+- `packages/runtime/src/__tests__/detection.test.ts` — Vercel Edge detection order test
+- `packages/runtime/src/__tests__/body-source.test.ts` — Content-Length 0 + streaming size tests
+- `packages/adapters/node/src/__tests__/body-source.test.ts` — New test file (Content-Length 0 + streaming)
+
+**Validation:** Build 29/29 ✅ | Tests 56/56 ✅ | Runtime 53 tests ✅ | Adapter-node 73 tests ✅
 
 ### Phase 6: DX & Quality of Life (P2) — ~7 hr
 1. Pluggable logger replacing `console.*`

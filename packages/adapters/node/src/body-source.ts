@@ -55,10 +55,12 @@ export class NodeBodySource implements BodySource {
 
     // Parse content-length header
     const contentLengthHeader = req.headers['content-length'];
-    this.contentLength =
-      typeof contentLengthHeader === 'string'
-        ? parseInt(contentLengthHeader, 10) || undefined
-        : undefined;
+    if (typeof contentLengthHeader === 'string') {
+      const parsed = parseInt(contentLengthHeader, 10);
+      this.contentLength = Number.isNaN(parsed) ? undefined : parsed;
+    } else {
+      this.contentLength = undefined;
+    }
 
     // Get content-type header
     const contentTypeHeader = req.headers['content-type'];

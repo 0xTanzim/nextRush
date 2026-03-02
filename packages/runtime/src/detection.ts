@@ -16,8 +16,8 @@ import type { Runtime, RuntimeCapabilities, RuntimeInfo } from '@nextrush/types'
  * 1. Bun (has global `Bun` object)
  * 2. Deno (has global `Deno` object)
  * 3. Cloudflare Workers (has `navigator.userAgent` with 'Cloudflare-Workers')
- * 4. Vercel Edge (has `process.env.VERCEL_REGION`)
- * 5. Node.js (has `process.versions.node`)
+ * 4. Node.js (has `process.versions.node`)
+ * 5. Vercel Edge (has `process.env.VERCEL_REGION` but NOT `process.versions.node`)
  * 6. Generic Edge (has `Request` but no Node.js process)
  * 7. Unknown
  *
@@ -56,22 +56,22 @@ export function detectRuntime(): Runtime {
     return 'cloudflare-workers';
   }
 
-  // Vercel Edge - Check for VERCEL_REGION environment variable
-  if (
-    typeof process !== 'undefined' &&
-    typeof process.env === 'object' &&
-    process.env.VERCEL_REGION !== undefined
-  ) {
-    return 'vercel-edge';
-  }
-
-  // Node.js - Check for process.versions.node
+  // Node.js - Check for process.versions.node (before Vercel Edge to avoid misclassification)
   if (
     typeof process !== 'undefined' &&
     typeof process.versions === 'object' &&
     typeof process.versions.node === 'string'
   ) {
     return 'node';
+  }
+
+  // Vercel Edge - Check for VERCEL_REGION environment variable (after Node.js check)
+  if (
+    typeof process !== 'undefined' &&
+    typeof process.env === 'object' &&
+    process.env.VERCEL_REGION !== undefined
+  ) {
+    return 'vercel-edge';
   }
 
   // Generic Edge Runtime - Has Web APIs but not Node.js
