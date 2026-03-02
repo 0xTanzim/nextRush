@@ -1,268 +1,174 @@
 ---
-description: 'Write or update NextRush documentation only after analyzing the codebase, package implementations, existing legacy docs, and using Mermaid diagrams correctly where they improve understanding.'
+description: 'Generate or update NextRush documentation from actual codebase implementation. Enforces code-first accuracy, verifiable examples, quality scoring, and self-review.'
 agent: docs-writer-agent
+name: "Write Docs From Code"
+argument-hint: "Package name (e.g., @nextrush/core) and optional doc path or focus area"
 ---
 
-# Write NextRush Docs From Code (Strict)
+# Write NextRush Documentation From Code
 
 ## Mission
 
-Generate or update **NextRush documentation** that is **fully synchronized with the actual codebase**.
-
-Documentation must be derived from **real implementation**, not assumptions, memory, or old patterns.
-
-Visuals (Mermaid diagrams) must reflect **actual runtime flow**, not imagined architecture.
+Generate or update NextRush documentation that is fully synchronized with the actual codebase. Documentation must be derived from real implementation — not assumptions, memory, or old patterns.
 
 ---
 
-## Scope & Preconditions
+## Hard Rules
 
-This prompt applies when:
-
-* Writing new documentation
-* Updating existing documentation
-* Refactoring legacy documentation
-* Fixing incorrect or outdated docs
-
-### Hard Rules
-
-* ❌ Never write documentation before reviewing the code
-* ❌ Never guess API behavior
-* ❌ Never blindly follow old documentation
-* ❌ Never invent features, defaults, or options
-* ❌ Never add diagrams without verifying behavior in code
-
-If required context is missing, **stop and ask for it**.
+- Never write documentation before reviewing the code
+- Never guess API behavior — verify from source
+- Never blindly follow old documentation — validate against current implementation
+- Never invent features, defaults, or options that don't exist in code
+- Never add diagrams without verifying actual runtime behavior in code
+- Never duplicate content that exists in another doc page
+- If required context is missing, research deeper before stopping
 
 ---
 
 ## Required Inputs
 
-* `${input:targetDocPath}` — Path to the documentation file to write or update
-* `${input:packageName}` — Target package name (example: `@nextrush/core`)
-
-Optional:
-
-* `${input:focusArea}` — Specific API, feature, or section to focus on
-
-If any required input is missing, request it and halt.
+- `${input:packageName}` — Target package (e.g., `@nextrush/core`)
+- Optional: `${input:targetDocPath}` — Path to the doc file to write/update
+- Optional: `${input:focusArea}` — Specific API, feature, or section
 
 ---
 
 ## Workflow (Mandatory Order)
 
-Follow **every step in order**. Do not skip steps.
+Follow every step in order. Do not skip steps.
 
 ---
 
-### Step 1 — Inspect the Codebase First
+### Step 1 — Deep Code Inspection
 
-1. Locate the package source code:
+1. Locate package source: `packages/{name}/src/`
+2. Read and analyze:
+   - Public exports
+   - Function signatures
+   - Default values
+   - Error handling paths
+   - Side effects
+   - TypeScript types
+3. Map:
+   - What is actually implemented
+   - What is configurable
+   - What is NOT supported
+4. Cross-reference with existing tests to verify behavior
+5. If behavior is unclear, read deeper, check tests, check usage in playground
 
-   * `packages/${packageName}/`
-   * `src/` or equivalent internal structure
-2. Read:
+---
 
-   * Public exports
-   * Function signatures
-   * Default values
-   * Error handling paths
-   * Side effects
+### Step 2 — Existing Documentation Audit
+
+1. Locate any existing docs for this package
+2. Treat old docs as historical reference only — potentially incorrect
 3. Identify:
-
-   * What is actually implemented
-   * What is configurable
-   * What is NOT supported
-
-📌 If behavior is unclear, search deeper or stop.
-
----
-
-### Step 2 — Review Existing Documentation (`docs-old`)
-
-1. Locate legacy docs under:
-
-   * `docs-old/`
-   * or previous documentation folders
-2. Treat old docs as:
-
-   * Historical reference only
-   * Potentially incorrect
-3. Identify:
-
-   * Mismatches with code
-   * Deprecated patterns
-   * Missing updates
-   * Incorrect defaults
-
-📌 Do NOT copy old docs blindly.
+   - Mismatches with code
+   - Deprecated patterns
+   - Missing updates
+   - Incorrect defaults
+4. Check for duplicate content across doc pages
 
 ---
 
-### Step 3 — Reconcile Code vs Docs
+### Step 3 — Code vs Docs Reconciliation
 
-Create a mental diff:
+Create an explicit diff: what code does now vs what docs claim.
 
-* What the code does now
-* What the old docs claim
-* What must be corrected
-* What should be removed
-* What should be added
-
-If discrepancies exist, **the code always wins**.
+Code always wins.
 
 ---
 
-### Step 4 — Decide Whether a Diagram Is Needed (Mermaid Gate)
+### Step 4 — Cross-Reference Verification
 
-Before writing diagrams, ask:
-
-* Does this explain **execution flow**, **lifecycle**, or **architecture**?
-* Would text alone be slower to understand?
-* Is the flow stable and verified in code?
-
-If **no**, do not use Mermaid.
+- Verify all code examples compile and run correctly
+- Verify all configuration options exist in source code
+- Verify all default values match source code
+- Verify all function signatures match TypeScript definitions
+- Verify linked pages exist and are current
 
 ---
 
-### Step 5 — Use Mermaid Correctly (When Needed)
+### Step 5 — Diagram Decision (Mermaid Gate)
 
-When a diagram improves clarity, use **Mermaid** with these rules:
+Only add diagrams when they explain execution flow, lifecycle, or architecture and text alone would be slower to understand.
 
-#### Allowed Use Cases
-
-* Request lifecycle
-* Middleware execution order
-* Plugin or hook flow
-* Adapter / runtime interaction
-* High-level architecture overview
-
-#### Forbidden Use Cases
-
-* UI mockups
-* Marketing visuals
-* Decorative diagrams
-* Guessing internal flow
+Rules:
+- Use `graph LR` for flow
+- Use `sequenceDiagram` for request lifecycle
+- Keep small and readable
+- Use real component names from code
+- No decorative diagrams
 
 ---
 
-### Mermaid Design Rules (Strict)
+### Step 6 — Write Documentation
 
-* Prefer **left-to-right** flow (`graph LR`)
-* Keep diagrams **small and readable**
-* Use **real component names from code**
-* Avoid excessive styling, colors, or icons
-* Do not overuse Mermaid features
+Write following all applicable instruction files:
 
-#### Preferred Diagram Types
-
-* `graph LR` → architecture / flow
-* `sequenceDiagram` → request lifecycle
-* `stateDiagram-v2` → state transitions (rare)
-
-#### Avoid
-
-* Custom themes
-* Excessive labels
-* Nested subgraphs without explanation
-* Diagrams longer than one screen
+- `docs-standards.instructions.md` — philosophy, structure, writing rules
+- `docs-mdx-ui.instructions.md` — MDX components and visuals (if .mdx)
+- `docs-api-reference.instructions.md` — API reference format (if API docs)
 
 ---
 
-#### Example (Good)
+### Step 7 — Duplication Prevention
 
-```mermaid
-graph LR
-  Request --> Middleware
-  Middleware --> Router
-  Router --> Handler
-  Handler --> Response
-```
+Before finalizing, verify:
 
-Explain the diagram **in text before or after**.
+- No content duplicated from other doc pages
+- Shared concepts link to their canonical page instead of re-explaining
+- API details live in API reference, not in concept pages
+- Configuration details live in one place only
 
 ---
 
-### Step 6 — Write or Update Documentation
+### Step 8 — Quality Scoring (Self-Assessment)
 
-Now — and only now — write documentation that:
+Score each dimension 0-10:
 
-* Matches the real API
-* Uses exact function names and signatures
-* Documents true defaults and behaviors
-* Reflects real runtime behavior
-* Avoids undocumented features
-* Includes diagrams only when justified
+| Dimension | Minimum | Description |
+|---|---|---|
+| Code Accuracy | 9 | Does every statement match the actual source code? |
+| Completeness | 8 | Are all public APIs and behaviors documented? |
+| Example Quality | 8 | Are examples runnable, minimal, and correct? |
+| Structure | 8 | Does the page follow docs-standards structure? |
+| Clarity | 8 | Would a junior developer understand this? |
+| Duplication | 9 | Is there zero duplicated content across docs? |
+| Cross-References | 7 | Are links to related pages correct and current? |
+| Visual Accuracy | 8 | Do diagrams match actual runtime behavior? |
 
-Follow all applicable instruction files:
-
-* `docs-site.instructions.md`
-* `docs-writing.instructions.md`
-* `docs-mdx-ui.instructions.md`
-* `docs-api-reference.instructions.md`
-* `docs-content-strategy.instructions.md`
+If ANY dimension scores below its minimum, revise before delivering. Max 3 revision cycles.
 
 ---
 
-### Step 7 — Validation Pass
+### Step 9 — Self-Review Checklist
 
-Before finishing, verify:
+Before finalizing:
 
-* [ ] All APIs documented actually exist
-* [ ] All examples compile and run
-* [ ] All defaults match source code
-* [ ] No behavior is implied without code evidence
-* [ ] Diagrams match real execution flow
-* [ ] No legacy patterns remain unless still supported
+- [ ] Every code example verified against source
+- [ ] Every default value verified against source
+- [ ] Every function signature matches TypeScript definition
+- [ ] No invented features or options
+- [ ] No marketing language or superlatives
+- [ ] No forbidden words (simply, just, easy, obviously, etc.)
+- [ ] Page follows mandatory structure from docs-standards
+- [ ] Active voice throughout
+- [ ] One idea per paragraph
+- [ ] Links tested and valid
+- [ ] No content duplicated from other pages
+- [ ] Would a developer trust this page to ship production code?
 
-If any check fails, revise.
-
----
-
-## Output Expectations
-
-* Update or create documentation at `${input:targetDocPath}`
-* Use Markdown or MDX as appropriate
-* Include runnable examples
-* Use accurate terminology
-* Use Mermaid diagrams **only where they reduce confusion**
-
-If writing API docs, follow the **API reference format strictly**.
+If any item fails, fix and re-check. Do not deliver unchecked documentation.
 
 ---
 
-## Failure Conditions (Stop Immediately)
+## Operational Rules
 
-Stop and ask for clarification if:
-
-* The package source code cannot be found
-* The target API is ambiguous
-* The old docs conflict heavily with code
-* The requested behavior is not implemented
-* Required inputs are missing
-
-Do not continue without resolution.
-
----
-
-## Quality Assurance Checklist
-
-Before responding, confirm:
-
-* [ ] Code was reviewed first
-* [ ] Old docs were reviewed second
-* [ ] Documentation matches code exactly
-* [ ] Diagrams reflect real behavior
-* [ ] No assumptions were made
-* [ ] Examples reflect real behavior
-* [ ] Language is clear and neutral
-
----
-
-## Final Directive
-
-> **If the documentation or diagram does not match the package code, it is wrong.**
-
-Accuracy is mandatory.
-Clarity is expected.
-Guessing is forbidden.
+- Code is the single source of truth — always
+- If docs and code disagree, the docs are wrong
+- Prefer showing real behavior over describing ideal behavior
+- Document what IS, not what SHOULD BE
+- Every claim must be verifiable in source code
+- Do not pad documentation with filler content
+- Quality over quantity — a short accurate page beats a long inaccurate one

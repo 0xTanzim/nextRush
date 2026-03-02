@@ -1,13 +1,12 @@
 {
   "name": "nextrush-monorepo",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
-  "description": "🚀 NextRush v3 - Minimal, modular, blazing fast Node.js framework",
-  "packageManager": "pnpm@9.15.0",
+  "description": "NextRush v3 - Minimal, modular, blazing fast Node.js framework",
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=22.0.0"
   },
+  "packageManager": "pnpm@10.29.3",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -26,19 +25,19 @@
     "prepare": "turbo run build"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.10",
-    "@types/node": "^22.10.2",
-    "@typescript-eslint/eslint-plugin": "^8.18.1",
-    "@typescript-eslint/parser": "^8.18.1",
-    "@vitest/coverage-v8": "^2.1.8",
-    "@vitest/ui": "^2.1.8",
-    "eslint": "^9.17.0",
-    "eslint-config-prettier": "^9.1.0",
-    "prettier": "^3.4.2",
-    "tsup": "^8.3.5",
-    "turbo": "^2.7.2",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "@changesets/cli": "^2.29.8",
+    "@types/node": "^22.19.13",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/ui": "^2.1.9",
+    "eslint": "^9.39.3",
+    "eslint-config-prettier": "^9.1.2",
+    "prettier": "^3.8.1",
+    "tsup": "^8.5.1",
+    "turbo": "^2.8.12",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   },
   "repository": {
     "type": "git",

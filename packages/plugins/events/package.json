@@ -50,7 +50,7 @@
   },
   "homepage": "https://github.com/nextrush/nextrush/tree/main/packages/plugins/events#readme",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "peerDependencies": {
     "@nextrush/core": ">=3.0.0-alpha.1"

@@ -1,114 +1,273 @@
 ---
-description: 'Guidelines for TypeScript Development targeting TypeScript 5.x and ES2022 output'
+description: 'TypeScript development standards for NextRush v3. Covers strict mode, type safety, code style, module organization, middleware/plugin patterns, and commenting conventions.'
 applyTo: '**/*.ts'
 ---
 
-# TypeScript Development
+# NextRush TypeScript Standards
 
-> These instructions assume projects are built with TypeScript 5.x (or newer) compiling to an ES2022 JavaScript baseline. Adjust guidance if your runtime requires older language targets or down-level transpilation.
+TypeScript 5.x targeting ES2022. Pure ES modules only.
 
-## Core Intent
+---
 
-- Respect the existing architecture and coding standards.
-- Prefer readable, explicit solutions over clever shortcuts.
-- Extend current abstractions before inventing new ones.
-- Prioritize maintainability and clarity, short methods and classes, clean code.
+## Strict Mode Configuration
 
-## General Guardrails
+All packages enforce strict mode:
 
-- Target TypeScript 5.x / ES2022 and prefer native features over polyfills.
-- Use pure ES modules; never emit `require`, `module.exports`, or CommonJS helpers.
-- Rely on the project's build, lint, and test scripts unless asked otherwise.
-- Note design trade-offs when intent is not obvious.
+```json
+{
+  "strict": true,
+  "noUncheckedIndexedAccess": true,
+  "noUnusedLocals": true,
+  "noUnusedParameters": true,
+  "verbatimModuleSyntax": true
+}
+```
 
-## Project Organization
+---
 
-- Follow the repository's folder and responsibility layout for new code.
-- Use kebab-case filenames (e.g., `user-session.ts`, `data-service.ts`) unless told otherwise.
-- Keep tests, types, and helpers near their implementation when it aids discovery.
-- Reuse or extend shared utilities before adding new ones.
+## Type Safety
+
+### Zero `any` Policy
+
+```typescript
+// ❌ NEVER
+const fn = (ctx: any) => {}
+
+// ✅ Use proper types or unknown for boundaries
+const fn = (ctx: Context) => {}
+const fn = (data: unknown) => {}
+```
+
+### Type System Rules
+
+- Prefer `unknown` plus narrowing over `any`
+- Use discriminated unions for state machines and events
+- Centralize shared contracts in `@nextrush/types`
+- Use TypeScript utility types (`Readonly`, `Partial`, `Record`) to express intent
+- Generic types over type assertions
+- Discriminated unions over type casting
+
+### Export Types Explicitly
+
+```typescript
+// ✅ Separate type-only exports
+export type { Context, Middleware, Plugin } from './types';
+export { HttpStatus, ContentType } from './constants';
+```
+
+---
 
 ## Naming & Style
 
-- Use PascalCase for classes, interfaces, enums, and type aliases; camelCase for everything else.
-- Skip interface prefixes like `I`; rely on descriptive names.
-- Name things for their behavior or domain meaning, not implementation.
+- PascalCase for classes, interfaces, enums, type aliases
+- camelCase for variables, functions, parameters, properties
+- kebab-case for filenames (`user-session.ts`, `body-parser.ts`)
+- No `I` prefix on interfaces — use descriptive names
+- Name by intent: `calculateInvoiceTotal` not `doCalc`
 
-## Formatting & Style
+---
 
-- Run the repository's lint/format scripts (e.g., `npm run lint`) before submitting.
-- Match the project's indentation, quote style, and trailing comma rules.
-- Keep functions focused; extract helpers when logic branches grow.
-- Favor immutable data and pure functions when practical.
+## Code Style
 
-## Type System Expectations
+### Functions
 
-- Avoid `any` (implicit or explicit); prefer `unknown` plus narrowing.
-- Use discriminated unions for realtime events and state machines.
-- Centralize shared contracts instead of duplicating shapes.
-- Express intent with TypeScript utility types (e.g., `Readonly`, `Partial`, `Record`).
+- Keep functions focused and short (target ≤40 lines)
+- Public APIs must have explicit parameter types and return types
+- Guard edge cases early with early returns — avoid deep nesting
+- Favor immutable data and pure functions for business logic
+- Minimize parameter lists (use parameter objects for >3 params)
 
-## Async, Events & Error Handling
+### Module Organization
 
-- Use `async/await`; wrap awaits in try/catch with structured errors.
-- Guard edge cases early to avoid deep nesting.
-- Send errors through the project's logging/telemetry utilities.
-- Surface user-facing errors via the repository's notification pattern.
-- Debounce configuration-driven updates and dispose resources deterministically.
+```typescript
+// ✅ index.ts contains only public exports
+export { Application, createApp } from './application';
+export { compose } from './middleware';
+export type { ApplicationOptions } from './application';
 
-## Architecture & Patterns
+// ❌ Do not put implementation in index.ts
+```
 
-- Follow the repository's dependency injection or composition pattern; keep modules single-purpose.
-- Observe existing initialization and disposal sequences when wiring into lifecycles.
-- Keep transport, domain, and presentation layers decoupled with clear interfaces.
-- Supply lifecycle hooks (e.g., `initialize`, `dispose`) and targeted tests when adding services.
+### Package Structure
 
-## External Integrations
+```
+packages/package-name/
+├── src/
+│   ├── index.ts      # Public exports only
+│   ├── main.ts       # Main implementation
+│   ├── types.ts      # Package-specific types
+│   └── __tests__/    # Co-located tests
+├── package.json
+├── tsconfig.json
+├── tsup.config.ts
+└── README.md
+```
 
-- Instantiate clients outside hot paths and inject them for testability.
-- Never hardcode secrets; load them from secure sources.
-- Apply retries, backoff, and cancellation to network or IO calls.
-- Normalize external responses and map errors to domain shapes.
+---
 
-## Security Practices
+## Import Rules
 
-- Validate and sanitize external input with schema validators or type guards.
-- Avoid dynamic code execution and untrusted template rendering.
-- Encode untrusted content before rendering HTML; use framework escaping or trusted types.
-- Use parameterized queries or prepared statements to block injection.
-- Keep secrets in secure storage, rotate them regularly, and request least-privilege scopes.
-- Favor immutable flows and defensive copies for sensitive data.
-- Use vetted crypto libraries only.
-- Patch dependencies promptly and monitor advisories.
+```typescript
+// ✅ Workspace package imports
+import type { Context, Middleware } from '@nextrush/types';
+import { compose } from '@nextrush/core';
 
-## Configuration & Secrets
+// ✅ Node.js built-ins with node: prefix
+import { IncomingMessage, ServerResponse } from 'node:http';
+import { Readable } from 'node:stream';
 
-- Reach configuration through shared helpers and validate with schemas or dedicated validators.
-- Handle secrets via the project's secure storage; guard `undefined` and error states.
-- Document new configuration keys and update related tests.
+// ❌ No relative imports across package boundaries
+import { Context } from '../../types/src/context';
+```
 
-## UI & UX Components
+- Pure ES modules only — no `require`, `module.exports`, or CommonJS
+- Use `import type` for type-only imports at package boundaries
+- Respect the package hierarchy: lower packages never import from higher ones
 
-- Sanitize user or external content before rendering.
-- Keep UI layers thin; push heavy logic to services or state managers.
-- Use messaging or events to decouple UI from business logic.
+---
 
-## Testing Expectations
+## Error Handling
 
-- Add or update unit tests with the project's framework and naming style.
-- Expand integration or end-to-end suites when behavior crosses modules or platform APIs.
-- Run targeted test scripts for quick feedback before submitting.
-- Avoid brittle timing assertions; prefer fake timers or injected clocks.
+```typescript
+// ✅ Use typed error classes
+throw new HttpError(404, 'Not found');
+throw new BadRequestError('Invalid input');
 
-## Performance & Reliability
+// ✅ Type guards for error handling
+if (error instanceof HttpError) {
+  ctx.status = error.status;
+}
+```
 
-- Lazy-load heavy dependencies and dispose them when done.
-- Defer expensive work until users need it.
-- Batch or debounce high-frequency events to reduce thrash.
-- Track resource lifetimes to prevent leaks.
+- Use `async/await` with try/catch and structured errors
+- Guard edge cases early to avoid deep nesting
+- No silent catch blocks — log or re-throw
+- Validate external input with schema validators or type guards
 
-## Documentation & Comments
+---
 
-- Add JSDoc to public APIs; include `@remarks` or `@example` when helpful.
-- Write comments that capture intent, and remove stale notes during refactors.
-- Update architecture or design docs when introducing significant patterns.
+## NextRush Patterns
+
+### Middleware
+
+```typescript
+// ✅ Modern syntax (preferred)
+const logger: Middleware = async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+};
+
+// ✅ Traditional syntax (also supported)
+const logger: Middleware = async (ctx, next) => {
+  const start = Date.now();
+  await next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+};
+```
+
+### Plugin
+
+```typescript
+export class LoggerPlugin implements Plugin {
+  readonly name = 'logger';
+  readonly version = '1.0.0';
+
+  constructor(private options: LoggerOptions = {}) {}
+
+  install(app: Application): void {
+    app.use(this.createMiddleware());
+  }
+
+  private createMiddleware(): Middleware {
+    return async (ctx) => {
+      await ctx.next();
+    };
+  }
+}
+```
+
+---
+
+## Security
+
+- Validate and sanitize all external input
+- No dynamic code execution (`eval`, `Function()`)
+- No unsanitized template interpolation
+- No `JSON.parse` without try/catch at boundaries
+- Validate regex patterns for ReDoS vulnerability
+- Keep secrets in environment variables, never in code
+- Use parameterized queries to block injection
+
+---
+
+## Performance
+
+- No unnecessary allocations in hot paths (middleware chain, router lookup)
+- Avoid closures in tight loops
+- Prefer static dispatch over dynamic where possible
+- No blocking I/O in core or middleware packages
+- Lazy-load heavy dependencies and dispose when done
+- Batch or debounce high-frequency events
+
+---
+
+## Commenting Conventions
+
+### Core Rule
+
+Write code that speaks for itself. Comment only when necessary to explain **why**, not **what**.
+
+### When to Comment
+
+- Complex business logic or non-obvious algorithms
+- Regex patterns — always explain what the pattern matches
+- API constraints, rate limits, or external gotchas
+- Configuration constants — explain the source or reasoning
+
+### When NOT to Comment
+
+- Obvious statements (`// increment counter`)
+- Redundant descriptions that repeat the code
+- Changelog entries (use git history)
+- Commented-out dead code (delete it)
+- Decorative dividers
+
+### Annotation Tags
+
+Use standard tags for findable markers:
+
+```typescript
+// TODO: Replace with proper auth after security review
+// FIXME: Memory leak in production — investigate pooling
+// HACK: Workaround for library v2.1.0 bug — remove after upgrade
+// PERF: Consider caching if called frequently in hot path
+// SECURITY: Validate input to prevent injection
+```
+
+### JSDoc for Public APIs
+
+```typescript
+/**
+ * Compose middleware functions into a single middleware.
+ * @param middleware - Array of middleware to compose
+ * @returns Composed middleware function
+ */
+export function compose(middleware: Middleware[]): ComposedMiddleware {
+  // ...
+}
+```
+
+Add JSDoc to public APIs. Include `@remarks` or `@example` when helpful.
+Remove stale comments during refactors.
+
+---
+
+## Architecture Rules
+
+- Follow the repository's DI and composition patterns
+- Keep transport, domain, and presentation layers decoupled
+- Keep modules single-purpose with clear interfaces
+- Reuse or extend shared utilities before creating new ones
+- Normalize external responses and map errors to domain shapes
+- Instantiate clients outside hot paths and inject for testability

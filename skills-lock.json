@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "memory-leak-detection": {
+      "source": "aj-geddes/useful-ai-prompts",
+      "sourceType": "github",
+      "computedHash": "84491a8f8e092f4e8323f73b1d354bf8b0abd99728a77d206dde8a17a0d31520"
+    }
+  }
+}

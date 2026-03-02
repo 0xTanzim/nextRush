@@ -1,6 +1,12 @@
 packages:
-  - 'packages/*'
-  - 'packages/middleware/*'
-  - 'packages/plugins/*'
-  - 'packages/adapters/*'
-  - 'apps/*'
+  - packages/*
+  - packages/middleware/*
+  - packages/plugins/*
+  - packages/adapters/*
+  - apps/*
+
+ignoredBuiltDependencies:
+  - '@swc/core'
+  - esbuild
+  - sharp
+  - unrs-resolver

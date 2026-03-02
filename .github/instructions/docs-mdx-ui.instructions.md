@@ -1,16 +1,13 @@
 ---
-description: 'Rules for using MDX, UI components, visuals, and layout to build a modern, human-friendly documentation experience for NextRush.'
-applyTo: '**'
+description: 'Rules for using MDX components, visuals, diagrams, and layout in NextRush documentation. Covers Tabs, Accordions, Callouts, Mermaid, and visual density.'
+applyTo: '**/*.mdx'
 ---
 
+# NextRush MDX & UI Instructions
 
-# NextRush MDX & UI Documentation Instructions
+Rules for using UI elements in documentation. MDX is a tool for understanding — not decoration.
 
-These instructions guide GitHub Copilot when **writing or modifying MDX-based documentation** for the NextRush docs site.
-
-This file defines **how to use UI elements responsibly** to improve clarity, readability, and developer experience.
-
-MDX is a tool for understanding — not decoration.
+For writing style, page structure, and content strategy, see `docs-standards.instructions.md`.
 
 ---
 
@@ -322,16 +319,3 @@ If UI does not help, remove it.
 > **MDX exists to reduce thinking, not increase it.**
 
 If the reader has to stop and “figure out” the UI, it has failed.
-```
-
----
-
-## Where you are now (important)
-
-You now have **three clean, professional instruction files**:
-
-1. ✅ `docs-site.instructions.md` → structure & philosophy
-2. ✅ `docs-writing.instructions.md` → language & explanation
-3. ✅ `docs-mdx-ui.instructions.md` → UI, MDX, visuals
-
-This is **exactly how mature projects do it**.

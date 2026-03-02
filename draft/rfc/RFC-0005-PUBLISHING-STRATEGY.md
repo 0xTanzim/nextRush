@@ -25,6 +25,7 @@ This RFC defines **exactly** how NextRush publishes, versions, and organizes its
 5. What's the user installation experience?
 
 **TL;DR:**
+
 - Core packages are **LINKED** (always same version)
 - Middleware/plugins are **INDEPENDENT**
 - Facade includes **core + Node adapter only**
@@ -76,12 +77,12 @@ The `nextrush` facade contains **what 80% of users need for their first app**:
 
 ### Why NOT include everything?
 
-| Include Everything | Include Essentials Only |
-|-------------------|------------------------|
-| Large package size | Small package size |
-| Slow install | Fast install |
-| Confusing API surface | Focused API surface |
-| Forces opinions | Allows choice |
+| Include Everything    | Include Essentials Only |
+| --------------------- | ----------------------- |
+| Large package size    | Small package size      |
+| Slow install          | Fast install            |
+| Confusing API surface | Focused API surface     |
+| Forces opinions       | Allows choice           |
 
 **We choose: Essentials Only**
 
@@ -93,14 +94,14 @@ The `nextrush` facade contains **what 80% of users need for their first app**:
 
 These packages form the framework's foundation. They **MUST** always have the same version.
 
-| Package | Description | In Facade? |
-|---------|-------------|-----------|
-| `@nextrush/types` | Shared TypeScript types | ✅ YES |
-| `@nextrush/errors` | HTTP error classes | ✅ YES |
-| `@nextrush/core` | Application, Context, Middleware | ✅ YES |
-| `@nextrush/router` | Radix tree routing | ✅ YES |
-| `@nextrush/runtime` | Runtime detection utilities | ✅ YES |
-| `nextrush` | Facade meta-package | N/A (this IS the facade) |
+| Package             | Description                      | In Facade?               |
+| ------------------- | -------------------------------- | ------------------------ |
+| `@nextrush/types`   | Shared TypeScript types          | ✅ YES                   |
+| `@nextrush/errors`  | HTTP error classes               | ✅ YES                   |
+| `@nextrush/core`    | Application, Context, Middleware | ✅ YES                   |
+| `@nextrush/router`  | Radix tree routing               | ✅ YES                   |
+| `@nextrush/runtime` | Runtime detection utilities      | ✅ YES                   |
+| `nextrush`          | Facade meta-package              | N/A (this IS the facade) |
 
 **Why linked?** A change to `@nextrush/types` affects ALL other packages. Users must know that `@nextrush/core@3.2.0` works with `@nextrush/router@3.2.0`.
 
@@ -108,13 +109,14 @@ These packages form the framework's foundation. They **MUST** always have the sa
 
 These packages enable the class-based/decorator paradigm. They are also linked because they're tightly integrated.
 
-| Package | Description | In Facade? |
-|---------|-------------|-----------|
-| `@nextrush/di` | Dependency injection container | ❌ NO |
-| `@nextrush/decorators` | @Controller, @Get, @Post, etc. | ❌ NO |
-| `@nextrush/controllers` | Controller plugin, handler building | ❌ NO |
+| Package                 | Description                         | In Facade? |
+| ----------------------- | ----------------------------------- | ---------- |
+| `@nextrush/di`          | Dependency injection container      | ❌ NO      |
+| `@nextrush/decorators`  | @Controller, @Get, @Post, etc.      | ❌ NO      |
+| `@nextrush/controllers` | Controller plugin, handler building | ❌ NO      |
 
 **Why NOT in facade?**
+
 - Not everyone needs class-based controllers
 - Requires `reflect-metadata` as peer dependency
 - Functional users shouldn't pay for what they don't use
@@ -123,14 +125,15 @@ These packages enable the class-based/decorator paradigm. They are also linked b
 
 Runtime-specific adapters. Same major.minor as core, independent patch.
 
-| Package | Description | In Facade? |
-|---------|-------------|-----------|
+| Package                  | Description          | In Facade?       |
+| ------------------------ | -------------------- | ---------------- |
 | `@nextrush/adapter-node` | Node.js HTTP adapter | ✅ YES (default) |
-| `@nextrush/adapter-bun` | Bun adapter | ❌ NO |
-| `@nextrush/adapter-deno` | Deno adapter | ❌ NO |
-| `@nextrush/adapter-edge` | Edge runtime adapter | ❌ NO |
+| `@nextrush/adapter-bun`  | Bun adapter          | ❌ NO            |
+| `@nextrush/adapter-deno` | Deno adapter         | ❌ NO            |
+| `@nextrush/adapter-edge` | Edge runtime adapter | ❌ NO            |
 
 **Why Node in facade?**
+
 - 90%+ of users start with Node.js
 - "Just works" experience for the common case
 - Bun/Deno users are advanced enough to install separately
@@ -139,18 +142,19 @@ Runtime-specific adapters. Same major.minor as core, independent patch.
 
 Each middleware package versions independently.
 
-| Package | Description |
-|---------|-------------|
+| Package                 | Description            |
+| ----------------------- | ---------------------- |
 | `@nextrush/body-parser` | JSON/form body parsing |
-| `@nextrush/cors` | CORS headers |
-| `@nextrush/helmet` | Security headers |
-| `@nextrush/rate-limit` | Rate limiting |
-| `@nextrush/cookies` | Cookie parsing |
-| `@nextrush/compression` | Response compression |
-| `@nextrush/request-id` | Request ID generation |
-| `@nextrush/timer` | Response timing |
+| `@nextrush/cors`        | CORS headers           |
+| `@nextrush/helmet`      | Security headers       |
+| `@nextrush/rate-limit`  | Rate limiting          |
+| `@nextrush/cookies`     | Cookie parsing         |
+| `@nextrush/compression` | Response compression   |
+| `@nextrush/request-id`  | Request ID generation  |
+| `@nextrush/timer`       | Response timing        |
 
 **Why independent?**
+
 - Loosely coupled (don't depend on each other)
 - Can fix/improve without coordinating with core
 - Users only install what they need
@@ -159,20 +163,20 @@ Each middleware package versions independently.
 
 Extension packages that add major functionality.
 
-| Package | Description |
-|---------|-------------|
-| `@nextrush/logger` | Structured logging |
-| `@nextrush/static` | Static file serving |
-| `@nextrush/events` | Event emitter integration |
-| `@nextrush/template` | Template engine support |
-| `@nextrush/websocket` | WebSocket support |
+| Package               | Description               |
+| --------------------- | ------------------------- |
+| `@nextrush/logger`    | Structured logging        |
+| `@nextrush/static`    | Static file serving       |
+| `@nextrush/events`    | Event emitter integration |
+| `@nextrush/template`  | Template engine support   |
+| `@nextrush/websocket` | WebSocket support         |
 
 ### Tier 6: Dev Tools (INDEPENDENT)
 
 Developer experience tooling.
 
-| Package | Description |
-|---------|-------------|
+| Package         | Description                 |
+| --------------- | --------------------------- |
 | `@nextrush/dev` | CLI, hot reload, dev server |
 
 ---
@@ -184,11 +188,13 @@ Developer experience tooling.
 **Packages:** types, errors, core, router, runtime, nextrush, di, decorators, controllers
 
 **Rule:** When ANY of these packages changes:
+
 - If PATCH: All get PATCH bump
 - If MINOR: All get MINOR bump
 - If MAJOR: All get MAJOR bump
 
 **Example:**
+
 ```
 Before: @nextrush/core@3.2.0, @nextrush/router@3.2.0
 Change: Add feature to core
@@ -200,10 +206,12 @@ After:  @nextrush/core@3.3.0, @nextrush/router@3.3.0 (both bump)
 **Packages:** adapter-node, adapter-bun, adapter-deno, adapter-edge
 
 **Rule:**
+
 - MAJOR.MINOR matches core
 - PATCH is independent (for platform-specific fixes)
 
 **Example:**
+
 ```
 Core: 3.2.0
 adapter-node: 3.2.1 (has a Node-specific fix)
@@ -219,6 +227,7 @@ adapter-bun: 3.2.0 (no changes)
 **Rule:** Standard SemVer, no coordination required
 
 **Peer dependency:** Use `@nextrush/types` as peer dependency with range:
+
 ```json
 {
   "peerDependencies": {
@@ -239,42 +248,23 @@ adapter-bun: 3.2.0 (no changes)
 // ============================================
 // CORE: Application & Middleware
 // ============================================
-export {
-  Application,
-  createApp,
-  compose
-} from '@nextrush/core';
+export { Application, createApp, compose } from '@nextrush/core';
 
-export type {
-  ApplicationOptions,
-  ComposedMiddleware
-} from '@nextrush/core';
+export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 
 // ============================================
 // ROUTER
 // ============================================
-export {
-  Router,
-  createRouter
-} from '@nextrush/router';
+export { Router, createRouter } from '@nextrush/router';
 
-export type {
-  RouterOptions
-} from '@nextrush/router';
+export type { RouterOptions } from '@nextrush/router';
 
 // ============================================
 // ADAPTER: Node.js (Default Runtime)
 // ============================================
-export {
-  listen,
-  serve,
-  createHandler
-} from '@nextrush/adapter-node';
+export { listen, serve, createHandler } from '@nextrush/adapter-node';
 
-export type {
-  ServeOptions,
-  ServerInstance
-} from '@nextrush/adapter-node';
+export type { ServeOptions, ServerInstance } from '@nextrush/adapter-node';
 
 // ============================================
 // ERRORS: HTTP Error Classes
@@ -303,10 +293,7 @@ export type {
   Runtime,
 } from '@nextrush/types';
 
-export {
-  HttpStatus,
-  ContentType
-} from '@nextrush/types';
+export { HttpStatus, ContentType } from '@nextrush/types';
 
 // ============================================
 // VERSION
@@ -316,13 +303,13 @@ export const VERSION = '3.0.0-alpha.2';
 
 ### 4.2 What the Facade Does NOT Export
 
-| Not Exported | Reason | How to Get It |
-|--------------|--------|---------------|
-| DI (Service, container) | Class-based paradigm only | `@nextrush/di` |
-| Decorators (@Controller) | Class-based paradigm only | `@nextrush/decorators` |
-| Middleware (cors, helmet) | Optional, user choice | `@nextrush/cors`, etc. |
-| Non-Node adapters | Different runtime | `@nextrush/adapter-bun`, etc. |
-| Dev tools | Development only | `@nextrush/dev` |
+| Not Exported              | Reason                    | How to Get It                 |
+| ------------------------- | ------------------------- | ----------------------------- |
+| DI (Service, container)   | Class-based paradigm only | `@nextrush/di`                |
+| Decorators (@Controller)  | Class-based paradigm only | `@nextrush/decorators`        |
+| Middleware (cors, helmet) | Optional, user choice     | `@nextrush/cors`, etc.        |
+| Non-Node adapters         | Different runtime         | `@nextrush/adapter-bun`, etc. |
+| Dev tools                 | Development only          | `@nextrush/dev`               |
 
 ### 4.3 Facade package.json
 
@@ -354,7 +341,7 @@ export const VERSION = '3.0.0-alpha.2';
     "access": "public"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   }
 }
 ```
@@ -370,11 +357,13 @@ NextRush supports TWO programming paradigms:
 **Target:** Most users, simple APIs, quick prototypes
 
 **Installation:**
+
 ```bash
 pnpm add nextrush
 ```
 
 **Usage:**
+
 ```typescript
 import { createApp, createRouter, listen } from 'nextrush';
 
@@ -400,11 +389,13 @@ listen(app, 3000);
 **Target:** Enterprise apps, DI-heavy architectures, NestJS refugees
 
 **Installation:**
+
 ```bash
 pnpm add nextrush @nextrush/decorators @nextrush/di @nextrush/controllers
 ```
 
 **Usage:**
+
 ```typescript
 import 'reflect-metadata';
 import { createApp, listen } from 'nextrush';
@@ -435,20 +426,22 @@ class UserController {
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({
-  controllers: [UserController],
-}));
+app.plugin(
+  controllersPlugin({
+    controllers: [UserController],
+  })
+);
 listen(app, 3000);
 ```
 
 ### 5.3 Why Separate?
 
-| Aspect | Functional | Class-Based |
-|--------|-----------|-------------|
-| Dependencies | None extra | reflect-metadata |
-| Bundle size | Smaller | Larger |
-| Learning curve | Lower | Higher |
-| Use case | Simple APIs | Complex apps |
+| Aspect         | Functional  | Class-Based      |
+| -------------- | ----------- | ---------------- |
+| Dependencies   | None extra  | reflect-metadata |
+| Bundle size    | Smaller     | Larger           |
+| Learning curve | Lower       | Higher           |
+| Use case       | Simple APIs | Complex apps     |
 
 By keeping them separate, functional users don't pay for class-based features.
 
@@ -522,7 +515,7 @@ import { createHandler } from '@nextrush/adapter-edge';
 const app = createApp();
 
 export default {
-  fetch: createHandler(app)
+  fetch: createHandler(app),
 };
 ```
 
@@ -532,14 +525,14 @@ export default {
 
 ### Quick Reference
 
-| Use Case | Install Command | Imports |
-|----------|----------------|---------|
-| Basic API (Node) | `pnpm add nextrush` | `from 'nextrush'` |
-| With CORS | `pnpm add nextrush @nextrush/cors` | `from 'nextrush'` + `from '@nextrush/cors'` |
-| With body parsing | `pnpm add nextrush @nextrush/body-parser` | Same pattern |
-| Class-based | `pnpm add nextrush @nextrush/decorators @nextrush/di @nextrush/controllers` | `from 'nextrush'` + decorator packages |
-| Bun runtime | `pnpm add nextrush @nextrush/adapter-bun` | `from 'nextrush'` + `from '@nextrush/adapter-bun'` |
-| Full production setup | See below | |
+| Use Case              | Install Command                                                             | Imports                                            |
+| --------------------- | --------------------------------------------------------------------------- | -------------------------------------------------- |
+| Basic API (Node)      | `pnpm add nextrush`                                                         | `from 'nextrush'`                                  |
+| With CORS             | `pnpm add nextrush @nextrush/cors`                                          | `from 'nextrush'` + `from '@nextrush/cors'`        |
+| With body parsing     | `pnpm add nextrush @nextrush/body-parser`                                   | Same pattern                                       |
+| Class-based           | `pnpm add nextrush @nextrush/decorators @nextrush/di @nextrush/controllers` | `from 'nextrush'` + decorator packages             |
+| Bun runtime           | `pnpm add nextrush @nextrush/adapter-bun`                                   | `from 'nextrush'` + `from '@nextrush/adapter-bun'` |
+| Full production setup | See below                                                                   |                                                    |
 
 ### Full Production Setup Example
 
@@ -608,9 +601,7 @@ listen(app, 3000);
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "@nextrush/dev"
-  ]
+  "ignore": ["@nextrush/dev"]
 }
 ```
 
@@ -619,6 +610,7 @@ listen(app, 3000);
 When you run `pnpm changeset` and select `@nextrush/core` with a `minor` bump:
 
 **Before:**
+
 ```
 @nextrush/types: 3.1.0
 @nextrush/core: 3.1.0
@@ -627,6 +619,7 @@ nextrush: 3.1.0
 ```
 
 **After (all linked packages bump together):**
+
 ```
 @nextrush/types: 3.2.0
 @nextrush/core: 3.2.0
@@ -680,7 +673,7 @@ But they should use peer dependencies to ensure compatibility:
     "directory": "packages/[package-path]"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   }
 }
 ```
@@ -688,6 +681,7 @@ But they should use peer dependencies to ensure compatibility:
 ### Internal Dependencies
 
 Use `workspace:*` for linked packages:
+
 ```json
 {
   "dependencies": {
@@ -739,12 +733,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v2
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
@@ -783,6 +775,7 @@ jobs:
 ## 11. Why NOT Subpath Exports
 
 RFC-0001 (rfc-v2) suggested:
+
 ```typescript
 import { createApp } from 'nextrush';
 import cors from 'nextrush/middleware/cors';
@@ -792,13 +785,13 @@ import cors from 'nextrush/middleware/cors';
 
 ### Problems with Subpath Exports
 
-| Issue | Explanation |
-|-------|-------------|
-| Package.json complexity | Need to declare every subpath in `exports` |
-| Version coupling | Middleware versions coupled to facade |
-| Can't update independently | Bug in cors? Whole facade needs release |
-| Breaks npm ecosystem | `npm info @nextrush/cors` doesn't work |
-| IDE confusion | TypeScript sometimes struggles |
+| Issue                      | Explanation                                |
+| -------------------------- | ------------------------------------------ |
+| Package.json complexity    | Need to declare every subpath in `exports` |
+| Version coupling           | Middleware versions coupled to facade      |
+| Can't update independently | Bug in cors? Whole facade needs release    |
+| Breaks npm ecosystem       | `npm info @nextrush/cors` doesn't work     |
+| IDE confusion              | TypeScript sometimes struggles             |
 
 ### Our Approach: Direct Package Imports
 
@@ -809,6 +802,7 @@ import { cors } from '@nextrush/cors';
 ```
 
 **Benefits:**
+
 - Each package has own version, changelog, npm page
 - IDE auto-import works perfectly
 - Users can pin exact versions
@@ -822,24 +816,24 @@ import { cors } from '@nextrush/cors';
 
 **Verdict: PARTIALLY ADOPTED**
 
-| Aspect | RFC-0001 Said | Our Decision |
-|--------|--------------|--------------|
-| Hybrid model | ✅ Yes | ✅ Adopted |
-| Facade package | ✅ Yes | ✅ Adopted |
-| Subpath exports | ✅ Use them | ❌ Rejected |
+| Aspect                 | RFC-0001 Said      | Our Decision      |
+| ---------------------- | ------------------ | ----------------- |
+| Hybrid model           | ✅ Yes             | ✅ Adopted        |
+| Facade package         | ✅ Yes             | ✅ Adopted        |
+| Subpath exports        | ✅ Use them        | ❌ Rejected       |
 | Independent versioning | ✅ All independent | ❌ Core is LINKED |
-| No auto-loading | ✅ Yes | ✅ Adopted |
+| No auto-loading        | ✅ Yes             | ✅ Adopted        |
 
 ### RFC-0002 (rfc-v2): Public API Surface
 
 **Verdict: FULLY ADOPTED**
 
-| Aspect | RFC-0002 Said | Our Decision |
-|--------|--------------|--------------|
-| Public vs Internal | ✅ Clear boundaries | ✅ Adopted |
-| `internal/` folder | ✅ Required | ✅ Adopted |
-| Stability levels | ✅ Stable/Semi/Experimental | ✅ Adopted |
-| Docs as contract | ✅ Yes | ✅ Adopted |
+| Aspect             | RFC-0002 Said               | Our Decision |
+| ------------------ | --------------------------- | ------------ |
+| Public vs Internal | ✅ Clear boundaries         | ✅ Adopted   |
+| `internal/` folder | ✅ Required                 | ✅ Adopted   |
+| Stability levels   | ✅ Stable/Semi/Experimental | ✅ Adopted   |
+| Docs as contract   | ✅ Yes                      | ✅ Adopted   |
 
 ---
 
@@ -895,11 +889,11 @@ pnpm add nextrush @nextrush/body-parser @nextrush/cors @nextrush/helmet @nextrus
 
 Users should reference this table:
 
-| nextrush | @nextrush/core | Adapters | Middleware |
-|----------|---------------|----------|------------|
-| 3.0.x | 3.0.x | 3.0.x | ^3.0.0 peer |
-| 3.1.x | 3.1.x | 3.1.x | ^3.0.0 peer |
-| 3.2.x | 3.2.x | 3.2.x | ^3.0.0 peer |
+| nextrush | @nextrush/core | Adapters | Middleware  |
+| -------- | -------------- | -------- | ----------- |
+| 3.0.x    | 3.0.x          | 3.0.x    | ^3.0.0 peer |
+| 3.1.x    | 3.1.x          | 3.1.x    | ^3.0.0 peer |
+| 3.2.x    | 3.2.x          | 3.2.x    | ^3.0.0 peer |
 
 **Rule:** If facade is 3.x.x, all core packages are 3.x.x. Middleware just needs peer dep satisfied.
 
@@ -923,6 +917,7 @@ When adding a new package:
 **This RFC supersedes RFC-0001 and RFC-0002 from `draft/rfc-v2/`.**
 
 Those RFCs had good ideas but lacked specificity on:
+
 - Linked versioning for core
 - Dual paradigm handling
 - Multi-runtime support

@@ -50,7 +50,7 @@
   },
   "homepage": "https://github.com/nextrush/nextrush#readme",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@nextrush/types": "workspace:*"
