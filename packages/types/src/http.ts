@@ -32,7 +32,12 @@ export type HttpMethod =
 export type CommonHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 /**
- * HTTP methods as readonly tuple for iteration
+ * HTTP methods as readonly tuple for iteration.
+ *
+ * Note: TRACE and CONNECT are intentionally excluded from this constant.
+ * - TRACE enables Cross-Site Tracing (XST) attacks and is disabled by most servers.
+ * - CONNECT is used for HTTP tunneling (proxies) and is not relevant to application routing.
+ * Both remain in the `HttpMethod` type for completeness (e.g., custom proxy adapters).
  */
 export const HTTP_METHODS = [
   'GET',
@@ -121,19 +126,41 @@ export type ParsedBody =
  * Supported response body types
  *
  * @remarks
- * Includes Uint8Array and ArrayBuffer for Web API compatibility
- * across all runtimes (Node.js, Bun, Deno, Edge).
+ * Uses structural stream interfaces to avoid coupling to any
+ * specific runtime (Node.js, Bun, Deno, Edge).
+ * Uint8Array and ArrayBuffer provide Web API compatibility.
  */
 export type ResponseBody =
   | string
   | Uint8Array
   | ArrayBuffer
-  | ReadableStream
-  | NodeJS.ReadableStream
+  | NodeStreamLike
+  | WebStreamLike
   | Record<string, unknown>
   | unknown[]
   | null
   | undefined;
+
+// ============================================================================
+// Cross-Runtime Stream Types
+// ============================================================================
+
+/**
+ * Structural interface for Node.js-compatible readable streams.
+ * Matches Node.js `Readable` and `IncomingMessage` without importing `@types/node`.
+ */
+export interface NodeStreamLike {
+  pipe(destination: unknown): unknown;
+}
+
+/**
+ * Structural interface for Web API ReadableStreams.
+ * Matches the global `ReadableStream<Uint8Array>` without requiring DOM lib types.
+ */
+export interface WebStreamLike {
+  getReader(): unknown;
+  readonly locked: boolean;
+}
 
 // ============================================================================
 // Raw HTTP Access Types

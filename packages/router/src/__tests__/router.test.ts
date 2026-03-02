@@ -106,10 +106,7 @@ describe('Router', () => {
     });
 
     it('should allow method chaining', () => {
-      const result = router
-        .get('/a', vi.fn())
-        .post('/b', vi.fn())
-        .put('/c', vi.fn());
+      const result = router.get('/a', vi.fn()).post('/b', vi.fn()).put('/c', vi.fn());
 
       expect(result).toBe(router);
     });
@@ -160,8 +157,7 @@ describe('Router', () => {
       router.get('/users/:userId/posts/:postId', vi.fn());
 
       const match = router.match('GET', '/users/1/posts/2');
-      // Note: Parameter names are lowercased due to case-insensitive default
-      expect(match?.params).toEqual({ userid: '1', postid: '2' });
+      expect(match?.params).toEqual({ userId: '1', postId: '2' });
     });
 
     it('should handle URL-encoded parameters', () => {
@@ -433,7 +429,7 @@ describe('Router', () => {
 
       const match2 = router.match('GET', '/users/1/posts/2');
       expect(match2?.params.id).toBe('1');
-      expect(match2?.params.postid).toBe('2');
+      expect(match2?.params.postId).toBe('2');
     });
 
     it('should throw if callback is missing with middleware array', () => {
@@ -583,10 +579,7 @@ describe('Router', () => {
     });
 
     it('should support chaining', () => {
-      const result = router
-        .redirect('/a', '/b')
-        .redirect('/c', '/d')
-        .get('/e', vi.fn());
+      const result = router.redirect('/a', '/b').redirect('/c', '/d').get('/e', vi.fn());
 
       expect(result).toBe(router);
       expect(router.match('GET', '/a')).not.toBeNull();

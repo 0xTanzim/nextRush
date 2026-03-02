@@ -257,7 +257,37 @@ describe('Application', () => {
     });
   });
 
-  describe('onError()', () => {
+  describe('setErrorHandler()', () => {
+    it('should register custom error handler', () => {
+      const errorHandler = vi.fn();
+      const result = app.setErrorHandler(errorHandler);
+      expect(result).toBe(app);
+    });
+
+    it('should replace previous handler (setter semantics)', async () => {
+      const first = vi.fn();
+      const second = vi.fn((_error, ctx) => {
+        ctx.status = 418;
+        ctx.json({ handler: 'second' });
+      });
+
+      app.setErrorHandler(first);
+      app.setErrorHandler(second);
+
+      app.use(async () => {
+        throw new Error('test');
+      });
+
+      const handler = app.callback();
+      const ctx = createMockContext();
+      await handler(ctx);
+
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalled();
+    });
+  });
+
+  describe('onError() (deprecated)', () => {
     it('should register custom error handler', () => {
       const errorHandler = vi.fn();
       const result = app.onError(errorHandler);
@@ -407,15 +437,16 @@ describe('Application', () => {
   });
 
   describe('plugin() with async install', () => {
-    it('should throw helpful error for async plugins', () => {
+    it('should handle async plugins and return a Promise', async () => {
       const plugin: Plugin = {
         name: 'async-in-sync',
         install: vi.fn().mockResolvedValue(undefined),
       };
 
-      expect(() => app.plugin(plugin)).toThrow(
-        'Plugin "async-in-sync" has async install(). Use app.pluginAsync() instead.'
-      );
+      const result = app.plugin(plugin);
+      expect(result).toBeInstanceOf(Promise);
+      await result;
+      expect(app.hasPlugin('async-in-sync')).toBe(true);
     });
   });
 
@@ -492,7 +523,7 @@ describe('Application', () => {
       app.start();
       const plugin: Plugin = { name: 'late-async', install: vi.fn() };
       await expect(app.pluginAsync(plugin)).rejects.toThrow(
-        'Cannot call pluginAsync() after the application has started'
+        'Cannot call plugin() after the application has started'
       );
     });
 

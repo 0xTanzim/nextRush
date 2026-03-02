@@ -146,10 +146,10 @@ describe('Router Edge Cases', () => {
       router.get('/org/:orgId/team/:teamId/project/:projectId/task/:taskId', vi.fn());
       const match = router.match('GET', '/org/1/team/2/project/3/task/4');
       expect(match?.params).toEqual({
-        orgid: '1',
-        teamid: '2',
-        projectid: '3',
-        taskid: '4',
+        orgId: '1',
+        teamId: '2',
+        projectId: '3',
+        taskId: '4',
       });
     });
 
@@ -158,9 +158,9 @@ describe('Router Edge Cases', () => {
       const match = router.match('GET', '/api/v1/users/u1/posts/p2/comments/c3/replies');
       expect(match).not.toBeNull();
       expect(match?.params).toEqual({
-        userid: 'u1',
-        postid: 'p2',
-        commentid: 'c3',
+        userId: 'u1',
+        postId: 'p2',
+        commentId: 'c3',
       });
     });
   });
@@ -411,7 +411,7 @@ describe('Router Edge Cases', () => {
       router.use('/items', subRouter);
 
       const match = router.match('GET', '/items/456');
-      expect(match?.params.itemid).toBe('456');
+      expect(match?.params.itemId).toBe('456');
     });
   });
 
@@ -467,8 +467,8 @@ describe('Router Edge Cases', () => {
       router.mount('/api', subRouter);
 
       const match = router.match('GET', '/api/123/posts/456');
-      expect(match?.params.userid).toBe('123');
-      expect(match?.params.postid).toBe('456');
+      expect(match?.params.userId).toBe('123');
+      expect(match?.params.postId).toBe('456');
     });
 
     it('should support nested mounting', () => {

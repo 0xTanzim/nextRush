@@ -38,6 +38,7 @@ Tree Structure:
 ```
 
 When a request arrives for `/users/123/posts`:
+
 1. Match `/` → found, descend
 2. Match `users` → found, descend
 3. Match `/:id` → parameter node, capture `123`, descend
@@ -109,6 +110,7 @@ app.route('/api/posts', posts);
 ```
 
 This is the **recommended pattern** for composing routers. Benefits:
+
 - No need to create a main router just for mounting
 - No `router.routes()` call required
 - Clean, Hono-like DX
@@ -161,21 +163,20 @@ Parameters capture path segments and make them available in `ctx.params`:
 
 ```typescript title="Single Parameter"
 router.get('/users/:id', (ctx) => {
-  console.log(ctx.params.id);  // '123' for /users/123
+  console.log(ctx.params.id); // '123' for /users/123
 });
 ```
 
 ```typescript title="Multiple Parameters"
 router.get('/users/:userId/posts/:postId', (ctx) => {
-  const { userid, postid } = ctx.params;
-  // /users/42/posts/7 → { userid: '42', postid: '7' }
+  const { userId, postId } = ctx.params;
+  // /users/42/posts/7 → { userId: '42', postId: '7' }
 });
 ```
 
-<Callout type="warn" title="Parameter Name Case">
-  By default, the router operates in case-insensitive mode. Parameter names are lowercased in `ctx.params`. If you define `:userId`, access it as `ctx.params.userid`.
-
-  To preserve original case, use `caseSensitive: true` in router options.
+<Callout type="info" title="Parameter Name Case">
+  Parameter names in `ctx.params` always preserve the original case from the route definition. If
+  you define `:userId`, access it as `ctx.params.userId`.
 </Callout>
 
 ## Wildcard Routes
@@ -207,9 +208,9 @@ Groups share a common prefix and optionally middleware.
 
 ```typescript title="API Grouping"
 router.group('/api', (api) => {
-  api.get('/users', listUsers);     // GET /api/users
-  api.post('/users', createUser);   // POST /api/users
-  api.get('/posts', listPosts);     // GET /api/posts
+  api.get('/users', listUsers); // GET /api/users
+  api.post('/users', createUser); // POST /api/users
+  api.get('/posts', listPosts); // GET /api/posts
 });
 ```
 
@@ -218,11 +219,11 @@ router.group('/api', (api) => {
 ```typescript title="API Versioning"
 router.group('/api', (api) => {
   api.group('/v1', (v1) => {
-    v1.get('/users', v1Handler);    // GET /api/v1/users
+    v1.get('/users', v1Handler); // GET /api/v1/users
   });
 
   api.group('/v2', (v2) => {
-    v2.get('/users', v2Handler);    // GET /api/v2/users
+    v2.get('/users', v2Handler); // GET /api/v2/users
   });
 });
 ```
@@ -249,11 +250,11 @@ const auth = async (ctx) => {
 // };
 
 router.group('/admin', [auth], (admin) => {
-  admin.get('/dashboard', getDashboard);   // Protected
-  admin.get('/settings', getSettings);     // Protected
+  admin.get('/dashboard', getDashboard); // Protected
+  admin.get('/settings', getSettings); // Protected
 });
 
-router.get('/public', publicHandler);      // Not protected
+router.get('/public', publicHandler); // Not protected
 ```
 
 ## Route Middleware
@@ -290,13 +291,13 @@ router.redirect('/users/:id', '/profiles/:id');
 
 ### Redirect Status Codes
 
-| Status | Name | Use Case |
-|--------|------|----------|
-| `301` | Moved Permanently | SEO-safe permanent redirect |
-| `302` | Found | Temporary redirect (default) |
-| `303` | See Other | Redirect after POST |
-| `307` | Temporary Redirect | Preserves HTTP method |
-| `308` | Permanent Redirect | Preserves HTTP method |
+| Status | Name               | Use Case                     |
+| ------ | ------------------ | ---------------------------- |
+| `301`  | Moved Permanently  | SEO-safe permanent redirect  |
+| `302`  | Found              | Temporary redirect (default) |
+| `303`  | See Other          | Redirect after POST          |
+| `307`  | Temporary Redirect | Preserves HTTP method        |
+| `308`  | Permanent Redirect | Preserves HTTP method        |
 
 ## Sub-Router Mounting
 
@@ -391,9 +392,9 @@ OPTIONS /users  → 200 OK
 
 ```typescript title="Router Configuration"
 const router = createRouter({
-  prefix: '/api/v1',     // Prepend to all routes
-  caseSensitive: false,  // Case-insensitive matching (default)
-  strict: false,         // Ignore trailing slashes (default)
+  prefix: '/api/v1', // Prepend to all routes
+  caseSensitive: false, // Case-insensitive matching (default)
+  strict: false, // Ignore trailing slashes (default)
 });
 ```
 
@@ -474,7 +475,7 @@ router.get('/*', (ctx) => {
 // ❌ Routes defined but not mounted
 const router = createRouter();
 router.get('/users', handler);
-app.listen(3000);  // No routes work
+app.listen(3000); // No routes work
 
 // ✅ Recommended: Use app.route()
 const router = createRouter();
@@ -489,11 +490,8 @@ app.route('/', router);
 
 ```typescript
 router.get('/users/:userId', (ctx) => {
-  // ❌ Won't work in case-insensitive mode
+  // ✅ Parameter names preserve original case
   const id = ctx.params.userId;
-
-  // ✅ Correct
-  const id = ctx.params.userid;
 });
 ```
 
@@ -512,15 +510,16 @@ router.get('/start/*', handler);
 The radix tree router delivers consistent performance:
 
 | Routes | Lookup Time |
-|--------|-------------|
-| 100 | ~0.02ms |
-| 1,000 | ~0.02ms |
-| 10,000 | ~0.02ms |
+| ------ | ----------- |
+| 100    | ~0.02ms     |
+| 1,000  | ~0.02ms     |
+| 10,000 | ~0.02ms     |
 
 Time complexity: **O(k)** where k = path length (~10-50 chars), not route count.
 
 <Callout type="info" title="Why This Matters">
-  In a large API with 500+ routes, array-based routers scan every route on each request. NextRush's radix tree only traverses the path segments—typically 3-5 comparisons regardless of total routes.
+  In a large API with 500+ routes, array-based routers scan every route on each request. NextRush's
+  radix tree only traverses the path segments—typically 3-5 comparisons regardless of total routes.
 </Callout>
 
 ## TypeScript Types

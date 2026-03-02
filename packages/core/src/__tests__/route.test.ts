@@ -270,13 +270,17 @@ describe('app.route()', () => {
   });
 
   describe('state preservation', () => {
-    it('should preserve state._originalPath and state._routePrefix', async () => {
-      let capturedState: Record<string, unknown> = {};
+    it('should store route info via Symbol keys during handler execution', async () => {
+      const ORIGINAL_PATH = Symbol.for('nextrush.originalPath');
+      const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
+      let capturedOriginalPath: unknown;
+      let capturedRoutePrefix: unknown;
 
       const router: Routable = {
         routes() {
           return async (ctx) => {
-            capturedState = { ...ctx.state };
+            capturedOriginalPath = (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH];
+            capturedRoutePrefix = (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX];
             ctx.json({ done: true });
           };
         },
@@ -289,8 +293,32 @@ describe('app.route()', () => {
 
       await handler(ctx);
 
-      expect(capturedState._originalPath).toBe('/api/v1/users');
-      expect(capturedState._routePrefix).toBe('/api/v1');
+      expect(capturedOriginalPath).toBe('/api/v1/users');
+      expect(capturedRoutePrefix).toBe('/api/v1');
+    });
+
+    it('should clean up Symbol keys from state after handler completes', async () => {
+      const ORIGINAL_PATH = Symbol.for('nextrush.originalPath');
+      const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
+
+      const router: Routable = {
+        routes() {
+          return async (ctx) => {
+            ctx.json({ done: true });
+          };
+        },
+      };
+
+      app.route('/api/v1', router);
+
+      const handler = app.callback();
+      const ctx = createMockContext({ path: '/api/v1/users' });
+
+      await handler(ctx);
+
+      // State should be cleaned up after route handler
+      expect((ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH]).toBeUndefined();
+      expect((ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX]).toBeUndefined();
     });
   });
 

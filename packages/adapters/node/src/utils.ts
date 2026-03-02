@@ -11,7 +11,7 @@ import type { QueryParams } from '@nextrush/types';
  */
 function safeDecodeURIComponent(str: string): string {
   try {
-    return decodeURIComponent(str.replace(/\+/g, ' '));
+    return decodeURIComponent(str.replaceAll('+', ' '));
   } catch {
     return str;
   }

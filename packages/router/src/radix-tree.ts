@@ -132,9 +132,11 @@ export function createNode(segment: string, type: NodeType = NodeType.STATIC): R
 /**
  * Parse path segments
  * Splits path into segments and identifies param/wildcard types
+ *
+ * @param path - Route path to parse
+ * @param caseSensitive - If false, lowercase static segments for case-insensitive matching
  */
-export function parseSegments(path: string): ParsedSegment[] {
-  // Don't lowercase the original path here - case normalization happens during matching
+export function parseSegments(path: string, caseSensitive = true): ParsedSegment[] {
   const normalized = path.startsWith('/') ? path.slice(1) : path;
   if (normalized === '') return [];
 
@@ -146,7 +148,7 @@ export function parseSegments(path: string): ParsedSegment[] {
       // Preserve the original parameter name case
       const paramName = part.slice(1);
       segments.push({
-        segment: part.toLowerCase(), // Lowercase segment for matching
+        segment: part, // Preserve original case — param nodes match any segment
         type: NodeType.PARAM,
         paramName, // Keep original case
       });
@@ -158,7 +160,7 @@ export function parseSegments(path: string): ParsedSegment[] {
       break; // Wildcard must be last
     } else {
       segments.push({
-        segment: part,
+        segment: caseSensitive ? part : part.toLowerCase(),
         type: NodeType.STATIC,
       });
     }

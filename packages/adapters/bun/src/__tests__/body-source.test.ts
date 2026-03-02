@@ -3,7 +3,14 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { BodyConsumedError, BodyTooLargeError, BunBodySource, createBunBodySource, createEmptyBodySource, EmptyBodySource } from '../body-source';
+import {
+  BodyConsumedError,
+  BodyTooLargeError,
+  BunBodySource,
+  createBunBodySource,
+  createEmptyBodySource,
+  EmptyBodySource,
+} from '../body-source';
 
 /**
  * Create a mock Request with body
@@ -165,11 +172,11 @@ describe('BunBodySource', () => {
       expect(bodySource.consumed).toBe(true);
     });
 
-    it('should throw SyntaxError for invalid JSON', async () => {
+    it('should throw BadRequestError for invalid JSON', async () => {
       const request = createRequestWithBody('not json', 'application/json');
       const bodySource = new BunBodySource(request);
 
-      await expect(bodySource.json()).rejects.toThrow(SyntaxError);
+      await expect(bodySource.json()).rejects.toThrow('Invalid JSON');
     });
 
     it('should parse from cached buffer when consumed', async () => {
@@ -243,8 +250,8 @@ describe('EmptyBodySource', () => {
     expect(buffer.length).toBe(0);
   });
 
-  it('should throw SyntaxError from json()', async () => {
-    await expect(emptySource.json()).rejects.toThrow(SyntaxError);
+  it('should throw BadRequestError from json()', async () => {
+    await expect(emptySource.json()).rejects.toThrow('Request body is empty');
   });
 
   it('should return empty ReadableStream from stream()', async () => {

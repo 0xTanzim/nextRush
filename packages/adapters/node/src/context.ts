@@ -15,11 +15,13 @@ import type {
   ContextState,
   HttpMethod,
   IncomingHeaders,
+  NodeStreamLike,
   QueryParams,
   RawHttp,
   ResponseBody,
   RouteParams,
   Runtime,
+  WebStreamLike,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
@@ -45,7 +47,7 @@ export interface NodeContextOptions {
 /**
  * HTTP methods that typically don't have a body
  */
-const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
+const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** Shared empty params object — avoids allocation per request (overwritten by router) */
 const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
@@ -127,7 +129,7 @@ export class NodeContext implements Context {
   // ===========================================================================
 
   json(data: unknown): void {
-    if (this._responded) return;
+    if (this._responded || this.raw.res.headersSent) return;
     this._responded = true;
 
     const res = this.raw.res;
@@ -140,7 +142,7 @@ export class NodeContext implements Context {
   }
 
   send(data: ResponseBody): void {
-    if (this._responded) return;
+    if (this._responded || this.raw.res.headersSent) return;
 
     const res = this.raw.res;
     res.statusCode = this.status;
@@ -171,13 +173,84 @@ export class NodeContext implements Context {
       return;
     }
 
-    // Readable stream
-    if (typeof (data as NodeJS.ReadableStream).pipe === 'function') {
+    // Uint8Array (non-Buffer) — convert to Buffer for Node.js response
+    if (data instanceof Uint8Array) {
       this._responded = true;
       if (!res.getHeader('Content-Type')) {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
-      (data as NodeJS.ReadableStream).pipe(res);
+      const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+      res.setHeader('Content-Length', buf.length);
+      res.end(buf);
+      return;
+    }
+
+    // ArrayBuffer — wrap as Buffer
+    if (data instanceof ArrayBuffer) {
+      this._responded = true;
+      if (!res.getHeader('Content-Type')) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+      }
+      const buf = Buffer.from(data);
+      res.setHeader('Content-Length', buf.length);
+      res.end(buf);
+      return;
+    }
+
+    // Readable stream (Node.js style)
+    if (typeof (data as NodeStreamLike).pipe === 'function') {
+      this._responded = true;
+      if (!res.getHeader('Content-Type')) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+      }
+      const stream = data as {
+        pipe(dest: ServerResponse): void;
+        on(event: string, listener: (err: Error) => void): void;
+      };
+      stream.on('error', (err: Error) => {
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Internal Server Error' }));
+        } else {
+          res.destroy(err);
+        }
+      });
+      stream.pipe(res);
+      return;
+    }
+
+    // Web ReadableStream — convert to Node.js pipeline
+    if (
+      typeof (data as WebStreamLike).getReader === 'function' &&
+      'locked' in (data as WebStreamLike)
+    ) {
+      this._responded = true;
+      if (!res.getHeader('Content-Type')) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+      }
+      const reader = (data as ReadableStream<Uint8Array>).getReader();
+      const pump = async (): Promise<void> => {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) {
+            res.end();
+            return;
+          }
+          if (!res.write(value)) {
+            await new Promise<void>((resolve) => res.once('drain', resolve));
+          }
+        }
+      };
+      pump().catch((err: Error) => {
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Internal Server Error' }));
+        } else {
+          res.destroy(err);
+        }
+      });
       return;
     }
 
@@ -196,7 +269,7 @@ export class NodeContext implements Context {
   }
 
   html(content: string): void {
-    if (this._responded) return;
+    if (this._responded || this.raw.res.headersSent) return;
     this._responded = true;
 
     const res = this.raw.res;
@@ -207,13 +280,15 @@ export class NodeContext implements Context {
   }
 
   redirect(url: string, status: number = 302): void {
-    if (this._responded) return;
+    if (this._responded || this.raw.res.headersSent) return;
     this._responded = true;
 
     const res = this.raw.res;
     res.statusCode = status;
     res.setHeader('Location', url);
-    res.end();
+    // Provide a minimal body for clients that don't follow redirects
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.end(`Redirecting to <a href="${encodeURI(url)}">${encodeURI(url)}</a>`);
   }
 
   // ===========================================================================

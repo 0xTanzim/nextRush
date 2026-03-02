@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import type { NodeStreamLike, WebStreamLike } from './http';
+
 /**
  * Supported JavaScript runtimes
  *
@@ -107,7 +109,7 @@ export interface BodySource {
    * Read the body as JSON
    *
    * @returns Promise resolving to parsed JSON
-   * @throws SyntaxError if body is not valid JSON
+   * @throws BadRequestError if body is not valid JSON
    * @throws Error if body has already been consumed
    */
   json<T = unknown>(): Promise<T>;
@@ -122,7 +124,7 @@ export interface BodySource {
    *
    * @returns The underlying stream
    */
-  stream(): ReadableStream<Uint8Array> | NodeJS.ReadableStream;
+  stream(): NodeStreamLike | WebStreamLike;
 
   /**
    * Whether the body has been consumed

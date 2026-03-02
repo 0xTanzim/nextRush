@@ -71,12 +71,6 @@ export class Router {
       normalized = normalized.replace(/\/+/g, '/');
     }
 
-    // Only lowercase for case-insensitive matching of static segments
-    // Parameter names are preserved separately in parseSegments
-    if (!this.opts.caseSensitive) {
-      normalized = normalized.toLowerCase();
-    }
-
     // For non-strict mode during registration, remove trailing slash
     if (!this.opts.strict && normalized.length > 1 && normalized.endsWith('/')) {
       normalized = normalized.slice(0, -1);
@@ -95,7 +89,7 @@ export class Router {
     middleware: Middleware[] = []
   ): void {
     const normalized = this.normalizePath(path);
-    const segments = parseSegments(normalized);
+    const segments = parseSegments(normalized, this.opts.caseSensitive);
 
     let node = this.root;
 
@@ -230,9 +224,11 @@ export class Router {
       let targetPath = to;
 
       // Replace :param placeholders with actual values from ctx.params
+      // Sort by key length descending to avoid :id matching inside :id2
       if (ctx.params && targetPath.includes(':')) {
-        for (const [key, value] of Object.entries(ctx.params)) {
-          targetPath = targetPath.replace(`:${key}`, value);
+        const entries = Object.entries(ctx.params).sort((a, b) => b[0].length - a[0].length);
+        for (const [key, value] of entries) {
+          targetPath = targetPath.replaceAll(`:${key}`, value);
         }
       }
 
@@ -241,9 +237,16 @@ export class Router {
       ctx.body = '';
     };
 
-    // Register for all common methods that might be redirected
+    // Register for common methods. 307/308 preserve the original method,
+    // so register all standard methods for those status codes.
     this.addRoute('GET', from, [redirectHandler]);
     this.addRoute('HEAD', from, [redirectHandler]);
+    if (status === 307 || status === 308) {
+      this.addRoute('POST', from, [redirectHandler]);
+      this.addRoute('PUT', from, [redirectHandler]);
+      this.addRoute('PATCH', from, [redirectHandler]);
+      this.addRoute('DELETE', from, [redirectHandler]);
+    }
 
     return this;
   }
@@ -345,7 +348,8 @@ export class Router {
    * Match a route and return handler + params
    */
   match(method: HttpMethod, path: string): RouteMatch | null {
-    let normalized = this.opts.caseSensitive ? path : path.toLowerCase();
+    const isCaseInsensitive = !this.opts.caseSensitive;
+    let normalized = isCaseInsensitive ? path.toLowerCase() : path;
 
     // Fast-path: skip regex when no double slashes (99%+ of requests)
     if (normalized.includes('//')) {
@@ -358,9 +362,23 @@ export class Router {
     }
 
     const segments = normalized.split('/').filter(Boolean);
+
+    // For case-insensitive mode, also split the original path to preserve param value case
+    let originalSegments: string[] | undefined;
+    if (isCaseInsensitive) {
+      let original = path;
+      if (original.includes('//')) {
+        original = original.replace(/\/+/g, '/');
+      }
+      if (!this.opts.strict && original.length > 1 && original.endsWith('/')) {
+        original = original.slice(0, -1);
+      }
+      originalSegments = original.split('/').filter(Boolean);
+    }
+
     const params: Record<string, string> = {};
 
-    const result = this.matchNode(this.root, segments, 0, params, method);
+    const result = this.matchNode(this.root, segments, 0, params, method, originalSegments);
     if (!result) return null;
 
     // Clean up undefined values from backtracking
@@ -386,7 +404,8 @@ export class Router {
     segments: string[],
     index: number,
     params: Record<string, string>,
-    method: HttpMethod
+    method: HttpMethod,
+    originalSegments?: string[]
   ): HandlerEntry | null {
     // Reached end of path
     if (index === segments.length) {
@@ -400,23 +419,43 @@ export class Router {
     // Path is already lowercased in match() for case-insensitive mode, skip per-segment call
     const staticChild = node.children.get(segment);
     if (staticChild) {
-      const result = this.matchNode(staticChild, segments, index + 1, params, method);
+      const result = this.matchNode(
+        staticChild,
+        segments,
+        index + 1,
+        params,
+        method,
+        originalSegments
+      );
       if (result) return result;
     }
 
-    // Try parameter match
+    // Try parameter match — use original-case segment for param value
     if (node.paramChild) {
       const paramName = node.paramChild.paramName!;
-      params[paramName] = segment;
-      const result = this.matchNode(node.paramChild, segments, index + 1, params, method);
+      params[paramName] = originalSegments ? originalSegments[index]! : segment;
+      const result = this.matchNode(
+        node.paramChild,
+        segments,
+        index + 1,
+        params,
+        method,
+        originalSegments
+      );
       if (result) return result;
       // Backtrack: use undefined instead of delete to avoid V8 hidden class deopt
       params[paramName] = undefined as unknown as string;
     }
 
-    // Try wildcard match (catches remaining path)
+    // Try wildcard match (catches remaining path) — use original-case segments
     if (node.wildcardChild) {
-      params['*'] = segments.slice(index).join('/');
+      // Build wildcard value without intermediate array allocation
+      const src = originalSegments ?? segments;
+      let wildcard = src[index]!;
+      for (let i = index + 1; i < src.length; i++) {
+        wildcard += '/' + src[i];
+      }
+      params['*'] = wildcard;
       return node.wildcardChild.handlers.get(method) ?? null;
     }
 
@@ -445,7 +484,8 @@ export class Router {
       const match = this.match(ctx.method as HttpMethod, ctx.path);
 
       if (!match) {
-        // No route matched, call next middleware
+        // No route matched — set 404 so allowedMethods() and notFoundHandler() can act
+        ctx.status = 404;
         if (next) await next();
         return;
       }

@@ -30,9 +30,9 @@ describe('BodySource', () => {
       expect(buffer.length).toBe(0);
     });
 
-    it('should throw SyntaxError for json()', async () => {
+    it('should throw BadRequestError for json()', async () => {
       const source = new EmptyBodySource();
-      await expect(source.json()).rejects.toThrow(SyntaxError);
+      await expect(source.json()).rejects.toThrow('Request body is empty');
     });
 
     it('should return empty ReadableStream for stream()', () => {

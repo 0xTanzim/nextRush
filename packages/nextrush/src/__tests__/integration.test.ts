@@ -24,7 +24,14 @@ import type {
 } from '@nextrush/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Application, BadRequestError, compose, createApp, HttpError, NotFoundError } from '@nextrush/core';
+import {
+  Application,
+  BadRequestError,
+  compose,
+  createApp,
+  HttpError,
+  NotFoundError,
+} from '@nextrush/core';
 import { createRouter, Router } from '@nextrush/router';
 
 // ============================================================================
@@ -281,15 +288,15 @@ describe('Core + Router Integration', () => {
     it('should handle nested route parameters', async () => {
       router.get('/users/:userId/posts/:postId', (ctx) => {
         ctx.json({
-          userId: ctx.params.userid,
-          postId: ctx.params.postid,
+          userId: ctx.params.userId,
+          postId: ctx.params.postId,
         });
       });
 
       const match = router.match('GET', '/users/1/posts/42');
       expect(match).not.toBeNull();
-      // Note: Router normalizes param names to lowercase in case-insensitive mode (default)
-      expect(match?.params).toEqual({ userid: '1', postid: '42' });
+      // Router preserves original param name case
+      expect(match?.params).toEqual({ userId: '1', postId: '42' });
     });
 
     it('should return null for unregistered routes', () => {
@@ -868,7 +875,9 @@ describe('Full Stack Integration', () => {
     expect(createCtx.status).toBe(201);
 
     // Get the created item id from the mock
-    const createCall = (createCtx.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { item: { id: string } } | undefined;
+    const createCall = (createCtx.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
+      | { item: { id: string } }
+      | undefined;
     const itemId = createCall?.item.id ?? '';
 
     // READ
@@ -1043,8 +1052,12 @@ describe('State Management', () => {
     await callback(ctx1);
     await callback(ctx2);
 
-    const call1 = (ctx1.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { requestId: string } | undefined;
-    const call2 = (ctx2.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { requestId: string } | undefined;
+    const call1 = (ctx1.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
+      | { requestId: string }
+      | undefined;
+    const call2 = (ctx2.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
+      | { requestId: string }
+      | undefined;
 
     expect(call1?.requestId).not.toBe(call2?.requestId);
   });

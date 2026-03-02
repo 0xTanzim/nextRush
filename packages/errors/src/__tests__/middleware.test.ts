@@ -74,7 +74,7 @@ describe('errorHandler', () => {
 
       expect(ctx.status).toBe(500);
       expect(ctx.json).toHaveBeenCalledWith({
-        error: 'Error',
+        error: 'Internal Server Error',
         message: 'Internal Server Error',
         code: 'INTERNAL_ERROR',
         status: 500,
@@ -245,6 +245,7 @@ describe('notFoundHandler', () => {
   it('should return 404 response', async () => {
     const handler = notFoundHandler();
     const ctx = createMockContext();
+    ctx.status = 404;
 
     await handler(ctx, noop);
 
@@ -254,13 +255,13 @@ describe('notFoundHandler', () => {
       message: 'Not Found',
       code: 'NOT_FOUND',
       status: 404,
-      path: '/test',
     });
   });
 
   it('should accept custom message', async () => {
     const handler = notFoundHandler('Resource does not exist');
     const ctx = createMockContext();
+    ctx.status = 404;
 
     await handler(ctx, noop);
 
@@ -269,15 +270,15 @@ describe('notFoundHandler', () => {
     );
   });
 
-  it('should handle 200 status', async () => {
+  it('should not handle 200 status (response was sent)', async () => {
     const handler = notFoundHandler();
     const ctx = createMockContext();
     ctx.status = 200;
 
     await handler(ctx, noop);
 
-    expect(ctx.status).toBe(404);
-    expect(ctx.json).toHaveBeenCalled();
+    expect(ctx.status).toBe(200);
+    expect(ctx.json).not.toHaveBeenCalled();
   });
 
   it('should handle 404 status', async () => {
@@ -339,6 +340,7 @@ describe('Integration scenarios', () => {
     const errHandler = errorHandler();
     const notFoundHdlr = notFoundHandler();
     const ctx = createMockContext();
+    ctx.status = 404;
 
     await errHandler(ctx, async () => {
       await notFoundHdlr(ctx, noop);

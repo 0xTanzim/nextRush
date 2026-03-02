@@ -114,8 +114,14 @@ export function isMiddleware(fn: unknown): fn is Middleware {
 }
 
 /**
- * Flatten nested middleware arrays
+ * Flatten nested middleware arrays with type validation
  */
 export function flattenMiddleware(arr: (Middleware | Middleware[])[]): Middleware[] {
-  return arr.flat(Infinity) as Middleware[];
+  const flattened = arr.flat(Infinity);
+  for (const fn of flattened) {
+    if (typeof fn !== 'function') {
+      throw new TypeError(`Invalid middleware: expected function, got ${typeof fn}`);
+    }
+  }
+  return flattened as Middleware[];
 }

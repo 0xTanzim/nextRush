@@ -10,6 +10,10 @@
 import type { Context, Middleware, Plugin, PluginWithHooks } from '@nextrush/types';
 import { compose } from './middleware';
 
+/** @internal Symbol keys for route() state — avoids polluting user's ctx.state namespace */
+const ORIGINAL_PATH = Symbol.for('nextrush.originalPath');
+const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
+
 /**
  * Error handler function type
  */
@@ -233,6 +237,11 @@ export class Application {
     const normalizedPrefix = path.endsWith('/') ? path.slice(0, -1) : path;
     const prefixLen = normalizedPrefix.length;
 
+    // NOTE (DX-3): We cast `ctx` to `{ path: string }` inside this middleware
+    // to temporarily strip the `readonly` modifier on `path`. This is intentional:
+    // route mounting must adjust ctx.path for the sub-router and restore it
+    // afterwards. The Context interface keeps `path` readonly to prevent
+    // accidental mutation by user code, but internal mounting is the exception.
     const mountedMiddleware: Middleware = async (ctx, next) => {
       const currentPath = ctx.path;
 
@@ -252,9 +261,9 @@ export class Application {
       const adjustedPath = currentPath.slice(prefixLen) || '/';
       (ctx as { path: string }).path = adjustedPath;
 
-      // Store original for recovery
-      ctx.state._originalPath = currentPath;
-      ctx.state._routePrefix = normalizedPrefix;
+      // Store original for recovery (Symbol keys avoid ctx.state pollution)
+      (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH] = currentPath;
+      (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX] = normalizedPrefix;
 
       try {
         await routerMiddleware(ctx, async () => {
@@ -266,8 +275,10 @@ export class Application {
           (ctx as { path: string }).path = adjustedPath;
         });
       } finally {
-        // Restore original path
+        // Restore original path and clean up Symbol state
         (ctx as { path: string }).path = currentPath;
+        delete (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH];
+        delete (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX];
       }
     };
 
@@ -280,14 +291,18 @@ export class Application {
   // ===========================================================================
 
   /**
-   * Set custom error handler
+   * Set the application error handler.
+   *
+   * Replaces any previously set handler. Only one error handler is active
+   * at a time. For additive error handling, compose logic within a single
+   * handler or use the `errorHandler()` middleware from `@nextrush/errors`.
    *
    * @param handler - Error handler function
    * @returns this for chaining
    *
    * @example
    * ```typescript
-   * app.onError((error, ctx) => {
+   * app.setErrorHandler((error, ctx) => {
    *   console.error('Request failed:', error);
    *
    *   if (error instanceof ValidationError) {
@@ -301,9 +316,22 @@ export class Application {
    * });
    * ```
    */
-  onError(handler: ErrorHandler): this {
+  setErrorHandler(handler: ErrorHandler): this {
     this._errorHandler = handler;
     return this;
+  }
+
+  /**
+   * Set custom error handler.
+   *
+   * @param handler - Error handler function
+   * @returns this for chaining
+   *
+   * @deprecated Use `setErrorHandler()` instead — `onError()` implies
+   * event subscription (additive), but this is a setter (replaces).
+   */
+  onError(handler: ErrorHandler): this {
+    return this.setErrorHandler(handler);
   }
 
   // ===========================================================================
@@ -311,17 +339,24 @@ export class Application {
   // ===========================================================================
 
   /**
-   * Install a plugin (synchronous)
+   * Install a plugin.
+   *
+   * Handles both sync and async `install()` methods automatically.
+   * Returns `this` for sync plugins and `Promise<this>` for async ones.
    *
    * @param plugin - Plugin to install
-   * @returns this for chaining
+   * @returns this (sync) or Promise<this> (async)
    *
    * @example
    * ```typescript
-   * app.plugin(new LoggerPlugin({ level: 'info' }));
+   * // Sync plugin
+   * app.plugin(loggerPlugin({ level: 'info' }));
+   *
+   * // Async plugin — just await it
+   * await app.plugin(databasePlugin({ uri: '...' }));
    * ```
    */
-  plugin(plugin: Plugin): this {
+  plugin(plugin: Plugin): this | Promise<this> {
     this.assertNotRunning('plugin');
     if (this.plugins.has(plugin.name)) {
       throw new Error(`Plugin "${plugin.name}" is already installed`);
@@ -329,10 +364,12 @@ export class Application {
 
     const result = plugin.install(this);
 
-    if (result instanceof Promise) {
-      throw new Error(
-        `Plugin "${plugin.name}" has async install(). Use app.pluginAsync() instead.`
-      );
+    // If install() returned a thenable, handle it asynchronously
+    if (result != null && typeof (result as { then?: unknown }).then === 'function') {
+      return (result as Promise<void>).then(() => {
+        this.plugins.set(plugin.name, plugin);
+        return this;
+      });
     }
 
     this.plugins.set(plugin.name, plugin);
@@ -340,25 +377,22 @@ export class Application {
   }
 
   /**
-   * Install a plugin asynchronously
+   * Install a plugin asynchronously.
    *
    * @param plugin - Plugin to install
    * @returns Promise that resolves when plugin is installed
    *
+   * @deprecated Use `plugin()` instead — it handles both sync and async
+   * plugins automatically.
+   *
    * @example
    * ```typescript
-   * await app.pluginAsync(new DatabasePlugin({ connectionString: '...' }));
+   * await app.plugin(new DatabasePlugin({ connectionString: '...' }));
    * ```
    */
   async pluginAsync(plugin: Plugin): Promise<this> {
-    this.assertNotRunning('pluginAsync');
-    if (this.plugins.has(plugin.name)) {
-      throw new Error(`Plugin "${plugin.name}" is already installed`);
-    }
-
-    await plugin.install(this);
-    this.plugins.set(plugin.name, plugin);
-    return this;
+    const result = this.plugin(plugin);
+    return result instanceof Promise ? result : Promise.resolve(result);
   }
 
   /**
@@ -478,8 +512,13 @@ export class Application {
   // ===========================================================================
 
   /**
-   * Mark app as running
-   * Called by adapters when server starts
+   * Mark app as running and freeze configuration.
+   *
+   * Called by adapters when the server starts listening. After this call,
+   * `use()`, `route()`, `plugin()`, and `pluginAsync()` will throw.
+   * This prevents unsafe middleware mutations while requests are in flight.
+   *
+   * To re-enable registration (e.g. for testing), call `close()` first.
    */
   start(): void {
     this._isRunning = true;

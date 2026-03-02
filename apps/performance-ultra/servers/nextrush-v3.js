@@ -32,7 +32,7 @@ router.get('/users/:id', async (ctx) => {
   const { id } = ctx.params;
   ctx.json({
     id,
-    name: `User ${id}` ,
+    name: `User ${id}`,
     email: `user${id}@example.com`,
   });
 });
@@ -63,7 +63,6 @@ router.post('/users', json(), async (ctx) => {
   });
 });
 
-
 app.route('/', router);
 
 // Start server
@@ -74,6 +73,7 @@ let serverInstance;
 
 (async () => {
   serverInstance = await listen(app, port);
+  console.log(`🚀 NextRush listening on http://localhost:${port}`);
 })();
 
 // Graceful shutdown

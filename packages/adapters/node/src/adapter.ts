@@ -52,6 +52,13 @@ export interface ServeOptions {
    * Logger for adapter diagnostics. Defaults to app.logger.
    */
   logger?: Logger;
+
+  /**
+   * Graceful shutdown timeout in milliseconds.
+   * Forces closure if open connections don't drain within this time.
+   * @default 10000 (10 seconds)
+   */
+  shutdownTimeout?: number;
 }
 
 /**
@@ -95,7 +102,7 @@ export function createHandler(
         if (!ctx.responded && !res.headersSent) {
           if (ctx.status === 404) {
             res.statusCode = 404;
-            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(JSON.stringify({ error: 'Not Found' }));
           } else {
             res.statusCode = ctx.status;
@@ -109,7 +116,7 @@ export function createHandler(
 
         if (!res.headersSent) {
           res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Content-Type', 'application/json; charset=utf-8; charset=utf-8');
           res.end(JSON.stringify({ error: 'Internal Server Error' }));
         }
       }
@@ -149,6 +156,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     onError,
     timeout = 30000,
     keepAliveTimeout = 5000,
+    shutdownTimeout = 10000,
   } = options;
 
   const logger = options.logger ?? app.logger;
@@ -159,22 +167,33 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   server.timeout = timeout;
   server.keepAliveTimeout = keepAliveTimeout;
 
-  // Handle server errors
-  server.on('error', (error: Error) => {
-    if (onError) {
-      onError(error);
-    } else {
-      logger.error('Server error:', error);
-    }
-  });
-
   // Start listening
   return new Promise((resolve, reject) => {
+    // Use a one-time error listener for startup failures (e.g., EADDRINUSE)
+    const onStartupError = (error: Error): void => {
+      reject(error);
+    };
+    server.once('error', onStartupError);
+
     server.listen(port, host, () => {
+      // Remove startup-only listener, replace with persistent runtime handler
+      server.removeListener('error', onStartupError);
+      server.on('error', (error: Error) => {
+        if (onError) {
+          onError(error);
+        } else {
+          logger.error('Server error:', error);
+        }
+      });
+
       // Mark app as running
       app.start();
 
-      const info = { port, host };
+      // Use actual address from server (handles port 0 auto-assignment)
+      const addr = server.address();
+      const actualPort = typeof addr === 'object' && addr !== null ? addr.port : port;
+      const actualHost = typeof addr === 'object' && addr !== null ? addr.address : host;
+      const info = { port: actualPort, host: actualHost };
 
       if (onListen) {
         onListen(info);
@@ -182,15 +201,21 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
 
       resolve({
         server,
-        port,
-        host,
+        port: actualPort,
+        host: actualHost,
         address: () => info,
         close: async () => {
-          // 1. Stop accepting new connections
-          await new Promise<void>((res, rej) => {
-            server.close((err) => {
-              if (err) rej(err);
-              else res();
+          // 1. Stop accepting new connections with drain timeout
+          await new Promise<void>((res) => {
+            const forceTimer = setTimeout(() => {
+              // Force-close if connections don't drain in time
+              server.closeAllConnections();
+              res();
+            }, shutdownTimeout);
+
+            server.close(() => {
+              clearTimeout(forceTimer);
+              res();
             });
           });
           // 2. Destroy plugins after server is fully drained
@@ -198,8 +223,6 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
         },
       });
     });
-
-    server.on('error', reject);
   });
 }
 

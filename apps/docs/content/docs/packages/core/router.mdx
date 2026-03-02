@@ -1,5 +1,5 @@
 ---
-title: "@nextrush/router"
+title: '@nextrush/router'
 description: High-performance radix tree router with O(k) route matching
 ---
 
@@ -7,10 +7,11 @@ description: High-performance radix tree router with O(k) route matching
 
 A high-performance router using radix trees for O(k) route matching, where k is path length—not route count.
 
-<PackageInstall packages={["@nextrush/router"]} />
+<PackageInstall packages={['@nextrush/router']} />
 
 <Callout type="info" title="Usually Included">
-Most users install `nextrush` which includes this package. Install `@nextrush/router` directly only when using non-Node.js runtimes or building custom tooling.
+  Most users install `nextrush` which includes this package. Install `@nextrush/router` directly
+  only when using non-Node.js runtimes or building custom tooling.
 </Callout>
 
 ## Why Radix Tree?
@@ -18,6 +19,7 @@ Most users install `nextrush` which includes this package. Install `@nextrush/ro
 Traditional routers iterate through all registered routes until one matches. With 500 routes, every request scans 500 patterns.
 
 NextRush's radix tree router:
+
 - Matches routes in **O(k)** time where k = path length
 - Performance is **constant** regardless of route count
 - No route ordering bugs—most specific route always wins
@@ -37,6 +39,7 @@ graph TD
     style products fill:#22c55e,stroke:#16a34a,color:#fff
     style userId fill:#f59e0b,stroke:#d97706,color:#fff
     style productId fill:#f59e0b,stroke:#d97706,color:#fff
+
 "/>
 
 ## What It Provides
@@ -99,6 +102,7 @@ app.route('/api/posts', posts);
 ```
 
 This is the **recommended pattern** for composing routers. Benefits:
+
 - No need to create a main router just for mounting
 - No `router.routes()` call required
 - Clean, Hono-like DX
@@ -107,7 +111,7 @@ This is the **recommended pattern** for composing routers. Benefits:
 
 The traditional approach with `router.routes()` still works:
 
-```typescript title="Classic Mounting"
+````typescript title="Classic Mounting"
 const router = createRouter();
 router.use('/users', usersRouter);
 router.use('/posts', postsRouter);
@@ -129,7 +133,7 @@ router.all('/any-method', handler);
 
 // Dynamic method registration
 router.route('GET', '/dynamic', handler);
-```
+````
 
 ## Route Parameters
 
@@ -138,22 +142,21 @@ Parameters capture path segments into `ctx.params`:
 ```typescript
 // Single parameter
 router.get('/users/:id', (ctx) => {
-  console.log(ctx.params.id);  // '123' for /users/123
+  console.log(ctx.params.id); // '123' for /users/123
 });
 
 // Multiple parameters
 router.get('/users/:userId/posts/:postId', (ctx) => {
-  const { userid, postid } = ctx.params;
-  // /users/42/posts/7 → { userid: '42', postid: '7' }
+  const { userId, postId } = ctx.params;
+  // /users/42/posts/7 → { userId: '42', postId: '7' }
 });
 ```
 
-<Callout type="warn" title="Parameter Names Are Lowercased">
-By default, the router operates case-insensitively. Parameter names are **lowercased** in `ctx.params`.
+<Callout type="info" title="Parameter Names Preserve Case">
+Parameter names in `ctx.params` always preserve the original case from the route definition.
 
-If you define `:userId`, access it as `ctx.params.userid`.
+If you define `:userId`, access it as `ctx.params.userId`.
 
-Use `caseSensitive: true` to preserve original case.
 </Callout>
 
 ## Wildcard Routes
@@ -185,9 +188,9 @@ Groups share a prefix and optionally middleware.
 
 ```typescript
 router.group('/api', (api) => {
-  api.get('/users', listUsers);    // GET /api/users
-  api.post('/users', createUser);  // POST /api/users
-  api.get('/posts', listPosts);    // GET /api/posts
+  api.get('/users', listUsers); // GET /api/users
+  api.post('/users', createUser); // POST /api/users
+  api.get('/posts', listPosts); // GET /api/posts
 });
 ```
 
@@ -211,11 +214,11 @@ const auth = async (ctx) => {
 // };
 
 router.group('/admin', [auth], (admin) => {
-  admin.get('/dashboard', getDashboard);  // Protected
-  admin.get('/settings', getSettings);    // Protected
+  admin.get('/dashboard', getDashboard); // Protected
+  admin.get('/settings', getSettings); // Protected
 });
 
-router.get('/public', publicHandler);     // Not protected
+router.get('/public', publicHandler); // Not protected
 ```
 
 ### Nested Groups
@@ -223,11 +226,11 @@ router.get('/public', publicHandler);     // Not protected
 ```typescript
 router.group('/api', (api) => {
   api.group('/v1', (v1) => {
-    v1.get('/users', v1Handler);  // GET /api/v1/users
+    v1.get('/users', v1Handler); // GET /api/v1/users
   });
 
   api.group('/v2', (v2) => {
-    v2.get('/users', v2Handler);  // GET /api/v2/users
+    v2.get('/users', v2Handler); // GET /api/v2/users
   });
 });
 ```
@@ -267,13 +270,13 @@ router.redirect('/users/:id', '/profiles/:id');
 
 ### Redirect Status Codes
 
-| Status | Name | Use Case |
-|--------|------|----------|
-| `301` | Moved Permanently | SEO-safe permanent redirect |
-| `302` | Found | Temporary redirect (default) |
-| `303` | See Other | Redirect after POST |
-| `307` | Temporary Redirect | Preserves HTTP method |
-| `308` | Permanent Redirect | Preserves HTTP method |
+| Status | Name               | Use Case                     |
+| ------ | ------------------ | ---------------------------- |
+| `301`  | Moved Permanently  | SEO-safe permanent redirect  |
+| `302`  | Found              | Temporary redirect (default) |
+| `303`  | See Other          | Redirect after POST          |
+| `307`  | Temporary Redirect | Preserves HTTP method        |
+| `308`  | Permanent Redirect | Preserves HTTP method        |
 
 ## Sub-Router Mounting
 
@@ -364,9 +367,9 @@ OPTIONS /users  → 200 OK
 
 ```typescript
 const router = createRouter({
-  prefix: '/api/v1',     // Prepend to all routes
-  caseSensitive: false,  // Case-insensitive matching (default)
-  strict: false,         // Ignore trailing slashes (default)
+  prefix: '/api/v1', // Prepend to all routes
+  caseSensitive: false, // Case-insensitive matching (default)
+  strict: false, // Ignore trailing slashes (default)
 });
 ```
 
@@ -392,8 +395,8 @@ router.get('/users', handler);
 
 // Strict mode
 const router = createRouter({ strict: true });
-router.get('/users', handler);    // Only /users
-router.get('/users/', other);     // Only /users/
+router.get('/users', handler); // Only /users
+router.get('/users/', other); // Only /users/
 ```
 
 ## Performance
@@ -401,10 +404,10 @@ router.get('/users/', other);     // Only /users/
 Consistent performance regardless of route count:
 
 | Routes | Lookup Time |
-|--------|-------------|
-| 100 | ~0.02ms |
-| 1,000 | ~0.02ms |
-| 10,000 | ~0.02ms |
+| ------ | ----------- |
+| 100    | ~0.02ms     |
+| 1,000  | ~0.02ms     |
+| 10,000 | ~0.02ms     |
 
 **O(k) complexity** where k = path length (typically 10-50 characters).
 
@@ -475,38 +478,38 @@ const options: RouterOptions = {
 ### createRouter()
 
 ```typescript
-function createRouter(options?: RouterOptions): Router
+function createRouter(options?: RouterOptions): Router;
 ```
 
 Creates a new router instance.
 
 ### Router Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `prefix` | `string` | `''` | Path prefix for all routes |
-| `caseSensitive` | `boolean` | `false` | Case-sensitive matching |
-| `strict` | `boolean` | `false` | Strict trailing slash handling |
+| Option          | Type      | Default | Description                    |
+| --------------- | --------- | ------- | ------------------------------ |
+| `prefix`        | `string`  | `''`    | Path prefix for all routes     |
+| `caseSensitive` | `boolean` | `false` | Case-sensitive matching        |
+| `strict`        | `boolean` | `false` | Strict trailing slash handling |
 
 ### Router Methods
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `get` | `(path, ...handlers)` | Register GET route |
-| `post` | `(path, ...handlers)` | Register POST route |
-| `put` | `(path, ...handlers)` | Register PUT route |
-| `delete` | `(path, ...handlers)` | Register DELETE route |
-| `patch` | `(path, ...handlers)` | Register PATCH route |
-| `head` | `(path, ...handlers)` | Register HEAD route |
-| `options` | `(path, ...handlers)` | Register OPTIONS route |
-| `all` | `(path, ...handlers)` | Register all methods |
-| `route` | `(method, path, ...handlers)` | Register dynamic method |
-| `redirect` | `(from, to, status?)` | Register redirect |
-| `group` | `(prefix, [middleware], callback)` | Create route group |
-| `use` | `(path?, router)` | Mount sub-router |
-| `mount` | `(path, router)` | Mount sub-router (Hono-style alias) |
-| `routes` | `()` | Get routes middleware |
-| `allowedMethods` | `()` | Get 405 handler middleware |
+| Method           | Signature                          | Description                         |
+| ---------------- | ---------------------------------- | ----------------------------------- |
+| `get`            | `(path, ...handlers)`              | Register GET route                  |
+| `post`           | `(path, ...handlers)`              | Register POST route                 |
+| `put`            | `(path, ...handlers)`              | Register PUT route                  |
+| `delete`         | `(path, ...handlers)`              | Register DELETE route               |
+| `patch`          | `(path, ...handlers)`              | Register PATCH route                |
+| `head`           | `(path, ...handlers)`              | Register HEAD route                 |
+| `options`        | `(path, ...handlers)`              | Register OPTIONS route              |
+| `all`            | `(path, ...handlers)`              | Register all methods                |
+| `route`          | `(method, path, ...handlers)`      | Register dynamic method             |
+| `redirect`       | `(from, to, status?)`              | Register redirect                   |
+| `group`          | `(prefix, [middleware], callback)` | Create route group                  |
+| `use`            | `(path?, router)`                  | Mount sub-router                    |
+| `mount`          | `(path, router)`                   | Mount sub-router (Hono-style alias) |
+| `routes`         | `()`                               | Get routes middleware               |
+| `allowedMethods` | `()`                               | Get 405 handler middleware          |
 
 ## See Also
 

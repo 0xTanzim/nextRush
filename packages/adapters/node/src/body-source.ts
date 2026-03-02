@@ -6,8 +6,9 @@
  * @packageDocumentation
  */
 
+import { BadRequestError } from '@nextrush/errors';
 import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
-import type { BodySource, BodySourceOptions } from '@nextrush/types';
+import type { BodySource, BodySourceOptions, NodeStreamLike, WebStreamLike } from '@nextrush/types';
 import type { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 
@@ -126,11 +127,13 @@ export class NodeBodySource implements BodySource {
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new SyntaxError(`Invalid JSON in request body: ${text.slice(0, 100)}`);
+      throw new BadRequestError(`Invalid JSON in request body: ${text.slice(0, 100)}`, {
+        code: 'INVALID_JSON',
+      });
     }
   }
 
-  stream(): NodeJS.ReadableStream {
+  stream(): NodeStreamLike | WebStreamLike {
     if (this._consumed) {
       throw new BodyConsumedError();
     }
@@ -170,10 +173,12 @@ class EmptyBodySource implements BodySource {
   }
 
   async json<T = unknown>(): Promise<T> {
-    throw new SyntaxError('Unexpected end of JSON input');
+    throw new BadRequestError('Request body is empty — cannot parse as JSON', {
+      code: 'EMPTY_BODY_JSON',
+    });
   }
 
-  stream(): NodeJS.ReadableStream {
+  stream(): NodeStreamLike | WebStreamLike {
     return Readable.from([]);
   }
 }

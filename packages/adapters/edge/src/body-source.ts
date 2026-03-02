@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { BadRequestError } from '@nextrush/errors';
 import type { BodySource, BodySourceOptions } from '@nextrush/types';
 
 /**
@@ -144,21 +145,34 @@ export class EdgeBodySource implements BodySource {
   }
 
   async json<T = unknown>(): Promise<T> {
-    if (!this._consumed) {
-      if (this.contentLength !== undefined && this.contentLength > this.options.limit) {
-        throw new BodyTooLargeError(this.options.limit, this.contentLength);
+    try {
+      if (!this._consumed) {
+        if (this.contentLength !== undefined && this.contentLength > this.options.limit) {
+          throw new BodyTooLargeError(this.options.limit, this.contentLength);
+        }
+
+        this._consumed = true;
+        return await (this.request.json() as Promise<T>);
       }
 
-      this._consumed = true;
-      return this.request.json() as Promise<T>;
-    }
+      if (this._cachedBuffer) {
+        const text = new TextDecoder(this.options.encoding).decode(this._cachedBuffer);
+        return JSON.parse(text) as T;
+      }
 
-    if (this._cachedBuffer) {
-      const text = new TextDecoder(this.options.encoding).decode(this._cachedBuffer);
-      return JSON.parse(text) as T;
+      throw new BodyConsumedError();
+    } catch (err) {
+      if (
+        err instanceof BadRequestError ||
+        err instanceof BodyTooLargeError ||
+        err instanceof BodyConsumedError
+      ) {
+        throw err;
+      }
+      throw new BadRequestError('Invalid JSON in request body', {
+        code: 'INVALID_JSON',
+      });
     }
-
-    throw new BodyConsumedError();
   }
 
   stream(): ReadableStream<Uint8Array> {
@@ -204,7 +218,9 @@ export class EmptyBodySource implements BodySource {
   }
 
   async json<T = unknown>(): Promise<T> {
-    throw new SyntaxError('Unexpected end of JSON input');
+    throw new BadRequestError('Request body is empty — cannot parse as JSON', {
+      code: 'EMPTY_BODY_JSON',
+    });
   }
 
   stream(): ReadableStream<Uint8Array> {

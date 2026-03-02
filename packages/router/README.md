@@ -9,6 +9,7 @@ Traditional array-based routers iterate through all routes to find a match. With
 ## How NextRush Approaches This
 
 The router uses a **radix tree** (compressed prefix tree):
+
 - Routes share common prefixes in the tree structure
 - Matching is O(k) where k is path length (typically 10-50 characters)
 - Route count doesn't affect matching speed
@@ -34,6 +35,7 @@ Tree:
 ```
 
 When matching `/users/123/posts`:
+
 1. Match `/` → found
 2. Match `users` → found
 3. Match `/:id` → captures `123`
@@ -97,12 +99,10 @@ router.get('/users/:id', (ctx) => {
 
 // Multiple parameters
 router.get('/users/:userId/posts/:postId', (ctx) => {
-  const { userid, postid } = ctx.params;
-  ctx.json({ userid, postid });
+  const { userId, postId } = ctx.params;
+  ctx.json({ userId, postId });
 });
 ```
-
-> **Note**: Parameter names are lowercased in `ctx.params` when using the default case-insensitive mode.
 
 ### Wildcard Routes
 
@@ -143,9 +143,9 @@ Group routes with a common prefix:
 ```typescript
 const api = createRouter({ prefix: '/api/v1' });
 
-api.get('/users', listUsers);      // GET /api/v1/users
-api.get('/users/:id', getUser);    // GET /api/v1/users/:id
-api.post('/users', createUser);    // POST /api/v1/users
+api.get('/users', listUsers); // GET /api/v1/users
+api.get('/users/:id', getUser); // GET /api/v1/users/:id
+api.post('/users', createUser); // POST /api/v1/users
 
 app.route('/', api);
 ```
@@ -157,12 +157,12 @@ const router = createRouter();
 
 router.group('/api', (api) => {
   api.group('/v1', (v1) => {
-    v1.get('/users', handler);     // GET /api/v1/users
-    v1.get('/posts', handler);     // GET /api/v1/posts
+    v1.get('/users', handler); // GET /api/v1/users
+    v1.get('/posts', handler); // GET /api/v1/posts
   });
 
   api.group('/v2', (v2) => {
-    v2.get('/users', handler);     // GET /api/v2/users
+    v2.get('/users', handler); // GET /api/v2/users
   });
 });
 
@@ -250,7 +250,7 @@ postRouter.get('/', listPosts);
 postRouter.get('/:id', getPost);
 
 const api = createRouter();
-api.mount('/users', userRouter);  // Clean explicit mounting
+api.mount('/users', userRouter); // Clean explicit mounting
 api.mount('/posts', postRouter);
 
 app.route('/api', api);
@@ -278,7 +278,7 @@ For the cleanest DX, mount routers directly on the app:
 import { createApp } from '@nextrush/core';
 
 const app = createApp();
-app.route('/users', userRouter);  // No routes() call needed!
+app.route('/users', userRouter); // No routes() call needed!
 app.route('/posts', postRouter);
 ```
 
@@ -322,13 +322,13 @@ const router = createRouter({
 // Default: case-insensitive
 const router = createRouter();
 router.get('/Users', handler);
-router.match('GET', '/users');  // ✓ matches
+router.match('GET', '/users'); // ✓ matches
 
 // Case-sensitive mode
 const router = createRouter({ caseSensitive: true });
 router.get('/Users', handler);
-router.match('GET', '/Users');  // ✓ matches
-router.match('GET', '/users');  // ✗ no match
+router.match('GET', '/Users'); // ✓ matches
+router.match('GET', '/users'); // ✗ no match
 ```
 
 ### Trailing Slash
@@ -336,8 +336,8 @@ router.match('GET', '/users');  // ✗ no match
 ```typescript
 // Default: trailing slashes are normalized
 router.get('/users', handler);
-router.match('GET', '/users');   // ✓ matches
-router.match('GET', '/users/');  // ✓ matches (normalized)
+router.match('GET', '/users'); // ✓ matches
+router.match('GET', '/users/'); // ✓ matches (normalized)
 ```
 
 ## Performance
@@ -351,10 +351,10 @@ The radix tree router provides:
 ### Benchmarks
 
 | Routes | Lookup Time |
-|--------|-------------|
-| 100 | ~0.02ms |
-| 1,000 | ~0.02ms |
-| 10,000 | ~0.02ms |
+| ------ | ----------- |
+| 100    | ~0.02ms     |
+| 1,000  | ~0.02ms     |
+| 10,000 | ~0.02ms     |
 
 Route count doesn't affect lookup time significantly.
 
@@ -365,22 +365,22 @@ Route count doesn't affect lookup time significantly.
 Create a new router instance.
 
 ```typescript
-function createRouter(options?: RouterOptions): Router
+function createRouter(options?: RouterOptions): Router;
 ```
 
 **Parameters:**
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `options` | `RouterOptions` | No | `{}` | Router configuration |
+| Parameter | Type            | Required | Default | Description          |
+| --------- | --------------- | -------- | ------- | -------------------- |
+| `options` | `RouterOptions` | No       | `{}`    | Router configuration |
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `prefix` | `string` | `''` | Path prefix for all routes |
-| `caseSensitive` | `boolean` | `false` | Enable case-sensitive matching |
-| `strict` | `boolean` | `false` | Enable strict trailing slash handling |
+| Option          | Type      | Default | Description                           |
+| --------------- | --------- | ------- | ------------------------------------- |
+| `prefix`        | `string`  | `''`    | Path prefix for all routes            |
+| `caseSensitive` | `boolean` | `false` | Enable case-sensitive matching        |
+| `strict`        | `boolean` | `false` | Enable strict trailing slash handling |
 
 **Returns:** `Router` instance
 
@@ -481,10 +481,7 @@ app.use(router.allowedMethods());
 ## TypeScript Types
 
 ```typescript
-import {
-  createRouter,
-  Router,
-} from '@nextrush/router';
+import { createRouter, Router } from '@nextrush/router';
 
 import type {
   HttpMethod,
@@ -557,17 +554,17 @@ app.route('/api', router);
 app.use(router.routes());
 ```
 
-### Parameter Name Case
+### Parameter Name & Value Case
 
 ```typescript
-// By default, param names are lowercased
+// Parameter names preserve their original case from route definition
 router.get('/users/:userId', (ctx) => {
-  // ❌ Wrong
+  // ✅ Original case is preserved
   console.log(ctx.params.userId);
-
-  // ✅ Correct (case-insensitive mode)
-  console.log(ctx.params.userid);
 });
+
+// Parameter values also preserve their original case
+// GET /users/JohnDoe → ctx.params.userId === 'JohnDoe' (not 'johndoe')
 ```
 
 ### Wildcard Placement
