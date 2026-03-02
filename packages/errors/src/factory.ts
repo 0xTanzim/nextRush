@@ -8,19 +8,19 @@
 
 import { HttpError } from './base';
 import {
-    BadGatewayError,
-    BadRequestError,
-    ConflictError,
-    ForbiddenError,
-    GatewayTimeoutError,
-    InternalServerError,
-    MethodNotAllowedError,
-    NotFoundError,
-    ServiceUnavailableError,
-    TooManyRequestsError,
-    UnauthorizedError,
-    UnprocessableEntityError,
-    type HttpErrorOptions,
+  BadGatewayError,
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  GatewayTimeoutError,
+  InternalServerError,
+  MethodNotAllowedError,
+  NotFoundError,
+  ServiceUnavailableError,
+  TooManyRequestsError,
+  UnauthorizedError,
+  UnprocessableEntityError,
+  type HttpErrorOptions,
 } from './http-errors';
 
 /**
@@ -33,15 +33,21 @@ const ERROR_MAP: Record<number, new (message?: string, options?: HttpErrorOption
   404: NotFoundError,
   409: ConflictError,
   422: UnprocessableEntityError,
+  429: TooManyRequestsError,
   500: InternalServerError,
   502: BadGatewayError,
+  503: ServiceUnavailableError,
   504: GatewayTimeoutError,
 };
 
 /**
  * Create an HTTP error by status code
  */
-export function createError(status: number, message?: string, options?: HttpErrorOptions): HttpError {
+export function createError(
+  status: number,
+  message?: string,
+  options?: HttpErrorOptions
+): HttpError {
   const ErrorClass = ERROR_MAP[status];
 
   if (ErrorClass) {
@@ -100,7 +106,10 @@ export function conflict(message?: string, options?: HttpErrorOptions): Conflict
 /**
  * Create a 422 Unprocessable Entity error
  */
-export function unprocessableEntity(message?: string, options?: HttpErrorOptions): UnprocessableEntityError {
+export function unprocessableEntity(
+  message?: string,
+  options?: HttpErrorOptions
+): UnprocessableEntityError {
   return new UnprocessableEntityError(message, options);
 }
 

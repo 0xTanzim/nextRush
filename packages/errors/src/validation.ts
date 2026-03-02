@@ -63,21 +63,21 @@ export class ValidationError extends NextRushError {
    * Check if a specific field has errors
    */
   hasErrorFor(path: string): boolean {
-    return this.issues.some(issue => issue.path === path);
+    return this.issues.some((issue) => issue.path === path);
   }
 
   /**
    * Get errors for a specific field
    */
   getErrorsFor(path: string): ValidationIssue[] {
-    return this.issues.filter(issue => issue.path === path);
+    return this.issues.filter((issue) => issue.path === path);
   }
 
   /**
    * Get first error message for a field
    */
   getFirstError(path: string): string | undefined {
-    return this.issues.find(issue => issue.path === path)?.message;
+    return this.issues.find((issue) => issue.path === path)?.message;
   }
 
   /**
@@ -109,7 +109,10 @@ export class ValidationError extends NextRushError {
  */
 export class RequiredFieldError extends ValidationError {
   constructor(field: string) {
-    super([{ path: field, message: `${field} is required`, rule: 'required' }], `${field} is required`);
+    super(
+      [{ path: field, message: `${field} is required`, rule: 'required' }],
+      `${field} is required`
+    );
   }
 }
 
@@ -119,7 +122,15 @@ export class RequiredFieldError extends ValidationError {
 export class TypeMismatchError extends ValidationError {
   constructor(field: string, expected: string, received: string) {
     super(
-      [{ path: field, message: `Expected ${expected}, received ${received}`, rule: 'type', expected, received }],
+      [
+        {
+          path: field,
+          message: `Expected ${expected}, received ${received}`,
+          rule: 'type',
+          expected,
+          received,
+        },
+      ],
       `${field} must be of type ${expected}`
     );
   }
@@ -128,7 +139,7 @@ export class TypeMismatchError extends ValidationError {
 /**
  * Value out of range
  */
-export class RangeError extends ValidationError {
+export class RangeValidationError extends ValidationError {
   constructor(field: string, min?: number, max?: number) {
     const parts: string[] = [];
     if (min !== undefined) parts.push(`at least ${min}`);
@@ -159,7 +170,14 @@ export class LengthError extends ValidationError {
 export class PatternError extends ValidationError {
   constructor(field: string, pattern: string, message?: string) {
     super(
-      [{ path: field, message: message ?? `${field} does not match required pattern`, rule: 'pattern', expected: pattern }],
+      [
+        {
+          path: field,
+          message: message ?? `${field} does not match required pattern`,
+          rule: 'pattern',
+          expected: pattern,
+        },
+      ],
       message ?? `${field} does not match required pattern`
     );
   }
@@ -170,7 +188,10 @@ export class PatternError extends ValidationError {
  */
 export class InvalidEmailError extends ValidationError {
   constructor(field = 'email') {
-    super([{ path: field, message: 'Invalid email address', rule: 'email' }], 'Invalid email address');
+    super(
+      [{ path: field, message: 'Invalid email address', rule: 'email' }],
+      'Invalid email address'
+    );
   }
 }
 

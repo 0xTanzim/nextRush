@@ -5,14 +5,14 @@
 import { describe, expect, it } from 'vitest';
 import { NextRushError } from '../base';
 import {
-    InvalidEmailError,
-    InvalidUrlError,
-    LengthError,
-    PatternError,
-    RangeError,
-    RequiredFieldError,
-    TypeMismatchError,
-    ValidationError,
+  InvalidEmailError,
+  InvalidUrlError,
+  LengthError,
+  PatternError,
+  RangeValidationError,
+  RequiredFieldError,
+  TypeMismatchError,
+  ValidationError,
 } from '../validation';
 
 describe('ValidationError', () => {
@@ -32,7 +32,10 @@ describe('ValidationError', () => {
     });
 
     it('should accept custom message', () => {
-      const error = new ValidationError([{ path: 'field', message: 'error' }], 'Form validation failed');
+      const error = new ValidationError(
+        [{ path: 'field', message: 'error' }],
+        'Form validation failed'
+      );
       expect(error.message).toBe('Form validation failed');
     });
 
@@ -202,19 +205,19 @@ describe('TypeMismatchError', () => {
   });
 });
 
-describe('RangeError', () => {
+describe('RangeValidationError', () => {
   it('should create range error with min', () => {
-    const error = new RangeError('age', 18);
+    const error = new RangeValidationError('age', 18);
     expect(error.message).toBe('age must be at least 18');
   });
 
   it('should create range error with max', () => {
-    const error = new RangeError('quantity', undefined, 100);
+    const error = new RangeValidationError('quantity', undefined, 100);
     expect(error.message).toBe('quantity must be at most 100');
   });
 
   it('should create range error with min and max', () => {
-    const error = new RangeError('rating', 1, 5);
+    const error = new RangeValidationError('rating', 1, 5);
     expect(error.message).toBe('rating must be at least 1 and at most 5');
     expect(error.issues[0].expected).toEqual({ min: 1, max: 5 });
   });

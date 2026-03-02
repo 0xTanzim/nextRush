@@ -5,16 +5,14 @@
  * These tests run with vitest (works on Node.js).
  */
 
+import { HttpError } from '@nextrush/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDenoContext, DenoContext, HttpError } from '../context';
+import { createDenoContext, DenoContext } from '../context';
 
 /**
  * Create a mock Web Request
  */
-function createMockRequest(
-  url: string = 'http://localhost/',
-  init?: RequestInit
-): Request {
+function createMockRequest(url: string = 'http://localhost/', init?: RequestInit): Request {
   return new Request(url, init);
 }
 

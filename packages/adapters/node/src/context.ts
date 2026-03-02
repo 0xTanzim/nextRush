@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 
+import { HttpError } from '@nextrush/errors';
 import { getRuntime } from '@nextrush/runtime';
 import type {
   BodySource,
@@ -23,36 +24,6 @@ import type {
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
 import { parseQueryString } from './utils';
-
-/**
- * HTTP error class for ctx.throw()
- */
-export class HttpError extends Error {
-  readonly status: number;
-  readonly expose: boolean;
-
-  constructor(status: number, message?: string) {
-    const defaultMessages: Record<number, string> = {
-      400: 'Bad Request',
-      401: 'Unauthorized',
-      403: 'Forbidden',
-      404: 'Not Found',
-      405: 'Method Not Allowed',
-      409: 'Conflict',
-      422: 'Unprocessable Entity',
-      429: 'Too Many Requests',
-      500: 'Internal Server Error',
-      502: 'Bad Gateway',
-      503: 'Service Unavailable',
-    };
-
-    super(message ?? defaultMessages[status] ?? 'Unknown Error');
-    this.name = 'HttpError';
-    this.status = status;
-    this.expose = status < 500;
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
 
 /**
  * Node.js-specific RawHttp type

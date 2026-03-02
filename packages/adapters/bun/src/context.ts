@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { HttpError } from '@nextrush/errors';
 import { getRuntime } from '@nextrush/runtime';
 import type {
   BodySource,
@@ -21,35 +22,6 @@ import type {
 } from '@nextrush/types';
 import { BunBodySource, createEmptyBodySource } from './body-source';
 import { parseQueryString } from './utils';
-
-/**
- * HTTP error class for ctx.throw()
- */
-export class HttpError extends Error {
-  readonly status: number;
-  readonly expose: boolean;
-
-  constructor(status: number, message?: string) {
-    const defaultMessages: Record<number, string> = {
-      400: 'Bad Request',
-      401: 'Unauthorized',
-      403: 'Forbidden',
-      404: 'Not Found',
-      405: 'Method Not Allowed',
-      409: 'Conflict',
-      422: 'Unprocessable Entity',
-      429: 'Too Many Requests',
-      500: 'Internal Server Error',
-      502: 'Bad Gateway',
-      503: 'Service Unavailable',
-    };
-
-    super(message ?? defaultMessages[status] ?? 'Unknown Error');
-    this.name = 'HttpError';
-    this.status = status;
-    this.expose = status < 500;
-  }
-}
 
 /**
  * Bun-specific RawHttp type
@@ -204,7 +176,10 @@ export class BunContext implements Context {
 
     this._responseBuilder.status = this.status;
     this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
-    this._responseBuilder.headers.set('Content-Length', String(new TextEncoder().encode(body).length));
+    this._responseBuilder.headers.set(
+      'Content-Length',
+      String(new TextEncoder().encode(body).length)
+    );
     this._responseBuilder.body = body;
   }
 
@@ -223,13 +198,19 @@ export class BunContext implements Context {
       if (!this._responseBuilder.headers.has('Content-Type')) {
         this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
       }
-      this._responseBuilder.headers.set('Content-Length', String(new TextEncoder().encode(data).length));
+      this._responseBuilder.headers.set(
+        'Content-Length',
+        String(new TextEncoder().encode(data).length)
+      );
       this._responseBuilder.body = data;
       return;
     }
 
     if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
-      const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+      const bytes =
+        data instanceof ArrayBuffer
+          ? new Uint8Array(data)
+          : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
       if (!this._responseBuilder.headers.has('Content-Type')) {
         this._responseBuilder.headers.set('Content-Type', 'application/octet-stream');
       }
@@ -258,7 +239,10 @@ export class BunContext implements Context {
     // Default: convert to string
     const str = String(data);
     this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
-    this._responseBuilder.headers.set('Content-Length', String(new TextEncoder().encode(str).length));
+    this._responseBuilder.headers.set(
+      'Content-Length',
+      String(new TextEncoder().encode(str).length)
+    );
     this._responseBuilder.body = str;
   }
 
@@ -268,7 +252,10 @@ export class BunContext implements Context {
 
     this._responseBuilder.status = this.status;
     this._responseBuilder.headers.set('Content-Type', 'text/html; charset=utf-8');
-    this._responseBuilder.headers.set('Content-Length', String(new TextEncoder().encode(content).length));
+    this._responseBuilder.headers.set(
+      'Content-Length',
+      String(new TextEncoder().encode(content).length)
+    );
     this._responseBuilder.body = content;
   }
 

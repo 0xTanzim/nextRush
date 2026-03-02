@@ -157,5 +157,5 @@ export interface BodySourceOptions {
   limit?: number;
 
   /** Encoding for text() method (default: 'utf-8') */
-  encoding?: BufferEncoding;
+  encoding?: 'utf-8' | 'utf8' | 'ascii' | 'latin1' | 'base64' | 'hex';
 }

@@ -1,13 +1,29 @@
-# Copilot Processing — Phase 1 P0 Security Fixes
+# Copilot Processing — Phase 2 & Phase 3
 
 ## User Request
-
-Fix all Phase 1 P0 security issues from the audit report.
+Fix Phase 2 (Error Architecture Unification) and Phase 3 (Type System Fixes)
 
 ## Action Plan
 
-### Task 1.1: Fix Prototype Pollution in Query Parser
-- **File**: `packages/adapters/node/src/utils.ts`
+### Phase 2: Error Architecture Unification
+
+- [x] **2.1** Make `HttpError` message optional with status defaults in `@nextrush/errors/base.ts`
+- [x] **2.2** Replace `core/errors.ts` duplicate classes with re-exports from `@nextrush/errors`
+- [x] **2.3** Replace local `HttpError` in all 4 adapter contexts with `@nextrush/errors` import
+- [x] **2.4** Rename `RangeError` → `RangeValidationError` in `errors/validation.ts`
+- [x] **2.5** Complete `ERROR_MAP` — add 429, 503 (405 excluded — different constructor, use factory fn)
+- [x] **2.6** Unify body source errors — `BodyConsumedError` → 400, `BodyTooLargeError` → 413
+
+### Phase 3: Type System Fixes
+
+- [x] **3.1** Remove Node.js types from `@nextrush/types` (`Readable` import removed, `Buffer` → `Uint8Array`)
+- [x] **3.2** Add `setNext?(fn: Next): void` to Context interface
+- [x] **3.3** Add `readonly responded: boolean` to Context interface
+- [x] **3.4** Fix `ApplicationLike.use()` to use `Middleware` type
+
+### Validation
+- [x] `pnpm build` — 29/29 packages pass
+- [x] `pnpm test` — 56/56 tests pass
 - **Changes**: `Object.create(null)`, key denylist (`__proto__`, `constructor`, `prototype`), max 256 params, max 2048 char query string
 - **Status**: ✅ DONE
 
@@ -154,3 +170,34 @@ Added final summary to `Copilot-Processing.md`.
 - **~34 allocations per minimal request** (target: single-digit)
 - **~15-20% RPS improvement** achievable with easy fixes
 - **Security score: 2-4/10** → can reach 8/10 with Phase 1 fixes (~4 hr)
+
+---
+
+## Phase 1 Remediation — COMPLETED
+
+All 7 P0 security fixes implemented. 29/29 builds, 56/56 tests.
+
+---
+
+## Phase 2+3 Remediation — COMPLETED
+
+### Phase 2: Error Architecture Unification (6 tasks)
+1. HttpError message optional with status defaults
+2. Core errors.ts → re-exports from @nextrush/errors
+3. All 4 adapter contexts use canonical HttpError
+4. RangeError → RangeValidationError (avoid shadowing)
+5. ERROR_MAP: added 429, 503
+6. BodyConsumedError→BadRequestError(400), BodyTooLargeError→PayloadTooLargeError(413)
+
+### Phase 3: Type System Fixes (4 tasks)
+1. Removed `import Readable from 'node:stream'`, removed Buffer from type unions
+2. Added `setNext?(fn: Next): void` to Context, removed `as any` casts
+3. Added `readonly responded: boolean` to Context
+4. Fixed `ApplicationLike.use()` to accept `Middleware` type
+
+### Additional Fixes
+- Removed cyclic @nextrush/core peer dep from @nextrush/errors
+- Fixed adapter barrel exports for HttpError
+- Updated test imports across 4 adapter test files
+
+### Verification: 29/29 builds, 56/56 tests — ALL PASS

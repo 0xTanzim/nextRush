@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
 import type { BodySource, BodySourceOptions } from '@nextrush/types';
 import type { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
@@ -14,31 +15,6 @@ import { Readable } from 'node:stream';
  * Default body size limit (1MB)
  */
 const DEFAULT_BODY_LIMIT = 1024 * 1024;
-
-/**
- * Error thrown when body has already been consumed
- */
-export class BodyConsumedError extends Error {
-  constructor() {
-    super('Body has already been consumed');
-    this.name = 'BodyConsumedError';
-  }
-}
-
-/**
- * Error thrown when body exceeds size limit
- */
-export class BodyTooLargeError extends Error {
-  readonly limit: number;
-  readonly received: number;
-
-  constructor(limit: number, received: number) {
-    super(`Body too large: received ${received} bytes, limit is ${limit} bytes`);
-    this.name = 'BodyTooLargeError';
-    this.limit = limit;
-    this.received = received;
-  }
-}
 
 /**
  * Node.js BodySource implementation

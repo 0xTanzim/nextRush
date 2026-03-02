@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { Context } from './context';
+import type { Context, Middleware } from './context';
 
 // ============================================================================
 // Application Interface (minimal for plugin use)
@@ -21,7 +21,7 @@ export interface ApplicationLike {
   /**
    * Register middleware
    */
-  use(middleware: (ctx: Context, next: () => Promise<void>) => Promise<void>): this;
+  use(middleware: Middleware): this;
 
   /**
    * Get installed plugin by name

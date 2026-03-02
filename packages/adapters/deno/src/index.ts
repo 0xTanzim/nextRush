@@ -13,14 +13,17 @@ export { createHandler, listen, serve } from './adapter';
 export type { ServeOptions, ServerInstance } from './adapter';
 
 // Context
-export { DenoContext, HttpError, createDenoContext } from './context';
+export { HttpError } from '@nextrush/errors';
+export { DenoContext, createDenoContext } from './context';
 
 // Body Source
 export {
-    BodyConsumedError,
-    BodyTooLargeError, DenoBodySource,
-    EmptyBodySource, createDenoBodySource,
-    createEmptyBodySource
+  BodyConsumedError,
+  BodyTooLargeError,
+  DenoBodySource,
+  EmptyBodySource,
+  createDenoBodySource,
+  createEmptyBodySource,
 } from './body-source';
 
 // Utilities

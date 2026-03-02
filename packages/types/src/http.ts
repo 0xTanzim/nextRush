@@ -8,8 +8,6 @@
  * @packageDocumentation
  */
 
-import type { Readable } from 'node:stream';
-
 // ============================================================================
 // HTTP Method Types
 // ============================================================================
@@ -113,7 +111,7 @@ export type HttpStatusCode = (typeof HttpStatus)[keyof typeof HttpStatus];
  */
 export type ParsedBody =
   | string
-  | Buffer
+  | Uint8Array
   | Record<string, unknown>
   | unknown[]
   | null
@@ -128,11 +126,10 @@ export type ParsedBody =
  */
 export type ResponseBody =
   | string
-  | Buffer
   | Uint8Array
   | ArrayBuffer
-  | Readable
   | ReadableStream
+  | NodeJS.ReadableStream
   | Record<string, unknown>
   | unknown[]
   | null

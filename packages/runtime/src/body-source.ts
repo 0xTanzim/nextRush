@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { BadRequestError, PayloadTooLargeError } from '@nextrush/errors';
 import type { BodySource, BodySourceOptions } from '@nextrush/types';
 
 /**
@@ -16,9 +17,9 @@ export const DEFAULT_BODY_LIMIT = 1024 * 1024;
 /**
  * Error thrown when body has already been consumed
  */
-export class BodyConsumedError extends Error {
+export class BodyConsumedError extends BadRequestError {
   constructor() {
-    super('Body has already been consumed');
+    super('Body has already been consumed', { code: 'BODY_CONSUMED' });
     this.name = 'BodyConsumedError';
   }
 }
@@ -26,12 +27,15 @@ export class BodyConsumedError extends Error {
 /**
  * Error thrown when body exceeds size limit
  */
-export class BodyTooLargeError extends Error {
+export class BodyTooLargeError extends PayloadTooLargeError {
   readonly limit: number;
   readonly received: number;
 
   constructor(limit: number, received: number) {
-    super(`Body too large: received ${received} bytes, limit is ${limit} bytes`);
+    super(`Body too large: received ${received} bytes, limit is ${limit} bytes`, {
+      code: 'BODY_TOO_LARGE',
+      details: { limit, received },
+    });
     this.name = 'BodyTooLargeError';
     this.limit = limit;
     this.received = received;

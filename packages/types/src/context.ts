@@ -298,6 +298,21 @@ export interface Context {
    */
   next(): Promise<void>;
 
+  /**
+   * Set the next middleware function
+   * @internal Used by middleware compose to wire up ctx.next()
+   */
+  setNext?(fn: Next): void;
+
+  /**
+   * Whether a response has already been sent
+   *
+   * @remarks
+   * Useful for middleware that needs to check if downstream
+   * middleware has already sent a response.
+   */
+  readonly responded: boolean;
+
   // =========================================================================
   // STATE
   // =========================================================================

@@ -13,13 +13,13 @@ export { createHandler, listen, serve } from './adapter';
 export type { ServeOptions, ServerInstance } from './adapter';
 
 // Context
-export { createNodeContext, HttpError, NodeContext } from './context';
+export { HttpError } from '@nextrush/errors';
+export { createNodeContext, NodeContext } from './context';
 export type { NodeContextOptions } from './context';
 
 // Body Source
+export { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
 export {
-  BodyConsumedError,
-  BodyTooLargeError,
   createEmptyBodySource,
   createNodeBodySource,
   EmptyBodySource,

@@ -25,6 +25,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@nextrush/errors": "workspace:*",
     "@nextrush/types": "workspace:*",
     "@nextrush/core": "workspace:*",
     "@nextrush/runtime": "workspace:*"

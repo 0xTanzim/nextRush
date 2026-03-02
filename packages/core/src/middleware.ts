@@ -93,8 +93,8 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
       const nextFn = () => dispatch(i + 1);
 
       // Wire up ctx.next() if the context supports it
-      if (typeof (ctx as any).setNext === 'function') {
-        (ctx as any).setNext(nextFn);
+      if (ctx.setNext) {
+        ctx.setNext(nextFn);
       }
 
       // Call the middleware with context and next function

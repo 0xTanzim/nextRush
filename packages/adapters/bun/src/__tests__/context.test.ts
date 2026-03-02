@@ -5,16 +5,14 @@
  * These tests run on both Bun and Node.js (via vitest).
  */
 
+import { HttpError } from '@nextrush/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BunContext, createBunContext, HttpError } from '../context';
+import { BunContext, createBunContext } from '../context';
 
 /**
  * Create a mock Web Request
  */
-function createMockRequest(
-  url: string = 'http://localhost/',
-  init?: RequestInit
-): Request {
+function createMockRequest(url: string = 'http://localhost/', init?: RequestInit): Request {
   return new Request(url, init);
 }
 

@@ -6,36 +6,14 @@
  * standard Web APIs, so we can test with Node.js/vitest.
  */
 
+import { HttpError } from '@nextrush/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EdgeContext, createEdgeContext, type EdgeExecutionContext } from '../context';
-
-// Import HttpError directly from context file (not exported from index)
-class HttpError extends Error {
-  readonly status: number;
-  readonly expose: boolean;
-
-  constructor(status: number, message?: string) {
-    const defaultMessages: Record<number, string> = {
-      400: 'Bad Request',
-      401: 'Unauthorized',
-      403: 'Forbidden',
-      404: 'Not Found',
-      500: 'Internal Server Error',
-    };
-    super(message ?? defaultMessages[status] ?? 'Unknown Error');
-    this.name = 'HttpError';
-    this.status = status;
-    this.expose = status < 500;
-  }
-}
 
 /**
  * Create a mock Web Request
  */
-function createMockRequest(
-  url: string = 'http://localhost/',
-  init?: RequestInit
-): Request {
+function createMockRequest(url: string = 'http://localhost/', init?: RequestInit): Request {
   return new Request(url, init);
 }
 
