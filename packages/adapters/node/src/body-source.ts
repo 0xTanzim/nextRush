@@ -154,7 +154,7 @@ export function createNodeBodySource(
 /**
  * Empty body source for requests without a body
  */
-export class EmptyBodySource implements BodySource {
+class EmptyBodySource implements BodySource {
   readonly consumed = false;
   readonly contentLength = 0;
   readonly contentType = undefined;
@@ -164,7 +164,7 @@ export class EmptyBodySource implements BodySource {
   }
 
   async buffer(): Promise<Uint8Array> {
-    return new Uint8Array(0);
+    return EMPTY_BUFFER;
   }
 
   async json<T = unknown>(): Promise<T> {
@@ -172,14 +172,19 @@ export class EmptyBodySource implements BodySource {
   }
 
   stream(): NodeJS.ReadableStream {
-    // Return an empty readable stream
     return Readable.from([]);
   }
 }
 
+/** Pre-allocated empty buffer — avoids allocation per request */
+const EMPTY_BUFFER = new Uint8Array(0);
+
+/** Singleton empty body source — stateless, safe to share across requests */
+const EMPTY_BODY_SOURCE: BodySource = new EmptyBodySource();
+
 /**
- * Create an empty body source
+ * Create an empty body source (returns shared singleton)
  */
 export function createEmptyBodySource(): BodySource {
-  return new EmptyBodySource();
+  return EMPTY_BODY_SOURCE;
 }

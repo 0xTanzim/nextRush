@@ -81,9 +81,9 @@ export function createHandler(
   return (req: IncomingMessage, res: ServerResponse): void => {
     const ctx = createNodeContext(req, res, { trustProxy });
 
-    // Handle the request
-    handler(ctx)
-      .then(() => {
+    // Single promise chain: .then(onFulfilled, onRejected) avoids extra microtask
+    handler(ctx).then(
+      () => {
         // Ensure response is sent
         if (!ctx.responded && !res.headersSent) {
           if (ctx.status === 404) {
@@ -95,8 +95,8 @@ export function createHandler(
             res.end();
           }
         }
-      })
-      .catch((error: Error) => {
+      },
+      (error: Error) => {
         // Error handling
         console.error('Request error:', error);
 
@@ -105,7 +105,8 @@ export function createHandler(
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ error: 'Internal Server Error' }));
         }
-      });
+      }
+    );
   };
 }
 

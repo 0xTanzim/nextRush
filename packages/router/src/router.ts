@@ -8,22 +8,22 @@
  */
 
 import {
-    HTTP_METHODS,
-    type Context,
-    type HttpMethod,
-    type Middleware,
-    type RouteHandler,
-    type RouteMatch,
-    type RouterOptions,
+  HTTP_METHODS,
+  type Context,
+  type HttpMethod,
+  type Middleware,
+  type RouteHandler,
+  type RouteMatch,
+  type RouterOptions,
 } from '@nextrush/types';
 import {
-    compileExecutor,
-    createNode,
-    NodeType,
-    NOOP_NEXT,
-    parseSegments,
-    type HandlerEntry,
-    type RadixNode,
+  compileExecutor,
+  createNode,
+  NodeType,
+  NOOP_NEXT,
+  parseSegments,
+  type HandlerEntry,
+  type RadixNode,
 } from './radix-tree';
 
 /**
@@ -66,13 +66,14 @@ export class Router {
 
     let normalized = prefix + path;
 
-    // Remove any double slashes
-    normalized = normalized.replace(/\/+/g, '/');
+    // Fast-path: skip regex when no double slashes (99%+ of requests)
+    if (normalized.includes('//')) {
+      normalized = normalized.replace(/\/+/g, '/');
+    }
 
     // Only lowercase for case-insensitive matching of static segments
     // Parameter names are preserved separately in parseSegments
     if (!this.opts.caseSensitive) {
-      // Only lowercase static parts, not parameter names
       normalized = normalized.toLowerCase();
     }
 
@@ -346,25 +347,33 @@ export class Router {
   match(method: HttpMethod, path: string): RouteMatch | null {
     let normalized = this.opts.caseSensitive ? path : path.toLowerCase();
 
-    // Normalize double slashes
-    normalized = normalized.replace(/\/+/g, '/');
-
-    // For strict mode, keep trailing slash; otherwise remove it
-    let cleanPath = normalized;
-    if (!this.opts.strict && cleanPath.length > 1 && cleanPath.endsWith('/')) {
-      cleanPath = cleanPath.slice(0, -1);
+    // Fast-path: skip regex when no double slashes (99%+ of requests)
+    if (normalized.includes('//')) {
+      normalized = normalized.replace(/\/+/g, '/');
     }
 
-    const segments = cleanPath.split('/').filter(Boolean);
+    // For strict mode, keep trailing slash; otherwise remove it
+    if (!this.opts.strict && normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.slice(0, -1);
+    }
+
+    const segments = normalized.split('/').filter(Boolean);
     const params: Record<string, string> = {};
 
     const result = this.matchNode(this.root, segments, 0, params, method);
     if (!result) return null;
 
+    // Clean up undefined values from backtracking
+    for (const key in params) {
+      if (params[key] === undefined) {
+        delete params[key];
+      }
+    }
+
     return {
       handler: result.handler,
       params,
-      middleware: [...this.routerMiddleware, ...result.middleware],
+      middleware: this.routerMiddleware,
       executor: result.executor,
     };
   }
@@ -388,7 +397,8 @@ export class Router {
     if (segment === undefined) return null;
 
     // Try static match first (most specific)
-    const staticChild = node.children.get(this.opts.caseSensitive ? segment : segment.toLowerCase());
+    // Path is already lowercased in match() for case-insensitive mode, skip per-segment call
+    const staticChild = node.children.get(segment);
     if (staticChild) {
       const result = this.matchNode(staticChild, segments, index + 1, params, method);
       if (result) return result;
@@ -400,7 +410,8 @@ export class Router {
       params[paramName] = segment;
       const result = this.matchNode(node.paramChild, segments, index + 1, params, method);
       if (result) return result;
-      delete params[paramName]; // Backtrack
+      // Backtrack: use undefined instead of delete to avoid V8 hidden class deopt
+      params[paramName] = undefined as unknown as string;
     }
 
     // Try wildcard match (catches remaining path)
@@ -488,29 +499,80 @@ export class Router {
 
       if (ctx.status !== 404) return;
 
-      // Check what methods are allowed for this path
-      const allowed: HttpMethod[] = [];
-
-      for (const method of HTTP_METHODS) {
-        if (this.match(method, ctx.path)) {
-          allowed.push(method);
-        }
-      }
+      // Single tree walk to find all allowed methods instead of N×match()
+      const allowed = this.findAllowedMethods(ctx.path);
 
       if (allowed.length === 0) return;
+
+      const allowHeader = allowed.join(', ');
 
       // If OPTIONS request, respond with allowed methods
       if (ctx.method === 'OPTIONS') {
         ctx.status = 200;
-        ctx.set('Allow', allowed.join(', '));
+        ctx.set('Allow', allowHeader);
         ctx.body = '';
         return;
       }
 
       // Otherwise, return 405 Method Not Allowed
       ctx.status = 405;
-      ctx.set('Allow', allowed.join(', '));
+      ctx.set('Allow', allowHeader);
     };
+  }
+
+  /**
+   * Find all HTTP methods registered for a given path via single tree walk
+   * @internal
+   */
+  private findAllowedMethods(path: string): HttpMethod[] {
+    let normalized = this.opts.caseSensitive ? path : path.toLowerCase();
+
+    if (normalized.includes('//')) {
+      normalized = normalized.replace(/\/+/g, '/');
+    }
+
+    if (!this.opts.strict && normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.slice(0, -1);
+    }
+
+    const segments = normalized.split('/').filter(Boolean);
+    const node = this.findNode(this.root, segments, 0);
+    if (!node || node.handlers.size === 0) return [];
+
+    return Array.from(node.handlers.keys());
+  }
+
+  /**
+   * Walk the tree to find the node matching a path (ignoring HTTP method)
+   * @internal
+   */
+  private findNode(node: RadixNode, segments: string[], index: number): RadixNode | null {
+    if (index === segments.length) {
+      return node;
+    }
+
+    const segment = segments[index];
+    if (segment === undefined) return null;
+
+    // Static match
+    const staticChild = node.children.get(segment);
+    if (staticChild) {
+      const result = this.findNode(staticChild, segments, index + 1);
+      if (result) return result;
+    }
+
+    // Param match
+    if (node.paramChild) {
+      const result = this.findNode(node.paramChild, segments, index + 1);
+      if (result) return result;
+    }
+
+    // Wildcard match
+    if (node.wildcardChild) {
+      return node.wildcardChild;
+    }
+
+    return null;
   }
 
   // ===========================================================================
@@ -704,11 +766,10 @@ class GroupRouter {
     }
 
     // Create nested group with combined prefix and middleware
-    const nestedRouter = new GroupRouter(
-      this.parent,
-      this.fullPath(prefix),
-      [...this.middleware, ...nestedMiddleware]
-    );
+    const nestedRouter = new GroupRouter(this.parent, this.fullPath(prefix), [
+      ...this.middleware,
+      ...nestedMiddleware,
+    ]);
 
     cb(nestedRouter);
 

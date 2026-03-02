@@ -1,7 +1,7 @@
-# Copilot Processing — Phase 2 & Phase 3
+# Copilot Processing — Phases 1-4
 
 ## User Request
-Fix Phase 2 (Error Architecture Unification) and Phase 3 (Type System Fixes)
+Execute improvement plan Phases 1-4 (Security, Error Architecture, Type System, Performance)
 
 ## Action Plan
 
@@ -78,11 +78,25 @@ Fix Phase 2 (Error Architecture Unification) and Phase 3 (Type System Fixes)
 2. Add `setNext()` and `responded` to Context interface
 3. Fix `ApplicationLike.use()` type signature
 
-### Phase 4: Performance Optimizations (P1-P2) — ~6 hr
-1. Singleton `EmptyBodySource`
-2. Router internal optimizations (regex fast-path, backtracking, single tree walk)
-3. Single promise chain in adapter
-4. Pre-compile router middleware composition
+### Phase 4: Performance Optimizations (P1-P2) — ✅ DONE
+1. ~~Singleton `EmptyBodySource`~~ ✅
+2. ~~Router internal optimizations (regex fast-path, backtracking, single tree walk)~~ ✅
+3. ~~Single promise chain in adapter~~ ✅
+4. ~~Pre-compile router middleware composition~~ ✅ (already done by design)
+5. ~~Remove unused middleware array spread in match()~~ ✅
+6. ~~Remove redundant per-segment toLowerCase~~ ✅
+7. ~~Avoid double params allocation~~ ✅
+8. ~~Optimize allowedMethods() to single tree walk~~ ✅
+
+**Files Modified (6):**
+- `packages/router/src/router.ts` (tasks 4.2–4.5, 4.9)
+- `packages/adapters/node/src/body-source.ts` (task 4.1)
+- `packages/adapters/node/src/adapter.ts` (task 4.6)
+- `packages/adapters/node/src/context.ts` (task 4.7)
+- `packages/adapters/node/src/index.ts` (task 4.1 barrel fix)
+- `packages/runtime/src/body-source.ts` (task 4.1)
+
+**Validation:** Build 29/29 ✅ | Router 100/100 ✅ | Adapter-node 64/64 ✅ | Runtime 45/45 ✅
 
 ### Phase 5: Runtime & Detection Fixes (P1) — ~2.5 hr
 1. Fix Vercel Edge detection order

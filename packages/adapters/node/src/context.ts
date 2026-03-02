@@ -47,6 +47,9 @@ export interface NodeContextOptions {
  */
 const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
 
+/** Shared empty params object — avoids allocation per request (overwritten by router) */
+const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
+
 /**
  * Node.js Context implementation
  */
@@ -62,7 +65,7 @@ export class NodeContext implements Context {
   readonly bodySource: BodySource;
 
   body: unknown = undefined;
-  params: RouteParams = {};
+  params: RouteParams = EMPTY_PARAMS;
   status: number = 200;
   state: ContextState = {};
 

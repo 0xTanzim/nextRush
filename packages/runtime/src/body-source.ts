@@ -228,7 +228,7 @@ export class EmptyBodySource implements BodySource {
   }
 
   async buffer(): Promise<Uint8Array> {
-    return new Uint8Array(0);
+    return EMPTY_BUFFER;
   }
 
   async json<T = unknown>(): Promise<T> {
@@ -244,13 +244,19 @@ export class EmptyBodySource implements BodySource {
   }
 }
 
+/** Pre-allocated empty buffer */
+const EMPTY_BUFFER = new Uint8Array(0);
+
+/** Singleton empty body source — stateless, safe to share */
+const EMPTY_BODY_SOURCE: BodySource = new EmptyBodySource();
+
 /**
- * Create an empty body source
+ * Create an empty body source (returns shared singleton)
  *
- * @returns An EmptyBodySource instance
+ * @returns A shared EmptyBodySource instance
  */
 export function createEmptyBodySource(): BodySource {
-  return new EmptyBodySource();
+  return EMPTY_BODY_SOURCE;
 }
 
 /**
