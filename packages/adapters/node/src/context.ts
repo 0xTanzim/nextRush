@@ -9,16 +9,16 @@
 
 import { getRuntime } from '@nextrush/runtime';
 import type {
-    BodySource,
-    Context,
-    ContextState,
-    HttpMethod,
-    IncomingHeaders,
-    QueryParams,
-    RawHttp,
-    ResponseBody,
-    RouteParams,
-    Runtime,
+  BodySource,
+  Context,
+  ContextState,
+  HttpMethod,
+  IncomingHeaders,
+  QueryParams,
+  RawHttp,
+  ResponseBody,
+  RouteParams,
+  Runtime,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
@@ -60,6 +60,18 @@ export class HttpError extends Error {
 type NodeRawHttp = RawHttp<IncomingMessage, ServerResponse>;
 
 /**
+ * Options for NodeContext construction
+ */
+export interface NodeContextOptions {
+  /**
+   * Whether to trust proxy headers (X-Forwarded-For, X-Forwarded-Proto, etc.)
+   * When false, IP is always read from the socket.
+   * @default false
+   */
+  trustProxy?: boolean;
+}
+
+/**
  * HTTP methods that typically don't have a body
  */
 const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
@@ -86,7 +98,7 @@ export class NodeContext implements Context {
   private _next: (() => Promise<void>) | null = null;
   private _responded = false;
 
-  constructor(req: IncomingMessage, res: ServerResponse) {
+  constructor(req: IncomingMessage, res: ServerResponse, options: NodeContextOptions = {}) {
     this.raw = { req, res };
     this.runtime = getRuntime();
     this.method = (req.method?.toUpperCase() ?? 'GET') as HttpMethod;
@@ -103,7 +115,7 @@ export class NodeContext implements Context {
     }
 
     this.headers = req.headers as IncomingHeaders;
-    this.ip = this.getClientIp(req);
+    this.ip = this.getClientIp(req, options.trustProxy ?? false);
 
     // Create body source (empty for methods without body)
     this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
@@ -112,14 +124,16 @@ export class NodeContext implements Context {
   }
 
   /**
-   * Get client IP address
+   * Get client IP address.
+   * Only trusts X-Forwarded-For when trustProxy is explicitly enabled.
    */
-  private getClientIp(req: IncomingMessage): string {
-    // Check X-Forwarded-For header (when behind proxy)
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      const firstIp = forwarded.split(',')[0];
-      return firstIp?.trim() ?? '';
+  private getClientIp(req: IncomingMessage, trustProxy: boolean): string {
+    if (trustProxy) {
+      const forwarded = req.headers['x-forwarded-for'];
+      if (typeof forwarded === 'string') {
+        const firstIp = forwarded.split(',')[0];
+        return firstIp?.trim() ?? '';
+      }
     }
 
     // Fall back to socket remote address
@@ -153,17 +167,18 @@ export class NodeContext implements Context {
 
   send(data: ResponseBody): void {
     if (this._responded) return;
-    this._responded = true;
 
     const res = this.raw.res;
     res.statusCode = this.status;
 
     if (data === null || data === undefined) {
+      this._responded = true;
       res.end();
       return;
     }
 
     if (typeof data === 'string') {
+      this._responded = true;
       if (!res.getHeader('Content-Type')) {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       }
@@ -173,6 +188,7 @@ export class NodeContext implements Context {
     }
 
     if (Buffer.isBuffer(data)) {
+      this._responded = true;
       if (!res.getHeader('Content-Type')) {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
@@ -183,6 +199,7 @@ export class NodeContext implements Context {
 
     // Readable stream
     if (typeof (data as NodeJS.ReadableStream).pipe === 'function') {
+      this._responded = true;
       if (!res.getHeader('Content-Type')) {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
@@ -190,13 +207,14 @@ export class NodeContext implements Context {
       return;
     }
 
-    // Object - serialize as JSON
+    // Object - delegate to json() which manages its own _responded flag
     if (typeof data === 'object') {
       this.json(data);
       return;
     }
 
     // Default: convert to string
+    this._responded = true;
     const str = String(data);
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Length', Buffer.byteLength(str));
@@ -288,6 +306,10 @@ export class NodeContext implements Context {
 /**
  * Create a new NodeContext
  */
-export function createNodeContext(req: IncomingMessage, res: ServerResponse): NodeContext {
-  return new NodeContext(req, res);
+export function createNodeContext(
+  req: IncomingMessage,
+  res: ServerResponse,
+  options?: NodeContextOptions
+): NodeContext {
+  return new NodeContext(req, res, options);
 }

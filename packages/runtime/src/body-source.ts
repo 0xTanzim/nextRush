@@ -82,9 +82,7 @@ export abstract class AbstractBodySource implements BodySource {
     options: BodySourceOptions = {}
   ) {
     this.contentLength =
-      typeof contentLength === 'string'
-        ? parseInt(contentLength, 10) || undefined
-        : contentLength;
+      typeof contentLength === 'string' ? parseInt(contentLength, 10) || undefined : contentLength;
 
     this.contentType = contentType;
 
@@ -143,7 +141,11 @@ export abstract class AbstractBodySource implements BodySource {
 
   async json<T = unknown>(): Promise<T> {
     const text = await this.text();
-    return JSON.parse(text) as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new SyntaxError(`Invalid JSON in request body: ${text.slice(0, 100)}`);
+    }
   }
 
   stream(): ReadableStream<Uint8Array> | NodeJS.ReadableStream {

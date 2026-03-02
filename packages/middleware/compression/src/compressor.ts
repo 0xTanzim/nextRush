@@ -8,18 +8,18 @@
  */
 
 import {
-    DEFAULT_COMPRESSION_LEVEL,
-    MAX_BROTLI_LEVEL,
-    MAX_COMPRESSION_RATIO,
-    MAX_ZLIB_LEVEL,
+  DEFAULT_COMPRESSION_LEVEL,
+  MAX_BROTLI_LEVEL,
+  MAX_COMPRESSION_RATIO,
+  MAX_ZLIB_LEVEL,
 } from './constants.js';
 import {
-    CompressionError,
-    CompressionErrorCode,
-    type CompressionEncoding,
-    type CompressionInfo,
-    type CompressionResult,
-    type RuntimeCapabilities,
+  CompressionError,
+  CompressionErrorCode,
+  type CompressionEncoding,
+  type CompressionInfo,
+  type CompressionResult,
+  type RuntimeCapabilities,
 } from './types.js';
 
 // ============================================================================
@@ -134,8 +134,12 @@ async function compressWithWebStreams(
   const writer = stream.writable.getWriter();
   const reader = stream.readable.getReader();
 
-  // Write data
-  await writer.write(data);
+  // Write data — explicit ArrayBuffer slice for TS 5.9+ BufferSource compatibility
+  const buf =
+    data.buffer instanceof ArrayBuffer
+      ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      : new Uint8Array(data);
+  await writer.write(buf as Uint8Array<ArrayBuffer>);
   await writer.close();
 
   // Read compressed chunks
@@ -249,9 +253,7 @@ export async function compress(
   const level = options.level ?? DEFAULT_COMPRESSION_LEVEL;
 
   // Convert string to Uint8Array
-  const inputData = typeof data === 'string'
-    ? new TextEncoder().encode(data)
-    : data;
+  const inputData = typeof data === 'string' ? new TextEncoder().encode(data) : data;
 
   const originalSize = inputData.length;
 
@@ -268,10 +270,7 @@ export async function compress(
 
   try {
     // Use Web Compression Streams for gzip/deflate when available
-    if (
-      (encoding === 'gzip' || encoding === 'deflate') &&
-      caps.hasCompressionStreams
-    ) {
+    if ((encoding === 'gzip' || encoding === 'deflate') && caps.hasCompressionStreams) {
       compressed = await compressWithWebStreams(inputData, encoding);
     }
     // Use Node.js zlib for all encodings (including Brotli)
@@ -383,8 +382,8 @@ export function estimateCompressedSize(
 ): number {
   // Base ratios for different encodings
   const baseRatios: Record<CompressionEncoding, number> = {
-    br: 0.20,     // Brotli typically achieves best compression
-    gzip: 0.30,   // Gzip is good for most content
+    br: 0.2, // Brotli typically achieves best compression
+    gzip: 0.3, // Gzip is good for most content
     deflate: 0.32, // Deflate similar to gzip
   };
 
@@ -414,10 +413,7 @@ export function estimateCompressedSize(
  * @param threshold - Minimum size threshold
  * @returns Whether compression is recommended
  */
-export function isCompressionBeneficial(
-  originalSize: number,
-  threshold: number = 1024
-): boolean {
+export function isCompressionBeneficial(originalSize: number, threshold: number = 1024): boolean {
   // Don't compress if below threshold
   if (originalSize < threshold) {
     return false;

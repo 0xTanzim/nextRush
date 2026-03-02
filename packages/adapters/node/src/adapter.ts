@@ -76,9 +76,10 @@ export function createHandler(
   app: Application
 ): (req: IncomingMessage, res: ServerResponse) => void {
   const handler = app.callback();
+  const trustProxy = app.options.proxy ?? false;
 
   return (req: IncomingMessage, res: ServerResponse): void => {
-    const ctx = createNodeContext(req, res);
+    const ctx = createNodeContext(req, res, { trustProxy });
 
     // Handle the request
     handler(ctx)

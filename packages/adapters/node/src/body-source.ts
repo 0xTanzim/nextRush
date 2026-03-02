@@ -8,6 +8,7 @@
 
 import type { BodySource, BodySourceOptions } from '@nextrush/types';
 import type { IncomingMessage } from 'node:http';
+import { Readable } from 'node:stream';
 
 /**
  * Default body size limit (1MB)
@@ -85,9 +86,7 @@ export class NodeBodySource implements BodySource {
 
     // Get content-type header
     const contentTypeHeader = req.headers['content-type'];
-    this.contentType = Array.isArray(contentTypeHeader)
-      ? contentTypeHeader[0]
-      : contentTypeHeader;
+    this.contentType = Array.isArray(contentTypeHeader) ? contentTypeHeader[0] : contentTypeHeader;
 
     this.options = {
       limit: options.limit ?? DEFAULT_BODY_LIMIT,
@@ -146,7 +145,11 @@ export class NodeBodySource implements BodySource {
 
   async json<T = unknown>(): Promise<T> {
     const text = await this.text();
-    return JSON.parse(text) as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new SyntaxError(`Invalid JSON in request body: ${text.slice(0, 100)}`);
+    }
   }
 
   stream(): NodeJS.ReadableStream {
@@ -194,7 +197,6 @@ export class EmptyBodySource implements BodySource {
 
   stream(): NodeJS.ReadableStream {
     // Return an empty readable stream
-    const { Readable } = require('node:stream');
     return Readable.from([]);
   }
 }

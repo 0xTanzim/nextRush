@@ -88,7 +88,7 @@ export class Application {
 
   constructor(options: ApplicationOptions = {}) {
     this.options = {
-      env: options.env ?? (process.env['NODE_ENV'] as ApplicationOptions['env']) ?? 'development',
+      env: options.env ?? 'development',
       proxy: options.proxy ?? false,
     };
   }
@@ -216,7 +216,12 @@ export class Application {
 
       try {
         await routerMiddleware(ctx, async () => {
+          // Restore original path before calling downstream middleware
+          // so downstream sees the full unmounted path
+          (ctx as { path: string }).path = currentPath;
           if (next) await next();
+          // Re-apply stripped path for router's return path
+          (ctx as { path: string }).path = adjustedPath;
         });
       } finally {
         // Restore original path

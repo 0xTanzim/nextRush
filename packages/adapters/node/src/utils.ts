@@ -18,35 +18,58 @@ function safeDecodeURIComponent(str: string): string {
 }
 
 /**
+ * Maximum number of query parameters to parse.
+ * Prevents parameter flooding DoS attacks.
+ */
+const MAX_QUERY_PARAMS = 256;
+
+/**
+ * Maximum query string length in characters.
+ */
+const MAX_QUERY_LENGTH = 2048;
+
+/**
+ * Keys that must never be set on the result object.
+ * Prevents prototype pollution via __proto__, constructor, or prototype injection.
+ */
+const DENIED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
  * Parse query string into object
  * Simple implementation without external dependencies
- * Safe against malformed URI components
+ * Safe against malformed URI components, prototype pollution, and parameter flooding
  */
 export function parseQueryString(qs: string): QueryParams {
-  const result: QueryParams = {};
+  const result: QueryParams = Object.create(null) as QueryParams;
 
-  if (!qs) return result;
+  if (!qs || qs.length > MAX_QUERY_LENGTH) return result;
 
   const pairs = qs.split('&');
+  let count = 0;
 
   for (const pair of pairs) {
     if (!pair) continue;
+    if (count >= MAX_QUERY_PARAMS) break;
 
     const eqIndex = pair.indexOf('=');
     if (eqIndex === -1) {
       const key = safeDecodeURIComponent(pair);
-      if (key) result[key] = '';
+      if (key && !DENIED_KEYS.has(key)) {
+        result[key] = '';
+        count++;
+      }
       continue;
     }
 
     const key = safeDecodeURIComponent(pair.slice(0, eqIndex));
     const value = safeDecodeURIComponent(pair.slice(eqIndex + 1));
 
-    if (!key) continue;
+    if (!key || DENIED_KEYS.has(key)) continue;
 
     const existing = result[key];
     if (existing === undefined) {
       result[key] = value;
+      count++;
     } else if (Array.isArray(existing)) {
       existing.push(value);
     } else {

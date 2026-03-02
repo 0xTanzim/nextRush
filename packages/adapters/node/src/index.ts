@@ -13,14 +13,17 @@ export { createHandler, listen, serve } from './adapter';
 export type { ServeOptions, ServerInstance } from './adapter';
 
 // Context
-export { HttpError, NodeContext, createNodeContext } from './context';
+export { createNodeContext, HttpError, NodeContext } from './context';
+export type { NodeContextOptions } from './context';
 
 // Body Source
 export {
-    BodyConsumedError,
-    BodyTooLargeError, EmptyBodySource,
-    NodeBodySource, createEmptyBodySource,
-    createNodeBodySource
+  BodyConsumedError,
+  BodyTooLargeError,
+  createEmptyBodySource,
+  createNodeBodySource,
+  EmptyBodySource,
+  NodeBodySource,
 } from './body-source';
 
 // Utilities

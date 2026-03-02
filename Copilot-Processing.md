@@ -1,8 +1,87 @@
-# Copilot Processing — Deep Framework Core Audit
+# Copilot Processing — Phase 1 P0 Security Fixes
 
 ## User Request
 
-Deep audit of NextRush core modules: `@nextrush/core`, `@nextrush/router`, `@nextrush/errors`, `@nextrush/types`, `@nextrush/adapter-node`, `@nextrush/runtime`. Spawn 8-12 parallel audit-subagents. Focus on: bad DX, overhead, blocking, unnecessary calls, proxy usage, hidden issues, bad code, bottlenecks.
+Fix all Phase 1 P0 security issues from the audit report.
+
+## Action Plan
+
+### Task 1.1: Fix Prototype Pollution in Query Parser
+- **File**: `packages/adapters/node/src/utils.ts`
+- **Changes**: `Object.create(null)`, key denylist (`__proto__`, `constructor`, `prototype`), max 256 params, max 2048 char query string
+- **Status**: ✅ DONE
+
+### Task 1.2: Wire Proxy Option to IP Extraction
+- **Files**: `packages/adapters/node/src/context.ts`, `packages/adapters/node/src/adapter.ts`
+- **Changes**: Added `NodeContextOptions.trustProxy`, gated X-Forwarded-For behind `trustProxy`, wired `app.options.proxy` in `createHandler()`
+- **Status**: ✅ DONE
+
+### Task 1.3: Fix `ctx.send(object)` Hung Connection
+- **File**: `packages/adapters/node/src/context.ts`
+- **Changes**: Moved `_responded = true` to each branch after actual write, object path now delegates to `json()` cleanly
+- **Status**: ✅ DONE
+
+### Task 1.4: Replace `require()` with ESM Import
+- **File**: `packages/adapters/node/src/body-source.ts`
+- **Changes**: Top-level `import { Readable } from 'node:stream'` replacing CJS `require()`
+- **Status**: ✅ DONE
+
+### Task 1.5: Add try/catch Around `JSON.parse`
+- **Files**: `packages/adapters/node/src/body-source.ts`, `packages/runtime/src/body-source.ts`
+- **Changes**: Wrapped `JSON.parse` with try/catch, throws structured `SyntaxError` with body preview
+- **Status**: ✅ DONE
+
+### Task 1.6: Remove `process.env` from Core Application
+- **File**: `packages/core/src/application.ts`
+- **Changes**: Removed `process.env['NODE_ENV']` access, defaults to `'development'`
+- **Status**: ✅ DONE
+
+### Task 1.7: Fix `route()` Path Leak to Downstream Middleware
+- **File**: `packages/core/src/application.ts`
+- **Changes**: Restores `ctx.path` to original before calling downstream `next()`, re-strips for router return
+- **Status**: ✅ DONE
+
+## Validation
+
+- **adapter-node**: 64 tests passed ✅
+- **core**: 65 tests passed ✅
+- **runtime**: 45 tests passed ✅
+- **TypeScript strict**: All 3 modified packages pass ✅
+
+## Next Steps (Priority Order)
+
+### Phase 2: Error Architecture Unification (P0-P1) — ~8 hr
+1. Delete duplicate `HttpError` from `@nextrush/core` and adapter contexts → use `@nextrush/errors`
+2. Unify error serialization format across all packages
+3. Rename `RangeError` shadow to `RangeValidationError`
+4. Complete `ERROR_MAP` coverage (405, 406, 408, 413, 415, 429, 501, 503)
+5. Unify body source error classes to single canonical location
+
+### Phase 3: Type System Fixes (P0-P1) — ~4 hr
+1. Remove Node.js types from `@nextrush/types` (use Web API types)
+2. Add `setNext()` and `responded` to Context interface
+3. Fix `ApplicationLike.use()` type signature
+
+### Phase 4: Performance Optimizations (P1-P2) — ~6 hr
+1. Singleton `EmptyBodySource`
+2. Router internal optimizations (regex fast-path, backtracking, single tree walk)
+3. Single promise chain in adapter
+4. Pre-compile router middleware composition
+
+### Phase 5: Runtime & Detection Fixes (P1) — ~2.5 hr
+1. Fix Vercel Edge detection order
+2. Implement streaming body size check
+3. Fix Content-Length 0 parsing
+
+### Phase 6: DX & Quality of Life (P2) — ~7 hr
+1. Pluggable logger replacing `console.*`
+2. Guard mutations after `start()`
+3. Graceful shutdown ordering
+4. Wire plugin hooks or remove from types
+
+---
+
+Added final summary to `Copilot-Processing.md`.
 
 ## Mode
 
