@@ -24,7 +24,13 @@ export interface ServeOptions {
   port?: number;
 
   /**
-   * Hostname to bind to
+   * Hostname to bind to.
+   *
+   * @remarks
+   * Defaults to `0.0.0.0` for convenience in development and container
+   * environments. In production, consider binding to a specific interface
+   * (e.g. `'127.0.0.1'`) if the server should not be publicly reachable.
+   *
    * @default '0.0.0.0'
    */
   hostname?: string;
@@ -59,6 +65,13 @@ export interface ServeOptions {
    * @default false
    */
   development?: boolean;
+
+  /**
+   * Grace period in milliseconds to drain in-flight requests during
+   * shutdown before force-closing connections.
+   * @default 30000
+   */
+  shutdownTimeout?: number;
 }
 
 /**
@@ -112,7 +125,11 @@ export function createHandler(
   const handler = app.callback();
 
   return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
-    // Get client IP from Bun server
+    // Get client IP from Bun server.
+    // Returns '' (empty string) when requestIP returns null — this is
+    // intentional. Context.ip is typed as `string`, so undefined would be
+    // a type violation. Consumers should check `ctx.ip !== ''` instead of
+    // a truthy check.
     const clientIp = server.requestIP(request)?.address ?? '';
 
     const ctx = createBunContext(request, clientIp);
@@ -133,7 +150,7 @@ export function createHandler(
 
       return ctx.getResponse();
     } catch (error) {
-      console.error('Request error:', error);
+      app.logger.error('Request error:', error);
 
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
@@ -176,15 +193,60 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     tls,
     maxRequestBodySize,
     development = false,
+    shutdownTimeout = 30_000,
   } = options;
 
-  const handler = createHandler(app);
+  // In-flight request tracking for graceful shutdown
+  let activeRequests = 0;
+  let drainResolve: (() => void) | null = null;
+
+  const appCallback = app.callback();
+
+  // Wrap handler to track in-flight requests
+  const trackedHandler = async (
+    request: Request,
+    bunServer: ReturnType<typeof Bun.serve>
+  ): Promise<Response> => {
+    activeRequests++;
+    try {
+      const clientIp = bunServer.requestIP(request)?.address ?? '';
+      const ctx = createBunContext(request, clientIp);
+
+      try {
+        await appCallback(ctx);
+
+        if (!ctx.responded) {
+          if (ctx.status === 404) {
+            return new Response(JSON.stringify({ error: 'Not Found' }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+          return new Response(null, { status: ctx.status });
+        }
+
+        return ctx.getResponse();
+      } catch (error) {
+        app.logger.error('Request error:', error);
+
+        return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    } finally {
+      activeRequests--;
+      if (activeRequests === 0 && drainResolve) {
+        drainResolve();
+      }
+    }
+  };
 
   // Build Bun.serve options
   const bunOptions: Parameters<typeof Bun.serve>[0] = {
     port,
     hostname,
-    fetch: handler,
+    fetch: trackedHandler,
     development,
   };
 
@@ -207,7 +269,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     if (onError) {
       onError(error);
     } else {
-      console.error('Server error:', error);
+      app.logger.error('Server error:', error);
     }
 
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
@@ -217,7 +279,19 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
   };
 
   // Start server
-  const server = Bun.serve(bunOptions);
+  let server: ReturnType<typeof Bun.serve>;
+  try {
+    server = Bun.serve(bunOptions);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('EADDRINUSE') || msg.includes('address already in use')) {
+      throw new Error(
+        `Port ${options.port ?? 3000} is already in use. ` +
+          `Kill the process using that port or choose a different one.`
+      );
+    }
+    throw error;
+  }
 
   // Mark app as running
   app.start();
@@ -237,8 +311,27 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     hostname: actualHostname,
     address: () => ({ port: actualPort, hostname: actualHostname }),
     close: async () => {
-      await app.close();
+      // 1. Stop accepting new connections
       server.stop();
+
+      // 2. Wait for in-flight requests to drain (with timeout)
+      if (activeRequests > 0) {
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            drainResolve = resolve;
+          }),
+          new Promise<void>((resolve) =>
+            setTimeout(() => {
+              // Force-close remaining connections
+              server.stop(true);
+              resolve();
+            }, shutdownTimeout)
+          ),
+        ]);
+      }
+
+      // 3. Notify plugins
+      await app.close();
     },
     reload: (newOptions?: Partial<ServeOptions>) => {
       server.reload({
@@ -270,7 +363,7 @@ export function listen(app: Application, port: number = 3000): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {
-      console.log(`🚀 NextRush listening on http://localhost:${p} (Bun)`);
+      app.logger.info(`🚀 NextRush listening on http://localhost:${p} (Bun)`);
     },
   });
 }

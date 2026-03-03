@@ -39,7 +39,7 @@ export type QueryParams = Record<string, string | string[] | undefined>;
  * Request-scoped state object
  * Use this to pass data between middleware
  */
-export type ContextState = Record<string, unknown>;
+export type ContextState = Record<string | symbol, unknown>;
 
 // ============================================================================
 // Context Interface
@@ -111,8 +111,11 @@ export interface Context {
   // =========================================================================
 
   /**
-   * Parsed request body
-   * Set by body parser middleware (json, urlencoded, multipart)
+   * Parsed request body (input).
+   *
+   * Populated by body-parser middleware (json, urlencoded, multipart).
+   * This is the **request body**, not the response body.
+   * Use `ctx.json()`, `ctx.send()`, or `ctx.html()` to set response output.
    *
    * @example
    * ```typescript
@@ -255,15 +258,16 @@ export interface Context {
    * Set response header
    *
    * @param field - Header name
-   * @param value - Header value
+   * @param value - Header value (string, number, or array for multi-value headers like Set-Cookie)
    *
    * @example
    * ```typescript
    * ctx.set('X-Request-Id', '123');
    * ctx.set('Cache-Control', 'no-cache');
+   * ctx.set('Set-Cookie', ['a=1; Path=/', 'b=2; Path=/']);
    * ```
    */
-  set(field: string, value: string | number): void;
+  set(field: string, value: string | number | string[]): void;
 
   /**
    * Get request header (case-insensitive)

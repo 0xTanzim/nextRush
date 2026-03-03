@@ -42,8 +42,8 @@ const NOOP_LOGGER: Logger = {
  */
 export interface ApplicationOptions {
   /**
-   * Whether to run in production mode
-   * @default process.env.NODE_ENV === 'production'
+   * Environment mode
+   * @default 'development'
    */
   env?: 'development' | 'production' | 'test';
 
@@ -55,7 +55,18 @@ export interface ApplicationOptions {
 
   /**
    * Custom logger. Defaults to no-op (silent).
-   * Pass `console` to use standard console output.
+   *
+   * @remarks
+   * Pass `console` for quick development logging:
+   * ```ts
+   * const app = createApp({ logger: console });
+   * ```
+   *
+   * For production, provide a structured logger (e.g. pino, winston)
+   * that implements the {@link Logger} interface.
+   *
+   * Adapters and internal hooks use `app.logger` — configuring it here
+   * ensures consistent logging across the framework.
    */
   logger?: Logger;
 }
@@ -234,7 +245,11 @@ export class Application {
     }
 
     const routerMiddleware = router.routes();
-    const normalizedPrefix = path.endsWith('/') ? path.slice(0, -1) : path;
+    // Normalize prefix: ensure leading '/', strip trailing '/'
+    let normalizedPrefix = path.endsWith('/') ? path.slice(0, -1) : path;
+    if (normalizedPrefix && !normalizedPrefix.startsWith('/')) {
+      normalizedPrefix = '/' + normalizedPrefix;
+    }
     const prefixLen = normalizedPrefix.length;
 
     // NOTE (DX-3): We cast `ctx` to `{ path: string }` inside this middleware
@@ -277,8 +292,8 @@ export class Application {
       } finally {
         // Restore original path and clean up Symbol state
         (ctx as { path: string }).path = currentPath;
-        delete (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH];
-        delete (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX];
+        (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH] = undefined;
+        (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX] = undefined;
       }
     };
 
@@ -422,16 +437,46 @@ export class Application {
    * This is the function that adapters call to handle each request.
    * It composes all middleware and returns a function that processes context.
    *
+   * **Important:** The middleware stack is snapshot at call time.
+   * Middleware or plugins added after `callback()` will NOT take effect
+   * on the returned handler. Call `callback()` again to get a
+   * handler that includes subsequent registrations.
+   *
    * @returns Request handler function
    */
   callback(): (ctx: Context) => Promise<void> {
     const fn = compose(this.middlewareStack);
 
     // Collect plugins that implement lifecycle hooks (once at build time)
-    const hookPlugins = Array.from(this.plugins.values()).filter(
-      (p): p is PluginWithHooks =>
-        'onRequest' in p || 'onResponse' in p || 'onError' in p || 'extendContext' in p
-    );
+    // Validate that hook properties are actually callable functions
+    const hookPlugins = Array.from(this.plugins.values()).filter((p): p is PluginWithHooks => {
+      const hasHook =
+        'onRequest' in p || 'onResponse' in p || 'onError' in p || 'extendContext' in p;
+      if (!hasHook) return false;
+
+      // Runtime validation: ensure hook properties are functions
+      if ('onRequest' in p && typeof p.onRequest !== 'function') {
+        throw new TypeError(
+          `Plugin "${p.name}": onRequest must be a function, got ${typeof p.onRequest}`
+        );
+      }
+      if ('onResponse' in p && typeof p.onResponse !== 'function') {
+        throw new TypeError(
+          `Plugin "${p.name}": onResponse must be a function, got ${typeof p.onResponse}`
+        );
+      }
+      if ('onError' in p && typeof p.onError !== 'function') {
+        throw new TypeError(
+          `Plugin "${p.name}": onError must be a function, got ${typeof p.onError}`
+        );
+      }
+      if ('extendContext' in p && typeof p.extendContext !== 'function') {
+        throw new TypeError(
+          `Plugin "${p.name}": extendContext must be a function, got ${typeof p.extendContext}`
+        );
+      }
+      return true;
+    });
 
     return async (ctx: Context): Promise<void> => {
       try {
@@ -443,9 +488,18 @@ export class Application {
 
         await fn(ctx);
 
-        // Run onResponse hooks
+        // Run onResponse hooks — isolate errors so all hooks run
         for (const p of hookPlugins) {
-          if (p.onResponse) await p.onResponse(ctx);
+          if (p.onResponse) {
+            try {
+              await p.onResponse(ctx);
+            } catch (hookError) {
+              this.logger.warn('Plugin onResponse hook threw:', {
+                plugin: p.name,
+                error: hookError,
+              });
+            }
+          }
         }
       } catch (error) {
         // Run onError hooks
@@ -454,8 +508,11 @@ export class Application {
           if (p.onError) {
             try {
               await p.onError(err, ctx);
-            } catch {
-              // Swallowing hook errors to avoid masking the original error
+            } catch (hookError) {
+              this.logger.warn('Plugin onError hook threw:', {
+                plugin: p.name,
+                error: hookError,
+              });
             }
           }
         }
@@ -494,9 +551,10 @@ export class Application {
       this.logger.error('Request error:', error);
     }
 
-    // Set error response
+    // Set error response — clamp to valid error range (400-599)
     if ('status' in error && typeof error.status === 'number') {
-      ctx.status = error.status;
+      const status = error.status as number;
+      ctx.status = status >= 400 && status < 600 ? status : 500;
     } else {
       ctx.status = 500;
     }

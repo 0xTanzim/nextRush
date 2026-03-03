@@ -70,8 +70,11 @@ export interface RequestStream {
   on(event: 'error', listener: (err: Error) => void): this;
   on(event: 'close', listener: () => void): this;
   on(event: 'aborted', listener: () => void): this;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  off(event: string, listener: (...args: any[]) => void): this;
+  off(event: 'data', listener: (chunk: Buffer) => void): this;
+  off(event: 'end', listener: () => void): this;
+  off(event: 'error', listener: (err: Error) => void): this;
+  off(event: 'close', listener: () => void): this;
+  off(event: 'aborted', listener: () => void): this;
   readonly destroyed?: boolean;
 }
 
@@ -138,6 +141,21 @@ export type BodyParserMiddleware = (
 export type JsonReviver = (key: string, value: unknown) => unknown;
 
 /**
+ * Verify callback invoked after reading the raw body, before parsing.
+ *
+ * Throw an error to reject the request body.
+ *
+ * @param ctx - Request context
+ * @param body - Raw body buffer
+ * @param encoding - Content encoding
+ */
+export type VerifyCallback = (
+  ctx: BodyParserContext,
+  body: Buffer,
+  encoding: string
+) => void | Promise<void>;
+
+/**
  * Base options shared by all parsers
  */
 export interface BaseParserOptions {
@@ -159,6 +177,12 @@ export interface BaseParserOptions {
    * @default false
    */
   readonly rawBody?: boolean;
+
+  /**
+   * Verify callback invoked after reading raw body, before parsing.
+   * Throw an error to reject the body.
+   */
+  readonly verify?: VerifyCallback;
 }
 
 /**
@@ -177,6 +201,14 @@ export interface JsonOptions extends BaseParserOptions {
    * @default true
    */
   readonly strict?: boolean;
+
+  /**
+   * Maximum JSON nesting depth.
+   * Rejects payloads deeper than this limit after parsing.
+   * Set to `undefined` to disable depth checking.
+   * @default undefined
+   */
+  readonly maxDepth?: number;
 }
 
 /**
@@ -200,7 +232,7 @@ export interface UrlEncodedOptions extends BaseParserOptions {
   /**
    * Maximum nesting depth for extended parsing.
    * Prevents stack overflow from deeply nested structures.
-   * @default 5
+   * @default 20
    */
   readonly depth?: number;
 }
@@ -262,11 +294,13 @@ export type BodyParserErrorCode =
   | 'STRICT_MODE_VIOLATION'
   | 'TOO_MANY_PARAMETERS'
   | 'DEPTH_EXCEEDED'
+  | 'JSON_DEPTH_EXCEEDED'
   | 'INVALID_PARAMETER'
   | 'BODY_READ_ERROR'
   | 'REQUEST_CLOSED'
   | 'REQUEST_ABORTED'
   | 'INVALID_CONTENT_TYPE'
+  | 'UNSUPPORTED_CONTENT_TYPE'
   | 'UNSUPPORTED_CHARSET';
 
 /**

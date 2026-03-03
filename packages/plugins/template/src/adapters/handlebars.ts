@@ -10,12 +10,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-import type {
-    AdapterConfig,
-    AdapterRenderOptions,
-    TemplateAdapter,
-    TemplateData,
-} from './types';
+import type { AdapterConfig, AdapterRenderOptions, TemplateAdapter, TemplateData } from './types';
 
 interface HandlebarsConfig extends AdapterConfig {
   root?: string;
@@ -47,19 +42,18 @@ async function loadHandlebars(): Promise<HandlebarsModule> {
 
   try {
     // @ts-ignore - Handlebars is an optional peer dependency
-    hbsModule = await import('handlebars') as unknown as HandlebarsModule;
+    hbsModule = (await import('handlebars')) as unknown as HandlebarsModule;
     return hbsModule;
   } catch {
-    throw new Error(
-      'Handlebars is not installed. Please install it with: npm install handlebars'
-    );
+    throw new Error('Handlebars is not installed. Please install it with: npm install handlebars');
   }
 }
 
 export function createHandlebarsAdapter(config: HandlebarsConfig = {}): TemplateAdapter {
   const root = config.root ?? DEFAULT_ROOT;
   const ext = config.ext ?? DEFAULT_EXT;
-  const cacheEnabled = config.cache ?? process.env.NODE_ENV === 'production';
+  const cacheEnabled =
+    config.cache ?? (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production');
 
   const templateCache = new Map<string, CompiledHandlebarsTemplate>();
   const customHelpers = { ...config.helpers };
@@ -126,7 +120,9 @@ export function createHandlebarsAdapter(config: HandlebarsConfig = {}): Template
 
     render(source: string, data: TemplateData = {}, _options: AdapterRenderOptions = {}): string {
       if (!hbsModule) {
-        throw new Error('Handlebars not loaded. Call renderAsync first or ensure Handlebars is loaded.');
+        throw new Error(
+          'Handlebars not loaded. Call renderAsync first or ensure Handlebars is loaded.'
+        );
       }
       const compiled = hbsModule.compile(source, compileOptions);
       return compiled(data);

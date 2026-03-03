@@ -2,10 +2,9 @@
  * @nextrush/adapter-edge - Body Source Tests
  */
 
+import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  BodyConsumedError,
-  BodyTooLargeError,
   createEdgeBodySource,
   createEmptyBodySource,
   EdgeBodySource,

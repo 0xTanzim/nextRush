@@ -14,12 +14,13 @@ import type { Runtime, RuntimeCapabilities, RuntimeInfo } from '@nextrush/types'
  * @remarks
  * Detection order matters - more specific runtimes are checked first:
  * 1. Bun (has global `Bun` object)
- * 2. Deno (has global `Deno` object)
- * 3. Cloudflare Workers (has `navigator.userAgent` with 'Cloudflare-Workers')
- * 4. Node.js (has `process.versions.node`)
- * 5. Vercel Edge (has `process.env.VERCEL_REGION` but NOT `process.versions.node`)
- * 6. Generic Edge (has `Request` but no Node.js process)
- * 7. Unknown
+ * 2. Deno Deploy (has global `Deno` + `DENO_DEPLOYMENT_ID` env var)
+ * 3. Deno (has global `Deno` object)
+ * 4. Cloudflare Workers (has `navigator.userAgent` with 'Cloudflare-Workers')
+ * 5. Node.js (has `process.versions.node`)
+ * 6. Vercel Edge (has `process.env.VERCEL_REGION` but NOT `process.versions.node`)
+ * 7. Generic Edge (has `Request` but no Node.js process)
+ * 8. Unknown
  *
  * @returns The detected runtime identifier
  *
@@ -44,6 +45,24 @@ export function detectRuntime(): Runtime {
 
   // Deno - Check for global Deno object
   if (typeof globalThis !== 'undefined' && 'Deno' in globalThis) {
+    // Deno Deploy sets DENO_DEPLOYMENT_ID in the environment.
+    // Detect it before falling back to generic 'deno' so that
+    // consumers can apply edge-specific logic (no filesystem, etc.).
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const denoGlobal = (globalThis as Record<string, unknown>).Deno as Record<string, unknown>;
+      if (
+        typeof denoGlobal?.env === 'object' &&
+        typeof (denoGlobal.env as Record<string, unknown>).get === 'function'
+      ) {
+        const deployId = (denoGlobal.env as { get(key: string): string | undefined }).get(
+          'DENO_DEPLOYMENT_ID'
+        );
+        if (deployId) return 'deno-deploy';
+      }
+    } catch {
+      // Env access may throw in sandboxed contexts — fall through to 'deno'
+    }
     return 'deno';
   }
 
@@ -143,6 +162,7 @@ export function getRuntimeVersion(): string | undefined {
       return typeof Bun !== 'undefined' ? Bun.version : undefined;
 
     case 'deno':
+    case 'deno-deploy':
       // @ts-expect-error - Deno global is not typed in Node.js
       return typeof Deno !== 'undefined' ? Deno.version?.deno : undefined;
 
@@ -220,6 +240,17 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: true,
+      };
+
+    case 'deno-deploy':
+      return {
+        nodeStreams: false,
+        webStreams: true,
+        fileSystem: false, // Deno Deploy has no persistent filesystem
+        webSocket: true,
+        fetch: true,
+        cryptoSubtle: true,
+        workers: false, // Deno Deploy has limited worker support
       };
 
     case 'cloudflare-workers':
@@ -323,4 +354,81 @@ export function isEdge(): boolean {
  */
 export function resetRuntimeCache(): void {
   cachedRuntime = undefined;
+  cachedEdgeInfo = undefined;
+}
+
+// ============================================================================
+// Edge Runtime Detection
+// ============================================================================
+
+/**
+ * Detailed edge runtime information
+ */
+export interface EdgeRuntimeInfo {
+  runtime: Runtime;
+  isCloudflare: boolean;
+  isVercel: boolean;
+  isNetlify: boolean;
+  isGenericEdge: boolean;
+}
+
+// Cache for edge detection (computed once)
+let cachedEdgeInfo: EdgeRuntimeInfo | undefined;
+
+/**
+ * Detect the specific edge runtime platform.
+ *
+ * Provides more granular information than `detectRuntime()` for edge runtimes,
+ * including platform-specific flags (Cloudflare, Vercel, Netlify).
+ *
+ * Result is cached after first call.
+ *
+ * @returns Detailed edge runtime info with platform flags
+ */
+export function detectEdgeRuntime(): EdgeRuntimeInfo {
+  if (cachedEdgeInfo !== undefined) return cachedEdgeInfo;
+
+  let runtime: Runtime = 'edge';
+  let isCloudflare = false;
+  let isVercel = false;
+  let isNetlify = false;
+
+  // Cloudflare Workers
+  if (
+    typeof navigator !== 'undefined' &&
+    typeof navigator.userAgent === 'string' &&
+    navigator.userAgent.includes('Cloudflare-Workers')
+  ) {
+    runtime = 'cloudflare-workers';
+    isCloudflare = true;
+  }
+  // Vercel Edge
+  else if (
+    typeof process !== 'undefined' &&
+    typeof process.env === 'object' &&
+    process.env.VERCEL_REGION !== undefined
+  ) {
+    runtime = 'vercel-edge';
+    isVercel = true;
+  }
+  // Netlify Edge (uses Deno under the hood)
+  else if (
+    typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined' &&
+    typeof process !== 'undefined' &&
+    typeof process.env === 'object' &&
+    process.env.NETLIFY === 'true'
+  ) {
+    runtime = 'edge';
+    isNetlify = true;
+  }
+
+  cachedEdgeInfo = {
+    runtime,
+    isCloudflare,
+    isVercel,
+    isNetlify,
+    isGenericEdge: !isCloudflare && !isVercel && !isNetlify,
+  };
+
+  return cachedEdgeInfo;
 }

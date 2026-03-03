@@ -10,7 +10,12 @@
 import { STRICT_CSP_DIRECTIVES } from './constants.js';
 import { helmet } from './middleware.js';
 import { restrictivePermissionsPolicy } from './permissions.js';
-import type { ContentSecurityPolicyOptions, HelmetMiddleware, HelmetOptions, StrictTransportSecurityOptions } from './types.js';
+import type {
+  ContentSecurityPolicyOptions,
+  HelmetMiddleware,
+  HelmetOptions,
+  StrictTransportSecurityOptions,
+} from './types.js';
 
 // ============================================================================
 // Individual Header Middleware
@@ -32,7 +37,9 @@ import type { ContentSecurityPolicyOptions, HelmetMiddleware, HelmetOptions, Str
  * }));
  * ```
  */
-export function contentSecurityPolicy(options: ContentSecurityPolicyOptions = {}): HelmetMiddleware {
+export function contentSecurityPolicy(
+  options: ContentSecurityPolicyOptions = {}
+): HelmetMiddleware {
   return helmet({
     contentSecurityPolicy: options,
     crossOriginEmbedderPolicy: false,
@@ -263,7 +270,7 @@ export function apiHelmet(overrides: Partial<HelmetOptions> = {}): HelmetMiddlew
  * ```
  */
 export function devHelmet(): HelmetMiddleware {
-  if (process.env.NODE_ENV === 'production') {
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
     console.warn(
       '[@nextrush/helmet] WARNING: devHelmet() is being used in production. ' +
         'This provides relaxed security and is NOT recommended.'

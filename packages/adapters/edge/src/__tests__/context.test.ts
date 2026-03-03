@@ -98,7 +98,7 @@ describe('EdgeContext', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'cf-connecting-ip': '192.168.1.100' },
       });
-      ctx = new EdgeContext(request);
+      ctx = new EdgeContext(request, undefined, true);
 
       expect(ctx.ip).toBe('192.168.1.100');
     });
@@ -107,7 +107,7 @@ describe('EdgeContext', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'x-forwarded-for': '10.0.0.1, 10.0.0.2' },
       });
-      ctx = new EdgeContext(request);
+      ctx = new EdgeContext(request, undefined, true);
 
       expect(ctx.ip).toBe('10.0.0.1');
     });
@@ -116,9 +116,18 @@ describe('EdgeContext', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'x-real-ip': '172.16.0.1' },
       });
-      ctx = new EdgeContext(request);
+      ctx = new EdgeContext(request, undefined, true);
 
       expect(ctx.ip).toBe('172.16.0.1');
+    });
+
+    it('should not trust proxy headers when trustProxy is false', () => {
+      request = createMockRequest('http://localhost/', {
+        headers: { 'x-forwarded-for': '10.0.0.1', 'cf-connecting-ip': '192.168.1.100' },
+      });
+      ctx = new EdgeContext(request);
+
+      expect(ctx.ip).toBe('');
     });
 
     it('should store execution context', () => {

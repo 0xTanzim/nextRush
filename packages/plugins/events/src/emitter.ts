@@ -6,13 +6,13 @@
  */
 
 import type {
-    EventEmitterOptions,
-    EventHandler,
-    EventMap,
-    EventNames,
-    HandlerEntry,
-    TypedEventEmitter,
-    Unsubscribe,
+  EventEmitterOptions,
+  EventHandler,
+  EventMap,
+  EventNames,
+  HandlerEntry,
+  TypedEventEmitter,
+  Unsubscribe,
 } from './types';
 import { DEFAULT_EMITTER_OPTIONS, MAX_EVENT_NAME_LENGTH } from './types';
 
@@ -49,9 +49,7 @@ const WILDCARD = '*';
  * await events.emit('user:created', { id: '1', name: 'Alice' });
  * ```
  */
-export class EventEmitter<T extends EventMap = EventMap>
-  implements TypedEventEmitter<T>
-{
+export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEmitter<T> {
   private readonly handlers = new Map<string, Set<HandlerEntry<unknown>>>();
   private options: Required<Omit<EventEmitterOptions, 'onError'>> & {
     onError?: EventEmitterOptions['onError'];
@@ -259,10 +257,7 @@ export class EventEmitter<T extends EventMap = EventMap>
 
     // Throw AggregateError if errorIsolation is false and there were errors
     if (!this.options.errorIsolation && errors.length > 0) {
-      throw new AggregateError(
-        errors,
-        `${errors.length} handler(s) failed for event '${event}'`
-      );
+      throw new AggregateError(errors, `${errors.length} handler(s) failed for event '${event}'`);
     }
   }
 
@@ -386,10 +381,7 @@ export class EventEmitter<T extends EventMap = EventMap>
     }
 
     // Memory leak warning
-    if (
-      this.options.maxListeners > 0 &&
-      handlers.size > this.options.maxListeners
-    ) {
+    if (this.options.maxListeners > 0 && handlers.size > this.options.maxListeners) {
       console.warn(
         `[nextrush/events] Warning: Event '${event}' has ${handlers.size} listeners. ` +
           `This might indicate a memory leak. ` +
@@ -426,7 +418,7 @@ export class EventEmitter<T extends EventMap = EventMap>
           } catch {
             // Ignore errors in error handler to prevent infinite loops
           }
-        } else if (process.env['NODE_ENV'] !== 'test') {
+        } else if (typeof process === 'undefined' || process.env?.['NODE_ENV'] !== 'test') {
           console.error(`[nextrush/events] Handler error for '${event}':`, err);
         }
       } else {

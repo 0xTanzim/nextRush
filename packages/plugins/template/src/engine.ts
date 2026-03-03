@@ -12,14 +12,14 @@ import { dirname, extname, join, resolve } from 'node:path';
 import { compile } from './compiler';
 import { builtinHelpers } from './helpers';
 import type {
-    CompiledTemplate,
-    CompileOptions,
-    EngineOptions,
-    HelperFn,
-    NormalizedEngineOptions,
-    RenderOptions,
-    TemplateData,
-    ValueHelper,
+  CompiledTemplate,
+  CompileOptions,
+  EngineOptions,
+  HelperFn,
+  NormalizedEngineOptions,
+  RenderOptions,
+  TemplateData,
+  ValueHelper,
 } from './template.types';
 
 // ============================================================================
@@ -87,11 +87,7 @@ export class TemplateEngine {
    * @param options - Render options
    * @returns Rendered HTML string
    */
-  renderString(
-    source: string,
-    data: TemplateData = {},
-    options: RenderOptions = {}
-  ): string {
+  renderString(source: string, data: TemplateData = {}, options: RenderOptions = {}): string {
     const template = compile(source, this.options.compile);
     const renderOptions = this.buildRenderOptions(options);
     return template.render(data, renderOptions);
@@ -280,9 +276,10 @@ export class TemplateEngine {
 // ============================================================================
 
 function normalizeOptions(options: EngineOptions): NormalizedEngineOptions {
-  const root = options.root || process.cwd();
+  const root = options.root || (typeof process !== 'undefined' ? process.cwd() : '.');
   const ext = options.ext?.startsWith('.') ? options.ext : `.${options.ext || 'html'}`;
-  const cache = options.cache ?? process.env.NODE_ENV === 'production';
+  const cache =
+    options.cache ?? (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production');
   const layout = options.layout ?? null;
   const partialsDir = options.partialsDir ?? null;
 
@@ -414,10 +411,7 @@ export function createViewEngine(
         const layoutPath = resolve(dirname(filepath), `${opts.layout}${opts.ext}`);
         const layoutSource = await readFile(layoutPath, 'utf-8');
         const layoutTemplate = compile(layoutSource, opts.compile);
-        result = await layoutTemplate.renderAsync(
-          { ...data, body: result },
-          { helpers, partials }
-        );
+        result = await layoutTemplate.renderAsync({ ...data, body: result }, { helpers, partials });
       }
 
       callback(null, result);

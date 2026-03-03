@@ -18,6 +18,7 @@ declare const Deno: {
 interface DenoServeInit {
   port?: number;
   hostname?: string;
+  signal?: AbortSignal;
   handler: (request: Request, info: DenoServeHandlerInfo) => Response | Promise<Response>;
   onListen?: (params: { port: number; hostname: string }) => void;
   onError?: (error: unknown) => Response | Promise<Response>;
@@ -52,7 +53,13 @@ export interface ServeOptions {
   port?: number;
 
   /**
-   * Hostname to bind to
+   * Hostname to bind to.
+   *
+   * @remarks
+   * Defaults to `0.0.0.0` for convenience in development and container
+   * environments. In production, consider binding to a specific interface
+   * (e.g. `'127.0.0.1'`) if the server should not be publicly reachable.
+   *
    * @default '0.0.0.0'
    */
   hostname?: string;
@@ -76,6 +83,14 @@ export interface ServeOptions {
    * TLS private key (for HTTPS)
    */
   key?: string;
+
+  /**
+   * Grace period in milliseconds to drain in-flight requests during
+   * shutdown. Deno's native `server.shutdown()` waits for all in-flight
+   * requests but has no timeout — this guards against hanging forever.
+   * @default 30000
+   */
+  shutdownTimeout?: number;
 }
 
 /**
@@ -148,7 +163,7 @@ export function createHandler(
 
       return ctx.getResponse();
     } catch (error) {
-      console.error('Request error:', error);
+      app.logger.error('Request error:', error);
 
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
@@ -190,14 +205,19 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     onError,
     cert,
     key,
+    shutdownTimeout = 30_000,
   } = options;
 
   const handler = createHandler(app);
+
+  // AbortController for signal-based shutdown support
+  const abortController = new AbortController();
 
   // Build Deno.serve options
   const denoOptions: DenoServeInit = {
     port,
     hostname,
+    signal: abortController.signal,
     handler,
     onListen: (params) => {
       // Mark app as running
@@ -211,7 +231,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
       if (onError) {
         onError(error as Error);
       } else {
-        console.error('Server error:', error);
+        app.logger.error('Server error:', error);
       }
 
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
@@ -236,8 +256,16 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     hostname: server.addr.hostname,
     address: () => ({ port: server.addr.port, hostname: server.addr.hostname }),
     close: async () => {
+      // Signal the server to stop accepting new connections
+      abortController.abort();
+
+      // Graceful drain with timeout — Deno's shutdown() waits for
+      // in-flight requests but could hang if a connection stalls.
+      await Promise.race([
+        server.shutdown(),
+        new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeout)),
+      ]);
       await app.close();
-      await server.shutdown();
     },
     finished: server.finished,
   };
@@ -264,7 +292,7 @@ export function listen(app: Application, port: number = 3000): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {
-      console.log(`🚀 NextRush listening on http://localhost:${p} (Deno)`);
+      app.logger.info(`🚀 NextRush listening on http://localhost:${p} (Deno)`);
     },
   });
 }

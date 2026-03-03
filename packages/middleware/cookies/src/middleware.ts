@@ -12,33 +12,17 @@ import { parseCookies } from './parser.js';
 import { createDeleteCookie, serializeCookie } from './serializer.js';
 import { signCookie, unsignCookieWithRotation } from './signing.js';
 import type {
-    CookieContext,
-    CookieMiddlewareOptions,
-    CookieOptions,
-    ParsedCookies,
-    SignedCookieContext,
-    SignedCookieMiddlewareOptions
+  CookieContext,
+  CookieMiddlewareOptions,
+  CookieOptions,
+  ParsedCookies,
+  SignedCookieContext,
+  SignedCookieMiddlewareOptions,
 } from './types.js';
 
 // ============================================================================
 // State Types
 // ============================================================================
-
-/**
- * Extended state interface with cookies.
- */
-interface StateWithCookies {
-  cookies: CookieContext;
-  [key: string]: unknown;
-}
-
-/**
- * Extended state interface with signed cookies.
- */
-interface StateWithSignedCookies {
-  signedCookies: SignedCookieContext;
-  [key: string]: unknown;
-}
 
 // ============================================================================
 // Cookie Middleware
@@ -92,7 +76,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
     // Parse incoming cookies from request header
     const cookieHeader = ctx.get?.('cookie') ?? ctx.headers?.cookie;
     const parsed = parseCookies(cookieHeader as string | undefined, {
-      decode: decode === undefined
+      decode: decode === undefined,
     });
 
     // Apply custom decode if provided
@@ -118,7 +102,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
       set(name: string, value: string, cookieOptions: CookieOptions = {}): void {
         const serialized = serializeCookie(name, value, {
           path: '/',
-          ...cookieOptions
+          ...cookieOptions,
         });
         setCookies.push(serialized);
         // Update parsed cookies for subsequent reads
@@ -128,7 +112,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
       delete(name: string, cookieOptions: Pick<CookieOptions, 'domain' | 'path'> = {}): void {
         const serialized = createDeleteCookie(name, {
           path: '/',
-          ...cookieOptions
+          ...cookieOptions,
         });
         setCookies.push(serialized);
         delete parsed[name];
@@ -140,11 +124,11 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
 
       has(name: string): boolean {
         return name in parsed;
-      }
+      },
     };
 
     // Add to state
-    (ctx.state as StateWithCookies).cookies = cookieContext;
+    ctx.state.cookies = cookieContext;
 
     // Continue to next middleware
     await next();
@@ -211,7 +195,7 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
         // Verify signature with key rotation support
         return unsignCookieWithRotation(value, {
           current: secret,
-          previous: previousSecrets
+          previous: previousSecrets,
         });
       },
 
@@ -219,7 +203,7 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
         const signedValue = await signCookie(value, secret);
         const serialized = serializeCookie(name, signedValue, {
           path: '/',
-          ...cookieOptions
+          ...cookieOptions,
         });
         setCookies.push(serialized);
       },
@@ -227,14 +211,14 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
       delete(name: string, cookieOptions: Pick<CookieOptions, 'domain' | 'path'> = {}): void {
         const serialized = createDeleteCookie(name, {
           path: '/',
-          ...cookieOptions
+          ...cookieOptions,
         });
         setCookies.push(serialized);
-      }
+      },
     };
 
     // Add to state
-    (ctx.state as StateWithSignedCookies).signedCookies = signedContext;
+    ctx.state.signedCookies = signedContext;
 
     await next();
 
@@ -304,7 +288,7 @@ export function secureOptions(options: CookieOptions = {}): CookieOptions {
     httpOnly: true,
     secure: true,
     sameSite: 'strict',
-    path: options.path ?? '/'
+    path: options.path ?? '/',
   };
 }
 
@@ -328,6 +312,6 @@ export function sessionOptions(options: CookieOptions = {}): CookieOptions {
     path: options.path ?? '/',
     // No maxAge or expires = session cookie
     maxAge: undefined,
-    expires: undefined
+    expires: undefined,
   };
 }

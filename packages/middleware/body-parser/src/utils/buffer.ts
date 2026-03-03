@@ -10,6 +10,21 @@ import { StringDecoder } from 'node:string_decoder';
 import { STRING_DECODER_THRESHOLD } from '../constants.js';
 
 /**
+ * Encodings supported by StringDecoder.
+ * Module-level constant to avoid per-call allocation.
+ */
+const STRING_DECODER_ENCODINGS = new Set([
+  'utf8',
+  'utf-8',
+  'utf16le',
+  'ucs2',
+  'base64',
+  'latin1',
+  'ascii',
+  'hex',
+]);
+
+/**
  * Convert buffer to string with encoding support.
  *
  * Uses StringDecoder for UTF-8 buffers larger than threshold
@@ -19,10 +34,7 @@ import { STRING_DECODER_THRESHOLD } from '../constants.js';
  * @param encoding - Character encoding (default: 'utf8')
  * @returns Decoded string
  */
-export function bufferToString(
-  buffer: Buffer,
-  encoding: BufferEncoding = 'utf8'
-): string {
+export function bufferToString(buffer: Buffer, encoding: BufferEncoding = 'utf8'): string {
   if (buffer.length === 0) {
     return '';
   }
@@ -33,10 +45,7 @@ export function bufferToString(
   }
 
   // StringDecoder only supports certain encodings
-  // For others, fall back to Buffer.toString
-  const stringDecoderEncodings = new Set(['utf8', 'utf-8', 'utf16le', 'ucs2', 'base64', 'latin1', 'ascii', 'hex']);
-
-  if (!stringDecoderEncodings.has(encoding)) {
+  if (!STRING_DECODER_ENCODINGS.has(encoding)) {
     return buffer.toString(encoding);
   }
 

@@ -6,22 +6,14 @@
  * @packageDocumentation
  */
 
-import {
-    BODYLESS_METHODS,
-    DEFAULT_CONTENT_TYPES,
-    DEFAULT_LIMITS,
-} from '../constants.js';
-import type {
-    BodyParserContext,
-    BodyParserMiddleware,
-    TextOptions,
-} from '../types.js';
+import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
+import type { BodyParserContext, BodyParserMiddleware, TextOptions } from '../types.js';
 import { bufferToString } from '../utils/buffer.js';
 import {
-    extractCharset,
-    getContentType,
-    matchContentType,
-    normalizeCharset,
+  extractCharset,
+  getContentType,
+  matchContentType,
+  normalizeCharset,
 } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
@@ -62,18 +54,22 @@ export function text(options: TextOptions = {}): BodyParserMiddleware {
     type = DEFAULT_CONTENT_TYPES.TEXT,
     rawBody = false,
     defaultCharset = 'utf-8',
+    verify,
   } = options;
 
   // Pre-compute configuration
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.TEXT);
   const types = Array.isArray(type) ? type : [type];
 
-  return async (
-    ctx: BodyParserContext,
-    next?: () => Promise<void>
-  ): Promise<void> => {
+  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
+      if (next) await next();
+      return;
+    }
+
+    // Skip if body already parsed by another middleware
+    if (ctx.body !== undefined) {
       if (next) await next();
       return;
     }
@@ -103,6 +99,11 @@ export function text(options: TextOptions = {}): BodyParserMiddleware {
     // Extract and normalize charset
     const rawCharset = extractCharset(contentType) ?? defaultCharset;
     const encoding = normalizeCharset(rawCharset, 'utf-8');
+
+    // Invoke verify callback before parsing
+    if (verify) {
+      await verify(ctx, buffer, encoding);
+    }
 
     // Convert buffer to string
     ctx.body = bufferToString(buffer, encoding as BufferEncoding);

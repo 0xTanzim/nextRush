@@ -29,7 +29,15 @@
 // =============================================================================
 
 export type {
-  BodyParserContext, BodyParserErrorCode, BodyParserMiddleware, BodyParserOptions, JsonOptions, RawOptions, TextOptions, UrlEncodedOptions
+  BodyParserContext,
+  BodyParserErrorCode,
+  BodyParserMiddleware,
+  BodyParserOptions,
+  JsonOptions,
+  RawOptions,
+  TextOptions,
+  UrlEncodedOptions,
+  VerifyCallback,
 } from './types.js';
 
 // =============================================================================
@@ -43,31 +51,33 @@ export { BodyParserError, Errors } from './errors.js';
 // =============================================================================
 
 export {
-  BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS, DEFAULT_PARAMETER_LIMITS, PATTERNS, SIZE_UNITS,
-  SUPPORTED_CHARSETS
+  BODYLESS_METHODS,
+  DEFAULT_CONTENT_TYPES,
+  DEFAULT_LIMITS,
+  DEFAULT_PARAMETER_LIMITS,
+  PATTERNS,
+  SIZE_UNITS,
+  SUPPORTED_CHARSETS,
 } from './constants.js';
 
 // =============================================================================
 // UTILITY EXPORTS
 // =============================================================================
 
-export {
-  bufferToString,
-  concatBuffers
-} from './utils/buffer.js';
+export { bufferToString, concatBuffers } from './utils/buffer.js';
 
 export {
-  extractCharset, getContentLength, getContentType, isJsonContentType,
-  matchContentType, normalizeCharset
+  extractCharset,
+  getContentLength,
+  getContentType,
+  isJsonContentType,
+  matchContentType,
+  normalizeCharset,
 } from './utils/content-type.js';
 
-export {
-  formatBytes, parseLimit
-} from './utils/limit.js';
+export { formatBytes, parseLimit } from './utils/limit.js';
 
-export {
-  parseUrlEncoded, safeDecodeURIComponent, setNestedValue
-} from './utils/url-decode.js';
+export { parseUrlEncoded, safeDecodeURIComponent, setNestedValue } from './utils/url-decode.js';
 
 // =============================================================================
 // PARSER EXPORTS

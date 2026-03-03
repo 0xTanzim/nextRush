@@ -56,7 +56,7 @@ export interface ServeOptions {
   /**
    * Graceful shutdown timeout in milliseconds.
    * Forces closure if open connections don't drain within this time.
-   * @default 10000 (10 seconds)
+   * @default 30000 (30 seconds)
    */
   shutdownTimeout?: number;
 }
@@ -116,7 +116,7 @@ export function createHandler(
 
         if (!res.headersSent) {
           res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8; charset=utf-8');
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
           res.end(JSON.stringify({ error: 'Internal Server Error' }));
         }
       }
@@ -156,7 +156,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     onError,
     timeout = 30000,
     keepAliveTimeout = 5000,
-    shutdownTimeout = 10000,
+    shutdownTimeout = 30_000,
   } = options;
 
   const logger = options.logger ?? app.logger;

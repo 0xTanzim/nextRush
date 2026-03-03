@@ -113,6 +113,15 @@ export interface Router {
   use(middleware: Middleware): this;
 
   /**
+   * Register a redirect from one path to another
+   *
+   * @param from - Source path to redirect from
+   * @param to - Target path or URL to redirect to
+   * @param status - HTTP status code (default: 301)
+   */
+  redirect(from: string, to: string, status?: 301 | 302 | 303 | 307 | 308): this;
+
+  /**
    * Get routes middleware function
    * Mount this on the application
    */
@@ -159,7 +168,7 @@ export interface RouterOptions {
  * Supported route pattern types
  */
 export type RoutePattern =
-  | string // Static: '/users'
+  | `/${string}` // Static: '/users'
   | `${string}/:${string}` // Param: '/users/:id'
   | `${string}/*` // Wildcard: '/files/*'
   | `${string}/:${string}/*`; // Combined: '/api/:version/*'

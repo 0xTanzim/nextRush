@@ -148,14 +148,29 @@ export abstract class AbstractBodySource implements BodySource {
   }
 
   async json<T = unknown>(): Promise<T> {
+    // Reject clearly wrong Content-Types before parsing
+    if (this.contentType && !this.isJsonContentType(this.contentType)) {
+      throw new BadRequestError(`Expected JSON content type, received: ${this.contentType}`, {
+        code: 'INVALID_CONTENT_TYPE',
+      });
+    }
+
     const text = await this.text();
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new BadRequestError(`Invalid JSON in request body: ${text.slice(0, 100)}`, {
+      throw new BadRequestError('Invalid JSON in request body', {
         code: 'INVALID_JSON',
       });
     }
+  }
+
+  /**
+   * Check if the Content-Type header indicates JSON
+   */
+  private isJsonContentType(contentType: string): boolean {
+    const ct = contentType.toLowerCase();
+    return ct.includes('application/json') || ct.includes('+json');
   }
 
   stream(): NodeStreamLike | WebStreamLike {
@@ -163,7 +178,38 @@ export abstract class AbstractBodySource implements BodySource {
       throw new BodyConsumedError();
     }
     this._consumed = true;
-    return this._stream();
+
+    const raw = this._stream();
+
+    // Wrap web ReadableStream with size enforcement
+    if (raw instanceof ReadableStream) {
+      return this.wrapWithSizeLimit(raw);
+    }
+
+    // Node-style streams returned as-is (Node adapter handles its own enforcement)
+    return raw;
+  }
+
+  /**
+   * Wrap a ReadableStream with a TransformStream that enforces the body size limit.
+   * Aborts the stream with BodyTooLargeError if the limit is exceeded.
+   */
+  private wrapWithSizeLimit(stream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+    const limit = this.options.limit;
+    let totalBytes = 0;
+
+    return stream.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          totalBytes += chunk.byteLength;
+          if (totalBytes > limit) {
+            controller.error(new BodyTooLargeError(limit, totalBytes));
+            return;
+          }
+          controller.enqueue(chunk);
+        },
+      })
+    );
   }
 }
 

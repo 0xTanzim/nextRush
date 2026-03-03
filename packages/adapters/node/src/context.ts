@@ -8,7 +8,7 @@
  */
 
 import { HttpError } from '@nextrush/errors';
-import { getRuntime } from '@nextrush/runtime';
+import { getRuntime, METHODS_WITHOUT_BODY } from '@nextrush/runtime';
 import type {
   BodySource,
   Context,
@@ -43,11 +43,6 @@ export interface NodeContextOptions {
    */
   trustProxy?: boolean;
 }
-
-/**
- * HTTP methods that typically don't have a body
- */
-const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** Shared empty params object — avoids allocation per request (overwritten by router) */
 const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
@@ -107,8 +102,12 @@ export class NodeContext implements Context {
     if (trustProxy) {
       const forwarded = req.headers['x-forwarded-for'];
       if (typeof forwarded === 'string') {
-        const firstIp = forwarded.split(',')[0];
-        return firstIp?.trim() ?? '';
+        const firstIp = forwarded.split(',')[0]?.trim() ?? '';
+        // Basic IP format validation: reject clearly malformed values
+        if (firstIp && /^[\da-fA-F.:]+$/.test(firstIp)) {
+          return firstIp;
+        }
+        // Malformed X-Forwarded-For — fall through to socket address
       }
     }
 
@@ -128,6 +127,19 @@ export class NodeContext implements Context {
   // Response Methods
   // ===========================================================================
 
+  /**
+   * Whether the response should suppress the body per HTTP semantics.
+   * HEAD requests, 204 No Content, and 304 Not Modified must not include a body (RFC 7231).
+   */
+  private shouldSuppressBody(): boolean {
+    return (
+      this.method === 'HEAD' ||
+      this.status === 204 ||
+      this.status === 304 ||
+      (this.status >= 100 && this.status < 200)
+    );
+  }
+
   json(data: unknown): void {
     if (this._responded || this.raw.res.headersSent) return;
     this._responded = true;
@@ -138,7 +150,12 @@ export class NodeContext implements Context {
     res.statusCode = this.status;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Length', Buffer.byteLength(json));
-    res.end(json);
+
+    if (this.shouldSuppressBody()) {
+      res.end();
+    } else {
+      res.end(json);
+    }
   }
 
   send(data: ResponseBody): void {
@@ -146,6 +163,7 @@ export class NodeContext implements Context {
 
     const res = this.raw.res;
     res.statusCode = this.status;
+    const suppress = this.shouldSuppressBody();
 
     if (data === null || data === undefined) {
       this._responded = true;
@@ -159,7 +177,7 @@ export class NodeContext implements Context {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       }
       res.setHeader('Content-Length', Buffer.byteLength(data));
-      res.end(data);
+      res.end(suppress ? undefined : data);
       return;
     }
 
@@ -169,7 +187,7 @@ export class NodeContext implements Context {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
       res.setHeader('Content-Length', data.length);
-      res.end(data);
+      res.end(suppress ? undefined : data);
       return;
     }
 
@@ -181,7 +199,7 @@ export class NodeContext implements Context {
       }
       const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
       res.setHeader('Content-Length', buf.length);
-      res.end(buf);
+      res.end(suppress ? undefined : buf);
       return;
     }
 
@@ -193,7 +211,7 @@ export class NodeContext implements Context {
       }
       const buf = Buffer.from(data);
       res.setHeader('Content-Length', buf.length);
-      res.end(buf);
+      res.end(suppress ? undefined : buf);
       return;
     }
 
@@ -206,6 +224,7 @@ export class NodeContext implements Context {
       const stream = data as {
         pipe(dest: ServerResponse): void;
         on(event: string, listener: (err: Error) => void): void;
+        destroy?(err?: Error): void;
       };
       stream.on('error', (err: Error) => {
         if (!res.headersSent) {
@@ -215,6 +234,10 @@ export class NodeContext implements Context {
         } else {
           res.destroy(err);
         }
+      });
+      // Clean up source stream on client disconnect
+      res.on('close', () => {
+        if (stream.destroy) stream.destroy();
       });
       stream.pipe(res);
       return;
@@ -230,6 +253,10 @@ export class NodeContext implements Context {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
       const reader = (data as ReadableStream<Uint8Array>).getReader();
+      // Clean up reader on client disconnect
+      res.on('close', () => {
+        reader.cancel().catch(() => {});
+      });
       const pump = async (): Promise<void> => {
         for (;;) {
           const { done, value } = await reader.read();
@@ -276,7 +303,12 @@ export class NodeContext implements Context {
     res.statusCode = this.status;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Length', Buffer.byteLength(content));
-    res.end(content);
+
+    if (this.shouldSuppressBody()) {
+      res.end();
+    } else {
+      res.end(content);
+    }
   }
 
   redirect(url: string, status: number = 302): void {
@@ -286,16 +318,31 @@ export class NodeContext implements Context {
     const res = this.raw.res;
     res.statusCode = status;
     res.setHeader('Location', url);
-    // Provide a minimal body for clients that don't follow redirects
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(`Redirecting to <a href="${encodeURI(url)}">${encodeURI(url)}</a>`);
+    // Use plain text to avoid HTML injection via user-controlled URLs
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end(`Redirecting to ${url}`);
   }
 
   // ===========================================================================
   // Header Helpers
   // ===========================================================================
 
-  set(field: string, value: string | number): void {
+  set(field: string, value: string | number | string[]): void {
+    // Validate for CRLF injection (header splitting attack)
+    if (field.includes('\r') || field.includes('\n')) {
+      throw new Error('Header field contains invalid characters');
+    }
+    if (typeof value === 'string') {
+      if (value.includes('\r') || value.includes('\n')) {
+        throw new Error('Header value contains invalid characters');
+      }
+    } else if (Array.isArray(value)) {
+      for (const v of value) {
+        if (v.includes('\r') || v.includes('\n')) {
+          throw new Error('Header value contains invalid characters');
+        }
+      }
+    }
     this.raw.res.setHeader(field, value);
   }
 

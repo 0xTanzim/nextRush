@@ -5,36 +5,36 @@
 import { describe, expect, it } from 'vitest';
 import { HttpError } from '../base';
 import {
-    badGateway,
-    badRequest,
-    conflict,
-    createError,
-    forbidden,
-    gatewayTimeout,
-    getErrorStatus,
-    getSafeErrorMessage,
-    internalError,
-    isHttpError,
-    methodNotAllowed,
-    notFound,
-    serviceUnavailable,
-    tooManyRequests,
-    unauthorized,
-    unprocessableEntity,
+  badGateway,
+  badRequest,
+  conflict,
+  createError,
+  forbidden,
+  gatewayTimeout,
+  getErrorStatus,
+  getSafeErrorMessage,
+  internalError,
+  isHttpError,
+  methodNotAllowed,
+  notFound,
+  serviceUnavailable,
+  tooManyRequests,
+  unauthorized,
+  unprocessableEntity,
 } from '../factory';
 import {
-    BadGatewayError,
-    BadRequestError,
-    ConflictError,
-    ForbiddenError,
-    GatewayTimeoutError,
-    InternalServerError,
-    MethodNotAllowedError,
-    NotFoundError,
-    ServiceUnavailableError,
-    TooManyRequestsError,
-    UnauthorizedError,
-    UnprocessableEntityError,
+  BadGatewayError,
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  GatewayTimeoutError,
+  InternalServerError,
+  MethodNotAllowedError,
+  NotFoundError,
+  ServiceUnavailableError,
+  TooManyRequestsError,
+  UnauthorizedError,
+  UnprocessableEntityError,
 } from '../http-errors';
 
 describe('createError', () => {
@@ -89,7 +89,7 @@ describe('createError', () => {
     const error = createError(418);
     expect(error).toBeInstanceOf(HttpError);
     expect(error.status).toBe(418);
-    expect(error.message).toBe('HTTP Error 418');
+    expect(error.message).toBe("I'm a Teapot");
   });
 
   it('should pass options to error', () => {
@@ -297,7 +297,9 @@ describe('getSafeErrorMessage', () => {
   });
 
   it('should return generic message for non-exposed errors', () => {
-    expect(getSafeErrorMessage(new InternalServerError('Database crashed'))).toBe('Internal Server Error');
+    expect(getSafeErrorMessage(new InternalServerError('Database crashed'))).toBe(
+      'Internal Server Error'
+    );
   });
 
   it('should return generic message for regular Error', () => {

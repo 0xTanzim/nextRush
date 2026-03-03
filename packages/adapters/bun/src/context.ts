@@ -7,7 +7,7 @@
  */
 
 import { HttpError } from '@nextrush/errors';
-import { getRuntime } from '@nextrush/runtime';
+import { getClientIp, getRuntime, headersToRecord, METHODS_WITHOUT_BODY } from '@nextrush/runtime';
 import type {
   BodySource,
   Context,
@@ -31,11 +31,6 @@ import { parseQueryString } from './utils';
  * - `res`: Not used in Bun (response is returned from handler)
  */
 type BunRawHttp = RawHttp<Request, undefined>;
-
-/**
- * HTTP methods that typically don't have a body
- */
-const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
 
 /**
  * Response builder for Bun context
@@ -64,6 +59,9 @@ interface ResponseBuilder {
  * const response = ctx.getResponse();
  * ```
  */
+/** Shared empty params object — avoids allocation per request (overwritten by router) */
+const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
+
 export class BunContext implements Context {
   readonly method: HttpMethod;
   readonly url: string;
@@ -76,7 +74,7 @@ export class BunContext implements Context {
   readonly bodySource: BodySource;
 
   body: unknown = undefined;
-  params: RouteParams = {};
+  params: RouteParams = EMPTY_PARAMS;
   status: number = 200;
   state: ContextState = {};
 
@@ -84,7 +82,7 @@ export class BunContext implements Context {
   private _responded = false;
   private _responseBuilder: ResponseBuilder;
 
-  constructor(request: Request, clientIp?: string) {
+  constructor(request: Request, clientIp?: string, trustProxy = false) {
     this.raw = { req: request, res: undefined };
     this.method = request.method.toUpperCase() as HttpMethod;
     this.runtime = getRuntime();
@@ -96,10 +94,14 @@ export class BunContext implements Context {
     this.query = parseQueryString(urlObj.search.slice(1));
 
     // Convert Headers to record format
-    this.headers = this.headersToRecord(request.headers);
+    this.headers = headersToRecord(request.headers);
 
     // Get client IP (Bun provides this via server.requestIP)
-    this.ip = clientIp ?? this.getClientIp(request);
+    this.ip = clientIp
+      ? trustProxy
+        ? getClientIp(request, clientIp, true)
+        : clientIp
+      : getClientIp(request, '', trustProxy);
 
     // Create body source
     this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
@@ -112,48 +114,6 @@ export class BunContext implements Context {
       headers: new Headers(),
       body: null,
     };
-  }
-
-  /**
-   * Convert Headers object to record format
-   */
-  private headersToRecord(headers: Headers): IncomingHeaders {
-    const record: Record<string, string | string[]> = {};
-
-    headers.forEach((value, key) => {
-      const existing = record[key];
-      if (existing !== undefined) {
-        // Handle multiple values for same header
-        if (Array.isArray(existing)) {
-          existing.push(value);
-        } else {
-          record[key] = [existing, value];
-        }
-      } else {
-        record[key] = value;
-      }
-    });
-
-    return record;
-  }
-
-  /**
-   * Get client IP address from headers
-   */
-  private getClientIp(request: Request): string {
-    // Check common proxy headers
-    const forwarded = request.headers.get('x-forwarded-for');
-    if (forwarded) {
-      const firstIp = forwarded.split(',')[0];
-      return firstIp?.trim() ?? '';
-    }
-
-    const realIp = request.headers.get('x-real-ip');
-    if (realIp) {
-      return realIp.trim();
-    }
-
-    return '';
   }
 
   /**
@@ -229,10 +189,15 @@ export class BunContext implements Context {
       return;
     }
 
-    // Object - serialize as JSON
+    // Object - serialize as JSON (inline to avoid _responded reset hack)
     if (typeof data === 'object') {
-      this._responded = false; // Reset for json() call
-      this.json(data);
+      const json = JSON.stringify(data);
+      this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
+      this._responseBuilder.headers.set(
+        'Content-Length',
+        String(new TextEncoder().encode(json).length)
+      );
+      this._responseBuilder.body = json;
       return;
     }
 
@@ -265,15 +230,24 @@ export class BunContext implements Context {
 
     this._responseBuilder.status = status;
     this._responseBuilder.headers.set('Location', url);
-    this._responseBuilder.body = null;
+    // Use plain text to avoid HTML injection via user-controlled URLs
+    this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
+    this._responseBuilder.body = `Redirecting to ${url}`;
   }
 
   // ===========================================================================
   // Header Helpers
   // ===========================================================================
 
-  set(field: string, value: string | number): void {
-    this._responseBuilder.headers.set(field, String(value));
+  set(field: string, value: string | number | string[]): void {
+    if (Array.isArray(value)) {
+      this._responseBuilder.headers.delete(field);
+      for (const v of value) {
+        this._responseBuilder.headers.append(field, v);
+      }
+    } else {
+      this._responseBuilder.headers.set(field, String(value));
+    }
   }
 
   get(field: string): string | undefined {
@@ -338,8 +312,13 @@ export class BunContext implements Context {
       this._responseBuilder.status = this.status;
     }
 
-    return new Response(this._responseBuilder.body, {
-      status: this._responseBuilder.status,
+    const status = this._responseBuilder.status;
+    // Suppress body for HEAD, 204, 304, and 1xx per HTTP semantics
+    const suppressBody =
+      this.method === 'HEAD' || status === 204 || status === 304 || (status >= 100 && status < 200);
+
+    return new Response(suppressBody ? null : this._responseBuilder.body, {
+      status,
       headers: this._responseBuilder.headers,
     });
   }

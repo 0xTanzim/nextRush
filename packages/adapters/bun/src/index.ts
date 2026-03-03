@@ -18,13 +18,14 @@ export { BunContext, createBunContext } from './context';
 
 // Body Source
 export {
-  BodyConsumedError,
-  BodyTooLargeError,
   BunBodySource,
   EmptyBodySource,
   createBunBodySource,
   createEmptyBodySource,
 } from './body-source';
+
+// Re-export shared error classes from @nextrush/runtime
+export { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
 
 // Utilities
 export { getContentLength, getContentType, parseQueryString } from './utils';

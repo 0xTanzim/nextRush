@@ -23,7 +23,7 @@ export class NextRushError extends Error {
   readonly details?: Record<string, unknown>;
 
   /** Original error that caused this error */
-  readonly cause?: Error;
+  readonly cause?: unknown;
 
   constructor(
     message: string,
@@ -32,7 +32,7 @@ export class NextRushError extends Error {
       code?: string;
       expose?: boolean;
       details?: Record<string, unknown>;
-      cause?: Error;
+      cause?: unknown;
     } = {}
   ) {
     super(message);
@@ -44,7 +44,10 @@ export class NextRushError extends Error {
     this.cause = options.cause;
 
     // Maintain proper stack trace for V8
-    if (Error.captureStackTrace) {
+    // Skip for common client errors (4xx with expose=true) to reduce overhead.
+    // These are expected control-flow errors, not bugs — stack traces add cost
+    // without diagnostic value in production.
+    if (Error.captureStackTrace && !(this.expose && this.status < 500)) {
       Error.captureStackTrace(this, this.constructor);
     }
   }
@@ -141,7 +144,7 @@ export class HttpError extends NextRushError {
       code?: string;
       expose?: boolean;
       details?: Record<string, unknown>;
-      cause?: Error;
+      cause?: unknown;
     } = {}
   ) {
     super(message ?? getHttpStatusMessage(status), {

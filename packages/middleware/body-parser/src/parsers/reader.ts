@@ -71,8 +71,8 @@ async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promis
       throw Errors.entityTooLargeStreaming(limit);
     }
 
-    // Convert Uint8Array to Buffer for consistency with existing code
-    return Buffer.from(uint8Array);
+    // Zero-copy conversion: share underlying ArrayBuffer memory
+    return Buffer.from(uint8Array.buffer, uint8Array.byteOffset, uint8Array.byteLength);
   } catch (err) {
     // Re-throw BodyParserError
     if (err instanceof Error && err.name === 'BodyParserError') {
@@ -107,11 +107,17 @@ function readBodyFromNodeStream(ctx: BodyParserContext, limit: number): Promise<
     return Promise.reject(Errors.entityTooLarge(contentLength, limit));
   }
 
+  const req = ctx.raw!.req!;
+
+  // Reject if request stream is already destroyed
+  if (req.destroyed) {
+    return Promise.reject(Errors.requestClosed());
+  }
+
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let received = 0;
     let finished = false;
-    const req = ctx.raw!.req!;
 
     /**
      * Clean up all event listeners

@@ -3,6 +3,16 @@
  *
  * Connects NextRush Application to Edge runtimes via fetch handlers.
  *
+ * @remarks
+ * **Size optimization**: Edge runtimes have strict bundle-size constraints
+ * (e.g. Cloudflare Workers 1 MB limit). Import only the packages you need:
+ *
+ * - Import `@nextrush/core` and `@nextrush/adapter-edge` only.
+ * - Avoid `@nextrush/di` unless you need DI (adds `reflect-metadata`).
+ * - Tree-shake unused middleware — each middleware is a separate package.
+ * - Use `@nextrush/router` only if you have dynamic routes; for simple
+ *   handlers, use the application directly.
+ *
  * @packageDocumentation
  */
 
@@ -17,6 +27,19 @@ export interface FetchHandlerOptions {
    * Custom error handler
    */
   onError?: (error: Error, ctx: EdgeContext) => Response | Promise<Response>;
+
+  /**
+   * Request timeout in milliseconds. When set, the handler races the
+   * application logic against a timer and returns a 504 Gateway Timeout
+   * if the timer fires first.
+   *
+   * Recommended defaults per platform:
+   * - Cloudflare Workers: 30 000 (30 s CPU limit)
+   * - Vercel Edge:        25 000 (25 s wall limit)
+   *
+   * When omitted, no timeout is enforced.
+   */
+  timeout?: number;
 }
 
 /**
@@ -64,12 +87,33 @@ export function createFetchHandler(
   options: FetchHandlerOptions = {}
 ): FetchHandler {
   const appHandler = app.callback();
+  const { timeout } = options;
+
+  /** Sentinel value returned by the timeout racer */
+  const TIMEOUT_SENTINEL = Symbol('timeout');
 
   return async (request: Request, executionContext?: EdgeExecutionContext): Promise<Response> => {
     const ctx = createEdgeContext(request, executionContext);
 
     try {
-      await appHandler(ctx);
+      if (timeout !== undefined && timeout > 0) {
+        // Race the handler against a timeout
+        const result = await Promise.race([
+          appHandler(ctx).then(() => undefined),
+          new Promise<typeof TIMEOUT_SENTINEL>((resolve) =>
+            setTimeout(() => resolve(TIMEOUT_SENTINEL), timeout)
+          ),
+        ]);
+
+        if (result === TIMEOUT_SENTINEL) {
+          return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
+            status: 504,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      } else {
+        await appHandler(ctx);
+      }
 
       if (!ctx.responded) {
         if (ctx.status === 404) {
@@ -100,11 +144,24 @@ export function createFetchHandler(
 }
 
 /**
+ * Cloudflare Workers fetch handler type
+ *
+ * Cloudflare's module format passes `(request, env, ctx)` where:
+ * - `env` contains bindings (KV, D1, R2, secrets, etc.)
+ * - `ctx` provides `waitUntil()` and `passThroughOnException()`
+ */
+export type CloudflareFetchHandler = (
+  request: Request,
+  env: Record<string, unknown>,
+  ctx: EdgeExecutionContext
+) => Response | Promise<Response>;
+
+/**
  * Create Cloudflare Workers module export
  *
  * @param app - NextRush Application instance
  * @param options - Handler options
- * @returns Cloudflare Workers module export object
+ * @returns Cloudflare Workers module export object with correct `(request, env, ctx)` signature
  *
  * @example
  * ```typescript
@@ -127,9 +184,12 @@ export function createFetchHandler(
 export function createCloudflareHandler(
   app: Application,
   options: FetchHandlerOptions = {}
-): { fetch: FetchHandler } {
+): { fetch: CloudflareFetchHandler } {
+  const fetchHandler = createFetchHandler(app, options);
+
   return {
-    fetch: createFetchHandler(app, options),
+    fetch: (request: Request, _env: Record<string, unknown>, ctx: EdgeExecutionContext) =>
+      fetchHandler(request, ctx),
   };
 }
 

@@ -111,11 +111,7 @@ export const Errors = {
    * Invalid JSON syntax
    */
   invalidJson(parseError: string): BodyParserError {
-    return new BodyParserError(
-      `Invalid JSON: ${parseError}`,
-      400,
-      'INVALID_JSON'
-    );
+    return new BodyParserError(`Invalid JSON: ${parseError}`, 400, 'INVALID_JSON');
   },
 
   /**
@@ -166,11 +162,7 @@ export const Errors = {
    * Invalid parameter name (prototype pollution attempt)
    */
   invalidParameter(name: string): BodyParserError {
-    return new BodyParserError(
-      `Invalid parameter name: "${name}"`,
-      400,
-      'INVALID_PARAMETER'
-    );
+    return new BodyParserError(`Invalid parameter name: "${name}"`, 400, 'INVALID_PARAMETER');
   },
 
   /**
@@ -199,21 +191,34 @@ export const Errors = {
    * Request aborted by client
    */
   requestAborted(): BodyParserError {
-    return new BodyParserError(
-      'Request aborted by client',
-      400,
-      'REQUEST_ABORTED'
-    );
+    return new BodyParserError('Request aborted by client', 400, 'REQUEST_ABORTED');
   },
 
   /**
    * Unsupported charset
    */
   unsupportedCharset(charset: string): BodyParserError {
+    return new BodyParserError(`Unsupported charset: "${charset}"`, 415, 'UNSUPPORTED_CHARSET');
+  },
+
+  /**
+   * JSON nesting depth exceeded
+   */
+  jsonDepthExceeded(depth: number, maxDepth: number): BodyParserError {
     return new BodyParserError(
-      `Unsupported charset: "${charset}"`,
-      415,
-      'UNSUPPORTED_CHARSET'
+      `JSON nesting depth exceeded (${depth} exceeds ${maxDepth} limit)`,
+      400,
+      'JSON_DEPTH_EXCEEDED'
     );
+  },
+
+  /**
+   * Unsupported content type (e.g., multipart/form-data)
+   */
+  unsupportedContentType(contentType: string, hint?: string): BodyParserError {
+    const message = hint
+      ? `Unsupported content type: "${contentType}". ${hint}`
+      : `Unsupported content type: "${contentType}"`;
+    return new BodyParserError(message, 415, 'UNSUPPORTED_CONTENT_TYPE');
   },
 } as const;

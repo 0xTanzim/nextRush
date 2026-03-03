@@ -13,9 +13,14 @@
 
 // Main adapter functions
 export {
-    createCloudflareHandler, createFetchHandler, createHandler, createNetlifyHandler, createVercelHandler, // Alias
-    type FetchHandler,
-    type FetchHandlerOptions
+  createCloudflareHandler,
+  createFetchHandler,
+  createHandler,
+  createNetlifyHandler,
+  createVercelHandler,
+  type CloudflareFetchHandler, // Alias
+  type FetchHandler,
+  type FetchHandlerOptions,
 } from './adapter';
 
 // Context exports
@@ -26,7 +31,10 @@ export { EdgeBodySource } from './body-source';
 
 // Utility exports
 export {
-    detectEdgeRuntime, getContentLength, parseQueryString, type EdgeRuntimeInfo
+  detectEdgeRuntime,
+  getContentLength,
+  parseQueryString,
+  type EdgeRuntimeInfo,
 } from './utils';
 
 // Re-export types for convenience

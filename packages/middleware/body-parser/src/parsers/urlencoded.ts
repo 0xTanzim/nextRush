@@ -7,17 +7,13 @@
  */
 
 import {
-    BODYLESS_METHODS,
-    DEFAULT_CONTENT_TYPES,
-    DEFAULT_LIMITS,
-    DEFAULT_PARAMETER_LIMITS,
+  BODYLESS_METHODS,
+  DEFAULT_CONTENT_TYPES,
+  DEFAULT_LIMITS,
+  DEFAULT_PARAMETER_LIMITS,
 } from '../constants.js';
 import { Errors } from '../errors.js';
-import type {
-    BodyParserContext,
-    BodyParserMiddleware,
-    UrlEncodedOptions,
-} from '../types.js';
+import type { BodyParserContext, BodyParserMiddleware, UrlEncodedOptions } from '../types.js';
 import { bufferToString } from '../utils/buffer.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
@@ -63,18 +59,22 @@ export function urlencoded(options: UrlEncodedOptions = {}): BodyParserMiddlewar
     extended = true,
     parameterLimit = DEFAULT_PARAMETER_LIMITS.MAX_PARAMS,
     depth = DEFAULT_PARAMETER_LIMITS.MAX_DEPTH,
+    verify,
   } = options;
 
   // Pre-compute configuration
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.URLENCODED);
   const types = Array.isArray(type) ? type : [type];
 
-  return async (
-    ctx: BodyParserContext,
-    next?: () => Promise<void>
-  ): Promise<void> => {
+  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
+      if (next) await next();
+      return;
+    }
+
+    // Skip if body already parsed by another middleware
+    if (ctx.body !== undefined) {
       if (next) await next();
       return;
     }
@@ -99,6 +99,11 @@ export function urlencoded(options: UrlEncodedOptions = {}): BodyParserMiddlewar
       ctx.body = {};
       if (next) await next();
       return;
+    }
+
+    // Invoke verify callback before parsing
+    if (verify) {
+      await verify(ctx, buffer, 'utf-8');
     }
 
     // Parse URL-encoded string

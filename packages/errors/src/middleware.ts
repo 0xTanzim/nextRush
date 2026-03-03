@@ -7,24 +7,7 @@
  */
 
 import type { Context, Middleware, Next } from '@nextrush/types';
-import { HttpError, NextRushError } from './base';
-
-/** Standard HTTP status text for non-exposed error responses */
-const STATUS_TEXT: Record<number, string> = {
-  400: 'Bad Request',
-  401: 'Unauthorized',
-  403: 'Forbidden',
-  404: 'Not Found',
-  405: 'Method Not Allowed',
-  409: 'Conflict',
-  422: 'Unprocessable Entity',
-  429: 'Too Many Requests',
-  500: 'Internal Server Error',
-  501: 'Not Implemented',
-  502: 'Bad Gateway',
-  503: 'Service Unavailable',
-  504: 'Gateway Timeout',
-};
+import { HttpError, NextRushError, getHttpStatusMessage } from './base';
 
 /**
  * Minimal context interface for error handling.
@@ -135,7 +118,7 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
         body = transform(err, ctx);
       } else {
         body = {
-          error: expose ? err.name : (STATUS_TEXT[status] ?? 'Internal Server Error'),
+          error: expose ? err.name : getHttpStatusMessage(status),
           message: expose ? err.message : 'Internal Server Error',
           code,
           status,
@@ -167,8 +150,8 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
 export function notFoundHandler(message = 'Not Found'): Middleware {
   return async (ctx: Context, next: Next): Promise<void> => {
     await next();
-    // Only handle if no response body was set and status indicates unhandled
-    if (ctx.status === 404) {
+    // Only handle if no response was sent and status indicates unhandled
+    if (!ctx.responded && ctx.status === 404) {
       ctx.json({
         error: 'NotFoundError',
         message,

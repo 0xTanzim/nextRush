@@ -108,7 +108,7 @@ export function securityWarning(
   details?: Record<string, unknown>,
   severity: SecuritySeverity = 'warn'
 ): void {
-  if (process.env.NODE_ENV !== 'production') {
+  if (typeof process === 'undefined' || process.env?.NODE_ENV !== 'production') {
     const prefix = '[@nextrush/cors] SECURITY WARNING:';
     const fullMessage = `${prefix} ${message}`;
 

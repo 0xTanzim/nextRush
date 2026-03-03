@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import { HttpError } from './base';
+import { HttpError, NextRushError } from './base';
 import {
   BadGatewayError,
   BadRequestError,
@@ -48,13 +48,19 @@ export function createError(
   message?: string,
   options?: HttpErrorOptions
 ): HttpError {
+  // Special case: MethodNotAllowedError requires allowedMethods array
+  if (status === 405) {
+    return new MethodNotAllowedError([], message, options);
+  }
+
   const ErrorClass = ERROR_MAP[status];
 
   if (ErrorClass) {
     return new ErrorClass(message, options);
   }
 
-  return new HttpError(status, message ?? `HTTP Error ${status}`, options);
+  // Fallback: let HttpError constructor resolve the message via getHttpStatusMessage()
+  return new HttpError(status, message, options);
 }
 
 /**
@@ -163,19 +169,34 @@ export function isHttpError(error: unknown): error is HttpError {
 
 /**
  * Get HTTP status from any error
+ *
+ * Checks NextRushError first (covers HttpError, ValidationError, and all subclasses),
+ * then falls back to duck-typed status property.
  */
 export function getErrorStatus(error: unknown): number {
-  if (error instanceof HttpError) {
+  if (error instanceof NextRushError) {
     return error.status;
+  }
+  if (
+    error != null &&
+    typeof error === 'object' &&
+    'status' in error &&
+    typeof (error as { status: unknown }).status === 'number'
+  ) {
+    const status = (error as { status: number }).status;
+    return status >= 400 && status < 600 ? status : 500;
   }
   return 500;
 }
 
 /**
  * Get error message safe for client response
+ *
+ * Exposes message for any NextRushError (including ValidationError)
+ * when the error's expose flag is true.
  */
 export function getSafeErrorMessage(error: unknown): string {
-  if (error instanceof HttpError && error.expose) {
+  if (error instanceof NextRushError && error.expose) {
     return error.message;
   }
   return 'Internal Server Error';

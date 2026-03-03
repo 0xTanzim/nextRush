@@ -27,6 +27,7 @@ export type {
 // ============================================================================
 
 export {
+  detectEdgeRuntime,
   detectRuntime,
   getRuntime,
   getRuntimeCapabilities,
@@ -37,7 +38,28 @@ export {
   isEdge,
   isNode,
   isRuntime,
+  resetRuntimeCache,
 } from './detection';
+
+export type { EdgeRuntimeInfo } from './detection';
+
+// ============================================================================
+// Query String Parsing
+// ============================================================================
+
+export { parseQueryString } from './query';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+export { METHODS_WITHOUT_BODY } from './constants';
+
+// ============================================================================
+// Headers Utilities
+// ============================================================================
+
+export { getClientIp, getEdgeClientIp, headersToRecord } from './headers';
 
 // ============================================================================
 // Body Source

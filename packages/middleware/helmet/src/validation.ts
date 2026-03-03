@@ -8,13 +8,13 @@
  */
 
 import {
-    BOOLEAN_CSP_DIRECTIVES,
-    CSP_FORBIDDEN_CHARS,
-    HASH_PATTERN,
-    MIN_HSTS_PRELOAD_MAX_AGE,
-    NONCE_PATTERN,
-    UNSAFE_CSP_VALUES,
-    VALID_CSP_DIRECTIVES,
+  BOOLEAN_CSP_DIRECTIVES,
+  CSP_FORBIDDEN_CHARS,
+  HASH_PATTERN,
+  MIN_HSTS_PRELOAD_MAX_AGE,
+  NONCE_PATTERN,
+  UNSAFE_CSP_VALUES,
+  VALID_CSP_DIRECTIVES,
 } from './constants.js';
 import type { CspDirectiveName, StrictTransportSecurityOptions } from './types.js';
 
@@ -202,7 +202,7 @@ export function validateHstsOptions(options: StrictTransportSecurityOptions): Hs
  * @param details - Additional details
  */
 export function securityWarning(message: string, details?: Record<string, unknown>): void {
-  if (process.env.NODE_ENV !== 'production') {
+  if (typeof process === 'undefined' || process.env?.NODE_ENV !== 'production') {
     console.warn(`[@nextrush/helmet] SECURITY WARNING: ${message}`, details ?? '');
   }
 }
@@ -213,9 +213,7 @@ export function securityWarning(message: string, details?: Record<string, unknow
  * @param directives - CSP directives to analyze
  * @returns Array of warning messages
  */
-export function analyzeCspSecurity(
-  directives: Record<string, unknown>
-): string[] {
+export function analyzeCspSecurity(directives: Record<string, unknown>): string[] {
   const warnings: string[] = [];
 
   for (const [directive, value] of Object.entries(directives)) {
@@ -230,9 +228,7 @@ export function analyzeCspSecurity(
 
       // Check for overly permissive wildcards
       if (directive.endsWith('-src') && value.includes('*')) {
-        warnings.push(
-          `CSP directive '${directive}' uses wildcard '*' which allows any source.`
-        );
+        warnings.push(`CSP directive '${directive}' uses wildcard '*' which allows any source.`);
       }
     }
   }
@@ -249,9 +245,7 @@ export function analyzeCspSecurity(
   }
 
   if (!('base-uri' in directives)) {
-    warnings.push(
-      "CSP is missing 'base-uri' directive. Consider adding \"'self'\" or \"'none'\"."
-    );
+    warnings.push("CSP is missing 'base-uri' directive. Consider adding \"'self'\" or \"'none'\".");
   }
 
   return warnings;

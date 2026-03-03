@@ -37,22 +37,11 @@ function getFsSync(): typeof import('node:fs') {
     return cachedFs!;
   }
 
-  // In Node.js ESM, we need to use createRequire
-  // We use dynamic import to get the module, but cache it synchronously
-  // This is initialized lazily on first sync call
-  try {
-    // Try the Function constructor first (works in CJS and some ESM contexts)
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const dynamicRequire = new Function('moduleName', 'return require(moduleName)');
-    cachedFs = dynamicRequire('node:fs');
-    return cachedFs!;
-  } catch {
-    // If require isn't available, we need createRequire
-    // This requires async initialization, so throw an informative error
-    throw new Error(
-      'Sync fs operations require initialization. Call initFsSync() first or use async methods.'
-    );
-  }
+  // In Node.js ESM, require is not available directly.
+  // Use initFsSync() to initialize, or use async methods.
+  throw new Error(
+    'Sync fs operations require initialization. Call initFsSync() first or use async methods.'
+  );
 }
 
 /**
@@ -74,13 +63,18 @@ export async function initFsSync(): Promise<void> {
 export async function exists(path: string): Promise<boolean> {
   if (runtime === 'deno') {
     // @ts-expect-error Deno global exists in Deno runtime
-    return globalThis.Deno.stat(path).then(() => true).catch(() => false);
+    return globalThis.Deno.stat(path)
+      .then(() => true)
+      .catch(() => false);
   }
 
   // Node.js and Bun use Node.js fs API
   // Use variable to prevent esbuild from stripping node: prefix
   const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-  return fs.access(path).then(() => true).catch(() => false);
+  return fs
+    .access(path)
+    .then(() => true)
+    .catch(() => false);
 }
 
 /**

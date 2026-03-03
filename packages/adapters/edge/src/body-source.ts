@@ -7,37 +7,8 @@
  */
 
 import { BadRequestError } from '@nextrush/errors';
+import { BodyConsumedError, BodyTooLargeError, DEFAULT_BODY_LIMIT } from '@nextrush/runtime';
 import type { BodySource, BodySourceOptions } from '@nextrush/types';
-
-/**
- * Default body size limit (1MB)
- */
-const DEFAULT_BODY_LIMIT = 1024 * 1024;
-
-/**
- * Error thrown when body has already been consumed
- */
-export class BodyConsumedError extends Error {
-  constructor() {
-    super('Body has already been consumed');
-    this.name = 'BodyConsumedError';
-  }
-}
-
-/**
- * Error thrown when body exceeds size limit
- */
-export class BodyTooLargeError extends Error {
-  readonly limit: number;
-  readonly received: number;
-
-  constructor(limit: number, received: number) {
-    super(`Body too large: received ${received} bytes, limit is ${limit} bytes`);
-    this.name = 'BodyTooLargeError';
-    this.limit = limit;
-    this.received = received;
-  }
-}
 
 /**
  * Edge BodySource implementation
@@ -108,65 +79,51 @@ export class EdgeBodySource implements BodySource {
 
     this._consumed = true;
 
-    const arrayBuffer = await this.request.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
+    // Stream body with incremental size enforcement to prevent memory DoS
+    // Especially critical on edge runtimes with 128MB memory limits
+    if (this.request.body) {
+      const reader = this.request.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let totalBytes = 0;
 
-    if (buffer.length > this.options.limit) {
-      throw new BodyTooLargeError(this.options.limit, buffer.length);
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          totalBytes += value.byteLength;
+          if (totalBytes > this.options.limit) {
+            reader.cancel();
+            throw new BodyTooLargeError(this.options.limit, totalBytes);
+          }
+          chunks.push(value);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      const buffer = chunks.length === 1 ? chunks[0]! : concatUint8Arrays(chunks, totalBytes);
+      this._cachedBuffer = buffer;
+      return buffer;
     }
 
+    // No body stream — empty body
+    const buffer = new Uint8Array(0);
     this._cachedBuffer = buffer;
     return buffer;
   }
 
   async text(): Promise<string> {
-    if (!this._consumed) {
-      if (this.contentLength !== undefined && this.contentLength > this.options.limit) {
-        throw new BodyTooLargeError(this.options.limit, this.contentLength);
-      }
-
-      this._consumed = true;
-      const text = await this.request.text();
-
-      const byteLength = new TextEncoder().encode(text).length;
-      if (byteLength > this.options.limit) {
-        throw new BodyTooLargeError(this.options.limit, byteLength);
-      }
-
-      this._cachedBuffer = new TextEncoder().encode(text);
-      return text;
-    }
-
-    if (this._cachedBuffer) {
-      return new TextDecoder(this.options.encoding).decode(this._cachedBuffer);
-    }
-
-    throw new BodyConsumedError();
+    const buffer = await this.buffer();
+    return new TextDecoder(this.options.encoding).decode(buffer);
   }
 
   async json<T = unknown>(): Promise<T> {
+    const text = await this.text();
     try {
-      if (!this._consumed) {
-        if (this.contentLength !== undefined && this.contentLength > this.options.limit) {
-          throw new BodyTooLargeError(this.options.limit, this.contentLength);
-        }
-
-        this._consumed = true;
-        return await (this.request.json() as Promise<T>);
-      }
-
-      if (this._cachedBuffer) {
-        const text = new TextDecoder(this.options.encoding).decode(this._cachedBuffer);
-        return JSON.parse(text) as T;
-      }
-
-      throw new BodyConsumedError();
+      return JSON.parse(text) as T;
     } catch (err) {
-      if (
-        err instanceof BadRequestError ||
-        err instanceof BodyTooLargeError ||
-        err instanceof BodyConsumedError
-      ) {
+      if (err instanceof BodyTooLargeError || err instanceof BodyConsumedError) {
         throw err;
       }
       throw new BadRequestError('Invalid JSON in request body', {
@@ -232,9 +189,25 @@ export class EmptyBodySource implements BodySource {
   }
 }
 
+/** Singleton empty body source — stateless, safe to share across requests */
+const EMPTY_BODY_SOURCE: BodySource = new EmptyBodySource();
+
 /**
- * Create an empty body source
+ * Create an empty body source (returns shared singleton)
  */
 export function createEmptyBodySource(): BodySource {
-  return new EmptyBodySource();
+  return EMPTY_BODY_SOURCE;
+}
+
+/**
+ * Concatenate multiple Uint8Array chunks into a single array
+ */
+function concatUint8Arrays(chunks: Uint8Array[], totalLength: number): Uint8Array {
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
 }

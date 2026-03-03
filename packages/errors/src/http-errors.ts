@@ -15,7 +15,7 @@ export interface HttpErrorOptions {
   code?: string;
   expose?: boolean;
   details?: Record<string, unknown>;
-  cause?: Error;
+  cause?: unknown;
 }
 
 // =============================================================================

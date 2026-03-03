@@ -39,7 +39,7 @@ import type { CorsOptions, OriginValidator } from './types.js';
  * ```
  */
 export function simpleCors(): Middleware {
-  if (process.env.NODE_ENV === 'production') {
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
     securityWarning(
       'simpleCors() is not recommended for production. ' +
         'Consider using cors() with explicit origin configuration.'
@@ -192,9 +192,7 @@ export function devCors(additionalOrigins: string[] = []): Middleware {
  */
 export function internalCors(internalDomains: string[]): Middleware {
   if (!internalDomains.length) {
-    throw new Error(
-      '[@nextrush/cors] internalCors requires at least one internal domain.'
-    );
+    throw new Error('[@nextrush/cors] internalCors requires at least one internal domain.');
   }
 
   return cors({

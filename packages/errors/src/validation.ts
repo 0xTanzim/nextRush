@@ -36,7 +36,6 @@ export class ValidationError extends NextRushError {
       status: 400,
       code: 'VALIDATION_ERROR',
       expose: true,
-      details: { issues },
     });
     this.issues = issues;
   }
@@ -99,7 +98,13 @@ export class ValidationError extends NextRushError {
       message: this.message,
       code: this.code,
       status: this.status,
-      issues: this.issues,
+      // Strip `received` to prevent leaking sensitive input values (passwords, tokens)
+      issues: this.issues.map(({ path, message, rule, expected }) => ({
+        path,
+        message,
+        ...(rule !== undefined && { rule }),
+        ...(expected !== undefined && { expected }),
+      })),
     };
   }
 }

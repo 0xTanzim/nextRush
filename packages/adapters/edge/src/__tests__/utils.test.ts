@@ -2,13 +2,9 @@
  * @nextrush/adapter-edge - Utils Tests
  */
 
+import { resetRuntimeCache } from '@nextrush/runtime';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-    detectEdgeRuntime,
-    getContentLength,
-    getContentType,
-    parseQueryString,
-} from '../utils';
+import { detectEdgeRuntime, getContentLength, getContentType, parseQueryString } from '../utils';
 
 describe('parseQueryString', () => {
   it('should parse simple query string', () => {
@@ -58,6 +54,8 @@ describe('detectEdgeRuntime', () => {
   const originalDeno = (globalThis as { Deno?: unknown }).Deno;
 
   afterEach(() => {
+    // Reset cached detection so each test starts fresh
+    resetRuntimeCache();
     // Restore original globals
     Object.defineProperty(globalThis, 'navigator', {
       value: originalNavigator,

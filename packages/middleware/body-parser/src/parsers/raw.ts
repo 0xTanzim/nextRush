@@ -6,16 +6,8 @@
  * @packageDocumentation
  */
 
-import {
-    BODYLESS_METHODS,
-    DEFAULT_CONTENT_TYPES,
-    DEFAULT_LIMITS,
-} from '../constants.js';
-import type {
-    BodyParserContext,
-    BodyParserMiddleware,
-    RawOptions,
-} from '../types.js';
+import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
+import type { BodyParserContext, BodyParserMiddleware, RawOptions } from '../types.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
@@ -56,18 +48,22 @@ export function raw(options: RawOptions = {}): BodyParserMiddleware {
     limit = DEFAULT_LIMITS.RAW,
     type = DEFAULT_CONTENT_TYPES.RAW,
     rawBody: _rawBody = false, // Raw parser always returns buffer, option kept for consistency
+    verify,
   } = options;
 
   // Pre-compute configuration
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.RAW);
   const types = Array.isArray(type) ? type : [type];
 
-  return async (
-    ctx: BodyParserContext,
-    next?: () => Promise<void>
-  ): Promise<void> => {
+  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
+      if (next) await next();
+      return;
+    }
+
+    // Skip if body already parsed by another middleware
+    if (ctx.body !== undefined) {
       if (next) await next();
       return;
     }
@@ -81,6 +77,11 @@ export function raw(options: RawOptions = {}): BodyParserMiddleware {
 
     // Read body as raw buffer
     const buffer = await readBody(ctx, limitBytes);
+
+    // Invoke verify callback before setting body
+    if (verify) {
+      await verify(ctx, buffer, 'binary');
+    }
 
     // For raw parser, body is always the buffer
     ctx.body = buffer;

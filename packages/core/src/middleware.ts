@@ -57,37 +57,42 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
     }
   }
 
+  // Snapshot middleware array at compose time
+  const stack = [...middleware];
+  const len = stack.length;
+
+  // FAST PATH: No middleware — just call next()
+  if (len === 0) {
+    return function composedMiddleware(_ctx: Context, next?: Next): Promise<void> {
+      return next ? next() : Promise.resolve();
+    };
+  }
+
   /**
    * Composed middleware function
+   * Uses index-based dispatch to avoid per-request closure chains
+   * while preserving double-next detection per call.
    */
   return function composedMiddleware(ctx: Context, next?: Next): Promise<void> {
-    // Track the index to prevent multiple next() calls
+    // Per-request index tracker — only state needed
     let index = -1;
 
-    /**
-     * Dispatch to middleware at index i
-     */
-    async function dispatch(i: number): Promise<void> {
-      // Ensure next() wasn't called multiple times
+    function dispatch(i: number): Promise<void> {
       if (i <= index) {
-        throw new Error('next() called multiple times');
+        return Promise.reject(new Error('next() called multiple times'));
       }
 
       index = i;
 
-      // Get the middleware function at index i
-      // If we've gone through all middleware, call the final next
       let fn: Middleware | Next | undefined;
-
-      if (i < middleware.length) {
-        fn = middleware[i];
-      } else if (i === middleware.length) {
+      if (i < len) {
+        fn = stack[i];
+      } else if (i === len) {
         fn = next;
       }
 
-      // If no more middleware, we're done
       if (!fn) {
-        return;
+        return Promise.resolve();
       }
 
       const nextFn = () => dispatch(i + 1);
@@ -97,9 +102,11 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         ctx.setNext(nextFn);
       }
 
-      // Call the middleware with context and next function
-      // Support both (ctx) and (ctx, next) signatures
-      await fn(ctx, nextFn);
+      try {
+        return Promise.resolve(fn(ctx, nextFn));
+      } catch (err) {
+        return Promise.reject(err);
+      }
     }
 
     return dispatch(0);
@@ -114,10 +121,11 @@ export function isMiddleware(fn: unknown): fn is Middleware {
 }
 
 /**
- * Flatten nested middleware arrays with type validation
+ * Flatten nested middleware arrays with type validation.
+ * Uses bounded depth (10 levels) to prevent V8 deoptimization on deeply nested arrays.
  */
 export function flattenMiddleware(arr: (Middleware | Middleware[])[]): Middleware[] {
-  const flattened = arr.flat(Infinity);
+  const flattened = arr.flat(10);
   for (const fn of flattened) {
     if (typeof fn !== 'function') {
       throw new TypeError(`Invalid middleware: expected function, got ${typeof fn}`);

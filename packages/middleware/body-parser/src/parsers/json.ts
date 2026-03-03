@@ -8,15 +8,51 @@
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
 import { Errors } from '../errors.js';
-import type {
-    BodyParserContext,
-    BodyParserMiddleware,
-    JsonOptions,
-} from '../types.js';
+import type { BodyParserContext, BodyParserMiddleware, JsonOptions } from '../types.js';
 import { bufferToString } from '../utils/buffer.js';
 import { getContentType, isJsonContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
+
+/**
+ * Iterative JSON depth checker.
+ *
+ * Uses an explicit stack to avoid stack overflow on deeply nested payloads.
+ *
+ * @param value - Parsed JSON value to check
+ * @param maxDepth - Maximum allowed nesting depth
+ * @throws BodyParserError if depth exceeds limit
+ */
+function checkJsonDepth(value: unknown, maxDepth: number): void {
+  // Use parallel arrays instead of object stack to reduce GC pressure
+  const values: unknown[] = [value];
+  const depths: number[] = [1];
+
+  while (values.length > 0) {
+    const val = values.pop();
+    const depth = depths.pop()!;
+    if (depth > maxDepth) {
+      throw Errors.jsonDepthExceeded(depth, maxDepth);
+    }
+
+    if (Array.isArray(val)) {
+      for (const child of val) {
+        if (typeof child === 'object' && child !== null) {
+          values.push(child);
+          depths.push(depth + 1);
+        }
+      }
+    } else if (typeof val === 'object' && val !== null) {
+      for (const key of Object.keys(val as Record<string, unknown>)) {
+        const child = (val as Record<string, unknown>)[key];
+        if (typeof child === 'object' && child !== null) {
+          values.push(child);
+          depths.push(depth + 1);
+        }
+      }
+    }
+  }
+}
 
 /**
  * Create JSON body parser middleware.
@@ -56,6 +92,8 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
     type = DEFAULT_CONTENT_TYPES.JSON,
     rawBody = false,
     strict = true,
+    verify,
+    maxDepth,
   } = options;
 
   // Pre-compute configuration
@@ -63,15 +101,17 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
   const types = Array.isArray(type) ? type : [type];
 
   // Optimize for default case (single 'application/json' type)
-  const useSimpleCheck =
-    types.length === 1 && types[0] === 'application/json';
+  const useSimpleCheck = types.length === 1 && types[0] === 'application/json';
 
-  return async (
-    ctx: BodyParserContext,
-    next?: () => Promise<void>
-  ): Promise<void> => {
+  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
+      if (next) await next();
+      return;
+    }
+
+    // Skip if body already parsed by another middleware
+    if (ctx.body !== undefined) {
       if (next) await next();
       return;
     }
@@ -97,10 +137,13 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
 
     // Handle empty body
     if (buffer.length === 0) {
-      // Empty body returns empty object for convenience
-      ctx.body = {};
       if (next) await next();
       return;
+    }
+
+    // Invoke verify callback before parsing
+    if (verify) {
+      await verify(ctx, buffer, 'utf-8');
     }
 
     // Parse JSON
@@ -114,6 +157,11 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
         if (typeof parsed !== 'object' || parsed === null) {
           throw Errors.strictModeViolation();
         }
+      }
+
+      // Check nesting depth
+      if (maxDepth !== undefined && typeof parsed === 'object' && parsed !== null) {
+        checkJsonDepth(parsed, maxDepth);
       }
 
       ctx.body = parsed;

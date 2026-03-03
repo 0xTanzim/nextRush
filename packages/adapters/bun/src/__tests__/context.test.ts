@@ -90,22 +90,31 @@ describe('BunContext', () => {
       expect(ctx.ip).toBe('192.168.1.100');
     });
 
-    it('should extract IP from x-forwarded-for header', () => {
+    it('should extract IP from x-forwarded-for header when trustProxy is true', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'x-forwarded-for': '10.0.0.1, 10.0.0.2' },
       });
-      ctx = new BunContext(request);
+      ctx = new BunContext(request, undefined, true);
 
       expect(ctx.ip).toBe('10.0.0.1');
     });
 
-    it('should extract IP from x-real-ip header', () => {
+    it('should extract IP from x-real-ip header when trustProxy is true', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'x-real-ip': '172.16.0.1' },
       });
-      ctx = new BunContext(request);
+      ctx = new BunContext(request, undefined, true);
 
       expect(ctx.ip).toBe('172.16.0.1');
+    });
+
+    it('should not trust proxy headers when trustProxy is false', () => {
+      request = createMockRequest('http://localhost/', {
+        headers: { 'x-forwarded-for': '10.0.0.1', 'x-real-ip': '172.16.0.1' },
+      });
+      ctx = new BunContext(request);
+
+      expect(ctx.ip).toBe('');
     });
   });
 

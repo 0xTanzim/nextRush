@@ -9,12 +9,7 @@
  */
 
 import { extname } from 'node:path';
-import type {
-    AdapterConfig,
-    AdapterRenderOptions,
-    TemplateAdapter,
-    TemplateData,
-} from './types';
+import type { AdapterConfig, AdapterRenderOptions, TemplateAdapter, TemplateData } from './types';
 
 interface NunjucksConfig extends AdapterConfig {
   root?: string;
@@ -50,19 +45,18 @@ async function loadNunjucks(): Promise<NunjucksModule> {
 
   try {
     // @ts-ignore - Nunjucks is an optional peer dependency
-    nunjucksModule = await import('nunjucks') as unknown as NunjucksModule;
+    nunjucksModule = (await import('nunjucks')) as unknown as NunjucksModule;
     return nunjucksModule;
   } catch {
-    throw new Error(
-      'Nunjucks is not installed. Please install it with: npm install nunjucks'
-    );
+    throw new Error('Nunjucks is not installed. Please install it with: npm install nunjucks');
   }
 }
 
 export function createNunjucksAdapter(config: NunjucksConfig = {}): TemplateAdapter {
   const root = config.root ?? DEFAULT_ROOT;
   const ext = config.ext ?? DEFAULT_EXT;
-  const cacheEnabled = config.cache ?? process.env.NODE_ENV === 'production';
+  const cacheEnabled =
+    config.cache ?? (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production');
 
   let env: NunjucksEnvironment | null = null;
   const customFilters: Record<string, (...args: unknown[]) => unknown> = {

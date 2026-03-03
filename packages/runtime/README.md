@@ -17,6 +17,7 @@ await request.text();
 ```
 
 Writing framework code that works on all runtimes requires:
+
 1. Runtime detection to know what environment you're in
 2. Unified abstractions over platform-specific APIs
 
@@ -32,7 +33,7 @@ const runtime = getRuntime(); // 'node' | 'bun' | 'deno' | 'edge' | ...
 
 // 2. Use unified abstractions
 async function parseBody(bodySource: BodySource) {
-  const text = await bodySource.text();  // Works everywhere!
+  const text = await bodySource.text(); // Works everywhere!
   return JSON.parse(text);
 }
 ```
@@ -63,11 +64,12 @@ const runtime = detectRuntime();
 ```
 
 **Detection Order:**
+
 1. **Bun** - Has global `Bun` object
 2. **Deno** - Has global `Deno` object
 3. **Cloudflare Workers** - Has `navigator.userAgent` containing 'Cloudflare-Workers'
-4. **Vercel Edge** - Has `process.env.VERCEL_REGION`
-5. **Node.js** - Has `process.versions.node`
+4. **Node.js** - Has `process.versions.node`
+5. **Vercel Edge** - Has `process.env.VERCEL_REGION` (but NOT `process.versions.node`)
 6. **Edge** - Has `Request`/`Response` globals (generic Web API runtime)
 7. **Unknown** - None of the above
 
@@ -202,14 +204,14 @@ import { WebBodySource } from '@nextrush/runtime';
 const request = new Request('http://example.com', {
   method: 'POST',
   body: JSON.stringify({ hello: 'world' }),
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 'Content-Type': 'application/json' },
 });
 
 const bodySource = new WebBodySource(request);
 
-const text = await bodySource.text();    // '{"hello":"world"}'
+const text = await bodySource.text(); // '{"hello":"world"}'
 // or
-const data = await bodySource.json();    // { hello: 'world' }
+const data = await bodySource.json(); // { hello: 'world' }
 // or
 const buffer = await bodySource.buffer(); // Uint8Array
 ```
@@ -225,9 +227,9 @@ const bodySource = new EmptyBodySource();
 // or
 const bodySource = createEmptyBodySource();
 
-await bodySource.text();   // ''
+await bodySource.text(); // ''
 await bodySource.buffer(); // Uint8Array(0)
-await bodySource.json();   // throws SyntaxError
+await bodySource.json(); // throws SyntaxError
 ```
 
 #### `AbstractBodySource`
@@ -243,10 +245,7 @@ export class NodeBodySource extends AbstractBodySource {
   private readonly req: IncomingMessage;
 
   constructor(req: IncomingMessage) {
-    super(
-      req.headers['content-length'],
-      req.headers['content-type']
-    );
+    super(req.headers['content-length'], req.headers['content-type']);
     this.req = req;
   }
 
@@ -333,14 +332,7 @@ import type {
 ### `Runtime`
 
 ```typescript
-type Runtime =
-  | 'node'
-  | 'bun'
-  | 'deno'
-  | 'cloudflare-workers'
-  | 'vercel-edge'
-  | 'edge'
-  | 'unknown';
+type Runtime = 'node' | 'bun' | 'deno' | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown';
 ```
 
 ### `RuntimeCapabilities`
@@ -361,20 +353,20 @@ interface RuntimeCapabilities {
 
 ```typescript
 interface BodySourceOptions {
-  limit?: number;          // Max body size (default: 1MB)
+  limit?: number; // Max body size (default: 1MB)
   encoding?: BufferEncoding; // Text encoding (default: 'utf-8')
 }
 ```
 
 ## Runtime Compatibility
 
-| Feature | Node.js | Bun | Deno | Edge |
-|---------|---------|-----|------|------|
-| `detectRuntime()` | ✅ | ✅ | ✅ | ✅ |
-| `WebBodySource` | ❌ | ✅ | ✅ | ✅ |
-| `AbstractBodySource` | ✅ | ✅ | ✅ | ✅ |
-| Node.js streams | ✅ | ✅ | ❌ | ❌ |
-| Web streams | ✅ | ✅ | ✅ | ✅ |
+| Feature              | Node.js | Bun | Deno | Edge |
+| -------------------- | ------- | --- | ---- | ---- |
+| `detectRuntime()`    | ✅      | ✅  | ✅   | ✅   |
+| `WebBodySource`      | ❌      | ✅  | ✅   | ✅   |
+| `AbstractBodySource` | ✅      | ✅  | ✅   | ✅   |
+| Node.js streams      | ✅      | ✅  | ❌   | ❌   |
+| Web streams          | ✅      | ✅  | ✅   | ✅   |
 
 ## See Also
 

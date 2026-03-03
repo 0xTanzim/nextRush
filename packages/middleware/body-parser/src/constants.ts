@@ -31,7 +31,7 @@ export const DEFAULT_PARAMETER_LIMITS = {
   MAX_PARAMS: 1000,
 
   /** Maximum nesting depth for extended parsing */
-  MAX_DEPTH: 5,
+  MAX_DEPTH: 20,
 } as const;
 
 /**
@@ -79,11 +79,7 @@ export const SUPPORTED_CHARSETS = new Set([
 /**
  * Forbidden keys for prototype pollution prevention
  */
-export const FORBIDDEN_KEYS = new Set([
-  '__proto__',
-  'constructor',
-  'prototype',
-]);
+export const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
  * Pre-compiled regex patterns

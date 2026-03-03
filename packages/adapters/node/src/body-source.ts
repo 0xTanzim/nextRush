@@ -10,7 +10,7 @@ import { BadRequestError } from '@nextrush/errors';
 import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
 import type { BodySource, BodySourceOptions, NodeStreamLike, WebStreamLike } from '@nextrush/types';
 import type { IncomingMessage } from 'node:http';
-import { Readable } from 'node:stream';
+import { Readable, Transform } from 'node:stream';
 
 /**
  * Default body size limit (1MB)
@@ -127,7 +127,7 @@ export class NodeBodySource implements BodySource {
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new BadRequestError(`Invalid JSON in request body: ${text.slice(0, 100)}`, {
+      throw new BadRequestError('Invalid JSON in request body', {
         code: 'INVALID_JSON',
       });
     }
@@ -138,7 +138,23 @@ export class NodeBodySource implements BodySource {
       throw new BodyConsumedError();
     }
     this._consumed = true;
-    return this.req;
+
+    // Wrap with size enforcement
+    const limit = this.options.limit;
+    let totalBytes = 0;
+
+    const sizeCheck = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        totalBytes += chunk.length;
+        if (totalBytes > limit) {
+          callback(new BodyTooLargeError(limit, totalBytes));
+          return;
+        }
+        callback(null, chunk);
+      },
+    });
+
+    return this.req.pipe(sizeCheck);
   }
 }
 

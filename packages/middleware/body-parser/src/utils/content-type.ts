@@ -42,7 +42,10 @@ export function getContentLength(
   }
 
   const parsed = parseInt(value, 10);
-  return Number.isNaN(parsed) ? undefined : parsed;
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return undefined;
+  }
+  return parsed;
 }
 
 /**
@@ -80,9 +83,7 @@ export function matchContentType(
 
   // Extract base type without parameters
   const semicolonIndex = contentType.indexOf(';');
-  const baseType = (
-    semicolonIndex === -1 ? contentType : contentType.slice(0, semicolonIndex)
-  )
+  const baseType = (semicolonIndex === -1 ? contentType : contentType.slice(0, semicolonIndex))
     .trim()
     .toLowerCase();
 
@@ -94,7 +95,7 @@ export function matchContentType(
 
     // Prefix wildcard (e.g., 'text/*')
     if (type.endsWith('/*')) {
-      const prefix = type.slice(0, -2);
+      const prefix = type.slice(0, -1); // Keep the '/' → 'text/'
       if (baseType.startsWith(prefix)) {
         return true;
       }

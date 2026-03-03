@@ -18,18 +18,18 @@
  */
 
 import type {
-    AST,
-    ASTNode,
-    BlockNode,
-    CommentNode,
-    CompileOptions,
-    ExpressionArg,
-    HelperCall,
-    PartialNode,
-    RawNode,
-    TemplateErrorCode,
-    TextNode,
-    VariableNode,
+  AST,
+  ASTNode,
+  BlockNode,
+  CommentNode,
+  CompileOptions,
+  ExpressionArg,
+  HelperCall,
+  PartialNode,
+  RawNode,
+  TemplateErrorCode,
+  TextNode,
+  VariableNode,
 } from './template.types';
 
 // ============================================================================
@@ -67,12 +67,7 @@ export class TemplateParseError extends Error {
   readonly column: number;
   readonly source: string;
 
-  constructor(
-    message: string,
-    code: TemplateErrorCode,
-    source: string,
-    position: number
-  ) {
+  constructor(message: string, code: TemplateErrorCode, source: string, position: number) {
     const { line, column } = getLineColumn(source, position);
     super(`${message} at line ${line}, column ${column}`);
     this.name = 'TemplateParseError';
@@ -131,7 +126,8 @@ function tokenize(
       });
     }
 
-    const tripleOpen = source.slice(openIndex, openIndex + openDelim.length + 1) === openDelim + '{';
+    const tripleOpen =
+      source.slice(openIndex, openIndex + openDelim.length + 1) === openDelim + '{';
     const afterOpen = source[openIndex + openDelim.length] ?? '';
 
     let tokenType: TokenType = 'open';
@@ -171,12 +167,7 @@ function tokenize(
     const closeIndex = source.indexOf(closeSearch, pos);
 
     if (closeIndex === -1) {
-      throw new TemplateParseError(
-        'Unclosed template tag',
-        'PARSE_ERROR',
-        source,
-        openIndex
-      );
+      throw new TemplateParseError('Unclosed template tag', 'PARSE_ERROR', source, openIndex);
     }
 
     const content = source.slice(pos, closeIndex).trim();
@@ -216,7 +207,7 @@ function tokenize(
 // ============================================================================
 
 function parseExpression(expr: string): { name: string; helpers: HelperCall[] } {
-  const parts = expr.split('|').map(p => p.trim());
+  const parts = expr.split('|').map((p) => p.trim());
   const name = parts[0] ?? '';
   const helpers: HelperCall[] = [];
 
@@ -239,26 +230,33 @@ function parseArgs(argsStr: string): ExpressionArg[] {
   if (!argsStr.trim()) return [];
 
   const args: ExpressionArg[] = [];
-  const regex = /"([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|(\d+(?:\.\d+)?)|(\btrue\b|\bfalse\b)|([^\s,]+)/g;
+  const regex =
+    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|(\d+(?:\.\d+)?)|(\btrue\b|\bfalse\b)|([^\s,]+)/g;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(argsStr)) !== null) {
-    if (match[1] !== undefined || match[3] !== undefined) {
-      const value = match[1] ?? match[3] ?? '';
+    const fullMatch = match[0];
+    if (fullMatch.startsWith('"') || fullMatch.startsWith("'")) {
+      // Strip surrounding quotes
+      const value = fullMatch.slice(1, -1);
       args.push({ type: 'string', value });
-    } else if (match[5] !== undefined) {
-      args.push({ type: 'number', value: parseFloat(match[5]) });
-    } else if (match[6] !== undefined) {
-      args.push({ type: 'boolean', value: match[6] === 'true' });
-    } else if (match[7] !== undefined) {
-      args.push({ type: 'path', value: match[7] });
+    } else if (match[1] !== undefined) {
+      args.push({ type: 'number', value: parseFloat(match[1]) });
+    } else if (match[2] !== undefined) {
+      args.push({ type: 'boolean', value: match[2] === 'true' });
+    } else if (match[3] !== undefined) {
+      args.push({ type: 'path', value: match[3] });
     }
   }
 
   return args;
 }
 
-function parseBlockExpression(expr: string): { name: string; expression: string; args: ExpressionArg[] } {
+function parseBlockExpression(expr: string): {
+  name: string;
+  expression: string;
+  args: ExpressionArg[];
+} {
   const firstSpace = expr.indexOf(' ');
 
   if (firstSpace === -1) {
@@ -272,7 +270,11 @@ function parseBlockExpression(expr: string): { name: string; expression: string;
   return { name, expression, args };
 }
 
-function parsePartialExpression(expr: string): { name: string; context?: string; hash: Record<string, ExpressionArg> } {
+function parsePartialExpression(expr: string): {
+  name: string;
+  context?: string;
+  hash: Record<string, ExpressionArg>;
+} {
   const parts = expr.split(/\s+/);
   const name = parts[0] ?? '';
   let context: string | undefined;
@@ -480,12 +482,7 @@ function parseRaw(state: ParserState): RawNode {
 
   const closeToken = getToken(state);
   if (!closeToken || closeToken.type !== 'close_raw') {
-    throw new TemplateParseError(
-      'Unclosed raw tag',
-      'PARSE_ERROR',
-      state.source,
-      openToken.start
-    );
+    throw new TemplateParseError('Unclosed raw tag', 'PARSE_ERROR', state.source, openToken.start);
   }
   state.pos++;
 
@@ -612,12 +609,7 @@ function parseComment(state: ParserState): CommentNode {
 
   const closeToken = getToken(state);
   if (!closeToken || closeToken.type !== 'close') {
-    throw new TemplateParseError(
-      'Unclosed comment',
-      'PARSE_ERROR',
-      state.source,
-      openToken.start
-    );
+    throw new TemplateParseError('Unclosed comment', 'PARSE_ERROR', state.source, openToken.start);
   }
   state.pos++;
 

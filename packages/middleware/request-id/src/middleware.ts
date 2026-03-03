@@ -7,21 +7,21 @@
  */
 
 import {
-    CORRELATION_HEADER,
-    CORRELATION_STATE_KEY,
-    DEFAULT_HEADER,
-    DEFAULT_MAX_LENGTH,
-    DEFAULT_STATE_KEY,
-    TRACE_HEADER,
-    TRACE_STATE_KEY,
-    defaultGenerator,
+  CORRELATION_HEADER,
+  CORRELATION_STATE_KEY,
+  DEFAULT_HEADER,
+  DEFAULT_MAX_LENGTH,
+  DEFAULT_STATE_KEY,
+  TRACE_HEADER,
+  TRACE_STATE_KEY,
+  defaultGenerator,
 } from './constants';
 import type {
-    CorrelationIdOptions,
-    Middleware,
-    RequestIdContext,
-    RequestIdOptions,
-    TraceIdOptions,
+  CorrelationIdOptions,
+  Middleware,
+  RequestIdContext,
+  RequestIdOptions,
+  TraceIdOptions,
 } from './types';
 import { defaultValidator, validateId } from './validation';
 
@@ -78,6 +78,11 @@ export function requestId<TContext extends RequestIdContext = RequestIdContext>(
   const {
     header = DEFAULT_HEADER,
     generator = defaultGenerator,
+    /**
+     * When `true` (default), the middleware accepts valid incoming request
+     * IDs from the client header. Set to `false` for public-facing services
+     * where clients should not be able to inject their own tracking IDs.
+     */
     trustIncoming = true,
     validator = defaultValidator,
     maxLength = DEFAULT_MAX_LENGTH,

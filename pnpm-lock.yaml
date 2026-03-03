@@ -249,6 +249,9 @@ importers:
       '@nextrush/errors':
         specifier: workspace:*
         version: link:../../errors
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../runtime
       '@nextrush/types':
         specifier: workspace:*
         version: link:../../types

@@ -45,10 +45,11 @@ describe('ValidationError', () => {
       expect(error).toBeInstanceOf(Error);
     });
 
-    it('should include issues in details', () => {
+    it('should store issues as canonical source without duplicating in details', () => {
       const issues = [{ path: 'email', message: 'Invalid' }];
       const error = new ValidationError(issues);
-      expect(error.details).toEqual({ issues });
+      expect(error.issues).toEqual(issues);
+      expect(error.details).toBeUndefined();
     });
   });
 

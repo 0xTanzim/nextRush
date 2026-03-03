@@ -1,7 +1,7 @@
 /**
- * @nextrush/router - Radix Tree Node
+ * @nextrush/router - Segment Trie Node
  *
- * Internal radix tree implementation for high-performance route matching.
+ * Internal segment trie implementation for high-performance route matching.
  * Uses a compressed trie structure for O(k) lookups where k is path length.
  *
  * @packageDocumentation
@@ -54,9 +54,11 @@ export interface HandlerEntry {
 
 /**
  * No-op next function - reusable, zero allocation
+ * Caches the resolved Promise to avoid per-call allocation
  * @internal
  */
-export const NOOP_NEXT = async (): Promise<void> => {};
+const RESOLVED_PROMISE = Promise.resolve();
+export const NOOP_NEXT = (): Promise<void> => RESOLVED_PROMISE;
 
 /**
  * Compile an executor for a route handler with middleware

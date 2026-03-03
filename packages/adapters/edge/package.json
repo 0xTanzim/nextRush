@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@nextrush/errors": "workspace:*",
+    "@nextrush/runtime": "workspace:*",
     "@nextrush/types": "workspace:*",
     "@nextrush/core": "workspace:*"
   },

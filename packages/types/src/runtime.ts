@@ -19,6 +19,7 @@ export type Runtime =
   | 'node'
   | 'bun'
   | 'deno'
+  | 'deno-deploy'
   | 'cloudflare-workers'
   | 'vercel-edge'
   | 'edge'
@@ -159,5 +160,5 @@ export interface BodySourceOptions {
   limit?: number;
 
   /** Encoding for text() method (default: 'utf-8') */
-  encoding?: 'utf-8' | 'utf8' | 'ascii' | 'latin1' | 'base64' | 'hex';
+  encoding?: 'utf-8' | 'utf8' | 'ascii' | 'latin1' | 'iso-8859-1' | 'utf-16le' | 'utf-16be';
 }

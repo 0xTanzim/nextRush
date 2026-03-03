@@ -9,12 +9,7 @@
  */
 
 import { extname, join } from 'node:path';
-import type {
-  AdapterConfig,
-  AdapterRenderOptions,
-  TemplateAdapter,
-  TemplateData,
-} from './types';
+import type { AdapterConfig, AdapterRenderOptions, TemplateAdapter, TemplateData } from './types';
 
 interface PugConfig extends AdapterConfig {
   root?: string;
@@ -45,19 +40,18 @@ async function loadPug(): Promise<PugModule> {
 
   try {
     // @ts-ignore - Pug is an optional peer dependency
-    pugModule = await import('pug') as unknown as PugModule;
+    pugModule = (await import('pug')) as unknown as PugModule;
     return pugModule;
   } catch {
-    throw new Error(
-      'Pug is not installed. Please install it with: npm install pug'
-    );
+    throw new Error('Pug is not installed. Please install it with: npm install pug');
   }
 }
 
 export function createPugAdapter(config: PugConfig = {}): TemplateAdapter {
   const root = config.root ?? DEFAULT_ROOT;
   const ext = config.ext ?? DEFAULT_EXT;
-  const cacheEnabled = config.cache ?? process.env.NODE_ENV === 'production';
+  const cacheEnabled =
+    config.cache ?? (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production');
 
   const templateCache = new Map<string, CompiledPugTemplate>();
   const globalLocals: Record<string, unknown> = { ...config.helpers };

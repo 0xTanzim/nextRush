@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import { randomUUID } from 'node:crypto';
+const randomUUID = (): string => crypto.randomUUID();
 import type { IncomingMessage } from 'node:http';
 import type { RoomManager } from './room-manager';
 import { WS_READY_STATE_OPEN, type WSConnection } from './types';
@@ -115,9 +115,7 @@ export class Connection implements WSConnection {
     switch (event) {
       case 'message':
         this.ws.on('message', (rawData: unknown, isBinary: unknown) => {
-          const buffer = Buffer.isBuffer(rawData)
-            ? rawData
-            : Buffer.from(rawData as ArrayBuffer);
+          const buffer = Buffer.isBuffer(rawData) ? rawData : Buffer.from(rawData as ArrayBuffer);
           (handler as MessageHandler)(isBinary ? buffer : buffer.toString('utf8'));
         });
         break;
@@ -125,7 +123,9 @@ export class Connection implements WSConnection {
       case 'close':
         this.ws.on('close', (code: unknown, reason: unknown) => {
           this.roomManager.leaveAll(this);
-          const reasonStr = Buffer.isBuffer(reason) ? reason.toString('utf8') : String(reason ?? '');
+          const reasonStr = Buffer.isBuffer(reason)
+            ? reason.toString('utf8')
+            : String(reason ?? '');
           (handler as CloseHandler)(code as number, reasonStr);
         });
         break;

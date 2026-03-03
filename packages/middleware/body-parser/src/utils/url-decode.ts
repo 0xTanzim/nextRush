@@ -20,8 +20,9 @@ import type { ParsedUrlEncoded } from '../types.js';
  */
 export function safeDecodeURIComponent(str: string): string {
   try {
-    // Replace + with space before decoding
-    return decodeURIComponent(str.replace(/\+/g, ' '));
+    // Replace + with space before decoding (skip regex when no + present)
+    const decoded = str.includes('+') ? str.replace(/\+/g, ' ') : str;
+    return decodeURIComponent(decoded);
   } catch {
     return str;
   }
@@ -86,7 +87,7 @@ export function setNestedValue(
       // Check next part to determine if we need an array or object
       const nextPart = parts[i + 1];
       const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
-      current[part] = isNextNumeric ? [] : {};
+      current[part] = isNextNumeric ? [] : (Object.create(null) as Record<string, unknown>);
     }
 
     const next = current[part];
@@ -96,7 +97,7 @@ export function setNestedValue(
       // Can't traverse into primitive, overwrite with object
       const nextPart = parts[i + 1];
       const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
-      current[part] = isNextNumeric ? [] : {};
+      current[part] = isNextNumeric ? [] : (Object.create(null) as Record<string, unknown>);
     }
 
     current = current[part] as Record<string, unknown>;
@@ -110,8 +111,8 @@ export function setNestedValue(
 
   if (Array.isArray(current)) {
     const index = parseInt(lastPart, 10);
-    if (!Number.isNaN(index) && index >= 0 && index < 10000) {
-      // Limit array index to prevent memory issues
+    if (!Number.isNaN(index) && index >= 0 && index < 1000) {
+      // Limit array index to prevent sparse array memory abuse
       (current as unknown[])[index] = value;
     }
   } else {
@@ -135,7 +136,7 @@ export function parseUrlEncoded(
   parameterLimit: number = DEFAULT_PARAMETER_LIMITS.MAX_PARAMS,
   depth: number = DEFAULT_PARAMETER_LIMITS.MAX_DEPTH
 ): ParsedUrlEncoded {
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
 
   // Handle empty string
   if (!str || str.length === 0) {
@@ -164,8 +165,7 @@ export function parseUrlEncoded(
         ? safeDecodeURIComponent(pair)
         : safeDecodeURIComponent(pair.slice(0, eqIndex));
 
-    const value =
-      eqIndex === -1 ? '' : safeDecodeURIComponent(pair.slice(eqIndex + 1));
+    const value = eqIndex === -1 ? '' : safeDecodeURIComponent(pair.slice(eqIndex + 1));
 
     // Skip empty keys
     if (!key) {

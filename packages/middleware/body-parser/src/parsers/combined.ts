@@ -6,15 +6,9 @@
  * @packageDocumentation
  */
 
-import {
-    BODYLESS_METHODS,
-    DEFAULT_CONTENT_TYPES,
-} from '../constants.js';
-import type {
-    BodyParserContext,
-    BodyParserMiddleware,
-    BodyParserOptions,
-} from '../types.js';
+import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES } from '../constants.js';
+import { Errors } from '../errors.js';
+import type { BodyParserContext, BodyParserMiddleware, BodyParserOptions } from '../types.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
 import { json } from './json.js';
 import { raw } from './raw.js';
@@ -65,7 +59,10 @@ export function bodyParser(options: BodyParserOptions = {}): BodyParserMiddlewar
   } = options;
 
   // Helper to normalize type option to string array
-  const normalizeTypes = (optionType: string | readonly string[] | undefined, defaultType: readonly string[]): string[] => {
+  const normalizeTypes = (
+    optionType: string | readonly string[] | undefined,
+    defaultType: readonly string[]
+  ): string[] => {
     if (optionType === undefined) {
       return [...defaultType];
     }
@@ -77,33 +74,40 @@ export function bodyParser(options: BodyParserOptions = {}): BodyParserMiddlewar
 
   // Build content type matchers from options
   // This fixes HIGH-002: Combined parser now respects custom types
-  const jsonTypes = jsonOptions !== false
-    ? normalizeTypes(jsonOptions.type, DEFAULT_CONTENT_TYPES.JSON)
-    : [];
-  const urlencodedTypes = urlencodedOptions !== false
-    ? normalizeTypes(urlencodedOptions.type, DEFAULT_CONTENT_TYPES.URLENCODED)
-    : [];
+  const jsonTypes =
+    jsonOptions !== false ? normalizeTypes(jsonOptions.type, DEFAULT_CONTENT_TYPES.JSON) : [];
+  const urlencodedTypes =
+    urlencodedOptions !== false
+      ? normalizeTypes(urlencodedOptions.type, DEFAULT_CONTENT_TYPES.URLENCODED)
+      : [];
   // Text and raw only enabled when explicitly configured (not undefined, not false)
   const hasTextOptions = textOptions !== undefined && textOptions !== false;
   const hasRawOptions = rawOptions !== undefined && rawOptions !== false;
   const textTypes = hasTextOptions
-    ? normalizeTypes((textOptions as Exclude<typeof textOptions, false | undefined>).type, DEFAULT_CONTENT_TYPES.TEXT)
+    ? normalizeTypes(
+        (textOptions as Exclude<typeof textOptions, false | undefined>).type,
+        DEFAULT_CONTENT_TYPES.TEXT
+      )
     : [];
   const rawTypes = hasRawOptions
-    ? normalizeTypes((rawOptions as Exclude<typeof rawOptions, false | undefined>).type, DEFAULT_CONTENT_TYPES.RAW)
+    ? normalizeTypes(
+        (rawOptions as Exclude<typeof rawOptions, false | undefined>).type,
+        DEFAULT_CONTENT_TYPES.RAW
+      )
     : [];
 
   // Pre-create individual parsers with correct options
   const jsonParser = jsonOptions !== false ? json(jsonOptions) : null;
   const urlencodedParser = urlencodedOptions !== false ? urlencoded(urlencodedOptions) : null;
   // Text and raw parsers only created when explicitly enabled
-  const textParser = hasTextOptions ? text(textOptions as Exclude<typeof textOptions, false | undefined>) : null;
-  const rawParser = hasRawOptions ? raw(rawOptions as Exclude<typeof rawOptions, false | undefined>) : null;
+  const textParser = hasTextOptions
+    ? text(textOptions as Exclude<typeof textOptions, false | undefined>)
+    : null;
+  const rawParser = hasRawOptions
+    ? raw(rawOptions as Exclude<typeof rawOptions, false | undefined>)
+    : null;
 
-  return async (
-    ctx: BodyParserContext,
-    next?: () => Promise<void>
-  ): Promise<void> => {
+  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
       if (next) await next();
@@ -142,6 +146,14 @@ export function bodyParser(options: BodyParserOptions = {}): BodyParserMiddlewar
       await rawParser(ctx);
       if (next) await next();
       return;
+    }
+
+    // Multipart stub: provide a clear error instead of silent pass-through
+    if (contentType && contentType.startsWith('multipart/')) {
+      throw Errors.unsupportedContentType(
+        'multipart/form-data',
+        'Use a dedicated multipart parser package for file uploads'
+      );
     }
 
     // No matching parser, continue without parsing
