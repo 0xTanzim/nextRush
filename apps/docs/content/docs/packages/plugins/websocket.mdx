@@ -1,281 +1,310 @@
 ---
-title: "@nextrush/websocket"
-description: "WebSocket support with rooms, broadcasting, and route-based handlers."
+title: '@nextrush/websocket'
+description: 'WebSocket plugin for NextRush with rooms, broadcasting, and route-based handlers.'
 ---
 
 # @nextrush/websocket
 
-Add real-time communication with WebSocket support.
+HTTP handles request-response. WebSocket handles persistent, bidirectional connections — chat, live dashboards, collaborative editing, and real-time notifications.
 
-The WebSocket plugin provides route-based handlers, room management for organized messaging, and broadcasting capabilities. It uses a factory pattern for clean, decoupled design.
+This plugin integrates the `ws` library with NextRush through a factory pattern. You create a WebSocket server, register route handlers, and attach it to your HTTP server. Room management and broadcasting are built in.
 
----
+## Default Behavior
+
+With zero configuration, the plugin:
+
+- Accepts WebSocket connections on registered route paths
+- Pings all connections every 30 seconds (heartbeat)
+- Terminates unresponsive connections after 60 seconds
+- Limits messages to 1MB
+- Allows unlimited connections
+- Limits each connection to 100 rooms
+- Allows all origins
 
 ## Installation
 
-```bash tab="npm"
-npm install @nextrush/websocket
-```
+<PackageInstall packages={['@nextrush/websocket', 'ws']} dev={['@types/ws']} />
 
-```bash tab="pnpm"
-pnpm add @nextrush/websocket
-```
+<Callout type="warn">
+  The `ws` package is a required peer dependency. Install it alongside the plugin.
+</Callout>
 
----
+<Callout type="info">
+  This plugin targets Node.js 22+ only. For Bun, Deno, or edge runtimes, use their native WebSocket
+  APIs.
+</Callout>
 
-## Quick Start
+## Minimal Usage
 
-```typescript
+```ts
 import { createApp } from '@nextrush/core';
 import { createWebSocket } from '@nextrush/websocket';
 
 const app = createApp();
 const wss = createWebSocket();
 
-// Define WebSocket routes
 wss.on('/chat', (conn) => {
   conn.on('message', (msg) => {
     conn.send(`Echo: ${msg}`);
   });
 
-  conn.on('close', () => {
-    console.log('Connection closed');
+  conn.on('close', (code, reason) => {
+    console.log('Disconnected:', code, reason);
   });
 });
 
-// Start server and attach WebSocket
+app.use(wss.upgrade());
+
 const server = app.listen(3000, () => {
   wss.attach(server);
-  console.log('Server running on port 3000');
 });
 ```
 
----
+Three steps: create the WebSocket server, register route handlers, then attach to the HTTP server after it starts listening.
 
-## Configuration
+## Configuration Options
 
-```typescript
+Pass options to `createWebSocket()` to customize behavior.
+
+```ts
 const wss = createWebSocket({
-  // Heartbeat interval (ms)
-  heartbeatInterval: 30000,
-
-  // Maximum message size
-  maxPayload: 1024 * 1024,  // 1MB
-
-  // Maximum connections
-  maxConnections: 1000,
-
-  // Authentication
+  maxPayload: 512 * 1024,
+  heartbeatInterval: 15000,
+  clientTimeout: 30000,
+  maxConnections: 500,
+  maxRoomsPerConnection: 50,
+  allowedOrigins: ['https://example.com', 'https://*.example.com'],
+  perMessageDeflate: true,
   verifyClient: async (req) => {
     const token = req.headers['authorization'];
-    return validateToken(token);
+    return Boolean(token);
   },
+  onConnection: (conn) => console.log('Connected:', conn.id),
+  onClose: (conn, code, reason) => console.log('Closed:', conn.id, code),
+  onError: (conn, error) => console.error('Error:', conn.id, error.message),
 });
 ```
 
----
+<TypeTable
+  title="WebSocketOptions"
+  types={{
+    path: {
+      type: 'string | string[]',
+      description: 'Allowed paths for WebSocket connections',
+      default: "['/']",
+      optional: true,
+    },
+    maxPayload: {
+      type: 'number',
+      description: 'Maximum message size in bytes',
+      default: '1048576 (1MB)',
+      optional: true,
+    },
+    heartbeatInterval: {
+      type: 'number',
+      description: 'Heartbeat ping interval in ms (0 to disable)',
+      default: '30000',
+      optional: true,
+    },
+    clientTimeout: {
+      type: 'number',
+      description: 'Terminates connections that miss a pong within this time (ms)',
+      default: '60000',
+      optional: true,
+    },
+    maxConnections: {
+      type: 'number',
+      description: 'Maximum concurrent connections (0 for unlimited)',
+      default: '0',
+      optional: true,
+    },
+    maxRoomsPerConnection: {
+      type: 'number',
+      description: 'Maximum rooms a connection can join (0 for unlimited)',
+      default: '100',
+      optional: true,
+    },
+    allowedOrigins: {
+      type: 'string[]',
+      description: 'Allowed origins for CORS. Supports wildcards. Empty array allows all.',
+      default: '[]',
+      optional: true,
+    },
+    perMessageDeflate: {
+      type: 'boolean',
+      description: 'Enable per-message deflate compression',
+      default: 'false',
+      optional: true,
+    },
+    verifyClient: {
+      type: '(req: IncomingMessage) => boolean | Promise<boolean>',
+      description: 'Custom client verification. Return true to allow, false to reject.',
+      optional: true,
+    },
+    onConnection: {
+      type: '(conn: WSConnection) => void',
+      description: 'Called when a connection is established',
+      optional: true,
+    },
+    onClose: {
+      type: '(conn: WSConnection, code: number, reason: string) => void',
+      description: 'Called when a connection is closed',
+      optional: true,
+    },
+    onError: {
+      type: '(conn: WSConnection, error: Error) => void',
+      description: 'Called when an error occurs',
+      optional: true,
+    },
+  }}
+/>
 
 ## Route-Based Handlers
 
-Define handlers for different paths:
+Register handlers for different WebSocket paths with `wss.on(path, handler)`:
 
-```typescript
-// Chat route
-wss.on('/chat', (conn) => {
+```ts
+wss.on('/chat', (conn, request) => {
   conn.on('message', (msg) => {
     conn.broadcast('chat', msg);
   });
 });
 
-// Notifications route
 wss.on('/notifications', (conn) => {
-  conn.on('message', (msg) => {
-    // Handle notification subscription
-  });
-});
-
-// Wildcard route
-wss.on('*', (conn) => {
-  // Catches all unmatched paths
+  conn.json({ type: 'welcome', timestamp: Date.now() });
 });
 ```
 
----
+Path matching supports exact matches, parameterized segments (`:id`), and wildcards (`*`).
 
-## Connection Events
+## Connection API
 
-```typescript
-wss.on('/chat', (conn) => {
-  // Message received
-  conn.on('message', (data) => {
-    console.log('Received:', data);
-  });
+Each handler receives a `WSConnection` with these properties and methods.
 
-  // Connection closed
-  conn.on('close', (code, reason) => {
-    console.log(`Closed: ${code} - ${reason}`);
-  });
+<TypeTable
+  title="WSConnection Properties"
+  types={{
+    id: { type: 'string', description: 'Unique connection identifier (UUID)' },
+    url: { type: 'string', description: 'Connection URL path' },
+    isOpen: { type: 'boolean', description: 'Whether the connection is currently open' },
+    request: { type: 'IncomingMessage', description: 'Original HTTP upgrade request' },
+  }}
+/>
 
-  // Error occurred
-  conn.on('error', (err) => {
-    console.error('Error:', err);
-  });
-});
+### Sending Messages
+
+```ts
+conn.send('Hello'); // Send string
+conn.send(Buffer.from([1, 2, 3])); // Send binary buffer
+conn.json({ type: 'update', items: [] }); // Send JSON (auto-stringified)
 ```
 
----
+### Events
 
-## Rooms
-
-Organize connections into groups:
-
-```typescript
-wss.on('/chat', (conn) => {
-  // Join a room
-  conn.join('general');
-
-  // Leave a room
-  conn.leave('general');
-
-  // Broadcast to room (excludes sender)
-  conn.broadcast('general', 'Hello everyone!');
-
-  // Send to all in room (includes sender)
-  conn.room('general').send('Announcement');
+```ts
+conn.on('message', (data) => {
+  /* string or Buffer */
 });
+conn.on('close', (code, reason) => {
+  /* cleanup */
+});
+conn.on('error', (error) => {
+  /* handle error */
+});
+conn.on('ping', (data) => {
+  /* ping received */
+});
+conn.on('pong', (data) => {
+  /* pong received */
+});
+
+conn.off(event, handler); // Remove a listener
 ```
 
-### Multiple Rooms
+### Rooms
 
-```typescript
-wss.on('/chat', (conn, req) => {
-  const userId = req.headers['x-user-id'];
+Connections can join rooms for organized broadcasting:
 
-  // Join multiple rooms
-  conn.join('general');
-  conn.join(`user:${userId}`);
+```ts
+conn.join('general');
+conn.join('notifications');
+conn.leave('general');
+conn.leaveAll();
 
-  conn.on('message', (msg) => {
-    const data = JSON.parse(msg);
-
-    if (data.type === 'direct') {
-      // Send to specific user's room
-      conn.room(`user:${data.to}`).send(data.message);
-    } else {
-      // Broadcast to general
-      conn.broadcast('general', msg);
-    }
-  });
-});
+const rooms = conn.getRooms(); // ['notifications']
 ```
 
----
+Room names must be non-empty strings with a maximum length of 256 characters. Each connection can join up to 100 rooms by default (configurable via `maxRoomsPerConnection`).
+
+### Broadcasting from a Connection
+
+`broadcast()` sends to all room members **excluding the sender**:
+
+```ts
+conn.broadcast('general', 'User joined!');
+conn.broadcastJson('general', { type: 'join', user: 'Alice' });
+```
 
 ## Middleware
 
-Add middleware for authentication, logging, etc.:
+Add WebSocket-specific middleware for cross-cutting concerns:
 
-```typescript
-// Authentication middleware
-wss.use(async (conn, req, next) => {
-  const token = req.headers['authorization'];
+```ts
+wss.use((conn, request, next) => {
+  console.log('New connection:', conn.id, request.url);
+  next();
+});
 
+wss.use((conn, request, next) => {
+  const token = request.headers['x-auth-token'];
   if (!token) {
     conn.close(4001, 'Unauthorized');
     return;
   }
-
-  const user = await verifyToken(token);
-  conn.data.user = user;
-
-  await next();
-});
-
-// Logging middleware
-wss.use(async (conn, req, next) => {
-  console.log(`New connection to ${req.url}`);
-  await next();
-  console.log('Connection handler completed');
+  next();
 });
 ```
 
----
+Middleware runs in registration order before the route handler executes.
 
-## Sending Messages
+## Server-Level APIs
 
-```typescript
-wss.on('/chat', (conn) => {
-  // Send string
-  conn.send('Hello!');
+The WebSocket server instance provides broadcasting across all connections and server management.
 
-  // Send JSON
-  conn.send(JSON.stringify({ type: 'greeting', data: 'Hello!' }));
+```ts
+// Broadcast to all connections
+wss.broadcast('Hello everyone!');
+wss.broadcastJson({ type: 'announcement', text: 'Server restarting' });
 
-  // Send binary
-  conn.send(new Uint8Array([1, 2, 3]));
-});
+// Broadcast to a specific room
+wss.broadcastToRoom('chat', 'System message');
+wss.broadcastJsonToRoom('chat', { type: 'system', text: 'Welcome' });
+
+// Exclude a specific connection
+wss.broadcast('Hello others!', currentConn);
 ```
 
----
+### Server Statistics
 
-## Broadcasting
-
-Send to multiple connections:
-
-```typescript
-wss.on('/chat', (conn) => {
-  conn.join('general');
-
-  // Broadcast to room (excludes sender)
-  conn.broadcast('general', 'User joined');
-
-  // Send to all room members (includes sender)
-  const room = conn.room('general');
-  room.send('Announcement');
-
-  // Room info
-  console.log(`Room has ${room.size} members`);
-});
+```ts
+const connections = wss.getConnections();
+const count = wss.getConnectionCount();
+const rooms = wss.getRooms();
+const members = wss.getRoomConnections('chat');
 ```
 
----
+### Shutdown
 
-## Authentication
-
-Verify connections before accepting:
-
-```typescript
-const wss = createWebSocket({
-  verifyClient: async (req) => {
-    const token = req.headers['authorization']?.replace('Bearer ', '');
-
-    if (!token) {
-      return false;  // Reject connection
-    }
-
-    try {
-      const user = await verifyJWT(token);
-      req.user = user;  // Attach to request
-      return true;
-    } catch {
-      return false;
-    }
-  },
-});
-
-wss.on('/protected', (conn, req) => {
-  const user = req.user;  // Access authenticated user
-  console.log(`User ${user.id} connected`);
-});
+```ts
+wss.closeAll(1001, 'Server shutting down');
+wss.close(); // Stops heartbeat, closes all connections, releases resources
 ```
-
----
 
 ## Integration Helper
 
-Simplified server integration:
+The `withWebSocket` helper attaches the WebSocket server automatically when the app starts:
 
-```typescript
+```ts
 import { createApp } from '@nextrush/core';
 import { createWebSocket, withWebSocket } from '@nextrush/websocket';
 
@@ -286,62 +315,42 @@ wss.on('/chat', (conn) => {
   conn.on('message', (msg) => conn.send(msg));
 });
 
-// Auto-attach when server starts
-await withWebSocket(app, wss, 3000, () => {
-  console.log('Server with WebSocket running');
-});
+app.use(wss.upgrade());
+
+await withWebSocket(app, wss, 3000);
 ```
 
----
+## Common Mistakes
 
-## Connection Data
+**Forgetting to call `wss.attach(server)` or use `withWebSocket`.**
+The WebSocket server does not listen for connections until attached to an HTTP server. Without this step, upgrade requests are never handled.
 
-Store per-connection data:
+**Calling `conn.broadcast()` without joining a room first.**
+`broadcast(room, data)` sends to members of the specified room. If no connections have joined that room, the message goes nowhere.
 
-```typescript
-wss.on('/chat', (conn, req) => {
-  // Store data
-  conn.data.username = req.headers['x-username'];
-  conn.data.joinedAt = Date.now();
+**Not installing the `ws` peer dependency.**
+The plugin dynamically imports `ws` at runtime. If the package is missing, an error is thrown with installation instructions.
 
-  // Access later
-  conn.on('message', (msg) => {
-    console.log(`${conn.data.username}: ${msg}`);
-  });
-});
-```
+**Sending non-string/Buffer data with `conn.send()`.**
+Use `conn.json(data)` for objects. `conn.send()` accepts `string` or `Buffer` only.
 
----
+## Troubleshooting
 
-## TypeScript
+**WebSocket connections return 404.**
+Ensure the request path matches a registered route via `wss.on(path, handler)` or the `path` option in configuration.
 
-Full type support:
+**Connections drop after 60 seconds of inactivity.**
+The heartbeat system terminates connections that do not respond to pings within `clientTimeout` (default: 60s). Send periodic messages or rely on the built-in ping/pong mechanism.
 
-```typescript
-import type {
-  WebSocketOptions,
-  WSConnection,
-  WSHandler,
-  WSMiddleware
-} from '@nextrush/websocket';
+**Origin rejected with 403 Forbidden.**
+When `allowedOrigins` is configured, requests without an `Origin` header are denied. Verify the client sends the correct `Origin` header.
 
-import { createWebSocket, WebSocketServer } from '@nextrush/websocket';
-
-interface ConnectionData {
-  userId: string;
-  username: string;
-}
-
-const wss = createWebSocket();
-
-wss.on('/chat', (conn: WSConnection<ConnectionData>) => {
-  conn.data.userId = 'user-123';
-});
-```
+**MaxRoomsExceededError thrown.**
+A connection attempted to join more rooms than `maxRoomsPerConnection` allows. Increase the limit or have the connection leave unused rooms.
 
 ---
 
 ## Related
 
 - [Plugins Overview](/docs/packages/plugins) — All plugin packages
-- [@nextrush/events](/docs/packages/plugins/events) — Event emitter
+- [@nextrush/events](/docs/packages/plugins/events) — Event emitter plugin

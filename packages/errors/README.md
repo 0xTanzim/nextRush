@@ -19,6 +19,7 @@ Every API returns errors differently. This creates chaos for both developers and
 NextRush treats **errors as API contracts**, not exceptions.
 
 Every error has three responsibilities:
+
 1. **HTTP status code** - Semantic meaning for browsers and clients
 2. **Human message** - Clear explanation for developers/users
 3. **Machine code** - Stable identifier for programmatic handling
@@ -38,6 +39,7 @@ User Request → Handler Logic → Error Thrown → Middleware Catches → JSON 
 ```
 
 When you throw `NotFoundError`, you're declaring an API contract:
+
 - **Status:** 404 Not Found
 - **Code:** `NOT_FOUND`
 - **Message:** Custom message you provide
@@ -140,33 +142,33 @@ You don't write error handling code. You **declare error states** and NextRush h
 
 ```typescript
 import {
-  BadRequestError,        // 400
-  UnauthorizedError,      // 401
-  PaymentRequiredError,   // 402
-  ForbiddenError,         // 403
-  NotFoundError,          // 404
-  MethodNotAllowedError,  // 405
-  NotAcceptableError,     // 406
-  RequestTimeoutError,    // 408
-  ConflictError,          // 409
-  GoneError,              // 410
-  LengthRequiredError,    // 411
+  BadRequestError, // 400
+  UnauthorizedError, // 401
+  PaymentRequiredError, // 402
+  ForbiddenError, // 403
+  NotFoundError, // 404
+  MethodNotAllowedError, // 405
+  NotAcceptableError, // 406
+  RequestTimeoutError, // 408
+  ConflictError, // 409
+  GoneError, // 410
+  LengthRequiredError, // 411
   PreconditionFailedError, // 412
-  PayloadTooLargeError,   // 413
-  UriTooLongError,        // 414
+  PayloadTooLargeError, // 413
+  UriTooLongError, // 414
   UnsupportedMediaTypeError, // 415
   RangeNotSatisfiableError, // 416
   ExpectationFailedError, // 417
-  ImATeapotError,         // 418
+  ImATeapotError, // 418
   UnprocessableEntityError, // 422
-  LockedError,            // 423
-  FailedDependencyError,  // 424
-  TooEarlyError,          // 425
-  UpgradeRequiredError,   // 426
+  LockedError, // 423
+  FailedDependencyError, // 424
+  TooEarlyError, // 425
+  UpgradeRequiredError, // 426
   PreconditionRequiredError, // 428
-  TooManyRequestsError,   // 429
+  TooManyRequestsError, // 429
   RequestHeaderFieldsTooLargeError, // 431
-  UnavailableForLegalReasonsError,  // 451
+  UnavailableForLegalReasonsError, // 451
 } from '@nextrush/errors';
 ```
 
@@ -174,16 +176,16 @@ import {
 
 ```typescript
 import {
-  InternalServerError,    // 500
-  NotImplementedError,    // 501
-  BadGatewayError,        // 502
+  InternalServerError, // 500
+  NotImplementedError, // 501
+  BadGatewayError, // 502
   ServiceUnavailableError, // 503
-  GatewayTimeoutError,    // 504
+  GatewayTimeoutError, // 504
   HttpVersionNotSupportedError, // 505
-  VariantAlsoNegotiatesError,   // 506
-  InsufficientStorageError,     // 507
-  LoopDetectedError,      // 508
-  NotExtendedError,       // 510
+  VariantAlsoNegotiatesError, // 506
+  InsufficientStorageError, // 507
+  LoopDetectedError, // 508
+  NotExtendedError, // 510
   NetworkAuthRequiredError, // 511
 } from '@nextrush/errors';
 ```
@@ -272,7 +274,7 @@ import {
   ValidationError,
   RequiredFieldError,
   TypeMismatchError,
-  RangeError,
+  RangeValidationError,
   LengthError,
   PatternError,
   InvalidEmailError,
@@ -280,17 +282,19 @@ import {
 } from '@nextrush/errors';
 
 // Generic validation error with issues
-throw new ValidationError('Validation failed', {
-  issues: [
-    { field: 'email', message: 'Required', code: 'required' },
-    { field: 'age', message: 'Must be positive', code: 'range' },
-  ],
-});
+throw new ValidationError([
+  { path: 'email', message: 'Required', rule: 'required' },
+  { path: 'age', message: 'Must be positive', rule: 'range' },
+]);
+
+// Static factory methods
+throw ValidationError.fromField('email', 'Invalid format', 'email');
+throw ValidationError.fromFields({ email: 'Required', age: 'Must be number' });
 
 // Specific field errors
 throw new RequiredFieldError('email');
 throw new TypeMismatchError('age', 'number', 'string');
-throw new RangeError('age', 18, 100);
+throw new RangeValidationError('age', 18, 100);
 throw new LengthError('password', 8, 128);
 throw new PatternError('username', '^[a-z0-9]+$');
 throw new InvalidEmailError('email');
@@ -306,25 +310,23 @@ Format errors as JSON responses:
 ```typescript
 import { errorHandler } from '@nextrush/errors';
 
-app.use(errorHandler({
-  // Include stack trace (default: false in production)
-  includeStack: process.env.NODE_ENV !== 'production',
+app.use(
+  errorHandler({
+    // Include stack trace (default: false)
+    includeStack: process.env.NODE_ENV !== 'production',
 
-  // Log errors (default: true)
-  log: true,
+    // Custom error logger (default: logs 5xx as errors, 4xx as warnings)
+    logger: (err, ctx) => {
+      myLogger.error(err, { path: ctx.path });
+    },
 
-  // Custom error logger
-  logger: (err, ctx) => {
-    myLogger.error(err, { path: ctx.path });
-  },
-
-  // Transform error response
-  transform: (err) => ({
-    error: err.message,
-    code: err.code || 'UNKNOWN_ERROR',
-    status: err.status,
-  }),
-}));
+    // Custom error response transformer
+    transform: (err, ctx) => ({
+      error: err.message,
+      status: ctx.status,
+    }),
+  })
+);
 ```
 
 ### notFoundHandler()
@@ -348,21 +350,20 @@ Wrap async handlers to catch errors:
 ```typescript
 import { catchAsync } from '@nextrush/errors';
 
-app.get('/users/:id', catchAsync(async (ctx) => {
-  const user = await db.findUser(ctx.params.id);
-  if (!user) throw new NotFoundError('User not found');
-  ctx.json(user);
-}));
+app.get(
+  '/users/:id',
+  catchAsync(async (ctx) => {
+    const user = await db.findUser(ctx.params.id);
+    if (!user) throw new NotFoundError('User not found');
+    ctx.json(user);
+  })
+);
 ```
 
 ## Error Utilities
 
 ```typescript
-import {
-  isHttpError,
-  getErrorStatus,
-  getSafeErrorMessage,
-} from '@nextrush/errors';
+import { isHttpError, getErrorStatus, getSafeErrorMessage } from '@nextrush/errors';
 
 // Check if error is HTTP error
 if (isHttpError(err)) {
@@ -388,7 +389,7 @@ import { HttpError } from '@nextrush/errors';
 
 class CustomError extends HttpError {
   constructor(message: string) {
-    super(message, 422, 'CUSTOM_ERROR');
+    super(422, message, { code: 'CUSTOM_ERROR' });
   }
 }
 ```
@@ -402,8 +403,7 @@ import { NextRushError } from '@nextrush/errors';
 
 class ConfigError extends NextRushError {
   constructor(message: string) {
-    super(message);
-    this.name = 'ConfigError';
+    super(message, { code: 'CONFIG_ERROR' });
   }
 }
 ```
@@ -470,16 +470,19 @@ interface HttpErrorOptions {
   code?: string;
   expose?: boolean;
   details?: Record<string, unknown>;
+  cause?: unknown;
 }
 
 interface ValidationIssue {
-  field: string;
+  path: string;
   message: string;
-  code: string;
+  rule?: string;
+  expected?: unknown;
+  received?: unknown;
 }
 ```
 
-```
+````
 
 ## Common Mistakes
 
@@ -493,7 +496,7 @@ throw new Error('User not found');
 // ✅ Do this instead
 throw new NotFoundError('User not found');
 // → Returns 404 Not Found with NOT_FOUND code
-```
+````
 
 **Why it's wrong:** Generic JavaScript `Error` becomes 500 Internal Server Error. The client can't distinguish between "not found" and "server crash".
 
@@ -502,7 +505,7 @@ throw new NotFoundError('User not found');
 ```typescript
 // ❌ Don't do this
 throw new InternalServerError('PostgreSQL connection timeout on pool "primary"', {
-  expose: true  // Leaks infrastructure details!
+  expose: true, // Leaks infrastructure details!
 });
 
 // ✅ Do this instead
@@ -591,9 +594,7 @@ export function validateEmail(email: string): string {
 
 // ✅ Return validation result
 export function validateEmail(email: string): { valid: boolean; error?: string } {
-  return isValid(email)
-    ? { valid: true }
-    : { valid: false, error: 'Invalid email format' };
+  return isValid(email) ? { valid: true } : { valid: false, error: 'Invalid email format' };
 }
 
 // ✅ Throw at the HTTP boundary
@@ -652,13 +653,13 @@ async function processQueue() {
 
 Works on all NextRush-supported runtimes:
 
-| Runtime | Supported | Notes |
-|---------|-----------|-------|
-| Node.js 20+ | ✅ | Full support |
-| Bun 1.0+ | ✅ | Full support |
-| Deno 2.0+ | ✅ | Full support |
-| Cloudflare Workers | ✅ | Full support |
-| Vercel Edge Runtime | ✅ | Full support |
+| Runtime             | Supported | Notes        |
+| ------------------- | --------- | ------------ |
+| Node.js 20+         | ✅        | Full support |
+| Bun 1.0+            | ✅        | Full support |
+| Deno 2.0+           | ✅        | Full support |
+| Cloudflare Workers  | ✅        | Full support |
+| Vercel Edge Runtime | ✅        | Full support |
 
 **Zero external dependencies.** Uses only standard JavaScript `Error` APIs and NextRush types.
 
@@ -675,4 +676,6 @@ Works on all NextRush-supported runtimes:
 
 MIT
 
-````
+```
+
+```

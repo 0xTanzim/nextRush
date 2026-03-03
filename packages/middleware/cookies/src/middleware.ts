@@ -19,6 +19,7 @@ import type {
   SignedCookieContext,
   SignedCookieMiddlewareOptions,
 } from './types.js';
+import { sanitizeCookieValue } from './validation.js';
 
 // ============================================================================
 // State Types
@@ -83,9 +84,11 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
     if (decode) {
       for (const [name, value] of Object.entries(parsed)) {
         try {
-          parsed[name] = decode(value);
-        } catch {
-          // Keep original value on decode error
+          const decoded = decode(value);
+          // Re-sanitize after custom decode to prevent CRLF injection
+          parsed[name] = sanitizeCookieValue(decoded);
+        } catch (_: unknown) {
+          // Custom decode failed — retain the parser-sanitized value.
         }
       }
     }
@@ -123,7 +126,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
       },
 
       has(name: string): boolean {
-        return name in parsed;
+        return Object.hasOwn(parsed, name);
       },
     };
 
@@ -235,39 +238,41 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
 
 /**
  * Set cookies on the response.
- * Handles both standard and Node.js-specific response objects.
+ *
+ * Uses raw response `setHeader` with an array to correctly emit
+ * multiple `Set-Cookie` headers. Falls back to `ctx.set` for adapters
+ * that don't expose the raw response.
  */
-function setResponseCookies(ctx: Context, cookies: string[]): void {
-  // Try ctx.set for each cookie (Koa-style)
-  if (typeof ctx.set === 'function') {
-    for (const cookie of cookies) {
-      ctx.set('Set-Cookie', cookie);
-    }
-    return;
-  }
+function setResponseCookies(ctx: Context, newCookies: string[]): void {
+  // Prefer raw res.setHeader — it natively supports string[] for Set-Cookie
+  const raw = ctx.raw as {
+    res?: {
+      getHeader?: (name: string) => string | string[] | number | undefined;
+      setHeader?: (name: string, value: string[]) => void;
+    };
+  };
 
-  // Try response object (if available)
-  const response = (ctx as { response?: { headers?: Record<string, string | string[]> } }).response;
-  if (response?.headers) {
-    const existing = response.headers['set-cookie'];
+  if (raw?.res?.setHeader) {
+    const existing = raw.res.getHeader?.('set-cookie');
     let allCookies: string[];
 
     if (Array.isArray(existing)) {
-      allCookies = [...existing, ...cookies];
+      allCookies = [...existing, ...newCookies];
     } else if (typeof existing === 'string') {
-      allCookies = [existing, ...cookies];
+      allCookies = [existing, ...newCookies];
     } else {
-      allCookies = cookies;
+      allCookies = newCookies;
     }
 
-    response.headers['set-cookie'] = allCookies as unknown as string;
+    raw.res.setHeader('Set-Cookie', allCookies);
     return;
   }
 
-  // Node.js raw response fallback
-  const raw = ctx.raw as { res?: { setHeader?: (name: string, value: string[]) => void } };
-  if (raw?.res?.setHeader) {
-    raw.res.setHeader('Set-Cookie', cookies);
+  // Fallback: ctx.set (last resort — may overwrite on some adapters)
+  if (typeof ctx.set === 'function') {
+    for (const cookie of newCookies) {
+      ctx.set('Set-Cookie', cookie);
+    }
   }
 }
 

@@ -1,33 +1,38 @@
 ---
 title: Building REST APIs
-description: Step-by-step guide to building production-ready REST APIs with NextRush
+description: Step-by-step guide to building a REST API with NextRush
 ---
 
 # Building REST APIs
 
-This guide walks you through building a production-ready REST API with NextRush.
+Build a complete user management REST API with NextRush. You'll define routes, parse request bodies, throw typed errors, and return structured JSON responses.
 
-You'll learn how to structure routes, handle request bodies, validate input, and return proper responses.
+## What You Will Build
 
-## What You'll Build
+A CRUD API for managing users:
 
-A user management API with these endpoints:
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/users` | List all users |
-| `GET` | `/api/users/:id` | Get user by ID |
-| `POST` | `/api/users` | Create a user |
-| `PUT` | `/api/users/:id` | Update a user |
-| `DELETE` | `/api/users/:id` | Delete a user |
+| Method   | Path             | Description    |
+| -------- | ---------------- | -------------- |
+| `GET`    | `/api/users`     | List all users |
+| `GET`    | `/api/users/:id` | Get user by ID |
+| `POST`   | `/api/users`     | Create a user  |
+| `PUT`    | `/api/users/:id` | Update a user  |
+| `DELETE` | `/api/users/:id` | Delete a user  |
 
 ## Prerequisites
 
-Install the required packages:
+- Node.js 22+
+- TypeScript 5.x with strict mode
 
-```bash
-npm install @nextrush/core @nextrush/router @nextrush/adapter-node @nextrush/body-parser @nextrush/errors
-```
+<PackageInstall
+  packages={[
+    '@nextrush/core',
+    '@nextrush/router',
+    '@nextrush/adapter-node',
+    '@nextrush/body-parser',
+    '@nextrush/errors',
+  ]}
+/>
 
 ## Project Structure
 
@@ -42,305 +47,281 @@ src/
     └── user.ts       # Type definitions
 ```
 
-## Step 1: Define Your Types
+## Step-by-Step
 
-Start with clear type definitions:
+<Steps>
+  <Step>
+    ### Define your types
 
-```typescript title="src/types/user.ts"
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+    Start with clear type definitions:
 
-export interface CreateUserInput {
-  name: string;
-  email: string;
-}
+    ```typescript title="src/types/user.ts"
+    export interface User {
+      id: string;
+      name: string;
+      email: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }
 
-export interface UpdateUserInput {
-  name?: string;
-  email?: string;
-}
-```
+    export interface CreateUserInput {
+      name: string;
+      email: string;
+    }
 
-## Step 2: Create a Service Layer
+    export interface UpdateUserInput {
+      name?: string;
+      email?: string;
+    }
+    ```
 
-Separate business logic from HTTP handling:
+  </Step>
+  <Step>
+    ### Create a service layer
 
-```typescript title="src/services/user.ts"
-import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
+    Separate business logic from HTTP handling:
 
-// In-memory store for demonstration
-const users = new Map<string, User>();
+    ```typescript title="src/services/user.ts"
+    import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
 
-export const userService = {
-  findAll(): User[] {
-    return Array.from(users.values());
-  },
+    // In-memory store for demonstration
+    const users = new Map<string, User>();
 
-  findById(id: string): User | undefined {
-    return users.get(id);
-  },
+    export const userService = {
+      findAll(): User[] {
+        return Array.from(users.values());
+      },
 
-  create(input: CreateUserInput): User {
-    const id = crypto.randomUUID();
-    const now = new Date();
+      findById(id: string): User | undefined {
+        return users.get(id);
+      },
 
-    const user: User = {
-      id,
-      name: input.name,
-      email: input.email,
-      createdAt: now,
-      updatedAt: now,
+      create(input: CreateUserInput): User {
+        const id = crypto.randomUUID();
+        const now = new Date();
+
+        const user: User = {
+          id,
+          name: input.name,
+          email: input.email,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        users.set(id, user);
+        return user;
+      },
+
+      update(id: string, input: UpdateUserInput): User | undefined {
+        const existing = users.get(id);
+        if (!existing) return undefined;
+
+        const updated: User = {
+          ...existing,
+          ...input,
+          updatedAt: new Date(),
+        };
+
+        users.set(id, updated);
+        return updated;
+      },
+
+      delete(id: string): boolean {
+        return users.delete(id);
+      },
     };
+    ```
 
-    users.set(id, user);
-    return user;
-  },
+  </Step>
+  <Step>
+    ### Define routes
 
-  update(id: string, input: UpdateUserInput): User | undefined {
-    const existing = users.get(id);
-    if (!existing) return undefined;
+    Register routes on the router with relative paths. The mount prefix is applied when you attach the router to the app.
 
-    const updated: User = {
-      ...existing,
-      ...input,
-      updatedAt: new Date(),
-    };
+    ```typescript title="src/routes/users.ts"
+    import { createRouter } from '@nextrush/router';
+    import { NotFoundError, BadRequestError } from '@nextrush/errors';
+    import { userService } from '../services/user';
+    import type { CreateUserInput, UpdateUserInput } from '../types/user';
 
-    users.set(id, updated);
-    return updated;
-  },
+    export const usersRouter = createRouter();
 
-  delete(id: string): boolean {
-    return users.delete(id);
-  },
-};
-```
+    // GET /api/users
+    usersRouter.get('/', (ctx) => {
+      const users = userService.findAll();
+      ctx.json({
+        data: users,
+        total: users.length,
+      });
+    });
 
-## Step 3: Define Routes
+    // GET /api/users/:id
+    usersRouter.get('/:id', (ctx) => {
+      const { id } = ctx.params;
+      const user = userService.findById(id);
 
-Create your API routes using the router:
+      if (!user) {
+        throw new NotFoundError(`User with ID "${id}" not found`);
+      }
 
-```typescript title="src/routes/users.ts"
-import { createRouter } from '@nextrush/router';
-import { NotFoundError, BadRequestError } from '@nextrush/errors';
-import { userService } from '../services/user';
-import type { CreateUserInput, UpdateUserInput } from '../types/user';
+      ctx.json({ data: user });
+    });
 
-export const usersRouter = createRouter();
+    // POST /api/users
+    usersRouter.post('/', (ctx) => {
+      const body = ctx.body as CreateUserInput;
 
-// GET /api/users - List all users
-usersRouter.get('/api/users', (ctx) => {
-  const users = userService.findAll();
-  ctx.json({
-    data: users,
-    total: users.length,
-  });
-});
+      if (!body.name || !body.email) {
+        throw new BadRequestError('Name and email are required');
+      }
 
-// GET /api/users/:id - Get user by ID
-usersRouter.get('/api/users/:id', (ctx) => {
-  const { id } = ctx.params;
-  const user = userService.findById(id);
+      const user = userService.create(body);
 
-  if (!user) {
-    throw new NotFoundError(`User with ID "${id}" not found`);
-  }
+      ctx.status = 201;
+      ctx.json({ data: user });
+    });
 
-  ctx.json({ data: user });
-});
+    // PUT /api/users/:id
+    usersRouter.put('/:id', (ctx) => {
+      const { id } = ctx.params;
+      const body = ctx.body as UpdateUserInput;
 
-// POST /api/users - Create user
-usersRouter.post('/api/users', (ctx) => {
-  const body = ctx.body as CreateUserInput;
+      const user = userService.update(id, body);
 
-  // Basic validation
-  if (!body.name || !body.email) {
-    throw new BadRequestError('Name and email are required');
-  }
+      if (!user) {
+        throw new NotFoundError(`User with ID "${id}" not found`);
+      }
 
-  const user = userService.create(body);
+      ctx.json({ data: user });
+    });
 
-  ctx.status = 201;
-  ctx.json({ data: user });
-});
+    // DELETE /api/users/:id
+    usersRouter.delete('/:id', (ctx) => {
+      const { id } = ctx.params;
+      const deleted = userService.delete(id);
 
-// PUT /api/users/:id - Update user
-usersRouter.put('/api/users/:id', (ctx) => {
-  const { id } = ctx.params;
-  const body = ctx.body as UpdateUserInput;
+      if (!deleted) {
+        throw new NotFoundError(`User with ID "${id}" not found`);
+      }
 
-  const user = userService.update(id, body);
+      ctx.status = 204;
+      ctx.send('');
+    });
+    ```
 
-  if (!user) {
-    throw new NotFoundError(`User with ID "${id}" not found`);
-  }
+    <Callout type="info">
+      Router paths are relative to the mount point. When you call `app.route('/api/users', usersRouter)`, a route registered as `/:id` matches requests to `/api/users/:id`.
+    </Callout>
 
-  ctx.json({ data: user });
-});
+  </Step>
+  <Step>
+    ### Set up the application
 
-// DELETE /api/users/:id - Delete user
-usersRouter.delete('/api/users/:id', (ctx) => {
-  const { id } = ctx.params;
-  const deleted = userService.delete(id);
+    Wire everything together:
 
-  if (!deleted) {
-    throw new NotFoundError(`User with ID "${id}" not found`);
-  }
+    ```typescript title="src/index.ts"
+    import { createApp } from '@nextrush/core';
+    import { listen } from '@nextrush/adapter-node';
+    import { json } from '@nextrush/body-parser';
+    import { errorHandler, notFoundHandler } from '@nextrush/errors';
+    import { usersRouter } from './routes/users';
 
-  ctx.status = 204;
-  ctx.send('');
-});
-```
+    const app = createApp();
 
-## Step 4: Set Up the Application
+    // Error handling (must be first)
+    app.use(errorHandler({
+      includeStack: process.env.NODE_ENV !== 'production',
+    }));
 
-Wire everything together:
+    // Parse JSON bodies
+    app.use(json());
 
-```typescript title="src/index.ts"
-import { createApp } from '@nextrush/core';
-import { listen } from '@nextrush/adapter-node';
-import { json } from '@nextrush/body-parser';
-import { errorHandler, notFoundHandler } from '@nextrush/errors';
-import { usersRouter } from './routes/users';
+    // Mount routes
+    app.route('/api/users', usersRouter);
 
-const app = createApp();
+    // 404 handler (must be last)
+    app.use(notFoundHandler());
 
-// Error handling (must be first)
-app.use(errorHandler({
-  includeStack: process.env.NODE_ENV !== 'production',
-}));
+    // Start server
+    await listen(app, 3000);
+    ```
 
-// Parse JSON bodies
-app.use(json());
+    <Callout type="warn">
+      Middleware order matters. The error handler wraps all downstream middleware, so it must be registered first. The 404 handler catches unmatched requests, so it must be last.
+    </Callout>
 
-// Mount routes
-app.route('/api', usersRouter);
+  </Step>
+  <Step>
+    ### Verify your API
 
-// 404 handler (must be last)
-app.use(notFoundHandler());
+    Start the server and test with curl:
 
-// Start server
-listen(app, { port: 3000 });
-console.log('API running at http://localhost:3000');
-```
+    ```bash
+    # Create a user
+    curl -X POST http://localhost:3000/api/users \
+      -H "Content-Type: application/json" \
+      -d '{"name": "Alice", "email": "alice@example.com"}'
 
-## Step 5: Test Your API
+    # List all users
+    curl http://localhost:3000/api/users
 
-Test with curl or any HTTP client:
+    # Get a specific user (replace with a real ID from the create response)
+    curl http://localhost:3000/api/users/<id>
 
-```bash
-# Create a user
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Alice", "email": "alice@example.com"}'
+    # Update a user
+    curl -X PUT http://localhost:3000/api/users/<id> \
+      -H "Content-Type: application/json" \
+      -d '{"name": "Alice Updated"}'
 
-# List all users
-curl http://localhost:3000/api/users
+    # Delete a user
+    curl -X DELETE http://localhost:3000/api/users/<id>
+    ```
 
-# Get a specific user (replace ID)
-curl http://localhost:3000/api/users/abc123
+    Expected responses:
 
-# Update a user
-curl -X PUT http://localhost:3000/api/users/abc123 \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Alice Updated"}'
+    - `POST` returns `201` with the created user
+    - `GET` returns `200` with `{ data: ... }`
+    - `PUT` returns `200` with the updated user
+    - `DELETE` returns `204` with an empty body
+    - Missing users return `404` with a structured error
 
-# Delete a user
-curl -X DELETE http://localhost:3000/api/users/abc123
-```
-
-## Adding Response Formatting
-
-For consistent API responses, create a helper:
-
-```typescript title="src/utils/response.ts"
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    message: string;
-    code: string;
-  };
-  meta?: {
-    total?: number;
-    page?: number;
-    limit?: number;
-  };
-}
-
-export function success<T>(data: T, meta?: ApiResponse<T>['meta']): ApiResponse<T> {
-  return {
-    success: true,
-    data,
-    meta,
-  };
-}
-
-export function paginated<T>(
-  items: T[],
-  total: number,
-  page: number,
-  limit: number
-): ApiResponse<T[]> {
-  return {
-    success: true,
-    data: items,
-    meta: { total, page, limit },
-  };
-}
-```
-
-Use it in your routes:
-
-```typescript
-import { success, paginated } from '../utils/response';
-
-// GET /api/users
-usersRouter.get('/api/users', (ctx) => {
-  const users = userService.findAll();
-  ctx.json(success(users, { total: users.length }));
-});
-
-// GET /api/users/:id
-usersRouter.get('/api/users/:id', (ctx) => {
-  const user = userService.findById(ctx.params.id);
-  if (!user) throw new NotFoundError('User not found');
-  ctx.json(success(user));
-});
-```
+  </Step>
+</Steps>
 
 ## Adding Pagination
 
-For large datasets, add pagination:
+For large datasets, add query-based pagination to the list endpoint:
 
 ```typescript
-usersRouter.get('/api/users', (ctx) => {
-  const page = parseInt(ctx.query.page || '1', 10);
-  const limit = parseInt(ctx.query.limit || '10', 10);
+usersRouter.get('/', (ctx) => {
+  const page = Number(ctx.query.page) || 1;
+  const limit = Number(ctx.query.limit) || 10;
 
   const allUsers = userService.findAll();
   const start = (page - 1) * limit;
   const users = allUsers.slice(start, start + limit);
 
-  ctx.json(paginated(users, allUsers.length, page, limit));
+  ctx.json({
+    data: users,
+    meta: { total: allUsers.length, page, limit },
+  });
 });
 ```
 
 ## Using Class-Based Controllers
 
-For larger applications, consider class-based controllers:
+For larger applications, you can use decorator-based controllers with dependency injection. This requires additional packages:
+
+<PackageInstall
+  packages={['@nextrush/decorators', '@nextrush/di', '@nextrush/controllers', 'reflect-metadata']}
+/>
 
 ```typescript title="src/controllers/users.controller.ts"
 import 'reflect-metadata';
 import { Controller, Get, Post, Put, Delete, Body, Param } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
 import { NotFoundError, BadRequestError } from '@nextrush/errors';
-import type { CreateUserInput, UpdateUserInput } from '../types/user';
+import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
 
 @Service()
 class UserService {
@@ -355,7 +336,12 @@ class UserService {
   }
 
   create(input: CreateUserInput) {
-    const user = { id: crypto.randomUUID(), ...input, createdAt: new Date(), updatedAt: new Date() };
+    const user: User = {
+      id: crypto.randomUUID(),
+      ...input,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
     this.users.set(user.id, user);
     return user;
   }
@@ -373,7 +359,7 @@ class UserService {
   }
 }
 
-@Controller('/api/users')
+@Controller('/users')
 export class UsersController {
   constructor(private userService: UserService) {}
 
@@ -419,19 +405,25 @@ Bootstrap with the controllers plugin:
 ```typescript title="src/index.ts"
 import 'reflect-metadata';
 import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { listen } from '@nextrush/adapter-node';
 import { json } from '@nextrush/body-parser';
 import { controllersPlugin } from '@nextrush/controllers';
 import { UsersController } from './controllers/users.controller';
 
 const app = createApp();
+const router = createRouter();
 
 app.use(json());
-app.plugin(controllersPlugin({
-  controllers: [UsersController],
-}));
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [UsersController],
+  })
+);
+app.route('/api', router);
 
-listen(app, { port: 3000 });
+await listen(app, 3000);
 ```
 
 ## Common Patterns
@@ -439,33 +431,35 @@ listen(app, { port: 3000 });
 ### Route Grouping
 
 ```typescript
-const v1Router = createRouter();
+import { createRouter } from '@nextrush/router';
 
-v1Router.get('/api/v1/users', usersHandler);
-v1Router.get('/api/v1/posts', postsHandler);
+const users = createRouter();
+users.get('/', listUsers);
+users.get('/:id', getUser);
 
-const v2Router = createRouter();
-v2Router.get('/api/v2/users', usersV2Handler);
+const posts = createRouter();
+posts.get('/', listPosts);
+posts.get('/:id', getPost);
 
-app.route('/api/v1', v1Router);
-app.route('/api/v2', v2Router);
+app.route('/api/users', users);
+app.route('/api/posts', posts);
 ```
 
-### Request Logging
+### Request Logging Middleware
 
 ```typescript
 app.use(async (ctx) => {
   const start = Date.now();
   await ctx.next();
   const duration = Date.now() - start;
-  console.log(`${ctx.method} ${ctx.path} ${ctx.status} - ${duration}ms`);
+  app.logger.info(`${ctx.method} ${ctx.path} ${ctx.status} - ${duration}ms`);
 });
 ```
 
 ### Content Negotiation
 
 ```typescript
-usersRouter.get('/api/users/:id', (ctx) => {
+usersRouter.get('/:id', (ctx) => {
   const user = userService.findById(ctx.params.id);
   if (!user) throw new NotFoundError('User not found');
 
@@ -492,9 +486,5 @@ usersRouter.get('/api/users/:id', (ctx) => {
     description="Add request validation with Zod."
     href="/docs/guides/validation"
   />
-  <Card
-    title="Testing"
-    description="Test your API endpoints."
-    href="/docs/guides/testing"
-  />
+  <Card title="Testing" description="Test your API endpoints." href="/docs/guides/testing" />
 </Cards>

@@ -4,15 +4,15 @@ Lightweight dependency injection container for NextRush v3.
 
 ## Features
 
-- 🎯 **Constructor Injection** - Automatic dependency resolution
-- 🔄 **Singleton & Transient Scopes** - Control instance lifecycle
-- 🔍 **Circular Dependency Detection** - Clear error messages
-- 📝 **Production-Grade Errors** - Actionable guidance for fixes
-- 🧪 **Test-Friendly** - Easy mocking and isolation
+- **Constructor Injection** — Automatic dependency resolution via TypeScript metadata
+- **Singleton & Transient Scopes** — Control instance lifecycle per service
+- **Circular Dependency Detection** — Caught at resolution time with cycle visualization
+- **Production-Grade Errors** — Actionable messages with fix suggestions and resolution chains
+- **Test-Friendly** — Isolated containers and instance clearing for test setup
 
-## 🚀 Development
+## Development
 
-For the best development experience with full decorator and DI support, we highly recommend using **`@nextrush/dev`**.
+For the best development experience with full decorator and DI support, use **`@nextrush/dev`**.
 
 ```bash
 pnpm add -D @nextrush/dev
@@ -30,18 +30,18 @@ Then in your `package.json`:
 
 ### Why?
 
-TypeScript's `emitDecoratorMetadata` option emits runtime type information that allows the DI container to automatically resolve constructor dependencies. Most modern fast runners (like `tsx` or `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing errors like:
+TypeScript's `emitDecoratorMetadata` option emits runtime type information that allows the DI container to automatically resolve constructor dependencies. Most modern fast runners (`tsx`, `esbuild`, `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing errors like:
 
 ```
 TypeInfo not known for "UserService"
 ```
 
-| Runtime | Decorator Metadata | Recommended |
-|---------|-------------------|-------------|
-| **nextrush-dev** | ✅ Full Support | **✅ Highly Recommended** |
-| **tsc + node** | ✅ Full Support | ✅ Yes (Production) |
-| **tsx / esbuild** | ❌ Not Supported | ❌ No |
-| **ts-node --esm** | ⚠️ Issues | ❌ No |
+| Runtime           | Decorator Metadata | Recommended      |
+| ----------------- | ------------------ | ---------------- |
+| **nextrush-dev**  | Full Support       | Yes              |
+| **tsc + node**    | Full Support       | Yes (Production) |
+| **tsx / esbuild** | Not Supported      | No               |
+| **ts-node --esm** | Issues             | No               |
 
 ## Installation
 
@@ -65,10 +65,9 @@ pnpm add @nextrush/di reflect-metadata
 ## Quick Start
 
 ```typescript
-import 'reflect-metadata';  // Must be first!
+import 'reflect-metadata'; // Must be first!
 import { Service, Repository, container } from '@nextrush/di';
 
-// Define a repository
 @Repository()
 class UserRepository {
   findAll() {
@@ -76,17 +75,15 @@ class UserRepository {
   }
 }
 
-// Define a service with automatic dependency injection
 @Service()
 class UserService {
-  constructor(private repo: UserRepository) {}  // Auto-injected!
+  constructor(private repo: UserRepository) {}
 
   getUsers() {
     return this.repo.findAll();
   }
 }
 
-// Resolve with automatic injection
 const userService = container.resolve(UserService);
 console.log(userService.getUsers()); // [{ id: 1, name: 'Alice' }]
 ```
@@ -108,9 +105,15 @@ class MyService {}
 class RequestLogger {}
 ```
 
+**`ServiceOptions`:**
+
+| Property | Type                         | Default       | Description        |
+| -------- | ---------------------------- | ------------- | ------------------ |
+| `scope`  | `'singleton' \| 'transient'` | `'singleton'` | Instance lifecycle |
+
 #### `@Repository(options?)`
 
-Semantic alias for `@Service()`. Use for data access layers.
+Semantic alias for `@Service()`. Sets metadata type to `'repository'` instead of `'service'`. Use for data access layers.
 
 ```typescript
 @Repository()
@@ -123,7 +126,7 @@ class UserRepository {
 
 #### `@inject(token)`
 
-Explicitly inject a dependency by token. Use for interfaces or custom tokens.
+Explicitly inject a dependency by token. Use for interfaces, string tokens, or symbol tokens.
 
 ```typescript
 const DATABASE_TOKEN = Symbol('Database');
@@ -139,20 +142,60 @@ class UserService {
 
 #### `@AutoInjectable()`
 
-Allow instantiation with `new` while still supporting auto-injection.
+Mark a class as injectable in the container. Sets service type metadata to `'service'`.
 
 ```typescript
 @AutoInjectable()
 class FeatureService {
-  constructor(private logger?: Logger) {}
+  constructor(private logger: Logger) {}
 }
 
-// Can instantiate with new - logger is auto-injected
-const service = new FeatureService();
-
-// Or provide manually
-const service2 = new FeatureService(customLogger);
+// Resolve through the container
+const service = container.resolve(FeatureService);
 ```
+
+> **Note:** Despite the name, `@AutoInjectable()` does not enable dependency injection via `new`. The current implementation uses tsyringe's `injectable()` decorator internally. Dependencies are resolved only through `container.resolve()`.
+
+#### `delay(tokenFactory)`
+
+Defer resolution to break circular dependencies. Returns a lazy token for use with `@inject()`.
+
+```typescript
+import { delay, inject, Service } from '@nextrush/di';
+
+@Service()
+class ServiceA {
+  constructor(@inject(delay(() => ServiceB)) private b: ServiceB) {}
+}
+
+@Service()
+class ServiceB {
+  constructor(@inject(delay(() => ServiceA)) private a: ServiceA) {}
+}
+```
+
+### Utility Functions
+
+#### `hasServiceMetadata(target)`
+
+Check if a class has DI metadata (decorated with `@Service()` or `@Repository()`).
+
+```typescript
+import { hasServiceMetadata, Service } from '@nextrush/di';
+
+@Service()
+class MyService {}
+
+hasServiceMetadata(MyService); // true
+```
+
+#### `getServiceType(target)`
+
+Get the service type from a decorated class. Returns `'service'`, `'repository'`, or `undefined`.
+
+#### `getServiceScope(target)`
+
+Get the scope from a decorated class. Returns `'singleton'`, `'transient'`, or `undefined`.
 
 ### Container
 
@@ -167,9 +210,9 @@ container.register(UserService, { useClass: UserService });
 // Value provider
 container.register('CONFIG', { useValue: { port: 3000 } });
 
-// Factory provider
+// Factory provider — receives the container for nested resolution
 container.register(Logger, {
-  useFactory: (c) => new Logger(c.resolve('CONFIG'))
+  useFactory: (c) => new Logger(c.resolve('CONFIG')),
 });
 ```
 
@@ -184,7 +227,7 @@ const config = container.resolve<Config>('CONFIG');
 
 #### `container.resolveAll(token)`
 
-Resolve all dependencies registered under a token.
+Resolve all dependencies registered under a token. Returns an empty array if none are registered.
 
 ```typescript
 container.register('Plugin', { useValue: pluginA });
@@ -205,7 +248,7 @@ if (container.isRegistered(UserService)) {
 
 #### `container.clearInstances()`
 
-Clear singleton instances. Useful for testing.
+Clear cached singleton instances. Registrations remain — the next `resolve()` creates fresh instances.
 
 ```typescript
 beforeEach(() => {
@@ -215,20 +258,101 @@ beforeEach(() => {
 
 #### `container.reset()`
 
-Reset the container completely.
+Reset the container completely, removing all registrations and instances.
+
+#### `container.createChild()`
+
+Create a child container. The child inherits parent registrations but can override them independently.
 
 #### `createContainer()`
 
-Create a new isolated container.
+Create a new isolated container with no inherited registrations.
 
 ```typescript
 const testContainer = createContainer();
 testContainer.register(UserService, { useClass: MockUserService });
 ```
 
+## Error Handling
+
+All errors extend `DIError` and include actionable messages:
+
+```typescript
+import {
+  DIError,
+  DependencyResolutionError,
+  CircularDependencyError,
+  TypeInferenceError,
+  MissingDependencyError,
+  InvalidProviderError,
+  ContainerDisposedError,
+} from '@nextrush/di';
+
+try {
+  container.resolve(UnregisteredService);
+} catch (error) {
+  if (error instanceof DependencyResolutionError) {
+    console.log(error.missingDependency); // token name
+    console.log(error.chain); // resolution path
+  }
+  if (error instanceof CircularDependencyError) {
+    console.log(error.cycle); // ['ServiceA', 'ServiceB', ...]
+  }
+}
+```
+
+| Error                       | Cause                                                    |
+| --------------------------- | -------------------------------------------------------- |
+| `DependencyResolutionError` | Token not registered and cannot be resolved              |
+| `CircularDependencyError`   | Circular dependency detected during resolution           |
+| `MissingDependencyError`    | Required dependency not found                            |
+| `InvalidProviderError`      | Provider missing `useClass`, `useValue`, or `useFactory` |
+| `TypeInferenceError`        | Constructor parameter type not available at runtime      |
+| `ContainerDisposedError`    | Container has been reset or disposed                     |
+
+## TypeScript Exports
+
+```typescript
+// Container
+import { container, createContainer } from '@nextrush/di';
+
+// Decorators
+import { Service, Repository, AutoInjectable, inject, delay } from '@nextrush/di';
+
+// Utility functions
+import { hasServiceMetadata, getServiceType, getServiceScope } from '@nextrush/di';
+
+// Metadata keys
+import { METADATA_KEYS } from '@nextrush/di';
+
+// Error classes
+import {
+  DIError,
+  DependencyResolutionError,
+  CircularDependencyError,
+  MissingDependencyError,
+  InvalidProviderError,
+  TypeInferenceError,
+  ContainerDisposedError,
+} from '@nextrush/di';
+
+// Types
+import type {
+  ContainerInterface,
+  Provider,
+  ClassProvider,
+  ValueProvider,
+  FactoryProvider,
+  Token,
+  Constructor,
+  Scope,
+  ServiceOptions,
+} from '@nextrush/di';
+```
+
 ## Integration with Guards
 
-Class-based guards implementing `CanActivate` are resolved from the DI container, enabling dependency injection:
+Class-based guards implementing `CanActivate` are resolved from the DI container:
 
 ```typescript
 import { Service } from '@nextrush/di';
@@ -236,7 +360,7 @@ import type { CanActivate, GuardContext } from '@nextrush/decorators';
 
 @Service()
 class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService) {}  // Injected!
+  constructor(private authService: AuthService) {}
 
   async canActivate(ctx: GuardContext): Promise<boolean> {
     const token = ctx.get('authorization');
@@ -247,57 +371,9 @@ class AuthGuard implements CanActivate {
     return Boolean(user);
   }
 }
-
-// Usage with @UseGuard
-@UseGuard(AuthGuard)  // Resolved from DI container
-@Controller('/protected')
-class ProtectedController {}
 ```
 
 The `@nextrush/controllers` plugin automatically detects class guards and resolves them from the container.
-
-## Circular Dependencies
-
-Use `delay()` to break circular dependencies:
-
-```typescript
-import { delay, inject, Service } from '@nextrush/di';
-
-@Service()
-class ServiceA {
-  constructor(
-    @inject(delay(() => ServiceB)) private b: ServiceB
-  ) {}
-}
-
-@Service()
-class ServiceB {
-  constructor(
-    @inject(delay(() => ServiceA)) private a: ServiceA
-  ) {}
-}
-```
-
-## Error Handling
-
-All errors extend `DIError` and include actionable messages:
-
-```typescript
-import {
-  DependencyResolutionError,
-  CircularDependencyError,
-  TypeInferenceError,
-} from '@nextrush/di';
-
-try {
-  container.resolve(UnregisteredService);
-} catch (error) {
-  if (error instanceof DependencyResolutionError) {
-    console.log(error.missingDependency);
-    console.log(error.chain);
-  }
-}
-```
 
 ## Troubleshooting
 
@@ -322,7 +398,7 @@ npx nextrush-dev
 **Fix**: Import it first in your entry point:
 
 ```typescript
-import 'reflect-metadata';  // MUST be first!
+import 'reflect-metadata'; // MUST be first!
 import { Service } from '@nextrush/di';
 ```
 
@@ -333,7 +409,7 @@ import { Service } from '@nextrush/di';
 **Fix**: Add the decorator:
 
 ```typescript
-@Service()  // Required for DI!
+@Service() // Required for DI!
 class MyService {
   constructor(private dep: SomeDependency) {}
 }

@@ -71,7 +71,6 @@ interface AppEvents {
   'user:created': { id: string; name: string };
   'user:deleted': { id: string };
   'order:placed': { orderId: string; total: number };
-  [key: string]: unknown; // Required for EventMap compatibility
 }
 
 // 2. Augment the Application type (optional but recommended)
@@ -87,7 +86,7 @@ app.plugin(eventsPlugin<AppEvents>());
 
 // Now fully typed!
 app.events.emit('user:created', { id: '1', name: 'Alice' }); // ✅ Type-checked
-app.events.on('user:deleted', ({ id }) => console.log(id));  // ✅ Auto-complete
+app.events.on('user:deleted', ({ id }) => console.log(id)); // ✅ Auto-complete
 ```
 
 ## API Reference
@@ -98,11 +97,13 @@ Create a NextRush plugin that attaches `app.events`.
 
 ```typescript
 const app = createApp();
-app.plugin(eventsPlugin({
-  maxListeners: 10,      // Warn if exceeded (0 = disable)
-  errorIsolation: true,  // Isolate handler errors (default)
-  onError: (err, event) => console.error(err)
-}));
+app.plugin(
+  eventsPlugin({
+    maxListeners: 10, // Warn if exceeded (0 = disable)
+    errorIsolation: true, // Isolate handler errors (default)
+    onError: (err, event) => console.error(err),
+  })
+);
 
 // Now use app.events directly
 app.events.emit('user:created', { id: '1' });
@@ -115,7 +116,7 @@ Create a standalone event emitter (for testing or non-NextRush use).
 ```typescript
 const events = createEvents<MyEvents>({
   maxListeners: 10,
-  errorIsolation: true
+  errorIsolation: true,
 });
 ```
 
@@ -170,7 +171,7 @@ Get the number of listeners.
 
 ```typescript
 app.events.listenerCount('user:created'); // Specific event
-app.events.listenerCount();               // Total
+app.events.listenerCount(); // Total
 ```
 
 #### `clear(event?)`
@@ -179,7 +180,7 @@ Remove all listeners.
 
 ```typescript
 app.events.clear('user:created'); // Clear specific event
-app.events.clear();               // Clear all
+app.events.clear(); // Clear all
 ```
 
 #### `listeners(event)`
@@ -243,7 +244,7 @@ Configure max listeners at runtime.
 
 ```typescript
 app.events.setMaxListeners(20); // Allow more listeners
-app.events.setMaxListeners(0);  // Disable warning
+app.events.setMaxListeners(0); // Disable warning
 ```
 
 #### `getMaxListeners()`
@@ -297,11 +298,13 @@ app.events.on('user:created', (data) => {
 ### Custom Error Handler
 
 ```typescript
-app.plugin(eventsPlugin({
-  onError: (error, eventName) => {
-    logger.error(`Handler error for ${eventName}:`, error);
-  }
-}));
+app.plugin(
+  eventsPlugin({
+    onError: (error, eventName) => {
+      logger.error(`Handler error for ${eventName}:`, error);
+    },
+  })
+);
 ```
 
 ### Strict Mode (AggregateError)
@@ -311,8 +314,12 @@ With `errorIsolation: false`, all handlers run but errors are collected and thro
 ```typescript
 const events = createEvents({ errorIsolation: false });
 
-events.on('test', () => { throw new Error('Error 1'); });
-events.on('test', () => { throw new Error('Error 2'); });
+events.on('test', () => {
+  throw new Error('Error 1');
+});
+events.on('test', () => {
+  throw new Error('Error 2');
+});
 events.on('test', () => console.log('Still runs!')); // ✅ Executes
 
 try {
@@ -338,11 +345,11 @@ Event names are validated to prevent abuse:
 events.emit('a'.repeat(257), data); // ❌ Throws TypeError
 
 // Must be a string
-events.emit(123, data);     // ❌ Throws TypeError
-events.emit(null, data);    // ❌ Throws TypeError
+events.emit(123, data); // ❌ Throws TypeError
+events.emit(null, data); // ❌ Throws TypeError
 
 // Empty strings are invalid
-events.emit('', data);      // ❌ Throws TypeError
+events.emit('', data); // ❌ Throws TypeError
 ```
 
 ### Race-Safe Once Handlers
@@ -356,11 +363,7 @@ events.once('init', () => {
 });
 
 // Concurrent emits are safe
-await Promise.all([
-  events.emit('init', {}),
-  events.emit('init', {}),
-  events.emit('init', {}),
-]);
+await Promise.all([events.emit('init', {}), events.emit('init', {}), events.emit('init', {})]);
 // Output: "Only runs once" (exactly once)
 ```
 
@@ -370,7 +373,7 @@ The plugin validates the property name to prevent prototype pollution:
 
 ```typescript
 // ✅ Valid property names
-app.plugin(eventsPlugin());                        // Default: 'events'
+app.plugin(eventsPlugin()); // Default: 'events'
 app.plugin(eventsPlugin({ propertyName: 'bus' }));
 app.plugin(eventsPlugin({ propertyName: '$events' }));
 
@@ -387,7 +390,7 @@ app.use(async (ctx) => {
   // Emit events from middleware
   await app.events.emit('request:received', {
     method: ctx.method,
-    path: ctx.path
+    path: ctx.path,
   });
 
   await ctx.next();
@@ -395,7 +398,7 @@ app.use(async (ctx) => {
   await app.events.emit('request:completed', {
     method: ctx.method,
     path: ctx.path,
-    status: ctx.status
+    status: ctx.status,
   });
 });
 ```
@@ -419,7 +422,9 @@ function setupUserRoutes(app: WithEvents<MyEvents>) {
 
 // Combine with other app properties
 function initApp(app: Application & WithEvents<MyEvents>) {
-  app.use((ctx) => { /* ... */ });
+  app.use((ctx) => {
+    /* ... */
+  });
   app.events.on('user:created', (data) => console.log(data));
 }
 ```
@@ -442,25 +447,25 @@ registerUserEvents(app.events);
 
 ## Comparison: v2 vs v3
 
-| Feature | v2 Events | v3 Events |
-|---------|-----------|-----------|
-| API | Complex (CQRS) | Simple (on/off/emit) |
-| Size | ~800 LOC | ~200 LOC |
-| Access | `emitter.subscribe()` | `app.events.on()` |
-| Pipelines | Built-in | Use middleware |
-| Retry | Built-in | DIY (simple) |
+| Feature   | v2 Events             | v3 Events            |
+| --------- | --------------------- | -------------------- |
+| API       | Complex (CQRS)        | Simple (on/off/emit) |
+| Size      | ~800 LOC              | ~200 LOC             |
+| Access    | `emitter.subscribe()` | `app.events.on()`    |
+| Pipelines | Built-in              | Use middleware       |
+| Retry     | Built-in              | DIY (simple)         |
 
 v3 follows Unix philosophy: **do one thing well**.
 
 ## Runtime Compatibility
 
-| Runtime | Version | Support | Notes |
-|---------|---------|---------|-------|
-| Node.js | 20+ | ✅ Full | Primary target |
-| Bun | 1.0+ | ✅ Full | Native ES modules |
-| Deno | 1.37+ | ✅ Full | Via npm: specifier |
-| Cloudflare Workers | - | ✅ Full | Edge-compatible |
-| Vercel Edge | - | ✅ Full | Edge-compatible |
+| Runtime            | Version | Support | Notes              |
+| ------------------ | ------- | ------- | ------------------ |
+| Node.js            | 22+     | ✅ Full | Primary target     |
+| Bun                | 1.0+    | ✅ Full | Native ES modules  |
+| Deno               | 1.37+   | ✅ Full | Via npm: specifier |
+| Cloudflare Workers | -       | ✅ Full | Edge-compatible    |
+| Vercel Edge        | -       | ✅ Full | Edge-compatible    |
 
 **Zero Node.js-specific APIs**: Uses only `Map`, `Set`, `Promise`, `console`, and `AggregateError`.
 
@@ -472,7 +477,7 @@ The package exports validation constants for advanced use cases:
 import { MAX_EVENT_NAME_LENGTH, VALID_PROPERTY_NAME } from '@nextrush/events';
 
 console.log(MAX_EVENT_NAME_LENGTH); // 256
-console.log(VALID_PROPERTY_NAME);   // /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
+console.log(VALID_PROPERTY_NAME); // /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
 ```
 
 ## License

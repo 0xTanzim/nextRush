@@ -6,18 +6,14 @@
  * @packageDocumentation
  */
 
-import {
-    COOKIE_PREFIXES,
-    DEFAULT_COOKIE_OPTIONS,
-    MAX_COOKIE_SIZE
-} from './constants.js';
+import { COOKIE_PREFIXES, DEFAULT_COOKIE_OPTIONS, MAX_COOKIE_SIZE } from './constants.js';
 import type { CookieOptions, SameSiteValue } from './types.js';
 import {
-    isValidCookieName,
-    sanitizeCookieValue,
-    SecurityError,
-    validateCookieOptions,
-    validateCookiePrefix
+  isValidCookieName,
+  sanitizeCookieValue,
+  SecurityError,
+  validateCookieOptions,
+  validateCookiePrefix,
 } from './validation.js';
 
 // ============================================================================
@@ -53,11 +49,7 @@ import {
  * // '__Secure-token=xyz; Secure'
  * ```
  */
-export function serializeCookie(
-  name: string,
-  value: string,
-  options: CookieOptions = {}
-): string {
+export function serializeCookie(name: string, value: string, options: CookieOptions = {}): string {
   // Merge with secure defaults
   const opts = { ...DEFAULT_COOKIE_OPTIONS, ...options };
 
@@ -97,9 +89,7 @@ export function serializeCookie(
 
   // Expires
   if (opts.expires) {
-    const expiresDate = opts.expires instanceof Date
-      ? opts.expires
-      : new Date(opts.expires);
+    const expiresDate = opts.expires instanceof Date ? opts.expires : new Date(opts.expires);
     parts.push(`Expires=${expiresDate.toUTCString()}`);
   }
 
@@ -201,57 +191,13 @@ export function createDeleteCookie(
     maxAge: 0,
     httpOnly: false, // Let original settings determine this
     secure: false,
-    sameSite: undefined
+    sameSite: undefined,
   });
 }
 
 // ============================================================================
-// Helper Functions
+// Prefix Cookie Helpers
 // ============================================================================
-
-/**
- * Create secure cookie options (Secure + SameSite=Strict + HttpOnly).
- *
- * @param options - Additional options to merge
- * @returns Secure cookie options
- *
- * @example
- * ```typescript
- * serializeCookie('token', value, secureOptions({ maxAge: 3600 }));
- * ```
- */
-export function secureOptions(options: CookieOptions = {}): CookieOptions {
-  return {
-    ...options,
-    secure: true,
-    httpOnly: true,
-    sameSite: 'strict',
-    path: options.path ?? '/'
-  };
-}
-
-/**
- * Create session cookie options (no expiry, secure defaults).
- *
- * @param options - Additional options to merge
- * @returns Session cookie options
- *
- * @example
- * ```typescript
- * serializeCookie('session', value, sessionOptions());
- * ```
- */
-export function sessionOptions(options: CookieOptions = {}): CookieOptions {
-  return {
-    ...options,
-    httpOnly: true,
-    sameSite: 'lax',
-    path: options.path ?? '/',
-    // No maxAge or expires = session cookie
-    maxAge: undefined,
-    expires: undefined
-  };
-}
 
 /**
  * Create a __Secure- prefixed cookie.
@@ -278,7 +224,7 @@ export function createSecurePrefixCookie(
 
   return serializeCookie(prefixedName, value, {
     ...options,
-    secure: true
+    secure: true,
   });
 }
 
@@ -311,6 +257,6 @@ export function createHostPrefixCookie(
     ...options,
     secure: true,
     path: '/',
-    domain: undefined
+    domain: undefined,
   });
 }

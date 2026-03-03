@@ -1,153 +1,46 @@
 ---
-title: "Examples"
-description: "Complete, working code examples for common NextRush patterns and use cases."
+title: 'Examples'
+description: 'Working code examples for common NextRush patterns and use cases.'
 ---
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Examples
 
-Real, runnable code examples demonstrating NextRush patterns.
-
-Each example is self-contained and can be copied directly into your project.
-
----
-
-## Quick Navigation
+Each example is self-contained and verified against current NextRush APIs. Pick one to get started.
 
 <Cards>
   <Card
     title="Hello World"
-    description="Minimal setup to get NextRush running."
+    description="Your first NextRush application in under 10 lines."
     href="/docs/examples/hello-world"
   />
   <Card
     title="REST API"
-    description="Build a complete REST API with CRUD operations."
+    description="CRUD operations with validation and error handling."
     href="/docs/examples/rest-api"
   />
   <Card
     title="Class-Based API"
-    description="Structured API with decorators and DI."
+    description="Decorators, dependency injection, and controllers."
     href="/docs/examples/class-based-api"
   />
   <Card
     title="Authentication"
-    description="JWT authentication with guards."
+    description="JWT authentication with guards and protected routes."
     href="/docs/examples/authentication"
   />
   <Card
     title="Database Integration"
-    description="Connect to databases with proper patterns."
+    description="Database connection patterns for production applications."
     href="/docs/examples/database"
   />
 </Cards>
 
 ---
 
-## Choose Your Style
+## Functional or Class-Based?
 
-NextRush supports two programming styles. Choose based on your needs:
+NextRush supports both functional and class-based styles. The [Hello World](/docs/examples/hello-world) and [REST API](/docs/examples/rest-api) examples use the functional style. The [Class-Based API](/docs/examples/class-based-api) example rebuilds the same REST API with decorators and dependency injection.
 
-### Functional Style
-
-Best for:
-- Simple APIs
-- Microservices
-- Maximum performance
-- Teams preferring functions
-
-```typescript\nimport { createApp, createRouter, listen } from 'nextrush';\n\nconst app = createApp();\nconst router = createRouter();\n\nrouter.get('/users', (ctx) => {\n  ctx.json([{ id: 1, name: 'Alice' }]);\n});\n\napp.route('/', router);\nlisten(app, 3000);\n```
-
-### Class-Based Style
-
-Best for:
-- Larger applications
-- Teams preferring OOP
-- Dependency injection needs
-- Structured codebases
-
-```typescript
-import 'reflect-metadata';
-import { createApp, listen } from 'nextrush';
-import { Controller, Get } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
-
-@Service()
-class UserService {
-  findAll() {
-    return [{ id: 1, name: 'Alice' }];
-  }
-}
-
-@Controller('/users')
-class UserController {
-  constructor(private users: UserService) {}
-
-  @Get()
-  findAll() {
-    return this.users.findAll();
-  }
-}
-
-const app = createApp();
-app.plugin(controllersPlugin({ controllers: [UserController] }));
-listen(app, 3000);
-```
-
----
-
-## Running Examples
-
-All examples assume you have NextRush installed:
-
-```bash
-# Create a new project
-mkdir my-api && cd my-api
-npm init -y
-
-# Install NextRush
-npm install nextrush
-
-# For class-based examples, also install:
-npm install @nextrush/decorators @nextrush/di @nextrush/controllers reflect-metadata
-```
-
-Run with the NextRush dev tools:
-
-```bash
-# Install dev tools
-npm install -D @nextrush/dev
-
-# Start development server
-npx nextrush dev
-```
-
----
-
-## Example Structure
-
-Each example follows this structure:
-
-```
-example/
-├── src/
-│   ├── index.ts          # Entry point
-│   ├── routes/           # Route handlers (functional)
-│   │   └── users.ts
-│   ├── controllers/      # Controllers (class-based)
-│   │   └── user.controller.ts
-│   ├── services/         # Business logic
-│   │   └── user.service.ts
-│   └── middleware/       # Custom middleware
-│       └── auth.ts
-├── package.json
-└── tsconfig.json
-```
-
----
-
-## Next Steps
-
-Start with [Hello World](/docs/examples/hello-world) for the basics, then explore more complex examples.
+Start with functional if you're unsure — you can adopt class-based patterns incrementally.

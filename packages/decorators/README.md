@@ -35,6 +35,7 @@ Think of decorators as **annotations that declare intent**:
 ```
 
 The `@nextrush/controllers` plugin reads this metadata and builds:
+
 1. Route registrations with the router
 2. Handler functions that extract parameters
 3. Guard chains that run before handlers
@@ -75,11 +76,11 @@ pnpm add -D @nextrush/dev
 }
 ```
 
-| Runtime | Decorator Metadata | Recommended |
-|---------|-------------------|-------------|
-| **nextrush-dev** | ✅ Full Support | ✅ Development |
-| **tsc + node** | ✅ Full Support | ✅ Production |
-| **tsx / esbuild** | ❌ Not Supported | ❌ No |
+| Runtime           | Decorator Metadata | Recommended    |
+| ----------------- | ------------------ | -------------- |
+| **nextrush-dev**  | ✅ Full Support    | ✅ Development |
+| **tsc + node**    | ✅ Full Support    | ✅ Production  |
+| **tsx / esbuild** | ❌ Not Supported   | ❌ No          |
 
 ## Quick Start
 
@@ -136,10 +137,12 @@ const AuthGuard: GuardFn = async (ctx) => {
 };
 
 // Guard factory for dynamic configuration
-const RoleGuard = (roles: string[]): GuardFn => async (ctx) => {
-  const user = ctx.state.user as { role: string } | undefined;
-  return user ? roles.includes(user.role) : false;
-};
+const RoleGuard =
+  (roles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    return user ? roles.includes(user.role) : false;
+  };
 ```
 
 ### Class-Based Guards (with DI)
@@ -173,25 +176,25 @@ class AuthGuard implements CanActivate {
 @Controller('/admin')
 class AdminController {
   @Get()
-  dashboard() { }  // Protected by AuthGuard
+  dashboard() {} // Protected by AuthGuard
 }
 
 // Method-level (applies to specific route)
 @Controller('/users')
 class UserController {
   @Get()
-  findAll() { }  // Public
+  findAll() {} // Public
 
   @UseGuard(AdminGuard)
   @Delete('/:id')
-  remove(@Param('id') id: string) { }  // Admin only
+  remove(@Param('id') id: string) {} // Admin only
 }
 
 // Multiple guards (all must pass)
 @UseGuard(AuthGuard)
 @UseGuard(RoleGuard(['admin']))
 @Controller('/admin')
-class AdminController { }
+class AdminController {}
 ```
 
 ### Guard Execution Order
@@ -199,8 +202,8 @@ class AdminController { }
 Guards execute in declaration order: class guards first, then method guards.
 
 ```typescript
-@UseGuard(ClassGuard1)    // Runs 1st
-@UseGuard(ClassGuard2)    // Runs 2nd
+@UseGuard(ClassGuard1) // Runs 1st
+@UseGuard(ClassGuard2) // Runs 2nd
 @Controller('/example')
 class ExampleController {
   @UseGuard(MethodGuard1) // Runs 3rd
@@ -253,12 +256,12 @@ class UserController {}
 // ✅ Correct
 @Controller('/users')
 class UserController {
-  constructor(private userService: UserService) {}  // Auto-injected
+  constructor(private userService: UserService) {} // Auto-injected
 }
 
 // ❌ Redundant
 @Controller('/users')
-@Service()  // NOT NEEDED
+@Service() // NOT NEEDED
 class UserController {}
 ```
 
@@ -267,22 +270,22 @@ class UserController {}
 ```typescript
 @Controller('/users')
 class UserController {
-  @Get()           // GET /users
+  @Get() // GET /users
   findAll() {}
 
-  @Get('/:id')     // GET /users/:id
+  @Get('/:id') // GET /users/:id
   findOne() {}
 
-  @Post()          // POST /users
+  @Post() // POST /users
   create() {}
 
-  @Put('/:id')     // PUT /users/:id
+  @Put('/:id') // PUT /users/:id
   replace() {}
 
-  @Patch('/:id')   // PATCH /users/:id
+  @Patch('/:id') // PATCH /users/:id
   update() {}
 
-  @Delete('/:id')  // DELETE /users/:id
+  @Delete('/:id') // DELETE /users/:id
   remove() {}
 
   @All('/webhook') // All methods
@@ -499,14 +502,26 @@ export { UseGuard };
 
 // Types
 export type { GuardFn, GuardContext, CanActivate, Guard, Constructor };
-export type { ControllerMetadata, RouteMetadata, ParamMetadata, TransformFn };
+export type {
+  ControllerMetadata,
+  ControllerOptions,
+  RouteMetadata,
+  RouteOptions,
+  ParamMetadata,
+  TransformFn,
+};
+export type { BodyOptions, ParamOptions, QueryOptions, HeaderOptions };
+export type { GuardMetadata, MiddlewareRef, ParamSource, RouteMethods };
+export type { ControllerDefinition };
 
 // Metadata readers
 export { isController, getControllerMetadata, getRouteMetadata, getParamMetadata };
+export { getAllParamMetadata, getControllerDefinition, buildFullPath };
+export { getMethodParameterTypes, getMethodReturnType };
 export { getAllGuards, getClassGuards, getMethodGuards, isGuardClass };
 
-// Type guards
-export { isValidHttpMethod, isValidParamSource };
+// Constants & type guards
+export { DECORATOR_METADATA_KEYS, isValidHttpMethod, isValidParamSource };
 ```
 
 ## Common Mistakes

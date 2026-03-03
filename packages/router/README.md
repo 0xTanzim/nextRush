@@ -129,7 +129,8 @@ router.delete('/resource/:id', handler);
 router.head('/resource', handler);
 router.options('/resource', handler);
 
-// Register for all methods
+// Register for all standard methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
+// TRACE and CONNECT are excluded for security reasons
 router.all('/any', handler);
 
 // Register specific method dynamically
@@ -389,15 +390,15 @@ function createRouter(options?: RouterOptions): Router;
 #### HTTP Method Shortcuts
 
 ```typescript
-router.get(path: string, ...handlers: RouteHandler[]): Router
-router.post(path: string, ...handlers: RouteHandler[]): Router
-router.put(path: string, ...handlers: RouteHandler[]): Router
-router.delete(path: string, ...handlers: RouteHandler[]): Router
-router.patch(path: string, ...handlers: RouteHandler[]): Router
-router.head(path: string, ...handlers: RouteHandler[]): Router
-router.options(path: string, ...handlers: RouteHandler[]): Router
-router.all(path: string, ...handlers: RouteHandler[]): Router
-router.route(method: HttpMethod, path: string, ...handlers: RouteHandler[]): Router
+router.get(path: string, ...handlers: RouteHandler[]): this
+router.post(path: string, ...handlers: RouteHandler[]): this
+router.put(path: string, ...handlers: RouteHandler[]): this
+router.delete(path: string, ...handlers: RouteHandler[]): this
+router.patch(path: string, ...handlers: RouteHandler[]): this
+router.head(path: string, ...handlers: RouteHandler[]): this
+router.options(path: string, ...handlers: RouteHandler[]): this
+router.all(path: string, ...handlers: RouteHandler[]): this
+router.route(method: HttpMethod, path: string, ...handlers: RouteHandler[]): this
 ```
 
 #### `router.redirect(from, to, status?)`
@@ -405,16 +406,18 @@ router.route(method: HttpMethod, path: string, ...handlers: RouteHandler[]): Rou
 Register a redirect route.
 
 ```typescript
-router.redirect(from: string, to: string, status?: 301 | 302 | 303 | 307 | 308): Router
+router.redirect(from: string, to: string, status?: 301 | 302 | 303 | 307 | 308): this
 ```
+
+Default status is `301` (Moved Permanently). Status codes `307` and `308` register handlers for all standard HTTP methods (to preserve the original method). Other codes register GET and HEAD only.
 
 #### `router.group(prefix, middleware?, callback)`
 
 Create a route group with shared prefix and middleware.
 
 ```typescript
-router.group(prefix: string, callback: (router: Router) => void): Router
-router.group(prefix: string, middleware: Middleware[], callback: (router: Router) => void): Router
+router.group(prefix: string, callback: (router: Router) => void): this
+router.group(prefix: string, middleware: Middleware[], callback: (router: Router) => void): this
 ```
 
 #### `router.use(pathOrMiddleware, routerOrUndefined?)`
@@ -422,17 +425,17 @@ router.group(prefix: string, middleware: Middleware[], callback: (router: Router
 Mount middleware or sub-router.
 
 ```typescript
-router.use(middleware: Middleware): Router
-router.use(path: string, subRouter: Router): Router
-router.use(subRouter: Router): Router
+router.use(middleware: Middleware): this
+router.use(path: string, subRouter: Router): this
+router.use(subRouter: Router): this
 ```
 
 #### `router.mount(path, subRouter)`
 
-Mount a sub-router at a path prefix. This is an alias for `use(path, router)` with clearer intent.
+Mount a sub-router at a path prefix. Equivalent to `use(path, router)` with clearer intent.
 
 ```typescript
-router.mount(path: string, subRouter: Router): Router
+router.mount(path: string, subRouter: Router): this
 ```
 
 **Example:**
@@ -576,6 +579,25 @@ router.get('/*/files', handler);
 // ✅ Wildcard at end
 router.get('/files/*', handler);
 ```
+
+### Duplicate Route Registration
+
+```typescript
+// ❌ Throws an error — same method + path registered twice
+router.get('/users', handler1);
+router.get('/users', handler2);
+// Error: "Route conflict: GET /users is already registered"
+
+// ✅ Different methods on the same path are fine
+router.get('/users', handler1);
+router.post('/users', handler2);
+```
+
+## Error Behavior
+
+- **Duplicate routes**: Registering the same method + path throws immediately at registration time.
+- **Unmatched routes**: `routes()` middleware sets `ctx.status = 404` and calls `next()`, allowing downstream middleware like `allowedMethods()` to respond.
+- **Parameter name conflicts**: In development, a warning is logged when two routes define different parameter names at the same tree position. The first registered name takes precedence.
 
 ## License
 

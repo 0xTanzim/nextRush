@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    contentSecurityPolicy,
-    frameguard,
-    helmet,
-    hsts,
-    noSniff,
-    referrerPolicy,
-    type HelmetContext
+  contentSecurityPolicy,
+  createNoncedScript,
+  createNoncedStyle,
+  frameguard,
+  generateNonce,
+  helmet,
+  hsts,
+  noSniff,
+  referrerPolicy,
+  sanitizeHeaderValue,
+  securityWarning,
+  validateHstsOptions,
+  type HelmetContext,
 } from '../index';
 
 function createMockContext(): HelmetContext & { headers: Map<string, string> } {
@@ -432,7 +438,9 @@ describe('helmet middleware', () => {
       });
       await middleware(ctx, next);
 
-      expect(ctx.headers.get('Referrer-Policy')).toBe('no-referrer, strict-origin-when-cross-origin');
+      expect(ctx.headers.get('Referrer-Policy')).toBe(
+        'no-referrer, strict-origin-when-cross-origin'
+      );
     });
 
     it('should disable when set to false', async () => {
@@ -728,5 +736,188 @@ describe('edge cases', () => {
     const failingNext = vi.fn().mockRejectedValue(error);
 
     await expect(middleware(ctx, failingNext)).rejects.toThrow('Test error');
+  });
+});
+
+// ============================================================================
+// Production Readiness Tests
+// ============================================================================
+
+describe('production readiness', () => {
+  describe('securityWarning logging', () => {
+    it('should not log empty string when no details provided', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      securityWarning('test message');
+      expect(warnSpy).toHaveBeenCalledWith(expect.any(String));
+      expect(warnSpy.mock.calls[0]).toHaveLength(1);
+      warnSpy.mockRestore();
+    });
+
+    it('should include details when provided', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const details = { feature: 'test' };
+      securityWarning('test message', details);
+      expect(warnSpy).toHaveBeenCalledWith(expect.any(String), details);
+      expect(warnSpy.mock.calls[0]).toHaveLength(2);
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('sanitizeHeaderValue control characters', () => {
+    it('should reject null bytes', () => {
+      expect(() => sanitizeHeaderValue('value\x00here')).toThrow(/control characters/);
+    });
+
+    it('should reject tab characters', () => {
+      expect(() => sanitizeHeaderValue('value\there')).toThrow(/control characters/);
+    });
+
+    it('should reject carriage returns', () => {
+      expect(() => sanitizeHeaderValue('value\rhere')).toThrow(/control characters/);
+    });
+
+    it('should reject newlines', () => {
+      expect(() => sanitizeHeaderValue('value\nhere')).toThrow(/control characters/);
+    });
+
+    it('should reject DEL character', () => {
+      expect(() => sanitizeHeaderValue('value\x7fhere')).toThrow(/control characters/);
+    });
+
+    it('should accept valid header values', () => {
+      expect(sanitizeHeaderValue('  valid-value  ')).toBe('valid-value');
+    });
+  });
+
+  describe('HSTS NaN/Infinity validation', () => {
+    it('should reject NaN maxAge', () => {
+      const result = validateHstsOptions({ maxAge: NaN });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('finite');
+    });
+
+    it('should reject Infinity maxAge', () => {
+      const result = validateHstsOptions({ maxAge: Infinity });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+    });
+
+    it('should reject negative Infinity maxAge', () => {
+      const result = validateHstsOptions({ maxAge: -Infinity });
+      expect(result.valid).toBe(false);
+    });
+
+    it('should throw when NaN maxAge used in helmet()', () => {
+      expect(() => helmet({ hsts: { maxAge: NaN } })).toThrow(/HSTS Error/);
+    });
+
+    it('should throw when Infinity maxAge used in helmet()', () => {
+      expect(() => helmet({ hsts: { maxAge: Infinity } })).toThrow(/HSTS Error/);
+    });
+  });
+
+  describe('HSTS maxAge integer output', () => {
+    it('should floor floating point maxAge in header', async () => {
+      const ctx = createMockContext();
+      const middleware = helmet({ hsts: { maxAge: 86400.7 } });
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      const hstsHeader = ctx.headers.get('Strict-Transport-Security');
+      expect(hstsHeader).toContain('max-age=86400');
+      expect(hstsHeader).not.toContain('max-age=86400.7');
+    });
+  });
+
+  describe('nonce generation validation', () => {
+    it('should throw on length 0', () => {
+      expect(() => generateNonce(0)).toThrow(/positive integer/);
+    });
+
+    it('should throw on negative length', () => {
+      expect(() => generateNonce(-1)).toThrow(/positive integer/);
+    });
+
+    it('should throw on NaN length', () => {
+      expect(() => generateNonce(NaN)).toThrow(/positive integer/);
+    });
+
+    it('should generate valid nonce with default length', () => {
+      const nonce = generateNonce();
+      expect(nonce.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('nonce HTML attribute sanitization', () => {
+    it('should reject nonce with double quotes in script', () => {
+      expect(() => createNoncedScript('abc"def', 'console.log(1)')).toThrow(/unsafe characters/);
+    });
+
+    it('should reject nonce with angle brackets in script', () => {
+      expect(() => createNoncedScript('abc<def', 'console.log(1)')).toThrow(/unsafe characters/);
+    });
+
+    it('should reject nonce with double quotes in style', () => {
+      expect(() => createNoncedStyle('abc"def', 'body { color: red }')).toThrow(
+        /unsafe characters/
+      );
+    });
+
+    it('should reject nonce with greater-than in style', () => {
+      expect(() => createNoncedStyle('abc>def', 'body { color: red }')).toThrow(
+        /unsafe characters/
+      );
+    });
+
+    it('should accept valid nonce in script', () => {
+      const result = createNoncedScript('abc123', 'console.log(1)');
+      expect(result).toBe('<script nonce="abc123">console.log(1)</script>');
+    });
+
+    it('should accept valid nonce in style', () => {
+      const result = createNoncedStyle('abc123', 'body { color: red }');
+      expect(result).toBe('<style nonce="abc123">body { color: red }</style>');
+    });
+  });
+
+  describe('reporting endpoints URL sanitization', () => {
+    it('should reject URL containing double quotes', async () => {
+      const ctx = createMockContext();
+      const middleware = helmet({
+        reportingEndpoints: { default: 'https://example.com/"test' },
+      });
+      await expect(middleware(ctx, vi.fn().mockResolvedValue(undefined))).rejects.toThrow(
+        /quote characters/
+      );
+    });
+
+    it('should accept valid reporting endpoints', async () => {
+      const ctx = createMockContext();
+      const middleware = helmet({
+        reportingEndpoints: {
+          default: 'https://example.com/report',
+          csp: 'https://csp.example.com/report',
+        },
+      });
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      const header = ctx.headers.get('Reporting-Endpoints');
+      expect(header).toContain('default="https://example.com/report"');
+      expect(header).toContain('csp="https://csp.example.com/report"');
+    });
+  });
+
+  describe('Clear-Site-Data sanitization', () => {
+    it('should set valid Clear-Site-Data header', async () => {
+      const ctx = createMockContext();
+      const middleware = helmet({
+        clearSiteData: ['"cache"', '"cookies"'],
+        hsts: false,
+      });
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      const header = ctx.headers.get('Clear-Site-Data');
+      expect(header).toBe('"cache", "cookies"');
+    });
   });
 });

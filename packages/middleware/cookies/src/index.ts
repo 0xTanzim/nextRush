@@ -62,7 +62,10 @@ export { cookies, secureOptions, sessionOptions, signedCookies } from './middlew
 
 // Serialization
 export {
-    createDeleteCookie, createHostPrefixCookie, createSecurePrefixCookie, serializeCookie
+  createDeleteCookie,
+  createHostPrefixCookie,
+  createSecurePrefixCookie,
+  serializeCookie,
 } from './serializer.js';
 
 // Parsing
@@ -71,26 +74,47 @@ export type { ParseOptions } from './parser.js';
 
 // Signing
 export {
-    signCookie, timingSafeEqual, unsignCookie,
-    unsignCookieWithRotation
+  clearKeyCache,
+  signCookie,
+  timingSafeEqual,
+  unsignCookie,
+  unsignCookieWithRotation,
 } from './signing.js';
 export type { SigningKeys } from './signing.js';
 
 // Validation
 export {
-    SecurityError, isPublicSuffix, isValidCookieName,
-    isValidCookieValue, isValidDomain, isValidPath, sanitizeCookieValue, validateCookieOptions, validateCookiePrefix
+  SecurityError,
+  isPublicSuffix,
+  isValidCookieName,
+  isValidCookieValue,
+  isValidDomain,
+  isValidPath,
+  sanitizeCookieValue,
+  validateCookieOptions,
+  validateCookiePrefix,
 } from './validation.js';
 
 // Constants
 export {
-    COMMON_PUBLIC_SUFFIXES, COOKIE_PREFIXES, DEFAULT_COOKIE_OPTIONS, MAX_COOKIE_SIZE,
-    MAX_NAME_LENGTH,
-    MAX_VALUE_LENGTH
+  COMMON_PUBLIC_SUFFIXES,
+  COOKIE_PREFIXES,
+  DEFAULT_COOKIE_OPTIONS,
+  MAX_COOKIE_SIZE,
+  MAX_NAME_LENGTH,
+  MAX_VALUE_LENGTH,
 } from './constants.js';
 
 // Types
 export type {
-    CookieContext, CookieMiddlewareOptions, CookieOptions, CookiePriority, CookieState, ParsedCookies,
-    SameSiteValue, SignedCookieContext, SignedCookieMiddlewareOptions, SignedCookieState
+  CookieContext,
+  CookieMiddlewareOptions,
+  CookieOptions,
+  CookiePriority,
+  CookieState,
+  ParsedCookies,
+  SameSiteValue,
+  SignedCookieContext,
+  SignedCookieMiddlewareOptions,
+  SignedCookieState,
 } from './types.js';

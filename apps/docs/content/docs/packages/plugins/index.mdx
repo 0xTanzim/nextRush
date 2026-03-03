@@ -1,11 +1,11 @@
 ---
-title: "Plugin Packages"
-description: "Extend NextRush with controllers, logging, static files, WebSocket, events, and templates."
+title: 'Plugin Packages'
+description: 'Extend NextRush with controllers, logging, static files, WebSocket, events, and templates.'
 ---
 
 # Plugin Packages
 
-NextRush plugins extend your application with powerful features. Each plugin integrates seamlessly with the core application through the standardized plugin interface.
+NextRush plugins extend your application with additional capabilities. Each plugin integrates with the core application through the standardized plugin interface.
 
 ---
 
@@ -38,14 +38,14 @@ graph LR
 
 ## Quick Reference
 
-| Package | Purpose | Use Case |
-|---------|---------|----------|
-| [@nextrush/controllers](/docs/packages/plugins/controllers) | Decorator-based controllers | Structured REST APIs |
-| [@nextrush/logger](/docs/packages/plugins/logger) | Request logging | Observability, debugging |
-| [@nextrush/static](/docs/packages/plugins/static) | Static file serving | Frontend assets, downloads |
-| [@nextrush/websocket](/docs/packages/plugins/websocket) | Real-time communication | Chat, live updates |
-| [@nextrush/events](/docs/packages/plugins/events) | Event emitter | Decoupled architecture |
-| [@nextrush/template](/docs/packages/plugins/template) | HTML rendering | Server-side pages |
+| Package                                                     | Purpose                     | Use Case                   |
+| ----------------------------------------------------------- | --------------------------- | -------------------------- |
+| [@nextrush/controllers](/docs/packages/plugins/controllers) | Decorator-based controllers | Structured REST APIs       |
+| [@nextrush/logger](/docs/packages/plugins/logger)           | Request logging             | Observability, debugging   |
+| [@nextrush/static](/docs/packages/plugins/static)           | Static file serving         | Frontend assets, downloads |
+| [@nextrush/websocket](/docs/packages/plugins/websocket)     | Real-time communication     | Chat, live updates         |
+| [@nextrush/events](/docs/packages/plugins/events)           | Event emitter               | Decoupled architecture     |
+| [@nextrush/template](/docs/packages/plugins/template)       | HTML rendering              | Server-side pages          |
 
 ---
 
@@ -80,13 +80,15 @@ interface Plugin {
 
 ```typescript
 import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { controllersPlugin } from '@nextrush/controllers';
 import { eventsPlugin } from '@nextrush/events';
 
 const app = createApp();
+const router = createRouter();
 
 // Register plugins
-app.plugin(controllersPlugin({ controllers: [UserController] }));
+app.plugin(controllersPlugin({ router, controllers: [UserController] }));
 app.plugin(eventsPlugin());
 ```
 
@@ -118,11 +120,13 @@ Plugins work together:
 
 ```typescript
 import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { controllersPlugin } from '@nextrush/controllers';
 import { logger } from '@nextrush/logger';
 import { serveStatic } from '@nextrush/static';
 
 const app = createApp();
+const router = createRouter();
 
 // Request logging
 app.use(logger());
@@ -131,9 +135,12 @@ app.use(logger());
 app.use(serveStatic({ root: './public' }));
 
 // API controllers
-app.plugin(controllersPlugin({
-  controllers: [UserController, ProductController],
-}));
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [UserController, ProductController],
+  })
+);
 ```
 
 ---

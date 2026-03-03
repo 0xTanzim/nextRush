@@ -65,9 +65,11 @@ app.use(requestId());
 app.use(requestId({ trustIncoming: true }));
 
 // Custom generator
-app.use(requestId({
-  generator: () => `req-${Date.now()}-${Math.random().toString(36).slice(2)}`
-}));
+app.use(
+  requestId({
+    generator: () => `req-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  })
+);
 ```
 
 ### correlationId(options?)
@@ -98,15 +100,15 @@ app.use(traceId());
 
 ### RequestIdOptions
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `header` | `string` | `'X-Request-Id'` | Header name for request ID |
-| `generator` | `() => string` | `crypto.randomUUID` | Custom ID generator |
-| `trustIncoming` | `boolean` | `true` | Trust valid incoming IDs |
-| `validator` | `(id: string) => boolean` | `isValidUuid` | Custom ID validator |
-| `maxLength` | `number` | `128` | Maximum ID length allowed |
-| `stateKey` | `string` | `'requestId'` | Key in `ctx.state` |
-| `exposeHeader` | `boolean` | `true` | Set response header |
+| Option          | Type                      | Default             | Description                |
+| --------------- | ------------------------- | ------------------- | -------------------------- |
+| `header`        | `string`                  | `'X-Request-Id'`    | Header name for request ID |
+| `generator`     | `() => string`            | `crypto.randomUUID` | Custom ID generator        |
+| `trustIncoming` | `boolean`                 | `true`              | Trust valid incoming IDs   |
+| `validator`     | `(id: string) => boolean` | `isValidUuid`       | Custom ID validator        |
+| `maxLength`     | `number`                  | `128`               | Maximum ID length allowed  |
+| `stateKey`      | `string`                  | `'requestId'`       | Key in `ctx.state`         |
+| `exposeHeader`  | `boolean`                 | `true`              | Set response header        |
 
 ## Security Features
 
@@ -138,18 +140,17 @@ app.use(requestId({ validator: permissiveValidator }));
 
 ```typescript
 import {
-  isValidUuid,        // UUID v4 format check
-  isSafeId,           // Safe characters only
-  isValidLength,      // Length within bounds
-  validateId,         // Combined validation
-  createValidator,    // Create custom validator
-  defaultValidator,   // UUID validator (default)
-  permissiveValidator // Safe alphanumeric validator
+  isValidUuid, // UUID v4 format check
+  isSafeId, // Safe characters only
+  isValidLength, // Length within bounds
+  validateId, // Combined validation
+  createValidator, // Create custom validator
+  defaultValidator, // UUID validator (default)
+  permissiveValidator, // Safe alphanumeric validator
 } from '@nextrush/request-id';
 
 // Custom validator example
-const myValidator = (id: string) =>
-  id.startsWith('myapp-') && isSafeId(id);
+const myValidator = (id: string) => id.startsWith('myapp-') && isSafeId(id);
 
 app.use(requestId({ validator: myValidator }));
 ```
@@ -191,11 +192,13 @@ import { requestId } from '@nextrush/request-id';
 import { logger } from '@nextrush/logger';
 
 app.use(requestId());
-app.use(logger({
-  customProps: (ctx) => ({
-    requestId: ctx.state.requestId,
-  }),
-}));
+app.use(
+  logger({
+    customProps: (ctx) => ({
+      requestId: ctx.state.requestId,
+    }),
+  })
+);
 ```
 
 ## Custom Generators
@@ -203,27 +206,33 @@ app.use(logger({
 ### Prefixed IDs
 
 ```typescript
-app.use(requestId({
-  generator: () => `api-${crypto.randomUUID()}`,
-}));
+app.use(
+  requestId({
+    generator: () => `api-${crypto.randomUUID()}`,
+  })
+);
 // api-550e8400-e29b-41d4-a716-446655440000
 ```
 
 ### Short IDs
 
 ```typescript
-app.use(requestId({
-  generator: () => crypto.randomUUID().split('-')[0],
-}));
+app.use(
+  requestId({
+    generator: () => crypto.randomUUID().split('-')[0],
+  })
+);
 // 550e8400
 ```
 
 ### Timestamped IDs
 
 ```typescript
-app.use(requestId({
-  generator: () => `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
-}));
+app.use(
+  requestId({
+    generator: () => `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+  })
+);
 // 1699999999999-550e8400
 ```
 
@@ -232,16 +241,16 @@ app.use(requestId({
 ```typescript
 import {
   // Constants
-  DEFAULT_HEADER,         // 'X-Request-Id'
-  CORRELATION_HEADER,     // 'X-Correlation-Id'
-  TRACE_HEADER,           // 'X-Trace-Id'
-  DEFAULT_STATE_KEY,      // 'requestId'
-  CORRELATION_STATE_KEY,  // 'correlationId'
-  TRACE_STATE_KEY,        // 'traceId'
-  DEFAULT_MAX_LENGTH,     // 128
+  DEFAULT_HEADER, // 'X-Request-Id'
+  CORRELATION_HEADER, // 'X-Correlation-Id'
+  TRACE_HEADER, // 'X-Trace-Id'
+  DEFAULT_STATE_KEY, // 'requestId'
+  CORRELATION_STATE_KEY, // 'correlationId'
+  TRACE_STATE_KEY, // 'traceId'
+  DEFAULT_MAX_LENGTH, // 128
 
   // Generator
-  defaultGenerator,       // crypto.randomUUID()
+  defaultGenerator, // crypto.randomUUID()
 } from '@nextrush/request-id';
 ```
 
@@ -263,7 +272,7 @@ import type {
 
 Uses only universal APIs compatible with all JavaScript runtimes:
 
-- **Node.js** ≥20
+- **Node.js** ≥22
 - **Bun** ≥1.0
 - **Deno** ≥1.0
 - **Cloudflare Workers**
@@ -279,23 +288,26 @@ Uses only universal APIs compatible with all JavaScript runtimes:
 
 ### Exports
 
-| Export | Type | Description |
-|--------|------|-------------|
-| `requestId` | Function | Request ID middleware |
-| `correlationId` | Function | Correlation ID middleware |
-| `traceId` | Function | Trace ID middleware |
-| `isValidUuid` | Function | UUID v4 validator |
-| `isSafeId` | Function | Safe character validator |
-| `isValidLength` | Function | Length validator |
-| `validateId` | Function | Combined validator |
-| `createValidator` | Function | Create custom validator |
-| `defaultValidator` | Constant | UUID validator |
-| `permissiveValidator` | Constant | Alphanumeric validator |
-| `defaultGenerator` | Function | UUID generator |
-| `DEFAULT_HEADER` | Constant | `'X-Request-Id'` |
-| `CORRELATION_HEADER` | Constant | `'X-Correlation-Id'` |
-| `TRACE_HEADER` | Constant | `'X-Trace-Id'` |
-| `DEFAULT_MAX_LENGTH` | Constant | `128` |
+| Export                  | Type     | Description               |
+| ----------------------- | -------- | ------------------------- |
+| `requestId`             | Function | Request ID middleware     |
+| `correlationId`         | Function | Correlation ID middleware |
+| `traceId`               | Function | Trace ID middleware       |
+| `isValidUuid`           | Function | UUID v4 validator         |
+| `isSafeId`              | Function | Safe character validator  |
+| `isValidLength`         | Function | Length validator          |
+| `validateId`            | Function | Combined validator        |
+| `createValidator`       | Function | Create custom validator   |
+| `defaultValidator`      | Constant | UUID validator            |
+| `permissiveValidator`   | Constant | Alphanumeric validator    |
+| `defaultGenerator`      | Function | UUID generator            |
+| `DEFAULT_HEADER`        | Constant | `'X-Request-Id'`          |
+| `CORRELATION_HEADER`    | Constant | `'X-Correlation-Id'`      |
+| `TRACE_HEADER`          | Constant | `'X-Trace-Id'`            |
+| `DEFAULT_STATE_KEY`     | Constant | `'requestId'`             |
+| `CORRELATION_STATE_KEY` | Constant | `'correlationId'`         |
+| `TRACE_STATE_KEY`       | Constant | `'traceId'`               |
+| `DEFAULT_MAX_LENGTH`    | Constant | `128`                     |
 
 ## Best Practices
 

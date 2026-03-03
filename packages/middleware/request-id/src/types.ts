@@ -70,7 +70,7 @@ export interface RequestIdOptions {
   /**
    * Whether to trust and use incoming request ID if present.
    * When true, validates incoming IDs before use.
-   * @default true
+   * @default false
    */
   trustIncoming?: boolean;
 

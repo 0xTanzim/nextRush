@@ -1,13 +1,11 @@
 ---
-title: "@nextrush/adapter-deno"
-description: "Native Deno HTTP adapter with TypeScript-first design and secure defaults."
+title: '@nextrush/adapter-deno'
+description: 'Deno HTTP adapter for NextRush — connects your application to Deno.serve().'
 ---
 
 # @nextrush/adapter-deno
 
-Connect your NextRush application to [Deno](https://deno.land)'s native HTTP server.
-
-Deno provides secure-by-default execution with TypeScript support out of the box. This adapter bridges NextRush's middleware system to Deno's native `Deno.serve()` API.
+Connect your NextRush application to Deno's native `Deno.serve()` API. This adapter bridges NextRush's middleware system to Deno's HTTP server.
 
 ---
 
@@ -83,14 +81,15 @@ const server = serve(app, {
 
 #### ServeOptions
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `port` | `number` | `3000` | Port to listen on |
-| `hostname` | `string` | `'0.0.0.0'` | Hostname to bind to |
-| `onListen` | `(info) => void` | — | Callback when server starts |
-| `onError` | `(error) => void` | — | Custom error handler |
-| `cert` | `string` | — | TLS certificate (PEM format) |
-| `key` | `string` | — | TLS private key (PEM format) |
+| Option            | Type              | Default     | Description                                                       |
+| ----------------- | ----------------- | ----------- | ----------------------------------------------------------------- |
+| `port`            | `number`          | `3000`      | Port to listen on                                                 |
+| `hostname`        | `string`          | `'0.0.0.0'` | Hostname to bind to                                               |
+| `onListen`        | `(info) => void`  | —           | Callback when server starts                                       |
+| `onError`         | `(error) => void` | —           | Custom error handler                                              |
+| `cert`            | `string`          | —           | TLS certificate (PEM format)                                      |
+| `key`             | `string`          | —           | TLS private key (PEM format)                                      |
+| `shutdownTimeout` | `number`          | `30000`     | Grace period (ms) for draining in-flight requests during shutdown |
 
 #### ServerInstance
 
@@ -98,13 +97,13 @@ The returned server instance provides control methods:
 
 ```typescript
 interface ServerInstance {
-  server: DenoServer;       // Underlying Deno server
-  port: number;             // Actual port
-  hostname: string;         // Actual hostname
+  server: DenoServer; // Underlying Deno server
+  port: number; // Actual port
+  hostname: string; // Actual hostname
 
-  close(): Promise<void>;   // Graceful shutdown
-  address(): { port, hostname };
-  finished: Promise<void>;  // Resolves when server stops
+  close(): Promise<void>; // Graceful shutdown
+  address(): { port; hostname };
+  finished: Promise<void>; // Resolves when server stops
 }
 ```
 
@@ -197,7 +196,7 @@ const server = serve(app, { port: 3000 });
 
 Deno.addSignalListener('SIGTERM', async () => {
   console.log('Shutting down...');
-  await server.close();  // Closes app + server
+  await server.close(); // Closes app + server
   Deno.exit(0);
 });
 ```
@@ -211,7 +210,7 @@ The adapter extracts client IP from Deno's connection info:
 ```typescript
 app.use(async (ctx) => {
   // Available via context
-  const ip = ctx.ip;  // From remoteAddr
+  const ip = ctx.ip; // From remoteAddr
   ctx.json({ clientIp: ip });
 });
 ```
@@ -220,7 +219,7 @@ app.use(async (ctx) => {
 
 ## Deno Deploy
 
-For Deno Deploy, use `createHandler` directly:
+For [Deno Deploy](https://deno.com/deploy), use `createHandler`:
 
 ```typescript
 import { createApp } from '@nextrush/core';
@@ -235,8 +234,7 @@ app.use(async (ctx) => {
   });
 });
 
-// Export handler for Deno Deploy
-Deno.serve({ handler: createHandler(app) });
+Deno.serve(createHandler(app));
 ```
 
 ---

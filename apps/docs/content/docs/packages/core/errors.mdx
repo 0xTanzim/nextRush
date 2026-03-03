@@ -1,5 +1,5 @@
 ---
-title: "@nextrush/errors"
+title: '@nextrush/errors'
 description: Standardized HTTP error classes with proper status codes
 ---
 
@@ -7,38 +7,39 @@ description: Standardized HTTP error classes with proper status codes
 
 HTTP error classes for consistent error handling across your NextRush application.
 
-<PackageInstall packages={["@nextrush/errors"]} />
+<PackageInstall packages={['@nextrush/errors']} />
 
 <Callout type="info" title="Usually Included">
-Most users install `nextrush` which includes common error classes. Install `@nextrush/errors` directly for the full error hierarchy.
+  Most users install `nextrush` which includes common error classes. Install `@nextrush/errors`
+  directly for the full error hierarchy.
 </Callout>
 
 ## What It Provides
 
 ```typescript
 // Base classes
-import { HttpError, NextRushError } from '@nextrush/errors';
+import { HttpError, NextRushError, getHttpStatusMessage } from '@nextrush/errors';
 
 // 4xx Client Errors
 import {
-  BadRequestError,         // 400
-  UnauthorizedError,       // 401
-  ForbiddenError,          // 403
-  NotFoundError,           // 404
-  MethodNotAllowedError,   // 405
-  ConflictError,           // 409
-  UnprocessableEntityError,// 422
-  TooManyRequestsError,    // 429
+  BadRequestError, // 400
+  UnauthorizedError, // 401
+  ForbiddenError, // 403
+  NotFoundError, // 404
+  MethodNotAllowedError, // 405
+  ConflictError, // 409
+  UnprocessableEntityError, // 422
+  TooManyRequestsError, // 429
   // ... and more
 } from '@nextrush/errors';
 
 // 5xx Server Errors
 import {
-  InternalServerError,     // 500
-  NotImplementedError,     // 501
-  BadGatewayError,         // 502
+  InternalServerError, // 500
+  NotImplementedError, // 501
+  BadGatewayError, // 502
   ServiceUnavailableError, // 503
-  GatewayTimeoutError,     // 504
+  GatewayTimeoutError, // 504
   // ... and more
 } from '@nextrush/errors';
 
@@ -47,8 +48,11 @@ import {
   ValidationError,
   RequiredFieldError,
   TypeMismatchError,
-  RangeError,
+  RangeValidationError,
+  LengthError,
   PatternError,
+  InvalidEmailError,
+  InvalidUrlError,
 } from '@nextrush/errors';
 
 // Factory functions
@@ -93,45 +97,76 @@ router.post('/users', async (ctx) => {
 
 ## Error Classes
 
-### HttpError Base Class
+### Error Class Hierarchy
 
-All HTTP errors extend `HttpError`:
+All NextRush errors extend `NextRushError`. All HTTP errors extend `HttpError`:
 
 ```typescript
-class HttpError extends Error {
-  status: number;      // HTTP status code
-  code: string;        // Machine-readable code
-  expose: boolean;     // Whether to expose message to client
-  details?: unknown;   // Additional error details
-  cause?: Error;       // Original error
+class NextRushError extends Error {
+  readonly status: number; // HTTP status code (default: 500)
+  readonly code: string; // Machine-readable code (default: 'INTERNAL_ERROR')
+  readonly expose: boolean; // Whether to expose message to client (default: status < 500)
+  readonly details?: Record<string, unknown>;
+  readonly cause?: unknown;
+}
+
+class HttpError extends NextRushError {
+  constructor(status: number, message?: string, options?: HttpErrorOptions);
 }
 ```
 
 ### 4xx Client Errors
 
-| Class | Status | Default Code | Use Case |
-|-------|--------|--------------|----------|
-| `BadRequestError` | 400 | `BAD_REQUEST` | Invalid input |
-| `UnauthorizedError` | 401 | `UNAUTHORIZED` | Auth required |
-| `ForbiddenError` | 403 | `FORBIDDEN` | Access denied |
-| `NotFoundError` | 404 | `NOT_FOUND` | Resource missing |
-| `MethodNotAllowedError` | 405 | `METHOD_NOT_ALLOWED` | Wrong HTTP method |
-| `ConflictError` | 409 | `CONFLICT` | State conflict |
-| `UnprocessableEntityError` | 422 | `UNPROCESSABLE_ENTITY` | Validation failed |
-| `TooManyRequestsError` | 429 | `TOO_MANY_REQUESTS` | Rate limited |
+| Class                              | Status | Default Code                      | Use Case                           |
+| ---------------------------------- | ------ | --------------------------------- | ---------------------------------- |
+| `BadRequestError`                  | 400    | `BAD_REQUEST`                     | Invalid input                      |
+| `UnauthorizedError`                | 401    | `UNAUTHORIZED`                    | Auth required                      |
+| `PaymentRequiredError`             | 402    | `PAYMENT_REQUIRED`                | Payment needed                     |
+| `ForbiddenError`                   | 403    | `FORBIDDEN`                       | Access denied                      |
+| `NotFoundError`                    | 404    | `NOT_FOUND`                       | Resource missing                   |
+| `MethodNotAllowedError`            | 405    | `METHOD_NOT_ALLOWED`              | Wrong HTTP method                  |
+| `NotAcceptableError`               | 406    | `NOT_ACCEPTABLE`                  | Cannot produce acceptable response |
+| `ProxyAuthRequiredError`           | 407    | `PROXY_AUTH_REQUIRED`             | Proxy auth required                |
+| `RequestTimeoutError`              | 408    | `REQUEST_TIMEOUT`                 | Client took too long               |
+| `ConflictError`                    | 409    | `CONFLICT`                        | State conflict                     |
+| `GoneError`                        | 410    | `GONE`                            | Resource permanently deleted       |
+| `LengthRequiredError`              | 411    | `LENGTH_REQUIRED`                 | Content-Length required            |
+| `PreconditionFailedError`          | 412    | `PRECONDITION_FAILED`             | Precondition not met               |
+| `PayloadTooLargeError`             | 413    | `PAYLOAD_TOO_LARGE`               | Request body too large             |
+| `UriTooLongError`                  | 414    | `URI_TOO_LONG`                    | Request URI too long               |
+| `UnsupportedMediaTypeError`        | 415    | `UNSUPPORTED_MEDIA_TYPE`          | Content type not supported         |
+| `RangeNotSatisfiableError`         | 416    | `RANGE_NOT_SATISFIABLE`           | Cannot satisfy Range header        |
+| `ExpectationFailedError`           | 417    | `EXPECTATION_FAILED`              | Cannot meet Expect header          |
+| `ImATeapotError`                   | 418    | `IM_A_TEAPOT`                     | RFC 2324                           |
+| `UnprocessableEntityError`         | 422    | `UNPROCESSABLE_ENTITY`            | Semantic errors                    |
+| `LockedError`                      | 423    | `LOCKED`                          | Resource locked                    |
+| `FailedDependencyError`            | 424    | `FAILED_DEPENDENCY`               | Dependent request failed           |
+| `TooEarlyError`                    | 425    | `TOO_EARLY`                       | Request replayed too early         |
+| `UpgradeRequiredError`             | 426    | `UPGRADE_REQUIRED`                | Client should upgrade protocol     |
+| `PreconditionRequiredError`        | 428    | `PRECONDITION_REQUIRED`           | Conditional request required       |
+| `TooManyRequestsError`             | 429    | `TOO_MANY_REQUESTS`               | Rate limited                       |
+| `RequestHeaderFieldsTooLargeError` | 431    | `REQUEST_HEADER_FIELDS_TOO_LARGE` | Headers too large                  |
+| `UnavailableForLegalReasonsError`  | 451    | `UNAVAILABLE_FOR_LEGAL_REASONS`   | Legal restriction                  |
 
 ### 5xx Server Errors
 
-| Class | Status | Default Code | Use Case |
-|-------|--------|--------------|----------|
-| `InternalServerError` | 500 | `INTERNAL_SERVER_ERROR` | Unexpected error |
-| `NotImplementedError` | 501 | `NOT_IMPLEMENTED` | Feature missing |
-| `BadGatewayError` | 502 | `BAD_GATEWAY` | Upstream error |
-| `ServiceUnavailableError` | 503 | `SERVICE_UNAVAILABLE` | Temporarily down |
-| `GatewayTimeoutError` | 504 | `GATEWAY_TIMEOUT` | Upstream timeout |
+| Class                          | Status | Default Code                 | Use Case                  |
+| ------------------------------ | ------ | ---------------------------- | ------------------------- |
+| `InternalServerError`          | 500    | `INTERNAL_SERVER_ERROR`      | Unexpected error          |
+| `NotImplementedError`          | 501    | `NOT_IMPLEMENTED`            | Feature missing           |
+| `BadGatewayError`              | 502    | `BAD_GATEWAY`                | Upstream error            |
+| `ServiceUnavailableError`      | 503    | `SERVICE_UNAVAILABLE`        | Temporarily down          |
+| `GatewayTimeoutError`          | 504    | `GATEWAY_TIMEOUT`            | Upstream timeout          |
+| `HttpVersionNotSupportedError` | 505    | `HTTP_VERSION_NOT_SUPPORTED` | HTTP version unsupported  |
+| `VariantAlsoNegotiatesError`   | 506    | `VARIANT_ALSO_NEGOTIATES`    | Content negotiation error |
+| `InsufficientStorageError`     | 507    | `INSUFFICIENT_STORAGE`       | Insufficient storage      |
+| `LoopDetectedError`            | 508    | `LOOP_DETECTED`              | Infinite loop detected    |
+| `NotExtendedError`             | 510    | `NOT_EXTENDED`               | Extension not available   |
+| `NetworkAuthRequiredError`     | 511    | `NETWORK_AUTH_REQUIRED`      | Network auth required     |
 
 <Callout type="info" title="5xx Errors Don't Expose Messages">
-Server errors (`5xx`) have `expose: false` by default. In production, clients see "Internal Server Error" instead of the actual message.
+  Server errors (`5xx`) have `expose: false` by default. In production, clients see "Internal Server
+  Error" instead of the actual message.
 </Callout>
 
 ## Error Options
@@ -140,10 +175,10 @@ All error classes accept an options object:
 
 ```typescript
 interface HttpErrorOptions {
-  code?: string;              // Override default code
-  expose?: boolean;           // Override expose behavior
-  details?: Record<string, unknown>;  // Additional data
-  cause?: Error;              // Original error
+  code?: string; // Override default error code
+  expose?: boolean; // Override expose behavior
+  details?: Record<string, unknown>; // Additional data
+  cause?: unknown; // Original error
 }
 ```
 
@@ -170,7 +205,7 @@ try {
   await database.query(sql);
 } catch (err) {
   throw new InternalServerError('Database query failed', {
-    cause: err as Error,
+    cause: err,
   });
 }
 
@@ -182,34 +217,52 @@ throw new TooManyRequestsError('Rate limit exceeded', {
 
 ## Validation Errors
 
-Specialized errors for input validation:
+`ValidationError` extends `NextRushError` (not `HttpError`) and provides structured validation failure reporting. It always returns status 400 with `expose: true`.
 
 ```typescript
 import {
   ValidationError,
   RequiredFieldError,
   TypeMismatchError,
-  RangeError,
-  PatternError,
+  RangeValidationError,
   LengthError,
+  PatternError,
+  InvalidEmailError,
+  InvalidUrlError,
 } from '@nextrush/errors';
 
-// Generic validation error
-throw new ValidationError('Invalid input', {
-  details: {
-    issues: [
-      { path: ['email'], message: 'Required' },
-      { path: ['age'], message: 'Must be number' },
-    ],
-  },
-});
+// Validation error with multiple issues
+throw new ValidationError([
+  { path: 'email', message: 'Required', rule: 'required' },
+  { path: 'age', message: 'Must be positive', rule: 'range' },
+]);
+
+// Static factory methods
+throw ValidationError.fromField('email', 'Invalid format', 'email');
+throw ValidationError.fromFields({ email: 'Required', age: 'Must be number' });
 
 // Field-specific errors
 throw new RequiredFieldError('email');
 throw new TypeMismatchError('age', 'number', 'string');
-throw new RangeError('age', 0, 120);
-throw new PatternError('email', /^[^@]+@[^@]+$/);
+throw new RangeValidationError('age', 0, 120);
 throw new LengthError('password', 8, 100);
+throw new PatternError('username', '^[a-z0-9]+$');
+throw new InvalidEmailError();
+throw new InvalidUrlError();
+```
+
+`ValidationError` provides helper methods for querying issues:
+
+```typescript
+const error = new ValidationError([
+  { path: 'email', message: 'Required', rule: 'required' },
+  { path: 'age', message: 'Must be positive', rule: 'range' },
+]);
+
+error.hasErrorFor('email'); // true
+error.getErrorsFor('email'); // [{ path: 'email', ... }]
+error.getFirstError('email'); // 'Required'
+error.toFlatObject(); // { email: 'Required', age: 'Must be positive' }
 ```
 
 ## Factory Functions
@@ -287,39 +340,72 @@ const message = getSafeErrorMessage(error);
 
 ### errorHandler()
 
-Global error handling middleware:
+Global error handling middleware. Place it before your routes so it catches all downstream errors.
 
 ```typescript
 import { errorHandler } from '@nextrush/errors';
 
-// Basic usage
+// Basic usage (logs 5xx as errors, 4xx as warnings)
 app.use(errorHandler());
 
 // With options
-app.use(errorHandler({
-  // Log all errors
-  log: true,
+app.use(
+  errorHandler({
+    // Include stack trace in responses (default: false)
+    includeStack: process.env.NODE_ENV !== 'production',
 
-  // Custom logger
-  logger: console.error,
-
-  // Include stack in development
-  includeStack: process.env.NODE_ENV !== 'production',
-
-  // Custom response format
-  format: (error, ctx) => ({
-    success: false,
-    error: {
-      code: error.code || 'UNKNOWN',
-      message: error.expose ? error.message : 'An error occurred',
+    // Custom error logger
+    logger: (err, ctx) => {
+      myLogger.error(err, { path: ctx.path, method: ctx.method });
     },
-  }),
-}));
+
+    // Custom error response transformer
+    transform: (err, ctx) => ({
+      success: false,
+      error: err.message,
+      status: ctx.status,
+    }),
+
+    // Handle specific error types
+    handlers: new Map([
+      [
+        SyntaxError,
+        (err, ctx) => {
+          ctx.status = 400;
+          ctx.json({ error: 'Invalid JSON' });
+        },
+      ],
+    ]),
+  })
+);
 ```
+
+<TypeTable
+  title="ErrorHandlerOptions"
+  types={{
+    includeStack: {
+      type: 'boolean',
+      description: 'Include stack trace in error responses',
+      default: 'false',
+    },
+    logger: {
+      type: '(error: Error, ctx: Context) => void',
+      description: 'Custom error logger. Default logs 5xx as errors and 4xx as warnings.',
+    },
+    transform: {
+      type: '(error: Error, ctx: Context) => Record<string, unknown>',
+      description: 'Custom error response body transformer',
+    },
+    handlers: {
+      type: 'Map<ErrorClass, (error: Error, ctx: Context) => void>',
+      description: 'Custom handlers for specific error types',
+    },
+  }}
+/>
 
 ### notFoundHandler()
 
-Catch-all 404 handler:
+Catch-all 404 handler. Responds with JSON when no route matched and `ctx.status` is still 404.
 
 ```typescript
 import { notFoundHandler } from '@nextrush/errors';
@@ -329,27 +415,22 @@ app.route('/', router);
 app.use(notFoundHandler());
 
 // With custom message
-app.use(notFoundHandler({ message: 'Route not found' }));
+app.use(notFoundHandler('Route not found'));
 ```
 
 ### catchAsync()
 
-Wrap async handlers to catch errors:
+<Callout type="warn" title="Deprecated">
+  `catchAsync()` is redundant — async errors propagate through the middleware chain and are caught
+  by `errorHandler()`. Use handlers directly.
+</Callout>
 
 ```typescript
-import { catchAsync } from '@nextrush/errors';
-
-// Without catchAsync - errors might not be caught
+// catchAsync is no longer needed. This works without it:
 router.get('/users', async (ctx) => {
-  const users = await db.users.findAll(); // Unhandled if throws
-  ctx.json(users);
-});
-
-// With catchAsync - errors are caught and passed to error handler
-router.get('/users', catchAsync(async (ctx) => {
   const users = await db.users.findAll();
   ctx.json(users);
-}));
+});
 ```
 
 ## Complete Example
@@ -362,17 +443,18 @@ import {
   notFoundHandler,
   NotFoundError,
   BadRequestError,
-  UnauthorizedError,
+  ConflictError,
 } from '@nextrush/errors';
 
 const app = createApp();
 const router = createRouter();
 
 // Error handler first (catches all downstream errors)
-app.use(errorHandler({
-  log: true,
-  includeStack: !app.isProduction,
-}));
+app.use(
+  errorHandler({
+    includeStack: process.env.NODE_ENV !== 'production',
+  })
+);
 
 // Routes
 router.get('/users/:id', async (ctx) => {
@@ -424,7 +506,7 @@ import type {
 
 <Cards>
   <Card title="@nextrush/core" href="/docs/packages/core/core">
-    Application error handling with app.onError().
+    Application error handling with app.setErrorHandler().
   </Card>
   <Card title="Context API" href="/docs/concepts/context">
     ctx.throw() and ctx.assert() methods.

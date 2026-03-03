@@ -64,6 +64,7 @@ app.get('/', async (ctx) => {
 ```
 
 **views/home.ejs:**
+
 ```html
 <h1>Hello <%= name %>!</h1>
 ```
@@ -72,14 +73,17 @@ app.get('/', async (ctx) => {
 
 ```typescript
 // npm install handlebars
-app.use(template('handlebars', {
-  root: './views',
-  ext: '.hbs',
-  layout: 'layouts/main'
-}));
+app.use(
+  template('handlebars', {
+    root: './views',
+    ext: '.hbs',
+    layout: 'layouts/main',
+  })
+);
 ```
 
 **views/home.hbs:**
+
 ```handlebars
 <h1>Hello {{name}}!</h1>
 ```
@@ -88,13 +92,16 @@ app.use(template('handlebars', {
 
 ```typescript
 // npm install nunjucks
-app.use(template('nunjucks', {
-  root: './views',
-  autoescape: true
-}));
+app.use(
+  template('nunjucks', {
+    root: './views',
+    autoescape: true,
+  })
+);
 ```
 
 **views/home.njk:**
+
 ```nunjucks
 <h1>Hello {{ name }}!</h1>
 ```
@@ -107,6 +114,7 @@ app.use(template('pug', { root: './views', pretty: true }));
 ```
 
 **views/home.pug:**
+
 ```pug
 h1 Hello #{name}!
 ```
@@ -119,6 +127,7 @@ app.use(template('eta', { root: './views', autoEscape: true }));
 ```
 
 **views/home.eta:**
+
 ```eta
 <h1>Hello <%= it.name %>!</h1>
 ```
@@ -132,6 +141,7 @@ app.use(template({ root: './views' }));
 ```
 
 **views/home.html:**
+
 ```html
 <h1>Hello {{name}}!</h1>
 ```
@@ -140,35 +150,40 @@ app.use(template({ root: './views' }));
 
 ### Common Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `root` | `string` | `'./views'` | Template directory |
-| `ext` | `string` | varies | File extension (`.ejs`, `.hbs`, `.njk`, `.pug`, `.eta`, `.html`) |
-| `cache` | `boolean` | `true` in production | Enable template caching |
-| `layout` | `string` | - | Default layout template |
-| `helpers` | `object` | - | Custom helper functions |
+| Option    | Type      | Default              | Description                                                      |
+| --------- | --------- | -------------------- | ---------------------------------------------------------------- |
+| `root`    | `string`  | `'./views'`          | Template directory                                               |
+| `ext`     | `string`  | varies               | File extension (`.ejs`, `.hbs`, `.njk`, `.pug`, `.eta`, `.html`) |
+| `cache`   | `boolean` | `true` in production | Enable template caching                                          |
+| `layout`  | `string`  | -                    | Default layout template                                          |
+| `helpers` | `object`  | -                    | Custom helper functions                                          |
 
 ### Engine-Specific Options
 
 #### EJS
+
 - `delimiter` - Custom delimiter (default: `%`)
 - `openDelimiter` - Opening delimiter
 - `closeDelimiter` - Closing delimiter
 
 #### Handlebars
+
 - `strict` - Enable strict mode
 - `preventIndent` - Prevent partial indentation
 
 #### Nunjucks
+
 - `autoescape` - Enable auto-escaping (default: `true`)
 - `throwOnUndefined` - Throw on undefined variables
 - `watch` - Watch for file changes (development)
 
 #### Pug
+
 - `pretty` - Pretty print output
 - `doctype` - HTML doctype
 
 #### Eta
+
 - `autoEscape` - Enable auto-escaping (default: `true`)
 - `autoTrim` - Trim whitespace
 
@@ -177,13 +192,16 @@ app.use(template({ root: './views' }));
 ### Layouts
 
 ```typescript
-app.use(template('handlebars', {
-  root: './views',
-  layout: 'layouts/main'
-}));
+app.use(
+  template('handlebars', {
+    root: './views',
+    layout: 'layouts/main',
+  })
+);
 ```
 
 **views/layouts/main.hbs:**
+
 ```handlebars
 <!DOCTYPE html>
 <html>
@@ -195,6 +213,7 @@ app.use(template('handlebars', {
 ```
 
 **views/home.hbs:**
+
 ```handlebars
 <h1>{{title}}</h1>
 <p>Welcome to our site!</p>
@@ -203,15 +222,18 @@ app.use(template('handlebars', {
 ### Custom Helpers
 
 ```typescript
-app.use(template({
-  helpers: {
-    formatDate: (date) => new Date(date).toLocaleDateString(),
-    currency: (value) => `$${Number(value).toFixed(2)}`,
-  }
-}));
+app.use(
+  template({
+    helpers: {
+      formatDate: (date) => new Date(date).toLocaleDateString(),
+      currency: (value) => `$${Number(value).toFixed(2)}`,
+    },
+  })
+);
 ```
 
 **Built-in template usage:**
+
 ```html
 <p>Date: {{createdAt | formatDate}}</p>
 <p>Price: {{price | currency}}</p>
@@ -235,96 +257,96 @@ The built-in Mustache-like engine includes:
 
 ### String Helpers
 
-| Helper | Usage | Description |
-|--------|-------|-------------|
-| `upper` | `{{name \| upper}}` | Convert to uppercase |
-| `lower` | `{{name \| lower}}` | Convert to lowercase |
-| `capitalize` | `{{name \| capitalize}}` | Capitalize first letter |
-| `titleCase` | `{{name \| titleCase}}` | Title Case String |
-| `trim` | `{{text \| trim}}` | Remove whitespace |
-| `truncate` | `{{text \| truncate 100 "..."}}` | Limit length |
-| `replace` | `{{text \| replace "old" "new"}}` | Replace substring |
-| `padStart` | `{{num \| padStart 3 "0"}}` | Pad start of string |
-| `padEnd` | `{{num \| padEnd 3 "0"}}` | Pad end of string |
-| `stripHtml` | `{{html \| stripHtml}}` | Remove HTML tags |
-| `split` | `{{csv \| split ","}}` | Split string to array |
-| `join` | `{{arr \| join "-"}}` | Join array to string |
-| `reverse` | `{{text \| reverse}}` | Reverse string |
-| `length` | `{{text \| length}}` | Get string/array length |
+| Helper       | Usage                             | Description             |
+| ------------ | --------------------------------- | ----------------------- |
+| `upper`      | `{{name \| upper}}`               | Convert to uppercase    |
+| `lower`      | `{{name \| lower}}`               | Convert to lowercase    |
+| `capitalize` | `{{name \| capitalize}}`          | Capitalize first letter |
+| `titleCase`  | `{{name \| titleCase}}`           | Title Case String       |
+| `trim`       | `{{text \| trim}}`                | Remove whitespace       |
+| `truncate`   | `{{text \| truncate 100 "..."}}`  | Limit length            |
+| `replace`    | `{{text \| replace "old" "new"}}` | Replace substring       |
+| `padStart`   | `{{num \| padStart 3 "0"}}`       | Pad start of string     |
+| `padEnd`     | `{{num \| padEnd 3 "0"}}`         | Pad end of string       |
+| `stripHtml`  | `{{html \| stripHtml}}`           | Remove HTML tags        |
+| `split`      | `{{csv \| split ","}}`            | Split string to array   |
+| `join`       | `{{arr \| join "-"}}`             | Join array to string    |
+| `reverse`    | `{{text \| reverse}}`             | Reverse string          |
+| `length`     | `{{text \| length}}`              | Get string/array length |
 
 ### Number Helpers
 
-| Helper | Usage | Description |
-|--------|-------|-------------|
-| `round` | `{{num \| round 2}}` | Round to decimal places |
-| `floor` | `{{num \| floor}}` | Round down |
-| `ceil` | `{{num \| ceil}}` | Round up |
-| `abs` | `{{num \| abs}}` | Absolute value |
-| `add` | `{{num \| add 10}}` | Add numbers |
-| `subtract` | `{{num \| subtract 5}}` | Subtract numbers |
-| `multiply` | `{{num \| multiply 2}}` | Multiply numbers |
-| `divide` | `{{num \| divide 2}}` | Divide numbers |
-| `mod` | `{{num \| mod 3}}` | Modulo operation |
-| `formatNumber` | `{{num \| formatNumber "en-US"}}` | Locale formatting |
-| `currency` | `{{price \| currency "USD"}}` | Currency formatting |
-| `percent` | `{{ratio \| percent 2}}` | Percentage formatting |
+| Helper         | Usage                             | Description             |
+| -------------- | --------------------------------- | ----------------------- |
+| `round`        | `{{num \| round 2}}`              | Round to decimal places |
+| `floor`        | `{{num \| floor}}`                | Round down              |
+| `ceil`         | `{{num \| ceil}}`                 | Round up                |
+| `abs`          | `{{num \| abs}}`                  | Absolute value          |
+| `add`          | `{{num \| add 10}}`               | Add numbers             |
+| `subtract`     | `{{num \| subtract 5}}`           | Subtract numbers        |
+| `multiply`     | `{{num \| multiply 2}}`           | Multiply numbers        |
+| `divide`       | `{{num \| divide 2}}`             | Divide numbers          |
+| `mod`          | `{{num \| mod 3}}`                | Modulo operation        |
+| `formatNumber` | `{{num \| formatNumber "en-US"}}` | Locale formatting       |
+| `currency`     | `{{price \| currency "USD"}}`     | Currency formatting     |
+| `percent`      | `{{ratio \| percent 2}}`          | Percentage formatting   |
 
 ### Array Helpers
 
-| Helper | Usage | Description |
-|--------|-------|-------------|
-| `first` | `{{arr \| first}}` | First element |
-| `last` | `{{arr \| last}}` | Last element |
-| `at` | `{{arr \| at 2}}` | Element at index |
-| `slice` | `{{arr \| slice 1 3}}` | Slice array |
-| `sort` | `{{arr \| sort}}` | Sort array |
-| `unique` | `{{arr \| unique}}` | Remove duplicates |
-| `compact` | `{{arr \| compact}}` | Remove falsy values |
-| `flatten` | `{{arr \| flatten}}` | Flatten nested arrays |
-| `includes` | `{{arr \| includes "item"}}` | Check if includes |
-| `indexOf` | `{{arr \| indexOf "item"}}` | Find index |
+| Helper     | Usage                        | Description           |
+| ---------- | ---------------------------- | --------------------- |
+| `first`    | `{{arr \| first}}`           | First element         |
+| `last`     | `{{arr \| last}}`            | Last element          |
+| `at`       | `{{arr \| at 2}}`            | Element at index      |
+| `slice`    | `{{arr \| slice 1 3}}`       | Slice array           |
+| `sort`     | `{{arr \| sort}}`            | Sort array            |
+| `unique`   | `{{arr \| unique}}`          | Remove duplicates     |
+| `compact`  | `{{arr \| compact}}`         | Remove falsy values   |
+| `flatten`  | `{{arr \| flatten}}`         | Flatten nested arrays |
+| `includes` | `{{arr \| includes "item"}}` | Check if includes     |
+| `indexOf`  | `{{arr \| indexOf "item"}}`  | Find index            |
 
 ### Object Helpers
 
-| Helper | Usage | Description |
-|--------|-------|-------------|
-| `keys` | `{{obj \| keys}}` | Get object keys |
-| `values` | `{{obj \| values}}` | Get object values |
-| `entries` | `{{obj \| entries}}` | Get key-value pairs |
-| `get` | `{{obj \| get "path.to.value"}}` | Get nested value |
+| Helper    | Usage                            | Description         |
+| --------- | -------------------------------- | ------------------- |
+| `keys`    | `{{obj \| keys}}`                | Get object keys     |
+| `values`  | `{{obj \| values}}`              | Get object values   |
+| `entries` | `{{obj \| entries}}`             | Get key-value pairs |
+| `get`     | `{{obj \| get "path.to.value"}}` | Get nested value    |
 
 ### Comparison Helpers
 
-| Helper | Usage | Description |
-|--------|-------|-------------|
-| `eq` | `{{a \| eq b}}` | Equal |
-| `ne` | `{{a \| ne b}}` | Not equal |
-| `lt` | `{{a \| lt b}}` | Less than |
-| `lte` | `{{a \| lte b}}` | Less than or equal |
-| `gt` | `{{a \| gt b}}` | Greater than |
-| `gte` | `{{a \| gte b}}` | Greater than or equal |
-| `and` | `{{a \| and b}}` | Logical AND |
-| `or` | `{{a \| or b}}` | Logical OR |
-| `not` | `{{val \| not}}` | Logical NOT |
+| Helper | Usage            | Description           |
+| ------ | ---------------- | --------------------- |
+| `eq`   | `{{a \| eq b}}`  | Equal                 |
+| `ne`   | `{{a \| ne b}}`  | Not equal             |
+| `lt`   | `{{a \| lt b}}`  | Less than             |
+| `lte`  | `{{a \| lte b}}` | Less than or equal    |
+| `gt`   | `{{a \| gt b}}`  | Greater than          |
+| `gte`  | `{{a \| gte b}}` | Greater than or equal |
+| `and`  | `{{a \| and b}}` | Logical AND           |
+| `or`   | `{{a \| or b}}`  | Logical OR            |
+| `not`  | `{{val \| not}}` | Logical NOT           |
 
 ### Type Helpers
 
-| Helper | Usage | Description |
-|--------|-------|-------------|
-| `isArray` | `{{val \| isArray}}` | Check if array |
+| Helper     | Usage                 | Description     |
+| ---------- | --------------------- | --------------- |
+| `isArray`  | `{{val \| isArray}}`  | Check if array  |
 | `isObject` | `{{val \| isObject}}` | Check if object |
 | `isString` | `{{val \| isString}}` | Check if string |
 | `isNumber` | `{{val \| isNumber}}` | Check if number |
-| `isEmpty` | `{{val \| isEmpty}}` | Check if empty |
+| `isEmpty`  | `{{val \| isEmpty}}`  | Check if empty  |
 
 ### Output Helpers
 
-| Helper | Usage | Description |
-|--------|-------|-------------|
-| `json` | `{{{data \| json}}}` | JSON stringify |
-| `safe` | `{{html \| safe}}` | Mark as safe (no escape) |
-| `default` | `{{val \| default "fallback"}}` | Default value |
-| `if` | `{{active \| if "Yes" "No"}}` | Inline conditional |
+| Helper    | Usage                           | Description              |
+| --------- | ------------------------------- | ------------------------ |
+| `json`    | `{{{data \| json}}}`            | JSON stringify           |
+| `safe`    | `{{html \| safe}}`              | Mark as safe (no escape) |
+| `default` | `{{val \| default "fallback"}}` | Default value            |
+| `if`      | `{{active \| if "Yes" "No"}}`   | Inline conditional       |
 
 ## API Reference
 
@@ -336,12 +358,13 @@ Compile a template string into a reusable template object.
 import { compile } from '@nextrush/template';
 
 const template = compile('Hello {{name}}!', {
-  escape: true,       // HTML escape by default (default: true)
-  strict: false,      // Throw on missing variables (default: false)
+  escape: true, // HTML escape by default (default: true)
+  strict: false, // Throw on missing variables (default: false)
   delimiters: ['{{', '}}'], // Custom delimiters
-  helpers: {          // Custom helpers
-    double: (v) => Number(v) * 2
-  }
+  helpers: {
+    // Custom helpers
+    double: (v) => Number(v) * 2,
+  },
 });
 
 // Synchronous render
@@ -359,7 +382,7 @@ Parse a template string into an AST.
 import { parse } from '@nextrush/template';
 
 const ast = parse('Hello {{name}}!');
-// Returns TemplateAST with body array of nodes
+// Returns AST with body array of nodes
 ```
 
 ### validate(source, options?)
@@ -381,12 +404,12 @@ Create a template engine for file-based templates.
 import { createEngine } from '@nextrush/template';
 
 const engine = createEngine({
-  root: './views',        // Template root directory
-  ext: '.hbs',            // File extension
-  cache: true,            // Enable caching (default: true)
+  root: './views', // Template root directory
+  ext: '.hbs', // File extension
+  cache: true, // Enable caching (default: true)
   layout: 'layouts/main', // Default layout
-  helpers: {},            // Global helpers
-  partials: {}            // Global partials
+  helpers: {}, // Global helpers
+  partials: {}, // Global partials
 });
 
 // Render a template file
@@ -414,15 +437,15 @@ Value helpers receive the piped value and any additional arguments:
 ```typescript
 const template = compile('{{value | double}}', {
   helpers: {
-    double: (value) => Number(value) * 2
-  }
+    double: (value) => Number(value) * 2,
+  },
 });
 
 // With arguments
 const template2 = compile('{{value | multiply 3}}', {
   helpers: {
-    multiply: (value, factor) => Number(value) * Number(factor)
-  }
+    multiply: (value, factor) => Number(value) * Number(factor),
+  },
 });
 ```
 
@@ -434,8 +457,8 @@ const template = compile('{{userId | fetchUser | get "name"}}', {
     fetchUser: async (id) => {
       const response = await fetch(`/api/users/${id}`);
       return response.json();
-    }
-  }
+    },
+  },
 });
 
 const result = await template.renderAsync({ userId: 123 });
@@ -452,19 +475,21 @@ import { template } from '@nextrush/template';
 const app = createApp();
 
 // Use template middleware
-app.use(template({
-  root: './views',
-  ext: '.hbs',
-  helpers: {
-    formatDate: (d) => new Date(d).toLocaleDateString()
-  }
-}));
+app.use(
+  template({
+    root: './views',
+    ext: '.hbs',
+    helpers: {
+      formatDate: (d) => new Date(d).toLocaleDateString(),
+    },
+  })
+);
 
 // In route handlers
 app.get('/', async (ctx) => {
   await ctx.render('home', {
     title: 'Welcome',
-    user: ctx.state.user
+    user: ctx.state.user,
   });
 });
 ```
@@ -477,10 +502,12 @@ import { templatePlugin } from '@nextrush/template';
 
 const app = createApp();
 
-app.use(templatePlugin({
-  root: './views',
-  ext: '.hbs'
-}));
+app.plugin(
+  templatePlugin({
+    root: './views',
+    ext: '.hbs',
+  })
+);
 ```
 
 ## Security
@@ -537,18 +564,18 @@ await ctx.render('page', {}, { partials: { recursive: '{{>recursive}}' } });
 
 // If layout A includes layout B which includes layout A
 await ctx.render('page', {}, { layout: 'A' });
-// Throws: Maximum template nesting depth exceeded
+// Throws: Maximum layout nesting depth (10) exceeded
 ```
 
 ### Security Summary
 
-| Vulnerability | Protection |
-|--------------|------------|
-| XSS (Cross-Site Scripting) | HTML escaping enabled by default |
-| Prototype Pollution | Blocked properties: `__proto__`, `constructor`, `prototype` |
-| Path Traversal | Path validation, root directory enforcement |
-| DoS via Recursion | Max nesting depth (100) for partials/layouts |
-| ReDoS | Safe regex patterns in parser |
+| Vulnerability              | Protection                                                  |
+| -------------------------- | ----------------------------------------------------------- |
+| XSS (Cross-Site Scripting) | HTML escaping enabled by default                            |
+| Prototype Pollution        | Blocked properties: `__proto__`, `constructor`, `prototype` |
+| Path Traversal             | Path validation, root directory enforcement                 |
+| DoS via Recursion          | Max nesting depth: 100 for partials, 10 for layouts         |
+| ReDoS                      | Safe regex patterns in parser                               |
 
 ## Performance
 
@@ -561,12 +588,12 @@ The template engine is optimized for performance:
 
 ## Runtime Compatibility
 
-| Runtime | String Rendering | File Rendering |
-|---------|-----------------|----------------|
-| Node.js 20+ | ✅ Full support | ✅ Full support |
-| Bun | ✅ Full support | ✅ Full support |
-| Deno | ✅ Full support | ✅ With `--allow-read` |
-| Edge (Cloudflare/Vercel) | ✅ Full support | ❌ No filesystem |
+| Runtime                  | String Rendering | File Rendering         |
+| ------------------------ | ---------------- | ---------------------- |
+| Node.js 20+              | ✅ Full support  | ✅ Full support        |
+| Bun                      | ✅ Full support  | ✅ Full support        |
+| Deno                     | ✅ Full support  | ✅ With `--allow-read` |
+| Edge (Cloudflare/Vercel) | ✅ Full support  | ❌ No filesystem       |
 
 For edge runtimes without filesystem access, use string rendering:
 
@@ -584,12 +611,12 @@ export default {
   async fetch(request) {
     const html = homeTemplate.render({
       title: 'Welcome',
-      user: { name: 'Edge User' }
+      user: { name: 'Edge User' },
     });
     return new Response(html, {
-      headers: { 'Content-Type': 'text/html' }
+      headers: { 'Content-Type': 'text/html' },
     });
-  }
+  },
 };
 ```
 
@@ -603,8 +630,8 @@ try {
 } catch (error) {
   if (error instanceof TemplateParseError) {
     console.log(error.message); // "Unclosed block: if"
-    console.log(error.line);    // Line number
-    console.log(error.column);  // Column number
+    console.log(error.line); // Line number
+    console.log(error.column); // Column number
   }
 }
 ```
@@ -618,9 +645,9 @@ import type {
   CompiledTemplate,
   CompileOptions,
   RenderOptions,
-  TemplateAST,
+  AST,
   HelperFn,
-  ValueHelper
+  ValueHelper,
 } from '@nextrush/template';
 
 // Custom helper type

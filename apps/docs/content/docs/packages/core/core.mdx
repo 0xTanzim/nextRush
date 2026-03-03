@@ -1,5 +1,5 @@
 ---
-title: "@nextrush/core"
+title: '@nextrush/core'
 description: Application class, middleware composition, and plugin system
 ---
 
@@ -7,10 +7,11 @@ description: Application class, middleware composition, and plugin system
 
 The core package provides the foundation of every NextRush application: the Application class, middleware composition, and plugin system.
 
-<PackageInstall packages={["@nextrush/core"]} />
+<PackageInstall packages={['@nextrush/core']} />
 
 <Callout type="info" title="Usually Included">
-Most users install `nextrush` which includes this package. Install `@nextrush/core` directly only when using non-Node.js runtimes or building custom tooling.
+  Most users install `nextrush` which includes this package. Install `@nextrush/core` directly only
+  when using non-Node.js runtimes or building custom tooling.
 </Callout>
 
 ## What It Provides
@@ -18,14 +19,44 @@ Most users install `nextrush` which includes this package. Install `@nextrush/co
 ```typescript
 // Application
 import { Application, createApp } from '@nextrush/core';
-import type { ApplicationOptions, ErrorHandler } from '@nextrush/core';
+import type {
+  ApplicationOptions,
+  ErrorHandler,
+  ListenCallback,
+  Logger,
+  Routable,
+} from '@nextrush/core';
 
 // Middleware utilities
 import { compose, isMiddleware, flattenMiddleware } from '@nextrush/core';
 import type { ComposedMiddleware } from '@nextrush/core';
 
+// Error classes (re-exported from @nextrush/errors)
+import {
+  HttpError,
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  InternalServerError,
+  NextRushError,
+  createHttpError,
+} from '@nextrush/core';
+
 // Re-exported types for convenience
-import type { Context, Middleware, Plugin } from '@nextrush/core';
+import type {
+  Context,
+  Middleware,
+  Plugin,
+  PluginWithHooks,
+  Next,
+  HttpMethod,
+  HttpStatusCode,
+  RouteHandler,
+  RouteParams,
+  QueryParams,
+  ContextState,
+} from '@nextrush/core';
 
 // Re-exported constants
 import { HttpStatus, ContentType } from '@nextrush/core';
@@ -52,23 +83,63 @@ const app = createApp({
 
 ### Application Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `env` | `'development' \| 'production' \| 'test'` | `process.env.NODE_ENV` or `'development'` | Environment mode |
-| `proxy` | `boolean` | `false` | Trust proxy headers (`X-Forwarded-For`) |
+<TypeTable
+  title="ApplicationOptions"
+  types={{
+    env: {
+      type: "'development' | 'production' | 'test'",
+      description: 'Environment mode',
+      default: "'development'",
+    },
+    proxy: {
+      type: 'boolean',
+      description: 'Trust proxy headers (X-Forwarded-For, etc.)',
+      default: 'false',
+    },
+    logger: {
+      type: 'Logger',
+      description:
+        'Pluggable logger instance. Defaults to a silent no-op logger. Pass console for quick development logging.',
+      optional: true,
+    },
+  }}
+/>
 
 ### Environment Mode
 
 ```typescript
-// Development: verbose errors, stack traces logged
+// Development: verbose errors, error messages logged via app.logger
 const app = createApp({ env: 'development' });
 
-// Production: minimal error info, no stack traces
+// Production: generic error messages, no error details exposed
 const app = createApp({ env: 'production' });
 
 // Test: for automated testing
 const app = createApp({ env: 'test' });
 ```
+
+### Logger
+
+The `logger` option accepts any object implementing the `Logger` interface:
+
+```typescript
+interface Logger {
+  error(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
+}
+```
+
+```typescript
+// Quick development logging
+const app = createApp({ logger: console });
+
+// Production structured logger (e.g. pino)
+const app = createApp({ logger: pino() });
+```
+
+The logger is available on `app.logger` and is used internally by the error handler and plugin lifecycle hooks.
 
 ### Proxy Mode
 
@@ -76,8 +147,6 @@ Enable when behind a reverse proxy (nginx, AWS ALB, Cloudflare):
 
 ```typescript
 const app = createApp({ proxy: true });
-
-// Now ctx.ip respects X-Forwarded-For header
 ```
 
 ## Middleware Registration
@@ -95,9 +164,7 @@ app.use(async (ctx) => {
 app.use(cors(), helmet(), json());
 
 // Method chaining
-app.use(cors())
-   .use(helmet())
-   .use(json());
+app.use(cors()).use(helmet()).use(json());
 ```
 
 ## Router Composition
@@ -125,11 +192,11 @@ app.route('/api/posts', posts);
 
 ### Benefits over Classic Pattern
 
-| Classic Pattern | Hono-Style Composition |
-|-----------------|------------------------|
+| Classic Pattern                                                     | Hono-Style Composition       |
+| ------------------------------------------------------------------- | ---------------------------- |
 | `router.use('/users', usersRouter)` then `app.use(router.routes())` | `app.route('/users', users)` |
-| Requires main router | Direct mounting |
-| Extra `.routes()` call | No extra calls |
+| Requires main router                                                | Direct mounting              |
+| Extra `.routes()` call                                              | No extra calls               |
 
 ### Classic Pattern Still Works
 
@@ -182,6 +249,7 @@ sequenceDiagram
     M2-->>M1: Return
     M1->>M1: After next()
     M1-->>R: Response
+
 "/>
 
 ```typescript
@@ -214,11 +282,12 @@ app.use((ctx) => {
 
 ### Custom Error Handler
 
+Set a custom error handler with `setErrorHandler()`. This replaces any previously set handler — only one is active at a time.
+
 ```typescript
-app.onError((error, ctx) => {
+app.setErrorHandler((error, ctx) => {
   console.error('Request failed:', error);
 
-  // Handle specific error types
   if ('status' in error && typeof error.status === 'number') {
     ctx.status = error.status;
   } else {
@@ -227,20 +296,24 @@ app.onError((error, ctx) => {
 
   ctx.json({
     error: error.message,
-    // Include stack in development
     ...(app.options.env === 'development' && { stack: error.stack }),
   });
 });
 ```
 
+<Callout type="warn">
+  `onError()` is deprecated. Use `setErrorHandler()` instead — the name makes the replacement
+  semantics clear.
+</Callout>
+
 ### Default Error Behavior
 
 Without a custom handler:
 
-| Environment | Error Message | Stack Trace | Console Log |
-|-------------|---------------|-------------|-------------|
-| `development` | Full message | Hidden | Logged |
-| `production` | "Internal Server Error" | Hidden | Hidden |
+| Environment   | Error Message           | Stack Trace | Console Log |
+| ------------- | ----------------------- | ----------- | ----------- |
+| `development` | Full message            | Hidden      | Logged      |
+| `production`  | "Internal Server Error" | Hidden      | Hidden      |
 
 ## Plugin System
 
@@ -248,13 +321,20 @@ Plugins extend the application without modifying core code.
 
 ### Installing Plugins
 
+`app.plugin()` handles both sync and async plugins automatically. It returns `this` for sync plugins and `Promise<this>` for async ones.
+
 ```typescript
-// Synchronous plugin
+// Sync plugin
 app.plugin(loggerPlugin({ level: 'info' }));
 
-// Async plugin (database connections, etc.)
-await app.pluginAsync(databasePlugin({ uri: '...' }));
+// Async plugin — await the result
+await app.plugin(databasePlugin({ uri: '...' }));
 ```
+
+<Callout type="warn">
+  `pluginAsync()` is deprecated. Use `plugin()` instead — it detects async `install()` methods and
+  returns a `Promise` when needed.
+</Callout>
 
 ### Plugin Utilities
 
@@ -274,9 +354,6 @@ const logger = app.getPlugin<LoggerPlugin>('logger');
 // ❌ Duplicate plugin throws error
 app.plugin(loggerPlugin());
 app.plugin(loggerPlugin()); // Error: Plugin "logger" is already installed
-
-// ❌ Async plugin with sync method throws
-app.plugin(asyncPlugin); // Error: Use app.pluginAsync() instead
 ```
 
 ## Middleware Composition
@@ -288,11 +365,7 @@ Combine multiple middleware into a single function:
 ```typescript
 import { compose } from '@nextrush/core';
 
-const security = compose([
-  cors(),
-  helmet(),
-  rateLimit({ max: 100 }),
-]);
+const security = compose([cors(), helmet(), rateLimit({ max: 100 })]);
 
 // Use as single middleware
 app.use(security);
@@ -309,11 +382,7 @@ if (isMiddleware(fn)) {
 }
 
 // Flatten nested arrays
-const flat = flattenMiddleware([
-  mw1,
-  [mw2, mw3],
-  [[mw4]],
-]);
+const flat = flattenMiddleware([mw1, [mw2, mw3], [[mw4]]]);
 // Result: [mw1, mw2, mw3, mw4]
 ```
 
@@ -340,13 +409,17 @@ console.log(app.isRunning); // true
 
 ### Graceful Shutdown
 
-```typescript
-await app.close();
+`app.close()` returns `Promise<Error[]>` — an array of errors from plugins that failed to destroy. An empty array means all plugins shut down cleanly.
 
-// This:
+```typescript
+const errors = await app.close();
+
+// What happens:
 // 1. Sets isRunning = false
-// 2. Calls destroy() on plugins (reverse order)
-// 3. Clears plugin registry
+// 2. Calls destroy() on plugins (reverse registration order)
+// 3. Collects errors via Promise.allSettled (all plugins get a chance to destroy)
+// 4. Clears plugin registry
+// 5. Returns any plugin destroy errors
 ```
 
 Example shutdown hook:
@@ -354,44 +427,55 @@ Example shutdown hook:
 ```typescript
 process.on('SIGTERM', async () => {
   console.log('Shutting down...');
-  await app.close();
-  process.exit(0);
+  const errors = await app.close();
+  if (errors.length > 0) {
+    console.error('Plugin shutdown errors:', errors);
+  }
+  process.exit(errors.length > 0 ? 1 : 0);
 });
 ```
 
 ## Application Properties
 
 ```typescript
-app.isProduction    // boolean — true if env === 'production'
-app.isRunning       // boolean — true after start() called
-app.middlewareCount // number — count of registered middleware
-app.options         // ApplicationOptions — readonly config
+app.isProduction; // boolean — true if env === 'production'
+app.isRunning; // boolean — true after start() called
+app.middlewareCount; // number — count of registered middleware
+app.options; // ApplicationOptions — readonly config
+app.logger; // Logger — configured logger instance (readonly)
 ```
 
 ## Complete Example
 
 ```typescript
-import { createApp, compose } from '@nextrush/core';
+import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { serve } from '@nextrush/adapter-node';
 
 const app = createApp({
-  env: process.env.NODE_ENV as 'production' | 'development',
+  env: 'production',
   proxy: true,
+  logger: console,
 });
 
 // Error handler
-app.onError((error, ctx) => {
-  console.error(error);
-  ctx.status = error.status || 500;
-  ctx.json({ error: error.message });
+app.setErrorHandler((error, ctx) => {
+  app.logger.error(error);
+
+  if ('status' in error && typeof error.status === 'number') {
+    ctx.status = error.status;
+  } else {
+    ctx.status = 500;
+  }
+
+  ctx.json({ error: app.isProduction ? 'Internal Server Error' : error.message });
 });
 
 // Middleware
 app.use(async (ctx) => {
   const start = Date.now();
   await ctx.next();
-  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+  app.logger.info(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
 });
 
 // Feature routers
@@ -418,6 +502,8 @@ import type {
   ApplicationOptions,
   ErrorHandler,
   ListenCallback,
+  Logger,
+  Routable,
   ComposedMiddleware,
 } from '@nextrush/core';
 
@@ -430,34 +516,39 @@ const errorHandler: ErrorHandler = (error, ctx) => {
   ctx.json({ error: error.message });
 };
 
-app.onError(errorHandler);
+app.setErrorHandler(errorHandler);
 ```
 
 ## API Reference
 
 ### Application Class
 
-| Property/Method | Type | Description |
-|-----------------|------|-------------|
-| `app.use(...mw)` | `Application` | Register middleware (chainable) |
-| `app.route(path, router)` | `Application` | Mount router at path (Hono-style) |
-| `app.plugin(plugin)` | `Application` | Install sync plugin |
-| `app.pluginAsync(plugin)` | `Promise<Application>` | Install async plugin |
-| `app.hasPlugin(name)` | `boolean` | Check if plugin is installed |
-| `app.getPlugin<T>(name)` | `T \| undefined` | Get plugin instance |
-| `app.onError(handler)` | `Application` | Set custom error handler |
-| `app.callback()` | `(ctx) => Promise<void>` | Get request handler |
-| `app.start()` | `void` | Mark app as running |
-| `app.close()` | `Promise<void>` | Graceful shutdown |
-| `app.isProduction` | `boolean` | Is production environment |
-| `app.isRunning` | `boolean` | Is server running |
-| `app.middlewareCount` | `number` | Middleware count |
-| `app.options` | `ApplicationOptions` | Readonly config |
+| Property/Method                | Type                              | Description                                                                                       |
+| ------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `app.use(...mw)`               | `this`                            | Register one or more middleware functions (chainable)                                             |
+| `app.route(path, router)`      | `this`                            | Mount a `Routable` at a path prefix (Hono-style)                                                  |
+| `app.setErrorHandler(handler)` | `this`                            | Set the application error handler (replaces any previous handler)                                 |
+| `app.plugin(plugin)`           | `this \| Promise<this>`           | Install a plugin. Returns a `Promise` for async `install()` methods.                              |
+| `app.hasPlugin(name)`          | `boolean`                         | Check if a plugin is installed                                                                    |
+| `app.getPlugin<T>(name)`       | `T \| undefined`                  | Get an installed plugin by name                                                                   |
+| `app.callback()`               | `(ctx: Context) => Promise<void>` | Build the request handler. Snapshots the middleware stack at call time.                           |
+| `app.start()`                  | `void`                            | Mark app as running. Freezes configuration — `use()`, `route()`, and `plugin()` throw after this. |
+| `app.close()`                  | `Promise<Error[]>`                | Graceful shutdown. Destroys plugins in reverse order. Returns errors from failed plugin destroys. |
+| `app.isProduction`             | `boolean`                         | `true` when `env === 'production'`                                                                |
+| `app.isRunning`                | `boolean`                         | `true` after `start()`, `false` after `close()`                                                   |
+| `app.middlewareCount`          | `number`                          | Count of registered middleware                                                                    |
+| `app.options`                  | `ApplicationOptions`              | Readonly configuration                                                                            |
+| `app.logger`                   | `Logger`                          | Readonly logger instance                                                                          |
+
+<Callout type="warn">
+  `onError()` and `pluginAsync()` are deprecated. Use `setErrorHandler()` and `plugin()`
+  respectively.
+</Callout>
 
 ### compose()
 
 ```typescript
-function compose(middleware: Middleware[]): ComposedMiddleware
+function compose(middleware: Middleware[]): ComposedMiddleware;
 ```
 
 Composes multiple middleware into a single function using the onion model.
@@ -465,7 +556,7 @@ Composes multiple middleware into a single function using the onion model.
 ### isMiddleware()
 
 ```typescript
-function isMiddleware(fn: unknown): fn is Middleware
+function isMiddleware(fn: unknown): fn is Middleware;
 ```
 
 Type guard to check if a value is a valid middleware function.
@@ -473,7 +564,7 @@ Type guard to check if a value is a valid middleware function.
 ### flattenMiddleware()
 
 ```typescript
-function flattenMiddleware(arr: (Middleware | Middleware[])[]): Middleware[]
+function flattenMiddleware(arr: (Middleware | Middleware[])[]): Middleware[];
 ```
 
 Flattens nested middleware arrays into a single array.

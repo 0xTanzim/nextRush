@@ -26,6 +26,42 @@ import type {
 } from './types';
 
 // ============================================================================
+// Validation
+// ============================================================================
+
+/**
+ * HTTP token characters per RFC 7230 §3.2.6.
+ */
+const HTTP_TOKEN_RE = /^[!#$%&'*+.^_`|~\w-]+$/;
+
+/**
+ * Safe suffix characters (alphanumeric, dot, hyphen, underscore, percent).
+ */
+const SAFE_SUFFIX_RE = /^[\w.%\- ]*$/;
+
+/**
+ * Validates an HTTP header name against RFC 7230 token rules.
+ * @throws If header name contains invalid characters.
+ */
+function validateHeaderName(name: string): void {
+  if (!HTTP_TOKEN_RE.test(name)) {
+    throw new Error(`Invalid header name "${name}": must contain only HTTP token characters`);
+  }
+}
+
+/**
+ * Validates a suffix string contains only safe characters.
+ * @throws If suffix contains unsafe characters.
+ */
+function validateSuffix(value: string): void {
+  if (!SAFE_SUFFIX_RE.test(value)) {
+    throw new Error(
+      `Invalid suffix "${value}": must contain only alphanumeric, '.', '-', '_', '%' or space characters`
+    );
+  }
+}
+
+// ============================================================================
 // Internal Utilities
 // ============================================================================
 
@@ -52,6 +88,14 @@ function sanitizeDescription(desc: string): string {
  */
 function sanitizeMetricName(name: string): string {
   return name.replace(/[^\w!#$%&'*+.^`|~-]/g, '');
+}
+
+/**
+ * Formats a duration value to a fixed-width decimal string.
+ */
+function formatFixed(value: number, precision: number, factor: number): string {
+  const rounded = Math.round(value * factor) / factor;
+  return rounded.toFixed(precision);
 }
 
 // ============================================================================
@@ -101,25 +145,31 @@ export function timer<TContext extends TimerContext = TimerContext>(
     suffix = DEFAULT_SUFFIX,
     precision = DEFAULT_PRECISION,
     stateKey = DEFAULT_STATE_KEY,
-    exposeHeader = true,
+    exposeHeader = false,
     now = defaultTimeGetter,
   } = options;
 
+  validateHeaderName(header);
+  validateSuffix(suffix);
+
   const safePrecision = clampPrecision(precision);
+  const factor = 10 ** safePrecision;
 
   return async (ctx: TContext) => {
     const start = now();
 
-    await ctx.next();
+    try {
+      await ctx.next();
+    } finally {
+      const end = now();
+      const duration = end - start;
+      const formatted = formatFixed(duration, safePrecision, factor);
 
-    const end = now();
-    const duration = end - start;
-    const formatted = duration.toFixed(safePrecision);
+      ctx.state[stateKey] = Math.round(duration * factor) / factor;
 
-    ctx.state[stateKey] = parseFloat(formatted);
-
-    if (exposeHeader) {
-      ctx.set(header, `${formatted}${suffix}`);
+      if (exposeHeader) {
+        ctx.set(header, `${formatted}${suffix}`);
+      }
     }
   };
 }
@@ -156,36 +206,42 @@ export function detailedTimer<TContext extends TimerContext = TimerContext>(
     suffix = DEFAULT_SUFFIX,
     precision = DEFAULT_PRECISION,
     stateKey = DEFAULT_STATE_KEY,
-    exposeHeader = true,
+    exposeHeader = false,
     now = defaultTimeGetter,
     detailed = false,
   } = options;
 
+  validateHeaderName(header);
+  validateSuffix(suffix);
+
   const safePrecision = clampPrecision(precision);
+  const factor = 10 ** safePrecision;
 
   return async (ctx: TContext) => {
     const start = now();
 
-    await ctx.next();
+    try {
+      await ctx.next();
+    } finally {
+      const end = now();
+      const duration = end - start;
+      const formatted = `${formatFixed(duration, safePrecision, factor)}${suffix}`;
 
-    const end = now();
-    const duration = end - start;
-    const formatted = `${duration.toFixed(safePrecision)}${suffix}`;
+      if (detailed) {
+        const result: TimingResult = {
+          duration,
+          formatted,
+          start,
+          end,
+        };
+        ctx.state[stateKey] = result;
+      } else {
+        ctx.state[stateKey] = Math.round(duration * factor) / factor;
+      }
 
-    if (detailed) {
-      const result: TimingResult = {
-        duration,
-        formatted,
-        start,
-        end,
-      };
-      ctx.state[stateKey] = result;
-    } else {
-      ctx.state[stateKey] = parseFloat(duration.toFixed(safePrecision));
-    }
-
-    if (exposeHeader) {
-      ctx.set(header, formatted);
+      if (exposeHeader) {
+        ctx.set(header, formatted);
+      }
     }
   };
 }
@@ -264,28 +320,33 @@ export function serverTiming<TContext extends TimerContext = TimerContext>(
     description,
     precision = DEFAULT_PRECISION,
     stateKey = DEFAULT_STATE_KEY,
-    exposeHeader = true,
+    exposeHeader = false,
     now = defaultTimeGetter,
   } = options;
 
   const safePrecision = clampPrecision(precision);
+  const factor = 10 ** safePrecision;
   const safeMetric = sanitizeMetricName(metric);
   const safeDescription = description ? sanitizeDescription(description) : undefined;
 
   return async (ctx: TContext) => {
     const start = now();
 
-    await ctx.next();
+    try {
+      await ctx.next();
+    } finally {
+      const end = now();
+      const duration = end - start;
+      const formatted = formatFixed(duration, safePrecision, factor);
 
-    const end = now();
-    const duration = end - start;
-    const formatted = duration.toFixed(safePrecision);
+      ctx.state[stateKey] = Math.round(duration * factor) / factor;
 
-    ctx.state[stateKey] = parseFloat(formatted);
-
-    if (exposeHeader) {
-      const descPart = safeDescription ? `;desc="${safeDescription}"` : '';
-      ctx.set(SERVER_TIMING_HEADER, `${safeMetric};dur=${formatted}${descPart}`);
+      if (exposeHeader) {
+        const descPart = safeDescription ? `;desc="${safeDescription}"` : '';
+        const newValue = `${safeMetric};dur=${formatted}${descPart}`;
+        const existing = ctx.get(SERVER_TIMING_HEADER);
+        ctx.set(SERVER_TIMING_HEADER, existing ? `${existing}, ${newValue}` : newValue);
+      }
     }
   };
 }

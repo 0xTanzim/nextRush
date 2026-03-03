@@ -4,7 +4,6 @@ description: NextRush's modular package structure — understand dependencies, r
 ---
 
 import { Mermaid } from '@/components/mdx';
-import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Package Hierarchy
@@ -67,14 +66,18 @@ graph TB
 
     CONTROLLERS --> DI
     CONTROLLERS --> DECORATORS
-    CONTROLLERS --> ROUTER
+    CONTROLLERS --> ERRORS
+    CONTROLLERS --> TYPES
+    CONTROLLERS -.->|peer| ROUTER
 
     CORE --> TYPES
+    CORE --> ERRORS
     ROUTER --> TYPES
     DI --> TYPES
     DECORATORS --> TYPES
     ERRORS --> TYPES
     RUNTIME --> TYPES
+    RUNTIME --> ERRORS
 
     NODE --> CORE
     NODE --> RUNTIME
@@ -85,25 +88,27 @@ graph TB
     EDGE --> CORE
     EDGE --> RUNTIME
 
+    NEXTRUSH --> TYPES
+
     CORS --> TYPES
     HELMET --> TYPES
     BODY --> TYPES
-    BODY --> RUNTIME
     COMPRESS --> TYPES
     RATE --> TYPES
+
 `} />
 
 ## Package Categories
 
 ### Foundation Layer
 
-These packages have no NextRush dependencies. They provide the building blocks.
+These packages form the base of the hierarchy. They depend only on each other — never on higher layers.
 
-| Package | Responsibility | Dependencies |
-|---------|---------------|--------------|
-| `@nextrush/types` | TypeScript types and interfaces | None |
-| `@nextrush/errors` | HTTP error classes | types |
-| `@nextrush/runtime` | Runtime detection, BodySource | types |
+| Package             | Responsibility                  | Dependencies  |
+| ------------------- | ------------------------------- | ------------- |
+| `@nextrush/types`   | TypeScript types and interfaces | None          |
+| `@nextrush/errors`  | HTTP error classes              | types         |
+| `@nextrush/runtime` | Runtime detection, BodySource   | types, errors |
 
 ```ts
 import type { Context, Middleware, Plugin } from '@nextrush/types';
@@ -115,12 +120,12 @@ import { getRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
 
 The essential packages that make up the framework:
 
-| Package | Responsibility | Dependencies |
-|---------|---------------|--------------|
-| `@nextrush/core` | Application, middleware composition | types |
-| `@nextrush/router` | Radix tree routing | types |
-| `@nextrush/di` | Dependency injection container | types, tsyringe |
-| `@nextrush/decorators` | Controller, route, parameter decorators | types |
+| Package                | Responsibility                          | Dependencies               |
+| ---------------------- | --------------------------------------- | -------------------------- |
+| `@nextrush/core`       | Application, middleware composition     | types, errors              |
+| `@nextrush/router`     | Radix tree routing                      | types                      |
+| `@nextrush/di`         | Dependency injection container          | reflect-metadata, tsyringe |
+| `@nextrush/decorators` | Controller, route, parameter decorators | reflect-metadata, tsyringe |
 
 ```ts
 import { createApp, compose } from '@nextrush/core';
@@ -133,12 +138,12 @@ import { Controller, Get, Post, Body, Param } from '@nextrush/decorators';
 
 Platform-specific HTTP handling:
 
-| Package | Runtime | Dependencies |
-|---------|---------|--------------|
-| `@nextrush/adapter-node` | Node.js 20+ | core, runtime |
-| `@nextrush/adapter-bun` | Bun 1.0+ | core, runtime |
-| `@nextrush/adapter-deno` | Deno 2.0+ | core, runtime |
-| `@nextrush/adapter-edge` | Cloudflare, Vercel Edge | core, runtime |
+| Package                  | Runtime                 | Dependencies                 |
+| ------------------------ | ----------------------- | ---------------------------- |
+| `@nextrush/adapter-node` | Node.js 22+             | core, runtime, errors, types |
+| `@nextrush/adapter-bun`  | Bun 1.0+                | core, runtime, errors, types |
+| `@nextrush/adapter-deno` | Deno 2.0+               | core, runtime, errors, types |
+| `@nextrush/adapter-edge` | Cloudflare, Vercel Edge | core, runtime, errors, types |
 
 ```ts
 import { listen } from '@nextrush/adapter-node';
@@ -148,18 +153,18 @@ import { createHandler } from '@nextrush/adapter-edge';
 
 ### Middleware Layer
 
-Reusable middleware packages:
+Reusable middleware packages. All middleware depends only on `@nextrush/types`.
 
-| Package | Responsibility |
-|---------|---------------|
+| Package                 | Responsibility                     |
+| ----------------------- | ---------------------------------- |
 | `@nextrush/body-parser` | Parse JSON, form, multipart bodies |
-| `@nextrush/cors` | Cross-Origin Resource Sharing |
-| `@nextrush/helmet` | Security headers |
-| `@nextrush/compression` | Response compression |
-| `@nextrush/rate-limit` | Rate limiting |
-| `@nextrush/request-id` | Request ID generation |
-| `@nextrush/timer` | Response time tracking |
-| `@nextrush/cookies` | Cookie parsing and setting |
+| `@nextrush/cors`        | Cross-Origin Resource Sharing      |
+| `@nextrush/helmet`      | Security headers                   |
+| `@nextrush/compression` | Response compression               |
+| `@nextrush/rate-limit`  | Rate limiting                      |
+| `@nextrush/request-id`  | Request ID generation              |
+| `@nextrush/timer`       | Response time tracking             |
+| `@nextrush/cookies`     | Cookie parsing and setting         |
 
 ```ts
 import { json, urlencoded } from '@nextrush/body-parser';
@@ -173,14 +178,14 @@ import { rateLimit } from '@nextrush/rate-limit';
 
 Extended functionality:
 
-| Package | Responsibility |
-|---------|---------------|
-| `@nextrush/controllers` | Auto-discovery, DI integration |
-| `@nextrush/logger` | Structured logging |
-| `@nextrush/static` | Static file serving |
-| `@nextrush/template` | Template engine support |
-| `@nextrush/websocket` | WebSocket support |
-| `@nextrush/events` | Event system (pub/sub) |
+| Package                 | Responsibility                 | Dependencies                  |
+| ----------------------- | ------------------------------ | ----------------------------- |
+| `@nextrush/controllers` | Auto-discovery, DI integration | decorators, di, errors, types |
+| `@nextrush/logger`      | Structured logging             | @nextrush/log, types          |
+| `@nextrush/static`      | Static file serving            | types                         |
+| `@nextrush/template`    | Template engine support        | types                         |
+| `@nextrush/websocket`   | WebSocket support              | types                         |
+| `@nextrush/events`      | Event system (pub/sub)         | —                             |
 
 ```ts
 import { controllersPlugin } from '@nextrush/controllers';
@@ -188,18 +193,25 @@ import { loggerPlugin } from '@nextrush/logger';
 import { staticPlugin } from '@nextrush/static';
 ```
 
+### Dev Tools
+
+| Package         | Responsibility                       | Dependencies                       |
+| --------------- | ------------------------------------ | ---------------------------------- |
+| `@nextrush/dev` | Development server, build tools, CLI | @swc-node/register, @swc/core, tsx |
+
 ### Meta Package
 
 Convenience package that re-exports essentials:
 
-```ts
-// nextrush re-exports:
-// - @nextrush/core (createApp, compose)
-// - @nextrush/router (createRouter)
-// - @nextrush/adapter-node (listen)
-// - @nextrush/errors (HttpError, etc.)
-// - @nextrush/types (Context, Middleware, etc.)
+| Dependency               | Exports                               |
+| ------------------------ | ------------------------------------- |
+| `@nextrush/core`         | `createApp`, `compose`, `Application` |
+| `@nextrush/router`       | `createRouter`, `Router`              |
+| `@nextrush/adapter-node` | `listen`, `serve`, `createHandler`    |
+| `@nextrush/errors`       | `HttpError`, all error subclasses     |
+| `@nextrush/types`        | `ContentType`, `HttpStatus`           |
 
+```ts
 import { createApp, createRouter, listen } from 'nextrush';
 ```
 
@@ -207,61 +219,69 @@ import { createApp, createRouter, listen } from 'nextrush';
 
 NextRush follows strict dependency rules:
 
-### 1. Foundation packages have no internal dependencies
+### 1. types is the root — no internal dependencies
 
 ```
 @nextrush/types → (none)
 ```
 
-### 2. Core packages depend only on foundation
+### 2. Foundation packages depend only on types
 
 ```
-@nextrush/core → types
-@nextrush/router → types
-@nextrush/di → types
-@nextrush/decorators → types
 @nextrush/errors → types
+@nextrush/runtime → types, errors
 ```
 
-### 3. Adapters depend on core + runtime
+### 3. Core packages depend on foundation
 
 ```
-@nextrush/adapter-node → core, runtime
-@nextrush/adapter-bun → core, runtime
+@nextrush/core → types, errors
+@nextrush/router → types
+@nextrush/di → reflect-metadata, tsyringe
+@nextrush/decorators → reflect-metadata, tsyringe
 ```
 
-### 4. Middleware depends only on types (and optionally runtime)
+### 4. Adapters depend on core + runtime + foundation
+
+```
+@nextrush/adapter-node → core, runtime, errors, types
+@nextrush/adapter-bun → core, runtime, errors, types
+```
+
+### 5. Middleware depends only on types
 
 ```
 @nextrush/cors → types
-@nextrush/body-parser → types, runtime
+@nextrush/body-parser → types
 ```
 
-### 5. Plugins can depend on other packages as needed
+### 6. Plugins can depend on multiple packages
 
 ```
-@nextrush/controllers → di, decorators, router, errors
+@nextrush/controllers → decorators, di, errors, types (peer: core, router)
 ```
 
-<Callout>
-These rules ensure packages stay loosely coupled. You can use `@nextrush/router` without `@nextrush/core` if you're building a custom framework.
+<Callout type="info">
+  `di` and `decorators` use `@nextrush/types` at compile time (devDependency) but not at runtime.
+  Their production dependencies are `reflect-metadata` and `tsyringe`.
 </Callout>
 
 ## Package Size Targets
 
 Each package has a maximum size to keep the framework lean:
 
-| Package | Max LOC | Actual |
-|---------|---------|--------|
-| `@nextrush/types` | 500 | ~400 |
-| `@nextrush/errors` | 600 | ~300 |
-| `@nextrush/core` | 1,500 | ~500 |
-| `@nextrush/router` | 1,000 | ~600 |
-| `@nextrush/di` | 400 | ~200 |
-| `@nextrush/decorators` | 800 | ~500 |
-| `@nextrush/controllers` | 800 | ~600 |
-| `@nextrush/adapter-*` | 500 | ~400 |
-| `@nextrush/middleware/*` | 300 | ~150-250 |
+| Package                  | Max LOC |
+| ------------------------ | ------- |
+| `@nextrush/types`        | 500     |
+| `@nextrush/errors`       | 600     |
+| `@nextrush/core`         | 1,500   |
+| `@nextrush/router`       | 1,000   |
+| `@nextrush/di`           | 400     |
+| `@nextrush/decorators`   | 800     |
+| `@nextrush/controllers`  | 800     |
+| `@nextrush/adapter-*`    | 500     |
+| `@nextrush/middleware/*` | 300     |
+| `@nextrush/plugin/*`     | 600     |
 
 ## Common Installation Patterns
 
@@ -279,9 +299,9 @@ import { listen } from '@nextrush/adapter-node';
 const app = createApp();
 const router = createRouter();
 
-router.get('/', ctx => ctx.json({ hello: 'world' }));
+router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 app.route('/', router);
-listen(app, { port: 3000 });
+await listen(app, 3000);
 ```
 
 ### Convenience (meta package)
@@ -296,9 +316,9 @@ import { createApp, createRouter, listen } from 'nextrush';
 const app = createApp();
 const router = createRouter();
 
-router.get('/', ctx => ctx.json({ hello: 'world' }));
+router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 app.route('/', router);
-listen(app, { port: 3000 });
+await listen(app, 3000);
 ```
 
 ### Full-featured API
@@ -321,10 +341,10 @@ app.use(json());
 app.use(rateLimit({ windowMs: 60000, max: 100 }));
 
 const router = createRouter();
-router.get('/', ctx => ctx.json({ hello: 'world' }));
+router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 app.route('/', router);
 
-listen(app, { port: 3000 });
+await listen(app, 3000);
 ```
 
 ### Class-based with DI
@@ -335,8 +355,10 @@ npm install nextrush @nextrush/controllers reflect-metadata
 
 ```ts
 import 'reflect-metadata';
-import { createApp, listen } from 'nextrush';
-import { controllersPlugin, Controller, Get, Service } from '@nextrush/controllers';
+import { createApp, createRouter, listen } from 'nextrush';
+import { Controller, Get } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+import { controllersPlugin } from '@nextrush/controllers';
 
 @Service()
 class GreetingService {
@@ -356,10 +378,15 @@ class HomeController {
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({
-  controllers: [HomeController],
-}));
-listen(app, { port: 3000 });
+const router = createRouter();
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [HomeController],
+  })
+);
+app.route('/', router);
+await listen(app, 3000);
 ```
 
 ## Explore Packages
@@ -367,14 +394,10 @@ listen(app, { port: 3000 });
 <Cards>
   <Card
     title="Core Packages"
-    description="types, errors, core, router, runtime, di, nextrush, dev"
+    description="types, errors, core, router, runtime, di, decorators"
     href="/docs/packages/core"
   />
-  <Card
-    title="Adapters"
-    description="Node.js, Bun, Deno, Edge"
-    href="/docs/packages/adapters"
-  />
+  <Card title="Adapters" description="Node.js, Bun, Deno, Edge" href="/docs/packages/adapters" />
   <Card
     title="Middleware"
     description="body-parser, cors, helmet, compression, and more"
@@ -382,7 +405,8 @@ listen(app, { port: 3000 });
   />
   <Card
     title="Plugins"
-    description="controllers, logger, static, template, websocket"
+    description="controllers, logger, static, template, websocket, events"
     href="/docs/packages/plugins"
   />
+  <Card title="Tooling" description="nextrush meta package, dev tools" href="/docs/packages/core" />
 </Cards>

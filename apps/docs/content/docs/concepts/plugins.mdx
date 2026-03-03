@@ -5,7 +5,7 @@ description: Extend NextRush without bloating the core
 
 # Plugins
 
-Plugins are the extension mechanism for NextRush. They add features to your application without modifying the core.
+Plugins extend your application without modifying the core. They add middleware, hook into request lifecycle events, and clean up after themselves on shutdown.
 
 ## The Problem
 
@@ -14,78 +14,61 @@ Frameworks face a dilemma:
 - **Include everything**: Bloated core, unused code, slow cold starts
 - **Include nothing**: Every project reinvents common patterns
 
-Neither approach serves developers well.
-
-## How NextRush Approaches This
-
-NextRush uses a **plugin system** that keeps the core minimal while enabling powerful extensions:
-
-1. **Core stays small** — Only middleware composition and plugin management
-2. **Plugins add features** — Logging, events, static files, WebSocket
-3. **Typed contracts** — Plugins implement a defined interface
-4. **Lifecycle hooks** — Plugins can hook into request/response/error cycles
-
-<Mermaid chart="
-flowchart TB
-    subgraph Application
-        direction TB
-        subgraph Registry[Plugin Registry]
-            P1[Logger]
-            P2[Events]
-            P3[Static]
-            P4[...]
-        end
-        Core[Core Engine]
-    end
-    Core --> Registry
-    style Application fill:#1e293b,stroke:#3b82f6
-    style Registry fill:#374151,stroke:#6b7280
-    style Core fill:#3b82f6,stroke:#1d4ed8,color:#fff
-"/>
+NextRush resolves this with a plugin system that keeps the core minimal. The core handles middleware composition and plugin management. Everything else — logging, events, static files, WebSocket — ships as a separate plugin package.
 
 ## Mental Model
 
 Think of plugins like **USB devices** for your computer:
 
-- The computer (core) provides ports (plugin interface)
+- The computer (core) provides ports (the `Plugin` interface)
 - Devices (plugins) add capabilities (keyboard, mouse, storage)
-- Each device declares what it needs (install)
-- Unplugging triggers cleanup (destroy)
+- Each device declares what it needs (`install`)
+- Unplugging triggers cleanup (`destroy`)
 
-The core doesn't know about specific plugins. Plugins don't modify core internals.
+The core doesn't know about specific plugins. Plugins don't modify core internals. They interact through a defined contract.
+
+<Mermaid
+  chart="
+flowchart LR
+    App[Application] -->|app.plugin| I{install}
+    I --> MW[Add Middleware]
+    I --> H[Register Hooks]
+    I --> S[Setup Resources]
+    App -->|app.close| D[destroy in reverse order]
+    style App fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style D fill:#ef4444,stroke:#dc2626,color:#fff
+"
+/>
 
 ## Plugin Interface
 
-Every plugin implements this interface:
+Every plugin implements this interface from `@nextrush/types`:
 
 ```typescript title="Plugin Interface"
 interface Plugin {
-  // Required: Unique identifier
   readonly name: string;
-
-  // Optional: Semantic version
   readonly version?: string;
-
-  // Required: Called when app.plugin() is invoked
   install(app: ApplicationLike): void | Promise<void>;
-
-  // Optional: Called during app.close()
   destroy?(): void | Promise<void>;
 }
 ```
 
-## Creating a Plugin
+- **`name`** — Unique identifier. Duplicate names throw an error.
+- **`version`** — Optional semver string.
+- **`install`** — Called by `app.plugin()`. Receives an `ApplicationLike` with `use()` and `getPlugin()` methods.
+- **`destroy`** — Called during `app.close()`. Clean up connections, timers, and resources here.
 
-### Basic Plugin
+## Minimal Usage
+
+### Object Plugin
 
 ```typescript title="Timer Plugin"
-import type { Plugin, ApplicationLike } from '@nextrush/types';
+import type { Plugin } from '@nextrush/types';
 
 const timerPlugin: Plugin = {
   name: 'timer',
-  version: '1.0.0',
 
-  install(app: ApplicationLike) {
+  install(app) {
     app.use(async (ctx, next) => {
       const start = Date.now();
       await next();
@@ -94,15 +77,16 @@ const timerPlugin: Plugin = {
   },
 };
 
-// Usage
 app.plugin(timerPlugin);
 ```
 
-### Plugin Factory (Recommended)
+### Factory Pattern (Recommended)
 
-Create configurable plugins with a factory function:
+Return a `Plugin` from a function to accept configuration:
 
 ```typescript title="Configurable Logger Plugin"
+import type { Plugin } from '@nextrush/types';
+
 interface LoggerOptions {
   level: 'debug' | 'info' | 'warn' | 'error';
   prefix?: string;
@@ -111,43 +95,31 @@ interface LoggerOptions {
 function loggerPlugin(options: LoggerOptions): Plugin {
   return {
     name: 'logger',
-    version: '1.0.0',
 
     install(app) {
-      const log = (level: string, message: string) => {
-        if (shouldLog(level, options.level)) {
-          console.log(`${options.prefix || ''} [${level}] ${message}`);
-        }
-      };
-
       app.use(async (ctx, next) => {
-        log('info', `→ ${ctx.method} ${ctx.path}`);
+        console.log(`${options.prefix ?? ''} [${options.level}] → ${ctx.method} ${ctx.path}`);
         await next();
-        log('info', `← ${ctx.status}`);
+        console.log(`${options.prefix ?? ''} [${options.level}] ← ${ctx.status}`);
       });
     },
   };
 }
 
-// Usage
 app.plugin(loggerPlugin({ level: 'info', prefix: '[API]' }));
 ```
 
-### Plugin with Cleanup
+### Async Plugin with Cleanup
 
-```typescript title="Database Plugin with Cleanup"
+```typescript title="Database Plugin"
 function databasePlugin(connectionString: string): Plugin {
   let connection: DatabaseConnection | null = null;
 
   return {
     name: 'database',
-    version: '1.0.0',
 
     async install(app) {
-      // Connect on startup
       connection = await connect(connectionString);
-
-      // Make available via middleware
       app.use(async (ctx, next) => {
         ctx.state.db = connection;
         await next();
@@ -155,7 +127,6 @@ function databasePlugin(connectionString: string): Plugin {
     },
 
     async destroy() {
-      // Clean up on shutdown
       if (connection) {
         await connection.close();
         connection = null;
@@ -165,103 +136,73 @@ function databasePlugin(connectionString: string): Plugin {
 }
 ```
 
-## Using Plugins
+## Installing Plugins
 
-### Synchronous Plugins
+`app.plugin()` handles both sync and async plugins. It returns `this` for sync plugins and `Promise<this>` for async ones.
 
 ```typescript title="Installing Plugins"
 import { createApp } from '@nextrush/core';
 
 const app = createApp();
 
-// Install plugin
-app.plugin(loggerPlugin({ level: 'info' }));
-app.plugin(eventsPlugin());
+// Sync plugins — chainable
+app.plugin(timerPlugin).plugin(eventsPlugin());
 
-// Chainable
-app.plugin(plugin1)
-   .plugin(plugin2)
-   .plugin(plugin3);
+// Async plugins — await the call
+await app.plugin(databasePlugin('postgres://...'));
+await app.plugin(cachePlugin('redis://...'));
 ```
 
-### Asynchronous Plugins
-
-Plugins with async `install()` must use `pluginAsync()`:
-
-```typescript title="Async Plugins"
-// ✅ Correct: await async plugins
-await app.pluginAsync(databasePlugin('postgres://...'));
-await app.pluginAsync(cachePlugin('redis://...'));
-
-// ❌ Wrong: throws error
-app.plugin(databasePlugin('postgres://...'));
-// Error: Plugin "database" has async install(). Use app.pluginAsync() instead.
-```
-
-### Checking Plugin Status
+<Callout type="warn">
+  Do not chain after an async plugin without `await`. The return value is a `Promise`, not the app
+  instance.
+</Callout>
 
 ```typescript title="Plugin Status"
 // Check if installed
-if (app.hasPlugin('logger')) {
-  console.log('Logger is active');
-}
+app.hasPlugin('logger'); // true | false
 
-// Get plugin instance
-const logger = app.getPlugin<LoggerPlugin>('logger');
-if (logger) {
-  // Access plugin methods/properties
-}
+// Retrieve a plugin instance
+const db = app.getPlugin<DatabasePlugin>('database');
 ```
 
 ## Plugin Lifecycle
 
-<Mermaid chart="
+<Mermaid
+  chart="
 flowchart TB
-    subgraph Installation
-        A[app.plugin/pluginAsync] --> B{Duplicate?}
-        B -->|No| C[Call plugin.install]
-        B -->|Yes| D[Throw Error]
-        C --> E[Store in Registry]
-    end
-    subgraph Runtime
-        E --> F[Middleware Executes]
-        F --> G[Per Request]
-        G --> F
-    end
-    subgraph Shutdown
-        H[app.close] --> I[Set isRunning = false]
-        I --> J[Destroy plugins reverse order]
-        J --> K[Clear registry]
-    end
-    E --> H
+    A[app.plugin] --> B{Name taken?}
+    B -->|Yes| X[Throw Error]
+    B -->|No| C[plugin.install]
+    C --> D[Store in registry]
+    D --> E[Middleware runs per request]
+    E --> F[app.close]
+    F --> G[destroy plugins in reverse order]
+    G --> H[Clear registry]
     style A fill:#3b82f6,stroke:#1d4ed8,color:#fff
-    style H fill:#ef4444,stroke:#dc2626,color:#fff
-    style F fill:#22c55e,stroke:#16a34a,color:#fff
-"/>
+    style X fill:#ef4444,stroke:#dc2626,color:#fff
+    style F fill:#ef4444,stroke:#dc2626,color:#fff
+"
+/>
 
-<Callout type="info" title="Reverse Order Destruction">
-  Plugins are destroyed in **reverse order** of installation. This ensures dependent plugins are destroyed before their dependencies.
-</Callout>
+On shutdown, `app.close()` destroys plugins in **reverse installation order** using `Promise.allSettled`. If a plugin's `destroy()` throws, the error is collected but remaining plugins still run. `close()` returns an `Error[]` — empty on success.
 
-## Advanced Plugins
+## Lifecycle Hooks
 
-### Plugin with Lifecycle Hooks
-
-For deeper integration, implement `PluginWithHooks`:
+For deeper integration, implement `PluginWithHooks`. The application calls these hooks automatically during request processing:
 
 ```typescript title="Metrics Plugin with Hooks"
-interface PluginWithHooks extends Plugin {
-  onRequest?(ctx: Context): void | Promise<void>;
-  onResponse?(ctx: Context): void | Promise<void>;
-  onError?(error: Error, ctx: Context): void | Promise<void>;
-  extendContext?(ctx: Context): void;
-}
+import type { PluginWithHooks } from '@nextrush/types';
 
 const metricsPlugin: PluginWithHooks = {
   name: 'metrics',
 
   install(app) {
-    // Register middleware or setup
+    // Setup or register middleware
+  },
+
+  extendContext(ctx) {
+    // Called before each request — add properties to ctx
   },
 
   onRequest(ctx) {
@@ -269,7 +210,7 @@ const metricsPlugin: PluginWithHooks = {
   },
 
   onResponse(ctx) {
-    const duration = Date.now() - ctx.state.requestStart;
+    const duration = Date.now() - (ctx.state.requestStart as number);
     recordMetric('http_request_duration', duration, {
       method: ctx.method,
       path: ctx.path,
@@ -287,199 +228,94 @@ const metricsPlugin: PluginWithHooks = {
 };
 ```
 
-### Plugin Dependencies
+Hook execution order per request: `extendContext` → `onRequest` → middleware chain → `onResponse`. If the middleware chain throws, `onError` runs instead of `onResponse`.
 
-Check for required plugins:
+<Callout type="info">
+  Hook properties are validated at build time (`app.callback()`). If `onRequest` is not a function,
+  a `TypeError` is thrown immediately — not silently ignored at runtime.
+</Callout>
 
-```typescript title="Plugin with Dependencies"
+## Error Behavior
+
+| Scenario                             | Error                                                           | When             |
+| ------------------------------------ | --------------------------------------------------------------- | ---------------- |
+| Duplicate plugin name                | `Error: Plugin "X" is already installed`                        | `app.plugin()`   |
+| Plugin installed after `app.start()` | `Error: Cannot call plugin() after the application has started` | `app.plugin()`   |
+| Hook property is not a function      | `TypeError: Plugin "X": onRequest must be a function`           | `app.callback()` |
+| Plugin `destroy()` throws            | Error collected in return array                                 | `app.close()`    |
+
+Plugin dependencies are not enforced automatically. If your plugin requires another, check with `app.getPlugin()` inside `install()` and throw a descriptive error.
+
+```typescript title="Checking Dependencies"
 function authPlugin(): Plugin {
   return {
     name: 'auth',
-
     install(app) {
-      // Require session plugin
       if (!app.getPlugin('session')) {
-        throw new Error('auth plugin requires session plugin');
+        throw new Error('auth plugin requires session plugin — install it first');
       }
-
-      app.use(async (ctx, next) => {
-        // Use session from dependency
-        const session = ctx.state.session;
-        // ... auth logic
-        await next();
-      });
-    },
-  };
-}
-
-// Usage: install dependencies first
-app.plugin(sessionPlugin());
-app.plugin(authPlugin()); // Now works
-```
-
-### Context Extension
-
-Plugins can add properties to context:
-
-```typescript title="Request ID Plugin"
-function requestIdPlugin(): Plugin {
-  return {
-    name: 'request-id',
-
-    install(app) {
-      app.use(async (ctx, next) => {
-        const id = ctx.get('X-Request-Id') || crypto.randomUUID();
-        ctx.state.requestId = id;
-        ctx.set('X-Request-Id', id);
-        await next();
-      });
-    },
-  };
-}
-
-// Access in handlers
-app.get('/test', (ctx) => {
-  ctx.json({ requestId: ctx.state.requestId });
-});
-```
-
-## Common Patterns
-
-### Environment-Based Configuration
-
-```typescript title="Conditional Logging"
-const loggingPlugin = (env: string): Plugin => ({
-  name: 'logging',
-
-  install(app) {
-    if (env === 'production') {
-      app.use(productionLogger);
-    } else {
-      app.use(developmentLogger);
-    }
-  },
-});
-
-app.plugin(loggingPlugin(process.env.NODE_ENV || 'development'));
-```
-
-### Plugin Composition
-
-Combine multiple plugins into one:
-
-```typescript title="Security Bundle"
-function securityBundle(): Plugin {
-  return {
-    name: 'security-bundle',
-
-    install(app) {
-      // Install sub-plugins
-      app.plugin(helmetPlugin());
-      app.plugin(corsPlugin());
-      app.plugin(rateLimitPlugin());
-    },
-  };
-}
-
-// One call installs all security middleware
-app.plugin(securityBundle());
-```
-
-### State Initialization
-
-```typescript title="Cache Plugin"
-function cachePlugin(): Plugin {
-  const cache = new Map<string, unknown>();
-
-  return {
-    name: 'cache',
-
-    install(app) {
-      app.use(async (ctx, next) => {
-        ctx.state.cache = {
-          get: (key: string) => cache.get(key),
-          set: (key: string, value: unknown) => cache.set(key, value),
-          delete: (key: string) => cache.delete(key),
-        };
-        await next();
-      });
-    },
-
-    destroy() {
-      cache.clear();
+      // ... auth middleware
     },
   };
 }
 ```
-
-## Official Plugins
-
-NextRush provides official plugins for common use cases:
-
-| Plugin | Package | Description |
-|--------|---------|-------------|
-| Logger | `@nextrush/logger` | Structured request logging |
-| Events | `@nextrush/events` | Event emitter for app events |
-| Static | `@nextrush/static` | Serve static files |
-| WebSocket | `@nextrush/websocket` | WebSocket support |
-| Controllers | `@nextrush/controllers` | Decorator-based controllers |
 
 ## Common Mistakes
 
 ### Duplicate Plugin Names
 
 ```typescript
-// ❌ Throws error
+// ❌ Throws: Plugin "logger" is already installed
 app.plugin(loggerPlugin());
-app.plugin(loggerPlugin()); // Error: Plugin "logger" is already installed
+app.plugin(loggerPlugin());
 
-// ✅ Each plugin needs unique name
+// ✅ Install once
 app.plugin(loggerPlugin());
 ```
 
-### Sync Method for Async Plugin
+### Forgetting to Await Async Plugins
 
 ```typescript
-// ❌ Throws error
-app.plugin(databasePlugin()); // If install() returns Promise
+// ❌ Plugin not installed before next line runs
+app.plugin(databasePlugin('postgres://...'));
+app.plugin(authPlugin()); // database may not be ready
 
-// ✅ Use pluginAsync
-await app.pluginAsync(databasePlugin());
+// ✅ Await async plugins
+await app.plugin(databasePlugin('postgres://...'));
+app.plugin(authPlugin());
 ```
 
 ### Missing Cleanup
 
 ```typescript
-// ❌ Resource leak
+// ❌ Resource leak — interval never cleared
 const plugin: Plugin = {
-  name: 'bad',
-  install(app) {
-    const interval = setInterval(poll, 1000);
-    // Never cleaned up!
+  name: 'poller',
+  install() {
+    setInterval(poll, 1000);
   },
 };
 
-// ✅ Clean up in destroy
-const plugin: Plugin = {
-  name: 'good',
-  intervalId: null as NodeJS.Timeout | null,
+// ✅ Store the handle, clear in destroy
+function pollerPlugin(): Plugin {
+  let intervalId: ReturnType<typeof setInterval> | null = null;
 
-  install(app) {
-    this.intervalId = setInterval(poll, 1000);
-  },
-
-  destroy() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-    }
-  },
-};
+  return {
+    name: 'poller',
+    install() {
+      intervalId = setInterval(poll, 1000);
+    },
+    destroy() {
+      if (intervalId) clearInterval(intervalId);
+    },
+  };
+}
 ```
 
 ### Wrong Dependency Order
 
 ```typescript
-// ❌ Auth needs session, but session not installed yet
+// ❌ Auth checks for session, but session not installed yet
 app.plugin(authPlugin());
 app.plugin(sessionPlugin());
 
@@ -488,46 +324,16 @@ app.plugin(sessionPlugin());
 app.plugin(authPlugin());
 ```
 
-## TypeScript Types
-
-```typescript
-import type {
-  Plugin,
-  PluginWithHooks,
-  PluginFactory,
-  PluginMeta,
-  ApplicationLike,
-} from '@nextrush/types';
-
-// Type-safe plugin factory
-type MyPluginOptions = {
-  enabled: boolean;
-  threshold: number;
-};
-
-const createMyPlugin: PluginFactory<MyPluginOptions> = (options) => ({
-  name: 'my-plugin',
-  install(app) {
-    if (options?.enabled) {
-      // ...
-    }
-  },
-});
-```
-
 ## See Also
 
 <Cards>
   <Card title="Application" href="/docs/concepts/application">
-    Plugin registration methods.
+    Plugin registration and lifecycle methods.
   </Card>
   <Card title="Middleware" href="/docs/concepts/middleware">
-    How plugins add middleware.
+    How plugins add middleware to the stack.
   </Card>
   <Card title="Context" href="/docs/concepts/context">
-    Extending context with plugins.
-  </Card>
-  <Card title="@nextrush/logger" href="/docs/packages/logger">
-    Official logger plugin.
+    Extending context via plugins.
   </Card>
 </Cards>

@@ -1,8 +1,8 @@
 # @nextrush/adapter-bun
 
-> Bun HTTP adapter for NextRush - Blazing fast performance
+> Bun HTTP adapter for NextRush
 
-Connect your NextRush application to [Bun](https://bun.sh) for maximum performance. Bun's optimized runtime combined with NextRush's minimal overhead delivers exceptional throughput.
+Connect your NextRush application to [Bun](https://bun.sh). This adapter bridges NextRush's middleware system to `Bun.serve()`, handling context creation, in-flight request tracking, and graceful shutdown.
 
 ## Why Bun?
 
@@ -10,12 +10,9 @@ Connect your NextRush application to [Bun](https://bun.sh) for maximum performan
 ┌────────────────────────────────────────────────────────────────┐
 │  Bun.serve()  →  NextRush Handler  →  Your Middleware/Routes   │
 └────────────────────────────────────────────────────────────────┘
-
-Benchmarks (Hello World):
-├── Bun.serve raw:     ~150,000 RPS
-├── NextRush + Bun:    ~120,000 RPS  (< 20% overhead)
-└── Express + Node.js: ~15,000 RPS
 ```
+
+Bun's built-in HTTP server uses direct syscalls and avoids the overhead of Node.js's `http` module. The adapter adds minimal overhead on top of `Bun.serve()`.
 
 ## Installation
 
@@ -56,7 +53,8 @@ const server = serve(app, {
   onListen: ({ port, hostname }) => { ... },
   onError: (error) => { ... },
   development: false,   // Enable dev mode
-  maxRequestBodySize: 128 * 1024 * 1024, // 128MB default
+  maxRequestBodySize: 128 * 1024 * 1024, // Bun default: 128MB
+  shutdownTimeout: 30_000, // Default: 30s drain timeout
   tls: {                // Optional HTTPS
     cert: certFile,
     key: keyFile,
@@ -103,17 +101,17 @@ The `BunContext` provides the standard NextRush Context interface optimized for 
 ```typescript
 app.use(async (ctx) => {
   // Request (input)
-  ctx.method     // 'GET', 'POST', etc.
-  ctx.path       // '/users/123'
-  ctx.query      // { page: '1' }
-  ctx.params     // { id: '123' } (from router)
-  ctx.headers    // Request headers
-  ctx.body       // Parsed body (from body-parser)
-  ctx.ip         // Client IP
+  ctx.method; // 'GET', 'POST', etc.
+  ctx.path; // '/users/123'
+  ctx.query; // { page: '1' }
+  ctx.params; // { id: '123' } (from router)
+  ctx.headers; // Request headers
+  ctx.body; // Parsed body (from body-parser)
+  ctx.ip; // Client IP
 
   // Runtime info
-  ctx.runtime    // 'bun'
-  ctx.bodySource // BodySource for raw body access
+  ctx.runtime; // 'bun'
+  ctx.bodySource; // BodySource for raw body access
 
   // Response (output)
   ctx.status = 201;
@@ -130,7 +128,7 @@ app.use(async (ctx) => {
   await ctx.next();
 
   // Raw access (escape hatch)
-  ctx.raw.req // Web API Request object
+  ctx.raw.req; // Web API Request object
 });
 ```
 
@@ -154,10 +152,10 @@ The `BunBodySource` leverages Bun's optimized body parsing:
 
 ```typescript
 // In middleware
-const text = await ctx.bodySource.text();    // Bun's native text()
-const json = await ctx.bodySource.json();    // Bun's native json()
+const text = await ctx.bodySource.text(); // Bun's native text()
+const json = await ctx.bodySource.json(); // Bun's native json()
 const buffer = await ctx.bodySource.buffer(); // Bun's native arrayBuffer()
-const stream = ctx.bodySource.stream();       // ReadableStream
+const stream = ctx.bodySource.stream(); // ReadableStream
 ```
 
 ### With @nextrush/body-parser
@@ -212,13 +210,13 @@ Bun supports hot reloading out of the box:
 bun --hot run server.ts
 ```
 
-Or use the `reload()` method:
+Or use the `reload()` method to update non-structural configuration:
 
 ```typescript
 const server = serve(app, { port: 3000 });
 
-// Later, update configuration
-server.reload({ port: 3001 });
+// Update configuration (port changes may not take effect)
+server.reload({ development: true });
 ```
 
 ## Full Example
@@ -277,8 +275,8 @@ serve(app, {
 This adapter maintains **identical DX** with other NextRush adapters:
 
 ```typescript
-// Same code works with all adapters!
-// Just change the import:
+// Same code works with all adapters.
+// Change the import:
 
 // Node.js
 import { serve } from '@nextrush/adapter-node';
@@ -295,14 +293,11 @@ serve(app, { port: 3000 });
 
 ## Performance Tips
 
-### 1. Use Bun's Native Features
+### 1. Use Bun's Native Streaming
 
 ```typescript
-// ✅ Leverage Bun's fast file handling
-import { file } from 'bun';
-
 router.get('/file', async (ctx) => {
-  ctx.send(file('./large-file.txt'));
+  ctx.send(Bun.file('./large-file.txt').stream());
 });
 ```
 
@@ -325,11 +320,7 @@ serve(app, {
 ## Types
 
 ```typescript
-import type {
-  ServeOptions,
-  ServerInstance,
-  BunContext,
-} from '@nextrush/adapter-bun';
+import type { ServeOptions, ServerInstance, BunContext } from '@nextrush/adapter-bun';
 ```
 
 ## Requirements

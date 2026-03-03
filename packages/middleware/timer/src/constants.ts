@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import type { TimeGetter } from './types';
+
 // ============================================================================
 // Header Names
 // ============================================================================
@@ -55,8 +57,10 @@ export const DEFAULT_METRIC = 'total';
 
 /**
  * Default high-resolution time getter.
- * Uses `performance.now()` for sub-millisecond accuracy.
+ * Uses `performance.now()` when available, falls back to `Date.now()`.
  *
- * @returns Current time in milliseconds with microsecond precision
+ * @returns Current time in milliseconds
  */
-export const defaultTimeGetter = (): number => performance.now();
+const perf = typeof globalThis.performance !== 'undefined' ? globalThis.performance : undefined;
+
+export const defaultTimeGetter: TimeGetter = perf?.now ? () => perf.now() : () => Date.now();

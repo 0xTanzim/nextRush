@@ -79,6 +79,7 @@ flowchart TB
     style dev fill:#ec4899,stroke:#db2777,color:#fff
     style types fill:#22c55e,stroke:#16a34a,color:#fff
     style coreP fill:#f59e0b,stroke:#d97706,color:#fff
+
 `}/>
 "/>
 
@@ -86,9 +87,10 @@ flowchart TB
 
 For most projects, install the meta package:
 
-<PackageInstall packages={["nextrush"]} />
+<PackageInstall packages={['nextrush']} />
 
 This gives you:
+
 - `createApp()` — Application factory
 - `createRouter()` — Router factory
 - `listen()` — Start Node.js server
@@ -104,7 +106,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 
 app.route('/', router);
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ## Package Categories
@@ -113,65 +115,65 @@ listen(app, 3000);
 
 The foundational packages that everything else builds on.
 
-| Package | Purpose | Install Separately? |
-|---------|---------|---------------------|
-| [`nextrush`](/docs/packages/core/nextrush) | Meta package with all essentials | **Start here** |
-| [`@nextrush/core`](/docs/packages/core/core) | Application, middleware composition | Usually via `nextrush` |
-| [`@nextrush/router`](/docs/packages/core/router) | Radix tree routing | Usually via `nextrush` |
-| [`@nextrush/types`](/docs/packages/core/types) | TypeScript type definitions | Peer dependency |
-| [`@nextrush/errors`](/docs/packages/core/errors) | HTTP error classes | Usually via `nextrush` |
-| [`@nextrush/runtime`](/docs/packages/core/runtime) | Runtime detection | Usually via adapter |
-| [`@nextrush/dev`](/docs/packages/core/dev) | Development server & build tools | **Dev dependency** |
+| Package                                            | Purpose                             | Install Separately?    |
+| -------------------------------------------------- | ----------------------------------- | ---------------------- |
+| [`nextrush`](/docs/packages/core/nextrush)         | Meta package with all essentials    | **Start here**         |
+| [`@nextrush/core`](/docs/packages/core/core)       | Application, middleware composition | Usually via `nextrush` |
+| [`@nextrush/router`](/docs/packages/core/router)   | Radix tree routing                  | Usually via `nextrush` |
+| [`@nextrush/types`](/docs/packages/core/types)     | TypeScript type definitions         | Peer dependency        |
+| [`@nextrush/errors`](/docs/packages/core/errors)   | HTTP error classes                  | Usually via `nextrush` |
+| [`@nextrush/runtime`](/docs/packages/core/runtime) | Runtime detection                   | Usually via adapter    |
+| [`@nextrush/dev`](/docs/packages/core/dev)         | Development server & build tools    | **Dev dependency**     |
 
 ### Runtime Adapters
 
 Connect NextRush to your runtime environment.
 
-| Package | Runtime | Notes |
-|---------|---------|-------|
-| [`@nextrush/adapter-node`](/docs/packages/adapters/node) | Node.js | Included in `nextrush` |
-| [`@nextrush/adapter-bun`](/docs/packages/adapters/bun) | Bun | Install separately |
-| [`@nextrush/adapter-deno`](/docs/packages/adapters/deno) | Deno | Install separately |
-| [`@nextrush/adapter-edge`](/docs/packages/adapters/edge) | Edge (Cloudflare, Vercel) | Install separately |
+| Package                                                  | Runtime                   | Notes                  |
+| -------------------------------------------------------- | ------------------------- | ---------------------- |
+| [`@nextrush/adapter-node`](/docs/packages/adapters/node) | Node.js                   | Included in `nextrush` |
+| [`@nextrush/adapter-bun`](/docs/packages/adapters/bun)   | Bun                       | Install separately     |
+| [`@nextrush/adapter-deno`](/docs/packages/adapters/deno) | Deno                      | Install separately     |
+| [`@nextrush/adapter-edge`](/docs/packages/adapters/edge) | Edge (Cloudflare, Vercel) | Install separately     |
 
 ### Middleware
 
 Production-ready middleware for common needs.
 
-| Package | Purpose |
-|---------|---------|
-| [`@nextrush/cors`](/docs/packages/middleware/cors) | Cross-Origin Resource Sharing |
-| [`@nextrush/helmet`](/docs/packages/middleware/helmet) | Security headers |
-| [`@nextrush/body-parser`](/docs/packages/middleware/body-parser) | Request body parsing |
-| [`@nextrush/rate-limit`](/docs/packages/middleware/rate-limit) | Rate limiting |
-| [`@nextrush/compression`](/docs/packages/middleware/compression) | Response compression |
-| [`@nextrush/cookies`](/docs/packages/middleware/cookies) | Cookie handling |
-| [`@nextrush/request-id`](/docs/packages/middleware/request-id) | Request ID generation |
-| [`@nextrush/timer`](/docs/packages/middleware/timer) | Response timing |
+| Package                                                          | Purpose                       |
+| ---------------------------------------------------------------- | ----------------------------- |
+| [`@nextrush/cors`](/docs/packages/middleware/cors)               | Cross-Origin Resource Sharing |
+| [`@nextrush/helmet`](/docs/packages/middleware/helmet)           | Security headers              |
+| [`@nextrush/body-parser`](/docs/packages/middleware/body-parser) | Request body parsing          |
+| [`@nextrush/rate-limit`](/docs/packages/middleware/rate-limit)   | Rate limiting                 |
+| [`@nextrush/compression`](/docs/packages/middleware/compression) | Response compression          |
+| [`@nextrush/cookies`](/docs/packages/middleware/cookies)         | Cookie handling               |
+| [`@nextrush/request-id`](/docs/packages/middleware/request-id)   | Request ID generation         |
+| [`@nextrush/timer`](/docs/packages/middleware/timer)             | Response timing               |
 
 ### Plugins
 
 Extend NextRush with additional capabilities.
 
-| Package | Purpose |
-|---------|---------|
+| Package                                                       | Purpose                         |
+| ------------------------------------------------------------- | ------------------------------- |
 | [`@nextrush/controllers`](/docs/packages/plugins/controllers) | Class-based controllers with DI |
-| [`@nextrush/logger`](/docs/packages/plugins/logger) | Structured logging |
-| [`@nextrush/static`](/docs/packages/plugins/static) | Static file serving |
-| [`@nextrush/websocket`](/docs/packages/plugins/websocket) | WebSocket support |
-| [`@nextrush/events`](/docs/packages/plugins/events) | Event emitter integration |
-| [`@nextrush/template`](/docs/packages/plugins/template) | Template engine integration |
+| [`@nextrush/logger`](/docs/packages/plugins/logger)           | Structured logging              |
+| [`@nextrush/static`](/docs/packages/plugins/static)           | Static file serving             |
+| [`@nextrush/websocket`](/docs/packages/plugins/websocket)     | WebSocket support               |
+| [`@nextrush/events`](/docs/packages/plugins/events)           | Event emitter integration       |
+| [`@nextrush/template`](/docs/packages/plugins/template)       | Template engine integration     |
 
 ### Dependency Injection
 
 For class-based applications with decorators.
 
-| Package | Purpose |
-|---------|---------|
-| [`@nextrush/di`](/docs/packages/di/di) | Dependency injection container |
+| Package                                                | Purpose                                 |
+| ------------------------------------------------------ | --------------------------------------- |
+| [`@nextrush/di`](/docs/packages/di/di)                 | Dependency injection container          |
 | [`@nextrush/decorators`](/docs/packages/di/decorators) | Controller, route, and guard decorators |
 
-<PackageInstall packages={["@nextrush/di", "@nextrush/decorators", "@nextrush/controllers"]} />
+<PackageInstall packages={['@nextrush/di', '@nextrush/decorators', '@nextrush/controllers']} />
 
 ## Choosing Packages
 
@@ -190,24 +192,27 @@ const router = createRouter();
 router.get('/users', (ctx) => ctx.json([]));
 
 app.route('/', router);
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 **Install:**
-<PackageInstall packages={["nextrush", "@nextrush/cors", "@nextrush/body-parser"]} />
+
+<PackageInstall packages={['nextrush', '@nextrush/cors', '@nextrush/body-parser']} />
 
 ### Class-Based Style (For Larger Apps)
 
 ```typescript
 import 'reflect-metadata';
-import { createApp, listen } from 'nextrush';
+import { createApp, createRouter, listen } from 'nextrush';
 import { Controller, Get } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
 import { controllersPlugin } from '@nextrush/controllers';
 
 @Service()
 class UserService {
-  findAll() { return [{ id: 1, name: 'Alice' }]; }
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
 }
 
 @Controller('/users')
@@ -215,16 +220,23 @@ class UserController {
   constructor(private users: UserService) {}
 
   @Get()
-  findAll() { return this.users.findAll(); }
+  findAll() {
+    return this.users.findAll();
+  }
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({ controllers: [UserController] }));
-listen(app, 3000);
+const router = createRouter();
+app.plugin(controllersPlugin({ router, controllers: [UserController] }));
+app.route('/', router);
+await listen(app, 3000);
 ```
 
 **Install:**
-<PackageInstall packages={["nextrush", "@nextrush/di", "@nextrush/decorators", "@nextrush/controllers"]} />
+
+<PackageInstall
+  packages={['nextrush', '@nextrush/di', '@nextrush/decorators', '@nextrush/controllers']}
+/>
 
 ### Non-Node.js Runtimes
 
@@ -240,24 +252,26 @@ serve(app, { port: 3000 });
 ```
 
 **Install:**
-<PackageInstall packages={["@nextrush/core", "@nextrush/router", "@nextrush/adapter-bun"]} />
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-bun']} />
 
 ## Package Size Philosophy
 
 NextRush follows a strict size budget:
 
-| Category | Max LOC | Rationale |
-|----------|---------|-----------|
+| Category      | Max LOC   | Rationale                  |
+| ------------- | --------- | -------------------------- |
 | Core packages | 500-1,500 | Foundation must be minimal |
-| Adapters | ~500 | Thin adapters, no bloat |
-| Middleware | ~300 | Single responsibility |
-| Plugins | ~600 | Focused features |
+| Adapters      | ~500      | Thin adapters, no bloat    |
+| Middleware    | ~300      | Single responsibility      |
+| Plugins       | ~600      | Focused features           |
 
 This ensures:
+
 - Fast installation
 - Quick cold starts
 - Low memory footprint
-- Easy auditing
+- Transparent auditing
 
 ## What's Next?
 

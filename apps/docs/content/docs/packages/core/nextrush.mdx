@@ -22,13 +22,14 @@ You want to build an API, not manage dependencies.
 
 `nextrush` is a **meta package** that bundles the essential packages for Node.js development:
 
-| What You Get | From Package |
-|--------------|--------------|
-| `createApp()` | `@nextrush/core` |
-| `createRouter()`, `Router` | `@nextrush/router` |
-| `listen()`, `serve()`, `createHandler()` | `@nextrush/adapter-node` |
-| HTTP error classes | `@nextrush/errors` |
-| TypeScript types | `@nextrush/types` |
+| What You Get                                  | From Package             |
+| --------------------------------------------- | ------------------------ |
+| `createApp()`, `Application`, `compose()`     | `@nextrush/core`         |
+| `createRouter()`, `Router`                    | `@nextrush/router`       |
+| `listen()`, `serve()`, `createHandler()`      | `@nextrush/adapter-node` |
+| HTTP error classes and utilities              | `@nextrush/errors`       |
+| TypeScript types, `HttpStatus`, `ContentType` | `@nextrush/types`        |
+| `VERSION`                                     | `nextrush`               |
 
 One install. One import path. Zero configuration.
 
@@ -54,7 +55,7 @@ It's **not** a monolith. Each package remains separate. The meta package just re
 
 ## Installation
 
-<PackageInstall packages={["nextrush"]} />
+<PackageInstall packages={['nextrush']} />
 
 ## Quick Start
 
@@ -73,7 +74,7 @@ router.get('/users/:id', (ctx) => {
 });
 
 app.route('/', router);
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 That's a complete API server. No additional installs needed.
@@ -87,11 +88,11 @@ import { createApp, Application, compose } from 'nextrush';
 import type { ApplicationOptions, ComposedMiddleware } from 'nextrush';
 ```
 
-| Export | Type | Description |
-|--------|------|-------------|
-| `createApp` | Function | Creates an Application instance |
-| `Application` | Class | The application class |
-| `compose` | Function | Composes middleware array |
+| Export        | Type     | Description                     |
+| ------------- | -------- | ------------------------------- |
+| `createApp`   | Function | Creates an Application instance |
+| `Application` | Class    | The application class           |
+| `compose`     | Function | Composes middleware array       |
 
 ### Router
 
@@ -100,10 +101,10 @@ import { createRouter, Router } from 'nextrush';
 import type { RouterOptions } from 'nextrush';
 ```
 
-| Export | Type | Description |
-|--------|------|-------------|
+| Export         | Type     | Description               |
+| -------------- | -------- | ------------------------- |
 | `createRouter` | Function | Creates a Router instance |
-| `Router` | Class | The router class |
+| `Router`       | Class    | The router class          |
 
 ### Server (Node.js)
 
@@ -112,49 +113,63 @@ import { listen, serve, createHandler } from 'nextrush';
 import type { ServeOptions, ServerInstance } from 'nextrush';
 ```
 
-| Export | Type | Description |
-|--------|------|-------------|
-| `listen` | Function | Start server on port (simple) |
-| `serve` | Function | Start server with options |
-| `createHandler` | Function | Create raw request handler |
+| Export          | Type     | Description                   |
+| --------------- | -------- | ----------------------------- |
+| `listen`        | Function | Start server on port (simple) |
+| `serve`         | Function | Start server with options     |
+| `createHandler` | Function | Create raw request handler    |
 
 ### Errors
 
 ```typescript
 import {
   HttpError,
+  NextRushError,
   BadRequestError,
   UnauthorizedError,
   ForbiddenError,
   NotFoundError,
+  MethodNotAllowedError,
   ConflictError,
   UnprocessableEntityError,
   TooManyRequestsError,
   InternalServerError,
+  NotImplementedError,
+  BadGatewayError,
+  ServiceUnavailableError,
+  GatewayTimeoutError,
   createError,
   isHttpError,
   errorHandler,
   notFoundHandler,
   catchAsync,
 } from 'nextrush';
+
+import type { ErrorHandlerOptions, HttpErrorOptions } from 'nextrush';
 ```
 
-| Export | Status | Description |
-|--------|--------|-------------|
-| `HttpError` | Base | Base HTTP error class |
-| `BadRequestError` | 400 | Invalid request |
-| `UnauthorizedError` | 401 | Authentication required |
-| `ForbiddenError` | 403 | Access denied |
-| `NotFoundError` | 404 | Resource not found |
-| `ConflictError` | 409 | Resource conflict |
-| `UnprocessableEntityError` | 422 | Validation failed |
-| `TooManyRequestsError` | 429 | Rate limit exceeded |
-| `InternalServerError` | 500 | Server error |
-| `createError` | Factory | Create error by status code |
-| `isHttpError` | Guard | Type guard for HTTP errors |
-| `errorHandler` | Middleware | Error handling middleware |
-| `notFoundHandler` | Middleware | 404 fallback middleware |
-| `catchAsync` | Utility | Wrap async handlers |
+| Export                     | Status     | Description                                  |
+| -------------------------- | ---------- | -------------------------------------------- |
+| `HttpError`                | Base       | Base HTTP error class                        |
+| `NextRushError`            | Base       | Base NextRush error class                    |
+| `BadRequestError`          | 400        | Invalid request                              |
+| `UnauthorizedError`        | 401        | Authentication required                      |
+| `ForbiddenError`           | 403        | Access denied                                |
+| `NotFoundError`            | 404        | Resource not found                           |
+| `MethodNotAllowedError`    | 405        | HTTP method not allowed                      |
+| `ConflictError`            | 409        | Resource conflict                            |
+| `UnprocessableEntityError` | 422        | Validation failed                            |
+| `TooManyRequestsError`     | 429        | Rate limit exceeded                          |
+| `InternalServerError`      | 500        | Server error                                 |
+| `NotImplementedError`      | 501        | Not implemented                              |
+| `BadGatewayError`          | 502        | Bad gateway                                  |
+| `ServiceUnavailableError`  | 503        | Service unavailable                          |
+| `GatewayTimeoutError`      | 504        | Gateway timeout                              |
+| `createError`              | Factory    | Create error by status code                  |
+| `isHttpError`              | Guard      | Type guard for HTTP errors                   |
+| `errorHandler`             | Middleware | Error handling middleware                    |
+| `notFoundHandler`          | Middleware | 404 fallback middleware                      |
+| `catchAsync`               | Deprecated | No-op — async errors propagate automatically |
 
 ### Types
 
@@ -179,11 +194,11 @@ import { HttpStatus, ContentType } from 'nextrush';
 import { VERSION, HttpStatus, ContentType } from 'nextrush';
 ```
 
-| Export | Description |
-|--------|-------------|
-| `VERSION` | Current NextRush version (`"3.0.0"`) |
-| `HttpStatus` | HTTP status code constants |
-| `ContentType` | Content type constants |
+| Export        | Description                          |
+| ------------- | ------------------------------------ |
+| `VERSION`     | Current NextRush version (`"3.0.0"`) |
+| `HttpStatus`  | HTTP status code constants           |
+| `ContentType` | Content type constants               |
 
 ## Common Patterns
 
@@ -230,7 +245,7 @@ router.delete('/users/:id', (ctx) => {
 });
 
 app.route('/', router);
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ### With Error Handling
@@ -253,7 +268,7 @@ app.route('/', router);
 // 404 fallback
 app.use(notFoundHandler());
 
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ### With Middleware (Install Separately)
@@ -276,39 +291,41 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ ok: true }));
 app.route('/', router);
 
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ## What's NOT Included
 
 The meta package is intentionally minimal. These require separate installation:
 
-| Feature | Package |
-|---------|---------|
-| CORS | `@nextrush/cors` |
-| Security headers | `@nextrush/helmet` |
-| Body parsing | `@nextrush/body-parser` |
-| Rate limiting | `@nextrush/rate-limit` |
-| Logging | `@nextrush/logger` |
-| Static files | `@nextrush/static` |
-| Decorators | `@nextrush/decorators` |
-| Dependency injection | `@nextrush/di` |
-| Controllers | `@nextrush/controllers` |
-| Bun adapter | `@nextrush/adapter-bun` |
-| Deno adapter | `@nextrush/adapter-deno` |
-| Edge adapter | `@nextrush/adapter-edge` |
+| Feature              | Package                  |
+| -------------------- | ------------------------ |
+| CORS                 | `@nextrush/cors`         |
+| Security headers     | `@nextrush/helmet`       |
+| Body parsing         | `@nextrush/body-parser`  |
+| Rate limiting        | `@nextrush/rate-limit`   |
+| Logging              | `@nextrush/logger`       |
+| Static files         | `@nextrush/static`       |
+| Decorators           | `@nextrush/decorators`   |
+| Dependency injection | `@nextrush/di`           |
+| Controllers          | `@nextrush/controllers`  |
+| Bun adapter          | `@nextrush/adapter-bun`  |
+| Deno adapter         | `@nextrush/adapter-deno` |
+| Edge adapter         | `@nextrush/adapter-edge` |
 
 This is intentional. Install only what you need.
 
 ## When to Use This Package
 
 ✅ **Use `nextrush` when:**
+
 - Building Node.js APIs
 - Starting a new project
 - You want the simplest setup
 - You prefer importing from one place
 
 ❌ **Don't use `nextrush` when:**
+
 - Using Bun, Deno, or Edge runtimes
 - You need fine-grained control over dependencies
 - You're building a library that depends on NextRush
@@ -333,7 +350,7 @@ app.route('/', router);
 serve(app, { port: 3000 });
 ```
 
-<PackageInstall packages={["@nextrush/core", "@nextrush/router", "@nextrush/adapter-bun"]} />
+<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-bun']} />
 
 ### Deno
 
@@ -353,11 +370,11 @@ serve(app, { port: 3000 });
 
 ## Package Details
 
-| Metric | Value |
-|--------|-------|
+| Metric       | Value                |
+| ------------ | -------------------- |
 | Dependencies | 5 workspace packages |
-| Node.js | ≥20.0.0 |
-| TypeScript | Full support |
+| Node.js      | ≥22.0.0              |
+| TypeScript   | Full support         |
 
 ## See Also
 

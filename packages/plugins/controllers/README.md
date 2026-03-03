@@ -43,7 +43,7 @@ Think of this plugin as a **compiler for controllers**:
 ## Installation
 
 ```bash
-pnpm add @nextrush/controllers @nextrush/di @nextrush/decorators reflect-metadata
+pnpm add @nextrush/controllers @nextrush/decorators @nextrush/di reflect-metadata
 ```
 
 **Required `tsconfig.json` settings:**
@@ -68,9 +68,15 @@ import type { GuardFn } from '@nextrush/decorators';
 // Service with DI
 @Service()
 class UserService {
-  findAll() { return [{ id: 1, name: 'Alice' }]; }
-  findOne(id: string) { return { id, name: 'Alice' }; }
-  create(data: { name: string }) { return { id: Date.now(), ...data }; }
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+  findOne(id: string) {
+    return { id, name: 'Alice' };
+  }
+  create(data: { name: string }) {
+    return { id: Date.now(), ...data };
+  }
 }
 
 // Guard
@@ -83,13 +89,19 @@ export class UserController {
   constructor(private userService: UserService) {}
 
   @Get()
-  findAll() { return this.userService.findAll(); }
+  findAll() {
+    return this.userService.findAll();
+  }
 
   @Get('/:id')
-  findOne(@Param('id') id: string) { return this.userService.findOne(id); }
+  findOne(@Param('id') id: string) {
+    return this.userService.findOne(id);
+  }
 
   @Post()
-  create(@Body() data: { name: string }) { return this.userService.create(data); }
+  create(@Body() data: { name: string }) {
+    return this.userService.create(data);
+  }
 }
 ```
 
@@ -106,12 +118,12 @@ async function main() {
   const router = createRouter();
 
   // Auto-discover controllers from ./src directory
-  await app.pluginAsync(
+  await app.plugin(
     controllersPlugin({
       router,
-      root: './src',           // Scan this directory for @Controller classes
-      prefix: '/api',          // Add prefix to all routes: /api/users
-      debug: true,             // Log discovered controllers at startup
+      root: './src', // Scan this directory for @Controller classes
+      prefix: '/api', // Add prefix to all routes: /api/users
+      debug: true, // Log discovered controllers at startup
     })
   );
 
@@ -157,11 +169,11 @@ async function handler(ctx: Context) {
   for (const guard of guards) {
     if (isGuardClass(guard)) {
       const instance = container.resolve(guard);
-      if (!await instance.canActivate(guardContext)) {
+      if (!(await instance.canActivate(guardContext))) {
         throw new GuardRejectionError(guard.name);
       }
     } else {
-      if (!await guard(guardContext)) {
+      if (!(await guard(guardContext))) {
         throw new GuardRejectionError('Guard');
       }
     }
@@ -230,6 +242,7 @@ class AuthGuard implements CanActivate {
 ### Guard Resolution
 
 The plugin detects guard type using `isGuardClass()`:
+
 - **Function guards**: Called directly with `GuardContext`
 - **Class guards**: Resolved from DI container, then `canActivate()` called
 
@@ -252,16 +265,16 @@ Parameters are extracted from the request based on decorator metadata:
 
 ### Extraction Sources
 
-| Decorator | Source | Example |
-|-----------|--------|---------|
-| `@Body()` | `ctx.body` | Full request body |
-| `@Body('name')` | `ctx.body.name` | Specific body property |
-| `@Param()` | `ctx.params` | All route parameters |
-| `@Param('id')` | `ctx.params.id` | Specific route parameter |
-| `@Query()` | `ctx.query` | All query parameters |
-| `@Query('page')` | `ctx.query.page` | Specific query parameter |
-| `@Header('auth')` | `ctx.get('auth')` | Specific header |
-| `@Ctx()` | `ctx` | Full context object |
+| Decorator         | Source            | Example                  |
+| ----------------- | ----------------- | ------------------------ |
+| `@Body()`         | `ctx.body`        | Full request body        |
+| `@Body('name')`   | `ctx.body.name`   | Specific body property   |
+| `@Param()`        | `ctx.params`      | All route parameters     |
+| `@Param('id')`    | `ctx.params.id`   | Specific route parameter |
+| `@Query()`        | `ctx.query`       | All query parameters     |
+| `@Query('page')`  | `ctx.query.page`  | Specific query parameter |
+| `@Header('auth')` | `ctx.get('auth')` | Specific header          |
+| `@Ctx()`          | `ctx`             | Full context object      |
 
 ### Async Transform Support
 
@@ -278,9 +291,7 @@ const UserSchema = z.object({
 @Controller('/users')
 class UserController {
   @Post()
-  async create(
-    @Body({ transform: UserSchema.parseAsync }) data: z.infer<typeof UserSchema>
-  ) {
+  async create(@Body({ transform: UserSchema.parseAsync }) data: z.infer<typeof UserSchema>) {
     // data is validated and typed
     return this.userService.create(data);
   }
@@ -293,12 +304,7 @@ Required parameters throw `MissingParameterError` (400):
 
 ```typescript
 // If @Body('email') is required but not provided:
-throw new MissingParameterError(
-  'UserController',
-  'create',
-  'email',
-  'body'
-);
+throw new MissingParameterError('UserController', 'create', 'email', 'body');
 
 // HTTP Response:
 // Status: 400 Bad Request
@@ -316,50 +322,52 @@ interface ControllersPluginOptions {
   controllers?: Function[];
 
   // Auto-discovery options
-  root?: string;              // Directory to scan (default: './src')
-  include?: string[];         // Glob patterns (default: ['**/*.ts', '**/*.js'])
-  exclude?: string[];         // Exclude patterns (default: tests, node_modules)
+  root?: string; // Directory to scan
+  include?: string[]; // Glob patterns (default: ['**/*.ts', '**/*.js'])
+  exclude?: string[]; // Exclude patterns (default: tests, node_modules, dist, __tests__)
 
   // Route configuration
-  prefix?: string;            // Global route prefix (e.g., '/api')
-  middleware?: Middleware[];  // Global middleware for all routes
+  prefix?: string; // Global route prefix (e.g., '/api')
+  middleware?: Middleware[]; // Global middleware for all routes
 
   // DI container (uses global container by default)
   container?: ContainerInterface;
 
   // Debugging
-  debug?: boolean;            // Log discovered routes
-  strict?: boolean;           // Throw on discovery errors
+  debug?: boolean; // Log discovered routes
+  strict?: boolean; // Throw on discovery errors
 }
 ```
 
 ### Manual Registration (Deprecated)
 
-::: warning Deprecated
-Manual registration is only for testing. Prefer auto-discovery with `root` option.
-:::
+> **⚠️ Deprecated:** Manual registration is for testing only. Prefer auto-discovery with `root` option.
 
 ```typescript
 // ❌ Deprecated - only for testing
-app.plugin(controllersPlugin({
-  router,
-  controllers: [UserController, ProductController],
-  prefix: '/api',
-}));
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [UserController, ProductController],
+    prefix: '/api',
+  })
+);
 ```
 
 ### Auto-Discovery (Recommended)
 
 ```typescript
 // ✅ Recommended - auto-discovers all @Controller classes
-await app.pluginAsync(controllersPlugin({
-  router,
-  root: './src',                         // Directory to scan
-  include: ['**/*.controller.ts'],       // Only files matching pattern
-  exclude: ['**/*.test.ts', '**/__tests__/**'],
-  prefix: '/api',
-  debug: true,                           // Log discovered controllers
-}));
+await app.plugin(
+  controllersPlugin({
+    router,
+    root: './src', // Directory to scan
+    include: ['**/*.controller.ts'], // Only files matching pattern
+    exclude: ['**/*.test.ts', '**/__tests__/**'],
+    prefix: '/api',
+    debug: true, // Log discovered controllers
+  })
+);
 ```
 
 ## Error Hierarchy
@@ -368,21 +376,21 @@ All errors extend `HttpError` from `@nextrush/errors` with proper status codes:
 
 ### Server Errors (5xx)
 
-| Error | Code | Description |
-|-------|------|-------------|
-| `NotAControllerError` | 500 | Class missing `@Controller` |
-| `NoRoutesError` | 500 | Controller has no route decorators |
-| `ControllerResolutionError` | 500 | DI failed to resolve controller |
-| `RouteRegistrationError` | 500 | Route registration failed |
-| `DiscoveryError` | 500 | File discovery failed |
+| Error                       | Code | Description                        |
+| --------------------------- | ---- | ---------------------------------- |
+| `NotAControllerError`       | 500  | Class missing `@Controller`        |
+| `NoRoutesError`             | 500  | Controller has no route decorators |
+| `ControllerResolutionError` | 500  | DI failed to resolve controller    |
+| `RouteRegistrationError`    | 500  | Route registration failed          |
+| `DiscoveryError`            | 500  | File discovery failed              |
 
 ### Client Errors (4xx)
 
-| Error | Code | Description |
-|-------|------|-------------|
-| `MissingParameterError` | 400 | Required parameter not provided |
-| `ParameterInjectionError` | 400 | Parameter transform/validation failed |
-| `GuardRejectionError` | 403 | Guard returned false |
+| Error                     | Code | Description                           |
+| ------------------------- | ---- | ------------------------------------- |
+| `MissingParameterError`   | 400  | Required parameter not provided       |
+| `ParameterInjectionError` | 400  | Parameter transform/validation failed |
+| `GuardRejectionError`     | 403  | Guard returned false                  |
 
 ### Error Usage
 
@@ -431,33 +439,48 @@ pnpm add -D @nextrush/dev
 
 ```typescript
 // Plugin
-export { controllersPlugin } from './plugin';
+export { ControllersPlugin, controllersPlugin, registerController } from './plugin';
+
+// Discovery
+export { discoverControllers, getControllersFromResults, getErrorsFromResults } from './discovery';
+
+// Registry
+export { ControllerRegistry } from './registry';
+
+// Builder
+export { buildRoutes } from './builder';
 
 // Types
-export type { ControllersPluginOptions, BuiltRoute } from './types';
+export type {
+  BuiltRoute,
+  ControllersPluginOptions,
+  ControllersPluginState,
+  DiscoveryOptions,
+  DiscoveryResult,
+  RegisteredController,
+  ResolvedOptions,
+} from './types';
 
 // Errors
 export {
   ControllerError,
-  NotAControllerError,
-  NoRoutesError,
-  DiscoveryError,
   ControllerResolutionError,
-  ParameterInjectionError,
-  MissingParameterError,
-  RouteRegistrationError,
+  DiscoveryError,
   GuardRejectionError,
+  HttpError,
+  MissingParameterError,
+  NoRoutesError,
+  NotAControllerError,
+  ParameterInjectionError,
+  RouteRegistrationError,
 } from './errors';
+```
 
-// Re-exports from @nextrush/decorators (convenience)
-export {
-  Controller, Get, Post, Put, Patch, Delete,
-  Body, Param, Query, Header, Ctx,
-  UseGuard,
-} from '@nextrush/decorators';
+Decorators and DI are **not** re-exported. Import them from their own packages:
 
-// Re-exports from @nextrush/di (convenience)
-export { Service, Repository, container } from '@nextrush/di';
+```typescript
+import { Controller, Get, Post, Body, UseGuard } from '@nextrush/decorators';
+import { Service, container } from '@nextrush/di';
 ```
 
 ## Common Mistakes
@@ -473,7 +496,7 @@ import 'reflect-metadata';
 import { Controller } from '@nextrush/decorators';
 ```
 
-### Mistake 2: Not awaiting pluginAsync for auto-discovery
+### Mistake 2: Not awaiting app.plugin for auto-discovery
 
 ```typescript
 // ❌ Wrong - routes won't be registered
@@ -481,8 +504,8 @@ app.plugin(controllersPlugin({ router, root: './src' }));
 app.route('/', router);
 listen(app);
 
-// ✅ Correct - wait for discovery
-await app.pluginAsync(controllersPlugin({ router, root: './src' }));
+// ✅ Correct - await the async plugin
+await app.plugin(controllersPlugin({ router, root: './src' }));
 app.route('/', router);
 listen(app);
 ```
@@ -521,8 +544,8 @@ const GoodGuard: GuardFn = (ctx) => {
 ```typescript
 @Controller('/users')
 class UserController {
-  @Get()  // ← Required!
-  findAll() { }
+  @Get() // ← Required!
+  findAll() {}
 }
 ```
 

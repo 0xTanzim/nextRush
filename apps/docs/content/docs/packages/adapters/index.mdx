@@ -38,6 +38,7 @@ flowchart LR
 ```
 
 Each adapter:
+
 1. Creates a platform-specific request handler
 2. Converts native requests to `Context` objects
 3. Converts context responses back to native responses
@@ -45,12 +46,12 @@ Each adapter:
 
 ## Available Adapters
 
-| Package | Runtime | Install Separately? |
-|---------|---------|---------------------|
-| [`@nextrush/adapter-node`](/docs/packages/adapters/node) | Node.js | Included in `nextrush` |
-| [`@nextrush/adapter-bun`](/docs/packages/adapters/bun) | Bun | Yes |
-| [`@nextrush/adapter-deno`](/docs/packages/adapters/deno) | Deno | Yes |
-| [`@nextrush/adapter-edge`](/docs/packages/adapters/edge) | Edge (Cloudflare, Vercel) | Yes |
+| Package                                                  | Runtime                   | Install Separately?    |
+| -------------------------------------------------------- | ------------------------- | ---------------------- |
+| [`@nextrush/adapter-node`](/docs/packages/adapters/node) | Node.js                   | Included in `nextrush` |
+| [`@nextrush/adapter-bun`](/docs/packages/adapters/bun)   | Bun                       | Yes                    |
+| [`@nextrush/adapter-deno`](/docs/packages/adapters/deno) | Deno                      | Yes                    |
+| [`@nextrush/adapter-edge`](/docs/packages/adapters/edge) | Edge (Cloudflare, Vercel) | Yes                    |
 
 ## Quick Comparison
 
@@ -65,7 +66,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ runtime: 'node' }));
 
 app.route('/', router);
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ### Bun
@@ -123,33 +124,33 @@ export default {
 
 All adapters export similar functions:
 
-| Function | Description |
-|----------|-------------|
-| `serve(app, options)` | Start HTTP server |
-| `listen(app, port)` | Shorthand with default logging |
-| `createHandler(app)` | Create request handler function |
+| Function              | Description                     |
+| --------------------- | ------------------------------- |
+| `serve(app, options)` | Start HTTP server               |
+| `listen(app, port)`   | Shorthand with default logging  |
+| `createHandler(app)`  | Create request handler function |
 
 ## Choosing an Adapter
 
-| Runtime | Best For |
-|---------|----------|
+| Runtime     | Best For                                                     |
+| ----------- | ------------------------------------------------------------ |
 | **Node.js** | General purpose, existing Node.js deployments, compatibility |
-| **Bun** | Maximum performance, drop-in Node.js replacement |
-| **Deno** | Security-focused, TypeScript-first, permissions model |
-| **Edge** | Serverless, low latency, global distribution |
+| **Bun**     | Maximum performance, drop-in Node.js replacement             |
+| **Deno**    | Security-focused, TypeScript-first, permissions model        |
+| **Edge**    | Serverless, low latency, global distribution                 |
 
 ## Runtime Capabilities
 
 Different runtimes have different capabilities:
 
-| Capability | Node.js | Bun | Deno | Edge |
-|------------|---------|-----|------|------|
-| File System | ✅ | ✅ | ✅ | ❌ |
-| WebSocket | ✅ | ✅ | ✅ | ✅ |
-| Native Fetch | ✅ | ✅ | ✅ | ✅ |
-| Worker Threads | ✅ | ✅ | ✅ | ⚠️ |
-| Node.js APIs | ✅ | ✅ | ⚠️ | ❌ |
-| Cold Start | ~150ms | ~10ms | ~50ms | ~5ms |
+| Capability     | Node.js | Bun   | Deno  | Edge |
+| -------------- | ------- | ----- | ----- | ---- |
+| File System    | ✅      | ✅    | ✅    | ❌   |
+| WebSocket      | ✅      | ✅    | ✅    | ✅   |
+| Native Fetch   | ✅      | ✅    | ✅    | ✅   |
+| Worker Threads | ✅      | ✅    | ✅    | ⚠️   |
+| Node.js APIs   | ✅      | ✅    | ⚠️    | ❌   |
+| Cold Start     | ~150ms  | ~10ms | ~50ms | ~5ms |
 
 ## Same Code, Any Runtime
 
@@ -174,7 +175,7 @@ Then deploy anywhere:
 ```typescript title="node.ts"
 import { app } from './app';
 import { listen } from '@nextrush/adapter-node';
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ```typescript title="bun.ts"

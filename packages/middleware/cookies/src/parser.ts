@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { MAX_COOKIES_PER_DOMAIN } from './constants.js';
 import { sanitizeCookieValue } from './validation.js';
 
 // ============================================================================
@@ -32,6 +33,13 @@ export interface ParseOptions {
    * @default true
    */
   sanitize?: boolean;
+
+  /**
+   * Maximum number of cookies to parse.
+   * Limits processing to defend against large Cookie headers.
+   * @default 50
+   */
+  maxCookies?: number;
 }
 
 // ============================================================================
@@ -55,8 +63,8 @@ export function parseCookies(
   cookieHeader: string | undefined | null,
   options: ParseOptions = {}
 ): ParsedCookies {
-  const { decode = true, sanitize = true } = options;
-  const cookies: ParsedCookies = {};
+  const { decode = true, sanitize = true, maxCookies = MAX_COOKIES_PER_DOMAIN } = options;
+  const cookies = Object.create(null) as ParsedCookies;
 
   if (!cookieHeader || typeof cookieHeader !== 'string') {
     return cookies;
@@ -86,8 +94,9 @@ export function parseCookies(
     if (decode) {
       try {
         value = decodeURIComponent(value);
-      } catch {
-        // Keep original value if decoding fails
+      } catch (_: unknown) {
+        // decodeURIComponent failed on malformed percent-encoding.
+        // Retain the raw value — common with browser quirks and legacy cookies.
       }
     }
 
@@ -97,8 +106,13 @@ export function parseCookies(
     }
 
     // First occurrence wins (per RFC 6265)
-    if (!(name in cookies)) {
+    if (!Object.hasOwn(cookies, name)) {
       cookies[name] = value;
+
+      // Enforce cookie count limit to prevent DoS via large headers
+      if (Object.keys(cookies).length >= maxCookies) {
+        break;
+      }
     }
   }
 
@@ -141,12 +155,9 @@ export function getCookie(
  * hasCookie('session=abc123', 'token');   // false
  * ```
  */
-export function hasCookie(
-  cookieHeader: string | undefined | null,
-  name: string
-): boolean {
+export function hasCookie(cookieHeader: string | undefined | null, name: string): boolean {
   const cookies = parseCookies(cookieHeader, { decode: false, sanitize: false });
-  return name in cookies;
+  return Object.hasOwn(cookies, name);
 }
 
 /**
@@ -161,9 +172,7 @@ export function hasCookie(
  * // ['session', 'theme']
  * ```
  */
-export function getCookieNames(
-  cookieHeader: string | undefined | null
-): string[] {
+export function getCookieNames(cookieHeader: string | undefined | null): string[] {
   const cookies = parseCookies(cookieHeader, { decode: false, sanitize: false });
   return Object.keys(cookies);
 }

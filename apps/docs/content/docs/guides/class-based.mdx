@@ -4,25 +4,31 @@ description: Build structured APIs with decorators, dependency injection, and au
 ---
 
 import { Mermaid } from '@/components/mdx';
-import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 
 # Class-Based Controllers
 
-NextRush supports a class-based programming model with decorators and dependency injection. This gives you NestJS-like structure with minimal overhead.
+## What You Will Build
+
+A REST API using decorator-based controllers, dependency injection, and guards. By the end, you will have:
+
+- A `UserController` with CRUD routes wired through decorators
+- Services and repositories injected automatically via DI
+- Route protection with function-based and class-based guards
+- A working test setup for controllers
 
 ## When to Use Class-Based Style
 
-| Scenario | Recommended Style |
-|----------|-------------------|
-| Small APIs, scripts | Functional |
-| Large applications | Class-based |
-| Team projects | Class-based |
-| Microservices | Either |
-| Prototype/POC | Functional |
+| Scenario            | Recommended Style |
+| ------------------- | ----------------- |
+| Small APIs, scripts | Functional        |
+| Large applications  | Class-based       |
+| Team projects       | Class-based       |
+| Microservices       | Either            |
+| Prototype/POC       | Functional        |
 
 Class-based controllers work best when you need:
+
 - Automatic dependency injection
 - Organized route grouping
 - Testable architecture
@@ -49,25 +55,27 @@ Your `tsconfig.json` must include:
 
 ## Installation
 
-```bash
-pnpm add @nextrush/controllers reflect-metadata
-```
+<PackageInstall
+  packages={[
+    '@nextrush/core',
+    '@nextrush/router',
+    '@nextrush/adapter-node',
+    '@nextrush/controllers',
+  ]}
+/>
+
+`@nextrush/decorators`, `@nextrush/di`, and `reflect-metadata` are installed automatically as dependencies of `@nextrush/controllers`.
 
 ## Quick Example
 
 ```typescript
 import 'reflect-metadata';
 import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { listen } from '@nextrush/adapter-node';
-import {
-  controllersPlugin,
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Service,
-} from '@nextrush/controllers';
+import { Controller, Get, Post, Body, Param } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+import { controllersPlugin } from '@nextrush/controllers';
 
 // Service with DI
 @Service()
@@ -82,7 +90,7 @@ class UserService {
   }
 
   findById(id: string) {
-    return this.users.find(u => u.id === id);
+    return this.users.find((u) => u.id === id);
   }
 
   create(data: { name: string }) {
@@ -115,15 +123,22 @@ class UserController {
 
 // Bootstrap
 const app = createApp();
-app.plugin(controllersPlugin({
-  controllers: [UserController],
-}));
+const router = createRouter();
 
-await listen(app, { port: 3000 });
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [UserController],
+  })
+);
+
+app.use(router.routes());
+await listen(app, 3000);
 ```
 
 <Callout type="warn" title="Import Order Matters">
-Always import `reflect-metadata` **first**, before any other imports. This ensures decorator metadata is available for all classes.
+  Always import `reflect-metadata` **first**, before any other imports. This ensures decorator
+  metadata is available for all classes.
 </Callout>
 
 ## Understanding the Flow
@@ -145,6 +160,7 @@ flowchart TB
         J --> K[Call Method]
         K --> L[Serialize Response]
     end
+
 `} />
 
 ## Dependency Injection
@@ -154,7 +170,7 @@ flowchart TB
 Use `@Service()` to register a class as a singleton:
 
 ```typescript
-import { Service } from '@nextrush/controllers';
+import { Service } from '@nextrush/di';
 
 @Service()
 class DatabaseService {
@@ -179,7 +195,7 @@ class UserService {
 Use `@Repository()` for data access classes (semantic alias for `@Service()`):
 
 ```typescript
-import { Repository, Service } from '@nextrush/controllers';
+import { Repository, Service } from '@nextrush/di';
 
 @Repository()
 class UserRepository {
@@ -199,7 +215,7 @@ class UserService {
 For interfaces or tokens, use `@inject()`:
 
 ```typescript
-import { Service, inject, container } from '@nextrush/controllers';
+import { Service, inject, container } from '@nextrush/di';
 
 interface ILogger {
   log(message: string): void;
@@ -210,9 +226,7 @@ container.register('ILogger', { useValue: console });
 
 @Service()
 class UserService {
-  constructor(
-    @inject('ILogger') private logger: ILogger
-  ) {}
+  constructor(@inject('ILogger') private logger: ILogger) {}
 }
 ```
 
@@ -242,33 +256,33 @@ class UserController {
 
 ### Route Decorators
 
-| Decorator | HTTP Method |
-|-----------|-------------|
-| `@Get(path?)` | GET |
-| `@Post(path?)` | POST |
-| `@Put(path?)` | PUT |
-| `@Patch(path?)` | PATCH |
-| `@Delete(path?)` | DELETE |
-| `@Head(path?)` | HEAD |
-| `@Options(path?)` | OPTIONS |
-| `@All(path?)` | All methods |
+| Decorator         | HTTP Method |
+| ----------------- | ----------- |
+| `@Get(path?)`     | GET         |
+| `@Post(path?)`    | POST        |
+| `@Put(path?)`     | PUT         |
+| `@Patch(path?)`   | PATCH       |
+| `@Delete(path?)`  | DELETE      |
+| `@Head(path?)`    | HEAD        |
+| `@Options(path?)` | OPTIONS     |
+| `@All(path?)`     | All methods |
 
 ```typescript
 @Controller('/products')
 class ProductController {
-  @Get()           // GET /products
+  @Get() // GET /products
   findAll() {}
 
-  @Get('/:id')     // GET /products/:id
+  @Get('/:id') // GET /products/:id
   findById() {}
 
-  @Post()          // POST /products
+  @Post() // POST /products
   create() {}
 
-  @Put('/:id')     // PUT /products/:id
+  @Put('/:id') // PUT /products/:id
   update() {}
 
-  @Delete('/:id')  // DELETE /products/:id
+  @Delete('/:id') // DELETE /products/:id
   remove() {}
 }
 ```
@@ -277,17 +291,17 @@ class ProductController {
 
 Extract data from the request:
 
-| Decorator | Source | Example |
-|-----------|--------|---------|
-| `@Body()` | Request body | `@Body() data: CreateUserDto` |
-| `@Body('field')` | Body field | `@Body('email') email: string` |
-| `@Param()` | All route params | `@Param() params: { id: string }` |
-| `@Param('name')` | Single param | `@Param('id') id: string` |
-| `@Query()` | All query params | `@Query() query: { page: string }` |
-| `@Query('name')` | Single query param | `@Query('page') page: string` |
-| `@Header()` | All headers | `@Header() headers: Record<string, string>` |
-| `@Header('name')` | Single header | `@Header('authorization') auth: string` |
-| `@Ctx()` | Full context | `@Ctx() ctx: Context` |
+| Decorator         | Source             | Example                                     |
+| ----------------- | ------------------ | ------------------------------------------- |
+| `@Body()`         | Request body       | `@Body() data: CreateUserDto`               |
+| `@Body('field')`  | Body field         | `@Body('email') email: string`              |
+| `@Param()`        | All route params   | `@Param() params: { id: string }`           |
+| `@Param('name')`  | Single param       | `@Param('id') id: string`                   |
+| `@Query()`        | All query params   | `@Query() query: { page: string }`          |
+| `@Query('name')`  | Single query param | `@Query('page') page: string`               |
+| `@Header()`       | All headers        | `@Header() headers: Record<string, string>` |
+| `@Header('name')` | Single header      | `@Header('authorization') auth: string`     |
+| `@Ctx()`          | Full context       | `@Ctx() ctx: Context`                       |
 
 ```typescript
 @Controller('/users')
@@ -296,7 +310,7 @@ class UserController {
   findById(
     @Param('id') id: string,
     @Query('include') include?: string,
-    @Header('authorization') auth?: string,
+    @Header('authorization') auth?: string
   ) {
     // id from URL path
     // include from query string
@@ -304,10 +318,7 @@ class UserController {
   }
 
   @Post()
-  create(
-    @Body() data: CreateUserDto,
-    @Ctx() ctx: Context,
-  ) {
+  create(@Body() data: CreateUserDto, @Ctx() ctx: Context) {
     // data is parsed request body
     // ctx is full context if needed
   }
@@ -321,7 +332,7 @@ Guards protect routes by determining if a request should proceed.
 ### Function Guards
 
 ```typescript
-import { UseGuard, type GuardFn } from '@nextrush/controllers';
+import { UseGuard, type GuardFn } from '@nextrush/decorators';
 
 const AuthGuard: GuardFn = async (ctx) => {
   const token = ctx.get('authorization');
@@ -348,10 +359,12 @@ class UserController {
 Create configurable guards:
 
 ```typescript
-const RoleGuard = (roles: string[]): GuardFn => async (ctx) => {
-  const user = ctx.state.user as { role: string } | undefined;
-  return user ? roles.includes(user.role) : false;
-};
+const RoleGuard =
+  (roles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    return user ? roles.includes(user.role) : false;
+  };
 
 @UseGuard(AuthGuard)
 @UseGuard(RoleGuard(['admin']))
@@ -369,7 +382,8 @@ class AdminController {
 Guards can also be classes with dependencies:
 
 ```typescript
-import { Service, type CanActivate, type GuardContext } from '@nextrush/controllers';
+import { type CanActivate, type GuardContext } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
 
 @Service()
 class AuthGuard implements CanActivate {
@@ -385,7 +399,7 @@ class AuthGuard implements CanActivate {
   }
 }
 
-@UseGuard(AuthGuard)  // Class reference, resolved from DI
+@UseGuard(AuthGuard) // Class reference, resolved from DI
 @Controller('/protected')
 class ProtectedController {}
 ```
@@ -395,8 +409,8 @@ class ProtectedController {}
 Guards run in order: class guards first, then method guards.
 
 ```typescript
-@UseGuard(ClassGuard1)    // Runs 1st
-@UseGuard(ClassGuard2)    // Runs 2nd
+@UseGuard(ClassGuard1) // Runs 1st
+@UseGuard(ClassGuard2) // Runs 2nd
 @Controller('/example')
 class ExampleController {
   @UseGuard(MethodGuard1) // Runs 3rd
@@ -406,32 +420,27 @@ class ExampleController {
 }
 ```
 
-If any guard returns `false`, the request is rejected with 403 Forbidden.
+If any guard returns `false`, NextRush rejects the request with 403 Forbidden.
 
 ## Complete Example
 
-Here's a complete REST API with authentication:
+Here's a complete REST API with authentication.
+
+This example also uses `@nextrush/cors` and `@nextrush/body-parser` — install them separately:
+
+<PackageInstall packages={['@nextrush/cors', '@nextrush/body-parser']} />
 
 ```typescript
 import 'reflect-metadata';
 import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { listen } from '@nextrush/adapter-node';
 import { json } from '@nextrush/body-parser';
 import { cors } from '@nextrush/cors';
-import {
-  controllersPlugin,
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuard,
-  Service,
-  Repository,
-  type GuardFn,
-} from '@nextrush/controllers';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuard } from '@nextrush/decorators';
+import { Service, Repository } from '@nextrush/di';
+import { controllersPlugin } from '@nextrush/controllers';
+import type { GuardFn } from '@nextrush/decorators';
 
 // ===== Domain Types =====
 interface User {
@@ -448,16 +457,14 @@ interface CreateUserDto {
 // ===== Repository =====
 @Repository()
 class UserRepository {
-  private users: User[] = [
-    { id: '1', email: 'alice@example.com', name: 'Alice' },
-  ];
+  private users: User[] = [{ id: '1', email: 'alice@example.com', name: 'Alice' }];
 
   findAll() {
     return this.users;
   }
 
   findById(id: string) {
-    return this.users.find(u => u.id === id);
+    return this.users.find((u) => u.id === id);
   }
 
   create(data: CreateUserDto): User {
@@ -473,7 +480,7 @@ class UserRepository {
   }
 
   delete(id: string) {
-    const index = this.users.findIndex(u => u.id === id);
+    const index = this.users.findIndex((u) => u.id === id);
     if (index >= 0) this.users.splice(index, 1);
   }
 }
@@ -534,10 +541,7 @@ class UserController {
   }
 
   @Put('/:id')
-  update(
-    @Param('id') id: string,
-    @Body() data: Partial<CreateUserDto>,
-  ) {
+  update(@Param('id') id: string, @Body() data: Partial<CreateUserDto>) {
     return this.userService.update(id, data);
   }
 
@@ -550,27 +554,31 @@ class UserController {
 
 // ===== Bootstrap =====
 const app = createApp();
+const router = createRouter();
 
 // Global middleware
 app.use(cors());
 app.use(json());
 
 // Register controllers
-app.plugin(controllersPlugin({
-  controllers: [UserController],
-}));
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [UserController],
+  })
+);
 
-await listen(app, { port: 3000 });
-console.log('Server running on http://localhost:3000');
+app.use(router.routes());
+await listen(app, 3000);
 ```
 
 ## Testing Controllers
 
-Controllers are easy to test because dependencies are injected:
+Controllers are testable by design — dependencies are injected through the constructor:
 
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createContainer } from '@nextrush/controllers';
+import { createContainer } from '@nextrush/di';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -588,7 +596,7 @@ describe('UserController', () => {
     // Create isolated container
     const container = createContainer();
     container.register(UserService, { useValue: mockService as UserService });
-    container.register(UserController, UserController);
+    container.register(UserController, { useClass: UserController });
 
     // Resolve controller
     controller = container.resolve(UserController);
@@ -613,14 +621,14 @@ describe('UserController', () => {
 
 ```typescript
 // ❌ Wrong - decorators fail silently
-import { Service } from '@nextrush/controllers';
+import { Service } from '@nextrush/di';
 
 @Service()
 class MyService {}
 
 // ✅ Correct - always import first
 import 'reflect-metadata';
-import { Service } from '@nextrush/controllers';
+import { Service } from '@nextrush/di';
 
 @Service()
 class MyService {}
@@ -651,7 +659,7 @@ class ServiceB {
 }
 
 // ✅ Correct - use delay() for circular deps
-import { delay, inject } from '@nextrush/controllers';
+import { delay, inject } from '@nextrush/di';
 
 @Service()
 class ServiceA {
@@ -663,15 +671,46 @@ class ServiceA {
 
 ```typescript
 // ❌ Wrong - controller not found
-app.plugin(controllersPlugin({
-  controllers: [],  // Empty!
-}));
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [], // Empty!
+  })
+);
 
 // ✅ Correct - explicitly list controllers
-app.plugin(controllersPlugin({
-  controllers: [UserController, ProductController],
-}));
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [UserController, ProductController],
+  })
+);
 ```
+
+## Verification
+
+After starting the server, verify your routes work:
+
+```bash
+# List users
+curl http://localhost:3000/api/users
+
+# Get a single user
+curl http://localhost:3000/api/users/1
+
+# Create a user (with API key header)
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: secret-key" \
+  -d '{"email": "bob@example.com", "name": "Bob"}'
+```
+
+Expected responses:
+
+- `GET /api/users` → `[{"id":"1","email":"alice@example.com","name":"Alice"}]`
+- `GET /api/users/1` → `{"id":"1","email":"alice@example.com","name":"Alice"}`
+- `POST /api/users` without `x-api-key` → `403 Forbidden`
+- `POST /api/users` with valid key → `{"id":"...","email":"bob@example.com","name":"Bob"}`
 
 ## Next Steps
 

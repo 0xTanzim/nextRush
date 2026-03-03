@@ -1,29 +1,41 @@
 ---
-title: "@nextrush/template"
-description: "Universal template engine supporting EJS, Handlebars, Nunjucks, Pug, and more."
+title: '@nextrush/template'
+description: 'Template engine plugin with support for EJS, Handlebars, Nunjucks, Pug, Eta, and a built-in zero-dependency Mustache-like engine.'
 ---
 
 # @nextrush/template
 
-Render HTML templates with your favorite template engine.
+## Problem
 
-The template plugin provides a unified API for multiple template engines, including a built-in Mustache-like engine with zero dependencies. Switch engines without changing your code.
+Server-rendered HTML requires a template engine, but each engine has a different API, file loading strategy, and caching mechanism. Switching engines means rewriting route handlers and learning a new integration pattern.
+
+The template plugin provides a unified interface across six engines. You swap engines by changing a single string — route handlers stay the same.
+
+---
+
+## Default Behavior
+
+With no configuration, the plugin uses the built-in Mustache-like engine, reads templates from `./views`, uses `.html` as the file extension, and enables caching when `NODE_ENV=production`. All output is HTML-escaped by default to prevent XSS.
 
 ---
 
 ## Installation
 
-```bash tab="npm"
-npm install @nextrush/template
-```
+<PackageInstall packages={['@nextrush/template']} />
 
-```bash tab="pnpm"
-pnpm add @nextrush/template
+Install an optional engine if you prefer one over the built-in:
+
+```bash
+pnpm add ejs          # EJS
+pnpm add handlebars   # Handlebars
+pnpm add nunjucks     # Nunjucks
+pnpm add pug          # Pug
+pnpm add eta          # Eta
 ```
 
 ---
 
-## Quick Start
+## Minimal Usage
 
 ```typescript
 import { createApp } from '@nextrush/core';
@@ -39,116 +51,64 @@ app.get('/', async (ctx) => {
 });
 ```
 
+`ctx.render()` loads `./views/home.html`, merges `ctx.state` with the data you pass, renders the template, and sends the result as an HTML response.
+
 ---
 
 ## Supported Engines
 
-| Engine | Package | Install |
-|--------|---------|---------|
-| Built-in | — | Included |
-| EJS | `ejs` | `npm install ejs` |
-| Handlebars | `handlebars` | `npm install handlebars` |
-| Nunjucks | `nunjucks` | `npm install nunjucks` |
-| Pug | `pug` | `npm install pug` |
-| Eta | `eta` | `npm install eta` |
+| Engine     | Name           | Default Extension |
+| ---------- | -------------- | ----------------- |
+| Built-in   | `'builtin'`    | `.html`           |
+| EJS        | `'ejs'`        | `.ejs`            |
+| Handlebars | `'handlebars'` | `.hbs`            |
+| Nunjucks   | `'nunjucks'`   | `.njk`            |
+| Pug        | `'pug'`        | `.pug`            |
+| Eta        | `'eta'`        | `.eta`            |
 
----
-
-## Using Different Engines
-
-### EJS
+Pass the engine name as the first argument:
 
 ```typescript
-// npm install ejs
 app.use(template('ejs', { root: './views' }));
-```
 
-```html
-<!-- views/home.ejs -->
-<h1><%= title %></h1>
-<ul>
-  <% users.forEach(user => { %>
-    <li><%= user.name %></li>
-  <% }) %>
-</ul>
-```
-
-### Handlebars
-
-```typescript
-// npm install handlebars
-app.use(template('handlebars', {
-  root: './views',
-  ext: '.hbs',
-}));
-```
-
-```html
-<!-- views/home.hbs -->
-<h1>{{title}}</h1>
-<ul>
-  {{#each users}}
-    <li>{{name}}</li>
-  {{/each}}
-</ul>
-```
-
-### Nunjucks
-
-```typescript
-// npm install nunjucks
-app.use(template('nunjucks', { root: './views' }));
-```
-
-```html
-<!-- views/home.njk -->
-<h1>{{ title }}</h1>
-<ul>
-  {% for user in users %}
-    <li>{{ user.name }}</li>
-  {% endfor %}
-</ul>
-```
-
-### Pug
-
-```typescript
-// npm install pug
-app.use(template('pug', { root: './views' }));
-```
-
-```text
-// views/home.pug
-h1= title
-ul
-  each user in users
-    li= user.name
+app.use(template('handlebars', { root: './views', ext: '.hbs' }));
 ```
 
 ---
 
-## Configuration
+## Configuration Options
 
-```typescript
-app.use(template('ejs', {
-  // Views directory
-  root: './views',
-
-  // File extension
-  ext: '.ejs',
-
-  // Layout file
-  layout: 'layouts/main',
-
-  // Cache templates (auto in production)
-  cache: process.env.NODE_ENV === 'production',
-
-  // Custom helpers
-  helpers: {
-    formatPrice: (value) => `$${value.toFixed(2)}`,
-  },
-}));
-```
+<TypeTable
+  title="Options"
+  types={{
+    root: {
+      type: 'string',
+      description: 'Root directory for template files',
+      default: '"./views"',
+    },
+    ext: {
+      type: 'string',
+      description: 'Default file extension (varies by engine)',
+      default: '".html"',
+    },
+    cache: {
+      type: 'boolean',
+      description: 'Cache compiled templates',
+      default: 'true in production',
+    },
+    layout: { type: 'string', description: 'Default layout template name', optional: true },
+    helpers: {
+      type: 'Record<string, Function>',
+      description: 'Custom helper functions',
+      optional: true,
+    },
+    enableContextRender: {
+      type: 'boolean',
+      description: 'Attach ctx.render() method to context',
+      default: 'true',
+    },
+  }}
+/>
 
 ---
 
@@ -159,10 +119,7 @@ app.get('/', async (ctx) => {
   // Render with data
   await ctx.render('home', {
     title: 'Welcome',
-    users: [
-      { name: 'Alice' },
-      { name: 'Bob' },
-    ],
+    users: [{ name: 'Alice' }, { name: 'Bob' }],
   });
 });
 ```
@@ -188,10 +145,12 @@ app.get('/', async (ctx) => {
 Define a base layout:
 
 ```typescript
-app.use(template('handlebars', {
-  root: './views',
-  layout: 'layouts/main',
-}));
+app.use(
+  template('handlebars', {
+    root: './views',
+    layout: 'layouts/main',
+  })
+);
 ```
 
 ```html
@@ -220,14 +179,16 @@ app.use(template('handlebars', {
 Add custom helpers:
 
 ```typescript
-app.use(template('handlebars', {
-  root: './views',
-  helpers: {
-    uppercase: (str) => str.toUpperCase(),
-    formatDate: (date) => new Date(date).toLocaleDateString(),
-    json: (obj) => JSON.stringify(obj, null, 2),
-  },
-}));
+app.use(
+  template('handlebars', {
+    root: './views',
+    helpers: {
+      uppercase: (str) => str.toUpperCase(),
+      formatDate: (date) => new Date(date).toLocaleDateString(),
+      json: (obj) => JSON.stringify(obj, null, 2),
+    },
+  })
+);
 ```
 
 Use in templates:
@@ -266,14 +227,14 @@ app.use(template({ root: './views' }));
 
 ### Built-in Syntax
 
-| Syntax | Description |
-|--------|-------------|
-| `{{var}}` | Output escaped value |
-| `{{{var}}}` | Output raw HTML |
-| `{{#if}}...{{/if}}` | Conditional |
-| `{{#unless}}...{{/unless}}` | Negative conditional |
-| `{{#each}}...{{/each}}` | Iteration |
-| `{{!-- comment --}}` | Comment |
+| Syntax                      | Description            |
+| --------------------------- | ---------------------- |
+| `{{var}}`                   | Output escaped value   |
+| `{{{var}}}`                 | Output raw HTML        |
+| `{{#if}}...{{/if}}`         | Conditional            |
+| `{{#unless}}...{{/unless}}` | Negative conditional   |
+| `{{#each}}...{{/each}}`     | Iteration              |
+| `{{! comment }}`            | Comment (not rendered) |
 
 ---
 
@@ -300,62 +261,32 @@ Use as a plugin:
 ```typescript
 import { templatePlugin } from '@nextrush/template';
 
-app.plugin(templatePlugin('ejs', {
-  root: './views',
-}));
+app.plugin(
+  templatePlugin('ejs', {
+    root: './views',
+  })
+);
 ```
 
 ---
 
-## Custom Adapters
+## Common Mistakes
 
-Register custom template engines:
+**Forgetting to install the engine package.** Passing `'ejs'` without the `ejs` npm package installed causes an error at startup. Install the engine before using it.
 
-```typescript
-import { registerAdapter, createAdapter } from '@nextrush/template';
+**Using `{{{raw}}}` for user input.** Triple-mustache disables HTML escaping. Use it only for content you control. User-supplied data must go through `{{escaped}}`.
 
-registerAdapter('custom', (config) => ({
-  render: async (source, data) => {
-    // Custom rendering logic
-    return processedHtml;
-  },
-  renderFile: async (filename, data) => {
-    const source = await readFile(filename);
-    return processedHtml;
-  },
-}));
-
-app.use(template('custom', { root: './views' }));
-```
+**Expecting `ctx.render()` without the middleware.** The `render` method is attached by the template middleware. If you skip `app.use(template())`, `ctx.render` is `undefined`.
 
 ---
 
-## TypeScript
+## Troubleshooting
 
-Full type support:
+**"Template not found" error** — Verify the `root` directory exists and the file name matches. The engine appends the configured `ext` automatically, so `ctx.render('home')` looks for `./views/home.html` by default.
 
-```typescript
-import type {
-  TemplateOptions,
-  TemplateData,
-  EngineName,
-  TemplateAdapter,
-} from '@nextrush/template';
+**Stale templates in development** — Caching activates automatically in production. In development, set `cache: false` if templates do not reflect changes.
 
-import {
-  template,
-  templatePlugin,
-  render,
-  createAdapter,
-} from '@nextrush/template';
-
-const options: TemplateOptions = {
-  root: './views',
-  cache: true,
-};
-
-app.use(template('ejs', options));
-```
+**Layout not applying** — Confirm the layout file exists in the root directory and the file extension matches the engine default.
 
 ---
 

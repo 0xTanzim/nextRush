@@ -5,13 +5,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { secureOptions, sessionOptions } from '../middleware.js';
 import {
-    createDeleteCookie,
-    createHostPrefixCookie,
-    createSecurePrefixCookie,
-    secureOptions,
-    serializeCookie,
-    sessionOptions
+  createDeleteCookie,
+  createHostPrefixCookie,
+  createSecurePrefixCookie,
+  serializeCookie,
 } from '../serializer.js';
 import { SecurityError } from '../validation.js';
 
@@ -89,7 +88,7 @@ describe('serializeCookie', () => {
   it('should add SameSite=None with Secure', () => {
     const cookie = serializeCookie('name', 'value', {
       sameSite: 'none',
-      secure: true
+      secure: true,
     });
     expect(cookie).toContain('SameSite=None');
     expect(cookie).toContain('Secure');
@@ -103,7 +102,7 @@ describe('serializeCookie', () => {
   it('should handle SameSite boolean false', () => {
     const cookie = serializeCookie('name', 'value', {
       sameSite: false,
-      secure: true
+      secure: true,
     });
     // When sameSite is false, it maps to 'None' but we need to verify it has None
     // Actually the normalizeSameSite returns 'None' for false
@@ -163,13 +162,13 @@ describe('serializeCookie', () => {
       serializeCookie('__Host-session', 'value', {
         secure: true,
         path: '/',
-        domain: 'example.com'
+        domain: 'example.com',
       });
     }).toThrow(SecurityError);
 
     const cookie = serializeCookie('__Host-session', 'value', {
       secure: true,
-      path: '/'
+      path: '/',
     });
     expect(cookie).toContain('__Host-session');
   });

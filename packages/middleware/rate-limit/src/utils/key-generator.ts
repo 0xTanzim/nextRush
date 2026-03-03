@@ -1,18 +1,24 @@
 import type { Context } from '@nextrush/types';
 import {
-    CIDR_MAX_IPV4,
-    CIDR_MAX_IPV6,
-    CIDR_PATTERN,
-    DEFAULT_KEY_PREFIX,
-    IPV4_MAPPED_PREFIX,
-    IPV4_MAX_OCTET,
-    IPV4_OCTET_COUNT,
-    PROXY_HEADERS,
+  CIDR_MAX_IPV4,
+  CIDR_MAX_IPV6,
+  CIDR_PATTERN,
+  DEFAULT_KEY_PREFIX,
+  IPV4_MAPPED_PREFIX,
+  IPV4_MAX_OCTET,
+  IPV4_OCTET_COUNT,
+  PROXY_HEADERS,
 } from '../constants';
 
 /**
  * Extract client IP from context
  * Handles proxies and load balancers
+ *
+ * @security When `trustProxy` is `true`, ALL proxy headers are trusted.
+ * Only enable this behind a trusted reverse proxy (nginx, cloudflare, etc.).
+ * Untrusted clients can spoof their IP via headers like X-Forwarded-For.
+ * For production, consider using a custom `keyGenerator` that validates
+ * proxy source IPs against a known allowlist.
  */
 export function extractClientIp(ctx: Context, trustProxy: boolean): string {
   if (trustProxy) {
@@ -125,9 +131,60 @@ function isIpv4InCidr(ip: string, cidr: string, prefix: number): boolean {
 }
 
 /**
+ * Expand an IPv6 address to an array of 8 uint16 groups
+ */
+function expandIpv6(ip: string): number[] {
+  // Handle IPv4-mapped IPv6
+  if (ip.toLowerCase().startsWith('::ffff:') && ip.includes('.')) {
+    const v4Parts = ip.slice(7).split('.').map(Number);
+    if (v4Parts.length !== 4) return [];
+    return [0, 0, 0, 0, 0, 0xffff, (v4Parts[0] << 8) | v4Parts[1], (v4Parts[2] << 8) | v4Parts[3]];
+  }
+
+  const parts = ip.split('::');
+  let groups: number[];
+
+  if (parts.length === 2) {
+    const left = parts[0] ? parts[0].split(':').map((h) => parseInt(h, 16)) : [];
+    const right = parts[1] ? parts[1].split(':').map((h) => parseInt(h, 16)) : [];
+    const fill = 8 - left.length - right.length;
+    if (fill < 0) return [];
+    groups = [...left, ...(Array(fill).fill(0) as number[]), ...right];
+  } else if (parts.length === 1) {
+    groups = ip.split(':').map((h) => parseInt(h, 16));
+  } else {
+    return [];
+  }
+
+  if (groups.length !== 8) return [];
+  if (groups.some((g) => isNaN(g) || g < 0 || g > 0xffff)) return [];
+
+  return groups;
+}
+
+/**
+ * Check if IPv6 is in CIDR range
+ */
+function isIpv6InCidr(ip: string, cidr: string, prefix: number): boolean {
+  const ipGroups = expandIpv6(ip);
+  const cidrGroups = expandIpv6(cidr);
+
+  if (ipGroups.length !== 8 || cidrGroups.length !== 8) return false;
+
+  let bitsRemaining = prefix;
+  for (let i = 0; i < 8 && bitsRemaining > 0; i++) {
+    const bits = Math.min(16, bitsRemaining);
+    const mask = bits === 16 ? 0xffff : (0xffff << (16 - bits)) & 0xffff;
+    if ((ipGroups[i] & mask) !== (cidrGroups[i] & mask)) return false;
+    bitsRemaining -= bits;
+  }
+  return true;
+}
+
+/**
  * Parse CIDR notation and extract IP and prefix
  */
-function parseCidr(entry: string): { ip: string; prefix: number } | null {
+export function parseCidr(entry: string): { ip: string; prefix: number } | null {
   const match = entry.match(CIDR_PATTERN);
   if (!match?.[1] || !match[2]) return null;
 
@@ -164,11 +221,12 @@ export function isIpInList(ip: string, list: string[]): boolean {
     // Check for CIDR notation
     const cidr = parseCidr(entry);
     if (cidr) {
-      // Only IPv4 CIDR matching is implemented
       if (isValidIpv4(normalizedIp) && isValidIpv4(cidr.ip)) {
         return isIpv4InCidr(normalizedIp, cidr.ip, cidr.prefix);
       }
-      // IPv6 CIDR matching would go here
+      if (isValidIpv6(normalizedIp) && isValidIpv6(cidr.ip)) {
+        return isIpv6InCidr(normalizedIp, cidr.ip, cidr.prefix);
+      }
       return false;
     }
 

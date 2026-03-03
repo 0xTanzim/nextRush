@@ -1,17 +1,15 @@
 ---
-title: "Authentication"
-description: "Implement JWT authentication with guards and protected routes."
+title: 'Authentication'
+description: 'Implement JWT authentication with guards and protected routes.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
 
 # Authentication Example
 
 Implement JWT authentication with guards.
 
 This example demonstrates:
+
 - JWT token generation
-- Authentication middleware
 - Guard-based protection
 - Role-based access control
 - Refresh token flow
@@ -23,19 +21,22 @@ This example demonstrates:
 ```bash
 mkdir auth-api && cd auth-api
 npm init -y
-
-# Core packages
-npm install nextrush @nextrush/controllers @nextrush/decorators @nextrush/di
-npm install @nextrush/cors @nextrush/body-parser
-npm install reflect-metadata
-
-# Auth packages
-npm install jsonwebtoken bcryptjs
-npm install -D @types/jsonwebtoken @types/bcryptjs
-
-# Dev tools
-npm install -D @nextrush/dev typescript @types/node
 ```
+
+<PackageInstall
+  packages={[
+    'nextrush',
+    '@nextrush/controllers',
+    '@nextrush/decorators',
+    '@nextrush/di',
+    '@nextrush/cors',
+    '@nextrush/body-parser',
+    'reflect-metadata',
+    'jsonwebtoken',
+    'bcryptjs',
+  ]}
+  dev={['@nextrush/dev', 'typescript', '@types/node', '@types/jsonwebtoken', '@types/bcryptjs']}
+/>
 
 ---
 
@@ -53,8 +54,6 @@ src/
 ├── guards/
 │   ├── auth.guard.ts
 │   └── role.guard.ts
-├── middleware/
-│   └── auth.middleware.ts
 └── types/
     └── index.ts
 ```
@@ -67,13 +66,13 @@ src/
 export interface User {
   id: string;
   email: string;
-  password: string;  // hashed
+  password: string; // hashed
   role: 'user' | 'admin';
   createdAt: string;
 }
 
 export interface JwtPayload {
-  sub: string;  // user id
+  sub: string; // user id
   email: string;
   role: string;
   iat: number;
@@ -108,9 +107,13 @@ import bcrypt from 'bcryptjs';
 import { UnauthorizedError, BadRequestError, ConflictError } from 'nextrush';
 import type { User, JwtPayload, LoginDto, RegisterDto, TokenResponse } from '../types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '15m';
 const REFRESH_EXPIRES_IN = '7d';
+
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET env variable must be at least 32 characters');
+}
 
 @Service()
 export class AuthService {
@@ -123,7 +126,11 @@ export class AuthService {
     this.createUser('admin@example.com', 'admin123', 'admin');
   }
 
-  private async createUser(email: string, password: string, role: 'user' | 'admin' = 'user'): Promise<User> {
+  private async createUser(
+    email: string,
+    password: string,
+    role: 'user' | 'admin' = 'user'
+  ): Promise<User> {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user: User = {
       id: Date.now().toString(),
@@ -147,7 +154,7 @@ export class AuthService {
     }
 
     // Check duplicate
-    const existing = Array.from(this.users.values()).find(u => u.email === data.email);
+    const existing = Array.from(this.users.values()).find((u) => u.email === data.email);
     if (existing) {
       throw new ConflictError('Email already registered');
     }
@@ -166,7 +173,7 @@ export class AuthService {
     }
 
     // Find user
-    const user = Array.from(this.users.values()).find(u => u.email === data.email);
+    const user = Array.from(this.users.values()).find((u) => u.email === data.email);
     if (!user) {
       throw new UnauthorizedError('Invalid credentials');
     }
@@ -252,7 +259,7 @@ import { container } from '@nextrush/di';
 import { AuthService } from '../services/auth.service';
 
 export const AuthGuard: GuardFn = async (ctx) => {
-  const authHeader = ctx.headers['authorization'];
+  const authHeader = ctx.get('authorization');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return false;
@@ -287,15 +294,17 @@ interface AuthUser {
   role: string;
 }
 
-export const RoleGuard = (allowedRoles: string[]): GuardFn => async (ctx) => {
-  const user = ctx.state.user as AuthUser | undefined;
+export const RoleGuard =
+  (allowedRoles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as AuthUser | undefined;
 
-  if (!user) {
-    return false;
-  }
+    if (!user) {
+      return false;
+    }
 
-  return allowedRoles.includes(user.role);
-};
+    return allowedRoles.includes(user.role);
+  };
 
 // Convenience guard for admin-only routes
 export const AdminGuard = RoleGuard(['admin']);
@@ -306,7 +315,7 @@ export const AdminGuard = RoleGuard(['admin']);
 ## Auth Controller
 
 ```typescript title="src/controllers/auth.controller.ts"
-import { Controller, Post, Body, Ctx, Header } from '@nextrush/decorators';
+import { Controller, Post, Body, Ctx } from '@nextrush/decorators';
 import type { Context } from 'nextrush';
 import { AuthService } from '../services/auth.service';
 import type { LoginDto, RegisterDto } from '../types';
@@ -349,13 +358,10 @@ import { Controller, Get, UseGuard, Ctx } from '@nextrush/decorators';
 import type { Context } from 'nextrush';
 import { AuthGuard } from '../guards/auth.guard';
 import { AdminGuard } from '../guards/role.guard';
-import { AuthService } from '../services/auth.service';
 
-@UseGuard(AuthGuard)  // All routes require authentication
+@UseGuard(AuthGuard) // All routes require authentication
 @Controller('/users')
 export class UserController {
-  constructor(private authService: AuthService) {}
-
   // GET /users/me - Current user profile
   @Get('/me')
   getProfile(@Ctx() ctx: Context) {
@@ -386,7 +392,7 @@ export class UserController {
 ```typescript title="src/index.ts"
 import 'reflect-metadata';
 
-import { createApp, createRouter, listen } from 'nextrush';
+import { createApp, createRouter, listen, errorHandler } from 'nextrush';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 import { controllersPlugin } from '@nextrush/controllers';
@@ -394,51 +400,33 @@ import { controllersPlugin } from '@nextrush/controllers';
 import { AuthController } from './controllers/auth.controller';
 import { UserController } from './controllers/user.controller';
 
-async function main() {
-  const app = createApp();
-  const router = createRouter();
+const app = createApp();
+const router = createRouter();
 
-  // Middleware
-  app.use(cors());
-  app.use(json());
+// Error handler must be registered first
+app.use(errorHandler());
 
-  // Logging
-  app.use(async (ctx, next) => {
-    const start = Date.now();
-    await next();
-    console.log(`${ctx.method} ${ctx.path} - ${ctx.status} (${Date.now() - start}ms)`);
-  });
+// Middleware
+app.use(cors());
+app.use(json());
 
-  // Controllers
-  app.plugin(controllersPlugin({
+// Controllers
+app.plugin(
+  controllersPlugin({
     router,
     controllers: [AuthController, UserController],
-  }));
+  })
+);
 
-  app.route('/', router);
+app.route('/', router);
 
-  // 404
-  app.use((ctx) => {
-    ctx.status = 404;
-    ctx.json({ error: 'Not Found' });
-  });
+// 404
+app.use((ctx) => {
+  ctx.status = 404;
+  ctx.json({ error: 'Not Found' });
+});
 
-  listen(app, 3000, () => {
-    console.log('Auth API running at http://localhost:3000');
-    console.log('');
-    console.log('Endpoints:');
-    console.log('  POST /auth/register  - Register new user');
-    console.log('  POST /auth/login     - Login');
-    console.log('  POST /auth/refresh   - Refresh tokens');
-    console.log('  POST /auth/logout    - Logout');
-    console.log('  GET  /users/me       - Current user (auth required)');
-    console.log('  GET  /users/admin    - Admin only');
-    console.log('');
-    console.log('Test admin: admin@example.com / admin123');
-  });
-}
-
-main().catch(console.error);
+await listen(app, 3000);
 ```
 
 ---
@@ -473,49 +461,58 @@ curl -X POST http://localhost:3000/auth/refresh \
 
 ---
 
-## Security Best Practices
+## Security Considerations
 
 <Callout type="warn">
-This example is simplified for learning. In production:
+  This example uses in-memory storage for users and refresh tokens. In production, use a database
+  and a store like Redis with TTL-based expiration.
 </Callout>
 
-1. **Use environment variables** for JWT secret
-2. **Store users in a database**, not memory
-3. **Use Redis** for refresh tokens with TTL
-4. **Add rate limiting** to auth endpoints
-5. **Use HTTPS** in production
-6. **Hash passwords** with higher cost factor
-7. **Validate email format** properly
-8. **Add account lockout** after failed attempts
-
-```typescript
-// Production configuration
-const JWT_SECRET = process.env.JWT_SECRET!;
-const BCRYPT_ROUNDS = 12;
-
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  throw new Error('JWT_SECRET must be at least 32 characters');
-}
-```
+- **Store users in a database**, not memory
+- **Use Redis** for refresh tokens with TTL
+- **Add rate limiting** to auth endpoints
+- **Use HTTPS** in production
+- **Validate email format** before registration
+- **Add account lockout** after repeated failed attempts
 
 ---
 
 ## Error Responses
 
-The API returns consistent error responses:
+The API returns structured error responses via `errorHandler()`:
 
 ```json
 // 400 Bad Request
-{ "error": "Email and password are required" }
+{
+  "error": "BadRequestError",
+  "message": "Email and password are required",
+  "code": "BAD_REQUEST",
+  "status": 400
+}
 
 // 401 Unauthorized
-{ "error": "Invalid credentials" }
+{
+  "error": "UnauthorizedError",
+  "message": "Invalid credentials",
+  "code": "UNAUTHORIZED",
+  "status": 401
+}
 
-// 403 Forbidden
-{ "error": "Forbidden" }
+// 403 Forbidden (guard rejection)
+{
+  "error": "GuardRejectionError",
+  "message": "Access denied",
+  "code": "GUARD_REJECTED",
+  "status": 403
+}
 
 // 409 Conflict
-{ "error": "Email already registered" }
+{
+  "error": "ConflictError",
+  "message": "Email already registered",
+  "code": "CONFLICT",
+  "status": 409
+}
 ```
 
 ---

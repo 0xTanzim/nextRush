@@ -13,6 +13,7 @@ import {
   DEFAULT_STATUS_CODE,
 } from './constants';
 import type { RateLimitOptions, TieredRateLimitOptions } from './types';
+import { parseWindow } from './utils/parse-window';
 
 /**
  * Validation error for rate limit options
@@ -64,7 +65,10 @@ export function validateOptions(options: RateLimitOptions): void {
   }
 
   if (options.blacklistMultiplier !== undefined) {
-    if (typeof options.blacklistMultiplier !== 'number' || !Number.isFinite(options.blacklistMultiplier)) {
+    if (
+      typeof options.blacklistMultiplier !== 'number' ||
+      !Number.isFinite(options.blacklistMultiplier)
+    ) {
       throw new RateLimitValidationError('blacklistMultiplier must be a finite number');
     }
     if (options.blacklistMultiplier < 0 || options.blacklistMultiplier > 1) {
@@ -105,12 +109,17 @@ export function validateOptions(options: RateLimitOptions): void {
     throw new RateLimitValidationError('onRateLimited must be a function');
   }
 
+  if (options.window !== undefined) {
+    const windowMs = parseWindow(options.window);
+    if (!Number.isFinite(windowMs) || windowMs <= 0) {
+      throw new RateLimitValidationError('window must resolve to a positive finite duration');
+    }
+  }
+
   if (options.algorithm !== undefined) {
     const validAlgorithms = ['token-bucket', 'sliding-window', 'fixed-window'];
     if (!validAlgorithms.includes(options.algorithm)) {
-      throw new RateLimitValidationError(
-        `algorithm must be one of: ${validAlgorithms.join(', ')}`
-      );
+      throw new RateLimitValidationError(`algorithm must be one of: ${validAlgorithms.join(', ')}`);
     }
   }
 }
@@ -147,6 +156,13 @@ export function validateTieredOptions(options: TieredRateLimitOptions): void {
       if (typeof config.burstLimit !== 'number' || config.burstLimit <= 0) {
         throw new RateLimitValidationError(`Tier "${name}" burstLimit must be a positive number`);
       }
+    }
+
+    const tierWindowMs = parseWindow(config.window);
+    if (!Number.isFinite(tierWindowMs) || tierWindowMs <= 0) {
+      throw new RateLimitValidationError(
+        `Tier "${name}" window must resolve to a positive finite duration`
+      );
     }
   }
 
@@ -189,8 +205,10 @@ export function isValidIpFormat(ip: string): boolean {
   if (trimmed.includes(':')) {
     const clean = trimmed.replace(/^\[|\]$/g, '');
     // Basic IPv6 pattern check
-    return /^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$|^::1$|^::$/.test(clean) ||
-           /^::ffff:\d+\.\d+\.\d+\.\d+$/i.test(clean);
+    return (
+      /^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$|^::1$|^::$/.test(clean) ||
+      /^::ffff:\d+\.\d+\.\d+\.\d+$/i.test(clean)
+    );
   }
 
   return false;

@@ -1,59 +1,68 @@
 ---
 title: NextRush Documentation
-description: Build blazing fast backend APIs with NextRush — minimal, modular, and type-safe.
+description: Minimal, modular, type-safe Node.js backend framework.
 ---
 
 # Welcome to NextRush
 
-NextRush is a **minimal, modular, and blazing fast** Node.js backend framework designed for developers who value clarity over magic.
+NextRush is a **minimal, modular, and type-safe** Node.js backend framework. Under 3,000 lines of core code, zero runtime dependencies, and full TypeScript strict mode.
 
 <Callout type="info" title="Current Version">
-  NextRush v3 is in active development. The APIs are stabilizing and ready for early adopters.
+  NextRush v3 is in active development. APIs are stabilizing — suitable for early adopters. Requires
+  Node.js 22+.
 </Callout>
 
 ## Why NextRush?
 
-Most backend frameworks fall into two camps:
+Most backend frameworks force a trade-off:
 
 1. **Minimalist but limiting** — Great for prototypes, frustrating at scale.
-2. **Feature-rich but opaque** — Powerful, but hides too much from you.
+2. **Feature-rich but opaque** — Lots of features, but behavior is hidden from you.
 
-NextRush offers a third path: **minimal core, modular features, maximum transparency**.
+NextRush takes a different approach: **small core, modular packages, explicit behavior**. You install what you need and see what happens at every layer.
 
 <FeatureGrid>
-  <Feature icon="⚡" title="Blazing Fast" description="30,000+ requests per second with radix tree routing." />
-  <Feature icon="🎯" title="Type Safe" description="Full TypeScript with zero `any`. Errors caught at compile time." />
-  <Feature icon="📦" title="Modular" description="27+ packages. Install what you need, nothing more." />
-  <Feature icon="🌐" title="Multi-Runtime" description="Node.js, Bun, Deno, and Edge. Deploy anywhere." />
-  <Feature icon="🔌" title="Extensible" description="Plugin system for controllers, WebSocket, static files, and more." />
-  <Feature icon="🛡️" title="Secure" description="Helmet, CORS, rate limiting — production security built-in." />
+  <Feature
+    icon="⚡"
+    title="High Performance"
+    description="Segment trie routing with O(d) lookup."
+  />
+  <Feature icon="🎯" title="Type Safe" description="Full TypeScript strict mode. Zero `any`." />
+  <Feature icon="📦" title="Modular" description="27+ packages. Install what you need." />
+  <Feature icon="🌐" title="Multi-Runtime" description="Node.js, Bun, Deno, and Edge adapters." />
+  <Feature
+    icon="🔌"
+    title="Extensible"
+    description="Plugin system for controllers, WebSocket, and more."
+  />
+  <Feature
+    icon="🛡️"
+    title="Security Middleware"
+    description="Helmet, CORS, rate limiting available as packages."
+  />
 </FeatureGrid>
 
 ## Quick Start
 
-Get a working API in under 2 minutes:
-
-<PackageInstall packages={["nextrush"]} />
+<PackageInstall packages={['nextrush']} />
 
 ```typescript title="src/index.ts"
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
 
-// Create feature routers
 const users = createRouter();
 users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
-// Mount directly on app — Hono-style composition
 app.route('/users', users);
 
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ```bash title="Terminal"
 npx tsx src/index.ts
-# → Server listening on http://localhost:3000
+# → 🚀 NextRush listening on http://localhost:3000
 ```
 
 ## Choose Your Path
@@ -61,7 +70,7 @@ npx tsx src/index.ts
 <Cards>
   <Card
     title="Getting Started"
-    description="Install NextRush and build your first API in 5 minutes."
+    description="Install NextRush and build your first API."
     href="/docs/getting-started"
   />
   <Card
@@ -85,13 +94,13 @@ npx tsx src/index.ts
 
 NextRush is built on these principles:
 
-| Principle | What It Means |
-|-----------|---------------|
-| **Minimal Core** | Core is under 3,000 lines of code. No bloat. |
-| **Explicit Over Implicit** | No hidden magic. You see what happens. |
+| Principle                        | What It Means                                                    |
+| -------------------------------- | ---------------------------------------------------------------- |
+| **Minimal Core**                 | Core is under 3,000 lines of code.                               |
+| **Explicit Over Implicit**       | No hidden behavior. You see what happens.                        |
 | **Composition Over Inheritance** | Build with functions and middleware, not deep class hierarchies. |
-| **Type Safety First** | TypeScript from the ground up. Zero `any` allowed. |
-| **Performance Matters** | Every feature is benchmarked. Slow code doesn't ship. |
+| **Type Safety First**            | TypeScript strict mode from the ground up. Zero `any` allowed.   |
+| **Zero Runtime Dependencies**    | No external runtime deps except `reflect-metadata` for DI.       |
 
 ## Two Programming Styles
 
@@ -104,27 +113,28 @@ NextRush supports both functional and class-based patterns. Choose what fits you
 
     const app = createApp();
 
-    // Feature routers
     const users = createRouter();
     users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 
     const posts = createRouter();
     posts.get('/', (ctx) => ctx.json([]));
 
-    // Mount directly — Hono-style composition
     app.route('/users', users);
     app.route('/posts', posts);
 
-    listen(app, 3000);
+    await listen(app, 3000);
     ```
 
-    Best for: Simple APIs, microservices, quick prototypes.
+    Best for: simple APIs, microservices, quick prototypes.
+
   </Tab>
   <Tab value="Class-Based">
     ```typescript title="Class-Based Style"
     import 'reflect-metadata';
     import { createApp, listen } from 'nextrush';
-    import { Controller, Get, Service } from '@nextrush/decorators';
+    import { createRouter } from '@nextrush/router';
+    import { Controller, Get } from '@nextrush/decorators';
+    import { Service } from '@nextrush/di';
     import { controllersPlugin } from '@nextrush/controllers';
 
     @Service()
@@ -145,16 +155,19 @@ NextRush supports both functional and class-based patterns. Choose what fits you
     }
 
     const app = createApp();
-    app.plugin(controllersPlugin({ controllers: [UserController] }));
-    listen(app, 3000);
+    const router = createRouter();
+    app.plugin(controllersPlugin({ router, controllers: [UserController] }));
+    app.use(router.routes());
+    await listen(app, 3000);
     ```
 
-    Best for: Large applications, teams preferring structure, DI patterns.
+    Best for: large applications, teams preferring structure, DI patterns.
+
   </Tab>
 </Tabs>
 
 ## What's Next?
 
-Ready to build? Start with the [Getting Started guide](/docs/getting-started) to install NextRush and create your first API.
+Start with the [Getting Started guide](/docs/getting-started) to install NextRush and create your first API.
 
-Have questions? Check out the [GitHub Discussions](https://github.com/0xtanzim/nextrush/discussions) or open an issue.
+Questions? Check the [GitHub Discussions](https://github.com/0xtanzim/nextrush/discussions) or open an issue.

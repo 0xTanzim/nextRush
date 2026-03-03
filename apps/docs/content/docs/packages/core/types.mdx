@@ -1,5 +1,5 @@
 ---
-title: "@nextrush/types"
+title: '@nextrush/types'
 description: Shared TypeScript type definitions for the NextRush ecosystem
 ---
 
@@ -7,10 +7,11 @@ description: Shared TypeScript type definitions for the NextRush ecosystem
 
 The types package provides shared TypeScript definitions for the entire NextRush ecosystem. It has **zero runtime dependencies**.
 
-<PackageInstall packages={["@nextrush/types"]} dev={true} />
+<PackageInstall packages={['@nextrush/types']} />
 
 <Callout type="info" title="Peer Dependency">
-This package is typically installed as a peer dependency of other NextRush packages. You rarely need to install it directly.
+  This package is typically installed as a peer dependency of other NextRush packages. You rarely
+  need to install it directly.
 </Callout>
 
 ## What It Provides
@@ -33,11 +34,14 @@ import type {
   HttpMethod,
   CommonHttpMethod,
   HttpStatusCode,
+  ContentTypeValue,
   IncomingHeaders,
   OutgoingHeaders,
   ParsedBody,
   ResponseBody,
   RawHttp,
+  NodeStreamLike,
+  WebStreamLike,
 } from '@nextrush/types';
 
 // HTTP constants
@@ -80,25 +84,25 @@ The `Context` interface is the heart of NextRush. It provides unified access to 
 
 ```typescript
 // INPUT (Request)
-ctx.method      // HTTP method
-ctx.url         // Full URL with query
-ctx.path        // Path without query
-ctx.query       // Parsed query params
-ctx.params      // Route parameters
-ctx.headers     // Request headers
-ctx.body        // Parsed request body
-ctx.ip          // Client IP
+ctx.method; // HTTP method
+ctx.url; // Full URL with query
+ctx.path; // Path without query
+ctx.query; // Parsed query params
+ctx.params; // Route parameters
+ctx.headers; // Request headers
+ctx.body; // Parsed request body
+ctx.ip; // Client IP
 
 // OUTPUT (Response)
-ctx.status      // Status code
-ctx.json()      // Send JSON
-ctx.send()      // Send text/buffer
-ctx.html()      // Send HTML
-ctx.redirect()  // Redirect
+ctx.status; // Status code
+ctx.json(); // Send JSON
+ctx.send(); // Send text/buffer
+ctx.html(); // Send HTML
+ctx.redirect(); // Redirect
 
 // SHARED
-ctx.state       // Middleware state bag
-ctx.next()      // Call next middleware
+ctx.state; // Middleware state bag
+ctx.next(); // Call next middleware
 ```
 
 ### Full Interface
@@ -131,7 +135,7 @@ interface Context {
 
   // Headers
   get(field: string): string | undefined;
-  set(field: string, value: string | number): void;
+  set(field: string, value: string | number | string[]): void;
 
   // Error helpers
   throw(status: number, message?: string): never;
@@ -139,6 +143,7 @@ interface Context {
 
   // Middleware
   next(): Promise<void>;
+  readonly responded: boolean;
 
   // State
   state: ContextState;
@@ -178,21 +183,59 @@ type RouteHandler = Middleware; // Alias
 ### HttpMethod
 
 ```typescript
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+type HttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'TRACE'
+  | 'CONNECT';
 type CommonHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
-// Tuple for iteration
-const HTTP_METHODS: readonly HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+// Tuple for iteration (excludes TRACE and CONNECT for security reasons)
+const HTTP_METHODS: readonly HttpMethod[] = [
+  'GET',
+  'POST',
+  'PUT',
+  'DELETE',
+  'PATCH',
+  'HEAD',
+  'OPTIONS',
+];
 ```
 
 ### HttpStatusCode
 
 ```typescript
 type HttpStatusCode =
-  | 200 | 201 | 204              // Success
-  | 301 | 302 | 304              // Redirect
-  | 400 | 401 | 403 | 404 | 405  // Client error
-  | 500 | 501 | 502 | 503;       // Server error
+  | 200
+  | 201
+  | 202
+  | 204 // Success
+  | 301
+  | 302
+  | 303
+  | 304
+  | 307
+  | 308 // Redirect
+  | 400
+  | 401
+  | 403
+  | 404
+  | 405
+  | 406 // Client error
+  | 409
+  | 410
+  | 422
+  | 429 // Client error (continued)
+  | 500
+  | 501
+  | 502
+  | 503
+  | 504; // Server error
 ```
 
 ### Constants
@@ -202,15 +245,29 @@ type HttpStatusCode =
 const HttpStatus = {
   OK: 200,
   CREATED: 201,
+  ACCEPTED: 202,
   NO_CONTENT: 204,
   MOVED_PERMANENTLY: 301,
   FOUND: 302,
+  SEE_OTHER: 303,
+  NOT_MODIFIED: 304,
+  TEMPORARY_REDIRECT: 307,
+  PERMANENT_REDIRECT: 308,
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
+  METHOD_NOT_ALLOWED: 405,
+  NOT_ACCEPTABLE: 406,
+  CONFLICT: 409,
+  GONE: 410,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
   INTERNAL_SERVER_ERROR: 500,
-  // ... and more
+  NOT_IMPLEMENTED: 501,
+  BAD_GATEWAY: 502,
+  SERVICE_UNAVAILABLE: 503,
+  GATEWAY_TIMEOUT: 504,
 } as const;
 
 // Content types
@@ -218,9 +275,10 @@ const ContentType = {
   JSON: 'application/json',
   HTML: 'text/html',
   TEXT: 'text/plain',
+  XML: 'application/xml',
   FORM: 'application/x-www-form-urlencoded',
   MULTIPART: 'multipart/form-data',
-  // ... and more
+  OCTET_STREAM: 'application/octet-stream',
 } as const;
 ```
 
@@ -229,27 +287,30 @@ const ContentType = {
 ```typescript
 interface Plugin {
   /** Unique plugin name */
-  name: string;
+  readonly name: string;
+
+  /** Plugin version (semver format) */
+  readonly version?: string;
 
   /** Install the plugin on an application */
   install(app: ApplicationLike): void | Promise<void>;
 
-  /** Optional cleanup on app.close() */
+  /** Optional cleanup on shutdown */
   destroy?(): void | Promise<void>;
 }
 
 interface PluginWithHooks extends Plugin {
-  /** Called when app starts */
-  onStart?(app: ApplicationLike): void | Promise<void>;
-
-  /** Called on each request */
+  /** Called before each request */
   onRequest?(ctx: Context): void | Promise<void>;
 
-  /** Called on each response */
+  /** Called after each response */
   onResponse?(ctx: Context): void | Promise<void>;
 
-  /** Called on error */
+  /** Called when an error occurs */
   onError?(error: Error, ctx: Context): void | Promise<void>;
+
+  /** Extend the context object */
+  extendContext?(ctx: Context): void;
 }
 ```
 
@@ -289,31 +350,43 @@ interface Route {
 ## Runtime Types
 
 ```typescript
-type Runtime = 'node' | 'bun' | 'deno' | 'edge';
+type Runtime =
+  | 'node'
+  | 'bun'
+  | 'deno'
+  | 'deno-deploy'
+  | 'cloudflare-workers'
+  | 'vercel-edge'
+  | 'edge'
+  | 'unknown';
 
 interface RuntimeInfo {
-  name: Runtime;
-  version: string;
+  runtime: Runtime;
+  version: string | undefined;
+  capabilities: RuntimeCapabilities;
 }
 
 interface RuntimeCapabilities {
-  /** Native fetch support */
-  fetch: boolean;
+  /** Supports Node.js streams */
+  nodeStreams: boolean;
 
-  /** File system access */
+  /** Supports Web Streams API */
+  webStreams: boolean;
+
+  /** Supports file system operations */
   fileSystem: boolean;
 
-  /** Worker threads support */
-  workers: boolean;
-
-  /** WebSocket support */
+  /** Supports WebSocket */
   webSocket: boolean;
 
-  /** Streams support */
-  streams: boolean;
+  /** Supports native fetch API */
+  fetch: boolean;
 
-  /** Crypto support */
-  crypto: boolean;
+  /** Supports crypto.subtle API */
+  cryptoSubtle: boolean;
+
+  /** Supports Web Workers / Worker Threads */
+  workers: boolean;
 }
 ```
 
@@ -323,28 +396,34 @@ Cross-runtime abstraction for reading request bodies:
 
 ```typescript
 interface BodySource {
-  /** Read body as text */
+  /** Read body as UTF-8 string */
   text(): Promise<string>;
 
-  /** Read body as JSON */
+  /** Read body as Uint8Array buffer */
+  buffer(): Promise<Uint8Array>;
+
+  /** Read body as parsed JSON */
   json<T = unknown>(): Promise<T>;
 
-  /** Read body as ArrayBuffer */
-  arrayBuffer(): Promise<ArrayBuffer>;
+  /** Get the underlying stream */
+  stream(): NodeStreamLike | WebStreamLike;
 
-  /** Read body as Blob */
-  blob(): Promise<Blob>;
-
-  /** Check if body has been consumed */
+  /** Whether the body has been consumed */
   readonly consumed: boolean;
+
+  /** Content-Length header value (if available) */
+  readonly contentLength: number | undefined;
+
+  /** Content-Type header value (if available) */
+  readonly contentType: string | undefined;
 }
 
 interface BodySourceOptions {
-  /** Maximum body size in bytes */
+  /** Maximum body size in bytes (default: 1MB) */
   limit?: number;
 
-  /** Expected content type */
-  contentType?: string;
+  /** Encoding for text() method (default: 'utf-8') */
+  encoding?: 'utf-8' | 'utf8' | 'ascii' | 'latin1' | 'iso-8859-1' | 'utf-16le' | 'utf-16be';
 }
 ```
 
@@ -367,8 +446,8 @@ const page: string | string[] | undefined = ctx.query.page;
 ### ContextState
 
 ```typescript
-// Default state is Record<string, unknown>
-type ContextState = Record<string, unknown>;
+// Default state is Record<string | symbol, unknown>
+type ContextState = Record<string | symbol, unknown>;
 
 // Type your state for better safety
 interface AppState extends ContextState {

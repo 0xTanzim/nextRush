@@ -1,13 +1,13 @@
 ---
 title: Core Concepts
-description: The mental models that make NextRush predictable and powerful
+description: The mental models that make NextRush predictable and composable
 ---
 
 # Core Concepts
 
-Before you write a single line of code, understand how NextRush thinks.
+Before you write code, understand how NextRush thinks.
 
-These aren't just API features—they're the architectural decisions that determine how your application behaves at scale.
+These are the core abstractions that determine how your application processes requests, composes behavior, and handles failure.
 
 ## The Four Pillars
 
@@ -68,7 +68,8 @@ HTTP Response
 7. Adapter sends the HTTP response
 
 <Callout type="info" title="Context is Per-Request">
-  Every request gets a new `ctx` object. There's no shared state between requests unless you explicitly create it.
+  Every request gets a new `ctx` object. There's no shared state between requests unless you
+  explicitly create it.
 </Callout>
 
 ## Two Programming Styles
@@ -99,8 +100,11 @@ app.route('/api', router);
 Structured, with dependency injection. Best for large applications and teams.
 
 ```typescript title="Class-Based with DI"
-import { Controller, Get, ParamProp, Service } from '@nextrush/decorators';
+import 'reflect-metadata';
+import { Controller, Get, Param } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
 import { controllersPlugin } from '@nextrush/controllers';
+import { createRouter } from '@nextrush/router';
 
 @Service()
 class UserService {
@@ -109,21 +113,24 @@ class UserService {
   }
 }
 
+const router = createRouter();
+
 @Controller('/users')
 class UserController {
   constructor(private users: UserService) {}
 
-  @Get(':id')
-  async getUser(@ParamProp('id') id: string) {
+  @Get('/:id')
+  async getUser(@Param('id') id: string) {
     return { user: await this.users.findById(id) };
   }
 }
 
-app.plugin(controllersPlugin({ controllers: [UserController] }));
+app.plugin(controllersPlugin({ router, controllers: [UserController] }));
 ```
 
-<Callout type="tip" title="You Can Mix Styles">
-  Both styles work together. Start with functions, add classes when you need structure. There's no forced migration.
+<Callout type="info" title="You Can Mix Styles">
+  Both styles work together. Start with functions, add classes when you need structure. There's no
+  forced migration.
 </Callout>
 
 ## Extension Points
@@ -135,9 +142,11 @@ Beyond the four pillars, NextRush provides two ways to extend functionality:
 Add capabilities without modifying core:
 
 ```typescript
-app.plugin(loggerPlugin({ level: 'info' }));
+import { eventsPlugin } from '@nextrush/events';
+import { controllersPlugin } from '@nextrush/controllers';
+
 app.plugin(eventsPlugin());
-await app.pluginAsync(databasePlugin(connectionString));
+app.plugin(controllersPlugin({ router, root: './src' }));
 ```
 
 [Learn about Plugins →](/docs/concepts/plugins)
@@ -164,35 +173,33 @@ class AdminController {
 
 <Steps>
   <Step>
-    ### Context API
-    Understand the `ctx` object—it's your primary interface for everything.
-    [Read Context →](/docs/concepts/context)
+    ### Context API Understand the `ctx` object—it's your primary interface for everything. [Read
+    Context →](/docs/concepts/context)
   </Step>
   <Step>
-    ### Middleware
-    Learn the onion model. It determines execution order and error handling.
-    [Read Middleware →](/docs/concepts/middleware)
+    ### Middleware Learn the onion model. It determines execution order and error handling. [Read
+    Middleware →](/docs/concepts/middleware)
   </Step>
   <Step>
-    ### Routing
-    Map URLs to handlers efficiently with radix tree routing.
-    [Read Routing →](/docs/concepts/routing)
+    ### Routing Map URLs to handlers efficiently with radix tree routing. [Read Routing
+    →](/docs/concepts/routing)
   </Step>
 </Steps>
 
 ## Mental Model Summary
 
-| Concept | Responsibility | Key Insight |
-|---------|---------------|-------------|
-| **Application** | Orchestration | Holds everything together, manages lifecycle |
-| **Context** | Request/Response | Fresh per-request, mutable `state` for sharing |
-| **Middleware** | Transformation | Onion model—before, `next()`, after |
-| **Routing** | URL Matching | O(k) radix tree, params and wildcards |
-| **Plugins** | Extension | Add features without modifying core |
-| **Guards** | Access Control | Boolean gatekeepers for routes |
+| Concept         | Responsibility   | Key Insight                                    |
+| --------------- | ---------------- | ---------------------------------------------- |
+| **Application** | Orchestration    | Holds everything together, manages lifecycle   |
+| **Context**     | Request/Response | Fresh per-request, mutable `state` for sharing |
+| **Middleware**  | Transformation   | Onion model—before, `next()`, after            |
+| **Routing**     | URL Matching     | O(k) radix tree, params and wildcards          |
+| **Plugins**     | Extension        | Add features without modifying core            |
+| **Guards**      | Access Control   | Boolean gatekeepers for routes                 |
 
 <Callout type="warn" title="Common Misconception">
-  Middleware order matters. Error handlers must come first. Body parsers must run before you access `ctx.body`. If something isn't working, check your registration order.
+  Middleware order matters. Error handlers must come first. Body parsers must run before you access
+  `ctx.body`. If something isn't working, check your registration order.
 </Callout>
 
 ## Next Steps

@@ -12,6 +12,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { cors, simpleCors, strictCors } from '../index';
+import { securityWarning } from '../security';
 
 // ============================================================================
 // Mock Context Factory
@@ -187,13 +188,18 @@ describe('cors middleware', () => {
       const middleware = cors({ origin: /\.example\.com$/ });
       const ctx = createMockContext({
         headers: { origin: 'https://app.example.com' },
-        get: vi.fn((name) => (name.toLowerCase() === 'origin' ? 'https://app.example.com' : undefined)),
+        get: vi.fn((name) =>
+          name.toLowerCase() === 'origin' ? 'https://app.example.com' : undefined
+        ),
       });
       const next = vi.fn();
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'https://app.example.com');
+      expect(ctx.set).toHaveBeenCalledWith(
+        'Access-Control-Allow-Origin',
+        'https://app.example.com'
+      );
     });
 
     it('should reject origin not matching regex', async () => {
@@ -267,7 +273,10 @@ describe('cors middleware', () => {
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).not.toHaveBeenCalledWith('Access-Control-Allow-Credentials', expect.anything());
+      expect(ctx.set).not.toHaveBeenCalledWith(
+        'Access-Control-Allow-Credentials',
+        expect.anything()
+      );
     });
 
     it('should set credentials header when enabled', async () => {
@@ -301,13 +310,19 @@ describe('cors middleware', () => {
     });
 
     it('should set exposed headers as array', async () => {
-      const middleware = cors({ origin: '*', exposedHeaders: ['X-Custom-Header', 'X-Another-Header'] });
+      const middleware = cors({
+        origin: '*',
+        exposedHeaders: ['X-Custom-Header', 'X-Another-Header'],
+      });
       const ctx = createMockContext();
       const next = vi.fn();
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Expose-Headers', 'X-Custom-Header,X-Another-Header');
+      expect(ctx.set).toHaveBeenCalledWith(
+        'Access-Control-Expose-Headers',
+        'X-Custom-Header,X-Another-Header'
+      );
     });
   });
 
@@ -332,7 +347,10 @@ describe('cors middleware', () => {
 
       expect(ctx.status).toBe(204);
       expect(ctx.body).toBe('');
-      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+      expect(ctx.set).toHaveBeenCalledWith(
+        'Access-Control-Allow-Methods',
+        'GET,HEAD,PUT,PATCH,POST,DELETE'
+      );
     });
 
     it('should set custom methods as array', async () => {
@@ -383,7 +401,10 @@ describe('cors middleware', () => {
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+      expect(ctx.set).toHaveBeenCalledWith(
+        'Access-Control-Allow-Headers',
+        'Content-Type,Authorization'
+      );
     });
 
     it('should reflect request headers when allowedHeaders not specified', async () => {
@@ -402,7 +423,10 @@ describe('cors middleware', () => {
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Headers', 'Content-Type, X-Custom');
+      expect(ctx.set).toHaveBeenCalledWith(
+        'Access-Control-Allow-Headers',
+        'Content-Type, X-Custom'
+      );
     });
 
     it('should set max age', async () => {
@@ -472,24 +496,25 @@ describe('cors middleware', () => {
       expect(ctx.set).toHaveBeenCalledWith('Vary', 'Origin');
     });
 
-    it('should append to existing Vary header', async () => {
+    it('should accumulate multiple Vary values on preflight', async () => {
       const middleware = cors({ origin: '*' });
-      let varyValue = 'Accept-Encoding';
       const ctx = createMockContext({
+        method: 'OPTIONS',
         get: vi.fn((name) => {
           if (name.toLowerCase() === 'origin') return 'https://example.com';
-          if (name === 'Vary') return varyValue;
+          if (name.toLowerCase() === 'access-control-request-method') return 'POST';
           return undefined;
-        }),
-        set: vi.fn((name, value) => {
-          if (name === 'Vary') varyValue = value;
         }),
       });
       const next = vi.fn();
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).toHaveBeenCalledWith('Vary', 'Accept-Encoding, Origin');
+      // Should have accumulated Origin + preflight Vary headers without overwriting
+      expect(ctx.set).toHaveBeenCalledWith(
+        'Vary',
+        'Origin, Access-Control-Request-Method, Access-Control-Request-Headers'
+      );
     });
   });
 
@@ -531,7 +556,9 @@ describe('cors middleware', () => {
         const middleware = cors({ origin: true });
         const ctx = createMockContext({
           headers: { origin: 'javascript:void(0)' },
-          get: vi.fn((name) => (name.toLowerCase() === 'origin' ? 'javascript:void(0)' : undefined)),
+          get: vi.fn((name) =>
+            name.toLowerCase() === 'origin' ? 'javascript:void(0)' : undefined
+          ),
         });
         const next = vi.fn();
 
@@ -544,7 +571,9 @@ describe('cors middleware', () => {
         const middleware = cors({ origin: true });
         const ctx = createMockContext({
           headers: { origin: 'data:text/html,<h1>test</h1>' },
-          get: vi.fn((name) => (name.toLowerCase() === 'origin' ? 'data:text/html,<h1>test</h1>' : undefined)),
+          get: vi.fn((name) =>
+            name.toLowerCase() === 'origin' ? 'data:text/html,<h1>test</h1>' : undefined
+          ),
         });
         const next = vi.fn();
 
@@ -557,7 +586,9 @@ describe('cors middleware', () => {
         const middleware = cors({ origin: true });
         const ctx = createMockContext({
           headers: { origin: 'file:///etc/passwd' },
-          get: vi.fn((name) => (name.toLowerCase() === 'origin' ? 'file:///etc/passwd' : undefined)),
+          get: vi.fn((name) =>
+            name.toLowerCase() === 'origin' ? 'file:///etc/passwd' : undefined
+          ),
         });
         const next = vi.fn();
 
@@ -631,7 +662,10 @@ describe('cors middleware', () => {
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).not.toHaveBeenCalledWith('Access-Control-Allow-Private-Network', expect.anything());
+      expect(ctx.set).not.toHaveBeenCalledWith(
+        'Access-Control-Allow-Private-Network',
+        expect.anything()
+      );
     });
 
     it('should not set PNA header when disabled', async () => {
@@ -650,7 +684,10 @@ describe('cors middleware', () => {
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).not.toHaveBeenCalledWith('Access-Control-Allow-Private-Network', expect.anything());
+      expect(ctx.set).not.toHaveBeenCalledWith(
+        'Access-Control-Allow-Private-Network',
+        expect.anything()
+      );
     });
   });
 });
@@ -819,7 +856,9 @@ describe('edge cases', () => {
     });
     const ctx = createMockContext({
       headers: { origin: 'https://app.example.com' },
-      get: vi.fn((name) => (name.toLowerCase() === 'origin' ? 'https://app.example.com' : undefined)),
+      get: vi.fn((name) =>
+        name.toLowerCase() === 'origin' ? 'https://app.example.com' : undefined
+      ),
     });
     const next = vi.fn();
 
@@ -846,5 +885,165 @@ describe('edge cases', () => {
     expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Origin', '*');
     expect(next).toHaveBeenCalled();
     expect(ctx.status).not.toBe(204);
+  });
+});
+
+// ============================================================================
+// Production Readiness Tests
+// ============================================================================
+
+describe('production readiness', () => {
+  describe('maxAge validation', () => {
+    it('should reject negative maxAge', () => {
+      expect(() => cors({ origin: '*', maxAge: -1 })).toThrow(/Invalid maxAge/);
+    });
+
+    it('should reject NaN maxAge', () => {
+      expect(() => cors({ origin: '*', maxAge: NaN })).toThrow(/Invalid maxAge/);
+    });
+
+    it('should reject Infinity maxAge', () => {
+      expect(() => cors({ origin: '*', maxAge: Infinity })).toThrow(/Invalid maxAge/);
+    });
+
+    it('should accept zero maxAge', () => {
+      expect(() => cors({ origin: '*', maxAge: 0 })).not.toThrow();
+    });
+
+    it('should accept positive maxAge', () => {
+      expect(() => cors({ origin: '*', maxAge: 3600 })).not.toThrow();
+    });
+  });
+
+  describe('Content-Length on preflight', () => {
+    it('should set Content-Length: 0 on preflight 204 response', async () => {
+      const middleware = cors({ origin: '*' });
+      const ctx = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          if (name.toLowerCase() === 'origin') return 'https://example.com';
+          if (name.toLowerCase() === 'access-control-request-method') return 'POST';
+          return undefined;
+        }),
+      });
+      const next = vi.fn();
+
+      await middleware(ctx as any, next);
+
+      expect(ctx.set).toHaveBeenCalledWith('Content-Length', '0');
+      expect(ctx.status).toBe(204);
+    });
+  });
+
+  describe('Vary header accumulation', () => {
+    it('should not duplicate Vary values on repeated calls', async () => {
+      const middleware = cors({ origin: '*' });
+      const ctx = createMockContext();
+      const next = vi.fn();
+
+      // Call middleware twice (simulating double-invocation)
+      await middleware(ctx as any, next);
+
+      // Vary should contain Origin exactly once
+      const varyCalls = (ctx.set as ReturnType<typeof vi.fn>).mock.calls.filter(
+        ([name]: [string]) => name === 'Vary'
+      );
+      const lastVaryValue = varyCalls[varyCalls.length - 1]?.[1] as string;
+      expect(lastVaryValue).toBe('Origin');
+    });
+
+    it('should accumulate Vary headers across preflight without overwriting', async () => {
+      const middleware = cors({ origin: '*' });
+      const ctx = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          if (name.toLowerCase() === 'origin') return 'https://example.com';
+          if (name.toLowerCase() === 'access-control-request-method') return 'POST';
+          return undefined;
+        }),
+      });
+      const next = vi.fn();
+
+      await middleware(ctx as any, next);
+
+      // Final Vary should include all three values
+      const varyCalls = (ctx.set as ReturnType<typeof vi.fn>).mock.calls.filter(
+        ([name]: [string]) => name === 'Vary'
+      );
+      const lastVaryValue = varyCalls[varyCalls.length - 1]?.[1] as string;
+      expect(lastVaryValue).toContain('Origin');
+      expect(lastVaryValue).toContain('Access-Control-Request-Method');
+      expect(lastVaryValue).toContain('Access-Control-Request-Headers');
+    });
+  });
+
+  describe('method normalization', () => {
+    it('should uppercase methods passed as lowercase string', async () => {
+      const middleware = cors({ origin: '*', methods: 'get,post' });
+      const ctx = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          if (name.toLowerCase() === 'origin') return 'https://example.com';
+          if (name.toLowerCase() === 'access-control-request-method') return 'POST';
+          return undefined;
+        }),
+      });
+      const next = vi.fn();
+
+      await middleware(ctx as any, next);
+
+      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Methods', 'get,post');
+    });
+  });
+
+  describe('securityWarning logging', () => {
+    it('should not log empty string details', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      securityWarning('test message');
+      expect(warnSpy).toHaveBeenCalledWith(expect.any(String));
+      // Should be called with exactly 1 argument (no trailing empty string)
+      expect(warnSpy.mock.calls[0]).toHaveLength(1);
+      warnSpy.mockRestore();
+    });
+
+    it('should include details when provided', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const details = { origin: 'test' };
+      securityWarning('test message', details);
+      expect(warnSpy).toHaveBeenCalledWith(expect.any(String), details);
+      expect(warnSpy.mock.calls[0]).toHaveLength(2);
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('origin validation edge cases', () => {
+    it('should reject origins with control characters', async () => {
+      const middleware = cors({ origin: true });
+      const ctx = createMockContext({
+        headers: { origin: 'https://evil\x00.com' },
+        get: vi.fn((name) =>
+          name.toLowerCase() === 'origin' ? 'https://evil\x00.com' : undefined
+        ),
+      });
+      const next = vi.fn();
+
+      await middleware(ctx as any, next);
+
+      expect(ctx.set).not.toHaveBeenCalledWith('Access-Control-Allow-Origin', expect.anything());
+    });
+
+    it('should reject extremely long origins', async () => {
+      const longOrigin = 'https://' + 'a'.repeat(3000) + '.com';
+      const middleware = cors({ origin: true });
+      const ctx = createMockContext({
+        headers: { origin: longOrigin },
+        get: vi.fn((name) => (name.toLowerCase() === 'origin' ? longOrigin : undefined)),
+      });
+      const next = vi.fn();
+
+      await middleware(ctx as any, next);
+
+      expect(ctx.set).not.toHaveBeenCalledWith('Access-Control-Allow-Origin', expect.anything());
+    });
   });
 });

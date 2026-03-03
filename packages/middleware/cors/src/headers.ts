@@ -11,6 +11,13 @@ import type { Context } from '@nextrush/types';
 import { VARY_HEADER } from './constants.js';
 
 /**
+ * Per-context tracker for Vary header values.
+ * Uses WeakMap so context objects can be garbage collected normally.
+ * This avoids reading response headers via ctx.get() (which reads request headers).
+ */
+const varyTracker = new WeakMap<object, Set<string>>();
+
+/**
  * Normalize header list to comma-separated string.
  *
  * @param headers - Header(s) to normalize
@@ -31,8 +38,8 @@ export function normalizeHeaders(headers: string | string[] | undefined): string
 /**
  * Append value to Vary header without duplicates.
  *
- * The Vary header tells caches which request headers affect the response.
- * For CORS, we typically add "Origin" and sometimes "Access-Control-Request-*" headers.
+ * Uses a per-context WeakMap to track accumulated values, since ctx.get()
+ * reads request headers and cannot see previously set response headers.
  *
  * @param ctx - Request context
  * @param header - Header name to add to Vary
@@ -45,26 +52,24 @@ export function normalizeHeaders(headers: string | string[] | undefined): string
  * ```
  */
 export function appendVary(ctx: Context, header: string): void {
-  const existing = ctx.get(VARY_HEADER);
-
-  if (!existing) {
-    ctx.set(VARY_HEADER, header);
-    return;
+  let tracked = varyTracker.get(ctx);
+  if (!tracked) {
+    tracked = new Set<string>();
+    varyTracker.set(ctx, tracked);
   }
 
-  // If already set to wildcard, no need to add more
-  if (existing === '*') {
-    return;
+  const lower = header.toLowerCase();
+
+  // Check for wildcard
+  if (tracked.has('*')) return;
+
+  // Check for duplicate (case-insensitive)
+  for (const existing of tracked) {
+    if (existing.toLowerCase() === lower) return;
   }
 
-  // Check if header is already in the list
-  const headers = existing.split(',').map((h) => h.trim().toLowerCase());
-  if (headers.includes(header.toLowerCase())) {
-    return;
-  }
-
-  // Append the new header
-  ctx.set(VARY_HEADER, `${existing}, ${header}`);
+  tracked.add(header);
+  ctx.set(VARY_HEADER, [...tracked].join(', '));
 }
 
 /**
@@ -98,7 +103,7 @@ export function setVaryHeaders(ctx: Context, headers: string[]): void {
  */
 export function buildMethodList(methods: string | string[]): string {
   if (typeof methods === 'string') {
-    return methods;
+    return methods.toUpperCase();
   }
   return methods.map((m) => m.toUpperCase()).join(',');
 }
@@ -116,7 +121,10 @@ export function buildMethodList(methods: string | string[]): string {
  */
 export function parseHeaderList(header: string | undefined): string[] {
   if (!header) return [];
-  return header.split(',').map((h) => h.trim()).filter(Boolean);
+  return header
+    .split(',')
+    .map((h) => h.trim())
+    .filter(Boolean);
 }
 
 /**

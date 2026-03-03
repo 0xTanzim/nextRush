@@ -1,15 +1,14 @@
 ---
-title: "REST API"
-description: "Build a complete REST API with CRUD operations, validation, and error handling."
+title: 'REST API'
+description: 'Build a complete REST API with CRUD operations, validation, and error handling.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
 
 # REST API Example
 
 A production-ready REST API with full CRUD operations.
 
 This example demonstrates:
+
 - RESTful route design
 - Request body parsing
 - Input validation
@@ -22,10 +21,13 @@ This example demonstrates:
 
 ```bash
 mkdir rest-api && cd rest-api
-npm init -y
-npm install nextrush @nextrush/cors @nextrush/body-parser
-npm install -D @nextrush/dev typescript @types/node
+pnpm init
 ```
+
+<PackageInstall
+  packages={['nextrush', '@nextrush/cors', '@nextrush/body-parser']}
+  dev={['typescript', '@types/node']}
+/>
 
 ---
 
@@ -53,8 +55,18 @@ interface CreateUserDto {
 const users: Map<string, User> = new Map();
 
 // Seed data
-users.set('1', { id: '1', name: 'Alice', email: 'alice@example.com', createdAt: new Date().toISOString() });
-users.set('2', { id: '2', name: 'Bob', email: 'bob@example.com', createdAt: new Date().toISOString() });
+users.set('1', {
+  id: '1',
+  name: 'Alice',
+  email: 'alice@example.com',
+  createdAt: new Date().toISOString(),
+});
+users.set('2', {
+  id: '2',
+  name: 'Bob',
+  email: 'bob@example.com',
+  createdAt: new Date().toISOString(),
+});
 
 // App setup
 const app = createApp();
@@ -62,14 +74,6 @@ const app = createApp();
 // Middleware
 app.use(cors());
 app.use(json());
-
-// Request logging
-app.use(async (ctx, next) => {
-  const start = Date.now();
-  await next();
-  const ms = Date.now() - start;
-  console.log(`${ctx.method} ${ctx.path} - ${ctx.status} (${ms}ms)`);
-});
 
 // ============================================
 // USER ROUTES
@@ -115,7 +119,7 @@ userRouter.post('/', (ctx) => {
   }
 
   // Check duplicate email
-  const existing = Array.from(users.values()).find(u => u.email === body.email);
+  const existing = Array.from(users.values()).find((u) => u.email === body.email);
   if (existing) {
     ctx.status = 409;
     ctx.json({ error: 'Email already exists' });
@@ -210,17 +214,7 @@ app.use((ctx) => {
 });
 
 // Start server
-listen(app, 3000, () => {
-  console.log('REST API running at http://localhost:3000');
-  console.log('');
-  console.log('Endpoints:');
-  console.log('  GET    /users      - List users');
-  console.log('  GET    /users/:id  - Get user');
-  console.log('  POST   /users      - Create user');
-  console.log('  PUT    /users/:id  - Replace user');
-  console.log('  PATCH  /users/:id  - Update user');
-  console.log('  DELETE /users/:id  - Delete user');
-});
+await listen(app, 3000);
 ```
 
 ---
@@ -284,7 +278,7 @@ All responses follow a consistent format:
 ## Adding Pagination
 
 ```typescript
-router.get('/users', (ctx) => {
+userRouter.get('/', (ctx) => {
   const page = parseInt(ctx.query.page ?? '1');
   const limit = parseInt(ctx.query.limit ?? '10');
   const offset = (page - 1) * limit;
@@ -309,22 +303,22 @@ router.get('/users', (ctx) => {
 ## Adding Search
 
 ```typescript
-router.get('/users', (ctx) => {
+userRouter.get('/', (ctx) => {
   let result = Array.from(users.values());
 
   // Search by name or email
   const search = ctx.query.q?.toLowerCase();
   if (search) {
-    result = result.filter(user =>
-      user.name.toLowerCase().includes(search) ||
-      user.email.toLowerCase().includes(search)
+    result = result.filter(
+      (user) =>
+        user.name.toLowerCase().includes(search) || user.email.toLowerCase().includes(search)
     );
   }
 
   // Filter by field
   const name = ctx.query.name;
   if (name) {
-    result = result.filter(user => user.name === name);
+    result = result.filter((user) => user.name === name);
   }
 
   ctx.json({ data: result, total: result.length });
@@ -365,18 +359,17 @@ router.post('/users', (ctx) => {
 ```
 
 <Callout type="info">
-Thrown errors are automatically caught and converted to proper HTTP responses with the correct status codes.
+  Thrown errors are automatically caught and converted to proper HTTP responses with the correct
+  status codes.
 </Callout>
 
 ---
 
 ## Validation with Zod
 
-For robust validation, use Zod:
+For structured validation, use Zod:
 
-```bash
-npm install zod
-```
+<PackageInstall packages={['zod']} />
 
 ```typescript
 import { z } from 'zod';
@@ -387,7 +380,7 @@ const CreateUserSchema = z.object({
   email: z.string().email('Invalid email format'),
 });
 
-router.post('/users', (ctx) => {
+userRouter.post('/', (ctx) => {
   const result = CreateUserSchema.safeParse(ctx.body);
 
   if (!result.success) {
@@ -443,7 +436,7 @@ const app = createApp();
 app.route('/users', users);
 app.route('/posts', posts);
 
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ---

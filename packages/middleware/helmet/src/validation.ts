@@ -33,10 +33,10 @@ import type { CspDirectiveName, StrictTransportSecurityOptions } from './types.j
  * values containing CR, LF, or other control characters.
  */
 export function sanitizeHeaderValue(value: string): string {
-  // Reject any value with newlines or carriage returns (header injection)
-  if (/[\r\n]/.test(value)) {
+  // Reject any value with control characters (header injection, null byte poisoning)
+  if (/[\x00-\x1f\x7f]/.test(value)) {
     throw new Error(
-      `[@nextrush/helmet] Security Error: Header value contains newline characters. ` +
+      `[@nextrush/helmet] Security Error: Header value contains control characters. ` +
         `This could allow HTTP response splitting attacks.`
     );
   }
@@ -163,9 +163,9 @@ export function validateHstsOptions(options: StrictTransportSecurityOptions): Hs
   const { maxAge = 0, includeSubDomains, preload } = options;
 
   // Check max-age
-  if (maxAge < 0) {
+  if (!Number.isFinite(maxAge) || maxAge < 0) {
     result.valid = false;
-    result.errors.push('max-age must be a positive number');
+    result.errors.push('max-age must be a finite non-negative number');
   }
 
   if (maxAge > 0 && maxAge < 86400) {
@@ -203,7 +203,12 @@ export function validateHstsOptions(options: StrictTransportSecurityOptions): Hs
  */
 export function securityWarning(message: string, details?: Record<string, unknown>): void {
   if (typeof process === 'undefined' || process.env?.NODE_ENV !== 'production') {
-    console.warn(`[@nextrush/helmet] SECURITY WARNING: ${message}`, details ?? '');
+    const fullMessage = `[@nextrush/helmet] SECURITY WARNING: ${message}`;
+    if (details) {
+      console.warn(fullMessage, details);
+    } else {
+      console.warn(fullMessage);
+    }
   }
 }
 

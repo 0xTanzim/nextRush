@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/nextrush.svg)](https://www.npmjs.com/package/nextrush)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-≥20-339933?logo=node.js)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-≥22-339933?logo=node.js)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
 
 ## Why NextRush?
@@ -19,12 +19,14 @@
 
 **`nextrush` is a meta package that re-exports the essentials:**
 
-- `createApp` - Create application instance
-- `createRouter` - Create router
-- `listen` / `serve` - Start HTTP server
-- `compose` - Compose middleware
-- Error classes (`HttpError`, `NotFoundError`, `BadRequestError`, etc.)
-- TypeScript types (`Context`, `Middleware`, `Plugin`, etc.)
+- `createApp`, `Application` — Create and manage application instances
+- `createRouter`, `Router` — Create and manage routers
+- `listen`, `serve`, `createHandler` — Start HTTP server (Node.js)
+- `compose` — Compose middleware
+- Error classes (`HttpError`, `NotFoundError`, `BadRequestError`, `MethodNotAllowedError`, etc.)
+- Error utilities (`createError`, `isHttpError`, `errorHandler`, `notFoundHandler`, `catchAsync`)
+- TypeScript types (`Context`, `Middleware`, `Next`, `Plugin`, `RouteHandler`, `HttpMethod`, etc.)
+- Constants (`VERSION`, `HttpStatus`, `ContentType`)
 
 **Middleware and plugins are installed separately.** This is intentional — you only pay for what you use.
 
@@ -36,18 +38,18 @@ pnpm add nextrush
 
 ## Quick Start
 
-```typescript\nimport { createApp, createRouter, listen } from 'nextrush';\n\nconst app = createApp();\nconst router = createRouter();\n\nrouter.get('/', (ctx) => {\n  ctx.json({ message: 'Hello NextRush!' });\n});\n\napp.route('/', router);\n\nlisten(app, 3000);\n```
+`typescript\nimport { createApp, createRouter, listen } from 'nextrush';\n\nconst app = createApp();\nconst router = createRouter();\n\nrouter.get('/', (ctx) => {\n  ctx.json({ message: 'Hello NextRush!' });\n});\n\napp.route('/', router);\n\nlisten(app, 3000);\n`
 
 ## Performance
 
 Benchmark results on Intel i5-8300H (8 cores), Node.js v25.1.0:
 
-| Framework | Hello World | POST JSON | Mixed Workload |
-|-----------|-------------|-----------|----------------|
-| Fastify | 46,542 RPS | 20,000 RPS | 45,988 RPS |
+| Framework       | Hello World    | POST JSON      | Mixed Workload |
+| --------------- | -------------- | -------------- | -------------- |
+| Fastify         | 46,542 RPS     | 20,000 RPS     | 45,988 RPS     |
 | **NextRush v3** | **36,092 RPS** | **17,826 RPS** | **38,061 RPS** |
-| Hono | 36,288 RPS | 12,405 RPS | 35,672 RPS |
-| Express | 22,128 RPS | 14,081 RPS | 22,745 RPS |
+| Hono            | 36,288 RPS     | 12,405 RPS     | 35,672 RPS     |
+| Express         | 22,128 RPS     | 14,081 RPS     | 22,745 RPS     |
 
 > Performance varies by hardware. See [full benchmarks](https://nextrush.dev/benchmark).
 
@@ -80,61 +82,61 @@ listen(app, 3000);
 
 This meta package re-exports from:
 
-| Package | Exports |
-|---------|---------|
-| `@nextrush/core` | `createApp`, `Application`, `compose` |
-| `@nextrush/router` | `createRouter`, `Router` |
-| `@nextrush/adapter-node` | `listen`, `serve`, `createHandler` |
-| `@nextrush/types` | `Context`, `Middleware`, `Plugin`, `HttpStatus` |
-| `@nextrush/errors` | `HttpError`, `NotFoundError`, `BadRequestError`, etc. |
+| Package                  | Exports                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@nextrush/core`         | `createApp`, `Application`, `compose`                                                                                                |
+| `@nextrush/router`       | `createRouter`, `Router`                                                                                                             |
+| `@nextrush/adapter-node` | `listen`, `serve`, `createHandler`                                                                                                   |
+| `@nextrush/types`        | `Context`, `Middleware`, `Next`, `Plugin`, `RouteHandler`, `HttpMethod`, `HttpStatus`, `ContentType`                                 |
+| `@nextrush/errors`       | `HttpError`, `NextRushError`, error classes (4xx/5xx), `createError`, `isHttpError`, `errorHandler`, `notFoundHandler`, `catchAsync` |
 
 ## Available Packages
 
 ### Core (included in nextrush)
 
-| Package | Description |
-|---------|-------------|
-| `@nextrush/core` | Application & middleware composition |
-| `@nextrush/router` | High-performance radix tree router |
-| `@nextrush/adapter-node` | Node.js HTTP adapter |
-| `@nextrush/types` | Shared TypeScript types |
-| `@nextrush/errors` | HTTP error classes |
+| Package                  | Description                          |
+| ------------------------ | ------------------------------------ |
+| `@nextrush/core`         | Application & middleware composition |
+| `@nextrush/router`       | High-performance radix tree router   |
+| `@nextrush/adapter-node` | Node.js HTTP adapter                 |
+| `@nextrush/types`        | Shared TypeScript types              |
+| `@nextrush/errors`       | HTTP error classes                   |
 
 ### Middleware (install separately)
 
-| Package | Description |
-|---------|-------------|
-| `@nextrush/body-parser` | JSON/form/text body parsing |
-| `@nextrush/cors` | CORS headers |
-| `@nextrush/helmet` | Security headers |
-| `@nextrush/cookies` | Cookie handling |
-| `@nextrush/compression` | Response compression (gzip/brotli) |
-| `@nextrush/rate-limit` | Rate limiting with multiple algorithms |
-| `@nextrush/request-id` | Request ID generation |
-| `@nextrush/timer` | Request timing headers |
+| Package                 | Description                            |
+| ----------------------- | -------------------------------------- |
+| `@nextrush/body-parser` | JSON/form/text body parsing            |
+| `@nextrush/cors`        | CORS headers                           |
+| `@nextrush/helmet`      | Security headers                       |
+| `@nextrush/cookies`     | Cookie handling                        |
+| `@nextrush/compression` | Response compression (gzip/brotli)     |
+| `@nextrush/rate-limit`  | Rate limiting with multiple algorithms |
+| `@nextrush/request-id`  | Request ID generation                  |
+| `@nextrush/timer`       | Request timing headers                 |
 
 ### Plugins (install separately)
 
-| Package | Description |
-|---------|-------------|
-| `@nextrush/logger` | Structured logging |
-| `@nextrush/static` | Static file serving |
-| `@nextrush/websocket` | WebSocket support with rooms |
-| `@nextrush/template` | Multi-engine template rendering |
-| `@nextrush/events` | Type-safe event emitter |
-| `@nextrush/controllers` | Decorator-based controllers |
+| Package                 | Description                     |
+| ----------------------- | ------------------------------- |
+| `@nextrush/logger`      | Structured logging              |
+| `@nextrush/static`      | Static file serving             |
+| `@nextrush/websocket`   | WebSocket support with rooms    |
+| `@nextrush/template`    | Multi-engine template rendering |
+| `@nextrush/events`      | Type-safe event emitter         |
+| `@nextrush/controllers` | Decorator-based controllers     |
 
 ### Advanced (install separately)
 
-| Package | Description |
-|---------|-------------|
-| `@nextrush/di` | Dependency injection container |
-| `@nextrush/decorators` | Controller & route decorators |
+| Package                | Description                    |
+| ---------------------- | ------------------------------ |
+| `@nextrush/di`         | Dependency injection container |
+| `@nextrush/decorators` | Controller & route decorators  |
 
 ### Dev Tools
 
-| Package | Description |
-|---------|-------------|
+| Package         | Description                       |
+| --------------- | --------------------------------- |
 | `@nextrush/dev` | Hot reload dev server (tsx-based) |
 
 ## Direct Package Usage
@@ -165,7 +167,7 @@ app.use(async (ctx) => {
 
 ```typescript
 import { VERSION } from 'nextrush';
-console.log(VERSION); // '3.0.0-alpha.1'
+console.log(VERSION); // '3.0.0'
 ```
 
 ## License

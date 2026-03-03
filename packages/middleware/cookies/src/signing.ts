@@ -27,20 +27,45 @@ export interface SigningKeys {
 // Key Management
 // ============================================================================
 
+/** Bounded cache to avoid re-importing the same secret on every operation. */
+const KEY_CACHE = new Map<string, CryptoKey>();
+const MAX_CACHED_KEYS = 10;
+
 /**
  * Import a secret key for HMAC operations.
+ * Results are cached in a bounded map (LRU-ish eviction).
  */
 async function importKey(secret: string): Promise<CryptoKey> {
+  const cached = KEY_CACHE.get(secret);
+  if (cached) return cached;
+
   const encoder = new TextEncoder();
   const keyData = encoder.encode(secret);
 
-  return crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     'raw',
     keyData,
     { name: HMAC_ALGORITHM, hash: HASH_ALGORITHM },
     false,
     ['sign', 'verify']
   );
+
+  // Evict oldest entry when cache is full
+  if (KEY_CACHE.size >= MAX_CACHED_KEYS) {
+    const firstKey = KEY_CACHE.keys().next().value;
+    if (firstKey !== undefined) KEY_CACHE.delete(firstKey);
+  }
+
+  KEY_CACHE.set(secret, key);
+  return key;
+}
+
+/**
+ * Clear the internal CryptoKey cache. Exposed for testing.
+ * @internal
+ */
+export function clearKeyCache(): void {
+  KEY_CACHE.clear();
 }
 
 // ============================================================================
@@ -52,10 +77,7 @@ async function importKey(secret: string): Promise<CryptoKey> {
  */
 function toBase64Url(bytes: Uint8Array): string {
   const base64 = btoa(String.fromCharCode(...bytes));
-  return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /**
@@ -64,10 +86,7 @@ function toBase64Url(bytes: Uint8Array): string {
 function fromBase64Url(str: string): Uint8Array {
   // Add padding if needed
   const padding = (4 - (str.length % 4)) % 4;
-  const base64 = str
-    .replace(/-/g, '+')
-    .replace(/_/g, '/')
-    + '='.repeat(padding);
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(padding);
 
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -157,12 +176,14 @@ export async function unsignCookie(
     const isValid = await crypto.subtle.verify(
       HMAC_ALGORITHM,
       key,
-      signatureBytes as unknown as BufferSource,
+      signatureBytes as BufferSource,
       data
     );
 
     return isValid ? value : undefined;
-  } catch {
+  } catch (_: unknown) {
+    // Signature verification failed (malformed base64, corrupted data).
+    // Return undefined — same behavior as tampered/invalid cookie.
     return undefined;
   }
 }

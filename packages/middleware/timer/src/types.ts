@@ -28,6 +28,8 @@ export type Middleware<TContext = unknown> = (
 export interface TimerContext {
   /** Context state storage */
   state: Record<string, unknown>;
+  /** Get response header value */
+  get: (name: string) => string | undefined;
   /** Set response header */
   set: (name: string, value: string) => void;
   /** Call next middleware */
@@ -75,7 +77,7 @@ export interface TimerOptions {
 
   /**
    * Whether to expose header in response.
-   * @default true
+   * @default false
    */
   exposeHeader?: boolean;
 

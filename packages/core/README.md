@@ -5,6 +5,7 @@
 ## The Problem
 
 Backend frameworks often bundle everything together. You pay for features you don't use:
+
 - Routing logic when you only need middleware composition
 - Body parsing when you're building a proxy
 - Complex plugin systems when you need simple extensibility
@@ -33,6 +34,7 @@ Request → [Middleware 1] → [Middleware 2] → [Handler] → [Middleware 2] �
 ```
 
 Each middleware can:
+
 1. Do something before calling `ctx.next()` or `next()`
 2. Call `await ctx.next()` to pass control downstream
 3. Do something after `ctx.next()` returns
@@ -80,25 +82,27 @@ const app = createApp();
 
 // With options
 const app = createApp({
-  env: 'production',  // 'development' | 'production' | 'test'
-  proxy: true,        // Trust proxy headers (X-Forwarded-*)
+  env: 'production', // 'development' | 'production' | 'test'
+  proxy: true, // Trust proxy headers (X-Forwarded-*)
 });
 ```
 
 ### Application Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `env` | `'development' \| 'production' \| 'test'` | `process.env.NODE_ENV` | Environment mode |
-| `proxy` | `boolean` | `false` | Trust proxy headers |
+| Option   | Type                                      | Default         | Description                                             |
+| -------- | ----------------------------------------- | --------------- | ------------------------------------------------------- |
+| `env`    | `'development' \| 'production' \| 'test'` | `'development'` | Environment mode                                        |
+| `proxy`  | `boolean`                                 | `false`         | Trust proxy headers                                     |
+| `logger` | `Logger`                                  | No-op (silent)  | Pluggable logger. Pass `console` for quick dev logging. |
 
 ### Application Properties
 
 ```typescript
-app.isProduction;    // boolean - true if env === 'production'
-app.isRunning;       // boolean - true after app.start() called
+app.isProduction; // boolean - true if env === 'production'
+app.isRunning; // boolean - true after app.start() called
 app.middlewareCount; // number - count of registered middleware
-app.options;         // ApplicationOptions - readonly config
+app.options; // ApplicationOptions - readonly config
+app.logger; // Logger - readonly configured logger instance
 ```
 
 ## Middleware
@@ -115,9 +119,7 @@ app.use(async (ctx, next) => {
 app.use(middleware1, middleware2, middleware3);
 
 // Method chaining
-app.use(cors())
-   .use(helmet())
-   .use(json());
+app.use(cors()).use(helmet()).use(json());
 ```
 
 ### Two Syntax Styles
@@ -209,17 +211,17 @@ The Context (`ctx`) object provides access to request data and response methods.
 
 ### Request Properties (Read-only)
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `ctx.method` | `HttpMethod` | HTTP method (GET, POST, etc.) |
-| `ctx.url` | `string` | Full URL with query string |
-| `ctx.path` | `string` | Path without query string |
-| `ctx.query` | `QueryParams` | Parsed query parameters |
-| `ctx.headers` | `IncomingHeaders` | Request headers |
-| `ctx.ip` | `string` | Client IP address |
-| `ctx.runtime` | `Runtime` | Current JS runtime |
-| `ctx.raw` | `RawHttp` | Raw platform objects |
-| `ctx.bodySource` | `BodySource` | Body stream for parsers |
+| Property         | Type              | Description                   |
+| ---------------- | ----------------- | ----------------------------- |
+| `ctx.method`     | `HttpMethod`      | HTTP method (GET, POST, etc.) |
+| `ctx.url`        | `string`          | Full URL with query string    |
+| `ctx.path`       | `string`          | Path without query string     |
+| `ctx.query`      | `QueryParams`     | Parsed query parameters       |
+| `ctx.headers`    | `IncomingHeaders` | Request headers               |
+| `ctx.ip`         | `string`          | Client IP address             |
+| `ctx.runtime`    | `Runtime`         | Current JS runtime            |
+| `ctx.raw`        | `RawHttp`         | Raw platform objects          |
+| `ctx.bodySource` | `BodySource`      | Body stream for parsers       |
 
 ### Request Body
 
@@ -247,15 +249,15 @@ app.get('/users/:id', (ctx) => {
 
 ### Response
 
-| Property/Method | Description |
-|-----------------|-------------|
-| `ctx.status` | Set HTTP status code (default: 200) |
-| `ctx.json(data)` | Send JSON response |
-| `ctx.send(data)` | Send text, buffer, or stream |
-| `ctx.html(content)` | Send HTML response |
-| `ctx.redirect(url, status?)` | Redirect to URL |
-| `ctx.set(field, value)` | Set response header |
-| `ctx.get(field)` | Get request header |
+| Property/Method              | Description                         |
+| ---------------------------- | ----------------------------------- |
+| `ctx.status`                 | Set HTTP status code (default: 200) |
+| `ctx.json(data)`             | Send JSON response                  |
+| `ctx.send(data)`             | Send text, buffer, or stream        |
+| `ctx.html(content)`          | Send HTML response                  |
+| `ctx.redirect(url, status?)` | Redirect to URL                     |
+| `ctx.set(field, value)`      | Set response header                 |
+| `ctx.get(field)`             | Get request header                  |
 
 ```typescript
 app.use(async (ctx) => {
@@ -309,11 +311,11 @@ Access platform-specific objects:
 
 ```typescript
 // Node.js adapter
-ctx.raw.req;  // IncomingMessage
-ctx.raw.res;  // ServerResponse
+ctx.raw.req; // IncomingMessage
+ctx.raw.res; // ServerResponse
 
 // Bun/Deno/Edge adapters
-ctx.raw.req;  // Request (Web API)
+ctx.raw.req; // Request (Web API)
 ```
 
 ## Error Handling
@@ -321,10 +323,10 @@ ctx.raw.req;  // Request (Web API)
 ### Custom Error Handler
 
 ```typescript
-app.onError((error, ctx) => {
+app.setErrorHandler((error, ctx) => {
   console.error('Request failed:', error);
 
-  if (error.status) {
+  if ('status' in error && typeof error.status === 'number') {
     ctx.status = error.status;
   } else {
     ctx.status = 500;
@@ -337,9 +339,12 @@ app.onError((error, ctx) => {
 });
 ```
 
+> **Note:** `onError()` is deprecated. Use `setErrorHandler()` instead.
+
 ### Default Behavior
 
 Without a custom handler:
+
 - **Development**: Error message exposed, stack logged
 - **Production**: Generic "Internal Server Error" message
 
@@ -382,21 +387,22 @@ import { loggerPlugin } from '@nextrush/logger';
 
 const app = createApp();
 
-// Synchronous plugins
+// Sync plugins
 app.plugin(eventsPlugin());
 app.plugin(loggerPlugin({ level: 'info' }));
 
-// Async plugins
-await app.pluginAsync(databasePlugin({ uri: '...' }));
+// Async plugin — plugin() handles both automatically
+await app.plugin(databasePlugin({ uri: '...' }));
 ```
+
+> **Note:** `pluginAsync()` is deprecated. Use `plugin()` instead — it detects async `install()` methods and returns a `Promise` when needed.
 
 ### Plugin API
 
 ```typescript
-app.plugin(plugin);              // Install sync plugin
-await app.pluginAsync(plugin);   // Install async plugin
-app.hasPlugin('plugin-name');    // Check if installed
-app.getPlugin('plugin-name');    // Get plugin instance
+app.plugin(plugin); // Install plugin (handles sync and async)
+app.hasPlugin('plugin-name'); // Check if installed
+app.getPlugin('plugin-name'); // Get plugin instance
 ```
 
 ### Creating Plugins
@@ -441,11 +447,7 @@ Combine multiple middleware into one:
 ```typescript
 import { compose } from '@nextrush/core';
 
-const security = compose([
-  cors(),
-  helmet(),
-  rateLimit(),
-]);
+const security = compose([cors(), helmet(), rateLimit()]);
 
 app.use(security);
 ```
@@ -487,11 +489,11 @@ app.route('/api/posts', posts);
 
 ### Benefits over Classic Pattern
 
-| Classic Pattern | Hono-Style Composition |
-|-----------------|------------------------|
+| Classic Pattern                                                     | Hono-Style Composition       |
+| ------------------------------------------------------------------- | ---------------------------- |
 | `router.use('/users', usersRouter)` then `app.use(router.routes())` | `app.route('/users', users)` |
-| Requires main router | Direct mounting |
-| Extra `.routes()` call | No extra calls |
+| Requires main router                                                | Direct mounting              |
+| Extra `.routes()` call                                              | No extra calls               |
 
 ### Classic Pattern Still Works
 
@@ -500,7 +502,7 @@ app.route('/api/posts', posts);
 const router = createRouter();
 router.use('/users', usersRouter);
 router.use('/posts', postsRouter);
-app.use(router.routes());
+app.route('/', router);
 ```
 
 ## Lifecycle
@@ -516,13 +518,15 @@ console.log(app.isRunning); // true
 ### Shutdown
 
 ```typescript
-// Graceful shutdown
-await app.close();
+// Graceful shutdown — returns errors from plugins that failed to destroy
+const errors = await app.close();
 
-// This:
+// What happens:
 // 1. Sets isRunning = false
-// 2. Calls destroy() on all plugins (reverse order)
-// 3. Clears plugin registry
+// 2. Calls destroy() on all plugins (reverse registration order)
+// 3. Collects errors via Promise.allSettled
+// 4. Clears plugin registry
+// 5. Returns Error[] (empty on success)
 ```
 
 ## Request Handler
@@ -580,6 +584,8 @@ import type {
   ApplicationOptions,
   ErrorHandler,
   ListenCallback,
+  Logger,
+  Routable,
   ComposedMiddleware,
 
   // Context & Middleware (from @nextrush/types)
@@ -588,6 +594,7 @@ import type {
   Middleware,
   Next,
   Plugin,
+  PluginWithHooks,
   RouteHandler,
   RouteParams,
   QueryParams,
@@ -598,13 +605,13 @@ import type {
 
 ## Runtime Compatibility
 
-| Runtime | Supported |
-|---------|-----------|
-| Node.js 20+ | ✅ |
-| Bun 1.0+ | ✅ |
-| Deno 2.0+ | ✅ |
-| Cloudflare Workers | ✅ |
-| Vercel Edge Runtime | ✅ |
+| Runtime             | Supported |
+| ------------------- | --------- |
+| Node.js 22+         | ✅        |
+| Bun 1.0+            | ✅        |
+| Deno 2.0+           | ✅        |
+| Cloudflare Workers  | ✅        |
+| Vercel Edge Runtime | ✅        |
 
 The core package uses only standard JavaScript APIs. Runtime-specific code lives in adapters.
 
@@ -612,7 +619,7 @@ The core package uses only standard JavaScript APIs. Runtime-specific code lives
 
 - **Bundle**: ~10 KB
 - **Types**: ~8 KB
-- **Dependencies**: Only `@nextrush/types`
+- **Dependencies**: `@nextrush/types`, `@nextrush/errors`
 
 ## License
 

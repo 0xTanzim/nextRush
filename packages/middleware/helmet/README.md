@@ -1,37 +1,10 @@
 # @nextrush/helmet
 
-> Enterprise-grade HTTP security headers with defense-in-depth protection.
-
-## The Problem
-
-Modern web applications face a gauntlet of browser-based attacks. Each requires specific HTTP headers to mitigate:
-
-**XSS attacks exploit missing CSP.** Without Content-Security-Policy, attackers can inject malicious scripts that steal cookies, redirect users, or modify page content.
-
-**Clickjacking tricks users into hidden actions.** Missing X-Frame-Options allows attackers to embed your site in invisible iframes and trick users into clicking buttons they can't see.
-
-**MIME sniffing creates attack vectors.** Browsers "helpfully" guess content types, which attackers exploit to execute JavaScript hidden in uploaded files.
-
-**Information leakage exposes your stack.** Default server headers like `X-Powered-By: Express` help attackers target known vulnerabilities.
-
-## What NextRush Does Differently
-
-NextRush's Helmet middleware provides **defense-in-depth** through multiple security layers:
-
-- **Content-Security-Policy** blocks XSS and injection attacks
-- **Strict-Transport-Security** enforces HTTPS connections
-- **X-Frame-Options** prevents clickjacking
-- **X-Content-Type-Options** stops MIME sniffing
-- **Referrer-Policy** controls information leakage
-- **Permissions-Policy** restricts browser features
-
-All headers are **configurable per-environment**, with secure defaults for production.
+HTTP security headers middleware for NextRush v3. Sets 13 headers with OWASP-recommended defaults in a single call.
 
 ## Installation
 
 ```bash
-npm install @nextrush/helmet
-# or
 pnpm add @nextrush/helmet
 ```
 
@@ -42,126 +15,145 @@ import { createApp } from '@nextrush/core';
 import { helmet } from '@nextrush/helmet';
 
 const app = createApp();
-
-// Enable all security headers with defaults
 app.use(helmet());
-
-app.get('/', (ctx) => {
-  ctx.html('<h1>Secure App</h1>');
-});
 ```
-
-## Features
-
-- **15+ Security Headers**: Comprehensive protection out of the box
-- **Sensible Defaults**: Secure by default, customize as needed
-- **Modular**: Use individual middleware or the combined `helmet()`
-- **CSP Builder**: Fluent API for Content Security Policy
 
 ## Headers Set by Default
 
-| Header | Protection |
-|--------|------------|
-| `Content-Security-Policy` | XSS, injection attacks |
-| `Strict-Transport-Security` | Force HTTPS |
-| `X-Content-Type-Options` | MIME sniffing |
-| `X-Frame-Options` | Clickjacking |
-| `X-XSS-Protection` | Legacy XSS filter |
-| `Referrer-Policy` | Information leakage |
-| `X-DNS-Prefetch-Control` | DNS prefetch control |
-| `X-Permitted-Cross-Domain-Policies` | Adobe cross-domain |
-| `X-Download-Options` | IE download execution |
-| `Cross-Origin-Opener-Policy` | Cross-origin isolation |
-| `Cross-Origin-Resource-Policy` | Resource access control |
-| `Cross-Origin-Embedder-Policy` | Embedding control |
-| `Origin-Agent-Cluster` | Process isolation |
-| `Permissions-Policy` | Browser feature control |
+| Header                              | Default Value                         | Protection                                    |
+| ----------------------------------- | ------------------------------------- | --------------------------------------------- |
+| `Content-Security-Policy`           | OWASP defaults                        | XSS, injection attacks                        |
+| `Cross-Origin-Embedder-Policy`      | `require-corp`                        | Embedding control                             |
+| `Cross-Origin-Opener-Policy`        | `same-origin`                         | Cross-origin isolation                        |
+| `Cross-Origin-Resource-Policy`      | `same-origin`                         | Resource access control                       |
+| `Strict-Transport-Security`         | `max-age=15552000; includeSubDomains` | Force HTTPS                                   |
+| `X-Content-Type-Options`            | `nosniff`                             | MIME sniffing                                 |
+| `X-Frame-Options`                   | `SAMEORIGIN`                          | Clickjacking                                  |
+| `X-XSS-Protection`                  | `0`                                   | Disable legacy XSS filter (OWASP recommended) |
+| `X-DNS-Prefetch-Control`            | `off`                                 | DNS prefetch control                          |
+| `X-Download-Options`                | `noopen`                              | IE download execution                         |
+| `X-Permitted-Cross-Domain-Policies` | `none`                                | Adobe cross-domain                            |
+| `Referrer-Policy`                   | `no-referrer`                         | Information leakage                           |
+| `Origin-Agent-Cluster`              | `?1`                                  | Process isolation                             |
+
+Headers **not** set by default: `Permissions-Policy`, `Clear-Site-Data`, `Reporting-Endpoints`.
 
 ## Configuration
-
-### Disable Specific Headers
-
-```typescript
-app.use(helmet({
-  contentSecurityPolicy: false,  // Disable CSP
-  hsts: false,                   // Disable HSTS
-}));
-```
 
 ### Customize Headers
 
 ```typescript
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'cdn.example.com'],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'", 'https://cdn.example.com'],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:', 'https:'],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000,        // 1 year
-    includeSubDomains: true,
-    preload: true,
-  },
-  frameguard: {
-    action: 'deny',          // or 'sameorigin'
-  },
-  referrerPolicy: {
-    policy: 'strict-origin-when-cross-origin',
-  },
-}));
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: 'DENY',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    crossOriginEmbedderPolicy: 'credentialless',
+    crossOriginOpenerPolicy: 'same-origin',
+    crossOriginResourcePolicy: 'same-origin',
+  })
+);
 ```
 
-## Individual Middleware
-
-Use specific headers without the full helmet:
+### Disable Specific Headers
 
 ```typescript
-import {
-  contentSecurityPolicy,
-  hsts,
-  frameguard,
-  noSniff,
-  xssFilter,
-  referrerPolicy,
-  dnsPrefetchControl,
-  permissionsPolicy,
-} from '@nextrush/helmet';
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    hsts: false,
+  })
+);
+```
 
-// Only HSTS
-app.use(hsts({ maxAge: 31536000 }));
+## Presets
 
-// Only CSP
-app.use(contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-  },
-}));
+```typescript
+import { strictHelmet, apiHelmet, devHelmet, staticHelmet, logoutHelmet } from '@nextrush/helmet';
 
-// Only X-Frame-Options
-app.use(frameguard({ action: 'deny' }));
+// Maximum security for sensitive applications
+app.use(strictHelmet());
+
+// Optimized for REST/GraphQL APIs (no CSP, no COEP)
+app.use(apiHelmet());
+
+// Relaxed for local development (no HSTS, no CSP)
+app.use(devHelmet());
+
+// Static file serving
+app.use(staticHelmet());
+
+// Clear browser data on logout
+app.post('/logout', logoutHelmet());
+```
+
+Presets accept an `overrides` parameter (except `devHelmet`):
+
+```typescript
+app.use(
+  strictHelmet({
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+  })
+);
+```
+
+## Individual Header Middleware
+
+Apply specific headers without the full Helmet stack:
+
+```typescript
+import { contentSecurityPolicy, hsts, frameguard, noSniff, referrerPolicy } from '@nextrush/helmet';
+
+app.use(
+  contentSecurityPolicy({
+    directives: { 'default-src': ["'self'"] },
+  })
+);
+
+app.use(hsts({ maxAge: 31536000, includeSubDomains: true, preload: true }));
+
+app.use(frameguard('DENY'));
+
+app.use(noSniff());
+
+app.use(referrerPolicy('strict-origin-when-cross-origin'));
 ```
 
 ## Content Security Policy
 
+CSP directives use **hyphenated keys** matching the HTTP specification.
+
 ### Basic CSP
 
 ```typescript
-app.use(contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'"],
-    styleSrc: ["'self'", "'unsafe-inline'"],
-    imgSrc: ["'self'", 'data:', 'https:'],
-    fontSrc: ["'self'", 'fonts.googleapis.com'],
-    connectSrc: ["'self'", 'api.example.com'],
-    frameSrc: ["'none'"],
-    objectSrc: ["'none'"],
-    upgradeInsecureRequests: [],
-  },
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'", "'unsafe-inline'"],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:', 'https:'],
+        'font-src': ["'self'", 'https://fonts.gstatic.com'],
+        'connect-src': ["'self'", 'https://api.example.com'],
+        'object-src': ["'none'"],
+        'upgrade-insecure-requests': true,
+      },
+    },
+  })
+);
 ```
 
 ### Report-Only Mode
@@ -169,183 +161,209 @@ app.use(contentSecurityPolicy({
 Test CSP without blocking:
 
 ```typescript
-app.use(contentSecurityPolicy({
-  reportOnly: true,
-  directives: {
-    defaultSrc: ["'self'"],
-    reportUri: '/csp-report',
-  },
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      reportOnly: true,
+      directives: {
+        'default-src': ["'self'"],
+        'report-to': 'csp-endpoint',
+      },
+    },
+  })
+);
+```
+
+### CSP Builder
+
+```typescript
+import { createCspBuilder } from '@nextrush/helmet';
+
+const builder = createCspBuilder()
+  .defaultSrc("'self'")
+  .scriptSrc("'self'", 'https://cdn.example.com')
+  .styleSrc("'self'", "'unsafe-inline'")
+  .imgSrc("'self'", 'data:', 'https:')
+  .upgradeInsecureRequests();
+
+app.use(
+  helmet({
+    contentSecurityPolicy: builder.toOptions(),
+  })
+);
 ```
 
 ### Nonce-Based CSP
 
-For inline scripts:
+For inline scripts without `'unsafe-inline'`:
 
 ```typescript
-app.use(contentSecurityPolicy({
-  directives: {
-    scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
-  },
-}));
+import { generateNonce, buildCspWithNonce, buildCspHeader } from '@nextrush/helmet';
 
-app.use((ctx, next) => {
-  ctx.state.nonce = crypto.randomUUID();
-  return next();
+app.use(async (ctx) => {
+  const nonce = generateNonce();
+  ctx.state.cspNonce = nonce;
+
+  const { cspOptions } = buildCspWithNonce(
+    {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'"],
+      },
+      generateNonce: true,
+    },
+    nonce
+  );
+
+  const header = buildCspHeader(cspOptions.directives ?? {});
+  ctx.set('Content-Security-Policy', header);
+  await ctx.next();
 });
 ```
 
-## HTTP Strict Transport Security
-
-```typescript
-app.use(hsts({
-  maxAge: 31536000,        // 1 year in seconds
-  includeSubDomains: true, // Apply to subdomains
-  preload: true,           // Submit to preload list
-}));
-```
-
-**Note**: Only enable `preload` if you've submitted to [hstspreload.org](https://hstspreload.org).
-
 ## Permissions Policy
 
-Control browser features:
+Control browser feature access. Use empty arrays to disable features, `['self']` for self-only.
 
 ```typescript
-app.use(permissionsPolicy({
-  features: {
-    geolocation: ["'self'"],
-    camera: ["'none'"],
-    microphone: ["'none'"],
-    payment: ["'self'", 'https://pay.example.com'],
-    fullscreen: ["'self'"],
-    accelerometer: ["'none'"],
-  },
-}));
+app.use(
+  helmet({
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: ['self'],
+      fullscreen: ['self'],
+      payment: ['self', 'https://pay.example.com'],
+    },
+  })
+);
 ```
 
-## Cross-Origin Policies
+Builder API:
 
 ```typescript
-app.use(helmet({
-  crossOriginOpenerPolicy: { policy: 'same-origin' },
-  crossOriginResourcePolicy: { policy: 'same-origin' },
-  crossOriginEmbedderPolicy: { policy: 'require-corp' },
-}));
+import { createPermissionsPolicyBuilder, restrictivePermissionsPolicy } from '@nextrush/helmet';
+
+// Builder
+const policy = createPermissionsPolicyBuilder()
+  .disable('camera', 'microphone', 'geolocation')
+  .allow('fullscreen', 'self')
+  .getDirectives();
+
+app.use(helmet({ permissionsPolicy: policy }));
+
+// Or use the restrictive preset
+app.use(helmet({ permissionsPolicy: restrictivePermissionsPolicy() }));
 ```
 
 ## API Reference
 
-### Main Export
+### `helmet(options?)`
+
+Create security headers middleware.
 
 ```typescript
-import { helmet } from '@nextrush/helmet';
-
-app.use(helmet(options?));
+function helmet(options?: HelmetOptions): HelmetMiddleware;
 ```
 
-### Individual Exports
-
-```typescript
-import {
-  // Main
-  helmet,
-
-  // Individual middleware
-  contentSecurityPolicy,
-  hsts,
-  frameguard,
-  noSniff,
-  xssFilter,
-  referrerPolicy,
-  dnsPrefetchControl,
-  permissionsPolicy,
-  crossOriginOpenerPolicy,
-  crossOriginResourcePolicy,
-  crossOriginEmbedderPolicy,
-  originAgentCluster,
-  ieNoOpen,
-  permittedCrossDomainPolicies,
-} from '@nextrush/helmet';
-```
-
-### Types
+### Exported Types
 
 ```typescript
 interface HelmetOptions {
   contentSecurityPolicy?: ContentSecurityPolicyOptions | false;
-  hsts?: HstsOptions | false;
-  frameguard?: FrameguardOptions | false;
+  crossOriginEmbedderPolicy?: CrossOriginEmbedderPolicyValue | false;
+  crossOriginOpenerPolicy?: CrossOriginOpenerPolicyValue | false;
+  crossOriginResourcePolicy?: CrossOriginResourcePolicyValue | false;
+  dnsPrefetchControl?: 'on' | 'off' | false;
+  frameguard?: 'DENY' | 'SAMEORIGIN' | false;
+  hsts?: StrictTransportSecurityOptions | false;
   noSniff?: boolean;
+  originAgentCluster?: boolean;
+  permissionsPolicy?: PermissionsPolicyDirectives | false;
+  referrerPolicy?: ReferrerPolicyValue | ReferrerPolicyValue[] | false;
   xssFilter?: boolean;
-  referrerPolicy?: ReferrerPolicyOptions | false;
-  dnsPrefetchControl?: DnsPrefetchControlOptions | false;
-  permissionsPolicy?: PermissionsPolicyOptions | false;
-  crossOriginOpenerPolicy?: CrossOriginOpenerPolicyOptions | false;
-  crossOriginResourcePolicy?: CrossOriginResourcePolicyOptions | false;
-  crossOriginEmbedderPolicy?: CrossOriginEmbedderPolicyOptions | false;
+  ieNoOpen?: boolean;
+  permittedCrossDomainPolicies?: 'none' | 'master-only' | 'by-content-type' | 'all' | false;
+  clearSiteData?: ClearSiteDataValue[] | false;
+  reportingEndpoints?: Record<string, string> | false;
 }
 
 interface ContentSecurityPolicyOptions {
-  directives: Record<string, string[] | boolean>;
+  directives?: ContentSecurityPolicyDirectives;
   reportOnly?: boolean;
+  useDefaults?: boolean;
 }
 
-interface HstsOptions {
-  maxAge?: number;
-  includeSubDomains?: boolean;
-  preload?: boolean;
+interface StrictTransportSecurityOptions {
+  maxAge?: number; // Default: 15552000 (180 days)
+  includeSubDomains?: boolean; // Default: true
+  preload?: boolean; // Default: false
 }
 ```
 
-## Common Configurations
-
-### API Server
+### Exported Functions
 
 ```typescript
-app.use(helmet({
-  contentSecurityPolicy: false, // APIs don't serve HTML
-  frameguard: false,
-  hsts: { maxAge: 31536000 },
-}));
-```
+// Main middleware
+helmet(options?: HelmetOptions): HelmetMiddleware;
 
-### Single Page App
+// Presets
+strictHelmet(overrides?: Partial<HelmetOptions>): HelmetMiddleware;
+apiHelmet(overrides?: Partial<HelmetOptions>): HelmetMiddleware;
+devHelmet(): HelmetMiddleware;
+staticHelmet(overrides?: Partial<HelmetOptions>): HelmetMiddleware;
+logoutHelmet(clearData?: ClearSiteDataValue[]): HelmetMiddleware;
 
-```typescript
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'api.example.com'],
-    },
-  },
-}));
-```
+// Individual header middleware
+contentSecurityPolicy(options?: ContentSecurityPolicyOptions): HelmetMiddleware;
+hsts(options?: StrictTransportSecurityOptions): HelmetMiddleware;
+frameguard(action?: 'DENY' | 'SAMEORIGIN'): HelmetMiddleware;
+noSniff(): HelmetMiddleware;
+referrerPolicy(policy?: ReferrerPolicyValue | ReferrerPolicyValue[]): HelmetMiddleware;
 
-### Embedding Allowed
+// CSP builders
+buildCspHeader(directives: ContentSecurityPolicyDirectives): string;
+buildCspWithNonce(options: CspWithNonceOptions, requestNonce?: string): { cspOptions: ContentSecurityPolicyOptions; nonce: string | null };
+createCspBuilder(): CspBuilder;
+analyzeCsp(directives: ContentSecurityPolicyDirectives): string[];
 
-```typescript
-app.use(helmet({
-  frameguard: false,
-  crossOriginEmbedderPolicy: false,
-}));
+// Permissions-Policy builders
+buildPermissionsPolicyHeader(directives: PermissionsPolicyDirectives): string;
+createPermissionsPolicyBuilder(): PermissionsPolicyBuilder;
+restrictivePermissionsPolicy(): PermissionsPolicyDirectives;
+
+// Nonce utilities
+generateNonce(length?: number): string;
+generateCspNonce(length?: number): string;
+extractNonce(cspNonce: string): string | null;
+createNonceProvider(length?: number): () => string;
+validateNonce(nonce: string): string | null;
+createNoncedScript(nonce: string, content: string): string;
+createNoncedStyle(nonce: string, content: string): string;
+
+// Validation
+sanitizeHeaderValue(value: string): string;
+sanitizeCspValue(value: string): string;
+isValidCspDirective(directive: string): boolean;
+isBooleanCspDirective(directive: string): boolean;
+isUnsafeCspValue(value: string): boolean;
+isValidNonce(nonce: string): boolean;
+isValidHash(hash: string): boolean;
+validateHstsOptions(options: StrictTransportSecurityOptions): HstsValidationResult;
+analyzeCspSecurity(directives: Record<string, unknown>): string[];
+isCspValueSafe(value: string): boolean;
+securityWarning(message: string, details?: Record<string, unknown>): void;
 ```
 
 ## Runtime Compatibility
 
-This package works across all JavaScript runtimes:
-
-| Runtime | Supported |
-|---------|-----------|
-| Node.js 20+ | ✅ |
-| Bun | ✅ |
-| Deno | ✅ |
-| Cloudflare Workers | ✅ |
-| Vercel Edge Runtime | ✅ |
+| Runtime             | Supported |
+| ------------------- | --------- |
+| Node.js >=22        | ✅        |
+| Bun                 | ✅        |
+| Deno                | ✅        |
+| Cloudflare Workers  | ✅        |
+| Vercel Edge Runtime | ✅        |
 
 ## License
 

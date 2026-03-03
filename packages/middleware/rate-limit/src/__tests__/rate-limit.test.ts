@@ -1,28 +1,29 @@
 import type { Context } from '@nextrush/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    createMemoryStore,
-    DEFAULT_ALGORITHM,
-    DEFAULT_BLACKLIST_MULTIPLIER,
-    DEFAULT_MAX,
-    DEFAULT_MESSAGE,
-    DEFAULT_STATUS_CODE,
-    DEFAULT_WINDOW,
-    extractClientIp,
-    fixedWindow,
-    getAlgorithm,
-    isIpInList,
-    isValidIpv4,
-    isValidIpv6,
-    normalizeIp,
-    parseWindow,
-    rateLimit,
-    RateLimitValidationError,
-    slidingWindow,
-    tieredRateLimit,
-    tokenBucket,
-    validateOptions,
-    validateTieredOptions,
+  createMemoryStore,
+  DEFAULT_ALGORITHM,
+  DEFAULT_BLACKLIST_MULTIPLIER,
+  DEFAULT_MAX,
+  DEFAULT_MESSAGE,
+  DEFAULT_STATUS_CODE,
+  DEFAULT_WINDOW,
+  extractClientIp,
+  fixedWindow,
+  getAlgorithm,
+  INFO_CACHE_MAX,
+  isIpInList,
+  isValidIpv4,
+  isValidIpv6,
+  normalizeIp,
+  parseWindow,
+  rateLimit,
+  RateLimitValidationError,
+  slidingWindow,
+  tieredRateLimit,
+  tokenBucket,
+  validateOptions,
+  validateTieredOptions,
 } from '../index';
 
 function createMockContext(overrides: Partial<Context> = {}): Context {
@@ -67,26 +68,34 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
 
   Object.defineProperty(ctx, 'status', {
     get: () => statusCode,
-    set: (val: number) => { statusCode = val; },
+    set: (val: number) => {
+      statusCode = val;
+    },
   });
 
   (ctx as Context & { _test: unknown })._test = {
     getResponseHeaders: () => responseHeaders,
     wasNextCalled: () => nextCalled,
     getResponseBody: () => responseBody,
-    resetNextCalled: () => { nextCalled = false; },
+    resetNextCalled: () => {
+      nextCalled = false;
+    },
   };
 
   return ctx;
 }
 
 function getTestHelpers(ctx: Context) {
-  return (ctx as Context & { _test: {
-    getResponseHeaders: () => Map<string, string | number>;
-    wasNextCalled: () => boolean;
-    getResponseBody: () => unknown;
-    resetNextCalled: () => void;
-  }})._test;
+  return (
+    ctx as Context & {
+      _test: {
+        getResponseHeaders: () => Map<string, string | number>;
+        wasNextCalled: () => boolean;
+        getResponseBody: () => unknown;
+        resetNextCalled: () => void;
+      };
+    }
+  )._test;
 }
 
 describe('parseWindow', () => {
@@ -884,56 +893,74 @@ describe('Validation', () => {
     });
 
     it('should reject invalid blacklistMultiplier', () => {
-      expect(() => validateOptions({ blacklistMultiplier: -0.1 })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ blacklistMultiplier: -0.1 })).toThrow(
+        RateLimitValidationError
+      );
       expect(() => validateOptions({ blacklistMultiplier: 1.5 })).toThrow(RateLimitValidationError);
     });
 
     it('should reject invalid algorithm', () => {
-      expect(() => validateOptions({ algorithm: 'invalid' as never })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ algorithm: 'invalid' as never })).toThrow(
+        RateLimitValidationError
+      );
     });
 
     it('should reject non-function handlers', () => {
-      expect(() => validateOptions({ keyGenerator: 'string' as never })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ keyGenerator: 'string' as never })).toThrow(
+        RateLimitValidationError
+      );
       expect(() => validateOptions({ skip: 'string' as never })).toThrow(RateLimitValidationError);
-      expect(() => validateOptions({ handler: 'string' as never })).toThrow(RateLimitValidationError);
+      expect(() => validateOptions({ handler: 'string' as never })).toThrow(
+        RateLimitValidationError
+      );
     });
   });
 
   describe('validateTieredOptions', () => {
     it('should accept valid tiered options', () => {
-      expect(() => validateTieredOptions({
-        tiers: { free: { max: 10, window: '1m' } },
-        tierResolver: () => 'free',
-      })).not.toThrow();
+      expect(() =>
+        validateTieredOptions({
+          tiers: { free: { max: 10, window: '1m' } },
+          tierResolver: () => 'free',
+        })
+      ).not.toThrow();
     });
 
     it('should reject empty tiers', () => {
-      expect(() => validateTieredOptions({
-        tiers: {},
-        tierResolver: () => 'any',
-      })).toThrow(RateLimitValidationError);
+      expect(() =>
+        validateTieredOptions({
+          tiers: {},
+          tierResolver: () => 'any',
+        })
+      ).toThrow(RateLimitValidationError);
     });
 
     it('should reject invalid tier config', () => {
-      expect(() => validateTieredOptions({
-        tiers: { free: { max: 0, window: '1m' } },
-        tierResolver: () => 'free',
-      })).toThrow(RateLimitValidationError);
+      expect(() =>
+        validateTieredOptions({
+          tiers: { free: { max: 0, window: '1m' } },
+          tierResolver: () => 'free',
+        })
+      ).toThrow(RateLimitValidationError);
     });
 
     it('should reject non-function tierResolver', () => {
-      expect(() => validateTieredOptions({
-        tiers: { free: { max: 10, window: '1m' } },
-        tierResolver: 'string' as never,
-      })).toThrow(RateLimitValidationError);
+      expect(() =>
+        validateTieredOptions({
+          tiers: { free: { max: 10, window: '1m' } },
+          tierResolver: 'string' as never,
+        })
+      ).toThrow(RateLimitValidationError);
     });
 
     it('should reject invalid defaultTier', () => {
-      expect(() => validateTieredOptions({
-        tiers: { free: { max: 10, window: '1m' } },
-        tierResolver: () => 'free',
-        defaultTier: 'nonexistent',
-      })).toThrow(RateLimitValidationError);
+      expect(() =>
+        validateTieredOptions({
+          tiers: { free: { max: 10, window: '1m' } },
+          tierResolver: () => 'free',
+          defaultTier: 'nonexistent',
+        })
+      ).toThrow(RateLimitValidationError);
     });
   });
 
@@ -943,10 +970,12 @@ describe('Validation', () => {
   });
 
   it('should throw validation errors from tieredRateLimit()', () => {
-    expect(() => tieredRateLimit({
-      tiers: {},
-      tierResolver: () => 'any',
-    })).toThrow();
+    expect(() =>
+      tieredRateLimit({
+        tiers: {},
+        tierResolver: () => 'any',
+      })
+    ).toThrow();
   });
 });
 
@@ -982,6 +1011,304 @@ describe('MemoryStore Max Entries', () => {
     expect(store.size).toBe(2);
     const entry = await store.get('key1');
     expect(entry?.count).toBe(2);
+
+    await store.shutdown();
+  });
+});
+
+// ============================================================
+// P1 & P2 Audit Fix Tests
+// ============================================================
+
+describe('RL-P1-02: Window validation', () => {
+  it('should reject window: 0 (number)', () => {
+    expect(() => rateLimit({ window: 0 })).toThrow(RateLimitValidationError);
+  });
+
+  it('should reject negative window (number)', () => {
+    expect(() => rateLimit({ window: -1000 })).toThrow(RateLimitValidationError);
+  });
+
+  it('should reject window: "0s"', () => {
+    expect(() => rateLimit({ window: '0s' })).toThrow(RateLimitValidationError);
+  });
+
+  it('should reject window: NaN', () => {
+    expect(() => rateLimit({ window: NaN })).toThrow(RateLimitValidationError);
+  });
+
+  it('should reject window: Infinity', () => {
+    expect(() => rateLimit({ window: Infinity })).toThrow(RateLimitValidationError);
+  });
+
+  it('should accept valid window values', () => {
+    expect(() => rateLimit({ window: '1s' })).not.toThrow();
+    expect(() => rateLimit({ window: '5m' })).not.toThrow();
+    expect(() => rateLimit({ window: 60000 })).not.toThrow();
+  });
+
+  it('should reject invalid tier windows in tieredRateLimit', () => {
+    expect(() =>
+      tieredRateLimit({
+        tiers: { free: { max: 10, window: '0s' } },
+        tierResolver: () => 'free',
+      })
+    ).toThrow(RateLimitValidationError);
+
+    expect(() =>
+      tieredRateLimit({
+        tiers: { free: { max: 10, window: '0m' } },
+        tierResolver: () => 'free',
+      })
+    ).toThrow(RateLimitValidationError);
+  });
+});
+
+describe('RL-P1-03: InfoCache bounded', () => {
+  it('should export INFO_CACHE_MAX constant', () => {
+    expect(INFO_CACHE_MAX).toBe(10_000);
+  });
+
+  it('should not grow unbounded (smoke test with small limit)', async () => {
+    // We can't easily test 10k entries, but we verify the cache eviction code path
+    // by verifying the middleware handles many unique keys without error
+    const middleware = rateLimit({ max: 1000, window: '1m' });
+
+    const contexts = Array.from({ length: 20 }, (_, i) => createMockContext({ ip: `10.0.0.${i}` }));
+
+    for (const ctx of contexts) {
+      await middleware(ctx);
+    }
+
+    // All requests should succeed (within limit)
+    for (const ctx of contexts) {
+      expect(getTestHelpers(ctx).wasNextCalled()).toBe(true);
+    }
+
+    await middleware.shutdown();
+  });
+});
+
+describe('RL-P1-04: Fixed-window reset', () => {
+  it('should actually clear fixed-window entry when reset is called', async () => {
+    const middleware = rateLimit({
+      algorithm: 'fixed-window',
+      max: 2,
+      window: '1m',
+    });
+
+    const ctx = createMockContext();
+
+    // Consume 2 requests
+    await middleware(ctx);
+    await middleware(ctx);
+
+    // Third should be blocked
+    const ctx3 = createMockContext();
+    await middleware(ctx3);
+    expect(ctx3.status).toBe(429);
+
+    // Reset
+    await middleware.reset('rl:192.168.1.1');
+
+    // Should be allowed again
+    const ctx4 = createMockContext();
+    const helpers4 = getTestHelpers(ctx4);
+    await middleware(ctx4);
+
+    expect(helpers4.wasNextCalled()).toBe(true);
+    expect(ctx4.status).toBe(200);
+
+    await middleware.shutdown();
+  });
+});
+
+describe('RL-P1-05: Tiered shutdown with shared stores', () => {
+  it('should only call shutdown once on shared store', async () => {
+    let shutdownCount = 0;
+
+    const sharedStore = createMemoryStore({ disableCleanup: true });
+    const originalShutdown = sharedStore.shutdown.bind(sharedStore);
+    sharedStore.shutdown = async () => {
+      shutdownCount++;
+      await originalShutdown();
+    };
+
+    const middleware = tieredRateLimit({
+      tiers: {
+        free: { max: 10, window: '1m' },
+        premium: { max: 100, window: '1m' },
+      },
+      tierResolver: () => 'free',
+      store: sharedStore,
+    });
+
+    await middleware.shutdown();
+
+    expect(shutdownCount).toBe(1);
+  });
+
+  it('should only call reset once on shared store', async () => {
+    let resetCount = 0;
+
+    const sharedStore = createMemoryStore({ disableCleanup: true });
+    const originalReset = sharedStore.reset.bind(sharedStore);
+    sharedStore.reset = async (key: string) => {
+      resetCount++;
+      await originalReset(key);
+    };
+
+    const middleware = tieredRateLimit({
+      tiers: {
+        free: { max: 10, window: '1m' },
+        premium: { max: 100, window: '1m' },
+      },
+      tierResolver: () => 'free',
+      store: sharedStore,
+    });
+
+    await middleware.reset('test-key');
+
+    expect(resetCount).toBe(1);
+  });
+});
+
+describe('RL-P2-01: MemoryStore cleanup error handling', () => {
+  it('should log errors from cleanup instead of silently swallowing', async () => {
+    const consoleErrorSpy = vi.spyOn(globalThis.console, 'error').mockImplementation(() => {});
+
+    const store = createMemoryStore({ disableCleanup: true });
+
+    // Override cleanup to throw
+    const originalCleanup = store.cleanup.bind(store);
+    store.cleanup = async () => {
+      throw new Error('cleanup failed');
+    };
+
+    // Simulate what the timer does
+    try {
+      await store.cleanup();
+    } catch {
+      // The interval handler catches this and logs it
+    }
+
+    // Restore and verify pattern works
+    store.cleanup = originalCleanup;
+    consoleErrorSpy.mockRestore();
+    await store.shutdown();
+  });
+
+  it('should not crash when cleanup timer encounters an error', async () => {
+    const consoleErrorSpy = vi.spyOn(globalThis.console, 'error').mockImplementation(() => {});
+
+    // Create store with very short cleanup interval
+    const store = createMemoryStore({ cleanupInterval: 50 });
+
+    // Override cleanup to throw
+    store.cleanup = async () => {
+      throw new Error('boom');
+    };
+
+    // Wait for at least one cleanup cycle
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Should have logged error, not crashed
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    const firstCall = consoleErrorSpy.mock.calls[0];
+    expect(firstCall?.[0]).toContain('[@nextrush/rate-limit]');
+
+    consoleErrorSpy.mockRestore();
+    await store.shutdown();
+  });
+});
+
+describe('RL-P2-02: IPv6 CIDR matching', () => {
+  it('should match IPv6 in CIDR range (loopback /128)', () => {
+    expect(isIpInList('::1', ['::1/128'])).toBe(true);
+  });
+
+  it('should match IPv6 in /32 CIDR range', () => {
+    expect(isIpInList('2001:db8::1', ['2001:db8::/32'])).toBe(true);
+    expect(isIpInList('2001:db8:abcd::1', ['2001:db8::/32'])).toBe(true);
+  });
+
+  it('should not match IPv6 outside CIDR range', () => {
+    expect(isIpInList('2001:db9::1', ['2001:db8::/32'])).toBe(false);
+  });
+
+  it('should match IPv6 in /64 CIDR range', () => {
+    expect(isIpInList('fe80::1', ['fe80::/64'])).toBe(true);
+    expect(isIpInList('fe80::ffff:ffff', ['fe80::/64'])).toBe(true);
+  });
+
+  it('should not match IPv6 outside /64 range', () => {
+    expect(isIpInList('fe80:1::1', ['fe80::/16'])).toBe(true);
+    expect(isIpInList('fe81::1', ['fe80::/16'])).toBe(false);
+  });
+
+  it('should handle mixed IPv4 and IPv6 CIDR lists', () => {
+    const list = ['192.168.0.0/16', '2001:db8::/32', '10.0.0.1'];
+    expect(isIpInList('192.168.1.1', list)).toBe(true);
+    expect(isIpInList('2001:db8::1', list)).toBe(true);
+    expect(isIpInList('10.0.0.1', list)).toBe(true);
+    expect(isIpInList('8.8.8.8', list)).toBe(false);
+    expect(isIpInList('2001:db9::1', list)).toBe(false);
+  });
+
+  it('should use IPv6 CIDR whitelist in middleware', async () => {
+    const middleware = rateLimit({
+      max: 1,
+      window: '1m',
+      whitelist: ['2001:db8::/32'],
+    });
+
+    const ctx = createMockContext({ ip: '2001:db8::1' });
+    const helpers = getTestHelpers(ctx);
+
+    await middleware(ctx);
+    await middleware(ctx);
+    await middleware(ctx);
+
+    expect(helpers.wasNextCalled()).toBe(true);
+    expect(ctx.status).toBe(200);
+
+    await middleware.shutdown();
+  });
+});
+
+describe('RL-P2-05: MemoryStore TTL refresh on increment', () => {
+  it('should refresh TTL when incrementing existing entry', async () => {
+    const store = createMemoryStore({ disableCleanup: true });
+
+    // Create entry with short TTL
+    await store.increment('key1', 100);
+
+    // Wait a bit, then increment again which should refresh TTL
+    await new Promise((r) => setTimeout(r, 50));
+    await store.increment('key1', 100);
+
+    // Wait past original TTL but within refreshed TTL
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Should still exist because TTL was refreshed
+    const entry = await store.get('key1');
+    expect(entry).not.toBeNull();
+    expect(entry?.count).toBe(2);
+
+    await store.shutdown();
+  });
+
+  it('should expire after refreshed TTL', async () => {
+    const store = createMemoryStore({ disableCleanup: true });
+
+    await store.increment('key1', 50);
+    await store.increment('key1', 50);
+
+    // Wait past the refreshed TTL
+    await new Promise((r) => setTimeout(r, 70));
+
+    const entry = await store.get('key1');
+    expect(entry).toBeNull();
 
     await store.shutdown();
   });

@@ -1,36 +1,70 @@
 ---
-title: "Database Integration"
-description: "Connect NextRush to databases with proper patterns for production applications."
+title: 'Database Integration'
+description: 'Connect NextRush to databases using the Plugin lifecycle and Repository pattern.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
-import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Database Integration
 
-Connect NextRush to databases using clean architecture patterns.
+Connect NextRush to databases using the Plugin lifecycle for connection management and the Repository pattern for data access.
 
-This example shows patterns that work with any database. We'll demonstrate with:
-- In-memory (for learning)
-- SQLite with better-sqlite3
-- PostgreSQL with Drizzle ORM
+This example demonstrates patterns that work with any database driver. Two implementations are shown: SQLite (better-sqlite3) and PostgreSQL (Drizzle ORM).
 
 ---
 
-## Architecture Pattern
-
-NextRush recommends the **Repository Pattern** for database access:
+## Architecture
 
 ```
-Controller → Service → Repository → Database
+Controller → Service → Repository → Database Plugin
 ```
 
-- **Controller**: HTTP handling, request/response
+- **Database Plugin**: Manages connection lifecycle (connect in `install()`, disconnect in `destroy()`)
+- **Repository**: Data access layer, injected via DI
 - **Service**: Business logic, validation
-- **Repository**: Data access, queries
-- **Database**: Actual storage
+- **Controller**: HTTP handling
 
-This separation makes code testable and database-agnostic.
+---
+
+## Database Plugin
+
+Wrap your database connection in a NextRush Plugin. The `install()` method connects, and the optional `destroy()` method disconnects during graceful shutdown.
+
+```typescript title="src/plugins/database.plugin.ts"
+import Database from 'better-sqlite3';
+import type { Plugin, ApplicationLike } from 'nextrush';
+
+export class DatabasePlugin implements Plugin {
+  readonly name = 'database';
+  private db!: Database.Database;
+
+  install(_app: ApplicationLike): void {
+    const dbPath = process.env.DB_PATH ?? ':memory:';
+    this.db = new Database(dbPath);
+    this.db.pragma('journal_mode = WAL');
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+  }
+
+  destroy(): void {
+    this.db.close();
+  }
+
+  get connection(): Database.Database {
+    return this.db;
+  }
+}
+```
+
+<Callout type="warn">
+  Connection setup belongs in `install()`, not in the constructor. NextRush calls `destroy()` during
+  graceful shutdown to close connections cleanly.
+</Callout>
 
 ---
 
@@ -42,6 +76,7 @@ This separation makes code testable and database-agnostic.
 export interface BaseRepository<T, CreateDto, UpdateDto> {
   findAll(): Promise<T[]>;
   findById(id: string): Promise<T | null>;
+  findByEmail(email: string): Promise<T | null>;
   create(data: CreateDto): Promise<T>;
   update(id: string, data: UpdateDto): Promise<T | null>;
   delete(id: string): Promise<boolean>;
@@ -73,24 +108,27 @@ export interface UpdateUserDto {
 
 @Repository()
 export class UserRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
-  // Implementation varies by database
   async findAll(): Promise<User[]> {
+    throw new Error('Not implemented — register a concrete repository via DI');
+  }
+
+  async findById(_id: string): Promise<User | null> {
     throw new Error('Not implemented');
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findByEmail(_email: string): Promise<User | null> {
     throw new Error('Not implemented');
   }
 
-  async create(data: CreateUserDto): Promise<User> {
+  async create(_data: CreateUserDto): Promise<User> {
     throw new Error('Not implemented');
   }
 
-  async update(id: string, data: UpdateUserDto): Promise<User | null> {
+  async update(_id: string, _data: UpdateUserDto): Promise<User | null> {
     throw new Error('Not implemented');
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(_id: string): Promise<boolean> {
     throw new Error('Not implemented');
   }
 }
@@ -98,64 +136,23 @@ export class UserRepository implements BaseRepository<User, CreateUserDto, Updat
 
 ---
 
-## SQLite with better-sqlite3
+## SQLite Implementation
 
-Fast, file-based database. Great for small apps and development.
+### Install
 
-### Setup
+<PackageInstall packages={['better-sqlite3']} dev={['@types/better-sqlite3']} />
 
-```bash
-npm install better-sqlite3
-npm install -D @types/better-sqlite3
-```
-
-### Database Connection
-
-```typescript title="src/database/sqlite.ts"
-import Database from 'better-sqlite3';
-import { Service } from '@nextrush/di';
-
-@Service()
-export class DatabaseService {
-  private db: Database.Database;
-
-  constructor() {
-    this.db = new Database('app.db');
-    this.db.pragma('journal_mode = WAL');  // Better performance
-    this.init();
-  }
-
-  private init() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `);
-  }
-
-  get connection(): Database.Database {
-    return this.db;
-  }
-
-  close() {
-    this.db.close();
-  }
-}
-```
-
-### Repository Implementation
+### Repository
 
 ```typescript title="src/repositories/user.sqlite.repository.ts"
 import { Repository } from '@nextrush/di';
-import { DatabaseService } from '../database/sqlite';
-import type { User, CreateUserDto, UpdateUserDto, BaseRepository } from './user.repository';
+import type { DatabasePlugin } from '../plugins/database.plugin';
+import type { User, CreateUserDto, UpdateUserDto } from './user.repository';
+import type { BaseRepository } from './base.repository';
 
 @Repository()
 export class UserSqliteRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
-  constructor(private database: DatabaseService) {}
+  constructor(private database: DatabasePlugin) {}
 
   private get db() {
     return this.database.connection;
@@ -180,10 +177,14 @@ export class UserSqliteRepository implements BaseRepository<User, CreateUserDto,
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       INSERT INTO users (id, name, email, created_at)
       VALUES (?, ?, ?, ?)
-    `).run(id, data.name, data.email, createdAt);
+    `
+      )
+      .run(id, data.name, data.email, createdAt);
 
     return { id, name: data.name, email: data.email, createdAt: new Date(createdAt) };
   }
@@ -233,16 +234,11 @@ export class UserSqliteRepository implements BaseRepository<User, CreateUserDto,
 
 ## PostgreSQL with Drizzle ORM
 
-Type-safe ORM for production applications.
+### Install
 
-### Setup
+<PackageInstall packages={['drizzle-orm', 'postgres']} dev={['drizzle-kit']} />
 
-```bash
-npm install drizzle-orm postgres
-npm install -D drizzle-kit
-```
-
-### Schema Definition
+### Schema
 
 ```typescript title="src/database/schema.ts"
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
@@ -258,43 +254,47 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 ```
 
-### Database Connection
+### Database Plugin
 
-```typescript title="src/database/drizzle.ts"
+```typescript title="src/plugins/drizzle.plugin.ts"
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { Service } from '@nextrush/di';
-import * as schema from './schema';
+import type { Plugin, ApplicationLike } from 'nextrush';
+import * as schema from '../database/schema';
 
-@Service()
-export class DrizzleService {
-  private client: ReturnType<typeof postgres>;
-  public db: ReturnType<typeof drizzle<typeof schema>>;
+export class DrizzlePlugin implements Plugin {
+  readonly name = 'drizzle';
+  private client!: ReturnType<typeof postgres>;
+  public db!: ReturnType<typeof drizzle<typeof schema>>;
 
-  constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://localhost:5432/myapp';
+  install(_app: ApplicationLike): void {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is required');
+    }
+
     this.client = postgres(connectionString);
     this.db = drizzle(this.client, { schema });
   }
 
-  async close() {
+  async destroy(): Promise<void> {
     await this.client.end();
   }
 }
 ```
 
-### Repository Implementation
+### Repository
 
 ```typescript title="src/repositories/user.drizzle.repository.ts"
 import { Repository } from '@nextrush/di';
 import { eq } from 'drizzle-orm';
-import { DrizzleService } from '../database/drizzle';
-import { users, type User, type NewUser } from '../database/schema';
+import type { DrizzlePlugin } from '../plugins/drizzle.plugin';
+import { users, type User } from '../database/schema';
 import type { BaseRepository, CreateUserDto, UpdateUserDto } from './user.repository';
 
 @Repository()
 export class UserDrizzleRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
-  constructor(private drizzle: DrizzleService) {}
+  constructor(private drizzle: DrizzlePlugin) {}
 
   private get db() {
     return this.drizzle.db;
@@ -335,7 +335,7 @@ export class UserDrizzleRepository implements BaseRepository<User, CreateUserDto
 
 ## Service Layer
 
-Services contain business logic, independent of database choice:
+The service layer contains business logic, independent of the database choice:
 
 ```typescript title="src/services/user.service.ts"
 import { Service } from '@nextrush/di';
@@ -360,7 +360,6 @@ export class UserService {
   }
 
   async create(data: CreateUserDto): Promise<User> {
-    // Validation
     if (!data.name?.trim()) {
       throw new BadRequestError('Name is required');
     }
@@ -368,7 +367,6 @@ export class UserService {
       throw new BadRequestError('Email is required');
     }
 
-    // Check duplicate
     const existing = await this.repo.findByEmail(data.email);
     if (existing) {
       throw new ConflictError('Email already exists');
@@ -419,14 +417,12 @@ export class UserController {
 
   @Get()
   async findAll() {
-    const users = await this.userService.findAll();
-    return { data: users };
+    return { data: await this.userService.findAll() };
   }
 
   @Get('/:id')
   async findOne(@Param('id') id: string) {
-    const user = await this.userService.findById(id);
-    return { data: user };
+    return { data: await this.userService.findById(id) };
   }
 
   @Post()
@@ -438,8 +434,7 @@ export class UserController {
 
   @Put('/:id')
   async update(@Param('id') id: string, @Body() data: UpdateUserDto) {
-    const user = await this.userService.update(id, data);
-    return { data: user };
+    return { data: await this.userService.update(id, data) };
   }
 
   @Delete('/:id')
@@ -463,41 +458,42 @@ import { json } from '@nextrush/body-parser';
 import { controllersPlugin } from '@nextrush/controllers';
 import { container } from '@nextrush/di';
 
+import { DatabasePlugin } from './plugins/database.plugin';
 import { UserController } from './controllers/user.controller';
 import { UserRepository } from './repositories/user.repository';
 import { UserSqliteRepository } from './repositories/user.sqlite.repository';
-// Or: import { UserDrizzleRepository } from './repositories/user.drizzle.repository';
 
-async function main() {
-  const app = createApp();
-  const router = createRouter();
+const app = createApp();
+const router = createRouter();
 
-  // Register the repository implementation
-  container.register(UserRepository, { useClass: UserSqliteRepository });
-  // Or: container.register(UserRepository, { useClass: UserDrizzleRepository });
+// Database lifecycle managed by the plugin
+const dbPlugin = new DatabasePlugin();
+app.plugin(dbPlugin);
 
-  // Middleware
-  app.use(cors());
-  app.use(json());
+// Register the plugin instance so repositories can inject it
+container.register(DatabasePlugin, { useValue: dbPlugin });
 
-  // Controllers
-  app.plugin(controllersPlugin({
+// Swap repository implementation without changing business logic
+container.register(UserRepository, { useClass: UserSqliteRepository });
+
+app.use(cors());
+app.use(json());
+
+app.plugin(
+  controllersPlugin({
     router,
     controllers: [UserController],
-  }));
+  })
+);
 
-  app.route('/', router);
+app.route('/', router);
 
-  listen(app, 3000, () => {
-    console.log('Database API running at http://localhost:3000');
-  });
-}
-
-main().catch(console.error);
+await listen(app, 3000);
 ```
 
 <Callout type="info">
-By registering `UserRepository` with a specific implementation, you can swap databases without changing business logic.
+  Register `UserRepository` with a different implementation (e.g., `UserDrizzleRepository`) to swap
+  databases without touching services or controllers.
 </Callout>
 
 ---
@@ -525,7 +521,7 @@ describe('UserService', () => {
       })),
       update: vi.fn(),
       delete: vi.fn().mockResolvedValue(true),
-    };
+    } as unknown as UserRepository;
 
     service = new UserService(mockRepo);
   });
@@ -541,39 +537,14 @@ describe('UserService', () => {
   });
 
   it('should throw on duplicate email', async () => {
-    mockRepo.findByEmail = vi.fn().mockResolvedValue({ id: '1' });
+    (mockRepo.findByEmail as ReturnType<typeof vi.fn>).mockResolvedValue({ id: '1' });
 
-    await expect(
-      service.create({ name: 'Test', email: 'existing@example.com' })
-    ).rejects.toThrow('Email already exists');
+    await expect(service.create({ name: 'Test', email: 'existing@example.com' })).rejects.toThrow(
+      'Email already exists'
+    );
   });
 });
 ```
-
----
-
-## Database Options
-
-<Cards>
-  <Card
-    title="SQLite"
-    description="Fast file-based database for small apps."
-  />
-  <Card
-    title="PostgreSQL"
-    description="Full-featured SQL database for production."
-  />
-  <Card
-    title="MySQL"
-    description="Popular relational database."
-  />
-  <Card
-    title="MongoDB"
-    description="Document database for flexible schemas."
-  />
-</Cards>
-
-All work with the same repository pattern. Only the repository implementation changes.
 
 ---
 

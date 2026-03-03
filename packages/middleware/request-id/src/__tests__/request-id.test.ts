@@ -1,24 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-    CORRELATION_HEADER,
-    CORRELATION_STATE_KEY,
-    DEFAULT_HEADER,
-    DEFAULT_MAX_LENGTH,
-    DEFAULT_STATE_KEY,
-    TRACE_HEADER,
-    TRACE_STATE_KEY,
-    correlationId,
-    createValidator,
-    defaultGenerator,
-    defaultValidator,
-    isSafeId,
-    isValidLength,
-    isValidUuid,
-    permissiveValidator,
-    requestId,
-    traceId,
-    validateId,
+  CORRELATION_HEADER,
+  CORRELATION_STATE_KEY,
+  DEFAULT_HEADER,
+  DEFAULT_MAX_LENGTH,
+  DEFAULT_STATE_KEY,
+  TRACE_HEADER,
+  TRACE_STATE_KEY,
+  correlationId,
+  createValidator,
+  defaultGenerator,
+  defaultValidator,
+  isSafeId,
+  isValidLength,
+  isValidUuid,
+  permissiveValidator,
+  requestId,
+  traceId,
+  validateId,
 } from '../index';
 import type { RequestIdContext } from '../types';
 
@@ -178,10 +178,11 @@ describe('@nextrush/request-id', () => {
     });
 
     describe('permissiveValidator', () => {
-      it('should accept any safe ID within length limits', () => {
+      it('should accept any safe ID (character check only)', () => {
         expect(permissiveValidator('my-custom-id-123')).toBe(true);
         expect(permissiveValidator('a'.repeat(128))).toBe(true);
-        expect(permissiveValidator('a'.repeat(129))).toBe(false);
+        // Length is no longer checked by permissiveValidator (handled by middleware)
+        expect(permissiveValidator('a'.repeat(129))).toBe(true);
       });
     });
   });
@@ -222,7 +223,19 @@ describe('@nextrush/request-id', () => {
       expect(ctx._nextCalled()).toBe(true);
     });
 
-    it('should trust valid incoming UUID by default', async () => {
+    it('should trust valid incoming UUID when trustIncoming is true', async () => {
+      const incomingId = '550e8400-e29b-41d4-a716-446655440000';
+      const middleware = requestId({ trustIncoming: true });
+      const ctx = createMockContext({
+        headers: { 'X-Request-Id': incomingId },
+      });
+
+      await middleware(ctx);
+
+      expect(ctx.state.requestId).toBe(incomingId);
+    });
+
+    it('should not trust incoming IDs by default (secure-by-default)', async () => {
       const incomingId = '550e8400-e29b-41d4-a716-446655440000';
       const middleware = requestId();
       const ctx = createMockContext({
@@ -231,7 +244,7 @@ describe('@nextrush/request-id', () => {
 
       await middleware(ctx);
 
-      expect(ctx.state.requestId).toBe(incomingId);
+      expect(ctx.state.requestId).not.toBe(incomingId);
     });
 
     it('should reject invalid incoming ID and generate new one', async () => {
@@ -266,7 +279,7 @@ describe('@nextrush/request-id', () => {
 
     it('should use custom header name with valid ID', async () => {
       const validUuid = '550e8400-e29b-41d4-a716-446655440000';
-      const middleware = requestId({ header: 'X-Custom-Id' });
+      const middleware = requestId({ header: 'X-Custom-Id', trustIncoming: true });
       const ctx = createMockContext({
         headers: { 'X-Custom-Id': validUuid },
       });
@@ -301,7 +314,7 @@ describe('@nextrush/request-id', () => {
 
     it('should use custom validator for permissive IDs', async () => {
       const customId = 'my-custom-non-uuid-id';
-      const middleware = requestId({ validator: permissiveValidator });
+      const middleware = requestId({ validator: permissiveValidator, trustIncoming: true });
       const ctx = createMockContext({
         headers: { 'X-Request-Id': customId },
       });
@@ -367,7 +380,7 @@ describe('@nextrush/request-id', () => {
 
     it('should trust valid incoming correlation ID', async () => {
       const incomingId = '550e8400-e29b-41d4-a716-446655440000';
-      const middleware = correlationId();
+      const middleware = correlationId({ trustIncoming: true });
       const ctx = createMockContext({
         headers: { 'X-Correlation-Id': incomingId },
       });
@@ -379,7 +392,7 @@ describe('@nextrush/request-id', () => {
 
     it('should accept permissive IDs with custom validator', async () => {
       const customId = 'correlation-123';
-      const middleware = correlationId({ validator: permissiveValidator });
+      const middleware = correlationId({ validator: permissiveValidator, trustIncoming: true });
       const ctx = createMockContext({
         headers: { 'X-Correlation-Id': customId },
       });
@@ -417,7 +430,7 @@ describe('@nextrush/request-id', () => {
 
     it('should trust valid incoming trace ID', async () => {
       const incomingId = '550e8400-e29b-41d4-a716-446655440000';
-      const middleware = traceId();
+      const middleware = traceId({ trustIncoming: true });
       const ctx = createMockContext({
         headers: { 'X-Trace-Id': incomingId },
       });
@@ -429,7 +442,7 @@ describe('@nextrush/request-id', () => {
 
     it('should accept permissive IDs with custom validator', async () => {
       const customId = 'trace-456';
-      const middleware = traceId({ validator: permissiveValidator });
+      const middleware = traceId({ validator: permissiveValidator, trustIncoming: true });
       const ctx = createMockContext({
         headers: { 'X-Trace-Id': customId },
       });
@@ -555,6 +568,129 @@ describe('@nextrush/request-id', () => {
     it('should not use any Node.js-specific APIs', () => {
       // crypto.randomUUID() is available in all modern runtimes
       expect(typeof crypto.randomUUID).toBe('function');
+    });
+  });
+
+  // ============================================================================
+  // Production Hardening Tests
+  // ============================================================================
+
+  describe('production hardening', () => {
+    describe('header name validation', () => {
+      it('should reject header names with CRLF characters', () => {
+        expect(() => requestId({ header: 'X-Bad\r\nHeader' })).toThrow(
+          '[@nextrush/request-id] Invalid header name'
+        );
+      });
+
+      it('should reject header names with null bytes', () => {
+        expect(() => requestId({ header: 'X-Bad\x00Header' })).toThrow(
+          '[@nextrush/request-id] Invalid header name'
+        );
+      });
+
+      it('should reject header names with spaces', () => {
+        expect(() => requestId({ header: 'X Bad Header' })).toThrow(
+          '[@nextrush/request-id] Invalid header name'
+        );
+      });
+
+      it('should accept valid HTTP token header names', () => {
+        expect(() => requestId({ header: 'X-Custom-Request-Id' })).not.toThrow();
+        expect(() => requestId({ header: 'X_Custom_ID' })).not.toThrow();
+      });
+    });
+
+    describe('stateKey prototype pollution guard', () => {
+      it('should reject __proto__ as stateKey', () => {
+        expect(() => requestId({ stateKey: '__proto__' })).toThrow(
+          '[@nextrush/request-id] Unsafe stateKey'
+        );
+      });
+
+      it('should reject prototype as stateKey', () => {
+        expect(() => requestId({ stateKey: 'prototype' })).toThrow(
+          '[@nextrush/request-id] Unsafe stateKey'
+        );
+      });
+
+      it('should reject constructor as stateKey', () => {
+        expect(() => requestId({ stateKey: 'constructor' })).toThrow(
+          '[@nextrush/request-id] Unsafe stateKey'
+        );
+      });
+
+      it('should accept safe stateKey values', () => {
+        expect(() => requestId({ stateKey: 'myRequestId' })).not.toThrow();
+        expect(() => requestId({ stateKey: 'traceId' })).not.toThrow();
+      });
+    });
+
+    describe('generated ID fallback', () => {
+      it('should fallback to default generator when custom generator returns invalid ID', async () => {
+        const middleware = requestId({ generator: () => '' });
+        const ctx = createMockContext();
+
+        await middleware(ctx);
+
+        // Should still have a valid UUID from fallback
+        expect(ctx.state.requestId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        );
+      });
+
+      it('should fallback when custom generator returns oversized ID', async () => {
+        const middleware = requestId({ generator: () => 'a'.repeat(200) });
+        const ctx = createMockContext();
+
+        await middleware(ctx);
+
+        // Should still have a valid UUID from fallback
+        expect(ctx.state.requestId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        );
+      });
+    });
+
+    describe('trustIncoming: false (default)', () => {
+      it('should always generate new ID even with valid incoming UUID', async () => {
+        const incomingId = '550e8400-e29b-41d4-a716-446655440000';
+        const middleware = requestId();
+        const ctx = createMockContext({
+          headers: { 'X-Request-Id': incomingId },
+        });
+
+        await middleware(ctx);
+
+        expect(ctx.state.requestId).not.toBe(incomingId);
+        expect(ctx.state.requestId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        );
+      });
+
+      it('should ignore incoming ID for correlationId when trustIncoming is default', async () => {
+        const incomingId = '550e8400-e29b-41d4-a716-446655440000';
+        const middleware = correlationId();
+        const ctx = createMockContext({
+          headers: { 'X-Correlation-Id': incomingId },
+        });
+
+        await middleware(ctx);
+
+        expect(ctx.state.correlationId).not.toBe(incomingId);
+      });
+
+      it('should ignore incoming ID for traceId when trustIncoming is default', async () => {
+        const incomingId = '550e8400-e29b-41d4-a716-446655440000';
+        const middleware = traceId();
+        const ctx = createMockContext({
+          headers: { 'X-Trace-Id': incomingId },
+        });
+
+        await middleware(ctx);
+
+        expect(ctx.state.traceId).not.toBe(incomingId);
+      });
     });
   });
 });

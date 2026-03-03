@@ -1,302 +1,274 @@
 ---
-title: "@nextrush/cors"
-description: "Enterprise-grade CORS middleware with security hardening and presets."
+title: '@nextrush/cors'
+description: 'Security-hardened CORS middleware with presets and origin validation.'
 ---
 
 # @nextrush/cors
 
-Handle Cross-Origin Resource Sharing (CORS) with security-hardened defaults.
+Browsers block cross-origin API requests by default. CORS middleware tells browsers which origins, methods, and headers your API accepts. Without it, frontend applications on different domains cannot reach your endpoints.
 
-CORS controls which web pages can access your API from a browser. Without proper CORS configuration, browsers block cross-origin requests by default. This middleware implements the full CORS specification with additional security protections.
+This middleware implements the full CORS specification with additional protections against null origin attacks, regex denial-of-service, and credential misconfigurations.
 
----
+## Default Behavior
+
+With no options, `cors()` sets `origin` to `false` — **no CORS headers are added** and requests pass through unmodified. You must configure at least an `origin` value for the middleware to take effect.
+
+The middleware always adds `Vary: Origin` for correct cache behavior, even when the request has no `Origin` header.
 
 ## Installation
 
-```bash tab="npm"
-npm install @nextrush/cors
-```
+<PackageInstall packages={['@nextrush/cors']} />
 
-```bash tab="pnpm"
-pnpm add @nextrush/cors
-```
+## Minimal Usage
 
----
-
-## Quick Start
-
-```typescript
+```ts
 import { createApp } from '@nextrush/core';
 import { cors } from '@nextrush/cors';
 
 const app = createApp();
 
-// Allow all origins (development only)
-app.use(cors());
-
-// Or specify allowed origins
-app.use(cors({
-  origin: 'https://example.com',
-}));
+app.use(
+  cors({
+    origin: 'https://app.example.com',
+  })
+);
 ```
 
----
+## Configuration Options
 
-## Security Features
+<TypeTable
+  title="CorsOptions"
+  types={{
+    origin: {
+      type: 'boolean | string | string[] | RegExp | OriginValidator',
+      description:
+        "Allowed origin(s). false disables CORS, true reflects the request origin, '*' allows any origin.",
+      default: 'false',
+    },
+    methods: {
+      type: 'string | string[]',
+      description: 'Allowed HTTP methods for preflight requests.',
+      default: "'GET,HEAD,PUT,PATCH,POST,DELETE'",
+    },
+    allowedHeaders: {
+      type: 'string | string[]',
+      description:
+        'Allowed request headers. If omitted, mirrors Access-Control-Request-Headers from the preflight.',
+      optional: true,
+    },
+    exposedHeaders: {
+      type: 'string | string[]',
+      description: 'Response headers the browser can access from JavaScript.',
+      optional: true,
+    },
+    credentials: {
+      type: 'boolean',
+      description: 'Allow cookies and authorization headers in cross-origin requests.',
+      default: 'false',
+    },
+    maxAge: { type: 'number', description: 'Preflight cache duration in seconds.', optional: true },
+    preflightContinue: {
+      type: 'boolean',
+      description: 'Pass preflight requests to the next middleware instead of ending them.',
+      default: 'false',
+    },
+    optionsSuccessStatus: {
+      type: 'number',
+      description: 'HTTP status code for successful preflight responses.',
+      default: '204',
+    },
+    privateNetworkAccess: {
+      type: 'boolean',
+      description:
+        'Add Access-Control-Allow-Private-Network header for local/private network requests.',
+      default: 'false',
+    },
+    blockNullOrigin: {
+      type: 'boolean',
+      description:
+        'Block requests with Origin: null (from file://, data: URLs, sandboxed iframes).',
+      default: 'true',
+    },
+  }}
+/>
 
-This middleware includes protection against common CORS attacks:
+### Origin Types
 
-- **Null origin attack prevention** — Blocks `null` origin by default
-- **Regex ReDoS mitigation** — Safe regex patterns
-- **Credential+wildcard validation** — Prevents insecure credential sharing
-- **Private Network Access (PNA)** — Modern browser support
-- **Origin format validation** — Rejects malformed origins
+**Exact string** — case-sensitive match:
 
----
-
-## Configuration
-
-### Single Origin
-
-```typescript
-app.use(cors({
-  origin: 'https://example.com',
-}));
+```ts
+cors({ origin: 'https://example.com' });
 ```
 
-### Multiple Origins
+**Array** — whitelist of allowed origins:
 
-```typescript
-app.use(cors({
-  origin: [
-    'https://example.com',
-    'https://app.example.com',
-  ],
-}));
+```ts
+cors({ origin: ['https://app.example.com', 'https://admin.example.com'] });
 ```
 
-### Dynamic Origin
+**RegExp** — pattern matching:
 
-```typescript
-app.use(cors({
-  origin: (ctx) => {
-    const origin = ctx.get('origin');
-    // Validate against database or config
-    return isAllowedOrigin(origin) ? origin : false;
+```ts
+cors({ origin: /\.example\.com$/ });
+```
+
+**Function** — dynamic validation with async support:
+
+```ts
+cors({
+  origin: async (origin, ctx) => {
+    const allowed = await db.getAllowedOrigins(ctx.get('x-tenant-id'));
+    return allowed.includes(origin);
   },
-}));
+});
 ```
 
-### Pattern Matching
-
-```typescript
-app.use(cors({
-  origin: /\.example\.com$/,  // All subdomains
-}));
-```
-
----
-
-## Full Options
-
-```typescript
-app.use(cors({
-  // Origin configuration
-  origin: 'https://example.com',
-
-  // Allowed HTTP methods
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-
-  // Allowed request headers
-  allowedHeaders: ['Content-Type', 'Authorization'],
-
-  // Headers exposed to browser
-  exposedHeaders: ['X-Request-Id'],
-
-  // Allow credentials (cookies, auth headers)
-  credentials: true,
-
-  // Preflight cache duration (seconds)
-  maxAge: 86400,  // 24 hours
-
-  // Handle preflight internally
-  preflightContinue: false,
-
-  // Success status for OPTIONS
-  optionsSuccessStatus: 204,
-}));
-```
-
----
+The validator receives the `Origin` header value and a `CorsContext` object. Return `true` to allow, `false` to deny, or a string to set a specific `Access-Control-Allow-Origin` value.
 
 ## Presets
 
-Use built-in presets for common scenarios:
+### `simpleCors()`
 
-### Development
+Allows any origin (`*`) without credentials. Use for public APIs or development.
 
-```typescript
-import { devCors } from '@nextrush/cors';
-
-// Allows all origins - NEVER use in production
-app.use(devCors());
-```
-
-### Strict Production
-
-```typescript
-import { strictCors } from '@nextrush/cors';
-
-// Single origin, credentials enabled
-app.use(strictCors({
-  origin: 'https://app.example.com',
-}));
-```
-
-### Static Assets
-
-```typescript
-import { staticAssetsCors } from '@nextrush/cors';
-
-// Optimized for CDN/static files
-app.use(staticAssetsCors());
-```
-
-### Internal APIs
-
-```typescript
-import { internalCors } from '@nextrush/cors';
-
-// Restricted to internal services
-app.use(internalCors({
-  origin: ['https://internal.example.com'],
-}));
-```
-
-### Simple (No Credentials)
-
-```typescript
+```ts
 import { simpleCors } from '@nextrush/cors';
 
-// Public API without credentials
-app.use(simpleCors({
-  origin: '*',
-}));
+app.use(simpleCors());
 ```
 
----
+### `strictCors(origin, options?)`
+
+Requires an explicit origin. Enables credentials and blocks null origins. Caches preflight for 24 hours by default.
+
+```ts
+import { strictCors } from '@nextrush/cors';
+
+app.use(strictCors('https://app.example.com'));
+
+app.use(
+  strictCors(['https://app.example.com', 'https://admin.example.com'], {
+    exposedHeaders: ['X-Request-Id'],
+  })
+);
+```
+
+### `devCors(additionalOrigins?)`
+
+Allows localhost origins (`127.0.0.1`, `::1`, `*.localhost`) with credentials and Private Network Access enabled. Null origins are allowed for `file://` testing.
+
+```ts
+import { devCors } from '@nextrush/cors';
+
+app.use(devCors());
+app.use(devCors(['https://staging.example.com']));
+```
+
+### `internalCors(internalDomains)`
+
+Restricted to a list of internal service domains. Enables credentials and sets common internal headers.
+
+```ts
+import { internalCors } from '@nextrush/cors';
+
+app.use(
+  internalCors(['https://service1.internal.example.com', 'https://service2.internal.example.com'])
+);
+```
+
+### `staticAssetsCors(origins?)`
+
+Optimized for CDN and static file serving. Limits methods to GET, HEAD, OPTIONS. Caches preflight for 7 days. Defaults to `'*'` if no origins are specified.
+
+```ts
+import { staticAssetsCors } from '@nextrush/cors';
+
+app.use(staticAssetsCors(['https://example.com', 'https://cdn.example.com']));
+```
 
 ## Options Builder
 
-Fluent API for complex configurations:
+Build configuration with a fluent API:
 
-```typescript
-import { createCorsOptions, CorsOptionsBuilder } from '@nextrush/cors';
+```ts
+import { createCorsOptions } from '@nextrush/cors';
 
-const options = new CorsOptionsBuilder()
-  .allowOrigin('https://example.com')
-  .allowOrigin('https://app.example.com')
+const options = createCorsOptions()
+  .allowOrigin(['https://example.com', 'https://app.example.com'])
   .allowMethods(['GET', 'POST'])
   .allowCredentials()
-  .maxAge(86400)
+  .setMaxAge(86400)
   .build();
 
 app.use(cors(options));
 ```
 
----
+## Integration Example
 
-## Credentials and Cookies
-
-When sending credentials (cookies, HTTP auth):
-
-```typescript
-app.use(cors({
-  origin: 'https://example.com',  // Must be specific (not *)
-  credentials: true,
-}));
-```
-
-:::warning
-Setting `credentials: true` with `origin: '*'` is a security vulnerability. NextRush validates this and throws an error.
-:::
-
----
-
-## Private Network Access
-
-Support for the Private Network Access (PNA) specification:
-
-```typescript
-app.use(cors({
-  origin: 'https://example.com',
-  privateNetworkAccess: true,  // Allows access to localhost/private IPs
-}));
-```
-
----
-
-## Origin Validation Utilities
-
-For custom validation logic:
-
-```typescript
-import {
-  isOriginAllowed,
-  isOriginInList,
-  createOriginCache
-} from '@nextrush/cors';
-
-// Check if origin matches rules
-const allowed = isOriginAllowed('https://example.com', {
-  origin: ['https://example.com', /\.example\.com$/],
-});
-
-// Cached validation for performance
-const cache = createOriginCache(1000);
-const isAllowed = cache.check('https://example.com', allowedOrigins);
-```
-
----
-
-## Security Utilities
-
-```typescript
-import {
-  isOriginSecure,
-  isValidOriginFormat,
-  securityWarning
-} from '@nextrush/cors';
-
-// Check if origin uses HTTPS
-isOriginSecure('https://example.com');  // true
-
-// Validate origin format
-isValidOriginFormat('https://example.com:443');  // true
-
-// Log security warnings
-securityWarning('warning', 'Wildcard origin detected');
-```
-
----
-
-## TypeScript
-
-Full type support:
-
-```typescript
-import type { CorsOptions, OriginOption, OriginValidator } from '@nextrush/cors';
+```ts
+import { createApp } from '@nextrush/core';
 import { cors } from '@nextrush/cors';
 
-const options: CorsOptions = {
-  origin: 'https://example.com',
-  credentials: true,
-};
+const app = createApp();
 
-app.use(cors(options));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+    exposedHeaders: ['X-Request-Id'],
+    maxAge: 86400,
+  })
+);
+
+app.get('/api/users', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 ```
 
----
+## Common Mistakes
+
+### Wildcard with credentials
+
+```ts
+// ❌ Throws at configuration time
+cors({ origin: '*', credentials: true });
+
+// ✅ Use an explicit origin
+cors({ origin: 'https://app.example.com', credentials: true });
+```
+
+<Callout type="warn">
+  Setting `credentials: true` with `origin: '*'` throws an error immediately. The CORS specification
+  forbids this combination.
+</Callout>
+
+### Wrong middleware order
+
+```ts
+// ❌ Auth rejects before CORS headers are set
+app.use(authMiddleware);
+app.use(cors({ origin: 'https://app.example.com' }));
+
+// ✅ CORS runs first
+app.use(cors({ origin: 'https://app.example.com' }));
+app.use(authMiddleware);
+```
+
+### Unsafe regex patterns
+
+```ts
+// ❌ ReDoS vulnerability — catastrophic backtracking
+cors({ origin: /(.*)+\.example\.com/ });
+
+// ✅ Safe pattern
+cors({ origin: /\.example\.com$/ });
+```
+
+## Troubleshooting
+
+**No CORS headers in response** — Verify the request includes an `Origin` header and that the origin matches your configuration. With `origin: false` (the default), no CORS headers are set.
+
+**Preflight fails** — Check that the requested method and headers are allowed. If `allowedHeaders` is not set, the middleware reflects the request headers automatically.
+
+**Credentials rejected** — Ensure `origin` is set to a specific value (not `'*'`). The browser requires an exact origin match when credentials are included.
 
 ## Related
 

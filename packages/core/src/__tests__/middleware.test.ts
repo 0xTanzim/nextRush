@@ -80,14 +80,7 @@ describe('compose', () => {
       const composed = compose(middleware);
       await composed(createMockContext());
 
-      expect(order).toEqual([
-        '1-before',
-        '2-before',
-        '3-before',
-        '3-after',
-        '2-after',
-        '1-after',
-      ]);
+      expect(order).toEqual(['1-before', '2-before', '3-before', '3-after', '2-after', '1-after']);
     });
 
     it('should work with single middleware', async () => {

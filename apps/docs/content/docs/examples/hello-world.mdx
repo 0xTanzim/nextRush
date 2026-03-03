@@ -1,14 +1,15 @@
 ---
-title: "Hello World"
-description: "Minimal NextRush application — your first API in under 10 lines."
+title: 'Hello World'
+description: 'Minimal NextRush application — your first API in under 10 lines.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 
 # Hello World
 
 The simplest possible NextRush application.
+
+<Callout type="info" title="Prerequisites">
+  Node.js 22+ and TypeScript 5.x are required.
+</Callout>
 
 ---
 
@@ -26,12 +27,15 @@ router.get('/', (ctx) => {
 
 app.route('/', router);
 
-listen(app, 3000, () => {
-  console.log('Server running at http://localhost:3000');
-});
+await listen(app, 3000);
 ```
 
-That's it. 10 lines to a working API.
+**Expected output:**
+
+```bash
+curl http://localhost:3000
+# {"message":"Hello, NextRush!"}
+```
 
 ---
 
@@ -45,9 +49,10 @@ That's it. 10 lines to a working API.
 
 ```bash
 mkdir hello-nextrush && cd hello-nextrush
-npm init -y
-npm install nextrush typescript @types/node
+pnpm init
 ```
+
+<PackageInstall packages={['nextrush']} dev={['typescript', '@types/node']} />
 
 </Step>
 
@@ -76,22 +81,7 @@ npm install nextrush typescript @types/node
 
 ### Create Entry File
 
-```typescript title="src/index.ts"
-import { createApp, createRouter, listen } from 'nextrush';
-
-const app = createApp();
-const router = createRouter();
-
-router.get('/', (ctx) => {
-  ctx.json({ message: 'Hello, NextRush!' });
-});
-
-app.route('/', router);
-
-listen(app, 3000, () => {
-  console.log('Server running at http://localhost:3000');
-});
-```
+Create `src/index.ts` with the code from [The Code](#the-code) section above.
 
 </Step>
 
@@ -99,11 +89,9 @@ listen(app, 3000, () => {
 
 ### Run
 
-```bash
-# Install dev tools for TypeScript support
-npm install -D @nextrush/dev
+<PackageInstall packages={[]} dev={['@nextrush/dev']} />
 
-# Start development server
+```bash
 npx nextrush dev
 ```
 
@@ -157,25 +145,23 @@ router.get('/', (ctx) => {
 
 ### Mounting Routes
 
-Mount the router on the application using `app.route()`:
+Mount the router on the application at a path prefix:
 
 ```typescript
 app.route('/', router);
 ```
 
-This is Hono-style composition. You can also use the classic pattern:
-
-```typescript
-app.route('/', router);
-```
+The first argument is the path prefix. All routes defined on the router are served under that prefix.
 
 ### Starting the Server
 
 Start listening for requests:
 
 ```typescript
-listen(app, 3000);
+await listen(app, 3000);
 ```
+
+`listen()` returns a `Promise<ServerInstance>`. Use `await` or handle the promise.
 
 ---
 
@@ -223,7 +209,7 @@ app.route('/health', health);
 app.route('/echo', echo);
 app.route('/users', users);
 
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ---
@@ -256,12 +242,12 @@ api.post('/echo', (ctx) => {
 // Mount
 app.route('/api', api);
 
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
-<Callout type="info">
-Install middleware packages separately: `npm install @nextrush/cors @nextrush/body-parser`
-</Callout>
+<Callout type="info">Middleware packages are installed separately.</Callout>
+
+<PackageInstall packages={['@nextrush/cors', '@nextrush/body-parser']} />
 
 ---
 

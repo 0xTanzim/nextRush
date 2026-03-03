@@ -13,7 +13,7 @@ function createMockContext(cookieHeader?: string) {
   const responseHeaders: Record<string, string | string[]> = {};
   const state: Record<string, unknown> = {};
 
-  return {
+  const ctx = {
     method: 'GET',
     url: '/',
     path: '/',
@@ -46,7 +46,11 @@ function createMockContext(cookieHeader?: string) {
       if (field.toLowerCase() === 'cookie') return cookieHeader;
       return undefined;
     }),
+    /** Exposed for test assertions */
+    _responseHeaders: responseHeaders,
   };
+
+  return ctx;
 }
 
 /**
@@ -138,7 +142,9 @@ describe('cookies middleware', () => {
 
       await middleware(ctx as never, next);
 
-      expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('session=abc123'));
+      const setCookie = ctx._responseHeaders['set-cookie'] as string[];
+      expect(setCookie).toBeDefined();
+      expect(setCookie.some((c: string) => c.includes('session=abc123'))).toBe(true);
     });
 
     it('should set cookie with options', async () => {
@@ -156,10 +162,14 @@ describe('cookies middleware', () => {
 
       await middleware(ctx as never, next);
 
-      expect(ctx.set).toHaveBeenCalledWith(
-        'Set-Cookie',
-        expect.stringMatching(/session=abc123.*Path=\/.*Max-Age=3600.*HttpOnly.*Secure/),
-      );
+      const setCookie = ctx._responseHeaders['set-cookie'] as string[];
+      expect(setCookie).toBeDefined();
+      const sessionCookie = setCookie.find((c: string) => c.includes('session=abc123'));
+      expect(sessionCookie).toBeDefined();
+      expect(sessionCookie).toMatch(/Path=\//);
+      expect(sessionCookie).toMatch(/Max-Age=3600/);
+      expect(sessionCookie).toMatch(/HttpOnly/);
+      expect(sessionCookie).toMatch(/Secure/);
     });
   });
 
@@ -175,8 +185,11 @@ describe('cookies middleware', () => {
 
       await middleware(ctx as never, next);
 
-      expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('session='));
-      expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('Max-Age=0'));
+      const setCookie = ctx._responseHeaders['set-cookie'] as string[];
+      expect(setCookie).toBeDefined();
+      const deleteCookie = setCookie.find((c: string) => c.includes('session='));
+      expect(deleteCookie).toBeDefined();
+      expect(deleteCookie).toContain('Max-Age=0');
     });
   });
 
@@ -239,7 +252,9 @@ describe('signedCookies middleware', () => {
 
     await middleware(ctx as never, next);
 
-    expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringMatching(/session=abc123\..+/));
+    const setCookie = ctx._responseHeaders['set-cookie'] as string[];
+    expect(setCookie).toBeDefined();
+    expect(setCookie.some((c: string) => /session=abc123\..+/.test(c))).toBe(true);
   });
 
   it('should return undefined for tampered cookie', async () => {
@@ -249,7 +264,9 @@ describe('signedCookies middleware', () => {
 
     await middleware(ctx as never, next);
 
-    const signedApi = ctx.state.signedCookies as { get: (n: string) => Promise<string | undefined> };
+    const signedApi = ctx.state.signedCookies as {
+      get: (n: string) => Promise<string | undefined>;
+    };
     const result = await signedApi.get('session');
     expect(result).toBeUndefined();
   });
@@ -265,8 +282,11 @@ describe('signedCookies middleware', () => {
 
     await middleware(ctx as never, next);
 
-    expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('session='));
-    expect(ctx.set).toHaveBeenCalledWith('Set-Cookie', expect.stringContaining('Max-Age=0'));
+    const setCookie = ctx._responseHeaders['set-cookie'] as string[];
+    expect(setCookie).toBeDefined();
+    const deleteCookie = setCookie.find((c: string) => c.includes('session='));
+    expect(deleteCookie).toBeDefined();
+    expect(deleteCookie).toContain('Max-Age=0');
   });
 });
 

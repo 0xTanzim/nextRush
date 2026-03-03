@@ -11,11 +11,11 @@ import { DEFAULT_CSP_DIRECTIVES, DEFAULT_HSTS_MAX_AGE, HEADERS } from './constan
 import { buildCspHeader } from './csp.js';
 import { buildPermissionsPolicyHeader } from './permissions.js';
 import type {
-    ClearSiteDataValue,
-    HelmetContext,
-    HelmetMiddleware,
-    HelmetOptions,
-    StrictTransportSecurityOptions,
+  ClearSiteDataValue,
+  HelmetContext,
+  HelmetMiddleware,
+  HelmetOptions,
+  StrictTransportSecurityOptions,
 } from './types.js';
 import { sanitizeHeaderValue, securityWarning, validateHstsOptions } from './validation.js';
 
@@ -25,7 +25,7 @@ import { sanitizeHeaderValue, securityWarning, validateHstsOptions } from './val
 function buildHstsHeader(options: StrictTransportSecurityOptions): string {
   const { maxAge = DEFAULT_HSTS_MAX_AGE, includeSubDomains = true, preload = false } = options;
 
-  let value = `max-age=${maxAge}`;
+  let value = `max-age=${Math.floor(maxAge)}`;
   if (includeSubDomains) value += '; includeSubDomains';
   if (preload) value += '; preload';
 
@@ -37,7 +37,16 @@ function buildHstsHeader(options: StrictTransportSecurityOptions): string {
  */
 function buildReportingEndpointsHeader(endpoints: Record<string, string>): string {
   return Object.entries(endpoints)
-    .map(([name, url]) => `${sanitizeHeaderValue(name)}="${sanitizeHeaderValue(url)}"`)
+    .map(([name, url]) => {
+      const sanitizedName = sanitizeHeaderValue(name);
+      const sanitizedUrl = sanitizeHeaderValue(url);
+      if (sanitizedUrl.includes('"')) {
+        throw new Error(
+          `[@nextrush/helmet] Security Error: Reporting endpoint URL contains quote characters.`
+        );
+      }
+      return `${sanitizedName}="${sanitizedUrl}"`;
+    })
     .join(', ');
 }
 
@@ -45,7 +54,7 @@ function buildReportingEndpointsHeader(endpoints: Record<string, string>): strin
  * Build Clear-Site-Data header value.
  */
 function buildClearSiteDataHeader(values: ClearSiteDataValue[]): string {
-  return values.join(', ');
+  return values.map((v) => sanitizeHeaderValue(v)).join(', ');
 }
 
 /**

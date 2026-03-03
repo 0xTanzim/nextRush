@@ -45,7 +45,11 @@ export class MemoryStore implements RateLimitStore {
 
     if (!disableCleanup && cleanupInterval > 0) {
       this.cleanupTimer = setInterval(() => {
-        this.cleanup().catch(() => {});
+        this.cleanup().catch((error: unknown) => {
+          if (typeof globalThis.console?.error === 'function') {
+            globalThis.console.error('[@nextrush/rate-limit] MemoryStore cleanup error:', error);
+          }
+        });
       }, cleanupInterval);
 
       if (this.cleanupTimer.unref) {
@@ -106,6 +110,7 @@ export class MemoryStore implements RateLimitStore {
     }
 
     entry.count += 1;
+    entry.expiresAt = now + ttlMs;
     return entry.count;
   }
 

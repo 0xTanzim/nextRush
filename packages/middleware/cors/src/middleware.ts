@@ -81,6 +81,15 @@ export function cors(options: CorsOptions = {}): Middleware {
     );
   }
 
+  if (
+    maxAge !== undefined &&
+    (typeof maxAge !== 'number' || maxAge < 0 || !Number.isFinite(maxAge))
+  ) {
+    throw new Error(
+      `[@nextrush/cors] Invalid maxAge: ${String(maxAge)}. Must be a non-negative finite number.`
+    );
+  }
+
   const normalizedMethods = Array.isArray(methods) ? methods.join(',') : methods;
   const normalizedAllowedHeaders = normalizeHeaders(allowedHeaders);
   const normalizedExposedHeaders = normalizeHeaders(exposedHeaders);
@@ -135,9 +144,7 @@ export function cors(options: CorsOptions = {}): Middleware {
     }
 
     // Handle preflight (OPTIONS) requests
-    const isPreflight =
-      ctx.method === 'OPTIONS' &&
-      (ctx.get(PREFLIGHT_INDICATORS.method) || ctx.get('Access-Control-Request-Method'));
+    const isPreflight = ctx.method === 'OPTIONS' && ctx.get(PREFLIGHT_INDICATORS.method);
 
     if (isPreflight) {
       // Add Vary for preflight-specific headers
@@ -148,8 +155,7 @@ export function cors(options: CorsOptions = {}): Middleware {
       ctx.set(CORS_HEADERS.allowMethods, normalizedMethods);
 
       // Allowed headers - either configured or reflected from request
-      const requestHeaders =
-        ctx.get(PREFLIGHT_INDICATORS.headers) ?? ctx.get('Access-Control-Request-Headers');
+      const requestHeaders = ctx.get(PREFLIGHT_INDICATORS.headers);
       const headersToAllow = normalizedAllowedHeaders || requestHeaders;
       if (headersToAllow) {
         ctx.set(CORS_HEADERS.allowHeaders, headersToAllow);
@@ -161,17 +167,14 @@ export function cors(options: CorsOptions = {}): Middleware {
       }
 
       // Private Network Access support
-      if (
-        privateNetworkAccess &&
-        (ctx.get(PREFLIGHT_INDICATORS.privateNetwork) ||
-          ctx.get('access-control-request-private-network'))
-      ) {
+      if (privateNetworkAccess && ctx.get(PREFLIGHT_INDICATORS.privateNetwork)) {
         ctx.set(CORS_HEADERS.allowPrivateNetwork, 'true');
       }
 
       // End preflight or continue
       if (!preflightContinue) {
         ctx.status = optionsSuccessStatus;
+        ctx.set('Content-Length', '0');
         ctx.body = '';
         return;
       }

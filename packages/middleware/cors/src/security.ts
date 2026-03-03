@@ -114,13 +114,16 @@ export function securityWarning(
 
     switch (severity) {
       case 'error':
-        console.error(fullMessage, details ?? '');
+        if (details) console.error(fullMessage, details);
+        else console.error(fullMessage);
         break;
       case 'info':
-        console.info(fullMessage, details ?? '');
+        if (details) console.info(fullMessage, details);
+        else console.info(fullMessage);
         break;
       default:
-        console.warn(fullMessage, details ?? '');
+        if (details) console.warn(fullMessage, details);
+        else console.warn(fullMessage);
     }
   }
 }

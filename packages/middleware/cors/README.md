@@ -41,10 +41,12 @@ import { cors } from '@nextrush/cors';
 const app = createApp();
 
 // Secure CORS for production
-app.use(cors({
-  origin: 'https://app.example.com',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: 'https://app.example.com',
+    credentials: true,
+  })
+);
 
 app.get('/api/data', (ctx) => {
   ctx.json({ message: 'Hello from API' });
@@ -89,42 +91,39 @@ cors(options?: CorsOptions): Middleware
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `origin` | `boolean \| string \| string[] \| RegExp \| Function` | `false` | Origin validation |
-| `methods` | `string \| string[]` | `'GET,HEAD,PUT,PATCH,POST,DELETE'` | Allowed methods |
-| `allowedHeaders` | `string \| string[]` | _reflected_ | Allowed request headers |
-| `exposedHeaders` | `string \| string[]` | `undefined` | Headers client can read |
-| `credentials` | `boolean` | `false` | Allow cookies/auth |
-| `maxAge` | `number` | `undefined` | Preflight cache (seconds) |
-| `privateNetworkAccess` | `boolean` | `false` | Enable PNA |
-| `blockNullOrigin` | `boolean` | `true` | Block null origins |
-| `preflightContinue` | `boolean` | `false` | Pass OPTIONS to next |
-| `optionsSuccessStatus` | `number` | `204` | Status for OPTIONS |
+| Option                 | Type                                                  | Default                            | Description               |
+| ---------------------- | ----------------------------------------------------- | ---------------------------------- | ------------------------- |
+| `origin`               | `boolean \| string \| string[] \| RegExp \| Function` | `false`                            | Origin validation         |
+| `methods`              | `string \| string[]`                                  | `'GET,HEAD,PUT,PATCH,POST,DELETE'` | Allowed methods           |
+| `allowedHeaders`       | `string \| string[]`                                  | _reflected_                        | Allowed request headers   |
+| `exposedHeaders`       | `string \| string[]`                                  | `undefined`                        | Headers client can read   |
+| `credentials`          | `boolean`                                             | `false`                            | Allow cookies/auth        |
+| `maxAge`               | `number`                                              | `undefined`                        | Preflight cache (seconds) |
+| `privateNetworkAccess` | `boolean`                                             | `false`                            | Enable PNA                |
+| `blockNullOrigin`      | `boolean`                                             | `true`                             | Block null origins        |
+| `preflightContinue`    | `boolean`                                             | `false`                            | Pass OPTIONS to next      |
+| `optionsSuccessStatus` | `number`                                              | `204`                              | Status for OPTIONS        |
 
 ## Origin Configuration
 
 ### String (Exact Match)
 
 ```typescript
-cors({ origin: 'https://example.com' })
+cors({ origin: 'https://example.com' });
 ```
 
 ### Array (Whitelist)
 
 ```typescript
 cors({
-  origin: [
-    'https://app.example.com',
-    'https://admin.example.com',
-  ]
-})
+  origin: ['https://app.example.com', 'https://admin.example.com'],
+});
 ```
 
 ### RegExp (Pattern Match)
 
 ```typescript
-cors({ origin: /\.example\.com$/ })
+cors({ origin: /\.example\.com$/ });
 ```
 
 ### Function (Dynamic Validation)
@@ -134,8 +133,8 @@ cors({
   origin: async (origin, ctx) => {
     const allowed = await db.getAllowedOrigins(ctx.get('X-Tenant-Id'));
     return allowed.includes(origin);
-  }
-})
+  },
+});
 ```
 
 ### Presets
@@ -160,11 +159,11 @@ Blocks requests with `Origin: null` by default, preventing attacks from sandboxe
 
 ```typescript
 // ❌ This throws an error immediately
-cors({ origin: '*', credentials: true })
+cors({ origin: '*', credentials: true });
 // Error: Cannot use credentials=true with origin="*"
 
 // ✅ Use explicit origin instead
-cors({ origin: 'https://app.example.com', credentials: true })
+cors({ origin: 'https://app.example.com', credentials: true });
 ```
 
 ### ReDoS Mitigation
@@ -173,10 +172,10 @@ Detects and warns about dangerous regex patterns:
 
 ```typescript
 // ⚠️ Logs warning for dangerous patterns:
-cors({ origin: /(.*)+\.example\.com/ })
+cors({ origin: /(.*)+\.example\.com/ });
 
 // ✅ Safe patterns (no warning):
-cors({ origin: /\.example\.com$/ })
+cors({ origin: /\.example\.com$/ });
 ```
 
 ### Private Network Access
@@ -187,7 +186,7 @@ Enable PNA for local development servers accessed from public sites:
 cors({
   origin: 'https://external-app.com',
   privateNetworkAccess: true,
-})
+});
 ```
 
 ## Common Patterns
@@ -195,35 +194,41 @@ cors({
 ### API with Frontend SPA
 
 ```typescript
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true,
-  exposedHeaders: ['X-Request-Id', 'X-RateLimit-Remaining'],
-  maxAge: 86400,
-}));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+    exposedHeaders: ['X-Request-Id', 'X-RateLimit-Remaining'],
+    maxAge: 86400,
+  })
+);
 ```
 
 ### Public Read-Only API
 
 ```typescript
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'HEAD'],
-  maxAge: 86400,
-}));
+app.use(
+  cors({
+    origin: '*',
+    methods: ['GET', 'HEAD'],
+    maxAge: 86400,
+  })
+);
 ```
 
 ### Multi-Tenant SaaS
 
 ```typescript
-app.use(cors({
-  origin: async (origin, ctx) => {
-    const tenantId = ctx.get('X-Tenant-Id');
-    const tenant = await db.getTenant(tenantId);
-    return tenant.allowedOrigins.includes(origin);
-  },
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: async (origin, ctx) => {
+      const tenantId = ctx.get('X-Tenant-Id');
+      const tenant = await db.getTenant(tenantId);
+      return tenant.allowedOrigins.includes(origin);
+    },
+    credentials: true,
+  })
+);
 ```
 
 ## Common Mistakes
@@ -232,10 +237,10 @@ app.use(cors({
 
 ```typescript
 // ❌ THROWS ERROR: Security violation
-cors({ origin: '*', credentials: true })
+cors({ origin: '*', credentials: true });
 
 // ✅ Use explicit origin
-cors({ origin: 'https://app.example.com', credentials: true })
+cors({ origin: 'https://app.example.com', credentials: true });
 ```
 
 ### Mistake 2: Wrong Middleware Order
@@ -254,33 +259,28 @@ app.use(authMiddleware);
 
 ```typescript
 // ❌ ReDoS vulnerability
-cors({ origin: /(.*)+\.example\.com/ })
+cors({ origin: /(.*)+\.example\.com/ });
 
 // ✅ Safe pattern
-cors({ origin: /\.example\.com$/ })
+cors({ origin: /\.example\.com$/ });
 ```
 
 ## Runtime Compatibility
 
 This package works in:
 
-| Runtime | Supported |
-|---------|-----------|
-| Node.js 20+ | ✅ |
-| Bun | ✅ |
-| Cloudflare Workers | ✅ |
-| Deno | ✅ |
-| Vercel Edge Runtime | ✅ |
+| Runtime             | Supported |
+| ------------------- | --------- |
+| Node.js 22+         | ✅        |
+| Bun                 | ✅        |
+| Cloudflare Workers  | ✅        |
+| Deno                | ✅        |
+| Vercel Edge Runtime | ✅        |
 
 ## TypeScript Types
 
 ```typescript
-import type {
-  CorsOptions,
-  OriginValidator,
-  CorsContext,
-  Middleware,
-} from '@nextrush/cors';
+import type { CorsOptions, OriginValidator, CorsContext, Middleware } from '@nextrush/cors';
 ```
 
 ## Security Checklist

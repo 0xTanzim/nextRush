@@ -1,6 +1,6 @@
 # @nextrush/body-parser
 
-> Secure, high-performance HTTP request body parsing for NextRush.
+> Secure, cross-runtime HTTP request body parsing for NextRush.
 
 Parse JSON, URL-encoded, text, and raw request bodies with built-in protection against prototype pollution, DoS attacks, and memory leaks.
 
@@ -37,11 +37,10 @@ app.use(json());
 // Parse URL-encoded form data
 app.use(urlencoded());
 
-// Or use the combined parser
+// Or use the combined parser (JSON + URL-encoded by default)
 app.use(bodyParser());
 
 app.post('/api/users', async (ctx) => {
-  // ctx.body is the parsed request body
   const { name, email } = ctx.body as { name: string; email: string };
   ctx.json({ received: { name, email } });
 });
@@ -63,7 +62,7 @@ HTTP Request
 │  1. Check method (skip GET/HEAD/etc.)   │
 │  2. Validate Content-Type header        │
 │  3. Check Content-Length against limit  │
-│  4. Stream body chunks with size checks │
+│  4. Read body with size enforcement     │
 │  5. Parse content (JSON/URL-encoded)    │
 │  6. Security validation (no __proto__)  │
 │  7. Populate ctx.body                   │
@@ -74,8 +73,9 @@ HTTP Request
 ```
 
 The parser **rejects** requests that:
+
 - Exceed size limits (even during streaming)
-- Contain prototype pollution attempts
+- Contain prototype pollution attempts (`__proto__`, `constructor`, `prototype`)
 - Have invalid JSON syntax
 - Use unsupported character encodings
 
@@ -88,43 +88,50 @@ Parse `application/json` request bodies.
 ```typescript
 import { json } from '@nextrush/body-parser';
 
-app.use(json({
-  limit: '1mb',              // Max body size (default: '1mb')
-  strict: true,              // Only accept objects/arrays (default: true)
-  type: ['application/json'], // Content types to match
-  rawBody: false,            // Store raw Buffer in ctx.rawBody
-  reviver: (key, val) => val, // JSON.parse reviver function
-}));
+app.use(
+  json({
+    limit: '1mb',
+    strict: true,
+    type: ['application/json'],
+    rawBody: false,
+    reviver: (key, val) => val,
+    maxDepth: 32,
+  })
+);
 ```
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `limit` | `string \| number` | `'1mb'` | Maximum body size. Accepts bytes or human-readable (`'100kb'`, `'5mb'`, `'1gb'`) |
-| `strict` | `boolean` | `true` | Reject primitives (`"string"`, `123`, `true`). Only accept `{}` and `[]` |
-| `type` | `string \| string[]` | `['application/json']` | Content-Types to parse. Supports wildcards like `application/*+json` |
-| `rawBody` | `boolean` | `false` | Store raw Buffer in `ctx.rawBody` (for signature verification) |
-| `reviver` | `function` | `undefined` | Transform values during parsing (passed to `JSON.parse`) |
+| Option     | Type                 | Default                   | Description                                                                      |
+| ---------- | -------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| `limit`    | `string \| number`   | `'1mb'` (1,048,576 bytes) | Maximum body size. Accepts bytes or human-readable (`'100kb'`, `'5mb'`, `'1gb'`) |
+| `strict`   | `boolean`            | `true`                    | Reject primitives (`"string"`, `123`, `true`). Only accept `{}` and `[]`         |
+| `type`     | `string \| string[]` | `['application/json']`    | Content-Types to parse                                                           |
+| `rawBody`  | `boolean`            | `false`                   | Store raw Buffer in `ctx.rawBody` (for signature verification)                   |
+| `reviver`  | `JsonReviver`        | `undefined`               | Transform values during parsing (passed to `JSON.parse`)                         |
+| `maxDepth` | `number`             | `undefined`               | Maximum JSON nesting depth. Rejects deeper payloads after parsing                |
+| `verify`   | `VerifyCallback`     | `undefined`               | Callback invoked with raw buffer before parsing — throw to reject                |
 
 **Behavior:**
-- Automatically handles `charset` from Content-Type
-- Parses `application/json` and `application/*+json` (e.g., `application/vnd.api+json`)
-- Returns `{}` for empty bodies (when strict mode is on)
-- Skips bodyless methods (GET, HEAD, OPTIONS, DELETE)
+
+- Skips bodyless methods (GET, HEAD, DELETE, OPTIONS)
+- Skips if `ctx.body` is already set by prior middleware
+- Empty bodies leave `ctx.body` as `undefined` (no implicit `{}`)
 
 **Example with reviver:**
 
 ```typescript
 // Parse ISO date strings as Date objects
-app.use(json({
-  reviver: (key, value) => {
-    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
-      return new Date(value);
-    }
-    return value;
-  },
-}));
+app.use(
+  json({
+    reviver: (key, value) => {
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+        return new Date(value);
+      }
+      return value;
+    },
+  })
+);
 ```
 
 ---
@@ -136,26 +143,29 @@ Parse `application/x-www-form-urlencoded` request bodies.
 ```typescript
 import { urlencoded } from '@nextrush/body-parser';
 
-app.use(urlencoded({
-  limit: '100kb',            // Max body size (default: '100kb')
-  extended: true,            // Parse nested objects (default: true)
-  parameterLimit: 1000,      // Max parameters (default: 1000)
-  depth: 5,                  // Max nesting depth (default: 5)
-  type: ['application/x-www-form-urlencoded'],
-  rawBody: false,
-}));
+app.use(
+  urlencoded({
+    limit: '100kb',
+    extended: true,
+    parameterLimit: 1000,
+    depth: 20,
+    type: ['application/x-www-form-urlencoded'],
+    rawBody: false,
+  })
+);
 ```
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `limit` | `string \| number` | `'100kb'` | Maximum body size |
-| `extended` | `boolean` | `true` | Enable nested object parsing |
-| `parameterLimit` | `number` | `1000` | Maximum number of parameters (prevents DoS) |
-| `depth` | `number` | `5` | Maximum nesting depth (prevents stack overflow) |
-| `type` | `string \| string[]` | `['application/x-www-form-urlencoded']` | Content-Types to match |
-| `rawBody` | `boolean` | `false` | Store raw Buffer in `ctx.rawBody` |
+| Option           | Type                 | Default                                 | Description                                                       |
+| ---------------- | -------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| `limit`          | `string \| number`   | `'100kb'` (102,400 bytes)               | Maximum body size                                                 |
+| `extended`       | `boolean`            | `true`                                  | Enable nested object parsing                                      |
+| `parameterLimit` | `number`             | `1000`                                  | Maximum number of parameters (prevents DoS)                       |
+| `depth`          | `number`             | `20`                                    | Maximum nesting depth (prevents stack overflow)                   |
+| `type`           | `string \| string[]` | `['application/x-www-form-urlencoded']` | Content-Types to match                                            |
+| `rawBody`        | `boolean`            | `false`                                 | Store raw Buffer in `ctx.rawBody`                                 |
+| `verify`         | `VerifyCallback`     | `undefined`                             | Callback invoked with raw buffer before parsing — throw to reject |
 
 **Extended parsing:**
 
@@ -178,10 +188,10 @@ The parser **blocks prototype pollution** attempts:
 
 ```typescript
 // Malicious form data: __proto__[polluted]=true
-// Result: BodyParserError with code 'PROTOTYPE_POLLUTION'
+// Result: BodyParserError with code 'INVALID_PARAMETER'
 
 // Malicious form data: constructor[prototype][polluted]=true
-// Result: BodyParserError with code 'PROTOTYPE_POLLUTION'
+// Result: BodyParserError with code 'INVALID_PARAMETER'
 ```
 
 ---
@@ -193,26 +203,29 @@ Parse `text/plain` request bodies.
 ```typescript
 import { text } from '@nextrush/body-parser';
 
-app.use(text({
-  limit: '100kb',            // Max body size (default: '100kb')
-  defaultCharset: 'utf-8',   // Fallback charset (default: 'utf-8')
-  type: ['text/plain'],      // Content types to match
-  rawBody: false,
-}));
+app.use(
+  text({
+    limit: '100kb',
+    defaultCharset: 'utf-8',
+    type: ['text/plain'],
+    rawBody: false,
+  })
+);
 ```
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `limit` | `string \| number` | `'100kb'` | Maximum body size |
-| `defaultCharset` | `string` | `'utf-8'` | Charset when not in Content-Type |
-| `type` | `string \| string[]` | `['text/plain']` | Content-Types to match |
-| `rawBody` | `boolean` | `false` | Store raw Buffer in `ctx.rawBody` |
+| Option           | Type                 | Default                   | Description                                                       |
+| ---------------- | -------------------- | ------------------------- | ----------------------------------------------------------------- |
+| `limit`          | `string \| number`   | `'100kb'` (102,400 bytes) | Maximum body size                                                 |
+| `defaultCharset` | `SupportedCharset`   | `'utf-8'`                 | Charset when not in Content-Type                                  |
+| `type`           | `string \| string[]` | `['text/plain']`          | Content-Types to match                                            |
+| `rawBody`        | `boolean`            | `false`                   | Store raw Buffer in `ctx.rawBody`                                 |
+| `verify`         | `VerifyCallback`     | `undefined`               | Callback invoked with raw buffer before parsing — throw to reject |
 
 **Supported charsets:**
 
-`utf-8`, `utf8`, `ascii`, `latin1`, `binary`, `base64`, `hex`, `utf16le`, `ucs2`
+`utf-8`, `utf8`, `ascii`, `latin1`, `binary`, `base64`, `hex`, `utf16le`, `utf-16le`, `ucs2`, `ucs-2`
 
 ---
 
@@ -223,18 +236,21 @@ Parse request bodies as raw `Buffer`.
 ```typescript
 import { raw } from '@nextrush/body-parser';
 
-app.use(raw({
-  limit: '100kb',            // Max body size (default: '100kb')
-  type: ['application/octet-stream'], // Content types to match
-}));
+app.use(
+  raw({
+    limit: '100kb',
+    type: ['application/octet-stream'],
+  })
+);
 ```
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `limit` | `string \| number` | `'100kb'` | Maximum body size |
-| `type` | `string \| string[]` | `['application/octet-stream']` | Content-Types to match |
+| Option   | Type                 | Default                        | Description                                                       |
+| -------- | -------------------- | ------------------------------ | ----------------------------------------------------------------- |
+| `limit`  | `string \| number`   | `'100kb'` (102,400 bytes)      | Maximum body size                                                 |
+| `type`   | `string \| string[]` | `['application/octet-stream']` | Content-Types to match                                            |
+| `verify` | `VerifyCallback`     | `undefined`                    | Callback invoked with raw buffer before parsing — throw to reject |
 
 **Example:**
 
@@ -256,53 +272,31 @@ Combined parser for multiple content types.
 ```typescript
 import { bodyParser } from '@nextrush/body-parser';
 
-app.use(bodyParser({
-  json: { limit: '1mb', strict: true },
-  urlencoded: { extended: true, depth: 5 },
-  text: false,   // Disable text parsing
-  raw: false,    // Disable raw parsing
-}));
+app.use(
+  bodyParser({
+    json: { limit: '1mb', strict: true },
+    urlencoded: { extended: true, depth: 5 },
+    text: { limit: '5mb' }, // Enable text parsing
+    raw: { limit: '10mb' }, // Enable raw parsing
+  })
+);
 ```
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `json` | `JsonOptions \| false` | `{}` | JSON parser options, or `false` to disable |
-| `urlencoded` | `UrlEncodedOptions \| false` | `{}` | URL-encoded options, or `false` to disable |
-| `text` | `TextOptions \| false` | `undefined` | Text parser options (disabled by default) |
-| `raw` | `RawOptions \| false` | `undefined` | Raw parser options (disabled by default) |
+| Option       | Type                         | Default     | Description                                                    |
+| ------------ | ---------------------------- | ----------- | -------------------------------------------------------------- |
+| `json`       | `JsonOptions \| false`       | `{}`        | JSON parser options, or `false` to disable                     |
+| `urlencoded` | `UrlEncodedOptions \| false` | `{}`        | URL-encoded options, or `false` to disable                     |
+| `text`       | `TextOptions \| false`       | `undefined` | Text parser options — disabled by default, pass `{}` to enable |
+| `raw`        | `RawOptions \| false`        | `undefined` | Raw parser options — disabled by default, pass `{}` to enable  |
 
 **Behavior:**
+
 - Routes to the appropriate parser based on Content-Type
 - JSON and URL-encoded are enabled by default
-- Text and raw must be explicitly enabled
-
-**Full configuration:**
-
-```typescript
-app.use(bodyParser({
-  json: {
-    limit: '10mb',
-    strict: true,
-    type: ['application/json', 'application/*+json'],
-  },
-  urlencoded: {
-    limit: '1mb',
-    extended: true,
-    parameterLimit: 500,
-    depth: 3,
-  },
-  text: {
-    limit: '5mb',
-    type: ['text/plain', 'text/html', 'text/xml'],
-  },
-  raw: {
-    limit: '50mb',
-    type: ['application/octet-stream', 'image/*'],
-  },
-}));
-```
+- Text and raw are **disabled** by default — pass an options object (even `{}`) to enable them
+- Multipart requests (`multipart/form-data`) throw `UNSUPPORTED_CONTENT_TYPE` with a hint to use a dedicated multipart parser
 
 ---
 
@@ -319,8 +313,8 @@ app.use(json({ limit: '1048576b' }));
 
 // Common limits
 app.use(json({ limit: '100kb' })); // 100 KB
-app.use(json({ limit: '5mb' }));   // 5 MB
-app.use(json({ limit: '1gb' }));   // 1 GB
+app.use(json({ limit: '5mb' })); // 5 MB
+app.use(json({ limit: '1gb' })); // 1 GB
 ```
 
 **What happens when limit is exceeded:**
@@ -360,18 +354,21 @@ app.use(async (ctx, next) => {
 
 **Error codes:**
 
-| Code | Status | Description |
-|------|--------|-------------|
-| `ENTITY_TOO_LARGE` | 413 | Body exceeds configured size limit |
-| `INVALID_JSON` | 400 | JSON syntax error |
-| `STRICT_MODE_VIOLATION` | 400 | JSON is primitive in strict mode |
-| `TOO_MANY_PARAMETERS` | 413 | URL-encoded parameter count exceeded |
-| `DEPTH_EXCEEDED` | 400 | URL-encoded nesting too deep |
-| `PROTOTYPE_POLLUTION` | 400 | Detected `__proto__`, `constructor`, or `prototype` key |
-| `UNSUPPORTED_CHARSET` | 415 | Unknown charset in Content-Type |
-| `BODY_READ_ERROR` | 400 | Error reading request stream |
-| `REQUEST_ABORTED` | 400 | Client aborted the request |
-| `CONNECTION_CLOSED` | 400 | Connection closed before body was received |
+| Code                       | Status | Description                                                           |
+| -------------------------- | ------ | --------------------------------------------------------------------- |
+| `ENTITY_TOO_LARGE`         | 413    | Body exceeds configured size limit                                    |
+| `INVALID_JSON`             | 400    | JSON syntax error                                                     |
+| `STRICT_MODE_VIOLATION`    | 400    | JSON is primitive in strict mode                                      |
+| `JSON_DEPTH_EXCEEDED`      | 400    | JSON nesting exceeds `maxDepth`                                       |
+| `INVALID_URLENCODED`       | 400    | Malformed URL-encoded data                                            |
+| `TOO_MANY_PARAMETERS`      | 413    | URL-encoded parameter count exceeded                                  |
+| `DEPTH_EXCEEDED`           | 400    | URL-encoded nesting too deep                                          |
+| `INVALID_PARAMETER`        | 400    | Prototype pollution attempt (`__proto__`, `constructor`, `prototype`) |
+| `UNSUPPORTED_CHARSET`      | 415    | Unknown charset in Content-Type                                       |
+| `UNSUPPORTED_CONTENT_TYPE` | 415    | Content type not handled (e.g. `multipart/form-data`)                 |
+| `BODY_READ_ERROR`          | 400    | Error reading request stream                                          |
+| `REQUEST_CLOSED`           | 400    | Connection closed before body was received                            |
+| `REQUEST_ABORTED`          | 400    | Client aborted the request                                            |
 
 ---
 
@@ -383,14 +380,14 @@ All URL-encoded keys are validated against a blocklist:
 
 ```typescript
 // These are automatically blocked:
-// __proto__[polluted]=true
-// constructor[prototype][evil]=true
-// prototype[hack]=true
+// __proto__[polluted]=true        → INVALID_PARAMETER
+// constructor[prototype][evil]=true → INVALID_PARAMETER
+// prototype[hack]=true            → INVALID_PARAMETER
 
 app.use(urlencoded());
 
 app.post('/submit', async (ctx) => {
-  // ctx.body is safe - no prototype pollution possible
+  // ctx.body is safe — no prototype pollution possible
   const data = ctx.body;
 });
 ```
@@ -400,11 +397,13 @@ app.post('/submit', async (ctx) => {
 Multiple layers of protection against denial-of-service:
 
 ```typescript
-app.use(urlencoded({
-  limit: '100kb',       // Limit total body size
-  parameterLimit: 100,  // Limit number of parameters
-  depth: 3,             // Limit nesting depth
-}));
+app.use(
+  urlencoded({
+    limit: '100kb', // Limit total body size
+    parameterLimit: 100, // Limit number of parameters
+    depth: 3, // Limit nesting depth
+  })
+);
 ```
 
 ### Memory Leak Prevention
@@ -423,10 +422,12 @@ Event listeners are properly cleaned up on request abort:
 Only safe, supported charsets are accepted:
 
 ```typescript
-// Content-Type: application/json; charset=utf-8 → ✓ OK
-// Content-Type: application/json; charset=iso-8859-1 → ✓ OK
-// Content-Type: application/json; charset=fake-encoding → ✗ Error
+// Content-Type: application/json; charset=utf-8       → ✓ OK
+// Content-Type: application/json; charset=ascii        → ✓ OK
+// Content-Type: application/json; charset=fake-charset → ✗ UNSUPPORTED_CHARSET
 ```
+
+Supported: `utf-8`, `utf8`, `ascii`, `latin1`, `binary`, `base64`, `hex`, `utf16le`, `utf-16le`, `ucs2`, `ucs-2`
 
 ---
 
@@ -441,21 +442,19 @@ import { createHmac } from 'node:crypto';
 app.use(json({ rawBody: true }));
 
 app.post('/webhook', async (ctx) => {
-  const signature = ctx.get('X-Signature');
+  const signature = ctx.headers['x-signature'] as string;
   const rawBody = ctx.rawBody as Buffer;
 
-  // Verify webhook signature
-  const expectedSignature = createHmac('sha256', SECRET)
-    .update(rawBody)
-    .digest('hex');
+  const expected = createHmac('sha256', process.env.WEBHOOK_SECRET!).update(rawBody).digest('hex');
 
-  if (signature !== expectedSignature) {
-    ctx.throw(401, 'Invalid signature');
+  if (signature !== expected) {
+    ctx.status = 401;
+    ctx.json({ error: 'Invalid signature' });
+    return;
   }
 
-  // Process verified webhook
   const payload = ctx.body;
-  // ...
+  ctx.json({ ok: true });
 });
 ```
 
@@ -466,14 +465,16 @@ app.post('/webhook', async (ctx) => {
 Parse custom JSON-like content types:
 
 ```typescript
-app.use(json({
-  type: [
-    'application/json',
-    'application/vnd.api+json',    // JSON:API
-    'application/ld+json',          // JSON-LD
-    'application/hal+json',         // HAL
-  ],
-}));
+app.use(
+  json({
+    type: [
+      'application/json',
+      'application/vnd.api+json', // JSON:API
+      'application/ld+json', // JSON-LD
+      'application/hal+json', // HAL
+    ],
+  })
+);
 ```
 
 ---
@@ -537,9 +538,6 @@ app.post('/contact', async (ctx) => {
     message: string;
   };
 
-  // Process form submission
-  console.log(`Contact from ${name} (${email}): ${message}`);
-
   ctx.redirect('/thank-you');
 });
 ```
@@ -550,28 +548,36 @@ app.post('/contact', async (ctx) => {
 import { json, urlencoded, text, raw } from '@nextrush/body-parser';
 
 // JSON for API routes
-app.use(json({
-  type: ['application/json'],
-  limit: '10mb',
-}));
+app.use(
+  json({
+    type: ['application/json'],
+    limit: '10mb',
+  })
+);
 
 // URL-encoded for forms
-app.use(urlencoded({
-  type: ['application/x-www-form-urlencoded'],
-  extended: true,
-}));
+app.use(
+  urlencoded({
+    type: ['application/x-www-form-urlencoded'],
+    extended: true,
+  })
+);
 
 // Text for plain text uploads
-app.use(text({
-  type: ['text/plain', 'text/csv'],
-  limit: '5mb',
-}));
+app.use(
+  text({
+    type: ['text/plain', 'text/csv'],
+    limit: '5mb',
+  })
+);
 
 // Raw for binary uploads
-app.use(raw({
-  type: ['application/octet-stream', 'image/*'],
-  limit: '50mb',
-}));
+app.use(
+  raw({
+    type: ['application/octet-stream', 'image/*'],
+    limit: '50mb',
+  })
+);
 ```
 
 ---
@@ -602,13 +608,17 @@ import type {
   BodyParserOptions,
 
   // Error handling
-  BodyParserError,
   BodyParserErrorCode,
 
   // Context interface (for custom middleware)
   BodyParserContext,
   BodyParserMiddleware,
+
+  // Callbacks
+  VerifyCallback,
 } from '@nextrush/body-parser';
+
+import { BodyParserError } from '@nextrush/body-parser';
 ```
 
 ---
@@ -617,8 +627,8 @@ import type {
 
 This body-parser is **not designed for**:
 
-- **Multipart/form-data**: For file uploads, use `@nextrush/multipart` (planned)
-- **Streaming large files**: For streaming, use `@nextrush/streaming` (planned)
+- **Multipart/form-data**: For file uploads, use a dedicated multipart parser
+- **Streaming large files**: For streaming, process the body stream directly
 - **GraphQL**: Use a GraphQL-specific body parser
 - **Protocol Buffers**: Write a custom parser or use a dedicated package
 
@@ -626,21 +636,20 @@ This body-parser is **not designed for**:
 
 ## Runtime Compatibility
 
-This package works across all JavaScript runtimes:
+This package works across all JavaScript runtimes via the `BodySource` abstraction:
 
-| Runtime | Supported |
-|---------|-----------|
-| Node.js 20+ | ✅ |
-| Bun | ✅ |
-| Deno | ✅ |
-| Cloudflare Workers | ✅ |
-| Vercel Edge Runtime | ✅ |
+| Runtime             | Supported |
+| ------------------- | --------- |
+| Node.js 22+         | ✅        |
+| Bun                 | ✅        |
+| Deno                | ✅        |
+| Cloudflare Workers  | ✅        |
+| Vercel Edge Runtime | ✅        |
 
 ---
 
 ## See Also
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed architecture documentation
 - [@nextrush/core](../core) - Core application framework
 - [@nextrush/router](../router) - URL routing
 - [@nextrush/adapter-node](../../adapters/node) - Node.js HTTP adapter

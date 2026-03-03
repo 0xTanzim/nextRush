@@ -5,7 +5,11 @@ description: What is NextRush and why should you use it?
 
 # Introduction to NextRush
 
-NextRush is a backend framework for Node.js, Bun, Deno, and Edge runtimes. It's designed for developers who want **speed without sacrificing clarity**.
+NextRush is a backend framework for Node.js, Bun, Deno, and Edge runtimes — built for developers who want **speed without sacrificing clarity**.
+
+<Callout type="info" title="Requirements">
+  NextRush requires **Node.js 22.0.0 or later** and uses **TypeScript** with strict mode.
+</Callout>
 
 ## The Problem with Existing Frameworks
 
@@ -15,7 +19,7 @@ If you've built backend APIs before, you've likely encountered these frustration
 
 **Koa** — Clean async/await, but the ecosystem is fragmented. Many essential features require third-party packages with varying quality.
 
-**Fastify** — Great performance, but the plugin system has a learning curve. Schema validation is powerful but verbose.
+**Fastify** — Great performance, but the plugin system has a learning curve. Schema validation is capable but verbose.
 
 **NestJS** — Excellent structure and DI, but heavy. The Angular-inspired patterns feel foreign to many Node.js developers.
 
@@ -25,14 +29,14 @@ If you've built backend APIs before, you've likely encountered these frustration
 
 NextRush takes the best ideas from each framework and combines them into a cohesive experience:
 
-| Feature | How NextRush Approaches It |
-|---------|---------------------------|
-| **Performance** | Radix tree routing, minimal overhead. [30,000+ RPS on typical hardware](/docs/guides/benchmarks). |
-| **TypeScript** | Built from the ground up. Zero `any`. Full inference. |
-| **Middleware** | Koa-style async/await with `ctx.next()`. |
-| **Structure** | Optional controllers with DI when you need them. |
-| **Modularity** | 27+ packages. Install only what you use. |
-| **Runtimes** | Node.js, Bun, Deno, Edge — same code. |
+| Feature         | How NextRush Approaches It                                                     |
+| --------------- | ------------------------------------------------------------------------------ |
+| **Performance** | Radix tree routing, minimal overhead. Targets 30,000+ RPS on typical hardware. |
+| **TypeScript**  | Built from the ground up. Zero `any`. Full inference.                          |
+| **Middleware**  | Koa-style async/await with `ctx.next()`.                                       |
+| **Structure**   | Optional controllers with DI when you need them.                               |
+| **Modularity**  | 27 packages. Install only what you use.                                        |
+| **Runtimes**    | Node.js, Bun, Deno, Edge — same code.                                          |
 
 ## Core Mental Model
 
@@ -43,6 +47,8 @@ NextRush has three core concepts:
 The application is your container. It holds middleware and plugins.
 
 ```typescript
+import { createApp } from 'nextrush';
+
 const app = createApp();
 ```
 
@@ -51,10 +57,14 @@ const app = createApp();
 Every request creates a fresh Context (`ctx`). This is your interface to the request and response.
 
 ```typescript
+import { createRouter } from 'nextrush';
+
+const router = createRouter();
+
 router.get('/users/:id', (ctx) => {
-  const { id } = ctx.params;    // Route parameters
-  const { page } = ctx.query;   // Query string
-  ctx.json({ id, page });       // Send response
+  const { id } = ctx.params; // Route parameters
+  const { page } = ctx.query; // Query string
+  ctx.json({ id, page }); // Send response
 });
 ```
 
@@ -63,10 +73,15 @@ router.get('/users/:id', (ctx) => {
 Middleware transforms requests and responses. It runs in order, wrapping around your handlers.
 
 ```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+
 app.use(async (ctx) => {
   const start = Date.now();
-  await ctx.next();  // Call the next middleware
-  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+  await ctx.next(); // Call the next middleware
+  const duration = Date.now() - start;
+  // Use structured logging in production instead of console.log
 });
 ```
 
@@ -76,7 +91,7 @@ NextRush is a good fit when you:
 
 - Build REST APIs or backend services
 - Value type safety and want full TypeScript support
-- Need high performance ([30,000+ RPS on typical hardware](/docs/guides/benchmarks))
+- Need high performance (targets 30,000+ RPS on typical hardware)
 - Want to deploy to multiple runtimes (Node, Bun, Edge)
 - Prefer explicit code over hidden magic
 - Like modular architecture where you install only what you need

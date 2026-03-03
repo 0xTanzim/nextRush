@@ -1,392 +1,205 @@
 ---
 title: Dev Tools
-description: Using the NextRush CLI for development and production builds with proper decorator metadata support
+description: Set up the NextRush CLI for development with hot reload and production builds with decorator metadata
 ---
-
-import { Mermaid } from '@/components/mdx';
-import { Callout } from 'fumadocs-ui/components/callout';
-import { Card, Cards } from 'fumadocs-ui/components/card';
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 
 # Dev Tools
 
-The `@nextrush/dev` package provides development and build tools that solve a critical problem: **making decorator metadata work with fast bundlers**.
+Modern bundlers like esbuild and tsx strip decorator metadata that dependency injection needs. The `@nextrush/dev` CLI provides a hot-reloading dev server and a production build pipeline that preserves this metadata using SWC.
 
-## The Problem
+## What You Will Build
 
-TypeScript decorators with dependency injection require `emitDecoratorMetadata` to work. Without it, the DI container cannot resolve constructor parameters:
+A development workflow with a hot-reloading dev server and a production build that compiles TypeScript with SWC, preserving decorator metadata for DI.
 
-```typescript
-@Service()
-class UserService {
-  // DI needs to know 'db' is of type 'Database'
-  constructor(private db: Database) {}
-}
-```
+## Prerequisites
 
-Most modern bundlers strip this metadata for speed:
-
-| Tool | Speed | Decorator Metadata | DI Works? |
-|------|-------|-------------------|-----------|
-| tsup / esbuild | ⚡ Fast | ❌ Not emitted | ❌ No |
-| tsx | ⚡ Fast | ❌ Not emitted | ❌ No |
-| node --strip-types | ⚡ Fast | ❌ Not emitted | ❌ No |
-| tsc | 🐢 Slow | ✅ Emitted | ✅ Yes |
-| **nextrush dev** | ⚡ Fast | ✅ Emitted | ✅ Yes |
-| **nextrush build** | ⚡ Fast | ✅ Emitted | ✅ Yes |
-
-NextRush dev tools give you **speed AND decorator metadata**.
+- Node.js 22+, Bun, or Deno installed
+- An existing NextRush project (or a `src/index.ts` entry file)
+- `tsconfig.json` with `experimentalDecorators` and `emitDecoratorMetadata` enabled
 
 ## Installation
 
-```bash
-pnpm add -D @nextrush/dev
-```
+<PackageInstall packages={[]} dev={['@nextrush/dev']} />
 
-## Quick Start
+## Step-by-Step Setup
 
-```bash
-# Start development server (auto-detects everything)
-npx nextrush dev
+<Steps>
+  <Step>
+    ### Add scripts to package.json
 
-# Build for production
-npx nextrush build
-```
+    ```json
+    {
+      "scripts": {
+        "dev": "nextrush dev",
+        "build": "nextrush build",
+        "start": "node dist/index.js"
+      }
+    }
+    ```
 
-That's it. No configuration needed. The CLI auto-detects:
-- Entry file (`src/index.ts`, `src/main.ts`, etc.)
-- Runtime (Node.js, Bun, or Deno)
-- TypeScript settings from `tsconfig.json`
+  </Step>
+  <Step>
+    ### Start the dev server
 
-## Development Server
+    ```bash
+    npx nextrush dev
+    ```
 
-The `nextrush dev` command starts a development server with hot reload and decorator support.
+    The CLI auto-detects your entry file, runtime, and TypeScript settings. No configuration required.
 
-### Basic Usage
+  </Step>
+  <Step>
+    ### Build for production
 
-```bash
-# Auto-detects entry file
-npx nextrush dev
+    ```bash
+    npx nextrush build
+    ```
 
-# Specify entry file
-npx nextrush dev ./src/server.ts
+    Compiles TypeScript with SWC, emitting decorator metadata that DI containers require.
 
-# Custom port
-npx nextrush dev --port 4000
+  </Step>
+</Steps>
 
-# Enable Node.js debugger
-npx nextrush dev --inspect
-```
-
-### Options
-
-| Option | Alias | Default | Description |
-|--------|-------|---------|-------------|
-| `--port` | `-p` | `3000` | Port number |
-| `--watch` | `-w` | `src` | Paths to watch (repeatable) |
-| `--inspect` | - | `false` | Enable Node.js inspector |
-| `--inspect-port` | - | `9229` | Inspector port |
-| `--no-clear` | - | - | Don't clear screen on start |
-| `--verbose` | `-v` | `false` | Verbose output |
-
-### What Happens Under the Hood
-
-<Mermaid chart={`
-flowchart LR
-    A[nextrush dev] --> B{Detect Runtime}
-    B --> C[Node.js]
-    B --> D[Bun]
-    B --> E[Deno]
-    C --> F["node --watch + tsx"]
-    D --> G["bun --watch"]
-    E --> H["deno run --watch"]
-    F --> I[Your App]
-    G --> I
-    H --> I
-`} />
-
-**Node.js**: Uses `node --watch` with `tsx` or `@swc-node/register` for TypeScript compilation.
-
-**Bun**: Uses native `bun --watch` - no additional tools needed.
-
-**Deno**: Uses native `deno run --watch` with npm compatibility mode.
-
-## Production Build
-
-The `nextrush build` command compiles your application with SWC, properly emitting decorator metadata.
-
-### Basic Usage
+## Dev Server Options
 
 ```bash
-# Build with defaults
-npx nextrush build
-
-# Custom output directory
-npx nextrush build --outDir dist
-
-# Minify output
-npx nextrush build --minify
-
-# Target ES2020
-npx nextrush build --target es2020
+npx nextrush dev ./src/app.ts --port 4000 --inspect
 ```
 
-### Options
+<TypeTable
+  title="nextrush dev options"
+  types={{
+    '--port, -p': { type: 'number', description: 'Server port', default: '3000' },
+    '--watch, -w': {
+      type: 'string',
+      description: 'Path to watch (replaces default; repeatable)',
+      default: 'src (or . if src/ missing)',
+    },
+    '--inspect': { type: 'boolean', description: 'Enable Node.js inspector', default: 'false' },
+    '--inspect-port': { type: 'number', description: 'Inspector port', default: '9229' },
+    '--no-clear': { type: 'boolean', description: "Don't clear screen on start" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
 
-| Option | Alias | Default | Description |
-|--------|-------|---------|-------------|
-| `--outDir` | `-o` | `dist` | Output directory |
-| `--target` | `-t` | `es2022` | Target ES version |
-| `--sourcemap` | - | `true` | Generate sourcemaps |
-| `--no-sourcemap` | - | - | Disable sourcemaps |
-| `--minify` | `-m` | `false` | Minify output |
-| `--no-decorator-metadata` | - | - | Skip decorator metadata |
-| `--no-clean` | - | - | Don't clean output directory |
-| `--verbose` | `-v` | `false` | Verbose output |
+The port also respects the `PORT` environment variable when `--port` is not set.
 
-### What the Build Produces
-
-```
-your-project/
-├── src/
-│   ├── index.ts
-│   └── controllers/
-│       └── user.controller.ts
-├── dist/                     # Build output
-│   ├── index.js              # Compiled JavaScript
-│   ├── index.js.map          # Sourcemap
-│   ├── index.d.ts            # Type declarations
-│   └── controllers/
-│       ├── user.controller.js
-│       ├── user.controller.js.map
-│       └── user.controller.d.ts
-└── package.json
-```
-
-## Package.json Scripts
-
-Add these scripts to your `package.json`:
-
-```json
-{
-  "scripts": {
-    "dev": "nextrush dev",
-    "build": "nextrush build",
-    "start": "node dist/index.js"
-  }
-}
-```
-
-## Multi-Runtime Support
-
-NextRush dev tools work across all major JavaScript runtimes:
-
-| Runtime | Dev Server | Production Build | Decorator Metadata |
-|---------|------------|------------------|-------------------|
-| **Node.js** | ✅ `--watch` + tsx | ✅ @swc/core | ✅ Full support |
-| **Bun** | ✅ Native `--watch` | ✅ Native bundler | ✅ Full support |
-| **Deno** | ✅ Native `--watch` | ✅ npm:@swc/core | ✅ Full support |
-
-### Node.js
+## Build Options
 
 ```bash
-# Development
-npx nextrush dev
-
-# Production
-npx nextrush build
-node dist/index.js
+npx nextrush build --outDir dist --minify --target es2022
 ```
 
-### Bun
+<TypeTable
+  title="nextrush build options"
+  types={{
+    '--outDir, -o': { type: 'string', description: 'Output directory', default: 'dist' },
+    '--target, -t': {
+      type: 'string',
+      description: 'ES target (es2020, es2021, es2022, esnext)',
+      default: 'es2022',
+    },
+    '--sourcemap': { type: 'boolean', description: 'Generate sourcemaps', default: 'true' },
+    '--no-sourcemap': { type: 'boolean', description: 'Disable sourcemaps' },
+    '--minify, -m': { type: 'boolean', description: 'Minify output', default: 'false' },
+    '--no-decorator-metadata': {
+      type: 'boolean',
+      description: 'Disable decorator metadata emission',
+    },
+    '--no-clean': { type: 'boolean', description: "Don't clean output directory before build" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
 
-```bash
-# Development
-bun nextrush dev
+## Runtime Behavior
 
-# Production
-bun nextrush build
-bun dist/index.js
-```
+The CLI detects your runtime and adapts automatically:
 
-### Deno
+| Runtime | Dev Server                  | Production Build       | Dev Decorator Metadata             |
+| ------- | --------------------------- | ---------------------- | ---------------------------------- |
+| Node.js | `tsx watch`                 | `@swc/core` transform  | Not emitted (use `nextrush build`) |
+| Bun     | `bun --watch` (native)      | `Bun.build()` (native) | Emitted natively                   |
+| Deno    | `deno run --watch` (native) | `npm:@swc/core`        | Emitted natively                   |
 
-```bash
-# Development
-deno run -A npm:@nextrush/dev dev
-
-# Production
-deno run -A npm:@nextrush/dev build
-deno run --allow-all dist/index.js
-```
+<Callout type="info" title="Node.js Dev Mode and DI">
+  On Node.js, `tsx watch` uses esbuild which does not emit decorator metadata. DI with constructor
+  injection works after running `nextrush build`. For dev-time DI on Node.js, install
+  `@swc-node/register` and load it via `--import`. Bun and Deno emit metadata natively.
+</Callout>
 
 ## Entry File Detection
 
-The CLI automatically finds your entry file in this order:
+The CLI finds your entry file in this order:
 
-1. `package.json` `main` field (converts `dist/` to `src/`)
-2. `src/index.ts`
-3. `src/main.ts`
-4. `src/app.ts`
-5. `src/server.ts`
-6. `index.ts`
+1. `package.json` `main` or `module` field (converts `dist/` paths to `src/`)
+2. `src/index.ts`, `src/main.ts`, `src/app.ts`, `src/server.ts`
+3. `index.ts`, `main.ts`, `app.ts`, `server.ts`
 
-## tsconfig.json Requirements
+Override by passing the entry directly: `npx nextrush dev ./src/app.ts`
 
-Your `tsconfig.json` must include:
+## Configuration File
 
-```json
-{
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
-  }
-}
+The CLI loads settings from `nextrush.config.ts` or a `"nextrush"` field in `package.json`:
+
+```typescript title="nextrush.config.ts"
+export default {
+  dev: {
+    port: 4000,
+    watch: ['src', 'config'],
+  },
+  build: {
+    outDir: 'dist',
+    target: 'es2022',
+    minify: false,
+  },
+};
 ```
 
-<Callout type="warn" title="Required for DI">
-Without these options in tsconfig.json, TypeScript won't recognize decorator syntax and the DI container won't work.
+CLI flags override config file values.
+
+## Verification
+
+Run the dev server and confirm the output:
+
+```bash
+npx nextrush dev
+```
+
+You should see:
+
+```
+⚡ NextRush Dev Server
+
+  Runtime:  node v22.x.x
+  Entry:    src/index.ts
+  Port:     3000
+  Watching: src
+```
+
+<Callout type="warn">
+  If you see "TypeInfo not known for X" at runtime, verify your `tsconfig.json` has both
+  `experimentalDecorators` and `emitDecoratorMetadata` set to `true`, and that `reflect-metadata` is
+  imported at the top of your entry file.
 </Callout>
 
 ## Programmatic API
 
-For build tool integration, monorepo setups, or testing frameworks:
-
-### Development Server
+For build scripts, monorepo setups, or test harnesses:
 
 ```typescript
-import { dev } from '@nextrush/dev';
+import { dev, build, detectRuntime } from '@nextrush/dev';
 
-// Simple - auto-detect entry
-await dev();
+// Dev server
+await dev('./src/app.ts', { port: 4000, inspect: true });
 
-// With options
-await dev('./src/app.ts', {
-  port: 4000,
-  inspect: true,
-  watch: ['./src', './config'],
-  env: { DATABASE_URL: 'postgres://...' },
-});
-```
+// Production build
+await build('./src/index.ts', { outDir: 'dist', minify: true });
 
-### Production Build
-
-```typescript
-import { build } from '@nextrush/dev';
-
-// Simple
-await build();
-
-// With options
-await build('./src/index.ts', {
-  outDir: 'dist',
-  minify: true,
-  sourcemap: true,
-  target: 'es2022',
-});
-```
-
-### Runtime Detection
-
-```typescript
-import { detectRuntime, getRuntimeInfo } from '@nextrush/dev';
-
-const runtime = detectRuntime();
-// Returns: 'node' | 'bun' | 'deno'
-
-const info = getRuntimeInfo();
-// {
-//   runtime: 'node',
-//   version: '22.0.0',
-//   supportsTypeScript: false,
-//   supportsWatch: true,
-//   needsSwc: true
-// }
-```
-
-## Why Not Just Use tsup/esbuild?
-
-esbuild and tools built on it (tsup, tsx) don't emit decorator metadata:
-
-```typescript
-// Your code
-@Service()
-class UserService {
-  constructor(private db: Database) {}
-}
-
-// After tsup/esbuild (metadata LOST):
-let UserService = class { constructor(db) {} };
-// No Reflect.metadata! DI fails with "TypeInfo not known"
-
-// After nextrush build (metadata PRESERVED):
-let UserService = class { constructor(db) {} };
-Reflect.defineMetadata("design:paramtypes", [Database], UserService);
-// ✅ DI can resolve Database
-```
-
-The `nextrush build` command uses SWC with `decoratorMetadata: true`, which properly emits the reflection metadata required by tsyringe and other DI containers.
-
-## Debugging with Inspector
-
-Enable the Node.js debugger for step-through debugging:
-
-```bash
-npx nextrush dev --inspect
-```
-
-Then in VS Code, create a launch configuration:
-
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "node",
-      "request": "attach",
-      "name": "Attach to NextRush",
-      "port": 9229,
-      "restart": true
-    }
-  ]
-}
-```
-
-## Common Issues
-
-### "TypeInfo not known for X"
-
-This error means decorator metadata wasn't emitted. Check:
-1. `tsconfig.json` has `emitDecoratorMetadata: true`
-2. You're using `nextrush dev` or `nextrush build` (not tsx/esbuild directly)
-3. `reflect-metadata` is imported at the top of your entry file
-
-### "Cannot find entry file"
-
-The CLI couldn't auto-detect your entry file. Either:
-- Add a `main` field to package.json
-- Create `src/index.ts`
-- Specify the entry explicitly: `npx nextrush dev ./src/app.ts`
-
-### Watch Not Working
-
-On some systems, file watching may hit limits:
-```bash
-# Linux: increase inotify watches
-echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
+// Runtime detection
+const runtime = detectRuntime(); // 'node' | 'bun' | 'deno'
 ```
 
 ## Next Steps
 
-<Cards>
-  <Card title="Class-Based Controllers" href="/docs/guides/class-based">
-    Build APIs with decorators and DI.
-  </Card>
-  <Card title="DI & Decorators Architecture" href="/docs/architecture/di-decorators">
-    Understand how DI and decorators work internally.
-  </Card>
-  <Card title="Testing" href="/docs/guides/testing">
-    Test your NextRush applications.
-  </Card>
-</Cards>
+- [Class-Based Controllers](/docs/guides/class-based) — Build APIs with decorators and DI
+- [DI & Decorators Architecture](/docs/architecture/di-decorators) — Understand how DI and decorators work internally

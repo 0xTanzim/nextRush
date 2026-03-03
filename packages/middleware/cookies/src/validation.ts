@@ -8,13 +8,14 @@
  */
 
 import {
-    CRLF_CHARS,
-    HOST_PREFIX,
-    INVALID_NAME_CHARS,
-    MAX_COOKIE_SIZE,
-    MAX_NAME_LENGTH,
-    MAX_VALUE_LENGTH,
-    SECURE_PREFIX,
+  COMMON_PUBLIC_SUFFIXES,
+  CRLF_CHARS,
+  HOST_PREFIX,
+  INVALID_NAME_CHARS,
+  MAX_COOKIE_SIZE,
+  MAX_NAME_LENGTH,
+  MAX_VALUE_LENGTH,
+  SECURE_PREFIX,
 } from './constants.js';
 import type { CookieOptions } from './types.js';
 
@@ -46,25 +47,6 @@ export class SecurityError extends Error {
     this.code = code;
   }
 }
-
-// ============================================================================
-// Common Public Suffixes
-// ============================================================================
-
-/**
- * Common public suffixes to reject.
- * A full implementation should use the Public Suffix List (publicsuffix.org).
- */
-export const COMMON_PUBLIC_SUFFIXES = new Set([
-  'com', 'org', 'net', 'edu', 'gov', 'mil',
-  'co.uk', 'org.uk', 'ac.uk', 'gov.uk',
-  'com.au', 'net.au', 'org.au',
-  'co.nz', 'net.nz', 'org.nz',
-  'co.jp', 'ne.jp', 'or.jp',
-  'com.cn', 'net.cn', 'org.cn',
-  'com.br', 'net.br', 'org.br',
-  'de', 'fr', 'it', 'es', 'ru', 'cn', 'jp', 'kr', 'uk', 'au', 'ca',
-]);
 
 // ============================================================================
 // Cookie Name Validation
@@ -226,21 +208,6 @@ export function validatePrefixes(name: string, options: CookieOptions): Validati
 // ============================================================================
 
 /**
- * Common public suffixes to reject.
- * A full implementation should use the Public Suffix List (publicsuffix.org).
- */
-const PUBLIC_SUFFIXES = new Set([
-  'com', 'org', 'net', 'edu', 'gov', 'mil',
-  'co.uk', 'org.uk', 'ac.uk', 'gov.uk',
-  'com.au', 'net.au', 'org.au',
-  'co.nz', 'net.nz', 'org.nz',
-  'co.jp', 'ne.jp', 'or.jp',
-  'com.cn', 'net.cn', 'org.cn',
-  'com.br', 'net.br', 'org.br',
-  'de', 'fr', 'it', 'es', 'ru', 'cn', 'jp', 'kr', 'uk', 'au', 'ca',
-]);
-
-/**
  * Validate domain attribute.
  *
  * @param domain - Domain value to validate
@@ -271,16 +238,19 @@ export function validateDomain(domain: string): ValidationResult {
   const suffix = parts.slice(-2).join('.');
   const tld = parts[parts.length - 1];
 
-  if (tld && PUBLIC_SUFFIXES.has(tld) && parts.length <= 1) {
+  if (tld && COMMON_PUBLIC_SUFFIXES.has(tld) && parts.length <= 1) {
     errors.push(`Domain "${domain}" appears to be a public suffix`);
   }
 
-  if (suffix && PUBLIC_SUFFIXES.has(suffix) && parts.length <= 2) {
+  if (suffix && COMMON_PUBLIC_SUFFIXES.has(suffix) && parts.length <= 2) {
     errors.push(`Domain "${domain}" appears to be a public suffix`);
   }
 
   // Basic domain format validation
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$/.test(normalizedDomain) && normalizedDomain.length > 1) {
+  if (
+    !/^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$/.test(normalizedDomain) &&
+    normalizedDomain.length > 1
+  ) {
     errors.push('Domain has invalid format');
   }
 
@@ -483,13 +453,15 @@ export function sanitizeCookieValue(value: string): string {
     return '';
   }
 
-  return value
-    // Remove CRLF sequences
-    .replace(/\r\n|\r|\n/g, '')
-    // Remove URL-encoded CRLF (case insensitive)
-    .replace(/%0[dD]%0[aA]|%0[dD]|%0[aA]/g, '')
-    // Remove control characters (0x00-0x1F and 0x7F)
-    .replace(/[\x00-\x1F\x7F]/g, '');
+  return (
+    value
+      // Remove CRLF sequences
+      .replace(/\r\n|\r|\n/g, '')
+      // Remove URL-encoded CRLF (case insensitive)
+      .replace(/%0[dD]%0[aA]|%0[dD]|%0[aA]/g, '')
+      // Remove control characters (0x00-0x1F and 0x7F)
+      .replace(/[\x00-\x1F\x7F]/g, '')
+  );
 }
 
 // ============================================================================
@@ -566,9 +538,11 @@ export function isValidDomain(domain: string): boolean {
   }
 
   // Multi-character domains
-  return /^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$/.test(normalized) &&
-         !normalized.includes('..') &&
-         !/-\.|\.-/.test(normalized);
+  return (
+    /^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$/.test(normalized) &&
+    !normalized.includes('..') &&
+    !/-\.|\.-/.test(normalized)
+  );
 }
 
 // ============================================================================
@@ -677,19 +651,13 @@ export function validateCookieOptions(options: CookieOptions): void {
       );
     }
     if (!isValidDomain(options.domain)) {
-      throw new SecurityError(
-        `Invalid domain format: "${options.domain}"`,
-        'INVALID_DOMAIN'
-      );
+      throw new SecurityError(`Invalid domain format: "${options.domain}"`, 'INVALID_DOMAIN');
     }
   }
 
   // Validate path
   if (options.path && !isValidPath(options.path)) {
-    throw new SecurityError(
-      `Invalid path: "${options.path}"`,
-      'INVALID_PATH'
-    );
+    throw new SecurityError(`Invalid path: "${options.path}"`, 'INVALID_PATH');
   }
 
   // SameSite=None requires Secure

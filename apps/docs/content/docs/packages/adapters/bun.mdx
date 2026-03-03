@@ -1,29 +1,19 @@
 ---
-title: "@nextrush/adapter-bun"
-description: "Native Bun HTTP adapter with hot reload support and maximum performance."
+title: '@nextrush/adapter-bun'
+description: 'Bun HTTP adapter for NextRush with graceful shutdown and TLS support.'
 ---
 
 # @nextrush/adapter-bun
 
 Connect your NextRush application to [Bun](https://bun.sh)'s native HTTP server.
 
-Bun's built-in server offers exceptional performance with zero external dependencies. This adapter bridges NextRush's middleware system to Bun's native `Bun.serve()` API.
+This adapter bridges NextRush's middleware system to Bun's native `Bun.serve()` API, handling context creation, in-flight request tracking, and graceful shutdown.
 
 ---
 
 ## Installation
 
-```bash tab="npm"
-npm install @nextrush/adapter-bun
-```
-
-```bash tab="pnpm"
-pnpm add @nextrush/adapter-bun
-```
-
-```bash tab="bun"
-bun add @nextrush/adapter-bun
-```
+<PackageInstall packages={['@nextrush/adapter-bun', '@nextrush/core']} />
 
 ---
 
@@ -78,15 +68,43 @@ const server = serve(app, {
 
 #### ServeOptions
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `port` | `number` | `3000` | Port to listen on |
-| `hostname` | `string` | `'0.0.0.0'` | Hostname to bind to |
-| `onListen` | `(info) => void` | — | Callback when server starts |
-| `onError` | `(error) => void` | — | Custom error handler |
-| `tls` | `TLSOptions` | — | TLS/HTTPS configuration |
-| `maxRequestBodySize` | `number` | `128MB` | Maximum request body size |
-| `development` | `boolean` | `false` | Enable development mode |
+<TypeTable
+  title="Options"
+  types={{
+    port: { type: 'number', description: 'Port to listen on', default: '3000' },
+    hostname: { type: 'string', description: 'Hostname to bind to', default: "'0.0.0.0'" },
+    onListen: {
+      type: '(info: { port: number; hostname: string }) => void',
+      description: 'Callback when server starts listening',
+      optional: true,
+    },
+    onError: {
+      type: '(error: Error) => void',
+      description: 'Custom handler for uncaught server errors',
+      optional: true,
+    },
+    tls: {
+      type: '{ cert: string | Buffer; key: string | Buffer; ca?: string | Buffer }',
+      description: 'TLS/HTTPS configuration',
+      optional: true,
+    },
+    maxRequestBodySize: {
+      type: 'number',
+      description: 'Maximum request body size in bytes (Bun default: 128 MB)',
+      optional: true,
+    },
+    development: {
+      type: 'boolean',
+      description: 'Enable Bun development mode with additional logging',
+      default: 'false',
+    },
+    shutdownTimeout: {
+      type: 'number',
+      description: 'Grace period in ms to drain in-flight requests during shutdown',
+      default: '30000',
+    },
+  }}
+/>
 
 #### ServerInstance
 
@@ -94,15 +112,20 @@ The returned server instance provides control methods:
 
 ```typescript
 interface ServerInstance {
-  server: BunServer;        // Underlying Bun server
-  port: number;             // Actual port
-  hostname: string;         // Actual hostname
+  server: ReturnType<typeof Bun.serve>; // Underlying Bun server
+  port: number; // Actual port
+  hostname: string; // Actual hostname
 
-  close(): Promise<void>;   // Graceful shutdown
-  address(): { port, hostname };
-  reload(options?): void;   // Hot reload configuration
+  close(): Promise<void>; // Graceful shutdown (drains in-flight requests)
+  address(): { port: number; hostname: string };
+  reload(options?: Partial<ServeOptions>): void; // Reload server configuration
 }
 ```
+
+<Callout type="info">
+  `close()` stops accepting new connections, waits up to `shutdownTimeout` ms for in-flight requests
+  to complete, then force-closes remaining connections and notifies plugins via `app.close()`.
+</Callout>
 
 ---
 
@@ -153,7 +176,7 @@ const server = serve(app, {
   tls: {
     cert: Bun.file('./cert.pem'),
     key: Bun.file('./key.pem'),
-    ca: Bun.file('./ca.pem'),  // Optional CA certificate
+    ca: Bun.file('./ca.pem'), // Optional CA certificate
   },
 });
 ```
@@ -167,11 +190,11 @@ Bun adapter supports runtime configuration reload:
 ```typescript
 const server = serve(app, { port: 3000 });
 
-// Later: change port without restart
-server.reload({ port: 4000 });
+// Update non-structural configuration at runtime
+server.reload({ development: true });
 ```
 
-This is useful for development workflows where you need to change server configuration dynamically.
+`reload()` passes options to Bun's `server.reload()`. Structural changes like port may not take effect.
 
 ---
 
@@ -198,7 +221,7 @@ Enable development mode for additional logging:
 ```typescript
 const server = serve(app, {
   port: 3000,
-  development: true,  // Enables Bun's dev logging
+  development: true, // Enables Bun's dev logging
 });
 ```
 
@@ -206,17 +229,25 @@ const server = serve(app, {
 
 ## Graceful Shutdown
 
-Handle server shutdown properly:
+The adapter tracks in-flight requests and drains them on shutdown. Configure the drain timeout with `shutdownTimeout` (default: 30 seconds):
 
 ```typescript
-const server = serve(app, { port: 3000 });
+const server = serve(app, {
+  port: 3000,
+  shutdownTimeout: 10_000, // 10s drain window
+});
 
 process.on('SIGTERM', async () => {
-  console.log('Shutting down...');
-  await server.close();  // Closes app + server
+  await server.close();
   process.exit(0);
 });
 ```
+
+`close()` performs three steps:
+
+1. Stops accepting new connections
+2. Waits for active requests to finish (up to `shutdownTimeout`)
+3. Force-closes remaining connections and calls `app.close()`
 
 ---
 
@@ -227,7 +258,7 @@ The adapter automatically extracts client IP from Bun's `requestIP()`:
 ```typescript
 app.use(async (ctx) => {
   // Available via context
-  const ip = ctx.ip;  // Extracted from Bun server
+  const ip = ctx.ip; // Extracted from Bun server
   ctx.json({ clientIp: ip });
 });
 ```

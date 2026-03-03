@@ -100,6 +100,7 @@ export const defaultValidator: IdValidator = isValidUuid;
 /**
  * Permissive validator that accepts any safe ID.
  * Allows alphanumeric IDs with hyphens and underscores.
+ * Note: Length and safety checks are already performed by the middleware
+ * before this validator is called, so this only checks the safe character pattern.
  */
-export const permissiveValidator: IdValidator = (id: string) =>
-  validateId(id, DEFAULT_MAX_LENGTH);
+export const permissiveValidator: IdValidator = (id: string) => isSafeId(id);

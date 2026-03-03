@@ -26,6 +26,29 @@ import type {
 import { defaultValidator, validateId } from './validation';
 
 // ============================================================================
+// Internal Safety Checks
+// ============================================================================
+
+const HEADER_TOKEN_PATTERN = /^[!#$%&'*+.^_`|~\w-]+$/;
+const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function validateHeaderName(name: string): void {
+  if (!HEADER_TOKEN_PATTERN.test(name)) {
+    throw new Error(
+      `[@nextrush/request-id] Invalid header name: "${name}". Header names must be valid HTTP tokens.`
+    );
+  }
+}
+
+function validateStateKey(key: string): void {
+  if (DANGEROUS_KEYS.has(key)) {
+    throw new Error(
+      `[@nextrush/request-id] Unsafe stateKey: "${key}". This key could cause prototype pollution.`
+    );
+  }
+}
+
+// ============================================================================
 // Request ID Middleware
 // ============================================================================
 
@@ -79,16 +102,28 @@ export function requestId<TContext extends RequestIdContext = RequestIdContext>(
     header = DEFAULT_HEADER,
     generator = defaultGenerator,
     /**
-     * When `true` (default), the middleware accepts valid incoming request
-     * IDs from the client header. Set to `false` for public-facing services
-     * where clients should not be able to inject their own tracking IDs.
+     * When `true`, the middleware accepts valid incoming request IDs from
+     * the client header. Defaults to `false` for secure-by-default behavior.
+     * Enable for internal services behind trusted proxies.
      */
-    trustIncoming = true,
+    trustIncoming = false,
     validator = defaultValidator,
     maxLength = DEFAULT_MAX_LENGTH,
     stateKey = DEFAULT_STATE_KEY,
     exposeHeader = true,
   } = options;
+
+  // One-time config validation (not per-request)
+  validateHeaderName(header);
+  validateStateKey(stateKey);
+
+  // Capability check for default generator
+  if (generator === defaultGenerator && typeof globalThis.crypto?.randomUUID !== 'function') {
+    throw new Error(
+      '[@nextrush/request-id] crypto.randomUUID is not available in this runtime. ' +
+        'Provide a custom generator function.'
+    );
+  }
 
   const headerLower = header.toLowerCase();
 
@@ -110,7 +145,14 @@ export function requestId<TContext extends RequestIdContext = RequestIdContext>(
 
     // Generate new ID if not trusting incoming or incoming was invalid
     if (!id) {
-      id = generator();
+      const generated = generator();
+
+      // Validate generated IDs to prevent header injection from custom generators
+      if (!validateId(generated, maxLength)) {
+        id = defaultGenerator();
+      } else {
+        id = generated;
+      }
     }
 
     // Store in context state

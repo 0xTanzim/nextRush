@@ -1,15 +1,13 @@
 ---
-description: 'Generate or update NextRush documentation from actual codebase implementation. Enforces code-first accuracy, verifiable examples, quality scoring, and self-review.'
+description: 'Generate or update NextRush documentation from actual codebase. Code-first accuracy, tier-based structure, verified examples, quality scoring.'
 agent: docs-writer-agent
-name: "Write Docs From Code"
-argument-hint: "Package name (e.g., @nextrush/core) and optional doc path or focus area"
+name: 'Write Docs From Code'
+argument-hint: 'Package name (e.g., @nextrush/core) and optional focus area'
 ---
 
 # Write NextRush Documentation From Code
 
-## Mission
-
-Generate or update NextRush documentation that is fully synchronized with the actual codebase. Documentation must be derived from real implementation — not assumptions, memory, or old patterns.
+Generate or update documentation that is fully synchronized with the actual codebase.
 
 ---
 
@@ -17,15 +15,14 @@ Generate or update NextRush documentation that is fully synchronized with the ac
 
 - Never write documentation before reviewing the code
 - Never guess API behavior — verify from source
-- Never blindly follow old documentation — validate against current implementation
 - Never invent features, defaults, or options that don't exist in code
-- Never add diagrams without verifying actual runtime behavior in code
 - Never duplicate content that exists in another doc page
 - If required context is missing, research deeper before stopping
+- Code is the single source of truth — always
 
 ---
 
-## Required Inputs
+## Inputs
 
 - `${input:packageName}` — Target package (e.g., `@nextrush/core`)
 - Optional: `${input:targetDocPath}` — Path to the doc file to write/update
@@ -33,131 +30,108 @@ Generate or update NextRush documentation that is fully synchronized with the ac
 
 ---
 
-## Workflow (Mandatory Order)
+## Workflow (6 Steps)
 
-Follow every step in order. Do not skip steps.
+Follow every step in order. Do not skip.
 
 ---
 
-### Step 1 — Deep Code Inspection
+### Step 1 — Inspect Code
 
 1. Locate package source: `packages/{name}/src/`
 2. Read and analyze:
-   - Public exports
-   - Function signatures
-   - Default values
-   - Error handling paths
-   - Side effects
-   - TypeScript types
-3. Map:
-   - What is actually implemented
-   - What is configurable
-   - What is NOT supported
-4. Cross-reference with existing tests to verify behavior
-5. If behavior is unclear, read deeper, check tests, check usage in playground
+   - Public exports and barrel file (`index.ts`)
+   - Function signatures and return types
+   - Default values in source code
+   - Error handling and thrown errors
+   - Side effects and lifecycle behavior
+   - TypeScript types and interfaces
+3. Cross-reference with tests to verify expected behavior
+4. Map what is implemented, what is configurable, and what is NOT supported
+5. If behavior is unclear — read deeper, check tests, check playground usage
 
 ---
 
-### Step 2 — Existing Documentation Audit
+### Step 2 — Audit Existing Docs
 
-1. Locate any existing docs for this package
-2. Treat old docs as historical reference only — potentially incorrect
-3. Identify:
-   - Mismatches with code
+1. Locate any existing docs for this package in `apps/docs/content/`
+2. Treat old docs as historical reference — potentially incorrect
+3. Create an explicit reconciliation: what code does vs what docs claim
+4. Identify:
+   - Mismatches with current code
    - Deprecated patterns
-   - Missing updates
-   - Incorrect defaults
-4. Check for duplicate content across doc pages
+   - Incorrect defaults or signatures
+   - Content duplicated across pages
+5. Code always wins. Mark all discrepancies for correction.
 
 ---
 
-### Step 3 — Code vs Docs Reconciliation
+### Step 3 — Write
 
-Create an explicit diff: what code does now vs what docs claim.
-
-Code always wins.
-
----
-
-### Step 4 — Cross-Reference Verification
-
-- Verify all code examples compile and run correctly
-- Verify all configuration options exist in source code
-- Verify all default values match source code
-- Verify all function signatures match TypeScript definitions
-- Verify linked pages exist and are current
-
----
-
-### Step 5 — Diagram Decision (Mermaid Gate)
-
-Only add diagrams when they explain execution flow, lifecycle, or architecture and text alone would be slower to understand.
-
-Rules:
-- Use `graph LR` for flow
-- Use `sequenceDiagram` for request lifecycle
-- Keep small and readable
-- Use real component names from code
-- No decorative diagrams
+1. Determine page tier from `docs-standards.instructions.md` (Tier 1, 2, or 3)
+2. Follow the tier-specific template structure
+3. Apply writing rules from `docs-standards.instructions.md`
+4. Use correct MDX components from `docs-mdx-ui.instructions.md`:
+   - `TypeTable` for API properties and options
+   - `PackageInstall` for installation
+   - `Steps` for sequential procedures
+   - `Tabs` for alternative comparisons
+   - `Callout` for warnings, tips, alerts (max 3 per page)
+   - Mermaid for flows and architecture (max 2 per page)
+5. For API reference pages, follow `docs-api-reference.instructions.md`
+6. Only add diagrams when they explain flow or architecture faster than text
+7. Stay within the word budget for the page tier
 
 ---
 
-### Step 6 — Write Documentation
+### Step 4 — Verify
 
-Write following all applicable instruction files:
+Cross-reference every claim against source code:
 
-- `docs-standards.instructions.md` — philosophy, structure, writing rules
-- `docs-mdx-ui.instructions.md` — MDX components and visuals (if .mdx)
-- `docs-api-reference.instructions.md` — API reference format (if API docs)
-
----
-
-### Step 7 — Duplication Prevention
-
-Before finalizing, verify:
-
-- No content duplicated from other doc pages
-- Shared concepts link to their canonical page instead of re-explaining
-- API details live in API reference, not in concept pages
-- Configuration details live in one place only
-
----
-
-### Step 8 — Quality Scoring (Self-Assessment)
-
-Score each dimension 0-10:
-
-| Dimension | Minimum | Description |
-|---|---|---|
-| Code Accuracy | 9 | Does every statement match the actual source code? |
-| Completeness | 8 | Are all public APIs and behaviors documented? |
-| Example Quality | 8 | Are examples runnable, minimal, and correct? |
-| Structure | 8 | Does the page follow docs-standards structure? |
-| Clarity | 8 | Would a junior developer understand this? |
-| Duplication | 9 | Is there zero duplicated content across docs? |
-| Cross-References | 7 | Are links to related pages correct and current? |
-| Visual Accuracy | 8 | Do diagrams match actual runtime behavior? |
-
-If ANY dimension scores below its minimum, revise before delivering. Max 3 revision cycles.
-
----
-
-### Step 9 — Self-Review Checklist
-
-Before finalizing:
-
-- [ ] Every code example verified against source
-- [ ] Every default value verified against source
-- [ ] Every function signature matches TypeScript definition
+- [ ] Every code example compiles and reflects current API
+- [ ] Every default value matches source code
+- [ ] Every function signature matches TypeScript definitions
+- [ ] Every configuration option exists in source
+- [ ] All imports are correct and current
 - [ ] No invented features or options
-- [ ] No marketing language or superlatives
-- [ ] No forbidden words (simply, just, easy, obviously, etc.)
-- [ ] Page follows mandatory structure from docs-standards
+- [ ] No content duplicated from other doc pages
+- [ ] Shared concepts link to canonical page instead of re-explaining
+- [ ] All links point to existing pages
+
+---
+
+### Step 5 — Score
+
+Apply the quality scoring system from `docs-standards.instructions.md`:
+
+| Dimension       | Min | What It Measures                             |
+| --------------- | --- | -------------------------------------------- |
+| Code Accuracy   | 9   | Every statement matches actual source code   |
+| Structure       | 8   | Follows correct tier template                |
+| Clarity         | 8   | Junior developer can understand and use this |
+| Example Quality | 8   | Examples are runnable, minimal, and correct  |
+| Duplication     | 9   | Zero content duplicated across docs          |
+| Completeness    | 8   | All public APIs and behaviors documented     |
+
+If any dimension falls below minimum, revise. Maximum 3 revision cycles.
+
+**This is the only scoring system.** Do not add dimensions.
+
+---
+
+### Step 6 — Self-Review
+
+Before delivering:
+
+- [ ] Correct tier template followed
+- [ ] Problem explained before API
 - [ ] Active voice throughout
+- [ ] No forbidden words (simply, just, easy, obviously, powerful, flexible, robust)
+- [ ] No marketing language
 - [ ] One idea per paragraph
-- [ ] Links tested and valid
-- [ ] No content duplicated from other pages
-- [ ] Would a developer trust this page to ship production code?
+- [ ] MDX components used correctly (Fumadocs syntax)
+- [ ] Within word budget for tier
+- [ ] Could a developer ship using only this page?
 
 If any item fails, fix and re-check. Do not deliver unchecked documentation.
 
@@ -165,10 +139,9 @@ If any item fails, fix and re-check. Do not deliver unchecked documentation.
 
 ## Operational Rules
 
-- Code is the single source of truth — always
-- If docs and code disagree, the docs are wrong
-- Prefer showing real behavior over describing ideal behavior
 - Document what IS, not what SHOULD BE
+- Prefer showing real behavior over describing ideal behavior
 - Every claim must be verifiable in source code
 - Do not pad documentation with filler content
-- Quality over quantity — a short accurate page beats a long inaccurate one
+- Quality over quantity — short and accurate beats long and inaccurate
+- If docs and code disagree, the docs are wrong

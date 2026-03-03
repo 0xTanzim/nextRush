@@ -10,13 +10,13 @@ The Edge adapter enables NextRush applications to run on **any edge runtime** th
 
 ## Why Edge?
 
-Edge computing brings your code closer to users, delivering **sub-50ms latencies worldwide**:
+Edge runtimes execute code at network points of presence close to users, reducing round-trip latency.
 
-| Platform | Cold Start | Global Distribution | Compute Model |
-|----------|------------|---------------------|---------------|
-| Cloudflare Workers | ~0ms | 300+ cities | V8 Isolates |
-| Vercel Edge | ~25ms | 100+ regions | V8 Isolates |
-| Netlify Edge | ~25ms | 100+ PoPs | Deno Deploy |
+| Platform           | Compute Model |
+| ------------------ | ------------- |
+| Cloudflare Workers | V8 Isolates   |
+| Vercel Edge        | V8 Isolates   |
+| Netlify Edge       | Deno Deploy   |
 
 ## Quick Start
 
@@ -33,7 +33,7 @@ app.use(async (ctx) => {
   ctx.json({
     message: 'Hello from the Edge!',
     runtime: ctx.runtime,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
 });
 
@@ -59,7 +59,7 @@ const app = createApp();
 app.use(async (ctx) => {
   ctx.json({
     message: 'Hello from Vercel Edge!',
-    region: process.env.VERCEL_REGION
+    region: process.env.VERCEL_REGION,
   });
 });
 
@@ -79,7 +79,7 @@ const app = createApp();
 app.use(async (ctx) => {
   ctx.json({
     message: 'Hello from Netlify Edge!',
-    geo: ctx.raw.req.headers.get('x-nf-geo')
+    geo: ctx.get('x-nf-geo'),
   });
 });
 
@@ -112,18 +112,19 @@ const handler = createFetchHandler(app, {
   onError: (error, ctx) => {
     console.error('Request failed:', error);
     return new Response('Something went wrong', { status: 500 });
-  }
+  },
 });
 ```
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `app` | `Application` | NextRush application instance |
-| `options.onError` | `(error, ctx) => Response` | Custom error handler |
+| Parameter         | Type                                                                | Description                                                                                          |
+| ----------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `app`             | `Application`                                                       | NextRush application instance                                                                        |
+| `options.onError` | `(error: Error, ctx: EdgeContext) => Response \| Promise<Response>` | Custom error handler                                                                                 |
+| `options.timeout` | `number`                                                            | Request timeout in ms. Returns 504 if exceeded. Recommended: 30000 for Cloudflare, 25000 for Vercel. |
 
-**Returns:** `FetchHandler` — A function that handles `Request` and returns `Response`
+**Returns:** `FetchHandler` — A function `(request: Request, ctx?: EdgeExecutionContext) => Response | Promise<Response>`
 
 ### `createCloudflareHandler(app, options?)`
 
@@ -159,72 +160,71 @@ export default createNetlifyHandler(app);
 
 ## EdgeContext
 
-The `EdgeContext` class provides the execution context for edge requests:
+`EdgeContext` implements the `Context` interface for edge runtimes:
 
 ```typescript
-interface EdgeContext extends Context {
-  // Standard Context properties
-  readonly runtime: 'cloudflare-workers' | 'edge';
+class EdgeContext implements Context {
+  // Runtime detection
+  readonly runtime: Runtime; // 'cloudflare-workers' | 'vercel-edge' | 'edge'
   readonly bodySource: BodySource;
 
   // Request data
   readonly path: string;
-  readonly method: string;
-  readonly query: Record<string, string>;
-  readonly params: Record<string, string>;
-  readonly headers: Record<string, string>;
+  readonly method: HttpMethod;
+  readonly url: string;
+  readonly query: QueryParams;
+  readonly params: RouteParams;
+  readonly headers: IncomingHeaders;
+  readonly ip: string;
 
-  // Raw Web APIs
-  readonly raw: {
-    req: Request;           // Standard Request object
-    ctx?: ExecutionContext; // Cloudflare execution context
-  };
+  // Raw Web API Request
+  readonly raw: { req: Request; res: undefined };
+
+  // Edge-specific
+  readonly executionContext?: EdgeExecutionContext;
+  waitUntil(promise: Promise<unknown>): void;
 
   // Response methods
   json(data: unknown): void;
-  send(body: string | Uint8Array): void;
+  send(data: ResponseBody): void;
   html(content: string): void;
   redirect(url: string, status?: number): void;
 
-  // Get final Response
+  // Response building
   getResponse(): Response;
+  readonly responded: boolean;
 }
 ```
 
 ### Body Parsing
 
-Edge uses the standard `Request` body methods:
+Use `bodySource` for cross-runtime body reading:
 
 ```typescript
 app.use(async (ctx) => {
   // Using bodySource (cross-runtime compatible)
   const text = await ctx.bodySource.text();
   const buffer = await ctx.bodySource.buffer();
-
-  // Or standard Request methods
-  const json = await ctx.raw.req.json();
-  const formData = await ctx.raw.req.formData();
+  const json = await ctx.bodySource.json();
+  const stream = ctx.bodySource.stream();
 });
 ```
 
 ### Cloudflare-Specific Features
 
-Access Cloudflare-specific APIs when running on Workers:
+Access Cloudflare-specific request metadata when running on Workers:
 
 ```typescript
 app.use(async (ctx) => {
   const request = ctx.raw.req;
+  const cf = (request as Request & { cf?: Record<string, unknown> }).cf;
 
-  // CF object with request metadata
-  const cf = (request as any).cf;
   if (cf) {
     ctx.json({
-      colo: cf.colo,           // Data center code
-      country: cf.country,      // Country code
-      city: cf.city,           // City name
-      timezone: cf.timezone,    // Timezone
-      asn: cf.asn,             // ASN number
-      httpProtocol: cf.httpProtocol
+      colo: cf.colo,
+      country: cf.country,
+      city: cf.city,
+      timezone: cf.timezone,
     });
   }
 });
@@ -232,21 +232,17 @@ app.use(async (ctx) => {
 
 ### Execution Context
 
-Use the execution context for advanced features:
+Use the `waitUntil` method for fire-and-forget background tasks:
 
 ```typescript
 app.use(async (ctx) => {
-  const execCtx = ctx.raw.ctx;
-
-  if (execCtx?.waitUntil) {
-    // Run background task after response
-    execCtx.waitUntil(
-      fetch('https://analytics.example.com', {
-        method: 'POST',
-        body: JSON.stringify({ path: ctx.path })
-      })
-    );
-  }
+  // Run background task after response is sent
+  ctx.waitUntil(
+    fetch('https://analytics.example.com', {
+      method: 'POST',
+      body: JSON.stringify({ path: ctx.path }),
+    })
+  );
 
   ctx.json({ status: 'ok' });
 });
@@ -294,10 +290,12 @@ import { createCloudflareHandler } from '@nextrush/adapter-edge';
 const app = createApp();
 
 // CORS middleware
-app.use(cors({
-  origin: 'https://example.com',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: 'https://example.com',
+    credentials: true,
+  })
+);
 
 // Request timing
 app.use(async (ctx) => {
@@ -325,36 +323,40 @@ const handler = createCloudflareHandler(app, {
     console.error({
       error: error.message,
       path: ctx.path,
-      method: ctx.method
+      method: ctx.method,
     });
 
     // Return custom error response
     return new Response(
       JSON.stringify({
         error: 'Internal Server Error',
-        requestId: crypto.randomUUID()
+        requestId: crypto.randomUUID(),
       }),
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       }
     );
-  }
+  },
 });
 ```
 
 ### Application-Level Error Handling
 
 ```typescript
+import { HttpError } from '@nextrush/errors';
+
 app.use(async (ctx) => {
   try {
     await ctx.next();
   } catch (error) {
-    ctx.status = error.status || 500;
-    ctx.json({
-      error: error.message,
-      code: error.code || 'INTERNAL_ERROR'
-    });
+    if (error instanceof HttpError) {
+      ctx.status = error.status;
+      ctx.json({ error: error.message });
+    } else {
+      ctx.status = 500;
+      ctx.json({ error: 'Internal Server Error' });
+    }
   }
 });
 ```
@@ -396,54 +398,44 @@ netlify deploy --prod
 
 ## Runtime Detection
 
-The adapter automatically detects the runtime environment:
+The adapter detects the specific edge platform at startup:
 
 ```typescript
 import { detectEdgeRuntime } from '@nextrush/adapter-edge';
 
 const info = detectEdgeRuntime();
-// { runtime: 'cloudflare-workers', isCloudflare: true, isVercel: false, ... }
+// { runtime: 'cloudflare-workers', isCloudflare: true, isVercel: false, isNetlify: false, isGenericEdge: false }
 ```
 
 ```typescript
 app.use(async (ctx) => {
-  // ctx.runtime is automatically set
+  // ctx.runtime is set automatically
   console.log(ctx.runtime);
-  // 'cloudflare-workers' | 'edge'
+  // 'cloudflare-workers' | 'vercel-edge' | 'edge'
 });
 ```
 
 ## Limitations
 
-Edge runtimes have some constraints to be aware of:
+Edge runtimes share common constraints:
 
-| Feature | Cloudflare | Vercel Edge | Netlify Edge |
-|---------|------------|-------------|--------------|
-| Node.js APIs | Limited | Limited | Deno APIs |
-| CPU Time | 50ms (free) | 30s | 50ms |
-| Memory | 128MB | 1.5GB | 512MB |
-| Request Size | 100MB | 4MB | 2MB |
-| File System | ❌ | ❌ | ❌ |
-| Native Addons | ❌ | ❌ | ❌ |
-
-### Not Supported on Edge
-
-- File system operations (use R2, S3, or external storage)
-- Long-running connections (use Durable Objects or external WebSocket services)
-- Native Node.js modules (use Web API equivalents)
-- Large memory operations (stream large data instead)
+- No file system access — use R2, S3, or external storage
+- No native Node.js modules — use Web API equivalents
+- No native addons
+- CPU time and memory limits vary by platform — consult platform documentation
+- Stream large payloads instead of buffering in memory
 
 ## TypeScript
 
-Full TypeScript support with intelligent types:
+All exports are fully typed:
 
 ```typescript
-import type { EdgeContext, FetchHandler } from '@nextrush/adapter-edge';
-import type { Middleware } from '@nextrush/core';
+import type { EdgeContext, FetchHandler, EdgeExecutionContext } from '@nextrush/adapter-edge';
+import type { Middleware } from '@nextrush/types';
 
 // Type-safe middleware
-const authMiddleware: Middleware<EdgeContext> = async (ctx) => {
-  const token = ctx.headers['authorization'];
+const authMiddleware: Middleware = async (ctx) => {
+  const token = ctx.get('authorization');
   if (!token) {
     ctx.status = 401;
     ctx.json({ error: 'Unauthorized' });
@@ -455,14 +447,14 @@ const authMiddleware: Middleware<EdgeContext> = async (ctx) => {
 
 ## Related Packages
 
-| Package | Description |
-|---------|-------------|
-| [@nextrush/core](../core) | Core application and middleware |
-| [@nextrush/router](../router) | High-performance routing |
-| [@nextrush/adapter-node](../adapters/node) | Node.js HTTP adapter |
-| [@nextrush/adapter-bun](../adapters/bun) | Bun runtime adapter |
-| [@nextrush/adapter-deno](../adapters/deno) | Deno runtime adapter |
-| [@nextrush/runtime](../runtime) | Runtime detection utilities |
+| Package                                    | Description                     |
+| ------------------------------------------ | ------------------------------- |
+| [@nextrush/core](../core)                  | Core application and middleware |
+| [@nextrush/router](../router)              | High-performance routing        |
+| [@nextrush/adapter-node](../adapters/node) | Node.js HTTP adapter            |
+| [@nextrush/adapter-bun](../adapters/bun)   | Bun runtime adapter             |
+| [@nextrush/adapter-deno](../adapters/deno) | Deno runtime adapter            |
+| [@nextrush/runtime](../runtime)            | Runtime detection utilities     |
 
 ## License
 

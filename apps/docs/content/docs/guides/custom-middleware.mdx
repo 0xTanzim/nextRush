@@ -1,433 +1,253 @@
 ---
 title: Custom Middleware
-description: Create your own middleware to extend NextRush functionality
+description: Build request logging and authentication middleware for NextRush using the factory pattern.
 ---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Custom Middleware
 
-Middleware is the backbone of NextRush applications. This guide shows how to create your own middleware for logging, authentication, rate limiting, and more.
+## What You Will Build
 
-## Understanding Middleware
+You will create two production-quality middleware functions:
 
-Middleware in NextRush follows the **onion model**:
+1. **Request logger** — logs method, path, status, and duration for every request
+2. **Authentication guard** — validates bearer tokens and attaches user data to `ctx.state`
+
+Along the way, you will learn the middleware type signature, the factory pattern, error handling, composition, and testing.
+
+## Prerequisites
+
+- A working NextRush application ([Quick Start](/docs/getting-started/quick-start))
+- Basic understanding of async/await
+
+## The Middleware Contract
+
+Every middleware function receives two arguments:
+
+```typescript
+import type { Context, Middleware, Next } from '@nextrush/types';
+
+// Formal signature
+type Middleware = (ctx: Context, next: Next) => void | Promise<void>;
+```
+
+`next` calls the downstream middleware and returns when that downstream work finishes. NextRush also wires `next` onto the context, so both styles work:
+
+```typescript
+// Style 1 — next parameter (traditional, Koa-compatible)
+const mw: Middleware = async (ctx, next) => {
+  console.log('before');
+  await next();
+  console.log('after');
+};
+
+// Style 2 — ctx.next() (modern, one-argument)
+const mw2: Middleware = async (ctx) => {
+  console.log('before');
+  await ctx.next();
+  console.log('after');
+};
+```
+
+<Callout type="info" title="Which style to use?">
+  Both styles are equivalent. Use `ctx.next()` in application code for brevity. Use the `next`
+  parameter when building reusable middleware that may be called outside the compose pipeline
+  (conditional wrappers, testing).
+</Callout>
+
+Middleware executes in an **onion model** — code before `next()` runs on the way in, code after runs on the way out:
 
 ```
-Request → [MW1] → [MW2] → [MW3] → Handler
-         ↓         ↓        ↓
-Response ← [MW1] ← [MW2] ← [MW3] ←
+Request → [MW1 before] → [MW2 before] → Handler
+                                            ↓
+Response ← [MW1 after] ← [MW2 after] ←────┘
 ```
 
-Each middleware can:
-- Execute code before the handler
-- Execute code after the handler
-- Modify the request or response
-- Short-circuit the chain (skip remaining middleware)
+## Step 1 — Request Logger
 
-## Basic Middleware Structure
+A logging middleware that records request duration and assigns a trace ID.
 
 ```typescript
 import type { Middleware } from '@nextrush/types';
 
-const myMiddleware: Middleware = async (ctx) => {
-  // Before: runs before downstream middleware
-  console.log('Before:', ctx.method, ctx.path);
-
-  await ctx.next(); // Call next middleware
-
-  // After: runs after downstream middleware returns
-  console.log('After:', ctx.status);
-};
-```
-
-## Middleware Factory Pattern
-
-For configurable middleware, use a factory function:
-
-```typescript
 interface LoggerOptions {
   level?: 'debug' | 'info' | 'warn' | 'error';
-  timestamp?: boolean;
 }
 
-function logger(options: LoggerOptions = {}): Middleware {
-  const { level = 'info', timestamp = true } = options;
+function requestLogger(options: LoggerOptions = {}): Middleware {
+  const { level = 'info' } = options;
 
-  return async (ctx) => {
-    const start = Date.now();
-    const time = timestamp ? new Date().toISOString() : '';
-
-    await ctx.next();
-
-    const duration = Date.now() - start;
-    console.log(`[${level.toUpperCase()}] ${time} ${ctx.method} ${ctx.path} ${ctx.status} - ${duration}ms`);
-  };
-}
-
-// Usage
-app.use(logger({ level: 'debug', timestamp: true }));
-```
-
-## Common Middleware Examples
-
-### Request Logger
-
-```typescript
-function requestLogger(): Middleware {
-  return async (ctx) => {
-    const start = Date.now();
-    const requestId = crypto.randomUUID();
-
-    // Add request ID to state for tracing
-    ctx.state.requestId = requestId;
-
-    // Log request
-    console.log(`→ [${requestId}] ${ctx.method} ${ctx.path}`);
-
-    await ctx.next();
-
-    // Log response
-    const duration = Date.now() - start;
-    console.log(`← [${requestId}] ${ctx.status} (${duration}ms)`);
-  };
-}
-```
-
-### Response Time Header
-
-```typescript
-function responseTime(): Middleware {
-  return async (ctx) => {
-    const start = Date.now();
-
-    await ctx.next();
-
-    const duration = Date.now() - start;
-    ctx.set('X-Response-Time', `${duration}ms`);
-  };
-}
-```
-
-### Authentication Middleware
-
-```typescript
-import { UnauthorizedError } from '@nextrush/errors';
-
-interface AuthOptions {
-  exclude?: string[];
-  tokenHeader?: string;
-}
-
-function auth(options: AuthOptions = {}): Middleware {
-  const { exclude = [], tokenHeader = 'authorization' } = options;
-
-  return async (ctx) => {
-    // Skip auth for excluded paths
-    if (exclude.some(path => ctx.path.startsWith(path))) {
-      return ctx.next();
-    }
-
-    const token = ctx.get(tokenHeader);
-
-    if (!token) {
-      throw new UnauthorizedError('Authentication required');
-    }
-
-    // Verify token (implement your own logic)
-    try {
-      const user = await verifyToken(token.replace('Bearer ', ''));
-      ctx.state.user = user;
-    } catch {
-      throw new UnauthorizedError('Invalid token');
-    }
-
-    await ctx.next();
-  };
-}
-
-// Usage
-app.use(auth({
-  exclude: ['/api/auth/login', '/api/health'],
-}));
-```
-
-### Role-Based Access Control
-
-```typescript
-import { ForbiddenError } from '@nextrush/errors';
-
-function requireRole(...roles: string[]): Middleware {
-  return async (ctx) => {
-    const user = ctx.state.user;
-
-    if (!user) {
-      throw new UnauthorizedError('Not authenticated');
-    }
-
-    if (!roles.includes(user.role)) {
-      throw new ForbiddenError(`Required role: ${roles.join(' or ')}`);
-    }
-
-    await ctx.next();
-  };
-}
-
-// Usage on specific routes
-router.delete('/api/users/:id',
-  requireRole('admin'),
-  deleteUserHandler
-);
-```
-
-### Request ID Middleware
-
-```typescript
-function requestId(): Middleware {
-  return async (ctx) => {
-    // Use incoming header or generate new
-    const id = ctx.get('x-request-id') || crypto.randomUUID();
+  return async (ctx, next) => {
+    const start = performance.now();
+    const id = crypto.randomUUID();
 
     ctx.state.requestId = id;
     ctx.set('X-Request-Id', id);
 
-    await ctx.next();
+    await next();
+
+    const ms = (performance.now() - start).toFixed(2);
+    console.log(`[${level.toUpperCase()}] ${ctx.method} ${ctx.path} ${ctx.status} ${ms}ms [${id}]`);
   };
 }
 ```
 
-### Timeout Middleware
+Register it:
 
 ```typescript
-import { ServiceUnavailableError } from '@nextrush/errors';
+app.use(requestLogger({ level: 'debug' }));
+```
 
-function timeout(ms: number): Middleware {
-  return async (ctx) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), ms);
+The factory pattern — a function that returns a `Middleware` — is how all configurable middleware is built. The options are validated once at startup; the returned function runs per-request.
+
+## Step 2 — Authentication Middleware
+
+This middleware verifies a bearer token and short-circuits with an error when authentication fails.
+
+```typescript
+import type { Middleware } from '@nextrush/types';
+import { UnauthorizedError } from '@nextrush/errors';
+
+interface AuthOptions {
+  /** Paths that skip authentication */
+  exclude?: string[];
+  /** Header containing the token */
+  header?: string;
+  /** Your token verification function */
+  verify: (token: string) => Promise<{ id: string; role: string }>;
+}
+
+function auth(options: AuthOptions): Middleware {
+  const { exclude = [], header = 'authorization', verify } = options;
+
+  return async (ctx, next) => {
+    if (exclude.some((p) => ctx.path.startsWith(p))) {
+      return next();
+    }
+
+    const raw = ctx.get(header);
+    if (!raw) {
+      throw new UnauthorizedError('Missing authentication token');
+    }
+
+    const token = raw.replace(/^Bearer\s+/i, '');
 
     try {
-      await Promise.race([
-        ctx.next(),
-        new Promise((_, reject) => {
-          controller.signal.addEventListener('abort', () => {
-            reject(new ServiceUnavailableError('Request timeout'));
-          });
-        }),
-      ]);
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  };
-}
-
-// Usage
-app.use(timeout(30000)); // 30 second timeout
-```
-
-### Cache Control
-
-```typescript
-interface CacheOptions {
-  maxAge?: number;
-  private?: boolean;
-  noStore?: boolean;
-}
-
-function cacheControl(options: CacheOptions = {}): Middleware {
-  const { maxAge = 0, private: isPrivate = false, noStore = false } = options;
-
-  return async (ctx) => {
-    await ctx.next();
-
-    // Only cache successful GET requests
-    if (ctx.method !== 'GET' || ctx.status >= 400) {
-      return;
+      ctx.state.user = await verify(token);
+    } catch {
+      throw new UnauthorizedError('Invalid or expired token');
     }
 
-    if (noStore) {
-      ctx.set('Cache-Control', 'no-store');
-    } else {
-      const directives = [];
-      if (isPrivate) directives.push('private');
-      else directives.push('public');
-      if (maxAge > 0) directives.push(`max-age=${maxAge}`);
-      ctx.set('Cache-Control', directives.join(', '));
-    }
-  };
-}
-
-// Usage
-router.get('/api/config', cacheControl({ maxAge: 3600 }), configHandler);
-router.get('/api/user', cacheControl({ private: true }), userHandler);
-```
-
-### Compression Response Middleware
-
-```typescript
-import { gzipSync } from 'node:zlib';
-
-function compress(options: { threshold?: number } = {}): Middleware {
-  const { threshold = 1024 } = options;
-
-  return async (ctx) => {
-    await ctx.next();
-
-    // Check if response should be compressed
-    const acceptEncoding = ctx.get('accept-encoding') || '';
-    const body = ctx.state.responseBody;
-
-    if (!acceptEncoding.includes('gzip')) return;
-    if (!body || typeof body !== 'string') return;
-    if (body.length < threshold) return;
-
-    // Compress (simplified - real impl would intercept ctx.json/ctx.send)
-    const compressed = gzipSync(body);
-    ctx.set('Content-Encoding', 'gzip');
-    ctx.send(compressed);
+    await next();
   };
 }
 ```
 
-### Request Validation Middleware
+Register it after your logger so requests are logged even when auth fails:
 
 ```typescript
-import { z, ZodSchema } from 'zod';
-import { BadRequestError } from '@nextrush/errors';
-
-function validateBody<T>(schema: ZodSchema<T>): Middleware {
-  return async (ctx) => {
-    const result = schema.safeParse(ctx.body);
-
-    if (!result.success) {
-      throw new BadRequestError('Validation failed', {
-        code: 'VALIDATION_ERROR',
-        expose: true,
-        details: {
-          errors: result.error.flatten().fieldErrors,
-        },
-      });
-    }
-
-    ctx.body = result.data;
-    await ctx.next();
-  };
-}
-
-// Usage
-const CreateUserSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-});
-
-router.post('/api/users',
-  validateBody(CreateUserSchema),
-  createUserHandler
+app.use(requestLogger());
+app.use(
+  auth({
+    exclude: ['/health', '/login'],
+    verify: myTokenVerifier, // your implementation
+  })
 );
 ```
 
-## Middleware Composition
+When authentication fails, `UnauthorizedError` produces a 401 response and skips all downstream middleware.
 
-### Combining Multiple Middleware
+## Step 3 — Error Handling
+
+Wrap `next()` in a try/catch to observe or transform errors thrown by downstream middleware.
+
+```typescript
+import type { Middleware } from '@nextrush/types';
+import { NotFoundError, ConflictError } from '@nextrush/errors';
+
+function transformErrors(): Middleware {
+  return async (ctx, next) => {
+    try {
+      await next();
+    } catch (err: unknown) {
+      if (err instanceof Error && 'code' in err) {
+        const code = (err as { code: string }).code;
+        if (code === 'P2025') throw new NotFoundError('Resource not found');
+        if (code === 'P2002') throw new ConflictError('Resource already exists');
+      }
+      throw err;
+    }
+  };
+}
+```
+
+<Callout type="warn">
+  Never swallow errors silently. Always re-throw or respond explicitly. A catch block with no
+  `throw` hides failures from the error handler.
+</Callout>
+
+## Step 4 — Composition and Conditional Application
+
+### Composing middleware into a single unit
 
 ```typescript
 import { compose } from '@nextrush/core';
 
-// Create a composed middleware
-const apiMiddleware = compose([
-  requestId(),
+const apiStack = compose([
   requestLogger(),
-  responseTime(),
-  auth({ exclude: ['/api/health'] }),
+  auth({ exclude: ['/health'], verify: myTokenVerifier }),
+  transformErrors(),
 ]);
 
-// Use as single middleware
-app.use(apiMiddleware);
+app.use(apiStack);
 ```
 
-### Conditional Middleware
+### Applying middleware conditionally
+
+When calling middleware directly (outside `compose`), pass `next` as the second argument:
 
 ```typescript
-function conditional(
-  condition: (ctx: Context) => boolean,
-  middleware: Middleware
-): Middleware {
-  return async (ctx) => {
-    if (condition(ctx)) {
-      return middleware(ctx);
+import type { Context, Middleware } from '@nextrush/types';
+
+function when(predicate: (ctx: Context) => boolean, middleware: Middleware): Middleware {
+  return async (ctx, next) => {
+    if (predicate(ctx)) {
+      return middleware(ctx, next);
     }
-    await ctx.next();
+    await next();
   };
 }
 
-// Only log in development
-app.use(conditional(
-  () => process.env.NODE_ENV !== 'production',
-  requestLogger()
-));
+// Skip logging in production
+app.use(when(() => process.env.NODE_ENV !== 'production', requestLogger()));
 ```
 
-### Path-Based Middleware
+## Step 5 — Middleware Order
+
+<Callout type="warn">
+  Middleware runs in registration order. Security middleware must be registered before route
+  handlers.
+</Callout>
 
 ```typescript
-function pathPrefix(prefix: string, middleware: Middleware): Middleware {
-  return async (ctx) => {
-    if (ctx.path.startsWith(prefix)) {
-      return middleware(ctx);
-    }
-    await ctx.next();
-  };
-}
+// ✅ Correct order
+app.use(requestLogger());   // 1. Log every request
+app.use(auth({ ... }));     // 2. Authenticate
+app.route('/api', router);  // 3. Route to handlers
 
-// Auth only for /api routes
-app.use(pathPrefix('/api', auth()));
+// ❌ Wrong order — routes execute before auth
+app.route('/api', router);
+app.use(auth({ ... }));
 ```
 
-## Error Handling in Middleware
-
-### Catching Errors
-
-```typescript
-function errorBoundary(): Middleware {
-  return async (ctx) => {
-    try {
-      await ctx.next();
-    } catch (error) {
-      // Log the error
-      console.error('Middleware caught error:', error);
-
-      // Re-throw for error handler middleware
-      throw error;
-    }
-  };
-}
-```
-
-### Transforming Errors
-
-```typescript
-function transformErrors(): Middleware {
-  return async (ctx) => {
-    try {
-      await ctx.next();
-    } catch (error) {
-      // Transform database errors to HTTP errors
-      if (error.code === 'P2025') {
-        throw new NotFoundError('Resource not found');
-      }
-      if (error.code === 'P2002') {
-        throw new ConflictError('Resource already exists');
-      }
-      throw error;
-    }
-  };
-}
-```
-
-## Testing Middleware
+## Verification — Testing Your Middleware
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
+import type { Context, Next } from '@nextrush/types';
 
-function createMockContext(overrides = {}) {
+function createMockContext(overrides: Partial<Context> = {}): Context {
   return {
     method: 'GET',
     path: '/test',
@@ -438,140 +258,50 @@ function createMockContext(overrides = {}) {
     json: vi.fn(),
     next: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  };
+  } as unknown as Context;
 }
 
-describe('requestId middleware', () => {
-  it('should generate request ID', async () => {
-    const middleware = requestId();
+describe('requestLogger', () => {
+  it('assigns a request ID and calls next', async () => {
+    const mw = requestLogger();
     const ctx = createMockContext();
+    const next = vi.fn().mockResolvedValue(undefined);
 
-    await middleware(ctx);
+    await mw(ctx, next);
 
     expect(ctx.state.requestId).toBeDefined();
     expect(ctx.set).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
-    expect(ctx.next).toHaveBeenCalled();
-  });
-
-  it('should use existing request ID header', async () => {
-    const middleware = requestId();
-    const ctx = createMockContext({
-      get: vi.fn((header) => {
-        if (header === 'x-request-id') return 'existing-id';
-        return undefined;
-      }),
-    });
-
-    await middleware(ctx);
-
-    expect(ctx.state.requestId).toBe('existing-id');
+    expect(next).toHaveBeenCalledOnce();
   });
 });
-```
 
-## Best Practices
+describe('auth', () => {
+  it('throws UnauthorizedError when no token is present', async () => {
+    const mw = auth({
+      verify: vi.fn(),
+    });
+    const ctx = createMockContext({
+      get: vi.fn(() => undefined),
+    });
+    const next = vi.fn();
 
-### 1. Always Call `ctx.next()`
-
-Unless intentionally short-circuiting:
-
-```typescript
-// ❌ Breaks the chain
-async (ctx) => {
-  console.log('Before');
-  // Forgot ctx.next()!
-};
-
-// ✅ Continues the chain
-async (ctx) => {
-  console.log('Before');
-  await ctx.next();
-  console.log('After');
-};
-```
-
-### 2. Handle Errors Properly
-
-```typescript
-// ❌ Swallows errors
-async (ctx) => {
-  try {
-    await ctx.next();
-  } catch (error) {
-    // Error disappears!
-  }
-};
-
-// ✅ Re-throws or handles properly
-async (ctx) => {
-  try {
-    await ctx.next();
-  } catch (error) {
-    console.error(error);
-    throw error; // Re-throw for error handler
-  }
-};
-```
-
-### 3. Order Matters
-
-```typescript
-// ✅ Correct order
-app.use(errorHandler());    // 1. Catch errors
-app.use(requestId());       // 2. Add request ID
-app.use(requestLogger());   // 3. Log requests
-app.use(auth());            // 4. Authenticate
-app.route('/', router);     // 5. Handle routes
-app.use(notFoundHandler()); // 6. 404 for unmatched
-
-// ❌ Wrong order
-app.route('/', router);   // Routes before auth!
-app.use(auth());            // Too late
-```
-
-### 4. Keep Middleware Focused
-
-```typescript
-// ❌ Does too much
-async (ctx) => {
-  // Logging
-  // Auth
-  // Validation
-  // Caching
-  await ctx.next();
-};
-
-// ✅ Single responsibility
-app.use(requestLogger());
-app.use(auth());
-app.use(validation());
-app.use(caching());
-```
-
-### 5. Use TypeScript
-
-```typescript
-import type { Middleware, Context } from '@nextrush/types';
-
-// Type your middleware
-const myMiddleware: Middleware = async (ctx: Context) => {
-  // Full type safety
-  ctx.state.customData = 'value';
-  await ctx.next();
-};
+    await expect(mw(ctx, next)).rejects.toThrow('Missing authentication token');
+    expect(next).not.toHaveBeenCalled();
+  });
+});
 ```
 
 ## What's Next?
 
 <Cards>
   <Card
-    title="Testing"
-    description="Test your middleware and application."
-    href="/docs/guides/testing"
+    title="Middleware Concepts"
+    description="Deeper look at the onion model and execution flow."
+    href="/docs/concepts/middleware"
   />
   <Card
-    title="Architecture"
-    description="Understand middleware flow in depth."
-    href="/docs/architecture/middleware-flow"
+    title="Error Handling"
+    description="Built-in error classes and the error handler middleware."
+    href="/docs/packages/core/errors"
   />
 </Cards>

@@ -1,16 +1,23 @@
 ---
-title: "Contributing"
-description: "How to contribute to NextRush — from setup to pull request."
+title: 'Contributing'
+description: 'How to contribute to NextRush — from setup to pull request.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 
 # Contributing to NextRush
 
-Thank you for your interest in contributing to NextRush!
+This guide covers setup, workflow, and conventions for contributing to NextRush.
 
-This guide covers everything you need to know to contribute effectively.
+---
+
+## Prerequisites
+
+| Requirement | Version                        |
+| ----------- | ------------------------------ |
+| Node.js     | >=22.0.0                       |
+| pnpm        | 10.29.3 (managed via corepack) |
+| Git         | Any recent version             |
+
+The project uses [corepack](https://nodejs.org/api/corepack.html) to manage pnpm. Node.js >=22 ships with corepack built-in.
 
 ---
 
@@ -35,10 +42,10 @@ cd nextrush
 ### Install Dependencies
 
 ```bash
-# Install pnpm if needed
-npm install -g pnpm
+# Enable corepack (ships with Node.js >=22)
+corepack enable
 
-# Install project dependencies
+# Install project dependencies (uses pnpm@10.29.3 from packageManager field)
 pnpm install
 ```
 
@@ -69,8 +76,10 @@ pnpm test
 ### Create Branch
 
 ```bash
-git checkout -b feature/your-feature
+git checkout -b feat/your-feature
 ```
+
+Branch prefix should match the commit type: `feat/`, `fix/`, `docs/`, `refactor/`, `test/`, `perf/`, `chore/`.
 
 </Step>
 
@@ -136,8 +145,17 @@ pnpm typecheck
 # Lint
 pnpm lint
 
+# Lint and auto-fix
+pnpm lint:fix
+
 # Format
 pnpm format
+
+# Check formatting (CI)
+pnpm format:check
+
+# Run tests with coverage
+pnpm test:coverage
 
 # Clean build artifacts
 pnpm clean
@@ -205,13 +223,13 @@ export function myFunction(options: MyOptions): void {
 
 ### Naming Conventions
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Files | kebab-case | `body-parser.ts` |
-| Types/Interfaces | PascalCase | `RouterOptions` |
-| Functions | camelCase | `createRouter` |
-| Constants | UPPER_SNAKE | `DEFAULT_TIMEOUT` |
-| Private fields | underscore prefix | `_internal` |
+| Type             | Convention        | Example           |
+| ---------------- | ----------------- | ----------------- |
+| Files            | kebab-case        | `body-parser.ts`  |
+| Types/Interfaces | PascalCase        | `RouterOptions`   |
+| Functions        | camelCase         | `createRouter`    |
+| Constants        | UPPER_SNAKE       | `DEFAULT_TIMEOUT` |
+| Private fields   | underscore prefix | `_internal`       |
 
 ### Comments
 
@@ -264,9 +282,17 @@ describe('MyFeature', () => {
 
 ### Coverage Requirements
 
-- **Unit tests**: 90%+ line coverage
+| Metric     | Threshold |
+| ---------- | --------- |
+| Lines      | 90%       |
+| Functions  | 90%       |
+| Statements | 90%       |
+| Branches   | 85%       |
+
 - **All exports**: Every public function tested
 - **Error paths**: All error scenarios covered
+
+Run `pnpm test:coverage` to verify thresholds before submitting.
 
 ---
 
@@ -275,8 +301,10 @@ describe('MyFeature', () => {
 ### Before Submitting
 
 - [ ] Tests pass: `pnpm test`
+- [ ] Coverage meets thresholds: `pnpm test:coverage`
 - [ ] Types check: `pnpm typecheck`
 - [ ] Lint passes: `pnpm lint`
+- [ ] Formatting correct: `pnpm format:check`
 - [ ] Documentation updated (if needed)
 - [ ] Changeset added (if needed)
 
@@ -354,8 +382,8 @@ cd packages/middleware/my-middleware
     "@nextrush/types": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "vitest": "^3.0.0"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }
 ```
@@ -453,12 +481,10 @@ See the [Documentation Instructions](https://github.com/0xtanzim/nextrush/tree/m
 - **Bugs**: Open an [Issue](https://github.com/0xtanzim/nextrush/issues)
 - **Code review**: Request review on your PR
 
-<Callout type="info">
-First-time contributors: Look for issues labeled `good first issue`.
-</Callout>
+<Callout type="info">First-time contributors: Look for issues labeled `good first issue`.</Callout>
 
 ---
 
-## Thank You!
+## Questions?
 
-Every contribution helps make NextRush better. Whether it's fixing a typo, reporting a bug, or implementing a feature—your help is appreciated.
+If anything in this guide is unclear, open a [Discussion](https://github.com/0xtanzim/nextrush/discussions). Contributions of all sizes are welcome.

@@ -1,6 +1,6 @@
 ---
-title: "@nextrush/adapter-edge"
-description: "Universal edge runtime adapter for Cloudflare Workers, Vercel Edge, and Netlify Edge."
+title: '@nextrush/adapter-edge'
+description: 'Universal edge runtime adapter for Cloudflare Workers, Vercel Edge, and Netlify Edge.'
 ---
 
 # @nextrush/adapter-edge
@@ -13,13 +13,7 @@ Edge runtimes execute code at the network edge, close to users. This adapter pro
 
 ## Installation
 
-```bash tab="npm"
-npm install @nextrush/adapter-edge
-```
-
-```bash tab="pnpm"
-pnpm add @nextrush/adapter-edge
-```
+<PackageInstall packages={['@nextrush/adapter-edge']} />
 
 ---
 
@@ -55,7 +49,7 @@ const app = createApp();
 app.use(async (ctx) => {
   ctx.json({
     message: 'Hello from Cloudflare Workers!',
-    colo: ctx.raw.req.cf?.colo,  // Cloudflare datacenter
+    colo: ctx.raw.req.cf?.colo, // Cloudflare datacenter
   });
 });
 
@@ -65,7 +59,7 @@ export default createCloudflareHandler(app);
 Deploy with Wrangler:
 
 ```bash
-wrangler publish
+wrangler deploy
 ```
 
 ---
@@ -135,11 +129,22 @@ const handler = createFetchHandler(app, {
 });
 ```
 
-#### FetchHandlerOptions
-
-| Option | Type | Description |
-|--------|------|-------------|
-| `onError` | `(error, ctx) => Response` | Custom error handler |
+<TypeTable
+  title="FetchHandlerOptions"
+  types={{
+    onError: {
+      type: '(error: Error, ctx: EdgeContext) => Response | Promise<Response>',
+      description: 'Custom error handler for uncaught exceptions',
+      optional: true,
+    },
+    timeout: {
+      type: 'number',
+      description:
+        'Request timeout in milliseconds. Returns 504 Gateway Timeout if exceeded. Recommended: 30000 for Cloudflare, 25000 for Vercel.',
+      optional: true,
+    },
+  }}
+/>
 
 ---
 
@@ -225,15 +230,12 @@ const handler = createFetchHandler(app, {
 
 ## Edge Context
 
-The edge adapter provides an execution context for platform-specific features:
+`EdgeContext` exposes a `waitUntil()` method for fire-and-forget operations that complete after the response is sent:
 
 ```typescript
 app.use(async (ctx) => {
-  // Access execution context (waitUntil, etc.)
-  const execCtx = ctx.raw.executionContext;
-
-  // Fire-and-forget async operations
-  execCtx?.waitUntil(
+  // Fire-and-forget async operations (logging, analytics)
+  ctx.waitUntil(
     fetch('https://analytics.example.com/track', {
       method: 'POST',
       body: JSON.stringify({ path: ctx.path }),
@@ -248,23 +250,39 @@ app.use(async (ctx) => {
 
 ## Cloudflare Bindings
 
-Access Cloudflare bindings (KV, D1, R2, etc.):
+Cloudflare bindings (KV, D1, R2, secrets) are passed as the second argument to the Workers module `fetch` handler. `createCloudflareHandler` receives `(request, env, ctx)` internally but does not expose `env` on the NextRush context.
+
+To access bindings, wrap your app setup in a closure:
 
 ```typescript
-// Define env type
+import { createApp } from '@nextrush/core';
+import { createFetchHandler } from '@nextrush/adapter-edge';
+import type { FetchHandler } from '@nextrush/adapter-edge';
+
 interface Env {
   MY_KV: KVNamespace;
   MY_DB: D1Database;
 }
 
-// Access in middleware
-app.use(async (ctx) => {
-  const env = ctx.raw.env as Env;
+export default {
+  async fetch(request: Request, env: Env, execCtx: ExecutionContext): Promise<Response> {
+    const app = createApp();
 
-  const value = await env.MY_KV.get('key');
-  ctx.json({ value });
-});
+    app.use(async (ctx) => {
+      const value = await env.MY_KV.get('key');
+      ctx.json({ value });
+    });
+
+    const handler = createFetchHandler(app);
+    return handler(request, execCtx);
+  },
+};
 ```
+
+<Callout type="info">
+  For production use, create the app and handler at module scope and pass `env` through middleware
+  state to avoid per-request overhead.
+</Callout>
 
 ---
 
@@ -272,15 +290,15 @@ app.use(async (ctx) => {
 
 Edge runtimes have constraints compared to Node.js:
 
-| Feature | Edge Support |
-|---------|--------------|
-| `fs` module | ❌ Not available |
-| `child_process` | ❌ Not available |
-| Native modules | ❌ Not available |
-| WebSocket | ⚠️ Platform-specific |
-| Long-running tasks | ⚠️ Time limits apply |
-| Request body | ✅ Streaming supported |
-| Fetch API | ✅ Full support |
+| Feature            | Edge Support           |
+| ------------------ | ---------------------- |
+| `fs` module        | ❌ Not available       |
+| `child_process`    | ❌ Not available       |
+| Native modules     | ❌ Not available       |
+| WebSocket          | ⚠️ Platform-specific   |
+| Long-running tasks | ⚠️ Time limits apply   |
+| Request body       | ✅ Streaming supported |
+| Fetch API          | ✅ Full support        |
 
 Design your application with these constraints in mind.
 
@@ -301,9 +319,9 @@ export default { fetch: handler };
 // ❌ Avoid: Creating app per request
 export default {
   fetch: (req) => {
-    const app = createApp();  // Cold start overhead
+    const app = createApp(); // Cold start overhead
     return createFetchHandler(app)(req);
-  }
+  },
 };
 ```
 
@@ -311,22 +329,25 @@ export default {
 
 ## TypeScript
 
-Full type support for edge environments:
+All exports are fully typed:
 
 ```typescript
 import type { Application } from '@nextrush/core';
 import type {
   FetchHandler,
-  FetchHandlerOptions
+  FetchHandlerOptions,
+  EdgeExecutionContext,
 } from '@nextrush/adapter-edge';
 import {
   createFetchHandler,
   createCloudflareHandler,
   createVercelHandler,
   createNetlifyHandler,
+  detectEdgeRuntime,
 } from '@nextrush/adapter-edge';
 
 const options: FetchHandlerOptions = {
+  timeout: 25_000,
   onError: (error, ctx) => new Response('Error', { status: 500 }),
 };
 

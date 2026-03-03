@@ -59,62 +59,120 @@
 import type { Context, Middleware } from '@nextrush/types';
 import { getAlgorithm } from './algorithms';
 import {
-    DEFAULT_ALGORITHM,
-    DEFAULT_BLACKLIST_MULTIPLIER,
-    DEFAULT_CLEANUP_INTERVAL,
-    DEFAULT_KEY_PREFIX,
-    DEFAULT_MAX,
-    DEFAULT_MESSAGE,
-    DEFAULT_STATUS_CODE,
-    DEFAULT_WINDOW,
+  DEFAULT_ALGORITHM,
+  DEFAULT_BLACKLIST_MULTIPLIER,
+  DEFAULT_CLEANUP_INTERVAL,
+  DEFAULT_KEY_PREFIX,
+  DEFAULT_MAX,
+  DEFAULT_MESSAGE,
+  DEFAULT_STATUS_CODE,
+  DEFAULT_WINDOW,
+  INFO_CACHE_MAX,
 } from './constants';
 import { createMemoryStore } from './stores';
 import type {
-    RateLimitInfo,
-    RateLimitMiddleware,
-    RateLimitOptions,
-    RateLimitStore,
-    TieredRateLimitOptions,
+  RateLimitInfo,
+  RateLimitMiddleware,
+  RateLimitOptions,
+  RateLimitStore,
+  TieredRateLimitOptions,
 } from './types';
-import { extractClientIp, isIpInList, parseWindow, setRateLimitHeaders } from './utils';
+import {
+  extractClientIp,
+  isIpInList,
+  normalizeIp,
+  parseCidr,
+  parseWindow,
+  setRateLimitHeaders,
+} from './utils';
 import { validateOptions, validateTieredOptions } from './validation';
 
 export type {
-    Algorithm, KeyGenerator, OnRateLimited, RateLimitAlgorithm, RateLimitHandler, RateLimitInfo, RateLimitMiddleware, RateLimitOptions, RateLimitStore, SkipFunction, StoreEntry,
-    TierConfig, TieredRateLimitOptions, TierResolver
+  Algorithm,
+  KeyGenerator,
+  OnRateLimited,
+  RateLimitAlgorithm,
+  RateLimitHandler,
+  RateLimitInfo,
+  RateLimitMiddleware,
+  RateLimitOptions,
+  RateLimitStore,
+  SkipFunction,
+  StoreEntry,
+  TierConfig,
+  TieredRateLimitOptions,
+  TierResolver,
 } from './types';
 
 export { algorithms, fixedWindow, getAlgorithm, slidingWindow, tokenBucket } from './algorithms';
 export {
-    CIDR_MAX_IPV4,
-    CIDR_MAX_IPV6,
-    CIDR_PATTERN,
-    DEFAULT_ALGORITHM,
-    DEFAULT_BLACKLIST_MULTIPLIER,
-    DEFAULT_CLEANUP_INTERVAL,
-    DEFAULT_KEY_PREFIX,
-    DEFAULT_MAX,
-    DEFAULT_MAX_ENTRIES,
-    DEFAULT_MESSAGE,
-    DEFAULT_STATUS_CODE,
-    DEFAULT_WINDOW,
-    DEFAULT_WINDOW_MS,
-    IPV4_MAPPED_PREFIX,
-    IPV4_MAX_OCTET,
-    IPV4_OCTET_COUNT,
-    IPV6_PATTERN,
-    LEGACY_HEADERS,
-    PROXY_HEADERS,
-    RETRY_AFTER_HEADER,
-    STANDARD_HEADERS,
-    TIME_UNITS,
-    WINDOW_PATTERN
+  CIDR_MAX_IPV4,
+  CIDR_MAX_IPV6,
+  CIDR_PATTERN,
+  DEFAULT_ALGORITHM,
+  DEFAULT_BLACKLIST_MULTIPLIER,
+  DEFAULT_CLEANUP_INTERVAL,
+  DEFAULT_KEY_PREFIX,
+  DEFAULT_MAX,
+  DEFAULT_MAX_ENTRIES,
+  DEFAULT_MESSAGE,
+  DEFAULT_STATUS_CODE,
+  DEFAULT_WINDOW,
+  DEFAULT_WINDOW_MS,
+  INFO_CACHE_MAX,
+  IPV4_MAPPED_PREFIX,
+  IPV4_MAX_OCTET,
+  IPV4_OCTET_COUNT,
+  IPV6_PATTERN,
+  LEGACY_HEADERS,
+  PROXY_HEADERS,
+  RETRY_AFTER_HEADER,
+  STANDARD_HEADERS,
+  TIME_UNITS,
+  WINDOW_PATTERN,
 } from './constants';
 export { createMemoryStore, MemoryStore, type MemoryStoreOptions } from './stores';
-export { LEGACY_HEADERS as LEGACY_RATE_LIMIT_HEADERS, setRateLimitHeaders, STANDARD_HEADERS as STANDARD_RATE_LIMIT_HEADERS } from './utils/headers';
-export { defaultKeyGenerator, extractClientIp, isIpInList, isValidIpv4, isValidIpv6, normalizeIp } from './utils/key-generator';
+export {
+  LEGACY_HEADERS as LEGACY_RATE_LIMIT_HEADERS,
+  setRateLimitHeaders,
+  STANDARD_HEADERS as STANDARD_RATE_LIMIT_HEADERS,
+} from './utils/headers';
+export {
+  defaultKeyGenerator,
+  extractClientIp,
+  isIpInList,
+  isValidIpv4,
+  isValidIpv6,
+  normalizeIp,
+  parseCidr,
+} from './utils/key-generator';
 export { formatDuration, parseWindow } from './utils/parse-window';
-export { isValidIpFormat, RateLimitValidationError, SAFE_DEFAULTS, validateOptions, validateTieredOptions } from './validation';
+export {
+  isValidIpFormat,
+  RateLimitValidationError,
+  SAFE_DEFAULTS,
+  validateOptions,
+  validateTieredOptions,
+} from './validation';
+
+type CompiledListEntry =
+  | { type: 'cidr'; ip: string; prefix: number }
+  | { type: 'exact'; ip: string };
+
+/**
+ * Check if IP is in a precompiled list (parsed once at construction time)
+ */
+function isIpInCompiledList(ip: string, list: CompiledListEntry[]): boolean {
+  const normalized = normalizeIp(ip);
+
+  return list.some((entry) => {
+    if (entry.type === 'exact') {
+      return entry.ip === normalized;
+    }
+    // CIDR match - use isIpInList for the actual CIDR comparison
+    return isIpInList(normalized, [`${entry.ip}/${entry.prefix}`]);
+  });
+}
 
 const DEFAULT_OPTIONS: Required<
   Pick<
@@ -176,15 +234,19 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
 
   const windowMs = parseWindow(config.window);
   const algorithm = getAlgorithm(config.algorithm);
-  const store = config.store ?? createMemoryStore({
-    cleanupInterval: config.cleanupInterval,
-    disableCleanup: config.disableCleanup,
-  });
+  const store =
+    config.store ??
+    createMemoryStore({
+      cleanupInterval: config.cleanupInterval,
+      disableCleanup: config.disableCleanup,
+    });
 
-  const keyGenerator = config.keyGenerator ?? ((ctx: Context) => {
-    const ip = extractClientIp(ctx, config.trustProxy);
-    return `${DEFAULT_KEY_PREFIX}${ip}`;
-  });
+  const keyGenerator =
+    config.keyGenerator ??
+    ((ctx: Context) => {
+      const ip = extractClientIp(ctx, config.trustProxy);
+      return `${DEFAULT_KEY_PREFIX}${ip}`;
+    });
 
   const defaultHandler = async (ctx: Context, info: RateLimitInfo): Promise<void> => {
     ctx.status = config.statusCode;
@@ -196,6 +258,20 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
 
   const handler = config.handler ?? defaultHandler;
 
+  // RL-P2-03: Precompile whitelist/blacklist at construction time
+  const compiledWhitelist = config.whitelist?.map((entry) => {
+    const cidr = parseCidr(entry);
+    return cidr
+      ? { type: 'cidr' as const, ...cidr }
+      : { type: 'exact' as const, ip: normalizeIp(entry) };
+  });
+  const compiledBlacklist = config.blacklist?.map((entry) => {
+    const cidr = parseCidr(entry);
+    return cidr
+      ? { type: 'cidr' as const, ...cidr }
+      : { type: 'exact' as const, ip: normalizeIp(entry) };
+  });
+
   let infoCache = new Map<string, RateLimitInfo>();
 
   const middleware: Middleware = async (ctx: Context) => {
@@ -205,19 +281,24 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
 
     const clientIp = extractClientIp(ctx, config.trustProxy);
 
-    if (config.whitelist && isIpInList(clientIp, config.whitelist)) {
+    if (compiledWhitelist && isIpInCompiledList(clientIp, compiledWhitelist)) {
       return ctx.next();
     }
 
     const key = await keyGenerator(ctx);
 
     let effectiveLimit = config.max;
-    if (config.blacklist && isIpInList(clientIp, config.blacklist)) {
+    if (compiledBlacklist && isIpInCompiledList(clientIp, compiledBlacklist)) {
       effectiveLimit = Math.floor(config.max * config.blacklistMultiplier);
     }
 
     const info = await algorithm.consume(key, effectiveLimit, windowMs, store, config.burstLimit);
 
+    // RL-P1-03: Cap infoCache to prevent unbounded memory growth
+    if (infoCache.size >= INFO_CACHE_MAX) {
+      const firstKey = infoCache.keys().next().value;
+      if (firstKey !== undefined) infoCache.delete(firstKey);
+    }
     infoCache.set(key, info);
 
     setRateLimitHeaders(ctx, info, {
@@ -241,9 +322,15 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
 
   const rateLimitMiddleware = middleware as RateLimitMiddleware;
 
-  rateLimitMiddleware.reset = async (key: string): Promise<void> => {
-    await store.reset(key);
-    infoCache.delete(key);
+  rateLimitMiddleware.reset = async (targetKey: string): Promise<void> => {
+    // RL-P1-04: Fixed-window stores entries under `${key}:${windowStart}`, not just `key`
+    if (algorithm.name === 'fixed-window') {
+      const now = Date.now();
+      const windowStart = Math.floor(now / windowMs) * windowMs;
+      await store.reset(`${targetKey}:${windowStart}`);
+    }
+    await store.reset(targetKey);
+    infoCache.delete(targetKey);
   };
 
   rateLimitMiddleware.getInfo = async (key: string): Promise<RateLimitInfo | null> => {
@@ -301,19 +388,22 @@ export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddl
   for (const [name, config] of Object.entries(tiers)) {
     tierStores.set(
       name,
-      baseOptions.store ?? createMemoryStore({
-        cleanupInterval: baseOptions.cleanupInterval ?? DEFAULT_CLEANUP_INTERVAL,
-        disableCleanup: baseOptions.disableCleanup ?? false,
-      })
+      baseOptions.store ??
+        createMemoryStore({
+          cleanupInterval: baseOptions.cleanupInterval ?? DEFAULT_CLEANUP_INTERVAL,
+          disableCleanup: baseOptions.disableCleanup ?? false,
+        })
     );
     tierAlgorithms.set(name, getAlgorithm(baseOptions.algorithm ?? DEFAULT_ALGORITHM));
     tierWindowMs.set(name, parseWindow(config.window));
   }
 
-  const keyGenerator = baseOptions.keyGenerator ?? ((ctx: Context) => {
-    const ip = extractClientIp(ctx, baseOptions.trustProxy ?? false);
-    return `${DEFAULT_KEY_PREFIX}${ip}`;
-  });
+  const keyGenerator =
+    baseOptions.keyGenerator ??
+    ((ctx: Context) => {
+      const ip = extractClientIp(ctx, baseOptions.trustProxy ?? false);
+      return `${DEFAULT_KEY_PREFIX}${ip}`;
+    });
 
   const defaultHandler = async (ctx: Context, info: RateLimitInfo): Promise<void> => {
     ctx.status = baseOptions.statusCode ?? DEFAULT_STATUS_CODE;
@@ -361,7 +451,13 @@ export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddl
       effectiveLimit = Math.floor(tierConfig.max * (baseOptions.blacklistMultiplier ?? 0.5));
     }
 
-    const info = await algorithm.consume(key, effectiveLimit, windowMs, store, tierConfig.burstLimit);
+    const info = await algorithm.consume(
+      key,
+      effectiveLimit,
+      windowMs,
+      store,
+      tierConfig.burstLimit
+    );
 
     setRateLimitHeaders(ctx, info, {
       standardHeaders: baseOptions.standardHeaders ?? true,
@@ -385,7 +481,9 @@ export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddl
   const rateLimitMiddleware = middleware as RateLimitMiddleware;
 
   rateLimitMiddleware.reset = async (key: string): Promise<void> => {
-    for (const store of tierStores.values()) {
+    // RL-P1-05: Deduplicate stores - shared stores should only be called once
+    const uniqueStores = new Set(tierStores.values());
+    for (const store of uniqueStores) {
       await store.reset(key);
     }
   };
@@ -395,11 +493,12 @@ export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddl
   };
 
   rateLimitMiddleware.shutdown = async (): Promise<void> => {
-    for (const store of tierStores.values()) {
-      if (store.shutdown) {
-        await store.shutdown();
-      }
-    }
+    // RL-P1-05: Deduplicate stores - shared stores should only be shut down once
+    const uniqueStores = new Set(tierStores.values());
+    const shutdownPromises = [...uniqueStores]
+      .filter((s) => typeof s.shutdown === 'function')
+      .map((s) => s.shutdown!());
+    await Promise.all(shutdownPromises);
   };
 
   return rateLimitMiddleware;

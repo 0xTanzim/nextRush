@@ -1,20 +1,18 @@
 ---
 title: Guides
-description: Step-by-step tutorials for common patterns and use cases
+description: Task-oriented walkthroughs for routing, middleware, validation, testing, and more in NextRush
 ---
 
 # Guides
 
-Practical, task-oriented guides for building real applications with NextRush.
-
-These guides are designed to take you from zero to production with real-world patterns and best practices.
+Task-oriented guides for building applications with NextRush. Each guide walks you through a specific goal with verifiable steps.
 
 ## Available Guides
 
 <Cards>
   <Card
     title="Building REST APIs"
-    description="Create production-ready REST APIs with routing, services, and proper response formatting."
+    description="Create a REST API with routing, services, and response formatting."
     href="/docs/guides/rest-api"
   />
   <Card
@@ -24,12 +22,12 @@ These guides are designed to take you from zero to production with real-world pa
   />
   <Card
     title="Dev Tools"
-    description="Development server and build tools with proper decorator metadata support."
+    description="Set up the development server and build tools with decorator metadata support."
     href="/docs/guides/dev-tools"
   />
   <Card
     title="Error Handling"
-    description="Structured error handling with HTTP error classes and middleware."
+    description="Handle errors with HTTP error classes and error-handling middleware."
     href="/docs/guides/error-handling"
   />
   <Card
@@ -39,92 +37,51 @@ These guides are designed to take you from zero to production with real-world pa
   />
   <Card
     title="Custom Middleware"
-    description="Create your own middleware for logging, auth, caching, and more."
+    description="Write middleware for logging, authentication, caching, and request processing."
     href="/docs/guides/custom-middleware"
   />
   <Card
     title="Testing"
-    description="Test your handlers, middleware, and services with Vitest."
+    description="Test handlers, middleware, and services with Vitest."
     href="/docs/guides/testing"
   />
 </Cards>
 
 ## Learning Path
 
-If you're new to NextRush, we recommend following this order:
+If you're new to NextRush, follow one of these paths based on your preferred style.
 
-### Functional Style Path
+### Functional Style
 
-| Step | Guide | What You'll Learn |
-|------|-------|-------------------|
-| 1 | [REST APIs](/docs/guides/rest-api) | Project structure, routing, services |
-| 2 | [Error Handling](/docs/guides/error-handling) | HTTP errors, error middleware |
-| 3 | [Validation](/docs/guides/validation) | Input validation with Zod |
-| 4 | [Custom Middleware](/docs/guides/custom-middleware) | Auth, logging, caching |
-| 5 | [Testing](/docs/guides/testing) | Unit and integration tests |
+| Step | Guide                                               | What You'll Learn                    |
+| ---- | --------------------------------------------------- | ------------------------------------ |
+| 1    | [REST APIs](/docs/guides/rest-api)                  | Project structure, routing, services |
+| 2    | [Error Handling](/docs/guides/error-handling)       | HTTP errors, error middleware        |
+| 3    | [Validation](/docs/guides/validation)               | Input validation with Zod            |
+| 4    | [Custom Middleware](/docs/guides/custom-middleware) | Auth, logging, rate limiting         |
+| 5    | [Testing](/docs/guides/testing)                     | Unit and integration tests           |
 
-### Class-Based Style Path
+### Class-Based Style
 
-| Step | Guide | What You'll Learn |
-|------|-------|-------------------|
-| 1 | [Dev Tools](/docs/guides/dev-tools) | Set up build tools for decorators |
-| 2 | [Class-Based Controllers](/docs/guides/class-based) | DI, decorators, controllers |
-| 3 | [Error Handling](/docs/guides/error-handling) | HTTP errors, error middleware |
-| 4 | [Validation](/docs/guides/validation) | Input validation with Zod |
-| 5 | [Testing](/docs/guides/testing) | Unit and integration tests |
+| Step | Guide                                               | What You'll Learn             |
+| ---- | --------------------------------------------------- | ----------------------------- |
+| 1    | [Dev Tools](/docs/guides/dev-tools)                 | Build tools for decorators    |
+| 2    | [Class-Based Controllers](/docs/guides/class-based) | DI, decorators, controllers   |
+| 3    | [Error Handling](/docs/guides/error-handling)       | HTTP errors, error middleware |
+| 4    | [Validation](/docs/guides/validation)               | Input validation with Zod     |
+| 5    | [Testing](/docs/guides/testing)                     | Unit and integration tests    |
 
-## Coming Soon
-
-We're working on additional guides for:
-
-- **Authentication** — JWT, sessions, OAuth2
-- **Database Integration** — Prisma, Drizzle, TypeORM
-- **Deployment** — Docker, cloud platforms, edge
-- **File Uploads** — Multipart forms, streaming
-- **WebSockets** — Real-time communication
-- **Plugin Development** — Extend NextRush
-
-## Quick Reference
-
-### Functional vs Class-Based
-
-NextRush supports both styles. Choose based on your needs:
-
-| Aspect | Functional | Class-Based |
-|--------|-----------|-------------|
-| Best for | Small APIs, microservices | Large apps, teams |
-| Setup | Minimal | Requires DI setup |
-| Testing | Simple mocks | Dependency injection |
-| Type safety | Good | Excellent |
-
-### Package Selection
-
-| Need | Package |
-|------|---------|
-| JSON parsing | `@nextrush/body-parser` |
-| Error handling | `@nextrush/errors` |
-| CORS | `@nextrush/cors` |
-| Security headers | `@nextrush/helmet` |
-| Rate limiting | `@nextrush/rate-limit` |
-| Controllers + DI | `@nextrush/controllers` |
-| Dev tools | `@nextrush/dev` |
-
-## What's Next?
+## What's Next
 
 <Cards>
   <Card
-    title="Benchmarks"
-    description="See how NextRush performs against other frameworks."
-    href="/docs/benchmarks"
-  />
-  <Card
     title="Architecture"
-    description="Understand how NextRush works internally."
+    description="How NextRush packages connect — middleware flow, DI lifecycle, adapter model."
     href="/docs/architecture"
   />
   <Card
     title="Packages"
-    description="Explore all available packages."
+    description="Reference for every NextRush package: API, configuration, and usage."
     href="/docs/packages"
   />
 </Cards>

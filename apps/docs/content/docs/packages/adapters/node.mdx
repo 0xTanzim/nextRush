@@ -1,5 +1,5 @@
 ---
-title: "@nextrush/adapter-node"
+title: '@nextrush/adapter-node'
 description: Node.js HTTP adapter for NextRush
 ---
 
@@ -8,10 +8,11 @@ description: Node.js HTTP adapter for NextRush
 Connect NextRush to Node.js's built-in HTTP server.
 
 <Callout type="info" title="Included in nextrush">
-This adapter is included when you install the `nextrush` package. Install separately only when using other runtimes alongside Node.js.
+  This adapter is included when you install the `nextrush` package. Install separately only when
+  using other runtimes alongside Node.js.
 </Callout>
 
-<PackageInstall packages={["@nextrush/adapter-node"]} />
+<PackageInstall packages={['@nextrush/adapter-node']} />
 
 ## What It Provides
 
@@ -34,7 +35,8 @@ import {
 ## Quick Start
 
 ```typescript
-import { createApp, createRouter } from '@nextrush/core';
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { serve } from '@nextrush/adapter-node';
 
 const app = createApp();
@@ -65,7 +67,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 
 app.route('/', router);
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ## serve()
@@ -94,24 +96,50 @@ await server.close();
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `port` | `number` | `3000` | Port to listen on |
-| `host` | `string` | `'0.0.0.0'` | Host to bind to |
-| `timeout` | `number` | `30000` | Request timeout (ms) |
-| `keepAliveTimeout` | `number` | `5000` | Keep-alive timeout (ms) |
-| `onListen` | `(info) => void` | - | Callback when server starts |
-| `onError` | `(error) => void` | - | Error handler |
+<TypeTable
+  title="ServeOptions"
+  types={{
+    port: { type: 'number', description: 'Port to listen on', default: '3000' },
+    host: { type: 'string', description: 'Host to bind to', default: "'0.0.0.0'" },
+    timeout: { type: 'number', description: 'Request timeout in milliseconds', default: '30000' },
+    keepAliveTimeout: {
+      type: 'number',
+      description: 'Keep-alive timeout in milliseconds',
+      default: '5000',
+    },
+    shutdownTimeout: {
+      type: 'number',
+      description:
+        'Graceful shutdown timeout in milliseconds. Forces closure if connections do not drain within this time.',
+      default: '30000',
+    },
+    onListen: {
+      type: '(info: { port: number; host: string }) => void',
+      description: 'Callback when server starts listening',
+      optional: true,
+    },
+    onError: {
+      type: '(error: Error) => void',
+      description: 'Custom error handler for uncaught server errors',
+      optional: true,
+    },
+    logger: {
+      type: 'Logger',
+      description: 'Logger for adapter diagnostics. Defaults to app.logger.',
+      optional: true,
+    },
+  }}
+/>
 
 ### Return Value
 
 ```typescript
 interface ServerInstance {
-  server: Server;              // Node.js http.Server
-  port: number;                // Listening port
-  host: string;                // Bound host
-  address(): { port, host };   // Get address info
-  close(): Promise<void>;      // Graceful shutdown
+  server: Server; // Node.js http.Server
+  port: number; // Listening port
+  host: string; // Bound host
+  address(): { port: number; host: string }; // Get address info
+  close(): Promise<void>; // Graceful shutdown
 }
 ```
 
@@ -128,7 +156,16 @@ await listen(app, 3000);
 
 ## createHandler()
 
-Create a request handler for custom server setup:
+Create a request handler for custom server setup.
+
+**Signature:**
+
+```typescript
+function createHandler(
+  app: Application,
+  options?: { logger?: Logger }
+): (req: IncomingMessage, res: ServerResponse) => void;
+```
 
 ```typescript
 import { createHandler } from '@nextrush/adapter-node';
@@ -141,10 +178,13 @@ const handler = createHandler(app);
 const httpServer = createServer(handler);
 
 // Use with https
-const httpsServer = createHttpsServer({
-  key: privateKey,
-  cert: certificate,
-}, handler);
+const httpsServer = createHttpsServer(
+  {
+    key: privateKey,
+    cert: certificate,
+  },
+  handler
+);
 ```
 
 ## HTTPS Support
@@ -162,14 +202,15 @@ const app = createApp();
 
 const handler = createHandler(app);
 
-const server = createServer({
-  key: readFileSync('private-key.pem'),
-  cert: readFileSync('certificate.pem'),
-}, handler);
+const server = createServer(
+  {
+    key: readFileSync('private-key.pem'),
+    cert: readFileSync('certificate.pem'),
+  },
+  handler
+);
 
-server.listen(443, () => {
-  console.log('HTTPS server running on port 443');
-});
+server.listen(443);
 ```
 
 ## Graceful Shutdown
@@ -210,7 +251,8 @@ router.get('/raw', (ctx) => {
 ```
 
 <Callout type="warn" title="Use Raw Objects Carefully">
-When using `ctx.raw`, you bypass NextRush's response handling. Make sure you don't mix raw and NextRush response methods.
+  When using `ctx.raw`, you bypass NextRush's response handling. Make sure you don't mix raw and
+  NextRush response methods.
 </Callout>
 
 ## Performance Tuning
@@ -220,7 +262,7 @@ When using `ctx.raw`, you bypass NextRush's response handling. Make sure you don
 ```typescript
 await serve(app, {
   port: 3000,
-  timeout: 60000,         // 60s request timeout
+  timeout: 60000, // 60s request timeout
   keepAliveTimeout: 10000, // 10s keep-alive
 });
 ```
@@ -251,7 +293,7 @@ if (cluster.isPrimary) {
   const app = createApp();
   // ... configure app
 
-  listen(app, 3000);
+  await listen(app, 3000);
   console.log(`Worker ${process.pid} started`);
 }
 ```
@@ -259,7 +301,7 @@ if (cluster.isPrimary) {
 ## Complete Example
 
 ```typescript
-import { createApp, compose } from '@nextrush/core';
+import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { serve } from '@nextrush/adapter-node';
 
@@ -275,7 +317,7 @@ app.use(async (ctx) => {
 });
 
 // Error handler
-app.onError((error, ctx) => {
+app.setErrorHandler((error, ctx) => {
   console.error('Request error:', error);
   ctx.status = 500;
   ctx.json({ error: 'Internal Server Error' });
@@ -312,19 +354,11 @@ process.on('SIGTERM', async () => {
 ## TypeScript Types
 
 ```typescript
-import type {
-  ServeOptions,
-  ServerInstance,
-} from '@nextrush/adapter-node';
+import type { ServeOptions, ServerInstance } from '@nextrush/adapter-node';
 
-import type {
-  Application,
-} from '@nextrush/core';
+import type { Application } from '@nextrush/core';
 
-import type {
-  IncomingMessage,
-  ServerResponse,
-} from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 ```
 
 ## See Also

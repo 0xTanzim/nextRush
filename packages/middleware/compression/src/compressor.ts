@@ -48,6 +48,14 @@ function hasGlobal(name: string): boolean {
 let cachedCapabilities: RuntimeCapabilities | null = null;
 
 /**
+ * Reset cached runtime capabilities.
+ * Useful for testing or when runtime environment changes.
+ */
+export function resetCapabilities(): void {
+  cachedCapabilities = null;
+}
+
+/**
  * Detect runtime compression capabilities.
  *
  * @returns Runtime capabilities object

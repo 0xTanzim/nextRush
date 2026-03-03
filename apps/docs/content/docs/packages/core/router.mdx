@@ -53,7 +53,14 @@ import { createNode, NodeType, parseSegments } from '@nextrush/router';
 import type { HandlerEntry, ParsedSegment, RadixNode } from '@nextrush/router';
 
 // Types
-import type { HttpMethod, RouterOptions, RouteMatch } from '@nextrush/router';
+import type {
+  HttpMethod,
+  Middleware,
+  Route,
+  RouteHandler,
+  RouteMatch,
+  RouterOptions,
+} from '@nextrush/router';
 ```
 
 ## Basic Usage
@@ -111,11 +118,12 @@ This is the **recommended pattern** for composing routers. Benefits:
 
 The traditional approach with `router.routes()` still works:
 
-````typescript title="Classic Mounting"
+```typescript title="Classic Mounting"
 const router = createRouter();
 router.use('/users', usersRouter);
 router.use('/posts', postsRouter);
 app.route('/', router);
+```
 
 ## HTTP Methods
 
@@ -133,7 +141,12 @@ router.all('/any-method', handler);
 
 // Dynamic method registration
 router.route('GET', '/dynamic', handler);
-````
+```
+
+<Callout type="info">
+  `router.all()` registers handlers for GET, POST, PUT, DELETE, PATCH, HEAD, and OPTIONS. TRACE and
+  CONNECT are excluded for security reasons (XST attacks and tunneling).
+</Callout>
 
 ## Route Parameters
 
@@ -272,8 +285,8 @@ router.redirect('/users/:id', '/profiles/:id');
 
 | Status | Name               | Use Case                     |
 | ------ | ------------------ | ---------------------------- |
-| `301`  | Moved Permanently  | SEO-safe permanent redirect  |
-| `302`  | Found              | Temporary redirect (default) |
+| `301`  | Moved Permanently  | Permanent redirect (default) |
+| `302`  | Found              | Temporary redirect           |
 | `303`  | See Other          | Redirect after POST          |
 | `307`  | Temporary Redirect | Preserves HTTP method        |
 | `308`  | Permanent Redirect | Preserves HTTP method        |
@@ -363,6 +376,27 @@ OPTIONS /users  → 200 OK
                   Allow: GET, HEAD
 ```
 
+## Error and Failure Behavior
+
+**Duplicate routes** — Registering the same method + path combination twice throws an error:
+
+```typescript
+router.get('/users', handler1);
+router.get('/users', handler2); // Throws: "Route conflict: GET /users is already registered"
+```
+
+**Unmatched routes** — When `routes()` middleware finds no match, it sets `ctx.status = 404` and calls `next()`. This allows downstream middleware (like `allowedMethods()`) to inspect and respond.
+
+**Parameter name conflicts** — If two routes define different parameter names at the same position, a warning is logged in development:
+
+```typescript
+router.get('/users/:id', handler1);
+router.get('/users/:userId/posts', handler2);
+// Warning: ":userId" conflicts with existing ":id"
+```
+
+The first registered parameter name takes precedence.
+
 ## Router Options
 
 ```typescript
@@ -435,11 +469,6 @@ v2.get('/users', v2UsersHandler);
 // Recommended: Direct mounting
 app.route('/api/v1', v1);
 app.route('/api/v2', v2);
-
-// Or with prefix option
-const v3 = createRouter({ prefix: '/api/v3' });
-v3.get('/users', v3UsersHandler);
-app.route('/api/v3', v3);
 ```
 
 ### SPA Fallback
@@ -493,23 +522,23 @@ Creates a new router instance.
 
 ### Router Methods
 
-| Method           | Signature                          | Description                         |
-| ---------------- | ---------------------------------- | ----------------------------------- |
-| `get`            | `(path, ...handlers)`              | Register GET route                  |
-| `post`           | `(path, ...handlers)`              | Register POST route                 |
-| `put`            | `(path, ...handlers)`              | Register PUT route                  |
-| `delete`         | `(path, ...handlers)`              | Register DELETE route               |
-| `patch`          | `(path, ...handlers)`              | Register PATCH route                |
-| `head`           | `(path, ...handlers)`              | Register HEAD route                 |
-| `options`        | `(path, ...handlers)`              | Register OPTIONS route              |
-| `all`            | `(path, ...handlers)`              | Register all methods                |
-| `route`          | `(method, path, ...handlers)`      | Register dynamic method             |
-| `redirect`       | `(from, to, status?)`              | Register redirect                   |
-| `group`          | `(prefix, [middleware], callback)` | Create route group                  |
-| `use`            | `(path?, router)`                  | Mount sub-router                    |
-| `mount`          | `(path, router)`                   | Mount sub-router (Hono-style alias) |
-| `routes`         | `()`                               | Get routes middleware               |
-| `allowedMethods` | `()`                               | Get 405 handler middleware          |
+| Method           | Signature                          | Description                                                 |
+| ---------------- | ---------------------------------- | ----------------------------------------------------------- |
+| `get`            | `(path, ...handlers)`              | Register GET route                                          |
+| `post`           | `(path, ...handlers)`              | Register POST route                                         |
+| `put`            | `(path, ...handlers)`              | Register PUT route                                          |
+| `delete`         | `(path, ...handlers)`              | Register DELETE route                                       |
+| `patch`          | `(path, ...handlers)`              | Register PATCH route                                        |
+| `head`           | `(path, ...handlers)`              | Register HEAD route                                         |
+| `options`        | `(path, ...handlers)`              | Register OPTIONS route                                      |
+| `all`            | `(path, ...handlers)`              | Register for all standard methods (excludes TRACE, CONNECT) |
+| `route`          | `(method, path, ...handlers)`      | Register dynamic method                                     |
+| `redirect`       | `(from, to, status?)`              | Register redirect                                           |
+| `group`          | `(prefix, [middleware], callback)` | Create route group                                          |
+| `use`            | `(path?, router)`                  | Mount sub-router                                            |
+| `mount`          | `(path, router)`                   | Mount sub-router (Hono-style alias)                         |
+| `routes`         | `()`                               | Get routes middleware                                       |
+| `allowedMethods` | `()`                               | Get 405 handler middleware                                  |
 
 ## See Also
 

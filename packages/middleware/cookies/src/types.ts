@@ -141,37 +141,10 @@ export type ParsedCookies = Record<string, string>;
 
 /**
  * Cookie middleware options.
+ *
+ * For signed cookies, use `signedCookies()` with `SignedCookieMiddlewareOptions` instead.
  */
 export interface CookieMiddlewareOptions {
-  /**
-   * Secret key for signed cookies.
-   *
-   * When provided, enables `ctx.signedCookies` and cookie signing.
-   * Should be a strong, random string (32+ characters recommended).
-   *
-   * @example crypto.randomUUID() // Generate a strong secret
-   */
-  secret?: string;
-
-  /**
-   * Previous secret keys for key rotation.
-   *
-   * During key rotation, cookies signed with previous keys can still be verified.
-   * New cookies are always signed with the current `secret`.
-   *
-   * @example ['old-secret-1', 'old-secret-2']
-   */
-  previousSecrets?: string[];
-
-  /**
-   * Automatically parse signed cookies.
-   *
-   * When true, attempts to verify all cookies and populates `ctx.signedCookies`.
-   *
-   * @default true when secret is provided
-   */
-  signed?: boolean;
-
   /**
    * Custom decode function for cookie values.
    *

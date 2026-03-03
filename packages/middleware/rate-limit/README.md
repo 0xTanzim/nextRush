@@ -49,55 +49,57 @@ app.get('/', (ctx) => {
 ```typescript
 import { rateLimit } from '@nextrush/rate-limit';
 
-app.use(rateLimit({
-  // Maximum requests per window
-  max: 100,
+app.use(
+  rateLimit({
+    // Maximum requests per window
+    max: 100,
 
-  // Time window: '1m', '15m', '1h', '1d' or milliseconds
-  window: '1m',
+    // Time window: '1m', '15m', '1h', '1d' or milliseconds
+    window: '1m',
 
-  // Algorithm: 'token-bucket' | 'sliding-window' | 'fixed-window'
-  algorithm: 'token-bucket',
+    // Algorithm: 'token-bucket' | 'sliding-window' | 'fixed-window'
+    algorithm: 'token-bucket',
 
-  // Burst limit for token bucket (allows short bursts)
-  burstLimit: 20,
+    // Burst limit for token bucket (allows short bursts)
+    burstLimit: 20,
 
-  // Custom key generator (default: client IP)
-  keyGenerator: (ctx) => ctx.get('X-API-Key') || ctx.ip,
+    // Custom key generator (default: client IP)
+    keyGenerator: (ctx) => ctx.get('X-API-Key') || ctx.ip,
 
-  // Trust proxy headers for IP extraction
-  trustProxy: true,
+    // Trust proxy headers for IP extraction
+    trustProxy: true,
 
-  // Skip rate limiting for certain requests
-  skip: (ctx) => ctx.path === '/health',
+    // Skip rate limiting for certain requests
+    skip: (ctx) => ctx.path === '/health',
 
-  // IP whitelist (bypass rate limiting) - supports CIDR
-  whitelist: ['127.0.0.1', '10.0.0.0/8', '192.168.0.0/16'],
+    // IP whitelist (bypass rate limiting) - supports CIDR
+    whitelist: ['127.0.0.1', '10.0.0.0/8', '192.168.0.0/16'],
 
-  // IP blacklist (stricter limits) - supports CIDR
-  blacklist: ['192.168.1.100'],
-  blacklistMultiplier: 0.5,  // 50% of normal limit
+    // IP blacklist (stricter limits) - supports CIDR
+    blacklist: ['192.168.1.100'],
+    blacklistMultiplier: 0.5, // 50% of normal limit
 
-  // Custom response for rate-limited requests
-  handler: (ctx, info) => {
-    ctx.status = 429;
-    ctx.json({
-      error: 'Rate limit exceeded',
-      retryAfter: info.resetIn,
-    });
-  },
+    // Custom response for rate-limited requests
+    handler: (ctx, info) => {
+      ctx.status = 429;
+      ctx.json({
+        error: 'Rate limit exceeded',
+        retryAfter: info.resetIn,
+      });
+    },
 
-  // Callback when rate limit is hit
-  onRateLimited: (ctx, info) => {
-    console.log(`Rate limit exceeded for ${ctx.ip}`);
-  },
+    // Callback when rate limit is hit
+    onRateLimited: (ctx, info) => {
+      console.log(`Rate limit exceeded for ${ctx.ip}`);
+    },
 
-  // Response header options
-  standardHeaders: true,   // RateLimit-* headers
-  legacyHeaders: true,     // X-RateLimit-* headers
-  includeRetryAfter: true, // Retry-After header on 429
-  draftIetfHeaders: false, // RateLimit-Policy header
-}));
+    // Response header options
+    standardHeaders: true, // RateLimit-* headers
+    legacyHeaders: true, // X-RateLimit-* headers
+    includeRetryAfter: true, // Retry-After header on 429
+    draftIetfHeaders: false, // RateLimit-Policy header
+  })
+);
 ```
 
 ## Algorithms
@@ -107,12 +109,14 @@ app.use(rateLimit({
 Best for APIs that need controlled burst handling:
 
 ```typescript
-app.use(rateLimit({
-  algorithm: 'token-bucket',
-  max: 100,        // Sustained rate
-  window: '1m',
-  burstLimit: 20,  // Allow bursts up to 20
-}));
+app.use(
+  rateLimit({
+    algorithm: 'token-bucket',
+    max: 100, // Sustained rate
+    window: '1m',
+    burstLimit: 20, // Allow bursts up to 20
+  })
+);
 ```
 
 **Behavior**: Allows bursts up to `burstLimit`, then throttles to `max/window` rate.
@@ -122,11 +126,13 @@ app.use(rateLimit({
 Most accurate algorithm, prevents boundary attacks:
 
 ```typescript
-app.use(rateLimit({
-  algorithm: 'sliding-window',
-  max: 100,
-  window: '1m',
-}));
+app.use(
+  rateLimit({
+    algorithm: 'sliding-window',
+    max: 100,
+    window: '1m',
+  })
+);
 ```
 
 **Behavior**: Smooth rate limiting with weighted average of current and previous windows.
@@ -136,22 +142,24 @@ app.use(rateLimit({
 Simplest algorithm with lowest overhead:
 
 ```typescript
-app.use(rateLimit({
-  algorithm: 'fixed-window',
-  max: 100,
-  window: '1m',
-}));
+app.use(
+  rateLimit({
+    algorithm: 'fixed-window',
+    max: 100,
+    window: '1m',
+  })
+);
 ```
 
 **Behavior**: Resets counter at fixed intervals. May allow 2× limit at window boundaries.
 
 ## Algorithm Comparison
 
-| Algorithm | Burst Handling | Accuracy | Overhead | Best For |
-|-----------|---------------|----------|----------|----------|
-| Token Bucket | ✅ Allows bursts | ⚠️ Medium | ⚠️ Medium | Public APIs |
-| Sliding Window | ❌ No bursts | ✅ High | ⚠️ Medium | Security-critical |
-| Fixed Window | ⚠️ Boundary bursts | ⚠️ Low | ✅ Lowest | Internal APIs |
+| Algorithm      | Burst Handling     | Accuracy  | Overhead  | Best For          |
+| -------------- | ------------------ | --------- | --------- | ----------------- |
+| Token Bucket   | ✅ Allows bursts   | ⚠️ Medium | ⚠️ Medium | Public APIs       |
+| Sliding Window | ❌ No bursts       | ✅ High   | ⚠️ Medium | Security-critical |
+| Fixed Window   | ⚠️ Boundary bursts | ⚠️ Low    | ✅ Lowest | Internal APIs     |
 
 ## Tiered Rate Limits
 
@@ -160,20 +168,22 @@ Apply different limits based on user type:
 ```typescript
 import { tieredRateLimit } from '@nextrush/rate-limit';
 
-app.use(tieredRateLimit({
-  tiers: {
-    anonymous: { max: 60, window: '1m' },
-    authenticated: { max: 1000, window: '1m' },
-    premium: { max: 10000, window: '1m' },
-  },
-  tierResolver: (ctx) => {
-    const user = ctx.state.user;
-    if (!user) return 'anonymous';
-    if (user.isPremium) return 'premium';
-    return 'authenticated';
-  },
-  defaultTier: 'anonymous',
-}));
+app.use(
+  tieredRateLimit({
+    tiers: {
+      anonymous: { max: 60, window: '1m' },
+      authenticated: { max: 1000, window: '1m' },
+      premium: { max: 10000, window: '1m' },
+    },
+    tierResolver: (ctx) => {
+      const user = ctx.state.user;
+      if (!user) return 'anonymous';
+      if (user.isPremium) return 'premium';
+      return 'authenticated';
+    },
+    defaultTier: 'anonymous',
+  })
+);
 ```
 
 ## IP Extraction & Proxy Support
@@ -181,12 +191,15 @@ app.use(tieredRateLimit({
 When behind a proxy or load balancer:
 
 ```typescript
-app.use(rateLimit({
-  trustProxy: true,  // Trust proxy headers
-}));
+app.use(
+  rateLimit({
+    trustProxy: true, // Trust proxy headers
+  })
+);
 ```
 
 **Header priority order:**
+
 1. `CF-Connecting-IP` (Cloudflare)
 2. `X-Real-IP` (nginx)
 3. `X-Forwarded-For` (first IP)
@@ -199,20 +212,22 @@ app.use(rateLimit({
 Use CIDR notation for IP ranges:
 
 ```typescript
-app.use(rateLimit({
-  // Bypass rate limiting for internal networks
-  whitelist: [
-    '127.0.0.1',        // Localhost
-    '::1',              // IPv6 localhost
-    '10.0.0.0/8',       // Private Class A
-    '172.16.0.0/12',    // Private Class B
-    '192.168.0.0/16',   // Private Class C
-  ],
+app.use(
+  rateLimit({
+    // Bypass rate limiting for internal networks
+    whitelist: [
+      '127.0.0.1', // Localhost
+      '::1', // IPv6 localhost
+      '10.0.0.0/8', // Private Class A
+      '172.16.0.0/12', // Private Class B
+      '192.168.0.0/16', // Private Class C
+    ],
 
-  // Stricter limits for known problem ranges
-  blacklist: ['203.0.113.0/24'],
-  blacklistMultiplier: 0.25,  // 25% of normal limit
-}));
+    // Stricter limits for known problem ranges
+    blacklist: ['203.0.113.0/24'],
+    blacklistMultiplier: 0.25, // 25% of normal limit
+  })
+);
 ```
 
 ## Response Headers
@@ -272,9 +287,11 @@ class RedisStore implements RateLimitStore {
   }
 }
 
-app.use(rateLimit({
-  store: new RedisStore(),
-}));
+app.use(
+  rateLimit({
+    store: new RedisStore(),
+  })
+);
 ```
 
 ## Programmatic Access
@@ -304,12 +321,14 @@ process.on('SIGTERM', async () => {
 ### API Rate Limiting
 
 ```typescript
-app.use(rateLimit({
-  max: 1000,
-  window: '1h',
-  keyGenerator: (ctx) => ctx.get('X-API-Key') || ctx.ip,
-  algorithm: 'sliding-window',
-}));
+app.use(
+  rateLimit({
+    max: 1000,
+    window: '1h',
+    keyGenerator: (ctx) => ctx.get('X-API-Key') || ctx.ip,
+    algorithm: 'sliding-window',
+  })
+);
 ```
 
 ### Login Protection
@@ -401,9 +420,9 @@ import { tokenBucket, createMemoryStore } from '@nextrush/rate-limit';
 const store = createMemoryStore();
 const info = await tokenBucket.consume('user:123', 100, 60000, store);
 
-console.log(info.allowed);     // true/false
-console.log(info.remaining);   // tokens/requests left
-console.log(info.resetIn);     // seconds until reset
+console.log(info.allowed); // true/false
+console.log(info.remaining); // tokens/requests left
+console.log(info.resetIn); // seconds until reset
 ```
 
 ## Types
@@ -431,20 +450,20 @@ import type {
 
 ```typescript
 import {
-  DEFAULT_ALGORITHM,           // 'token-bucket'
-  DEFAULT_MAX,                 // 100
-  DEFAULT_WINDOW,              // '1m'
-  DEFAULT_WINDOW_MS,           // 60000
-  DEFAULT_STATUS_CODE,         // 429
-  DEFAULT_MESSAGE,             // 'Too many requests...'
+  DEFAULT_ALGORITHM, // 'token-bucket'
+  DEFAULT_MAX, // 100
+  DEFAULT_WINDOW, // '1m'
+  DEFAULT_WINDOW_MS, // 60000
+  DEFAULT_STATUS_CODE, // 429
+  DEFAULT_MESSAGE, // 'Too many requests...'
   DEFAULT_BLACKLIST_MULTIPLIER, // 0.5
-  DEFAULT_CLEANUP_INTERVAL,    // 60000
-  DEFAULT_MAX_ENTRIES,         // 100000
-  DEFAULT_KEY_PREFIX,          // 'rl:'
-  PROXY_HEADERS,               // Array of trusted headers
-  STANDARD_HEADERS,            // { LIMIT, REMAINING, RESET, POLICY }
-  LEGACY_HEADERS,              // { LIMIT, REMAINING, RESET }
-  TIME_UNITS,                  // { s: 1000, m: 60000, ... }
+  DEFAULT_CLEANUP_INTERVAL, // 60000
+  DEFAULT_MAX_ENTRIES, // 100000
+  DEFAULT_KEY_PREFIX, // 'rl:'
+  PROXY_HEADERS, // Array of trusted headers
+  STANDARD_HEADERS, // { LIMIT, REMAINING, RESET, POLICY }
+  LEGACY_HEADERS, // { LIMIT, REMAINING, RESET }
+  TIME_UNITS, // { s: 1000, m: 60000, ... }
 } from '@nextrush/rate-limit';
 ```
 
@@ -459,34 +478,34 @@ import {
 ### DoS Protection
 
 - Memory store has a `maxEntries` limit (default: 100,000)
-- Automatic LRU eviction when limit is reached
+- Automatic FIFO eviction (insertion-order) when limit is reached
 - Automatic cleanup of expired entries
 
-### Header Injection Prevention
+### Header Values
 
-- All header values are sanitized
-- Newline characters and null bytes are removed
+- Rate limit headers use numeric values only (limit, remaining, reset)
+- Header sanitization is handled by the Context implementation
 
 ## Runtime Compatibility
 
-| Runtime | Supported |
-|---------|-----------|
-| Node.js 20+ | ✅ |
-| Bun 1.0+ | ✅ |
-| Deno 1.0+ | ✅ |
+| Runtime            | Supported                  |
+| ------------------ | -------------------------- |
+| Node.js 22+        | ✅                         |
+| Bun 1.0+           | ✅                         |
+| Deno 1.0+          | ✅                         |
 | Cloudflare Workers | ✅ (use distributed store) |
-| Vercel Edge | ✅ (use distributed store) |
+| Vercel Edge        | ✅ (use distributed store) |
 
 **Note:** For edge runtimes, use a distributed store (Redis, Upstash, etc.) since in-memory state is not shared across edge locations.
 
 ## Performance
 
-| Metric | Value |
-|--------|-------|
-| Overhead per request | ~0.1ms |
-| Memory per key | ~100 bytes |
-| Max entries (default) | 100,000 |
-| Cleanup interval | 60 seconds |
+| Metric                | Value      |
+| --------------------- | ---------- |
+| Overhead per request  | ~0.1ms     |
+| Memory per key        | ~100 bytes |
+| Max entries (default) | 100,000    |
+| Cleanup interval      | 60 seconds |
 
 ## Error Handling
 

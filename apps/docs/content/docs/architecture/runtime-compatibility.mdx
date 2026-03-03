@@ -3,9 +3,6 @@ title: Runtime Compatibility
 description: How NextRush achieves cross-runtime compatibility — running the same code on Node.js, Bun, Deno, and Edge environments.
 ---
 
-import { Mermaid } from '@/components/mdx';
-import { Callout } from 'fumadocs-ui/components/callout';
-
 # Runtime Compatibility
 
 NextRush is designed to run on multiple JavaScript runtimes without code changes. Your application logic stays the same — only the adapter changes.
@@ -14,12 +11,12 @@ NextRush is designed to run on multiple JavaScript runtimes without code changes
 
 Different runtimes have different APIs:
 
-| Feature | Node.js | Bun | Deno | Edge |
-|---------|---------|-----|------|------|
-| HTTP server | `http.createServer()` | `Bun.serve()` | `Deno.serve()` | Fetch handler |
-| Request body | `IncomingMessage` stream | `Request` body | `Request` body | `Request` body |
-| File system | `fs` module | `Bun.file()` | `Deno.readFile()` | Not available |
-| Compression | `zlib` module | Native | Web Streams | Web Streams |
+| Feature      | Node.js                  | Bun            | Deno              | Edge           |
+| ------------ | ------------------------ | -------------- | ----------------- | -------------- |
+| HTTP server  | `http.createServer()`    | `Bun.serve()`  | `Deno.serve()`    | Fetch handler  |
+| Request body | `IncomingMessage` stream | `Request` body | `Request` body    | `Request` body |
+| File system  | `fs` module              | `Bun.file()`   | `Deno.readFile()` | Not available  |
+| Compression  | `zlib` module            | Native         | Web Streams       | Web Streams    |
 
 Writing code that works on all runtimes typically requires conditional logic or abstraction layers.
 
@@ -32,55 +29,56 @@ NextRush uses three strategies to achieve runtime compatibility:
 3. **BodySource abstraction** — Cross-runtime body reading
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Your Application                          │
-│                                                              │
-│  const app = createApp();                                    │
-│  app.use(cors());                                            │
-│  app.use(router.routes());                                   │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-                            │
-            ┌───────────────┼───────────────┐
-            ▼               ▼               ▼
-     ┌───────────┐   ┌───────────┐   ┌───────────┐
-     │ adapter-  │   │ adapter-  │   │ adapter-  │
-     │ node      │   │ bun       │   │ edge      │
-     │           │   │           │   │           │
-     │ Uses:     │   │ Uses:     │   │ Uses:     │
-     │ Node HTTP │   │ Bun.serve │   │ Fetch API │
-     └───────────┘   └───────────┘   └───────────┘
-            │               │               │
-            └───────────────┼───────────────┘
-                            ▼
-     ┌─────────────────────────────────────────────────────────┐
-     │                  @nextrush/core                          │
-     │                                                          │
-     │  Runtime-agnostic:                                       │
-     │  • Application class                                     │
-     │  • Middleware composition                                │
-     │  • Plugin system                                         │
-     │                                                          │
-     └─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Your Application                             │
+│                                                                      │
+│  const app = createApp();                                            │
+│  app.use(cors());                                                    │
+│  app.route('/api', router);                                          │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+          ┌───────────┬───────────┼───────────┬───────────┐
+          ▼           ▼           ▼           ▼           │
+   ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
+   │ adapter-  │ │ adapter-  │ │ adapter-  │ │ adapter-  │
+   │ node      │ │ bun       │ │ deno      │ │ edge      │
+   │           │ │           │ │           │ │           │
+   │ Uses:     │ │ Uses:     │ │ Uses:     │ │ Uses:     │
+   │ Node HTTP │ │ Bun.serve │ │Deno.serve │ │ Fetch API │
+   └───────────┘ └───────────┘ └───────────┘ └───────────┘
+          │           │           │           │
+          └───────────┴───────────┼───────────┘
+                                  ▼
+   ┌──────────────────────────────────────────────────────────────────┐
+   │                        @nextrush/core                            │
+   │                                                                  │
+   │  Runtime-agnostic:                                               │
+   │  • Application class                                             │
+   │  • Middleware composition                                        │
+   │  • Plugin system                                                 │
+   │                                                                  │
+   └──────────────────────────────────────────────────────────────────┘
 ```
 
 ## Runtime Support Matrix
 
-| Feature | Node.js 20+ | Bun 1.0+ | Deno 2.0+ | Edge |
-|---------|:-----------:|:--------:|:---------:|:----:|
-| Core | ✅ | ✅ | ✅ | ✅ |
-| Router | ✅ | ✅ | ✅ | ✅ |
-| Body Parser | ✅ | ✅ | ✅ | ✅ |
-| CORS | ✅ | ✅ | ✅ | ✅ |
-| Helmet | ✅ | ✅ | ✅ | ✅ |
-| Compression (gzip/deflate) | ✅ | ✅ | ✅ | ✅ |
-| Compression (brotli) | ✅ | ✅ | ⚠️ | ❌ |
-| Static Files | ✅ | ✅ | ✅ | ❌ |
-| WebSocket | ✅ | ✅ | ✅ | ✅ |
-| DI & Controllers | ✅ | ✅ | ✅ | ✅ |
+| Feature                    | Node.js 22+ | Bun 1.0+ | Deno 2.0+ | Edge |
+| -------------------------- | :---------: | :------: | :-------: | :--: |
+| Core                       |     ✅      |    ✅    |    ✅     |  ✅  |
+| Router                     |     ✅      |    ✅    |    ✅     |  ✅  |
+| Body Parser                |     ✅      |    ✅    |    ✅     |  ✅  |
+| CORS                       |     ✅      |    ✅    |    ✅     |  ✅  |
+| Helmet                     |     ✅      |    ✅    |    ✅     |  ✅  |
+| Compression (gzip/deflate) |     ✅      |    ✅    |    ✅     |  ✅  |
+| Compression (brotli)       |     ✅      |    ✅    |    ⚠️     |  ❌  |
+| Static Files               |     ✅      |    ✅    |    ✅     |  ❌  |
+| WebSocket                  |     ✅      |    ✅    |    ✅     |  ✅  |
+| DI & Controllers           |     ✅      |    ✅    |    ✅     |  ✅  |
 
 <Callout>
-Edge environments don't have a file system. Use cloud storage (R2, S3) instead of static file serving.
+  Edge environments don't have a file system. Use cloud storage (R2, S3) instead of static file
+  serving.
 </Callout>
 
 ## The Context Interface
@@ -149,7 +147,7 @@ interface BodySource {
   text(): Promise<string>;
   json<T>(): Promise<T>;
   buffer(): Promise<Uint8Array>;
-  stream(): ReadableStream<Uint8Array>;
+  stream(): NodeStreamLike | WebStreamLike;
 
   readonly contentType: string | undefined;
   readonly contentLength: number | undefined;
@@ -184,13 +182,27 @@ export function json(): Middleware {
 
 ## Runtime Detection
 
-The `@nextrush/runtime` package detects the current runtime:
+The `@nextrush/runtime` package detects the current runtime.
+
+### Detection Order
+
+Detection order matters — more specific runtimes are checked first to avoid misclassification (e.g., Bun also sets `process.versions.node`):
+
+1. **Bun** — global `Bun` object exists
+2. **Deno Deploy** — global `Deno` object + `DENO_DEPLOYMENT_ID` env var
+3. **Deno** — global `Deno` object
+4. **Cloudflare Workers** — `navigator.userAgent` contains `'Cloudflare-Workers'`
+5. **Node.js** — `process.versions.node` exists
+6. **Vercel Edge** — `process.env.VERCEL_REGION` exists (after Node.js check)
+7. **Generic Edge** — `Request` and `Response` globals exist
+8. **Unknown** — none of the above matched
 
 ```ts
 import { getRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
 
 const runtime = getRuntime();
-// Returns: 'node' | 'bun' | 'deno' | 'cloudflare-workers' | 'vercel-edge' | 'edge'
+// Returns: 'node' | 'bun' | 'deno' | 'deno-deploy'
+//        | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown'
 
 const caps = getRuntimeCapabilities();
 // Returns: {
@@ -200,6 +212,7 @@ const caps = getRuntimeCapabilities();
 //   webSocket: boolean,
 //   fetch: boolean,
 //   cryptoSubtle: boolean,
+//   workers: boolean,
 // }
 ```
 
@@ -234,8 +247,7 @@ import { listen } from '@nextrush/adapter-node';
 const app = createApp();
 // ... configure app
 
-await listen(app, { port: 3000 });
-console.log('Server running on http://localhost:3000');
+await listen(app, 3000);
 ```
 
 ### Bun
@@ -248,7 +260,6 @@ const app = createApp();
 // ... configure app
 
 serve(app, { port: 3000 });
-console.log('Server running on http://localhost:3000');
 ```
 
 ### Deno
@@ -261,34 +272,43 @@ const app = createApp();
 // ... configure app
 
 await serve(app, { port: 3000 });
-console.log('Server running on http://localhost:3000');
 ```
 
 ### Cloudflare Workers
 
 ```ts
 import { createApp } from '@nextrush/core';
-import { createHandler } from '@nextrush/adapter-edge';
+import { createCloudflareHandler } from '@nextrush/adapter-edge';
 
 const app = createApp();
 // ... configure app
 
-export default {
-  fetch: createHandler(app)
-};
+export default createCloudflareHandler(app);
 ```
 
 ### Vercel Edge Functions
 
 ```ts
 import { createApp } from '@nextrush/core';
-import { createHandler } from '@nextrush/adapter-edge';
+import { createVercelHandler } from '@nextrush/adapter-edge';
 
 const app = createApp();
 // ... configure app
 
 export const config = { runtime: 'edge' };
-export default createHandler(app);
+export default createVercelHandler(app);
+```
+
+### Netlify Edge Functions
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createNetlifyHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+// ... configure app
+
+export default createNetlifyHandler(app);
 ```
 
 ## Writing Runtime-Agnostic Code
@@ -390,7 +410,8 @@ router.get('/socket-info', (ctx) => {
 ```
 
 <Callout type="warn">
-Using `ctx.raw` ties your code to a specific runtime. Only use it when the Context interface doesn't provide what you need.
+  Using `ctx.raw` ties your code to a specific runtime. Only use it when the Context interface
+  doesn't provide what you need.
 </Callout>
 
 ## Next Steps

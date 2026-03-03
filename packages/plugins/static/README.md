@@ -33,10 +33,12 @@ const app = createApp();
 app.use(serveStatic({ root: './public' }));
 
 // Or mount at a prefix
-app.use(serveStatic({
-  root: './public',
-  prefix: '/static',
-}));
+app.use(
+  serveStatic({
+    root: './public',
+    prefix: '/static',
+  })
+);
 ```
 
 ## Options
@@ -71,7 +73,7 @@ interface StaticOptions {
   extensions?: string[];
 
   // Custom headers hook
-  setHeaders?: (ctx: Context, path: string, stat: StatsLike) => void;
+  setHeaders?: (ctx: NodeContext, absolutePath: string, stat: StatsLike) => void;
 
   // Enable ETag generation (default: true)
   etag?: boolean;
@@ -104,18 +106,22 @@ interface StaticOptions {
 
 ```typescript
 // Fingerprinted assets (long cache)
-app.use(serveStatic({
-  root: './dist/assets',
-  prefix: '/assets',
-  maxAge: 31536000, // 1 year
-  immutable: true,
-}));
+app.use(
+  serveStatic({
+    root: './dist/assets',
+    prefix: '/assets',
+    maxAge: 31536000, // 1 year
+    immutable: true,
+  })
+);
 
 // Regular static files (short cache)
-app.use(serveStatic({
-  root: './public',
-  maxAge: 3600, // 1 hour
-}));
+app.use(
+  serveStatic({
+    root: './public',
+    maxAge: 3600, // 1 hour
+  })
+);
 ```
 
 ### SPA (Single Page Application)
@@ -126,10 +132,12 @@ import { createSendFile } from '@nextrush/static';
 const sendPublicFile = createSendFile({ root: './dist' });
 
 // Let 404s fall through to the SPA handler
-app.use(serveStatic({
-  root: './dist',
-  fallthrough: true,
-}));
+app.use(
+  serveStatic({
+    root: './dist',
+    fallthrough: true,
+  })
+);
 
 // SPA fallback for client-side routing
 app.use(async (ctx) => {
@@ -141,49 +149,59 @@ app.use(async (ctx) => {
 
 ```typescript
 // Serve /about -> /about.html
-app.use(serveStatic({
-  root: './public',
-  extensions: ['.html', '.htm'],
-}));
+app.use(
+  serveStatic({
+    root: './public',
+    extensions: ['.html', '.htm'],
+  })
+);
 ```
 
 ### Custom Headers
 
 ```typescript
-app.use(serveStatic({
-  root: './public',
-  setHeaders: (ctx, path, stat) => {
-    if (path.endsWith('.pdf')) {
-      ctx.set('Content-Disposition', 'attachment');
-    }
-  },
-}));
+app.use(
+  serveStatic({
+    root: './public',
+    setHeaders: (ctx, path, stat) => {
+      if (path.endsWith('.pdf')) {
+        ctx.set('Content-Disposition', 'attachment');
+      }
+    },
+  })
+);
 ```
 
 ### Dotfiles Policy
 
 ```typescript
 // Allow dotfiles (like .well-known)
-app.use(serveStatic({
-  root: './public',
-  dotfiles: 'allow',
-}));
+app.use(
+  serveStatic({
+    root: './public',
+    dotfiles: 'allow',
+  })
+);
 
 // Deny dotfiles with 403 Forbidden
-app.use(serveStatic({
-  root: './private',
-  dotfiles: 'deny',
-}));
+app.use(
+  serveStatic({
+    root: './private',
+    dotfiles: 'deny',
+  })
+);
 ```
 
 ### Symlink Handling
 
 ```typescript
 // Enable symlink following (use with caution)
-app.use(serveStatic({
-  root: './public',
-  followSymlinks: true, // Symlinks are resolved and validated
-}));
+app.use(
+  serveStatic({
+    root: './public',
+    followSymlinks: true, // Symlinks are resolved and validated
+  })
+);
 ```
 
 ## Security
@@ -233,11 +251,11 @@ This package uses only Node.js built-in modules:
 
 **Supported Runtimes:**
 
-| Runtime | Version | Status |
-|---------|---------|--------|
-| Node.js | 20+ | ✅ Full support |
-| Bun | 1.0+ | ✅ Full support |
-| Deno | 1.37+ | ✅ With Node compatibility |
+| Runtime | Version | Status                     |
+| ------- | ------- | -------------------------- |
+| Node.js | 22+     | ✅ Full support            |
+| Bun     | 1.0+    | ✅ Full support            |
+| Deno    | 1.37+   | ✅ With Node compatibility |
 
 ## Utilities
 
@@ -246,24 +264,26 @@ The package also exports utility functions:
 ```typescript
 import {
   // Path safety
-  safeJoin,       // Safely join paths, returns null on traversal
-  isDotfile,      // Check if path contains dotfile
+  safeJoin, // Safely join paths, returns null on traversal
+  isDotfile, // Check if path contains dotfile
+  stripPrefix, // Remove URL prefix from path
+  normalizePrefix, // Normalize prefix format (trim trailing slash)
 
   // File operations
-  statSafe,       // Safe fs.stat wrapper with symlink protection
+  statSafe, // Safe fs.stat wrapper with symlink protection
 
   // Caching
-  generateETag,   // Generate weak ETag from file stats
-  isFresh,        // Check if request is fresh (304 eligible)
+  generateETag, // Generate weak ETag from file stats
+  isFresh, // Check if request is fresh (304 eligible)
 
   // Range requests
-  parseRange,     // Parse Range header with safety checks
+  parseRange, // Parse Range header with safety checks
 
   // MIME types
-  getMimeType,    // Get MIME type for file extension (50+ types)
+  getMimeType, // Get MIME type for file extension (50+ types)
 
   // File sending
-  sendFile,       // Low-level file sending with streaming
+  sendFile, // Low-level file sending with streaming
   createSendFile, // Create a bound send file function
 } from '@nextrush/static';
 ```
@@ -306,20 +326,20 @@ app.use(staticFiles({ root: './public' }));
 
 50+ MIME types are supported out of the box:
 
-| Extension | Content-Type |
-|-----------|--------------|
-| `.html`, `.htm` | `text/html; charset=utf-8` |
-| `.css` | `text/css; charset=utf-8` |
+| Extension             | Content-Type                            |
+| --------------------- | --------------------------------------- |
+| `.html`, `.htm`       | `text/html; charset=utf-8`              |
+| `.css`                | `text/css; charset=utf-8`               |
 | `.js`, `.mjs`, `.cjs` | `application/javascript; charset=utf-8` |
-| `.json` | `application/json; charset=utf-8` |
-| `.png` | `image/png` |
-| `.jpg`, `.jpeg` | `image/jpeg` |
-| `.svg` | `image/svg+xml` |
-| `.woff2` | `font/woff2` |
-| `.mp4` | `video/mp4` |
-| `.pdf` | `application/pdf` |
-| `.wasm` | `application/wasm` |
-| Unknown | `application/octet-stream` |
+| `.json`               | `application/json; charset=utf-8`       |
+| `.png`                | `image/png`                             |
+| `.jpg`, `.jpeg`       | `image/jpeg`                            |
+| `.svg`                | `image/svg+xml`                         |
+| `.woff2`              | `font/woff2`                            |
+| `.mp4`                | `video/mp4`                             |
+| `.pdf`                | `application/pdf`                       |
+| `.wasm`               | `application/wasm`                      |
+| Unknown               | `application/octet-stream`              |
 
 See source code for complete list.
 

@@ -38,7 +38,13 @@
 // ============================================================================
 
 export {
-    brotli, compression, deflate, getCompressionInfo, gzip, secureCompressionOptions, wasCompressed
+  brotli,
+  compression,
+  deflate,
+  getCompressionInfo,
+  gzip,
+  secureCompressionOptions,
+  wasCompressed,
 } from './middleware.js';
 
 export { compression as default } from './middleware.js';
@@ -48,10 +54,15 @@ export { compression as default } from './middleware.js';
 // ============================================================================
 
 export {
-    compress,
-    compressData,
-    compressToBuffer,
-    detectCapabilities, estimateCompressedSize, getBestAvailableEncoding, isCompressionBeneficial, isEncodingSupported
+  compress,
+  compressData,
+  compressToBuffer,
+  detectCapabilities,
+  estimateCompressedSize,
+  getBestAvailableEncoding,
+  isCompressionBeneficial,
+  isEncodingSupported,
+  resetCapabilities,
 } from './compressor.js';
 
 // ============================================================================
@@ -59,8 +70,13 @@ export {
 // ============================================================================
 
 export {
-    acceptsCompression,
-    getAcceptedEncodings, getEncodingQuality, isEncodingAccepted, negotiateEncoding, parseAcceptEncoding, selectEncoding
+  acceptsCompression,
+  getAcceptedEncodings,
+  getEncodingQuality,
+  isEncodingAccepted,
+  negotiateEncoding,
+  parseAcceptEncoding,
+  selectEncoding,
 } from './negotiation.js';
 
 // ============================================================================
@@ -68,7 +84,14 @@ export {
 // ============================================================================
 
 export {
-    extractMimeType, getCompressionRecommendation, isAlreadyCompressed, isBinaryContent, isCompressible, isTextContent, matchesAnyPattern, matchesPattern
+  extractMimeType,
+  getCompressionRecommendation,
+  isAlreadyCompressed,
+  isBinaryContent,
+  isCompressible,
+  isTextContent,
+  matchesAnyPattern,
+  matchesPattern,
 } from './content-type.js';
 
 // ============================================================================
@@ -76,10 +99,20 @@ export {
 // ============================================================================
 
 export {
-    COMPRESSION_ENCODINGS, DEFAULT_COMPRESSIBLE_TYPES, DEFAULT_COMPRESSION_LEVEL, DEFAULT_EXCLUDED_TYPES, DEFAULT_OPTIONS, DEFAULT_THRESHOLD, ENCODING_PRIORITY, MAX_BROTLI_LEVEL,
-    MAX_COMPRESSION_RATIO,
-    MAX_IN_MEMORY_SIZE, MAX_ZLIB_LEVEL, NO_BODY_METHODS,
-    NO_COMPRESS_STATUS_CODES, VARY_HEADER
+  COMPRESSION_ENCODINGS,
+  DEFAULT_COMPRESSIBLE_TYPES,
+  DEFAULT_COMPRESSION_LEVEL,
+  DEFAULT_EXCLUDED_TYPES,
+  DEFAULT_OPTIONS,
+  DEFAULT_THRESHOLD,
+  ENCODING_PRIORITY,
+  MAX_BROTLI_LEVEL,
+  MAX_COMPRESSION_RATIO,
+  MAX_IN_MEMORY_SIZE,
+  MAX_ZLIB_LEVEL,
+  NO_BODY_METHODS,
+  NO_COMPRESS_STATUS_CODES,
+  VARY_HEADER,
 } from './constants.js';
 
 // ============================================================================
@@ -87,10 +120,19 @@ export {
 // ============================================================================
 
 export type {
-    AcceptEncodingEntry, CompressionAlgorithm, CompressionEncoding, CompressionErrorCodeType, CompressionInfo, CompressionMiddleware, CompressionOptions, CompressionResult, CompressionState, NegotiationResult, ResolvedCompressionOptions, RuntimeCapabilities, WebCompressionFormat
+  AcceptEncodingEntry,
+  CompressionAlgorithm,
+  CompressionEncoding,
+  CompressionErrorCodeType,
+  CompressionInfo,
+  CompressionMiddleware,
+  CompressionOptions,
+  CompressionResult,
+  CompressionState,
+  NegotiationResult,
+  ResolvedCompressionOptions,
+  RuntimeCapabilities,
+  WebCompressionFormat,
 } from './types.js';
 
-export {
-    CompressionError,
-    CompressionErrorCode
-} from './types.js';
+export { CompressionError, CompressionErrorCode } from './types.js';

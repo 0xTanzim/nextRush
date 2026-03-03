@@ -31,6 +31,9 @@ const DEFAULT_NONCE_LENGTH = 16;
  * ```
  */
 export function generateNonce(length: number = DEFAULT_NONCE_LENGTH): string {
+  if (!Number.isFinite(length) || length < 1) {
+    throw new Error('[@nextrush/helmet] Nonce length must be a positive integer.');
+  }
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   return btoa(String.fromCharCode(...bytes));
@@ -127,6 +130,11 @@ export function validateNonce(nonce: string): string | null {
  * ```
  */
 export function createNoncedScript(nonce: string, content: string): string {
+  if (/["<>]/.test(nonce)) {
+    throw new Error(
+      '[@nextrush/helmet] Nonce contains unsafe characters for HTML attribute embedding.'
+    );
+  }
   // Escape script content to prevent XSS
   const escaped = content.replace(/<\//g, '<\\/');
   return `<script nonce="${nonce}">${escaped}</script>`;
@@ -146,6 +154,11 @@ export function createNoncedScript(nonce: string, content: string): string {
  * ```
  */
 export function createNoncedStyle(nonce: string, content: string): string {
+  if (/["<>]/.test(nonce)) {
+    throw new Error(
+      '[@nextrush/helmet] Nonce contains unsafe characters for HTML attribute embedding.'
+    );
+  }
   // Escape style content
   const escaped = content.replace(/<\//g, '<\\/');
   return `<style nonce="${nonce}">${escaped}</style>`;

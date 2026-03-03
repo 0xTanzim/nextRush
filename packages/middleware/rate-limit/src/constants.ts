@@ -58,6 +58,12 @@ export const DEFAULT_CLEANUP_INTERVAL = 60_000;
 export const DEFAULT_MAX_ENTRIES = 100_000;
 
 /**
+ * Maximum info cache entries in rateLimit middleware
+ * Prevents unbounded memory growth from unique client keys
+ */
+export const INFO_CACHE_MAX = 10_000;
+
+/**
  * Rate limit key prefix
  */
 export const DEFAULT_KEY_PREFIX = 'rl:';
@@ -67,14 +73,14 @@ export const DEFAULT_KEY_PREFIX = 'rl:';
  * Order matters: CDN-specific headers are checked first
  */
 export const PROXY_HEADERS = [
-  'cf-connecting-ip',      // Cloudflare
-  'x-real-ip',             // Nginx
-  'x-forwarded-for',       // Standard proxy header
-  'x-client-ip',           // Apache
-  'true-client-ip',        // Akamai
-  'x-cluster-client-ip',   // Rackspace
-  'forwarded-for',         // Variation
-  'forwarded',             // RFC 7239
+  'cf-connecting-ip', // Cloudflare
+  'x-real-ip', // Nginx
+  'x-forwarded-for', // Standard proxy header
+  'x-client-ip', // Apache
+  'true-client-ip', // Akamai
+  'x-cluster-client-ip', // Rackspace
+  'forwarded-for', // Variation
+  'forwarded', // RFC 7239
 ] as const;
 
 /**
@@ -126,7 +132,8 @@ export const TIME_UNITS: Record<string, number> = {
 /**
  * Regular expression for parsing window duration strings
  */
-export const WINDOW_PATTERN = /^(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|minute|minutes|h|hr|hour|hours|d|day|days)$/i;
+export const WINDOW_PATTERN =
+  /^(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|minute|minutes|h|hr|hour|hours|d|day|days)$/i;
 
 /**
  * IPv4 octet count
@@ -146,7 +153,8 @@ export const IPV4_MAPPED_PREFIX = '::ffff:';
 /**
  * IPv6 validation pattern (simplified but comprehensive)
  */
-export const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$|^::ffff:\d+\.\d+\.\d+\.\d+$/;
+export const IPV6_PATTERN =
+  /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$|^::ffff:\d+\.\d+\.\d+\.\d+$/;
 
 /**
  * CIDR notation pattern

@@ -1,5 +1,5 @@
 ---
-title: "@nextrush/dev"
+title: '@nextrush/dev'
 description: Development server and build tools with multi-runtime support
 ---
 
@@ -26,7 +26,9 @@ class UserService {
 }
 
 // After esbuild
-let UserService = class { constructor(db) {} };
+let UserService = class {
+  constructor(db) {}
+};
 // No type info! DI can't resolve 'Database'
 ```
 
@@ -36,13 +38,13 @@ You end up choosing: slow tsc builds or broken DI.
 
 `@nextrush/dev` provides unified development and build tooling:
 
-| Feature | What You Get |
-|---------|--------------|
-| Single command | `nextrush dev` / `nextrush build` |
-| Multi-runtime | Node.js, Bun, Deno |
-| Decorator metadata | Always emitted for DI |
-| Fast builds | SWC-powered compilation |
-| Zero config | Works out of the box |
+| Feature            | What You Get                      |
+| ------------------ | --------------------------------- |
+| Single command     | `nextrush dev` / `nextrush build` |
+| Multi-runtime      | Node.js, Bun, Deno                |
+| Decorator metadata | Always emitted for DI             |
+| Fast builds        | SWC-powered compilation           |
+| Zero config        | Works out of the box              |
 
 ## Mental Model
 
@@ -85,11 +87,12 @@ flowchart TB
     bun --> dist
     deno --> watch
     deno --> dist
+
 "/>
 
 ## Installation
 
-<PackageInstall packages={["@nextrush/dev"]} dev />
+<PackageInstall packages={['@nextrush/dev']} dev />
 
 ## Quick Start
 
@@ -128,25 +131,34 @@ nextrush dev [entry] [options]
 
 **Arguments:**
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `entry` | Auto-detected | Entry file path |
+| Argument | Default       | Description     |
+| -------- | ------------- | --------------- |
+| `entry`  | Auto-detected | Entry file path |
 
 **Options:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--port`, `-p` | `3000` | Server port |
-| `--host` | `localhost` | Host to bind |
-| `--no-clear` | — | Don't clear console on reload |
+| Option            | Default | Description                           |
+| ----------------- | ------- | ------------------------------------- |
+| `--port`, `-p`    | `3000`  | Server port                           |
+| `--watch`, `-w`   | `src`   | Additional path to watch (repeatable) |
+| `--inspect`       | `false` | Enable Node.js inspector              |
+| `--inspect-port`  | `9229`  | Inspector port                        |
+| `--no-clear`      | —       | Don't clear screen on start           |
+| `--verbose`, `-v` | `false` | Verbose output                        |
 
 **Entry File Resolution:**
 
 If no entry specified, searches for (in order):
-1. `package.json` → `main` field
+
+1. `package.json` → `main` or `module` field (converts `dist/` → `src/`, `.js` → `.ts`)
 2. `src/index.ts`
 3. `src/main.ts`
-4. `index.ts`
+4. `src/app.ts`
+5. `src/server.ts`
+6. `index.ts`
+7. `main.ts`
+8. `app.ts`
+9. `server.ts`
 
 **Examples:**
 
@@ -157,8 +169,14 @@ nextrush dev
 # Custom entry
 nextrush dev src/server.ts
 
-# Custom port and host
-nextrush dev --port 8080 --host 0.0.0.0
+# Custom port
+nextrush dev --port 8080
+
+# Enable debugger
+nextrush dev --inspect
+
+# Watch additional paths
+nextrush dev --watch ./src --watch ./config
 ```
 
 ### `nextrush build`
@@ -166,18 +184,27 @@ nextrush dev --port 8080 --host 0.0.0.0
 Create a production build with decorator metadata preserved.
 
 ```bash
-nextrush build [options]
+nextrush build [entry] [options]
 ```
+
+**Arguments:**
+
+| Argument | Default       | Description     |
+| -------- | ------------- | --------------- |
+| `entry`  | Auto-detected | Entry file path |
 
 **Options:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--outDir`, `-o` | `dist` | Output directory |
-| `--minify` | `false` | Minify output |
-| `--sourcemap` | `true` | Generate source maps |
-| `--no-dts` | — | Skip .d.ts generation |
-| `--clean` | `true` | Clean output first |
+| Option                    | Default  | Description                                                |
+| ------------------------- | -------- | ---------------------------------------------------------- |
+| `--outDir`, `-o`          | `dist`   | Output directory                                           |
+| `--target`, `-t`          | `es2022` | Target ES version (`es2020`, `es2021`, `es2022`, `esnext`) |
+| `--sourcemap`             | `true`   | Generate source maps                                       |
+| `--no-sourcemap`          | —        | Disable source maps                                        |
+| `--minify`, `-m`          | `false`  | Minify output                                              |
+| `--no-decorator-metadata` | —        | Skip decorator metadata emission                           |
+| `--no-clean`              | —        | Don't clean output directory                               |
+| `--verbose`, `-v`         | `false`  | Verbose output                                             |
 
 **Examples:**
 
@@ -185,11 +212,14 @@ nextrush build [options]
 # Basic build
 nextrush build
 
-# Custom output
-nextrush build --outDir build
+# Custom entry and output
+nextrush build ./src/index.ts --outDir build
 
-# Production build
+# Production build with minification
 nextrush build --minify
+
+# Target a specific ES version
+nextrush build --target esnext --no-sourcemap
 ```
 
 **Output Structure:**
@@ -212,10 +242,12 @@ npx nextrush build
 ```
 
 **Development tools:**
-- `--watch`: Node.js native file watching (v18+)
-- `tsx` or `@swc-node/register`: TypeScript execution
+
+- `tsx watch`: TypeScript execution with file watching
+- `@swc-node/register` available for decorator metadata in dev
 
 **Build tools:**
+
 - `@swc/core`: Fast compilation with decorator metadata
 
 ### Bun
@@ -226,11 +258,13 @@ bun nextrush build
 ```
 
 **Development:**
+
 - Native TypeScript support
 - Native watch mode
 - No additional tools needed
 
 **Build:**
+
 - `Bun.build()`: Native bundler with metadata support
 
 ### Deno
@@ -241,23 +275,25 @@ deno run -A nextrush build
 ```
 
 **Development:**
+
 - Native TypeScript support
-- Native watch mode
-- `--node-modules-dir` for npm compatibility
+- Native watch mode with `deno run --watch`
+- Uses `--allow-net --allow-read --allow-env` permission flags
 
 **Build:**
+
 - `npm:@swc/core`: SWC via npm specifier
 
 ### Runtime Compatibility Matrix
 
-| Feature | Node.js | Bun | Deno |
-|---------|:-------:|:---:|:----:|
-| Dev server | ✅ | ✅ | ✅ |
-| Hot reload | ✅ | ✅ | ✅ |
-| Production build | ✅ | ✅ | ✅ |
-| Decorator metadata | ✅ | ✅ | ✅ |
-| Source maps | ✅ | ✅ | ✅ |
-| Type declarations | ✅ | ✅ | ✅ |
+| Feature            | Node.js | Bun | Deno |
+| ------------------ | :-----: | :-: | :--: |
+| Dev server         |   ✅    | ✅  |  ✅  |
+| Hot reload         |   ✅    | ✅  |  ✅  |
+| Production build   |   ✅    | ✅  |  ✅  |
+| Decorator metadata |   ✅    | ✅  |  ✅  |
+| Source maps        |   ✅    | ✅  |  ✅  |
+| Type declarations  |   ✅    | ✅  |  ✅  |
 
 ## Programmatic API
 
@@ -282,7 +318,7 @@ import { dev, type DevOptions } from '@nextrush/dev';
 
 const options: DevOptions = {
   port: 3000,
-  host: 'localhost',
+  watch: ['./src', './config'],
 };
 
 await dev('./src/index.ts', options);
@@ -328,7 +364,7 @@ if (isNode()) {
 
 // Detailed info
 const info: RuntimeInfo = getRuntimeInfo();
-console.log(info.version); // '20.10.0'
+console.log(info.version); // '22.0.0'
 ```
 
 ## Configuration
@@ -368,19 +404,22 @@ Ensure decorator metadata is enabled:
 ```typescript
 // src/index.ts
 import 'reflect-metadata';
-import { createApp, listen } from 'nextrush';
+import { createApp, createRouter, listen } from 'nextrush';
 import { controllersPlugin } from '@nextrush/controllers';
 import { UserController } from './controllers/user';
 
 const app = createApp();
+const router = createRouter();
 
-app.plugin(controllersPlugin({
-  controllers: [UserController],
-}));
+app.plugin(
+  controllersPlugin({
+    router,
+    controllers: [UserController],
+  })
+);
 
-listen(app, 3000, () => {
-  console.log('Server running on http://localhost:3000');
-});
+app.route('/', router);
+await listen(app, 3000);
 ```
 
 Start development:
@@ -433,7 +472,7 @@ Decorator metadata enables dependency injection:
 @Service()
 class UserService {
   constructor(
-    private db: DatabaseService,  // DI resolves this
+    private db: DatabaseService, // DI resolves this
     private logger: LoggerService // And this
   ) {}
 }
@@ -445,11 +484,11 @@ Without metadata, DI doesn't know what types to inject.
 
 Each runtime uses the appropriate tool:
 
-| Runtime | Tool | Output |
-|---------|------|--------|
-| Node.js | `@swc/core` | `Reflect.defineMetadata(...)` |
-| Bun | `Bun.build()` | `Reflect.metadata(...)` |
-| Deno | `npm:@swc/core` | `_ts_metadata(...)` |
+| Runtime | Tool            | Output                        |
+| ------- | --------------- | ----------------------------- |
+| Node.js | `@swc/core`     | `Reflect.defineMetadata(...)` |
+| Bun     | `Bun.build()`   | `Reflect.metadata(...)`       |
+| Deno    | `npm:@swc/core` | `_ts_metadata(...)`           |
 
 ### Verification
 
@@ -460,6 +499,7 @@ grep -r "metadata\|design:paramtypes" dist/
 ```
 
 Expected patterns:
+
 - `Reflect.defineMetadata("design:paramtypes", ...)`
 - `Reflect.metadata("design:paramtypes", ...)`
 
@@ -533,23 +573,18 @@ export {
 } from '@nextrush/dev';
 
 // Config utilities
-export {
-  findEntry,
-  getDefaultWatchPaths,
-  loadConfig,
-  type NextRushConfig,
-} from '@nextrush/dev';
+export { findEntry, getDefaultWatchPaths, loadConfig, type NextRushConfig } from '@nextrush/dev';
 ```
 
 ## Package Details
 
-| Metric | Value |
-|--------|-------|
-| Bundle | ~25 KB |
+| Metric       | Value              |
+| ------------ | ------------------ |
+| Bundle       | ~25 KB             |
 | Dependencies | `@swc/core`, `tsx` |
-| Node.js | ≥20.0.0 |
-| Bun | ≥1.0.0 |
-| Deno | ≥2.0.0 |
+| Node.js      | ≥20.0.0            |
+| Bun          | ≥1.0.0             |
+| Deno         | ≥2.0.0             |
 
 ## See Also
 

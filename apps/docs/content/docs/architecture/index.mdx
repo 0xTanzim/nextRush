@@ -4,7 +4,6 @@ description: How NextRush works under the hood — design decisions, core concep
 ---
 
 import { Mermaid } from '@/components/mdx';
-import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Architecture Overview
@@ -42,7 +41,9 @@ app.route('/', router);
 ```
 
 ```ts title="Class-based style"
-import { Controller, Get, Service } from '@nextrush/controllers';
+import 'reflect-metadata';
+import { Controller, Get } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
 
 @Service()
 class UserService {
@@ -97,8 +98,8 @@ NextRush has five core components that work together:
      ┌───────────┐   ┌───────────┐   ┌───────────┐
      │ Middleware│   │  Router   │   │  Plugins  │
      │           │   │           │   │           │
-     │ Composable│   │ Radix tree│   │ Extensible│
-     │ pipeline  │   │ matching  │   │ hooks     │
+     │ Composable│   │ Segment   │   │ Extensible│
+     │ pipeline  │   │ trie      │   │ hooks     │
      └───────────┘   └───────────┘   └───────────┘
                             │
                             ▼
@@ -112,11 +113,12 @@ NextRush has five core components that work together:
 
 ### Application
 
-The `Application` class is your entry point. It has three responsibilities:
+The `Application` class is your entry point. It has four responsibilities:
 
 1. **Register middleware** — `app.use(middleware)`
-2. **Install plugins** — `app.plugin(myPlugin)`
-3. **Create handler** — `app.callback()` returns the request handler
+2. **Mount routers** — `app.route('/api', router)`
+3. **Install plugins** — `app.plugin(myPlugin)`
+4. **Create handler** — `app.callback()` returns the request handler
 
 ```ts
 import { createApp } from '@nextrush/core';
@@ -140,18 +142,18 @@ Every request creates a fresh `Context` object. This is your interface to the re
 
 ```ts
 // INPUT — Read request data
-ctx.method      // 'GET', 'POST', etc.
-ctx.path        // '/users/123'
-ctx.params      // { id: '123' }
-ctx.query       // { page: '1' }
-ctx.body        // Parsed request body
-ctx.headers     // Request headers
-ctx.ip          // Client IP address
+ctx.method; // 'GET', 'POST', etc.
+ctx.path; // '/users/123'
+ctx.params; // { id: '123' }
+ctx.query; // { page: '1' }
+ctx.body; // Parsed request body
+ctx.headers; // Request headers
+ctx.ip; // Client IP address
 
 // OUTPUT — Send response
 ctx.status = 201;
-ctx.json(data);   // Send JSON
-ctx.html(str);    // Send HTML
+ctx.json(data); // Send JSON
+ctx.html(str); // Send HTML
 ctx.send(buffer); // Send raw data
 ctx.redirect(url);
 
@@ -160,7 +162,8 @@ await ctx.next(); // Call next middleware
 ```
 
 <Callout type="info">
-The Context interface is the same across all runtimes. Your code works on Node.js, Bun, Deno, and Edge without changes.
+  The Context interface is the same across all runtimes. Your code works on Node.js, Bun, Deno, and
+  Edge without changes.
 </Callout>
 
 ### Middleware
@@ -171,7 +174,7 @@ Middleware functions transform requests and responses. They execute in order, wr
 app.use(async (ctx) => {
   const start = Date.now();
 
-  await ctx.next();  // Call next middleware
+  await ctx.next(); // Call next middleware
 
   const ms = Date.now() - start;
   console.log(`${ctx.method} ${ctx.path} - ${ms}ms`);
@@ -187,6 +190,7 @@ Response ◄──  [Middleware 1]  ◄──  [Middleware 2]  ◄───┘
 ```
 
 Each middleware can:
+
 - Run code before the next middleware
 - Call `await ctx.next()` to continue
 - Run code after the next middleware returns
@@ -194,7 +198,7 @@ Each middleware can:
 
 ### Router
 
-The router matches URLs to handlers using a radix tree for O(k) lookup where k is the path length.
+The router matches URLs to handlers using a segment trie for O(d) lookup where d is the number of path segments.
 
 ```ts
 import { createRouter } from '@nextrush/router';
@@ -226,7 +230,7 @@ Adapters bridge NextRush to specific runtimes. They convert platform-specific re
 
 ```ts title="Node.js"
 import { listen } from '@nextrush/adapter-node';
-listen(app, { port: 3000 });
+await listen(app, 3000);
 ```
 
 ```ts title="Bun"
@@ -266,5 +270,10 @@ export default { fetch: createHandler(app) };
     title="Package Hierarchy"
     description="Package structure and dependencies"
     href="/docs/architecture/package-hierarchy"
+  />
+  <Card
+    title="DI & Decorators"
+    description="Dependency injection and decorator-based controllers"
+    href="/docs/architecture/di-decorators"
   />
 </Cards>

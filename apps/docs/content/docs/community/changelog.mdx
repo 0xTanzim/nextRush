@@ -1,9 +1,7 @@
 ---
-title: "Changelog"
-description: "Release history and changes for NextRush v3."
+title: 'Changelog'
+description: 'Release history and changes for NextRush v3.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
 
 # Changelog
 
@@ -21,33 +19,40 @@ NextRush follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-## v3.0.0-alpha.2
+## v3.0.0
 
-**Release Date**: January 2026
+**Status**: Current stable release
 
-### What's New
+### Highlights
 
-- **Controllers Plugin**: Auto-discovery and registration of controllers
-- **Guards System**: Function and class-based guards for route protection
-- **Dev Tools**: CLI for development and production builds
-- **Multi-Runtime**: Support for Node.js, Bun, Deno, and Edge runtimes
+- **Modular monorepo**: Every feature is a separate package with zero runtime dependencies
+- **Dual paradigm**: Functional routes and decorator-based controllers
+- **Controllers plugin**: Auto-discovery and registration via `@nextrush/controllers`
+- **Guards system**: Function and class-based guards for route protection
+- **Dependency injection**: DI container via `@nextrush/di` (wraps tsyringe)
+- **Dev tools**: CLI for development and production builds via `@nextrush/dev`
+- **Multi-runtime adapters**: Node.js, Bun, Deno, and Edge
 
 ### Packages
 
-| Package | Version | Status |
-|---------|---------|--------|
-| `nextrush` | 3.0.0-alpha.2 | Alpha |
-| `@nextrush/core` | 3.0.0-alpha.2 | Alpha |
-| `@nextrush/router` | 3.0.0-alpha.2 | Alpha |
-| `@nextrush/di` | 3.0.0-alpha.2 | Alpha |
-| `@nextrush/decorators` | 3.0.0-alpha.2 | Alpha |
-| `@nextrush/controllers` | 3.0.0-alpha.2 | Alpha |
-| `@nextrush/dev` | 3.0.0-alpha.2 | Alpha |
+| Package                  | Version |
+| ------------------------ | ------- |
+| `nextrush`               | 3.0.0   |
+| `@nextrush/core`         | 3.0.0   |
+| `@nextrush/router`       | 3.0.0   |
+| `@nextrush/types`        | 3.0.0   |
+| `@nextrush/errors`       | 3.0.0   |
+| `@nextrush/di`           | 3.0.0   |
+| `@nextrush/decorators`   | 3.0.0   |
+| `@nextrush/controllers`  | 3.0.0   |
+| `@nextrush/dev`          | 3.0.0   |
+| `@nextrush/runtime`      | 3.0.0   |
+| `@nextrush/adapter-node` | 3.0.0   |
 
 ### Breaking Changes from v2
 
 <Callout type="warn">
-v3 is a complete rewrite. Migration from v2 requires significant changes.
+  v3 is a complete rewrite. Migration from v2 requires significant changes.
 </Callout>
 
 #### Package Structure
@@ -70,47 +75,34 @@ import { helmet } from '@nextrush/helmet';
 // v2 - Koa-style
 ctx.body = { message: 'Hello' };
 
-// v3 - DX-first
+// v3 - method-based
 ctx.json({ message: 'Hello' });
 ```
 
 #### Middleware
 
 ```typescript
-// v2 - next() returned
+// v2
 app.use(async (ctx, next) => {
   await next();
 });
 
-// v3 - same, but also ctx.next()
+// v3
 app.use(async (ctx) => {
   await ctx.next();
 });
 ```
 
----
+#### Server Start
 
-## v3.0.0-alpha.1
+```typescript
+// v2
+app.listen(3000);
 
-**Release Date**: December 2025
-
-### Initial Alpha Release
-
-First public alpha release of NextRush v3.
-
-### Core Features
-
-- Application class with middleware composition
-- Radix tree router with high performance
-- Node.js adapter
-- Basic error handling
-- TypeScript-first design
-
-### Known Issues
-
-- Controllers plugin not yet available
-- Some middleware packages incomplete
-- Documentation in progress
+// v3
+import { listen } from 'nextrush';
+await listen(app, 3000);
+```
 
 ---
 
@@ -122,13 +114,13 @@ First public alpha release of NextRush v3.
 
 ```bash
 # Remove v2
-npm uninstall nextrush
+pnpm remove nextrush
 
-# Install v3
-npm install nextrush
+# Install v3 core
+pnpm add nextrush
 
 # Install middleware separately
-npm install @nextrush/cors @nextrush/body-parser
+pnpm add @nextrush/cors @nextrush/body-parser
 ```
 
 #### Step 2: Update Imports
@@ -155,7 +147,7 @@ router.get('/', (ctx) => {
 // After (v3)
 router.get('/', (ctx) => {
   ctx.json({ message: 'Hello' });
-  // Status 200 is default
+  // Status 200 is the default
 });
 ```
 
@@ -165,7 +157,7 @@ router.get('/', (ctx) => {
 // Before (v2)
 app.use(cors({ origin: '*' }));
 
-// After (v3) - same API, different import
+// After (v3) — same API, different import
 import { cors } from '@nextrush/cors';
 app.use(cors({ origin: '*' }));
 ```
@@ -178,7 +170,7 @@ app.listen(3000);
 
 // After (v3)
 import { listen } from 'nextrush';
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ---

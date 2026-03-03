@@ -2,7 +2,7 @@
 
 > Runtime detection and cross-runtime abstractions for NextRush
 
-Detect the current JavaScript runtime and use unified abstractions that work across Node.js, Bun, Deno, and Edge environments.
+Detect the current JavaScript runtime and use unified abstractions that work across Node.js, Bun, Deno, Deno Deploy, and Edge environments.
 
 ## The Problem
 
@@ -29,11 +29,13 @@ Writing framework code that works on all runtimes requires:
 import { getRuntime, type BodySource } from '@nextrush/runtime';
 
 // 1. Detect runtime
-const runtime = getRuntime(); // 'node' | 'bun' | 'deno' | 'edge' | ...
+const runtime = getRuntime();
+// 'node' | 'bun' | 'deno' | 'deno-deploy' | 'cloudflare-workers'
+// | 'vercel-edge' | 'edge' | 'unknown'
 
 // 2. Use unified abstractions
 async function parseBody(bodySource: BodySource) {
-  const text = await bodySource.text(); // Works everywhere!
+  const text = await bodySource.text(); // Works everywhere
   return JSON.parse(text);
 }
 ```
@@ -54,24 +56,26 @@ bun add @nextrush/runtime
 
 #### `detectRuntime(): Runtime`
 
-Detect the current JavaScript runtime.
+Detect the current JavaScript runtime. Runs full detection logic each call.
 
 ```typescript
 import { detectRuntime } from '@nextrush/runtime';
 
 const runtime = detectRuntime();
-// 'node' | 'bun' | 'deno' | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown'
+// 'node' | 'bun' | 'deno' | 'deno-deploy' | 'cloudflare-workers'
+// | 'vercel-edge' | 'edge' | 'unknown'
 ```
 
 **Detection Order:**
 
-1. **Bun** - Has global `Bun` object
-2. **Deno** - Has global `Deno` object
-3. **Cloudflare Workers** - Has `navigator.userAgent` containing 'Cloudflare-Workers'
-4. **Node.js** - Has `process.versions.node`
-5. **Vercel Edge** - Has `process.env.VERCEL_REGION` (but NOT `process.versions.node`)
-6. **Edge** - Has `Request`/`Response` globals (generic Web API runtime)
-7. **Unknown** - None of the above
+1. **Bun** — has global `Bun` object
+2. **Deno Deploy** — has global `Deno` object + `DENO_DEPLOYMENT_ID` env var
+3. **Deno** — has global `Deno` object
+4. **Cloudflare Workers** — `navigator.userAgent` contains `'Cloudflare-Workers'`
+5. **Node.js** — has `process.versions.node`
+6. **Vercel Edge** — has `process.env.VERCEL_REGION` (but NOT `process.versions.node`)
+7. **Edge** — has `Request`/`Response` globals (generic Web API runtime)
+8. **Unknown** — none of the above
 
 #### `getRuntime(): Runtime`
 
@@ -136,6 +140,23 @@ const info = getRuntimeInfo();
 // }
 ```
 
+#### `detectEdgeRuntime(): EdgeRuntimeInfo`
+
+Detect the specific edge runtime platform. Provides more granular information than `detectRuntime()` for edge runtimes. Result is cached.
+
+```typescript
+import { detectEdgeRuntime } from '@nextrush/runtime';
+
+const edgeInfo = detectEdgeRuntime();
+// {
+//   runtime: 'cloudflare-workers',
+//   isCloudflare: true,
+//   isVercel: false,
+//   isNetlify: false,
+//   isGenericEdge: false,
+// }
+```
+
 #### Runtime Check Helpers
 
 ```typescript
@@ -150,15 +171,82 @@ if (isBun()) {
 }
 
 if (isDeno()) {
-  // Deno specific code
+  // Deno specific code (does NOT match Deno Deploy)
 }
 
 if (isEdge()) {
-  // Edge runtime (Cloudflare Workers, Vercel Edge, etc.)
+  // Edge runtime (Cloudflare Workers, Vercel Edge, generic edge)
 }
 
 if (isRuntime('cloudflare-workers')) {
   // Specific runtime check
+}
+
+if (isRuntime('deno-deploy')) {
+  // Deno Deploy specific code
+}
+```
+
+### Query String Parsing
+
+#### `parseQueryString(qs): QueryParams`
+
+Secure query string parser. Uses `Object.create(null)` to prevent prototype pollution.
+Enforces a maximum of 256 parameters and 2048 character query string length.
+Rejects `__proto__`, `constructor`, and `prototype` keys.
+
+```typescript
+import { parseQueryString } from '@nextrush/runtime';
+
+const params = parseQueryString('name=Alice&age=30&tag=a&tag=b');
+// { name: 'Alice', age: '30', tag: ['a', 'b'] }
+```
+
+### Headers Utilities
+
+#### `headersToRecord(headers): IncomingHeaders`
+
+Convert a Web API `Headers` object to a plain record. Uses `Object.create(null)` to prevent prototype pollution. Multi-value headers are stored as `string[]`.
+
+```typescript
+import { headersToRecord } from '@nextrush/runtime';
+
+const record = headersToRecord(request.headers);
+```
+
+#### `getClientIp(request, directIp, trustProxy): string`
+
+Extract client IP from a Web API Request. When `trustProxy` is `false`, returns `directIp` only. When `true`, reads `X-Forwarded-For` (first entry) then `X-Real-IP`.
+
+```typescript
+import { getClientIp } from '@nextrush/runtime';
+
+const ip = getClientIp(request, socketIp, true);
+```
+
+#### `getEdgeClientIp(request, trustProxy): string`
+
+Extract client IP for Cloudflare-style edge runtimes. When `trustProxy` is `true`, checks `CF-Connecting-IP` first, then falls back to standard proxy headers.
+
+```typescript
+import { getEdgeClientIp } from '@nextrush/runtime';
+
+const ip = getEdgeClientIp(request, true);
+```
+
+### Constants
+
+#### `METHODS_WITHOUT_BODY`
+
+`ReadonlySet<string>` containing HTTP methods that do not carry a request body: `GET`, `HEAD`, `OPTIONS`, `TRACE`.
+
+DELETE is intentionally excluded — RFC 7231 §4.3.5 permits a body on DELETE.
+
+```typescript
+import { METHODS_WITHOUT_BODY } from '@nextrush/runtime';
+
+if (METHODS_WITHOUT_BODY.has(ctx.method)) {
+  // No body to parse
 }
 ```
 
@@ -170,25 +258,12 @@ The `BodySource` interface provides unified body reading across all runtimes.
 
 ```typescript
 interface BodySource {
-  // Read body as string
   text(): Promise<string>;
-
-  // Read body as buffer
   buffer(): Promise<Uint8Array>;
-
-  // Read body as parsed JSON
   json<T = unknown>(): Promise<T>;
-
-  // Get underlying stream
-  stream(): ReadableStream<Uint8Array> | NodeJS.ReadableStream;
-
-  // Check if body was already consumed
+  stream(): NodeStreamLike | WebStreamLike;
   readonly consumed: boolean;
-
-  // Content-Length header value
   readonly contentLength: number | undefined;
-
-  // Content-Type header value
   readonly contentType: string | undefined;
 }
 ```
@@ -200,7 +275,6 @@ For Web API runtimes (Bun, Deno, Cloudflare Workers, Vercel Edge):
 ```typescript
 import { WebBodySource } from '@nextrush/runtime';
 
-// In your adapter
 const request = new Request('http://example.com', {
   method: 'POST',
   body: JSON.stringify({ hello: 'world' }),
@@ -216,6 +290,25 @@ const data = await bodySource.json(); // { hello: 'world' }
 const buffer = await bodySource.buffer(); // Uint8Array
 ```
 
+With options:
+
+```typescript
+const bodySource = new WebBodySource(request, {
+  limit: 512 * 1024,  // 512KB
+  encoding: 'utf-8',
+});
+```
+
+#### `createWebBodySource(request, options?)`
+
+Factory function for `WebBodySource`:
+
+```typescript
+import { createWebBodySource } from '@nextrush/runtime';
+
+const bodySource = createWebBodySource(request, { limit: 1024 * 1024 });
+```
+
 #### `EmptyBodySource`
 
 For requests without a body (GET, HEAD, OPTIONS):
@@ -224,12 +317,12 @@ For requests without a body (GET, HEAD, OPTIONS):
 import { EmptyBodySource, createEmptyBodySource } from '@nextrush/runtime';
 
 const bodySource = new EmptyBodySource();
-// or
-const bodySource = createEmptyBodySource();
+// or use the shared singleton:
+const bodySource2 = createEmptyBodySource();
 
-await bodySource.text(); // ''
+await bodySource.text();   // ''
 await bodySource.buffer(); // Uint8Array(0)
-await bodySource.json(); // throws SyntaxError
+await bodySource.json();   // throws BadRequestError (code: 'EMPTY_BODY_JSON')
 ```
 
 #### `AbstractBodySource`
@@ -240,7 +333,6 @@ Base class for creating custom BodySource implementations:
 import { AbstractBodySource } from '@nextrush/runtime';
 import type { IncomingMessage } from 'node:http';
 
-// Node.js implementation example
 export class NodeBodySource extends AbstractBodySource {
   private readonly req: IncomingMessage;
 
@@ -267,24 +359,24 @@ export class NodeBodySource extends AbstractBodySource {
 
 #### `BodyConsumedError`
 
-Thrown when attempting to read a body that has already been consumed:
+Thrown when attempting to read a body that has already been consumed. Extends `BadRequestError`.
 
 ```typescript
 import { BodyConsumedError } from '@nextrush/runtime';
 
 try {
   await bodySource.text();
-  await bodySource.text(); // Throws BodyConsumedError
+  await bodySource.text(); // throws BodyConsumedError
 } catch (error) {
   if (error instanceof BodyConsumedError) {
-    console.log('Body already read');
+    // Body already read
   }
 }
 ```
 
 #### `BodyTooLargeError`
 
-Thrown when body exceeds the size limit:
+Thrown when body exceeds the size limit. Extends `PayloadTooLargeError`. Exposes `limit` and `received` properties.
 
 ```typescript
 import { BodyTooLargeError, WebBodySource } from '@nextrush/runtime';
@@ -300,21 +392,12 @@ try {
 }
 ```
 
-## Usage in Middleware
+#### `DEFAULT_BODY_LIMIT`
 
-The real power comes when writing middleware that works across all runtimes:
+Default body size limit constant: `1048576` (1MB).
 
 ```typescript
-import type { BodySource } from '@nextrush/runtime';
-
-// This middleware works on Node.js, Bun, Deno, and Edge!
-export function jsonParser() {
-  return async (ctx: { bodySource: BodySource; body: unknown }) => {
-    if (ctx.bodySource.contentType?.includes('application/json')) {
-      ctx.body = await ctx.bodySource.json();
-    }
-  };
-}
+import { DEFAULT_BODY_LIMIT } from '@nextrush/runtime';
 ```
 
 ## Types
@@ -326,13 +409,22 @@ import type {
   RuntimeInfo,
   BodySource,
   BodySourceOptions,
+  EdgeRuntimeInfo,
 } from '@nextrush/runtime';
 ```
 
 ### `Runtime`
 
 ```typescript
-type Runtime = 'node' | 'bun' | 'deno' | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown';
+type Runtime =
+  | 'node'
+  | 'bun'
+  | 'deno'
+  | 'deno-deploy'
+  | 'cloudflare-workers'
+  | 'vercel-edge'
+  | 'edge'
+  | 'unknown';
 ```
 
 ### `RuntimeCapabilities`
@@ -349,32 +441,44 @@ interface RuntimeCapabilities {
 }
 ```
 
+### `EdgeRuntimeInfo`
+
+```typescript
+interface EdgeRuntimeInfo {
+  runtime: Runtime;
+  isCloudflare: boolean;
+  isVercel: boolean;
+  isNetlify: boolean;
+  isGenericEdge: boolean;
+}
+```
+
 ### `BodySourceOptions`
 
 ```typescript
 interface BodySourceOptions {
-  limit?: number; // Max body size (default: 1MB)
-  encoding?: BufferEncoding; // Text encoding (default: 'utf-8')
+  limit?: number; // Max body size in bytes (default: 1MB)
+  encoding?: 'utf-8' | 'utf8' | 'ascii' | 'latin1' | 'iso-8859-1' | 'utf-16le' | 'utf-16be';
 }
 ```
 
 ## Runtime Compatibility
 
-| Feature              | Node.js | Bun | Deno | Edge |
-| -------------------- | ------- | --- | ---- | ---- |
-| `detectRuntime()`    | ✅      | ✅  | ✅   | ✅   |
-| `WebBodySource`      | ❌      | ✅  | ✅   | ✅   |
-| `AbstractBodySource` | ✅      | ✅  | ✅   | ✅   |
-| Node.js streams      | ✅      | ✅  | ❌   | ❌   |
-| Web streams          | ✅      | ✅  | ✅   | ✅   |
+| Feature              | Node.js | Bun | Deno | Deno Deploy | Edge |
+| -------------------- | ------- | --- | ---- | ----------- | ---- |
+| `detectRuntime()`    | ✅      | ✅  | ✅   | ✅          | ✅   |
+| `WebBodySource`      | ❌      | ✅  | ✅   | ✅          | ✅   |
+| `AbstractBodySource` | ✅      | ✅  | ✅   | ✅          | ✅   |
+| Node.js streams      | ✅      | ✅  | ❌   | ❌          | ❌   |
+| Web streams          | ✅      | ✅  | ✅   | ✅          | ✅   |
+| File system          | ✅      | ✅  | ✅   | ❌          | ❌   |
 
 ## See Also
 
-- [`@nextrush/adapter-node`](../adapters/node) - Node.js adapter
-- [`@nextrush/adapter-bun`](../adapters/bun) - Bun adapter
-- [`@nextrush/adapter-deno`](../adapters/deno) - Deno adapter
-- [`@nextrush/adapter-edge`](../adapters/edge) - Edge runtime adapter
-- [RFC-0004: Adapter Architecture](../../draft/RFC-0004-ADAPTER-ARCHITECTURE.md)
+- [`@nextrush/adapter-node`](../adapters/node) — Node.js adapter
+- [`@nextrush/adapter-bun`](../adapters/bun) — Bun adapter
+- [`@nextrush/adapter-deno`](../adapters/deno) — Deno adapter
+- [`@nextrush/adapter-edge`](../adapters/edge) — Edge runtime adapter
 
 ## License
 

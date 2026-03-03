@@ -1,182 +1,156 @@
 ---
-title: "Roadmap"
-description: "What's coming next for NextRush — planned features and future direction."
+title: 'Roadmap'
+description: 'Current development status and planned features for NextRush v3.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
 
 # Roadmap
 
-This roadmap outlines the planned development for NextRush v3.
+NextRush v3 development tracks what has shipped, what is actively being built, and what comes next. Each item below reflects the actual state of the codebase.
 
 <Callout type="info">
-Roadmaps are subject to change based on community feedback and priorities.
+  Priorities may shift based on community feedback. Items without code or an RFC are considered
+  aspirational.
 </Callout>
 
 ---
 
 ## Current Status
 
-**Version**: 3.0.0-alpha.2
+**Package versions**: 3.0.0
 
-NextRush v3 is in **alpha**. Core functionality is working, but APIs may change before stable release.
-
----
-
-## Phase 1: Core Stability ✅
-
-*Status: Complete*
-
-### Completed
-
-- [x] Application core with middleware composition
-- [x] High-performance radix tree router
-- [x] Node.js adapter
-- [x] Error handling system
-- [x] Type definitions package
-- [x] Runtime detection
+NextRush v3 packages are published at `3.0.0`. The framework is functional but still stabilizing — expect API refinements before a long-term support commitment.
 
 ---
 
-## Phase 2: Developer Experience 🚧
+## Phase 1: Core Foundation ✅
 
-*Status: In Progress*
+_Status: Complete_
 
-### Completed
+- [x] Application core with middleware composition (`@nextrush/core`)
+- [x] High-performance radix tree router (`@nextrush/router`)
+- [x] HTTP error hierarchy (`@nextrush/errors`)
+- [x] Shared type definitions (`@nextrush/types`)
+- [x] Runtime detection (`@nextrush/runtime`)
+- [x] Node.js adapter (`@nextrush/adapter-node`)
 
-- [x] Dependency injection container
-- [x] Decorator system for controllers
-- [x] Controllers plugin with auto-discovery
+---
+
+## Phase 2: Developer Experience ✅
+
+_Status: Complete_
+
+- [x] Dependency injection container (`@nextrush/di`)
+- [x] Decorator system — `@Controller`, `@Get`, `@Body`, `@UseGuard` (`@nextrush/decorators`)
+- [x] Controllers plugin with auto-discovery (`@nextrush/controllers`)
 - [x] Guard system for route protection
-- [x] Dev tools CLI (`@nextrush/dev`)
-
-### In Progress
-
-- [ ] Hot module reload in development
-- [ ] Better error messages with stack traces
-- [ ] VS Code extension for debugging
-
-### Planned
-
-- [ ] CLI for project scaffolding
-- [ ] Interactive mode for `nextrush dev`
+- [x] Dev tools CLI with hot reload and watch mode (`@nextrush/dev`)
+- [x] Meta package re-exporting core essentials (`nextrush`)
 
 ---
 
-## Phase 3: Production Readiness
+## Phase 3: Middleware & Plugins ✅
 
-*Status: Planned*
+_Status: Complete_
 
-### Middleware Completion
+### Middleware
 
-- [ ] Complete rate limiting with Redis support
-- [ ] Session management
-- [ ] CSRF protection
-- [ ] Request validation with Zod/Yup
+- [x] CORS (`@nextrush/cors`)
+- [x] Security headers (`@nextrush/helmet`)
+- [x] Body parsing — JSON, URL-encoded, multipart (`@nextrush/body-parser`)
+- [x] Response compression (`@nextrush/compression`)
+- [x] Cookie handling (`@nextrush/cookies`)
+- [x] Rate limiting with pluggable store interface (`@nextrush/rate-limit`)
+- [x] Request ID generation (`@nextrush/request-id`)
+- [x] Request timing (`@nextrush/timer`)
 
-### Performance
+### Plugins
 
-- [ ] Comprehensive benchmarking suite
-- [ ] Performance monitoring hooks
-- [ ] Memory optimization
-
-### Security
-
-- [ ] Security audit
-- [ ] Dependency vulnerability scanning
-- [ ] Security best practices guide
+- [x] Logger (`@nextrush/logger`)
+- [x] Static file serving (`@nextrush/static`)
+- [x] Template engine (`@nextrush/template`)
+- [x] Event system (`@nextrush/events`)
+- [x] WebSocket support (`@nextrush/websocket`)
 
 ---
 
-## Phase 4: Ecosystem
+## Phase 4: Multi-Runtime Adapters ✅
 
-*Status: Planned*
+_Status: Complete_
 
-### Adapters
+- [x] Node.js adapter (`@nextrush/adapter-node`)
+- [x] Bun adapter (`@nextrush/adapter-bun`)
+- [x] Deno adapter (`@nextrush/adapter-deno`)
+- [x] Edge adapter — Cloudflare Workers, Vercel Edge (`@nextrush/adapter-edge`)
 
-- [ ] Bun adapter optimization
-- [ ] Deno adapter completion
-- [ ] Edge adapter (Cloudflare Workers)
-- [ ] AWS Lambda adapter
-- [ ] Vercel adapter
+---
 
-### Integrations
+## Phase 5: Performance Validation 🚧
 
-- [ ] OpenAPI/Swagger generation
+_Status: In Progress_
+
+- [x] Benchmarking suite comparing Express, Fastify, Hono, and Koa
+- [ ] Published benchmark results with reproducible scripts
+- [ ] Memory profiling and optimization pass
+
+---
+
+## Planned
+
+These items have no implementation yet. Some are tracked in RFCs; others are aspirational.
+
+### Middleware & Security
+
+- [ ] Session management middleware
+- [ ] CSRF protection middleware
+- [ ] Built-in Redis store for rate limiting
+
+### Developer Tooling
+
+- [ ] CLI command for project scaffolding (`nextrush init`)
+- [ ] Security audit and dependency scanning
+
+### Ecosystem Integrations
+
+- [ ] OpenAPI / Swagger generation
 - [ ] GraphQL plugin
-- [ ] WebSocket improvements
-- [ ] Server-Sent Events
-
-### Database
-
-- [ ] Drizzle ORM integration guide
-- [ ] Prisma integration guide
-- [ ] Database migration patterns
-
----
-
-## Phase 5: Documentation & Community
-
-*Status: Ongoing*
+- [ ] Server-Sent Events support
+- [ ] AWS Lambda adapter
+- [ ] Database integration guides (Drizzle, Prisma)
 
 ### Documentation
 
-- [x] Getting started guides
-- [x] Core concepts
-- [x] Package documentation
-- [ ] Video tutorials
-- [ ] API reference completion
-- [ ] Cookbook with recipes
-
-### Community
-
-- [ ] Discord server
-- [ ] Example repository
-- [ ] Starter templates
-- [ ] Plugin ecosystem guide
+- [ ] API reference completion for all packages
+- [ ] Cookbook with task-oriented recipes
+- [ ] Starter templates and example repository
 
 ---
 
-## Long-term Vision
+## Framework Goals
 
-### Framework Goals
-
-1. **Performance**: Maintain 30,000+ RPS for simple apps
-2. **Bundle size**: Keep core under 200KB
-3. **Developer experience**: Zero-config where possible
-4. **Type safety**: 100% TypeScript coverage
-5. **Flexibility**: Support both functional and class-based patterns
+1. **Performance** — maintain 30,000+ RPS for hello-world routes
+2. **Bundle size** — keep core under 200KB memory footprint
+3. **Type safety** — full TypeScript strict mode, zero `any`
+4. **Dual paradigm** — functional routes and decorator-based controllers
+5. **Zero runtime dependencies** — except `reflect-metadata` for DI
 
 ### Non-Goals
 
-- Replacing Express/Fastify for all use cases
+- Replacing Express or Fastify for every use case
 - Building a full-stack framework (like Next.js)
-- Supporting legacy Node.js versions (< 20)
-
----
-
-## Release Schedule
-
-| Version | Type | Target | Focus |
-|---------|------|--------|-------|
-| 3.0.0-alpha.3 | Alpha | Q1 2026 | DX improvements |
-| 3.0.0-beta.1 | Beta | Q2 2026 | API stability |
-| 3.0.0 | Stable | Q3 2026 | Production ready |
+- Supporting Node.js versions below 22
 
 ---
 
 ## Feature Requests
 
-Want to influence the roadmap?
+- **Vote** on existing issues to signal priority
+- **Open a discussion** to propose new ideas
+- **Contribute** by picking up an unassigned item
 
-- **Vote on issues**: 👍 existing feature requests
-- **Open discussions**: Propose new ideas
-- **Contribute**: Help implement features
-
-[Open a Feature Request](https://github.com/0xtanzim/nextrush/issues/new?template=feature_request.md)
+[Open a Feature Request](https://github.com/0xTanzim/nextrush/issues/new?template=feature_request.md)
 
 ---
 
 ## Changelog
 
-See the [Changelog](/docs/community/changelog) for what's already been released.
+See the [Changelog](/docs/community/changelog) for release history.

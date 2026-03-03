@@ -1,77 +1,205 @@
 ---
-title: "@nextrush/helmet"
-description: "Security headers middleware with CSP, HSTS, and modern browser protections."
+title: '@nextrush/helmet'
+description: 'Security headers middleware with CSP, HSTS, and modern browser protections.'
 ---
 
 # @nextrush/helmet
 
-Set security headers following OWASP recommendations.
+Browsers expose dozens of attack vectors through missing HTTP headers. XSS, clickjacking, MIME sniffing, and protocol downgrade attacks all exploit the absence of specific security headers.
 
-HTTP security headers protect against common web vulnerabilities like XSS, clickjacking, and MIME sniffing. This middleware sets multiple headers with secure defaults, reducing your security attack surface.
+Helmet sets 13 security headers with secure defaults in a single middleware call. You get OWASP-recommended protection without configuring each header individually.
+
+---
+
+## Default Behavior
+
+Calling `helmet()` with no arguments sets these headers:
+
+| Header                              | Default Value                         | Protection                                    |
+| ----------------------------------- | ------------------------------------- | --------------------------------------------- |
+| `Content-Security-Policy`           | OWASP defaults                        | XSS, injection attacks                        |
+| `Cross-Origin-Embedder-Policy`      | `require-corp`                        | Embedding control                             |
+| `Cross-Origin-Opener-Policy`        | `same-origin`                         | Cross-origin isolation                        |
+| `Cross-Origin-Resource-Policy`      | `same-origin`                         | Resource access control                       |
+| `Strict-Transport-Security`         | `max-age=15552000; includeSubDomains` | Force HTTPS                                   |
+| `X-Content-Type-Options`            | `nosniff`                             | MIME sniffing                                 |
+| `X-Frame-Options`                   | `SAMEORIGIN`                          | Clickjacking                                  |
+| `X-XSS-Protection`                  | `0`                                   | Disable legacy XSS filter (OWASP recommended) |
+| `X-DNS-Prefetch-Control`            | `off`                                 | DNS prefetch control                          |
+| `X-Download-Options`                | `noopen`                              | IE download execution                         |
+| `X-Permitted-Cross-Domain-Policies` | `none`                                | Adobe cross-domain                            |
+| `Referrer-Policy`                   | `no-referrer`                         | Information leakage                           |
+| `Origin-Agent-Cluster`              | `?1`                                  | Process isolation                             |
+
+Headers **not** set by default: `Permissions-Policy`, `Clear-Site-Data`, `Reporting-Endpoints`.
 
 ---
 
 ## Installation
 
-```bash tab="npm"
-npm install @nextrush/helmet
-```
-
-```bash tab="pnpm"
-pnpm add @nextrush/helmet
-```
+<PackageInstall packages={['@nextrush/helmet']} />
 
 ---
 
-## Quick Start
+## Minimal Usage
 
-```typescript
+```ts
 import { createApp } from '@nextrush/core';
 import { helmet } from '@nextrush/helmet';
 
 const app = createApp();
-
-// Secure defaults for all headers
 app.use(helmet());
 ```
 
-This sets the following headers:
-
-| Header | Purpose |
-|--------|---------|
-| `Content-Security-Policy` | Prevent XSS attacks |
-| `X-Content-Type-Options` | Prevent MIME sniffing |
-| `X-Frame-Options` | Prevent clickjacking |
-| `Strict-Transport-Security` | Force HTTPS |
-| `Referrer-Policy` | Control referrer info |
-| `X-XSS-Protection` | Legacy XSS filter |
-| `Permissions-Policy` | Control browser features |
-
 ---
 
-## Configuration
+## Configuration Options
 
-Customize individual headers:
+Customize individual headers by passing options. Disable any header by setting it to `false`.
 
-```typescript
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+```ts
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'", 'https://cdn.example.com'],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:', 'https:'],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-  frameguard: {
-    action: 'deny',
-  },
-}));
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: 'DENY',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+  })
+);
 ```
+
+<TypeTable
+  title="HelmetOptions"
+  types={{
+    contentSecurityPolicy: {
+      type: 'ContentSecurityPolicyOptions | false',
+      description: 'CSP header configuration',
+      default: '{ useDefaults: true }',
+    },
+    crossOriginEmbedderPolicy: {
+      type: "'require-corp' | 'credentialless' | 'unsafe-none' | false",
+      description: 'Cross-Origin-Embedder-Policy header',
+      default: "'require-corp'",
+    },
+    crossOriginOpenerPolicy: {
+      type: "'same-origin' | 'same-origin-allow-popups' | 'unsafe-none' | false",
+      description: 'Cross-Origin-Opener-Policy header',
+      default: "'same-origin'",
+    },
+    crossOriginResourcePolicy: {
+      type: "'same-origin' | 'same-site' | 'cross-origin' | false",
+      description: 'Cross-Origin-Resource-Policy header',
+      default: "'same-origin'",
+    },
+    dnsPrefetchControl: {
+      type: "'on' | 'off' | false",
+      description: 'X-DNS-Prefetch-Control header',
+      default: "'off'",
+    },
+    frameguard: {
+      type: "'DENY' | 'SAMEORIGIN' | false",
+      description: 'X-Frame-Options header',
+      default: "'SAMEORIGIN'",
+    },
+    hsts: {
+      type: 'StrictTransportSecurityOptions | false',
+      description: 'Strict-Transport-Security header',
+      default: '{ maxAge: 15552000, includeSubDomains: true }',
+    },
+    noSniff: {
+      type: 'boolean',
+      description: 'X-Content-Type-Options nosniff header',
+      default: 'true',
+    },
+    originAgentCluster: {
+      type: 'boolean',
+      description: 'Origin-Agent-Cluster header',
+      default: 'true',
+    },
+    permissionsPolicy: {
+      type: 'PermissionsPolicyDirectives | false',
+      description: 'Permissions-Policy header',
+      default: 'undefined (not set)',
+      optional: true,
+    },
+    referrerPolicy: {
+      type: 'ReferrerPolicyValue | ReferrerPolicyValue[] | false',
+      description: 'Referrer-Policy header',
+      default: "'no-referrer'",
+    },
+    xssFilter: {
+      type: 'boolean',
+      description:
+        "X-XSS-Protection header. false sets '0' (recommended), true sets '1; mode=block'",
+      default: 'false',
+    },
+    ieNoOpen: {
+      type: 'boolean',
+      description: 'X-Download-Options noopen header (IE)',
+      default: 'true',
+    },
+    permittedCrossDomainPolicies: {
+      type: "'none' | 'master-only' | 'by-content-type' | 'all' | false",
+      description: 'X-Permitted-Cross-Domain-Policies header',
+      default: "'none'",
+    },
+    clearSiteData: {
+      type: 'ClearSiteDataValue[] | false',
+      description: 'Clear-Site-Data header (useful for logout endpoints)',
+      optional: true,
+    },
+    reportingEndpoints: {
+      type: 'Record<string, string> | false',
+      description: 'Reporting-Endpoints header',
+      optional: true,
+    },
+  }}
+/>
+
+<TypeTable
+  title="StrictTransportSecurityOptions"
+  types={{
+    maxAge: { type: 'number', description: 'Max age in seconds', default: '15552000 (180 days)' },
+    includeSubDomains: { type: 'boolean', description: 'Apply to all subdomains', default: 'true' },
+    preload: {
+      type: 'boolean',
+      description: 'Allow HSTS preload list submission',
+      default: 'false',
+    },
+  }}
+/>
+
+<TypeTable
+  title="ContentSecurityPolicyOptions"
+  types={{
+    directives: {
+      type: 'ContentSecurityPolicyDirectives',
+      description: 'CSP directives using hyphenated keys',
+      optional: true,
+    },
+    reportOnly: {
+      type: 'boolean',
+      description: 'Use Content-Security-Policy-Report-Only header',
+      default: 'false',
+    },
+    useDefaults: {
+      type: 'boolean',
+      description: 'Merge with OWASP default directives',
+      default: 'true',
+    },
+  }}
+/>
 
 ---
 
@@ -79,285 +207,218 @@ app.use(helmet({
 
 Built-in configurations for common scenarios:
 
-### Strict (Production)
+```ts
+import { strictHelmet, apiHelmet, devHelmet, staticHelmet, logoutHelmet } from '@nextrush/helmet';
 
-```typescript
-import { strictHelmet } from '@nextrush/helmet';
-
-// Maximum security headers
+// Maximum security for production apps handling sensitive data
 app.use(strictHelmet());
-```
 
-### Development
-
-```typescript
-import { devHelmet } from '@nextrush/helmet';
-
-// Relaxed for local development
-app.use(devHelmet());
-```
-
-### API Servers
-
-```typescript
-import { apiHelmet } from '@nextrush/helmet';
-
-// Optimized for JSON APIs
+// Optimized for REST/GraphQL APIs (disables CSP, COEP)
 app.use(apiHelmet());
-```
 
-### Static Sites
+// Relaxed headers for local development (disables HSTS, CSP)
+app.use(devHelmet());
 
-```typescript
-import { staticHelmet } from '@nextrush/helmet';
-
-// For static file serving
+// Optimized for static file serving
 app.use(staticHelmet());
+
+// Clears browser cache, cookies, and storage on logout
+app.post('/logout', logoutHelmet());
 ```
 
-### Logout Response
+Each preset accepts an `overrides` parameter (except `devHelmet`):
 
-```typescript
-import { logoutHelmet } from '@nextrush/helmet';
-
-// Clear site data on logout
-app.use(logoutHelmet());
+```ts
+app.use(
+  strictHelmet({
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+  })
+);
 ```
 
 ---
 
 ## Content Security Policy
 
-CSP prevents XSS by controlling what resources can load.
+CSP directives use **hyphenated keys** matching the HTTP header specification.
 
 ### Basic CSP
 
-```typescript
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://cdn.example.com'],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://api.example.com'],
+```ts
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'", 'https://cdn.example.com'],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:', 'https:'],
+        'connect-src': ["'self'", 'https://api.example.com'],
+        'object-src': ["'none'"],
+      },
     },
-  },
-}));
+  })
+);
 ```
 
 ### CSP Builder
 
-Fluent API for complex policies:
+Fluent API for building CSP headers:
 
-```typescript
-import { createCspBuilder, buildCspHeader } from '@nextrush/helmet';
+```ts
+import { createCspBuilder } from '@nextrush/helmet';
 
-const csp = createCspBuilder()
+const builder = createCspBuilder()
   .defaultSrc("'self'")
   .scriptSrc("'self'", 'https://cdn.example.com')
   .styleSrc("'self'", "'unsafe-inline'")
-  .build();
+  .imgSrc("'self'", 'data:', 'https:')
+  .upgradeInsecureRequests();
 
-app.use(helmet({
-  contentSecurityPolicy: { directives: csp },
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: builder.toOptions(),
+  })
+);
 ```
 
 ### CSP with Nonces
 
-For inline scripts without `unsafe-inline`:
+For inline scripts without `'unsafe-inline'`:
 
-```typescript
-import { buildCspWithNonce, generateNonce } from '@nextrush/helmet';
+```ts
+import { buildCspWithNonce, buildCspHeader, generateNonce } from '@nextrush/helmet';
 
 app.use(async (ctx) => {
   const nonce = generateNonce();
   ctx.state.cspNonce = nonce;
 
-  const csp = buildCspWithNonce({
-    nonce,
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+  const { cspOptions } = buildCspWithNonce(
+    {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'"],
+      },
+      generateNonce: true,
     },
-  });
+    nonce
+  );
 
-  ctx.set('Content-Security-Policy', csp);
+  const cspHeader = buildCspHeader(cspOptions.directives ?? {});
+  ctx.set('Content-Security-Policy', cspHeader);
   await ctx.next();
 });
 ```
-
-Use in HTML:
-
-```html
-<script nonce="${ctx.state.cspNonce}">
-  console.log('Allowed!');
-</script>
-```
-
----
-
-## HSTS (HTTP Strict Transport Security)
-
-Force HTTPS connections:
-
-```typescript
-app.use(helmet({
-  hsts: {
-    maxAge: 31536000,      // 1 year
-    includeSubDomains: true,
-    preload: true,         // Submit to preload list
-  },
-}));
-```
-
-:::warning
-Only enable `preload: true` if you're ready to submit to the [HSTS Preload List](https://hstspreload.org). This is permanent.
-:::
 
 ---
 
 ## Permissions Policy
 
-Control browser features:
+Control browser feature access. Pass `PermissionsPolicyDirectives` directly — use an empty array to disable a feature, and `['self']` for self-only access.
 
-```typescript
-import {
-  createPermissionsPolicyBuilder,
-  restrictivePermissionsPolicy
-} from '@nextrush/helmet';
+```ts
+app.use(
+  helmet({
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: ['self'],
+      fullscreen: ['self'],
+      payment: ['self', 'https://pay.example.com'],
+    },
+  })
+);
+```
 
-// Using builder
+Use the builder for complex policies:
+
+```ts
+import { createPermissionsPolicyBuilder } from '@nextrush/helmet';
+
 const policy = createPermissionsPolicyBuilder()
-  .camera('none')
-  .microphone('none')
-  .geolocation('self')
-  .build();
+  .disable('camera', 'microphone', 'geolocation')
+  .allow('fullscreen', 'self')
+  .allow('payment', 'self', 'https://pay.example.com')
+  .getDirectives();
 
-app.use(helmet({
-  permissionsPolicy: {
-    features: policy,
-  },
-}));
+app.use(helmet({ permissionsPolicy: policy }));
+```
 
-// Or use restrictive preset
-app.use(helmet({
-  permissionsPolicy: {
-    features: restrictivePermissionsPolicy,
-  },
-}));
+Use `restrictivePermissionsPolicy()` for a preset that disables most features:
+
+```ts
+import { restrictivePermissionsPolicy } from '@nextrush/helmet';
+
+app.use(
+  helmet({
+    permissionsPolicy: restrictivePermissionsPolicy(),
+  })
+);
 ```
 
 ---
 
-## Individual Headers
+## Individual Header Middleware
 
-Apply specific headers only:
+Apply specific headers without the full Helmet stack:
 
-```typescript
-import {
-  contentSecurityPolicy,
-  hsts,
-  frameguard,
-  noSniff,
-  referrerPolicy
-} from '@nextrush/helmet';
+```ts
+import { contentSecurityPolicy, hsts, frameguard, noSniff, referrerPolicy } from '@nextrush/helmet';
 
-// Only CSP
-app.use(contentSecurityPolicy({
-  directives: { defaultSrc: ["'self'"] },
-}));
+app.use(
+  contentSecurityPolicy({
+    directives: { 'default-src': ["'self'"] },
+  })
+);
 
-// Only HSTS
-app.use(hsts({ maxAge: 31536000 }));
+app.use(hsts({ maxAge: 31536000, includeSubDomains: true, preload: true }));
 
-// Only frameguard
-app.use(frameguard({ action: 'deny' }));
+app.use(frameguard('DENY'));
 
-// Only noSniff
 app.use(noSniff());
 
-// Only referrer policy
-app.use(referrerPolicy({ policy: 'strict-origin-when-cross-origin' }));
+app.use(referrerPolicy('strict-origin-when-cross-origin'));
 ```
 
 ---
 
 ## Disabling Headers
 
-Disable specific headers when needed:
+Set any header option to `false` to skip it:
 
-```typescript
-app.use(helmet({
-  contentSecurityPolicy: false,  // Disable CSP
-  hsts: false,                   // Disable HSTS
-}));
+```ts
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    hsts: false,
+  })
+);
 ```
 
 ---
 
-## CSP Analysis
+## Common Mistakes
 
-Analyze CSP for security issues:
+<Callout type="warn">
+  CSP directives use **hyphenated keys** like `'default-src'`, not camelCase like `defaultSrc`.
+  Using camelCase produces invalid headers silently.
+</Callout>
 
-```typescript
-import { analyzeCsp, analyzeCspSecurity } from '@nextrush/helmet';
+**Using `frameguard` with an object** — `frameguard` takes a string (`'DENY'` or `'SAMEORIGIN'`), not `{ action: 'deny' }`.
 
-const directives = {
-  defaultSrc: ["'self'"],
-  scriptSrc: ["'self'", "'unsafe-inline'"],
-};
+**Enabling `hsts.preload` prematurely** — HSTS preload is permanent. Only enable after submitting to the [HSTS Preload List](https://hstspreload.org). Preload requires `maxAge >= 31536000` and `includeSubDomains: true`.
 
-const analysis = analyzeCspSecurity(directives);
-// Returns warnings about unsafe-inline
-```
+**Expecting Permissions-Policy by default** — Helmet does not set `Permissions-Policy` unless you provide `permissionsPolicy` in the options.
 
 ---
 
-## Validation Utilities
+## Troubleshooting
 
-```typescript
-import {
-  isValidCspDirective,
-  isUnsafeCspValue,
-  validateHstsOptions
-} from '@nextrush/helmet';
+**Cross-origin resources fail to load** — The default `Cross-Origin-Embedder-Policy: require-corp` blocks resources without CORP headers. Set `crossOriginEmbedderPolicy: false` or `'credentialless'` if loading third-party resources.
 
-// Check CSP directive
-isValidCspDirective('scriptSrc');  // true
+**CORS requests blocked after adding Helmet** — `Cross-Origin-Resource-Policy: same-origin` blocks cross-origin resource sharing. Set `crossOriginResourcePolicy: 'cross-origin'` for public resources.
 
-// Check unsafe values
-isUnsafeCspValue("'unsafe-inline'");  // true
-
-// Validate HSTS
-validateHstsOptions({ maxAge: 31536000 });
-```
-
----
-
-## TypeScript
-
-Full type support:
-
-```typescript
-import type {
-  HelmetOptions,
-  ContentSecurityPolicyDirectives,
-  StrictTransportSecurityOptions
-} from '@nextrush/helmet';
-import { helmet } from '@nextrush/helmet';
-
-const options: HelmetOptions = {
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-    },
-  },
-};
-
-app.use(helmet(options));
-```
+**Inline scripts blocked by CSP** — Default CSP does not allow `'unsafe-inline'` for scripts. Use nonces or add the source to `'script-src'`.
 
 ---
 

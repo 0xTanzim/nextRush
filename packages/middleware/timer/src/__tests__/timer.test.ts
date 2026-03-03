@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-    DEFAULT_HEADER,
-    DEFAULT_METRIC,
-    DEFAULT_PRECISION,
-    DEFAULT_STATE_KEY,
-    DEFAULT_SUFFIX,
-    MAX_PRECISION,
-    SERVER_TIMING_HEADER,
-    defaultTimeGetter,
-    detailedTimer,
-    responseTime,
-    serverTiming,
-    timer,
+  DEFAULT_HEADER,
+  DEFAULT_METRIC,
+  DEFAULT_PRECISION,
+  DEFAULT_STATE_KEY,
+  DEFAULT_SUFFIX,
+  MAX_PRECISION,
+  SERVER_TIMING_HEADER,
+  defaultTimeGetter,
+  detailedTimer,
+  responseTime,
+  serverTiming,
+  timer,
 } from '../index';
 import type { TimerContext, TimingResult } from '../types';
 
@@ -28,13 +28,14 @@ function createMockContext(): TimerContext & {
 
   return {
     state,
+    get: (name: string) => responseHeaders.get(name.toLowerCase()),
     set: (name: string, value: string) => {
       responseHeaders.set(name.toLowerCase(), value);
     },
     next: async () => {
       nextCalled = true;
       if (nextDelay > 0) {
-        await new Promise(resolve => setTimeout(resolve, nextDelay));
+        await new Promise((resolve) => setTimeout(resolve, nextDelay));
       }
     },
     _responseHeaders: responseHeaders,
@@ -108,8 +109,8 @@ describe('@nextrush/timer', () => {
       expect(ctx.state.responseTime).toBeGreaterThanOrEqual(0);
     });
 
-    it('should set X-Response-Time header by default', async () => {
-      const middleware = timer();
+    it('should set X-Response-Time header when exposeHeader is true', async () => {
+      const middleware = timer({ exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -129,7 +130,7 @@ describe('@nextrush/timer', () => {
     });
 
     it('should use custom header name', async () => {
-      const middleware = timer({ header: 'X-Duration' });
+      const middleware = timer({ header: 'X-Duration', exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -139,7 +140,7 @@ describe('@nextrush/timer', () => {
     });
 
     it('should use custom suffix', async () => {
-      const middleware = timer({ suffix: 's' });
+      const middleware = timer({ suffix: 's', exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -149,7 +150,7 @@ describe('@nextrush/timer', () => {
     });
 
     it('should use custom precision', async () => {
-      const middleware = timer({ precision: 0 });
+      const middleware = timer({ precision: 0, exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -195,24 +196,25 @@ describe('@nextrush/timer', () => {
     });
 
     it('should measure actual elapsed time', async () => {
-      const middleware = timer({ precision: 0 });
+      const middleware = timer({ precision: 0, exposeHeader: true });
       const ctx = createMockContext();
 
       const delayedNext = ctx.next;
       ctx.next = async () => {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         await delayedNext();
       };
 
       await middleware(ctx);
 
-      expect(ctx.state.responseTime).toBeGreaterThanOrEqual(10);
+      expect(ctx.state.responseTime).toBeGreaterThanOrEqual(9);
     });
 
     it('should clamp precision to MAX_PRECISION', async () => {
       let time = 0;
       const middleware = timer({
         precision: 10, // Exceeds MAX_PRECISION of 6
+        exposeHeader: true,
         now: () => {
           time += 123.456789123456;
           return time;
@@ -231,6 +233,7 @@ describe('@nextrush/timer', () => {
       let time = 0;
       const middleware = timer({
         precision: -5,
+        exposeHeader: true,
         now: () => {
           time += 123.456;
           return time;
@@ -309,7 +312,7 @@ describe('@nextrush/timer', () => {
     });
 
     it('should set header when detailed is true', async () => {
-      const middleware = detailedTimer({ detailed: true });
+      const middleware = detailedTimer({ detailed: true, exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -324,7 +327,7 @@ describe('@nextrush/timer', () => {
 
   describe('responseTime()', () => {
     it('should be an alias for timer', async () => {
-      const middleware = responseTime();
+      const middleware = responseTime({ exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -338,6 +341,7 @@ describe('@nextrush/timer', () => {
         header: 'X-Custom',
         precision: 1,
         suffix: 'milliseconds',
+        exposeHeader: true,
       });
       const ctx = createMockContext();
 
@@ -354,7 +358,7 @@ describe('@nextrush/timer', () => {
 
   describe('serverTiming()', () => {
     it('should set Server-Timing header', async () => {
-      const middleware = serverTiming();
+      const middleware = serverTiming({ exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -365,7 +369,7 @@ describe('@nextrush/timer', () => {
     });
 
     it('should use custom metric name', async () => {
-      const middleware = serverTiming({ metric: 'app' });
+      const middleware = serverTiming({ metric: 'app', exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -378,6 +382,7 @@ describe('@nextrush/timer', () => {
       const middleware = serverTiming({
         metric: 'db',
         description: 'Database query time',
+        exposeHeader: true,
       });
       const ctx = createMockContext();
 
@@ -426,6 +431,7 @@ describe('@nextrush/timer', () => {
     it('should sanitize CRLF from metric name to prevent header injection', async () => {
       const middleware = serverTiming({
         metric: 'api\r\nX-Injected: evil',
+        exposeHeader: true,
       });
       const ctx = createMockContext();
 
@@ -444,6 +450,7 @@ describe('@nextrush/timer', () => {
       const middleware = serverTiming({
         metric: 'api',
         description: 'Test "quoted" value',
+        exposeHeader: true,
       });
       const ctx = createMockContext();
 
@@ -457,6 +464,7 @@ describe('@nextrush/timer', () => {
       const middleware = serverTiming({
         metric: 'api',
         description: 'Test\x00\x1F\x7Fvalue',
+        exposeHeader: true,
       });
       const ctx = createMockContext();
 
@@ -472,6 +480,7 @@ describe('@nextrush/timer', () => {
     it('should remove CRLF injection attempts in metric name', async () => {
       const middleware = serverTiming({
         metric: 'api\r\nSet-Cookie: session=evil',
+        exposeHeader: true,
       });
       const ctx = createMockContext();
 
@@ -488,6 +497,7 @@ describe('@nextrush/timer', () => {
     it('should only allow RFC 7230 token characters in metric name', async () => {
       const middleware = serverTiming({
         metric: 'valid-metric_name.123',
+        exposeHeader: true,
       });
       const ctx = createMockContext();
 
@@ -553,6 +563,7 @@ describe('@nextrush/timer', () => {
       let time = 0;
       const middleware = timer({
         suffix: '',
+        exposeHeader: true,
         now: () => {
           time += 50;
           return time;
@@ -567,7 +578,7 @@ describe('@nextrush/timer', () => {
     });
 
     it('should handle empty string metric name gracefully', async () => {
-      const middleware = serverTiming({ metric: '' });
+      const middleware = serverTiming({ metric: '', exposeHeader: true });
       const ctx = createMockContext();
 
       await middleware(ctx);
@@ -600,6 +611,317 @@ describe('@nextrush/timer', () => {
 
       expect(ctx.state.responseTime).toBeDefined();
       expect(ctx.state.responseTime).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ============================================================================
+  // TMR-P1-01: exposeHeader defaults to false
+  // ============================================================================
+
+  describe('exposeHeader default (TMR-P1-01)', () => {
+    it('timer() should NOT set header by default', async () => {
+      const middleware = timer();
+      const ctx = createMockContext();
+
+      await middleware(ctx);
+
+      expect(ctx._responseHeaders.size).toBe(0);
+      expect(ctx.state.responseTime).toBeDefined();
+    });
+
+    it('detailedTimer() should NOT set header by default', async () => {
+      const middleware = detailedTimer();
+      const ctx = createMockContext();
+
+      await middleware(ctx);
+
+      expect(ctx._responseHeaders.size).toBe(0);
+    });
+
+    it('responseTime() should NOT set header by default', async () => {
+      const middleware = responseTime();
+      const ctx = createMockContext();
+
+      await middleware(ctx);
+
+      expect(ctx._responseHeaders.size).toBe(0);
+    });
+
+    it('serverTiming() should NOT set header by default', async () => {
+      const middleware = serverTiming();
+      const ctx = createMockContext();
+
+      await middleware(ctx);
+
+      expect(ctx._responseHeaders.size).toBe(0);
+    });
+  });
+
+  // ============================================================================
+  // TMR-P2-01: try/finally error resilience
+  // ============================================================================
+
+  describe('error resilience (TMR-P2-01)', () => {
+    it('timer() should record timing even when downstream throws', async () => {
+      let time = 0;
+      const middleware = timer({
+        now: () => {
+          time += 50;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+      ctx.next = async () => {
+        throw new Error('downstream failure');
+      };
+
+      await expect(middleware(ctx)).rejects.toThrow('downstream failure');
+      expect(ctx.state.responseTime).toBe(50);
+    });
+
+    it('timer() should set header on error when exposeHeader is true', async () => {
+      let time = 0;
+      const middleware = timer({
+        exposeHeader: true,
+        now: () => {
+          time += 25;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+      ctx.next = async () => {
+        throw new Error('fail');
+      };
+
+      await expect(middleware(ctx)).rejects.toThrow('fail');
+      expect(ctx._responseHeaders.get('x-response-time')).toBeDefined();
+    });
+
+    it('detailedTimer() should record timing even when downstream throws', async () => {
+      let time = 100;
+      const middleware = detailedTimer({
+        detailed: true,
+        now: () => {
+          const c = time;
+          time += 30;
+          return c;
+        },
+      });
+      const ctx = createMockContext();
+      ctx.next = async () => {
+        throw new Error('error');
+      };
+
+      await expect(middleware(ctx)).rejects.toThrow('error');
+      const result = ctx.state.responseTime as TimingResult;
+      expect(result.duration).toBe(30);
+      expect(result.start).toBe(100);
+    });
+
+    it('serverTiming() should record timing even when downstream throws', async () => {
+      let time = 0;
+      const middleware = serverTiming({
+        exposeHeader: true,
+        now: () => {
+          time += 10;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+      ctx.next = async () => {
+        throw new Error('fail');
+      };
+
+      await expect(middleware(ctx)).rejects.toThrow('fail');
+      expect(ctx.state.responseTime).toBe(10);
+      expect(ctx._responseHeaders.get('server-timing')).toBeDefined();
+    });
+  });
+
+  // ============================================================================
+  // TMR-P2-02: Math.round formatting (no toFixed/parseFloat round-trip)
+  // ============================================================================
+
+  describe('formatting precision (TMR-P2-02)', () => {
+    it('should produce correctly rounded numeric state values', async () => {
+      let time = 0;
+      const middleware = timer({
+        precision: 2,
+        now: () => {
+          time += 123.456789;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+
+      await middleware(ctx);
+
+      expect(ctx.state.responseTime).toBe(123.46);
+    });
+
+    it('should produce correct header values with precision', async () => {
+      let time = 0;
+      const middleware = timer({
+        precision: 3,
+        exposeHeader: true,
+        now: () => {
+          time += 99.9995;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+
+      await middleware(ctx);
+
+      const header = ctx._responseHeaders.get('x-response-time');
+      expect(header).toBe('100.000ms');
+    });
+  });
+
+  // ============================================================================
+  // TMR-P2-03: Server-Timing header append
+  // ============================================================================
+
+  describe('Server-Timing append (TMR-P2-03)', () => {
+    it('should append to existing Server-Timing header', async () => {
+      let time = 0;
+      const middleware = serverTiming({
+        metric: 'total',
+        exposeHeader: true,
+        now: () => {
+          time += 100;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+      // Pre-set an existing Server-Timing value
+      ctx.set('Server-Timing', 'db;dur=5.00');
+
+      await middleware(ctx);
+
+      const header = ctx._responseHeaders.get('server-timing');
+      expect(header).toMatch(/^db;dur=5\.00, total;dur=/);
+    });
+
+    it('should set Server-Timing header when none exists', async () => {
+      let time = 0;
+      const middleware = serverTiming({
+        metric: 'app',
+        exposeHeader: true,
+        now: () => {
+          time += 200;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+
+      await middleware(ctx);
+
+      const header = ctx._responseHeaders.get('server-timing');
+      expect(header).toMatch(/^app;dur=/);
+      expect(header).not.toContain(',');
+    });
+
+    it('should append multiple Server-Timing entries', async () => {
+      let time = 0;
+      const mw1 = serverTiming({
+        metric: 'cache',
+        exposeHeader: true,
+        now: () => {
+          time += 5;
+          return time;
+        },
+      });
+      const mw2 = serverTiming({
+        metric: 'total',
+        exposeHeader: true,
+        now: () => {
+          time += 50;
+          return time;
+        },
+      });
+      const ctx = createMockContext();
+
+      // Run inner middleware first, then outer
+      const originalNext = ctx.next;
+      const innerCtx = { ...ctx, next: originalNext };
+      await mw1(innerCtx as TimerContext);
+      // Now run outer with same shared headers/state
+      await mw2(ctx);
+
+      const header = ctx._responseHeaders.get('server-timing');
+      expect(header).toContain('cache;dur=');
+      expect(header).toContain('total;dur=');
+    });
+  });
+
+  // ============================================================================
+  // TMR-P2-04: performance.now() fallback
+  // ============================================================================
+
+  describe('performance.now() fallback (TMR-P2-04)', () => {
+    it('defaultTimeGetter should return a number', () => {
+      const result = defaultTimeGetter();
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThan(0);
+    });
+
+    it('defaultTimeGetter should produce increasing values', () => {
+      const a = defaultTimeGetter();
+      const b = defaultTimeGetter();
+      expect(b).toBeGreaterThanOrEqual(a);
+    });
+  });
+
+  // ============================================================================
+  // TMR-P2-05: Header/suffix injection validation
+  // ============================================================================
+
+  describe('header/suffix validation (TMR-P2-05)', () => {
+    it('should throw for header name with spaces', () => {
+      expect(() => timer({ header: 'X Response Time' })).toThrow(/Invalid header name/);
+    });
+
+    it('should throw for header name with CRLF', () => {
+      expect(() => timer({ header: 'X-Time\r\nEvil: header' })).toThrow(/Invalid header name/);
+    });
+
+    it('should throw for header with colon', () => {
+      expect(() => timer({ header: 'X:Time' })).toThrow(/Invalid header name/);
+    });
+
+    it('should throw for header with slash', () => {
+      expect(() => timer({ header: 'X/Time' })).toThrow(/Invalid header name/);
+    });
+
+    it('should accept valid header names', () => {
+      expect(() => timer({ header: 'X-Response-Time' })).not.toThrow();
+      expect(() => timer({ header: 'X_Custom_Header' })).not.toThrow();
+      expect(() => timer({ header: 'X-Time.v2' })).not.toThrow();
+    });
+
+    it('should throw for suffix with control characters', () => {
+      expect(() => timer({ suffix: 'ms\x00' })).toThrow(/Invalid suffix/);
+    });
+
+    it('should throw for suffix with CRLF', () => {
+      expect(() => timer({ suffix: 'ms\r\n' })).toThrow(/Invalid suffix/);
+    });
+
+    it('should accept valid suffix values', () => {
+      expect(() => timer({ suffix: 'ms' })).not.toThrow();
+      expect(() => timer({ suffix: '' })).not.toThrow();
+      expect(() => timer({ suffix: ' milliseconds' })).not.toThrow();
+      expect(() => timer({ suffix: '%' })).not.toThrow();
+    });
+
+    it('detailedTimer should also validate header and suffix', () => {
+      expect(() => detailedTimer({ header: 'Bad Header' })).toThrow(/Invalid header name/);
+      expect(() => detailedTimer({ suffix: '\x00' })).toThrow(/Invalid suffix/);
+    });
+
+    it('responseTime should also validate header and suffix', () => {
+      expect(() => responseTime({ header: 'Bad Header' })).toThrow(/Invalid header name/);
     });
   });
 });

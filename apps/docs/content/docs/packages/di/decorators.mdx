@@ -1,6 +1,6 @@
 ---
-title: "@nextrush/decorators"
-description: "Controller, route, parameter, and guard decorators for structured APIs."
+title: '@nextrush/decorators'
+description: 'Controller, route, parameter, and guard decorators for structured APIs.'
 ---
 
 # @nextrush/decorators
@@ -13,12 +13,17 @@ This package provides decorators for defining controllers, routes, parameters, a
 
 ## Installation
 
-```bash tab="npm"
-npm install @nextrush/decorators reflect-metadata
-```
+<PackageInstall packages={['@nextrush/decorators', 'reflect-metadata']} />
 
-```bash tab="pnpm"
-pnpm add @nextrush/decorators reflect-metadata
+**Required `tsconfig.json` settings:**
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
 ```
 
 ---
@@ -61,7 +66,9 @@ class UserController {}
 
 // With options
 @Controller({
-  prefix: '/api/v1/users',
+  path: '/api/v1/users',
+  version: 'v1',
+  tags: ['users'],
 })
 class VersionedUserController {}
 ```
@@ -75,31 +82,31 @@ Map methods to HTTP endpoints:
 ```typescript
 @Controller('/items')
 class ItemController {
-  @Get()           // GET /items
+  @Get() // GET /items
   list() {}
 
-  @Get('/:id')     // GET /items/:id
+  @Get('/:id') // GET /items/:id
   findOne() {}
 
-  @Post()          // POST /items
+  @Post() // POST /items
   create() {}
 
-  @Put('/:id')     // PUT /items/:id
+  @Put('/:id') // PUT /items/:id
   replace() {}
 
-  @Patch('/:id')   // PATCH /items/:id
+  @Patch('/:id') // PATCH /items/:id
   update() {}
 
-  @Delete('/:id')  // DELETE /items/:id
+  @Delete('/:id') // DELETE /items/:id
   remove() {}
 
-  @Head()          // HEAD /items
+  @Head() // HEAD /items
   head() {}
 
-  @Options()       // OPTIONS /items
+  @Options() // OPTIONS /items
   options() {}
 
-  @All('/hook')    // All methods on /items/hook
+  @All('/hook') // All methods on /items/hook
   webhook() {}
 }
 ```
@@ -234,14 +241,16 @@ import type { GuardFn, GuardContext } from '@nextrush/decorators';
 
 // Simple guard
 const AuthGuard: GuardFn = async (ctx) => {
-  return Boolean(ctx.headers['authorization']);
+  return Boolean(ctx.get('authorization'));
 };
 
 // Guard factory
-const RoleGuard = (roles: string[]): GuardFn => async (ctx) => {
-  const user = ctx.state.user as { role: string } | undefined;
-  return user ? roles.includes(user.role) : false;
-};
+const RoleGuard =
+  (roles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    return user ? roles.includes(user.role) : false;
+  };
 
 @UseGuard(AuthGuard)
 @UseGuard(RoleGuard(['admin']))
@@ -263,7 +272,7 @@ import { Service } from '@nextrush/di';
 @Service()
 class AuthGuard implements CanActivate {
   async canActivate(ctx: GuardContext): Promise<boolean> {
-    const token = ctx.headers['authorization'];
+    const token = ctx.get('authorization');
     if (!token) return false;
 
     const user = await verifyToken(token);
@@ -283,8 +292,8 @@ class ProtectedController {}
 Guards run in order: class guards first, then method guards.
 
 ```typescript
-@UseGuard(ClassGuard1)    // 1st
-@UseGuard(ClassGuard2)    // 2nd
+@UseGuard(ClassGuard1) // 1st
+@UseGuard(ClassGuard2) // 2nd
 @Controller('/example')
 class ExampleController {
   @UseGuard(MethodGuard1) // 3rd
@@ -300,15 +309,14 @@ Guards receive a lightweight context:
 
 ```typescript
 interface GuardContext {
-  method: string;
-  path: string;
-  params: Record<string, string>;
-  query: Record<string, string>;
-  body: unknown;
-  headers: Record<string, string>;
-  state: Record<string, unknown>;
+  readonly method: string;
+  readonly path: string;
+  readonly params: Record<string, string>;
+  readonly query: Record<string, string | string[] | undefined>;
+  readonly headers: Record<string, string | string[] | undefined>;
+  readonly body: unknown;
+  readonly state: Record<string, unknown>;
   get(name: string): string | undefined;
-  set(name: string, value: string): void;
 }
 ```
 
@@ -328,21 +336,21 @@ import {
 } from '@nextrush/decorators';
 
 // Check if class is a controller
-isController(UserController);  // true
+isController(UserController); // true
 
 // Get controller metadata
 const meta = getControllerMetadata(UserController);
-// { prefix: '/users' }
+// { path: '/users', version: undefined, middleware: undefined, tags: undefined }
 
-// Get route metadata
-const route = getRouteMetadata(UserController, 'findOne');
-// { method: 'get', path: '/:id' }
+// Get all routes for a controller
+const routes = getRouteMetadata(UserController);
+// [{ method: 'GET', path: '/', ... }, { method: 'GET', path: '/:id', ... }]
 
-// Get parameter metadata
+// Get parameter metadata for a specific method
 const params = getParamMetadata(UserController, 'findOne');
-// [{ source: 'param', property: 'id', index: 0 }]
+// [{ source: 'param', index: 0, name: 'id' }]
 
-// Get all guards for a method
+// Get all guards for a route (class + method guards)
 const guards = getAllGuards(UserController, 'findOne');
 ```
 
@@ -355,12 +363,25 @@ Full type support:
 ```typescript
 import type {
   ControllerMetadata,
+  ControllerOptions,
   RouteMetadata,
+  RouteOptions,
   ParamMetadata,
+  BodyOptions,
+  ParamOptions,
+  QueryOptions,
+  HeaderOptions,
   GuardFn,
   GuardContext,
+  GuardMetadata,
   CanActivate,
+  Guard,
+  Constructor,
   TransformFn,
+  ParamSource,
+  RouteMethods,
+  MiddlewareRef,
+  ControllerDefinition,
 } from '@nextrush/decorators';
 
 import {
@@ -370,12 +391,31 @@ import {
   Put,
   Patch,
   Delete,
+  Head,
+  Options,
+  All,
   Body,
   Param,
   Query,
   Header,
   Ctx,
+  Req,
+  Res,
   UseGuard,
+  isController,
+  getControllerMetadata,
+  getRouteMetadata,
+  getParamMetadata,
+  getAllParamMetadata,
+  getControllerDefinition,
+  buildFullPath,
+  getAllGuards,
+  getClassGuards,
+  getMethodGuards,
+  isGuardClass,
+  isValidHttpMethod,
+  isValidParamSource,
+  DECORATOR_METADATA_KEYS,
 } from '@nextrush/decorators';
 ```
 

@@ -13,9 +13,9 @@ Traditional Node.js frameworks split request and response:
 
 ```typescript title="Express Pattern"
 app.get('/users/:id', (req, res) => {
-  const id = req.params.id;     // From req
-  const query = req.query;      // From req
-  res.json({ id, query });      // To res
+  const id = req.params.id; // From req
+  const query = req.query; // From req
+  res.json({ id, query }); // To res
 });
 ```
 
@@ -23,7 +23,7 @@ When middleware needs to share data, you mutate `req`:
 
 ```typescript title="Express Middleware"
 app.use((req, res, next) => {
-  req.user = { id: 123 };  // Mutate req
+  req.user = { id: 123 }; // Mutate req
   next();
 });
 ```
@@ -36,9 +36,9 @@ NextRush combines everything into a single **Context** object:
 
 ```typescript title="NextRush Pattern"
 app.get('/users/:id', (ctx) => {
-  const id = ctx.params.id;     // Request data
-  const query = ctx.query;      // Request data
-  ctx.json({ id, query });      // Response method
+  const id = ctx.params.id; // Request data
+  const query = ctx.query; // Request data
+  ctx.json({ id, query }); // Response method
 });
 ```
 
@@ -92,7 +92,7 @@ Think of Context as a **request envelope** that travels through your middleware 
 The HTTP method of the request.
 
 ```typescript
-ctx.method; // 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'
+ctx.method; // 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | ...
 ```
 
 ### `ctx.path`
@@ -120,7 +120,7 @@ Route parameters extracted by the router.
 ```typescript
 // Route: /users/:id
 // Request: GET /users/123
-ctx.params;    // { id: '123' }
+ctx.params; // { id: '123' }
 ctx.params.id; // '123'
 ```
 
@@ -130,17 +130,18 @@ Parsed query string parameters.
 
 ```typescript
 // Request: GET /users?page=2&limit=10
-ctx.query;      // { page: '2', limit: '10' }
+ctx.query; // { page: '2', limit: '10' }
 ctx.query.page; // '2'
 ```
 
 ### `ctx.headers`
 
-Request headers (case-insensitive access).
+Request headers as a read-only object. In Node.js, header keys are lowercased.
+Use `ctx.get()` for case-insensitive lookup across all runtimes.
 
 ```typescript
 ctx.headers['content-type']; // 'application/json'
-ctx.headers.authorization;   // 'Bearer xxx'
+ctx.headers['authorization']; // 'Bearer xxx'
 ```
 
 ### `ctx.body`
@@ -158,7 +159,8 @@ app.post('/users', (ctx) => {
 ```
 
 <Callout type="warn" title="Body Requires Parser">
-  `ctx.body` is `undefined` until a body parser middleware runs. Always add a body parser before accessing `ctx.body`.
+  `ctx.body` is `undefined` until a body parser middleware runs. Always add a body parser before
+  accessing `ctx.body`.
 </Callout>
 
 ### `ctx.ip`
@@ -176,9 +178,9 @@ When `proxy: true` is set in app options, this respects `X-Forwarded-For`.
 Get a request header value (case-insensitive).
 
 ```typescript
-ctx.get('Content-Type');  // 'application/json'
+ctx.get('Content-Type'); // 'application/json'
 ctx.get('Authorization'); // 'Bearer xxx'
-ctx.get('x-request-id');  // 'abc-123'
+ctx.get('x-request-id'); // 'abc-123'
 ```
 
 ## Response Methods
@@ -193,18 +195,19 @@ ctx.json({ error: 'Not found' });
 ```
 
 **Behavior:**
-- Sets `Content-Type: application/json`
+
+- Sets `Content-Type: application/json; charset=utf-8`
 - Serializes data with `JSON.stringify()`
-- Sets status to 200 if not already set
+- Uses current `ctx.status` (defaults to 200)
 
 ### `ctx.send(data)`
 
-Send a response body (text, buffer, or stream).
+Send a response body. Handles strings, `Buffer`, `Uint8Array`, `ArrayBuffer`, Node.js streams, Web `ReadableStream`, objects (delegates to `json()`), and `null`.
 
 ```typescript
-ctx.send('Hello World');              // text/plain
-ctx.send(Buffer.from([0x48, 0x69]));  // application/octet-stream
-ctx.send(readableStream);             // pipes stream
+ctx.send('Hello World'); // text/plain
+ctx.send(Buffer.from([0x48, 0x69])); // application/octet-stream
+ctx.send(readableStream); // pipes stream
 ```
 
 ### `ctx.html(content)`
@@ -222,27 +225,29 @@ Sets `Content-Type: text/html; charset=utf-8`.
 Redirect to another URL.
 
 ```typescript
-ctx.redirect('/login');           // 302 Found
-ctx.redirect('/new-page', 301);   // 301 Moved Permanently
+ctx.redirect('/login'); // 302 Found
+ctx.redirect('/new-page', 301); // 301 Moved Permanently
 ctx.redirect('https://example.com');
 ```
 
-### `ctx.set(header, value)`
+### `ctx.set(field, value)`
 
-Set a response header.
+Set a response header. Accepts `string`, `number`, or `string[]` for multi-value headers.
 
 ```typescript
 ctx.set('X-Request-Id', 'abc-123');
 ctx.set('Cache-Control', 'no-store');
+ctx.set('Content-Length', 1024);
+ctx.set('Set-Cookie', ['a=1; Path=/', 'b=2; Path=/']);
 ```
 
 ### `ctx.status`
 
-Get or set the response status code.
+Get or set the response status code. Defaults to `200`.
 
 ```typescript
-ctx.status = 201;        // Set status
-console.log(ctx.status); // Get status
+ctx.status = 201; // Set status
+console.log(ctx.status); // Get status (200 if not set)
 ```
 
 ## Error Helpers
@@ -252,7 +257,7 @@ console.log(ctx.status); // Get status
 Throw an HTTP error that stops the pipeline.
 
 ```typescript
-ctx.throw(404);                   // Not Found
+ctx.throw(404); // Not Found
 ctx.throw(404, 'User not found'); // With custom message
 ctx.throw(401, 'Invalid token');
 ```
@@ -281,25 +286,26 @@ Call the next middleware in the chain.
 ```typescript
 app.use(async (ctx) => {
   console.log('Before');
-  await ctx.next();       // Call next middleware
+  await ctx.next(); // Call next middleware
   console.log('After');
 });
 ```
 
-<Callout type="tip" title="Two Syntaxes">
+<Callout type="info" title="Two Syntaxes">
   Both syntaxes work identically:
 
-  ```typescript
-  // Modern: ctx.next()
-  app.use(async (ctx) => {
-    await ctx.next();
-  });
+```typescript
+// Modern: ctx.next()
+app.use(async (ctx) => {
+  await ctx.next();
+});
 
-  // Koa-style: next parameter
-  app.use(async (ctx, next) => {
-    await next();
-  });
-  ```
+// Koa-style: next parameter
+app.use(async (ctx, next) => {
+  await next();
+});
+```
+
 </Callout>
 
 ### `ctx.state`
@@ -330,15 +336,16 @@ Access platform-specific request/response objects.
 
 ```typescript
 // Node.js
-ctx.raw.req;  // http.IncomingMessage
-ctx.raw.res;  // http.ServerResponse
+ctx.raw.req; // http.IncomingMessage
+ctx.raw.res; // http.ServerResponse
 
 // Bun/Deno/Edge
-ctx.raw.req;  // Web Request object
+ctx.raw.req; // Web Request object
 ```
 
 <Callout type="warn" title="Escape Hatch">
-  Use `ctx.raw` only when you need platform-specific features. Prefer NextRush's cross-platform API for compatibility.
+  Use `ctx.raw` only when you need platform-specific features. Prefer NextRush's cross-platform API
+  for compatibility.
 </Callout>
 
 ### `ctx.runtime`
@@ -346,12 +353,49 @@ ctx.raw.req;  // Web Request object
 Detect the current runtime.
 
 ```typescript
-ctx.runtime; // 'node' | 'bun' | 'deno' | 'edge'
+ctx.runtime;
+// 'node' | 'bun' | 'deno' | 'deno-deploy'
+// | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown'
 
-if (ctx.runtime === 'edge') {
-  // Edge-specific logic
+if (ctx.runtime === 'bun') {
+  // Bun-specific optimization
 }
 ```
+
+### `ctx.responded`
+
+Whether a response has already been sent. Useful in middleware that runs after downstream handlers.
+
+```typescript
+app.use(async (ctx) => {
+  await ctx.next();
+  if (!ctx.responded) {
+    ctx.status = 404;
+    ctx.json({ error: 'Not found' });
+  }
+});
+```
+
+### `ctx.bodySource`
+
+Low-level body source for reading raw request data. Most applications use `ctx.body` (set by body-parser middleware) instead. Useful when building custom body parsers.
+
+```typescript
+// In a custom body parser
+const text = await ctx.bodySource.text();
+const data = JSON.parse(text);
+```
+
+## What Happens Automatically
+
+Context handles several things without configuration:
+
+- **Status defaults to 200** — set `ctx.status` before calling a response method to override
+- **Content-Type detection** — `json()` sets `application/json`, `html()` sets `text/html`, `send()` infers from data type
+- **Content-Length** — set automatically for string, buffer, and JSON responses
+- **HEAD request handling** — response methods suppress the body for `HEAD` requests, `204`, and `304` status codes
+- **Query parsing** — `ctx.query` is parsed from the URL automatically
+- **Body is undefined by default** — requires body-parser middleware to populate
 
 ## Common Patterns
 
@@ -405,7 +449,7 @@ app.use(async (ctx) => {
 ```typescript
 // ❌ Wrong: Response may be sent before downstream completes
 app.use(async (ctx) => {
-  ctx.next();  // Missing await!
+  ctx.next(); // Missing await!
   ctx.set('X-After', 'value');
 });
 
@@ -422,7 +466,7 @@ app.use(async (ctx) => {
 // ❌ Wrong: Two responses
 app.use((ctx) => {
   ctx.json({ step: 1 });
-  ctx.json({ step: 2 });  // Error or ignored
+  ctx.json({ step: 2 }); // Error or ignored
 });
 
 // ✅ Correct: One response
@@ -436,14 +480,14 @@ app.use((ctx) => {
 ```typescript
 // ❌ Wrong: body is undefined
 app.post('/users', (ctx) => {
-  console.log(ctx.body);  // undefined!
+  console.log(ctx.body); // undefined!
 });
 
 // ✅ Correct: Add body parser first
 import { json } from '@nextrush/body-parser';
 app.use(json());
 app.post('/users', (ctx) => {
-  console.log(ctx.body);  // { name: 'Alice', ... }
+  console.log(ctx.body); // { name: 'Alice', ... }
 });
 ```
 
@@ -465,29 +509,82 @@ interface AppState extends ContextState {
 }
 ```
 
-## API Reference
+## Quick Reference
 
-| Property/Method | Type | Description |
-|-----------------|------|-------------|
-| `ctx.method` | `string` | HTTP method |
-| `ctx.path` | `string` | Request path |
-| `ctx.url` | `string` | Full URL with query |
-| `ctx.params` | `Record<string, string>` | Route parameters |
-| `ctx.query` | `Record<string, string>` | Query parameters |
-| `ctx.headers` | `Record<string, string>` | Request headers |
-| `ctx.body` | `unknown` | Parsed request body |
-| `ctx.ip` | `string` | Client IP address |
-| `ctx.status` | `number` | Response status code |
-| `ctx.state` | `Record<string, unknown>` | Shared state |
-| `ctx.get(name)` | `string \| undefined` | Get request header |
-| `ctx.set(name, value)` | `void` | Set response header |
-| `ctx.json(data)` | `void` | Send JSON response |
-| `ctx.send(data)` | `void` | Send text/buffer/stream |
-| `ctx.html(content)` | `void` | Send HTML response |
-| `ctx.redirect(url, status?)` | `void` | Redirect |
-| `ctx.throw(status, message?)` | `never` | Throw HTTP error |
-| `ctx.assert(condition, status, message?)` | `void` | Assert or throw |
-| `ctx.next()` | `Promise<void>` | Call next middleware |
+<TypeTable
+  title="Request Properties (read-only)"
+  types={{
+    method: {
+      type: 'HttpMethod',
+      description: 'HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, TRACE, CONNECT)',
+    },
+    url: { type: 'string', description: 'Full URL including query string' },
+    path: { type: 'string', description: 'Request path without query string' },
+    query: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Parsed query string parameters',
+    },
+    headers: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Request headers',
+    },
+    ip: { type: 'string', description: 'Client IP address' },
+    runtime: { type: 'Runtime', description: 'Current JavaScript runtime' },
+    raw: { type: 'RawHttp', description: 'Platform-specific request/response objects' },
+    bodySource: { type: 'BodySource', description: 'Low-level body source for custom parsers' },
+    responded: { type: 'boolean', description: 'Whether a response has been sent' },
+  }}
+/>
+
+<TypeTable
+  title="Mutable Properties"
+  types={{
+    body: {
+      type: 'unknown',
+      description: 'Parsed request body (set by body-parser middleware)',
+      default: 'undefined',
+    },
+    params: { type: 'Record<string, string>', description: 'Route parameters (set by router)' },
+    status: { type: 'number', description: 'Response status code', default: '200' },
+    state: {
+      type: 'Record<string | symbol, unknown>',
+      description: 'Request-scoped state for middleware data sharing',
+    },
+  }}
+/>
+
+<TypeTable
+  title="Response Methods"
+  types={{
+    'json(data)': { type: '(data: unknown) => void', description: 'Send JSON response' },
+    'send(data)': {
+      type: '(data: ResponseBody) => void',
+      description: 'Send string, buffer, stream, or object response',
+    },
+    'html(content)': { type: '(content: string) => void', description: 'Send HTML response' },
+    'redirect(url, status?)': {
+      type: '(url: string, status?: number) => void',
+      description: 'Redirect (default 302)',
+    },
+    'set(field, value)': {
+      type: '(field: string, value: string | number | string[]) => void',
+      description: 'Set response header',
+    },
+    'get(field)': {
+      type: '(field: string) => string | undefined',
+      description: 'Get request header (case-insensitive)',
+    },
+    'throw(status, message?)': {
+      type: '(status: number, message?: string) => never',
+      description: 'Throw HTTP error',
+    },
+    'assert(condition, status, message?)': {
+      type: '(condition: unknown, status: number, message?: string) => asserts condition',
+      description: 'Assert or throw',
+    },
+    'next()': { type: '() => Promise<void>', description: 'Call next middleware' },
+  }}
+/>
 
 ## See Also
 

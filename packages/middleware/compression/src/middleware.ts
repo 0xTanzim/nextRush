@@ -7,24 +7,21 @@
  */
 
 import type { Context, Middleware } from '@nextrush/types';
+import { compress, detectCapabilities, isEncodingSupported } from './compressor.js';
 import {
-    compress,
-    detectCapabilities,
-    isEncodingSupported,
-} from './compressor.js';
-import {
-    DEFAULT_OPTIONS,
-    NO_BODY_METHODS,
-    NO_COMPRESS_STATUS_CODES,
-    VARY_HEADER,
+  DEFAULT_OPTIONS,
+  MAX_IN_MEMORY_SIZE,
+  NO_BODY_METHODS,
+  NO_COMPRESS_STATUS_CODES,
+  VARY_HEADER,
 } from './constants.js';
 import { isCompressible } from './content-type.js';
 import { selectEncoding } from './negotiation.js';
 import type {
-    CompressionInfo,
-    CompressionMiddleware as CompressionMiddlewareFn,
-    CompressionOptions,
-    ResolvedCompressionOptions,
+  CompressionInfo,
+  CompressionMiddleware as CompressionMiddlewareFn,
+  CompressionOptions,
+  ResolvedCompressionOptions,
 } from './types.js';
 
 // ============================================================================
@@ -106,10 +103,7 @@ function getResponseHeader(ctx: Context, name: string): string | undefined {
  * @param options - Resolved options
  * @returns Whether compression should be applied
  */
-function shouldCompressResponse(
-  ctx: Context,
-  options: ResolvedCompressionOptions
-): boolean {
+function shouldCompressResponse(ctx: Context, options: ResolvedCompressionOptions): boolean {
   // Skip methods without body
   if (NO_BODY_METHODS.includes(ctx.method)) {
     return false;
@@ -164,36 +158,9 @@ function getResponseBody(ctx: Context): string | Uint8Array | Buffer | object | 
 }
 
 /**
- * Get body size in bytes.
- */
-function getBodySize(body: unknown): number {
-  if (body === null || body === undefined) {
-    return 0;
-  }
-
-  if (typeof body === 'string') {
-    return new TextEncoder().encode(body).length;
-  }
-
-  if (body instanceof Uint8Array) {
-    return body.length;
-  }
-
-  if (Buffer.isBuffer(body)) {
-    return body.length;
-  }
-
-  if (typeof body === 'object') {
-    return new TextEncoder().encode(JSON.stringify(body)).length;
-  }
-
-  return 0;
-}
-
-/**
  * Convert body to Uint8Array for compression.
  */
-function bodyToUint8Array(body: unknown): Uint8Array {
+function bodyToBytes(body: unknown): Uint8Array {
   if (typeof body === 'string') {
     return new TextEncoder().encode(body);
   }
@@ -202,11 +169,7 @@ function bodyToUint8Array(body: unknown): Uint8Array {
     return body;
   }
 
-  if (Buffer.isBuffer(body)) {
-    return new Uint8Array(body);
-  }
-
-  if (typeof body === 'object') {
+  if (typeof body === 'object' && body !== null) {
     return new TextEncoder().encode(JSON.stringify(body));
   }
 
@@ -214,37 +177,26 @@ function bodyToUint8Array(body: unknown): Uint8Array {
 }
 
 /**
- * Add random padding for BREACH mitigation.
+ * Apply BREACH mitigation by adding a random-length padding header.
  *
- * BREACH attack exploits compression ratio to leak secrets.
- * Adding random-length padding prevents attackers from measuring compression ratios.
+ * BREACH attacks exploit compression ratio differences to extract secrets.
+ * A random-length header adds entropy without corrupting the response body.
  */
-function addBreachPadding(data: Uint8Array): Uint8Array {
-  // Add 0-255 random bytes of padding
-  const paddingLength = Math.floor(Math.random() * 256);
-  const padding = new Uint8Array(paddingLength);
-  crypto.getRandomValues(padding);
-
-  // Combine original data with padding
-  const result = new Uint8Array(data.length + paddingLength);
-  result.set(data);
-  result.set(padding, data.length);
-
-  return result;
+function applyBreachMitigation(ctx: Context): void {
+  const paddingLength = Math.floor(Math.random() * 256) + 1;
+  ctx.set('X-Pad', 'x'.repeat(paddingLength));
 }
 
 /**
  * Set compressed body on context.
  */
-function setCompressedBody(ctx: Context, data: Buffer): void {
-  // Try Node.js adapter style
+function setCompressedBody(ctx: Context, data: Uint8Array): void {
   const nodeCtx = ctx as NodeRawContext;
   if (nodeCtx.raw?.res) {
     nodeCtx.raw.res.body = data;
     return;
   }
 
-  // Try direct body assignment
   (ctx as BodyContext).body = data;
 }
 
@@ -320,21 +272,21 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
       return;
     }
 
+    // Convert body once — avoids double serialization for objects
+    const data = bodyToBytes(body);
+    const bodySize = data.length;
+
     // Check threshold
-    const bodySize = getBodySize(body);
     if (bodySize < opts.threshold) {
       return;
     }
 
+    // Skip compression for very large responses to avoid OOM
+    if (bodySize > MAX_IN_MEMORY_SIZE) {
+      return;
+    }
+
     try {
-      // Convert body to Uint8Array
-      let data = bodyToUint8Array(body);
-
-      // Apply BREACH mitigation if enabled
-      if (opts.breachMitigation) {
-        data = addBreachPadding(data);
-      }
-
       // Compress
       const result = await compress(data, encoding, { level: opts.level });
 
@@ -353,12 +305,16 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
         ctx.state.compression = result.info;
       }
 
+      // Apply BREACH mitigation if enabled (safe header-based padding)
+      if (opts.breachMitigation) {
+        applyBreachMitigation(ctx);
+      }
+
       // Set compressed body
-      const compressed = Buffer.from(result.data);
-      setCompressedBody(ctx, compressed);
-    } catch {
-      // Compression failed - send uncompressed response
-      // Don't throw error, just skip compression
+      setCompressedBody(ctx, result.data);
+    } catch (_: unknown) {
+      // Compression failed (encoding unavailable, stream error, memory limit).
+      // Graceful degradation: send the original uncompressed response.
     }
   };
 }

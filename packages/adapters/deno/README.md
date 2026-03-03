@@ -1,43 +1,22 @@
 # @nextrush/adapter-deno
 
-> Deno HTTP adapter for NextRush - Secure by default
-
-Connect your NextRush application to [Deno](https://deno.land) for a secure, modern JavaScript runtime with built-in TypeScript support.
-
-## Why Deno?
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│  Deno.serve()  →  NextRush Handler  →  Your Middleware/Routes  │
-└────────────────────────────────────────────────────────────────┘
-
-Deno Advantages:
-├── Secure by default (explicit permissions)
-├── Built-in TypeScript support
-├── Web standard APIs
-├── No node_modules
-└── Fast cold starts
-```
+Deno HTTP adapter for NextRush. Connects your NextRush application to Deno's native `Deno.serve()` API.
 
 ## Installation
 
 ```typescript
-// Import from URL (Deno style)
-import { createApp } from 'https://esm.sh/@nextrush/core';
-import { serve } from 'https://esm.sh/@nextrush/adapter-deno';
-
-// Or use import maps in deno.json
+import { createApp } from 'npm:@nextrush/core';
+import { serve } from 'npm:@nextrush/adapter-deno';
 ```
 
-### deno.json
+Or use import maps in `deno.json`:
 
 ```json
 {
   "imports": {
-    "@nextrush/core": "https://esm.sh/@nextrush/core@3.0.0",
-    "@nextrush/adapter-deno": "https://esm.sh/@nextrush/adapter-deno@3.0.0",
-    "@nextrush/router": "https://esm.sh/@nextrush/router@3.0.0",
-    "@nextrush/body-parser": "https://esm.sh/@nextrush/body-parser@3.0.0"
+    "@nextrush/core": "npm:@nextrush/core",
+    "@nextrush/adapter-deno": "npm:@nextrush/adapter-deno",
+    "@nextrush/router": "npm:@nextrush/router"
   }
 }
 ```
@@ -76,12 +55,13 @@ Start an HTTP server for your application.
 import { serve } from '@nextrush/adapter-deno';
 
 const server = serve(app, {
-  port: 3000,           // Default: 3000
-  hostname: '0.0.0.0',  // Default: '0.0.0.0'
+  port: 3000,            // Default: 3000
+  hostname: '0.0.0.0',   // Default: '0.0.0.0'
+  shutdownTimeout: 30000,// Default: 30000 (ms)
   onListen: ({ port, hostname }) => { ... },
   onError: (error) => { ... },
-  cert: certPem,        // Optional TLS certificate
-  key: keyPem,          // Optional TLS key
+  cert: certPem,         // Optional TLS certificate
+  key: keyPem,           // Optional TLS key
 });
 
 // Server control
@@ -127,17 +107,17 @@ The `DenoContext` provides the standard NextRush Context interface:
 ```typescript
 app.use(async (ctx) => {
   // Request (input)
-  ctx.method     // 'GET', 'POST', etc.
-  ctx.path       // '/users/123'
-  ctx.query      // { page: '1' }
-  ctx.params     // { id: '123' } (from router)
-  ctx.headers    // Request headers
-  ctx.body       // Parsed body (from body-parser)
-  ctx.ip         // Client IP
+  ctx.method; // 'GET', 'POST', etc.
+  ctx.path; // '/users/123'
+  ctx.query; // { page: '1' }
+  ctx.params; // { id: '123' } (from router)
+  ctx.headers; // Request headers
+  ctx.body; // Parsed body (from body-parser)
+  ctx.ip; // Client IP
 
   // Runtime info
-  ctx.runtime    // 'deno'
-  ctx.bodySource // BodySource for raw body access
+  ctx.runtime; // 'deno'
+  ctx.bodySource; // BodySource for raw body access
 
   // Response (output)
   ctx.status = 201;
@@ -154,7 +134,7 @@ app.use(async (ctx) => {
   await ctx.next();
 
   // Raw access (escape hatch)
-  ctx.raw.req // Web API Request object
+  ctx.raw.req; // Web API Request object (Deno)
 });
 ```
 
@@ -257,11 +237,11 @@ serve(app, {
 
 ## DX Consistency
 
-This adapter maintains **identical DX** with other NextRush adapters:
+All NextRush adapters share the same interface. Change the import to switch runtimes:
 
 ```typescript
-// Same code works with all adapters!
-// Just change the import:
+// Deno
+import { serve } from '@nextrush/adapter-deno';
 
 // Node.js
 import { serve } from '@nextrush/adapter-node';
@@ -269,19 +249,14 @@ import { serve } from '@nextrush/adapter-node';
 // Bun
 import { serve } from '@nextrush/adapter-bun';
 
-// Deno
-import { serve } from '@nextrush/adapter-deno';
-
-// The rest of your code stays the same
 serve(app, { port: 3000 });
 ```
 
 ## Deno Deploy
 
-Deploy to [Deno Deploy](https://deno.com/deploy) for global edge deployment:
+Use `createHandler` for [Deno Deploy](https://deno.com/deploy):
 
 ```typescript
-// main.ts
 import { createApp } from '@nextrush/core';
 import { createHandler } from '@nextrush/adapter-deno';
 
@@ -294,35 +269,28 @@ app.use(async (ctx) => {
   });
 });
 
-// Export handler for Deno Deploy
-export default {
-  fetch: createHandler(app),
-};
+Deno.serve(createHandler(app));
 ```
 
 ## Types
 
 ```typescript
-import type {
-  ServeOptions,
-  ServerInstance,
-  DenoContext,
-} from '@nextrush/adapter-deno';
+import type { ServeOptions, ServerInstance } from '@nextrush/adapter-deno';
+
+import { DenoContext } from '@nextrush/adapter-deno';
 ```
 
 ## Requirements
 
-- Deno >= 1.38.0
+- Deno >= 2.0
 - NextRush >= 3.0.0
 
 ## See Also
 
-- [`@nextrush/core`](../core) - Core framework
-- [`@nextrush/adapter-node`](../adapters/node) - Node.js adapter
-- [`@nextrush/adapter-bun`](../adapters/bun) - Bun adapter
-- [`@nextrush/adapter-edge`](../adapters/edge) - Edge runtime adapter
-- [Deno Documentation](https://deno.land/manual)
-- [Deno Deploy](https://deno.com/deploy)
+- [`@nextrush/core`](https://github.com/0xTanzim/nextrush/tree/main/packages/core) - Core framework
+- [`@nextrush/adapter-node`](https://github.com/0xTanzim/nextrush/tree/main/packages/adapters/node) - Node.js adapter
+- [`@nextrush/adapter-bun`](https://github.com/0xTanzim/nextrush/tree/main/packages/adapters/bun) - Bun adapter
+- [`@nextrush/adapter-edge`](https://github.com/0xTanzim/nextrush/tree/main/packages/adapters/edge) - Edge runtime adapter
 
 ## License
 

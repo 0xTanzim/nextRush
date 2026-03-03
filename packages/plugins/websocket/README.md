@@ -213,6 +213,7 @@ conn.leaveAll();
 ```
 
 **Room name validation:**
+
 - Must be a non-empty string
 - Maximum length: 256 characters
 - Connections have a default limit of 100 rooms (configurable via `maxRoomsPerConnection`)
@@ -261,20 +262,26 @@ wss.on('/chat/:room', (conn, request) => {
   const room = url.pathname.split('/').pop()!;
 
   conn.join(room);
-  conn.broadcast(room, JSON.stringify({
-    type: 'system',
-    message: 'A user joined the room',
-  }));
+  conn.broadcast(
+    room,
+    JSON.stringify({
+      type: 'system',
+      message: 'A user joined the room',
+    })
+  );
 
   conn.on('message', (msg) => {
     conn.broadcast(room, msg);
   });
 
   conn.on('close', () => {
-    conn.broadcast(room, JSON.stringify({
-      type: 'system',
-      message: 'A user left the room',
-    }));
+    conn.broadcast(
+      room,
+      JSON.stringify({
+        type: 'system',
+        message: 'A user left the room',
+      })
+    );
   });
 });
 ```
@@ -299,18 +306,13 @@ wss.closeAll(1001, 'Server shutdown');
 Full TypeScript support with exported types:
 
 ```typescript
-import type {
-  WSConnection,
-  WSHandler,
-  WSMiddleware,
-  WebSocketOptions,
-} from '@nextrush/websocket';
+import type { WSConnection, WSHandler, WSMiddleware, WebSocketOptions } from '@nextrush/websocket';
 
 // Constants
 import {
-  MAX_ROOM_NAME_LENGTH,        // 256
+  MAX_ROOM_NAME_LENGTH, // 256
   DEFAULT_MAX_ROOMS_PER_CONNECTION, // 100
-  WS_READY_STATE_OPEN,         // 1
+  WS_READY_STATE_OPEN, // 1
   DEFAULT_WS_OPTIONS,
 } from '@nextrush/websocket';
 
@@ -362,7 +364,7 @@ Dead connections are automatically detected and terminated:
 ```typescript
 const wss = createWebSocket({
   heartbeatInterval: 30000, // Ping every 30 seconds
-  clientTimeout: 60000,     // Terminate if no pong within 60 seconds
+  clientTimeout: 60000, // Terminate if no pong within 60 seconds
 });
 ```
 
@@ -377,12 +379,12 @@ const wss = createWebSocket({
 
 ## Runtime Compatibility
 
-| Runtime | Support | Notes |
-|---------|---------|-------|
-| Node.js 20+ | ✅ Full | Primary target, uses `ws` library |
-| Bun | ❌ | Use Bun's native WebSocket API |
-| Deno | ❌ | Use Deno's native WebSocket API |
-| Edge runtimes | ❌ | Use platform-specific WebSocket APIs |
+| Runtime       | Support | Notes                                |
+| ------------- | ------- | ------------------------------------ |
+| Node.js 22+   | ✅ Full | Primary target, uses `ws` library    |
+| Bun           | ❌      | Use Bun's native WebSocket API       |
+| Deno          | ❌      | Use Deno's native WebSocket API      |
+| Edge runtimes | ❌      | Use platform-specific WebSocket APIs |
 
 This package uses Node.js-specific APIs (`node:http`, `node:net`, `node:crypto`) and the `ws` library. For other runtimes, use their native WebSocket implementations.
 

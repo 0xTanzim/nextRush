@@ -5,30 +5,33 @@ description: Install NextRush and set up your development environment
 
 # Installation
 
-NextRush requires **Node.js 20** or later. It also works with Bun and Deno.
+NextRush requires **Node.js 22** or later. It also works with Bun and Deno.
 
 ## Prerequisites
 
 Before installing NextRush, ensure you have:
 
-- **Node.js 20+** — [Download](https://nodejs.org/) or use a version manager like [nvm](https://github.com/nvm-sh/nvm)
+- **Node.js 22+** — [Download](https://nodejs.org/) or use a version manager like [nvm](https://github.com/nvm-sh/nvm)
 - **A package manager** — pnpm (recommended), npm, yarn, or bun
 
-<Callout type="tip" title="Why Node.js 20?">
-  Node.js 20 brings native fetch, better ESM support, and performance improvements that NextRush relies on. Older versions may work but are not officially supported.
+<Callout type="info" title="Why Node.js 22?">
+  Node.js 22 is the current LTS release. NextRush targets ES2022 and relies on stable ESM support,
+  the built-in fetch API, and performance improvements available in v22+.
 </Callout>
 
 ## Install NextRush
 
 Choose your preferred package manager:
 
-<PackageInstall packages={["nextrush"]} />
+<PackageInstall packages={['nextrush']} />
 
-The `nextrush` package is a meta-package that includes the most common modules:
+The `nextrush` package is a meta-package that includes the essentials:
 
 - `@nextrush/core` — Application and middleware
 - `@nextrush/router` — HTTP routing
 - `@nextrush/adapter-node` — Node.js HTTP server adapter
+- `@nextrush/errors` — HTTP error classes
+- `@nextrush/types` — Shared TypeScript types
 
 ## Verify Installation
 
@@ -45,9 +48,7 @@ router.get('/', (ctx) => {
 });
 
 app.route('/', router);
-listen(app, 3000);
-
-console.log('Server running at http://localhost:3000');
+await listen(app, 3000);
 ```
 
 Run it:
@@ -70,12 +71,11 @@ NextRush is written in TypeScript and provides full type definitions. For the be
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true,
     "outDir": "dist"
   },
   "include": ["src"]
@@ -83,14 +83,16 @@ NextRush is written in TypeScript and provides full type definitions. For the be
 ```
 
 <Callout type="info" title="Decorators and DI">
-  If you plan to use class-based controllers with dependency injection, you'll need additional configuration. See the [Controllers guide](/docs/guides/controllers) for details.
+  If you use class-based controllers with `@nextrush/di`, add `"experimentalDecorators": true` and
+  `"emitDecoratorMetadata": true` to your `compilerOptions`. The `@nextrush/di` package includes
+  `reflect-metadata` as a direct dependency.
 </Callout>
 
 ## Installing Individual Packages
 
 For more control, install packages individually:
 
-<PackageInstall packages={["@nextrush/core", "@nextrush/router", "@nextrush/adapter-node"]} />
+<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-node']} />
 
 This is useful when:
 
@@ -104,21 +106,23 @@ NextRush provides many optional packages for common needs:
 
 ### Middleware
 
-<PackageInstall packages={["@nextrush/cors", "@nextrush/helmet", "@nextrush/body-parser"]} />
+<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
 
 ### Plugins
 
-<PackageInstall packages={["@nextrush/controllers", "@nextrush/logger", "@nextrush/static"]} />
+<PackageInstall packages={['@nextrush/controllers', '@nextrush/logger', '@nextrush/static']} />
 
 ### Runtime Adapters
 
-<PackageInstall packages={["@nextrush/adapter-bun", "@nextrush/adapter-deno", "@nextrush/adapter-edge"]} />
+<PackageInstall
+  packages={['@nextrush/adapter-bun', '@nextrush/adapter-deno', '@nextrush/adapter-edge']}
+/>
 
 ## Development Tools
 
 For a better development experience, install these tools:
 
-<PackageInstall packages={["tsx"]} dev={["typescript", "@types/node"]} />
+<PackageInstall packages={[]} dev={['tsx', 'typescript', '@types/node']} />
 
 - **tsx** — Run TypeScript directly without compilation
 - **typescript** — TypeScript compiler
@@ -141,8 +145,9 @@ my-api/
 └── tsconfig.json
 ```
 
-<Callout type="tip" title="No Prescribed Structure">
-  NextRush doesn't force a specific project structure. Organize your code in a way that makes sense for your team.
+<Callout type="info" title="No Prescribed Structure">
+  NextRush does not enforce a specific project structure. Organize your code in whatever way makes
+  sense for your team.
 </Callout>
 
 ## Next Steps

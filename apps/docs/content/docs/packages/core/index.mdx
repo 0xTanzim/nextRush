@@ -29,25 +29,26 @@ flowchart LR
     style nextrush fill:#8b5cf6,stroke:#7c3aed,color:#fff
     style dev fill:#ec4899,stroke:#db2777,color:#fff
     style app fill:#6366f1,stroke:#4f46e5,color:#fff
+
 `}/>
 
 ## Overview
 
-| Package | Purpose | Size |
-|---------|---------|------|
-| [`nextrush`](/docs/packages/core/nextrush) | Meta package with all essentials | Re-exports |
-| [`@nextrush/core`](/docs/packages/core/core) | Application, middleware composition | ~500 LOC |
-| [`@nextrush/router`](/docs/packages/core/router) | Radix tree routing | ~600 LOC |
-| [`@nextrush/types`](/docs/packages/core/types) | TypeScript type definitions | ~400 LOC |
-| [`@nextrush/errors`](/docs/packages/core/errors) | HTTP error classes | ~300 LOC |
-| [`@nextrush/runtime`](/docs/packages/core/runtime) | Runtime detection | ~400 LOC |
-| [`@nextrush/dev`](/docs/packages/core/dev) | Development server & build tools | ~800 LOC |
+| Package                                            | Purpose                             | Size       |
+| -------------------------------------------------- | ----------------------------------- | ---------- |
+| [`nextrush`](/docs/packages/core/nextrush)         | Meta package with all essentials    | Re-exports |
+| [`@nextrush/core`](/docs/packages/core/core)       | Application, middleware composition | ~500 LOC   |
+| [`@nextrush/router`](/docs/packages/core/router)   | Radix tree routing                  | ~600 LOC   |
+| [`@nextrush/types`](/docs/packages/core/types)     | TypeScript type definitions         | ~400 LOC   |
+| [`@nextrush/errors`](/docs/packages/core/errors)   | HTTP error classes                  | ~300 LOC   |
+| [`@nextrush/runtime`](/docs/packages/core/runtime) | Runtime detection                   | ~400 LOC   |
+| [`@nextrush/dev`](/docs/packages/core/dev)         | Development server & build tools    | ~800 LOC   |
 
 ## Quick Start
 
 For most Node.js projects, install the meta package:
 
-<PackageInstall packages={["nextrush"]} />
+<PackageInstall packages={['nextrush']} />
 
 This gives you everything you need to build APIs:
 
@@ -60,17 +61,18 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 
 app.route('/', router);
-listen(app, 3000);
+await listen(app, 3000);
 ```
 
 ## When to Install Directly
 
 **Direct installation** needed when:
+
 - Using Bun, Deno, or Edge runtimes (no Node adapter bundled)
 - Building custom tooling on top of NextRush
 - You want fine-grained control over dependencies
 
-<PackageInstall packages={["@nextrush/core", "@nextrush/router"]} />
+<PackageInstall packages={['@nextrush/core', '@nextrush/router']} />
 
 ## The Meta Package
 
@@ -97,7 +99,7 @@ npx nextrush dev
 npx nextrush build
 ```
 
-<PackageInstall packages={["@nextrush/dev"]} dev />
+<PackageInstall packages={['@nextrush/dev']} dev />
 
 ## The Types Package
 

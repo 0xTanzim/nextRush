@@ -1,15 +1,14 @@
 ---
-title: "Class-Based API"
-description: "Build a structured API with decorators, dependency injection, and controllers."
+title: 'Class-Based API'
+description: 'Build a structured API with decorators, dependency injection, and controllers.'
 ---
-
-import { Callout } from 'fumadocs-ui/components/callout';
 
 # Class-Based API Example
 
 The same REST API, built with decorators and dependency injection.
 
 This example demonstrates:
+
 - Controller decorators
 - Service injection
 - Repository pattern
@@ -55,7 +54,7 @@ npm install -D @nextrush/dev typescript @types/node
 ```
 
 <Callout type="warn">
-Both `experimentalDecorators` and `emitDecoratorMetadata` are required for DI to work.
+  Both `experimentalDecorators` and `emitDecoratorMetadata` are required for DI to work.
 </Callout>
 
 ---
@@ -135,7 +134,7 @@ export class UserRepository {
   }
 
   findByEmail(email: string): User | undefined {
-    return Array.from(this.users.values()).find(u => u.email === email);
+    return Array.from(this.users.values()).find((u) => u.email === email);
   }
 
   create(data: CreateUserDto): User {
@@ -302,7 +301,7 @@ export class UserController {
 ## Entry Point
 
 ```typescript title="src/index.ts"
-import 'reflect-metadata';  // MUST be first!
+import 'reflect-metadata'; // MUST be first!
 
 import { createApp, createRouter, listen } from 'nextrush';
 import { cors } from '@nextrush/cors';
@@ -317,41 +316,28 @@ async function main() {
   app.use(cors());
   app.use(json());
 
-  // Logging middleware
-  app.use(async (ctx, next) => {
-    const start = Date.now();
-    await next();
-    console.log(`${ctx.method} ${ctx.path} - ${ctx.status} (${Date.now() - start}ms)`);
-  });
-
   // Auto-discover all controllers in ./src
-  app.plugin(controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-    debug: true,
-  }));
+  await app.plugin(
+    controllersPlugin({
+      router,
+      root: './src',
+      prefix: '/api',
+      debug: true,
+    })
+  );
 
   // Mount router
-  app.route('/api', router);
+  app.route('/', router);
 
-  // 404 handler
-  app.use((ctx) => {
-    ctx.status = 404;
-    ctx.json({ error: 'Not Found' });
-  });
-
-  // Start
-  listen(app, 3000, () => {
-    console.log('Class-based API running at http://localhost:3000');
-  });
+  // Start server
+  await listen(app, 3000);
 }
 
-main().catch(console.error);
+main();
 ```
 
 <Callout type="warn">
-`import 'reflect-metadata'` MUST be the first import. This enables decorator metadata.
+  `import 'reflect-metadata'` MUST be the first import. This enables decorator metadata.
 </Callout>
 
 When the app starts, you'll see the auto-discovery output:
@@ -367,7 +353,7 @@ When the app starts, you'll see the auto-discovery output:
   PATCH   /api/users/:id
   DELETE  /api/users/:id
 [Controllers] Initialized with 6 routes
-Class-based API running at http://localhost:3000
+🚀 NextRush listening on http://localhost:3000
 ```
 
 No manual imports or controller arrays needed. Add a new controller file anywhere in `./src` with the `@Controller` decorator, and it's automatically discovered and registered.
@@ -395,13 +381,13 @@ Protect routes with guards:
 import type { GuardFn } from '@nextrush/decorators';
 
 export const AuthGuard: GuardFn = async (ctx) => {
-  const token = ctx.headers['authorization'];
+  const token = ctx.get('authorization');
 
   if (!token || !token.startsWith('Bearer ')) {
     return false;
   }
 
-  // Verify token (simplified)
+  // Verify token (simplified for this example)
   const payload = verifyToken(token.slice(7));
   if (!payload) {
     return false;
@@ -412,24 +398,28 @@ export const AuthGuard: GuardFn = async (ctx) => {
   return true;
 };
 
-function verifyToken(token: string) {
-  // Your JWT verification logic
-  return { id: '1', role: 'user' };
+function verifyToken(token: string): { id: string; role: string } | null {
+  // Replace with your JWT verification logic
+  if (token === 'valid-token') {
+    return { id: '1', role: 'user' };
+  }
+  return null;
 }
 ```
 
 ```typescript title="src/controllers/user.controller.ts"
-import { UseGuard } from '@nextrush/decorators';
+import { Controller, Get, UseGuard } from '@nextrush/decorators';
 import { AuthGuard } from '../guards/auth.guard';
+import { UserService } from '../services/user.service';
 
-@UseGuard(AuthGuard)  // Protect entire controller
+@UseGuard(AuthGuard) // Protect entire controller
 @Controller('/users')
 export class UserController {
-  // All routes now require authentication
+  constructor(private userService: UserService) {}
 
   @Get()
   findAll() {
-    // Only authenticated users reach here
+    return this.userService.findAll();
   }
 }
 ```
@@ -441,19 +431,25 @@ export class UserController {
 ```typescript title="src/guards/role.guard.ts"
 import type { GuardFn } from '@nextrush/decorators';
 
-export const RoleGuard = (allowedRoles: string[]): GuardFn => async (ctx) => {
-  const user = ctx.state.user as { role: string } | undefined;
+export const RoleGuard =
+  (allowedRoles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
 
-  if (!user) return false;
+    if (!user) return false;
 
-  return allowedRoles.includes(user.role);
-};
+    return allowedRoles.includes(user.role);
+  };
 ```
 
-```typescript
-@Controller('/admin')
+```typescript title="src/controllers/admin.controller.ts"
+import { Controller, Get, UseGuard } from '@nextrush/decorators';
+import { AuthGuard } from '../guards/auth.guard';
+import { RoleGuard } from '../guards/role.guard';
+
 @UseGuard(AuthGuard)
 @UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
 export class AdminController {
   @Get('/stats')
   getStats() {
@@ -466,7 +462,7 @@ export class AdminController {
 
 ## Testing
 
-Controllers and services are plain classes, easy to test:
+Controllers and services are plain classes — no framework coupling in tests:
 
 ```typescript title="src/services/user.service.test.ts"
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -508,14 +504,14 @@ describe('UserService', () => {
 
 ## Comparison: Functional vs Class-Based
 
-| Aspect | Functional | Class-Based |
-|--------|------------|-------------|
-| Lines of code | ~80 lines | ~200 lines |
-| Setup | Minimal | More boilerplate |
-| DI support | Manual | Automatic |
-| Testing | Mock functions | Inject mocks |
-| Type safety | Good | Excellent |
-| Scalability | Medium | High |
+| Aspect        | Functional     | Class-Based      |
+| ------------- | -------------- | ---------------- |
+| Lines of code | ~80 lines      | ~200 lines       |
+| Setup         | Minimal        | More boilerplate |
+| DI support    | Manual         | Automatic        |
+| Testing       | Mock functions | Inject mocks     |
+| Type safety   | Good           | Excellent        |
+| Scalability   | Medium         | High             |
 
 Choose functional for simplicity, class-based for structure.
 

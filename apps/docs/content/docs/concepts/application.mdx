@@ -5,29 +5,30 @@ description: The entry point and orchestrator of every NextRush application
 
 # Application
 
-The `Application` class is the heart of NextRush. It orchestrates middleware, plugins, error handling, and generates the request handler for adapters.
+The `Application` class is the central orchestrator of NextRush. It composes middleware, plugins, and error handling into a request handler that adapters use to serve HTTP traffic.
 
 ## The Problem
 
-Building a web server involves juggling multiple concerns:
+Building a web server requires coordinating multiple concerns:
 
 - Registering middleware in the correct order
-- Managing plugin lifecycles
-- Handling errors consistently
-- Adapting to different runtimes (Node.js, Bun, Deno, Edge)
+- Managing plugin lifecycles and shutdown cleanup
+- Handling errors consistently across all routes
+- Producing a request handler that works across runtimes (Node.js, Bun, Deno)
 
-Without a central orchestrator, you'd wire these together manually for every project.
+Without a central orchestrator, you wire these together manually for every project — and get it wrong in different ways each time.
 
-## How NextRush Approaches This
+## How NextRush Solves This
 
-The `Application` class provides a **single entry point** that:
+The Application class provides a single entry point that:
 
-1. **Manages middleware** — Registers and composes middleware in order
-2. **Installs plugins** — Provides a typed plugin system with lifecycle hooks
-3. **Handles errors** — Catches errors and provides configurable error handling
-4. **Generates callbacks** — Creates the request handler for adapters
+1. **Composes middleware** — registers and chains middleware in insertion order
+2. **Manages plugins** — typed plugin system with lifecycle hooks and shutdown cleanup
+3. **Centralizes error handling** — a configurable error handler wraps the entire pipeline
+4. **Produces a callback** — generates the request handler function that adapters need
 
-<Mermaid chart="
+<Mermaid
+  chart="
 flowchart TB
     subgraph Application
         MW[Middleware Stack] --> CB[callback]
@@ -40,79 +41,113 @@ flowchart TB
     style CB fill:#3b82f6,stroke:#1d4ed8,color:#fff
     style AD fill:#22c55e,stroke:#16a34a,color:#fff
     style SV fill:#f59e0b,stroke:#d97706,color:#fff
-"/>
+"
+/>
 
 ## Mental Model
 
-Think of Application as a **conductor** orchestrating an orchestra:
+Think of Application as an **assembly line**:
 
-- **Middleware** are the musicians — each plays their part in order
-- **Plugins** are the instruments — they add capabilities
-- **Error handler** is the safety net — catches wrong notes
-- **callback()** is the performance — turns it all into music
+- **Middleware** are the stations — each processes the request in order
+- **Plugins** add new stations or capabilities
+- **Error handler** catches defects at any station
+- **`callback()`** starts the line — adapters feed requests into it
 
-The Application doesn't process requests itself. It builds the pipeline and hands it to adapters.
+The Application never processes requests directly. It builds the pipeline, then `callback()` snapshots it into a handler function.
 
-## Creating an Application
+## Execution Flow
 
-```typescript title="Basic Setup"
+When a request arrives, the handler produced by `callback()` runs this sequence:
+
+1. **Plugin hooks** — `extendContext()` and `onRequest()` run for each plugin with hooks
+2. **Middleware chain** — composed middleware executes in registration order (onion model)
+3. **Response hooks** — `onResponse()` runs for each plugin (errors isolated per-plugin)
+4. **Error path** — if anything throws, plugin `onError()` hooks run first, then the app error handler
+
+```
+Request → extendContext → onRequest → middleware₁ → middleware₂ → … → Response
+                                                                        ↓
+                                                                  onResponse hooks
+```
+
+## Minimal Usage
+
+```typescript
 import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 
-// Factory function (recommended)
 const app = createApp();
 
-// With options
+const router = createRouter();
+router.get('/', (ctx) => ctx.json({ status: 'ok' }));
+
+app.route('/', router);
+```
+
+The `createApp()` factory is the recommended way to create an Application. You can also use `new Application()` directly.
+
+## What Happens Automatically
+
+When you call `app.callback()`, the Application:
+
+- **Snapshots the middleware stack** — middleware added after `callback()` won't affect the returned handler
+- **Collects plugin hooks** — validates that hook properties (`onRequest`, `onResponse`, `onError`, `extendContext`) are callable functions
+- **Wraps everything in error handling** — uncaught errors flow to the configured error handler
+
+When you call `app.close()`:
+
+- Sets `isRunning` to `false`, re-enabling configuration methods
+- Calls `destroy()` on each plugin in reverse installation order using `Promise.allSettled`
+- Clears the plugin registry
+- Returns `Error[]` — any errors from plugins that failed to destroy
+
+## Configuration
+
+```typescript
+import { createApp } from '@nextrush/core';
+
 const app = createApp({
   env: 'production',
   proxy: true,
+  logger: console,
 });
 ```
 
-## Application Options
+<TypeTable
+  title="ApplicationOptions"
+  types={{
+    env: {
+      type: "'development' | 'production' | 'test'",
+      description: 'Environment mode',
+      default: "'development'",
+    },
+    proxy: {
+      type: 'boolean',
+      description: 'Trust proxy headers (X-Forwarded-For, X-Forwarded-Proto)',
+      default: 'false',
+    },
+    logger: {
+      type: 'Logger',
+      description: 'Pluggable logger instance with error, warn, info, and debug methods',
+      default: 'No-op (silent)',
+      optional: true,
+    },
+  }}
+/>
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `env` | `'development' \| 'production' \| 'test'` | `process.env.NODE_ENV` or `'development'` | Environment mode |
-| `proxy` | `boolean` | `false` | Trust proxy headers (X-Forwarded-For, X-Forwarded-Proto) |
-
-### Environment Mode
-
-```typescript
-// Development: verbose errors, stack traces exposed
-const app = createApp({ env: 'development' });
-
-// Production: minimal error info, no stack traces
-const app = createApp({ env: 'production' });
-
-// Test: for running tests
-const app = createApp({ env: 'test' });
-```
-
-### Proxy Mode
-
-Enable when running behind a reverse proxy (nginx, AWS ALB, Cloudflare):
-
-```typescript
-const app = createApp({ proxy: true });
-
-// Now ctx.ip uses X-Forwarded-For header
-app.use((ctx) => {
-  console.log(ctx.ip); // Real client IP, not proxy IP
-});
-```
+The `logger` accepts any object with `error`, `warn`, `info`, and `debug` methods. Pass `console` for quick development logging, or a structured logger like pino for production.
 
 ## Application Properties
 
 ```typescript
-app.isProduction;    // boolean — true if env === 'production'
-app.isRunning;       // boolean — true after server starts
+app.options; // ApplicationOptions — readonly config (env, proxy)
+app.logger; // Logger — configured logger instance
+app.isProduction; // boolean — true if env === 'production'
+app.isRunning; // boolean — true after start(), false after close()
 app.middlewareCount; // number — count of registered middleware
-app.options;         // ApplicationOptions — readonly config
 ```
 
 ## Middleware Registration
-
-### Basic Registration
 
 ```typescript
 // Single middleware
@@ -125,58 +160,10 @@ app.use(async (ctx) => {
 app.use(cors(), helmet(), json());
 
 // Method chaining
-app.use(cors())
-   .use(helmet())
-   .use(json());
+app.use(cors()).use(helmet()).use(json());
 ```
 
-## Router Composition
-
-Mount routers directly on the application using `app.route()`:
-
-```typescript title="Hono-Style Composition"
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-
-const app = createApp();
-
-// Create feature routers
-const users = createRouter();
-users.get('/', (ctx) => ctx.json([]));
-users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
-
-const posts = createRouter();
-posts.get('/', (ctx) => ctx.json([]));
-
-// Mount directly — clean like Hono!
-app.route('/users', users);
-app.route('/posts', posts);
-```
-
-This is the **recommended pattern** for composing routers:
-- No need to create a main router just for mounting
-- No `router.routes()` call required
-- Clean, Hono-like DX
-
-### Classic Pattern Still Works
-
-The classic `router.routes()` approach is still supported:
-
-```typescript
-const router = createRouter();
-router.use('/users', usersRouter);
-router.use('/posts', postsRouter);
-
-// Classic pattern - still works
-app.route('/', router);
-
-// But app.route() is recommended
-app.route('/api', router);
-```
-
-### Middleware Order
-
-Middleware executes in registration order (onion model):
+Middleware executes in registration order (onion model). Each middleware runs its "before" logic, calls `next()`, then runs its "after" logic:
 
 ```
 Request → cors → helmet → json → router → Response
@@ -186,262 +173,178 @@ Request → cors → helmet → json → router → Response
           (after)  (after) (after) (done)
 ```
 
-```typescript title="Execution Order Example"
-app.use(async (ctx) => {
-  console.log('1: before');
-  await ctx.next();
-  console.log('1: after');
-});
+Passing a non-function to `use()` throws a `TypeError`.
 
-app.use(async (ctx) => {
-  console.log('2: before');
-  await ctx.next();
-  console.log('2: after');
-});
+## Router Mounting
 
-// Output:
-// 1: before
-// 2: before
-// 2: after
-// 1: after
-```
-
-### Validation
+Mount routers at path prefixes using `app.route()`:
 
 ```typescript
-// ❌ Throws TypeError
-app.use('not a function');
-app.use(null);
-
-// ✅ Must be a function
-app.use(async (ctx) => { /* ... */ });
-```
-
-## Plugin System
-
-Plugins extend the application without modifying core.
-
-### Installing Plugins
-
-```typescript
-// Synchronous plugin
-app.plugin(loggerPlugin({ level: 'info' }));
-
-// Async plugin (database connections, etc.)
-await app.pluginAsync(databasePlugin({ uri: '...' }));
-
-// Check if installed
-if (app.hasPlugin('logger')) {
-  console.log('Logger is active');
-}
-
-// Get plugin instance
-const logger = app.getPlugin<LoggerPlugin>('logger');
-```
-
-### Plugin Installation Rules
-
-```typescript
-// ❌ Duplicate plugin throws error
-app.plugin(loggerPlugin());
-app.plugin(loggerPlugin()); // Error: Plugin "logger" is already installed
-
-// ❌ Async plugin with sync method throws
-app.plugin(asyncPlugin); // Error: Use app.pluginAsync() instead
-```
-
-<Callout type="info" title="Learn More">
-  See [Plugins](/docs/concepts/plugins) for detailed plugin documentation.
-</Callout>
-
-## Error Handling
-
-### Custom Error Handler
-
-```typescript title="Custom Error Handler"
-app.onError((error, ctx) => {
-  // Log the error
-  console.error('Request failed:', error);
-
-  // Set response based on error type
-  if (error.status) {
-    ctx.status = error.status;
-  } else {
-    ctx.status = 500;
-  }
-
-  // Send error response
-  ctx.json({
-    error: error.message,
-    code: error.code || 'UNKNOWN_ERROR',
-    // Include stack in development only
-    ...(app.options.env === 'development' && { stack: error.stack }),
-  });
-});
-```
-
-### Default Error Behavior
-
-Without a custom handler:
-
-| Environment | Error Message | Stack Trace | Console Log |
-|-------------|---------------|-------------|-------------|
-| `development` | Full message | Hidden | Logged |
-| `production` | "Internal Server Error" | Hidden | Hidden |
-
-### HTTP Error Classes
-
-```typescript
-import {
-  HttpError,
-  NotFoundError,
-  BadRequestError,
-  UnauthorizedError,
-  ForbiddenError,
-  InternalServerError,
-} from '@nextrush/errors';
-
-app.use(async (ctx) => {
-  // These set status automatically
-  throw new NotFoundError('User not found');      // 404
-  throw new BadRequestError('Invalid email');     // 400
-  throw new UnauthorizedError('Token expired');   // 401
-  throw new ForbiddenError('Admin only');         // 403
-});
-```
-
-## Lifecycle
-
-### Starting
-
-Adapters call `app.start()` when the server begins listening:
-
-```typescript
-app.start();
-console.log(app.isRunning); // true
-```
-
-### Graceful Shutdown
-
-Call `app.close()` for graceful shutdown:
-
-```typescript
-await app.close();
-
-// This:
-// 1. Sets isRunning = false
-// 2. Calls destroy() on plugins (reverse order)
-// 3. Clears plugin registry
-```
-
-### Shutdown Hook Example
-
-```typescript title="Graceful Shutdown"
-process.on('SIGTERM', async () => {
-  console.log('Shutting down...');
-  await app.close();
-  process.exit(0);
-});
-```
-
-## Complete Example
-
-```typescript title="Full Application Setup"
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
-import { serve } from '@nextrush/adapter-node';
-import { cors } from '@nextrush/cors';
-import { helmet } from '@nextrush/helmet';
-import { json } from '@nextrush/body-parser';
 
-const app = createApp({
-  env: process.env.NODE_ENV as 'production' | 'development',
-  proxy: true,
-});
-
-// Error handler first
-app.onError((error, ctx) => {
-  console.error(error);
-  ctx.status = error.status || 500;
-  ctx.json({ error: error.message });
-});
-
-// Security middleware
-app.use(helmet());
-app.use(cors());
-
-// Body parsing
-app.use(json());
-
-// Logging
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  console.log(`${ctx.method} ${ctx.path} ${ctx.status} ${Date.now() - start}ms`);
-});
-
-// Feature routers
-const health = createRouter();
-health.get('/', (ctx) => ctx.json({ status: 'healthy' }));
+const app = createApp();
 
 const users = createRouter();
 users.get('/', (ctx) => ctx.json([]));
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
-// Mount routers — Hono-style composition
-app.route('/health', health);
-app.route('/users', users);
+const posts = createRouter();
+posts.get('/', (ctx) => ctx.json([]));
 
-// Start server
-serve(app, {
-  port: 3000,
-  onListen: ({ port }) => console.log(`Server on port ${port}`),
+app.route('/users', users);
+app.route('/posts', posts);
+```
+
+The `route()` method calls `router.routes()` internally — you don't need to call it yourself. Prefix boundaries are enforced, so `/users` won't match `/usersxyz`.
+
+## Plugin System
+
+Plugins extend the application through a typed interface. The `plugin()` method handles both synchronous and asynchronous plugins automatically.
+
+```typescript
+// Synchronous plugin
+app.plugin(loggerPlugin({ level: 'info' }));
+
+// Async plugin — await the result
+await app.plugin(databasePlugin({ uri: '...' }));
+
+// Check if installed
+app.hasPlugin('logger'); // boolean
+
+// Get plugin instance
+app.getPlugin<LoggerPlugin>('logger'); // T | undefined
+```
+
+Installing a plugin with a duplicate name throws an error. Plugins cannot be installed after `app.start()`.
+
+<Callout type="info">
+  See [Plugins](/docs/concepts/plugins) for the full Plugin interface and lifecycle hooks.
+</Callout>
+
+## Error Handling
+
+### Setting an Error Handler
+
+```typescript
+app.setErrorHandler((error, ctx) => {
+  console.error('Request failed:', error);
+
+  if ('status' in error && typeof error.status === 'number') {
+    ctx.status = error.status;
+  } else {
+    ctx.status = 500;
+  }
+
+  ctx.json({
+    error: app.isProduction ? 'Internal Server Error' : error.message,
+  });
 });
 ```
 
-## Common Mistakes
+Only one error handler is active at a time. Calling `setErrorHandler()` replaces any previous handler. The method returns `this` for chaining.
 
-### Forgetting to Mount Router
+### Default Error Behavior
+
+Without a custom handler, the Application uses its built-in error handler:
+
+| Environment   | Response Message          | Logging                    |
+| ------------- | ------------------------- | -------------------------- |
+| `development` | Full error message        | `logger.error()` is called |
+| `production`  | `"Internal Server Error"` | Silent (no logging)        |
+
+If the error has a numeric `status` property in the 400–599 range, that status code is used. Otherwise, the response gets status 500.
+
+<Callout type="warn">
+  Logging depends on the configured `logger`. The default no-op logger produces no output. Pass
+  `console` or a structured logger to see error logs.
+</Callout>
+
+### HTTP Error Classes
 
 ```typescript
-// ❌ Router defined but not mounted
+import { NotFoundError, BadRequestError, UnauthorizedError } from '@nextrush/errors';
+
+app.use(async (ctx) => {
+  throw new NotFoundError('User not found'); // 404
+  throw new BadRequestError('Invalid email'); // 400
+  throw new UnauthorizedError('Token expired'); // 401
+});
+```
+
+## Lifecycle
+
+Adapters call `app.start()` when the server begins listening. After this, `use()`, `route()`, and `plugin()` throw to prevent unsafe mutations while requests are in flight.
+
+```typescript
+app.start();
+app.isRunning; // true
+```
+
+Call `app.close()` for graceful shutdown. It returns an array of errors from plugins that failed to destroy (empty on success).
+
+```typescript title="Graceful Shutdown"
+process.on('SIGTERM', async () => {
+  const errors = await app.close();
+  if (errors.length) console.error('Shutdown errors:', errors);
+  process.exit(0);
+});
+```
+
+## Performance Notes
+
+- Middleware composition happens once at `callback()` time — no per-request overhead for building the chain
+- Plugin hooks are collected once during `callback()`, not re-scanned per request
+- Route mounting uses string prefix matching with boundary checks, not regex
+- The middleware stack is a flat array with no tree traversal per request
+
+## Security Considerations
+
+- Enable `proxy: true` only behind a trusted reverse proxy. When disabled (default), `ctx.ip` uses the direct connection address.
+- The default error handler hides error messages in production mode. Custom error handlers should avoid leaking stack traces or internal paths.
+- Configuration is frozen after `start()` — no middleware can be added while requests are in flight.
+
+## Common Mistakes
+
+### Forgetting to Mount a Router
+
+```typescript
+// ❌ Router defined but never mounted
 const router = createRouter();
 router.get('/users', handler);
-// Missing: app.route('/users', router) or app.use(router.routes())
 
-// ✅ Recommended: Mount with app.route()
+// ✅ Mount it
 app.route('/api', router);
-
-// ✅ Or classic: Mount with routes()
-app.route('/', router);
 ```
 
 ### Wrong Middleware Order
 
 ```typescript
-// ❌ Error handler after routes (can't catch route errors)
+// ❌ Auth middleware after routes — routes run unprotected
 app.route('/api', router);
-app.use(errorHandler);
+app.use(authMiddleware);
 
-// ✅ Error handler first (catches all errors)
-app.use(errorHandler);
+// ✅ Security middleware before routes
+app.use(authMiddleware);
 app.route('/api', router);
 ```
 
-### Async Plugin with Sync Method
+### Not Awaiting Async Plugins
 
 ```typescript
-// ❌ Throws error
-app.plugin(databasePlugin()); // If install() is async
+// ❌ Async plugin not awaited — app starts before plugin is ready
+app.plugin(databasePlugin());
+app.start();
 
-// ✅ Use pluginAsync for async plugins
-await app.pluginAsync(databasePlugin());
+// ✅ Await async plugins
+await app.plugin(databasePlugin());
+app.start();
 ```
 
 ### Not Awaiting Close
 
 ```typescript
-// ❌ Plugins may not clean up properly
+// ❌ Plugins may not clean up
 app.close();
 process.exit(0);
 
@@ -450,60 +353,26 @@ await app.close();
 process.exit(0);
 ```
 
-## TypeScript Types
+## When Not To Use
 
-```typescript
-import { createApp, Application } from '@nextrush/core';
-import type {
-  ApplicationOptions,
-  ErrorHandler,
-  ListenCallback,
-} from '@nextrush/core';
+The Application class is the right choice for most NextRush apps. Consider alternatives when:
 
-// Create typed application
-const app: Application = createApp();
-
-// Type error handler
-const errorHandler: ErrorHandler = (error, ctx) => {
-  ctx.status = 500;
-  ctx.json({ error: error.message });
-};
-
-app.onError(errorHandler);
-```
-
-## API Reference
-
-| Property/Method | Type | Description |
-|-----------------|------|-------------|
-| `app.use(...mw)` | `Application` | Register middleware (chainable) |
-| `app.route(path, router)` | `Application` | Mount router at path (Hono-style) |
-| `app.plugin(plugin)` | `Application` | Install sync plugin |
-| `app.pluginAsync(plugin)` | `Promise<Application>` | Install async plugin |
-| `app.hasPlugin(name)` | `boolean` | Check if plugin is installed |
-| `app.getPlugin<T>(name)` | `T \| undefined` | Get plugin instance |
-| `app.onError(handler)` | `void` | Set custom error handler |
-| `app.callback()` | `(ctx) => Promise<void>` | Get request handler |
-| `app.start()` | `void` | Mark app as running |
-| `app.close()` | `Promise<void>` | Graceful shutdown |
-| `app.isProduction` | `boolean` | Is production environment |
-| `app.isRunning` | `boolean` | Is server running |
-| `app.middlewareCount` | `number` | Middleware count |
-| `app.options` | `ApplicationOptions` | Readonly config |
+- You need a standalone router without middleware or plugins — use `createRouter()` directly
+- You're building a lightweight function handler for serverless — the adapter alone may suffice
 
 ## See Also
 
 <Cards>
   <Card title="Context" href="/docs/concepts/context">
-    The request/response object.
+    The request/response object passed through middleware.
   </Card>
   <Card title="Middleware" href="/docs/concepts/middleware">
-    How middleware works.
+    How the onion model works and how to write middleware.
   </Card>
   <Card title="Plugins" href="/docs/concepts/plugins">
-    Extending the application.
+    Plugin interface, lifecycle hooks, and factory patterns.
   </Card>
-  <Card title="@nextrush/core" href="/docs/packages/core">
-    Full API reference.
+  <Card title="@nextrush/core API" href="/docs/packages/core">
+    Full API reference for the core package.
   </Card>
 </Cards>

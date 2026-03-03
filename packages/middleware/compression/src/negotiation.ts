@@ -8,10 +8,10 @@
 
 import { ENCODING_PRIORITY } from './constants.js';
 import type {
-    AcceptEncodingEntry,
-    CompressionEncoding,
-    CompressionOptions,
-    NegotiationResult,
+  AcceptEncodingEntry,
+  CompressionEncoding,
+  CompressionOptions,
+  NegotiationResult,
 } from './types.js';
 
 // ============================================================================
@@ -34,9 +34,7 @@ import type {
  * @param header - Accept-Encoding header value
  * @returns Sorted list of encodings with quality values (highest first)
  */
-export function parseAcceptEncoding(
-  header: string | null | undefined
-): AcceptEncodingEntry[] {
+export function parseAcceptEncoding(header: string | null | undefined): AcceptEncodingEntry[] {
   if (!header) {
     return [];
   }
@@ -71,15 +69,16 @@ export function parseAcceptEncoding(
     }
   }
 
-  // Sort by quality (descending), then by encoding priority
+  // Sort by quality (descending), then by encoding priority (higher index = higher priority)
   return entries.sort((a, b) => {
     if (b.quality !== a.quality) {
       return b.quality - a.quality;
     }
-    // Same quality - use encoding priority
+    // Same quality — use encoding priority.
+    // indexOf returns -1 for unknown encodings; treat them as lowest priority.
     const aPriority = ENCODING_PRIORITY.indexOf(a.encoding);
     const bPriority = ENCODING_PRIORITY.indexOf(b.encoding);
-    return bPriority - aPriority;
+    return (bPriority === -1 ? -Infinity : bPriority) - (aPriority === -1 ? -Infinity : aPriority);
   });
 }
 
@@ -90,19 +89,14 @@ export function parseAcceptEncoding(
  * @param encoding - Encoding to check
  * @returns Whether the encoding is accepted
  */
-export function isEncodingAccepted(
-  header: string | null | undefined,
-  encoding: string
-): boolean {
+export function isEncodingAccepted(header: string | null | undefined, encoding: string): boolean {
   if (!header) return false;
 
   const entries = parseAcceptEncoding(header);
   const normalizedEncoding = encoding.toLowerCase();
 
   // Check for exact match or wildcard
-  return entries.some(
-    entry => entry.encoding === normalizedEncoding || entry.encoding === '*'
-  );
+  return entries.some((entry) => entry.encoding === normalizedEncoding || entry.encoding === '*');
 }
 
 /**
@@ -112,21 +106,18 @@ export function isEncodingAccepted(
  * @param encoding - Encoding to check
  * @returns Quality value (0-1), or 0 if not accepted
  */
-export function getEncodingQuality(
-  header: string | null | undefined,
-  encoding: string
-): number {
+export function getEncodingQuality(header: string | null | undefined, encoding: string): number {
   if (!header) return 0;
 
   const entries = parseAcceptEncoding(header);
   const normalizedEncoding = encoding.toLowerCase();
 
   // Check for exact match
-  const exactMatch = entries.find(entry => entry.encoding === normalizedEncoding);
+  const exactMatch = entries.find((entry) => entry.encoding === normalizedEncoding);
   if (exactMatch) return exactMatch.quality;
 
   // Check for wildcard
-  const wildcardMatch = entries.find(entry => entry.encoding === '*');
+  const wildcardMatch = entries.find((entry) => entry.encoding === '*');
   if (wildcardMatch) return wildcardMatch.quality;
 
   return 0;
@@ -235,7 +226,7 @@ export function acceptsCompression(header: string | null | undefined): boolean {
 
   // Check if any compression encoding is accepted
   return entries.some(
-    entry =>
+    (entry) =>
       entry.encoding === 'gzip' ||
       entry.encoding === 'deflate' ||
       entry.encoding === 'br' ||
@@ -249,9 +240,7 @@ export function acceptsCompression(header: string | null | undefined): boolean {
  * @param header - Accept-Encoding header value
  * @returns List of accepted compression encodings
  */
-export function getAcceptedEncodings(
-  header: string | null | undefined
-): CompressionEncoding[] {
+export function getAcceptedEncodings(header: string | null | undefined): CompressionEncoding[] {
   if (!header) return [];
 
   const entries = parseAcceptEncoding(header);

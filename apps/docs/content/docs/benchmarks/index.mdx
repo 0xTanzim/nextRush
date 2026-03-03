@@ -5,68 +5,73 @@ description: Transparent, reproducible performance comparisons with popular Node
 
 # Performance Benchmarks
 
-NextRush v3 is designed for high performance. This page provides transparent, reproducible benchmarks comparing NextRush to popular frameworks.
+This page provides transparent, reproducible benchmarks comparing NextRush v3 to popular Node.js frameworks. All numbers come from automated benchmark runs you can reproduce yourself.
 
 ## Why Benchmarks Matter (And Why They Don't)
 
-Performance claims without context are misleading. "30,000 RPS" means nothing without knowing:
+Performance claims without context are misleading. "35,000 RPS" means nothing without knowing:
 
 - What hardware was used?
 - What was the test scenario?
 - How does it compare to alternatives?
 
-But more importantly: **benchmarks rarely reflect real-world performance**. In production, your database queries, external API calls, and business logic dominate response time—not framework overhead.
-
-Use these benchmarks to understand relative performance, not absolute numbers.
+In production, database queries, external API calls, and business logic dominate response time — not framework overhead. Use these benchmarks to understand relative performance, not absolute numbers.
 
 ## Test Environment
 
-All benchmarks run on the same machine with identical conditions.
+All benchmarks ran on the same machine with identical conditions on January 7, 2026.
 
 ### System Information
 
-| Property | Value |
-|----------|-------|
-| **Node.js** | v25.1.0 |
-| **Platform** | Linux (x64) |
-| **CPU** | Intel Core i5-8300H @ 2.30GHz |
-| **Cores** | 8 |
-| **Memory** | 15GB |
+| Property     | Value                         |
+| ------------ | ----------------------------- |
+| **Node.js**  | v25.1.0                       |
+| **Platform** | Linux (x64)                   |
+| **CPU**      | Intel Core i5-8300H @ 2.30GHz |
+| **Cores**    | 8                             |
+| **Memory**   | 15GB                          |
+
+### Framework Versions
+
+| Framework       | Version                                 |
+| --------------- | --------------------------------------- |
+| **NextRush v3** | 3.0.0-alpha.2 (workspace)               |
+| **Express**     | 5.2.x                                   |
+| **Fastify**     | 5.7.x                                   |
+| **Hono**        | 4.12.x (via @hono/node-server)          |
+| **Koa**         | 3.1.x (with koa-router, koa-bodyparser) |
 
 ### Test Configuration
 
-| Setting | Value |
-|---------|-------|
-| **Duration** | 30 seconds per test |
-| **Connections** | 100 concurrent |
-| **Pipelining** | 10 requests |
-| **Tool** | [autocannon](https://github.com/mcollina/autocannon) |
+| Setting         | Value                                                   |
+| --------------- | ------------------------------------------------------- |
+| **Duration**    | 10 seconds per test                                     |
+| **Connections** | 100 concurrent                                          |
+| **Pipelining**  | 10 requests                                             |
+| **Tool**        | [autocannon](https://github.com/mcollina/autocannon) v8 |
 
 ## Overall Results
 
 Average requests per second across all test scenarios:
 
-| Rank | Framework | Avg RPS | vs NextRush v3 |
-|------|-----------|---------|----------------|
-| 🥇 | Fastify | 38,186 | +25.5% |
-| 🥈 | **NextRush v3** | 30,419 | baseline |
-| 🥉 | Hono | 29,058 | -4.5% |
-| 4 | Koa | 28,879 | -5.1% |
-| 5 | NextRush v2 | 20,238 | -33.5% |
-| 6 | Express | 20,014 | -34.2% |
+| Rank | Framework       | Avg RPS | vs NextRush v3 |
+| ---- | --------------- | ------- | -------------- |
+| 🥇   | Fastify         | 40,084  | +13.3%         |
+| 🥈   | **NextRush v3** | 35,370  | baseline       |
+| 🥉   | Hono            | 30,525  | −13.7%         |
+| 4    | Koa             | 29,889  | −15.5%         |
+| 5    | Express         | 20,987  | −40.7%         |
 
-<Callout type="tip" title="Key Takeaways">
-- NextRush v3 is **52% faster than Express**
-- NextRush v3 is **50% faster than v2**
-- NextRush v3 matches Hono and Koa performance
-- Fastify remains the performance leader
+<Callout type="info" title="Key Takeaways">
+  - NextRush v3 is **69% faster** than Express - NextRush v3 is **16% faster** than Hono and **18%
+  faster** than Koa - Fastify is **13% faster** than NextRush v3
 </Callout>
 
 ## Detailed Results by Scenario
 
 ### Hello World (Baseline)
 
-Simple JSON response—measures raw framework overhead.
+A JSON response with no routing or parsing — measures raw framework overhead.
 
 ```typescript
 app.get('/', (ctx) => {
@@ -74,57 +79,55 @@ app.get('/', (ctx) => {
 });
 ```
 
-| Framework | RPS | Latency (p50) | Latency (p99) |
-|-----------|-----|---------------|---------------|
-| Fastify | 46,542 | 16ms | 41ms |
-| Hono | 36,288 | 23ms | 65ms |
-| **NextRush v3** | 36,092 | 22ms | 62ms |
-| Koa | 33,921 | 24ms | 69ms |
-| NextRush v2 | 23,149 | 42ms | 100ms |
-| Express | 22,128 | 51ms | 93ms |
+| Framework       | RPS    | Latency (p50) | Latency (p99) |
+| --------------- | ------ | ------------- | ------------- |
+| Fastify         | 48,045 | 15ms          | 37ms          |
+| **NextRush v3** | 43,268 | 16ms          | 43ms          |
+| Hono            | 37,476 | 19ms          | 48ms          |
+| Koa             | 34,683 | 20ms          | 56ms          |
+| Express         | 23,739 | 50ms          | 69ms          |
 
 ### Route Parameters
 
-Dynamic routes with path parameters—measures router performance.
+Dynamic routes with path parameters — measures router performance.
 
 ```typescript
+// GET /users/12345
 app.get('/users/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 ```
 
-| Framework | RPS | Latency (p50) | Latency (p99) |
-|-----------|-----|---------------|---------------|
-| Fastify | 43,044 | 19ms | 52ms |
-| Hono | 34,247 | 26ms | 51ms |
-| Koa | 33,568 | 25ms | 52ms |
-| **NextRush v3** | 33,426 | 25ms | 69ms |
-| NextRush v2 | 23,399 | 44ms | 90ms |
-| Express | 22,079 | 54ms | 66ms |
+| Framework       | RPS    | Latency (p50) | Latency (p99) |
+| --------------- | ------ | ------------- | ------------- |
+| Fastify         | 45,852 | 15ms          | 37ms          |
+| **NextRush v3** | 38,983 | 19ms          | 45ms          |
+| Hono            | 35,144 | 20ms          | 50ms          |
+| Koa             | 33,893 | 21ms          | 52ms          |
+| Express         | 22,228 | 44ms          | 70ms          |
 
 ### Query String Parsing
 
-URL with query parameters—measures query parser performance.
+URL with query parameters — measures query parser performance.
 
 ```typescript
-// GET /search?q=hello&page=1&limit=10
+// GET /search?q=benchmark&limit=10
 app.get('/search', (ctx) => {
   ctx.json(ctx.query);
 });
 ```
 
-| Framework | RPS | Latency (p50) | Latency (p99) |
-|-----------|-----|---------------|---------------|
-| Fastify | 35,357 | 21ms | 51ms |
-| **NextRush v3** | 26,689 | 34ms | 65ms |
-| Hono | 26,676 | 42ms | 85ms |
-| Koa | 25,814 | 32ms | 86ms |
-| NextRush v2 | 19,183 | 49ms | 111ms |
-| Express | 19,039 | 49ms | 98ms |
+| Framework       | RPS    | Latency (p50) | Latency (p99) |
+| --------------- | ------ | ------------- | ------------- |
+| Fastify         | 36,618 | 20ms          | 51ms          |
+| **NextRush v3** | 30,876 | 23ms          | 47ms          |
+| Hono            | 28,619 | 27ms          | 50ms          |
+| Koa             | 27,637 | 26ms          | 55ms          |
+| Express         | 20,769 | 47ms          | 58ms          |
 
 ### POST with JSON Body
 
-POST request with JSON parsing—measures body parser performance.
+POST request with JSON parsing — measures body parser performance.
 
 ```typescript
 app.post('/users', (ctx) => {
@@ -132,81 +135,63 @@ app.post('/users', (ctx) => {
 });
 ```
 
-| Framework | RPS | Latency (p50) | Latency (p99) |
-|-----------|-----|---------------|---------------|
-| Fastify | 20,000 | 47ms | 102ms |
-| **NextRush v3** | 17,826 | 52ms | 112ms |
-| Koa | 17,326 | 56ms | 79ms |
-| Express | 14,081 | 69ms | 98ms |
-| NextRush v2 | 12,933 | 76ms | 109ms |
-| Hono | 12,405 | 77ms | 113ms |
+| Framework       | RPS    | Latency (p50) | Latency (p99) |
+| --------------- | ------ | ------------- | ------------- |
+| Fastify         | 21,412 | 45ms          | 71ms          |
+| **NextRush v3** | 20,438 | 47ms          | 73ms          |
+| Koa             | 17,664 | 55ms          | 75ms          |
+| Express         | 14,417 | 66ms          | 104ms         |
+| Hono            | 12,625 | 75ms          | 114ms         |
 
-<Callout type="info" title="POST Performance">
-NextRush v3 has excellent POST/JSON performance, ranking #2 after Fastify. This matters for real-world APIs that handle request bodies.
+<Callout type="info" title="Body Parser Fairness">
+  NextRush, Koa, and Fastify apply body parsing only on POST routes. Express applies
+  `express.json()` globally (though it skips non-JSON requests). Hono parses the body on-demand via
+  `c.req.json()`. These differences affect POST performance rankings.
 </Callout>
 
-### Mixed Workload
+### Repeated Baseline (Server Warm)
 
-Combined GET and POST operations—simulates real-world usage.
+A second `GET /` run after all other tests have completed — measures performance with a fully warmed server.
 
-| Framework | RPS | Latency (p50) | Latency (p99) |
-|-----------|-----|---------------|---------------|
-| Fastify | 45,988 | 16ms | 40ms |
-| **NextRush v3** | 38,061 | 19ms | 47ms |
-| Hono | 35,672 | 24ms | 59ms |
-| Koa | 33,764 | 24ms | 69ms |
-| Express | 22,745 | 51ms | 91ms |
-| NextRush v2 | 22,528 | 44ms | 102ms |
-
-## v2 to v3 Improvements
-
-NextRush v3 is a complete rewrite focused on performance:
-
-| Metric | v2 | v3 | Improvement |
-|--------|-----|-----|-------------|
-| Average RPS | 20,238 | 30,419 | **+50%** |
-| Hello World | 23,149 | 36,092 | **+56%** |
-| POST JSON | 12,933 | 17,826 | **+38%** |
-| Mixed Workload | 22,528 | 38,061 | **+69%** |
+| Framework       | RPS    | Latency (p50) | Latency (p99) |
+| --------------- | ------ | ------------- | ------------- |
+| Fastify         | 48,493 | 15ms          | 32ms          |
+| **NextRush v3** | 43,283 | 16ms          | 41ms          |
+| Hono            | 38,759 | 18ms          | 39ms          |
+| Koa             | 35,566 | 20ms          | 47ms          |
+| Express         | 23,783 | 51ms          | 63ms          |
 
 ## Why Fastify is Faster
 
-Fastify achieves higher throughput because it uses:
+Fastify achieves higher throughput through:
 
-- **Schema-based JSON serialization** (fast-json-stringify)
-- **Ahead-of-time route compilation**
-- **Custom JSON parser** (fast-json-parse)
+- **Schema-based JSON serialization** via `fast-json-stringify` — avoids `JSON.stringify` overhead when schemas are defined
+- **Ahead-of-time route compilation** — routes are compiled at startup
+- **Find-my-way router** — highly optimized radix tree router
 
-These optimizations require upfront schema definitions and add complexity.
+These optimizations require upfront schema definitions and add configuration complexity.
 
 ## Why NextRush Doesn't Chase Maximum RPS
 
-NextRush prioritizes:
+NextRush prioritizes developer experience over squeezing every last request per second:
 
-| Priority | Why It Matters |
-|----------|----------------|
-| **Developer Experience** | Clean, intuitive API that's easy to learn |
-| **Modularity** | Pay only for what you use |
-| **Simplicity** | No complex schema requirements |
-| **Flexibility** | Easy to extend and customize |
+| Priority              | Trade-off                                                 |
+| --------------------- | --------------------------------------------------------- |
+| **Clean API**         | No schema boilerplate required                            |
+| **Modularity**        | Pay only for what you use                                 |
+| **Zero dependencies** | No external runtime deps (except reflect-metadata for DI) |
+| **Dual paradigm**     | Functional and class-based styles                         |
 
-The 25% difference from Fastify is often negligible in real applications where database queries, network I/O, and business logic dominate response time.
+The ~13% gap from Fastify is often negligible in production where database queries, network I/O, and business logic dominate response time.
 
 ## Hardware Impact
 
-Performance varies significantly by hardware:
-
-| Hardware | Expected RPS Range |
-|----------|-------------------|
-| Raspberry Pi 4 | 3,000 - 8,000 |
-| Laptop (i5/Ryzen 5) | 25,000 - 40,000 |
-| Desktop (i7/Ryzen 7) | 40,000 - 60,000 |
-| Server (Xeon/EPYC) | 80,000 - 150,000+ |
+Performance varies by hardware. These numbers were measured on a mid-range laptop (i5-8300H). You should expect different absolute numbers on your hardware.
 
 <Callout type="warn" title="Don't Trust Absolute Numbers">
-Never trust absolute RPS numbers. Always compare frameworks on the **same hardware** with the **same test conditions**.
-
-The "30,000+ RPS" claim in our docs is based on a mid-range laptop. Your server hardware will likely see 2-5x higher throughput.
+  Always compare frameworks on the **same hardware** with the **same test conditions**. The numbers
+  on this page come from a mid-range laptop. Server hardware typically produces 2–4x higher
+  throughput.
 </Callout>
 
 ## Run Your Own Benchmarks
@@ -216,44 +201,40 @@ Clone the repository and run:
 ```bash
 cd apps/performance-ultra
 pnpm install
-pnpm benchmark
+pnpm bench           # Full benchmark (30s per test)
+pnpm bench --quick   # Quick benchmark (10s per test)
 ```
 
 Results are saved to `results/comparison/latest/REPORT.md`.
 
 ### Methodology
 
-1. **Warm-up**: 5 seconds before each test
-2. **Duration**: 30 seconds per test
+1. **Warm-up**: 3 seconds before each test
+2. **Duration**: 10 seconds per test (quick mode) or 30 seconds (default)
 3. **Isolation**: Each framework runs in a separate process
-4. **Multiple runs**: Results averaged across 3 runs
-5. **Same handlers**: Identical route handlers for fair comparison
+4. **Same handlers**: Identical route handlers across frameworks
+5. **Single run**: Results are from a single benchmark pass (not averaged across runs)
 
-## The Real Question
+All server implementations and benchmark scripts are in `apps/performance-ultra/`. Review them to verify fairness.
+
+## The Honest Take
 
 Instead of asking "which framework is fastest?", ask:
 
 > **"Is this framework fast enough for my use case?"**
 
-For most APIs, **all modern frameworks are fast enough**. The bottleneck is almost always:
+For most APIs, all modern frameworks are fast enough. The bottleneck is almost always database queries, external API calls, business logic, or network latency.
 
-- Database queries
-- External API calls
-- Complex business logic
-- Network latency
-
-NextRush's 30,000+ RPS baseline means framework overhead won't be your bottleneck.
-
-## See Also
+NextRush's 35,000+ RPS baseline on a laptop means framework overhead is unlikely to be your bottleneck.
 
 <Cards>
   <Card title="Architecture" href="/docs/architecture">
-    How NextRush achieves its performance.
+    How NextRush is structured internally.
   </Card>
   <Card title="Quick Start" href="/docs/getting-started/quick-start">
     Get started with NextRush.
   </Card>
   <Card title="Routing" href="/docs/concepts/routing">
-    High-performance radix tree router.
+    Radix tree router design.
   </Card>
 </Cards>

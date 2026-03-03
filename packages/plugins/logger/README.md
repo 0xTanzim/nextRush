@@ -3,7 +3,7 @@
 Request logging middleware for NextRush. This package wraps [@nextrush/log](https://www.npmjs.com/package/@nextrush/log) and provides:
 
 - **Re-exports** of all `@nextrush/log` functionality
-- **Request logging middleware** for NextRush applications  
+- **Request logging middleware** for NextRush applications
 - **Automatic correlation ID** handling
 - **Context-attached logger** (`ctx.log`) for request handlers
 
@@ -29,7 +29,7 @@ const log = createLogger('MyService');
 log.info('Server starting');
 
 // Access logger in handlers via context
-app.get('/users', async (ctx) => {
+app.use(async (ctx) => {
   ctx.log.info('Fetching users');
   ctx.json({ users: [] });
 });
@@ -55,6 +55,7 @@ app.get('/users', async (ctx) => {
 ### `logger(options?)`
 
 Request logging middleware that:
+
 - Logs request start (development only by default)
 - Logs request completion with duration
 - Attaches `ctx.log` for use in handlers
@@ -90,14 +91,17 @@ app.use(logger({
 Lightweight middleware that only attaches `ctx.log` without request logging.
 
 ```typescript
-app.use(attachLogger({
-  correlationIdHeader: 'x-request-id',
-  generateCorrelationId: true,
-  context: 'api',
-}));
+app.use(
+  attachLogger({
+    correlationIdHeader: 'x-request-id',
+    generateCorrelationId: true,
+    context: 'api',
+  })
+);
 
-app.get('/users', async (ctx) => {
+app.use(async (ctx) => {
   ctx.log.info('Handler called');
+  ctx.json({ ok: true });
 });
 ```
 
@@ -131,20 +135,18 @@ When using `logger()` or `attachLogger()` middleware, a request-scoped logger is
 ```typescript
 app.use(logger());
 
-app.get('/users/:id', async (ctx) => {
-  const { id } = ctx.params;
-  
+app.use(async (ctx) => {
   // All log levels
   ctx.log.trace('Trace message');
   ctx.log.debug('Debug message');
-  ctx.log.info('Processing user', { userId: id });
-  ctx.log.warn('User quota low', { remaining: 5 });
+  ctx.log.info('Processing request', { path: ctx.path });
+  ctx.log.warn('Rate limit approaching', { remaining: 5 });
   ctx.log.error('Failed to process', new Error('Database error'));
   ctx.log.fatal('Critical failure');
 
   // Performance timing
   const timer = ctx.log.time('database-query');
-  const user = await db.findUser(id);
+  // ... perform work ...
   timer.end('Query completed', { rows: 1 });
 
   // Child loggers
@@ -155,7 +157,7 @@ app.get('/users/:id', async (ctx) => {
   const enrichedLog = ctx.log.withMetadata({ service: 'user-api' });
   enrichedLog.info('Request processed');
 
-  ctx.json({ user });
+  ctx.json({ ok: true });
 });
 ```
 
@@ -164,7 +166,7 @@ app.get('/users/:id', async (ctx) => {
 ```typescript
 import type { LoggerContext } from '@nextrush/logger';
 
-app.get('/users', async (ctx) => {
+app.use(async (ctx) => {
   // Option 1: Type cast
   (ctx as LoggerContext).log.info('Typed access');
 
@@ -187,13 +189,16 @@ This package re-exports everything from `@nextrush/log`:
 
 ```typescript
 import {
-  createLogger,      // Create a new logger instance
-  logger,            // Default logger instance
-  log,               // Alias for default logger
-  Logger,            // Logger class
-  configure,         // Configure global settings
-  setGlobalLevel,    // Set global minimum level
+  createLogger, // Create a new logger instance
+  defaultLogger, // Default logger instance (re-exported from @nextrush/log)
+  log, // Quick-access log function
+  Logger, // Logger class
+  configure, // Configure global settings
+  setGlobalLevel, // Set global minimum level
 } from '@nextrush/logger';
+
+// Note: `logger` (without "default") is the middleware function:
+import { logger } from '@nextrush/logger'; // middleware factory
 ```
 
 ### Transports
@@ -223,55 +228,51 @@ import {
 ### Runtime Detection
 
 ```typescript
-import {
-  detectRuntime,
-  getRuntime,
-  isProductionBuild,
-} from '@nextrush/logger';
+import { detectRuntime, getRuntime, isProductionBuild } from '@nextrush/logger';
 ```
 
 ### Async Context
 
 ```typescript
-import {
-  runWithContext,
-  getAsyncContext,
-  isAsyncContextAvailable,
-} from '@nextrush/logger';
+import { runWithContext, getAsyncContext, isAsyncContextAvailable } from '@nextrush/logger';
 ```
 
 ## Runtime Compatibility
 
-| Runtime | Support | Notes |
-|---------|---------|-------|
-| Node.js 20+ | ✅ Full | AsyncLocalStorage for context |
-| Bun | ✅ Full | AsyncLocalStorage for context |
-| Deno | ✅ Full | AsyncLocalStorage for context |
-| Edge (Vercel/Cloudflare) | ⚠️ Partial | Fallback context |
-| Browsers | ⚠️ Partial | Fallback context, different formatting |
+| Runtime                  | Support    | Notes                                  |
+| ------------------------ | ---------- | -------------------------------------- |
+| Node.js 20+              | ✅ Full    | AsyncLocalStorage for context          |
+| Bun                      | ✅ Full    | AsyncLocalStorage for context          |
+| Deno                     | ✅ Full    | AsyncLocalStorage for context          |
+| Edge (Vercel/Cloudflare) | ⚠️ Partial | Fallback context                       |
+| Browsers                 | ⚠️ Partial | Fallback context, different formatting |
 
 ## Configuration Examples
 
 ### Production
 
 ```typescript
-app.use(logger({
-  minLevel: 'info',
-  redact: true,
-  logRequestStart: false,
-  skip: (ctx) => ctx.path === '/health',
-}));
+app.use(
+  logger({
+    minLevel: 'info',
+    redact: true,
+    logRequestStart: false,
+    skip: (ctx) => ctx.path === '/health',
+  })
+);
 ```
 
 ### Development
 
 ```typescript
-app.use(logger({
-  minLevel: 'trace',
-  pretty: true,
-  colors: true,
-  logRequestStart: true,
-}));
+app.use(
+  logger({
+    minLevel: 'trace',
+    pretty: true,
+    colors: true,
+    logRequestStart: true,
+  })
+);
 ```
 
 ## Best Practices

@@ -1,21 +1,30 @@
 ---
 title: Testing
-description: Testing strategies for NextRush applications using Vitest
+description: Unit, integration, and end-to-end testing for NextRush applications with Vitest
 ---
 
 # Testing
 
-Testing is essential for production-ready applications. This guide covers testing strategies for NextRush applications using Vitest.
+## What You Will Build
 
-## Setup
+A testing setup for a NextRush application covering four layers:
 
-Install testing dependencies:
+1. **Unit tests** — route handlers and services in isolation
+2. **Middleware tests** — middleware behavior with mock contexts
+3. **Integration tests** — full request flow through `app.callback()`
+4. **E2E tests** — real HTTP requests via `serve()`
 
-```bash
-npm install -D vitest @vitest/coverage-v8
-```
+## Prerequisites
 
-Add to `package.json`:
+- A NextRush application (functional or class-based)
+- Node.js 22+
+- pnpm
+
+## Step 1 — Configure Vitest
+
+<PackageInstall packages={[]} dev={['vitest', '@vitest/coverage-v8']} />
+
+Add scripts to your `package.json`:
 
 ```json
 {
@@ -27,28 +36,41 @@ Add to `package.json`:
 }
 ```
 
-Configure Vitest in `vitest.config.ts`:
+Create `vitest.config.ts`:
 
-```typescript
+```ts title="vitest.config.ts"
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    include: ['**/*.test.ts', '**/*.spec.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      thresholds: {
+        lines: 90,
+        functions: 90,
+        branches: 85,
+        statements: 90,
+      },
     },
   },
 });
 ```
 
-## Testing Utilities
+<Callout type="info" title="Global Test APIs">
+  Setting `globals: true` makes `describe`, `it`, `expect`, and `vi` available without imports. You
+  can still import them explicitly if you prefer.
+</Callout>
 
-Create a test helper for mocking contexts:
+## Step 2 — Create a Mock Context Helper
 
-```typescript title="src/test/helpers.ts"
+Every test that calls a handler or middleware needs a `Context` object. Build a reusable factory:
+
+```ts title="src/test/helpers.ts"
 import type { Context } from '@nextrush/types';
 import { vi } from 'vitest';
 
@@ -89,66 +111,52 @@ export function createMockContext(overrides: Partial<Context> = {}): Context {
 }
 ```
 
-## Unit Testing Handlers
+The `as Context` cast is intentional — test mocks omit adapter-specific properties (`runtime`, `bodySource`) that only real adapters provide. This matches the pattern used across the NextRush test suite.
 
-### Testing Route Handlers
+## Step 3 — Unit Test Handlers
 
-```typescript title="src/handlers/__tests__/users.test.ts"
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+Test each handler in isolation using the mock context:
+
+```ts title="src/handlers/__tests__/users.test.ts"
+import { describe, it, expect } from 'vitest';
 import { createMockContext } from '../../test/helpers';
 import { getUserHandler, createUserHandler } from '../users';
 
 describe('User Handlers', () => {
-  describe('getUserHandler', () => {
-    it('should return user by ID', async () => {
-      const ctx = createMockContext({
-        method: 'GET',
-        path: '/api/users/123',
-        params: { id: '123' },
-      });
-
-      await getUserHandler(ctx);
-
-      expect(ctx.json).toHaveBeenCalledWith({
-        data: expect.objectContaining({ id: '123' }),
-      });
+  it('should return user by ID', async () => {
+    const ctx = createMockContext({
+      params: { id: '123' },
     });
 
-    it('should throw NotFoundError for missing user', async () => {
-      const ctx = createMockContext({
-        params: { id: 'non-existent' },
-      });
+    await getUserHandler(ctx);
 
-      await expect(getUserHandler(ctx)).rejects.toThrow('User not found');
+    expect(ctx.json).toHaveBeenCalledWith({
+      data: expect.objectContaining({ id: '123' }),
     });
   });
 
-  describe('createUserHandler', () => {
-    it('should create user with valid input', async () => {
-      const ctx = createMockContext({
-        method: 'POST',
-        path: '/api/users',
-        body: { name: 'Alice', email: 'alice@example.com' },
-      });
-
-      await createUserHandler(ctx);
-
-      expect(ctx.status).toBe(201);
-      expect(ctx.json).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          name: 'Alice',
-          email: 'alice@example.com',
-        }),
-      });
+  it('should throw NotFoundError for missing user', async () => {
+    const ctx = createMockContext({
+      params: { id: 'non-existent' },
     });
 
-    it('should throw BadRequestError for invalid input', async () => {
-      const ctx = createMockContext({
-        method: 'POST',
-        body: { name: '' }, // Missing email
-      });
+    await expect(getUserHandler(ctx)).rejects.toThrow('User not found');
+  });
 
-      await expect(createUserHandler(ctx)).rejects.toThrow('Validation failed');
+  it('should create user with valid input', async () => {
+    const ctx = createMockContext({
+      method: 'POST',
+      body: { name: 'Alice', email: 'alice@example.com' },
+    });
+
+    await createUserHandler(ctx);
+
+    expect(ctx.status).toBe(201);
+    expect(ctx.json).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        name: 'Alice',
+        email: 'alice@example.com',
+      }),
     });
   });
 });
@@ -156,7 +164,9 @@ describe('User Handlers', () => {
 
 ### Testing Services
 
-```typescript title="src/services/__tests__/user.service.test.ts"
+Services with no framework dependency need no mock context:
+
+```ts title="src/services/__tests__/user.service.test.ts"
 import { describe, it, expect, beforeEach } from 'vitest';
 import { UserService } from '../user.service';
 
@@ -167,81 +177,46 @@ describe('UserService', () => {
     service = new UserService();
   });
 
-  describe('create', () => {
-    it('should create a user with valid data', () => {
-      const user = service.create({
-        name: 'Alice',
-        email: 'alice@example.com',
-      });
-
-      expect(user.id).toBeDefined();
-      expect(user.name).toBe('Alice');
-      expect(user.email).toBe('alice@example.com');
-      expect(user.createdAt).toBeInstanceOf(Date);
+  it('should create a user with valid data', () => {
+    const user = service.create({
+      name: 'Alice',
+      email: 'alice@example.com',
     });
+
+    expect(user.id).toBeDefined();
+    expect(user.name).toBe('Alice');
   });
 
-  describe('findById', () => {
-    it('should return user if exists', () => {
-      const created = service.create({
-        name: 'Bob',
-        email: 'bob@example.com',
-      });
-
-      const found = service.findById(created.id);
-
-      expect(found).toEqual(created);
-    });
-
-    it('should return undefined if not exists', () => {
-      const found = service.findById('non-existent');
-
-      expect(found).toBeUndefined();
-    });
-  });
-
-  describe('delete', () => {
-    it('should return true when user deleted', () => {
-      const user = service.create({ name: 'Test', email: 'test@test.com' });
-
-      expect(service.delete(user.id)).toBe(true);
-      expect(service.findById(user.id)).toBeUndefined();
-    });
-
-    it('should return false for non-existent user', () => {
-      expect(service.delete('non-existent')).toBe(false);
-    });
+  it('should return undefined for missing user', () => {
+    expect(service.findById('non-existent')).toBeUndefined();
   });
 });
 ```
 
-## Testing Middleware
+## Step 4 — Test Middleware
 
-```typescript title="src/middleware/__tests__/auth.test.ts"
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+Middleware tests verify three behaviors: calling `next()`, modifying context state, and rejecting requests.
+
+```ts title="src/middleware/__tests__/auth.test.ts"
+import { describe, it, expect, vi } from 'vitest';
 import { createMockContext } from '../../test/helpers';
 import { authMiddleware } from '../auth';
 
 describe('Auth Middleware', () => {
   const middleware = authMiddleware({
-    exclude: ['/api/health', '/api/auth/login'],
+    exclude: ['/api/health'],
   });
 
-  it('should skip authentication for excluded paths', async () => {
-    const ctx = createMockContext({
-      path: '/api/health',
-    });
+  it('should skip excluded paths', async () => {
+    const ctx = createMockContext({ path: '/api/health' });
 
     await middleware(ctx);
 
     expect(ctx.next).toHaveBeenCalled();
-    expect(ctx.state.user).toBeUndefined();
   });
 
-  it('should throw UnauthorizedError without token', async () => {
-    const ctx = createMockContext({
-      path: '/api/users',
-    });
+  it('should reject requests without a token', async () => {
+    const ctx = createMockContext({ path: '/api/users' });
 
     await expect(middleware(ctx)).rejects.toThrow('Authentication required');
   });
@@ -250,302 +225,140 @@ describe('Auth Middleware', () => {
     const ctx = createMockContext({
       path: '/api/users',
       headers: { authorization: 'Bearer valid-token' },
-      get: vi.fn((name) => {
+      get: vi.fn((name: string) => {
         if (name === 'authorization') return 'Bearer valid-token';
         return undefined;
       }),
     });
 
-    // Mock token verification
-    vi.mock('../auth', async (importOriginal) => {
-      const original = await importOriginal();
-      return {
-        ...original,
-        verifyToken: vi.fn().mockResolvedValue({ id: '123', role: 'user' }),
-      };
-    });
-
     await middleware(ctx);
 
     expect(ctx.next).toHaveBeenCalled();
-    expect(ctx.state.user).toEqual({ id: '123', role: 'user' });
-  });
-
-  it('should throw UnauthorizedError for invalid token', async () => {
-    const ctx = createMockContext({
-      path: '/api/users',
-      headers: { authorization: 'Bearer invalid-token' },
-      get: vi.fn((name) => {
-        if (name === 'authorization') return 'Bearer invalid-token';
-        return undefined;
-      }),
-    });
-
-    await expect(middleware(ctx)).rejects.toThrow('Invalid token');
+    expect(ctx.state).toHaveProperty('user');
   });
 });
 ```
 
-## Integration Testing
+<Callout type="warn">
+  `vi.mock()` is hoisted to the top of the file regardless of where you call it. Never place
+  `vi.mock()` inside an `it()` block — define module mocks at file scope.
+</Callout>
 
-### Testing the Full Request Flow
+## Step 5 — Integration Tests with `app.callback()`
 
-```typescript title="src/__tests__/integration/users.test.ts"
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+`app.callback()` returns the composed middleware handler without starting an HTTP server. Pass a mock context to test the full request flow:
+
+```ts title="src/__tests__/integration/users.test.ts"
+import { describe, it, expect, beforeEach } from 'vitest';
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
-import { json } from '@nextrush/body-parser';
 import { errorHandler } from '@nextrush/errors';
+import { createMockContext } from '../../test/helpers';
 
-// Create app instance for testing
 function createTestApp() {
-  const app = createApp();
+  const app = createApp({ env: 'test' });
   const router = createRouter();
 
   app.use(errorHandler());
-  app.use(json());
 
-  router.get('/api/users', (ctx) => {
+  router.get('/users', (ctx) => {
     ctx.json({ data: [] });
   });
 
-  router.post('/api/users', (ctx) => {
+  router.post('/users', (ctx) => {
     const { name, email } = ctx.body as { name: string; email: string };
     ctx.status = 201;
-    ctx.json({ data: { id: '123', name, email } });
+    ctx.json({ data: { id: '1', name, email } });
   });
 
   app.route('/', router);
-
   return app;
 }
 
-// Helper to make requests
-async function request(app: ReturnType<typeof createApp>, options: {
-  method: string;
-  path: string;
-  body?: unknown;
-  headers?: Record<string, string>;
-}) {
-  const response = {
-    status: 200,
-    body: undefined as unknown,
-    headers: {} as Record<string, string>,
-  };
-
-  const ctx = {
-    method: options.method,
-    url: options.path,
-    path: options.path,
-    query: {},
-    headers: options.headers || {},
-    params: {},
-    body: options.body,
-    status: 200,
-    state: {},
-    ip: '127.0.0.1',
-    json: (data: unknown) => { response.body = data; },
-    send: (data: unknown) => { response.body = data; },
-    html: (data: string) => { response.body = data; },
-    redirect: () => {},
-    get: (name: string) => options.headers?.[name.toLowerCase()],
-    set: (name: string, value: string) => { response.headers[name] = value; },
-    next: async () => {},
-    raw: { req: {}, res: {} },
-  };
-
-  const handler = app.callback();
-  await handler(ctx as never);
-
-  response.status = ctx.status;
-  return response;
-}
-
-describe('Users API Integration', () => {
-  let app: ReturnType<typeof createApp>;
+describe('Users API', () => {
+  let handler: (ctx: unknown) => Promise<void>;
 
   beforeEach(() => {
-    app = createTestApp();
+    handler = createTestApp().callback();
   });
 
-  it('GET /api/users should return empty array', async () => {
-    const response = await request(app, {
+  it('GET /users returns empty array', async () => {
+    const ctx = createMockContext({
       method: 'GET',
-      path: '/api/users',
+      path: '/users',
     });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ data: [] });
+    await handler(ctx);
+
+    expect(ctx.json).toHaveBeenCalledWith({ data: [] });
   });
 
-  it('POST /api/users should create user', async () => {
-    const response = await request(app, {
+  it('POST /users creates a user', async () => {
+    const ctx = createMockContext({
       method: 'POST',
-      path: '/api/users',
+      path: '/users',
       body: { name: 'Alice', email: 'alice@example.com' },
-      headers: { 'content-type': 'application/json' },
     });
 
-    expect(response.status).toBe(201);
-    expect(response.body).toEqual({
-      data: {
-        id: '123',
-        name: 'Alice',
-        email: 'alice@example.com',
-      },
+    await handler(ctx);
+
+    expect(ctx.status).toBe(201);
+    expect(ctx.json).toHaveBeenCalledWith({
+      data: { id: '1', name: 'Alice', email: 'alice@example.com' },
     });
   });
 });
 ```
 
-## Testing with HTTP Requests
+## Step 6 — E2E Tests with Real HTTP
 
-For full end-to-end testing with real HTTP:
+For tests that need actual TCP connections, use `serve()` from the adapter:
 
-```typescript title="src/__tests__/e2e/api.test.ts"
+```ts title="src/__tests__/e2e/api.test.ts"
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createApp } from '@nextrush/core';
-import { listen } from '@nextrush/adapter-node';
+import { serve, type ServerInstance } from '@nextrush/adapter-node';
 
-describe('API E2E Tests', () => {
-  let server: { close: () => void };
-  const port = 3001;
-  const baseUrl = `http://localhost:${port}`;
+describe('API E2E', () => {
+  let server: ServerInstance;
+  let baseUrl: string;
 
   beforeAll(async () => {
     const app = createApp();
-    // ... setup routes
-    server = await listen(app, { port });
+
+    app.use(async (ctx) => {
+      ctx.json({ status: 'ok' });
+    });
+
+    server = await serve(app, { port: 0 });
+    baseUrl = `http://localhost:${server.port}`;
   });
 
-  afterAll(() => {
-    server.close();
+  afterAll(async () => {
+    await server.close();
   });
 
   it('should return health check', async () => {
-    const response = await fetch(`${baseUrl}/api/health`);
+    const response = await fetch(`${baseUrl}/`);
     const data = await response.json();
 
     expect(response.status).toBe(200);
     expect(data).toEqual({ status: 'ok' });
   });
-
-  it('should create user', async () => {
-    const response = await fetch(`${baseUrl}/api/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Test User',
-        email: 'test@example.com',
-      }),
-    });
-
-    const data = await response.json();
-
-    expect(response.status).toBe(201);
-    expect(data.data.name).toBe('Test User');
-  });
 });
 ```
 
-## Mocking Dependencies
+Key details:
 
-### Mocking Services
+- Use `serve()` (not `listen()`) — `serve()` accepts an options object with `{ port }`. `listen()` takes a port number directly and logs a startup banner.
+- Pass `port: 0` to let the OS assign a free port, avoiding conflicts in CI.
+- `server.close()` returns a `Promise` — always `await` it.
 
-```typescript
-import { vi, describe, it, beforeEach } from 'vitest';
+## Step 7 — Test Controllers with DI
 
-// Mock at module level
-vi.mock('../services/user.service', () => ({
-  userService: {
-    findById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
+Class-based controllers use the DI container. Reset it between tests to prevent state leaks:
 
-import { userService } from '../services/user.service';
-
-describe('User Handler with Mocked Service', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should return user from service', async () => {
-    const mockUser = { id: '1', name: 'Alice', email: 'alice@test.com' };
-    vi.mocked(userService.findById).mockReturnValue(mockUser);
-
-    const ctx = createMockContext({ params: { id: '1' } });
-    await getUserHandler(ctx);
-
-    expect(userService.findById).toHaveBeenCalledWith('1');
-    expect(ctx.json).toHaveBeenCalledWith({ data: mockUser });
-  });
-});
-```
-
-### Mocking External APIs
-
-```typescript
-import { vi } from 'vitest';
-
-// Mock fetch
-global.fetch = vi.fn();
-
-describe('External API Integration', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should fetch data from external API', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: 'external' }),
-    } as Response);
-
-    const result = await fetchExternalData();
-
-    expect(fetch).toHaveBeenCalledWith('https://api.example.com/data');
-    expect(result).toEqual({ data: 'external' });
-  });
-});
-```
-
-## Testing Error Scenarios
-
-```typescript
-import { describe, it, expect } from 'vitest';
-import { NotFoundError, BadRequestError } from '@nextrush/errors';
-
-describe('Error Handling', () => {
-  it('should throw NotFoundError for missing resource', async () => {
-    const ctx = createMockContext({ params: { id: 'non-existent' } });
-
-    await expect(getUserHandler(ctx)).rejects.toThrow(NotFoundError);
-    await expect(getUserHandler(ctx)).rejects.toThrow('User not found');
-  });
-
-  it('should throw BadRequestError for invalid input', async () => {
-    const ctx = createMockContext({
-      method: 'POST',
-      body: { name: '' }, // Invalid
-    });
-
-    try {
-      await createUserHandler(ctx);
-      expect.fail('Should have thrown');
-    } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestError);
-      expect(error.code).toBe('VALIDATION_ERROR');
-    }
-  });
-});
-```
-
-## Testing Controllers (Class-Based)
-
-```typescript title="src/controllers/__tests__/users.controller.test.ts"
+```ts title="src/controllers/__tests__/users.controller.test.ts"
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { container } from '@nextrush/di';
@@ -557,19 +370,18 @@ describe('UsersController', () => {
   let mockUserService: Partial<UserService>;
 
   beforeEach(() => {
-    // Create mock service
+    container.reset();
+
     mockUserService = {
       findAll: vi.fn().mockReturnValue([]),
       findById: vi.fn(),
       create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
     };
 
-    // Register mock in container
-    container.register(UserService, { useValue: mockUserService as UserService });
+    container.register(UserService, {
+      useValue: mockUserService as UserService,
+    });
 
-    // Resolve controller
     controller = container.resolve(UsersController);
   });
 
@@ -595,77 +407,107 @@ describe('UsersController', () => {
 });
 ```
 
-## Coverage Reporting
+<Callout type="warn" title="DI Container Isolation">
+  Always call `container.reset()` in `beforeEach`. The global container shares state across tests —
+  without reset, mock registrations from one test leak into the next.
+</Callout>
 
-Run with coverage:
+## Step 8 — Test Error Scenarios
+
+Use the error classes from `@nextrush/errors` to verify error behavior:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { NotFoundError, BadRequestError } from '@nextrush/errors';
+import { createMockContext } from '../test/helpers';
+
+describe('Error Handling', () => {
+  it('should throw NotFoundError for missing resource', async () => {
+    const ctx = createMockContext({ params: { id: 'missing' } });
+
+    await expect(getUserHandler(ctx)).rejects.toThrow(NotFoundError);
+  });
+
+  it('should throw BadRequestError for invalid input', async () => {
+    const ctx = createMockContext({
+      method: 'POST',
+      body: { name: '' },
+    });
+
+    try {
+      await createUserHandler(ctx);
+      expect.fail('Should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestError);
+      expect((error as BadRequestError).status).toBe(400);
+      expect((error as BadRequestError).code).toBe('BAD_REQUEST');
+    }
+  });
+});
+```
+
+## Verification
+
+Run your test suite:
 
 ```bash
-npm run test:coverage
+pnpm test
 ```
 
-Example coverage report:
+Run with coverage to verify thresholds:
 
+```bash
+pnpm test:coverage
 ```
-----------------------|---------|----------|---------|---------|
-File                  | % Stmts | % Branch | % Funcs | % Lines |
-----------------------|---------|----------|---------|---------|
-All files             |   85.71 |    78.57 |   90.00 |   85.71 |
- handlers/            |   88.89 |    80.00 |   100.0 |   88.89 |
-  users.ts            |   88.89 |    80.00 |   100.0 |   88.89 |
- services/            |   83.33 |    75.00 |   85.71 |   83.33 |
-  user.service.ts     |   83.33 |    75.00 |   85.71 |   83.33 |
- middleware/          |   80.00 |    77.78 |   80.00 |   80.00 |
-  auth.ts             |   80.00 |    77.78 |   80.00 |   80.00 |
-----------------------|---------|----------|---------|---------|
-```
+
+The project enforces these coverage thresholds:
+
+| Metric     | Minimum |
+| ---------- | ------- |
+| Lines      | 90%     |
+| Functions  | 90%     |
+| Branches   | 85%     |
+| Statements | 90%     |
 
 ## Best Practices
 
-### 1. Test Behavior, Not Implementation
+**Test behavior, not implementation:**
 
-```typescript
-// ❌ Testing implementation details
-it('should call findById with correct ID', () => {
-  expect(service.findById).toHaveBeenCalledWith('123');
-});
+```ts
+// ❌ Asserts internal call
+expect(service.findById).toHaveBeenCalledWith('123');
 
-// ✅ Testing behavior
-it('should return user with matching ID', () => {
-  const user = service.findById('123');
-  expect(user.id).toBe('123');
-});
+// ✅ Asserts observable output
+const user = service.findById('123');
+expect(user.id).toBe('123');
 ```
 
-### 2. Use Descriptive Test Names
+**Use descriptive test names:**
 
-```typescript
+```ts
 // ❌ Vague
 it('should work', () => {});
 
-// ✅ Descriptive
+// ✅ States the expected outcome
 it('should return 404 when user does not exist', () => {});
-it('should create user with valid email and name', () => {});
 ```
 
-### 3. Isolate Tests
+**Isolate every test:**
 
-```typescript
-// ✅ Each test starts fresh
+```ts
 beforeEach(() => {
   vi.clearAllMocks();
-  service = new UserService(); // Fresh instance
+  container.reset(); // if using DI
 });
 ```
 
-### 4. Test Edge Cases
+**Test edge cases explicitly:**
 
-```typescript
-describe('User Service', () => {
-  it('handles empty name', () => {});
-  it('handles very long name', () => {});
+```ts
+describe('UserService', () => {
+  it('rejects empty name', () => {});
+  it('rejects duplicate email', () => {});
   it('handles special characters in email', () => {});
-  it('handles duplicate email', () => {});
-  it('handles concurrent creates', () => {});
 });
 ```
 
@@ -674,12 +516,12 @@ describe('User Service', () => {
 <Cards>
   <Card
     title="Error Handling"
-    description="Learn to handle errors in tests."
+    description="Structured error handling across the request lifecycle."
     href="/docs/guides/error-handling"
   />
   <Card
     title="Benchmarks"
-    description="Performance testing."
-    href="/docs/guides/benchmarks"
+    description="Measure and optimize request throughput."
+    href="/docs/benchmarks"
   />
 </Cards>
