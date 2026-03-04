@@ -23,6 +23,9 @@ import type {
 import { BunBodySource, createEmptyBodySource } from './body-source';
 import { parseQueryString } from './utils';
 
+/** Shared encoder — avoids per-call allocation in response methods */
+const TEXT_ENCODER = new TextEncoder();
+
 /**
  * Bun-specific RawHttp type
  *
@@ -75,7 +78,7 @@ export class BunContext implements Context {
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
-  status: number = 200;
+  status = 200;
   state: ContextState = {};
 
   private _next: (() => Promise<void>) | null = null;
@@ -136,10 +139,7 @@ export class BunContext implements Context {
 
     this._responseBuilder.status = this.status;
     this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
-    this._responseBuilder.headers.set(
-      'Content-Length',
-      String(new TextEncoder().encode(body).length)
-    );
+    this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(body).length));
     this._responseBuilder.body = body;
   }
 
@@ -158,10 +158,7 @@ export class BunContext implements Context {
       if (!this._responseBuilder.headers.has('Content-Type')) {
         this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
       }
-      this._responseBuilder.headers.set(
-        'Content-Length',
-        String(new TextEncoder().encode(data).length)
-      );
+      this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(data).length));
       this._responseBuilder.body = data;
       return;
     }
@@ -193,10 +190,7 @@ export class BunContext implements Context {
     if (typeof data === 'object') {
       const json = JSON.stringify(data);
       this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
-      this._responseBuilder.headers.set(
-        'Content-Length',
-        String(new TextEncoder().encode(json).length)
-      );
+      this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(json).length));
       this._responseBuilder.body = json;
       return;
     }
@@ -204,10 +198,7 @@ export class BunContext implements Context {
     // Default: convert to string
     const str = String(data);
     this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
-    this._responseBuilder.headers.set(
-      'Content-Length',
-      String(new TextEncoder().encode(str).length)
-    );
+    this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(str).length));
     this._responseBuilder.body = str;
   }
 
@@ -219,12 +210,12 @@ export class BunContext implements Context {
     this._responseBuilder.headers.set('Content-Type', 'text/html; charset=utf-8');
     this._responseBuilder.headers.set(
       'Content-Length',
-      String(new TextEncoder().encode(content).length)
+      String(TEXT_ENCODER.encode(content).length)
     );
     this._responseBuilder.body = content;
   }
 
-  redirect(url: string, status: number = 302): void {
+  redirect(url: string, status = 302): void {
     if (this._responded) return;
     this._responded = true;
 
@@ -331,6 +322,10 @@ export class BunContext implements Context {
  * @param clientIp - Optional client IP address
  * @returns BunContext instance
  */
-export function createBunContext(request: Request, clientIp?: string): BunContext {
-  return new BunContext(request, clientIp);
+export function createBunContext(
+  request: Request,
+  clientIp?: string,
+  trustProxy = false
+): BunContext {
+  return new BunContext(request, clientIp, trustProxy);
 }

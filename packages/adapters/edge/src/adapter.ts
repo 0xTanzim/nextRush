@@ -88,21 +88,28 @@ export function createFetchHandler(
 ): FetchHandler {
   const appHandler = app.callback();
   const { timeout } = options;
+  const trustProxy = app.options.proxy ?? false;
 
   /** Sentinel value returned by the timeout racer */
   const TIMEOUT_SENTINEL = Symbol('timeout');
 
   return async (request: Request, executionContext?: EdgeExecutionContext): Promise<Response> => {
-    const ctx = createEdgeContext(request, executionContext);
+    const ctx = createEdgeContext(request, executionContext, trustProxy);
 
     try {
       if (timeout !== undefined && timeout > 0) {
         // Race the handler against a timeout
+        let timerId: ReturnType<typeof setTimeout> | undefined;
         const result = await Promise.race([
-          appHandler(ctx).then(() => undefined),
-          new Promise<typeof TIMEOUT_SENTINEL>((resolve) =>
-            setTimeout(() => resolve(TIMEOUT_SENTINEL), timeout)
-          ),
+          appHandler(ctx).then(() => {
+            if (timerId !== undefined) clearTimeout(timerId);
+            return undefined;
+          }),
+          new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+            timerId = setTimeout(() => {
+              resolve(TIMEOUT_SENTINEL);
+            }, timeout);
+          }),
         ]);
 
         if (result === TIMEOUT_SENTINEL) {
@@ -133,7 +140,7 @@ export function createFetchHandler(
       }
 
       // Default error handling
-      console.error('Request error:', error);
+      app.logger.error('Request error:', error);
 
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,

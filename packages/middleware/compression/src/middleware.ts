@@ -312,9 +312,11 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
 
       // Set compressed body
       setCompressedBody(ctx, result.data);
-    } catch (_: unknown) {
-      // Compression failed (encoding unavailable, stream error, memory limit).
-      // Graceful degradation: send the original uncompressed response.
+    } catch (error: unknown) {
+      // Compression failed — graceful degradation: send the original uncompressed response.
+      // Make the failure observable via state for logging/monitoring middleware.
+      ctx.state.compressionError =
+        error instanceof Error ? error.message : 'Unknown compression error';
     }
   };
 }

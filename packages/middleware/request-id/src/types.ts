@@ -16,7 +16,7 @@
 export type Middleware<TContext = unknown> = (
   ctx: TContext,
   next?: () => Promise<void>
-) => Promise<void>;
+) => void | Promise<void>;
 
 // ============================================================================
 // Request ID Context

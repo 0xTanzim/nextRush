@@ -142,11 +142,16 @@ export function createHandler(
   app: Application
 ): (request: Request, info: DenoServeHandlerInfo) => Promise<Response> {
   const handler = app.callback();
+  const trustProxy = app.options.proxy ?? false;
 
   return async (request: Request, info: DenoServeHandlerInfo): Promise<Response> => {
-    const ctx = createDenoContext(request, {
-      remoteAddr: { hostname: info.remoteAddr.hostname },
-    });
+    const ctx = createDenoContext(
+      request,
+      {
+        remoteAddr: { hostname: info.remoteAddr.hostname },
+      },
+      trustProxy
+    );
 
     try {
       await handler(ctx);
@@ -288,7 +293,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
  * // Output: 🚀 NextRush listening on http://localhost:3000 (Deno)
  * ```
  */
-export function listen(app: Application, port: number = 3000): ServerInstance {
+export function listen(app: Application, port = 3000): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

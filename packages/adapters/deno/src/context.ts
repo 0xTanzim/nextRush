@@ -23,6 +23,9 @@ import type {
 import { createEmptyBodySource, DenoBodySource } from './body-source';
 import { parseQueryString } from './utils';
 
+/** Shared encoder — avoids per-call allocation in response methods */
+const TEXT_ENCODER = new TextEncoder();
+
 /**
  * Deno-specific RawHttp type
  *
@@ -75,7 +78,7 @@ export class DenoContext implements Context {
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
-  status: number = 200;
+  status = 200;
   state: ContextState = {};
 
   private _next: (() => Promise<void>) | null = null;
@@ -137,10 +140,7 @@ export class DenoContext implements Context {
 
     this._responseBuilder.status = this.status;
     this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
-    this._responseBuilder.headers.set(
-      'Content-Length',
-      String(new TextEncoder().encode(body).length)
-    );
+    this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(body).length));
     this._responseBuilder.body = body;
   }
 
@@ -159,10 +159,7 @@ export class DenoContext implements Context {
       if (!this._responseBuilder.headers.has('Content-Type')) {
         this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
       }
-      this._responseBuilder.headers.set(
-        'Content-Length',
-        String(new TextEncoder().encode(data).length)
-      );
+      this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(data).length));
       this._responseBuilder.body = data;
       return;
     }
@@ -194,10 +191,7 @@ export class DenoContext implements Context {
     if (typeof data === 'object') {
       const json = JSON.stringify(data);
       this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
-      this._responseBuilder.headers.set(
-        'Content-Length',
-        String(new TextEncoder().encode(json).length)
-      );
+      this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(json).length));
       this._responseBuilder.body = json;
       return;
     }
@@ -205,10 +199,7 @@ export class DenoContext implements Context {
     // Default: convert to string
     const str = String(data);
     this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
-    this._responseBuilder.headers.set(
-      'Content-Length',
-      String(new TextEncoder().encode(str).length)
-    );
+    this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(str).length));
     this._responseBuilder.body = str;
   }
 
@@ -220,12 +211,12 @@ export class DenoContext implements Context {
     this._responseBuilder.headers.set('Content-Type', 'text/html; charset=utf-8');
     this._responseBuilder.headers.set(
       'Content-Length',
-      String(new TextEncoder().encode(content).length)
+      String(TEXT_ENCODER.encode(content).length)
     );
     this._responseBuilder.body = content;
   }
 
-  redirect(url: string, status: number = 302): void {
+  redirect(url: string, status = 302): void {
     if (this._responded) return;
     this._responded = true;
 
@@ -322,7 +313,8 @@ export class DenoContext implements Context {
  */
 export function createDenoContext(
   request: Request,
-  connInfo?: { remoteAddr?: { hostname: string } }
+  connInfo?: { remoteAddr?: { hostname: string } },
+  trustProxy = false
 ): DenoContext {
-  return new DenoContext(request, connInfo);
+  return new DenoContext(request, connInfo, trustProxy);
 }

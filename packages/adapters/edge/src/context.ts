@@ -28,6 +28,9 @@ import type {
 } from '@nextrush/types';
 import { createEmptyBodySource, EdgeBodySource } from './body-source';
 
+/** Shared encoder — avoids per-call allocation in response methods */
+const TEXT_ENCODER = new TextEncoder();
+
 /**
  * Edge-specific RawHttp type
  */
@@ -95,7 +98,7 @@ export class EdgeContext implements Context {
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
-  status: number = 200;
+  status = 200;
   state: ContextState = {};
 
   private _next: (() => Promise<void>) | null = null;
@@ -155,10 +158,7 @@ export class EdgeContext implements Context {
 
     this._responseBuilder.status = this.status;
     this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
-    this._responseBuilder.headers.set(
-      'Content-Length',
-      String(new TextEncoder().encode(body).length)
-    );
+    this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(body).length));
     this._responseBuilder.body = body;
   }
 
@@ -177,10 +177,7 @@ export class EdgeContext implements Context {
       if (!this._responseBuilder.headers.has('Content-Type')) {
         this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
       }
-      this._responseBuilder.headers.set(
-        'Content-Length',
-        String(new TextEncoder().encode(data).length)
-      );
+      this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(data).length));
       this._responseBuilder.body = data;
       return;
     }
@@ -211,20 +208,14 @@ export class EdgeContext implements Context {
     if (typeof data === 'object') {
       const json = JSON.stringify(data);
       this._responseBuilder.headers.set('Content-Type', 'application/json; charset=utf-8');
-      this._responseBuilder.headers.set(
-        'Content-Length',
-        String(new TextEncoder().encode(json).length)
-      );
+      this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(json).length));
       this._responseBuilder.body = json;
       return;
     }
 
     const str = String(data);
     this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
-    this._responseBuilder.headers.set(
-      'Content-Length',
-      String(new TextEncoder().encode(str).length)
-    );
+    this._responseBuilder.headers.set('Content-Length', String(TEXT_ENCODER.encode(str).length));
     this._responseBuilder.body = str;
   }
 
@@ -236,12 +227,12 @@ export class EdgeContext implements Context {
     this._responseBuilder.headers.set('Content-Type', 'text/html; charset=utf-8');
     this._responseBuilder.headers.set(
       'Content-Length',
-      String(new TextEncoder().encode(content).length)
+      String(TEXT_ENCODER.encode(content).length)
     );
     this._responseBuilder.body = content;
   }
 
-  redirect(url: string, status: number = 302): void {
+  redirect(url: string, status = 302): void {
     if (this._responded) return;
     this._responded = true;
 
@@ -355,7 +346,8 @@ export class EdgeContext implements Context {
  */
 export function createEdgeContext(
   request: Request,
-  executionContext?: EdgeExecutionContext
+  executionContext?: EdgeExecutionContext,
+  trustProxy = false
 ): EdgeContext {
-  return new EdgeContext(request, executionContext);
+  return new EdgeContext(request, executionContext, trustProxy);
 }

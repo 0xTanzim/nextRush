@@ -133,7 +133,7 @@ export interface BodyParserContext {
 export type BodyParserMiddleware = (
   ctx: BodyParserContext,
   next?: () => Promise<void>
-) => Promise<void>;
+) => void | Promise<void>;
 
 /**
  * JSON reviver function for custom parsing

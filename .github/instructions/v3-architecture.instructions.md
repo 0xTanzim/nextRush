@@ -49,23 +49,23 @@ nextrush               → Meta package (re-exports all essentials)
 
 ```typescript
 // INPUT (Request)
-ctx.body       // Parsed request body
-ctx.query      // Query parameters
-ctx.params     // Route parameters
-ctx.headers    // Request headers
-ctx.method     // HTTP method
-ctx.path       // Request path
-ctx.state      // Mutable state bag for middleware
+ctx.body; // Parsed request body
+ctx.query; // Query parameters
+ctx.params; // Route parameters
+ctx.headers; // Request headers
+ctx.method; // HTTP method
+ctx.path; // Request path
+ctx.state; // Mutable state bag for middleware
 
 // OUTPUT (Response)
-ctx.json(data) // Send JSON
-ctx.send(data) // Send text/buffer
-ctx.html(str)  // Send HTML
-ctx.redirect() // Redirect
-ctx.status     // Status code
+ctx.json(data); // Send JSON
+ctx.send(data); // Send text/buffer
+ctx.html(str); // Send HTML
+ctx.redirect(); // Redirect
+ctx.status; // Status code
 
 // MIDDLEWARE
-ctx.next()     // Modern middleware syntax
+ctx.next(); // Modern middleware syntax
 ```
 
 ## Dependency Injection (`@nextrush/di`)
@@ -202,9 +202,9 @@ Connects DI, decorators, and router to auto-register controllers.
 
 ### Usage
 
-```typescript
+````typescript
 ### Usage\n\n```typescript\nimport { controllersPlugin } from '@nextrush/controllers';\n\nconst app = createApp();\nconst router = createRouter();\n\n// Auto-discovery (recommended)\napp.plugin(controllersPlugin({\n  router,\n  root: './src',           // Scan for @Controller classes\n  prefix: '/api',          // Add prefix to all routes\n  debug: true,             // Log discovered controllers\n}));\n\napp.route('/', router);\n```
-```
+````
 
 ### Handler Building Pipeline
 
@@ -236,38 +236,43 @@ HttpError (base)
 ├── ServiceUnavailableError (503)
 └── GatewayTimeoutError (504)
 
-Controller-specific errors:
-├── ValidationError (400) - Parameter validation failed
+Validation errors (`@nextrush/errors`):
+└── ValidationError (400) - Parameter validation failed
+
+Controller-specific errors (`@nextrush/controllers`):
 ├── MissingParameterError (400) - Required parameter missing
 └── GuardRejectionError (403) - Guard returned false
 ```
 
 ## Package Size Targets
 
-| Package | Max LOC | Responsibility |
-|---------|---------|----------------|
-| types | 500 | Shared TypeScript types |
-| errors | 600 | HTTP error classes |
-| core | 1,500 | Application, Middleware |
-| router | 1,000 | Radix tree routing |
-| di | 400 | DI container wrapper |
-| decorators | 800 | Controller/route decorators |
-| controllers | 800 | Handler building, discovery |
-| adapter-* | 500 | Platform adapters |
-| middleware/* | 300 | Individual middleware |
+| Package       | Max LOC | Responsibility              |
+| ------------- | ------- | --------------------------- |
+| types         | 500     | Shared TypeScript types     |
+| errors        | 600     | HTTP error classes          |
+| core          | 1,500   | Application, Middleware     |
+| router        | 1,000   | Radix tree routing          |
+| di            | 400     | DI container wrapper        |
+| decorators    | 800     | Controller/route decorators |
+| controllers   | 800     | Handler building, discovery |
+| adapter-\*    | 500     | Platform adapters           |
+| middleware/\* | 300     | Individual middleware       |
 
 ## Key Files
 
 ### Types & Errors
+
 - `packages/types/src/context.ts` - Context interface
 - `packages/types/src/http.ts` - HTTP types
 - `packages/errors/src/http.ts` - HTTP error classes
 
 ### Core
+
 - `packages/core/src/application.ts` - Application class
 - `packages/core/src/middleware.ts` - Middleware composition
 
 ### DI & Decorators
+
 - `packages/di/src/container.ts` - DI container wrapper
 - `packages/di/src/decorators.ts` - @Service, @Repository
 - `packages/decorators/src/class.ts` - @Controller
@@ -277,6 +282,7 @@ Controller-specific errors:
 - `packages/decorators/src/types.ts` - GuardFn, CanActivate, GuardContext
 
 ### Controllers Plugin
+
 - `packages/plugins/controllers/src/plugin.ts` - Plugin entry
 - `packages/plugins/controllers/src/builder.ts` - Handler building
 - `packages/plugins/controllers/src/errors.ts` - Controller errors

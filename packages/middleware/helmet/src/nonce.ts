@@ -30,13 +30,38 @@ const DEFAULT_NONCE_LENGTH = 16;
  * // nonce: "dGVzdG5vbmNlMTIzNDU2Nw=="
  * ```
  */
+/**
+ * Runtime-neutral base64 encoding.
+ * Prefers globalThis.btoa; falls back to Buffer (Node) or manual encoding.
+ */
+function toBase64(bytes: Uint8Array): string {
+  if (typeof globalThis.btoa === 'function') {
+    return btoa(String.fromCharCode(...bytes));
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i]!;
+    const b = bytes[i + 1] ?? 0;
+    const c = bytes[i + 2] ?? 0;
+    result += CHARS[a >> 2];
+    result += CHARS[((a & 3) << 4) | (b >> 4)];
+    result += i + 1 < bytes.length ? CHARS[((b & 15) << 2) | (c >> 6)] : '=';
+    result += i + 2 < bytes.length ? CHARS[c & 63] : '=';
+  }
+  return result;
+}
+
 export function generateNonce(length: number = DEFAULT_NONCE_LENGTH): string {
   if (!Number.isFinite(length) || length < 1) {
     throw new Error('[@nextrush/helmet] Nonce length must be a positive integer.');
   }
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes));
+  return toBase64(bytes);
 }
 
 /**
@@ -69,7 +94,7 @@ export function generateCspNonce(length: number = DEFAULT_NONCE_LENGTH): string 
  * ```
  */
 export function extractNonce(cspNonce: string): string | null {
-  const match = cspNonce.match(/^'nonce-([A-Za-z0-9+/]+=*)'$/);
+  const match = /^'nonce-([A-Za-z0-9+/]+=*)'$/.exec(cspNonce);
   return match?.[1] ?? null;
 }
 

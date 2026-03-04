@@ -1,0 +1,45 @@
+{
+  "name": "nextrush-benchmark",
+  "version": "3.0.0",
+  "description": "Professional HTTP framework benchmarks for NextRush v3 — wrk + autocannon, GC tracking, memory profiling, concurrency scaling",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "node scripts/run.js",
+    "bench:quick": "node scripts/run.js --profile quick",
+    "bench:standard": "node scripts/run.js --profile standard",
+    "bench:full": "node scripts/run.js --profile full",
+    "bench:stress": "node scripts/run.js --profile stress",
+    "bench:compare": "node scripts/run.js --compare",
+    "bench:compare:quick": "node scripts/run.js --compare --profile quick",
+    "bench:wrk": "node scripts/run.js --tool wrk",
+    "bench:autocannon": "node scripts/run.js --tool autocannon",
+    "bench:nextrush": "node scripts/run.js --framework nextrush-v3",
+    "bench:baseline": "node scripts/run.js --framework raw-node",
+    "smoke-test": "node scripts/smoke-test.js",
+    "report": "node scripts/report.js",
+    "report:latest": "node scripts/report.js --latest",
+    "report:list": "node scripts/report.js --list",
+    "report:trend": "node scripts/report.js --trend",
+    "clean": "rm -rf results/*"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.19.10",
+    "@nextrush/adapter-node": "workspace:*",
+    "@nextrush/body-parser": "workspace:*",
+    "@nextrush/core": "workspace:*",
+    "@nextrush/router": "workspace:*",
+    "@nextrush/runtime": "workspace:*",
+    "@nextrush/types": "workspace:*",
+    "autocannon": "^8.0.0",
+    "express": "^5.2.1",
+    "fastify": "^5.7.4",
+    "hono": "^4.12.4",
+    "koa": "^3.1.2",
+    "koa-bodyparser": "^4.4.1",
+    "koa-router": "^14.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

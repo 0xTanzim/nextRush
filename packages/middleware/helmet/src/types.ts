@@ -17,7 +17,7 @@
 export type Middleware<TContext = unknown> = (
   ctx: TContext,
   next?: () => Promise<void>
-) => Promise<void>;
+) => void | Promise<void>;
 
 /**
  * Minimal context interface for Helmet middleware.
@@ -39,10 +39,7 @@ export interface HelmetContext {
 /**
  * Helmet middleware function type.
  */
-export type HelmetMiddleware = (
-  ctx: HelmetContext,
-  next?: () => Promise<void>
-) => Promise<void>;
+export type HelmetMiddleware = (ctx: HelmetContext, next?: () => Promise<void>) => Promise<void>;
 
 // ============================================================================
 // Content Security Policy Types
@@ -257,10 +254,7 @@ export type XFrameOptionsValue = 'DENY' | 'SAMEORIGIN';
 /**
  * Cross-Origin-Embedder-Policy values.
  */
-export type CrossOriginEmbedderPolicyValue =
-  | 'require-corp'
-  | 'credentialless'
-  | 'unsafe-none';
+export type CrossOriginEmbedderPolicyValue = 'require-corp' | 'credentialless' | 'unsafe-none';
 
 /**
  * Cross-Origin-Opener-Policy values.
@@ -273,10 +267,7 @@ export type CrossOriginOpenerPolicyValue =
 /**
  * Cross-Origin-Resource-Policy values.
  */
-export type CrossOriginResourcePolicyValue =
-  | 'same-origin'
-  | 'same-site'
-  | 'cross-origin';
+export type CrossOriginResourcePolicyValue = 'same-origin' | 'same-site' | 'cross-origin';
 
 // ============================================================================
 // Permissions Policy Types
@@ -325,11 +316,10 @@ export type PermissionsPolicyAllowlist = 'self' | '*' | string;
 /**
  * Permissions-Policy directives.
  */
-export type PermissionsPolicyDirectives = {
-  [K in PermissionsPolicyFeature]?: PermissionsPolicyAllowlist[];
-} & {
-  [key: string]: PermissionsPolicyAllowlist[] | undefined;
-};
+export type PermissionsPolicyDirectives = Partial<
+  Record<PermissionsPolicyFeature, PermissionsPolicyAllowlist[]>
+> &
+  Record<string, PermissionsPolicyAllowlist[] | undefined>;
 
 // ============================================================================
 // Clear-Site-Data Types

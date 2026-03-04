@@ -123,6 +123,7 @@ export function createHandler(
   app: Application
 ): (request: Request, server: ReturnType<typeof Bun.serve>) => Promise<Response> {
   const handler = app.callback();
+  const trustProxy = app.options.proxy ?? false;
 
   return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
     // Get client IP from Bun server.
@@ -132,7 +133,7 @@ export function createHandler(
     // a truthy check.
     const clientIp = server.requestIP(request)?.address ?? '';
 
-    const ctx = createBunContext(request, clientIp);
+    const ctx = createBunContext(request, clientIp, trustProxy);
 
     try {
       await handler(ctx);
@@ -359,7 +360,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
  * // Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
  * ```
  */
-export function listen(app: Application, port: number = 3000): ServerInstance {
+export function listen(app: Application, port = 3000): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

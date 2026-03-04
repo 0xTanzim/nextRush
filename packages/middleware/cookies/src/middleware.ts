@@ -87,8 +87,11 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
           const decoded = decode(value);
           // Re-sanitize after custom decode to prevent CRLF injection
           parsed[name] = sanitizeCookieValue(decoded);
-        } catch (_: unknown) {
+        } catch (error: unknown) {
           // Custom decode failed — retain the parser-sanitized value.
+          // Record failure for observability without disrupting request flow.
+          ctx.state.cookieDecodeErrors ??= [];
+          (ctx.state.cookieDecodeErrors as string[]).push(name);
         }
       }
     }

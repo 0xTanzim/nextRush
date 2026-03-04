@@ -61,16 +61,16 @@ describe('getContentLength', () => {
     expect(result).toBe(100);
   });
 
-  it('should return 0 for missing header', () => {
+  it('should return undefined for missing header', () => {
     const result = getContentLength({});
 
-    expect(result).toBe(0);
+    expect(result).toBeUndefined();
   });
 
-  it('should return 0 for non-numeric value', () => {
+  it('should return undefined for non-numeric value', () => {
     const result = getContentLength({ 'content-length': 'abc' });
 
-    expect(result).toBe(0);
+    expect(result).toBeUndefined();
   });
 });
 
@@ -87,9 +87,9 @@ describe('getContentType', () => {
     expect(result).toBe('text/html');
   });
 
-  it('should return empty string for missing header', () => {
+  it('should return undefined for missing header', () => {
     const result = getContentType({});
 
-    expect(result).toBe('');
+    expect(result).toBeUndefined();
   });
 });

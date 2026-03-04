@@ -36,7 +36,7 @@ export interface RouteMatch {
   handler: RouteHandler;
   /** Extracted route parameters */
   params: Record<string, string>;
-  /** Combined middleware stack */
+  /** Router-level middleware stack (route-specific middleware is in the executor) */
   middleware: Middleware[];
   /** Pre-compiled executor for fast dispatch (internal) */
   executor?: (ctx: Context) => Promise<void>;

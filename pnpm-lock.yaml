@@ -47,12 +47,54 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-      typescript-eslint:
-        specifier: ^8.56.1
-        version: 8.56.1(eslint@10.0.2(jiti@2.6.1))(typescript@5.9.3)
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.3.3)(@vitest/ui@4.0.18)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
+
+  apps/benchmark:
+    devDependencies:
+      '@hono/node-server':
+        specifier: ^1.19.10
+        version: 1.19.10(hono@4.12.4)
+      '@nextrush/adapter-node':
+        specifier: workspace:*
+        version: link:../../packages/adapters/node
+      '@nextrush/body-parser':
+        specifier: workspace:*
+        version: link:../../packages/middleware/body-parser
+      '@nextrush/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@nextrush/router':
+        specifier: workspace:*
+        version: link:../../packages/router
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      autocannon:
+        specifier: ^8.0.0
+        version: 8.0.0
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
+      fastify:
+        specifier: ^5.7.4
+        version: 5.7.4
+      hono:
+        specifier: ^4.12.4
+        version: 4.12.4
+      koa:
+        specifier: ^3.1.2
+        version: 3.1.2
+      koa-bodyparser:
+        specifier: ^4.4.1
+        version: 4.4.1
+      koa-router:
+        specifier: ^14.0.0
+        version: 14.0.0
 
   apps/docs:
     dependencies:
@@ -556,18 +598,6 @@ importers:
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@nextrush/body-parser':
-        specifier: workspace:*
-        version: link:../middleware/body-parser
-      '@nextrush/compression':
-        specifier: workspace:*
-        version: link:../middleware/compression
-      '@nextrush/cors':
-        specifier: workspace:*
-        version: link:../middleware/cors
-      '@nextrush/helmet':
-        specifier: workspace:*
-        version: link:../middleware/helmet
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.18)(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
@@ -1173,6 +1203,12 @@ packages:
 
   '@hapi/bourne@3.0.0':
     resolution: {integrity: sha512-Waj1cwPXJDucOib4a3bAISsKJVb15MKi9IvmTI/7ssVEm6sywXGjVJDhl6/umt1pK1ZS7PacXU3A1PmFKHEZ2w==}
+
+  '@hono/node-server@1.19.10':
+    resolution: {integrity: sha512-hZ7nOssGqRgyV3FVVQdfi+U4q02uB23bpnYpdvNXkYTRRyWx84b7yf1ans+dnJ/7h41sGL3CeQTfO+ZGxuO+Iw==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@hono/node-server@1.19.9':
     resolution: {integrity: sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==}
@@ -4147,6 +4183,10 @@ packages:
     resolution: {integrity: sha512-SFsVSjp8sj5UumXOOFlkZOG6XS9SJDKw0TbwFeV+AJ8xlST8kxK5Z/5EYa111UY8732lK2S/xB653ceuaoGwpg==}
     engines: {node: '>=16.9.0'}
 
+  hono@4.12.4:
+    resolution: {integrity: sha512-ooiZW1Xy8rQ4oELQ++otI2T9DsKpV0M6c6cO6JGx4RTfav9poFFLlet9UMXHZnoM1yG0HWGlQLswBGX3RZmHtg==}
+    engines: {node: '>=16.9.0'}
+
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
@@ -6825,6 +6865,10 @@ snapshots:
       tailwindcss: 4.2.1
 
   '@hapi/bourne@3.0.0': {}
+
+  '@hono/node-server@1.19.10(hono@4.12.4)':
+    dependencies:
+      hono: 4.12.4
 
   '@hono/node-server@1.19.9(hono@4.12.3)':
     dependencies:
@@ -9984,6 +10028,8 @@ snapshots:
       hermes-estree: 0.25.1
 
   hono@4.12.3: {}
+
+  hono@4.12.4: {}
 
   html-escaper@2.0.2: {}
 
