@@ -3,8 +3,6 @@ title: Middleware
 description: How the onion-model middleware pipeline processes requests in NextRush
 ---
 
-# Middleware
-
 ## Why Middleware Exists
 
 HTTP request processing requires multiple steps: parsing bodies, authenticating users, validating permissions, logging, handling business logic, and formatting responses. Without middleware, you repeat this cross-cutting logic in every route handler.
@@ -78,21 +76,26 @@ Each middleware calls `await next()` to pass control downstream and waits for it
 
 NextRush supports both a `next` parameter and `ctx.next()`. They are identical in behavior:
 
-```typescript
-// Traditional: next parameter
-app.use(async (ctx, next) => {
-  const start = Date.now();
-  await next();
-  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
-});
-
-// Modern: ctx.next()
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
-});
-```
+<Tabs items={['Traditional (next parameter)', 'Modern (ctx.next())']}>
+  <Tab value="Traditional (next parameter)">
+    ```typescript
+    app.use(async (ctx, next) => {
+      const start = Date.now();
+      await next();
+      ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+    });
+    ```
+  </Tab>
+  <Tab value="Modern (ctx.next())">
+    ```typescript
+    app.use(async (ctx) => {
+      const start = Date.now();
+      await ctx.next();
+      ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+    });
+    ```
+  </Tab>
+</Tabs>
 
 ### Registering Middleware
 
@@ -216,7 +219,8 @@ Synchronous exceptions inside middleware are caught and converted to rejected pr
 
 ## Common Mistakes
 
-### Forgetting `await` on `next()`
+<details>
+<summary>Forgetting `await` on `next()`</summary>
 
 ```typescript
 // ❌ Downstream runs concurrently — race condition
@@ -232,7 +236,10 @@ app.use(async (ctx, next) => {
 });
 ```
 
-### Wrong Middleware Order
+</details>
+
+<details>
+<summary>Wrong middleware order</summary>
 
 ```typescript
 // ❌ Error handler registered too late
@@ -244,7 +251,10 @@ app.use(errorHandler);
 app.use(json());
 ```
 
-### Calling `next()` Multiple Times
+</details>
+
+<details>
+<summary>Calling `next()` multiple times</summary>
 
 ```typescript
 // ❌ Rejects with 'next() called multiple times'
@@ -253,6 +263,8 @@ app.use(async (ctx, next) => {
   await next(); // Error
 });
 ```
+
+</details>
 
 ## When Not To Use Middleware
 

@@ -3,8 +3,6 @@ title: '@nextrush/compression'
 description: 'Multi-runtime response compression with Gzip, Deflate, and Brotli support.'
 ---
 
-# @nextrush/compression
-
 ## Problem
 
 Uncompressed HTTP responses waste bandwidth and slow page loads. Text-based payloads (JSON, HTML, CSS) often shrink 60–80% with compression, yet getting it right involves content negotiation, content-type filtering, threshold tuning, and runtime compatibility — details you should not have to manage per-route.
@@ -38,6 +36,12 @@ app.use(compression());
 ## Configuration Options
 
 Pass an options object to `compression()` to override defaults.
+
+<Callout type="warn" title="CPU Trade-off">
+  Higher compression levels reduce payload size but increase CPU usage per response. Level 6
+  (default) balances size and speed for most workloads. Use level 1–3 for latency-sensitive APIs or
+  level 9+ only for static pre-compressed assets.
+</Callout>
 
 ```ts
 app.use(

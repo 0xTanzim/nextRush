@@ -3,8 +3,6 @@ title: Error Handling
 description: Build consistent, secure error responses for your NextRush API
 ---
 
-# Error Handling
-
 ## What You Will Build
 
 A NextRush application with:
@@ -152,12 +150,15 @@ Every `NextRushError` has these properties:
 
     The `errorHandler()` accepts these options:
 
-    | Option         | Type                                                        | Default          | Description                              |
-    |----------------|-------------------------------------------------------------|------------------|------------------------------------------|
-    | `includeStack` | `boolean`                                                   | `false`          | Include stack trace in response          |
-    | `logger`       | `(error: Error, ctx: Context) => void`                      | Console logger   | Custom error logging function            |
-    | `transform`    | `(error: Error, ctx: Context) => Record<string, unknown>`   | —                | Custom response body transformer         |
-    | `handlers`     | `Map<ErrorConstructor, (error: Error, ctx: Context) => void>` | —              | Type-specific error handlers             |
+    <TypeTable
+      title="errorHandler options"
+      types={{
+        includeStack: { type: 'boolean', description: 'Include stack trace in response', optional: true, default: 'false' },
+        logger: { type: '(error: Error, ctx: Context) => void', description: 'Custom error logging function', optional: true, default: 'Console logger' },
+        transform: { type: '(error: Error, ctx: Context) => Record<string, unknown>', description: 'Custom response body transformer', optional: true },
+        handlers: { type: 'Map<ErrorConstructor, (error: Error, ctx: Context) => void>', description: 'Type-specific error handlers', optional: true },
+      }}
+    />
 
     **Custom logger:**
 

@@ -3,8 +3,6 @@ title: '@nextrush/cors'
 description: 'Security-hardened CORS middleware with presets and origin validation.'
 ---
 
-# @nextrush/cors
-
 Browsers block cross-origin API requests by default. CORS middleware tells browsers which origins, methods, and headers your API accepts. Without it, frontend applications on different domains cannot reach your endpoints.
 
 This middleware implements the full CORS specification with additional protections against null origin attacks, regex denial-of-service, and credential misconfigurations.
@@ -127,56 +125,64 @@ The validator receives the `Origin` header value and a `CorsContext` object. Ret
 
 ## Presets
 
-### `simpleCors()`
+Choose a preset that matches your deployment scenario:
 
-Allows any origin (`*`) without credentials. Use for public APIs or development.
+<Tabs items={['simpleCors', 'strictCors', 'devCors', 'internalCors']}>
+  <Tab value="simpleCors">
+    Allows any origin (`*`) without credentials. Use for public APIs or development.
 
-```ts
-import { simpleCors } from '@nextrush/cors';
+    ```ts
+    import { simpleCors } from '@nextrush/cors';
 
-app.use(simpleCors());
-```
+    app.use(simpleCors());
+    ```
 
-### `strictCors(origin, options?)`
+  </Tab>
+  <Tab value="strictCors">
+    Requires an explicit origin. Enables credentials and blocks null origins. Caches preflight for 24 hours by default.
 
-Requires an explicit origin. Enables credentials and blocks null origins. Caches preflight for 24 hours by default.
+    ```ts
+    import { strictCors } from '@nextrush/cors';
 
-```ts
-import { strictCors } from '@nextrush/cors';
+    app.use(strictCors('https://app.example.com'));
 
-app.use(strictCors('https://app.example.com'));
+    app.use(
+      strictCors(['https://app.example.com', 'https://admin.example.com'], {
+        exposedHeaders: ['X-Request-Id'],
+      })
+    );
+    ```
 
-app.use(
-  strictCors(['https://app.example.com', 'https://admin.example.com'], {
-    exposedHeaders: ['X-Request-Id'],
-  })
-);
-```
+  </Tab>
+  <Tab value="devCors">
+    Allows localhost origins (`127.0.0.1`, `::1`, `*.localhost`) with credentials and Private Network Access enabled. Null origins are allowed for `file://` testing.
 
-### `devCors(additionalOrigins?)`
+    ```ts
+    import { devCors } from '@nextrush/cors';
 
-Allows localhost origins (`127.0.0.1`, `::1`, `*.localhost`) with credentials and Private Network Access enabled. Null origins are allowed for `file://` testing.
+    app.use(devCors());
+    app.use(devCors(['https://staging.example.com']));
+    ```
 
-```ts
-import { devCors } from '@nextrush/cors';
+  </Tab>
+  <Tab value="internalCors">
+    Restricted to a list of internal service domains. Enables credentials and sets common internal headers.
 
-app.use(devCors());
-app.use(devCors(['https://staging.example.com']));
-```
+    ```ts
+    import { internalCors } from '@nextrush/cors';
 
-### `internalCors(internalDomains)`
+    app.use(
+      internalCors([
+        'https://service1.internal.example.com',
+        'https://service2.internal.example.com',
+      ])
+    );
+    ```
 
-Restricted to a list of internal service domains. Enables credentials and sets common internal headers.
+  </Tab>
+</Tabs>
 
-```ts
-import { internalCors } from '@nextrush/cors';
-
-app.use(
-  internalCors(['https://service1.internal.example.com', 'https://service2.internal.example.com'])
-);
-```
-
-### `staticAssetsCors(origins?)`
+### `staticAssetsCors`
 
 Optimized for CDN and static file serving. Limits methods to GET, HEAD, OPTIONS. Caches preflight for 7 days. Defaults to `'*'` if no origins are specified.
 

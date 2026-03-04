@@ -3,8 +3,6 @@ title: '@nextrush/logger'
 description: 'Request logging middleware with correlation IDs and structured output.'
 ---
 
-# @nextrush/logger
-
 HTTP requests leave no trace by default. When a production issue hits, you need structured logs with correlation IDs to track requests across services and find the failure point.
 
 The logger middleware solves this: structured request/response logging, automatic correlation ID tracking, and a request-scoped logger attached to every context as `ctx.log`.
@@ -33,6 +31,11 @@ This package wraps [@nextrush/log](https://www.npmjs.com/package/@nextrush/log) 
 ---
 
 ## Minimal Usage
+
+<Callout type="warn">
+  Register the logger middleware before route handlers. It must run first to attach `ctx.log` and
+  track request timing.
+</Callout>
 
 ```ts
 import { createApp } from '@nextrush/core';

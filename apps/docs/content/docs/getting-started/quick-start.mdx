@@ -3,9 +3,11 @@ title: Quick Start
 description: Create a REST API with NextRush — routing, middleware, and JSON responses
 ---
 
-# Quick Start
-
 This guide walks you through building a REST API with NextRush. You'll set up routing, middleware, and JSON responses.
+
+<Callout type="info" title="Prerequisites">
+  You need **Node.js 22.0.0+** and **pnpm** installed. TypeScript knowledge is recommended.
+</Callout>
 
 <Steps>
 <Step>
@@ -207,6 +209,9 @@ curl -X POST http://localhost:3000/users \
 
 Here's the complete code with everything we've covered:
 
+<details>
+<summary>Full application code with routing, middleware, and POST handling</summary>
+
 ```typescript title="src/index.ts"
 import { createApp, createRouter, listen } from 'nextrush';
 import { cors } from '@nextrush/cors';
@@ -258,6 +263,8 @@ app.route('/users', users);
 // Start
 await listen(app, 3000);
 ```
+
+</details>
 
 ## Common Mistakes
 

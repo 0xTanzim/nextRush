@@ -4,6 +4,7 @@ description: 'Principal Documentation Architect for NextRush. Writes, audits, an
 disable-model-invocation: false
 model: Claude Opus 4.6 (copilot)
 tools: ["vscode", "read", "edit", "search", "memory/*", "web", "context7/*", "todo", "sequential-thinking/*"]
+user-invocable: false
 ---
 
 # NextRush Documentation Architect Agent

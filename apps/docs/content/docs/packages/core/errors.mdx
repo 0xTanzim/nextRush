@@ -3,8 +3,6 @@ title: '@nextrush/errors'
 description: Standardized HTTP error classes with proper status codes
 ---
 
-# @nextrush/errors
-
 HTTP error classes for consistent error handling across your NextRush application.
 
 <PackageInstall packages={['@nextrush/errors']} />
@@ -103,9 +101,9 @@ All NextRush errors extend `NextRushError`. All HTTP errors extend `HttpError`:
 
 ```typescript
 class NextRushError extends Error {
-  readonly status: number; // HTTP status code (default: 500)
-  readonly code: string; // Machine-readable code (default: 'INTERNAL_ERROR')
-  readonly expose: boolean; // Whether to expose message to client (default: status < 500)
+  readonly status: number;
+  readonly code: string;
+  readonly expose: boolean;
   readonly details?: Record<string, unknown>;
   readonly cause?: unknown;
 }
@@ -114,6 +112,29 @@ class HttpError extends NextRushError {
   constructor(status: number, message?: string, options?: HttpErrorOptions);
 }
 ```
+
+<TypeTable
+  title="NextRushError Properties"
+  types={{
+    status: { type: 'number', description: 'HTTP status code', default: '500' },
+    code: {
+      type: 'string',
+      description: 'Machine-readable error code',
+      default: "'INTERNAL_ERROR'",
+    },
+    expose: {
+      type: 'boolean',
+      description: 'Whether to expose message to client',
+      default: 'true for 4xx, false for 5xx',
+    },
+    details: {
+      type: 'Record<string, unknown>',
+      description: 'Additional structured data',
+      optional: true,
+    },
+    cause: { type: 'unknown', description: 'Original error for error chaining', optional: true },
+  }}
+/>
 
 ### 4xx Client Errors
 
@@ -173,14 +194,19 @@ class HttpError extends NextRushError {
 
 All error classes accept an options object:
 
-```typescript
-interface HttpErrorOptions {
-  code?: string; // Override default error code
-  expose?: boolean; // Override expose behavior
-  details?: Record<string, unknown>; // Additional data
-  cause?: unknown; // Original error
-}
-```
+<TypeTable
+  title="HttpErrorOptions"
+  types={{
+    code: { type: 'string', description: 'Override default error code', optional: true },
+    expose: { type: 'boolean', description: 'Override expose behavior', optional: true },
+    details: {
+      type: 'Record<string, unknown>',
+      description: 'Additional data attached to the error',
+      optional: true,
+    },
+    cause: { type: 'unknown', description: 'Original error for error chaining', optional: true },
+  }}
+/>
 
 ### Examples
 

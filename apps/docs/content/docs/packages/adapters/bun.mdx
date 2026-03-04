@@ -3,8 +3,6 @@ title: '@nextrush/adapter-bun'
 description: 'Bun HTTP adapter for NextRush with graceful shutdown and TLS support.'
 ---
 
-# @nextrush/adapter-bun
-
 Connect your NextRush application to [Bun](https://bun.sh)'s native HTTP server.
 
 This adapter bridges NextRush's middleware system to Bun's native `Bun.serve()` API, handling context creation, in-flight request tracking, and graceful shutdown.
@@ -14,6 +12,11 @@ This adapter bridges NextRush's middleware system to Bun's native `Bun.serve()` 
 ## Installation
 
 <PackageInstall packages={['@nextrush/adapter-bun', '@nextrush/core']} />
+
+<Callout type="info" title="Bun Runtime Required">
+  This adapter requires <a href="https://bun.sh">Bun</a> 1.0 or later. It uses Bun's native
+  `Bun.serve()` API for optimal performance.
+</Callout>
 
 ---
 

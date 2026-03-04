@@ -3,8 +3,6 @@ title: Guards
 description: Control route access with declarative guards
 ---
 
-# Guards
-
 Guards decide whether a request reaches your handler. They are the access-control layer for controller-based routes.
 
 ## The Real Problem
@@ -78,52 +76,55 @@ If any guard returns `false` or throws, the chain stops immediately.
 
 ## Function Guards vs Class Guards
 
-### Function Guards
+<Tabs items={['Function Guard', 'Class Guard (with DI)']}>
+  <Tab value="Function Guard">
+    Lightweight, no dependencies needed:
 
-Lightweight, no dependencies needed:
+    ```typescript title="Function Guard"
+    import type { GuardFn } from '@nextrush/decorators';
 
-```typescript title="Function Guard"
-import type { GuardFn } from '@nextrush/decorators';
+    const AuthGuard: GuardFn = async (ctx) => {
+      const token = ctx.get('authorization');
+      if (!token) return false;
 
-const AuthGuard: GuardFn = async (ctx) => {
-  const token = ctx.get('authorization');
-  if (!token) return false;
+      const user = await verifyToken(token);
+      if (!user) return false;
 
-  const user = await verifyToken(token);
-  if (!user) return false;
+      ctx.state.user = user;
+      return true;
+    };
+    ```
 
-  ctx.state.user = user;
-  return true;
-};
-```
+  </Tab>
+  <Tab value="Class Guard (with DI)">
+    When guards need injected services, implement the `CanActivate` interface:
 
-### Class Guards (with DI)
+    ```typescript title="Class Guard with DI"
+    import 'reflect-metadata';
+    import { Service } from '@nextrush/di';
+    import type { CanActivate, GuardContext } from '@nextrush/decorators';
 
-When guards need injected services, implement the `CanActivate` interface:
+    @Service()
+    class AuthGuard implements CanActivate {
+      constructor(private authService: AuthService) {}
 
-```typescript title="Class Guard with DI"
-import 'reflect-metadata';
-import { Service } from '@nextrush/di';
-import type { CanActivate, GuardContext } from '@nextrush/decorators';
+      async canActivate(ctx: GuardContext): Promise<boolean> {
+        const token = ctx.get('authorization');
+        if (!token) return false;
 
-@Service()
-class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService) {}
+        const user = await this.authService.verify(token);
+        if (!user) return false;
 
-  async canActivate(ctx: GuardContext): Promise<boolean> {
-    const token = ctx.get('authorization');
-    if (!token) return false;
+        ctx.state.user = user;
+        return true;
+      }
+    }
+    ```
 
-    const user = await this.authService.verify(token);
-    if (!user) return false;
+    Class guards are resolved from the DI container, so they receive injected dependencies automatically.
 
-    ctx.state.user = user;
-    return true;
-  }
-}
-```
-
-Class guards are resolved from the DI container, so they receive injected dependencies automatically.
+  </Tab>
+</Tabs>
 
 ## Minimal Correct Usage
 
@@ -264,7 +265,8 @@ The `GuardRejectionError` includes the guard name and an error code of `GUARD_RE
 
 ## Common Mistakes
 
-### Not Awaiting Async Operations
+<details>
+<summary>Not awaiting async operations</summary>
 
 ```typescript
 // ❌ Returns before verify completes
@@ -280,7 +282,10 @@ const GoodGuard: GuardFn = async (ctx) => {
 };
 ```
 
-### Forgetting to Attach User to State
+</details>
+
+<details>
+<summary>Forgetting to attach user to state</summary>
 
 ```typescript
 // ❌ Handler cannot access the verified user
@@ -297,7 +302,10 @@ const GoodGuard: GuardFn = async (ctx) => {
 };
 ```
 
-### Dependent Guards in Wrong Order
+</details>
+
+<details>
+<summary>Dependent guards in wrong order</summary>
 
 ```typescript
 // ❌ RoleGuard reads ctx.state.user before AuthGuard sets it
@@ -310,6 +318,8 @@ class AdminController {}
 @Controller('/admin')
 class AdminController {}
 ```
+
+</details>
 
 ## When Not To Use Guards
 

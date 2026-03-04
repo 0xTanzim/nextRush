@@ -6,8 +6,6 @@ description: How NextRush works under the hood — design decisions, core concep
 import { Mermaid } from '@/components/mdx';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-# Architecture Overview
-
 NextRush is built on three principles that shape every design decision.
 
 ## Design Philosophy
@@ -26,42 +24,49 @@ This matters because:
 
 NextRush supports both **functional** and **class-based** programming equally well.
 
-```ts title="Functional style"
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
+<Tabs items={['Functional', 'Class-based']}>
+  <Tab value="Functional">
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
 
-const app = createApp();
-const router = createRouter();
+    const app = createApp();
+    const router = createRouter();
 
-router.get('/users', (ctx) => {
-  ctx.json([{ id: 1, name: 'Alice' }]);
-});
+    router.get('/users', (ctx) => {
+      ctx.json([{ id: 1, name: 'Alice' }]);
+    });
 
-app.route('/', router);
-```
+    app.route('/', router);
+    ```
 
-```ts title="Class-based style"
-import 'reflect-metadata';
-import { Controller, Get } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
+  </Tab>
+  <Tab value="Class-based">
+    ```ts
+    import 'reflect-metadata';
+    import { Controller, Get } from '@nextrush/decorators';
+    import { Service } from '@nextrush/di';
 
-@Service()
-class UserService {
-  findAll() {
-    return [{ id: 1, name: 'Alice' }];
-  }
-}
+    @Service()
+    class UserService {
+      findAll() {
+        return [{ id: 1, name: 'Alice' }];
+      }
+    }
 
-@Controller('/users')
-class UserController {
-  constructor(private users: UserService) {}
+    @Controller('/users')
+    class UserController {
+      constructor(private users: UserService) {}
 
-  @Get()
-  findAll() {
-    return this.users.findAll();
-  }
-}
-```
+      @Get()
+      findAll() {
+        return this.users.findAll();
+      }
+    }
+    ```
+
+  </Tab>
+</Tabs>
 
 Both styles produce identical runtime behavior. Choose based on your team's preference.
 
@@ -228,25 +233,32 @@ router.get('/users/:id/posts/:postId', (ctx) => {
 
 Adapters bridge NextRush to specific runtimes. They convert platform-specific requests into the universal `Context` interface.
 
-```ts title="Node.js"
-import { listen } from '@nextrush/adapter-node';
-await listen(app, 3000);
-```
-
-```ts title="Bun"
-import { serve } from '@nextrush/adapter-bun';
-serve(app, { port: 3000 });
-```
-
-```ts title="Deno"
-import { serve } from '@nextrush/adapter-deno';
-serve(app, { port: 3000 });
-```
-
-```ts title="Cloudflare Workers"
-import { createHandler } from '@nextrush/adapter-edge';
-export default { fetch: createHandler(app) };
-```
+<Tabs items={['Node.js', 'Bun', 'Deno', 'Edge']}>
+  <Tab value="Node.js">
+    ```ts
+    import { listen } from '@nextrush/adapter-node';
+    await listen(app, 3000);
+    ```
+  </Tab>
+  <Tab value="Bun">
+    ```ts
+    import { serve } from '@nextrush/adapter-bun';
+    serve(app, { port: 3000 });
+    ```
+  </Tab>
+  <Tab value="Deno">
+    ```ts
+    import { serve } from '@nextrush/adapter-deno';
+    serve(app, { port: 3000 });
+    ```
+  </Tab>
+  <Tab value="Edge">
+    ```ts
+    import { createHandler } from '@nextrush/adapter-edge';
+    export default { fetch: createHandler(app) };
+    ```
+  </Tab>
+</Tabs>
 
 ## Dive Deeper
 

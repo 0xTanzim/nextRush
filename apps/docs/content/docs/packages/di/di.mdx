@@ -3,8 +3,6 @@ title: '@nextrush/di'
 description: 'Constructor injection, scoped lifecycles, and circular dependency detection for NextRush applications.'
 ---
 
-# @nextrush/di
-
 ## The Real Problem
 
 As applications grow, object creation becomes tangled. A service depends on a repository, which depends on a database connection, which depends on configuration. Wiring these by hand means every constructor call carries the full dependency chain. Change one dependency and every call site breaks. Testing requires manually constructing the entire tree with mocks.
@@ -89,9 +87,13 @@ console.log(userService.getUsers()); // [{ id: 1, name: 'Alice' }]
 
 ## What Happens Automatically
 
-- `reflect-metadata` is imported by `@nextrush/di` — you still need to import it at your application entry point before any decorated class is loaded.
 - `@Service()` and `@Repository()` default to **singleton** scope. One instance is shared across all `resolve()` calls.
 - Constructor parameter types are read via `emitDecoratorMetadata`. If parameter `repo` has type `UserRepository`, the container resolves `UserRepository` automatically — no manual `@inject()` needed for class tokens.
+
+<Callout type="info" title="reflect-metadata at Entry Point">
+  `@nextrush/di` uses `reflect-metadata` internally, but you must still `import 'reflect-metadata'`
+  at the top of your application entry point — before any decorated class is loaded.
+</Callout>
 
 ---
 
@@ -193,11 +195,14 @@ class ServiceB {
 
 ## Scopes
 
-### Singleton (Default)
+Two lifecycle scopes control how the container manages instances:
+
+<Tabs items={['Singleton (Default)', 'Transient']}>
+  <Tab value="Singleton (Default)">
 
 One instance shared across all `resolve()` calls:
 
-```typescript
+```ts
 @Service()
 class ConfigService {
   readonly startTime = Date.now();
@@ -208,11 +213,12 @@ const b = container.resolve(ConfigService);
 console.log(a === b); // true
 ```
 
-### Transient
+  </Tab>
+  <Tab value="Transient">
 
 New instance for each `resolve()` call:
 
-```typescript
+```ts
 @Service({ scope: 'transient' })
 class RequestContext {
   readonly id = Math.random();
@@ -222,6 +228,9 @@ const a = container.resolve(RequestContext);
 const b = container.resolve(RequestContext);
 console.log(a === b); // false
 ```
+
+  </Tab>
+</Tabs>
 
 ---
 
@@ -435,7 +444,12 @@ Used internally by `@nextrush/controllers` for auto-discovery. Useful when build
 
 ## TypeScript Exports
 
-```typescript
+All types and runtime exports are available from the package entry point.
+
+<details>
+<summary>Complete import reference</summary>
+
+```ts
 // Container
 import { container, createContainer } from '@nextrush/di';
 
@@ -472,6 +486,8 @@ import type {
   ServiceOptions,
 } from '@nextrush/di';
 ```
+
+</details>
 
 ---
 

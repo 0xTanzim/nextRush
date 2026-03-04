@@ -3,8 +3,6 @@ title: '@nextrush/body-parser'
 description: 'Parse JSON, URL-encoded, text, and raw request bodies with size limits and security protections.'
 ---
 
-# @nextrush/body-parser
-
 Parse incoming request bodies before your handlers process them.
 
 HTTP request bodies arrive as raw byte streams. This middleware reads, validates, and parses them into usable JavaScript values — handling JSON, URL-encoded forms, plain text, and raw binary data. Built-in protections guard against oversized payloads, prototype pollution, and malformed input.
@@ -47,41 +45,44 @@ app.use(async (ctx) => {
 
 Use individual parsers when you need to handle specific content types only.
 
-### JSON
+<Tabs items={['JSON', 'URL-Encoded', 'Text', 'Raw Binary']}>
+  <Tab value="JSON">
+    ```ts
+    import { json } from '@nextrush/body-parser';
 
-```ts
-import { json } from '@nextrush/body-parser';
+    app.use(json());
+    // Parses: application/json
+    ```
 
-app.use(json());
-// Parses: application/json
-```
+  </Tab>
+  <Tab value="URL-Encoded">
+    ```ts
+    import { urlencoded } from '@nextrush/body-parser';
 
-### URL-Encoded
+    app.use(urlencoded());
+    // Parses: application/x-www-form-urlencoded
+    ```
 
-```ts
-import { urlencoded } from '@nextrush/body-parser';
+  </Tab>
+  <Tab value="Text">
+    ```ts
+    import { text } from '@nextrush/body-parser';
 
-app.use(urlencoded());
-// Parses: application/x-www-form-urlencoded
-```
+    app.use(text());
+    // Parses: text/plain
+    ```
 
-### Text
+  </Tab>
+  <Tab value="Raw Binary">
+    ```ts
+    import { raw } from '@nextrush/body-parser';
 
-```ts
-import { text } from '@nextrush/body-parser';
+    app.use(raw());
+    // Parses: application/octet-stream
+    ```
 
-app.use(text());
-// Parses: text/plain
-```
-
-### Raw Binary
-
-```ts
-import { raw } from '@nextrush/body-parser';
-
-app.use(raw());
-// Parses: application/octet-stream
-```
+  </Tab>
+</Tabs>
 
 ---
 

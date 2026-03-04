@@ -3,8 +3,6 @@ title: '@nextrush/types'
 description: Shared TypeScript type definitions for the NextRush ecosystem
 ---
 
-# @nextrush/types
-
 The types package provides shared TypeScript definitions for the entire NextRush ecosystem. It has **zero runtime dependencies**.
 
 <PackageInstall packages={['@nextrush/types']} />
@@ -314,20 +312,58 @@ interface PluginWithHooks extends Plugin {
 }
 ```
 
+<TypeTable
+  title="PluginWithHooks Lifecycle Methods"
+  types={{
+    onRequest: {
+      type: '(ctx: Context) => void | Promise<void>',
+      description: 'Called before each request',
+      optional: true,
+    },
+    onResponse: {
+      type: '(ctx: Context) => void | Promise<void>',
+      description: 'Called after each response',
+      optional: true,
+    },
+    onError: {
+      type: '(error: Error, ctx: Context) => void | Promise<void>',
+      description: 'Called when an error occurs',
+      optional: true,
+    },
+    extendContext: {
+      type: '(ctx: Context) => void',
+      description: 'Extend the context object with additional properties',
+      optional: true,
+    },
+  }}
+/>
+
 ## Router Types
 
+### RouterOptions
+
+<TypeTable
+  title="RouterOptions"
+  types={{
+    prefix: { type: 'string', description: 'Path prefix for all routes', optional: true },
+    caseSensitive: {
+      type: 'boolean',
+      description: 'Case-sensitive matching',
+      optional: true,
+      default: 'false',
+    },
+    strict: {
+      type: 'boolean',
+      description: 'Strict trailing slash',
+      optional: true,
+      default: 'false',
+    },
+  }}
+/>
+
+### RouteMatch
+
 ```typescript
-interface RouterOptions {
-  /** Path prefix for all routes */
-  prefix?: string;
-
-  /** Case-sensitive matching (default: false) */
-  caseSensitive?: boolean;
-
-  /** Strict trailing slash (default: false) */
-  strict?: boolean;
-}
-
 interface RouteMatch {
   /** Route handler function */
   handler: RouteHandler;
@@ -349,6 +385,8 @@ interface Route {
 
 ## Runtime Types
 
+### Runtime
+
 ```typescript
 type Runtime =
   | 'node'
@@ -359,36 +397,41 @@ type Runtime =
   | 'vercel-edge'
   | 'edge'
   | 'unknown';
+```
 
+### RuntimeInfo
+
+```typescript
 interface RuntimeInfo {
   runtime: Runtime;
   version: string | undefined;
   capabilities: RuntimeCapabilities;
 }
-
-interface RuntimeCapabilities {
-  /** Supports Node.js streams */
-  nodeStreams: boolean;
-
-  /** Supports Web Streams API */
-  webStreams: boolean;
-
-  /** Supports file system operations */
-  fileSystem: boolean;
-
-  /** Supports WebSocket */
-  webSocket: boolean;
-
-  /** Supports native fetch API */
-  fetch: boolean;
-
-  /** Supports crypto.subtle API */
-  cryptoSubtle: boolean;
-
-  /** Supports Web Workers / Worker Threads */
-  workers: boolean;
-}
 ```
+
+<TypeTable
+  title="RuntimeInfo"
+  types={{
+    runtime: { type: 'Runtime', description: 'Detected runtime identifier' },
+    version: { type: 'string | undefined', description: 'Runtime version string' },
+    capabilities: { type: 'RuntimeCapabilities', description: 'Feature support flags' },
+  }}
+/>
+
+### RuntimeCapabilities
+
+<TypeTable
+  title="RuntimeCapabilities"
+  types={{
+    nodeStreams: { type: 'boolean', description: 'Supports Node.js streams' },
+    webStreams: { type: 'boolean', description: 'Supports Web Streams API' },
+    fileSystem: { type: 'boolean', description: 'Supports file system operations' },
+    webSocket: { type: 'boolean', description: 'Supports WebSocket' },
+    fetch: { type: 'boolean', description: 'Supports native fetch API' },
+    cryptoSubtle: { type: 'boolean', description: 'Supports crypto.subtle API' },
+    workers: { type: 'boolean', description: 'Supports Web Workers / Worker Threads' },
+  }}
+/>
 
 ## Body Source
 
@@ -417,15 +460,25 @@ interface BodySource {
   /** Content-Type header value (if available) */
   readonly contentType: string | undefined;
 }
-
-interface BodySourceOptions {
-  /** Maximum body size in bytes (default: 1MB) */
-  limit?: number;
-
-  /** Encoding for text() method (default: 'utf-8') */
-  encoding?: 'utf-8' | 'utf8' | 'ascii' | 'latin1' | 'iso-8859-1' | 'utf-16le' | 'utf-16be';
-}
 ```
+
+<TypeTable
+  title="BodySourceOptions"
+  types={{
+    limit: {
+      type: 'number',
+      description: 'Maximum body size in bytes',
+      optional: true,
+      default: '1048576 (1MB)',
+    },
+    encoding: {
+      type: "'utf-8' | 'utf8' | 'ascii' | 'latin1' | 'iso-8859-1' | 'utf-16le' | 'utf-16be'",
+      description: 'Encoding for text() method',
+      optional: true,
+      default: "'utf-8'",
+    },
+  }}
+/>
 
 ## Type Utilities
 

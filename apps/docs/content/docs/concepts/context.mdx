@@ -3,8 +3,6 @@ title: Context API
 description: The ctx object provides unified access to request and response in every handler
 ---
 
-# Context API
-
 The `ctx` object is your primary interface in NextRush. It provides unified access to request data and response methods in a single, coherent object.
 
 ## The Problem
@@ -87,17 +85,39 @@ Think of Context as a **request envelope** that travels through your middleware 
 
 ## Request Properties
 
-### `ctx.method`
+<TypeTable
+  title="Request Properties Summary"
+  types={{
+    method: { type: 'HttpMethod', description: 'HTTP request method (GET, POST, etc.)' },
+    path: { type: 'string', description: 'Request path without query string' },
+    url: { type: 'string', description: 'Full URL including query string' },
+    params: { type: 'Record<string, string>', description: 'Route parameters from the router' },
+    query: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Parsed query string parameters',
+    },
+    headers: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Request headers (lowercased keys in Node.js)',
+    },
+    body: { type: 'unknown', description: 'Request body (requires body parser middleware)' },
+    ip: {
+      type: 'string',
+      description: 'Client IP address (respects X-Forwarded-For when proxy: true)',
+    },
+  }}
+/>
 
-The HTTP method of the request.
+<details>
+<summary>Detailed request property examples</summary>
+
+### `ctx.method`
 
 ```typescript
 ctx.method; // 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | ...
 ```
 
 ### `ctx.path`
-
-The request path without query string.
 
 ```typescript
 // Request: GET /users/123?include=posts
@@ -106,16 +126,12 @@ ctx.path; // '/users/123'
 
 ### `ctx.url`
 
-The full URL including query string.
-
 ```typescript
 // Request: GET /users/123?include=posts
 ctx.url; // '/users/123?include=posts'
 ```
 
 ### `ctx.params`
-
-Route parameters extracted by the router.
 
 ```typescript
 // Route: /users/:id
@@ -126,8 +142,6 @@ ctx.params.id; // '123'
 
 ### `ctx.query`
 
-Parsed query string parameters.
-
 ```typescript
 // Request: GET /users?page=2&limit=10
 ctx.query; // { page: '2', limit: '10' }
@@ -136,7 +150,6 @@ ctx.query.page; // '2'
 
 ### `ctx.headers`
 
-Request headers as a read-only object. In Node.js, header keys are lowercased.
 Use `ctx.get()` for case-insensitive lookup across all runtimes.
 
 ```typescript
@@ -145,8 +158,6 @@ ctx.headers['authorization']; // 'Bearer xxx'
 ```
 
 ### `ctx.body`
-
-Request body (populated by body parser middleware).
 
 ```typescript
 import { json } from '@nextrush/body-parser';
@@ -158,24 +169,13 @@ app.post('/users', (ctx) => {
 });
 ```
 
-<Callout type="warn" title="Body Requires Parser">
-  `ctx.body` is `undefined` until a body parser middleware runs. Always add a body parser before
-  accessing `ctx.body`.
-</Callout>
-
 ### `ctx.ip`
-
-Client IP address.
 
 ```typescript
 ctx.ip; // '192.168.1.1'
 ```
 
-When `proxy: true` is set in app options, this respects `X-Forwarded-For`.
-
 ### `ctx.get(header)`
-
-Get a request header value (case-insensitive).
 
 ```typescript
 ctx.get('Content-Type'); // 'application/json'
@@ -183,26 +183,59 @@ ctx.get('Authorization'); // 'Bearer xxx'
 ctx.get('x-request-id'); // 'abc-123'
 ```
 
+</details>
+
+The `body` property deserves special attention — it is not available by default.
+
+<Callout type="warn" title="Body Requires Parser">
+  `ctx.body` is `undefined` until a body parser middleware runs. Always add a body parser before
+  accessing `ctx.body`.
+</Callout>
+
 ## Response Methods
 
-### `ctx.json(data)`
+<TypeTable
+  title="Response Methods Summary"
+  types={{
+    'json(data)': {
+      type: '(data: unknown) => void',
+      description: 'Send JSON response with Content-Type: application/json',
+    },
+    'send(data)': {
+      type: '(data: unknown) => void',
+      description: 'Send string, Buffer, stream, or object response',
+    },
+    'html(content)': {
+      type: '(content: string) => void',
+      description: 'Send HTML response with Content-Type: text/html',
+    },
+    'redirect(url, status?)': {
+      type: '(url: string, status?: number) => void',
+      description: 'Redirect to URL (default: 302)',
+    },
+    'set(field, value)': {
+      type: '(field: string, value: string | number | string[]) => void',
+      description: 'Set response header',
+    },
+    status: { type: 'number', description: 'Get or set response status code (default: 200)' },
+  }}
+/>
 
-Send a JSON response.
+<details>
+<summary>Detailed response method examples</summary>
+
+### `ctx.json(data)`
 
 ```typescript
 ctx.json({ users: [] });
 ctx.json({ error: 'Not found' });
 ```
 
-**Behavior:**
-
-- Sets `Content-Type: application/json; charset=utf-8`
-- Serializes data with `JSON.stringify()`
-- Uses current `ctx.status` (defaults to 200)
+Sets `Content-Type: application/json; charset=utf-8`, serializes with `JSON.stringify()`.
 
 ### `ctx.send(data)`
 
-Send a response body. Handles strings, `Buffer`, `Uint8Array`, `ArrayBuffer`, Node.js streams, Web `ReadableStream`, objects (delegates to `json()`), and `null`.
+Handles strings, `Buffer`, `Uint8Array`, `ArrayBuffer`, Node.js streams, Web `ReadableStream`, objects (delegates to `json()`), and `null`.
 
 ```typescript
 ctx.send('Hello World'); // text/plain
@@ -212,43 +245,33 @@ ctx.send(readableStream); // pipes stream
 
 ### `ctx.html(content)`
 
-Send an HTML response.
-
 ```typescript
 ctx.html('<h1>Hello World</h1>');
 ```
 
-Sets `Content-Type: text/html; charset=utf-8`.
-
 ### `ctx.redirect(url, status?)`
-
-Redirect to another URL.
 
 ```typescript
 ctx.redirect('/login'); // 302 Found
 ctx.redirect('/new-page', 301); // 301 Moved Permanently
-ctx.redirect('https://example.com');
 ```
 
 ### `ctx.set(field, value)`
 
-Set a response header. Accepts `string`, `number`, or `string[]` for multi-value headers.
-
 ```typescript
 ctx.set('X-Request-Id', 'abc-123');
 ctx.set('Cache-Control', 'no-store');
-ctx.set('Content-Length', 1024);
 ctx.set('Set-Cookie', ['a=1; Path=/', 'b=2; Path=/']);
 ```
 
 ### `ctx.status`
 
-Get or set the response status code. Defaults to `200`.
-
 ```typescript
 ctx.status = 201; // Set status
-console.log(ctx.status); // Get status (200 if not set)
+console.log(ctx.status); // Get status
 ```
+
+</details>
 
 ## Error Helpers
 

@@ -3,8 +3,6 @@ title: '@nextrush/timer'
 description: 'Measure request duration with high-resolution timing and Server-Timing support.'
 ---
 
-# @nextrush/timer
-
 Measure how long requests take to process. Uses `performance.now()` for sub-millisecond accuracy and supports the `Server-Timing` header for browser DevTools integration.
 
 ## Installation
@@ -45,10 +43,15 @@ function timer(options?: TimerOptions): Middleware;
       description: 'Key in ctx.state for duration',
       default: "'responseTime'",
     },
-    exposeHeader: { type: 'boolean', description: 'Set response header', default: 'true' },
+    exposeHeader: { type: 'boolean', description: 'Set response header', default: 'false' },
     now: { type: '() => number', description: 'Custom time getter', default: 'performance.now' },
   }}
 />
+
+<Callout type="info">
+  The `exposeHeader` option defaults to `false`. Set it to `true` to include the timing header in
+  responses.
+</Callout>
 
 ### `responseTime(options?)`
 
@@ -66,7 +69,7 @@ Create `Server-Timing` middleware for browser DevTools integration.
 function serverTiming(options?: ServerTimingOptions): Middleware;
 ```
 
-```typescript
+```ts
 import { serverTiming } from '@nextrush/timer';
 
 app.use(serverTiming());
@@ -84,14 +87,14 @@ app.use(serverTiming());
       description: 'Key in ctx.state for duration',
       default: "'responseTime'",
     },
-    exposeHeader: { type: 'boolean', description: 'Set response header', default: 'true' },
+    exposeHeader: { type: 'boolean', description: 'Set response header', default: 'false' },
     now: { type: '() => number', description: 'Custom time getter', default: 'performance.now' },
   }}
 />
 
 With a description:
 
-```typescript
+```ts
 app.use(
   serverTiming({
     metric: 'api',
@@ -135,7 +138,7 @@ function detailedTimer(options?: DetailedTimerOptions): Middleware;
   number — the same as `timer()`.
 </Callout>
 
-```typescript
+```ts
 import { detailedTimer } from '@nextrush/timer';
 import type { TimingResult } from '@nextrush/timer';
 
@@ -153,7 +156,7 @@ app.use(async (ctx) => {
 
 Track both database and total timing with Server-Timing headers:
 
-```typescript
+```ts
 import { serverTiming } from '@nextrush/timer';
 
 // Database timing (custom)

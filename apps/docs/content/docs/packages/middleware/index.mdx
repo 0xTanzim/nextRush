@@ -1,9 +1,7 @@
 ---
-title: "Middleware Packages"
-description: "Production-ready middleware for security, parsing, performance, and observability."
+title: 'Middleware Packages'
+description: 'Production-ready middleware for security, parsing, performance, and observability.'
 ---
-
-# Middleware Packages
 
 NextRush provides first-party middleware packages for common HTTP concerns. Each package is independently installable and designed for production use.
 
@@ -38,30 +36,30 @@ graph LR
 
 ## Quick Reference
 
-| Package | Purpose | Common Use Case |
-|---------|---------|-----------------|
-| [@nextrush/cors](/docs/packages/middleware/cors) | Cross-origin requests | Browser API access |
-| [@nextrush/helmet](/docs/packages/middleware/helmet) | Security headers | Production hardening |
-| [@nextrush/body-parser](/docs/packages/middleware/body-parser) | Request body parsing | JSON/form APIs |
-| [@nextrush/rate-limit](/docs/packages/middleware/rate-limit) | Request throttling | API protection |
-| [@nextrush/compression](/docs/packages/middleware/compression) | Response compression | Bandwidth reduction |
-| [@nextrush/cookies](/docs/packages/middleware/cookies) | Cookie handling | Session management |
-| [@nextrush/request-id](/docs/packages/middleware/request-id) | Request tracking | Logging/debugging |
-| [@nextrush/timer](/docs/packages/middleware/timer) | Response timing | Performance monitoring |
+| Package                                                        | Purpose               | Common Use Case        |
+| -------------------------------------------------------------- | --------------------- | ---------------------- |
+| [@nextrush/cors](/docs/packages/middleware/cors)               | Cross-origin requests | Browser API access     |
+| [@nextrush/helmet](/docs/packages/middleware/helmet)           | Security headers      | Production hardening   |
+| [@nextrush/body-parser](/docs/packages/middleware/body-parser) | Request body parsing  | JSON/form APIs         |
+| [@nextrush/rate-limit](/docs/packages/middleware/rate-limit)   | Request throttling    | API protection         |
+| [@nextrush/compression](/docs/packages/middleware/compression) | Response compression  | Bandwidth reduction    |
+| [@nextrush/cookies](/docs/packages/middleware/cookies)         | Cookie handling       | Session management     |
+| [@nextrush/request-id](/docs/packages/middleware/request-id)   | Request tracking      | Logging/debugging      |
+| [@nextrush/timer](/docs/packages/middleware/timer)             | Response timing       | Performance monitoring |
 
 ---
 
-## Installation Pattern
+## Installation
 
-Install only what you need:
+Install only what you need — each package is independent.
 
-```bash tab="Individual"
-pnpm add @nextrush/cors @nextrush/helmet
-```
+<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet']} />
 
-```bash tab="All Middleware"
-pnpm add @nextrush/cors @nextrush/helmet @nextrush/body-parser @nextrush/rate-limit
-```
+Add more as needed:
+
+<PackageInstall
+  packages={['@nextrush/body-parser', '@nextrush/rate-limit', '@nextrush/compression']}
+/>
 
 ---
 
@@ -69,7 +67,7 @@ pnpm add @nextrush/cors @nextrush/helmet @nextrush/body-parser @nextrush/rate-li
 
 All middleware follow the same usage pattern:
 
-```typescript
+```ts
 import { createApp } from '@nextrush/core';
 import { cors } from '@nextrush/cors';
 import { helmet } from '@nextrush/helmet';
@@ -94,9 +92,14 @@ app.use(async (ctx) => {
 
 ## Middleware Order
 
-Order matters. Recommended sequence:
+<Callout type="warn" title="Order matters">
+  Security middleware must run before body parsing. Observability middleware should run first to
+  capture the full request lifecycle.
+</Callout>
 
-```typescript
+Recommended sequence:
+
+```ts
 // 1. Observability (earliest)
 app.use(requestId());
 app.use(timer());
@@ -127,7 +130,7 @@ app.route('/', router);
 
 All middleware work with both functional and class-based patterns:
 
-```typescript
+```ts
 import { Controller, Get, UseMiddleware } from '@nextrush/decorators';
 import { cors } from '@nextrush/cors';
 import { rateLimit } from '@nextrush/rate-limit';
@@ -150,7 +153,7 @@ class ApiController {
 
 Follow the middleware signature:
 
-```typescript
+```ts
 import type { Middleware } from '@nextrush/types';
 
 // Factory function pattern (recommended)
@@ -170,18 +173,6 @@ function myMiddleware(options = {}): Middleware {
 // Usage
 app.use(myMiddleware({ option: 'value' }));
 ```
-
----
-
-## Design Philosophy
-
-NextRush middleware packages follow these principles:
-
-1. **Single Responsibility** — Each package does one thing well
-2. **Zero Config Defaults** — Works out of the box with secure defaults
-3. **Full Customization** — Every behavior can be overridden
-4. **Type Safety** — Full TypeScript support with inference
-5. **Tree Shakeable** — Import only what you use
 
 ---
 

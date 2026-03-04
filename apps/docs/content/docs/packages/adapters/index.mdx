@@ -3,8 +3,6 @@ title: Runtime Adapters
 description: Connect NextRush to Node.js, Bun, Deno, or Edge runtimes
 ---
 
-# Runtime Adapters
-
 Adapters connect your NextRush application to the underlying runtime's HTTP server.
 
 ## Why Adapters?
@@ -44,6 +42,11 @@ Each adapter:
 3. Converts context responses back to native responses
 4. Manages server lifecycle (start, stop, graceful shutdown)
 
+<Callout type="info" title="Node.js Included by Default">
+  The Node.js adapter is bundled with the `nextrush` meta package. Install platform-specific
+  adapters separately only when targeting Bun, Deno, or Edge runtimes.
+</Callout>
+
 ## Available Adapters
 
 | Package                                                  | Runtime                   | Install Separately?    |
@@ -55,70 +58,75 @@ Each adapter:
 
 ## Quick Comparison
 
-### Node.js (Default)
+Each runtime uses a different adapter import. The application logic stays the same.
 
-```typescript
-import { createApp, createRouter, listen } from 'nextrush';
+<Tabs items={['Node.js', 'Bun', 'Deno', 'Edge']}>
+  <Tab value="Node.js">
+    ```typescript
+    import { createApp, createRouter, listen } from 'nextrush';
 
-const app = createApp();
-const router = createRouter();
+    const app = createApp();
+    const router = createRouter();
 
-router.get('/', (ctx) => ctx.json({ runtime: 'node' }));
+    router.get('/', (ctx) => ctx.json({ runtime: 'node' }));
 
-app.route('/', router);
-await listen(app, 3000);
-```
+    app.route('/', router);
+    await listen(app, 3000);
+    ```
 
-### Bun
+  </Tab>
+  <Tab value="Bun">
+    ```typescript
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+    import { serve } from '@nextrush/adapter-bun';
 
-```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { serve } from '@nextrush/adapter-bun';
+    const app = createApp();
+    const router = createRouter();
 
-const app = createApp();
-const router = createRouter();
+    router.get('/', (ctx) => ctx.json({ runtime: 'bun' }));
 
-router.get('/', (ctx) => ctx.json({ runtime: 'bun' }));
+    app.route('/', router);
+    serve(app, { port: 3000 });
+    ```
 
-app.route('/', router);
-serve(app, { port: 3000 });
-```
+  </Tab>
+  <Tab value="Deno">
+    ```typescript
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+    import { serve } from '@nextrush/adapter-deno';
 
-### Deno
+    const app = createApp();
+    const router = createRouter();
 
-```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { serve } from '@nextrush/adapter-deno';
+    router.get('/', (ctx) => ctx.json({ runtime: 'deno' }));
 
-const app = createApp();
-const router = createRouter();
+    app.route('/', router);
+    await serve(app, { port: 3000 });
+    ```
 
-router.get('/', (ctx) => ctx.json({ runtime: 'deno' }));
+  </Tab>
+  <Tab value="Edge">
+    ```typescript
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+    import { createHandler } from '@nextrush/adapter-edge';
 
-app.route('/', router);
-await serve(app, { port: 3000 });
-```
+    const app = createApp();
+    const router = createRouter();
 
-### Edge (Cloudflare Workers)
+    router.get('/', (ctx) => ctx.json({ runtime: 'edge' }));
 
-```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { createHandler } from '@nextrush/adapter-edge';
+    app.route('/', router);
 
-const app = createApp();
-const router = createRouter();
+    export default {
+      fetch: createHandler(app),
+    };
+    ```
 
-router.get('/', (ctx) => ctx.json({ runtime: 'edge' }));
-
-app.route('/', router);
-
-export default {
-  fetch: createHandler(app),
-};
-```
+  </Tab>
+</Tabs>
 
 ## Common API
 
@@ -172,23 +180,29 @@ app.route('/', router);
 
 Then deploy anywhere:
 
-```typescript title="node.ts"
-import { app } from './app';
-import { listen } from '@nextrush/adapter-node';
-await listen(app, 3000);
-```
-
-```typescript title="bun.ts"
-import { app } from './app';
-import { serve } from '@nextrush/adapter-bun';
-serve(app, { port: 3000 });
-```
-
-```typescript title="worker.ts"
-import { app } from './app';
-import { createHandler } from '@nextrush/adapter-edge';
-export default { fetch: createHandler(app) };
-```
+<Tabs items={['Node.js', 'Bun', 'Edge']}>
+  <Tab value="Node.js">
+    ```typescript title="node.ts"
+    import { app } from './app';
+    import { listen } from '@nextrush/adapter-node';
+    await listen(app, 3000);
+    ```
+  </Tab>
+  <Tab value="Bun">
+    ```typescript title="bun.ts"
+    import { app } from './app';
+    import { serve } from '@nextrush/adapter-bun';
+    serve(app, { port: 3000 });
+    ```
+  </Tab>
+  <Tab value="Edge">
+    ```typescript title="worker.ts"
+    import { app } from './app';
+    import { createHandler } from '@nextrush/adapter-edge';
+    export default { fetch: createHandler(app) };
+    ```
+  </Tab>
+</Tabs>
 
 ## Detailed Documentation
 

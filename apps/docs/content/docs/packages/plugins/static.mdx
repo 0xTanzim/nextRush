@@ -3,8 +3,6 @@ title: '@nextrush/static'
 description: 'Static file serving middleware with caching, range requests, and path traversal protection.'
 ---
 
-# @nextrush/static
-
 Every web application serves static assets — stylesheets, scripts, images, fonts. Doing it wrong means path traversal vulnerabilities, broken caching, or unnecessary re-downloads. This middleware handles file serving with built-in security, conditional caching, and range request support.
 
 ## Default Behavior
@@ -207,6 +205,11 @@ app.get('/download/:file', async (ctx) => {
 ---
 
 ## Security
+
+<Callout type="info" title="Built-in Path Traversal Protection">
+  Path traversal attacks (`../`, null bytes, encoded variants) are blocked before any file system
+  access. Symlinks return 404 by default.
+</Callout>
 
 Path traversal, null bytes, double slashes, and encoded variants are blocked before any file system access. Symbolic links return 404 by default. When `followSymlinks` is `true`, the resolved path is verified to remain within the root directory.
 

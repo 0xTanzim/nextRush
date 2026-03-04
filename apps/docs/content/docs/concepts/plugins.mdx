@@ -3,8 +3,6 @@ title: Plugins
 description: Extend NextRush without bloating the core
 ---
 
-# Plugins
-
 Plugins extend your application without modifying the core. They add middleware, hook into request lifecycle events, and clean up after themselves on shutdown.
 
 ## The Problem
@@ -60,81 +58,86 @@ interface Plugin {
 
 ## Minimal Usage
 
-### Object Plugin
+Plugins can be plain objects, factory functions, or async with cleanup. The factory pattern is recommended for configurable plugins:
 
-```typescript title="Timer Plugin"
-import type { Plugin } from '@nextrush/types';
+<Tabs items={['Object Plugin', 'Factory (Recommended)', 'Async with Cleanup']}>
+  <Tab value="Object Plugin">
+    ```typescript title="Timer Plugin"
+    import type { Plugin } from '@nextrush/types';
 
-const timerPlugin: Plugin = {
-  name: 'timer',
+    const timerPlugin: Plugin = {
+      name: 'timer',
 
-  install(app) {
-    app.use(async (ctx, next) => {
-      const start = Date.now();
-      await next();
-      ctx.set('X-Response-Time', `${Date.now() - start}ms`);
-    });
-  },
-};
+      install(app) {
+        app.use(async (ctx, next) => {
+          const start = Date.now();
+          await next();
+          ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+        });
+      },
+    };
 
-app.plugin(timerPlugin);
-```
+    app.plugin(timerPlugin);
+    ```
 
-### Factory Pattern (Recommended)
+  </Tab>
+  <Tab value="Factory (Recommended)">
+    Return a `Plugin` from a function to accept configuration:
 
-Return a `Plugin` from a function to accept configuration:
+    ```typescript title="Configurable Logger Plugin"
+    import type { Plugin } from '@nextrush/types';
 
-```typescript title="Configurable Logger Plugin"
-import type { Plugin } from '@nextrush/types';
+    interface LoggerOptions {
+      level: 'debug' | 'info' | 'warn' | 'error';
+      prefix?: string;
+    }
 
-interface LoggerOptions {
-  level: 'debug' | 'info' | 'warn' | 'error';
-  prefix?: string;
-}
+    function loggerPlugin(options: LoggerOptions): Plugin {
+      return {
+        name: 'logger',
 
-function loggerPlugin(options: LoggerOptions): Plugin {
-  return {
-    name: 'logger',
+        install(app) {
+          app.use(async (ctx, next) => {
+            console.log(`${options.prefix ?? ''} [${options.level}] → ${ctx.method} ${ctx.path}`);
+            await next();
+            console.log(`${options.prefix ?? ''} [${options.level}] ← ${ctx.status}`);
+          });
+        },
+      };
+    }
 
-    install(app) {
-      app.use(async (ctx, next) => {
-        console.log(`${options.prefix ?? ''} [${options.level}] → ${ctx.method} ${ctx.path}`);
-        await next();
-        console.log(`${options.prefix ?? ''} [${options.level}] ← ${ctx.status}`);
-      });
-    },
-  };
-}
+    app.plugin(loggerPlugin({ level: 'info', prefix: '[API]' }));
+    ```
 
-app.plugin(loggerPlugin({ level: 'info', prefix: '[API]' }));
-```
+  </Tab>
+  <Tab value="Async with Cleanup">
+    ```typescript title="Database Plugin"
+    function databasePlugin(connectionString: string): Plugin {
+      let connection: DatabaseConnection | null = null;
 
-### Async Plugin with Cleanup
+      return {
+        name: 'database',
 
-```typescript title="Database Plugin"
-function databasePlugin(connectionString: string): Plugin {
-  let connection: DatabaseConnection | null = null;
+        async install(app) {
+          connection = await connect(connectionString);
+          app.use(async (ctx, next) => {
+            ctx.state.db = connection;
+            await next();
+          });
+        },
 
-  return {
-    name: 'database',
+        async destroy() {
+          if (connection) {
+            await connection.close();
+            connection = null;
+          }
+        },
+      };
+    }
+    ```
 
-    async install(app) {
-      connection = await connect(connectionString);
-      app.use(async (ctx, next) => {
-        ctx.state.db = connection;
-        await next();
-      });
-    },
-
-    async destroy() {
-      if (connection) {
-        await connection.close();
-        connection = null;
-      }
-    },
-  };
-}
-```
+  </Tab>
+</Tabs>
 
 ## Installing Plugins
 

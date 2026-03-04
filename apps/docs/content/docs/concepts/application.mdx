@@ -3,8 +3,6 @@ title: Application
 description: The entry point and orchestrator of every NextRush application
 ---
 
-# Application
-
 The `Application` class is the central orchestrator of NextRush. It composes middleware, plugins, and error handling into a request handler that adapters use to serve HTTP traffic.
 
 ## The Problem
@@ -139,13 +137,33 @@ The `logger` accepts any object with `error`, `warn`, `info`, and `debug` method
 
 ## Application Properties
 
-```typescript
-app.options; // ApplicationOptions — readonly config (env, proxy)
-app.logger; // Logger — configured logger instance
-app.isProduction; // boolean — true if env === 'production'
-app.isRunning; // boolean — true after start(), false after close()
-app.middlewareCount; // number — count of registered middleware
-```
+These read-only properties are available on every Application instance.
+
+<TypeTable
+  title="Application Properties"
+  types={{
+    options: {
+      type: 'ApplicationOptions',
+      description: 'Readonly configuration object (env, proxy)',
+    },
+    logger: {
+      type: 'Logger',
+      description: 'Configured logger instance',
+    },
+    isProduction: {
+      type: 'boolean',
+      description: 'True when env is "production"',
+    },
+    isRunning: {
+      type: 'boolean',
+      description: 'True after start(), false after close()',
+    },
+    middlewareCount: {
+      type: 'number',
+      description: 'Count of registered middleware functions',
+    },
+  }}
+/>
 
 ## Middleware Registration
 
@@ -275,6 +293,11 @@ app.use(async (ctx) => {
 ## Lifecycle
 
 Adapters call `app.start()` when the server begins listening. After this, `use()`, `route()`, and `plugin()` throw to prevent unsafe mutations while requests are in flight.
+
+<Callout type="warn" title="Configuration Locks After Start">
+  Calling `app.start()` freezes the application. Any attempt to register middleware, mount routers,
+  or install plugins after this point throws an error.
+</Callout>
 
 ```typescript
 app.start();

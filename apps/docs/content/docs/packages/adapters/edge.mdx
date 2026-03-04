@@ -3,11 +3,14 @@ title: '@nextrush/adapter-edge'
 description: 'Universal edge runtime adapter for Cloudflare Workers, Vercel Edge, and Netlify Edge.'
 ---
 
-# @nextrush/adapter-edge
-
 Connect your NextRush application to edge computing platforms.
 
 Edge runtimes execute code at the network edge, close to users. This adapter provides a universal interface that works across Cloudflare Workers, Vercel Edge Functions, Netlify Edge Functions, and any platform supporting the Web Fetch API.
+
+<Callout type="warn" title="Edge Runtime Constraints">
+  Edge runtimes lack access to the file system, native modules, and `child_process`. Review the{' '}
+  <a href="#edge-limitations">limitations table</a> before deploying.
+</Callout>
 
 ---
 
@@ -38,77 +41,78 @@ export default createFetchHandler(app);
 
 ## Platform-Specific Handlers
 
-### Cloudflare Workers
+Each edge platform has a dedicated handler factory. Choose the one matching your deployment target.
 
-```typescript
-import { createApp } from '@nextrush/core';
-import { createCloudflareHandler } from '@nextrush/adapter-edge';
+<Tabs items={['Cloudflare', 'Vercel', 'Netlify']}>
+  <Tab value="Cloudflare">
+    ```typescript
+    import { createApp } from '@nextrush/core';
+    import { createCloudflareHandler } from '@nextrush/adapter-edge';
 
-const app = createApp();
+    const app = createApp();
 
-app.use(async (ctx) => {
-  ctx.json({
-    message: 'Hello from Cloudflare Workers!',
-    colo: ctx.raw.req.cf?.colo, // Cloudflare datacenter
-  });
-});
+    app.use(async (ctx) => {
+      ctx.json({
+        message: 'Hello from Cloudflare Workers!',
+        colo: ctx.raw.req.cf?.colo,
+      });
+    });
 
-export default createCloudflareHandler(app);
-```
+    export default createCloudflareHandler(app);
+    ```
 
-Deploy with Wrangler:
+    Deploy with Wrangler:
 
-```bash
-wrangler deploy
-```
+    ```bash
+    wrangler deploy
+    ```
 
----
+  </Tab>
+  <Tab value="Vercel">
+    ```typescript
+    // api/hello.ts
+    import { createApp } from '@nextrush/core';
+    import { createVercelHandler } from '@nextrush/adapter-edge';
 
-### Vercel Edge Functions
+    const app = createApp();
 
-```typescript
-// api/hello.ts
-import { createApp } from '@nextrush/core';
-import { createVercelHandler } from '@nextrush/adapter-edge';
+    app.use(async (ctx) => {
+      ctx.json({
+        message: 'Hello from Vercel Edge!',
+        region: process.env.VERCEL_REGION,
+      });
+    });
 
-const app = createApp();
+    export const config = { runtime: 'edge' };
+    export default createVercelHandler(app);
+    ```
 
-app.use(async (ctx) => {
-  ctx.json({
-    message: 'Hello from Vercel Edge!',
-    region: process.env.VERCEL_REGION,
-  });
-});
+  </Tab>
+  <Tab value="Netlify">
+    ```typescript
+    // netlify/edge-functions/api.ts
+    import { createApp } from '@nextrush/core';
+    import { createNetlifyHandler } from '@nextrush/adapter-edge';
 
-export const config = { runtime: 'edge' };
-export default createVercelHandler(app);
-```
+    const app = createApp();
 
----
+    app.use(async (ctx) => {
+      ctx.json({ message: 'Hello from Netlify Edge!' });
+    });
 
-### Netlify Edge Functions
+    export default createNetlifyHandler(app);
+    ```
 
-```typescript
-// netlify/edge-functions/api.ts
-import { createApp } from '@nextrush/core';
-import { createNetlifyHandler } from '@nextrush/adapter-edge';
+    Configure in `netlify.toml`:
 
-const app = createApp();
+    ```toml
+    [[edge_functions]]
+    path = "/api/*"
+    function = "api"
+    ```
 
-app.use(async (ctx) => {
-  ctx.json({ message: 'Hello from Netlify Edge!' });
-});
-
-export default createNetlifyHandler(app);
-```
-
-Configure in `netlify.toml`:
-
-```toml
-[[edge_functions]]
-path = "/api/*"
-function = "api"
-```
+  </Tab>
+</Tabs>
 
 ---
 

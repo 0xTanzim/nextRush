@@ -6,8 +6,6 @@ description: NextRush's modular package structure — understand dependencies, r
 import { Mermaid } from '@/components/mdx';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-# Package Hierarchy
-
 NextRush uses a modular monorepo architecture. Each package has a single responsibility and explicit dependencies.
 
 ## The Big Picture
@@ -219,6 +217,11 @@ import { createApp, createRouter, listen } from 'nextrush';
 
 NextRush follows strict dependency rules:
 
+<Callout type="warn">
+  Lower packages never import from higher packages. Circular dependencies are blocked at CI. If you
+  encounter an import error, check the hierarchy diagram above.
+</Callout>
+
 ### 1. types is the root — no internal dependencies
 
 ```
@@ -285,109 +288,122 @@ Each package has a maximum size to keep the framework lean:
 
 ## Common Installation Patterns
 
-### Minimal (functional style)
+Choose the pattern that matches your project needs.
 
-```bash
-npm install @nextrush/core @nextrush/router @nextrush/adapter-node
-```
+<Tabs items={['Minimal', 'Meta Package', 'Full API', 'Class-based DI']}>
+  <Tab value="Minimal">
+    Functional style with direct package imports:
 
-```ts
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
+    ```bash
+    npm install @nextrush/core @nextrush/router @nextrush/adapter-node
+    ```
 
-const app = createApp();
-const router = createRouter();
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+    import { listen } from '@nextrush/adapter-node';
 
-router.get('/', (ctx) => ctx.json({ hello: 'world' }));
-app.route('/', router);
-await listen(app, 3000);
-```
+    const app = createApp();
+    const router = createRouter();
 
-### Convenience (meta package)
+    router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+    app.route('/', router);
+    await listen(app, 3000);
+    ```
 
-```bash
-npm install nextrush
-```
+  </Tab>
+  <Tab value="Meta Package">
+    Single package that re-exports all essentials:
 
-```ts
-import { createApp, createRouter, listen } from 'nextrush';
+    ```bash
+    npm install nextrush
+    ```
 
-const app = createApp();
-const router = createRouter();
+    ```ts
+    import { createApp, createRouter, listen } from 'nextrush';
 
-router.get('/', (ctx) => ctx.json({ hello: 'world' }));
-app.route('/', router);
-await listen(app, 3000);
-```
+    const app = createApp();
+    const router = createRouter();
 
-### Full-featured API
+    router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+    app.route('/', router);
+    await listen(app, 3000);
+    ```
 
-```bash
-npm install nextrush @nextrush/cors @nextrush/helmet @nextrush/body-parser @nextrush/rate-limit
-```
+  </Tab>
+  <Tab value="Full API">
+    Production-ready with security and parsing middleware:
 
-```ts
-import { createApp, createRouter, listen } from 'nextrush';
-import { cors } from '@nextrush/cors';
-import { helmet } from '@nextrush/helmet';
-import { json } from '@nextrush/body-parser';
-import { rateLimit } from '@nextrush/rate-limit';
+    ```bash
+    npm install nextrush @nextrush/cors @nextrush/helmet @nextrush/body-parser @nextrush/rate-limit
+    ```
 
-const app = createApp();
-app.use(cors());
-app.use(helmet());
-app.use(json());
-app.use(rateLimit({ windowMs: 60000, max: 100 }));
+    ```ts
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { cors } from '@nextrush/cors';
+    import { helmet } from '@nextrush/helmet';
+    import { json } from '@nextrush/body-parser';
+    import { rateLimit } from '@nextrush/rate-limit';
 
-const router = createRouter();
-router.get('/', (ctx) => ctx.json({ hello: 'world' }));
-app.route('/', router);
+    const app = createApp();
+    app.use(cors());
+    app.use(helmet());
+    app.use(json());
+    app.use(rateLimit({ windowMs: 60000, max: 100 }));
 
-await listen(app, 3000);
-```
+    const router = createRouter();
+    router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+    app.route('/', router);
 
-### Class-based with DI
+    await listen(app, 3000);
+    ```
 
-```bash
-npm install nextrush @nextrush/controllers reflect-metadata
-```
+  </Tab>
+  <Tab value="Class-based DI">
+    Decorator-based controllers with dependency injection:
 
-```ts
-import 'reflect-metadata';
-import { createApp, createRouter, listen } from 'nextrush';
-import { Controller, Get } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
+    ```bash
+    npm install nextrush @nextrush/controllers reflect-metadata
+    ```
 
-@Service()
-class GreetingService {
-  greet() {
-    return { hello: 'world' };
-  }
-}
+    ```ts
+    import 'reflect-metadata';
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { Controller, Get } from '@nextrush/decorators';
+    import { Service } from '@nextrush/di';
+    import { controllersPlugin } from '@nextrush/controllers';
 
-@Controller('/')
-class HomeController {
-  constructor(private greeting: GreetingService) {}
+    @Service()
+    class GreetingService {
+      greet() {
+        return { hello: 'world' };
+      }
+    }
 
-  @Get()
-  index() {
-    return this.greeting.greet();
-  }
-}
+    @Controller('/')
+    class HomeController {
+      constructor(private greeting: GreetingService) {}
 
-const app = createApp();
-const router = createRouter();
-app.plugin(
-  controllersPlugin({
-    router,
-    controllers: [HomeController],
-  })
-);
-app.route('/', router);
-await listen(app, 3000);
-```
+      @Get()
+      index() {
+        return this.greeting.greet();
+      }
+    }
+
+    const app = createApp();
+    const router = createRouter();
+    app.plugin(
+      controllersPlugin({
+        router,
+        controllers: [HomeController],
+      })
+    );
+    app.route('/', router);
+    await listen(app, 3000);
+    ```
+
+  </Tab>
+</Tabs>
 
 ## Explore Packages
 

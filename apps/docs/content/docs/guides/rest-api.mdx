@@ -3,8 +3,6 @@ title: Building REST APIs
 description: Step-by-step guide to building a REST API with NextRush
 ---
 
-# Building REST APIs
-
 Build a complete user management REST API with NextRush. You'll define routes, parse request bodies, throw typed errors, and return structured JSON responses.
 
 ## What You Will Build
@@ -316,6 +314,9 @@ For larger applications, you can use decorator-based controllers with dependency
   packages={['@nextrush/decorators', '@nextrush/di', '@nextrush/controllers', 'reflect-metadata']}
 />
 
+<details>
+<summary>Full class-based controller implementation</summary>
+
 ```typescript title="src/controllers/users.controller.ts"
 import 'reflect-metadata';
 import { Controller, Get, Post, Put, Delete, Body, Param } from '@nextrush/decorators';
@@ -425,6 +426,8 @@ app.route('/api', router);
 
 await listen(app, 3000);
 ```
+
+</details>
 
 ## Common Patterns
 

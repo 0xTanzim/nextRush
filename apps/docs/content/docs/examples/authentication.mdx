@@ -3,8 +3,6 @@ title: 'Authentication'
 description: 'Implement JWT authentication with guards and protected routes.'
 ---
 
-# Authentication Example
-
 Implement JWT authentication with guards.
 
 This example demonstrates:
@@ -13,6 +11,12 @@ This example demonstrates:
 - Guard-based protection
 - Role-based access control
 - Refresh token flow
+
+<Callout type="error" title="Security Notice">
+  Never hardcode credentials or JWT secrets. This example reads `JWT_SECRET` from environment
+  variables — always do the same in production. Add rate limiting to authentication endpoints to
+  prevent brute-force attacks.
+</Callout>
 
 ---
 
@@ -99,6 +103,11 @@ export interface TokenResponse {
 ---
 
 ## Auth Service
+
+The auth service handles registration, login, token generation, and refresh workflows.
+
+<details>
+<summary>Complete AuthService implementation (click to expand)</summary>
 
 ```typescript title="src/services/auth.service.ts"
 import { Service } from '@nextrush/di';
@@ -249,6 +258,8 @@ export class AuthService {
 }
 ```
 
+</details>
+
 ---
 
 ## Guards
@@ -284,6 +295,8 @@ export const AuthGuard: GuardFn = async (ctx) => {
   }
 };
 ```
+
+The role guard uses a factory pattern — it returns a guard function configured for the specified roles.
 
 ```typescript title="src/guards/role.guard.ts"
 import type { GuardFn } from '@nextrush/decorators';

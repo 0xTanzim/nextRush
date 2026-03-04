@@ -4,9 +4,6 @@ description: Build structured APIs with decorators, dependency injection, and au
 ---
 
 import { Mermaid } from '@/components/mdx';
-import { Card, Cards } from 'fumadocs-ui/components/card';
-
-# Class-Based Controllers
 
 ## What You Will Build
 
@@ -430,6 +427,9 @@ This example also uses `@nextrush/cors` and `@nextrush/body-parser` — install 
 
 <PackageInstall packages={['@nextrush/cors', '@nextrush/body-parser']} />
 
+<details>
+<summary>Full authenticated REST API example</summary>
+
 ```typescript
 import 'reflect-metadata';
 import { createApp } from '@nextrush/core';
@@ -571,6 +571,8 @@ app.plugin(
 app.use(router.routes());
 await listen(app, 3000);
 ```
+
+</details>
 
 ## Testing Controllers
 

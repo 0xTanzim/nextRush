@@ -3,8 +3,6 @@ title: '@nextrush/adapter-node'
 description: Node.js HTTP adapter for NextRush
 ---
 
-# @nextrush/adapter-node
-
 Connect NextRush to Node.js's built-in HTTP server.
 
 <Callout type="info" title="Included in nextrush">
@@ -14,7 +12,13 @@ Connect NextRush to Node.js's built-in HTTP server.
 
 <PackageInstall packages={['@nextrush/adapter-node']} />
 
+<Callout type="warn" title="Node.js 22+ Required">
+  NextRush requires Node.js 22.0.0 or later. Earlier versions are not supported.
+</Callout>
+
 ## What It Provides
+
+The adapter exports server lifecycle functions and context utilities:
 
 ```typescript
 // Server functions

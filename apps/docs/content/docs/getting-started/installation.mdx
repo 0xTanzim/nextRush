@@ -3,8 +3,6 @@ title: Installation
 description: Install NextRush and set up your development environment
 ---
 
-# Installation
-
 NextRush requires **Node.js 22** or later. It also works with Bun and Deno.
 
 ## Prerequisites
@@ -19,7 +17,11 @@ Before installing NextRush, ensure you have:
   the built-in fetch API, and performance improvements available in v22+.
 </Callout>
 
-## Install NextRush
+## Get Started
+
+<Steps>
+<Step>
+### Install NextRush
 
 Choose your preferred package manager:
 
@@ -33,7 +35,10 @@ The `nextrush` package is a meta-package that includes the essentials:
 - `@nextrush/errors` — HTTP error classes
 - `@nextrush/types` — Shared TypeScript types
 
-## Verify Installation
+</Step>
+
+<Step>
+### Verify Installation
 
 Create a simple test file to verify everything is working:
 
@@ -63,7 +68,10 @@ Open `http://localhost:3000` in your browser. You should see:
 { "status": "ok", "framework": "NextRush" }
 ```
 
-## TypeScript Configuration
+</Step>
+
+<Step>
+### Configure TypeScript
 
 NextRush is written in TypeScript and provides full type definitions. For the best experience, use these `tsconfig.json` settings:
 
@@ -87,52 +95,14 @@ NextRush is written in TypeScript and provides full type definitions. For the be
   `"emitDecoratorMetadata": true` to your `compilerOptions`. The `@nextrush/di` package includes
   `reflect-metadata` as a direct dependency.
 </Callout>
+</Step>
 
-## Installing Individual Packages
-
-For more control, install packages individually:
-
-<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-node']} />
-
-This is useful when:
-
-- You want to minimize bundle size
-- You're using a different runtime adapter (Bun, Deno, Edge)
-- You need fine-grained control over versions
-
-## Optional Packages
-
-NextRush provides many optional packages for common needs:
-
-### Middleware
-
-<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
-
-### Plugins
-
-<PackageInstall packages={['@nextrush/controllers', '@nextrush/logger', '@nextrush/static']} />
-
-### Runtime Adapters
-
-<PackageInstall
-  packages={['@nextrush/adapter-bun', '@nextrush/adapter-deno', '@nextrush/adapter-edge']}
-/>
-
-## Development Tools
-
-For a better development experience, install these tools:
-
-<PackageInstall packages={[]} dev={['tsx', 'typescript', '@types/node']} />
-
-- **tsx** — Run TypeScript directly without compilation
-- **typescript** — TypeScript compiler
-- **@types/node** — Node.js type definitions
-
-## Project Structure
+<Step>
+### Set Up Project Structure
 
 A typical NextRush project looks like this:
 
-```
+```text
 my-api/
 ├── src/
 │   ├── index.ts          # Application entry point
@@ -149,6 +119,49 @@ my-api/
   NextRush does not enforce a specific project structure. Organize your code in whatever way makes
   sense for your team.
 </Callout>
+</Step>
+</Steps>
+
+---
+
+## Individual Packages
+
+For more control, install packages individually:
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-node']} />
+
+This is useful when:
+
+- You want to minimize bundle size
+- You're using a different runtime adapter (Bun, Deno, Edge)
+- You need fine-grained control over versions
+
+<details>
+<summary>Optional packages reference</summary>
+
+### Middleware
+
+<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
+
+### Plugins
+
+<PackageInstall packages={['@nextrush/controllers', '@nextrush/logger', '@nextrush/static']} />
+
+### Runtime Adapters
+
+<PackageInstall
+  packages={['@nextrush/adapter-bun', '@nextrush/adapter-deno', '@nextrush/adapter-edge']}
+/>
+
+### Development Tools
+
+<PackageInstall packages={[]} dev={['tsx', 'typescript', '@types/node']} />
+
+- **tsx** — Run TypeScript directly without compilation
+- **typescript** — TypeScript compiler
+- **@types/node** — Node.js type definitions
+
+</details>
 
 ## Next Steps
 

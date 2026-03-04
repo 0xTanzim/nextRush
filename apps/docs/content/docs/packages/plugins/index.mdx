@@ -3,8 +3,6 @@ title: 'Plugin Packages'
 description: 'Extend NextRush with controllers, logging, static files, WebSocket, events, and templates.'
 ---
 
-# Plugin Packages
-
 NextRush plugins extend your application with additional capabilities. Each plugin integrates with the core application through the standardized plugin interface.
 
 ---
@@ -49,17 +47,11 @@ graph LR
 
 ---
 
-## Installation Pattern
+## Installation
 
 Install plugins as needed:
 
-```bash tab="npm"
-npm install @nextrush/controllers @nextrush/logger
-```
-
-```bash tab="pnpm"
-pnpm add @nextrush/controllers @nextrush/logger
-```
+<PackageInstall packages={['@nextrush/controllers', '@nextrush/logger']} />
 
 ---
 
@@ -116,6 +108,11 @@ These plugins add capabilities:
 
 ## Combining Plugins
 
+<Callout type="warn">
+  Plugin registration order matters. Middleware plugins (logger, static) should be registered before
+  route-handling plugins (controllers).
+</Callout>
+
 Plugins work together:
 
 ```typescript
@@ -162,9 +159,6 @@ const myPlugin: Plugin = {
       ctx.state.myValue = 'hello';
       await ctx.next();
     });
-
-    // Extend app
-    (app as any).myMethod = () => 'custom method';
   },
 
   destroy() {

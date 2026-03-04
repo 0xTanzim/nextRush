@@ -3,8 +3,6 @@ title: '@nextrush/request-id'
 description: 'Generate and track unique request identifiers for distributed tracing.'
 ---
 
-# @nextrush/request-id
-
 Assign unique identifiers to every request for tracing, log correlation, and debugging across distributed systems. Uses `crypto.randomUUID()` for cryptographically secure ID generation with built-in validation to prevent header injection.
 
 ---
@@ -12,8 +10,6 @@ Assign unique identifiers to every request for tracing, log correlation, and deb
 ## Installation
 
 <PackageInstall packages={['@nextrush/request-id']} />
-
----
 
 ## Minimal Usage
 
@@ -31,8 +27,6 @@ app.use(async (ctx) => {
 ```
 
 The middleware generates a UUID, stores it in `ctx.state.requestId`, and sets the `X-Request-Id` response header.
-
----
 
 ## API Reference
 
@@ -66,7 +60,7 @@ function requestId(options?: RequestIdOptions): Middleware;
     trustIncoming: {
       type: 'boolean',
       description: 'Accept validated incoming IDs from the request header',
-      default: 'true',
+      default: 'false',
       optional: true,
     },
     validator: {
@@ -97,9 +91,9 @@ function requestId(options?: RequestIdOptions): Middleware;
 />
 
 <Callout type="warn">
-  When `trustIncoming` is `true` (the default), incoming IDs pass both `validateId()` (length + safe
+  When `trustIncoming` is set to `true`, incoming IDs pass both `validateId()` (length + safe
   characters) and the configured `validator` before use. Invalid IDs are discarded and a new one is
-  generated.
+  generated. The default is `false` — enable it only for internal services behind trusted proxies.
 </Callout>
 
 ### `correlationId(options?)`
@@ -124,6 +118,8 @@ app.use(traceId());
 
 ### Validation Utilities
 
+The package exports validation helpers for working with request IDs in your own code:
+
 ```ts
 import {
   isValidUuid, // UUID v4 format check
@@ -138,6 +134,8 @@ import {
 
 ### Constants
 
+All default values are exported as named constants:
+
 ```ts
 import {
   DEFAULT_HEADER, // 'X-Request-Id'
@@ -151,11 +149,9 @@ import {
 } from '@nextrush/request-id';
 ```
 
----
-
 ## Practical Example: Forwarding IDs Across Services
 
-```typescript
+```ts
 import { createApp } from '@nextrush/core';
 import { requestId, correlationId } from '@nextrush/request-id';
 
@@ -173,8 +169,6 @@ app.use(async (ctx) => {
   ctx.json(await response.json());
 });
 ```
-
----
 
 ## Related
 

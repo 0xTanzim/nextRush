@@ -3,8 +3,6 @@ title: Core Concepts
 description: The mental models that make NextRush predictable and composable
 ---
 
-# Core Concepts
-
 Before you write code, understand how NextRush thinks.
 
 These are the core abstractions that determine how your application processes requests, composes behavior, and handles failure.
@@ -76,57 +74,60 @@ HTTP Response
 
 NextRush supports both functional and class-based programming. Choose based on your project's needs.
 
-### Functional Style
+<Tabs items={['Functional', 'Class-Based']}>
+  <Tab value="Functional">
+    Simple, direct, minimal abstraction. Best for small services and APIs.
 
-Simple, direct, minimal abstraction. Best for small services and APIs.
+    ```typescript title="Functional API"
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
 
-```typescript title="Functional API"
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
+    const app = createApp();
+    const router = createRouter();
 
-const app = createApp();
-const router = createRouter();
+    router.get('/users/:id', async (ctx) => {
+      const user = await db.users.findById(ctx.params.id);
+      ctx.json({ user });
+    });
 
-router.get('/users/:id', async (ctx) => {
-  const user = await db.users.findById(ctx.params.id);
-  ctx.json({ user });
-});
+    app.route('/api', router);
+    ```
 
-app.route('/api', router);
-```
+  </Tab>
+  <Tab value="Class-Based">
+    Structured, with dependency injection. Best for large applications and teams.
 
-### Class-Based Style
+    ```typescript title="Class-Based with DI"
+    import 'reflect-metadata';
+    import { Controller, Get, Param } from '@nextrush/decorators';
+    import { Service } from '@nextrush/di';
+    import { controllersPlugin } from '@nextrush/controllers';
+    import { createRouter } from '@nextrush/router';
 
-Structured, with dependency injection. Best for large applications and teams.
+    @Service()
+    class UserService {
+      async findById(id: string) {
+        return db.users.findById(id);
+      }
+    }
 
-```typescript title="Class-Based with DI"
-import 'reflect-metadata';
-import { Controller, Get, Param } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
-import { createRouter } from '@nextrush/router';
+    const router = createRouter();
 
-@Service()
-class UserService {
-  async findById(id: string) {
-    return db.users.findById(id);
-  }
-}
+    @Controller('/users')
+    class UserController {
+      constructor(private users: UserService) {}
 
-const router = createRouter();
+      @Get('/:id')
+      async getUser(@Param('id') id: string) {
+        return { user: await this.users.findById(id) };
+      }
+    }
 
-@Controller('/users')
-class UserController {
-  constructor(private users: UserService) {}
+    app.plugin(controllersPlugin({ router, controllers: [UserController] }));
+    ```
 
-  @Get('/:id')
-  async getUser(@Param('id') id: string) {
-    return { user: await this.users.findById(id) };
-  }
-}
-
-app.plugin(controllersPlugin({ router, controllers: [UserController] }));
-```
+  </Tab>
+</Tabs>
 
 <Callout type="info" title="You Can Mix Styles">
   Both styles work together. Start with functions, add classes when you need structure. There's no
@@ -173,16 +174,22 @@ class AdminController {
 
 <Steps>
   <Step>
-    ### Context API Understand the `ctx` object—it's your primary interface for everything. [Read
-    Context →](/docs/concepts/context)
+    ### Context API
+
+    Understand the `ctx` object—it's your primary interface for everything. [Read Context →](/docs/concepts/context)
+
   </Step>
   <Step>
-    ### Middleware Learn the onion model. It determines execution order and error handling. [Read
-    Middleware →](/docs/concepts/middleware)
+    ### Middleware
+
+    Learn the onion model. It determines execution order and error handling. [Read Middleware →](/docs/concepts/middleware)
+
   </Step>
   <Step>
-    ### Routing Map URLs to handlers efficiently with radix tree routing. [Read Routing
-    →](/docs/concepts/routing)
+    ### Routing
+
+    Map URLs to handlers efficiently with radix tree routing. [Read Routing →](/docs/concepts/routing)
+
   </Step>
 </Steps>
 

@@ -3,8 +3,6 @@ title: NextRush Documentation
 description: Minimal, modular, type-safe Node.js backend framework.
 ---
 
-# Welcome to NextRush
-
 NextRush is a **minimal, modular, and type-safe** Node.js backend framework. Under 3,000 lines of core code, zero runtime dependencies, and full TypeScript strict mode.
 
 <Callout type="info" title="Current Version">
@@ -102,69 +100,11 @@ NextRush is built on these principles:
 | **Type Safety First**            | TypeScript strict mode from the ground up. Zero `any` allowed.   |
 | **Zero Runtime Dependencies**    | No external runtime deps except `reflect-metadata` for DI.       |
 
-## Two Programming Styles
+## Dual Paradigm
 
-NextRush supports both functional and class-based patterns. Choose what fits your project:
+NextRush supports both **functional** and **class-based** programming styles. Start with functions for simplicity, add decorators and DI when your project grows. Both styles work together — no forced migration.
 
-<Tabs items={["Functional", "Class-Based"]}>
-  <Tab value="Functional">
-    ```typescript title="Functional Style"
-    import { createApp, createRouter, listen } from 'nextrush';
-
-    const app = createApp();
-
-    const users = createRouter();
-    users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
-
-    const posts = createRouter();
-    posts.get('/', (ctx) => ctx.json([]));
-
-    app.route('/users', users);
-    app.route('/posts', posts);
-
-    await listen(app, 3000);
-    ```
-
-    Best for: simple APIs, microservices, quick prototypes.
-
-  </Tab>
-  <Tab value="Class-Based">
-    ```typescript title="Class-Based Style"
-    import 'reflect-metadata';
-    import { createApp, listen } from 'nextrush';
-    import { createRouter } from '@nextrush/router';
-    import { Controller, Get } from '@nextrush/decorators';
-    import { Service } from '@nextrush/di';
-    import { controllersPlugin } from '@nextrush/controllers';
-
-    @Service()
-    class UserService {
-      findAll() {
-        return [{ id: 1, name: 'Alice' }];
-      }
-    }
-
-    @Controller('/users')
-    class UserController {
-      constructor(private users: UserService) {}
-
-      @Get()
-      list() {
-        return this.users.findAll();
-      }
-    }
-
-    const app = createApp();
-    const router = createRouter();
-    app.plugin(controllersPlugin({ router, controllers: [UserController] }));
-    app.use(router.routes());
-    await listen(app, 3000);
-    ```
-
-    Best for: large applications, teams preferring structure, DI patterns.
-
-  </Tab>
-</Tabs>
+[Learn more about programming styles →](/docs/concepts#two-programming-styles)
 
 ## What's Next?
 

@@ -6,8 +6,6 @@ description: How NextRush implements dependency injection and decorator-based me
 import { Mermaid } from '@/components/mdx';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-# DI & Decorators
-
 NextRush splits class-based controllers into three independent packages: decorator metadata, a DI container, and a plugin that connects them. This page explains the internal architecture of each layer and how they compose.
 
 ## The Mental Model
@@ -249,6 +247,9 @@ sequenceDiagram
 
 For each controller method, the plugin builds an async handler. Here is what the generated handler does at request time:
 
+<details>
+<summary>Generated handler internals (expanded from builder.ts)</summary>
+
 ```typescript
 // Your code:
 @Controller('/users')
@@ -320,6 +321,8 @@ async function handler(ctx: Context) {
   }
 }
 ```
+
+</details>
 
 Guard rejection throws `GuardRejectionError` (a 403 `ForbiddenError` subclass), not a manual status assignment. This integrates with NextRush's error handling middleware.
 
@@ -400,7 +403,10 @@ import { createRouter } from '@nextrush/router';
 
 ## Common Issues
 
-### "TypeInfo not known for X"
+These are the most frequent problems when using DI and decorators.
+
+<details>
+<summary>"TypeInfo not known for X"</summary>
 
 The DI container can't find constructor types. Causes:
 
@@ -409,7 +415,10 @@ The DI container can't find constructor types. Causes:
 3. Missing `import 'reflect-metadata'` at entry point
 4. Class not decorated with `@Service()`, `@Repository()`, or `@Controller()`
 
-### "Circular dependency detected"
+</details>
+
+<details>
+<summary>"Circular dependency detected"</summary>
 
 Services depend on each other. Fix with one of:
 
@@ -417,18 +426,23 @@ Services depend on each other. Fix with one of:
 2. Use `delay()` for lazy resolution
 3. Extract shared logic into a third service
 
-<Callout type="warn">
-  `reflect-metadata` must be imported before any decorator runs. Import it at the top of your entry
-  file.
-</Callout>
+</details>
 
-### "Controller has no routes"
+<details>
+<summary>"Controller has no routes"</summary>
 
 Controller is decorated but has no route methods. Check:
 
 1. Methods have `@Get()`, `@Post()`, etc.
 2. Decorators are imported from `@nextrush/decorators`
 3. `reflect-metadata` is imported before decorator files load
+
+</details>
+
+<Callout type="warn">
+  `reflect-metadata` must be imported before any decorator runs. Import it at the top of your entry
+  file.
+</Callout>
 
 ## Next Steps
 

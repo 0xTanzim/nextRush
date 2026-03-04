@@ -3,8 +3,6 @@ title: '@nextrush/cookies'
 description: 'Secure cookie parsing and serialization with signing support.'
 ---
 
-# @nextrush/cookies
-
 Handle HTTP cookies with secure defaults and signing support.
 
 Cookies are essential for sessions, authentication, and client-side state. This middleware provides parsing, setting, and optional HMAC-SHA256 signing with RFC 6265 compliance.
@@ -232,6 +230,13 @@ app.use(async (ctx) => {
 <Callout type="warn">
   Signed cookie operations (`get` and `set`) are async. Forgetting `await` returns a Promise, not
   the value.
+</Callout>
+
+The signing secret must be kept secure and rotated periodically.
+
+<Callout type="error" title="Never Hardcode Secrets">
+  Store `COOKIE_SECRET` in environment variables. Rotate keys periodically using `previousSecrets`
+  for zero-downtime migration. Never commit signing keys to source control.
 </Callout>
 
 ### Key Rotation

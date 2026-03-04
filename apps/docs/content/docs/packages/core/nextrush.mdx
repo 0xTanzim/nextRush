@@ -3,8 +3,6 @@ title: nextrush
 description: The meta package that bundles core NextRush essentials for Node.js
 ---
 
-# nextrush
-
 The main NextRush package. One install, everything you need to start.
 
 ## The Problem
@@ -37,7 +35,7 @@ One install. One import path. Zero configuration.
 
 Think of `nextrush` as the **starter kit**:
 
-```
+```text
 ┌────────────────────────────────────────────────┐
 │                   nextrush                      │
 │                                                 │
@@ -78,6 +76,11 @@ await listen(app, 3000);
 ```
 
 That's a complete API server. No additional installs needed.
+
+<Callout type="info">
+  The meta package targets Node.js. For Bun, Deno, or Edge runtimes, install packages individually
+  with the appropriate adapter.
+</Callout>
 
 ## API Reference
 
@@ -202,7 +205,8 @@ import { VERSION, HttpStatus, ContentType } from 'nextrush';
 
 ## Common Patterns
 
-### Basic REST API
+<details>
+<summary>Basic REST API with CRUD operations</summary>
 
 ```typescript
 import { createApp, createRouter, listen, NotFoundError } from 'nextrush';
@@ -247,6 +251,8 @@ router.delete('/users/:id', (ctx) => {
 app.route('/', router);
 await listen(app, 3000);
 ```
+
+</details>
 
 ### With Error Handling
 

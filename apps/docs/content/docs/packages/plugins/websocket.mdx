@@ -3,8 +3,6 @@ title: '@nextrush/websocket'
 description: 'WebSocket plugin for NextRush with rooms, broadcasting, and route-based handlers.'
 ---
 
-# @nextrush/websocket
-
 HTTP handles request-response. WebSocket handles persistent, bidirectional connections — chat, live dashboards, collaborative editing, and real-time notifications.
 
 This plugin integrates the `ws` library with NextRush through a factory pattern. You create a WebSocket server, register route handlers, and attach it to your HTTP server. Room management and broadcasting are built in.
@@ -32,6 +30,11 @@ With zero configuration, the plugin:
 <Callout type="info">
   This plugin targets Node.js 22+ only. For Bun, Deno, or edge runtimes, use their native WebSocket
   APIs.
+</Callout>
+
+<Callout type="error" title="Authenticate Before Upgrade">
+  WebSocket connections bypass standard HTTP middleware after the upgrade. Use `verifyClient` to
+  authenticate during the handshake — not after the connection is open.
 </Callout>
 
 ## Minimal Usage

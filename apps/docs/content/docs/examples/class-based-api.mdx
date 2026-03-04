@@ -3,8 +3,6 @@ title: 'Class-Based API'
 description: 'Build a structured API with decorators, dependency injection, and controllers.'
 ---
 
-# Class-Based API Example
-
 The same REST API, built with decorators and dependency injection.
 
 This example demonstrates:
@@ -21,16 +19,21 @@ This example demonstrates:
 
 ```bash
 mkdir class-api && cd class-api
-npm init -y
-
-# Core packages
-npm install nextrush @nextrush/controllers @nextrush/decorators @nextrush/di
-npm install @nextrush/cors @nextrush/body-parser
-npm install reflect-metadata
-
-# Dev tools
-npm install -D @nextrush/dev typescript @types/node
+pnpm init
 ```
+
+<PackageInstall
+  packages={[
+    'nextrush',
+    '@nextrush/controllers',
+    '@nextrush/decorators',
+    '@nextrush/di',
+    '@nextrush/cors',
+    '@nextrush/body-parser',
+    'reflect-metadata',
+  ]}
+  dev={['@nextrush/dev', 'typescript', '@types/node']}
+/>
 
 ---
 

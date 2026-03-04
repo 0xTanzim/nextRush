@@ -3,8 +3,6 @@ title: '@nextrush/rate-limit'
 description: 'Production-grade rate limiting with multiple algorithms and tiered limits.'
 ---
 
-# @nextrush/rate-limit
-
 Without rate limiting, a single client can exhaust your server's resources — intentionally or by accident. This middleware controls how many requests each client can make within a time window.
 
 It supports three algorithms, tiered limits for different user types, CIDR-based whitelists and blacklists, and IETF-compliant response headers.
@@ -182,54 +180,61 @@ Supported string units: `s`, `sec`, `second`, `seconds`, `m`, `min`, `minute`, `
 
 ## Algorithms
 
-### Token Bucket (Default)
+<Tabs items={['Token Bucket (Default)', 'Sliding Window', 'Fixed Window']}>
+  <Tab value="Token Bucket (Default)">
+    Allows controlled bursts while maintaining an average rate:
 
-Allows controlled bursts while maintaining an average rate:
+    ```typescript
+    app.use(
+      rateLimit({
+        algorithm: 'token-bucket',
+        max: 100,
+        window: '1m',
+        burstLimit: 20,
+      })
+    );
+    ```
 
-```typescript
-app.use(
-  rateLimit({
-    algorithm: 'token-bucket',
-    max: 100,
-    window: '1m',
-    burstLimit: 20,
-  })
-);
-```
+    **Best for:** Public APIs where occasional bursts are acceptable.
 
-**Best for:** Public APIs where occasional bursts are acceptable.
+  </Tab>
+  <Tab value="Sliding Window">
+    Smooth, accurate limiting using a weighted average of current and previous windows:
 
-### Sliding Window
+    ```typescript
+    app.use(
+      rateLimit({
+        algorithm: 'sliding-window',
+        max: 100,
+        window: '1m',
+      })
+    );
+    ```
 
-Smooth, accurate limiting using a weighted average of current and previous windows:
+    **Best for:** Strict enforcement, billing-sensitive APIs, preventing boundary attacks.
 
-```typescript
-app.use(
-  rateLimit({
-    algorithm: 'sliding-window',
-    max: 100,
-    window: '1m',
-  })
-);
-```
+  </Tab>
+  <Tab value="Fixed Window">
+    Resets the counter at fixed intervals:
 
-**Best for:** Strict enforcement, billing-sensitive APIs, preventing boundary attacks.
+    ```typescript
+    app.use(
+      rateLimit({
+        algorithm: 'fixed-window',
+        max: 100,
+        window: '1m',
+      })
+    );
+    ```
 
-### Fixed Window
+    **Best for:** Internal APIs, low-overhead use cases.
 
-Resets the counter at fixed intervals:
+    <Callout type="warn">
+      Clients can hit up to 2x the limit at window boundaries with fixed-window. Use sliding-window for strict enforcement.
+    </Callout>
 
-```typescript
-app.use(
-  rateLimit({
-    algorithm: 'fixed-window',
-    max: 100,
-    window: '1m',
-  })
-);
-```
-
-**Best for:** Internal APIs, low-overhead use cases. Note: clients can hit up to 2× the limit at window boundaries.
+  </Tab>
+</Tabs>
 
 ---
 
@@ -327,6 +332,8 @@ The `Retry-After` header is included only on 429 responses.
 ---
 
 ## Proxy Support
+
+When your app runs behind a reverse proxy, the middleware needs to read forwarded IP headers to identify clients correctly.
 
 <Callout type="warn">
   Only enable `trustProxy` when your app runs behind a trusted reverse proxy. Untrusted clients can

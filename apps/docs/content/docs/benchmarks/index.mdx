@@ -3,8 +3,6 @@ title: Performance Benchmarks
 description: Transparent, reproducible performance comparisons with popular Node.js frameworks
 ---
 
-# Performance Benchmarks
-
 This page provides transparent, reproducible benchmarks comparing NextRush v3 to popular Node.js frameworks. All numbers come from automated benchmark runs you can reproduce yourself.
 
 ## Why Benchmarks Matter (And Why They Don't)
@@ -161,7 +159,8 @@ A second `GET /` run after all other tests have completed — measures performan
 | Koa             | 35,566 | 20ms          | 47ms          |
 | Express         | 23,783 | 51ms          | 63ms          |
 
-## Why Fastify is Faster
+<details>
+<summary>Why Fastify is faster</summary>
 
 Fastify achieves higher throughput through:
 
@@ -170,6 +169,8 @@ Fastify achieves higher throughput through:
 - **Find-my-way router** — highly optimized radix tree router
 
 These optimizations require upfront schema definitions and add configuration complexity.
+
+</details>
 
 ## Why NextRush Doesn't Chase Maximum RPS
 
@@ -207,7 +208,8 @@ pnpm bench --quick   # Quick benchmark (10s per test)
 
 Results are saved to `results/comparison/latest/REPORT.md`.
 
-### Methodology
+<details>
+<summary>Benchmark methodology</summary>
 
 1. **Warm-up**: 3 seconds before each test
 2. **Duration**: 10 seconds per test (quick mode) or 30 seconds (default)
@@ -216,6 +218,8 @@ Results are saved to `results/comparison/latest/REPORT.md`.
 5. **Single run**: Results are from a single benchmark pass (not averaged across runs)
 
 All server implementations and benchmark scripts are in `apps/performance-ultra/`. Review them to verify fairness.
+
+</details>
 
 ## The Honest Take
 

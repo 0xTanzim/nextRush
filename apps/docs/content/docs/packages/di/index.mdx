@@ -3,8 +3,6 @@ title: 'DI & Decorators'
 description: 'Dependency injection and decorator-based metadata for structured applications.'
 ---
 
-# DI & Decorators
-
 NextRush provides a dependency injection system and decorator-based metadata for building structured, testable applications.
 
 ---
@@ -111,20 +109,18 @@ await listen(app, 3000);
 
 ## When to Use
 
-### Use Decorators + DI When:
+Choose the paradigm that fits your application:
 
-- Building REST APIs with multiple endpoints
-- Need dependency injection for services
-- Want structured, testable code
-- Team prefers class-based patterns
-- Building enterprise applications
-
-### Use Functional Style When:
-
-- Building simple APIs
-- Prototyping
-- Maximum performance is critical
-- Prefer functional programming
+<Tabs items={['Decorators + DI', 'Functional Style']}>
+  <Tab value="Decorators + DI">
+    - Building REST APIs with multiple endpoints - Need dependency injection for services - Want
+    structured, testable code - Team prefers class-based patterns - Building enterprise applications
+  </Tab>
+  <Tab value="Functional Style">
+    - Building simple APIs - Prototyping - Maximum performance is critical - Prefer functional
+    programming
+  </Tab>
+</Tabs>
 
 ---
 
@@ -132,13 +128,15 @@ await listen(app, 3000);
 
 Both packages require `reflect-metadata`:
 
-```bash
-npm install reflect-metadata
-```
+<PackageInstall packages={['reflect-metadata']} />
 
-Import at entry point:
+<Callout type="error" title="Entry Point Import Required">
+  You must `import 'reflect-metadata'` as the very first line of your application entry point —
+  before any decorated class is loaded. Without it, the container cannot read constructor parameter
+  types.
+</Callout>
 
-```typescript
+```ts
 // main.ts - FIRST LINE
 import 'reflect-metadata';
 

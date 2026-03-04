@@ -4,15 +4,13 @@
   "js/ts.tsserver.useSyntaxServer": "auto",
   "js/ts.preferences.importModuleSpecifier": "non-relative",
   "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
-  "js/ts.tsserver.maxTsServerMemory": 8192,
   "js/ts.preferences.includePackageJsonAutoImports": "on",
   "js/ts.suggest.autoImports": true,
-  "js/ts.suggest.completeJSDocs": true,
   "js/ts.workspaceSymbols.scope": "allOpenProjects",
   "js/ts.inlayHints.parameterNames.enabled": "literals",
   "js/ts.inlayHints.functionLikeReturnTypes.enabled": true,
   "js/ts.inlayHints.variableTypes.enabled": false,
-  "js/ts.experimental.expandableHover": true,
+
 
   // NextRush-specific configurations
   "files.watcherExclude": {

@@ -3,8 +3,6 @@ title: '@nextrush/adapter-deno'
 description: 'Deno HTTP adapter for NextRush — connects your application to Deno.serve().'
 ---
 
-# @nextrush/adapter-deno
-
 Connect your NextRush application to Deno's native `Deno.serve()` API. This adapter bridges NextRush's middleware system to Deno's HTTP server.
 
 ---
@@ -28,6 +26,11 @@ Or with import maps in `deno.json`:
   }
 }
 ```
+
+<Callout type="warn" title="Deno Permissions Required">
+  Deno requires explicit network permission to run an HTTP server. Use `--allow-net` at minimum. See{' '}
+  <a href="#deno-permissions">Deno Permissions</a> for details.
+</Callout>
 
 ---
 
@@ -81,15 +84,38 @@ const server = serve(app, {
 
 #### ServeOptions
 
-| Option            | Type              | Default     | Description                                                       |
-| ----------------- | ----------------- | ----------- | ----------------------------------------------------------------- |
-| `port`            | `number`          | `3000`      | Port to listen on                                                 |
-| `hostname`        | `string`          | `'0.0.0.0'` | Hostname to bind to                                               |
-| `onListen`        | `(info) => void`  | —           | Callback when server starts                                       |
-| `onError`         | `(error) => void` | —           | Custom error handler                                              |
-| `cert`            | `string`          | —           | TLS certificate (PEM format)                                      |
-| `key`             | `string`          | —           | TLS private key (PEM format)                                      |
-| `shutdownTimeout` | `number`          | `30000`     | Grace period (ms) for draining in-flight requests during shutdown |
+<TypeTable
+  title="ServeOptions"
+  types={{
+    port: { type: 'number', description: 'Port to listen on', default: '3000' },
+    hostname: { type: 'string', description: 'Hostname to bind to', default: "'0.0.0.0'" },
+    onListen: {
+      type: '(info: { port: number; hostname: string }) => void',
+      description: 'Callback when server starts listening',
+      optional: true,
+    },
+    onError: {
+      type: '(error: Error) => void',
+      description: 'Custom error handler for uncaught server errors',
+      optional: true,
+    },
+    cert: {
+      type: 'string',
+      description: 'TLS certificate in PEM format',
+      optional: true,
+    },
+    key: {
+      type: 'string',
+      description: 'TLS private key in PEM format',
+      optional: true,
+    },
+    shutdownTimeout: {
+      type: 'number',
+      description: 'Grace period in ms for draining in-flight requests during shutdown',
+      default: '30000',
+    },
+  }}
+/>
 
 #### ServerInstance
 

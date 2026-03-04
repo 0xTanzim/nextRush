@@ -3,8 +3,6 @@ title: '@nextrush/controllers'
 description: 'Auto-discovery, dependency injection, and decorator-based controllers for scalable APIs.'
 ---
 
-# @nextrush/controllers
-
 Build scalable APIs with automatic controller discovery and dependency injection.
 
 The controllers plugin scans your source directory for `@Controller` decorated classes, resolves their dependencies, and registers routes automatically. No manual wiring required.
@@ -609,6 +607,11 @@ console.log(plugin.state);
 
 Required compiler options for decorators:
 
+<Callout type="error" title="Required Configuration">
+  Without `experimentalDecorators` and `emitDecoratorMetadata`, decorators silently fail. The DI
+  container cannot resolve constructor parameters.
+</Callout>
+
 ```json title="tsconfig.json"
 {
   "compilerOptions": {
@@ -622,7 +625,8 @@ Required compiler options for decorators:
 
 ## Exports
 
-All public exports from `@nextrush/controllers`:
+<details>
+<summary>All public exports from @nextrush/controllers</summary>
 
 ```typescript
 import {
@@ -666,7 +670,10 @@ import type {
 } from '@nextrush/controllers';
 ```
 
-Decorators and DI are imported from their own packages:
+</details>
+
+<details>
+<summary>Decorator and DI imports</summary>
 
 ```typescript
 // Decorators
@@ -695,6 +702,8 @@ import type { GuardFn, GuardContext, CanActivate } from '@nextrush/decorators';
 // DI
 import { Service, Repository, container, createContainer } from '@nextrush/di';
 ```
+
+</details>
 
 ---
 

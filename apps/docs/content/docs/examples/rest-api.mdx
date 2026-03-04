@@ -3,8 +3,6 @@ title: 'REST API'
 description: 'Build a complete REST API with CRUD operations, validation, and error handling.'
 ---
 
-# REST API Example
-
 A production-ready REST API with full CRUD operations.
 
 This example demonstrates:
@@ -32,6 +30,11 @@ pnpm init
 ---
 
 ## Full Example
+
+The complete REST API with CRUD operations, validation, and error handling.
+
+<details>
+<summary>Complete REST API code (click to expand)</summary>
 
 ```typescript title="src/index.ts"
 import { createApp, createRouter, listen, NotFoundError } from 'nextrush';
@@ -216,6 +219,8 @@ app.use((ctx) => {
 // Start server
 await listen(app, 3000);
 ```
+
+</details>
 
 ---
 

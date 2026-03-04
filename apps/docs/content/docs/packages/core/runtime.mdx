@@ -3,8 +3,6 @@ title: '@nextrush/runtime'
 description: Runtime detection and cross-runtime abstractions
 ---
 
-# @nextrush/runtime
-
 Detect JavaScript runtimes and use cross-runtime abstractions for consistent behavior across Node.js, Bun, Deno, Deno Deploy, and Edge environments.
 
 <PackageInstall packages={['@nextrush/runtime']} />
@@ -233,20 +231,40 @@ Get runtime, version, and capabilities in one call:
 import { getRuntimeInfo } from '@nextrush/runtime';
 
 const info = getRuntimeInfo();
-// {
-//   runtime: 'node',
-//   version: '20.10.0',
-//   capabilities: {
-//     nodeStreams: true,
-//     webStreams: true,
-//     fileSystem: true,
-//     webSocket: true,
-//     fetch: true,
-//     cryptoSubtle: true,
-//     workers: true,
-//   }
-// }
 ```
+
+<TypeTable
+  title="RuntimeInfo"
+  types={{
+    runtime: { type: 'Runtime', description: 'Detected runtime identifier' },
+    version: { type: 'string | undefined', description: 'Runtime version string' },
+    capabilities: {
+      type: 'RuntimeCapabilities',
+      description: 'Feature support flags for the detected runtime',
+    },
+  }}
+/>
+
+<details>
+<summary>Example RuntimeInfo output</summary>
+
+```json
+{
+  "runtime": "node",
+  "version": "20.10.0",
+  "capabilities": {
+    "nodeStreams": true,
+    "webStreams": true,
+    "fileSystem": true,
+    "webSocket": true,
+    "fetch": true,
+    "cryptoSubtle": true,
+    "workers": true
+  }
+}
+```
+
+</details>
 
 ## Body Source Abstraction
 

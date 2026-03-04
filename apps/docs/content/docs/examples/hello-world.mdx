@@ -3,8 +3,6 @@ title: 'Hello World'
 description: 'Minimal NextRush application — your first API in under 10 lines.'
 ---
 
-# Hello World
-
 The simplest possible NextRush application.
 
 <Callout type="info" title="Prerequisites">
@@ -167,6 +165,11 @@ await listen(app, 3000);
 
 ## Adding More Routes
 
+Compose multiple routers for different resource groups.
+
+<details>
+<summary>Multi-router composition example (click to expand)</summary>
+
 ```typescript
 import { createApp, createRouter, listen } from 'nextrush';
 
@@ -211,6 +214,8 @@ app.route('/users', users);
 
 await listen(app, 3000);
 ```
+
+</details>
 
 ---
 

@@ -5,8 +5,6 @@ description: Internal architecture of NextRush's compose() engine — dispatch m
 
 import { Mermaid } from '@/components/mdx';
 
-# Middleware Flow
-
 This page explains **how** the middleware engine works internally. For the mental model, usage patterns, and common mistakes, see [Middleware Concepts](/docs/concepts/middleware).
 
 ## The Dispatch Mechanism
@@ -95,17 +93,22 @@ sequenceDiagram
 
 NextRush supports two equivalent calling styles for middleware:
 
-```ts
-// Traditional: next parameter
-app.use(async (ctx, next) => {
-  await next();
-});
-
-// Modern: ctx.next()
-app.use(async (ctx) => {
-  await ctx.next();
-});
-```
+<Tabs items={['Modern (ctx.next)', 'Traditional (next param)']}>
+  <Tab value="Modern (ctx.next)">
+    ```ts
+    app.use(async (ctx) => {
+      await ctx.next();
+    });
+    ```
+  </Tab>
+  <Tab value="Traditional (next param)">
+    ```ts
+    app.use(async (ctx, next) => {
+      await next();
+    });
+    ```
+  </Tab>
+</Tabs>
 
 Both call the same underlying dispatch function. The wiring happens inside `dispatch()`:
 

@@ -3,8 +3,6 @@ title: '@nextrush/decorators'
 description: 'Controller, route, parameter, and guard decorators for structured APIs.'
 ---
 
-# @nextrush/decorators
-
 Build HTTP controllers with TypeScript decorators.
 
 This package provides decorators for defining controllers, routes, parameters, and guards. It generates metadata that the controllers plugin uses to wire routes automatically.
@@ -25,6 +23,11 @@ This package provides decorators for defining controllers, routes, parameters, a
   }
 }
 ```
+
+<Callout type="error" title="Entry Point Import Required">
+  You must `import 'reflect-metadata'` as the very first line of your application entry point —
+  before any decorated class is loaded.
+</Callout>
 
 ---
 
@@ -57,9 +60,9 @@ class UserController {
 
 ## Controller Decorator
 
-Define a controller class:
+Define a controller class with a path prefix or a full options object:
 
-```typescript
+```ts
 // Simple prefix
 @Controller('/users')
 class UserController {}
@@ -72,6 +75,32 @@ class UserController {}
 })
 class VersionedUserController {}
 ```
+
+<TypeTable
+  title="ControllerOptions"
+  types={{
+    path: {
+      type: 'string',
+      description: 'Base path prefix for all routes in this controller',
+      optional: true,
+    },
+    version: {
+      type: 'string',
+      description: "API version prefix (e.g., 'v1' → '/v1/users')",
+      optional: true,
+    },
+    middleware: {
+      type: 'MiddlewareRef[]',
+      description: 'Middleware applied to all routes in this controller',
+      optional: true,
+    },
+    tags: {
+      type: 'string[]',
+      description: 'Tags for documentation grouping',
+      optional: true,
+    },
+  }}
+/>
 
 ---
 
@@ -232,11 +261,12 @@ create(@Body({ transform: CreateUserSchema.parse }) data: z.infer<typeof CreateU
 
 ## Guards
 
-Protect routes with guards:
+Guards control access to routes by returning a boolean. You can write guards as functions or as DI-injectable classes.
 
-### Function Guards
+<Tabs items={['Function Guards', 'Class Guards']}>
+  <Tab value="Function Guards">
 
-```typescript
+```ts
 import type { GuardFn, GuardContext } from '@nextrush/decorators';
 
 // Simple guard
@@ -263,9 +293,10 @@ class AdminController {
 }
 ```
 
-### Class Guards
+  </Tab>
+  <Tab value="Class Guards">
 
-```typescript
+```ts
 import type { CanActivate, GuardContext } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
 
@@ -287,6 +318,9 @@ class AuthGuard implements CanActivate {
 class ProtectedController {}
 ```
 
+  </Tab>
+</Tabs>
+
 ### Guard Execution Order
 
 Guards run in order: class guards first, then method guards.
@@ -305,20 +339,33 @@ class ExampleController {
 
 ### Guard Context
 
-Guards receive a lightweight context:
+Guards receive a lightweight context — no response methods, only request data:
 
-```typescript
-interface GuardContext {
-  readonly method: string;
-  readonly path: string;
-  readonly params: Record<string, string>;
-  readonly query: Record<string, string | string[] | undefined>;
-  readonly headers: Record<string, string | string[] | undefined>;
-  readonly body: unknown;
-  readonly state: Record<string, unknown>;
-  get(name: string): string | undefined;
-}
-```
+<TypeTable
+  title="GuardContext"
+  types={{
+    method: { type: 'string', description: 'HTTP request method' },
+    path: { type: 'string', description: 'Request path' },
+    params: { type: 'Record<string, string>', description: 'Route parameters' },
+    query: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Query parameters',
+    },
+    headers: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Request headers',
+    },
+    body: { type: 'unknown', description: 'Parsed request body' },
+    state: {
+      type: 'Record<string, unknown>',
+      description: 'Mutable state bag shared between middleware and guards',
+    },
+    'get(name)': {
+      type: '(name: string) => string | undefined',
+      description: 'Get a specific header value',
+    },
+  }}
+/>
 
 ---
 
@@ -358,9 +405,12 @@ const guards = getAllGuards(UserController, 'findOne');
 
 ## TypeScript
 
-Full type support:
+All types and runtime exports are available from the package entry point.
 
-```typescript
+<details>
+<summary>Complete import reference</summary>
+
+```ts
 import type {
   ControllerMetadata,
   ControllerOptions,
@@ -418,6 +468,8 @@ import {
   DECORATOR_METADATA_KEYS,
 } from '@nextrush/decorators';
 ```
+
+</details>
 
 ---
 

@@ -3,8 +3,6 @@ title: Runtime Compatibility
 description: How NextRush achieves cross-runtime compatibility — running the same code on Node.js, Bun, Deno, and Edge environments.
 ---
 
-# Runtime Compatibility
-
 NextRush is designed to run on multiple JavaScript runtimes without code changes. Your application logic stays the same — only the adapter changes.
 
 ## The Problem
@@ -76,7 +74,7 @@ NextRush uses three strategies to achieve runtime compatibility:
 | WebSocket                  |     ✅      |    ✅    |    ✅     |  ✅  |
 | DI & Controllers           |     ✅      |    ✅    |    ✅     |  ✅  |
 
-<Callout>
+<Callout type="info">
   Edge environments don't have a file system. Use cloud storage (R2, S3) instead of static file
   serving.
 </Callout>
@@ -155,7 +153,7 @@ interface BodySource {
 }
 ```
 
-**How middleware uses it:**
+Middleware uses `bodySource` to parse request bodies without knowing which runtime is active:
 
 ```ts
 // This works on ALL runtimes
@@ -216,7 +214,7 @@ const caps = getRuntimeCapabilities();
 // }
 ```
 
-**Use runtime detection for conditional logic:**
+Use `getRuntimeCapabilities()` to check what the current runtime supports before using platform-specific features:
 
 ```ts
 import { getRuntimeCapabilities } from '@nextrush/runtime';
@@ -238,78 +236,72 @@ app.use(async (ctx) => {
 
 ## Deployment Examples
 
-### Node.js
+Each adapter handles the platform-specific HTTP primitives while your application code stays identical.
 
-```ts
-import { createApp } from '@nextrush/core';
-import { listen } from '@nextrush/adapter-node';
+<Tabs items={['Node.js', 'Bun', 'Deno', 'Edge']}>
+  <Tab value="Node.js">
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { listen } from '@nextrush/adapter-node';
 
-const app = createApp();
-// ... configure app
+    const app = createApp();
+    // ... configure app
 
-await listen(app, 3000);
-```
+    await listen(app, 3000);
+    ```
 
-### Bun
+  </Tab>
+  <Tab value="Bun">
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { serve } from '@nextrush/adapter-bun';
 
-```ts
-import { createApp } from '@nextrush/core';
-import { serve } from '@nextrush/adapter-bun';
+    const app = createApp();
+    // ... configure app
 
-const app = createApp();
-// ... configure app
+    serve(app, { port: 3000 });
+    ```
 
-serve(app, { port: 3000 });
-```
+  </Tab>
+  <Tab value="Deno">
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { serve } from '@nextrush/adapter-deno';
 
-### Deno
+    const app = createApp();
+    // ... configure app
 
-```ts
-import { createApp } from '@nextrush/core';
-import { serve } from '@nextrush/adapter-deno';
+    await serve(app, { port: 3000 });
+    ```
 
-const app = createApp();
-// ... configure app
+  </Tab>
+  <Tab value="Edge">
+    The edge adapter provides platform-specific handler factories:
 
-await serve(app, { port: 3000 });
-```
+    ```ts
+    // Cloudflare Workers
+    import { createCloudflareHandler } from '@nextrush/adapter-edge';
+    const app = createApp();
+    export default createCloudflareHandler(app);
+    ```
 
-### Cloudflare Workers
+    ```ts
+    // Vercel Edge Functions
+    import { createVercelHandler } from '@nextrush/adapter-edge';
+    const app = createApp();
+    export const config = { runtime: 'edge' };
+    export default createVercelHandler(app);
+    ```
 
-```ts
-import { createApp } from '@nextrush/core';
-import { createCloudflareHandler } from '@nextrush/adapter-edge';
+    ```ts
+    // Netlify Edge Functions
+    import { createNetlifyHandler } from '@nextrush/adapter-edge';
+    const app = createApp();
+    export default createNetlifyHandler(app);
+    ```
 
-const app = createApp();
-// ... configure app
-
-export default createCloudflareHandler(app);
-```
-
-### Vercel Edge Functions
-
-```ts
-import { createApp } from '@nextrush/core';
-import { createVercelHandler } from '@nextrush/adapter-edge';
-
-const app = createApp();
-// ... configure app
-
-export const config = { runtime: 'edge' };
-export default createVercelHandler(app);
-```
-
-### Netlify Edge Functions
-
-```ts
-import { createApp } from '@nextrush/core';
-import { createNetlifyHandler } from '@nextrush/adapter-edge';
-
-const app = createApp();
-// ... configure app
-
-export default createNetlifyHandler(app);
-```
+  </Tab>
+</Tabs>
 
 ## Writing Runtime-Agnostic Code
 

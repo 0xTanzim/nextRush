@@ -3,8 +3,6 @@ title: '@nextrush/helmet'
 description: 'Security headers middleware with CSP, HSTS, and modern browser protections.'
 ---
 
-# @nextrush/helmet
-
 Browsers expose dozens of attack vectors through missing HTTP headers. XSS, clickjacking, MIME sniffing, and protocol downgrade attacks all exploit the absence of specific security headers.
 
 Helmet sets 13 security headers with secure defaults in a single middleware call. You get OWASP-recommended protection without configuring each header individually.
@@ -13,7 +11,15 @@ Helmet sets 13 security headers with secure defaults in a single middleware call
 
 ## Default Behavior
 
-Calling `helmet()` with no arguments sets these headers:
+Calling `helmet()` with no arguments sets 13 security headers covering XSS, clickjacking, MIME sniffing, and protocol downgrades.
+
+<Callout type="info" title="Zero Configuration Security">
+  A single `app.use(helmet())` call protects against the most common browser-based attack vectors.
+  Customize individual headers only when your application requires it.
+</Callout>
+
+<details>
+<summary>Full default headers reference</summary>
 
 | Header                              | Default Value                         | Protection                                    |
 | ----------------------------------- | ------------------------------------- | --------------------------------------------- |
@@ -32,6 +38,8 @@ Calling `helmet()` with no arguments sets these headers:
 | `Origin-Agent-Cluster`              | `?1`                                  | Process isolation                             |
 
 Headers **not** set by default: `Permissions-Policy`, `Clear-Site-Data`, `Reporting-Endpoints`.
+
+</details>
 
 ---
 
@@ -398,6 +406,8 @@ app.use(
 ---
 
 ## Common Mistakes
+
+These are the most frequent configuration errors when using Helmet.
 
 <Callout type="warn">
   CSP directives use **hyphenated keys** like `'default-src'`, not camelCase like `defaultSrc`.

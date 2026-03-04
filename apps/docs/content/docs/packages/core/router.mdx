@@ -3,8 +3,6 @@ title: '@nextrush/router'
 description: High-performance radix tree router with O(k) route matching
 ---
 
-# @nextrush/router
-
 A high-performance router using radix trees for O(k) route matching, where k is path length—not route count.
 
 <PackageInstall packages={['@nextrush/router']} />
@@ -514,11 +512,14 @@ Creates a new router instance.
 
 ### Router Options
 
-| Option          | Type      | Default | Description                    |
-| --------------- | --------- | ------- | ------------------------------ |
-| `prefix`        | `string`  | `''`    | Path prefix for all routes     |
-| `caseSensitive` | `boolean` | `false` | Case-sensitive matching        |
-| `strict`        | `boolean` | `false` | Strict trailing slash handling |
+<TypeTable
+  title="RouterOptions"
+  types={{
+    prefix: { type: 'string', description: 'Path prefix for all routes', default: "''" },
+    caseSensitive: { type: 'boolean', description: 'Case-sensitive matching', default: 'false' },
+    strict: { type: 'boolean', description: 'Strict trailing slash handling', default: 'false' },
+  }}
+/>
 
 ### Router Methods
 

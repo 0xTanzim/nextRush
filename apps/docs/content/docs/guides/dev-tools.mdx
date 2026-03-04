@@ -3,8 +3,6 @@ title: Dev Tools
 description: Set up the NextRush CLI for development with hot reload and production builds with decorator metadata
 ---
 
-# Dev Tools
-
 Modern bundlers like esbuild and tsx strip decorator metadata that dependency injection needs. The `@nextrush/dev` CLI provides a hot-reloading dev server and a production build pipeline that preserves this metadata using SWC.
 
 ## What You Will Build
@@ -201,5 +199,15 @@ const runtime = detectRuntime(); // 'node' | 'bun' | 'deno'
 
 ## Next Steps
 
-- [Class-Based Controllers](/docs/guides/class-based) — Build APIs with decorators and DI
-- [DI & Decorators Architecture](/docs/architecture/di-decorators) — Understand how DI and decorators work internally
+<Cards>
+  <Card
+    title="Class-Based Controllers"
+    description="Build APIs with decorators and DI."
+    href="/docs/guides/class-based"
+  />
+  <Card
+    title="DI & Decorators Architecture"
+    description="Understand how DI and decorators work internally."
+    href="/docs/architecture/di-decorators"
+  />
+</Cards>

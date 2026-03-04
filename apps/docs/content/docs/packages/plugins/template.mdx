@@ -3,8 +3,6 @@ title: '@nextrush/template'
 description: 'Template engine plugin with support for EJS, Handlebars, Nunjucks, Pug, Eta, and a built-in zero-dependency Mustache-like engine.'
 ---
 
-# @nextrush/template
-
 ## Problem
 
 Server-rendered HTML requires a template engine, but each engine has a different API, file loading strategy, and caching mechanism. Switching engines means rewriting route handlers and learning a new integration pattern.
@@ -157,12 +155,12 @@ app.use(
 <!-- views/layouts/main.hbs -->
 <!DOCTYPE html>
 <html>
-<head>
-  <title>{{title}}</title>
-</head>
-<body>
-  {{{body}}}
-</body>
+  <head>
+    <title>{{title}}</title>
+  </head>
+  <body>
+    {{{body}}}
+  </body>
 </html>
 ```
 
@@ -213,17 +211,17 @@ app.use(template({ root: './views' }));
 <h1>{{title}}</h1>
 
 {{#if user}}
-  <p>Welcome, {{user.name}}!</p>
-{{/if}}
-
-{{#each items}}
-  <li>{{name}} - {{price}}</li>
-{{/each}}
-
-{{#unless loggedIn}}
-  <a href="/login">Login</a>
+<p>Welcome, {{user.name}}!</p>
+{{/if}} {{#each items}}
+<li>{{name}} - {{price}}</li>
+{{/each}} {{#unless loggedIn}}
+<a href="/login">Login</a>
 {{/unless}}
 ```
+
+<Callout type="error" title="XSS Risk with Raw Output">
+  Triple-mustache `{{{var}}}` disables HTML escaping. Never use it with user-supplied data. All user input must go through double-mustache `{{var}}` for safe escaped output.
+</Callout>
 
 ### Built-in Syntax
 

@@ -3,8 +3,6 @@ title: '@nextrush/dev'
 description: Development server and build tools with multi-runtime support
 ---
 
-# @nextrush/dev
-
 Development server and production build tooling for NextRush applications.
 
 ## The Problem
@@ -137,14 +135,21 @@ nextrush dev [entry] [options]
 
 **Options:**
 
-| Option            | Default | Description                           |
-| ----------------- | ------- | ------------------------------------- |
-| `--port`, `-p`    | `3000`  | Server port                           |
-| `--watch`, `-w`   | `src`   | Additional path to watch (repeatable) |
-| `--inspect`       | `false` | Enable Node.js inspector              |
-| `--inspect-port`  | `9229`  | Inspector port                        |
-| `--no-clear`      | —       | Don't clear screen on start           |
-| `--verbose`, `-v` | `false` | Verbose output                        |
+<TypeTable
+  title="Dev Options"
+  types={{
+    '--port, -p': { type: 'number', description: 'Server port', default: '3000' },
+    '--watch, -w': {
+      type: 'string',
+      description: 'Additional path to watch (repeatable)',
+      default: "'src'",
+    },
+    '--inspect': { type: 'boolean', description: 'Enable Node.js inspector', default: 'false' },
+    '--inspect-port': { type: 'number', description: 'Inspector port', default: '9229' },
+    '--no-clear': { type: 'boolean', description: "Don't clear screen on start" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
 
 **Entry File Resolution:**
 
@@ -195,16 +200,23 @@ nextrush build [entry] [options]
 
 **Options:**
 
-| Option                    | Default  | Description                                                |
-| ------------------------- | -------- | ---------------------------------------------------------- |
-| `--outDir`, `-o`          | `dist`   | Output directory                                           |
-| `--target`, `-t`          | `es2022` | Target ES version (`es2020`, `es2021`, `es2022`, `esnext`) |
-| `--sourcemap`             | `true`   | Generate source maps                                       |
-| `--no-sourcemap`          | —        | Disable source maps                                        |
-| `--minify`, `-m`          | `false`  | Minify output                                              |
-| `--no-decorator-metadata` | —        | Skip decorator metadata emission                           |
-| `--no-clean`              | —        | Don't clean output directory                               |
-| `--verbose`, `-v`         | `false`  | Verbose output                                             |
+<TypeTable
+  title="Build Options"
+  types={{
+    '--outDir, -o': { type: 'string', description: 'Output directory', default: "'dist'" },
+    '--target, -t': {
+      type: "'es2020' | 'es2021' | 'es2022' | 'esnext'",
+      description: 'Target ES version',
+      default: "'es2022'",
+    },
+    '--sourcemap': { type: 'boolean', description: 'Generate source maps', default: 'true' },
+    '--no-sourcemap': { type: 'boolean', description: 'Disable source maps' },
+    '--minify, -m': { type: 'boolean', description: 'Minify output', default: 'false' },
+    '--no-decorator-metadata': { type: 'boolean', description: 'Skip decorator metadata emission' },
+    '--no-clean': { type: 'boolean', description: "Don't clean output directory" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
 
 **Examples:**
 
@@ -316,13 +328,16 @@ Start development server programmatically.
 ```typescript
 import { dev, type DevOptions } from '@nextrush/dev';
 
-const options: DevOptions = {
-  port: 3000,
-  watch: ['./src', './config'],
-};
-
-await dev('./src/index.ts', options);
+await dev('./src/index.ts', { port: 3000 });
 ```
+
+<TypeTable
+  title="DevOptions"
+  types={{
+    port: { type: 'number', description: 'Server port', default: '3000', optional: true },
+    watch: { type: 'string[]', description: 'Paths to watch for changes', optional: true },
+  }}
+/>
 
 ### `build(entry?, options?)`
 
@@ -331,14 +346,22 @@ Run production build programmatically.
 ```typescript
 import { build, type BuildOptions } from '@nextrush/dev';
 
-const options: BuildOptions = {
-  outDir: 'dist',
-  minify: true,
-  sourcemap: true,
-};
-
-await build('./src/index.ts', options);
+await build('./src/index.ts', { outDir: 'dist', minify: true });
 ```
+
+<TypeTable
+  title="BuildOptions"
+  types={{
+    outDir: { type: 'string', description: 'Output directory', default: "'dist'", optional: true },
+    minify: { type: 'boolean', description: 'Minify output', default: 'false', optional: true },
+    sourcemap: {
+      type: 'boolean',
+      description: 'Generate source maps',
+      default: 'true',
+      optional: true,
+    },
+  }}
+/>
 
 ### Runtime Detection
 

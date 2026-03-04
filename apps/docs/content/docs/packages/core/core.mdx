@@ -3,8 +3,6 @@ title: '@nextrush/core'
 description: Application class, middleware composition, and plugin system
 ---
 
-# @nextrush/core
-
 The core package provides the foundation of every NextRush application: the Application class, middleware composition, and plugin system.
 
 <PackageInstall packages={['@nextrush/core']} />
@@ -122,14 +120,17 @@ const app = createApp({ env: 'test' });
 
 The `logger` option accepts any object implementing the `Logger` interface:
 
-```typescript
-interface Logger {
-  error(...args: unknown[]): void;
-  warn(...args: unknown[]): void;
-  info(...args: unknown[]): void;
-  debug(...args: unknown[]): void;
-}
-```
+<TypeTable
+  title="Logger"
+  types={{
+    error: { type: '(...args: unknown[]) => void', description: 'Log error-level messages' },
+    warn: { type: '(...args: unknown[]) => void', description: 'Log warning-level messages' },
+    info: { type: '(...args: unknown[]) => void', description: 'Log informational messages' },
+    debug: { type: '(...args: unknown[]) => void', description: 'Log debug-level messages' },
+  }}
+/>
+
+Any object with these methods works, including `console` and structured loggers like pino.
 
 ```typescript
 // Quick development logging

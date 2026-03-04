@@ -3,8 +3,6 @@ title: '@nextrush/events'
 description: 'Type-safe event emitter for decoupled communication between application components.'
 ---
 
-# @nextrush/events
-
 Components in a growing application need to communicate without knowing about each other. Direct function calls create tight coupling — changing one module forces changes across the codebase.
 
 `@nextrush/events` provides a type-safe, async-ready event emitter that decouples producers from consumers. Define your events as a TypeScript interface, and the compiler catches invalid event names, missing properties, and wrong payload shapes at build time.
@@ -170,6 +168,11 @@ app.use(async (ctx) => {
 
 ### Subscribing and Unsubscribing
 
+<Callout type="warn" title="Listener Cleanup">
+  Listeners added inside request handlers or loops without cleanup cause memory leaks. Always store
+  the unsubscribe function or use `once()` for one-time handlers.
+</Callout>
+
 ```typescript
 // on() returns an unsubscribe function
 const unsubscribe = events.on('user:created', handler);
@@ -291,6 +294,9 @@ events.clear('user:created');
 
 ## Exported Types
 
+<details>
+<summary>All public exports from @nextrush/events</summary>
+
 ```typescript
 import type {
   EventMap,
@@ -311,6 +317,8 @@ import {
   VALID_PROPERTY_NAME,
 } from '@nextrush/events';
 ```
+
+</details>
 
 ---
 

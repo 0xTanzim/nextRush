@@ -3,8 +3,6 @@ title: Routing
 description: Segment trie routing with O(d) lookup, where d is path depth
 ---
 
-# Routing
-
 NextRush uses a segment trie router for O(d) lookup performance — where d is the number of path segments, not the number of registered routes.
 
 ## The Problem
@@ -131,51 +129,56 @@ When multiple patterns could match a path, the router uses a fixed priority: **s
 
 ## Router Composition
 
-### Mounting with `app.route()` (Recommended)
+NextRush provides several ways to compose routers. Choose the approach that fits your project structure:
 
-Mount routers directly on the application with a path prefix:
+<Tabs items={['app.route() (Recommended)', 'router.mount()', 'Classic Pattern']}>
+  <Tab value="app.route() (Recommended)">
+    Mount routers directly on the application with a path prefix:
 
-```typescript title="app.ts"
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
+    ```typescript title="app.ts"
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
 
-const users = createRouter();
-users.get('/', (ctx) => ctx.json([]));
-users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+    const users = createRouter();
+    users.get('/', (ctx) => ctx.json([]));
+    users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
-const posts = createRouter();
-posts.get('/', (ctx) => ctx.json([]));
+    const posts = createRouter();
+    posts.get('/', (ctx) => ctx.json([]));
 
-const app = createApp();
-app.route('/api/users', users);
-app.route('/api/posts', posts);
-// GET /api/users, GET /api/users/:id, GET /api/posts
-```
+    const app = createApp();
+    app.route('/api/users', users);
+    app.route('/api/posts', posts);
+    // GET /api/users, GET /api/users/:id, GET /api/posts
+    ```
 
-### Nesting with `router.mount()`
+  </Tab>
+  <Tab value="router.mount()">
+    Compose routers within routers using `mount()`:
 
-Compose routers within routers using `mount()`:
+    ```typescript title="Nested API"
+    const v1 = createRouter();
+    v1.mount('/users', usersRouter);
+    v1.mount('/posts', postsRouter);
 
-```typescript title="Nested API"
-const v1 = createRouter();
-v1.mount('/users', usersRouter);
-v1.mount('/posts', postsRouter);
+    app.route('/api/v1', v1);
+    // GET /api/v1/users, GET /api/v1/posts, etc.
+    ```
 
-app.route('/api/v1', v1);
-// GET /api/v1/users, GET /api/v1/posts, etc.
-```
+    You can also use `router.use(path, subRouter)` — it does the same thing as `mount()`.
 
-You can also use `router.use(path, subRouter)` — it does the same thing as `mount()`.
+  </Tab>
+  <Tab value="Classic Pattern">
+    The traditional `router.routes()` approach still works:
 
-### Classic Pattern
+    ```typescript title="Classic"
+    const router = createRouter();
+    router.mount('/users', usersRouter);
+    app.use(router.routes());
+    ```
 
-The traditional `router.routes()` approach still works:
-
-```typescript title="Classic"
-const router = createRouter();
-router.mount('/users', usersRouter);
-app.use(router.routes());
-```
+  </Tab>
+</Tabs>
 
 ## Route Groups
 
