@@ -110,7 +110,11 @@ If detected, fix immediately before any other work proceeds.
 
 ## 6. Zero Dependency Rule
 
-- No external runtime dependencies except `reflect-metadata` (required for DI)
+- No external runtime dependencies in core, router, errors, types, adapters, or middleware packages
+- Approved runtime exceptions:
+  - `reflect-metadata` — required for decorator metadata (DI)
+  - `tsyringe` — DI container implementation (`@nextrush/di` only)
+  - `@clack/prompts` — interactive CLI prompts (`create-nextrush` scaffolder only)
 - Dev dependencies are acceptable (testing, building, linting)
 - If an external dep seems necessary, document justification with size/security audit
 - Prefer vendoring small utilities (<50 lines) over adding npm packages

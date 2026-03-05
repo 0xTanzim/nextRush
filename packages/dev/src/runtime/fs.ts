@@ -149,6 +149,34 @@ export function getCwd(): string {
   return process.cwd();
 }
 
+/**
+ * Write a file with content, creating parent directories as needed
+ */
+export async function writeFile(path: string, content: string): Promise<void> {
+  if (runtime === 'deno') {
+    // @ts-expect-error Deno global exists in Deno runtime
+    await globalThis.Deno.writeTextFile(path, content);
+    return;
+  }
+
+  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
+  await fs.writeFile(path, content, 'utf-8');
+}
+
+/**
+ * Create a directory recursively
+ */
+export async function mkdir(path: string): Promise<void> {
+  if (runtime === 'deno') {
+    // @ts-expect-error Deno global exists in Deno runtime
+    await globalThis.Deno.mkdir(path, { recursive: true });
+    return;
+  }
+
+  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
+  await fs.mkdir(path, { recursive: true });
+}
+
 // Cache resolved path module for sync operations
 let cachedPath: typeof import('node:path') | null = null;
 

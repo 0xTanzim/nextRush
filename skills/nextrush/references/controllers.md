@@ -13,7 +13,7 @@ and auto-discovery via `controllersPlugin`.
 
 ```typescript
 import { Controller, Get, Post, Put, Delete } from '@nextrush/decorators';
-import { Body, ParamProp, QueryProp } from '@nextrush/decorators';
+import { Body, Param, Query } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
 import { NotFoundError } from '@nextrush/errors';
 
@@ -40,7 +40,7 @@ class ProductController {
   }
 
   @Get('/:id')
-  async findOne(@ParamProp('id') id: string) {
+  async findOne(@Param('id') id: string) {
     const product = await this.productService.findById(id);
     if (!product) throw new NotFoundError('Product not found');
     return product;
@@ -82,21 +82,20 @@ app.listen(3000);
 | Decorator                      | Source             | Example                                             |
 | ------------------------------ | ------------------ | --------------------------------------------------- |
 | `@Body()`                      | Full request body  | `create(@Body() data: CreateDto)`                   |
-| `@BodyProp('name')`            | Single body field  | `create(@BodyProp('name') name: string)`            |
+| `@Body('name')`                | Single body field  | `create(@Body('name') name: string)`                |
 | `@Param()`                     | All route params   | `show(@Param() params: Record<string, string>)`     |
-| `@ParamProp('id')`             | Single route param | `show(@ParamProp('id') id: string)`                 |
+| `@Param('id')`                 | Single route param | `show(@Param('id') id: string)`                     |
 | `@Query()`                     | All query params   | `list(@Query() query: Record<string, string>)`      |
-| `@QueryProp('page')`           | Single query param | `list(@QueryProp('page') page: string)`             |
-| `@Headers()`                   | All headers        | `check(@Headers() headers: Record<string, string>)` |
-| `@HeaderProp('authorization')` | Single header      | `check(@HeaderProp('authorization') auth: string)`  |
-| `@State()`                     | Middleware state   | `show(@State() state: Record<string, unknown>)`     |
+| `@Query('page')`               | Single query param | `list(@Query('page') page: string)`                 |
+| `@Header()`                    | All headers        | `check(@Header() headers: Record<string, string>)`  |
+| `@Header('authorization')`     | Single header      | `check(@Header('authorization') auth: string)`      |
 | `@Ctx()`                       | Full context       | `handle(@Ctx() ctx: Context)`                       |
 
 ## Parameter Transforms
 
 ```typescript
 // Sync transform
-@ParamProp('id', { transform: Number }) id: number
+@Param('id', { transform: Number }) id: number
 
 // Async transform (validation libraries)
 @Body({ transform: zodSchema.parseAsync }) data: CreateProduct
@@ -137,7 +136,7 @@ class RoleGuard implements CanActivate {
 class AdminController {
   @UseGuard(RoleGuard) // Method-level — applies to this route only
   @Delete('/:id')
-  async remove(@ParamProp('id') id: string) {
+  async remove(@Param('id') id: string) {
     return { deleted: id };
   }
 }
@@ -160,6 +159,6 @@ Execution order: class guards run first, then method guards. Any guard returning
 | DI resolution fails  | Missing `reflect-metadata`          | Add `import 'reflect-metadata'` as first import                                           |
 | Controller not found | File outside `root`                 | Ensure controller is under the `root` path in plugin config                               |
 | Guard always rejects | Returns falsy (not explicit `true`) | Return `true` explicitly for allowed requests                                             |
-| Parameters undefined | Missing decorator                   | Add `@Body()`, `@ParamProp()` etc. to method params                                       |
+| Parameters undefined | Missing decorator                   | Add `@Body()`, `@Param()` etc. to method params                                           |
 | Decorator errors     | Missing tsconfig flags              | `nextrush dev` warns at startup; add `experimentalDecorators` and `emitDecoratorMetadata` |
 | "TypeInfo not known" | `emitDecoratorMetadata` false       | Enable in tsconfig.json; `nextrush dev` validates this on startup                         |

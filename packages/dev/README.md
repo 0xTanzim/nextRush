@@ -123,6 +123,87 @@ npx nextrush build --target es2020
 | `--no-clean`              | -     | -        | Don't clean output directory |
 | `--verbose`               | `-v`  | `false`  | Verbose output               |
 
+### `nextrush generate` - Code Generator
+
+Generate controllers, services, middleware, guards, and routes.
+
+```bash
+# Generate a controller class
+npx nextrush generate controller user
+
+# Short alias
+npx nextrush g controller user
+
+# Generate all types
+npx nextrush g s user-profile        # Service
+npx nextrush g mw logger             # Middleware
+npx nextrush g guard auth            # Guard
+npx nextrush g r products            # Route
+```
+
+**Types:**
+
+| Type         | Alias | Output Path                            | Style       |
+| ------------ | ----- | -------------------------------------- | ----------- |
+| `controller` | `c`   | `src/controllers/<name>.controller.ts` | Class-based |
+| `service`    | `s`   | `src/services/<name>.service.ts`       | Class-based |
+| `middleware` | `mw`  | `src/middleware/<name>.ts`             | Functional  |
+| `guard`      | `g`   | `src/guards/<name>.guard.ts`           | Functional  |
+| `route`      | `r`   | `src/routes/<name>.ts`                 | Functional  |
+
+**Generated Controller Example:**
+
+```typescript
+// nextrush g controller user → src/controllers/user.controller.ts
+import { Controller, Get, Post, Body, Param } from 'nextrush';
+
+@Controller('/user')
+export class UserController {
+  @Get()
+  async findAll() {
+    return [];
+  }
+
+  @Get('/:id')
+  async findOne(@Param('id') id: string) {
+    return { id };
+  }
+
+  @Post()
+  async create(@Body() data: unknown) {
+    return data;
+  }
+}
+```
+
+**Generated Service Example:**
+
+```typescript
+// nextrush g s order → src/services/order.service.ts
+import { Service } from 'nextrush';
+
+@Service()
+export class OrderService {
+  async findAll() {
+    return [];
+  }
+
+  async findOne(id: string) {
+    return { id };
+  }
+
+  async create(data: unknown) {
+    return data;
+  }
+}
+```
+
+**Naming Rules:**
+
+- Use lowercase letters, numbers, and hyphens: `user`, `user-profile`, `v2`
+- Multi-word names are converted to PascalCase: `user-profile` → `UserProfileController`
+- Duplicate file detection: won't overwrite existing files
+
 ## Package.json Scripts
 
 ```json
@@ -130,7 +211,8 @@ npx nextrush build --target es2020
   "scripts": {
     "dev": "nextrush dev",
     "build": "nextrush build",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "generate": "nextrush generate"
   }
 }
 ```
@@ -333,6 +415,19 @@ import {
 } from '@nextrush/dev';
 ```
 
+### Code Generation
+
+```typescript
+import {
+  generate, // (type, name, cwd?) => Promise<string>
+  generateCli, // (args: string[]) => Promise<void>
+  GENERATOR_TYPES, // ['controller', 'service', 'middleware', 'guard', 'route']
+} from '@nextrush/dev';
+
+// Programmatic usage
+const filePath = await generate('controller', 'user', process.cwd());
+```
+
 ## Production Readiness
 
 ### Current Status: Beta
@@ -347,6 +442,7 @@ This package is functional and tested across all major runtimes:
 | Bun build     | ✅ Stable | Full decorator metadata |
 | Deno dev      | ✅ Stable | Native support          |
 | Deno build    | ✅ Stable | Uses npm:@swc/core      |
+| Generate      | ✅ Stable | All 5 generator types   |
 
 ### All Runtimes Support Decorator Metadata
 

@@ -7,7 +7,7 @@ import { Mermaid } from '@/components/mdx';
 
 # NextRush
 
-A modular backend framework for Node.js, Bun, Deno, and Edge runtimes — under 3,000 lines of code, zero runtime dependencies, full TypeScript strict mode.
+A modular backend framework for Node.js, Bun, Deno, and Edge runtimes — under 3,000 lines of code, zero runtime dependencies in core, full TypeScript strict mode.
 
 <Callout type="info" title="v3 Alpha">
   NextRush v3 is in active development. APIs are stabilizing. Requires Node.js 22+.
@@ -36,8 +36,8 @@ await listen(app, 3000);
 
 <Cards>
   <Card
-    title="Zero Dependencies"
-    description="No external runtime packages. The core ships nothing you didn't ask for."
+    title="Zero Core Dependencies"
+    description="No external runtime packages in core, router, errors, types, adapters, or middleware. Only DI uses reflect-metadata + tsyringe."
   />
   <Card
     title="Multi-Runtime"

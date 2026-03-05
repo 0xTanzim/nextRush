@@ -1,272 +1,64 @@
 ---
 applyTo: '**'
-description: 'Session-isolated, multi-agent safe Copilot orchestration with deterministic lifecycle, recovery, and controlled aggregation.'
+description: 'See process Copilot is following where you can edit this to reshape the interaction or save when follow up may be needed'
 ---
 
-# Copilot Process Orchestration Specification
-
----
-
-## Global Operating Principles
-
-* Read this specification fully before execution.
-* Execute one stage at a time.
-* Do not combine stages.
-* Do not skip stages.
-* Do not emit explanations unless explicitly required.
-* Only output what the current stage explicitly requires.
-* If rules conflict, prioritize session isolation and data safety.
-
----
-
-# Session Model
-
-## Session Continuity Rule
-
-* One chat session MUST map to one session file.
-* If a session file already exists for the current chat:
-
-  * Reuse it.
-  * Do NOT generate a new session ID.
-* Only generate a new session file when no session file exists for the current chat.
-
----
-
-## Session Isolation Rules
-
-* All tracking files MUST exist under:
-
-```
-/copilot-process/
-```
-
-* Each session file MUST use a unique identifier:
-
-```
-<timestamp>-<short-random-id>.md
-```
-
-Example:
-
-```
-/copilot-process/2026-03-03T17-42-11-a8f3.md
-```
-
-* Never overwrite an existing session file.
-* Never modify a file created by another session.
-* Never use fixed filenames.
-
----
-
-# Required File Structure
-
-Each session file MUST contain:
-
-```
-# Session Metadata
-Spec Version:
-Session ID:
-Parent Session:
-Agent Role:
-Start Time:
-Status:
-
-# User Request
-
-# Action Plan
-
-# Execution Log
-
-# Summary
-```
-
----
-
-## Status Lifecycle
-
-Allowed values:
-
-* INITIALIZED
-* PLANNING
-* EXECUTING
-* COMPLETED
-* FAILED
-* MERGED
-* ARCHIVED
-* ORPHANED
-
-Rules:
-
-* Only parent sessions may reach COMPLETED.
-* Sub-agents reach COMPLETED, then become MERGED after aggregation.
-* ARCHIVED is optional manual state.
-* ORPHANED is used if parent never merges sub-agent output.
-
----
-
-# Stage 1 — Initialization
-
-* If session file exists for this chat:
-
-  * Resume it.
-  * Do not create a new file.
-* Otherwise:
-
-  * Create `/copilot-process/` if missing.
-  * Generate unique session ID.
-  * Create new session file.
-  * Populate:
-
-    * Metadata
-    * User Request
-    * Status = INITIALIZED.
-* Stop after completion.
-
----
-
-# Stage 2 — Planning
-
-* Update Status = PLANNING.
-* Populate Action Plan section.
-* Tasks must:
-
-  * Be atomic.
-  * Be independently executable.
-  * Include dependencies if needed.
-  * Use checkbox format:
-
-```
-- [ ] Task description
-```
-
-* Do not emit commentary.
-* Stop after completion.
-
----
-
-# Stage 3 — Execution
-
-* Update Status = EXECUTING.
-* Execute tasks sequentially unless explicitly delegated to sub-agents.
-* After completing each task:
-
-```
-- [x] Task description
-```
-
-* Log meaningful execution steps under Execution Log.
-
-### Failure Handling
-
-If failure occurs:
-
-* Update Status = FAILED.
-* Log error clearly.
-* Stop immediately.
-
-### Recovery Rule
-
-If session file exists and:
-
-* Status != COMPLETED
-* There are incomplete tasks
-
-Resume from first unchecked task.
-
-Do not restart entire process.
-
----
-
-# Stage 4 — Summary
-
-* Populate Summary section with:
-
-  * Work completed
-  * Final state
-  * Unresolved items
-* Update Status = COMPLETED.
-* Output exactly:
-
-```
-Added final summary to the session file.
-Please review the summary and confirm completion.
-Remove or archive the session file if it should not be committed.
-```
-
-* Stop execution.
-
----
-
-# Multi-Agent Orchestration Rules
-
-## Sub-Agent Creation
-
-* Sub-agents MUST create independent session files.
-* File naming pattern:
-
-```
-<parent-session-id>-sub-<role>-<index>.md
-```
-
-Example:
-
-```
-2026-03-03T17-42-a8f3-sub-auth-01.md
-```
-
-* Parent Session field MUST reference parent session ID.
-* Sub-agents MUST NOT modify parent file directly.
-
----
-
-## Sub-Agent Lifecycle
-
-* Sub-agent completes work.
-* Sub-agent sets Status = COMPLETED.
-* Parent reads sub-agent Summary.
-* Parent copies relevant outputs into its Execution Log.
-* Parent updates sub-agent Status = MERGED.
-* Sub-agent file is retained unless manually archived.
-
----
-
-## Sub-Agent Restrictions
-
-* Sub-agents MAY NOT spawn additional sub-agents unless explicitly authorized by parent session.
-* Sub-agents MUST NOT modify other sub-agent files.
-* Sub-agents MUST NOT modify code files in parallel without parent coordination.
-
----
-
-# Orchestration Safety Rules
-
-* Parent session controls merge order.
-* Parent must verify sub-agent completion before merging.
-* If parent fails before merging:
-
-  * Sub-agent files remain.
-  * Parent may resume and merge.
-* If sub-agent is never merged:
-
-  * Mark Status = ORPHANED.
-
----
-
-# Concurrency Rules
-
-* Never assume exclusive access to workspace.
-* Never rely on file overwrite.
-* Never use shared mutable tracking files.
-* Never auto-delete sub-agent files.
-
----
-
-# Cleanup Policy
-
-* `/copilot-process/` SHOULD be added to `.gitignore`.
-* Parent session files remain until confirmed complete.
-* Sub-agent files should be:
-
-  * Marked MERGED before archival.
-  * Archived manually if no longer needed.
-* No automatic deletion without explicit instruction.
+# Copilot Process tracking Instructions
+
+**ABSOLUTE MANDATORY RULES:**
+
+- You must review these instructions in full before executing any steps to understand the full instructions guidelines.
+- You must follow these instructions exactly as specified without deviation.
+- Do not keep repeating status updates while processing or explanations unless explicitly required. This is bad and will flood Copilot session context.
+- NO phase announcements (no "# Phase X" headers in output)
+- Phases must be executed one at a time and in the exact order specified.
+- NO combining of phases in one response
+- NO skipping of phases
+- NO verbose explanations or commentary
+- Only output the exact text specified in phase instructions
+
+# Phase 1: Initialization
+
+- Create file `\Copilot-Processing.md` in workspace root
+- Populate `\Copilot-Processing.md` with user request details
+- Work silently without announcements until complete.
+- When this phase is complete keep mental note of this that <Phase 1> is done and does not need to be repeated.
+
+# Phase 2: Planning
+
+- Generate an action plan into the `\Copilot-Processing.md` file.
+- Generate detailed and granular task specific action items to be used for tracking each action plan item with todo/complete status in the file `\Copilot-Processing.md`.
+- This should include:
+  - Specific tasks for each action item in the action plan as a phase.
+  - Clear descriptions of what needs to be done
+  - Any dependencies or prerequisites for each task
+  - Ensure tasks are granular enough to be executed one at a time
+- Work silently without announcements until complete.
+- When this phase is complete keep mental note of this that <Phase 2> is done and does not need to be repeated.
+
+# Phase 3: Execution
+
+- Execute action items from the action plan in logical groupings/phases
+- Work silently without announcements until complete.
+- Update file `\Copilot-Processing.md` and mark the action item(s) as complete in the tracking.
+- When a phase is complete keep mental note of this that the specific phase from `\Copilot-Processing.md` is done and does not need to be repeated.
+- Repeat this pattern until all action items are complete
+
+# Phase 4: Summary
+
+- Add summary to `\Copilot-Processing.md`
+- Work silently without announcements until complete.
+- Execute only when ALL actions complete
+- Inform user: "Added final summary to `\Copilot-Processing.md`."
+- Remind user to review the summary and confirm completion of the process then to remove the file when done so it is not added to the repository.
+
+**ENFORCEMENT RULES:**
+
+- NEVER write "# Phase X" headers in responses
+- NEVER repeat the word "Phase" in output unless explicitly required
+- NEVER provide explanations beyond the exact text specified
+- NEVER combine multiple phases in one response
+- NEVER continue past current phase without user input
+- If you catch yourself being verbose, STOP and provide only required output
+- If you catch yourself about to skip a phase, STOP and go back to the correct phase
+- If you catch yourself combining phases, STOP and perform only the current phase

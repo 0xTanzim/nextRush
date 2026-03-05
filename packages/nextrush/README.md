@@ -38,7 +38,20 @@ pnpm add nextrush
 
 ## Quick Start
 
-`typescript\nimport { createApp, createRouter, listen } from 'nextrush';\n\nconst app = createApp();\nconst router = createRouter();\n\nrouter.get('/', (ctx) => {\n  ctx.json({ message: 'Hello NextRush!' });\n});\n\napp.route('/', router);\n\nlisten(app, 3000);\n`
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello NextRush!' });
+});
+
+app.route('/', router);
+
+listen(app, 3000);
+```
 
 ## Performance
 
@@ -135,9 +148,10 @@ This meta package re-exports from:
 
 ### Dev Tools
 
-| Package         | Description                       |
-| --------------- | --------------------------------- |
-| `@nextrush/dev` | Hot reload dev server (tsx-based) |
+| Package           | Description                                             |
+| ----------------- | ------------------------------------------------------- |
+| `@nextrush/dev`   | Hot reload dev server, production builds, code generators |
+| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)             |
 
 ## Direct Package Usage
 

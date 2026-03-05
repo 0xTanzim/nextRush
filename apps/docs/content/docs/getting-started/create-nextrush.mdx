@@ -1,0 +1,182 @@
+---
+title: create-nextrush
+description: Scaffold a new NextRush project with one command — interactive prompts or CLI flags
+---
+
+The `create-nextrush` scaffolder generates a ready-to-run NextRush project with routing, middleware, and optional DI/controllers — no manual setup required.
+
+## Quick Start
+
+```bash
+# Interactive (recommended)
+pnpm create nextrush
+
+# With npm
+npm create nextrush
+
+# With yarn
+yarn create nextrush
+```
+
+The CLI walks you through project name, style, middleware preset, and runtime target.
+
+## Non-Interactive
+
+Pass flags to skip the prompts:
+
+```bash
+pnpm create nextrush my-api --style functional --middleware api --runtime node
+```
+
+## Options
+
+<TypeTable
+  title="create-nextrush flags"
+  types={{
+    '--style, -s': { type: '"functional" | "class-based" | "full"', description: 'Project style', default: '"functional"' },
+    '--middleware, -m': { type: '"minimal" | "api" | "full"', description: 'Middleware preset', default: '"api"' },
+    '--runtime, -r': { type: '"node" | "bun" | "deno"', description: 'Runtime target', default: '"node"' },
+    '--git': { type: 'boolean', description: 'Initialize git repository', default: 'true' },
+    '--no-git': { type: 'boolean', description: 'Skip git initialization' },
+    '--install, -i': { type: 'boolean', description: 'Install dependencies', default: 'true' },
+    '--no-install': { type: 'boolean', description: 'Skip dependency installation' },
+    '--pm': { type: '"pnpm" | "npm" | "yarn" | "bun"', description: 'Package manager', default: 'auto-detected' },
+  }}
+/>
+
+## Project Styles
+
+### `functional` (default)
+
+Lightweight, function-based routing. Best for APIs and microservices.
+
+```
+my-api/
+├── src/
+│   ├── index.ts
+│   └── routes/
+│       └── health.ts
+├── package.json
+├── tsconfig.json
+└── .gitignore
+```
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ message: 'Welcome to NextRush!' }));
+
+app.route('/', router);
+await listen(app, 3000);
+```
+
+### `class-based`
+
+Decorator-driven controllers with dependency injection. Best for structured applications.
+
+```
+my-api/
+├── src/
+│   ├── index.ts
+│   ├── controllers/
+│   │   └── health.controller.ts
+│   └── services/
+│       └── app.service.ts
+├── package.json
+├── tsconfig.json
+└── .gitignore
+```
+
+```typescript title="src/controllers/health.controller.ts"
+import { Controller, Get, Service } from 'nextrush';
+
+@Service()
+class AppService {
+  getHealth() {
+    return { status: 'ok', uptime: process.uptime() };
+  }
+}
+
+@Controller('/health')
+class HealthController {
+  constructor(private readonly appService: AppService) {}
+
+  @Get()
+  check() {
+    return this.appService.getHealth();
+  }
+}
+```
+
+### `full`
+
+Both functional routes and class-based controllers with custom error handling middleware. Best for production applications.
+
+```
+my-api/
+├── src/
+│   ├── index.ts
+│   ├── routes/
+│   │   └── health.ts
+│   ├── controllers/
+│   │   └── hello.controller.ts
+│   ├── services/
+│   │   └── hello.service.ts
+│   └── middleware/
+│       ├── error-handler.ts
+│       └── not-found.ts
+├── package.json
+├── tsconfig.json
+└── .gitignore
+```
+
+## Middleware Presets
+
+| Preset    | Included Packages                                                          |
+| --------- | -------------------------------------------------------------------------- |
+| `minimal` | None — bare framework                                                      |
+| `api`     | `cors`, `body-parser`, `helmet`                                            |
+| `full`    | `cors`, `body-parser`, `helmet`, `rate-limit`, `compression`, `request-id` |
+
+## After Scaffolding
+
+```bash
+cd my-api
+
+# Start development server (hot reload)
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Run production build
+pnpm start
+```
+
+<Callout type="info" title="Code Generators">
+  Once your project is set up, use `npx nextrush generate` to scaffold controllers, services,
+  middleware, guards, and routes. See the [generators guide](/docs/guides/generators).
+</Callout>
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Quick Start"
+    description="Manual step-by-step API setup for full understanding."
+    href="/docs/getting-started/quick-start"
+  />
+  <Card
+    title="Dev Tools"
+    description="Hot reload, production builds, and code generators."
+    href="/docs/guides/dev-tools"
+  />
+  <Card
+    title="Class-Based Controllers"
+    description="Build APIs with decorators and dependency injection."
+    href="/docs/guides/class-based"
+  />
+</Cards>

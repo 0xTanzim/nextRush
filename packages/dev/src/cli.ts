@@ -4,13 +4,15 @@
  * Unified CLI for NextRush development and build tools.
  *
  * Commands:
- * - nextrush dev   - Start development server
- * - nextrush build - Build for production
+ * - nextrush dev      - Start development server
+ * - nextrush build    - Build for production
+ * - nextrush generate - Generate controllers, services, middleware, guards, routes
  *
  * @packageDocumentation
  */
 
 import { buildCli, buildHelp, devCli, devHelp } from './commands/index.js';
+import { generateCli, generateHelp } from './generators/index.js';
 import { exitProcess, getRuntimeInfo } from './runtime/index.js';
 import { error } from './utils/logger.js';
 
@@ -67,6 +69,15 @@ export function cli(): void {
       }
       break;
 
+    case 'generate':
+    case 'g':
+      if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
+        generateHelp();
+      } else {
+        generateCli(commandArgs);
+      }
+      break;
+
     default:
       error(`Unknown command: ${command}`);
       error('Run "nextrush --help" for available commands.');
@@ -87,8 +98,9 @@ function printHelp(): void {
 Usage: nextrush <command> [options]
 
 Commands:
-  dev     Start development server with hot reload
-  build   Build for production with decorator metadata
+  dev          Start development server with hot reload
+  build        Build for production with decorator metadata
+  generate, g  Generate controller, service, middleware, guard, or route
 
 Global Options:
   --help, -h       Show help
@@ -102,6 +114,9 @@ Examples:
   nextrush build                  Build for production
   nextrush build --minify         Build with minification
   nextrush build --outDir dist    Build to custom directory
+
+  nextrush generate controller user
+  nextrush g s user-profile
 
 Run "nextrush <command> --help" for command-specific help.
 

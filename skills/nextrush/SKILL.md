@@ -115,7 +115,7 @@ app.route('/users', users);
 
 ```typescript
 import 'reflect-metadata';
-import { Controller, Get, Post, Body, ParamProp, UseGuard } from '@nextrush/decorators';
+import { Controller, Get, Post, Body, Param, UseGuard } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
 
 @Service()
@@ -141,7 +141,7 @@ class ProductController {
   }
 
   @Get('/:id')
-  async one(@ParamProp('id') id: string) {
+  async one(@Param('id') id: string) {
     return this.productService.findById(id);
   }
 
@@ -154,18 +154,17 @@ class ProductController {
 
 **Parameter Decorators:**
 
-| Decorator             | Source                 |
-| --------------------- | ---------------------- |
-| `@Body()`             | Full request body      |
-| `@BodyProp('key')`    | Specific body property |
-| `@Param()`            | All route params       |
-| `@ParamProp('id')`    | Single route param     |
-| `@Query()`            | All query params       |
-| `@QueryProp('page')`  | Single query param     |
-| `@Headers()`          | All headers            |
-| `@HeaderProp('auth')` | Single header          |
-| `@State()`            | Middleware state bag   |
-| `@Ctx()`              | Full context object    |
+| Decorator                  | Source                 |
+| -------------------------- | ---------------------- |
+| `@Body()`                  | Full request body      |
+| `@Body('key')`             | Specific body property |
+| `@Param()`                 | All route params       |
+| `@Param('id')`             | Single route param     |
+| `@Query()`                 | All query params       |
+| `@Query('page')`           | Single query param     |
+| `@Header()`                | All headers            |
+| `@Header('authorization')` | Single header          |
+| `@Ctx()`                   | Full context object    |
 
 **Guards:**
 
@@ -257,7 +256,7 @@ ctx.next(); // Call next middleware
 - Middleware must call `ctx.next()` or send a response
 - `reflect-metadata` must be the first import when using decorators
 - Lower packages never import from higher packages in the hierarchy
-- No external runtime dependencies except `reflect-metadata`
+- No external runtime dependencies in core (DI uses `reflect-metadata` + `tsyringe`)
 
 ## How to Use
 

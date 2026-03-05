@@ -1,0 +1,213 @@
+---
+title: Code Generators
+description: Scaffold controllers, services, middleware, guards, and routes from the command line
+---
+
+The `nextrush generate` command (alias `nextrush g`) creates new files from templates with the correct structure, imports, and naming conventions.
+
+## Usage
+
+```bash
+npx nextrush generate <type> <name>
+npx nextrush g <type> <name>
+```
+
+## Generator Types
+
+<TypeTable
+  title="Available generators"
+  types={{
+    'controller (c)': {
+      type: 'string',
+      description: 'Class-based controller with @Controller, @Get, @Post, @Param, @Body decorators',
+    },
+    'service (s)': {
+      type: 'string',
+      description: 'Injectable service class with @Service decorator and CRUD stubs',
+    },
+    'middleware (mw)': {
+      type: 'string',
+      description: 'Async middleware function with timing pattern',
+    },
+    'guard (g)': {
+      type: 'string',
+      description: 'Guard function with authorization token check pattern',
+    },
+    'route (r)': {
+      type: 'string',
+      description: 'Functional router with GET, GET/:id, and POST routes',
+    },
+  }}
+/>
+
+## Examples
+
+### Generate a Controller
+
+```bash
+npx nextrush g controller user
+```
+
+Creates `src/controllers/user.controller.ts`:
+
+```typescript title="src/controllers/user.controller.ts"
+import { Controller, Get, Post, Body, Param } from 'nextrush';
+
+@Controller('/user')
+export class UserController {
+  @Get()
+  async findAll() {
+    return [];
+  }
+
+  @Get('/:id')
+  async findOne(@Param('id') id: string) {
+    return { id };
+  }
+
+  @Post()
+  async create(@Body() data: unknown) {
+    return data;
+  }
+}
+```
+
+### Generate a Service
+
+```bash
+npx nextrush g service user
+```
+
+Creates `src/services/user.service.ts`:
+
+```typescript title="src/services/user.service.ts"
+import { Service } from 'nextrush';
+
+@Service()
+export class UserService {
+  async findAll() {
+    return [];
+  }
+
+  async findOne(id: string) {
+    return { id };
+  }
+
+  async create(data: unknown) {
+    return data;
+  }
+}
+```
+
+### Generate Middleware
+
+```bash
+npx nextrush g middleware request-logger
+```
+
+Creates `src/middleware/request-logger.ts`:
+
+```typescript title="src/middleware/request-logger.ts"
+import type { Middleware } from 'nextrush';
+
+export const requestLogger: Middleware = async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const duration = Date.now() - start;
+  console.log(`${ctx.method} ${ctx.path} ${ctx.status} ${duration}ms`);
+};
+```
+
+### Generate a Guard
+
+```bash
+npx nextrush g guard auth
+```
+
+Creates `src/guards/auth.guard.ts`:
+
+```typescript title="src/guards/auth.guard.ts"
+import type { GuardFn } from 'nextrush';
+
+export const authGuard: GuardFn = async (ctx) => {
+  const token = ctx.get('authorization');
+  if (!token) return false;
+  // TODO: Validate token
+  return true;
+};
+```
+
+### Generate a Route
+
+```bash
+npx nextrush g route product
+```
+
+Creates `src/routes/product.ts`:
+
+```typescript title="src/routes/product.ts"
+import { createRouter } from 'nextrush';
+
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json([]);
+});
+
+router.get('/:id', (ctx) => {
+  ctx.json({ id: ctx.params.id });
+});
+
+router.post('/', (ctx) => {
+  ctx.json(ctx.body);
+});
+
+export default router;
+```
+
+## Output Directories
+
+| Type       | Output Directory   | File Suffix      |
+| ---------- | ------------------ | ---------------- |
+| controller | `src/controllers/` | `.controller.ts` |
+| service    | `src/services/`    | `.service.ts`    |
+| middleware | `src/middleware/`  | `.ts`            |
+| guard      | `src/guards/`      | `.guard.ts`      |
+| route      | `src/routes/`      | `.ts`            |
+
+Directories are created automatically if they don't exist.
+
+## Naming Convention
+
+Names must be lowercase with optional hyphens. The generator converts them to PascalCase for class names and camelCase for function names:
+
+| Input          | Class Name              | Function Name |
+| -------------- | ----------------------- | ------------- |
+| `user`         | `UserController`        | `user`        |
+| `user-profile` | `UserProfileController` | `userProfile` |
+| `auth`         | `AuthController`        | `authGuard`   |
+
+<Callout type="warn" title="Existing Files">
+  The generator will not overwrite existing files. If the target file already exists, the command
+  exits with an error.
+</Callout>
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Dev Tools"
+    description="Hot reload dev server and production builds."
+    href="/docs/guides/dev-tools"
+  />
+  <Card
+    title="Class-Based Controllers"
+    description="Build APIs with decorators and DI."
+    href="/docs/guides/class-based"
+  />
+  <Card
+    title="Custom Middleware"
+    description="Write middleware from scratch."
+    href="/docs/guides/custom-middleware"
+  />
+</Cards>

@@ -5,6 +5,7 @@
     "rest-api",
     "class-based",
     "dev-tools",
+    "generators",
     "error-handling",
     "validation",
     "custom-middleware",

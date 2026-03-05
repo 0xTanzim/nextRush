@@ -28,9 +28,11 @@ export {
   getCwd,
   initFsSync,
   joinPath,
+  mkdir,
   readFile,
   readFileSync,
   resolvePath,
+  writeFile,
 } from './fs.js';
 
 // Node.js module constants for Deno compatibility

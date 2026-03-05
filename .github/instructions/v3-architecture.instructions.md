@@ -123,22 +123,23 @@ class UserController {
 
 ```typescript
 @Body()              // Full request body
-@BodyProp('name')    // Specific body property
+@Body('name')        // Specific body property
 @Param()             // All route params
-@ParamProp('id')     // Specific route param
+@Param('id')         // Specific route param
 @Query()             // All query params
-@QueryProp('page')   // Specific query param
-@Headers()           // All headers
-@HeaderProp('auth')  // Specific header
-@State()             // Middleware state bag
+@Query('page')       // Specific query param
+@Header()            // All headers
+@Header('auth')      // Specific header
 @Ctx()               // Full context object
+@Req()               // Raw request (escape hatch)
+@Res()               // Raw response (escape hatch)
 ```
 
 ### Parameter Transform
 
 ```typescript
 // Sync transform
-@ParamProp('id', { transform: Number })
+@Param('id', { transform: Number })
 
 // Async transform (for validation libraries)
 @Body({ transform: zodSchema.parseAsync })
@@ -176,15 +177,14 @@ class AdminController {}
 ```typescript
 // Lightweight context for guards (no response methods)
 interface GuardContext {
-  method: HttpMethod;
-  path: string;
-  params: Record<string, string>;
-  query: Record<string, string>;
-  body: unknown;
-  headers: Record<string, string>;
-  state: Record<string, unknown>;
+  readonly method: string;
+  readonly path: string;
+  readonly params: Record<string, string>;
+  readonly query: Record<string, string | string[] | undefined>;
+  readonly body: unknown;
+  readonly headers: Record<string, string | string[] | undefined>;
+  readonly state: Record<string, unknown>;
   get(name: string): string | undefined;
-  set(name: string, value: string): void;
 }
 
 // Function-based guard

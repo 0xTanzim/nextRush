@@ -34,6 +34,17 @@ NextRush v3 is **50-60% faster than Express** and matches Hono/Koa performance.
 
 ## Quick Start
 
+### Scaffold a Project (Recommended)
+
+```bash
+pnpm create nextrush my-api
+cd my-api && pnpm dev
+```
+
+The interactive scaffolder lets you choose between functional, class-based, or full style, pick a middleware preset, and select your runtime target.
+
+### Manual Setup
+
 ```bash
 pnpm add nextrush
 ```
@@ -58,6 +69,36 @@ router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush!' }));
 app.route('/', router);
 
 listen(app, 3000);
+```
+
+### Class-Based Controllers
+
+```bash
+pnpm add nextrush @nextrush/di @nextrush/decorators @nextrush/controllers
+```
+
+```typescript
+import 'reflect-metadata';
+import { Controller, Get, Post, Body, Param, Service } from 'nextrush';
+
+@Service()
+class UserService {
+  async findAll() { return [{ id: 1, name: 'Alice' }]; }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() { return this.userService.findAll(); }
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) { return { id }; }
+
+  @Post()
+  create(@Body() data: unknown) { return data; }
+}
 ```
 
 ## Context API
@@ -130,9 +171,10 @@ ctx.state; // Share data between middleware
 
 ### Development
 
-| Package         | Description           |
-| --------------- | --------------------- |
-| `@nextrush/dev` | Hot reload dev server |
+| Package         | Description                                      |
+| --------------- | ------------------------------------------------ |
+| `@nextrush/dev` | Hot reload dev server, production builds, and code generators |
+| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)     |
 
 ## Adding Middleware
 
@@ -182,6 +224,25 @@ app.get('/users/:id', (ctx) => {
 });
 ```
 
+## CLI Tools
+
+### Dev Server & Build
+
+```bash
+npx nextrush dev                    # Hot reload dev server
+npx nextrush build                  # Production build with decorator metadata
+```
+
+### Code Generators
+
+```bash
+npx nextrush generate controller user    # Class-based controller
+npx nextrush g service user-profile      # Injectable service
+npx nextrush g middleware request-logger # Async middleware
+npx nextrush g guard auth               # Guard function
+npx nextrush g route product            # Functional route
+```
+
 ## Development
 
 ```bash
@@ -195,7 +256,7 @@ pnpm build
 pnpm test
 
 # Run benchmarks
-cd apps/performance-ultra && pnpm benchmark
+cd apps/benchmark && pnpm benchmark
 
 # Type check
 pnpm typecheck
@@ -210,16 +271,20 @@ nextrush/
 │   ├── router/          # @nextrush/router
 │   ├── types/           # @nextrush/types
 │   ├── errors/          # @nextrush/errors
-│   ├── adapters/        # Platform adapters
-│   ├── middleware/      # cors, helmet, body-parser, etc.
-│   ├── plugins/         # static, websocket, template, etc.
+│   ├── runtime/         # @nextrush/runtime
+│   ├── adapters/        # Platform adapters (node, bun, deno, edge)
+│   ├── middleware/       # cors, helmet, body-parser, etc.
+│   ├── plugins/         # controllers, websocket, template, etc.
 │   ├── di/              # Dependency injection
 │   ├── decorators/      # Controller decorators
+│   ├── dev/             # CLI: dev server, build, generators
+│   ├── create-nextrush/ # Project scaffolder
 │   └── nextrush/        # Meta package
 ├── apps/
 │   ├── docs/            # Documentation site
-│   └── performance-ultra/  # Benchmark suite
-└── draft/               # Architecture docs
+│   ├── benchmark/       # Benchmark suite
+│   └── playground/      # Testing playground
+└── draft/               # Architecture docs & RFCs
 ```
 
 ## Documentation
