@@ -1,0 +1,219 @@
+---
+title: '@nextrush/compression'
+description: 'Multi-runtime response compression with Gzip, Deflate, and Brotli support.'
+---
+
+## Problem
+
+Uncompressed HTTP responses waste bandwidth and slow page loads. Text-based payloads (JSON, HTML, CSS) often shrink 60–80% with compression, yet getting it right involves content negotiation, content-type filtering, threshold tuning, and runtime compatibility — details you should not have to manage per-route.
+
+## Default Behavior
+
+With zero configuration, the middleware:
+
+- Enables Gzip, Deflate, and Brotli (where the runtime supports it)
+- Compresses responses larger than **1024 bytes** (1 KB)
+- Selects the best encoding from the client's `Accept-Encoding` header
+- Skips already-compressed content types (images, video, archives)
+- Skips `HEAD` requests and `204`/`304` status codes
+- Adds `Vary: Accept-Encoding` for correct caching
+- Falls back to uncompressed responses on compression failure
+
+## Installation
+
+<PackageInstall packages={['@nextrush/compression']} />
+
+## Minimal Usage
+
+```ts
+import { createApp } from '@nextrush/core';
+import { compression } from '@nextrush/compression';
+
+const app = createApp();
+app.use(compression());
+```
+
+## Configuration Options
+
+Pass an options object to `compression()` to override defaults.
+
+<Callout type="warn" title="CPU Trade-off">
+  Higher compression levels reduce payload size but increase CPU usage per response. Level 6
+  (default) balances size and speed for most workloads. Use level 1–3 for latency-sensitive APIs or
+  level 9+ only for static pre-compressed assets.
+</Callout>
+
+```ts
+app.use(
+  compression({
+    gzip: true,
+    deflate: true,
+    brotli: true,
+    level: 6,
+    threshold: 1024,
+    breachMitigation: false,
+  })
+);
+```
+
+<TypeTable
+  title="CompressionOptions"
+  types={{
+    gzip: {
+      type: 'boolean',
+      description: 'Enable Gzip compression.',
+      default: 'true',
+      optional: true,
+    },
+    deflate: {
+      type: 'boolean',
+      description: 'Enable Deflate compression.',
+      default: 'true',
+      optional: true,
+    },
+    brotli: {
+      type: 'boolean',
+      description:
+        'Enable Brotli compression. Automatically disabled in runtimes without Brotli support.',
+      default: 'true',
+      optional: true,
+    },
+    level: {
+      type: 'number',
+      description:
+        'Compression level. 0–9 for Gzip/Deflate, 0–11 for Brotli. Higher values produce smaller output but use more CPU.',
+      default: '6',
+      optional: true,
+    },
+    threshold: {
+      type: 'number',
+      description:
+        'Minimum response size in bytes to compress. Responses below this size are sent uncompressed.',
+      default: '1024',
+      optional: true,
+    },
+    contentTypes: {
+      type: 'readonly string[]',
+      description:
+        'Content types to compress. Supports exact matches and wildcard patterns (e.g., text/*).',
+      default: 'DEFAULT_COMPRESSIBLE_TYPES',
+      optional: true,
+    },
+    exclude: {
+      type: 'readonly string[]',
+      description:
+        'Content types to exclude from compression. Supports exact matches and wildcard patterns.',
+      default: 'DEFAULT_EXCLUDED_TYPES',
+      optional: true,
+    },
+    filter: {
+      type: '(ctx: Context) => boolean',
+      description: 'Custom filter function. Return true to compress, false to skip.',
+      optional: true,
+    },
+    breachMitigation: {
+      type: 'boolean',
+      description: 'Add random padding to prevent BREACH compression ratio analysis attacks.',
+      default: 'false',
+      optional: true,
+    },
+  }}
+/>
+
+## Algorithm-Specific Middleware
+
+Use dedicated functions when you need a single compression algorithm:
+
+```ts
+import { gzip, deflate, brotli } from '@nextrush/compression';
+
+app.use(gzip({ level: 6 })); // Gzip only — universal support
+app.use(deflate({ level: 6 })); // Deflate only — fast compression
+app.use(brotli({ level: 4 })); // Brotli only — best ratio (Node.js/Bun)
+```
+
+These accept the same options as `compression()`, minus the `gzip`, `deflate`, and `brotli` toggles.
+
+## Content Negotiation
+
+The middleware parses the `Accept-Encoding` header and selects the best encoding the server supports. Priority order when quality values are equal:
+
+1. Brotli (`br`) — best compression ratio
+2. Gzip (`gzip`) — widest client support
+3. Deflate (`deflate`) — fallback
+
+```ts
+// Client: Accept-Encoding: gzip, br;q=0.9
+// Server responds with Gzip (higher quality value)
+app.use(compression());
+```
+
+## BREACH Attack Mitigation
+
+Responses containing secrets alongside user-controlled input are vulnerable to BREACH attacks. Enable random padding to mitigate:
+
+```ts
+import { compression, secureCompressionOptions } from '@nextrush/compression';
+
+app.use(compression(secureCompressionOptions()));
+
+// With additional overrides
+app.use(compression(secureCompressionOptions({ threshold: 512 })));
+```
+
+`secureCompressionOptions()` returns a `CompressionOptions` object with `breachMitigation: true` and a default level of `4`.
+
+## Integration Example
+
+Track compression statistics in downstream middleware:
+
+```ts
+import { compression, getCompressionInfo, wasCompressed } from '@nextrush/compression';
+
+app.use(compression());
+
+app.use(async (ctx) => {
+  await ctx.next();
+
+  if (wasCompressed(ctx)) {
+    const info = getCompressionInfo(ctx);
+    console.log(`${info?.encoding}: ${info?.originalSize} → ${info?.compressedSize} bytes`);
+  }
+});
+```
+
+## Runtime Support
+
+| Runtime | Gzip | Deflate | Brotli |
+| ------- | ---- | ------- | ------ |
+| Node.js | ✅   | ✅      | ✅     |
+| Bun     | ✅   | ✅      | ✅     |
+| Deno    | ✅   | ✅      | ❌     |
+| Edge    | ✅   | ✅      | ❌     |
+
+<Callout type="info">
+  Brotli requires Node.js zlib or Bun's built-in support. In runtimes without Brotli, the middleware
+  automatically falls back to Gzip.
+</Callout>
+
+## Common Mistakes
+
+**Setting threshold too low.** Compressing responses under ~150 bytes often produces output _larger_ than the original. Keep the default of 1024 bytes unless you have measured a benefit.
+
+**Compressing already-compressed content.** The middleware skips excluded types by default (PNG, JPEG, ZIP, etc.). If you override `contentTypes`, make sure you do not include formats that are already compressed.
+
+**Using high Brotli levels for dynamic content.** Brotli levels 10–11 are designed for offline pre-compression. For dynamic responses, level 4–6 provides a good speed/ratio balance.
+
+## Troubleshooting
+
+**Responses are not compressed.** Verify that the response body exceeds the `threshold`, the `Content-Type` matches an entry in `contentTypes`, and the client sends an `Accept-Encoding` header.
+
+**Double compression.** If `Content-Encoding` is already set on the response, the middleware skips compression. Check that no upstream middleware is adding this header.
+
+**Brotli not activating.** Brotli is only available in Node.js and Bun. Call `detectCapabilities()` to inspect what the current runtime supports.
+
+## Related
+
+- [Middleware Overview](/docs/api-reference/middleware) — All middleware packages
+- [@nextrush/body-parser](/docs/api-reference/middleware/body-parser) — Request body parsing
+- [@nextrush/helmet](/docs/api-reference/middleware/helmet) — Security headers

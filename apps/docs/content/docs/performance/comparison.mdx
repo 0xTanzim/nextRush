@@ -1,0 +1,343 @@
+---
+title: Framework Comparison
+description: Side-by-side code comparison of NextRush, Express, Fastify, Hono, and Koa — routing, middleware, error handling, and TypeScript support.
+---
+
+import { Mermaid } from '@/components/mdx';
+
+How NextRush compares to popular Node.js frameworks — not just speed, but how you write code.
+
+<Callout type="info" title="Looking for benchmarks?">
+  This page compares **code patterns and architecture**. For raw performance numbers, see
+  [Performance](/docs/performance).
+</Callout>
+
+## At a Glance
+
+| Feature          | NextRush                    | Express                | Fastify              | Hono                  | Koa                 |
+| ---------------- | --------------------------- | ---------------------- | -------------------- | --------------------- | ------------------- |
+| TypeScript       | First-class (strict)        | Bolt-on (`@types`)     | Built-in             | Built-in              | Bolt-on (`@types`)  |
+| Runtime deps     | 0                           | 31                     | 15                   | 0                     | 24                  |
+| Multi-runtime    | Node, Bun, Deno, Edge       | Node only              | Node only            | Node, Bun, Deno, Edge | Node only           |
+| Context API      | Single `ctx` object         | `req` + `res` + `next` | `request` + `reply`  | Single `c` object     | Single `ctx` object |
+| Middleware model | Koa-style onion             | Linear chain           | Hooks + lifecycle    | Koa-style onion       | Onion model         |
+| Built-in DI      | Yes (`@nextrush/di`)        | No                     | No                   | No                    | No                  |
+| Decorators       | Yes (`@Controller`, `@Get`) | No                     | Via plugins          | No                    | No                  |
+| Plugin system    | `Plugin` interface          | `app.use()`            | Encapsulated plugins | Middleware only       | `app.use()`         |
+| Routing          | Radix tree (O(k))           | Linear scan (O(n))     | Radix tree (O(k))    | Radix tree (O(k))     | Via koa-router      |
+
+---
+
+## Hello World
+
+The same endpoint in every framework.
+
+<Tabs items={['NextRush', 'Express', 'Fastify', 'Hono', 'Koa']}>
+  <Tab value="NextRush">
+    ```typescript title="src/index.ts"
+    import { createApp, createRouter, listen } from 'nextrush';
+
+    const app = createApp();
+    const router = createRouter();
+
+    router.get('/', (ctx) => ctx.json({ message: 'Hello World' }));
+    app.route('/', router);
+    await listen(app, 3000);
+    ```
+
+  </Tab>
+
+  <Tab value="Express">
+    ```typescript title="src/index.ts"
+    import express from 'express';
+
+    const app = express();
+
+    app.get('/', (req, res) => {
+      res.json({ message: 'Hello World' });
+    });
+
+    app.listen(3000);
+    ```
+
+  </Tab>
+
+  <Tab value="Fastify">
+    ```typescript title="src/index.ts"
+    import Fastify from 'fastify';
+
+    const app = Fastify();
+
+    app.get('/', async () => {
+      return { message: 'Hello World' };
+    });
+
+    await app.listen({ port: 3000 });
+    ```
+
+  </Tab>
+
+  <Tab value="Hono">
+    ```typescript title="src/index.ts"
+    import { Hono } from 'hono';
+    import { serve } from '@hono/node-server';
+
+    const app = new Hono();
+
+    app.get('/', (c) => c.json({ message: 'Hello World' }));
+
+    serve({ fetch: app.fetch, port: 3000 });
+    ```
+
+  </Tab>
+
+  <Tab value="Koa">
+    ```typescript title="src/index.ts"
+    import Koa from 'koa';
+    import Router from 'koa-router';
+
+    const app = new Koa();
+    const router = new Router();
+
+    router.get('/', (ctx) => {
+      ctx.body = { message: 'Hello World' };
+    });
+
+    app.use(router.routes());
+    app.listen(3000);
+    ```
+
+  </Tab>
+</Tabs>
+
+---
+
+## Middleware
+
+How each framework composes middleware — logging, auth, and error handling.
+
+<Tabs items={['NextRush', 'Express', 'Fastify', 'Koa']}>
+  <Tab value="NextRush">
+    Koa-style onion model. Code before `ctx.next()` runs on the way in, code after runs on the way out.
+
+    ```typescript
+    // Timing middleware
+    app.use(async (ctx) => {
+      const start = Date.now();
+      await ctx.next();
+      ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+    });
+
+    // Auth middleware
+    app.use(async (ctx) => {
+      const token = ctx.get('authorization');
+      if (!token) throw new UnauthorizedError('Missing token');
+      ctx.state.user = verifyToken(token);
+      await ctx.next();
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Express">
+    Linear chain with `next()` callback. Error handling is a separate signature.
+
+    ```typescript
+    // Timing middleware
+    app.use((req, res, next) => {
+      const start = Date.now();
+      res.on('finish', () => {
+        res.set('X-Response-Time', `${Date.now() - start}ms`);
+      });
+      next();
+    });
+
+    // Auth middleware
+    app.use((req, res, next) => {
+      const token = req.headers.authorization;
+      if (!token) return res.status(401).json({ error: 'Missing token' });
+      req.user = verifyToken(token);
+      next();
+    });
+
+    // Error middleware (must have 4 args)
+    app.use((err, req, res, next) => {
+      res.status(err.status || 500).json({ error: err.message });
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Fastify">
+    Hook-based lifecycle instead of middleware chain.
+
+    ```typescript
+    // Timing via hooks
+    app.addHook('onRequest', async (request, reply) => {
+      request.startTime = Date.now();
+    });
+    app.addHook('onSend', async (request, reply) => {
+      reply.header('X-Response-Time', `${Date.now() - request.startTime}ms`);
+    });
+
+    // Auth via hook
+    app.addHook('onRequest', async (request, reply) => {
+      const token = request.headers.authorization;
+      if (!token) {
+        reply.code(401).send({ error: 'Missing token' });
+        return;
+      }
+      request.user = verifyToken(token);
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Koa">
+    Onion model — same pattern as NextRush.
+
+    ```typescript
+    // Timing middleware
+    app.use(async (ctx, next) => {
+      const start = Date.now();
+      await next();
+      ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+    });
+
+    // Auth middleware
+    app.use(async (ctx, next) => {
+      const token = ctx.get('authorization');
+      if (!token) ctx.throw(401, 'Missing token');
+      ctx.state.user = verifyToken(token);
+      await next();
+    });
+    ```
+
+  </Tab>
+</Tabs>
+
+**Key difference**: NextRush and Koa share the onion model — you write both "before" and "after" logic in one function. Express uses linear chains with separate error middleware. Fastify uses lifecycle hooks.
+
+---
+
+## Error Handling
+
+<Tabs items={['NextRush', 'Express', 'Fastify']}>
+  <Tab value="NextRush">
+    Typed error classes with automatic status codes. Thrown errors become JSON responses.
+
+    ```typescript
+    import { NotFoundError, ValidationError } from '@nextrush/errors';
+
+    router.get('/users/:id', (ctx) => {
+      const user = db.find(ctx.params.id);
+      if (!user) throw new NotFoundError('User not found');
+      ctx.json(user);
+    });
+
+    // Custom error handler
+    app.setErrorHandler((error, ctx) => {
+      ctx.status = error.status ?? 500;
+      ctx.json({
+        error: error.message,
+        code: error.code,
+      });
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Express">
+    Manual status codes. Error middleware requires 4 parameters.
+
+    ```typescript
+    app.get('/users/:id', (req, res, next) => {
+      const user = db.find(req.params.id);
+      if (!user) {
+        const err = new Error('User not found');
+        err.status = 404;
+        return next(err);
+      }
+      res.json(user);
+    });
+
+    // Error middleware (must be last, must have 4 args)
+    app.use((err, req, res, next) => {
+      res.status(err.status || 500).json({ error: err.message });
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Fastify">
+    Schema-based error serialization. Custom error handler per route or global.
+
+    ```typescript
+    app.get('/users/:id', async (request, reply) => {
+      const user = db.find(request.params.id);
+      if (!user) {
+        reply.code(404);
+        return { error: 'User not found' };
+      }
+      return user;
+    });
+
+    app.setErrorHandler(async (error, request, reply) => {
+      reply.status(error.statusCode || 500).send({
+        error: error.message,
+      });
+    });
+    ```
+
+  </Tab>
+</Tabs>
+
+---
+
+## TypeScript Support
+
+| Aspect                | NextRush                         | Express                       | Fastify                |
+| --------------------- | -------------------------------- | ----------------------------- | ---------------------- |
+| Source language       | TypeScript                       | JavaScript                    | TypeScript             |
+| Types included        | Yes (`strict` mode)              | No — install `@types/express` | Yes                    |
+| Route param inference | Via generics on `ctx`            | Manual casting required       | Via JSON Schema        |
+| Body type safety      | Transform decorators (Zod, etc.) | None built-in                 | JSON Schema validation |
+| Strict mode           | Enforced — zero `any`            | Optional                      | Optional               |
+
+```typescript
+// NextRush — types flow naturally
+router.get('/users/:id', (ctx) => {
+  const id = ctx.params.id; // string (typed)
+  const page = ctx.query.page; // string | undefined (typed)
+  ctx.json({ id, page }); // return type checked
+});
+```
+
+---
+
+## When to Choose What
+
+| Your priority                             | Best choice      | Why                                           |
+| ----------------------------------------- | ---------------- | --------------------------------------------- |
+| **Raw throughput** (Node.js only)         | Fastify          | AOT JSON serialization, mature radix tree     |
+| **Multi-runtime** (Bun, Deno, Edge)       | NextRush or Hono | Both support all runtimes                     |
+| **Zero dependencies** + TypeScript strict | NextRush         | No other framework offers both                |
+| **Large ecosystem** + community           | Express          | Largest middleware ecosystem, most tutorials  |
+| **Class-based + DI** (NestJS-style)       | NextRush         | Built-in decorators and DI without the weight |
+| **Minimal learning curve**                | Koa or Express   | Familiar, well-documented                     |
+| **Maximum flexibility**                   | NextRush         | Functional + class-based, choose per route    |
+
+---
+
+## Migration Paths
+
+Ready to switch? Follow the step-by-step guides:
+
+<Cards>
+  <Card title="From Express" href="/docs/guides/migration">
+    Replace `req, res, next` with single `ctx` object. Most middleware translates directly.
+  </Card>
+  <Card title="From Fastify" href="/docs/guides/migration#from-fastify">
+    Replace hooks with middleware. Swap JSON Schema for transform decorators.
+  </Card>
+</Cards>

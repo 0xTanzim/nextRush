@@ -1,0 +1,411 @@
+---
+title: '@nextrush/body-parser'
+description: 'Parse JSON, URL-encoded, text, and raw request bodies with size limits and security protections.'
+---
+
+Parse incoming request bodies before your handlers process them.
+
+HTTP request bodies arrive as raw byte streams. This middleware reads, validates, and parses them into usable JavaScript values — handling JSON, URL-encoded forms, plain text, and raw binary data. Built-in protections guard against oversized payloads, prototype pollution, and malformed input.
+
+---
+
+## Default Behavior
+
+With zero configuration, `bodyParser()` parses JSON and URL-encoded request bodies. Text and raw binary parsing are disabled until you enable them.
+
+Bodyless HTTP methods (`GET`, `HEAD`, `DELETE`, `OPTIONS`) are skipped automatically. If the body has already been parsed by another middleware, parsing is skipped.
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/body-parser']} />
+
+---
+
+## Minimal Usage
+
+```ts
+import { createApp } from '@nextrush/core';
+import { bodyParser } from '@nextrush/body-parser';
+
+const app = createApp();
+
+// Parses JSON and URL-encoded bodies by default
+app.use(bodyParser());
+
+app.use(async (ctx) => {
+  ctx.json({ received: ctx.body });
+});
+```
+
+---
+
+## Individual Parsers
+
+Use individual parsers when you need to handle specific content types only.
+
+<Tabs items={['JSON', 'URL-Encoded', 'Text', 'Raw Binary']}>
+  <Tab value="JSON">
+    ```ts
+    import { json } from '@nextrush/body-parser';
+
+    app.use(json());
+    // Parses: application/json
+    ```
+
+  </Tab>
+  <Tab value="URL-Encoded">
+    ```ts
+    import { urlencoded } from '@nextrush/body-parser';
+
+    app.use(urlencoded());
+    // Parses: application/x-www-form-urlencoded
+    ```
+
+  </Tab>
+  <Tab value="Text">
+    ```ts
+    import { text } from '@nextrush/body-parser';
+
+    app.use(text());
+    // Parses: text/plain
+    ```
+
+  </Tab>
+  <Tab value="Raw Binary">
+    ```ts
+    import { raw } from '@nextrush/body-parser';
+
+    app.use(raw());
+    // Parses: application/octet-stream
+    ```
+
+  </Tab>
+</Tabs>
+
+---
+
+## Configuration Options
+
+### `bodyParser(options?)`
+
+Combined parser that routes to the appropriate parser based on `Content-Type`.
+
+```ts
+function bodyParser(options?: BodyParserOptions): BodyParserMiddleware;
+```
+
+<TypeTable
+  title="Options"
+  types={{
+    json: {
+      type: 'JsonOptions | false',
+      description: 'JSON parser options, or false to disable',
+      default: '{}',
+    },
+    urlencoded: {
+      type: 'UrlEncodedOptions | false',
+      description: 'URL-encoded parser options, or false to disable',
+      default: '{}',
+    },
+    text: {
+      type: 'TextOptions | false',
+      description: 'Text parser options — disabled by default',
+      default: 'undefined',
+    },
+    raw: {
+      type: 'RawOptions | false',
+      description: 'Raw parser options — disabled by default',
+      default: 'undefined',
+    },
+  }}
+/>
+
+JSON and URL-encoded parsing are enabled by default. To enable text or raw parsing, provide an options object (even `{}` activates them). To disable a parser, set it to `false`.
+
+```ts
+app.use(
+  bodyParser({
+    json: { limit: '10mb', strict: true },
+    urlencoded: { extended: true, depth: 5 },
+    text: {}, // Enable text parsing with defaults
+    raw: false, // Explicitly disable raw parsing
+  })
+);
+```
+
+Multipart requests (`multipart/form-data`) throw an `UNSUPPORTED_CONTENT_TYPE` error with a hint to use a dedicated multipart parser.
+
+### `json(options?)`
+
+```ts
+function json(options?: JsonOptions): BodyParserMiddleware;
+```
+
+<TypeTable
+  title="JSON Options"
+  types={{
+    limit: {
+      type: 'number | string',
+      description: 'Maximum body size in bytes or as a string with unit',
+      default: "'1mb' (1,048,576 bytes)",
+    },
+    strict: {
+      type: 'boolean',
+      description: 'Accept only objects and arrays — rejects primitives',
+      default: 'true',
+    },
+    type: {
+      type: 'string | string[]',
+      description: 'Content-Type(s) to match',
+      default: "['application/json']",
+    },
+    rawBody: { type: 'boolean', description: 'Store raw Buffer on ctx.rawBody', default: 'false' },
+    reviver: {
+      type: 'JsonReviver',
+      description: 'Custom reviver passed to JSON.parse()',
+      optional: true,
+    },
+    maxDepth: {
+      type: 'number',
+      description: 'Maximum JSON nesting depth — rejects deeper payloads after parsing',
+      optional: true,
+    },
+    verify: {
+      type: 'VerifyCallback',
+      description: 'Callback invoked with raw buffer before parsing — throw to reject',
+      optional: true,
+    },
+  }}
+/>
+
+### `urlencoded(options?)`
+
+```ts
+function urlencoded(options?: UrlEncodedOptions): BodyParserMiddleware;
+```
+
+<TypeTable
+  title="URL-Encoded Options"
+  types={{
+    limit: {
+      type: 'number | string',
+      description: 'Maximum body size in bytes or as a string with unit',
+      default: "'100kb' (102,400 bytes)",
+    },
+    extended: {
+      type: 'boolean',
+      description: 'Enable nested object parsing (e.g. user[name]=John)',
+      default: 'true',
+    },
+    parameterLimit: {
+      type: 'number',
+      description: 'Maximum number of parameters accepted',
+      default: '1000',
+    },
+    depth: {
+      type: 'number',
+      description: 'Maximum nesting depth for extended parsing',
+      default: '20',
+    },
+    type: {
+      type: 'string | string[]',
+      description: 'Content-Type(s) to match',
+      default: "['application/x-www-form-urlencoded']",
+    },
+    rawBody: { type: 'boolean', description: 'Store raw Buffer on ctx.rawBody', default: 'false' },
+    verify: {
+      type: 'VerifyCallback',
+      description: 'Callback invoked with raw buffer before parsing — throw to reject',
+      optional: true,
+    },
+  }}
+/>
+
+### `text(options?)`
+
+```ts
+function text(options?: TextOptions): BodyParserMiddleware;
+```
+
+<TypeTable
+  title="Text Options"
+  types={{
+    limit: {
+      type: 'number | string',
+      description: 'Maximum body size in bytes or as a string with unit',
+      default: "'100kb' (102,400 bytes)",
+    },
+    defaultCharset: {
+      type: 'SupportedCharset',
+      description: 'Fallback charset when not specified in Content-Type',
+      default: "'utf-8'",
+    },
+    type: {
+      type: 'string | string[]',
+      description: 'Content-Type(s) to match',
+      default: "['text/plain']",
+    },
+    rawBody: { type: 'boolean', description: 'Store raw Buffer on ctx.rawBody', default: 'false' },
+    verify: {
+      type: 'VerifyCallback',
+      description: 'Callback invoked with raw buffer before parsing — throw to reject',
+      optional: true,
+    },
+  }}
+/>
+
+### `raw(options?)`
+
+```ts
+function raw(options?: RawOptions): BodyParserMiddleware;
+```
+
+<TypeTable
+  title="Raw Options"
+  types={{
+    limit: {
+      type: 'number | string',
+      description: 'Maximum body size in bytes or as a string with unit',
+      default: "'100kb' (102,400 bytes)",
+    },
+    type: {
+      type: 'string | string[]',
+      description: 'Content-Type(s) to match',
+      default: "['application/octet-stream']",
+    },
+    verify: {
+      type: 'VerifyCallback',
+      description: 'Callback invoked with raw buffer before parsing — throw to reject',
+      optional: true,
+    },
+  }}
+/>
+
+---
+
+## Integration Example
+
+An API server with error handling, JSON parsing, and webhook signature verification:
+
+```ts
+import { createApp } from '@nextrush/core';
+import { json, BodyParserError } from '@nextrush/body-parser';
+import { createHmac } from 'node:crypto';
+
+const app = createApp();
+
+// Error handler (register before body parser)
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (error) {
+    if (error instanceof BodyParserError) {
+      ctx.status = error.status;
+      ctx.json({ error: error.message, code: error.code });
+      return;
+    }
+    throw error;
+  }
+});
+
+// Parse JSON with raw body access for webhook verification
+app.use(json({ limit: '1mb', rawBody: true }));
+
+app.post('/webhook', async (ctx) => {
+  const signature = ctx.headers['x-signature'] as string;
+  const rawBody = ctx.rawBody as Buffer;
+
+  const expected = createHmac('sha256', process.env.WEBHOOK_SECRET!).update(rawBody).digest('hex');
+
+  if (signature !== expected) {
+    ctx.status = 401;
+    ctx.json({ error: 'Invalid signature' });
+    return;
+  }
+
+  ctx.json({ ok: true });
+});
+```
+
+---
+
+## Error Handling
+
+All parsers throw `BodyParserError` on failure. Each error includes `status` (HTTP status code), `code` (machine-readable string), and `expose` (whether the message is safe for clients).
+
+```ts
+import { BodyParserError } from '@nextrush/body-parser';
+
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (error) {
+    if (error instanceof BodyParserError) {
+      ctx.status = error.status;
+      ctx.json({ error: error.message, code: error.code });
+      return;
+    }
+    throw error;
+  }
+});
+```
+
+### Error Codes
+
+| Code                       | Status | Cause                                                                 |
+| -------------------------- | ------ | --------------------------------------------------------------------- |
+| `ENTITY_TOO_LARGE`         | 413    | Body exceeds configured size limit                                    |
+| `INVALID_JSON`             | 400    | JSON syntax error                                                     |
+| `STRICT_MODE_VIOLATION`    | 400    | JSON value is a primitive in strict mode                              |
+| `JSON_DEPTH_EXCEEDED`      | 400    | JSON nesting depth exceeds `maxDepth`                                 |
+| `INVALID_URLENCODED`       | 400    | Malformed URL-encoded data                                            |
+| `TOO_MANY_PARAMETERS`      | 413    | URL-encoded parameter count exceeds `parameterLimit`                  |
+| `DEPTH_EXCEEDED`           | 400    | URL-encoded nesting exceeds `depth` limit                             |
+| `INVALID_PARAMETER`        | 400    | Prototype pollution attempt (`__proto__`, `constructor`, `prototype`) |
+| `UNSUPPORTED_CHARSET`      | 415    | Charset in Content-Type is not supported                              |
+| `UNSUPPORTED_CONTENT_TYPE` | 415    | Content type not handled (e.g. `multipart/form-data`)                 |
+| `BODY_READ_ERROR`          | 400    | Error reading request stream                                          |
+| `REQUEST_CLOSED`           | 400    | Connection closed before body was received                            |
+| `REQUEST_ABORTED`          | 400    | Client aborted the request                                            |
+
+---
+
+## Common Mistakes
+
+<Callout type="warn">
+  `bodyParser()` does **not** parse text or raw bodies by default. Pass `text: {}` or `raw: {}` in
+  the options to enable them.
+</Callout>
+
+- **Using `bodyParser()` and expecting text/raw parsing** — these are disabled by default. Enable them explicitly: `bodyParser({ text: {}, raw: {} })`.
+- **Setting the wrong size limit units** — limits accept `'b'`, `'kb'`, `'mb'`, `'gb'`. A bare number is treated as bytes.
+- **Expecting multipart form uploads to work** — this parser does not handle `multipart/form-data`. Use a dedicated multipart parser.
+- **Forgetting error handling** — without an error-catching middleware upstream, `BodyParserError` will crash your app.
+
+---
+
+## Troubleshooting
+
+**`ctx.body` is `undefined` after parsing:**
+
+- Verify the request has a matching `Content-Type` header.
+- Check the HTTP method — `GET`, `HEAD`, `DELETE`, and `OPTIONS` requests are skipped.
+- Confirm no earlier middleware has already set `ctx.body`.
+
+**413 errors on valid payloads:**
+
+- Increase the `limit` option. The JSON default is `1mb`; URL-encoded, text, and raw default to `100kb`.
+
+**`UNSUPPORTED_CONTENT_TYPE` error:**
+
+- The combined parser throws this for `multipart/form-data` requests. Use a separate multipart parser.
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/api-reference/middleware) — All middleware packages
+- [@nextrush/cors](/docs/api-reference/middleware/cors) — CORS handling
+- [@nextrush/rate-limit](/docs/api-reference/middleware/rate-limit) — Rate limiting

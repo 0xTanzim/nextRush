@@ -1,0 +1,177 @@
+---
+title: '@nextrush/request-id'
+description: 'Generate and track unique request identifiers for distributed tracing.'
+---
+
+Assign unique identifiers to every request for tracing, log correlation, and debugging across distributed systems. Uses `crypto.randomUUID()` for cryptographically secure ID generation with built-in validation to prevent header injection.
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/request-id']} />
+
+## Minimal Usage
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { requestId } from '@nextrush/request-id';
+
+const app = createApp();
+app.use(requestId());
+
+app.use(async (ctx) => {
+  const id = ctx.state.requestId;
+  ctx.json({ requestId: id });
+});
+```
+
+The middleware generates a UUID, stores it in `ctx.state.requestId`, and sets the `X-Request-Id` response header.
+
+## API Reference
+
+### `requestId(options?)`
+
+Create request ID middleware.
+
+**Signature:**
+
+```ts
+function requestId(options?: RequestIdOptions): Middleware;
+```
+
+**Default behavior:** Generates a UUID v4, trusts validated incoming IDs, stores in `ctx.state.requestId`, and sets the `X-Request-Id` response header.
+
+<TypeTable
+  title="RequestIdOptions"
+  types={{
+    header: {
+      type: 'string',
+      description: 'Header name to read/write',
+      default: "'X-Request-Id'",
+      optional: true,
+    },
+    generator: {
+      type: '() => string',
+      description: 'Custom ID generator function',
+      default: 'crypto.randomUUID()',
+      optional: true,
+    },
+    trustIncoming: {
+      type: 'boolean',
+      description: 'Accept validated incoming IDs from the request header',
+      default: 'false',
+      optional: true,
+    },
+    validator: {
+      type: '(id: string) => boolean',
+      description: 'Validator for incoming IDs',
+      default: 'isValidUuid',
+      optional: true,
+    },
+    maxLength: {
+      type: 'number',
+      description: 'Maximum allowed incoming ID length',
+      default: '128',
+      optional: true,
+    },
+    stateKey: {
+      type: 'string',
+      description: 'Key to store ID in ctx.state',
+      default: "'requestId'",
+      optional: true,
+    },
+    exposeHeader: {
+      type: 'boolean',
+      description: 'Set ID in response header',
+      default: 'true',
+      optional: true,
+    },
+  }}
+/>
+
+<Callout type="warn">
+  When `trustIncoming` is set to `true`, incoming IDs pass both `validateId()` (length + safe
+  characters) and the configured `validator` before use. Invalid IDs are discarded and a new one is
+  generated. The default is `false` — enable it only for internal services behind trusted proxies.
+</Callout>
+
+### `correlationId(options?)`
+
+Request ID middleware using the `X-Correlation-Id` header and `ctx.state.correlationId` state key. Accepts the same options as `requestId()` except `header` and `stateKey`.
+
+```ts
+import { correlationId } from '@nextrush/request-id';
+
+app.use(correlationId());
+```
+
+### `traceId(options?)`
+
+Request ID middleware using the `X-Trace-Id` header and `ctx.state.traceId` state key. Accepts the same options as `requestId()` except `header` and `stateKey`.
+
+```ts
+import { traceId } from '@nextrush/request-id';
+
+app.use(traceId());
+```
+
+### Validation Utilities
+
+The package exports validation helpers for working with request IDs in your own code:
+
+```ts
+import {
+  isValidUuid, // UUID v4 format check
+  isSafeId, // Alphanumeric, hyphens, underscores only
+  isValidLength, // Length within bounds (1–128 by default)
+  validateId, // isSafeId + isValidLength combined
+  createValidator, // createValidator(maxLength?) — returns custom validator
+  defaultValidator, // isValidUuid
+  permissiveValidator, // validateId with default max length
+} from '@nextrush/request-id';
+```
+
+### Constants
+
+All default values are exported as named constants:
+
+```ts
+import {
+  DEFAULT_HEADER, // 'X-Request-Id'
+  CORRELATION_HEADER, // 'X-Correlation-Id'
+  TRACE_HEADER, // 'X-Trace-Id'
+  DEFAULT_STATE_KEY, // 'requestId'
+  CORRELATION_STATE_KEY, // 'correlationId'
+  TRACE_STATE_KEY, // 'traceId'
+  DEFAULT_MAX_LENGTH, // 128
+  defaultGenerator, // () => crypto.randomUUID()
+} from '@nextrush/request-id';
+```
+
+## Practical Example: Forwarding IDs Across Services
+
+```ts
+import { createApp } from '@nextrush/core';
+import { requestId, correlationId } from '@nextrush/request-id';
+
+const app = createApp();
+app.use(requestId());
+app.use(correlationId());
+
+app.use(async (ctx) => {
+  const response = await fetch('https://api.internal.example.com/data', {
+    headers: {
+      'X-Request-Id': ctx.state.requestId as string,
+      'X-Correlation-Id': ctx.state.correlationId as string,
+    },
+  });
+  ctx.json(await response.json());
+});
+```
+
+## Related
+
+- [Middleware Overview](/docs/api-reference/middleware) — All middleware packages
+- [@nextrush/timer](/docs/api-reference/middleware/timer) — Response timing
+- [@nextrush/helmet](/docs/api-reference/middleware/helmet) — Security headers

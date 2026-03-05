@@ -1,0 +1,435 @@
+---
+title: '@nextrush/rate-limit'
+description: 'Production-grade rate limiting with multiple algorithms and tiered limits.'
+---
+
+Without rate limiting, a single client can exhaust your server's resources — intentionally or by accident. This middleware controls how many requests each client can make within a time window.
+
+It supports three algorithms, tiered limits for different user types, CIDR-based whitelists and blacklists, and IETF-compliant response headers.
+
+---
+
+## Default Behavior
+
+With zero configuration, `rateLimit()` applies these defaults:
+
+| Setting            | Default                                      |
+| ------------------ | -------------------------------------------- |
+| Algorithm          | `token-bucket`                               |
+| Max requests       | `100` per window                             |
+| Window             | `1m` (60 seconds)                            |
+| Key                | Client IP with `rl:` prefix                  |
+| Status code        | `429`                                        |
+| Message            | `Too many requests, please try again later.` |
+| Standard headers   | Enabled (`RateLimit-*`)                      |
+| Legacy headers     | Enabled (`X-RateLimit-*`)                    |
+| Retry-After header | Enabled on 429 responses                     |
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/rate-limit']} />
+
+---
+
+## Minimal Usage
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { rateLimit } from '@nextrush/rate-limit';
+
+const app = createApp();
+
+// 100 requests per minute per IP, token-bucket algorithm
+app.use(rateLimit());
+```
+
+---
+
+## Configuration Options
+
+```typescript
+app.use(
+  rateLimit({
+    max: 1000,
+    window: '15m',
+    algorithm: 'sliding-window',
+    trustProxy: true,
+  })
+);
+```
+
+<TypeTable
+  title="RateLimitOptions"
+  types={{
+    algorithm: {
+      type: "'token-bucket' | 'sliding-window' | 'fixed-window'",
+      description: 'Rate limiting algorithm',
+      default: "'token-bucket'",
+    },
+    max: { type: 'number', description: 'Maximum requests per window', default: '100' },
+    window: {
+      type: 'string | number',
+      description: "Window duration ('1s', '1m', '1h', '1d') or milliseconds",
+      default: "'1m'",
+    },
+    burstLimit: {
+      type: 'number',
+      description: 'Burst limit for token bucket algorithm',
+      default: 'max',
+      optional: true,
+    },
+    keyGenerator: {
+      type: '(ctx: Context) => string | Promise<string>',
+      description: 'Custom key generator function',
+      optional: true,
+    },
+    skip: {
+      type: '(ctx: Context) => boolean | Promise<boolean>',
+      description: 'Skip rate limiting for matching requests',
+      optional: true,
+    },
+    store: {
+      type: 'RateLimitStore',
+      description: 'Custom store implementation',
+      default: 'In-memory store',
+      optional: true,
+    },
+    handler: {
+      type: '(ctx: Context, info: RateLimitInfo) => void | Promise<void>',
+      description: 'Custom handler for rate-limited requests',
+      optional: true,
+    },
+    onRateLimited: {
+      type: '(ctx: Context, info: RateLimitInfo) => void | Promise<void>',
+      description: 'Callback when a request is rate-limited',
+      optional: true,
+    },
+    trustProxy: {
+      type: 'boolean',
+      description: 'Trust proxy headers for IP extraction',
+      default: 'false',
+    },
+    standardHeaders: { type: 'boolean', description: 'Send RateLimit-* headers', default: 'true' },
+    legacyHeaders: { type: 'boolean', description: 'Send X-RateLimit-* headers', default: 'true' },
+    includeRetryAfter: {
+      type: 'boolean',
+      description: 'Send Retry-After header on 429 responses',
+      default: 'true',
+    },
+    message: {
+      type: 'string',
+      description: 'Error message for rate-limited responses',
+      default: "'Too many requests, please try again later.'",
+    },
+    statusCode: {
+      type: 'number',
+      description: 'HTTP status code for rate-limited responses',
+      default: '429',
+    },
+    whitelist: {
+      type: 'string[]',
+      description: 'IPs to skip rate limiting (supports CIDR)',
+      optional: true,
+    },
+    blacklist: {
+      type: 'string[]',
+      description: 'IPs to apply stricter limits (supports CIDR)',
+      optional: true,
+    },
+    blacklistMultiplier: {
+      type: 'number',
+      description: 'Multiplier for blacklisted IP limits (0–1)',
+      default: '0.5',
+    },
+    draftIetfHeaders: {
+      type: 'boolean',
+      description: 'Send RateLimit-Policy header (IETF draft)',
+      default: 'false',
+    },
+    cleanupInterval: {
+      type: 'number',
+      description: 'Interval (ms) for expired entry cleanup',
+      default: '60000',
+    },
+    disableCleanup: {
+      type: 'boolean',
+      description: 'Disable automatic expired entry cleanup',
+      default: 'false',
+    },
+  }}
+/>
+
+### Window Formats
+
+The `window` option accepts duration strings or raw milliseconds:
+
+```typescript
+'30s'; // 30 seconds
+'1m'; // 1 minute
+'15m'; // 15 minutes
+'1h'; // 1 hour
+'1d'; // 1 day
+60000; // 1 minute (milliseconds)
+```
+
+Supported string units: `s`, `sec`, `second`, `seconds`, `m`, `min`, `minute`, `minutes`, `h`, `hr`, `hour`, `hours`, `d`, `day`, `days`.
+
+---
+
+## Algorithms
+
+<Tabs items={['Token Bucket (Default)', 'Sliding Window', 'Fixed Window']}>
+  <Tab value="Token Bucket (Default)">
+    Allows controlled bursts while maintaining an average rate:
+
+    ```typescript
+    app.use(
+      rateLimit({
+        algorithm: 'token-bucket',
+        max: 100,
+        window: '1m',
+        burstLimit: 20,
+      })
+    );
+    ```
+
+    **Best for:** Public APIs where occasional bursts are acceptable.
+
+  </Tab>
+  <Tab value="Sliding Window">
+    Smooth, accurate limiting using a weighted average of current and previous windows:
+
+    ```typescript
+    app.use(
+      rateLimit({
+        algorithm: 'sliding-window',
+        max: 100,
+        window: '1m',
+      })
+    );
+    ```
+
+    **Best for:** Strict enforcement, billing-sensitive APIs, preventing boundary attacks.
+
+  </Tab>
+  <Tab value="Fixed Window">
+    Resets the counter at fixed intervals:
+
+    ```typescript
+    app.use(
+      rateLimit({
+        algorithm: 'fixed-window',
+        max: 100,
+        window: '1m',
+      })
+    );
+    ```
+
+    **Best for:** Internal APIs, low-overhead use cases.
+
+    <Callout type="warn">
+      Clients can hit up to 2x the limit at window boundaries with fixed-window. Use sliding-window for strict enforcement.
+    </Callout>
+
+  </Tab>
+</Tabs>
+
+---
+
+## Tiered Rate Limits
+
+Apply different limits based on user type:
+
+```typescript
+import { tieredRateLimit } from '@nextrush/rate-limit';
+
+app.use(
+  tieredRateLimit({
+    tiers: {
+      anonymous: { max: 60, window: '1m' },
+      authenticated: { max: 1000, window: '1m' },
+      premium: { max: 10000, window: '1m' },
+    },
+    tierResolver: (ctx) => ctx.state.user?.tier || 'anonymous',
+    defaultTier: 'anonymous',
+  })
+);
+```
+
+<TypeTable
+  title="TieredRateLimitOptions (extends RateLimitOptions without max/window)"
+  types={{
+    tiers: {
+      type: 'Record<string, TierConfig>',
+      description: 'Tier name → { max, window, burstLimit? }',
+    },
+    tierResolver: {
+      type: '(ctx: Context) => string | Promise<string>',
+      description: 'Resolves the tier for a request',
+    },
+    defaultTier: {
+      type: 'string',
+      description: 'Fallback tier if resolver returns an unknown name',
+      default: 'First key in tiers',
+      optional: true,
+    },
+  }}
+/>
+
+---
+
+## Integration Example
+
+Rate limiting with key generation, whitelist, and event logging:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { rateLimit } from '@nextrush/rate-limit';
+
+const app = createApp();
+
+app.use(
+  rateLimit({
+    max: 500,
+    window: '15m',
+    algorithm: 'sliding-window',
+    keyGenerator: (ctx) => ctx.get('X-API-Key') || ctx.ip,
+    whitelist: ['127.0.0.1', '10.0.0.0/8'],
+    skip: (ctx) => ctx.path === '/health',
+    onRateLimited: (ctx, info) => {
+      console.log(`Rate limited: ${ctx.ip}, resets in ${info.resetIn}s`);
+    },
+  })
+);
+```
+
+---
+
+## Response Headers
+
+Headers are set on every response (not only 429 responses):
+
+**Standard headers (IETF draft):**
+
+```http
+RateLimit-Limit: 100
+RateLimit-Remaining: 95
+RateLimit-Reset: 30
+```
+
+**Legacy headers:**
+
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640995200
+```
+
+The `Retry-After` header is included only on 429 responses.
+
+---
+
+## Proxy Support
+
+When your app runs behind a reverse proxy, the middleware needs to read forwarded IP headers to identify clients correctly.
+
+<Callout type="warn">
+  Only enable `trustProxy` when your app runs behind a trusted reverse proxy. Untrusted clients can
+  spoof IP headers to bypass rate limits.
+</Callout>
+
+```typescript
+app.use(rateLimit({ trustProxy: true }));
+```
+
+When enabled, the middleware checks these headers in priority order:
+
+1. `CF-Connecting-IP` (Cloudflare)
+2. `X-Real-IP` (Nginx)
+3. `X-Forwarded-For` (standard proxy)
+4. `X-Client-IP` (Apache)
+5. `True-Client-IP` (Akamai)
+6. `X-Cluster-Client-IP` (Rackspace)
+7. `Forwarded-For`
+8. `Forwarded` (RFC 7239)
+9. `ctx.ip` (socket address)
+
+---
+
+## Custom Store
+
+For distributed deployments, implement the `RateLimitStore` interface:
+
+```typescript
+import { rateLimit, type RateLimitStore, type StoreEntry } from '@nextrush/rate-limit';
+
+const redisStore: RateLimitStore = {
+  async get(key: string): Promise<StoreEntry | null> {
+    /* ... */
+  },
+  async set(key: string, entry: StoreEntry, ttlMs: number): Promise<void> {
+    /* ... */
+  },
+  async increment(key: string, ttlMs: number): Promise<number> {
+    /* ... */
+  },
+  async reset(key: string): Promise<void> {
+    /* ... */
+  },
+  // Optional: decrement, cleanup, shutdown
+};
+
+app.use(rateLimit({ store: redisStore }));
+```
+
+---
+
+## Middleware Methods
+
+The returned middleware exposes methods for programmatic control:
+
+```typescript
+const limiter = rateLimit({ max: 100 });
+app.use(limiter);
+
+// Reset a specific key
+await limiter.reset('rl:192.168.1.1');
+
+// Get current rate limit info
+const info = await limiter.getInfo('rl:192.168.1.1');
+
+// Cleanup on shutdown
+await limiter.shutdown();
+```
+
+---
+
+## Common Mistakes
+
+**Using `trustProxy: true` without a trusted proxy.** Any client can send forged `X-Forwarded-For` headers. Only enable this behind a reverse proxy you control.
+
+**Setting `window` too short with high `max`.** A window of `'1s'` with `max: 1000` effectively disables rate limiting. Use longer windows with proportional limits.
+
+**Forgetting `limiter.shutdown()`.** The in-memory store runs a cleanup timer. Call `shutdown()` during graceful server shutdown to clear the interval and free resources.
+
+**Using in-memory store across multiple instances.** Each process has its own store. Requests load-balanced across instances each get full limits. Use a Redis-backed store for multi-instance deployments.
+
+---
+
+## Troubleshooting
+
+**Rate limits reset on server restart.** The default in-memory store does not persist state. Use a Redis or database-backed store for persistence.
+
+**Clients hit limits faster than expected.** Check if `trustProxy` is set correctly. Without it, all proxied requests may share the same socket IP, causing shared limits.
+
+**`RateLimitValidationError` on startup.** Options are validated at creation time. Check that `max` is a positive integer, `blacklistMultiplier` is between 0 and 1, and `window` uses a valid format.
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/api-reference/middleware) — All middleware packages
+- [@nextrush/cors](/docs/api-reference/middleware/cors) — CORS handling
+- [@nextrush/helmet](/docs/api-reference/middleware/helmet) — Security headers

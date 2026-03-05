@@ -1,0 +1,243 @@
+---
+title: Performance Tuning
+description: Optimize NextRush applications for maximum throughput — middleware ordering, JSON serialization, connection handling, and production configuration.
+---
+
+How to get the most out of NextRush in production. These techniques apply regardless of your deployment target.
+
+## Middleware Order Matters
+
+Middleware runs on every request. Put fast-exit middleware first so rejected requests skip expensive processing.
+
+```typescript
+// ✅ Optimal order — reject early, process late
+app.use(rateLimit()); // 1. Reject abusive clients immediately
+app.use(cors()); // 2. Reject disallowed origins
+app.use(helmet()); // 3. Set security headers (cheap)
+app.use(requestId()); // 4. Tag request for tracing
+app.use(bodyParser()); // 5. Parse body (expensive — only for allowed requests)
+app.use(authMiddleware); // 6. Auth check
+app.route('/api', router); // 7. Business logic
+```
+
+```typescript
+// ❌ Wasteful order — parses body before checking rate limit
+app.use(bodyParser()); // Parses body for every request
+app.use(rateLimit()); // Then rejects — wasted work
+```
+
+**Rule**: The earlier a middleware can reject a request, the earlier it should run.
+
+---
+
+## Use Route-Specific Middleware
+
+Don't apply expensive middleware globally when only some routes need it.
+
+```typescript
+// ❌ Global body parsing — even GET requests parse (no-op but adds overhead)
+app.use(bodyParser());
+router.get('/health', healthCheck);
+router.post('/users', createUser);
+
+// ✅ Route-specific — body parsing only where needed
+router.get('/health', healthCheck);
+router.post('/users', bodyParser(), createUser);
+```
+
+---
+
+## JSON Response Optimization
+
+### Return Objects Directly (Class-Based)
+
+In class-based controllers, return values are auto-serialized. Avoid double-serialization.
+
+```typescript
+// ✅ Return object — NextRush serializes once
+@Get()
+async findAll() {
+  return this.users.findAll();
+}
+
+// ❌ Manual JSON — serializes twice (you + NextRush)
+@Get()
+async findAll(@Ctx() ctx) {
+  ctx.json(await this.users.findAll());
+}
+```
+
+### Pre-Compute Static Responses
+
+For responses that don't change per-request:
+
+```typescript
+const HEALTH_RESPONSE = JSON.stringify({ status: 'ok' });
+
+router.get('/health', (ctx) => {
+  ctx.set('content-type', 'application/json');
+  ctx.send(HEALTH_RESPONSE);
+});
+```
+
+This avoids `JSON.stringify` on every health check.
+
+---
+
+## Connection Handling
+
+### Keep-Alive
+
+Node.js enables keep-alive by default. Ensure your reverse proxy preserves it:
+
+```nginx
+# nginx.conf
+upstream api {
+    server 127.0.0.1:3000;
+    keepalive 64;
+}
+
+server {
+    location /api/ {
+        proxy_pass http://api;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+    }
+}
+```
+
+### Cluster Mode
+
+Use Node.js cluster to utilize all CPU cores:
+
+```typescript title="src/cluster.ts"
+import cluster from 'node:cluster';
+import os from 'node:os';
+
+if (cluster.isPrimary) {
+  const cpuCount = os.cpus().length;
+  for (let i = 0; i < cpuCount; i++) {
+    cluster.fork();
+  }
+  cluster.on('exit', (worker) => {
+    console.log(`Worker ${worker.process.pid} died, restarting`);
+    cluster.fork();
+  });
+} else {
+  await import('./index.js');
+}
+```
+
+**Expected impact**: Linear throughput scaling up to CPU core count. A 4-core machine should handle ~4x single-process RPS.
+
+---
+
+## Memory Management
+
+### Avoid Global Caches Without Bounds
+
+```typescript
+// ❌ Unbounded cache — grows forever
+const cache = new Map<string, unknown>();
+
+// ✅ LRU-style bounded cache
+const MAX_CACHE = 1000;
+const cache = new Map<string, unknown>();
+
+function setCache(key: string, value: unknown) {
+  if (cache.size >= MAX_CACHE) {
+    const firstKey = cache.keys().next().value;
+    cache.delete(firstKey);
+  }
+  cache.set(key, value);
+}
+```
+
+### Stream Large Responses
+
+Don't load entire files into memory:
+
+```typescript
+import { createReadStream } from 'node:fs';
+
+router.get('/download/:file', (ctx) => {
+  const stream = createReadStream(`./files/${ctx.params.file}`);
+  ctx.set('content-type', 'application/octet-stream');
+  ctx.body = stream;
+});
+```
+
+---
+
+## Production Configuration
+
+### Environment Variables
+
+```bash
+NODE_ENV=production          # Enables production optimizations
+UV_THREADPOOL_SIZE=16        # Increase for I/O-heavy apps (default: 4)
+NODE_OPTIONS="--max-old-space-size=2048"  # Set heap limit
+```
+
+### Graceful Shutdown
+
+Handle `SIGTERM` so in-flight requests complete:
+
+```typescript
+const server = await listen(app, 3000);
+
+process.on('SIGTERM', () => {
+  console.log('Shutting down gracefully...');
+  server.close(() => {
+    console.log('All connections closed');
+    process.exit(0);
+  });
+
+  // Force shutdown after 30 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown');
+    process.exit(1);
+  }, 30000);
+});
+```
+
+---
+
+## Benchmarking Your Application
+
+Measure before and after every optimization.
+
+### Quick Benchmark
+
+```bash
+# Install autocannon
+npm install -g autocannon
+
+# Run benchmark
+autocannon -c 100 -d 10 http://localhost:3000/api/users
+```
+
+### Full Benchmark Suite
+
+NextRush includes a benchmark suite:
+
+```bash
+cd apps/benchmark
+pnpm run benchmark
+```
+
+See [Performance](/docs/performance) for methodology and baseline numbers.
+
+---
+
+## Summary
+
+| Technique                 | Impact                        | Effort |
+| ------------------------- | ----------------------------- | ------ |
+| Middleware ordering       | 5–20% RPS gain                | Low    |
+| Route-specific middleware | 5–15% on affected routes      | Low    |
+| Pre-computed JSON         | 10–30% on static endpoints    | Low    |
+| Cluster mode              | ~Nx (N = CPU cores)           | Medium |
+| Stream large payloads     | Prevents OOM, reduces latency | Medium |
+| Bounded caches            | Prevents memory leaks         | Low    |
+| Graceful shutdown         | Zero dropped requests         | Low    |

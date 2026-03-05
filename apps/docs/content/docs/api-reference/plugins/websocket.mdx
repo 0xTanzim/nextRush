@@ -1,0 +1,359 @@
+---
+title: '@nextrush/websocket'
+description: 'WebSocket plugin for NextRush with rooms, broadcasting, and route-based handlers.'
+---
+
+HTTP handles request-response. WebSocket handles persistent, bidirectional connections — chat, live dashboards, collaborative editing, and real-time notifications.
+
+This plugin integrates the `ws` library with NextRush through a factory pattern. You create a WebSocket server, register route handlers, and attach it to your HTTP server. Room management and broadcasting are built in.
+
+## Default Behavior
+
+With zero configuration, the plugin:
+
+- Accepts WebSocket connections on registered route paths
+- Pings all connections every 30 seconds (heartbeat)
+- Terminates unresponsive connections after 60 seconds
+- Limits messages to 1MB
+- Allows unlimited connections
+- Limits each connection to 100 rooms
+- Allows all origins
+
+## Installation
+
+<PackageInstall packages={['@nextrush/websocket', 'ws']} dev={['@types/ws']} />
+
+<Callout type="warn">
+  The `ws` package is a required peer dependency. Install it alongside the plugin.
+</Callout>
+
+<Callout type="info">
+  This plugin targets Node.js 22+ only. For Bun, Deno, or edge runtimes, use their native WebSocket
+  APIs.
+</Callout>
+
+<Callout type="error" title="Authenticate Before Upgrade">
+  WebSocket connections bypass standard HTTP middleware after the upgrade. Use `verifyClient` to
+  authenticate during the handshake — not after the connection is open.
+</Callout>
+
+## Minimal Usage
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createWebSocket } from '@nextrush/websocket';
+
+const app = createApp();
+const wss = createWebSocket();
+
+wss.on('/chat', (conn) => {
+  conn.on('message', (msg) => {
+    conn.send(`Echo: ${msg}`);
+  });
+
+  conn.on('close', (code, reason) => {
+    console.log('Disconnected:', code, reason);
+  });
+});
+
+app.use(wss.upgrade());
+
+const server = app.listen(3000, () => {
+  wss.attach(server);
+});
+```
+
+Three steps: create the WebSocket server, register route handlers, then attach to the HTTP server after it starts listening.
+
+## Configuration Options
+
+Pass options to `createWebSocket()` to customize behavior.
+
+```ts
+const wss = createWebSocket({
+  maxPayload: 512 * 1024,
+  heartbeatInterval: 15000,
+  clientTimeout: 30000,
+  maxConnections: 500,
+  maxRoomsPerConnection: 50,
+  allowedOrigins: ['https://example.com', 'https://*.example.com'],
+  perMessageDeflate: true,
+  verifyClient: async (req) => {
+    const token = req.headers['authorization'];
+    return Boolean(token);
+  },
+  onConnection: (conn) => console.log('Connected:', conn.id),
+  onClose: (conn, code, reason) => console.log('Closed:', conn.id, code),
+  onError: (conn, error) => console.error('Error:', conn.id, error.message),
+});
+```
+
+<TypeTable
+  title="WebSocketOptions"
+  types={{
+    path: {
+      type: 'string | string[]',
+      description: 'Allowed paths for WebSocket connections',
+      default: "['/']",
+      optional: true,
+    },
+    maxPayload: {
+      type: 'number',
+      description: 'Maximum message size in bytes',
+      default: '1048576 (1MB)',
+      optional: true,
+    },
+    heartbeatInterval: {
+      type: 'number',
+      description: 'Heartbeat ping interval in ms (0 to disable)',
+      default: '30000',
+      optional: true,
+    },
+    clientTimeout: {
+      type: 'number',
+      description: 'Terminates connections that miss a pong within this time (ms)',
+      default: '60000',
+      optional: true,
+    },
+    maxConnections: {
+      type: 'number',
+      description: 'Maximum concurrent connections (0 for unlimited)',
+      default: '0',
+      optional: true,
+    },
+    maxRoomsPerConnection: {
+      type: 'number',
+      description: 'Maximum rooms a connection can join (0 for unlimited)',
+      default: '100',
+      optional: true,
+    },
+    allowedOrigins: {
+      type: 'string[]',
+      description: 'Allowed origins for CORS. Supports wildcards. Empty array allows all.',
+      default: '[]',
+      optional: true,
+    },
+    perMessageDeflate: {
+      type: 'boolean',
+      description: 'Enable per-message deflate compression',
+      default: 'false',
+      optional: true,
+    },
+    verifyClient: {
+      type: '(req: IncomingMessage) => boolean | Promise<boolean>',
+      description: 'Custom client verification. Return true to allow, false to reject.',
+      optional: true,
+    },
+    onConnection: {
+      type: '(conn: WSConnection) => void',
+      description: 'Called when a connection is established',
+      optional: true,
+    },
+    onClose: {
+      type: '(conn: WSConnection, code: number, reason: string) => void',
+      description: 'Called when a connection is closed',
+      optional: true,
+    },
+    onError: {
+      type: '(conn: WSConnection, error: Error) => void',
+      description: 'Called when an error occurs',
+      optional: true,
+    },
+  }}
+/>
+
+## Route-Based Handlers
+
+Register handlers for different WebSocket paths with `wss.on(path, handler)`:
+
+```ts
+wss.on('/chat', (conn, request) => {
+  conn.on('message', (msg) => {
+    conn.broadcast('chat', msg);
+  });
+});
+
+wss.on('/notifications', (conn) => {
+  conn.json({ type: 'welcome', timestamp: Date.now() });
+});
+```
+
+Path matching supports exact matches, parameterized segments (`:id`), and wildcards (`*`).
+
+## Connection API
+
+Each handler receives a `WSConnection` with these properties and methods.
+
+<TypeTable
+  title="WSConnection Properties"
+  types={{
+    id: { type: 'string', description: 'Unique connection identifier (UUID)' },
+    url: { type: 'string', description: 'Connection URL path' },
+    isOpen: { type: 'boolean', description: 'Whether the connection is currently open' },
+    request: { type: 'IncomingMessage', description: 'Original HTTP upgrade request' },
+  }}
+/>
+
+### Sending Messages
+
+```ts
+conn.send('Hello'); // Send string
+conn.send(Buffer.from([1, 2, 3])); // Send binary buffer
+conn.json({ type: 'update', items: [] }); // Send JSON (auto-stringified)
+```
+
+### Events
+
+```ts
+conn.on('message', (data) => {
+  /* string or Buffer */
+});
+conn.on('close', (code, reason) => {
+  /* cleanup */
+});
+conn.on('error', (error) => {
+  /* handle error */
+});
+conn.on('ping', (data) => {
+  /* ping received */
+});
+conn.on('pong', (data) => {
+  /* pong received */
+});
+
+conn.off(event, handler); // Remove a listener
+```
+
+### Rooms
+
+Connections can join rooms for organized broadcasting:
+
+```ts
+conn.join('general');
+conn.join('notifications');
+conn.leave('general');
+conn.leaveAll();
+
+const rooms = conn.getRooms(); // ['notifications']
+```
+
+Room names must be non-empty strings with a maximum length of 256 characters. Each connection can join up to 100 rooms by default (configurable via `maxRoomsPerConnection`).
+
+### Broadcasting from a Connection
+
+`broadcast()` sends to all room members **excluding the sender**:
+
+```ts
+conn.broadcast('general', 'User joined!');
+conn.broadcastJson('general', { type: 'join', user: 'Alice' });
+```
+
+## Middleware
+
+Add WebSocket-specific middleware for cross-cutting concerns:
+
+```ts
+wss.use((conn, request, next) => {
+  console.log('New connection:', conn.id, request.url);
+  next();
+});
+
+wss.use((conn, request, next) => {
+  const token = request.headers['x-auth-token'];
+  if (!token) {
+    conn.close(4001, 'Unauthorized');
+    return;
+  }
+  next();
+});
+```
+
+Middleware runs in registration order before the route handler executes.
+
+## Server-Level APIs
+
+The WebSocket server instance provides broadcasting across all connections and server management.
+
+```ts
+// Broadcast to all connections
+wss.broadcast('Hello everyone!');
+wss.broadcastJson({ type: 'announcement', text: 'Server restarting' });
+
+// Broadcast to a specific room
+wss.broadcastToRoom('chat', 'System message');
+wss.broadcastJsonToRoom('chat', { type: 'system', text: 'Welcome' });
+
+// Exclude a specific connection
+wss.broadcast('Hello others!', currentConn);
+```
+
+### Server Statistics
+
+```ts
+const connections = wss.getConnections();
+const count = wss.getConnectionCount();
+const rooms = wss.getRooms();
+const members = wss.getRoomConnections('chat');
+```
+
+### Shutdown
+
+```ts
+wss.closeAll(1001, 'Server shutting down');
+wss.close(); // Stops heartbeat, closes all connections, releases resources
+```
+
+## Integration Helper
+
+The `withWebSocket` helper attaches the WebSocket server automatically when the app starts:
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createWebSocket, withWebSocket } from '@nextrush/websocket';
+
+const app = createApp();
+const wss = createWebSocket();
+
+wss.on('/chat', (conn) => {
+  conn.on('message', (msg) => conn.send(msg));
+});
+
+app.use(wss.upgrade());
+
+await withWebSocket(app, wss, 3000);
+```
+
+## Common Mistakes
+
+**Forgetting to call `wss.attach(server)` or use `withWebSocket`.**
+The WebSocket server does not listen for connections until attached to an HTTP server. Without this step, upgrade requests are never handled.
+
+**Calling `conn.broadcast()` without joining a room first.**
+`broadcast(room, data)` sends to members of the specified room. If no connections have joined that room, the message goes nowhere.
+
+**Not installing the `ws` peer dependency.**
+The plugin dynamically imports `ws` at runtime. If the package is missing, an error is thrown with installation instructions.
+
+**Sending non-string/Buffer data with `conn.send()`.**
+Use `conn.json(data)` for objects. `conn.send()` accepts `string` or `Buffer` only.
+
+## Troubleshooting
+
+**WebSocket connections return 404.**
+Ensure the request path matches a registered route via `wss.on(path, handler)` or the `path` option in configuration.
+
+**Connections drop after 60 seconds of inactivity.**
+The heartbeat system terminates connections that do not respond to pings within `clientTimeout` (default: 60s). Send periodic messages or rely on the built-in ping/pong mechanism.
+
+**Origin rejected with 403 Forbidden.**
+When `allowedOrigins` is configured, requests without an `Origin` header are denied. Verify the client sends the correct `Origin` header.
+
+**MaxRoomsExceededError thrown.**
+A connection attempted to join more rooms than `maxRoomsPerConnection` allows. Increase the limit or have the connection leave unused rooms.
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/api-reference/plugins) — All plugin packages
+- [@nextrush/events](/docs/api-reference/plugins/events) — Event emitter plugin

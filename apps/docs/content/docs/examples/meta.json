@@ -1,4 +1,13 @@
 {
   "title": "Examples",
-  "pages": ["index", "hello-world", "rest-api", "class-based-api", "authentication", "database"]
+  "pages": [
+    "hello-world",
+    "rest-api",
+    "class-based-api",
+    "authentication",
+    "database",
+    "---",
+    "websocket",
+    "file-upload"
+  ]
 }

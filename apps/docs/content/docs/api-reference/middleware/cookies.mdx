@@ -1,0 +1,393 @@
+---
+title: '@nextrush/cookies'
+description: 'Secure cookie parsing and serialization with signing support.'
+---
+
+Handle HTTP cookies with secure defaults and signing support.
+
+Cookies are essential for sessions, authentication, and client-side state. This middleware provides parsing, setting, and optional HMAC-SHA256 signing with RFC 6265 compliance.
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/cookies']} />
+
+---
+
+## Quick Start
+
+```ts
+import { createApp } from '@nextrush/core';
+import { cookies } from '@nextrush/cookies';
+
+const app = createApp();
+
+app.use(cookies());
+
+app.use(async (ctx) => {
+  // Read a cookie
+  const session = ctx.state.cookies.get('session');
+
+  // Set a cookie (secure defaults: httpOnly, sameSite=lax, path=/)
+  ctx.state.cookies.set('session', 'user-123', {
+    secure: true,
+    maxAge: 86400,
+  });
+
+  ctx.json({ session });
+});
+```
+
+---
+
+## Default Behavior
+
+With zero configuration, `cookies()` applies these defaults to every cookie you set:
+
+- `httpOnly: true` — blocks JavaScript access via `document.cookie`
+- `sameSite: 'lax'` — prevents CSRF on cross-origin POST requests
+- `path: '/'` — scopes the cookie to the entire domain
+
+Values are URL-decoded and sanitized (CRLF characters stripped) during parsing.
+
+---
+
+## Reading Cookies
+
+```ts
+app.use(async (ctx) => {
+  // Get a single cookie
+  const token = ctx.state.cookies.get('token');
+
+  // Get all parsed cookies
+  const all = ctx.state.cookies.all();
+
+  // Check if a cookie exists
+  const hasSession = ctx.state.cookies.has('session');
+
+  ctx.json({ token, all, hasSession });
+});
+```
+
+---
+
+## Setting Cookies
+
+```ts
+app.use(async (ctx) => {
+  // Uses secure defaults (httpOnly, sameSite=lax, path=/)
+  ctx.state.cookies.set('name', 'value');
+
+  // Override specific options
+  ctx.state.cookies.set('session', 'user-123', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 86400,
+    path: '/',
+    domain: '.example.com',
+  });
+
+  ctx.json({ ok: true });
+});
+```
+
+---
+
+## Configuration Options
+
+<TypeTable
+  title="CookieOptions"
+  types={{
+    httpOnly: {
+      type: 'boolean',
+      description: 'Block JavaScript access via document.cookie',
+      default: 'true',
+    },
+    secure: {
+      type: 'boolean',
+      description: 'Send only over HTTPS. Required for SameSite=None and cookie prefixes.',
+      default: 'false',
+    },
+    sameSite: {
+      type: "'strict' | 'lax' | 'none' | boolean",
+      description: 'CSRF protection level',
+      default: "'lax'",
+    },
+    maxAge: {
+      type: 'number',
+      description: 'Lifetime in seconds. Use 0 to expire immediately.',
+      optional: true,
+    },
+    expires: {
+      type: 'Date | number',
+      description: 'Expiration date. If both maxAge and expires are set, maxAge takes precedence.',
+      optional: true,
+    },
+    path: { type: 'string', description: 'URL path scope for the cookie', default: "'/'" },
+    domain: {
+      type: 'string',
+      description: 'Domain scope. Leading dots are ignored.',
+      optional: true,
+    },
+    priority: {
+      type: "'low' | 'medium' | 'high'",
+      description: 'Browser priority hint (Chrome extension)',
+      optional: true,
+    },
+    partitioned: {
+      type: 'boolean',
+      description: 'Partition by top-level site for third-party cookies (CHIPS)',
+      optional: true,
+    },
+  }}
+/>
+
+---
+
+## Deleting Cookies
+
+```ts
+app.use(async (ctx) => {
+  ctx.state.cookies.delete('session');
+
+  // Path and domain must match the original cookie
+  ctx.state.cookies.delete('session', {
+    path: '/',
+    domain: '.example.com',
+  });
+
+  ctx.json({ ok: true });
+});
+```
+
+---
+
+## Secure Presets
+
+Both presets are **functions** that accept additional options and return merged `CookieOptions`.
+
+### `secureOptions()`
+
+Returns options for production-grade cookies.
+
+```ts
+import { cookies, secureOptions } from '@nextrush/cookies';
+
+app.use(cookies());
+
+app.use(async (ctx) => {
+  ctx.state.cookies.set('auth', 'token', secureOptions({ maxAge: 86400 }));
+});
+```
+
+Produces: `httpOnly: true`, `secure: true`, `sameSite: 'strict'`, `path: '/'`.
+
+### `sessionOptions()`
+
+Returns options for session cookies that expire when the browser closes.
+
+```ts
+import { cookies, sessionOptions } from '@nextrush/cookies';
+
+app.use(cookies());
+
+app.use(async (ctx) => {
+  ctx.state.cookies.set('session', 'user-123', sessionOptions());
+});
+```
+
+Produces: `httpOnly: true`, `sameSite: 'lax'`, `path: '/'`. No `maxAge` or `expires`.
+
+---
+
+## Signed Cookies
+
+Prevent cookie tampering with HMAC-SHA256 signatures. Signed cookies use a separate middleware and a separate context property.
+
+```ts
+import { signedCookies } from '@nextrush/cookies';
+
+app.use(
+  signedCookies({
+    secret: process.env.COOKIE_SECRET!,
+  })
+);
+
+app.use(async (ctx) => {
+  // Set a signed cookie (async)
+  await ctx.state.signedCookies.set('user', 'user-123', { httpOnly: true });
+
+  // Get and verify a signed cookie (async)
+  const user = await ctx.state.signedCookies.get('user');
+  // Returns undefined if the signature is invalid or the cookie is missing
+
+  ctx.json({ user });
+});
+```
+
+<Callout type="warn">
+  Signed cookie operations (`get` and `set`) are async. Forgetting `await` returns a Promise, not
+  the value.
+</Callout>
+
+The signing secret must be kept secure and rotated periodically.
+
+<Callout type="error" title="Never Hardcode Secrets">
+  Store `COOKIE_SECRET` in environment variables. Rotate keys periodically using `previousSecrets`
+  for zero-downtime migration. Never commit signing keys to source control.
+</Callout>
+
+### Key Rotation
+
+Provide previous secrets to verify cookies signed with older keys during rotation:
+
+```ts
+app.use(
+  signedCookies({
+    secret: process.env.COOKIE_SECRET_NEW!,
+    previousSecrets: [process.env.COOKIE_SECRET_OLD!],
+  })
+);
+```
+
+New cookies are signed with `secret`. Verification tries `secret` first, then each entry in `previousSecrets` in order.
+
+---
+
+## Cookie Prefixes
+
+Security prefixes enforce browser-level constraints.
+
+### `__Secure-` Prefix
+
+Requires `secure: true`. The helper auto-sets this flag.
+
+```ts
+import { createSecurePrefixCookie } from '@nextrush/cookies';
+
+const header = createSecurePrefixCookie('token', 'abc123', { httpOnly: true });
+// '__Secure-token=abc123; Secure; HttpOnly'
+```
+
+### `__Host-` Prefix
+
+Requires `secure: true`, `path: '/'`, and no `domain`. The helper enforces all three.
+
+```ts
+import { createHostPrefixCookie } from '@nextrush/cookies';
+
+const header = createHostPrefixCookie('session', 'abc123', { httpOnly: true });
+// '__Host-session=abc123; Secure; Path=/; HttpOnly'
+```
+
+---
+
+## Parsing Utilities
+
+Low-level cookie parsing for use outside the middleware:
+
+```ts
+import { parseCookies, getCookie, getCookieNames, hasCookie } from '@nextrush/cookies';
+
+const cookies = parseCookies('name=value; session=abc');
+// { name: 'value', session: 'abc' }
+
+const session = getCookie('name=value; session=abc', 'session');
+// 'abc'
+
+const names = getCookieNames('name=value; session=abc');
+// ['name', 'session']
+
+const exists = hasCookie('name=value', 'name');
+// true
+```
+
+---
+
+## Serialization Utilities
+
+```ts
+import { serializeCookie, createDeleteCookie } from '@nextrush/cookies';
+
+const header = serializeCookie('name', 'value', {
+  httpOnly: true,
+  secure: true,
+});
+
+const deleteHeader = createDeleteCookie('name', { path: '/' });
+```
+
+---
+
+## Signing Utilities
+
+Manual cookie signing without the middleware:
+
+```ts
+import { signCookie, unsignCookie, unsignCookieWithRotation } from '@nextrush/cookies';
+
+const signed = await signCookie('value', 'secret-key');
+// 'value.BASE64_SIGNATURE'
+
+const value = await unsignCookie(signed, 'secret-key');
+// 'value' or undefined if tampered
+
+const rotated = await unsignCookieWithRotation(signed, {
+  current: 'new-key',
+  previous: ['old-key'],
+});
+```
+
+---
+
+## Common Mistakes
+
+### Forgetting to await signed cookie operations
+
+```ts
+// Wrong — returns a Promise, not the value
+const userId = ctx.state.signedCookies.get('userId');
+
+// Correct
+const userId = await ctx.state.signedCookies.get('userId');
+```
+
+### Using SameSite=None without Secure
+
+```ts
+// Browsers reject this combination
+ctx.state.cookies.set('cross', 'value', { sameSite: 'none' });
+
+// Correct
+ctx.state.cookies.set('cross', 'value', { sameSite: 'none', secure: true });
+```
+
+### Setting secure cookies on HTTP
+
+```ts
+// Browser ignores the cookie on plain HTTP
+ctx.state.cookies.set('session', 'value', { secure: true });
+```
+
+---
+
+## Troubleshooting
+
+**Cookie not appearing in the browser:**
+Check that `secure: true` cookies are served over HTTPS. On localhost, most browsers allow `secure` cookies only on `https://localhost`.
+
+**Signed cookie returns `undefined`:**
+The signature verification failed. Confirm the secret matches the one used to sign the cookie. If you rotated keys, pass the old keys in `previousSecrets`.
+
+**`SecurityError: Cookie with __Host- prefix must have Path set to "/"`:**
+`__Host-` prefixed cookies require `secure: true`, `path: '/'`, and no `domain` attribute. Use `createHostPrefixCookie()` to handle these constraints automatically.
+
+---
+
+## Related
+
+- [Middleware Overview](/docs/api-reference/middleware) — All middleware packages
+- [@nextrush/helmet](/docs/api-reference/middleware/helmet) — Security headers
+- [@nextrush/rate-limit](/docs/api-reference/middleware/rate-limit) — Rate limiting

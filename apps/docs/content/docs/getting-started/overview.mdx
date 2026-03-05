@@ -1,0 +1,466 @@
+---
+title: Framework Overview
+description: NextRush at a glance — architecture, concepts, and APIs on one page.
+---
+
+import { Mermaid } from '@/components/mdx';
+
+# NextRush
+
+A modular backend framework for Node.js, Bun, Deno, and Edge runtimes — under 3,000 lines of code, zero runtime dependencies, full TypeScript strict mode.
+
+<Callout type="info" title="v3 Alpha">
+  NextRush v3 is in active development. APIs are stabilizing. Requires Node.js 22+.
+</Callout>
+
+## 30 Seconds to Hello World
+
+```bash
+npm install nextrush
+```
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush' }));
+
+app.route('/', router);
+await listen(app, 3000);
+// → http://localhost:3000
+```
+
+## Why NextRush?
+
+<Cards>
+  <Card
+    title="Zero Dependencies"
+    description="No external runtime packages. The core ships nothing you didn't ask for."
+  />
+  <Card
+    title="Multi-Runtime"
+    description="Same code runs on Node.js, Bun, Deno, and Edge — swap the adapter, keep the app."
+  />
+  <Card
+    title="Type-Safe"
+    description="Written in TypeScript strict mode. Zero `any` usage. Full inference from route to response."
+  />
+  <Card
+    title="Dual Paradigm"
+    description="Functional routes for prototypes. Class-based controllers with DI when you need structure."
+  />
+  <Card
+    title="35,000+ RPS"
+    description="Segment trie routing, pre-compiled middleware, zero allocations in the hot path."
+  />
+  <Card
+    title="Modular"
+    description="27+ packages. Install what you need — cors, helmet, body-parser, DI, controllers, websocket."
+  />
+</Cards>
+
+## How a Request Flows
+
+Every HTTP request follows the same path through NextRush:
+
+<Mermaid chart={`
+sequenceDiagram
+    participant Client
+    participant Adapter
+    participant App as Application
+    participant MW as Middleware
+    participant Router
+    participant Handler
+
+    Client->>Adapter: HTTP Request
+    Adapter->>App: Create Context
+    App->>MW: Run middleware pipeline
+    MW->>MW: cors → auth → body-parser
+    MW->>Router: Match route
+    Router->>Handler: Execute handler
+    Handler-->>MW: Return response
+    MW-->>MW: Post-processing (logging, headers)
+    MW-->>Adapter: Final response
+    Adapter-->>Client: HTTP Response
+
+`} />
+
+1. **Adapter** receives the raw HTTP request and creates a **Context** object
+2. **Application** passes the context through the **Middleware** pipeline
+3. **Router** matches the URL and extracts route parameters
+4. **Handler** executes your business logic and writes a response
+5. Response flows back through middleware for post-processing
+6. **Adapter** sends the HTTP response to the client
+
+## Core Concepts
+
+NextRush is built on eight concepts. Each one does one thing.
+
+### Application
+
+The container that holds everything together — middleware, plugins, routes, and error handling.
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+```
+
+[Read more →](/docs/concepts/application)
+
+### Context
+
+Every request creates a fresh `ctx` object. This is your unified interface for reading the request and writing the response.
+
+```typescript
+router.get('/users/:id', (ctx) => {
+  const { id } = ctx.params; // Route parameters
+  const { page } = ctx.query; // Query string
+  const auth = ctx.get('authorization'); // Headers
+
+  ctx.status = 200;
+  ctx.json({ id, page, auth }); // Send JSON response
+});
+```
+
+[Read more →](/docs/concepts/context)
+
+### Middleware
+
+Functions that wrap around your handlers. They run in order, using an onion model — code before `ctx.next()` runs on the way in, code after runs on the way out.
+
+```typescript
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+});
+```
+
+<Mermaid
+  chart={`
+flowchart LR
+    subgraph "Middleware Pipeline"
+        direction LR
+        A["Request →"] --> B["cors"]
+        B --> C["auth"]
+        C --> D["body-parser"]
+        D --> E["Router + Handler"]
+        E --> F["← body-parser"]
+        F --> G["← auth"]
+        G --> H["← cors"]
+        H --> I["← Response"]
+    end
+`}
+/>
+
+[Read more →](/docs/concepts/middleware)
+
+### Routing
+
+A segment trie router with O(d) lookup where d is path depth. Static routes use a hash map for O(1) matching. Supports parameters, wildcards, and nested routers.
+
+```typescript
+import { createRouter } from 'nextrush';
+
+const users = createRouter();
+
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+users.post('/', (ctx) => ctx.json(ctx.body, 201));
+
+app.route('/users', users);
+```
+
+[Read more →](/docs/concepts/routing)
+
+### Plugins
+
+Add capabilities to your application without modifying core. Plugins can register middleware, add routes, or extend the application lifecycle.
+
+```typescript
+import { controllersPlugin } from '@nextrush/controllers';
+import { eventsPlugin } from '@nextrush/events';
+
+app.plugin(eventsPlugin());
+app.plugin(controllersPlugin({ router, root: './src' }));
+```
+
+[Read more →](/docs/concepts/plugins)
+
+### Guards
+
+Declarative access control for routes. Guards run before route handlers and return a boolean — if any guard returns `false`, the request is rejected with 403.
+
+```typescript
+import type { GuardFn } from '@nextrush/decorators';
+
+const AuthGuard: GuardFn = (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
+
+@UseGuard(AuthGuard)
+@Controller('/admin')
+class AdminController {
+  @Get('/dashboard')
+  dashboard() {
+    return { admin: true };
+  }
+}
+```
+
+[Read more →](/docs/concepts/guards)
+
+### Dependency Injection
+
+A built-in DI container for managing service lifetimes and dependencies. Register services as singletons or transient instances, and inject them into controllers automatically.
+
+```typescript
+import { Service } from '@nextrush/di';
+
+@Service()
+class UserService {
+  async findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+```
+
+### Adapters
+
+Platform-specific bridges between NextRush and the runtime. Adapters handle raw HTTP I/O so your application code stays runtime-agnostic.
+
+```typescript
+import { listen } from 'nextrush'; // Node.js (default)
+// import { listen } from '@nextrush/adapter-bun';     // Bun
+// import { listen } from '@nextrush/adapter-deno';    // Deno
+// import { listen } from '@nextrush/adapter-edge';    // Edge
+
+await listen(app, 3000);
+```
+
+## Package Architecture
+
+NextRush is 27+ packages organized in a strict dependency hierarchy — lower packages never import from higher packages:
+
+<Mermaid chart={`
+flowchart TD
+    T["@nextrush/types"] --> E["@nextrush/errors"]
+    T --> C["@nextrush/core"]
+    T --> R["@nextrush/router"]
+    T --> DI["@nextrush/di"]
+    T --> DEC["@nextrush/decorators"]
+    E --> CTRL["@nextrush/controllers"]
+    DI --> CTRL
+    DEC --> CTRL
+    C --> AN["@nextrush/adapter-node"]
+    C --> AB["@nextrush/adapter-bun"]
+    C --> AD["@nextrush/adapter-deno"]
+    C --> AE["@nextrush/adapter-edge"]
+    T --> MW["Middleware (cors, helmet, body-parser, ...)"]
+    AN --> NR["nextrush (meta package)"]
+    R --> NR
+    E --> NR
+    C --> NR
+
+    style T fill:#e0f2fe,stroke:#0ea5e9
+    style NR fill:#fef3c7,stroke:#f59e0b
+    style CTRL fill:#fce7f3,stroke:#ec4899
+
+`} />
+
+[Explore the full hierarchy →](/docs/concepts/package-hierarchy)
+
+## Two Programming Styles
+
+NextRush supports both functional and class-based programming. Start with functions for prototypes and small services. Add decorators and DI when your project grows. Both styles work together in the same application.
+
+<Tabs items={['Functional', 'Class-Based']}>
+  <Tab value="Functional">
+    Direct, minimal abstraction. Define routes as functions.
+
+    ```typescript title="src/index.ts"
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { cors } from '@nextrush/cors';
+    import { json } from '@nextrush/body-parser';
+
+    const app = createApp();
+    const router = createRouter();
+
+    app.use(cors());
+    app.use(json());
+
+    router.get('/users', (ctx) => {
+      ctx.json([{ id: 1, name: 'Alice' }]);
+    });
+
+    router.post('/users', (ctx) => {
+      ctx.json(ctx.body, 201);
+    });
+
+    router.get('/users/:id', (ctx) => {
+      ctx.json({ id: ctx.params.id });
+    });
+
+    app.route('/api', router);
+    await listen(app, 3000);
+    ```
+
+  </Tab>
+  <Tab value="Class-Based">
+    Structured with dependency injection. Define routes as controller methods.
+
+    ```typescript title="src/index.ts"
+    import 'reflect-metadata';
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { Controller, Get, Post, Body } from '@nextrush/decorators';
+    import { Service } from '@nextrush/di';
+    import { controllersPlugin } from '@nextrush/controllers';
+
+    @Service()
+    class UserService {
+      private users = [{ id: 1, name: 'Alice' }];
+
+      findAll() {
+        return this.users;
+      }
+
+      create(data: { name: string }) {
+        const user = { id: this.users.length + 1, ...data };
+        this.users.push(user);
+        return user;
+      }
+    }
+
+    @Controller('/users')
+    class UserController {
+      constructor(private userService: UserService) {}
+
+      @Get()
+      findAll() {
+        return this.userService.findAll();
+      }
+
+      @Post()
+      create(@Body() data: { name: string }) {
+        return this.userService.create(data);
+      }
+    }
+
+    const app = createApp();
+    const router = createRouter();
+
+    app.plugin(controllersPlugin({ router, controllers: [UserController] }));
+    app.route('/api', router);
+
+    await listen(app, 3000);
+    ```
+
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Mix and Match">
+  Both styles work in the same application. You can use functional routes for health checks and
+  class-based controllers for business logic — no forced migration.
+</Callout>
+
+## Performance
+
+NextRush targets high throughput with minimal overhead.
+
+| Metric               | Target                               |
+| -------------------- | ------------------------------------ |
+| Requests per second  | 30,000+                              |
+| Core lines of code   | < 3,000                              |
+| Cold start time      | < 30ms                               |
+| Memory footprint     | < 200KB                              |
+| Runtime dependencies | 0 (except `reflect-metadata` for DI) |
+
+Performance comes from the architecture: segment trie routing avoids regex overhead, middleware composition is pre-compiled, and the core avoids unnecessary allocations in the request path.
+
+[See full benchmarks →](/docs/performance)
+
+## Runtime Support
+
+Write your application once and deploy to multiple runtimes.
+
+| Runtime                           | Adapter                  | Status    |
+| --------------------------------- | ------------------------ | --------- |
+| Node.js 22+                       | `nextrush` (built-in)    | ✅ Stable |
+| Bun                               | `@nextrush/adapter-bun`  | ✅ Stable |
+| Deno                              | `@nextrush/adapter-deno` | ✅ Stable |
+| Edge (Cloudflare Workers, Vercel) | `@nextrush/adapter-edge` | ✅ Stable |
+
+The `nextrush` meta-package includes the Node.js adapter by default. For other runtimes, install the specific adapter package.
+
+## Coming from Another Framework?
+
+### From Express
+
+- **Middleware**: Express uses `(req, res, next)`. NextRush uses `(ctx)` with `ctx.next()` — one object instead of three.
+- **Routing**: Express evaluates routes linearly. NextRush uses a segment trie for O(d) lookup regardless of route count.
+- **TypeScript**: Express types are bolted on via `@types/express`. NextRush is written in TypeScript with full strict mode and inference.
+
+### From Fastify
+
+- **Plugin system**: Fastify uses encapsulation contexts. NextRush plugins are flat — they install into the application directly.
+- **Validation**: Fastify validates via JSON Schema. NextRush uses parameter transforms with any validation library (Zod, Valibot, etc.).
+- **Decorators**: Fastify has no built-in decorator support. NextRush supports `@Controller`, `@Get`, `@Service` with DI out of the box.
+
+## What's Included
+
+The `nextrush` meta-package gives you everything to start:
+
+| Package                  | What It Does                            |
+| ------------------------ | --------------------------------------- |
+| `@nextrush/core`         | Application, Context, Middleware engine |
+| `@nextrush/router`       | Segment trie routing                    |
+| `@nextrush/adapter-node` | Node.js HTTP adapter                    |
+| `@nextrush/errors`       | HTTP error classes (400–503)            |
+| `@nextrush/types`        | Shared TypeScript types                 |
+
+Install additional packages as needed:
+
+| Category            | Packages                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| **Middleware**      | `cors`, `helmet`, `body-parser`, `compression`, `cookies`, `rate-limit`, `request-id`, `timer` |
+| **Plugins**         | `controllers`, `events`, `logger`, `static`, `template`, `websocket`                           |
+| **Adapters**        | `adapter-bun`, `adapter-deno`, `adapter-edge`                                                  |
+| **DI & Decorators** | `di`, `decorators`                                                                             |
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Installation"
+    description="Set up NextRush in your project."
+    href="/docs/getting-started/installation"
+  />
+  <Card
+    title="Quick Start"
+    description="Build your first API in 5 minutes."
+    href="/docs/getting-started/quick-start"
+  />
+  <Card
+    title="Core Concepts"
+    description="Understand Context, Middleware, Routing, and Plugins."
+    href="/docs/concepts"
+  />
+  <Card
+    title="Guides"
+    description="Step-by-step tutorials for REST APIs, authentication, and more."
+    href="/docs/guides"
+  />
+</Cards>

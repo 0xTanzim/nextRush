@@ -1,5 +1,0 @@
-{
-  "title": "Packages",
-  "root": true,
-  "pages": ["index", "core", "adapters", "middleware", "plugins", "di"]
-}
