@@ -3,41 +3,41 @@ import { Globe, Lock, Package, Puzzle, Shield, Zap } from 'lucide-react';
 const features = [
   {
     icon: Zap,
-    title: 'Blazing Fast',
+    title: 'High Performance',
     description:
       '30,000+ requests per second with radix tree routing. No compromise on performance.',
-    color: '#f59e0b',
+    colorVar: '--warning',
   },
   {
     icon: Shield,
     title: 'Type Safe',
     description:
       'Full TypeScript with zero `any`. Catch errors at compile time, not in production.',
-    color: '#3b82f6',
+    colorVar: '--rush-blue',
   },
   {
     icon: Package,
     title: 'Modular',
     description: '27+ packages. Install what you need. Core is under 3,000 lines of code.',
-    color: '#8b5cf6',
+    colorVar: '--rush-purple',
   },
   {
     icon: Globe,
     title: 'Multi-Runtime',
     description: 'Node.js, Bun, Deno, and Edge. Write once, deploy anywhere.',
-    color: '#22d3ee',
+    colorVar: '--rush-cyan',
   },
   {
     icon: Puzzle,
     title: 'Plugin System',
     description: 'Extend with ease. Controllers, WebSocket, static files — all via plugins.',
-    color: '#22c55e',
+    colorVar: '--rush-green',
   },
   {
     icon: Lock,
     title: 'Security Built-In',
     description: 'Helmet, CORS, rate limiting. Production security out of the box.',
-    color: '#ef4444',
+    colorVar: '--danger',
   },
 ];
 
@@ -59,19 +59,21 @@ export function Features() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature) => {
             const Icon = feature.icon;
+            const color = `var(${feature.colorVar})`;
             return (
               <div
                 key={feature.title}
                 className="group p-6 rounded-xl card-glow card-gradient-border"
+                style={{ '--feature-color': color } as React.CSSProperties}
               >
                 <div
                   className="inline-flex items-center justify-center w-10 h-10 rounded-lg mb-4"
                   style={{
-                    backgroundColor: `${feature.color}15`,
-                    border: `1px solid ${feature.color}20`,
+                    backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${color} 12%, transparent)`,
                   }}
                 >
-                  <Icon className="size-5" style={{ color: feature.color }} />
+                  <Icon className="size-5" style={{ color }} />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
                 <p className="text-fd-muted-foreground">{feature.description}</p>

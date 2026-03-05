@@ -18,6 +18,11 @@ export function baseOptions(): BaseLayoutProps {
         active: 'nested-url',
       },
       {
+        text: 'Skills',
+        url: '/skills',
+        active: 'nested-url',
+      },
+      {
         text: 'GitHub',
         url: 'https://github.com/0xtanzim/nextrush',
         external: true,

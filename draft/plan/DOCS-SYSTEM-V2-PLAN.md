@@ -244,7 +244,7 @@ MDX Content → fumadocs-mdx (parse) → source loader → Static Routes
 
 ## 5. Implementation Phases
 
-### Phase 0: Bug Fixes (Day 1) — Effort: S
+### Phase 0: Bug Fixes (Day 1) — Effort: S ✅ COMPLETED
 
 Fix all 6 audit bugs before any new features. Clean foundation.
 
@@ -261,7 +261,7 @@ Fix all 6 audit bugs before any new features. Clean foundation.
 
 ---
 
-### Phase 1: Machine Endpoints (Week 1) — Effort: L
+### Phase 1: Machine Endpoints (Week 1) — Effort: L ✅ COMPLETED
 
 Build the foundation that all AI features depend on.
 
@@ -323,7 +323,7 @@ The existing endpoint stays. It's the "full context dump" (concatenated). The ne
 
 ---
 
-### Phase 2: Page Actions Bar (Week 1-2) — Effort: M
+### Phase 2: Page Actions Bar (Week 1-2) — Effort: M ✅ COMPLETED
 
 #### 2.1 — Integrate Fumadocs Components
 
@@ -367,7 +367,7 @@ Create `apps/docs/src/components/ai-actions.tsx`:
 
 ---
 
-### Phase 3: Skills System (Week 2-3) — Effort: L
+### Phase 3: Skills System (Week 2-3) — Effort: L ✅ COMPLETED
 
 #### 3.1 — Define Skills Collection
 

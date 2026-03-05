@@ -58,7 +58,7 @@ export function Hero() {
             The backend framework that doesn&apos;t get in your way.
           </p>
           <p className="text-lg text-fd-muted-foreground/70 mb-8 max-w-xl animate-fade-up animate-delay-300">
-            Minimal. Modular. Blazing fast.{' '}
+            Minimal. Modular. High performance.{' '}
             <span className="text-[var(--rush-cyan)] font-medium">30,000+ RPS.</span>
           </p>
 

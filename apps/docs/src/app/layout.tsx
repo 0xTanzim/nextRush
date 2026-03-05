@@ -15,11 +15,11 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'NextRush - The Backend Framework That Doesn\'t Get in Your Way',
+    default: "NextRush - The Backend Framework That Doesn't Get in Your Way",
     template: '%s | NextRush',
   },
   description:
-    'NextRush is a minimal, modular, and blazing fast Node.js backend framework. Build APIs with 30,000+ RPS, full TypeScript support, and zero configuration overhead.',
+    'NextRush is a minimal, modular, high-performance Node.js backend framework. Build APIs with 30,000+ RPS, full TypeScript support, and zero configuration overhead.',
   keywords: [
     'nextrush',
     'node.js framework',
@@ -39,14 +39,14 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://nextrush.dev',
-    title: 'NextRush - Blazing Fast Backend Framework',
+    title: 'NextRush - High-Performance Backend Framework',
     description:
       'Build production-ready APIs with NextRush. Minimal core, modular design, 30,000+ RPS performance.',
     siteName: 'NextRush',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NextRush - Blazing Fast Backend Framework',
+    title: 'NextRush - High-Performance Backend Framework',
     description:
       'Build production-ready APIs with NextRush. Minimal core, modular design, 30,000+ RPS performance.',
     creator: '@nextrush',
