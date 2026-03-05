@@ -3,9 +3,23 @@ import { getLLMText, source } from '@/lib/source';
 export const revalidate = false;
 
 export function generateStaticParams() {
-  return source.getPages().map((page) => ({
-    slug: page.slugs,
-  }));
+  const pages = source.getPages();
+  const slugStrings = new Set(pages.map((p) => p.slugs.join('/')));
+
+  return pages
+    .filter((page) => {
+      if (page.slugs.length === 0) return false;
+      // Exclude pages whose slug is a prefix of another page's slug
+      // to prevent file/directory collision during static export
+      const prefix = page.slugs.join('/') + '/';
+      for (const s of slugStrings) {
+        if (s.startsWith(prefix)) return false;
+      }
+      return true;
+    })
+    .map((page) => ({
+      slug: page.slugs,
+    }));
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string[] }> }) {

@@ -84,20 +84,22 @@ export function Hero() {
 
           {/* Code Example */}
           <div className="w-full max-w-2xl animate-fade-up animate-delay-500">
-            <div className="relative rounded-xl overflow-hidden border border-[#1e2433] bg-[#0d1117] code-glow">
+            <div className="relative rounded-xl overflow-hidden border border-[var(--code-border)] bg-[var(--code-bg)] code-glow">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1e2433] bg-[#141820]">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--code-border)] bg-[var(--code-bg-header)]">
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1.5">
                     <div className="w-3 h-3 rounded-full bg-[var(--danger)]" />
                     <div className="w-3 h-3 rounded-full bg-[var(--warning)]" />
                     <div className="w-3 h-3 rounded-full bg-[var(--success)]" />
                   </div>
-                  <span className="ml-2 text-sm text-[#94a3b8] font-mono">src/index.ts</span>
+                  <span className="ml-2 text-sm text-[var(--code-punctuation)] font-mono">
+                    src/index.ts
+                  </span>
                 </div>
                 <button
                   onClick={copyCode}
-                  className="p-1.5 rounded-md hover:bg-[#1e2433] transition-colors text-[#94a3b8] hover:text-[#e2e8f0]"
+                  className="p-1.5 rounded-md hover:bg-[var(--code-border)] transition-colors text-[var(--code-punctuation)] hover:text-[var(--code-variable)]"
                   aria-label="Copy code"
                 >
                   {copied ? (
@@ -111,54 +113,54 @@ export function Hero() {
               {/* Code */}
               <pre className="p-4 overflow-x-auto text-left">
                 <code className="text-sm font-mono">
-                  <span className="text-[#c084fc]">import</span>
-                  <span className="text-[#e2e8f0]"> {'{ '}</span>
-                  <span className="text-[#22d3ee]">createApp</span>
-                  <span className="text-[#e2e8f0]">, </span>
-                  <span className="text-[#22d3ee]">createRouter</span>
-                  <span className="text-[#e2e8f0]">, </span>
-                  <span className="text-[#22d3ee]">listen</span>
-                  <span className="text-[#e2e8f0]"> {'}'} </span>
-                  <span className="text-[#c084fc]">from</span>
-                  <span className="text-[#a5d6ff]"> &apos;nextrush&apos;</span>
-                  <span className="text-[#94a3b8]">;</span>
+                  <span className="text-[var(--code-keyword)]">import</span>
+                  <span className="text-[var(--code-variable)]"> {'{ '}</span>
+                  <span className="text-[var(--code-property)]">createApp</span>
+                  <span className="text-[var(--code-variable)]">, </span>
+                  <span className="text-[var(--code-property)]">createRouter</span>
+                  <span className="text-[var(--code-variable)]">, </span>
+                  <span className="text-[var(--code-property)]">listen</span>
+                  <span className="text-[var(--code-variable)]"> {'}'} </span>
+                  <span className="text-[var(--code-keyword)]">from</span>
+                  <span className="text-[var(--code-string)]"> &apos;nextrush&apos;</span>
+                  <span className="text-[var(--code-punctuation)]">;</span>
                   {'\n\n'}
-                  <span className="text-[#c084fc]">const</span>
-                  <span className="text-[#e2e8f0]"> app = </span>
-                  <span className="text-[#79c0ff]">createApp</span>
-                  <span className="text-[#94a3b8]">();</span>
+                  <span className="text-[var(--code-keyword)]">const</span>
+                  <span className="text-[var(--code-variable)]"> app = </span>
+                  <span className="text-[var(--code-function)]">createApp</span>
+                  <span className="text-[var(--code-punctuation)]">();</span>
                   {'\n'}
-                  <span className="text-[#c084fc]">const</span>
-                  <span className="text-[#e2e8f0]"> router = </span>
-                  <span className="text-[#79c0ff]">createRouter</span>
-                  <span className="text-[#94a3b8]">();</span>
+                  <span className="text-[var(--code-keyword)]">const</span>
+                  <span className="text-[var(--code-variable)]"> router = </span>
+                  <span className="text-[var(--code-function)]">createRouter</span>
+                  <span className="text-[var(--code-punctuation)]">();</span>
                   {'\n\n'}
-                  <span className="text-[#e2e8f0]">router.</span>
-                  <span className="text-[#79c0ff]">get</span>
-                  <span className="text-[#94a3b8]">(</span>
-                  <span className="text-[#a5d6ff]">&apos;/&apos;</span>
-                  <span className="text-[#e2e8f0]">, (ctx) {'=> {'}</span>
+                  <span className="text-[var(--code-variable)]">router.</span>
+                  <span className="text-[var(--code-function)]">get</span>
+                  <span className="text-[var(--code-punctuation)]">(</span>
+                  <span className="text-[var(--code-string)]">&apos;/&apos;</span>
+                  <span className="text-[var(--code-variable)]">, (ctx) {'=> {'}</span>
                   {'\n'}
-                  <span className="text-[#e2e8f0]"> ctx.</span>
-                  <span className="text-[#79c0ff]">json</span>
-                  <span className="text-[#94a3b8]">({'{ '}</span>
-                  <span className="text-[#22d3ee]">message</span>
-                  <span className="text-[#94a3b8]">: </span>
-                  <span className="text-[#a5d6ff]">&apos;Hello NextRush!&apos;</span>
-                  <span className="text-[#94a3b8]"> {'}'});</span>
+                  <span className="text-[var(--code-variable)]"> ctx.</span>
+                  <span className="text-[var(--code-function)]">json</span>
+                  <span className="text-[var(--code-punctuation)]">({'{ '}</span>
+                  <span className="text-[var(--code-property)]">message</span>
+                  <span className="text-[var(--code-punctuation)]">: </span>
+                  <span className="text-[var(--code-string)]">&apos;Hello NextRush!&apos;</span>
+                  <span className="text-[var(--code-punctuation)]"> {'}'});</span>
                   {'\n'}
-                  <span className="text-[#94a3b8]">{'}'});</span>
+                  <span className="text-[var(--code-punctuation)]">{'}'});</span>
                   {'\n\n'}
-                  <span className="text-[#e2e8f0]">app.</span>
-                  <span className="text-[#79c0ff]">route</span>
-                  <span className="text-[#94a3b8]">(</span>
-                  <span className="text-[#a5d6ff]">&apos;/&apos;</span>
-                  <span className="text-[#e2e8f0]">, router);</span>
+                  <span className="text-[var(--code-variable)]">app.</span>
+                  <span className="text-[var(--code-function)]">route</span>
+                  <span className="text-[var(--code-punctuation)]">(</span>
+                  <span className="text-[var(--code-string)]">&apos;/&apos;</span>
+                  <span className="text-[var(--code-variable)]">, router);</span>
                   {'\n'}
-                  <span className="text-[#79c0ff]">listen</span>
-                  <span className="text-[#e2e8f0]">(app, </span>
-                  <span className="text-[#f59e0b]">3000</span>
-                  <span className="text-[#94a3b8]">);</span>
+                  <span className="text-[var(--code-function)]">listen</span>
+                  <span className="text-[var(--code-variable)]">(app, </span>
+                  <span className="text-[var(--code-number)]">3000</span>
+                  <span className="text-[var(--code-punctuation)]">);</span>
                 </code>
               </pre>
             </div>

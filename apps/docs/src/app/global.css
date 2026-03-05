@@ -14,8 +14,8 @@
   --rush-green: #22c55e;
 
   /* Gradients */
-  --rush-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  --rush-gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #22d3ee 100%);
+  --rush-gradient: linear-gradient(135deg, var(--rush-blue) 0%, var(--rush-purple) 100%);
+  --rush-gradient-accent: linear-gradient(135deg, var(--rush-purple) 0%, var(--rush-cyan) 100%);
 
   /* Semantic Colors */
   --success: #22c55e;
@@ -34,6 +34,11 @@
   --text-primary: #eef0f5;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
+
+  /* Code block chrome */
+  --code-bg: #0d1117;
+  --code-bg-header: #141820;
+  --code-border: #1e2433;
 
   /* Syntax highlighting tokens (dark) */
   --code-keyword: #c084fc;
@@ -78,6 +83,11 @@
   --rush-cyan: #0891b2;
   --rush-blue: #2563eb;
   --rush-purple: #7c3aed;
+
+  /* Code block chrome (light) */
+  --code-bg: #f8fafc;
+  --code-bg-header: #f1f5f9;
+  --code-border: #e2e8f0;
 
   /* Syntax highlighting tokens (light) */
   --code-keyword: #7c3aed;
@@ -130,7 +140,12 @@ kbd {
 
 /* Gradient text utility */
 .gradient-text {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 40%, #06b6d4 100%);
+  background: linear-gradient(
+    135deg,
+    var(--rush-blue) 0%,
+    var(--rush-purple) 40%,
+    var(--rush-cyan) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -167,14 +182,14 @@ kbd {
 /* Glow effect */
 .glow {
   box-shadow:
-    0 0 20px rgba(59, 130, 246, 0.2),
-    0 0 60px rgba(139, 92, 246, 0.1);
+    0 0 20px color-mix(in srgb, var(--rush-blue) 20%, transparent),
+    0 0 60px color-mix(in srgb, var(--rush-purple) 10%, transparent);
 }
 
 .glow-hover:hover {
   box-shadow:
-    0 0 30px rgba(59, 130, 246, 0.3),
-    0 0 80px rgba(139, 92, 246, 0.2);
+    0 0 30px color-mix(in srgb, var(--rush-blue) 30%, transparent),
+    0 0 80px color-mix(in srgb, var(--rush-purple) 20%, transparent);
 }
 
 /* Card hover effect */
@@ -251,7 +266,7 @@ kbd {
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.06),
     0 8px 24px rgba(0, 0, 0, 0.08);
-  border-color: #e2e8f0;
+  border-color: var(--code-border);
 }
 
 /* Enhanced card with glass morphism in dark, crisp borders in light */
@@ -275,13 +290,13 @@ kbd {
 
 /* Light mode: crisp, clean cards */
 .light .card-glow {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-border);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .light .card-glow:hover {
-  border-color: #cbd5e1;
+  border-color: var(--bg-border);
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.06),
     0 1px 3px rgba(0, 0, 0, 0.04);
@@ -367,12 +382,12 @@ kbd {
 
 /* Light mode clean off-white background */
 .light {
-  background: #fafbfc;
+  background: var(--bg-base);
 }
 
 /* Dark mode deep ink-blue-black */
 .dark {
-  background: #0c0f17;
+  background: var(--bg-base);
 }
 
 /* ============================================
@@ -393,7 +408,7 @@ kbd {
 
 /* Light mode: code blocks need crisp borders */
 .light [data-rehype-pretty-code-figure] pre {
-  border-color: #e2e8f0;
+  border-color: var(--code-border);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 

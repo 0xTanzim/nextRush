@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "tsx ../../scripts/docs/build-docs.ts",
     "build": "next build",
     "dev": "next dev",
     "start": "serve out",

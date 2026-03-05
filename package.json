@@ -2,7 +2,7 @@
   "name": "nextrush-monorepo",
   "version": "0.0.1",
   "private": true,
-  "description": "NextRush v3 - Minimal, modular, blazing fast Node.js framework",
+  "description": "NextRush v3 - Minimal, modular, high-performance Node.js framework",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -22,6 +22,8 @@
     "fresh": "bash scripts/fresh-install.sh",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "docs:validate": "tsx scripts/docs/build-docs.ts",
+    "docs:validate:strict": "tsx scripts/docs/build-docs.ts --strict",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "turbo run build && changeset publish",
