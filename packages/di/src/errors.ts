@@ -35,8 +35,8 @@ ${chainStr}${missing}
 "${missing}" is not registered in the container.
 
 Possible fixes:
-  • Add @Service() or @Repository() decorator to ${missing}
-  • Ensure the file containing ${missing} is in the scan directory
+  • Add @Service(), @Repository(), or @Config() decorator to ${missing}
+  • Ensure ${missing} is imported before container.resolve() is called
   • Register manually: container.register(${missing}, { useClass: ${missing} })
   • Check for typos in the class name or import path
 `);
@@ -166,6 +166,9 @@ for each test or using container.clearInstances() between tests.
 
 /**
  * Error thrown when a required dependency is not found.
+ *
+ * @deprecated Use {@link DependencyResolutionError} instead — it provides
+ * the same information plus the resolution chain context.
  */
 export class MissingDependencyError extends DIError {
   public readonly token: string;

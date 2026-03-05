@@ -40,14 +40,8 @@ describe('Discovery', () => {
       await mkdir(join(testDir, 'services'), { recursive: true });
 
       // Create a simple file (not a controller, but should be scanned)
-      await writeFile(
-        join(testDir, 'controllers', 'test.ts'),
-        'export const foo = 1;'
-      );
-      await writeFile(
-        join(testDir, 'services', 'test.ts'),
-        'export const bar = 2;'
-      );
+      await writeFile(join(testDir, 'controllers', 'test.ts'), 'export const foo = 1;');
+      await writeFile(join(testDir, 'services', 'test.ts'), 'export const bar = 2;');
 
       const results = await discoverControllers({ root: testDir });
 
@@ -57,10 +51,7 @@ describe('Discovery', () => {
 
     it('should skip node_modules directory', async () => {
       await mkdir(join(testDir, 'node_modules', 'package'), { recursive: true });
-      await writeFile(
-        join(testDir, 'node_modules', 'package', 'index.ts'),
-        'export const x = 1;'
-      );
+      await writeFile(join(testDir, 'node_modules', 'package', 'index.ts'), 'export const x = 1;');
 
       const results = await discoverControllers({ root: testDir });
 
@@ -128,14 +119,8 @@ describe('Discovery', () => {
       await mkdir(join(testDir, 'controllers'), { recursive: true });
       await mkdir(join(testDir, 'services'), { recursive: true });
 
-      await writeFile(
-        join(testDir, 'controllers', 'user.controller.ts'),
-        'export const x = 1;'
-      );
-      await writeFile(
-        join(testDir, 'services', 'user.service.ts'),
-        'export const y = 2;'
-      );
+      await writeFile(join(testDir, 'controllers', 'user.controller.ts'), 'export const x = 1;');
+      await writeFile(join(testDir, 'services', 'user.service.ts'), 'export const y = 2;');
 
       // Only include .controller.ts files
       const results = await discoverControllers({
@@ -162,16 +147,16 @@ describe('Discovery', () => {
     });
 
     it('should log debug messages when debug is true', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
       await discoverControllers({
         root: testDir,
         debug: true,
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Controllers] Scanning:')
-      );
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[Controllers] Scanning:'));
+
+      stderrSpy.mockRestore();
     });
   });
 
@@ -224,9 +209,7 @@ describe('Discovery', () => {
     });
 
     it('should return empty array for no errors', () => {
-      const results: DiscoveryResult[] = [
-        { filePath: '/a.ts', controllers: [], errors: [] },
-      ];
+      const results: DiscoveryResult[] = [{ filePath: '/a.ts', controllers: [], errors: [] }];
 
       const errors = getErrorsFromResults(results);
 

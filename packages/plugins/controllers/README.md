@@ -165,7 +165,12 @@ For each route method, a handler is created:
 ```typescript
 // Pseudo-code of the generated handler:
 async function handler(ctx: Context) {
-  // 1. Execute guards (in order)
+  // 1. Apply response headers (from @SetHeader, precomputed)
+  for (const { name, value } of responseHeaders) {
+    ctx.set(name, value);
+  }
+
+  // 2. Execute guards (in order)
   for (const guard of guards) {
     if (isGuardClass(guard)) {
       const instance = container.resolve(guard);
@@ -179,17 +184,26 @@ async function handler(ctx: Context) {
     }
   }
 
-  // 2. Resolve controller from DI
+  // 3. Resolve controller from DI
   const controller = container.resolve(UserController);
 
-  // 3. Extract parameters (with async transform support)
+  // 4. Extract parameters (with async transform support)
+  //    Supports: body, query, param, header, ctx, req, res, custom
   const args = await resolveParameters(ctx, paramMetadata);
 
-  // 4. Call method
+  // 5. Call method
   const result = await controller.findOne(...args);
 
-  // 5. Send response (if not already sent)
-  if (result !== undefined) {
+  // 6. Handle response
+  //    - @Redirect: set Location header, override URL from return value
+  //    - Default: ctx.json(result) if not already sent
+  if (redirectMetadata) {
+    const url = typeof result === 'string' ? result : redirectMetadata.url;
+    const code = result?.statusCode ?? redirectMetadata.statusCode;
+    ctx.status = code;
+    ctx.set('Location', url);
+    ctx.send('');
+  } else if (result !== undefined) {
     ctx.json(result);
   }
 }
@@ -265,16 +279,17 @@ Parameters are extracted from the request based on decorator metadata:
 
 ### Extraction Sources
 
-| Decorator         | Source            | Example                  |
-| ----------------- | ----------------- | ------------------------ |
-| `@Body()`         | `ctx.body`        | Full request body        |
-| `@Body('name')`   | `ctx.body.name`   | Specific body property   |
-| `@Param()`        | `ctx.params`      | All route parameters     |
-| `@Param('id')`    | `ctx.params.id`   | Specific route parameter |
-| `@Query()`        | `ctx.query`       | All query parameters     |
-| `@Query('page')`  | `ctx.query.page`  | Specific query parameter |
-| `@Header('auth')` | `ctx.get('auth')` | Specific header          |
-| `@Ctx()`          | `ctx`             | Full context object      |
+| Decorator         | Source            | Example                            |
+| ----------------- | ----------------- | ---------------------------------- |
+| `@Body()`         | `ctx.body`        | Full request body                  |
+| `@Body('name')`   | `ctx.body.name`   | Specific body property             |
+| `@Param()`        | `ctx.params`      | All route parameters               |
+| `@Param('id')`    | `ctx.params.id`   | Specific route parameter           |
+| `@Query()`        | `ctx.query`       | All query parameters               |
+| `@Query('page')`  | `ctx.query.page`  | Specific query parameter           |
+| `@Header('auth')` | `ctx.get('auth')` | Specific header                    |
+| `@Ctx()`          | `ctx`             | Full context object                |
+| Custom            | User-defined      | Via `createCustomParamDecorator()` |
 
 ### Async Transform Support
 
@@ -330,6 +345,9 @@ interface ControllersPluginOptions {
   prefix?: string; // Global route prefix (e.g., '/api')
   middleware?: Middleware[]; // Global middleware for all routes
 
+  // Middleware can also be DI tokens (resolved from container)
+  // e.g., middleware: ['LoggerMiddleware', Symbol.for('AuthMiddleware')]
+
   // DI container (uses global container by default)
   container?: ContainerInterface;
 
@@ -357,18 +375,19 @@ app.plugin(
 ### Auto-Discovery (Recommended)
 
 ```typescript
-// ✅ Recommended - auto-discovers all @Controller classes
+// ✅ Recommended — scans ALL .ts/.js files, no file naming convention required
 await app.plugin(
   controllersPlugin({
     router,
-    root: './src', // Directory to scan
-    include: ['**/*.controller.ts'], // Only files matching pattern
-    exclude: ['**/*.test.ts', '**/__tests__/**'],
+    root: './src',
     prefix: '/api',
-    debug: true, // Log discovered controllers
   })
 );
 ```
+
+`@Controller` classes are discovered regardless of file name — `users.ts`, `user.controller.ts`,
+`userController.ts`, `modules/user/index.ts` — all work. Use `include` only to narrow the scan
+when you want to exclude certain areas.
 
 ## Error Hierarchy
 
@@ -419,7 +438,8 @@ app.use(async (ctx) => {
 
 ## Development Runtime
 
-Use `@nextrush/dev` for development (decorator metadata support):
+Use `@nextrush/dev` for development. It runs with SWC on Node.js, emitting decorator metadata
+that DI requires — and validates your `tsconfig.json` at startup:
 
 ```bash
 pnpm add -D @nextrush/dev
@@ -428,9 +448,29 @@ pnpm add -D @nextrush/dev
 ```json
 {
   "scripts": {
-    "dev": "nextrush-dev"
+    "dev": "nextrush dev",
+    "build": "nextrush build",
+    "start": "node dist/index.js"
   }
 }
+```
+
+## Plugin Lifecycle
+
+### `destroy()`
+
+The plugin implements `destroy()` for clean shutdown. When called:
+
+- Calls `router.reset()` to clear all registered routes, middleware, and cached route state
+- Ensures no stale route handlers persist after teardown
+
+```typescript
+// Manual cleanup
+const plugin = controllersPlugin({ router, root: './src' });
+await app.plugin(plugin);
+
+// Later, during shutdown:
+plugin.destroy();
 ```
 
 ## API Reference

@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import type { Middleware as NextrushMiddleware } from '@nextrush/types';
+
 import {
   DEFAULT_HEADER,
   DEFAULT_METRIC,
@@ -18,7 +20,6 @@ import {
 } from './constants';
 import type {
   DetailedTimerOptions,
-  Middleware,
   ServerTimingOptions,
   TimerContext,
   TimerOptions,
@@ -137,9 +138,7 @@ function formatFixed(value: number, precision: number, factor: number): string {
  * });
  * ```
  */
-export function timer<TContext extends TimerContext = TimerContext>(
-  options: TimerOptions = {}
-): Middleware<TContext> {
+export function timer(options: TimerOptions = {}): NextrushMiddleware {
   const {
     header = DEFAULT_HEADER,
     suffix = DEFAULT_SUFFIX,
@@ -155,7 +154,7 @@ export function timer<TContext extends TimerContext = TimerContext>(
   const safePrecision = clampPrecision(precision);
   const factor = 10 ** safePrecision;
 
-  return async (ctx: TContext) => {
+  return (async (ctx: TimerContext) => {
     const start = now();
 
     try {
@@ -171,7 +170,7 @@ export function timer<TContext extends TimerContext = TimerContext>(
         ctx.set(header, `${formatted}${suffix}`);
       }
     }
-  };
+  }) as unknown as NextrushMiddleware;
 }
 
 /**
@@ -198,9 +197,7 @@ export function timer<TContext extends TimerContext = TimerContext>(
  * });
  * ```
  */
-export function detailedTimer<TContext extends TimerContext = TimerContext>(
-  options: DetailedTimerOptions = {}
-): Middleware<TContext> {
+export function detailedTimer(options: DetailedTimerOptions = {}): NextrushMiddleware {
   const {
     header = DEFAULT_HEADER,
     suffix = DEFAULT_SUFFIX,
@@ -217,7 +214,7 @@ export function detailedTimer<TContext extends TimerContext = TimerContext>(
   const safePrecision = clampPrecision(precision);
   const factor = 10 ** safePrecision;
 
-  return async (ctx: TContext) => {
+  return (async (ctx: TimerContext) => {
     const start = now();
 
     try {
@@ -243,7 +240,7 @@ export function detailedTimer<TContext extends TimerContext = TimerContext>(
         ctx.set(header, formatted);
       }
     }
-  };
+  }) as unknown as NextrushMiddleware;
 }
 
 /**
@@ -261,10 +258,8 @@ export function detailedTimer<TContext extends TimerContext = TimerContext>(
  * app.use(responseTime());
  * ```
  */
-export function responseTime<TContext extends TimerContext = TimerContext>(
-  options: TimerOptions = {}
-): Middleware<TContext> {
-  return timer<TContext>(options);
+export function responseTime(options: TimerOptions = {}): NextrushMiddleware {
+  return timer(options);
 }
 
 // ============================================================================
@@ -312,9 +307,7 @@ export function responseTime<TContext extends TimerContext = TimerContext>(
  * app.use(serverTiming({ metric: 'total' }));
  * ```
  */
-export function serverTiming<TContext extends TimerContext = TimerContext>(
-  options: ServerTimingOptions = {}
-): Middleware<TContext> {
+export function serverTiming(options: ServerTimingOptions = {}): NextrushMiddleware {
   const {
     metric = DEFAULT_METRIC,
     description,
@@ -329,7 +322,7 @@ export function serverTiming<TContext extends TimerContext = TimerContext>(
   const safeMetric = sanitizeMetricName(metric);
   const safeDescription = description ? sanitizeDescription(description) : undefined;
 
-  return async (ctx: TContext) => {
+  return (async (ctx: TimerContext) => {
     const start = now();
 
     try {
@@ -348,5 +341,5 @@ export function serverTiming<TContext extends TimerContext = TimerContext>(
         ctx.set(SERVER_TIMING_HEADER, existing ? `${existing}, ${newValue}` : newValue);
       }
     }
-  };
+  }) as unknown as NextrushMiddleware;
 }

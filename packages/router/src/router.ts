@@ -852,6 +852,20 @@ export class Router {
   }
 
   /**
+   * Remove all registered routes and middleware, resetting the router to its initial state.
+   * Useful for plugin `destroy()` to cleanly un-register routes.
+   */
+  reset(): void {
+    this.root.children.clear();
+    this.root.handlers.clear();
+    this.root.paramChild = undefined;
+    this.root.wildcardChild = undefined;
+    this.staticRoutes.clear();
+    this.routerMiddleware.length = 0;
+    this.hasParamRoutes = false;
+  }
+
+  /**
    * Internal method to add route with group context
    * @internal
    */

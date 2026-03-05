@@ -8,24 +8,21 @@
  */
 
 import {
-    buildDevArgs,
-    detectRuntime,
-    existsSync,
-    getCwd,
-    getRuntimeInfo,
-    initFsSync,
-    resolvePath,
-    spawn,
-    type SpawnResult,
+  buildDevArgs,
+  detectRuntime,
+  existsSync,
+  exitProcess,
+  getCwd,
+  getEnv,
+  getRuntimeInfo,
+  initFsSync,
+  onSignal,
+  resolvePath,
+  spawn,
+  type SpawnResult,
 } from '../runtime/index.js';
-import { findEntry, getDefaultWatchPaths } from '../utils/config.js';
-import {
-    banner,
-    clear,
-    error,
-    info,
-    log,
-} from '../utils/logger.js';
+import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
+import { banner, clear, error, info, log } from '../utils/logger.js';
 
 /**
  * Development server options
@@ -63,16 +60,13 @@ export interface DevOptions {
  * dev('./src/app.ts', { port: 4000 });
  * ```
  */
-export async function dev(
-  entry?: string,
-  options: DevOptions = {},
-): Promise<SpawnResult> {
+export async function dev(entry?: string, options: DevOptions = {}): Promise<SpawnResult> {
   // Initialize fs module for sync operations (required in ESM context)
   await initFsSync();
 
   const resolvedEntry = entry ?? options.entry ?? findEntry();
   // Respect PORT env var if options.port is not explicitly set
-  const port = options.port ?? parseInt(process.env.PORT || '3000', 10);
+  const port = options.port ?? parseInt(getEnv('PORT') ?? '3000', 10);
   const cwd = getCwd();
 
   // Clear screen unless disabled
@@ -95,7 +89,8 @@ export async function dev(
   if (!existsSync(entryPath)) {
     error(`Entry file not found: ${resolvedEntry}`);
     error(`Looked in: ${entryPath}`);
-    process.exit(1);
+    error('Hint: Create the file or set "main" in package.json to your entry point.');
+    exitProcess(1);
   }
 
   // Build watch paths
@@ -104,13 +99,18 @@ export async function dev(
 
   // Show runtime-specific info
   if (runtimeInfo.needsSwc) {
-    log('Using tsx for TypeScript support');
-    log('\x1b[33mNote: For DI with constructor injection, install @swc-node/register\x1b[0m');
+    log('Using SWC for TypeScript + decorator metadata support');
+
+    // Validate decorator config — warn early if metadata won't be emitted
+    const decoratorWarnings = validateDecoratorConfig();
+    for (const w of decoratorWarnings) {
+      error(w);
+    }
   } else {
     log(`${runtimeInfo.runtime} has native TypeScript support`);
   }
 
-  console.log(); // Blank line
+  log(''); // Blank line
 
   // Build command arguments based on runtime
   const { command, args } = buildDevArgs(
@@ -118,7 +118,7 @@ export async function dev(
     resolvedEntry,
     watchPaths,
     options.inspect,
-    options.inspectPort,
+    options.inspectPort
   );
 
   // Prepare environment
@@ -143,11 +143,11 @@ export async function dev(
   // Handle process signals
   const cleanup = () => {
     child.kill('SIGTERM');
-    process.exit(0);
+    exitProcess(0);
   };
 
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
+  onSignal('SIGINT', cleanup);
+  onSignal('SIGTERM', cleanup);
 
   return child;
 }
@@ -199,7 +199,7 @@ export function devCli(args: string[]): void {
       case '--help':
       case '-h': {
         devHelp();
-        process.exit(0);
+        exitProcess(0);
       }
       default: {
         if (!arg.startsWith('-')) {
@@ -213,7 +213,7 @@ export function devCli(args: string[]): void {
   // Run dev server
   dev(entry, options).catch((err) => {
     error(`Failed to start dev server: ${err.message}`);
-    process.exit(1);
+    exitProcess(1);
   });
 }
 
@@ -221,7 +221,7 @@ export function devCli(args: string[]): void {
  * Print dev command help
  */
 export function devHelp(): void {
-  console.log(`
+  log(`
 \x1b[36m⚡ NextRush Dev Server\x1b[0m
 
 Usage: nextrush dev [entry] [options]

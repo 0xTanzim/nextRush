@@ -226,7 +226,7 @@ class UserController {
 
 const app = createApp();
 const router = createRouter();
-app.plugin(controllersPlugin({ router, controllers: [UserController] }));
+await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
 app.route('/', router);
 await listen(app, 3000);
 ```

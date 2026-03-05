@@ -36,8 +36,8 @@ graph LR
 
 ## Quick Reference
 
-| Package                                                     | Purpose                     | Use Case                   |
-| ----------------------------------------------------------- | --------------------------- | -------------------------- |
+| Package                                                          | Purpose                     | Use Case                   |
+| ---------------------------------------------------------------- | --------------------------- | -------------------------- |
 | [@nextrush/controllers](/docs/api-reference/plugins/controllers) | Decorator-based controllers | Structured REST APIs       |
 | [@nextrush/logger](/docs/api-reference/plugins/logger)           | Request logging             | Observability, debugging   |
 | [@nextrush/static](/docs/api-reference/plugins/static)           | Static file serving         | Frontend assets, downloads |
@@ -80,7 +80,7 @@ const app = createApp();
 const router = createRouter();
 
 // Register plugins
-app.plugin(controllersPlugin({ router, controllers: [UserController] }));
+await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
 app.plugin(eventsPlugin());
 ```
 
@@ -132,10 +132,11 @@ app.use(logger());
 app.use(serveStatic({ root: './public' }));
 
 // API controllers
-app.plugin(
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [UserController, ProductController],
+    root: './src',
+    prefix: '/api',
   })
 );
 ```

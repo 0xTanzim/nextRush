@@ -36,7 +36,7 @@ function getTimestamp(): string {
 export function log(message: string): void {
   const time = getTimestamp();
   console.log(
-    `${colors.gray}[${time}]${colors.reset} ${colors.cyan}[nextrush]${colors.reset} ${message}`,
+    `${colors.gray}[${time}]${colors.reset} ${colors.cyan}[nextrush]${colors.reset} ${message}`
   );
 }
 
@@ -45,9 +45,7 @@ export function log(message: string): void {
  */
 export function success(message: string): void {
   const time = getTimestamp();
-  console.log(
-    `${colors.gray}[${time}]${colors.reset} ${colors.green}✓${colors.reset} ${message}`,
-  );
+  console.log(`${colors.gray}[${time}]${colors.reset} ${colors.green}✓${colors.reset} ${message}`);
 }
 
 /**
@@ -56,7 +54,7 @@ export function success(message: string): void {
 export function warn(message: string): void {
   const time = getTimestamp();
   console.warn(
-    `${colors.gray}[${time}]${colors.reset} ${colors.yellow}⚠${colors.reset} ${message}`,
+    `${colors.gray}[${time}]${colors.reset} ${colors.yellow}⚠${colors.reset} ${message}`
   );
 }
 
@@ -65,9 +63,7 @@ export function warn(message: string): void {
  */
 export function error(message: string): void {
   const time = getTimestamp();
-  console.error(
-    `${colors.gray}[${time}]${colors.reset} ${colors.red}✗${colors.reset} ${message}`,
-  );
+  console.error(`${colors.gray}[${time}]${colors.reset} ${colors.red}✗${colors.reset} ${message}`);
 }
 
 /**
@@ -78,7 +74,7 @@ export function debug(message: string, verbose = false): void {
 
   const time = getTimestamp();
   console.log(
-    `${colors.gray}[${time}] [debug]${colors.reset} ${colors.dim}${message}${colors.reset}`,
+    `${colors.gray}[${time}] [debug]${colors.reset} ${colors.dim}${message}${colors.reset}`
   );
 }
 
@@ -118,6 +114,22 @@ export function clear(): void {
 }
 
 /**
+ * Write raw text to stdout (cross-runtime)
+ */
+function writeStdout(text: string): void {
+  if ('Deno' in globalThis) {
+    const encoder = new TextEncoder();
+    // @ts-expect-error Deno global exists in Deno runtime
+    (globalThis.Deno as { stdout: { writeSync: (data: Uint8Array) => void } }).stdout.writeSync(
+      encoder.encode(text)
+    );
+    return;
+  }
+
+  process.stdout.write(text);
+}
+
+/**
  * Create a spinner (simple text-based for cross-runtime compatibility)
  */
 export function spinner(message: string): {
@@ -131,7 +143,7 @@ export function spinner(message: string): {
 
   const interval = setInterval(() => {
     if (!running) return;
-    process.stdout.write(`\r${colors.cyan}${frames[frameIndex]}${colors.reset} ${current}`);
+    writeStdout(`\r${colors.cyan}${frames[frameIndex]}${colors.reset} ${current}`);
     frameIndex = (frameIndex + 1) % frames.length;
   }, 80);
 
@@ -139,7 +151,7 @@ export function spinner(message: string): {
     stop: (finalMessage?: string) => {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${colors.green}✓${colors.reset} ${finalMessage ?? current}\n`);
+      writeStdout(`\r${colors.green}✓${colors.reset} ${finalMessage ?? current}\n`);
     },
     update: (newMessage: string) => {
       current = newMessage;

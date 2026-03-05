@@ -38,12 +38,13 @@ await app.plugin(
     router,
     root: './src',
     prefix: '/api/v1',
-    debug: true,
   })
 );
 ```
 
-Add a controller anywhere in `./src`, decorate it with `@Controller`, and it's automatically registered. No imports, no arrays, no maintenance.
+Add a controller file anywhere in `./src` — any name, any subdirectory. Decorate the class with
+`@Controller` and it is automatically discovered and registered. No imports, no arrays, no naming
+convention enforced.
 
 ---
 
@@ -74,12 +75,12 @@ async function main() {
   const router = createRouter();
 
   // Auto-discover all @Controller classes in ./src
+  // Any file name, any subdirectory — no naming convention required
   await app.plugin(
     controllersPlugin({
       router,
       root: './src',
       prefix: '/api',
-      debug: true,
     })
   );
 
@@ -187,7 +188,8 @@ The `controllersPlugin()` factory accepts these options:
     },
     middleware: {
       type: 'Middleware[]',
-      description: 'Global middleware applied to all routes',
+      description:
+        'Global middleware applied to all routes. Can also accept DI tokens (string or Symbol) that resolve to middleware from the container.',
       optional: true,
     },
   }}
@@ -236,6 +238,12 @@ await app.plugin(
 ```
 
 ### Custom Patterns
+
+<Callout type="info">
+  The `include` option is **not required**. By default the plugin scans all `.ts` and `.js` files
+  under `root` — it does not care how files are named. Use `include` only to narrow the scan when
+  needed (e.g. to skip a large `src/generated/` folder or enforce team conventions).
+</Callout>
 
 Narrow the scan to specific directories or naming conventions:
 
@@ -359,6 +367,54 @@ export class UserController {
   }
 }
 ```
+
+### Custom Parameter Decorators
+
+Use `createCustomParamDecorator()` from `@nextrush/decorators` to create reusable parameter extractors:
+
+```typescript
+import { createCustomParamDecorator } from '@nextrush/decorators';
+import type { Context } from '@nextrush/types';
+
+const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+
+@Controller('/users')
+export class UserController {
+  @Get('/me')
+  getProfile(@CurrentUser user: User) {
+    return user;
+  }
+}
+```
+
+Custom parameters use the `'custom'` source type internally and are fully supported by the handler builder.
+
+### Response Decorators
+
+Set response headers or redirect behavior declaratively:
+
+```typescript
+import { SetHeader, Redirect, Controller, Get } from '@nextrush/decorators';
+
+@Controller('/api')
+export class ApiController {
+  @SetHeader('Cache-Control', 'no-store')
+  @SetHeader('X-Request-Id', 'auto')
+  @Get('/data')
+  getData() {
+    return { result: 'ok' };
+    // Response includes Cache-Control and X-Request-Id headers
+  }
+
+  @Redirect('/new-page', 301)
+  @Get('/old-page')
+  oldPage() {
+    // Return string to override URL, or { url, statusCode } to override both
+  }
+}
+```
+
+Headers from `@SetHeader` are precomputed at build time and applied before the handler response is sent. `@Redirect` sets the `Location` header and sends an empty body.
 
 ---
 
@@ -695,6 +751,9 @@ import {
   Req,
   Res,
   UseGuard,
+  SetHeader,
+  Redirect,
+  createCustomParamDecorator,
 } from '@nextrush/decorators';
 
 import type { GuardFn, GuardContext, CanActivate } from '@nextrush/decorators';

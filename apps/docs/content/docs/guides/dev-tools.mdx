@@ -113,16 +113,16 @@ npx nextrush build --outDir dist --minify --target es2022
 
 The CLI detects your runtime and adapts automatically:
 
-| Runtime | Dev Server                  | Production Build       | Dev Decorator Metadata             |
-| ------- | --------------------------- | ---------------------- | ---------------------------------- |
-| Node.js | `tsx watch`                 | `@swc/core` transform  | Not emitted (use `nextrush build`) |
-| Bun     | `bun --watch` (native)      | `Bun.build()` (native) | Emitted natively                   |
-| Deno    | `deno run --watch` (native) | `npm:@swc/core`        | Emitted natively                   |
+| Runtime | Dev Server                  | Production Build       | Dev Decorator Metadata |
+| ------- | --------------------------- | ---------------------- | ---------------------- |
+| Node.js | `@swc-node/register` (SWC)  | `@swc/core` transform  | Emitted                |
+| Bun     | `bun --watch` (native)      | `Bun.build()` (native) | Emitted natively       |
+| Deno    | `deno run --watch` (native) | `npm:@swc/core`        | Emitted natively       |
 
-<Callout type="info" title="Node.js Dev Mode and DI">
-  On Node.js, `tsx watch` uses esbuild which does not emit decorator metadata. DI with constructor
-  injection works after running `nextrush build`. For dev-time DI on Node.js, install
-  `@swc-node/register` and load it via `--import`. Bun and Deno emit metadata natively.
+<Callout type="info" title="Startup tsconfig Validation">
+  `nextrush dev` checks your `tsconfig.json` at startup and warns immediately if
+  `experimentalDecorators` or `emitDecoratorMetadata` are missing — preventing silent DI failures
+  before your app even starts.
 </Callout>
 
 ## Entry File Detection

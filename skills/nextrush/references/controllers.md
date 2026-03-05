@@ -62,7 +62,9 @@ import { createRouter } from '@nextrush/router';
 import { controllersPlugin } from '@nextrush/controllers';
 
 const app = createApp();
-app.plugin(
+// Scans ALL .ts/.js files under root — no file naming convention required.
+// Any file exporting a class with @Controller is discovered automatically.
+await app.plugin(
   controllersPlugin({
     router: createRouter(),
     root: './src',
@@ -71,6 +73,9 @@ app.plugin(
 );
 app.listen(3000);
 ```
+
+> `include` is optional — default scans `**/*.ts` and `**/*.js`. Only set it to narrow
+> the scan to specific patterns (e.g. `['modules/**/*.controller.ts']`).
 
 ## Parameter Decorators
 
@@ -150,10 +155,11 @@ Execution order: class guards run first, then method guards. Any guard returning
 
 ## Troubleshooting
 
-| Problem              | Cause                               | Solution                                                    |
-| -------------------- | ----------------------------------- | ----------------------------------------------------------- |
-| DI resolution fails  | Missing `reflect-metadata`          | Add `import 'reflect-metadata'` as first import             |
-| Controller not found | File outside `root`                 | Ensure controller is under the `root` path in plugin config |
-| Guard always rejects | Returns falsy (not explicit `true`) | Return `true` explicitly for allowed requests               |
-| Parameters undefined | Missing decorator                   | Add `@Body()`, `@ParamProp()` etc. to method params         |
-| Decorator errors     | Missing tsconfig flags              | Add `experimentalDecorators` and `emitDecoratorMetadata`    |
+| Problem              | Cause                               | Solution                                                                                  |
+| -------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| DI resolution fails  | Missing `reflect-metadata`          | Add `import 'reflect-metadata'` as first import                                           |
+| Controller not found | File outside `root`                 | Ensure controller is under the `root` path in plugin config                               |
+| Guard always rejects | Returns falsy (not explicit `true`) | Return `true` explicitly for allowed requests                                             |
+| Parameters undefined | Missing decorator                   | Add `@Body()`, `@ParamProp()` etc. to method params                                       |
+| Decorator errors     | Missing tsconfig flags              | `nextrush dev` warns at startup; add `experimentalDecorators` and `emitDecoratorMetadata` |
+| "TypeInfo not known" | `emitDecoratorMetadata` false       | Enable in tsconfig.json; `nextrush dev` validates this on startup                         |

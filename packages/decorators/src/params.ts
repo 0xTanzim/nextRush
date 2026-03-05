@@ -6,20 +6,37 @@
  */
 
 import 'reflect-metadata';
-import type { BodyOptions, HeaderOptions, ParamMetadata, ParamOptions, ParamSource, QueryOptions, TransformFn } from './types.js';
+import type {
+  BodyOptions,
+  CustomParamExtractor,
+  HeaderOptions,
+  ParamMetadata,
+  ParamOptions,
+  ParamSource,
+  QueryOptions,
+  TransformFn,
+} from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
 /**
  * Create a parameter decorator for a specific source.
  */
-function createParamDecorator<TOptions extends { transform?: TransformFn; required?: boolean; defaultValue?: unknown }>(
-  source: ParamSource,
-  defaultRequired: boolean
-) {
-  return function paramDecoratorFactory(nameOrOptions?: string | TOptions, options?: TOptions): ParameterDecorator {
-    return function paramDecorator(target: object, propertyKey: string | symbol | undefined, parameterIndex: number): void {
+function createParamDecorator<
+  TOptions extends { transform?: TransformFn; required?: boolean; defaultValue?: unknown },
+>(source: ParamSource, defaultRequired: boolean) {
+  return function paramDecoratorFactory(
+    nameOrOptions?: string | TOptions,
+    options?: TOptions
+  ): ParameterDecorator {
+    return function paramDecorator(
+      target: object,
+      propertyKey: string | symbol | undefined,
+      parameterIndex: number
+    ): void {
       if (propertyKey === undefined) {
-        throw new Error(`Parameter decorator @${source.charAt(0).toUpperCase() + source.slice(1)} can only be used on method parameters, not constructor parameters.`);
+        throw new Error(
+          `Parameter decorator @${source.charAt(0).toUpperCase() + source.slice(1)} can only be used on method parameters, not constructor parameters.`
+        );
       }
 
       const { name, paramOptions } = normalizeParamInput(nameOrOptions, options, source);
@@ -34,8 +51,10 @@ function createParamDecorator<TOptions extends { transform?: TransformFn; requir
       };
 
       const methodKey = `${String(propertyKey)}`;
+
+      // Use getOwnMetadata to prevent inheriting parent class metadata
       const existingParams: Map<string, ParamMetadata[]> =
-        Reflect.getMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
+        Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
 
       const methodParams = existingParams.get(methodKey) ?? [];
       methodParams.push(metadata);
@@ -197,7 +216,11 @@ export const Header: {
  * ```
  */
 export function Ctx(): ParameterDecorator {
-  return function ctxDecorator(target: object, propertyKey: string | symbol | undefined, parameterIndex: number): void {
+  return function ctxDecorator(
+    target: object,
+    propertyKey: string | symbol | undefined,
+    parameterIndex: number
+  ): void {
     if (propertyKey === undefined) {
       throw new Error('@Ctx can only be used on method parameters, not constructor parameters.');
     }
@@ -209,8 +232,10 @@ export function Ctx(): ParameterDecorator {
     };
 
     const methodKey = `${String(propertyKey)}`;
+
+    // Use getOwnMetadata to prevent inheriting parent class metadata
     const existingParams: Map<string, ParamMetadata[]> =
-      Reflect.getMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
+      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
 
     const methodParams = existingParams.get(methodKey) ?? [];
     methodParams.push(metadata);
@@ -235,7 +260,11 @@ export function Ctx(): ParameterDecorator {
  * ```
  */
 export function Req(): ParameterDecorator {
-  return function reqDecorator(target: object, propertyKey: string | symbol | undefined, parameterIndex: number): void {
+  return function reqDecorator(
+    target: object,
+    propertyKey: string | symbol | undefined,
+    parameterIndex: number
+  ): void {
     if (propertyKey === undefined) {
       throw new Error('@Req can only be used on method parameters, not constructor parameters.');
     }
@@ -248,7 +277,7 @@ export function Req(): ParameterDecorator {
 
     const methodKey = `${String(propertyKey)}`;
     const existingParams: Map<string, ParamMetadata[]> =
-      Reflect.getMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
+      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
 
     const methodParams = existingParams.get(methodKey) ?? [];
     methodParams.push(metadata);
@@ -273,7 +302,11 @@ export function Req(): ParameterDecorator {
  * ```
  */
 export function Res(): ParameterDecorator {
-  return function resDecorator(target: object, propertyKey: string | symbol | undefined, parameterIndex: number): void {
+  return function resDecorator(
+    target: object,
+    propertyKey: string | symbol | undefined,
+    parameterIndex: number
+  ): void {
     if (propertyKey === undefined) {
       throw new Error('@Res can only be used on method parameters, not constructor parameters.');
     }
@@ -286,7 +319,74 @@ export function Res(): ParameterDecorator {
 
     const methodKey = `${String(propertyKey)}`;
     const existingParams: Map<string, ParamMetadata[]> =
-      Reflect.getMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
+      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
+
+    const methodParams = existingParams.get(methodKey) ?? [];
+    methodParams.push(metadata);
+    existingParams.set(methodKey, methodParams);
+
+    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.PARAMS, existingParams, target.constructor);
+  };
+}
+
+/**
+ * Create a custom parameter decorator with a user-defined extraction function.
+ *
+ * The extractor receives the request context and returns the value to inject
+ * into the handler parameter. Supports both sync and async extractors.
+ *
+ * @param extractor - Function that extracts the parameter value from context
+ * @param options - Optional transform and required settings
+ *
+ * @example
+ * ```typescript
+ * // Extract the authenticated user from state
+ * const CurrentUser = createCustomParamDecorator(
+ *   (ctx) => ctx.state.user
+ * );
+ *
+ * // Extract a specific cookie
+ * const Cookie = (name: string) => createCustomParamDecorator(
+ *   (ctx) => ctx.get('cookie')?.split(';')
+ *     .find(c => c.trim().startsWith(name + '='))
+ *     ?.split('=')[1]
+ * );
+ *
+ * @Controller('/users')
+ * class UserController {
+ *   @Get('/me')
+ *   getProfile(@CurrentUser user: User) {
+ *     return user;
+ *   }
+ * }
+ * ```
+ */
+export function createCustomParamDecorator(
+  extractor: CustomParamExtractor,
+  options?: { transform?: TransformFn; required?: boolean }
+): ParameterDecorator {
+  return function customParamDecorator(
+    target: object,
+    propertyKey: string | symbol | undefined,
+    parameterIndex: number
+  ): void {
+    if (propertyKey === undefined) {
+      throw new Error(
+        'Custom parameter decorator can only be used on method parameters, not constructor parameters.'
+      );
+    }
+
+    const metadata: ParamMetadata = {
+      source: 'custom',
+      index: parameterIndex,
+      required: options?.required ?? false,
+      transform: options?.transform,
+      customExtractor: extractor,
+    };
+
+    const methodKey = `${String(propertyKey)}`;
+    const existingParams: Map<string, ParamMetadata[]> =
+      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
 
     const methodParams = existingParams.get(methodKey) ?? [];
     methodParams.push(metadata);

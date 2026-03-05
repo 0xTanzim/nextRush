@@ -1,6 +1,7 @@
 {
   "name": "api",
   "version": "1.0.0",
+  "private": true,
   "description": "",
   "main": "dist/index.js",
   "type": "module",
@@ -15,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@nextrush/body-parser": "workspace:*",
     "@nextrush/controllers": "workspace:*",
     "@nextrush/decorators": "workspace:*",
     "@nextrush/dev": "workspace:*",

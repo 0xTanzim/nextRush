@@ -7,12 +7,13 @@
  * @packageDocumentation
  */
 
+import type { Middleware } from '@nextrush/types';
+
 import { STRICT_CSP_DIRECTIVES } from './constants.js';
 import { helmet } from './middleware.js';
 import { restrictivePermissionsPolicy } from './permissions.js';
 import type {
   ContentSecurityPolicyOptions,
-  HelmetMiddleware,
   HelmetOptions,
   StrictTransportSecurityOptions,
 } from './types.js';
@@ -37,9 +38,7 @@ import type {
  * }));
  * ```
  */
-export function contentSecurityPolicy(
-  options: ContentSecurityPolicyOptions = {}
-): HelmetMiddleware {
+export function contentSecurityPolicy(options: ContentSecurityPolicyOptions = {}): Middleware {
   return helmet({
     contentSecurityPolicy: options,
     crossOriginEmbedderPolicy: false,
@@ -72,7 +71,7 @@ export function contentSecurityPolicy(
  * }));
  * ```
  */
-export function hsts(options: StrictTransportSecurityOptions = {}): HelmetMiddleware {
+export function hsts(options: StrictTransportSecurityOptions = {}): Middleware {
   return helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -98,7 +97,7 @@ export function hsts(options: StrictTransportSecurityOptions = {}): HelmetMiddle
  *
  * @deprecated Use CSP frame-ancestors instead
  */
-export function frameguard(action: 'DENY' | 'SAMEORIGIN' = 'SAMEORIGIN'): HelmetMiddleware {
+export function frameguard(action: 'DENY' | 'SAMEORIGIN' = 'SAMEORIGIN'): Middleware {
   return helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -121,7 +120,7 @@ export function frameguard(action: 'DENY' | 'SAMEORIGIN' = 'SAMEORIGIN'): Helmet
  *
  * @returns Middleware function
  */
-export function noSniff(): HelmetMiddleware {
+export function noSniff(): Middleware {
   return helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -147,7 +146,7 @@ export function noSniff(): HelmetMiddleware {
  */
 export function referrerPolicy(
   policy: HelmetOptions['referrerPolicy'] = 'no-referrer'
-): HelmetMiddleware {
+): Middleware {
   return helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -190,7 +189,7 @@ export function referrerPolicy(
  * }));
  * ```
  */
-export function strictHelmet(overrides: Partial<HelmetOptions> = {}): HelmetMiddleware {
+export function strictHelmet(overrides: Partial<HelmetOptions> = {}): Middleware {
   const strictOptions: HelmetOptions = {
     contentSecurityPolicy: {
       directives: STRICT_CSP_DIRECTIVES,
@@ -231,7 +230,7 @@ export function strictHelmet(overrides: Partial<HelmetOptions> = {}): HelmetMidd
  * app.use(apiHelmet());
  * ```
  */
-export function apiHelmet(overrides: Partial<HelmetOptions> = {}): HelmetMiddleware {
+export function apiHelmet(overrides: Partial<HelmetOptions> = {}): Middleware {
   const apiOptions: HelmetOptions = {
     contentSecurityPolicy: false, // Not needed for APIs
     crossOriginEmbedderPolicy: false, // Can cause issues with API responses
@@ -269,7 +268,7 @@ export function apiHelmet(overrides: Partial<HelmetOptions> = {}): HelmetMiddlew
  * }
  * ```
  */
-export function devHelmet(): HelmetMiddleware {
+export function devHelmet(): Middleware {
   if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
     console.warn(
       '[@nextrush/helmet] WARNING: devHelmet() is being used in production. ' +
@@ -305,7 +304,7 @@ export function devHelmet(): HelmetMiddleware {
  * app.use('/static', staticHelmet());
  * ```
  */
-export function staticHelmet(overrides: Partial<HelmetOptions> = {}): HelmetMiddleware {
+export function staticHelmet(overrides: Partial<HelmetOptions> = {}): Middleware {
   const staticOptions: HelmetOptions = {
     contentSecurityPolicy: {
       directives: {
@@ -354,7 +353,7 @@ export function staticHelmet(overrides: Partial<HelmetOptions> = {}): HelmetMidd
  */
 export function logoutHelmet(
   clearData: HelmetOptions['clearSiteData'] = ['"cache"', '"cookies"', '"storage"']
-): HelmetMiddleware {
+): Middleware {
   return helmet({
     clearSiteData: clearData,
     // Keep minimal security headers

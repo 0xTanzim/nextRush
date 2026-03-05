@@ -55,6 +55,14 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "peerDependencies": {
+    "reflect-metadata": ">=0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "reflect-metadata": {
+      "optional": true
+    }
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -63,7 +71,10 @@
     "@nextrush/router": "workspace:*",
     "@nextrush/errors": "workspace:*",
     "@nextrush/types": "workspace:*",
-    "@nextrush/adapter-node": "workspace:*"
+    "@nextrush/adapter-node": "workspace:*",
+    "@nextrush/decorators": "workspace:*",
+    "@nextrush/di": "workspace:*",
+    "@nextrush/controllers": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

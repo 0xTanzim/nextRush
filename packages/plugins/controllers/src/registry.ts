@@ -4,12 +4,8 @@
  * Manages registration and tracking of controllers.
  */
 
-import {
-    getControllerDefinition,
-    isController,
-} from '@nextrush/decorators';
+import { getControllerDefinition, isController } from '@nextrush/decorators';
 import type { ContainerInterface } from '@nextrush/di';
-import { hasServiceMetadata } from '@nextrush/di';
 import type { Middleware } from '@nextrush/types';
 import 'reflect-metadata';
 import { buildRoutes } from './builder.js';
@@ -139,17 +135,13 @@ export class ControllerRegistry {
   }
 
   /**
-   * Register the controller in the DI container if not already registered
+   * Register the controller in the DI container as a singleton
    */
   private registerInContainer(controllerClass: Function): void {
     const token = controllerClass as new (...args: unknown[]) => unknown;
 
     if (!this.container.isRegistered(token)) {
-      if (hasServiceMetadata(controllerClass)) {
-        this.container.register(token, { useClass: token });
-      } else {
-        this.container.register(token, { useClass: token });
-      }
+      this.container.register(token, { useClass: token }, { scope: 'singleton' });
     }
   }
 
@@ -159,10 +151,10 @@ export class ControllerRegistry {
   private logRegistration(registered: RegisteredController): void {
     const { target, routes } = registered;
 
-    console.log(`[Controllers] Registered: ${target.name}`);
+    process.stderr.write(`[Controllers] Registered: ${target.name}\n`);
 
     for (const route of routes) {
-      console.log(`  ${route.method.padEnd(7)} ${route.path}`);
+      process.stderr.write(`  ${route.method.padEnd(7)} ${route.path}\n`);
     }
   }
 }

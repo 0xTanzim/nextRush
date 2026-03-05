@@ -139,17 +139,17 @@ npx nextrush build --target es2020
 
 The CLI automatically detects and adapts to your runtime environment:
 
-| Runtime     | Dev Server          | Production Build  | Decorator Metadata |
-| ----------- | ------------------- | ----------------- | ------------------ |
-| **Node.js** | ✅ `tsx watch`      | ✅ @swc/core      | ✅ Full support    |
-| **Bun**     | ✅ Native `--watch` | ✅ Native bundler | ✅ Full support    |
-| **Deno**    | ✅ Native `--watch` | ✅ npm:@swc/core  | ✅ Full support    |
+| Runtime     | Dev Server              | Production Build  | Decorator Metadata |
+| ----------- | ----------------------- | ----------------- | ------------------ |
+| **Node.js** | ✅ `@swc-node/register` | ✅ @swc/core      | ✅ Full support    |
+| **Bun**     | ✅ Native `--watch`     | ✅ Native bundler | ✅ Full support    |
+| **Deno**    | ✅ Native `--watch`     | ✅ npm:@swc/core  | ✅ Full support    |
 
 ### How It Works
 
 **Node.js:**
 
-- Dev: Uses `tsx watch` for TypeScript execution with file watching
+- Dev: Uses `@swc-node/register` for SWC-powered TypeScript execution with decorator metadata
 - Build: Uses `@swc/core` transform API with `decoratorMetadata: true`
 
 **Bun:**

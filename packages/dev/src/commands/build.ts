@@ -10,17 +10,14 @@
 import {
   detectRuntime,
   existsSync,
+  exitProcess,
   getCwd,
   getRuntimeInfo,
   initFsSync,
   joinPath,
   resolvePath,
 } from '../runtime/index.js';
-import {
-  NODE_CHILD_PROCESS,
-  NODE_FS_PROMISES,
-  NODE_PATH,
-} from '../runtime/node-modules.js';
+import { NODE_CHILD_PROCESS, NODE_FS_PROMISES, NODE_PATH } from '../runtime/node-modules.js';
 import { findEntry } from '../utils/config.js';
 import {
   banner,
@@ -29,6 +26,7 @@ import {
   formatSize,
   info,
   log,
+  newline,
   success,
   warn,
 } from '../utils/logger.js';
@@ -72,10 +70,7 @@ export interface BuildOptions {
  * await build('./src/index.ts', { outDir: 'dist', minify: true });
  * ```
  */
-export async function build(
-  entry?: string,
-  options: BuildOptions = {},
-): Promise<void> {
+export async function build(entry?: string, options: BuildOptions = {}): Promise<void> {
   // Initialize fs module for sync operations (required in ESM context)
   await initFsSync();
 
@@ -102,14 +97,15 @@ export async function build(
   info('Decorator Metadata', decoratorMetadata ? 'enabled' : 'disabled');
   info('Sourcemap', sourcemap ? 'enabled' : 'disabled');
   info('Minify', minify ? 'enabled' : 'disabled');
-  console.log();
+  newline();
 
   // Validate entry file exists
   const entryPath = resolvePath(cwd, resolvedEntry);
   if (!existsSync(entryPath)) {
     error(`Entry file not found: ${resolvedEntry}`);
     error(`Looked in: ${entryPath}`);
-    process.exit(1);
+    error('Hint: Create the file or set "main" in package.json to your entry point.');
+    exitProcess(1);
   }
 
   // Check for tsconfig.json
@@ -137,7 +133,7 @@ export async function build(
   }
 
   const duration = Date.now() - startTime;
-  console.log();
+  newline();
   success(`Build completed in ${formatDuration(duration)}`);
 }
 
@@ -149,11 +145,7 @@ export async function build(
  * 2. It's fast (written in Rust)
  * 3. It has full TypeScript support
  */
-async function buildWithSwc(
-  entry: string,
-  outDir: string,
-  options: BuildOptions,
-): Promise<void> {
+async function buildWithSwc(entry: string, outDir: string, options: BuildOptions): Promise<void> {
   log('Building with SWC...');
 
   try {
@@ -185,9 +177,7 @@ async function buildWithSwc(
       // Calculate relative path from source dir, not cwd
       // This ensures output goes to dist/index.js not dist/src/index.js
       const relativePath = path.relative(srcDir, file);
-      const outFile = path
-        .join(outPath, relativePath)
-        .replace(/\.ts$/, '.js');
+      const outFile = path.join(outPath, relativePath).replace(/\.ts$/, '.js');
 
       // Ensure output directory exists
       await fs.mkdir(path.dirname(outFile), { recursive: true });
@@ -251,11 +241,7 @@ async function buildWithSwc(
  *
  * Bun has native TypeScript and decorator support.
  */
-async function buildWithBun(
-  entry: string,
-  outDir: string,
-  options: BuildOptions,
-): Promise<void> {
+async function buildWithBun(entry: string, outDir: string, options: BuildOptions): Promise<void> {
   log('Building with Bun...');
 
   try {
@@ -263,14 +249,13 @@ async function buildWithBun(
     const Bun = globalThis.Bun;
 
     const cwd = getCwd();
-    const target = options.target ?? 'browser';
     const sourcemap = options.sourcemap ?? true;
     const minify = options.minify ?? false;
 
     const result = await Bun.build({
       entrypoints: [resolvePath(cwd, entry)],
       outdir: resolvePath(cwd, outDir),
-      target: target === 'esnext' ? 'browser' : 'bun',
+      target: 'bun',
       sourcemap: sourcemap ? 'external' : 'none',
       minify: minify,
     });
@@ -295,11 +280,7 @@ async function buildWithBun(
  * Deno 2.0+ has native TypeScript support and npm compatibility.
  * Uses @swc/core through npm: specifier for consistent decorator metadata emission.
  */
-async function buildWithDeno(
-  entry: string,
-  outDir: string,
-  options: BuildOptions,
-): Promise<void> {
+async function buildWithDeno(entry: string, outDir: string, options: BuildOptions): Promise<void> {
   log('Building with Deno + SWC...');
 
   try {
@@ -337,9 +318,7 @@ async function buildWithDeno(
       // Transform each file (same logic as Node.js build)
       for (const file of files) {
         const relativePath = path.relative(srcDir, file);
-        const outFile = path
-          .join(outPath, relativePath)
-          .replace(/\.ts$/, '.js');
+        const outFile = path.join(outPath, relativePath).replace(/\.ts$/, '.js');
 
         // Ensure output directory exists
         await fs.mkdir(path.dirname(outFile), { recursive: true });
@@ -412,8 +391,12 @@ async function buildWithDeno(
 async function generateDeclarationsWithDeno(
   cwd: string,
   outDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Deno: any,
+  Deno: {
+    Command: new (
+      cmd: string,
+      opts: Record<string, unknown>
+    ) => { output: () => Promise<{ code: number }> };
+  }
 ): Promise<void> {
   log('Generating type declarations...');
 
@@ -444,7 +427,7 @@ async function generateDeclarationsWithDeno(
 async function buildWithDenoNative(
   entry: string,
   outDir: string,
-  _options: BuildOptions,
+  _options: BuildOptions
 ): Promise<void> {
   warn('Deno native build does NOT emit decorator metadata');
   warn('DI systems may not work correctly. Consider using Node.js or Bun for production builds.');
@@ -493,10 +476,7 @@ async function buildWithDenoNative(
 /**
  * Find all TypeScript files from entry point
  */
-async function findTypeScriptFiles(
-  cwd: string,
-  entry: string,
-): Promise<string[]> {
+async function findTypeScriptFiles(cwd: string, entry: string): Promise<string[]> {
   const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
   const path = await import(/* @vite-ignore */ NODE_PATH);
 
@@ -533,16 +513,11 @@ async function findTypeScriptFiles(
 /**
  * Generate TypeScript declaration files
  */
-async function generateDeclarations(
-  cwd: string,
-  outDir: string,
-): Promise<void> {
+async function generateDeclarations(cwd: string, outDir: string): Promise<void> {
   log('Generating type declarations...');
 
   try {
-    const { spawn: nodeSpawn } = await import(
-      /* @vite-ignore */ NODE_CHILD_PROCESS
-    );
+    const { spawn: nodeSpawn } = await import(/* @vite-ignore */ NODE_CHILD_PROCESS);
 
     await new Promise<void>((resolve) => {
       const tsc = nodeSpawn(
@@ -551,7 +526,7 @@ async function generateDeclarations(
         {
           cwd,
           stdio: 'pipe',
-        },
+        }
       );
 
       tsc.on('close', (code: number | null) => {
@@ -581,8 +556,8 @@ async function cleanDirectory(dir: string): Promise<void> {
   try {
     const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
     await fs.rm(dir, { recursive: true, force: true });
-  } catch {
-    // Ignore errors
+  } catch (err) {
+    warn(`Could not clean directory ${dir}: ${(err as Error).message}`);
   }
 }
 
@@ -649,7 +624,7 @@ export function buildCli(args: string[]): void {
   // Run build
   build(entry, options).catch((err) => {
     error(`Build failed: ${err.message}`);
-    process.exit(1);
+    exitProcess(1);
   });
 }
 
@@ -657,7 +632,7 @@ export function buildCli(args: string[]): void {
  * Print build command help
  */
 export function buildHelp(): void {
-  console.log(`
+  log(`
 \x1b[36m⚡ NextRush Build\x1b[0m
 
 Usage: nextrush build [entry] [options]

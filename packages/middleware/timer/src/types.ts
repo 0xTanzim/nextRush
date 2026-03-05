@@ -12,6 +12,8 @@
 
 /**
  * Middleware function type for compatibility with NextRush.
+ *
+ * @deprecated Use `Middleware` from `@nextrush/types` instead.
  */
 export type Middleware<TContext = unknown> = (
   ctx: TContext,

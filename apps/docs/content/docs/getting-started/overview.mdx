@@ -362,8 +362,8 @@ NextRush supports both functional and class-based programming. Start with functi
     const app = createApp();
     const router = createRouter();
 
-    app.plugin(controllersPlugin({ router, controllers: [UserController] }));
-    app.route('/api', router);
+    await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
+    app.route('/', router);
 
     await listen(app, 3000);
     ```

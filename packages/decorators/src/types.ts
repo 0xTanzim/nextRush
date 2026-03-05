@@ -10,12 +10,15 @@ import type { HttpMethod } from '@nextrush/types';
 /**
  * Supported HTTP methods for route decorators
  */
-export type RouteMethods = Extract<HttpMethod, 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'>;
+export type RouteMethods = Extract<
+  HttpMethod,
+  'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'
+>;
 
 /**
  * Parameter source types for parameter decorators
  */
-export type ParamSource = 'body' | 'query' | 'param' | 'header' | 'ctx' | 'req' | 'res';
+export type ParamSource = 'body' | 'query' | 'param' | 'header' | 'ctx' | 'req' | 'res' | 'custom';
 
 /**
  * Controller metadata stored by @Controller decorator
@@ -84,6 +87,9 @@ export interface ParamMetadata {
 
   /** Validation pipe or transform function */
   readonly transform?: TransformFn;
+
+  /** Custom extractor function for user-defined param decorators */
+  readonly customExtractor?: CustomParamExtractor;
 }
 
 /**
@@ -222,6 +228,9 @@ export interface ControllerOptions {
  * Options for route decorators (@Get, @Post, etc.)
  */
 export interface RouteOptions {
+  /** Route path (alternative to string argument) */
+  path?: string;
+
   /** Route-specific middleware */
   middleware?: MiddlewareRef[];
 
@@ -295,6 +304,8 @@ export const DECORATOR_METADATA_KEYS = {
   MIDDLEWARE: Symbol.for('nextrush:middleware'),
   GUARDS: Symbol.for('nextrush:guards'),
   INTERCEPTORS: Symbol.for('nextrush:interceptors'),
+  RESPONSE_HEADERS: Symbol.for('nextrush:response-headers'),
+  REDIRECT: Symbol.for('nextrush:redirect'),
 } as const;
 
 /**
@@ -308,5 +319,31 @@ export function isValidHttpMethod(method: string): method is RouteMethods {
  * Type guard to check if a value is a valid param source
  */
 export function isValidParamSource(source: string): source is ParamSource {
-  return ['body', 'query', 'param', 'header', 'ctx', 'req', 'res'].includes(source);
+  return ['body', 'query', 'param', 'header', 'ctx', 'req', 'res', 'custom'].includes(source);
+}
+
+/**
+ * Custom parameter extractor function.
+ *
+ * Receives the context object and returns the extracted value.
+ * Supports both sync and async extraction.
+ */
+export type CustomParamExtractor<T = unknown> =
+  | ((ctx: import('@nextrush/types').Context) => T)
+  | ((ctx: import('@nextrush/types').Context) => Promise<T>);
+
+/**
+ * Metadata for @SetHeader decorator — stored per method.
+ */
+export interface ResponseHeaderMetadata {
+  readonly name: string;
+  readonly value: string;
+}
+
+/**
+ * Metadata for @Redirect decorator — stored per method.
+ */
+export interface RedirectMetadata {
+  readonly url: string;
+  readonly statusCode: number;
 }

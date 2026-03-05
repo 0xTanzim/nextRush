@@ -186,6 +186,9 @@ function createMockContext(options: MockContextOptions = {}): Context {
     // State
     state: {} as ContextState,
 
+    // Response state
+    responded: false,
+
     // Raw access
     raw: mockRaw,
     runtime: 'node' as Runtime,

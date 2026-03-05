@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import type { Middleware } from '@nextrush/types';
+
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES } from '../constants.js';
 import { Errors } from '../errors.js';
 import type { BodyParserContext, BodyParserMiddleware, BodyParserOptions } from '../types.js';
@@ -49,7 +51,7 @@ import { urlencoded } from './urlencoded.js';
  * });
  * ```
  */
-export function bodyParser(options: BodyParserOptions = {}): BodyParserMiddleware {
+export function bodyParser(options: BodyParserOptions = {}): Middleware {
   const {
     json: jsonOptions = {},
     urlencoded: urlencodedOptions = {},
@@ -97,17 +99,26 @@ export function bodyParser(options: BodyParserOptions = {}): BodyParserMiddlewar
     : [];
 
   // Pre-create individual parsers with correct options
-  const jsonParser = jsonOptions !== false ? json(jsonOptions) : null;
-  const urlencodedParser = urlencodedOptions !== false ? urlencoded(urlencodedOptions) : null;
+  // Cast to BodyParserMiddleware for internal use (optional next parameter)
+  const jsonParser =
+    jsonOptions !== false ? (json(jsonOptions) as unknown as BodyParserMiddleware) : null;
+  const urlencodedParser =
+    urlencodedOptions !== false
+      ? (urlencoded(urlencodedOptions) as unknown as BodyParserMiddleware)
+      : null;
   // Text and raw parsers only created when explicitly enabled
   const textParser = hasTextOptions
-    ? text(textOptions as Exclude<typeof textOptions, false | undefined>)
+    ? (text(
+        textOptions as Exclude<typeof textOptions, false | undefined>
+      ) as unknown as BodyParserMiddleware)
     : null;
   const rawParser = hasRawOptions
-    ? raw(rawOptions as Exclude<typeof rawOptions, false | undefined>)
+    ? (raw(
+        rawOptions as Exclude<typeof rawOptions, false | undefined>
+      ) as unknown as BodyParserMiddleware)
     : null;
 
-  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
+  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
       if (next) await next();
@@ -158,5 +169,5 @@ export function bodyParser(options: BodyParserOptions = {}): BodyParserMiddlewar
 
     // No matching parser, continue without parsing
     if (next) await next();
-  };
+  }) as unknown as Middleware;
 }

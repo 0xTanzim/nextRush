@@ -1,26 +1,26 @@
 /**
  * SWC Loader for @nextrush/dev
  *
- * This loader wraps @swc-node/register to work from any CWD.
- * It resolves @swc-node/register from this package's node_modules.
+ * Registers @swc-node/register ESM hooks with the correct parent URL
+ * so that @swc-node/register resolves from this package's node_modules,
+ * not from the user's CWD.
  *
  * The path structure is:
- *   packages/dev/dist/loaders/swc-loader.mjs  <- this file
- *   packages/dev/node_modules/@swc-node/register/esm/esm-register.mjs  <- target
+ *   packages/dev/dist/loaders/swc-loader.mjs  <- this file (loaded via --import)
+ *   packages/dev/node_modules/@swc-node/register/esm/index.js  <- hooks module
  */
 
+import { register } from 'node:module';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// Get the directory of this file (inside @nextrush/dev/dist/loaders/)
+// Get this file's directory (inside @nextrush/dev/dist/loaders/)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Navigate from dist/loaders/ to node_modules/@swc-node/register/esm/
-// dist/loaders -> dist -> packages/dev -> packages/dev/node_modules
-const swcRegisterPath = join(__dirname, '..', '..', 'node_modules', '@swc-node', 'register', 'esm', 'esm-register.mjs');
+// Navigate to the dev package root: dist/loaders -> dist -> packages/dev
+const devPackageRoot = join(__dirname, '..', '..');
+const parentURL = pathToFileURL(join(devPackageRoot, '/')).toString();
 
-// Import and re-export the SWC hooks from @swc-node/register
-const swcModule = await import(swcRegisterPath);
-
-export const { resolve, load, initialize } = swcModule;
+// Register @swc-node/register/esm hooks from the dev package's node_modules
+register('@swc-node/register/esm', parentURL);

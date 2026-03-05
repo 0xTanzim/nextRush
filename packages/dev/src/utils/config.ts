@@ -120,6 +120,52 @@ export async function loadConfig(): Promise<NextRushConfig> {
 }
 
 /**
+ * Validate tsconfig.json has decorator metadata enabled.
+ * Returns warnings for missing or disabled settings that would break DI.
+ */
+export function validateDecoratorConfig(): string[] {
+  const cwd = getCwd();
+  const warnings: string[] = [];
+
+  const tsconfigPath = joinPath(cwd, 'tsconfig.json');
+  if (!existsSync(tsconfigPath)) {
+    warnings.push(
+      'No tsconfig.json found. Decorator metadata will not be emitted.',
+      'DI constructor injection (@Service, @Controller) requires:',
+      '  "experimentalDecorators": true',
+      '  "emitDecoratorMetadata": true'
+    );
+    return warnings;
+  }
+
+  try {
+    const raw = readFileSync(tsconfigPath);
+    // Strip single-line comments for JSON parsing
+    const stripped = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const tsconfig = JSON.parse(stripped);
+    const co = tsconfig.compilerOptions ?? {};
+
+    if (!co.experimentalDecorators) {
+      warnings.push(
+        'tsconfig.json missing "experimentalDecorators": true',
+        'Decorators (@Controller, @Get, @Service) will not work without it.'
+      );
+    }
+
+    if (!co.emitDecoratorMetadata) {
+      warnings.push(
+        'tsconfig.json missing "emitDecoratorMetadata": true',
+        'DI constructor injection will silently fail without it.'
+      );
+    }
+  } catch {
+    // tsconfig exists but couldn't be parsed; SWC reads it natively via typescript API
+  }
+
+  return warnings;
+}
+
+/**
  * Get default watch paths
  */
 export function getDefaultWatchPaths(): string[] {

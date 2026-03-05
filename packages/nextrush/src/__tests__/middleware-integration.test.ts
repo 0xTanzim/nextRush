@@ -179,6 +179,7 @@ function createMockContext(options: MockContextOptions = {}): Context & {
     }),
 
     state: {} as ContextState,
+    responded: false,
     raw: mockRaw,
     runtime: 'node' as Runtime,
     bodySource: mockBodySource,

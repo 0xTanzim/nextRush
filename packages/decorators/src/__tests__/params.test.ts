@@ -6,7 +6,16 @@ import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../class.js';
 import { getParamMetadata } from '../metadata.js';
-import { Body, Ctx, Header, Param, Query, Req, Res } from '../params.js';
+import {
+  Body,
+  createCustomParamDecorator,
+  Ctx,
+  Header,
+  Param,
+  Query,
+  Req,
+  Res,
+} from '../params.js';
 import { Get, Post } from '../routes.js';
 
 describe('Parameter Decorators', () => {
@@ -236,7 +245,11 @@ describe('Parameter Decorators', () => {
       @Controller('/users')
       class UserController {
         @Get('/:id')
-        findOne(@Param('id') id: string, @Query('include') include: string, @Header('authorization') auth: string) {
+        findOne(
+          @Param('id') id: string,
+          @Query('include') include: string,
+          @Header('authorization') auth: string
+        ) {
           return { id, include, auth };
         }
       }
@@ -289,6 +302,79 @@ describe('Parameter Decorators', () => {
         }
 
         return UserController;
+      }).toThrow('can only be used on method parameters');
+    });
+  });
+
+  describe('createCustomParamDecorator', () => {
+    it('should register custom parameter with extractor', () => {
+      const CurrentUser = createCustomParamDecorator(
+        (ctx: unknown) => (ctx as Record<string, unknown>).state
+      );
+
+      @Controller('/test')
+      class TestController {
+        @Get()
+        handler(@CurrentUser user: unknown) {
+          return user;
+        }
+      }
+
+      const params = getParamMetadata(TestController, 'handler');
+      expect(params).toHaveLength(1);
+      expect(params[0].source).toBe('custom');
+      expect(params[0].index).toBe(0);
+      expect(typeof params[0].customExtractor).toBe('function');
+    });
+
+    it('should support required option', () => {
+      const Token = createCustomParamDecorator(
+        (ctx: unknown) => (ctx as Record<string, unknown>).token,
+        { required: true }
+      );
+
+      @Controller('/test')
+      class TestController {
+        @Get()
+        handler(@Token token: unknown) {
+          return token;
+        }
+      }
+
+      const params = getParamMetadata(TestController, 'handler');
+      expect(params[0].required).toBe(true);
+    });
+
+    it('should support transform option', () => {
+      const toUpper = (v: unknown) => String(v).toUpperCase();
+      const Lang = createCustomParamDecorator(
+        (ctx: unknown) => (ctx as Record<string, unknown>).lang,
+        { transform: toUpper }
+      );
+
+      @Controller('/test')
+      class TestController {
+        @Get()
+        handler(@Lang lang: unknown) {
+          return lang;
+        }
+      }
+
+      const params = getParamMetadata(TestController, 'handler');
+      expect(params[0].transform).toBe(toUpper);
+    });
+
+    it('should throw when used on constructor parameter', () => {
+      const Custom = createCustomParamDecorator(() => 'value');
+
+      expect(() => {
+        @Controller('/test')
+        class TestController {
+          constructor(@Custom data: unknown) {
+            void data;
+          }
+        }
+        return TestController;
       }).toThrow('can only be used on method parameters');
     });
   });

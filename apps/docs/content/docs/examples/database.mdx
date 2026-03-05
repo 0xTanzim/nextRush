@@ -472,7 +472,6 @@ import { controllersPlugin } from '@nextrush/controllers';
 import { container } from '@nextrush/di';
 
 import { DatabasePlugin } from './plugins/database.plugin';
-import { UserController } from './controllers/user.controller';
 import { UserRepository } from './repositories/user.repository';
 import { UserSqliteRepository } from './repositories/user.sqlite.repository';
 
@@ -492,10 +491,11 @@ container.register(UserRepository, { useClass: UserSqliteRepository });
 app.use(cors());
 app.use(json());
 
-app.plugin(
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [UserController],
+    root: './src',
+    prefix: '/api',
   })
 );
 

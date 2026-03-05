@@ -110,9 +110,10 @@ Guards are read separately via `getAllGuards(target, methodName)`, which returns
 
 NextRush's DI container wraps [tsyringe](https://github.com/microsoft/tsyringe). The wrapper adds:
 
-- **Circular dependency detection** via a resolution stack
-- **Enhanced error messages** with resolution chain context
+- **Circular dependency detection** via a Set-based resolution stack (O(1) lookup), including tsyringe-internal chain detection
+- **Enhanced error messages** with resolution chain context and actionable fix suggestions (`@Service()`, `@Repository()`, `@Config()` hints)
 - **Child containers** for test isolation
+- **Optional dependencies** via `@Optional()` decorator
 
 tsyringe handles the actual singleton caching, constructor parameter resolution, and instance creation internally. The NextRush wrapper intercepts `resolve()` calls, tracks the resolution stack, and rethrows errors with actionable context.
 
@@ -307,6 +308,10 @@ async function handler(ctx: Context) {
       case 'res':
         value = ctx.raw.res;
         break;
+      case 'custom':
+        // Custom parameter decorators (created via createCustomParamDecorator)
+        value = await param.customExtractor(ctx);
+        break;
     }
     if (param.transform) value = await param.transform(value);
     args[param.index] = value;
@@ -315,8 +320,19 @@ async function handler(ctx: Context) {
   // 4. Call controller method
   const result = await controller.findById(...args);
 
-  // 5. Auto-serialize response
-  if (result !== undefined) {
+  // 5. Apply @SetHeader decorators (precomputed at build time)
+  for (const { name, value } of responseHeaders) {
+    ctx.set(name, value);
+  }
+
+  // 6. Handle @Redirect or auto-serialize response
+  if (redirectMetadata) {
+    const url = typeof result === 'string' ? result : redirectMetadata.url;
+    const code = result?.statusCode ?? redirectMetadata.statusCode;
+    ctx.status = code;
+    ctx.set('Location', url);
+    ctx.send('');
+  } else if (result !== undefined) {
     typeof result === 'object' ? ctx.json(result) : ctx.send(String(result));
   }
 }
@@ -340,9 +356,10 @@ Pure metadata storage and reading — no runtime behavior:
 
 - **Class**: `Controller` (with auto-path derivation from class name)
 - **Routes**: `Get`, `Post`, `Put`, `Delete`, `Patch`, `Head`, `Options`, `All`
-- **Params**: `Body`, `Param`, `Query`, `Header`, `Ctx`, `Req`, `Res`
+- **Response**: `SetHeader`, `Redirect`
+- **Params**: `Body`, `Param`, `Query`, `Header`, `Ctx`, `Req`, `Res`, `createCustomParamDecorator`
 - **Guards**: `UseGuard`, `getAllGuards`, `getClassGuards`, `getMethodGuards`
-- **Readers**: `getControllerDefinition`, `getControllerMetadata`, `getRouteMetadata`, `getParamMetadata`, `buildFullPath`, `isController`
+- **Readers**: `getControllerDefinition`, `getControllerMetadata`, `getRouteMetadata`, `getParamMetadata`, `buildFullPath`, `isController`, `getResponseHeaders`, `getRedirectMetadata`
 
 `@All` creates route entries for GET, POST, PUT, DELETE, and PATCH (5 methods).
 
@@ -351,9 +368,9 @@ Pure metadata storage and reading — no runtime behavior:
 Container wrapper and registration decorators:
 
 - **Container**: `container` (global instance), `createContainer` (isolated child)
-- **Decorators**: `Service`, `Repository`, `AutoInjectable`
+- **Decorators**: `Service`, `Repository`, `AutoInjectable`, `Optional`
 - **Injection**: `inject` (explicit token), `delay` (break circular deps)
-- **Introspection**: `hasServiceMetadata`, `getServiceType`, `getServiceScope`
+- **Introspection**: `hasServiceMetadata`, `getServiceType`, `getServiceScope`, `isParameterOptional`, `getOptionalParams`
 - **Errors**: `CircularDependencyError`, `DependencyResolutionError`, `MissingDependencyError`, `InvalidProviderError`, `TypeInferenceError`
 - **Constants**: `METADATA_KEYS`
 

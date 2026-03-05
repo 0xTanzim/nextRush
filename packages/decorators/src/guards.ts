@@ -142,16 +142,22 @@ export function UseGuard(...guards: Guard[]): ClassDecorator & MethodDecorator {
 /**
  * Get all guards for a controller class.
  *
+ * Guards are returned in bottom-to-top decorator application order,
+ * matching TypeScript's native decorator execution semantics.
+ *
  * @param target - Controller class
  * @returns Array of guards (functions or class constructors)
  */
 export function getClassGuards(target: Function): Guard[] {
-  const metadata: GuardMetadata[] = Reflect.getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target) ?? [];
+  const metadata: GuardMetadata[] =
+    Reflect.getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target) ?? [];
   return metadata.flatMap((m) => m.guards);
 }
 
 /**
  * Get guards for a specific method.
+ *
+ * Guards are returned in bottom-to-top decorator application order.
  *
  * @param target - Controller class
  * @param methodName - Method name

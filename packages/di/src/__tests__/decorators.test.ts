@@ -5,13 +5,17 @@
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-    container,
-    getServiceScope,
-    getServiceType,
-    hasServiceMetadata,
-    inject,
-    Repository,
-    Service
+  Config,
+  container,
+  getConfigPrefix,
+  getOptionalParams,
+  getServiceScope,
+  getServiceType,
+  hasServiceMetadata,
+  inject,
+  Optional,
+  Repository,
+  Service,
 } from '../index.js';
 
 describe('@nextrush/di - Decorators', () => {
@@ -210,6 +214,142 @@ describe('@nextrush/di - Decorators', () => {
       expect(userService.repo).toBeInstanceOf(UserRepository);
       expect(userService.repo.config).toBeInstanceOf(ConfigService);
       expect(userService.getUsers()).toEqual([{ id: 1 }]);
+    });
+  });
+
+  describe('@Config', () => {
+    it('should set config metadata on decorated class', () => {
+      @Config()
+      class AppConfig {}
+
+      expect(hasServiceMetadata(AppConfig)).toBe(true);
+      expect(getServiceType(AppConfig)).toBe('config');
+    });
+
+    it('should always be singleton scope', () => {
+      @Config()
+      class AppConfig {}
+
+      expect(getServiceScope(AppConfig)).toBe('singleton');
+    });
+
+    it('should store prefix metadata when provided', () => {
+      @Config({ prefix: 'DB' })
+      class DatabaseConfig {}
+
+      expect(getConfigPrefix(DatabaseConfig)).toBe('DB');
+    });
+
+    it('should have no prefix by default', () => {
+      @Config()
+      class AppConfig {}
+
+      expect(getConfigPrefix(AppConfig)).toBeUndefined();
+    });
+
+    it('should be resolvable from container', () => {
+      @Config()
+      class AppConfig {
+        readonly port = 3000;
+        readonly host = 'localhost';
+      }
+
+      container.register(AppConfig, { useClass: AppConfig });
+      const config = container.resolve(AppConfig);
+
+      expect(config).toBeInstanceOf(AppConfig);
+      expect(config.port).toBe(3000);
+      expect(config.host).toBe('localhost');
+    });
+
+    it('should be injectable into services', () => {
+      @Config({ prefix: 'APP' })
+      class AppConfig {
+        readonly port = 8080;
+      }
+
+      @Service()
+      class AppService {
+        constructor(@inject(AppConfig) public config: AppConfig) {}
+
+        getPort() {
+          return this.config.port;
+        }
+      }
+
+      container.register(AppConfig, { useClass: AppConfig });
+      container.register(AppService, { useClass: AppService });
+
+      const service = container.resolve(AppService);
+      expect(service.getPort()).toBe(8080);
+    });
+
+    it('should return same instance (singleton behavior)', () => {
+      @Config()
+      class SingletonConfig {
+        readonly id = Math.random();
+      }
+
+      // @Config applies @singleton() — no manual registration needed
+      const a = container.resolve(SingletonConfig);
+      const b = container.resolve(SingletonConfig);
+
+      expect(a).toBe(b);
+    });
+  });
+
+  describe('@Optional', () => {
+    it('should mark constructor parameter as optional', () => {
+      @Service()
+      class WithOptional {
+        constructor(
+          @inject('REQUIRED') public required: unknown,
+          @Optional() @inject('OPT') public opt: unknown
+        ) {}
+      }
+
+      const indices = getOptionalParams(WithOptional);
+      expect(indices).toContain(1);
+      expect(indices).not.toContain(0);
+    });
+
+    it('should support multiple optional parameters', () => {
+      @Service()
+      class MultiOptional {
+        constructor(
+          @Optional() @inject('A') public a: unknown,
+          @inject('B') public b: unknown,
+          @Optional() @inject('C') public c: unknown
+        ) {}
+      }
+
+      const indices = getOptionalParams(MultiOptional);
+      expect(indices.has(0)).toBe(true);
+      expect(indices.has(2)).toBe(true);
+      expect(indices.has(1)).toBe(false);
+    });
+
+    it('should return empty array when no params are optional', () => {
+      @Service()
+      class NoOptional {
+        constructor(@inject('X') public x: unknown) {}
+      }
+
+      const indices = getOptionalParams(NoOptional);
+      expect(indices.size).toBe(0);
+    });
+
+    it('should not mark method parameters (only constructor params supported)', () => {
+      // @Optional() with a method propertyKey stores metadata on the method, not the class.
+      // getOptionalParams checks the class — so method-level @Optional is invisible.
+      class MethodParam {
+        doWork(@Optional() _data: unknown) {
+          return _data;
+        }
+      }
+
+      const indices = getOptionalParams(MethodParam);
+      expect(indices.size).toBe(0);
     });
   });
 });

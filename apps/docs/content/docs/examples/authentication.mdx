@@ -410,9 +410,6 @@ import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 import { controllersPlugin } from '@nextrush/controllers';
 
-import { AuthController } from './controllers/auth.controller';
-import { UserController } from './controllers/user.controller';
-
 const app = createApp();
 const router = createRouter();
 
@@ -424,10 +421,11 @@ app.use(cors());
 app.use(json());
 
 // Controllers
-app.plugin(
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [AuthController, UserController],
+    root: './src',
+    prefix: '/api',
   })
 );
 

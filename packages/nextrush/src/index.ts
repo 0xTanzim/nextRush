@@ -1,24 +1,22 @@
 /**
  * NextRush - Minimal, Modular, Blazing Fast Node.js Framework
  *
- * This meta package provides the ESSENTIALS for building Node.js APIs:
+ * This meta package provides EVERYTHING needed for building Node.js APIs:
  * - Application creation (createApp)
  * - Routing (createRouter)
  * - Server start (listen)
  * - HTTP errors
  * - Essential types
+ * - Dependency injection (DI container, @Service, @inject)
+ * - Decorators (@Controller, @Get, @Body, @UseGuard)
+ * - Controllers plugin (auto-discovery)
  *
- * For middleware and plugins, install them separately:
+ * For middleware, install separately:
  * - @nextrush/cors
  * - @nextrush/helmet
  * - @nextrush/body-parser
  * - @nextrush/rate-limit
  * - @nextrush/logger
- *
- * For class-based architecture (decorators, DI), install:
- * - @nextrush/decorators
- * - @nextrush/di
- * - @nextrush/controllers
  *
  * For other runtimes, install the appropriate adapter:
  * - @nextrush/adapter-bun
@@ -43,13 +41,10 @@
  * listen(app, 3000);
  * ```
  *
- * @example Class-Based (install @nextrush/decorators @nextrush/di @nextrush/controllers)
+ * @example Class-Based (add reflect-metadata for DI)
  * ```typescript
  * import 'reflect-metadata';
- * import { createApp, listen } from 'nextrush';
- * import { Controller, Get } from '@nextrush/decorators';
- * import { Service } from '@nextrush/di';
- * import { controllersPlugin } from '@nextrush/controllers';
+ * import { createApp, listen, Controller, Get, Service, controllersPlugin } from 'nextrush';
  *
  * @Service()
  * class UserService {
@@ -65,7 +60,7 @@
  * }
  *
  * const app = createApp();
- * app.plugin(controllersPlugin({ controllers: [UserController] }));
+ * app.plugin(controllersPlugin({ root: './src' }));
  * listen(app, 3000);
  * ```
  */
@@ -79,7 +74,7 @@ export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 // ============================================
 // ROUTER: Radix Tree Routing
 // ============================================
-export { Router, createRouter } from '@nextrush/router';
+export { createRouter, Router } from '@nextrush/router';
 export type { RouterOptions } from '@nextrush/router';
 
 // ============================================
@@ -92,17 +87,31 @@ export type { ServeOptions, ServerInstance } from '@nextrush/adapter-node';
 // ERRORS: HTTP Error Classes & Factory
 // ============================================
 export {
-    BadGatewayError,
-    // 4xx Client Errors
-    BadRequestError, ConflictError, ForbiddenError, GatewayTimeoutError,
-    // Base
-    HttpError,
-    // 5xx Server Errors
-    InternalServerError, MethodNotAllowedError, NextRushError, NotFoundError, NotImplementedError, ServiceUnavailableError, TooManyRequestsError, UnauthorizedError, UnprocessableEntityError, catchAsync,
-    // Factory functions
-    createError,
-    // Error handling middleware
-    errorHandler, isHttpError, notFoundHandler
+  BadGatewayError,
+  // 4xx Client Errors
+  BadRequestError,
+  catchAsync,
+  ConflictError,
+  // Factory functions
+  createError,
+  // Error handling middleware
+  errorHandler,
+  ForbiddenError,
+  GatewayTimeoutError,
+  // Base
+  HttpError,
+  // 5xx Server Errors
+  InternalServerError,
+  isHttpError,
+  MethodNotAllowedError,
+  NextRushError,
+  NotFoundError,
+  notFoundHandler,
+  NotImplementedError,
+  ServiceUnavailableError,
+  TooManyRequestsError,
+  UnauthorizedError,
+  UnprocessableEntityError,
 } from '@nextrush/errors';
 
 export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
@@ -111,16 +120,17 @@ export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
 // TYPES: Essential TypeScript Types
 // ============================================
 export type {
-    // Core types
-    Context,
-    // HTTP types
-    HttpMethod,
-    HttpStatusCode, Middleware,
-    Next,
-    Plugin,
-    RouteHandler,
-    // Runtime
-    Runtime
+  // Core types
+  Context,
+  // HTTP types
+  HttpMethod,
+  HttpStatusCode,
+  Middleware,
+  Next,
+  Plugin,
+  RouteHandler,
+  // Runtime
+  Runtime,
 } from '@nextrush/types';
 
 // HTTP constants
@@ -130,3 +140,85 @@ export { ContentType, HttpStatus } from '@nextrush/types';
 // VERSION
 // ============================================
 export const VERSION = '3.0.0';
+
+// ============================================
+// DI: Dependency Injection Container
+// ============================================
+export {
+  AutoInjectable,
+  Config,
+  container,
+  createContainer,
+  delay,
+  inject,
+  Injectable,
+  Optional,
+  Repository,
+  Service,
+} from '@nextrush/di';
+export type {
+  ClassProvider,
+  ConfigOptions,
+  ContainerInterface,
+  FactoryProvider,
+  Provider,
+  Scope,
+  ServiceOptions,
+  Token,
+  ValueProvider,
+} from '@nextrush/di';
+
+// ============================================
+// DECORATORS: Controller, Route & Parameter
+// ============================================
+export {
+  // Route decorators
+  All,
+  // Parameter decorators
+  Body,
+  // Class decorators
+  Controller,
+  // Custom param decorator factory
+  createCustomParamDecorator,
+  Ctx,
+  Delete,
+  Get,
+  Head,
+  Header,
+  Options,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  // Response decorators
+  Redirect,
+  Req,
+  Res,
+  SetHeader,
+  // Guard decorators
+  UseGuard,
+} from '@nextrush/decorators';
+export type {
+  BodyOptions,
+  CanActivate,
+  ControllerMetadata,
+  ControllerOptions,
+  CustomParamExtractor,
+  GuardContext,
+  GuardFn,
+  HeaderOptions,
+  ParamMetadata,
+  ParamOptions,
+  ParamSource,
+  QueryOptions,
+  RouteMetadata,
+  RouteOptions,
+  TransformFn,
+} from '@nextrush/decorators';
+
+// ============================================
+// CONTROLLERS: Auto-discovery Plugin
+// ============================================
+export { controllersPlugin } from '@nextrush/controllers';
+export type { ControllersPluginOptions } from '@nextrush/controllers';

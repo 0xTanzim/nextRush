@@ -392,10 +392,11 @@ Choose the pattern that matches your project needs.
 
     const app = createApp();
     const router = createRouter();
-    app.plugin(
+    await app.plugin(
       controllersPlugin({
         router,
-        controllers: [HomeController],
+        root: './src',
+        prefix: '/api',
       })
     );
     app.route('/', router);
@@ -413,7 +414,11 @@ Choose the pattern that matches your project needs.
     description="types, errors, core, router, runtime, di, decorators"
     href="/docs/api-reference/core"
   />
-  <Card title="Adapters" description="Node.js, Bun, Deno, Edge" href="/docs/api-reference/adapters" />
+  <Card
+    title="Adapters"
+    description="Node.js, Bun, Deno, Edge"
+    href="/docs/api-reference/adapters"
+  />
   <Card
     title="Middleware"
     description="body-parser, cors, helmet, compression, and more"
@@ -424,5 +429,9 @@ Choose the pattern that matches your project needs.
     description="controllers, logger, static, template, websocket, events"
     href="/docs/api-reference/plugins"
   />
-  <Card title="Tooling" description="nextrush meta package, dev tools" href="/docs/api-reference/core" />
+  <Card
+    title="Tooling"
+    description="nextrush meta package, dev tools"
+    href="/docs/api-reference/core"
+  />
 </Cards>

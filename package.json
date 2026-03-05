@@ -26,10 +26,11 @@
     "docs:validate:strict": "tsx scripts/docs/build-docs.ts --strict",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "turbo run build && changeset publish",
+    "release": "turbo run build && changeset publish --provenance",
     "prepare": "turbo run build"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.29.8",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.3.3",

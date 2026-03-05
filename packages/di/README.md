@@ -6,8 +6,9 @@ Lightweight dependency injection container for NextRush v3.
 
 - **Constructor Injection** — Automatic dependency resolution via TypeScript metadata
 - **Singleton & Transient Scopes** — Control instance lifecycle per service
-- **Circular Dependency Detection** — Caught at resolution time with cycle visualization
-- **Production-Grade Errors** — Actionable messages with fix suggestions and resolution chains
+- **Circular Dependency Detection** — O(1) Set-based detection with cycle visualization, catches tsyringe-internal chains
+- **Production-Grade Errors** — Actionable messages with fix suggestions (`@Service()`, `@Repository()`, `@Config()` hints)
+- **Optional Dependencies** — `@Optional()` decorator for graceful handling of missing services
 - **Test-Friendly** — Isolated containers and instance clearing for test setup
 
 ## Development
@@ -23,7 +24,7 @@ Then in your `package.json`:
 ```json
 {
   "scripts": {
-    "dev": "nextrush-dev"
+    "dev": "nextrush dev"
   }
 }
 ```
@@ -38,7 +39,7 @@ TypeInfo not known for "UserService"
 
 | Runtime           | Decorator Metadata | Recommended      |
 | ----------------- | ------------------ | ---------------- |
-| **nextrush-dev**  | Full Support       | Yes              |
+| **nextrush dev**  | Full Support       | Yes              |
 | **tsc + node**    | Full Support       | Yes (Production) |
 | **tsx / esbuild** | Not Supported      | No               |
 | **ts-node --esm** | Issues             | No               |
@@ -174,6 +175,58 @@ class ServiceB {
 }
 ```
 
+#### `@Optional()`
+
+Mark a constructor parameter as optional. When the dependency is not registered, the container injects `undefined` instead of throwing.
+
+```typescript
+import { Service, Optional, inject } from '@nextrush/di';
+
+@Service()
+class NotificationService {
+  constructor(
+    @Optional() private emailService?: EmailService,
+    @inject('SLACK_TOKEN') @Optional() private slackToken?: string
+  ) {}
+
+  notify(message: string) {
+    if (this.emailService) {
+      this.emailService.send(message);
+    }
+    if (this.slackToken) {
+      // send to Slack
+    }
+  }
+}
+```
+
+#### `isParameterOptional(target, parameterIndex)`
+
+Check if a specific constructor parameter is marked as optional.
+
+```typescript
+import { isParameterOptional, Optional, Service } from '@nextrush/di';
+
+@Service()
+class MyService {
+  constructor(@Optional() private dep?: SomeDep) {}
+}
+
+isParameterOptional(MyService, 0); // true
+isParameterOptional(MyService, 1); // false
+```
+
+#### `getOptionalParams(target)`
+
+Get all optional parameter indices for a class. Returns a `ReadonlySet<number>`.
+
+```typescript
+import { getOptionalParams } from '@nextrush/di';
+
+const optionals = getOptionalParams(MyService);
+// Set { 0 }
+```
+
 ### Utility Functions
 
 #### `hasServiceMetadata(target)`
@@ -301,14 +354,14 @@ try {
 }
 ```
 
-| Error                       | Cause                                                    |
-| --------------------------- | -------------------------------------------------------- |
-| `DependencyResolutionError` | Token not registered and cannot be resolved              |
-| `CircularDependencyError`   | Circular dependency detected during resolution           |
-| `MissingDependencyError`    | Required dependency not found                            |
-| `InvalidProviderError`      | Provider missing `useClass`, `useValue`, or `useFactory` |
-| `TypeInferenceError`        | Constructor parameter type not available at runtime      |
-| `ContainerDisposedError`    | Container has been reset or disposed                     |
+| Error                       | Cause                                                                                         |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| `DependencyResolutionError` | Token not registered — includes fix suggestions (`@Service()`, import order, manual register) |
+| `CircularDependencyError`   | Circular dependency detected (wrapper-level + tsyringe-internal chains)                       |
+| `MissingDependencyError`    | _(Deprecated)_ Use `DependencyResolutionError` instead                                        |
+| `InvalidProviderError`      | Provider missing `useClass`, `useValue`, or `useFactory`                                      |
+| `TypeInferenceError`        | Constructor parameter type not available at runtime                                           |
+| `ContainerDisposedError`    | Container has been reset or disposed                                                          |
 
 ## TypeScript Exports
 
@@ -317,10 +370,16 @@ try {
 import { container, createContainer } from '@nextrush/di';
 
 // Decorators
-import { Service, Repository, AutoInjectable, inject, delay } from '@nextrush/di';
+import { Service, Repository, AutoInjectable, Optional, inject, delay } from '@nextrush/di';
 
 // Utility functions
-import { hasServiceMetadata, getServiceType, getServiceScope } from '@nextrush/di';
+import {
+  hasServiceMetadata,
+  getServiceType,
+  getServiceScope,
+  isParameterOptional,
+  getOptionalParams,
+} from '@nextrush/di';
 
 // Metadata keys
 import { METADATA_KEYS } from '@nextrush/di';
@@ -388,7 +447,7 @@ The `@nextrush/controllers` plugin automatically detects class guards and resolv
 npx tsx src/index.ts
 
 # ✅ Works (full decorator support)
-npx nextrush-dev
+npx nextrush dev
 ```
 
 ### Error: "reflect-metadata not found"

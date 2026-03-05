@@ -7,7 +7,7 @@
 
 import { isController } from '@nextrush/decorators';
 import { readdir } from 'node:fs/promises';
-import { extname, join, resolve } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DiscoveryError } from './errors.js';
 import type { DiscoveryOptions, DiscoveryResult } from './types.js';
@@ -78,7 +78,11 @@ async function scanDirectory(
 
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
-      const relativePath = fullPath.slice(rootDir.length + 1);
+      // Normalize to POSIX separators for consistent glob matching
+      const relativePath = fullPath
+        .slice(rootDir.length + 1)
+        .split(sep)
+        .join('/');
 
       if (entry.isDirectory()) {
         // Skip excluded directories entirely
@@ -135,7 +139,7 @@ async function importControllers(
       if (typeof exported === 'function' && isController(exported)) {
         controllers.push(exported);
         if (debug) {
-          console.log(`[Controllers] Discovered: ${exported.name} from ${filePath}`);
+          process.stderr.write(`[Controllers] Discovered: ${exported.name} from ${filePath}\n`);
         }
       }
     }
@@ -160,32 +164,29 @@ async function importControllers(
  *
  * @example
  * ```typescript
+ * // Scans ALL .ts/.js files — discovers any class with @Controller
  * const controllers = await discoverControllers({
  *   root: './src',
- *   include: ['controllers/**\/*.ts'],
- *   exclude: ['**\/*.test.ts'],
  * });
  * ```
  */
-export async function discoverControllers(
-  options: DiscoveryOptions
-): Promise<DiscoveryResult[]> {
+export async function discoverControllers(options: DiscoveryOptions): Promise<DiscoveryResult[]> {
   const rootDir = resolve(options.root);
   const includePatterns = options.include ?? DEFAULT_INCLUDE;
   const excludePatterns = options.exclude ?? DEFAULT_EXCLUDE;
   const debug = options.debug ?? false;
 
   if (debug) {
-    console.log(`[Controllers] Scanning: ${rootDir}`);
-    console.log(`[Controllers] Include: ${includePatterns.join(', ')}`);
-    console.log(`[Controllers] Exclude: ${excludePatterns.join(', ')}`);
+    process.stderr.write(`[Controllers] Scanning: ${rootDir}\n`);
+    process.stderr.write(`[Controllers] Include: ${includePatterns.join(', ')}\n`);
+    process.stderr.write(`[Controllers] Exclude: ${excludePatterns.join(', ')}\n`);
   }
 
   // Scan for files
   const files = await scanDirectory(rootDir, rootDir, includePatterns, excludePatterns);
 
   if (debug) {
-    console.log(`[Controllers] Found ${files.length} files to scan`);
+    process.stderr.write(`[Controllers] Found ${files.length} files to scan\n`);
   }
 
   // Import and discover controllers

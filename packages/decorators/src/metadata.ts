@@ -6,7 +6,13 @@
  */
 
 import 'reflect-metadata';
-import type { ControllerMetadata, ParamMetadata, RouteMetadata } from './types.js';
+import type {
+  ControllerMetadata,
+  ParamMetadata,
+  RedirectMetadata,
+  ResponseHeaderMetadata,
+  RouteMetadata,
+} from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
 /**
@@ -22,7 +28,7 @@ import { DECORATOR_METADATA_KEYS } from './types.js';
  * ```
  */
 export function isController(target: Function): boolean {
-  return Reflect.hasMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, target);
+  return Reflect.hasOwnMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, target);
 }
 
 /**
@@ -39,7 +45,8 @@ export function isController(target: Function): boolean {
  * ```
  */
 export function getControllerMetadata(target: Function): ControllerMetadata | undefined {
-  return Reflect.getMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, target);
+  const meta = Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, target);
+  return meta ? { ...meta } : undefined;
 }
 
 /**
@@ -62,7 +69,8 @@ export function getControllerMetadata(target: Function): ControllerMetadata | un
  * ```
  */
 export function getRouteMetadata(target: Function): RouteMetadata[] {
-  return Reflect.getMetadata(DECORATOR_METADATA_KEYS.ROUTES, target) ?? [];
+  const routes = Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.ROUTES, target);
+  return routes ? [...routes] : [];
 }
 
 /**
@@ -82,9 +90,11 @@ export function getRouteMetadata(target: Function): RouteMetadata[] {
  * ```
  */
 export function getParamMetadata(target: Function, methodName: string | symbol): ParamMetadata[] {
-  const allParams: Map<string, ParamMetadata[]> = Reflect.getMetadata(DECORATOR_METADATA_KEYS.PARAMS, target) ?? new Map();
+  const allParams: Map<string, ParamMetadata[]> =
+    Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target) ?? new Map();
 
-  return allParams.get(String(methodName)) ?? [];
+  const params = allParams.get(String(methodName));
+  return params ? [...params] : [];
 }
 
 /**
@@ -98,7 +108,14 @@ export function getParamMetadata(target: Function, methodName: string | symbol):
  * ```
  */
 export function getAllParamMetadata(target: Function): Map<string, ParamMetadata[]> {
-  return Reflect.getMetadata(DECORATOR_METADATA_KEYS.PARAMS, target) ?? new Map();
+  const params = Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target);
+  if (!params) return new Map();
+  // Return a shallow copy to prevent external mutation
+  const copy = new Map<string, ParamMetadata[]>();
+  for (const [key, value] of params) {
+    copy.set(key, [...value]);
+  }
+  return copy;
 }
 
 /**
@@ -212,6 +229,40 @@ export function getMethodParameterTypes(target: object, methodName: string | sym
  * // Promise
  * ```
  */
-export function getMethodReturnType(target: object, methodName: string | symbol): Function | undefined {
+export function getMethodReturnType(
+  target: object,
+  methodName: string | symbol
+): Function | undefined {
   return Reflect.getMetadata('design:returntype', target, methodName);
+}
+
+/**
+ * Get response headers metadata for a controller method.
+ *
+ * Returns the list of `@SetHeader()` entries for the given method,
+ * or an empty array if none are defined.
+ */
+export function getResponseHeaders(target: Function, methodName: string): ResponseHeaderMetadata[] {
+  const map: Map<string, ResponseHeaderMetadata[]> | undefined = Reflect.getOwnMetadata(
+    DECORATOR_METADATA_KEYS.RESPONSE_HEADERS,
+    target
+  );
+  return [...(map?.get(methodName) ?? [])];
+}
+
+/**
+ * Get redirect metadata for a controller method.
+ *
+ * Returns the `@Redirect()` configuration for the given method,
+ * or `undefined` if not decorated.
+ */
+export function getRedirectMetadata(
+  target: Function,
+  methodName: string
+): RedirectMetadata | undefined {
+  const map: Map<string, RedirectMetadata> | undefined = Reflect.getOwnMetadata(
+    DECORATOR_METADATA_KEYS.REDIRECT,
+    target
+  );
+  return map?.get(methodName);
 }

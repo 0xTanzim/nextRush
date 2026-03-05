@@ -147,3 +147,50 @@ function getDenoVersion(): string {
     return 'unknown';
   }
 }
+
+/**
+ * Exit the process in a cross-runtime way
+ */
+export function exitProcess(code: number): never {
+  const runtime = detectRuntime();
+
+  if (runtime === 'deno') {
+    // @ts-expect-error Deno global exists in Deno runtime
+    (globalThis.Deno as { exit: (code: number) => never }).exit(code);
+  }
+
+  process.exit(code);
+}
+
+/**
+ * Get an environment variable in a cross-runtime way
+ */
+export function getEnv(name: string): string | undefined {
+  const runtime = detectRuntime();
+
+  if (runtime === 'deno') {
+    try {
+      // @ts-expect-error Deno global exists in Deno runtime
+      return globalThis.Deno.env.get(name) as string | undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return process.env[name];
+}
+
+/**
+ * Register a process signal handler in a cross-runtime way
+ */
+export function onSignal(signal: string, handler: () => void): void {
+  const runtime = detectRuntime();
+
+  if (runtime === 'deno') {
+    // @ts-expect-error Deno global exists in Deno runtime
+    globalThis.Deno.addSignalListener(signal, handler);
+    return;
+  }
+
+  process.on(signal, handler);
+}

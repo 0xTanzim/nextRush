@@ -35,6 +35,17 @@ const DEFAULT_EXCLUDE = [
   '**/__tests__/**',
 ];
 
+/** Debug logger that writes to stderr (never to stdout) */
+function debugLog(debug: boolean, message: string): void {
+  if (debug) {
+    process.stderr.write(`[Controllers] ${message}\n`);
+  }
+}
+
+function warnLog(message: string): void {
+  process.stderr.write(`[Controllers] WARNING: ${message}\n`);
+}
+
 /**
  * Controllers plugin for NextRush
  *
@@ -51,12 +62,12 @@ const DEFAULT_EXCLUDE = [
  * const app = createApp();
  * const router = createRouter();
  *
- * // Auto-discover all controllers in ./src
+ * // Auto-discover all @Controller classes in ./src (Spring Boot style)
+ * // Scans ALL .ts/.js files — no naming convention required
  * app.plugin(controllersPlugin({
  *   router,
  *   root: './src',
  *   prefix: '/api/v1',
- *   debug: true,
  * }));
  *
  * app.use(router.routes());
@@ -98,9 +109,7 @@ export class ControllersPlugin implements Plugin {
 
     // Auto-discovery mode
     if (this.options.root) {
-      if (this.options.debug) {
-        console.log(`[Controllers] Starting auto-discovery in: ${this.options.root}`);
-      }
+      debugLog(this.options.debug, `Starting auto-discovery in: ${this.options.root}`);
 
       const results = await discoverControllers({
         root: this.options.root,
@@ -118,13 +127,11 @@ export class ControllersPlugin implements Plugin {
           if (this.options.strict) {
             throw error;
           }
-          console.warn(`[Controllers] Warning: ${error.message}`);
+          warnLog(error.message);
         }
       }
 
-      if (this.options.debug) {
-        console.log(`[Controllers] Discovered ${controllers.length} controller(s)`);
-      }
+      debugLog(this.options.debug, `Discovered ${controllers.length} controller(s)`);
     }
 
     // Add manually provided controllers
@@ -133,10 +140,13 @@ export class ControllersPlugin implements Plugin {
     }
 
     if (controllers.length === 0) {
-      console.warn('[Controllers] No controllers found. Check your root path or patterns.');
+      warnLog('No controllers found. Check your root path or patterns.');
       this._initialized = true;
       return;
     }
+
+    // Bootstrap async factory providers before controller resolution
+    await this.options.container.bootstrap();
 
     // Register all controllers
     const registered = this.registry.registerAll(controllers);
@@ -144,9 +154,7 @@ export class ControllersPlugin implements Plugin {
 
     this._initialized = true;
 
-    if (this.options.debug) {
-      console.log(`[Controllers] Initialized with ${this.registry.routeCount} routes`);
-    }
+    debugLog(this.options.debug, `Initialized with ${this.registry.routeCount} routes`);
   }
 
   /**
@@ -168,10 +176,11 @@ export class ControllersPlugin implements Plugin {
   }
 
   /**
-   * Destroy the plugin
+   * Destroy the plugin — clears registry and un-registers all routes from the router.
    */
   destroy(): void {
     this.registry?.clear();
+    this.router.reset();
     this._initialized = false;
   }
 
@@ -201,16 +210,19 @@ export class ControllersPlugin implements Plugin {
         try {
           const method = route.method.toLowerCase() as keyof Router;
 
-          if (typeof this.router[method] === 'function') {
-            if (route.middleware.length > 0) {
-              (this.router[method] as Function)(
-                route.path,
-                ...route.middleware,
-                route.handler
-              );
-            } else {
-              (this.router[method] as Function)(route.path, route.handler);
-            }
+          if (typeof this.router[method] !== 'function') {
+            throw new RouteRegistrationError(
+              controller.target.name,
+              route.method,
+              route.path,
+              `Router does not support HTTP method: ${route.method}`
+            );
+          }
+
+          if (route.middleware.length > 0) {
+            (this.router[method] as Function)(route.path, ...route.middleware, route.handler);
+          } else {
+            (this.router[method] as Function)(route.path, route.handler);
           }
         } catch (error) {
           throw new RouteRegistrationError(

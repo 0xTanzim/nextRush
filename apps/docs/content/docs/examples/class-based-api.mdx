@@ -325,7 +325,6 @@ async function main() {
       router,
       root: './src',
       prefix: '/api',
-      debug: true,
     })
   );
 
@@ -343,7 +342,7 @@ main();
   `import 'reflect-metadata'` MUST be the first import. This enables decorator metadata.
 </Callout>
 
-When the app starts, you'll see the auto-discovery output:
+When the app starts with `debug: true` added to the plugin options, you'll see:
 
 ```
 [Controllers] Starting auto-discovery in: ./src
@@ -359,7 +358,9 @@ When the app starts, you'll see the auto-discovery output:
 🚀 NextRush listening on http://localhost:3000
 ```
 
-No manual imports or controller arrays needed. Add a new controller file anywhere in `./src` with the `@Controller` decorator, and it's automatically discovered and registered.
+No manual imports or controller arrays needed. Add a new controller file anywhere in `./src` with the
+`@Controller` decorator — any file name, any subdirectory — and it is automatically discovered and
+registered. No naming convention enforced.
 
 ---
 
@@ -446,7 +447,7 @@ export const RoleGuard =
 ```
 
 ```typescript title="src/controllers/admin.controller.ts"
-import { Controller, Get, UseGuard } from '@nextrush/decorators';
+import { Controller, Get, UseGuard, SetHeader, Redirect } from '@nextrush/decorators';
 import { AuthGuard } from '../guards/auth.guard';
 import { RoleGuard } from '../guards/role.guard';
 
@@ -454,9 +455,42 @@ import { RoleGuard } from '../guards/role.guard';
 @UseGuard(RoleGuard(['admin']))
 @Controller('/admin')
 export class AdminController {
+  @SetHeader('Cache-Control', 'no-store')
   @Get('/stats')
   getStats() {
     return { users: 100, orders: 500 };
+  }
+
+  @Redirect('/admin/stats', 301)
+  @Get('/dashboard')
+  legacyDashboard() {
+    // Redirects to /admin/stats
+  }
+}
+```
+
+---
+
+## Custom Parameter Decorators
+
+Extract common values cleanly with `createCustomParamDecorator`:
+
+```typescript title="src/decorators/current-user.ts"
+import { createCustomParamDecorator } from '@nextrush/decorators';
+import type { Context } from 'nextrush';
+
+export const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+```
+
+```typescript title="src/controllers/profile.controller.ts"
+import { Controller, Get } from '@nextrush/decorators';
+import { CurrentUser } from '../decorators/current-user';
+
+@Controller('/profile')
+export class ProfileController {
+  @Get()
+  getProfile(@CurrentUser user: { id: string; role: string }) {
+    return { user };
   }
 }
 ```

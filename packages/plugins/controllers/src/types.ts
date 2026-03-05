@@ -25,9 +25,10 @@ export interface ControllersPluginOptions {
   root?: string;
 
   /**
-   * Glob patterns to include in auto-discovery
+   * Glob patterns to include in auto-discovery.
+   * Defaults to all .ts/.js files — no naming convention required.
+   * Any file exporting a @Controller class will be discovered.
    * @default `['**‍/*.ts', '**‍/*.js']`
-   * @example `['controllers/**‍/*.ts', 'modules/**‍/*.controller.ts']`
    */
   include?: string[];
 

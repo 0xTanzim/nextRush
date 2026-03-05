@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,16 +49,16 @@ jobs:
         uses: changesets/action@v1
         with:
           publish: pnpm release
-          version: pnpm version
+          version: pnpm run version
           title: "chore(release): version packages"
           commit: "chore(release): version packages"
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Send Release Notification
+      - name: Release Notification
         if: steps.changesets.outputs.published == 'true'
         run: |
           echo "🚀 Packages published!"
-          echo "Published packages:"
-          echo '${{ steps.changesets.outputs.publishedPackages }}'
+          echo '${{ steps.changesets.outputs.publishedPackages }}' | jq '.'

@@ -259,6 +259,126 @@ create(@Body({ transform: CreateUserSchema.parse }) data: z.infer<typeof CreateU
 
 ---
 
+## Response Decorators
+
+### @SetHeader
+
+Set response headers on a route. Multiple headers can be applied by stacking decorators.
+
+```typescript
+import { SetHeader, Controller, Get } from '@nextrush/decorators';
+
+@Controller('/api')
+class ApiController {
+  @SetHeader('X-Custom-Header', 'my-value')
+  @SetHeader('Cache-Control', 'no-store')
+  @Get('/data')
+  getData() {
+    return { result: 'ok' };
+  }
+}
+```
+
+Headers are precomputed at build time and applied before the handler sends a response.
+
+### @Redirect
+
+Redirect the request to another URL. Default status code is `302` (Found).
+
+```typescript
+import { Redirect, Controller, Get } from '@nextrush/decorators';
+
+@Controller('/legacy')
+class LegacyController {
+  @Redirect('/new-dashboard', 301)
+  @Get('/dashboard')
+  oldDashboard() {
+    // Handler return value is ignored when @Redirect is applied
+  }
+
+  @Redirect('/default-page')
+  @Get('/home')
+  home() {
+    // Return a string to override the redirect URL
+    return '/custom-page';
+  }
+
+  @Redirect('/fallback')
+  @Get('/dynamic')
+  dynamic() {
+    // Return { url?, statusCode? } to override both
+    return { url: '/new-location', statusCode: 307 };
+  }
+}
+```
+
+**Override behavior:**
+
+- Return `void` → uses the URL and status code from the decorator
+- Return `string` → overrides the redirect URL
+- Return `{ url?, statusCode? }` → overrides URL and/or status code
+
+The redirect is implemented via `Location` header, not `ctx.redirect()`.
+
+---
+
+## Custom Parameter Decorators
+
+Create reusable parameter decorators with `createCustomParamDecorator()`. This is the public API for extending the parameter system.
+
+```typescript
+import { createCustomParamDecorator } from '@nextrush/decorators';
+import type { Context } from '@nextrush/types';
+
+// Extract current user from state (set by auth middleware)
+const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+
+// With options
+const ApiKey = createCustomParamDecorator((ctx: Context) => ctx.get('x-api-key'), {
+  required: true,
+});
+
+// With transform
+const ParsedQuery = (name: string) =>
+  createCustomParamDecorator((ctx: Context) => ctx.query[name], { transform: JSON.parse });
+
+@Controller('/users')
+class UserController {
+  @Get('/me')
+  getProfile(@CurrentUser user: User) {
+    return user;
+  }
+
+  @Get('/data')
+  getData(@ApiKey apiKey: string) {
+    return { apiKey };
+  }
+}
+```
+
+<TypeTable
+  title="createCustomParamDecorator Options"
+  types={{
+    required: {
+      type: 'boolean',
+      description: 'Throw MissingParameterError if the extracted value is undefined',
+      default: 'false',
+    },
+    transform: {
+      type: 'TransformFn',
+      description: 'Transform the extracted value (sync or async)',
+      optional: true,
+    },
+  }}
+/>
+
+<Callout type="info">
+  Custom parameter decorators use the `'custom'` param source internally. They can only be used on
+  method parameters, not constructor parameters.
+</Callout>
+
+---
+
 ## Guards
 
 Guards control access to routes by returning a boolean. You can write guards as functions or as DI-injectable classes.
@@ -380,6 +500,8 @@ import {
   getParamMetadata,
   getAllGuards,
   isController,
+  getResponseHeaders,
+  getRedirectMetadata,
 } from '@nextrush/decorators';
 
 // Check if class is a controller
@@ -399,6 +521,14 @@ const params = getParamMetadata(UserController, 'findOne');
 
 // Get all guards for a route (class + method guards)
 const guards = getAllGuards(UserController, 'findOne');
+
+// Get response headers for a method
+const headers = getResponseHeaders(UserController.prototype, 'getData');
+// [{ name: 'Cache-Control', value: 'no-store' }]
+
+// Get redirect metadata for a method
+const redirect = getRedirectMetadata(UserController.prototype, 'oldDashboard');
+// { url: '/new-dashboard', statusCode: 301 }
 ```
 
 ---
@@ -432,6 +562,9 @@ import type {
   RouteMethods,
   MiddlewareRef,
   ControllerDefinition,
+  CustomParamExtractor,
+  ResponseHeaderMetadata,
+  RedirectMetadata,
 } from '@nextrush/decorators';
 
 import {
@@ -452,6 +585,9 @@ import {
   Req,
   Res,
   UseGuard,
+  SetHeader,
+  Redirect,
+  createCustomParamDecorator,
   isController,
   getControllerMetadata,
   getRouteMetadata,
@@ -463,6 +599,8 @@ import {
   getClassGuards,
   getMethodGuards,
   isGuardClass,
+  getResponseHeaders,
+  getRedirectMetadata,
   isValidHttpMethod,
   isValidParamSource,
   DECORATOR_METADATA_KEYS,

@@ -123,7 +123,7 @@ NextRush supports both functional and class-based programming. Choose based on y
       }
     }
 
-    app.plugin(controllersPlugin({ router, controllers: [UserController] }));
+    await app.plugin(controllersPlugin({ router, root: './src' }));
     ```
 
   </Tab>

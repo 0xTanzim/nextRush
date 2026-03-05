@@ -46,19 +46,46 @@ export { container, createContainer } from './container.js';
 
 // Decorators
 export {
-    AutoInjectable, Repository, Service, delay, getServiceScope, getServiceType, hasServiceMetadata, inject
+  AutoInjectable,
+  Config,
+  Injectable,
+  Optional,
+  Repository,
+  Service,
+  delay,
+  getConfigPrefix,
+  getOptionalParams,
+  getServiceScope,
+  getServiceType,
+  hasServiceMetadata,
+  inject,
+  isParameterOptional,
 } from './decorators.js';
 
 // Types
 export type {
-    ClassProvider, Constructor, ContainerInterface, FactoryProvider, Provider, Scope,
-    ServiceOptions, Token, ValueProvider
+  ClassProvider,
+  ConfigOptions,
+  Constructor,
+  ContainerInterface,
+  FactoryProvider,
+  Provider,
+  RegisterOptions,
+  Scope,
+  ServiceOptions,
+  Token,
+  ValueProvider,
 } from './types.js';
 
 export { METADATA_KEYS } from './types.js';
 
 // Errors
 export {
-    CircularDependencyError, ContainerDisposedError, DIError,
-    DependencyResolutionError, InvalidProviderError, MissingDependencyError, TypeInferenceError
+  CircularDependencyError,
+  ContainerDisposedError,
+  DIError,
+  DependencyResolutionError,
+  InvalidProviderError,
+  MissingDependencyError,
+  TypeInferenceError,
 } from './errors.js';

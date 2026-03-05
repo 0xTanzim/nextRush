@@ -5,8 +5,19 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../class.js';
-import { getRouteMetadata } from '../metadata.js';
-import { All, Delete, Get, Head, Options, Patch, Post, Put } from '../routes.js';
+import { getRedirectMetadata, getResponseHeaders, getRouteMetadata } from '../metadata.js';
+import {
+  All,
+  Delete,
+  Get,
+  Head,
+  Options,
+  Patch,
+  Post,
+  Put,
+  Redirect,
+  SetHeader,
+} from '../routes.js';
 
 describe('Route Decorators', () => {
   describe('@Get', () => {
@@ -232,6 +243,124 @@ describe('Route Decorators', () => {
 
       const routes = getRouteMetadata(UserController);
       expect(routes[0].middleware).toEqual([authGuard]);
+    });
+  });
+
+  describe('Path in options object', () => {
+    it('should accept path inside options object', () => {
+      @Controller('/users')
+      class UserController {
+        @Get({ path: '/:id', statusCode: 200 })
+        findOne() {}
+      }
+
+      const routes = getRouteMetadata(UserController);
+      expect(routes[0].path).toBe('/:id');
+      expect(routes[0].statusCode).toBe(200);
+    });
+
+    it('should normalize path inside options object', () => {
+      @Controller('/users')
+      class UserController {
+        @Post({ path: 'bulk', statusCode: 201 })
+        createMany() {}
+      }
+
+      const routes = getRouteMetadata(UserController);
+      expect(routes[0].path).toBe('/bulk');
+      expect(routes[0].statusCode).toBe(201);
+    });
+
+    it('should default to / when options object has no path', () => {
+      @Controller('/users')
+      class UserController {
+        @Get({ description: 'List users' })
+        findAll() {}
+      }
+
+      const routes = getRouteMetadata(UserController);
+      expect(routes[0].path).toBe('/');
+      expect(routes[0].description).toBe('List users');
+    });
+  });
+
+  describe('@SetHeader', () => {
+    it('should store response header metadata on a method', () => {
+      @Controller('/test')
+      class TestController {
+        @SetHeader('X-Custom', 'value')
+        @Get()
+        handler() {}
+      }
+
+      const headers = getResponseHeaders(TestController, 'handler');
+      expect(headers).toHaveLength(1);
+      expect(headers[0]).toEqual({ name: 'X-Custom', value: 'value' });
+    });
+
+    it('should accumulate multiple headers', () => {
+      @Controller('/test')
+      class TestController {
+        @SetHeader('X-A', 'a')
+        @SetHeader('X-B', 'b')
+        @Get()
+        handler() {}
+      }
+
+      const headers = getResponseHeaders(TestController, 'handler');
+      expect(headers).toHaveLength(2);
+      expect(headers).toContainEqual({ name: 'X-A', value: 'a' });
+      expect(headers).toContainEqual({ name: 'X-B', value: 'b' });
+    });
+
+    it('should return empty array when no headers set', () => {
+      @Controller('/test')
+      class TestController {
+        @Get()
+        handler() {}
+      }
+
+      const headers = getResponseHeaders(TestController, 'handler');
+      expect(headers).toEqual([]);
+    });
+  });
+
+  describe('@Redirect', () => {
+    it('should store redirect metadata with default 302', () => {
+      @Controller('/test')
+      class TestController {
+        @Redirect('/target')
+        @Get()
+        handler() {}
+      }
+
+      const meta = getRedirectMetadata(TestController, 'handler');
+      expect(meta).toBeDefined();
+      expect(meta!.url).toBe('/target');
+      expect(meta!.statusCode).toBe(302);
+    });
+
+    it('should accept custom status code', () => {
+      @Controller('/test')
+      class TestController {
+        @Redirect('/moved', 301)
+        @Get()
+        handler() {}
+      }
+
+      const meta = getRedirectMetadata(TestController, 'handler');
+      expect(meta!.statusCode).toBe(301);
+    });
+
+    it('should return undefined when no redirect set', () => {
+      @Controller('/test')
+      class TestController {
+        @Get()
+        handler() {}
+      }
+
+      const meta = getRedirectMetadata(TestController, 'handler');
+      expect(meta).toBeUndefined();
     });
   });
 });

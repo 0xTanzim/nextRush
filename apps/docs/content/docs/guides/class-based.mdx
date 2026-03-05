@@ -122,10 +122,11 @@ class UserController {
 const app = createApp();
 const router = createRouter();
 
-app.plugin(
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [UserController],
+    root: './src', // Auto-discovers all @Controller classes
+    prefix: '/api',
   })
 );
 
@@ -318,6 +319,89 @@ class UserController {
   create(@Body() data: CreateUserDto, @Ctx() ctx: Context) {
     // data is parsed request body
     // ctx is full context if needed
+  }
+}
+```
+
+## Response Decorators
+
+Set headers or redirect responses declaratively on route methods.
+
+### @SetHeader
+
+```typescript
+import { Controller, Get, SetHeader } from '@nextrush/decorators';
+
+@Controller('/api')
+class ApiController {
+  @SetHeader('Cache-Control', 'no-store')
+  @SetHeader('X-Custom', 'value')
+  @Get('/data')
+  getData() {
+    return { ok: true };
+    // Response automatically includes Cache-Control and X-Custom headers
+  }
+}
+```
+
+### @Redirect
+
+```typescript
+import { Controller, Get, Redirect } from '@nextrush/decorators';
+
+@Controller('/legacy')
+class LegacyController {
+  @Redirect('/new-dashboard', 301)
+  @Get('/dashboard')
+  oldDashboard() {
+    // Return a string to override the redirect URL
+    // Return { url, statusCode } to override both
+  }
+}
+```
+
+## Custom Parameter Decorators
+
+Create reusable parameter extractors with `createCustomParamDecorator`:
+
+```typescript
+import { createCustomParamDecorator, Controller, Get } from '@nextrush/decorators';
+import type { Context } from '@nextrush/types';
+
+// Create a decorator that extracts the current user from state
+const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+
+// Create a decorator that extracts a specific cookie
+const Cookie = (name: string) =>
+  createCustomParamDecorator((ctx: Context) => {
+    const cookies = ctx.get('cookie') ?? '';
+    const match = cookies.split(';').find((c) => c.trim().startsWith(`${name}=`));
+    return match?.split('=')[1]?.trim();
+  });
+
+@Controller('/profile')
+class ProfileController {
+  @Get()
+  getProfile(@CurrentUser user: User, @Cookie('theme') theme?: string) {
+    return { user, theme };
+  }
+}
+```
+
+## Optional Dependencies
+
+Mark constructor parameters as optional with `@Optional()`:
+
+```typescript
+import { Service, Optional } from '@nextrush/di';
+
+@Service()
+class AppService {
+  constructor(
+    private required: DatabaseService,
+    @Optional() private cache?: CacheService
+  ) {
+    // cache is undefined if CacheService is not registered
   }
 }
 ```
@@ -560,11 +644,12 @@ const router = createRouter();
 app.use(cors());
 app.use(json());
 
-// Register controllers
-app.plugin(
+// Auto-discover all @Controller classes in ./src
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [UserController],
+    root: './src',
+    prefix: '/api',
   })
 );
 
@@ -672,19 +757,20 @@ class ServiceA {
 ### 4. Forgetting to Register Controller
 
 ```typescript
-// ❌ Wrong - controller not found
-app.plugin(
+// ❌ Wrong - no root provided, nothing will be discovered
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [], // Empty!
+    // Missing root: './src'
   })
 );
 
-// ✅ Correct - explicitly list controllers
-app.plugin(
+// ✅ Correct - auto-discover all controllers
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [UserController, ProductController],
+    root: './src', // Scans all .ts/.js files recursively
+    prefix: '/api',
   })
 );
 ```

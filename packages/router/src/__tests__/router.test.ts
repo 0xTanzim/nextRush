@@ -587,4 +587,35 @@ describe('Router', () => {
       expect(router.match('GET', '/e')).not.toBeNull();
     });
   });
+
+  describe('reset', () => {
+    it('should clear all registered routes', () => {
+      router.get('/users', vi.fn());
+      router.post('/users', vi.fn());
+
+      expect(router.match('GET', '/users')).not.toBeNull();
+
+      router.reset();
+
+      expect(router.match('GET', '/users')).toBeNull();
+      expect(router.match('POST', '/users')).toBeNull();
+    });
+
+    it('should clear parameterized routes', () => {
+      router.get('/users/:id', vi.fn());
+      expect(router.match('GET', '/users/123')).not.toBeNull();
+
+      router.reset();
+      expect(router.match('GET', '/users/123')).toBeNull();
+    });
+
+    it('should allow new routes after reset', () => {
+      router.get('/old', vi.fn());
+      router.reset();
+      router.get('/new', vi.fn());
+
+      expect(router.match('GET', '/old')).toBeNull();
+      expect(router.match('GET', '/new')).not.toBeNull();
+    });
+  });
 });

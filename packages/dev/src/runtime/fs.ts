@@ -16,7 +16,7 @@
  */
 
 import { detectRuntime, type Runtime } from './detect.js';
-import { NODE_FS, NODE_FS_PROMISES, NODE_MODULE } from './node-modules.js';
+import { NODE_FS, NODE_FS_PROMISES, NODE_MODULE, NODE_PATH } from './node-modules.js';
 
 // Cache the runtime detection (called once at module load)
 const runtime: Runtime = detectRuntime();
@@ -49,12 +49,18 @@ function getFsSync(): typeof import('node:fs') {
  * Call this early in your application to enable sync fs methods
  */
 export async function initFsSync(): Promise<void> {
-  if (cachedFs) return;
   if (runtime === 'deno') return; // Deno doesn't need this
 
-  const nodeModule = await import(/* @vite-ignore */ NODE_MODULE);
-  const require = nodeModule.createRequire(import.meta.url);
-  cachedFs = require(NODE_FS);
+  if (!cachedFs) {
+    const nodeModule = await import(/* @vite-ignore */ NODE_MODULE);
+    const require = nodeModule.createRequire(import.meta.url);
+    cachedFs = require(NODE_FS);
+  }
+
+  if (!cachedPath) {
+    const pathModule = await import(/* @vite-ignore */ NODE_PATH);
+    cachedPath = pathModule;
+  }
 }
 
 /**
@@ -143,29 +149,31 @@ export function getCwd(): string {
   return process.cwd();
 }
 
+// Cache resolved path module for sync operations
+let cachedPath: typeof import('node:path') | null = null;
+
 /**
  * Resolve a path (cross-runtime compatible)
+ * Falls back to manual join if path module not cached.
  */
 export function resolvePath(...paths: string[]): string {
-  const base = getCwd();
-  let result = base;
-
-  for (const p of paths) {
-    if (p.startsWith('/')) {
-      result = p;
-    } else if (p === '..') {
-      result = result.substring(0, result.lastIndexOf('/'));
-    } else if (p !== '.') {
-      result = result.replace(/\/+$/, '') + '/' + p;
-    }
+  if (cachedPath) {
+    return cachedPath.resolve(...paths);
   }
 
-  return result;
+  // Fallback: simple join with cwd
+  const base = getCwd();
+  const segments = [base, ...paths];
+  return segments.join('/').replace(/\/+/g, '/');
 }
 
 /**
  * Join path segments
  */
 export function joinPath(...paths: string[]): string {
+  if (cachedPath) {
+    return cachedPath.join(...paths);
+  }
+
   return paths.join('/').replace(/\/+/g, '/');
 }

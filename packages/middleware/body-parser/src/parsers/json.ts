@@ -6,9 +6,11 @@
  * @packageDocumentation
  */
 
+import type { Middleware } from '@nextrush/types';
+
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
 import { Errors } from '../errors.js';
-import type { BodyParserContext, BodyParserMiddleware, JsonOptions } from '../types.js';
+import type { BodyParserContext, JsonOptions } from '../types.js';
 import { bufferToString } from '../utils/buffer.js';
 import { getContentType, isJsonContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
@@ -85,7 +87,7 @@ function checkJsonDepth(value: unknown, maxDepth: number): void {
  * });
  * ```
  */
-export function json(options: JsonOptions = {}): BodyParserMiddleware {
+export function json(options: JsonOptions = {}): Middleware {
   const {
     limit = DEFAULT_LIMITS.JSON,
     reviver,
@@ -103,7 +105,7 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
   // Optimize for default case (single 'application/json' type)
   const useSimpleCheck = types.length === 1 && types[0] === 'application/json';
 
-  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
+  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
       if (next) await next();
@@ -176,5 +178,5 @@ export function json(options: JsonOptions = {}): BodyParserMiddleware {
     }
 
     if (next) await next();
-  };
+  }) as unknown as Middleware;
 }

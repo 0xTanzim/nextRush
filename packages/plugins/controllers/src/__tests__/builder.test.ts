@@ -4,13 +4,23 @@
 
 import type { CanActivate, GuardContext, GuardFn } from '@nextrush/decorators';
 import {
-  Body, Controller, Ctx, Get, Param, Post, Query, UseGuard,
+  Body,
+  Controller,
+  createCustomParamDecorator,
+  Ctx,
+  Get,
   getControllerDefinition,
+  Param,
+  Post,
+  Query,
+  Redirect,
+  SetHeader,
+  UseGuard,
 } from '@nextrush/decorators';
 import { createContainer, type ContainerInterface } from '@nextrush/di';
-import type { Context } from '@nextrush/types';
+import type { Context, Middleware } from '@nextrush/types';
 import 'reflect-metadata';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildRoutes } from '../builder.js';
 import { GuardRejectionError } from '../errors.js';
 
@@ -143,7 +153,9 @@ describe('buildRoutes', () => {
 
       expect(routes[0].middleware).toContain(globalMw);
       expect(routes[0].middleware).toContain(controllerMw);
-      expect(routes[0].middleware.indexOf(globalMw)).toBeLessThan(routes[0].middleware.indexOf(controllerMw));
+      expect(routes[0].middleware.indexOf(globalMw)).toBeLessThan(
+        routes[0].middleware.indexOf(controllerMw)
+      );
     });
   });
 
@@ -577,6 +589,190 @@ describe('buildRoutes', () => {
       expect(receivedUser).toEqual({ id: 1, role: 'admin' });
     });
   });
+
+  describe('middleware ref resolution (P1-2)', () => {
+    it('should resolve string middleware tokens from DI container', () => {
+      const middlewareFn: Middleware = async (_ctx, next) => {
+        if (next) await next();
+      };
+
+      container.register('AUTH_MIDDLEWARE', { useValue: middlewareFn });
+
+      @Controller({ path: '/secure', middleware: ['AUTH_MIDDLEWARE'] })
+      class SecureController {
+        @Get()
+        secret() {
+          return { secret: true };
+        }
+      }
+
+      container.register(SecureController, { useClass: SecureController });
+      const definition = getControllerDefinition(SecureController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      expect(routes[0].middleware).toHaveLength(1);
+      expect(routes[0].middleware[0]).toBe(middlewareFn);
+    });
+
+    it('should pass function middleware refs through directly', () => {
+      const mw: Middleware = async (_ctx, next) => {
+        if (next) await next();
+      };
+
+      @Controller({ path: '/test', middleware: [mw] })
+      class TestController {
+        @Get()
+        handler() {
+          return {};
+        }
+      }
+
+      container.register(TestController, { useClass: TestController });
+      const definition = getControllerDefinition(TestController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      expect(routes[0].middleware).toContain(mw);
+    });
+  });
+
+  describe('@SetHeader integration (P3-2)', () => {
+    it('should apply response headers from @SetHeader', async () => {
+      @Controller('/test')
+      class TestController {
+        @SetHeader('X-Custom', 'hello')
+        @Get()
+        handler() {
+          return { ok: true };
+        }
+      }
+
+      container.register(TestController, { useClass: TestController });
+      const definition = getControllerDefinition(TestController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/test');
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.set).toHaveBeenCalledWith('X-Custom', 'hello');
+    });
+
+    it('should apply multiple headers', async () => {
+      @Controller('/test')
+      class TestController {
+        @SetHeader('X-A', 'a')
+        @SetHeader('X-B', 'b')
+        @Get()
+        handler() {
+          return { ok: true };
+        }
+      }
+
+      container.register(TestController, { useClass: TestController });
+      const definition = getControllerDefinition(TestController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/test');
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.set).toHaveBeenCalledWith('X-A', 'a');
+      expect(mockCtx.set).toHaveBeenCalledWith('X-B', 'b');
+    });
+  });
+
+  describe('@Redirect integration (P3-3)', () => {
+    it('should redirect when handler returns void', async () => {
+      @Controller('/test')
+      class TestController {
+        @Redirect('/target', 301)
+        @Get()
+        handler() {
+          // no return — uses default redirect URL
+        }
+      }
+
+      container.register(TestController, { useClass: TestController });
+      const definition = getControllerDefinition(TestController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/test');
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.status).toBe(301);
+      expect(mockCtx.set).toHaveBeenCalledWith('Location', '/target');
+    });
+
+    it('should use return value as redirect URL when handler returns a string', async () => {
+      @Controller('/test')
+      class TestController {
+        @Redirect('/default')
+        @Get()
+        handler() {
+          return '/override';
+        }
+      }
+
+      container.register(TestController, { useClass: TestController });
+      const definition = getControllerDefinition(TestController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/test');
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.set).toHaveBeenCalledWith('Location', '/override');
+    });
+  });
+
+  describe('createCustomParamDecorator integration (P3-4)', () => {
+    it('should extract value via custom extractor', async () => {
+      const CurrentUser = createCustomParamDecorator(
+        (ctx: unknown) => (ctx as { state: { user: string } }).state.user
+      );
+
+      @Controller('/test')
+      class TestController {
+        @Get()
+        handler(@CurrentUser user: unknown) {
+          return { user };
+        }
+      }
+
+      container.register(TestController, { useClass: TestController });
+      const definition = getControllerDefinition(TestController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/test');
+      mockCtx.state = { user: 'alice' };
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.json).toHaveBeenCalledWith({ user: 'alice' });
+    });
+
+    it('should handle async custom extractor', async () => {
+      const AsyncUser = createCustomParamDecorator(async (ctx: unknown) => {
+        // Simulate async operation (e.g., database lookup)
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return (ctx as { state: { user: string } }).state.user;
+      });
+
+      @Controller('/test')
+      class TestController {
+        @Get()
+        handler(@AsyncUser user: unknown) {
+          return { user };
+        }
+      }
+
+      container.register(TestController, { useClass: TestController });
+      const definition = getControllerDefinition(TestController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/test');
+      mockCtx.state = { user: 'bob' };
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.json).toHaveBeenCalledWith({ user: 'bob' });
+    });
+  });
 });
 
 /**
@@ -594,16 +790,16 @@ function createMockContext(method: string, url: string, body?: unknown): Context
     params: {},
     status: 200,
     state: {},
-    json: () => {},
-    send: () => {},
-    html: () => {},
-    redirect: () => {},
+    json: vi.fn(),
+    send: vi.fn(),
+    html: vi.fn(),
+    redirect: vi.fn(),
     throw: () => {
       throw new Error();
     },
     assert: () => {},
-    set: () => {},
-    get: () => undefined,
+    set: vi.fn(),
+    get: vi.fn(),
     next: async () => {},
     raw: {
       req: {},

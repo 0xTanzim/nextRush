@@ -129,6 +129,9 @@ export interface BodyParserContext {
 
 /**
  * Body parser middleware function signature
+ *
+ * @deprecated Use `Middleware` from `@nextrush/types` instead.
+ * All body parser functions now return the standard `Middleware` type.
  */
 export type BodyParserMiddleware = (
   ctx: BodyParserContext,

@@ -119,6 +119,18 @@ import { Controller, Get, Post, Body, ParamProp, UseGuard } from '@nextrush/deco
 import { Service } from '@nextrush/di';
 
 @Service()
+class ProductService {
+  async findAll() {
+    return [];
+  }
+  async findById(id: string) {
+    return null;
+  }
+  async create(data: { name: string }) {
+    return { id: '1', ...data };
+  }
+}
+
 @Controller('/products')
 class ProductController {
   constructor(private productService: ProductService) {}

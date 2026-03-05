@@ -255,8 +255,9 @@ npx nextrush build
 
 **Development tools:**
 
-- `tsx watch`: TypeScript execution with file watching
-- `@swc-node/register` available for decorator metadata in dev
+- `@swc-node/register`: SWC-powered ESM loader with decorator metadata support
+- Hot reload via Node.js native `--watch`
+- Startup validation of `tsconfig.json` for decorator flags
 
 **Build tools:**
 
@@ -429,15 +430,16 @@ Ensure decorator metadata is enabled:
 import 'reflect-metadata';
 import { createApp, createRouter, listen } from 'nextrush';
 import { controllersPlugin } from '@nextrush/controllers';
-import { UserController } from './controllers/user';
 
 const app = createApp();
 const router = createRouter();
 
-app.plugin(
+// Auto-discovers all @Controller classes in ./src (any file name, any depth)
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [UserController],
+    root: './src',
+    prefix: '/api',
   })
 );
 

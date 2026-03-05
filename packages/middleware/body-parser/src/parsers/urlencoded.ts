@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import type { Middleware } from '@nextrush/types';
+
 import {
   BODYLESS_METHODS,
   DEFAULT_CONTENT_TYPES,
@@ -13,7 +15,7 @@ import {
   DEFAULT_PARAMETER_LIMITS,
 } from '../constants.js';
 import { Errors } from '../errors.js';
-import type { BodyParserContext, BodyParserMiddleware, UrlEncodedOptions } from '../types.js';
+import type { BodyParserContext, UrlEncodedOptions } from '../types.js';
 import { bufferToString } from '../utils/buffer.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
@@ -51,7 +53,7 @@ import { readBody } from './reader.js';
  * });
  * ```
  */
-export function urlencoded(options: UrlEncodedOptions = {}): BodyParserMiddleware {
+export function urlencoded(options: UrlEncodedOptions = {}): Middleware {
   const {
     limit = DEFAULT_LIMITS.URLENCODED,
     type = DEFAULT_CONTENT_TYPES.URLENCODED,
@@ -66,7 +68,7 @@ export function urlencoded(options: UrlEncodedOptions = {}): BodyParserMiddlewar
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.URLENCODED);
   const types = Array.isArray(type) ? type : [type];
 
-  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
+  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
       if (next) await next();
@@ -122,5 +124,5 @@ export function urlencoded(options: UrlEncodedOptions = {}): BodyParserMiddlewar
     }
 
     if (next) await next();
-  };
+  }) as unknown as Middleware;
 }

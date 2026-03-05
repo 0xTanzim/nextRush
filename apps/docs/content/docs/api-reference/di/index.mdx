@@ -30,8 +30,8 @@ graph TB
     DI --> controllers
 ```
 
-| Package                                              | Purpose                         |
-| ---------------------------------------------------- | ------------------------------- |
+| Package                                                   | Purpose                         |
+| --------------------------------------------------------- | ------------------------------- |
 | [@nextrush/di](/docs/api-reference/di/di)                 | Dependency injection container  |
 | [@nextrush/decorators](/docs/api-reference/di/decorators) | Controller and route decorators |
 
@@ -95,10 +95,11 @@ class UserController {
 // Bootstrap
 const app = createApp();
 const router = createRouter();
-app.plugin(
+await app.plugin(
   controllersPlugin({
     router,
-    controllers: [UserController],
+    root: './src',
+    prefix: '/api',
   })
 );
 app.route('/', router);

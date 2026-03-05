@@ -71,14 +71,14 @@ pnpm add -D @nextrush/dev
 ```json
 {
   "scripts": {
-    "dev": "nextrush-dev"
+    "dev": "nextrush dev"
   }
 }
 ```
 
 | Runtime           | Decorator Metadata | Recommended    |
 | ----------------- | ------------------ | -------------- |
-| **nextrush-dev**  | ✅ Full Support    | ✅ Development |
+| **nextrush dev**  | ✅ Full Support    | ✅ Development |
 | **tsc + node**    | ✅ Full Support    | ✅ Production  |
 | **tsx / esbuild** | ❌ Not Supported   | ❌ No          |
 
@@ -304,6 +304,62 @@ class UserController {
 search() {}
 ```
 
+### `@SetHeader(name, value)`
+
+Set response headers on a route. Multiple headers can be applied by stacking decorators.
+
+```typescript
+@Controller('/api')
+class ApiController {
+  @SetHeader('X-Custom-Header', 'my-value')
+  @SetHeader('Cache-Control', 'no-store')
+  @Get('/data')
+  getData() {
+    return { result: 'ok' };
+  }
+}
+// Response includes: X-Custom-Header: my-value, Cache-Control: no-store
+```
+
+Headers are precomputed at build time and applied before the handler response is sent.
+
+### `@Redirect(url, statusCode?)`
+
+Redirect the request to another URL. Default status code is `302` (Found).
+
+```typescript
+@Controller('/legacy')
+class LegacyController {
+  @Redirect('/new-dashboard', 301)
+  @Get('/dashboard')
+  oldDashboard() {
+    // Handler return value is ignored when @Redirect is applied
+  }
+
+  @Redirect('/default-page')
+  @Get('/home')
+  home() {
+    // Return a string to override the redirect URL
+    return '/custom-page';
+  }
+
+  @Redirect('/fallback')
+  @Get('/dynamic')
+  dynamic() {
+    // Return an object to override both URL and status code
+    return { url: '/new-location', statusCode: 307 };
+  }
+}
+```
+
+**Override behavior:**
+
+- Return `void` → uses the URL and status code from the decorator
+- Return `string` → overrides the redirect URL
+- Return `{ url?, statusCode? }` → overrides URL and/or status code
+
+The redirect is implemented via `Location` header, not `ctx.redirect()`.
+
 ## Parameter Decorators
 
 ### `@Body(property?, options?)`
@@ -408,6 +464,67 @@ class UserController {
 }
 ```
 
+## Custom Parameter Decorators
+
+Create reusable parameter decorators with `createCustomParamDecorator()`. This is the public API for extending the parameter system.
+
+```typescript
+import { createCustomParamDecorator } from '@nextrush/decorators';
+import type { Context } from '@nextrush/types';
+
+// Extract current user from state (set by auth middleware)
+const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+
+// Extract a specific cookie value
+const Cookie = (name: string) =>
+  createCustomParamDecorator(
+    (ctx: Context) =>
+      ctx
+        .get('cookie')
+        ?.split('; ')
+        .find((c) => c.startsWith(`${name}=`))
+        ?.split('=')[1]
+  );
+
+// With options
+const ApiKey = createCustomParamDecorator((ctx: Context) => ctx.get('x-api-key'), {
+  required: true,
+});
+
+// With transform
+const ParsedQuery = (name: string) =>
+  createCustomParamDecorator((ctx: Context) => ctx.query[name], { transform: JSON.parse });
+
+@Controller('/users')
+class UserController {
+  @Get('/me')
+  getProfile(@CurrentUser user: User) {
+    return user;
+  }
+
+  @Get('/preferences')
+  getPrefs(@Cookie('theme') theme: string, @ApiKey apiKey: string) {
+    return { theme, apiKey };
+  }
+}
+```
+
+### `createCustomParamDecorator(extractor, options?)`
+
+| Parameter   | Type                        | Required | Description                                |
+| ----------- | --------------------------- | -------- | ------------------------------------------ |
+| `extractor` | `(ctx: Context) => T`       | Yes      | Function to extract the value from context |
+| `options`   | `{ required?, transform? }` | No       | Additional options                         |
+
+**Options:**
+
+| Option      | Type          | Default | Description                                |
+| ----------- | ------------- | ------- | ------------------------------------------ |
+| `required`  | `boolean`     | `false` | Throw `MissingParameterError` if undefined |
+| `transform` | `TransformFn` | —       | Transform the extracted value              |
+
+> Custom parameter decorators can only be used on method parameters, not constructor parameters.
+
 ## Metadata Readers
 
 Read decorator metadata programmatically (used internally by `@nextrush/controllers`):
@@ -486,10 +603,25 @@ interface ParamMetadata {
   required?: boolean;
   defaultValue?: unknown;
   transform?: TransformFn;
+  customExtractor?: CustomParamExtractor;
 }
 
 type RouteMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
-type ParamSource = 'body' | 'query' | 'param' | 'header' | 'ctx' | 'req' | 'res';
+type ParamSource = 'body' | 'query' | 'param' | 'header' | 'ctx' | 'req' | 'res' | 'custom';
+
+// Custom parameter extractor
+type CustomParamExtractor<T = unknown> = (ctx: unknown) => T | Promise<T>;
+
+// Response metadata
+interface ResponseHeaderMetadata {
+  name: string;
+  value: string;
+}
+
+interface RedirectMetadata {
+  url: string;
+  statusCode: number;
+}
 ```
 
 ### Exports
@@ -499,6 +631,8 @@ type ParamSource = 'body' | 'query' | 'param' | 'header' | 'ctx' | 'req' | 'res'
 export { Controller, Get, Post, Put, Patch, Delete, Head, Options, All };
 export { Body, Param, Query, Header, Ctx, Req, Res };
 export { UseGuard };
+export { SetHeader, Redirect };
+export { createCustomParamDecorator };
 
 // Types
 export type { GuardFn, GuardContext, CanActivate, Guard, Constructor };
@@ -509,6 +643,9 @@ export type {
   RouteOptions,
   ParamMetadata,
   TransformFn,
+  CustomParamExtractor,
+  ResponseHeaderMetadata,
+  RedirectMetadata,
 };
 export type { BodyOptions, ParamOptions, QueryOptions, HeaderOptions };
 export type { GuardMetadata, MiddlewareRef, ParamSource, RouteMethods };
@@ -519,6 +656,7 @@ export { isController, getControllerMetadata, getRouteMetadata, getParamMetadata
 export { getAllParamMetadata, getControllerDefinition, buildFullPath };
 export { getMethodParameterTypes, getMethodReturnType };
 export { getAllGuards, getClassGuards, getMethodGuards, isGuardClass };
+export { getResponseHeaders, getRedirectMetadata };
 
 // Constants & type guards
 export { DECORATOR_METADATA_KEYS, isValidHttpMethod, isValidParamSource };
@@ -546,7 +684,7 @@ class UserController {}
 npx tsx src/index.ts
 
 // ✅ Works - full decorator support
-npx nextrush-dev
+npx nextrush dev
 ```
 
 ### Mistake 3: Forgetting reflect-metadata

@@ -5,12 +5,7 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../class.js';
-import {
-  getAllGuards,
-  getClassGuards,
-  getMethodGuards,
-  UseGuard,
-} from '../guards.js';
+import { getAllGuards, getClassGuards, getMethodGuards, UseGuard } from '../guards.js';
 import { Get, Post } from '../routes.js';
 import type { CanActivate, GuardContext, GuardFn } from '../types.js';
 import { isGuardClass } from '../types.js';
@@ -76,11 +71,11 @@ describe('Guards Decorator', () => {
       }
 
       const guards = getClassGuards(ProtectedController);
-      // Guards are added in decorator order (bottom to top due to decorator application order)
+      // Guards follow TypeScript's bottom-to-top decorator application order
       expect(guards).toHaveLength(3);
-      expect(guards).toContain(guard1);
-      expect(guards).toContain(guard2);
-      expect(guards).toContain(guard3);
+      expect(guards[0]).toBe(guard3);
+      expect(guards[1]).toBe(guard2);
+      expect(guards[2]).toBe(guard1);
     });
 
     it('should apply multiple guards in a single decorator call', () => {

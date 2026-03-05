@@ -6,24 +6,57 @@
  */
 
 import type {
-    CanActivate,
-    ControllerDefinition,
-    Guard,
-    GuardContext,
-    ParamMetadata,
-    RouteMetadata,
+  CanActivate,
+  ControllerDefinition,
+  Guard,
+  GuardContext,
+  MiddlewareRef,
+  ParamMetadata,
+  RouteMetadata,
 } from '@nextrush/decorators';
-import { getAllGuards, getParamMetadata, isGuardClass } from '@nextrush/decorators';
+import {
+  getAllGuards,
+  getParamMetadata,
+  getRedirectMetadata,
+  getResponseHeaders,
+  isGuardClass,
+} from '@nextrush/decorators';
 import type { ContainerInterface } from '@nextrush/di';
 import type { Context, Middleware, RouteHandler } from '@nextrush/types';
 import 'reflect-metadata';
 import {
-    ControllerResolutionError,
-    GuardRejectionError,
-    MissingParameterError,
-    ParameterInjectionError,
+  ControllerResolutionError,
+  GuardRejectionError,
+  MissingParameterError,
+  ParameterInjectionError,
 } from './errors.js';
 import type { BuiltRoute } from './types.js';
+
+/**
+ * Resolve middleware references to actual middleware functions.
+ *
+ * - Function refs are used directly
+ * - String/symbol refs are resolved from the DI container
+ */
+function resolveMiddlewareRefs(refs: MiddlewareRef[], container: ContainerInterface): Middleware[] {
+  return refs.map((ref) => {
+    if (typeof ref === 'function') {
+      return ref as Middleware;
+    }
+
+    // String or symbol — resolve from DI container
+    const resolved = container.resolve<Middleware>(ref as string);
+
+    if (typeof resolved !== 'function') {
+      throw new Error(
+        `Middleware token "${String(ref)}" resolved to a non-function value. ` +
+          'Ensure the registered provider returns a middleware function.'
+      );
+    }
+
+    return resolved;
+  });
+}
 
 /**
  * Build route handlers for a controller
@@ -39,12 +72,17 @@ export function buildRoutes(
 
   for (const route of routeMetadata) {
     const handler = createRouteHandler(target, route, container);
-    const fullPath = buildFullRoutePath(globalPrefix, controller.path, route.path, controller.version);
+    const fullPath = buildFullRoutePath(
+      globalPrefix,
+      controller.path,
+      route.path,
+      controller.version
+    );
 
     const combinedMiddleware: Middleware[] = [
       ...globalMiddleware,
-      ...(controller.middleware ?? []) as Middleware[],
-      ...(route.middleware ?? []) as Middleware[],
+      ...resolveMiddlewareRefs(controller.middleware ?? [], container),
+      ...resolveMiddlewareRefs(route.middleware ?? [], container),
     ];
 
     routes.push({
@@ -104,6 +142,14 @@ function createRouteHandler(
   const paramMetadata = getParamMetadata(controllerClass, methodName);
   const guards = getAllGuards(controllerClass, methodName);
 
+  // Precompute sorted param injection plan at build time (not per-request)
+  const sortedParams =
+    paramMetadata.length > 0 ? [...paramMetadata].sort((a, b) => a.index - b.index) : [];
+
+  const statusCode = route.statusCode;
+  const responseHeaders = getResponseHeaders(controllerClass, methodName);
+  const redirectMeta = getRedirectMetadata(controllerClass, methodName);
+
   return async (ctx: Context): Promise<void> => {
     // Execute guards first (if any)
     if (guards.length > 0) {
@@ -113,7 +159,9 @@ function createRouteHandler(
     let controllerInstance: unknown;
 
     try {
-      controllerInstance = container.resolve(controllerClass as new (...args: unknown[]) => unknown);
+      controllerInstance = container.resolve(
+        controllerClass as new (...args: unknown[]) => unknown
+      );
     } catch (error) {
       throw new ControllerResolutionError(
         controllerClass.name,
@@ -121,9 +169,9 @@ function createRouteHandler(
       );
     }
 
-    const args = await resolveParameters(
+    const args = await resolveParametersFromPlan(
       ctx,
-      paramMetadata,
+      sortedParams,
       controllerClass.name,
       methodName
     );
@@ -136,9 +184,38 @@ function createRouteHandler(
 
     const result = await method.apply(controllerInstance, args);
 
-    const response = ctx.raw.res as { writableEnded?: boolean };
+    // Apply response headers from @SetHeader() metadata
+    for (const header of responseHeaders) {
+      ctx.set(header.name, header.value);
+    }
 
-    if (result !== undefined && !response.writableEnded) {
+    // Apply statusCode from route metadata if set
+    if (statusCode !== undefined) {
+      ctx.status = statusCode;
+    }
+
+    // Handle @Redirect() metadata
+    if (redirectMeta && !ctx.responded) {
+      let redirectUrl = redirectMeta.url;
+      let redirectStatus = redirectMeta.statusCode;
+
+      // Method return value can override the redirect URL/status
+      if (typeof result === 'string') {
+        redirectUrl = result;
+      } else if (result && typeof result === 'object' && 'url' in result) {
+        const override = result as { url?: string; statusCode?: number };
+        if (override.url) redirectUrl = override.url;
+        if (override.statusCode) redirectStatus = override.statusCode;
+      }
+
+      ctx.status = redirectStatus;
+      ctx.set('Location', redirectUrl);
+      ctx.send('');
+      return;
+    }
+
+    // Check if response has already been sent (adapter-agnostic)
+    if (result !== undefined && !ctx.responded) {
       if (typeof result === 'object') {
         ctx.json(result);
       } else {
@@ -200,8 +277,8 @@ async function executeGuards(
       }
       // Guard threw an error - treat as rejection
       const errorGuardName = isGuardClass(guard)
-        ? (guard.name || `ClassGuard[${i}]`)
-        : (guard.name || `Guard[${i}]`);
+        ? guard.name || `ClassGuard[${i}]`
+        : guard.name || `Guard[${i}]`;
       throw new GuardRejectionError(
         errorGuardName,
         error instanceof Error ? error.message : 'Guard execution failed'
@@ -211,26 +288,27 @@ async function executeGuards(
 }
 
 /**
- * Resolve parameter values from context based on metadata
+ * Resolve parameter values from a precomputed, pre-sorted injection plan.
  * Supports async transform functions for validation libraries (zod, valibot, etc.)
  */
-async function resolveParameters(
+async function resolveParametersFromPlan(
   ctx: Context,
-  metadata: ParamMetadata[],
+  sortedMetadata: ParamMetadata[],
   controllerName: string,
   methodName: string
 ): Promise<unknown[]> {
-  if (metadata.length === 0) {
+  if (sortedMetadata.length === 0) {
     return [];
   }
 
-  const sortedMetadata = [...metadata].sort((a, b) => a.index - b.index);
-  const maxIndex = Math.max(...sortedMetadata.map((m) => m.index));
+  const maxIndex =
+    sortedMetadata.length > 0 ? sortedMetadata[sortedMetadata.length - 1]!.index : -1;
   const args: unknown[] = new Array(maxIndex + 1).fill(undefined);
 
   for (const param of sortedMetadata) {
     try {
-      const value = extractParameterValue(ctx, param);
+      // Await supports async custom extractors (createCustomParamDecorator)
+      const value = await extractParameterValue(ctx, param);
 
       if (value === undefined) {
         if (param.required && param.defaultValue === undefined) {
@@ -299,6 +377,12 @@ function extractParameterValue(ctx: Context, param: ParamMetadata): unknown {
 
     case 'res':
       return ctx.raw.res;
+
+    case 'custom':
+      if (param.customExtractor) {
+        return param.customExtractor(ctx);
+      }
+      return undefined;
 
     default:
       return undefined;

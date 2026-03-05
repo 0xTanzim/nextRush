@@ -464,6 +464,20 @@ interface RouteMatch {
 }
 ```
 
+#### `router.reset()`
+
+Clear all registered routes, middleware, and internal state. Useful for testing or plugin teardown.
+
+```typescript
+const router = createRouter();
+router.get('/users', handler);
+
+router.reset();
+// All routes, static route cache, middleware, param/wildcard children are cleared
+```
+
+> Calling `reset()` makes the router reusable — you can register fresh routes after resetting.
+
 #### `router.routes()`
 
 Get middleware function to mount on application.

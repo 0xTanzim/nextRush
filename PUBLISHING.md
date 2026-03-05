@@ -1,229 +1,179 @@
 # Publishing Guide
 
-This guide explains how NextRush packages are versioned, released, and published to npm.
+NextRush uses **lockstep versioning** — all `@nextrush/*` packages share the same version number, always.
 
-## Package Architecture
-
-NextRush uses a **tiered versioning strategy** with a facade pattern:
+## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         nextrush (FACADE)                        │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐ │
-│  │  core   │ │ router  │ │ errors  │ │  types  │ │adapter-node│ │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └───────────┘ │
-│                     ALL VERSION 3.x.x (LINKED)                   │
-└─────────────────────────────────────────────────────────────────┘
-                               │
-           ┌───────────────────┼───────────────────┐
-           │                   │                   │
-           ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│  CLASS-BASED    │  │    ADAPTERS     │  │   MIDDLEWARE    │
-│  (LINKED)       │  │  (SEMI-LINKED)  │  │  (INDEPENDENT)  │
-│  ┌──────────┐   │  │  ┌───────────┐  │  │  ┌──────────┐   │
-│  │    di    │   │  │  │adapter-bun│  │  │  │   cors   │   │
-│  ├──────────┤   │  │  ├───────────┤  │  │  ├──────────┤   │
-│  │decorators│   │  │  │adapter-deno│ │  │  │  helmet  │   │
-│  ├──────────┤   │  │  ├───────────┤  │  │  ├──────────┤   │
-│  │controllers│  │  │  │adapter-edge│ │  │  │body-parser│  │
-│  └──────────┘   │  │  └───────────┘  │  │  └──────────┘   │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
+Fix @nextrush/di        → ALL 26 packages bump (e.g., 3.0.0 → 3.0.1)
+Add feature to router   → ALL 26 packages bump (e.g., 3.0.1 → 3.1.0)
+Breaking change in core → ALL 26 packages bump (e.g., 3.1.0 → 4.0.0)
 ```
 
-## Package Tiers
+Users install one version. No compatibility matrix. No guessing.
 
-### Tier 1: Core (LINKED Versioning)
+```bash
+npm install nextrush@3.2.0 @nextrush/cors@3.2.0 @nextrush/adapter-node@3.2.0
+# All guaranteed compatible.
+```
 
-These packages always share the same version number.
+## Packages (26 in lockstep)
 
-| Package | Description |
-|---------|-------------|
-| `nextrush` | Facade meta-package |
-| `@nextrush/core` | Application, Context, Middleware |
-| `@nextrush/router` | Radix tree routing |
-| `@nextrush/errors` | HTTP error classes |
-| `@nextrush/types` | Shared TypeScript types |
-| `@nextrush/runtime` | Runtime detection |
+| Tier            | Packages                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Core**        | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`                                                                   |
+| **Class-based** | `@nextrush/di`, `@nextrush/decorators`, `@nextrush/controllers`                                                                                                                |
+| **Adapters**    | `@nextrush/adapter-node`, `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`                                                                          |
+| **Middleware**  | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/request-id`, `@nextrush/timer` |
+| **Plugins**     | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                        |
 
-### Tier 2: Class-Based (LINKED Versioning)
-
-These packages enable the decorator/DI paradigm.
-
-| Package | Description |
-|---------|-------------|
-| `@nextrush/di` | Dependency injection |
-| `@nextrush/decorators` | @Controller, @Get, etc. |
-| `@nextrush/controllers` | Controller plugin |
-
-### Tier 3: Adapters (Semi-Linked)
-
-Same major.minor as core, independent patch versions.
-
-| Package | Description |
-|---------|-------------|
-| `@nextrush/adapter-node` | Node.js HTTP |
-| `@nextrush/adapter-bun` | Bun.serve |
-| `@nextrush/adapter-deno` | Deno.serve |
-| `@nextrush/adapter-edge` | Edge runtimes |
-
-### Tier 4: Middleware (INDEPENDENT)
-
-Version independently from core.
-
-| Package | Description |
-|---------|-------------|
-| `@nextrush/cors` | CORS headers |
-| `@nextrush/helmet` | Security headers |
-| `@nextrush/body-parser` | Body parsing |
-| `@nextrush/rate-limit` | Rate limiting |
-| `@nextrush/cookies` | Cookie handling |
-| `@nextrush/compression` | Response compression |
-
-### Tier 5: Plugins (INDEPENDENT)
-
-| Package | Description |
-|---------|-------------|
-| `@nextrush/logger` | Structured logging |
-| `@nextrush/static` | Static file serving |
-| `@nextrush/events` | Event system |
-| `@nextrush/websocket` | WebSocket support |
+**Excluded:** `@nextrush/dev` (dev tool, versioned independently), docs app (private, not published).
 
 ## Creating a Changeset
 
-When you make changes to any package:
+After making changes to any package:
 
 ```bash
-# Run the changeset CLI
 pnpm changeset
 ```
 
-You'll be asked:
-1. **Which packages have changed?** (Select with space, confirm with enter)
-2. **What type of change?** (major/minor/patch)
-3. **Summary of changes** (This goes in CHANGELOG)
+1. Select the package(s) you changed
+2. Choose bump type (patch / minor / major)
+3. Write a summary (goes into CHANGELOG)
 
-This creates a file in `.changeset/` like:
+This creates a `.changeset/*.md` file. Commit it with your PR.
 
-```markdown
----
-"@nextrush/core": minor
----
+### Bump type guide
 
-Add new `ctx.state` property for sharing data between middleware
+| Type    | When                                           |
+| ------- | ---------------------------------------------- |
+| `patch` | Bug fix, internal refactor, dependency update  |
+| `minor` | New feature, new API (backward compatible)     |
+| `major` | Breaking change (API removal, behavior change) |
+
+### When NOT to add a changeset
+
+- Documentation-only changes
+- Test-only changes
+- CI/CD configuration changes
+- `@nextrush/dev` changes
+
+## Release Workflow (Automated)
+
+```
+1. PR with changeset merges to main
+2. GitHub Action creates "Version Packages" PR
+   → all package.json versions bumped
+   → all CHANGELOG.md files updated
+3. Review + merge "Version Packages" PR
+4. GitHub Action publishes ALL packages to npm
+5. GitHub Release created automatically
 ```
 
-### Linked Packages Behavior
+No manual intervention needed after step 3.
 
-If you select a linked package (e.g., `@nextrush/core`), ALL linked packages will receive the same version bump when released.
-
-## Release Workflow
-
-### Automated (GitHub Actions)
-
-1. **PR with changeset merges to `main`**
-2. GitHub Action collects all changesets
-3. Creates "Version Packages" PR with:
-   - Updated `package.json` versions
-   - Updated `CHANGELOG.md` files
-4. When "Version Packages" PR merges:
-   - All affected packages publish to npm
-   - Git tags created
-
-### Manual (Local)
-
-For testing or emergency releases:
+## Manual Release (Emergency)
 
 ```bash
-# 1. Apply version bumps
-pnpm version
+# Apply version bumps
+pnpm run version
 
-# 2. Build all packages
+# Build all packages
 pnpm build
 
-# 3. Publish to npm
+# Publish to npm (requires NPM_TOKEN env var)
 pnpm release
 ```
 
-## Version Compatibility
+## Pre-releases
 
-Users can rely on this compatibility matrix:
-
-| nextrush | @nextrush/core | Adapters | Middleware |
-|----------|---------------|----------|------------|
-| 3.0.x | 3.0.x | 3.0.x | peer: ^3.0.0 |
-| 3.1.x | 3.1.x | 3.1.x | peer: ^3.0.0 |
-| 3.2.x | 3.2.x | 3.2.x | peer: ^3.0.0 |
-
-**Rule:** All core packages in the same major.minor are guaranteed compatible.
-
-## Pre-release Versions
-
-For alpha/beta releases:
+For alpha/beta/RC testing. Always from a dedicated branch, never `main`.
 
 ```bash
-# Create a pre-release changeset
+# Create branch
+git checkout -b release/3.1.0-alpha
+
+# Enter pre-release mode
 pnpm changeset pre enter alpha
 
-# Make changes and add changesets
+# Add changesets + version + publish
 pnpm changeset
+pnpm run version        # Creates 3.1.0-alpha.0
+pnpm build
+pnpm changeset publish  # Publishes to npm with @alpha tag
 
-# Exit pre-release mode when ready
+# Users test: npm install nextrush@alpha
+
+# When ready for stable
 pnpm changeset pre exit
+pnpm run version        # Creates 3.1.0
+pnpm build
+pnpm changeset publish  # Publishes to npm @latest
 ```
 
-This produces versions like `3.0.0-alpha.1`, `3.0.0-alpha.2`, etc.
+## Snapshot Releases (PR Testing)
 
-## Required npm Setup
+Publish a specific PR for testing without merging:
 
-### NPM Token
+```bash
+pnpm changeset version --snapshot pr-123
+pnpm changeset publish --tag pr-123 --no-git-tag
+# Users test: npm install nextrush@pr-123
+```
 
-Add `NPM_TOKEN` to GitHub repository secrets:
+## npm Setup
 
-1. Create npm token: `npm token create`
-2. Go to repo Settings → Secrets → Actions
-3. Add `NPM_TOKEN` with the token value
+### Required secret
 
-### Package Access
+Add `NPM_TOKEN` to GitHub repo → Settings → Secrets → Actions.
 
-All packages must have in `package.json`:
+Create a granular npm token scoped to `@nextrush/*` packages only.
+
+### Package requirements
+
+Every publishable package must have:
 
 ```json
 {
-  "publishConfig": {
-    "access": "public"
-  }
+  "publishConfig": { "access": "public" }
 }
 ```
 
-## Checklist for New Package
+All 26 packages already have this configured.
 
-When adding a new package:
+## Adding a New Package
 
-- [ ] Decide tier (Core/Middleware/Plugin)
-- [ ] Set correct version (linked: same as core, independent: start at 0.1.0)
-- [ ] Add to `.changeset/config.json` `linked` array if core/class-based
-- [ ] Add `publishConfig.access: "public"`
-- [ ] Add `repository.directory` field
-- [ ] Add `peerDependencies` for `@nextrush/types`
-- [ ] Write README with install instructions
-- [ ] Add to documentation
+1. Create the package under `packages/`
+2. Set version to match current lockstep version (e.g., `3.2.0`)
+3. Add `publishConfig.access: "public"`
+4. Add `repository.directory` field
+5. It auto-joins lockstep via the `@nextrush/*` glob — no config change needed
+6. To exclude from lockstep, add to `ignore` in `.changeset/config.json`
 
-## Troubleshooting
+## Configuration Reference
 
-### "Package not found on npm"
+Changesets config lives in `.changeset/config.json`:
 
-Ensure `publishConfig.access` is `"public"` for scoped packages.
+```json
+{
+  "fixed": [["@nextrush/*", "nextrush"]],
+  "ignore": ["@nextrush/dev", "api"],
+  "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
+  "privatePackages": { "version": false, "tag": false },
+  "snapshot": { "useCalculatedVersion": true, "prereleaseTemplate": "{tag}-{datetime}" }
+}
+```
 
-### "Version mismatch in linked packages"
-
-Run `pnpm changeset version` to synchronize versions.
-
-### "Changeset not detected"
-
-Ensure the changeset file is in `.changeset/` and committed.
+| Key               | Purpose                                                       |
+| ----------------- | ------------------------------------------------------------- |
+| `fixed`           | All matching packages share the same version (lockstep)       |
+| `ignore`          | Packages excluded from versioning                             |
+| `changelog`       | GitHub-linked changelogs with PR links and author attribution |
+| `privatePackages` | Skip private packages (docs, playground, benchmark)           |
+| `snapshot`        | Use calculated versions for snapshot releases                 |
 
 ## Further Reading
 
+- [Versioning & Release RFC](report/RFC-VERSIONING-AND-RELEASE-STRATEGY.md)
 - [Changesets Documentation](https://github.com/changesets/changesets)
-- [RFC-0005: Publishing Strategy](../draft/rfc/RFC-0005-PUBLISHING-STRATEGY.md)
+- [Changesets Fixed Packages](https://github.com/changesets/changesets/blob/main/docs/fixed-packages.md)

@@ -6,8 +6,10 @@
  * @packageDocumentation
  */
 
+import type { Middleware } from '@nextrush/types';
+
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
-import type { BodyParserContext, BodyParserMiddleware, TextOptions } from '../types.js';
+import type { BodyParserContext, TextOptions } from '../types.js';
 import { bufferToString } from '../utils/buffer.js';
 import {
   extractCharset,
@@ -48,7 +50,7 @@ import { readBody } from './reader.js';
  * });
  * ```
  */
-export function text(options: TextOptions = {}): BodyParserMiddleware {
+export function text(options: TextOptions = {}): Middleware {
   const {
     limit = DEFAULT_LIMITS.TEXT,
     type = DEFAULT_CONTENT_TYPES.TEXT,
@@ -61,7 +63,7 @@ export function text(options: TextOptions = {}): BodyParserMiddleware {
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.TEXT);
   const types = Array.isArray(type) ? type : [type];
 
-  return async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
+  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
       if (next) await next();
@@ -109,5 +111,5 @@ export function text(options: TextOptions = {}): BodyParserMiddleware {
     ctx.body = bufferToString(buffer, encoding as BufferEncoding);
 
     if (next) await next();
-  };
+  }) as unknown as Middleware;
 }

@@ -24,9 +24,42 @@ export interface ClassProvider<T> {
 
 /**
  * Provider that uses a factory function.
+ *
+ * Without `inject`: factory receives the container.
+ * With `inject`: factory receives resolved dependencies in order.
+ *
+ * @example Without inject
+ * ```typescript
+ * container.register('DB', {
+ *   useFactory: (c) => new Database(c.resolve(ConfigService).dbUrl),
+ * });
+ * ```
+ *
+ * @example With inject
+ * ```typescript
+ * container.register('DB', {
+ *   useFactory: (config: ConfigService) => new Database(config.dbUrl),
+ *   inject: [ConfigService],
+ * });
+ * ```
+ *
+ * @example Async factory (auto-resolved by bootstrap)
+ * ```typescript
+ * container.register('DB', {
+ *   useFactory: async (config: ConfigService) => {
+ *     const db = new Database(config.dbUrl);
+ *     await db.connect();
+ *     return db;
+ *   },
+ *   inject: [ConfigService],
+ * });
+ * // Controllers plugin calls bootstrap() automatically.
+ * // For functional mode: await container.bootstrap()
+ * ```
  */
 export interface FactoryProvider<T> {
-  useFactory: (container: ContainerInterface) => T;
+  useFactory: (...args: unknown[]) => T | Promise<T>;
+  inject?: Token[];
 }
 
 /**
@@ -59,13 +92,45 @@ export interface ServiceOptions {
 export interface ContainerInterface {
   /**
    * Register a dependency with the container.
+   *
+   * @param token - The token to register
+   * @param provider - The provider (class, value, or factory)
+   * @param options - Optional registration options
    */
-  register<T>(token: Token<T>, provider: Provider<T>): void;
+  register<T>(token: Token<T>, provider: Provider<T>, options?: RegisterOptions): void;
 
   /**
-   * Resolve a dependency from the container.
+   * Resolve a dependency from the container (synchronous).
    */
   resolve<T>(token: Token<T>): T;
+
+  /**
+   * Resolve a dependency that may have been registered with an async factory.
+   * Awaits the result if the factory returns a Promise.
+   *
+   * Prefer `bootstrap()` over calling this for each async provider.
+   */
+  resolveAsync<T>(token: Token<T>): Promise<T>;
+
+  /**
+   * Bootstrap all factory providers.
+   *
+   * Resolves every factory-registered provider, awaiting any Promises,
+   * and caches results for synchronous access via `resolve()`.
+   *
+   * Called automatically by the controllers plugin during `install()`.
+   * For functional mode, call once before handling requests.
+   *
+   * @example
+   * ```typescript
+   * container.register('DB', {
+   *   useFactory: async () => { const db = new Database(); await db.connect(); return db; },
+   * });
+   * await container.bootstrap(); // All async providers resolved
+   * container.resolve('DB');     // Works synchronously now
+   * ```
+   */
+  bootstrap(): Promise<void>;
 
   /**
    * Resolve all dependencies registered under a token.
@@ -101,9 +166,40 @@ export const METADATA_KEYS = {
   SERVICE_SCOPE: 'di:scope',
   INJECT_TOKEN: 'di:inject',
   PARAM_TYPES: 'design:paramtypes',
+  CONFIG_PREFIX: 'di:config:prefix',
+  OPTIONAL_PARAMS: 'di:optional',
 } as const;
+
+/**
+ * Options for @Config decorator.
+ */
+export interface ConfigOptions {
+  /**
+   * Environment variable prefix.
+   *
+   * When set, the configuration class can be used with prefix-based env loading.
+   *
+   * @example
+   * ```typescript
+   * @Config({ prefix: 'DB' })
+   * class DatabaseConfig {
+   *   readonly host = 'localhost';  // reads DB_HOST
+   *   readonly port = 5432;         // reads DB_PORT
+   * }
+   * ```
+   */
+  prefix?: string;
+}
 
 /**
  * Service types for metadata.
  */
-export type ServiceType = 'service' | 'repository' | 'controller';
+export type ServiceType = 'service' | 'repository' | 'controller' | 'config';
+
+/**
+ * Registration options for container.register().
+ */
+export interface RegisterOptions {
+  /** Lifecycle scope — defaults to 'transient' if not specified */
+  scope?: Scope;
+}

@@ -11,7 +11,8 @@
  */
 
 import { buildCli, buildHelp, devCli, devHelp } from './commands/index.js';
-import { detectRuntime, getRuntimeInfo } from './runtime/index.js';
+import { exitProcess, getRuntimeInfo } from './runtime/index.js';
+import { error } from './utils/logger.js';
 
 const VERSION = '3.0.0-alpha.2';
 
@@ -19,33 +20,13 @@ const VERSION = '3.0.0-alpha.2';
  * Get CLI arguments in a cross-runtime way
  */
 function getCliArgs(): string[] {
-  const runtime = detectRuntime();
-
-  if (runtime === 'deno') {
-    // Deno provides args directly without script name
-    return (globalThis as unknown as { Deno: { args: string[] } }).Deno.args;
+  if ('Deno' in globalThis) {
+    // @ts-expect-error Deno global exists in Deno runtime
+    return (globalThis.Deno as { args: string[] }).args;
   }
 
-  if (runtime === 'bun') {
-    // Bun uses process.argv like Node.js
-    return process.argv.slice(2);
-  }
-
-  // Node.js: argv[0] is node, argv[1] is script, rest are args
+  // Node.js and Bun both use process.argv
   return process.argv.slice(2);
-}
-
-/**
- * Exit process in a cross-runtime way
- */
-function exitProcess(code: number): never {
-  const runtime = detectRuntime();
-
-  if (runtime === 'deno') {
-    (globalThis as unknown as { Deno: { exit: (code: number) => never } }).Deno.exit(code);
-  }
-
-  process.exit(code);
 }
 
 /**
@@ -87,8 +68,8 @@ export function cli(): void {
       break;
 
     default:
-      console.error(`\x1b[31mUnknown command: ${command}\x1b[0m`);
-      console.error('Run "nextrush --help" for available commands.');
+      error(`Unknown command: ${command}`);
+      error('Run "nextrush --help" for available commands.');
       exitProcess(1);
   }
 }

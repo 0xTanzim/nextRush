@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import type { Middleware as NextrushMiddleware } from '@nextrush/types';
+
 import {
   CORRELATION_HEADER,
   CORRELATION_STATE_KEY,
@@ -18,7 +20,6 @@ import {
 } from './constants';
 import type {
   CorrelationIdOptions,
-  Middleware,
   RequestIdContext,
   RequestIdOptions,
   TraceIdOptions,
@@ -95,9 +96,7 @@ function validateStateKey(key: string): void {
  * });
  * ```
  */
-export function requestId<TContext extends RequestIdContext = RequestIdContext>(
-  options: RequestIdOptions = {}
-): Middleware<TContext> {
+export function requestId(options: RequestIdOptions = {}): NextrushMiddleware {
   const {
     header = DEFAULT_HEADER,
     generator = defaultGenerator,
@@ -127,7 +126,7 @@ export function requestId<TContext extends RequestIdContext = RequestIdContext>(
 
   const headerLower = header.toLowerCase();
 
-  return async (ctx: TContext) => {
+  return (async (ctx: RequestIdContext) => {
     let id: string | undefined;
 
     // Trust incoming ID if enabled and valid
@@ -164,7 +163,7 @@ export function requestId<TContext extends RequestIdContext = RequestIdContext>(
     }
 
     await ctx.next();
-  };
+  }) as unknown as NextrushMiddleware;
 }
 
 // ============================================================================
@@ -195,10 +194,8 @@ export function requestId<TContext extends RequestIdContext = RequestIdContext>(
  * });
  * ```
  */
-export function correlationId<TContext extends RequestIdContext = RequestIdContext>(
-  options: CorrelationIdOptions = {}
-): Middleware<TContext> {
-  return requestId<TContext>({
+export function correlationId(options: CorrelationIdOptions = {}): NextrushMiddleware {
+  return requestId({
     ...options,
     header: CORRELATION_HEADER,
     stateKey: CORRELATION_STATE_KEY,
@@ -230,10 +227,8 @@ export function correlationId<TContext extends RequestIdContext = RequestIdConte
  * });
  * ```
  */
-export function traceId<TContext extends RequestIdContext = RequestIdContext>(
-  options: TraceIdOptions = {}
-): Middleware<TContext> {
-  return requestId<TContext>({
+export function traceId(options: TraceIdOptions = {}): NextrushMiddleware {
+  return requestId({
     ...options,
     header: TRACE_HEADER,
     stateKey: TRACE_STATE_KEY,

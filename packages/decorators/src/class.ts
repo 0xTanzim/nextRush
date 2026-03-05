@@ -2,22 +2,25 @@
  * @nextrush/decorators - Class Decorators
  *
  * Controller decorator that marks a class as an HTTP controller.
- * Automatically makes the class injectable for DI (wraps @singleton from tsyringe).
+ * Makes the class injectable for DI (wraps @injectable from tsyringe).
+ * Lifecycle management (singleton/transient) is deferred to the
+ * controllers plugin registry, enabling proper test isolation.
  * Uses legacy decorators for compatibility with parameter decorators.
  */
 
 import 'reflect-metadata';
-import { singleton as tsySingleton } from 'tsyringe';
+import { injectable as tsyInjectable } from 'tsyringe';
 import type { ControllerMetadata, ControllerOptions } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
 /**
- * Marks a class as an HTTP controller with automatic DI registration.
+ * Marks a class as an HTTP controller with DI support.
  *
  * This decorator:
  * 1. Registers the class as an HTTP controller with route metadata
- * 2. Makes the class injectable as a singleton (wraps tsyringe's @singleton)
+ * 2. Makes the class injectable (resolvable by the DI container)
  *
+ * Lifecycle is managed by the controllers plugin, not the decorator.
  * You do NOT need to add @Service() when using @Controller() - it's included!
  *
  * @param pathOrOptions - Base path string or controller options
@@ -54,9 +57,10 @@ export function Controller(pathOrOptions?: string | ControllerOptions): ClassDec
     // Store controller metadata
     Reflect.defineMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, metadata, target);
 
-    // Make the class injectable as singleton (same as @Service())
-    // This allows constructor injection without needing separate @Service() decorator
-    tsySingleton()(target as unknown as new (...args: unknown[]) => unknown);
+    // Make the class injectable (resolvable by DI container)
+    // Lifecycle (singleton vs transient) is controlled by the container/registry,
+    // NOT by the decorator — this enables test isolation with fresh instances
+    tsyInjectable()(target as unknown as new (...args: unknown[]) => unknown);
 
     return target;
   };
@@ -65,7 +69,10 @@ export function Controller(pathOrOptions?: string | ControllerOptions): ClassDec
 /**
  * Normalize controller options from string or object input.
  */
-function normalizeControllerOptions(input: string | ControllerOptions | undefined, className: string): ControllerOptions {
+function normalizeControllerOptions(
+  input: string | ControllerOptions | undefined,
+  className: string
+): ControllerOptions {
   if (typeof input === 'string') {
     return { path: normalizePath(input) };
   }

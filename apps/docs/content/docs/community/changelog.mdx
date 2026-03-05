@@ -17,6 +17,39 @@ NextRush follows [Semantic Versioning](https://semver.org/):
 
 ---
 
+## v3.0.0-alpha.3
+
+**Status**: Alpha release
+
+### New Features
+
+#### `@nextrush/di`
+
+- **`@Optional()` decorator** — Mark constructor parameters as optional. Unregistered dependencies resolve to `undefined` instead of throwing.
+- **`isParameterOptional()` / `getOptionalParams()`** — Utility functions to inspect optional parameter metadata.
+- **Improved error messages** — DI resolution errors now include actionable suggestions (e.g., "Did you forget to add @Service()?").
+- **Set-based circular dependency detection** — O(1) lookup performance for circular dependency tracking.
+
+#### `@nextrush/decorators`
+
+- **`@SetHeader(name, value)`** — Declarative response header decorator for route methods.
+- **`@Redirect(url, statusCode?)`** — Declarative redirect decorator with configurable status code (default 302).
+- **`createCustomParamDecorator(extractor, options?)`** — Create reusable parameter decorators with custom extraction logic.
+- **`getResponseHeaders()` / `getRedirectMetadata()`** — Metadata reader functions for response decorators.
+
+#### `@nextrush/router`
+
+- **`router.reset()`** — Clear all registered routes, middleware, and internal state.
+
+#### `@nextrush/controllers`
+
+- **`@SetHeader` / `@Redirect` handler support** — Built handlers apply response headers and redirects automatically.
+- **Custom parameter extraction** — `createCustomParamDecorator` params are fully supported in handler building.
+- **Middleware token resolution** — Middleware arrays accept DI tokens (string/Symbol) resolved from the container.
+- **Plugin `destroy()` lifecycle** — Calls `router.reset()` for graceful cleanup.
+
+---
+
 ## v3.0.0
 
 **Status**: Alpha release

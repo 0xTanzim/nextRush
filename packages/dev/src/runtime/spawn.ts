@@ -8,7 +8,8 @@
  */
 
 import { detectRuntime, type Runtime } from './detect.js';
-import { NODE_CHILD_PROCESS } from './node-modules.js';
+import { getCwd } from './fs.js';
+import { getSwcNodeRegisterPath, NODE_CHILD_PROCESS } from './node-modules.js';
 
 export interface SpawnOptions {
   cwd?: string;
@@ -28,7 +29,7 @@ export interface SpawnResult {
 export async function spawn(
   command: string,
   args: string[],
-  options: SpawnOptions = {},
+  options: SpawnOptions = {}
 ): Promise<SpawnResult> {
   const runtime = detectRuntime();
 
@@ -49,14 +50,12 @@ export async function spawn(
 async function spawnNode(
   command: string,
   args: string[],
-  options: SpawnOptions,
+  options: SpawnOptions
 ): Promise<SpawnResult> {
-  const { spawn: nodeSpawn } = await import(
-    /* @vite-ignore */ NODE_CHILD_PROCESS
-  );
+  const { spawn: nodeSpawn } = await import(/* @vite-ignore */ NODE_CHILD_PROCESS);
 
   const child = nodeSpawn(command, args, {
-    cwd: options.cwd ?? process.cwd(),
+    cwd: options.cwd ?? getCwd(),
     env: {
       ...(process.env as Record<string, string>),
       ...options.env,
@@ -68,11 +67,11 @@ async function spawnNode(
   const errorCallbacks: Array<(error: Error) => void> = [];
 
   child.on('exit', (code: number | null) => {
-    exitCallbacks.forEach(cb => cb(code));
+    exitCallbacks.forEach((cb) => cb(code));
   });
 
   child.on('error', (error: Error) => {
-    errorCallbacks.forEach(cb => cb(error));
+    errorCallbacks.forEach((cb) => cb(error));
   });
 
   return {
@@ -94,13 +93,13 @@ async function spawnNode(
 async function spawnBun(
   command: string,
   args: string[],
-  options: SpawnOptions,
+  options: SpawnOptions
 ): Promise<SpawnResult> {
   // @ts-expect-error Bun global exists in Bun runtime
   const Bun = globalThis.Bun;
 
   const proc = Bun.spawn([command, ...args], {
-    cwd: options.cwd ?? process.cwd(),
+    cwd: options.cwd ?? getCwd(),
     env: {
       ...process.env,
       ...options.env,
@@ -114,10 +113,10 @@ async function spawnBun(
   // Bun's exited is a Promise
   proc.exited
     .then((code: number) => {
-      exitCallbacks.forEach(cb => cb(code));
+      exitCallbacks.forEach((cb) => cb(code));
     })
     .catch((error: Error) => {
-      errorCallbacks.forEach(cb => cb(error));
+      errorCallbacks.forEach((cb) => cb(error));
     });
 
   return {
@@ -139,7 +138,7 @@ async function spawnBun(
 async function spawnDeno(
   command: string,
   args: string[],
-  options: SpawnOptions,
+  options: SpawnOptions
 ): Promise<SpawnResult> {
   // @ts-expect-error Deno global exists in Deno runtime
   const Deno = globalThis.Deno;
@@ -161,10 +160,10 @@ async function spawnDeno(
 
   proc.status
     .then((status: { code: number }) => {
-      exitCallbacks.forEach(cb => cb(status.code));
+      exitCallbacks.forEach((cb) => cb(status.code));
     })
     .catch((error: Error) => {
-      errorCallbacks.forEach(cb => cb(error));
+      errorCallbacks.forEach((cb) => cb(error));
     });
 
   return {
@@ -183,30 +182,23 @@ async function spawnDeno(
 /**
  * Build runtime-specific dev command arguments
  *
- * For Node.js, we use @swc-node/register instead of tsx because:
- * - tsx uses esbuild which doesn't emit decorator metadata
- * - @swc-node uses SWC which properly emits decorator metadata
- * - Decorator metadata is required for DI systems like tsyringe
- *
- * We use tsx's watch functionality but configure it to use SWC
- * via the --import flag for proper decorator support.
+ * For Node.js, we use @swc-node/register via --import because:
+ * - SWC properly emits decorator metadata (emitDecoratorMetadata)
+ * - Decorator metadata is required for DI constructor injection
+ * - Node.js >= 22 has built-in --watch that auto-watches imported files
  */
 export function buildDevArgs(
   runtime: Runtime,
   entry: string,
   _watchPaths: string[],
   inspect?: boolean,
-  inspectPort?: number,
+  inspectPort?: number
 ): { command: string; args: string[] } {
   switch (runtime) {
     case 'bun':
       return {
         command: 'bun',
-        args: [
-          '--watch',
-          ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []),
-          entry,
-        ],
+        args: ['--watch', ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []), entry],
       };
 
     case 'deno':
@@ -224,19 +216,20 @@ export function buildDevArgs(
       };
 
     case 'node':
-    default:
-      // Use tsx for TypeScript execution with watch mode
-      // Note: tsx uses esbuild which does NOT emit decorator metadata
-      // For DI support, users should also install @swc-node/register
-      // and pass --import @swc-node/register/esm-register
+    default: {
+      // Use SWC for TypeScript transpilation with decorator metadata support
+      // Node.js --watch auto-watches all imported files for changes
+      const swcLoaderPath = getSwcNodeRegisterPath();
       return {
-        command: 'npx',
+        command: 'node',
         args: [
-          'tsx',
-          'watch',
+          '--import',
+          swcLoaderPath,
+          '--watch',
           ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []),
           entry,
         ],
       };
+    }
   }
 }

@@ -13,9 +13,10 @@ Dependency injection solves this by inverting control: you declare what a class 
 
 NextRush wraps [tsyringe](https://github.com/microsoft/tsyringe) with three additions:
 
-1. **Enhanced error messages** — resolution failures include the full dependency chain, the missing token, and concrete fix suggestions.
-2. **Circular dependency detection** — caught at resolution time with cycle visualization.
+1. **Enhanced error messages** — resolution failures include the full dependency chain, the missing token, and concrete fix suggestions (`@Service()`, `@Repository()`, `@Config()` hints, import order checks).
+2. **Circular dependency detection** — O(1) Set-based detection at resolution time with cycle visualization, including tsyringe-internal chain detection.
 3. **Semantic decorators** — `@Service()` and `@Repository()` carry metadata that the `@nextrush/controllers` plugin uses for auto-discovery.
+4. **Optional dependencies** — `@Optional()` decorator for graceful handling of unregistered services.
 
 The container itself stays thin. All heavy lifting (constructor analysis, singleton caching, token resolution) is delegated to tsyringe.
 
@@ -191,6 +192,32 @@ class ServiceB {
 }
 ```
 
+### `@Optional()`
+
+Mark a constructor parameter as optional. When the dependency is not registered, the container injects `undefined` instead of throwing.
+
+```typescript
+import { Service, Optional, inject } from '@nextrush/di';
+
+@Service()
+class NotificationService {
+  constructor(
+    @Optional() private emailService?: EmailService,
+    @inject('SLACK_TOKEN') @Optional() private slackToken?: string
+  ) {}
+
+  notify(message: string) {
+    if (this.emailService) {
+      this.emailService.send(message);
+    }
+  }
+}
+```
+
+<Callout type="info">
+  `@Optional()` works with both class tokens and string/symbol tokens. It stores metadata as a `Set<number>` for O(1) lookup.
+</Callout>
+
 ---
 
 ## Scopes
@@ -362,15 +389,17 @@ try {
     DependencyResolutionError: {
       type: 'DIError',
       description:
-        'Token not registered and cannot be resolved. Includes chain and missingDependency properties.',
+        'Token not registered and cannot be resolved. Includes chain and missingDependency properties. Error messages include fix suggestions (@Service, @Repository, @Config hints).',
     },
     CircularDependencyError: {
       type: 'DIError',
-      description: 'Circular dependency detected during resolution. Includes cycle property.',
+      description:
+        'Circular dependency detected during resolution (wrapper-level + tsyringe-internal chains). Includes cycle property.',
     },
     MissingDependencyError: {
       type: 'DIError',
-      description: 'Required dependency not found. Includes token property.',
+      description:
+        '(Deprecated) Use DependencyResolutionError instead. Required dependency not found. Includes token property.',
     },
     InvalidProviderError: {
       type: 'DIError',
@@ -397,6 +426,7 @@ These functions inspect decorator metadata set by `@Service()` and `@Repository(
 
 ```typescript
 import { hasServiceMetadata, getServiceType, getServiceScope } from '@nextrush/di';
+import { isParameterOptional, getOptionalParams, Optional } from '@nextrush/di';
 
 @Service({ scope: 'transient' })
 class MyService {}
@@ -404,6 +434,15 @@ class MyService {}
 hasServiceMetadata(MyService); // true
 getServiceType(MyService); // 'service'
 getServiceScope(MyService); // 'transient'
+
+// Optional parameter utilities
+@Service()
+class WithOptional {
+  constructor(@Optional() private dep?: SomeDep) {}
+}
+
+isParameterOptional(WithOptional, 0); // true
+getOptionalParams(WithOptional); // Set { 0 }
 ```
 
 Used internally by `@nextrush/controllers` for auto-discovery. Useful when building custom plugins that scan for injectable classes.
@@ -454,10 +493,16 @@ All types and runtime exports are available from the package entry point.
 import { container, createContainer } from '@nextrush/di';
 
 // Decorators
-import { Service, Repository, AutoInjectable, inject, delay } from '@nextrush/di';
+import { Service, Repository, AutoInjectable, Optional, inject, delay } from '@nextrush/di';
 
 // Utility functions
-import { hasServiceMetadata, getServiceType, getServiceScope } from '@nextrush/di';
+import {
+  hasServiceMetadata,
+  getServiceType,
+  getServiceScope,
+  isParameterOptional,
+  getOptionalParams,
+} from '@nextrush/di';
 
 // Metadata keys
 import { METADATA_KEYS } from '@nextrush/di';

@@ -7,13 +7,14 @@
  * @packageDocumentation
  */
 
+import type { Middleware as NexrushMiddleware } from '@nextrush/types';
+
 import { DEFAULT_CSP_DIRECTIVES, DEFAULT_HSTS_MAX_AGE, HEADERS } from './constants.js';
 import { buildCspHeader } from './csp.js';
 import { buildPermissionsPolicyHeader } from './permissions.js';
 import type {
   ClearSiteDataValue,
   HelmetContext,
-  HelmetMiddleware,
   HelmetOptions,
   StrictTransportSecurityOptions,
 } from './types.js';
@@ -88,7 +89,7 @@ function buildClearSiteDataHeader(values: ClearSiteDataValue[]): string {
  * }));
  * ```
  */
-export function helmet(options: HelmetOptions = {}): HelmetMiddleware {
+export function helmet(options: HelmetOptions = {}): NexrushMiddleware {
   const {
     contentSecurityPolicy = { useDefaults: true },
     crossOriginEmbedderPolicy = 'require-corp',
@@ -121,7 +122,7 @@ export function helmet(options: HelmetOptions = {}): HelmetMiddleware {
     }
   }
 
-  return async (ctx: HelmetContext, next?: () => Promise<void>): Promise<void> => {
+  return (async (ctx: HelmetContext, next?: () => Promise<void>): Promise<void> => {
     // Content-Security-Policy
     if (contentSecurityPolicy !== false) {
       const { directives = {}, reportOnly = false, useDefaults = true } = contentSecurityPolicy;
@@ -221,7 +222,7 @@ export function helmet(options: HelmetOptions = {}): HelmetMiddleware {
 
     // Continue to next middleware
     if (next) await next();
-  };
+  }) as unknown as NexrushMiddleware;
 }
 
 // Default export

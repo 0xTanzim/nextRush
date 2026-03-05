@@ -1,29 +1,19 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
-  "changelog": "@changesets/cli/changelog",
+  "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
   "commit": false,
-  "fixed": [],
-  "linked": [
-    [
-      "@nextrush/types",
-      "@nextrush/errors",
-      "@nextrush/core",
-      "@nextrush/router",
-      "@nextrush/runtime",
-      "nextrush",
-      "@nextrush/adapter-node"
-    ],
-    [
-      "@nextrush/di",
-      "@nextrush/decorators",
-      "@nextrush/controllers"
-    ]
-  ],
+  "fixed": [["@nextrush/*", "nextrush"]],
+  "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "@nextrush/dev",
-    "nextrush-monorepo"
-  ]
+  "ignore": ["@nextrush/dev", "api"],
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  },
+  "snapshot": {
+    "useCalculatedVersion": true,
+    "prereleaseTemplate": "{tag}-{datetime}"
+  }
 }

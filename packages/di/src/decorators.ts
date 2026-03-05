@@ -7,10 +7,10 @@
 
 import 'reflect-metadata';
 import {
-    delay as tsyDelay,
-    inject as tsyInject,
-    injectable as tsyInjectable,
-    singleton as tsySingleton,
+  delay as tsyDelay,
+  inject as tsyInject,
+  injectable as tsyInjectable,
+  singleton as tsySingleton,
 } from 'tsyringe';
 
 import { METADATA_KEYS, type Constructor, type Scope, type ServiceOptions } from './types.js';
@@ -119,32 +119,33 @@ export function inject(token: unknown): ParameterDecorator {
 }
 
 /**
- * Make a class auto-injectable.
+ * Make a class injectable without singleton scope.
  *
- * Allows instantiation with `new` while still supporting auto-injection.
- * Dependencies are optional - if not provided, they're resolved from the container.
+ * Unlike @Service() which defaults to singleton, @Injectable() creates
+ * a transient registration that can be resolved from the container.
  *
  * @example
  * ```typescript
- * @AutoInjectable()
+ * @Injectable()
  * export class FeatureService {
- *   constructor(private logger?: Logger) {}
+ *   constructor(private logger: Logger) {}
  * }
  *
- * // Can instantiate with new - logger is auto-injected
- * const service = new FeatureService();
- *
- * // Or provide manually
- * const service2 = new FeatureService(customLogger);
+ * // Resolve from container
+ * const service = container.resolve(FeatureService);
  * ```
  */
-export function AutoInjectable(): ClassDecorator {
+export function Injectable(): ClassDecorator {
   return function <TFunction extends Function>(target: TFunction): TFunction | void {
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_TYPE, 'service', target);
-    // Note: tsyringe's autoInjectable is imported separately if needed
     tsyInjectable()(target as unknown as Constructor);
   };
 }
+
+/**
+ * @deprecated Use `@Injectable()` instead. Will be removed in v4.
+ */
+export const AutoInjectable = Injectable;
 
 /**
  * Delay resolution of a dependency.
@@ -202,4 +203,134 @@ export function getServiceType(target: Function): string | undefined {
  */
 export function getServiceScope(target: Function): Scope | undefined {
   return Reflect.getMetadata(METADATA_KEYS.SERVICE_SCOPE, target);
+}
+
+/**
+ * Mark a class as a configuration holder.
+ *
+ * Configuration classes are always singletons and serve as centralized
+ * configuration containers for your application. Similar to Spring Boot's
+ * `@Configuration` / `@ConfigurationProperties`.
+ *
+ * @param options - Optional configuration (e.g., env prefix)
+ *
+ * @example
+ * ```typescript
+ * // Simple configuration class
+ * @Config()
+ * export class AppConfig {
+ *   readonly port = Number(process.env.PORT ?? 3000);
+ *   readonly host = process.env.HOST ?? 'localhost';
+ * }
+ *
+ * // With env prefix — documents that this config reads DB_* vars
+ * @Config({ prefix: 'DB' })
+ * export class DatabaseConfig {
+ *   readonly host = process.env.DB_HOST ?? 'localhost';
+ *   readonly port = Number(process.env.DB_PORT ?? 5432);
+ *   readonly name = process.env.DB_NAME ?? 'mydb';
+ * }
+ *
+ * // Inject into services
+ * @Service()
+ * export class UserService {
+ *   constructor(private config: DatabaseConfig) {}
+ *
+ *   getConnectionString() {
+ *     return `postgres://${this.config.host}:${this.config.port}/${this.config.name}`;
+ *   }
+ * }
+ * ```
+ */
+export function Config(options: import('./types.js').ConfigOptions = {}): ClassDecorator {
+  return function <TFunction extends Function>(target: TFunction): TFunction | void {
+    Reflect.defineMetadata(METADATA_KEYS.SERVICE_TYPE, 'config', target);
+    Reflect.defineMetadata(METADATA_KEYS.SERVICE_SCOPE, 'singleton', target);
+
+    if (options.prefix) {
+      Reflect.defineMetadata(METADATA_KEYS.CONFIG_PREFIX, options.prefix, target);
+    }
+
+    // Configuration classes are always singletons
+    tsySingleton()(target as unknown as Constructor);
+  };
+}
+
+/**
+ * Get the config prefix from a @Config-decorated class.
+ *
+ * @param target - The class to check
+ * @returns The prefix string or undefined
+ */
+export function getConfigPrefix(target: Function): string | undefined {
+  return Reflect.getMetadata(METADATA_KEYS.CONFIG_PREFIX, target);
+}
+
+/**
+ * Mark a constructor parameter as optional.
+ *
+ * When a dependency marked `@Optional()` cannot be resolved, the container
+ * injects `undefined` instead of throwing a `DependencyResolutionError`.
+ *
+ * @example
+ * ```typescript
+ * // Optional dependency - if 'MAILER' is not registered, `mailer` will be undefined
+ * @Service()
+ * class NotificationService {
+ *   constructor(
+ *     @Optional() @inject('MAILER') private mailer?: MailerService,
+ *   ) {}
+ *
+ *   send(message: string) {
+ *     if (this.mailer) {
+ *       this.mailer.send(message);
+ *     } else {
+ *       console.log('No mailer configured, skipping:', message);
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export function Optional(): ParameterDecorator {
+  return (target: Object, _propertyKey: string | symbol | undefined, parameterIndex: number) => {
+    // Store in our own metadata for introspection via getOptionalParams / isParameterOptional
+    const existing: Set<number> =
+      Reflect.getOwnMetadata(METADATA_KEYS.OPTIONAL_PARAMS, target) ?? new Set<number>();
+    existing.add(parameterIndex);
+    Reflect.defineMetadata(METADATA_KEYS.OPTIONAL_PARAMS, existing, target);
+
+    // Set isOptional on tsyringe's injection token descriptor so that tsyringe
+    // natively returns undefined for unregistered optional deps instead of throwing.
+    // This works because @inject() runs before @Optional() (right-to-left param decorator order)
+    // and @Service()/@injectable() runs after both (class decorator order).
+    const TSYRINGE_INJECTION_KEY = 'injectionTokens';
+    const descriptors: Record<number, unknown> =
+      Reflect.getOwnMetadata(TSYRINGE_INJECTION_KEY, target) ?? {};
+    const descriptor = descriptors[parameterIndex];
+
+    if (descriptor && typeof descriptor === 'object' && 'token' in descriptor) {
+      // @inject() already created the descriptor — set isOptional flag
+      (descriptor as Record<string, unknown>).isOptional = true;
+    }
+
+    Reflect.defineMetadata(TSYRINGE_INJECTION_KEY, descriptors, target);
+  };
+}
+
+/**
+ * Check whether a specific constructor parameter is marked `@Optional()`.
+ */
+export function isParameterOptional(target: Function, parameterIndex: number): boolean {
+  const optional: Set<number> | undefined = Reflect.getOwnMetadata(
+    METADATA_KEYS.OPTIONAL_PARAMS,
+    target
+  );
+  return optional?.has(parameterIndex) ?? false;
+}
+
+/**
+ * Get the set of optional parameter indices for a class constructor.
+ */
+export function getOptionalParams(target: Function): ReadonlySet<number> {
+  return Reflect.getOwnMetadata(METADATA_KEYS.OPTIONAL_PARAMS, target) ?? new Set<number>();
 }

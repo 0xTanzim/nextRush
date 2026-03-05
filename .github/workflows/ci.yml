@@ -1,4 +1,4 @@
-name: 🚀 NextRush CI/CD Pipeline
+name: CI
 
 on:
   push:
@@ -7,71 +7,33 @@ on:
     branches: [main]
 
 jobs:
-  # 🧪 Test Job - Run tests on multiple Node versions
-  test:
-    name: 🧪 Run Tests
+  ci:
+    name: Build & Test
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [22]
-
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 📦 Setup pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
-
-      - name: 📦 Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🏗️ Build Project
-        run: pnpm build
-
-      - name: 🧪 Run Tests
-        run: pnpm test:all
-
-  # 🏗️ Build Job - Verify production build
-  build:
-    name: 🏗️ Build & Package
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.3
-
-      - name: 🟢 Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"
 
-      - name: 📦 Install Dependencies
+      - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: 🏗️ Build Production Bundle
-        run: pnpm build:prod
+      - name: Build
+        run: pnpm build
 
-      - name: 📦 Verify Package
-        run: pnpm pack
+      - name: Test
+        run: pnpm test
 
-      - name: 📤 Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: nextrush-package
-          path: |
-            dist/
-            nextrush-*.tgz
+      - name: Type Check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
