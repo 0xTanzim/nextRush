@@ -44,8 +44,10 @@ The `@nextrush/controllers` plugin reads this metadata and builds:
 ## Installation
 
 ```bash
-pnpm add @nextrush/decorators reflect-metadata
+pnpm add @nextrush/decorators
 ```
+
+> If you use the `nextrush` meta-package, `reflect-metadata` is auto-imported. Otherwise, install it separately: `pnpm add reflect-metadata` and add `import 'reflect-metadata'` at your entry point.
 
 **Required `tsconfig.json` settings:**
 
@@ -85,7 +87,7 @@ pnpm add -D @nextrush/dev
 ## Quick Start
 
 ```typescript
-import 'reflect-metadata';
+import 'reflect-metadata'; // Required when NOT using the nextrush meta-package
 import { Controller, Get, Post, Body, Param, UseGuard } from '@nextrush/decorators';
 import type { GuardFn } from '@nextrush/decorators';
 

@@ -75,7 +75,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
 
   return async function cookiesMiddleware(ctx: Context, next) {
     // Parse incoming cookies from request header
-    const cookieHeader = ctx.get?.('cookie') ?? ctx.headers?.cookie;
+    const cookieHeader = ctx.get('cookie') ?? ctx.headers.cookie;
     const parsed = parseCookies(cookieHeader as string | undefined, {
       decode: decode === undefined,
     });
@@ -87,7 +87,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
           const decoded = decode(value);
           // Re-sanitize after custom decode to prevent CRLF injection
           parsed[name] = sanitizeCookieValue(decoded);
-        } catch (error: unknown) {
+        } catch {
           // Custom decode failed — retain the parser-sanitized value.
           // Record failure for observability without disrupting request flow.
           ctx.state.cookieDecodeErrors ??= [];
@@ -121,6 +121,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
           ...cookieOptions,
         });
         setCookies.push(serialized);
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete parsed[name];
       },
 
@@ -188,7 +189,7 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
   }
 
   return async function signedCookiesMiddleware(ctx: Context, next) {
-    const cookieHeader = ctx.get?.('cookie') ?? ctx.headers?.cookie;
+    const cookieHeader = ctx.get('cookie') ?? ctx.headers.cookie;
     const parsed = parseCookies(cookieHeader as string | undefined);
     const setCookies: string[] = [];
 
@@ -255,7 +256,7 @@ function setResponseCookies(ctx: Context, newCookies: string[]): void {
     };
   };
 
-  if (raw?.res?.setHeader) {
+  if (raw.res?.setHeader) {
     const existing = raw.res.getHeader?.('set-cookie');
     let allCookies: string[];
 

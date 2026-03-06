@@ -11,7 +11,7 @@ This package provides decorators for defining controllers, routes, parameters, a
 
 ## Installation
 
-<PackageInstall packages={['@nextrush/decorators', 'reflect-metadata']} />
+<PackageInstall packages={['@nextrush/decorators']} />
 
 **Required `tsconfig.json` settings:**
 
@@ -24,9 +24,10 @@ This package provides decorators for defining controllers, routes, parameters, a
 }
 ```
 
-<Callout type="error" title="Entry Point Import Required">
-  You must `import 'reflect-metadata'` as the very first line of your application entry point —
-  before any decorated class is loaded.
+<Callout type="info" title="reflect-metadata">
+  The `nextrush` meta-package auto-imports `reflect-metadata`. If using individual `@nextrush/*`
+  packages, install `reflect-metadata` separately and import it as the first line of your entry
+  point.
 </Callout>
 
 ---
@@ -34,7 +35,7 @@ This package provides decorators for defining controllers, routes, parameters, a
 ## Quick Start
 
 ```typescript
-import 'reflect-metadata';
+import 'reflect-metadata'; // Not needed if using the nextrush meta-package
 import { Controller, Get, Post, Body, Param } from '@nextrush/decorators';
 
 @Controller('/users')

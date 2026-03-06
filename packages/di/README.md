@@ -47,8 +47,10 @@ TypeInfo not known for "UserService"
 ## Installation
 
 ```bash
-pnpm add @nextrush/di reflect-metadata
+pnpm add @nextrush/di
 ```
+
+> If you use the `nextrush` meta-package, `reflect-metadata` is auto-imported. Otherwise, install it separately: `pnpm add reflect-metadata` and add `import 'reflect-metadata'` at your entry point.
 
 ## TypeScript Configuration
 
@@ -66,7 +68,7 @@ pnpm add @nextrush/di reflect-metadata
 ## Quick Start
 
 ```typescript
-import 'reflect-metadata'; // Must be first!
+import 'reflect-metadata'; // Required when NOT using the nextrush meta-package
 import { Service, Repository, container } from '@nextrush/di';
 
 @Repository()

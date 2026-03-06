@@ -294,6 +294,17 @@ nextrush/
 - [API Reference](https://nextrush.dev/api/)
 - [Benchmarks](https://nextrush.dev/benchmark)
 
+## Versioning
+
+NextRush follows [Semantic Versioning](https://semver.org/). We use [Changesets](https://github.com/changesets/changesets) to manage releases.
+
+- **Major** (x.0.0) — Breaking API changes
+- **Minor** (0.x.0) — New features, backward-compatible
+- **Patch** (0.0.x) — Bug fixes, security patches
+- **Pre-release** (`-alpha.x`, `-beta.x`) — Unstable, API may change
+
+See [CHANGELOG.md](CHANGELOG.md) for release history and [PUBLISHING.md](PUBLISHING.md) for release process.
+
 ## Contributing
 
 Contributions are welcome! Please read the [contribution guidelines](CONTRIBUTING.md) first.

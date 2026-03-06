@@ -148,7 +148,22 @@ export class DenoBodySource implements BodySource {
       });
     }
 
-    return this.request.body;
+    // Wrap with size-limiting transform to prevent unbounded reads
+    const limit = this.options.limit;
+    let totalBytes = 0;
+
+    const transform = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        totalBytes += chunk.byteLength;
+        if (totalBytes > limit) {
+          controller.error(new BodyTooLargeError(limit, totalBytes));
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    });
+
+    return this.request.body.pipeThrough(transform);
   }
 }
 

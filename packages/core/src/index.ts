@@ -22,7 +22,7 @@ export type {
 
 // Middleware
 export { compose, flattenMiddleware, isMiddleware } from './middleware';
-export type { ComposedMiddleware } from './middleware';
+export type { ComposeOptions, ComposedMiddleware } from './middleware';
 
 // Errors
 export {

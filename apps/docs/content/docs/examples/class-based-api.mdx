@@ -23,15 +23,7 @@ pnpm init
 ```
 
 <PackageInstall
-  packages={[
-    'nextrush',
-    '@nextrush/controllers',
-    '@nextrush/decorators',
-    '@nextrush/di',
-    '@nextrush/cors',
-    '@nextrush/body-parser',
-    'reflect-metadata',
-  ]}
+  packages={['nextrush', '@nextrush/controllers', '@nextrush/cors', '@nextrush/body-parser']}
   dev={['@nextrush/dev', 'typescript', '@types/node']}
 />
 
@@ -304,12 +296,11 @@ export class UserController {
 ## Entry Point
 
 ```typescript title="src/index.ts"
-import 'reflect-metadata'; // MUST be first!
-
+// reflect-metadata is auto-imported by the nextrush meta-package
 import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin } from 'nextrush/class';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
-import { controllersPlugin } from '@nextrush/controllers';
 
 async function main() {
   const app = createApp();
@@ -338,8 +329,8 @@ async function main() {
 main();
 ```
 
-<Callout type="warn">
-  `import 'reflect-metadata'` MUST be the first import. This enables decorator metadata.
+<Callout type="info">
+  The `nextrush` meta-package auto-imports `reflect-metadata`. No manual import needed.
 </Callout>
 
 When the app starts with `debug: true` added to the plugin options, you'll see:

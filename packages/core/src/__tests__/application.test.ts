@@ -544,7 +544,7 @@ describe('Application', () => {
 
     it('should prevent route() after start()', () => {
       app.start();
-      expect(() => app.route('/', { routes: () => [] })).toThrow(
+      expect(() => app.route('/', { routes: () => vi.fn() as Middleware })).toThrow(
         'Cannot call route() after the application has started'
       );
     });

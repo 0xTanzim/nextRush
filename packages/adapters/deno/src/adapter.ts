@@ -91,6 +91,18 @@ export interface ServeOptions {
    * @default 30000
    */
   shutdownTimeout?: number;
+
+  /**
+   * Request timeout in milliseconds.
+   *
+   * Deno.serve has no built-in per-request timeout.
+   * This option adds a Promise.race-based timeout at the handler
+   * level, returning 504 Gateway Timeout on expiry.
+   *
+   * Set to 0 to disable.
+   * @default 30000
+   */
+  timeout?: number;
 }
 
 /**
@@ -139,10 +151,12 @@ export interface ServerInstance {
  * ```
  */
 export function createHandler(
-  app: Application
+  app: Application,
+  options: { timeout?: number } = {}
 ): (request: Request, info: DenoServeHandlerInfo) => Promise<Response> {
   const handler = app.callback();
   const trustProxy = app.options.proxy ?? false;
+  const timeout = options.timeout ?? 30_000;
 
   return async (request: Request, info: DenoServeHandlerInfo): Promise<Response> => {
     const ctx = createDenoContext(
@@ -154,7 +168,29 @@ export function createHandler(
     );
 
     try {
-      await handler(ctx);
+      if (timeout > 0) {
+        let timerId: ReturnType<typeof setTimeout> | undefined;
+        const TIMEOUT_SENTINEL = Symbol('timeout');
+
+        const result = await Promise.race([
+          handler(ctx).then(() => {
+            if (timerId !== undefined) clearTimeout(timerId);
+            return undefined;
+          }),
+          new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+            timerId = setTimeout(() => resolve(TIMEOUT_SENTINEL), timeout);
+          }),
+        ]);
+
+        if (result === TIMEOUT_SENTINEL) {
+          return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
+            status: 504,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      } else {
+        await handler(ctx);
+      }
 
       if (!ctx.responded) {
         if (ctx.status === 404) {
@@ -211,9 +247,10 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     cert,
     key,
     shutdownTimeout = 30_000,
+    timeout = 30_000,
   } = options;
 
-  const handler = createHandler(app);
+  const handler = createHandler(app, { timeout });
 
   // AbortController for signal-based shutdown support
   const abortController = new AbortController();

@@ -98,11 +98,8 @@ NextRush supports both functional and class-based programming. Choose based on y
     Structured, with dependency injection. Best for large applications and teams.
 
     ```typescript title="Class-Based with DI"
-    import 'reflect-metadata';
-    import { Controller, Get, Param } from '@nextrush/decorators';
-    import { Service } from '@nextrush/di';
-    import { controllersPlugin } from '@nextrush/controllers';
-    import { createRouter } from '@nextrush/router';
+    import { createRouter } from 'nextrush';
+    import { Controller, Get, Param, Service, controllersPlugin } from 'nextrush/class';
 
     @Service()
     class UserService {

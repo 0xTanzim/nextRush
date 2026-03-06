@@ -67,8 +67,8 @@ export function clearKeyCache(): void {
 
 function toHex(bytes: Uint8Array): string {
   let hex = '';
-  for (let i = 0; i < bytes.length; i++) {
-    hex += (bytes[i] as number).toString(16).padStart(2, '0');
+  for (const byte of bytes) {
+    hex += byte.toString(16).padStart(2, '0');
   }
   return hex;
 }
@@ -94,9 +94,9 @@ function fromHex(hex: string): Uint8Array {
  */
 function buildMessage(randomHex: string, sessionId?: string): string {
   if (sessionId) {
-    return `${sessionId.length}!${sessionId}!${randomHex.length}!${randomHex}`;
+    return `${String(sessionId.length)}!${sessionId}!${String(randomHex.length)}!${randomHex}`;
   }
-  return `${randomHex.length}!${randomHex}`;
+  return `${String(randomHex.length)}!${randomHex}`;
 }
 
 // ============================================================================

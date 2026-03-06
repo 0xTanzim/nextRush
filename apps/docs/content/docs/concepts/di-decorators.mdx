@@ -429,7 +429,7 @@ The DI container can't find constructor types. Causes:
 
 1. Missing `emitDecoratorMetadata` in tsconfig
 2. Using a bundler that doesn't emit metadata (esbuild/tsx instead of `nextrush dev`)
-3. Missing `import 'reflect-metadata'` at entry point
+3. Missing `import 'reflect-metadata'` at entry point (not needed if using the `nextrush` meta-package)
 4. Class not decorated with `@Service()`, `@Repository()`, or `@Controller()`
 
 </details>

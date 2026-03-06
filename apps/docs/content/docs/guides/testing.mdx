@@ -357,7 +357,7 @@ Key details:
 Class-based controllers use the DI container. Reset it between tests to prevent state leaks:
 
 ```ts title="src/controllers/__tests__/users.controller.test.ts"
-import 'reflect-metadata';
+import 'reflect-metadata'; // Required in test files (no nextrush meta-package import)
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { container } from '@nextrush/di';
 import { UsersController } from '../users.controller';

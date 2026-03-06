@@ -104,7 +104,7 @@ app.use(traceId());
 | --------------- | ------------------------- | ------------------- | -------------------------- |
 | `header`        | `string`                  | `'X-Request-Id'`    | Header name for request ID |
 | `generator`     | `() => string`            | `crypto.randomUUID` | Custom ID generator        |
-| `trustIncoming` | `boolean`                 | `true`              | Trust valid incoming IDs   |
+| `trustIncoming` | `boolean`                 | `false`             | Trust valid incoming IDs   |
 | `validator`     | `(id: string) => boolean` | `isValidUuid`       | Custom ID validator        |
 | `maxLength`     | `number`                  | `128`               | Maximum ID length allowed  |
 | `stateKey`      | `string`                  | `'requestId'`       | Key in `ctx.state`         |

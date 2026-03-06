@@ -201,11 +201,8 @@ await listen(app, 3000);
 ### Class-Based Style (For Larger Apps)
 
 ```typescript
-import 'reflect-metadata';
 import { createApp, createRouter, listen } from 'nextrush';
-import { Controller, Get } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
+import { controllersPlugin, Controller, Get, Service } from 'nextrush/class';
 
 @Service()
 class UserService {

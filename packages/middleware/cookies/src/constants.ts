@@ -17,6 +17,7 @@ import type { CookieOptions } from './types.js';
  * token = 1*<any CHAR except CTLs or separators>
  * separators = "(" | ")" | "<" | ">" | "@" | "," | ";" | ":" | "\" | <"> | "/" | "[" | "]" | "?" | "=" | "{" | "}" | SP | HT
  */
+// eslint-disable-next-line no-control-regex
 export const INVALID_NAME_CHARS = /[\x00-\x1F\x7F\s"(),/:;<=>?@[\\\]{}]/;
 
 /**
@@ -32,12 +33,14 @@ export const CHARS_TO_ENCODE = /[,;\s"\\]/;
 /**
  * Dangerous patterns for security validation.
  */
+/* eslint-disable no-control-regex */
 export const DANGEROUS_PATTERNS = {
   CRLF: /\r\n|\r|\n/,
   CRLF_ENCODED: /%0[dD]%0[aA]|%0[dD]|%0[aA]/,
   CONTROL_CHARS: /[\x00-\x1F\x7F]/,
   NULL_BYTE: /\x00/,
 } as const;
+/* eslint-enable no-control-regex */
 
 // ============================================================================
 // Cookie Prefixes (Security)

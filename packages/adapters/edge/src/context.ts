@@ -248,13 +248,35 @@ export class EdgeContext implements Context {
   // ===========================================================================
 
   set(field: string, value: string | number | string[]): void {
+    // Validate for CRLF injection (header splitting attack)
+    if (field.includes('\r') || field.includes('\n')) {
+      throw new Error('Header field contains invalid characters');
+    }
     if (Array.isArray(value)) {
+      for (const v of value) {
+        if (v.includes('\r') || v.includes('\n')) {
+          throw new Error('Header value contains invalid characters');
+        }
+      }
       this._responseBuilder.headers.delete(field);
       for (const v of value) {
         this._responseBuilder.headers.append(field, v);
       }
+    } else if (typeof value === 'string') {
+      if (value.includes('\r') || value.includes('\n')) {
+        throw new Error('Header value contains invalid characters');
+      }
+      if (field.toLowerCase() === 'set-cookie') {
+        this._responseBuilder.headers.append(field, value);
+      } else {
+        this._responseBuilder.headers.set(field, value);
+      }
     } else {
-      this._responseBuilder.headers.set(field, String(value));
+      if (field.toLowerCase() === 'set-cookie') {
+        this._responseBuilder.headers.append(field, String(value));
+      } else {
+        this._responseBuilder.headers.set(field, String(value));
+      }
     }
   }
 

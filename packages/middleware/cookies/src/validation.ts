@@ -73,7 +73,7 @@ export function validateCookieName(name: string): ValidationResult {
   }
 
   if (name.length > MAX_NAME_LENGTH) {
-    errors.push(`Cookie name exceeds maximum length of ${MAX_NAME_LENGTH}`);
+    errors.push(`Cookie name exceeds maximum length of ${String(MAX_NAME_LENGTH)}`);
   }
 
   if (INVALID_NAME_CHARS.test(name)) {
@@ -117,7 +117,7 @@ export function validateCookieValue(value: string): ValidationResult {
   }
 
   if (value.length > MAX_VALUE_LENGTH) {
-    errors.push(`Cookie value exceeds maximum length of ${MAX_VALUE_LENGTH}`);
+    errors.push(`Cookie value exceeds maximum length of ${String(MAX_VALUE_LENGTH)}`);
   }
 
   if (CRLF_CHARS.test(value)) {
@@ -419,7 +419,7 @@ export function validateCookie(
   // Check total size
   const estimatedSize = name.length + value.length + 100; // ~100 for attributes
   if (estimatedSize > MAX_COOKIE_SIZE) {
-    allErrors.push(`Cookie exceeds maximum size of ${MAX_COOKIE_SIZE} bytes`);
+    allErrors.push(`Cookie exceeds maximum size of ${String(MAX_COOKIE_SIZE)} bytes`);
   }
 
   return { valid: allErrors.length === 0, errors: allErrors };
@@ -460,6 +460,7 @@ export function sanitizeCookieValue(value: string): string {
       // Remove URL-encoded CRLF (case insensitive)
       .replace(/%0[dD]%0[aA]|%0[dD]|%0[aA]/g, '')
       // Remove control characters (0x00-0x1F and 0x7F)
+      // eslint-disable-next-line no-control-regex
       .replace(/[\x00-\x1F\x7F]/g, '')
   );
 }

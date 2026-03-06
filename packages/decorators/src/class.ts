@@ -2,14 +2,14 @@
  * @nextrush/decorators - Class Decorators
  *
  * Controller decorator that marks a class as an HTTP controller.
- * Makes the class injectable for DI (wraps @injectable from tsyringe).
+ * Makes the class injectable for DI via @nextrush/di abstraction.
  * Lifecycle management (singleton/transient) is deferred to the
  * controllers plugin registry, enabling proper test isolation.
  * Uses legacy decorators for compatibility with parameter decorators.
  */
 
+import { markInjectable } from '@nextrush/di';
 import 'reflect-metadata';
-import { injectable as tsyInjectable } from 'tsyringe';
 import type { ControllerMetadata, ControllerOptions } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
@@ -60,7 +60,7 @@ export function Controller(pathOrOptions?: string | ControllerOptions): ClassDec
     // Make the class injectable (resolvable by DI container)
     // Lifecycle (singleton vs transient) is controlled by the container/registry,
     // NOT by the decorator — this enables test isolation with fresh instances
-    tsyInjectable()(target as unknown as new (...args: unknown[]) => unknown);
+    markInjectable(target as unknown as new (...args: unknown[]) => unknown);
 
     return target;
   };

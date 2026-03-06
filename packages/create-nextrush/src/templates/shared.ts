@@ -61,8 +61,10 @@ export function getDependencies(options: ProjectOptions): DependencySet {
 
   const needsReflectMetadata = options.style === 'class-based' || options.style === 'full';
 
+  // reflect-metadata is auto-imported by the nextrush meta-package,
+  // but we keep it as an explicit dependency so it's resolvable.
   if (needsReflectMetadata) {
-    dependencies['reflect-metadata'] = '>=0.1.13';
+    dependencies['reflect-metadata'] = '>=0.2.0';
   }
 
   // Middleware packages

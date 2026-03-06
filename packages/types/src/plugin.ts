@@ -26,6 +26,7 @@ export interface ApplicationLike {
   /**
    * Get installed plugin by name
    */
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   getPlugin<T extends Plugin>(name: string): T | undefined;
 }
 

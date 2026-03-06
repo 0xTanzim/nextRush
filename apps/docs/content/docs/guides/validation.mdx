@@ -89,9 +89,7 @@ The `@Body`, `@Param`, and `@Query` decorators accept a `transform` option. The 
     ### Use transform with Zod's parseAsync
 
     ```typescript title="src/controllers/users.controller.ts"
-    import 'reflect-metadata';
-    import { Controller, Post, Get, Body, Query } from '@nextrush/decorators';
-    import { Service } from '@nextrush/di';
+    import { Controller, Post, Get, Body, Query, Service } from 'nextrush/class';
     import { z } from 'zod';
 
     const CreateUserSchema = z.object({

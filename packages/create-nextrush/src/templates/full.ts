@@ -24,8 +24,8 @@ function generateEntrypoint(options: ProjectOptions): string {
 
   const lines: string[] = [];
 
-  lines.push("import 'reflect-metadata';");
-  lines.push("import { createApp, createRouter, serve, controllersPlugin } from 'nextrush';");
+  lines.push("import { createApp, createRouter, serve } from 'nextrush';");
+  lines.push("import { controllersPlugin } from 'nextrush/class';");
 
   if (middlewareImports) {
     lines.push(middlewareImports);
@@ -93,7 +93,7 @@ healthRouter.get('/', (ctx) => {
 }
 
 function generateHelloController(): string {
-  return `import { Controller, Get, Post, Body } from 'nextrush';
+  return `import { Controller, Get, Post, Body } from 'nextrush/class';
 import { HelloService } from '../services/hello.service.js';
 
 @Controller('/hello')
@@ -114,7 +114,7 @@ export class HelloController {
 }
 
 function generateHelloService(): string {
-  return `import { Service } from 'nextrush';
+  return `import { Service } from 'nextrush/class';
 
 @Service()
 export class HelloService {

@@ -37,7 +37,7 @@ await listen(app, 3000);
 <Cards>
   <Card
     title="Zero Core Dependencies"
-    description="No external runtime packages in core, router, errors, types, adapters, or middleware. Only DI uses reflect-metadata + tsyringe."
+    description="No external runtime packages in core, router, errors, types, adapters, or middleware. DI uses reflect-metadata (auto-imported by the nextrush meta-package)."
   />
   <Card
     title="Multi-Runtime"
@@ -323,11 +323,8 @@ NextRush supports both functional and class-based programming. Start with functi
     Structured with dependency injection. Define routes as controller methods.
 
     ```typescript title="src/index.ts"
-    import 'reflect-metadata';
     import { createApp, createRouter, listen } from 'nextrush';
-    import { Controller, Get, Post, Body } from '@nextrush/decorators';
-    import { Service } from '@nextrush/di';
-    import { controllersPlugin } from '@nextrush/controllers';
+    import { controllersPlugin, Controller, Get, Post, Body, Service } from 'nextrush/class';
 
     @Service()
     class UserService {
@@ -368,6 +365,8 @@ NextRush supports both functional and class-based programming. Start with functi
     await listen(app, 3000);
     ```
 
+    > The `nextrush` meta-package auto-imports `reflect-metadata`. No manual import needed.
+
   </Tab>
 </Tabs>
 
@@ -380,13 +379,13 @@ NextRush supports both functional and class-based programming. Start with functi
 
 NextRush targets high throughput with minimal overhead.
 
-| Metric               | Target                               |
-| -------------------- | ------------------------------------ |
-| Requests per second  | 30,000+                              |
-| Core lines of code   | < 3,000                              |
-| Cold start time      | < 30ms                               |
-| Memory footprint     | < 200KB                              |
-| Runtime dependencies | 0 (except `reflect-metadata` for DI) |
+| Metric               | Target                                            |
+| -------------------- | ------------------------------------------------- |
+| Requests per second  | 30,000+                                           |
+| Core lines of code   | < 3,000                                           |
+| Cold start time      | < 30ms                                            |
+| Memory footprint     | < 200KB                                           |
+| Runtime dependencies | 0 (core); `reflect-metadata` auto-imported for DI |
 
 Performance comes from the architecture: segment trie routing avoids regex overhead, middleware composition is pre-compiled, and the core avoids unnecessary allocations in the request path.
 

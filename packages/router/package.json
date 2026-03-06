@@ -4,6 +4,7 @@
   "description": "High-performance radix tree router for NextRush",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -63,5 +64,6 @@
     "name": "Tanzim Hossain",
     "email": "tanzimhossain2@gmail.com",
     "url": "https://github.com/0xTanzim"
-  }
+  },
+  "sideEffects": false
 }

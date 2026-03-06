@@ -238,6 +238,36 @@ describe('BunContext', () => {
       const response = ctx.getResponse();
       expect(response.headers.get('X-Count')).toBe('100');
     });
+
+    it('should accumulate multiple Set-Cookie headers', () => {
+      ctx.set('Set-Cookie', 'session=abc; Path=/');
+      ctx.set('Set-Cookie', 'csrf=xyz; Path=/');
+
+      const response = ctx.getResponse();
+      const cookies = response.headers.getSetCookie();
+      expect(cookies).toHaveLength(2);
+      expect(cookies).toContain('session=abc; Path=/');
+      expect(cookies).toContain('csrf=xyz; Path=/');
+    });
+
+    it('should replace all Set-Cookie headers when array is passed', () => {
+      ctx.set('Set-Cookie', 'old=value; Path=/');
+      ctx.set('Set-Cookie', ['new1=a; Path=/', 'new2=b; Path=/']);
+
+      const response = ctx.getResponse();
+      const cookies = response.headers.getSetCookie();
+      expect(cookies).toHaveLength(2);
+      expect(cookies).toContain('new1=a; Path=/');
+      expect(cookies).toContain('new2=b; Path=/');
+    });
+
+    it('should overwrite non-cookie headers on repeated set', () => {
+      ctx.set('X-Custom', 'first');
+      ctx.set('X-Custom', 'second');
+
+      const response = ctx.getResponse();
+      expect(response.headers.get('X-Custom')).toBe('second');
+    });
   });
 
   describe('get()', () => {

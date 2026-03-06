@@ -1,0 +1,501 @@
+---
+title: '@nextrush/multipart'
+description: 'Zero-dependency multipart/form-data file upload middleware with streaming parser, pluggable storage, and security-by-default.'
+---
+
+Handle file uploads in multipart/form-data requests.
+
+HTTP file uploads arrive as multipart-encoded streams with mixed files and form fields. This middleware parses them using a zero-dependency Web Streams parser, sanitizes filenames, enforces size limits, and delivers structured results on `ctx.state`. Built-in protections guard against path traversal, prototype pollution, oversized payloads, and platform-specific filesystem attacks.
+
+---
+
+## Default Behavior
+
+With zero configuration, `multipart()` uses `MemoryStorage` and applies these defaults:
+
+| Limit | Default |
+|-------|---------|
+| Max file size | 5 MB |
+| Max files | 10 |
+| Max fields | 50 |
+| Max parts | 100 |
+| Max field size | 1 MB |
+| Max body size | 10 MB |
+| Max boundary length | 70 (RFC 2046) |
+
+Bodyless HTTP methods (`GET`, `HEAD`, `DELETE`, `OPTIONS`) are skipped automatically. Non-multipart requests pass through to the next middleware.
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/multipart']} />
+
+---
+
+## Minimal Usage
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { multipart } from '@nextrush/multipart';
+
+const app = createApp();
+const router = createRouter();
+
+app.use(multipart());
+
+router.post('/upload', (ctx) => {
+  const { files, fields } = ctx.state;
+  ctx.json({
+    uploaded: files.map((f) => ({
+      name: f.sanitizedName,
+      size: f.size,
+      type: f.mimeType,
+    })),
+    fields,
+  });
+});
+
+app.route('/', router);
+app.listen(3000);
+```
+
+---
+
+## Storage Strategies
+
+<Tabs items={['Memory (Default)', 'Disk', 'Custom']}>
+  <Tab value="Memory (Default)">
+    Buffers file contents in memory as `Uint8Array`. Best for small files or when you need immediate access to the data.
+
+    ```ts
+    import { multipart, MemoryStorage } from '@nextrush/multipart';
+
+    app.use(multipart({
+      storage: new MemoryStorage(),
+    }));
+
+    router.post('/upload', (ctx) => {
+      const file = ctx.state.files[0];
+      console.log(file.buffer); // Uint8Array
+      console.log(file.size);   // bytes
+    });
+    ```
+
+    <Callout type="warn" title="Production Warning">
+      `MemoryStorage` holds entire files in memory. For production workloads with large uploads, use `DiskStorage` or a custom strategy. Always configure `limits.maxFileSize` and `limits.maxBodySize` to cap memory usage.
+    </Callout>
+
+    **Runtime**: Node.js, Bun, Deno, Edge
+  </Tab>
+
+  <Tab value="Disk">
+    Streams files directly to the filesystem. Best for large files or persistent storage.
+
+    ```ts
+    import { multipart, DiskStorage } from '@nextrush/multipart';
+
+    app.use(multipart({
+      storage: new DiskStorage({
+        dest: './uploads',
+        filename: (info) => `${Date.now()}-${info.sanitizedName}`,
+      }),
+      limits: { maxFileSize: '50mb' },
+    }));
+
+    router.post('/upload', (ctx) => {
+      const file = ctx.state.files[0];
+      console.log(file.path); // './uploads/1709721600000-photo.jpg'
+    });
+    ```
+
+    The destination directory is created automatically. Default filename uses `crypto.randomUUID()` prefix for collision resistance.
+
+    **Runtime**: Node.js, Bun, Deno only (requires filesystem access)
+  </Tab>
+
+  <Tab value="Custom">
+    Implement the `StorageStrategy` interface for S3, GCS, or any backend:
+
+    ```ts
+    import type { StorageStrategy, StorageResult, FileInfo } from '@nextrush/multipart';
+
+    class S3Storage implements StorageStrategy {
+      async handle(
+        stream: ReadableStream<Uint8Array>,
+        info: FileInfo
+      ): Promise<StorageResult> {
+        // Stream to S3...
+        return { size: uploadedBytes, path: s3Key };
+      }
+
+      async remove(result: StorageResult): Promise<void> {
+        // Delete from S3...
+      }
+    }
+
+    app.use(multipart({ storage: new S3Storage() }));
+    ```
+
+    | Method | Required | Description |
+    |--------|----------|-------------|
+    | `handle(stream, info)` | Yes | Process the upload stream and return `StorageResult` |
+    | `remove(result)` | No | Cleanup on error (called automatically if `abortOnError` is true) |
+  </Tab>
+</Tabs>
+
+---
+
+## Configuration Options
+
+### `multipart(options?)`
+
+```ts
+function multipart(options?: MultipartOptions): Middleware;
+```
+
+<TypeTable
+  title="MultipartOptions"
+  types={{
+    storage: {
+      type: 'StorageStrategy',
+      description: 'Where to store uploaded files',
+      default: 'MemoryStorage',
+    },
+    limits: {
+      type: 'MultipartLimits',
+      description: 'Upload size and count limits',
+      default: 'See limits table above',
+    },
+    allowedTypes: {
+      type: 'string[]',
+      description: 'Allowed MIME types — supports wildcards (e.g., "image/*")',
+      default: 'undefined (all types accepted)',
+    },
+    filename: {
+      type: '(info: FileInfo) => string',
+      description: 'Custom filename generator for DiskStorage',
+      optional: true,
+    },
+    abortOnError: {
+      type: 'boolean',
+      description: 'Stop processing on first error. If false, truncated files are included with truncated=true',
+      default: 'true',
+    },
+  }}
+/>
+
+### Limits
+
+<TypeTable
+  title="MultipartLimits"
+  types={{
+    maxFileSize: {
+      type: 'number | string',
+      description: 'Maximum size per file in bytes or human-readable (e.g., "10mb")',
+      default: "'5mb' (5,242,880 bytes)",
+    },
+    maxFiles: {
+      type: 'number',
+      description: 'Maximum number of files per request',
+      default: '10',
+    },
+    maxFields: {
+      type: 'number',
+      description: 'Maximum number of non-file form fields',
+      default: '50',
+    },
+    maxParts: {
+      type: 'number',
+      description: 'Maximum total parts (files + fields)',
+      default: '100',
+    },
+    maxFieldNameSize: {
+      type: 'number',
+      description: 'Maximum field name length in bytes',
+      default: '200',
+    },
+    maxFieldSize: {
+      type: 'number | string',
+      description: 'Maximum value size per non-file field',
+      default: "'1mb' (1,048,576 bytes)",
+    },
+    maxHeaderPairs: {
+      type: 'number',
+      description: 'Maximum header pairs per MIME part',
+      default: '2000',
+    },
+    maxBodySize: {
+      type: 'number | string',
+      description: 'Maximum total request body size',
+      default: "'10mb' (10,485,760 bytes)",
+    },
+  }}
+/>
+
+---
+
+## Accessing Uploaded Data
+
+After the middleware runs, `ctx.state` contains the parsed results:
+
+```ts
+router.post('/upload', (ctx) => {
+  // Files
+  for (const file of ctx.state.files) {
+    file.fieldName;     // Form field name (e.g., "avatar")
+    file.originalName;  // Client-provided filename (unsanitized)
+    file.sanitizedName; // Safe filename for storage
+    file.mimeType;      // MIME type (e.g., "image/png")
+    file.encoding;      // Transfer encoding
+    file.size;          // File size in bytes
+    file.truncated;     // Whether file was truncated (exceeded size limit)
+    file.buffer;        // Uint8Array (MemoryStorage only)
+    file.path;          // Filesystem path (DiskStorage only)
+  }
+
+  // Fields
+  const { name, description } = ctx.state.fields;
+});
+```
+
+### Type Definitions
+
+```ts
+interface UploadedFile {
+  readonly fieldName: string;
+  readonly originalName: string;
+  readonly sanitizedName: string;
+  readonly encoding: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly truncated: boolean;
+  readonly buffer?: Uint8Array;
+  readonly path?: string;
+}
+
+interface MultipartState {
+  files: UploadedFile[];
+  fields: Record<string, string>;
+}
+```
+
+---
+
+## MIME Type Filtering
+
+Restrict allowed file types using exact matches or wildcards:
+
+```ts
+app.use(multipart({
+  allowedTypes: [
+    'image/png',
+    'image/jpeg',
+    'image/*',           // All image types
+    'application/pdf',
+  ],
+}));
+```
+
+Files with disallowed types throw `INVALID_FILE_TYPE` (415).
+
+---
+
+## Error Handling
+
+The middleware throws `MultipartError` with specific codes and HTTP status:
+
+```ts
+import { MultipartError } from '@nextrush/multipart';
+
+app.use(async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    if (error instanceof MultipartError) {
+      ctx.status = error.status;
+      ctx.json({
+        error: error.code,
+        message: error.message,
+      });
+    }
+  }
+});
+```
+
+### Error Codes
+
+| Code | Status | When |
+|------|--------|------|
+| `FILE_TOO_LARGE` | 413 | File exceeds `maxFileSize` |
+| `BODY_SIZE_EXCEEDED` | 413 | Total body exceeds `maxBodySize` |
+| `FILES_LIMIT_EXCEEDED` | 413 | Too many files |
+| `FIELDS_LIMIT_EXCEEDED` | 413 | Too many form fields |
+| `PARTS_LIMIT_EXCEEDED` | 413 | Total parts exceeded |
+| `INVALID_CONTENT_TYPE` | 415 | Not a `multipart/form-data` request |
+| `INVALID_FILE_TYPE` | 415 | MIME type not in `allowedTypes` |
+| `INVALID_FIELD_NAME` | 400 | Prototype pollution attempt (`__proto__`, `constructor`) |
+| `PARSE_ERROR` | 400 | Malformed multipart data or missing boundary |
+| `REQUEST_ABORTED` | 400 | Client disconnected during upload |
+| `STORAGE_ERROR` | 500 | Storage strategy failure |
+
+The `expose` property controls whether the error message is safe for clients: `true` for 4xx errors, `false` for 5xx errors.
+
+---
+
+## Security
+
+All protections are enabled by default with no opt-in required.
+
+### Filename Sanitization Pipeline
+
+Every uploaded filename passes through a multi-step sanitization:
+
+1. **Path traversal prevention** — strips directory components (`../../etc/passwd` → `passwd`)
+2. **Null byte and control character removal** — replaces `\x00`–`\x1F` with `_`
+3. **Hidden file prevention** — strips leading dots (`.htaccess` → `htaccess`)
+4. **Windows reserved name detection** — prefixes `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` with `_`
+5. **Length truncation** — caps at safe filesystem length (preserves extension)
+6. **Fallback generation** — uses `crypto.randomUUID()` if nothing remains
+
+### Prototype Pollution Protection
+
+Field names `__proto__`, `constructor`, and `prototype` are rejected with `INVALID_FIELD_NAME` (400).
+
+### Body Size Enforcement
+
+The total request body is tracked cumulatively against `maxBodySize` (default: 10 MB). Exceeding it aborts parsing immediately — prevents memory exhaustion from large payloads.
+
+### Boundary Validation
+
+Boundaries exceeding 70 characters are rejected per [RFC 2046 §5.1.1](https://datatracker.ietf.org/doc/html/rfc2046#section-5.1.1).
+
+### Error Message Sanitization
+
+User-supplied values in error messages are truncated and stripped of control characters to prevent log injection.
+
+---
+
+## DiskStorage Options
+
+```ts
+new DiskStorage(options: DiskStorageOptions)
+```
+
+<TypeTable
+  title="DiskStorageOptions"
+  types={{
+    dest: {
+      type: 'string',
+      description: 'Destination directory for uploaded files. Created automatically if it does not exist.',
+    },
+    filename: {
+      type: '(info: FileInfo) => string',
+      description: 'Custom filename generator',
+      default: '`${crypto.randomUUID()}-${info.sanitizedName}`',
+    },
+  }}
+/>
+
+DiskStorage includes path traversal protection — generated filenames are resolved and verified to stay within the destination directory.
+
+---
+
+## Advanced Usage
+
+### Direct Parser Access
+
+Use `parseMultipart` directly for custom processing pipelines:
+
+```ts
+import { parseMultipart } from '@nextrush/multipart';
+
+const result = await parseMultipart(body, boundary, {
+  storage: new MemoryStorage(),
+  limits: { maxFileSize: '1mb' },
+});
+
+// result.files: UploadedFile[]
+// result.fields: Record<string, string>
+```
+
+### BoundaryScanner
+
+Low-level boundary scanner for custom streaming parsers:
+
+```ts
+import { BoundaryScanner } from '@nextrush/multipart';
+
+const scanner = new BoundaryScanner(boundaryBytes);
+const result = scanner.scan(chunk);
+// result.parts: extracted parts
+// result.remainder: leftover bytes for next chunk
+```
+
+---
+
+## Runtime Compatibility
+
+| Runtime | MemoryStorage | DiskStorage | Notes |
+|---------|---------------|-------------|-------|
+| Node.js 22+ | ✅ | ✅ | Full support |
+| Bun | ✅ | ✅ | Full support |
+| Deno | ✅ | ✅ | Via Node compat layer |
+| Cloudflare Workers | ✅ | ❌ | No filesystem access |
+| Vercel Edge | ✅ | ❌ | No filesystem access |
+
+The parser uses Web Streams API (`ReadableStream`) and Web Crypto API (`crypto.randomUUID()`) — both available across all modern runtimes. DiskStorage requires `node:fs` and `node:stream`, limiting it to server runtimes.
+
+---
+
+## Complete Example
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { multipart, DiskStorage, MultipartError } from '@nextrush/multipart';
+
+const app = createApp();
+const router = createRouter();
+
+// Error handler
+app.use(async (ctx) => {
+  try {
+    await ctx.next();
+  } catch (error) {
+    if (error instanceof MultipartError) {
+      ctx.status = error.status;
+      ctx.json({ error: error.code, message: error.message });
+      return;
+    }
+    throw error;
+  }
+});
+
+// Multipart middleware with disk storage
+app.use(multipart({
+  storage: new DiskStorage({ dest: './uploads' }),
+  allowedTypes: ['image/*', 'application/pdf'],
+  limits: {
+    maxFileSize: '10mb',
+    maxFiles: 5,
+    maxBodySize: '50mb',
+  },
+}));
+
+router.post('/upload', (ctx) => {
+  ctx.json({
+    files: ctx.state.files.map((f) => ({
+      name: f.sanitizedName,
+      size: f.size,
+      type: f.mimeType,
+      path: f.path,
+    })),
+    fields: ctx.state.fields,
+  });
+});
+
+app.route('/', router);
+app.listen(3000);
+```

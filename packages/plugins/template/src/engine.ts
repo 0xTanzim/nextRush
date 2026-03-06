@@ -8,7 +8,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { dirname, extname, join, resolve } from 'node:path';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { compile } from './compiler';
 import { builtinHelpers } from './helpers';
 import type {
@@ -196,7 +196,13 @@ export class TemplateEngine {
   private async loadTemplate(name: string): Promise<string> {
     const ext = extname(name) || this.options.ext;
     const filename = extname(name) ? name : `${name}${ext}`;
-    const filepath = resolve(this.options.root, filename);
+    const filepath = resolve(this.options.root, normalize(filename));
+
+    // Prevent path traversal — resolved path must stay within root
+    const root = resolve(this.options.root);
+    if (filepath !== root && !filepath.startsWith(root + sep)) {
+      throw new Error(`Template path traversal detected: ${name}`);
+    }
 
     try {
       return await readFile(filepath, 'utf-8');
@@ -211,7 +217,13 @@ export class TemplateEngine {
   async loadPartials(): Promise<void> {
     if (!this.options.partialsDir) return;
 
-    const partialsPath = resolve(this.options.root, this.options.partialsDir);
+    const root = resolve(this.options.root);
+    const partialsPath = resolve(root, normalize(this.options.partialsDir));
+
+    // Prevent path traversal in partials directory
+    if (partialsPath !== root && !partialsPath.startsWith(root + sep)) {
+      throw new Error(`Partials directory traversal detected: ${this.options.partialsDir}`);
+    }
 
     try {
       const { readdir } = await import('node:fs/promises');

@@ -69,7 +69,7 @@ app.use(
     suffix: ' ms', // Custom suffix
     precision: 3, // Decimal places (max: 6)
     stateKey: 'duration', // ctx.state key
-    exposeHeader: true, // Set response header
+    exposeHeader: true, // Opt-in: set response header (default: false)
   })
 );
 ```
@@ -140,7 +140,7 @@ app.use(async (ctx) => {
 | `suffix`       | `string`       | `'ms'`              | Time unit suffix     |
 | `precision`    | `number`       | `2`                 | Decimal places (0-6) |
 | `stateKey`     | `string`       | `'responseTime'`    | Key in `ctx.state`   |
-| `exposeHeader` | `boolean`      | `true`              | Set response header  |
+| `exposeHeader` | `boolean`      | `false`             | Set response header  |
 | `now`          | `() => number` | `performance.now`   | Time getter function |
 
 ### ServerTimingOptions
@@ -151,7 +151,7 @@ app.use(async (ctx) => {
 | `description`  | `string`       | -                 | Optional description |
 | `precision`    | `number`       | `2`               | Decimal places (0-6) |
 | `stateKey`     | `string`       | `'responseTime'`  | Key in `ctx.state`   |
-| `exposeHeader` | `boolean`      | `true`            | Set response header  |
+| `exposeHeader` | `boolean`      | `false`           | Set response header  |
 | `now`          | `() => number` | `performance.now` | Time getter function |
 
 ### DetailedTimerOptions

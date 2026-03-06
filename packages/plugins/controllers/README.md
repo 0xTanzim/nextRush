@@ -43,8 +43,16 @@ Think of this plugin as a **compiler for controllers**:
 ## Installation
 
 ```bash
-pnpm add @nextrush/controllers @nextrush/decorators @nextrush/di reflect-metadata
+pnpm add nextrush
 ```
+
+Or install individual packages:
+
+```bash
+pnpm add @nextrush/controllers @nextrush/decorators @nextrush/di
+```
+
+> `reflect-metadata` is auto-imported when you use the `nextrush` meta-package. If you use individual packages, add `import 'reflect-metadata'` at your entry point.
 
 **Required `tsconfig.json` settings:**
 
@@ -107,11 +115,8 @@ export class UserController {
 
 ```typescript
 // src/index.ts
-import 'reflect-metadata';
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
-import { controllersPlugin } from '@nextrush/controllers';
+import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin } from 'nextrush/class';
 
 async function main() {
   const app = createApp();

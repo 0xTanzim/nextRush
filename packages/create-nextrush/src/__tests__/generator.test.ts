@@ -151,10 +151,10 @@ describe('generateProject', () => {
       expect(files.has('src/services/app.service.ts')).toBe(true);
     });
 
-    it('imports reflect-metadata', () => {
+    it('does not manually import reflect-metadata (auto-imported by nextrush)', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain("import 'reflect-metadata'");
+      expect(entry).not.toContain("import 'reflect-metadata'");
     });
 
     it('uses controllersPlugin with root ./src', () => {

@@ -1,15 +1,15 @@
 /**
  * NextRush - Minimal, Modular, Blazing Fast Node.js Framework
  *
- * This meta package provides EVERYTHING needed for building Node.js APIs:
+ * This meta package provides the **functional** API for building Node.js APIs:
  * - Application creation (createApp)
  * - Routing (createRouter)
  * - Server start (listen)
  * - HTTP errors
  * - Essential types
- * - Dependency injection (DI container, @Service, @inject)
- * - Decorators (@Controller, @Get, @Body, @UseGuard)
- * - Controllers plugin (auto-discovery)
+ *
+ * For the class-based paradigm (DI, decorators, controllers),
+ * import from `nextrush/class` instead.
  *
  * For middleware, install separately:
  * - @nextrush/cors
@@ -26,7 +26,20 @@
  * @packageDocumentation
  * @module nextrush
  *
- * @example Quick Start (Functional)\n * ```typescript\n * import { createApp, createRouter, listen } from 'nextrush';\n *\n * const app = createApp();\n * const router = createRouter();\n *\n * router.get('/', (ctx) => {\n *   ctx.json({ message: 'Hello NextRush!' });\n * });\n *\n * app.route('/', router);\n * listen(app, 3000);\n * ```
+ * @example Quick Start (Functional)
+ * ```typescript
+ * import { createApp, createRouter, listen } from 'nextrush';
+ *
+ * const app = createApp();
+ * const router = createRouter();
+ *
+ * router.get('/', (ctx) => {
+ *   ctx.json({ message: 'Hello NextRush!' });
+ * });
+ *
+ * app.route('/', router);
+ * listen(app, 3000);
+ * ```
  *
  * @example With Middleware (install separately)
  * ```typescript
@@ -41,10 +54,10 @@
  * listen(app, 3000);
  * ```
  *
- * @example Class-Based (add reflect-metadata for DI)
+ * @example Class-Based (import from nextrush/class)
  * ```typescript
- * import 'reflect-metadata';
- * import { createApp, listen, Controller, Get, Service, controllersPlugin } from 'nextrush';
+ * import { createApp, listen } from 'nextrush';
+ * import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
  *
  * @Service()
  * class UserService {
@@ -74,7 +87,7 @@ export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 // ============================================
 // ROUTER: Radix Tree Routing
 // ============================================
-export { createRouter, Router } from '@nextrush/router';
+export { Router, createRouter } from '@nextrush/router';
 export type { RouterOptions } from '@nextrush/router';
 
 // ============================================
@@ -90,28 +103,28 @@ export {
   BadGatewayError,
   // 4xx Client Errors
   BadRequestError,
-  catchAsync,
   ConflictError,
-  // Factory functions
-  createError,
-  // Error handling middleware
-  errorHandler,
   ForbiddenError,
   GatewayTimeoutError,
   // Base
   HttpError,
   // 5xx Server Errors
   InternalServerError,
-  isHttpError,
   MethodNotAllowedError,
   NextRushError,
   NotFoundError,
-  notFoundHandler,
   NotImplementedError,
   ServiceUnavailableError,
   TooManyRequestsError,
   UnauthorizedError,
   UnprocessableEntityError,
+  catchAsync,
+  // Factory functions
+  createError,
+  // Error handling middleware
+  errorHandler,
+  isHttpError,
+  notFoundHandler,
 } from '@nextrush/errors';
 
 export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
@@ -140,85 +153,3 @@ export { ContentType, HttpStatus } from '@nextrush/types';
 // VERSION
 // ============================================
 export const VERSION = '3.0.0';
-
-// ============================================
-// DI: Dependency Injection Container
-// ============================================
-export {
-  AutoInjectable,
-  Config,
-  container,
-  createContainer,
-  delay,
-  inject,
-  Injectable,
-  Optional,
-  Repository,
-  Service,
-} from '@nextrush/di';
-export type {
-  ClassProvider,
-  ConfigOptions,
-  ContainerInterface,
-  FactoryProvider,
-  Provider,
-  Scope,
-  ServiceOptions,
-  Token,
-  ValueProvider,
-} from '@nextrush/di';
-
-// ============================================
-// DECORATORS: Controller, Route & Parameter
-// ============================================
-export {
-  // Route decorators
-  All,
-  // Parameter decorators
-  Body,
-  // Class decorators
-  Controller,
-  // Custom param decorator factory
-  createCustomParamDecorator,
-  Ctx,
-  Delete,
-  Get,
-  Head,
-  Header,
-  Options,
-  Param,
-  Patch,
-  Post,
-  Put,
-  Query,
-  // Response decorators
-  Redirect,
-  Req,
-  Res,
-  SetHeader,
-  // Guard decorators
-  UseGuard,
-} from '@nextrush/decorators';
-export type {
-  BodyOptions,
-  CanActivate,
-  ControllerMetadata,
-  ControllerOptions,
-  CustomParamExtractor,
-  GuardContext,
-  GuardFn,
-  HeaderOptions,
-  ParamMetadata,
-  ParamOptions,
-  ParamSource,
-  QueryOptions,
-  RouteMetadata,
-  RouteOptions,
-  TransformFn,
-} from '@nextrush/decorators';
-
-// ============================================
-// CONTROLLERS: Auto-discovery Plugin
-// ============================================
-export { controllersPlugin } from '@nextrush/controllers';
-export type { ControllersPluginOptions } from '@nextrush/controllers';

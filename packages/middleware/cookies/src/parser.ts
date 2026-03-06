@@ -94,7 +94,7 @@ export function parseCookies(
     if (decode) {
       try {
         value = decodeURIComponent(value);
-      } catch (_: unknown) {
+      } catch {
         // decodeURIComponent failed on malformed percent-encoding.
         // Retain the raw value — common with browser quirks and legacy cookies.
       }

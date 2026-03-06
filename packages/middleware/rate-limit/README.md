@@ -98,6 +98,14 @@ app.use(
     legacyHeaders: true, // X-RateLimit-* headers
     includeRetryAfter: true, // Retry-After header on 429
     draftIetfHeaders: false, // RateLimit-Policy header
+
+    // Response customization
+    message: 'Too many requests, please try again later.', // 429 response message
+    statusCode: 429, // HTTP status code for rate-limited responses
+
+    // Cleanup options
+    cleanupInterval: 60000, // Cleanup expired entries every 60s
+    disableCleanup: false, // Set true to manage cleanup manually
   })
 );
 ```

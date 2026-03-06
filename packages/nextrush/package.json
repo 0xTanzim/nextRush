@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./class": {
+      "types": "./dist/class.d.ts",
+      "import": "./dist/class.js"
     }
   },
   "files": [
@@ -55,17 +59,12 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "peerDependencies": {
-    "reflect-metadata": ">=0.2.0"
-  },
-  "peerDependenciesMeta": {
-    "reflect-metadata": {
-      "optional": true
-    }
-  },
   "publishConfig": {
     "access": "public"
   },
+  "sideEffects": [
+    "./dist/class.js"
+  ],
   "dependencies": {
     "@nextrush/core": "workspace:*",
     "@nextrush/router": "workspace:*",
@@ -74,7 +73,8 @@
     "@nextrush/adapter-node": "workspace:*",
     "@nextrush/decorators": "workspace:*",
     "@nextrush/di": "workspace:*",
-    "@nextrush/controllers": "workspace:*"
+    "@nextrush/controllers": "workspace:*",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

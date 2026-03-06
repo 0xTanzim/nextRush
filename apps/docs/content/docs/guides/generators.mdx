@@ -51,7 +51,7 @@ npx nextrush g controller user
 Creates `src/controllers/user.controller.ts`:
 
 ```typescript title="src/controllers/user.controller.ts"
-import { Controller, Get, Post, Body, Param } from 'nextrush';
+import { Controller, Get, Post, Body, Param } from 'nextrush/class';
 
 @Controller('/user')
 export class UserController {
@@ -81,7 +81,7 @@ npx nextrush g service user
 Creates `src/services/user.service.ts`:
 
 ```typescript title="src/services/user.service.ts"
-import { Service } from 'nextrush';
+import { Service } from 'nextrush/class';
 
 @Service()
 export class UserService {
@@ -127,7 +127,7 @@ npx nextrush g guard auth
 Creates `src/guards/auth.guard.ts`:
 
 ```typescript title="src/guards/auth.guard.ts"
-import type { GuardFn } from 'nextrush';
+import type { GuardFn } from 'nextrush/class';
 
 export const authGuard: GuardFn = async (ctx) => {
   const token = ctx.get('authorization');

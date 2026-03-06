@@ -100,9 +100,8 @@ If any guard returns `false` or throws, the chain stops immediately.
     When guards need injected services, implement the `CanActivate` interface:
 
     ```typescript title="Class Guard with DI"
-    import 'reflect-metadata';
-    import { Service } from '@nextrush/di';
-    import type { CanActivate, GuardContext } from '@nextrush/decorators';
+    import { Service } from 'nextrush/class';
+    import type { CanActivate, GuardContext } from 'nextrush/class';
 
     @Service()
     class AuthGuard implements CanActivate {

@@ -15,6 +15,9 @@ import {
 
 import { METADATA_KEYS, type Constructor, type Scope, type ServiceOptions } from './types.js';
 
+/** Decorator-compatible constructor type. Uses `never[]` so any class is structurally assignable. */
+type DecoratorTarget = new (...args: never[]) => unknown;
+
 /**
  * Mark a class as injectable service.
  *
@@ -40,10 +43,10 @@ import { METADATA_KEYS, type Constructor, type Scope, type ServiceOptions } from
  * }
  * ```
  */
-export function Service(options: ServiceOptions = {}): ClassDecorator {
+export function Service(options: ServiceOptions = {}) {
   const scope: Scope = options.scope ?? 'singleton';
 
-  return function <TFunction extends Function>(target: TFunction): TFunction | void {
+  return (target: DecoratorTarget): void => {
     // Store metadata for smart discovery
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_TYPE, 'service', target);
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_SCOPE, scope, target);
@@ -75,10 +78,10 @@ export function Service(options: ServiceOptions = {}): ClassDecorator {
  * }
  * ```
  */
-export function Repository(options: ServiceOptions = {}): ClassDecorator {
+export function Repository(options: ServiceOptions = {}) {
   const scope: Scope = options.scope ?? 'singleton';
 
-  return function <TFunction extends Function>(target: TFunction): TFunction | void {
+  return (target: DecoratorTarget): void => {
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_TYPE, 'repository', target);
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_SCOPE, scope, target);
 
@@ -135,8 +138,8 @@ export function inject(token: unknown): ParameterDecorator {
  * const service = container.resolve(FeatureService);
  * ```
  */
-export function Injectable(): ClassDecorator {
-  return function <TFunction extends Function>(target: TFunction): TFunction | void {
+export function Injectable() {
+  return (target: DecoratorTarget): void => {
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_TYPE, 'service', target);
     tsyInjectable()(target as unknown as Constructor);
   };
@@ -146,6 +149,21 @@ export function Injectable(): ClassDecorator {
  * @deprecated Use `@Injectable()` instead. Will be removed in v4.
  */
 export const AutoInjectable = Injectable;
+
+/**
+ * Make a class resolvable by the DI container without adding service metadata.
+ *
+ * Used internally by `@Controller()` to enable constructor injection
+ * without marking the class as a service. This is the abstraction boundary
+ * that prevents `@nextrush/decorators` from depending directly on tsyringe.
+ *
+ * @param target - The class constructor to make injectable
+ *
+ * @internal
+ */
+export function markInjectable(target: Constructor): void {
+  tsyInjectable()(target);
+}
 
 /**
  * Delay resolution of a dependency.
@@ -171,7 +189,7 @@ export const AutoInjectable = Injectable;
  * }
  * ```
  */
-export function delay<T>(tokenFactory: () => new (...args: unknown[]) => T): unknown {
+export function delay(tokenFactory: () => Constructor): unknown {
   return tsyDelay(tokenFactory);
 }
 
@@ -181,7 +199,7 @@ export function delay<T>(tokenFactory: () => new (...args: unknown[]) => T): unk
  * @param target - The class to check
  * @returns True if the class has DI metadata
  */
-export function hasServiceMetadata(target: Function): boolean {
+export function hasServiceMetadata(target: object): boolean {
   return Reflect.hasMetadata(METADATA_KEYS.SERVICE_TYPE, target);
 }
 
@@ -191,8 +209,8 @@ export function hasServiceMetadata(target: Function): boolean {
  * @param target - The class to check
  * @returns The service type ('service' | 'repository') or undefined
  */
-export function getServiceType(target: Function): string | undefined {
-  return Reflect.getMetadata(METADATA_KEYS.SERVICE_TYPE, target);
+export function getServiceType(target: object): string | undefined {
+  return Reflect.getMetadata(METADATA_KEYS.SERVICE_TYPE, target) as string | undefined;
 }
 
 /**
@@ -201,8 +219,8 @@ export function getServiceType(target: Function): string | undefined {
  * @param target - The class to check
  * @returns The scope ('singleton' | 'transient') or undefined
  */
-export function getServiceScope(target: Function): Scope | undefined {
-  return Reflect.getMetadata(METADATA_KEYS.SERVICE_SCOPE, target);
+export function getServiceScope(target: object): Scope | undefined {
+  return Reflect.getMetadata(METADATA_KEYS.SERVICE_SCOPE, target) as Scope | undefined;
 }
 
 /**
@@ -242,8 +260,8 @@ export function getServiceScope(target: Function): Scope | undefined {
  * }
  * ```
  */
-export function Config(options: import('./types.js').ConfigOptions = {}): ClassDecorator {
-  return function <TFunction extends Function>(target: TFunction): TFunction | void {
+export function Config(options: import('./types.js').ConfigOptions = {}) {
+  return (target: DecoratorTarget): void => {
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_TYPE, 'config', target);
     Reflect.defineMetadata(METADATA_KEYS.SERVICE_SCOPE, 'singleton', target);
 
@@ -262,8 +280,8 @@ export function Config(options: import('./types.js').ConfigOptions = {}): ClassD
  * @param target - The class to check
  * @returns The prefix string or undefined
  */
-export function getConfigPrefix(target: Function): string | undefined {
-  return Reflect.getMetadata(METADATA_KEYS.CONFIG_PREFIX, target);
+export function getConfigPrefix(target: object): string | undefined {
+  return Reflect.getMetadata(METADATA_KEYS.CONFIG_PREFIX, target) as string | undefined;
 }
 
 /**
@@ -292,10 +310,11 @@ export function getConfigPrefix(target: Function): string | undefined {
  * ```
  */
 export function Optional(): ParameterDecorator {
-  return (target: Object, _propertyKey: string | symbol | undefined, parameterIndex: number) => {
+  return (target: object, _propertyKey: string | symbol | undefined, parameterIndex: number) => {
     // Store in our own metadata for introspection via getOptionalParams / isParameterOptional
-    const existing: Set<number> =
-      Reflect.getOwnMetadata(METADATA_KEYS.OPTIONAL_PARAMS, target) ?? new Set<number>();
+    const existing =
+      (Reflect.getOwnMetadata(METADATA_KEYS.OPTIONAL_PARAMS, target) as Set<number> | undefined) ??
+      new Set<number>();
     existing.add(parameterIndex);
     Reflect.defineMetadata(METADATA_KEYS.OPTIONAL_PARAMS, existing, target);
 
@@ -304,8 +323,10 @@ export function Optional(): ParameterDecorator {
     // This works because @inject() runs before @Optional() (right-to-left param decorator order)
     // and @Service()/@injectable() runs after both (class decorator order).
     const TSYRINGE_INJECTION_KEY = 'injectionTokens';
-    const descriptors: Record<number, unknown> =
-      Reflect.getOwnMetadata(TSYRINGE_INJECTION_KEY, target) ?? {};
+    const descriptors =
+      (Reflect.getOwnMetadata(TSYRINGE_INJECTION_KEY, target) as
+        | Record<number, unknown>
+        | undefined) ?? {};
     const descriptor = descriptors[parameterIndex];
 
     if (descriptor && typeof descriptor === 'object' && 'token' in descriptor) {
@@ -320,17 +341,19 @@ export function Optional(): ParameterDecorator {
 /**
  * Check whether a specific constructor parameter is marked `@Optional()`.
  */
-export function isParameterOptional(target: Function, parameterIndex: number): boolean {
-  const optional: Set<number> | undefined = Reflect.getOwnMetadata(
-    METADATA_KEYS.OPTIONAL_PARAMS,
-    target
-  );
+export function isParameterOptional(target: object, parameterIndex: number): boolean {
+  const optional = Reflect.getOwnMetadata(METADATA_KEYS.OPTIONAL_PARAMS, target) as
+    | Set<number>
+    | undefined;
   return optional?.has(parameterIndex) ?? false;
 }
 
 /**
  * Get the set of optional parameter indices for a class constructor.
  */
-export function getOptionalParams(target: Function): ReadonlySet<number> {
-  return Reflect.getOwnMetadata(METADATA_KEYS.OPTIONAL_PARAMS, target) ?? new Set<number>();
+export function getOptionalParams(target: object): ReadonlySet<number> {
+  return (
+    (Reflect.getOwnMetadata(METADATA_KEYS.OPTIONAL_PARAMS, target) as Set<number> | undefined) ??
+    new Set<number>()
+  );
 }

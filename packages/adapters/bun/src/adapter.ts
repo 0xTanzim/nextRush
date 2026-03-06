@@ -222,6 +222,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
   let drainResolve: (() => void) | null = null;
 
   const appCallback = app.callback();
+  const trustProxy = app.options.proxy ?? false;
 
   // Wrap handler to track in-flight requests
   const trackedHandler = async (
@@ -231,7 +232,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     activeRequests++;
     try {
       const clientIp = bunServer.requestIP(request)?.address ?? '';
-      const ctx = createBunContext(request, clientIp);
+      const ctx = createBunContext(request, clientIp, trustProxy);
 
       try {
         if (timeout > 0) {

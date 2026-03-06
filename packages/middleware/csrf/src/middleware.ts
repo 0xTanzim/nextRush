@@ -48,8 +48,8 @@ function parseCookie(cookieHeader: string, name: string): string | undefined {
   const prefix = `${name}=`;
   const cookies = cookieHeader.split(';');
 
-  for (let i = 0; i < cookies.length; i++) {
-    const cookie = (cookies[i] as string).trimStart();
+  for (const raw of cookies) {
+    const cookie = raw.trimStart();
     if (cookie.startsWith(prefix)) {
       return cookie.substring(prefix.length).trim();
     }
@@ -170,9 +170,12 @@ function serializeCookie(
 
   if (options.path) cookie += `; Path=${options.path}`;
   if (options.domain) cookie += `; Domain=${options.domain}`;
-  if (options.maxAge !== undefined) cookie += `; Max-Age=${options.maxAge}`;
+  cookie += `; Max-Age=${String(options.maxAge)}`;
   if (options.secure) cookie += '; Secure';
   if (options.httpOnly) cookie += '; HttpOnly';
+  // sameSite is typed as 'strict' | 'lax' | 'none' after Required<>, but callers
+  // may pass empty string via type assertion — guard at runtime for safety.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (options.sameSite) {
     cookie += `; SameSite=${options.sameSite.charAt(0).toUpperCase() + options.sameSite.slice(1)}`;
   }

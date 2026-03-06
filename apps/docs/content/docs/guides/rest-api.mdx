@@ -318,9 +318,7 @@ For larger applications, you can use decorator-based controllers with dependency
 <summary>Full class-based controller implementation</summary>
 
 ```typescript title="src/controllers/users.controller.ts"
-import 'reflect-metadata';
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
+import { Controller, Get, Post, Put, Delete, Body, Param, Service } from 'nextrush/class';
 import { NotFoundError, BadRequestError } from '@nextrush/errors';
 import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
 
@@ -404,12 +402,9 @@ export class UsersController {
 Bootstrap with the controllers plugin:
 
 ```typescript title="src/index.ts"
-import 'reflect-metadata';
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
+import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin } from 'nextrush/class';
 import { json } from '@nextrush/body-parser';
-import { controllersPlugin } from '@nextrush/controllers';
 
 const app = createApp();
 const router = createRouter();

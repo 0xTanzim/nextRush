@@ -36,7 +36,12 @@ Decorators register classes. `container.resolve()` walks the dependency tree, in
 
 ## Installation
 
-<PackageInstall packages={['@nextrush/di', 'reflect-metadata']} />
+<PackageInstall packages={['@nextrush/di']} />
+
+<Callout type="info" title="reflect-metadata">
+  If you use the `nextrush` meta-package, `reflect-metadata` is auto-imported. Otherwise, install it
+  separately: `pnpm add reflect-metadata` and add `import 'reflect-metadata'` at your entry point.
+</Callout>
 
 ## Configuration
 
@@ -61,7 +66,7 @@ Most modern runners (`tsx`, `esbuild`, `node --experimental-strip-types`) strip 
 ## Minimal Correct Usage
 
 ```typescript
-import 'reflect-metadata';
+import 'reflect-metadata'; // Not needed if using the nextrush meta-package
 import { Service, Repository, container } from '@nextrush/di';
 
 @Repository()
@@ -92,8 +97,9 @@ console.log(userService.getUsers()); // [{ id: 1, name: 'Alice' }]
 - Constructor parameter types are read via `emitDecoratorMetadata`. If parameter `repo` has type `UserRepository`, the container resolves `UserRepository` automatically — no manual `@inject()` needed for class tokens.
 
 <Callout type="info" title="reflect-metadata at Entry Point">
-  `@nextrush/di` uses `reflect-metadata` internally, but you must still `import 'reflect-metadata'`
-  at the top of your application entry point — before any decorated class is loaded.
+  The `nextrush` meta-package auto-imports `reflect-metadata`. If you import from individual
+  `@nextrush/*` packages instead, you must `import 'reflect-metadata'` at the top of your
+  application entry point — before any decorated class is loaded.
 </Callout>
 
 ---
@@ -463,7 +469,7 @@ Used internally by `@nextrush/controllers` for auto-discovery. Useful when build
 
 ## Common Mistakes
 
-**Missing `reflect-metadata` import** — must be imported before any decorated class is loaded. Place `import 'reflect-metadata'` at the top of your entry file.
+**Missing `reflect-metadata` import** — if using individual `@nextrush/*` packages (not the `nextrush` meta-package), `reflect-metadata` must be imported before any decorated class is loaded. Place `import 'reflect-metadata'` at the top of your entry file. The `nextrush` meta-package handles this automatically.
 
 **Wrong TypeScript settings** — without `experimentalDecorators` and `emitDecoratorMetadata` in `tsconfig.json`, constructor parameter types are unavailable at runtime.
 

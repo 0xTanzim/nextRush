@@ -50,12 +50,17 @@ convention enforced.
 
 ## Installation
 
-<PackageInstall
-  packages={['@nextrush/controllers', '@nextrush/decorators', '@nextrush/di', 'reflect-metadata']}
-/>
+If you use the `nextrush` meta-package, everything is included:
 
-<Callout type="warn">
-  `reflect-metadata` must be imported **first** in your entry point, before any decorated classes.
+<PackageInstall packages={['nextrush']} />
+
+Or install individual packages:
+
+<PackageInstall packages={['@nextrush/controllers', '@nextrush/decorators', '@nextrush/di']} />
+
+<Callout type="info">
+  The `nextrush` meta-package auto-imports `reflect-metadata`. If using individual packages, install
+  `reflect-metadata` separately and import it **first** in your entry point.
 </Callout>
 
 You need `@nextrush/decorators` for `@Controller`, route, and parameter decorators, and `@nextrush/di` for `@Service` and the DI container.
@@ -65,10 +70,8 @@ You need `@nextrush/decorators` for `@Controller`, route, and parameter decorato
 ## Quick Start
 
 ```typescript title="src/index.ts"
-import 'reflect-metadata'; // Must be first!
-
 import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin } from '@nextrush/controllers';
+import { controllersPlugin } from 'nextrush/class';
 
 async function main() {
   const app = createApp();

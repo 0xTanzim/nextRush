@@ -92,8 +92,8 @@ NextRush is written in TypeScript and provides full type definitions. For the be
 
 <Callout type="info" title="Decorators and DI">
   If you use class-based controllers with `@nextrush/di`, add `"experimentalDecorators": true` and
-  `"emitDecoratorMetadata": true` to your `compilerOptions`. The `@nextrush/di` package includes
-  `reflect-metadata` as a direct dependency.
+  `"emitDecoratorMetadata": true` to your `compilerOptions`. The `nextrush` meta-package
+  auto-imports `reflect-metadata` — no manual setup needed.
 </Callout>
 </Step>
 

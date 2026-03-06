@@ -181,7 +181,7 @@ export async function unsignCookie(
     );
 
     return isValid ? value : undefined;
-  } catch (_: unknown) {
+  } catch {
     // Signature verification failed (malformed base64, corrupted data).
     // Return undefined — same behavior as tampered/invalid cookie.
     return undefined;
@@ -246,10 +246,10 @@ export async function unsignCookieWithRotation(
 export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) {
     // Still need constant-time operation for equal-length case
-    let result = 0;
+    let _result = 0;
     const maxLen = Math.max(a.length, b.length);
     for (let i = 0; i < maxLen; i++) {
-      result |= (a.charCodeAt(i % a.length) ?? 0) ^ (b.charCodeAt(i % b.length) ?? 0);
+      _result |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length);
     }
     return false;
   }

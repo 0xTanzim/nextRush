@@ -23,7 +23,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
+    "lint": "eslint src/ --ignore-pattern 'src/__tests__/'",
     "clean": "rimraf dist"
   },
   "keywords": [
@@ -62,5 +62,6 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "sideEffects": false
 }

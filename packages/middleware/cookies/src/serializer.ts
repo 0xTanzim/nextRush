@@ -99,7 +99,7 @@ export function serializeCookie(name: string, value: string, options: CookieOpti
     if (maxAge < 0) {
       throw new RangeError('maxAge must be a non-negative number');
     }
-    parts.push(`Max-Age=${maxAge}`);
+    parts.push(`Max-Age=${String(maxAge)}`);
   }
 
   // HttpOnly
@@ -134,7 +134,7 @@ export function serializeCookie(name: string, value: string, options: CookieOpti
   // Enforce size limit
   if (cookie.length > MAX_COOKIE_SIZE) {
     throw new RangeError(
-      `Cookie "${name}" exceeds maximum size of ${MAX_COOKIE_SIZE} bytes (got ${cookie.length})`
+      `Cookie "${name}" exceeds maximum size of ${String(MAX_COOKIE_SIZE)} bytes (got ${String(cookie.length)})`
     );
   }
 

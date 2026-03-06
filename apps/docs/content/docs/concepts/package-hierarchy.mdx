@@ -363,15 +363,12 @@ Choose the pattern that matches your project needs.
     Decorator-based controllers with dependency injection:
 
     ```bash
-    npm install nextrush @nextrush/controllers reflect-metadata
+    npm install nextrush @nextrush/controllers
     ```
 
     ```ts
-    import 'reflect-metadata';
     import { createApp, createRouter, listen } from 'nextrush';
-    import { Controller, Get } from '@nextrush/decorators';
-    import { Service } from '@nextrush/di';
-    import { controllersPlugin } from '@nextrush/controllers';
+    import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
 
     @Service()
     class GreetingService {

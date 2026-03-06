@@ -427,9 +427,9 @@ Ensure decorator metadata is enabled:
 
 ```typescript
 // src/index.ts
-import 'reflect-metadata';
+// reflect-metadata is auto-imported by the nextrush meta-package
 import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin } from '@nextrush/controllers';
+import { controllersPlugin } from 'nextrush/class';
 
 const app = createApp();
 const router = createRouter();

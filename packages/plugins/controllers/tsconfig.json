@@ -1,22 +1,43 @@
 {
-  "extends": "../../../tsconfig.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "composite": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "paths": {
-      "@nextrush/types": ["../../types/src/index.ts"],
-      "@nextrush/core": ["../../core/src/index.ts"],
-      "@nextrush/router": ["../../router/src/index.ts"],
-      "@nextrush/decorators": ["../../decorators/src/index.ts"],
-      "@nextrush/di": ["../../di/src/index.ts"],
-      "@nextrush/errors": ["../../errors/src/index.ts"]
-    }
+      "@nextrush/types": [
+        "../../types/src/index.ts"
+      ],
+      "@nextrush/core": [
+        "../../core/src/index.ts"
+      ],
+      "@nextrush/router": [
+        "../../router/src/index.ts"
+      ],
+      "@nextrush/decorators": [
+        "../../decorators/src/index.ts"
+      ],
+      "@nextrush/di": [
+        "../../di/src/index.ts"
+      ],
+      "@nextrush/errors": [
+        "../../errors/src/index.ts"
+      ]
+    },
+    "lib": [
+      "ES2022",
+      "DOM"
+    ]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts"
+  ]
 }

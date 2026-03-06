@@ -1,5 +1,5 @@
 ---
-name: docs-writer-agent
+name: docs-writer-subagent
 description: 'Principal Documentation Architect for NextRush. Writes, audits, and improves documentation across all packages. Code-first accuracy, tier-based structure, human-centered clarity.'
 disable-model-invocation: false
 model: Claude Opus 4.6 (copilot)

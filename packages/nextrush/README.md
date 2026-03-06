@@ -91,6 +91,50 @@ app.use((ctx) => {
 listen(app, 3000);
 ```
 
+## Class-Based Controllers
+
+Class-based APIs (decorators, DI, controllers) are available via the `nextrush/class` subpath:
+
+- `nextrush` — Functional API (`createApp`, `createRouter`, `listen`, errors, types)
+- `nextrush/class` — Class-based API (`Controller`, `Get`, `Service`, `controllersPlugin`, etc.)
+
+The `nextrush` meta-package auto-imports `reflect-metadata`, so you can use decorators and DI without any extra setup:
+
+```bash
+pnpm add nextrush
+```
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin, Controller, Get, Service } from 'nextrush/class';
+
+@Service()
+class GreetService {
+  greet() {
+    return { message: 'Hello!' };
+  }
+}
+
+@Controller('/api')
+class HelloController {
+  constructor(private svc: GreetService) {}
+
+  @Get()
+  hello() {
+    return this.svc.greet();
+  }
+}
+
+const app = createApp();
+const router = createRouter();
+
+app.plugin(controllersPlugin({ router, root: './src' }));
+app.route('/', router);
+listen(app, 3000);
+```
+
+> **tsconfig.json** must have `experimentalDecorators: true` and `emitDecoratorMetadata: true`. The `create-nextrush` scaffolder sets these automatically.
+
 ## What's Included
 
 This meta package re-exports from:
@@ -148,10 +192,10 @@ This meta package re-exports from:
 
 ### Dev Tools
 
-| Package           | Description                                             |
-| ----------------- | ------------------------------------------------------- |
+| Package           | Description                                               |
+| ----------------- | --------------------------------------------------------- |
 | `@nextrush/dev`   | Hot reload dev server, production builds, code generators |
-| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)             |
+| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)               |
 
 ## Direct Package Usage
 

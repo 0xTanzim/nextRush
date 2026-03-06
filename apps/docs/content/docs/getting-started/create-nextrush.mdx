@@ -33,14 +33,30 @@ pnpm create nextrush my-api --style functional --middleware api --runtime node
 <TypeTable
   title="create-nextrush flags"
   types={{
-    '--style, -s': { type: '"functional" | "class-based" | "full"', description: 'Project style', default: '"functional"' },
-    '--middleware, -m': { type: '"minimal" | "api" | "full"', description: 'Middleware preset', default: '"api"' },
-    '--runtime, -r': { type: '"node" | "bun" | "deno"', description: 'Runtime target', default: '"node"' },
+    '--style, -s': {
+      type: '"functional" | "class-based" | "full"',
+      description: 'Project style',
+      default: '"functional"',
+    },
+    '--middleware, -m': {
+      type: '"minimal" | "api" | "full"',
+      description: 'Middleware preset',
+      default: '"api"',
+    },
+    '--runtime, -r': {
+      type: '"node" | "bun" | "deno"',
+      description: 'Runtime target',
+      default: '"node"',
+    },
     '--git': { type: 'boolean', description: 'Initialize git repository', default: 'true' },
     '--no-git': { type: 'boolean', description: 'Skip git initialization' },
     '--install, -i': { type: 'boolean', description: 'Install dependencies', default: 'true' },
     '--no-install': { type: 'boolean', description: 'Skip dependency installation' },
-    '--pm': { type: '"pnpm" | "npm" | "yarn" | "bun"', description: 'Package manager', default: 'auto-detected' },
+    '--pm': {
+      type: '"pnpm" | "npm" | "yarn" | "bun"',
+      description: 'Package manager',
+      default: 'auto-detected',
+    },
   }}
 />
 
@@ -91,7 +107,7 @@ my-api/
 ```
 
 ```typescript title="src/controllers/health.controller.ts"
-import { Controller, Get, Service } from 'nextrush';
+import { Controller, Get, Service } from 'nextrush/class';
 
 @Service()
 class AppService {

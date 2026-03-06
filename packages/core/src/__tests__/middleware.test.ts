@@ -22,10 +22,15 @@ function createMockContext(): Context {
     send: vi.fn(),
     html: vi.fn(),
     redirect: vi.fn(),
+    throw: vi.fn() as never,
+    assert: vi.fn(),
     set: vi.fn(),
     get: vi.fn(),
     next: vi.fn().mockResolvedValue(undefined),
     state: {},
+    responded: false,
+    runtime: 'node' as const,
+    bodySource: {} as never,
     raw: {
       req: {} as never,
       res: {} as never,
@@ -137,11 +142,11 @@ describe('compose', () => {
 
       const middleware: Middleware[] = [
         async (c, next) => {
-          c.state['user'] = { id: 1 };
+          c.state.user = { id: 1 };
           await next();
         },
         async (c, next) => {
-          c.state['role'] = 'admin';
+          c.state.role = 'admin';
           await next();
         },
       ];
@@ -289,5 +294,90 @@ describe('flattenMiddleware', () => {
 
   it('should return empty array for empty input', () => {
     expect(flattenMiddleware([])).toEqual([]);
+  });
+});
+
+describe('compose: double-response warning', () => {
+  it('should warn when middleware sends response AND calls next()', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const ctx = createMockContext();
+    // Simulate: middleware sets responded = true, then calls next()
+    const middleware: Middleware[] = [
+      async (c, next) => {
+        // Simulate sending a response
+        (c as { responded: boolean }).responded = true;
+        await next();
+      },
+      async () => {
+        // downstream no-op
+      },
+    ];
+
+    const composed = compose(middleware, { warnDoubleResponse: true });
+    await composed(ctx);
+
+    expect(warnSpy).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('sent a response and called next()')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('should NOT warn when middleware sends response without calling next()', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const ctx = createMockContext();
+    const middleware: Middleware[] = [
+      async (c) => {
+        (c as { responded: boolean }).responded = true;
+        // Does NOT call next() — correct pattern
+      },
+    ];
+
+    const composed = compose(middleware, { warnDoubleResponse: true });
+    await composed(ctx);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it('should NOT warn when warning is disabled', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const ctx = createMockContext();
+    const middleware: Middleware[] = [
+      async (c, next) => {
+        (c as { responded: boolean }).responded = true;
+        await next();
+      },
+    ];
+
+    const composed = compose(middleware, { warnDoubleResponse: false });
+    await composed(ctx);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it('should NOT warn when middleware calls next() without sending response', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const ctx = createMockContext();
+    const middleware: Middleware[] = [
+      async (_c, next) => {
+        await next();
+      },
+    ];
+
+    const composed = compose(middleware, { warnDoubleResponse: true });
+    await composed(ctx);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
   });
 });

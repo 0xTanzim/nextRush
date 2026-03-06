@@ -463,13 +463,11 @@ export class UserController {
 ## Entry Point
 
 ```typescript title="src/index.ts"
-import 'reflect-metadata';
-
+// reflect-metadata is auto-imported by the nextrush meta-package
 import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin, container } from 'nextrush/class';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
-import { controllersPlugin } from '@nextrush/controllers';
-import { container } from '@nextrush/di';
 
 import { DatabasePlugin } from './plugins/database.plugin';
 import { UserRepository } from './repositories/user.repository';

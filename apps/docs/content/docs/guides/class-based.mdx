@@ -61,18 +61,13 @@ Your `tsconfig.json` must include:
   ]}
 />
 
-`@nextrush/decorators`, `@nextrush/di`, and `reflect-metadata` are installed automatically as dependencies of `@nextrush/controllers`.
+`@nextrush/decorators`, `@nextrush/di`, and `reflect-metadata` are installed automatically as dependencies of `@nextrush/controllers`. The `nextrush` meta-package auto-imports `reflect-metadata`.
 
 ## Quick Example
 
 ```typescript
-import 'reflect-metadata';
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
-import { Controller, Get, Post, Body, Param } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
+import { createApp, createRouter, listen } from 'nextrush';
+import { Controller, Get, Post, Body, Param, Service, controllersPlugin } from 'nextrush/class';
 
 // Service with DI
 @Service()
@@ -515,16 +510,23 @@ This example also uses `@nextrush/cors` and `@nextrush/body-parser` — install 
 <summary>Full authenticated REST API example</summary>
 
 ```typescript
-import 'reflect-metadata';
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { listen } from '@nextrush/adapter-node';
+import { createApp, createRouter, listen } from 'nextrush';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuard,
+  Service,
+  Repository,
+  controllersPlugin,
+} from 'nextrush/class';
 import { json } from '@nextrush/body-parser';
 import { cors } from '@nextrush/cors';
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuard } from '@nextrush/decorators';
-import { Service, Repository } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
-import type { GuardFn } from '@nextrush/decorators';
+import type { GuardFn } from 'nextrush/class';
 
 // ===== Domain Types =====
 interface User {
@@ -713,7 +715,16 @@ import { Service } from '@nextrush/di';
 @Service()
 class MyService {}
 
-// ✅ Correct - always import first
+// ✅ Correct - use nextrush meta-package (auto-imports reflect-metadata)
+import { Service } from 'nextrush/class';
+
+@Service()
+class MyService {}
+```
+
+Or if using individual packages:
+
+```ts
 import 'reflect-metadata';
 import { Service } from '@nextrush/di';
 

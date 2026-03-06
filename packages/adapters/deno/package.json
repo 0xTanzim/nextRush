@@ -58,5 +58,6 @@
     "name": "Tanzim Hossain",
     "email": "tanzimhossain2@gmail.com",
     "url": "https://github.com/0xTanzim"
-  }
+  },
+  "sideEffects": false
 }

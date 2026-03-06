@@ -6,7 +6,8 @@
 
 import type { Context, Middleware } from '@nextrush/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Application, createApp, Routable } from '../application';
+import type { Application, Routable } from '../application';
+import { createApp } from '../application';
 
 // Mock context factory
 function createMockContext(overrides: Partial<Context> = {}): Context {

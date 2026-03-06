@@ -60,6 +60,7 @@ export {
   hasServiceMetadata,
   inject,
   isParameterOptional,
+  markInjectable,
 } from './decorators.js';
 
 // Types

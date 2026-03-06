@@ -15,12 +15,25 @@ import type { Context, Middleware, Next } from '@nextrush/types';
 export type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
 
 /**
+ * Options for middleware composition
+ */
+export interface ComposeOptions {
+  /**
+   * Warn when a middleware sends a response AND calls next().
+   * Enabled by default in non-production environments.
+   * @default process.env.NODE_ENV !== 'production'
+   */
+  warnDoubleResponse?: boolean;
+}
+
+/**
  * Compose multiple middleware functions into a single middleware.
  *
  * Executes middleware in order, each middleware can call `await next()`
  * to pass control to the next middleware and wait for it to complete.
  *
  * @param middleware - Array of middleware functions to compose
+ * @param options - Composition options
  * @returns Single composed middleware function
  *
  * @example
@@ -45,7 +58,7 @@ export type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
  * // 1 - after
  * ```
  */
-export function compose(middleware: Middleware[]): ComposedMiddleware {
+export function compose(middleware: Middleware[], options?: ComposeOptions): ComposedMiddleware {
   // Validate middleware array
   if (!Array.isArray(middleware)) {
     throw new TypeError('Middleware stack must be an array');
@@ -56,6 +69,8 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
       throw new TypeError('Middleware must be a function');
     }
   }
+
+  const warnDoubleResponse = options?.warnDoubleResponse ?? process.env.NODE_ENV !== 'production';
 
   // Snapshot middleware array at compose time
   const stack = [...middleware];
@@ -95,7 +110,14 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         return Promise.resolve();
       }
 
-      const nextFn = () => dispatch(i + 1);
+      // Capture responded state before middleware runs (dev-mode warning)
+      const respondedBefore = warnDoubleResponse ? ctx.responded : false;
+      let nextCalled = false;
+
+      const nextFn = () => {
+        nextCalled = true;
+        return dispatch(i + 1);
+      };
 
       // Wire up ctx.next() if the context supports it
       if (ctx.setNext) {
@@ -103,7 +125,21 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
       }
 
       try {
-        return Promise.resolve(fn(ctx, nextFn));
+        const result = Promise.resolve(fn(ctx, nextFn));
+
+        if (warnDoubleResponse) {
+          return result.then(() => {
+            if (!respondedBefore && ctx.responded && nextCalled) {
+              console.warn(
+                `[nextrush] Middleware at index ${i} sent a response and called next(). ` +
+                  'Downstream middleware may attempt to write to an already-finished response. ' +
+                  'Either send a response OR call next(), not both.'
+              );
+            }
+          });
+        }
+
+        return result;
       } catch (err) {
         return Promise.reject(err);
       }
@@ -131,5 +167,5 @@ export function flattenMiddleware(arr: (Middleware | Middleware[])[]): Middlewar
       throw new TypeError(`Invalid middleware: expected function, got ${typeof fn}`);
     }
   }
-  return flattened as Middleware[];
+  return flattened;
 }
