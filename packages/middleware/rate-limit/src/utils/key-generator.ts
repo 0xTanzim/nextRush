@@ -74,9 +74,51 @@ export function isValidIpv4(ip: string): boolean {
  * Check if string is valid IPv6
  */
 export function isValidIpv6(ip: string): boolean {
-  const cleanIp = ip.replace(/^\[|\]$/g, '');
-  const pattern = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$/;
-  return pattern.test(cleanIp);
+  let cleanIp = ip.replace(/^\[|\]$/g, '');
+
+  // Strip zone ID (e.g., %eth0)
+  const zoneIdx = cleanIp.indexOf('%');
+  if (zoneIdx !== -1) {
+    cleanIp = cleanIp.slice(0, zoneIdx);
+  }
+
+  // Handle IPv4-mapped IPv6 (e.g., ::ffff:192.168.1.1)
+  const ipv4MappedMatch = cleanIp.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (ipv4MappedMatch?.[1] && ipv4MappedMatch[2]) {
+    const ipv6Part = ipv4MappedMatch[1].replace(/:$/, '');
+    if (!isValidIpv6Segments(ipv6Part)) return false;
+    return isValidIpv4(ipv4MappedMatch[2]);
+  }
+
+  return isValidIpv6Segments(cleanIp);
+}
+
+/**
+ * Validate pure IPv6 segment format (no IPv4 suffix)
+ */
+function isValidIpv6Segments(ip: string): boolean {
+  // Handle special cases
+  if (ip === '::' || ip === '::1') return true;
+
+  // Check for valid characters
+  if (!/^[0-9a-fA-F:]+$/.test(ip)) return false;
+
+  // Only one :: allowed
+  const doubleColonCount = (ip.match(/::/g) ?? []).length;
+  if (doubleColonCount > 1) return false;
+
+  if (doubleColonCount === 1) {
+    const parts = ip.split('::');
+    const left = parts[0] ? parts[0].split(':') : [];
+    const right = parts[1] ? parts[1].split(':') : [];
+    if (left.length + right.length > 7) return false;
+    return [...left, ...right].every((seg) => seg.length <= 4);
+  }
+
+  // No :: — must have exactly 8 groups
+  const groups = ip.split(':');
+  if (groups.length !== 8) return false;
+  return groups.every((seg) => seg.length >= 1 && seg.length <= 4);
 }
 
 /**
@@ -89,6 +131,12 @@ export function normalizeIp(ip: string): string {
   let normalized = ip.trim();
 
   normalized = normalized.replace(/^\[|\]$/g, '');
+
+  // Strip IPv6 zone ID (e.g., %eth0)
+  const zoneIdx = normalized.indexOf('%');
+  if (zoneIdx !== -1) {
+    normalized = normalized.slice(0, zoneIdx);
+  }
 
   const portMatch = normalized.match(/^(.+):(\d+)$/);
   if (portMatch?.[1] && isValidIpv4(portMatch[1])) {

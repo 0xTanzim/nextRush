@@ -212,7 +212,8 @@ describe('Application', () => {
       await handler(ctx);
 
       expect(ctx.status).toBe(500);
-      expect(ctx.json).toHaveBeenCalledWith({ error: 'Test error' });
+      // Plain Error objects never expose messages (security: prevents leaking internals)
+      expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
       expect(errorSpy).toHaveBeenCalled();
     });
 
@@ -228,6 +229,42 @@ describe('Application', () => {
 
       await handler(ctx);
 
+      expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
+    });
+
+    it('should expose error message when error has expose=true', async () => {
+      app.use(async () => {
+        const err = Object.assign(new Error('Not Found'), {
+          status: 404,
+          expose: true,
+        });
+        throw err;
+      });
+
+      const handler = app.callback();
+      const ctx = createMockContext();
+
+      await handler(ctx);
+
+      expect(ctx.status).toBe(404);
+      expect(ctx.json).toHaveBeenCalledWith({ error: 'Not Found' });
+    });
+
+    it('should hide message for 5xx errors even with expose=false', async () => {
+      app.use(async () => {
+        const err = Object.assign(new Error('DB connection failed'), {
+          status: 500,
+          expose: false,
+        });
+        throw err;
+      });
+
+      const handler = app.callback();
+      const ctx = createMockContext();
+
+      await handler(ctx);
+
+      expect(ctx.status).toBe(500);
       expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
     });
   });
@@ -353,7 +390,8 @@ describe('Application', () => {
       await handler(ctx);
 
       expect(ctx.status).toBe(500);
-      expect(ctx.json).toHaveBeenCalledWith({ error: 'Original error' });
+      // Plain Error objects never expose messages (security: prevents leaking internals)
+      expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
 
       consoleSpy.mockRestore();
     });

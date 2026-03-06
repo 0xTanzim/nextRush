@@ -11,12 +11,12 @@
 import { readFile } from 'node:fs/promises';
 import { extname, normalize, resolve, sep } from 'node:path';
 import { compile } from '../compiler';
-import type { CompiledTemplate } from '../template.types';
+import type { CompiledTemplate, RenderOptions } from '../template.types';
 import type {
-    AdapterConfig,
-    AdapterRenderOptions,
-    TemplateAdapter,
-    TemplateData,
+  AdapterConfig,
+  AdapterRenderOptions,
+  TemplateAdapter,
+  TemplateData,
 } from './types';
 
 interface BuiltinConfig extends AdapterConfig {
@@ -140,7 +140,7 @@ export function createBuiltinAdapter(config: BuiltinConfig = {}): TemplateAdapte
       // Separate layout from other options to avoid double rendering
       // or treating layout name as template source
       const { layout, ...renderOptions } = options;
-      let html = await template.renderAsync(data, renderOptions as any);
+      let html = await template.renderAsync(data, renderOptions as RenderOptions);
 
       const layoutName = layout ?? config.layout;
       if (layoutName) {

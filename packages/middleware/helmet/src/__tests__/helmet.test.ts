@@ -1,17 +1,42 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  analyzeCsp,
+  apiHelmet,
+  buildCspHeader,
+  buildCspWithNonce,
+  buildPermissionsPolicyHeader,
   contentSecurityPolicy,
+  createCspBuilder,
   createNoncedScript,
   createNoncedStyle,
+  createNonceProvider,
+  createPermissionsPolicyBuilder,
+  CspBuilder,
+  devHelmet,
+  extractNonce,
   frameguard,
+  generateCspNonce,
   generateNonce,
   helmet,
+  hidePoweredBy,
   hsts,
+  isBooleanCspDirective,
+  isUnsafeCspValue,
+  isValidCspDirective,
+  isValidHash,
+  isValidNonce,
+  logoutHelmet,
   noSniff,
+  PermissionsPolicyBuilder,
   referrerPolicy,
+  restrictivePermissionsPolicy,
+  sanitizeCspValue,
   sanitizeHeaderValue,
   securityWarning,
+  staticHelmet,
+  strictHelmet,
   validateHstsOptions,
+  validateNonce,
   type HelmetContext,
 } from '../index';
 
@@ -23,6 +48,7 @@ function createMockContext(): HelmetContext & { headers: Map<string, string> } {
     status: 200,
     headers,
     set: (name: string, value: string) => headers.set(name, value),
+    remove: (name: string) => headers.delete(name),
   };
 }
 
@@ -190,11 +216,11 @@ describe('helmet middleware', () => {
 
     it('should set Cross-Origin-Opener-Policy', async () => {
       const middleware = helmet({
-        crossOriginOpenerPolicy: 'same-site',
+        crossOriginOpenerPolicy: 'same-origin-allow-popups',
       });
       await middleware(ctx, next);
 
-      expect(ctx.headers.get('Cross-Origin-Opener-Policy')).toBe('same-site');
+      expect(ctx.headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin-allow-popups');
     });
 
     it('should disable Cross-Origin-Opener-Policy', async () => {
@@ -918,6 +944,568 @@ describe('production readiness', () => {
 
       const header = ctx.headers.get('Clear-Site-Data');
       expect(header).toBe('"cache", "cookies"');
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// hidePoweredBy
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('hidePoweredBy', () => {
+  it('should remove X-Powered-By by default', async () => {
+    const ctx = createMockContext();
+    ctx.headers.set('X-Powered-By', 'NextRush');
+    const middleware = helmet();
+    await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+    expect(ctx.headers.has('X-Powered-By')).toBe(false);
+  });
+
+  it('should keep X-Powered-By when disabled', async () => {
+    const ctx = createMockContext();
+    ctx.headers.set('X-Powered-By', 'NextRush');
+    const middleware = helmet({ hidePoweredBy: false });
+    await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+    expect(ctx.headers.has('X-Powered-By')).toBe(true);
+    expect(ctx.headers.get('X-Powered-By')).toBe('NextRush');
+  });
+
+  it('should work on ctx without remove method', async () => {
+    const headers = new Map<string, string>();
+    headers.set('X-Powered-By', 'Express');
+    const ctx: HelmetContext & { headers: Map<string, string> } = {
+      method: 'GET',
+      path: '/',
+      status: 200,
+      headers,
+      set: (name: string, value: string) => headers.set(name, value),
+      // no remove method
+    };
+    const middleware = helmet();
+    await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+    // Without remove(), the header stays since we can't remove it
+    expect(ctx.headers.has('X-Powered-By')).toBe(true);
+  });
+
+  it('standalone hidePoweredBy() preset should only remove X-Powered-By', async () => {
+    const ctx = createMockContext();
+    ctx.headers.set('X-Powered-By', 'Express');
+    const middleware = hidePoweredBy();
+    await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+    expect(ctx.headers.has('X-Powered-By')).toBe(false);
+    // Should NOT set other security headers
+    expect(ctx.headers.has('X-Content-Type-Options')).toBe(false);
+    expect(ctx.headers.has('X-Frame-Options')).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CspBuilder
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('CspBuilder', () => {
+  it('should build basic CSP with fluent API', () => {
+    const builder = new CspBuilder();
+    const csp = builder.defaultSrc("'self'").scriptSrc("'self'", 'https://cdn.example.com').build();
+
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self' https://cdn.example.com");
+  });
+
+  it('should create via factory function', () => {
+    const csp = createCspBuilder().defaultSrc("'self'").build();
+    expect(csp).toContain("default-src 'self'");
+  });
+
+  it('should support all directive methods', () => {
+    const builder = new CspBuilder();
+    const csp = builder
+      .defaultSrc("'self'")
+      .scriptSrc("'self'")
+      .styleSrc("'self'")
+      .imgSrc("'self'", 'data:')
+      .fontSrc("'self'")
+      .connectSrc("'self'")
+      .mediaSrc("'none'")
+      .objectSrc("'none'")
+      .frameSrc("'none'")
+      .childSrc("'none'")
+      .workerSrc("'self'")
+      .frameAncestors("'none'")
+      .formAction("'self'")
+      .baseUri("'self'")
+      .manifestSrc("'self'")
+      .build();
+
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("img-src 'self' data:");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("base-uri 'self'");
+  });
+
+  it('should support sandbox directive', () => {
+    const builder = new CspBuilder();
+    const csp = builder.defaultSrc("'self'").sandbox('allow-scripts', 'allow-same-origin').build();
+
+    expect(csp).toContain('sandbox allow-scripts allow-same-origin');
+  });
+
+  it('should support reportUri', () => {
+    const builder = new CspBuilder();
+    const csp = builder.defaultSrc("'self'").reportUri('https://example.com/csp-report').build();
+
+    expect(csp).toContain('report-uri https://example.com/csp-report');
+  });
+
+  it('should support withDefaults()', () => {
+    const builder = new CspBuilder();
+    const csp = builder.withDefaults().build();
+
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self'");
+  });
+
+  it('should support strict()', () => {
+    const builder = new CspBuilder();
+    const csp = builder.strict().build();
+
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'self'");
+  });
+
+  it('should support reportOnly()', () => {
+    const opts = new CspBuilder().defaultSrc("'self'").reportOnly().toOptions();
+
+    expect(opts.reportOnly).toBe(true);
+  });
+
+  it('should convert to options with toOptions()', () => {
+    const opts = new CspBuilder().defaultSrc("'self'").scriptSrc("'self'").toOptions();
+
+    expect(opts.directives?.['default-src']).toEqual(["'self'"]);
+    expect(opts.directives?.['script-src']).toEqual(["'self'"]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PermissionsPolicyBuilder
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('PermissionsPolicyBuilder', () => {
+  it('should build basic permissions policy', () => {
+    const builder = new PermissionsPolicyBuilder();
+    const header = builder.camera().microphone().build();
+
+    expect(header).toContain('camera=()');
+    expect(header).toContain('microphone=()');
+  });
+
+  it('should create via factory function', () => {
+    const header = createPermissionsPolicyBuilder().camera().build();
+    expect(header).toContain('camera=()');
+  });
+
+  it('should support disable()', () => {
+    const builder = new PermissionsPolicyBuilder();
+    const header = builder.disable('geolocation').build();
+
+    expect(header).toContain('geolocation=()');
+  });
+
+  it('should support allow()', () => {
+    const builder = new PermissionsPolicyBuilder();
+    const header = builder.allow('camera', 'https://example.com').build();
+
+    expect(header).toContain('camera=("https://example.com")');
+  });
+
+  it('should support allowSelf()', () => {
+    const builder = new PermissionsPolicyBuilder();
+    const header = builder.allowSelf('camera').build();
+
+    expect(header).toContain('camera=(self)');
+  });
+
+  it('should support allowAll()', () => {
+    const builder = new PermissionsPolicyBuilder();
+    const header = builder.allowAll('camera').build();
+
+    expect(header).toContain('camera=(*)');
+  });
+
+  it('should support named feature methods', () => {
+    const builder = new PermissionsPolicyBuilder();
+    const header = builder.camera().microphone().geolocation().fullscreen().build();
+
+    expect(header).toContain('camera=()');
+    expect(header).toContain('microphone=()');
+    expect(header).toContain('geolocation=()');
+    expect(header).toContain('fullscreen=()');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// buildCspHeader
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('buildCspHeader', () => {
+  it('should build from directive object', () => {
+    const header = buildCspHeader({
+      'default-src': ["'self'"],
+      'script-src': ["'self'", 'https://cdn.example.com'],
+    });
+
+    expect(header).toContain("default-src 'self'");
+    expect(header).toContain("script-src 'self' https://cdn.example.com");
+  });
+
+  it('should handle boolean directives', () => {
+    const header = buildCspHeader({
+      'default-src': ["'self'"],
+      'upgrade-insecure-requests': true,
+    });
+
+    expect(header).toContain("default-src 'self'");
+    expect(header).toContain('upgrade-insecure-requests');
+  });
+
+  it('should handle string directive values', () => {
+    const header = buildCspHeader({
+      'default-src': "'self'",
+    });
+
+    expect(header).toContain("default-src 'self'");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// buildCspWithNonce
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('buildCspWithNonce', () => {
+  it('should add nonce to script-src and style-src', () => {
+    const result = buildCspWithNonce({
+      generateNonce: true,
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'"],
+        'style-src': ["'self'"],
+      },
+    });
+
+    expect(result.nonce).toBeDefined();
+    expect(result.nonce!.length).toBeGreaterThanOrEqual(16);
+  });
+
+  it('should use custom nonce provider', () => {
+    const customNonce = 'custom-nonce-value-1234567890';
+    const result = buildCspWithNonce({
+      generateNonce: () => customNonce,
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'"],
+      },
+    });
+
+    expect(result.nonce).toBe(customNonce);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// buildPermissionsPolicyHeader
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('buildPermissionsPolicyHeader', () => {
+  it('should build from directive object', () => {
+    const header = buildPermissionsPolicyHeader({
+      camera: [],
+      microphone: ['self'],
+    });
+
+    expect(header).toContain('camera=()');
+    expect(header).toContain('microphone=(self)');
+  });
+
+  it('should handle wildcard', () => {
+    const header = buildPermissionsPolicyHeader({
+      fullscreen: ['*'],
+    });
+
+    expect(header).toContain('fullscreen=(*)');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// restrictivePermissionsPolicy
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('restrictivePermissionsPolicy', () => {
+  it('should return a comprehensive restrictive policy', () => {
+    const policy = restrictivePermissionsPolicy();
+
+    expect(policy.camera).toEqual([]);
+    expect(policy.microphone).toEqual([]);
+    expect(policy.geolocation).toEqual([]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// analyzeCsp
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('analyzeCsp', () => {
+  it('should return no warnings for strict CSP', () => {
+    const warnings = analyzeCsp({
+      'default-src': ["'none'"],
+      'script-src': ["'self'"],
+      'style-src': ["'self'"],
+      'img-src': ["'self'"],
+      'object-src': ["'none'"],
+      'base-uri': ["'self'"],
+    });
+
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('should warn about unsafe-inline', () => {
+    const warnings = analyzeCsp({
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'"],
+    });
+
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.some((w: string) => w.includes('unsafe-inline'))).toBe(true);
+  });
+
+  it('should warn about unsafe-eval', () => {
+    const warnings = analyzeCsp({
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-eval'"],
+    });
+
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.some((w: string) => w.includes('unsafe-eval'))).toBe(true);
+  });
+
+  it('should warn about wildcard sources', () => {
+    const warnings = analyzeCsp({
+      'default-src': ['*'],
+    });
+
+    expect(warnings.length).toBeGreaterThan(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Nonce utilities
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('nonce utilities', () => {
+  describe('generateCspNonce', () => {
+    it('should generate a CSP nonce string', () => {
+      const nonce = generateCspNonce();
+      expect(nonce).toMatch(/^'nonce-[A-Za-z0-9+/]+=*'$/);
+    });
+  });
+
+  describe('createNonceProvider', () => {
+    it('should create a provider that generates valid nonces', () => {
+      const provider = createNonceProvider();
+      const nonce = provider();
+
+      expect(typeof nonce).toBe('string');
+      expect(nonce.length).toBeGreaterThanOrEqual(16);
+    });
+
+    it('should create provider with custom length', () => {
+      const provider = createNonceProvider(32);
+      const nonce = provider();
+
+      expect(nonce.length).toBeGreaterThanOrEqual(32);
+    });
+  });
+
+  describe('validateNonce', () => {
+    it('should validate good nonces and return the raw value', () => {
+      const nonce = generateNonce();
+      expect(validateNonce(nonce)).toBe(nonce);
+    });
+
+    it('should return null for short nonces', () => {
+      expect(validateNonce('abc')).toBeNull();
+    });
+
+    it('should return null for empty string', () => {
+      expect(validateNonce('')).toBeNull();
+    });
+  });
+
+  describe('extractNonce', () => {
+    it('should extract nonce from CSP nonce string', () => {
+      const nonce = generateNonce();
+      const cspNonce = `'nonce-${nonce}'`;
+      const extracted = extractNonce(cspNonce);
+
+      expect(extracted).toBe(nonce);
+    });
+
+    it('should return null for non-nonce string', () => {
+      const extracted = extractNonce("'self'");
+      expect(extracted).toBeNull();
+    });
+  });
+
+  describe('isValidNonce', () => {
+    it('should accept valid nonces (>= 16 chars)', () => {
+      expect(isValidNonce('abcdefghijklmnop')).toBe(true);
+    });
+
+    it('should reject short nonces', () => {
+      expect(isValidNonce('short')).toBe(false);
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Validation utilities
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('validation utilities', () => {
+  describe('isValidCspDirective', () => {
+    it('should accept valid CSP directives', () => {
+      expect(isValidCspDirective('default-src')).toBe(true);
+      expect(isValidCspDirective('script-src')).toBe(true);
+      expect(isValidCspDirective('style-src')).toBe(true);
+      expect(isValidCspDirective('img-src')).toBe(true);
+    });
+
+    it('should reject invalid CSP directives', () => {
+      expect(isValidCspDirective('invalid-directive')).toBe(false);
+      expect(isValidCspDirective('')).toBe(false);
+    });
+  });
+
+  describe('isBooleanCspDirective', () => {
+    it('should identify boolean CSP directives', () => {
+      expect(isBooleanCspDirective('upgrade-insecure-requests')).toBe(true);
+      expect(isBooleanCspDirective('block-all-mixed-content')).toBe(true);
+    });
+
+    it('should reject non-boolean CSP directives', () => {
+      expect(isBooleanCspDirective('default-src')).toBe(false);
+      expect(isBooleanCspDirective('script-src')).toBe(false);
+    });
+  });
+
+  describe('isUnsafeCspValue', () => {
+    it('should identify unsafe CSP values', () => {
+      expect(isUnsafeCspValue("'unsafe-inline'")).toBe(true);
+      expect(isUnsafeCspValue("'unsafe-eval'")).toBe(true);
+    });
+
+    it('should accept safe CSP values', () => {
+      expect(isUnsafeCspValue("'self'")).toBe(false);
+      expect(isUnsafeCspValue("'none'")).toBe(false);
+    });
+  });
+
+  describe('isValidHash', () => {
+    it('should accept valid CSP hashes', () => {
+      expect(isValidHash("'sha256-abc123def456ghi789jkl012mno345pqr678stu901='")).toBe(true);
+    });
+
+    it('should reject invalid hashes', () => {
+      expect(isValidHash('not-a-hash')).toBe(false);
+    });
+  });
+
+  describe('sanitizeCspValue', () => {
+    it('should pass through valid CSP values', () => {
+      expect(sanitizeCspValue("'self'")).toBe("'self'");
+      expect(sanitizeCspValue('https://example.com')).toBe('https://example.com');
+    });
+
+    it('should reject values with semicolons', () => {
+      expect(() => sanitizeCspValue('value;injection')).toThrow();
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Security Presets
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('security presets', () => {
+  describe('strictHelmet', () => {
+    it('should set restrictive security headers', async () => {
+      const ctx = createMockContext();
+      const middleware = strictHelmet();
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      expect(ctx.headers.has('Content-Security-Policy')).toBe(true);
+      expect(ctx.headers.has('Strict-Transport-Security')).toBe(true);
+      expect(ctx.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(ctx.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    });
+  });
+
+  describe('apiHelmet', () => {
+    it('should set API-appropriate security headers', async () => {
+      const ctx = createMockContext();
+      const middleware = apiHelmet();
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      expect(ctx.headers.has('X-Content-Type-Options')).toBe(true);
+    });
+  });
+
+  describe('devHelmet', () => {
+    it('should set development-friendly security headers', async () => {
+      const ctx = createMockContext();
+      const middleware = devHelmet();
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      // Dev should be more relaxed
+      expect(ctx.headers.has('X-Content-Type-Options')).toBe(true);
+    });
+  });
+
+  describe('staticHelmet', () => {
+    it('should set static-file appropriate headers', async () => {
+      const ctx = createMockContext();
+      const middleware = staticHelmet();
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      expect(ctx.headers.has('X-Content-Type-Options')).toBe(true);
+    });
+  });
+
+  describe('logoutHelmet', () => {
+    it('should set Clear-Site-Data header', async () => {
+      const ctx = createMockContext();
+      const middleware = logoutHelmet();
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      expect(ctx.headers.has('Clear-Site-Data')).toBe(true);
+      const clearData = ctx.headers.get('Clear-Site-Data')!;
+      expect(clearData).toContain('"cache"');
+      expect(clearData).toContain('"cookies"');
+      expect(clearData).toContain('"storage"');
+    });
+
+    it('should accept custom clear data options', async () => {
+      const ctx = createMockContext();
+      const middleware = logoutHelmet(['"cookies"']);
+      await middleware(ctx, vi.fn().mockResolvedValue(undefined));
+
+      expect(ctx.headers.get('Clear-Site-Data')).toBe('"cookies"');
     });
   });
 });

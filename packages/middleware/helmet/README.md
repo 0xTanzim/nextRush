@@ -2,6 +2,33 @@
 
 HTTP security headers middleware for NextRush v3. Sets 13 headers with OWASP-recommended defaults in a single call.
 
+## What Is Helmet?
+
+When a browser loads a web page, the server's HTTP response includes **headers** — metadata that tells the browser how to handle the content. Many of these headers control security behavior: whether scripts can run, whether the page can be embedded in an iframe, whether the browser should enforce HTTPS.
+
+**Without security headers, browsers use permissive defaults.** This exposes your application to well-known attacks:
+
+- **Cross-site scripting (XSS)**: Attackers inject malicious scripts into your page
+- **Clickjacking**: Your site gets embedded in a hidden iframe to trick users into clicking
+- **MIME sniffing**: Browsers guess file types and execute disguised scripts
+- **Protocol downgrade**: Attackers force HTTP instead of HTTPS to intercept traffic
+- **Information leakage**: Referrer headers expose internal URLs to third parties
+- **Framework fingerprinting**: `X-Powered-By` headers reveal your tech stack to attackers
+
+Helmet solves this by setting **13 security headers** with OWASP-recommended values in a single middleware call. You get production-grade browser security without configuring each header individually.
+
+### What Helmet Does NOT Do
+
+Helmet protects against **browser-based attacks** via HTTP response headers. It does not handle:
+
+- **Input validation** — Use Zod, ArkType, or similar for request body/query validation
+- **Authentication** — Use JWTs, OAuth, or session-based auth
+- **CSRF protection** — Use `@nextrush/csrf` (separate package) for cookie-based apps
+- **Rate limiting** — Use `@nextrush/rate-limit`
+- **CORS** — Use `@nextrush/cors`
+
+Each of these concerns has its own dedicated NextRush middleware package.
+
 ## Installation
 
 ```bash

@@ -5,15 +5,15 @@
 import { BadRequestError, ForbiddenError, HttpError, InternalServerError } from '@nextrush/errors';
 import { describe, expect, it } from 'vitest';
 import {
-    ControllerError,
-    ControllerResolutionError,
-    DiscoveryError,
-    GuardRejectionError,
-    MissingParameterError,
-    NoRoutesError,
-    NotAControllerError,
-    ParameterInjectionError,
-    RouteRegistrationError,
+  ControllerError,
+  ControllerResolutionError,
+  DiscoveryError,
+  GuardRejectionError,
+  MissingParameterError,
+  NoRoutesError,
+  NotAControllerError,
+  ParameterInjectionError,
+  RouteRegistrationError,
 } from '../errors.js';
 
 describe('Controller Errors', () => {
@@ -219,7 +219,8 @@ describe('Controller Errors', () => {
       expect(error.status).toBe(403);
       expect(error.guardName).toBe('AuthGuard');
       expect(error.message).toBe('Access denied');
-      expect(error.details).toMatchObject({ guard: 'AuthGuard' });
+      // Guard name should NOT appear in details (security: no internal name exposure)
+      expect(error.details).toBeUndefined();
     });
 
     it('should allow custom message', () => {

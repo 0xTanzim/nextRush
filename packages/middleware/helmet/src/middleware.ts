@@ -107,6 +107,7 @@ export function helmet(options: HelmetOptions = {}): NexrushMiddleware {
     permittedCrossDomainPolicies = 'none',
     clearSiteData,
     reportingEndpoints,
+    hidePoweredBy = true,
   } = options;
 
   // Validate HSTS options and warn about issues
@@ -123,6 +124,11 @@ export function helmet(options: HelmetOptions = {}): NexrushMiddleware {
   }
 
   return (async (ctx: HelmetContext, next?: () => Promise<void>): Promise<void> => {
+    // Remove X-Powered-By header to prevent framework fingerprinting
+    if (hidePoweredBy && ctx.remove) {
+      ctx.remove(HEADERS.X_POWERED_BY);
+    }
+
     // Content-Security-Policy
     if (contentSecurityPolicy !== false) {
       const { directives = {}, reportOnly = false, useDefaults = true } = contentSecurityPolicy;
@@ -191,8 +197,12 @@ export function helmet(options: HelmetOptions = {}): NexrushMiddleware {
     }
 
     // X-XSS-Protection
+    // Three cases:
+    // 1. User explicitly sets xssFilter: false → skip header entirely
+    // 2. User explicitly sets xssFilter: true → set '1; mode=block'
+    // 3. Default (xssFilter not in options) → set '0' (OWASP recommended)
     if ('xssFilter' in options && options.xssFilter === false) {
-      // Explicitly disabled - skip header
+      // Explicitly disabled by user - do not set header
     } else if (xssFilter === true) {
       ctx.set(HEADERS.X_XSS_PROTECTION, '1; mode=block');
     } else {

@@ -4,6 +4,7 @@ node_modules/
 **/node_modules/
 .internal
 
+
 # Build outputs
 dist/
 build/
@@ -102,3 +103,6 @@ isolate-*.log
 
 # Cursor AI
 .cursor
+
+Copilot-Processing.md
+./Copilot-Processing.md

@@ -236,7 +236,6 @@ export class GuardRejectionError extends ForbiddenError {
   constructor(guardName: string, message?: string) {
     super(message ?? 'Access denied', {
       code: 'GUARD_REJECTED',
-      details: { guard: guardName },
     });
     this.name = 'GuardRejectionError';
     this.guardName = guardName;

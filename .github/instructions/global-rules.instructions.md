@@ -1,6 +1,7 @@
----
+d---
 description: 'Non-negotiable project rules, forbidden patterns, must-fix violations, security boundaries, and quality enforcement for all NextRush contributors and agents'
-applyTo: '**'
+applyTo: '\*\*'
+
 ---
 
 # NextRush v3 Global Rules
@@ -15,13 +16,13 @@ Hard rules that apply everywhere — code, docs, tests, prompts, agents. No exce
 types → errors → core → router → di → decorators → controllers → adapters → middleware
 ```
 
-| Rule | Enforcement |
-|------|-------------|
-| Lower packages NEVER import from higher packages | Block the change |
-| No circular dependencies between packages | Block the change |
-| Cross-package imports use published interfaces only | No internal path imports |
-| Type-only imports (`import type`) for package boundary types | Required |
-| Every package has a clean barrel export (`index.ts`) | Required |
+| Rule                                                         | Enforcement              |
+| ------------------------------------------------------------ | ------------------------ |
+| Lower packages NEVER import from higher packages             | Block the change         |
+| No circular dependencies between packages                    | Block the change         |
+| Cross-package imports use published interfaces only          | No internal path imports |
+| Type-only imports (`import type`) for package boundary types | Required                 |
+| Every package has a clean barrel export (`index.ts`)         | Required                 |
 
 **On violation: Block the change. Fix the import. No exceptions.**
 
@@ -31,23 +32,23 @@ types → errors → core → router → di → decorators → controllers → a
 
 These patterns must NEVER appear in the codebase. Detection triggers immediate rejection.
 
-| Pattern | Reason |
-|---------|--------|
-| `any` type usage | Use `unknown` at boundaries, proper types internally |
-| `as any` type assertions | Breaks type safety guarantees |
-| `eval()`, `Function()`, dynamic code execution | Code injection vector |
-| `console.log` in production code | Use structured logging |
-| Hardcoded secrets, API keys, or credentials | Security violation |
-| `JSON.parse` without try/catch at system boundaries | Unhandled parse failure |
-| Silent catch blocks (`catch {}` or `catch (e) {}`) | Error swallowing |
-| Unsanitized template interpolation | Injection vector |
-| Global mutable state | Non-deterministic behavior |
-| Blocking synchronous I/O in async contexts | Performance killer |
-| Prototype pollution vectors (`__proto__`, `constructor.prototype`) | Security violation |
-| Unbounded loops or recursion without termination guarantee | DoS / hang risk |
-| Side effects in module-level scope (except `reflect-metadata`) | Import order dependency |
-| `require()` in ESM modules | Module system violation |
-| Runtime-specific APIs in core packages (`process`, `Deno`, `Bun`) | Platform coupling |
+| Pattern                                                            | Reason                                               |
+| ------------------------------------------------------------------ | ---------------------------------------------------- |
+| `any` type usage                                                   | Use `unknown` at boundaries, proper types internally |
+| `as any` type assertions                                           | Breaks type safety guarantees                        |
+| `eval()`, `Function()`, dynamic code execution                     | Code injection vector                                |
+| `console.log` in production code                                   | Use structured logging                               |
+| Hardcoded secrets, API keys, or credentials                        | Security violation                                   |
+| `JSON.parse` without try/catch at system boundaries                | Unhandled parse failure                              |
+| Silent catch blocks (`catch {}` or `catch (e) {}`)                 | Error swallowing                                     |
+| Unsanitized template interpolation                                 | Injection vector                                     |
+| Global mutable state                                               | Non-deterministic behavior                           |
+| Blocking synchronous I/O in async contexts                         | Performance killer                                   |
+| Prototype pollution vectors (`__proto__`, `constructor.prototype`) | Security violation                                   |
+| Unbounded loops or recursion without termination guarantee         | DoS / hang risk                                      |
+| Side effects in module-level scope (except `reflect-metadata`)     | Import order dependency                              |
+| `require()` in ESM modules                                         | Module system violation                              |
+| Runtime-specific APIs in core packages (`process`, `Deno`, `Bun`)  | Platform coupling                                    |
 
 ---
 
@@ -70,18 +71,18 @@ If detected, fix immediately before any other work proceeds.
 
 ## 4. Security Boundaries (Non-Negotiable)
 
-| Boundary | Requirement |
-|----------|-------------|
-| Error responses | NEVER leak internal paths, stack traces, or package structure in production |
-| Request body parsing | Enforces size limits |
-| Route parameters | Validated for type and format |
-| Header handling | No header injection vectors |
-| CORS | Never defaults to wildcard in production |
-| Rate limiting | Available and documented for all public endpoints |
-| Middleware ordering | Authentication runs before business logic |
-| Code generation | No `eval()`, `Function()`, or dynamic code generation |
-| Dependencies | Audited for known CVEs before adoption |
-| IP trust | No trust of `req.ip` without explicit proxy configuration |
+| Boundary             | Requirement                                                                 |
+| -------------------- | --------------------------------------------------------------------------- |
+| Error responses      | NEVER leak internal paths, stack traces, or package structure in production |
+| Request body parsing | Enforces size limits                                                        |
+| Route parameters     | Validated for type and format                                               |
+| Header handling      | No header injection vectors                                                 |
+| CORS                 | Never defaults to wildcard in production                                    |
+| Rate limiting        | Available and documented for all public endpoints                           |
+| Middleware ordering  | Authentication runs before business logic                                   |
+| Code generation      | No `eval()`, `Function()`, or dynamic code generation                       |
+| Dependencies         | Audited for known CVEs before adoption                                      |
+| IP trust             | No trust of `req.ip` without explicit proxy configuration                   |
 
 ---
 
@@ -89,13 +90,13 @@ If detected, fix immediately before any other work proceeds.
 
 ### Targets
 
-| Metric | Target |
-|--------|--------|
-| Hello World RPS | 35,000+ |
-| Core size | <3,000 LOC |
-| Cold start | <30ms |
-| Memory footprint | <200KB |
-| Package max LOC | Per package limits in `v3-architecture.instructions.md` |
+| Metric           | Target                                                  |
+| ---------------- | ------------------------------------------------------- |
+| Hello World RPS  | 35,000+                                                 |
+| Core size        | <3,000 LOC                                              |
+| Cold start       | <30ms                                                   |
+| Memory footprint | <200KB                                                  |
+| Package max LOC  | Per package limits in `v3-architecture.instructions.md` |
 
 ### Rules
 
@@ -134,11 +135,11 @@ If detected, fix immediately before any other work proceeds.
 
 ## 8. Test Requirements
 
-| Requirement | Threshold |
-|-------------|-----------|
-| Line coverage per package | 90%+ (enforced in CI) |
-| Bug fix | Includes regression test |
-| New public API | Includes usage tests |
+| Requirement                       | Threshold                    |
+| --------------------------------- | ---------------------------- |
+| Line coverage per package         | 90%+ (enforced in CI)        |
+| Bug fix                           | Includes regression test     |
+| New public API                    | Includes usage tests         |
 | Edge cases from architecture docs | Corresponding tests required |
 
 - No test that depends on external services without mocking

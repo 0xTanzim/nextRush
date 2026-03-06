@@ -44,6 +44,9 @@ export const HEADERS = {
   // Reporting and Clearing
   CLEAR_SITE_DATA: 'Clear-Site-Data',
   REPORTING_ENDPOINTS: 'Reporting-Endpoints',
+
+  // Server Identity
+  X_POWERED_BY: 'X-Powered-By',
 } as const;
 
 // ============================================================================

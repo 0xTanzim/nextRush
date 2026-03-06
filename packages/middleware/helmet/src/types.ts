@@ -36,6 +36,8 @@ export interface HelmetContext {
   set: (name: string, value: string) => void;
   /** Get a request header */
   get?: (name: string) => string | undefined;
+  /** Remove a response header */
+  remove?: (name: string) => void;
 }
 
 /**
@@ -266,6 +268,7 @@ export type CrossOriginEmbedderPolicyValue = 'require-corp' | 'credentialless' |
 export type CrossOriginOpenerPolicyValue =
   | 'same-origin'
   | 'same-origin-allow-popups'
+  | 'noopener-allow-popups'
   | 'unsafe-none';
 
 /**
@@ -444,13 +447,20 @@ export interface HelmetOptions {
    * @default undefined (not set)
    */
   reportingEndpoints?: Record<string, string> | false;
+
+  /**
+   * Remove X-Powered-By header.
+   * Prevents attackers from identifying the framework.
+   * @default true
+   */
+  hidePoweredBy?: boolean;
 }
 
 /**
  * Nonce provider function type.
  * Called for each request to get a unique nonce.
  */
-export type NonceProvider = () => string | Promise<string>;
+export type NonceProvider = () => string;
 
 /**
  * CSP options with nonce support.

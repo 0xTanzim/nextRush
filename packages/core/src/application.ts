@@ -544,23 +544,32 @@ export class Application {
 
   /**
    * Default error handler
+   *
+   * Uses the `expose` flag on errors (set by HttpError/NextRushError)
+   * to decide whether to include the error message in the response.
+   * 4xx errors expose messages by default; 5xx errors never do.
+   * This prevents leaking internal details (paths, SQL, stack info)
+   * regardless of environment.
    */
   private defaultErrorHandler(error: Error, ctx: Context): void {
-    // Log in development
+    // Always log non-production errors for DX
     if (!this.isProduction) {
       this.logger.error('Request error:', error);
     }
 
-    // Set error response — clamp to valid error range (400-599)
+    // Determine status — clamp to valid error range (400-599)
+    let status = 500;
     if ('status' in error && typeof error.status === 'number') {
-      const status = error.status as number;
-      ctx.status = status >= 400 && status < 600 ? status : 500;
-    } else {
-      ctx.status = 500;
+      const raw = error.status as number;
+      status = raw >= 400 && raw < 600 ? raw : 500;
     }
+    ctx.status = status;
 
-    // Only expose error message in development
-    const message = !this.isProduction ? error.message : 'Internal Server Error';
+    // Use the `expose` flag to decide what message the client sees.
+    // HttpError/NextRushError set expose=true for 4xx, false for 5xx.
+    // Plain Error never exposes — prevents leaking internal details.
+    const expose = 'expose' in error && typeof error.expose === 'boolean' && error.expose;
+    const message = expose ? error.message : 'Internal Server Error';
 
     ctx.json({ error: message });
   }

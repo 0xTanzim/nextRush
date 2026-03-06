@@ -3,9 +3,42 @@ title: '@nextrush/helmet'
 description: 'Security headers middleware with CSP, HSTS, and modern browser protections.'
 ---
 
-Browsers expose dozens of attack vectors through missing HTTP headers. XSS, clickjacking, MIME sniffing, and protocol downgrade attacks all exploit the absence of specific security headers.
+## Why Helmet Exists
 
-Helmet sets 13 security headers with secure defaults in a single middleware call. You get OWASP-recommended protection without configuring each header individually.
+When your server responds to a browser request, HTTP headers control how the browser handles the content. Security-critical headers tell the browser:
+
+- Which scripts are allowed to execute
+- Whether your page can be embedded in an iframe
+- Whether to enforce HTTPS
+- What information to send in the `Referer` header
+
+**Without these headers, browsers default to permissive behavior** — allowing cross-site scripting, clickjacking, MIME sniffing, and protocol downgrade attacks.
+
+Helmet sets **13 security response headers** with OWASP-recommended values in a single middleware call. You get protection against the most common browser-based attack vectors without configuring each header individually.
+
+### What Helmet Protects Against
+
+| Attack                         | Header                       | What Happens Without It                                 |
+| ------------------------------ | ---------------------------- | ------------------------------------------------------- |
+| **XSS** (cross-site scripting) | `Content-Security-Policy`    | Attackers inject scripts into your page                 |
+| **Clickjacking**               | `X-Frame-Options`            | Your site is embedded in a hidden iframe to trick users |
+| **MIME sniffing**              | `X-Content-Type-Options`     | Browsers execute disguised files as scripts             |
+| **Protocol downgrade**         | `Strict-Transport-Security`  | Attackers force HTTP to intercept traffic               |
+| **Info leakage**               | `Referrer-Policy`            | Internal URLs leak to third parties                     |
+| **Fingerprinting**             | Removes `X-Powered-By`       | Attackers identify your tech stack                      |
+| **Cross-origin data leaks**    | `Cross-Origin-Opener-Policy` | Malicious popups access your page's data                |
+
+### What Helmet Does NOT Do
+
+Helmet handles **browser-side response headers only**. These concerns need separate middleware:
+
+| Concern          | Package                      |
+| ---------------- | ---------------------------- |
+| Input validation | Zod, ArkType, or similar     |
+| Authentication   | JWTs, OAuth, or session auth |
+| CSRF protection  | `@nextrush/csrf`             |
+| Rate limiting    | `@nextrush/rate-limit`       |
+| CORS             | `@nextrush/cors`             |
 
 ---
 

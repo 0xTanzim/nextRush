@@ -29,10 +29,17 @@ import { helmet } from './middleware.js';
 export {
   apiHelmet,
   // Individual header middleware
-  contentSecurityPolicy, devHelmet, frameguard, hsts, logoutHelmet, noSniff,
-  referrerPolicy, staticHelmet,
+  contentSecurityPolicy,
+  devHelmet,
+  frameguard,
+  hidePoweredBy,
+  hsts,
+  logoutHelmet,
+  noSniff,
+  referrerPolicy,
+  staticHelmet,
   // Security presets
-  strictHelmet
+  strictHelmet,
 } from './presets.js';
 
 // ============================================================================
@@ -42,12 +49,18 @@ export {
 export {
   analyzeCsp,
   // CSP
-  buildCspHeader, buildCspWithNonce, createCspBuilder, CspBuilder
+  buildCspHeader,
+  buildCspWithNonce,
+  createCspBuilder,
+  CspBuilder,
 } from './csp.js';
 
 export {
   // Permissions-Policy
-  buildPermissionsPolicyHeader, createPermissionsPolicyBuilder, PermissionsPolicyBuilder, restrictivePermissionsPolicy
+  buildPermissionsPolicyHeader,
+  createPermissionsPolicyBuilder,
+  PermissionsPolicyBuilder,
+  restrictivePermissionsPolicy,
 } from './permissions.js';
 
 // ============================================================================
@@ -56,7 +69,12 @@ export {
 
 export {
   createNoncedScript,
-  createNoncedStyle, createNonceProvider, extractNonce, generateCspNonce, generateNonce, validateNonce
+  createNoncedStyle,
+  createNonceProvider,
+  extractNonce,
+  generateCspNonce,
+  generateNonce,
+  validateNonce,
 } from './nonce.js';
 
 // ============================================================================
@@ -64,7 +82,17 @@ export {
 // ============================================================================
 
 export {
-  analyzeCspSecurity, isBooleanCspDirective, isCspValueSafe, isUnsafeCspValue, isValidCspDirective, isValidHash, isValidNonce, sanitizeCspValue, sanitizeHeaderValue, securityWarning, validateHstsOptions
+  analyzeCspSecurity,
+  isBooleanCspDirective,
+  isCspValueSafe,
+  isUnsafeCspValue,
+  isValidCspDirective,
+  isValidHash,
+  isValidNonce,
+  sanitizeCspValue,
+  sanitizeHeaderValue,
+  securityWarning,
+  validateHstsOptions,
 } from './validation.js';
 
 export type { HstsValidationResult } from './validation.js';
@@ -74,7 +102,15 @@ export type { HstsValidationResult } from './validation.js';
 // ============================================================================
 
 export {
-  BOOLEAN_CSP_DIRECTIVES, DEFAULT_CSP_DIRECTIVES, DEFAULT_HSTS_MAX_AGE, HEADERS, MIN_HSTS_PRELOAD_MAX_AGE, RECOMMENDED_HSTS_MAX_AGE, STRICT_CSP_DIRECTIVES, UNSAFE_CSP_VALUES, VALID_CSP_DIRECTIVES
+  BOOLEAN_CSP_DIRECTIVES,
+  DEFAULT_CSP_DIRECTIVES,
+  DEFAULT_HSTS_MAX_AGE,
+  HEADERS,
+  MIN_HSTS_PRELOAD_MAX_AGE,
+  RECOMMENDED_HSTS_MAX_AGE,
+  STRICT_CSP_DIRECTIVES,
+  UNSAFE_CSP_VALUES,
+  VALID_CSP_DIRECTIVES,
 } from './constants.js';
 
 // ============================================================================
@@ -83,21 +119,27 @@ export {
 
 export type {
   // Clear Site Data
-  ClearSiteDataValue, ContentSecurityPolicyDirectives,
+  ClearSiteDataValue,
+  ContentSecurityPolicyDirectives,
   ContentSecurityPolicyOptions,
   // Cross-Origin
   CrossOriginEmbedderPolicyValue,
   CrossOriginOpenerPolicyValue,
-  CrossOriginResourcePolicyValue, CspDirectiveName, CspSandboxValue,
+  CrossOriginResourcePolicyValue,
+  CspDirectiveName,
+  CspSandboxValue,
   // CSP
-  CspSourceValue, CspWithNonceOptions,
+  CspSourceValue,
+  CspWithNonceOptions,
   // Context
   HelmetContext,
   HelmetMiddleware,
   // Main Options
   HelmetOptions,
   // Re-exports
-  Middleware, NonceProvider, PermissionsPolicyAllowlist,
+  Middleware,
+  NonceProvider,
+  PermissionsPolicyAllowlist,
   PermissionsPolicyDirectives,
   // Permissions
   PermissionsPolicyFeature,
@@ -106,5 +148,5 @@ export type {
   // HSTS
   StrictTransportSecurityOptions,
   // Frame Options
-  XFrameOptionsValue
+  XFrameOptionsValue,
 } from './types.js';

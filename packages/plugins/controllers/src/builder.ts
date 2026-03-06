@@ -234,8 +234,8 @@ async function executeGuards(
   guards: Guard[],
   ctx: Context,
   container: ContainerInterface,
-  controllerName: string,
-  methodName: string
+  _controllerName: string,
+  _methodName: string
 ): Promise<void> {
   const guardContext: GuardContext = {
     method: ctx.method,
@@ -266,10 +266,7 @@ async function executeGuards(
       }
 
       if (!result) {
-        throw new GuardRejectionError(
-          guardName,
-          `Access denied by guard for ${controllerName}.${methodName}`
-        );
+        throw new GuardRejectionError(guardName);
       }
     } catch (error) {
       if (error instanceof GuardRejectionError) {
@@ -279,10 +276,7 @@ async function executeGuards(
       const errorGuardName = isGuardClass(guard)
         ? guard.name || `ClassGuard[${i}]`
         : guard.name || `Guard[${i}]`;
-      throw new GuardRejectionError(
-        errorGuardName,
-        error instanceof Error ? error.message : 'Guard execution failed'
-      );
+      throw new GuardRejectionError(errorGuardName);
     }
   }
 }

@@ -55,10 +55,29 @@ export interface ServeOptions {
   };
 
   /**
-   * Maximum request body size in bytes
-   * @default 128MB (Bun default)
+   * Maximum request body size in bytes.
+   *
+   * @remarks
+   * Bun.serve reads the full body before the framework sees it, so this
+   * limit must be set at the server level to prevent memory exhaustion.
+   * Matches @nextrush/adapter-node default of 1 MB.
+   *
+   * @default 1048576 (1 MB)
    */
   maxRequestBodySize?: number;
+
+  /**
+   * Request timeout in milliseconds.
+   *
+   * @remarks
+   * Unlike Node.js, Bun.serve has no built-in request timeout.
+   * This option adds an AbortController-based timeout at the handler
+   * level, returning 504 Gateway Timeout on expiry.
+   * Matches @nextrush/adapter-node default of 30 s.
+   *
+   * @default 30000 (30 seconds)
+   */
+  timeout?: number;
 
   /**
    * Development mode (enables additional logging)
@@ -192,7 +211,8 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     onListen,
     onError,
     tls,
-    maxRequestBodySize,
+    maxRequestBodySize = 1_048_576,
+    timeout = 30_000,
     development = false,
     shutdownTimeout = 30_000,
   } = options;
@@ -214,7 +234,30 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
       const ctx = createBunContext(request, clientIp);
 
       try {
-        await appCallback(ctx);
+        if (timeout > 0) {
+          // Race handler against timeout — mirrors edge adapter pattern
+          let timerId: ReturnType<typeof setTimeout> | undefined;
+          const TIMEOUT_SENTINEL = Symbol('timeout');
+
+          const result = await Promise.race([
+            appCallback(ctx).then(() => {
+              if (timerId !== undefined) clearTimeout(timerId);
+              return undefined;
+            }),
+            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+              timerId = setTimeout(() => resolve(TIMEOUT_SENTINEL), timeout);
+            }),
+          ]);
+
+          if (result === TIMEOUT_SENTINEL) {
+            return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
+              status: 504,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+        } else {
+          await appCallback(ctx);
+        }
 
         if (!ctx.responded) {
           if (ctx.status === 404) {
@@ -260,10 +303,8 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     };
   }
 
-  // Add max body size if configured
-  if (maxRequestBodySize !== undefined) {
-    bunOptions.maxRequestBodySize = maxRequestBodySize;
-  }
+  // Set max body size (always applied — prevents Bun's 128MB default)
+  bunOptions.maxRequestBodySize = maxRequestBodySize;
 
   // Add error handler
   bunOptions.error = (error: Error): Response => {

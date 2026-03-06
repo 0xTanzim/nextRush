@@ -53,6 +53,7 @@ export function contentSecurityPolicy(options: ContentSecurityPolicyOptions = {}
     xssFilter: false,
     ieNoOpen: false,
     permittedCrossDomainPolicies: false,
+    hidePoweredBy: false,
   });
 }
 
@@ -86,6 +87,7 @@ export function hsts(options: StrictTransportSecurityOptions = {}): Middleware {
     xssFilter: false,
     ieNoOpen: false,
     permittedCrossDomainPolicies: false,
+    hidePoweredBy: false,
   });
 }
 
@@ -112,6 +114,7 @@ export function frameguard(action: 'DENY' | 'SAMEORIGIN' = 'SAMEORIGIN'): Middle
     xssFilter: false,
     ieNoOpen: false,
     permittedCrossDomainPolicies: false,
+    hidePoweredBy: false,
   });
 }
 
@@ -135,6 +138,7 @@ export function noSniff(): Middleware {
     xssFilter: false,
     ieNoOpen: false,
     permittedCrossDomainPolicies: false,
+    hidePoweredBy: false,
   });
 }
 
@@ -161,6 +165,7 @@ export function referrerPolicy(
     xssFilter: false,
     ieNoOpen: false,
     permittedCrossDomainPolicies: false,
+    hidePoweredBy: false,
   });
 }
 
@@ -371,5 +376,37 @@ export function logoutHelmet(
     xssFilter: false,
     ieNoOpen: false,
     permittedCrossDomainPolicies: false,
+    hidePoweredBy: false,
+  });
+}
+
+/**
+ * Hide X-Powered-By header only middleware.
+ *
+ * Removes the X-Powered-By header to prevent framework fingerprinting.
+ *
+ * @returns Middleware function
+ *
+ * @example
+ * ```typescript
+ * app.use(hidePoweredBy());
+ * ```
+ */
+export function hidePoweredBy(): Middleware {
+  return helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    dnsPrefetchControl: false,
+    frameguard: false,
+    hsts: false,
+    noSniff: false,
+    originAgentCluster: false,
+    referrerPolicy: false,
+    xssFilter: false,
+    ieNoOpen: false,
+    permittedCrossDomainPolicies: false,
+    hidePoweredBy: true,
   });
 }
