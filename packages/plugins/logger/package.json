@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@nextrush/log": "^0.2.1",
-    "@nextrush/types": "workspace:*"
+    "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
     "@nextrush/core": "workspace:*",
@@ -52,7 +52,7 @@
     "vitest": "^4.0.18"
   },
   "peerDependencies": {
-    "@nextrush/core": "^3.0.0-alpha.1"
+    "@nextrush/core": "workspace:^"
   },
   "peerDependenciesMeta": {
     "@nextrush/core": {

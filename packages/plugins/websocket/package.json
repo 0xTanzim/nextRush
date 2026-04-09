@@ -25,7 +25,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nextrush/types": "workspace:*"
+    "@nextrush/types": "workspace:^"
   },
   "peerDependencies": {
     "ws": "^8.0.0"

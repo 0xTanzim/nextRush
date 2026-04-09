@@ -2,7 +2,20 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
   "commit": false,
-  "fixed": [["@nextrush/*", "nextrush"]],
+  "fixed": [
+    [
+      "@nextrush/types",
+      "@nextrush/errors",
+      "@nextrush/core",
+      "@nextrush/router",
+      "@nextrush/runtime",
+      "@nextrush/di",
+      "@nextrush/decorators",
+      "@nextrush/controllers",
+      "@nextrush/adapter-node",
+      "nextrush"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

@@ -4,6 +4,7 @@ node_modules/
 **/node_modules/
 .internal
 .agents
+.cursor
 
 # Build outputs
 dist/

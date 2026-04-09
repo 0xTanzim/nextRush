@@ -25,10 +25,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nextrush/errors": "workspace:*",
-    "@nextrush/runtime": "workspace:*",
-    "@nextrush/types": "workspace:*",
-    "@nextrush/core": "workspace:*"
+    "@nextrush/errors": "workspace:^",
+    "@nextrush/runtime": "workspace:^",
+    "@nextrush/types": "workspace:^",
+    "@nextrush/core": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

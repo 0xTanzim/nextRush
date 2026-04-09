@@ -53,7 +53,7 @@
     "node": ">=22.0.0"
   },
   "peerDependencies": {
-    "@nextrush/core": ">=3.0.0-alpha.1"
+    "@nextrush/core": "workspace:^"
   },
   "peerDependenciesMeta": {
     "@nextrush/core": {

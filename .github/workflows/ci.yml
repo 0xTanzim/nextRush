@@ -2,9 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main, feat/*]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   ci:
@@ -13,6 +19,60 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect Changed Files
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}"
+          git diff --name-only "origin/${{ github.base_ref }}...${{ github.sha }}" > changed-files.txt
+
+      - name: Enforce Changeset For Release-Impacting Package Changes
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const changed = fs
+            .readFileSync('changed-files.txt', 'utf8')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+          const isChangeset = (file) =>
+            file.startsWith('.changeset/') && file.endsWith('.md') && file !== '.changeset/README.md';
+
+          const isReleaseImpactingPackageChange = (file) => {
+            if (!file.startsWith('packages/')) return false;
+            if (file.startsWith('packages/dev/')) return false;
+            if (/(^|\/)__tests__(\/|$)/.test(file)) return false;
+            if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(file)) return false;
+            if (file.endsWith('.md') || file.endsWith('.mdx')) return false;
+            return true;
+          };
+
+          const changesetTouched = changed.some(isChangeset);
+          const impactingPackageChanges = changed.filter(isReleaseImpactingPackageChange);
+
+          if (impactingPackageChanges.length > 0 && !changesetTouched) {
+            console.error('Release-impacting package changes were detected without a changeset file.');
+            console.error('Add one with: pnpm changeset');
+            console.error('Changed files requiring a changeset:');
+            for (const file of impactingPackageChanges) {
+              console.error(` - ${file}`);
+            }
+            process.exit(1);
+          }
+
+          console.log('Changeset guard passed.');
+          if (impactingPackageChanges.length === 0) {
+            console.log('No release-impacting package changes found.');
+          }
+          NODE
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

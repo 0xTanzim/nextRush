@@ -215,16 +215,16 @@ importers:
   packages/adapters/bun:
     dependencies:
       '@nextrush/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../core
       '@nextrush/errors':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../errors
       '@nextrush/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../runtime
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       '@types/bun':
@@ -243,16 +243,16 @@ importers:
   packages/adapters/deno:
     dependencies:
       '@nextrush/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../core
       '@nextrush/errors':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../errors
       '@nextrush/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../runtime
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -268,16 +268,16 @@ importers:
   packages/adapters/edge:
     dependencies:
       '@nextrush/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../core
       '@nextrush/errors':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../errors
       '@nextrush/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../runtime
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -444,7 +444,7 @@ importers:
   packages/middleware/body-parser:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -460,7 +460,7 @@ importers:
   packages/middleware/compression:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -476,7 +476,7 @@ importers:
   packages/middleware/cookies:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       rimraf:
@@ -495,7 +495,7 @@ importers:
   packages/middleware/cors:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -511,7 +511,7 @@ importers:
   packages/middleware/csrf:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       rimraf:
@@ -530,7 +530,7 @@ importers:
   packages/middleware/helmet:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -546,7 +546,7 @@ importers:
   packages/middleware/multipart:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -562,7 +562,7 @@ importers:
   packages/middleware/rate-limit:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -578,7 +578,7 @@ importers:
   packages/middleware/request-id:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -594,7 +594,7 @@ importers:
   packages/middleware/timer:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       tsup:
@@ -696,7 +696,7 @@ importers:
         specifier: ^0.2.1
         version: 0.2.1(react@19.2.4)
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       '@nextrush/core':
@@ -715,10 +715,10 @@ importers:
   packages/plugins/static:
     dependencies:
       '@nextrush/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../core
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       typescript:
@@ -728,7 +728,7 @@ importers:
   packages/plugins/template:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
       ejs:
         specifier: ^3.0.0
@@ -762,7 +762,7 @@ importers:
   packages/plugins/websocket:
     dependencies:
       '@nextrush/types':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../types
     devDependencies:
       '@types/ws':

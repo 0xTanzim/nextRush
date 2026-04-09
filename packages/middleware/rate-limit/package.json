@@ -25,7 +25,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nextrush/types": "workspace:*"
+    "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

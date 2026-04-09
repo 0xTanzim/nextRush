@@ -50,7 +50,7 @@
   },
   "homepage": "https://github.com/nextrush/nextrush#readme",
   "dependencies": {
-    "@nextrush/types": "workspace:*"
+    "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
     "rimraf": "^6.1.3",

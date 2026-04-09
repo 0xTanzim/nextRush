@@ -1,33 +1,47 @@
 # Publishing Guide
 
-NextRush uses **lockstep versioning** — all `@nextrush/*` packages share the same version number, always.
+NextRush uses **hybrid versioning**:
+
+- **Core packages** → lockstep versioning (released together)
+- **Ecosystem packages** (middleware, most plugins, non-default adapters) → independent versioning
 
 ## How It Works
 
 ```
-Fix @nextrush/di        → ALL 26 packages bump (e.g., 3.0.0 → 3.0.1)
-Add feature to router   → ALL 26 packages bump (e.g., 3.0.1 → 3.1.0)
-Breaking change in core → ALL 26 packages bump (e.g., 3.1.0 → 4.0.0)
+Fix @nextrush/core        → Core lockstep group bumps (e.g., 3.0.0 → 3.0.1)
+Add feature to router     → Core lockstep group bumps (e.g., 3.0.1 → 3.1.0)
+Fix @nextrush/cors        → Only @nextrush/cors bumps (e.g., 3.0.0 → 3.0.1)
+Breaking change in core   → Core lockstep group major bump (e.g., 3.1.0 → 4.0.0)
 ```
 
-Users install one version. No compatibility matrix. No guessing.
+Users track one **core** version and optional ecosystem package versions.
 
 ```bash
-npm install nextrush@3.2.0 @nextrush/cors@3.2.0 @nextrush/adapter-node@3.2.0
-# All guaranteed compatible.
+npm install nextrush@3.2.0 @nextrush/cors@3.0.4
+# Core packages track the `nextrush` version.
+# Ecosystem packages version independently and declare compatibility via semver ranges.
 ```
 
-## Packages (26 in lockstep)
+## CI Release Guard
 
-| Tier            | Packages                                                                                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Core**        | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`                                                                   |
-| **Class-based** | `@nextrush/di`, `@nextrush/decorators`, `@nextrush/controllers`                                                                                                                |
-| **Adapters**    | `@nextrush/adapter-node`, `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`                                                                          |
-| **Middleware**  | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/request-id`, `@nextrush/timer` |
-| **Plugins**     | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                        |
+CI enforces this rule on pull requests to `main`:
 
-**Excluded:** `@nextrush/dev` (dev tool, versioned independently), docs app (private, not published).
+- If a PR has release-impacting changes under `packages/` (excluding `packages/dev/` and docs/tests-only changes), the PR **must** include a `.changeset/*.md` file.
+
+This guarantees independent package changes are never merged without release metadata.
+
+## Packages
+
+| Tier                         | Packages                                                                                                                                                                                                                |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core (lockstep)**          | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`, `@nextrush/di`, `@nextrush/decorators`, `@nextrush/controllers`, `@nextrush/adapter-node`                 |
+| **Adapters (independent)**   | `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`                                                                                                                                             |
+| **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer` |
+| **Plugins (independent)**    | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
+
+**Excluded (versioned independently):** `@nextrush/dev`, `create-nextrush`
+
+**Excluded (private / not published):** docs app, playground app, benchmark app.
 
 ## Creating a Changeset
 
@@ -66,11 +80,23 @@ This creates a `.changeset/*.md` file. Commit it with your PR.
    → all package.json versions bumped
    → all CHANGELOG.md files updated
 3. Review + merge "Version Packages" PR
-4. GitHub Action publishes ALL packages to npm
+4. GitHub Action publishes the packages in the release plan to npm
 5. GitHub Release created automatically
 ```
 
 No manual intervention needed after step 3.
+
+### What happens when you change a core package?
+
+- Changeset includes any core package in the fixed group.
+- Changesets bumps **all core lockstep packages together**.
+- Independent ecosystem packages are only bumped if explicitly included.
+
+### What happens when you change an independent package?
+
+- CI requires a changeset for release-impacting changes.
+- Only that package (and any required dependents according to Changesets rules) is versioned and published.
+- Core lockstep versions stay unchanged unless core packages are part of the changeset.
 
 ## Manual Release (Emergency)
 
@@ -139,16 +165,21 @@ Every publishable package must have:
 }
 ```
 
-All 26 packages already have this configured.
+All publishable packages already have this configured.
 
 ## Adding a New Package
 
 1. Create the package under `packages/`
-2. Set version to match current lockstep version (e.g., `3.2.0`)
-3. Add `publishConfig.access: "public"`
-4. Add `repository.directory` field
-5. It auto-joins lockstep via the `@nextrush/*` glob — no config change needed
-6. To exclude from lockstep, add to `ignore` in `.changeset/config.json`
+2. Decide whether it is **core (lockstep)** or **ecosystem (independent)**
+3. Set version appropriately:
+
+- Core packages: match the current core lockstep version (e.g., `3.2.0`)
+- Ecosystem packages: match the current **core major** (e.g., start at `3.0.0`), then version independently
+
+4. Add `publishConfig.access: "public"`
+5. Add `repository.directory` field
+6. If it's a **core** package, add it to the `fixed` group in `.changeset/config.json`
+7. If it's an **ecosystem** package, prefer `workspace:^` for internal `@nextrush/*` deps so published ranges are compatible within a major
 
 ## Configuration Reference
 
@@ -156,7 +187,20 @@ Changesets config lives in `.changeset/config.json`:
 
 ```json
 {
-  "fixed": [["@nextrush/*", "nextrush"]],
+  "fixed": [
+    [
+      "@nextrush/types",
+      "@nextrush/errors",
+      "@nextrush/core",
+      "@nextrush/router",
+      "@nextrush/runtime",
+      "@nextrush/di",
+      "@nextrush/decorators",
+      "@nextrush/controllers",
+      "@nextrush/adapter-node",
+      "nextrush"
+    ]
+  ],
   "ignore": ["@nextrush/dev", "api"],
   "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
   "privatePackages": { "version": false, "tag": false },
@@ -174,6 +218,6 @@ Changesets config lives in `.changeset/config.json`:
 
 ## Further Reading
 
-- [Versioning & Release RFC](report/RFC-VERSIONING-AND-RELEASE-STRATEGY.md)
+- [Hybrid Versioning RFC](report/RFC-HYBRID-VERSIONING-AND-RELEASE-STRATEGY.md)
 - [Changesets Documentation](https://github.com/changesets/changesets)
 - [Changesets Fixed Packages](https://github.com/changesets/changesets/blob/main/docs/fixed-packages.md)

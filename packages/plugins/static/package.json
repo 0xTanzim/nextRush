@@ -53,13 +53,13 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@nextrush/types": "workspace:*"
+    "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@nextrush/core": "workspace:*"
+    "@nextrush/core": "workspace:^"
   },
   "peerDependenciesMeta": {
     "@nextrush/core": {
