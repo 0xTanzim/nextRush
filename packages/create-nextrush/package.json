@@ -23,6 +23,8 @@
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist",
+    "lint": "eslint src --max-warnings 0 --ignore-pattern '**/__tests__/**'",
+    "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -59,12 +61,13 @@
     "access": "public"
   },
   "dependencies": {
-    "@clack/prompts": "^0.10.0"
+    "@clack/prompts": "^1.2.0"
   },
   "devDependencies": {
+    "@types/node": "^25.5.2",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   },
   "sideEffects": false
 }

@@ -1,18 +1,20 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { use, useEffect, useId, useState } from 'react';
+import { use, useId, useSyncExternalStore } from 'react';
 
 /**
  * Mermaid diagram component with dark/light theme support.
  * Renders diagrams client-side with dynamic theme switching.
  */
 export function Mermaid({ chart }: { chart: string }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {
+      // no-op subscribe: we only need a hydration-safe client/server snapshot split
+    },
+    () => true,
+    () => false
+  );
 
   // Avoid hydration mismatch by waiting for mount
   if (!mounted) {
@@ -42,9 +44,7 @@ function MermaidContent({ chart }: { chart: string }) {
   const id = useId();
   const { resolvedTheme } = useTheme();
 
-  const { default: mermaid } = use(
-    cachePromise('mermaid', () => import('mermaid')),
-  );
+  const { default: mermaid } = use(cachePromise('mermaid', () => import('mermaid')));
 
   // Initialize mermaid with theme-aware configuration
   mermaid.initialize({
@@ -60,7 +60,7 @@ function MermaidContent({ chart }: { chart: string }) {
     cachePromise(`${chart}-${resolvedTheme}`, () => {
       // Normalize newlines for consistent rendering
       return mermaid.render(id.replace(/:/g, ''), chart.replaceAll('\\n', '\n'));
-    }),
+    })
   );
 
   return (

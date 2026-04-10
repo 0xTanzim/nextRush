@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import { randomUUID } from 'node:crypto';
+
 // ============================================================================
 // Header Names
 // ============================================================================
@@ -65,4 +67,4 @@ export const MIN_ID_LENGTH = 1;
  *
  * @returns A new random UUID string
  */
-export const defaultGenerator = (): string => crypto.randomUUID();
+export const defaultGenerator = (): string => randomUUID();

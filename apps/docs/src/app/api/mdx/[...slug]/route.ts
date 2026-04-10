@@ -1,30 +1,51 @@
 import { getLLMText, source } from '@/lib/source';
 
+export const dynamic = 'force-static';
 export const revalidate = false;
+
+function withMdExtension(slug: string): string {
+  return slug.endsWith('.md') ? slug : `${slug}.md`;
+}
+
+function stripOptionalMdExtension(slug: string): string {
+  return slug.endsWith('.md') ? slug.slice(0, -3) : slug;
+}
+
+function routeSlugToPageSlugs(routeSlugs: string[]): string[] | undefined {
+  if (routeSlugs.length === 0) return undefined;
+
+  const normalized = [...routeSlugs];
+  const lastIndex = normalized.length - 1;
+  normalized[lastIndex] = stripOptionalMdExtension(normalized[lastIndex]);
+
+  if (normalized.length === 1 && normalized[0] === 'index') {
+    return undefined;
+  }
+
+  return normalized;
+}
 
 export function generateStaticParams() {
   const pages = source.getPages();
-  const slugStrings = new Set(pages.map((p) => p.slugs.join('/')));
 
   return pages
-    .filter((page) => {
-      if (page.slugs.length === 0) return false;
-      // Exclude pages whose slug is a prefix of another page's slug
-      // to prevent file/directory collision during static export
-      const prefix = page.slugs.join('/') + '/';
-      for (const s of slugStrings) {
-        if (s.startsWith(prefix)) return false;
+    .map((page) => {
+      if (page.slugs.length === 0) {
+        return { slug: ['index.md'] };
       }
-      return true;
+
+      const slugs = [...page.slugs];
+      slugs[slugs.length - 1] = withMdExtension(slugs[slugs.length - 1]);
+
+      return { slug: slugs };
     })
-    .map((page) => ({
-      slug: page.slugs,
-    }));
+    .toSorted((a, b) => a.slug.join('/').localeCompare(b.slug.join('/')));
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;
-  const page = source.getPage(slug);
+  const pageSlugs = routeSlugToPageSlugs(slug);
+  const page = source.getPage(pageSlugs);
 
   if (!page) {
     return new Response('Page not found', { status: 404 });

@@ -5,11 +5,13 @@ const HELP_TEXT = `
   Usage: create-nextrush [directory] [options]
 
   Options:
-    --style <style>          Project style: functional, class-based, full
-    --runtime <runtime>      Target runtime: node, bun, deno
-    --middleware <preset>    Middleware preset: minimal, api, full
+    --style, -s <style>      Project style: functional, class-based, full
+    --runtime, -r <runtime>  Target runtime: node, bun, deno
+    --middleware, -m <preset> Middleware preset: minimal, api, full
     --pm <pm>                Package manager: npm, pnpm, yarn, bun
+    --install, -i            Install dependencies
     --no-install             Skip dependency installation
+    --git                    Initialize git repository
     --no-git                 Skip git initialization
     -y, --yes                Accept all defaults
     -v, --version            Show version
@@ -40,7 +42,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
   };
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i]!;
+    const arg = args[i];
+
+    if (arg === undefined) {
+      continue;
+    }
 
     switch (arg) {
       case '-h':
@@ -62,10 +68,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
         parsed.install = false;
         break;
 
+      case '-i':
+      case '--install':
+        parsed.install = true;
+        break;
+
       case '--no-git':
         parsed.git = false;
         break;
 
+      case '--git':
+        parsed.git = true;
+        break;
+
+      case '-s':
       case '--style': {
         const value = args[++i];
         if (value && isValidStyle(value)) {
@@ -74,6 +90,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       }
 
+      case '-r':
       case '--runtime': {
         const value = args[++i];
         if (value && isValidRuntime(value)) {
@@ -82,6 +99,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       }
 
+      case '-m':
       case '--middleware': {
         const value = args[++i];
         if (value && isValidMiddleware(value)) {

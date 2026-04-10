@@ -15,7 +15,20 @@ export const docs = defineDocs({
   docs: {
     schema: frontmatterSchema,
     postprocess: {
-      includeProcessedMarkdown: true,
+      includeProcessedMarkdown: {
+        headingIds: true,
+        filterElement: (node) => {
+          if (node.type === 'mdxjsEsm') {
+            return false;
+          }
+
+          if (node.type === 'mdxJsxFlowElement' || node.type === 'mdxJsxTextElement') {
+            return 'children-only';
+          }
+
+          return true;
+        },
+      },
     },
   },
   meta: {

@@ -239,7 +239,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
  * // Output: 🚀 NextRush listening on http://localhost:3000
  * ```
  */
-export async function listen(app: Application, port: number = 3000): Promise<ServerInstance> {
+export async function listen(app: Application, port = 3000): Promise<ServerInstance> {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

@@ -14,6 +14,27 @@ export const skillsSource = loader({
   source: toFumadocsSource(skillsCollection, []),
 });
 
+function sanitizeLLMMarkdown(markdown: string): string {
+  const segments = markdown.split(/(```[\s\S]*?```)/g);
+
+  const sanitized = segments.map((segment, index) => {
+    // Keep code fences untouched
+    if (index % 2 === 1 && segment.startsWith('```')) {
+      return segment;
+    }
+
+    return segment
+      .replace(/<Mermaid[\s\S]*?\/>/g, '')
+      .replace(/^\s*<\/?[A-Z][A-Za-z0-9]*(?:\s+[^>]*)?>\s*$/gm, '')
+      .replace(/^\s*(import|export)\s.+$/gm, '');
+  });
+
+  return sanitized
+    .join('')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function getPageImage(page: InferPageType<typeof source>) {
   const segments = [...page.slugs, 'image.png'];
 
@@ -24,9 +45,15 @@ export function getPageImage(page: InferPageType<typeof source>) {
 }
 
 export async function getLLMText(page: InferPageType<typeof source>) {
-  const processed = await page.data.getText('processed');
+  let processed = await page.data.getText('processed');
+
+  if (!processed.trim()) {
+    processed = await page.data.getText('raw');
+  }
+
+  const cleaned = sanitizeLLMMarkdown(processed);
 
   return `# ${page.data.title}
 
-${processed}`;
+${cleaned}`;
 }

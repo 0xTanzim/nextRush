@@ -1,4 +1,5 @@
 import { Provider } from '@/components/provider';
+import { appConfig } from '@/config/appConfig';
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './global.css';
@@ -15,11 +16,10 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "NextRush - The Backend Framework That Doesn't Get in Your Way",
-    template: '%s | NextRush',
+    default: `${appConfig.name} - The Backend Framework That Doesn't Get in Your Way`,
+    template: `%s | ${appConfig.name}`,
   },
-  description:
-    'NextRush is a minimal, modular, high-performance Node.js backend framework. Build APIs with 30,000+ RPS, full TypeScript support, and zero configuration overhead.',
+  description: `${appConfig.name} is a minimal, modular, high-performance Node.js backend framework. Build APIs with 30,000+ RPS, full TypeScript support, and zero configuration overhead.`,
   keywords: [
     'nextrush',
     'node.js framework',
@@ -32,24 +32,22 @@ export const metadata: Metadata = {
     'deno',
     'edge runtime',
   ],
-  authors: [{ name: 'NextRush Team' }],
-  creator: 'NextRush',
-  metadataBase: new URL('https://nextrush.dev'),
+  authors: [{ name: appConfig.teamName }],
+  creator: appConfig.name,
+  metadataBase: new URL(appConfig.siteUrl),
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://nextrush.dev',
-    title: 'NextRush - High-Performance Backend Framework',
-    description:
-      'Build production-ready APIs with NextRush. Minimal core, modular design, 30,000+ RPS performance.',
-    siteName: 'NextRush',
+    url: appConfig.siteUrl,
+    title: `${appConfig.name} - High-Performance Backend Framework`,
+    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 30,000+ RPS performance.`,
+    siteName: appConfig.name,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NextRush - High-Performance Backend Framework',
-    description:
-      'Build production-ready APIs with NextRush. Minimal core, modular design, 30,000+ RPS performance.',
-    creator: '@nextrush',
+    title: `${appConfig.name} - High-Performance Backend Framework`,
+    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 30,000+ RPS performance.`,
+    creator: appConfig.twitterHandle,
   },
   robots: {
     index: true,

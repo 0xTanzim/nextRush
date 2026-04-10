@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 import { PACKAGE_NAME_REGEX } from './constants.js';
 import type { FileMap, PackageManager } from './types.js';
@@ -62,7 +62,7 @@ export function getRunCommand(pm: PackageManager): string {
 
 /** Detects the preferred package manager from the environment. */
 export function detectPackageManager(): PackageManager {
-  const userAgent = process.env['npm_config_user_agent'] ?? '';
+  const userAgent = process.env.npm_config_user_agent ?? '';
 
   if (userAgent.startsWith('pnpm')) return 'pnpm';
   if (userAgent.startsWith('yarn')) return 'yarn';
@@ -78,4 +78,15 @@ export function toPackageName(dir: string): string {
     .replace(/^[._]/, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+/** Resolves the package name from target directory (supports `.` scaffolding). */
+export function deriveProjectName(directory: string, cwd: string = process.cwd()): string {
+  const normalizedDirectory = directory.trim();
+
+  if (normalizedDirectory === '.' || normalizedDirectory === './') {
+    return toPackageName(basename(resolve(cwd)));
+  }
+
+  return toPackageName(normalizedDirectory.replace(/^\.\//, ''));
 }

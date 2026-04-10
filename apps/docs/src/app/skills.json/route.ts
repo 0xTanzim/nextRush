@@ -1,3 +1,4 @@
+import { appConfig, toAbsoluteUrl } from '@/config/appConfig';
 import { skillsSource } from '@/lib/source';
 import { NextResponse } from 'next/server';
 
@@ -10,16 +11,16 @@ export function GET() {
     name: page.data.skillName as string,
     title: page.data.title,
     description: page.data.description,
-    url: `https://nextrush.dev${page.url}`,
+    url: toAbsoluteUrl(page.url),
     package: (page.data.package as string) ?? null,
     difficulty: (page.data.difficulty as string) ?? 'intermediate',
     tags: (page.data.tags as string[]) ?? [],
-    skillMd: `https://github.com/0xTanzim/nextrush/tree/feat/v3-dev2/.github/skills/nextrush-${page.data.skillName as string}/SKILL.md`,
+    skillMd: `${appConfig.skillsRepoBaseUrl}/nextrush-${page.data.skillName as string}/SKILL.md`,
   }));
 
   return NextResponse.json({
-    name: 'nextrush',
-    version: '3.0.0-alpha.2',
+    name: appConfig.id,
+    version: appConfig.version,
     standard: 'agentskills.io',
     skills,
   });

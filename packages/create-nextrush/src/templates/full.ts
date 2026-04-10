@@ -1,5 +1,11 @@
 import { MIDDLEWARE_IMPORTS, MIDDLEWARE_SETUP } from '../constants.js';
 import type { FileMap, ProjectOptions } from '../types.js';
+import {
+  getControllerDiscoveryHelpers,
+  getPortResolverFunction,
+  getRuntimeEntrypointImports,
+  getUptimeHelperFunction,
+} from './shared.js';
 
 /**
  * Generates a full-featured NextRush project.
@@ -21,10 +27,12 @@ export function generateFull(options: ProjectOptions): FileMap {
 function generateEntrypoint(options: ProjectOptions): string {
   const middlewareImports = MIDDLEWARE_IMPORTS[options.middleware];
   const middlewareSetup = MIDDLEWARE_SETUP[options.middleware];
+  const portResolver = getPortResolverFunction();
+  const controllerDiscoveryHelpers = getControllerDiscoveryHelpers();
 
   const lines: string[] = [];
 
-  lines.push("import { createApp, createRouter, serve } from 'nextrush';");
+  lines.push(...getRuntimeEntrypointImports(options.runtime, 'serve'));
   lines.push("import { controllersPlugin } from 'nextrush/class';");
 
   if (middlewareImports) {
@@ -37,7 +45,9 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('');
   lines.push('const app = createApp();');
   lines.push('const router = createRouter();');
-  lines.push("const PORT = Number(process.env['PORT']) || 3000;");
+  lines.push(portResolver.trimEnd());
+  lines.push(controllerDiscoveryHelpers.trimEnd());
+  lines.push('const PORT = resolvePort();');
   lines.push('');
   lines.push('// Error handling (first middleware — catches all downstream errors)');
   lines.push('app.use(errorHandler());');
@@ -53,11 +63,13 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push("app.route('/health', healthRouter);");
   lines.push('');
   lines.push('// Auto-discover controllers');
-  lines.push('app.plugin(');
+  lines.push('await app.plugin(');
   lines.push('  controllersPlugin({');
   lines.push('    router,');
-  lines.push("    root: './src',");
+  lines.push('    root: CONTROLLERS_ROOT,');
+  lines.push('    include: CONTROLLERS_INCLUDE,');
   lines.push("    prefix: '/api',");
+  lines.push('    strict: true,');
   lines.push('  })');
   lines.push(');');
   lines.push('');
@@ -78,15 +90,19 @@ function generateEntrypoint(options: ProjectOptions): string {
 }
 
 function generateHealthRoute(): string {
+  const uptimeHelper = getUptimeHelperFunction();
+
   return `import { createRouter } from 'nextrush';
 
 export const healthRouter = createRouter();
+
+${uptimeHelper}
 
 healthRouter.get('/', (ctx) => {
   ctx.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
+    uptime: getUptimeSeconds(),
   });
 });
 `;
@@ -130,14 +146,14 @@ export class HelloService {
 }
 
 function generateErrorHandler(): string {
-  return `import type { Middleware } from 'nextrush';
+  return `import { HttpError, type Middleware } from 'nextrush';
 
 export function errorHandler(): Middleware {
   return async (ctx, next) => {
     try {
       await next();
     } catch (error: unknown) {
-      const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+      const statusCode = error instanceof HttpError ? error.status : 500;
       const message =
         error instanceof Error ? error.message : 'Internal Server Error';
 

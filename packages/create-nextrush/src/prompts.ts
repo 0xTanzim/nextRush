@@ -8,13 +8,20 @@ import {
   RUNTIMES,
   STYLES,
 } from './constants.js';
-import type { MiddlewarePreset, ParsedArgs, ProjectOptions, Runtime, Style } from './types.js';
-import { detectPackageManager, toPackageName, validateProjectName } from './utils.js';
+import type {
+  MiddlewarePreset,
+  PackageManager,
+  ParsedArgs,
+  ProjectOptions,
+  Runtime,
+  Style,
+} from './types.js';
+import { deriveProjectName, detectPackageManager, validateProjectName } from './utils.js';
 
 const STYLE_LABELS: Record<Style, string> = {
   functional: 'Functional — routes only, no decorators',
-  'class-based': 'Class-based — controllers, DI, decorators',
-  full: 'Full — controllers + routes + middleware + error handling',
+  'class-based': 'Class-based — controllers, DI, decorators (routes under /api)',
+  full: 'Full — controllers + routes + middleware + error handling (controllers under /api)',
 };
 
 const RUNTIME_LABELS: Record<Runtime, string> = {
@@ -116,8 +123,8 @@ export async function runPrompts(args: ParsedArgs): Promise<ProjectOptions | sym
     }
   );
 
-  const directory = group.directory as string;
-  const name = toPackageName(directory.replace(/^\.\//, ''));
+  const directory = group.directory;
+  const name = deriveProjectName(directory);
   const nameError = validateProjectName(name);
 
   if (nameError) {
@@ -131,16 +138,17 @@ export async function runPrompts(args: ParsedArgs): Promise<ProjectOptions | sym
     style: group.style as Style,
     runtime: group.runtime as Runtime,
     middleware: group.middleware as MiddlewarePreset,
-    packageManager: args.packageManager ?? detectPackageManager(),
-    git: group.git as boolean,
-    install: group.install as boolean,
+    packageManager: resolvePackageManager(group.runtime as Runtime, args.packageManager),
+    git: group.git,
+    install: group.install,
   };
 }
 
 /** Resolves ProjectOptions directly from CLI args without interactive prompts. */
 function resolveFromArgs(args: ParsedArgs): ProjectOptions {
   const directory = args.directory ?? 'my-nextrush-app';
-  const name = toPackageName(directory.replace(/^\.\//, ''));
+  const runtime = args.runtime ?? DEFAULT_RUNTIME;
+  const name = deriveProjectName(directory);
   const nameError = validateProjectName(name);
 
   if (nameError) {
@@ -152,10 +160,22 @@ function resolveFromArgs(args: ParsedArgs): ProjectOptions {
     name,
     directory,
     style: args.style ?? DEFAULT_STYLE,
-    runtime: args.runtime ?? DEFAULT_RUNTIME,
+    runtime,
     middleware: args.middleware ?? DEFAULT_MIDDLEWARE,
-    packageManager: args.packageManager ?? detectPackageManager(),
+    packageManager: resolvePackageManager(runtime, args.packageManager),
     git: args.git,
     install: args.install,
   };
+}
+
+function resolvePackageManager(runtime: Runtime, explicit?: PackageManager): PackageManager {
+  if (explicit) {
+    return explicit;
+  }
+
+  if (runtime === 'bun') {
+    return 'bun';
+  }
+
+  return detectPackageManager();
 }

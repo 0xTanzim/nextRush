@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Check, Copy, Github, Zap } from 'lucide-react';
+import { ArrowRight, Check, Copy, GitFork, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -77,7 +77,7 @@ export function Hero() {
               rel="noopener noreferrer"
               className="btn-outline inline-flex items-center gap-2 text-lg"
             >
-              <Github className="size-5" />
+              <GitFork className="size-5" />
               GitHub
             </a>
           </div>

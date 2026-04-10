@@ -6,6 +6,10 @@
  * @packageDocumentation
  */
 
+const V8Error = Error as ErrorConstructor & {
+  captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void;
+};
+
 /**
  * Base error class for all NextRush errors
  */
@@ -47,8 +51,8 @@ export class NextRushError extends Error {
     // Skip for common client errors (4xx with expose=true) to reduce overhead.
     // These are expected control-flow errors, not bugs — stack traces add cost
     // without diagnostic value in production.
-    if (Error.captureStackTrace && !(this.expose && this.status < 500)) {
-      Error.captureStackTrace(this, this.constructor);
+    if (V8Error.captureStackTrace && !(this.expose && this.status < 500)) {
+      V8Error.captureStackTrace(this, this.constructor);
     }
   }
 

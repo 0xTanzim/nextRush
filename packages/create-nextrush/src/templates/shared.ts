@@ -1,5 +1,5 @@
 import { ADAPTER_PACKAGES, MIDDLEWARE_PACKAGES, NEXTRUSH_VERSION } from '../constants.js';
-import type { DependencySet, ProjectOptions } from '../types.js';
+import type { DependencySet, ProjectOptions, Runtime } from '../types.js';
 
 /** Generates tsconfig.json content for a new project. */
 export function generateTsconfig(needsDecorators: boolean): string {
@@ -35,17 +35,14 @@ export function generateTsconfig(needsDecorators: boolean): string {
 /** Generates package.json content for a new project. */
 export function generatePackageJson(options: ProjectOptions): string {
   const deps = getDependencies(options);
+  const scripts = getRuntimeScripts(options.runtime);
 
   const pkg: Record<string, unknown> = {
     name: options.name,
     version: '0.1.0',
     private: true,
     type: 'module',
-    scripts: {
-      dev: 'nextrush dev',
-      build: 'nextrush build',
-      start: 'node dist/index.js',
-    },
+    scripts,
     dependencies: deps.dependencies,
     devDependencies: deps.devDependencies,
   };
@@ -159,4 +156,82 @@ ${
 export function generateEnvDts(): string {
   return `/// <reference types="nextrush/types" />
 `;
+}
+
+/** Returns import lines for the selected runtime and server function. */
+export function getRuntimeEntrypointImports(
+  runtime: Runtime,
+  serverFn: 'listen' | 'serve'
+): string[] {
+  if (runtime === 'node') {
+    return [`import { createApp, createRouter, ${serverFn} } from 'nextrush';`];
+  }
+
+  const adapterPackage = runtime === 'bun' ? '@nextrush/adapter-bun' : '@nextrush/adapter-deno';
+
+  return [
+    "import { createApp, createRouter } from 'nextrush';",
+    `import { ${serverFn} } from '${adapterPackage}';`,
+  ];
+}
+
+/** Runtime-safe helper used by generated templates for health checks. */
+export function getUptimeHelperFunction(): string {
+  return `function getUptimeSeconds(): number {
+  const now = globalThis.performance?.now?.();
+  return typeof now === 'number' ? Math.floor(now / 1000) : 0;
+}
+`;
+}
+
+/** Runtime-safe helper used by generated templates to resolve the server port. */
+export function getPortResolverFunction(): string {
+  return `function resolvePort(defaultPort = 3000): number {
+  const runtimeGlobals = globalThis as {
+    process?: { env?: Record<string, string | undefined> };
+    Deno?: { env?: { get?: (name: string) => string | undefined } };
+  };
+
+  const portFromProcess = runtimeGlobals.process?.env?.PORT;
+  const portFromDeno = runtimeGlobals.Deno?.env?.get?.('PORT');
+  const parsed = Number(portFromProcess ?? portFromDeno ?? defaultPort);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultPort;
+}
+`;
+}
+
+/** Runtime-safe helpers for controller auto-discovery in src and dist contexts. */
+export function getControllerDiscoveryHelpers(): string {
+  return `const IS_DIST_RUNTIME = import.meta.url.includes('/dist/');
+const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist' : './src';
+const CONTROLLERS_INCLUDE = IS_DIST_RUNTIME ? ['**/*.js'] : ['**/*.ts'];
+`;
+}
+
+function getRuntimeScripts(runtime: Runtime): {
+  readonly dev: string;
+  readonly build: string;
+  readonly start: string;
+} {
+  switch (runtime) {
+    case 'bun':
+      return {
+        dev: 'bunx nextrush dev',
+        build: 'bunx nextrush build',
+        start: 'bun dist/index.js',
+      };
+    case 'deno':
+      return {
+        dev: 'deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts',
+        build: `deno run -A npm:@nextrush/dev@${NEXTRUSH_VERSION} build`,
+        start: 'deno run --allow-net --allow-read --allow-env dist/index.js',
+      };
+    case 'node':
+      return {
+        dev: 'nextrush dev',
+        build: 'nextrush build',
+        start: 'node dist/index.js',
+      };
+  }
 }

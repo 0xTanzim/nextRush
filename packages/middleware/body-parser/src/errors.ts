@@ -8,6 +8,10 @@
 
 import type { BodyParserErrorCode } from './types.js';
 
+const V8Error = Error as ErrorConstructor & {
+  captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void;
+};
+
 /**
  * Error thrown when body parsing fails.
  *
@@ -58,8 +62,8 @@ export class BodyParserError extends Error {
     this.expose = status < 500;
 
     // Maintain proper stack trace in V8 environments
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, BodyParserError);
+    if (V8Error.captureStackTrace) {
+      V8Error.captureStackTrace(this, BodyParserError);
     }
   }
 

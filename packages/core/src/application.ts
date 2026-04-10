@@ -31,10 +31,18 @@ export interface Logger {
 
 /** No-op logger — default when no logger is configured */
 const NOOP_LOGGER: Logger = {
-  error() {},
-  warn() {},
-  info() {},
-  debug() {},
+  error(..._args) {
+    void _args;
+  },
+  warn(..._args) {
+    void _args;
+  },
+  info(..._args) {
+    void _args;
+  },
+  debug(..._args) {
+    void _args;
+  },
 };
 
 /**
@@ -108,7 +116,7 @@ export class Application {
   /**
    * Installed plugins
    */
-  private readonly plugins: Map<string, Plugin> = new Map();
+  private readonly plugins = new Map<string, Plugin>();
 
   /**
    * Custom error handler
@@ -247,7 +255,7 @@ export class Application {
     const routerMiddleware = router.routes();
     // Normalize prefix: ensure leading '/', strip trailing '/'
     let normalizedPrefix = path.endsWith('/') ? path.slice(0, -1) : path;
-    if (normalizedPrefix && !normalizedPrefix.startsWith('/')) {
+    if (!normalizedPrefix.startsWith('/')) {
       normalizedPrefix = '/' + normalizedPrefix;
     }
     const prefixLen = normalizedPrefix.length;
@@ -262,14 +270,14 @@ export class Application {
 
       // Fast prefix check
       if (!currentPath.startsWith(normalizedPrefix)) {
-        return next ? next() : undefined;
+        return next();
       }
 
       // Check prefix boundary (avoid /api/usersxxx matching /api/users)
-      const charAfterPrefix = currentPath.charCodeAt(prefixLen);
-      if (charAfterPrefix && charAfterPrefix !== 47) {
+      const hasCharAfterPrefix = prefixLen < currentPath.length;
+      if (hasCharAfterPrefix && currentPath.charCodeAt(prefixLen) !== 47) {
         // 47 = '/'
-        return next ? next() : undefined;
+        return next();
       }
 
       // Direct path manipulation (no Proxy - fast!)
@@ -285,7 +293,7 @@ export class Application {
           // Restore original path before calling downstream middleware
           // so downstream sees the full unmounted path
           (ctx as { path: string }).path = currentPath;
-          if (next) await next();
+          await next();
           // Re-apply stripped path for router's return path
           (ctx as { path: string }).path = adjustedPath;
         });
@@ -379,9 +387,9 @@ export class Application {
 
     const result = plugin.install(this);
 
-    // If install() returned a thenable, handle it asynchronously
-    if (result != null && typeof (result as { then?: unknown }).then === 'function') {
-      return (result as Promise<void>).then(() => {
+    // If install() returned a promise, handle it asynchronously
+    if (result instanceof Promise) {
+      return result.then(() => {
         this.plugins.set(plugin.name, plugin);
         return this;
       });
@@ -416,6 +424,7 @@ export class Application {
    * @param name - Plugin name
    * @returns Plugin instance or undefined
    */
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   getPlugin<T extends Plugin>(name: string): T | undefined {
     return this.plugins.get(name) as T | undefined;
   }
@@ -558,9 +567,10 @@ export class Application {
     }
 
     // Determine status — clamp to valid error range (400-599)
+    const errorMeta = error as Error & { status?: number; expose?: boolean };
     let status = 500;
-    if ('status' in error && typeof error.status === 'number') {
-      const raw = error.status as number;
+    if (typeof errorMeta.status === 'number') {
+      const raw = errorMeta.status;
       status = raw >= 400 && raw < 600 ? raw : 500;
     }
     ctx.status = status;
@@ -568,7 +578,7 @@ export class Application {
     // Use the `expose` flag to decide what message the client sees.
     // HttpError/NextRushError set expose=true for 4xx, false for 5xx.
     // Plain Error never exposes — prevents leaking internal details.
-    const expose = 'expose' in error && typeof error.expose === 'boolean' && error.expose;
+    const expose = errorMeta.expose === true;
     const message = expose ? error.message : 'Internal Server Error';
 
     ctx.json({ error: message });
@@ -604,22 +614,24 @@ export class Application {
 
     // Destroy plugins in reverse order using allSettled for resilience
     const pluginArray = Array.from(this.plugins.values()).reverse();
-    const destroyPromises = pluginArray
-      .filter((p) => typeof p.destroy === 'function')
-      .map((p) =>
-        Promise.resolve()
-          .then(() => p.destroy!())
-          .catch((err: unknown) => {
-            throw err instanceof Error ? err : new Error(String(err));
-          })
-      );
+    const destroyablePlugins = pluginArray.filter(
+      (p): p is Plugin & { destroy: () => void | Promise<void> } => typeof p.destroy === 'function'
+    );
+
+    const destroyPromises = destroyablePlugins.map((p) =>
+      Promise.resolve()
+        .then(() => p.destroy())
+        .catch((err: unknown) => {
+          throw err instanceof Error ? err : new Error(String(err));
+        })
+    );
 
     const results = await Promise.allSettled(destroyPromises);
     this.plugins.clear();
 
     return results
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-      .map((r) => r.reason as Error);
+      .map((r) => (r.reason instanceof Error ? r.reason : new Error(String(r.reason))));
   }
 }
 

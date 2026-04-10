@@ -57,6 +57,7 @@ describe('generateProject', () => {
       expect(pkg.type).toBe('module');
       expect(pkg.scripts.dev).toBe('nextrush dev');
       expect(pkg.scripts.build).toBe('nextrush build');
+      expect(pkg.scripts.start).toBe('node dist/index.js');
     });
 
     it('generates README.md with project name', () => {
@@ -141,6 +142,27 @@ describe('generateProject', () => {
       expect(health).toContain('healthRouter');
       expect(health).toContain("status: 'ok'");
     });
+
+    it('uses adapter-bun listen import for bun runtime', () => {
+      const files = generateProject(createOptions({ style: 'functional', runtime: 'bun' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain("import { listen } from '@nextrush/adapter-bun'");
+    });
+
+    it('uses runtime-safe port resolver in entrypoint', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain('function resolvePort(defaultPort = 3000)');
+      expect(entry).toContain('const PORT = resolvePort();');
+      expect(entry).toContain('await listen(app, PORT);');
+    });
+
+    it('uses runtime-safe uptime helper in health route', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const health = files.get('src/routes/health.ts')!;
+      expect(health).toContain('function getUptimeSeconds()');
+      expect(health).not.toContain('process.uptime()');
+    });
   });
 
   describe('class-based style', () => {
@@ -157,11 +179,23 @@ describe('generateProject', () => {
       expect(entry).not.toContain("import 'reflect-metadata'");
     });
 
-    it('uses controllersPlugin with root ./src', () => {
+    it('uses awaited controllersPlugin with runtime-safe discovery config', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
+      expect(entry).toContain('await app.plugin(');
       expect(entry).toContain('controllersPlugin');
-      expect(entry).toContain("root: './src'");
+      expect(entry).toContain('root: CONTROLLERS_ROOT');
+      expect(entry).toContain('include: CONTROLLERS_INCLUDE');
+      expect(entry).toContain('strict: true');
+      expect(entry).toContain("const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist' : './src';");
+    });
+
+    it('uses runtime-safe port resolver in class-based entrypoint', () => {
+      const files = generateProject(createOptions({ style: 'class-based' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain('function resolvePort(defaultPort = 3000)');
+      expect(entry).toContain('const PORT = resolvePort();');
+      expect(entry).toContain('await listen(app, PORT);');
     });
 
     it('uses @Controller and @Get decorators', () => {
@@ -175,6 +209,13 @@ describe('generateProject', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const service = files.get('src/services/app.service.ts')!;
       expect(service).toContain('@Service');
+    });
+
+    it('uses runtime-safe uptime helper in app service', () => {
+      const files = generateProject(createOptions({ style: 'class-based' }));
+      const service = files.get('src/services/app.service.ts')!;
+      expect(service).toContain('function getUptimeSeconds()');
+      expect(service).not.toContain('process.uptime()');
     });
 
     it('includes reflect-metadata in dependencies', () => {
@@ -235,6 +276,29 @@ describe('generateProject', () => {
       expect(handler).toContain('catch');
     });
 
+    it('error handler maps status from HttpError', () => {
+      const files = generateProject(createOptions({ style: 'full' }));
+      const handler = files.get('src/middleware/error-handler.ts')!;
+      expect(handler).toContain('error instanceof HttpError ? error.status : 500');
+    });
+
+    it('entrypoint resolves port without direct process.env dependency', () => {
+      const files = generateProject(createOptions({ style: 'full' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain('function resolvePort(defaultPort = 3000)');
+      expect(entry).toContain('const PORT = resolvePort();');
+      expect(entry).not.toContain("Number(process.env['PORT'])");
+    });
+
+    it('uses awaited controllersPlugin with runtime-safe discovery config in full template', () => {
+      const files = generateProject(createOptions({ style: 'full' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain('await app.plugin(');
+      expect(entry).toContain('root: CONTROLLERS_ROOT');
+      expect(entry).toContain('include: CONTROLLERS_INCLUDE');
+      expect(entry).toContain('strict: true');
+    });
+
     it('not-found handler returns 404', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const handler = files.get('src/middleware/not-found.ts')!;
@@ -285,10 +349,28 @@ describe('generateProject', () => {
       expect(pkg.dependencies['@nextrush/adapter-bun']).toBeDefined();
     });
 
+    it('bun runtime scripts use bun tooling', () => {
+      const files = generateProject(createOptions({ runtime: 'bun' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.scripts.dev).toBe('bunx nextrush dev');
+      expect(pkg.scripts.build).toBe('bunx nextrush build');
+      expect(pkg.scripts.start).toBe('bun dist/index.js');
+    });
+
     it('deno runtime adds adapter-deno dep', () => {
       const files = generateProject(createOptions({ runtime: 'deno' }));
       const pkg = JSON.parse(files.get('package.json')!);
       expect(pkg.dependencies['@nextrush/adapter-deno']).toBeDefined();
+    });
+
+    it('deno runtime scripts use deno tooling', () => {
+      const files = generateProject(createOptions({ runtime: 'deno' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.scripts.dev).toBe(
+        'deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts'
+      );
+      expect(pkg.scripts.build).toBe('deno run -A npm:@nextrush/dev@3.0.0 build');
+      expect(pkg.scripts.start).toBe('deno run --allow-net --allow-read --allow-env dist/index.js');
     });
   });
 

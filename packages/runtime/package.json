@@ -30,9 +30,10 @@
     "@nextrush/types": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
+    "@types/node": "^25.3.3",
     "tsup": "^8.5.1",
-    "vitest": "^4.0.18"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   },
   "keywords": [
     "nextrush",

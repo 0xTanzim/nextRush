@@ -17,7 +17,8 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
 
   const MDX = page.data.body;
   const slugPath = page.slugs.join('/');
-  const markdownUrl = `/api/mdx/${slugPath}`;
+  const markdownPath = slugPath.length > 0 ? slugPath : 'index';
+  const markdownUrl = `/api/mdx/${markdownPath}.md`;
   const githubUrl = `${GITHUB_REPO_URL}/blob/${GITHUB_BRANCH}/${CONTENT_BASE}/${page.path}`;
 
   return (

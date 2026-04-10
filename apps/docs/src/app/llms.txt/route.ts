@@ -1,24 +1,46 @@
+import { appConfig, appEndpoints, toAbsoluteUrl } from '@/config/appConfig';
 import { skillsSource, source } from '@/lib/source';
+import type { InferPageType } from 'fumadocs-core/source';
 
+export const dynamic = 'force-static';
 export const revalidate = false;
 
-const SITE_URL = 'https://nextrush.dev';
-
-const SECTION_TITLES: Record<string, string> = {
-  'getting-started': 'Getting Started',
-  concepts: 'Core Concepts',
-  architecture: 'Architecture',
-  packages: 'Packages',
-  guides: 'Guides',
-  examples: 'Examples',
-  benchmarks: 'Benchmarks',
-  community: 'Community',
-};
+const SECTION_TITLES: Record<string, string> = appConfig.llms.sectionTitles;
 
 const SECTION_ORDER = Object.keys(SECTION_TITLES);
 
+function formatSectionTitle(sectionKey: string): string {
+  const knownTitle = SECTION_TITLES[sectionKey];
+  if (knownTitle) {
+    return knownTitle;
+  }
+
+  return sectionKey
+    .split('-')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+function comparePages(a: InferPageType<typeof source>, b: InferPageType<typeof source>): number {
+  const aSlug = a.slugs.join('/');
+  const bSlug = b.slugs.join('/');
+
+  return aSlug.localeCompare(bSlug) || a.data.title.localeCompare(b.data.title);
+}
+
+function toMarkdownUrl(page: InferPageType<typeof source>): string {
+  const slugPath = page.slugs.join('/');
+  const path = slugPath.length > 0 ? `${slugPath}.md` : 'index.md';
+
+  return toAbsoluteUrl(`${appConfig.paths.markdownApiPrefix}/${path}`);
+}
+
+function toCanonicalPageUrl(page: InferPageType<typeof source>): string {
+  return toAbsoluteUrl(page.url);
+}
+
 export async function GET() {
-  const pages = source.getPages();
+  const pages = source.getPages().toSorted(comparePages);
 
   const grouped = new Map<string, typeof pages>();
 
@@ -34,38 +56,46 @@ export async function GET() {
     }
   }
 
+  const knownSections = SECTION_ORDER.filter((section) => grouped.has(section));
+  const unknownSections = [...grouped.keys()]
+    .filter((section) => !SECTION_TITLES[section])
+    .sort((a, b) => a.localeCompare(b));
+  const orderedSections = [...knownSections, ...unknownSections];
+
   const lines: string[] = [
-    '# NextRush',
+    `# ${appConfig.name}`,
     '',
-    '> A minimal, modular, high-performance Node.js backend framework with zero runtime dependencies.',
+    `> ${appConfig.llms.summary}`,
     '',
-    'NextRush v3 is a TypeScript-first framework built as a modular monorepo. It supports both functional and class-based (decorator + DI) paradigms, targets 30,000+ RPS, and ships under 3,000 LOC in its core.',
+    appConfig.llms.intro,
     '',
   ];
 
-  for (const sectionKey of SECTION_ORDER) {
+  for (const sectionKey of orderedSections) {
     const sectionPages = grouped.get(sectionKey);
     if (!sectionPages?.length) continue;
 
-    const title = SECTION_TITLES[sectionKey];
+    const title = formatSectionTitle(sectionKey);
     lines.push(`## ${title}`, '');
 
-    for (const page of sectionPages) {
-      const slug = page.slugs.join('/');
-      const url = `${SITE_URL}/api/mdx/${slug}`;
+    for (const page of sectionPages.toSorted(comparePages)) {
+      const markdownUrl = toMarkdownUrl(page);
+      const canonicalPage = toCanonicalPageUrl(page);
       const description = page.data.description ? `: ${page.data.description}` : '';
-      lines.push(`- [${page.data.title}](${url})${description}`);
+      lines.push(`- [${page.data.title}](${markdownUrl})${description} (Page: ${canonicalPage})`);
     }
 
     lines.push('');
   }
 
-  const skillPages = skillsSource.getPages();
+  const skillPages = skillsSource
+    .getPages()
+    .toSorted((a, b) => a.url.localeCompare(b.url) || a.data.title.localeCompare(b.data.title));
   if (skillPages.length > 0) {
     lines.push('## Agent Skills', '');
     for (const skill of skillPages) {
       const description = skill.data.description ? `: ${skill.data.description}` : '';
-      lines.push(`- [${skill.data.title}](${SITE_URL}${skill.url})${description}`);
+      lines.push(`- [${skill.data.title}](${toAbsoluteUrl(skill.url)})${description}`);
     }
     lines.push('');
   }
@@ -73,12 +103,15 @@ export async function GET() {
   lines.push(
     '## Optional',
     '',
-    `- [Full Documentation](${SITE_URL}/llms-full.txt): Complete concatenated documentation for all pages`,
-    `- [Skills Index](${SITE_URL}/skills.json): Machine-readable skills catalog (JSON)`,
+    `- [Full Documentation](${appEndpoints.llmsFullTxt}): Complete concatenated documentation for all pages`,
+    `- [Skills Index](${appEndpoints.skillsJson}): Machine-readable skills catalog (JSON)`,
     ''
   );
 
-  return new Response(lines.join('\n'), {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  return new Response(lines.join('\n').replace(/\n{3,}/g, '\n\n'), {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+    },
   });
 }

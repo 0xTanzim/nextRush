@@ -131,7 +131,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
           return result.then(() => {
             if (!respondedBefore && ctx.responded && nextCalled) {
               console.warn(
-                `[nextrush] Middleware at index ${i} sent a response and called next(). ` +
+                `[nextrush] Middleware at index ${String(i)} sent a response and called next(). ` +
                   'Downstream middleware may attempt to write to an already-finished response. ' +
                   'Either send a response OR call next(), not both.'
               );
@@ -140,8 +140,8 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
         }
 
         return result;
-      } catch (err) {
-        return Promise.reject(err);
+      } catch (err: unknown) {
+        return Promise.reject(err instanceof Error ? err : new Error(String(err)));
       }
     }
 

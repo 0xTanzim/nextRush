@@ -8,6 +8,10 @@
 
 import type { MultipartErrorCode } from './types.js';
 
+const V8Error = Error as ErrorConstructor & {
+  captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void;
+};
+
 /**
  * Error thrown when multipart parsing fails.
  *
@@ -26,8 +30,8 @@ export class MultipartError extends Error {
     this.code = code;
     this.expose = status < 500;
 
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, MultipartError);
+    if (V8Error.captureStackTrace) {
+      V8Error.captureStackTrace(this, MultipartError);
     }
   }
 
@@ -88,7 +92,11 @@ export const Errors = {
   },
 
   invalidFieldName(name: string): MultipartError {
-    return new MultipartError(`Invalid field name: "${safeDisplay(name)}"`, 400, 'INVALID_FIELD_NAME');
+    return new MultipartError(
+      `Invalid field name: "${safeDisplay(name)}"`,
+      400,
+      'INVALID_FIELD_NAME'
+    );
   },
 
   invalidFileType(filename: string, mimeType: string, allowed: string[]): MultipartError {

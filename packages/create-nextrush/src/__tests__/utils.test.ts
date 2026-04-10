@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  deriveProjectName,
   detectPackageManager,
   getInstallCommand,
   getRunCommand,
@@ -29,6 +30,18 @@ describe('validateProjectName', () => {
 
   it('returns undefined for scoped names', () => {
     expect(validateProjectName('@scope/my-app')).toBeUndefined();
+  });
+});
+
+describe('deriveProjectName', () => {
+  it('derives name from cwd when directory is .', () => {
+    expect(deriveProjectName('.', '/tmp/My App')).toBe('my-app');
+    expect(deriveProjectName('./', '/tmp/my_service')).toBe('my_service');
+  });
+
+  it('derives name from provided directory for non-dot paths', () => {
+    expect(deriveProjectName('./my-api')).toBe('my-api');
+    expect(deriveProjectName('My API')).toBe('my-api');
   });
 });
 

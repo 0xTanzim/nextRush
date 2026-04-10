@@ -82,7 +82,7 @@ my-api/
 ```
 
 ```typescript
-import { Controller, Get, Service } from 'nextrush';
+import { Controller, Get, Service } from 'nextrush/class';
 
 @Service()
 class AppService {

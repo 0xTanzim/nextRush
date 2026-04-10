@@ -30,8 +30,8 @@
   },
   "devDependencies": {
     "@nextrush/core": "workspace:*",
-    "typescript": "^5.9.3",
-    "tsup": "^8.5.1"
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
   },
   "peerDependencies": {
     "@nextrush/core": "workspace:*"

@@ -21,6 +21,7 @@
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
+    "ignoreDeprecations": "6.0",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },

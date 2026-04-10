@@ -13,14 +13,29 @@ describe('parseArgs', () => {
     expect(result.style).toBe('class-based');
   });
 
+  it('parses -s short style flag', () => {
+    const result = parseArgs(['node', 'create-nextrush', '-s', 'full']);
+    expect(result.style).toBe('full');
+  });
+
   it('parses --runtime flag', () => {
     const result = parseArgs(['node', 'create-nextrush', '--runtime', 'bun']);
     expect(result.runtime).toBe('bun');
   });
 
+  it('parses -r short runtime flag', () => {
+    const result = parseArgs(['node', 'create-nextrush', '-r', 'deno']);
+    expect(result.runtime).toBe('deno');
+  });
+
   it('parses --middleware flag', () => {
     const result = parseArgs(['node', 'create-nextrush', '--middleware', 'full']);
     expect(result.middleware).toBe('full');
+  });
+
+  it('parses -m short middleware flag', () => {
+    const result = parseArgs(['node', 'create-nextrush', '-m', 'api']);
+    expect(result.middleware).toBe('api');
   });
 
   it('parses --pm flag', () => {
@@ -33,9 +48,22 @@ describe('parseArgs', () => {
     expect(result.install).toBe(false);
   });
 
+  it('parses --install and -i flags', () => {
+    const longResult = parseArgs(['node', 'create-nextrush', '--no-install', '--install']);
+    const shortResult = parseArgs(['node', 'create-nextrush', '--no-install', '-i']);
+
+    expect(longResult.install).toBe(true);
+    expect(shortResult.install).toBe(true);
+  });
+
   it('parses --no-git flag', () => {
     const result = parseArgs(['node', 'create-nextrush', '--no-git']);
     expect(result.git).toBe(false);
+  });
+
+  it('parses --git flag', () => {
+    const result = parseArgs(['node', 'create-nextrush', '--no-git', '--git']);
+    expect(result.git).toBe(true);
   });
 
   it('parses -y / --yes flag', () => {

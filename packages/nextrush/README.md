@@ -98,7 +98,7 @@ Class-based APIs (decorators, DI, controllers) are available via the `nextrush/c
 - `nextrush` — Functional API (`createApp`, `createRouter`, `listen`, errors, types)
 - `nextrush/class` — Class-based API (`Controller`, `Get`, `Service`, `controllersPlugin`, etc.)
 
-The `nextrush` meta-package auto-imports `reflect-metadata`, so you can use decorators and DI without any extra setup:
+The `nextrush/class` entry auto-imports `reflect-metadata`, so you can use decorators and DI without any extra setup:
 
 ```bash
 pnpm add nextrush

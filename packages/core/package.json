@@ -22,8 +22,8 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "lint:fix": "eslint src --fix --ignore-pattern '**/__tests__/**'",
     "clean": "rm -rf dist .turbo"
   },
   "keywords": [
@@ -60,10 +60,10 @@
     "@nextrush/types": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.5.2",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   },
   "sideEffects": false
 }

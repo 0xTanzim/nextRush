@@ -66,19 +66,19 @@
     "./dist/class.js"
   ],
   "dependencies": {
-    "@nextrush/core": "workspace:*",
-    "@nextrush/router": "workspace:*",
-    "@nextrush/errors": "workspace:*",
-    "@nextrush/types": "workspace:*",
     "@nextrush/adapter-node": "workspace:*",
+    "@nextrush/controllers": "workspace:*",
+    "@nextrush/core": "workspace:*",
     "@nextrush/decorators": "workspace:*",
     "@nextrush/di": "workspace:*",
-    "@nextrush/controllers": "workspace:*",
+    "@nextrush/errors": "workspace:*",
+    "@nextrush/router": "workspace:*",
+    "@nextrush/types": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   }
 }

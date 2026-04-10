@@ -63,7 +63,7 @@ export class NodeContext implements Context {
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
-  status: number = 200;
+  status = 200;
   state: ContextState = {};
 
   private _next: (() => Promise<void>) | null = null;
@@ -311,7 +311,7 @@ export class NodeContext implements Context {
     }
   }
 
-  redirect(url: string, status: number = 302): void {
+  redirect(url: string, status = 302): void {
     if (this._responded || this.raw.res.headersSent) return;
     this._responded = true;
 

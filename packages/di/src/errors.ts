@@ -4,6 +4,10 @@
  * Production-grade error classes with actionable messages.
  */
 
+const V8Error = Error as ErrorConstructor & {
+  captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void;
+};
+
 /**
  * Base error class for all DI-related errors.
  */
@@ -11,7 +15,7 @@ export class DIError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'DIError';
-    Error.captureStackTrace?.(this, this.constructor);
+    V8Error.captureStackTrace?.(this, this.constructor);
   }
 }
 

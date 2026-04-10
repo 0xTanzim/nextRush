@@ -1,12 +1,12 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
-      "@nextrush/types": ["packages/types/src"],
-      "@nextrush/core": ["packages/core/src"],
-      "@nextrush/router": ["packages/router/src"],
-      "@nextrush/adapter-node": ["packages/adapters/node/src"]
+      "@nextrush/types": ["./packages/types/src"],
+      "@nextrush/core": ["./packages/core/src"],
+      "@nextrush/router": ["./packages/router/src"],
+      "@nextrush/adapter-node": ["./packages/adapters/node/src"]
     }
   },
   "references": [
