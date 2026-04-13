@@ -1,4 +1,18 @@
-import { Feature, FeatureGrid, Mermaid, PackageInstall, TypeTable } from '@/components/mdx';
+import {
+    CompareGrid,
+    CompareItem,
+    DocHero,
+    DocStat,
+    DocStatStrip,
+    DocTableWrap,
+    Feature,
+    FeatureGrid,
+    HighlightGrid,
+    HighlightItem,
+    Mermaid,
+    PackageInstall,
+    TypeTable,
+} from '@/components/mdx';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
@@ -26,6 +40,16 @@ const customComponents = {
 
   // Mermaid diagrams with dark/light theme support
   Mermaid,
+
+  // Onboarding / overview layout
+  DocHero,
+  DocStatStrip,
+  DocStat,
+  CompareGrid,
+  CompareItem,
+  HighlightGrid,
+  HighlightItem,
+  DocTableWrap,
 };
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {

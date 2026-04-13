@@ -17,6 +17,16 @@ yarn dev
 
 Open http://localhost:3000 with your browser to see the result.
 
+## End-to-end checks (Playwright)
+
+Smoke tests for key docs pages (getting started, framework overview):
+
+```bash
+pnpm exec playwright install chromium   # once per machine
+pnpm test:e2e                           # starts dev server if needed
+pnpm test:e2e:ui                        # interactive UI mode
+```
+
 ## Explore
 
 In the project, you can see:
