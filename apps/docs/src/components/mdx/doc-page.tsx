@@ -1,0 +1,126 @@
+import type { LucideIcon } from 'lucide-react';
+import { Gauge, Globe2, Layers, Package, Puzzle, Sparkles, Zap } from 'lucide-react';
+import type { ReactNode } from 'react';
+
+const highlightIcons: Record<string, LucideIcon> = {
+  zap: Zap,
+  globe: Globe2,
+  code: Sparkles,
+  layers: Layers,
+  gauge: Gauge,
+  package: Package,
+  puzzle: Puzzle,
+};
+
+/**
+ * Hero band for key docs pages — gradient border, modern spacing.
+ */
+export function DocHero({
+  eyebrow,
+  children,
+}: {
+  eyebrow?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-6 shadow-[0_1px_0_0_color-mix(in_srgb,var(--rush-blue)_12%,transparent)] md:p-8">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_srgb,var(--rush-blue)_18%,transparent)_0%,transparent_65%)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-16 -left-16 size-56 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_srgb,var(--rush-purple)_14%,transparent)_0%,transparent_70%)]"
+      />
+      <div className="relative z-10">
+        {eyebrow ? (
+          <p className="mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--rush-cyan)]">
+            {eyebrow}
+          </p>
+        ) : null}
+        <div className="text-base leading-relaxed text-[var(--text-secondary)] md:text-lg [&_a]:font-medium [&_a]:text-[var(--rush-blue)] [&_a]:underline-offset-4 hover:[&_a]:text-[var(--rush-purple)] [&_strong]:font-semibold [&_strong]:text-[var(--text-primary)]">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function DocStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="doc-stat flex flex-col rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_55%,var(--color-fd-card))] px-4 py-3 transition-colors hover:border-[color-mix(in_srgb,var(--rush-blue)_35%,var(--color-fd-border))]">
+      <span className="text-[0.65rem] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+        {label}
+      </span>
+      <span className="mt-1 font-mono text-lg font-semibold tabular-nums text-[var(--text-primary)] md:text-xl">
+        {value}
+      </span>
+      {hint ? (
+        <span className="mt-0.5 text-xs leading-snug text-[var(--text-secondary)]">{hint}</span>
+      ) : null}
+    </div>
+  );
+}
+
+export function DocStatStrip({ children }: { children: ReactNode }) {
+  return (
+    <div className="not-prose my-8 grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>
+  );
+}
+
+export function CompareGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className="not-prose my-8 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {children}
+    </div>
+  );
+}
+
+export function CompareItem({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <div className="group rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-all hover:border-[color-mix(in_srgb,var(--rush-blue)_28%,var(--color-fd-border))] hover:shadow-[0_12px_40px_-12px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)]">
+      <h3 className="text-sm font-semibold text-[var(--text-primary)]">{name}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{children}</p>
+    </div>
+  );
+}
+
+export function HighlightGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className="not-prose my-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+  );
+}
+
+export function HighlightItem({
+  icon,
+  title,
+  description,
+}: {
+  icon: keyof typeof highlightIcons;
+  title: string;
+  description: string;
+}) {
+  const Icon = highlightIcons[icon] ?? Package;
+  return (
+    <div className="flex gap-4 rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:border-[color-mix(in_srgb,var(--rush-purple)_25%,var(--color-fd-border))]">
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--rush-blue)_12%,transparent)] text-[var(--rush-blue)] ring-1 ring-[color-mix(in_srgb,var(--rush-blue)_22%,transparent)]">
+        <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+      </div>
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Wraps markdown tables for tighter radius and scroll on small screens.
+ */
+export function DocTableWrap({ children }: { children: ReactNode }) {
+  return (
+    <div className="not-prose my-6 overflow-x-auto rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_40%,var(--color-fd-card))] [&_table]:m-0 [&_td]:border-[var(--color-fd-border)] [&_th]:border-[var(--color-fd-border)] [&_tr:nth-child(even)]:bg-[color-mix(in_srgb,var(--color-fd-muted)_30%,transparent)]">
+      {children}
+    </div>
+  );
+}
