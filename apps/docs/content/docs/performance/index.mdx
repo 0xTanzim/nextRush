@@ -3,8 +3,6 @@ title: Performance
 description: Transparent, reproducible benchmarks — framework comparisons and deep performance profiling.
 ---
 
-import { Mermaid } from '@/components/mdx';
-
 NextRush is fast, but we don't hide behind vague claims. Every number on this page comes from automated benchmark runs you can reproduce yourself.
 
 <Callout type="warn" title="Benchmarks Are Context">
@@ -299,21 +297,23 @@ Fastify consistently beats NextRush by ~13%. Here's exactly why:
 
 ## Run Your Own Benchmarks
 
-### Quick Comparison (autocannon)
+### Quick comparison (autocannon)
+
+From the monorepo root:
 
 ```bash
-cd apps/performance-ultra
+cd apps/benchmark
 pnpm install
-node scripts/run.js
+pnpm bench:compare:quick
 ```
 
-### Deep Profile (wrk)
+### Deep profile (wrk)
 
 ```bash
 cd apps/benchmark
 pnpm install
 
-# Requires wrk: sudo apt install wrk
+# Requires wrk: sudo apt install wrk (or brew install wrk on macOS)
 node scripts/run.js --profile full --tool wrk
 ```
 
@@ -329,4 +329,4 @@ NextRush is the **second-fastest** framework we tested, behind Fastify. We're tr
 2. **13% difference disappears** when you add a database query (typically 5-50ms per request)
 3. **NextRush offers things Fastify doesn't** — zero-dependency core, multi-runtime support, built-in DI with decorators, and full TypeScript-first design
 
-Pick the framework that matches your priorities, not just the one with the highest RPS number.
+Pick the framework that matches your priorities, not only the one with the highest RPS number.

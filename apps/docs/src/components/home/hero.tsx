@@ -59,7 +59,7 @@ export function Hero() {
           </p>
           <p className="text-lg text-fd-muted-foreground/70 mb-8 max-w-xl animate-fade-up animate-delay-300">
             Minimal. Modular. High performance.{' '}
-            <span className="text-[var(--rush-cyan)] font-medium">30,000+ RPS.</span>
+            <span className="text-[var(--rush-cyan)] font-medium">35,000+ RPS target.</span>
           </p>
 
           {/* CTA Buttons */}

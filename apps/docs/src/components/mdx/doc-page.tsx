@@ -15,13 +15,7 @@ const highlightIcons: Record<string, LucideIcon> = {
 /**
  * Hero band for key docs pages — gradient border, modern spacing.
  */
-export function DocHero({
-  eyebrow,
-  children,
-}: {
-  eyebrow?: string;
-  children: ReactNode;
-}) {
+export function DocHero({ eyebrow, children }: { eyebrow?: string; children: ReactNode }) {
   return (
     <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-6 shadow-[0_1px_0_0_color-mix(in_srgb,var(--rush-blue)_12%,transparent)] md:p-8">
       <div
@@ -63,9 +57,7 @@ export function DocStat({ label, value, hint }: { label: string; value: string; 
 }
 
 export function DocStatStrip({ children }: { children: ReactNode }) {
-  return (
-    <div className="not-prose my-8 grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>
-  );
+  return <div className="not-prose my-8 grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>;
 }
 
 export function CompareGrid({ children }: { children: ReactNode }) {
@@ -80,14 +72,18 @@ export function CompareItem({ name, children }: { name: string; children: ReactN
   return (
     <div className="group rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-all hover:border-[color-mix(in_srgb,var(--rush-blue)_28%,var(--color-fd-border))] hover:shadow-[0_12px_40px_-12px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)]">
       <h3 className="text-sm font-semibold text-[var(--text-primary)]">{name}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{children}</p>
+      <div className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)] [&_p]:m-0">
+        {children}
+      </div>
     </div>
   );
 }
 
 export function HighlightGrid({ children }: { children: ReactNode }) {
   return (
-    <div className="not-prose my-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+    <div className="not-prose my-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {children}
+    </div>
   );
 }
 

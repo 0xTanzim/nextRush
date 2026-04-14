@@ -289,10 +289,10 @@ nextrush/
 
 ## Documentation
 
-- [Getting Started](https://nextrush.dev/getting-started/)
-- [Core Concepts](https://nextrush.dev/concepts/)
-- [API Reference](https://nextrush.dev/api/)
-- [Benchmarks](https://nextrush.dev/benchmark)
+- [Getting Started](https://nextrush.dev/docs/getting-started)
+- [Core Concepts](https://nextrush.dev/docs/concepts)
+- [API Reference](https://nextrush.dev/docs/api-reference)
+- [Performance & benchmarks](https://nextrush.dev/docs/performance)
 
 ## Versioning
 

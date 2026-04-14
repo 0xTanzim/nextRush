@@ -15,7 +15,7 @@ interface FeatureGridProps {
  *
  * @example
  * ```mdx
- * <Feature icon="⚡" title="High Performance" description="30,000+ RPS" />
+ * <Feature icon="⚡" title="High Performance" description="35,000+ RPS target" />
  * ```
  */
 export function Feature({ icon, title, description }: FeatureProps) {

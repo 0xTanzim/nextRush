@@ -5,7 +5,7 @@ const features = [
     icon: Zap,
     title: 'High Performance',
     description:
-      '30,000+ requests per second with radix tree routing. No compromise on performance.',
+      '35,000+ requests per second target on hello-world class routes (radix tree routing; hardware varies).',
     colorVar: '--warning',
   },
   {
@@ -18,7 +18,7 @@ const features = [
   {
     icon: Package,
     title: 'Modular',
-    description: '27+ packages. Install what you need. Core is under 3,000 lines of code.',
+    description: '30 packages in the monorepo. Install what you need. Core is under 3,000 lines of code.',
     colorVar: '--rush-purple',
   },
   {

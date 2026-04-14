@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "humanizer": {
+      "source": "softaworks/agent-toolkit",
+      "sourceType": "github",
+      "computedHash": "34a38e6acc60d4529612d41ffe740bca0060d3c5e89e2a0d24ae795f67157fbb"
+    },
     "memory-leak-detection": {
       "source": "aj-geddes/useful-ai-prompts",
       "sourceType": "github",

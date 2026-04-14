@@ -22,11 +22,6 @@ export function baseOptions(): BaseLayoutProps {
         url: '/skills',
         active: 'nested-url',
       },
-      {
-        text: 'GitHub',
-        url: 'https://github.com/0xtanzim/nextrush',
-        external: true,
-      },
     ],
     githubUrl: 'https://github.com/0xtanzim/nextrush',
   };

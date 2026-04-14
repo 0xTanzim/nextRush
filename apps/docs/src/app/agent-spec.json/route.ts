@@ -100,7 +100,7 @@ const AGENT_SPEC = {
     'Zero external runtime dependencies (except reflect-metadata for DI)',
     'TypeScript strict mode — zero any usage',
     'Node.js >= 22.0.0',
-    'Target 30,000+ RPS',
+    'Target 35,000+ RPS',
     'Core under 3,000 LOC',
   ],
   paradigms: ['functional', 'class-based'],

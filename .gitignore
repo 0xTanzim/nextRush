@@ -5,7 +5,7 @@ node_modules/
 .internal
 .agents
 .cursor
-
+.pnpm-store
 # Build outputs
 dist/
 build/

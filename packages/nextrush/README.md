@@ -64,7 +64,7 @@ Benchmark results on Intel i5-8300H (8 cores), Node.js v25.1.0:
 | Hono            | 36,288 RPS     | 12,405 RPS     | 35,672 RPS     |
 | Express         | 22,128 RPS     | 14,081 RPS     | 22,745 RPS     |
 
-> Performance varies by hardware. See [full benchmarks](https://nextrush.dev/benchmark).
+> Performance varies by hardware. See [Performance](https://nextrush.dev/docs/performance) for methodology and numbers.
 
 ## Adding Middleware
 

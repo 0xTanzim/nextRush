@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: `${appConfig.name} - The Backend Framework That Doesn't Get in Your Way`,
     template: `%s | ${appConfig.name}`,
   },
-  description: `${appConfig.name} is a minimal, modular, high-performance Node.js backend framework. Build APIs with 30,000+ RPS, full TypeScript support, and zero configuration overhead.`,
+  description: `${appConfig.name} is a minimal, modular, high-performance Node.js backend framework. Build APIs with 35,000+ RPS, full TypeScript support, and zero configuration overhead.`,
   keywords: [
     'nextrush',
     'node.js framework',
@@ -40,13 +40,13 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: appConfig.siteUrl,
     title: `${appConfig.name} - High-Performance Backend Framework`,
-    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 30,000+ RPS performance.`,
+    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 35,000+ RPS performance.`,
     siteName: appConfig.name,
   },
   twitter: {
     card: 'summary_large_image',
     title: `${appConfig.name} - High-Performance Backend Framework`,
-    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 30,000+ RPS performance.`,
+    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 35,000+ RPS performance.`,
     creator: appConfig.twitterHandle,
   },
   robots: {

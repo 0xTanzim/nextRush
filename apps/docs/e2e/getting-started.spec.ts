@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+test.describe('Docs site smoke', () => {
+  test('home and docs root load', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'NextRush' })).toBeVisible();
+    await page.goto('/docs');
+    await expect(page.getByRole('heading', { level: 1, name: 'NextRush Documentation' })).toBeVisible();
+  });
+});
+
 test.describe('Getting started — layout and UX', () => {
   test('introduction: hero, comparison grid, and steps', async ({ page }) => {
     await page.goto('/docs/getting-started');
@@ -13,7 +22,9 @@ test.describe('Getting started — layout and UX', () => {
   test('framework overview: stats strip and highlight cards', async ({ page }) => {
     await page.goto('/docs/getting-started/overview');
     await expect(page.getByRole('heading', { level: 1, name: 'Framework Overview' })).toBeVisible();
-    await expect(page.getByText('Framework overview')).toBeVisible();
+    await expect(
+      page.locator('.doc-hero').getByText('Framework overview', { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText('35k+', { exact: true })).toBeVisible();
     await expect(page.getByText('Zero core dependencies')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Why NextRush' })).toBeVisible();
