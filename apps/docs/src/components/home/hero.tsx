@@ -55,11 +55,11 @@ export function Hero() {
 
           {/* Tagline */}
           <p className="text-xl md:text-2xl text-fd-muted-foreground mb-4 max-w-2xl animate-fade-up animate-delay-200">
-            The backend framework that doesn&apos;t get in your way.
+            TypeScript-first HTTP stack for Node.js and other runtimes.
           </p>
           <p className="text-lg text-fd-muted-foreground/70 mb-8 max-w-xl animate-fade-up animate-delay-300">
-            Minimal. Modular. High performance.{' '}
-            <span className="text-[var(--rush-cyan)] font-medium">35,000+ RPS target.</span>
+            Composable middleware, radix routing, optional DI and decorators —{' '}
+            <span className="text-[var(--rush-cyan)] font-medium">35,000+ RPS</span> on the hello-world benchmark.
           </p>
 
           {/* CTA Buttons */}
@@ -72,7 +72,7 @@ export function Hero() {
               <ArrowRight className="size-5" />
             </Link>
             <a
-              href="https://github.com/0xtanzim/nextrush"
+              href="https://github.com/0xTanzim/nextrush"
               target="_blank"
               rel="noopener noreferrer"
               className="btn-outline inline-flex items-center gap-2 text-lg"

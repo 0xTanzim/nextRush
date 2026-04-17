@@ -35,8 +35,9 @@ const features = [
   },
   {
     icon: Lock,
-    title: 'Security Built-In',
-    description: 'Helmet, CORS, rate limiting. Production security out of the box.',
+    title: 'Security middleware',
+    description:
+      'Helmet, CORS, rate limiting, and CSRF as installable packages — wire what your deployment needs.',
     colorVar: '--danger',
   },
 ];

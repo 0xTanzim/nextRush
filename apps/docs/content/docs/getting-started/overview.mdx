@@ -1,19 +1,23 @@
 ---
 title: Framework Overview
-description: NextRush at a glance — architecture, concepts, and APIs on one page.
+description: NextRush at a glance — architecture, concepts, packages, and how requests move through the stack.
 ---
 
-import { Mermaid } from '@/components/mdx';
+import { DocPageOutline, DocPrerequisiteGrid, Mermaid } from '@/components/mdx';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
 <DocHero eyebrow="Framework overview">
 
-A modular backend framework for Node.js, Bun, Deno, and Edge — **under 3,000 lines** in core, **no runtime dependencies** in core packages, **TypeScript strict mode** throughout.
+**NextRush** is a small, composable HTTP stack: one **`Context`** per request, Koa-style **middleware**,
+a fast **router**, optional **controllers + DI**, and **adapters** for Node.js, Bun, Deno, and Edge.
+Core packages stay dependency-free; you add `@nextrush/*` middleware and plugins only when you need them.
 
 </DocHero>
 
-<Callout type="info" title="v3 alpha">
-  NextRush v3 is under active development. Public APIs are still stabilizing. Requires Node.js 22+.
+<Callout type="info" title="How to read this section">
+  **v3 alpha** — public APIs are still stabilizing; requires **Node.js 22+**. For positioning vs other
+  stacks and a short mental model, read [Introduction](/docs/getting-started) first; this page is the
+  full stack map.
 </Callout>
 
 <DocStatStrip>
@@ -22,6 +26,100 @@ A modular backend framework for Node.js, Bun, Deno, and Edge — **under 3,000 l
   <DocStat label="Packages" value="30" hint="Monorepo" />
   <DocStat label="Cold start" value="< 30ms" hint="Typical target" />
 </DocStatStrip>
+
+## Pick a path
+
+<CompareGrid>
+  <CompareItem name="New project">
+    Start on the **Installation** page. From there, choose the scaffolded path with
+    **`create-nextrush`** or the manual path.
+    [Installation](/docs/getting-started/installation)
+  </CompareItem>
+  <CompareItem name="Learn the model">
+    Read **Context**, **middleware**, and **routing** first — everything else builds on that pipeline.
+    [Request lifecycle](/docs/concepts/request-lifecycle) · [Context](/docs/concepts/context) · [Middleware](/docs/concepts/middleware)
+  </CompareItem>
+  <CompareItem name="Measure & tune">
+    Reproducible **benchmarks** live in the docs; tuning guidance covers middleware order and serialization.
+    [Benchmarks](/docs/performance) · [Tuning](/docs/performance/tuning)
+  </CompareItem>
+</CompareGrid>
+
+## Prerequisites
+
+<DocPrerequisiteGrid
+  items={[
+    { label: 'Node.js', value: '22 or newer (LTS recommended)' },
+    { label: 'TypeScript', value: 'Strict mode — matches the framework source' },
+    { label: 'Package manager', value: 'pnpm, npm, yarn, or bun (some examples use pnpm)' },
+  ]}
+/>
+
+For editor and tooling (lint, format), see [Installation](/docs/getting-started/installation).
+
+## What this page covers
+
+This is the **broadest** getting-started doc: runnable hello world, feature highlights, request lifecycle,
+concept links, package diagram, both programming styles, performance and runtime tables, and migration hints.
+Use the list below to jump to a section.
+
+<DocPageOutline
+  items={[
+    {
+      href: '#hello-world-in-under-a-minute',
+      title: 'Hello World',
+      description: 'Copy a minimal server and run it',
+    },
+    {
+      href: '#why-nextrush',
+      title: 'Why NextRush',
+      description: 'Design goals at a glance',
+    },
+    {
+      href: '#how-a-request-flows',
+      title: 'How a request flows',
+      description: 'Adapter → middleware → router',
+    },
+    {
+      href: '#core-concepts',
+      title: 'Core concepts',
+      description: 'Links to deep concept pages',
+    },
+    {
+      href: '#package-architecture',
+      title: 'Package architecture',
+      description: 'Monorepo layers and the meta-package',
+    },
+    {
+      href: '#two-programming-styles',
+      title: 'Two programming styles',
+      description: 'Functional routes vs class-based controllers',
+    },
+    {
+      href: '#performance-targets',
+      title: 'Performance targets',
+      description: 'Design targets and link to full benchmarks',
+    },
+    {
+      href: '#runtime-support',
+      title: 'Runtime support',
+      description: 'Node, Bun, Deno, Edge adapters',
+    },
+    {
+      href: '#coming-from-another-stack',
+      title: 'Coming from another stack?',
+      description: 'Express and Fastify compared',
+    },
+  ]}
+/>
+
+## Errors, testing, and deployment
+
+Production APIs need clear failures and checks — not only routing:
+
+- **HTTP errors** — `HttpError` hierarchy and handlers: [Errors (API)](/docs/api-reference/core/errors) · [Error handling (guide)](/docs/guides/error-handling)
+- **Tests** — Vitest patterns for apps and middleware: [Testing](/docs/guides/testing)
+- **Ship** — build, env, hosting: [Deployment](/docs/guides/deployment)
 
 ## Hello World in under a minute
 
@@ -396,13 +494,13 @@ Use functions for small services; add controllers and DI when the API grows. Bot
 
 <DocTableWrap>
 
-| Metric                 | Target                                                                                                                                        |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Requests per second    | **35,000+** design target — measured RPS depends on workload and hardware ([Performance](/docs/performance))                                  |
-| Core lines of code     | < 3,000                                                                                                                                       |
-| Cold start             | < 30ms                                                                                                                                        |
-| Memory (idle)          | < 200KB                                                                                                                                       |
-| Runtime dependencies   | 0 in core; `reflect-metadata` for DI via the meta-package                                                                                    |
+| Metric | Target |
+| --- | --- |
+| Requests per second | **35,000+** design target — methodology and hardware notes on [Benchmarks](/docs/performance) |
+| Core lines of code | &lt; 3,000 |
+| Cold start | &lt; 30ms |
+| Memory (idle) | &lt; 200KB |
+| Runtime dependencies | 0 in core; `reflect-metadata` for DI via the meta-package |
 
 </DocTableWrap>
 
@@ -426,6 +524,18 @@ Segment trie routing, pre-compiled middleware composition, and avoiding extra al
 The `nextrush` package ships the Node adapter. Install other adapters when you target Bun, Deno, or Edge.
 
 ## Coming from another stack?
+
+<DocTableWrap>
+
+| Topic | Express | Fastify | NextRush |
+| --- | --- | --- | --- |
+| **Request surface** | `req` / `res` / `next` | `request` / `reply` | Single **`ctx`** + **`ctx.next()`** (Koa-style) |
+| **Routing** | Linear match order | Radix tree (`find-my-way`) | Segment trie (`@nextrush/router`) |
+| **Types** | DefinitelyTyped | First-class | Strict, first-party types |
+| **Validation** | Manual / middleware | JSON Schema (built-in) | Bring Zod, Valibot, etc. (transforms on params) |
+| **Structure** | Free-form | Encapsulated plugins | Optional **controllers + DI** via `nextrush/class` |
+
+</DocTableWrap>
 
 ### Express
 
@@ -477,8 +587,24 @@ Optional layers:
     href="/docs/concepts"
   />
   <Card
+    title="API reference"
+    description="Lookup for core, middleware, plugins, and adapters."
+    href="/docs/api-reference"
+  />
+  <Card
+    title="Benchmarks"
+    description="Reproducible numbers and framework comparison."
+    href="/docs/performance"
+  />
+  <Card
     title="Guides"
-    description="REST APIs, auth patterns, deployment."
+    description="REST APIs, auth patterns, deployment, testing."
     href="/docs/guides"
   />
 </Cards>
+
+## Community
+
+- **Repository** — [github.com/0xTanzim/nextrush](https://github.com/0xTanzim/nextrush)
+- **Discussions** — [GitHub Discussions](https://github.com/0xTanzim/nextrush/discussions)
+- **Agent skills** — [Skills directory](/skills) for AI-assisted development

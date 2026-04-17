@@ -445,6 +445,56 @@ kbd {
 }
 
 /* ============================================
+   Prose tables (markdown tables not wrapped in DocTableWrap)
+   ============================================ */
+
+.prose table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.prose :where(thead th) {
+  background: color-mix(in srgb, var(--color-fd-muted) 70%, transparent);
+  border-bottom: 1px solid var(--color-fd-border);
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.prose :where(tbody td) {
+  border-bottom: 1px solid var(--color-fd-border);
+  padding: 0.625rem 0.75rem;
+  vertical-align: top;
+  color: var(--text-secondary);
+}
+
+.prose :where(tbody tr:last-child td) {
+  border-bottom: none;
+}
+
+.prose :where(tbody tr:hover) {
+  background: color-mix(in srgb, var(--color-fd-muted) 35%, transparent);
+}
+
+.prose :where(table a) {
+  font-weight: 500;
+  color: var(--rush-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose :where(table a):hover {
+  color: var(--rush-purple);
+}
+
+/* ============================================
    Callout Styles
    ============================================ */
 

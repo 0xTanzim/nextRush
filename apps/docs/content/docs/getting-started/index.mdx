@@ -1,13 +1,16 @@
 ---
 title: Introduction
-description: What is NextRush and why should you use it?
+description: What NextRush is, how it differs from common stacks, and where to read next.
 ---
 
 <DocHero eyebrow="Start here">
 
-NextRush is a backend framework for Node.js, Bun, Deno, and Edge — built for **speed without sacrificing clarity**.
+NextRush is a backend framework for Node.js, Bun, Deno, and Edge — **small core**, **strict TypeScript**,
+and **explicit wiring** (middleware, router, optional controllers). The API stays readable: you can follow
+a request through middleware, the router, and the adapter without hidden steps.
 
-The [Framework overview](/docs/getting-started/overview) page maps the architecture, packages, and how each request moves through the stack.
+When you want the full map — packages, both styles, benchmarks — read the{' '}
+[Framework overview](/docs/getting-started/overview).
 
 </DocHero>
 
@@ -15,9 +18,9 @@ The [Framework overview](/docs/getting-started/overview) page maps the architect
   NextRush requires **Node.js 22.0.0 or later** and **TypeScript** with strict mode enabled.
 </Callout>
 
-## Where other frameworks trade off
+## Where common stacks leave gaps
 
-If you have shipped APIs before, you have probably hit some of these limits:
+If you have shipped HTTP APIs before, you may have run into limits like these:
 
 <CompareGrid>
   <CompareItem name="Express">
@@ -114,7 +117,7 @@ app.use(async (ctx) => {
 - Teams that want strict TypeScript end-to-end
 - **35,000+ RPS** class throughput for simple routes (see [Performance](/docs/performance))
 - Deploying to more than one runtime (Node, Bun, Edge)
-- Prefer explicit wiring over hidden magic
+- Prefer explicit wiring over implicit framework behavior
 - Modular installs instead of one giant framework bundle
 
 ## When to pick something else
@@ -130,4 +133,20 @@ app.use(async (ctx) => {
 
 ## Next steps
 
-[Install NextRush](/docs/getting-started/installation), then follow the [Quick start](/docs/getting-started/quick-start) to run your first server.
+<Cards>
+  <Card
+    title="Framework overview"
+    description="Architecture map, hello world, concepts, and migration hints in one place."
+    href="/docs/getting-started/overview"
+  />
+  <Card
+    title="Installation"
+    description="Scaffold or manual install, verify the server, TypeScript defaults."
+    href="/docs/getting-started/installation"
+  />
+  <Card
+    title="Quick start"
+    description="Manual walkthrough: project, routes, middleware, JSON bodies."
+    href="/docs/getting-started/quick-start"
+  />
+</Cards>

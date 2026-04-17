@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Gauge, Globe2, Layers, Package, Puzzle, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, Gauge, Globe2, Layers, Package, Puzzle, Sparkles, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 const highlightIcons: Record<string, LucideIcon> = {
@@ -110,13 +110,79 @@ export function HighlightItem({
   );
 }
 
+const docTableShell =
+  'not-prose my-6 overflow-x-auto rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] shadow-[0_1px_0_0_color-mix(in_srgb,white_6%,transparent)] dark:shadow-[inset_0_1px_0_0_hsla(220,20%,100%,0.04)]';
+
+const docTableInner =
+  '[&_table]:m-0 [&_table]:w-full [&_table]:min-w-[min(100%,520px)] [&_table]:border-collapse [&_table]:text-sm [&_caption]:mb-2 [&_caption]:text-left [&_caption]:text-xs [&_caption]:text-[var(--text-muted)] ' +
+  '[&_thead]:bg-[color-mix(in_srgb,var(--color-fd-muted)_70%,transparent)] [&_th]:border-b [&_th]:border-[var(--color-fd-border)] [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-[var(--text-primary)] ' +
+  '[&_td]:border-b [&_td]:border-[var(--color-fd-border)] [&_td]:px-3 [&_td]:py-2.5 [&_td]:align-top [&_td]:text-[var(--text-secondary)] [&_td]:leading-relaxed [&_tbody_tr:last-child_td]:border-b-0 ' +
+  '[&_tbody_tr:hover]:bg-[color-mix(in_srgb,var(--color-fd-muted)_35%,transparent)] [&_code]:rounded [&_code]:bg-[color-mix(in_srgb,var(--color-fd-muted)_80%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:text-[0.85em] ' +
+  '[&_a]:font-medium [&_a]:text-[var(--rush-blue)] [&_a]:underline [&_a]:decoration-[color-mix(in_srgb,var(--rush-blue)_45%,transparent)] [&_a]:underline-offset-2 hover:[&_a]:text-[var(--rush-purple)]';
+
 /**
- * Wraps markdown tables for tighter radius and scroll on small screens.
+ * Wraps markdown tables: visible grid lines, header row, hover on body rows, link styling.
  */
 export function DocTableWrap({ children }: { children: ReactNode }) {
+  return <div className={`${docTableShell} ${docTableInner}`}>{children}</div>;
+}
+
+export type DocPageOutlineItem = {
+  href: string;
+  title: string;
+  description: string;
+};
+
+/**
+ * In-page section map with real links (replaces plain markdown tables for “on this page” lists).
+ */
+export function DocPageOutline({ items }: { items: DocPageOutlineItem[] }) {
   return (
-    <div className="not-prose my-6 overflow-x-auto rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_40%,var(--color-fd-card))] [&_table]:m-0 [&_td]:border-[var(--color-fd-border)] [&_th]:border-[var(--color-fd-border)] [&_tr:nth-child(even)]:bg-[color-mix(in_srgb,var(--color-fd-muted)_30%,transparent)]">
-      {children}
+    <nav aria-label="Sections on this page" className="not-prose my-8">
+      <ul className="divide-y divide-[color-mix(in_srgb,var(--color-fd-border)_85%,transparent)] overflow-hidden rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)]">
+        {items.map((item) => (
+          <li key={item.href}>
+            <a
+              href={item.href}
+              className="group flex gap-3 px-4 py-3.5 transition-colors hover:bg-[color-mix(in_srgb,var(--color-fd-muted)_45%,var(--color-fd-card))] sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0 flex-1">
+                <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--rush-blue)]">
+                  {item.title}
+                </span>
+                <span className="mt-0.5 block text-sm text-[var(--text-secondary)]">{item.description}</span>
+              </div>
+              <ArrowRight
+                className="size-4 shrink-0 text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100 sm:opacity-60"
+                aria-hidden
+              />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+export type DocPrerequisiteItem = { label: string; value: string };
+
+/**
+ * Compact prerequisite strip (replaces two-column prerequisite tables).
+ */
+export function DocPrerequisiteGrid({ items }: { items: DocPrerequisiteItem[] }) {
+  return (
+    <div className="not-prose my-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_40%,var(--color-fd-card))] px-4 py-3.5 shadow-[inset_0_1px_0_0_hsla(220,20%,100%,0.04)]"
+        >
+          <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            {item.label}
+          </p>
+          <p className="mt-2 text-sm font-medium leading-snug text-[var(--text-primary)]">{item.value}</p>
+        </div>
+      ))}
     </div>
   );
 }

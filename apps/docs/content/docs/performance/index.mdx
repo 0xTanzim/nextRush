@@ -1,5 +1,5 @@
 ---
-title: Performance
+title: Benchmarks
 description: Transparent, reproducible benchmarks — framework comparisons and deep performance profiling.
 ---
 
@@ -35,19 +35,36 @@ Head-to-head comparison against popular Node.js frameworks using identical test 
 
 <Tabs items={['System', 'Frameworks', 'Configuration']}>
   <Tab value="System">
-    | Property | Value | | ------------ | ----------------------------- | | **Node.js** | v25.1.0 |
-    | **Platform** | Linux (x64) | | **CPU** | Intel Core i5-8300H @ 2.30GHz | | **Cores** | 8 | |
-    **Memory** | 15GB |
+
+| Property   | Value                         |
+| ---------- | ----------------------------- |
+| **Node.js** | v25.1.0                       |
+| **Platform** | Linux (x64)                   |
+| **CPU**    | Intel Core i5-8300H @ 2.30GHz |
+| **Cores**  | 8                             |
+| **Memory** | 15GB                          |
+
   </Tab>
   <Tab value="Frameworks">
-    | Framework | Version | | --------------- | ------------------------------ | | **NextRush v3** |
-    3.0.0-alpha.2 | | **Express** | 5.2.x | | **Fastify** | 5.7.x | | **Hono** | 4.12.x (via
-    @hono/node-server) | | **Koa** | 3.1.x (with koa-router) |
+
+| Framework        | Version                          |
+| ---------------- | -------------------------------- |
+| **NextRush v3**  | 3.0.0-alpha.2                    |
+| **Express**      | 5.2.x                            |
+| **Fastify**      | 5.7.x                            |
+| **Hono**         | 4.12.x (via `@hono/node-server`) |
+| **Koa**          | 3.1.x (with `koa-router`)        |
+
   </Tab>
   <Tab value="Configuration">
-    | Setting | Value | | --------------- | -------------------------------------------------------
-    | | **Tool** | [autocannon](https://github.com/mcollina/autocannon) v8 | | **Duration** | 10
-    seconds per test | | **Connections** | 100 concurrent | | **Pipelining** | 10 requests |
+
+| Setting          | Value                                                |
+| ---------------- | ---------------------------------------------------- |
+| **Tool**         | [autocannon](https://github.com/mcollina/autocannon) v8 |
+| **Duration**     | 10 seconds per test                                  |
+| **Connections**  | 100 concurrent                                       |
+| **Pipelining**   | 10 requests                                          |
+
   </Tab>
 </Tabs>
 
@@ -63,10 +80,9 @@ Average requests per second across all test scenarios:
 | 4    | Koa             | 29,889     | −15.5%      |
 | 5    | Express         | 20,987     | −40.7%      |
 
-<Callout type="info" title="Key Takeaways">
-  - NextRush is **68.5% faster** than Express - NextRush is **15.9% faster** than Hono and **18.3%
-  faster** than Koa - Fastify is **13.3% faster** than NextRush (due to AOT JSON serialization with
-  `fast-json-stringify`)
+<Callout type="info" title="Key takeaways">
+  NextRush is **68.5% faster** than Express, **15.9% faster** than Hono, and **18.3% faster** than
+  Koa. Fastify is **13.3% faster** than NextRush here (AOT JSON via `fast-json-stringify`).
 </Callout>
 
 ### Detailed Scenarios

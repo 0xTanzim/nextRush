@@ -1,9 +1,11 @@
 ---
 title: NextRush Documentation
-description: Minimal, modular, type-safe Node.js backend framework.
+description: Minimal, modular, type-safe Node.js backend framework — docs home.
 ---
 
-NextRush is a **minimal, modular, and type-safe** Node.js backend framework. Under 3,000 lines of core code, zero runtime dependencies, and full TypeScript strict mode.
+NextRush is a **minimal, modular, type-safe** HTTP framework for Node.js and other runtimes. The core stays
+under 3,000 lines with **no runtime dependencies**; you add `@nextrush/*` packages when you need them.
+Everything is written for **TypeScript strict mode**.
 
 <Callout type="info" title="Current Version">
   NextRush v3 is in active development. APIs are stabilizing — suitable for early adopters. Requires
@@ -63,28 +65,38 @@ npx tsx src/index.ts
 # → 🚀 NextRush listening on http://localhost:3000
 ```
 
-## Choose Your Path
+## Choose your path
 
 <Cards>
   <Card
-    title="Getting Started"
-    description="Install NextRush and build your first API."
+    title="Introduction"
+    description="What NextRush is, trade-offs vs other frameworks, and when to use it."
     href="/docs/getting-started"
   />
   <Card
-    title="Core Concepts"
-    description="Understand Context, Middleware, Routing, and Plugins."
+    title="Framework overview"
+    description="Full map: hello world, lifecycle, packages, styles, benchmarks."
+    href="/docs/getting-started/overview"
+  />
+  <Card
+    title="Core concepts"
+    description="Context, middleware, routing, plugins, and guards in depth."
     href="/docs/concepts"
   />
   <Card
-    title="Packages"
-    description="Explore all packages with detailed documentation."
+    title="API reference"
+    description="Lookup tables for core, middleware, plugins, and adapters."
     href="/docs/api-reference"
   />
   <Card
     title="Guides"
-    description="Step-by-step tutorials for authentication, databases, and more."
+    description="REST APIs, auth, validation, testing, deployment."
     href="/docs/guides"
+  />
+  <Card
+    title="Benchmarks"
+    description="Reproducible RPS numbers and tuning notes."
+    href="/docs/performance"
   />
 </Cards>
 
@@ -110,4 +122,4 @@ NextRush supports both **functional** and **class-based** programming styles. St
 
 Start with the [Getting Started guide](/docs/getting-started) to install NextRush and create your first API.
 
-Questions? Check the [GitHub Discussions](https://github.com/0xtanzim/nextrush/discussions) or open an issue.
+Questions? Use [GitHub Discussions](https://github.com/0xTanzim/nextrush/discussions) or open an issue. For AI-assisted workflows, see the [Skills directory](/skills).

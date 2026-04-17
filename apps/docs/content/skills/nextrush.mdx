@@ -48,8 +48,7 @@ detailed reference files:
 ## Quick Start
 
 ```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
+import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
 const router = createRouter();
@@ -57,7 +56,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush' }));
 
 app.route('/', router);
-app.listen(3000);
+await listen(app, 3000);
 ```
 
 ## Compatibility

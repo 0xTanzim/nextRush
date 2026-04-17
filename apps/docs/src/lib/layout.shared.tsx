@@ -23,6 +23,6 @@ export function baseOptions(): BaseLayoutProps {
         active: 'nested-url',
       },
     ],
-    githubUrl: 'https://github.com/0xtanzim/nextrush',
+    githubUrl: 'https://github.com/0xTanzim/nextrush',
   };
 }

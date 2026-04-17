@@ -16,6 +16,11 @@ jobs:
   ci:
     name: Build & Test
     runs-on: ubuntu-latest
+    env:
+      # Vercel Remote Cache (optional): add repo secret TURBO_TOKEN and variable TURBO_TEAM
+      # (team slug). See https://turbo.build/repo/docs/core-concepts/remote-caching
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -85,6 +90,15 @@ jobs:
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Cache Turborepo local artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-turbo-
 
       - name: Build
         run: pnpm build

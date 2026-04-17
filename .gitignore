@@ -107,3 +107,6 @@ isolate-*.log
 
 Copilot-Processing.md
 ./Copilot-Processing.md
+
+# Turborepo
+.turbo

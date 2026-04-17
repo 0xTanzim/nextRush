@@ -1,9 +1,10 @@
 ---
 title: Installation
-description: Install NextRush and set up your development environment
+description: Prerequisites, scaffold with create-nextrush, or install the nextrush meta-package by hand
 ---
 
-NextRush requires **Node.js 22** or later. It also works with Bun and Deno.
+NextRush requires **Node.js 22** or later. For Bun or Deno, add the matching adapter package (the
+scaffolder can do this when you pick a runtime).
 
 ## Prerequisites
 
@@ -13,19 +14,74 @@ Before installing NextRush, ensure you have:
 - **A package manager** — pnpm (recommended), npm, yarn, or bun
 
 <Callout type="info" title="Why Node.js 22?">
-  Node.js 22 is the current LTS release. NextRush targets ES2022 and relies on stable ESM support,
-  the built-in fetch API, and performance improvements available in v22+.
+  The framework targets **ES2022**, stable **ESM**, and APIs the docs assume are available on the
+  supported Node line. Use **22.x or newer** so `pnpm create nextrush`, `tsx`, and the Node adapter
+  match what CI and examples run against.
 </Callout>
 
-## Get Started
+## Choose your setup path
+
+Pick one path and stay on it until you have a running server:
+
+<Cards>
+  <Card
+    title="Scaffold a project"
+    description="Fastest path. Generate a ready-to-run app with runtime, middleware, and style presets."
+    href="#scaffold-a-project"
+  />
+  <Card
+    title="Install manually"
+    description="Best if you want to understand each piece and wire the project yourself."
+    href="#install-manually"
+  />
+</Cards>
+
+## Scaffold a project
+
+If you want a working app immediately, use `create-nextrush`.
+
+```bash
+# Interactive
+pnpm create nextrush
+
+# npm
+npm create nextrush
+
+# non-interactive example
+pnpm create nextrush my-api --style functional --middleware api --runtime node
+```
+
+The scaffolder generates a ready-to-run project with routing, middleware, scripts, and optional
+controllers + DI support.
+
+<Callout type="info" title="What the scaffold asks">
+  Project name, style (`functional`, `class-based`, or `full`), middleware preset, runtime target,
+  package manager, dependency install, and git init.
+</Callout>
+
+If you want the full flag reference and template breakdown, see the
+[create-nextrush reference](/docs/getting-started/create-nextrush).
+
+## Install manually
 
 <Steps>
+<Step>
+### Create a project folder
+
+```bash
+mkdir my-api && cd my-api
+pnpm init
+```
+
+Add `"type": "module"` to `package.json` so Node treats `.js` output as ESM (the scaffolder does this for you).
+
+</Step>
 <Step>
 ### Install NextRush
 
 Choose your preferred package manager:
 
-<PackageInstall packages={['nextrush']} />
+<PackageInstall packages={['nextrush']} dev={['tsx', 'typescript', '@types/node']} />
 
 The `nextrush` package is a meta-package that includes the essentials:
 
@@ -40,9 +96,9 @@ The `nextrush` package is a meta-package that includes the essentials:
 <Step>
 ### Verify Installation
 
-Create a simple test file to verify everything is working:
+Create `src/index.ts`:
 
-```typescript title="test.ts"
+```typescript title="src/index.ts"
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
@@ -59,7 +115,7 @@ await listen(app, 3000);
 Run it:
 
 ```bash
-npx tsx test.ts
+npx tsx src/index.ts
 ```
 
 Open `http://localhost:3000` in your browser. You should see:
@@ -79,12 +135,13 @@ NextRush is written in TypeScript and provides full type definitions. For the be
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "rootDir": "src"
   },
   "include": ["src"]
 }
@@ -165,4 +222,9 @@ This is useful when:
 
 ## Next Steps
 
-Now that NextRush is installed, head to the [Quick Start](/docs/getting-started/quick-start) guide to build your first API.
+If you installed by hand, continue to [Quick start](/docs/getting-started/quick-start) for a longer
+manual tour (routing, middleware, JSON bodies).
+
+If you used the scaffold, open the generated `src/index.ts` and run the dev script from the project
+`package.json` (for example `pnpm dev`). For CLI flags and templates, see
+[create-nextrush](/docs/getting-started/create-nextrush).

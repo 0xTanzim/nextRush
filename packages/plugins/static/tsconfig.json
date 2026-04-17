@@ -5,11 +5,6 @@
     "declaration": true,
     "declarationMap": true,
     "composite": false,
-    "paths": {
-      "@nextrush/types": [
-        "../../types/src/index.ts"
-      ]
-    },
     "lib": [
       "ES2022",
       "DOM"

@@ -8,7 +8,8 @@ export const appConfig = {
   twitterHandle: '@nextrush',
   siteUrl: SITE_URL,
   repositoryUrl: 'https://github.com/0xTanzim/nextrush',
-  skillsRepoBaseUrl: 'https://github.com/0xTanzim/nextrush/tree/feat/v3-dev2/.github/skills',
+  /** Canonical folder for Agent Skills source in the repo (`skills/<name>/SKILL.md`). */
+  skillsSourceRootUrl: 'https://github.com/0xTanzim/nextrush/tree/main/skills',
   paths: {
     docs: '/docs',
     llmTxt: '/llm.txt',
