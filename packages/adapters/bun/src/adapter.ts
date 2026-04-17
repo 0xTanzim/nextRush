@@ -246,7 +246,9 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
               return undefined;
             }),
             new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-              timerId = setTimeout(() => resolve(TIMEOUT_SENTINEL), timeout);
+              timerId = setTimeout(() => {
+                resolve(TIMEOUT_SENTINEL);
+              }, timeout);
             }),
           ]);
 
@@ -329,8 +331,9 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes('EADDRINUSE') || msg.includes('address already in use')) {
       throw new Error(
-        `Port ${options.port ?? 3000} is already in use. ` +
-          `Kill the process using that port or choose a different one.`
+        `Port ${String(options.port ?? 3000)} is already in use. ` +
+          `Kill the process using that port or choose a different one.`,
+        { cause: error }
       );
     }
     throw error;
@@ -355,7 +358,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     address: () => ({ port: actualPort, hostname: actualHostname }),
     close: async () => {
       // 1. Stop accepting new connections
-      server.stop();
+      void server.stop();
 
       // 2. Wait for in-flight requests to drain (with timeout)
       if (activeRequests > 0) {
@@ -366,7 +369,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
           new Promise<void>((resolve) =>
             setTimeout(() => {
               // Force-close remaining connections
-              server.stop(true);
+              void server.stop(true);
               resolve();
             }, shutdownTimeout)
           ),
@@ -406,7 +409,7 @@ export function listen(app: Application, port = 3000): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {
-      app.logger.info(`🚀 NextRush listening on http://localhost:${p} (Bun)`);
+      app.logger.info(`🚀 NextRush listening on http://localhost:${String(p)} (Bun)`);
     },
   });
 }

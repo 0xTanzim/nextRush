@@ -93,7 +93,7 @@ export class EdgeBodySource implements BodySource {
 
           totalBytes += value.byteLength;
           if (totalBytes > this.options.limit) {
-            reader.cancel();
+            await reader.cancel();
             throw new BodyTooLargeError(this.options.limit, totalBytes);
           }
           chunks.push(value);
@@ -102,7 +102,10 @@ export class EdgeBodySource implements BodySource {
         reader.releaseLock();
       }
 
-      const buffer = chunks.length === 1 ? chunks[0]! : concatUint8Arrays(chunks, totalBytes);
+      const buffer =
+        chunks.length === 1 && chunks[0] !== undefined
+          ? chunks[0]
+          : concatUint8Arrays(chunks, totalBytes);
       this._cachedBuffer = buffer;
       return buffer;
     }
@@ -181,18 +184,20 @@ export class EmptyBodySource implements BodySource {
   readonly contentLength = 0;
   readonly contentType = undefined;
 
-  async text(): Promise<string> {
-    return '';
+  text(): Promise<string> {
+    return Promise.resolve('');
   }
 
-  async buffer(): Promise<Uint8Array> {
-    return new Uint8Array(0);
+  buffer(): Promise<Uint8Array> {
+    return Promise.resolve(new Uint8Array(0));
   }
 
-  async json<T = unknown>(): Promise<T> {
-    throw new BadRequestError('Request body is empty — cannot parse as JSON', {
-      code: 'EMPTY_BODY_JSON',
-    });
+  json<T = unknown>(): Promise<T> {
+    return Promise.reject(
+      new BadRequestError('Request body is empty — cannot parse as JSON', {
+        code: 'EMPTY_BODY_JSON',
+      })
+    );
   }
 
   stream(): ReadableStream<Uint8Array> {

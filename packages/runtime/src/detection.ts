@@ -49,16 +49,13 @@ export function detectRuntime(): Runtime {
     // Detect it before falling back to generic 'deno' so that
     // consumers can apply edge-specific logic (no filesystem, etc.).
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const denoGlobal = (globalThis as Record<string, unknown>).Deno as Record<string, unknown>;
-      if (
-        typeof denoGlobal?.env === 'object' &&
-        typeof (denoGlobal.env as Record<string, unknown>).get === 'function'
-      ) {
-        const deployId = (denoGlobal.env as { get(key: string): string | undefined }).get(
-          'DENO_DEPLOYMENT_ID'
-        );
-        if (deployId) return 'deno-deploy';
+      const denoGlobal = (globalThis as Record<string, unknown>).Deno;
+      if (typeof denoGlobal === 'object' && denoGlobal !== null && 'env' in denoGlobal) {
+        const env = denoGlobal.env as { get?: (key: string) => string | undefined };
+        if (typeof env.get === 'function') {
+          const deployId = env.get('DENO_DEPLOYMENT_ID');
+          if (deployId) return 'deno-deploy';
+        }
       }
     } catch {
       // Env access may throw in sandboxed contexts — fall through to 'deno'
@@ -129,9 +126,7 @@ let cachedRuntime: Runtime | undefined;
  * ```
  */
 export function getRuntime(): Runtime {
-  if (cachedRuntime === undefined) {
-    cachedRuntime = detectRuntime();
-  }
+  cachedRuntime ??= detectRuntime();
   return cachedRuntime;
 }
 
@@ -155,16 +150,19 @@ export function getRuntimeVersion(): string | undefined {
 
   switch (runtime) {
     case 'node':
-      return typeof process !== 'undefined' ? process.versions?.node : undefined;
+      return typeof process !== 'undefined' ? process.versions.node : undefined;
 
-    case 'bun':
-      // @ts-expect-error - Bun global is not typed in Node.js
-      return typeof Bun !== 'undefined' ? Bun.version : undefined;
+    case 'bun': {
+      const bun = (globalThis as unknown as Record<string, { version: string } | undefined>).Bun;
+      return typeof bun !== 'undefined' ? bun.version : undefined;
+    }
 
     case 'deno':
-    case 'deno-deploy':
-      // @ts-expect-error - Deno global is not typed in Node.js
-      return typeof Deno !== 'undefined' ? Deno.version?.deno : undefined;
+    case 'deno-deploy': {
+      const deno = (globalThis as unknown as Record<string, { version: { deno: string } } | undefined>)
+        .Deno;
+      return typeof deno !== 'undefined' ? deno.version.deno : undefined;
+    }
 
     default:
       return undefined;

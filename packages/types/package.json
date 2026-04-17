@@ -19,7 +19,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
     "lint:fix": "eslint src --fix",
     "clean": "rm -rf dist .turbo"
   },

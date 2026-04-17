@@ -16,6 +16,7 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
+    "verify": "turbo run build test typecheck lint",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "clean:modules": "bash scripts/clean-modules.sh",
     "update:all": "bash scripts/update-all.sh",

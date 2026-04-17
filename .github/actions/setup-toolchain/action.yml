@@ -1,0 +1,27 @@
+name: Toolchain
+description: pnpm (from packageManager), Node 22, frozen install; optional npm registry for publish jobs
+inputs:
+  registry-url:
+    description: Optional npm registry URL (e.g. https://registry.npmjs.org for changesets publish)
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+
+    - uses: actions/setup-node@v4
+      if: ${{ inputs.registry-url == '' }}
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - uses: actions/setup-node@v4
+      if: ${{ inputs.registry-url != '' }}
+      with:
+        node-version: 22
+        cache: pnpm
+        registry-url: ${{ inputs.registry-url }}
+
+    - run: pnpm install --frozen-lockfile
+      shell: bash

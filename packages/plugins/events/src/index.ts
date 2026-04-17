@@ -225,6 +225,6 @@ export { DEFAULT_EMITTER_OPTIONS, MAX_EVENT_NAME_LENGTH, VALID_PROPERTY_NAME } f
  * }
  * ```
  */
-export type WithEvents<T extends EventMap = EventMap> = {
+export interface WithEvents<T extends EventMap = EventMap> {
   events: EventEmitter<T>;
-};
+}

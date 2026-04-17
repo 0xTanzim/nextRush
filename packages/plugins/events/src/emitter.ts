@@ -6,13 +6,13 @@
  */
 
 import type {
-  EventEmitterOptions,
-  EventHandler,
-  EventMap,
-  EventNames,
-  HandlerEntry,
-  TypedEventEmitter,
-  Unsubscribe,
+    EventEmitterOptions,
+    EventHandler,
+    EventMap,
+    EventNames,
+    HandlerEntry,
+    TypedEventEmitter,
+    Unsubscribe,
 } from './types';
 import { DEFAULT_EMITTER_OPTIONS, MAX_EVENT_NAME_LENGTH } from './types';
 
@@ -50,7 +50,7 @@ const WILDCARD = '*';
  * ```
  */
 export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEmitter<T> {
-  private readonly handlers = new Map<string, Set<HandlerEntry<unknown>>>();
+  private readonly handlers = new Map<string, Set<HandlerEntry>>();
   private options: Required<Omit<EventEmitterOptions, 'onError'>> & {
     onError?: EventEmitterOptions['onError'];
   };
@@ -73,7 +73,7 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
     }
     if (event.length > MAX_EVENT_NAME_LENGTH) {
       throw new RangeError(
-        `Event name exceeds maximum length of ${MAX_EVENT_NAME_LENGTH} characters`
+        `Event name exceeds maximum length of ${String(MAX_EVENT_NAME_LENGTH)} characters`
       );
     }
   }
@@ -189,11 +189,11 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
     const errors: Error[] = [];
 
     // Collect handlers to execute (snapshot to handle modifications during iteration)
-    const handlersToExecute: Array<{
+    const handlersToExecute: {
       eventKey: string;
-      entry: HandlerEntry<unknown>;
+      entry: HandlerEntry;
       payload: unknown;
-    }> = [];
+    }[] = [];
 
     // Direct event handlers
     const directHandlers = this.handlers.get(event);
@@ -257,7 +257,10 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
 
     // Throw AggregateError if errorIsolation is false and there were errors
     if (!this.options.errorIsolation && errors.length > 0) {
-      throw new AggregateError(errors, `${errors.length} handler(s) failed for event '${event}'`);
+      throw new AggregateError(
+        errors,
+        `${String(errors.length)} handler(s) failed for event '${event}'`
+      );
     }
   }
 
@@ -369,21 +372,21 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
 
     if (prepend) {
       // Create new Set with entry first, then existing handlers
-      const newHandlers = new Set<HandlerEntry<unknown>>();
-      newHandlers.add(entry as HandlerEntry<unknown>);
+      const newHandlers = new Set<HandlerEntry>();
+      newHandlers.add(entry as HandlerEntry);
       for (const existing of handlers) {
         newHandlers.add(existing);
       }
       this.handlers.set(event, newHandlers);
       handlers = newHandlers;
     } else {
-      handlers.add(entry as HandlerEntry<unknown>);
+      handlers.add(entry as HandlerEntry);
     }
 
     // Memory leak warning
     if (this.options.maxListeners > 0 && handlers.size > this.options.maxListeners) {
       console.warn(
-        `[nextrush/events] Warning: Event '${event}' has ${handlers.size} listeners. ` +
+        `[nextrush/events] Warning: Event '${event}' has ${String(handlers.size)} listeners. ` +
           `This might indicate a memory leak. ` +
           `Use { maxListeners: 0 } to disable this warning.`
       );
@@ -392,7 +395,7 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
     return () => {
       const currentHandlers = this.handlers.get(event);
       if (currentHandlers) {
-        currentHandlers.delete(entry as HandlerEntry<unknown>);
+        currentHandlers.delete(entry as HandlerEntry);
         if (currentHandlers.size === 0) {
           this.handlers.delete(event);
         }
@@ -402,7 +405,7 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
 
   private async executeHandler(
     event: string,
-    entry: HandlerEntry<unknown>,
+    entry: HandlerEntry,
     data: unknown,
     errors: Error[]
   ): Promise<void> {
@@ -418,7 +421,7 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
           } catch {
             // Ignore errors in error handler to prevent infinite loops
           }
-        } else if (typeof process === 'undefined' || process.env?.['NODE_ENV'] !== 'test') {
+        } else if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
           console.error(`[nextrush/events] Handler error for '${event}':`, err);
         }
       } else {

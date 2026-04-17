@@ -22,42 +22,22 @@ permissions:
 
 jobs:
   release:
-    name: Release
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          node-version: 22
-          cache: "pnpm"
-          registry-url: "https://registry.npmjs.org"
+          registry-url: https://registry.npmjs.org
 
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Cache Turborepo local artifacts
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
-            ${{ runner.os }}-turbo-
-
-      - name: Create Release Pull Request or Publish
+      - uses: changesets/action@v1
         id: changesets
-        uses: changesets/action@v1
         with:
           publish: pnpm release
           version: pnpm run version
@@ -68,8 +48,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Release Notification
+      - name: Release notification
         if: steps.changesets.outputs.published == 'true'
         run: |
-          echo "🚀 Packages published!"
+          echo "Packages published."
           echo '${{ steps.changesets.outputs.publishedPackages }}' | jq '.'

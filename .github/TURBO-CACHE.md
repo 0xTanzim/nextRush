@@ -22,7 +22,7 @@ Add to the repository:
 | Secret    | `TURBO_TOKEN` | Vercel token from step 2                   |
 | Variable  | `TURBO_TEAM`  | Team slug (not a secret; avoids log masking) |
 
-If `TURBO_TOKEN` or `TURBO_TEAM` is missing, workflows still pass; Turborepo only uses the local `.turbo` directory on the runner (plus the `actions/cache` step for `.turbo`).
+If `TURBO_TOKEN` or `TURBO_TEAM` is missing, workflows still pass; Turborepo uses the runner’s local `.turbo/` directory only. Configure `TURBO_TOKEN` / `TURBO_TEAM` so CI can share remote cache with your machine.
 
 ### Local development
 

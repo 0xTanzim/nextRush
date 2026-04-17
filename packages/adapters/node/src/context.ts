@@ -10,18 +10,18 @@
 import { HttpError } from '@nextrush/errors';
 import { getRuntime, METHODS_WITHOUT_BODY } from '@nextrush/runtime';
 import type {
-  BodySource,
-  Context,
-  ContextState,
-  HttpMethod,
-  IncomingHeaders,
-  NodeStreamLike,
-  QueryParams,
-  RawHttp,
-  ResponseBody,
-  RouteParams,
-  Runtime,
-  WebStreamLike,
+    BodySource,
+    Context,
+    ContextState,
+    HttpMethod,
+    IncomingHeaders,
+    NodeStreamLike,
+    QueryParams,
+    RawHttp,
+    ResponseBody,
+    RouteParams,
+    Runtime,
+    WebStreamLike,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
@@ -112,7 +112,7 @@ export class NodeContext implements Context {
     }
 
     // Fall back to socket remote address
-    return req.socket?.remoteAddress ?? '';
+    return req.socket.remoteAddress ?? '';
   }
 
   /**
@@ -255,7 +255,7 @@ export class NodeContext implements Context {
       const reader = (data as ReadableStream<Uint8Array>).getReader();
       // Clean up reader on client disconnect
       res.on('close', () => {
-        reader.cancel().catch(() => {});
+        void reader.cancel().catch((): undefined => undefined);
       });
       const pump = async (): Promise<void> => {
         for (;;) {
@@ -269,13 +269,13 @@ export class NodeContext implements Context {
           }
         }
       };
-      pump().catch((err: Error) => {
+      pump().catch((err: unknown) => {
         if (!res.headersSent) {
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ error: 'Internal Server Error' }));
         } else {
-          res.destroy(err);
+          res.destroy(err instanceof Error ? err : new Error(String(err)));
         }
       });
       return;

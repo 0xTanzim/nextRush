@@ -178,7 +178,9 @@ export function createHandler(
             return undefined;
           }),
           new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-            timerId = setTimeout(() => resolve(TIMEOUT_SENTINEL), timeout);
+            timerId = setTimeout(() => {
+              resolve(TIMEOUT_SENTINEL);
+            }, timeout);
           }),
         ]);
 
@@ -334,7 +336,7 @@ export function listen(app: Application, port = 3000): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {
-      app.logger.info(`🚀 NextRush listening on http://localhost:${p} (Deno)`);
+      app.logger.info(`🚀 NextRush listening on http://localhost:${String(p)} (Deno)`);
     },
   });
 }

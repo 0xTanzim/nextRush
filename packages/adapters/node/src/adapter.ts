@@ -110,7 +110,7 @@ export function createHandler(
           }
         }
       },
-      (error: Error) => {
+      (error: unknown) => {
         // Error handling
         logger.error('Request error:', error);
 
@@ -243,7 +243,7 @@ export async function listen(app: Application, port = 3000): Promise<ServerInsta
   return serve(app, {
     port,
     onListen: ({ port: p }) => {
-      app.logger.info(`🚀 NextRush listening on http://localhost:${p}`);
+      app.logger.info(`🚀 NextRush listening on http://localhost:${String(p)}`);
     },
   });
 }

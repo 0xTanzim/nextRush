@@ -10,22 +10,22 @@
  */
 
 import {
-  HTTP_METHODS,
-  type Context,
-  type HttpMethod,
-  type Middleware,
-  type RouteHandler,
-  type RouteMatch,
-  type RouterOptions,
+    HTTP_METHODS,
+    type Context,
+    type HttpMethod,
+    type Middleware,
+    type RouteHandler,
+    type RouteMatch,
+    type RouterOptions,
 } from '@nextrush/types';
 import {
-  compileExecutor,
-  createNode,
-  NodeType,
-  NOOP_NEXT,
-  parseSegments,
-  type HandlerEntry,
-  type RadixNode,
+    compileExecutor,
+    createNode,
+    NodeType,
+    NOOP_NEXT,
+    parseSegments,
+    type HandlerEntry,
+    type RadixNode,
 } from './radix-tree';
 
 /** Frozen empty params for static routes — avoids allocation per request */
@@ -121,21 +121,18 @@ export class Router {
         } else if (node.paramChild.paramName !== seg.paramName) {
           // Warn about param name collision — same position, different names
           // This helps catch accidental mismatches like :id vs :userId
-          if (typeof process !== 'undefined' && process.env?.['NODE_ENV'] !== 'production') {
+          if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
             const existing = node.paramChild.paramName;
-            // eslint-disable-next-line no-console
             console.warn(
               `[nextrush:router] Route param name conflict at "${normalized}": ` +
-                `":${seg.paramName}" conflicts with existing ":${existing}". ` +
-                `The existing name ":${existing}" will be used.`
+                `":${String(seg.paramName)}" conflicts with existing ":${String(existing)}". ` +
+                `The existing name ":${String(existing)}" will be used.`
             );
           }
         }
         node = node.paramChild;
       } else if (seg.type === NodeType.WILDCARD) {
-        if (!node.wildcardChild) {
-          node.wildcardChild = createNode('*', NodeType.WILDCARD);
-        }
+        node.wildcardChild ??= createNode('*', NodeType.WILDCARD);
         node = node.wildcardChild;
         break; // Wildcard must be last
       } else {
@@ -161,7 +158,7 @@ export class Router {
 
     // Add inline middleware (handlers before the last one)
     for (const mw of inlineMiddleware) {
-      combinedMiddleware.push(mw as Middleware);
+      combinedMiddleware.push(mw);
     }
 
     // Pre-compile executor at registration time (not per-request!)
@@ -325,11 +322,19 @@ export class Router {
         // Fast path: build from precompiled template
         const params = ctx.params;
         const parts = compiledParts;
-        let result = parts[0]!; // first literal
-        for (let i = 1; i < parts.length - 1; i += 2) {
-          result += (params[parts[i]!] ?? '') + (parts[i + 1] ?? '');
+        const head = parts[0];
+        if (head === undefined) {
+          targetPath = to;
+        } else {
+          let result = head;
+          for (let i = 1; i < parts.length - 1; i += 2) {
+            const paramKey = parts[i];
+            const tail = parts[i + 1];
+            if (paramKey === undefined || tail === undefined) break;
+            result += (params[paramKey] ?? '') + tail;
+          }
+          targetPath = result;
         }
-        targetPath = result;
       } else {
         targetPath = to;
       }
@@ -533,9 +538,9 @@ export class Router {
 
     // Check if any params were actually set
     let hasParams = false;
-    for (const key in params) {
+    for (const key of Object.keys(params)) {
       if (params[key] === undefined) {
-        delete params[key];
+        Reflect.deleteProperty(params, key);
       } else {
         hasParams = true;
       }
@@ -596,7 +601,8 @@ export class Router {
 
     // Try parameter match — use original-case segment for param value
     if (node.paramChild) {
-      const paramName = node.paramChild.paramName!;
+      const paramName = node.paramChild.paramName;
+      if (paramName === undefined) return null;
       if (originalPath) {
         const [origSeg] = this.extractSegment(originalPath, pos);
         params[paramName] = origSeg;
@@ -612,7 +618,7 @@ export class Router {
         originalPath
       );
       if (result) return result;
-      params[paramName] = undefined as unknown as string;
+      Reflect.deleteProperty(params, paramName);
     }
 
     // Try wildcard match (catches remaining path) — use original-case path
@@ -647,7 +653,7 @@ export class Router {
     }
 
     return async (ctx: Context, next?: () => Promise<void>): Promise<void> => {
-      const match = this.match(ctx.method as HttpMethod, ctx.path);
+      const match = this.match(ctx.method, ctx.path);
 
       if (!match) {
         // No route matched — set 404 so allowedMethods() and notFoundHandler() can act
@@ -955,7 +961,7 @@ class GroupRouter {
     const redirectHandler: RouteHandler = (ctx: Context) => {
       let targetPath = to;
 
-      if (ctx.params && targetPath.includes(':')) {
+      if (targetPath.includes(':')) {
         const entries = Object.entries(ctx.params).sort((a, b) => b[0].length - a[0].length);
         for (const [key, value] of entries) {
           targetPath = targetPath.replaceAll(`:${key}`, value);

@@ -17,6 +17,22 @@ import { Readable, Transform } from 'node:stream';
  */
 const DEFAULT_BODY_LIMIT = 1024 * 1024;
 
+function chunkToBuffer(raw: unknown): Buffer {
+  if (Buffer.isBuffer(raw)) {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    return Buffer.from(raw, 'utf8');
+  }
+  if (raw instanceof Uint8Array) {
+    return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+  }
+  if (raw instanceof ArrayBuffer) {
+    return Buffer.from(raw);
+  }
+  throw new TypeError('Unexpected body chunk type');
+}
+
 /**
  * Node.js BodySource implementation
  *
@@ -63,9 +79,9 @@ export class NodeBodySource implements BodySource {
       this.contentLength = undefined;
     }
 
-    // Get content-type header
-    const contentTypeHeader = req.headers['content-type'];
-    this.contentType = Array.isArray(contentTypeHeader) ? contentTypeHeader[0] : contentTypeHeader;
+    // Get content-type header (`IncomingHttpHeaders` exposes this as a single string)
+    const rawContentType = req.headers['content-type'];
+    this.contentType = typeof rawContentType === 'string' ? rawContentType : undefined;
 
     this.options = {
       limit: options.limit ?? DEFAULT_BODY_LIMIT,
@@ -98,7 +114,8 @@ export class NodeBodySource implements BodySource {
     const chunks: Buffer[] = [];
     let totalLength = 0;
 
-    for await (const chunk of this.req) {
+    for await (const rawChunk of this.req) {
+      const chunk = chunkToBuffer(rawChunk);
       totalLength += chunk.length;
 
       // Check limit during streaming
@@ -180,18 +197,20 @@ class EmptyBodySource implements BodySource {
   readonly contentLength = 0;
   readonly contentType = undefined;
 
-  async text(): Promise<string> {
-    return '';
+  text(): Promise<string> {
+    return Promise.resolve('');
   }
 
-  async buffer(): Promise<Uint8Array> {
-    return EMPTY_BUFFER;
+  buffer(): Promise<Uint8Array> {
+    return Promise.resolve(EMPTY_BUFFER);
   }
 
-  async json<T = unknown>(): Promise<T> {
-    throw new BadRequestError('Request body is empty — cannot parse as JSON', {
-      code: 'EMPTY_BODY_JSON',
-    });
+  json<T = unknown>(): Promise<T> {
+    return Promise.reject(
+      new BadRequestError('Request body is empty — cannot parse as JSON', {
+        code: 'EMPTY_BODY_JSON',
+      })
+    );
   }
 
   stream(): NodeStreamLike | WebStreamLike {

@@ -80,7 +80,8 @@ export function compileExecutor(
 
   // FAST PATH: Single middleware
   if (len === 1) {
-    const mw = middleware[0]!;
+    const mw = middleware[0];
+    if (mw === undefined) throw new Error('middleware length mismatch');
     return async (ctx: Context) => {
       await mw(ctx, async () => {
         await handler(ctx, NOOP_NEXT);
@@ -90,8 +91,9 @@ export function compileExecutor(
 
   // FAST PATH: Two middleware (very common)
   if (len === 2) {
-    const mw0 = middleware[0]!;
-    const mw1 = middleware[1]!;
+    const mw0 = middleware[0];
+    const mw1 = middleware[1];
+    if (mw0 === undefined || mw1 === undefined) throw new Error('middleware length mismatch');
     return async (ctx: Context) => {
       await mw0(ctx, async () => {
         await mw1(ctx, async () => {
@@ -108,7 +110,8 @@ export function compileExecutor(
 
     const dispatch = async (): Promise<void> => {
       if (index < len) {
-        const mw = middleware[index++]!;
+        const mw = middleware[index++];
+        if (mw === undefined) throw new Error('middleware length mismatch');
         await mw(ctx, dispatch);
       } else {
         await handler(ctx, NOOP_NEXT);
