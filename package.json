@@ -28,7 +28,6 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "turbo run build && changeset publish --provenance",
-    "prepare": "turbo run build",
     "create": "node packages/create-nextrush/bin/create-nextrush.js"
   },
   "devDependencies": {

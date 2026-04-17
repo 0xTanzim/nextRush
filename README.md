@@ -246,7 +246,7 @@ npx nextrush g route product            # Functional route
 ## Development
 
 ```bash
-# Install dependencies
+# Install dependencies (does not run a full compile — use build/verify when you need artifacts)
 pnpm install
 
 # Build all packages

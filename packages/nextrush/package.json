@@ -77,6 +77,10 @@
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
+    "@nextrush/body-parser": "workspace:*",
+    "@nextrush/compression": "workspace:*",
+    "@nextrush/cors": "workspace:*",
+    "@nextrush/helmet": "workspace:*",
     "tsup": "^8.5.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"

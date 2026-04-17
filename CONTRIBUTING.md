@@ -15,7 +15,7 @@ Thank you for your interest in contributing to NextRush! This guide covers the e
 git clone https://github.com/0xTanzim/nextrush.git
 cd nextrush
 
-# Install dependencies
+# Install dependencies (no automatic full build — run build when you need compiled packages)
 pnpm install
 
 # Build all packages
