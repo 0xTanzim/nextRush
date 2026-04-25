@@ -28,6 +28,7 @@
       "outputs": ["coverage/**"]
     },
     "lint": {
+      "dependsOn": ["^build"],
       "outputs": [],
       "inputs": ["src/**/*.ts", "*.ts", "*.js"]
     },

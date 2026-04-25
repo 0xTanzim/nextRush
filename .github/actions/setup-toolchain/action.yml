@@ -4,20 +4,13 @@ inputs:
   registry-url:
     description: Optional npm registry URL (e.g. https://registry.npmjs.org for changesets publish)
     required: false
-    default: ''
+    default: ""
 runs:
   using: composite
   steps:
     - uses: pnpm/action-setup@v4
 
     - uses: actions/setup-node@v4
-      if: ${{ inputs.registry-url == '' }}
-      with:
-        node-version: 22
-        cache: pnpm
-
-    - uses: actions/setup-node@v4
-      if: ${{ inputs.registry-url != '' }}
       with:
         node-version: 22
         cache: pnpm
