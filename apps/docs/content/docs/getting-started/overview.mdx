@@ -21,10 +21,10 @@ Core packages stay dependency-free; you add `@nextrush/*` middleware and plugins
 </Callout>
 
 <DocStatStrip>
-  <DocStat label="RPS target" value="35k+" hint="Hello-world class routes" />
+  <DocStat label="Benchmarks" value="Reproducible" hint="Lab setup — your numbers will differ" />
   <DocStat label="Core size" value="< 3k" hint="Lines of code" />
   <DocStat label="Packages" value="30" hint="Monorepo" />
-  <DocStat label="Cold start" value="< 30ms" hint="Typical target" />
+  <DocStat label="Runtimes" value="4" hint="Node, Bun, Deno, Edge" />
 </DocStatStrip>
 
 ## Pick a path
@@ -490,21 +490,19 @@ Use functions for small services; add controllers and DI when the API grows. Bot
   Use functional routes for health checks and class controllers for domain APIs in the same app — no forced migration path.
 </Callout>
 
-## Performance targets
+## Design constraints
 
 <DocTableWrap>
 
-| Metric | Target |
+| Area | Constraint |
 | --- | --- |
-| Requests per second | **35,000+** design target — methodology and hardware notes on [Benchmarks](/docs/performance) |
+| Throughput | No universal RPS figure — use [Benchmarks](/docs/performance) on your CPU, Node version, and tooling |
 | Core lines of code | &lt; 3,000 |
-| Cold start | &lt; 30ms |
-| Memory (idle) | &lt; 200KB |
 | Runtime dependencies | 0 in core; `reflect-metadata` for DI via the meta-package |
 
 </DocTableWrap>
 
-Segment trie routing, pre-compiled middleware composition, and avoiding extra allocations on the request path keep overhead low.
+Segment trie routing, pre-compiled middleware composition, and avoiding extra allocations on the request path keep overhead low. Cold-start and idle memory depend on process and OS — measure in your environment if those drive your product.
 
 [Full benchmarks →](/docs/performance)
 

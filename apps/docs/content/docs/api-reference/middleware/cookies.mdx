@@ -43,7 +43,7 @@ app.use(async (ctx) => {
 
 ## Default Behavior
 
-With zero configuration, `cookies()` applies these defaults to every cookie you set:
+With default options, `cookies()` applies these defaults to every cookie you set:
 
 - `httpOnly: true` — blocks JavaScript access via `document.cookie`
 - `sameSite: 'lax'` — prevents CSRF on cross-origin POST requests

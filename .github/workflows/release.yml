@@ -23,9 +23,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,6 +48,8 @@ jobs:
 
       - name: Release notification
         if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         run: |
           echo "Packages published."
-          echo '${{ steps.changesets.outputs.publishedPackages }}' | jq '.'
+          node -e "const j = JSON.parse(process.env.PUBLISHED_PACKAGES || '[]'); console.log(JSON.stringify(j, null, 2));"

@@ -42,14 +42,14 @@ You end up choosing: slow tsc builds or broken DI.
 | Multi-runtime      | Node.js, Bun, Deno                |
 | Decorator metadata | Always emitted for DI             |
 | Fast builds        | SWC-powered compilation           |
-| Zero config        | Works out of the box              |
+| Sensible defaults  | Works out of the box              |
 
 ## Mental Model
 
 Think of `@nextrush/dev` as a **smart wrapper** that:
 
 1. **Detects** which runtime you're using
-2. **Chooses** the best tool for that runtime
+2. **Selects** the appropriate tool for that runtime
 3. **Ensures** decorator metadata is always emitted
 
 <Mermaid chart="

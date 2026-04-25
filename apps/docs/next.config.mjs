@@ -2,7 +2,13 @@ import { createMDX } from 'fumadocs-mdx/next';
 
 const withMDX = createMDX();
 
-/** @type {import('next').NextConfig} */
+/**
+ * Static HTML export → `out/` (no Node server). Deploy to any static host, or Vercel with
+ * “Output Directory” = `out` and framework preset “Other” / static. For SSR or `next start`,
+ * remove `output: 'export'` and adjust Fumadocs/Next accordingly.
+ *
+ * @type {import('next').NextConfig}
+ */
 const config = {
   output: 'export',
   reactStrictMode: true,

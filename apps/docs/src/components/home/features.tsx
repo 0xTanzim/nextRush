@@ -3,9 +3,9 @@ import { Globe, Lock, Package, Puzzle, Shield, Zap } from 'lucide-react';
 const features = [
   {
     icon: Zap,
-    title: 'High Performance',
+    title: 'Lean request path',
     description:
-      '35,000+ requests per second target on hello-world class routes (radix tree routing; hardware varies).',
+      'Segment-trie routing and a small core. Measure throughput on your machine — see the Benchmarks docs for methodology.',
     colorVar: '--warning',
   },
   {
@@ -30,7 +30,7 @@ const features = [
   {
     icon: Puzzle,
     title: 'Plugin System',
-    description: 'Extend with ease. Controllers, WebSocket, static files — all via plugins.',
+    description: 'Controllers, WebSocket, static files, and more register through the plugin interface.',
     colorVar: '--rush-green',
   },
   {
@@ -48,12 +48,9 @@ export function Features() {
       <hr className="section-divider absolute top-0 left-0 right-0" />
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Everything you need. Nothing you don&apos;t.
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">What you get</h2>
           <p className="text-lg text-fd-muted-foreground max-w-2xl mx-auto">
-            NextRush is designed for developers who value clarity over magic. Every feature earns
-            its place.
+            Explicit wiring, readable request flow, and packages you enable only when you need them.
           </p>
         </div>
 

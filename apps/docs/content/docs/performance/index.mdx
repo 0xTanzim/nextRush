@@ -3,27 +3,67 @@ title: Benchmarks
 description: Transparent, reproducible benchmarks — framework comparisons and deep performance profiling.
 ---
 
-NextRush is fast, but we don't hide behind vague claims. Every number on this page comes from automated benchmark runs you can reproduce yourself.
+All figures below come from **one lab setup** (CPU, OS, Node, tool versions). Absolute RPS on your hardware will differ; use the same scripts for **relative** comparisons. In production, databases and external calls usually dominate latency — not the framework.
 
-<Callout type="warn" title="Benchmarks Are Context">
-  In production, database queries, external APIs, and business logic dominate response time — not
-  framework overhead. Use these numbers to understand **relative** performance, not absolute
-  capacity.
+<Callout type="warn" title="How to read this page">
+  Published RPS are snapshots, not guarantees. Run `apps/benchmark` locally when you need numbers for capacity planning.
 </Callout>
 
 ## At a Glance
 
-| Metric               | Result                                                            |
-| -------------------- | ----------------------------------------------------------------- |
-| Hello World          | **43,268 RPS** (autocannon) · **29,935 RPS** (wrk, no pipelining) |
-| vs Express           | **68.5% faster**                                                  |
-| vs Hono              | **15.9% faster**                                                  |
-| vs Koa               | **18.3% faster**                                                  |
-| vs Fastify           | 11.8% slower                                                      |
-| Core LOC             | < 3,000                                                           |
-| Cold start           | < 30ms                                                            |
-| Memory (idle)        | < 200KB                                                           |
-| Runtime dependencies | 0 (core); `reflect-metadata` auto-imported for DI                 |
+<BenchmarkCardGrid
+  items={[
+    {
+      label: 'Hello World',
+      value: '43,268 RPS',
+      detail: 'autocannon baseline with 100 connections and HTTP pipelining',
+    },
+    {
+      label: 'wrk baseline',
+      value: '29,935 RPS',
+      detail: 'no pipelining, 60-second runs, five iterations per profile',
+    },
+    {
+      label: 'Cold start',
+      value: 'Host-specific',
+      detail: 'Process start time varies by machine, imports, and adapter — measure your deploy target',
+    },
+    {
+      label: 'Core size',
+      value: '<3,000 LOC',
+      detail: 'kept intentionally small so you can audit the request path quickly',
+    },
+  ]}
+/>
+
+<BenchmarkBars
+  title="Mean RPS difference vs other frameworks"
+  description="Percent gap between NextRush and each framework’s mean RPS in this lab run (not a guarantee on other hardware)."
+  suffix="%"
+  legend="NextRush mean RPS higher than the listed framework"
+  items={[
+    {
+      label: 'vs Express',
+      value: 68.5,
+      detail: 'Largest spread in this suite.',
+      accent: 'green',
+    },
+    {
+      label: 'vs Koa',
+      value: 18.3,
+      detail: 'Same onion-style middleware; numbers are from this Node adapter setup.',
+      accent: 'cyan',
+    },
+    {
+      label: 'vs Hono',
+      value: 15.9,
+      detail: 'Compared through each project’s Node.js HTTP entry in the benchmark harness.',
+      accent: 'blue',
+    },
+  ]}
+/>
+
+Fastify recorded **higher** mean RPS than NextRush in this same run (see tables below). That comparison does not fit the bar chart above because the direction flips.
 
 ---
 
@@ -36,34 +76,34 @@ Head-to-head comparison against popular Node.js frameworks using identical test 
 <Tabs items={['System', 'Frameworks', 'Configuration']}>
   <Tab value="System">
 
-| Property   | Value                         |
-| ---------- | ----------------------------- |
-| **Node.js** | v25.1.0                       |
+| Property     | Value                         |
+| ------------ | ----------------------------- |
+| **Node.js**  | v25.1.0                       |
 | **Platform** | Linux (x64)                   |
-| **CPU**    | Intel Core i5-8300H @ 2.30GHz |
-| **Cores**  | 8                             |
-| **Memory** | 15GB                          |
+| **CPU**      | Intel Core i5-8300H @ 2.30GHz |
+| **Cores**    | 8                             |
+| **Memory**   | 15GB                          |
 
   </Tab>
   <Tab value="Frameworks">
 
-| Framework        | Version                          |
-| ---------------- | -------------------------------- |
-| **NextRush v3**  | 3.0.0-alpha.2                    |
-| **Express**      | 5.2.x                            |
-| **Fastify**      | 5.7.x                            |
-| **Hono**         | 4.12.x (via `@hono/node-server`) |
-| **Koa**          | 3.1.x (with `koa-router`)        |
+| Framework       | Version                          |
+| --------------- | -------------------------------- |
+| **NextRush v3** | 3.0.0-alpha.2                    |
+| **Express**     | 5.2.x                            |
+| **Fastify**     | 5.7.x                            |
+| **Hono**        | 4.12.x (via `@hono/node-server`) |
+| **Koa**         | 3.1.x (with `koa-router`)        |
 
   </Tab>
   <Tab value="Configuration">
 
-| Setting          | Value                                                |
-| ---------------- | ---------------------------------------------------- |
-| **Tool**         | [autocannon](https://github.com/mcollina/autocannon) v8 |
-| **Duration**     | 10 seconds per test                                  |
-| **Connections**  | 100 concurrent                                       |
-| **Pipelining**   | 10 requests                                          |
+| Setting         | Value                                                   |
+| --------------- | ------------------------------------------------------- |
+| **Tool**        | [autocannon](https://github.com/mcollina/autocannon) v8 |
+| **Duration**    | 10 seconds per test                                     |
+| **Connections** | 100 concurrent                                          |
+| **Pipelining**  | 10 requests                                             |
 
   </Tab>
 </Tabs>
@@ -72,17 +112,22 @@ Head-to-head comparison against popular Node.js frameworks using identical test 
 
 Average requests per second across all test scenarios:
 
-| Rank | Framework       | Avg RPS    | vs NextRush |
-| ---- | --------------- | ---------- | ----------- |
-| 🥇   | Fastify         | **40,084** | +13.3%      |
-| 🥈   | **NextRush v3** | **35,370** | —           |
-| 🥉   | Hono            | 30,525     | −13.7%      |
-| 4    | Koa             | 29,889     | −15.5%      |
-| 5    | Express         | 20,987     | −40.7%      |
+<BenchmarkBars
+  title="Average RPS by Framework"
+  description="Mean throughput across the benchmark scenarios."
+  items={[
+    { label: 'Fastify', value: 40084, detail: '+13.3% vs NextRush', accent: 'green' },
+    { label: 'NextRush v3', value: 35370, detail: 'Second by mean RPS in this run.', accent: 'blue' },
+    { label: 'Hono', value: 30525, detail: '-13.7% vs NextRush', accent: 'cyan' },
+    { label: 'Koa', value: 29889, detail: '-15.5% vs NextRush', accent: 'purple' },
+    { label: 'Express', value: 20987, detail: '-40.7% vs NextRush', accent: 'muted' },
+  ]}
+/>
 
-<Callout type="info" title="Key takeaways">
-  NextRush is **68.5% faster** than Express, **15.9% faster** than Hono, and **18.3% faster** than
-  Koa. Fastify is **13.3% faster** than NextRush here (AOT JSON via `fast-json-stringify`).
+<Callout type="info" title="Key takeaways (this run only)">
+  On the lab setup above, mean RPS was higher than Express, Hono, and Koa, and lower than Fastify
+  (which uses AOT JSON via `fast-json-stringify`). Re-run `apps/benchmark` on your hardware before
+  comparing frameworks for your workload.
 </Callout>
 
 ### Detailed Scenarios
@@ -94,6 +139,17 @@ Average requests per second across all test scenarios:
     ```typescript
     app.get('/', (ctx) => ctx.json({ message: 'Hello World' }));
     ```
+
+    <BenchmarkBars
+      title="Hello World Throughput"
+      items={[
+        { label: 'Fastify', value: 48045, detail: '15ms p50, 37ms p99', accent: 'green' },
+        { label: 'NextRush v3', value: 43268, detail: '16ms p50, 43ms p99', accent: 'blue' },
+        { label: 'Hono', value: 37476, detail: '19ms p50, 48ms p99', accent: 'cyan' },
+        { label: 'Koa', value: 34683, detail: '20ms p50, 56ms p99', accent: 'purple' },
+        { label: 'Express', value: 23739, detail: '50ms p50, 69ms p99', accent: 'muted' },
+      ]}
+    />
 
     | Framework       | RPS        | Latency p50 | Latency p99 |
     | --------------- | ---------- | ----------- | ----------- |
@@ -112,6 +168,17 @@ Average requests per second across all test scenarios:
     app.get('/users/:id', (ctx) => ctx.json({ id: ctx.params.id }));
     ```
 
+    <BenchmarkBars
+      title="Route Parameter Throughput"
+      items={[
+        { label: 'Fastify', value: 45852, detail: '15ms p50, 37ms p99', accent: 'green' },
+        { label: 'NextRush v3', value: 38983, detail: '19ms p50, 45ms p99', accent: 'blue' },
+        { label: 'Hono', value: 35144, detail: '20ms p50, 50ms p99', accent: 'cyan' },
+        { label: 'Koa', value: 33893, detail: '21ms p50, 52ms p99', accent: 'purple' },
+        { label: 'Express', value: 22228, detail: '44ms p50, 70ms p99', accent: 'muted' },
+      ]}
+    />
+
     | Framework       | RPS        | Latency p50 | Latency p99 |
     | --------------- | ---------- | ----------- | ----------- |
     | Fastify         | **45,852** | 15ms        | 37ms        |
@@ -128,6 +195,17 @@ Average requests per second across all test scenarios:
     ```typescript
     app.get('/search', (ctx) => ctx.json({ q: ctx.query.q }));
     ```
+
+    <BenchmarkBars
+      title="Query String Throughput"
+      items={[
+        { label: 'Fastify', value: 36618, detail: '20ms p50, 51ms p99', accent: 'green' },
+        { label: 'NextRush v3', value: 30876, detail: '23ms p50, 47ms p99', accent: 'blue' },
+        { label: 'Hono', value: 28619, detail: '27ms p50, 50ms p99', accent: 'cyan' },
+        { label: 'Koa', value: 27637, detail: '26ms p50, 55ms p99', accent: 'purple' },
+        { label: 'Express', value: 20769, detail: '47ms p50, 58ms p99', accent: 'muted' },
+      ]}
+    />
 
     | Framework       | RPS        | Latency p50 | Latency p99 |
     | --------------- | ---------- | ----------- | ----------- |
@@ -146,6 +224,17 @@ Average requests per second across all test scenarios:
     app.post('/users', (ctx) => ctx.json(ctx.body, 201));
     ```
 
+    <BenchmarkBars
+      title="POST JSON Throughput"
+      items={[
+        { label: 'Fastify', value: 21412, detail: '45ms p50, 71ms p99', accent: 'green' },
+        { label: 'NextRush v3', value: 20438, detail: '47ms p50, 73ms p99', accent: 'blue' },
+        { label: 'Koa', value: 17664, detail: '55ms p50, 75ms p99', accent: 'purple' },
+        { label: 'Express', value: 14417, detail: '66ms p50, 104ms p99', accent: 'muted' },
+        { label: 'Hono', value: 12625, detail: '75ms p50, 114ms p99', accent: 'cyan' },
+      ]}
+    />
+
     | Framework       | RPS        | Latency p50 | Latency p99 |
     | --------------- | ---------- | ----------- | ----------- |
     | Fastify         | **21,412** | 45ms        | 71ms        |
@@ -162,6 +251,17 @@ Average requests per second across all test scenarios:
 
   <Tab value="Mixed Workload">
     Combined GET/POST operations — simulates realistic traffic.
+
+    <BenchmarkBars
+      title="Mixed Workload Throughput"
+      items={[
+        { label: 'Fastify', value: 48493, detail: '15ms p50, 32ms p99', accent: 'green' },
+        { label: 'NextRush v3', value: 43283, detail: '16ms p50, 41ms p99', accent: 'blue' },
+        { label: 'Hono', value: 38759, detail: '18ms p50, 39ms p99', accent: 'cyan' },
+        { label: 'Koa', value: 35566, detail: '20ms p50, 47ms p99', accent: 'purple' },
+        { label: 'Express', value: 23783, detail: '51ms p50, 63ms p99', accent: 'muted' },
+      ]}
+    />
 
     | Framework       | RPS        | Latency p50 | Latency p99 |
     | --------------- | ---------- | ----------- | ----------- |
@@ -270,20 +370,63 @@ How NextRush handles increasing concurrency levels:
 
 ### Additional Scenarios
 
-| Scenario       | Peak RPS (64 conn) | Latency p99 | Notes                                       |
-| -------------- | ------------------ | ----------- | ------------------------------------------- |
-| Deep Route     | 27,548             | 3.20ms      | 5-segment nested route                      |
-| Error Handling | 16,156             | 5.05ms      | Thrown `HttpError` with JSON error response |
-| Large JSON     | 16,151             | 5.22ms      | ~10KB response payload                      |
-| Empty Response | **36,436**         | 2.45ms      | 204 No Content — pure framework overhead    |
+<BenchmarkBars
+  title="Peak RPS at 64 Connections"
+  description="Additional wrk scenarios that stress specific framework paths."
+  items={[
+    {
+      label: 'Empty Response',
+      value: 36436,
+      detail: '2.45ms p99; 204 No Content pure framework overhead.',
+      accent: 'green',
+    },
+    {
+      label: 'Deep Route',
+      value: 27548,
+      detail: '3.20ms p99; 5-segment nested route.',
+      accent: 'blue',
+    },
+    {
+      label: 'Error Handling',
+      value: 16156,
+      detail: '5.05ms p99; thrown HttpError with JSON response.',
+      accent: 'purple',
+    },
+    {
+      label: 'Large JSON',
+      value: 16151,
+      detail: '5.22ms p99; about 10KB response payload.',
+      accent: 'cyan',
+    },
+  ]}
+/>
 
 ### Memory Profile
 
-| Metric   | Value    |
-| -------- | -------- |
-| RSS Peak | 224.2 MB |
-| RSS Avg  | 193.1 MB |
-| Samples  | 1,020    |
+<BenchmarkCardGrid
+  items={[
+    {
+      label: 'RSS peak',
+      value: '224.2 MB',
+      detail: 'Highest observed process memory during the benchmark harness run.',
+    },
+    {
+      label: 'RSS average',
+      value: '193.1 MB',
+      detail: 'Average memory across the sampled wrk profile.',
+    },
+    {
+      label: 'Samples',
+      value: '1,020',
+      detail: 'Memory samples collected while the profile was running.',
+    },
+    {
+      label: 'Idle footprint',
+      value: '<200KB',
+      detail: 'Framework-level idle footprint outside the benchmark harness.',
+    },
+  ]}
+/>
 
 <Callout type="warn">
   Memory numbers are for the benchmark harness (wrk + server + monitoring). Idle NextRush memory
@@ -337,12 +480,12 @@ Results are saved to `results/` with timestamps. Each run generates a JSON file 
 
 ---
 
-## The Honest Take
+## How to use these numbers
 
-NextRush is the **second-fastest** framework we tested, behind Fastify. We're transparent about this because:
+In this benchmark suite, Fastify led on mean RPS; NextRush placed second. That ordering is useful for **relative** comparison on identical hardware, not as a universal ranking.
 
-1. **Fastify has earned its speed** through years of optimization and purpose-built serialization
-2. **13% difference disappears** when you add a database query (typically 5-50ms per request)
-3. **NextRush offers things Fastify doesn't** — zero-dependency core, multi-runtime support, built-in DI with decorators, and full TypeScript-first design
+1. Fastify prioritizes Node.js throughput and includes serialization choices that help in micro-benchmarks.
+2. A single database or HTTP client call often adds milliseconds per request, shrinking the gap between frameworks in real apps.
+3. NextRush keeps a small dependency-free core, ships adapters for several runtimes, and supports optional DI and decorators — different trade-offs, not a single “winner” column.
 
-Pick the framework that matches your priorities, not only the one with the highest RPS number.
+Pick based on runtime targets, team style, and operational needs; confirm with your own measurements.

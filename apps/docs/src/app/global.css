@@ -391,6 +391,88 @@ kbd {
 }
 
 /* ============================================
+   Premium docs background (must not wrap DocsPage — Fumadocs grid needs direct children)
+   ============================================ */
+
+#nd-docs-layout {
+  position: relative;
+  isolation: isolate;
+}
+
+#nd-docs-layout::before,
+#nd-docs-layout::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.28;
+}
+
+#nd-docs-layout::before {
+  top: 6rem;
+  right: max(-12rem, -12vw);
+  width: clamp(18rem, 34vw, 32rem);
+  height: clamp(18rem, 34vw, 32rem);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--rush-blue) 28%, transparent),
+    transparent 68%
+  );
+}
+
+#nd-docs-layout::after {
+  bottom: 10rem;
+  left: max(-14rem, -14vw);
+  width: clamp(16rem, 30vw, 28rem);
+  height: clamp(16rem, 30vw, 28rem);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--rush-cyan) 20%, transparent),
+    transparent 70%
+  );
+}
+
+.prose :where(h2, h3) {
+  scroll-margin-top: 6rem;
+}
+
+.prose :where(h2) {
+  position: relative;
+  padding-bottom: 0.45rem;
+}
+
+.prose :where(h2)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 4rem;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--rush-blue), var(--rush-cyan), transparent);
+}
+
+.prose :where(blockquote) {
+  border-left-color: var(--rush-blue);
+  border-radius: 0 0.75rem 0.75rem 0;
+  background: color-mix(in srgb, var(--color-fd-muted) 48%, transparent);
+  padding: 0.85rem 1rem;
+}
+
+.prose :where(hr) {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--rush-blue) 35%, var(--color-fd-border)),
+    transparent
+  );
+}
+
+/* ============================================
    Code Block Enhancements
    ============================================ */
 

@@ -76,7 +76,7 @@ NextRush supports both functional and class-based programming. Choose based on y
 
 <Tabs items={['Functional', 'Class-Based']}>
   <Tab value="Functional">
-    Simple, direct, minimal abstraction. Best for small services and APIs.
+    Simple, direct, minimal abstraction. Often fits small services and APIs.
 
     ```typescript title="Functional API"
     import { createApp } from '@nextrush/core';
@@ -95,7 +95,7 @@ NextRush supports both functional and class-based programming. Choose based on y
 
   </Tab>
   <Tab value="Class-Based">
-    Structured, with dependency injection. Best for large applications and teams.
+    Structured, with dependency injection. Often fits larger applications and shared codebases.
 
     ```typescript title="Class-Based with DI"
     import { createRouter } from 'nextrush';
@@ -219,7 +219,7 @@ class AdminController {
     The pipeline that processes every request.
   </Card>
   <Card title="Routing" href="/docs/concepts/routing">
-    High-performance URL matching.
+    Segment-trie URL matching.
   </Card>
   <Card title="Plugins" href="/docs/concepts/plugins">
     Extend NextRush without touching core.

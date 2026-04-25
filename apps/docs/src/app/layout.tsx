@@ -16,17 +16,17 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: `${appConfig.name} - The Backend Framework That Doesn't Get in Your Way`,
+    default: `${appConfig.name} — TypeScript HTTP framework`,
     template: `%s | ${appConfig.name}`,
   },
-  description: `${appConfig.name} is a minimal, modular, high-performance Node.js backend framework. Build APIs with 35,000+ RPS, full TypeScript support, and zero configuration overhead.`,
+  description: `${appConfig.name} is a modular TypeScript framework for HTTP APIs on Node.js, Bun, Deno, and Edge. Small core, strict types, explicit middleware and routing.`,
   keywords: [
     'nextrush',
     'node.js framework',
     'backend framework',
     'typescript',
     'api framework',
-    'fast backend',
+    'http server',
     'modular framework',
     'bun',
     'deno',
@@ -35,18 +35,27 @@ export const metadata: Metadata = {
   authors: [{ name: appConfig.teamName }],
   creator: appConfig.name,
   metadataBase: new URL(appConfig.siteUrl),
+  icons: {
+    icon: [
+      { url: '/favicon/favicon.ico', sizes: 'any' },
+      { url: '/favicon/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
+    ],
+    apple: '/favicon/apple-touch-icon.png',
+  },
+  manifest: '/favicon/site.webmanifest',
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: appConfig.siteUrl,
-    title: `${appConfig.name} - High-Performance Backend Framework`,
-    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 35,000+ RPS performance.`,
+    title: `${appConfig.name} — documentation`,
+    description: `Modular TypeScript HTTP stack for Node.js and other runtimes. Documentation, API reference, and guides.`,
     siteName: appConfig.name,
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${appConfig.name} - High-Performance Backend Framework`,
-    description: `Build production-ready APIs with ${appConfig.name}. Minimal core, modular design, 35,000+ RPS performance.`,
+    title: `${appConfig.name} — documentation`,
+    description: `Modular TypeScript HTTP stack for Node.js and other runtimes.`,
     creator: appConfig.twitterHandle,
   },
   robots: {

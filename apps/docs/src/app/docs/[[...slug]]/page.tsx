@@ -25,7 +25,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
-      <div className="flex flex-row gap-2 items-center border-b pt-2 pb-6">
+      <div className="mb-8 flex flex-row items-center gap-2 rounded-2xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-card)_78%,transparent)] p-2 shadow-[0_16px_48px_-34px_color-mix(in_srgb,var(--rush-blue)_45%,transparent)] backdrop-blur">
         <LLMCopyButton markdownUrl={markdownUrl} />
         <ViewOptions markdownUrl={markdownUrl} githubUrl={githubUrl} />
       </div>

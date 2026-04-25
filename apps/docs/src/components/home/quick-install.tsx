@@ -28,7 +28,7 @@ export function QuickInstall() {
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Start building in seconds</h2>
-          <p className="text-lg text-fd-muted-foreground">One command. Zero configuration.</p>
+          <p className="text-lg text-fd-muted-foreground">Install the package and follow the getting-started guide.</p>
         </div>
 
         <div className="max-w-xl mx-auto">

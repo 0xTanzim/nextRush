@@ -11,7 +11,7 @@ HTTP file uploads arrive as multipart-encoded streams with mixed files and form 
 
 ## Default Behavior
 
-With zero configuration, `multipart()` uses `MemoryStorage` and applies these defaults:
+With default options, `multipart()` uses `MemoryStorage` and applies these defaults:
 
 | Limit | Default |
 |-------|---------|
@@ -67,7 +67,7 @@ app.listen(3000);
 
 <Tabs items={['Memory (Default)', 'Disk', 'Custom']}>
   <Tab value="Memory (Default)">
-    Buffers file contents in memory as `Uint8Array`. Best for small files or when you need immediate access to the data.
+    Buffers file contents in memory as `Uint8Array`. Use for small uploads or when you need the full buffer in memory.
 
     ```ts
     import { multipart, MemoryStorage } from '@nextrush/multipart';
@@ -91,7 +91,7 @@ app.listen(3000);
   </Tab>
 
   <Tab value="Disk">
-    Streams files directly to the filesystem. Best for large files or persistent storage.
+    Streams files directly to the filesystem. Use for large uploads or when you want disk-backed storage.
 
     ```ts
     import { multipart, DiskStorage } from '@nextrush/multipart';

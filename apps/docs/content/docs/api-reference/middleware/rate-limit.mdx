@@ -11,7 +11,7 @@ It supports three algorithms, tiered limits for different user types, CIDR-based
 
 ## Default Behavior
 
-With zero configuration, `rateLimit()` applies these defaults:
+With default options, `rateLimit()` applies these defaults:
 
 | Setting            | Default                                      |
 | ------------------ | -------------------------------------------- |
@@ -195,7 +195,7 @@ Supported string units: `s`, `sec`, `second`, `seconds`, `m`, `min`, `minute`, `
     );
     ```
 
-    **Best for:** Public APIs where occasional bursts are acceptable.
+    **Typical use:** Public APIs where occasional bursts are acceptable.
 
   </Tab>
   <Tab value="Sliding Window">
@@ -211,7 +211,7 @@ Supported string units: `s`, `sec`, `second`, `seconds`, `m`, `min`, `minute`, `
     );
     ```
 
-    **Best for:** Strict enforcement, billing-sensitive APIs, preventing boundary attacks.
+    **Typical use:** Strict enforcement, billing-sensitive APIs, preventing boundary attacks.
 
   </Tab>
   <Tab value="Fixed Window">
@@ -227,7 +227,7 @@ Supported string units: `s`, `sec`, `second`, `seconds`, `m`, `min`, `minute`, `
     );
     ```
 
-    **Best for:** Internal APIs, low-overhead use cases.
+    **Typical use:** Internal APIs, low-overhead use cases.
 
     <Callout type="warn">
       Clients can hit up to 2x the limit at window boundaries with fixed-window. Use sliding-window for strict enforcement.

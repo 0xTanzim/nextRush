@@ -25,7 +25,7 @@ test.describe('Getting started — layout and UX', () => {
     await expect(
       page.locator('.doc-hero').getByText('Framework overview', { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText('35k+', { exact: true })).toBeVisible();
+    await expect(page.getByText('Reproducible', { exact: true })).toBeVisible();
     await expect(page.getByText('Zero core dependencies')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Why NextRush' })).toBeVisible();
   });

@@ -315,15 +315,15 @@ router.get('/users/:id', (ctx) => {
 
 ## When to Choose What
 
-| Your priority                             | Best choice      | Why                                           |
+| Your priority                             | Likely fit       | Notes                                         |
 | ----------------------------------------- | ---------------- | --------------------------------------------- |
 | **Raw throughput** (Node.js only)         | Fastify          | AOT JSON serialization, mature radix tree     |
-| **Multi-runtime** (Bun, Deno, Edge)       | NextRush or Hono | Both support all runtimes                     |
-| **Zero dependencies** + TypeScript strict | NextRush         | No other framework offers both                |
-| **Large ecosystem** + community           | Express          | Largest middleware ecosystem, most tutorials  |
-| **Class-based + DI** (NestJS-style)       | NextRush         | Built-in decorators and DI without the weight |
-| **Minimal learning curve**                | Koa or Express   | Familiar, well-documented                     |
-| **Maximum flexibility**                   | NextRush         | Functional + class-based, choose per route    |
+| **Multi-runtime** (Bun, Deno, Edge)       | NextRush or Hono | Compare adapters and deploy targets           |
+| **Strict TypeScript** + small core deps   | NextRush         | Core packages avoid extra runtime dependencies |
+| **Large ecosystem** + community           | Express          | Broad middleware ecosystem and tutorials      |
+| **Class-based + DI**                      | NextRush         | Optional decorators and DI in the same stack  |
+| **Minimal learning curve**                | Koa or Express   | Familiar patterns and documentation           |
+| **Mixed functional + class routes**       | NextRush         | Both styles can coexist in one app          |
 
 ---
 

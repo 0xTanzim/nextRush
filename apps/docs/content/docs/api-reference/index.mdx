@@ -114,15 +114,15 @@ await listen(app, 3000);
 
 The foundational packages that everything else builds on.
 
-| Package                                                 | Purpose                             | Install Separately?    |
-| ------------------------------------------------------- | ----------------------------------- | ---------------------- |
-| [`nextrush`](/docs/api-reference/core/nextrush)         | Meta package with all essentials    | **Start here**         |
-| [`@nextrush/core`](/docs/api-reference/core/core)       | Application, middleware composition | Usually via `nextrush` |
-| [`@nextrush/router`](/docs/api-reference/core/router)   | Radix tree routing                  | Usually via `nextrush` |
-| [`@nextrush/types`](/docs/api-reference/core/types)     | TypeScript type definitions         | Peer dependency        |
-| [`@nextrush/errors`](/docs/api-reference/core/errors)   | HTTP error classes                  | Usually via `nextrush` |
-| [`@nextrush/runtime`](/docs/api-reference/core/runtime) | Runtime detection                   | Usually via adapter    |
-| [`@nextrush/dev`](/docs/api-reference/core/dev)         | Development server & build tools    | **Dev dependency**     |
+| Package                                                 | Purpose                             | Install Separately?                                                   |
+| ------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------- |
+| [`nextrush`](/docs/api-reference/core/nextrush)         | Meta package with all essentials    | **Start here**                                                        |
+| [`@nextrush/core`](/docs/api-reference/core/core)       | Application, middleware composition | Usually via `nextrush`                                                |
+| [`@nextrush/router`](/docs/api-reference/core/router)   | Radix tree routing                  | Usually via `nextrush`                                                |
+| [`@nextrush/types`](/docs/api-reference/core/types)     | TypeScript type definitions         | Re-exported by `nextrush`; install directly for advanced package work |
+| [`@nextrush/errors`](/docs/api-reference/core/errors)   | HTTP error classes                  | Usually via `nextrush`                                                |
+| [`@nextrush/runtime`](/docs/api-reference/core/runtime) | Runtime detection                   | Usually via adapter                                                   |
+| [`@nextrush/dev`](/docs/api-reference/core/dev)         | Development server & build tools    | **Dev dependency**                                                    |
 
 ### Runtime Adapters
 
@@ -137,7 +137,7 @@ Connect NextRush to your runtime environment.
 
 ### Middleware
 
-Production-ready middleware for common needs.
+Middleware packages for common HTTP concerns.
 
 | Package                                                               | Purpose                       |
 | --------------------------------------------------------------------- | ----------------------------- |
@@ -149,8 +149,8 @@ Production-ready middleware for common needs.
 | [`@nextrush/cookies`](/docs/api-reference/middleware/cookies)         | Cookie handling               |
 | [`@nextrush/request-id`](/docs/api-reference/middleware/request-id)   | Request ID generation         |
 | [`@nextrush/timer`](/docs/api-reference/middleware/timer)             | Response timing               |
-| [`@nextrush/multipart`](/docs/api-reference/middleware/multipart)       | Multipart form parsing        |
-| [`@nextrush/csrf`](/docs/api-reference/middleware/csrf)                   | CSRF protection               |
+| [`@nextrush/multipart`](/docs/api-reference/middleware/multipart)     | Multipart form parsing        |
+| [`@nextrush/csrf`](/docs/api-reference/middleware/csrf)               | CSRF protection               |
 
 ### Plugins
 

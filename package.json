@@ -2,7 +2,7 @@
   "name": "nextrush-monorepo",
   "version": "0.0.1",
   "private": true,
-  "description": "NextRush v3 - Minimal, modular, high-performance Node.js framework",
+  "description": "NextRush v3 — minimal, modular TypeScript HTTP stack for Node.js and other runtimes",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -53,7 +53,7 @@
     "type": "git",
     "url": "git+https://github.com/0xTanzim/nextrush.git"
   },
-  "homepage": "https://github.com/0xTanzim/nextrush#readme",
+  "homepage": "https://nextrush.dev",
   "bugs": {
     "url": "https://github.com/0xTanzim/nextrush/issues"
   },

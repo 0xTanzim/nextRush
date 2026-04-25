@@ -11,7 +11,7 @@ HTTP request bodies arrive as raw byte streams. This middleware reads, validates
 
 ## Default Behavior
 
-With zero configuration, `bodyParser()` parses JSON and URL-encoded request bodies. Text and raw binary parsing are disabled until you enable them.
+With default options, `bodyParser()` parses JSON and URL-encoded request bodies. Text and raw binary parsing stay off until you enable them.
 
 Bodyless HTTP methods (`GET`, `HEAD`, `DELETE`, `OPTIONS`) are skipped automatically. If the body has already been parsed by another middleware, parsing is skipped.
 

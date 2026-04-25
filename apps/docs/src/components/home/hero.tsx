@@ -42,9 +42,7 @@ export function Hero() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--success)]" />
             </span>
-            <span className="text-sm text-fd-muted-foreground">
-              v3.0.0-alpha.2 — Now with Multi-Runtime Support
-            </span>
+            <span className="text-sm text-fd-muted-foreground">v3.0.0-alpha.2 · Node.js 22+, Bun, Deno, Edge</span>
           </div>
 
           {/* Logo and Title */}
@@ -58,8 +56,11 @@ export function Hero() {
             TypeScript-first HTTP stack for Node.js and other runtimes.
           </p>
           <p className="text-lg text-fd-muted-foreground/70 mb-8 max-w-xl animate-fade-up animate-delay-300">
-            Composable middleware, radix routing, optional DI and decorators —{' '}
-            <span className="text-[var(--rush-cyan)] font-medium">35,000+ RPS</span> on the hello-world benchmark.
+            Composable middleware, radix routing, optional DI and decorators.{' '}
+            <Link href="/docs/performance" className="text-[var(--rush-cyan)] font-medium underline-offset-4 hover:underline">
+              Benchmarks
+            </Link>{' '}
+            use a fixed setup so you can reproduce numbers on your own hardware.
           </p>
 
           {/* CTA Buttons */}

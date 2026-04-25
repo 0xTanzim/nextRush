@@ -74,7 +74,8 @@ export function getDependencies(options: ProjectOptions): DependencySet {
 
   const devDependencies: Record<string, string> = {
     '@nextrush/dev': `^${NEXTRUSH_VERSION}`,
-    typescript: '^5.9.0',
+    '@nextrush/types': `^${NEXTRUSH_VERSION}`,
+    typescript: '^6.0.2',
   };
 
   return { dependencies, devDependencies };
@@ -154,7 +155,7 @@ ${
 
 /** Generates the src/env.d.ts file for better type hints. */
 export function generateEnvDts(): string {
-  return `/// <reference types="nextrush/types" />
+  return `/// <reference types="@nextrush/types" />
 `;
 }
 
@@ -217,8 +218,8 @@ function getRuntimeScripts(runtime: Runtime): {
   switch (runtime) {
     case 'bun':
       return {
-        dev: 'bunx nextrush dev',
-        build: 'bunx nextrush build',
+        dev: 'nextrush dev',
+        build: 'nextrush build',
         start: 'bun dist/index.js',
       };
     case 'deno':

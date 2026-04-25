@@ -15,9 +15,7 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,7 +42,6 @@ jobs:
 
           const isReleaseImpactingPackageChange = (file) => {
             if (!file.startsWith('packages/')) return false;
-            if (file.startsWith('packages/dev/')) return false;
             if (/(^|\/)__tests__(\/|$)/.test(file)) return false;
             if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(file)) return false;
             if (file.endsWith('.md') || file.endsWith('.mdx')) return false;

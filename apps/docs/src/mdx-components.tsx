@@ -1,4 +1,6 @@
 import {
+    BenchmarkBars,
+    BenchmarkCardGrid,
     CompareGrid,
     CompareItem,
     DocHero,
@@ -44,6 +46,8 @@ const customComponents = {
   Mermaid,
 
   // Onboarding / overview layout
+  BenchmarkBars,
+  BenchmarkCardGrid,
   DocHero,
   DocStatStrip,
   DocStat,

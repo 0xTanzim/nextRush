@@ -78,6 +78,7 @@ describe('generateProject', () => {
     it('generates env.d.ts', () => {
       const files = generateProject(createOptions());
       expect(files.has('src/env.d.ts')).toBe(true);
+      expect(files.get('src/env.d.ts')).toContain('@nextrush/types');
     });
 
     it('includes nextrush as dependency', () => {
@@ -90,6 +91,7 @@ describe('generateProject', () => {
       const files = generateProject(createOptions());
       const pkg = JSON.parse(files.get('package.json')!);
       expect(pkg.devDependencies['@nextrush/dev']).toBeDefined();
+      expect(pkg.devDependencies['@nextrush/types']).toBeDefined();
       expect(pkg.devDependencies['typescript']).toBeDefined();
     });
   });
@@ -352,8 +354,8 @@ describe('generateProject', () => {
     it('bun runtime scripts use bun tooling', () => {
       const files = generateProject(createOptions({ runtime: 'bun' }));
       const pkg = JSON.parse(files.get('package.json')!);
-      expect(pkg.scripts.dev).toBe('bunx nextrush dev');
-      expect(pkg.scripts.build).toBe('bunx nextrush build');
+      expect(pkg.scripts.dev).toBe('nextrush dev');
+      expect(pkg.scripts.build).toBe('nextrush build');
       expect(pkg.scripts.start).toBe('bun dist/index.js');
     });
 

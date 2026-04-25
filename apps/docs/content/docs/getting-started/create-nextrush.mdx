@@ -59,7 +59,11 @@ pnpm create nextrush my-api --style functional --middleware api --runtime node
       description: 'Package manager',
       default: 'auto-detected',
     },
-    '-y, --yes': { type: 'boolean', description: 'Accept all defaults (non-interactive)', default: 'false' },
+    '-y, --yes': {
+      type: 'boolean',
+      description: 'Accept all defaults (non-interactive)',
+      default: 'false',
+    },
   }}
 />
 
@@ -67,7 +71,7 @@ pnpm create nextrush my-api --style functional --middleware api --runtime node
 
 ### `functional` (default)
 
-Lightweight, function-based routing. Best for APIs and microservices.
+Lightweight, function-based routing. Typical for HTTP APIs and small services.
 
 ```
 my-api/
@@ -85,16 +89,19 @@ import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
 const router = createRouter();
+const PORT = resolvePort();
 
 router.get('/', (ctx) => ctx.json({ message: 'Welcome to NextRush!' }));
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, PORT);
 ```
+
+The generated `src/index.ts` includes `resolvePort()`, which reads `PORT` and falls back to `3000`.
 
 ### `class-based`
 
-Decorator-driven controllers with dependency injection. Best for structured applications.
+Decorator-driven controllers with dependency injection. Typical when you want controllers and DI from day one.
 
 ```
 my-api/
@@ -157,11 +164,11 @@ my-api/
 
 <DocTableWrap>
 
-| Preset | Included packages |
-| --- | --- |
-| `minimal` | None — core only |
-| `api` | `@nextrush/cors`, `@nextrush/body-parser`, `@nextrush/helmet` |
-| `full` | `api` preset plus `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/request-id` |
+| Preset    | Included packages                                                                         |
+| --------- | ----------------------------------------------------------------------------------------- |
+| `minimal` | None — core only                                                                          |
+| `api`     | `@nextrush/cors`, `@nextrush/body-parser`, `@nextrush/helmet`                             |
+| `full`    | `api` preset plus `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/request-id` |
 
 </DocTableWrap>
 

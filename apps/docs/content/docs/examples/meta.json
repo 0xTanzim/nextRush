@@ -1,6 +1,7 @@
 {
   "title": "Examples",
   "pages": [
+    "index",
     "hello-world",
     "rest-api",
     "class-based-api",

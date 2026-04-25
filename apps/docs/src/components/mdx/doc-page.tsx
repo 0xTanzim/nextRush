@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { ArrowRight, Gauge, Globe2, Layers, Package, Puzzle, Sparkles, Zap } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 const highlightIcons: Record<string, LucideIcon> = {
   zap: Zap,
@@ -58,6 +58,121 @@ export function DocStat({ label, value, hint }: { label: string; value: string; 
 
 export function DocStatStrip({ children }: { children: ReactNode }) {
   return <div className="not-prose my-8 grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>;
+}
+
+export type BenchmarkBarItem = {
+  label: string;
+  value: number;
+  detail?: string;
+  accent?: 'blue' | 'cyan' | 'purple' | 'green' | 'muted';
+};
+
+const benchmarkAccent: Record<NonNullable<BenchmarkBarItem['accent']>, string> = {
+  blue: 'from-blue-500 to-cyan-400',
+  cyan: 'from-cyan-400 to-emerald-400',
+  purple: 'from-violet-500 to-fuchsia-400',
+  green: 'from-emerald-400 to-lime-300',
+  muted: 'from-slate-500 to-slate-400',
+};
+
+export function BenchmarkBars({
+  title,
+  description,
+  items,
+  suffix = ' RPS',
+  legend,
+}: {
+  title: string;
+  description?: string;
+  items: BenchmarkBarItem[];
+  suffix?: string;
+  /** Shown upper-right; defaults depend on `suffix` (RPS vs relative %). */
+  legend?: string;
+}) {
+  const max = Math.max(...items.map((item) => item.value), 1);
+  const defaultLegend = suffix.trim() === '%' ? 'larger = bigger gap in this run' : 'higher is better';
+
+  return (
+    <section className="not-prose my-8 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-fd-card)_92%,transparent),color-mix(in_srgb,var(--rush-blue)_8%,var(--color-fd-card)))] p-5 shadow-[0_24px_80px_-48px_color-mix(in_srgb,var(--rush-blue)_45%,transparent)] md:p-6">
+      <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-[var(--text-primary)] md:text-lg">{title}</h3>
+          {description ? (
+            <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+          {legend ?? defaultLegend}
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {items.map((item) => {
+          const width = `${Math.max((item.value / max) * 100, 8)}%`;
+          const style = { '--benchmark-width': width } as CSSProperties;
+          const accent = benchmarkAccent[item.accent ?? 'blue'];
+
+          return (
+            <div key={item.label} className="grid gap-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-medium text-[var(--text-primary)]">{item.label}</span>
+                <span className="font-mono text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                  {item.value.toLocaleString()}
+                  {suffix}
+                </span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--color-fd-muted)_70%,transparent)] ring-1 ring-inset ring-[var(--color-fd-border)]">
+                <div
+                  className={`h-full w-[var(--benchmark-width)] rounded-full bg-gradient-to-r ${accent} shadow-[0_0_24px_color-mix(in_srgb,var(--rush-blue)_22%,transparent)]`}
+                  style={style}
+                />
+              </div>
+              {item.detail ? (
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+                  {item.detail}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export type BenchmarkCardItem = {
+  label: string;
+  value: string;
+  detail: string;
+};
+
+export function BenchmarkCardGrid({ items }: { items: BenchmarkCardItem[] }) {
+  return (
+    <div className="not-prose my-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="group relative overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-5 shadow-[0_1px_0_0_color-mix(in_srgb,white_8%,transparent)] transition-all hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--rush-cyan)_30%,var(--color-fd-border))]"
+        >
+          <div
+            aria-hidden
+            className="absolute -right-10 -top-10 size-24 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--rush-cyan)_18%,transparent)_0%,transparent_68%)] transition-transform group-hover:scale-125"
+          />
+          <p className="relative text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            {item.label}
+          </p>
+          <p className="relative mt-3 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+            {item.value}
+          </p>
+          <p className="relative mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+            {item.detail}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function CompareGrid({ children }: { children: ReactNode }) {
@@ -150,7 +265,9 @@ export function DocPageOutline({ items }: { items: DocPageOutlineItem[] }) {
                 <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--rush-blue)]">
                   {item.title}
                 </span>
-                <span className="mt-0.5 block text-sm text-[var(--text-secondary)]">{item.description}</span>
+                <span className="mt-0.5 block text-sm text-[var(--text-secondary)]">
+                  {item.description}
+                </span>
               </div>
               <ArrowRight
                 className="size-4 shrink-0 text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100 sm:opacity-60"
@@ -180,7 +297,9 @@ export function DocPrerequisiteGrid({ items }: { items: DocPrerequisiteItem[] })
           <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             {item.label}
           </p>
-          <p className="mt-2 text-sm font-medium leading-snug text-[var(--text-primary)]">{item.value}</p>
+          <p className="mt-2 text-sm font-medium leading-snug text-[var(--text-primary)]">
+            {item.value}
+          </p>
         </div>
       ))}
     </div>

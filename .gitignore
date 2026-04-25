@@ -6,6 +6,7 @@ node_modules/
 .agents
 .cursor
 .pnpm-store
+nextrush_wiki
 # Build outputs
 dist/
 build/

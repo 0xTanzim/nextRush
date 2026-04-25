@@ -1,6 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  "remoteCache": {
+    "enabled": false
+  },
   "globalDependencies": ["tsconfig.base.json", "pnpm-lock.yaml"],
   "tasks": {
     "build": {
@@ -13,7 +16,7 @@
     },
     "test": {
       "dependsOn": ["build"],
-      "outputs": ["coverage/**"],
+      "outputs": [],
       "inputs": ["src/**/*.ts", "tests/**/*.ts", "**/*.test.ts"]
     },
     "test:watch": {

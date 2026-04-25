@@ -140,12 +140,12 @@ All adapters export similar functions:
 
 ## Choosing an Adapter
 
-| Runtime     | Best For                                                     |
+| Runtime     | Often chosen when                                            |
 | ----------- | ------------------------------------------------------------ |
-| **Node.js** | General purpose, existing Node.js deployments, compatibility |
-| **Bun**     | Maximum performance, drop-in Node.js replacement             |
-| **Deno**    | Security-focused, TypeScript-first, permissions model        |
-| **Edge**    | Serverless, low latency, global distribution                 |
+| **Node.js** | You need the broadest ecosystem and existing Node deployments |
+| **Bun**     | You want a fast JS runtime with strong Node compatibility where supported |
+| **Deno**    | You want permissions, TypeScript-first tooling, or Deno Deploy |
+| **Edge**    | You deploy to isolates or regional workers with fetch-only I/O |
 
 ## Runtime Capabilities
 
@@ -158,7 +158,7 @@ Different runtimes have different capabilities:
 | Native Fetch   | ✅      | ✅    | ✅    | ✅   |
 | Worker Threads | ✅      | ✅    | ✅    | ⚠️   |
 | Node.js APIs   | ✅      | ✅    | ⚠️    | ❌   |
-| Cold Start     | ~150ms  | ~10ms | ~50ms | ~5ms |
+| Cold start feel | Typical | Often low | Typical | Often lowest (host-dependent) |
 
 ## Same Code, Any Runtime
 

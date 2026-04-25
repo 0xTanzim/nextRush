@@ -25,7 +25,7 @@ NextRush v3 packages are published at `3.0.0`. The framework is functional but s
 _Status: Complete_
 
 - [x] Application core with middleware composition (`@nextrush/core`)
-- [x] High-performance radix tree router (`@nextrush/router`)
+- [x] Radix tree router (`@nextrush/router`)
 - [x] HTTP error hierarchy (`@nextrush/errors`)
 - [x] Shared type definitions (`@nextrush/types`)
 - [x] Runtime detection (`@nextrush/runtime`)
@@ -130,7 +130,7 @@ These items have no implementation yet. Some are tracked in RFCs; others are asp
 
 ## Framework Goals
 
-1. **Performance** — maintain 35,000+ RPS target for hello-world routes (see [Performance](/docs/performance))
+1. **Performance** — keep the benchmark harness honest and reproducible; document methodology when it changes (see [Performance](/docs/performance))
 2. **Bundle size** — keep core under 200KB memory footprint
 3. **Type safety** — full TypeScript strict mode, zero `any`
 4. **Dual paradigm** — functional routes and decorator-based controllers

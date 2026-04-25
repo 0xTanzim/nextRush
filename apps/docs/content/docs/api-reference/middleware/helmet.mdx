@@ -46,7 +46,7 @@ Helmet handles **browser-side response headers only**. These concerns need separ
 
 Calling `helmet()` with no arguments sets 13 security headers covering XSS, clickjacking, MIME sniffing, and protocol downgrades.
 
-<Callout type="info" title="Zero Configuration Security">
+<Callout type="info" title="Defaults cover common browser risks">
   A single `app.use(helmet())` call protects against the most common browser-based attack vectors.
   Customize individual headers only when your application requires it.
 </Callout>

@@ -15,7 +15,7 @@ interface FeatureGridProps {
  *
  * @example
  * ```mdx
- * <Feature icon="⚡" title="High Performance" description="35,000+ RPS target" />
+ * <Feature icon="⚡" title="Lean core" description="Small request path; measure on your hardware" />
  * ```
  */
 export function Feature({ icon, title, description }: FeatureProps) {
@@ -34,7 +34,7 @@ export function Feature({ icon, title, description }: FeatureProps) {
  * @example
  * ```mdx
  * <FeatureGrid>
- *   <Feature icon="⚡" title="Fast" description="High performance" />
+ *   <Feature icon="⚡" title="Fast" description="Small hot path; profile your workload" />
  *   <Feature icon="🎯" title="Type Safe" description="Full TypeScript" />
  *   <Feature icon="📦" title="Modular" description="Install what you need" />
  * </FeatureGrid>

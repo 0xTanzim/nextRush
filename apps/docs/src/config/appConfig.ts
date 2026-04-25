@@ -22,9 +22,9 @@ export const appConfig = {
   },
   llms: {
     summary:
-      'A minimal, modular, high-performance Node.js backend framework with zero runtime dependencies.',
+      'A minimal, modular Node.js backend framework with zero runtime dependencies in core packages.',
     intro:
-      'NextRush v3 is a TypeScript-first framework built as a modular monorepo. It supports both functional and class-based (decorator + DI) paradigms, targets 35,000+ RPS, and ships under 3,000 LOC in its core.',
+      'NextRush v3 is a TypeScript-first framework in a modular monorepo. It supports functional routes and class-based controllers with DI. The core stays small (under 3,000 LOC); throughput depends on your hardware — see the Performance docs for reproducible benchmarks.',
     sectionTitles: {
       'getting-started': 'Getting Started',
       concepts: 'Core Concepts',

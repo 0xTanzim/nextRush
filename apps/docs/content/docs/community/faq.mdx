@@ -11,7 +11,7 @@ Common questions about NextRush, answered directly.
 
 A modular backend framework for Node.js, Bun, Deno, and Edge runtimes. Under 3,000 lines of code, zero runtime dependencies, full TypeScript strict mode. It gives you functional routes for quick prototypes and class-based controllers with DI when your project grows.
 
-### Is NextRush production-ready?
+### Can I use NextRush in production?
 
 NextRush v3 is in **alpha**. The core APIs are stabilizing but may have breaking changes before the stable release. Use it for new projects, side projects, and internal tools. For mission-critical production systems, wait for v3 stable.
 
@@ -21,7 +21,7 @@ Node.js **22.0.0 or higher**. NextRush uses modern JavaScript features (ESM, top
 
 ### Why another Node.js framework?
 
-Existing frameworks force a choice: Express gives flexibility but no structure. NestJS gives structure but adds weight. Fastify gives speed but locks you to Node.js. NextRush gives you all three — minimal core, optional structure via decorators, multi-runtime support — without external dependencies.
+Different stacks optimize for different defaults: Express stays minimal, NestJS leans on structure and modules, Fastify targets Node.js throughput. NextRush keeps a small core and optional decorators/DI, ships several runtime adapters, and avoids extra runtime dependencies in core packages.
 
 ---
 
@@ -120,7 +120,7 @@ See the [Testing guide](/docs/guides/testing).
 
 ### How fast is NextRush?
 
-In standardized benchmarks: **43,268 RPS** (Hello World, autocannon) and **29,935 RPS** (wrk, no pipelining). NextRush is 68% faster than Express, 16% faster than Hono, and about 12% slower than Fastify. See [Performance](/docs/performance) for full numbers.
+On **one reference machine** (fixed CPU, Node version, autocannon and wrk settings), the published suite reported about **43k RPS** (Hello World, autocannon) and about **30k RPS** (wrk, no pipelining), with **relative** gaps vs Express, Hono, and Fastify as listed on [Performance](/docs/performance). Your hardware will change the absolute numbers; use the same scripts to compare on your side.
 
 ### Why is Fastify faster?
 

@@ -1,10 +1,10 @@
 import { MIDDLEWARE_IMPORTS, MIDDLEWARE_SETUP } from '../constants.js';
 import type { FileMap, ProjectOptions } from '../types.js';
 import {
-  getControllerDiscoveryHelpers,
-  getPortResolverFunction,
-  getRuntimeEntrypointImports,
-  getUptimeHelperFunction,
+    getControllerDiscoveryHelpers,
+    getPortResolverFunction,
+    getRuntimeEntrypointImports,
+    getUptimeHelperFunction,
 } from './shared.js';
 
 /**
@@ -81,7 +81,7 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('await serve(app, {');
   lines.push('  port: PORT,');
   lines.push('  onListen: ({ port: p }) => {');
-  lines.push('    console.log(`🚀 Server running on http://localhost:${p}`);');
+  lines.push('    console.info(`Server running on http://localhost:${p}`);');
   lines.push('  },');
   lines.push('});');
   lines.push('');

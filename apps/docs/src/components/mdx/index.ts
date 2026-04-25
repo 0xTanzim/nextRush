@@ -1,4 +1,6 @@
 export {
+    BenchmarkBars,
+    BenchmarkCardGrid,
     CompareGrid,
     CompareItem,
     DocHero,
@@ -10,7 +12,12 @@ export {
     HighlightGrid,
     HighlightItem
 } from './doc-page';
-export type { DocPageOutlineItem, DocPrerequisiteItem } from './doc-page';
+export type {
+    BenchmarkBarItem,
+    BenchmarkCardItem,
+    DocPageOutlineItem,
+    DocPrerequisiteItem
+} from './doc-page';
 export { Feature, FeatureGrid } from './feature-grid';
 export { Mermaid } from './mermaid';
 export { PackageInstall } from './package-install';

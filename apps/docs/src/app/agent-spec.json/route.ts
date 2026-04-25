@@ -7,7 +7,7 @@ export const revalidate = false;
 const AGENT_SPEC = {
   name: appConfig.id,
   version: appConfig.version,
-  description: 'Minimal, modular, high-performance Node.js framework',
+  description: 'Minimal, modular TypeScript HTTP framework for Node.js and other runtimes',
   homepage: appConfig.siteUrl,
   repository: appConfig.repositoryUrl,
   docs: {
@@ -49,7 +49,7 @@ const AGENT_SPEC = {
     },
     {
       name: '@nextrush/router',
-      responsibility: 'High-performance radix tree routing with parameterized and wildcard routes',
+      responsibility: 'Radix tree routing with parameterized and wildcard routes',
       doc_url: toAbsoluteUrl('/docs/packages/router/router'),
       public_api: ['createRouter', 'Router'],
     },
@@ -100,7 +100,7 @@ const AGENT_SPEC = {
     'Zero external runtime dependencies (except reflect-metadata for DI)',
     'TypeScript strict mode — zero any usage',
     'Node.js >= 22.0.0',
-    'Target 35,000+ RPS',
+    'Benchmark on target hardware before relying on throughput claims',
     'Core under 3,000 LOC',
   ],
   paradigms: ['functional', 'class-based'],

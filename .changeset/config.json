@@ -20,7 +20,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@nextrush/dev", "api"],
+  "ignore": ["api"],
   "privatePackages": {
     "version": false,
     "tag": false

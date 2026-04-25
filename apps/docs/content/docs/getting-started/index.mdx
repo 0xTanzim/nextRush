@@ -30,7 +30,7 @@ If you have shipped HTTP APIs before, you may have run into limits like these:
     Clean async/await, fragmented ecosystem. Quality across plugins varies.
   </CompareItem>
   <CompareItem name="Fastify">
-    Strong speed and plugins, steeper learning curve. JSON Schema validation can be verbose.
+    Node.js-focused throughput and plugins, steeper learning curve. JSON Schema validation can be verbose.
   </CompareItem>
   <CompareItem name="NestJS">
     Strong structure and DI, heavier runtime. Patterns feel closer to Angular than to small Node services.
@@ -46,7 +46,7 @@ If you have shipped HTTP APIs before, you may have run into limits like these:
 
 | Focus              | What you get                                                                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Performance**    | Segment trie routing and a small hot path. **35,000+ RPS** target for hello-world workloads (hardware varies — see [Performance](/docs/performance)). |
+| **Performance**    | Segment trie routing and a small hot path. [Benchmarks](/docs/performance) use a fixed methodology — run them on your hardware before comparing frameworks. |
 | **TypeScript**     | Written in strict mode; no `any` in the framework surface.                                                                                        |
 | **Middleware**     | Koa-style async handlers with `ctx.next()`.                                                                                                     |
 | **Structure**      | Optional controllers and DI when the project grows.                                                                                             |
@@ -115,7 +115,7 @@ app.use(async (ctx) => {
 
 - REST APIs and backend services
 - Teams that want strict TypeScript end-to-end
-- **35,000+ RPS** class throughput for simple routes (see [Performance](/docs/performance))
+- Teams that want to **measure** framework overhead with reproducible scripts (see [Performance](/docs/performance))
 - Deploying to more than one runtime (Node, Bun, Edge)
 - Prefer explicit wiring over implicit framework behavior
 - Modular installs instead of one giant framework bundle

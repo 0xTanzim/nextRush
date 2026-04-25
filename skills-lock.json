@@ -6,6 +6,11 @@
       "sourceType": "github",
       "computedHash": "34a38e6acc60d4529612d41ffe740bca0060d3c5e89e2a0d24ae795f67157fbb"
     },
+    "karpathy-llm-wiki": {
+      "source": "astro-han/karpathy-llm-wiki",
+      "sourceType": "github",
+      "computedHash": "d4632251d38a192191678a81da33d7eed72b3ca94e1ced4aebc41f4f3bf4922e"
+    },
     "memory-leak-detection": {
       "source": "aj-geddes/useful-ai-prompts",
       "sourceType": "github",

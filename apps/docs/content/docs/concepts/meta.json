@@ -1,6 +1,7 @@
 {
   "title": "Concepts",
   "pages": [
+    "index",
     "application",
     "context",
     "middleware",
