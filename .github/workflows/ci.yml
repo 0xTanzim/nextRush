@@ -5,6 +5,10 @@ on:
   pull_request:
     branches: [main]
 
+# Align JS action runtime with Node 24 (see https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/ )
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -16,8 +20,10 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: ${{ github.event_name != 'pull_request' && 1 || 0 }}
 

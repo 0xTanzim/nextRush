@@ -19,7 +19,7 @@
 ## Performance
 
 Benchmark snapshot from a single lab machine (Intel i5-8300H, 8 cores) running Node.js v25.1.0.
-For methodology, versions, and reproducible scripts, see apps/docs/content/docs/performance/index.mdx.
+For methodology, versions, and reproducible scripts, see https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx.
 
 | Framework       | Hello World    | POST JSON      | Mixed Workload |
 | --------------- | -------------- | -------------- | -------------- |
@@ -298,10 +298,11 @@ nextrush/
 
 ## Documentation
 
-- [Getting Started](apps/docs/content/docs/getting-started/index.mdx)
-- [Core Concepts](apps/docs/content/docs/concepts/index.mdx)
-- [API Reference](apps/docs/content/docs/api-reference/index.mdx)
-- [Performance & benchmarks](apps/docs/content/docs/performance/index.mdx)
+- [Getting Started](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/getting-started/index.mdx)
+- [Core Concepts](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/concepts/index.mdx)
+- [API Reference](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/api-reference/index.mdx)
+- [Performance & benchmarks](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx)
+- [Docs site (GitHub Pages)](https://0xtanzim.github.io/nextRush/docs)
 
 ## Versioning
 
