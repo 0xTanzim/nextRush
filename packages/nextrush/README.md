@@ -56,7 +56,7 @@ listen(app, 3000);
 ## Performance
 
 Benchmark snapshot from a single lab machine (Intel i5-8300H, 8 cores) running Node.js v25.1.0.
-See https://nextrush.dev/docs/performance for methodology, versions, and reproducible scripts.
+See https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx for methodology, versions, and reproducible scripts.
 
 | Framework       | Hello World    | POST JSON      | Mixed Workload |
 | --------------- | -------------- | -------------- | -------------- |
@@ -66,7 +66,7 @@ See https://nextrush.dev/docs/performance for methodology, versions, and reprodu
 | Koa             | 34,683 RPS     | 17,664 RPS     | 35,566 RPS     |
 | Express         | 23,739 RPS     | 14,417 RPS     | 23,783 RPS     |
 
-> Performance varies by hardware. See [Performance](https://nextrush.dev/docs/performance) for methodology and numbers.
+> Performance varies by hardware. See [Performance](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx) for methodology and numbers.
 
 ## Adding Middleware
 

@@ -47,12 +47,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/middleware/timer"
   },
   "publishConfig": {
     "access": "public"
   },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/timer#readme",
   "engines": {
     "node": ">=22.0.0"
   },

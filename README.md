@@ -19,7 +19,7 @@
 ## Performance
 
 Benchmark snapshot from a single lab machine (Intel i5-8300H, 8 cores) running Node.js v25.1.0.
-For methodology, versions, and reproducible scripts, see https://nextrush.dev/docs/performance.
+For methodology, versions, and reproducible scripts, see apps/docs/content/docs/performance/index.mdx.
 
 | Framework       | Hello World    | POST JSON      | Mixed Workload |
 | --------------- | -------------- | -------------- | -------------- |
@@ -298,10 +298,10 @@ nextrush/
 
 ## Documentation
 
-- [Getting Started](https://nextrush.dev/docs/getting-started)
-- [Core Concepts](https://nextrush.dev/docs/concepts)
-- [API Reference](https://nextrush.dev/docs/api-reference)
-- [Performance & benchmarks](https://nextrush.dev/docs/performance)
+- [Getting Started](apps/docs/content/docs/getting-started/index.mdx)
+- [Core Concepts](apps/docs/content/docs/concepts/index.mdx)
+- [API Reference](apps/docs/content/docs/api-reference/index.mdx)
+- [Performance & benchmarks](apps/docs/content/docs/performance/index.mdx)
 
 ## Versioning
 

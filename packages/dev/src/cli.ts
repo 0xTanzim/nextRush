@@ -120,7 +120,7 @@ Examples:
 
 Run "nextrush <command> --help" for command-specific help.
 
-Documentation: https://nextrush.dev/docs/cli
+Documentation: https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/guides/dev-tools.mdx
 `);
 }
 

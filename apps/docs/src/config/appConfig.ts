@@ -1,4 +1,4 @@
-const SITE_URL = 'https://nextrush.dev';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://github.com/0xTanzim/nextRush';
 
 export const appConfig = {
   name: 'NextRush',
@@ -7,9 +7,9 @@ export const appConfig = {
   teamName: 'NextRush Team',
   twitterHandle: '@nextrush',
   siteUrl: SITE_URL,
-  repositoryUrl: 'https://github.com/0xTanzim/nextrush',
+  repositoryUrl: 'https://github.com/0xTanzim/nextRush',
   /** Canonical folder for Agent Skills source in the repo (`skills/<name>/SKILL.md`). */
-  skillsSourceRootUrl: 'https://github.com/0xTanzim/nextrush/tree/main/skills',
+  skillsSourceRootUrl: 'https://github.com/0xTanzim/nextRush/tree/main/skills',
   paths: {
     docs: '/docs',
     llmTxt: '/llm.txt',

@@ -13,7 +13,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -42,13 +43,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/core"
   },
   "bugs": {
-    "url": "https://github.com/0xTanzim/nextrush/issues"
+    "url": "https://github.com/0xTanzim/nextRush/issues"
   },
-  "homepage": "https://github.com/0xTanzim/nextrush#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush#readme",
   "engines": {
     "node": ">=22.0.0"
   },

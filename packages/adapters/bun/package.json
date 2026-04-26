@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -46,12 +47,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/adapters/bun"
   },
   "publishConfig": {
     "access": "public"
   },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/adapters/bun#readme",
   "engines": {
     "node": ">=22.0.0"
   },

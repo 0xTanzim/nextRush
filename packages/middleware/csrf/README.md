@@ -220,7 +220,7 @@ const { protect } = csrf({
     ctx.json({
       error: 'CSRF_FAILED',
       reason,
-      docs: 'https://nextrush.dev/docs/api-reference/middleware/csrf',
+      docs: 'https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/api-reference/middleware/csrf.mdx',
     });
   },
 });

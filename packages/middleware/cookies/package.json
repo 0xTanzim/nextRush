@@ -42,7 +42,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/middleware/cookies"
   },
   "bugs": {
