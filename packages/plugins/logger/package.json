@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/logger",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Request logging middleware for NextRush - wraps @nextrush/log",
   "type": "module",
   "main": "./dist/index.js",

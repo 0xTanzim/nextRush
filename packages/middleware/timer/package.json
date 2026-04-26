@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/timer",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Response time middleware for NextRush - measures request duration",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/template",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Modern template engine for NextRush - Mustache-like syntax with helpers, partials, layouts, and streaming",
   "type": "module",
   "main": "./dist/index.js",
