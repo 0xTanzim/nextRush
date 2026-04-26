@@ -1,0 +1,554 @@
+---
+title: 'Class-Based API'
+description: 'Build a structured API with decorators, dependency injection, and controllers.'
+---
+
+The same REST API, built with decorators and dependency injection.
+
+This example demonstrates:
+
+- Controller decorators
+- Service injection
+- Repository pattern
+- Guards for authorization
+- Clean architecture
+
+---
+
+## Project Setup
+
+```bash
+mkdir class-api && cd class-api
+pnpm init
+```
+
+<PackageInstall
+  packages={['nextrush', '@nextrush/controllers', '@nextrush/cors', '@nextrush/body-parser']}
+  dev={['@nextrush/dev', 'typescript', '@types/node']}
+/>
+
+---
+
+## Configuration
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": ["src"]
+}
+```
+
+<Callout type="warn">
+  Both `experimentalDecorators` and `emitDecoratorMetadata` are required for DI to work.
+</Callout>
+
+---
+
+## File Structure
+
+```
+src/
+├── index.ts
+├── controllers/
+│   └── user.controller.ts
+├── services/
+│   └── user.service.ts
+├── repositories/
+│   └── user.repository.ts
+└── types/
+    └── user.ts
+```
+
+---
+
+## Types
+
+```typescript title="src/types/user.ts"
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface CreateUserDto {
+  name: string;
+  email: string;
+}
+
+export interface UpdateUserDto {
+  name?: string;
+  email?: string;
+}
+```
+
+---
+
+## Repository
+
+```typescript title="src/repositories/user.repository.ts"
+import { Repository } from '@nextrush/di';
+import type { User, CreateUserDto } from '../types/user';
+
+@Repository()
+export class UserRepository {
+  private users: Map<string, User> = new Map();
+
+  constructor() {
+    // Seed data
+    this.users.set('1', {
+      id: '1',
+      name: 'Alice',
+      email: 'alice@example.com',
+      createdAt: new Date().toISOString(),
+    });
+    this.users.set('2', {
+      id: '2',
+      name: 'Bob',
+      email: 'bob@example.com',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  findAll(): User[] {
+    return Array.from(this.users.values());
+  }
+
+  findById(id: string): User | undefined {
+    return this.users.get(id);
+  }
+
+  findByEmail(email: string): User | undefined {
+    return Array.from(this.users.values()).find((u) => u.email === email);
+  }
+
+  create(data: CreateUserDto): User {
+    const user: User = {
+      id: Date.now().toString(),
+      name: data.name,
+      email: data.email,
+      createdAt: new Date().toISOString(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  update(id: string, data: Partial<CreateUserDto>): User | undefined {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+
+    const updated = { ...existing, ...data };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  delete(id: string): boolean {
+    return this.users.delete(id);
+  }
+}
+```
+
+---
+
+## Service
+
+```typescript title="src/services/user.service.ts"
+import { Service } from '@nextrush/di';
+import { NotFoundError, ConflictError, BadRequestError } from 'nextrush';
+import { UserRepository } from '../repositories/user.repository';
+import type { User, CreateUserDto, UpdateUserDto } from '../types/user';
+
+@Service()
+export class UserService {
+  constructor(private repo: UserRepository) {}
+
+  findAll(): User[] {
+    return this.repo.findAll();
+  }
+
+  findById(id: string): User {
+    const user = this.repo.findById(id);
+    if (!user) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+    return user;
+  }
+
+  create(data: CreateUserDto): User {
+    // Validation
+    if (!data.name?.trim()) {
+      throw new BadRequestError('Name is required');
+    }
+    if (!data.email?.trim()) {
+      throw new BadRequestError('Email is required');
+    }
+
+    // Check duplicate
+    const existing = this.repo.findByEmail(data.email.toLowerCase());
+    if (existing) {
+      throw new ConflictError('Email already exists');
+    }
+
+    return this.repo.create({
+      name: data.name.trim(),
+      email: data.email.toLowerCase().trim(),
+    });
+  }
+
+  update(id: string, data: UpdateUserDto): User {
+    // Check exists
+    const existing = this.repo.findById(id);
+    if (!existing) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+
+    // Check email uniqueness if changing
+    if (data.email && data.email !== existing.email) {
+      const duplicate = this.repo.findByEmail(data.email.toLowerCase());
+      if (duplicate) {
+        throw new ConflictError('Email already exists');
+      }
+    }
+
+    const updated = this.repo.update(id, {
+      name: data.name?.trim(),
+      email: data.email?.toLowerCase().trim(),
+    });
+
+    return updated!;
+  }
+
+  delete(id: string): void {
+    const exists = this.repo.findById(id);
+    if (!exists) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+    this.repo.delete(id);
+  }
+}
+```
+
+---
+
+## Controller
+
+```typescript title="src/controllers/user.controller.ts"
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Ctx } from '@nextrush/decorators';
+import type { Context } from 'nextrush';
+import { UserService } from '../services/user.service';
+import type { CreateUserDto, UpdateUserDto } from '../types/user';
+
+@Controller('/users')
+export class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() {
+    const users = this.userService.findAll();
+    return { data: users, total: users.length };
+  }
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) {
+    const user = this.userService.findById(id);
+    return { data: user };
+  }
+
+  @Post()
+  create(@Body() data: CreateUserDto, @Ctx() ctx: Context) {
+    const user = this.userService.create(data);
+    ctx.status = 201;
+    return { data: user };
+  }
+
+  @Put('/:id')
+  replace(@Param('id') id: string, @Body() data: CreateUserDto) {
+    const user = this.userService.update(id, data);
+    return { data: user };
+  }
+
+  @Patch('/:id')
+  update(@Param('id') id: string, @Body() data: UpdateUserDto) {
+    const user = this.userService.update(id, data);
+    return { data: user };
+  }
+
+  @Delete('/:id')
+  remove(@Param('id') id: string, @Ctx() ctx: Context) {
+    this.userService.delete(id);
+    ctx.status = 204;
+  }
+}
+```
+
+---
+
+## Entry Point
+
+```typescript title="src/index.ts"
+// reflect-metadata is auto-imported by the nextrush meta-package
+import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin } from 'nextrush/class';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+
+async function main() {
+  const app = createApp();
+  const router = createRouter();
+
+  // Middleware
+  app.use(cors());
+  app.use(json());
+
+  // Auto-discover all controllers in ./src
+  await app.plugin(
+    controllersPlugin({
+      router,
+      root: './src',
+      prefix: '/api',
+    })
+  );
+
+  // Mount router
+  app.route('/', router);
+
+  // Start server
+  await listen(app, 3000);
+}
+
+main();
+```
+
+<Callout type="info">
+  The `nextrush` meta-package auto-imports `reflect-metadata`. No manual import needed.
+</Callout>
+
+When the app starts with `debug: true` added to the plugin options, you'll see:
+
+```
+[Controllers] Starting auto-discovery in: ./src
+[Controllers] Discovered: UserController from ./src/controllers/user.controller.ts
+[Controllers] Registered: UserController
+  GET     /api/users
+  GET     /api/users/:id
+  POST    /api/users
+  PUT     /api/users/:id
+  PATCH   /api/users/:id
+  DELETE  /api/users/:id
+[Controllers] Initialized with 6 routes
+🚀 NextRush listening on http://localhost:3000
+```
+
+No manual imports or controller arrays needed. Add a new controller file anywhere in `./src` with the
+`@Controller` decorator — any file name, any subdirectory — and it is automatically discovered and
+registered. No naming convention enforced.
+
+---
+
+## Running
+
+```bash
+# Development
+npx nextrush dev
+
+# Production build
+npx nextrush build
+node dist/index.js
+```
+
+---
+
+## Adding Guards
+
+Protect routes with guards:
+
+```typescript title="src/guards/auth.guard.ts"
+import type { GuardFn } from '@nextrush/decorators';
+
+export const AuthGuard: GuardFn = async (ctx) => {
+  const token = ctx.get('authorization');
+
+  if (!token || !token.startsWith('Bearer ')) {
+    return false;
+  }
+
+  // Verify token (simplified for this example)
+  const payload = verifyToken(token.slice(7));
+  if (!payload) {
+    return false;
+  }
+
+  // Store user in state for later use
+  ctx.state.user = payload;
+  return true;
+};
+
+function verifyToken(token: string): { id: string; role: string } | null {
+  // Replace with your JWT verification logic
+  if (token === 'valid-token') {
+    return { id: '1', role: 'user' };
+  }
+  return null;
+}
+```
+
+```typescript title="src/controllers/user.controller.ts"
+import { Controller, Get, UseGuard } from '@nextrush/decorators';
+import { AuthGuard } from '../guards/auth.guard';
+import { UserService } from '../services/user.service';
+
+@UseGuard(AuthGuard) // Protect entire controller
+@Controller('/users')
+export class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.userService.findAll();
+  }
+}
+```
+
+---
+
+## Role-Based Access
+
+```typescript title="src/guards/role.guard.ts"
+import type { GuardFn } from '@nextrush/decorators';
+
+export const RoleGuard =
+  (allowedRoles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+
+    if (!user) return false;
+
+    return allowedRoles.includes(user.role);
+  };
+```
+
+```typescript title="src/controllers/admin.controller.ts"
+import { Controller, Get, UseGuard, SetHeader, Redirect } from '@nextrush/decorators';
+import { AuthGuard } from '../guards/auth.guard';
+import { RoleGuard } from '../guards/role.guard';
+
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
+export class AdminController {
+  @SetHeader('Cache-Control', 'no-store')
+  @Get('/stats')
+  getStats() {
+    return { users: 100, orders: 500 };
+  }
+
+  @Redirect('/admin/stats', 301)
+  @Get('/dashboard')
+  legacyDashboard() {
+    // Redirects to /admin/stats
+  }
+}
+```
+
+---
+
+## Custom Parameter Decorators
+
+Extract common values cleanly with `createCustomParamDecorator`:
+
+```typescript title="src/decorators/current-user.ts"
+import { createCustomParamDecorator } from '@nextrush/decorators';
+import type { Context } from 'nextrush';
+
+export const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+```
+
+```typescript title="src/controllers/profile.controller.ts"
+import { Controller, Get } from '@nextrush/decorators';
+import { CurrentUser } from '../decorators/current-user';
+
+@Controller('/profile')
+export class ProfileController {
+  @Get()
+  getProfile(@CurrentUser user: { id: string; role: string }) {
+    return { user };
+  }
+}
+```
+
+---
+
+## Testing
+
+Controllers and services are plain classes — no framework coupling in tests:
+
+```typescript title="src/services/user.service.test.ts"
+import { describe, it, expect, beforeEach } from 'vitest';
+import { UserService } from './user.service';
+import { UserRepository } from '../repositories/user.repository';
+
+describe('UserService', () => {
+  let service: UserService;
+  let repo: UserRepository;
+
+  beforeEach(() => {
+    repo = new UserRepository();
+    service = new UserService(repo);
+  });
+
+  it('should find all users', () => {
+    const users = service.findAll();
+    expect(users.length).toBeGreaterThan(0);
+  });
+
+  it('should create user', () => {
+    const user = service.create({
+      name: 'Test',
+      email: 'test@example.com',
+    });
+    expect(user.id).toBeDefined();
+    expect(user.name).toBe('Test');
+  });
+
+  it('should throw on duplicate email', () => {
+    expect(() => {
+      service.create({ name: 'Dup', email: 'alice@example.com' });
+    }).toThrow('Email already exists');
+  });
+});
+```
+
+---
+
+## Comparison: Functional vs Class-Based
+
+| Aspect        | Functional     | Class-Based      |
+| ------------- | -------------- | ---------------- |
+| Lines of code | ~80 lines      | ~200 lines       |
+| Setup         | Minimal        | More boilerplate |
+| DI support    | Manual         | Automatic        |
+| Testing       | Mock functions | Inject mocks     |
+| Type safety   | Good           | Excellent        |
+| Scalability   | Medium         | High             |
+
+Choose functional for simplicity, class-based for structure.
+
+---
+
+## Next Steps
+
+- [Authentication](/docs/examples/authentication) — Full JWT authentication
+- [Database Integration](/docs/examples/database) — Connect to databases
+- [DI & Decorators Architecture](/docs/concepts/di-decorators) — How it works internally
+- [API Reference — Controllers](/docs/api-reference/plugins/controllers) — Full controllers plugin API
+- [Security Best Practices](/docs/guides/security) — Helmet, CORS, and rate limiting

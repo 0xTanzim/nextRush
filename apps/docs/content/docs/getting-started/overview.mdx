@@ -1,0 +1,608 @@
+---
+title: Framework Overview
+description: NextRush at a glance — architecture, concepts, packages, and how requests move through the stack.
+---
+
+import { DocPageOutline, DocPrerequisiteGrid, Mermaid } from '@/components/mdx';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+<DocHero eyebrow="Framework overview">
+
+**NextRush** is a small, composable HTTP stack: one **`Context`** per request, Koa-style **middleware**,
+a fast **router**, optional **controllers + DI**, and **adapters** for Node.js, Bun, Deno, and Edge.
+Core packages stay dependency-free; you add `@nextrush/*` middleware and plugins only when you need them.
+
+</DocHero>
+
+<Callout type="info" title="How to read this section">
+  **v3 alpha** — public APIs are still stabilizing; requires **Node.js 22+**. For positioning vs other
+  stacks and a short mental model, read [Introduction](/docs/getting-started) first; this page is the
+  full stack map.
+</Callout>
+
+<DocStatStrip>
+  <DocStat label="Benchmarks" value="Reproducible" hint="Lab setup — your numbers will differ" />
+  <DocStat label="Core size" value="< 3k" hint="Lines of code" />
+  <DocStat label="Packages" value="30" hint="Monorepo" />
+  <DocStat label="Runtimes" value="4" hint="Node, Bun, Deno, Edge" />
+</DocStatStrip>
+
+## Pick a path
+
+<CompareGrid>
+  <CompareItem name="New project">
+    Start on the **Installation** page. From there, choose the scaffolded path with
+    **`create-nextrush`** or the manual path.
+    [Installation](/docs/getting-started/installation)
+  </CompareItem>
+  <CompareItem name="Learn the model">
+    Read **Context**, **middleware**, and **routing** first — everything else builds on that pipeline.
+    [Request lifecycle](/docs/concepts/request-lifecycle) · [Context](/docs/concepts/context) · [Middleware](/docs/concepts/middleware)
+  </CompareItem>
+  <CompareItem name="Measure & tune">
+    Reproducible **benchmarks** live in the docs; tuning guidance covers middleware order and serialization.
+    [Benchmarks](/docs/performance) · [Tuning](/docs/performance/tuning)
+  </CompareItem>
+</CompareGrid>
+
+## Prerequisites
+
+<DocPrerequisiteGrid
+  items={[
+    { label: 'Node.js', value: '22 or newer (LTS recommended)' },
+    { label: 'TypeScript', value: 'Strict mode — matches the framework source' },
+    { label: 'Package manager', value: 'pnpm, npm, yarn, or bun (some examples use pnpm)' },
+  ]}
+/>
+
+For editor and tooling (lint, format), see [Installation](/docs/getting-started/installation).
+
+## What this page covers
+
+This is the **broadest** getting-started doc: runnable hello world, feature highlights, request lifecycle,
+concept links, package diagram, both programming styles, performance and runtime tables, and migration hints.
+Use the list below to jump to a section.
+
+<DocPageOutline
+  items={[
+    {
+      href: '#hello-world-in-under-a-minute',
+      title: 'Hello World',
+      description: 'Copy a minimal server and run it',
+    },
+    {
+      href: '#why-nextrush',
+      title: 'Why NextRush',
+      description: 'Design goals at a glance',
+    },
+    {
+      href: '#how-a-request-flows',
+      title: 'How a request flows',
+      description: 'Adapter → middleware → router',
+    },
+    {
+      href: '#core-concepts',
+      title: 'Core concepts',
+      description: 'Links to deep concept pages',
+    },
+    {
+      href: '#package-architecture',
+      title: 'Package architecture',
+      description: 'Monorepo layers and the meta-package',
+    },
+    {
+      href: '#two-programming-styles',
+      title: 'Two programming styles',
+      description: 'Functional routes vs class-based controllers',
+    },
+    {
+      href: '#performance-targets',
+      title: 'Performance targets',
+      description: 'Design targets and link to full benchmarks',
+    },
+    {
+      href: '#runtime-support',
+      title: 'Runtime support',
+      description: 'Node, Bun, Deno, Edge adapters',
+    },
+    {
+      href: '#coming-from-another-stack',
+      title: 'Coming from another stack?',
+      description: 'Express and Fastify compared',
+    },
+  ]}
+/>
+
+## Errors, testing, and deployment
+
+Production APIs need clear failures and checks — not only routing:
+
+- **HTTP errors** — `HttpError` hierarchy and handlers: [Errors (API)](/docs/api-reference/core/errors) · [Error handling (guide)](/docs/guides/error-handling)
+- **Tests** — Vitest patterns for apps and middleware: [Testing](/docs/guides/testing)
+- **Ship** — build, env, hosting: [Deployment](/docs/guides/deployment)
+
+## Hello World in under a minute
+
+<PackageInstall packages={['nextrush']} />
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush' }));
+
+app.route('/', router);
+await listen(app, 3000);
+// → http://localhost:3000
+```
+
+## Why NextRush
+
+<HighlightGrid>
+  <HighlightItem
+    icon="package"
+    title="Zero core dependencies"
+    description="No external runtime packages in core, router, errors, types, adapters, or middleware packages. DI uses reflect-metadata (pulled in by the nextrush meta-package)."
+  />
+  <HighlightItem
+    icon="globe"
+    title="Multi-runtime"
+    description="Same application code on Node.js, Bun, Deno, and Edge — swap the adapter, keep your routes and middleware."
+  />
+  <HighlightItem
+    icon="code"
+    title="Type-safe"
+    description="Strict TypeScript throughout. No `any` in the public API. Inference from route params to handlers."
+  />
+  <HighlightItem
+    icon="layers"
+    title="Dual paradigm"
+    description="Functional routes for small services. Class-based controllers with DI when structure matters."
+  />
+  <HighlightItem
+    icon="gauge"
+    title="High throughput"
+    description="Segment trie routing, pre-compiled middleware chain, minimal allocation on the hot path."
+  />
+  <HighlightItem
+    icon="puzzle"
+    title="Modular"
+    description="30 packages — cors, helmet, body-parser, controllers, websocket, and more as separate installs."
+  />
+</HighlightGrid>
+
+## How a request flows
+
+Every HTTP request follows the same path:
+
+<Mermaid
+  chart={`
+sequenceDiagram
+    participant Client
+    participant Adapter
+    participant App as Application
+    participant MW as Middleware
+    participant Router
+    participant Handler
+
+    Client->>Adapter: HTTP Request
+    Adapter->>App: Create Context
+    App->>MW: Run middleware pipeline
+    MW->>MW: cors → auth → body-parser
+    MW->>Router: Match route
+    Router->>Handler: Execute handler
+    Handler-->>MW: Return response
+    MW-->>MW: Post-processing (logging, headers)
+    MW-->>Adapter: Final response
+    Adapter-->>Client: HTTP Response
+
+`}
+/>
+
+1. **Adapter** receives the raw request and builds a **Context**
+2. **Application** runs the **middleware** pipeline
+3. **Router** matches the URL and extracts params
+4. **Handler** runs your logic and sets the response
+5. Response unwinds through middleware
+6. **Adapter** sends bytes to the client
+
+## Core concepts
+
+Eight ideas cover most of the framework. Each has a dedicated concept page.
+
+### Application
+
+The container for middleware, plugins, routes, and errors.
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+```
+
+[Application →](/docs/concepts/application)
+
+### Context
+
+One object per request for input, output, and shared state.
+
+```typescript
+router.get('/users/:id', (ctx) => {
+  const { id } = ctx.params;
+  const { page } = ctx.query;
+  const auth = ctx.get('authorization');
+
+  ctx.status = 200;
+  ctx.json({ id, page, auth });
+});
+```
+
+[Context →](/docs/concepts/context)
+
+### Middleware
+
+Onion-style pipeline — code before `ctx.next()` runs inbound; code after runs outbound.
+
+```typescript
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+});
+```
+
+<Mermaid
+  chart={`
+flowchart LR
+    subgraph "Middleware pipeline"
+        direction LR
+        A["Request →"] --> B["cors"]
+        B --> C["auth"]
+        C --> D["body-parser"]
+        D --> E["Router + handler"]
+        E --> F["← body-parser"]
+        F --> G["← auth"]
+        G --> H["← cors"]
+        H --> I["← Response"]
+    end
+`}
+/>
+
+[Middleware →](/docs/concepts/middleware)
+
+### Routing
+
+Segment trie with O(d) depth lookup; static routes use fast paths. Params, wildcards, and nested routers supported.
+
+```typescript
+import { createRouter } from 'nextrush';
+
+const users = createRouter();
+
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+users.post('/', (ctx) => ctx.json(ctx.body, 201));
+
+app.route('/users', users);
+```
+
+[Routing →](/docs/concepts/routing)
+
+### Plugins
+
+Extend the app at startup: register middleware, routes, or lifecycle hooks without forking core.
+
+```typescript
+import { controllersPlugin } from '@nextrush/controllers';
+import { eventsPlugin } from '@nextrush/events';
+
+app.plugin(eventsPlugin());
+app.plugin(controllersPlugin({ router, root: './src' }));
+```
+
+[Plugins →](/docs/concepts/plugins)
+
+### Guards
+
+Route-level access checks. Return `false` → 403 before the handler runs.
+
+```typescript
+import type { GuardFn } from '@nextrush/decorators';
+
+const AuthGuard: GuardFn = (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
+
+@UseGuard(AuthGuard)
+@Controller('/admin')
+class AdminController {
+  @Get('/dashboard')
+  dashboard() {
+    return { admin: true };
+  }
+}
+```
+
+[Guards →](/docs/concepts/guards)
+
+### Dependency injection
+
+Register services (singleton or transient) and inject into controllers.
+
+```typescript
+import { Service } from '@nextrush/di';
+
+@Service()
+class UserService {
+  async findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+```
+
+### Adapters
+
+Runtime-specific HTTP I/O. Your app code stays the same.
+
+```typescript
+import { listen } from 'nextrush'; // Node.js (default)
+// import { listen } from '@nextrush/adapter-bun';
+// import { listen } from '@nextrush/adapter-deno';
+// import { listen } from '@nextrush/adapter-edge';
+
+await listen(app, 3000);
+```
+
+## Package architecture
+
+**30 packages** in the monorepo. Lower layers never import from higher layers:
+
+<Mermaid
+  chart={`
+flowchart TD
+    T["@nextrush/types"] --> E["@nextrush/errors"]
+    T --> C["@nextrush/core"]
+    T --> R["@nextrush/router"]
+    T --> DI["@nextrush/di"]
+    T --> DEC["@nextrush/decorators"]
+    E --> CTRL["@nextrush/controllers"]
+    DI --> CTRL
+    DEC --> CTRL
+    C --> AN["@nextrush/adapter-node"]
+    C --> AB["@nextrush/adapter-bun"]
+    C --> AD["@nextrush/adapter-deno"]
+    C --> AE["@nextrush/adapter-edge"]
+    T --> MW["Middleware (cors, helmet, body-parser, ...)"]
+    AN --> NR["nextrush (meta package)"]
+    R --> NR
+    E --> NR
+    C --> NR
+
+    style T fill:#e0f2fe,stroke:#0ea5e9
+    style NR fill:#fef3c7,stroke:#f59e0b
+    style CTRL fill:#fce7f3,stroke:#ec4899
+
+`}
+/>
+
+[Package hierarchy →](/docs/concepts/package-hierarchy)
+
+## Two programming styles
+
+Use functions for small services; add controllers and DI when the API grows. Both styles can coexist.
+
+<Tabs items={['Functional', 'Class-based']}>
+  <Tab value="Functional">
+    Direct routes and middleware.
+
+    ```typescript title="src/index.ts"
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { cors } from '@nextrush/cors';
+    import { json } from '@nextrush/body-parser';
+
+    const app = createApp();
+    const router = createRouter();
+
+    app.use(cors());
+    app.use(json());
+
+    router.get('/users', (ctx) => {
+      ctx.json([{ id: 1, name: 'Alice' }]);
+    });
+
+    router.post('/users', (ctx) => {
+      ctx.json(ctx.body, 201);
+    });
+
+    router.get('/users/:id', (ctx) => {
+      ctx.json({ id: ctx.params.id });
+    });
+
+    app.route('/api', router);
+    await listen(app, 3000);
+    ```
+
+  </Tab>
+  <Tab value="Class-based">
+    Controllers with DI.
+
+    ```typescript title="src/index.ts"
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { controllersPlugin, Controller, Get, Post, Body, Service } from 'nextrush/class';
+
+    @Service()
+    class UserService {
+      private users = [{ id: 1, name: 'Alice' }];
+
+      findAll() {
+        return this.users;
+      }
+
+      create(data: { name: string }) {
+        const user = { id: this.users.length + 1, ...data };
+        this.users.push(user);
+        return user;
+      }
+    }
+
+    @Controller('/users')
+    class UserController {
+      constructor(private userService: UserService) {}
+
+      @Get()
+      findAll() {
+        return this.userService.findAll();
+      }
+
+      @Post()
+      create(@Body() data: { name: string }) {
+        return this.userService.create(data);
+      }
+    }
+
+    const app = createApp();
+    const router = createRouter();
+
+    await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
+    app.route('/', router);
+
+    await listen(app, 3000);
+    ```
+
+    The `nextrush` meta-package loads `reflect-metadata` for decorators.
+
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Mix and match">
+  Use functional routes for health checks and class controllers for domain APIs in the same app — no forced migration path.
+</Callout>
+
+## Design constraints
+
+<DocTableWrap>
+
+| Area | Constraint |
+| --- | --- |
+| Throughput | No universal RPS figure — use [Benchmarks](/docs/performance) on your CPU, Node version, and tooling |
+| Core lines of code | &lt; 3,000 |
+| Runtime dependencies | 0 in core; `reflect-metadata` for DI via the meta-package |
+
+</DocTableWrap>
+
+Segment trie routing, pre-compiled middleware composition, and avoiding extra allocations on the request path keep overhead low. Cold-start and idle memory depend on process and OS — measure in your environment if those drive your product.
+
+[Full benchmarks →](/docs/performance)
+
+## Runtime support
+
+<DocTableWrap>
+
+| Runtime                             | Adapter                  | Status    |
+| ----------------------------------- | ------------------------ | --------- |
+| Node.js 22+                         | `nextrush` (built-in)    | Stable    |
+| Bun                                 | `@nextrush/adapter-bun`  | Stable    |
+| Deno                                | `@nextrush/adapter-deno` | Stable    |
+| Edge (Cloudflare Workers, Vercel)   | `@nextrush/adapter-edge` | Stable    |
+
+</DocTableWrap>
+
+The `nextrush` package ships the Node adapter. Install other adapters when you target Bun, Deno, or Edge.
+
+## Coming from another stack?
+
+<DocTableWrap>
+
+| Topic | Express | Fastify | NextRush |
+| --- | --- | --- | --- |
+| **Request surface** | `req` / `res` / `next` | `request` / `reply` | Single **`ctx`** + **`ctx.next()`** (Koa-style) |
+| **Routing** | Linear match order | Radix tree (`find-my-way`) | Segment trie (`@nextrush/router`) |
+| **Types** | DefinitelyTyped | First-class | Strict, first-party types |
+| **Validation** | Manual / middleware | JSON Schema (built-in) | Bring Zod, Valibot, etc. (transforms on params) |
+| **Structure** | Free-form | Encapsulated plugins | Optional **controllers + DI** via `nextrush/class` |
+
+</DocTableWrap>
+
+### Express
+
+- **Middleware**: `(req, res, next)` vs one **`ctx`** and `ctx.next()`
+- **Routing**: linear scan vs segment trie (O(depth))
+- **Types**: `@types/express` vs first-party strict types
+
+### Fastify
+
+- **Plugins**: Fastify encapsulation vs flat NextRush `plugin()` installs
+- **Validation**: JSON Schema vs transforms (Zod, Valibot, …)
+- **Decorators**: add-on only vs `@Controller` / `@Get` with DI when you want them
+
+## What ships in `nextrush`
+
+| Package                  | Role                                      |
+| ------------------------ | ----------------------------------------- |
+| `@nextrush/core`         | Application, middleware engine            |
+| `@nextrush/router`       | Segment trie router                       |
+| `@nextrush/adapter-node` | Node HTTP server                          |
+| `@nextrush/errors`       | HTTP errors (4xx / 5xx)                   |
+| `@nextrush/types`        | Shared types                              |
+
+Optional layers:
+
+| Category       | Examples                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| **Middleware** | `cors`, `helmet`, `body-parser`, `compression`, `cookies`, `rate-limit`, `request-id`, `timer` |
+| **Plugins**    | `controllers`, `events`, `logger`, `static`, `template`, `websocket`                            |
+| **Adapters**   | `adapter-bun`, `adapter-deno`, `adapter-edge`                                                   |
+| **DI**         | `di`, `decorators`                                                                              |
+
+## Next steps
+
+<Cards>
+  <Card
+    title="Installation"
+    description="Add NextRush to your project and configure TypeScript."
+    href="/docs/getting-started/installation"
+  />
+  <Card
+    title="Quick start"
+    description="Run a server and hit your first route."
+    href="/docs/getting-started/quick-start"
+  />
+  <Card
+    title="Core concepts"
+    description="Context, middleware, routing, and plugins in depth."
+    href="/docs/concepts"
+  />
+  <Card
+    title="API reference"
+    description="Lookup for core, middleware, plugins, and adapters."
+    href="/docs/api-reference"
+  />
+  <Card
+    title="Benchmarks"
+    description="Reproducible numbers and framework comparison."
+    href="/docs/performance"
+  />
+  <Card
+    title="Guides"
+    description="REST APIs, auth patterns, deployment, testing."
+    href="/docs/guides"
+  />
+</Cards>
+
+## Community
+
+- **Repository** — [github.com/0xTanzim/nextrush](https://github.com/0xTanzim/nextrush)
+- **Discussions** — [GitHub Discussions](https://github.com/0xTanzim/nextrush/discussions)
+- **Agent skills** — [Skills directory](/skills) for AI-assisted development

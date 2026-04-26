@@ -1,0 +1,184 @@
+---
+title: WebSocket Chat
+description: Build a real-time chat application with NextRush WebSocket support.
+---
+
+A real-time chat server using `@nextrush/websocket`. Handles connections, rooms, broadcasts, and graceful disconnection.
+
+## What This Example Demonstrates
+
+- WebSocket plugin setup
+- Connection lifecycle (open, message, close)
+- Room-based broadcasting
+- User identification via query params
+- Graceful disconnect with notifications
+
+## Prerequisites
+
+- Node.js 22+
+- `nextrush` and `@nextrush/websocket` installed
+
+```bash
+pnpm add nextrush @nextrush/websocket
+```
+
+## Full Code
+
+```typescript title="src/chat.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { websocketPlugin } from '@nextrush/websocket';
+
+const app = createApp();
+const router = createRouter();
+
+// Track connected users per room
+const rooms = new Map<string, Set<WebSocket>>();
+
+// Health check
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+
+// REST endpoint — list active rooms
+router.get('/rooms', (ctx) => {
+  const roomList = Array.from(rooms.entries()).map(([name, clients]) => ({
+    name,
+    clients: clients.size,
+  }));
+  ctx.json(roomList);
+});
+
+// WebSocket plugin
+app.plugin(
+  websocketPlugin({
+    path: '/ws',
+
+    onOpen(ws, req) {
+      const url = new URL(req.url ?? '', 'http://localhost');
+      const room = url.searchParams.get('room') ?? 'general';
+      const username = url.searchParams.get('user') ?? 'anonymous';
+
+      // Join room
+      if (!rooms.has(room)) rooms.set(room, new Set());
+      rooms.get(room)!.add(ws);
+
+      // Store metadata on the socket
+      (ws as WebSocketWithMeta).room = room;
+      (ws as WebSocketWithMeta).username = username;
+
+      // Notify room
+      broadcast(
+        room,
+        {
+          type: 'system',
+          message: `${username} joined`,
+          timestamp: Date.now(),
+        },
+        ws
+      );
+    },
+
+    onMessage(ws, data) {
+      const meta = ws as WebSocketWithMeta;
+      const message = typeof data === 'string' ? data : data.toString();
+
+      broadcast(meta.room, {
+        type: 'message',
+        user: meta.username,
+        message,
+        timestamp: Date.now(),
+      });
+    },
+
+    onClose(ws) {
+      const meta = ws as WebSocketWithMeta;
+      const roomClients = rooms.get(meta.room);
+
+      if (roomClients) {
+        roomClients.delete(ws);
+        if (roomClients.size === 0) {
+          rooms.delete(meta.room);
+        } else {
+          broadcast(meta.room, {
+            type: 'system',
+            message: `${meta.username} left`,
+            timestamp: Date.now(),
+          });
+        }
+      }
+    },
+  })
+);
+
+interface WebSocketWithMeta extends WebSocket {
+  room: string;
+  username: string;
+}
+
+function broadcast(room: string, data: Record<string, unknown>, exclude?: WebSocket) {
+  const clients = rooms.get(room);
+  if (!clients) return;
+
+  const payload = JSON.stringify(data);
+  for (const client of clients) {
+    if (client !== exclude && client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
+app.route('/', router);
+await listen(app, 3000);
+console.log('Chat server running on http://localhost:3000');
+console.log('WebSocket endpoint: ws://localhost:3000/ws?room=general&user=alice');
+```
+
+## How to Run
+
+```bash
+npx nextrush dev src/chat.ts
+```
+
+## Test with wscat
+
+```bash
+# Terminal 1 — Alice joins
+npx wscat -c "ws://localhost:3000/ws?room=general&user=alice"
+
+# Terminal 2 — Bob joins
+npx wscat -c "ws://localhost:3000/ws?room=general&user=bob"
+
+# In Alice's terminal, type:
+> Hello Bob!
+
+# Bob sees:
+< {"type":"message","user":"alice","message":"Hello Bob!","timestamp":1704067200000}
+```
+
+## Expected Output
+
+When Alice connects:
+
+```json
+// Bob receives:
+{ "type": "system", "message": "alice joined", "timestamp": 1704067200000 }
+```
+
+When Alice sends "Hello":
+
+```json
+// Bob receives:
+{ "type": "message", "user": "alice", "message": "Hello", "timestamp": 1704067200001 }
+```
+
+When Alice disconnects:
+
+```json
+// Bob receives:
+{ "type": "system", "message": "alice left", "timestamp": 1704067200002 }
+```
+
+Check active rooms via REST:
+
+```bash
+curl http://localhost:3000/rooms
+# [{"name":"general","clients":2}]
+```

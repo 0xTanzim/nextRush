@@ -1,0 +1,279 @@
+---
+title: '@nextrush/logger'
+description: 'Request logging middleware with correlation IDs and structured output.'
+---
+
+HTTP requests leave no trace by default. When a production issue hits, you need structured logs with correlation IDs to track requests across services and find the failure point.
+
+The logger middleware solves this: structured request/response logging, automatic correlation ID tracking, and a request-scoped logger attached to every context as `ctx.log`.
+
+---
+
+## Default Behavior
+
+With default options, `logger()`:
+
+- Logs request completion with method, path, status code, and duration
+- Generates a UUID correlation ID per request (via `crypto.randomUUID()`)
+- Sets the correlation ID in the `x-request-id` response header
+- Attaches a scoped logger to `ctx.log` with the correlation ID
+- Logs request start in development only (based on `isProductionBuild()`)
+- Uses `info` level for 2xx/3xx, `warn` for 4xx, `error` for 5xx responses
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/logger']} />
+
+This package wraps [@nextrush/log](https://www.npmjs.com/package/@nextrush/log) and re-exports all its functionality.
+
+---
+
+## Minimal Usage
+
+<Callout type="warn">
+  Register the logger middleware before route handlers. It must run first to attach `ctx.log` and
+  track request timing.
+</Callout>
+
+```ts
+import { createApp } from '@nextrush/core';
+import { logger } from '@nextrush/logger';
+
+const app = createApp();
+
+app.use(logger());
+
+app.use(async (ctx) => {
+  ctx.log.info('Processing request');
+  ctx.json({ ok: true });
+});
+```
+
+The middleware attaches `ctx.log` — a request-scoped logger that includes the correlation ID in every log entry.
+
+---
+
+## Configuration Options
+
+`LoggerMiddlewareOptions` controls the middleware behavior. It extends `LoggerOptions` from `@nextrush/log`.
+
+<TypeTable
+  title="Middleware Options"
+  types={{
+    skip: {
+      type: '(ctx: Context) => boolean',
+      description: 'Skip logging for matching requests',
+      optional: true,
+    },
+    formatMessage: {
+      type: '(ctx: Context, duration: number) => string',
+      description: 'Custom log message formatter',
+      optional: true,
+      default: '`${method} ${path}`',
+    },
+    successLevel: {
+      type: 'LogLevel',
+      description: 'Log level for 2xx/3xx responses',
+      optional: true,
+      default: '"info"',
+    },
+    clientErrorLevel: {
+      type: 'LogLevel',
+      description: 'Log level for 4xx responses',
+      optional: true,
+      default: '"warn"',
+    },
+    serverErrorLevel: {
+      type: 'LogLevel',
+      description: 'Log level for 5xx responses',
+      optional: true,
+      default: '"error"',
+    },
+    logRequestStart: {
+      type: 'boolean',
+      description: 'Log when request starts',
+      optional: true,
+      default: 'true in dev, false in production',
+    },
+    correlationIdHeader: {
+      type: 'string',
+      description: 'Header name for correlation ID',
+      optional: true,
+      default: '"x-request-id"',
+    },
+    generateCorrelationId: {
+      type: 'boolean',
+      description: 'Generate ID if not present in headers',
+      optional: true,
+      default: 'true',
+    },
+    context: {
+      type: 'string',
+      description: 'Logger namespace prefix',
+      optional: true,
+      default: '"nextrush"',
+    },
+  }}
+/>
+
+<TypeTable
+  title="Inherited from LoggerOptions"
+  types={{
+    minLevel: { type: 'LogLevel', description: 'Minimum log level to output', optional: true },
+    silent: {
+      type: 'boolean',
+      description: 'Suppress console output (transports still fire)',
+      optional: true,
+      default: 'false',
+    },
+    pretty: {
+      type: 'boolean',
+      description: 'Force pretty printing regardless of environment',
+      optional: true,
+    },
+    colors: { type: 'boolean', description: 'Enable/disable terminal colors', optional: true },
+    redact: {
+      type: 'boolean',
+      description: 'Redact sensitive keys in log output',
+      optional: true,
+      default: 'true in production',
+    },
+    sensitiveKeys: {
+      type: 'string[]',
+      description: 'Additional keys to redact (merged with defaults)',
+      optional: true,
+    },
+    transports: { type: 'LogTransport[]', description: 'Custom log transports', optional: true },
+    timestamps: { type: 'boolean', description: 'Include timestamps in output', optional: true },
+    metadata: {
+      type: 'LogContext',
+      description: 'Additional metadata for all log entries',
+      optional: true,
+    },
+    samplingRate: {
+      type: 'number',
+      description: 'Sampling rate for debug logs in production (0–1)',
+      optional: true,
+    },
+    env: {
+      type: "'development' | 'test' | 'production'",
+      description: 'Environment preset',
+      optional: true,
+    },
+  }}
+/>
+
+```ts
+app.use(
+  logger({
+    minLevel: 'info',
+    skip: (ctx) => ctx.path === '/health',
+    logRequestStart: false,
+    correlationIdHeader: 'x-request-id',
+    context: 'api',
+  })
+);
+```
+
+---
+
+## Integration Example
+
+### Correlation IDs Across Services
+
+Track requests through microservices using the correlation ID:
+
+```ts
+import { logger } from '@nextrush/logger';
+import type { LoggerContext } from '@nextrush/logger';
+
+app.use(logger());
+
+app.use(async (ctx) => {
+  const correlationId = (ctx as LoggerContext).log.getCorrelationId();
+
+  const response = await fetch('https://api.internal/data', {
+    headers: { 'x-request-id': correlationId ?? '' },
+  });
+
+  ctx.json(await response.json());
+});
+```
+
+<Callout type="warn">
+  Do not use `ctx.get('x-request-id')` to retrieve a generated correlation ID. The middleware sets
+  it on the response via `ctx.set()`. Use `ctx.log.getCorrelationId()` instead.
+</Callout>
+
+### Logger Without Request Logging
+
+Use `attachLogger()` when you need `ctx.log` but not automatic request/response logging:
+
+```ts
+import { attachLogger } from '@nextrush/logger';
+
+app.use(attachLogger({ context: 'api' }));
+
+app.use(async (ctx) => {
+  ctx.log.info('Handler called');
+  ctx.json({ ok: true });
+});
+```
+
+### Type Guards
+
+```ts
+import { hasLogger, getLogger } from '@nextrush/logger';
+
+app.use(async (ctx) => {
+  if (hasLogger(ctx)) {
+    ctx.log.info('Logger available');
+  }
+
+  // Get logger with automatic fallback
+  const log = getLogger(ctx, 'fallback-context');
+  log.info('Works with or without middleware');
+});
+```
+
+### Standalone Logger
+
+Create loggers outside of middleware context:
+
+```ts
+import { createLogger } from '@nextrush/logger';
+
+const log = createLogger('MyService');
+log.info('Server starting');
+log.error('Connection failed', new Error('timeout'));
+```
+
+---
+
+## Common Mistakes
+
+**Placing logger middleware after route handlers.** The middleware must run before handlers to attach `ctx.log`. Register it early in the middleware chain.
+
+**Skipping health checks without the `skip` option.** Health check endpoints generate high-volume logs with no diagnostic value. Use `skip: (ctx) => ctx.path === '/health'`.
+
+**Using `redactKeys` instead of `sensitiveKeys`.** The option inherited from `@nextrush/log` is `sensitiveKeys`, not `redactKeys`.
+
+---
+
+## Troubleshooting
+
+**`ctx.log` is undefined** — The logger middleware did not run before your handler. Ensure `app.use(logger())` is registered before route handlers. If using `skip`, verify your route is not being skipped.
+
+**Correlation ID not appearing in logs** — Set `generateCorrelationId: true` (the default). If using a custom header name, ensure `correlationIdHeader` matches the header your upstream service sends.
+
+**Too many logs in production** — Set `minLevel: 'info'` and `logRequestStart: false` to reduce volume. Use `skip` to exclude health checks and static asset paths.
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/api-reference/plugins) — All plugin packages
+- [@nextrush/request-id](/docs/api-reference/middleware/request-id) — Request ID middleware
+- [@nextrush/timer](/docs/api-reference/middleware/timer) — Response timing

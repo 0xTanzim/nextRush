@@ -1,0 +1,665 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* ============================================
+   NextRush "Electric Rush" Design System
+   ============================================ */
+
+:root {
+  /* Primary Colors */
+  --rush-blue: #3b82f6;
+  --rush-purple: #8b5cf6;
+  --rush-cyan: #22d3ee;
+  --rush-green: #22c55e;
+
+  /* Gradients */
+  --rush-gradient: linear-gradient(135deg, var(--rush-blue) 0%, var(--rush-purple) 100%);
+  --rush-gradient-accent: linear-gradient(135deg, var(--rush-purple) 0%, var(--rush-cyan) 100%);
+
+  /* Semantic Colors */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+}
+
+/* Dark theme — Ink-blue-black palette with depth and visible layering */
+.dark {
+  --bg-base: #0c0f17;
+  --bg-card: #151923;
+  --bg-hover: #1c2030;
+  --bg-border: #2a2f3e;
+
+  --text-primary: #eef0f5;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Code block chrome */
+  --code-bg: #0d1117;
+  --code-bg-header: #141820;
+  --code-border: #1e2433;
+
+  /* Syntax highlighting tokens (dark) */
+  --code-keyword: #c084fc;
+  --code-function: #79c0ff;
+  --code-string: #a5d6ff;
+  --code-variable: #e2e8f0;
+  --code-property: #22d3ee;
+  --code-number: #f59e0b;
+  --code-punctuation: #94a3b8;
+
+  /* Fumadocs color overrides (--color-fd-* is what Tailwind v4 uses) */
+  --color-fd-background: #0c0f17;
+  --color-fd-foreground: #eef0f5;
+  --color-fd-muted: #151923;
+  --color-fd-muted-foreground: hsla(220, 20%, 70%, 0.8);
+  --color-fd-popover: #181c27;
+  --color-fd-popover-foreground: #e4e8ef;
+  --color-fd-card: #151923;
+  --color-fd-card-foreground: #f5f6f8;
+  --color-fd-border: hsla(220, 30%, 40%, 0.25);
+  --color-fd-primary: #60a5fa;
+  --color-fd-primary-foreground: #0c0f17;
+  --color-fd-secondary: #1c2030;
+  --color-fd-secondary-foreground: #e4e8ef;
+  --color-fd-accent: hsla(220, 50%, 45%, 0.18);
+  --color-fd-accent-foreground: #dde2eb;
+  --color-fd-ring: #3b82f6;
+}
+
+/* Light theme — Clean, crisp Stripe/Vercel inspired */
+.light {
+  --bg-base: #fafbfc;
+  --bg-card: #ffffff;
+  --bg-hover: #f1f4f8;
+  --bg-border: #dde2eb;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  /* Light mode specific color adjustments for better contrast */
+  --rush-cyan: #0891b2;
+  --rush-blue: #2563eb;
+  --rush-purple: #7c3aed;
+
+  /* Code block chrome (light) */
+  --code-bg: #f8fafc;
+  --code-bg-header: #f1f5f9;
+  --code-border: #e2e8f0;
+
+  /* Syntax highlighting tokens (light) */
+  --code-keyword: #7c3aed;
+  --code-function: #2563eb;
+  --code-string: #0d9488;
+  --code-variable: #1e293b;
+  --code-property: #0891b2;
+  --code-number: #d97706;
+  --code-punctuation: #64748b;
+
+  /* Fumadocs color overrides */
+  --color-fd-background: #fafbfc;
+  --color-fd-foreground: #0f172a;
+  --color-fd-muted: #f1f4f8;
+  --color-fd-muted-foreground: #64748b;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #1e293b;
+  --color-fd-card: #ffffff;
+  --color-fd-card-foreground: #0f172a;
+  --color-fd-border: #dde2eb;
+  --color-fd-primary: #2563eb;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #f1f4f8;
+  --color-fd-secondary-foreground: #0f172a;
+  --color-fd-accent: #edf0f7;
+  --color-fd-accent-foreground: #0f172a;
+  --color-fd-ring: #2563eb;
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+
+body {
+  font-feature-settings: 'ss01', 'ss02', 'cv01', 'cv02';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Code blocks */
+code,
+pre,
+kbd {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+}
+
+/* ============================================
+   Custom Components
+   ============================================ */
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(
+    135deg,
+    var(--rush-blue) 0%,
+    var(--rush-purple) 40%,
+    var(--rush-cyan) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-accent {
+  background: var(--rush-gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient border */
+.gradient-border {
+  position: relative;
+  border-radius: 0.75rem;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--rush-gradient);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Glow effect */
+.glow {
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--rush-blue) 20%, transparent),
+    0 0 60px color-mix(in srgb, var(--rush-purple) 10%, transparent);
+}
+
+.glow-hover:hover {
+  box-shadow:
+    0 0 30px color-mix(in srgb, var(--rush-blue) 30%, transparent),
+    0 0 80px color-mix(in srgb, var(--rush-purple) 20%, transparent);
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: all 0.2s ease-in-out;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--rush-blue);
+}
+
+/* Button styles */
+.btn-primary {
+  background: var(--rush-gradient);
+  color: white;
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--bg-border);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-outline:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+
+/* ============================================
+   Hero & Homepage Enhancements
+   ============================================ */
+
+/* Dot grid background pattern */
+.dot-grid {
+  background-image: radial-gradient(circle, var(--bg-border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Subtle noise texture overlay */
+.noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Code block enhanced glow — refined, premium shadow */
+.code-glow {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 16px 48px rgba(0, 0, 0, 0.4),
+    0 0 32px rgba(59, 130, 246, 0.06);
+}
+
+.light .code-glow {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: var(--code-border);
+}
+
+/* Enhanced card with glass morphism in dark, crisp borders in light */
+.card-glow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode: glass-morphism cards */
+.dark .card-glow {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.dark .card-glow:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Light mode: crisp, clean cards */
+.light .card-glow {
+  background: var(--bg-card);
+  border: 1px solid var(--bg-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.light .card-glow:hover {
+  border-color: var(--bg-border);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 1px 3px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+/* Animated gradient border on hover */
+.card-gradient-border {
+  position: relative;
+}
+
+.card-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, transparent, transparent);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  transition: background 0.3s ease;
+}
+
+.card-gradient-border:hover::before {
+  background: var(--rush-gradient);
+}
+
+/* Smooth fade-in animation */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease-out forwards;
+}
+
+/* Staggered animation delays */
+.animate-delay-100 {
+  animation-delay: 100ms;
+}
+.animate-delay-200 {
+  animation-delay: 200ms;
+}
+.animate-delay-300 {
+  animation-delay: 300ms;
+}
+.animate-delay-400 {
+  animation-delay: 400ms;
+}
+.animate-delay-500 {
+  animation-delay: 500ms;
+}
+
+/* Section divider — clean, minimal */
+.section-divider {
+  border: none;
+  height: 1px;
+  background: var(--bg-border);
+  opacity: 0.5;
+}
+
+.light .section-divider {
+  opacity: 0.8;
+}
+
+/* Dark mode sidebar — blue-tinted surfaces for depth */
+.dark #nd-sidebar {
+  --color-fd-muted: #12161f;
+  --color-fd-secondary: #1a1e29;
+  --color-fd-muted-foreground: hsla(220, 15%, 68%, 0.8);
+}
+
+/* Light mode clean off-white background */
+.light {
+  background: var(--bg-base);
+}
+
+/* Dark mode deep ink-blue-black */
+.dark {
+  background: var(--bg-base);
+}
+
+/* ============================================
+   Premium docs background (must not wrap DocsPage — Fumadocs grid needs direct children)
+   ============================================ */
+
+#nd-docs-layout {
+  position: relative;
+  isolation: isolate;
+}
+
+#nd-docs-layout::before,
+#nd-docs-layout::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.28;
+}
+
+#nd-docs-layout::before {
+  top: 6rem;
+  right: max(-12rem, -12vw);
+  width: clamp(18rem, 34vw, 32rem);
+  height: clamp(18rem, 34vw, 32rem);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--rush-blue) 28%, transparent),
+    transparent 68%
+  );
+}
+
+#nd-docs-layout::after {
+  bottom: 10rem;
+  left: max(-14rem, -14vw);
+  width: clamp(16rem, 30vw, 28rem);
+  height: clamp(16rem, 30vw, 28rem);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--rush-cyan) 20%, transparent),
+    transparent 70%
+  );
+}
+
+.prose :where(h2, h3) {
+  scroll-margin-top: 6rem;
+}
+
+.prose :where(h2) {
+  position: relative;
+  padding-bottom: 0.45rem;
+}
+
+.prose :where(h2)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 4rem;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--rush-blue), var(--rush-cyan), transparent);
+}
+
+.prose :where(blockquote) {
+  border-left-color: var(--rush-blue);
+  border-radius: 0 0.75rem 0.75rem 0;
+  background: color-mix(in srgb, var(--color-fd-muted) 48%, transparent);
+  padding: 0.85rem 1rem;
+}
+
+.prose :where(hr) {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--rush-blue) 35%, var(--color-fd-border)),
+    transparent
+  );
+}
+
+/* ============================================
+   Code Block Enhancements
+   ============================================ */
+
+/* Code block container */
+[data-rehype-pretty-code-figure] {
+  margin: 1.5rem 0;
+}
+
+[data-rehype-pretty-code-figure] pre {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--bg-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+/* Light mode: code blocks need crisp borders */
+.light [data-rehype-pretty-code-figure] pre {
+  border-color: var(--code-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Code title/filename */
+[data-rehype-pretty-code-title] {
+  background: var(--bg-hover);
+  border: 1px solid var(--bg-border);
+  border-bottom: none;
+  border-radius: 0.75rem 0.75rem 0 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+[data-rehype-pretty-code-title] + pre {
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+/* Line highlighting */
+[data-highlighted-line] {
+  background: rgba(59, 130, 246, 0.15);
+  border-left: 2px solid var(--rush-blue);
+  margin: 0 -1rem;
+  padding: 0 1rem;
+}
+
+/* Word highlighting */
+[data-highlighted-chars] {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+}
+
+/* ============================================
+   Prose tables (markdown tables not wrapped in DocTableWrap)
+   ============================================ */
+
+.prose table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.prose :where(thead th) {
+  background: color-mix(in srgb, var(--color-fd-muted) 70%, transparent);
+  border-bottom: 1px solid var(--color-fd-border);
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.prose :where(tbody td) {
+  border-bottom: 1px solid var(--color-fd-border);
+  padding: 0.625rem 0.75rem;
+  vertical-align: top;
+  color: var(--text-secondary);
+}
+
+.prose :where(tbody tr:last-child td) {
+  border-bottom: none;
+}
+
+.prose :where(tbody tr:hover) {
+  background: color-mix(in srgb, var(--color-fd-muted) 35%, transparent);
+}
+
+.prose :where(table a) {
+  font-weight: 500;
+  color: var(--rush-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose :where(table a):hover {
+  color: var(--rush-purple);
+}
+
+/* ============================================
+   Callout Styles
+   ============================================ */
+
+.callout-tip {
+  border-left-color: var(--success) !important;
+}
+
+.callout-warning {
+  border-left-color: var(--warning) !important;
+}
+
+.callout-danger {
+  border-left-color: var(--danger) !important;
+}
+
+.callout-info {
+  border-left-color: var(--info) !important;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(59, 130, 246, 0.2),
+      0 0 60px rgba(139, 92, 246, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(59, 130, 246, 0.3),
+      0 0 80px rgba(139, 92, 246, 0.15);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* ============================================
+   Scrollbar Styling (Dark Mode)
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ============================================
+   Selection
+   ============================================ */
+
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: var(--text-primary);
+}

@@ -1,0 +1,292 @@
+---
+title: Deployment
+description: Deploy NextRush to production — Docker, Railway, Fly.io, Vercel Edge, and Cloudflare Workers.
+---
+
+How to deploy NextRush applications to production across different platforms and runtimes.
+
+## Build for Production
+
+NextRush applications are standard Node.js projects. Build with the dev CLI:
+
+```bash
+npx nextrush build src/index.ts
+```
+
+This compiles TypeScript with SWC, preserves decorator metadata, and outputs JavaScript to `dist/`.
+
+<Callout type="info" title="No build step?">
+  If your project doesn't use decorators or TypeScript, you can run directly with `node --loader
+  ts-node/esm src/index.ts` or use Bun/Deno natively.
+</Callout>
+
+---
+
+## Docker
+
+The recommended production deployment for Node.js.
+
+```dockerfile title="Dockerfile"
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Install dependencies
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod=false
+
+# Build
+COPY tsconfig.json ./
+COPY src/ ./src/
+RUN npx nextrush build src/index.ts
+
+# Production image
+FROM node:22-alpine
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/dist ./dist
+
+ENV NODE_ENV=production
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["node", "dist/index.js"]
+```
+
+```yaml title="docker-compose.yml"
+services:
+  api:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+```
+
+<Callout type="warn" title="Health check endpoint">
+  Add a `/health` route to your application for container orchestration:
+
+```typescript
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+```
+
+</Callout>
+
+---
+
+## Railway
+
+Railway auto-detects Node.js projects.
+
+<Steps>
+  <Step>
+    ### Connect repository
+
+    Link your GitHub repository in the Railway dashboard. Railway detects `package.json` automatically.
+
+  </Step>
+
+  <Step>
+    ### Configure build
+
+    Set the build command and start command:
+
+    ```
+    Build: pnpm install && npx nextrush build src/index.ts
+    Start: node dist/index.js
+    ```
+
+  </Step>
+
+  <Step>
+    ### Set environment variables
+
+    ```
+    NODE_ENV=production
+    PORT=${{PORT}}
+    ```
+
+    Railway provides the `PORT` variable automatically.
+
+  </Step>
+
+  <Step>
+    ### Deploy
+
+    Push to your default branch. Railway builds and deploys automatically.
+
+  </Step>
+</Steps>
+
+---
+
+## Fly.io
+
+Fly.io runs Docker containers at the edge.
+
+```toml title="fly.toml"
+app = "my-nextrush-app"
+primary_region = "iad"
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[checks]
+  [checks.health]
+    port = 3000
+    type = "http"
+    interval = "30s"
+    timeout = "5s"
+    path = "/health"
+```
+
+```bash
+# Deploy
+fly launch
+fly deploy
+```
+
+---
+
+## Vercel Edge
+
+Deploy NextRush as an Edge Function using the Edge adapter.
+
+```typescript title="src/index.ts"
+import { createApp, createRouter } from '@nextrush/core';
+import { edgeAdapter } from '@nextrush/adapter-edge';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/api/hello', (ctx) => {
+  ctx.json({ message: 'Hello from the Edge' });
+});
+
+app.route('/', router);
+
+export default edgeAdapter(app);
+```
+
+```json title="vercel.json"
+{
+  "functions": {
+    "src/index.ts": {
+      "runtime": "edge"
+    }
+  }
+}
+```
+
+<Callout type="warn" title="Edge limitations">
+  Edge runtimes don't support Node.js-specific APIs (`fs`, `net`, `child_process`). Ensure your
+  application and middleware only use Web Standard APIs.
+</Callout>
+
+---
+
+## Cloudflare Workers
+
+```typescript title="src/worker.ts"
+import { createApp, createRouter } from '@nextrush/core';
+import { edgeAdapter } from '@nextrush/adapter-edge';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ message: 'Hello from Workers' }));
+app.route('/', router);
+
+const handler = edgeAdapter(app);
+
+export default {
+  fetch: handler,
+};
+```
+
+```toml title="wrangler.toml"
+name = "my-nextrush-worker"
+main = "dist/worker.js"
+compatibility_date = "2024-01-01"
+```
+
+---
+
+## Bun
+
+Bun runs NextRush natively — no build step needed for TypeScript.
+
+```typescript title="src/index.ts"
+import { createApp, createRouter } from '@nextrush/core';
+import { bunAdapter } from '@nextrush/adapter-bun';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ message: 'Hello from Bun' }));
+app.route('/', router);
+
+bunAdapter(app, { port: 3000 });
+```
+
+```bash
+bun run src/index.ts
+```
+
+---
+
+## Production Checklist
+
+Before deploying, verify:
+
+- [ ] `NODE_ENV=production` is set
+- [ ] Error handler doesn't expose stack traces (default in NextRush)
+- [ ] Health check endpoint exists at `/health`
+- [ ] CORS configured for your specific origins (not wildcard)
+- [ ] Rate limiting enabled for public endpoints
+- [ ] Request body size limits configured
+- [ ] Security headers enabled via `@nextrush/helmet`
+- [ ] Logging configured for your monitoring stack
+- [ ] Graceful shutdown handles `SIGTERM`
+
+See the [Security guide](/docs/guides/security) for hardening your deployment.
+
+---
+
+## Environment Variables
+
+Externalize all configuration:
+
+```typescript
+const PORT = parseInt(process.env.PORT ?? '3000');
+const DATABASE_URL = process.env.DATABASE_URL;
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
+
+app.use(cors({ origin: CORS_ORIGIN }));
+await listen(app, PORT);
+```
+
+<Callout type="error" title="Never hardcode secrets">
+  API keys, database URLs, and tokens must come from environment variables. NextRush will not let
+  you commit `.env` files if your `.gitignore` is configured correctly.
+</Callout>

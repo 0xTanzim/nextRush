@@ -1,1356 +1,314 @@
-<div align="center">
+# NextRush
 
-# 🚀 NextRush v2
+> Minimal, modular, high-performance Node.js framework
 
-**Modern, Type-Safe Web Framework for Node.js**
+[![npm version](https://badge.fury.io/js/nextrush.svg)](https://www.npmjs.com/package/nextrush)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-≥22-339933?logo=node.js)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
 
-_Koa-style Context • Express-inspired API • Enterprise Features Built-in_
+## Why NextRush?
 
-[![npm version](https://img.shields.io/npm/v/nextrush?color=brightgreen&style=for-the-badge)](https://www.npmjs.com/package/nextrush)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-1461%20Passing-brightgreen?style=for-the-badge)](https://github.com/0xTanzim/nextrush)
-[![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-brightgreen?style=for-the-badge)](https://github.com/0xTanzim/nextrush)
+- **Minimal Core** — Under 3,000 lines of code
+- **Modular** — Install only what you need
+- **Fast** — Competes with Fastify, Hono, and Koa
+- **Type-Safe** — Full TypeScript with zero `any`
+- **Zero Dependencies** — No external runtime dependencies in core
+- **Modern DX** — Clean context API, async/await native
 
-```typescript
-import { createApp } from 'nextrush';
+## Performance
 
-const app = createApp();
+Benchmark results on Intel i5-8300H (8 cores), Node.js v25.1.0:
 
-app.get('/hello', async ctx => {
-  ctx.json({ message: 'Welcome to NextRush v2! 🎉' });
-});
+| Framework       | Hello World    | POST JSON      | Mixed Workload |
+| --------------- | -------------- | -------------- | -------------- |
+| Fastify         | 46,542 RPS     | 20,000 RPS     | 45,988 RPS     |
+| **NextRush v3** | **36,092 RPS** | **17,826 RPS** | **38,061 RPS** |
+| Hono            | 36,288 RPS     | 12,405 RPS     | 35,672 RPS     |
+| Koa             | 33,921 RPS     | 17,326 RPS     | 33,764 RPS     |
+| Express         | 22,128 RPS     | 14,081 RPS     | 22,745 RPS     |
 
-app.listen(3000);
-// Server running at http://localhost:3000
-```
+NextRush v3 is **50-60% faster than Express** and matches Hono/Koa performance.
 
-[**📖 Documentation**](./docs)  • [**🚀 Quick Start**](#-quick-start) • [**💡 Why NextRush?**](#-why-nextrush-v2)
+> Performance varies by hardware. Run `pnpm benchmark` to test on your machine.
 
-</div>
+## Quick Start
 
----
-
-## 💡 Philosophy
-
-**NextRush v2 combines the best of three worlds**: Koa's elegant async context pattern, Express's intuitive helper methods, and Fastify's performance optimizations—all with **enterprise-grade features built directly into the core**.
-
-Unlike other frameworks that require dozens of plugins for production use, NextRush v2 includes security middleware, validation, templating, WebSocket support, and advanced logging out of the box. Choose your preferred API style: convenience methods, Express-like helpers, or Fastify-style configuration.
-
-**Built for teams that value type safety, developer experience, and production readiness without the plugin fatigue.**
-
----
-
-## 🎯 Zero Dependencies Philosophy
-
-**NextRush v2 is built with ZERO runtime dependencies.** Every feature—from routing to WebSocket support—is implemented using only Node.js core modules.
-
-### Why Zero Dependencies?
-
-- **🔒 Security** - No third-party vulnerabilities in your supply chain
-- **⚡ Faster Installs** - No dependency resolution, instant setup
-- **🛡️ Stability** - No breaking changes from external packages
-- **🔍 Full Control** - Every line of code is maintainable and auditable
-- **🚀 Performance** - Optimized for Node.js internals, no abstraction overhead
+### Scaffold a Project (Recommended)
 
 ```bash
-# Check it yourself! Only devDependencies, ZERO runtime deps
-npm ls --production --depth=0
-# Result: (empty)
+pnpm create nextrush my-api
+cd my-api && pnpm dev
 ```
 
-**Every framework claims to be "lightweight." NextRush v2 proves it.**
+The interactive scaffolder lets you choose between functional, class-based, or full style, pick a middleware preset, and select your runtime target.
 
-| Framework       | Runtime Dependencies                 |
-| --------------- | ------------------------------------ |
-| **NextRush v2** | **0** ⭐                             |
-| Express         | 34+ packages                         |
-| Koa             | 0 (but needs plugins for everything) |
-| Fastify         | 20+ packages                         |
-| Hapi            | 50+ packages                         |
-
-> **Built-in features without the dependency hell.** Security, validation, WebSocket, templates, logging, CQRS—all implemented with pure Node.js.
-
----
-
-## 🎯 Why NextRush v2?
-
-NextRush v2 represents the evolution of Node.js web frameworks, synthesizing proven patterns from Express, Koa, and Fastify into a unified, type-safe framework with enterprise features integrated at the core.
-
-### 🏆 Three API Styles, One Framework
-
-| **Convenience API** | **Enhanced API** | **Configuration API** |
-| ------------------- | ---------------- | --------------------- |
-| `ctx.json()`        | `ctx.res.json()` | `{ handler, schema }` |
-| Clean & simple      | Express-inspired | Fastify-style         |
-| **Recommended**     | Familiar pattern | Advanced use cases    |
-
-### ⚡ Performance That Scales
-
-- **Zero Dependencies** - Pure Node.js core, no third-party overhead
-- **13,261 RPS Average** - Competitive with established frameworks
-- **Optimized Router** - O(1) static path lookup, pre-compiled routes
-- **Memory Efficient** - ~60KB baseline, smallest footprint in class
-- **Smart Caching** - Template caching, efficient buffer management
-- **No Supply Chain Tax** - Every feature optimized for Node.js internals
-
-### 🛡️ Enterprise Features Built-In
-
-Unlike other frameworks requiring extensive plugin ecosystems, NextRush v2 includes production-ready features in the core:
-
-```typescript
-const app = createApp();
-
-// Security middleware (CORS, Helmet, Rate Limiting)
-app.use(app.cors({ origin: ['https://example.com'] }));
-app.use(app.helmet({ xssFilter: true }));
-app.use(app.rateLimiter({ max: 100, windowMs: 15 * 60 * 1000 }));
-
-// Smart body parser with auto-detection
-app.use(app.smartBodyParser({ maxSize: 10 * 1024 * 1024 }));
-
-// Advanced validation & sanitization
-const userData = validateRequest(ctx, userSchema);
-const cleanData = sanitizeInput(userData);
-
-// Custom error classes with contextual information
-throw new NotFoundError('User not found', {
-  userId: ctx.params.id,
-  suggestion: 'Verify the user ID is correct',
-});
-
-// Event-driven architecture (Simple + CQRS patterns)
-await app.events.emit('user.registered', { userId: user.id });
-await app.eventSystem.dispatch({ type: 'CreateUser', data: {...} });
-
-// Template engine with automatic XSS protection
-await ctx.render('profile.html', { user, isAdmin });
-
-// WebSocket support with room management
-wsApp.ws('/chat', socket => {
-  socket.join('room1');
-  socket.onMessage(data => wsApp.wsBroadcast(data, 'room1'));
-});
-
-// Structured logging with multiple transports
-ctx.logger.info('User action', { userId, action });
-
-// Dependency injection container
-const service = container.resolve('UserService');
-```
-
-### 🛡️ Type Safety First
-
-```typescript
-// Full TypeScript integration with IntelliSense support
-import type { Context, Middleware, RouteHandler } from 'nextrush';
-
-app.get('/users/:id', async (ctx: Context) => {
-  const userId: string = ctx.params.id; // Type-safe route parameters
-  const userData: User = ctx.body; // Type-safe request body
-  ctx.json({ user: userData }); // Type-safe response
-});
-
-// Type-safe middleware composition
-const authMiddleware: Middleware = async (ctx, next) => {
-  ctx.state.user = await validateToken(ctx.headers.authorization);
-  await next();
-};
-```
-
-### 🎭 Choose Your API Style
-
-```typescript
-// Convenience Methods (Recommended)
-app.get('/users', async ctx => {
-  ctx.json(await getUsers()); // Clean and concise
-});
-
-// Enhanced API (Express-inspired helpers)
-app.get('/users', async ctx => {
-  ctx.res.json(await getUsers()); // Familiar Express-like methods
-});
-
-// Configuration API (Fastify-style)
-app.get('/users', {
-  handler: async ctx => ctx.json(await getUsers()),
-  schema: { response: { 200: UserSchema } },
-  options: { tags: ['users'] },
-});
-```
-
-### 🌟 Core Features Comparison
-
-| Feature                       | NextRush v2     | Express         | Fastify         | Koa               |
-| ----------------------------- | --------------- | --------------- | --------------- | ----------------- |
-| **Security Middleware**       | Built-in        | Plugin required | Plugin required | Plugin required   |
-| **Validation & Sanitization** | Built-in        | Plugin required | Built-in        | Plugin required   |
-| **Template Engine**           | Built-in        | Plugin required | Plugin required | Plugin required   |
-| **WebSocket Support**         | Built-in        | Plugin required | Plugin required | Plugin required   |
-| **Event System (CQRS)**       | Dual system     | Plugin required | Plugin required | Plugin required   |
-| **Advanced Logging**          | Plugin included | Plugin required | Plugin required | Plugin required   |
-| **Error Classes**             | 8 custom types  | Basic           | Basic           | Basic             |
-| **Dependency Injection**      | Built-in        | Plugin required | Plugin required | Plugin required   |
-| **Smart Body Parser**         | Auto-detection  | Plugin required | Built-in        | Plugin required   |
-| **Static File Serving**       | Plugin included | Built-in        | Plugin required | Plugin required   |
-| **TypeScript Support**        | First-class     | Community       | First-class     | Community         |
-| **Dependencies**              | **0** ⭐        | 34+ packages    | 20+ packages    | 0 (needs plugins) |
-| **Performance (RPS)**         | ~13,261         | ~11,030         | ~22,717         | ~17,547           |
-
----
-
-## ✨ Comprehensive Feature Set
-
-<table>
-<tr>
-<td width="50%">
-
-### Modern Development
-
-- **TypeScript First** - Full type safety with IntelliSense
-- **Zero Dependencies** - Pure Node.js, minimal footprint
-- **ESM & CJS** - Universal module compatibility
-- **Plugin System** - Extensible architecture
-- **Smart Body Parser** - Auto-detection & zero-copy operations
-- **Template Engine** - Built-in HTML rendering with auto-escaping
-
-</td>
-<td width="50%">
-
-### Production Ready
-
-- **Error Handling** - Custom error classes with context
-- **Advanced Logging** - Structured logs with multiple transports
-- **Security** - CORS, Helmet, Rate Limiting included
-- **Validation** - Schema validation & input sanitization
-- **Testing** - Test-friendly design, 1461 passing tests
-- **Static Files** - High-performance file serving
-- **Compression** - Gzip & Brotli support
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### Real-time & Events
-
-- **WebSocket Support** - RFC 6455 compliant implementation
-- **Room Management** - Built-in room system for grouping
-- **Broadcasting** - Efficient message delivery patterns
-- **Event System** - Simple events + CQRS/Event Sourcing
-- **Connection Pooling** - Scalable connection management
-- **Heartbeat** - Automatic connection health monitoring
-- **Pub/Sub** - Event-driven architecture support
-
-</td>
-<td width="50%">
-
-### Developer Experience
-
-- **Enhanced Errors** - Contextual debugging information
-- **Request/Response Enhancers** - Express-inspired helpers
-- **Path Utilities** - URL & path manipulation tools
-- **Cookie Utilities** - Type-safe cookie management
-- **Dependency Injection** - Built-in DI container
-- **Dev Warnings** - Common mistake detection
-- **Performance Monitoring** - Built-in metrics collection
-
-</td>
-</tr>
-</table>
-
-## 🚀 **Quick Start**
-
-### Prerequisites
-
-- **Node.js**: >= 20.0.0
-- **pnpm**: >= 10.0.0 (recommended) or npm/yarn/bun
-
-### Installation
+### Manual Setup
 
 ```bash
-# pnpm (recommended)
 pnpm add nextrush
-
-# npm
-npm install nextrush
-
-# yarn
-yarn add nextrush
-
-# bun
-bun add nextrush
 ```
 
-### Hello World
-
 ```typescript
-import { createApp } from 'nextrush';
+import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
 
-app.get('/', async ctx => {
-  ctx.json({
-    message: 'Hello NextRush v2! 🚀',
-    timestamp: new Date().toISOString(),
-  });
-});
+// Create feature routers
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+users.post('/', (ctx) => ctx.json({ received: ctx.body }));
 
-app.listen(3000, () => {
-  console.log('🚀 Server running on http://localhost:3000');
-});
+// Mount routers — Hono-style composition
+app.route('/users', users);
+
+// Simple routes directly on app
+const router = createRouter();
+router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush!' }));
+app.route('/', router);
+
+listen(app, 3000);
 ```
 
-### 30-Second API
+### Class-Based Controllers
+
+```bash
+pnpm add nextrush @nextrush/di @nextrush/decorators @nextrush/controllers
+```
 
 ```typescript
-import { createApp } from 'nextrush';
-
-const app = createApp({
-  cors: true, // Enable CORS
-  debug: true, // Development mode
-});
-
-// Middleware
-app.use(async (ctx, next) => {
-  console.log(`📝 ${ctx.method} ${ctx.path}`);
-  await next();
-});
-
-// Routes with three different styles
-app.get('/simple', async ctx => {
-  ctx.json({ style: 'convenience' });
-});
-
-app.get('/express', async ctx => {
-  ctx.res.json({ style: 'express-like' });
-});
-
-app.post('/fastify', {
-  handler: async ctx => ctx.json({ style: 'fastify-style' }),
-  schema: {
-    body: {
-      type: 'object',
-      properties: { name: { type: 'string' } },
-    },
-  },
-});
-
-app.listen(3000);
-```
-
----
-
-## 🎭 Multiple API Styles
-
-NextRush v2 is **Koa-style at its core** with **three distinct API styles**—choose the approach that best fits your team's preferences:
-
-### Convenience Methods _(Recommended)_
-
-```typescript
-app.get('/users/:id', async ctx => {
-  const user = await findUser(ctx.params.id);
-
-  if (!user) {
-    ctx.json({ error: 'User not found' }, 404);
-    return;
-  }
-
-  ctx.json(user); // Clean and concise
-});
-
-app.post('/users', async ctx => {
-  const user = await createUser(ctx.body);
-  ctx.json(user, 201); // Status code as second parameter
-});
-```
-
-### Enhanced API _(Express-inspired)_
-
-```typescript
-app.get('/users/:id', async ctx => {
-  const user = await findUser(ctx.params.id);
-
-  if (!user) {
-    ctx.res.status(404).json({ error: 'User not found' });
-    return;
-  }
-
-  ctx.res.json(user); // Familiar Express-style methods
-});
-
-app.post('/users', async ctx => {
-  const user = await createUser(ctx.body);
-  ctx.res.status(201).json(user); // Chainable method calls
-});
-```
-
-### Configuration API _(Fastify-style)_
-
-```typescript
-app.get('/users/:id', {
-  handler: async ctx => {
-    const user = await findUser(ctx.params.id);
-    ctx.json(user || { error: 'Not found' }, user ? 200 : 404);
-  },
-  schema: {
-    params: {
-      type: 'object',
-      properties: { id: { type: 'string', pattern: '^[0-9]+$' } },
-    },
-    response: {
-      200: { type: 'object', properties: { id: { type: 'string' } } },
-      404: { type: 'object', properties: { error: { type: 'string' } } },
-    },
-  },
-  options: {
-    name: 'getUser',
-    description: 'Retrieve user by ID',
-    tags: ['users'],
-  },
-});
-```
-
----
-
-## 🌐 Real-time WebSocket Support
-
-Production-ready WebSocket server with zero dependencies and full TypeScript support:
-
-```typescript
-import { createApp, WebSocketPlugin, withWebSocket } from 'nextrush';
-import type { WSConnection } from 'nextrush';
-
-const app = createApp();
-
-// Install WebSocket plugin
-const wsPlugin = new WebSocketPlugin({
-  path: '/ws',
-  heartbeatMs: 30000,
-  maxConnections: 1000,
-  verifyClient: async req => {
-    // Optional: Custom authentication
-    const token = new URL(req.url || '', 'http://localhost').searchParams.get(
-      'token'
-    );
-    return !!token;
-  },
-});
-wsPlugin.install(app);
-
-// ✅ Get typed WebSocket application (Perfect IntelliSense!)
-const wsApp = withWebSocket(app);
-
-// Simple echo server with full type safety
-wsApp.ws('/echo', (socket: WSConnection) => {
-  socket.send('Welcome!');
-
-  socket.onMessage((data: string | Buffer) => {
-    socket.send(`Echo: ${data}`);
-  });
-});
-
-// Room-based chat system
-wsApp.ws('/chat', (socket: WSConnection) => {
-  const room = 'general';
-
-  socket.join(room);
-  socket.send(`Joined room: ${room}`);
-
-  socket.onMessage((data: string | Buffer) => {
-    // Broadcast to all users in room using app-level method
-    wsApp.wsBroadcast(data.toString(), room);
-  });
-
-  socket.onClose((code, reason) => {
-    console.log(`Client disconnected: ${code} - ${reason}`);
-  });
-});
-
-app.listen(3000);
-```
-
-**Client Usage:**
-
-```javascript
-// Browser WebSocket client
-const ws = new WebSocket('ws://localhost:3000/chat');
-ws.onopen = () => {
-  console.log('Connected!');
-  ws.send('Hello everyone!');
-};
-ws.onmessage = event => console.log('Received:', event.data);
-ws.onerror = error => console.error('Error:', error);
-ws.onclose = () => console.log('Disconnected');
-
-// With authentication token
-const wsAuth = new WebSocket('ws://localhost:3000/echo?token=your-jwt-token');
-```
-
----
-
-## 🛡️ Built-in Security Middleware
-
-```typescript
-import { createApp } from 'nextrush';
-
-const app = createApp();
-
-// CORS - Cross-Origin Resource Sharing
-app.use(
-  app.cors({
-    origin: ['https://example.com'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  })
-);
-
-// Helmet - Security headers
-app.use(
-  app.helmet({
-    contentSecurityPolicy: true,
-    xssFilter: true,
-    noSniff: true,
-    frameguard: { action: 'deny' },
-  })
-);
-
-// Rate Limiting - DDoS protection
-app.use(
-  app.rateLimiter({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per window
-    message: 'Too many requests',
-  })
-);
-
-// Request ID - Request tracing
-app.use(app.requestId());
-
-// Response Timer - Performance monitoring
-app.use(app.timer());
-```
-
-**Included Security Features:**
-
-- **CORS** - Flexible origin control and credential handling
-- **Helmet** - 15+ security headers preconfigured
-- **Rate Limiting** - IP-based request throttling
-- **XSS Protection** - Automatic escaping in template engine
-- **Request Tracing** - Unique identifiers for request tracking
-- **Response Timing** - Performance measurement headers
-
----
-
-## 📝 **Comprehensive Validation System**
-
-## 📏 Comprehensive Validation System
-
-```typescript
-import { validateRequest, sanitizeInput, ValidationError } from 'nextrush';
-
-// Define validation schema
-const userSchema = {
-  name: {
-    required: true,
-    type: 'string',
-    minLength: 2,
-    maxLength: 50,
-  },
-  email: {
-    required: true,
-    type: 'email',
-  },
-  age: {
-    type: 'number',
-    min: 18,
-    max: 120,
-  },
-  role: {
-    enum: ['user', 'admin', 'moderator'],
-  },
-};
-
-app.post('/users', async ctx => {
-  try {
-    // Validate request against schema
-    const userData = validateRequest(ctx, userSchema);
-
-    // Sanitize user input
-    const cleanData = sanitizeInput(userData);
-
-    const user = await createUser(cleanData);
-    ctx.json({ user }, 201);
-  } catch (error) {
-    if (error instanceof ValidationError) {
-      ctx.json(
-        {
-          error: 'Validation failed',
-          details: error.errors,
-        },
-        400
-      );
-    }
-  }
-});
-```
-
-**Validation Capabilities:**
-
-- **Type Checking** - string, number, boolean, email, URL, and more
-- **Length Validation** - minLength, maxLength constraints
-- **Range Validation** - min, max for numeric values
-- **Pattern Matching** - Regular expression validation
-- **Enum Validation** - Restricted value sets
-- **Custom Validation** - Extensible validation functions
-- **XSS Prevention** - Automatic input sanitization
-
-📚 **[Complete Validation Guide →](./docs/api/validation-utilities.md)**
-
-**Validation Features:**
-
-- **Type Checking** - string, number, boolean, email, URL, etc.
-- **Length Validation** - minLength, maxLength
-- **Range Validation** - min, max for numbers
-- **Pattern Matching** - Regex validation
-- **Enum Validation** - Allowed values
-- **Custom Validation** - Your own validation functions
-- **XSS Prevention** - Auto-sanitization
-
-📚 **[Complete Validation Guide →](./docs/api/validation-utilities.md)**
-
----
-
-## 🎨 Template Engine
-
-```typescript
-import { createApp, TemplatePlugin } from 'nextrush';
-
-const app = createApp();
-
-// Setup template engine
-const templatePlugin = new TemplatePlugin({
-  viewsDir: './views',
-  cache: true,
-  helpers: {
-    formatDate: date => new Date(date).toLocaleDateString(),
-    currency: value => `$${Number(value).toFixed(2)}`,
-  },
-});
-
-templatePlugin.install(app);
-
-// Use templates
-app.get('/users/:id', async ctx => {
-  const user = await getUser(ctx.params.id);
-
-  await ctx.render('user-profile.html', {
-    title: 'User Profile',
-    user,
-    isAdmin: user.role === 'admin',
-  });
-});
-```
-
-**views/user-profile.html:**
-
-```html
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>{{title}}</title>
-  </head>
-  <body>
-    <h1>{{user.name}}</h1>
-    <p>Email: {{user.email}}</p>
-    <p>Joined: {{user.createdAt | formatDate}}</p>
-
-    {{#if isAdmin}}
-    <button>Admin Panel</button>
-    {{/if}}
-
-    <!-- Loop through items -->
-    {{#each user.posts}}
-    <article>
-      <h2>{{this.title}}</h2>
-      <p>{{this.excerpt}}</p>
-    </article>
-    {{/each}}
-  </body>
-</html>
-```
-
-**Template Features:**
-
-- **Auto-escaping** - XSS protection by default
-- **Control Structures** - if/else, loops, with blocks
-- **Helpers** - Built-in & custom transformation functions
-- **Partials** - Reusable template components
-- **Layouts** - Consistent page structure
-- **Caching** - Fast production performance
-
-📚 **[Template Engine Documentation →](./docs/api/template-plugin.md)**
-
----
-
-## 🚨 Advanced Error Handling
-
-```typescript
-import {
-  HttpError,
-  BadRequestError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
-  ConflictError,
-  UnprocessableEntityError,
-  TooManyRequestsError,
-  InternalServerError,
-} from 'nextrush';
-
-// Custom error classes with proper status codes
-app.get('/users/:id', async ctx => {
-  const user = await db.user.findById(ctx.params.id);
-
-  if (!user) {
-    throw new NotFoundError('User not found', {
-      userId: ctx.params.id,
-      suggestion: 'Check the user ID',
-    });
-  }
-
-  if (ctx.state.user.id !== user.id) {
-    throw new ForbiddenError("Cannot access other user's data", {
-      requestedUserId: ctx.params.id,
-      currentUserId: ctx.state.user.id,
-    });
-  }
-
-  ctx.json({ user });
-});
-
-// Global error handler
-app.use(async (ctx, next) => {
-  try {
-    await next();
-  } catch (error) {
-    if (error instanceof HttpError) {
-      ctx.json(
-        {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-        },
-        error.statusCode
-      );
-      return;
-    }
-
-    // Unexpected errors
-    ctx.json({ error: 'Internal server error' }, 500);
-  }
-});
-```
-
-**Error Classes:**
-
-- **BadRequestError (400)** - Invalid request data
-- **UnauthorizedError (401)** - Authentication required
-- **ForbiddenError (403)** - Insufficient permissions
-- **NotFoundError (404)** - Resource not found
-- **ConflictError (409)** - Resource conflicts
-- **UnprocessableEntityError (422)** - Business rule violations
-- **TooManyRequestsError (429)** - Rate limit exceeded
-- **InternalServerError (500)** - Server errors
-
-📚 **[Complete Error Handling Guide →](./docs/api/errors.md)**
-
----
-
-## 🎪 Event-Driven Architecture
-
-NextRush v2 includes dual event systems: Simple Events (Express-style) + Advanced Event System (CQRS/Event Sourcing).
-
-### Simple Events API _(Express-style)_
-
-```typescript
-// Emit events
-await app.events.emit('user.registered', {
-  userId: user.id,
-  email: user.email,
-});
-
-// Listen to events
-app.events.on('user.registered', async data => {
-  await sendWelcomeEmail(data.email);
-  await createDefaultProfile(data.userId);
-  await trackAnalytics('User Registered', data);
-});
-
-// One-time handlers
-app.events.once('app.ready', async () => {
-  await warmupCache();
-  await initializeServices();
-});
-```
-
-### Advanced Event System _(CQRS/Event Sourcing)_
-
-```typescript
-// Define commands
-interface CreateUserCommand {
-  type: 'CreateUser';
-  data: { name: string; email: string };
-  metadata: { id: string; timestamp: Date; correlationId: string };
+import 'reflect-metadata';
+import { Controller, Get, Post, Body, Param, Service } from 'nextrush';
+
+@Service()
+class UserService {
+  async findAll() { return [{ id: 1, name: 'Alice' }]; }
 }
 
-// Register command handlers
-app.eventSystem.registerCommandHandler(
-  'CreateUser',
-  async (command: CreateUserCommand) => {
-    const user = await db.user.create(command.data);
+@Controller('/users')
+class UserController {
+  constructor(private userService: UserService) {}
 
-    // Emit domain event
-    await app.eventSystem.emit({
-      type: 'user.created',
-      data: { userId: user.id, email: user.email },
-      timestamp: new Date(),
-      metadata: {
-        aggregateId: user.id,
-        version: 1,
-      },
-    });
+  @Get()
+  findAll() { return this.userService.findAll(); }
 
-    return user;
-  }
-);
+  @Get('/:id')
+  findOne(@Param('id') id: string) { return { id }; }
 
-// Subscribe to domain events
-app.eventSystem.subscribe('user.created', async event => {
-  await analytics.track('User Created', {
-    userId: event.data.userId,
-    correlationId: event.metadata.correlationId,
-  });
-});
-
-// Execute commands with CQRS
-app.post('/users', async ctx => {
-  const command: CreateUserCommand = {
-    type: 'CreateUser',
-    data: ctx.body,
-    metadata: {
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-      correlationId: ctx.id,
-    },
-  };
-
-  const user = await app.eventSystem.dispatch(command);
-  ctx.json({ user }, 201);
-});
+  @Post()
+  create(@Body() data: unknown) { return data; }
+}
 ```
 
-**Event System Features:**
+## Context API
 
-- **Simple Events** - Express-style emit/on/once patterns
-- **CQRS** - Command Query Responsibility Segregation
-- **Event Sourcing** - Domain event tracking and replay
-- **Saga Patterns** - Complex workflow orchestration
-- **Pub/Sub** - Event broadcasting capabilities
-- **Correlation IDs** - Request tracing across services
-- **Event Store** - Event history and replay functionality
-
-📚 **[Complete Event System Guide →](./docs/api/events.md)**
-
----
-
-## 📊 Advanced Logging Plugin
+NextRush uses a unified context object for clean, intuitive code:
 
 ```typescript
-import { LoggerPlugin } from 'nextrush';
+// Request (Input)
+ctx.method; // GET, POST, etc.
+ctx.path; // /users/123
+ctx.params; // { id: '123' }
+ctx.query; // { page: '1' }
+ctx.body; // Parsed request body
+ctx.headers; // Request headers
+ctx.get('header'); // Get specific header
 
-// Configure advanced logging
-const loggerPlugin = new LoggerPlugin({
-  level: 'info',
-  format: 'json',
-  transports: [
-    {
-      type: 'console',
-      colorize: true,
-    },
-    {
-      type: 'file',
-      filename: 'logs/app.log',
-      maxSize: 10485760, // 10MB
-      maxFiles: 5,
-    },
-    {
-      type: 'file',
-      filename: 'logs/errors.log',
-      level: 'error',
-      maxSize: 10485760,
-    },
-  ],
-  includeTimestamp: true,
-  includeMetadata: true,
-});
+// Response (Output)
+ctx.status = 201; // Set status code
+ctx.json(data); // Send JSON
+ctx.send(text); // Send text
+ctx.html(content); // Send HTML
+ctx.redirect(url); // Redirect
+ctx.set('header', 'value'); // Set header
 
-loggerPlugin.install(app);
-
-// Use in routes
-app.get('/api/data', async ctx => {
-  ctx.logger.info('Fetching data', {
-    userId: ctx.state.user?.id,
-    endpoint: '/api/data',
-  });
-
-  try {
-    const data = await fetchData();
-    ctx.logger.debug('Data fetched successfully', { count: data.length });
-    ctx.json({ data });
-  } catch (error) {
-    ctx.logger.error('Failed to fetch data', {
-      error: error.message,
-      stack: error.stack,
-    });
-    throw error;
-  }
-});
+// Middleware
+ctx.next(); // Call next middleware
+ctx.state; // Share data between middleware
 ```
 
-**Logger Features:**
+## Packages
 
-- **Multiple Transports** - Console, file, and custom transports
-- **Log Levels** - debug, info, warn, error, fatal
-- **Structured Logging** - JSON format with metadata
-- **File Rotation** - Size-based and time-based rotation
-- **Colorized Output** - Enhanced development experience
-- **Performance Metrics** - Request timing and throughput tracking
-- **Custom Formatters** - Extensible log formatting
+### Core (included in `nextrush`)
 
-📚 **[Logger Plugin Documentation →](./docs/api/logger-plugin.md)**
+| Package                  | Description                          |
+| ------------------------ | ------------------------------------ |
+| `@nextrush/core`         | Application & middleware composition |
+| `@nextrush/router`       | High-performance radix tree router   |
+| `@nextrush/adapter-node` | Node.js HTTP adapter                 |
+| `@nextrush/types`        | Shared TypeScript types              |
+| `@nextrush/errors`       | HTTP error classes                   |
 
----
+### Middleware (install separately)
 
-## 🏗️ **Advanced Features**
+| Package                 | Description                 |
+| ----------------------- | --------------------------- |
+| `@nextrush/body-parser` | JSON/form/text body parsing |
+| `@nextrush/cors`        | CORS headers                |
+| `@nextrush/helmet`      | Security headers            |
+| `@nextrush/rate-limit`  | Rate limiting               |
+| `@nextrush/compression` | Response compression        |
+| `@nextrush/cookies`     | Cookie handling             |
 
-### Modular Router System
+### Plugins (install separately)
+
+| Package               | Description             |
+| --------------------- | ----------------------- |
+| `@nextrush/static`    | Static file serving     |
+| `@nextrush/websocket` | WebSocket support       |
+| `@nextrush/template`  | Template rendering      |
+| `@nextrush/logger`    | Structured logging      |
+| `@nextrush/events`    | Type-safe event emitter |
+
+### Class-Based Development (install separately)
+
+| Package                 | Description                 |
+| ----------------------- | --------------------------- |
+| `@nextrush/controllers` | Decorator-based controllers |
+| `@nextrush/di`          | Dependency injection        |
+| `@nextrush/decorators`  | Route & param decorators    |
+
+### Development
+
+| Package         | Description                                      |
+| --------------- | ------------------------------------------------ |
+| `@nextrush/dev` | Hot reload dev server, production builds, and code generators |
+| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)     |
+
+## Adding Middleware
+
+```bash
+pnpm add @nextrush/cors @nextrush/body-parser @nextrush/helmet
+```
 
 ```typescript
-import { createApp, createRouter } from 'nextrush';
+import { createApp, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+import { helmet } from '@nextrush/helmet';
 
 const app = createApp();
 
-// Create sub-routers
-const userRouter = createRouter();
-const adminRouter = createRouter();
+app.use(helmet());
+app.use(cors());
+app.use(json());
 
-// User routes
-userRouter.get('/profile', async ctx => ctx.json({ user: 'profile' }));
-userRouter.post('/login', async ctx => ctx.json({ message: 'Logged in' }));
+app.post('/api/users', (ctx) => {
+  const { name, email } = ctx.body;
+  ctx.status = 201;
+  ctx.json({ id: Date.now(), name, email });
+});
 
-// Admin routes
-adminRouter.get('/dashboard', async ctx => ctx.json({ admin: 'dashboard' }));
-adminRouter.get('/users', async ctx => ctx.json({ admin: 'users list' }));
-
-// Mount routers
-app.use('/users', userRouter);
-app.use('/admin', adminRouter);
+listen(app, 3000);
 ```
 
-### Custom Middleware Development
+## Error Handling
 
 ```typescript
-import type { Middleware, Context } from 'nextrush';
+import { NotFoundError, BadRequestError } from 'nextrush';
 
-// Simple middleware
-const logger: Middleware = async (ctx, next) => {
-  const start = Date.now();
-  console.log(`🔄 ${ctx.method} ${ctx.path}`);
+app.get('/users/:id', async (ctx) => {
+  const user = await db.findUser(ctx.params.id);
 
-  await next();
-
-  const duration = Date.now() - start;
-  console.log(`✅ ${ctx.status} ${duration}ms`);
-};
-
-// Authentication middleware with proper error handling
-const requireAuth: Middleware = async (ctx, next) => {
-  const token = ctx.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    throw new UnauthorizedError('Authentication token required', {
-      hint: 'Include Authorization: Bearer <token> header',
-    });
+  if (!user) {
+    throw new NotFoundError('User not found');
   }
 
-  try {
-    ctx.state.user = await validateToken(token);
-    await next();
-  } catch (error) {
-    throw new UnauthorizedError('Invalid authentication token', {
-      reason: error.message,
-    });
-  }
-};
-
-// Role-based authorization
-const requireRole = (role: string): Middleware => {
-  return async (ctx, next) => {
-    if (!ctx.state.user) {
-      throw new UnauthorizedError('Authentication required');
-    }
-
-    if (!ctx.state.user.roles.includes(role)) {
-      throw new ForbiddenError(`${role} role required`, {
-        userRoles: ctx.state.user.roles,
-        requiredRole: role,
-      });
-    }
-
-    await next();
-  };
-};
-
-// Rate limiting middleware
-const rateLimiter: Middleware = async (ctx, next) => {
-  const key = ctx.ip;
-  const limit = 100;
-  const windowMs = 15 * 60 * 1000;
-
-  const requests = await getRequestCount(key, windowMs);
-
-  if (requests >= limit) {
-    throw new TooManyRequestsError('Rate limit exceeded', {
-      limit,
-      retryAfter: Math.ceil(windowMs / 1000),
-    });
-  }
-
-  await incrementRequestCount(key, windowMs);
-  await next();
-};
-
-// Use middleware
-app.use(logger);
-app.use('/api', requireAuth);
-app.use('/admin', requireRole('admin'));
-```
-
-📚 **[Middleware Development Guide →](./docs/guides/middleware-development.md)**
-
-### Enhanced Response Methods
-
-```typescript
-// JSON response with status code
-app.get('/api/users', async ctx => {
-  const users = await getUsers();
-  ctx.json({ users }, 200);
+  ctx.json(user);
 });
 
-// HTML response
-app.get('/page', async ctx => {
-  ctx.html('<h1>Welcome to NextRush</h1>');
-});
-
-// File download with options
-app.get('/download', async ctx => {
-  ctx.file('./document.pdf', {
-    filename: 'report.pdf',
-    contentType: 'application/pdf',
-  });
-});
-
-// Redirect with status code
-app.get('/old-url', async ctx => {
-  ctx.redirect('/new-url', 301); // Permanent redirect
-});
-
-// CSV export
-app.get('/export/users', async ctx => {
-  const users = await getUsers();
-  const csv = users.map(u => `${u.name},${u.email}`).join('\n');
-  ctx.csv(`name,email\n${csv}`, 'users.csv');
-});
-
-// Stream response
-app.get('/stream', async ctx => {
-  const stream = fs.createReadStream('./large-file.txt');
-  ctx.stream(stream, 'text/plain');
-});
-
-// Set custom headers
-app.get('/api/data', async ctx => {
-  ctx.set('X-Custom-Header', 'value');
-  ctx.set('Cache-Control', 'max-age=3600');
-  ctx.json({ data: [] });
-});
-
-// Cookie management
-app.get('/set-cookie', async ctx => {
-  ctx.setCookie('session', 'abc123', {
-    httpOnly: true,
-    secure: true,
-    maxAge: 3600000,
-    sameSite: 'strict',
-  });
-  ctx.json({ message: 'Cookie set' });
-});
-
-app.get('/get-cookie', async ctx => {
-  const session = ctx.getCookie('session');
-  ctx.json({ session });
+// Or use ctx.throw()
+app.get('/users/:id', (ctx) => {
+  ctx.throw(404, 'User not found');
 });
 ```
 
-📚 **[Enhanced Request/Response API →](./docs/api/enhancers.md)**
+## CLI Tools
 
-## 📖 Complete API Reference
+### Dev Server & Build
 
-### Context Object
-
-```typescript
-// ===================== Request Properties =====================
-ctx.req        // Native HTTP request object
-ctx.res        // Enhanced response object
-ctx.body       // Parsed request body (JSON, form, etc.)
-ctx.method     // HTTP method (GET, POST, PUT, DELETE, etc.)
-ctx.path       // Request path (/users/123)
-ctx.url        // Full request URL
-ctx.query      // Query parameters (?page=1 → { page: '1' })
-ctx.headers    // Request headers (lowercase keys)
-ctx.params     // Route parameters (/users/:id → { id: '123' })
-ctx.cookies    // Parsed cookies
-ctx.ip         // Client IP address
-ctx.secure     // Is HTTPS?
-ctx.protocol   // Request protocol (http/https)
-ctx.hostname   // Request hostname
-ctx.origin     // Request origin (protocol + host)
-ctx.state      // Custom request-scoped state
-
-// ===================== Response Methods =====================
-// Convenience API (Recommended)
-ctx.json(data, status?)           // Send JSON response
-ctx.html(html, status?)            // Send HTML response
-ctx.text(text, status?)            // Send plain text
-ctx.csv(data, filename?)           // Send CSV file
-ctx.file(path, options?)           // Send file download
-ctx.stream(stream, contentType?)   // Send stream response
-ctx.redirect(url, status?)         // Redirect to URL
-
-// Express-like API (Enhanced)
-ctx.res.json(data, status?)        // Send JSON
-ctx.res.status(code)               // Set status code (chainable)
-ctx.res.send(data)                 // Auto-detect content type
-ctx.res.sendFile(path)             // Send file
-ctx.res.render(template, data)     // Render template
-
-// ===================== Header & Cookie Methods =====================
-ctx.get(headerName)                // Get request header
-ctx.set(headerName, value)         // Set response header
-ctx.setCookie(name, value, opts)   // Set cookie
-ctx.getCookie(name)                // Get cookie value
-ctx.clearCookie(name)              // Delete cookie
-
-// ===================== Utility Properties =====================
-ctx.id                             // Unique request ID
-ctx.logger                         // Request-scoped logger
-ctx.services                       // DI container services
-ctx.app                            // Application instance
+```bash
+npx nextrush dev                    # Hot reload dev server
+npx nextrush build                  # Production build with decorator metadata
 ```
 
-### Application Methods
+### Code Generators
 
-```typescript
-// ===================== HTTP Methods =====================
-app.get(path, ...handlers)         // GET route
-app.post(path, ...handlers)        // POST route
-app.put(path, ...handlers)         // PUT route
-app.delete(path, ...handlers)      // DELETE route
-app.patch(path, ...handlers)       // PATCH route
-app.head(path, ...handlers)        // HEAD route
-app.options(path, ...handlers)     // OPTIONS route
-app.all(path, ...handlers)         // All HTTP methods
-
-// ===================== Middleware =====================
-app.use(...middleware)             // Global middleware
-app.use(path, ...middleware)       // Path-specific middleware
-
-// ===================== Built-in Middleware =====================
-app.cors(options)                  // CORS middleware
-app.helmet(options)                // Security headers
-app.rateLimiter(options)           // Rate limiting
-app.compression(options)           // Gzip/Brotli compression
-app.requestId(options)             // Request ID tracking
-app.timer()                        // Response time header
-app.smartBodyParser(options)       // Auto body parsing
-
-// ===================== Event System =====================
-app.events.emit(event, data)       // Emit simple event
-app.events.on(event, handler)      // Listen to event
-app.events.once(event, handler)    // One-time listener
-app.events.off(event, handler?)    // Remove listener
-
-app.eventSystem.dispatch(op)       // CQRS dispatch
-app.eventSystem.executeCommand(c)  // Execute command
-app.eventSystem.executeQuery(q)    // Execute query
-app.eventSystem.subscribe(e, h)    // Subscribe to domain event
-
-// ===================== Server Control =====================
-app.listen(port, callback?)        // Start HTTP server
-app.close(callback?)               // Stop server gracefully
+```bash
+npx nextrush generate controller user    # Class-based controller
+npx nextrush g service user-profile      # Injectable service
+npx nextrush g middleware request-logger # Async middleware
+npx nextrush g guard auth               # Guard function
+npx nextrush g route product            # Functional route
 ```
 
-### Router Methods
+## Development
 
-```typescript
-// Create router
-const router = createRouter('/prefix');
+```bash
+# Install dependencies (does not run a full compile — use build/verify when you need artifacts)
+pnpm install
 
-// HTTP methods
-router.get(path, handler);
-router.post(path, handler);
-router.put(path, handler);
-router.delete(path, handler);
-router.patch(path, handler);
+# Build all packages
+pnpm build
 
-// Middleware
-router.use(middleware);
+# Run tests
+pnpm test
 
-// Mount router
-app.use('/api', router);
+# Run benchmarks
+cd apps/benchmark && pnpm benchmark
+
+# Type check
+pnpm typecheck
 ```
 
----
+## Project Structure
 
-## 🧪 Testing
-
-```typescript
-import { createApp } from 'nextrush';
-
-describe('NextRush Application', () => {
-  it('should handle GET requests', async () => {
-    const app = createApp();
-
-    app.get('/test', async ctx => {
-      ctx.json({ message: 'OK' });
-    });
-
-    // Your test implementation
-  });
-});
+```
+nextrush/
+├── packages/
+│   ├── core/            # @nextrush/core
+│   ├── router/          # @nextrush/router
+│   ├── types/           # @nextrush/types
+│   ├── errors/          # @nextrush/errors
+│   ├── runtime/         # @nextrush/runtime
+│   ├── adapters/        # Platform adapters (node, bun, deno, edge)
+│   ├── middleware/       # cors, helmet, body-parser, etc.
+│   ├── plugins/         # controllers, websocket, template, etc.
+│   ├── di/              # Dependency injection
+│   ├── decorators/      # Controller decorators
+│   ├── dev/             # CLI: dev server, build, generators
+│   ├── create-nextrush/ # Project scaffolder
+│   └── nextrush/        # Meta package
+├── apps/
+│   ├── docs/            # Documentation site
+│   ├── benchmark/       # Benchmark suite
+│   └── playground/      # Testing playground
+└── draft/               # Architecture docs & RFCs
 ```
 
----
+## Documentation
 
-## 🔥 Enhanced Body Parser
+- [Getting Started](https://nextrush.dev/docs/getting-started)
+- [Core Concepts](https://nextrush.dev/docs/concepts)
+- [API Reference](https://nextrush.dev/docs/api-reference)
+- [Performance & benchmarks](https://nextrush.dev/docs/performance)
 
-Enterprise-grade body parsing with zero-copy operations:
+## Versioning
 
-```typescript
-// Auto-parsing (recommended)
-app.use(app.smartBodyParser());
+NextRush follows [Semantic Versioning](https://semver.org/). We use [Changesets](https://github.com/changesets/changesets) to manage releases.
 
-// Advanced configuration
-app.use(
-  app.smartBodyParser({
-    maxSize: 10 * 1024 * 1024, // 10MB
-    enableStreaming: true,
-    autoDetectContentType: true,
-    enableMetrics: true,
-  })
-);
+- **Major** (x.0.0) — Breaking API changes
+- **Minor** (0.x.0) — New features, backward-compatible
+- **Patch** (0.0.x) — Bug fixes, security patches
+- **Pre-release** (`-alpha.x`, `-beta.x`) — Unstable, API may change
 
-// Supports JSON, form-data, text, multipart
-app.post('/api/data', ctx => {
-  const data = ctx.body; // Already parsed!
-  ctx.json({ received: data });
-});
-```
+See [CHANGELOG.md](CHANGELOG.md) for release history and [PUBLISHING.md](PUBLISHING.md) for release process.
 
-**Features:** Zero-copy buffers • Auto-detection • Streaming • Memory-pooled • Cross-platform
+## Contributing
 
-📚 **[Full Documentation →](./docs/api/built-in-middleware.md)**
+Contributions are welcome! Please read the [contribution guidelines](CONTRIBUTING.md) first.
 
-## 📚 Documentation
+## License
 
-Comprehensive guides, API references, and architecture deep-dives:
-
-### Getting Started
-
-- **[Getting Started Guide](./docs/guides/getting-started.md)** - Your first NextRush v2 app in 5 minutes
-- **[Migration from Express](./docs/guides/migration-guide.md)** - Migrate from Express.js
-- **[Migration from Fastify](./docs/guides/migration-guide.md)** - Migrate from Fastify
-
-### Essential Guides
-
-- **[Routing Guide](./docs/api/routing.md)** - All three routing styles explained (Convenience, Enhanced, Fastify-style)
-- **[Middleware Development](./docs/guides/middleware-development.md)** - Create custom middleware
-- **[Plugin Development](./docs/guides/plugin-development.md)** - Build powerful plugins
-- **[Error Handling Guide](./docs/guides/error-handling.md)** - Robust error management patterns
-- **[Testing Guide](./docs/guides/testing-guide.md)** - Unit, integration, and E2E testing
-- **[Production Deployment](./docs/guides/production-deployment.md)** - Deploy to production
-
-### Core API Reference
-
-- **[Application API](./docs/api/application.md)** - Core application methods and lifecycle
-- **[Context API](./docs/api/context.md)** - Request/response context (Koa-style)
-- **[Routing API](./docs/api/routing.md)** - Router and route handlers
-- **[Middleware API](./docs/api/middleware.md)** - Middleware system and patterns
-- **[Built-in Middleware](./docs/api/built-in-middleware.md)** - CORS, Helmet, Rate Limiting, Body Parser
-- **[Events API](./docs/api/events.md)** - Simple Events + Advanced Event System (CQRS)
-- **[Enhanced Request/Response](./docs/api/enhancers.md)** - Express-like helper methods
-
-### Advanced Features
-
-- **[Error Handling API](./docs/api/errors.md)** - Custom error classes and error middleware
-- **[Validation Utilities](./docs/api/validation-utilities.md)** - Schema validation and data sanitization
-- **[Configuration & Validation](./docs/api/configuration.md)** - Application configuration
-- **[Path Utilities](./docs/api/path-utilities.md)** - URL and path manipulation helpers
-- **[Developer Experience](./docs/api/developer-experience.md)** - Enhanced error messages and debugging
-
-### Plugin APIs
-
-- **[Logger Plugin](./docs/api/logger-plugin.md)** - Advanced structured logging with transports
-- **[WebSocket Plugin](./docs/api/websocket-plugin.md)** - Real-time WebSocket communication
-- **[Static Files Plugin](./docs/api/static-files-plugin.md)** - High-performance static file serving
-- **[Template Plugin](./docs/api/template-plugin.md)** - HTML template rendering engine
-
-### Architecture Deep-Dives
-
-- **[Plugin System](./docs/architecture/plugin-system.md)** - Plugin architecture and lifecycle
-- **[Dependency Injection](./docs/architecture/dependency-injection.md)** - DI container and service resolution
-- **[Orchestration System](./docs/architecture/orchestration-system.md)** - Application orchestration patterns
-- **[Optimized Router](./docs/architecture/optimized-router-deep-dive.md)** - Router internals and performance
-
-### Performance & Benchmarks
-
-- **Benchmarks** - Performance comparisons with Express, Koa, and Fastify
-- **Performance Guide** - Optimization techniques and best practices
-- **Memory Management** - Efficient memory usage patterns
-
-## 🤝 Contributing
-
-Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
-
-## 📄 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Express.js** - Intuitive API design patterns
-- **Koa** - Powerful async middleware architecture
-- **Fastify** - Object-based route configuration approach
-- **TypeScript** - Type safety and enhanced developer experience
-
----
-
-<div align="center">
-
-**Built with precision by [Tanzim Hossain](https://github.com/0xTanzim)**
-
-[Report Bug](https://github.com/0xTanzim/nextrush/issues) • [Request Feature](https://github.com/0xTanzim/nextrush/issues) • [Discussions](https://github.com/0xTanzim/nextrush/discussions)
-
-</div>
+MIT © [Tanzim Hossain](https://github.com/0xTanzim)

@@ -1,0 +1,31 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "build:next": "nextrush build",
+    "start": "node dist/index.js",
+    "dev": "nextrush-dev",
+    "test": "echo 'No tests configured'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@nextrush/body-parser": "workspace:*",
+    "@nextrush/controllers": "workspace:*",
+    "@nextrush/decorators": "workspace:*",
+    "@nextrush/dev": "workspace:*",
+    "@nextrush/di": "workspace:*",
+    "@nextrush/runtime": "workspace:*",
+    "nextrush": "workspace:*",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
+}

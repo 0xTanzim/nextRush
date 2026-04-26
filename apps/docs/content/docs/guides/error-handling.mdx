@@ -1,0 +1,475 @@
+---
+title: Error Handling
+description: Build consistent, secure error responses for your NextRush API
+---
+
+## What You Will Build
+
+A NextRush application with:
+
+- Typed HTTP errors that produce consistent JSON responses
+- Middleware-based error catching with configurable formatting
+- Application-level error handling via `setErrorHandler()`
+- Validation errors with structured issue reporting
+- A 404 catch-all for unmatched routes
+
+## Prerequisites
+
+- A working NextRush application ([Getting Started](/docs/getting-started))
+- Basic understanding of [middleware](/docs/concepts/middleware)
+
+## Installation
+
+<PackageInstall packages={['@nextrush/errors']} />
+
+## Error Class Hierarchy
+
+NextRush errors follow a two-branch hierarchy:
+
+```
+NextRushError (base)
+├── HttpError (all HTTP status errors)
+│   ├── BadRequestError (400)
+│   ├── UnauthorizedError (401)
+│   ├── ForbiddenError (403)
+│   ├── NotFoundError (404)
+│   ├── MethodNotAllowedError (405)
+│   ├── ConflictError (409)
+│   ├── UnprocessableEntityError (422)
+│   ├── TooManyRequestsError (429)
+│   ├── InternalServerError (500)
+│   ├── BadGatewayError (502)
+│   ├── ServiceUnavailableError (503)
+│   ├── GatewayTimeoutError (504)
+│   └── ... (all standard HTTP status codes)
+│
+└── ValidationError (400, structured issues)
+    ├── RequiredFieldError
+    ├── TypeMismatchError
+    ├── RangeValidationError
+    ├── LengthError
+    ├── PatternError
+    ├── InvalidEmailError
+    └── InvalidUrlError
+```
+
+`NextRushError` is the root. `HttpError` and `ValidationError` are separate branches — `ValidationError` extends `NextRushError` directly, not `HttpError`.
+
+Every `NextRushError` has these properties:
+
+| Property  | Type                       | Description                             |
+| --------- | -------------------------- | --------------------------------------- |
+| `status`  | `number`                   | HTTP status code                        |
+| `code`    | `string`                   | Machine-readable error code             |
+| `expose`  | `boolean`                  | Whether the message is safe for clients |
+| `details` | `Record<string, unknown>?` | Additional structured data              |
+| `cause`   | `unknown?`                 | Original error that caused this         |
+
+4xx errors default to `expose: true`. 5xx errors default to `expose: false`.
+
+## Step-by-Step Setup
+
+<Steps>
+  <Step>
+    ### Throw HTTP errors
+
+    Import typed error classes and throw them from your handlers. The error's status code, message, and details are carried through the middleware chain.
+
+    ```typescript
+    import { NotFoundError, BadRequestError } from '@nextrush/errors';
+
+    router.get('/users/:id', async (ctx) => {
+      const user = await db.users.findById(ctx.params.id);
+
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      ctx.json(user);
+    });
+
+    router.post('/users', async (ctx) => {
+      const { email } = ctx.body as { email?: string };
+
+      if (!email) {
+        throw new BadRequestError('Email is required', {
+          code: 'MISSING_EMAIL',
+          details: { field: 'email' },
+        });
+      }
+
+      // ... create user
+    });
+    ```
+
+  </Step>
+  <Step>
+    ### Add the error handler middleware
+
+    The `errorHandler()` middleware catches thrown errors and formats them as JSON responses. Place it **first** in the middleware chain so it wraps all downstream middleware.
+
+    ```typescript
+    import { createApp } from '@nextrush/core';
+    import { listen } from '@nextrush/adapter-node';
+    import { errorHandler } from '@nextrush/errors';
+
+    const app = createApp();
+
+    app.use(errorHandler({
+      includeStack: process.env.NODE_ENV !== 'production',
+    }));
+
+    // All other middleware and routes go after this
+    ```
+
+    For **exposed errors** (4xx), the response includes the actual error name and message:
+
+    ```json
+    {
+      "error": "NotFoundError",
+      "message": "User not found",
+      "code": "NOT_FOUND",
+      "status": 404
+    }
+    ```
+
+    For **non-exposed errors** (5xx), the message is hidden to prevent information leakage:
+
+    ```json
+    {
+      "error": "Internal Server Error",
+      "message": "Internal Server Error",
+      "code": "INTERNAL_SERVER_ERROR",
+      "status": 500
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Configure error handler options
+
+    The `errorHandler()` accepts these options:
+
+    <TypeTable
+      title="errorHandler options"
+      types={{
+        includeStack: { type: 'boolean', description: 'Include stack trace in response', optional: true, default: 'false' },
+        logger: { type: '(error: Error, ctx: Context) => void', description: 'Custom error logging function', optional: true, default: 'Console logger' },
+        transform: { type: '(error: Error, ctx: Context) => Record<string, unknown>', description: 'Custom response body transformer', optional: true },
+        handlers: { type: 'Map<ErrorConstructor, (error: Error, ctx: Context) => void>', description: 'Type-specific error handlers', optional: true },
+      }}
+    />
+
+    **Custom logger:**
+
+    ```typescript
+    app.use(errorHandler({
+      logger: (error, ctx) => {
+        myLogger.error({
+          error: error.message,
+          method: ctx.method,
+          path: ctx.path,
+        });
+      },
+    }));
+    ```
+
+    **Custom response format:**
+
+    ```typescript
+    app.use(errorHandler({
+      transform: (error, ctx) => ({
+        success: false,
+        error: {
+          type: error.name,
+          message: error instanceof HttpError && error.expose
+            ? error.message
+            : 'An error occurred',
+          requestId: ctx.state.requestId,
+        },
+      }),
+    }));
+    ```
+
+  </Step>
+  <Step>
+    ### Set application-level error handling
+
+    For errors that escape the middleware chain (or if you prefer application-level handling over middleware), use `app.setErrorHandler()`:
+
+    ```typescript
+    app.setErrorHandler((error, ctx) => {
+      if (error instanceof HttpError) {
+        ctx.status = error.status;
+        ctx.json(error.toJSON());
+        return;
+      }
+
+      ctx.status = 500;
+      ctx.json({ error: 'Internal Server Error' });
+    });
+    ```
+
+    This handler runs when an error reaches the top of the middleware stack without being caught. If you use `errorHandler()` middleware, most errors are caught before reaching the application handler.
+
+    <Callout type="warn">
+      `app.onError()` is deprecated. Use `app.setErrorHandler()` instead.
+    </Callout>
+
+    **Default behavior when no handler is set:**
+
+    - In development: responds with `{ "error": "<error.message>" }` and logs the error if a logger is configured via `createApp({ logger })`
+    - In production: responds with `{ "error": "Internal Server Error" }` — the actual message is never exposed
+
+  </Step>
+  <Step>
+    ### Handle validation errors
+
+    `ValidationError` carries structured issue data. Each issue uses `path` (not `field`) to identify the problematic location:
+
+    ```typescript
+    import { ValidationError } from '@nextrush/errors';
+    import type { ValidationIssue } from '@nextrush/errors';
+
+    router.post('/users', async (ctx) => {
+      const data = ctx.body as Record<string, unknown>;
+      const issues: ValidationIssue[] = [];
+
+      if (!data.name) {
+        issues.push({ path: 'name', message: 'Name is required', rule: 'required' });
+      }
+
+      if (!String(data.email ?? '').includes('@')) {
+        issues.push({ path: 'email', message: 'Invalid email format', rule: 'email' });
+      }
+
+      if (issues.length > 0) {
+        throw new ValidationError(issues);
+      }
+
+      // ... create user
+    });
+    ```
+
+    The `ValidationError` constructor takes `(issues, message?)` — issues first, optional message second (defaults to `'Validation failed'`).
+
+    The JSON response strips the `received` field from issues to prevent leaking sensitive input values:
+
+    ```json
+    {
+      "error": "ValidationError",
+      "message": "Validation failed",
+      "code": "VALIDATION_ERROR",
+      "status": 400,
+      "issues": [
+        { "path": "name", "message": "Name is required", "rule": "required" },
+        { "path": "email", "message": "Invalid email format", "rule": "email" }
+      ]
+    }
+    ```
+
+    **Convenience constructors:**
+
+    ```typescript
+    import { RequiredFieldError, TypeMismatchError } from '@nextrush/errors';
+
+    // Single required field
+    throw new RequiredFieldError('email');
+
+    // Type mismatch
+    throw new TypeMismatchError('age', 'number', 'string');
+
+    // From a flat error map
+    throw ValidationError.fromFields({
+      email: 'Invalid format',
+      name: 'Too short',
+    });
+    ```
+
+  </Step>
+  <Step>
+    ### Add a not-found handler
+
+    The `notFoundHandler()` middleware catches requests that pass through all routes without a response. Place it **last** in the middleware chain.
+
+    ```typescript
+    import { notFoundHandler } from '@nextrush/errors';
+
+    // After all routes and middleware
+    app.use(notFoundHandler());
+
+    // Or with a custom message
+    app.use(notFoundHandler('Endpoint does not exist'));
+    ```
+
+    This middleware checks `!ctx.responded && ctx.status === 404` — it only fires when no other middleware or route has sent a response.
+
+  </Step>
+</Steps>
+
+## Factory Functions
+
+Create errors without `new`:
+
+```typescript
+import {
+  badRequest,
+  unauthorized,
+  forbidden,
+  notFound,
+  methodNotAllowed,
+  conflict,
+  unprocessableEntity,
+  tooManyRequests,
+  internalError,
+  badGateway,
+  serviceUnavailable,
+  gatewayTimeout,
+  createError,
+} from '@nextrush/errors';
+
+throw notFound('User not found');
+throw badRequest('Invalid input');
+
+// Create by status code
+throw createError(429, 'Slow down', { code: 'RATE_LIMITED' });
+```
+
+## Inspecting Errors
+
+```typescript
+import { isHttpError, getErrorStatus, getSafeErrorMessage } from '@nextrush/errors';
+
+try {
+  await someOperation();
+} catch (error) {
+  if (isHttpError(error)) {
+    console.log(error.status, error.code);
+  }
+
+  // Returns error.status for NextRushError, 500 for unknown errors
+  const status = getErrorStatus(error);
+
+  // Returns error.message when expose is true, 'Internal Server Error' otherwise
+  const message = getSafeErrorMessage(error);
+}
+```
+
+## Async Error Propagation
+
+Async errors propagate naturally through the middleware chain. You do not need a wrapper — thrown errors in async handlers are caught by `errorHandler()` automatically.
+
+```typescript
+// This works — no wrapper needed
+router.get('/users/:id', async (ctx) => {
+  const user = await db.users.findById(ctx.params.id);
+  if (!user) throw new NotFoundError('User not found');
+  ctx.json(user);
+});
+```
+
+<Callout type="info">
+  `catchAsync()` is deprecated and does nothing — it returns the handler unchanged. Remove it from
+  existing code.
+</Callout>
+
+## Controller-Specific Errors
+
+When using `@nextrush/controllers`, these additional errors are thrown automatically:
+
+| Error                       | Status | When                                     |
+| --------------------------- | ------ | ---------------------------------------- |
+| `GuardRejectionError`       | 403    | A guard returns `false`                  |
+| `MissingParameterError`     | 400    | A required parameter is missing          |
+| `ParameterInjectionError`   | 400    | Parameter extraction or transform fails  |
+| `ControllerResolutionError` | 500    | DI container cannot resolve a controller |
+
+These are caught by the same `errorHandler()` middleware.
+
+## Verification
+
+Test that your error handling works:
+
+```typescript
+// Test 4xx — should return error details
+const res = await fetch('http://localhost:3000/users/nonexistent');
+console.log(res.status); // 404
+console.log(await res.json());
+// { error: "NotFoundError", message: "User not found", code: "NOT_FOUND", status: 404 }
+
+// Test 5xx — should hide internal details
+// (trigger an unhandled error in a route)
+const res2 = await fetch('http://localhost:3000/broken');
+console.log(res2.status); // 500
+console.log(await res2.json());
+// { error: "Internal Server Error", message: "Internal Server Error", code: "INTERNAL_ERROR", status: 500 }
+
+// Test 404 catch-all
+const res3 = await fetch('http://localhost:3000/nonexistent-route');
+console.log(res3.status); // 404
+console.log(await res3.json());
+// { error: "NotFoundError", message: "Not Found", code: "NOT_FOUND", status: 404 }
+```
+
+## Middleware Ordering
+
+<Callout type="warn">
+  Error handler placement determines what it can catch. Place `errorHandler()` first and
+  `notFoundHandler()` last.
+</Callout>
+
+```typescript
+const app = createApp();
+
+// 1. Error handler — wraps everything below
+app.use(errorHandler());
+
+// 2. Other middleware
+app.use(json());
+app.use(cors());
+
+// 3. Routes
+app.route('/api', router);
+
+// 4. 404 catch-all — fires only if nothing above responded
+app.use(notFoundHandler());
+```
+
+## Error Reference
+
+| Error Class                | Status | Default Code            | Expose |
+| -------------------------- | ------ | ----------------------- | ------ |
+| `BadRequestError`          | 400    | `BAD_REQUEST`           | true   |
+| `UnauthorizedError`        | 401    | `UNAUTHORIZED`          | true   |
+| `ForbiddenError`           | 403    | `FORBIDDEN`             | true   |
+| `NotFoundError`            | 404    | `NOT_FOUND`             | true   |
+| `MethodNotAllowedError`    | 405    | `METHOD_NOT_ALLOWED`    | true   |
+| `ConflictError`            | 409    | `CONFLICT`              | true   |
+| `UnprocessableEntityError` | 422    | `UNPROCESSABLE_ENTITY`  | true   |
+| `TooManyRequestsError`     | 429    | `TOO_MANY_REQUESTS`     | true   |
+| `InternalServerError`      | 500    | `INTERNAL_SERVER_ERROR` | false  |
+| `NotImplementedError`      | 501    | `NOT_IMPLEMENTED`       | false  |
+| `BadGatewayError`          | 502    | `BAD_GATEWAY`           | false  |
+| `ServiceUnavailableError`  | 503    | `SERVICE_UNAVAILABLE`   | false  |
+| `GatewayTimeoutError`      | 504    | `GATEWAY_TIMEOUT`       | false  |
+| `ValidationError`          | 400    | `VALIDATION_ERROR`      | true   |
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Validation"
+    description="Add request validation with Zod."
+    href="/docs/guides/validation"
+  />
+  <Card
+    title="Custom Middleware"
+    description="Write your own middleware functions."
+    href="/docs/guides/custom-middleware"
+  />
+  <Card
+    title="Errors API Reference"
+    description="Full HTTP error hierarchy and usage."
+    href="/docs/api-reference/core/errors"
+  />
+</Cards>

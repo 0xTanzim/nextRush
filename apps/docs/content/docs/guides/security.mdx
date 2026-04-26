@@ -1,0 +1,346 @@
+---
+title: Security Best Practices
+description: Harden your NextRush application — helmet, CORS, rate limiting, input validation, and error handling security.
+---
+
+import { Mermaid } from '@/components/mdx';
+
+Security is layered. Each middleware adds one defense. Together they protect your application from the most common attack vectors.
+
+<Mermaid
+  chart={`
+flowchart LR
+    Request[Request] --> RL[Rate Limit]
+    RL --> Helmet[Helmet]
+    Helmet --> CORS[CORS]
+    CORS --> Body[Body Parser]
+    Body --> Validation[Validation]
+    Validation --> Auth[Auth Guard]
+    Auth --> Handler[Route Handler]
+    style RL fill:#ef4444,stroke:#dc2626,color:#fff
+    style Helmet fill:#f97316,stroke:#ea580c,color:#fff
+    style CORS fill:#eab308,stroke:#ca8a04,color:#fff
+    style Body fill:#22c55e,stroke:#16a34a,color:#fff
+    style Validation fill:#3b82f6,stroke:#2563eb,color:#fff
+    style Auth fill:#8b5cf6,stroke:#7c3aed,color:#fff
+`}
+/>
+
+## The Security Stack
+
+Register middleware in this order — outermost defenses first:
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+import { rateLimit } from '@nextrush/rate-limit';
+import { helmet } from '@nextrush/helmet';
+import { cors } from '@nextrush/cors';
+import { bodyParser } from '@nextrush/body-parser';
+
+const app = createApp();
+
+// Layer 1: Rate limiting — stops abuse before any processing
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per window
+  })
+);
+
+// Layer 2: Security headers — prevents XSS, clickjacking, MIME sniffing
+app.use(helmet());
+
+// Layer 3: CORS — controls which origins can call your API
+app.use(
+  cors({
+    origin: ['https://yourdomain.com'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+  })
+);
+
+// Layer 4: Body parsing — enforces size limits
+app.use(
+  bodyParser({
+    limit: '1mb',
+    types: ['application/json'],
+  })
+);
+```
+
+---
+
+## Rate Limiting
+
+Protect against brute force and DDoS attacks.
+
+```typescript
+import { rateLimit } from '@nextrush/rate-limit';
+
+// Global rate limit
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+  })
+);
+
+// Stricter limit for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5, // Only 5 login attempts per 15 minutes
+  message: 'Too many login attempts',
+});
+
+authRouter.post('/login', authLimiter, loginHandler);
+```
+
+<Callout type="warn" title="Behind a proxy?">
+  If your app runs behind Nginx, Cloudflare, or a load balancer, configure proxy trust so rate
+  limiting uses the real client IP, not the proxy IP.
+</Callout>
+
+---
+
+## Security Headers (Helmet)
+
+`@nextrush/helmet` sets secure HTTP headers by default.
+
+```typescript
+import { helmet } from '@nextrush/helmet';
+
+app.use(helmet());
+// Sets: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection,
+//       Strict-Transport-Security, Content-Security-Policy, and more
+```
+
+To customize individual headers:
+
+```typescript
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+    },
+  })
+);
+```
+
+See [Helmet API Reference](/docs/api-reference/middleware/helmet) for all options.
+
+---
+
+## CORS
+
+Control cross-origin access. Never use wildcard (`*`) in production with credentials.
+
+```typescript
+import { cors } from '@nextrush/cors';
+
+// Production CORS
+app.use(
+  cors({
+    origin: ['https://yourdomain.com', 'https://admin.yourdomain.com'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    maxAge: 86400, // Cache preflight for 24 hours
+  })
+);
+```
+
+<Callout type="error" title="Common mistake">
+  `origin: '*'` with `credentials: true` is rejected by browsers. Always specify exact origins when
+  using cookies or auth headers.
+</Callout>
+
+See [CORS API Reference](/docs/api-reference/middleware/cors) for all options.
+
+---
+
+## Input Validation
+
+Never trust client data. Validate at the boundary.
+
+### Functional Style
+
+```typescript
+import { z } from 'zod';
+import { ValidationError } from '@nextrush/errors';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  age: z.number().int().min(0).max(150).optional(),
+});
+
+router.post('/users', async (ctx) => {
+  const result = CreateUserSchema.safeParse(ctx.body);
+  if (!result.success) {
+    throw new ValidationError('Invalid input', {
+      details: result.error.flatten().fieldErrors,
+    });
+  }
+  const user = await createUser(result.data);
+  ctx.status = 201;
+  ctx.json(user);
+});
+```
+
+### Class-Based Style
+
+```typescript
+import { z } from 'zod';
+import { Controller, Post, Body } from '@nextrush/decorators';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+});
+
+type CreateUser = z.infer<typeof CreateUserSchema>;
+
+@Controller('/users')
+class UserController {
+  @Post()
+  async create(@Body({ transform: CreateUserSchema.parseAsync }) data: CreateUser) {
+    return this.userService.create(data);
+  }
+}
+```
+
+See the [Validation guide](/docs/guides/validation) for complete patterns.
+
+---
+
+## Authentication
+
+Use guards for route-level access control.
+
+```typescript
+import { UnauthorizedError, ForbiddenError } from '@nextrush/errors';
+
+// Auth middleware — runs on every request
+app.use(async (ctx) => {
+  const token = ctx.get('authorization')?.replace('Bearer ', '');
+  if (token) {
+    try {
+      ctx.state.user = verifyJWT(token);
+    } catch {
+      // Invalid token — continue without user (public routes still work)
+    }
+  }
+  await ctx.next();
+});
+
+// Route-level guard — ensures user is authenticated
+function requireAuth(ctx) {
+  if (!ctx.state.user) throw new UnauthorizedError('Authentication required');
+  return ctx.next();
+}
+
+// Role-based guard
+function requireRole(...roles: string[]) {
+  return (ctx) => {
+    if (!ctx.state.user) throw new UnauthorizedError('Authentication required');
+    if (!roles.includes(ctx.state.user.role)) {
+      throw new ForbiddenError('Insufficient permissions');
+    }
+    return ctx.next();
+  };
+}
+
+// Usage
+adminRouter.get('/users', requireAuth, requireRole('admin'), listUsers);
+```
+
+See the [Authentication example](/docs/examples/authentication) for JWT implementation.
+
+---
+
+## Error Handling Security
+
+Never expose internal details in error responses.
+
+```typescript
+app.setErrorHandler((error, ctx) => {
+  // Log the full error internally
+  console.error(error);
+
+  // Send safe response — no stack traces, no file paths
+  ctx.status = error.status ?? 500;
+  ctx.json({
+    error:
+      error.status === 500
+        ? 'Internal server error' // Hide internal error messages
+        : error.message, // Show client errors (400, 404, etc.)
+  });
+});
+```
+
+<Callout type="error" title="Never in production">
+  Never send `error.stack`, `error.cause`, file paths, or SQL queries in error responses. These give
+  attackers information about your application structure.
+</Callout>
+
+---
+
+## Request Size Limits
+
+Prevent payload-based denial of service:
+
+```typescript
+app.use(
+  bodyParser({
+    limit: '1mb', // Max body size
+    types: ['application/json'], // Only accept JSON
+  })
+);
+```
+
+For file uploads, set appropriate limits per route:
+
+```typescript
+uploadRouter.post('/avatar', bodyParser({ limit: '5mb' }), handleUpload);
+uploadRouter.post('/document', bodyParser({ limit: '50mb' }), handleUpload);
+```
+
+---
+
+## Security Checklist
+
+- [ ] Rate limiting on all public endpoints
+- [ ] Stricter rate limits on auth endpoints (login, register, reset)
+- [ ] Helmet enabled with default headers
+- [ ] CORS configured with specific origins (no wildcard)
+- [ ] Body parser with size limits
+- [ ] All user input validated with schema (Zod recommended)
+- [ ] Authentication middleware before business logic routes
+- [ ] Error handler hides stack traces and internal paths
+- [ ] No secrets in code — all from environment variables
+- [ ] HTTPS enforced in production (via reverse proxy or platform)
+- [ ] Dependencies audited (`pnpm audit`)
+- [ ] Logging captures auth failures and suspicious patterns
+
+---
+
+## Next Steps
+
+<Cards>
+  <Card title="Error Handling" href="/docs/guides/error-handling">
+    Build consistent error responses with typed error classes.
+  </Card>
+  <Card title="Authentication Example" href="/docs/examples/authentication">
+    Full JWT auth implementation with guards and RBAC.
+  </Card>
+  <Card title="Deployment" href="/docs/guides/deployment">
+    Production deployment checklist and platform guides.
+  </Card>
+</Cards>

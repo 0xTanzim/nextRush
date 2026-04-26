@@ -1,0 +1,180 @@
+---
+title: '@nextrush/timer'
+description: 'Measure request duration with high-resolution timing and Server-Timing support.'
+---
+
+Measure how long requests take to process. Uses `performance.now()` for sub-millisecond accuracy and supports the `Server-Timing` header for browser DevTools integration.
+
+## Installation
+
+<PackageInstall packages={['@nextrush/timer']} />
+
+## Minimal Usage
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { timer } from '@nextrush/timer';
+
+const app = createApp();
+app.use(timer());
+// Response header: X-Response-Time: 12.34ms
+```
+
+The duration is stored in `ctx.state.responseTime` as a number (milliseconds).
+
+## API Reference
+
+### `timer(options?)`
+
+Create response time middleware.
+
+```ts
+function timer(options?: TimerOptions): Middleware;
+```
+
+<TypeTable
+  title="TimerOptions"
+  types={{
+    header: { type: 'string', description: 'Response header name', default: "'X-Response-Time'" },
+    suffix: { type: 'string', description: 'Time unit suffix', default: "'ms'" },
+    precision: { type: 'number', description: 'Decimal places (0–6)', default: '2' },
+    stateKey: {
+      type: 'string',
+      description: 'Key in ctx.state for duration',
+      default: "'responseTime'",
+    },
+    exposeHeader: { type: 'boolean', description: 'Set response header', default: 'false' },
+    now: { type: '() => number', description: 'Custom time getter', default: 'performance.now' },
+  }}
+/>
+
+<Callout type="info">
+  The `exposeHeader` option defaults to `false`. Set it to `true` to include the timing header in
+  responses.
+</Callout>
+
+### `responseTime(options?)`
+
+Alias for `timer()`.
+
+```ts
+function responseTime(options?: TimerOptions): Middleware;
+```
+
+### `serverTiming(options?)`
+
+Create `Server-Timing` middleware for browser DevTools integration.
+
+```ts
+function serverTiming(options?: ServerTimingOptions): Middleware;
+```
+
+```ts
+import { serverTiming } from '@nextrush/timer';
+
+app.use(serverTiming());
+// Header: Server-Timing: total;dur=12.34
+```
+
+<TypeTable
+  title="ServerTimingOptions"
+  types={{
+    metric: { type: 'string', description: 'Metric name', default: "'total'" },
+    description: { type: 'string', description: 'Optional metric description', optional: true },
+    precision: { type: 'number', description: 'Decimal places (0–6)', default: '2' },
+    stateKey: {
+      type: 'string',
+      description: 'Key in ctx.state for duration',
+      default: "'responseTime'",
+    },
+    exposeHeader: { type: 'boolean', description: 'Set response header', default: 'false' },
+    now: { type: '() => number', description: 'Custom time getter', default: 'performance.now' },
+  }}
+/>
+
+With a description:
+
+```ts
+app.use(
+  serverTiming({
+    metric: 'api',
+    description: 'API Response Time',
+  })
+);
+// Header: Server-Timing: api;dur=12.34;desc="API Response Time"
+```
+
+### `detailedTimer(options?)`
+
+Create detailed timer middleware that stores a `TimingResult` object instead of a plain number.
+
+```ts
+function detailedTimer(options?: DetailedTimerOptions): Middleware;
+```
+
+<TypeTable
+  title="DetailedTimerOptions (extends TimerOptions)"
+  types={{
+    detailed: {
+      type: 'boolean',
+      description: 'Store TimingResult object in ctx.state',
+      default: 'false',
+    },
+  }}
+/>
+
+<TypeTable
+  title="TimingResult"
+  types={{
+    duration: { type: 'number', description: 'Duration in milliseconds' },
+    formatted: { type: 'string', description: 'Formatted string (e.g. "12.34ms")' },
+    start: { type: 'number', description: 'Start timestamp from performance.now()' },
+    end: { type: 'number', description: 'End timestamp from performance.now()' },
+  }}
+/>
+
+<Callout type="warn">
+  Set `detailed: true` to get a `TimingResult` object. Without it, `detailedTimer` stores a plain
+  number — the same as `timer()`.
+</Callout>
+
+```ts
+import { detailedTimer } from '@nextrush/timer';
+import type { TimingResult } from '@nextrush/timer';
+
+app.use(detailedTimer({ detailed: true }));
+
+app.use(async (ctx) => {
+  await ctx.next();
+  const timing = ctx.state.responseTime as TimingResult;
+  console.log(timing.duration); // 12.34
+  console.log(timing.formatted); // "12.34ms"
+});
+```
+
+## Practical Example
+
+Track both database and total timing with Server-Timing headers:
+
+```ts
+import { serverTiming } from '@nextrush/timer';
+
+// Database timing (custom)
+app.use(async (ctx) => {
+  const dbStart = performance.now();
+  await db.query('SELECT * FROM users');
+  const dbTime = performance.now() - dbStart;
+  ctx.set('Server-Timing', `db;dur=${dbTime.toFixed(2)};desc="Database"`);
+  await ctx.next();
+});
+
+// Total request timing
+app.use(serverTiming({ metric: 'total' }));
+```
+
+View results in Chrome DevTools → Network → Timing tab.
+
+## Related
+
+- [Middleware Overview](/docs/api-reference/middleware) — All middleware packages
+- [@nextrush/request-id](/docs/api-reference/middleware/request-id) — Request tracking

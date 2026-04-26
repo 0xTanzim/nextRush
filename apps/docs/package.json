@@ -1,0 +1,46 @@
+{
+  "name": "docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "prebuild": "fumadocs-mdx && tsx ../../scripts/docs/build-docs.ts",
+    "build": "next build",
+    "dev": "fumadocs-mdx && next dev",
+    "start": "serve out",
+    "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "typecheck": "pnpm types:check",
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "@orama/orama": "^3.1.18",
+    "@radix-ui/react-popover": "^1.1.15",
+    "class-variance-authority": "^0.7.1",
+    "fumadocs-core": "16.7.11",
+    "fumadocs-mdx": "14.2.11",
+    "fumadocs-ui": "16.7.11",
+    "lucide-react": "^1.8.0",
+    "mermaid": "^11.14.0",
+    "next": "16.2.3",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "16.2.3",
+    "postcss": "^8.5.9",
+    "serve": "^14.2.6",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2"
+  }
+}

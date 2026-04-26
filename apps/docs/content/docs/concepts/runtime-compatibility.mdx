@@ -1,0 +1,413 @@
+---
+title: Runtime Compatibility
+description: How NextRush achieves cross-runtime compatibility — running the same code on Node.js, Bun, Deno, and Edge environments.
+---
+
+NextRush is designed to run on multiple JavaScript runtimes without code changes. Your application logic stays the same — only the adapter changes.
+
+## The Problem
+
+Different runtimes have different APIs:
+
+| Feature      | Node.js                  | Bun            | Deno              | Edge           |
+| ------------ | ------------------------ | -------------- | ----------------- | -------------- |
+| HTTP server  | `http.createServer()`    | `Bun.serve()`  | `Deno.serve()`    | Fetch handler  |
+| Request body | `IncomingMessage` stream | `Request` body | `Request` body    | `Request` body |
+| File system  | `fs` module              | `Bun.file()`   | `Deno.readFile()` | Not available  |
+| Compression  | `zlib` module            | Native         | Web Streams       | Web Streams    |
+
+Writing code that works on all runtimes typically requires conditional logic or abstraction layers.
+
+## The Solution
+
+NextRush uses three strategies to achieve runtime compatibility:
+
+1. **Adapter pattern** — Platform-specific code lives in adapters
+2. **Context interface** — Unified API for all request/response operations
+3. **BodySource abstraction** — Cross-runtime body reading
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Your Application                             │
+│                                                                      │
+│  const app = createApp();                                            │
+│  app.use(cors());                                                    │
+│  app.route('/api', router);                                          │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+          ┌───────────┬───────────┼───────────┬───────────┐
+          ▼           ▼           ▼           ▼           │
+   ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
+   │ adapter-  │ │ adapter-  │ │ adapter-  │ │ adapter-  │
+   │ node      │ │ bun       │ │ deno      │ │ edge      │
+   │           │ │           │ │           │ │           │
+   │ Uses:     │ │ Uses:     │ │ Uses:     │ │ Uses:     │
+   │ Node HTTP │ │ Bun.serve │ │Deno.serve │ │ Fetch API │
+   └───────────┘ └───────────┘ └───────────┘ └───────────┘
+          │           │           │           │
+          └───────────┴───────────┼───────────┘
+                                  ▼
+   ┌──────────────────────────────────────────────────────────────────┐
+   │                        @nextrush/core                            │
+   │                                                                  │
+   │  Runtime-agnostic:                                               │
+   │  • Application class                                             │
+   │  • Middleware composition                                        │
+   │  • Plugin system                                                 │
+   │                                                                  │
+   └──────────────────────────────────────────────────────────────────┘
+```
+
+## Runtime Support Matrix
+
+| Feature                    | Node.js 22+ | Bun 1.0+ | Deno 2.0+ | Edge |
+| -------------------------- | :---------: | :------: | :-------: | :--: |
+| Core                       |     ✅      |    ✅    |    ✅     |  ✅  |
+| Router                     |     ✅      |    ✅    |    ✅     |  ✅  |
+| Body Parser                |     ✅      |    ✅    |    ✅     |  ✅  |
+| CORS                       |     ✅      |    ✅    |    ✅     |  ✅  |
+| Helmet                     |     ✅      |    ✅    |    ✅     |  ✅  |
+| Compression (gzip/deflate) |     ✅      |    ✅    |    ✅     |  ✅  |
+| Compression (brotli)       |     ✅      |    ✅    |    ⚠️     |  ❌  |
+| Static Files               |     ✅      |    ✅    |    ✅     |  ❌  |
+| WebSocket                  |     ✅      |    ✅    |    ✅     |  ✅  |
+| DI & Controllers           |     ✅      |    ✅    |    ✅     |  ✅  |
+
+<Callout type="info">
+  Edge environments don't have a file system. Use cloud storage (R2, S3) instead of static file
+  serving.
+</Callout>
+
+## The Context Interface
+
+The `Context` interface is the contract between your code and the runtime. All adapters implement this interface:
+
+```ts
+interface Context {
+  // Request (read-only)
+  readonly method: HttpMethod;
+  readonly path: string;
+  readonly url: string;
+  readonly query: QueryParams;
+  readonly headers: IncomingHeaders;
+  readonly ip: string;
+
+  body: unknown;
+  params: RouteParams;
+
+  // Response
+  status: number;
+  json(data: unknown): void;
+  send(data: ResponseBody): void;
+  html(content: string): void;
+  redirect(url: string, status?: number): void;
+  set(field: string, value: string | number): void;
+  get(field: string): string | undefined;
+
+  // Middleware
+  next(): Promise<void>;
+  state: ContextState;
+
+  // Cross-runtime
+  readonly runtime: Runtime;
+  readonly bodySource: BodySource;
+
+  // Escape hatch
+  readonly raw: RawHttp;
+}
+```
+
+**Your code uses Context:**
+
+```ts
+router.get('/users/:id', async (ctx) => {
+  const { id } = ctx.params;
+  const user = await db.users.findById(id);
+  ctx.json(user);
+});
+```
+
+**Adapters implement Context differently:**
+
+```ts
+// NodeContext uses IncomingMessage + ServerResponse
+// BunContext uses Request + custom response builder
+// EdgeContext uses Request + Response
+```
+
+## BodySource: Cross-Runtime Body Reading
+
+The `bodySource` property provides a unified way to read request bodies:
+
+```ts
+interface BodySource {
+  text(): Promise<string>;
+  json<T>(): Promise<T>;
+  buffer(): Promise<Uint8Array>;
+  stream(): NodeStreamLike | WebStreamLike;
+
+  readonly contentType: string | undefined;
+  readonly contentLength: number | undefined;
+  readonly consumed: boolean;
+}
+```
+
+Middleware uses `bodySource` to parse request bodies without knowing which runtime is active:
+
+```ts
+// This works on ALL runtimes
+export function json(): Middleware {
+  return async (ctx) => {
+    if (ctx.method === 'GET' || ctx.method === 'HEAD') {
+      return ctx.next();
+    }
+
+    const contentType = ctx.get('content-type');
+    if (contentType?.includes('application/json')) {
+      ctx.body = await ctx.bodySource.json();
+    }
+
+    await ctx.next();
+  };
+}
+```
+
+**Under the hood**, each adapter implements BodySource differently:
+
+- **Node.js**: Reads from `IncomingMessage` stream
+- **Bun/Deno/Edge**: Uses `Request.body` methods
+
+## Runtime Detection
+
+The `@nextrush/runtime` package detects the current runtime.
+
+### Detection Order
+
+Detection order matters — more specific runtimes are checked first to avoid misclassification (e.g., Bun also sets `process.versions.node`):
+
+1. **Bun** — global `Bun` object exists
+2. **Deno Deploy** — global `Deno` object + `DENO_DEPLOYMENT_ID` env var
+3. **Deno** — global `Deno` object
+4. **Cloudflare Workers** — `navigator.userAgent` contains `'Cloudflare-Workers'`
+5. **Node.js** — `process.versions.node` exists
+6. **Vercel Edge** — `process.env.VERCEL_REGION` exists (after Node.js check)
+7. **Generic Edge** — `Request` and `Response` globals exist
+8. **Unknown** — none of the above matched
+
+```ts
+import { getRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
+
+const runtime = getRuntime();
+// Returns: 'node' | 'bun' | 'deno' | 'deno-deploy'
+//        | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown'
+
+const caps = getRuntimeCapabilities();
+// Returns: {
+//   nodeStreams: boolean,
+//   webStreams: boolean,
+//   fileSystem: boolean,
+//   webSocket: boolean,
+//   fetch: boolean,
+//   cryptoSubtle: boolean,
+//   workers: boolean,
+// }
+```
+
+Use `getRuntimeCapabilities()` to check what the current runtime supports before using platform-specific features:
+
+```ts
+import { getRuntimeCapabilities } from '@nextrush/runtime';
+
+app.use(async (ctx) => {
+  const caps = getRuntimeCapabilities();
+
+  if (caps.fileSystem) {
+    // Safe to read files
+    const content = await readFile('./data.json');
+    ctx.json(JSON.parse(content));
+  } else {
+    // Use KV store or fetch from external service
+    const data = await kv.get('data');
+    ctx.json(data);
+  }
+});
+```
+
+## Deployment Examples
+
+Each adapter handles the platform-specific HTTP primitives while your application code stays identical.
+
+<Tabs items={['Node.js', 'Bun', 'Deno', 'Edge']}>
+  <Tab value="Node.js">
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { listen } from '@nextrush/adapter-node';
+
+    const app = createApp();
+    // ... configure app
+
+    await listen(app, 3000);
+    ```
+
+  </Tab>
+  <Tab value="Bun">
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { serve } from '@nextrush/adapter-bun';
+
+    const app = createApp();
+    // ... configure app
+
+    serve(app, { port: 3000 });
+    ```
+
+  </Tab>
+  <Tab value="Deno">
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { serve } from '@nextrush/adapter-deno';
+
+    const app = createApp();
+    // ... configure app
+
+    await serve(app, { port: 3000 });
+    ```
+
+  </Tab>
+  <Tab value="Edge">
+    The edge adapter provides platform-specific handler factories:
+
+    ```ts
+    // Cloudflare Workers
+    import { createCloudflareHandler } from '@nextrush/adapter-edge';
+    const app = createApp();
+    export default createCloudflareHandler(app);
+    ```
+
+    ```ts
+    // Vercel Edge Functions
+    import { createVercelHandler } from '@nextrush/adapter-edge';
+    const app = createApp();
+    export const config = { runtime: 'edge' };
+    export default createVercelHandler(app);
+    ```
+
+    ```ts
+    // Netlify Edge Functions
+    import { createNetlifyHandler } from '@nextrush/adapter-edge';
+    const app = createApp();
+    export default createNetlifyHandler(app);
+    ```
+
+  </Tab>
+</Tabs>
+
+## Writing Runtime-Agnostic Code
+
+### ✅ Do: Use Context methods
+
+```ts
+// Works everywhere
+router.get('/data', async (ctx) => {
+  const auth = ctx.get('authorization');
+  ctx.set('cache-control', 'no-cache');
+  ctx.json({ data: 'value' });
+});
+```
+
+### ✅ Do: Use BodySource for body reading
+
+```ts
+// Works everywhere
+const body = await ctx.bodySource.json();
+```
+
+### ❌ Avoid: Runtime-specific APIs
+
+```ts
+// Only works on Node.js
+const body = await readStream(ctx.raw.req);
+
+// Only works on Web runtimes
+const body = await ctx.raw.req.json();
+```
+
+### ✅ Do: Check capabilities before using
+
+```ts
+import { getRuntimeCapabilities } from '@nextrush/runtime';
+
+app.use(async (ctx) => {
+  const caps = getRuntimeCapabilities();
+
+  if (!caps.fileSystem) {
+    ctx.status = 501;
+    ctx.json({ error: 'File operations not supported on this runtime' });
+    return;
+  }
+
+  // Safe to use file operations
+  await ctx.next();
+});
+```
+
+### ✅ Do: Gracefully degrade features
+
+```ts
+export function compression(): Middleware {
+  return async (ctx) => {
+    await ctx.next();
+
+    const acceptEncoding = ctx.get('accept-encoding') || '';
+
+    // Try brotli first (best compression)
+    if (acceptEncoding.includes('br') && supportsBrotli()) {
+      ctx.body = await compressBrotli(ctx.body);
+      ctx.set('content-encoding', 'br');
+      return;
+    }
+
+    // Fall back to gzip (widely supported)
+    if (acceptEncoding.includes('gzip')) {
+      ctx.body = await compressGzip(ctx.body);
+      ctx.set('content-encoding', 'gzip');
+      return;
+    }
+
+    // No compression if not supported
+  };
+}
+```
+
+## The Raw Escape Hatch
+
+When you need platform-specific features, use `ctx.raw`:
+
+```ts
+router.get('/socket-info', (ctx) => {
+  if (ctx.runtime === 'node') {
+    // Access Node.js specific properties
+    const socket = ctx.raw.req.socket;
+    ctx.json({
+      remoteAddress: socket.remoteAddress,
+      remotePort: socket.remotePort,
+    });
+  } else {
+    ctx.json({
+      ip: ctx.ip, // Use the abstracted property
+    });
+  }
+});
+```
+
+<Callout type="warn">
+  Using `ctx.raw` ties your code to a specific runtime. Only use it when the Context interface
+  doesn't provide what you need.
+</Callout>
+
+## Next Steps
+
+- See the complete list of packages in the [package hierarchy](/docs/concepts/package-hierarchy)
+- Learn about each adapter in the [adapters documentation](/docs/api-reference/adapters)
+- Explore [middleware packages](/docs/api-reference/middleware) that work across runtimes

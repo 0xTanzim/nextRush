@@ -1,0 +1,4 @@
+{
+  "title": "Core",
+  "pages": ["index", "nextrush", "core", "router", "types", "errors", "runtime", "dev"]
+}

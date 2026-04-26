@@ -1,0 +1,444 @@
+---
+title: Request Validation
+description: Validate and transform request data using Zod and NextRush's built-in ValidationError system.
+---
+
+TypeScript types disappear at runtime. Without validation, malformed input propagates through your system, causes silent failures, and opens security holes.
+
+This guide shows how to validate request data using Zod with NextRush — in both functional and class-based styles.
+
+## What You Will Build
+
+A validated API endpoint that:
+
+- Rejects invalid input with structured error responses
+- Uses NextRush's `ValidationError` and `ValidationIssue` types
+- Integrates Zod with the `@Body({ transform })` decorator
+- Returns consistent, machine-readable validation errors
+
+## Prerequisites
+
+- A working NextRush application ([Getting Started](/docs/getting-started))
+- Familiarity with Zod schemas
+- `@nextrush/body-parser` configured for JSON parsing
+
+<PackageInstall packages={['zod', '@nextrush/body-parser']} />
+
+## Step 1 — Validate in Functional Routes
+
+<Steps>
+  <Step>
+    ### Define a Zod schema
+
+    ```typescript title="src/schemas/user.ts"
+    import { z } from 'zod';
+
+    export const CreateUserSchema = z.object({
+      name: z.string().min(1, 'Name is required').max(100),
+      email: z.string().email('Invalid email format'),
+      age: z.number().int().min(18, 'Must be at least 18').optional(),
+    });
+
+    export type CreateUserInput = z.infer<typeof CreateUserSchema>;
+    ```
+
+  </Step>
+  <Step>
+    ### Validate inside the route handler
+
+    Use `safeParse` and throw a `ValidationError` on failure:
+
+    ```typescript title="src/routes/users.ts"
+    import { createRouter } from '@nextrush/router';
+    import { ValidationError } from '@nextrush/errors';
+    import type { ValidationIssue } from '@nextrush/errors';
+    import { CreateUserSchema } from '../schemas/user.js';
+
+    const router = createRouter();
+
+    router.post('/users', (ctx) => {
+      const result = CreateUserSchema.safeParse(ctx.body);
+
+      if (!result.success) {
+        const issues: ValidationIssue[] = result.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        }));
+        throw new ValidationError(issues);
+      }
+
+      // result.data is typed as { name: string; email: string; age?: number }
+      ctx.status = 201;
+      ctx.json({ data: result.data });
+    });
+
+    export { router };
+    ```
+
+  </Step>
+</Steps>
+
+`ValidationError` takes an array of `ValidationIssue` objects as the first argument and an optional message as the second. Each issue uses `path` (not `field`) to identify the failing property.
+
+## Step 2 — Validate with Decorators
+
+The `@Body`, `@Param`, and `@Query` decorators accept a `transform` option. The transform runs before your method executes. If it throws, the request fails with an error.
+
+<Steps>
+  <Step>
+    ### Use transform with Zod's parseAsync
+
+    ```typescript title="src/controllers/users.controller.ts"
+    import { Controller, Post, Get, Body, Query, Service } from 'nextrush/class';
+    import { z } from 'zod';
+
+    const CreateUserSchema = z.object({
+      name: z.string().min(1).max(100),
+      email: z.string().email(),
+      age: z.number().int().min(18).optional(),
+    });
+
+    type CreateUserInput = z.infer<typeof CreateUserSchema>;
+
+    @Controller('/users')
+    class UsersController {
+      @Post()
+      async create(
+        @Body({ transform: (data) => CreateUserSchema.parseAsync(data) }) data: CreateUserInput
+      ) {
+        return { data };
+      }
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Understand the execution flow
+
+    When a request arrives:
+
+    1. The builder extracts the raw body from the context
+    2. Your `transform` function runs (awaited for async transforms)
+    3. If the transform throws, it is wrapped in a `ParameterInjectionError`
+    4. If it succeeds, the validated result is passed to your method
+
+  </Step>
+</Steps>
+
+<Callout type="warn">
+  Use `parseAsync` instead of `parse` for the transform. The handler builder awaits all transforms,
+  and `parseAsync` handles schemas with async refinements correctly.
+</Callout>
+
+## Step 3 — Create a Reusable Validation Helper
+
+For functional routes, a helper that converts Zod errors to `ValidationError` reduces boilerplate:
+
+```typescript title="src/utils/validate.ts"
+import { z, ZodSchema, ZodError } from 'zod';
+import { ValidationError } from '@nextrush/errors';
+import type { ValidationIssue } from '@nextrush/errors';
+
+export function validate<T>(schema: ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+
+  if (!result.success) {
+    throw toValidationError(result.error);
+  }
+
+  return result.data;
+}
+
+function toValidationError(error: ZodError): ValidationError {
+  const issues: ValidationIssue[] = error.issues.map((issue) => ({
+    path: issue.path.join('.'),
+    message: issue.message,
+  }));
+  return new ValidationError(issues);
+}
+```
+
+Use it in routes:
+
+```typescript
+import { validate } from '../utils/validate.js';
+import { CreateUserSchema } from '../schemas/user.js';
+
+router.post('/users', (ctx) => {
+  const data = validate(CreateUserSchema, ctx.body);
+  ctx.status = 201;
+  ctx.json({ data });
+});
+```
+
+## Step 4 — Validate Query and Route Parameters
+
+### Query Parameters
+
+Query values arrive as strings. Use `z.coerce` to parse them:
+
+```typescript
+const PaginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  sort: z.enum(['asc', 'desc']).default('desc'),
+});
+
+router.get('/users', (ctx) => {
+  const query = validate(PaginationSchema, ctx.query);
+  ctx.json({ page: query.page, limit: query.limit });
+});
+```
+
+### Route Parameters
+
+```typescript
+const IdParamSchema = z.object({
+  id: z.string().uuid('Invalid ID format'),
+});
+
+router.get('/users/:id', (ctx) => {
+  const { id } = validate(IdParamSchema, ctx.params);
+  ctx.json({ id });
+});
+```
+
+### With Decorators
+
+```typescript
+@Controller('/users')
+class UsersController {
+  @Get('/:id')
+  findOne(@Param('id', { transform: (v) => IdParamSchema.shape.id.parse(v) }) id: string) {
+    return { id };
+  }
+
+  @Get()
+  findAll(
+    @Query({ transform: (q) => PaginationSchema.parseAsync(q) })
+    query: z.infer<typeof PaginationSchema>
+  ) {
+    return { page: query.page, limit: query.limit };
+  }
+}
+```
+
+## Step 5 — Validation Middleware
+
+For routes that need reusable validation without decorators, create validation middleware:
+
+```typescript title="src/middleware/validate.ts"
+import { ZodSchema } from 'zod';
+import type { Middleware } from '@nextrush/types';
+import { ValidationError } from '@nextrush/errors';
+import type { ValidationIssue } from '@nextrush/errors';
+
+interface ValidationSchemas {
+  body?: ZodSchema;
+  query?: ZodSchema;
+  params?: ZodSchema;
+}
+
+export function validateRequest(schemas: ValidationSchemas): Middleware {
+  return async (ctx) => {
+    const issues: ValidationIssue[] = [];
+
+    if (schemas.body) {
+      const result = schemas.body.safeParse(ctx.body);
+      if (!result.success) {
+        for (const issue of result.error.issues) {
+          issues.push({ path: `body.${issue.path.join('.')}`, message: issue.message });
+        }
+      } else {
+        ctx.state.validatedBody = result.data;
+      }
+    }
+
+    if (schemas.query) {
+      const result = schemas.query.safeParse(ctx.query);
+      if (!result.success) {
+        for (const issue of result.error.issues) {
+          issues.push({ path: `query.${issue.path.join('.')}`, message: issue.message });
+        }
+      } else {
+        ctx.state.validatedQuery = result.data;
+      }
+    }
+
+    if (schemas.params) {
+      const result = schemas.params.safeParse(ctx.params);
+      if (!result.success) {
+        for (const issue of result.error.issues) {
+          issues.push({ path: `params.${issue.path.join('.')}`, message: issue.message });
+        }
+      }
+    }
+
+    if (issues.length > 0) {
+      throw new ValidationError(issues);
+    }
+
+    await ctx.next();
+  };
+}
+```
+
+Use as route-specific middleware:
+
+```typescript
+router.post('/users', validateRequest({ body: CreateUserSchema }), (ctx) => {
+  const data = ctx.state.validatedBody;
+  ctx.status = 201;
+  ctx.json({ data });
+});
+```
+
+## Error Response Format
+
+When `ValidationError` is thrown, its `toJSON()` method produces this structure:
+
+```json
+{
+  "error": "ValidationError",
+  "message": "Validation failed",
+  "code": "VALIDATION_ERROR",
+  "status": 400,
+  "issues": [
+    { "path": "email", "message": "Invalid email format" },
+    { "path": "password", "message": "Password must be at least 8 characters" },
+    { "path": "password", "message": "Must contain uppercase letter" }
+  ]
+}
+```
+
+Each issue has a `path` string and a `message`. The `rule` and `expected` fields appear when set. The `received` field is stripped from JSON output to prevent leaking sensitive input values.
+
+<Callout type="info" title="Built-in Convenience Errors">
+  `@nextrush/errors` also exports `RequiredFieldError`, `TypeMismatchError`, `RangeValidationError`,
+  `LengthError`, `PatternError`, `InvalidEmailError`, and `InvalidUrlError`. These are
+  `ValidationError` subclasses with pre-built issue formats for common cases.
+</Callout>
+
+## Advanced Patterns
+
+### Cross-Field Validation
+
+```typescript
+const PasswordSchema = z
+  .object({
+    password: z.string().min(8),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+```
+
+### Async Validation
+
+```typescript
+const UniqueEmailSchema = z
+  .object({
+    email: z.string().email(),
+  })
+  .refine(
+    async (data) => {
+      const exists = await db.users.findByEmail(data.email);
+      return !exists;
+    },
+    { message: 'Email already in use', path: ['email'] }
+  );
+
+// Use parseAsync for async refinements
+router.post('/users', async (ctx) => {
+  const data = await UniqueEmailSchema.parseAsync(ctx.body);
+  ctx.json({ data });
+});
+```
+
+### Transform and Sanitize
+
+```typescript
+const UserInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .transform((s) => s.replace(/\s+/g, ' ')),
+  email: z.string().email().toLowerCase().trim(),
+  username: z
+    .string()
+    .toLowerCase()
+    .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
+});
+```
+
+## Verification
+
+Test that validation rejects bad input and accepts good input:
+
+```typescript title="src/routes/__tests__/users.test.ts"
+import { describe, it, expect } from 'vitest';
+import { validate } from '../../utils/validate.js';
+import { CreateUserSchema } from '../../schemas/user.js';
+import { ValidationError } from '@nextrush/errors';
+
+describe('CreateUserSchema', () => {
+  it('accepts valid input', () => {
+    const data = validate(CreateUserSchema, {
+      name: 'Alice',
+      email: 'alice@example.com',
+    });
+    expect(data.name).toBe('Alice');
+  });
+
+  it('rejects missing name', () => {
+    expect(() => validate(CreateUserSchema, { email: 'a@b.com' })).toThrow(ValidationError);
+  });
+
+  it('rejects invalid email', () => {
+    try {
+      validate(CreateUserSchema, { name: 'Alice', email: 'not-an-email' });
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      const ve = error as ValidationError;
+      expect(ve.issues[0]?.path).toBe('email');
+    }
+  });
+});
+```
+
+## Best Practices
+
+1. **Validate at the boundary** — validate input the moment it enters your system, not deep inside business logic.
+2. **Use `z.coerce` for query parameters** — query values are always strings. `z.object({ page: z.number() })` fails; `z.coerce.number()` works.
+3. **Use `parseAsync` in decorator transforms** — the handler builder awaits transforms, so async refinements work correctly.
+4. **Write descriptive error messages** — `z.string().min(1, 'Name is required')` is better than `z.string().min(1, 'Invalid')`.
+5. **Separate input and output schemas** — never return passwords or internal IDs in API responses.
+
+<Callout type="warn">
+  Zod's `.parse()` throws a `ZodError`, not a NextRush `ValidationError`. In functional routes, use
+  the `validate` helper to convert Zod errors into `ValidationError` with proper `issues` format. In
+  decorator transforms, thrown errors are wrapped in a `ParameterInjectionError` automatically.
+</Callout>
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Error Handling"
+    description="Handle validation errors in middleware and error boundaries."
+    href="/docs/guides/error-handling"
+  />
+  <Card
+    title="Testing"
+    description="Test your validation logic with Vitest."
+    href="/docs/guides/testing"
+  />
+  <Card
+    title="Decorators API Reference"
+    description="Full parameter decorator signatures and transform options."
+    href="/docs/api-reference/di/decorators"
+  />
+</Cards>

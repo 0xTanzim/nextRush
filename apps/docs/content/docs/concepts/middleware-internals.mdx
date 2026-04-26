@@ -1,0 +1,272 @@
+---
+title: Middleware Flow
+description: Internal architecture of NextRush's compose() engine — dispatch mechanics, ctx.next() wiring, error propagation, snapshotting, and the callback() pipeline.
+---
+
+import { Mermaid } from '@/components/mdx';
+
+This page explains **how** the middleware engine works internally. For the mental model, usage patterns, and common mistakes, see [Middleware Concepts](/docs/concepts/middleware).
+
+## The Dispatch Mechanism
+
+The `compose()` function in `@nextrush/core` transforms a `Middleware[]` into a single `ComposedMiddleware` function. The return type accepts an optional outer `next`:
+
+```ts
+type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
+```
+
+Composition works through index-based recursive dispatch. Each call to `next()` advances the index by one and invokes the next middleware in the stack:
+
+```ts
+// Actual implementation (simplified for clarity, faithful to real behavior)
+function compose(middleware: Middleware[]): ComposedMiddleware {
+  const stack = [...middleware]; // Snapshot at compose time
+  const len = stack.length;
+
+  if (len === 0) {
+    return (_ctx, next?) => (next ? next() : Promise.resolve());
+  }
+
+  return function composedMiddleware(ctx, next?) {
+    let index = -1; // Per-request state
+
+    function dispatch(i: number): Promise<void> {
+      if (i <= index) {
+        return Promise.reject(new Error('next() called multiple times'));
+      }
+      index = i;
+
+      const fn = i < len ? stack[i] : next;
+      if (!fn) return Promise.resolve();
+
+      const nextFn = () => dispatch(i + 1);
+
+      // Wire ctx.next() to the same dispatch function
+      if (ctx.setNext) ctx.setNext(nextFn);
+
+      try {
+        return Promise.resolve(fn(ctx, nextFn));
+      } catch (err) {
+        return Promise.reject(err);
+      }
+    }
+
+    return dispatch(0);
+  };
+}
+```
+
+Three properties to note:
+
+- **Snapshot** — `[...middleware]` copies the array once. Later mutations to the source array have no effect on the composed function.
+- **Per-request isolation** — The `index` variable is scoped to the `composedMiddleware` closure. Concurrent requests each get their own `index`.
+- **Double-next guard** — If `i <= index`, dispatch was already called at or past this index. The promise rejects with `'next() called multiple times'`.
+
+<Mermaid chart={`
+sequenceDiagram
+    participant C as composedMiddleware
+    participant D as dispatch(0)
+    participant M1 as Middleware 1
+    participant M2 as Middleware 2
+    participant M3 as Middleware 3
+
+    C->>D: dispatch(0)
+    D->>M1: fn(ctx, nextFn)
+    Note over M1: "before" code runs
+    M1->>D: nextFn() → dispatch(1)
+    D->>M2: fn(ctx, nextFn)
+    Note over M2: "before" code runs
+    M2->>D: nextFn() → dispatch(2)
+    D->>M3: fn(ctx, nextFn)
+    Note over M3: handler runs
+    M3-->>D: resolves
+    D-->>M2: nextFn resolves
+    Note over M2: "after" code runs
+    M2-->>D: resolves
+    D-->>M1: nextFn resolves
+    Note over M1: "after" code runs
+    M1-->>C: resolves
+
+`} />
+
+## How ctx.next() Is Wired
+
+NextRush supports two equivalent calling styles for middleware:
+
+<Tabs items={['Modern (ctx.next)', 'Traditional (next param)']}>
+  <Tab value="Modern (ctx.next)">
+    ```ts
+    app.use(async (ctx) => {
+      await ctx.next();
+    });
+    ```
+  </Tab>
+  <Tab value="Traditional (next param)">
+    ```ts
+    app.use(async (ctx, next) => {
+      await next();
+    });
+    ```
+  </Tab>
+</Tabs>
+
+Both call the same underlying dispatch function. The wiring happens inside `dispatch()`:
+
+```ts
+const nextFn = () => dispatch(i + 1);
+if (ctx.setNext) ctx.setNext(nextFn);
+```
+
+Before calling each middleware, `dispatch()` sets `ctx.next` to a function that calls `dispatch(i + 1)`. The `next` parameter passed to the middleware is the same `nextFn`. Both paths invoke the same dispatch — they are interchangeable.
+
+The `setNext` method on Context is optional and internal. Adapters provide it when constructing the context object.
+
+## Error Propagation
+
+Errors travel back through the dispatch chain via promise rejection. Here is the concrete flow when middleware 3 throws:
+
+```
+dispatch(0) → MW 1 before code
+  dispatch(1) → MW 2 before code
+    dispatch(2) → MW 3 throws Error
+    ← Promise.reject(err) returned to dispatch(1)
+  ← MW 2's next() rejects, propagates unless caught
+← MW 1's next() rejects, propagates unless caught
+```
+
+Any middleware can catch errors from downstream middleware with try/catch:
+
+```ts
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (err) {
+    // Handle error from any downstream middleware
+    ctx.status = err instanceof HttpError ? err.status : 500;
+    ctx.json({ error: err instanceof Error ? err.message : 'Internal error' });
+  }
+});
+```
+
+Synchronous exceptions inside middleware are caught by the try/catch in `dispatch()` and converted to rejected promises:
+
+```ts
+try {
+  return Promise.resolve(fn(ctx, nextFn));
+} catch (err) {
+  return Promise.reject(err);
+}
+```
+
+This means both `throw new Error(...)` and `return Promise.reject(...)` behave identically from the caller's perspective.
+
+## The callback() Pipeline
+
+`Application.callback()` builds the complete request handler. It does more than compose — it integrates plugin lifecycle hooks:
+
+```ts
+callback(): (ctx: Context) => Promise<void> {
+  const fn = compose(this.middlewareStack); // Snapshot
+
+  // Collect plugins with lifecycle hooks (once)
+  const hookPlugins = /* plugins with onRequest/onResponse/onError/extendContext */;
+
+  return async (ctx) => {
+    try {
+      // 1. Run plugin hooks: extendContext, then onRequest
+      for (const p of hookPlugins) {
+        if (p.extendContext) p.extendContext(ctx);
+        if (p.onRequest) await p.onRequest(ctx);
+      }
+
+      // 2. Execute composed middleware
+      await fn(ctx);
+
+      // 3. Run onResponse hooks (isolated — one failure doesn't block others)
+      for (const p of hookPlugins) {
+        if (p.onResponse) {
+          try { await p.onResponse(ctx); }
+          catch (e) { /* logged, not propagated */ }
+        }
+      }
+    } catch (error) {
+      // 4. Run onError hooks, then app error handler
+      for (const p of hookPlugins) {
+        if (p.onError) {
+          try { await p.onError(err, ctx); }
+          catch (e) { /* logged */ }
+        }
+      }
+      await this.handleError(error, ctx);
+    }
+  };
+}
+```
+
+The execution order for each request:
+
+1. Plugin `extendContext` hooks (synchronous, adds properties to ctx)
+2. Plugin `onRequest` hooks (async, can short-circuit)
+3. Composed middleware chain (the dispatch loop)
+4. Plugin `onResponse` hooks (async, errors isolated)
+5. On error: plugin `onError` hooks, then app error handler
+
+<Callout type="warn">
+  `callback()` snapshots the middleware stack at call time. Middleware registered after `callback()`
+  is called will not be included in the returned handler. Adapters call `callback()` once during
+  server startup.
+</Callout>
+
+## Runtime Safety
+
+`Application` prevents middleware registration after the server starts:
+
+```ts
+app.start(); // Called by adapters when server begins listening
+
+app.use(middleware); // Throws: "Cannot call use() after the application has started"
+app.route('/api', router); // Throws: "Cannot call route() after the application has started"
+app.plugin(somePlugin); // Throws: "Cannot call plugin() after the application has started"
+```
+
+The `start()` method sets an internal flag checked by `assertNotRunning()`. This prevents race conditions where middleware is added while requests are in flight.
+
+`app.use()` also validates each argument is a function at registration time:
+
+```ts
+app.use('not a function' as any); // Throws: TypeError("Middleware must be a function")
+```
+
+`compose()` performs the same validation — both the array type and each element.
+
+## Edge Cases
+
+**Empty middleware stack** — `compose([])` returns a fast-path function that calls the outer `next` if provided, or resolves immediately. No dispatch loop is created.
+
+**next() not called** — If a middleware does not call `next()`, dispatch stops. The `dispatch(i + 1)` function is never invoked, so remaining middleware never executes. The composed promise resolves normally.
+
+**Final next** — When the last middleware calls `next()`, dispatch looks for `fn` at index `len`, which resolves to the outer `next` passed to `composedMiddleware`. If no outer next was provided, `fn` is `undefined` and dispatch resolves.
+
+## Performance Characteristics
+
+The compose implementation is optimized for minimal per-request overhead:
+
+| Aspect                 | Implementation                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| Dispatch mechanism     | Index-based recursion, not per-request closure chains                                                    |
+| Per-request allocation | Single `index` variable per request                                                                      |
+| Stack snapshot         | One shallow copy at compose time, zero copies per request                                                |
+| Empty stack            | Fast path — no dispatch function created                                                                 |
+| Sync error handling    | try/catch wraps each middleware call, converts to rejected promise                                       |
+| Middleware flattening  | `flattenMiddleware()` uses bounded `Array.flat(10)` to prevent V8 deoptimization on deeply nested arrays |
+
+<Callout type="info">
+  `compose()` validates the middleware array eagerly at compose time, not lazily at dispatch time.
+  Invalid middleware is caught before any request arrives.
+</Callout>
+
+## Next Steps
+
+- [Middleware Concepts](/docs/concepts/middleware) — mental model, usage patterns, common mistakes
+- [Request Lifecycle](/docs/concepts/request-lifecycle) — how middleware fits into the full request pipeline
+- [Package Hierarchy](/docs/concepts/package-hierarchy) — available middleware packages

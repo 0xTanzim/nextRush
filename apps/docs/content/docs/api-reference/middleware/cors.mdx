@@ -1,0 +1,283 @@
+---
+title: '@nextrush/cors'
+description: 'Security-hardened CORS middleware with presets and origin validation.'
+---
+
+Browsers block cross-origin API requests by default. CORS middleware tells browsers which origins, methods, and headers your API accepts. Without it, frontend applications on different domains cannot reach your endpoints.
+
+This middleware implements the full CORS specification with additional protections against null origin attacks, regex denial-of-service, and credential misconfigurations.
+
+## Default Behavior
+
+With no options, `cors()` sets `origin` to `false` — **no CORS headers are added** and requests pass through unmodified. You must configure at least an `origin` value for the middleware to take effect.
+
+The middleware always adds `Vary: Origin` for correct cache behavior, even when the request has no `Origin` header.
+
+## Installation
+
+<PackageInstall packages={['@nextrush/cors']} />
+
+## Minimal Usage
+
+```ts
+import { createApp } from '@nextrush/core';
+import { cors } from '@nextrush/cors';
+
+const app = createApp();
+
+app.use(
+  cors({
+    origin: 'https://app.example.com',
+  })
+);
+```
+
+## Configuration Options
+
+<TypeTable
+  title="CorsOptions"
+  types={{
+    origin: {
+      type: 'boolean | string | string[] | RegExp | OriginValidator',
+      description:
+        "Allowed origin(s). false disables CORS, true reflects the request origin, '*' allows any origin.",
+      default: 'false',
+    },
+    methods: {
+      type: 'string | string[]',
+      description: 'Allowed HTTP methods for preflight requests.',
+      default: "'GET,HEAD,PUT,PATCH,POST,DELETE'",
+    },
+    allowedHeaders: {
+      type: 'string | string[]',
+      description:
+        'Allowed request headers. If omitted, mirrors Access-Control-Request-Headers from the preflight.',
+      optional: true,
+    },
+    exposedHeaders: {
+      type: 'string | string[]',
+      description: 'Response headers the browser can access from JavaScript.',
+      optional: true,
+    },
+    credentials: {
+      type: 'boolean',
+      description: 'Allow cookies and authorization headers in cross-origin requests.',
+      default: 'false',
+    },
+    maxAge: { type: 'number', description: 'Preflight cache duration in seconds.', optional: true },
+    preflightContinue: {
+      type: 'boolean',
+      description: 'Pass preflight requests to the next middleware instead of ending them.',
+      default: 'false',
+    },
+    optionsSuccessStatus: {
+      type: 'number',
+      description: 'HTTP status code for successful preflight responses.',
+      default: '204',
+    },
+    privateNetworkAccess: {
+      type: 'boolean',
+      description:
+        'Add Access-Control-Allow-Private-Network header for local/private network requests.',
+      default: 'false',
+    },
+    blockNullOrigin: {
+      type: 'boolean',
+      description:
+        'Block requests with Origin: null (from file://, data: URLs, sandboxed iframes).',
+      default: 'true',
+    },
+  }}
+/>
+
+### Origin Types
+
+**Exact string** — case-sensitive match:
+
+```ts
+cors({ origin: 'https://example.com' });
+```
+
+**Array** — whitelist of allowed origins:
+
+```ts
+cors({ origin: ['https://app.example.com', 'https://admin.example.com'] });
+```
+
+**RegExp** — pattern matching:
+
+```ts
+cors({ origin: /\.example\.com$/ });
+```
+
+**Function** — dynamic validation with async support:
+
+```ts
+cors({
+  origin: async (origin, ctx) => {
+    const allowed = await db.getAllowedOrigins(ctx.get('x-tenant-id'));
+    return allowed.includes(origin);
+  },
+});
+```
+
+The validator receives the `Origin` header value and a `CorsContext` object. Return `true` to allow, `false` to deny, or a string to set a specific `Access-Control-Allow-Origin` value.
+
+## Presets
+
+Choose a preset that matches your deployment scenario:
+
+<Tabs items={['simpleCors', 'strictCors', 'devCors', 'internalCors']}>
+  <Tab value="simpleCors">
+    Allows any origin (`*`) without credentials. Use for public APIs or development.
+
+    ```ts
+    import { simpleCors } from '@nextrush/cors';
+
+    app.use(simpleCors());
+    ```
+
+  </Tab>
+  <Tab value="strictCors">
+    Requires an explicit origin. Enables credentials and blocks null origins. Caches preflight for 24 hours by default.
+
+    ```ts
+    import { strictCors } from '@nextrush/cors';
+
+    app.use(strictCors('https://app.example.com'));
+
+    app.use(
+      strictCors(['https://app.example.com', 'https://admin.example.com'], {
+        exposedHeaders: ['X-Request-Id'],
+      })
+    );
+    ```
+
+  </Tab>
+  <Tab value="devCors">
+    Allows localhost origins (`127.0.0.1`, `::1`, `*.localhost`) with credentials and Private Network Access enabled. Null origins are allowed for `file://` testing.
+
+    ```ts
+    import { devCors } from '@nextrush/cors';
+
+    app.use(devCors());
+    app.use(devCors(['https://staging.example.com']));
+    ```
+
+  </Tab>
+  <Tab value="internalCors">
+    Restricted to a list of internal service domains. Enables credentials and sets common internal headers.
+
+    ```ts
+    import { internalCors } from '@nextrush/cors';
+
+    app.use(
+      internalCors([
+        'https://service1.internal.example.com',
+        'https://service2.internal.example.com',
+      ])
+    );
+    ```
+
+  </Tab>
+</Tabs>
+
+### `staticAssetsCors`
+
+Optimized for CDN and static file serving. Limits methods to GET, HEAD, OPTIONS. Caches preflight for 7 days. Defaults to `'*'` if no origins are specified.
+
+```ts
+import { staticAssetsCors } from '@nextrush/cors';
+
+app.use(staticAssetsCors(['https://example.com', 'https://cdn.example.com']));
+```
+
+## Options Builder
+
+Build configuration with a fluent API:
+
+```ts
+import { createCorsOptions } from '@nextrush/cors';
+
+const options = createCorsOptions()
+  .allowOrigin(['https://example.com', 'https://app.example.com'])
+  .allowMethods(['GET', 'POST'])
+  .allowCredentials()
+  .setMaxAge(86400)
+  .build();
+
+app.use(cors(options));
+```
+
+## Integration Example
+
+```ts
+import { createApp } from '@nextrush/core';
+import { cors } from '@nextrush/cors';
+
+const app = createApp();
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+    exposedHeaders: ['X-Request-Id'],
+    maxAge: 86400,
+  })
+);
+
+app.get('/api/users', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
+```
+
+## Common Mistakes
+
+### Wildcard with credentials
+
+```ts
+// ❌ Throws at configuration time
+cors({ origin: '*', credentials: true });
+
+// ✅ Use an explicit origin
+cors({ origin: 'https://app.example.com', credentials: true });
+```
+
+<Callout type="warn">
+  Setting `credentials: true` with `origin: '*'` throws an error immediately. The CORS specification
+  forbids this combination.
+</Callout>
+
+### Wrong middleware order
+
+```ts
+// ❌ Auth rejects before CORS headers are set
+app.use(authMiddleware);
+app.use(cors({ origin: 'https://app.example.com' }));
+
+// ✅ CORS runs first
+app.use(cors({ origin: 'https://app.example.com' }));
+app.use(authMiddleware);
+```
+
+### Unsafe regex patterns
+
+```ts
+// ❌ ReDoS vulnerability — catastrophic backtracking
+cors({ origin: /(.*)+\.example\.com/ });
+
+// ✅ Safe pattern
+cors({ origin: /\.example\.com$/ });
+```
+
+## Troubleshooting
+
+**No CORS headers in response** — Verify the request includes an `Origin` header and that the origin matches your configuration. With `origin: false` (the default), no CORS headers are set.
+
+**Preflight fails** — Check that the requested method and headers are allowed. If `allowedHeaders` is not set, the middleware reflects the request headers automatically.
+
+**Credentials rejected** — Ensure `origin` is set to a specific value (not `'*'`). The browser requires an exact origin match when credentials are included.
+
+## Related
+
+- [Middleware Overview](/docs/api-reference/middleware) — All middleware packages
+- [@nextrush/helmet](/docs/api-reference/middleware/helmet) — Security headers
+- [@nextrush/rate-limit](/docs/api-reference/middleware/rate-limit) — Rate limiting

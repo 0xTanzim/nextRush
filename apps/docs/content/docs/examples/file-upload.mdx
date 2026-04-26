@@ -1,0 +1,181 @@
+---
+title: File Upload
+description: Handle file uploads in NextRush with size limits, type validation, and streaming to disk.
+---
+
+A file upload API with validation, size limits, and disk storage. Handles single and multiple file uploads.
+
+## What This Example Demonstrates
+
+- Multipart form data parsing
+- File type and size validation
+- Streaming files to disk
+- Upload progress metadata
+- Error handling for oversized or invalid files
+
+## Prerequisites
+
+- Node.js 22+
+- `nextrush` installed
+
+```bash
+pnpm add nextrush
+```
+
+## Full Code
+
+```typescript title="src/upload.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { bodyParser } from '@nextrush/body-parser';
+import { BadRequestError } from '@nextrush/errors';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { join, extname } from 'node:path';
+
+const app = createApp();
+const router = createRouter();
+
+const UPLOAD_DIR = './uploads';
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+
+// Ensure upload directory exists
+await mkdir(UPLOAD_DIR, { recursive: true });
+
+// Health check
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+
+// Single file upload
+router.post('/upload', bodyParser({ limit: '10mb' }), async (ctx) => {
+  const file = ctx.body as UploadedFile;
+
+  if (!file?.name || !file?.data) {
+    throw new BadRequestError('No file provided');
+  }
+
+  validateFile(file);
+
+  const savedFile = await saveFile(file);
+  ctx.status = 201;
+  ctx.json(savedFile);
+});
+
+// List uploaded files
+router.get('/files', async (ctx) => {
+  const { readdir, stat } = await import('node:fs/promises');
+  const files = await readdir(UPLOAD_DIR);
+  const fileDetails = await Promise.all(
+    files.map(async (name) => {
+      const stats = await stat(join(UPLOAD_DIR, name));
+      return {
+        name,
+        size: stats.size,
+        uploaded: stats.birthtime,
+      };
+    })
+  );
+  ctx.json(fileDetails);
+});
+
+interface UploadedFile {
+  name: string;
+  data: Buffer;
+  type: string;
+  size: number;
+}
+
+interface SavedFile {
+  id: string;
+  originalName: string;
+  storedName: string;
+  size: number;
+  type: string;
+}
+
+function validateFile(file: UploadedFile): void {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new BadRequestError(
+      `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB. Maximum: ${MAX_FILE_SIZE / 1024 / 1024}MB`
+    );
+  }
+
+  if (!ALLOWED_TYPES.has(file.type)) {
+    throw new BadRequestError(
+      `File type '${file.type}' not allowed. Accepted: ${Array.from(ALLOWED_TYPES).join(', ')}`
+    );
+  }
+}
+
+async function saveFile(file: UploadedFile): Promise<SavedFile> {
+  const id = randomUUID();
+  const ext = extname(file.name) || '.bin';
+  const storedName = `${id}${ext}`;
+  const filePath = join(UPLOAD_DIR, storedName);
+
+  await writeFile(filePath, file.data);
+
+  return {
+    id,
+    originalName: file.name,
+    storedName,
+    size: file.size,
+    type: file.type,
+  };
+}
+
+app.route('/api', router);
+await listen(app, 3000);
+console.log('Upload server running on http://localhost:3000');
+```
+
+## How to Run
+
+```bash
+npx nextrush dev src/upload.ts
+```
+
+## Test with curl
+
+```bash
+# Upload a file
+curl -X POST http://localhost:3000/api/upload \
+  -F "file=@./photo.jpg" \
+  -H "Content-Type: multipart/form-data"
+
+# List uploaded files
+curl http://localhost:3000/api/files
+```
+
+## Expected Output
+
+Upload response:
+
+```json
+{
+  "id": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+  "originalName": "photo.jpg",
+  "storedName": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c.jpg",
+  "size": 245760,
+  "type": "image/jpeg"
+}
+```
+
+List response:
+
+```json
+[
+  {
+    "name": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c.jpg",
+    "size": 245760,
+    "uploaded": "2026-01-01T12:00:00.000Z"
+  }
+]
+```
+
+Oversized file error:
+
+```json
+{
+  "error": "File too large: 15.3MB. Maximum: 10MB"
+}
+```

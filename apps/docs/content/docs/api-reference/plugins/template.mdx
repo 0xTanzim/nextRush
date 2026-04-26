@@ -1,0 +1,294 @@
+---
+title: '@nextrush/template'
+description: 'Template engine plugin with support for EJS, Handlebars, Nunjucks, Pug, Eta, and a built-in zero-dependency Mustache-like engine.'
+---
+
+## Problem
+
+Server-rendered HTML requires a template engine, but each engine has a different API, file loading strategy, and caching mechanism. Switching engines means rewriting route handlers and learning a new integration pattern.
+
+The template plugin provides a unified interface across six engines. You swap engines by changing a single string — route handlers stay the same.
+
+---
+
+## Default Behavior
+
+With no configuration, the plugin uses the built-in Mustache-like engine, reads templates from `./views`, uses `.html` as the file extension, and enables caching when `NODE_ENV=production`. All output is HTML-escaped by default to prevent XSS.
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/template']} />
+
+Install an optional engine if you prefer one over the built-in:
+
+```bash
+pnpm add ejs          # EJS
+pnpm add handlebars   # Handlebars
+pnpm add nunjucks     # Nunjucks
+pnpm add pug          # Pug
+pnpm add eta          # Eta
+```
+
+---
+
+## Minimal Usage
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { template } from '@nextrush/template';
+
+const app = createApp();
+
+// Use built-in engine (no extra dependencies)
+app.use(template({ root: './views' }));
+
+app.get('/', async (ctx) => {
+  await ctx.render('home', { title: 'Hello World' });
+});
+```
+
+`ctx.render()` loads `./views/home.html`, merges `ctx.state` with the data you pass, renders the template, and sends the result as an HTML response.
+
+---
+
+## Supported Engines
+
+| Engine     | Name           | Default Extension |
+| ---------- | -------------- | ----------------- |
+| Built-in   | `'builtin'`    | `.html`           |
+| EJS        | `'ejs'`        | `.ejs`            |
+| Handlebars | `'handlebars'` | `.hbs`            |
+| Nunjucks   | `'nunjucks'`   | `.njk`            |
+| Pug        | `'pug'`        | `.pug`            |
+| Eta        | `'eta'`        | `.eta`            |
+
+Pass the engine name as the first argument:
+
+```typescript
+app.use(template('ejs', { root: './views' }));
+
+app.use(template('handlebars', { root: './views', ext: '.hbs' }));
+```
+
+---
+
+## Configuration Options
+
+<TypeTable
+  title="Options"
+  types={{
+    root: {
+      type: 'string',
+      description: 'Root directory for template files',
+      default: '"./views"',
+    },
+    ext: {
+      type: 'string',
+      description: 'Default file extension (varies by engine)',
+      default: '".html"',
+    },
+    cache: {
+      type: 'boolean',
+      description: 'Cache compiled templates',
+      default: 'true in production',
+    },
+    layout: { type: 'string', description: 'Default layout template name', optional: true },
+    helpers: {
+      type: 'Record<string, Function>',
+      description: 'Custom helper functions',
+      optional: true,
+    },
+    enableContextRender: {
+      type: 'boolean',
+      description: 'Attach ctx.render() method to context',
+      default: 'true',
+    },
+  }}
+/>
+
+---
+
+## Rendering Templates
+
+```typescript
+app.get('/', async (ctx) => {
+  // Render with data
+  await ctx.render('home', {
+    title: 'Welcome',
+    users: [{ name: 'Alice' }, { name: 'Bob' }],
+  });
+});
+```
+
+The `ctx.state` is automatically merged with render data:
+
+```typescript
+app.use(async (ctx) => {
+  ctx.state.currentYear = new Date().getFullYear();
+  await ctx.next();
+});
+
+app.get('/', async (ctx) => {
+  // currentYear is available in template
+  await ctx.render('home', { title: 'Hello' });
+});
+```
+
+---
+
+## Layouts
+
+Define a base layout:
+
+```typescript
+app.use(
+  template('handlebars', {
+    root: './views',
+    layout: 'layouts/main',
+  })
+);
+```
+
+```html
+<!-- views/layouts/main.hbs -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+  </head>
+  <body>
+    {{{body}}}
+  </body>
+</html>
+```
+
+```html
+<!-- views/home.hbs -->
+<h1>{{title}}</h1>
+<p>Content goes here</p>
+```
+
+---
+
+## Helpers
+
+Add custom helpers:
+
+```typescript
+app.use(
+  template('handlebars', {
+    root: './views',
+    helpers: {
+      uppercase: (str) => str.toUpperCase(),
+      formatDate: (date) => new Date(date).toLocaleDateString(),
+      json: (obj) => JSON.stringify(obj, null, 2),
+    },
+  })
+);
+```
+
+Use in templates:
+
+```html
+<h1>{{uppercase title}}</h1>
+<p>Published: {{formatDate createdAt}}</p>
+```
+
+---
+
+## Built-in Engine
+
+The default engine uses Mustache-like syntax:
+
+```typescript
+app.use(template({ root: './views' }));
+```
+
+```html
+<!-- views/home.html -->
+<h1>{{title}}</h1>
+
+{{#if user}}
+<p>Welcome, {{user.name}}!</p>
+{{/if}} {{#each items}}
+<li>{{name}} - {{price}}</li>
+{{/each}} {{#unless loggedIn}}
+<a href="/login">Login</a>
+{{/unless}}
+```
+
+<Callout type="error" title="XSS Risk with Raw Output">
+  Triple-mustache `{{{var}}}` disables HTML escaping. Never use it with user-supplied data. All user input must go through double-mustache `{{var}}` for safe escaped output.
+</Callout>
+
+### Built-in Syntax
+
+| Syntax                      | Description            |
+| --------------------------- | ---------------------- |
+| `{{var}}`                   | Output escaped value   |
+| `{{{var}}}`                 | Output raw HTML        |
+| `{{#if}}...{{/if}}`         | Conditional            |
+| `{{#unless}}...{{/unless}}` | Negative conditional   |
+| `{{#each}}...{{/each}}`     | Iteration              |
+| `{{! comment }}`            | Comment (not rendered) |
+
+---
+
+## Standalone Rendering
+
+Render templates without middleware:
+
+```typescript
+import { render, renderAsync } from '@nextrush/template';
+
+// Sync rendering
+const html = render('Hello {{name}}!', { name: 'World' });
+
+// Async rendering
+const html = await renderAsync('Hello {{name}}!', { name: 'World' });
+```
+
+---
+
+## Template Plugin
+
+Use as a plugin:
+
+```typescript
+import { templatePlugin } from '@nextrush/template';
+
+app.plugin(
+  templatePlugin('ejs', {
+    root: './views',
+  })
+);
+```
+
+---
+
+## Common Mistakes
+
+**Forgetting to install the engine package.** Passing `'ejs'` without the `ejs` npm package installed causes an error at startup. Install the engine before using it.
+
+**Using `{{{raw}}}` for user input.** Triple-mustache disables HTML escaping. Use it only for content you control. User-supplied data must go through `{{escaped}}`.
+
+**Expecting `ctx.render()` without the middleware.** The `render` method is attached by the template middleware. If you skip `app.use(template())`, `ctx.render` is `undefined`.
+
+---
+
+## Troubleshooting
+
+**"Template not found" error** — Verify the `root` directory exists and the file name matches. The engine appends the configured `ext` automatically, so `ctx.render('home')` looks for `./views/home.html` by default.
+
+**Stale templates in development** — Caching activates automatically in production. In development, set `cache: false` if templates do not reflect changes.
+
+**Layout not applying** — Confirm the layout file exists in the root directory and the file extension matches the engine default.
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/api-reference/plugins) — All plugin packages
+- [@nextrush/static](/docs/api-reference/plugins/static) — Static file serving

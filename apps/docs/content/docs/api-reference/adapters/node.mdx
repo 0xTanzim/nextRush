@@ -1,0 +1,380 @@
+---
+title: '@nextrush/adapter-node'
+description: Node.js HTTP adapter for NextRush
+---
+
+Connect NextRush to Node.js's built-in HTTP server.
+
+<Callout type="info" title="Included in nextrush">
+  This adapter is included when you install the `nextrush` package. Install separately only when
+  using other runtimes alongside Node.js.
+</Callout>
+
+<PackageInstall packages={['@nextrush/adapter-node']} />
+
+<Callout type="warn" title="Node.js 22+ Required">
+  NextRush requires Node.js 22.0.0 or later. Earlier versions are not supported.
+</Callout>
+
+## What It Provides
+
+The adapter exports server lifecycle functions and context utilities:
+
+```typescript
+// Server functions
+import { serve, listen, createHandler } from '@nextrush/adapter-node';
+import type { ServeOptions, ServerInstance } from '@nextrush/adapter-node';
+
+// Context (advanced)
+import { NodeContext, createNodeContext } from '@nextrush/adapter-node';
+
+// Body source (advanced)
+import {
+  NodeBodySource,
+  createNodeBodySource,
+  createEmptyBodySource,
+} from '@nextrush/adapter-node';
+```
+
+## Quick Start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-node';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello from Node.js!' });
+});
+
+app.route('/', router);
+
+await serve(app, {
+  port: 3000,
+  onListen: ({ port }) => console.log(`Listening on port ${port}`),
+});
+```
+
+## Using the Meta Package
+
+The `nextrush` package includes this adapter:
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+
+app.route('/', router);
+await listen(app, 3000);
+```
+
+## serve()
+
+Start an HTTP server with full configuration:
+
+```typescript
+import { serve } from '@nextrush/adapter-node';
+
+const server = await serve(app, {
+  port: 3000,
+  host: '0.0.0.0',
+  timeout: 30000,
+  keepAliveTimeout: 5000,
+  onListen: ({ port, host }) => {
+    console.log(`Server running at http://${host}:${port}`);
+  },
+  onError: (error) => {
+    console.error('Server error:', error);
+  },
+});
+
+// Later: graceful shutdown
+await server.close();
+```
+
+### Options
+
+<TypeTable
+  title="ServeOptions"
+  types={{
+    port: { type: 'number', description: 'Port to listen on', default: '3000' },
+    host: { type: 'string', description: 'Host to bind to', default: "'0.0.0.0'" },
+    timeout: { type: 'number', description: 'Request timeout in milliseconds', default: '30000' },
+    keepAliveTimeout: {
+      type: 'number',
+      description: 'Keep-alive timeout in milliseconds',
+      default: '5000',
+    },
+    shutdownTimeout: {
+      type: 'number',
+      description:
+        'Graceful shutdown timeout in milliseconds. Forces closure if connections do not drain within this time.',
+      default: '30000',
+    },
+    onListen: {
+      type: '(info: { port: number; host: string }) => void',
+      description: 'Callback when server starts listening',
+      optional: true,
+    },
+    onError: {
+      type: '(error: Error) => void',
+      description: 'Custom error handler for uncaught server errors',
+      optional: true,
+    },
+    logger: {
+      type: 'Logger',
+      description: 'Logger for adapter diagnostics. Defaults to app.logger.',
+      optional: true,
+    },
+  }}
+/>
+
+### Return Value
+
+```typescript
+interface ServerInstance {
+  server: Server; // Node.js http.Server
+  port: number; // Listening port
+  host: string; // Bound host
+  address(): { port: number; host: string }; // Get address info
+  close(): Promise<void>; // Graceful shutdown
+}
+```
+
+## listen()
+
+Shorthand for common case with default logging:
+
+```typescript
+import { listen } from '@nextrush/adapter-node';
+
+await listen(app, 3000);
+// Output: 🚀 NextRush listening on http://localhost:3000
+```
+
+## createHandler()
+
+Create a request handler for custom server setup.
+
+**Signature:**
+
+```typescript
+function createHandler(
+  app: Application,
+  options?: { logger?: Logger }
+): (req: IncomingMessage, res: ServerResponse) => void;
+```
+
+```typescript
+import { createHandler } from '@nextrush/adapter-node';
+import { createServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
+
+const handler = createHandler(app);
+
+// Use with http
+const httpServer = createServer(handler);
+
+// Use with https
+const httpsServer = createHttpsServer(
+  {
+    key: privateKey,
+    cert: certificate,
+  },
+  handler
+);
+```
+
+## HTTPS Support
+
+Use `createHandler()` with Node.js https:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createHandler } from '@nextrush/adapter-node';
+import { createServer } from 'node:https';
+import { readFileSync } from 'node:fs';
+
+const app = createApp();
+// ... configure app
+
+const handler = createHandler(app);
+
+const server = createServer(
+  {
+    key: readFileSync('private-key.pem'),
+    cert: readFileSync('certificate.pem'),
+  },
+  handler
+);
+
+server.listen(443);
+```
+
+## Graceful Shutdown
+
+```typescript
+import { serve } from '@nextrush/adapter-node';
+
+const server = await serve(app, { port: 3000 });
+
+// Handle shutdown signals
+async function shutdown() {
+  console.log('Shutting down...');
+  await server.close();
+  console.log('Server closed');
+  process.exit(0);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+```
+
+## Accessing Raw Objects
+
+Access Node.js `IncomingMessage` and `ServerResponse` when needed:
+
+```typescript
+router.get('/raw', (ctx) => {
+  const { req, res } = ctx.raw;
+
+  // Access Node.js-specific properties
+  const remoteAddress = req.socket.remoteAddress;
+  const httpVersion = req.httpVersion;
+
+  // Direct response manipulation (escape hatch)
+  res.writeHead(200, { 'X-Custom': 'value' });
+  res.end('Raw response');
+});
+```
+
+<Callout type="warn" title="Use Raw Objects Carefully">
+  When using `ctx.raw`, you bypass NextRush's response handling. Make sure you don't mix raw and
+  NextRush response methods.
+</Callout>
+
+## Performance Tuning
+
+### Timeouts
+
+```typescript
+await serve(app, {
+  port: 3000,
+  timeout: 60000, // 60s request timeout
+  keepAliveTimeout: 10000, // 10s keep-alive
+});
+```
+
+### Cluster Mode
+
+Scale across CPU cores:
+
+```typescript
+import cluster from 'node:cluster';
+import { cpus } from 'node:os';
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-node';
+
+if (cluster.isPrimary) {
+  const numCPUs = cpus().length;
+  console.log(`Primary ${process.pid} starting ${numCPUs} workers`);
+
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+
+  cluster.on('exit', (worker, code) => {
+    console.log(`Worker ${worker.process.pid} died (${code})`);
+    cluster.fork(); // Replace dead worker
+  });
+} else {
+  const app = createApp();
+  // ... configure app
+
+  await listen(app, 3000);
+  console.log(`Worker ${process.pid} started`);
+}
+```
+
+## Complete Example
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-node';
+
+const app = createApp({
+  env: process.env.NODE_ENV as 'production' | 'development',
+});
+
+// Middleware
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+});
+
+// Error handler
+app.setErrorHandler((error, ctx) => {
+  console.error('Request error:', error);
+  ctx.status = 500;
+  ctx.json({ error: 'Internal Server Error' });
+});
+
+// Routes
+const router = createRouter();
+
+router.get('/health', (ctx) => {
+  ctx.json({ status: 'healthy', runtime: 'node' });
+});
+
+router.get('/users/:id', (ctx) => {
+  ctx.json({ id: ctx.params.id });
+});
+
+app.route('/', router);
+
+// Start server
+const server = await serve(app, {
+  port: Number(process.env.PORT) || 3000,
+  onListen: ({ port }) => {
+    console.log(`🚀 Server running on http://localhost:${port}`);
+  },
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  await server.close();
+  process.exit(0);
+});
+```
+
+## TypeScript Types
+
+```typescript
+import type { ServeOptions, ServerInstance } from '@nextrush/adapter-node';
+
+import type { Application } from '@nextrush/core';
+
+import type { IncomingMessage, ServerResponse } from 'node:http';
+```
+
+## See Also
+
+<Cards>
+  <Card title="@nextrush/core" href="/docs/api-reference/core/core">
+    Application class documentation.
+  </Card>
+  <Card title="@nextrush/adapter-bun" href="/docs/api-reference/adapters/bun">
+    Bun adapter for faster performance.
+  </Card>
+  <Card title="Runtime Detection" href="/docs/api-reference/core/runtime">
+    Cross-runtime abstractions.
+  </Card>
+</Cards>

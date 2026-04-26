@@ -1,0 +1,345 @@
+---
+title: Quick Start
+description: Manual REST API walkthrough — routers, middleware, JSON bodies, and where to go next
+---
+
+This guide is the **manual path**. You create the project yourself so the routing and middleware
+order stay visible.
+
+<Callout type="info" title="Before you start">
+  Use **Node.js 22+** and a package manager. The steps use **pnpm**; npm and yarn work with the same
+  commands where equivalents exist. Use the `tsconfig.json` shape from
+  [Installation](/docs/getting-started/installation#configure-typescript) so module resolution matches
+  the scaffolder. For a generated project, follow [Installation](/docs/getting-started/installation)
+  first.
+</Callout>
+
+<Steps>
+<Step>
+### Create a new project
+
+```bash
+mkdir my-nextrush-api
+cd my-nextrush-api
+pnpm init
+```
+
+Add `"type": "module"` to `package.json` so Node runs ESM entrypoints the same way as the scaffolder.
+
+</Step>
+
+<Step>
+### Install dependencies
+
+<PackageInstall packages={["nextrush"]} dev={["tsx", "typescript", "@types/node"]} />
+</Step>
+
+<Step>
+### Create the entry point
+
+Create `src/index.ts`:
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+// Create the application
+const app = createApp();
+
+// Create feature routers
+const health = createRouter();
+health.get('/', (ctx) => {
+  ctx.json({
+    name: 'My API',
+    version: '1.0.0',
+    status: 'healthy',
+  });
+});
+
+const users = createRouter();
+users.get('/', (ctx) => {
+  ctx.json([
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ]);
+});
+
+users.get('/:id', (ctx) => {
+  const { id } = ctx.params;
+  ctx.json({
+    id: Number(id),
+    name: 'Alice',
+    email: 'alice@example.com',
+  });
+});
+
+// Mount routers
+app.route('/', health);
+app.route('/users', users);
+
+// Start the server
+await listen(app, 3000);
+```
+
+</Step>
+
+<Step>
+### Run the server
+
+```bash
+npx tsx src/index.ts
+```
+
+You should see a line like:
+
+```
+🚀 NextRush listening on http://localhost:3000
+```
+
+</Step>
+
+<Step>
+### Test your API
+
+Open another terminal and test the endpoints:
+
+```bash
+# Root endpoint
+curl http://localhost:3000/
+# → {"name":"My API","version":"1.0.0","status":"healthy"}
+
+# List users
+curl http://localhost:3000/users
+# → [{"id":1,"name":"Alice",...},{"id":2,"name":"Bob",...}]
+
+# Get user by ID
+curl http://localhost:3000/users/1
+# → {"id":1,"name":"Alice","email":"alice@example.com"}
+```
+
+</Step>
+</Steps>
+
+## Adding Middleware
+
+Middleware runs before your route handlers. Register it **before** `app.route()` so it wraps mounted
+routers.
+
+Add a timer that prints to stdout (fine for local dev; in production, send timings to your logger):
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const ms = Date.now() - start;
+  // Example only — use structured logging in production
+  console.log(`${ctx.method} ${ctx.path} - ${ms}ms`);
+});
+
+const health = createRouter();
+health.get('/', (ctx) => {
+  ctx.json({
+    name: 'My API',
+    version: '1.0.0',
+    status: 'healthy',
+  });
+});
+
+const users = createRouter();
+users.get('/', (ctx) => {
+  ctx.json([
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ]);
+});
+
+users.get('/:id', (ctx) => {
+  const { id } = ctx.params;
+  ctx.json({
+    id: Number(id),
+    name: 'Alice',
+    email: 'alice@example.com',
+  });
+});
+
+app.route('/', health);
+app.route('/users', users);
+
+await listen(app, 3000);
+```
+
+<Callout type="info" title="Middleware order">
+  Middleware runs in registration order. The logger runs first because it is registered before the
+  routers are mounted.
+</Callout>
+
+## Security headers, JSON bodies, and POST
+
+Add CORS, security headers, and JSON parsing. Register **`helmet` → `cors` → `json`** before your
+logger so bodies are parsed before timing runs:
+
+<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+import { json } from '@nextrush/body-parser';
+
+const app = createApp();
+
+app.use(helmet());
+app.use(cors());
+app.use(json());
+
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const ms = Date.now() - start;
+  console.log(`${ctx.method} ${ctx.path} - ${ms}ms`);
+});
+
+const health = createRouter();
+health.get('/', (ctx) => {
+  ctx.json({
+    name: 'My API',
+    version: '1.0.0',
+    status: 'healthy',
+  });
+});
+
+const users = createRouter();
+
+users.get('/', (ctx) => {
+  ctx.json([
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ]);
+});
+
+users.get('/:id', (ctx) => {
+  const { id } = ctx.params;
+  ctx.json({
+    id: Number(id),
+    name: 'Alice',
+    email: 'alice@example.com',
+  });
+});
+
+users.post('/', (ctx) => {
+  const { name, email } = ctx.body as { name: string; email: string };
+
+  ctx.status = 201;
+  ctx.json({
+    id: Date.now(),
+    name,
+    email,
+  });
+});
+
+app.route('/', health);
+app.route('/users', users);
+
+await listen(app, 3000);
+```
+
+Test it:
+
+```bash
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Charlie","email":"charlie@example.com"}'
+```
+
+## Complete example
+
+The block below matches the POST section above — one file you can paste into `src/index.ts`:
+
+<details>
+<summary>Full application code with routing, middleware, and POST handling</summary>
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+import { json } from '@nextrush/body-parser';
+
+const app = createApp();
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(json());
+
+// Logger
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+});
+
+// Feature routers
+const health = createRouter();
+health.get('/', (ctx) => {
+  ctx.json({ name: 'My API', version: '1.0.0' });
+});
+
+const users = createRouter();
+users.get('/', (ctx) => {
+  ctx.json([
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' },
+  ]);
+});
+
+users.get('/:id', (ctx) => {
+  ctx.json({ id: Number(ctx.params.id), name: 'Alice' });
+});
+
+users.post('/', (ctx) => {
+  const { name, email } = ctx.body as { name: string; email: string };
+  ctx.status = 201;
+  ctx.json({ id: Date.now(), name, email });
+});
+
+// Mount routers
+app.route('/', health);
+app.route('/users', users);
+
+// Start
+await listen(app, 3000);
+```
+
+</details>
+
+## Common mistakes
+
+<Callout type="warn" title="Forgetting ctx.next()">
+  If your middleware doesn't call `await ctx.next()`, the request will hang. Always call
+  `ctx.next()` unless you're intentionally ending the response.
+</Callout>
+
+Middleware registered **after** `app.route()` calls won't run for those routes. Register middleware before mounting routers.
+
+## What's next?
+
+<Cards>
+  <Card
+    title="Core concepts"
+    description="Context, middleware, routing, and plugins."
+    href="/docs/concepts"
+  />
+  <Card
+    title="API reference"
+    description="Lookup for core, middleware, and adapters."
+    href="/docs/api-reference"
+  />
+  <Card
+    title="Guides"
+    description="Auth, validation, deployment, testing."
+    href="/docs/guides"
+  />
+</Cards>

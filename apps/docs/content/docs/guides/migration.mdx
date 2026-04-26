@@ -1,0 +1,361 @@
+---
+title: Coming from Express
+description: Migrate your Express application to NextRush — concept mapping, pattern translation, and step-by-step migration path.
+---
+
+import { Mermaid } from '@/components/mdx';
+
+This guide maps Express patterns to their NextRush equivalents. Most of your existing knowledge transfers — the mental model changes are small.
+
+## Concept Mapping
+
+| Express                  | NextRush                    | Notes                            |
+| ------------------------ | --------------------------- | -------------------------------- |
+| `req` + `res` + `next`   | Single `ctx` object         | Everything lives on context      |
+| `app.get(path, handler)` | `router.get(path, handler)` | Routes registered on routers     |
+| `app.use(middleware)`    | `app.use(middleware)`       | Same API, different signature    |
+| `req.params`             | `ctx.params`                | Same functionality               |
+| `req.query`              | `ctx.query`                 | Same functionality               |
+| `req.body`               | `ctx.body`                  | Requires `@nextrush/body-parser` |
+| `res.json(data)`         | `ctx.json(data)`            | Same behavior                    |
+| `res.status(code)`       | `ctx.status = code`         | Property instead of method       |
+| `res.set(name, value)`   | `ctx.set(name, value)`      | Same API                         |
+| `res.redirect(url)`      | `ctx.redirect(url)`         | Same API                         |
+| `next()` (callback)      | `await ctx.next()` (async)  | Onion model instead of linear    |
+
+---
+
+## Step 1 — Project Setup
+
+<Tabs items={['Express (before)', 'NextRush (after)']}>
+  <Tab value="Express (before)">
+    ```json title="package.json"
+    {
+      "dependencies": {
+        "express": "^4.21.0",
+        "cors": "^2.8.5",
+        "helmet": "^8.0.0",
+        "body-parser": "^1.20.2"
+      },
+      "devDependencies": {
+        "@types/express": "^5.0.0",
+        "@types/cors": "^2.8.17"
+      }
+    }
+    ```
+  </Tab>
+
+  <Tab value="NextRush (after)">
+    ```json title="package.json"
+    {
+      "dependencies": {
+        "nextrush": "^3.0.0"
+      }
+    }
+    ```
+
+    All middleware (`cors`, `helmet`, `body-parser`) are built into the nextrush meta-package. Zero `@types` packages needed — TypeScript types are included.
+
+  </Tab>
+</Tabs>
+
+---
+
+## Step 2 — App Initialization
+
+<Tabs items={['Express', 'NextRush']}>
+  <Tab value="Express">
+    ```typescript
+    import express from 'express';
+    import cors from 'cors';
+    import helmet from 'helmet';
+
+    const app = express();
+
+    app.use(helmet());
+    app.use(cors());
+    app.use(express.json());
+    ```
+
+  </Tab>
+
+  <Tab value="NextRush">
+    ```typescript
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { cors } from '@nextrush/cors';
+    import { helmet } from '@nextrush/helmet';
+    import { bodyParser } from '@nextrush/body-parser';
+
+    const app = createApp();
+
+    app.use(helmet());
+    app.use(cors());
+    app.use(bodyParser());
+    ```
+
+  </Tab>
+</Tabs>
+
+**What changed**: Factory functions (`createApp`) instead of constructors. Middleware packages are explicit imports.
+
+---
+
+## Step 3 — Routes
+
+<Tabs items={['Express', 'NextRush']}>
+  <Tab value="Express">
+    ```typescript
+    app.get('/users', (req, res) => {
+      const page = parseInt(req.query.page) || 1;
+      res.json({ users: getUsers(page), page });
+    });
+
+    app.get('/users/:id', (req, res) => {
+      const user = findUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      res.json(user);
+    });
+
+    app.post('/users', (req, res) => {
+      const user = createUser(req.body);
+      res.status(201).json(user);
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="NextRush">
+    ```typescript
+    const users = createRouter();
+
+    users.get('/', (ctx) => {
+      const page = parseInt(ctx.query.page ?? '1');
+      ctx.json({ users: getUsers(page), page });
+    });
+
+    users.get('/:id', (ctx) => {
+      const user = findUser(ctx.params.id);
+      if (!user) throw new NotFoundError('Not found');
+      ctx.json(user);
+    });
+
+    users.post('/', (ctx) => {
+      const user = createUser(ctx.body);
+      ctx.status = 201;
+      ctx.json(user);
+    });
+
+    app.route('/users', users);
+    ```
+
+  </Tab>
+</Tabs>
+
+**What changed**:
+
+- Routes live on a `Router` instance, mounted with `app.route(prefix, router)`
+- `req` + `res` merged into single `ctx`
+- Errors thrown, not manually formatted — `NotFoundError` auto-sends 404
+
+---
+
+## Step 4 — Middleware
+
+The biggest conceptual change. Express middleware is linear — NextRush uses the **onion model**.
+
+<Mermaid
+  chart={`
+sequenceDiagram
+    participant Request
+    participant Timing
+    participant Auth
+    participant Handler
+    Note over Request,Handler: Express: linear (→ only)
+    Request->>Timing: next()
+    Timing->>Auth: next()
+    Auth->>Handler: handle
+    Handler-->>Request: res.send()
+    Note over Request,Handler: NextRush: onion (→ then ←)
+    Request->>Timing: before next()
+    Timing->>Auth: before next()
+    Auth->>Handler: handle
+    Handler-->>Auth: after next()
+    Auth-->>Timing: after next()
+    Timing-->>Request: response
+`}
+/>
+
+<Tabs items={['Express', 'NextRush']}>
+  <Tab value="Express">
+    ```typescript
+    // Request timing (requires 'finish' event)
+    app.use((req, res, next) => {
+      const start = Date.now();
+      res.on('finish', () => {
+        console.log(`${req.method} ${req.url} ${Date.now() - start}ms`);
+      });
+      next();
+    });
+
+    // Auth check
+    app.use((req, res, next) => {
+      const token = req.headers.authorization;
+      if (!token) return res.status(401).json({ error: 'Unauthorized' });
+      req.user = verifyToken(token);
+      next();
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="NextRush">
+    ```typescript
+    // Request timing (before AND after in one function)
+    app.use(async (ctx) => {
+      const start = Date.now();
+      await ctx.next();
+      console.log(`${ctx.method} ${ctx.path} ${Date.now() - start}ms`);
+    });
+
+    // Auth check
+    app.use(async (ctx) => {
+      const token = ctx.get('authorization');
+      if (!token) throw new UnauthorizedError('Unauthorized');
+      ctx.state.user = verifyToken(token);
+      await ctx.next();
+    });
+    ```
+
+  </Tab>
+</Tabs>
+
+**Key benefit**: The onion model lets you write "before" and "after" logic in one function. No `res.on('finish')` hacks needed.
+
+---
+
+## Step 5 — Error Handling
+
+<Tabs items={['Express', 'NextRush']}>
+  <Tab value="Express">
+    ```typescript
+    // Must be last middleware, must have exactly 4 params
+    app.use((err, req, res, next) => {
+      console.error(err);
+      res.status(err.status || 500).json({
+        error: err.message,
+      });
+    });
+    ```
+  </Tab>
+
+  <Tab value="NextRush">
+    ```typescript
+    import { NotFoundError, BadRequestError } from '@nextrush/errors';
+
+    // Throw typed errors — automatic status codes
+    users.get('/:id', (ctx) => {
+      const user = findUser(ctx.params.id);
+      if (!user) throw new NotFoundError('User not found');
+      ctx.json(user);
+    });
+
+    // Optional: custom error handler
+    app.setErrorHandler((error, ctx) => {
+      console.error(error);
+      ctx.status = error.status ?? 500;
+      ctx.json({ error: error.message });
+    });
+    ```
+
+  </Tab>
+</Tabs>
+
+**What changed**: Typed error classes replace manual status code management. Throw errors instead of calling `next(err)`.
+
+---
+
+## Step 6 — Start the Server
+
+<Tabs items={['Express', 'NextRush']}>
+  <Tab value="Express">
+    ```typescript
+    app.listen(3000, () => {
+      console.log('Server running on port 3000');
+    });
+    ```
+  </Tab>
+
+  <Tab value="NextRush">
+    ```typescript
+    await listen(app, 3000);
+    console.log('Server running on port 3000');
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Common Middleware Translation
+
+| Express Package                  | NextRush Equivalent     | Install                             |
+| -------------------------------- | ----------------------- | ----------------------------------- |
+| `cors`                           | `@nextrush/cors`        | Included in `nextrush`              |
+| `helmet`                         | `@nextrush/helmet`      | Included in `nextrush`              |
+| `body-parser` / `express.json()` | `@nextrush/body-parser` | Included in `nextrush`              |
+| `express-rate-limit`             | `@nextrush/rate-limit`  | Included in `nextrush`              |
+| `cookie-parser`                  | `@nextrush/cookies`     | Included in `nextrush`              |
+| `compression`                    | `@nextrush/compression` | Included in `nextrush`              |
+| `serve-static`                   | `@nextrush/static`      | `@nextrush/static`                  |
+| `express-session`                | No built-in             | Use custom middleware               |
+| `passport`                       | Guards system           | See [Guards](/docs/concepts/guards) |
+
+---
+
+## From Fastify
+
+If you're coming from Fastify, the key differences are:
+
+| Fastify                                 | NextRush                | Notes                            |
+| --------------------------------------- | ----------------------- | -------------------------------- |
+| `request` + `reply`                     | Single `ctx`            | Unified context object           |
+| Lifecycle hooks (`onRequest`, `onSend`) | Middleware onion model  | Before/after in one function     |
+| JSON Schema validation                  | Transform decorators    | Use Zod, Valibot, or any library |
+| `fastify-plugin` encapsulation          | `Plugin` interface      | Simpler, no encapsulation scope  |
+| `fast-json-stringify` (AOT)             | Native `JSON.stringify` | ~13% throughput difference       |
+| Node.js only                            | Node, Bun, Deno, Edge   | Multi-runtime support            |
+
+```typescript
+// Fastify
+app.addHook('onRequest', async (request, reply) => {
+  /* ... */
+});
+app.get('/users', async (request, reply) => {
+  return users;
+});
+
+// NextRush equivalent
+app.use(async (ctx) => {
+  /* ... */ await ctx.next();
+});
+router.get('/users', (ctx) => ctx.json(users));
+```
+
+---
+
+## Checklist
+
+Before migrating, verify:
+
+- [ ] All routes use `ctx` instead of `req`/`res`
+- [ ] Middleware calls `await ctx.next()` (not callback `next()`)
+- [ ] Errors throw typed classes (`NotFoundError`, `BadRequestError`)
+- [ ] Body parsing uses `@nextrush/body-parser` middleware
+- [ ] Tests use `app.callback()` for integration testing
+- [ ] Custom error handler registered via `app.setErrorHandler()`
+
+<Callout type="info" title="Need help?">
+  Open an issue on [GitHub](https://github.com/0xTanzim/nextrush/issues) if you hit a migration edge
+  case not covered here.
+</Callout>

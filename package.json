@@ -1,124 +1,66 @@
 {
-  "name": "nextrush",
-  "version": "2.0.01",
-  "description": "🚀 NextRush v2 - Enterprise-grade Node.js framework with built-in security, validation, WebSocket, templates, events (CQRS), logging, and DI. 13,261 RPS, zero dependencies, full TypeScript support.",
-  "keywords": [
-    "web-framework",
-    "typescript",
-    "nodejs",
-    "http-server",
-    "api-framework",
-    "zero-dependencies",
-    "koa-style",
-    "fastify-style",
-    "type-safe",
-    "high-performance",
-    "async-middleware",
-    "modern",
-    "fast",
-    "clean-architecture",
-    "websocket",
-    "cqrs",
-    "event-sourcing",
-    "validation",
-    "security",
-    "template-engine",
-    "dependency-injection",
-    "enterprise",
-    "production-ready"
-  ],
-  "homepage": "https://github.com/0xTanzim/nextrush#readme",
-  "bugs": {
-    "url": "https://github.com/0xTanzim/nextrush/issues"
+  "name": "nextrush-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "NextRush v3 — minimal, modular TypeScript HTTP stack for Node.js and other runtimes",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "test:coverage": "turbo run test:coverage",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "typecheck": "turbo run typecheck",
+    "verify": "turbo run build test typecheck lint",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "clean:modules": "bash scripts/clean-modules.sh",
+    "update:all": "bash scripts/update-all.sh",
+    "fresh": "bash scripts/fresh-install.sh",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "docs:validate": "tsx scripts/docs/build-docs.ts",
+    "docs:validate:strict": "tsx scripts/docs/build-docs.ts --strict",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "turbo run build && changeset publish --provenance",
+    "create": "node packages/create-nextrush/bin/create-nextrush.js"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.2",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1",
+    "@vitest/coverage-v8": "^4.1.4",
+    "@vitest/ui": "^4.1.4",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "turbo": "^2.9.5",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1",
+    "vitest": "^4.1.4"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/0xTanzim/nextrush.git"
   },
-  "license": "MIT",
+  "homepage": "https://nextrush.dev",
+  "bugs": {
+    "url": "https://github.com/0xTanzim/nextrush/issues"
+  },
   "author": {
     "name": "Tanzim Hossain",
     "email": "tanzimhossain2@gmail.com",
     "url": "https://github.com/0xTanzim"
   },
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
-    },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist/**/*",
-    "README.md",
-    "LICENSE"
-  ],
-  "packageManager": "pnpm@9.12.3",
-  "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=9.0.0"
-  },
-  "scripts": {
-    "tsc": "tsc --noEmit",
-    "build": "tsup --config tsup.config.ts",
-    "build:watch": "tsup --config tsup.config.ts --watch",
-    "build:prod": "NODE_ENV=production tsup --config tsup.config.ts --minify",
-    "clean": "rm -rf dist",
-    "prebuild": "npm run clean",
-    "start": "node dist/index.js",
-    "dev": "tsx watch src/examples/basic-server.ts",
-    "test": "vitest run src/tests/unit",
-    "test:file": "node scripts/test-file.js",
-    "test:unit": "vitest run src/tests/unit",
-    "test:integration": "vitest run src/tests/integration",
-    "test:e2e": "vitest run src/tests/e2e",
-    "test:all": "vitest run",
-    "test:watch": "vitest --watch src/tests/unit",
-    "test:coverage": "vitest --coverage src/tests/unit",
-    "test:ui": "vitest --ui",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
-    "type-check": "tsc --noEmit --project tsconfig.build.json",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm run build:prod && npm run validate:publish",
-    "act": "act",
-    "act:list": "act -l",
-    "act:dry": "act --dryrun",
-    "validate": "npm run lint && npm run format:check && npm run type-check && npm run test",
-    "validate:publish": "npm run lint && npm run format:check && npm run type-check",
-    "docs:generate": "typedoc --out docsx/api src/index.ts",
-    "docs:serve": "npx serve docsx/api",
-    "bench:quick": "node performance/scripts/quick-bench.js"
-  },
-  "devDependencies": {
-    "@types/node": "^24.1.0",
-    "@types/ws": "^8.18.1",
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "@vitest/ui": "^3.2.4",
-    "eslint": "^9.32.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-n": "^17.21.3",
-    "eslint-plugin-prettier": "^5.5.3",
-    "globals": "^16.4.0",
-    "prettier": "^3.6.2",
-    "tsup": "^8.5.0",
-    "tsx": "^4.20.3",
-    "typedoc": "^0.28.9",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4",
-    "ws": "^8.18.3"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  }
+  "license": "MIT"
 }

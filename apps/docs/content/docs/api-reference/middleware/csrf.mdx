@@ -1,0 +1,501 @@
+---
+title: '@nextrush/csrf'
+description: 'CSRF protection middleware using the Signed Double-Submit Cookie pattern with HMAC-SHA256.'
+---
+
+## Why CSRF Protection Exists
+
+Cross-Site Request Forgery (CSRF) tricks a user's browser into making unwanted requests to your application — transferring funds, changing passwords, or deleting data — because the browser automatically attaches session cookies to every request.
+
+**Without CSRF protection, any website can forge requests that your server treats as legitimate** because session cookies alone cannot distinguish intentional user actions from forged ones.
+
+`@nextrush/csrf` implements the **Signed Double-Submit Cookie** pattern recommended by [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html):
+
+1. Generate a cryptographically signed token (HMAC-SHA256)
+2. Set it as a cookie (readable by client JavaScript)
+3. Client submits the token via header or form field
+4. Server verifies cookie token matches submitted token AND validates the HMAC signature
+
+### What CSRF Protection Covers
+
+| Attack                                 | Defense                              |
+| -------------------------------------- | ------------------------------------ |
+| **Cross-site form submission**         | Token required on unsafe methods     |
+| **Token forgery**                      | HMAC-SHA256 signature verification   |
+| **Session fixation via token reuse**   | Optional session binding             |
+| **Cross-origin API abuse**             | Optional Origin/Sec-Fetch-Site check |
+| **Brute-force token guessing**         | 32-byte cryptographic random values  |
+| **Timing attacks on token comparison** | Constant-time HMAC-based comparison  |
+
+### What CSRF Protection Does NOT Do
+
+| Concern          | Package                      |
+| ---------------- | ---------------------------- |
+| Security headers | `@nextrush/helmet`           |
+| Input validation | Zod, ArkType, or similar     |
+| Authentication   | JWTs, OAuth, or session auth |
+| Rate limiting    | `@nextrush/rate-limit`       |
+| CORS             | `@nextrush/cors`             |
+
+---
+
+## Default Behavior
+
+Calling `csrf({ secret })` returns `{ protect, tokenProvider }`. The `protect` middleware:
+
+- **Skips** safe methods: GET, HEAD, OPTIONS, TRACE
+- **Validates** unsafe methods: checks cookie → header/body/query token → constant-time compare → HMAC verification
+- **Attaches** `ctx.state.csrf` with `generateToken()` and `cookieToken` on every request
+
+<Callout type="info" title="Stateless by Design">
+  No server-side token storage required. HMAC verification ensures token integrity without database
+  lookups or session state.
+</Callout>
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/csrf']} />
+
+---
+
+## Minimal Usage
+
+```ts
+import { createApp } from '@nextrush/core';
+import { csrf } from '@nextrush/csrf';
+
+const app = createApp();
+
+const { protect, tokenProvider } = csrf({
+  secret: process.env.CSRF_SECRET!, // min 32 characters
+});
+
+// Apply protection to all routes
+app.use(protect);
+```
+
+---
+
+## Token Lifecycle
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { csrf } from '@nextrush/csrf';
+import type { CsrfContext } from '@nextrush/csrf';
+
+const app = createApp();
+const router = createRouter();
+
+const { protect } = csrf({
+  secret: process.env.CSRF_SECRET!,
+});
+
+app.use(protect);
+
+// Step 1: Generate token on GET (e.g., render form page)
+router.get('/form', async (ctx) => {
+  const csrfCtx = ctx.state.csrf as CsrfContext;
+  const token = await csrfCtx.generateToken(); // Sets cookie automatically
+  ctx.json({ csrfToken: token });
+});
+
+// Step 2: Client submits token via header
+// fetch('/api/submit', {
+//   method: 'POST',
+//   headers: { 'x-csrf-token': token },
+//   credentials: 'same-origin',
+// });
+
+// Step 3: protect middleware validates automatically
+router.post('/api/submit', (ctx) => {
+  ctx.json({ ok: true });
+});
+
+app.route('/', router);
+```
+
+---
+
+## Session Binding
+
+Bind tokens to user sessions to prevent token reuse across sessions:
+
+```ts
+const { protect } = csrf({
+  secret: process.env.CSRF_SECRET!,
+  getSessionIdentifier: (ctx) => ctx.state.sessionId as string,
+});
+```
+
+When session binding is enabled:
+
+- Tokens generated for session A cannot be used in session B
+- Prevents session fixation attacks via CSRF tokens
+
+---
+
+## Configuration Options
+
+### `csrf()`
+
+Create CSRF protection middleware.
+
+**Signature:**
+
+```ts
+function csrf(options: CsrfOptions): CsrfMiddleware;
+```
+
+**Returns:** `CsrfMiddleware` — `{ readonly protect: Middleware; readonly tokenProvider: Middleware }`
+
+- `protect`: Full CSRF enforcement middleware (validates on unsafe methods)
+- `tokenProvider`: Attaches `ctx.state.csrf` without enforcement (for token generation routes)
+
+<TypeTable
+  title="CsrfOptions"
+  types={{
+    secret: {
+      type: 'string | (() => string)',
+      description:
+        'HMAC secret key for token signing. Must be at least 32 characters. Use a function for secret rotation.',
+    },
+    getSessionIdentifier: {
+      type: '(ctx: Context) => string | undefined',
+      description: 'Extract session ID from context for session-bound tokens.',
+      optional: true,
+    },
+    getTokenFromRequest: {
+      type: '(ctx: Context) => string | undefined | null',
+      description: 'Custom token extraction function. Overrides default extraction order.',
+      optional: true,
+    },
+    ignoredMethods: {
+      type: 'string[]',
+      description: 'HTTP methods to skip validation for.',
+      default: "['GET', 'HEAD', 'OPTIONS', 'TRACE']",
+    },
+    excludePaths: {
+      type: 'string[]',
+      description:
+        'URL paths to exclude from CSRF validation. Supports exact match, single wildcard (/*), and double wildcard (/**).',
+      default: '[]',
+    },
+    cookie: {
+      type: 'CsrfCookieOptions',
+      description: 'Cookie configuration for the CSRF token.',
+      optional: true,
+    },
+    tokenSize: {
+      type: 'number',
+      description: 'Size of the random token value in bytes.',
+      default: '32',
+    },
+    onError: {
+      type: '(ctx: Context, reason: string) => void | Promise<void>',
+      description:
+        'Custom error handler called when CSRF validation fails. Receives the failure reason string.',
+      optional: true,
+    },
+    originCheck: {
+      type: 'boolean',
+      description:
+        'Enable Origin/Sec-Fetch-Site header verification as an additional defense layer.',
+      default: 'false',
+    },
+    allowedOrigins: {
+      type: 'string[]',
+      description: 'Origins to allow when originCheck is enabled. Bypasses Origin/Host comparison.',
+      default: '[]',
+    },
+  }}
+/>
+
+---
+
+### Cookie Options
+
+<TypeTable
+  title="CsrfCookieOptions"
+  types={{
+    name: {
+      type: 'string',
+      description: 'Cookie name. Use __Host- prefix for maximum security.',
+      default: "'__Host-csrf'",
+    },
+    path: {
+      type: 'string',
+      description: 'Cookie path.',
+      default: "'/'",
+    },
+    sameSite: {
+      type: "'strict' | 'lax' | 'none'",
+      description: 'SameSite attribute.',
+      default: "'strict'",
+    },
+    secure: {
+      type: 'boolean',
+      description: 'Secure flag. Required for __Host- prefixed cookies.',
+      default: 'true',
+    },
+    httpOnly: {
+      type: 'boolean',
+      description: 'HttpOnly flag. Must be false so client JavaScript can read the token.',
+      default: 'false',
+    },
+    domain: {
+      type: 'string',
+      description: 'Cookie domain. Cannot be set with __Host- prefix.',
+      default: "'' (not set)",
+    },
+    maxAge: {
+      type: 'number',
+      description: 'Cookie max age in seconds. 0 means session cookie.',
+      default: '0',
+    },
+  }}
+/>
+
+---
+
+## Token Extraction Order
+
+When validating an unsafe request, the middleware extracts the submitted token in this order:
+
+1. **Header**: `x-csrf-token` or `x-xsrf-token`
+2. **Body**: `_csrf` field (requires body parser)
+3. **Query**: `_csrf` parameter (last resort)
+
+Override with a custom extractor:
+
+```ts
+const { protect } = csrf({
+  secret: process.env.CSRF_SECRET!,
+  getTokenFromRequest: (ctx) => {
+    return ctx.get('x-my-csrf-token') ?? undefined;
+  },
+});
+```
+
+---
+
+## Path Exclusion
+
+Exclude webhook endpoints or public APIs from CSRF validation:
+
+```ts
+const { protect } = csrf({
+  secret: process.env.CSRF_SECRET!,
+  excludePaths: [
+    '/api/webhooks/stripe', // Exact match
+    '/api/webhooks/*', // Single level wildcard
+    '/api/public/**', // Any depth wildcard
+  ],
+});
+```
+
+| Pattern                | Matches                                          | Does NOT Match                |
+| ---------------------- | ------------------------------------------------ | ----------------------------- |
+| `/api/webhooks/stripe` | `/api/webhooks/stripe`                           | `/api/webhooks/github`        |
+| `/api/webhooks/*`      | `/api/webhooks/stripe`, `/api/webhooks/github`   | `/api/webhooks/stripe/events` |
+| `/api/webhooks/**`     | `/api/webhooks`, `/api/webhooks/stripe/events/1` | `/api/users`                  |
+
+---
+
+## Origin Check
+
+Enable Sec-Fetch-Site and Origin header validation as defense-in-depth:
+
+```ts
+const { protect } = csrf({
+  secret: process.env.CSRF_SECRET!,
+  originCheck: true,
+  allowedOrigins: ['https://admin.example.com'],
+});
+```
+
+The origin check validates in order:
+
+1. `Sec-Fetch-Site`: allows `same-origin`, `same-site`, `none`; rejects `cross-site`
+2. `Origin` header: compares against `Host` header or `allowedOrigins` list
+3. No `Origin` header: allows (non-CORS same-origin request)
+
+---
+
+## Custom Error Handling
+
+```ts
+const { protect } = csrf({
+  secret: process.env.CSRF_SECRET!,
+  onError: (ctx, reason) => {
+    ctx.status = 403;
+    ctx.json({
+      error: 'CSRF_FAILED',
+      reason,
+      requestId: ctx.state.requestId,
+    });
+  },
+});
+```
+
+**Error reasons:**
+
+| Reason                                            | Meaning                                          |
+| ------------------------------------------------- | ------------------------------------------------ |
+| `'CSRF cookie missing'`                           | No CSRF cookie found on unsafe request           |
+| `'CSRF token missing from request'`               | Cookie present but no token in header/body/query |
+| `'CSRF token mismatch'`                           | Submitted token doesn't match cookie token       |
+| `'CSRF token invalid (HMAC verification failed)'` | Token pair matches but HMAC signature is invalid |
+| `'Origin check failed'`                           | Origin/Sec-Fetch-Site check rejected the request |
+
+---
+
+## Dynamic Secret Rotation
+
+Support key rotation without invalidating in-flight tokens:
+
+```ts
+const secrets = [process.env.CSRF_SECRET_NEW!, process.env.CSRF_SECRET_OLD!];
+
+const { protect } = csrf({
+  secret: () => secrets[0]!, // Always sign with newest
+});
+```
+
+---
+
+## Token Engine API
+
+Low-level functions exported for advanced use cases or testing:
+
+### `generateToken()`
+
+```ts
+function generateToken(secret: string, sessionId?: string, tokenSize?: number): Promise<string>;
+```
+
+Generate an HMAC-SHA256 signed CSRF token.
+
+**Returns:** Token string in format `<hmac-hex>.<random-hex>`
+
+### `validateToken()`
+
+```ts
+function validateToken(token: string, secret: string, sessionId?: string): Promise<boolean>;
+```
+
+Validate a token's HMAC signature. Uses `crypto.subtle.verify` for implementation-provided constant-time comparison.
+
+### `constantTimeEqual()`
+
+```ts
+function constantTimeEqual(a: string, b: string): Promise<boolean>;
+```
+
+Compare two strings in constant time using HMAC-based comparison to prevent timing attacks.
+
+---
+
+## Exported Types
+
+```ts
+import type {
+  CsrfOptions,
+  CsrfCookieOptions,
+  CsrfContext,
+  CsrfMiddleware,
+  TokenExtractor,
+  SessionIdentifierExtractor,
+} from '@nextrush/csrf';
+```
+
+### `CsrfContext`
+
+Attached to `ctx.state.csrf` by both `protect` and `tokenProvider` middleware.
+
+<TypeTable
+  title="CsrfContext"
+  types={{
+    generateToken: {
+      type: '() => Promise<string>',
+      description: 'Generate a new CSRF token and set the cookie. Returns the token string.',
+    },
+    cookieToken: {
+      type: 'string | undefined',
+      description: 'The current CSRF token from the cookie, if present.',
+    },
+  }}
+/>
+
+### `CsrfMiddleware`
+
+Return type of the `csrf()` factory function.
+
+<TypeTable
+  title="CsrfMiddleware"
+  types={{
+    protect: {
+      type: 'Middleware',
+      description: 'Full CSRF enforcement middleware. Validates tokens on unsafe methods.',
+    },
+    tokenProvider: {
+      type: 'Middleware',
+      description: 'Token generation middleware. Attaches ctx.state.csrf without enforcement.',
+    },
+  }}
+/>
+
+---
+
+## Exported Constants
+
+```ts
+import {
+  DEFAULT_COOKIE_NAME, // '__Host-csrf'
+  DEFAULT_IGNORED_METHODS, // ['GET', 'HEAD', 'OPTIONS', 'TRACE']
+  DEFAULT_TOKEN_SIZE, // 32
+  CSRF_HEADER, // 'x-csrf-token'
+  XSRF_HEADER, // 'x-xsrf-token'
+  CSRF_FIELD, // '_csrf'
+  ERRORS, // Error reason strings
+} from '@nextrush/csrf';
+```
+
+---
+
+## Security Design
+
+### Cookie Configuration
+
+The default cookie uses `__Host-` prefix which enforces:
+
+- `Secure` flag (HTTPS only)
+- No `Domain` attribute (origin-locked)
+- `Path=/`
+
+Combined with `SameSite=Strict` and `HttpOnly=false` (client JS must read the token).
+
+### HMAC Token Format
+
+```
+<hmac-hex>.<random-hex>
+```
+
+The HMAC message payload:
+
+- **Without session**: `<randomHex.length>!<randomHex>`
+- **With session**: `<sessionId.length>!<sessionId>!<randomHex.length>!<randomHex>`
+
+### Runtime Compatibility
+
+Uses Web Crypto API exclusively (`crypto.subtle`, `crypto.getRandomValues`). Compatible with:
+
+- Node.js 22+
+- Bun
+- Deno
+- Cloudflare Workers
+- Vercel Edge Functions
+
+No `node:crypto` imports. Zero external dependencies.
