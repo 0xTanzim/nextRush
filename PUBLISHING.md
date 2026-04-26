@@ -39,7 +39,7 @@ This guarantees independent package changes are never merged without release met
 | **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer` |
 | **Plugins (independent)**    | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
 
-**Tooling (independent):** `@nextrush/dev`, `create-nextrush`
+**Excluded (versioned independently):** `@nextrush/dev`, `create-nextrush`
 
 **Excluded (private / not published):** docs app, playground app, benchmark app.
 
@@ -242,7 +242,7 @@ Changesets config lives in `.changeset/config.json`:
       "nextrush"
     ]
   ],
-  "ignore": ["api"],
+  "ignore": ["@nextrush/dev", "api"],
   "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
   "privatePackages": { "version": false, "tag": false },
   "snapshot": { "useCalculatedVersion": true, "prereleaseTemplate": "{tag}-{datetime}" }
