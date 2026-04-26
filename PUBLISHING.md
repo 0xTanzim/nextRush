@@ -39,7 +39,7 @@ This guarantees independent package changes are never merged without release met
 | **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer` |
 | **Plugins (independent)**    | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
 
-**Excluded (versioned independently):** `@nextrush/dev`, `create-nextrush`
+**Tooling (independent):** `@nextrush/dev`, `create-nextrush`
 
 **Excluded (private / not published):** docs app, playground app, benchmark app.
 
@@ -85,6 +85,25 @@ This creates a `.changeset/*.md` file. Commit it with your PR.
 ```
 
 No manual intervention needed after step 3.
+
+### When the release workflow does NOT run
+
+The release workflow is intentionally guarded by a `paths` filter.
+It only triggers on pushes to `main` that touch release-relevant files:
+
+- `.changeset/**`
+- `packages/**`
+- `pnpm-lock.yaml`
+- `package.json`
+- `CHANGELOG.md`
+- `.github/workflows/release.yml`
+
+If you merge a PR that only changes documentation (for example `PUBLISHING.md`) or other non-release files, the release workflow will not run. This is expected.
+
+### Manually triggering a release run
+
+The workflow also supports manual runs via `workflow_dispatch`.
+Use GitHub → Actions → “Release” → “Run workflow” when you want to verify the pipeline without making a release-impacting change.
 
 ## First Publish (Bootstrap)
 
@@ -242,7 +261,7 @@ Changesets config lives in `.changeset/config.json`:
       "nextrush"
     ]
   ],
-  "ignore": ["@nextrush/dev", "api"],
+  "ignore": ["api"],
   "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
   "privatePackages": { "version": false, "tag": false },
   "snapshot": { "useCalculatedVersion": true, "prereleaseTemplate": "{tag}-{datetime}" }

@@ -55,14 +55,16 @@ listen(app, 3000);
 
 ## Performance
 
-Benchmark results on Intel i5-8300H (8 cores), Node.js v25.1.0:
+Benchmark snapshot from a single lab machine (Intel i5-8300H, 8 cores) running Node.js v25.1.0.
+See https://nextrush.dev/docs/performance for methodology, versions, and reproducible scripts.
 
 | Framework       | Hello World    | POST JSON      | Mixed Workload |
 | --------------- | -------------- | -------------- | -------------- |
-| Fastify         | 46,542 RPS     | 20,000 RPS     | 45,988 RPS     |
-| **NextRush v3** | **36,092 RPS** | **17,826 RPS** | **38,061 RPS** |
-| Hono            | 36,288 RPS     | 12,405 RPS     | 35,672 RPS     |
-| Express         | 22,128 RPS     | 14,081 RPS     | 22,745 RPS     |
+| Fastify         | 48,045 RPS     | 21,412 RPS     | 48,493 RPS     |
+| **NextRush v3** | **43,268 RPS** | **20,438 RPS** | **43,283 RPS** |
+| Hono            | 37,476 RPS     | 12,625 RPS     | 38,759 RPS     |
+| Koa             | 34,683 RPS     | 17,664 RPS     | 35,566 RPS     |
+| Express         | 23,739 RPS     | 14,417 RPS     | 23,783 RPS     |
 
 > Performance varies by hardware. See [Performance](https://nextrush.dev/docs/performance) for methodology and numbers.
 
