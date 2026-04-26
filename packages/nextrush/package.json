@@ -49,12 +49,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/nextrush"
   },
-  "homepage": "https://nextrush.dev",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/apps/docs",
   "bugs": {
-    "url": "https://github.com/0xTanzim/nextrush/issues"
+    "url": "https://github.com/0xTanzim/nextRush/issues"
   },
   "engines": {
     "node": ">=22.0.0"

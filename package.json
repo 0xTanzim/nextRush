@@ -51,11 +51,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git"
+    "url": "git+https://github.com/0xTanzim/nextRush.git"
   },
-  "homepage": "https://nextrush.dev",
+  "homepage": "https://github.com/0xTanzim/nextRush",
   "bugs": {
-    "url": "https://github.com/0xTanzim/nextrush/issues"
+    "url": "https://github.com/0xTanzim/nextRush/issues"
   },
   "author": {
     "name": "Tanzim Hossain",

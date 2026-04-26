@@ -55,9 +55,10 @@
   "publishConfig": {
     "access": "public"
   },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/decorators#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/decorators"
   },
   "engines": {
