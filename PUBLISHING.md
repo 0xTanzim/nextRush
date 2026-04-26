@@ -39,7 +39,7 @@ This guarantees independent package changes are never merged without release met
 | **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer` |
 | **Plugins (independent)**    | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
 
-**Excluded (versioned independently):** `@nextrush/dev`, `create-nextrush`
+**Tooling (independent):** `@nextrush/dev`, `create-nextrush`
 
 **Excluded (private / not published):** docs app, playground app, benchmark app.
 
@@ -85,6 +85,34 @@ This creates a `.changeset/*.md` file. Commit it with your PR.
 ```
 
 No manual intervention needed after step 3.
+
+## First Publish (Bootstrap)
+
+If NextRush has never been published to npm before, you have two valid paths.
+
+### Option A — Publish current versions (no version PR)
+
+Use this when the versions in `packages/*/package.json` are already the versions you want to publish (for example, `3.0.0`).
+
+1. Ensure there are no pending `.changeset/*.md` files meant for version bumps.
+2. Merge your code into `main`.
+3. The release workflow runs on `main` and executes `pnpm release`.
+4. Changesets publishes any package versions that do not exist on npm yet.
+
+This path does not require GitHub Actions to create a PR.
+
+### Option B — Create a version PR, then publish
+
+Use this when you want Changesets to generate changelogs and bump versions automatically.
+
+1. On your feature branch, create a changeset: `pnpm changeset`.
+2. Open a PR to `main`. CI enforces the presence of a changeset for release-impacting package changes.
+3. Merge to `main`.
+4. The release workflow opens the “Version Packages” PR from `changeset-release/main`.
+5. Merge the “Version Packages” PR.
+6. The release workflow publishes the release plan to npm.
+
+This path requires GitHub Actions permission to create PRs.
 
 ### What happens when you change a core package?
 
@@ -149,6 +177,19 @@ pnpm changeset publish --tag pr-123 --no-git-tag
 
 ## npm Setup
 
+## GitHub Requirements
+
+### Repository secrets
+
+- `NPM_TOKEN` (required) — npm token with publish access to the `@nextrush/*` scope.
+
+### GitHub Actions settings
+
+For the automated release workflow to open the “Version Packages” PR:
+
+- Settings → Actions → General → Workflow permissions → set to “Read and write permissions”.
+- Enable “Allow GitHub Actions to create and approve pull requests”.
+
 ### Required secret
 
 Add `NPM_TOKEN` to GitHub repo → Settings → Secrets → Actions.
@@ -201,7 +242,7 @@ Changesets config lives in `.changeset/config.json`:
       "nextrush"
     ]
   ],
-  "ignore": ["@nextrush/dev", "api"],
+  "ignore": ["api"],
   "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
   "privatePackages": { "version": false, "tag": false },
   "snapshot": { "useCalculatedVersion": true, "prereleaseTemplate": "{tag}-{datetime}" }
