@@ -18,17 +18,18 @@
 
 ## Performance
 
-Benchmark results on Intel i5-8300H (8 cores), Node.js v25.1.0:
+Benchmark snapshot from a single lab machine (Intel i5-8300H, 8 cores) running Node.js v25.1.0.
+For methodology, versions, and reproducible scripts, see https://nextrush.dev/docs/performance.
 
 | Framework       | Hello World    | POST JSON      | Mixed Workload |
 | --------------- | -------------- | -------------- | -------------- |
-| Fastify         | 46,542 RPS     | 20,000 RPS     | 45,988 RPS     |
-| **NextRush v3** | **36,092 RPS** | **17,826 RPS** | **38,061 RPS** |
-| Hono            | 36,288 RPS     | 12,405 RPS     | 35,672 RPS     |
-| Koa             | 33,921 RPS     | 17,326 RPS     | 33,764 RPS     |
-| Express         | 22,128 RPS     | 14,081 RPS     | 22,745 RPS     |
+| Fastify         | 48,045 RPS     | 21,412 RPS     | 48,493 RPS     |
+| **NextRush v3** | **43,268 RPS** | **20,438 RPS** | **43,283 RPS** |
+| Hono            | 37,476 RPS     | 12,625 RPS     | 38,759 RPS     |
+| Koa             | 34,683 RPS     | 17,664 RPS     | 35,566 RPS     |
+| Express         | 23,739 RPS     | 14,417 RPS     | 23,783 RPS     |
 
-NextRush v3 is **50-60% faster than Express** and matches Hono/Koa performance.
+In this run, mean RPS was higher than Express, Hono, and Koa, and lower than Fastify.
 
 > Performance varies by hardware. Run `pnpm benchmark` to test on your machine.
 
@@ -83,7 +84,9 @@ import { Controller, Get, Post, Body, Param, Service } from 'nextrush';
 
 @Service()
 class UserService {
-  async findAll() { return [{ id: 1, name: 'Alice' }]; }
+  async findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
 }
 
 @Controller('/users')
@@ -91,13 +94,19 @@ class UserController {
   constructor(private userService: UserService) {}
 
   @Get()
-  findAll() { return this.userService.findAll(); }
+  findAll() {
+    return this.userService.findAll();
+  }
 
   @Get('/:id')
-  findOne(@Param('id') id: string) { return { id }; }
+  findOne(@Param('id') id: string) {
+    return { id };
+  }
 
   @Post()
-  create(@Body() data: unknown) { return data; }
+  create(@Body() data: unknown) {
+    return data;
+  }
 }
 ```
 
@@ -171,10 +180,10 @@ ctx.state; // Share data between middleware
 
 ### Development
 
-| Package         | Description                                      |
-| --------------- | ------------------------------------------------ |
-| `@nextrush/dev` | Hot reload dev server, production builds, and code generators |
-| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)     |
+| Package           | Description                                                   |
+| ----------------- | ------------------------------------------------------------- |
+| `@nextrush/dev`   | Hot reload dev server, production builds, and code generators |
+| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)                   |
 
 ## Adding Middleware
 

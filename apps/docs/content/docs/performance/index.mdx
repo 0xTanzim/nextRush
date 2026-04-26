@@ -3,10 +3,13 @@ title: Benchmarks
 description: Transparent, reproducible benchmarks — framework comparisons and deep performance profiling.
 ---
 
+**Last updated:** 2026-04-26
+
 All figures below come from **one lab setup** (CPU, OS, Node, tool versions). Absolute RPS on your hardware will differ; use the same scripts for **relative** comparisons. In production, databases and external calls usually dominate latency — not the framework.
 
 <Callout type="warn" title="How to read this page">
-  Published RPS are snapshots, not guarantees. Run `apps/benchmark` locally when you need numbers for capacity planning.
+  Published RPS are snapshots, not guarantees. Run `apps/benchmark` locally when you need numbers
+  for capacity planning.
 </Callout>
 
 ## At a Glance
@@ -26,7 +29,8 @@ All figures below come from **one lab setup** (CPU, OS, Node, tool versions). Ab
     {
       label: 'Cold start',
       value: 'Host-specific',
-      detail: 'Process start time varies by machine, imports, and adapter — measure your deploy target',
+      detail:
+        'Process start time varies by machine, imports, and adapter — measure your deploy target',
     },
     {
       label: 'Core size',
@@ -117,7 +121,12 @@ Average requests per second across all test scenarios:
   description="Mean throughput across the benchmark scenarios."
   items={[
     { label: 'Fastify', value: 40084, detail: '+13.3% vs NextRush', accent: 'green' },
-    { label: 'NextRush v3', value: 35370, detail: 'Second by mean RPS in this run.', accent: 'blue' },
+    {
+      label: 'NextRush v3',
+      value: 35370,
+      detail: 'Second by mean RPS in this run.',
+      accent: 'blue',
+    },
     { label: 'Hono', value: 30525, detail: '-13.7% vs NextRush', accent: 'cyan' },
     { label: 'Koa', value: 29889, detail: '-15.5% vs NextRush', accent: 'purple' },
     { label: 'Express', value: 20987, detail: '-40.7% vs NextRush', accent: 'muted' },
