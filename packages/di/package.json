@@ -55,13 +55,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/di"
   },
   "bugs": {
-    "url": "https://github.com/0xtanzim/nextrush/issues"
+    "url": "https://github.com/0xTanzim/nextRush/issues"
   },
-  "homepage": "https://github.com/0xtanzim/nextrush/tree/main/packages/di#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/di#readme",
   "publishConfig": {
     "access": "public"
   },

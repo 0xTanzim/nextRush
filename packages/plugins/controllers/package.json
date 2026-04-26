@@ -58,9 +58,10 @@
   "publishConfig": {
     "access": "public"
   },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/plugins/controllers#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/plugins/controllers"
   },
   "engines": {

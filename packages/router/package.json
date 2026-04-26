@@ -14,7 +14,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -55,9 +56,10 @@
   "publishConfig": {
     "access": "public"
   },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/router#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/router"
   },
   "author": {

@@ -117,7 +117,7 @@ export function generateReadme(options: ProjectOptions): string {
 
   return `# ${options.name}
 
-A [NextRush](https://nextrush.dev) project.
+  A [NextRush](https://github.com/0xTanzim/nextRush) project.
 
 ## Getting Started
 
@@ -148,8 +148,8 @@ ${
 
 ## Learn More
 
-- [NextRush Documentation](https://nextrush.dev)
-- [GitHub](https://github.com/0xTanzim/nextrush)
+- [NextRush Documentation](https://github.com/0xTanzim/nextRush/tree/main/apps/docs)
+- [GitHub](https://github.com/0xTanzim/nextRush)
 `;
 }
 
