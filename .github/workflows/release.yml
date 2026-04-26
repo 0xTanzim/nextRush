@@ -15,6 +15,11 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+# These permissions are required for changesets/action to push the
+# changeset-release/* branch and open/update a version PR.
+# In addition, the repository must have "Allow GitHub Actions to create and
+# approve pull requests" enabled under:
+#   Settings → Actions → General → Workflow permissions
 permissions:
   contents: write
   pull-requests: write
