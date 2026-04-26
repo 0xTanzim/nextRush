@@ -60,6 +60,7 @@ export function LLMCopyButton({
 export function ViewOptions({
   markdownUrl,
   githubUrl,
+  llmsUrl,
 }: {
   /**
    * A URL to the raw Markdown/MDX content of page
@@ -70,6 +71,11 @@ export function ViewOptions({
    * Source file URL on GitHub
    */
   githubUrl: string;
+
+  /**
+   * llms.txt URL (can include basePath in static hosting)
+   */
+  llmsUrl: string;
 }) {
   const items = useMemo(() => {
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'loading';
@@ -93,7 +99,7 @@ export function ViewOptions({
       },
       {
         title: 'llms.txt',
-        href: '/llms.txt',
+        href: llmsUrl,
         icon: <FileText />,
       },
       {
@@ -230,7 +236,7 @@ export function ViewOptions({
         })}`,
       },
     ];
-  }, [githubUrl, markdownUrl]);
+  }, [githubUrl, llmsUrl, markdownUrl]);
 
   return (
     <Popover>
