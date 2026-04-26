@@ -1,0 +1,361 @@
+/**
+ * @nextrush/runtime - BodySource Abstractions
+ *
+ * Cross-runtime body reading abstraction for body parsers.
+ *
+ * @packageDocumentation
+ */
+
+import { BadRequestError, PayloadTooLargeError } from '@nextrush/errors';
+import type { BodySource, BodySourceOptions, NodeStreamLike, WebStreamLike } from '@nextrush/types';
+
+/**
+ * Default body size limit (1MB)
+ */
+export const DEFAULT_BODY_LIMIT = 1024 * 1024;
+
+/**
+ * Error thrown when body has already been consumed
+ */
+export class BodyConsumedError extends BadRequestError {
+  constructor() {
+    super('Body has already been consumed', { code: 'BODY_CONSUMED' });
+    this.name = 'BodyConsumedError';
+  }
+}
+
+/**
+ * Error thrown when body exceeds size limit
+ */
+export class BodyTooLargeError extends PayloadTooLargeError {
+  readonly limit: number;
+  readonly received: number;
+
+  constructor(limit: number, received: number) {
+    super(`Body too large: received ${String(received)} bytes, limit is ${String(limit)} bytes`, {
+      code: 'BODY_TOO_LARGE',
+      details: { limit, received },
+    });
+    this.name = 'BodyTooLargeError';
+    this.limit = limit;
+    this.received = received;
+  }
+}
+
+/**
+ * Abstract base class for BodySource implementations
+ *
+ * @remarks
+ * Adapter packages extend this class to provide runtime-specific
+ * body reading functionality:
+ * - `NodeBodySource` in `@nextrush/adapter-node`
+ * - `BunBodySource` in `@nextrush/adapter-bun`
+ * - `WebBodySource` in `@nextrush/adapter-deno` and `@nextrush/adapter-edge`
+ *
+ * @example
+ * ```typescript
+ * // In @nextrush/adapter-node
+ * export class NodeBodySource extends AbstractBodySource {
+ *   constructor(req: IncomingMessage) {
+ *     super(req.headers['content-length'], req.headers['content-type']);
+ *     this._stream = req;
+ *   }
+ *
+ *   protected async _buffer(): Promise<Uint8Array> {
+ *     const chunks: Buffer[] = [];
+ *     for await (const chunk of this._stream) {
+ *       chunks.push(chunk);
+ *     }
+ *     return Buffer.concat(chunks);
+ *   }
+ * }
+ * ```
+ */
+export abstract class AbstractBodySource implements BodySource {
+  protected _consumed = false;
+  protected _cachedBuffer: Uint8Array | undefined;
+
+  readonly contentLength: number | undefined;
+  readonly contentType: string | undefined;
+
+  protected readonly options: Required<BodySourceOptions>;
+
+  constructor(
+    contentLength: string | number | undefined,
+    contentType: string | undefined,
+    options: BodySourceOptions = {}
+  ) {
+    if (typeof contentLength === 'string') {
+      const parsed = parseInt(contentLength, 10);
+      this.contentLength = Number.isNaN(parsed) ? undefined : parsed;
+    } else {
+      this.contentLength = contentLength;
+    }
+
+    this.contentType = contentType;
+
+    this.options = {
+      limit: options.limit ?? DEFAULT_BODY_LIMIT,
+      encoding: options.encoding ?? 'utf-8',
+    };
+  }
+
+  get consumed(): boolean {
+    return this._consumed;
+  }
+
+  /**
+   * Runtime-specific buffer reading implementation
+   * @internal
+   */
+  protected abstract _buffer(): Promise<Uint8Array>;
+
+  /**
+   * Runtime-specific stream access
+   * @internal
+   */
+  protected abstract _stream(): NodeStreamLike | WebStreamLike;
+
+  async buffer(): Promise<Uint8Array> {
+    if (this._consumed && this._cachedBuffer) {
+      return this._cachedBuffer;
+    }
+
+    if (this._consumed) {
+      throw new BodyConsumedError();
+    }
+
+    // Check content-length limit before reading
+    if (this.contentLength !== undefined && this.contentLength > this.options.limit) {
+      throw new BodyTooLargeError(this.options.limit, this.contentLength);
+    }
+
+    this._consumed = true;
+    const buffer = await this._buffer();
+
+    // Check actual size after reading
+    if (buffer.length > this.options.limit) {
+      throw new BodyTooLargeError(this.options.limit, buffer.length);
+    }
+
+    this._cachedBuffer = buffer;
+    return buffer;
+  }
+
+  async text(): Promise<string> {
+    const buffer = await this.buffer();
+    return new TextDecoder(this.options.encoding).decode(buffer);
+  }
+
+  async json<T = unknown>(): Promise<T> {
+    // Reject clearly wrong Content-Types before parsing
+    if (this.contentType && !this.isJsonContentType(this.contentType)) {
+      throw new BadRequestError(`Expected JSON content type, received: ${this.contentType}`, {
+        code: 'INVALID_CONTENT_TYPE',
+      });
+    }
+
+    const text = await this.text();
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new BadRequestError('Invalid JSON in request body', {
+        code: 'INVALID_JSON',
+      });
+    }
+  }
+
+  /**
+   * Check if the Content-Type header indicates JSON
+   */
+  private isJsonContentType(contentType: string): boolean {
+    const ct = contentType.toLowerCase();
+    return ct.includes('application/json') || ct.includes('+json');
+  }
+
+  stream(): NodeStreamLike | WebStreamLike {
+    if (this._consumed) {
+      throw new BodyConsumedError();
+    }
+    this._consumed = true;
+
+    const raw = this._stream();
+
+    // Wrap web ReadableStream with size enforcement
+    if (raw instanceof ReadableStream) {
+      return this.wrapWithSizeLimit(raw as ReadableStream<Uint8Array>);
+    }
+
+    // Node-style streams returned as-is (Node adapter handles its own enforcement)
+    return raw;
+  }
+
+  /**
+   * Wrap a ReadableStream with a TransformStream that enforces the body size limit.
+   * Aborts the stream with BodyTooLargeError if the limit is exceeded.
+   */
+  private wrapWithSizeLimit(stream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+    const limit = this.options.limit;
+    let totalBytes = 0;
+
+    return stream.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          totalBytes += chunk.byteLength;
+          if (totalBytes > limit) {
+            controller.error(new BodyTooLargeError(limit, totalBytes));
+            return;
+          }
+          controller.enqueue(chunk);
+        },
+      })
+    );
+  }
+}
+
+/**
+ * Web API BodySource implementation
+ *
+ * @remarks
+ * Works with any runtime that supports the Web Fetch API Request object:
+ * - Bun
+ * - Deno
+ * - Cloudflare Workers
+ * - Vercel Edge
+ *
+ * @example
+ * ```typescript
+ * const request = new Request('http://example.com', {
+ *   method: 'POST',
+ *   body: JSON.stringify({ hello: 'world' })
+ * });
+ *
+ * const bodySource = new WebBodySource(request);
+ * const data = await bodySource.json();
+ * ```
+ */
+export class WebBodySource extends AbstractBodySource {
+  private readonly request: Request;
+
+  constructor(request: Request, options: BodySourceOptions = {}) {
+    super(
+      request.headers.get('content-length') ?? undefined,
+      request.headers.get('content-type') ?? undefined,
+      options
+    );
+    this.request = request;
+  }
+
+  protected async _buffer(): Promise<Uint8Array> {
+    // If no body stream, use arrayBuffer() fast path
+    if (!this.request.body) {
+      const arrayBuffer = await this.request.arrayBuffer();
+      return new Uint8Array(arrayBuffer);
+    }
+
+    // Stream body with incremental size enforcement to prevent memory DoS
+    const reader = this.request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        totalBytes += value.byteLength;
+        if (totalBytes > this.options.limit) {
+          await reader.cancel();
+          throw new BodyTooLargeError(this.options.limit, totalBytes);
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    // Concatenate chunks into single Uint8Array
+    if (chunks.length === 1 && chunks[0] !== undefined) return chunks[0];
+    const result = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return result;
+  }
+
+  protected _stream(): ReadableStream<Uint8Array> {
+    if (!this.request.body) {
+      // Return an empty stream if no body
+      return new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      });
+    }
+    return this.request.body;
+  }
+}
+
+/**
+ * Empty BodySource for requests without a body
+ *
+ * @remarks
+ * Used for GET, HEAD, OPTIONS requests that typically don't have a body.
+ */
+export class EmptyBodySource implements BodySource {
+  readonly consumed = false;
+  readonly contentLength = 0;
+  readonly contentType = undefined;
+
+  text(): Promise<string> {
+    return Promise.resolve('');
+  }
+
+  buffer(): Promise<Uint8Array> {
+    return Promise.resolve(EMPTY_BUFFER);
+  }
+
+  json<T = unknown>(): Promise<T> {
+    return Promise.reject(
+      new BadRequestError('Request body is empty — cannot parse as JSON', {
+        code: 'EMPTY_BODY_JSON',
+      })
+    );
+  }
+
+  stream(): ReadableStream<Uint8Array> {
+    return new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+  }
+}
+
+/** Pre-allocated empty buffer */
+const EMPTY_BUFFER = new Uint8Array(0);
+
+/** Singleton empty body source — stateless, safe to share */
+const EMPTY_BODY_SOURCE: BodySource = new EmptyBodySource();
+
+/**
+ * Create an empty body source (returns shared singleton)
+ *
+ * @returns A shared EmptyBodySource instance
+ */
+export function createEmptyBodySource(): BodySource {
+  return EMPTY_BODY_SOURCE;
+}
+
+/**
+ * Create a Web API body source from a Request
+ *
+ * @param request - Web API Request object
+ * @param options - Body source options
+ * @returns A WebBodySource instance
+ */
+export function createWebBodySource(request: Request, options?: BodySourceOptions): BodySource {
+  return new WebBodySource(request, options);
+}

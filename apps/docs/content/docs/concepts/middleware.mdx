@@ -1,0 +1,301 @@
+---
+title: Middleware
+description: How the onion-model middleware pipeline processes requests in NextRush
+---
+
+## Why Middleware Exists
+
+HTTP request processing requires multiple steps: parsing bodies, authenticating users, validating permissions, logging, handling business logic, and formatting responses. Without middleware, you repeat this cross-cutting logic in every route handler.
+
+Middleware solves this by letting you compose small, focused functions into a processing pipeline.
+
+## Why NextRush Uses the Onion Model
+
+NextRush uses **Koa-style middleware** (the onion model). Each middleware wraps the next one, creating nested layers. This design gives every middleware access to both the request (before downstream) and the response (after downstream returns).
+
+The alternative — linear pipelines where middleware runs only before the handler — forces response concerns into separate hooks. The onion model eliminates that split.
+
+## Mental Model
+
+Think of middleware as **concentric layers around your handler**:
+
+<Mermaid
+  chart="
+flowchart LR
+    req[Request] --> mw1_in[MW 1 ▸ before]
+    mw1_in --> mw2_in[MW 2 ▸ before]
+    mw2_in --> handler[Handler]
+    handler --> mw2_out[MW 2 ▸ after]
+    mw2_out --> mw1_out[MW 1 ▸ after]
+    mw1_out --> res[Response]
+    style req fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style res fill:#22c55e,stroke:#16a34a,color:#fff
+    style handler fill:#f59e0b,stroke:#d97706,color:#fff
+"
+/>
+
+The request flows inward through each layer (before `next()`), reaches the handler, then the response flows outward back through each layer (after `next()` returns).
+
+## Execution Flow
+
+```typescript title="Onion model in action"
+import { createApp } from '@nextrush/core';
+
+const app = createApp();
+
+app.use(async (ctx, next) => {
+  console.log('1: before');
+  await next();
+  console.log('1: after');
+});
+
+app.use(async (ctx, next) => {
+  console.log('2: before');
+  await next();
+  console.log('2: after');
+});
+
+app.use(async (ctx, next) => {
+  console.log('3: handler');
+  ctx.json({ ok: true });
+});
+
+// Output for any request:
+// 1: before
+// 2: before
+// 3: handler
+// 2: after
+// 1: after
+```
+
+Each middleware calls `await next()` to pass control downstream and waits for it to complete before running its "after" code.
+
+## Minimal Usage
+
+### Two Equivalent Syntax Styles
+
+NextRush supports both a `next` parameter and `ctx.next()`. They are identical in behavior:
+
+<Tabs items={['Traditional (next parameter)', 'Modern (ctx.next())']}>
+  <Tab value="Traditional (next parameter)">
+    ```typescript
+    app.use(async (ctx, next) => {
+      const start = Date.now();
+      await next();
+      ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+    });
+    ```
+  </Tab>
+  <Tab value="Modern (ctx.next())">
+    ```typescript
+    app.use(async (ctx) => {
+      const start = Date.now();
+      await ctx.next();
+      ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### Registering Middleware
+
+```typescript
+// One at a time
+app.use(cors());
+
+// Multiple at once
+app.use(cors(), helmet(), json());
+
+// Chained
+app.use(cors()).use(helmet()).use(json());
+```
+
+`app.use()` validates that each argument is a function. Non-functions throw a `TypeError`.
+
+### Middleware Composition
+
+`compose()` combines multiple middleware into a single function:
+
+```typescript
+import { compose } from '@nextrush/core';
+
+const security = compose([cors(), helmet(), rateLimit({ max: 100 })]);
+
+app.use(security);
+```
+
+`compose()` validates its input — it throws a `TypeError` if the argument is not an array or any element is not a function. The middleware array is snapshot at compose time, so later mutations to the original array have no effect.
+
+### Early Termination
+
+Omit the `next()` call to stop the pipeline:
+
+```typescript
+app.use(async (ctx, next) => {
+  if (!ctx.get('Authorization')) {
+    ctx.status = 401;
+    ctx.json({ error: 'Unauthorized' });
+    return; // Pipeline stops — downstream middleware never runs
+  }
+  await next();
+});
+```
+
+### Sharing State Between Middleware
+
+Use `ctx.state` to pass data downstream:
+
+```typescript
+// Auth middleware sets user
+app.use(async (ctx, next) => {
+  const token = ctx.get('Authorization')?.replace('Bearer ', '');
+  if (token) {
+    ctx.state.user = await verifyToken(token);
+  }
+  await next();
+});
+
+// Later middleware reads it
+app.use(async (ctx, next) => {
+  const user = ctx.state.user;
+  // ...
+  await next();
+});
+```
+
+`ctx.state` is typed as `Record<string | symbol, unknown>` — scoped to the current request.
+
+## What Happens Automatically
+
+- **`ctx.next()` wiring**: The `compose()` function automatically wires `ctx.next()` via an internal `setNext()` call. You do not need to configure this.
+- **Middleware isolation**: Each request gets its own dispatch index. Middleware from one request cannot interfere with another.
+- **Double-next detection**: Calling `next()` more than once in a single middleware rejects with `'next() called multiple times'`.
+
+## Error and Failure Behavior
+
+Errors thrown inside any middleware propagate back through the onion. Upstream middleware can catch them with try/catch:
+
+```typescript title="Error boundary at the top of the stack"
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (err) {
+    const status = err instanceof HttpError ? err.status : 500;
+    ctx.status = status;
+    ctx.json({ error: err instanceof Error ? err.message : 'Internal server error' });
+  }
+});
+
+// Downstream middleware — errors propagate up
+app.use(async (ctx, next) => {
+  ctx.throw(400, 'Bad input'); // Caught by the boundary above
+});
+```
+
+<Callout type="warn">
+  Place your error-handling middleware first. It wraps everything downstream. If error handling runs
+  after body parsing, it cannot catch parse errors.
+</Callout>
+
+Synchronous exceptions inside middleware are caught and converted to rejected promises by `compose()`.
+
+## Performance Notes
+
+- `compose()` snapshots the middleware array once. No per-request allocation for the stack itself.
+- Dispatch uses index-based iteration, not per-request closure chains.
+- The empty-middleware fast path resolves immediately with no dispatch overhead.
+- Avoid closures in hot-path middleware. Prefer the factory pattern to capture configuration at startup.
+
+## Security Considerations
+
+- Middleware order determines your security posture. Authentication and rate limiting must run before business logic.
+- Never expose internal error details (stack traces, file paths) in production error responses.
+- Validate and sanitize all data placed on `ctx.state` — downstream middleware trusts it.
+
+<Callout type="error" title="Middleware Order Is a Security Boundary">
+  If CORS or auth middleware runs after your route handler, it has no effect. Security middleware
+  must be registered before route middleware.
+</Callout>
+
+## Common Mistakes
+
+<details>
+<summary>Forgetting `await` on `next()`</summary>
+
+```typescript
+// ❌ Downstream runs concurrently — race condition
+app.use(async (ctx, next) => {
+  next();
+  ctx.set('X-After', 'value'); // May run before downstream completes
+});
+
+// ✅ Await ensures sequential execution
+app.use(async (ctx, next) => {
+  await next();
+  ctx.set('X-After', 'value');
+});
+```
+
+</details>
+
+<details>
+<summary>Wrong middleware order</summary>
+
+```typescript
+// ❌ Error handler registered too late
+app.use(json());
+app.use(errorHandler);
+
+// ✅ Error handler wraps everything
+app.use(errorHandler);
+app.use(json());
+```
+
+</details>
+
+<details>
+<summary>Calling `next()` multiple times</summary>
+
+```typescript
+// ❌ Rejects with 'next() called multiple times'
+app.use(async (ctx, next) => {
+  await next();
+  await next(); // Error
+});
+```
+
+</details>
+
+## When Not To Use Middleware
+
+- **One-off route logic** — if logic applies to a single route, put it in the handler.
+- **Static configuration** — if a value does not depend on the request, set it at startup instead of computing it per-request.
+- **Heavy computation** — middleware runs on every matched request. Offload CPU-intensive work to a worker or queue.
+
+## TypeScript Types
+
+```typescript
+import type { Middleware, Context, Next } from '@nextrush/types';
+
+type Next = () => Promise<void>;
+type Middleware = (ctx: Context, next: Next) => void | Promise<void>;
+```
+
+`next` is required in the type signature. Both `ctx.next()` and the `next` parameter call the same underlying dispatch function.
+
+## See Also
+
+<Cards>
+  <Card title="Context" href="/docs/concepts/context">
+    The ctx object available in every middleware.
+  </Card>
+  <Card title="Routing" href="/docs/concepts/routing">
+    Route-level middleware and path matching.
+  </Card>
+  <Card title="@nextrush/core API" href="/docs/api-reference/core">
+    Full compose() and Application API reference.
+  </Card>
+  <Card title="Middleware Packages" href="/docs/api-reference">
+    Available middleware packages (CORS, helmet, body-parser, etc.).
+  </Card>
+</Cards>

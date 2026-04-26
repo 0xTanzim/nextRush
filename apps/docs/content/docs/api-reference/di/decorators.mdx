@@ -1,0 +1,619 @@
+---
+title: '@nextrush/decorators'
+description: 'Controller, route, parameter, and guard decorators for structured APIs.'
+---
+
+Build HTTP controllers with TypeScript decorators.
+
+This package provides decorators for defining controllers, routes, parameters, and guards. It generates metadata that the controllers plugin uses to wire routes automatically.
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/decorators']} />
+
+**Required `tsconfig.json` settings:**
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
+```
+
+<Callout type="info" title="reflect-metadata">
+  The `nextrush` meta-package auto-imports `reflect-metadata`. If using individual `@nextrush/*`
+  packages, install `reflect-metadata` separately and import it as the first line of your entry
+  point.
+</Callout>
+
+---
+
+## Quick Start
+
+```typescript
+import 'reflect-metadata'; // Not needed if using the nextrush meta-package
+import { Controller, Get, Post, Body, Param } from '@nextrush/decorators';
+
+@Controller('/users')
+class UserController {
+  @Get()
+  list() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) {
+    return { id, name: 'Alice' };
+  }
+
+  @Post()
+  create(@Body() data: { name: string }) {
+    return { id: Date.now(), ...data };
+  }
+}
+```
+
+---
+
+## Controller Decorator
+
+Define a controller class with a path prefix or a full options object:
+
+```ts
+// Simple prefix
+@Controller('/users')
+class UserController {}
+
+// With options
+@Controller({
+  path: '/api/v1/users',
+  version: 'v1',
+  tags: ['users'],
+})
+class VersionedUserController {}
+```
+
+<TypeTable
+  title="ControllerOptions"
+  types={{
+    path: {
+      type: 'string',
+      description: 'Base path prefix for all routes in this controller',
+      optional: true,
+    },
+    version: {
+      type: 'string',
+      description: "API version prefix (e.g., 'v1' → '/v1/users')",
+      optional: true,
+    },
+    middleware: {
+      type: 'MiddlewareRef[]',
+      description: 'Middleware applied to all routes in this controller',
+      optional: true,
+    },
+    tags: {
+      type: 'string[]',
+      description: 'Tags for documentation grouping',
+      optional: true,
+    },
+  }}
+/>
+
+---
+
+## Route Decorators
+
+Map methods to HTTP endpoints:
+
+```typescript
+@Controller('/items')
+class ItemController {
+  @Get() // GET /items
+  list() {}
+
+  @Get('/:id') // GET /items/:id
+  findOne() {}
+
+  @Post() // POST /items
+  create() {}
+
+  @Put('/:id') // PUT /items/:id
+  replace() {}
+
+  @Patch('/:id') // PATCH /items/:id
+  update() {}
+
+  @Delete('/:id') // DELETE /items/:id
+  remove() {}
+
+  @Head() // HEAD /items
+  head() {}
+
+  @Options() // OPTIONS /items
+  options() {}
+
+  @All('/hook') // All methods on /items/hook
+  webhook() {}
+}
+```
+
+---
+
+## Parameter Decorators
+
+Extract data from requests:
+
+### @Body
+
+Get request body:
+
+```typescript
+@Post()
+create(@Body() data: CreateUserDto) {
+  // data = full parsed body
+}
+
+@Post()
+createWithField(@Body('name') name: string) {
+  // name = body.name
+}
+```
+
+### @Param
+
+Get route parameters:
+
+```typescript
+@Get('/:id')
+findOne(@Param('id') id: string) {
+  // id = route param :id
+}
+
+@Get('/:category/:id')
+findByCategory(@Param() params: { category: string; id: string }) {
+  // params = all route params
+}
+```
+
+### @Query
+
+Get query parameters:
+
+```typescript
+@Get()
+list(@Query('page') page: string, @Query('limit') limit: string) {
+  // ?page=1&limit=10
+}
+
+@Get()
+search(@Query() query: Record<string, string>) {
+  // query = all query params
+}
+```
+
+### @Header
+
+Get request headers:
+
+```typescript
+@Get()
+info(@Header('authorization') auth: string) {
+  // auth = Authorization header
+}
+
+@Get()
+allHeaders(@Header() headers: Record<string, string>) {
+  // headers = all headers
+}
+```
+
+### @Ctx
+
+Get full context:
+
+```typescript
+import type { Context } from '@nextrush/types';
+
+@Get()
+handler(@Ctx() ctx: Context) {
+  // Full access to request/response
+}
+```
+
+### @Req / @Res
+
+Get raw request/response (Node.js):
+
+```typescript
+@Get()
+raw(@Req() req: IncomingMessage, @Res() res: ServerResponse) {
+  // Raw Node.js objects
+}
+```
+
+---
+
+## Parameter Transforms
+
+Transform parameter values:
+
+```typescript
+// Convert to number
+@Get('/:id')
+findOne(@Param('id', { transform: Number }) id: number) {}
+
+// Validate with Zod
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+@Post()
+create(@Body({ transform: CreateUserSchema.parse }) data: z.infer<typeof CreateUserSchema>) {}
+```
+
+---
+
+## Response Decorators
+
+### @SetHeader
+
+Set response headers on a route. Multiple headers can be applied by stacking decorators.
+
+```typescript
+import { SetHeader, Controller, Get } from '@nextrush/decorators';
+
+@Controller('/api')
+class ApiController {
+  @SetHeader('X-Custom-Header', 'my-value')
+  @SetHeader('Cache-Control', 'no-store')
+  @Get('/data')
+  getData() {
+    return { result: 'ok' };
+  }
+}
+```
+
+Headers are precomputed at build time and applied before the handler sends a response.
+
+### @Redirect
+
+Redirect the request to another URL. Default status code is `302` (Found).
+
+```typescript
+import { Redirect, Controller, Get } from '@nextrush/decorators';
+
+@Controller('/legacy')
+class LegacyController {
+  @Redirect('/new-dashboard', 301)
+  @Get('/dashboard')
+  oldDashboard() {
+    // Handler return value is ignored when @Redirect is applied
+  }
+
+  @Redirect('/default-page')
+  @Get('/home')
+  home() {
+    // Return a string to override the redirect URL
+    return '/custom-page';
+  }
+
+  @Redirect('/fallback')
+  @Get('/dynamic')
+  dynamic() {
+    // Return { url?, statusCode? } to override both
+    return { url: '/new-location', statusCode: 307 };
+  }
+}
+```
+
+**Override behavior:**
+
+- Return `void` → uses the URL and status code from the decorator
+- Return `string` → overrides the redirect URL
+- Return `{ url?, statusCode? }` → overrides URL and/or status code
+
+The redirect is implemented via `Location` header, not `ctx.redirect()`.
+
+---
+
+## Custom Parameter Decorators
+
+Create reusable parameter decorators with `createCustomParamDecorator()`. This is the public API for extending the parameter system.
+
+```typescript
+import { createCustomParamDecorator } from '@nextrush/decorators';
+import type { Context } from '@nextrush/types';
+
+// Extract current user from state (set by auth middleware)
+const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+
+// With options
+const ApiKey = createCustomParamDecorator((ctx: Context) => ctx.get('x-api-key'), {
+  required: true,
+});
+
+// With transform
+const ParsedQuery = (name: string) =>
+  createCustomParamDecorator((ctx: Context) => ctx.query[name], { transform: JSON.parse });
+
+@Controller('/users')
+class UserController {
+  @Get('/me')
+  getProfile(@CurrentUser user: User) {
+    return user;
+  }
+
+  @Get('/data')
+  getData(@ApiKey apiKey: string) {
+    return { apiKey };
+  }
+}
+```
+
+<TypeTable
+  title="createCustomParamDecorator Options"
+  types={{
+    required: {
+      type: 'boolean',
+      description: 'Throw MissingParameterError if the extracted value is undefined',
+      default: 'false',
+    },
+    transform: {
+      type: 'TransformFn',
+      description: 'Transform the extracted value (sync or async)',
+      optional: true,
+    },
+  }}
+/>
+
+<Callout type="info">
+  Custom parameter decorators use the `'custom'` param source internally. They can only be used on
+  method parameters, not constructor parameters.
+</Callout>
+
+---
+
+## Guards
+
+Guards control access to routes by returning a boolean. You can write guards as functions or as DI-injectable classes.
+
+<Tabs items={['Function Guards', 'Class Guards']}>
+  <Tab value="Function Guards">
+
+```ts
+import type { GuardFn, GuardContext } from '@nextrush/decorators';
+
+// Simple guard
+const AuthGuard: GuardFn = async (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
+
+// Guard factory
+const RoleGuard =
+  (roles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    return user ? roles.includes(user.role) : false;
+  };
+
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
+class AdminController {
+  @Get()
+  dashboard() {
+    return { admin: true };
+  }
+}
+```
+
+  </Tab>
+  <Tab value="Class Guards">
+
+```ts
+import type { CanActivate, GuardContext } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+
+@Service()
+class AuthGuard implements CanActivate {
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const token = ctx.get('authorization');
+    if (!token) return false;
+
+    const user = await verifyToken(token);
+    ctx.state.user = user;
+    return Boolean(user);
+  }
+}
+
+// Use class guard - resolved from DI
+@UseGuard(AuthGuard)
+@Controller('/protected')
+class ProtectedController {}
+```
+
+  </Tab>
+</Tabs>
+
+### Guard Execution Order
+
+Guards run in order: class guards first, then method guards.
+
+```typescript
+@UseGuard(ClassGuard1) // 1st
+@UseGuard(ClassGuard2) // 2nd
+@Controller('/example')
+class ExampleController {
+  @UseGuard(MethodGuard1) // 3rd
+  @UseGuard(MethodGuard2) // 4th
+  @Get()
+  handler() {}
+}
+```
+
+### Guard Context
+
+Guards receive a lightweight context — no response methods, only request data:
+
+<TypeTable
+  title="GuardContext"
+  types={{
+    method: { type: 'string', description: 'HTTP request method' },
+    path: { type: 'string', description: 'Request path' },
+    params: { type: 'Record<string, string>', description: 'Route parameters' },
+    query: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Query parameters',
+    },
+    headers: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Request headers',
+    },
+    body: { type: 'unknown', description: 'Parsed request body' },
+    state: {
+      type: 'Record<string, unknown>',
+      description: 'Mutable state bag shared between middleware and guards',
+    },
+    'get(name)': {
+      type: '(name: string) => string | undefined',
+      description: 'Get a specific header value',
+    },
+  }}
+/>
+
+---
+
+## Metadata Readers
+
+Access decorator metadata programmatically:
+
+```typescript
+import {
+  getControllerMetadata,
+  getRouteMetadata,
+  getParamMetadata,
+  getAllGuards,
+  isController,
+  getResponseHeaders,
+  getRedirectMetadata,
+} from '@nextrush/decorators';
+
+// Check if class is a controller
+isController(UserController); // true
+
+// Get controller metadata
+const meta = getControllerMetadata(UserController);
+// { path: '/users', version: undefined, middleware: undefined, tags: undefined }
+
+// Get all routes for a controller
+const routes = getRouteMetadata(UserController);
+// [{ method: 'GET', path: '/', ... }, { method: 'GET', path: '/:id', ... }]
+
+// Get parameter metadata for a specific method
+const params = getParamMetadata(UserController, 'findOne');
+// [{ source: 'param', index: 0, name: 'id' }]
+
+// Get all guards for a route (class + method guards)
+const guards = getAllGuards(UserController, 'findOne');
+
+// Get response headers for a method
+const headers = getResponseHeaders(UserController.prototype, 'getData');
+// [{ name: 'Cache-Control', value: 'no-store' }]
+
+// Get redirect metadata for a method
+const redirect = getRedirectMetadata(UserController.prototype, 'oldDashboard');
+// { url: '/new-dashboard', statusCode: 301 }
+```
+
+---
+
+## TypeScript
+
+All types and runtime exports are available from the package entry point.
+
+<details>
+<summary>Complete import reference</summary>
+
+```ts
+import type {
+  ControllerMetadata,
+  ControllerOptions,
+  RouteMetadata,
+  RouteOptions,
+  ParamMetadata,
+  BodyOptions,
+  ParamOptions,
+  QueryOptions,
+  HeaderOptions,
+  GuardFn,
+  GuardContext,
+  GuardMetadata,
+  CanActivate,
+  Guard,
+  Constructor,
+  TransformFn,
+  ParamSource,
+  RouteMethods,
+  MiddlewareRef,
+  ControllerDefinition,
+  CustomParamExtractor,
+  ResponseHeaderMetadata,
+  RedirectMetadata,
+} from '@nextrush/decorators';
+
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Head,
+  Options,
+  All,
+  Body,
+  Param,
+  Query,
+  Header,
+  Ctx,
+  Req,
+  Res,
+  UseGuard,
+  SetHeader,
+  Redirect,
+  createCustomParamDecorator,
+  isController,
+  getControllerMetadata,
+  getRouteMetadata,
+  getParamMetadata,
+  getAllParamMetadata,
+  getControllerDefinition,
+  buildFullPath,
+  getAllGuards,
+  getClassGuards,
+  getMethodGuards,
+  isGuardClass,
+  getResponseHeaders,
+  getRedirectMetadata,
+  isValidHttpMethod,
+  isValidParamSource,
+  DECORATOR_METADATA_KEYS,
+} from '@nextrush/decorators';
+```
+
+</details>
+
+---
+
+## Related
+
+- [DI Overview](/docs/api-reference/di) — DI & Decorators overview
+- [@nextrush/di](/docs/api-reference/di/di) — Dependency injection
+- [@nextrush/controllers](/docs/api-reference/plugins/controllers) — Controller plugin

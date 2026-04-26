@@ -1,0 +1,71 @@
+{
+  "name": "@nextrush/events",
+  "version": "3.0.0",
+  "description": "Type-safe event emitter for NextRush - simple, fast, and async-ready",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ignore-pattern '**/__tests__/**'",
+    "clean": "rm -rf dist coverage .turbo"
+  },
+  "keywords": [
+    "nextrush",
+    "events",
+    "emitter",
+    "pubsub",
+    "typescript",
+    "async"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/plugins/events"
+  },
+  "bugs": {
+    "url": "https://github.com/nextrush/nextrush/issues"
+  },
+  "homepage": "https://github.com/nextrush/nextrush/tree/main/packages/plugins/events#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "peerDependencies": {
+    "@nextrush/core": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@nextrush/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nextrush/core": "workspace:*",
+    "@nextrush/types": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}

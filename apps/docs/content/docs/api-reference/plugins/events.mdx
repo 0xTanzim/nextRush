@@ -1,0 +1,328 @@
+---
+title: '@nextrush/events'
+description: 'Type-safe event emitter for decoupled communication between application components.'
+---
+
+Components in a growing application need to communicate without knowing about each other. Direct function calls create tight coupling — changing one module forces changes across the codebase.
+
+`@nextrush/events` provides a type-safe, async-ready event emitter that decouples producers from consumers. Define your events as a TypeScript interface, and the compiler catches invalid event names, missing properties, and wrong payload shapes at build time.
+
+---
+
+## Default Behavior
+
+With default options, the plugin:
+
+- Attaches an event emitter to `app.events`
+- Warns when an event exceeds 10 listeners (potential memory leak)
+- Isolates handler errors so one failure does not prevent other handlers from running
+- Validates event names (non-empty strings, max 256 characters)
+- Supports wildcard (`*`) and pattern (`prefix:*`) subscriptions
+- Cleans up all handlers when the plugin is destroyed
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/events']} />
+
+---
+
+## Minimal Usage
+
+### With NextRush
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { eventsPlugin } from '@nextrush/events';
+
+const app = createApp();
+app.plugin(eventsPlugin());
+
+app.events.on('user:created', (data) => {
+  console.log('User created:', data);
+});
+
+await app.events.emit('user:created', { id: '1', name: 'Alice' });
+```
+
+### Standalone
+
+```typescript
+import { createEvents } from '@nextrush/events';
+
+interface AppEvents {
+  'user:created': { id: string; name: string };
+  'user:deleted': { id: string };
+}
+
+const events = createEvents<AppEvents>();
+
+events.on('user:created', (data) => {
+  console.log(data.name); // Fully typed
+});
+
+await events.emit('user:created', { id: '1', name: 'Alice' });
+```
+
+---
+
+## Configuration Options
+
+Pass options to `eventsPlugin()` or `createEvents()`:
+
+```typescript
+app.plugin(
+  eventsPlugin({
+    propertyName: 'events',
+    maxListeners: 10,
+    errorIsolation: true,
+    onError: (err, eventName) => logger.error(err, { event: eventName }),
+  })
+);
+```
+
+<TypeTable
+  title="EventsPluginOptions"
+  types={{
+    propertyName: {
+      type: 'string',
+      description: 'Property name on the app instance. Must be a valid JavaScript identifier.',
+      default: '"events"',
+      optional: true,
+    },
+    maxListeners: {
+      type: 'number',
+      description:
+        'Maximum listeners per event before a warning is logged. Set to 0 to disable warnings.',
+      default: '10',
+      optional: true,
+    },
+    errorIsolation: {
+      type: 'boolean',
+      description:
+        'When true, one handler error does not prevent other handlers from running. When false, all handlers run but errors are collected and thrown as an AggregateError.',
+      default: 'true',
+      optional: true,
+    },
+    onError: {
+      type: '(error: Error, eventName: string) => void',
+      description:
+        'Custom error handler called when errorIsolation is true and a handler throws. If omitted, errors are logged to console.error.',
+      optional: true,
+    },
+  }}
+/>
+
+---
+
+## Integration Example
+
+### Type-Safe Events with App Augmentation
+
+Define an event map interface and augment the `Application` type for full IntelliSense on `app.events`:
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { eventsPlugin } from '@nextrush/events';
+import type { EventEmitter } from '@nextrush/events';
+
+interface AppEvents {
+  'user:created': { id: string; name: string };
+  'user:deleted': { id: string };
+  'order:placed': { orderId: string; total: number };
+}
+
+declare module '@nextrush/core' {
+  interface Application {
+    events: EventEmitter<AppEvents>;
+  }
+}
+
+const app = createApp();
+app.plugin(eventsPlugin<AppEvents>());
+
+// Fully typed — invalid events or payloads cause compile errors
+app.events.on('user:created', (data) => {
+  console.log(data.name);
+});
+```
+
+### In Middleware
+
+```typescript
+app.use(async (ctx) => {
+  await app.events.emit('request:received', {
+    method: ctx.method,
+    path: ctx.path,
+  });
+
+  await ctx.next();
+
+  await app.events.emit('request:completed', {
+    path: ctx.path,
+    status: ctx.status,
+  });
+});
+```
+
+### Subscribing and Unsubscribing
+
+<Callout type="warn" title="Listener Cleanup">
+  Listeners added inside request handlers or loops without cleanup cause memory leaks. Always store
+  the unsubscribe function or use `once()` for one-time handlers.
+</Callout>
+
+```typescript
+// on() returns an unsubscribe function
+const unsubscribe = events.on('user:created', handler);
+unsubscribe();
+
+// Or remove by handler reference
+events.off('user:created', handler);
+
+// Remove all handlers for one event
+events.clear('user:created');
+
+// Remove all handlers for all events
+events.clear();
+```
+
+### One-Time and Priority Handlers
+
+```typescript
+// Runs once, then auto-unsubscribes
+events.once('app:ready', () => {
+  console.log('App started');
+});
+
+// Run before other handlers for the same event
+events.prepend('user:created', (data) => {
+  validateUserData(data);
+});
+```
+
+### Wildcard and Pattern Subscriptions
+
+```typescript
+// Receive every event
+events.on('*', ({ event, data }) => {
+  console.log(`Event: ${event}`, data);
+});
+
+// Receive events matching a prefix
+events.on('user:*', ({ event, data }) => {
+  console.log(`User event: ${event}`, data);
+});
+```
+
+<Callout type="info">
+  Wildcard and pattern handlers receive `{ event, data }` instead of the raw payload, so they know which event triggered them.
+</Callout>
+
+### Error Isolation
+
+With the default `errorIsolation: true`, one handler error does not block other handlers:
+
+```typescript
+events.on('order:placed', () => {
+  throw new Error('Handler 1 fails');
+});
+
+events.on('order:placed', (data) => {
+  console.log('Handler 2 still runs'); // Executes
+});
+```
+
+Set `errorIsolation: false` to collect errors and throw an `AggregateError` after all handlers complete:
+
+```typescript
+const events = createEvents({ errorIsolation: false });
+
+try {
+  await events.emit('test', {});
+} catch (error) {
+  if (error instanceof AggregateError) {
+    console.log(`${error.errors.length} handlers failed`);
+  }
+}
+```
+
+### Introspection
+
+```typescript
+events.listenerCount('user:created'); // Count for one event
+events.listenerCount(); // Total across all events
+events.hasListeners('user:created'); // Boolean check
+events.eventNames(); // All registered event names
+events.listeners('user:created'); // Array of handler functions (copy)
+events.setMaxListeners(50); // Update at runtime
+events.getMaxListeners(); // Read current limit
+```
+
+---
+
+## Common Mistakes
+
+**Calling `off()` without a handler reference.** `off(event, handler)` requires both arguments. To remove all handlers for an event, use `clear(event)`.
+
+```typescript
+// Wrong — off() needs the handler reference
+events.off('user:created');
+
+// Correct
+events.clear('user:created');
+```
+
+**Forgetting `await` on `emit()`.** Every `emit()` returns a `Promise<void>`. If your handlers are async, skipping `await` means errors are silently dropped and execution order is unpredictable.
+
+**Exceeding the listener limit without investigation.** The default warns at 10 listeners per event. This usually signals a leak (e.g., adding listeners in a per-request path without unsubscribing). Raise the limit only after confirming the count is intentional.
+
+---
+
+## Troubleshooting
+
+**Warning: "Event 'x' has N listeners"** — A listener is being registered repeatedly without being removed. Check for `on()` calls inside request handlers or loops. Use the unsubscribe function or `once()` where appropriate.
+
+**`AggregateError` thrown on emit** — You have `errorIsolation: false` and one or more handlers threw. Inspect `error.errors` for the individual failures.
+
+**`TypeError: Invalid property name`** — The `propertyName` option must be a valid JavaScript identifier (letters, digits, `_`, `$`, cannot start with a digit).
+
+**Type errors on `app.events`** — Augment the `Application` interface with your event map as shown in the Integration Example section.
+
+---
+
+## Exported Types
+
+<details>
+<summary>All public exports from @nextrush/events</summary>
+
+```typescript
+import type {
+  EventMap,
+  EventNames,
+  EventHandler,
+  EventEmitterOptions,
+  TypedEventEmitter,
+  Unsubscribe,
+  WithEvents,
+} from '@nextrush/events';
+
+import {
+  EventEmitter,
+  createEvents,
+  eventsPlugin,
+  DEFAULT_EMITTER_OPTIONS,
+  MAX_EVENT_NAME_LENGTH,
+  VALID_PROPERTY_NAME,
+} from '@nextrush/events';
+```
+
+</details>
+
+---
+
+## Related
+
+- [Plugins Overview](/docs/api-reference/plugins) — All plugin packages
+- [@nextrush/websocket](/docs/api-reference/plugins/websocket) — Real-time communication

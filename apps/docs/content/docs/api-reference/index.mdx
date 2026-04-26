@@ -1,0 +1,287 @@
+---
+title: API Reference
+description: Complete reference for all NextRush packages — types, methods, and configuration options.
+---
+
+import { Mermaid } from '@/components/mdx';
+
+Every NextRush package is documented with full type signatures, method descriptions, and usage examples. Install only what you need.
+
+## Package Architecture
+
+<Mermaid chart={`
+flowchart TB
+    subgraph meta[Meta Package]
+        nextrush[nextrush]
+    end
+
+    subgraph tools[Development Tools]
+        dev[dev]
+    end
+
+    subgraph core[Core Foundation]
+        types[types]
+        errors[errors]
+        coreP[core]
+        router[router]
+        runtime[runtime]
+    end
+
+    subgraph adapters[Runtime Adapters]
+        node[adapter-node]
+        bun[adapter-bun]
+        deno[adapter-deno]
+        edge[adapter-edge]
+    end
+
+    subgraph mw[Middleware]
+        cors[cors]
+        helmet[helmet]
+        body[body-parser]
+        rate[rate-limit]
+        more[...]
+    end
+
+    subgraph plugins[Plugins]
+        controllers[controllers]
+        logger[logger]
+        static[static]
+    end
+
+    subgraph di[DI System]
+        diP[di]
+        decorators[decorators]
+    end
+
+    nextrush --> coreP
+    nextrush --> router
+    nextrush --> node
+
+    coreP --> types
+    errors --> types
+    router --> types
+    runtime --> types
+
+    node --> coreP
+    node --> runtime
+    bun --> coreP
+    bun --> runtime
+    deno --> coreP
+    deno --> runtime
+    edge --> coreP
+    edge --> runtime
+
+    controllers --> diP
+    controllers --> decorators
+    controllers --> router
+
+    style nextrush fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style dev fill:#ec4899,stroke:#db2777,color:#fff
+    style types fill:#22c55e,stroke:#16a34a,color:#fff
+    style coreP fill:#f59e0b,stroke:#d97706,color:#fff
+
+`}/>
+
+## Quick Start
+
+For most projects, install the meta package:
+
+<PackageInstall packages={['nextrush']} />
+
+This gives you:
+
+- `createApp()` — Application factory
+- `createRouter()` — Router factory
+- `listen()` — Start Node.js server
+- HTTP error classes
+- Essential types
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+
+app.route('/', router);
+await listen(app, 3000);
+```
+
+## Package Categories
+
+### Core Foundation
+
+The foundational packages that everything else builds on.
+
+| Package                                                 | Purpose                             | Install Separately?                                                   |
+| ------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------- |
+| [`nextrush`](/docs/api-reference/core/nextrush)         | Meta package with all essentials    | **Start here**                                                        |
+| [`@nextrush/core`](/docs/api-reference/core/core)       | Application, middleware composition | Usually via `nextrush`                                                |
+| [`@nextrush/router`](/docs/api-reference/core/router)   | Radix tree routing                  | Usually via `nextrush`                                                |
+| [`@nextrush/types`](/docs/api-reference/core/types)     | TypeScript type definitions         | Re-exported by `nextrush`; install directly for advanced package work |
+| [`@nextrush/errors`](/docs/api-reference/core/errors)   | HTTP error classes                  | Usually via `nextrush`                                                |
+| [`@nextrush/runtime`](/docs/api-reference/core/runtime) | Runtime detection                   | Usually via adapter                                                   |
+| [`@nextrush/dev`](/docs/api-reference/core/dev)         | Development server & build tools    | **Dev dependency**                                                    |
+
+### Runtime Adapters
+
+Connect NextRush to your runtime environment.
+
+| Package                                                       | Runtime                   | Notes                  |
+| ------------------------------------------------------------- | ------------------------- | ---------------------- |
+| [`@nextrush/adapter-node`](/docs/api-reference/adapters/node) | Node.js                   | Included in `nextrush` |
+| [`@nextrush/adapter-bun`](/docs/api-reference/adapters/bun)   | Bun                       | Install separately     |
+| [`@nextrush/adapter-deno`](/docs/api-reference/adapters/deno) | Deno                      | Install separately     |
+| [`@nextrush/adapter-edge`](/docs/api-reference/adapters/edge) | Edge (Cloudflare, Vercel) | Install separately     |
+
+### Middleware
+
+Middleware packages for common HTTP concerns.
+
+| Package                                                               | Purpose                       |
+| --------------------------------------------------------------------- | ----------------------------- |
+| [`@nextrush/cors`](/docs/api-reference/middleware/cors)               | Cross-Origin Resource Sharing |
+| [`@nextrush/helmet`](/docs/api-reference/middleware/helmet)           | Security headers              |
+| [`@nextrush/body-parser`](/docs/api-reference/middleware/body-parser) | Request body parsing          |
+| [`@nextrush/rate-limit`](/docs/api-reference/middleware/rate-limit)   | Rate limiting                 |
+| [`@nextrush/compression`](/docs/api-reference/middleware/compression) | Response compression          |
+| [`@nextrush/cookies`](/docs/api-reference/middleware/cookies)         | Cookie handling               |
+| [`@nextrush/request-id`](/docs/api-reference/middleware/request-id)   | Request ID generation         |
+| [`@nextrush/timer`](/docs/api-reference/middleware/timer)             | Response timing               |
+| [`@nextrush/multipart`](/docs/api-reference/middleware/multipart)     | Multipart form parsing        |
+| [`@nextrush/csrf`](/docs/api-reference/middleware/csrf)               | CSRF protection               |
+
+### Plugins
+
+Extend NextRush with additional capabilities.
+
+| Package                                                            | Purpose                         |
+| ------------------------------------------------------------------ | ------------------------------- |
+| [`@nextrush/controllers`](/docs/api-reference/plugins/controllers) | Class-based controllers with DI |
+| [`@nextrush/logger`](/docs/api-reference/plugins/logger)           | Structured logging              |
+| [`@nextrush/static`](/docs/api-reference/plugins/static)           | Static file serving             |
+| [`@nextrush/websocket`](/docs/api-reference/plugins/websocket)     | WebSocket support               |
+| [`@nextrush/events`](/docs/api-reference/plugins/events)           | Event emitter integration       |
+| [`@nextrush/template`](/docs/api-reference/plugins/template)       | Template engine integration     |
+
+### Dependency Injection
+
+For class-based applications with decorators.
+
+| Package                                                     | Purpose                                 |
+| ----------------------------------------------------------- | --------------------------------------- |
+| [`@nextrush/di`](/docs/api-reference/di/di)                 | Dependency injection container          |
+| [`@nextrush/decorators`](/docs/api-reference/di/decorators) | Controller, route, and guard decorators |
+
+<PackageInstall packages={['@nextrush/di', '@nextrush/decorators', '@nextrush/controllers']} />
+
+## Choosing Packages
+
+### Functional Style (Recommended for Most)
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+
+const app = createApp();
+app.use(cors());
+app.use(json());
+
+const router = createRouter();
+router.get('/users', (ctx) => ctx.json([]));
+
+app.route('/', router);
+await listen(app, 3000);
+```
+
+**Install:**
+
+<PackageInstall packages={['nextrush', '@nextrush/cors', '@nextrush/body-parser']} />
+
+### Class-Based Style (For Larger Apps)
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin, Controller, Get, Service } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+
+const app = createApp();
+const router = createRouter();
+await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
+app.route('/', router);
+await listen(app, 3000);
+```
+
+**Install:**
+
+<PackageInstall
+  packages={['nextrush', '@nextrush/di', '@nextrush/decorators', '@nextrush/controllers']}
+/>
+
+### Non-Node.js Runtimes
+
+For Bun, Deno, or Edge runtimes, install the specific adapter:
+
+```typescript
+// Bun
+import { createApp } from '@nextrush/core';
+import { serve } from '@nextrush/adapter-bun';
+
+const app = createApp();
+serve(app, { port: 3000 });
+```
+
+**Install:**
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-bun']} />
+
+## Package Size Philosophy
+
+NextRush follows a strict size budget:
+
+| Category      | Max LOC   | Rationale                  |
+| ------------- | --------- | -------------------------- |
+| Core packages | 500-1,500 | Foundation must be minimal |
+| Adapters      | ~500      | Thin adapters, no bloat    |
+| Middleware    | ~300      | Single responsibility      |
+| Plugins       | ~600      | Focused features           |
+
+This ensures:
+
+- Fast installation
+- Quick cold starts
+- Low memory footprint
+- Transparent auditing
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Core Packages"
+    description="Start with the foundation: core, router, types, and errors."
+    href="/docs/api-reference/core"
+  />
+  <Card
+    title="Adapters"
+    description="Connect NextRush to Node.js, Bun, Deno, or Edge."
+    href="/docs/api-reference/adapters"
+  />
+</Cards>

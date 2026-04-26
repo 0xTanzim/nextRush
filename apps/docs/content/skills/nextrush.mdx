@@ -1,0 +1,75 @@
+---
+title: NextRush Framework Skill
+description: >
+  A unified agent skill for building Node.js HTTP APIs with NextRush.
+  Covers functional routing, decorator-based controllers, middleware, dependency
+  injection, and structured error handling.
+skillName: nextrush
+package: nextrush
+difficulty: beginner
+tags:
+  - framework
+  - routing
+  - middleware
+  - controllers
+  - dependency-injection
+  - error-handling
+---
+
+## What Is This?
+
+The **nextrush** skill is a single, unified agent skill that teaches AI coding
+assistants how to build with the NextRush framework. It follows the
+[Agent Skills](https://agentskills.io) open standard and works with GitHub
+Copilot, Claude, Cursor, and other AI tools.
+
+## Install
+
+```bash
+npx skills add 0xTanzim/nextrush
+```
+
+This copies the skill into your project so your AI assistant can reference it
+when writing NextRush code.
+
+## What's Included
+
+The skill covers all core NextRush capabilities through a main SKILL.md and
+detailed reference files:
+
+| Topic           | Reference File                       | What You'll Learn                                          |
+| --------------- | ------------------------------------ | ---------------------------------------------------------- |
+| **Middleware**  | `references/middleware.md`           | Koa-style async middleware, error boundaries, auth, timing |
+| **Routing**     | `references/routing.md`              | Functional routes, CRUD, params, query strings, pagination |
+| **Controllers** | `references/controllers.md`          | `@Controller`, decorators, guards, parameter injection     |
+| **DI**          | `references/dependency-injection.md` | `@Service`, scopes, tokens, testing with mocks             |
+| **Errors**      | `references/error-handling.md`       | `HttpError` hierarchy, error middleware, custom errors     |
+
+## Quick Start
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush' }));
+
+app.route('/', router);
+await listen(app, 3000);
+```
+
+## Compatibility
+
+Works with any AI coding tool that supports the
+[Agent Skills specification](https://agentskills.io/specification):
+
+- **GitHub Copilot** — installs to `.github/skills/`
+- **Claude Code** — installs to `.claude/skills/`
+- **Cursor / Codex** — installs to `.agents/skills/`
+
+## Source
+
+The skill source lives at
+[`skills/nextrush/`](https://github.com/0xTanzim/nextrush/tree/main/skills/nextrush)
+in the NextRush repository.

@@ -1,0 +1,277 @@
+---
+title: 'Hello World'
+description: 'Minimal NextRush application — your first API in under 10 lines.'
+---
+
+The simplest possible NextRush application.
+
+<Callout type="info" title="Prerequisites">
+  Node.js 22+ and TypeScript 5.x are required.
+</Callout>
+
+---
+
+## The Code
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello, NextRush!' });
+});
+
+app.route('/', router);
+
+await listen(app, 3000);
+```
+
+**Expected output:**
+
+```bash
+curl http://localhost:3000
+# {"message":"Hello, NextRush!"}
+```
+
+---
+
+## Step by Step
+
+<Steps>
+
+<Step>
+
+### Create Project
+
+```bash
+mkdir hello-nextrush && cd hello-nextrush
+pnpm init
+```
+
+<PackageInstall packages={['nextrush']} dev={['typescript', '@types/node']} />
+
+</Step>
+
+<Step>
+
+### Create tsconfig.json
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}
+```
+
+</Step>
+
+<Step>
+
+### Create Entry File
+
+Create `src/index.ts` with the code from [The Code](#the-code) section above.
+
+</Step>
+
+<Step>
+
+### Run
+
+<PackageInstall packages={[]} dev={['@nextrush/dev']} />
+
+```bash
+npx nextrush dev
+```
+
+</Step>
+
+<Step>
+
+### Test
+
+```bash
+curl http://localhost:3000
+# {"message":"Hello, NextRush!"}
+```
+
+</Step>
+
+</Steps>
+
+---
+
+## What Each Part Does
+
+### createApp()
+
+Creates the NextRush application instance. This manages middleware and plugins.
+
+```typescript
+const app = createApp();
+```
+
+### createRouter()
+
+Creates a router for defining routes. NextRush uses a radix tree router.
+
+```typescript
+const router = createRouter();
+```
+
+### Route Definition
+
+Define a GET route at the root path:
+
+```typescript
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello, NextRush!' });
+});
+```
+
+- `ctx` — The context object containing request and response
+- `ctx.json()` — Send a JSON response
+
+### Mounting Routes
+
+Mount the router on the application at a path prefix:
+
+```typescript
+app.route('/', router);
+```
+
+The first argument is the path prefix. All routes defined on the router are served under that prefix.
+
+### Starting the Server
+
+Start listening for requests:
+
+```typescript
+await listen(app, 3000);
+```
+
+`listen()` returns a `Promise<ServerInstance>`. Use `await` or handle the promise.
+
+---
+
+## Adding More Routes
+
+Compose multiple routers for different resource groups.
+
+<details>
+<summary>Multi-router composition example (click to expand)</summary>
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+
+// Root router
+const root = createRouter();
+root.get('/', (ctx) => {
+  ctx.json({ message: 'Hello, NextRush!' });
+});
+
+// Health router
+const health = createRouter();
+health.get('/', (ctx) => {
+  ctx.json({
+    status: 'ok',
+    uptime: process.uptime(),
+  });
+});
+
+// Echo router
+const echo = createRouter();
+echo.get('/', (ctx) => {
+  ctx.json({
+    method: ctx.method,
+    path: ctx.path,
+    query: ctx.query,
+  });
+});
+
+// Users router with parameters
+const users = createRouter();
+users.get('/:id', (ctx) => {
+  ctx.json({ id: ctx.params.id });
+});
+
+// Mount all routers
+app.route('/', root);
+app.route('/health', health);
+app.route('/echo', echo);
+app.route('/users', users);
+
+await listen(app, 3000);
+```
+
+</details>
+
+---
+
+## With Middleware
+
+Add common middleware:
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+
+const app = createApp();
+
+// Middleware (runs before all routes)
+app.use(cors());
+app.use(json());
+
+// Routes
+const api = createRouter();
+api.get('/', (ctx) => {
+  ctx.json({ message: 'Hello, NextRush!' });
+});
+
+api.post('/echo', (ctx) => {
+  ctx.json({ received: ctx.body });
+});
+
+// Mount
+app.route('/api', api);
+
+await listen(app, 3000);
+```
+
+<Callout type="info">Middleware packages are installed separately.</Callout>
+
+<PackageInstall packages={['@nextrush/cors', '@nextrush/body-parser']} />
+
+---
+
+## Production Build
+
+```bash
+# Build for production
+npx nextrush build
+
+# Run production build
+node dist/index.js
+```
+
+---
+
+## Next Steps
+
+- [REST API Example](/docs/examples/rest-api) — Build a complete CRUD API
+- [Middleware Guide](/docs/concepts/middleware) — Learn about middleware
+- [Routing Guide](/docs/concepts/routing) — Deep dive into routing
+- [API Reference — Core](/docs/api-reference/core) — Full Application and Context API
+- [Coming from Express?](/docs/guides/migration) — Migration guide for Express users

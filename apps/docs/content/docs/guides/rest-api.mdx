@@ -1,0 +1,503 @@
+---
+title: Building REST APIs
+description: Step-by-step guide to building a REST API with NextRush
+---
+
+Build a complete user management REST API with NextRush. You'll define routes, parse request bodies, throw typed errors, and return structured JSON responses.
+
+## What You Will Build
+
+A CRUD API for managing users:
+
+| Method   | Path             | Description    |
+| -------- | ---------------- | -------------- |
+| `GET`    | `/api/users`     | List all users |
+| `GET`    | `/api/users/:id` | Get user by ID |
+| `POST`   | `/api/users`     | Create a user  |
+| `PUT`    | `/api/users/:id` | Update a user  |
+| `DELETE` | `/api/users/:id` | Delete a user  |
+
+## Prerequisites
+
+- Node.js 22+
+- TypeScript 5.x with strict mode
+
+<PackageInstall
+  packages={[
+    '@nextrush/core',
+    '@nextrush/router',
+    '@nextrush/adapter-node',
+    '@nextrush/body-parser',
+    '@nextrush/errors',
+  ]}
+/>
+
+## Project Structure
+
+```
+src/
+├── index.ts          # Application entry point
+├── routes/
+│   └── users.ts      # User routes
+├── services/
+│   └── user.ts       # Business logic
+└── types/
+    └── user.ts       # Type definitions
+```
+
+## Step-by-Step
+
+<Steps>
+  <Step>
+    ### Define your types
+
+    Start with clear type definitions:
+
+    ```typescript title="src/types/user.ts"
+    export interface User {
+      id: string;
+      name: string;
+      email: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+
+    export interface CreateUserInput {
+      name: string;
+      email: string;
+    }
+
+    export interface UpdateUserInput {
+      name?: string;
+      email?: string;
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Create a service layer
+
+    Separate business logic from HTTP handling:
+
+    ```typescript title="src/services/user.ts"
+    import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
+
+    // In-memory store for demonstration
+    const users = new Map<string, User>();
+
+    export const userService = {
+      findAll(): User[] {
+        return Array.from(users.values());
+      },
+
+      findById(id: string): User | undefined {
+        return users.get(id);
+      },
+
+      create(input: CreateUserInput): User {
+        const id = crypto.randomUUID();
+        const now = new Date();
+
+        const user: User = {
+          id,
+          name: input.name,
+          email: input.email,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        users.set(id, user);
+        return user;
+      },
+
+      update(id: string, input: UpdateUserInput): User | undefined {
+        const existing = users.get(id);
+        if (!existing) return undefined;
+
+        const updated: User = {
+          ...existing,
+          ...input,
+          updatedAt: new Date(),
+        };
+
+        users.set(id, updated);
+        return updated;
+      },
+
+      delete(id: string): boolean {
+        return users.delete(id);
+      },
+    };
+    ```
+
+  </Step>
+  <Step>
+    ### Define routes
+
+    Register routes on the router with relative paths. The mount prefix is applied when you attach the router to the app.
+
+    ```typescript title="src/routes/users.ts"
+    import { createRouter } from '@nextrush/router';
+    import { NotFoundError, BadRequestError } from '@nextrush/errors';
+    import { userService } from '../services/user';
+    import type { CreateUserInput, UpdateUserInput } from '../types/user';
+
+    export const usersRouter = createRouter();
+
+    // GET /api/users
+    usersRouter.get('/', (ctx) => {
+      const users = userService.findAll();
+      ctx.json({
+        data: users,
+        total: users.length,
+      });
+    });
+
+    // GET /api/users/:id
+    usersRouter.get('/:id', (ctx) => {
+      const { id } = ctx.params;
+      const user = userService.findById(id);
+
+      if (!user) {
+        throw new NotFoundError(`User with ID "${id}" not found`);
+      }
+
+      ctx.json({ data: user });
+    });
+
+    // POST /api/users
+    usersRouter.post('/', (ctx) => {
+      const body = ctx.body as CreateUserInput;
+
+      if (!body.name || !body.email) {
+        throw new BadRequestError('Name and email are required');
+      }
+
+      const user = userService.create(body);
+
+      ctx.status = 201;
+      ctx.json({ data: user });
+    });
+
+    // PUT /api/users/:id
+    usersRouter.put('/:id', (ctx) => {
+      const { id } = ctx.params;
+      const body = ctx.body as UpdateUserInput;
+
+      const user = userService.update(id, body);
+
+      if (!user) {
+        throw new NotFoundError(`User with ID "${id}" not found`);
+      }
+
+      ctx.json({ data: user });
+    });
+
+    // DELETE /api/users/:id
+    usersRouter.delete('/:id', (ctx) => {
+      const { id } = ctx.params;
+      const deleted = userService.delete(id);
+
+      if (!deleted) {
+        throw new NotFoundError(`User with ID "${id}" not found`);
+      }
+
+      ctx.status = 204;
+      ctx.send('');
+    });
+    ```
+
+    <Callout type="info">
+      Router paths are relative to the mount point. When you call `app.route('/api/users', usersRouter)`, a route registered as `/:id` matches requests to `/api/users/:id`.
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Set up the application
+
+    Wire everything together:
+
+    ```typescript title="src/index.ts"
+    import { createApp } from '@nextrush/core';
+    import { listen } from '@nextrush/adapter-node';
+    import { json } from '@nextrush/body-parser';
+    import { errorHandler, notFoundHandler } from '@nextrush/errors';
+    import { usersRouter } from './routes/users';
+
+    const app = createApp();
+
+    // Error handling (must be first)
+    app.use(errorHandler({
+      includeStack: process.env.NODE_ENV !== 'production',
+    }));
+
+    // Parse JSON bodies
+    app.use(json());
+
+    // Mount routes
+    app.route('/api/users', usersRouter);
+
+    // 404 handler (must be last)
+    app.use(notFoundHandler());
+
+    // Start server
+    await listen(app, 3000);
+    ```
+
+    <Callout type="warn">
+      Middleware order matters. The error handler wraps all downstream middleware, so it must be registered first. The 404 handler catches unmatched requests, so it must be last.
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Verify your API
+
+    Start the server and test with curl:
+
+    ```bash
+    # Create a user
+    curl -X POST http://localhost:3000/api/users \
+      -H "Content-Type: application/json" \
+      -d '{"name": "Alice", "email": "alice@example.com"}'
+
+    # List all users
+    curl http://localhost:3000/api/users
+
+    # Get a specific user (replace with a real ID from the create response)
+    curl http://localhost:3000/api/users/<id>
+
+    # Update a user
+    curl -X PUT http://localhost:3000/api/users/<id> \
+      -H "Content-Type: application/json" \
+      -d '{"name": "Alice Updated"}'
+
+    # Delete a user
+    curl -X DELETE http://localhost:3000/api/users/<id>
+    ```
+
+    Expected responses:
+
+    - `POST` returns `201` with the created user
+    - `GET` returns `200` with `{ data: ... }`
+    - `PUT` returns `200` with the updated user
+    - `DELETE` returns `204` with an empty body
+    - Missing users return `404` with a structured error
+
+  </Step>
+</Steps>
+
+## Adding Pagination
+
+For large datasets, add query-based pagination to the list endpoint:
+
+```typescript
+usersRouter.get('/', (ctx) => {
+  const page = Number(ctx.query.page) || 1;
+  const limit = Number(ctx.query.limit) || 10;
+
+  const allUsers = userService.findAll();
+  const start = (page - 1) * limit;
+  const users = allUsers.slice(start, start + limit);
+
+  ctx.json({
+    data: users,
+    meta: { total: allUsers.length, page, limit },
+  });
+});
+```
+
+## Using Class-Based Controllers
+
+For larger applications, you can use decorator-based controllers with dependency injection. This requires additional packages:
+
+<PackageInstall
+  packages={['@nextrush/decorators', '@nextrush/di', '@nextrush/controllers', 'reflect-metadata']}
+/>
+
+<details>
+<summary>Full class-based controller implementation</summary>
+
+```typescript title="src/controllers/users.controller.ts"
+import { Controller, Get, Post, Put, Delete, Body, Param, Service } from 'nextrush/class';
+import { NotFoundError, BadRequestError } from '@nextrush/errors';
+import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
+
+@Service()
+class UserService {
+  private users = new Map<string, User>();
+
+  findAll() {
+    return Array.from(this.users.values());
+  }
+
+  findById(id: string) {
+    return this.users.get(id);
+  }
+
+  create(input: CreateUserInput) {
+    const user: User = {
+      id: crypto.randomUUID(),
+      ...input,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  update(id: string, input: UpdateUserInput) {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...input, updatedAt: new Date() };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  delete(id: string) {
+    return this.users.delete(id);
+  }
+}
+
+@Controller('/users')
+export class UsersController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() {
+    return { data: this.userService.findAll() };
+  }
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) {
+    const user = this.userService.findById(id);
+    if (!user) throw new NotFoundError('User not found');
+    return { data: user };
+  }
+
+  @Post()
+  create(@Body() input: CreateUserInput) {
+    if (!input.name || !input.email) {
+      throw new BadRequestError('Name and email are required');
+    }
+    return { data: this.userService.create(input) };
+  }
+
+  @Put('/:id')
+  update(@Param('id') id: string, @Body() input: UpdateUserInput) {
+    const user = this.userService.update(id, input);
+    if (!user) throw new NotFoundError('User not found');
+    return { data: user };
+  }
+
+  @Delete('/:id')
+  remove(@Param('id') id: string) {
+    if (!this.userService.delete(id)) {
+      throw new NotFoundError('User not found');
+    }
+    return { success: true };
+  }
+}
+```
+
+Bootstrap with the controllers plugin:
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin } from 'nextrush/class';
+import { json } from '@nextrush/body-parser';
+
+const app = createApp();
+const router = createRouter();
+
+app.use(json());
+await app.plugin(
+  controllersPlugin({
+    router,
+    root: './src',
+    prefix: '/api',
+  })
+);
+app.route('/api', router);
+
+await listen(app, 3000);
+```
+
+</details>
+
+## Common Patterns
+
+### Route Grouping
+
+```typescript
+import { createRouter } from '@nextrush/router';
+
+const users = createRouter();
+users.get('/', listUsers);
+users.get('/:id', getUser);
+
+const posts = createRouter();
+posts.get('/', listPosts);
+posts.get('/:id', getPost);
+
+app.route('/api/users', users);
+app.route('/api/posts', posts);
+```
+
+### Request Logging Middleware
+
+```typescript
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const duration = Date.now() - start;
+  app.logger.info(`${ctx.method} ${ctx.path} ${ctx.status} - ${duration}ms`);
+});
+```
+
+### Content Negotiation
+
+```typescript
+usersRouter.get('/:id', (ctx) => {
+  const user = userService.findById(ctx.params.id);
+  if (!user) throw new NotFoundError('User not found');
+
+  const accept = ctx.get('accept') || 'application/json';
+
+  if (accept.includes('text/html')) {
+    ctx.html(`<h1>${user.name}</h1><p>${user.email}</p>`);
+  } else {
+    ctx.json({ data: user });
+  }
+});
+```
+
+## What's Next?
+
+<Cards>
+  <Card
+    title="Error Handling"
+    description="Learn about structured error handling patterns."
+    href="/docs/guides/error-handling"
+  />
+  <Card
+    title="Validation"
+    description="Add request validation with Zod."
+    href="/docs/guides/validation"
+  />
+  <Card title="Testing" description="Test your API endpoints." href="/docs/guides/testing" />
+  <Card
+    title="Security"
+    description="Harden your API with rate limiting, CORS, and helmet."
+    href="/docs/guides/security"
+  />
+  <Card
+    title="Context API Reference"
+    description="Full context methods and properties."
+    href="/docs/api-reference/core/context"
+  />
+  <Card
+    title="Router API Reference"
+    description="Radix tree routing — all methods and options."
+    href="/docs/api-reference/core/router"
+  />
+</Cards>

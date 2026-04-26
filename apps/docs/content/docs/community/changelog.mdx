@@ -1,0 +1,238 @@
+---
+title: 'Changelog'
+description: 'Release history and changes for NextRush v3.'
+---
+
+All notable changes to NextRush v3 are documented here.
+
+---
+
+## Versioning
+
+NextRush follows [Semantic Versioning](https://semver.org/):
+
+- **Major** (3.x.x): Breaking changes
+- **Minor** (x.1.x): New features, backward compatible
+- **Patch** (x.x.1): Bug fixes, backward compatible
+
+---
+
+## v3.0.0-alpha.3
+
+**Status**: Alpha release
+
+### New Features
+
+#### `@nextrush/di`
+
+- **`@Optional()` decorator** — Mark constructor parameters as optional. Unregistered dependencies resolve to `undefined` instead of throwing.
+- **`isParameterOptional()` / `getOptionalParams()`** — Utility functions to inspect optional parameter metadata.
+- **Improved error messages** — DI resolution errors now include actionable suggestions (e.g., "Did you forget to add @Service()?").
+- **Set-based circular dependency detection** — O(1) lookup performance for circular dependency tracking.
+
+#### `@nextrush/decorators`
+
+- **`@SetHeader(name, value)`** — Declarative response header decorator for route methods.
+- **`@Redirect(url, statusCode?)`** — Declarative redirect decorator with configurable status code (default 302).
+- **`createCustomParamDecorator(extractor, options?)`** — Create reusable parameter decorators with custom extraction logic.
+- **`getResponseHeaders()` / `getRedirectMetadata()`** — Metadata reader functions for response decorators.
+
+#### `@nextrush/router`
+
+- **`router.reset()`** — Clear all registered routes, middleware, and internal state.
+
+#### `@nextrush/controllers`
+
+- **`@SetHeader` / `@Redirect` handler support** — Built handlers apply response headers and redirects automatically.
+- **Custom parameter extraction** — `createCustomParamDecorator` params are fully supported in handler building.
+- **Middleware token resolution** — Middleware arrays accept DI tokens (string/Symbol) resolved from the container.
+- **Plugin `destroy()` lifecycle** — Calls `router.reset()` for graceful cleanup.
+
+---
+
+## v3.0.0
+
+**Status**: Alpha release
+
+### Highlights
+
+- **Modular monorepo**: Every feature is a separate package with zero runtime dependencies
+- **Dual paradigm**: Functional routes and decorator-based controllers
+- **Controllers plugin**: Auto-discovery and registration via `@nextrush/controllers`
+- **Guards system**: Function and class-based guards for route protection
+- **Dependency injection**: DI container via `@nextrush/di` (wraps tsyringe)
+- **Dev tools**: CLI for development and production builds via `@nextrush/dev`
+- **Multi-runtime adapters**: Node.js, Bun, Deno, and Edge
+
+<details>
+<summary>All package versions in v3.0.0</summary>
+
+| Package                  | Version |
+| ------------------------ | ------- |
+| `nextrush`               | 3.0.0   |
+| `@nextrush/core`         | 3.0.0   |
+| `@nextrush/router`       | 3.0.0   |
+| `@nextrush/types`        | 3.0.0   |
+| `@nextrush/errors`       | 3.0.0   |
+| `@nextrush/di`           | 3.0.0   |
+| `@nextrush/decorators`   | 3.0.0   |
+| `@nextrush/controllers`  | 3.0.0   |
+| `@nextrush/dev`          | 3.0.0   |
+| `@nextrush/runtime`      | 3.0.0   |
+| `@nextrush/adapter-node` | 3.0.0   |
+
+</details>
+
+### Breaking Changes from v2
+
+<Callout type="warn">
+  v3 is a complete rewrite. Migration from v2 requires significant changes.
+</Callout>
+
+#### Package Structure
+
+v2 was a single package. v3 is a modular monorepo:
+
+```typescript
+// v2
+import { createApp, cors, helmet } from 'nextrush';
+
+// v3
+import { createApp } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+```
+
+#### Context API
+
+```typescript
+// v2 - Koa-style
+ctx.body = { message: 'Hello' };
+
+// v3 - method-based
+ctx.json({ message: 'Hello' });
+```
+
+#### Middleware
+
+```typescript
+// v2
+app.use(async (ctx, next) => {
+  await next();
+});
+
+// v3
+app.use(async (ctx) => {
+  await ctx.next();
+});
+```
+
+#### Server Start
+
+```typescript
+// v2
+app.listen(3000);
+
+// v3
+import { listen } from 'nextrush';
+await listen(app, 3000);
+```
+
+---
+
+## Migration Guide
+
+### From v2 to v3
+
+Follow these steps to migrate your application from v2 to v3:
+
+<Steps>
+<Step>
+
+### Update Dependencies
+
+```bash
+# Remove v2
+pnpm remove nextrush
+
+# Install v3 core
+pnpm add nextrush
+
+# Install middleware separately
+pnpm add @nextrush/cors @nextrush/body-parser
+```
+
+</Step>
+<Step>
+
+### Update Imports
+
+```typescript
+// Before (v2)
+import { createApp, cors, json } from 'nextrush';
+
+// After (v3)
+import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+```
+
+</Step>
+<Step>
+
+### Update Context Usage
+
+```typescript
+// Before (v2)
+router.get('/', (ctx) => {
+  ctx.body = { message: 'Hello' };
+  ctx.status = 200;
+});
+
+// After (v3)
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello' });
+  // Status 200 is the default
+});
+```
+
+</Step>
+<Step>
+
+### Update Middleware
+
+```typescript
+// Before (v2)
+app.use(cors({ origin: '*' }));
+
+// After (v3) — same API, different import
+import { cors } from '@nextrush/cors';
+app.use(cors({ origin: '*' }));
+```
+
+</Step>
+<Step>
+
+### Update Server Start
+
+```typescript
+// Before (v2)
+app.listen(3000);
+
+// After (v3)
+import { listen } from 'nextrush';
+await listen(app, 3000);
+```
+
+</Step>
+</Steps>
+
+---
+
+## Upgrade Support
+
+Having trouble upgrading?
+
+- Check the [documentation](/docs)
+- Open an [issue](https://github.com/0xtanzim/nextrush/issues)
+- Ask in [discussions](https://github.com/0xtanzim/nextrush/discussions)

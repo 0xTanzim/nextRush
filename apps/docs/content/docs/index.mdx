@@ -1,0 +1,125 @@
+---
+title: NextRush Documentation
+description: Minimal, modular, type-safe Node.js backend framework — docs home.
+---
+
+NextRush is a **minimal, modular, type-safe** HTTP framework for Node.js and other runtimes. The core stays
+under 3,000 lines with **no runtime dependencies**; you add `@nextrush/*` packages when you need them.
+Everything is written for **TypeScript strict mode**.
+
+<Callout type="info" title="Current Version">
+  NextRush v3 is in active development. APIs are stabilizing — suitable for early adopters. Requires
+  Node.js 22+.
+</Callout>
+
+## Why NextRush?
+
+Most backend frameworks force a trade-off:
+
+1. **Minimalist but limiting** — Great for prototypes, frustrating at scale.
+2. **Feature-rich but opaque** — Lots of features, but behavior is hidden from you.
+
+NextRush takes a different approach: **small core, modular packages, explicit behavior**. You install what you need and see what happens at every layer.
+
+<FeatureGrid>
+  <Feature
+    icon="⚡"
+    title="Lean routing"
+    description="Segment trie routing with O(d) lookup."
+  />
+  <Feature icon="🎯" title="Type Safe" description="Full TypeScript strict mode. Zero `any`." />
+  <Feature icon="📦" title="Modular" description="30 packages in the monorepo. Install what you need." />
+  <Feature icon="🌐" title="Multi-Runtime" description="Node.js, Bun, Deno, and Edge adapters." />
+  <Feature
+    icon="🔌"
+    title="Extensible"
+    description="Plugin system for controllers, WebSocket, and more."
+  />
+  <Feature
+    icon="🛡️"
+    title="Security Middleware"
+    description="Helmet, CORS, rate limiting available as packages."
+  />
+</FeatureGrid>
+
+## Quick Start
+
+<PackageInstall packages={['nextrush']} />
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+app.route('/users', users);
+
+await listen(app, 3000);
+```
+
+```bash title="Terminal"
+npx tsx src/index.ts
+# → 🚀 NextRush listening on http://localhost:3000
+```
+
+## Choose your path
+
+<Cards>
+  <Card
+    title="Introduction"
+    description="What NextRush is, trade-offs vs other frameworks, and when to use it."
+    href="/docs/getting-started"
+  />
+  <Card
+    title="Framework overview"
+    description="Full map: hello world, lifecycle, packages, styles, benchmarks."
+    href="/docs/getting-started/overview"
+  />
+  <Card
+    title="Core concepts"
+    description="Context, middleware, routing, plugins, and guards in depth."
+    href="/docs/concepts"
+  />
+  <Card
+    title="API reference"
+    description="Lookup tables for core, middleware, plugins, and adapters."
+    href="/docs/api-reference"
+  />
+  <Card
+    title="Guides"
+    description="REST APIs, auth, validation, testing, deployment."
+    href="/docs/guides"
+  />
+  <Card
+    title="Benchmarks"
+    description="Lab methodology, snapshots, and tuning notes."
+    href="/docs/performance"
+  />
+</Cards>
+
+## Design Philosophy
+
+NextRush is built on these principles:
+
+| Principle                        | What It Means                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| **Minimal Core**                 | Core is under 3,000 lines of code.                                            |
+| **Explicit Over Implicit**       | No hidden behavior. You see what happens.                                     |
+| **Composition Over Inheritance** | Build with functions and middleware, not deep class hierarchies.              |
+| **Type Safety First**            | TypeScript strict mode from the ground up. Zero `any` allowed.                |
+| **Zero Runtime Dependencies**    | No external runtime deps in core. `reflect-metadata` is auto-imported for DI. |
+
+## Dual Paradigm
+
+NextRush supports both **functional** and **class-based** programming styles. Start with functions for simplicity, add decorators and DI when your project grows. Both styles work together — no forced migration.
+
+[Learn more about programming styles →](/docs/concepts#two-programming-styles)
+
+## What's Next?
+
+Start with the [Getting Started guide](/docs/getting-started) to install NextRush and create your first API.
+
+Questions? Use [GitHub Discussions](https://github.com/0xTanzim/nextrush/discussions) or open an issue. For AI-assisted workflows, see the [Skills directory](/skills).

@@ -1,0 +1,90 @@
+{
+  "name": "@nextrush/template",
+  "version": "3.0.0",
+  "description": "Modern template engine for NextRush - Mustache-like syntax with helpers, partials, layouts, and streaming",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "nextrush",
+    "template",
+    "templating",
+    "mustache",
+    "handlebars",
+    "html",
+    "render"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/plugins/template"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:^"
+  },
+  "devDependencies": {
+    "@nextrush/core": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "@nextrush/core": "workspace:^",
+    "ejs": "^3.0.0",
+    "eta": "^3.0.0",
+    "handlebars": "^4.0.0",
+    "nunjucks": "^3.0.0",
+    "pug": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@nextrush/core": {
+      "optional": true
+    },
+    "ejs": {
+      "optional": true
+    },
+    "eta": {
+      "optional": true
+    },
+    "handlebars": {
+      "optional": true
+    },
+    "nunjucks": {
+      "optional": true
+    },
+    "pug": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}

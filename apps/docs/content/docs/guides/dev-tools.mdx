@@ -1,0 +1,228 @@
+---
+title: Dev Tools
+description: Set up the NextRush CLI for development with hot reload and production builds with decorator metadata
+---
+
+Modern bundlers like esbuild and tsx strip decorator metadata that dependency injection needs. The `@nextrush/dev` CLI provides a hot-reloading dev server and a production build pipeline that preserves this metadata using SWC.
+
+## What You Will Build
+
+A development workflow with a hot-reloading dev server and a production build that compiles TypeScript with SWC, preserving decorator metadata for DI.
+
+## Prerequisites
+
+- Node.js 22+, Bun, or Deno installed
+- An existing NextRush project (or a `src/index.ts` entry file)
+- `tsconfig.json` with `experimentalDecorators` and `emitDecoratorMetadata` enabled
+
+## Installation
+
+<PackageInstall packages={[]} dev={['@nextrush/dev']} />
+
+## Step-by-Step Setup
+
+<Steps>
+  <Step>
+    ### Add scripts to package.json
+
+    ```json
+    {
+      "scripts": {
+        "dev": "nextrush dev",
+        "build": "nextrush build",
+        "start": "node dist/index.js"
+      }
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Start the dev server
+
+    ```bash
+    npx nextrush dev
+    ```
+
+    The CLI auto-detects your entry file, runtime, and TypeScript settings. No configuration required.
+
+  </Step>
+  <Step>
+    ### Build for production
+
+    ```bash
+    npx nextrush build
+    ```
+
+    Compiles TypeScript with SWC, emitting decorator metadata that DI containers require.
+
+  </Step>
+</Steps>
+
+## Dev Server Options
+
+```bash
+npx nextrush dev ./src/app.ts --port 4000 --inspect
+```
+
+<TypeTable
+  title="nextrush dev options"
+  types={{
+    '--port, -p': { type: 'number', description: 'Server port', default: '3000' },
+    '--watch, -w': {
+      type: 'string',
+      description: 'Path to watch (replaces default; repeatable)',
+      default: 'src (or . if src/ missing)',
+    },
+    '--inspect': { type: 'boolean', description: 'Enable Node.js inspector', default: 'false' },
+    '--inspect-port': { type: 'number', description: 'Inspector port', default: '9229' },
+    '--no-clear': { type: 'boolean', description: "Don't clear screen on start" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
+
+The port also respects the `PORT` environment variable when `--port` is not set.
+
+## Build Options
+
+```bash
+npx nextrush build --outDir dist --minify --target es2022
+```
+
+<TypeTable
+  title="nextrush build options"
+  types={{
+    '--outDir, -o': { type: 'string', description: 'Output directory', default: 'dist' },
+    '--target, -t': {
+      type: 'string',
+      description: 'ES target (es2020, es2021, es2022, esnext)',
+      default: 'es2022',
+    },
+    '--sourcemap': { type: 'boolean', description: 'Generate sourcemaps', default: 'true' },
+    '--no-sourcemap': { type: 'boolean', description: 'Disable sourcemaps' },
+    '--minify, -m': { type: 'boolean', description: 'Minify output', default: 'false' },
+    '--no-decorator-metadata': {
+      type: 'boolean',
+      description: 'Disable decorator metadata emission',
+    },
+    '--no-clean': { type: 'boolean', description: "Don't clean output directory before build" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
+
+## Runtime Behavior
+
+The CLI detects your runtime and adapts automatically:
+
+| Runtime | Dev Server                  | Production Build       | Dev Decorator Metadata |
+| ------- | --------------------------- | ---------------------- | ---------------------- |
+| Node.js | `@swc-node/register` (SWC)  | `@swc/core` transform  | Emitted                |
+| Bun     | `bun --watch` (native)      | `Bun.build()` (native) | Emitted natively       |
+| Deno    | `deno run --watch` (native) | `npm:@swc/core`        | Emitted natively       |
+
+<Callout type="info" title="Startup tsconfig Validation">
+  `nextrush dev` checks your `tsconfig.json` at startup and warns immediately if
+  `experimentalDecorators` or `emitDecoratorMetadata` are missing — preventing silent DI failures
+  before your app even starts.
+</Callout>
+
+## Entry File Detection
+
+The CLI finds your entry file in this order:
+
+1. `package.json` `main` or `module` field (converts `dist/` paths to `src/`)
+2. `src/index.ts`, `src/main.ts`, `src/app.ts`, `src/server.ts`
+3. `index.ts`, `main.ts`, `app.ts`, `server.ts`
+
+Override by passing the entry directly: `npx nextrush dev ./src/app.ts`
+
+## Configuration File
+
+The CLI loads settings from `nextrush.config.ts` or a `"nextrush"` field in `package.json`:
+
+```typescript title="nextrush.config.ts"
+export default {
+  dev: {
+    port: 4000,
+    watch: ['src', 'config'],
+  },
+  build: {
+    outDir: 'dist',
+    target: 'es2022',
+    minify: false,
+  },
+};
+```
+
+CLI flags override config file values.
+
+## Verification
+
+Run the dev server and confirm the output:
+
+```bash
+npx nextrush dev
+```
+
+You should see:
+
+```
+⚡ NextRush Dev Server
+
+  Runtime:  node v22.x.x
+  Entry:    src/index.ts
+  Port:     3000
+  Watching: src
+```
+
+<Callout type="warn">
+  If you see "TypeInfo not known for X" at runtime, verify your `tsconfig.json` has both
+  `experimentalDecorators` and `emitDecoratorMetadata` set to `true`, and that `reflect-metadata` is
+  imported at the top of your entry file.
+</Callout>
+
+## Programmatic API
+
+For build scripts, monorepo setups, or test harnesses:
+
+```typescript
+import { dev, build, detectRuntime } from '@nextrush/dev';
+
+// Dev server
+await dev('./src/app.ts', { port: 4000, inspect: true });
+
+// Production build
+await build('./src/index.ts', { outDir: 'dist', minify: true });
+
+// Runtime detection
+const runtime = detectRuntime(); // 'node' | 'bun' | 'deno'
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Code Generators"
+    description="Scaffold controllers, services, middleware, guards, and routes from the CLI."
+    href="/docs/guides/generators"
+  />
+  <Card
+    title="Class-Based Controllers"
+    description="Build APIs with decorators and DI."
+    href="/docs/guides/class-based"
+  />
+  <Card
+    title="DI & Decorators Architecture"
+    description="Understand how DI and decorators work internally."
+    href="/docs/concepts/di-decorators"
+  />
+  <Card
+    title="API Reference — DI"
+    description="Full DI container and decorator API."
+    href="/docs/api-reference/di"
+  />
+  <Card
+    title="Deployment"
+    description="Deploy your application to production."
+    href="/docs/guides/deployment"
+  />
+</Cards>

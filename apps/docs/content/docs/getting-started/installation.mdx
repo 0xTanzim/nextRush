@@ -1,0 +1,230 @@
+---
+title: Installation
+description: Prerequisites, scaffold with create-nextrush, or install the nextrush meta-package by hand
+---
+
+NextRush requires **Node.js 22** or later. For Bun or Deno, add the matching adapter package (the
+scaffolder can do this when you pick a runtime).
+
+## Prerequisites
+
+Before installing NextRush, ensure you have:
+
+- **Node.js 22+** — [Download](https://nodejs.org/) or use a version manager like [nvm](https://github.com/nvm-sh/nvm)
+- **A package manager** — pnpm (recommended), npm, yarn, or bun
+
+<Callout type="info" title="Why Node.js 22?">
+  The framework targets **ES2022**, stable **ESM**, and APIs the docs assume are available on the
+  supported Node line. Use **22.x or newer** so `pnpm create nextrush`, `tsx`, and the Node adapter
+  match what CI and examples run against.
+</Callout>
+
+## Choose your setup path
+
+Pick one path and stay on it until you have a running server:
+
+<Cards>
+  <Card
+    title="Scaffold a project"
+    description="Scaffold a ready-to-run app with runtime, middleware, and style presets."
+    href="#scaffold-a-project"
+  />
+  <Card
+    title="Install manually"
+    description="Pick packages yourself when you want to wire each layer explicitly."
+    href="#install-manually"
+  />
+</Cards>
+
+## Scaffold a project
+
+If you want a working app immediately, use `create-nextrush`.
+
+```bash
+# Interactive
+pnpm create nextrush
+
+# npm
+npm create nextrush
+
+# non-interactive example
+pnpm create nextrush my-api --style functional --middleware api --runtime node
+```
+
+The scaffolder generates a ready-to-run project with routing, middleware, scripts, and optional
+controllers + DI support.
+
+<Callout type="info" title="What the scaffold asks">
+  Project name, style (`functional`, `class-based`, or `full`), middleware preset, runtime target,
+  package manager, dependency install, and git init.
+</Callout>
+
+If you want the full flag reference and template breakdown, see the
+[create-nextrush reference](/docs/getting-started/create-nextrush).
+
+## Install manually
+
+<Steps>
+<Step>
+### Create a project folder
+
+```bash
+mkdir my-api && cd my-api
+pnpm init
+```
+
+Add `"type": "module"` to `package.json` so Node treats `.js` output as ESM (the scaffolder does this for you).
+
+</Step>
+<Step>
+### Install NextRush
+
+Choose your preferred package manager:
+
+<PackageInstall packages={['nextrush']} dev={['tsx', 'typescript', '@types/node']} />
+
+The `nextrush` package is a meta-package that includes the essentials:
+
+- `@nextrush/core` — Application and middleware
+- `@nextrush/router` — HTTP routing
+- `@nextrush/adapter-node` — Node.js HTTP server adapter
+- `@nextrush/errors` — HTTP error classes
+- `@nextrush/types` — Shared TypeScript types
+
+</Step>
+
+<Step>
+### Verify Installation
+
+Create `src/index.ts`:
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ status: 'ok', framework: 'NextRush' });
+});
+
+app.route('/', router);
+await listen(app, 3000);
+```
+
+Run it:
+
+```bash
+npx tsx src/index.ts
+```
+
+Open `http://localhost:3000` in your browser. You should see:
+
+```json
+{ "status": "ok", "framework": "NextRush" }
+```
+
+</Step>
+
+<Step>
+### Configure TypeScript
+
+NextRush is written in TypeScript and provides full type definitions. For accurate types and decorator metadata, use these `tsconfig.json` settings:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
+```
+
+<Callout type="info" title="Decorators and DI">
+  If you use class-based controllers with `@nextrush/di`, add `"experimentalDecorators": true` and
+  `"emitDecoratorMetadata": true` to your `compilerOptions`. The `nextrush` meta-package
+  auto-imports `reflect-metadata` — no manual setup needed.
+</Callout>
+</Step>
+
+<Step>
+### Set Up Project Structure
+
+A typical NextRush project looks like this:
+
+```text
+my-api/
+├── src/
+│   ├── index.ts          # Application entry point
+│   ├── routes/           # Route handlers
+│   │   ├── users.ts
+│   │   └── products.ts
+│   └── middleware/       # Custom middleware
+│       └── auth.ts
+├── package.json
+└── tsconfig.json
+```
+
+<Callout type="info" title="No Prescribed Structure">
+  NextRush does not enforce a specific project structure. Organize your code in whatever way makes
+  sense for your team.
+</Callout>
+</Step>
+</Steps>
+
+---
+
+## Individual Packages
+
+For more control, install packages individually:
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-node']} />
+
+This is useful when:
+
+- You want to minimize bundle size
+- You're using a different runtime adapter (Bun, Deno, Edge)
+- You need fine-grained control over versions
+
+<details>
+<summary>Optional packages reference</summary>
+
+### Middleware
+
+<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
+
+### Plugins
+
+<PackageInstall packages={['@nextrush/controllers', '@nextrush/logger', '@nextrush/static']} />
+
+### Runtime Adapters
+
+<PackageInstall
+  packages={['@nextrush/adapter-bun', '@nextrush/adapter-deno', '@nextrush/adapter-edge']}
+/>
+
+### Development Tools
+
+<PackageInstall packages={[]} dev={['tsx', 'typescript', '@types/node']} />
+
+- **tsx** — Run TypeScript directly without compilation
+- **typescript** — TypeScript compiler
+- **@types/node** — Node.js type definitions
+
+</details>
+
+## Next Steps
+
+If you installed by hand, continue to [Quick start](/docs/getting-started/quick-start) for a longer
+manual tour (routing, middleware, JSON bodies).
+
+If you used the scaffold, open the generated `src/index.ts` and run the dev script from the project
+`package.json` (for example `pnpm dev`). For CLI flags and templates, see
+[create-nextrush](/docs/getting-started/create-nextrush).

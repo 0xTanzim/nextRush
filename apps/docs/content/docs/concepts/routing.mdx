@@ -1,0 +1,278 @@
+---
+title: Routing
+description: Segment trie routing with O(d) lookup, where d is path depth
+---
+
+NextRush uses a segment trie router for O(d) lookup performance — where d is the number of path segments, not the number of registered routes.
+
+## The Problem
+
+Traditional routers in Express, Koa, and most Node.js frameworks use **array-based matching**. Every incoming request iterates through all registered routes until one matches.
+
+This creates real problems at scale:
+
+- **Performance degrades linearly with route count.** With 10 routes, matching is fast. With 500 routes in a large API, every request scans hundreds of patterns.
+- **Route order creates subtle bugs.** When routes are checked sequentially, registration order determines priority. A catch-all defined before specific routes swallows requests silently.
+
+## How NextRush Solves It
+
+NextRush uses a **segment trie** — a tree indexed by full path segments (like `users` or `:id`), not individual characters. Routes are inserted into the tree at registration time, and lookups walk the tree one segment at a time.
+
+```
+Routes registered:
+  GET /users
+  GET /users/:id
+  GET /users/:id/posts
+  GET /products
+  GET /products/:id
+
+Segment trie:
+  (root)
+  ├── users
+  │   └── :id
+  │       └── posts
+  └── products
+      └── :id
+```
+
+When a request arrives for `/users/123/posts`, the router walks the tree:
+
+1. Match segment `users` → static child found, descend
+2. Match segment `123` → parameter node `:id`, capture value, descend
+3. Match segment `posts` → static child found, return handler + params
+
+**Three segment comparisons**, regardless of how many other routes exist.
+
+## Mental Model
+
+Think of routing as **navigating a directory tree**, not searching a list:
+
+```
+(root)
+├── api/
+│   └── v1/
+│       ├── users/
+│       │   ├── (GET, POST)
+│       │   └── :id/
+│       │       └── (GET, PUT, DELETE)
+│       └── products/
+│           └── (GET)
+└── health (GET)
+```
+
+Request matching is like `cd /api/v1/users/123` — you follow the path directly. You never scan every file in the system.
+
+## Execution Flow
+
+When a request reaches the router:
+
+1. **Static fast path** — static routes (no `:param` or `*`) are stored in a hash map for O(1) lookup, bypassing the tree entirely.
+2. **Trie walk** — for routes with parameters or wildcards, the router walks the segment trie. At each node, it tries matches in priority order: static children first, then parameter nodes, then wildcards.
+3. **Handler dispatch** — once matched, the pre-compiled executor runs route middleware and the handler without per-request closure allocation.
+
+<Callout type="info">
+  Route executors are compiled at registration time, not per request. This eliminates closure
+  allocation in the hot path.
+</Callout>
+
+## Basic Usage
+
+```typescript title="Basic Routing"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/users', (ctx) => {
+  ctx.json({ users: [] });
+});
+
+router.get('/users/:id', (ctx) => {
+  ctx.json({ userId: ctx.params.id });
+});
+
+app.route('/', router);
+```
+
+All standard HTTP methods are available: `get`, `post`, `put`, `delete`, `patch`, `head`, `options`. Use `all` to register for every method, or `route(method, path, handler)` for programmatic registration.
+
+## Route Patterns
+
+### Parameters
+
+Parameters capture path segments into `ctx.params`:
+
+```typescript
+router.get('/users/:userId/posts/:postId', (ctx) => {
+  const { userId, postId } = ctx.params;
+  // /users/42/posts/7 → { userId: '42', postId: '7' }
+});
+```
+
+Parameter values are always strings. Parameter names preserve the case from your route definition.
+
+### Wildcards
+
+Wildcards capture all remaining path segments. They must be the **last segment** in a route:
+
+```typescript
+router.get('/files/*', (ctx) => {
+  const filePath = ctx.params['*'];
+  // /files/docs/readme.md → 'docs/readme.md'
+});
+```
+
+### Match Priority
+
+When multiple patterns could match a path, the router uses a fixed priority: **static > parameter > wildcard**. This is deterministic — registration order does not affect which route wins.
+
+## Router Composition
+
+NextRush provides several ways to compose routers. Choose the approach that fits your project structure:
+
+<Tabs items={['app.route() (Recommended)', 'router.mount()', 'Classic Pattern']}>
+  <Tab value="app.route() (Recommended)">
+    Mount routers directly on the application with a path prefix:
+
+    ```typescript title="app.ts"
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+
+    const users = createRouter();
+    users.get('/', (ctx) => ctx.json([]));
+    users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+    const posts = createRouter();
+    posts.get('/', (ctx) => ctx.json([]));
+
+    const app = createApp();
+    app.route('/api/users', users);
+    app.route('/api/posts', posts);
+    // GET /api/users, GET /api/users/:id, GET /api/posts
+    ```
+
+  </Tab>
+  <Tab value="router.mount()">
+    Compose routers within routers using `mount()`:
+
+    ```typescript title="Nested API"
+    const v1 = createRouter();
+    v1.mount('/users', usersRouter);
+    v1.mount('/posts', postsRouter);
+
+    app.route('/api/v1', v1);
+    // GET /api/v1/users, GET /api/v1/posts, etc.
+    ```
+
+    You can also use `router.use(path, subRouter)` — it does the same thing as `mount()`.
+
+  </Tab>
+  <Tab value="Classic Pattern">
+    The traditional `router.routes()` approach still works:
+
+    ```typescript title="Classic"
+    const router = createRouter();
+    router.mount('/users', usersRouter);
+    app.use(router.routes());
+    ```
+
+  </Tab>
+</Tabs>
+
+## Route Groups
+
+Groups share a common prefix and optionally middleware:
+
+```typescript title="Grouped Routes"
+router.group('/api', (api) => {
+  api.get('/users', listUsers); // GET /api/users
+  api.get('/posts', listPosts); // GET /api/posts
+});
+
+// With middleware applied to all group routes
+router.group('/admin', [authMiddleware], (admin) => {
+  admin.get('/dashboard', getDashboard); // Protected
+  admin.get('/settings', getSettings); // Protected
+});
+```
+
+Groups can be nested for versioning or deeper hierarchy.
+
+## Route Middleware
+
+Pass middleware functions before the final handler. The last function is the handler; all preceding functions are middleware:
+
+```typescript
+router.get('/admin', authMiddleware, roleCheck, handler);
+```
+
+## What Happens Automatically
+
+- **Trailing slashes are normalized.** `/users/` and `/users` match the same route (unless `strict: true`).
+- **Case is normalized.** `/Users` and `/users` match the same route (unless `caseSensitive: true`).
+- **404 status is set** when no route matches, so downstream middleware like `allowedMethods()` can act on it.
+- **Duplicate routes throw** at registration time. Registering the same method + path twice produces an error, preventing silent conflicts.
+
+## Configuration
+
+```typescript
+const router = createRouter({
+  prefix: '/api/v1', // Prepend to all routes in this router
+  caseSensitive: false, // Default: case-insensitive matching
+  strict: false, // Default: ignore trailing slashes
+});
+```
+
+<Callout type="warn">
+  When mounting a prefixed router with `app.route()`, do not repeat the prefix.
+  `createRouter({ prefix: '/api' })` mounted at `app.route('/api', router)` double-prefixes
+  the paths. Use one or the other, not both.
+</Callout>
+
+## Allowed Methods
+
+Add automatic 405 Method Not Allowed responses:
+
+```typescript
+app.route('/', router);
+app.use(router.allowedMethods());
+```
+
+When a path exists but the method has no handler, the response includes the `Allow` header listing valid methods. OPTIONS requests get a 200 with the same header.
+
+## Common Mistakes
+
+**Forgetting to mount routes** — defining routes without calling `app.route()` or `app.use(router.routes())` means no requests reach the router.
+
+**Wildcard not at end** — `router.get('/*/end', handler)` does not work. Wildcards must be the final segment.
+
+**Double-prefixing** — using `createRouter({ prefix: '/api' })` and then `app.route('/api', router)` causes paths like `/api/api/users`.
+
+## Performance Notes
+
+Lookup time is O(d) where d is the number of path segments (typically 3–5 for REST APIs). Route count does not affect lookup time. Static routes use an additional O(1) hash map fast path, bypassing tree traversal entirely.
+
+## Security Considerations
+
+- Route parameters are always strings. Validate and sanitize before using in queries or file paths.
+- Wildcard values can contain path traversal sequences (`../`). Never pass `ctx.params['*']` directly to filesystem APIs.
+- The router does not enforce authentication. Use guard middleware on routes or groups that require access control.
+
+## When Not To Use
+
+If your application has fewer than 5 routes and no parameters, a router adds unnecessary structure. Use `app.use()` with direct path checks instead. The router becomes valuable when you need parameter extraction, route composition, or more than a handful of endpoints.
+
+## Next Steps
+
+<Cards>
+  <Card title="Context" href="/docs/concepts/context">
+    The ctx object — params, query, headers, and response methods.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    How middleware works with routes and groups.
+  </Card>
+  <Card title="@nextrush/router API" href="/docs/api-reference/core/router">
+    Full API reference for createRouter, Router, and RouterOptions.
+  </Card>
+</Cards>

@@ -1,0 +1,58 @@
+{
+  "name": "@nextrush/types",
+  "version": "3.0.0",
+  "description": "Shared TypeScript types for NextRush framework",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "lint:fix": "eslint src --fix",
+    "clean": "rm -rf dist .turbo"
+  },
+  "keywords": [
+    "nextrush",
+    "types",
+    "typescript"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/types"
+  },
+  "bugs": {
+    "url": "https://github.com/0xTanzim/nextrush/issues"
+  },
+  "homepage": "https://github.com/0xTanzim/nextrush#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
+  },
+  "sideEffects": false
+}

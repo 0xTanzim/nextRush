@@ -1,111 +1,72 @@
-name: 🚀 NextRush CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [main, feat/*]
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  # 🧪 Test Job - Run tests on multiple Node versions
-  test:
-    name: 🧪 Run Tests
+  ci:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18, 20, 22]
-
+    timeout-minutes: 30
     steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4
         with:
-          version: 9.12.3
+          fetch-depth: ${{ github.event_name != 'pull_request' && 1 || 0 }}
 
-      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
+      - name: Pull request — changeset guard
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}"
+          git diff --name-only "origin/${{ github.base_ref }}...${{ github.sha }}" > changed-files.txt
+          node <<'NODE'
+          const fs = require('node:fs');
 
-      - name: 📦 Install Dependencies
-        run: pnpm install --frozen-lockfile
+          const changed = fs
+            .readFileSync('changed-files.txt', 'utf8')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean);
 
-      - name: 🏗️ Build Project
-        run: pnpm build
+          const isChangeset = (file) =>
+            file.startsWith('.changeset/') && file.endsWith('.md') && file !== '.changeset/README.md';
 
-      - name: 🧪 Run Tests
-        run: pnpm test:all
+          const isReleaseImpactingPackageChange = (file) => {
+            if (!file.startsWith('packages/')) return false;
+            if (file.startsWith('packages/dev/')) return false;
+            if (/(^|\/)__tests__(\/|$)/.test(file)) return false;
+            if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(file)) return false;
+            if (file.endsWith('.md') || file.endsWith('.mdx')) return false;
+            return true;
+          };
 
-  # 🏗️ Build Job - Verify production build
-  build:
-    name: 🏗️ Build & Package
-    runs-on: ubuntu-latest
-    needs: test
+          const changesetTouched = changed.some(isChangeset);
+          const impactingPackageChanges = changed.filter(isReleaseImpactingPackageChange);
 
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
+          if (impactingPackageChanges.length > 0 && !changesetTouched) {
+            console.error('Release-impacting package changes were detected without a changeset file.');
+            console.error('Add one with: pnpm changeset');
+            console.error('Changed files requiring a changeset:');
+            for (const file of impactingPackageChanges) {
+              console.error(` - ${file}`);
+            }
+            process.exit(1);
+          }
 
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.3
+          console.log('Changeset guard passed.');
+          NODE
 
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
-      - name: 📦 Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🏗️ Build Production Bundle
-        run: pnpm build:prod
-
-      - name: 📦 Verify Package
-        run: pnpm pack
-
-      - name: 📤 Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: nextrush-package
-          path: |
-            dist/
-            nextrush-*.tgz
-
-  # 🔍 Quality Checks - Lint, format, type-check
-  quality:
-    name: 🔍 Quality Checks
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.3
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
-
-      - name: 📦 Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🎨 Check Formatting
-        run: pnpm format:check
-
-      - name: 🔍 Lint Code
-        run: pnpm lint
-
-      - name: 🏗️ Type Check
-        run: pnpm type-check
+      - name: Build, test, typecheck, lint
+        run: pnpm verify

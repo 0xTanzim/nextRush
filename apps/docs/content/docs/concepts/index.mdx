@@ -1,0 +1,230 @@
+---
+title: Core Concepts
+description: The mental models that make NextRush predictable and composable
+---
+
+Before you write code, understand how NextRush thinks.
+
+These are the core abstractions that determine how your application processes requests, composes behavior, and handles failure.
+
+## The Four Pillars
+
+NextRush is built on four core abstractions. Everything else builds on top of these.
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    Your entry point. Orchestrates middleware, plugins, and error handling.
+  </Card>
+  <Card title="Context" href="/docs/concepts/context">
+    The `ctx` object. Your unified interface to request and response.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    Functions that process requests. The onion model for composable logic.
+  </Card>
+  <Card title="Routing" href="/docs/concepts/routing">
+    Radix tree routing. O(k) lookup regardless of route count.
+  </Card>
+</Cards>
+
+## How They Work Together
+
+When a request arrives, it flows through a predictable pipeline:
+
+```
+HTTP Request
+    ↓
+┌─────────────────────────────┐
+│  Application                │
+│  ┌───────────────────────┐  │
+│  │  Middleware Pipeline  │  │
+│  │  ┌─────────────────┐  │  │
+│  │  │  cors → auth    │  │  │
+│  │  │      ↓          │  │  │
+│  │  │  body-parser    │  │  │
+│  │  │      ↓          │  │  │
+│  │  │  router         │  │  │
+│  │  └─────────────────┘  │  │
+│  └───────────────────────┘  │
+│           ↓                 │
+│  ┌───────────────────────┐  │
+│  │  Router               │  │
+│  │  Match path → Handler │  │
+│  └───────────────────────┘  │
+└─────────────────────────────┘
+    ↓
+HTTP Response
+```
+
+**The flow is always the same:**
+
+1. Request arrives at the adapter
+2. Adapter creates a fresh **Context** object
+3. **Application** passes context through **Middleware**
+4. **Router** matches the path and extracts params
+5. Handler executes and writes to context
+6. Response flows back through middleware
+7. Adapter sends the HTTP response
+
+<Callout type="info" title="Context is Per-Request">
+  Every request gets a new `ctx` object. There's no shared state between requests unless you
+  explicitly create it.
+</Callout>
+
+## Two Programming Styles
+
+NextRush supports both functional and class-based programming. Choose based on your project's needs.
+
+<Tabs items={['Functional', 'Class-Based']}>
+  <Tab value="Functional">
+    Simple, direct, minimal abstraction. Often fits small services and APIs.
+
+    ```typescript title="Functional API"
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+
+    const app = createApp();
+    const router = createRouter();
+
+    router.get('/users/:id', async (ctx) => {
+      const user = await db.users.findById(ctx.params.id);
+      ctx.json({ user });
+    });
+
+    app.route('/api', router);
+    ```
+
+  </Tab>
+  <Tab value="Class-Based">
+    Structured, with dependency injection. Often fits larger applications and shared codebases.
+
+    ```typescript title="Class-Based with DI"
+    import { createRouter } from 'nextrush';
+    import { Controller, Get, Param, Service, controllersPlugin } from 'nextrush/class';
+
+    @Service()
+    class UserService {
+      async findById(id: string) {
+        return db.users.findById(id);
+      }
+    }
+
+    const router = createRouter();
+
+    @Controller('/users')
+    class UserController {
+      constructor(private users: UserService) {}
+
+      @Get('/:id')
+      async getUser(@Param('id') id: string) {
+        return { user: await this.users.findById(id) };
+      }
+    }
+
+    await app.plugin(controllersPlugin({ router, root: './src' }));
+    ```
+
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="You Can Mix Styles">
+  Both styles work together. Start with functions, add classes when you need structure. There's no
+  forced migration.
+</Callout>
+
+## Extension Points
+
+Beyond the four pillars, NextRush provides two ways to extend functionality:
+
+### Plugins
+
+Add capabilities without modifying core:
+
+```typescript
+import { eventsPlugin } from '@nextrush/events';
+import { controllersPlugin } from '@nextrush/controllers';
+
+app.plugin(eventsPlugin());
+app.plugin(controllersPlugin({ router, root: './src' }));
+```
+
+[Learn about Plugins →](/docs/concepts/plugins)
+
+### Guards
+
+Control access to routes declaratively:
+
+```typescript
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard('admin'))
+@Controller('/admin')
+class AdminController {
+  @Get('/dashboard')
+  dashboard() {
+    return { admin: true };
+  }
+}
+```
+
+[Learn about Guards →](/docs/concepts/guards)
+
+## What You Should Learn First
+
+<Steps>
+  <Step>
+    ### Context API
+
+    Understand the `ctx` object—it's your primary interface for everything. [Read Context →](/docs/concepts/context)
+
+  </Step>
+  <Step>
+    ### Middleware
+
+    Learn the onion model. It determines execution order and error handling. [Read Middleware →](/docs/concepts/middleware)
+
+  </Step>
+  <Step>
+    ### Routing
+
+    Map URLs to handlers efficiently with radix tree routing. [Read Routing →](/docs/concepts/routing)
+
+  </Step>
+</Steps>
+
+## Mental Model Summary
+
+| Concept         | Responsibility   | Key Insight                                    |
+| --------------- | ---------------- | ---------------------------------------------- |
+| **Application** | Orchestration    | Holds everything together, manages lifecycle   |
+| **Context**     | Request/Response | Fresh per-request, mutable `state` for sharing |
+| **Middleware**  | Transformation   | Onion model—before, `next()`, after            |
+| **Routing**     | URL Matching     | O(k) radix tree, params and wildcards          |
+| **Plugins**     | Extension        | Add features without modifying core            |
+| **Guards**      | Access Control   | Boolean gatekeepers for routes                 |
+
+<Callout type="warn" title="Common Misconception">
+  Middleware order matters. Error handlers must come first. Body parsers must run before you access
+  `ctx.body`. If something isn't working, check your registration order.
+</Callout>
+
+## Next Steps
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    The entry point that orchestrates everything.
+  </Card>
+  <Card title="Context" href="/docs/concepts/context">
+    Your interface to request and response.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    The pipeline that processes every request.
+  </Card>
+  <Card title="Routing" href="/docs/concepts/routing">
+    Segment-trie URL matching.
+  </Card>
+  <Card title="Plugins" href="/docs/concepts/plugins">
+    Extend NextRush without touching core.
+  </Card>
+  <Card title="Guards" href="/docs/concepts/guards">
+    Declarative access control.
+  </Card>
+</Cards>

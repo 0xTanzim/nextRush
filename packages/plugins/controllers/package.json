@@ -1,0 +1,70 @@
+{
+  "name": "@nextrush/controllers",
+  "version": "3.0.0",
+  "description": "Controller plugin for NextRush - automatic discovery, DI integration, and route registration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@nextrush/decorators": "workspace:*",
+    "@nextrush/di": "workspace:*",
+    "@nextrush/errors": "workspace:*",
+    "@nextrush/types": "workspace:*",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@nextrush/core": "workspace:*",
+    "@nextrush/router": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "@nextrush/core": "workspace:*",
+    "@nextrush/router": "workspace:*"
+  },
+  "keywords": [
+    "nextrush",
+    "controllers",
+    "decorators",
+    "di",
+    "plugin"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextrush.git",
+    "directory": "packages/plugins/controllers"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "sideEffects": false
+}

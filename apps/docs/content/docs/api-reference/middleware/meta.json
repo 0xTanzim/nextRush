@@ -1,0 +1,16 @@
+{
+  "title": "Middleware",
+  "pages": [
+    "index",
+    "cors",
+    "helmet",
+    "csrf",
+    "body-parser",
+    "multipart",
+    "rate-limit",
+    "compression",
+    "cookies",
+    "request-id",
+    "timer"
+  ]
+}

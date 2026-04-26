@@ -1,0 +1,152 @@
+---
+title: Introduction
+description: What NextRush is, how it differs from common stacks, and where to read next.
+---
+
+<DocHero eyebrow="Start here">
+
+NextRush is a backend framework for Node.js, Bun, Deno, and Edge — **small core**, **strict TypeScript**,
+and **explicit wiring** (middleware, router, optional controllers). The API stays readable: you can follow
+a request through middleware, the router, and the adapter without hidden steps.
+
+When you want the full map — packages, both styles, benchmarks — read the{' '}
+[Framework overview](/docs/getting-started/overview).
+
+</DocHero>
+
+<Callout type="info" title="Requirements">
+  NextRush requires **Node.js 22.0.0 or later** and **TypeScript** with strict mode enabled.
+</Callout>
+
+## Where common stacks leave gaps
+
+If you have shipped HTTP APIs before, you may have run into limits like these:
+
+<CompareGrid>
+  <CompareItem name="Express">
+    Fast to start, weak structure. TypeScript via `@types`. Middleware wiring is manual.
+  </CompareItem>
+  <CompareItem name="Koa">
+    Clean async/await, fragmented ecosystem. Quality across plugins varies.
+  </CompareItem>
+  <CompareItem name="Fastify">
+    Node.js-focused throughput and plugins, steeper learning curve. JSON Schema validation can be verbose.
+  </CompareItem>
+  <CompareItem name="NestJS">
+    Strong structure and DI, heavier runtime. Patterns feel closer to Angular than to small Node services.
+  </CompareItem>
+  <CompareItem name="Hono">
+    Modern and fast, younger ecosystem. Edge-first defaults can feel tight for classic Node servers.
+  </CompareItem>
+</CompareGrid>
+
+## What NextRush emphasizes
+
+<DocTableWrap>
+
+| Focus              | What you get                                                                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Performance**    | Segment trie routing and a small hot path. [Benchmarks](/docs/performance) use a fixed methodology — run them on your hardware before comparing frameworks. |
+| **TypeScript**     | Written in strict mode; no `any` in the framework surface.                                                                                        |
+| **Middleware**     | Koa-style async handlers with `ctx.next()`.                                                                                                     |
+| **Structure**      | Optional controllers and DI when the project grows.                                                                                             |
+| **Modularity**     | **30** packages in the monorepo — install only what you need.                                                                                    |
+| **Multi-runtime**  | Node.js, Bun, Deno, and Edge with the same application code and adapter swap.                                                                   |
+
+</DocTableWrap>
+
+## Core mental model
+
+Three pieces show up in almost every app:
+
+<Steps>
+  <Step>
+### Application
+
+The app holds middleware, plugins, and routes.
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+```
+
+  </Step>
+  <Step>
+### Context
+
+Each request gets a `ctx` — read input, write the response.
+
+```typescript
+import { createRouter } from 'nextrush';
+
+const router = createRouter();
+
+router.get('/users/:id', (ctx) => {
+  const { id } = ctx.params;
+  const { page } = ctx.query;
+  ctx.json({ id, page });
+});
+```
+
+  </Step>
+  <Step>
+### Middleware
+
+Middleware runs in order. Code before `ctx.next()` runs on the way in; code after runs on the way out.
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  const duration = Date.now() - start;
+  // Prefer structured logging in production instead of console.log
+});
+```
+
+  </Step>
+</Steps>
+
+## When NextRush fits
+
+- REST APIs and backend services
+- Teams that want strict TypeScript end-to-end
+- Teams that want to **measure** framework overhead with reproducible scripts (see [Performance](/docs/performance))
+- Deploying to more than one runtime (Node, Bun, Edge)
+- Prefer explicit wiring over implicit framework behavior
+- Modular installs instead of one giant framework bundle
+
+## When to pick something else
+
+<Callout type="warn" title="Choose the right tool">
+  NextRush is a backend API framework. It does not replace full-stack frameworks like Next.js or Remix.
+</Callout>
+
+- You need SSR or full-stack routing (Next.js, Remix, SvelteKit)
+- You need the widest npm middleware catalog (Express)
+- GraphQL-only APIs with a dedicated server stack
+- You require the longest production track record (Express, Fastify)
+
+## Next steps
+
+<Cards>
+  <Card
+    title="Framework overview"
+    description="Architecture map, hello world, concepts, and migration hints in one place."
+    href="/docs/getting-started/overview"
+  />
+  <Card
+    title="Installation"
+    description="Scaffold or manual install, verify the server, TypeScript defaults."
+    href="/docs/getting-started/installation"
+  />
+  <Card
+    title="Quick start"
+    description="Manual walkthrough: project, routes, middleware, JSON bodies."
+    href="/docs/getting-started/quick-start"
+  />
+</Cards>

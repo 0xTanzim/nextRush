@@ -1,0 +1,455 @@
+---
+title: 'REST API'
+description: 'Build a complete REST API with CRUD operations, validation, and error handling.'
+---
+
+A REST API example with full CRUD-style routes you can adapt.
+
+This example demonstrates:
+
+- RESTful route design
+- Request body parsing
+- Input validation
+- Error handling
+- Response formatting
+
+---
+
+## Project Setup
+
+```bash
+mkdir rest-api && cd rest-api
+pnpm init
+```
+
+<PackageInstall
+  packages={['nextrush', '@nextrush/cors', '@nextrush/body-parser']}
+  dev={['typescript', '@types/node']}
+/>
+
+---
+
+## Full Example
+
+The complete REST API with CRUD operations, validation, and error handling.
+
+<details>
+<summary>Complete REST API code (click to expand)</summary>
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen, NotFoundError } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+
+// Types
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+interface CreateUserDto {
+  name: string;
+  email: string;
+}
+
+// In-memory database
+const users: Map<string, User> = new Map();
+
+// Seed data
+users.set('1', {
+  id: '1',
+  name: 'Alice',
+  email: 'alice@example.com',
+  createdAt: new Date().toISOString(),
+});
+users.set('2', {
+  id: '2',
+  name: 'Bob',
+  email: 'bob@example.com',
+  createdAt: new Date().toISOString(),
+});
+
+// App setup
+const app = createApp();
+
+// Middleware
+app.use(cors());
+app.use(json());
+
+// ============================================
+// USER ROUTES
+// ============================================
+
+const userRouter = createRouter();
+
+// GET / - List all users
+userRouter.get('/', (ctx) => {
+  const userList = Array.from(users.values());
+  ctx.json({
+    data: userList,
+    total: userList.length,
+  });
+});
+
+// GET /:id - Get user by ID
+userRouter.get('/:id', (ctx) => {
+  const user = users.get(ctx.params.id);
+
+  if (!user) {
+    throw new NotFoundError(`User ${ctx.params.id} not found`);
+  }
+
+  ctx.json({ data: user });
+});
+
+// POST / - Create user
+userRouter.post('/', (ctx) => {
+  const body = ctx.body as CreateUserDto;
+
+  // Validation
+  if (!body?.name || typeof body.name !== 'string') {
+    ctx.status = 400;
+    ctx.json({ error: 'Name is required' });
+    return;
+  }
+
+  if (!body?.email || typeof body.email !== 'string') {
+    ctx.status = 400;
+    ctx.json({ error: 'Email is required' });
+    return;
+  }
+
+  // Check duplicate email
+  const existing = Array.from(users.values()).find((u) => u.email === body.email);
+  if (existing) {
+    ctx.status = 409;
+    ctx.json({ error: 'Email already exists' });
+    return;
+  }
+
+  // Create user
+  const user: User = {
+    id: Date.now().toString(),
+    name: body.name.trim(),
+    email: body.email.toLowerCase().trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  users.set(user.id, user);
+
+  ctx.status = 201;
+  ctx.json({ data: user });
+});
+
+// PUT /:id - Replace user
+userRouter.put('/:id', (ctx) => {
+  const { id } = ctx.params;
+  const body = ctx.body as CreateUserDto;
+
+  if (!users.has(id)) {
+    throw new NotFoundError(`User ${id} not found`);
+  }
+
+  // Validation
+  if (!body?.name || !body?.email) {
+    ctx.status = 400;
+    ctx.json({ error: 'Name and email are required' });
+    return;
+  }
+
+  const user: User = {
+    id,
+    name: body.name.trim(),
+    email: body.email.toLowerCase().trim(),
+    createdAt: users.get(id)!.createdAt,
+  };
+
+  users.set(id, user);
+  ctx.json({ data: user });
+});
+
+// PATCH /:id - Update user
+userRouter.patch('/:id', (ctx) => {
+  const { id } = ctx.params;
+  const body = ctx.body as Partial<CreateUserDto>;
+
+  const existing = users.get(id);
+  if (!existing) {
+    throw new NotFoundError(`User ${id} not found`);
+  }
+
+  const updated: User = {
+    ...existing,
+    name: body.name?.trim() ?? existing.name,
+    email: body.email?.toLowerCase().trim() ?? existing.email,
+  };
+
+  users.set(id, updated);
+  ctx.json({ data: updated });
+});
+
+// DELETE /:id - Delete user
+userRouter.delete('/:id', (ctx) => {
+  const { id } = ctx.params;
+
+  if (!users.has(id)) {
+    throw new NotFoundError(`User ${id} not found`);
+  }
+
+  users.delete(id);
+  ctx.status = 204;
+  ctx.send('');
+});
+
+// ============================================
+// MOUNT ROUTES
+// ============================================
+
+// Mount user router — Hono-style composition
+app.route('/users', userRouter);
+
+// 404 handler
+app.use((ctx) => {
+  ctx.status = 404;
+  ctx.json({ error: 'Not Found' });
+});
+
+// Start server
+await listen(app, 3000);
+```
+
+</details>
+
+---
+
+## Testing the API
+
+```bash
+# List users
+curl http://localhost:3000/users
+
+# Get single user
+curl http://localhost:3000/users/1
+
+# Create user
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Charlie","email":"charlie@example.com"}'
+
+# Update user
+curl -X PATCH http://localhost:3000/users/1 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice Updated"}'
+
+# Delete user
+curl -X DELETE http://localhost:3000/users/2
+```
+
+---
+
+## Response Format
+
+All responses follow a consistent format:
+
+### Success Response
+
+```json
+{
+  "data": { "id": "1", "name": "Alice", "email": "alice@example.com" }
+}
+```
+
+### List Response
+
+```json
+{
+  "data": [...],
+  "total": 2
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "User not found"
+}
+```
+
+---
+
+## Adding Pagination
+
+```typescript
+userRouter.get('/', (ctx) => {
+  const page = parseInt(ctx.query.page ?? '1');
+  const limit = parseInt(ctx.query.limit ?? '10');
+  const offset = (page - 1) * limit;
+
+  const allUsers = Array.from(users.values());
+  const paginatedUsers = allUsers.slice(offset, offset + limit);
+
+  ctx.json({
+    data: paginatedUsers,
+    pagination: {
+      page,
+      limit,
+      total: allUsers.length,
+      totalPages: Math.ceil(allUsers.length / limit),
+    },
+  });
+});
+```
+
+---
+
+## Adding Search
+
+```typescript
+userRouter.get('/', (ctx) => {
+  let result = Array.from(users.values());
+
+  // Search by name or email
+  const search = ctx.query.q?.toLowerCase();
+  if (search) {
+    result = result.filter(
+      (user) =>
+        user.name.toLowerCase().includes(search) || user.email.toLowerCase().includes(search)
+    );
+  }
+
+  // Filter by field
+  const name = ctx.query.name;
+  if (name) {
+    result = result.filter((user) => user.name === name);
+  }
+
+  ctx.json({ data: result, total: result.length });
+});
+```
+
+---
+
+## Error Handling
+
+Use NextRush's built-in error classes:
+
+```typescript
+import {
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  ConflictError,
+} from 'nextrush';
+
+// In route handlers:
+router.get('/users/:id', (ctx) => {
+  const user = users.get(ctx.params.id);
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+  ctx.json({ data: user });
+});
+
+router.post('/users', (ctx) => {
+  const body = ctx.body as CreateUserDto;
+  if (!body?.email) {
+    throw new BadRequestError('Email is required');
+  }
+  // ...
+});
+```
+
+<Callout type="info">
+  Thrown errors are automatically caught and converted to proper HTTP responses with the correct
+  status codes.
+</Callout>
+
+---
+
+## Validation with Zod
+
+For structured validation, use Zod:
+
+<PackageInstall packages={['zod']} />
+
+```typescript
+import { z } from 'zod';
+import { BadRequestError } from 'nextrush';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  email: z.string().email('Invalid email format'),
+});
+
+userRouter.post('/', (ctx) => {
+  const result = CreateUserSchema.safeParse(ctx.body);
+
+  if (!result.success) {
+    throw new BadRequestError(result.error.errors[0].message);
+  }
+
+  const { name, email } = result.data;
+  // Create user...
+});
+```
+
+---
+
+## File Structure
+
+For larger APIs, organize your code with separate router files:
+
+```
+src/
+├── index.ts              # Entry point
+├── routes/
+│   ├── users.ts          # User router
+│   ├── posts.ts          # Post router
+│   └── admin.ts          # Admin router
+├── services/
+│   └── user.service.ts   # Business logic
+├── types/
+│   └── user.ts           # Type definitions
+└── middleware/
+    └── logger.ts         # Custom middleware
+```
+
+```typescript title="src/routes/users.ts"
+import { createRouter } from 'nextrush';
+
+const router = createRouter();
+
+router.get('/', listUsers);
+router.get('/:id', getUser);
+router.post('/', createUser);
+
+export default router;
+```
+
+```typescript title="src/index.ts"
+import { createApp, listen } from 'nextrush';
+import users from './routes/users';
+import posts from './routes/posts';
+
+const app = createApp();
+
+// Mount routers — Hono-style composition
+app.route('/users', users);
+app.route('/posts', posts);
+
+await listen(app, 3000);
+```
+
+---
+
+## Next Steps
+
+- [Class-Based API](/docs/examples/class-based-api) — Same API with decorators
+- [Authentication](/docs/examples/authentication) — Add JWT auth
+- [Database Integration](/docs/examples/database) — Connect to a database
+- [API Reference — Core](/docs/api-reference/core) — Application, Context, and Router API
+- [Deployment](/docs/guides/deployment) — Deploy your API to production

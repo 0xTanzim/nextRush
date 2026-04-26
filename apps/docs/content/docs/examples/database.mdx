@@ -1,0 +1,568 @@
+---
+title: 'Database Integration'
+description: 'Connect NextRush to databases using the Plugin lifecycle and Repository pattern.'
+---
+
+Connect NextRush to databases using the Plugin lifecycle for connection management and the Repository pattern for data access.
+
+This example demonstrates patterns that work with any database driver. Two implementations are shown: SQLite (better-sqlite3) and PostgreSQL (Drizzle ORM).
+
+---
+
+## Architecture
+
+```
+Controller → Service → Repository → Database Plugin
+```
+
+- **Database Plugin**: Manages connection lifecycle (connect in `install()`, disconnect in `destroy()`)
+- **Repository**: Data access layer, injected via DI
+- **Service**: Business logic, validation
+- **Controller**: HTTP handling
+
+<Callout type="info" title="Connection Management">
+  Always use connection pooling in production. Both the SQLite (WAL mode) and PostgreSQL (connection
+  pool) examples below demonstrate proper lifecycle management through the Plugin interface.
+</Callout>
+
+---
+
+## Database Plugin
+
+Wrap your database connection in a NextRush Plugin. The `install()` method connects, and the optional `destroy()` method disconnects during graceful shutdown.
+
+```typescript title="src/plugins/database.plugin.ts"
+import Database from 'better-sqlite3';
+import type { Plugin, ApplicationLike } from 'nextrush';
+
+export class DatabasePlugin implements Plugin {
+  readonly name = 'database';
+  private db!: Database.Database;
+
+  install(_app: ApplicationLike): void {
+    const dbPath = process.env.DB_PATH ?? ':memory:';
+    this.db = new Database(dbPath);
+    this.db.pragma('journal_mode = WAL');
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+  }
+
+  destroy(): void {
+    this.db.close();
+  }
+
+  get connection(): Database.Database {
+    return this.db;
+  }
+}
+```
+
+<Callout type="warn">
+  Connection setup belongs in `install()`, not in the constructor. NextRush calls `destroy()` during
+  graceful shutdown to close connections cleanly.
+</Callout>
+
+---
+
+## Repository Pattern
+
+### Base Interface
+
+```typescript title="src/repositories/base.repository.ts"
+export interface BaseRepository<T, CreateDto, UpdateDto> {
+  findAll(): Promise<T[]>;
+  findById(id: string): Promise<T | null>;
+  findByEmail(email: string): Promise<T | null>;
+  create(data: CreateDto): Promise<T>;
+  update(id: string, data: UpdateDto): Promise<T | null>;
+  delete(id: string): Promise<boolean>;
+}
+```
+
+### User Repository
+
+```typescript title="src/repositories/user.repository.ts"
+import { Repository } from '@nextrush/di';
+import type { BaseRepository } from './base.repository';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+}
+
+export interface CreateUserDto {
+  name: string;
+  email: string;
+}
+
+export interface UpdateUserDto {
+  name?: string;
+  email?: string;
+}
+
+@Repository()
+export class UserRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
+  async findAll(): Promise<User[]> {
+    throw new Error('Not implemented — register a concrete repository via DI');
+  }
+
+  async findById(_id: string): Promise<User | null> {
+    throw new Error('Not implemented');
+  }
+
+  async findByEmail(_email: string): Promise<User | null> {
+    throw new Error('Not implemented');
+  }
+
+  async create(_data: CreateUserDto): Promise<User> {
+    throw new Error('Not implemented');
+  }
+
+  async update(_id: string, _data: UpdateUserDto): Promise<User | null> {
+    throw new Error('Not implemented');
+  }
+
+  async delete(_id: string): Promise<boolean> {
+    throw new Error('Not implemented');
+  }
+}
+```
+
+---
+
+## SQLite Implementation
+
+### Install
+
+<PackageInstall packages={['better-sqlite3']} dev={['@types/better-sqlite3']} />
+
+### Repository
+
+<details>
+<summary>SQLite repository implementation (click to expand)</summary>
+
+```typescript title="src/repositories/user.sqlite.repository.ts"
+import { Repository } from '@nextrush/di';
+import type { DatabasePlugin } from '../plugins/database.plugin';
+import type { User, CreateUserDto, UpdateUserDto } from './user.repository';
+import type { BaseRepository } from './base.repository';
+
+@Repository()
+export class UserSqliteRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
+  constructor(private database: DatabasePlugin) {}
+
+  private get db() {
+    return this.database.connection;
+  }
+
+  async findAll(): Promise<User[]> {
+    const rows = this.db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();
+    return rows.map(this.toUser);
+  }
+
+  async findById(id: string): Promise<User | null> {
+    const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    return row ? this.toUser(row) : null;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    const row = this.db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    return row ? this.toUser(row) : null;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    this.db
+      .prepare(
+        `
+      INSERT INTO users (id, name, email, created_at)
+      VALUES (?, ?, ?, ?)
+    `
+      )
+      .run(id, data.name, data.email, createdAt);
+
+    return { id, name: data.name, email: data.email, createdAt: new Date(createdAt) };
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User | null> {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    if (data.name !== undefined) {
+      updates.push('name = ?');
+      values.push(data.name);
+    }
+    if (data.email !== undefined) {
+      updates.push('email = ?');
+      values.push(data.email);
+    }
+
+    if (updates.length > 0) {
+      values.push(id);
+      this.db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    }
+
+    return this.findById(id);
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = this.db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    return result.changes > 0;
+  }
+
+  private toUser(row: unknown): User {
+    const r = row as { id: string; name: string; email: string; created_at: string };
+    return {
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      createdAt: new Date(r.created_at),
+    };
+  }
+}
+```
+
+</details>
+
+---
+
+## PostgreSQL with Drizzle ORM
+
+### Install
+
+<PackageInstall packages={['drizzle-orm', 'postgres']} dev={['drizzle-kit']} />
+
+### Schema
+
+```typescript title="src/database/schema.ts"
+import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+```
+
+### Database Plugin
+
+```typescript title="src/plugins/drizzle.plugin.ts"
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import type { Plugin, ApplicationLike } from 'nextrush';
+import * as schema from '../database/schema';
+
+export class DrizzlePlugin implements Plugin {
+  readonly name = 'drizzle';
+  private client!: ReturnType<typeof postgres>;
+  public db!: ReturnType<typeof drizzle<typeof schema>>;
+
+  install(_app: ApplicationLike): void {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is required');
+    }
+
+    this.client = postgres(connectionString);
+    this.db = drizzle(this.client, { schema });
+  }
+
+  async destroy(): Promise<void> {
+    await this.client.end();
+  }
+}
+```
+
+### Repository
+
+<details>
+<summary>Drizzle ORM repository implementation (click to expand)</summary>
+
+```typescript title="src/repositories/user.drizzle.repository.ts"
+import { Repository } from '@nextrush/di';
+import { eq } from 'drizzle-orm';
+import type { DrizzlePlugin } from '../plugins/drizzle.plugin';
+import { users, type User } from '../database/schema';
+import type { BaseRepository, CreateUserDto, UpdateUserDto } from './user.repository';
+
+@Repository()
+export class UserDrizzleRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
+  constructor(private drizzle: DrizzlePlugin) {}
+
+  private get db() {
+    return this.drizzle.db;
+  }
+
+  async findAll(): Promise<User[]> {
+    return this.db.select().from(users).orderBy(users.createdAt);
+  }
+
+  async findById(id: string): Promise<User | null> {
+    const [user] = await this.db.select().from(users).where(eq(users.id, id));
+    return user || null;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    const [user] = await this.db.select().from(users).where(eq(users.email, email));
+    return user || null;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    const [user] = await this.db.insert(users).values(data).returning();
+    return user;
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User | null> {
+    const [user] = await this.db.update(users).set(data).where(eq(users.id, id)).returning();
+    return user || null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = await this.db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
+  }
+}
+```
+
+</details>
+
+---
+
+## Service Layer
+
+The service layer contains business logic, independent of the database choice:
+
+```typescript title="src/services/user.service.ts"
+import { Service } from '@nextrush/di';
+import { NotFoundError, ConflictError, BadRequestError } from 'nextrush';
+import { UserRepository } from '../repositories/user.repository';
+import type { User, CreateUserDto, UpdateUserDto } from '../repositories/user.repository';
+
+@Service()
+export class UserService {
+  constructor(private repo: UserRepository) {}
+
+  async findAll(): Promise<User[]> {
+    return this.repo.findAll();
+  }
+
+  async findById(id: string): Promise<User> {
+    const user = await this.repo.findById(id);
+    if (!user) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+    return user;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    if (!data.name?.trim()) {
+      throw new BadRequestError('Name is required');
+    }
+    if (!data.email?.trim()) {
+      throw new BadRequestError('Email is required');
+    }
+
+    const existing = await this.repo.findByEmail(data.email);
+    if (existing) {
+      throw new ConflictError('Email already exists');
+    }
+
+    return this.repo.create({
+      name: data.name.trim(),
+      email: data.email.toLowerCase().trim(),
+    });
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User> {
+    const existing = await this.repo.findById(id);
+    if (!existing) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+
+    const updated = await this.repo.update(id, {
+      name: data.name?.trim(),
+      email: data.email?.toLowerCase().trim(),
+    });
+
+    return updated!;
+  }
+
+  async delete(id: string): Promise<void> {
+    const deleted = await this.repo.delete(id);
+    if (!deleted) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+  }
+}
+```
+
+---
+
+## Controller
+
+```typescript title="src/controllers/user.controller.ts"
+import { Controller, Get, Post, Put, Delete, Body, Param, Ctx } from '@nextrush/decorators';
+import type { Context } from 'nextrush';
+import { UserService } from '../services/user.service';
+import type { CreateUserDto, UpdateUserDto } from '../repositories/user.repository';
+
+@Controller('/users')
+export class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  async findAll() {
+    return { data: await this.userService.findAll() };
+  }
+
+  @Get('/:id')
+  async findOne(@Param('id') id: string) {
+    return { data: await this.userService.findById(id) };
+  }
+
+  @Post()
+  async create(@Body() data: CreateUserDto, @Ctx() ctx: Context) {
+    const user = await this.userService.create(data);
+    ctx.status = 201;
+    return { data: user };
+  }
+
+  @Put('/:id')
+  async update(@Param('id') id: string, @Body() data: UpdateUserDto) {
+    return { data: await this.userService.update(id, data) };
+  }
+
+  @Delete('/:id')
+  async remove(@Param('id') id: string, @Ctx() ctx: Context) {
+    await this.userService.delete(id);
+    ctx.status = 204;
+  }
+}
+```
+
+---
+
+## Entry Point
+
+```typescript title="src/index.ts"
+// reflect-metadata is auto-imported by the nextrush meta-package
+import { createApp, createRouter, listen } from 'nextrush';
+import { controllersPlugin, container } from 'nextrush/class';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+
+import { DatabasePlugin } from './plugins/database.plugin';
+import { UserRepository } from './repositories/user.repository';
+import { UserSqliteRepository } from './repositories/user.sqlite.repository';
+
+const app = createApp();
+const router = createRouter();
+
+// Database lifecycle managed by the plugin
+const dbPlugin = new DatabasePlugin();
+app.plugin(dbPlugin);
+
+// Register the plugin instance so repositories can inject it
+container.register(DatabasePlugin, { useValue: dbPlugin });
+
+// Swap repository implementation without changing business logic
+container.register(UserRepository, { useClass: UserSqliteRepository });
+
+app.use(cors());
+app.use(json());
+
+await app.plugin(
+  controllersPlugin({
+    router,
+    root: './src',
+    prefix: '/api',
+  })
+);
+
+app.route('/', router);
+
+await listen(app, 3000);
+```
+
+<Callout type="info">
+  Register `UserRepository` with a different implementation (e.g., `UserDrizzleRepository`) to swap
+  databases without touching services or controllers.
+</Callout>
+
+---
+
+## Testing with Mocks
+
+```typescript title="src/services/user.service.test.ts"
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { UserService } from './user.service';
+import type { UserRepository } from '../repositories/user.repository';
+
+describe('UserService', () => {
+  let service: UserService;
+  let mockRepo: UserRepository;
+
+  beforeEach(() => {
+    mockRepo = {
+      findAll: vi.fn().mockResolvedValue([]),
+      findById: vi.fn().mockResolvedValue(null),
+      findByEmail: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockImplementation((data) => ({
+        id: '1',
+        ...data,
+        createdAt: new Date(),
+      })),
+      update: vi.fn(),
+      delete: vi.fn().mockResolvedValue(true),
+    } as unknown as UserRepository;
+
+    service = new UserService(mockRepo);
+  });
+
+  it('should create user', async () => {
+    const user = await service.create({
+      name: 'Test',
+      email: 'test@example.com',
+    });
+
+    expect(user.name).toBe('Test');
+    expect(mockRepo.create).toHaveBeenCalled();
+  });
+
+  it('should throw on duplicate email', async () => {
+    (mockRepo.findByEmail as ReturnType<typeof vi.fn>).mockResolvedValue({ id: '1' });
+
+    await expect(service.create({ name: 'Test', email: 'existing@example.com' })).rejects.toThrow(
+      'Email already exists'
+    );
+  });
+});
+```
+
+---
+
+## Next Steps
+
+- [Class-Based API](/docs/examples/class-based-api) — Full class-based example
+- [Authentication](/docs/examples/authentication) — Add user authentication
+- [Testing Guide](/docs/guides/testing) — Test database code
+- [API Reference — DI](/docs/api-reference/di) — Container and service registration API
+- [Deployment](/docs/guides/deployment) — Deploy your application to production

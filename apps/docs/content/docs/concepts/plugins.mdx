@@ -1,0 +1,342 @@
+---
+title: Plugins
+description: Extend NextRush without bloating the core
+---
+
+Plugins extend your application without modifying the core. They add middleware, hook into request lifecycle events, and clean up after themselves on shutdown.
+
+## The Problem
+
+Frameworks face a dilemma:
+
+- **Include everything**: Bloated core, unused code, slow cold starts
+- **Include nothing**: Every project reinvents common patterns
+
+NextRush resolves this with a plugin system that keeps the core minimal. The core handles middleware composition and plugin management. Everything else — logging, events, static files, WebSocket — ships as a separate plugin package.
+
+## Mental Model
+
+Think of plugins like **USB devices** for your computer:
+
+- The computer (core) provides ports (the `Plugin` interface)
+- Devices (plugins) add capabilities (keyboard, mouse, storage)
+- Each device declares what it needs (`install`)
+- Unplugging triggers cleanup (`destroy`)
+
+The core doesn't know about specific plugins. Plugins don't modify core internals. They interact through a defined contract.
+
+<Mermaid
+  chart="
+flowchart LR
+    App[Application] -->|app.plugin| I{install}
+    I --> MW[Add Middleware]
+    I --> H[Register Hooks]
+    I --> S[Setup Resources]
+    App -->|app.close| D[destroy in reverse order]
+    style App fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style D fill:#ef4444,stroke:#dc2626,color:#fff
+"
+/>
+
+## Plugin Interface
+
+Every plugin implements this interface from `@nextrush/types`:
+
+```typescript title="Plugin Interface"
+interface Plugin {
+  readonly name: string;
+  readonly version?: string;
+  install(app: ApplicationLike): void | Promise<void>;
+  destroy?(): void | Promise<void>;
+}
+```
+
+- **`name`** — Unique identifier. Duplicate names throw an error.
+- **`version`** — Optional semver string.
+- **`install`** — Called by `app.plugin()`. Receives an `ApplicationLike` with `use()` and `getPlugin()` methods.
+- **`destroy`** — Called during `app.close()`. Clean up connections, timers, and resources here.
+
+## Minimal Usage
+
+Plugins can be plain objects, factory functions, or async with cleanup. The factory pattern is recommended for configurable plugins:
+
+<Tabs items={['Object Plugin', 'Factory (Recommended)', 'Async with Cleanup']}>
+  <Tab value="Object Plugin">
+    ```typescript title="Timer Plugin"
+    import type { Plugin } from '@nextrush/types';
+
+    const timerPlugin: Plugin = {
+      name: 'timer',
+
+      install(app) {
+        app.use(async (ctx, next) => {
+          const start = Date.now();
+          await next();
+          ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+        });
+      },
+    };
+
+    app.plugin(timerPlugin);
+    ```
+
+  </Tab>
+  <Tab value="Factory (Recommended)">
+    Return a `Plugin` from a function to accept configuration:
+
+    ```typescript title="Configurable Logger Plugin"
+    import type { Plugin } from '@nextrush/types';
+
+    interface LoggerOptions {
+      level: 'debug' | 'info' | 'warn' | 'error';
+      prefix?: string;
+    }
+
+    function loggerPlugin(options: LoggerOptions): Plugin {
+      return {
+        name: 'logger',
+
+        install(app) {
+          app.use(async (ctx, next) => {
+            console.log(`${options.prefix ?? ''} [${options.level}] → ${ctx.method} ${ctx.path}`);
+            await next();
+            console.log(`${options.prefix ?? ''} [${options.level}] ← ${ctx.status}`);
+          });
+        },
+      };
+    }
+
+    app.plugin(loggerPlugin({ level: 'info', prefix: '[API]' }));
+    ```
+
+  </Tab>
+  <Tab value="Async with Cleanup">
+    ```typescript title="Database Plugin"
+    function databasePlugin(connectionString: string): Plugin {
+      let connection: DatabaseConnection | null = null;
+
+      return {
+        name: 'database',
+
+        async install(app) {
+          connection = await connect(connectionString);
+          app.use(async (ctx, next) => {
+            ctx.state.db = connection;
+            await next();
+          });
+        },
+
+        async destroy() {
+          if (connection) {
+            await connection.close();
+            connection = null;
+          }
+        },
+      };
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+## Installing Plugins
+
+`app.plugin()` handles both sync and async plugins. It returns `this` for sync plugins and `Promise<this>` for async ones.
+
+```typescript title="Installing Plugins"
+import { createApp } from '@nextrush/core';
+
+const app = createApp();
+
+// Sync plugins — chainable
+app.plugin(timerPlugin).plugin(eventsPlugin());
+
+// Async plugins — await the call
+await app.plugin(databasePlugin('postgres://...'));
+await app.plugin(cachePlugin('redis://...'));
+```
+
+<Callout type="warn">
+  Do not chain after an async plugin without `await`. The return value is a `Promise`, not the app
+  instance.
+</Callout>
+
+```typescript title="Plugin Status"
+// Check if installed
+app.hasPlugin('logger'); // true | false
+
+// Retrieve a plugin instance
+const db = app.getPlugin<DatabasePlugin>('database');
+```
+
+## Plugin Lifecycle
+
+<Mermaid
+  chart="
+flowchart TB
+    A[app.plugin] --> B{Name taken?}
+    B -->|Yes| X[Throw Error]
+    B -->|No| C[plugin.install]
+    C --> D[Store in registry]
+    D --> E[Middleware runs per request]
+    E --> F[app.close]
+    F --> G[destroy plugins in reverse order]
+    G --> H[Clear registry]
+    style A fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style X fill:#ef4444,stroke:#dc2626,color:#fff
+    style F fill:#ef4444,stroke:#dc2626,color:#fff
+"
+/>
+
+On shutdown, `app.close()` destroys plugins in **reverse installation order** using `Promise.allSettled`. If a plugin's `destroy()` throws, the error is collected but remaining plugins still run. `close()` returns an `Error[]` — empty on success.
+
+## Lifecycle Hooks
+
+For deeper integration, implement `PluginWithHooks`. The application calls these hooks automatically during request processing:
+
+```typescript title="Metrics Plugin with Hooks"
+import type { PluginWithHooks } from '@nextrush/types';
+
+const metricsPlugin: PluginWithHooks = {
+  name: 'metrics',
+
+  install(app) {
+    // Setup or register middleware
+  },
+
+  extendContext(ctx) {
+    // Called before each request — add properties to ctx
+  },
+
+  onRequest(ctx) {
+    ctx.state.requestStart = Date.now();
+  },
+
+  onResponse(ctx) {
+    const duration = Date.now() - (ctx.state.requestStart as number);
+    recordMetric('http_request_duration', duration, {
+      method: ctx.method,
+      path: ctx.path,
+      status: ctx.status,
+    });
+  },
+
+  onError(error, ctx) {
+    recordMetric('http_errors', 1, {
+      method: ctx.method,
+      path: ctx.path,
+      error: error.name,
+    });
+  },
+};
+```
+
+Hook execution order per request: `extendContext` → `onRequest` → middleware chain → `onResponse`. If the middleware chain throws, `onError` runs instead of `onResponse`.
+
+<Callout type="info">
+  Hook properties are validated at build time (`app.callback()`). If `onRequest` is not a function,
+  a `TypeError` is thrown immediately — not silently ignored at runtime.
+</Callout>
+
+## Error Behavior
+
+| Scenario                             | Error                                                           | When             |
+| ------------------------------------ | --------------------------------------------------------------- | ---------------- |
+| Duplicate plugin name                | `Error: Plugin "X" is already installed`                        | `app.plugin()`   |
+| Plugin installed after `app.start()` | `Error: Cannot call plugin() after the application has started` | `app.plugin()`   |
+| Hook property is not a function      | `TypeError: Plugin "X": onRequest must be a function`           | `app.callback()` |
+| Plugin `destroy()` throws            | Error collected in return array                                 | `app.close()`    |
+
+Plugin dependencies are not enforced automatically. If your plugin requires another, check with `app.getPlugin()` inside `install()` and throw a descriptive error.
+
+```typescript title="Checking Dependencies"
+function authPlugin(): Plugin {
+  return {
+    name: 'auth',
+    install(app) {
+      if (!app.getPlugin('session')) {
+        throw new Error('auth plugin requires session plugin — install it first');
+      }
+      // ... auth middleware
+    },
+  };
+}
+```
+
+## Common Mistakes
+
+### Duplicate Plugin Names
+
+```typescript
+// ❌ Throws: Plugin "logger" is already installed
+app.plugin(loggerPlugin());
+app.plugin(loggerPlugin());
+
+// ✅ Install once
+app.plugin(loggerPlugin());
+```
+
+### Forgetting to Await Async Plugins
+
+```typescript
+// ❌ Plugin not installed before next line runs
+app.plugin(databasePlugin('postgres://...'));
+app.plugin(authPlugin()); // database may not be ready
+
+// ✅ Await async plugins
+await app.plugin(databasePlugin('postgres://...'));
+app.plugin(authPlugin());
+```
+
+### Missing Cleanup
+
+```typescript
+// ❌ Resource leak — interval never cleared
+const plugin: Plugin = {
+  name: 'poller',
+  install() {
+    setInterval(poll, 1000);
+  },
+};
+
+// ✅ Store the handle, clear in destroy
+function pollerPlugin(): Plugin {
+  let intervalId: ReturnType<typeof setInterval> | null = null;
+
+  return {
+    name: 'poller',
+    install() {
+      intervalId = setInterval(poll, 1000);
+    },
+    destroy() {
+      if (intervalId) clearInterval(intervalId);
+    },
+  };
+}
+```
+
+### Wrong Dependency Order
+
+```typescript
+// ❌ Auth checks for session, but session not installed yet
+app.plugin(authPlugin());
+app.plugin(sessionPlugin());
+
+// ✅ Install dependencies first
+app.plugin(sessionPlugin());
+app.plugin(authPlugin());
+```
+
+## See Also
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    Plugin registration and lifecycle methods.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    How plugins add middleware to the stack.
+  </Card>
+  <Card title="Context" href="/docs/concepts/context">
+    Extending context via plugins.
+  </Card>
+</Cards>
