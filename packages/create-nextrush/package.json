@@ -21,6 +21,7 @@
     "README.md"
   ],
   "scripts": {
+    "prepublishOnly": "npx tsup",
     "build": "tsup",
     "clean": "rm -rf dist",
     "lint": "eslint src --max-warnings 0 --ignore-pattern '**/__tests__/**'",
@@ -50,7 +51,7 @@
     "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/create-nextrush"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/apps/docs",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/create-nextrush#readme",
   "bugs": {
     "url": "https://github.com/0xTanzim/nextRush/issues"
   },
@@ -68,6 +69,5 @@
     "tsup": "^8.5.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
-  },
-  "sideEffects": false
+  }
 }

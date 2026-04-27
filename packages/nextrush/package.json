@@ -52,7 +52,7 @@
     "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/nextrush"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/apps/docs",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/nextrush#readme",
   "bugs": {
     "url": "https://github.com/0xTanzim/nextRush/issues"
   },

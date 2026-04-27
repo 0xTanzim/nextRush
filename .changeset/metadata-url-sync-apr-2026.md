@@ -19,7 +19,6 @@
 '@nextrush/template': patch
 '@nextrush/websocket': patch
 '@nextrush/dev': patch
-'create-nextrush': patch
 ---
 
 Sync package metadata and documentation URLs, and ensure package-level homepage/readme publishing metadata is consistent across released packages.

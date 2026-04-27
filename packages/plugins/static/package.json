@@ -46,9 +46,9 @@
     "directory": "packages/plugins/static"
   },
   "bugs": {
-    "url": "https://github.com/nextrush/nextrush/issues"
+    "url": "https://github.com/0xTanzim/nextRush/issues"
   },
-  "homepage": "https://github.com/nextrush/nextrush#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/plugins/static#readme",
   "engines": {
     "node": ">=22.0.0"
   },

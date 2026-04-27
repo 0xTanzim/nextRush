@@ -418,9 +418,11 @@ export default { fetch: createCloudflareHandler(app) };
 ## Dev Tools
 
 ```bash
-# Scaffold a new project
-npm create nextrush@latest     # Interactive project scaffolder
-npx create-nextrush my-app     # Direct scaffold
+# Scaffold a new project (package name on npm: create-nextrush)
+npm create nextrush@latest       # "create" + space + "nextrush" → create-nextrush
+pnpm create nextrush@latest
+npx create-nextrush@latest my-app
+pnpm dlx create-nextrush@latest  # dlx: use hyphenated package name, not "create nextrush"
 
 # Development
 npx nextrush dev               # Start dev server with HMR

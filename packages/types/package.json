@@ -43,7 +43,7 @@
   "bugs": {
     "url": "https://github.com/0xTanzim/nextRush/issues"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/types#readme",
   "engines": {
     "node": ">=22.0.0"
   },

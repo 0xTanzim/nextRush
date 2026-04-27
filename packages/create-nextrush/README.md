@@ -4,21 +4,49 @@
 
 ## Usage
 
+When you run `create nextrush` (with a **space**), your package manager expands that to the npm package **`create-nextrush`**. That is the correct, supported form—`create` and `nextrush` are two words, not `createnextrush`.
+
 ```bash
 # Interactive (recommended)
 pnpm create nextrush
-
-# With npm
 npm create nextrush
-
-# With yarn
 yarn create nextrush
+bun create nextrush
+```
 
+Pin the scaffolder version by adding `@` **after `nextrush`** (not after `create`):
+
+```bash
+npm create nextrush@latest
+pnpm create nextrush@latest
+```
+
+Run the same CLI by its **package name** (hyphenated) with `npx` or `pnpm dlx`:
+
+```bash
+npx create-nextrush@latest
+pnpm dlx create-nextrush@latest
+bunx create-nextrush
+```
+
+Do **not** use `pnpm dlx create nextrush` (two words after `dlx`)—use `pnpm dlx create-nextrush` or `pnpm create nextrush` above.
+
+```bash
 # Non-interactive
 pnpm create nextrush my-api --style functional --middleware api
 ```
 
 The CLI walks you through project setup with an interactive prompt, or you can pass flags directly.
+
+### Maintainers: verify the tarball
+
+From this package directory, after `pnpm run build`:
+
+```bash
+npm pack --dry-run
+```
+
+Confirm `bin/create-nextrush.js` appears in the tarball contents before publishing.
 
 ## Options
 
