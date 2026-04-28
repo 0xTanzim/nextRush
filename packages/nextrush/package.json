@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "Minimal, modular, blazing fast Node.js framework",
   "type": "module",
   "main": "./dist/index.js",
@@ -16,7 +16,11 @@
       "import": "./dist/class.js"
     }
   },
+  "bin": {
+    "nextrush": "./bin/nextrush.js"
+  },
   "files": [
+    "bin",
     "dist",
     "README.md"
   ],
@@ -66,6 +70,7 @@
     "./dist/class.js"
   ],
   "dependencies": {
+    "@nextrush/dev": "workspace:*",
     "@nextrush/adapter-node": "workspace:*",
     "@nextrush/controllers": "workspace:*",
     "@nextrush/core": "workspace:*",

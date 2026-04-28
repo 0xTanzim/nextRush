@@ -1,1 +1,1 @@
-NextRush · [MIT License](https://github.com/0xTanzim/nextRush/blob/main/LICENSE) · Questions? [Open an issue](https://github.com/0xTanzim/nextRush/issues).
+NextRush · [MIT License](https://github.com/0xTanzim/nextRush/blob/main/LICENSE) · [Docs](https://0xtanzim.github.io/nextRush/docs) · [Issues](https://github.com/0xTanzim/nextRush/issues)

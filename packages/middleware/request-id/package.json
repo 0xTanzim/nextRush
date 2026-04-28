@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/request-id",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "Request ID middleware for NextRush - generates unique identifiers for distributed tracing",
   "type": "module",
   "main": "./dist/index.js",

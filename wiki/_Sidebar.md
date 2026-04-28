@@ -1,20 +1,31 @@
-**[← Home](Home)**
+**[Home](Home)**
 
-### Start here
+### Getting started
 
 - [Getting Started](Getting-Started)
 - [Core Concepts](Core-Concepts)
 - [Architecture](Architecture)
 
-### Guides
+### Build patterns
 
 - [Routing](Routing)
-- [Middleware](Middleware)
 - [Dependency Injection](Dependency-Injection)
-- [Controllers and Decorators](Controllers-and-Decorators)
-- [Error Handling](Error-Handling)
+- [Controllers & Decorators](Controllers-and-Decorators)
+- [Plugins](Plugins)
 
-### Reference & project
+### Operations
+
+- [Middleware](Middleware)
+- [Error Handling](Error-Handling)
+- [Request Lifecycle](Request-Lifecycle)
+- [Adapters](Adapters)
+
+### Deep dives
+
+- [Performance](Performance)
+- [Testing](Testing)
+
+### Reference
 
 - [Packages](Packages)
 - [Contributing](Contributing)
@@ -22,6 +33,6 @@
 
 ### External
 
+- [Documentation site](https://0xtanzim.github.io/nextRush/docs) — full API reference
 - [Repository](https://github.com/0xTanzim/nextRush)
-- [npm — `nextrush`](https://www.npmjs.com/package/nextrush)
-- [Docs site](https://0xtanzim.github.io/nextRush/docs)
+- [npm](https://www.npmjs.com/package/nextrush)

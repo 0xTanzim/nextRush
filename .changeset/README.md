@@ -23,3 +23,5 @@ To release new versions:
 pnpm version  # Updates package versions
 pnpm release  # Builds and publishes to npm
 ```
+
+After `pnpm version` (`changeset version`) runs successfully, the changeset **`.md` files you added are removed** from `.changeset/` — they are consumed. Only `config.json`, `README.md`, and any *new* unpublished changesets remain. If you still see an old `v3.x.x-stable-release.md`, it was never deleted after a version bump; remove it so you do not accidentally run the same bump twice.

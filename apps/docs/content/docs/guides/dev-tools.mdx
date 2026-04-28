@@ -13,7 +13,7 @@ A development workflow with a hot-reloading dev server and a production build th
 
 - Node.js 22+, Bun, or Deno installed
 - An existing NextRush project (or a `src/index.ts` entry file)
-- `tsconfig.json` with `experimentalDecorators` and `emitDecoratorMetadata` enabled
+- `tsconfig.json` — for **class-based** code (`nextrush/class`, DI), enable `experimentalDecorators` and `emitDecoratorMetadata` (the **`class-based`** / **`full`** scaffolds do this automatically). **Functional** scaffolds omit them on purpose because route handlers do not use decorators.
 
 ## Installation
 
@@ -119,10 +119,11 @@ The CLI detects your runtime and adapts automatically:
 | Bun     | `bun --watch` (native)      | `Bun.build()` (native) | Emitted natively       |
 | Deno    | `deno run --watch` (native) | `npm:@swc/core`        | Emitted natively       |
 
-<Callout type="info" title="Startup tsconfig Validation">
-  `nextrush dev` checks your `tsconfig.json` at startup and warns immediately if
-  `experimentalDecorators` or `emitDecoratorMetadata` are missing — preventing silent DI failures
-  before your app even starts.
+<Callout type="info" title="Startup tsconfig validation">
+  `nextrush dev` checks `tsconfig.json` when you use TypeScript + SWC. If **only one** of
+  `experimentalDecorators` / `emitDecoratorMetadata` is set to `true`, it warns so DI and
+  decorators do not half-fail. If **both** are omitted (typical **functional** scaffold), it stays
+  quiet — you are not using decorator metadata yet.
 </Callout>
 
 ## Entry File Detection
@@ -175,9 +176,10 @@ You should see:
 ```
 
 <Callout type="warn">
-  If you see "TypeInfo not known for X" at runtime, verify your `tsconfig.json` has both
-  `experimentalDecorators` and `emitDecoratorMetadata` set to `true`, and that `reflect-metadata` is
-  imported at the top of your entry file.
+  If you see "TypeInfo not known for X" at runtime while using `nextrush/class`, set both
+  `experimentalDecorators` and `emitDecoratorMetadata` to `true` in `tsconfig.json`. Import
+  `nextrush/class` (or your entry that loads it) so `reflect-metadata` runs — the `nextrush/class`
+  entry applies it for you.
 </Callout>
 
 ## Programmatic API

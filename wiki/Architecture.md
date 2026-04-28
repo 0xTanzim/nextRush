@@ -1,123 +1,81 @@
 # Architecture
 
-NextRush v3 is built as a modular monorepo. Every feature lives in its own package; the `nextrush` meta package re-exports the essentials for convenience.
+NextRush ships as one repo with many publishable packages. The **`nextrush`** meta package bundles what most Node apps need; everything else stays optional.
 
 ---
 
-## Monorepo Structure
+## Repository layout
 
 ```
 nextrush/
 ├── packages/
-│   ├── types/           # @nextrush/types       — shared TypeScript types
-│   ├── errors/          # @nextrush/errors       — HTTP error classes
-│   ├── core/            # @nextrush/core         — Application, middleware
-│   ├── router/          # @nextrush/router       — Radix-tree routing
-│   ├── di/              # @nextrush/di           — Dependency injection
-│   ├── decorators/      # @nextrush/decorators   — @Controller, @Get, @Body …
-│   ├── runtime/         # @nextrush/runtime      — Runtime detection
-│   ├── nextrush/        # nextrush               — Meta package
-│   ├── adapters/
-│   │   ├── node/        # @nextrush/adapter-node
-│   │   ├── bun/         # @nextrush/adapter-bun
-│   │   ├── deno/        # @nextrush/adapter-deno
-│   │   └── edge/        # @nextrush/adapter-edge
-│   ├── middleware/
-│   │   ├── body-parser/ # @nextrush/body-parser
-│   │   ├── cors/        # @nextrush/cors
-│   │   ├── helmet/      # @nextrush/helmet
-│   │   ├── csrf/        # @nextrush/csrf
-│   │   ├── rate-limit/  # @nextrush/rate-limit
-│   │   ├── cookies/     # @nextrush/cookies
-│   │   ├── compression/ # @nextrush/compression
-│   │   ├── multipart/   # @nextrush/multipart
-│   │   ├── request-id/  # @nextrush/request-id
-│   │   └── timer/       # @nextrush/timer
-│   └── plugins/
-│       ├── controllers/ # @nextrush/controllers
-│       ├── events/      # @nextrush/events
-│       ├── logger/      # @nextrush/logger
-│       ├── static/      # @nextrush/static
-│       ├── template/    # @nextrush/template
-│       └── websocket/   # @nextrush/websocket
+│   ├── types/           @nextrush/types
+│   ├── errors/          @nextrush/errors
+│   ├── core/            @nextrush/core
+│   ├── router/          @nextrush/router
+│   ├── di/              @nextrush/di
+│   ├── decorators/      @nextrush/decorators
+│   ├── runtime/         @nextrush/runtime
+│   ├── nextrush/        nextrush (meta)
+│   ├── adapters/        node, bun, deno, edge
+│   ├── middleware/      body-parser, cors, helmet, …
+│   └── plugins/         controllers, logger, static, …
 ├── apps/
-│   ├── docs/            # Documentation site
-│   ├── benchmark/       # Benchmark suite
-│   └── playground/      # Testing playground
-└── draft/               # Architecture docs & RFCs
+│   ├── docs/            Fumadocs site (GitHub Pages)
+│   ├── benchmark/
+│   └── playground/
+└── draft/               Design notes / RFCs
 ```
 
 ---
 
-## Package Dependency Hierarchy
+## Dependency direction
 
-Dependencies flow strictly downward. **Lower packages never import from higher packages.**
+Imports flow **down** only. No cycles.
 
-```
-@nextrush/types
-       ↓
-@nextrush/errors
-       ↓
-@nextrush/core
-       ↓
-@nextrush/router
-       ↓
-@nextrush/di
-       ↓
-@nextrush/decorators
-       ↓
-@nextrush/controllers
-       ↓
-@nextrush/adapter-*
-       ↓
-@nextrush/middleware/*
-       ↓
-nextrush  (meta package)
+```mermaid
+flowchart TD
+  T["@nextrush/types"]
+  E["@nextrush/errors"]
+  C["@nextrush/core"]
+  R["@nextrush/router"]
+  D["@nextrush/di"]
+  DEC["@nextrush/decorators"]
+  CTRL["@nextrush/controllers"]
+
+  T --> E --> C --> R --> D --> DEC --> CTRL
 ```
 
-Cross-package imports use only published interfaces. Internal implementation details are never imported directly across package boundaries.
+**Rule:** No package below may import from any package above. All cross-package imports use published barrel exports. **Exception:** `import type` allows type-only imports across any boundary.
 
 ---
 
-## Design Principles
+## Package summary
 
-### 1. Minimal Core
-
-The core is under 3,000 lines of code. Application setup, middleware composition, and plugin installation are the only responsibilities of `@nextrush/core`.
-
-### 2. Zero Runtime Dependencies
-
-No external runtime dependencies in core, router, errors, types, adapters, or middleware packages. The only approved exceptions are:
-
-- `reflect-metadata` — required for decorator metadata (DI)
-- `tsyringe` — DI container implementation (`@nextrush/di` only)
-- `@clack/prompts` — interactive CLI (`create-nextrush` scaffolder only)
-
-### 3. Type Safety
-
-Full TypeScript strict mode. No `any`. `unknown` is used at system boundaries. All exported types are documented.
-
-### 4. Dual Paradigm
-
-Functional routes and class-based controllers are first-class citizens:
-
-- **Functional** — `createRouter()` + route handlers → zero setup overhead, great for scripts and microservices
-- **Class-based** — `@Controller` + `@Service` + `controllersPlugin` → DI, testability, large codebases
-
-### 5. Runtime Agnostic Core
-
-The `@nextrush/core` package does not use any runtime-specific APIs (`process`, `Deno`, `Bun`). Platform coupling is isolated to adapter packages.
-
-### 6. Plugin System
-
-Every optional capability (logging, static files, WebSocket, controllers) is a plugin that implements the `Plugin` interface. Plugins have access to lifecycle hooks: `onRequest`, `onResponse`, `onError`, and `extendContext`.
+| Package | Role |
+|---------|------|
+| `@nextrush/types` | HTTP types, interfaces, constants |
+| `@nextrush/errors` | Error hierarchy, factory functions |
+| `@nextrush/core` | Application, middleware composition, plugin system |
+| `@nextrush/router` | High-performance segment-trie routing |
+| `@nextrush/runtime` | Multi-runtime detection and abstractions |
+| `@nextrush/di` | Dependency injection (tsyringe wrapper) |
+| `@nextrush/decorators` | Controller, route, param, guard decorators |
+| `@nextrush/controllers` | Auto-discovery, handler building |
+| `@nextrush/adapter-node` | Node.js HTTP adapter |
+| `@nextrush/adapter-bun` | Bun HTTP adapter |
+| `@nextrush/adapter-deno` | Deno HTTP adapter |
+| `@nextrush/adapter-edge` | Edge/Workers (fetch) adapter |
+| `@nextrush/middleware/*` | CORS, auth, compression, rate-limit, etc. |
+| `@nextrush/plugins/*` | Logging, static files, WebSocket, etc. |
+| `nextrush` | Meta package (re-exports core + Node adapter) |
 
 ---
 
-## Package Size Limits
+## Package size budgets
 
 | Package | Max LOC |
-|---|---|
+|---------|---------|
 | `@nextrush/types` | 500 |
 | `@nextrush/errors` | 600 |
 | `@nextrush/core` | 1,500 |
@@ -127,19 +85,66 @@ Every optional capability (logging, static files, WebSocket, controllers) is a p
 | `@nextrush/controllers` | 800 |
 | `@nextrush/adapter-*` | 500 |
 | `@nextrush/middleware/*` | 300 |
-| `@nextrush/plugin/*` | 600 |
+
+---
+
+## Design constraints
+
+**Small core** — Application bootstrap, middleware composition, plugins, and route mounting live in `@nextrush/core`. No business logic, no extras.
+
+**Zero external deps** — types, errors, core, router, adapters, and middleware stay slim. Approved exceptions: `reflect-metadata` (decorators), `tsyringe` (`@nextrush/di` only), `@clack/prompts` (`create-nextrush` only).
+
+**Strict TypeScript** — No `any`; use `unknown` at system boundaries. Full strict mode in CI.
+
+**Two paradigms** — Functional routing (`createRouter`) for services; class-based with DI for larger codebases. Both are first-class.
+
+**Platform agnostic** — `@nextrush/core` has no `process`, `Deno`, or `Bun` calls. Adapters isolate platform specifics.
+
+**Plugin architecture** — Logging, static files, WebSockets, controller discovery all ship as plugins implementing the `Plugin` interface, not core features.
+
+---
+
+## Integration flow
+
+```mermaid
+flowchart LR
+  A["@nextrush/types<br/>shared defs"]
+  B["@nextrush/core<br/>app + middleware"]
+  C["@nextrush/router<br/>trie matching"]
+  D["adapters<br/>Node/Bun/Deno"]
+  E["@nextrush/di<br/>@nextrush/decorators<br/>@nextrush/controllers"]
+  F["middleware/*<br/>plugins/*"]
+
+  A --> B
+  B --> C
+  C --> D
+  B --> E
+  B --> F
+  E --> B
+```
+
+App wires together **router** + **middleware** + **plugins**. Adapters and DI are optional layers on top.
 
 ---
 
 ## Tooling
 
-| Tool | Purpose |
-|---|---|
-| Turborepo | Monorepo build orchestration |
-| pnpm | Package manager |
-| TypeScript 5.x | Language |
-| tsup | Package bundling |
-| Vitest | Testing |
-| ESLint | Linting |
-| Prettier | Formatting |
-| Changesets | Release management |
+| Tool | Role |
+|------|------|
+| Turborepo | Build orchestration, caching |
+| pnpm workspaces | Package linking |
+| TypeScript 5.x | Strict compilation |
+| tsup | Bundle packages |
+| Vitest | Unit + integration tests (90%+ coverage target) |
+| ESLint + Prettier | Style enforcement |
+| Changesets | Version management, changelogs |
+
+---
+
+## For deeper dives
+
+- [Core Concepts](Core-Concepts) — how Application, Context, and Middleware work
+- [Request Lifecycle](Request-Lifecycle) — complete flow from HTTP to response
+- [Plugins](Plugins) — extension system and lifecycle hooks
+- [Performance](Performance) — optimization strategies and benchmarks
+- [Contributing](Contributing) — development setup and conventions

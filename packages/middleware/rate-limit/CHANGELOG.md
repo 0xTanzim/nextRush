@@ -1,12 +1,21 @@
 # @nextrush/rate-limit
 
+## 3.0.4
+
+### Patch Changes
+
+- Stable **3.0.4**: **`@nextrush/di`** clears resolution tracking on **`container.reset()`** and runs Vitest test files sequentially (`fileParallelism: false`) so the global singleton container is not stressed by parallel test files—fixes flaky / hung circular-dependency tests in CI and locally. Unified semver and docs/wiki surfaces updated to **3.0.4**.
+
+- Updated dependencies []:
+  - @nextrush/types@3.0.4
+
 ## 3.0.3
 
 ### Patch Changes
 
-- [#19](https://github.com/0xTanzim/nextRush/pull/19) [`6c4b0c2`](https://github.com/0xTanzim/nextRush/commit/6c4b0c261fd2fd7191b825aaf4c3448b0588af33) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Stable **3.0.2** across npm: unified semver patch line; **`create-nextrush`** ships **`bin/create-nextrush.js`** for package-manager CLIs; docs site (landing, FAQs, roadmap) and tooling (`@nextrush/dev`) use stable **v3** messaging and aligned plugin metadata (`@nextrush/events`, `@nextrush/template`). Package homepage/repository metadata synced where applicable.
+- Patch **3.0.3**: **`nextrush`** ships the **`nextrush`** CLI via **`@nextrush/dev`**; **`@nextrush/dev`** skips false-positive decorator `tsconfig` warnings on functional scaffolds; **`create-nextrush`** / docs / plugin metadata aligned to **3.0.3**.
 
-- Updated dependencies [[`6c4b0c2`](https://github.com/0xTanzim/nextRush/commit/6c4b0c261fd2fd7191b825aaf4c3448b0588af33)]:
+- Updated dependencies []:
   - @nextrush/types@3.0.3
 
 ## 3.0.1
