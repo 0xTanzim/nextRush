@@ -1,50 +1,29 @@
 # GitHub Wiki source (`wiki/`)
 
-This folder is the **hand-written source** for the repo **Wiki** tab (`github.com/<owner>/<repo>/wiki`).
+Markdown here is meant to be copied into **[the repo Wiki](https://github.com/0xTanzim/nextRush/wiki)**. GitHub stores that in a **separate Git repo** (`*.wiki.git`). Pushes to `main` **do not** update the Wiki tab by themselves.
 
-## Do you need to merge to `main` first?
+## Publish (maintainers — one command)
 
-**No for local publishes.** Run `./scripts/publish-github-wiki.sh` from any branch — it syncs whatever is in `wiki/` right now.
-
-**Yes if you rely on CI.** The workflow **Publish GitHub Wiki** runs when **`main`** gets commits that touch `wiki/**` (see `.github/workflows/wiki-publish.yml`). So the usual flow is: edit `wiki/` → merge to `main` → CI publishes (if `WIKI_PUSH_TOKEN` is set).
-
-## Why nothing appeared on GitHub Wiki before
-
-GitHub stores wiki pages in a **separate Git repo** (`<repo>.wiki.git`). Normal pushes to `main` **do not** update it unless you publish (script or CI).
-
-## Manual publish (your laptop)
-
-From the monorepo root, with permission to push to the wiki repo:
+After **Wikis** are enabled (**Settings → General → Features → Wikis**), from the **monorepo root**:
 
 ```bash
 ./scripts/publish-github-wiki.sh
 ```
 
-Requirements:
+Same requirements as any `git push` to GitHub: **`origin`** must point at this repo, and your machine needs **SSH** (`ssh-agent`) or **HTTPS** (`gh auth login` / credential helper). The script derives the wiki clone URL from `origin` so owner/repo casing matches GitHub.
 
-1. **Wikis** enabled: **Settings → General → Features → Wikis**.
-2. **`origin`** points at this GitHub repo — the script derives `… .wiki.git` from it (correct owner/repo casing).
-3. **Auth:** SSH agent, HTTPS credential helper, or `gh auth login`.
+Files copied: everything under `wiki/` **except** this **`README.md`** (notes for contributors only).
 
-Copy excludes **`wiki/README.md`** (maintainer-only).
+## Why there is no Wiki workflow in Actions
 
-## Automatic publish (GitHub Actions)
+Standard **`GITHUB_TOKEN`** in Actions is **not allowed** to push to the wiki Git repository — that is a **GitHub platform rule**, not something we can fix in YAML. Fully automatic wiki publish from CI needs a **personal access token** stored as a secret, which adds maintenance and security review. This repo keeps wiki updates **manual** via the script above so setup stays simple.
 
-Workflow: **Publish GitHub Wiki** — triggers on push to **`main`** when `wiki/**`, the workflow file, or `scripts/publish-github-wiki.sh` changes.
+If you want automation later, search GitHub’s docs for **“About wikis”** and **“Creating a personal access token”** (classic token with **`repo`** scope), then add your own workflow that pushes with that token.
 
-**Important:** `GITHUB_TOKEN` **cannot** push to `*.wiki.git`. Add a **classic Personal Access Token** with **`repo`** scope as repository secret:
+## Where to learn more (official)
 
-| Secret             | Purpose                                      |
-| ------------------ | -------------------------------------------- |
-| `WIKI_PUSH_TOKEN`  | PAT — clone/push `owner/repo.wiki.git`       |
+- [GitHub Docs — About wikis](https://docs.github.com/en/communities/documenting-your-project-with-wikis/about-wikis)
+- [GitHub Docs — Adding or editing wiki pages](https://docs.github.com/en/communities/documenting-your-project-with-wikis/adding-or-editing-wiki-pages)
+- [GitHub Docs — Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
-**Settings → Secrets and variables → Actions → New repository secret** → name `WIKI_PUSH_TOKEN`.
-
-Until this secret exists, the workflow **skips** publish with a notice (CI stays green).
-
-## Edit workflow
-
-1. Edit Markdown under `wiki/` here.
-2. Merge to `main` (CI publishes if secret set), **or** run `./scripts/publish-github-wiki.sh` manually anytime.
-
-Canonical docs stay in **`apps/docs`** (GitHub Pages); keep wiki pages short and link there when needed.
+Canonical documentation for readers lives in **`apps/docs`** (GitHub Pages).

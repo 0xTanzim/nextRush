@@ -4,10 +4,8 @@
 #
 # Remotes (first match wins):
 #   1) WIKI_GIT_REMOTE — explicit wiki.git URL (SSH or HTTPS)
-#   2) CI: WIKI_PUSH_TOKEN + GITHUB_REPOSITORY — HTTPS with PAT (GitHub Actions / bots)
-#   3) Local: derive from git remote origin → … .wiki.git
-#
-# Note: GITHUB_TOKEN in Actions cannot push to *.wiki.git — use a PAT in secret WIKI_PUSH_TOKEN.
+#   2) WIKI_PUSH_TOKEN + GITHUB_REPOSITORY — HTTPS with PAT (optional; e.g. no SSH, automated host)
+#   3) derive from git remote origin → … .wiki.git (normal laptops with SSH or gh auth)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
