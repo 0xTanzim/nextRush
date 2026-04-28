@@ -305,6 +305,7 @@ nextrush/
 - [API Reference](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/api-reference/index.mdx)
 - [Performance & benchmarks](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx)
 - [Docs site (GitHub Pages)](https://0xtanzim.github.io/nextRush/docs)
+- [GitHub Wiki](https://github.com/0xTanzim/nextRush/wiki) — concise guides (source in repo [`wiki/`](https://github.com/0xTanzim/nextRush/tree/main/wiki); publish with `./scripts/publish-github-wiki.sh`)
 
 ## Versioning
 
