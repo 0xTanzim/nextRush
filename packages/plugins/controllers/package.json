@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/controllers",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Controller plugin for NextRush - automatic discovery, DI integration, and route registration",
   "type": "module",
   "main": "./dist/index.js",

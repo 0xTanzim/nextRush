@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/core",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Core functionality for NextRush framework - Application, Context, Middleware",
   "type": "module",
   "main": "./dist/index.js",
