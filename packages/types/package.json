@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/types",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Shared TypeScript types for NextRush framework",
   "type": "module",
   "main": "./dist/index.js",
@@ -43,7 +43,7 @@
   "bugs": {
     "url": "https://github.com/0xTanzim/nextRush/issues"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/types#readme",
   "engines": {
     "node": ">=22.0.0"
   },

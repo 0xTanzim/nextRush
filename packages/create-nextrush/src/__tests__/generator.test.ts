@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { NEXTRUSH_VERSION } from '../constants.js';
 import { generateProject } from '../generator.js';
 import type { ProjectOptions } from '../types.js';
 
@@ -371,7 +372,7 @@ describe('generateProject', () => {
       expect(pkg.scripts.dev).toBe(
         'deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts'
       );
-      expect(pkg.scripts.build).toBe('deno run -A npm:@nextrush/dev@3.0.0 build');
+      expect(pkg.scripts.build).toBe(`deno run -A npm:@nextrush/dev@${NEXTRUSH_VERSION} build`);
       expect(pkg.scripts.start).toBe('deno run --allow-net --allow-read --allow-env dist/index.js');
     });
   });

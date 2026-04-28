@@ -1,8 +1,10 @@
 # NextRush
 
-> Minimal, modular, high-performance Node.js framework — v3.0.0
+> Minimal, modular, high-performance Node.js framework — **v3** (`3.0.x` on npm)
 
-NextRush is a TypeScript-first HTTP framework designed around three values: **zero runtime dependencies in core**, **modular opt-in packages**, and **a clean developer experience** through a unified context API.
+NextRush is a TypeScript-first HTTP framework built around **zero runtime dependencies in core**, **modular opt-in packages**, and a **clear Context API** with Koa-style middleware.
+
+**Canonical docs:** The full documentation site (search, versioning, guides) lives at **[Documentation site](https://0xtanzim.github.io/nextRush/docs)**. This wiki mirrors high-level guides for readers who prefer GitHub only.
 
 ---
 

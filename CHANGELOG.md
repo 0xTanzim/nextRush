@@ -4,7 +4,22 @@ All notable changes to the NextRush framework will be documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses a unified version across all `@nextrush/*` packages.
 
-## [3.0.0-alpha.2] — Unreleased
+## [3.0.2]
+
+### Changed
+
+- **Unified semver**: All `@nextrush/*` packages, **`nextrush`**, **`create-nextrush`**, and **`nextrush-benchmark`** are released at **3.0.2**.
+- **Documentation**: Landing badge, FAQs, roadmap, and benchmark methodology tables reference **3.0.2** and stable **v3** messaging (replacing outdated **alpha** copy where users first encounter the framework).
+
+### Added / Fixed
+
+- **`create-nextrush`**: Published **`bin/create-nextrush.js`** so `pnpm create nextrush`, `npm create nextrush`, `npx create-nextrush`, and `pnpm dlx create-nextrush` execute the CLI from the npm tarball.
+- **Package metadata**: Homepage and repository URLs aligned across packages; `@nextrush/dev` CLI reports **3.0.2**.
+- **`@nextrush/events`** / **`@nextrush/template`**: Plugin `version` metadata aligned with npm releases.
+
+## [3.0.0-alpha.2]
+
+Historical aggregate changelog for early **v3** prereleases. **Current npm releases use the stable `3.0.x` line** — see **[3.0.2]** above.
 
 ### Added
 

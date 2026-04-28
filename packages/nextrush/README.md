@@ -197,7 +197,7 @@ This meta package re-exports from:
 | Package           | Description                                               |
 | ----------------- | --------------------------------------------------------- |
 | `@nextrush/dev`   | Hot reload dev server, production builds, code generators |
-| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)               |
+| `create-nextrush` | Project scaffolder — `pnpm create nextrush`, `npx create-nextrush` ([usage](https://github.com/0xTanzim/nextRush/blob/main/packages/create-nextrush/README.md)) |
 
 ## Direct Package Usage
 

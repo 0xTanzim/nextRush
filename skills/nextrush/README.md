@@ -52,6 +52,18 @@ nextrush/
 | Plugins                 | controllers, events, logger, static, template, websocket                                        |
 | Dev tools               | CLI (`nextrush dev/build/generate`), `create-nextrush` scaffolder                               |
 
+## Scaffolding a project
+
+The npm package is **`create-nextrush`**. With **pnpm** / **npm** / **yarn** / **bun**, the word after `create` is the initializer: use a **space** — `create nextrush` — not `createnextrush`. With **npx** or **pnpm dlx**, use the **hyphenated** package name: `npx create-nextrush@latest`, `pnpm dlx create-nextrush@latest` (not `dlx create nextrush`).
+
+```bash
+pnpm create nextrush@latest
+npm create nextrush@latest
+npx create-nextrush@latest
+```
+
+Flags, presets, and templates: [create-nextrush package README](https://github.com/0xTanzim/nextRush/blob/main/packages/create-nextrush/README.md).
+
 ## Framework Requirements
 
 - Node.js >= 22.0.0

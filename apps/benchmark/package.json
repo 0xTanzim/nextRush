@@ -1,6 +1,6 @@
 {
   "name": "nextrush-benchmark",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "description": "Professional HTTP framework benchmarks for NextRush v3 — wrk + autocannon, GC tracking, memory profiling, concurrency scaling",
   "private": true,
   "type": "module",

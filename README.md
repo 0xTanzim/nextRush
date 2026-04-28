@@ -42,6 +42,8 @@ pnpm create nextrush my-api
 cd my-api && pnpm dev
 ```
 
+The `create nextrush` form (with a space) installs the `create-nextrush` package. You can also use `npx create-nextrush@latest` or `pnpm dlx create-nextrush@latest`. See the [create-nextrush docs](https://github.com/0xTanzim/nextRush/tree/main/packages/create-nextrush#usage).
+
 The interactive scaffolder lets you choose between functional, class-based, or full style, pick a middleware preset, and select your runtime target.
 
 ### Manual Setup
@@ -183,7 +185,7 @@ ctx.state; // Share data between middleware
 | Package           | Description                                                   |
 | ----------------- | ------------------------------------------------------------- |
 | `@nextrush/dev`   | Hot reload dev server, production builds, and code generators |
-| `create-nextrush` | Project scaffolder (`pnpm create nextrush`)                   |
+| `create-nextrush` | Project scaffolder — `pnpm create nextrush`, `npx create-nextrush` ([usage](https://github.com/0xTanzim/nextRush/blob/main/packages/create-nextrush/README.md)) |
 
 ## Adding Middleware
 
@@ -303,6 +305,7 @@ nextrush/
 - [API Reference](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/api-reference/index.mdx)
 - [Performance & benchmarks](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx)
 - [Docs site (GitHub Pages)](https://0xtanzim.github.io/nextRush/docs)
+- [GitHub Wiki](https://github.com/0xTanzim/nextRush/wiki) — concise guides (source in repo [`wiki/`](https://github.com/0xTanzim/nextRush/tree/main/wiki); publish with `./scripts/publish-github-wiki.sh`)
 
 ## Versioning
 

@@ -1,20 +1,31 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import {
-  ADAPTER_PACKAGES,
-  MIDDLEWARE_IMPORTS,
-  MIDDLEWARE_PACKAGES,
-  MIDDLEWARE_PRESETS,
-  MIDDLEWARE_SETUP,
-  NEXTRUSH_VERSION,
-  PACKAGE_NAME_REGEX,
-  RUNTIMES,
-  STYLES,
+    ADAPTER_PACKAGES,
+    MIDDLEWARE_IMPORTS,
+    MIDDLEWARE_PACKAGES,
+    MIDDLEWARE_PRESETS,
+    MIDDLEWARE_SETUP,
+    NEXTRUSH_VERSION,
+    PACKAGE_NAME_REGEX,
+    RUNTIMES,
+    STYLES,
 } from '../constants.js';
+
+const pkgVersion = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf-8'),
+) as { version: string };
 
 describe('constants', () => {
   it('has a valid semver version', () => {
     expect(NEXTRUSH_VERSION).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  it('matches package.json version (used in generated deps and --version)', () => {
+    expect(NEXTRUSH_VERSION).toBe(pkgVersion.version);
   });
 
   it('exports all style options', () => {

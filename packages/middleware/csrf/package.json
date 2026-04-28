@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/csrf",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "CSRF protection middleware for NextRush — Signed Double-Submit Cookie pattern with HMAC-SHA256",
   "type": "module",
   "main": "./dist/index.js",
@@ -48,9 +48,9 @@
     "directory": "packages/middleware/csrf"
   },
   "bugs": {
-    "url": "https://github.com/nextrush/nextrush/issues"
+    "url": "https://github.com/0xTanzim/nextRush/issues"
   },
-  "homepage": "https://github.com/nextrush/nextrush#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/csrf#readme",
   "publishConfig": {
     "access": "public"
   },

@@ -9,16 +9,38 @@ controllers, and middleware presets. For the onboarding flow, start from
 
 ## Quick Start
 
+`pnpm create nextrush`, `npm create nextrush`, and similar commands use a **space** between `create` and `nextrush`. Your package manager resolves that to the npm package **`create-nextrush`**. You can also call that package directly with `npx` or `pnpm dlx` using the **hyphenated** name.
+
 ```bash
-# Interactive (recommended)
+# Interactive (recommended) — space after "create"
 pnpm create nextrush
-
-# With npm
 npm create nextrush
-
-# With yarn
 yarn create nextrush
+bun create nextrush
 ```
+
+Pin the scaffolder (for example to `@latest` or a specific version) by putting `@…` **after `nextrush`**:
+
+```bash
+npm create nextrush@latest
+pnpm create nextrush@latest
+```
+
+Same tool, using the published package name:
+
+```bash
+npx create-nextrush@latest
+pnpm dlx create-nextrush@latest
+bunx create-nextrush
+```
+
+<Callout type="warn" title="pnpm dlx uses the package name">
+  Use `pnpm dlx create-nextrush`, not `pnpm dlx create nextrush`. The latter is not a valid package name; the scaffolder’s name on npm is `create-nextrush` (with a hyphen).
+</Callout>
+
+<Callout type="info" title="&quot;command not found&quot; on npm">
+  If `npm create` or `npx` fails with `create-nextrush: command not found`, the installed `create-nextrush` build does not include the published `bin` file. Use the latest version from the registry once a fixed release is available, or scaffold from a local clone of this repository.
+</Callout>
 
 The CLI walks you through project name, style, middleware preset, and runtime target.
 
