@@ -4,13 +4,17 @@ Markdown here is meant to be copied into **[the repo Wiki](https://github.com/0x
 
 ## Publish (maintainers — one command)
 
-After **Wikis** are enabled (**Settings → General → Features → Wikis**), from the **monorepo root**:
+On GitHub:
+
+1. **Settings → General → Features → Wikis** — turn Wikis **on**.
+2. Open the **Wiki** tab and **create any page once** (even a stub). That provisions the separate `*.wiki.git` repo; until then, `git` will report *Repository not found* for the wiki remote.
+3. From the **monorepo root**:
 
 ```bash
 ./scripts/publish-github-wiki.sh
 ```
 
-Same requirements as any `git push` to GitHub: **`origin`** must point at this repo, and your machine needs **SSH** (`ssh-agent`) or **HTTPS** (`gh auth login` / credential helper). The script derives the wiki clone URL from `origin` so owner/repo casing matches GitHub.
+Same requirements as any `git push` to GitHub: **`origin`** must point at this repo, and your machine needs **SSH** (`ssh-agent`) or **HTTPS** (`gh auth login` / credential helper). The script asks the **GitHub API** for the canonical `owner/repo` casing, then builds `…wiki.git` to match (a lowercase-only `origin` URL is not always enough for the wiki remote).
 
 Files copied: everything under `wiki/` **except** this **`README.md`** (notes for contributors only).
 
