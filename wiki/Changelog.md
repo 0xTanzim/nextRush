@@ -11,11 +11,19 @@ NextRush follows [Semantic Versioning](https://semver.org/) and uses a unified v
 | Major (`x.0.0`) | Breaking API changes |
 | Minor (`0.x.0`) | New features, backward-compatible |
 | Patch (`0.0.x`) | Bug fixes, security patches |
-| Pre-release (`-alpha.x`, `-beta.x`) | Unstable — API may change |
+| Pre-release (`-alpha.x`, `-beta.x`) | Optional tags for early testers — **current npm line is stable `3.0.x`** |
 
 ---
 
-## [3.0.0-alpha.2] — Unreleased
+## [3.0.2]
+
+Stable **patch** release: unified **3.0.2** across `@nextrush/*`; **`create-nextrush`** includes **`bin/create-nextrush.js`** for package-manager `create` / `npx` / `dlx`; docs and landing describe **semver-stable v3** (see repo root `CHANGELOG.md`).
+
+---
+
+## [3.0.0-alpha.2]
+
+Historical prerelease aggregate (superseded by the **3.0.x** stable line).
 
 ### Added
 

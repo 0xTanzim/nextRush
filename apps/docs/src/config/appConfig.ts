@@ -3,7 +3,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://github.com/0xTanzi
 export const appConfig = {
   name: 'NextRush',
   id: 'nextrush',
-  version: '3.0.0-alpha.2',
+  version: '3.0.2',
   teamName: 'NextRush Team',
   twitterHandle: '@nextrush',
   siteUrl: SITE_URL,

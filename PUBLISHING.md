@@ -39,7 +39,7 @@ This guarantees independent package changes are never merged without release met
 | **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer` |
 | **Plugins (independent)**    | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
 
-**Tooling (independent):** `@nextrush/dev`, `create-nextrush`
+**Tooling (independent):** `@nextrush/dev`, `create-nextrush` — the scaffolder is **not** in the core lockstep group. Changes under `packages/create-nextrush/` that you publish to npm need a **changeset** for `'create-nextrush'` (patch/minor/major as usual). Editing only `apps/docs` or other private apps does not require a changeset unless you also change a published package.
 
 **Excluded (private / not published):** docs app, playground app, benchmark app.
 

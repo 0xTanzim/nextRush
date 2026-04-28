@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/errors",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Standardized error handling for NextRush",
   "type": "module",
   "main": "./dist/index.js",

@@ -41,26 +41,28 @@ Pick one path and stay on it until you have a running server:
 If you want a working app immediately, use `create-nextrush`.
 
 ```bash
-# Interactive
+# Interactive (space between "create" and "nextrush" is intentional)
 pnpm create nextrush
-
-# npm
 npm create nextrush
+
+# Pin the scaffolder version
+npm create nextrush@latest
+
+# Same package via its npm name (hyphen)
+pnpm dlx create-nextrush@latest
 
 # non-interactive example
 pnpm create nextrush my-api --style functional --middleware api --runtime node
 ```
 
 The scaffolder generates a ready-to-run project with routing, middleware, scripts, and optional
-controllers + DI support.
+controllers + DI support. For every supported command (`npm create`, `npx`, `pnpm dlx`), flags, and
+templates, see [create-nextrush](/docs/getting-started/create-nextrush).
 
 <Callout type="info" title="What the scaffold asks">
   Project name, style (`functional`, `class-based`, or `full`), middleware preset, runtime target,
   package manager, dependency install, and git init.
 </Callout>
-
-If you want the full flag reference and template breakdown, see the
-[create-nextrush reference](/docs/getting-started/create-nextrush).
 
 ## Install manually
 

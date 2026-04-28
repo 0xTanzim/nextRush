@@ -1381,7 +1381,9 @@ describe('Integration with @nextrush/log Features', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const elapsed = timer.elapsed();
-      expect(elapsed).toBeGreaterThanOrEqual(10);
+      // setTimeout(10) is not guaranteed to run after >=10ms wall time (timer quantization / load).
+      expect(elapsed).toBeGreaterThan(0);
+      expect(elapsed).toBeGreaterThanOrEqual(8);
 
       const duration = timer.end('Operation completed');
       expect(typeof duration).toBe('number');

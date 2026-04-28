@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Minimal, modular, blazing fast Node.js framework",
   "type": "module",
   "main": "./dist/index.js",
@@ -52,7 +52,7 @@
     "url": "git+https://github.com/0xTanzim/nextRush.git",
     "directory": "packages/nextrush"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/apps/docs",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/nextrush#readme",
   "bugs": {
     "url": "https://github.com/0xTanzim/nextRush/issues"
   },
