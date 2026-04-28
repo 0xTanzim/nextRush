@@ -1,60 +1,57 @@
-# Core Concepts
+# Core concepts
 
-The NextRush core (`@nextrush/core`) provides three building blocks: the **Application**, the **Context API**, and the **Middleware** composition system.
+`@nextrush/core` gives you three pieces: an **application** instance (middleware + routes + plugins), a **context** (`ctx`) per request, and **middleware** composition with `await next()`.
+
+For request lifecycle detail, see [Request lifecycle](https://0xtanzim.github.io/nextRush/docs/concepts/request-lifecycle) on the docs site.
 
 ---
 
 ## Application
 
-`createApp()` returns an `Application` instance that manages middleware registration, router mounting, plugin installation, and error handling.
+`createApp()` returns an `Application`: register middleware, mount routers, attach plugins, set a global error handler, then start listening.
 
 ```typescript
 import { createApp, listen } from 'nextrush';
 
 const app = createApp({
-  env: 'production',  // 'development' | 'production' | 'test'
-  proxy: false,       // Trust X-Forwarded-* headers
-  logger: console,    // Logger: { error, warn, info, debug }
+  env: 'production',
+  proxy: false,
+  logger: undefined,
 });
 ```
 
-### Middleware Registration
+### Register middleware
 
 ```typescript
-// Single middleware
 app.use(async (ctx, next) => {
-  console.log(`${ctx.method} ${ctx.path}`);
+  ctx.state.startedAt = Date.now();
   await next();
 });
 
-// Multiple middleware at once
-app.use(cors(), helmet(), json());
+// Then packages such as @nextrush/cors, @nextrush/helmet, @nextrush/body-parser — see Middleware wiki page
 ```
 
-### Router Mounting
+### Mount routers
 
 ```typescript
 const users = createRouter();
 users.get('/', listUsers);
-users.post('/', createUser);
 
-// Mount at /api/users — Hono-style
 app.route('/api/users', users);
 ```
 
-### Plugin Installation
+### Plugins
 
 ```typescript
-// Sync plugin
 app.plugin(loggerPlugin({ level: 'info' }));
-
-// Async plugin
-await app.plugin(databasePlugin({ uri: '...' }));
+await app.plugin(databasePlugin({ uri: process.env.DATABASE_URL! }));
 ```
 
-### Error Handler
+### Errors
 
 ```typescript
+import { ValidationError } from '@nextrush/errors';
+
 app.setErrorHandler((error, ctx) => {
   if (error instanceof ValidationError) {
     ctx.status = 400;
@@ -68,164 +65,94 @@ app.setErrorHandler((error, ctx) => {
 
 ### Lifecycle
 
-```typescript
-// Configuration is frozen after the server starts listening.
-// You cannot call use(), route(), or plugin() after listen().
-listen(app, 3000);
-
-// Graceful shutdown
-const errors = await app.close();  // destroys plugins in reverse order
-```
+After `listen()` resolves, configuration is frozen: no more `use()`, `route()`, or `plugin()` on that instance. Use `app.close()` for graceful shutdown (plugins tear down in reverse order).
 
 ---
 
-## Context API
+## Context (`ctx`)
 
-Every middleware and route handler receives a `ctx` (Context) object that wraps the incoming request and outgoing response.
+One object carries request fields and helpers to send a response.
 
-### Request (Input)
+**Input**
 
-```typescript
-ctx.method;            // 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | ...
-ctx.path;              // '/users/123'
-ctx.params;            // { id: '123' }            — route parameters
-ctx.query;             // { page: '1', limit: '20' } — query string
-ctx.body;              // parsed request body (requires @nextrush/body-parser)
-ctx.headers;           // Record<string, string | string[] | undefined>
-ctx.get('header');     // get a specific request header (case-insensitive)
-ctx.state;             // Record<string, unknown> — mutable state bag for middleware
-```
+| Member | Role |
+|--------|------|
+| `method`, `path` | Verb and path |
+| `params` | Route params (`:id`, wildcards) |
+| `query` | Query string |
+| `body` | Parsed body (after body-parser middleware) |
+| `headers` | Raw header map |
+| `get(name)` | Single header (case-insensitive) |
+| `state` | Mutable bag for middleware |
 
-### Response (Output)
+**Output**
 
-```typescript
-ctx.status = 201;               // set HTTP status code
-ctx.json(data);                 // send JSON response
-ctx.send(text);                 // send text/buffer response
-ctx.html(str);                  // send HTML response
-ctx.redirect(url);              // redirect (default 302)
-ctx.redirect(url, 301);         // redirect with custom status
-ctx.set('X-Custom', 'value');   // set a response header
-```
+| Method / field | Role |
+|----------------|------|
+| `status` | HTTP status |
+| `json(data)`, `send()`, `html()` | Body helpers |
+| `redirect(url, code?)` | Redirect |
+| `set(name, value)` | Response header |
 
-### Middleware Control
+**Chain**
 
-```typescript
-await ctx.next();   // call the next middleware in the stack
-// or
-await next();       // next is also passed as a second argument
-```
+| API | Role |
+|-----|------|
+| `await ctx.next()` | Enter the rest of the stack |
+| `(ctx, next) => …` | Same as `await next()` |
 
 ---
 
-## Middleware
+## Middleware execution
 
-NextRush uses Koa-style async middleware. Every middleware is an `async (ctx, next) => void` function.
+Middleware runs in an **onion**: code before `next()` runs outward-to-in; code after `next()` runs on the way back.
 
-### Writing Middleware
-
-```typescript
-import type { Middleware } from 'nextrush';
-
-const requestLogger: Middleware = async (ctx, next) => {
-  const start = Date.now();
-  await next();                                    // downstream first
-  const ms = Date.now() - start;
-  console.log(`${ctx.method} ${ctx.path} — ${ms}ms`);
-};
-
-app.use(requestLogger);
+```mermaid
+flowchart LR
+  subgraph inbound["Toward handler"]
+    M1["A: before"]
+    M2["B: before"]
+    H["Handler"]
+  end
+  subgraph outbound["Toward response"]
+    M2b["B: after"]
+    M1b["A: after"]
+  end
+  M1 --> M2 --> H
+  H --> M2b --> M1b
 ```
 
-### Middleware Execution Order
+Short-circuit by **not** calling `next()` after you set status and body (for example auth failure).
 
-Middleware forms an onion: each layer wraps everything inside it.
-
-```
-→ middleware 1 (before next)
-  → middleware 2 (before next)
-    → route handler
-  ← middleware 2 (after next)
-← middleware 1 (after next)
-```
-
-### State Sharing
-
-Use `ctx.state` to pass data between middleware:
-
-```typescript
-const authMiddleware: Middleware = async (ctx, next) => {
-  const token = ctx.get('authorization');
-  if (!token) {
-    ctx.status = 401;
-    ctx.json({ error: 'Unauthorized' });
-    return;  // stop the chain — do not call next()
-  }
-  ctx.state.user = await verifyToken(token);
-  await next();
-};
-```
+Share data with `ctx.state` so downstream middleware and handlers see the same object.
 
 ---
 
-## Plugin System
+## Plugins
 
-Plugins extend the application with optional capabilities. A plugin implements the `Plugin` interface:
+A **plugin** implements `Plugin`: usually `install(app)` registers middleware or hooks.
 
 ```typescript
 import type { Plugin, Application } from 'nextrush';
 
 const myPlugin: Plugin = {
   name: 'my-plugin',
-
-  install(app: Application): void | Promise<void> {
-    app.use(/* middleware */);
+  install(app: Application) {
+    app.use(/* … */);
   },
 };
 
 app.plugin(myPlugin);
 ```
 
-### Lifecycle Hooks (PluginWithHooks)
+**`PluginWithHooks`** adds optional `extendContext`, `onRequest`, `onResponse`, `onError`, and `destroy` for instrumentation or cleanup.
 
-Plugins can also respond to request lifecycle events:
+Use `app.hasPlugin('name')` / `app.getPlugin('name')` when another plugin needs to detect optional peers.
 
-```typescript
-import type { PluginWithHooks, Context } from 'nextrush';
+---
 
-const observabilityPlugin: PluginWithHooks = {
-  name: 'observability',
+## Where to read next
 
-  install(app) {
-    // register global middleware here if needed
-  },
-
-  extendContext(ctx: Context) {
-    // add custom properties to every context
-    ctx.state.requestId = crypto.randomUUID();
-  },
-
-  async onRequest(ctx: Context) {
-    // runs before middleware chain
-  },
-
-  async onResponse(ctx: Context) {
-    // runs after middleware chain completes
-  },
-
-  async onError(error: Error, ctx: Context) {
-    // runs when middleware chain throws
-  },
-
-  destroy() {
-    // cleanup when app.close() is called
-  },
-};
-```
-
-### Plugin Guards
-
-```typescript
-app.hasPlugin('my-plugin');         // boolean
-app.getPlugin('my-plugin');         // Plugin | undefined
-```
+- [Middleware](Middleware) — packaged middleware and ordering
+- [Routing](Routing) — router API
+- [Plugins concept](https://0xtanzim.github.io/nextRush/docs/concepts/plugins) — docs site

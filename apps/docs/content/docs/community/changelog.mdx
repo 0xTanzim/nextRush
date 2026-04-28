@@ -17,13 +17,37 @@ NextRush follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-## v3.0.2
+## v3.0.4
 
 **Status**: Current stable line (`3.0.x` patch releases)
 
 ### Highlights
 
-- **Unified npm versions**: All `@nextrush/*` packages and **`create-nextrush`** publish at **3.0.2**.
+- **Unified npm versions**: All `@nextrush/*` packages and **`create-nextrush`** publish at **3.0.4**.
+- **`@nextrush/di`**: **`container.reset()`** clears resolution tracking; Vitest **`fileParallelism: false`** avoids parallel test files racing the global container (more reliable CI / local tests).
+
+---
+
+## v3.0.3
+
+**Status**: Superseded by **v3.0.4** (kept for history)
+
+### Highlights
+
+- **Unified npm versions**: All `@nextrush/*` packages and **`create-nextrush`** published at **3.0.3**.
+- **`nextrush`**: **`nextrush` CLI** available from the meta package via **`@nextrush/dev`** (for example `npx nextrush dev` after `pnpm add nextrush`).
+- **`@nextrush/dev`**: Decorator `tsconfig` startup validation matches functional scaffolds (no false warnings when both flags are omitted).
+- **Documentation**: Installation, dev tools, and create-nextrush pages updated for **3.0.3**.
+
+---
+
+## v3.0.2
+
+**Status**: Historical (`3.0.x` lineage)
+
+### Highlights
+
+- **Unified npm versions**: All `@nextrush/*` packages and **`create-nextrush`** published at **3.0.2**.
 - **`create-nextrush`**: Published CLI entry **`bin/create-nextrush.js`** so `pnpm create nextrush`, `npm create nextrush`, `npx`, and `pnpm dlx` resolve the CLI correctly.
 - **Documentation**: Site config, landing badge, FAQs, roadmap, and benchmarks reference **3.0.2** and stable semver messaging (replacing outdated “alpha” copy on marketing surfaces).
 - **Plugins**: `@nextrush/events` and `@nextrush/template` plugin metadata versions aligned with **3.0.2**.

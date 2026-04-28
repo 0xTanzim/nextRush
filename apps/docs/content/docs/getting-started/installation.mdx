@@ -85,13 +85,15 @@ Choose your preferred package manager:
 
 <PackageInstall packages={['nextrush']} dev={['tsx', 'typescript', '@types/node']} />
 
-The `nextrush` package is a meta-package that includes the essentials:
+The `nextrush` package is a meta-package that includes the essentials plus the **`nextrush` CLI**
+(via `@nextrush/dev`) so you can run `npx nextrush dev` and `npx nextrush build` after installing it:
 
 - `@nextrush/core` — Application and middleware
 - `@nextrush/router` — HTTP routing
 - `@nextrush/adapter-node` — Node.js HTTP server adapter
 - `@nextrush/errors` — HTTP error classes
 - `@nextrush/types` — Shared TypeScript types
+- `@nextrush/dev` — Development server, production build, generators (transitive dependency)
 
 </Step>
 
@@ -214,8 +216,9 @@ This is useful when:
 
 ### Development Tools
 
-<PackageInstall packages={[]} dev={['tsx', 'typescript', '@types/node']} />
+<PackageInstall packages={[]} dev={['@nextrush/dev', 'tsx', 'typescript', '@types/node']} />
 
+- **@nextrush/dev** — `nextrush dev`, `nextrush build`, and `nextrush generate` when you assemble packages individually (the **`nextrush`** meta-package also pulls this in; see scaffold or manual meta install)
 - **tsx** — Run TypeScript directly without compilation
 - **typescript** — TypeScript compiler
 - **@types/node** — Node.js type definitions

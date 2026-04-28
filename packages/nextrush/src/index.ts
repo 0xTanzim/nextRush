@@ -87,7 +87,7 @@ export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 // ============================================
 // ROUTER: Radix Tree Routing
 // ============================================
-export { Router, createRouter } from '@nextrush/router';
+export { createRouter, Router } from '@nextrush/router';
 export type { RouterOptions } from '@nextrush/router';
 
 // ============================================
@@ -102,29 +102,22 @@ export type { ServeOptions, ServerInstance } from '@nextrush/adapter-node';
 export {
   BadGatewayError,
   // 4xx Client Errors
-  BadRequestError,
-  ConflictError,
-  ForbiddenError,
+  BadRequestError, catchAsync, ConflictError,
+  // Factory functions
+  createError,
+  // Error handling middleware
+  errorHandler, ForbiddenError,
   GatewayTimeoutError,
   // Base
   HttpError,
   // 5xx Server Errors
-  InternalServerError,
-  MethodNotAllowedError,
+  InternalServerError, isHttpError, MethodNotAllowedError,
   NextRushError,
-  NotFoundError,
-  NotImplementedError,
+  NotFoundError, notFoundHandler, NotImplementedError,
   ServiceUnavailableError,
   TooManyRequestsError,
   UnauthorizedError,
-  UnprocessableEntityError,
-  catchAsync,
-  // Factory functions
-  createError,
-  // Error handling middleware
-  errorHandler,
-  isHttpError,
-  notFoundHandler,
+  UnprocessableEntityError
 } from '@nextrush/errors';
 
 export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
@@ -143,7 +136,7 @@ export type {
   Plugin,
   RouteHandler,
   // Runtime
-  Runtime,
+  Runtime
 } from '@nextrush/types';
 
 // HTTP constants
@@ -152,4 +145,4 @@ export { ContentType, HttpStatus } from '@nextrush/types';
 // ============================================
 // VERSION
 // ============================================
-export const VERSION = '3.0.0';
+export const VERSION = '3.0.4';

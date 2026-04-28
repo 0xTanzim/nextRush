@@ -119,9 +119,17 @@ export async function loadConfig(): Promise<NextRushConfig> {
   return {};
 }
 
+function isTruthyCompilerFlag(value: unknown): boolean {
+  return value === true;
+}
+
 /**
- * Validate tsconfig.json has decorator metadata enabled.
- * Returns warnings for missing or disabled settings that would break DI.
+ * Validate tsconfig.json when decorators or decorator metadata are in use.
+ * Returns warnings for inconsistent or incomplete settings that would break DI.
+ *
+ * When both `experimentalDecorators` and `emitDecoratorMetadata` are omitted or not `true`,
+ * returns no warnings — that matches create-nextrush "functional" projects. If either flag is
+ * `true`, the other must also be `true` or we report what is missing.
  */
 export function validateDecoratorConfig(): string[] {
   const cwd = getCwd();
@@ -145,17 +153,25 @@ export function validateDecoratorConfig(): string[] {
     const tsconfig = JSON.parse(stripped);
     const co = tsconfig.compilerOptions ?? {};
 
-    if (!co.experimentalDecorators) {
-      warnings.push(
-        'tsconfig.json missing "experimentalDecorators": true',
-        'Decorators (@Controller, @Get, @Service) will not work without it.'
-      );
+    const hasExperimental = isTruthyCompilerFlag(co.experimentalDecorators);
+    const hasEmit = isTruthyCompilerFlag(co.emitDecoratorMetadata);
+
+    // Functional scaffold and other decorator-free projects omit both flags on purpose.
+    if (!hasExperimental && !hasEmit) {
+      return warnings;
     }
 
-    if (!co.emitDecoratorMetadata) {
+    if (hasExperimental && !hasEmit) {
       warnings.push(
         'tsconfig.json missing "emitDecoratorMetadata": true',
         'DI constructor injection will silently fail without it.'
+      );
+    }
+
+    if (!hasExperimental && hasEmit) {
+      warnings.push(
+        'tsconfig.json missing "experimentalDecorators": true',
+        'Decorators (@Controller, @Get, @Service) will not work without it.'
       );
     }
   } catch {

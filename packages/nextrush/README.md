@@ -135,7 +135,7 @@ app.route('/', router);
 listen(app, 3000);
 ```
 
-> **tsconfig.json** must have `experimentalDecorators: true` and `emitDecoratorMetadata: true`. The `create-nextrush` scaffolder sets these automatically.
+> **`experimentalDecorators` and `emitDecoratorMetadata`** are required when you use `nextrush/class` with DI or decorators. `create-nextrush` turns them **on** for **class-based** and **full** templates, and **omits** them for **functional** (routes-only) projects where they are unnecessary.
 
 ## What's Included
 
@@ -227,7 +227,7 @@ app.use(async (ctx) => {
 
 ```typescript
 import { VERSION } from 'nextrush';
-console.log(VERSION); // '3.0.0'
+console.log(VERSION); // '3.0.4'
 ```
 
 ## License

@@ -110,17 +110,22 @@ my-api/
 ```
 
 ```typescript
-import { Controller, Get, Service } from 'nextrush/class';
+// src/services/app.service.ts
+import { Service } from 'nextrush/class';
 
 @Service()
-class AppService {
+export class AppService {
   getHealth() {
-    return { status: 'ok', uptime: process.uptime() };
+    return { status: 'ok', timestamp: new Date().toISOString() };
   }
 }
 
+// src/controllers/health.controller.ts
+import { Controller, Get } from 'nextrush/class';
+import { AppService } from '../services/app.service.js';
+
 @Controller('/health')
-class HealthController {
+export class HealthController {
   constructor(private readonly appService: AppService) {}
 
   @Get()

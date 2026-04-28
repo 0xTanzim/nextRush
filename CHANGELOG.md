@@ -4,11 +4,33 @@ All notable changes to the NextRush framework will be documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses a unified version across all `@nextrush/*` packages.
 
+## [3.0.4]
+
+### Changed
+
+- **Unified semver**: All `@nextrush/*` packages, **`nextrush`**, **`create-nextrush`**, and **`nextrush-benchmark`** are released at **3.0.4**.
+
+### Fixed
+
+- **`@nextrush/di`**: **`container.reset()`** clears internal resolution tracking; Vitest runs **test files sequentially** (`fileParallelism: false`) so the global singleton container is not raced by parallel files—fixes flaky or timing-out circular-dependency tests in CI.
+
+## [3.0.3]
+
+### Changed
+
+- **Unified semver**: All `@nextrush/*` packages, **`nextrush`**, **`create-nextrush`**, and **`nextrush-benchmark`** are released at **3.0.3**.
+
+### Fixed / Added
+
+- **`@nextrush/dev`**: Startup `tsconfig.json` checks skip noisy decorator warnings for functional (no-decorator) projects; warn only when decorator flags are partly enabled.
+- **`nextrush`**: Ships the **`nextrush` CLI** via dependency on **`@nextrush/dev`** (`bin/nextrush.js`).
+- **Documentation**: Installation, dev tools, create-nextrush, and versioning notes aligned with **3.0.3**.
+
 ## [3.0.2]
 
 ### Changed
 
-- **Unified semver**: All `@nextrush/*` packages, **`nextrush`**, **`create-nextrush`**, and **`nextrush-benchmark`** are released at **3.0.2**.
+- **Unified semver**: All `@nextrush/*` packages, **`nextrush`**, **`create-nextrush`**, and **`nextrush-benchmark`** were released at **3.0.2**.
 - **Documentation**: Landing badge, FAQs, roadmap, and benchmark methodology tables reference **3.0.2** and stable **v3** messaging (replacing outdated **alpha** copy where users first encounter the framework).
 
 ### Added / Fixed
@@ -19,7 +41,7 @@ This project follows [Semantic Versioning](https://semver.org/) and uses a unifi
 
 ## [3.0.0-alpha.2]
 
-Historical aggregate changelog for early **v3** prereleases. **Current npm releases use the stable `3.0.x` line** — see **[3.0.2]** above.
+Historical aggregate changelog for early **v3** prereleases. **Current npm releases use the stable `3.0.x` line** — see **[3.0.4]** above.
 
 ### Added
 

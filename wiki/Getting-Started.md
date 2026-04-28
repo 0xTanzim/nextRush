@@ -1,22 +1,20 @@
-# Getting Started
+# Getting started
 
-This page walks you from zero to a running NextRush application.
+Path from empty directory to a responding server. For copy-paste examples with more commentary, use the docs site: [Installation](https://0xtanzim.github.io/nextRush/docs/getting-started/installation), [Quick start](https://0xtanzim.github.io/nextRush/docs/getting-started/quick-start).
 
 ---
 
 ## Prerequisites
 
-| Requirement | Version |
-|---|---|
-| Node.js | ≥ 22.0.0 |
-| pnpm | latest |
+| Tool | Version |
+|------|---------|
+| Node.js | >= 22 |
+| pnpm | current |
 | TypeScript | 5.x |
 
 ---
 
-## Scaffold a Project (Recommended)
-
-The fastest path is the interactive scaffolder:
+## Scaffold (recommended)
 
 ```bash
 pnpm create nextrush my-api
@@ -24,27 +22,21 @@ cd my-api
 pnpm dev
 ```
 
-The scaffolder lets you choose:
-- **Style**: functional, class-based, or full
-- **Middleware preset**: minimal, web, or API
-- **Runtime target**: Node.js, Bun, Deno, or Edge
+The CLI asks for style (functional / class-based / full), middleware preset, and runtime target.
 
 ---
 
-## Manual Setup
-
-### 1. Install the meta package
+## Manual install
 
 ```bash
 pnpm add nextrush
 ```
 
-The `nextrush` package includes `@nextrush/core`, `@nextrush/router`, `@nextrush/adapter-node`, `@nextrush/errors`, and `@nextrush/types`.
+`nextrush` pulls in core, router, Node adapter, errors, and types.
 
-### 2. Configure TypeScript
+### `tsconfig.json` baseline
 
 ```json
-// tsconfig.json
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -56,7 +48,7 @@ The `nextrush` package includes `@nextrush/core`, `@nextrush/router`, `@nextrush
 }
 ```
 
-For class-based controllers, also add:
+For `@Controller` and DI:
 
 ```json
 {
@@ -69,10 +61,9 @@ For class-based controllers, also add:
 
 ---
 
-## Hello World — Functional Style
+## Hello world (functional)
 
 ```typescript
-// src/index.ts
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
@@ -86,25 +77,19 @@ app.route('/', router);
 listen(app, 3000);
 ```
 
-Run it:
-
 ```bash
 npx tsx src/index.ts
-# Listening on http://localhost:3000
 ```
 
 ---
 
-## Hello World — Class-Based Style
-
-Install the additional packages:
+## Hello world (class controllers)
 
 ```bash
 pnpm add @nextrush/di @nextrush/decorators @nextrush/controllers
 ```
 
 ```typescript
-// src/index.ts
 import 'reflect-metadata';
 import { createApp, listen } from 'nextrush';
 import { Controller, Get, Service, controllersPlugin } from '@nextrush/controllers';
@@ -133,9 +118,7 @@ listen(app, 3000);
 
 ---
 
-## Adding Middleware
-
-Install middleware packages separately:
+## Add common middleware
 
 ```bash
 pnpm add @nextrush/cors @nextrush/body-parser @nextrush/helmet
@@ -148,8 +131,6 @@ import { json } from '@nextrush/body-parser';
 import { helmet } from '@nextrush/helmet';
 
 const app = createApp();
-
-// Middleware runs in registration order
 app.use(helmet());
 app.use(cors());
 app.use(json());
@@ -165,24 +146,28 @@ app.route('/', router);
 listen(app, 3000);
 ```
 
+Order matters: security and CORS before body parsing before routes. See [Middleware](Middleware).
+
 ---
 
-## Application Options
+## Application options
 
 ```typescript
 const app = createApp({
-  env: 'production',     // 'development' | 'production' | 'test' (default: 'development')
-  proxy: true,           // Trust X-Forwarded-* headers (default: false)
-  logger: console,       // Logger implementing { error, warn, info, debug }
+  env: 'production',
+  proxy: true,
+  logger: console,
 });
 ```
 
+`proxy: true` trusts `X-Forwarded-*` when behind a reverse proxy.
+
 ---
 
-## Next Steps
+## Next pages
 
-- [Core Concepts](Core-Concepts) — Context API, middleware composition, plugin system
-- [Routing](Routing) — Route parameters, nested routers, HTTP methods
-- [Controllers and Decorators](Controllers-and-Decorators) — Class-based controllers
-- [Error Handling](Error-Handling) — HTTP errors and global error handling
-- [Middleware](Middleware) — All available middleware packages
+- [Core Concepts](Core-Concepts)
+- [Routing](Routing)
+- [Controllers and Decorators](Controllers-and-Decorators)
+- [Error Handling](Error-Handling)
+- [Middleware](Middleware)

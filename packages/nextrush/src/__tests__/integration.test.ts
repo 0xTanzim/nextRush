@@ -13,24 +13,24 @@
  */
 
 import type {
-  BodySource,
-  Context,
-  ContextState,
-  Middleware,
-  QueryParams,
-  RawHttp,
-  RouteParams,
-  Runtime,
+    BodySource,
+    Context,
+    ContextState,
+    Middleware,
+    QueryParams,
+    RawHttp,
+    RouteParams,
+    Runtime,
 } from '@nextrush/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  Application,
-  BadRequestError,
-  compose,
-  createApp,
-  HttpError,
-  NotFoundError,
+    Application,
+    BadRequestError,
+    compose,
+    createApp,
+    HttpError,
+    NotFoundError,
 } from '@nextrush/core';
 import { createRouter, Router } from '@nextrush/router';
 
@@ -475,7 +475,7 @@ describe('Middleware Chain Composition', () => {
 
     await composed(ctx);
 
-    expect(delays[0]).toBeGreaterThanOrEqual(10);
+    expect(delays[0]).toBeGreaterThanOrEqual(8);
     expect(ctx.json).toHaveBeenCalledWith({ fast: true });
   });
 

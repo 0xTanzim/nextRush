@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/cors",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "CORS middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",

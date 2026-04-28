@@ -1,251 +1,132 @@
 # Contributing
 
-Thank you for contributing to NextRush! This guide covers everything you need to get started.
+How to build the repo locally, keep packages layered correctly, and ship changes that pass CI.
 
 ---
 
 ## Prerequisites
 
-| Requirement | Version |
-|---|---|
-| Node.js | ≥ 22.0.0 |
-| pnpm | latest |
-| Git | any recent version |
+| Tool | Version |
+|------|---------|
+| Node.js | >= 22 |
+| pnpm | current |
+| Git | recent |
 
 ---
 
-## Development Setup
+## Clone and bootstrap
 
 ```bash
-# Clone the repository
-git clone https://github.com/0xTanzim/nextrush.git
-cd nextrush
-
-# Install dependencies
+git clone https://github.com/0xTanzim/nextRush.git
+cd nextRush
 pnpm install
-
-# Build all packages
 pnpm build
-
-# Run all tests
 pnpm test
 ```
 
 ---
 
-## Development Commands
+## Everyday commands
 
 ```bash
-pnpm install                              # Install all dependencies
-pnpm build                                # Build all packages
-pnpm test                                 # Run all tests
-pnpm typecheck                            # Type check all packages
-pnpm lint                                 # Lint all packages
-pnpm clean                                # Clean build artifacts
+pnpm install
+pnpm build
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm clean
 
-# Scoped commands (single package)
 pnpm --filter @nextrush/core build
 pnpm --filter @nextrush/core test
 pnpm --filter @nextrush/core test -- --coverage
-pnpm --filter @nextrush/router typecheck
 ```
 
 ---
 
-## Project Structure
+## Layout
 
 ```
-nextrush/
-├── packages/
-│   ├── types/           # @nextrush/types — shared types (no deps)
-│   ├── errors/          # @nextrush/errors — HTTP errors
-│   ├── core/            # @nextrush/core — Application, middleware
-│   ├── router/          # @nextrush/router — Radix-tree routing
-│   ├── di/              # @nextrush/di — Dependency injection
-│   ├── decorators/      # @nextrush/decorators — Controller decorators
-│   ├── runtime/         # @nextrush/runtime — Runtime detection
-│   ├── nextrush/        # nextrush — Meta package
-│   ├── adapters/        # Platform adapters
-│   ├── middleware/       # Middleware packages
-│   └── plugins/         # Plugin packages
-├── apps/
-│   ├── docs/            # Documentation site
-│   ├── benchmark/       # Benchmark suite
-│   └── playground/      # Testing playground
-└── draft/               # Architecture docs & RFCs
+nextRush/
+├── packages/     types, errors, core, router, di, decorators, adapters, middleware, plugins, …
+├── apps/docs     documentation site
+├── apps/benchmark
+└── apps/playground
 ```
 
 ---
 
-## Package Hierarchy Rule
-
-Lower packages **never** import from higher packages. No circular dependencies.
+## Layering rule
 
 ```
-types → errors → core → router → di → decorators → controllers → adapters → middleware
+types → errors → core → router → di → decorators → controllers
 ```
 
-Use `import type` for all cross-package type-only imports.
+Nothing below may import from anything above. No cycles. Cross-package boundaries use `import type` when only types cross.
 
 ---
 
-## Coding Standards
+## Code expectations
 
-### TypeScript
+- TypeScript strict; no `any`.
+- Barrel exports (`src/index.ts`) per package.
+- Tests under `src/__tests__/` with Vitest; coverage targets apply in CI.
+- No runtime deps in foundation packages except approved exceptions (`reflect-metadata`, `tsyringe` in `@nextrush/di`, `@clack/prompts` in `create-nextrush`).
+- No platform globals (`process`, `Deno`, `Bun`) inside `@nextrush/core`.
 
-- **Strict mode** — zero `any` usage; use `unknown` at system boundaries
-- **ES2022** target with `NodeNext` module resolution
-- `verbatimModuleSyntax: true` — use `import type` for type-only imports
-- Generic types over type assertions
-- No `as any`, no `@ts-ignore` without a documented reason
-
-### Naming Conventions
-
-| Scope | Convention |
-|---|---|
-| Variables and functions | `camelCase` |
-| Types, interfaces, classes | `PascalCase` |
-| Constants | `SCREAMING_SNAKE_CASE` |
-| File names | `kebab-case.ts` |
-| Test files | `kebab-case.test.ts` |
-
-### Code Organization
-
-- Each package exports through a single `src/index.ts` barrel file
-- Implementation files live in `src/`
-- Tests live in `src/__tests__/`
-- No side effects at module scope (except `reflect-metadata` import in DI code)
-- No runtime-specific APIs (`process`, `Deno`, `Bun`) in core packages
-
-### Zero Dependencies Rule
-
-No external runtime dependencies in core, router, errors, types, adapters, or middleware packages.
-Approved exceptions:
-- `reflect-metadata` — required for DI decorators
-- `tsyringe` — DI container (`@nextrush/di` only)
-- `@clack/prompts` — CLI scaffolder only
+Naming: `camelCase` functions/vars, `PascalCase` types/classes, `kebab-case.ts` files.
 
 ---
 
-## Testing
-
-- **Framework**: Vitest
-- **Coverage target**: 90%+ per package (enforced in CI)
-- Test files: `src/__tests__/*.test.ts` (co-located with source)
-
-### Test Structure
-
-```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
-
-describe('feature name', () => {
-  it('should do expected thing', () => {
-    // arrange
-    // act
-    // assert
-  });
-
-  it('should handle edge case', () => {
-    // ...
-  });
-});
-```
-
-### Running Tests
+## Tests
 
 ```bash
-# All packages
 pnpm test
-
-# Single package
-pnpm --filter @nextrush/core test
-
-# With coverage
-pnpm --filter @nextrush/core test -- --coverage
-
-# Watch mode
 pnpm --filter @nextrush/core test -- --watch
 ```
 
-### Test Requirements
-
-- Every bug fix must include a regression test
-- Every new public API must have usage tests
-- Edge cases documented in architecture docs need corresponding tests
-- No tests that depend on external services (mock them)
-- Tests must be deterministic — no timing-dependent assertions
+Bug fixes include regression coverage; new public APIs get usage tests.
 
 ---
 
-## Making Changes
+## Pull request flow
 
-1. **Fork** the repository on GitHub
-2. **Create a branch**: `git checkout -b feat/my-feature`
-3. **Make changes** following the coding standards
-4. **Add tests** for new functionality
-5. **Run quality gates**:
-   ```bash
-   pnpm build && pnpm typecheck && pnpm lint && pnpm test
-   ```
-6. **Commit** with a descriptive message (see Commit Messages below)
-7. **Open a Pull Request** against `main`
+1. Fork and branch (`feat/…`, `fix/…`).
+2. Implement with tests.
+3. Run `pnpm build && pnpm typecheck && pnpm lint && pnpm test`.
+4. Open a PR toward `main`.
 
 ---
 
-## Commit Messages
-
-Format: `type(scope): description`
+## Commit messages
 
 ```
-feat(core): add plugin lifecycle hooks
-fix(helmet): correct CSP directive merging
-test(csrf): add double-submit cookie edge cases
-docs(router): update API reference
-perf(router): add O(1) static route fast path
-refactor(di): simplify circular dependency detection
-chore(deps): update tsyringe to 4.9
+type(scope): description
 ```
 
-**Types**: `feat`, `fix`, `test`, `docs`, `refactor`, `perf`, `chore`
+Examples: `feat(core): …`, `fix(router): …`, `docs(errors): …`
 
-**Scopes**: package name (e.g. `core`, `router`, `helmet`, `di`)
+Types: `feat`, `fix`, `test`, `docs`, `refactor`, `perf`, `chore`.
 
 ---
 
-## Package Size Limits
+## Package size budgets
 
-| Package | Max LOC |
-|---|---|
-| `@nextrush/types` | 500 |
-| `@nextrush/errors` | 600 |
-| `@nextrush/core` | 1,500 |
-| `@nextrush/router` | 1,000 |
-| `@nextrush/di` | 400 |
-| `@nextrush/decorators` | 800 |
-| `@nextrush/controllers` | 800 |
-| `@nextrush/adapter-*` | 500 |
-| `@nextrush/middleware/*` | 300 |
-| `@nextrush/plugin/*` | 600 |
+See [Architecture](Architecture) for LOC targets per package.
 
 ---
 
 ## Documentation
 
-- Every new public API must have a documentation entry
-- Code examples in docs must be copy-paste runnable
-- Keep documentation in sync with implementation (code wins over outdated docs)
-- No marketing language in technical docs
+Public API changes ship with docs updates (wiki + `apps/docs` as appropriate). Examples must compile against current exports.
 
 ---
 
-## Reporting Issues
+## Issues
 
-- Use [GitHub Issues](https://github.com/0xTanzim/nextrush/issues)
-- Include a minimal reproduction case
-- Specify: Node.js version, runtime (Node / Bun / Deno), OS
+Report bugs with reproduction steps, Node version, and runtime (Node / Bun / Deno): [Issues](https://github.com/0xTanzim/nextRush/issues).
 
 ---
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](https://github.com/0xTanzim/nextRush/blob/main/LICENSE).
+Contributions fall under the [MIT License](https://github.com/0xTanzim/nextRush/blob/main/LICENSE).
