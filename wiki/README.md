@@ -1,15 +1,20 @@
 # GitHub Wiki source (`wiki/`)
 
-This folder is the **hand-written source** for **[github.com/0xTanzim/nextRush/wiki](https://github.com/0xTanzim/nextRush/wiki)**.
+This folder is the **hand-written source** for the repo **Wiki** tab (`github.com/<owner>/<repo>/wiki`).
 
-## Why the wiki looked empty
+## Do you need to merge to `main` first?
 
-GitHub stores wiki pages in a **separate Git repository** (`nextRush.wiki.git`).
-Commits to `main` **do not** update that wiki unless someone publishes them.
+**No for local publishes.** Run `./scripts/publish-github-wiki.sh` from any branch — it syncs whatever is in `wiki/` right now.
 
-## Publish or update the wiki (maintainers)
+**Yes if you rely on CI.** The workflow **Publish GitHub Wiki** runs when **`main`** gets commits that touch `wiki/**` (see `.github/workflows/wiki-publish.yml`). So the usual flow is: edit `wiki/` → merge to `main` → CI publishes (if `WIKI_PUSH_TOKEN` is set).
 
-From the **monorepo root**, with GitHub push access:
+## Why nothing appeared on GitHub Wiki before
+
+GitHub stores wiki pages in a **separate Git repo** (`<repo>.wiki.git`). Normal pushes to `main` **do not** update it unless you publish (script or CI).
+
+## Manual publish (your laptop)
+
+From the monorepo root, with permission to push to the wiki repo:
 
 ```bash
 ./scripts/publish-github-wiki.sh
@@ -17,16 +22,29 @@ From the **monorepo root**, with GitHub push access:
 
 Requirements:
 
-1. Wiki enabled: repository **Settings → General → Features → Wikis** (on).
-2. **`origin`** must point at this repo on GitHub (HTTPS or SSH). The script builds `<origin-without-.git>.wiki.git` so owner/repo casing matches (avoid typos like `0xTanzim/nextRush` vs `0xtanzim/nextrush`).
-3. Authentication: SSH key or HTTPS credential helper / `gh auth login`.
-4. First run copies every `wiki/*.md` except **`README.md`** (maintainer-only).
+1. **Wikis** enabled: **Settings → General → Features → Wikis**.
+2. **`origin`** points at this GitHub repo — the script derives `… .wiki.git` from it (correct owner/repo casing).
+3. **Auth:** SSH agent, HTTPS credential helper, or `gh auth login`.
 
-After the first successful push, **Home** should load instead of “Create the first page”.
+Copy excludes **`wiki/README.md`** (maintainer-only).
+
+## Automatic publish (GitHub Actions)
+
+Workflow: **Publish GitHub Wiki** — triggers on push to **`main`** when `wiki/**`, the workflow file, or `scripts/publish-github-wiki.sh` changes.
+
+**Important:** `GITHUB_TOKEN` **cannot** push to `*.wiki.git`. Add a **classic Personal Access Token** with **`repo`** scope as repository secret:
+
+| Secret             | Purpose                                      |
+| ------------------ | -------------------------------------------- |
+| `WIKI_PUSH_TOKEN`  | PAT — clone/push `owner/repo.wiki.git`       |
+
+**Settings → Secrets and variables → Actions → New repository secret** → name `WIKI_PUSH_TOKEN`.
+
+Until this secret exists, the workflow **skips** publish with a notice (CI stays green).
 
 ## Edit workflow
 
-1. Change Markdown under `wiki/` in this repo (same PR as code when relevant).
-2. Run `./scripts/publish-github-wiki.sh` after merge (or from CI using a PAT — optional).
+1. Edit Markdown under `wiki/` here.
+2. Merge to `main` (CI publishes if secret set), **or** run `./scripts/publish-github-wiki.sh` manually anytime.
 
-Full narrative docs stay in **`apps/docs`** (published to GitHub Pages); keep wiki pages concise and link out.
+Canonical docs stay in **`apps/docs`** (GitHub Pages); keep wiki pages short and link there when needed.

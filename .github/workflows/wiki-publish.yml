@@ -1,0 +1,34 @@
+# Publishes wiki/*.md into GitHub Wiki (*.wiki.git) after merges to main.
+# Requires repo secret WIKI_PUSH_TOKEN — default GITHUB_TOKEN cannot push to .wiki.git.
+name: Publish GitHub Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/wiki-publish.yml'
+      - 'scripts/publish-github-wiki.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Publish wiki
+        env:
+          WIKI_PUSH_TOKEN: ${{ secrets.WIKI_PUSH_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${WIKI_PUSH_TOKEN:-}" ]]; then
+            echo "::notice title=Wiki publish skipped::Add repository secret WIKI_PUSH_TOKEN (classic PAT with repo scope). See wiki/README.md."
+            exit 0
+          fi
+          chmod +x scripts/publish-github-wiki.sh
+          ./scripts/publish-github-wiki.sh

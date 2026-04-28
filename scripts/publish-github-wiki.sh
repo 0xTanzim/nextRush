@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # Sync wiki/*.md from this monorepo to GitHub Wiki (<repo>.wiki.git — separate clone URL).
 # Usage (from repo root): ./scripts/publish-github-wiki.sh
-# Override remote: WIKI_GIT_REMOTE='https://github.com/org/repo.wiki.git'
+#
+# Remotes (first match wins):
+#   1) WIKI_GIT_REMOTE — explicit wiki.git URL (SSH or HTTPS)
+#   2) CI: WIKI_PUSH_TOKEN + GITHUB_REPOSITORY — HTTPS with PAT (GitHub Actions / bots)
+#   3) Local: derive from git remote origin → … .wiki.git
+#
+# Note: GITHUB_TOKEN in Actions cannot push to *.wiki.git — use a PAT in secret WIKI_PUSH_TOKEN.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,19 +23,30 @@ derive_wiki_remote_from_origin() {
   esac
 }
 
+REMOTE_SAFE_DISPLAY=''
+
 if [[ -n "${WIKI_GIT_REMOTE:-}" ]]; then
   REMOTE="${WIKI_GIT_REMOTE}"
+  REMOTE_SAFE_DISPLAY="${REMOTE}"
+elif [[ -n "${WIKI_PUSH_TOKEN:-}" && -n "${GITHUB_REPOSITORY:-}" ]]; then
+  REMOTE="https://x-access-token:${WIKI_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+  REMOTE_SAFE_DISPLAY="https://github.com/${GITHUB_REPOSITORY}.wiki.git (PAT)"
 else
   REMOTE="$(derive_wiki_remote_from_origin)" || {
-    echo "error: set git remote \`origin\` or export WIKI_GIT_REMOTE=<url>.wiki.git" >&2
+    echo "error: set git remote \`origin\`, or WIKI_GIT_REMOTE / WIKI_PUSH_TOKEN+GITHUB_REPOSITORY" >&2
     exit 1
   }
+  REMOTE_SAFE_DISPLAY="${REMOTE}"
 fi
 
 WORKDIR="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/nextRush-wiki.XXXXXX")}"
 
 wiki_web_url() {
   local r="$1" path
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]] && [[ "${r}" == *"@github.com"* ]]; then
+    printf 'https://github.com/%s/wiki\n' "${GITHUB_REPOSITORY}"
+    return
+  fi
   case "${r}" in
     git@github.com:*.wiki.git)
       path="${r#git@github.com:}"
@@ -57,9 +74,15 @@ if [[ ! -d "${WIKI_SRC}" ]]; then
   exit 1
 fi
 
-echo "→ Using wiki remote: ${REMOTE}"
+echo "→ Using wiki remote: ${REMOTE_SAFE_DISPLAY:-<hidden>}"
 echo "→ Cloning wiki repo into ${WORKDIR}"
-git clone "${REMOTE}" "${WORKDIR}"
+if ! git clone "${REMOTE}" "${WORKDIR}" 2>/dev/null; then
+  echo "→ Clone failed — initializing wiki repo (first publish). Ensure Wikis are enabled on the repo."
+  rm -rf "${WORKDIR}"
+  mkdir -p "${WORKDIR}"
+  git -C "${WORKDIR}" init -b main
+  git -C "${WORKDIR}" remote add origin "${REMOTE}"
+fi
 
 echo "→ Copying Markdown (excluding wiki/README.md)"
 find "${WORKDIR}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
@@ -74,7 +97,8 @@ fi
 
 git add -A
 git commit -m "docs(wiki): sync from nextRush main repo wiki/"
-echo "→ Pushing to ${REMOTE}"
-git push origin HEAD
+echo "→ Pushing"
+branch="$(git rev-parse --abbrev-ref HEAD)"
+git push -u origin "${branch}"
 
 echo "→ Done. Wiki: $(wiki_web_url "${REMOTE}")"
