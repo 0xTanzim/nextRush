@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Minimal, modular, blazing fast Node.js framework",
   "type": "module",
   "main": "./dist/index.js",
