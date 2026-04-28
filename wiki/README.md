@@ -4,7 +4,7 @@ This folder is the **hand-written source** for **[github.com/0xTanzim/nextRush/w
 
 ## Why the wiki looked empty
 
-GitHub stores wiki pages in a **separate Git repository** (`nextRush.wiki.git`).  
+GitHub stores wiki pages in a **separate Git repository** (`nextRush.wiki.git`).
 Commits to `main` **do not** update that wiki unless someone publishes them.
 
 ## Publish or update the wiki (maintainers)
@@ -18,8 +18,9 @@ From the **monorepo root**, with GitHub push access:
 Requirements:
 
 1. Wiki enabled: repository **Settings → General → Features → Wikis** (on).
-2. Authentication: HTTPS with credential helper, SSH key, or `gh auth login`.
-3. First run creates/replaces wiki pages from every `*.md` here except `README.md`.
+2. **`origin`** must point at this repo on GitHub (HTTPS or SSH). The script builds `<origin-without-.git>.wiki.git` so owner/repo casing matches (avoid typos like `0xTanzim/nextRush` vs `0xtanzim/nextrush`).
+3. Authentication: SSH key or HTTPS credential helper / `gh auth login`.
+4. First run copies every `wiki/*.md` except **`README.md`** (maintainer-only).
 
 After the first successful push, **Home** should load instead of “Create the first page”.
 
