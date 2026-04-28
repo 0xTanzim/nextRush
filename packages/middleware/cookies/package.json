@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/cookies",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Cookie parsing and serialization middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",
