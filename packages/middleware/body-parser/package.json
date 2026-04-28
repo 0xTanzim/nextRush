@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/body-parser",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Body parsing middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",
