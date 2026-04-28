@@ -8,7 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from '../runtime/fs.js';
-import { findEntry, getDefaultWatchPaths } from '../utils/config.js';
+import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
 
 // Mock the fs module
 vi.mock('../runtime/fs.js', () => ({
@@ -79,6 +79,74 @@ describe('Config Utilities', () => {
 
       const paths = getDefaultWatchPaths();
       expect(paths).toEqual(['.']);
+    });
+  });
+
+  describe('validateDecoratorConfig', () => {
+    it('should return no warnings when both decorator options are omitted (functional scaffold)', () => {
+      vi.mocked(fs.existsSync).mockImplementation((path: string) => path.includes('tsconfig.json'));
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify({
+          compilerOptions: {
+            strict: true,
+            target: 'ES2022',
+            module: 'NodeNext',
+            moduleResolution: 'NodeNext',
+          },
+        })
+      );
+
+      expect(validateDecoratorConfig()).toEqual([]);
+    });
+
+    it('should return no warnings when both decorator options are true', () => {
+      vi.mocked(fs.existsSync).mockImplementation((path: string) => path.includes('tsconfig.json'));
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify({
+          compilerOptions: {
+            experimentalDecorators: true,
+            emitDecoratorMetadata: true,
+          },
+        })
+      );
+
+      expect(validateDecoratorConfig()).toEqual([]);
+    });
+
+    it('should warn when experimentalDecorators is true but emitDecoratorMetadata is missing', () => {
+      vi.mocked(fs.existsSync).mockImplementation((path: string) => path.includes('tsconfig.json'));
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify({
+          compilerOptions: {
+            experimentalDecorators: true,
+          },
+        })
+      );
+
+      const out = validateDecoratorConfig();
+      expect(out.length).toBeGreaterThanOrEqual(1);
+      expect(out.some((line) => line.includes('emitDecoratorMetadata'))).toBe(true);
+    });
+
+    it('should warn when emitDecoratorMetadata is true but experimentalDecorators is missing', () => {
+      vi.mocked(fs.existsSync).mockImplementation((path: string) => path.includes('tsconfig.json'));
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify({
+          compilerOptions: {
+            emitDecoratorMetadata: true,
+          },
+        })
+      );
+
+      const out = validateDecoratorConfig();
+      expect(out.some((line) => line.includes('experimentalDecorators'))).toBe(true);
+    });
+
+    it('should warn when tsconfig.json is missing', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      const out = validateDecoratorConfig();
+      expect(out.some((line) => line.includes('No tsconfig.json'))).toBe(true);
     });
   });
 });

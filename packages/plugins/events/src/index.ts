@@ -171,7 +171,7 @@ export function eventsPlugin<T extends EventMap = EventMap>(
 
   return {
     name: '@nextrush/events',
-    version: '3.0.2',
+    version: '3.0.4',
 
     /**
      * The event emitter instance.

@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/decorators",
-  "version": "3.0.2",
+  "version": "3.0.4",
   "description": "Metadata-only decorators for NextRush controllers",
   "type": "module",
   "main": "./dist/index.js",

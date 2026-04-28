@@ -1,6 +1,6 @@
 {
   "name": "create-nextrush",
-  "version": "3.0.2",
+  "version": "3.0.4",
   "description": "Create a new NextRush project with one command",
   "type": "module",
   "main": "./dist/index.js",

@@ -30,4 +30,4 @@ If you want automation later, search GitHub’s docs for **“About wikis”** a
 - [GitHub Docs — Adding or editing wiki pages](https://docs.github.com/en/communities/documenting-your-project-with-wikis/adding-or-editing-wiki-pages)
 - [GitHub Docs — Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
-Canonical documentation for readers lives in **`apps/docs`** (GitHub Pages).
+Canonical documentation for readers lives in **`apps/docs`** ([documentation site](https://0xtanzim.github.io/nextRush/docs)). The wiki favors diagrams and quick orientation; signatures and exhaustive guides stay on that site.

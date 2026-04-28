@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/compression",
-  "version": "3.0.2",
+  "version": "3.0.4",
   "description": "High-performance response compression middleware for NextRush with Gzip, Brotli, and Deflate support",
   "type": "module",
   "main": "./dist/index.js",

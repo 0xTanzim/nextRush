@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/adapter-edge",
-  "version": "3.0.2",
+  "version": "3.0.4",
   "description": "Edge runtime adapter for NextRush (Cloudflare Workers, Vercel Edge, etc.)",
   "type": "module",
   "main": "./dist/index.js",

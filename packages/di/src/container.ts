@@ -9,18 +9,18 @@ import type { DependencyContainer, InjectionToken } from 'tsyringe';
 import { container as tsyContainer } from 'tsyringe';
 
 import type {
-  Constructor,
-  ContainerInterface,
-  FactoryProvider,
-  Provider,
-  RegisterOptions,
-  Token,
+    Constructor,
+    ContainerInterface,
+    FactoryProvider,
+    Provider,
+    RegisterOptions,
+    Token,
 } from './types.js';
 
 import {
-  CircularDependencyError,
-  DependencyResolutionError,
-  InvalidProviderError,
+    CircularDependencyError,
+    DependencyResolutionError,
+    InvalidProviderError,
 } from './errors.js';
 
 /**
@@ -207,6 +207,7 @@ function createContainerWrapper(tsyInstance: DependencyContainer): ContainerInte
       tsyInstance.reset();
       bootstrappedValues.clear();
       factoryTokens.clear();
+      resolutionStack.clear();
     },
 
     createChild(): ContainerInterface {

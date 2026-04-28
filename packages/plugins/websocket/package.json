@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/websocket",
-  "version": "3.0.2",
+  "version": "3.0.4",
   "description": "WebSocket plugin for NextRush with rooms, broadcasting, and simple DX",
   "type": "module",
   "main": "./dist/index.js",

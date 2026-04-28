@@ -1,26 +1,24 @@
-# Dependency Injection
+# Dependency injection
 
-NextRush provides a lightweight DI container in `@nextrush/di` that wraps [tsyringe](https://github.com/microsoft/tsyringe) with NextRush-specific decorators and production-quality error messages.
+`@nextrush/di` wraps [tsyringe](https://github.com/microsoft/tsyringe) with NextRush decorators and clearer resolution errors.
+
+API reference: [DI package](https://0xtanzim.github.io/nextRush/docs/api-reference/di/di).
 
 ---
 
 ## Setup
 
-Install the package and ensure `reflect-metadata` is imported once at the application entry point:
-
 ```bash
 pnpm add @nextrush/di
 ```
 
+First line of your entry module:
+
 ```typescript
-// src/index.ts — must be the first import
 import 'reflect-metadata';
 ```
 
-Enable decorator metadata in TypeScript:
-
 ```json
-// tsconfig.json
 {
   "compilerOptions": {
     "experimentalDecorators": true,
@@ -31,14 +29,14 @@ Enable decorator metadata in TypeScript:
 
 ---
 
-## Decorators
+## Registration decorators
 
-### `@Service()`
+### `@Service()` / `@Repository()`
 
-Marks a class as a singleton service managed by the DI container.
+Both register a class with the container; `@Repository()` signals data-layer intent only.
 
 ```typescript
-import { Service } from '@nextrush/di';
+import { Service, Repository } from '@nextrush/di';
 
 @Service()
 class UserService {
@@ -46,14 +44,6 @@ class UserService {
     return [{ id: 1, name: 'Alice' }];
   }
 }
-```
-
-### `@Repository()`
-
-Semantically identical to `@Service()`, but indicates the class is for data access.
-
-```typescript
-import { Repository } from '@nextrush/di';
 
 @Repository()
 class UserRepository {
@@ -63,46 +53,27 @@ class UserRepository {
 }
 ```
 
-### `@Injectable()`
-
-Marks a class as injectable without additional metadata (low-level; prefer `@Service` or `@Repository`).
-
----
-
-## Scopes
+### Scopes
 
 | Scope | Behavior |
-|---|---|
-| `'singleton'` | One instance shared across the application (default) |
-| `'transient'` | New instance created each time the class is resolved |
+|-------|----------|
+| `singleton` | One shared instance (default) |
+| `transient` | New instance each resolve |
 
 ```typescript
-// Singleton (default)
-@Service()
-class DatabaseService {}
-
-// Transient — new instance per resolve
 @Service({ scope: 'transient' })
-class RequestLogger {}
+class PerRequestLogger {}
 ```
 
 ---
 
-## Constructor Injection
+## Constructor injection
 
-Dependencies are injected automatically via constructor parameter types. TypeScript's `emitDecoratorMetadata` makes this work.
+Works when `emitDecoratorMetadata` can see concrete classes:
 
 ```typescript
-@Repository()
-class UserRepository {
-  findAll() {
-    return [{ id: 1, name: 'Alice' }];
-  }
-}
-
 @Service()
 class UserService {
-  // UserRepository is injected automatically
   constructor(private repo: UserRepository) {}
 
   getUsers() {
@@ -113,24 +84,16 @@ class UserService {
 
 ---
 
-## Manual Injection with `@inject()`
+## `@inject()` for tokens
 
-Use `@inject()` when injecting by token (for interfaces or abstract types):
+Use when binding interfaces or symbols:
 
 ```typescript
 import { inject } from '@nextrush/di';
 
-abstract class Logger {
-  abstract log(msg: string): void;
-}
-
 @Service()
 class AppService {
-  constructor(@inject(Logger) private logger: Logger) {}
-
-  run() {
-    this.logger.log('Running');
-  }
+  constructor(@inject('Logger') private logger: Logger) {}
 }
 ```
 
@@ -138,52 +101,30 @@ class AppService {
 
 ## `@Optional()`
 
-Mark a dependency as optional (resolves to `undefined` if not registered):
-
 ```typescript
 import { Optional } from '@nextrush/di';
 
 @Service()
 class NotificationService {
-  constructor(@Optional() private emailClient?: EmailClient) {}
+  constructor(@Optional() private email?: EmailClient) {}
 
   notify(msg: string) {
-    this.emailClient?.send(msg);
+    this.email?.send(msg);
   }
 }
 ```
 
 ---
 
-## Container
-
-### Resolving Manually
+## Container operations
 
 ```typescript
-import { container } from '@nextrush/di';
+import { container, createContainer } from '@nextrush/di';
 
-const userService = container.resolve(UserService);
-```
+const svc = container.resolve(UserService);
 
-### Registering Manually
-
-```typescript
-import { container } from '@nextrush/di';
-
-// Register a value
-container.register('CONFIG', { useValue: { apiKey: 'abc123' } });
-
-// Register a class
+container.register('CONFIG', { useValue: { apiKey: 'abc' } });
 container.register('Logger', { useClass: ConsoleLogger });
-
-// Register a factory
-container.register('Timestamp', { useFactory: () => Date.now() });
-```
-
-### Creating Child Containers
-
-```typescript
-import { createContainer } from '@nextrush/di';
 
 const child = createContainer();
 child.register('ScopedService', { useClass: ScopedService });
@@ -191,22 +132,22 @@ child.register('ScopedService', { useClass: ScopedService });
 
 ---
 
-## DI Errors
+## Resolution failures
 
-| Error | Cause |
-|---|---|
-| `MissingDependencyError` | Class is not registered in the container |
-| `CircularDependencyError` | Circular dependency detected |
-| `DependencyResolutionError` | Dependency could not be resolved |
-| `TypeInferenceError` | Metadata missing (emitDecoratorMetadata not enabled) |
-| `InvalidProviderError` | Provider registration is malformed |
-| `ContainerDisposedError` | Container was disposed before resolution |
+| Error | Typical cause |
+|-------|----------------|
+| `MissingDependencyError` | Class not registered |
+| `CircularDependencyError` | Circular ctor graph |
+| `DependencyResolutionError` | Resolution aborted |
+| `TypeInferenceError` | Missing or incomplete decorator metadata |
+| `InvalidProviderError` | Bad manual registration |
+| `ContainerDisposedError` | Resolve after dispose |
 
 ---
 
-## With Controllers
+## With controllers
 
-When using the `controllersPlugin`, `@Service`/`@Repository` classes are resolved from the DI container automatically. See [Controllers and Decorators](Controllers-and-Decorators) for details.
+`controllersPlugin` resolves `@Controller` classes from the same container:
 
 ```typescript
 import 'reflect-metadata';
@@ -216,13 +157,17 @@ import { Controller, Get, controllersPlugin } from '@nextrush/controllers';
 
 @Repository()
 class ProductRepository {
-  findAll() { return [{ id: 1 }]; }
+  findAll() {
+    return [{ id: 1 }];
+  }
 }
 
 @Service()
 class ProductService {
   constructor(private repo: ProductRepository) {}
-  getAll() { return this.repo.findAll(); }
+  getAll() {
+    return this.repo.findAll();
+  }
 }
 
 @Controller('/products')
@@ -230,10 +175,23 @@ class ProductController {
   constructor(private service: ProductService) {}
 
   @Get()
-  list() { return this.service.getAll(); }
+  list() {
+    return this.service.getAll();
+  }
 }
 
 const app = createApp();
 app.plugin(controllersPlugin({ root: './src' }));
 listen(app, 3000);
 ```
+
+```mermaid
+flowchart LR
+  Plugin[controllersPlugin]
+  Ctr[ProductController]
+  Svc[ProductService]
+  Repo[ProductRepository]
+  Plugin --> Ctr --> Svc --> Repo
+```
+
+See also [Controllers and Decorators](Controllers-and-Decorators).

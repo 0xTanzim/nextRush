@@ -1,66 +1,57 @@
 # Routing
 
-NextRush uses a high-performance segment-trie router (`@nextrush/router`) with O(k) path matching where k is the number of path segments. Static routes additionally use an O(1) hash map fast path.
+`@nextrush/router` implements a segment-based trie: work grows with path depth, and static routes get a dedicated fast path. Full API: [Router](https://0xtanzim.github.io/nextRush/docs/api-reference/core/router).
 
 ---
 
-## Creating a Router
+## Create a router
 
 ```typescript
 import { createRouter } from 'nextrush';
 
-const router = createRouter();
-// or with options:
 const router = createRouter({
-  prefix: '/api',         // prepended to all routes
-  caseSensitive: false,   // (default) — /Users matches /users
-  strict: false,          // (default) — trailing slash ignored
+  prefix: '/api',
+  caseSensitive: false,
+  strict: false,
 });
 ```
 
 ---
 
-## HTTP Methods
+## HTTP verbs
 
 ```typescript
 router.get('/users', (ctx) => ctx.json([]));
 router.post('/users', (ctx) => ctx.json({ created: true }));
 router.put('/users/:id', (ctx) => ctx.json({ updated: ctx.params.id }));
 router.patch('/users/:id', (ctx) => ctx.json({ patched: ctx.params.id }));
-router.delete('/users/:id', (ctx) => { ctx.status = 204; });
-router.head('/users', (ctx) => { ctx.status = 200; });
-router.options('/users', (ctx) => { ctx.status = 200; });
-
-// All HTTP methods at once
+router.delete('/users/:id', (ctx) => {
+  ctx.status = 204;
+});
+router.head('/users', (ctx) => {
+  ctx.status = 200;
+});
+router.options('/users', (ctx) => {
+  ctx.status = 200;
+});
 router.all('/health', (ctx) => ctx.json({ status: 'ok' }));
-
-// Explicit method name
 router.route('GET', '/users', (ctx) => ctx.json([]));
 ```
 
 ---
 
-## Route Parameters
-
-Named route parameters are captured with `:name` syntax:
+## Parameters and wildcards
 
 ```typescript
 router.get('/users/:id', (ctx) => {
-  const { id } = ctx.params;    // string
-  ctx.json({ id });
+  ctx.json({ id: ctx.params.id });
 });
 
-// Multiple parameters
 router.get('/orgs/:orgId/repos/:repoId', (ctx) => {
   const { orgId, repoId } = ctx.params;
   ctx.json({ orgId, repoId });
 });
-```
 
-### Wildcards
-
-```typescript
-// Matches /files/any/nested/path
 router.get('/files/*', (ctx) => {
   ctx.json({ path: ctx.params['*'] });
 });
@@ -68,9 +59,9 @@ router.get('/files/*', (ctx) => {
 
 ---
 
-## Inline Middleware
+## Inline middleware
 
-Pass middleware functions before the final handler:
+Handlers can be preceded by middleware run only on that route:
 
 ```typescript
 const auth = async (ctx, next) => {
@@ -82,9 +73,8 @@ const auth = async (ctx, next) => {
   await next();
 };
 
-// auth runs first, then the handler
 router.get('/protected', auth, (ctx) => {
-  ctx.json({ data: 'secret' });
+  ctx.json({ data: 'ok' });
 });
 ```
 
@@ -93,85 +83,78 @@ router.get('/protected', auth, (ctx) => {
 ## Redirects
 
 ```typescript
-// Permanent redirect (default 301)
 router.redirect('/old-path', '/new-path');
-
-// Temporary redirect
 router.redirect('/temp', '/destination', 302);
-
-// With parameter substitution
 router.redirect('/users/:id', '/profiles/:id');
 ```
 
 ---
 
-## Mounting Routers
+## Mounting routers on the app
 
-Mount a router onto the application at a path prefix:
+`app.route(prefix, router)` strips the prefix before the router matches, so nested routers declare paths relative to their mount point.
+
+```mermaid
+flowchart LR
+  HTTP["GET /api/users/42"]
+  APP["app.route('/api/users', usersRouter)"]
+  R["usersRouter.get('/:id', ...)"]
+  HTTP --> APP --> R
+```
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-
 const users = createRouter();
-users.get('/', (ctx) => ctx.json([]));         // GET /api/users
-users.get('/:id', (ctx) => ctx.json({}));      // GET /api/users/:id
-users.post('/', (ctx) => ctx.json({}));        // POST /api/users
+users.get('/', (ctx) => ctx.json([]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
 const posts = createRouter();
-posts.get('/', (ctx) => ctx.json([]));         // GET /api/posts
+posts.get('/', (ctx) => ctx.json([]));
 
 const app = createApp();
 app.route('/api/users', users);
 app.route('/api/posts', posts);
-
 listen(app, 3000);
 ```
 
----
-
-## Router Composition
-
-Routers can also be composed with `app.use()` via `router.routes()`:
-
-```typescript
-// Directly as middleware
-app.use(router.routes());
-
-// Or via app.route() (recommended — handles prefix stripping automatically)
-app.route('/api', router);
-```
+Alternative: `app.use(router.routes())` wires the router as middleware without the same prefix handling — prefer `app.route()` when you want prefix stripping.
 
 ---
 
-## Router Options Reference
+## Options
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `prefix` | `string` | `''` | Path prefix prepended to all routes |
-| `caseSensitive` | `boolean` | `false` | Whether path matching is case-sensitive |
-| `strict` | `boolean` | `false` | Whether trailing slashes are significant |
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `prefix` | `''` | Prepended to every route on this router |
+| `caseSensitive` | `false` | Match path case |
+| `strict` | `false` | Trailing slash significance |
 
 ---
 
-## Query Parameters
+## Query string
 
-Query parameters are available on `ctx.query` (not part of routing, always available):
+Always on `ctx.query`, independent of routing:
 
 ```typescript
 router.get('/search', (ctx) => {
-  const { q, page = '1' } = ctx.query as { q?: string; page?: string };
-  ctx.json({ query: q, page: Number(page) });
+  const q = ctx.query.q as string | undefined;
+  const page = ctx.query.page ?? '1';
+  ctx.json({ q, page: Number(page) });
 });
-// GET /search?q=hello&page=2
 ```
 
 ---
 
-## Duplicate Route Detection
+## Conflicts
 
 Registering the same method + path twice throws at startup:
 
-```typescript
-router.get('/users', handler1);
-router.get('/users', handler2);  // Error: Route conflict: GET /users is already registered
+```text
+Route conflict: GET /users is already registered
 ```
+
+---
+
+## Concepts on the docs site
+
+- [Routing concept](https://0xtanzim.github.io/nextRush/docs/concepts/routing)
+- [Custom middleware](https://0xtanzim.github.io/nextRush/docs/guides/custom-middleware)

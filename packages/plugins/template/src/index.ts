@@ -189,7 +189,7 @@ export function templatePlugin(engine?: EngineName | TemplateOptions, options?: 
 
   return {
     name: 'template',
-    version: '3.0.2',
+    version: '3.0.4',
 
     install(app: ApplicationLike) {
       const middleware = async (ctx: Context, next: () => Promise<void>): Promise<void> => {

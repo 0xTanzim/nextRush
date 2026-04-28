@@ -6,7 +6,7 @@
 
 | Attribute       | Value                                     |
 | --------------- | ----------------------------------------- |
-| Version         | 3.0.2 (unified `@nextrush/*` releases)    |
+| Version         | 3.0.4 (unified `@nextrush/*` releases)    |
 | Architecture    | Modular monorepo (Turborepo + pnpm)       |
 | Node.js         | >=22.0.0                                  |
 | Package Manager | pnpm                                      |

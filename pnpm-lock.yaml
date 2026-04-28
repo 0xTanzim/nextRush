@@ -633,6 +633,9 @@ importers:
       '@nextrush/decorators':
         specifier: workspace:*
         version: link:../decorators
+      '@nextrush/dev':
+        specifier: workspace:*
+        version: link:../dev
       '@nextrush/di':
         specifier: workspace:*
         version: link:../di
