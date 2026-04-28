@@ -17,6 +17,9 @@ apps/docs/.vitepress/cache
 .turbo/
 **/.turbo/
 
+# Downloaded CI log folders (local debugging)
+logs_*/
+
 # ===== DEVELOPMENT FILES =====
 # IDE & Editor files
 .idea/
@@ -111,3 +114,9 @@ Copilot-Processing.md
 
 # Turborepo
 .turbo
+
+# Published npm CLI stubs live under packages/*/bin (many machines globally ignore `bin/`)
+!packages/create-nextrush/bin/
+!packages/create-nextrush/bin/**
+!packages/dev/bin/
+!packages/dev/bin/**
