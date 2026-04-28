@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/router",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "High-performance radix tree router for NextRush",
   "type": "module",
   "main": "./dist/index.js",

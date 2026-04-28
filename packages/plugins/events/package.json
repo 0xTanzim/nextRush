@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/events",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Type-safe event emitter for NextRush - simple, fast, and async-ready",
   "type": "module",
   "main": "./dist/index.js",

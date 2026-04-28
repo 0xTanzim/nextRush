@@ -1,6 +1,6 @@
 import type { MiddlewarePreset, Runtime, Style } from './types.js';
 
-export const NEXTRUSH_VERSION = '3.0.1';
+export const NEXTRUSH_VERSION = '3.0.2';
 
 export const STYLES: readonly Style[] = ['functional', 'class-based', 'full'];
 export const RUNTIMES: readonly Runtime[] = ['node', 'bun', 'deno'];

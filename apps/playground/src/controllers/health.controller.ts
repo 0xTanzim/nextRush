@@ -19,7 +19,7 @@ export class HealthController {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      version: '3.0.0-alpha.2',
+      version: '3.0.2',
     };
   }
 
