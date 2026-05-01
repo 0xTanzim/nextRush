@@ -8,28 +8,39 @@
  */
 
 import {
-  detectRuntime,
-  existsSync,
-  exitProcess,
-  getCwd,
-  getRuntimeInfo,
-  initFsSync,
-  joinPath,
-  resolvePath,
+    detectRuntime,
+    existsSync,
+    exitProcess,
+    getCwd,
+    getRuntimeInfo,
+    initFsSync,
+    joinPath,
+    resolvePath,
 } from '../runtime/index.js';
 import { NODE_CHILD_PROCESS, NODE_FS_PROMISES, NODE_PATH } from '../runtime/node-modules.js';
 import { findEntry } from '../utils/config.js';
 import {
-  banner,
-  error,
-  formatDuration,
-  formatSize,
-  info,
-  log,
-  newline,
-  success,
-  warn,
+    banner,
+    error,
+    formatDuration,
+    formatSize,
+    info,
+    log,
+    newline,
+    success,
+    warn,
 } from '../utils/logger.js';
+
+const VALID_TARGETS = new Set(['es2020', 'es2021', 'es2022', 'esnext']);
+
+function parseBuildTarget(value: string | undefined): BuildOptions['target'] {
+  if (!value || !VALID_TARGETS.has(value)) {
+    error('--target expects one of: es2020, es2021, es2022, esnext');
+    exitProcess(1);
+  }
+
+  return value as BuildOptions['target'];
+}
 
 /**
  * Build options
@@ -581,9 +592,7 @@ export function buildCli(args: string[]): void {
       case '--target':
       case '-t': {
         const targetArg = args[++i];
-        if (targetArg) {
-          options.target = targetArg as BuildOptions['target'];
-        }
+        options.target = parseBuildTarget(targetArg);
         break;
       }
       case '--sourcemap': {

@@ -6,10 +6,10 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "build:next": "nextrush build",
+    "build": "nextrush build",
+    "build:tsc": "tsc",
     "start": "node dist/index.js",
-    "dev": "nextrush-dev",
+    "dev": "nextrush dev",
     "test": "echo 'No tests configured'"
   },
   "keywords": [],
@@ -19,13 +19,13 @@
     "@nextrush/body-parser": "workspace:*",
     "@nextrush/controllers": "workspace:*",
     "@nextrush/decorators": "workspace:*",
-    "@nextrush/dev": "workspace:*",
     "@nextrush/di": "workspace:*",
     "@nextrush/runtime": "workspace:*",
     "nextrush": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
+    "@nextrush/dev": "workspace:*",
     "typescript": "^6.0.2"
   }
 }

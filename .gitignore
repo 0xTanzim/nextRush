@@ -7,6 +7,9 @@ node_modules/
 .cursor
 .pnpm-store
 nextrush_wiki
+Copilot-Processing.md
+./Copilot-Processing.md
+
 # Build outputs
 dist/
 build/

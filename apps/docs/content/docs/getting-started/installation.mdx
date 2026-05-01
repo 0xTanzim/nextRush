@@ -83,17 +83,17 @@ Add `"type": "module"` to `package.json` so Node treats `.js` output as ESM (the
 
 Choose your preferred package manager:
 
-<PackageInstall packages={['nextrush']} dev={['tsx', 'typescript', '@types/node']} />
+<PackageInstall packages={['nextrush']} dev={['@nextrush/dev', 'tsx', 'typescript', '@types/node']} />
 
-The `nextrush` package is a meta-package that includes the essentials plus the **`nextrush` CLI**
-(via `@nextrush/dev`) so you can run `npx nextrush dev` and `npx nextrush build` after installing it:
+The `nextrush` package is the runtime meta-package. Install **`@nextrush/dev`** as a dev dependency
+so your local scripts can run `nextrush dev` and `nextrush build`:
 
 - `@nextrush/core` — Application and middleware
 - `@nextrush/router` — HTTP routing
 - `@nextrush/adapter-node` — Node.js HTTP server adapter
 - `@nextrush/errors` — HTTP error classes
 - `@nextrush/types` — Shared TypeScript types
-- `@nextrush/dev` — Development server, production build, generators (transitive dependency)
+- `@nextrush/dev` — Development server, production build, generators (dev dependency)
 
 </Step>
 

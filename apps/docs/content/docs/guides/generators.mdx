@@ -8,8 +8,8 @@ The `nextrush generate` command (alias `nextrush g`) creates new files from temp
 ## Usage
 
 ```bash
-npx nextrush generate <type> <name>
-npx nextrush g <type> <name>
+nextrush generate <type> <name>
+nextrush g <type> <name>
 ```
 
 ## Generator Types
@@ -45,7 +45,7 @@ npx nextrush g <type> <name>
 ### Generate a Controller
 
 ```bash
-npx nextrush g controller user
+nextrush g controller user
 ```
 
 Creates `src/controllers/user.controller.ts`:
@@ -75,7 +75,7 @@ export class UserController {
 ### Generate a Service
 
 ```bash
-npx nextrush g service user
+nextrush g service user
 ```
 
 Creates `src/services/user.service.ts`:
@@ -102,7 +102,7 @@ export class UserService {
 ### Generate Middleware
 
 ```bash
-npx nextrush g middleware request-logger
+nextrush g middleware request-logger
 ```
 
 Creates `src/middleware/request-logger.ts`:
@@ -121,7 +121,7 @@ export const requestLogger: Middleware = async (ctx) => {
 ### Generate a Guard
 
 ```bash
-npx nextrush g guard auth
+nextrush g guard auth
 ```
 
 Creates `src/guards/auth.guard.ts`:
@@ -140,7 +140,7 @@ export const authGuard: GuardFn = async (ctx) => {
 ### Generate a Route
 
 ```bash
-npx nextrush g route product
+nextrush g route product
 ```
 
 Creates `src/routes/product.ts`:

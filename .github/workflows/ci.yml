@@ -48,7 +48,6 @@ jobs:
 
           const isReleaseImpactingPackageChange = (file) => {
             if (!file.startsWith('packages/')) return false;
-            if (file.startsWith('packages/dev/')) return false;
             if (/(^|\/)__tests__(\/|$)/.test(file)) return false;
             if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(file)) return false;
             if (file.endsWith('.md') || file.endsWith('.mdx')) return false;

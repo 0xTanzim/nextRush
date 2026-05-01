@@ -9,12 +9,12 @@
  * @example CLI Usage
  * ```bash
  * # Start development server
- * npx nextrush dev
- * npx nextrush dev ./src/app.ts --port 4000
+ * nextrush dev
+ * nextrush dev ./src/app.ts --port 4000
  *
  * # Build for production
- * npx nextrush build
- * npx nextrush build --minify --outDir dist
+ * nextrush build
+ * nextrush build --minify --outDir dist
  * ```
  *
  * @example Programmatic Usage
@@ -34,41 +34,41 @@ export { cli, legacyDevCli } from './cli.js';
 
 // Commands
 export {
-  build,
-  buildCli,
-  buildHelp,
-  dev,
-  devCli,
-  devHelp,
-  type BuildOptions,
-  type DevOptions,
+    build,
+    buildCli,
+    buildHelp,
+    dev,
+    devCli,
+    devHelp,
+    type BuildOptions,
+    type DevOptions
 } from './commands/index.js';
 
 // Runtime detection and utilities
 export {
-  detectRuntime,
-  getRuntimeExecutable,
-  getRuntimeInfo,
-  isBun,
-  isDeno,
-  isNode,
-  type Runtime,
-  type RuntimeInfo,
+    detectRuntime,
+    getRuntimeExecutable,
+    getRuntimeInfo,
+    isBun,
+    isDeno,
+    isNode,
+    type Runtime,
+    type RuntimeInfo
 } from './runtime/index.js';
 
 // Utility re-exports for programmatic use
 export {
-  findEntry,
-  getDefaultWatchPaths,
-  loadConfig,
-  type NextRushConfig,
+    findEntry,
+    getDefaultWatchPaths,
+    loadConfig,
+    type NextRushConfig
 } from './utils/config.js';
 
 // Generator exports
 export {
-  GENERATOR_TYPES,
-  generate,
-  generateCli,
-  generateHelp,
-  type GeneratorType,
+    GENERATOR_TYPES,
+    generate,
+    generateCli,
+    generateHelp,
+    type GeneratorType
 } from './generators/index.js';

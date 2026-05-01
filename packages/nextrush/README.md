@@ -227,7 +227,7 @@ app.use(async (ctx) => {
 
 ```typescript
 import { VERSION } from 'nextrush';
-console.log(VERSION); // '3.0.4'
+console.log(VERSION); // '3.0.5'
 ```
 
 ## License

@@ -117,8 +117,8 @@ See [Middleware](Middleware) on this wiki for patterns and ordering.
 
 ```bash
 pnpm add -D @nextrush/dev
-npx nextrush dev
-npx nextrush generate controller user
+nextrush dev
+nextrush generate controller user
 ```
 
 ---

@@ -42,7 +42,7 @@ export function Hero() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--success)]" />
             </span>
-            <span className="text-sm text-fd-muted-foreground">v3.0.4 · Node.js 22+, Bun, Deno, Edge</span>
+            <span className="text-sm text-fd-muted-foreground">v3.0.5 · Node.js 22+, Bun, Deno, Edge</span>
           </div>
 
           {/* Logo and Title */}

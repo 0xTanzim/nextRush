@@ -40,7 +40,7 @@ A development workflow with a hot-reloading dev server and a production build th
     ### Start the dev server
 
     ```bash
-    npx nextrush dev
+    nextrush dev
     ```
 
     The CLI auto-detects your entry file, runtime, and TypeScript settings. No configuration required.
@@ -50,7 +50,7 @@ A development workflow with a hot-reloading dev server and a production build th
     ### Build for production
 
     ```bash
-    npx nextrush build
+    nextrush build
     ```
 
     Compiles TypeScript with SWC, emitting decorator metadata that DI containers require.
@@ -61,7 +61,7 @@ A development workflow with a hot-reloading dev server and a production build th
 ## Dev Server Options
 
 ```bash
-npx nextrush dev ./src/app.ts --port 4000 --inspect
+nextrush dev ./src/app.ts --port 4000 --inspect
 ```
 
 <TypeTable
@@ -85,7 +85,7 @@ The port also respects the `PORT` environment variable when `--port` is not set.
 ## Build Options
 
 ```bash
-npx nextrush build --outDir dist --minify --target es2022
+nextrush build --outDir dist --minify --target es2022
 ```
 
 <TypeTable
@@ -134,7 +134,7 @@ The CLI finds your entry file in this order:
 2. `src/index.ts`, `src/main.ts`, `src/app.ts`, `src/server.ts`
 3. `index.ts`, `main.ts`, `app.ts`, `server.ts`
 
-Override by passing the entry directly: `npx nextrush dev ./src/app.ts`
+Override by passing the entry directly: `nextrush dev ./src/app.ts`
 
 ## Configuration File
 
@@ -161,7 +161,7 @@ CLI flags override config file values.
 Run the dev server and confirm the output:
 
 ```bash
-npx nextrush dev
+nextrush dev
 ```
 
 You should see:
