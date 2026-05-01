@@ -1,5 +1,15 @@
 # @nextrush/adapter-node
 
+## 3.0.6
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @nextrush/types@3.0.6
+  - @nextrush/errors@3.0.6
+  - @nextrush/core@3.0.6
+  - @nextrush/runtime@3.0.6
+
 ## 3.0.5
 
 ### Patch Changes

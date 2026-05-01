@@ -1,5 +1,16 @@
 # create-nextrush
 
+## 3.0.6
+
+### Patch Changes
+
+- [#23](https://github.com/0xTanzim/nextRush/pull/23) [`9f1d44e`](https://github.com/0xTanzim/nextRush/commit/9f1d44ebc7807955a5d218c2b52a228911a06236) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Fix CLI install reliability:
+  - Ensure the `nextrush` meta-package never declares a `bin` entry (prevents pnpm bin-link conflicts).
+  - Ensure `@nextrush/dev` always builds before publish so `nextrush`/`nextrush-dev` binaries work.
+  - Add a repo-wide bin validator to catch missing `bin` targets during verification.
+  - Scaffold projects with `nextrush dev` / `nextrush build` scripts (no `npx`).
+  - Include `@nextrush/dev` in scaffolded dev dependencies so fresh installs expose the local CLI.
+
 ## 3.0.5
 
 ### Patch Changes
