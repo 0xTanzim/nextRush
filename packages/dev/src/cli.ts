@@ -16,7 +16,7 @@ import { generateCli, generateHelp } from './generators/index.js';
 import { exitProcess, getRuntimeInfo } from './runtime/index.js';
 import { error } from './utils/logger.js';
 
-const VERSION = '3.0.4';
+const VERSION = '3.0.5';
 
 /**
  * Get CLI arguments in a cross-runtime way

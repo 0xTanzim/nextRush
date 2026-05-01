@@ -198,9 +198,6 @@ importers:
       '@nextrush/decorators':
         specifier: workspace:*
         version: link:../../packages/decorators
-      '@nextrush/dev':
-        specifier: workspace:*
-        version: link:../../packages/dev
       '@nextrush/di':
         specifier: workspace:*
         version: link:../../packages/di
@@ -214,6 +211,9 @@ importers:
         specifier: ^0.2.2
         version: 0.2.2
     devDependencies:
+      '@nextrush/dev':
+        specifier: workspace:*
+        version: link:../../packages/dev
       typescript:
         specifier: ^6.0.2
         version: 6.0.2
@@ -633,9 +633,6 @@ importers:
       '@nextrush/decorators':
         specifier: workspace:*
         version: link:../decorators
-      '@nextrush/dev':
-        specifier: workspace:*
-        version: link:../dev
       '@nextrush/di':
         specifier: workspace:*
         version: link:../di

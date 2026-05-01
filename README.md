@@ -240,18 +240,18 @@ app.get('/users/:id', (ctx) => {
 ### Dev Server & Build
 
 ```bash
-npx nextrush dev                    # Hot reload dev server
-npx nextrush build                  # Production build with decorator metadata
+nextrush dev                    # Hot reload dev server
+nextrush build                  # Production build with decorator metadata
 ```
 
 ### Code Generators
 
 ```bash
-npx nextrush generate controller user    # Class-based controller
-npx nextrush g service user-profile      # Injectable service
-npx nextrush g middleware request-logger # Async middleware
-npx nextrush g guard auth               # Guard function
-npx nextrush g route product            # Functional route
+nextrush generate controller user    # Class-based controller
+nextrush g service user-profile      # Injectable service
+nextrush g middleware request-logger # Async middleware
+nextrush g guard auth               # Guard function
+nextrush g route product            # Functional route
 ```
 
 ## Development

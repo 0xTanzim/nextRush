@@ -188,11 +188,11 @@ CLI and programmatic dev tools.
 ### CLI Commands
 
 ```bash
-npx nextrush dev                          # Dev server (auto-restart)
-npx nextrush dev ./src/app.ts --port 4000
-npx nextrush build --minify --outDir dist  # Production build
-npx nextrush generate controller user      # Code generators
-npx nextrush generate service auth         # Types: controller, service, middleware, guard, route
+nextrush dev                          # Dev server (auto-restart)
+nextrush dev ./src/app.ts --port 4000
+nextrush build --minify --outDir dist  # Production build
+nextrush generate controller user      # Code generators
+nextrush generate service auth         # Types: controller, service, middleware, guard, route
 ```
 
 ### Programmatic API

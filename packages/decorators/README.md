@@ -686,7 +686,7 @@ class UserController {}
 npx tsx src/index.ts
 
 // ✅ Works - full decorator support
-npx nextrush dev
+nextrush dev
 ```
 
 ### Mistake 3: Forgetting reflect-metadata

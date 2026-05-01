@@ -1,22 +1,85 @@
-# Copilot Processing — NextRush Skill Rewrite
+# Copilot Processing — NextRush CLI Bin Reliability
 
 ## Request
 
-Rewrite the NextRush Copilot skill to be publishable-quality, cross-checked against the actual codebase.
+User reported that new and manually installed NextRush projects must expose working terminal commands for development and builds:
 
-## Completed
+```
+nextrush dev
+nextrush build
+```
 
-- [x] Comprehensive codebase audit (all 20+ packages, all exports mapped)
-- [x] Sequential thinking: 5-step plan for skill structure
-- [x] SKILL.md — complete rewrite (426 lines): dual import architecture, full package map, quick starts, Context API, middleware, routing, controllers, DI, errors, plugins, adapters, dev tools
-- [x] controllers.md — rewrite (279 lines): nextrush/class imports, all param decorators, custom param decorators, @Redirect/@SetHeader, controllersPlugin options, guard execution order
-- [x] dependency-injection.md — rewrite (287 lines): nextrush/class imports, @Config, @Optional, @Injectable, delay(), createContainer, 7 DI error types
-- [x] error-handling.md — rewrite (277 lines): 40+ error classes by category, factory functions, ctx.throw/assert, errorHandler/notFoundHandler/catchAsync middleware
-- [x] routing.md — rewrite (263 lines): all route methods, params, wildcards, composition, mount, redirect, CRUD example
-- [x] middleware.md — rewrite (349 lines): 7 middleware patterns + all 10 built-in packages with configs/presets + recommended order
-- [x] ecosystem.md — NEW (219 lines): 6 plugins, 4 adapters, dev tools, runtime detection
-- [x] Cleanup: backup removed, cross-references verified
+Also requested clarity on whether changesets are created automatically by CI or must be generated locally.
+
+## Action Plan
+
+### Diagnose CLI/Dev Failure
+
+- [x] Inspect `create-nextrush` template outputs for scripts, dependencies, and bin usage.
+- [x] Inspect `@nextrush/dev` package entrypoint and `bin` exports.
+- [x] Inspect the `nextrush` meta package for bin-link conflicts.
+- [x] Inspect CI/release changeset handling.
+
+### Implement Fix
+
+- [x] Keep the `nextrush` meta package API-only by removing its `bin` entry and `@nextrush/dev` dependency.
+- [x] Keep CLI ownership in `@nextrush/dev`, which provides `nextrush` and `nextrush-dev` bins.
+- [x] Confirm generated projects include `@nextrush/dev` in dev dependencies and use `nextrush dev` / `nextrush build` scripts.
+- [x] Add repo-wide bin validation and run it during `pnpm verify`.
+- [x] Harden bin validation for `files` coverage, relative paths, shebangs, and executable bits.
+- [x] Guard invalid `nextrush dev --port` / `--inspect-port` and `nextrush build --target` values.
+- [x] Update playground scripts to use `nextrush dev` / `nextrush build`.
+- [x] Make the CI changeset guard include `packages/dev`.
+- [x] Remove stale `.changeset/v3.0.4-stable-release.md` so it is not consumed again.
+- [x] Update docs and examples to use the installed local `nextrush` command instead of `npx nextrush`.
+
+### Validate
+
+- [x] Run `pnpm validate:bins`.
+- [x] Run focused package tests for `@nextrush/dev`, `nextrush`, and `create-nextrush`.
+- [x] Typecheck `@nextrush/dev`, `nextrush`, and `create-nextrush`.
+- [x] Build `@nextrush/dev` and smoke-test `node packages/dev/bin/nextrush.js --version` and `--help`.
+- [x] Build `create-nextrush` and generate functional/class-based scaffold smoke apps.
+- [x] Verify scaffolded package scripts and dependencies include `nextrush`, `@nextrush/dev`, and `typescript`.
+- [x] Refresh workspace links with `pnpm install` after bin ownership changed.
+- [x] Run playground `nextrush build` and bounded `nextrush dev` smoke tests.
+- [x] Run docs validation with `pnpm docs:validate`.
+- [x] Run full repository verification with `pnpm verify`.
 
 ## Summary
 
-Total: 2,100 lines across 7 files (SKILL.md + 6 references). All imports use `nextrush`/`nextrush/class` meta-package pattern. All APIs cross-checked against codebase exports.
+The fix makes `@nextrush/dev` the only package that owns the `nextrush` terminal command. New scaffolded apps already install `@nextrush/dev` and can run `npm run dev`, `pnpm dev`, or the local `nextrush dev` command from scripts. The playground now uses the same commands.
+
+Manual installs should use both packages:
+
+```bash
+npm install nextrush
+npm install -D @nextrush/dev typescript
+```
+
+Then add scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "nextrush dev",
+    "build": "nextrush build",
+    "start": "node dist/index.js"
+  }
+}
+```
+
+Changesets are not created automatically by CI. Developers must run `pnpm changeset` locally for release-impacting package changes, commit the generated `.changeset/*.md`, and then the release workflow consumes those files with `changeset version` / `changeset publish`.
+
+Local validation completed:
+
+```bash
+pnpm validate:bins
+pnpm --filter @nextrush/dev test
+pnpm --filter create-nextrush test
+pnpm --filter nextrush test -- src/__tests__/package-manifest.test.ts
+pnpm --filter api build
+timeout 8s pnpm --filter api dev
+pnpm docs:validate
+pnpm verify
+```

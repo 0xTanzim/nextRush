@@ -189,7 +189,7 @@ export function templatePlugin(engine?: EngineName | TemplateOptions, options?: 
 
   return {
     name: 'template',
-    version: '3.0.4',
+    version: '3.0.5',
 
     install(app: ApplicationLike) {
       const middleware = async (ctx: Context, next: () => Promise<void>): Promise<void> => {
@@ -268,47 +268,47 @@ export async function renderAsync(
 
 // Adapters
 export {
-  createAdapter,
-  createBuiltinAdapter,
-  createEjsAdapter,
-  createEtaAdapter,
-  createHandlebarsAdapter,
-  createNunjucksAdapter,
-  createPugAdapter,
-  getAvailableEngines,
-  hasAdapter,
-  registerAdapter
+    createAdapter,
+    createBuiltinAdapter,
+    createEjsAdapter,
+    createEtaAdapter,
+    createHandlebarsAdapter,
+    createNunjucksAdapter,
+    createPugAdapter,
+    getAvailableEngines,
+    hasAdapter,
+    registerAdapter
 } from './adapters';
 
 // Core
 export { compile } from './compiler';
 export { createEngine, createViewEngine, TemplateEngine } from './engine';
 export {
-  abs,
-  add, and, at, builtinHelpers, capitalize, ceil, compact, conditional, createHelperRegistry, currency, day, defaultValue, divide, entries,
-  // Comparison helpers
-  eq,
-  // Array helpers
-  first, flatten, floor,
-  // Date helpers
-  formatDate,
-  // Number helpers
-  formatNumber, get, gt,
-  gte, includes,
-  indexOf,
-  // Type helpers
-  isArray, isEmpty, isNumber, isObject,
-  isString, join,
-  // Output helpers
-  json,
-  // Object helpers
-  keys, last, length, lower, lt,
-  lte, mod, month, multiply, ne, not, now, or, padEnd, padStart, percent, replace, reverse, round, safe, slice,
-  sort, split, stripHtml, subtract, timeAgo, titleCase,
-  trim,
-  truncate, unique,
-  // String helpers
-  upper, values, year
+    abs,
+    add, and, at, builtinHelpers, capitalize, ceil, compact, conditional, createHelperRegistry, currency, day, defaultValue, divide, entries,
+    // Comparison helpers
+    eq,
+    // Array helpers
+    first, flatten, floor,
+    // Date helpers
+    formatDate,
+    // Number helpers
+    formatNumber, get, gt,
+    gte, includes,
+    indexOf,
+    // Type helpers
+    isArray, isEmpty, isNumber, isObject,
+    isString, join,
+    // Output helpers
+    json,
+    // Object helpers
+    keys, last, length, lower, lt,
+    lte, mod, month, multiply, ne, not, now, or, padEnd, padStart, percent, replace, reverse, round, safe, slice,
+    sort, split, stripHtml, subtract, timeAgo, titleCase,
+    trim,
+    truncate, unique,
+    // String helpers
+    upper, values, year
 } from './helpers';
 export { parse, TemplateParseError, validate } from './parser';
 
@@ -317,35 +317,35 @@ export { parse, TemplateParseError, validate } from './parser';
 // ============================================================================
 
 export type {
-  // Adapter types
-  AdapterConfig,
-  AdapterFactory,
-  AdapterRenderOptions,
-  EngineName,
-  TemplateAdapter
+    // Adapter types
+    AdapterConfig,
+    AdapterFactory,
+    AdapterRenderOptions,
+    EngineName,
+    TemplateAdapter
 } from './adapters';
 
 export type {
-  AST,
-  ASTNode,
-  BlockNode,
-  CommentNode,
-  CompiledTemplate,
-  CompileOptions,
-  EngineOptions,
-  ExpressionArg,
-  HelperCall,
-  HelperContext,
-  HelperFn,
-  NormalizedEngineOptions,
-  NormalizedPluginOptions,
-  PartialNode,
-  RawNode, RenderFileFunction, RenderFunction, RenderOptions,
-  TemplateData,
-  TemplateError,
-  TemplateErrorCode,
-  TemplatePluginOptions,
-  TextNode,
-  ValueHelper,
-  VariableNode
+    AST,
+    ASTNode,
+    BlockNode,
+    CommentNode,
+    CompiledTemplate,
+    CompileOptions,
+    EngineOptions,
+    ExpressionArg,
+    HelperCall,
+    HelperContext,
+    HelperFn,
+    NormalizedEngineOptions,
+    NormalizedPluginOptions,
+    PartialNode,
+    RawNode, RenderFileFunction, RenderFunction, RenderOptions,
+    TemplateData,
+    TemplateError,
+    TemplateErrorCode,
+    TemplatePluginOptions,
+    TextNode,
+    ValueHelper,
+    VariableNode
 } from './template.types';
