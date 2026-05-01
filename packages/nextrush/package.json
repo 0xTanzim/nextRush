@@ -16,11 +16,7 @@
       "import": "./dist/class.js"
     }
   },
-  "bin": {
-    "nextrush": "./bin/nextrush.js"
-  },
   "files": [
-    "bin",
     "dist",
     "README.md"
   ],
@@ -70,7 +66,6 @@
     "./dist/class.js"
   ],
   "dependencies": {
-    "@nextrush/dev": "workspace:*",
     "@nextrush/adapter-node": "workspace:*",
     "@nextrush/controllers": "workspace:*",
     "@nextrush/core": "workspace:*",

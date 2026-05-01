@@ -408,7 +408,7 @@ describe('eventsPlugin()', () => {
     const plugin = eventsPlugin();
 
     expect(plugin.name).toBe('@nextrush/events');
-    expect(plugin.version).toBe('3.0.4');
+    expect(plugin.version).toBe('3.0.5');
     expect(typeof plugin.install).toBe('function');
     expect(plugin.events).toBeInstanceOf(EventEmitter);
   });

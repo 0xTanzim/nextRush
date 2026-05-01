@@ -8,21 +8,46 @@
  */
 
 import {
-  buildDevArgs,
-  detectRuntime,
-  existsSync,
-  exitProcess,
-  getCwd,
-  getEnv,
-  getRuntimeInfo,
-  initFsSync,
-  onSignal,
-  resolvePath,
-  spawn,
-  type SpawnResult,
+    buildDevArgs,
+    detectRuntime,
+    existsSync,
+    exitProcess,
+    getCwd,
+    getEnv,
+    getRuntimeInfo,
+    initFsSync,
+    onSignal,
+    resolvePath,
+    spawn,
+    type SpawnResult,
 } from '../runtime/index.js';
 import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
 import { banner, clear, error, info, log } from '../utils/logger.js';
+
+function parsePositiveInteger(value: string | undefined, flag: string): number {
+  const parsed = Number(value);
+
+  if (!value || !Number.isInteger(parsed) || parsed <= 0) {
+    error(`${flag} expects a positive integer.`);
+    exitProcess(1);
+  }
+
+  return parsed;
+}
+
+function resolveDevPort(explicitPort: number | undefined): number {
+  if (explicitPort !== undefined) {
+    return explicitPort;
+  }
+
+  const envPort = getEnv('PORT');
+  if (!envPort) {
+    return 3000;
+  }
+
+  const parsed = Number(envPort);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 3000;
+}
 
 /**
  * Development server options
@@ -65,8 +90,8 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
   await initFsSync();
 
   const resolvedEntry = entry ?? options.entry ?? findEntry();
-  // Respect PORT env var if options.port is not explicitly set
-  const port = options.port ?? parseInt(getEnv('PORT') ?? '3000', 10);
+  // Respect PORT env var if options.port is not explicitly set.
+  const port = resolveDevPort(options.port);
   const cwd = getCwd();
 
   // Clear screen unless disabled
@@ -166,7 +191,7 @@ export function devCli(args: string[]): void {
       case '--port':
       case '-p': {
         const portArg = args[++i];
-        if (portArg) options.port = parseInt(portArg, 10);
+        options.port = parsePositiveInteger(portArg, '--port');
         break;
       }
       case '--inspect': {
@@ -175,7 +200,7 @@ export function devCli(args: string[]): void {
       }
       case '--inspect-port': {
         const inspectArg = args[++i];
-        if (inspectArg) options.inspectPort = parseInt(inspectArg, 10);
+        options.inspectPort = parsePositiveInteger(inspectArg, '--inspect-port');
         break;
       }
       case '--watch':

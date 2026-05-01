@@ -9,10 +9,10 @@
 pnpm add -D @nextrush/dev
 
 # Start development server (auto-detects everything)
-npx nextrush dev
+nextrush dev
 
 # Build for production
-npx nextrush build
+nextrush build
 ```
 
 That's it! No configuration needed. The CLI auto-detects:
@@ -69,16 +69,16 @@ Start a development server with hot reload and decorator support.
 
 ```bash
 # Auto-detects entry file
-npx nextrush dev
+nextrush dev
 
 # Specify entry file
-npx nextrush dev ./src/server.ts
+nextrush dev ./src/server.ts
 
 # Custom port
-npx nextrush dev --port 4000
+nextrush dev --port 4000
 
 # Enable debugger
-npx nextrush dev --inspect
+nextrush dev --inspect
 ```
 
 **Options:**
@@ -98,16 +98,16 @@ Build for production with SWC, emitting decorator metadata.
 
 ```bash
 # Build with defaults
-npx nextrush build
+nextrush build
 
 # Custom output directory
-npx nextrush build --outDir dist
+nextrush build --outDir dist
 
 # Minify output
-npx nextrush build --minify
+nextrush build --minify
 
 # Target ES2020
-npx nextrush build --target es2020
+nextrush build --target es2020
 ```
 
 **Options:**
@@ -129,16 +129,16 @@ Generate controllers, services, middleware, guards, and routes.
 
 ```bash
 # Generate a controller class
-npx nextrush generate controller user
+nextrush generate controller user
 
 # Short alias
-npx nextrush g controller user
+nextrush g controller user
 
 # Generate all types
-npx nextrush g s user-profile        # Service
-npx nextrush g mw logger             # Middleware
-npx nextrush g guard auth            # Guard
-npx nextrush g r products            # Route
+nextrush g s user-profile        # Service
+nextrush g mw logger             # Middleware
+nextrush g guard auth            # Guard
+nextrush g r products            # Route
 ```
 
 **Types:**

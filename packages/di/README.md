@@ -449,7 +449,7 @@ The `@nextrush/controllers` plugin automatically detects class guards and resolv
 npx tsx src/index.ts
 
 # ✅ Works (full decorator support)
-npx nextrush dev
+nextrush dev
 ```
 
 ### Error: "reflect-metadata not found"

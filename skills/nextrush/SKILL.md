@@ -425,14 +425,14 @@ npx create-nextrush@latest my-app
 pnpm dlx create-nextrush@latest  # dlx: use hyphenated package name, not "create nextrush"
 
 # Development
-npx nextrush dev               # Start dev server with HMR
-npx nextrush build             # Production build
+nextrush dev               # Start dev server with HMR
+nextrush build             # Production build
 
 # Code generators
-npx nextrush generate controller user   # Generate controller
-npx nextrush generate service user      # Generate service
-npx nextrush generate middleware auth   # Generate middleware
-npx nextrush generate guard admin       # Generate guard
+nextrush generate controller user   # Generate controller
+nextrush generate service user      # Generate service
+nextrush generate middleware auth   # Generate middleware
+nextrush generate guard admin       # Generate guard
 ```
 
 ## Topic Reference
