@@ -1,5 +1,17 @@
 # @nextrush/controllers
 
+## 3.0.6
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @nextrush/types@3.0.6
+  - @nextrush/errors@3.0.6
+  - @nextrush/core@3.0.6
+  - @nextrush/router@3.0.6
+  - @nextrush/di@3.0.6
+  - @nextrush/decorators@3.0.6
+
 ## 3.0.5
 
 ### Patch Changes
