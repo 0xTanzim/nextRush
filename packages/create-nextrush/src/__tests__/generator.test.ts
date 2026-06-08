@@ -155,7 +155,7 @@ describe('generateProject', () => {
     it('uses runtime-safe port resolver in entrypoint', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('function resolvePort(defaultPort = 3000)');
+      expect(entry).toContain('function resolvePort(defaultPort = 8080)');
       expect(entry).toContain('const PORT = resolvePort();');
       expect(entry).toContain('await listen(app, PORT);');
     });
@@ -196,7 +196,7 @@ describe('generateProject', () => {
     it('uses runtime-safe port resolver in class-based entrypoint', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('function resolvePort(defaultPort = 3000)');
+      expect(entry).toContain('function resolvePort(defaultPort = 8080)');
       expect(entry).toContain('const PORT = resolvePort();');
       expect(entry).toContain('await listen(app, PORT);');
     });
@@ -288,7 +288,7 @@ describe('generateProject', () => {
     it('entrypoint resolves port without direct process.env dependency', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('function resolvePort(defaultPort = 3000)');
+      expect(entry).toContain('function resolvePort(defaultPort = 8080)');
       expect(entry).toContain('const PORT = resolvePort();');
       expect(entry).not.toContain("Number(process.env['PORT'])");
     });

@@ -187,7 +187,7 @@ export function getUptimeHelperFunction(): string {
 
 /** Runtime-safe helper used by generated templates to resolve the server port. */
 export function getPortResolverFunction(): string {
-  return `function resolvePort(defaultPort = 3000): number {
+  return `function resolvePort(defaultPort = 8080): number {
   const runtimeGlobals = globalThis as {
     process?: { env?: Record<string, string | undefined> };
     Deno?: { env?: { get?: (name: string) => string | undefined } };
