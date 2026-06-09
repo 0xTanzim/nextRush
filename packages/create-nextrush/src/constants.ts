@@ -1,6 +1,8 @@
 import type { MiddlewarePreset, Runtime, Style } from './types.js';
 
-export const NEXTRUSH_VERSION = '3.0.5';
+// Version injected at build time via tsup define
+declare const __VERSION__: string;
+export const NEXTRUSH_VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
 
 export const STYLES: readonly Style[] = ['functional', 'class-based', 'full'];
 export const RUNTIMES: readonly Runtime[] = ['node', 'bun', 'deno'];

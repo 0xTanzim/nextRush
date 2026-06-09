@@ -2,9 +2,8 @@ import { MIDDLEWARE_IMPORTS, MIDDLEWARE_SETUP } from '../constants.js';
 import type { FileMap, ProjectOptions } from '../types.js';
 import {
   getControllerDiscoveryHelpers,
-  getPortResolverFunction,
+  getPortDeclaration,
   getRuntimeEntrypointImports,
-  getUptimeHelperFunction,
 } from './shared.js';
 
 /** Generates a class-based (decorators + DI) NextRush project. */
@@ -21,7 +20,7 @@ export function generateClassBased(options: ProjectOptions): FileMap {
 function generateEntrypoint(options: ProjectOptions): string {
   const middlewareImports = MIDDLEWARE_IMPORTS[options.middleware];
   const middlewareSetup = MIDDLEWARE_SETUP[options.middleware];
-  const portResolver = getPortResolverFunction();
+  const portDecl = getPortDeclaration(options.runtime);
   const controllerDiscoveryHelpers = getControllerDiscoveryHelpers();
 
   const lines: string[] = [];
@@ -36,9 +35,8 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('');
   lines.push('const app = createApp();');
   lines.push('const router = createRouter();');
-  lines.push(portResolver.trimEnd());
+  lines.push(portDecl);
   lines.push(controllerDiscoveryHelpers.trimEnd());
-  lines.push('const PORT = resolvePort();');
   lines.push('');
 
   if (middlewareSetup) {
@@ -83,11 +81,7 @@ export class HealthController {
 }
 
 function generateAppService(): string {
-  const uptimeHelper = getUptimeHelperFunction();
-
   return `import { Service } from 'nextrush/class';
-
-${uptimeHelper}
 
 @Service()
 export class AppService {
@@ -95,7 +89,7 @@ export class AppService {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      uptime: getUptimeSeconds(),
+      uptime: process.uptime(),
     };
   }
 }

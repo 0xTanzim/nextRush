@@ -319,7 +319,7 @@ describe('compose: double-response warning', () => {
 
     expect(warnSpy).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('sent a response and called next()')
+      expect.stringContaining('called next() after the response was already committed')
     );
 
     warnSpy.mockRestore();
@@ -370,6 +370,30 @@ describe('compose: double-response warning', () => {
     const middleware: Middleware[] = [
       async (_c, next) => {
         await next();
+      },
+    ];
+
+    const composed = compose(middleware, { warnDoubleResponse: true });
+    await composed(ctx);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it('should NOT warn when downstream sends response after pass-through middleware', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const ctx = createMockContext();
+    const middleware: Middleware[] = [
+      async (_c, next) => {
+        await next();
+      },
+      async (_c, next) => {
+        await next();
+      },
+      async (c) => {
+        (c as { responded: boolean }).responded = true;
       },
     ];
 

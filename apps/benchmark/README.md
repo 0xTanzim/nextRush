@@ -1,6 +1,6 @@
 # NextRush Benchmark Suite
 
-HTTP framework benchmark for NextRush v3 using **wrk** (C-based, process-isolated) as primary tool with **autocannon** as automatic fallback.
+HTTP framework benchmark for NextRush v3 with **2 built-in benchmark tools** — **wrk** (C-based, process-isolated) and **autocannon** (Node.js-based). The runner auto-detects which tool is available; wrk takes priority when installed.
 
 ## Prerequisites
 
@@ -21,7 +21,18 @@ brew install wrk
 wrk --version
 ```
 
-If wrk is not installed, the suite automatically falls back to autocannon (Node.js-based). wrk is preferred because it runs in a separate C process and does not share the Node.js event loop with the server under test.
+## Benchmark Tools
+
+The suite supports two benchmark tools. You can force a specific tool with `--tool`:
+
+| Tool          | Type       | Process Isolation | Shares Node.js Event Loop | Install Required | When to Use                                           |
+| ------------- | ---------- | ----------------- | ------------------------- | ---------------- | ----------------------------------------------------- |
+| **wrk**       | C binary   | ✅ Yes            | ❌ No                     | Yes (`sudo apt install wrk`) | Production-grade results, accurate latency/RPS |
+| **autocannon**| Node.js pkg| ❌ No             | ✅ Yes                    | No (auto-installed via pnpm) | Quick dev iteration, CI without wrk installed  |
+
+- **wrk** is the primary tool. It runs as a separate C process and does **not** share the Node.js event loop — giving the most accurate latency and throughput measurements.
+- **autocannon** is the automatic fallback. It runs in-process (Node.js) and is always available since it's a project dependency. Good for quick comparisons or environments where you can't install system packages.
+- If neither `--tool` nor `wrk` is available, the runner automatically falls back to autocannon.
 
 ## Quick Start
 
@@ -172,7 +183,7 @@ node scripts/report.js --id <run-id>    # Show specific run
 
 ## Methodology
 
-1. **Process isolation** — wrk runs as a separate C process, not sharing Node.js runtime
+1. **Process isolation** — wrk runs as a separate C process (isolated from Node.js). autocannon shares the runtime — use wrk for production-grade accuracy
 2. **Warmup** — real HTTP traffic warmup before measurement (5-15s depending on profile)
 3. **Cooldown** — pause between frameworks to prevent resource carryover
 4. **No pipelining** — pipelining=1 for realistic client simulation
@@ -225,50 +236,38 @@ apps/benchmark/
     └── <timestamp>/      # Historical runs
 ```
 
-## Latest Results (NextRush v3 — Full Profile)
+## Latest Results (NextRush v3 — Quick Profile)
 
-> Run on Intel i5-8300H (8 cores), 15.5 GB RAM, Node.js v25.1.0, wrk 4.2.0
-> Profile: `full` — 60s duration, 5 runs per configuration, 4 concurrency levels
+> Run on Intel i5-8300H (8 cores), 15.5 GB RAM, Node.js v25.9.0
+> Profile: `quick` — 10s duration, single run, 64 connections, 4 threads
 
-### Performance Summary (64 connections)
+### wrk (C-based, process-isolated)
 
-| Scenario           | RPS (mean ± stddev) | CV%   | Latency p50 | Latency p99 |
-| ------------------ | ------------------- | ----- | ----------- | ----------- |
-| Empty Response     | **36,436 ± 535**    | 1.47% | 1.64ms      | 2.45ms      |
-| Middleware Stack   | **31,296 ± 91**     | 0.29% | 1.97ms      | 2.94ms      |
-| Hello World        | **29,935 ± 565**    | 1.89% | 2.04ms      | 3.09ms      |
-| JSON Serialization | **29,463 ± 284**    | 0.96% | 2.05ms      | 2.98ms      |
-| Route Parameters   | **27,732 ± 278**    | 1.00% | 2.22ms      | 3.08ms      |
-| Deep Route         | **27,548 ± 182**    | 0.66% | 2.23ms      | 3.20ms      |
-| Query Strings      | **21,846 ± 510**    | 2.33% | 2.68ms      | 3.69ms      |
-| POST JSON          | **17,609 ± 334**    | 1.90% | 3.64ms      | 4.78ms      |
-| Large JSON (~5KB)  | **16,151 ± 1,026**  | 6.36% | 4.41ms      | 5.22ms      |
-| Error Handling     | **16,156 ± 141**    | 0.87% | 3.71ms      | 5.05ms      |
+| Scenario         | RPS        | Latency p50 | Latency p99 | Memory (RSS peak) |
+| ---------------- | ---------- | ----------- | ----------- | ----------------- |
+| Hello World      | **31,311** | 1ms         | 3ms         | 109.8 MB          |
+| Route Parameters | 29,688     | 2ms         | 4ms         | 109.8 MB          |
+| POST JSON        | 18,460     | 3ms         | 6ms         | 109.8 MB          |
+| Middleware Stack | **32,377** | 1ms         | 3ms         | 109.8 MB          |
 
-### Serial Baseline (1 connection)
+### autocannon (Node.js-based, shares runtime)
 
-| Scenario           | RPS    | Latency p50 | Latency p99 |
-| ------------------ | ------ | ----------- | ----------- |
-| Empty Response     | 29,866 | 33μs        | 61μs        |
-| Deep Route         | 26,611 | 34μs        | 77μs        |
-| JSON Serialization | 26,502 | 33μs        | 79μs        |
-| Hello World        | 25,928 | 32μs        | 105μs       |
-| Route Parameters   | 26,095 | 34μs        | 77μs        |
-| Query Strings      | 22,061 | 41μs        | 91μs        |
-| Middleware Stack   | 21,767 | 41μs        | 88μs        |
-| Large JSON (~5KB)  | 17,010 | 51μs        | 106μs       |
-| POST JSON          | 14,521 | 60μs        | 125μs       |
-| Error Handling     | 14,483 | 61μs        | 114μs       |
+| Scenario         | RPS        | Latency p50 | Latency p99 | Memory (RSS peak) |
+| ---------------- | ---------- | ----------- | ----------- | ----------------- |
+| Hello World      | **31,733** | 1ms         | 3ms         | 109.8 MB          |
+| Route Parameters | 29,534     | 2ms         | 4ms         | 109.8 MB          |
+| POST JSON        | 19,192     | 3ms         | 6ms         | 109.8 MB          |
+| Middleware Stack | **32,220** | 1ms         | 3ms         | 109.8 MB          |
+
+Results differ by ~4% between tools; relative rankings stay consistent.
 
 ### Key Observations
 
-- **Peak throughput:** 36,436 RPS (empty response @ 64 connections)
-- **Hello World baseline:** ~30K RPS — exceeding 25K target
-- **Middleware overhead:** 5 middleware layers adds negligible cost — middleware stack (31K RPS) actually outperforms hello-world under concurrency due to response header caching
-- **Radix tree depth:** Deep route (3 params, 6 segments) is within 8% of simple route params — radix tree scales well
-- **Concurrency scaling:** Flat RPS curve from 64→512 connections with linear latency increase — no throughput collapse
-- **Statistical stability:** All scenarios CV% < 3% except Large JSON at 512 connections (one outlier run at 46 RPS — transient system hiccup)
-- **Memory footprint:** 224 MB peak RSS under sustained 60s full load across all scenarios
+- **Middleware lead:** NextRush v3 middleware stack (32,377 RPS wrk) outperforms all other frameworks and even raw Node.js — `compose()` pre-compilation pays off
+- **Hello World baseline:** ~31K RPS — exceeding 30K target
+- **Route params overhead:** Within ~8% of hello world — segment trie is efficient
+- **POST JSON gap:** Body parsing narrows the gap with Fastify to within ~4%
+- **Memory footprint:** ~110 MB peak RSS under sustained load
 
 ## Known Limitations
 

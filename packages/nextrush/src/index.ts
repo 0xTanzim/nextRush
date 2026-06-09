@@ -142,7 +142,6 @@ export type {
 // HTTP constants
 export { ContentType, HttpStatus } from '@nextrush/types';
 
-// ============================================
-// VERSION
-// ============================================
-export const VERSION = '3.0.5';
+// NOTE: VERSION is not exported from the core package to maintain
+// Edge runtime compatibility (no node:fs). Use @nextrush/dev or
+// check package.json directly if you need the version.

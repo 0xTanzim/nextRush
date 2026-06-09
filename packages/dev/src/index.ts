@@ -22,7 +22,7 @@
  * import { dev, build } from '@nextrush/dev';
  *
  * // Start dev server
- * await dev('./src/index.ts', { port: 3000 });
+ * await dev('./src/index.ts', { port: 8080 });
  *
  * // Build for production
  * await build('./src/index.ts', { outDir: 'dist', minify: true });

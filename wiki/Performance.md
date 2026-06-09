@@ -1,6 +1,6 @@
 # Performance
 
-Framework targets 35,000+ requests per second on a modern single core (v3 benchmarks). Achieving and maintaining that speed requires careful design.
+Framework targets 30,000+ requests per second (v3 benchmarks). Achieving and maintaining that speed requires careful design.
 
 ---
 
@@ -9,7 +9,7 @@ Framework targets 35,000+ requests per second on a modern single core (v3 benchm
 | Metric | Target | Why |
 |--------|--------|-----|
 | Core bundle | <3KB | Startup time, memory footprint |
-| Hello World RPS | 35,000+ | Baseline throughput |
+| Hello World RPS | 30,000+ | Baseline throughput |
 | Middleware overhead | <1% | Keep payload size competitive |
 | Router lookup | O(k) where k = path segments | Worst-case predictable |
 | Static route fast path | O(1) | Common case optimized |
@@ -18,19 +18,31 @@ Framework targets 35,000+ requests per second on a modern single core (v3 benchm
 
 ## Benchmark results
 
-**Test setup:** Intel i5-8300H, Node.js v25.1.0, running `autocannon -c 100 -d 40s` against hello-world endpoints.
+**Test setup:** Intel i5-8300H, Node.js v25.9.0. Two tools: **wrk** (C-based, process-isolated) and **autocannon** (Node.js, automatic fallback). 10s duration, 64 connections, no pipelining.
 
-```
-Framework          | Hello World | POST JSON | Mixed  |
----                |---|---|---|
-Fastify            | 48,045 | 21,412 | 48,493 |
-NextRush v3        | 43,268 | 20,438 | 43,283 |
-Hono               | 37,476 | 12,625 | 38,759 |
-Koa                | 34,683 | 17,664 | 35,566 |
-Express            | 23,739 | 14,417 | 23,783 |
-```
+### wrk
 
-NextRush is competitive on throughput while keeping the code minimal.
+| Framework       | Hello World | Route Params | POST JSON | Middleware Stack |
+| --------------- | ----------- | ------------ | --------- | ---------------- |
+| Raw Node.js     | 35,863      | 33,326       | 25,116    | 30,738           |
+| Fastify         | 35,592      | 32,407       | 18,799    | 27,968           |
+| **NextRush v3** | **31,311**  | **29,688**   | **18,460**| **32,377**       |
+| Hono            | 26,438      | 26,586       | 10,826    | 22,179           |
+| Koa             | 23,350      | 21,890       | 14,954    | 20,972           |
+| Express         | 17,784      | 17,598       | 12,947    | 17,356           |
+
+### autocannon
+
+| Framework       | Hello World | Route Params | POST JSON | Middleware Stack |
+| --------------- | ----------- | ------------ | --------- | ---------------- |
+| Raw Node.js     | 36,903      | 33,936       | 24,936    | 31,471           |
+| Fastify         | 34,063      | 31,095       | 18,532    | 28,744           |
+| **NextRush v3** | **31,733**  | **29,534**   | **19,192**| **32,220**       |
+| Hono            | 28,209      | 25,966       | 10,798    | 22,258           |
+| Koa             | 23,845      | 22,421       | 15,323    | 21,125           |
+| Express         | 19,496      | 18,209       | 13,063    | 17,352           |
+
+NextRush leads on middleware-stack throughput and is competitive across all scenarios.
 
 ---
 
@@ -152,7 +164,7 @@ pnpm install
 pnpm benchmark
 
 # Or with autocannon
-npx autocannon -c 100 -d 40s http://localhost:3000/
+npx autocannon -c 64 -d 10s http://localhost:3000/
 ```
 
 Track RPS across framework versions. Regressions are often in middleware or database queries, not the router.

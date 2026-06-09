@@ -199,7 +199,7 @@ nextrush generate service auth         # Types: controller, service, middleware,
 
 ```typescript
 import { dev, build, generate, detectRuntime, isNode } from '@nextrush/dev';
-await dev('./src/index.ts', { port: 3000 });
+await dev('./src/index.ts', { port: 8080 });
 await build('./src/index.ts', { outDir: 'dist', minify: true });
 await generate('controller', 'user');
 const runtime = detectRuntime(); // 'node' | 'bun' | 'deno'

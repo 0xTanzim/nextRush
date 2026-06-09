@@ -24,6 +24,8 @@ import {
 import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
 import { banner, clear, error, info, log } from '../utils/logger.js';
 
+const DEFAULT_DEV_PORT = 8080;
+
 function parsePositiveInteger(value: string | undefined, flag: string): number {
   const parsed = Number(value);
 
@@ -42,11 +44,11 @@ function resolveDevPort(explicitPort: number | undefined): number {
 
   const envPort = getEnv('PORT');
   if (!envPort) {
-    return 3000;
+    return DEFAULT_DEV_PORT;
   }
 
   const parsed = Number(envPort);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 3000;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_DEV_PORT;
 }
 
 /**
@@ -108,6 +110,7 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
   info('Runtime', `${runtimeInfo.runtime} v${runtimeInfo.version}`);
   info('Entry', resolvedEntry);
   info('Port', String(port));
+  info('Local', `http://127.0.0.1:${String(port)}`);
 
   // Validate entry file exists
   const entryPath = resolvePath(cwd, resolvedEntry);
@@ -252,7 +255,7 @@ export function devHelp(): void {
 Usage: nextrush dev [entry] [options]
 
 Options:
-  --port, -p <port>    Port number (default: 3000)
+  --port, -p <port>    Port number (default: 8080; env PORT overrides)
   --watch, -w <path>   Additional path to watch (can be used multiple times)
   --inspect            Enable Node.js inspector
   --inspect-port       Inspector port (default: 9229)

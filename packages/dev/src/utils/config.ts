@@ -32,7 +32,7 @@ export function findEntry(): string {
   try {
     const pkgPath = joinPath(cwd, 'package.json');
     if (existsSync(pkgPath)) {
-      const pkg = JSON.parse(readFileSync(pkgPath));
+      const pkg = JSON.parse(readFileSync(pkgPath)) as Record<string, string | undefined>;
 
       // Check "main" or "module"
       const main = pkg.main ?? pkg.module;
@@ -107,7 +107,7 @@ export async function loadConfig(): Promise<NextRushConfig> {
   try {
     const pkgPath = joinPath(cwd, 'package.json');
     if (existsSync(pkgPath)) {
-      const pkg = JSON.parse(readFileSync(pkgPath));
+      const pkg = JSON.parse(readFileSync(pkgPath)) as Record<string, unknown>;
       if (pkg.nextrush) {
         return pkg.nextrush;
       }

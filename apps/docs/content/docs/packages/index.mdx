@@ -1,0 +1,67 @@
+---
+title: Packages
+description: All NextRush packages available on npm
+---
+
+# Packages
+
+NextRush is organized as a modular monorepo. Install only what you need — core is under 3,000 lines of code.
+
+## Core
+
+| Package | Description | npm |
+|---------|-------------|-----|
+| [nextrush](https://www.npmjs.com/package/nextrush) | Core framework with routing, middleware, and HTTP server | `pnpm add nextrush` |
+| [create-nextrush](https://www.npmjs.com/package/create-nextrush) | CLI scaffolding to create new projects | `pnpm create nextrush` |
+
+## Runtime Adapters
+
+| Package | Description | npm |
+|---------|-------------|-----|
+| [@nextrush/adapter-node](https://www.npmjs.com/package/@nextrush/adapter-node) | Node.js HTTP adapter | `pnpm add @nextrush/adapter-node` |
+| [@nextrush/adapter-bun](https://www.npmjs.com/package/@nextrush/adapter-bun) | Bun HTTP adapter | `pnpm add @nextrush/adapter-bun` |
+| [@nextrush/adapter-deno](https://www.npmjs.com/package/@nextrush/adapter-deno) | Deno HTTP adapter | `pnpm add @nextrush/adapter-deno` |
+| [@nextrush/adapter-edge](https://www.npmjs.com/package/@nextrush/adapter-edge) | Edge runtime adapter (Cloudflare Workers, Vercel Edge) | `pnpm add @nextrush/adapter-edge` |
+
+## Core Packages
+
+| Package | Description | npm |
+|---------|-------------|-----|
+| [@nextrush/core](https://www.npmjs.com/package/@nextrush/core) | Application, Context, Middleware | `pnpm add @nextrush/core` |
+| [@nextrush/di](https://www.npmjs.com/package/@nextrush/di) | Lightweight dependency injection container | `pnpm add @nextrush/di` |
+| [@nextrush/errors](https://www.npmjs.com/package/@nextrush/errors) | Standardized error handling | `pnpm add @nextrush/errors` |
+| [@nextrush/log](https://www.npmjs.com/package/@nextrush/log) | Universal, zero-dependency logger | `pnpm add @nextrush/log` |
+
+## Plugins
+
+| Package | Description | npm |
+|---------|-------------|-----|
+| [@nextrush/controllers](https://www.npmjs.com/package/@nextrush/controllers) | Controller plugin with automatic discovery and DI | `pnpm add @nextrush/controllers` |
+| [@nextrush/decorators](https://www.npmjs.com/package/@nextrush/decorators) | Metadata-only decorators for controllers | `pnpm add @nextrush/decorators` |
+| [@nextrush/events](https://www.npmjs.com/package/@nextrush/events) | Type-safe event emitter | `pnpm add @nextrush/events` |
+| [@nextrush/template](https://www.npmjs.com/package/@nextrush/template) | Template engine integration | `pnpm add @nextrush/template` |
+
+## Middleware
+
+| Package | Description | npm |
+|---------|-------------|-----|
+| [@nextrush/body-parser](https://www.npmjs.com/package/@nextrush/body-parser) | Body parsing middleware | `pnpm add @nextrush/body-parser` |
+| [@nextrush/cookies](https://www.npmjs.com/package/@nextrush/cookies) | Cookie parsing and serialization | `pnpm add @nextrush/cookies` |
+| [@nextrush/cors](https://www.npmjs.com/package/@nextrush/cors) | CORS middleware | `pnpm add @nextrush/cors` |
+| [@nextrush/csrf](https://www.npmjs.com/package/@nextrush/csrf) | CSRF protection with HMAC-SHA256 | `pnpm add @nextrush/csrf` |
+| [@nextrush/helmet](https://www.npmjs.com/package/@nextrush/helmet) | Security headers middleware | `pnpm add @nextrush/helmet` |
+| [@nextrush/rate-limit](https://www.npmjs.com/package/@nextrush/rate-limit) | Production-grade rate limiting | `pnpm add @nextrush/rate-limit` |
+| [@nextrush/compression](https://www.npmjs.com/package/@nextrush/compression) | Response compression (Gzip, Brotli, Deflate) | `pnpm add @nextrush/compression` |
+| [@nextrush/multipart](https://www.npmjs.com/package/@nextrush/multipart) | Multipart form-data and file uploads | `pnpm add @nextrush/multipart` |
+| [@nextrush/request-id](https://www.npmjs.com/package/@nextrush/request-id) | Request ID for distributed tracing | `pnpm add @nextrush/request-id` |
+| [@nextrush/timer](https://www.npmjs.com/package/@nextrush/timer) | Response time measurement | `pnpm add @nextrush/timer` |
+
+## Development
+
+| Package | Description | npm |
+|---------|-------------|-----|
+| [@nextrush/dev](https://www.npmjs.com/package/@nextrush/dev) | Development server and build tools with multi-runtime support | `pnpm add -D @nextrush/dev` |
+
+## All Packages
+
+View all 32 packages on [npm](https://www.npmjs.com/~0xtanzim).

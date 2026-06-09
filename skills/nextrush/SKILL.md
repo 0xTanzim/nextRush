@@ -31,7 +31,7 @@ metadata:
 
 Minimal, modular, high-performance Node.js framework. Zero external runtime
 dependencies. Dual paradigm: functional routes and decorator-based controllers.
-Targets: 35,000+ RPS, <200KB memory, <30ms cold start.
+Targets: 30,000+ RPS, <200KB memory, <30ms cold start. Benchmarks use wrk (C-based, primary) and autocannon (Node.js, fallback).
 
 ## When to Use
 

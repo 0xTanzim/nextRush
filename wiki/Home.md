@@ -49,15 +49,29 @@ Adapters (`@nextrush/adapter-*`) translate platform APIs into this pipeline; cor
 
 ## Benchmark snapshot
 
-From `apps/benchmark` on sample hardware (see repo for methodology). Reproduce with `pnpm benchmark` inside `apps/benchmark`.
+From `apps/benchmark` on sample hardware (see repo for methodology). Two tools available: **wrk** (C-based, primary) and **autocannon** (Node.js, fallback). Reproduce with `pnpm benchmark` inside `apps/benchmark`.
 
-| Framework | Hello World | POST JSON | Mixed |
-|-----------|---------------|-----------|-------|
-| Fastify | 48,045 | 21,412 | 48,493 |
-| **NextRush v3** | **43,268** | **20,438** | **43,283** |
-| Hono | 37,476 | 12,625 | 38,759 |
-| Koa | 34,683 | 17,664 | 35,566 |
-| Express | 23,739 | 14,417 | 23,783 |
+### wrk
+
+| Framework       | Hello World | Route Params | POST JSON | Middleware Stack |
+| --------------- | ----------- | ------------ | --------- | ---------------- |
+| Raw Node.js     | 35,863      | 33,326       | 25,116    | 30,738           |
+| Fastify         | 35,592      | 32,407       | 18,799    | 27,968           |
+| **NextRush v3** | **31,311**  | **29,688**   | **18,460**| **32,377**       |
+| Hono            | 26,438      | 26,586       | 10,826    | 22,179           |
+| Koa             | 23,350      | 21,890       | 14,954    | 20,972           |
+| Express         | 17,784      | 17,598       | 12,947    | 17,356           |
+
+### autocannon
+
+| Framework       | Hello World | Route Params | POST JSON | Middleware Stack |
+| --------------- | ----------- | ------------ | --------- | ---------------- |
+| Raw Node.js     | 36,903      | 33,936       | 24,936    | 31,471           |
+| Fastify         | 34,063      | 31,095       | 18,532    | 28,744           |
+| **NextRush v3** | **31,733**  | **29,534**   | **19,192**| **32,220**       |
+| Hono            | 28,209      | 25,966       | 10,798    | 22,258           |
+| Koa             | 23,845      | 22,421       | 15,323    | 21,125           |
+| Express         | 19,496      | 18,209       | 13,063    | 17,352           |
 
 Numbers shift with CPU and Node version; treat these as directional, not guarantees.
 
