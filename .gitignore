@@ -127,3 +127,7 @@ Copilot-Processing.md
 
 
 .commandcode
+
+# Screenshots
+*.png
+.playwright-mcp/
