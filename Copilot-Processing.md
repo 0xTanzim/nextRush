@@ -83,3 +83,22 @@ timeout 8s pnpm --filter api dev
 pnpm docs:validate
 pnpm verify
 ```
+
+
+---
+
+## Follow-up: Dev port 8080, Local URL banner, middleware double-response warnings
+
+### Request
+
+- Stop false-positive `[nextrush] Middleware …` spam when middleware only awaits `next()` and downstream sends the response.
+- Default dev/server scaffold port **8080** (leave **3000** for typical frontend); update CLI/help/docs defaults.
+- Show **Local** URL in `nextrush dev` banner.
+
+### Done
+
+- **Core `compose`**: warn when `next()` runs while `ctx.responded` is already true (not after stack unwinds); new regression test.
+- **`@nextrush/dev`**: default port **8080**; **`Local`** line; CLI help updated.
+- **create-nextrush**: `resolvePort` default **8080**; tests + README.
+- **playground**: listens on **`PORT`** with fallback **8080**.
+- **Docs**: `dev-tools.mdx`, `create-nextrush.mdx`; **`packages/dev` README**.

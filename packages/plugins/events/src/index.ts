@@ -41,6 +41,9 @@ import { EventEmitter } from './emitter';
 import type { EventEmitterOptions, EventMap } from './types';
 import { VALID_PROPERTY_NAME } from './types';
 
+declare const __VERSION__: string;
+export const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
+
 /**
  * Plugin interface (minimal, to avoid circular deps)
  */
@@ -171,7 +174,6 @@ export function eventsPlugin<T extends EventMap = EventMap>(
 
   return {
     name: '@nextrush/events',
-    version: '3.0.5',
 
     /**
      * The event emitter instance.

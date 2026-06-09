@@ -6,7 +6,7 @@ import 'reflect-metadata';
 function main() {
   const app = createApp();
   const router = createRouter();
-  const port = 3000;
+  const port = Number(process.env.PORT ?? 8080);
 
   // Body parser middleware (required for @Body decorator)
   app.use(bodyParser());

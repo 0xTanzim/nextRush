@@ -16,7 +16,9 @@ import { generateCli, generateHelp } from './generators/index.js';
 import { exitProcess, getRuntimeInfo } from './runtime/index.js';
 import { error } from './utils/logger.js';
 
-const VERSION = '3.0.5';
+// Version injected at build time via tsup define
+declare const __VERSION__: string;
+const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
 
 /**
  * Get CLI arguments in a cross-runtime way

@@ -27,7 +27,7 @@ export default function HomePage() {
               className="group p-6 rounded-xl card-glow card-gradient-border"
             >
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--rush-blue)]/10 border border-[var(--rush-blue)]/20 mb-4">
-                <Rocket className="size-5 text-[var(--rush-blue)]" />
+                <Rocket className="size-5 text-[var(--rush-blue)]" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-2 group-hover:text-[var(--rush-blue)] transition-colors">
                 Introduction
@@ -37,7 +37,7 @@ export default function HomePage() {
               </p>
               <span className="inline-flex items-center gap-1 text-[var(--rush-blue)] font-medium">
                 Start here{' '}
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </span>
             </Link>
 
@@ -46,7 +46,7 @@ export default function HomePage() {
               className="group p-6 rounded-xl card-glow card-gradient-border"
             >
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--rush-cyan)]/10 border border-[var(--rush-cyan)]/20 mb-4">
-                <Layers className="size-5 text-[var(--rush-cyan)]" />
+                <Layers className="size-5 text-[var(--rush-cyan)]" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-2 group-hover:text-[var(--rush-cyan)] transition-colors">
                 Framework overview
@@ -56,13 +56,13 @@ export default function HomePage() {
               </p>
               <span className="inline-flex items-center gap-1 text-[var(--rush-cyan)] font-medium">
                 Read overview{' '}
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </span>
             </Link>
 
             <Link href="/docs" className="group p-6 rounded-xl card-glow card-gradient-border">
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--rush-purple)]/10 border border-[var(--rush-purple)]/20 mb-4">
-                <BookOpen className="size-5 text-[var(--rush-purple)]" />
+                <BookOpen className="size-5 text-[var(--rush-purple)]" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-2 group-hover:text-[var(--rush-purple)] transition-colors">
                 Documentation
@@ -70,7 +70,7 @@ export default function HomePage() {
               <p className="text-fd-muted-foreground mb-4">Concepts, API reference, guides, and community.</p>
               <span className="inline-flex items-center gap-1 text-[var(--rush-purple)] font-medium">
                 Browse docs{' '}
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </span>
             </Link>
 
@@ -79,7 +79,7 @@ export default function HomePage() {
               className="group p-6 rounded-xl card-glow card-gradient-border"
             >
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--rush-green)]/10 border border-[var(--rush-green)]/20 mb-4">
-                <Sparkles className="size-5 text-[var(--rush-green)]" />
+                <Sparkles className="size-5 text-[var(--rush-green)]" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-2 group-hover:text-[var(--rush-green)] transition-colors">
                 Agent skills
@@ -89,26 +89,81 @@ export default function HomePage() {
               </p>
               <span className="inline-flex items-center gap-1 text-[var(--rush-green)] font-medium">
                 View skills{' '}
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </span>
             </Link>
 
             <Link
               href="/docs/examples"
               className="group p-6 rounded-xl card-glow card-gradient-border"
+              style={{ '--card-accent': 'var(--warning)' } as React.CSSProperties}
             >
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
-                <Code className="size-5 text-amber-600 dark:text-amber-400" />
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg mb-4" style={{
+                backgroundColor: `color-mix(in srgb, var(--card-accent) 10%, transparent)`,
+                border: `1px solid color-mix(in srgb, var(--card-accent) 20%, transparent)`,
+              }}>
+                <Code className="size-5" style={{ color: 'var(--card-accent)' }} aria-hidden="true" />
               </div>
-              <h3 className="text-xl font-semibold mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+              <h3 className="text-xl font-semibold mb-2 transition-colors" style={{ color: 'var(--card-accent)' }}>
                 Examples
               </h3>
               <p className="text-fd-muted-foreground mb-4">Patterns you can paste and adapt.</p>
-              <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
+              <span className="inline-flex items-center gap-1 font-medium" style={{ color: 'var(--card-accent)' }}>
                 View examples{' '}
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </span>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Packages Section */}
+      <section className="relative py-24">
+        <hr className="section-divider absolute top-0 left-0 right-0" />
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Packages</h2>
+            <p className="text-lg text-fd-muted-foreground max-w-2xl mx-auto">
+              Install only what you need. Core is under 3,000 lines of code.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 max-w-5xl mx-auto">
+            {[
+              { name: 'nextrush', desc: 'Core framework', color: 'rush-blue' },
+              { name: 'create-nextrush', desc: 'CLI scaffolding', color: 'rush-purple' },
+              { name: '@nextrush/dev', desc: 'Dev tools & multi-runtime', color: 'rush-cyan' },
+              { name: '@nextrush/core', desc: 'App, Context, Middleware', color: 'rush-green' },
+              { name: '@nextrush/controllers', desc: 'Controller plugin', color: 'rush-blue' },
+              { name: '@nextrush/di', desc: 'Dependency injection', color: 'rush-purple' },
+              { name: '@nextrush/events', desc: 'Type-safe emitter', color: 'rush-cyan' },
+              { name: '@nextrush/errors', desc: 'Error handling', color: 'rush-green' },
+            ].map((pkg) => (
+              <a
+                key={pkg.name}
+                href={`https://www.npmjs.com/package/${pkg.name}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group p-4 rounded-xl card-glow card-gradient-border text-center"
+              >
+                <p className={`font-mono text-sm font-semibold mb-1 text-[var(--${pkg.color})] group-hover:underline`}>
+                  {pkg.name}
+                </p>
+                <p className="text-fd-muted-foreground text-xs">{pkg.desc}</p>
+              </a>
+            ))}
+          </div>
+
+          <div className="text-center mt-8">
+            <a
+              href="https://www.npmjs.com/~0xtanzim"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-fd-muted-foreground hover:text-fd-foreground transition-colors text-sm"
+            >
+              View all 32 packages on npm
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </a>
           </div>
         </div>
       </section>
@@ -129,6 +184,14 @@ export default function HomePage() {
                 className="text-fd-muted-foreground hover:text-fd-foreground transition-colors text-sm"
               >
                 GitHub
+              </a>
+              <a
+                href="https://www.npmjs.com/~0xtanzim"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-fd-muted-foreground hover:text-fd-foreground transition-colors text-sm"
+              >
+                npm
               </a>
               <a
                 href="https://github.com/0xTanzim/nextrush/releases"

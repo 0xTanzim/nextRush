@@ -92,7 +92,7 @@ If detected, fix immediately before any other work proceeds.
 
 | Metric           | Target                                                  |
 | ---------------- | ------------------------------------------------------- |
-| Hello World RPS  | 35,000+                                                 |
+| Hello World RPS  | 30,000+                                                 |
 | Core size        | <3,000 LOC                                              |
 | Cold start       | <30ms                                                   |
 | Memory footprint | <200KB                                                  |

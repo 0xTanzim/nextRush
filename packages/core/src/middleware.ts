@@ -110,12 +110,14 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
         return Promise.resolve();
       }
 
-      // Capture responded state before middleware runs (dev-mode warning)
-      const respondedBefore = warnDoubleResponse ? ctx.responded : false;
-      let nextCalled = false;
-
-      const nextFn = () => {
-        nextCalled = true;
+      const nextFn = (): Promise<void> => {
+        if (warnDoubleResponse && ctx.responded) {
+          console.warn(
+            `[nextrush] Middleware at index ${String(i)} called next() after the response was already committed. ` +
+              'Downstream middleware may attempt to write to an already-finished response. ' +
+              'Either await next() to delegate downstream, or send a response without calling next().'
+          );
+        }
         return dispatch(i + 1);
       };
 
@@ -125,21 +127,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
       }
 
       try {
-        const result = Promise.resolve(fn(ctx, nextFn));
-
-        if (warnDoubleResponse) {
-          return result.then(() => {
-            if (!respondedBefore && ctx.responded && nextCalled) {
-              console.warn(
-                `[nextrush] Middleware at index ${String(i)} sent a response and called next(). ` +
-                  'Downstream middleware may attempt to write to an already-finished response. ' +
-                  'Either send a response OR call next(), not both.'
-              );
-            }
-          });
-        }
-
-        return result;
+        return Promise.resolve(fn(ctx, nextFn));
       } catch (err: unknown) {
         return Promise.reject(err instanceof Error ? err : new Error(String(err)));
       }

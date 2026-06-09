@@ -85,7 +85,7 @@ nextrush dev --inspect
 
 | Option           | Alias | Default | Description                 |
 | ---------------- | ----- | ------- | --------------------------- |
-| `--port`         | `-p`  | `3000`  | Port number                 |
+| `--port`         | `-p`  | `8080`  | Port number (`PORT` env when `--port` omitted) |
 | `--watch`        | `-w`  | `src`   | Paths to watch (repeatable) |
 | `--inspect`      | -     | `false` | Enable Node.js inspector    |
 | `--inspect-port` | -     | `9229`  | Inspector port              |
@@ -298,7 +298,7 @@ await dev('./src/app.ts', {
 | Option        | Type                     | Default   | Description           |
 | ------------- | ------------------------ | --------- | --------------------- |
 | `entry`       | `string`                 | auto      | Entry file path       |
-| `port`        | `number`                 | `3000`    | Port number           |
+| `port`        | `number`                 | `8080`    | Port number           |
 | `inspect`     | `boolean`                | `false`   | Enable debugger       |
 | `inspectPort` | `number`                 | `9229`    | Debugger port         |
 | `watch`       | `string[]`               | `['src']` | Watch paths           |

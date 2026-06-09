@@ -89,7 +89,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ message: 'Welcome to NextRush!' }));
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ### `class-based`

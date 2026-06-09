@@ -62,9 +62,9 @@ export function QuickInstall() {
                 aria-label="Copy command"
               >
                 {copied ? (
-                  <Check className="size-5 text-[var(--success)]" />
+                  <Check className="size-5 text-[var(--success)]" aria-hidden="true" />
                 ) : (
-                  <Copy className="size-5" />
+                  <Copy className="size-5" aria-hidden="true" />
                 )}
               </button>
             </div>

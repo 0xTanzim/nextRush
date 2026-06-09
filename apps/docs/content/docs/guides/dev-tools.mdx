@@ -67,7 +67,7 @@ nextrush dev ./src/app.ts --port 4000 --inspect
 <TypeTable
   title="nextrush dev options"
   types={{
-    '--port, -p': { type: 'number', description: 'Server port', default: '3000' },
+    '--port, -p': { type: 'number', description: 'Server port', default: '8080' },
     '--watch, -w': {
       type: 'string',
       description: 'Path to watch (replaces default; repeatable)',
@@ -171,7 +171,8 @@ You should see:
 
   Runtime:  node v22.x.x
   Entry:    src/index.ts
-  Port:     3000
+  Port:     8080
+  Local:    http://127.0.0.1:8080
   Watching: src
 ```
 

@@ -28,6 +28,9 @@ import type { AdapterConfig, AdapterRenderOptions } from './adapters/types';
 import { compile } from './compiler';
 import type { RenderOptions, TemplateData } from './template.types';
 
+declare const __VERSION__: string;
+export const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -189,7 +192,6 @@ export function templatePlugin(engine?: EngineName | TemplateOptions, options?: 
 
   return {
     name: 'template',
-    version: '3.0.5',
 
     install(app: ApplicationLike) {
       const middleware = async (ctx: Context, next: () => Promise<void>): Promise<void> => {

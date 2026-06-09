@@ -71,7 +71,7 @@ export function Features() {
                     border: `1px solid color-mix(in srgb, ${color} 12%, transparent)`,
                   }}
                 >
-                  <Icon className="size-5" style={{ color }} />
+                  <Icon className="size-5" style={{ color }} aria-hidden="true" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
                 <p className="text-fd-muted-foreground">{feature.description}</p>

@@ -2,9 +2,8 @@ import { MIDDLEWARE_IMPORTS, MIDDLEWARE_SETUP } from '../constants.js';
 import type { FileMap, ProjectOptions } from '../types.js';
 import {
     getControllerDiscoveryHelpers,
-    getPortResolverFunction,
+    getPortDeclaration,
     getRuntimeEntrypointImports,
-    getUptimeHelperFunction,
 } from './shared.js';
 
 /**
@@ -27,7 +26,7 @@ export function generateFull(options: ProjectOptions): FileMap {
 function generateEntrypoint(options: ProjectOptions): string {
   const middlewareImports = MIDDLEWARE_IMPORTS[options.middleware];
   const middlewareSetup = MIDDLEWARE_SETUP[options.middleware];
-  const portResolver = getPortResolverFunction();
+  const portDecl = getPortDeclaration(options.runtime);
   const controllerDiscoveryHelpers = getControllerDiscoveryHelpers();
 
   const lines: string[] = [];
@@ -45,9 +44,8 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('');
   lines.push('const app = createApp();');
   lines.push('const router = createRouter();');
-  lines.push(portResolver.trimEnd());
+  lines.push(portDecl);
   lines.push(controllerDiscoveryHelpers.trimEnd());
-  lines.push('const PORT = resolvePort();');
   lines.push('');
   lines.push('// Error handling (first middleware — catches all downstream errors)');
   lines.push('app.use(errorHandler());');
@@ -90,19 +88,15 @@ function generateEntrypoint(options: ProjectOptions): string {
 }
 
 function generateHealthRoute(): string {
-  const uptimeHelper = getUptimeHelperFunction();
-
   return `import { createRouter } from 'nextrush';
 
 export const healthRouter = createRouter();
-
-${uptimeHelper}
 
 healthRouter.get('/', (ctx) => {
   ctx.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: getUptimeSeconds(),
+    uptime: process.uptime(),
   });
 });
 `;

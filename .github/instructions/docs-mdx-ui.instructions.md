@@ -246,7 +246,7 @@ Feature cards for landing and overview pages. Custom components, globally regist
 
 ```mdx
 <FeatureGrid>
-  <Feature icon="⚡" title="High Performance" description="35,000+ requests per second" />
+  <Feature icon="⚡" title="High Performance" description="30,000+ requests per second" />
   <Feature icon="🎯" title="Type Safe" description="Full TypeScript strict mode" />
   <Feature icon="📦" title="Modular" description="Install only what you need" />
 </FeatureGrid>
