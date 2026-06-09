@@ -117,6 +117,57 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Packages Section */}
+      <section className="relative py-24">
+        <hr className="section-divider absolute top-0 left-0 right-0" />
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Packages</h2>
+            <p className="text-lg text-fd-muted-foreground max-w-2xl mx-auto">
+              Install only what you need. Core is under 3,000 lines of code.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 max-w-5xl mx-auto">
+            {[
+              { name: 'nextrush', desc: 'Core framework', color: 'rush-blue' },
+              { name: 'create-nextrush', desc: 'CLI scaffolding', color: 'rush-purple' },
+              { name: '@nextrush/dev', desc: 'Dev tools & multi-runtime', color: 'rush-cyan' },
+              { name: '@nextrush/core', desc: 'App, Context, Middleware', color: 'rush-green' },
+              { name: '@nextrush/controllers', desc: 'Controller plugin', color: 'rush-blue' },
+              { name: '@nextrush/di', desc: 'Dependency injection', color: 'rush-purple' },
+              { name: '@nextrush/events', desc: 'Type-safe emitter', color: 'rush-cyan' },
+              { name: '@nextrush/errors', desc: 'Error handling', color: 'rush-green' },
+            ].map((pkg) => (
+              <a
+                key={pkg.name}
+                href={`https://www.npmjs.com/package/${pkg.name}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group p-4 rounded-xl card-glow card-gradient-border text-center"
+              >
+                <p className={`font-mono text-sm font-semibold mb-1 text-[var(--${pkg.color})] group-hover:underline`}>
+                  {pkg.name}
+                </p>
+                <p className="text-fd-muted-foreground text-xs">{pkg.desc}</p>
+              </a>
+            ))}
+          </div>
+
+          <div className="text-center mt-8">
+            <a
+              href="https://www.npmjs.com/~0xtanzim"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-fd-muted-foreground hover:text-fd-foreground transition-colors text-sm"
+            >
+              View all 32 packages on npm
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="relative py-12">
         <hr className="section-divider absolute top-0 left-0 right-0" />
