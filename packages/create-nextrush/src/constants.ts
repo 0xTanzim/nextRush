@@ -1,13 +1,8 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import type { MiddlewarePreset, Runtime, Style } from './types.js';
 
-// Read version from package.json — single source of truth
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8')) as { version: string };
-export const NEXTRUSH_VERSION: string = pkg.version;
+// Version injected at build time via tsup define
+declare const __VERSION__: string;
+export const NEXTRUSH_VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
 
 export const STYLES: readonly Style[] = ['functional', 'class-based', 'full'];
 export const RUNTIMES: readonly Runtime[] = ['node', 'bun', 'deno'];

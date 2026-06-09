@@ -22,18 +22,14 @@
  * @module @nextrush/template
  */
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import type { ApplicationLike, Context, Middleware, Plugin } from '@nextrush/types';
 import { createAdapter, type EngineName } from './adapters';
 import type { AdapterConfig, AdapterRenderOptions } from './adapters/types';
 import { compile } from './compiler';
 import type { RenderOptions, TemplateData } from './template.types';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8')) as { version: string };
+declare const __VERSION__: string;
+export const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
 
 // ============================================================================
 // Types
@@ -196,7 +192,6 @@ export function templatePlugin(engine?: EngineName | TemplateOptions, options?: 
 
   return {
     name: 'template',
-    version: pkg.version,
 
     install(app: ApplicationLike) {
       const middleware = async (ctx: Context, next: () => Promise<void>): Promise<void> => {

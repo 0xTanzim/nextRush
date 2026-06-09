@@ -11,18 +11,14 @@
  * @packageDocumentation
  */
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { buildCli, buildHelp, devCli, devHelp } from './commands/index.js';
 import { generateCli, generateHelp } from './generators/index.js';
 import { exitProcess, getRuntimeInfo } from './runtime/index.js';
 import { error } from './utils/logger.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8')) as { version: string };
-const VERSION: string = pkg.version;
+// Version injected at build time via tsup define
+declare const __VERSION__: string;
+const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
 
 /**
  * Get CLI arguments in a cross-runtime way
