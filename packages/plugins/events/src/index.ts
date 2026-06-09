@@ -46,7 +46,7 @@ import { VALID_PROPERTY_NAME } from './types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8'));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8')) as { version: string };
 
 /**
  * Plugin interface (minimal, to avoid circular deps)

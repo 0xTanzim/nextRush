@@ -6,7 +6,7 @@ import type { MiddlewarePreset, Runtime, Style } from './types.js';
 // Read version from package.json — single source of truth
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8'));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8')) as { version: string };
 export const NEXTRUSH_VERSION: string = pkg.version;
 
 export const STYLES: readonly Style[] = ['functional', 'class-based', 'full'];

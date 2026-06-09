@@ -11,7 +11,7 @@ import { createEvents, EventEmitter, eventsPlugin, MAX_EVENT_NAME_LENGTH, VALID_
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8'));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8')) as { version: string };
 
 // Test events interface - use [key: string] for EventMap compatibility
 type TestEvents = {

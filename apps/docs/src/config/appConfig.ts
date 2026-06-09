@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://github.com/0xTanzim/nextRush';
 
-const pkg = JSON.parse(readFileSync(resolve(process.cwd(), '../../packages/nextrush/package.json'), 'utf8'));
+const pkg = JSON.parse(readFileSync(resolve(process.cwd(), '../../packages/nextrush/package.json'), 'utf8')) as { version: string };
 
 export const appConfig = {
   name: 'NextRush',

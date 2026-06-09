@@ -5,7 +5,7 @@ import { Controller, Get, SetHeader } from '@nextrush/decorators';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8'));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8')) as { version: string };
 
 /**
  * HealthController — Simple controller for basic functionality testing:
