@@ -5,9 +5,9 @@ description: Transparent, reproducible benchmarks — framework comparisons and 
 
 **Last updated:** 2026-06-08
 
-All figures below come from **one lab setup** (CPU, OS, Node, tool versions). Absolute RPS on your hardware will differ; use the same scripts for **relative** comparisons. In production, databases and external calls usually dominate latency — not the framework.
+All figures come from one lab setup (CPU, OS, Node, tool versions). Your hardware will give different absolute RPS, but relative rankings stay consistent. Use the same scripts for your own numbers. In production, databases and external calls usually dominate latency — not the framework choice.
 
-<Callout type="warn" title="How to read this page">
+<Callout type="info" title="How to read this page">
   Published RPS are snapshots, not guarantees. Run `apps/benchmark` locally when you need numbers
   for capacity planning.
 </Callout>
@@ -19,13 +19,13 @@ The benchmark suite in `apps/benchmark` supports **2 tools** that produce slight
 <BenchmarkCardGrid
   items={[
     {
-      label: '⚡ wrk',
+      label: 'wrk',
       value: 'Primary — C-based',
       detail:
         'Runs as a separate C process, isolated from Node.js. No event loop interference. Install via `apt install wrk`. Used for deep profiling.',
     },
     {
-      label: '📦 autocannon',
+      label: 'autocannon',
       value: 'Fallback — Node.js',
       detail:
         'Runs in-process. Always available via pnpm. Shares the event loop with the server — numbers may differ slightly from wrk. Used for quick comparisons.',
@@ -48,14 +48,11 @@ How the same test scenarios differ between wrk and autocannon on identical hardw
 | POST JSON        | **18,460**  | 19,192         | +4.0%    |
 | Middleware Stack | **32,377**  | 32,220         | -0.5%    |
 
-<Callout type="info">
-  The numbers are within **~4%** of each other across all scenarios. Relative framework rankings stay
-  consistent regardless of which tool you use.
-</Callout>
+The numbers are within **~4%** across all scenarios, so relative framework rankings stay consistent regardless of which tool you use.
 
 ---
 
-## Framework Comparison <span style={{ background: '#6366f1', color: '#fff', padding: '2px 10px', borderRadius: '999px', fontSize: '13px', fontWeight: 500 }}>autocannon</span>
+## Framework Comparison (autocannon)
 
 Head-to-head comparison against popular Node.js frameworks. All servers implement identical endpoints with equivalent work.
 
@@ -189,9 +186,7 @@ Head-to-head comparison against popular Node.js frameworks. All servers implemen
     | Express         | 13,063     | 4ms         | 9ms         |
     | Hono            | 10,798     | 5ms         | 11ms        |
 
-    <Callout type="info">
-      NextRush is within **4%** of Fastify on POST JSON — the gap narrows when body parsing is involved.
-    </Callout>
+    NextRush stays within **4%** of Fastify here — body parsing is a common bottleneck, so the gap narrows when frameworks do real work.
 
   </Tab>
 
@@ -219,9 +214,7 @@ Head-to-head comparison against popular Node.js frameworks. All servers implemen
     | Koa             | 21,125     | 2ms         | 5ms         |
     | Express         | 17,352     | 3ms         | 7ms         |
 
-    <Callout type="info">
-      NextRush actually **outpaces raw Node.js** on middleware — `compose()` pre-compiles the pipeline, making middleware dispatch near-zero cost under concurrency.
-    </Callout>
+    NextRush **outpaces raw Node.js** here — `compose()` pre-compiles the pipeline, so middleware dispatch costs near zero under concurrency.
 
   </Tab>
 </Tabs>
@@ -241,9 +234,9 @@ Head-to-head comparison against popular Node.js frameworks. All servers implemen
 
 ---
 
-## Deep Profile <span style={{ background: '#10b981', color: '#fff', padding: '2px 10px', borderRadius: '999px', fontSize: '13px', fontWeight: 500 }}>wrk</span>
+## Deep Profile (wrk)
 
-NextRush v3 benchmarked with **wrk** (C-based, process-isolated — no Node.js event loop sharing).
+NextRush v3 benchmarked with **wrk** — a C-based HTTP benchmark tool that runs as a separate process, isolated from Node.js. Unlike autocannon, wrk doesn't share the event loop with the server, which eliminates the "testing yourself with yourself" problem.
 
 ### Methodology
 
@@ -254,12 +247,6 @@ NextRush v3 benchmarked with **wrk** (C-based, process-isolated — no Node.js e
 | **Connections** | 64                                                |
 | **Pipelining**  | Disabled (1 request at a time — realistic client) |
 | **Threads**     | 4                                                 |
-
-<Callout type="info" title="Why wrk?">
-  Unlike autocannon (Node.js-based), wrk is written in C and doesn't share the event loop with the
-  server. This eliminates the "testing yourself with yourself" problem and produces more accurate
-  numbers.
-</Callout>
 
 ### Scenario Breakdown
 
@@ -330,18 +317,15 @@ NextRush scales efficiently — the middleware stack pre-compilation means it ca
   ]}
 />
 
-<Callout type="warn">
-  Memory numbers are for the benchmark harness (wrk + server + monitoring). Idle NextRush memory
-  footprint is under 200KB.
-</Callout>
+The numbers above include the full benchmark harness (wrk + server + monitoring). NextRush's own idle footprint is under 200KB.
 
 ---
 
-## Why Fastify Is Faster
+## Design Trade-offs: Fastify vs NextRush
 
-Fastify consistently beats NextRush on raw throughput. Here's exactly why:
+Fastify edges ahead on raw throughput in these benchmarks. Here is what drives the gap:
 
-| Technique          | Fastify                            | NextRush                    |
+| Area               | Fastify                            | NextRush                    |
 | ------------------ | ---------------------------------- | --------------------------- |
 | JSON serialization | AOT with `fast-json-stringify`     | Native `JSON.stringify`     |
 | Router             | `find-my-way` (radix tree, mature) | Custom segment trie (newer) |
@@ -349,9 +333,10 @@ Fastify consistently beats NextRush on raw throughput. Here's exactly why:
 | HTTP parsing       | Custom optimized                   | Standard Node.js parser     |
 
 <Callout type="info" title="Trade-off">
-  Fastify trades flexibility for speed. NextRush prioritizes **zero dependencies**, **full
-  TypeScript**, and **multi-runtime support**. If raw single-runtime throughput is your only
-  concern, Fastify is the right choice.
+  Fastify tunes heavily for Node.js throughput. NextRush prioritizes **zero dependencies**, **full
+  TypeScript**, and **multi-runtime support**. If single-platform HTTP throughput is your only
+  concern, Fastify is the right choice. If you need portability and a lean core, NextRush wins on
+  different terms.
 </Callout>
 
 ---
@@ -384,10 +369,10 @@ Results are saved to `results/` with timestamps. Each run generates a JSON file 
 
 ## How to use these numbers
 
-In this benchmark suite, Fastify led on mean RPS; NextRush placed second. That ordering is useful for **relative** comparison on identical hardware, not as a universal ranking.
+Fastify edged ahead on mean RPS in this suite. NextRush came second. That ordering is useful for relative comparison on identical hardware — not as a universal ranking.
 
-1. Fastify prioritizes Node.js throughput and includes serialization choices that help in micro-benchmarks.
-2. A single database or HTTP client call often adds milliseconds per request, shrinking the gap between frameworks in real apps.
-3. NextRush keeps a small dependency-free core, ships adapters for several runtimes, and supports optional DI and decorators — different trade-offs, not a single "winner" column.
+1. Fastify tunes aggressively for Node.js throughput. Its serialization choices pay off in micro-benchmarks.
+2. In real apps, a single database call adds milliseconds per request. That gap between frameworks shrinks fast.
+3. NextRush keeps a dependency-free core, ships adapters for several runtimes, and supports optional DI and decorators. Different trade-offs, not a single winner.
 
-Pick based on runtime targets, team style, and operational needs; confirm with your own measurements.
+Run your own benchmarks on your own hardware. That is the only number that matters.

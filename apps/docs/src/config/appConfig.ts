@@ -1,9 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://github.com/0xTanzim/nextRush';
+
+const pkg = JSON.parse(readFileSync(resolve(process.cwd(), '../../packages/nextrush/package.json'), 'utf8'));
 
 export const appConfig = {
   name: 'NextRush',
   id: 'nextrush',
-  version: '3.0.5',
+  version: pkg.version,
   teamName: 'NextRush Team',
   twitterHandle: '@nextrush',
   siteUrl: SITE_URL,

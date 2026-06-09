@@ -2,9 +2,16 @@
  * @nextrush/events - Comprehensive Test Suite
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createEvents, EventEmitter, eventsPlugin, MAX_EVENT_NAME_LENGTH, VALID_PROPERTY_NAME } from '../index';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8'));
 
 // Test events interface - use [key: string] for EventMap compatibility
 type TestEvents = {
@@ -408,7 +415,7 @@ describe('eventsPlugin()', () => {
     const plugin = eventsPlugin();
 
     expect(plugin.name).toBe('@nextrush/events');
-    expect(plugin.version).toBe('3.0.5');
+    expect(plugin.version).toBe(pkg.version);
     expect(typeof plugin.install).toBe('function');
     expect(plugin.events).toBeInstanceOf(EventEmitter);
   });

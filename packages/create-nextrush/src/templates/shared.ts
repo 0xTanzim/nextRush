@@ -176,30 +176,12 @@ export function getRuntimeEntrypointImports(
   ];
 }
 
-/** Runtime-safe helper used by generated templates for health checks. */
-export function getUptimeHelperFunction(): string {
-  return `function getUptimeSeconds(): number {
-  const now = globalThis.performance?.now?.();
-  return typeof now === 'number' ? Math.floor(now / 1000) : 0;
-}
-`;
-}
-
-/** Runtime-safe helper used by generated templates to resolve the server port. */
-export function getPortResolverFunction(): string {
-  return `function resolvePort(defaultPort = 8080): number {
-  const runtimeGlobals = globalThis as {
-    process?: { env?: Record<string, string | undefined> };
-    Deno?: { env?: { get?: (name: string) => string | undefined } };
-  };
-
-  const portFromProcess = runtimeGlobals.process?.env?.PORT;
-  const portFromDeno = runtimeGlobals.Deno?.env?.get?.('PORT');
-  const parsed = Number(portFromProcess ?? portFromDeno ?? defaultPort);
-
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultPort;
-}
-`;
+/** Returns the PORT declaration line for the given runtime. */
+export function getPortDeclaration(runtime: Runtime): string {
+  if (runtime === 'deno') {
+    return 'const PORT = Number(Deno.env.get(\'PORT\')) || 3000;';
+  }
+  return 'const PORT = Number(process.env.PORT) || 3000;';
 }
 
 /** Runtime-safe helpers for controller auto-discovery in src and dist contexts. */

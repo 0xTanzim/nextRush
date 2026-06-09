@@ -9,6 +9,7 @@ node_modules/
 nextrush_wiki
 Copilot-Processing.md
 ./Copilot-Processing.md
+.playwright-mcp
 
 # Build outputs
 dist/
@@ -123,3 +124,6 @@ Copilot-Processing.md
 !packages/create-nextrush/bin/**
 !packages/dev/bin/
 !packages/dev/bin/**
+
+
+.commandcode

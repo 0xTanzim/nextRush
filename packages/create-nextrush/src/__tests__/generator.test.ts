@@ -152,19 +152,18 @@ describe('generateProject', () => {
       expect(entry).toContain("import { listen } from '@nextrush/adapter-bun'");
     });
 
-    it('uses runtime-safe port resolver in entrypoint', () => {
+    it('uses simple PORT declaration in entrypoint', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('function resolvePort(defaultPort = 8080)');
-      expect(entry).toContain('const PORT = resolvePort();');
+      expect(entry).toContain("const PORT = Number(process.env.PORT) || 3000;");
       expect(entry).toContain('await listen(app, PORT);');
     });
 
-    it('uses runtime-safe uptime helper in health route', () => {
+    it('uses process.uptime() in health route', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const health = files.get('src/routes/health.ts')!;
-      expect(health).toContain('function getUptimeSeconds()');
-      expect(health).not.toContain('process.uptime()');
+      expect(health).toContain('process.uptime()');
+      expect(health).not.toContain('getUptimeSeconds');
     });
   });
 
@@ -193,11 +192,10 @@ describe('generateProject', () => {
       expect(entry).toContain("const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist' : './src';");
     });
 
-    it('uses runtime-safe port resolver in class-based entrypoint', () => {
+    it('uses simple PORT declaration in class-based entrypoint', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('function resolvePort(defaultPort = 8080)');
-      expect(entry).toContain('const PORT = resolvePort();');
+      expect(entry).toContain("const PORT = Number(process.env.PORT) || 3000;");
       expect(entry).toContain('await listen(app, PORT);');
     });
 
@@ -214,11 +212,11 @@ describe('generateProject', () => {
       expect(service).toContain('@Service');
     });
 
-    it('uses runtime-safe uptime helper in app service', () => {
+    it('uses process.uptime() in app service', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const service = files.get('src/services/app.service.ts')!;
-      expect(service).toContain('function getUptimeSeconds()');
-      expect(service).not.toContain('process.uptime()');
+      expect(service).toContain('process.uptime()');
+      expect(service).not.toContain('getUptimeSeconds');
     });
 
     it('includes reflect-metadata in dependencies', () => {
@@ -285,12 +283,10 @@ describe('generateProject', () => {
       expect(handler).toContain('error instanceof HttpError ? error.status : 500');
     });
 
-    it('entrypoint resolves port without direct process.env dependency', () => {
+    it('entrypoint uses simple PORT declaration', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('function resolvePort(defaultPort = 8080)');
-      expect(entry).toContain('const PORT = resolvePort();');
-      expect(entry).not.toContain("Number(process.env['PORT'])");
+      expect(entry).toContain("const PORT = Number(process.env.PORT) || 3000;");
     });
 
     it('uses awaited controllersPlugin with runtime-safe discovery config in full template', () => {

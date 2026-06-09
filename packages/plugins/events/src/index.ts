@@ -37,9 +37,16 @@ export type {
     Unsubscribe
 } from './types';
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { EventEmitter } from './emitter';
 import type { EventEmitterOptions, EventMap } from './types';
 import { VALID_PROPERTY_NAME } from './types';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8'));
 
 /**
  * Plugin interface (minimal, to avoid circular deps)
@@ -171,7 +178,7 @@ export function eventsPlugin<T extends EventMap = EventMap>(
 
   return {
     name: '@nextrush/events',
-    version: '3.0.5',
+    version: pkg.version,
 
     /**
      * The event emitter instance.

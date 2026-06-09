@@ -1,4 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { Controller, Get, SetHeader } from '@nextrush/decorators';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8'));
 
 /**
  * HealthController — Simple controller for basic functionality testing:
@@ -19,7 +26,7 @@ export class HealthController {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      version: '3.0.5',
+      version: pkg.version,
     };
   }
 

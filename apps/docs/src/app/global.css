@@ -48,6 +48,7 @@
   --code-property: #22d3ee;
   --code-number: #f59e0b;
   --code-punctuation: #94a3b8;
+  --code-operator: #c084fc;
 
   /* Fumadocs color overrides (--color-fd-* is what Tailwind v4 uses) */
   --color-fd-background: #0c0f17;
@@ -97,6 +98,7 @@
   --code-property: #0891b2;
   --code-number: #d97706;
   --code-punctuation: #64748b;
+  --code-operator: #7c3aed;
 
   /* Fumadocs color overrides */
   --color-fd-background: #fafbfc;

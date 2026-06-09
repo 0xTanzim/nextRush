@@ -11,12 +11,18 @@
  * @packageDocumentation
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { buildCli, buildHelp, devCli, devHelp } from './commands/index.js';
 import { generateCli, generateHelp } from './generators/index.js';
 import { exitProcess, getRuntimeInfo } from './runtime/index.js';
 import { error } from './utils/logger.js';
 
-const VERSION = '3.0.5';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8'));
+const VERSION: string = pkg.version;
 
 /**
  * Get CLI arguments in a cross-runtime way
