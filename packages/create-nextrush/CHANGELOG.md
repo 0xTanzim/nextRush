@@ -1,5 +1,11 @@
 # create-nextrush
 
+## 3.0.8
+
+### Patch Changes
+
+- [#29](https://github.com/0xTanzim/nextRush/pull/29) [`39d1bed`](https://github.com/0xTanzim/nextRush/commit/39d1bedb098d751c9b464a3d16bfbcc67eb378d9) Thanks [@0xTanzim](https://github.com/0xTanzim)! - version mismatch fix. The generated `package.json` should use `^3.0.0` for `nextrush` and related packages, not the exact version from `constants.js`. This allows users to get compatible updates without being locked to a specific version.
+
 ## 3.0.7
 
 ### Patch Changes
