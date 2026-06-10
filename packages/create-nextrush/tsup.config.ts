@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'tsup';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,6 +16,7 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   define: {
+    // Only used for CLI version display (create-nextrush vX.Y.Z)
     __VERSION__: JSON.stringify(pkg.version),
   },
 });

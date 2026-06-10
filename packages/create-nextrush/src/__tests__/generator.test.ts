@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { NEXTRUSH_VERSION } from '../constants.js';
 import { generateProject } from '../generator.js';
 import type { ProjectOptions } from '../types.js';
 
@@ -155,7 +154,7 @@ describe('generateProject', () => {
     it('uses simple PORT declaration in entrypoint', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain("const PORT = Number(process.env.PORT) || 3000;");
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
       expect(entry).toContain('await listen(app, PORT);');
     });
 
@@ -195,7 +194,7 @@ describe('generateProject', () => {
     it('uses simple PORT declaration in class-based entrypoint', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain("const PORT = Number(process.env.PORT) || 3000;");
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
       expect(entry).toContain('await listen(app, PORT);');
     });
 
@@ -286,7 +285,7 @@ describe('generateProject', () => {
     it('entrypoint uses simple PORT declaration', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain("const PORT = Number(process.env.PORT) || 3000;");
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
     });
 
     it('uses awaited controllersPlugin with runtime-safe discovery config in full template', () => {
@@ -368,7 +367,7 @@ describe('generateProject', () => {
       expect(pkg.scripts.dev).toBe(
         'deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts'
       );
-      expect(pkg.scripts.build).toBe(`deno run -A npm:@nextrush/dev@${NEXTRUSH_VERSION} build`);
+      expect(pkg.scripts.build).toBe('deno run -A npm:@nextrush/dev@latest build');
       expect(pkg.scripts.start).toBe('deno run --allow-net --allow-read --allow-env dist/index.js');
     });
   });
