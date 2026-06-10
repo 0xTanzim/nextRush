@@ -8,6 +8,8 @@ on:
 # Align JS action runtime with Node 24 (see https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/ )
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
