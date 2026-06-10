@@ -1,14 +1,21 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "remoteCache": {
-    "enabled": false
-  },
   "globalDependencies": ["tsconfig.base.json", "pnpm-lock.yaml"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "out/**",
+        "!.next/cache/**",
+        "!.next/dev/**",
+        "!.next/build/**",
+        "!.next/diagnostics/**",
+        "!.next/server/chunks/**",
+        "!.next/server/pages/**"
+      ]
     },
     "dev": {
       "cache": false,
@@ -28,7 +35,6 @@
       "outputs": ["coverage/**"]
     },
     "lint": {
-      "dependsOn": ["^build"],
       "outputs": [],
       "inputs": ["src/**/*.ts", "*.ts", "*.js"]
     },
@@ -37,7 +43,6 @@
       "cache": false
     },
     "typecheck": {
-      "dependsOn": ["^build"],
       "outputs": [],
       "inputs": ["src/**/*.ts", "src/**/*.tsx", "tsconfig.json", "tsconfig.*.json"]
     },
