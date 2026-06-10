@@ -35,6 +35,7 @@
       "outputs": ["coverage/**"]
     },
     "lint": {
+      "dependsOn": ["build"],
       "outputs": [],
       "inputs": ["src/**/*.ts", "*.ts", "*.js"]
     },
@@ -43,8 +44,17 @@
       "cache": false
     },
     "typecheck": {
+      "dependsOn": ["^build"],
       "outputs": [],
       "inputs": ["src/**/*.ts", "src/**/*.tsx", "tsconfig.json", "tsconfig.*.json"]
+    },
+    "validate:bins": {
+      "outputs": [],
+      "cache": false
+    },
+    "verify": {
+      "dependsOn": ["build", "test", "typecheck", "lint", "validate:bins"],
+      "outputs": []
     },
     "clean": {
       "cache": false
