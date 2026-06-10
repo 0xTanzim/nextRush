@@ -1,5 +1,21 @@
 # nextrush
 
+## 3.0.7
+
+### Patch Changes
+
+- [#26](https://github.com/0xTanzim/nextRush/pull/26) [`c9723dd`](https://github.com/0xTanzim/nextRush/commit/c9723ddb29e4bf834625f294eadb0c9e1c28432e) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Simplify template code and auto-install dev package
+
+- Updated dependencies [[`c9723dd`](https://github.com/0xTanzim/nextRush/commit/c9723ddb29e4bf834625f294eadb0c9e1c28432e)]:
+  - @nextrush/core@3.0.7
+  - @nextrush/adapter-node@3.0.7
+  - @nextrush/controllers@3.0.7
+  - @nextrush/router@3.0.7
+  - @nextrush/types@3.0.7
+  - @nextrush/errors@3.0.7
+  - @nextrush/di@3.0.7
+  - @nextrush/decorators@3.0.7
+
 ## 3.0.6
 
 ### Patch Changes
