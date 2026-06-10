@@ -16,13 +16,18 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "out/**"],
-      "inputs": [
-        "src/**",
-        "content/**",
-        "next.config.ts",
-        "tsconfig.json"
-      ]
+      "outputs": [
+        ".next/**",
+        "out/**",
+        "dist/**",
+        "!.next/cache/**",
+        "!.next/dev/**",
+        "!.next/build/**",
+        "!.next/diagnostics/**",
+        "!.next/server/chunks/**",
+        "!.next/server/pages/**"
+      ],
+      "inputs": ["src/**", "content/**", "next.config.ts", "tsconfig.json"]
     }
   }
 }

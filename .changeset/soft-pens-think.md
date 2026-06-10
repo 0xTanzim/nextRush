@@ -4,7 +4,6 @@
 '@nextrush/core': patch
 '@nextrush/dev': patch
 '@nextrush/template': patch
-'create-nextrush': patch
 '@nextrush/events': patch
 ---
 

@@ -14,6 +14,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 concurrency:
   group: github-pages
@@ -43,7 +45,7 @@ jobs:
           NEXTRUSH_REPO_BRANCH: main
           NEXTRUSH_DOCS_BASE_PATH: /${{ github.event.repository.name }}
           NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-        run: pnpm --filter docs build
+        run: pnpm turbo build --filter=docs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
