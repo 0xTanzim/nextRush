@@ -1,4 +1,4 @@
-import { ADAPTER_PACKAGES, MIDDLEWARE_PACKAGES, NEXTRUSH_VERSION } from '../constants.js';
+import { ADAPTER_PACKAGES, MIDDLEWARE_PACKAGES, RANGE } from '../constants.js';
 import type { DependencySet, ProjectOptions, Runtime } from '../types.js';
 
 /** Generates tsconfig.json content for a new project. */
@@ -53,7 +53,7 @@ export function generatePackageJson(options: ProjectOptions): string {
 /** Resolves the dependency sets for a project configuration. */
 export function getDependencies(options: ProjectOptions): DependencySet {
   const dependencies: Record<string, string> = {
-    nextrush: `^${NEXTRUSH_VERSION}`,
+    nextrush: RANGE,
   };
 
   const needsReflectMetadata = options.style === 'class-based' || options.style === 'full';
@@ -73,8 +73,8 @@ export function getDependencies(options: ProjectOptions): DependencySet {
   Object.assign(dependencies, adapterDeps);
 
   const devDependencies: Record<string, string> = {
-    '@nextrush/dev': `^${NEXTRUSH_VERSION}`,
-    '@nextrush/types': `^${NEXTRUSH_VERSION}`,
+    '@nextrush/dev': RANGE,
+    '@nextrush/types': RANGE,
     typescript: '^6.0.2',
   };
 
@@ -179,7 +179,7 @@ export function getRuntimeEntrypointImports(
 /** Returns the PORT declaration line for the given runtime. */
 export function getPortDeclaration(runtime: Runtime): string {
   if (runtime === 'deno') {
-    return 'const PORT = Number(Deno.env.get(\'PORT\')) || 3000;';
+    return "const PORT = Number(Deno.env.get('PORT')) || 3000;";
   }
   return 'const PORT = Number(process.env.PORT) || 3000;';
 }
@@ -207,7 +207,7 @@ function getRuntimeScripts(runtime: Runtime): {
     case 'deno':
       return {
         dev: 'deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts',
-        build: `deno run -A npm:@nextrush/dev@${NEXTRUSH_VERSION} build`,
+        build: 'deno run -A npm:@nextrush/dev@latest build',
         start: 'deno run --allow-net --allow-read --allow-env dist/index.js',
       };
     case 'node':
