@@ -27,7 +27,8 @@
         "!.next/server/chunks/**",
         "!.next/server/pages/**"
       ],
-      "inputs": ["src/**", "content/**", "next.config.ts", "tsconfig.json"]
+      "inputs": ["src/**", "content/**", "next.config.ts", "tsconfig.json"],
+      "env": ["NEXTRUSH_DOCS_BASE_PATH"]
     }
   }
 }
