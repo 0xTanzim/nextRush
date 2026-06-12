@@ -1,5 +1,11 @@
 # create-nextrush
 
+## 3.0.9
+
+### Patch Changes
+
+- [#31](https://github.com/0xTanzim/nextRush/pull/31) [`d599592`](https://github.com/0xTanzim/nextRush/commit/d599592e28a499d57a25f234ca455c5d960bdb40) Thanks [@0xTanzim](https://github.com/0xTanzim)! - versions retrieve issue fix
+
 ## 3.0.8
 
 ### Patch Changes
