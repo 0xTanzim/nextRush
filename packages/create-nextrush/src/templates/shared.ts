@@ -1,5 +1,7 @@
-import { ADAPTER_PACKAGES, MIDDLEWARE_PACKAGES, RANGE } from '../constants.js';
+import { getAdapterPackages, getMiddlewarePackages } from '../constants.js';
+import { getCoreRange } from '../version-store.js';
 import type { DependencySet, ProjectOptions, Runtime } from '../types.js';
+
 
 /** Generates tsconfig.json content for a new project. */
 export function generateTsconfig(needsDecorators: boolean): string {
@@ -52,8 +54,9 @@ export function generatePackageJson(options: ProjectOptions): string {
 
 /** Resolves the dependency sets for a project configuration. */
 export function getDependencies(options: ProjectOptions): DependencySet {
+  const core = getCoreRange();
   const dependencies: Record<string, string> = {
-    nextrush: RANGE,
+    nextrush: core,
   };
 
   const needsReflectMetadata = options.style === 'class-based' || options.style === 'full';
@@ -65,16 +68,16 @@ export function getDependencies(options: ProjectOptions): DependencySet {
   }
 
   // Middleware packages
-  const middlewareDeps = MIDDLEWARE_PACKAGES[options.middleware];
+  const middlewareDeps = getMiddlewarePackages()[options.middleware];
   Object.assign(dependencies, middlewareDeps);
 
   // Runtime adapter packages (node uses built-in, others need adapters)
-  const adapterDeps = ADAPTER_PACKAGES[options.runtime];
+  const adapterDeps = getAdapterPackages()[options.runtime];
   Object.assign(dependencies, adapterDeps);
 
   const devDependencies: Record<string, string> = {
-    '@nextrush/dev': RANGE,
-    '@nextrush/types': RANGE,
+    '@nextrush/dev': core,
+    '@nextrush/types': core,
     typescript: '^6.0.2',
   };
 
