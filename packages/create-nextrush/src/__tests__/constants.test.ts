@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-    ADAPTER_PACKAGES,
+    getAdapterPackages,
     MIDDLEWARE_IMPORTS,
-    MIDDLEWARE_PACKAGES,
+    getMiddlewarePackages,
     MIDDLEWARE_PRESETS,
     MIDDLEWARE_SETUP,
     NEXTRUSH_VERSION,
@@ -11,8 +11,13 @@ import {
     RUNTIMES,
     STYLES,
 } from '../constants.js';
+import { setVersions } from '../version-store.js';
 
 describe('constants', () => {
+  beforeEach(() => {
+    setVersions('^3.0.5', '^3.0.5');
+  });
+
   it('has a valid semver version', () => {
     expect(NEXTRUSH_VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });
@@ -39,13 +44,13 @@ describe('constants', () => {
     expect(MIDDLEWARE_PRESETS).toContain('full');
   });
 
-  describe('MIDDLEWARE_PACKAGES', () => {
+  describe('getMiddlewarePackages', () => {
     it('minimal has no packages', () => {
-      expect(Object.keys(MIDDLEWARE_PACKAGES.minimal)).toHaveLength(0);
+      expect(Object.keys(getMiddlewarePackages().minimal)).toHaveLength(0);
     });
 
     it('api has cors, body-parser, helmet', () => {
-      const packages = Object.keys(MIDDLEWARE_PACKAGES.api);
+      const packages = Object.keys(getMiddlewarePackages().api);
       expect(packages).toContain('@nextrush/cors');
       expect(packages).toContain('@nextrush/body-parser');
       expect(packages).toContain('@nextrush/helmet');
@@ -53,7 +58,7 @@ describe('constants', () => {
     });
 
     it('full includes all api packages plus extras', () => {
-      const packages = Object.keys(MIDDLEWARE_PACKAGES.full);
+      const packages = Object.keys(getMiddlewarePackages().full);
       expect(packages).toContain('@nextrush/cors');
       expect(packages).toContain('@nextrush/body-parser');
       expect(packages).toContain('@nextrush/helmet');
@@ -61,6 +66,12 @@ describe('constants', () => {
       expect(packages).toContain('@nextrush/compression');
       expect(packages).toContain('@nextrush/request-id');
       expect(packages).toHaveLength(6);
+    });
+
+    it('uses versions from version store', () => {
+      setVersions('^4.0.0', '^5.0.0');
+      const pkgs = getMiddlewarePackages();
+      expect(pkgs.api['@nextrush/cors']).toBe('^5.0.0');
     });
   });
 
@@ -100,17 +111,23 @@ describe('constants', () => {
     });
   });
 
-  describe('ADAPTER_PACKAGES', () => {
+  describe('getAdapterPackages', () => {
     it('node has no adapter package', () => {
-      expect(Object.keys(ADAPTER_PACKAGES.node)).toHaveLength(0);
+      expect(Object.keys(getAdapterPackages().node)).toHaveLength(0);
     });
 
     it('bun has adapter-bun', () => {
-      expect(ADAPTER_PACKAGES.bun).toHaveProperty('@nextrush/adapter-bun');
+      expect(getAdapterPackages().bun).toHaveProperty('@nextrush/adapter-bun');
     });
 
     it('deno has adapter-deno', () => {
-      expect(ADAPTER_PACKAGES.deno).toHaveProperty('@nextrush/adapter-deno');
+      expect(getAdapterPackages().deno).toHaveProperty('@nextrush/adapter-deno');
+    });
+
+    it('uses versions from version store', () => {
+      setVersions('^4.0.0', '^5.0.0');
+      const pkgs = getAdapterPackages();
+      expect(pkgs.bun['@nextrush/adapter-bun']).toBe('^5.0.0');
     });
   });
 

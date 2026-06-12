@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { generateProject } from '../generator.js';
+import { setVersions } from '../version-store.js';
 import type { ProjectOptions } from '../types.js';
+
+beforeEach(() => {
+  setVersions('^3.0.5', '^3.0.5');
+});
 
 function createOptions(overrides: Partial<ProjectOptions> = {}): ProjectOptions {
   return {
