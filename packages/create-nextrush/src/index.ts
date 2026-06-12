@@ -6,8 +6,10 @@ import * as p from '@clack/prompts';
 import { parseArgs, printHelp } from './cli.js';
 import { NEXTRUSH_VERSION } from './constants.js';
 import { generateProject } from './generator.js';
+import { resolveVersions } from './npm-version.js';
 import { runPrompts } from './prompts.js';
 import { getInstallCommand, getRunCommand, isDirectoryEmpty, writeFiles } from './utils.js';
+import { setVersions } from './version-store.js';
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv);
@@ -23,6 +25,13 @@ async function main(): Promise<void> {
   }
 
   p.intro('create-nextrush');
+
+  // Fetch latest versions from npm registry
+  const s = p.spinner();
+  s.start('Checking latest versions...');
+  const versions = await resolveVersions();
+  setVersions(versions.core, versions.mw);
+  s.stop(`Using nextrush ${versions.core}`);
 
   const options = await runPrompts(args);
 
@@ -46,7 +55,6 @@ async function main(): Promise<void> {
   }
 
   // Generate files
-  const s = p.spinner();
   s.start('Scaffolding project...');
 
   const files = generateProject(options);
