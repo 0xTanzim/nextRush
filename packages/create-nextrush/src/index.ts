@@ -101,7 +101,7 @@ async function main(): Promise<void> {
   nextSteps.push(`${runCmd} dev`);
 
   p.note(nextSteps.join('\n'), 'Next steps');
-  p.outro('Happy hacking!');
+  p.outro('Happy coding with Nextrush!');
 }
 
 main().catch((error: unknown) => {
