@@ -223,8 +223,8 @@ app.use(json());
 // Routes
 app.route('/health', health);
 
-listen(app, 3000, () => {
-  console.log('Server running on http://localhost:3000');
+listen(app, 8080, () => {
+  console.log('Server running on http://localhost:8080');
 });
 ```
 
@@ -247,8 +247,8 @@ app.use(json());
 // Auto-discover controllers
 app.plugin(controllersPlugin({ root: './src' }));
 
-listen(app, 3000, () => {
-  console.log('Server running on http://localhost:3000');
+listen(app, 8080, () => {
+  console.log('Server running on http://localhost:8080');
 });
 ```
 
@@ -633,7 +633,7 @@ Typed environment configuration:
 import { defineConfig, env } from '@nextrush/config';
 
 const config = defineConfig({
-  port: env.number('PORT', 3000),
+  port: env.number('PORT', 8080),
   dbUrl: env.string('DATABASE_URL'),
   debug: env.boolean('DEBUG', false),
   allowedOrigins: env.array('ALLOWED_ORIGINS', []),

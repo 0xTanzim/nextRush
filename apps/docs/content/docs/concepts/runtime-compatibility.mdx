@@ -247,7 +247,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
     const app = createApp();
     // ... configure app
 
-    await listen(app, 3000);
+    await listen(app, 8080);
     ```
 
   </Tab>
@@ -259,7 +259,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
     const app = createApp();
     // ... configure app
 
-    serve(app, { port: 3000 });
+    serve(app, { port: 8080 });
     ```
 
   </Tab>
@@ -271,7 +271,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
     const app = createApp();
     // ... configure app
 
-    await serve(app, { port: 3000 });
+    await serve(app, { port: 8080 });
     ```
 
   </Tab>

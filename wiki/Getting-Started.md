@@ -74,7 +74,7 @@ router.get('/', (ctx) => {
 });
 
 app.route('/', router);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ```bash
@@ -113,7 +113,7 @@ class GreetingController {
 
 const app = createApp();
 app.plugin(controllersPlugin({ root: './src' }));
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ---
@@ -143,7 +143,7 @@ router.post('/users', (ctx) => {
 });
 
 app.route('/', router);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 Order matters: security and CORS before body parsing before routes. See [Middleware](Middleware).

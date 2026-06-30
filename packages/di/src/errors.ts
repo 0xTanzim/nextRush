@@ -141,7 +141,7 @@ A provider must have one of:
 
 Example:
   container.register(MyService, { useClass: MyService });
-  container.register('CONFIG', { useValue: { port: 3000 } });
+  container.register('CONFIG', { useValue: { port: 8080 } });
   container.register(Logger, { useFactory: () => new Logger() });
 `);
 

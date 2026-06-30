@@ -392,20 +392,20 @@ Test that your error handling works:
 
 ```typescript
 // Test 4xx — should return error details
-const res = await fetch('http://localhost:3000/users/nonexistent');
+const res = await fetch('http://localhost:8080/users/nonexistent');
 console.log(res.status); // 404
 console.log(await res.json());
 // { error: "NotFoundError", message: "User not found", code: "NOT_FOUND", status: 404 }
 
 // Test 5xx — should hide internal details
 // (trigger an unhandled error in a route)
-const res2 = await fetch('http://localhost:3000/broken');
+const res2 = await fetch('http://localhost:8080/broken');
 console.log(res2.status); // 500
 console.log(await res2.json());
 // { error: "Internal Server Error", message: "Internal Server Error", code: "INTERNAL_ERROR", status: 500 }
 
 // Test 404 catch-all
-const res3 = await fetch('http://localhost:3000/nonexistent-route');
+const res3 = await fetch('http://localhost:8080/nonexistent-route');
 console.log(res3.status); // 404
 console.log(await res3.json());
 // { error: "NotFoundError", message: "Not Found", code: "NOT_FOUND", status: 404 }

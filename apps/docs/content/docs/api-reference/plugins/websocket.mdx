@@ -58,7 +58,7 @@ wss.on('/chat', (conn) => {
 
 app.use(wss.upgrade());
 
-const server = app.listen(3000, () => {
+const server = app.listen(8080, () => {
   wss.attach(server);
 });
 ```
@@ -320,7 +320,7 @@ wss.on('/chat', (conn) => {
 
 app.use(wss.upgrade());
 
-await withWebSocket(app, wss, 3000);
+await withWebSocket(app, wss, 8080);
 ```
 
 ## Common Mistakes

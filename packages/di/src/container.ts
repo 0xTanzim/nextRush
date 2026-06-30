@@ -233,7 +233,7 @@ function createContainerWrapper(tsyInstance: DependencyContainer): ContainerInte
  * const userService = container.resolve(UserService);
  *
  * // Register with value
- * container.register('CONFIG', { useValue: { port: 3000 } });
+ * container.register('CONFIG', { useValue: { port: 8080 } });
  * ```
  */
 export const container: ContainerInterface = createContainerWrapper(tsyContainer);

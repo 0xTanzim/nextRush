@@ -50,7 +50,7 @@ router.get('/', (ctx) => {
 
 app.route('/', router);
 
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Performance
@@ -105,7 +105,7 @@ app.use((ctx) => {
   ctx.json({ body: ctx.body });
 });
 
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Class-Based Controllers
@@ -147,7 +147,7 @@ const router = createRouter();
 
 app.plugin(controllersPlugin({ router, root: './src' }));
 app.route('/', router);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 > **`experimentalDecorators` and `emitDecoratorMetadata`** are required when you use `nextrush/class` with DI or decorators. `create-nextrush` turns them **on** for **class-based** and **full** templates, and **omits** them for **functional** (routes-only) projects where they are unnecessary.

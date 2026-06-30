@@ -46,8 +46,8 @@ app.use(async (ctx) => {
   ctx.json({ runtime: 'deno', message: 'Hello World!' });
 });
 
-listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000 (Deno)
+listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080 (Deno)
 ```
 
 Run with Deno:
@@ -71,7 +71,7 @@ import { serve } from '@nextrush/adapter-deno';
 const app = createApp();
 
 const server = serve(app, {
-  port: 3000,
+  port: 8080,
   hostname: '0.0.0.0',
   onListen: ({ port, hostname }) => {
     console.log(`Server running at http://${hostname}:${port}`);
@@ -87,7 +87,7 @@ const server = serve(app, {
 <TypeTable
   title="ServeOptions"
   types={{
-    port: { type: 'number', description: 'Port to listen on', default: '3000' },
+    port: { type: 'number', description: 'Port to listen on', default: '8080' },
     hostname: { type: 'string', description: 'Hostname to bind to', default: "'0.0.0.0'" },
     onListen: {
       type: '(info: { port: number; hostname: string }) => void',
@@ -144,8 +144,8 @@ import { createApp } from '@nextrush/core';
 import { listen } from '@nextrush/adapter-deno';
 
 const app = createApp();
-const server = listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000 (Deno)
+const server = listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080 (Deno)
 ```
 
 ---
@@ -162,7 +162,7 @@ const app = createApp();
 const handler = createHandler(app);
 
 // Use directly with Deno.serve
-Deno.serve({ handler, port: 3000 });
+Deno.serve({ handler, port: 8080 });
 ```
 
 ---
@@ -207,7 +207,7 @@ deno run --allow-all app.ts
 Deno adapter exposes a `finished` promise:
 
 ```typescript
-const server = serve(app, { port: 3000 });
+const server = serve(app, { port: 8080 });
 
 // Wait for server to complete (useful in scripts)
 await server.finished;
@@ -218,7 +218,7 @@ await server.finished;
 Handle server shutdown properly:
 
 ```typescript
-const server = serve(app, { port: 3000 });
+const server = serve(app, { port: 8080 });
 
 Deno.addSignalListener('SIGTERM', async () => {
   console.log('Shutting down...');
@@ -275,7 +275,7 @@ import type { ServeOptions, ServerInstance } from '@nextrush/adapter-deno';
 import { serve, listen, createHandler } from '@nextrush/adapter-deno';
 
 const options: ServeOptions = {
-  port: 3000,
+  port: 8080,
   hostname: '0.0.0.0',
 };
 

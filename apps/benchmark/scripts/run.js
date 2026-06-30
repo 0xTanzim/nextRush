@@ -174,7 +174,7 @@ async function main() {
     let serverHandle;
     try {
       logStep(`Starting ${fw.name} server...`);
-      serverHandle = await startServer(fw.file, 3000, { traceGc: enableTraceGc });
+      serverHandle = await startServer(fw.file, 8080, { traceGc: enableTraceGc });
       logStep(`Server started (PID: ${serverHandle.child.pid})`);
 
       // Warmup phase
@@ -202,7 +202,7 @@ async function main() {
             log(`    Run ${run + 1}/${runs}...`, 'dim');
 
             const result = await runBenchmark(activeTool, {
-              url: buildUrl(scenario, 3000),
+              url: buildUrl(scenario, 8080),
               connections: conn,
               threads,
               duration,
@@ -354,7 +354,7 @@ async function warmup(tool, warmupDuration, threads) {
   const warmupDurationSec = parseDuration(warmupDuration);
   try {
     if (tool === 'wrk') {
-      execSync(`wrk -c 10 -t 2 -d ${warmupDurationSec}s http://localhost:3000/`, {
+      execSync(`wrk -c 10 -t 2 -d ${warmupDurationSec}s http://localhost:8080/`, {
         stdio: 'ignore',
         timeout: (warmupDurationSec + 10) * 1000,
       });
@@ -363,7 +363,7 @@ async function warmup(tool, warmupDuration, threads) {
       await new Promise((resolve) => {
         autocannon(
           {
-            url: 'http://localhost:3000/',
+            url: 'http://localhost:8080/',
             connections: 10,
             duration: warmupDurationSec,
           },

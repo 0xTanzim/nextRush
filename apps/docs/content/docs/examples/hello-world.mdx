@@ -25,13 +25,13 @@ router.get('/', (ctx) => {
 
 app.route('/', router);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 **Expected output:**
 
 ```bash
-curl http://localhost:3000
+curl http://localhost:8080
 # {"message":"Hello, NextRush!"}
 ```
 
@@ -100,7 +100,7 @@ nextrush dev
 ### Test
 
 ```bash
-curl http://localhost:3000
+curl http://localhost:8080
 # {"message":"Hello, NextRush!"}
 ```
 
@@ -156,7 +156,7 @@ The first argument is the path prefix. All routes defined on the router are serv
 Start listening for requests:
 
 ```typescript
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 `listen()` returns a `Promise<ServerInstance>`. Use `await` or handle the promise.
@@ -212,7 +212,7 @@ app.route('/health', health);
 app.route('/echo', echo);
 app.route('/users', users);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </details>
@@ -247,7 +247,7 @@ api.post('/echo', (ctx) => {
 // Mount
 app.route('/api', api);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 <Callout type="info">Middleware packages are installed separately.</Callout>

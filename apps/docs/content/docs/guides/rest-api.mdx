@@ -241,7 +241,7 @@ src/
     app.use(notFoundHandler());
 
     // Start server
-    await listen(app, 3000);
+    await listen(app, 8080);
     ```
 
     <Callout type="warn">
@@ -256,23 +256,23 @@ src/
 
     ```bash
     # Create a user
-    curl -X POST http://localhost:3000/api/users \
+    curl -X POST http://localhost:8080/api/users \
       -H "Content-Type: application/json" \
       -d '{"name": "Alice", "email": "alice@example.com"}'
 
     # List all users
-    curl http://localhost:3000/api/users
+    curl http://localhost:8080/api/users
 
     # Get a specific user (replace with a real ID from the create response)
-    curl http://localhost:3000/api/users/<id>
+    curl http://localhost:8080/api/users/<id>
 
     # Update a user
-    curl -X PUT http://localhost:3000/api/users/<id> \
+    curl -X PUT http://localhost:8080/api/users/<id> \
       -H "Content-Type: application/json" \
       -d '{"name": "Alice Updated"}'
 
     # Delete a user
-    curl -X DELETE http://localhost:3000/api/users/<id>
+    curl -X DELETE http://localhost:8080/api/users/<id>
     ```
 
     Expected responses:
@@ -419,7 +419,7 @@ await app.plugin(
 );
 app.route('/api', router);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </details>

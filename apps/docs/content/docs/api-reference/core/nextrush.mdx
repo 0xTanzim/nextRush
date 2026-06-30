@@ -72,7 +72,7 @@ router.get('/users/:id', (ctx) => {
 });
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 That's a complete API server. No additional installs needed.
@@ -249,7 +249,7 @@ router.delete('/users/:id', (ctx) => {
 });
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </details>
@@ -274,7 +274,7 @@ app.route('/', router);
 // 404 fallback
 app.use(notFoundHandler());
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ### With Middleware (Install Separately)
@@ -297,7 +297,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ ok: true }));
 app.route('/', router);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ## What's NOT Included
@@ -353,7 +353,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ runtime: 'bun' }));
 app.route('/', router);
 
-serve(app, { port: 3000 });
+serve(app, { port: 8080 });
 ```
 
 <PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-bun']} />
@@ -371,7 +371,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ runtime: 'deno' }));
 app.route('/', router);
 
-serve(app, { port: 3000 });
+serve(app, { port: 8080 });
 ```
 
 ## Package Details

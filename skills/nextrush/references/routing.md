@@ -147,7 +147,7 @@ users.post('/', (ctx) => {
 
 app.route('/users', users); // GET /users, POST /users
 app.route('/', router); // mount at root
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Wildcard Routes
@@ -225,7 +225,7 @@ app.use(errorHandler());
 app.use(json());
 app.route('/users', users);
 app.use(notFoundHandler());
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Combining Functional + Class Routes
@@ -260,7 +260,7 @@ app.use(errorHandler());
 app.use(json());
 app.route('/health', health); // functional
 app.plugin(controllersPlugin({ root: './src', prefix: '/api' })); // class at /api/products
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Rules

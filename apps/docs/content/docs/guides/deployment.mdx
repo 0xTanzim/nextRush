@@ -54,8 +54,8 @@ RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=8080
+EXPOSE 8080
 
 CMD ["node", "dist/index.js"]
 ```
@@ -65,13 +65,13 @@ services:
   api:
     build: .
     ports:
-      - '3000:3000'
+      - '8080:8080'
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=8080
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/health']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8080/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -145,7 +145,7 @@ primary_region = "iad"
 [build]
 
 [http_service]
-  internal_port = 3000
+  internal_port = 8080
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
@@ -153,7 +153,7 @@ primary_region = "iad"
 
 [checks]
   [checks.health]
-    port = 3000
+    port = 8080
     type = "http"
     interval = "30s"
     timeout = "5s"
@@ -246,7 +246,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ message: 'Hello from Bun' }));
 app.route('/', router);
 
-bunAdapter(app, { port: 3000 });
+bunAdapter(app, { port: 8080 });
 ```
 
 ```bash
@@ -278,9 +278,9 @@ See the [Security guide](/docs/guides/security) for hardening your deployment.
 Externalize all configuration:
 
 ```typescript
-const PORT = parseInt(process.env.PORT ?? '3000');
+const PORT = parseInt(process.env.PORT ?? '8080');
 const DATABASE_URL = process.env.DATABASE_URL;
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:8080';
 
 app.use(cors({ origin: CORS_ORIGIN }));
 await listen(app, PORT);

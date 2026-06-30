@@ -31,7 +31,7 @@ describe('@nextrush/di - Container', () => {
     });
 
     it('should register a value provider', () => {
-      const config = { port: 3000 };
+      const config = { port: 8080 };
 
       container.register('CONFIG', { useValue: config });
 
@@ -71,7 +71,7 @@ describe('@nextrush/di - Container', () => {
     });
 
     it('should resolve a registered value', () => {
-      const config = { port: 3000, host: 'localhost' };
+      const config = { port: 8080, host: 'localhost' };
 
       container.register('CONFIG', { useValue: config });
       const resolved = container.resolve<typeof config>('CONFIG');

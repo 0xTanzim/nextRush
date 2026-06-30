@@ -65,7 +65,7 @@ interface AppEvents {
 }
 const events = createEvents<AppEvents>();
 events.on('server:started', ({ port }) => console.log(`Port ${port}`));
-await events.emit('server:started', { port: 3000 });
+await events.emit('server:started', { port: 8080 });
 // API: on(), off(), emit(), once()
 ```
 
@@ -134,9 +134,9 @@ wss.on('/chat', (conn) => {
   conn.on('message', (msg) => conn.broadcast('general', msg));
 });
 app.use(wss.upgrade());
-const server = app.listen(3000);
+const server = app.listen(8080);
 wss.attach(server);
-// Or: await withWebSocket(app, wss, 3000);
+// Or: await withWebSocket(app, wss, 8080);
 ```
 
 Options: `heartbeatInterval`, `maxPayload`, `maxConnections`, `verifyClient`. Advanced: `Connection`, `RoomManager`, `WebSocketServer`.
@@ -149,8 +149,8 @@ Options: `heartbeatInterval`, `maxPayload`, `maxConnections`, `verifyClient`. Ad
 
 ```typescript
 import { createApp, listen } from 'nextrush';
-listen(app, 3000); // Quick start
-serve(app, { port: 3000, hostname: '0.0.0.0' }); // With options
+listen(app, 8080); // Quick start
+serve(app, { port: 8080, hostname: '0.0.0.0' }); // With options
 const handler = createHandler(app); // Raw handler
 ```
 
@@ -159,7 +159,7 @@ const handler = createHandler(app); // Raw handler
 ```typescript
 // Same API: listen, serve, createHandler
 import { listen, serve } from '@nextrush/adapter-bun'; // or adapter-deno
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ### Edge (`@nextrush/adapter-edge`)

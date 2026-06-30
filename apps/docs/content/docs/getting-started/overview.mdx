@@ -135,8 +135,8 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush' }));
 
 app.route('/', router);
-await listen(app, 3000);
-// → http://localhost:3000
+await listen(app, 8080);
+// → http://localhost:8080
 ```
 
 ## Why NextRush
@@ -363,7 +363,7 @@ import { listen } from 'nextrush'; // Node.js (default)
 // import { listen } from '@nextrush/adapter-deno';
 // import { listen } from '@nextrush/adapter-edge';
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ## Package architecture
@@ -432,7 +432,7 @@ Use functions for small services; add controllers and DI when the API grows. Bot
     });
 
     app.route('/api', router);
-    await listen(app, 3000);
+    await listen(app, 8080);
     ```
 
   </Tab>
@@ -479,7 +479,7 @@ Use functions for small services; add controllers and DI when the API grows. Bot
     await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
     app.route('/', router);
 
-    await listen(app, 3000);
+    await listen(app, 8080);
     ```
 
     The `nextrush` meta-package loads `reflect-metadata` for decorators.

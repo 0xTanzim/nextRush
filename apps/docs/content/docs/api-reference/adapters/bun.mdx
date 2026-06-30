@@ -32,8 +32,8 @@ app.use(async (ctx) => {
   ctx.json({ runtime: 'bun', message: 'Hello World!' });
 });
 
-listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
+listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080 (Bun)
 ```
 
 Run with Bun:
@@ -57,7 +57,7 @@ import { serve } from '@nextrush/adapter-bun';
 const app = createApp();
 
 const server = serve(app, {
-  port: 3000,
+  port: 8080,
   hostname: '0.0.0.0',
   development: true,
   onListen: ({ port, hostname }) => {
@@ -74,7 +74,7 @@ const server = serve(app, {
 <TypeTable
   title="Options"
   types={{
-    port: { type: 'number', description: 'Port to listen on', default: '3000' },
+    port: { type: 'number', description: 'Port to listen on', default: '8080' },
     hostname: { type: 'string', description: 'Hostname to bind to', default: "'0.0.0.0'" },
     onListen: {
       type: '(info: { port: number; hostname: string }) => void',
@@ -141,8 +141,8 @@ import { createApp } from '@nextrush/core';
 import { listen } from '@nextrush/adapter-bun';
 
 const app = createApp();
-const server = listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
+const server = listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080 (Bun)
 ```
 
 ---
@@ -161,7 +161,7 @@ const handler = createHandler(app);
 // Use directly with Bun.serve
 Bun.serve({
   fetch: handler,
-  port: 3000,
+  port: 8080,
 });
 ```
 
@@ -191,7 +191,7 @@ const server = serve(app, {
 Bun adapter supports runtime configuration reload:
 
 ```typescript
-const server = serve(app, { port: 3000 });
+const server = serve(app, { port: 8080 });
 
 // Update non-structural configuration at runtime
 server.reload({ development: true });
@@ -207,7 +207,7 @@ Configure maximum request body size:
 
 ```typescript
 const server = serve(app, {
-  port: 3000,
+  port: 8080,
   // 10MB limit
   maxRequestBodySize: 10 * 1024 * 1024,
 });
@@ -223,7 +223,7 @@ Enable development mode for additional logging:
 
 ```typescript
 const server = serve(app, {
-  port: 3000,
+  port: 8080,
   development: true, // Enables Bun's dev logging
 });
 ```
@@ -236,7 +236,7 @@ The adapter tracks in-flight requests and drains them on shutdown. Configure the
 
 ```typescript
 const server = serve(app, {
-  port: 3000,
+  port: 8080,
   shutdownTimeout: 10_000, // 10s drain window
 });
 
@@ -278,7 +278,7 @@ import type { ServeOptions, ServerInstance } from '@nextrush/adapter-bun';
 import { serve, listen, createHandler } from '@nextrush/adapter-bun';
 
 const options: ServeOptions = {
-  port: 3000,
+  port: 8080,
   development: process.env.NODE_ENV !== 'production',
 };
 

@@ -66,7 +66,7 @@ router.get('/users/:id', (ctx) => {
 });
 
 app.route('/', router);
-app.listen(3000);
+app.listen(8080);
 ```
 
 ## Features

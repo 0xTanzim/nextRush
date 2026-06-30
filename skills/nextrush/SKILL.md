@@ -132,7 +132,7 @@ router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush' }));
 router.get('/users/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
 app.route('/', router);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ### Class-Based Style
@@ -167,7 +167,7 @@ const app = createApp();
 const router = createRouter();
 await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
 app.route('/', router);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Context API
@@ -404,11 +404,11 @@ Default adapter is Node.js (included in `nextrush`). For other runtimes:
 ```typescript
 // Bun
 import { listen } from '@nextrush/adapter-bun';
-listen(app, 3000);
+listen(app, 8080);
 
 // Deno
 import { listen } from '@nextrush/adapter-deno';
-listen(app, 3000);
+listen(app, 8080);
 
 // Edge (Cloudflare Workers, Vercel Edge, Netlify Edge)
 import { createCloudflareHandler } from '@nextrush/adapter-edge';

@@ -10,7 +10,7 @@ import { json } from '@nextrush/body-parser';
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '8080', 10);
 
 const app = createApp();
 const router = createRouter();

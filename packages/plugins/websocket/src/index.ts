@@ -27,7 +27,7 @@
  * app.use(wss.upgrade());
  *
  * // Start server - wss auto-attaches to HTTP server
- * const server = app.listen(3000, () => {
+ * const server = app.listen(8080, () => {
  *   wss.attach(server);
  * });
  * ```
@@ -97,11 +97,11 @@ export function createWebSocket(options: WebSocketOptions = {}): WebSocketServer
  * });
  *
  * // Option 1: Manual attachment
- * const server = app.listen(3000);
+ * const server = app.listen(8080);
  * wss.attach(server);
  *
  * // Option 2: Using withWebSocket helper
- * withWebSocket(app, wss, 3000);
+ * withWebSocket(app, wss, 8080);
  * ```
  */
 export async function withWebSocket(

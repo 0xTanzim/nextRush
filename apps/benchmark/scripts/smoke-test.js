@@ -56,7 +56,7 @@ async function waitForServer(port, timeoutMs = 10000) {
 }
 
 async function testServer(server) {
-  const port = 3000;
+  const port = 8080;
   const serverPath = join(SERVERS_DIR, server.file);
 
   console.log(`\n  ╔══ ${server.id} ══╗`);

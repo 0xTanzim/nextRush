@@ -92,7 +92,7 @@ await app.plugin(
 );
 
 app.route('/', router);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Parameter Decorators

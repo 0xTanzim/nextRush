@@ -113,7 +113,7 @@ router.get('/', (ctx) => {
 });
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 Run it:
@@ -122,7 +122,7 @@ Run it:
 npx tsx src/index.ts
 ```
 
-Open `http://localhost:3000` in your browser. You should see:
+Open `http://localhost:8080` in your browser. You should see:
 
 ```json
 { "status": "ok", "framework": "NextRush" }

@@ -168,11 +168,11 @@ app.use(async (ctx) => {
 
 ```typescript
 // v2
-app.listen(3000);
+app.listen(8080);
 
 // v3
 import { listen } from 'nextrush';
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ---
@@ -254,11 +254,11 @@ app.use(cors({ origin: '*' }));
 
 ```typescript
 // Before (v2)
-app.listen(3000);
+app.listen(8080);
 
 // After (v3)
 import { listen } from 'nextrush';
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </Step>

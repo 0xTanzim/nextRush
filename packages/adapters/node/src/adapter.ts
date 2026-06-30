@@ -16,7 +16,7 @@ import { createNodeContext } from './context';
 export interface ServeOptions {
   /**
    * Port to listen on
-   * @default 3000
+   * @default 8080
    */
   port?: number;
 
@@ -38,7 +38,7 @@ export interface ServeOptions {
 
   /**
    * Request timeout in milliseconds
-   * @default 30000 (30 seconds)
+   * @default 80800 (30 seconds)
    */
   timeout?: number;
 
@@ -56,7 +56,7 @@ export interface ServeOptions {
   /**
    * Graceful shutdown timeout in milliseconds.
    * Forces closure if open connections don't drain within this time.
-   * @default 30000 (30 seconds)
+   * @default 80800 (30 seconds)
    */
   shutdownTimeout?: number;
 }
@@ -143,14 +143,14 @@ export function createHandler(
  * });
  *
  * const server = await serve(app, {
- *   port: 3000,
+ *   port: 8080,
  *   onListen: ({ port }) => console.log(`Server running on port ${port}`)
  * });
  * ```
  */
 export async function serve(app: Application, options: ServeOptions = {}): Promise<ServerInstance> {
   const {
-    port = 3000,
+    port = 8080,
     host = '0.0.0.0',
     onListen,
     onError,
@@ -235,11 +235,11 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
  *
  * @example
  * ```typescript
- * await listen(app, 3000);
- * // Output: 🚀 NextRush listening on http://localhost:3000
+ * await listen(app, 8080);
+ * // Output: 🚀 NextRush listening on http://localhost:8080
  * ```
  */
-export async function listen(app: Application, port = 3000): Promise<ServerInstance> {
+export async function listen(app: Application, port = 8080): Promise<ServerInstance> {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

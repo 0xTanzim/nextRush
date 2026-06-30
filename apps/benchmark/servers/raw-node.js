@@ -8,7 +8,7 @@
 
 import { createServer } from 'node:http';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '8080', 10);
 
 // Response data — serialized per-request for fair comparison with frameworks
 const JSON_HEADERS = { 'Content-Type': 'application/json' };

@@ -263,7 +263,7 @@ Register a dependency with the container.
 container.register(UserService, { useClass: UserService });
 
 // Value provider
-container.register('CONFIG', { useValue: { port: 3000 } });
+container.register('CONFIG', { useValue: { port: 8080 } });
 
 // Factory provider — receives the container for nested resolution
 container.register(Logger, {

@@ -21,7 +21,7 @@ app.use(async (ctx) => {
 });
 
 const server = await serve(app, {
-  port: 3000,
+  port: 8080,
   onListen: ({ port }) => console.log(`Listening on port ${port}`),
 });
 ```
@@ -49,7 +49,7 @@ function serve(app: Application, options?: ServeOptions): Promise<ServerInstance
 
 | Option             | Type                                             | Default      | Description                                     |
 | ------------------ | ------------------------------------------------ | ------------ | ----------------------------------------------- |
-| `port`             | `number`                                         | `3000`       | Port to listen on                               |
+| `port`             | `number`                                         | `8080`       | Port to listen on                               |
 | `host`             | `string`                                         | `'0.0.0.0'`  | Host to bind to                                 |
 | `timeout`          | `number`                                         | `30000`      | Request timeout in milliseconds                 |
 | `keepAliveTimeout` | `number`                                         | `5000`       | Keep-alive timeout in milliseconds              |
@@ -79,8 +79,8 @@ function listen(app: Application, port?: number): Promise<ServerInstance>;
 ```typescript
 import { listen } from '@nextrush/adapter-node';
 
-await listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000
+await listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080
 ```
 
 ### `createHandler(app, options?)`
@@ -117,7 +117,7 @@ server.listen(443);
 `ServerInstance.close()` stops accepting new connections, waits for in-flight requests to drain (up to `shutdownTimeout`), then calls `app.close()` for plugin cleanup.
 
 ```typescript
-const server = await serve(app, { port: 3000 });
+const server = await serve(app, { port: 8080 });
 
 process.on('SIGTERM', async () => {
   await server.close();
@@ -138,7 +138,7 @@ app.use(async (ctx) => {
   ctx.json({ ip: ctx.ip });
 });
 
-await serve(app, { port: 3000 });
+await serve(app, { port: 8080 });
 ```
 
 ## Exports

@@ -7,7 +7,7 @@ import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
 import Router from 'koa-router';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = new Koa();
 const router = new Router();
 

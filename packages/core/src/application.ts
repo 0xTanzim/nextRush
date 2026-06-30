@@ -104,7 +104,7 @@ export interface Routable {
  * });
  *
  * // Mount with an adapter
- * listen(app, { port: 3000 });
+ * listen(app, { port: 8080 });
  * ```
  */
 export class Application {
@@ -241,7 +241,7 @@ export class Application {
    * app.route('/api/users', users);
    * app.route('/api/posts', posts);
    *
-   * listen(app, 3000);
+   * listen(app, 8080);
    * ```
    */
   route(path: string, router: Routable): this {

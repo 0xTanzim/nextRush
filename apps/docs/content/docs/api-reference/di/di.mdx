@@ -280,7 +280,7 @@ Register a dependency using one of three provider types:
 container.register(UserService, { useClass: UserServiceImpl });
 
 // Value provider
-container.register('CONFIG', { useValue: { port: 3000 } });
+container.register('CONFIG', { useValue: { port: 8080 } });
 
 // Factory provider — receives the container for nested resolution
 container.register('DB', {

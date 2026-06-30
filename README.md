@@ -92,7 +92,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush!' }));
 app.route('/', router);
 
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ### Class-Based Controllers
@@ -232,7 +232,7 @@ app.post('/api/users', (ctx) => {
   ctx.json({ id: Date.now(), name, email });
 });
 
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ## Error Handling

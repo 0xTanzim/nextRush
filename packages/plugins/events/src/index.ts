@@ -79,7 +79,7 @@ interface Plugin {
  *   console.log(`Server running on port ${port}`);
  * });
  *
- * await events.emit('server:started', { port: 3000 });
+ * await events.emit('server:started', { port: 8080 });
  * ```
  */
 export function createEvents<T extends EventMap = EventMap>(

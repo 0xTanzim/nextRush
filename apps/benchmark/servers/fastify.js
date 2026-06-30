@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '8080', 10);
 const fastify = Fastify({ logger: false });
 
 // 1. Hello World

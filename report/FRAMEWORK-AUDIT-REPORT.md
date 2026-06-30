@@ -76,7 +76,7 @@ nextrush (meta → core, router, errors, types, adapter-node, decorators, di, co
 import { createApp } from '@nextrush/core';
 const app = createApp();
 app.use((ctx) => ctx.json({ hello: 'world' }));
-app.listen(3000);
+app.listen(8080);
 ```
 
 - **Lines**: 4
@@ -102,7 +102,7 @@ class HelloController {
 
 const app = createApp();
 app.plugin(controllersPlugin({ root: '.' }));
-app.listen(3000);
+app.listen(8080);
 ```
 
 - **Lines**: ~14

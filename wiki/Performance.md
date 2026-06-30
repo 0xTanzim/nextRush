@@ -164,7 +164,7 @@ pnpm install
 pnpm benchmark
 
 # Or with autocannon
-npx autocannon -c 64 -d 10s http://localhost:3000/
+npx autocannon -c 64 -d 10s http://localhost:8080/
 ```
 
 Track RPS across framework versions. Regressions are often in middleware or database queries, not the router.

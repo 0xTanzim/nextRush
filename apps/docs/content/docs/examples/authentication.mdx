@@ -436,7 +436,7 @@ app.use((ctx) => {
   ctx.json({ error: 'Not Found' });
 });
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ---
@@ -445,26 +445,26 @@ await listen(app, 3000);
 
 ```bash
 # Register
-curl -X POST http://localhost:3000/auth/register \
+curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"password123"}'
 
 # Login
-curl -X POST http://localhost:3000/auth/login \
+curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"admin123"}'
 # Returns: {"accessToken":"...","refreshToken":"...","expiresIn":900}
 
 # Access protected route
-curl http://localhost:3000/users/me \
+curl http://localhost:8080/users/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 
 # Admin route
-curl http://localhost:3000/users/admin \
+curl http://localhost:8080/users/admin \
   -H "Authorization: Bearer ADMIN_ACCESS_TOKEN"
 
 # Refresh token
-curl -X POST http://localhost:3000/auth/refresh \
+curl -X POST http://localhost:8080/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"YOUR_REFRESH_TOKEN"}'
 ```

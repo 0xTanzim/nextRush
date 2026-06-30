@@ -124,8 +124,8 @@ async function saveFile(file: UploadedFile): Promise<SavedFile> {
 }
 
 app.route('/api', router);
-await listen(app, 3000);
-console.log('Upload server running on http://localhost:3000');
+await listen(app, 8080);
+console.log('Upload server running on http://localhost:8080');
 ```
 
 ## How to Run
@@ -138,12 +138,12 @@ nextrush dev src/upload.ts
 
 ```bash
 # Upload a file
-curl -X POST http://localhost:3000/api/upload \
+curl -X POST http://localhost:8080/api/upload \
   -F "file=@./photo.jpg" \
   -H "Content-Type: multipart/form-data"
 
 # List uploaded files
-curl http://localhost:3000/api/files
+curl http://localhost:8080/api/files
 ```
 
 ## Expected Output

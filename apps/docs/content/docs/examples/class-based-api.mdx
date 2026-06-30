@@ -323,7 +323,7 @@ async function main() {
   app.route('/', router);
 
   // Start server
-  await listen(app, 3000);
+  await listen(app, 8080);
 }
 
 main();
@@ -346,7 +346,7 @@ When the app starts with `debug: true` added to the plugin options, you'll see:
   PATCH   /api/users/:id
   DELETE  /api/users/:id
 [Controllers] Initialized with 6 routes
-🚀 NextRush listening on http://localhost:3000
+🚀 NextRush listening on http://localhost:8080
 ```
 
 No manual imports or controller arrays needed. Add a new controller file anywhere in `./src` with the

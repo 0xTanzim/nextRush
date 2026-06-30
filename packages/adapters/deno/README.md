@@ -34,7 +34,7 @@ app.use(async (ctx) => {
 });
 
 serve(app, {
-  port: 3000,
+  port: 8080,
   onListen: ({ port }) => console.log(`🚀 Server running on port ${port}`),
 });
 ```
@@ -55,9 +55,9 @@ Start an HTTP server for your application.
 import { serve } from '@nextrush/adapter-deno';
 
 const server = serve(app, {
-  port: 3000,            // Default: 3000
+  port: 8080,            // Default: 8080
   hostname: '0.0.0.0',   // Default: '0.0.0.0'
-  shutdownTimeout: 30000,// Default: 30000 (ms)
+  shutdownTimeout: 30000,// Default: 80800 (ms)
   onListen: ({ port, hostname }) => { ... },
   onError: (error) => { ... },
   cert: certPem,         // Optional TLS certificate
@@ -83,7 +83,7 @@ const handler = createHandler(app);
 
 // Use with custom Deno.serve setup
 Deno.serve({
-  port: 3000,
+  port: 8080,
   handler,
   // ... additional Deno options
 });
@@ -96,8 +96,8 @@ Quick start shorthand with console output.
 ```typescript
 import { listen } from '@nextrush/adapter-deno';
 
-listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000 (Deno)
+listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080 (Deno)
 ```
 
 ## Context
@@ -227,7 +227,7 @@ app.route('/', router);
 
 // Start server
 serve(app, {
-  port: 3000,
+  port: 8080,
   onListen: ({ port }) => {
     console.log(`🚀 Server running on http://localhost:${port}`);
     console.log(`   Runtime: Deno ${Deno.version.deno}`);
@@ -249,7 +249,7 @@ import { serve } from '@nextrush/adapter-node';
 // Bun
 import { serve } from '@nextrush/adapter-bun';
 
-serve(app, { port: 3000 });
+serve(app, { port: 8080 });
 ```
 
 ## Deno Deploy

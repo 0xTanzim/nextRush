@@ -7,7 +7,7 @@ const codeExample = `import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
 const router = createRouter();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 8080;
 
 router.get('/', (ctx) => {
   ctx.json({ message: 'Hello NextRush!' });
@@ -50,7 +50,7 @@ const highlightedCode = (
     <span className="text-[var(--code-variable)]">PORT</span>
     <span className="text-[var(--code-punctuation)]">) </span>
     <span className="text-[var(--code-operator)]">||</span>
-    <span className="text-[var(--code-number)]"> 3000</span>
+    <span className="text-[var(--code-number)]"> 8080</span>
     <span className="text-[var(--code-punctuation)]">;</span>
     {'\n\n'}
     <span className="text-[var(--code-variable)]">router.</span>

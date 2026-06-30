@@ -30,10 +30,10 @@ router.get('/', (ctx) => {
 });
 
 app.route('/', router);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
-`listen` starts an HTTP server on port 3000. Graceful shutdown: `await app.close()`.
+`listen` starts an HTTP server on port 8080. Graceful shutdown: `await app.close()`.
 
 ---
 
@@ -45,7 +45,7 @@ import { createApp, listen } from '@nextrush/adapter-bun';
 const app = createApp();
 // …routes…
 
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 Or use `serve()` for more control:
@@ -54,7 +54,7 @@ Or use `serve()` for more control:
 import { serve } from '@nextrush/adapter-bun';
 
 const handler = serve(app, {
-  port: 3000,
+  port: 8080,
   hostname: '0.0.0.0',
   trustProxy: true,
 });
@@ -70,7 +70,7 @@ import { createApp, listen } from '@nextrush/adapter-deno';
 const app = createApp();
 // …routes…
 
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 Runs under Deno's HTTP server (requires `--allow-net` permission).

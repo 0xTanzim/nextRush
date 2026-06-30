@@ -37,7 +37,7 @@ const { protect, tokenProvider } = csrf({
 // Apply CSRF protection globally
 app.use(protect);
 
-app.listen(3000);
+app.listen(8080);
 ```
 
 ## How It Works
@@ -136,7 +136,7 @@ router.get('/csrf-token', tokenProvider, async (ctx) => {
 // Protected API routes
 app.use(protect);
 app.route('/api', router);
-app.listen(3000);
+app.listen(8080);
 ```
 
 Client-side:

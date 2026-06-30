@@ -126,9 +126,9 @@ function broadcast(room: string, data: Record<string, unknown>, exclude?: WebSoc
 }
 
 app.route('/', router);
-await listen(app, 3000);
-console.log('Chat server running on http://localhost:3000');
-console.log('WebSocket endpoint: ws://localhost:3000/ws?room=general&user=alice');
+await listen(app, 8080);
+console.log('Chat server running on http://localhost:8080');
+console.log('WebSocket endpoint: ws://localhost:8080/ws?room=general&user=alice');
 ```
 
 ## How to Run
@@ -141,10 +141,10 @@ nextrush dev src/chat.ts
 
 ```bash
 # Terminal 1 — Alice joins
-npx wscat -c "ws://localhost:3000/ws?room=general&user=alice"
+npx wscat -c "ws://localhost:8080/ws?room=general&user=alice"
 
 # Terminal 2 — Bob joins
-npx wscat -c "ws://localhost:3000/ws?room=general&user=bob"
+npx wscat -c "ws://localhost:8080/ws?room=general&user=bob"
 
 # In Alice's terminal, type:
 > Hello Bob!
@@ -179,6 +179,6 @@ When Alice disconnects:
 Check active rooms via REST:
 
 ```bash
-curl http://localhost:3000/rooms
+curl http://localhost:8080/rooms
 # [{"name":"general","clients":2}]
 ```

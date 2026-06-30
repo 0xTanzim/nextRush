@@ -67,7 +67,7 @@ app.use(async (ctx) => {
   ctx.json({ message: 'Hello World' });
 });
 
-listen(app, { port: 3000 });
+listen(app, { port: 8080 });
 ```
 
 ## Application
@@ -538,11 +538,11 @@ const callback = app.callback();
 
 // Use with Node.js http
 import http from 'http';
-http.createServer(callback).listen(3000);
+http.createServer(callback).listen(8080);
 
 // Or use an adapter (recommended)
 import { listen } from '@nextrush/adapter-node';
-listen(app, { port: 3000 });
+listen(app, { port: 8080 });
 ```
 
 ## API Reference

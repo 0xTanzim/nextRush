@@ -53,7 +53,7 @@ router.get('/', (ctx) => {
 app.route('/', router);
 
 await serve(app, {
-  port: 3000,
+  port: 8080,
   onListen: ({ port }) => console.log(`Listening on port ${port}`),
 });
 ```
@@ -71,7 +71,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ## serve()
@@ -82,7 +82,7 @@ Start an HTTP server with full configuration:
 import { serve } from '@nextrush/adapter-node';
 
 const server = await serve(app, {
-  port: 3000,
+  port: 8080,
   host: '0.0.0.0',
   timeout: 30000,
   keepAliveTimeout: 5000,
@@ -103,7 +103,7 @@ await server.close();
 <TypeTable
   title="ServeOptions"
   types={{
-    port: { type: 'number', description: 'Port to listen on', default: '3000' },
+    port: { type: 'number', description: 'Port to listen on', default: '8080' },
     host: { type: 'string', description: 'Host to bind to', default: "'0.0.0.0'" },
     timeout: { type: 'number', description: 'Request timeout in milliseconds', default: '30000' },
     keepAliveTimeout: {
@@ -154,8 +154,8 @@ Shorthand for common case with default logging:
 ```typescript
 import { listen } from '@nextrush/adapter-node';
 
-await listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000
+await listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080
 ```
 
 ## createHandler()
@@ -222,7 +222,7 @@ server.listen(443);
 ```typescript
 import { serve } from '@nextrush/adapter-node';
 
-const server = await serve(app, { port: 3000 });
+const server = await serve(app, { port: 8080 });
 
 // Handle shutdown signals
 async function shutdown() {
@@ -265,7 +265,7 @@ router.get('/raw', (ctx) => {
 
 ```typescript
 await serve(app, {
-  port: 3000,
+  port: 8080,
   timeout: 60000, // 60s request timeout
   keepAliveTimeout: 10000, // 10s keep-alive
 });
@@ -297,7 +297,7 @@ if (cluster.isPrimary) {
   const app = createApp();
   // ... configure app
 
-  await listen(app, 3000);
+  await listen(app, 8080);
   console.log(`Worker ${process.pid} started`);
 }
 ```
@@ -342,7 +342,7 @@ app.route('/', router);
 
 // Start server
 const server = await serve(app, {
-  port: Number(process.env.PORT) || 3000,
+  port: Number(process.env.PORT) || 8080,
   onListen: ({ port }) => {
     console.log(`🚀 Server running on http://localhost:${port}`);
   },

@@ -138,7 +138,7 @@ nextrush dev [entry] [options]
 <TypeTable
   title="Dev Options"
   types={{
-    '--port, -p': { type: 'number', description: 'Server port', default: '3000' },
+    '--port, -p': { type: 'number', description: 'Server port', default: '8080' },
     '--watch, -w': {
       type: 'string',
       description: 'Additional path to watch (repeatable)',
@@ -316,7 +316,7 @@ For advanced use cases, import functions directly:
 import { dev, build } from '@nextrush/dev';
 
 // Start dev server
-await dev('./src/index.ts', { port: 3000 });
+await dev('./src/index.ts', { port: 8080 });
 
 // Run production build
 await build('./src/index.ts', { outDir: 'dist', minify: true });
@@ -329,13 +329,13 @@ Start development server programmatically.
 ```typescript
 import { dev, type DevOptions } from '@nextrush/dev';
 
-await dev('./src/index.ts', { port: 3000 });
+await dev('./src/index.ts', { port: 8080 });
 ```
 
 <TypeTable
   title="DevOptions"
   types={{
-    port: { type: 'number', description: 'Server port', default: '3000', optional: true },
+    port: { type: 'number', description: 'Server port', default: '8080', optional: true },
     watch: { type: 'string[]', description: 'Paths to watch for changes', optional: true },
   }}
 />
@@ -444,7 +444,7 @@ await app.plugin(
 );
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 Start development:
@@ -452,7 +452,7 @@ Start development:
 ```bash
 nextrush dev
 # → Watching for file changes...
-# → Server running on http://localhost:3000
+# → Server running on http://localhost:8080
 ```
 
 ### Production Deployment

@@ -71,7 +71,7 @@ Each runtime uses a different adapter import. The application logic stays the sa
     router.get('/', (ctx) => ctx.json({ runtime: 'node' }));
 
     app.route('/', router);
-    await listen(app, 3000);
+    await listen(app, 8080);
     ```
 
   </Tab>
@@ -87,7 +87,7 @@ Each runtime uses a different adapter import. The application logic stays the sa
     router.get('/', (ctx) => ctx.json({ runtime: 'bun' }));
 
     app.route('/', router);
-    serve(app, { port: 3000 });
+    serve(app, { port: 8080 });
     ```
 
   </Tab>
@@ -103,7 +103,7 @@ Each runtime uses a different adapter import. The application logic stays the sa
     router.get('/', (ctx) => ctx.json({ runtime: 'deno' }));
 
     app.route('/', router);
-    await serve(app, { port: 3000 });
+    await serve(app, { port: 8080 });
     ```
 
   </Tab>
@@ -185,14 +185,14 @@ Then deploy anywhere:
     ```typescript title="node.ts"
     import { app } from './app';
     import { listen } from '@nextrush/adapter-node';
-    await listen(app, 3000);
+    await listen(app, 8080);
     ```
   </Tab>
   <Tab value="Bun">
     ```typescript title="bun.ts"
     import { app } from './app';
     import { serve } from '@nextrush/adapter-bun';
-    serve(app, { port: 3000 });
+    serve(app, { port: 8080 });
     ```
   </Tab>
   <Tab value="Edge">

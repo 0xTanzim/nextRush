@@ -250,7 +250,7 @@ describe('@nextrush/di - Decorators', () => {
     it('should be resolvable from container', () => {
       @Config()
       class AppConfig {
-        readonly port = 3000;
+        readonly port = 8080;
         readonly host = 'localhost';
       }
 
@@ -258,7 +258,7 @@ describe('@nextrush/di - Decorators', () => {
       const config = container.resolve(AppConfig);
 
       expect(config).toBeInstanceOf(AppConfig);
-      expect(config.port).toBe(3000);
+      expect(config.port).toBe(8080);
       expect(config.host).toBe('localhost');
     });
 

@@ -73,7 +73,7 @@ import { Config, Service } from 'nextrush/class';
 
 @Config()
 class AppConfig {
-  readonly port = Number(process.env.PORT ?? 3000);
+  readonly port = Number(process.env.PORT ?? 8080);
   readonly host = process.env.HOST ?? 'localhost';
 }
 

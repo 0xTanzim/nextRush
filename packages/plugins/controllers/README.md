@@ -133,7 +133,7 @@ async function main() {
   );
 
   app.route('/', router);
-  listen(app, { port: 3000 });
+  listen(app, { port: 8080 });
 }
 
 main();

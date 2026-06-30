@@ -33,7 +33,7 @@ app.use(async (ctx) => {
 });
 
 serve(app, {
-  port: 3000,
+  port: 8080,
   onListen: ({ port }) => console.log(`🚀 Server running on port ${port}`),
 });
 ```
@@ -48,7 +48,7 @@ Start an HTTP server for your application.
 import { serve } from '@nextrush/adapter-bun';
 
 const server = serve(app, {
-  port: 3000,           // Default: 3000
+  port: 8080,           // Default: 8080
   hostname: '0.0.0.0',  // Default: '0.0.0.0'
   onListen: ({ port, hostname }) => { ... },
   onError: (error) => { ... },
@@ -77,7 +77,7 @@ const handler = createHandler(app);
 
 // Use with custom Bun.serve setup
 const server = Bun.serve({
-  port: 3000,
+  port: 8080,
   fetch: handler,
   // ... additional Bun options
 });
@@ -90,8 +90,8 @@ Quick start shorthand with console output.
 ```typescript
 import { listen } from '@nextrush/adapter-bun';
 
-listen(app, 3000);
-// Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
+listen(app, 8080);
+// Output: 🚀 NextRush listening on http://localhost:8080 (Bun)
 ```
 
 ## Context
@@ -213,7 +213,7 @@ bun --hot run server.ts
 Or use the `reload()` method to update non-structural configuration:
 
 ```typescript
-const server = serve(app, { port: 3000 });
+const server = serve(app, { port: 8080 });
 
 // Update configuration (port changes may not take effect)
 server.reload({ development: true });
@@ -262,7 +262,7 @@ app.route('/', router);
 
 // Start server
 serve(app, {
-  port: 3000,
+  port: 8080,
   onListen: ({ port }) => {
     console.log(`🚀 Server running on http://localhost:${port}`);
     console.log(`   Runtime: Bun ${Bun.version}`);
@@ -288,7 +288,7 @@ import { serve } from '@nextrush/adapter-bun';
 import { serve } from '@nextrush/adapter-deno';
 
 // The rest of your code stays the same
-serve(app, { port: 3000 });
+serve(app, { port: 8080 });
 ```
 
 ## Performance Tips

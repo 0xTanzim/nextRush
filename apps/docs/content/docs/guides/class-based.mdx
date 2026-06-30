@@ -126,7 +126,7 @@ await app.plugin(
 );
 
 app.use(router.routes());
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 <Callout type="warn" title="Import Order Matters">
@@ -656,7 +656,7 @@ await app.plugin(
 );
 
 app.use(router.routes());
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </details>
@@ -792,13 +792,13 @@ After starting the server, verify your routes work:
 
 ```bash
 # List users
-curl http://localhost:3000/api/users
+curl http://localhost:8080/api/users
 
 # Get a single user
-curl http://localhost:3000/api/users/1
+curl http://localhost:8080/api/users/1
 
 # Create a user (with API key header)
-curl -X POST http://localhost:3000/api/users \
+curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
   -H "x-api-key: secret-key" \
   -d '{"email": "bob@example.com", "name": "Bob"}'

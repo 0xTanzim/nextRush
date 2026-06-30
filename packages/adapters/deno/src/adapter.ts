@@ -48,7 +48,7 @@ interface DenoServer {
 export interface ServeOptions {
   /**
    * Port to listen on
-   * @default 3000
+   * @default 8080
    */
   port?: number;
 
@@ -88,7 +88,7 @@ export interface ServeOptions {
    * Grace period in milliseconds to drain in-flight requests during
    * shutdown. Deno's native `server.shutdown()` waits for all in-flight
    * requests but has no timeout — this guards against hanging forever.
-   * @default 30000
+   * @default 80800
    */
   shutdownTimeout?: number;
 
@@ -100,7 +100,7 @@ export interface ServeOptions {
    * level, returning 504 Gateway Timeout on expiry.
    *
    * Set to 0 to disable.
-   * @default 30000
+   * @default 80800
    */
   timeout?: number;
 }
@@ -147,7 +147,7 @@ export interface ServerInstance {
  * const handler = createHandler(app);
  *
  * // Use with Deno.serve
- * Deno.serve({ handler, port: 3000 });
+ * Deno.serve({ handler, port: 8080 });
  * ```
  */
 export function createHandler(
@@ -235,14 +235,14 @@ export function createHandler(
  * });
  *
  * const server = serve(app, {
- *   port: 3000,
+ *   port: 8080,
  *   onListen: ({ port }) => console.log(`Server running on port ${port}`)
  * });
  * ```
  */
 export function serve(app: Application, options: ServeOptions = {}): ServerInstance {
   const {
-    port = 3000,
+    port = 8080,
     hostname = '0.0.0.0',
     onListen,
     onError,
@@ -328,11 +328,11 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
  * import { listen } from '@nextrush/adapter-deno';
  *
  * const app = createApp();
- * listen(app, 3000);
- * // Output: 🚀 NextRush listening on http://localhost:3000 (Deno)
+ * listen(app, 8080);
+ * // Output: 🚀 NextRush listening on http://localhost:8080 (Deno)
  * ```
  */
-export function listen(app: Application, port = 3000): ServerInstance {
+export function listen(app: Application, port = 8080): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

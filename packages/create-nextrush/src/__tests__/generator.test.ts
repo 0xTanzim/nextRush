@@ -159,7 +159,7 @@ describe('generateProject', () => {
     it('uses simple PORT declaration in entrypoint', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
       expect(entry).toContain('await listen(app, PORT);');
     });
 
@@ -199,7 +199,7 @@ describe('generateProject', () => {
     it('uses simple PORT declaration in class-based entrypoint', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
       expect(entry).toContain('await listen(app, PORT);');
     });
 
@@ -290,7 +290,7 @@ describe('generateProject', () => {
     it('entrypoint uses simple PORT declaration', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
     });
 
     it('uses awaited controllersPlugin with runtime-safe discovery config in full template', () => {

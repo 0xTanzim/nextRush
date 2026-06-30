@@ -40,7 +40,7 @@ The same endpoint in every framework.
 
     router.get('/', (ctx) => ctx.json({ message: 'Hello World' }));
     app.route('/', router);
-    await listen(app, 3000);
+    await listen(app, 8080);
     ```
 
   </Tab>
@@ -55,7 +55,7 @@ The same endpoint in every framework.
       res.json({ message: 'Hello World' });
     });
 
-    app.listen(3000);
+    app.listen(8080);
     ```
 
   </Tab>
@@ -70,7 +70,7 @@ The same endpoint in every framework.
       return { message: 'Hello World' };
     });
 
-    await app.listen({ port: 3000 });
+    await app.listen({ port: 8080 });
     ```
 
   </Tab>
@@ -84,7 +84,7 @@ The same endpoint in every framework.
 
     app.get('/', (c) => c.json({ message: 'Hello World' }));
 
-    serve({ fetch: app.fetch, port: 3000 });
+    serve({ fetch: app.fetch, port: 8080 });
     ```
 
   </Tab>
@@ -102,7 +102,7 @@ The same endpoint in every framework.
     });
 
     app.use(router.routes());
-    app.listen(3000);
+    app.listen(8080);
     ```
 
   </Tab>

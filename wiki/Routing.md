@@ -113,7 +113,7 @@ posts.get('/', (ctx) => ctx.json([]));
 const app = createApp();
 app.route('/api/users', users);
 app.route('/api/posts', posts);
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 Alternative: `app.use(router.routes())` wires the router as middleware without the same prefix handling — prefer `app.route()` when you want prefix stripping.

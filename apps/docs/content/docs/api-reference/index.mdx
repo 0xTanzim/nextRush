@@ -105,7 +105,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ hello: 'world' }));
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ## Package Categories
@@ -193,7 +193,7 @@ const router = createRouter();
 router.get('/users', (ctx) => ctx.json([]));
 
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 **Install:**
@@ -227,7 +227,7 @@ const app = createApp();
 const router = createRouter();
 await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
 app.route('/', router);
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 **Install:**
@@ -246,7 +246,7 @@ import { createApp } from '@nextrush/core';
 import { serve } from '@nextrush/adapter-bun';
 
 const app = createApp();
-serve(app, { port: 3000 });
+serve(app, { port: 8080 });
 ```
 
 **Install:**

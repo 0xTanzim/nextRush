@@ -51,9 +51,9 @@ wss.on('/chat', (conn) => {
 app.use(wss.upgrade());
 
 // Start server and attach WebSocket
-const server = app.listen(3000, () => {
+const server = app.listen(8080, () => {
   wss.attach(server);
-  console.log('Server running on http://localhost:3000');
+  console.log('Server running on http://localhost:8080');
 });
 ```
 
@@ -148,7 +148,7 @@ app.use(wss.upgrade());
 Attach to HTTP server to start handling WebSocket connections.
 
 ```typescript
-const server = app.listen(3000);
+const server = app.listen(8080);
 await wss.attach(server);
 ```
 

@@ -53,7 +53,7 @@ app.use(
 );
 
 app.use(notFoundHandler()); // LAST: catches unmatched routes
-listen(app, 3000);
+listen(app, 8080);
 ```
 
 ### ErrorHandlerOptions

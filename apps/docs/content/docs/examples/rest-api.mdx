@@ -217,7 +217,7 @@ app.use((ctx) => {
 });
 
 // Start server
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </details>
@@ -228,23 +228,23 @@ await listen(app, 3000);
 
 ```bash
 # List users
-curl http://localhost:3000/users
+curl http://localhost:8080/users
 
 # Get single user
-curl http://localhost:3000/users/1
+curl http://localhost:8080/users/1
 
 # Create user
-curl -X POST http://localhost:3000/users \
+curl -X POST http://localhost:8080/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Charlie","email":"charlie@example.com"}'
 
 # Update user
-curl -X PATCH http://localhost:3000/users/1 \
+curl -X PATCH http://localhost:8080/users/1 \
   -H "Content-Type: application/json" \
   -d '{"name":"Alice Updated"}'
 
 # Delete user
-curl -X DELETE http://localhost:3000/users/2
+curl -X DELETE http://localhost:8080/users/2
 ```
 
 ---
@@ -441,7 +441,7 @@ const app = createApp();
 app.route('/users', users);
 app.route('/posts', posts);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 ---

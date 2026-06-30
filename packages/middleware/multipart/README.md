@@ -44,7 +44,7 @@ router.post('/upload', (ctx) => {
 });
 
 app.route('/', router);
-app.listen(3000);
+app.listen(8080);
 ```
 
 ## Configuration

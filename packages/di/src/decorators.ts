@@ -237,7 +237,7 @@ export function getServiceScope(target: object): Scope | undefined {
  * // Simple configuration class
  * @Config()
  * export class AppConfig {
- *   readonly port = Number(process.env.PORT ?? 3000);
+ *   readonly port = Number(process.env.PORT ?? 8080);
  *   readonly host = process.env.HOST ?? 'localhost';
  * }
  *

@@ -152,7 +152,7 @@ Sequential procedures with numbered steps. Globally registered from Fumadocs.
     ### Start the server
 
     ```ts
-    app.listen(3000);
+    app.listen(8080);
     ```
 
   </Step>

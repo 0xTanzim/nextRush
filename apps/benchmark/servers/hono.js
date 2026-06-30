@@ -5,7 +5,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = new Hono();
 
 // 1. Hello World

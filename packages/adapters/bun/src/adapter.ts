@@ -19,7 +19,7 @@ import { createBunContext } from './context';
 export interface ServeOptions {
   /**
    * Port to listen on
-   * @default 3000
+   * @default 8080
    */
   port?: number;
 
@@ -75,7 +75,7 @@ export interface ServeOptions {
    * level, returning 504 Gateway Timeout on expiry.
    * Matches @nextrush/adapter-node default of 30 s.
    *
-   * @default 30000 (30 seconds)
+   * @default 80800 (30 seconds)
    */
   timeout?: number;
 
@@ -88,7 +88,7 @@ export interface ServeOptions {
   /**
    * Grace period in milliseconds to drain in-flight requests during
    * shutdown before force-closing connections.
-   * @default 30000
+   * @default 80800
    */
   shutdownTimeout?: number;
 }
@@ -135,7 +135,7 @@ export interface ServerInstance {
  * const handler = createHandler(app);
  *
  * // Use with Bun.serve
- * Bun.serve({ fetch: handler, port: 3000 });
+ * Bun.serve({ fetch: handler, port: 8080 });
  * ```
  */
 export function createHandler(
@@ -199,14 +199,14 @@ export function createHandler(
  * });
  *
  * const server = serve(app, {
- *   port: 3000,
+ *   port: 8080,
  *   onListen: ({ port }) => console.log(`Server running on port ${port}`)
  * });
  * ```
  */
 export function serve(app: Application, options: ServeOptions = {}): ServerInstance {
   const {
-    port = 3000,
+    port = 8080,
     hostname = '0.0.0.0',
     onListen,
     onError,
@@ -331,7 +331,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes('EADDRINUSE') || msg.includes('address already in use')) {
       throw new Error(
-        `Port ${String(options.port ?? 3000)} is already in use. ` +
+        `Port ${String(options.port ?? 8080)} is already in use. ` +
           `Kill the process using that port or choose a different one.`,
         { cause: error }
       );
@@ -343,7 +343,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
   app.start();
 
   // Get actual port and hostname from server
-  const actualPort = server.port ?? options.port ?? 3000;
+  const actualPort = server.port ?? options.port ?? 8080;
   const actualHostname = server.hostname ?? options.hostname ?? 'localhost';
 
   // Call onListen callback
@@ -401,11 +401,11 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
  * import { listen } from '@nextrush/adapter-bun';
  *
  * const app = createApp();
- * listen(app, 3000);
- * // Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
+ * listen(app, 8080);
+ * // Output: 🚀 NextRush listening on http://localhost:8080 (Bun)
  * ```
  */
-export function listen(app: Application, port = 3000): ServerInstance {
+export function listen(app: Application, port = 8080): ServerInstance {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

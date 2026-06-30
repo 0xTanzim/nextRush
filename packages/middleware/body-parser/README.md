@@ -45,7 +45,7 @@ app.post('/api/users', async (ctx) => {
   ctx.json({ received: { name, email } });
 });
 
-await serve(app, { port: 3000 });
+await serve(app, { port: 8080 });
 ```
 
 ## Mental Model
@@ -521,7 +521,7 @@ app.post('/api/users', async (ctx) => {
   ctx.json({ id: Date.now(), name, email });
 });
 
-await serve(app, { port: 3000 });
+await serve(app, { port: 8080 });
 ```
 
 ### Form Handler

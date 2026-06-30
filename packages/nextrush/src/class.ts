@@ -31,7 +31,7 @@
  *
  * const app = createApp();
  * app.plugin(controllersPlugin({ root: './src' }));
- * listen(app, 3000);
+ * listen(app, 8080);
  * ```
  */
 

@@ -38,7 +38,7 @@
  * });
  *
  * app.route('/', router);
- * listen(app, 3000);
+ * listen(app, 8080);
  * ```
  *
  * @example With Middleware (install separately)
@@ -51,7 +51,7 @@
  * app.use(cors());
  * app.use(json());
  *
- * listen(app, 3000);
+ * listen(app, 8080);
  * ```
  *
  * @example Class-Based (import from nextrush/class)
@@ -74,7 +74,7 @@
  *
  * const app = createApp();
  * app.plugin(controllersPlugin({ root: './src' }));
- * listen(app, 3000);
+ * listen(app, 8080);
  * ```
  */
 

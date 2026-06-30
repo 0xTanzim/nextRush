@@ -182,9 +182,9 @@ export function getRuntimeEntrypointImports(
 /** Returns the PORT declaration line for the given runtime. */
 export function getPortDeclaration(runtime: Runtime): string {
   if (runtime === 'deno') {
-    return "const PORT = Number(Deno.env.get('PORT')) || 3000;";
+    return "const PORT = Number(Deno.env.get('PORT')) || 8080;";
   }
-  return 'const PORT = Number(process.env.PORT) || 3000;';
+  return 'const PORT = Number(process.env.PORT) || 8080;';
 }
 
 /** Runtime-safe helpers for controller auto-discovery in src and dist contexts. */

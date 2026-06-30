@@ -145,7 +145,7 @@ export function formatBytes(bytes) {
 
 // ─── Server Lifecycle ───
 
-export async function startServer(serverFile, port = 3000, { traceGc = false } = {}) {
+export async function startServer(serverFile, port = 8080, { traceGc = false } = {}) {
   const serverPath = join(SERVERS_DIR, serverFile);
   if (!existsSync(serverPath)) {
     throw new Error(`Server file not found: ${serverPath}`);

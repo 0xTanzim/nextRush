@@ -93,7 +93,7 @@ Node.js enables keep-alive by default. Ensure your reverse proxy preserves it:
 ```nginx
 # nginx.conf
 upstream api {
-    server 127.0.0.1:3000;
+    server 127.0.0.1:8080;
     keepalive 64;
 }
 
@@ -184,7 +184,7 @@ NODE_OPTIONS="--max-old-space-size=2048"  # Set heap limit
 Handle `SIGTERM` so in-flight requests complete:
 
 ```typescript
-const server = await listen(app, 3000);
+const server = await listen(app, 8080);
 
 process.on('SIGTERM', () => {
   console.log('Shutting down gracefully...');
@@ -214,7 +214,7 @@ Measure before and after every optimization.
 npm install -g autocannon
 
 # Run benchmark
-autocannon -c 64 -d 10 http://localhost:3000/api/users
+autocannon -c 64 -d 10 http://localhost:8080/api/users
 ```
 
 ### Full Benchmark Suite

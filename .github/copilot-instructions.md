@@ -119,7 +119,7 @@ users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
 app.route('/users', users);
-app.listen(3000);
+app.listen(8080);
 ```
 
 ### Class-Based Style
@@ -158,7 +158,7 @@ class UserController {
 
 const app = createApp();
 app.plugin(controllersPlugin({ root: './src', prefix: '/api' }));
-app.listen(3000);
+app.listen(8080);
 ```
 
 ---

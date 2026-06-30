@@ -77,7 +77,7 @@ app.route('/', health);
 app.route('/users', users);
 
 // Start the server
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </Step>
@@ -92,7 +92,7 @@ npx tsx src/index.ts
 You should see a line like:
 
 ```
-🚀 NextRush listening on http://localhost:3000
+🚀 NextRush listening on http://localhost:8080
 ```
 
 </Step>
@@ -104,15 +104,15 @@ Open another terminal and test the endpoints:
 
 ```bash
 # Root endpoint
-curl http://localhost:3000/
+curl http://localhost:8080/
 # → {"name":"My API","version":"1.0.0","status":"healthy"}
 
 # List users
-curl http://localhost:3000/users
+curl http://localhost:8080/users
 # → [{"id":1,"name":"Alice",...},{"id":2,"name":"Bob",...}]
 
 # Get user by ID
-curl http://localhost:3000/users/1
+curl http://localhost:8080/users/1
 # → {"id":1,"name":"Alice","email":"alice@example.com"}
 ```
 
@@ -168,7 +168,7 @@ users.get('/:id', (ctx) => {
 app.route('/', health);
 app.route('/users', users);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 <Callout type="info" title="Middleware order">
@@ -243,13 +243,13 @@ users.post('/', (ctx) => {
 app.route('/', health);
 app.route('/users', users);
 
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 Test it:
 
 ```bash
-curl -X POST http://localhost:3000/users \
+curl -X POST http://localhost:8080/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Charlie","email":"charlie@example.com"}'
 ```
@@ -310,7 +310,7 @@ app.route('/', health);
 app.route('/users', users);
 
 // Start
-await listen(app, 3000);
+await listen(app, 8080);
 ```
 
 </details>

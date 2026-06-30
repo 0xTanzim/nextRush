@@ -52,7 +52,7 @@ app.get('/api/data', (ctx) => {
   ctx.json({ message: 'Hello from API' });
 });
 
-await serve(app, { port: 3000 });
+await serve(app, { port: 8080 });
 ```
 
 ## Mental Model
