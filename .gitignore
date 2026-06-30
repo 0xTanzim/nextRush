@@ -131,3 +131,6 @@ Copilot-Processing.md
 # Screenshots
 *.png
 .playwright-mcp/
+
+.maxential
+.codegraph

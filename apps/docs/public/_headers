@@ -1,0 +1,11 @@
+/*
+  Link: </llms.txt>; rel="describedby"; title="LLM-friendly documentation index"
+  Link: </llms-full.txt>; rel="describedby"; title="Full LLM-friendly documentation"
+  Link: </skills.json>; rel="skills"; title="Installable agent skills"
+  Link: </mcp.json>; rel="service-meta"; title="MCP server discovery"
+  Link: </agent-spec.json>; rel="describedby"; title="Agent specification"
+  Link: </sitemap.xml>; rel="sitemap"; title="Sitemap"
+
+/api/mdx/*
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
