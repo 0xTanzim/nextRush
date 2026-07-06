@@ -229,6 +229,9 @@ importers:
       '@nextrush/runtime':
         specifier: workspace:^
         version: link:../../runtime
+      '@nextrush/stream':
+        specifier: workspace:^
+        version: link:../../stream
       '@nextrush/types':
         specifier: workspace:^
         version: link:../../types
@@ -257,6 +260,9 @@ importers:
       '@nextrush/runtime':
         specifier: workspace:^
         version: link:../../runtime
+      '@nextrush/stream':
+        specifier: workspace:^
+        version: link:../../stream
       '@nextrush/types':
         specifier: workspace:^
         version: link:../../types
@@ -282,6 +288,9 @@ importers:
       '@nextrush/runtime':
         specifier: workspace:^
         version: link:../../runtime
+      '@nextrush/stream':
+        specifier: workspace:^
+        version: link:../../stream
       '@nextrush/types':
         specifier: workspace:^
         version: link:../../types
@@ -307,6 +316,9 @@ importers:
       '@nextrush/runtime':
         specifier: workspace:*
         version: link:../../runtime
+      '@nextrush/stream':
+        specifier: workspace:*
+        version: link:../../stream
       '@nextrush/types':
         specifier: workspace:*
         version: link:../../types
@@ -839,6 +851,19 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+
+  packages/stream:
+    dependencies:
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
 
   packages/types:
     devDependencies:

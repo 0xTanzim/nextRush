@@ -7,10 +7,13 @@ vi.mock('node:child_process', () => ({
 import { execSync } from 'node:child_process';
 import {
   shouldSkip,
+  isMonorepo,
+  shouldAutoInstall,
   isDevInstalled,
   detectPackageManager,
   getInstallCommand,
   installDevPackage,
+  printDevNotice,
 } from '../../scripts/postinstall.js';
 
 describe('postinstall', () => {
@@ -104,6 +107,44 @@ describe('postinstall', () => {
     });
   });
 
+  describe('isMonorepo', () => {
+    it('returns true when running inside the nextrush monorepo source', () => {
+      // These tests execute from within the monorepo, so the guard must trip —
+      // this is what prevents the meta package from trying to self-install its
+      // own workspace dependency (the infinite pnpm-recursion bug).
+      expect(isMonorepo()).toBe(true);
+    });
+  });
+
+  describe('shouldAutoInstall', () => {
+    it('returns false by default — the postinstall must NOT spawn a package manager', () => {
+      // Default is advisory-only. Auto-running `pnpm add` from a postinstall hook
+      // can hang behind proxies, fail in restricted CI, or surprise users — it is
+      // opt-in, never the default.
+      expect(shouldAutoInstall()).toBe(false);
+    });
+
+    it('returns true only when NEXTRUSH_AUTO_INSTALL_DEV=1 is explicitly set', () => {
+      process.env.NEXTRUSH_AUTO_INSTALL_DEV = '1';
+      expect(shouldAutoInstall()).toBe(true);
+    });
+
+    it('returns false for any value other than 1', () => {
+      process.env.NEXTRUSH_AUTO_INSTALL_DEV = 'true';
+      expect(shouldAutoInstall()).toBe(false);
+    });
+  });
+
+  describe('printDevNotice', () => {
+    it('prints install guidance without spawning a process', () => {
+      const spy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      printDevNotice('pnpm');
+      expect(execSync).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+
   describe('installDevPackage', () => {
     it('calls execSync with pnpm command', () => {
       vi.mocked(execSync).mockImplementation(() => Buffer.from(''));
@@ -112,8 +153,18 @@ describe('postinstall', () => {
 
       expect(execSync).toHaveBeenCalledWith(
         'pnpm add -D @nextrush/dev@latest',
-        { stdio: 'inherit' },
+        expect.objectContaining({ stdio: 'inherit' }),
       );
+    });
+
+    it('passes NEXTRUSH_SKIP_POSTINSTALL=1 to the child so it cannot recurse', () => {
+      vi.mocked(execSync).mockImplementation(() => Buffer.from(''));
+
+      installDevPackage('pnpm');
+
+      const call = vi.mocked(execSync).mock.calls[0];
+      const options = call?.[1] as { env?: Record<string, string> } | undefined;
+      expect(options?.env?.NEXTRUSH_SKIP_POSTINSTALL).toBe('1');
     });
 
     it('returns true on success', () => {

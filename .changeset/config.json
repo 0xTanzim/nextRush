@@ -9,6 +9,7 @@
       "@nextrush/core",
       "@nextrush/router",
       "@nextrush/runtime",
+      "@nextrush/stream",
       "@nextrush/di",
       "@nextrush/decorators",
       "@nextrush/controllers",

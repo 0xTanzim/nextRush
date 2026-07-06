@@ -14,6 +14,12 @@
 
 import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody } from './http';
 import type { BodySource, Runtime } from './runtime';
+import type {
+  NDJSONStreamWriter,
+  SSEStreamWriter,
+  StreamRun,
+  TextStreamWriter,
+} from './stream';
 
 // ============================================================================
 // Route Parameters
@@ -400,11 +406,83 @@ export interface Context {
    * ```
    */
   readonly bodySource: BodySource;
-}
 
-// ============================================================================
-// Middleware Types
-// ============================================================================
+  // =========================================================================
+  // RESPONSE STREAMING (text / SSE / NDJSON)
+  // See docs/RFC/RFC-NEXTRUSH-STREAM.md
+  // =========================================================================
+
+  /**
+   * Abort signal that fires when the client disconnects mid-response.
+   *
+   * @internal
+   * @remarks
+   * Adapter-level primitive consumed by `@nextrush/stream`. Handlers should use
+   * `writer.signal` inside `ctx.stream()`/`ctx.sse()`/`ctx.ndjson()` instead of
+   * accessing this directly. Synthesized on Node from response `close`/request
+   * `aborted`; passed through natively on Bun/Deno/Edge from `Request.signal`.
+   */
+  readonly signal: AbortSignal;
+
+  /**
+   * Send a raw byte stream as the response body.
+   *
+   * @internal
+   * @remarks
+   * Adapter-level transport primitive consumed by `@nextrush/stream`. Not
+   * intended for direct handler use — use `ctx.stream()`/`ctx.sse()`/
+   * `ctx.ndjson()`. Resolves when the stream is fully flushed (Node) or once the
+   * response body is wired (Bun/Deno/Edge).
+   *
+   * @param source - A Web `ReadableStream` of bytes to stream to the client.
+   */
+  sendStream(source: ReadableStream<Uint8Array>): Promise<void>;
+
+  /**
+   * Stream a raw text/byte response. The connection closes automatically when
+   * the callback resolves.
+   *
+   * @param run - Callback that receives a {@link TextStreamWriter}.
+   *
+   * @example
+   * ```typescript
+   * await ctx.stream(async (writer) => {
+   *   await writer.write('Loading...\n');
+   *   await writer.write('Done.\n');
+   * });
+   * ```
+   */
+  stream(run: StreamRun<TextStreamWriter>): Promise<void>;
+
+  /**
+   * Stream a Server-Sent Events (`text/event-stream`) response.
+   *
+   * @param run - Callback that receives an {@link SSEStreamWriter}.
+   *
+   * @example
+   * ```typescript
+   * await ctx.sse(async (writer) => {
+   *   for await (const token of llm) await writer.write({ data: token });
+   * });
+   * ```
+   */
+  sse(run: StreamRun<SSEStreamWriter>): Promise<void>;
+
+  /**
+   * Stream a newline-delimited JSON (`application/x-ndjson`) response.
+   *
+   * @param run - Callback that receives an {@link NDJSONStreamWriter}.
+   *
+   * @example
+   * ```typescript
+   * await ctx.ndjson(async (writer) => {
+   *   await writer.write({ step: 'search' });
+   *   await writer.write({ step: 'done' });
+   * });
+   * ```
+   */
+  ndjson(run: StreamRun<NDJSONStreamWriter>): Promise<void>;
+}
 
 /**
  * Next function type (traditional Koa-style)

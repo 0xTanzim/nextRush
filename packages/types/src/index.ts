@@ -103,3 +103,20 @@ export {
   type RuntimeCapabilities,
   type RuntimeInfo,
 } from './runtime';
+
+// ============================================================================
+// Response Streaming Contracts
+// ============================================================================
+
+export {
+  // Writer contracts
+  type BaseStreamWriter,
+  type NDJSONStreamWriter,
+  // Event shape
+  type SSEEvent,
+  type SSEStreamWriter,
+  // Source + callback shapes
+  type StreamRun,
+  type StreamSource,
+  type TextStreamWriter,
+} from './stream';

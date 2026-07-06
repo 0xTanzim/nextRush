@@ -9,18 +9,27 @@
 
 import { HttpError } from '@nextrush/errors';
 import { getRuntime, METHODS_WITHOUT_BODY } from '@nextrush/runtime';
+import {
+  runNDJSONStream,
+  runSSEStream,
+  runTextStream,
+} from '@nextrush/stream';
 import type {
     BodySource,
     Context,
     ContextState,
     HttpMethod,
     IncomingHeaders,
+    NDJSONStreamWriter,
     NodeStreamLike,
     QueryParams,
     RawHttp,
     ResponseBody,
     RouteParams,
     Runtime,
+    SSEStreamWriter,
+    StreamRun,
+    TextStreamWriter,
     WebStreamLike,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -68,6 +77,7 @@ export class NodeContext implements Context {
 
   private _next: (() => Promise<void>) | null = null;
   private _responded = false;
+  private _abortController?: AbortController;
 
   constructor(req: IncomingMessage, res: ServerResponse, options: NodeContextOptions = {}) {
     this.raw = { req, res };
@@ -321,6 +331,83 @@ export class NodeContext implements Context {
     // Use plain text to avoid HTML injection via user-controlled URLs
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end(`Redirecting to ${url}`);
+  }
+
+  // ===========================================================================
+  // Response Streaming (see docs/RFC/RFC-NEXTRUSH-STREAM.md)
+  // ===========================================================================
+
+  /**
+   * Abort signal that fires when the client disconnects.
+   *
+   * @remarks
+   * Lazily synthesized: the `AbortController` and its listeners are only created
+   * on first access, keeping the non-streaming hot path allocation-free.
+   */
+  get signal(): AbortSignal {
+    if (!this._abortController) {
+      const controller = new AbortController();
+      this._abortController = controller;
+      const abort = (): void => {
+        if (!controller.signal.aborted) controller.abort();
+      };
+      this.raw.res.on('close', abort);
+      this.raw.req.on('aborted', abort);
+    }
+    return this._abortController.signal;
+  }
+
+  /**
+   * @internal Stream a byte source to the client (Node eager pump). Resolves
+   * when the stream is fully flushed; rejects on a non-abort transport error.
+   */
+  sendStream(source: ReadableStream<Uint8Array>): Promise<void> {
+    if (this._responded || this.raw.res.headersSent) return Promise.resolve();
+    this._responded = true;
+
+    const res = this.raw.res;
+    res.statusCode = this.status;
+    const reader = source.getReader();
+    // Cancel the source if the client disconnects mid-stream.
+    res.on('close', () => {
+      void reader.cancel().catch((): undefined => undefined);
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      const pump = async (): Promise<void> => {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) {
+            res.end();
+            return;
+          }
+          if (!res.write(value)) {
+            await new Promise<void>((r) => res.once('drain', r));
+          }
+        }
+      };
+      pump().then(resolve, (err: unknown) => {
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.end();
+        } else {
+          res.destroy(err instanceof Error ? err : new Error(String(err)));
+        }
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
+    });
+  }
+
+  stream(run: StreamRun<TextStreamWriter>): Promise<void> {
+    return runTextStream(this, run);
+  }
+
+  sse(run: StreamRun<SSEStreamWriter>): Promise<void> {
+    return runSSEStream(this, run);
+  }
+
+  ndjson(run: StreamRun<NDJSONStreamWriter>): Promise<void> {
+    return runNDJSONStream(this, run);
   }
 
   // ===========================================================================

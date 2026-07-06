@@ -8,17 +8,22 @@
 
 import { HttpError } from '@nextrush/errors';
 import { getClientIp, getRuntime, headersToRecord, METHODS_WITHOUT_BODY } from '@nextrush/runtime';
+import { runNDJSONStream, runSSEStream, runTextStream } from '@nextrush/stream';
 import type {
   BodySource,
   Context,
   ContextState,
   HttpMethod,
   IncomingHeaders,
+  NDJSONStreamWriter,
   QueryParams,
   RawHttp,
   ResponseBody,
   RouteParams,
   Runtime,
+  SSEStreamWriter,
+  StreamRun,
+  TextStreamWriter,
 } from '@nextrush/types';
 import { createEmptyBodySource, DenoBodySource } from './body-source';
 import { parseQueryString } from './utils';
@@ -225,6 +230,36 @@ export class DenoContext implements Context {
     // Use plain text to avoid HTML injection via user-controlled URLs
     this._responseBuilder.headers.set('Content-Type', 'text/plain; charset=utf-8');
     this._responseBuilder.body = `Redirecting to ${url}`;
+  }
+
+  // ===========================================================================
+  // Response Streaming (see docs/RFC/RFC-NEXTRUSH-STREAM.md)
+  // ===========================================================================
+
+  /** Abort signal — native passthrough from the platform Request. */
+  get signal(): AbortSignal {
+    return this.raw.req.signal;
+  }
+
+  /** @internal Wire a byte stream as the response body (drained by the runtime). */
+  sendStream(source: ReadableStream<Uint8Array>): Promise<void> {
+    if (this._responded) return Promise.resolve();
+    this._responded = true;
+    this._responseBuilder.status = this.status;
+    this._responseBuilder.body = source;
+    return Promise.resolve();
+  }
+
+  stream(run: StreamRun<TextStreamWriter>): Promise<void> {
+    return runTextStream(this, run);
+  }
+
+  sse(run: StreamRun<SSEStreamWriter>): Promise<void> {
+    return runSSEStream(this, run);
+  }
+
+  ndjson(run: StreamRun<NDJSONStreamWriter>): Promise<void> {
+    return runNDJSONStream(this, run);
   }
 
   // ===========================================================================
