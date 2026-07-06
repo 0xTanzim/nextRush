@@ -120,3 +120,31 @@ export {
   type StreamSource,
   type TextStreamWriter,
 } from './stream';
+
+// ============================================================================
+// Standard Schema Contract (shared by validation, route metadata, openapi)
+// ============================================================================
+
+export {
+  type InferOutput,
+  type StandardSchemaIssue,
+  type StandardSchemaPathSegment,
+  type StandardSchemaProps,
+  type StandardSchemaResult,
+  type StandardSchemaV1,
+} from './standard-schema';
+
+// ============================================================================
+// Route Metadata Contracts (source of truth for OpenAPI & future renderers)
+// ============================================================================
+
+export {
+  // Contribution protocol symbol (value export)
+  ROUTE_METADATA,
+  type MetadataContribution,
+  // The canonical endpoint descriptor
+  type RouteDefinition,
+  type RouteEntry,
+  type RouteMetadata,
+  type RouteMetaMarker,
+} from './route-metadata';

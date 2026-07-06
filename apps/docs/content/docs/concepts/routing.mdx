@@ -1,9 +1,9 @@
 ---
 title: Routing
-description: Segment trie routing with O(d) lookup, where d is path depth
+description: Segment trie routing with O(k) lookup, where k is the number of path segments
 ---
 
-NextRush uses a segment trie router for O(d) lookup performance — where d is the number of path segments, not the number of registered routes.
+NextRush uses a segment trie router for O(k) lookup performance — where k is the number of path segments, not the number of registered routes.
 
 ## The Problem
 
@@ -251,7 +251,7 @@ When a path exists but the method has no handler, the response includes the `All
 
 ## Performance Notes
 
-Lookup time is O(d) where d is the number of path segments (typically 3–5 for REST APIs). Route count does not affect lookup time. Static routes use an additional O(1) hash map fast path, bypassing tree traversal entirely.
+Lookup time is O(k) where k is the number of path segments (typically 3–5 for REST APIs). Route count does not affect lookup time. Static routes use an additional O(1) hash map fast path, bypassing tree traversal entirely.
 
 ## Security Considerations
 

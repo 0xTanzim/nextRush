@@ -8,7 +8,7 @@
 import type { Application } from '@nextrush/core';
 import { container as globalContainer, type ContainerInterface } from '@nextrush/di';
 import type { Router } from '@nextrush/router';
-import type { Plugin } from '@nextrush/types';
+import { ROUTE_METADATA, type Plugin } from '@nextrush/types';
 import 'reflect-metadata';
 import {
   discoverControllers,
@@ -20,6 +20,7 @@ import { ControllerRegistry } from './registry.js';
 import type {
   ControllersPluginOptions,
   ControllersPluginState,
+  BuiltRoute,
   RegisteredController,
   ResolvedOptions,
 } from './types.js';
@@ -44,6 +45,22 @@ function debugLog(debug: boolean, message: string): void {
 
 function warnLog(message: string): void {
   process.stderr.write(`[Controllers] WARNING: ${message}\n`);
+}
+
+/**
+ * Assemble the entries passed to a router method: middleware first, then the
+ * metadata marker (only when the route carries decorator docs), then the
+ * handler. The marker uses the ROUTE_METADATA contribution protocol from
+ * `@nextrush/types`, so controllers documents routes without depending on the
+ * router's `endpoint()` value export — the same protocol `validate()` uses.
+ */
+function buildRouteEntries(route: BuiltRoute): unknown[] {
+  const entries: unknown[] = [...route.middleware];
+  if (route.metadata) {
+    entries.push({ [ROUTE_METADATA]: route.metadata });
+  }
+  entries.push(route.handler);
+  return entries;
 }
 
 /**
@@ -219,11 +236,7 @@ export class ControllersPlugin implements Plugin {
             );
           }
 
-          if (route.middleware.length > 0) {
-            (this.router[method] as Function)(route.path, ...route.middleware, route.handler);
-          } else {
-            (this.router[method] as Function)(route.path, route.handler);
-          }
+          (this.router[method] as Function)(route.path, ...buildRouteEntries(route));
         } catch (error) {
           throw new RouteRegistrationError(
             controller.target.name,
@@ -303,11 +316,7 @@ export function registerController(
     const method = route.method.toLowerCase() as keyof Router;
 
     if (typeof router[method] === 'function') {
-      if (route.middleware.length > 0) {
-        (router[method] as Function)(route.path, ...route.middleware, route.handler);
-      } else {
-        (router[method] as Function)(route.path, route.handler);
-      }
+      (router[method] as Function)(route.path, ...buildRouteEntries(route));
     }
   }
 }

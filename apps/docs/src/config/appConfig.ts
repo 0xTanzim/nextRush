@@ -33,11 +33,10 @@ export const appConfig = {
     sectionTitles: {
       'getting-started': 'Getting Started',
       concepts: 'Core Concepts',
-      architecture: 'Architecture',
-      packages: 'Packages',
       guides: 'Guides',
       examples: 'Examples',
-      benchmarks: 'Benchmarks',
+      'api-reference': 'API Reference',
+      performance: 'Performance',
       community: 'Community',
     },
   },

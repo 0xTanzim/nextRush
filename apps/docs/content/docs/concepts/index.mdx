@@ -22,7 +22,7 @@ NextRush is built on four core abstractions. Everything else builds on top of th
     Functions that process requests. The onion model for composable logic.
   </Card>
   <Card title="Routing" href="/docs/concepts/routing">
-    Radix tree routing. O(k) lookup regardless of route count.
+    Segment trie routing. O(k) lookup regardless of route count.
   </Card>
 </Cards>
 
@@ -185,7 +185,7 @@ class AdminController {
   <Step>
     ### Routing
 
-    Map URLs to handlers efficiently with radix tree routing. [Read Routing →](/docs/concepts/routing)
+    Map URLs to handlers efficiently with segment trie routing. [Read Routing →](/docs/concepts/routing)
 
   </Step>
 </Steps>
@@ -197,7 +197,7 @@ class AdminController {
 | **Application** | Orchestration    | Holds everything together, manages lifecycle   |
 | **Context**     | Request/Response | Fresh per-request, mutable `state` for sharing |
 | **Middleware**  | Transformation   | Onion model—before, `next()`, after            |
-| **Routing**     | URL Matching     | O(k) radix tree, params and wildcards          |
+| **Routing**     | URL Matching     | O(k) segment trie, params and wildcards          |
 | **Plugins**     | Extension        | Add features without modifying core            |
 | **Guards**      | Access Control   | Boolean gatekeepers for routes                 |
 

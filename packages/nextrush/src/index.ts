@@ -85,9 +85,9 @@ export { Application, compose, createApp } from '@nextrush/core';
 export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 
 // ============================================
-// ROUTER: Radix Tree Routing
+// ROUTER: Radix Tree Routing + Route Metadata
 // ============================================
-export { Router, createRouter } from '@nextrush/router';
+export { Router, createRouter, endpoint } from '@nextrush/router';
 export type { RouterOptions } from '@nextrush/router';
 
 // ============================================
@@ -135,6 +135,9 @@ export type {
     Next,
     Plugin,
     RouteHandler,
+    // Route metadata (author with endpoint(); read by @nextrush/openapi)
+    RouteDefinition,
+    RouteMetadata,
     // Runtime
     Runtime
 } from '@nextrush/types';

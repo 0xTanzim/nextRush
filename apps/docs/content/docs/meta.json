@@ -1,16 +1,15 @@
 {
   "title": "Documentation",
   "root": true,
-  "description": "NextRush framework documentation — concepts, guides, packages, and API reference.",
+  "description": "NextRush framework documentation — concepts, guides, and API reference.",
   "pages": [
     "index",
     "getting-started",
-    "performance",
     "concepts",
-    "packages",
     "guides",
     "examples",
     "api-reference",
+    "performance",
     "community"
   ]
 }

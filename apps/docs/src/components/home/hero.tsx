@@ -110,7 +110,7 @@ export function Hero() {
             TypeScript-first HTTP stack for Node.js and other runtimes.
           </p>
           <p className="text-lg text-fd-muted-foreground/70 mb-8 max-w-xl animate-fade-up animate-delay-300">
-            Composable middleware, radix routing, optional DI and decorators.{' '}
+            Composable middleware, segment trie routing, optional DI and decorators.{' '}
             <Link href="/docs/performance" className="text-[var(--rush-cyan)] font-medium underline-offset-4 hover:underline">
               Benchmarks
             </Link>{' '}

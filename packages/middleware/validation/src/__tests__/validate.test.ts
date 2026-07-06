@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '@nextrush/errors';
+import { ROUTE_METADATA } from '@nextrush/types';
 import { validate } from '../validate.js';
 import { catchErr, fake, mockCtx, tracker } from './_helpers.js';
 
@@ -75,5 +76,29 @@ describe('validate (multi-target)', () => {
     await validate({})(ctx, t.next);
     expect(t.called()).toBe(true);
     expect(ctx.body).toEqual({ x: 1 });
+  });
+});
+
+
+describe('validate() route metadata contribution', () => {
+  it('attaches request.body under ROUTE_METADATA (body shorthand)', () => {
+    const schema = fake(() => ({ value: {} }));
+    const mw = validate(schema);
+    expect(Reflect.get(mw, ROUTE_METADATA)).toEqual({ request: { body: schema } });
+  });
+
+  it('attaches per-target schemas for a multi-target spec', () => {
+    const body = fake(() => ({ value: {} }));
+    const query = fake(() => ({ value: {} }));
+    const mw = validate({ body, query });
+    expect(Reflect.get(mw, ROUTE_METADATA)).toEqual({ request: { body, query } });
+  });
+
+  it('makes the contribution non-enumerable (public API unchanged)', () => {
+    const mw = validate(fake(() => ({ value: {} })));
+    const descriptor = Object.getOwnPropertyDescriptor(mw, ROUTE_METADATA);
+    expect(descriptor?.enumerable).toBe(false);
+    // The middleware still presents as a plain function to callers.
+    expect(typeof mw).toBe('function');
   });
 });

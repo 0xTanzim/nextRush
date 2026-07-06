@@ -153,3 +153,18 @@ export function validate<T extends StandardSchemaV1>(schema: T): Middleware;
 ```
 
 This mirrors Elysia's approach (validation is core to the framework, not bolted on) while staying zero-dependency, since Standard Schema is a TypeScript interface, not a library.
+
+
+====
+
+ Next steps — prioritized
+
+  1. Run the release now. Both changesets are staged; @nextrush/validation v1 is genuinely done — coded, tested, documented, and now proven end-to-end. @nextrush/errors's fix is a safe, backward-compatible patch that should ship
+  promptly since it affects every consumer's error responses.
+  2. The ctx.query/ctx.params type-threading spike (RFC §9) — still the open architectural question. Worth timeboxing as an isolated, throwaway-branch experiment before the next major validation work, since it decides whether
+  typed query/params ever ship without an accessor.
+  3. @nextrush/openapi — now unblocked. Validation's schema-on-route convention is exactly what OpenAPI generation needs to introspect; this is the next highest-leverage P0 package from the original audit.
+  4. JWT package reshape — from our earlier discussion: a thin wrapper around jose (peer dep), not a crypto reimplementation. Straightforward, low-risk.
+  5. Decorator integration for validation (@Body(schema)) — deliberately deferred; revisit once the middleware API has some real mileage, per the RFC.
+  6. Audit other core-lockstep packages for the same errorHandler blind spot — worth a quick check whether any other package throws a NextRushError subclass with custom toJSON() fields that might have had the same silent-drop
+  problem before today's fix (likely none, since ValidationError was the only override, but worth a 5-minute grep to confirm).

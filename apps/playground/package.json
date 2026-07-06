@@ -21,6 +21,8 @@
     "@nextrush/decorators": "workspace:*",
     "@nextrush/di": "workspace:*",
     "@nextrush/errors": "workspace:*",
+    "@nextrush/openapi": "workspace:*",
+    "@nextrush/router": "workspace:*",
     "@nextrush/runtime": "workspace:*",
     "@nextrush/validation": "workspace:*",
     "nextrush": "workspace:*",

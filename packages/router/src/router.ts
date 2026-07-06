@@ -11,11 +11,17 @@
 
 import {
     HTTP_METHODS,
+    ROUTE_METADATA,
     type Context,
     type HttpMethod,
+    type MetadataContribution,
     type Middleware,
+    type RouteDefinition,
+    type RouteEntry,
     type RouteHandler,
     type RouteMatch,
+    type RouteMetadata,
+    type RouteMetaMarker,
     type RouterOptions,
 } from '@nextrush/types';
 import {
@@ -32,6 +38,56 @@ import {
 const EMPTY_PARAMS: Record<string, string> = Object.freeze(
   Object.create(null) as Record<string, string>
 );
+
+/**
+ * Declare route metadata inline in a route's argument list. Returns a pure
+ * data marker (not a middleware) — the router reads its metadata at
+ * registration and never executes it per request.
+ *
+ * @example
+ * ```typescript
+ * router.post('/users',
+ *   validate(User),
+ *   endpoint({ summary: 'Create a user', responses: { 201: UserResponse } }),
+ *   handler,
+ * );
+ * ```
+ */
+export function endpoint(metadata: MetadataContribution): RouteMetaMarker {
+  return { [ROUTE_METADATA]: metadata };
+}
+
+/** Mutable view of RouteMetadata, used only while merging contributions. */
+type MutableRouteMetadata = { -readonly [K in keyof RouteMetadata]?: RouteMetadata[K] };
+
+/**
+ * Merge metadata contributions (from validate(), endpoint(), etc.) in
+ * registration order. Scalars and arrays are last-write-wins; the `request`
+ * and `responses` maps merge per key. Returns undefined when nothing
+ * contributed (an undocumented route).
+ */
+function mergeContributions(
+  contributions: readonly MetadataContribution[]
+): RouteMetadata | undefined {
+  if (contributions.length === 0) return undefined;
+
+  const meta: MutableRouteMetadata = {};
+  for (const c of contributions) {
+    if (c.summary !== undefined) meta.summary = c.summary;
+    if (c.description !== undefined) meta.description = c.description;
+    if (c.deprecated !== undefined) meta.deprecated = c.deprecated;
+    if (c.visibility !== undefined) meta.visibility = c.visibility;
+    if (c.tags !== undefined) meta.tags = c.tags;
+    if (c.request) meta.request = { ...meta.request, ...c.request };
+    if (c.responses) meta.responses = { ...meta.responses, ...c.responses };
+  }
+  return meta;
+}
+
+/** Read a route entry's metadata contribution, if it carries one. */
+function readContribution(entry: RouteEntry): MetadataContribution | undefined {
+  return (entry as Partial<RouteMetaMarker>)[ROUTE_METADATA];
+}
 
 /**
  * Router class — high-performance segment trie router
@@ -61,6 +117,14 @@ export class Router {
    * Key: "METHOD path" (e.g. "GET /users"), Value: HandlerEntry
    */
   private readonly staticRoutes = new Map<string, HandlerEntry>();
+
+  /**
+   * Introspection registry: every registered route as a RouteDefinition.
+   * Kept SEPARATE from the hot-path structures (radix tree + staticRoutes) so
+   * request dispatch never reads metadata — only getRoutes() (at doc-generation
+   * time) touches this.
+   */
+  private readonly routeDefinitions: RouteDefinition[] = [];
 
   /** Whether any routes have params or wildcards (disables static-only fast path) */
   private hasParamRoutes = false;
@@ -105,7 +169,7 @@ export class Router {
   private addRoute(
     method: HttpMethod,
     path: string,
-    handlers: RouteHandler[],
+    entries: RouteEntry[],
     middleware: Middleware[] = []
   ): void {
     const normalized = this.normalizePath(path);
@@ -146,25 +210,36 @@ export class Router {
       }
     }
 
-    // Combine multiple handlers into single handler with inline middleware
+    // Partition entries: functions are behavior (inline middleware + the final
+    // handler); pure markers (endpoint()) contribute metadata only and never
+    // execute. Every entry may also carry a metadata contribution (e.g. a
+    // function like validate() that both runs and contributes its schema).
+    const functions: Middleware[] = [];
+    const contributions: MetadataContribution[] = [];
+    for (const routeEntry of entries) {
+      const contribution = readContribution(routeEntry);
+      if (contribution) contributions.push(contribution);
+      if (typeof routeEntry === 'function') functions.push(routeEntry);
+    }
+
+    // Combine functions into a single handler with inline middleware
     const combinedMiddleware = [...middleware];
-    const finalHandler = handlers[handlers.length - 1];
+    const finalHandler: RouteHandler | undefined = functions[functions.length - 1];
 
     if (!finalHandler) {
       throw new Error('At least one handler is required');
     }
 
-    const inlineMiddleware = handlers.slice(0, -1);
-
-    // Add inline middleware (handlers before the last one)
-    for (const mw of inlineMiddleware) {
-      combinedMiddleware.push(mw);
+    // Inline middleware = every function before the last
+    for (let i = 0; i < functions.length - 1; i++) {
+      const fn = functions[i];
+      if (fn) combinedMiddleware.push(fn);
     }
 
     // Pre-compile executor at registration time (not per-request!)
     const executor = compileExecutor(finalHandler, combinedMiddleware);
 
-    const entry: HandlerEntry = {
+    const handlerEntry: HandlerEntry = {
       handler: finalHandler,
       middleware: combinedMiddleware,
       executor,
@@ -178,7 +253,7 @@ export class Router {
       );
     }
 
-    node.handlers.set(method, entry);
+    node.handlers.set(method, handlerEntry);
 
     // Populate static route hash map for O(1) lookup
     const hasParams = segments.some(
@@ -188,59 +263,79 @@ export class Router {
       this.hasParamRoutes = true;
     } else {
       const normalizedKey = this.opts.caseSensitive ? normalized : normalized.toLowerCase();
-      this.staticRoutes.set(`${method} ${normalizedKey}`, entry);
+      this.staticRoutes.set(`${method} ${normalizedKey}`, handlerEntry);
     }
+
+    // Record in the introspection registry (side structure — never touched by
+    // request dispatch). key is the canonical `${METHOD} ${pathPattern}`.
+    this.routeDefinitions.push({
+      key: `${method} ${normalized}`,
+      method,
+      path: normalized,
+      metadata: mergeContributions(contributions),
+    });
   }
 
   // ===========================================================================
   // HTTP Method Shortcuts
   // ===========================================================================
 
-  get(path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute('GET', path, handlers);
+  get(path: string, ...entries: RouteEntry[]): this {
+    this.addRoute('GET', path, entries);
     return this;
   }
 
-  post(path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute('POST', path, handlers);
+  post(path: string, ...entries: RouteEntry[]): this {
+    this.addRoute('POST', path, entries);
     return this;
   }
 
-  put(path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute('PUT', path, handlers);
+  put(path: string, ...entries: RouteEntry[]): this {
+    this.addRoute('PUT', path, entries);
     return this;
   }
 
-  delete(path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute('DELETE', path, handlers);
+  delete(path: string, ...entries: RouteEntry[]): this {
+    this.addRoute('DELETE', path, entries);
     return this;
   }
 
-  patch(path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute('PATCH', path, handlers);
+  patch(path: string, ...entries: RouteEntry[]): this {
+    this.addRoute('PATCH', path, entries);
     return this;
   }
 
-  head(path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute('HEAD', path, handlers);
+  head(path: string, ...entries: RouteEntry[]): this {
+    this.addRoute('HEAD', path, entries);
     return this;
   }
 
-  options(path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute('OPTIONS', path, handlers);
+  options(path: string, ...entries: RouteEntry[]): this {
+    this.addRoute('OPTIONS', path, entries);
     return this;
   }
 
-  all(path: string, ...handlers: RouteHandler[]): this {
+  all(path: string, ...entries: RouteEntry[]): this {
     for (const method of HTTP_METHODS) {
-      this.addRoute(method, path, handlers);
+      this.addRoute(method, path, entries);
     }
     return this;
   }
 
-  route(method: HttpMethod, path: string, ...handlers: RouteHandler[]): this {
-    this.addRoute(method, path, handlers);
+  route(method: HttpMethod, path: string, ...entries: RouteEntry[]): this {
+    this.addRoute(method, path, entries);
     return this;
+  }
+
+  /**
+   * Return every registered route as a read-only list of RouteDefinitions.
+   *
+   * Consumed by renderers (`@nextrush/openapi`, and future SDK/Postman/RPC
+   * generators). This is a doc-generation-time projection of the introspection
+   * registry — the request hot path never calls it.
+   */
+  getRoutes(): readonly RouteDefinition[] {
+    return this.routeDefinitions;
   }
 
   /**

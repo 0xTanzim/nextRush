@@ -8,7 +8,7 @@
 
 import { ValidationError } from '@nextrush/errors';
 import { mapIssues } from './issues.js';
-import type { InferOutput, StandardSchemaV1 } from './standard-schema.js';
+import type { InferOutput, StandardSchemaV1 } from '@nextrush/types';
 
 /**
  * Validate `value` against a Standard Schema and return the coerced output.

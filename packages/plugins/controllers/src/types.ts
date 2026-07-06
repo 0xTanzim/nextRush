@@ -6,7 +6,7 @@
 
 import type { ControllerDefinition } from '@nextrush/decorators';
 import type { ContainerInterface } from '@nextrush/di';
-import type { Middleware, RouteHandler } from '@nextrush/types';
+import type { MetadataContribution, Middleware, RouteHandler } from '@nextrush/types';
 import type { DiscoveryError } from './errors.js';
 
 /**
@@ -111,6 +111,14 @@ export interface BuiltRoute {
 
   /** Method name on controller */
   readonly methodName: string;
+
+  /**
+   * Route metadata contributed from decorators (@Controller tags, @Get/@Post
+   * description/deprecated). Consumed by the router's RouteDefinition so
+   * class-based routes are documented by renderers like @nextrush/openapi.
+   * Undefined when the route carries no documentation.
+   */
+  readonly metadata?: MetadataContribution;
 }
 
 /**

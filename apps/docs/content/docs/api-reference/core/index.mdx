@@ -36,7 +36,7 @@ flowchart LR
 | -------------------------------------------------- | ----------------------------------- | ---------- |
 | [`nextrush`](/docs/api-reference/core/nextrush)         | Meta package with all essentials    | Re-exports |
 | [`@nextrush/core`](/docs/api-reference/core/core)       | Application, middleware composition | ~500 LOC   |
-| [`@nextrush/router`](/docs/api-reference/core/router)   | Radix tree routing                  | ~600 LOC   |
+| [`@nextrush/router`](/docs/api-reference/core/router)   | Segment trie routing                | ~600 LOC   |
 | [`@nextrush/types`](/docs/api-reference/core/types)     | TypeScript type definitions         | ~400 LOC   |
 | [`@nextrush/errors`](/docs/api-reference/core/errors)   | HTTP error classes                  | ~300 LOC   |
 | [`@nextrush/runtime`](/docs/api-reference/core/runtime) | Runtime detection                   | ~400 LOC   |
@@ -138,7 +138,7 @@ app.use(async (ctx) => {
 
 `@nextrush/router` provides:
 
-- `Router` class — Radix tree router
+- `Router` class — Segment trie router
 - `createRouter()` — Factory function
 - Route parameters, wildcards, groups
 
@@ -197,7 +197,7 @@ if (isBun()) {
     Application class, middleware composition, plugin system.
   </Card>
   <Card title="@nextrush/router" href="/docs/api-reference/core/router">
-    Radix tree routing with O(k) performance.
+    Segment trie routing with O(k) performance.
   </Card>
   <Card title="@nextrush/types" href="/docs/api-reference/core/types">
     TypeScript type definitions.

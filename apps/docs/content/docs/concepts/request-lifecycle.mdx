@@ -192,7 +192,7 @@ Request enters →
 The router is a middleware in the stack. When it executes, it matches the request path against registered routes using a two-tier strategy:
 
 1. **Static routes** — O(1) hash map lookup (`"GET /users"` → handler)
-2. **Dynamic routes** — O(d) segment trie traversal, where d is the number of path segments
+2. **Dynamic routes** — O(k) segment trie traversal, where k is the number of path segments
 
 ```ts
 const router = createRouter();
@@ -306,7 +306,7 @@ throw new Error('Database connection failed');
 | Plugin hooks         | O(p)       | p = number of plugins with hooks |
 | Middleware execution | O(n)       | n = number of middleware         |
 | Static route match   | O(1)       | Hash map lookup                  |
-| Dynamic route match  | O(d)       | d = number of path segments      |
+| Dynamic route match  | O(k)       | k = number of path segments      |
 | JSON serialization   | O(s)       | s = response data size           |
 
 ## Next Steps

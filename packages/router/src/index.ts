@@ -13,7 +13,7 @@
  */
 
 // Router
-export { createRouter, Router } from './router';
+export { createRouter, endpoint, Router } from './router';
 
 // Radix tree internals (for advanced usage)
 export { createNode, NodeType, parseSegments } from './radix-tree';

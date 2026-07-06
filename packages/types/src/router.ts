@@ -9,6 +9,7 @@
 
 import type { Context, Middleware, RouteHandler } from './context';
 import type { HttpMethod } from './http';
+import type { RouteDefinition, RouteEntry } from './route-metadata';
 
 // ============================================================================
 // Route Definition Types
@@ -64,47 +65,47 @@ export interface Router {
   /**
    * Register a GET route
    */
-  get(path: string, ...handlers: RouteHandler[]): this;
+  get(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a POST route
    */
-  post(path: string, ...handlers: RouteHandler[]): this;
+  post(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a PUT route
    */
-  put(path: string, ...handlers: RouteHandler[]): this;
+  put(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a DELETE route
    */
-  delete(path: string, ...handlers: RouteHandler[]): this;
+  delete(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a PATCH route
    */
-  patch(path: string, ...handlers: RouteHandler[]): this;
+  patch(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a HEAD route
    */
-  head(path: string, ...handlers: RouteHandler[]): this;
+  head(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register an OPTIONS route
    */
-  options(path: string, ...handlers: RouteHandler[]): this;
+  options(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a route for any HTTP method
    */
-  all(path: string, ...handlers: RouteHandler[]): this;
+  all(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a route for specific method
    */
-  route(method: HttpMethod, path: string, ...handlers: RouteHandler[]): this;
+  route(method: HttpMethod, path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Mount router middleware
@@ -126,6 +127,13 @@ export interface Router {
    * Mount this on the application
    */
   routes(): Middleware;
+
+  /**
+   * Return every registered route as a read-only list of RouteDefinitions.
+   * Consumed by renderers (`@nextrush/openapi`, SDK/Postman generators).
+   * Doc-generation-time projection — never called on the request hot path.
+   */
+  getRoutes(): readonly RouteDefinition[];
 
   /**
    * Match a route

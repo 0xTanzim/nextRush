@@ -1,19 +1,22 @@
 /**
- * Standard Schema v1 interface — vendored (no runtime or type dependency).
+ * @nextrush/types - Standard Schema Contract
  *
  * Structural copy of the `@standard-schema/spec` v1 interface
- * (https://github.com/standard-schema/standard-schema, MIT licensed). It is
- * vendored as a type so `@nextrush/validation` stays fully dependency-free.
- * Because TypeScript is structural, any schema that implements Standard Schema
- * — Zod 3.24+, Valibot 1.0+, ArkType 2.0+, and others — satisfies this
- * interface without an adapter.
+ * (https://github.com/standard-schema/standard-schema, MIT licensed), vendored
+ * as a type so NextRush stays dependency-free. It lives in `@nextrush/types`
+ * (not in any single consumer) because it is now a shared contract: request
+ * validation, route metadata, and OpenAPI generation all reference it.
+ *
+ * Because TypeScript is structural, any schema implementing Standard Schema —
+ * Zod 3.24+, Valibot 1.0+, ArkType 2.0+, and others — satisfies this interface
+ * without an adapter.
  *
  * @packageDocumentation
  */
 
 /**
  * A schema that exposes the Standard Schema v1 contract on its `~standard`
- * property. This is the only surface `@nextrush/validation` depends on.
+ * property. This is the only surface NextRush depends on.
  */
 export interface StandardSchemaV1<Input = unknown, Output = Input> {
   readonly '~standard': StandardSchemaProps<Input, Output>;

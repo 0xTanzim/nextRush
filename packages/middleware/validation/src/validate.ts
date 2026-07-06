@@ -11,8 +11,9 @@
 
 import { ValidationError, type ValidationIssue } from '@nextrush/errors';
 import type { Context, Middleware, Next } from '@nextrush/types';
+import { ROUTE_METADATA, type MetadataContribution } from '@nextrush/types';
 import { runSchema } from './run-schema.js';
-import type { StandardSchemaV1 } from './standard-schema.js';
+import type { StandardSchemaV1 } from '@nextrush/types';
 import type { RequestSchemas, ValidationTarget } from './types.js';
 
 /**
@@ -29,7 +30,7 @@ import type { RequestSchemas, ValidationTarget } from './types.js';
 export function validate(arg: StandardSchemaV1 | RequestSchemas): Middleware {
   const schemas: RequestSchemas = '~standard' in arg ? { body: arg } : arg;
 
-  return async (ctx: Context, next: Next): Promise<void> => {
+  const middleware: Middleware = async (ctx: Context, next: Next): Promise<void> => {
     const issues: ValidationIssue[] = [];
     let anyFailed = false;
     let coercedBody: unknown;
@@ -65,6 +66,16 @@ export function validate(arg: StandardSchemaV1 | RequestSchemas): Middleware {
     }
     await next();
   };
+
+  // Contribute the request schemas to the route metadata system, read by
+  // @nextrush/router at registration (and thus by @nextrush/openapi). This is a
+  // non-enumerable, internal marker — validate()'s public API is unchanged.
+  Object.defineProperty(middleware, ROUTE_METADATA, {
+    value: { request: schemas } satisfies MetadataContribution,
+    enumerable: false,
+  });
+
+  return middleware;
 }
 
 type CheckResult = { ok: true; value: unknown } | { ok: false };

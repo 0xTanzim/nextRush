@@ -8,6 +8,7 @@
 import type {
   CanActivate,
   ControllerDefinition,
+  ControllerMetadata,
   Guard,
   GuardContext,
   MiddlewareRef,
@@ -22,7 +23,7 @@ import {
   isGuardClass,
 } from '@nextrush/decorators';
 import type { ContainerInterface } from '@nextrush/di';
-import type { Context, Middleware, RouteHandler } from '@nextrush/types';
+import type { Context, MetadataContribution, Middleware, RouteHandler } from '@nextrush/types';
 import 'reflect-metadata';
 import {
   ControllerResolutionError,
@@ -92,10 +93,41 @@ export function buildRoutes(
       middleware: combinedMiddleware,
       controller: target,
       methodName: String(route.methodName),
+      metadata: toRouteMetaContribution(controller, route),
     });
   }
 
   return routes;
+}
+
+/**
+ * Map decorator documentation to a route metadata contribution.
+ *
+ * Pulls `description`/`deprecated` from the route decorator and `tags` from the
+ * controller decorator. Returns `undefined` when the route carries no docs, so
+ * undocumented routes stay metadata-free rather than gaining empty entries.
+ */
+function toRouteMetaContribution(
+  controller: ControllerMetadata,
+  route: RouteMetadata
+): MetadataContribution | undefined {
+  const contribution: {
+    description?: string;
+    deprecated?: boolean;
+    tags?: string[];
+  } = {};
+
+  if (route.description) {
+    contribution.description = route.description;
+  }
+  if (route.deprecated) {
+    contribution.deprecated = true;
+  }
+  if (controller.tags && controller.tags.length > 0) {
+    contribution.tags = [...controller.tags];
+  }
+
+  return Object.keys(contribution).length > 0 ? contribution : undefined;
 }
 
 /**

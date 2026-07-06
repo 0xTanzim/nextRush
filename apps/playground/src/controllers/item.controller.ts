@@ -38,7 +38,7 @@ const ClientIP = createCustomParamDecorator((ctx) => ctx.get('x-forwarded-for') 
  * - createCustomParamDecorator (sync + async)
  * - Parameter transform
  */
-@Controller('/items')
+@Controller({ path: '/items', tags: ['items'] })
 export class ItemController {
   constructor(
     private itemRepo: ItemRepository,
@@ -64,7 +64,7 @@ export class ItemController {
    * GET /api/items/:id
    * Tests: @Param with transform, async custom param decorator
    */
-  @Get('/:id')
+  @Get('/:id', { description: 'Get an item by id' })
   findById(@Param('id', { transform: Number }) id: number, @RequestTimestamp timestamp: string) {
     const item = this.itemRepo.findById(id);
     if (!item) {

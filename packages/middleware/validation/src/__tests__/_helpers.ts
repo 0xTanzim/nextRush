@@ -8,7 +8,7 @@
 
 import { ValidationError } from '@nextrush/errors';
 import type { Context, Next } from '@nextrush/types';
-import type { StandardSchemaResult, StandardSchemaV1 } from '../standard-schema.js';
+import type { StandardSchemaResult, StandardSchemaV1 } from '@nextrush/types';
 
 /** Build a hand-written Standard Schema from a validate() implementation. */
 export function fake<T>(

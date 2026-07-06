@@ -1,8 +1,9 @@
 import { bodyParser } from '@nextrush/body-parser';
 import { controllersPlugin } from '@nextrush/controllers';
 import { errorHandler } from '@nextrush/errors';
+import { openapi } from '@nextrush/openapi';
 import { validate } from '@nextrush/validation';
-import { createApp, createRouter, serve } from 'nextrush';
+import { createApp, createRouter, endpoint, serve } from 'nextrush';
 import 'reflect-metadata';
 import { z } from 'zod';
 
@@ -48,10 +49,17 @@ function main() {
     age: z.coerce.number().int().min(0).optional(),
   });
 
-  router.post('/validate/user', validate(CreateUser), (ctx) => {
-    ctx.status = 201;
-    ctx.json({ received: ctx.body });
-  });
+  router.post('/validate/user', validate(CreateUser),
+    endpoint({
+      summary: 'Create a user',
+      tags: ['users'],
+      responses: { 201: CreateUser },
+    }),
+    (ctx) => {
+      ctx.status = 201;
+      ctx.json({ received: ctx.body });
+    }
+  );
 
   // Advanced path: query-only — validated but intentionally left unmodified.
   const SearchQuery = z.object({
@@ -76,6 +84,17 @@ function main() {
   );
 
   app.route('/', router);
+
+  // ──────────────────────────────────────
+  // OpenAPI — zero-config, reads route metadata (validate() + endpoint())
+  // GET /openapi.json + GET /docs
+  // ──────────────────────────────────────
+  app.plugin(
+    openapi({
+      router,
+      info: { title: 'NextRush Playground API', version: '1.0.0' },
+    })
+  );
 
   // ──────────────────────────────────────
   // Class-Based Controllers (DI + Decorators)

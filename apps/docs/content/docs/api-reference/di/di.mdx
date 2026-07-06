@@ -3,34 +3,9 @@ title: '@nextrush/di'
 description: 'Constructor injection, scoped lifecycles, and circular dependency detection for NextRush applications.'
 ---
 
-## The Real Problem
+## Overview
 
-As applications grow, object creation becomes tangled. A service depends on a repository, which depends on a database connection, which depends on configuration. Wiring these by hand means every constructor call carries the full dependency chain. Change one dependency and every call site breaks. Testing requires manually constructing the entire tree with mocks.
-
-Dependency injection solves this by inverting control: you declare what a class needs, and the container builds it.
-
-## Why NextRush Handles It This Way
-
-NextRush wraps [tsyringe](https://github.com/microsoft/tsyringe) with three additions:
-
-1. **Enhanced error messages** — resolution failures include the full dependency chain, the missing token, and concrete fix suggestions (`@Service()`, `@Repository()`, `@Config()` hints, import order checks).
-2. **Circular dependency detection** — O(1) Set-based detection at resolution time with cycle visualization, including tsyringe-internal chain detection.
-3. **Semantic decorators** — `@Service()` and `@Repository()` carry metadata that the `@nextrush/controllers` plugin uses for auto-discovery.
-4. **Optional dependencies** — `@Optional()` decorator for graceful handling of unregistered services.
-
-The container itself stays thin. All heavy lifting (constructor analysis, singleton caching, token resolution) is delegated to tsyringe.
-
-## Mental Model
-
-```mermaid
-graph LR
-  Decorator["@Service() / @Repository()"] --> Registry["tsyringe registry"]
-  Registry --> Container["container.resolve()"]
-  Container --> Tree["Build dependency tree"]
-  Tree --> Instance["Return instance"]
-```
-
-Decorators register classes. `container.resolve()` walks the dependency tree, instantiates bottom-up, and caches singletons.
+`@nextrush/di` wraps [tsyringe](https://github.com/microsoft/tsyringe) with enhanced error messages, O(1) circular-dependency detection, semantic decorators (`@Service`, `@Repository`, `@Config`), and optional dependencies. This page is the API reference — signatures, options, and behavior. For the problem DI solves, the mental model, and when to reach for it, see [DI & Decorators concepts](/docs/concepts/di-decorators).
 
 ---
 

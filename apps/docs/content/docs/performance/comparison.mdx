@@ -22,7 +22,7 @@ How NextRush compares to popular Node.js frameworks — not only speed, but how 
 | Built-in DI      | Yes (`@nextrush/di`)        | No                     | No                   | No                    | No                  |
 | Decorators       | Yes (`@Controller`, `@Get`) | No                     | Via plugins          | No                    | No                  |
 | Plugin system    | `Plugin` interface          | `app.use()`            | Encapsulated plugins | Middleware only       | `app.use()`         |
-| Routing          | Radix tree (O(k))           | Linear scan (O(n))     | Radix tree (O(k))    | Radix tree (O(k))     | Via koa-router      |
+| Routing          | Segment trie (O(k))         | Linear scan (O(n))     | Radix tree (O(k))    | Radix tree (O(k))     | Via koa-router      |
 
 ---
 

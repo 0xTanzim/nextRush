@@ -7,7 +7,7 @@
  */
 
 import type { ValidationIssue } from '@nextrush/errors';
-import type { StandardSchemaIssue } from './standard-schema.js';
+import type { StandardSchemaIssue } from '@nextrush/types';
 
 /**
  * Join a Standard Schema issue path onto a target prefix, producing a stable,

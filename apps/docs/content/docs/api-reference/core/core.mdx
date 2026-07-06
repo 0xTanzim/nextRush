@@ -106,10 +106,10 @@ const app = createApp({
 ### Environment Mode
 
 ```typescript
-// Development: verbose errors, error messages logged via app.logger
+// Development: request errors logged server-side via app.logger
 const app = createApp({ env: 'development' });
 
-// Production: generic error messages, no error details exposed
+// Production: request errors not logged; responses never leak details
 const app = createApp({ env: 'production' });
 
 // Test: for automated testing
@@ -230,54 +230,7 @@ app.use(async (ctx, next) => {
 
 ### Execution Order
 
-Middleware executes in registration order using the **onion model**:
-
-<Mermaid chart="
-sequenceDiagram
-    participant R as Request
-    participant M1 as Middleware 1
-    participant M2 as Middleware 2
-    participant H as Handler
-
-    R->>M1: Enter
-    M1->>M1: Before next()
-    M1->>M2: await next()
-    M2->>M2: Before next()
-    M2->>H: await next()
-    H->>H: Handle request
-    H-->>M2: Return
-    M2->>M2: After next()
-    M2-->>M1: Return
-    M1->>M1: After next()
-    M1-->>R: Response
-
-"/>
-
-```typescript
-app.use(async (ctx) => {
-  console.log('1: before');
-  await ctx.next();
-  console.log('1: after');
-});
-
-app.use(async (ctx) => {
-  console.log('2: before');
-  await ctx.next();
-  console.log('2: after');
-});
-
-app.use((ctx) => {
-  console.log('3: handler');
-  ctx.json({ ok: true });
-});
-
-// Output:
-// 1: before
-// 2: before
-// 3: handler
-// 2: after
-// 1: after
-```
+Middleware runs in registration order following the onion model — code before `ctx.next()` runs on the way in, code after it runs on the way out. See [Middleware → the onion model](/docs/concepts/middleware) for the full walkthrough and diagram.
 
 ## Error Handling
 
@@ -309,12 +262,14 @@ app.setErrorHandler((error, ctx) => {
 
 ### Default Error Behavior
 
-Without a custom handler:
+Without a custom handler, the built-in handler decides what the client sees from each error's `expose` flag — **not** from the environment. `HttpError`/`NextRushError` set `expose: true` for 4xx and `false` for 5xx; a plain `Error` never exposes.
 
-| Environment   | Error Message           | Stack Trace | Console Log |
-| ------------- | ----------------------- | ----------- | ----------- |
-| `development` | Full message            | Hidden      | Logged      |
-| `production`  | "Internal Server Error" | Hidden      | Hidden      |
+| Error kind           | Client message            | Stack in response | Server-side log        |
+| -------------------- | ------------------------- | ----------------- | ---------------------- |
+| 4xx (`expose: true`) | The error's message       | Never             | `development` / `test` |
+| 5xx / plain `Error`  | `"Internal Server Error"` | Never             | `development` / `test` |
+
+The client response is identical in every environment — a 500 never leaks its message, even in development. The only environment-dependent behavior is the server-side log: the default handler logs via `app.logger` in `development` and `test`, and stays silent in `production`. To include a stack trace or the raw message in responses, set a custom handler (above). See [Application → error handling](/docs/concepts/application) for the rationale.
 
 ## Plugin System
 
@@ -574,7 +529,7 @@ Flattens nested middleware arrays into a single array.
 
 <Cards>
   <Card title="@nextrush/router" href="/docs/api-reference/core/router">
-    Radix tree routing.
+    Segment trie routing.
   </Card>
   <Card title="@nextrush/types" href="/docs/api-reference/core/types">
     TypeScript type definitions.

@@ -3,14 +3,16 @@ title: Framework Overview
 description: NextRush at a glance — architecture, concepts, packages, and how requests move through the stack.
 ---
 
-import { DocPageOutline, DocPrerequisiteGrid, Mermaid } from '@/components/mdx';
+import { DocPrerequisiteGrid, Mermaid } from '@/components/mdx';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
 <DocHero eyebrow="Framework overview">
 
-**NextRush** is a small, composable HTTP stack: one **`Context`** per request, Koa-style **middleware**,
-a fast **router**, optional **controllers + DI**, and **adapters** for Node.js, Bun, Deno, and Edge.
-Core packages stay dependency-free; you add `@nextrush/*` middleware and plugins only when you need them.
+NextRush is a small, composable HTTP stack. Each request gets a single `Context` object, and you
+wrap Koa-style middleware around a fast router. Controllers and DI are there when an app grows into
+needing them, not before. The core has zero runtime dependencies. You pull in `@nextrush/*`
+middleware and plugins only when a real need shows up, and the same application code runs on Node.js,
+Bun, Deno, and Edge.
 
 </DocHero>
 
@@ -21,10 +23,10 @@ Core packages stay dependency-free; you add `@nextrush/*` middleware and plugins
 </Callout>
 
 <DocStatStrip>
-  <DocStat label="Benchmarks" value="Reproducible" hint="Lab setup — your numbers will differ" />
   <DocStat label="Core size" value="< 3k" hint="Lines of code" />
-  <DocStat label="Packages" value="30" hint="Monorepo" />
+  <DocStat label="Packages" value="33" hint="Monorepo" />
   <DocStat label="Runtimes" value="4" hint="Node, Bun, Deno, Edge" />
+  <DocStat label="Benchmarks" value="Reproducible" hint="Lab setup — your numbers will differ" />
 </DocStatStrip>
 
 ## Pick a path
@@ -57,70 +59,6 @@ Core packages stay dependency-free; you add `@nextrush/*` middleware and plugins
 />
 
 For editor and tooling (lint, format), see [Installation](/docs/getting-started/installation).
-
-## What this page covers
-
-This is the **broadest** getting-started doc: runnable hello world, feature highlights, request lifecycle,
-concept links, package diagram, both programming styles, performance and runtime tables, and migration hints.
-Use the list below to jump to a section.
-
-<DocPageOutline
-  items={[
-    {
-      href: '#hello-world-in-under-a-minute',
-      title: 'Hello World',
-      description: 'Copy a minimal server and run it',
-    },
-    {
-      href: '#why-nextrush',
-      title: 'Why NextRush',
-      description: 'Design goals at a glance',
-    },
-    {
-      href: '#how-a-request-flows',
-      title: 'How a request flows',
-      description: 'Adapter → middleware → router',
-    },
-    {
-      href: '#core-concepts',
-      title: 'Core concepts',
-      description: 'Links to deep concept pages',
-    },
-    {
-      href: '#package-architecture',
-      title: 'Package architecture',
-      description: 'Monorepo layers and the meta-package',
-    },
-    {
-      href: '#two-programming-styles',
-      title: 'Two programming styles',
-      description: 'Functional routes vs class-based controllers',
-    },
-    {
-      href: '#performance-targets',
-      title: 'Performance targets',
-      description: 'Design targets and link to full benchmarks',
-    },
-    {
-      href: '#runtime-support',
-      title: 'Runtime support',
-      description: 'Node, Bun, Deno, Edge adapters',
-    },
-    {
-      href: '#coming-from-another-stack',
-      title: 'Coming from another stack?',
-      description: 'Express and Fastify compared',
-    },
-  ]}
-/>
-
-## Errors, testing, and deployment
-
-Production APIs need clear failures and checks — not only routing:
-
-- **HTTP errors** — `HttpError` hierarchy and handlers: [Errors (API)](/docs/api-reference/core/errors) · [Error handling (guide)](/docs/guides/error-handling)
-- **Tests** — Vitest patterns for apps and middleware: [Testing](/docs/guides/testing)
-- **Ship** — build, env, hosting: [Deployment](/docs/guides/deployment)
 
 ## Hello World in under a minute
 
@@ -170,7 +108,7 @@ await listen(app, 8080);
   <HighlightItem
     icon="puzzle"
     title="Modular"
-    description="30 packages — cors, helmet, body-parser, controllers, websocket, and more as separate installs."
+    description="33 packages — cors, helmet, body-parser, controllers, websocket, and more as separate installs."
   />
 </HighlightGrid>
 
@@ -275,7 +213,7 @@ flowchart LR
 
 ### Routing
 
-Segment trie with O(d) depth lookup; static routes use fast paths. Params, wildcards, and nested routers supported.
+Segment trie with O(k) lookup, where k is the number of path segments; static routes use fast paths. Params, wildcards, and nested routers supported.
 
 ```typescript
 import { createRouter } from 'nextrush';
@@ -368,7 +306,7 @@ await listen(app, 8080);
 
 ## Package architecture
 
-**30 packages** in the monorepo. Lower layers never import from higher layers:
+**33 packages** in the monorepo. Lower layers never import from higher layers:
 
 <Mermaid
   chart={`
@@ -539,7 +477,7 @@ The `nextrush` package ships the Node adapter. Install other adapters when you t
 ### Express
 
 - **Middleware**: `(req, res, next)` vs one **`ctx`** and `ctx.next()`
-- **Routing**: linear scan vs segment trie (O(depth))
+- **Routing**: linear scan vs segment trie (O(k) by path segments)
 - **Types**: `@types/express` vs first-party strict types
 
 ### Fastify
@@ -566,6 +504,14 @@ Optional layers:
 | **Plugins**    | `controllers`, `events`, `logger`, `static`, `template`, `websocket`                            |
 | **Adapters**   | `adapter-bun`, `adapter-deno`, `adapter-edge`                                                   |
 | **DI**         | `di`, `decorators`                                                                              |
+
+## Production readiness
+
+Routing is only part of a real API. You also need clear failures, tests, and a deploy path:
+
+- Errors: the `HttpError` hierarchy and handlers ([Errors API](/docs/api-reference/core/errors), [Error handling guide](/docs/guides/error-handling))
+- Tests: Vitest patterns for apps and middleware ([Testing](/docs/guides/testing))
+- Deploy: build, env, and hosting ([Deployment](/docs/guides/deployment))
 
 ## Next steps
 

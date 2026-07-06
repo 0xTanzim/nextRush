@@ -6,7 +6,7 @@
  * `validate({ body, query, params })`; they never name these types.
  */
 
-import type { StandardSchemaV1 } from './standard-schema.js';
+import type { StandardSchemaV1 } from '@nextrush/types';
 
 /** Request part a schema can validate. */
 export type ValidationTarget = 'body' | 'query' | 'params';

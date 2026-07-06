@@ -157,7 +157,7 @@ export default function HomePage() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-fd-muted-foreground hover:text-fd-foreground transition-colors text-sm"
             >
-              View all 32 packages on npm
+              View all 30 packages on npm
               <ArrowRight className="size-4" aria-hidden="true" />
             </a>
           </div>

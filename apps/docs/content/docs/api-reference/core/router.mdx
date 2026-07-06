@@ -1,9 +1,9 @@
 ---
 title: '@nextrush/router'
-description: Radix tree router with O(k) route matching
+description: Segment trie router with O(k) route matching
 ---
 
-A radix tree router with O(k) route matching, where k is path length—not route count.
+A segment trie router with O(k) route matching, where k is the number of path segments—not route count.
 
 <PackageInstall packages={['@nextrush/router']} />
 
@@ -12,19 +12,19 @@ A radix tree router with O(k) route matching, where k is path length—not route
   only when using non-Node.js runtimes or building custom tooling.
 </Callout>
 
-## Why Radix Tree?
+## Why a Segment Trie?
 
 Traditional routers iterate through all registered routes until one matches. With 500 routes, every request scans 500 patterns.
 
-NextRush's radix tree router:
+NextRush's segment trie router:
 
-- Matches routes in **O(k)** time where k = path length
+- Matches routes in **O(k)** time where k = number of path segments
 - Performance is **constant** regardless of route count
 - No route ordering bugs—most specific route always wins
 
 <Mermaid chart="
 graph TD
-    subgraph Radix Tree
+    subgraph Segment Trie
         root[/] --> users[users]
         root --> products[products]
         users --> userId[:id]
@@ -46,7 +46,7 @@ graph TD
 // Router
 import { Router, createRouter } from '@nextrush/router';
 
-// Advanced (radix tree internals)
+// Advanced (segment trie internals)
 import { createNode, NodeType, parseSegments } from '@nextrush/router';
 import type { HandlerEntry, ParsedSegment, RadixNode } from '@nextrush/router';
 
@@ -441,7 +441,7 @@ Consistent performance regardless of route count:
 | 1,000  | ~0.02ms     |
 | 10,000 | ~0.02ms     |
 
-**O(k) complexity** where k = path length (typically 10-50 characters).
+**O(k) complexity** where k = number of path segments (typically 1–5 segments).
 
 ## Common Patterns
 
