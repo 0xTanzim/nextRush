@@ -20,9 +20,12 @@
     "@nextrush/controllers": "workspace:*",
     "@nextrush/decorators": "workspace:*",
     "@nextrush/di": "workspace:*",
+    "@nextrush/errors": "workspace:*",
     "@nextrush/runtime": "workspace:*",
+    "@nextrush/validation": "workspace:*",
     "nextrush": "workspace:*",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@nextrush/dev": "workspace:*",

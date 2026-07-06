@@ -6,6 +6,7 @@ import type { Context } from '@nextrush/types';
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestError, InternalServerError, NotFoundError } from '../http-errors';
 import { catchAsync, errorHandler, notFoundHandler } from '../middleware';
+import { ValidationError } from '../validation';
 
 function createMockContext(): Context {
   const ctx = {
@@ -174,6 +175,42 @@ describe('errorHandler', () => {
 
       expect(transform).toHaveBeenCalled();
       expect(ctx.json).toHaveBeenCalledWith({ customError: true });
+    });
+  });
+
+  describe('ValidationError serialization (regression)', () => {
+    it('includes `issues` in the response body for a ValidationError', async () => {
+      const handler = errorHandler();
+      const ctx = createMockContext();
+
+      await handler(ctx, async () => {
+        throw new ValidationError([
+          { path: 'body.email', message: 'Invalid email address' },
+          { path: 'body.name', message: 'Name is required' },
+        ]);
+      });
+
+      const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(jsonCall.issues).toEqual([
+        { path: 'body.email', message: 'Invalid email address' },
+        { path: 'body.name', message: 'Name is required' },
+      ]);
+      expect(jsonCall.code).toBe('VALIDATION_ERROR');
+      expect(ctx.status).toBe(400);
+    });
+
+    it('never leaks the raw `received` value for a ValidationError', async () => {
+      const handler = errorHandler();
+      const ctx = createMockContext();
+
+      await handler(ctx, async () => {
+        throw new ValidationError([
+          { path: 'body.password', message: 'Invalid', received: 'super-secret-value' },
+        ]);
+      });
+
+      const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(JSON.stringify(jsonCall)).not.toContain('super-secret-value');
     });
   });
 

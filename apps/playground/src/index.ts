@@ -1,12 +1,19 @@
 import { bodyParser } from '@nextrush/body-parser';
 import { controllersPlugin } from '@nextrush/controllers';
+import { errorHandler } from '@nextrush/errors';
+import { validate } from '@nextrush/validation';
 import { createApp, createRouter, serve } from 'nextrush';
 import 'reflect-metadata';
+import { z } from 'zod';
 
 function main() {
   const app = createApp();
   const router = createRouter();
   const port = Number(process.env.PORT ?? 8080);
+
+  // Error handler must be the outermost middleware so it can catch anything
+  // thrown downstream — including @nextrush/validation's ValidationError.
+  app.use(errorHandler({ includeStack: process.env.NODE_ENV !== 'production' }));
 
   // Body parser middleware (required for @Body decorator)
   app.use(bodyParser());
@@ -29,6 +36,44 @@ function main() {
       },
     });
   });
+
+  // ──────────────────────────────────────
+  // @nextrush/validation — real end-to-end proof
+  // ──────────────────────────────────────
+
+  // Golden path: validate(schema) — validates + overwrites ctx.body in place.
+  const CreateUser = z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    age: z.coerce.number().int().min(0).optional(),
+  });
+
+  router.post('/validate/user', validate(CreateUser), (ctx) => {
+    ctx.status = 201;
+    ctx.json({ received: ctx.body });
+  });
+
+  // Advanced path: query-only — validated but intentionally left unmodified.
+  const SearchQuery = z.object({
+    q: z.string().min(1),
+    sort: z.enum(['asc', 'desc']).default('asc'),
+  });
+
+  router.get('/validate/search', validate({ query: SearchQuery }), (ctx) => {
+    ctx.json({ q: ctx.query.q, sort: ctx.query.sort });
+  });
+
+  // Advanced path: params + query together.
+  const UserIdParam = z.object({ id: z.string().uuid() });
+  const PageQuery = z.object({ page: z.coerce.number().int().min(1).optional() });
+
+  router.get(
+    '/validate/users/:id',
+    validate({ params: UserIdParam, query: PageQuery }),
+    (ctx) => {
+      ctx.json({ id: ctx.params.id, page: ctx.query.page });
+    }
+  );
 
   app.route('/', router);
 
@@ -57,6 +102,10 @@ function main() {
       console.log('  Functional:');
       console.log('    GET  /hello');
       console.log('    GET  /echo');
+      console.log('  Validation (@nextrush/validation):');
+      console.log('    POST /validate/user       (body schema)');
+      console.log('    GET  /validate/search     (query schema)');
+      console.log('    GET  /validate/users/:id  (params + query schemas)');
       console.log('  Controllers (class-based):');
       console.log('    GET  /api/health');
       console.log('    GET  /api/health/ready');

@@ -116,6 +116,12 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
 
       if (transform) {
         body = transform(err, ctx);
+      } else if (err instanceof NextRushError) {
+        // Delegate to the error's own toJSON() — this is the single source of
+        // truth for what a given error type serializes to (e.g. ValidationError
+        // adds `issues` while stripping `received`). Duplicating that shape here
+        // would silently drift out of sync with subclass overrides.
+        body = err.toJSON();
       } else {
         body = {
           error: expose ? err.name : getHttpStatusMessage(status),
@@ -127,10 +133,10 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
         if (expose && details) {
           body.details = details;
         }
+      }
 
-        if (includeStack && err.stack) {
-          body.stack = err.stack.split('\n').map((line) => line.trim());
-        }
+      if (includeStack && err.stack) {
+        body.stack = err.stack.split('\n').map((line) => line.trim());
       }
 
       ctx.json(body);
