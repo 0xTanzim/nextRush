@@ -294,7 +294,7 @@ export class UserController {
 }
 
 // With version prefix
-@Controller({ prefix: '/users', version: 'v2' })
+@Controller({ path: '/users', version: 'v2' })
 export class UserControllerV2 {
   // Routes prefixed with /v2/users
 }

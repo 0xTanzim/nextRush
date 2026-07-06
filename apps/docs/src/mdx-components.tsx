@@ -14,7 +14,10 @@ import {
     HighlightGrid,
     HighlightItem,
     Mermaid,
+    PackageCard,
+    PackageGrid,
     PackageInstall,
+    PackageSection,
     TypeTable,
 } from '@/components/mdx';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
@@ -34,6 +37,11 @@ const customComponents = {
 
   // Package installation with multiple package manager tabs
   PackageInstall,
+
+  // Package grid with category sections
+  PackageCard,
+  PackageGrid,
+  PackageSection,
 
   // Feature showcase components
   Feature,

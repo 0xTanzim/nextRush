@@ -49,7 +49,14 @@ The CLI walks you through project name, style, middleware preset, and runtime ta
 Pass flags to skip the prompts:
 
 ```bash
+# Node.js
 pnpm create nextrush my-api --style functional --middleware api --runtime node
+
+# Bun
+pnpm create nextrush my-bun-api --style functional --runtime bun --middleware full
+
+# Deno
+pnpm create nextrush my-deno-api --style class-based --runtime deno --middleware api
 ```
 
 ## Options

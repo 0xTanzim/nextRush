@@ -1,5 +1,6 @@
 {
   "title": "Examples",
+  "description": "Complete, runnable example applications built with NextRush.",
   "pages": [
     "index",
     "hello-world",

@@ -21,4 +21,5 @@ export type {
 export { Feature, FeatureGrid } from './feature-grid';
 export { Mermaid } from './mermaid';
 export { PackageInstall } from './package-install';
+export { PackageCard, PackageGrid, PackageSection } from './package-grid';
 export { TypeTable } from './type-table';

@@ -1,6 +1,6 @@
 {
   "title": "Guides",
-  "description": "Step-by-step tutorials for common patterns and use cases",
+  "description": "Task-oriented walkthroughs for routing, middleware, validation, testing, and more",
   "pages": [
     "index",
     "rest-api",

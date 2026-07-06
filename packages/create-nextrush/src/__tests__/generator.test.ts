@@ -355,8 +355,8 @@ describe('generateProject', () => {
     it('bun runtime scripts use bun tooling', () => {
       const files = generateProject(createOptions({ runtime: 'bun' }));
       const pkg = JSON.parse(files.get('package.json')!);
-      expect(pkg.scripts.dev).toBe('nextrush dev');
-      expect(pkg.scripts.build).toBe('nextrush build');
+      expect(pkg.scripts.dev).toBe('bun nextrush dev');
+      expect(pkg.scripts.build).toBe('bun nextrush build');
       expect(pkg.scripts.start).toBe('bun dist/index.js');
     });
 

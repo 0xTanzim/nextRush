@@ -245,7 +245,7 @@ When a path exists but the method has no handler, the response includes the `All
 
 **Forgetting to mount routes** — defining routes without calling `app.route()` or `app.use(router.routes())` means no requests reach the router.
 
-**Wildcard not at end** — `router.get('/*/end', handler)` does not work. Wildcards must be the final segment.
+**Wildcard not at end** — `router.get('/*/end', handler)` does not throw. The parser stops at the wildcard and silently drops everything after it, registering the route as `/*`. Always put wildcards as the final segment.
 
 **Double-prefixing** — using `createRouter({ prefix: '/api' })` and then `app.route('/api', router)` causes paths like `/api/api/users`.
 

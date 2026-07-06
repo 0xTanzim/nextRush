@@ -126,6 +126,32 @@ app.use(security);
 
 `compose()` validates its input — it throws a `TypeError` if the argument is not an array or any element is not a function. The middleware array is snapshot at compose time, so later mutations to the original array have no effect.
 
+## Configuration
+
+`compose()` accepts a second `options` argument:
+
+```typescript
+import { compose, type ComposeOptions } from '@nextrush/core';
+
+const options: ComposeOptions = { warnDoubleResponse: true };
+const pipeline = compose([cors(), helmet()], options);
+```
+
+<TypeTable
+  title="ComposeOptions"
+  types={{
+    warnDoubleResponse: {
+      type: 'boolean',
+      description:
+        'Log a console.warn() when a middleware calls next() after the response was already committed (ctx.responded is true)',
+      default: "process.env.NODE_ENV !== 'production'",
+      optional: true,
+    },
+  }}
+/>
+
+`app.use()` does not expose this option directly — it is only configurable when calling `compose()` directly, since `Application.callback()` composes the middleware stack internally with defaults.
+
 ### Early Termination
 
 Omit the `next()` call to stop the pipeline:
@@ -170,6 +196,7 @@ app.use(async (ctx, next) => {
 - **`ctx.next()` wiring**: The `compose()` function automatically wires `ctx.next()` via an internal `setNext()` call. You do not need to configure this.
 - **Middleware isolation**: Each request gets its own dispatch index. Middleware from one request cannot interfere with another.
 - **Double-next detection**: Calling `next()` more than once in a single middleware rejects with `'next() called multiple times'`.
+- **Double-response warning**: When `warnDoubleResponse` is enabled (the default outside production), calling `next()` after `ctx.responded` is already `true` logs a `console.warn()` identifying the middleware index, without throwing or altering the response.
 
 ## Error and Failure Behavior
 

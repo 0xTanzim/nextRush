@@ -85,28 +85,7 @@ Think of Context as a **request envelope** that travels through your middleware 
 
 ## Request Properties
 
-<TypeTable
-  title="Request Properties Summary"
-  types={{
-    method: { type: 'HttpMethod', description: 'HTTP request method (GET, POST, etc.)' },
-    path: { type: 'string', description: 'Request path without query string' },
-    url: { type: 'string', description: 'Full URL including query string' },
-    params: { type: 'Record<string, string>', description: 'Route parameters from the router' },
-    query: {
-      type: 'Record<string, string | string[] | undefined>',
-      description: 'Parsed query string parameters',
-    },
-    headers: {
-      type: 'Record<string, string | string[] | undefined>',
-      description: 'Request headers (lowercased keys in Node.js)',
-    },
-    body: { type: 'unknown', description: 'Request body (requires body parser middleware)' },
-    ip: {
-      type: 'string',
-      description: 'Client IP address (respects X-Forwarded-For when proxy: true)',
-    },
-  }}
-/>
+Request properties are read-only. See [Quick Reference](#quick-reference) for the full property table.
 
 <details>
 <summary>Detailed request property examples</summary>
@@ -194,32 +173,7 @@ The `body` property deserves special attention — it is not available by defaul
 
 ## Response Methods
 
-<TypeTable
-  title="Response Methods Summary"
-  types={{
-    'json(data)': {
-      type: '(data: unknown) => void',
-      description: 'Send JSON response with Content-Type: application/json',
-    },
-    'send(data)': {
-      type: '(data: unknown) => void',
-      description: 'Send string, Buffer, stream, or object response',
-    },
-    'html(content)': {
-      type: '(content: string) => void',
-      description: 'Send HTML response with Content-Type: text/html',
-    },
-    'redirect(url, status?)': {
-      type: '(url: string, status?: number) => void',
-      description: 'Redirect to URL (default: 302)',
-    },
-    'set(field, value)': {
-      type: '(field: string, value: string | number | string[]) => void',
-      description: 'Set response header',
-    },
-    status: { type: 'number', description: 'Get or set response status code (default: 200)' },
-  }}
-/>
+Response methods are documented in full in [Quick Reference](#quick-reference).
 
 <details>
 <summary>Detailed response method examples</summary>
@@ -464,6 +418,40 @@ app.use(async (ctx) => {
   await ctx.next();
 });
 ```
+
+## Configuration
+
+Context itself has no configuration surface — its behavior is fixed by the adapter that creates it. The one adapter-level setting that changes Context behavior is `proxy`:
+
+```typescript
+const app = createApp({ proxy: true });
+```
+
+<TypeTable
+  title="Application Options Affecting Context"
+  types={{
+    proxy: {
+      type: 'boolean',
+      description: 'When true, ctx.ip trusts X-Forwarded-For / X-Real-IP headers from the incoming request',
+      default: 'false',
+    },
+  }}
+/>
+
+With `proxy: false` (the default), `ctx.ip` is read directly from the underlying socket/connection and forwarding headers are ignored. There is no per-request or per-route override — `proxy` is set once when the app is created.
+
+## Performance Notes
+
+- **Query parsing runs once per request.** `ctx.query` is parsed from the URL when the context is created, not lazily on first access.
+- **`ctx.get()` is case-insensitive by design** — it does a lookup independent of header casing, which costs slightly more than direct `ctx.headers[key]` access. Prefer `ctx.headers` in hot paths where casing is already known.
+- **`ctx.send()` performs type detection** on every call (string vs. Buffer vs. stream vs. object) to choose the right `Content-Type` and serialization path. Use `ctx.json()` or `ctx.html()` directly when the response type is known ahead of time to skip that dispatch.
+- **No deep cloning.** Context properties (`params`, `query`, `state`) are plain objects passed by reference — mutating them mutates the live request state for the remainder of the pipeline.
+
+## Security Considerations
+
+- **Never trust `ctx.headers` or `ctx.body` without validation.** Both come directly from the client. Validate shape and type before use — a missing body-parser or malformed input surfaces as `undefined` or an unexpected shape, not a validation error.
+- **`ctx.raw` bypasses all cross-runtime guarantees.** It exposes the platform-specific request/response object (`IncomingMessage`/`ServerResponse` on Node.js, `Request`/`Response` on Bun/Deno/Edge). Code that reads `ctx.raw` only works on the runtime it was written for.
+- **`ctx.ip` requires explicit proxy configuration.** With `proxy: false` (default), forwarding headers are ignored and `ctx.ip` reflects the real socket peer. Setting `proxy: true` trusts `X-Forwarded-For`/`X-Real-IP` — only enable this behind a proxy you control, since these headers are otherwise attacker-controlled and easy to spoof.
 
 ## Common Mistakes
 

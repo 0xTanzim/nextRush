@@ -41,6 +41,7 @@ With default options, the plugin:
 
 ```ts
 import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-node';
 import { createWebSocket } from '@nextrush/websocket';
 
 const app = createApp();
@@ -58,9 +59,8 @@ wss.on('/chat', (conn) => {
 
 app.use(wss.upgrade());
 
-const server = app.listen(8080, () => {
-  wss.attach(server);
-});
+const server = await listen(app, 8080);
+wss.attach(server);
 ```
 
 Three steps: create the WebSocket server, register route handlers, then attach to the HTTP server after it starts listening.

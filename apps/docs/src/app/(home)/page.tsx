@@ -96,19 +96,15 @@ export default function HomePage() {
             <Link
               href="/docs/examples"
               className="group p-6 rounded-xl card-glow card-gradient-border"
-              style={{ '--card-accent': 'var(--warning)' } as React.CSSProperties}
             >
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg mb-4" style={{
-                backgroundColor: `color-mix(in srgb, var(--card-accent) 10%, transparent)`,
-                border: `1px solid color-mix(in srgb, var(--card-accent) 20%, transparent)`,
-              }}>
-                <Code className="size-5" style={{ color: 'var(--card-accent)' }} aria-hidden="true" />
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--rush-green)]/10 border border-[var(--rush-green)]/20 mb-4">
+                <Code className="size-5 text-[var(--rush-green)]" aria-hidden="true" />
               </div>
-              <h3 className="text-xl font-semibold mb-2 transition-colors" style={{ color: 'var(--card-accent)' }}>
+              <h3 className="text-xl font-semibold mb-2 group-hover:text-[var(--rush-green)] transition-colors">
                 Examples
               </h3>
               <p className="text-fd-muted-foreground mb-4">Patterns you can paste and adapt.</p>
-              <span className="inline-flex items-center gap-1 font-medium" style={{ color: 'var(--card-accent)' }}>
+              <span className="inline-flex items-center gap-1 text-[var(--rush-green)] font-medium">
                 View examples{' '}
                 <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </span>

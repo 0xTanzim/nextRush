@@ -38,6 +38,7 @@ Bodyless HTTP methods (`GET`, `HEAD`, `DELETE`, `OPTIONS`) are skipped automatic
 ```ts
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
+import { listen } from '@nextrush/adapter-node';
 import { multipart } from '@nextrush/multipart';
 
 const app = createApp();
@@ -58,7 +59,7 @@ router.post('/upload', (ctx) => {
 });
 
 app.route('/', router);
-app.listen(8080);
+await listen(app, 8080);
 ```
 
 ---
@@ -454,6 +455,7 @@ The parser uses Web Streams API (`ReadableStream`) and Web Crypto API (`crypto.r
 ```ts
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
+import { listen } from '@nextrush/adapter-node';
 import { multipart, DiskStorage, MultipartError } from '@nextrush/multipart';
 
 const app = createApp();
@@ -497,5 +499,5 @@ router.post('/upload', (ctx) => {
 });
 
 app.route('/', router);
-app.listen(8080);
+await listen(app, 8080);
 ```

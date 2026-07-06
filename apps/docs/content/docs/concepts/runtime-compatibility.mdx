@@ -234,6 +234,64 @@ app.use(async (ctx) => {
 });
 ```
 
+## Configuration
+
+Runtime detection itself has no configuration options — `detectRuntime()`, `getRuntime()`, and `getRuntimeCapabilities()` take no arguments and cannot be overridden or forced to a specific runtime. Detection always runs against the live `globalThis`/`process` environment.
+
+The one configuration surface that changes cross-runtime behavior is on the application, not on runtime detection:
+
+```ts
+const app = createApp({ proxy: true }); // trust X-Forwarded-For across all adapters
+```
+
+<TypeTable
+  title="ApplicationOptions Affecting Runtime Behavior"
+  types={{
+    proxy: {
+      type: 'boolean',
+      description: 'Whether ctx.ip trusts forwarding headers. Applied identically by every adapter.',
+      default: 'false',
+    },
+    env: {
+      type: "'development' | 'production' | 'test'",
+      description: 'Affects default error exposure and logging — not runtime detection.',
+      default: "'development'",
+    },
+  }}
+/>
+
+For testing, `@nextrush/runtime` exposes `resetRuntimeCache()` to clear the internal cache so a test can re-run detection under different mocked globals.
+
+## Error and Failure Behavior
+
+Runtime detection never throws. Unrecognized environments resolve to the `'unknown'` runtime and a capabilities object with every flag set to `false`, rather than raising an error:
+
+```ts
+const runtime = getRuntime(); // 'unknown' if no known runtime is detected
+const caps = getRuntimeCapabilities();
+// { nodeStreams: false, webStreams: false, fileSystem: false,
+//   webSocket: false, fetch: false, cryptoSubtle: false, workers: false }
+```
+
+Code that relies on a capability must check it explicitly — there is no thrown error to catch:
+
+```ts
+if (!getRuntimeCapabilities().fileSystem) {
+  ctx.status = 501;
+  ctx.json({ error: 'File operations not supported on this runtime' });
+  return;
+}
+```
+
+Deno environment access during Deno Deploy detection is wrapped in try/catch internally, since sandboxed contexts can throw on `Deno.env.get()`. A thrown error there falls back to the generic `'deno'` runtime rather than propagating.
+
+## Performance Notes
+
+- **`getRuntime()` caches its result in a module-level variable** after the first call. Every subsequent call in the process returns the cached value without re-running feature detection — call `getRuntime()` freely in hot paths.
+- **`getRuntimeCapabilities()`, `getRuntimeVersion()`, and `getRuntimeInfo()` all call `getRuntime()` internally**, so they benefit from the same cache for the runtime identifier itself. `getRuntimeCapabilities()` still rebuilds and returns a new capabilities object on every call — it is not cached as an object.
+- **`detectEdgeRuntime()` has its own independent cache**, separate from `getRuntime()`'s cache. Both caches persist for the lifetime of the process and are only cleared together by `resetRuntimeCache()`.
+- **`detectRuntime()` (uncached) re-runs the full detection chain on every call.** Use `getRuntime()` instead in any code that runs per-request.
+
 ## Deployment Examples
 
 Each adapter handles the platform-specific HTTP primitives while your application code stays identical.

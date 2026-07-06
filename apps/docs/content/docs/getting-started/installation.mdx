@@ -51,8 +51,10 @@ npm create nextrush@latest
 # Same package via its npm name (hyphen)
 pnpm dlx create-nextrush@latest
 
-# non-interactive example
+# non-interactive examples
 pnpm create nextrush my-api --style functional --middleware api --runtime node
+pnpm create nextrush my-bun-api --runtime bun --middleware api
+pnpm create nextrush my-deno-api --runtime deno --middleware minimal
 ```
 
 The scaffolder generates a ready-to-run project with routing, middleware, scripts, and optional

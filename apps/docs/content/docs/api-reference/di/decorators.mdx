@@ -503,6 +503,8 @@ import {
   isController,
   getResponseHeaders,
   getRedirectMetadata,
+  getMethodParameterTypes,
+  getMethodReturnType,
 } from '@nextrush/decorators';
 
 // Check if class is a controller
@@ -530,7 +532,17 @@ const headers = getResponseHeaders(UserController.prototype, 'getData');
 // Get redirect metadata for a method
 const redirect = getRedirectMetadata(UserController.prototype, 'oldDashboard');
 // { url: '/new-dashboard', statusCode: 301 }
+
+// Get design-time parameter types for a method (requires emitDecoratorMetadata)
+const paramTypes = getMethodParameterTypes(UserController.prototype, 'findOne');
+// [String, Context]
+
+// Get design-time return type for a method (requires emitDecoratorMetadata)
+const returnType = getMethodReturnType(UserController.prototype, 'findOne');
+// Promise
 ```
+
+`getMethodParameterTypes()` and `getMethodReturnType()` read the `design:paramtypes` and `design:returntype` reflect-metadata keys emitted by TypeScript when `emitDecoratorMetadata: true`. The controllers plugin uses these to resolve parameter types for constructor and method injection.
 
 ---
 
@@ -602,6 +614,8 @@ import {
   isGuardClass,
   getResponseHeaders,
   getRedirectMetadata,
+  getMethodParameterTypes,
+  getMethodReturnType,
   isValidHttpMethod,
   isValidParamSource,
   DECORATOR_METADATA_KEYS,

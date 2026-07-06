@@ -260,6 +260,12 @@ export class AuthService {
 
 </details>
 
+<Callout type="warn" title="In-Memory Store">
+  `refreshTokens` and `users` are in-memory `Map`/`Set` instances for demonstration only. They
+  reset on restart and are not shared across multiple server instances — use Redis or a
+  database-backed store in production.
+</Callout>
+
 ---
 
 ## Guards
@@ -473,10 +479,8 @@ curl -X POST http://localhost:8080/auth/refresh \
 
 ## Security Considerations
 
-<Callout type="warn">
-  This example uses in-memory storage for users and refresh tokens. In production, use a database
-  and a store like Redis with TTL-based expiration.
-</Callout>
+This example uses in-memory storage for users and refresh tokens, as noted above. In production,
+replace both with a database and a Redis-backed store using TTL-based expiration.
 
 - **Store users in a database**, not memory
 - **Use Redis** for refresh tokens with TTL

@@ -1,4 +1,5 @@
 {
   "title": "Community",
+  "description": "Contributing guidelines, roadmap, changelog, and frequently asked questions.",
   "pages": ["index", "contributing", "changelog", "roadmap", "faq"]
 }

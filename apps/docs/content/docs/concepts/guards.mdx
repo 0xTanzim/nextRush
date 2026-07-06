@@ -262,6 +262,23 @@ The `GuardRejectionError` includes the guard name and an error code of `GUARD_RE
 - Attach the verified user to `ctx.state` only after successful validation. Do not attach partial or unverified user objects.
 - Guard rejection exposes the guard name in the `GuardRejectionError` details. In production, ensure your error handler strips internal details before sending responses.
 
+## Configuration
+
+`@UseGuard()` takes no configuration object — only a rest list of guards (`GuardFn` or a class implementing `CanActivate`):
+
+```typescript
+function UseGuard(...guards: Guard[]): ClassDecorator & MethodDecorator;
+```
+
+There is no built-in mechanism to configure guard behavior globally (timeouts, ordering strategy, etc.). Configuration is expressed through guard factories instead — a function that returns a `GuardFn` closing over its own options, as shown in [Guard Factories](#guard-factories).
+
+## Performance Notes
+
+- **Guard resolution happens once per route, at handler-build time** — `getAllGuards()` reads `@UseGuard` metadata via `Reflect.getMetadata` when the controllers plugin builds the route handler, not on every request. The resolved guard list is captured in a closure and reused for every request to that route.
+- **Class guards are resolved from the DI container on every request.** Unlike the guard list itself, `container.resolve(guard)` runs per-request inside `executeGuards()` — if a class guard is registered as a singleton (`@Service()` default), resolution returns the cached instance; a `transient`-scoped guard is reconstructed per call.
+- **Guards run sequentially, not in parallel.** Each guard is awaited before the next runs, so the total guard-check latency is the sum of all guard latencies, not the max. Order guards from cheapest to most expensive when composing multiple guards.
+- **A rejected guard skips controller resolution and parameter injection entirely** — no DI resolution or parameter transform work happens for the controller once a guard returns `false` or throws.
+
 ## Common Mistakes
 
 <details>

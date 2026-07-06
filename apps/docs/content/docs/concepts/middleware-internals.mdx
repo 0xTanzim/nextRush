@@ -18,10 +18,12 @@ type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
 Composition works through index-based recursive dispatch. Each call to `next()` advances the index by one and invokes the next middleware in the stack:
 
 ```ts
-// Actual implementation (simplified for clarity, faithful to real behavior)
-function compose(middleware: Middleware[]): ComposedMiddleware {
+// Actual implementation (faithful to real behavior — see packages/core/src/middleware.ts)
+function compose(middleware: Middleware[], options?: ComposeOptions): ComposedMiddleware {
   const stack = [...middleware]; // Snapshot at compose time
   const len = stack.length;
+
+  const warnDoubleResponse = options?.warnDoubleResponse ?? process.env.NODE_ENV !== 'production';
 
   if (len === 0) {
     return (_ctx, next?) => (next ? next() : Promise.resolve());
@@ -39,7 +41,12 @@ function compose(middleware: Middleware[]): ComposedMiddleware {
       const fn = i < len ? stack[i] : next;
       if (!fn) return Promise.resolve();
 
-      const nextFn = () => dispatch(i + 1);
+      const nextFn = () => {
+        if (warnDoubleResponse && ctx.responded) {
+          console.warn(`[nextrush] Middleware at index ${i} called next() after the response was already committed. ...`);
+        }
+        return dispatch(i + 1);
+      };
 
       // Wire ctx.next() to the same dispatch function
       if (ctx.setNext) ctx.setNext(nextFn);
@@ -47,7 +54,7 @@ function compose(middleware: Middleware[]): ComposedMiddleware {
       try {
         return Promise.resolve(fn(ctx, nextFn));
       } catch (err) {
-        return Promise.reject(err);
+        return Promise.reject(err instanceof Error ? err : new Error(String(err)));
       }
     }
 
@@ -61,6 +68,7 @@ Three properties to note:
 - **Snapshot** — `[...middleware]` copies the array once. Later mutations to the source array have no effect on the composed function.
 - **Per-request isolation** — The `index` variable is scoped to the `composedMiddleware` closure. Concurrent requests each get their own `index`.
 - **Double-next guard** — If `i <= index`, dispatch was already called at or past this index. The promise rejects with `'next() called multiple times'`.
+- **Double-response warning** — When `warnDoubleResponse` is enabled (default outside production), `nextFn` checks `ctx.responded` before dispatching. If a response was already sent, it logs a `console.warn()` identifying the middleware index, then dispatches anyway.
 
 <Mermaid chart={`
 sequenceDiagram
@@ -154,7 +162,7 @@ Synchronous exceptions inside middleware are caught by the try/catch in `dispatc
 try {
   return Promise.resolve(fn(ctx, nextFn));
 } catch (err) {
-  return Promise.reject(err);
+  return Promise.reject(err instanceof Error ? err : new Error(String(err)));
 }
 ```
 

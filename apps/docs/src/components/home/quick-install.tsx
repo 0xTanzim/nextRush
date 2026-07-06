@@ -32,17 +32,16 @@ export function QuickInstall() {
         </div>
 
         <div className="max-w-xl mx-auto">
-          <div className="rounded-xl overflow-hidden border border-[#1e2433] bg-[#0d1117] code-glow">
-            {/* Tabs */}
-            <div className="flex border-b border-[#1e2433]">
+          <div className="rounded-xl overflow-hidden border border-fd-border bg-fd-card code-glow">
+            <div className="flex border-b border-fd-border">
               {packageManagers.map((pm) => (
                 <button
                   key={pm.name}
                   onClick={() => setActiveTab(pm.name)}
                   className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                     activeTab === pm.name
-                      ? 'bg-[#141820] text-[#e2e8f0] border-b-2 border-[var(--rush-blue)]'
-                      : 'text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#141820]/50'
+                      ? 'bg-fd-muted text-fd-foreground border-b-2 border-[var(--rush-blue)]'
+                      : 'text-fd-muted-foreground hover:text-fd-foreground hover:bg-fd-muted/50'
                   }`}
                 >
                   {pm.name}
@@ -50,15 +49,14 @@ export function QuickInstall() {
               ))}
             </div>
 
-            {/* Command */}
             <div className="flex items-center justify-between p-4">
-              <code className="font-mono text-[#22d3ee]">
-                <span className="text-[#94a3b8]">$ </span>
+              <code className="font-mono text-[var(--rush-cyan)]">
+                <span className="text-fd-muted-foreground">$ </span>
                 {activeCommand}
               </code>
               <button
                 onClick={copyCommand}
-                className="p-2 rounded-md hover:bg-[#1e2433] transition-colors text-[#94a3b8] hover:text-[#e2e8f0]"
+                className="p-2 rounded-md hover:bg-fd-border transition-colors text-fd-muted-foreground hover:text-fd-foreground"
                 aria-label="Copy command"
               >
                 {copied ? (

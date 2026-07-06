@@ -263,6 +263,13 @@ function authPlugin(): Plugin {
 }
 ```
 
+## Performance Notes
+
+- **Hook collection runs once, at `app.callback()` time**, not per request. `callback()` filters installed plugins for `onRequest`/`onResponse`/`onError`/`extendContext` and validates each hook is a function up front — this cost is paid once at startup, not on every request.
+- **Per-request hook overhead scales with hook count, not plugin count.** Only plugins that implement lifecycle hooks are iterated during request handling; plugins that only add middleware in `install()` add zero per-request hook overhead.
+- **`onResponse`/`onError` hook failures are isolated** — each hook runs in its own try/catch, logged via `app.logger.warn()` on failure, so one failing hook does not block the others or the response.
+- **Shutdown cost is bounded by the slowest `destroy()`, not the sum of all of them.** `app.close()` runs all `destroy()` calls concurrently via `Promise.allSettled`, in reverse installation order.
+
 ## Common Mistakes
 
 ### Duplicate Plugin Names

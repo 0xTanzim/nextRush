@@ -17,8 +17,10 @@ import {
     getRuntimeInfo,
     initFsSync,
     onSignal,
+    readFileSync,
     resolvePath,
     spawn,
+    type Runtime,
     type SpawnResult,
 } from '../runtime/index.js';
 import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
@@ -74,6 +76,27 @@ export interface DevOptions {
 }
 
 /**
+ * Detect the project's target runtime from package.json adapter dependency.
+ * Falls back to the CLI process's runtime when not found or on error.
+ */
+function detectProjectRuntime(): Runtime {
+  try {
+    const pkgPath = resolvePath(getCwd(), 'package.json');
+    const content = readFileSync(pkgPath);
+    const pkg = JSON.parse(content) as Record<string, unknown>;
+    const deps: Record<string, string> = {
+      ...((pkg.dependencies as Record<string, string> | undefined) ?? {}),
+      ...((pkg.devDependencies as Record<string, string> | undefined) ?? {}),
+    };
+    if (deps['@nextrush/adapter-bun']) return 'bun';
+    if (deps['@nextrush/adapter-deno']) return 'deno';
+  } catch {
+    // package.json may not exist yet; fall through to process runtime
+  }
+  return detectRuntime();
+}
+
+/**
  * Start the development server
  *
  * @example
@@ -101,9 +124,12 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     clear();
   }
 
-  // Get runtime info
+  // Get runtime info for banner (CLI process runtime)
   const runtimeInfo = getRuntimeInfo();
-  const runtime = detectRuntime();
+  const cliRuntime = detectRuntime();
+
+  // Detect project's target runtime from adapter dependency
+  const targetRuntime = detectProjectRuntime();
 
   // Show banner
   banner('Dev Server');
@@ -111,6 +137,11 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
   info('Entry', resolvedEntry);
   info('Port', String(port));
   info('Local', `http://127.0.0.1:${String(port)}`);
+
+  // Warn if CLI runtime differs from project target runtime
+  if (cliRuntime !== targetRuntime) {
+    log(`ℹ Target runtime: ${targetRuntime} (detected from project adapter)`);
+  }
 
   // Validate entry file exists
   const entryPath = resolvePath(cwd, resolvedEntry);
@@ -140,9 +171,9 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
   log(''); // Blank line
 
-  // Build command arguments based on runtime
+  // Build command arguments based on target runtime
   const { command, args } = buildDevArgs(
-    runtime,
+    targetRuntime,
     resolvedEntry,
     watchPaths,
     options.inspect,

@@ -1,6 +1,11 @@
 {
   "title": "Packages",
+  "description": "Overview of NextRush's modular packages and what each one provides.",
   "pages": [
-    "index"
+    "index",
+    "core",
+    "adapters",
+    "plugins",
+    "utilities"
   ]
 }

@@ -17,12 +17,6 @@ flowchart LR
     Body --> Validation[Validation]
     Validation --> Auth[Auth Guard]
     Auth --> Handler[Route Handler]
-    style RL fill:#ef4444,stroke:#dc2626,color:#fff
-    style Helmet fill:#f97316,stroke:#ea580c,color:#fff
-    style CORS fill:#eab308,stroke:#ca8a04,color:#fff
-    style Body fill:#22c55e,stroke:#16a34a,color:#fff
-    style Validation fill:#3b82f6,stroke:#2563eb,color:#fff
-    style Auth fill:#8b5cf6,stroke:#7c3aed,color:#fff
 `}
 />
 
@@ -174,6 +168,7 @@ Never trust client data. Validate at the boundary.
 ```typescript
 import { z } from 'zod';
 import { ValidationError } from '@nextrush/errors';
+import type { ValidationIssue } from '@nextrush/errors';
 
 const CreateUserSchema = z.object({
   name: z.string().min(1).max(100),
@@ -184,9 +179,11 @@ const CreateUserSchema = z.object({
 router.post('/users', async (ctx) => {
   const result = CreateUserSchema.safeParse(ctx.body);
   if (!result.success) {
-    throw new ValidationError('Invalid input', {
-      details: result.error.flatten().fieldErrors,
-    });
+    const issues: ValidationIssue[] = result.error.issues.map((issue) => ({
+      path: issue.path.join('.'),
+      message: issue.message,
+    }));
+    throw new ValidationError(issues);
   }
   const user = await createUser(result.data);
   ctx.status = 201;
@@ -225,6 +222,7 @@ See the [Validation guide](/docs/guides/validation) for complete patterns.
 Use guards for route-level access control.
 
 ```typescript
+import type { Context, Middleware } from '@nextrush/types';
 import { UnauthorizedError, ForbiddenError } from '@nextrush/errors';
 
 // Auth middleware — runs on every request
@@ -241,14 +239,14 @@ app.use(async (ctx) => {
 });
 
 // Route-level guard — ensures user is authenticated
-function requireAuth(ctx) {
+function requireAuth(ctx: Context) {
   if (!ctx.state.user) throw new UnauthorizedError('Authentication required');
   return ctx.next();
 }
 
 // Role-based guard
-function requireRole(...roles: string[]) {
-  return (ctx) => {
+function requireRole(...roles: string[]): Middleware {
+  return (ctx: Context) => {
     if (!ctx.state.user) throw new UnauthorizedError('Authentication required');
     if (!roles.includes(ctx.state.user.role)) {
       throw new ForbiddenError('Insufficient permissions');

@@ -218,6 +218,37 @@ The `ContainerInterface` exposes these methods:
 
 The `controllersPlugin` connects decorators, DI, and the router. It requires a `router` instance:
 
+### Class Guards Resolved from DI
+
+Guards implementing `CanActivate` are classes, so they can declare their own dependencies through
+the constructor — useful when a guard needs a service like token verification:
+
+```typescript
+import { type CanActivate, type GuardContext } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+
+@Service()
+class RoleGuard implements CanActivate {
+  constructor(private authService: AuthService) {}
+
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const token = ctx.get('authorization');
+    if (!token) return false;
+
+    const user = await this.authService.verify(token);
+    ctx.state.user = user;
+    return Boolean(user);
+  }
+}
+
+@UseGuard(RoleGuard) // Class reference, resolved from DI
+@Controller('/admin')
+class AdminController {}
+```
+
+At request time, the controllers plugin resolves `RoleGuard` from the same DI container as
+controllers and services, so `authService` is injected automatically — no manual instantiation.
+
 <Mermaid chart={`
 sequenceDiagram
     participant App as Application
@@ -423,7 +454,9 @@ import { createRouter } from '@nextrush/router';
 These are the most frequent problems when using DI and decorators.
 
 <details>
-<summary>"TypeInfo not known for X"</summary>
+<summary>Common errors and their fixes</summary>
+
+**"TypeInfo not known for X"**
 
 The DI container can't find constructor types. Causes:
 
@@ -432,10 +465,7 @@ The DI container can't find constructor types. Causes:
 3. Missing `import 'reflect-metadata'` at entry point (not needed if using the `nextrush` meta-package)
 4. Class not decorated with `@Service()`, `@Repository()`, or `@Controller()`
 
-</details>
-
-<details>
-<summary>"Circular dependency detected"</summary>
+**"Circular dependency detected"**
 
 Services depend on each other. Fix with one of:
 
@@ -443,10 +473,7 @@ Services depend on each other. Fix with one of:
 2. Use `delay()` for lazy resolution
 3. Extract shared logic into a third service
 
-</details>
-
-<details>
-<summary>"Controller has no routes"</summary>
+**"Controller has no routes"**
 
 Controller is decorated but has no route methods. Check:
 

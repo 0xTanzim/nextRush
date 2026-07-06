@@ -1,4 +1,5 @@
 {
   "title": "DI & Decorators",
+  "description": "API reference for dependency injection and controller/route decorators.",
   "pages": ["index", "di", "decorators"]
 }

@@ -224,6 +224,61 @@ class NotificationService {
   `@Optional()` works with both class tokens and string/symbol tokens. It stores metadata as a `Set<number>` for O(1) lookup.
 </Callout>
 
+### `@Config(options?)`
+
+Mark a class as a centralized configuration holder. Configuration classes are always **singleton** — the scope cannot be overridden.
+
+```typescript
+// Simple configuration class
+@Config()
+class AppConfig {
+  readonly port = Number(process.env.PORT ?? 8080);
+  readonly host = process.env.HOST ?? 'localhost';
+}
+
+// With an env prefix — documents that this config reads DB_* vars
+@Config({ prefix: 'DB' })
+class DatabaseConfig {
+  readonly host = process.env.DB_HOST ?? 'localhost';
+  readonly port = Number(process.env.DB_PORT ?? 5432);
+}
+
+@Service()
+class UserService {
+  constructor(private config: DatabaseConfig) {}
+}
+```
+
+<TypeTable
+  title="ConfigOptions"
+  types={{
+    prefix: {
+      type: 'string',
+      description: 'Documents the environment variable prefix this config class reads. Stored as metadata, retrievable via getConfigPrefix().',
+      optional: true,
+    },
+  }}
+/>
+
+`@Config()` stores `'config'` as the service type metadata (distinct from `'service'`/`'repository'`) and registers the class as a tsyringe singleton. Resolve it like any other dependency with `container.resolve()` or constructor injection.
+
+### `@Injectable()`
+
+Make a class resolvable by the container with **transient** scope — a new instance is created on every `resolve()` call. Unlike `@Service()`, which defaults to singleton, `@Injectable()` never caches instances.
+
+```typescript
+@Injectable()
+class FeatureService {
+  constructor(private logger: Logger) {}
+}
+
+const service = container.resolve(FeatureService);
+```
+
+<Callout type="info">
+  `@AutoInjectable()` is a deprecated alias for `@Injectable()` and will be removed in v4. Use `@Injectable()` in new code.
+</Callout>
+
 ---
 
 ## Scopes
@@ -453,6 +508,35 @@ getOptionalParams(WithOptional); // Set { 0 }
 
 Used internally by `@nextrush/controllers` for auto-discovery. Useful when building custom plugins that scan for injectable classes.
 
+### `getConfigPrefix(target)`
+
+Read the environment variable prefix stored by `@Config({ prefix })` on a class. Returns `undefined` if the class has no `@Config()` decorator or no `prefix` was set.
+
+```typescript
+import { Config, getConfigPrefix } from '@nextrush/di';
+
+@Config({ prefix: 'DB' })
+class DatabaseConfig {}
+
+getConfigPrefix(DatabaseConfig); // 'DB'
+```
+
+### `markInjectable(target)`
+
+<Callout type="warn" title="Internal API">
+  Used internally by `@nextrush/decorators`' `@Controller()` to register a class as resolvable by
+  the container without attaching `@Service()`/`@Repository()` metadata. Most applications never
+  call this directly — use `@Service()`, `@Repository()`, or `@Injectable()` instead.
+</Callout>
+
+Registers a class constructor as injectable with the underlying tsyringe container, without setting NextRush service-type metadata. This is the abstraction boundary that lets `@nextrush/decorators` register controller classes for constructor injection without depending on tsyringe directly.
+
+```typescript
+import { markInjectable } from '@nextrush/di';
+
+markInjectable(SomeControllerClass);
+```
+
 ---
 
 ## Performance Notes
@@ -499,13 +583,24 @@ All types and runtime exports are available from the package entry point.
 import { container, createContainer } from '@nextrush/di';
 
 // Decorators
-import { Service, Repository, AutoInjectable, Optional, inject, delay } from '@nextrush/di';
+import {
+  Service,
+  Repository,
+  Config,
+  Injectable,
+  AutoInjectable,
+  Optional,
+  inject,
+  delay,
+} from '@nextrush/di';
 
 // Utility functions
 import {
   hasServiceMetadata,
   getServiceType,
   getServiceScope,
+  getConfigPrefix,
+  markInjectable,
   isParameterOptional,
   getOptionalParams,
 } from '@nextrush/di';
@@ -535,6 +630,7 @@ import type {
   Constructor,
   Scope,
   ServiceOptions,
+  ConfigOptions,
 } from '@nextrush/di';
 ```
 

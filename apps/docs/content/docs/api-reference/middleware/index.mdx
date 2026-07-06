@@ -128,17 +128,15 @@ app.route('/', router);
 
 ## Class-Based Middleware
 
-All middleware work with both functional and class-based patterns:
+All middleware work with both functional and class-based patterns. Apply middleware to a controller via the `middleware` option on `@Controller`:
 
 ```ts
-import { Controller, Get, UseMiddleware } from '@nextrush/decorators';
+import { Controller, Get } from '@nextrush/decorators';
 import { cors } from '@nextrush/cors';
 import { rateLimit } from '@nextrush/rate-limit';
 
 // Apply to specific controller
-@UseMiddleware(cors())
-@UseMiddleware(rateLimit({ max: 100 }))
-@Controller('/api')
+@Controller({ path: '/api', middleware: [cors(), rateLimit({ max: 100 })] })
 class ApiController {
   @Get('/data')
   getData() {

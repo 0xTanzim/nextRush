@@ -1,6 +1,7 @@
 import { getAdapterPackages, getMiddlewarePackages } from '../constants.js';
 import { getCoreRange } from '../version-store.js';
 import type { DependencySet, ProjectOptions, Runtime } from '../types.js';
+import { getRunCommand } from '../utils.js';
 
 
 /** Generates tsconfig.json content for a new project. */
@@ -79,6 +80,7 @@ export function getDependencies(options: ProjectOptions): DependencySet {
     '@nextrush/dev': core,
     '@nextrush/types': core,
     typescript: '^6.0.2',
+    '@types/node': '^26.0.0',
   };
 
   return { dependencies, devDependencies };
@@ -116,11 +118,11 @@ pnpm-debug.log*
 
 /** Generates a README.md for the project. */
 export function generateReadme(options: ProjectOptions): string {
-  const pmRun = options.packageManager === 'npm' ? 'npm run' : options.packageManager;
+  const pmRun = getRunCommand(options.packageManager);
 
   return `# ${options.name}
 
-  A [NextRush](https://github.com/0xTanzim/nextRush) project.
+A [NextRush](https://github.com/0xTanzim/nextRush) project.
 
 ## Getting Started
 
@@ -203,8 +205,8 @@ function getRuntimeScripts(runtime: Runtime): {
   switch (runtime) {
     case 'bun':
       return {
-        dev: 'nextrush dev',
-        build: 'nextrush build',
+        dev: 'bun nextrush dev',
+        build: 'bun nextrush build',
         start: 'bun dist/index.js',
       };
     case 'deno':

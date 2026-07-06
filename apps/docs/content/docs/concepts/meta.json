@@ -1,5 +1,6 @@
 {
   "title": "Concepts",
+  "description": "Core architectural concepts behind NextRush — application, context, middleware, and routing.",
   "pages": [
     "index",
     "application",

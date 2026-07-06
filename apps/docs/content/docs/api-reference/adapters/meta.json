@@ -1,4 +1,5 @@
 {
   "title": "Adapters",
+  "description": "Platform adapter API reference — Node.js, Bun, Deno, and Edge runtimes.",
   "pages": ["index", "node", "bun", "deno", "edge"]
 }
