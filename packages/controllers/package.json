@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/controllers",
-  "version": "4.0.0",
+  "version": "3.1.0",
   "description": "Controller registrar for NextRush - automatic discovery, DI integration, and route registration",
   "type": "module",
   "main": "./dist/index.js",

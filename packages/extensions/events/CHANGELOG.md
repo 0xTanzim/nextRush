@@ -1,6 +1,6 @@
 # @nextrush/events
 
-## 4.0.0
+## 3.1.0
 
 ### Major Changes
 
@@ -18,7 +18,7 @@
 ### Patch Changes
 
 - Updated dependencies [d7eb075]
-  - @nextrush/core@4.0.0
+  - @nextrush/core@3.1.0
 
 ## 3.0.6
 

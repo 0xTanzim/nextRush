@@ -1,6 +1,6 @@
 # @nextrush/router
 
-## 4.0.0
+## 3.1.0
 
 ### Minor Changes
 
@@ -17,8 +17,8 @@
 
 - Updated dependencies [d7eb075]
 - Updated dependencies [32a0db6]
-  - @nextrush/types@4.0.0
-  - @nextrush/core@4.0.0
+  - @nextrush/types@3.1.0
+  - @nextrush/core@3.1.0
 
 ## 3.0.7
 
