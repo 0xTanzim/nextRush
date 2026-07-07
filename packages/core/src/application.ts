@@ -399,7 +399,10 @@ export class Application {
       throw new TypeError('Extension must have a setup() method');
     }
     if (this.extensionNames.has(extension.name)) {
-      throw new Error(`Extension "${extension.name}" is already registered`);
+      throw new Error(
+        `Extension "${extension.name}" is already registered. Use a different extension ` +
+          `name, or check for a duplicate app.extend() call.`
+      );
     }
     this.extensionNames.add(extension.name);
     this.extensions.push(extension);
@@ -489,7 +492,10 @@ export class Application {
    */
   private decorate(name: string, value: unknown): void {
     if (this.decorations.has(name)) {
-      throw new Error(`Decoration "${name}" already exists on the application`);
+      throw new Error(
+        `Decoration "${name}" already exists on the application. Choose a different ` +
+          `name, or check for a duplicate ctx.decorate() call across your extensions.`
+      );
     }
     if (name in this) {
       throw new Error(

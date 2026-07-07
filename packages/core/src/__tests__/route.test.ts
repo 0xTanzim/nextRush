@@ -4,44 +4,11 @@
  * Tests for the Hono-style router mounting API
  */
 
-import type { Context, Middleware } from '@nextrush/types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Middleware } from '@nextrush/types';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { Application, Routable } from '../application';
 import { createApp } from '../application';
-
-// Mock context factory
-function createMockContext(overrides: Partial<Context> = {}): Context {
-  const ctx = {
-    method: 'GET',
-    url: '/test',
-    path: '/test',
-    query: {},
-    headers: {},
-    ip: '127.0.0.1',
-    body: undefined,
-    params: {},
-    status: 200,
-    json: vi.fn(),
-    send: vi.fn(),
-    html: vi.fn(),
-    redirect: vi.fn(),
-    set: vi.fn(),
-    get: vi.fn(),
-    next: vi.fn().mockResolvedValue(undefined),
-    state: {},
-    raw: {
-      req: {} as never,
-      res: {} as never,
-    },
-    throw: vi.fn(),
-    assert: vi.fn(),
-    runtime: 'node' as const,
-    bodySource: {} as never,
-    ...overrides,
-  } as Context;
-
-  return ctx;
-}
+import { createMockContext } from './_shared/create-mock-context';
 
 // Mock router that implements Routable
 function createMockRouter(): Routable & {

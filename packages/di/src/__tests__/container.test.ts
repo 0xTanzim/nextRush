@@ -145,16 +145,16 @@ describe('@nextrush/di - Container', () => {
 
   describe('resolveAll', () => {
     it('should resolve all instances registered under a token', () => {
-      class Plugin {
+      class SampleService {
         constructor(public name: string) {}
       }
 
-      container.register('Plugin', { useValue: new Plugin('A') });
-      container.register('Plugin', { useValue: new Plugin('B') });
+      container.register('SampleService', { useValue: new SampleService('A') });
+      container.register('SampleService', { useValue: new SampleService('B') });
 
-      const plugins = container.resolveAll<Plugin>('Plugin');
+      const services = container.resolveAll<SampleService>('SampleService');
 
-      expect(plugins).toHaveLength(2);
+      expect(services).toHaveLength(2);
     });
 
     it('should return empty array for unregistered token', () => {

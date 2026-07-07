@@ -5,43 +5,7 @@
 import type { Context, Middleware } from '@nextrush/types';
 import { describe, expect, it, vi } from 'vitest';
 import { compose, flattenMiddleware, isMiddleware } from '../middleware';
-
-// Mock context for testing
-function createMockContext(): Context {
-  return {
-    method: 'GET',
-    url: '/test',
-    path: '/test',
-    query: {},
-    headers: {},
-    ip: '127.0.0.1',
-    body: undefined,
-    params: {},
-    status: 200,
-    json: vi.fn(),
-    send: vi.fn(),
-    html: vi.fn(),
-    redirect: vi.fn(),
-    throw: vi.fn() as never,
-    assert: vi.fn(),
-    set: vi.fn(),
-    get: vi.fn(),
-    next: vi.fn().mockResolvedValue(undefined),
-    state: {},
-    responded: false,
-    runtime: 'node' as const,
-    bodySource: {} as never,
-    signal: new AbortController().signal,
-    sendStream: vi.fn().mockResolvedValue(undefined),
-    stream: vi.fn().mockResolvedValue(undefined),
-    sse: vi.fn().mockResolvedValue(undefined),
-    ndjson: vi.fn().mockResolvedValue(undefined),
-    raw: {
-      req: {} as never,
-      res: {} as never,
-    },
-  } as Context;
-}
+import { createMockContext } from './_shared/create-mock-context';
 
 describe('compose', () => {
   describe('basic composition', () => {

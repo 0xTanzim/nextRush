@@ -1,5 +1,5 @@
 ---
-description: 'TypeScript development standards for NextRush v3. Covers strict mode, type safety, code style, module organization, middleware/plugin patterns, and commenting conventions.'
+description: 'TypeScript development standards for NextRush v3. Covers strict mode, type safety, code style, module organization, middleware/extension patterns, and commenting conventions.'
 applyTo: '**/*.ts'
 ---
 
@@ -51,7 +51,7 @@ const fn = (data: unknown) => {}
 
 ```typescript
 // ✅ Separate type-only exports
-export type { Context, Middleware, Plugin } from './types';
+export type { Context, Middleware, Extension } from './types';
 export { HttpStatus, ContentType } from './constants';
 ```
 
@@ -166,25 +166,21 @@ const logger: Middleware = async (ctx, next) => {
 };
 ```
 
-### Plugin
+### Extension
+
+Rare (~0.1%) — only for long-lived services that must attach state to the app and manage a boot/teardown lifecycle. Most capability is middleware or a plain registrar function; see `v3-architecture.instructions.md` for the full taxonomy.
 
 ```typescript
-export class LoggerPlugin implements Plugin {
-  readonly name = 'logger';
-  readonly version = '1.0.0';
-
-  constructor(private options: LoggerOptions = {}) {}
-
-  install(app: Application): void {
-    app.use(this.createMiddleware());
-  }
-
-  private createMiddleware(): Middleware {
-    return async (ctx) => {
-      await ctx.next();
-    };
-  }
+export function events<T extends EventMap>(): Extension<{ events: EventEmitter<T> }> {
+  const emitter = new EventEmitter<T>();
+  return {
+    name: 'events',
+    setup(ctx) { ctx.decorate('events', emitter); },
+    destroy() { emitter.clear(); },
+  };
 }
+
+// Usage: const app = createApp().extend(events()); await app.ready();
 ```
 
 ---

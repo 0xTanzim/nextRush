@@ -2,37 +2,10 @@
  * @nextrush/core - Application Tests
  */
 
-import type { Container, Context, Extension, ExtensionContext, Middleware, Router } from '@nextrush/types';
+import type { Container, Extension, ExtensionContext, Middleware, Router } from '@nextrush/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Application, createApp } from '../application';
-
-// Mock context for testing
-function createMockContext(overrides: Partial<Context> = {}): Context {
-  return {
-    method: 'GET',
-    url: '/test',
-    path: '/test',
-    query: {},
-    headers: {},
-    ip: '127.0.0.1',
-    body: undefined,
-    params: {},
-    status: 200,
-    json: vi.fn(),
-    send: vi.fn(),
-    html: vi.fn(),
-    redirect: vi.fn(),
-    set: vi.fn(),
-    get: vi.fn(),
-    next: vi.fn().mockResolvedValue(undefined),
-    state: {},
-    raw: {
-      req: {} as never,
-      res: {} as never,
-    },
-    ...overrides,
-  } as Context;
-}
+import { createMockContext } from './_shared/create-mock-context';
 
 /** Build a minimal valid extension for tests. */
 function makeExtension(name: string, over: Partial<Extension> = {}): Extension {
