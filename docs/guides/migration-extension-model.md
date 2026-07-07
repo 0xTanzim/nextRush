@@ -109,7 +109,7 @@ app.setErrorHandler((error, ctx) => { /* ... */ });
 ## 8. DI container
 
 The container contract lives in `@nextrush/types` (`Container`). `@nextrush/di` still
-exports `ContainerInterface` (now a deprecated alias). Each app owns its container:
+exports `Container` (the previous `ContainerInterface` alias has been removed). Each app owns its container:
 `createApp({ container })`, `app.container`, and `ExtensionContext.container`.
 
 ## 9. Package locations (imports unchanged)

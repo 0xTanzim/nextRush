@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/stream",
-  "version": "3.0.7",
+  "version": "4.0.0",
   "description": "Runtime-agnostic response streaming (text/SSE/NDJSON) for NextRush — built for AI/agentic apps",
   "type": "module",
   "main": "./dist/index.js",

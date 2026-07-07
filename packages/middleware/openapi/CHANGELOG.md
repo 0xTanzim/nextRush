@@ -1,4 +1,4 @@
-# @nextrush/core
+# @nextrush/openapi
 
 ## 4.0.0
 
@@ -15,60 +15,16 @@
 
   See `docs/guides/migration-extension-model.md` for a full before/after guide.
 
+### Minor Changes
+
+- 32a0db6: Add `@nextrush/openapi` — zero-config OpenAPI 3.1 generation, the first renderer of the Route Metadata System.
+
+  `app.plugin(openapi({ router }))` reads `router.getRoutes()` (request schemas contributed by `validate()`, docs by `endpoint()`), converts schemas to JSON Schema (vendor-dispatch for Zod/Valibot/ArkType, with a `toJsonSchema` escape hatch), assembles an OpenAPI 3.1 document **once** (lazily on first request, then cached), and serves it at `/openapi.json` plus a Swagger UI at `/docs`. Routes marked `endpoint({ visibility: 'internal' })` or matching `exclude` are omitted.
+
+  No decorators, no schema duplication — your existing `validate()` routes are the spec. Zero runtime dependencies; the request hot path never touches the generator.
+
 ### Patch Changes
 
 - Updated dependencies [d7eb075]
-- Updated dependencies [0e2b399]
 - Updated dependencies [32a0db6]
   - @nextrush/types@4.0.0
-  - @nextrush/errors@4.0.0
-
-## 3.0.7
-
-### Patch Changes
-
-- [#26](https://github.com/0xTanzim/nextRush/pull/26) [`c9723dd`](https://github.com/0xTanzim/nextRush/commit/c9723ddb29e4bf834625f294eadb0c9e1c28432e) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Simplify template code and auto-install dev package
-
-- Updated dependencies []:
-  - @nextrush/types@3.0.7
-  - @nextrush/errors@3.0.7
-
-## 3.0.6
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @nextrush/types@3.0.6
-  - @nextrush/errors@3.0.6
-
-## 3.0.5
-
-### Patch Changes
-
-- Updated dependencies [[`1f97078`](https://github.com/0xTanzim/nextRush/commit/1f970782653a9454e3a67e7ac004cb40dd791ae5)]:
-  - @nextrush/errors@3.0.5
-  - @nextrush/types@3.0.5
-
-## 3.0.4
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @nextrush/errors@3.0.4
-  - @nextrush/types@3.0.4
-
-## 3.0.3
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @nextrush/errors@3.0.3
-  - @nextrush/types@3.0.3
-
-## 3.0.1
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @nextrush/types@3.0.1
-  - @nextrush/errors@3.0.1

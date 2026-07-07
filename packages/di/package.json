@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/di",
-  "version": "3.0.7",
+  "version": "4.0.0",
   "description": "Lightweight dependency injection container for NextRush",
   "type": "module",
   "main": "./dist/index.js",

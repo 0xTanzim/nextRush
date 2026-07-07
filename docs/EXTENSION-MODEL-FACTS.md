@@ -84,7 +84,7 @@ There is **no public `app.decorate()`** — only `ctx.decorate()` inside `setup(
 | `@nextrush/template` | `template()` middleware AND `templatePlugin()` | `template()` middleware **only** — `templatePlugin` removed |
 | `@nextrush/controllers` | `ControllersPlugin`/`controllersPlugin({router,...})`, `app.plugin(...)` | **registrar**: `await registerControllers(app, { root, prefix })` — reads `app.router` + `app.container`; must be awaited before `serve()` |
 | `@nextrush/websocket` | factory (unchanged) | unchanged: `createWebSocket()` + `app.use(wss.upgrade())` |
-| `@nextrush/di` | global `container` singleton | per-app: `app.container`, `createApp({ container })`; `Container` type now in `@nextrush/types`; `ContainerInterface` is a deprecated alias in `@nextrush/di` |
+| `@nextrush/di` | global `container` singleton | per-app: `app.container`, `createApp({ container })`; `Container` type now in `@nextrush/types`; the previous `ContainerInterface` alias in `@nextrush/di` has been fully removed — import `Container` directly |
 
 `ControllersPluginOptions` → renamed `ControllersOptions`.
 
