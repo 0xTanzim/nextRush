@@ -1,6 +1,6 @@
 # @nextrush/core
 
-> The minimal core of NextRush: Application, middleware composition, and plugin system.
+> The minimal core of NextRush: Application, middleware composition, and the extension model.
 
 ## The Problem
 
@@ -8,7 +8,7 @@ Backend frameworks often bundle everything together. You pay for features you do
 
 - Routing logic when you only need middleware composition
 - Body parsing when you're building a proxy
-- Complex plugin systems when you need simple extensibility
+- A heavyweight plugin system when almost every feature is just middleware
 
 This creates bloat. Cold starts suffer. Memory usage grows. Debugging becomes harder.
 
@@ -16,12 +16,14 @@ This creates bloat. Cold starts suffer. Memory usage grows. Debugging becomes ha
 
 `@nextrush/core` provides **only the essentials**:
 
-- **Application**: Middleware registration and plugin management
+- **Application**: Middleware registration, an optional app-owned router, and lifecycle (`ready()`/`close()`)
 - **Middleware Composition**: Koa-style `compose()` for async middleware chains
-- **Plugin System**: Simple, typed plugin interface
+- **Extension Model**: A rare, explicit primitive (`app.extend()`) for long-lived services — most features are middleware, not extensions
 - **Error Handling**: Configurable error handlers with production/development modes
 
 Everything else (routing, body parsing, authentication) lives in separate packages. You install what you use.
+
+`@nextrush/core`'s `createApp()` is a minimal engine — routing is bring-your-own (`createApp({ router })`, or mount one later with `app.route()`). If you want a router wired in automatically, use `nextrush`'s `createApp()` (the meta package) instead; most user-facing docs and examples in this README use that batteries-included form.
 
 ## Mental Model
 
@@ -50,25 +52,25 @@ pnpm add @nextrush/core
 ## Quick Start
 
 ```typescript
-import { createApp } from '@nextrush/core';
+import { createApp, createRouter } from '@nextrush/core';
 import { listen } from '@nextrush/adapter-node';
 
-const app = createApp();
+const router = createRouter();
+router.get('/', (ctx) => ctx.json({ message: 'Hello World' }));
 
-// Logging middleware
+// @nextrush/core's createApp() is bring-your-own-router — pass one explicitly.
+const app = createApp({ router });
+
 app.use(async (ctx, next) => {
   console.log(`→ ${ctx.method} ${ctx.path}`);
   await next();
   console.log(`← ${ctx.status}`);
 });
 
-// Handler
-app.use(async (ctx) => {
-  ctx.json({ message: 'Hello World' });
-});
-
 listen(app, { port: 8080 });
 ```
+
+> **Note:** `createRouter` is exported by `@nextrush/router`, not `@nextrush/core`. The import above works because `nextrush` (the meta package) re-exports both — using `@nextrush/core` directly, install `@nextrush/router` separately.
 
 ## Application
 
@@ -100,9 +102,13 @@ const app = createApp({
 ```typescript
 app.isProduction; // boolean - true if env === 'production'
 app.isRunning; // boolean - true after app.start() called
+app.isReady; // boolean - true after app.ready() has booted the app
 app.middlewareCount; // number - count of registered middleware
+app.extensionCount; // number - count of registered extensions
 app.options; // ApplicationOptions - readonly config
 app.logger; // Logger - readonly configured logger instance
+app.router; // Router | undefined - the app-owned router, if configured
+app.container; // Container | undefined - the app-owned DI container, if configured
 ```
 
 ## Middleware
@@ -204,6 +210,34 @@ app.use(async (ctx, next) => {
   await next();
 });
 ```
+
+## Routing
+
+The app-owned router (`app.router`) powers verb methods directly on `Application` — no
+separate router mounting step required when one is configured:
+
+```typescript
+app.get('/users', (ctx) => ctx.json([]));
+app.get('/users/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+app.post('/users', (ctx) => ctx.json({ created: true }));
+app.put('/users/:id', handler);
+app.patch('/users/:id', handler);
+app.delete('/users/:id', handler);
+app.head('/users/:id', handler);
+app.all('/webhook', handler); // matches every HTTP method
+```
+
+`@nextrush/core`'s `createApp()` has no router by default — calling `app.get()` without one
+throws `"No router configured"`. Pass a router explicitly (`createApp({ router: createRouter() })`)
+or mount one with `app.route()`. The `nextrush` meta package's `createApp()` injects a router
+automatically.
+
+> **Note:** there is intentionally no `app.options()` verb method — it would collide with the
+> `app.options` configuration property. Register `OPTIONS` routes via `app.all()`, the router
+> directly, or let CORS middleware handle preflight.
+
+Routes registered via `app.get`/`app.post`/etc. always run **after** all middleware — the
+app-owned router is mounted last, at `app.ready()`.
 
 ## Context
 
@@ -339,7 +373,7 @@ app.setErrorHandler((error, ctx) => {
 });
 ```
 
-> **Note:** `onError()` is deprecated. Use `setErrorHandler()` instead.
+> **Note:** `app.onError()` was removed, not deprecated. Use `app.setErrorHandler()`.
 
 ### Default Behavior
 
@@ -376,67 +410,75 @@ app.use(async (ctx) => {
 });
 ```
 
-## Plugins
+## Extensions
 
-### Using Plugins
+Most NextRush features are **middleware** (`app.use(fn())`) — cors, helmet, body-parser,
+logger, static, rate-limit, template, and openapi all work this way, and cover roughly 99%
+of application code. A handful of framework/runtime-infrastructure packages need something
+with a longer lifecycle — a boot step, app-level state, and a teardown hook. That rare case
+(roughly 0.1% of packages, e.g. `@nextrush/events`) is an **Extension**.
+
+If you're deciding how to package a feature: is it "does something on each request"? Use
+middleware. Is it "wires up a long-lived service the whole app depends on"? Use an extension.
+
+### Registering an Extension
 
 ```typescript
 import { createApp } from '@nextrush/core';
-import { eventsPlugin } from '@nextrush/events';
-import { loggerPlugin } from '@nextrush/logger';
+import { events } from '@nextrush/events';
 
-const app = createApp();
+const app = createApp({ router });
 
-// Sync plugins
-app.plugin(eventsPlugin());
-app.plugin(loggerPlugin({ level: 'info' }));
+app.extend(events()); // queues — setup() runs later, at ready()
+await app.ready(); // boots every registered extension, in registration order
 
-// Async plugin — plugin() handles both automatically
-await app.plugin(databasePlugin({ uri: '...' }));
+app.events.emit('server:started', {}); // decorated onto the app by events()'s setup()
 ```
 
-> **Note:** `pluginAsync()` is deprecated. Use `plugin()` instead — it detects async `install()` methods and returns a `Promise` when needed.
+`app.extend()` is synchronous and chainable (`app.extend(a).extend(b)`). The extension's
+`setup()` does not run immediately — it runs once, in registration order, when `app.ready()`
+is called. Adapters (`listen`, `serve`) call `app.ready()` for you before the server starts;
+call it yourself only if you're driving the request handler without an adapter.
 
-### Plugin API
+After `ready()` resolves, the app's configuration is frozen — `use()`, `route()`, and
+`extend()` all throw if called again.
 
-```typescript
-app.plugin(plugin); // Install plugin (handles sync and async)
-app.hasPlugin('plugin-name'); // Check if installed
-app.getPlugin('plugin-name'); // Get plugin instance
-```
-
-### Creating Plugins
+### Writing an Extension
 
 ```typescript
-import type { Plugin } from '@nextrush/types';
+import type { Extension } from '@nextrush/types';
 
-interface MyPluginOptions {
-  debug: boolean;
-}
-
-function myPlugin(options: MyPluginOptions): Plugin {
+export function myExtension(): Extension {
   return {
-    name: 'my-plugin',
-
-    install(app) {
-      // Add middleware
-      app.use(async (ctx, next) => {
-        if (options.debug) {
-          console.log(`${ctx.method} ${ctx.path}`);
-        }
-        await next();
-      });
+    name: 'my-extension',
+    needs: [], // optional: other extension names that must be registered first
+    setup(ctx) {
+      // ctx: { app, logger, env, name, container?, decorate }
+      ctx.decorate('myThing', someValue); // throws on name collision
+      ctx.app.use(someMiddleware);
     },
-
     destroy() {
-      // Cleanup on app.close()
+      // cleanup, runs in reverse registration order at app.close()
     },
   };
 }
-
-// Usage
-app.plugin(myPlugin({ debug: true }));
 ```
+
+`ctx.decorate(name, value)` is the only way to attach app-level state — there is
+intentionally **no public `app.decorate()`**; it exists only inside `setup()` via
+`ExtensionContext`. `app.hasDecorator(name)` is the public, read-only collision check.
+Give consumers a typed surface with module augmentation:
+
+```typescript
+declare module '@nextrush/core' {
+  interface Application {
+    myThing: Foo;
+  }
+}
+```
+
+An extension can declare `needs: ['other-extension-name']` to assert (not auto-sort) that
+another extension was registered earlier — `ready()` throws if the dependency is missing.
 
 ## Middleware Composition
 
@@ -510,7 +552,8 @@ app.route('/', router);
 ### Starting
 
 ```typescript
-// Adapters call app.start() internally
+// Adapters call app.ready() then app.start() internally
+await app.ready();
 app.start();
 console.log(app.isRunning); // true
 ```
@@ -518,14 +561,14 @@ console.log(app.isRunning); // true
 ### Shutdown
 
 ```typescript
-// Graceful shutdown — returns errors from plugins that failed to destroy
+// Graceful shutdown — returns errors from extensions that failed to destroy
 const errors = await app.close();
 
 // What happens:
 // 1. Sets isRunning = false
-// 2. Calls destroy() on all plugins (reverse registration order)
-// 3. Collects errors via Promise.allSettled
-// 4. Clears plugin registry
+// 2. Calls destroy() on all extensions (reverse registration order), via Promise.allSettled
+// 3. Removes decorations so the instance can be re-booted (e.g. in tests)
+// 4. Clears the extension registry and resets isReady
 // 5. Returns Error[] (empty on success)
 ```
 
@@ -593,8 +636,8 @@ import type {
   ContextState,
   Middleware,
   Next,
-  Plugin,
-  PluginWithHooks,
+  Extension,
+  ExtensionContext,
   RouteHandler,
   RouteParams,
   QueryParams,

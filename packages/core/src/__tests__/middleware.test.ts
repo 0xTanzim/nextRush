@@ -31,6 +31,11 @@ function createMockContext(): Context {
     responded: false,
     runtime: 'node' as const,
     bodySource: {} as never,
+    signal: new AbortController().signal,
+    sendStream: vi.fn().mockResolvedValue(undefined),
+    stream: vi.fn().mockResolvedValue(undefined),
+    sse: vi.fn().mockResolvedValue(undefined),
+    ndjson: vi.fn().mockResolvedValue(undefined),
     raw: {
       req: {} as never,
       res: {} as never,

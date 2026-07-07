@@ -183,6 +183,11 @@ function createMockContext(options: MockContextOptions = {}): Context & {
     raw: mockRaw,
     runtime: 'node' as Runtime,
     bodySource: mockBodySource,
+    signal: new AbortController().signal,
+    sendStream: async () => {},
+    stream: async () => {},
+    sse: async () => {},
+    ndjson: async () => {},
 
     _setNextFn: (fn: () => Promise<void>) => {
       nextFn = fn;
@@ -674,7 +679,7 @@ describe('Full Middleware Stack Integration', () => {
     });
 
     // Error handler
-    app.onError((_error, ctx) => {
+    app.setErrorHandler((_error, ctx) => {
       cleanupOrder.push('error-handler');
       ctx.status = 500;
       ctx.json({ error: 'Internal Error' });

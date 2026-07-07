@@ -59,19 +59,40 @@ export {
 } from './context';
 
 // ============================================================================
-// Plugin Types
+// Extension Types (see docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md)
 // ============================================================================
 
 export {
-  // Application interface for plugins
-  type ApplicationLike,
-  // Plugin interface
-  type Plugin,
-  // Plugin utilities
-  type PluginFactory,
-  type PluginMeta,
-  type PluginWithHooks,
-} from './plugin';
+  // Extension contract
+  type Extension,
+  // The setup() argument
+  type ExtensionContext,
+  // Structural app surface available to extensions
+  type ExtensionHost,
+} from './extension';
+
+// ============================================================================
+// Logger Contract
+// ============================================================================
+
+export { type Logger } from './logger';
+
+// ============================================================================
+// Dependency Injection Contract
+// ============================================================================
+
+export {
+  type ClassProvider,
+  type Constructor,
+  type Container,
+  type FactoryProvider,
+  type Provider,
+  type RegisterOptions,
+  type Scope,
+  type ServiceOptions,
+  type Token,
+  type ValueProvider,
+} from './container';
 
 // ============================================================================
 // Router Types

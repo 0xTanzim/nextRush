@@ -57,7 +57,7 @@
  * @example Class-Based (import from nextrush/class)
  * ```typescript
  * import { createApp, listen } from 'nextrush';
- * import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+ * import { Controller, Get, Service, registerControllers } from 'nextrush/class';
  *
  * @Service()
  * class UserService {
@@ -73,15 +73,33 @@
  * }
  *
  * const app = createApp();
- * app.plugin(controllersPlugin({ root: './src' }));
- * listen(app, 8080);
+ * await registerControllers(app, { root: './src' });
+ * await listen(app, 8080);
  * ```
  */
 
 // ============================================
 // CORE: Application & Middleware Composition
 // ============================================
-export { Application, compose, createApp } from '@nextrush/core';
+import {
+  Application,
+  compose,
+  createApp as createBareApp,
+  type ApplicationOptions,
+} from '@nextrush/core';
+import { createRouter as createDefaultRouter } from '@nextrush/router';
+
+/**
+ * Create an application with a default router wired in, so `app.get`/`app.post`
+ * work out of the box. Import `createApp` from `@nextrush/core` for a minimal
+ * engine where routing is bring-your-own.
+ */
+export function createApp(options?: ApplicationOptions): Application {
+  const router = options?.router ?? createDefaultRouter();
+  return createBareApp({ ...options, router });
+}
+
+export { Application, compose };
 export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 
 // ============================================
@@ -128,12 +146,14 @@ export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
 export type {
     // Core types
     Context,
+    // Extension model
+    Extension,
+    ExtensionContext,
     // HTTP types
     HttpMethod,
     HttpStatusCode,
     Middleware,
     Next,
-    Plugin,
     RouteHandler,
     // Route metadata (author with endpoint(); read by @nextrush/openapi)
     RouteDefinition,

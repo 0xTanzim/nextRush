@@ -194,7 +194,7 @@ importers:
         version: link:../../packages/middleware/body-parser
       '@nextrush/controllers':
         specifier: workspace:*
-        version: link:../../packages/plugins/controllers
+        version: link:../../packages/controllers
       '@nextrush/decorators':
         specifier: workspace:*
         version: link:../../packages/decorators
@@ -206,7 +206,7 @@ importers:
         version: link:../../packages/errors
       '@nextrush/openapi':
         specifier: workspace:*
-        version: link:../../packages/plugins/openapi
+        version: link:../../packages/middleware/openapi
       '@nextrush/router':
         specifier: workspace:*
         version: link:../../packages/router
@@ -240,7 +240,7 @@ importers:
         version: link:../../packages/middleware/body-parser
       '@nextrush/openapi':
         specifier: workspace:*
-        version: link:../../packages/plugins/openapi
+        version: link:../../packages/middleware/openapi
       '@nextrush/validation':
         specifier: workspace:*
         version: link:../../packages/middleware/validation
@@ -370,6 +370,40 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
 
+  packages/controllers:
+    dependencies:
+      '@nextrush/decorators':
+        specifier: workspace:*
+        version: link:../decorators
+      '@nextrush/di':
+        specifier: workspace:*
+        version: link:../di
+      '@nextrush/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../types
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+    devDependencies:
+      '@nextrush/core':
+        specifier: workspace:*
+        version: link:../core
+      '@nextrush/router':
+        specifier: workspace:*
+        version: link:../router
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+
   packages/core:
     dependencies:
       '@nextrush/errors':
@@ -463,6 +497,9 @@ importers:
 
   packages/di:
     dependencies:
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../types
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -470,9 +507,6 @@ importers:
         specifier: ^4.10.0
         version: 4.10.0
     devDependencies:
-      '@nextrush/types':
-        specifier: workspace:*
-        version: link:../types
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -501,6 +535,34 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+
+  packages/extensions/events:
+    devDependencies:
+      '@nextrush/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../../types
+
+  packages/extensions/websocket:
+    dependencies:
+      '@nextrush/types':
+        specifier: workspace:^
+        version: link:../../types
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+      ws:
+        specifier: ^8.20.0
+        version: 8.20.0
 
   packages/middleware/body-parser:
     dependencies:
@@ -604,6 +666,28 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
 
+  packages/middleware/logger:
+    dependencies:
+      '@nextrush/log':
+        specifier: ^0.2.1
+        version: 0.2.1(react@19.2.5)
+      '@nextrush/types':
+        specifier: workspace:^
+        version: link:../../types
+    devDependencies:
+      '@nextrush/core':
+        specifier: workspace:*
+        version: link:../../core
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+
   packages/middleware/multipart:
     dependencies:
       '@nextrush/types':
@@ -619,6 +703,25 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+
+  packages/middleware/openapi:
+    dependencies:
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../../types
+    devDependencies:
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+      zod:
+        specifier: ^4.0.0
+        version: 4.3.6
 
   packages/middleware/rate-limit:
     dependencies:
@@ -645,6 +748,53 @@ importers:
       '@types/node':
         specifier: ^25.3.3
         version: 25.5.2
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+
+  packages/middleware/static:
+    dependencies:
+      '@nextrush/core':
+        specifier: workspace:^
+        version: link:../../core
+      '@nextrush/types':
+        specifier: workspace:^
+        version: link:../../types
+    devDependencies:
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+
+  packages/middleware/template:
+    dependencies:
+      '@nextrush/types':
+        specifier: workspace:^
+        version: link:../../types
+      ejs:
+        specifier: ^3.0.0
+        version: 3.1.10
+      eta:
+        specifier: ^3.0.0
+        version: 3.5.0
+      handlebars:
+        specifier: ^4.0.0
+        version: 4.7.8
+      nunjucks:
+        specifier: ^3.0.0
+        version: 3.2.4
+      pug:
+        specifier: ^3.0.0
+        version: 3.0.3
+    devDependencies:
+      '@nextrush/core':
+        specifier: workspace:*
+        version: link:../../core
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
@@ -700,7 +850,7 @@ importers:
         version: link:../adapters/node
       '@nextrush/controllers':
         specifier: workspace:*
-        version: link:../plugins/controllers
+        version: link:../controllers
       '@nextrush/core':
         specifier: workspace:*
         version: link:../core
@@ -744,156 +894,6 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-
-  packages/plugins/controllers:
-    dependencies:
-      '@nextrush/decorators':
-        specifier: workspace:*
-        version: link:../../decorators
-      '@nextrush/di':
-        specifier: workspace:*
-        version: link:../../di
-      '@nextrush/errors':
-        specifier: workspace:*
-        version: link:../../errors
-      '@nextrush/types':
-        specifier: workspace:*
-        version: link:../../types
-      reflect-metadata:
-        specifier: ^0.2.2
-        version: 0.2.2
-    devDependencies:
-      '@nextrush/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@nextrush/router':
-        specifier: workspace:*
-        version: link:../../router
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-
-  packages/plugins/events:
-    devDependencies:
-      '@nextrush/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@nextrush/types':
-        specifier: workspace:*
-        version: link:../../types
-
-  packages/plugins/logger:
-    dependencies:
-      '@nextrush/log':
-        specifier: ^0.2.1
-        version: 0.2.1(react@19.2.5)
-      '@nextrush/types':
-        specifier: workspace:^
-        version: link:../../types
-    devDependencies:
-      '@nextrush/core':
-        specifier: workspace:*
-        version: link:../../core
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-
-  packages/plugins/openapi:
-    dependencies:
-      '@nextrush/types':
-        specifier: workspace:*
-        version: link:../../types
-    devDependencies:
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-      zod:
-        specifier: ^4.0.0
-        version: 4.3.6
-
-  packages/plugins/static:
-    dependencies:
-      '@nextrush/core':
-        specifier: workspace:^
-        version: link:../../core
-      '@nextrush/types':
-        specifier: workspace:^
-        version: link:../../types
-    devDependencies:
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-
-  packages/plugins/template:
-    dependencies:
-      '@nextrush/types':
-        specifier: workspace:^
-        version: link:../../types
-      ejs:
-        specifier: ^3.0.0
-        version: 3.1.10
-      eta:
-        specifier: ^3.0.0
-        version: 3.5.0
-      handlebars:
-        specifier: ^4.0.0
-        version: 4.7.8
-      nunjucks:
-        specifier: ^3.0.0
-        version: 3.2.4
-      pug:
-        specifier: ^3.0.0
-        version: 3.0.3
-    devDependencies:
-      '@nextrush/core':
-        specifier: workspace:*
-        version: link:../../core
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-
-  packages/plugins/websocket:
-    dependencies:
-      '@nextrush/types':
-        specifier: workspace:^
-        version: link:../../types
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-      ws:
-        specifier: ^8.20.0
-        version: 8.20.0
 
   packages/router:
     dependencies:
@@ -1019,11 +1019,6 @@ packages:
   '@babel/helpers@7.29.2':
     resolution: {integrity: sha512-HoGuUs4sCZNezVEKdVcwqmZN8GoHirLUcLaYVNBK2J0DadGtdcqgr3BCbvH8+XUo4NGjNl3VOtSjEKNzqfFgKw==}
     engines: {node: '>=6.9.0'}
-
-  '@babel/parser@7.29.0':
-    resolution: {integrity: sha512-IyDgFV5GeDUVX4YdF/3CPULtVGSXXMLh1xVIgdCgxApktqnQV0r7/8Nqthg+8YLGaAtdyIlo2qIdZrbCv4+7ww==}
-    engines: {node: '>=6.0.0'}
-    hasBin: true
 
   '@babel/parser@7.29.2':
     resolution: {integrity: sha512-4GgRzy/+fsBa72/RZVJmGKPmZu9Byn8o4MoLpmNe1m8ZfYnz5emHLQz3U4gLud6Zwl0RZIcgiLD7Uq7ySFuDLA==}
@@ -6964,10 +6959,6 @@ snapshots:
       '@babel/template': 7.28.6
       '@babel/types': 7.29.0
 
-  '@babel/parser@7.29.0':
-    dependencies:
-      '@babel/types': 7.29.0
-
   '@babel/parser@7.29.2':
     dependencies:
       '@babel/types': 7.29.0
@@ -9403,7 +9394,7 @@ snapshots:
 
   constantinople@4.0.1:
     dependencies:
-      '@babel/parser': 7.29.0
+      '@babel/parser': 7.29.2
       '@babel/types': 7.29.0
 
   content-disposition@0.5.2: {}
@@ -13495,7 +13486,7 @@ snapshots:
 
   with@7.0.2:
     dependencies:
-      '@babel/parser': 7.29.0
+      '@babel/parser': 7.29.2
       '@babel/types': 7.29.0
       assert-never: 1.4.0
       babel-walk: 3.0.0-canary-5

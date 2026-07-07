@@ -14,7 +14,7 @@
  * @example
  * ```typescript
  * import { createApp, listen } from 'nextrush';
- * import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+ * import { Controller, Get, Service, registerControllers } from 'nextrush/class';
  *
  * @Service()
  * class UserService {
@@ -30,8 +30,8 @@
  * }
  *
  * const app = createApp();
- * app.plugin(controllersPlugin({ root: './src' }));
- * listen(app, 8080);
+ * await registerControllers(app, { root: './src' });
+ * await listen(app, 8080);
  * ```
  */
 
@@ -57,7 +57,7 @@ export {
 export type {
   ClassProvider,
   ConfigOptions,
-  ContainerInterface,
+  Container,
   FactoryProvider,
   Provider,
   Scope,
@@ -118,5 +118,5 @@ export type {
 // ============================================
 // CONTROLLERS: Auto-discovery Plugin
 // ============================================
-export { controllersPlugin } from '@nextrush/controllers';
-export type { ControllersPluginOptions } from '@nextrush/controllers';
+export { registerControllers } from '@nextrush/controllers';
+export type { ControllersOptions } from '@nextrush/controllers';

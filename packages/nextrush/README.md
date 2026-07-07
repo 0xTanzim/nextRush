@@ -25,10 +25,10 @@
 - `compose` — Compose middleware
 - Error classes (`HttpError`, `NotFoundError`, `BadRequestError`, `MethodNotAllowedError`, etc.)
 - Error utilities (`createError`, `isHttpError`, `errorHandler`, `notFoundHandler`, `catchAsync`)
-- TypeScript types (`Context`, `Middleware`, `Next`, `Plugin`, `RouteHandler`, `HttpMethod`, etc.)
-- Constants (`VERSION`, `HttpStatus`, `ContentType`)
+- TypeScript types (`Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `HttpMethod`, etc.)
+- Constants (`HttpStatus`, `ContentType`)
 
-**Middleware and plugins are installed separately.** This is intentional — you only pay for what you use.
+**Middleware, extensions, and registrars are installed separately.** This is intentional — you only pay for what you use.
 
 ## Installation
 
@@ -113,7 +113,7 @@ listen(app, 8080);
 Class-based APIs (decorators, DI, controllers) are available via the `nextrush/class` subpath:
 
 - `nextrush` — Functional API (`createApp`, `createRouter`, `listen`, errors, types)
-- `nextrush/class` — Class-based API (`Controller`, `Get`, `Service`, `controllersPlugin`, etc.)
+- `nextrush/class` — Class-based API (`Controller`, `Get`, `Service`, `registerControllers`, etc.)
 
 The `nextrush/class` entry auto-imports `reflect-metadata`, so you can use decorators and DI without any extra setup:
 
@@ -122,8 +122,9 @@ pnpm add nextrush
 ```
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin, Controller, Get, Service } from 'nextrush/class';
+import 'reflect-metadata';
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 
 @Service()
 class GreetService {
@@ -143,12 +144,13 @@ class HelloController {
 }
 
 const app = createApp();
-const router = createRouter();
-
-app.plugin(controllersPlugin({ router, root: './src' }));
-app.route('/', router);
-listen(app, 8080);
+await registerControllers(app, { root: './src' });
+await listen(app, 8080);
 ```
+
+`registerControllers` is a **registrar**, not a plugin — call and `await` it directly; it
+reads `app.router` and `app.container` (both injected automatically by `nextrush`'s
+`createApp()`) and must resolve before `listen()`/`serve()` starts the server.
 
 > **`experimentalDecorators` and `emitDecoratorMetadata`** are required when you use `nextrush/class` with DI or decorators. `create-nextrush` turns them **on** for **class-based** and **full** templates, and **omits** them for **functional** (routes-only) projects where they are unnecessary.
 
@@ -161,7 +163,7 @@ This meta package re-exports from:
 | `@nextrush/core`         | `createApp`, `Application`, `compose`                                                                                                |
 | `@nextrush/router`       | `createRouter`, `Router`                                                                                                             |
 | `@nextrush/adapter-node` | `listen`, `serve`, `createHandler`                                                                                                   |
-| `@nextrush/types`        | `Context`, `Middleware`, `Next`, `Plugin`, `RouteHandler`, `HttpMethod`, `HttpStatus`, `ContentType`                                 |
+| `@nextrush/types`        | `Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `HttpMethod`, `HttpStatus`, `ContentType`          |
 | `@nextrush/errors`       | `HttpError`, `NextRushError`, error classes (4xx/5xx), `createError`, `isHttpError`, `errorHandler`, `notFoundHandler`, `catchAsync` |
 
 ## Available Packages
@@ -189,16 +191,16 @@ This meta package re-exports from:
 | `@nextrush/request-id`  | Request ID generation                  |
 | `@nextrush/timer`       | Request timing headers                 |
 
-### Plugins (install separately)
+### Extensions & Registrars (install separately)
 
-| Package                 | Description                     |
-| ----------------------- | ------------------------------- |
-| `@nextrush/logger`      | Structured logging              |
-| `@nextrush/static`      | Static file serving             |
-| `@nextrush/websocket`   | WebSocket support with rooms    |
-| `@nextrush/template`    | Multi-engine template rendering |
-| `@nextrush/events`      | Type-safe event emitter         |
-| `@nextrush/controllers` | Decorator-based controllers     |
+| Package                 | Kind       | Description                                                                  |
+| ------------------------ | ---------- | ----------------------------------------------------------------------------- |
+| `@nextrush/logger`       | Middleware | Structured logging                                                          |
+| `@nextrush/static`       | Middleware | Static file serving                                                         |
+| `@nextrush/websocket`    | Registrar  | WebSocket support with rooms (`createWebSocket()` + `app.use(wss.upgrade())`) |
+| `@nextrush/template`     | Middleware | Multi-engine template rendering                                             |
+| `@nextrush/events`       | Extension  | Type-safe event emitter (`app.extend(events())`)                            |
+| `@nextrush/controllers`  | Registrar  | Decorator-based controllers (`await registerControllers(app, opts)`)         |
 
 ### Advanced (install separately)
 

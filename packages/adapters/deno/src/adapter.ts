@@ -240,7 +240,10 @@ export function createHandler(
  * });
  * ```
  */
-export function serve(app: Application, options: ServeOptions = {}): ServerInstance {
+export async function serve(
+  app: Application,
+  options: ServeOptions = {}
+): Promise<ServerInstance> {
   const {
     port = 8080,
     hostname = '0.0.0.0',
@@ -251,6 +254,9 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
     shutdownTimeout = 30_000,
     timeout = 30_000,
   } = options;
+
+  // Boot extensions before building the request handler (deferred boot barrier).
+  await app.ready();
 
   const handler = createHandler(app, { timeout });
 
@@ -332,7 +338,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
  * // Output: 🚀 NextRush listening on http://localhost:8080 (Deno)
  * ```
  */
-export function listen(app: Application, port = 8080): ServerInstance {
+export async function listen(app: Application, port = 8080): Promise<ServerInstance> {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

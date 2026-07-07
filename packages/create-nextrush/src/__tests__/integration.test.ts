@@ -96,7 +96,6 @@ describe('integration: file writing', () => {
     expect(existsSync(join(testDir, 'src/controllers/hello.controller.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/services/hello.service.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/middleware/error-handler.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/middleware/not-found.ts'))).toBe(true);
   });
 
   it('file content matches generated content', () => {

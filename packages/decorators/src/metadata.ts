@@ -2,7 +2,7 @@
  * @nextrush/decorators - Metadata Readers
  *
  * Utility functions to read decorator metadata from controller classes.
- * Used by @nextrush/controllers plugin to build routes.
+ * Used by @nextrush/controllers' registrar to build routes.
  */
 
 import 'reflect-metadata';

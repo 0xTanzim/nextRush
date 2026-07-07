@@ -57,7 +57,7 @@ import { serve } from '@nextrush/adapter-deno';
 const server = serve(app, {
   port: 8080,            // Default: 8080
   hostname: '0.0.0.0',   // Default: '0.0.0.0'
-  shutdownTimeout: 30000,// Default: 80800 (ms)
+  shutdownTimeout: 30000,// Default: 30000 (ms)
   onListen: ({ port, hostname }) => { ... },
   onError: (error) => { ... },
   cert: certPem,         // Optional TLS certificate

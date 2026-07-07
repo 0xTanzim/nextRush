@@ -27,7 +27,7 @@ pnpm add @nextrush/types
 ## Quick Start
 
 ```typescript
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Extension } from '@nextrush/types';
 import { HttpStatus, ContentType } from '@nextrush/types';
 
 const middleware: Middleware = async (ctx, next) => {
@@ -201,53 +201,55 @@ const handler: RouteHandler = async (ctx) => {
 };
 ```
 
-## Plugin Types
+## Extension Types
+
+Extensions are the rare (~0.1%) long-lived runtime services that attach state to the app,
+run async boot logic, and/or tear down on shutdown — an event bus, a database pool, a
+websocket attach. Most framework features are middleware (`app.use`) or plain registrar
+functions, not Extensions — reach for these types only when building that kind of package.
 
 ```typescript
-import type {
-  Plugin,
-  PluginFactory,
-  PluginWithHooks,
-  PluginMeta,
-  ApplicationLike,
-} from '@nextrush/types';
+import type { Extension, ExtensionContext, ExtensionHost } from '@nextrush/types';
 
-// Basic plugin
-const plugin: Plugin = {
-  name: 'my-plugin',
-  version: '1.0.0',
+// A NextRush Extension — registered via app.extend(), booted at app.ready()
+export function myExtension(): Extension {
+  return {
+    name: 'my-extension',
+    needs: [], // optional: other extension names required to be registered first
+    setup(ctx: ExtensionContext) {
+      ctx.decorate('myThing', someValue); // throws on name collision
+      ctx.app.use(someMiddleware);
+    },
+    destroy() {
+      // cleanup, runs in reverse registration order at app.close()
+    },
+  };
+}
+```
 
-  install(app: ApplicationLike) {
-    app.use(async (ctx, next) => {
-      await next();
-    });
-  },
+`ExtensionContext` is the argument passed to `setup()` — a context object rather than the
+bare app, so future fields stay additive without breaking existing extensions:
 
-  destroy() {
-    // Cleanup on shutdown
-  },
-};
+```typescript
+interface ExtensionContext {
+  readonly app: ExtensionHost; // add middleware, read decorations
+  readonly logger: Logger;
+  readonly container?: Container; // present only if the app was created with one
+  readonly env: 'development' | 'production' | 'test';
+  readonly name: string;
+  decorate<V>(name: string, value: V): void;
+}
+```
 
-// Plugin with lifecycle hooks
-const advancedPlugin: PluginWithHooks = {
-  name: 'advanced',
-  install(app) {},
+`ExtensionHost` is the structural subset of `Application` an extension may use during
+`setup()` — kept structural (not the concrete `Application` class) so `@nextrush/types`
+never has to import `@nextrush/core`:
 
-  onRequest(ctx) {},
-  onResponse(ctx) {},
-  onError(error, ctx) {},
-  extendContext(ctx) {},
-};
-
-// Plugin factory pattern
-const createPlugin: PluginFactory<{ debug: boolean }> = (options) => ({
-  name: 'configurable',
-  install(app) {
-    if (options?.debug) {
-      // Debug mode
-    }
-  },
-});
+```typescript
+interface ExtensionHost {
+  use(middleware: Middleware): this;
+  hasDecorator(name: string): boolean;
+}
 ```
 
 ## Router Types
@@ -365,12 +367,10 @@ import type {
   ResponseBody,
   RawHttp,
 
-  // Plugin
-  Plugin,
-  PluginWithHooks,
-  PluginFactory,
-  PluginMeta,
-  ApplicationLike,
+  // Extension
+  Extension,
+  ExtensionContext,
+  ExtensionHost,
 
   // Router
   Router,

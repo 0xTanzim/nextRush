@@ -10,7 +10,7 @@ import { container as tsyContainer } from 'tsyringe';
 
 import type {
     Constructor,
-    ContainerInterface,
+    Container,
     FactoryProvider,
     Provider,
     RegisterOptions,
@@ -57,12 +57,12 @@ function isFactoryProvider<T>(provider: Provider<T>): provider is FactoryProvide
 /**
  * Create a container wrapper with enhanced error handling.
  */
-function createContainerWrapper(tsyInstance: DependencyContainer): ContainerInterface {
+function createContainerWrapper(tsyInstance: DependencyContainer): Container {
   const resolutionStack = new Set<string>();
   const factoryTokens = new Set<Token>();
   const bootstrappedValues = new Map<Token, unknown>();
 
-  const wrapper: ContainerInterface = {
+  const wrapper: Container = {
     register<T>(token: Token<T>, provider: Provider<T>, options?: RegisterOptions): void {
       const tokenName = getTokenName(token);
       const tsyToken = token as InjectionToken<T>;
@@ -210,7 +210,7 @@ function createContainerWrapper(tsyInstance: DependencyContainer): ContainerInte
       resolutionStack.clear();
     },
 
-    createChild(): ContainerInterface {
+    createChild(): Container {
       const childTsy = tsyInstance.createChildContainer();
       return createContainerWrapper(childTsy);
     },
@@ -236,7 +236,7 @@ function createContainerWrapper(tsyInstance: DependencyContainer): ContainerInte
  * container.register('CONFIG', { useValue: { port: 8080 } });
  * ```
  */
-export const container: ContainerInterface = createContainerWrapper(tsyContainer);
+export const container: Container = createContainerWrapper(tsyContainer);
 
 /**
  * Create a new isolated container.
@@ -251,7 +251,7 @@ export const container: ContainerInterface = createContainerWrapper(tsyContainer
  * testContainer.register(UserService, { useClass: MockUserService });
  * ```
  */
-export function createContainer(): ContainerInterface {
+export function createContainer(): Container {
   const childTsy = tsyContainer.createChildContainer();
   childTsy.reset();
   return createContainerWrapper(childTsy);

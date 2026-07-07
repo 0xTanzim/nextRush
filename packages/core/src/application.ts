@@ -2,12 +2,23 @@
  * @nextrush/core - Application Class
  *
  * The Application class is the main entry point for NextRush.
- * It manages middleware registration and plugin installation.
+ * It manages middleware registration and the extension lifecycle.
+ *
+ * See docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md for the extension model.
  *
  * @packageDocumentation
  */
 
-import type { Context, Middleware, Plugin, PluginWithHooks } from '@nextrush/types';
+import type {
+  Container,
+  Context,
+  Extension,
+  ExtensionContext,
+  Logger,
+  Middleware,
+  RouteEntry,
+  Router,
+} from '@nextrush/types';
 import { compose } from './middleware';
 
 /** @internal Symbol keys for route() state — avoids polluting user's ctx.state namespace */
@@ -18,16 +29,6 @@ const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
  * Error handler function type
  */
 export type ErrorHandler = (error: Error, ctx: Context) => void | Promise<void>;
-
-/**
- * Logger interface for pluggable logging
- */
-export interface Logger {
-  error(...args: unknown[]): void;
-  warn(...args: unknown[]): void;
-  info(...args: unknown[]): void;
-  debug(...args: unknown[]): void;
-}
 
 /** No-op logger — default when no logger is configured */
 const NOOP_LOGGER: Logger = {
@@ -65,18 +66,25 @@ export interface ApplicationOptions {
    * Custom logger. Defaults to no-op (silent).
    *
    * @remarks
-   * Pass `console` for quick development logging:
-   * ```ts
-   * const app = createApp({ logger: console });
-   * ```
-   *
-   * For production, provide a structured logger (e.g. pino, winston)
-   * that implements the {@link Logger} interface.
-   *
-   * Adapters and internal hooks use `app.logger` — configuring it here
-   * ensures consistent logging across the framework.
+   * Pass `console` for quick development logging. For production, provide a
+   * structured logger (pino, winston, `@nextrush/logger`) implementing {@link Logger}.
    */
   logger?: Logger;
+
+  /**
+   * A router the app owns. Route methods (`app.get`, `app.post`, …) delegate to
+   * it, and it is mounted last at `ready()`. The `nextrush` meta-package's
+   * `createApp` injects one automatically; pass it explicitly when using
+   * `@nextrush/core` directly.
+   */
+  router?: Router;
+
+  /**
+   * A per-app DI container. Exposed to extensions via `ExtensionContext.container`
+   * and used by class-based registrars (e.g. `registerControllers`). Injected by
+   * `nextrush/class`; omitted for functional, DI-free apps.
+   */
+  container?: Container;
 }
 
 /**
@@ -85,8 +93,8 @@ export interface ApplicationOptions {
 export type ListenCallback = () => void;
 
 /**
- * Routable interface - any object with routes() method
- * This allows mounting Router instances without circular dependency
+ * Routable interface - any object with routes() method.
+ * Allows mounting Router instances without a circular dependency.
  */
 export interface Routable {
   routes(): Middleware;
@@ -103,40 +111,46 @@ export interface Routable {
  *   ctx.json({ message: 'Hello World' });
  * });
  *
- * // Mount with an adapter
+ * // Extensions (rare — long-lived services) are booted at ready(), which
+ * // adapters call automatically before start().
+ * app.extend(events());
+ *
  * listen(app, { port: 8080 });
  * ```
  */
 export class Application {
-  /**
-   * Middleware stack
-   */
+  /** Middleware stack */
   private readonly middlewareStack: Middleware[] = [];
 
-  /**
-   * Installed plugins
-   */
-  private readonly plugins = new Map<string, Plugin>();
+  /** Registered extensions, in registration order (setup runs at ready()) */
+  private readonly extensions: Extension<unknown>[] = [];
 
-  /**
-   * Custom error handler
-   */
+  /** Registered extension names — enforces uniqueness */
+  private readonly extensionNames = new Set<string>();
+
+  /** Names decorated onto the app — enforces collision detection */
+  private readonly decorations = new Set<string>();
+
+  /** Custom error handler */
   private _errorHandler: ErrorHandler | null = null;
 
-  /**
-   * Pluggable logger
-   */
+  /** Pluggable logger */
   readonly logger: Logger;
 
-  /**
-   * Application options
-   */
+  /** Application options */
   readonly options: ApplicationOptions;
 
-  /**
-   * Whether the app is running
-   */
+  /** Whether the app is running (server listening) */
   private _isRunning = false;
+
+  /** Whether the app has been booted (extensions set up, config frozen) */
+  private _isReady = false;
+
+  /** The app-owned router (optional). Route methods delegate to it. */
+  readonly router?: Router;
+
+  /** The app-owned DI container (optional). Exposed to extensions and registrars. */
+  readonly container?: Container;
 
   constructor(options: ApplicationOptions = {}) {
     this.options = {
@@ -144,36 +158,42 @@ export class Application {
       proxy: options.proxy ?? false,
     };
     this.logger = options.logger ?? NOOP_LOGGER;
+    this.router = options.router;
+    this.container = options.container;
   }
 
-  /**
-   * Check if running in production
-   */
+  /** Check if running in production */
   get isProduction(): boolean {
     return this.options.env === 'production';
   }
 
-  /**
-   * Check if app is running
-   */
+  /** Check if app is running */
   get isRunning(): boolean {
     return this._isRunning;
   }
 
-  /**
-   * Get middleware count
-   */
+  /** Check if app has been booted via ready() */
+  get isReady(): boolean {
+    return this._isReady;
+  }
+
+  /** Get middleware count */
   get middlewareCount(): number {
     return this.middlewareStack.length;
   }
 
+  /** Get registered extension count */
+  get extensionCount(): number {
+    return this.extensions.length;
+  }
+
   /**
-   * Throws if the app is already running.
-   * Prevents configuration mutations after start().
+   * Throws if the app configuration is frozen (after ready() or start()).
+   * Prevents unsafe mutations once the app has booted or is serving traffic.
    */
-  private assertNotRunning(method: string): void {
-    if (this._isRunning) {
-      throw new Error(`Cannot call ${method}() after the application has started`);
+  private assertConfigurable(method: string): void {
+    if (this._isReady || this._isRunning) {
+      throw new Error(`Cannot call ${method}() after app.ready() — configuration is frozen`);
     }
   }
 
@@ -184,23 +204,11 @@ export class Application {
   /**
    * Register middleware function(s)
    *
-   * @param middleware - Middleware function or array of middleware
+   * @param middleware - Middleware function(s)
    * @returns this for chaining
-   *
-   * @example
-   * ```typescript
-   * // Single middleware
-   * app.use(async (ctx) => {
-   *   console.log(ctx.method, ctx.path);
-   *   await ctx.next();
-   * });
-   *
-   * // Multiple middleware
-   * app.use(cors(), helmet(), json());
-   * ```
    */
   use(...middleware: Middleware[]): this {
-    this.assertNotRunning('use');
+    this.assertConfigurable('use');
     for (const mw of middleware) {
       if (typeof mw !== 'function') {
         throw new TypeError('Middleware must be a function');
@@ -215,37 +223,14 @@ export class Application {
   // ===========================================================================
 
   /**
-   * Mount a router at a path prefix
+   * Mount a router at a path prefix.
    *
-   * This is the Hono-style API for mounting routers directly on the app.
-   * The router's routes will only match requests that start with the given prefix.
-   *
-   * @param path - Path prefix for the router (e.g., '/api/users')
+   * @param path - Path prefix (e.g. '/api/users')
    * @param router - Router instance to mount
    * @returns this for chaining
-   *
-   * @example
-   * ```typescript
-   * // Create modular routers
-   * const users = createRouter();
-   * users.get('/', listUsers);
-   * users.get('/:id', getUser);
-   * users.post('/', createUser);
-   *
-   * const posts = createRouter();
-   * posts.get('/', listPosts);
-   * posts.get('/:id', getPost);
-   *
-   * // Mount directly on app - clean like Hono!
-   * const app = createApp();
-   * app.route('/api/users', users);
-   * app.route('/api/posts', posts);
-   *
-   * listen(app, 8080);
-   * ```
    */
   route(path: string, router: Routable): this {
-    this.assertNotRunning('route');
+    this.assertConfigurable('route');
     // Root mount optimization: skip all prefix processing
     if (path === '/' || path === '') {
       this.middlewareStack.push(router.routes());
@@ -260,11 +245,6 @@ export class Application {
     }
     const prefixLen = normalizedPrefix.length;
 
-    // NOTE (DX-3): We cast `ctx` to `{ path: string }` inside this middleware
-    // to temporarily strip the `readonly` modifier on `path`. This is intentional:
-    // route mounting must adjust ctx.path for the sub-router and restore it
-    // afterwards. The Context interface keeps `path` readonly to prevent
-    // accidental mutation by user code, but internal mounting is the exception.
     const mountedMiddleware: Middleware = async (ctx, next) => {
       const currentPath = ctx.path;
 
@@ -290,15 +270,11 @@ export class Application {
 
       try {
         await routerMiddleware(ctx, async () => {
-          // Restore original path before calling downstream middleware
-          // so downstream sees the full unmounted path
           (ctx as { path: string }).path = currentPath;
           await next();
-          // Re-apply stripped path for router's return path
           (ctx as { path: string }).path = adjustedPath;
         });
       } finally {
-        // Restore original path and clean up Symbol state
         (ctx as { path: string }).path = currentPath;
         (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH] = undefined;
         (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX] = undefined;
@@ -310,130 +286,212 @@ export class Application {
   }
 
   // ===========================================================================
+  // Routing (delegates to the app-owned router)
+  // ===========================================================================
+
+  private requireRouter(): Router {
+    if (!this.router) {
+      throw new Error(
+        'No router configured. Create your app with `createApp()` from `nextrush` ' +
+          '(batteries-included), or pass one: `createApp({ router: createRouter() })`.'
+      );
+    }
+    return this.router;
+  }
+
+  /** Register a GET route on the app-owned router. */
+  get(path: string, ...entries: RouteEntry[]): this {
+    this.assertConfigurable('get');
+    this.requireRouter().get(path, ...entries);
+    return this;
+  }
+
+  /** Register a POST route on the app-owned router. */
+  post(path: string, ...entries: RouteEntry[]): this {
+    this.assertConfigurable('post');
+    this.requireRouter().post(path, ...entries);
+    return this;
+  }
+
+  /** Register a PUT route on the app-owned router. */
+  put(path: string, ...entries: RouteEntry[]): this {
+    this.assertConfigurable('put');
+    this.requireRouter().put(path, ...entries);
+    return this;
+  }
+
+  /** Register a PATCH route on the app-owned router. */
+  patch(path: string, ...entries: RouteEntry[]): this {
+    this.assertConfigurable('patch');
+    this.requireRouter().patch(path, ...entries);
+    return this;
+  }
+
+  /** Register a DELETE route on the app-owned router. */
+  delete(path: string, ...entries: RouteEntry[]): this {
+    this.assertConfigurable('delete');
+    this.requireRouter().delete(path, ...entries);
+    return this;
+  }
+
+  /** Register a HEAD route on the app-owned router. */
+  head(path: string, ...entries: RouteEntry[]): this {
+    this.assertConfigurable('head');
+    this.requireRouter().head(path, ...entries);
+    return this;
+  }
+
+  /**
+   * Register a route for all HTTP methods on the app-owned router.
+   *
+   * @remarks
+   * There is intentionally no `app.options()` verb method — it would collide
+   * with the `app.options` configuration property. Register OPTIONS routes via
+   * `app.all()`, the router directly, or let CORS middleware handle preflight.
+   */
+  all(path: string, ...entries: RouteEntry[]): this {
+    this.assertConfigurable('all');
+    this.requireRouter().all(path, ...entries);
+    return this;
+  }
+
+  // ===========================================================================
   // Error Handling
   // ===========================================================================
 
   /**
-   * Set the application error handler.
-   *
-   * Replaces any previously set handler. Only one error handler is active
-   * at a time. For additive error handling, compose logic within a single
-   * handler or use the `errorHandler()` middleware from `@nextrush/errors`.
+   * Set the application error handler. Replaces any previously set handler.
    *
    * @param handler - Error handler function
    * @returns this for chaining
-   *
-   * @example
-   * ```typescript
-   * app.setErrorHandler((error, ctx) => {
-   *   console.error('Request failed:', error);
-   *
-   *   if (error instanceof ValidationError) {
-   *     ctx.status = 400;
-   *     ctx.json({ error: error.message, details: error.details });
-   *     return;
-   *   }
-   *
-   *   ctx.status = 500;
-   *   ctx.json({ error: 'Internal Server Error' });
-   * });
-   * ```
    */
   setErrorHandler(handler: ErrorHandler): this {
     this._errorHandler = handler;
     return this;
   }
 
-  /**
-   * Set custom error handler.
-   *
-   * @param handler - Error handler function
-   * @returns this for chaining
-   *
-   * @deprecated Use `setErrorHandler()` instead — `onError()` implies
-   * event subscription (additive), but this is a setter (replaces).
-   */
-  onError(handler: ErrorHandler): this {
-    return this.setErrorHandler(handler);
-  }
-
   // ===========================================================================
-  // Plugin System
+  // Extension System (see RFC-NEXTRUSH-PLUGIN-SYSTEM)
   // ===========================================================================
 
   /**
-   * Install a plugin.
+   * Register an extension. Queues it — `setup()` runs later, at `ready()`,
+   * in registration order. Synchronous and chainable.
    *
-   * Handles both sync and async `install()` methods automatically.
-   * Returns `this` for sync plugins and `Promise<this>` for async ones.
-   *
-   * @param plugin - Plugin to install
-   * @returns this (sync) or Promise<this> (async)
+   * @param extension - Extension to register. If it declares a decorated
+   * shape via `Extension<TDecorated>`, the return type carries that shape —
+   * `app.extend(events<MyEvents>()).events` is statically known, no
+   * `declare module` augmentation required.
+   * @returns this, intersected with the extension's declared decorated shape
    *
    * @example
    * ```typescript
-   * // Sync plugin
-   * app.plugin(loggerPlugin({ level: 'info' }));
-   *
-   * // Async plugin — just await it
-   * await app.plugin(databasePlugin({ uri: '...' }));
+   * const extended = app.extend(events<MyEvents>());
+   * extended.events.emit('user:created', { id: '1' }); // inferred
+   * await app.ready(); // adapters call this automatically
    * ```
    */
-  plugin(plugin: Plugin): this | Promise<this> {
-    this.assertNotRunning('plugin');
-    if (this.plugins.has(plugin.name)) {
-      throw new Error(`Plugin "${plugin.name}" is already installed`);
+  extend<TDecorated = Record<string, never>>(
+    extension: Extension<TDecorated>
+  ): this & TDecorated {
+    this.assertConfigurable('extend');
+    if (!extension || typeof extension.setup !== 'function') {
+      throw new TypeError('Extension must have a setup() method');
+    }
+    if (this.extensionNames.has(extension.name)) {
+      throw new Error(`Extension "${extension.name}" is already registered`);
+    }
+    this.extensionNames.add(extension.name);
+    this.extensions.push(extension);
+    return this as this & TDecorated;
+  }
+
+  /**
+   * Boot the application: run every registered extension's `setup()` once, in
+   * registration order, awaiting async setups. Idempotent — safe to call twice.
+   * Adapters call this automatically before `start()`.
+   *
+   * After `ready()` resolves, the configuration is frozen (`use`/`route`/`extend`
+   * throw).
+   *
+   * @returns this
+   * @throws if an extension declares a `needs` dependency not yet registered
+   */
+  async ready(): Promise<this> {
+    if (this._isReady) {
+      return this;
     }
 
-    const result = plugin.install(this);
+    const setupDone = new Set<string>();
 
-    // If install() returned a promise, handle it asynchronously
-    if (result instanceof Promise) {
-      return result.then(() => {
-        this.plugins.set(plugin.name, plugin);
-        return this;
-      });
+    for (const extension of this.extensions) {
+      // Declare-and-assert dependency check (no auto-sort; registration order is the order)
+      if (extension.needs) {
+        for (const dep of extension.needs) {
+          if (!setupDone.has(dep)) {
+            throw new Error(
+              `Extension "${extension.name}" needs "${dep}", but "${dep}" was not ` +
+                `registered before it. Register the "${dep}" extension before "${extension.name}".`
+            );
+          }
+        }
+      }
+
+      const ctx: ExtensionContext = {
+        app: this,
+        logger: this.logger,
+        container: this.container,
+        env: this.options.env ?? 'development',
+        name: extension.name,
+        decorate: <V>(name: string, value: V): void => {
+          this.decorate(name, value);
+        },
+      };
+
+      await extension.setup(ctx);
+      setupDone.add(extension.name);
     }
 
-    this.plugins.set(plugin.name, plugin);
+    // Mount the app-owned router LAST, so routes run after all middleware
+    // (both user- and extension-registered).
+    if (this.router) {
+      this.middlewareStack.push(this.router.routes());
+    }
+
+    this._isReady = true;
     return this;
   }
 
   /**
-   * Install a plugin asynchronously.
+   * Attach a value to the app under `name`. Extension-author primitive, invoked
+   * through {@link ExtensionContext.decorate} — there is intentionally no public
+   * `app.decorate()` (RFC §6.1). Throws on collision.
    *
-   * @param plugin - Plugin to install
-   * @returns Promise that resolves when plugin is installed
-   *
-   * @deprecated Use `plugin()` instead — it handles both sync and async
-   * plugins automatically.
-   *
-   * @example
-   * ```typescript
-   * await app.plugin(new DatabasePlugin({ connectionString: '...' }));
-   * ```
+   * @internal
    */
-  async pluginAsync(plugin: Plugin): Promise<this> {
-    const result = this.plugin(plugin);
-    return result instanceof Promise ? result : Promise.resolve(result);
+  private decorate(name: string, value: unknown): void {
+    if (this.decorations.has(name)) {
+      throw new Error(`Decoration "${name}" already exists on the application`);
+    }
+    if (name in this) {
+      throw new Error(
+        `Decoration "${name}" collides with an existing Application member — choose another name`
+      );
+    }
+    Object.defineProperty(this, name, {
+      value,
+      enumerable: true,
+      writable: false,
+      configurable: true, // allow close() to clean up
+    });
+    this.decorations.add(name);
   }
 
   /**
-   * Get an installed plugin by name
-   *
-   * @param name - Plugin name
-   * @returns Plugin instance or undefined
+   * Whether a decoration already occupies `name`.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  getPlugin<T extends Plugin>(name: string): T | undefined {
-    return this.plugins.get(name) as T | undefined;
-  }
-
-  /**
-   * Check if a plugin is installed
-   */
-  hasPlugin(name: string): boolean {
-    return this.plugins.has(name);
+  hasDecorator(name: string): boolean {
+    return this.decorations.has(name);
   }
 
   // ===========================================================================
@@ -441,90 +499,30 @@ export class Application {
   // ===========================================================================
 
   /**
-   * Create the request handler callback
+   * Create the request handler callback.
    *
-   * This is the function that adapters call to handle each request.
-   * It composes all middleware and returns a function that processes context.
-   *
-   * **Important:** The middleware stack is snapshot at call time.
-   * Middleware or plugins added after `callback()` will NOT take effect
-   * on the returned handler. Call `callback()` again to get a
-   * handler that includes subsequent registrations.
+   * The middleware stack is snapshot at call time — call `ready()` before
+   * `callback()` so extension-registered middleware is included. Adapters do
+   * this automatically.
    *
    * @returns Request handler function
    */
   callback(): (ctx: Context) => Promise<void> {
+    if (!this._isReady && this.extensions.length > 0) {
+      this.logger.warn(
+        `callback() was called before ready(), but ${this.extensions.length} extension(s) ` +
+          `were registered via extend() — their setup() will NOT run, and anything they ` +
+          `would decorate (e.g. app.events) will be missing. Call \`await app.ready()\` ` +
+          `before \`callback()\`. Adapters (listen/serve) do this automatically.`
+      );
+    }
+
     const fn = compose(this.middlewareStack);
-
-    // Collect plugins that implement lifecycle hooks (once at build time)
-    // Validate that hook properties are actually callable functions
-    const hookPlugins = Array.from(this.plugins.values()).filter((p): p is PluginWithHooks => {
-      const hasHook =
-        'onRequest' in p || 'onResponse' in p || 'onError' in p || 'extendContext' in p;
-      if (!hasHook) return false;
-
-      // Runtime validation: ensure hook properties are functions
-      if ('onRequest' in p && typeof p.onRequest !== 'function') {
-        throw new TypeError(
-          `Plugin "${p.name}": onRequest must be a function, got ${typeof p.onRequest}`
-        );
-      }
-      if ('onResponse' in p && typeof p.onResponse !== 'function') {
-        throw new TypeError(
-          `Plugin "${p.name}": onResponse must be a function, got ${typeof p.onResponse}`
-        );
-      }
-      if ('onError' in p && typeof p.onError !== 'function') {
-        throw new TypeError(
-          `Plugin "${p.name}": onError must be a function, got ${typeof p.onError}`
-        );
-      }
-      if ('extendContext' in p && typeof p.extendContext !== 'function') {
-        throw new TypeError(
-          `Plugin "${p.name}": extendContext must be a function, got ${typeof p.extendContext}`
-        );
-      }
-      return true;
-    });
 
     return async (ctx: Context): Promise<void> => {
       try {
-        // Extend context and run onRequest hooks
-        for (const p of hookPlugins) {
-          if (p.extendContext) p.extendContext(ctx);
-          if (p.onRequest) await p.onRequest(ctx);
-        }
-
         await fn(ctx);
-
-        // Run onResponse hooks — isolate errors so all hooks run
-        for (const p of hookPlugins) {
-          if (p.onResponse) {
-            try {
-              await p.onResponse(ctx);
-            } catch (hookError) {
-              this.logger.warn('Plugin onResponse hook threw:', {
-                plugin: p.name,
-                error: hookError,
-              });
-            }
-          }
-        }
       } catch (error) {
-        // Run onError hooks
-        const err = error instanceof Error ? error : new Error(String(error));
-        for (const p of hookPlugins) {
-          if (p.onError) {
-            try {
-              await p.onError(err, ctx);
-            } catch (hookError) {
-              this.logger.warn('Plugin onError hook threw:', {
-                plugin: p.name,
-                error: hookError,
-              });
-            }
-          }
-        }
         await this.handleError(error, ctx);
       }
     };
@@ -536,37 +534,29 @@ export class Application {
   private async handleError(error: unknown, ctx: Context): Promise<void> {
     const err = error instanceof Error ? error : new Error(String(error));
 
-    // Use custom error handler if set
     if (this._errorHandler) {
       try {
         await this._errorHandler(err, ctx);
         return;
       } catch (handlerError) {
-        // If custom handler throws, fall through to default handling
         this.logger.error('Error handler threw:', handlerError);
       }
     }
 
-    // Default error handling
     this.defaultErrorHandler(err, ctx);
   }
 
   /**
-   * Default error handler
+   * Default error handler.
    *
-   * Uses the `expose` flag on errors (set by HttpError/NextRushError)
-   * to decide whether to include the error message in the response.
-   * 4xx errors expose messages by default; 5xx errors never do.
-   * This prevents leaking internal details (paths, SQL, stack info)
-   * regardless of environment.
+   * Uses the `expose` flag on errors (set by HttpError/NextRushError) to decide
+   * whether to include the message. 4xx expose by default; 5xx never do.
    */
   private defaultErrorHandler(error: Error, ctx: Context): void {
-    // Always log non-production errors for DX
     if (!this.isProduction) {
       this.logger.error('Request error:', error);
     }
 
-    // Determine status — clamp to valid error range (400-599)
     const errorMeta = error as Error & { status?: number; expose?: boolean };
     let status = 500;
     if (typeof errorMeta.status === 'number') {
@@ -575,9 +565,6 @@ export class Application {
     }
     ctx.status = status;
 
-    // Use the `expose` flag to decide what message the client sees.
-    // HttpError/NextRushError set expose=true for 4xx, false for 5xx.
-    // Plain Error never exposes — prevents leaking internal details.
     const expose = errorMeta.expose === true;
     const message = expose ? error.message : 'Internal Server Error';
 
@@ -591,43 +578,45 @@ export class Application {
   /**
    * Mark app as running and freeze configuration.
    *
-   * Called by adapters when the server starts listening. After this call,
-   * `use()`, `route()`, `plugin()`, and `pluginAsync()` will throw.
-   * This prevents unsafe middleware mutations while requests are in flight.
-   *
-   * To re-enable registration (e.g. for testing), call `close()` first.
+   * Called by adapters when the server starts listening (after `ready()`).
    */
   start(): void {
     this._isRunning = true;
   }
 
   /**
-   * Graceful shutdown
-   * Destroys all plugins that have a destroy method.
-   * Uses Promise.allSettled to ensure all plugins are destroyed
-   * even if some throw errors.
+   * Graceful shutdown. Destroys extensions in reverse registration order using
+   * `Promise.allSettled` so one failing `destroy()` never strands the others.
    *
-   * @returns Array of errors from plugins that failed to destroy (empty on success)
+   * @returns Array of errors from extensions that failed to destroy (empty on success)
    */
   async close(): Promise<Error[]> {
     this._isRunning = false;
 
-    // Destroy plugins in reverse order using allSettled for resilience
-    const pluginArray = Array.from(this.plugins.values()).reverse();
-    const destroyablePlugins = pluginArray.filter(
-      (p): p is Plugin & { destroy: () => void | Promise<void> } => typeof p.destroy === 'function'
+    const reversed = [...this.extensions].reverse();
+    const destroyable = reversed.filter(
+      (e): e is Extension & { destroy: () => void | Promise<void> } =>
+        typeof e.destroy === 'function'
     );
 
-    const destroyPromises = destroyablePlugins.map((p) =>
-      Promise.resolve()
-        .then(() => p.destroy())
-        .catch((err: unknown) => {
-          throw err instanceof Error ? err : new Error(String(err));
-        })
+    const results = await Promise.allSettled(
+      destroyable.map((e) =>
+        Promise.resolve()
+          .then(() => e.destroy())
+          .catch((err: unknown) => {
+            throw err instanceof Error ? err : new Error(String(err));
+          })
+      )
     );
 
-    const results = await Promise.allSettled(destroyPromises);
-    this.plugins.clear();
+    // Clean up decorations so the instance can be re-booted (e.g. in tests)
+    for (const name of this.decorations) {
+      delete (this as unknown as Record<string, unknown>)[name];
+    }
+    this.decorations.clear();
+    this.extensions.length = 0;
+    this.extensionNames.clear();
+    this._isReady = false;
 
     return results
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
@@ -640,12 +629,6 @@ export class Application {
  *
  * @param options - Application options
  * @returns New Application instance
- *
- * @example
- * ```typescript
- * const app = createApp();
- * const app = createApp({ env: 'production' });
- * ```
  */
 export function createApp(options?: ApplicationOptions): Application {
   return new Application(options);

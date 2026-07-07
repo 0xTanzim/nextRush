@@ -16,7 +16,6 @@ export type {
   ApplicationOptions,
   ErrorHandler,
   ListenCallback,
-  Logger,
   Routable,
 } from './application';
 
@@ -40,15 +39,19 @@ export {
 export type {
   Context,
   ContextState,
+  Extension,
+  ExtensionContext,
+  ExtensionHost,
   HttpMethod,
   HttpStatusCode,
+  Logger,
   Middleware,
   Next,
-  Plugin,
-  PluginWithHooks,
   QueryParams,
+  RouteEntry,
   RouteHandler,
   RouteParams,
+  Router,
 } from '@nextrush/types';
 
 // Re-export constants

@@ -1,0 +1,66 @@
+{
+  "name": "@nextrush/openapi",
+  "version": "3.0.5",
+  "description": "Zero-config OpenAPI 3.1 generation for NextRush — reads route metadata (validate() schemas + endpoint()) and serves /openapi.json + docs. The first renderer of the Route Metadata System.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4",
+    "zod": "^4.0.0"
+  },
+  "keywords": [
+    "nextrush",
+    "openapi",
+    "swagger",
+    "swagger-ui",
+    "api-docs",
+    "standard-schema",
+    "middleware"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
+    "directory": "packages/middleware/openapi"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/openapi#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "sideEffects": false
+}

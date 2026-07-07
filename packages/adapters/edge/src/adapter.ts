@@ -86,14 +86,26 @@ export function createFetchHandler(
   app: Application,
   options: FetchHandlerOptions = {}
 ): FetchHandler {
-  const appHandler = app.callback();
   const { timeout } = options;
   const trustProxy = app.options.proxy ?? false;
 
   /** Sentinel value returned by the timeout racer */
   const TIMEOUT_SENTINEL = Symbol('timeout');
 
+  // Edge has no serve()/start() phase, so the deferred boot barrier runs lazily
+  // on the first request (idempotent), then the request handler is snapshotted.
+  let appHandler: ReturnType<Application['callback']> | null = null;
+  let bootPromise: Promise<void> | null = null;
+  const ensureBooted = (): Promise<void> => {
+    bootPromise ??= app.ready().then(() => {
+      appHandler = app.callback();
+    });
+    return bootPromise;
+  };
+
   return async (request: Request, executionContext?: EdgeExecutionContext): Promise<Response> => {
+    await ensureBooted();
+    const handler = appHandler!;
     const ctx = createEdgeContext(request, executionContext, trustProxy);
 
     try {
@@ -101,7 +113,7 @@ export function createFetchHandler(
         // Race the handler against a timeout
         let timerId: ReturnType<typeof setTimeout> | undefined;
         const result = await Promise.race([
-          appHandler(ctx).then(() => {
+          handler(ctx).then(() => {
             if (timerId !== undefined) clearTimeout(timerId);
             return undefined;
           }),
@@ -119,7 +131,7 @@ export function createFetchHandler(
           });
         }
       } else {
-        await appHandler(ctx);
+        await handler(ctx);
       }
 
       if (!ctx.responded) {

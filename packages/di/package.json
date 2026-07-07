@@ -26,11 +26,11 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@nextrush/types": "workspace:*",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.10.0"
   },
   "devDependencies": {
-    "@nextrush/types": "workspace:*",
     "rimraf": "^6.1.3",
     "tsup": "^8.5.1",
     "typescript": "^6.0.2",

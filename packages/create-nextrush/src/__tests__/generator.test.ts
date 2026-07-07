@@ -185,11 +185,10 @@ describe('generateProject', () => {
       expect(entry).not.toContain("import 'reflect-metadata'");
     });
 
-    it('uses awaited controllersPlugin with runtime-safe discovery config', () => {
+    it('uses awaited registerControllers with runtime-safe discovery config', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await app.plugin(');
-      expect(entry).toContain('controllersPlugin');
+      expect(entry).toContain('await registerControllers(');
       expect(entry).toContain('root: CONTROLLERS_ROOT');
       expect(entry).toContain('include: CONTROLLERS_INCLUDE');
       expect(entry).toContain('strict: true');
@@ -243,7 +242,6 @@ describe('generateProject', () => {
       expect(files.has('src/controllers/hello.controller.ts')).toBe(true);
       expect(files.has('src/services/hello.service.ts')).toBe(true);
       expect(files.has('src/middleware/error-handler.ts')).toBe(true);
-      expect(files.has('src/middleware/not-found.ts')).toBe(true);
     });
 
     it('uses serve instead of listen', () => {
@@ -253,11 +251,10 @@ describe('generateProject', () => {
       expect(entry).toContain('onListen');
     });
 
-    it('imports error and not-found handlers', () => {
+    it('imports the error handler', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
       expect(entry).toContain('errorHandler');
-      expect(entry).toContain('notFoundHandler');
     });
 
     it('uses @Post and @Body decorators', () => {
@@ -293,20 +290,13 @@ describe('generateProject', () => {
       expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
     });
 
-    it('uses awaited controllersPlugin with runtime-safe discovery config in full template', () => {
+    it('uses awaited registerControllers with runtime-safe discovery config in full template', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await app.plugin(');
+      expect(entry).toContain('await registerControllers(');
       expect(entry).toContain('root: CONTROLLERS_ROOT');
       expect(entry).toContain('include: CONTROLLERS_INCLUDE');
       expect(entry).toContain('strict: true');
-    });
-
-    it('not-found handler returns 404', () => {
-      const files = generateProject(createOptions({ style: 'full' }));
-      const handler = files.get('src/middleware/not-found.ts')!;
-      expect(handler).toContain('ctx.status = 404');
-      expect(handler).toContain("'Not Found'");
     });
   });
 
@@ -394,8 +384,8 @@ describe('generateProject', () => {
       const files = generateProject(createOptions({ style: 'full', middleware: 'minimal' }));
       // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
       // routes/health.ts, controllers/hello.controller.ts, services/hello.service.ts,
-      // middleware/error-handler.ts, middleware/not-found.ts
-      expect(files.size).toBe(11);
+      // middleware/error-handler.ts
+      expect(files.size).toBe(10);
     });
 
     it('git flag does not affect file count', () => {

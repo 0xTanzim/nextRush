@@ -110,7 +110,17 @@ export interface Router {
   /**
    * Mount router middleware
    */
-  use(path: string, router: Router): this;
+  /**
+   * Mount middleware.
+   *
+   * @remarks
+   * Sub-router mounting (`router.use(path, subRouter)`) is a concrete
+   * `@nextrush/router` `Router` capability, not part of this structural
+   * interface — mounting needs internal tree access
+   * (`Router.mount()`/the concrete class's own `use()` overload provide it).
+   * Cross-package router composition goes through `Application.route()`
+   * (`Routable`, `routes()`-only) instead.
+   */
   use(middleware: Middleware): this;
 
   /**

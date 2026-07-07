@@ -953,8 +953,9 @@ export class Router {
   }
 
   /**
-   * Remove all registered routes and middleware, resetting the router to its initial state.
-   * Useful for plugin `destroy()` to cleanly un-register routes.
+   * Remove all registered routes and middleware, resetting the router to its
+   * initial state. Useful for test isolation or hot-reload scenarios that
+   * need to re-register routes on the same router instance.
    */
   reset(): void {
     this.root.children.clear();

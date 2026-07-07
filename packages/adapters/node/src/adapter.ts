@@ -160,6 +160,10 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   } = options;
 
   const logger = options.logger ?? app.logger;
+
+  // Boot extensions before building the request handler (deferred boot barrier).
+  await app.ready();
+
   const handler = createHandler(app, { logger });
   const server = createServer(handler);
 
@@ -218,7 +222,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
               res();
             });
           });
-          // 2. Destroy plugins after server is fully drained
+          // 2. Destroy extensions after server is fully drained
           await app.close();
         },
       });

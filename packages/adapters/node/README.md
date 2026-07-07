@@ -114,7 +114,7 @@ server.listen(443);
 
 ## Graceful Shutdown
 
-`ServerInstance.close()` stops accepting new connections, waits for in-flight requests to drain (up to `shutdownTimeout`), then calls `app.close()` for plugin cleanup.
+`ServerInstance.close()` stops accepting new connections, waits for in-flight requests to drain (up to `shutdownTimeout`), then calls `app.close()` for extension teardown.
 
 ```typescript
 const server = await serve(app, { port: 8080 });

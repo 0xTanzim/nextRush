@@ -399,7 +399,7 @@ import {
 
 // Types
 import type {
-  ContainerInterface,
+  Container,
   Provider,
   ClassProvider,
   ValueProvider,

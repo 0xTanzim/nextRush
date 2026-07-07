@@ -1,7 +1,7 @@
 packages:
   - packages/*
   - packages/middleware/*
-  - packages/plugins/*
+  - packages/extensions/*
   - packages/adapters/*
   - apps/*
   - examples/*

@@ -204,7 +204,10 @@ export function createHandler(
  * });
  * ```
  */
-export function serve(app: Application, options: ServeOptions = {}): ServerInstance {
+export async function serve(
+  app: Application,
+  options: ServeOptions = {}
+): Promise<ServerInstance> {
   const {
     port = 8080,
     hostname = '0.0.0.0',
@@ -220,6 +223,9 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
   // In-flight request tracking for graceful shutdown
   let activeRequests = 0;
   let drainResolve: (() => void) | null = null;
+
+  // Boot extensions before building the request handler (deferred boot barrier).
+  await app.ready();
 
   const appCallback = app.callback();
   const trustProxy = app.options.proxy ?? false;
@@ -376,7 +382,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
         ]);
       }
 
-      // 3. Notify plugins
+      // 3. Tear down extensions
       await app.close();
     },
     reload: (newOptions?: Partial<ServeOptions>) => {
@@ -405,7 +411,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
  * // Output: 🚀 NextRush listening on http://localhost:8080 (Bun)
  * ```
  */
-export function listen(app: Application, port = 8080): ServerInstance {
+export async function listen(app: Application, port = 8080): Promise<ServerInstance> {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {

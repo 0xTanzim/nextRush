@@ -68,7 +68,7 @@ export type {
   ClassProvider,
   ConfigOptions,
   Constructor,
-  ContainerInterface,
+  Container,
   FactoryProvider,
   Provider,
   RegisterOptions,

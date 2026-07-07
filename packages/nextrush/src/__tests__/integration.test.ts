@@ -193,6 +193,11 @@ function createMockContext(options: MockContextOptions = {}): Context {
     raw: mockRaw,
     runtime: 'node' as Runtime,
     bodySource: mockBodySource,
+    signal: new AbortController().signal,
+    sendStream: async () => {},
+    stream: async () => {},
+    sse: async () => {},
+    ndjson: async () => {},
   };
 
   // Add ability to set nextFn for testing
@@ -598,7 +603,7 @@ describe('Application Integration', () => {
         ctx.json({ customError: error.message });
       });
 
-      app.onError(errorHandler);
+      app.setErrorHandler(errorHandler);
 
       app.use(async () => {
         throw new Error('Test error');
@@ -614,7 +619,7 @@ describe('Application Integration', () => {
     });
 
     it('should handle HttpError with proper status', async () => {
-      app.onError((error: Error, ctx: Context) => {
+      app.setErrorHandler((error: Error, ctx: Context) => {
         if ('status' in error && typeof error.status === 'number') {
           ctx.status = error.status;
         } else {
@@ -934,7 +939,7 @@ describe('Error Handling Integration', () => {
   it('should handle HttpError through the stack', async () => {
     const app = createApp();
 
-    app.onError((error: Error, ctx: Context) => {
+    app.setErrorHandler((error: Error, ctx: Context) => {
       if (error instanceof HttpError) {
         ctx.status = error.status;
         ctx.json({
@@ -968,7 +973,7 @@ describe('Error Handling Integration', () => {
   it('should handle validation errors', async () => {
     const app = createApp();
 
-    app.onError((error: Error, ctx: Context) => {
+    app.setErrorHandler((error: Error, ctx: Context) => {
       if (error instanceof BadRequestError) {
         ctx.status = 400;
         ctx.json({

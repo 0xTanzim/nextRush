@@ -35,8 +35,8 @@ const User = z.object({
   email: z.string(),
 });
 
-const app = createApp();
 const router = createRouter();
+const app = createApp({ router });
 
 app.use(errorHandler()); // validation failures → clean 400 JSON
 app.use(bodyParser()); //   parse JSON request bodies
@@ -59,10 +59,8 @@ router.post(
   }
 );
 
-app.route('/', router);
-
 // 3. OpenAPI — zero-config. Serves the spec at /openapi.json and Swagger UI at /docs.
-app.plugin(
+app.use(
   openapi({
     router,
     info: { title: 'Users API', version: '1.0.0' },

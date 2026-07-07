@@ -1,5 +1,5 @@
 import { bodyParser } from '@nextrush/body-parser';
-import { controllersPlugin } from '@nextrush/controllers';
+import { registerControllers } from '@nextrush/controllers';
 import { errorHandler } from '@nextrush/errors';
 import { openapi } from '@nextrush/openapi';
 import { validate } from '@nextrush/validation';
@@ -7,9 +7,9 @@ import { createApp, createRouter, endpoint, serve } from 'nextrush';
 import 'reflect-metadata';
 import { z } from 'zod';
 
-function main() {
-  const app = createApp();
+async function main() {
   const router = createRouter();
+  const app = createApp({ router });
   const port = Number(process.env.PORT ?? 8080);
 
   // Error handler must be the outermost middleware so it can catch anything
@@ -83,13 +83,14 @@ function main() {
     }
   );
 
-  app.route('/', router);
+  // Routes are registered on `router`, which is the app's own router
+  // (passed to createApp) — auto-mounted at ready(), no app.route() needed.
 
   // ──────────────────────────────────────
   // OpenAPI — zero-config, reads route metadata (validate() + endpoint())
   // GET /openapi.json + GET /docs
   // ──────────────────────────────────────
-  app.plugin(
+  app.use(
     openapi({
       router,
       info: { title: 'NextRush Playground API', version: '1.0.0' },
@@ -98,22 +99,19 @@ function main() {
 
   // ──────────────────────────────────────
   // Class-Based Controllers (DI + Decorators)
-  // Uses the SAME router — controllersPlugin registers
+  // Uses the SAME router — registerControllers registers
   // routes with /api prefix directly on it
   // ──────────────────────────────────────
 
-  app.plugin(
-    controllersPlugin({
-      router,
-      root: './src',
-      prefix: '/api',
-    })
-  );
+  await registerControllers(app, {
+    root: './src',
+    prefix: '/api',
+  });
 
   // ──────────────────────────────────────
   // Start Server
   // ──────────────────────────────────────
-  serve(app, {
+  await serve(app, {
     port,
     onListen: () => {
       console.log(`\n🚀 NextRush Playground running at http://localhost:${port}`);

@@ -184,5 +184,5 @@ export function getAllGuards(target: Function, methodName: string | symbol): Gua
   return [...classGuards, ...methodGuards];
 }
 
-// Re-export type guard for use in controllers plugin
+// Re-export type guard for use by @nextrush/controllers' registrar
 export { isGuardClass };
