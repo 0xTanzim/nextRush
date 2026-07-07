@@ -20,12 +20,14 @@ graph TB
         NEXTRUSH[nextrush]
     end
 
-    subgraph "Plugin Layer"
+    subgraph "Extensions Layer"
         CONTROLLERS[controllers]
         LOGGER[logger]
         STATIC[static]
         TEMPLATE[template]
         WS[websocket]
+        STREAM[stream]
+        OPENAPI[openapi]
     end
 
     subgraph "Middleware Layer"
@@ -34,6 +36,7 @@ graph TB
         BODY[body-parser]
         COMPRESS[compression]
         RATE[rate-limit]
+        VALIDATION[validation]
     end
 
     subgraph "Core Layer"
@@ -93,6 +96,9 @@ graph TB
     BODY --> TYPES
     COMPRESS --> TYPES
     RATE --> TYPES
+    VALIDATION --> TYPES
+    STREAM --> TYPES
+    OPENAPI --> TYPES
 
 `} />
 
@@ -109,7 +115,7 @@ These packages form the base of the hierarchy. They depend only on each other �
 | `@nextrush/runtime` | Runtime detection, BodySource   | types, errors |
 
 ```ts
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Extension } from '@nextrush/types';
 import { NotFoundError, BadRequestError } from '@nextrush/errors';
 import { getRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
 ```
@@ -163,6 +169,7 @@ Reusable middleware packages. All middleware depends only on `@nextrush/types`.
 | `@nextrush/request-id`  | Request ID generation              |
 | `@nextrush/timer`       | Response time tracking             |
 | `@nextrush/cookies`     | Cookie parsing and setting         |
+| `@nextrush/validation`  | Standard Schema request validation |
 
 ```ts
 import { json, urlencoded } from '@nextrush/body-parser';
@@ -170,11 +177,12 @@ import { cors } from '@nextrush/cors';
 import { helmet } from '@nextrush/helmet';
 import { compression } from '@nextrush/compression';
 import { rateLimit } from '@nextrush/rate-limit';
+import { validate } from '@nextrush/validation';
 ```
 
-### Plugin Layer
+### Extensions & Registrars Layer
 
-Extended functionality:
+Extended functionality — mostly middleware, plus a few registrars (`registerControllers`) and one Extension (`events`):
 
 | Package                 | Responsibility                 | Dependencies                  |
 | ----------------------- | ------------------------------ | ----------------------------- |
@@ -186,9 +194,9 @@ Extended functionality:
 | `@nextrush/events`      | Event system (pub/sub)         | —                             |
 
 ```ts
-import { controllersPlugin } from '@nextrush/controllers';
-import { loggerPlugin } from '@nextrush/logger';
-import { staticPlugin } from '@nextrush/static';
+import { registerControllers } from '@nextrush/controllers';
+import { logger } from '@nextrush/logger';
+import { serveStatic } from '@nextrush/static';
 ```
 
 ### Dev Tools
@@ -258,7 +266,7 @@ NextRush follows strict dependency rules:
 @nextrush/body-parser → types
 ```
 
-### 6. Plugins can depend on multiple packages
+### 6. Extensions and registrars can depend on multiple packages
 
 ```
 @nextrush/controllers → decorators, di, errors, types (peer: core, router)
@@ -284,7 +292,10 @@ Each package has a maximum size to keep the framework lean:
 | `@nextrush/controllers`  | 800     |
 | `@nextrush/adapter-*`    | 500     |
 | `@nextrush/middleware/*` | 300     |
-| `@nextrush/plugin/*`     | 600     |
+| `@nextrush/extensions/*` | 600     |
+| `@nextrush/stream`       | 300     |
+| `@nextrush/openapi`      | 600     |
+| `@nextrush/validation`   | 300     |
 
 ## Common Installation Patterns
 
@@ -368,7 +379,7 @@ Choose the pattern that matches your project needs.
 
     ```ts
     import { createApp, createRouter, listen } from 'nextrush';
-    import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+    import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 
     @Service()
     class GreetingService {
@@ -388,15 +399,10 @@ Choose the pattern that matches your project needs.
     }
 
     const app = createApp();
-    const router = createRouter();
-    await app.plugin(
-      controllersPlugin({
-        router,
-        root: './src',
-        prefix: '/api',
-      })
-    );
-    app.route('/', router);
+    await registerControllers(app, {
+      root: './src',
+      prefix: '/api',
+    });
     await listen(app, 8080);
     ```
 

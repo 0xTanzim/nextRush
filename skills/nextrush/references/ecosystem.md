@@ -8,33 +8,35 @@ Plugins, adapters, dev tools, and runtime utilities for NextRush.
 
 ## Plugins
 
+NextRush has no `Plugin` interface. Extending an app falls into three kinds:
+**Middleware** (`app.use(fn())`, ~99% of packages), **Registrar** (a plain
+function you call directly, ~1%), and **Extension** (`app.extend(ext)` +
+`await app.ready()`, rare — for long-lived services like an event bus). The
+sections below use the correct idiom for each package.
+
 ### 1. Controllers (`@nextrush/controllers`)
 
-Auto-discovers `@Controller` classes, integrates DI, and registers routes.
+A **registrar**. `registerControllers` auto-discovers `@Controller` classes,
+integrates DI, and registers routes on `app.router`. It reads `app.router`
+and `app.container` directly — no `router` option, no `app.plugin()`.
 
 ```typescript
-import { controllersPlugin, registerController } from '@nextrush/controllers';
+import { registerControllers, registerController } from '@nextrush/controllers';
 // Or via nextrush/class subpath:
-import { controllersPlugin } from 'nextrush/class';
+import { registerControllers } from 'nextrush/class';
 
-const app = createApp();
-const router = createRouter();
+const app = createApp(); // owns a router (batteries-included)
 
-// Auto-discovery (recommended)
-app.plugin(
-  controllersPlugin({
-    router,
-    root: './src', // Scan for @Controller classes
-    prefix: '/api', // Prefix all routes
-    include: ['**/*.controller.ts'],
-    debug: true, // Log discovered controllers
-  })
-);
+// Auto-discovery (recommended) — must be awaited before serve()
+await registerControllers(app, {
+  root: './src', // Scan for @Controller classes
+  prefix: '/api', // Prefix all routes
+  include: ['**/*.controller.ts'],
+  debug: true, // Log discovered controllers
+});
 
 // Manual registration
-registerController(router, UserController);
-
-app.route('/', router);
+registerController(app.router!, UserController);
 ```
 
 **Error types:**
@@ -51,27 +53,31 @@ Re-exports: `@Controller`, `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Body`
 
 ### 2. Events (`@nextrush/events`)
 
-Type-safe async event emitter.
+An **Extension** — a long-lived service registered with `app.extend()` and
+booted at `app.ready()`. Not a plugin; there is no `eventsPlugin()`.
 
 ```typescript
-import { eventsPlugin, createEvents, EventEmitter } from '@nextrush/events';
-// As plugin (attaches to app.events)
-app.plugin(eventsPlugin());
+import { events, createEvents, EventEmitter } from '@nextrush/events';
+
+// As an Extension (attaches to app.events)
+app.extend(events());
+await app.ready(); // adapters call this automatically before start()
 app.events.on('user:created', (data) => console.log(data));
 app.events.emit('user:created', { id: '1', name: 'Alice' });
-// Standalone
+
+// Standalone (no app involved)
 interface AppEvents {
   'server:started': { port: number };
 }
-const events = createEvents<AppEvents>();
-events.on('server:started', ({ port }) => console.log(`Port ${port}`));
-await events.emit('server:started', { port: 8080 });
+const emitter = createEvents<AppEvents>();
+emitter.on('server:started', ({ port }) => console.log(`Port ${port}`));
+await emitter.emit('server:started', { port: 8080 });
 // API: on(), off(), emit(), once()
 ```
 
 ### 3. Logger (`@nextrush/logger`)
 
-Request logging middleware. Wraps `@nextrush/log`.
+Request logging **middleware**. Wraps `@nextrush/log`.
 
 ```typescript
 import { logger, createLogger, attachLogger } from '@nextrush/logger';
@@ -86,7 +92,7 @@ Transports: `createConsoleTransport`, `createBatchTransport`, `createFilteredTra
 
 ### 4. Static (`@nextrush/static`)
 
-High-performance static file serving.
+High-performance static file serving **middleware**.
 
 ```typescript
 import { serveStatic, staticFiles, sendFile } from '@nextrush/static';
@@ -109,13 +115,13 @@ app.use(
 
 ### 5. Template (`@nextrush/template`)
 
-Universal template engine with adapter pattern.
+Universal template engine **middleware** with adapter pattern. There is no
+separate `templatePlugin()` — `template()` is the only entry point.
 
 ```typescript
-import { template, templatePlugin } from '@nextrush/template';
+import { template } from '@nextrush/template';
 app.use(template()); // Built-in Mustache-like
 app.use(template('ejs', { root: './views' })); // Or: handlebars, nunjucks, pug, eta
-app.plugin(templatePlugin('ejs', { root: './views' })); // As plugin
 // In handlers — extends Context with ctx.render()
 await ctx.render('home', { title: 'Welcome', user: ctx.state.user });
 ```
@@ -124,7 +130,8 @@ Supported engines: `builtin` (default), `ejs`, `handlebars`, `nunjucks`, `pug`, 
 
 ### 6. WebSocket (`@nextrush/websocket`)
 
-WebSocket support with rooms and broadcasting.
+A **registrar**-style factory: call it directly, then register its upgrade
+handler as middleware. WebSocket support with rooms and broadcasting.
 
 ```typescript
 import { createWebSocket, withWebSocket } from '@nextrush/websocket';

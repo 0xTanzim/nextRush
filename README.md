@@ -177,11 +177,16 @@ ctx.state; // Share data between middleware
 | Package                 | Description                 |
 | ----------------------- | --------------------------- |
 | `@nextrush/body-parser` | JSON/form/text body parsing |
+| `@nextrush/multipart`   | File upload (multipart) parsing |
 | `@nextrush/cors`        | CORS headers                |
 | `@nextrush/helmet`      | Security headers            |
+| `@nextrush/csrf`        | CSRF protection              |
 | `@nextrush/rate-limit`  | Rate limiting               |
 | `@nextrush/compression` | Response compression        |
 | `@nextrush/cookies`     | Cookie handling             |
+| `@nextrush/validation`  | Standard Schema request validation (Zod/Valibot/ArkType) |
+| `@nextrush/request-id`  | Request ID generation       |
+| `@nextrush/timer`       | Response time tracking      |
 
 ### Plugins (install separately)
 
@@ -192,6 +197,8 @@ ctx.state; // Share data between middleware
 | `@nextrush/template`  | Template rendering      |
 | `@nextrush/logger`    | Structured logging      |
 | `@nextrush/events`    | Type-safe event emitter |
+| `@nextrush/stream`    | Response streaming — SSE, NDJSON, built for AI/agentic apps |
+| `@nextrush/openapi`   | Zero-config OpenAPI 3.1 generation from route metadata |
 
 ### Class-Based Development (install separately)
 
@@ -305,8 +312,8 @@ nextrush/
 │   ├── errors/          # @nextrush/errors
 │   ├── runtime/         # @nextrush/runtime
 │   ├── adapters/        # Platform adapters (node, bun, deno, edge)
-│   ├── middleware/       # cors, helmet, body-parser, etc.
-│   ├── plugins/         # controllers, websocket, template, etc.
+│   ├── middleware/       # cors, helmet, body-parser, validation, etc.
+│   ├── plugins/          # controllers, websocket, template, stream, openapi, etc.
 │   ├── di/              # Dependency injection
 │   ├── decorators/      # Controller decorators
 │   ├── dev/             # CLI: dev server, build, generators

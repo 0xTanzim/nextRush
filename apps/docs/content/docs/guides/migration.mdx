@@ -7,6 +7,13 @@ import { Mermaid } from '@/components/mdx';
 
 This guide maps Express patterns to their NextRush equivalents. Most of your existing knowledge transfers — the mental model changes are small.
 
+<Callout type="info" title="Upgrading an existing NextRush v3 app?">
+  This page covers migrating **from Express**. If you're upgrading a NextRush app that still uses
+  `app.plugin()`, `Plugin`, or `controllersPlugin`, see the
+  [Extension Model migration guide](https://github.com/0xTanzim/nextrush/blob/main/docs/guides/migration-extension-model.md)
+  instead — it covers the breaking change from the plugin system to middleware, registrars, and Extensions.
+</Callout>
+
 ## Concept Mapping
 
 | Express                  | NextRush                    | Notes                            |
@@ -322,8 +329,8 @@ If you're coming from Fastify, the key differences are:
 | `request` + `reply`                     | Single `ctx`            | Unified context object           |
 | Lifecycle hooks (`onRequest`, `onSend`) | Middleware onion model  | Before/after in one function     |
 | JSON Schema validation                  | Transform decorators    | Use Zod, Valibot, or any library |
-| `fastify-plugin` encapsulation          | `Plugin` interface      | Simpler, no encapsulation scope  |
-| `fast-json-stringify` (AOT)             | Native `JSON.stringify` | ~13% throughput difference       |
+| `fastify-plugin` encapsulation          | Middleware + registrars | No encapsulation scope — see the [Extension Model migration guide](https://github.com/0xTanzim/nextrush/blob/main/docs/guides/migration-extension-model.md) |
+| `fast-json-stringify` (AOT)             | Native `JSON.stringify` | Fastify's AOT serialization can outperform on JSON-heavy routes — see [benchmarks](/docs/performance/comparison) for current numbers |
 | Node.js only                            | Node, Bun, Deno, Edge   | Multi-runtime support            |
 
 ```typescript

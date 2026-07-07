@@ -45,13 +45,11 @@ import type {
 // HTTP constants
 import { HttpStatus, ContentType, HTTP_METHODS } from '@nextrush/types';
 
-// Plugin types
+// Extension types
 import type {
-  Plugin,
-  PluginWithHooks,
-  PluginFactory,
-  PluginMeta,
-  ApplicationLike,
+  Extension,
+  ExtensionContext,
+  ExtensionHost,
 } from '@nextrush/types';
 
 // Router types
@@ -280,63 +278,81 @@ const ContentType = {
 } as const;
 ```
 
-## Plugin Types
+## Extension Types
+
+Extensions are the rare (~0.1%) long-lived, app-scoped services that need a boot phase and a
+teardown phase — see [Extending NextRush](/docs/concepts/plugins) for when to reach for one
+instead of middleware or a registrar.
 
 ```typescript
-interface Plugin {
-  /** Unique plugin name */
-  readonly name: string;
-
-  /** Plugin version (semver format) */
-  readonly version?: string;
-
-  /** Install the plugin on an application */
-  install(app: ApplicationLike): void | Promise<void>;
-
-  /** Optional cleanup on shutdown */
-  destroy?(): void | Promise<void>;
+interface ExtensionHost {
+  /** Register middleware on the application. */
+  use(middleware: Middleware): this;
+  /** Whether a decoration already occupies `name`. */
+  hasDecorator(name: string): boolean;
 }
 
-interface PluginWithHooks extends Plugin {
-  /** Called before each request */
-  onRequest?(ctx: Context): void | Promise<void>;
+interface ExtensionContext {
+  /** The application instance — add middleware, read decorations. */
+  readonly app: ExtensionHost;
+  /** The app logger (structured, pluggable). */
+  readonly logger: Logger;
+  /** The app's DI container, if one was configured. */
+  readonly container?: Container;
+  /** Environment mode. */
+  readonly env: 'development' | 'production' | 'test';
+  /** This extension's own name (for scoped diagnostics). */
+  readonly name: string;
+  /** Attach a value to the app under `name`. Throws on name collision. */
+  decorate<V>(name: string, value: V): void;
+}
 
-  /** Called after each response */
-  onResponse?(ctx: Context): void | Promise<void>;
-
-  /** Called when an error occurs */
-  onError?(error: Error, ctx: Context): void | Promise<void>;
-
-  /** Extend the context object */
-  extendContext?(ctx: Context): void;
+interface Extension {
+  /** Unique name — used for collision detection, dependency assertion, diagnostics. */
+  readonly name: string;
+  /** Names of other extensions that MUST already be registered before this one. */
+  readonly needs?: readonly string[];
+  /** Set up the extension. Runs once, at `app.ready()`, in registration order. */
+  setup(ctx: ExtensionContext): void | Promise<void>;
+  /** Tear down on `app.close()`. Runs in reverse registration order. */
+  destroy?(): void | Promise<void>;
 }
 ```
 
 <TypeTable
-  title="PluginWithHooks Lifecycle Methods"
+  title="ExtensionContext"
   types={{
-    onRequest: {
-      type: '(ctx: Context) => void | Promise<void>',
-      description: 'Called before each request',
+    app: {
+      type: 'ExtensionHost',
+      description: 'The subset of Application an extension may use during setup()',
+    },
+    logger: {
+      type: 'Logger',
+      description: 'The app logger',
+    },
+    container: {
+      type: 'Container',
+      description: "The app's per-app DI container, if one was configured",
       optional: true,
     },
-    onResponse: {
-      type: '(ctx: Context) => void | Promise<void>',
-      description: 'Called after each response',
-      optional: true,
+    env: {
+      type: "'development' | 'production' | 'test'",
+      description: 'Environment mode',
     },
-    onError: {
-      type: '(error: Error, ctx: Context) => void | Promise<void>',
-      description: 'Called when an error occurs',
-      optional: true,
+    name: {
+      type: 'string',
+      description: "This extension's own name",
     },
-    extendContext: {
-      type: '(ctx: Context) => void',
-      description: 'Extend the context object with additional properties',
-      optional: true,
+    decorate: {
+      type: '<V>(name: string, value: V) => void',
+      description: 'Attach a value to the app under `name`. Throws on collision.',
     },
   }}
 />
+
+There is no public `app.decorate()` — attaching a value to the app is only possible through
+`ctx.decorate()` inside `setup()`. The public, read-only check for a decoration from outside an
+extension is `app.hasDecorator(name)`.
 
 ## Router Types
 
@@ -518,7 +534,7 @@ ctx.state.user = { id: '123', email: 'user@example.com' };
 
 ```typescript
 // Import types only (no runtime code)
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Extension } from '@nextrush/types';
 ```
 
 ### Constants

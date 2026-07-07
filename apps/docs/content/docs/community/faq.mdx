@@ -65,24 +65,23 @@ This watches for file changes and restarts your server automatically. See [Dev T
 
 ### How do I validate request data?
 
-NextRush works with any validation library. The recommended approach is [Zod](https://zod.dev/) with parameter transforms:
+Use [`@nextrush/validation`](/docs/api-reference/middleware/validation) — it works with any [Standard Schema](https://standardschema.dev) library (Zod, Valibot, ArkType):
 
 ```typescript
+import { validate } from '@nextrush/validation';
 import { z } from 'zod';
-import { Body } from '@nextrush/decorators';
 
 const CreateUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
 });
 
-@Post()
-async create(@Body({ transform: CreateUserSchema.parseAsync }) data: CreateUser) {
-  return this.users.create(data);
-}
+router.post('/users', validate(CreateUserSchema), (ctx) => {
+  ctx.json(ctx.body); // validated + coerced
+});
 ```
 
-See the [Validation guide](/docs/guides/validation) for functional and class-based patterns.
+For class-based controllers, the `@Body({ transform })` decorator works the same way with a schema's `parseAsync`. See the [Validation guide](/docs/guides/validation) for both styles.
 
 ### How do I handle errors?
 
@@ -124,7 +123,7 @@ On **one reference machine** (fixed CPU, Node version, autocannon and wrk settin
 
 ### Why is Fastify faster?
 
-Fastify uses AOT JSON serialization with `fast-json-stringify`, a highly optimized C-level HTTP parser, and compiled JSON Schema validation. NextRush uses native `JSON.stringify` and the standard Node.js parser. The ~13% gap disappears in real applications where database queries dominate response time. See [Why Fastify Is Faster](/docs/performance#why-fastify-is-faster).
+Fastify uses AOT JSON serialization with `fast-json-stringify`, a highly optimized C-level HTTP parser, and compiled JSON Schema validation. NextRush uses native `JSON.stringify` and the standard Node.js parser. In this suite the gap is largest on the Hello World scenario and narrows on scenarios doing more real work; it disappears further in production apps where database queries dominate response time. See [Design Trade-offs: Fastify vs NextRush](/docs/performance) for the current numbers.
 
 ### Does adding middleware slow things down?
 

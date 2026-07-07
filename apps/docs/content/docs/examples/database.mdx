@@ -1,9 +1,9 @@
 ---
 title: 'Database Integration'
-description: 'Connect NextRush to databases using the Plugin lifecycle and Repository pattern.'
+description: 'Connect NextRush to databases using an Extension for connection lifecycle and the Repository pattern.'
 ---
 
-Connect NextRush to databases using the Plugin lifecycle for connection management and the Repository pattern for data access.
+Connect NextRush to databases using an Extension for connection lifecycle management and the Repository pattern for data access.
 
 This example demonstrates patterns that work with any database driver. Two implementations are shown: SQLite (better-sqlite3) and PostgreSQL (Drizzle ORM).
 
@@ -12,61 +12,69 @@ This example demonstrates patterns that work with any database driver. Two imple
 ## Architecture
 
 ```
-Controller → Service → Repository → Database Plugin
+Controller → Service → Repository → Database Extension
 ```
 
-- **Database Plugin**: Manages connection lifecycle (connect in `install()`, disconnect in `destroy()`)
+- **Database Extension**: Manages connection lifecycle (connect in `setup()`, disconnect in `destroy()`)
 - **Repository**: Data access layer, injected via DI
 - **Service**: Business logic, validation
 - **Controller**: HTTP handling
 
 <Callout type="info" title="Connection Management">
   Always use connection pooling in production. Both the SQLite (WAL mode) and PostgreSQL (connection
-  pool) examples below demonstrate proper lifecycle management through the Plugin interface.
+  pool) examples below demonstrate proper lifecycle management through the Extension pattern.
 </Callout>
 
 ---
 
-## Database Plugin
+## Database Extension
 
-Wrap your database connection in a NextRush Plugin. The `install()` method connects, and the optional `destroy()` method disconnects during graceful shutdown.
+A database connection is a long-lived service that attaches state to the app — the rare case an
+Extension is for (most integrations are middleware or a registrar). `setup()` connects and
+`ctx.decorate()` attaches the connection to the app; `destroy()` disconnects during graceful
+shutdown.
 
-```typescript title="src/plugins/database.plugin.ts"
+```typescript title="src/extensions/database.extension.ts"
 import Database from 'better-sqlite3';
-import type { Plugin, ApplicationLike } from 'nextrush';
+import type { Extension } from '@nextrush/types';
 
-export class DatabasePlugin implements Plugin {
-  readonly name = 'database';
-  private db!: Database.Database;
-
-  install(_app: ApplicationLike): void {
-    const dbPath = process.env.DB_PATH ?? ':memory:';
-    this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `);
+declare module '@nextrush/core' {
+  interface Application {
+    db: Database.Database;
   }
+}
 
-  destroy(): void {
-    this.db.close();
-  }
+export function database(): Extension {
+  let db: Database.Database;
 
-  get connection(): Database.Database {
-    return this.db;
-  }
+  return {
+    name: 'database',
+    setup(ctx) {
+      const dbPath = process.env.DB_PATH ?? ':memory:';
+      db = new Database(dbPath);
+      db.pragma('journal_mode = WAL');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `);
+
+      ctx.decorate('db', db);
+    },
+    destroy() {
+      db.close();
+    },
+  };
 }
 ```
 
 <Callout type="warn">
-  Connection setup belongs in `install()`, not in the constructor. NextRush calls `destroy()` during
-  graceful shutdown to close connections cleanly.
+  Connection setup belongs in `setup()`, not in a constructor. NextRush calls `destroy()` during
+  graceful shutdown (`app.close()`) to close connections cleanly, in reverse registration order.
 </Callout>
 
 ---
@@ -152,16 +160,16 @@ export class UserRepository implements BaseRepository<User, CreateUserDto, Updat
 
 ```typescript title="src/repositories/user.sqlite.repository.ts"
 import { Repository } from '@nextrush/di';
-import type { DatabasePlugin } from '../plugins/database.plugin';
+import type { Application } from '@nextrush/core';
 import type { User, CreateUserDto, UpdateUserDto } from './user.repository';
 import type { BaseRepository } from './base.repository';
 
 @Repository()
 export class UserSqliteRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
-  constructor(private database: DatabasePlugin) {}
+  constructor(private app: Application) {}
 
   private get db() {
-    return this.database.connection;
+    return this.app.db;
   }
 
   async findAll(): Promise<User[]> {
@@ -262,32 +270,39 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 ```
 
-### Database Plugin
+### Database Extension
 
-```typescript title="src/plugins/drizzle.plugin.ts"
+```typescript title="src/extensions/drizzle.extension.ts"
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import type { Plugin, ApplicationLike } from 'nextrush';
+import type { Extension } from '@nextrush/types';
 import * as schema from '../database/schema';
 
-export class DrizzlePlugin implements Plugin {
-  readonly name = 'drizzle';
-  private client!: ReturnType<typeof postgres>;
-  public db!: ReturnType<typeof drizzle<typeof schema>>;
-
-  install(_app: ApplicationLike): void {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable is required');
-    }
-
-    this.client = postgres(connectionString);
-    this.db = drizzle(this.client, { schema });
+declare module '@nextrush/core' {
+  interface Application {
+    drizzle: ReturnType<typeof drizzle<typeof schema>>;
   }
+}
 
-  async destroy(): Promise<void> {
-    await this.client.end();
-  }
+export function drizzleExtension(): Extension {
+  let client: ReturnType<typeof postgres>;
+
+  return {
+    name: 'drizzle',
+    setup(ctx) {
+      const connectionString = process.env.DATABASE_URL;
+      if (!connectionString) {
+        throw new Error('DATABASE_URL environment variable is required');
+      }
+
+      client = postgres(connectionString);
+      const db = drizzle(client, { schema });
+      ctx.decorate('drizzle', db);
+    },
+    async destroy() {
+      await client.end();
+    },
+  };
 }
 ```
 
@@ -299,16 +314,16 @@ export class DrizzlePlugin implements Plugin {
 ```typescript title="src/repositories/user.drizzle.repository.ts"
 import { Repository } from '@nextrush/di';
 import { eq } from 'drizzle-orm';
-import type { DrizzlePlugin } from '../plugins/drizzle.plugin';
+import type { Application } from '@nextrush/core';
 import { users, type User } from '../database/schema';
 import type { BaseRepository, CreateUserDto, UpdateUserDto } from './user.repository';
 
 @Repository()
 export class UserDrizzleRepository implements BaseRepository<User, CreateUserDto, UpdateUserDto> {
-  constructor(private drizzle: DrizzlePlugin) {}
+  constructor(private app: Application) {}
 
   private get db() {
-    return this.drizzle.db;
+    return this.app.drizzle;
   }
 
   async findAll(): Promise<User[]> {
@@ -464,42 +479,33 @@ export class UserController {
 
 ```typescript title="src/index.ts"
 // reflect-metadata is auto-imported by the nextrush meta-package
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin, container } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
+import { createContainer } from '@nextrush/di';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 
-import { DatabasePlugin } from './plugins/database.plugin';
+import { database } from './extensions/database.extension';
 import { UserRepository } from './repositories/user.repository';
 import { UserSqliteRepository } from './repositories/user.sqlite.repository';
 
-const app = createApp();
-const router = createRouter();
-
-// Database lifecycle managed by the plugin
-const dbPlugin = new DatabasePlugin();
-app.plugin(dbPlugin);
-
-// Register the plugin instance so repositories can inject it
-container.register(DatabasePlugin, { useValue: dbPlugin });
+const container = createContainer();
 
 // Swap repository implementation without changing business logic
 container.register(UserRepository, { useClass: UserSqliteRepository });
 
+const app = createApp({ container });
+
+// Database is a long-lived service — an Extension, booted at ready()
+app.extend(database());
+
 app.use(cors());
 app.use(json());
 
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-  })
-);
+// Registrar — reads app.router + app.container, must be awaited before listen()
+await registerControllers(app, { root: './src', prefix: '/api' });
 
-app.route('/', router);
-
-await listen(app, 8080);
+await listen(app, 8080); // adapters call app.ready() for you
 ```
 
 <Callout type="info">

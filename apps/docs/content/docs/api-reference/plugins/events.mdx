@@ -33,18 +33,27 @@ With default options, the plugin:
 ### With NextRush
 
 ```typescript
-import { createApp } from '@nextrush/core';
-import { eventsPlugin } from '@nextrush/events';
+import { createApp, listen } from 'nextrush';
+import { events } from '@nextrush/events';
 
 const app = createApp();
-app.plugin(eventsPlugin());
+app.extend(events());
+await app.ready(); // adapters call this automatically before start()
 
 app.events.on('user:created', (data) => {
   console.log('User created:', data);
 });
 
 await app.events.emit('user:created', { id: '1', name: 'Alice' });
+
+await listen(app, 8080);
 ```
+
+<Callout type="info" title="An Extension, not a plugin">
+  `events()` is an **Extension** — registered with `app.extend()` and booted at `app.ready()`,
+  which adapters (`listen()`, `serve()`) call automatically before `start()`. There is no
+  `eventsPlugin()` and no `app.plugin()`.
+</Callout>
 
 ### Standalone
 
@@ -69,11 +78,11 @@ await events.emit('user:created', { id: '1', name: 'Alice' });
 
 ## Configuration Options
 
-Pass options to `eventsPlugin()` or `createEvents()`:
+Pass options to `events()` or `createEvents()`:
 
 ```typescript
-app.plugin(
-  eventsPlugin({
+app.extend(
+  events({
     propertyName: 'events',
     maxListeners: 10,
     errorIsolation: true,
@@ -83,7 +92,7 @@ app.plugin(
 ```
 
 <TypeTable
-  title="EventsPluginOptions"
+  title="EventsOptions"
   types={{
     propertyName: {
       type: 'string',
@@ -124,7 +133,7 @@ Define an event map interface and augment the `Application` type for full Intell
 
 ```typescript
 import { createApp } from '@nextrush/core';
-import { eventsPlugin } from '@nextrush/events';
+import { events } from '@nextrush/events';
 import type { EventEmitter } from '@nextrush/events';
 
 interface AppEvents {
@@ -140,7 +149,8 @@ declare module '@nextrush/core' {
 }
 
 const app = createApp();
-app.plugin(eventsPlugin<AppEvents>());
+app.extend(events<AppEvents>());
+await app.ready();
 
 // Fully typed — invalid events or payloads cause compile errors
 app.events.on('user:created', (data) => {
@@ -303,18 +313,16 @@ import type {
   EventNames,
   EventHandler,
   EventEmitterOptions,
+  EventsOptions,
   TypedEventEmitter,
   Unsubscribe,
-  WithEvents,
 } from '@nextrush/events';
 
 import {
   EventEmitter,
   createEvents,
-  eventsPlugin,
-  DEFAULT_EMITTER_OPTIONS,
-  MAX_EVENT_NAME_LENGTH,
-  VALID_PROPERTY_NAME,
+  events,
+  VERSION,
 } from '@nextrush/events';
 ```
 

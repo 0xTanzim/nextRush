@@ -399,25 +399,21 @@ export class UsersController {
 }
 ```
 
-Bootstrap with the controllers plugin:
+Bootstrap with `registerControllers` — a registrar function you call once, awaited, before
+starting the server:
 
 ```typescript title="src/index.ts"
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
 import { json } from '@nextrush/body-parser';
 
 const app = createApp();
-const router = createRouter();
 
 app.use(json());
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-  })
-);
-app.route('/api', router);
+await registerControllers(app, {
+  root: './src',
+  prefix: '/api',
+});
 
 await listen(app, 8080);
 ```

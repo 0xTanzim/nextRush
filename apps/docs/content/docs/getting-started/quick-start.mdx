@@ -89,11 +89,7 @@ await listen(app, 8080);
 npx tsx src/index.ts
 ```
 
-You should see a line like:
-
-```
-🚀 NextRush listening on http://localhost:8080
-```
+`tsx` starts the server and it keeps running. NextRush's default logger is a no-op, so nothing prints unless you pass one (`createApp({ logger: console })`). Confirm it's up by opening http://localhost:8080 or running the curl calls below.
 
 </Step>
 
@@ -178,7 +174,7 @@ await listen(app, 8080);
 
 ## Security headers, JSON bodies, and POST
 
-Add CORS, security headers, and JSON parsing. Register **`helmet` → `cors` → `json`** before your
+Add CORS, security headers, and JSON parsing. Register **`cors` → `helmet` → `json`** before your
 logger so bodies are parsed before timing runs:
 
 <PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
@@ -191,8 +187,8 @@ import { json } from '@nextrush/body-parser';
 
 const app = createApp();
 
-app.use(helmet());
 app.use(cors());
+app.use(helmet());
 app.use(json());
 
 app.use(async (ctx) => {
@@ -270,8 +266,8 @@ import { json } from '@nextrush/body-parser';
 const app = createApp();
 
 // Middleware
-app.use(helmet());
 app.use(cors());
+app.use(helmet());
 app.use(json());
 
 // Logger

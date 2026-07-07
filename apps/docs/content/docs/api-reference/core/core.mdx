@@ -1,9 +1,9 @@
 ---
 title: '@nextrush/core'
-description: Application class, middleware composition, and plugin system
+description: Application class, middleware composition, and the extension system
 ---
 
-The core package provides the foundation of every NextRush application: the Application class, middleware composition, and plugin system.
+The core package provides the foundation of every NextRush application: the Application class, middleware composition, and the extension system.
 
 <PackageInstall packages={['@nextrush/core']} />
 
@@ -45,8 +45,8 @@ import {
 import type {
   Context,
   Middleware,
-  Plugin,
-  PluginWithHooks,
+  Extension,
+  ExtensionContext,
   Next,
   HttpMethod,
   HttpStatusCode,
@@ -62,7 +62,7 @@ import { HttpStatus, ContentType } from '@nextrush/core';
 
 ## Application
 
-The `Application` class is the container for your middleware stack and plugins.
+The `Application` class is the container for your middleware stack and extensions.
 
 ### Creating an Application
 
@@ -98,6 +98,18 @@ const app = createApp({
       type: 'Logger',
       description:
         'Pluggable logger instance. Defaults to a silent no-op logger. Pass console for quick development logging.',
+      optional: true,
+    },
+    router: {
+      type: 'Router',
+      description:
+        'A router the app owns. Route methods (app.get, app.post, …) delegate to it. The `nextrush` meta-package\'s createApp() injects one automatically.',
+      optional: true,
+    },
+    container: {
+      type: 'Container',
+      description:
+        'A per-app DI container, exposed to extensions and registrars (e.g. registerControllers). Injected automatically by `nextrush/class`.',
       optional: true,
     },
   }}
@@ -140,7 +152,7 @@ const app = createApp({ logger: console });
 const app = createApp({ logger: pino() });
 ```
 
-The logger is available on `app.logger` and is used internally by the error handler and plugin lifecycle hooks.
+The logger is available on `app.logger` and is used internally by the error handler and extension setup/destroy hooks.
 
 ### Proxy Mode
 
@@ -255,10 +267,7 @@ app.setErrorHandler((error, ctx) => {
 });
 ```
 
-<Callout type="warn">
-  `onError()` is deprecated. Use `setErrorHandler()` instead — the name makes the replacement
-  semantics clear.
-</Callout>
+There is no `onError()` method — `setErrorHandler()` is the only way to set the application error handler; the name makes the replacement semantics clear (calling it again replaces the previous handler).
 
 ### Default Error Behavior
 
@@ -271,45 +280,43 @@ Without a custom handler, the built-in handler decides what the client sees from
 
 The client response is identical in every environment — a 500 never leaks its message, even in development. The only environment-dependent behavior is the server-side log: the default handler logs via `app.logger` in `development` and `test`, and stays silent in `production`. To include a stack trace or the raw message in responses, set a custom handler (above). See [Application → error handling](/docs/concepts/application) for the rationale.
 
-## Plugin System
+## Extension System
 
-Plugins extend the application without modifying core code.
+Extensions are the rare (~0.1%) long-lived, app-scoped services — an event bus, a database pool — that need a boot phase and a teardown phase. Most capability is middleware (`app.use()`), not an Extension. See [Extending NextRush](/docs/concepts/plugins) for the full taxonomy (Middleware, Registrar, Extension) and when to reach for each.
 
-### Installing Plugins
+### Registering Extensions
 
-`app.plugin()` handles both sync and async plugins automatically. It returns `this` for sync plugins and `Promise<this>` for async ones.
+`app.extend()` is synchronous and only queues the extension — `setup()` runs later, at `app.ready()`, in registration order:
 
 ```typescript
-// Sync plugin
-app.plugin(loggerPlugin({ level: 'info' }));
+import { events } from '@nextrush/events';
 
-// Async plugin — await the result
-await app.plugin(databasePlugin({ uri: '...' }));
+app.extend(events());
+await app.ready(); // adapters call this automatically before start()
+
+app.events.emit('server:started', {});
 ```
 
-<Callout type="warn">
-  `pluginAsync()` is deprecated. Use `plugin()` instead — it detects async `install()` methods and
-  returns a `Promise` when needed.
-</Callout>
-
-### Plugin Utilities
+### Extension Lifecycle
 
 ```typescript
-// Check if installed
-if (app.hasPlugin('logger')) {
-  console.log('Logger is active');
+// app.ready() boots every registered extension once, in order
+await app.ready();
+
+// After ready(), configuration is frozen
+app.use(mw); // ❌ throws — use()/route()/extend() all throw after ready()
+```
+
+`app.close()` tears extensions down in reverse registration order, using `Promise.allSettled` so one failing `destroy()` never strands the others.
+
+### Checking for a Decoration
+
+There is no public `app.decorate()` — only `ctx.decorate()` inside an Extension's `setup()`. The only public, read-only check from outside an extension is:
+
+```typescript
+if (app.hasDecorator('events')) {
+  console.log('events extension is active');
 }
-
-// Get plugin instance
-const logger = app.getPlugin<LoggerPlugin>('logger');
-```
-
-### Plugin Rules
-
-```typescript
-// ❌ Duplicate plugin throws error
-app.plugin(loggerPlugin());
-app.plugin(loggerPlugin()); // Error: Plugin "logger" is already installed
 ```
 
 ## Middleware Composition
@@ -356,26 +363,27 @@ const handler = app.callback();
 
 ### Starting
 
-Adapters call `app.start()` when the server begins:
+Adapters call `app.ready()` (booting extensions) then `app.start()` when the server begins:
 
 ```typescript
+await app.ready();
 app.start();
 console.log(app.isRunning); // true
 ```
 
 ### Graceful Shutdown
 
-`app.close()` returns `Promise<Error[]>` — an array of errors from plugins that failed to destroy. An empty array means all plugins shut down cleanly.
+`app.close()` returns `Promise<Error[]>` — an array of errors from extensions that failed to destroy. An empty array means all extensions shut down cleanly.
 
 ```typescript
 const errors = await app.close();
 
 // What happens:
 // 1. Sets isRunning = false
-// 2. Calls destroy() on plugins (reverse registration order)
-// 3. Collects errors via Promise.allSettled (all plugins get a chance to destroy)
-// 4. Clears plugin registry
-// 5. Returns any plugin destroy errors
+// 2. Calls destroy() on extensions (reverse registration order)
+// 3. Collects errors via Promise.allSettled (all extensions get a chance to destroy)
+// 4. Clears decorations and the extension registry
+// 5. Returns any extension destroy errors
 ```
 
 Example shutdown hook:
@@ -385,7 +393,7 @@ process.on('SIGTERM', async () => {
   console.log('Shutting down...');
   const errors = await app.close();
   if (errors.length > 0) {
-    console.error('Plugin shutdown errors:', errors);
+    console.error('Extension shutdown errors:', errors);
   }
   process.exit(errors.length > 0 ? 1 : 0);
 });
@@ -484,22 +492,21 @@ app.setErrorHandler(errorHandler);
 | `app.use(...mw)`               | `this`                            | Register one or more middleware functions (chainable)                                             |
 | `app.route(path, router)`      | `this`                            | Mount a `Routable` at a path prefix (Hono-style)                                                  |
 | `app.setErrorHandler(handler)` | `this`                            | Set the application error handler (replaces any previous handler)                                 |
-| `app.plugin(plugin)`           | `this \| Promise<this>`           | Install a plugin. Returns a `Promise` for async `install()` methods.                              |
-| `app.hasPlugin(name)`          | `boolean`                         | Check if a plugin is installed                                                                    |
-| `app.getPlugin<T>(name)`       | `T \| undefined`                  | Get an installed plugin by name                                                                   |
+| `app.extend(extension)`        | `this`                            | Queue an extension. `setup()` runs later, at `ready()`.                                           |
+| `app.ready()`                  | `Promise<this>`                   | Boot every registered extension's `setup()` once, in order. Idempotent. Freezes configuration.    |
+| `app.hasDecorator(name)`       | `boolean`                         | Check whether a name has been decorated onto the app by an extension                               |
 | `app.callback()`               | `(ctx: Context) => Promise<void>` | Build the request handler. Snapshots the middleware stack at call time.                           |
-| `app.start()`                  | `void`                            | Mark app as running. Freezes configuration — `use()`, `route()`, and `plugin()` throw after this. |
-| `app.close()`                  | `Promise<Error[]>`                | Graceful shutdown. Destroys plugins in reverse order. Returns errors from failed plugin destroys. |
+| `app.start()`                  | `void`                            | Mark app as running. Call after `ready()` — `use()`, `route()`, `extend()` already throw post-`ready()`. |
+| `app.close()`                  | `Promise<Error[]>`                | Graceful shutdown. Destroys extensions in reverse order. Returns errors from failed extension destroys. |
 | `app.isProduction`             | `boolean`                         | `true` when `env === 'production'`                                                                |
 | `app.isRunning`                | `boolean`                         | `true` after `start()`, `false` after `close()`                                                   |
+| `app.isReady`                  | `boolean`                         | `true` after `ready()` has booted all extensions                                                  |
 | `app.middlewareCount`          | `number`                          | Count of registered middleware                                                                    |
+| `app.extensionCount`           | `number`                          | Count of registered extensions                                                                    |
 | `app.options`                  | `ApplicationOptions`              | Readonly configuration                                                                            |
 | `app.logger`                   | `Logger`                          | Readonly logger instance                                                                          |
-
-<Callout type="warn">
-  `onError()` and `pluginAsync()` are deprecated. Use `setErrorHandler()` and `plugin()`
-  respectively.
-</Callout>
+| `app.router`                   | `Router \| undefined`             | The app-owned router, if one was configured                                                       |
+| `app.container`                | `Container \| undefined`          | The app-owned DI container, if one was configured                                                 |
 
 ### compose()
 
@@ -537,7 +544,7 @@ Flattens nested middleware arrays into a single array.
   <Card title="Middleware Concept" href="/docs/concepts/middleware">
     Deep dive into the middleware pipeline.
   </Card>
-  <Card title="Plugins Concept" href="/docs/concepts/plugins">
-    How plugins extend applications.
+  <Card title="Extending NextRush" href="/docs/concepts/plugins">
+    How middleware, registrars, and extensions add capability.
   </Card>
 </Cards>

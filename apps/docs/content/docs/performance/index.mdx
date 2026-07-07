@@ -317,7 +317,7 @@ Fastify edges ahead on raw throughput in these benchmarks. Here is what drives t
 | ------------------ | ---------------------------------- | --------------------------- |
 | JSON serialization | AOT with `fast-json-stringify`     | Native `JSON.stringify`     |
 | Router             | `find-my-way` (radix tree, mature) | Custom segment trie (newer) |
-| Schema validation  | Compiled JSON Schema               | User-supplied transforms    |
+| Schema validation  | Compiled JSON Schema               | Standard Schema via `@nextrush/validation` (Zod, Valibot, ArkType) |
 | HTTP parsing       | Custom optimized                   | Standard Node.js parser     |
 
 </DocTableWrap>

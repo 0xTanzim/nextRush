@@ -207,6 +207,48 @@ Pass middleware functions before the final handler. The last function is the han
 router.get('/admin', authMiddleware, roleCheck, handler);
 ```
 
+## Route Metadata
+
+Alongside middleware and the handler, a route's argument list can carry a metadata marker — an object with no runtime behavior that never enters the executed chain. `endpoint()` creates one directly; `validate()` (from [`@nextrush/validation`](/docs/api-reference/middleware/validation)) attaches one to itself as a non-enumerable property, so it works as both a functioning middleware and a metadata source at once.
+
+```typescript
+import { createRouter, endpoint } from '@nextrush/router';
+import { validate } from '@nextrush/validation';
+import { z } from 'zod';
+
+const User = z.object({ name: z.string().min(1), email: z.string() });
+
+router.post(
+  '/users',
+  validate(User), // contributes request.body
+  endpoint({ summary: 'Create a user', responses: { 201: User } }), // contributes docs
+  (ctx) => {
+    ctx.status = 201;
+    ctx.json(ctx.body);
+  }
+);
+```
+
+The router reads every contribution at registration time, merges them in argument order into one `RouteMetadata` object, and stores the result alongside the route's method and resolved path. Call `router.getRoutes()` to get the full list as `RouteDefinition[]` — a read projection meant for tooling, never touched on the request hot path.
+
+<Callout type="info">
+  The router stores raw Standard Schema objects and generic facts (`summary`, `tags`,
+  `deprecated`, `visibility`) — never renderer-specific shapes. `@nextrush/openapi` is the first
+  consumer that turns this into an OpenAPI document, but the metadata itself has no OpenAPI
+  concepts baked in.
+</Callout>
+
+`RouteMetadata` fields:
+
+| Field | Contributed by | Meaning |
+| --- | --- | --- |
+| `request.body` / `.query` / `.params` | `validate()` | Standard Schema for that request part |
+| `responses` | `endpoint({ responses })` | Standard Schema per HTTP status code |
+| `summary` / `description` / `tags` / `deprecated` | `endpoint()` | Documentation facts |
+| `visibility` | `endpoint({ visibility: 'internal' })` | `'internal'` routes are excluded from public specs and SDKs |
+
+A route with no `validate()` or `endpoint()` call has no metadata at all — `getRoutes()` still lists it, with `metadata` left `undefined`. Nothing about route registration or dispatch requires metadata to be present.
+
 ## What Happens Automatically
 
 - **Trailing slashes are normalized.** `/users/` and `/users` match the same route (unless `strict: true`).
@@ -271,6 +313,12 @@ If your application has fewer than 5 routes and no parameters, a router adds unn
   </Card>
   <Card title="Middleware" href="/docs/concepts/middleware">
     How middleware works with routes and groups.
+  </Card>
+  <Card title="@nextrush/validation" href="/docs/api-reference/middleware/validation">
+    The middleware that contributes request schemas to route metadata.
+  </Card>
+  <Card title="@nextrush/openapi" href="/docs/api-reference/plugins/openapi">
+    Generates an OpenAPI 3.1 document from route metadata.
   </Card>
   <Card title="@nextrush/router API" href="/docs/api-reference/core/router">
     Full API reference for createRouter, Router, and RouterOptions.

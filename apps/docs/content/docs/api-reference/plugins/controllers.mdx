@@ -5,41 +5,27 @@ description: 'Auto-discovery, dependency injection, and decorator-based controll
 
 Build scalable APIs with automatic controller discovery and dependency injection.
 
-The controllers plugin scans your source directory for `@Controller` decorated classes, resolves their dependencies, and registers routes automatically. No manual wiring required.
+`registerControllers()` scans your source directory for `@Controller` decorated classes, resolves their dependencies, and registers routes on your app's router. No manual wiring required.
+
+<Callout type="info" title="A registrar, not a plugin">
+  `registerControllers()` is a **registrar** — a plain async function you call and `await` once at
+  startup. There is no `controllersPlugin()`, no `ControllersPlugin` class, and no `app.plugin()`.
+  It reads `app.router` and `app.container` directly and must complete before `listen()`/`serve()`
+  starts the server.
+</Callout>
 
 ---
 
 ## Why Auto-Discovery?
 
-In production applications with dozens of controllers, manual registration creates maintenance burden:
-
-```typescript
-// ❌ Manual registration doesn't scale
-app.plugin(
-  controllersPlugin({
-    controllers: [
-      UserController,
-      PostController,
-      CommentController,
-      AuthController,
-      AdminController,
-      // ...50 more controllers
-    ],
-  })
-);
-```
-
-Auto-discovery solves this:
+In production applications with dozens of controllers, manual registration creates maintenance burden. Auto-discovery scales to any size:
 
 ```typescript
 // ✅ Auto-discovery scales to any size
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api/v1',
-  })
-);
+await registerControllers(app, {
+  root: './src',
+  prefix: '/api/v1',
+});
 ```
 
 Add a controller file anywhere in `./src` — any name, any subdirectory. Decorate the class with
@@ -70,24 +56,18 @@ You need `@nextrush/decorators` for `@Controller`, route, and parameter decorato
 ## Quick Start
 
 ```typescript title="src/index.ts"
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
 
 async function main() {
   const app = createApp();
-  const router = createRouter();
 
   // Auto-discover all @Controller classes in ./src
   // Any file name, any subdirectory — no naming convention required
-  await app.plugin(
-    controllersPlugin({
-      router,
-      root: './src',
-      prefix: '/api',
-    })
-  );
-
-  app.route('/', router);
+  await registerControllers(app, {
+    root: './src',
+    prefix: '/api',
+  });
 
   await listen(app, 8080);
 }
@@ -143,14 +123,28 @@ When the app starts with `debug: true`:
 
 ---
 
-## Plugin Options
+## `registerControllers(app, options)`
 
-The `controllersPlugin()` factory accepts these options:
+**Signature:**
+
+```typescript
+function registerControllers(app: Application, options?: ControllersOptions): Promise<void>;
+```
+
+Reads `app.router` (required — throws if absent) and `app.container` (falls back to `options.container`, then the global container). Always `await` it before starting the server.
 
 <TypeTable
-  title="Required"
+  title="Parameters"
   types={{
-    router: { type: 'Router', description: 'Router instance for route registration' },
+    app: {
+      type: 'Application',
+      description: 'The app instance. Must have a router — use `createApp()` from `nextrush`, or pass `{ router }` to `@nextrush/core`\'s `createApp()`.',
+    },
+    options: {
+      type: 'ControllersOptions',
+      description: 'Discovery and registration options',
+      optional: true,
+    },
   }}
 />
 
@@ -191,8 +185,7 @@ The `controllersPlugin()` factory accepts these options:
     },
     middleware: {
       type: 'Middleware[]',
-      description:
-        'Global middleware applied to all routes. Can also accept DI tokens (string or Symbol) that resolve to middleware from the container.',
+      description: 'Global middleware applied to all routes',
       optional: true,
     },
   }}
@@ -202,8 +195,8 @@ The `controllersPlugin()` factory accepts these options:
   title="Advanced"
   types={{
     container: {
-      type: 'ContainerInterface',
-      description: 'Custom DI container. Uses the global container if not provided.',
+      type: 'Container',
+      description: 'Custom DI container. Falls back to `app.container`, then the global container.',
       optional: true,
     },
     debug: {
@@ -219,65 +212,64 @@ The `controllersPlugin()` factory accepts these options:
   }}
 />
 
+**Returns:** `Promise<void>` — resolves once every discovered controller's routes are registered on `app.router`.
+
+**Throws:** if `app.router` is missing, or (in `strict: true` mode) if a discovery error occurs.
+
 ---
 
 ## Discovery Patterns
 
 ### Default Patterns
 
-By default, the plugin scans for all `.ts` and `.js` files, excluding tests and build artifacts:
+By default, `registerControllers` scans for all `.ts` and `.js` files, excluding tests and build artifacts:
 
 ```typescript
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    // Default patterns:
-    // include: ['**/*.ts', '**/*.js']
-    // exclude: ['**/*.test.ts', '**/*.spec.ts', '**/*.test.js', '**/*.spec.js',
-    //           '**/node_modules/**', '**/dist/**', '**/__tests__/**']
-  })
-);
+await registerControllers(app, {
+  root: './src',
+  // Default patterns:
+  // include: ['**/*.ts', '**/*.js']
+  // exclude: ['**/*.test.ts', '**/*.spec.ts', '**/*.test.js', '**/*.spec.js',
+  //           '**/node_modules/**', '**/dist/**', '**/__tests__/**']
+});
 ```
 
 ### Custom Patterns
 
 <Callout type="info">
-  The `include` option is **not required**. By default the plugin scans all `.ts` and `.js` files
+  The `include` option is **not required**. By default, discovery scans all `.ts` and `.js` files
   under `root` — it does not care how files are named. Use `include` only to narrow the scan when
   needed (e.g. to skip a large `src/generated/` folder or enforce team conventions).
 </Callout>
 
 Narrow the scan to specific directories or naming conventions:
 
-```typescript
-// Only scan controllers directory
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    include: ['controllers/**/*.ts'],
-  })
-);
-
-// Use naming convention
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    include: ['**/*.controller.ts', 'modules/**/*.controller.ts'],
-  })
-);
-
-// Feature-based structure
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src/features',
-    include: ['**/controller.ts', '**/routes.ts'],
-  })
-);
-```
+<Tabs items={['By directory', 'By naming convention', 'Feature-based']}>
+  <Tab value="By directory">
+    ```typescript
+    await registerControllers(app, {
+      root: './src',
+      include: ['controllers/**/*.ts'],
+    });
+    ```
+  </Tab>
+  <Tab value="By naming convention">
+    ```typescript
+    await registerControllers(app, {
+      root: './src',
+      include: ['**/*.controller.ts', 'modules/**/*.controller.ts'],
+    });
+    ```
+  </Tab>
+  <Tab value="Feature-based">
+    ```typescript
+    await registerControllers(app, {
+      root: './src/features',
+      include: ['**/controller.ts', '**/routes.ts'],
+    });
+    ```
+  </Tab>
+</Tabs>
 
 ---
 
@@ -533,7 +525,7 @@ class UserRepository {
 
 ```typescript
 import { createContainer } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
+import { registerControllers } from '@nextrush/controllers';
 
 const container = createContainer();
 
@@ -542,20 +534,24 @@ container.register('CONFIG', {
   useValue: { apiKey: process.env.API_KEY },
 });
 
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    container,
-  })
-);
+await registerControllers(app, {
+  root: './src',
+  container,
+});
+```
+
+Or pass the container directly to `createApp()` so it flows to every registrar and extension automatically:
+
+```typescript
+const app = createApp({ container });
+await registerControllers(app, { root: './src' }); // uses app.container
 ```
 
 ---
 
 ## Error Handling
 
-The plugin provides specific error types:
+The package provides specific error types:
 
 ```typescript
 import {
@@ -601,13 +597,10 @@ app.use(async (ctx, next) => {
 Enable strict mode to fail fast on discovery errors:
 
 ```typescript
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    strict: true, // Throws on any discovery error
-  })
-);
+await registerControllers(app, {
+  root: './src',
+  strict: true, // Throws on any discovery error
+});
 ```
 
 In non-strict mode (default), discovery errors are logged as warnings but don't stop the application.
@@ -616,49 +609,23 @@ In non-strict mode (default), discovery errors are logged as warnings but don't 
 
 ## Manual Registration
 
-For testing or when you need explicit control:
+For testing or when you need explicit control, pass `controllers` directly instead of `root`, or use the lower-level `registerController()` helper for a single class:
 
 ```typescript
-import { controllersPlugin, registerController } from '@nextrush/controllers';
+import { registerControllers, registerController } from '@nextrush/controllers';
 
-// Full plugin with manual controllers
-await app.plugin(
-  controllersPlugin({
-    router,
-    controllers: [UserController, PostController],
-  })
-);
+// Explicit controller list (no filesystem scanning)
+await registerControllers(app, {
+  controllers: [UserController, PostController],
+});
 
-// Or register a single controller directly
-registerController(router, UserController);
+// Or register a single controller directly on a router
+registerController(app.router!, UserController);
 ```
 
 <Callout type="info">
   Manual registration is useful for tests where you want to control which controllers are active.
 </Callout>
-
----
-
-## Plugin State
-
-Access runtime information about registered controllers:
-
-```typescript
-const plugin = controllersPlugin({
-  router,
-  root: './src',
-});
-
-await app.plugin(plugin);
-
-// After installation
-console.log(plugin.state);
-// {
-//   controllers: [...],  // Registered controller metadata
-//   routeCount: 12,      // Total routes registered
-//   initialized: true,
-// }
-```
 
 ---
 
@@ -689,9 +656,8 @@ Required compiler options for decorators:
 
 ```typescript
 import {
-  // Plugin
-  controllersPlugin,
-  ControllersPlugin,
+  // Registrar
+  registerControllers,
   registerController,
 
   // Discovery
@@ -720,8 +686,7 @@ import {
 
 import type {
   BuiltRoute,
-  ControllersPluginOptions,
-  ControllersPluginState,
+  ControllersOptions,
   DiscoveryOptions,
   DiscoveryResult,
   RegisteredController,

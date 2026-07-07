@@ -1,13 +1,13 @@
 ---
-title: 'Plugin Packages'
-description: 'Extend NextRush with controllers, logging, static files, WebSocket, events, and templates.'
+title: 'Extending NextRush: Package Catalog'
+description: 'Controllers, logging, static files, WebSocket, events, and templates — the packages that extend a NextRush app.'
 ---
 
-NextRush plugins extend your application with additional capabilities. Each plugin integrates with the core application through the standardized plugin interface.
+NextRush has no `Plugin` interface and no `app.plugin()`. Capability is added through three idioms — middleware, registrars, and Extensions — covered in depth in [Extending NextRush](/docs/concepts/plugins). This page is the catalog of packages that use those idioms.
 
 ---
 
-## Available Plugins
+## Available Packages
 
 ```mermaid
 graph LR
@@ -15,115 +15,114 @@ graph LR
         app[NextRush App]
     end
 
-    subgraph Plugins
-        ctrl[controllers]
+    subgraph Middleware
         log[logger]
         static[static]
-        ws[websocket]
-        events[events]
         tpl[template]
+        stream[stream]
+        openapi[openapi]
     end
 
-    app --> ctrl
-    app --> log
-    app --> static
-    app --> ws
-    app --> events
-    app --> tpl
+    subgraph Registrar
+        ctrl[controllers]
+    end
+
+    subgraph Extension
+        events[events]
+        ws[websocket]
+    end
+
+    app -->|app.use| log
+    app -->|app.use| static
+    app -->|app.use| tpl
+    app -->|app.use| stream
+    app -->|app.use| openapi
+    app -->|await registerX| ctrl
+    app -->|app.extend| events
+    app -->|app.extend| ws
 ```
 
 ---
 
 ## Quick Reference
 
-| Package                                                          | Purpose                     | Use Case                   |
-| ---------------------------------------------------------------- | --------------------------- | -------------------------- |
-| [@nextrush/controllers](/docs/api-reference/plugins/controllers) | Decorator-based controllers | Structured REST APIs       |
-| [@nextrush/logger](/docs/api-reference/plugins/logger)           | Request logging             | Observability, debugging   |
-| [@nextrush/static](/docs/api-reference/plugins/static)           | Static file serving         | Frontend assets, downloads |
-| [@nextrush/websocket](/docs/api-reference/plugins/websocket)     | Real-time communication     | Chat, live updates         |
-| [@nextrush/events](/docs/api-reference/plugins/events)           | Event emitter               | Decoupled architecture     |
-| [@nextrush/template](/docs/api-reference/plugins/template)       | HTML rendering              | Server-side pages          |
+| Package                                                          | Purpose                     | Idiom      | Use Case                   |
+| ----------------------------------------------------------------- | ---------------------------- | ---------- | --------------------------- |
+| [@nextrush/controllers](/docs/api-reference/plugins/controllers) | Decorator-based controllers | Registrar  | Structured REST APIs       |
+| [@nextrush/logger](/docs/api-reference/plugins/logger)           | Request logging             | Middleware | Observability, debugging   |
+| [@nextrush/static](/docs/api-reference/plugins/static)           | Static file serving         | Middleware | Frontend assets, downloads |
+| [@nextrush/websocket](/docs/api-reference/plugins/websocket)     | Real-time communication     | Registrar + middleware | Chat, live updates |
+| [@nextrush/events](/docs/api-reference/plugins/events)           | Event emitter               | Extension  | Decoupled architecture     |
+| [@nextrush/template](/docs/api-reference/plugins/template)       | HTML rendering               | Middleware | Server-side pages          |
+| [@nextrush/stream](/docs/api-reference/plugins/stream)           | Response streaming (SSE/NDJSON) | Middleware | AI/agentic token streaming |
+| [@nextrush/openapi](/docs/api-reference/plugins/openapi)         | OpenAPI 3.1 generation      | Middleware | API documentation          |
 
 ---
 
 ## Installation
 
-Install plugins as needed:
+Install packages as needed:
 
 <PackageInstall packages={['@nextrush/controllers', '@nextrush/logger']} />
 
 ---
 
-## Plugin Interface
+## Using These Packages
 
-All NextRush plugins implement a consistent interface:
-
-```typescript
-interface Plugin {
-  name: string;
-  version?: string;
-  install(app: Application): void | Promise<void>;
-  destroy?(): void | Promise<void>;
-}
-```
-
-### Using Plugins
+Most packages here are middleware — register with `app.use()`. `@nextrush/controllers` is a registrar — call and `await` it directly. `@nextrush/events` is an Extension — register with `app.extend()` then boot with `app.ready()`.
 
 ```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { controllersPlugin } from '@nextrush/controllers';
-import { eventsPlugin } from '@nextrush/events';
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
+import { events } from '@nextrush/events';
+import { logger } from '@nextrush/logger';
 
 const app = createApp();
-const router = createRouter();
 
-// Register plugins
-await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
-app.plugin(eventsPlugin());
+// Middleware
+app.use(logger());
+
+// Extension — queued now, booted at ready()
+app.extend(events());
+
+// Registrar — awaited before the server starts
+await registerControllers(app, { root: './src', prefix: '/api' });
+
+await listen(app, 8080); // adapters call app.ready() for you
 ```
 
 ---
 
-## Plugin Categories
+## Choosing the Right Idiom
 
-### Architecture Plugins
+<Callout type="info" title="Reach for middleware by default">
+  ~99% of what you'll ever add is middleware. Registrars and Extensions exist for the narrow
+  cases middleware genuinely can't express — see [Extending NextRush](/docs/concepts/plugins) for
+  the full breakdown and decision guide.
+</Callout>
 
-These plugins add structural patterns:
-
-- **Controllers** — Class-based route handlers with decorators
-- **Events** — Decoupled communication between components
-
-### Feature Plugins
-
-These plugins add capabilities:
-
-- **Logger** — Request/response logging
-- **Static** — File serving
-- **WebSocket** — Real-time communication
-- **Template** — HTML rendering
+- **Middleware** — Logging, static files, templates, streaming, OpenAPI docs. Anything that runs per request.
+- **Registrar** — Wiring class-based controllers (`registerControllers`), creating a WebSocket server (`createWebSocket`). A plain function, called once at startup.
+- **Extension** — Long-lived, app-scoped services with a boot phase and a teardown phase. `events()` is the only current example.
 
 ---
 
-## Combining Plugins
+## Combining Packages
 
 <Callout type="warn">
-  Plugin registration order matters. Middleware plugins (logger, static) should be registered before
-  route-handling plugins (controllers).
+  Middleware registration order matters. Logging and static-file middleware should typically be
+  registered before route-handling packages.
 </Callout>
 
-Plugins work together:
+Packages work together:
 
 ```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { controllersPlugin } from '@nextrush/controllers';
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
 import { logger } from '@nextrush/logger';
 import { serveStatic } from '@nextrush/static';
 
 const app = createApp();
-const router = createRouter();
 
 // Request logging
 app.use(logger());
@@ -131,52 +130,37 @@ app.use(logger());
 // Static files
 app.use(serveStatic({ root: './public' }));
 
-// API controllers
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-  })
-);
+// API controllers (registrar — must be awaited before listen())
+await registerControllers(app, { root: './src', prefix: '/api' });
+
+await listen(app, 8080);
 ```
 
 ---
 
-## Creating Custom Plugins
+## Writing Your Own Extension Point
 
-Build your own plugins:
+Most custom capability should be written as plain middleware first:
 
 ```typescript
-import type { Plugin } from '@nextrush/types';
-
-const myPlugin: Plugin = {
-  name: 'my-plugin',
-  version: '1.0.0',
-
-  install(app) {
-    // Add middleware
-    app.use(async (ctx) => {
-      ctx.state.myValue = 'hello';
-      await ctx.next();
-    });
-  },
-
-  destroy() {
-    // Cleanup on shutdown
-  },
-};
-
-app.plugin(myPlugin);
+app.use(async (ctx, next) => {
+  ctx.state.myValue = 'hello';
+  await next();
+});
 ```
+
+Only reach for `app.extend()` when you have state that must outlive a single request, boot before the server starts serving traffic, and clean up on shutdown — see [Writing an Extension](/docs/concepts/plugins#writing-an-extension) for the full pattern.
 
 ---
 
 ## Next Steps
 
-Explore individual plugin documentation:
+Explore individual package documentation:
 
 - [Controllers](/docs/api-reference/plugins/controllers) — Structured APIs with decorators
 - [Logger](/docs/api-reference/plugins/logger) — Request logging
 - [Static](/docs/api-reference/plugins/static) — File serving
 - [WebSocket](/docs/api-reference/plugins/websocket) — Real-time features
+- [Stream](/docs/api-reference/plugins/stream) — AI/agentic response streaming (SSE, NDJSON)
+- [OpenAPI](/docs/api-reference/plugins/openapi) — Generate API docs from route metadata
+- [Extending NextRush](/docs/concepts/plugins) — The full middleware/registrar/Extension taxonomy

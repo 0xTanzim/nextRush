@@ -196,15 +196,24 @@ interface CanActivate {
 }
 ```
 
-## Controllers Plugin (`@nextrush/controllers`)
+## Controllers Registrar (`@nextrush/controllers`)
 
 Connects DI, decorators, and router to auto-register controllers.
 
 ### Usage
 
-````typescript
-### Usage\n\n```typescript\nimport { controllersPlugin } from '@nextrush/controllers';\n\nconst app = createApp();\nconst router = createRouter();\n\n// Auto-discovery (recommended)\napp.plugin(controllersPlugin({\n  router,\n  root: './src',           // Scan for @Controller classes\n  prefix: '/api',          // Add prefix to all routes\n  debug: true,             // Log discovered controllers\n}));\n\napp.route('/', router);\n```
-````
+```typescript
+import { registerControllers } from '@nextrush/controllers';
+
+const app = createApp();
+
+// Auto-discovery (recommended) — reads app.router + app.container, must be awaited
+await registerControllers(app, {
+  root: './src',           // Scan for @Controller classes
+  prefix: '/api',          // Add prefix to all routes
+  debug: true,             // Log discovered controllers
+});
+```
 
 ### Handler Building Pipeline
 
@@ -283,6 +292,6 @@ Controller-specific errors (`@nextrush/controllers`):
 
 ### Controllers Plugin
 
-- `packages/plugins/controllers/src/plugin.ts` - Plugin entry
-- `packages/plugins/controllers/src/builder.ts` - Handler building
-- `packages/plugins/controllers/src/errors.ts` - Controller errors
+- `packages/controllers/src/registrar.ts` - Registrar entry (`registerControllers`)
+- `packages/controllers/src/builder.ts` - Handler building
+- `packages/controllers/src/errors.ts` - Controller errors

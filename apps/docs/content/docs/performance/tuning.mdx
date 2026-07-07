@@ -155,17 +155,23 @@ function setCache(key: string, value: unknown) {
 
 ### Stream Large Responses
 
-Don't load entire files into memory:
+Don't load entire files into memory. Use [`ctx.stream()`](/docs/api-reference/plugins/stream) with a Node.js `Readable` or Web `ReadableStream`:
 
 ```typescript
 import { createReadStream } from 'node:fs';
 
-router.get('/download/:file', (ctx) => {
-  const stream = createReadStream(`./files/${ctx.params.file}`);
+router.get('/download/:file', async (ctx) => {
   ctx.set('content-type', 'application/octet-stream');
-  ctx.body = stream;
+  const stream = createReadStream(`./files/${ctx.params.file}`);
+  await ctx.stream(async (writer) => {
+    for await (const chunk of stream) {
+      await writer.write(chunk as Buffer);
+    }
+  });
 });
 ```
+
+`ctx.send()` also accepts a Node.js `Readable` or Web `ReadableStream` directly and pipes it — use `ctx.stream()` when you need explicit chunk-by-chunk control (backpressure, cancellation via `writer.signal`).
 
 ---
 
@@ -186,18 +192,19 @@ Handle `SIGTERM` so in-flight requests complete:
 ```typescript
 const server = await listen(app, 8080);
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('Shutting down gracefully...');
-  server.close(() => {
-    console.log('All connections closed');
-    process.exit(0);
-  });
 
-  // Force shutdown after 30 seconds
-  setTimeout(() => {
+  // Force shutdown after 30 seconds if connections don't drain in time
+  const forceExit = setTimeout(() => {
     console.error('Forced shutdown');
     process.exit(1);
   }, 30000);
+
+  await server.close();
+  clearTimeout(forceExit);
+  console.log('All connections closed');
+  process.exit(0);
 });
 ```
 

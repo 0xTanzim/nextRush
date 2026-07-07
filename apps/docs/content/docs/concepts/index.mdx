@@ -13,7 +13,7 @@ NextRush is built on four core abstractions. Everything else builds on top of th
 
 <Cards>
   <Card title="Application" href="/docs/concepts/application">
-    Your entry point. Orchestrates middleware, plugins, and error handling.
+    Your entry point. Orchestrates middleware, extensions, and error handling.
   </Card>
   <Card title="Context" href="/docs/concepts/context">
     The `ctx` object. Your unified interface to request and response.
@@ -98,8 +98,8 @@ NextRush supports both functional and class-based programming. Choose based on y
     Structured, with dependency injection. Often fits larger applications and shared codebases.
 
     ```typescript title="Class-Based with DI"
-    import { createRouter } from 'nextrush';
-    import { Controller, Get, Param, Service, controllersPlugin } from 'nextrush/class';
+    import { createApp } from 'nextrush';
+    import { Controller, Get, Param, Service, registerControllers } from 'nextrush/class';
 
     @Service()
     class UserService {
@@ -107,8 +107,6 @@ NextRush supports both functional and class-based programming. Choose based on y
         return db.users.findById(id);
       }
     }
-
-    const router = createRouter();
 
     @Controller('/users')
     class UserController {
@@ -120,7 +118,8 @@ NextRush supports both functional and class-based programming. Choose based on y
       }
     }
 
-    await app.plugin(controllersPlugin({ router, root: './src' }));
+    const app = createApp();
+    await registerControllers(app, { root: './src' });
     ```
 
   </Tab>
@@ -133,21 +132,40 @@ NextRush supports both functional and class-based programming. Choose based on y
 
 ## Extension Points
 
-Beyond the four pillars, NextRush provides two ways to extend functionality:
+Beyond the four pillars, NextRush provides three ways to extend functionality — unequal in weight. Reach for middleware first; it covers nearly everything.
 
-### Plugins
+### Middleware (the default, ~99%)
 
-Add capabilities without modifying core:
+Almost every capability — security, parsing, logging, docs — is added with `app.use()`:
 
 ```typescript
-import { eventsPlugin } from '@nextrush/events';
-import { controllersPlugin } from '@nextrush/controllers';
+import { openapi } from '@nextrush/openapi';
 
-app.plugin(eventsPlugin());
-app.plugin(controllersPlugin({ router, root: './src' }));
+app.use(openapi({ router: app.router!, info: { title: 'API', version: '1.0.0' } }));
 ```
 
-[Learn about Plugins →](/docs/concepts/plugins)
+### Registrar (~0.9%)
+
+A plain function you call directly to wire up a subsystem, like class-based controllers:
+
+```typescript
+import { registerControllers } from 'nextrush/class';
+
+await registerControllers(app, { root: './src' });
+```
+
+### Extension (~0.1%, rare)
+
+For long-lived, app-scoped services that need a boot phase and a teardown phase — reserved for framework-level infrastructure like the event bus:
+
+```typescript
+import { events } from '@nextrush/events';
+
+app.extend(events());
+await app.ready();
+```
+
+[Learn the full taxonomy →](/docs/concepts/plugins)
 
 ### Guards
 
@@ -198,7 +216,7 @@ class AdminController {
 | **Context**     | Request/Response | Fresh per-request, mutable `state` for sharing |
 | **Middleware**  | Transformation   | Onion model—before, `next()`, after            |
 | **Routing**     | URL Matching     | O(k) segment trie, params and wildcards          |
-| **Plugins**     | Extension        | Add features without modifying core            |
+| **Extending**   | Capability       | Middleware (~99%), Registrar (~0.9%), Extension (~0.1%) |
 | **Guards**      | Access Control   | Boolean gatekeepers for routes                 |
 
 <Callout type="warn" title="Common Misconception">
@@ -221,8 +239,8 @@ class AdminController {
   <Card title="Routing" href="/docs/concepts/routing">
     Segment-trie URL matching.
   </Card>
-  <Card title="Plugins" href="/docs/concepts/plugins">
-    Extend NextRush without touching core.
+  <Card title="Extending NextRush" href="/docs/concepts/plugins">
+    Middleware, Registrar, and Extension — the three ways to add capability.
   </Card>
   <Card title="Guards" href="/docs/concepts/guards">
     Declarative access control.

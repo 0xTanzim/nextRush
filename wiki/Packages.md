@@ -13,24 +13,24 @@ Re-exports **`@nextrush/core`**, **`@nextrush/router`**, **`@nextrush/adapter-no
 ```typescript
 import { createApp, createRouter, listen } from 'nextrush';
 import { NotFoundError, errorHandler } from 'nextrush';
-import type { Context, Middleware, Plugin } from 'nextrush';
+import type { Context, Middleware } from 'nextrush';
 ```
 
-Class-based API (decorators, controllers plugin):
+Class-based API (decorators, controllers registrar):
 
 ```typescript
 import {
   Controller,
   Get,
   Service,
-  controllersPlugin,
+  registerControllers,
 } from '@nextrush/controllers';
 ```
 
 Or use the **`nextrush/class`** export:
 
 ```typescript
-import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 ```
 
 ---

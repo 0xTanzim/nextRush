@@ -126,9 +126,10 @@ app.listen(8080);
 
 ```typescript
 import 'reflect-metadata';
+import { createApp, listen } from '@nextrush/core';
 import { Controller, Get, Post, Body, UseGuard } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
+import { registerControllers } from '@nextrush/controllers';
 import type { GuardFn } from '@nextrush/decorators';
 
 @Service()
@@ -157,8 +158,10 @@ class UserController {
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({ root: './src', prefix: '/api' }));
-app.listen(8080);
+// registerControllers is a registrar — a plain function, not a plugin. It
+// reads app.router and app.container directly; must be awaited before serve().
+await registerControllers(app, { prefix: '/api' });
+listen(app, 8080);
 ```
 
 ---
@@ -172,9 +175,9 @@ import { createRouter } from '@nextrush/router';
 import { cors } from '@nextrush/cors';
 import { Service, container } from '@nextrush/di';
 import { Controller, Get, UseGuard } from '@nextrush/decorators';
-import { controllersPlugin } from '@nextrush/controllers';
+import { registerControllers } from '@nextrush/controllers';
 import { HttpError, NotFoundError } from '@nextrush/errors';
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Extension } from '@nextrush/types';
 ```
 
 ---

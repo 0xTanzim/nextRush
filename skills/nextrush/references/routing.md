@@ -232,7 +232,7 @@ listen(app, 8080);
 
 ```typescript
 import { createApp, createRouter, listen, errorHandler } from 'nextrush';
-import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 import { json } from '@nextrush/body-parser';
 
 // Functional routes
@@ -259,7 +259,7 @@ const app = createApp();
 app.use(errorHandler());
 app.use(json());
 app.route('/health', health); // functional
-app.plugin(controllersPlugin({ root: './src', prefix: '/api' })); // class at /api/products
+await registerControllers(app, { root: './src', prefix: '/api' }); // class at /api/products
 listen(app, 8080);
 ```
 

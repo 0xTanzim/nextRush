@@ -83,8 +83,7 @@ const AGENT_SPEC = {
       responsibility: 'Auto-discovery and handler building for decorator-based controllers',
       doc_url: toAbsoluteUrl('/docs/api-reference/plugins/controllers'),
       public_api: [
-        'controllersPlugin',
-        'ControllersPlugin',
+        'registerControllers',
         'registerController',
         'discoverControllers',
       ],

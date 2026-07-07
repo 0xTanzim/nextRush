@@ -15,6 +15,9 @@ Start with `nextrush` — it includes routing, middleware, and the Node.js serve
 | ---------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------- |
 | Parse JSON / form request bodies   | `@nextrush/body-parser`                                          | [body-parser](/docs/api-reference/middleware/body-parser)  |
 | Handle file uploads (multipart)    | `@nextrush/multipart`                                            | [multipart](/docs/api-reference/middleware/multipart)      |
+| Validate requests (Zod/Valibot/ArkType) | `@nextrush/validation`                                       | [validation](/docs/api-reference/middleware/validation)    |
+| Generate OpenAPI docs from routes  | `@nextrush/openapi`                                              | [openapi](/docs/api-reference/plugins/openapi)              |
+| Stream AI/LLM responses (SSE, NDJSON) | `@nextrush/stream`                                            | [stream](/docs/api-reference/plugins/stream)                |
 | Allow cross-origin requests (CORS) | `@nextrush/cors`                                                 | [cors](/docs/api-reference/middleware/cors)                |
 | Set security headers               | `@nextrush/helmet`                                               | [helmet](/docs/api-reference/middleware/helmet)            |
 | Rate-limit endpoints               | `@nextrush/rate-limit`                                           | [rate-limit](/docs/api-reference/middleware/rate-limit)    |
@@ -231,8 +234,8 @@ await listen(app, 8080);
 ### Class-Based Style (For Larger Apps)
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin, Controller, Get, Service } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+import { registerControllers, Controller, Get, Service } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -252,9 +255,7 @@ class UserController {
 }
 
 const app = createApp();
-const router = createRouter();
-await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
-app.route('/', router);
+await registerControllers(app, { root: './src', prefix: '/api' });
 await listen(app, 8080);
 ```
 

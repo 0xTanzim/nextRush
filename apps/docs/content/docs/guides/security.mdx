@@ -57,7 +57,7 @@ app.use(
 app.use(
   bodyParser({
     limit: '1mb',
-    types: ['application/json'],
+    type: ['application/json'],
   })
 );
 ```
@@ -159,11 +159,48 @@ See [CORS API Reference](/docs/api-reference/middleware/cors) for all options.
 
 ---
 
+## CSRF Protection
+
+If your app authenticates users with cookies rather than bearer tokens alone, add CSRF protection. Bearer-token-only APIs are not vulnerable to CSRF, since the browser cannot attach an `Authorization` header on a cross-site request — but cookie-based sessions are.
+
+```typescript
+import { csrf } from '@nextrush/csrf';
+
+const { protect } = csrf({ secret: process.env.CSRF_SECRET! }); // min 32 characters
+
+app.use(protect);
+```
+
+See [CSRF API Reference](/docs/api-reference/middleware/csrf) for the full token lifecycle, session binding, and origin-check options.
+
+---
+
 ## Input Validation
 
 Never trust client data. Validate at the boundary.
 
 ### Functional Style
+
+The recommended approach is [`@nextrush/validation`](/docs/api-reference/middleware/validation) — it validates against any Standard Schema library and produces a consistent, secure error shape without hand-written conversion code:
+
+```typescript
+import { validate } from '@nextrush/validation';
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  age: z.number().int().min(0).max(150).optional(),
+});
+
+router.post('/users', validate(CreateUserSchema), async (ctx) => {
+  const user = await createUser(ctx.body); // ctx.body is validated + coerced
+  ctx.status = 201;
+  ctx.json(user);
+});
+```
+
+For validation logic that needs finer control than `validate()` provides — for example a manual `safeParse()` combined with an async uniqueness check — throw `ValidationError` directly:
 
 ```typescript
 import { z } from 'zod';
@@ -298,7 +335,7 @@ Prevent payload-based denial of service:
 app.use(
   bodyParser({
     limit: '1mb', // Max body size
-    types: ['application/json'], // Only accept JSON
+    type: ['application/json'], // Only accept JSON
   })
 );
 ```
@@ -318,8 +355,9 @@ uploadRouter.post('/document', bodyParser({ limit: '50mb' }), handleUpload);
 - [ ] Stricter rate limits on auth endpoints (login, register, reset)
 - [ ] Helmet enabled with default headers
 - [ ] CORS configured with specific origins (no wildcard)
+- [ ] CSRF protection on cookie-authenticated routes (`@nextrush/csrf`)
 - [ ] Body parser with size limits
-- [ ] All user input validated with schema (Zod recommended)
+- [ ] All user input validated with schema (`@nextrush/validation` recommended)
 - [ ] Authentication middleware before business logic routes
 - [ ] Error handler hides stack traces and internal paths
 - [ ] No secrets in code — all from environment variables

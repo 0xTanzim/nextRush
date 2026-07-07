@@ -59,11 +59,11 @@ wss.on('/chat', (conn) => {
 
 app.use(wss.upgrade());
 
-const server = await listen(app, 8080);
+const { server } = await listen(app, 8080);
 wss.attach(server);
 ```
 
-Three steps: create the WebSocket server, register route handlers, then attach to the HTTP server after it starts listening.
+Three steps: create the WebSocket server, register route handlers, then attach to the HTTP server after it starts listening. `listen()` returns a `ServerInstance` — pass its `.server` property (the underlying `node:http` `Server`) to `wss.attach()`, not the `ServerInstance` wrapper itself.
 
 ## Configuration Options
 
@@ -305,28 +305,19 @@ wss.close(); // Stops heartbeat, closes all connections, releases resources
 
 ## Integration Helper
 
-The `withWebSocket` helper attaches the WebSocket server automatically when the app starts:
-
-```ts
-import { createApp } from '@nextrush/core';
-import { createWebSocket, withWebSocket } from '@nextrush/websocket';
-
-const app = createApp();
-const wss = createWebSocket();
-
-wss.on('/chat', (conn) => {
-  conn.on('message', (msg) => conn.send(msg));
-});
-
-app.use(wss.upgrade());
-
-await withWebSocket(app, wss, 8080);
-```
+<Callout type="warn" title="Requires an app.listen() method">
+  `withWebSocket()` calls `app.listen(port, callback)` internally and expects that call to return a
+  raw `node:http` `Server`. NextRush's `Application` (from `@nextrush/core`) has no `listen()`
+  method — only the adapter package does, and it returns a `ServerInstance` wrapper, not a raw
+  `Server`. Use the manual `listen()` + `wss.attach(server.server)` pattern shown above with
+  NextRush; `withWebSocket()` is for host objects that expose `listen()` directly, matching Express's
+  shape.
+</Callout>
 
 ## Common Mistakes
 
-**Forgetting to call `wss.attach(server)` or use `withWebSocket`.**
-The WebSocket server does not listen for connections until attached to an HTTP server. Without this step, upgrade requests are never handled.
+**Forgetting to call `wss.attach(server.server)`.**
+The WebSocket server does not listen for connections until attached to the raw HTTP server. Without this step, upgrade requests are never handled.
 
 **Calling `conn.broadcast()` without joining a room first.**
 `broadcast(room, data)` sends to members of the specified room. If no connections have joined that room, the message goes nowhere.

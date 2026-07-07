@@ -24,10 +24,10 @@ If you have shipped HTTP APIs before, you may have run into limits like these:
 
 <CompareGrid>
   <CompareItem name="Express">
-    Fast to start, weak structure. TypeScript via `@types`. Middleware wiring is manual.
+    Fast to start, minimal built-in structure. TypeScript via `@types`. Middleware wiring is manual.
   </CompareItem>
   <CompareItem name="Koa">
-    Clean async/await, fragmented ecosystem. Quality across plugins varies.
+    Clean async/await, smaller ecosystem. Quality across plugins varies.
   </CompareItem>
   <CompareItem name="Fastify">
     Node.js-focused throughput and plugins, steeper learning curve. JSON Schema validation can be verbose.
@@ -50,7 +50,7 @@ If you have shipped HTTP APIs before, you may have run into limits like these:
 | **TypeScript**     | Written in strict mode; no `any` in the framework surface.                                                                                        |
 | **Middleware**     | Koa-style async handlers with `ctx.next()`.                                                                                                     |
 | **Structure**      | Optional controllers and DI when the project grows.                                                                                             |
-| **Modularity**     | **33** packages in the monorepo — install only what you need.                                                                                    |
+| **Modularity**     | **30** packages on npm (33 in the monorepo) — install only what you need.                                                                                    |
 | **Multi-runtime**  | Node.js, Bun, Deno, and Edge with the same application code and adapter swap.                                                                   |
 
 </DocTableWrap>
@@ -103,8 +103,7 @@ const app = createApp();
 app.use(async (ctx) => {
   const start = Date.now();
   await ctx.next();
-  const duration = Date.now() - start;
-  // Prefer structured logging in production instead of console.log
+  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
 });
 ```
 

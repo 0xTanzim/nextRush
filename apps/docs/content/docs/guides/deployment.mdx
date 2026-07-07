@@ -170,11 +170,11 @@ fly deploy
 
 ## Vercel Edge
 
-Deploy NextRush as an Edge Function using the Edge adapter.
+Deploy NextRush as an Edge Function using `createVercelHandler()` from the Edge adapter.
 
-```typescript title="src/index.ts"
+```typescript title="api/hello.ts"
 import { createApp, createRouter } from '@nextrush/core';
-import { edgeAdapter } from '@nextrush/adapter-edge';
+import { createVercelHandler } from '@nextrush/adapter-edge';
 
 const app = createApp();
 const router = createRouter();
@@ -185,17 +185,8 @@ router.get('/api/hello', (ctx) => {
 
 app.route('/', router);
 
-export default edgeAdapter(app);
-```
-
-```json title="vercel.json"
-{
-  "functions": {
-    "src/index.ts": {
-      "runtime": "edge"
-    }
-  }
-}
+export const config = { runtime: 'edge' };
+export default createVercelHandler(app);
 ```
 
 <Callout type="warn" title="Edge limitations">
@@ -207,9 +198,11 @@ export default edgeAdapter(app);
 
 ## Cloudflare Workers
 
+Use `createCloudflareHandler()`, which returns the `{ fetch }` shape Workers expect directly:
+
 ```typescript title="src/worker.ts"
 import { createApp, createRouter } from '@nextrush/core';
-import { edgeAdapter } from '@nextrush/adapter-edge';
+import { createCloudflareHandler } from '@nextrush/adapter-edge';
 
 const app = createApp();
 const router = createRouter();
@@ -217,16 +210,12 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ message: 'Hello from Workers' }));
 app.route('/', router);
 
-const handler = edgeAdapter(app);
-
-export default {
-  fetch: handler,
-};
+export default createCloudflareHandler(app);
 ```
 
 ```toml title="wrangler.toml"
 name = "my-nextrush-worker"
-main = "dist/worker.js"
+main = "src/worker.ts"
 compatibility_date = "2024-01-01"
 ```
 
@@ -234,11 +223,11 @@ compatibility_date = "2024-01-01"
 
 ## Bun
 
-Bun runs NextRush natively — no build step needed for TypeScript.
+Bun runs NextRush natively — no build step needed for TypeScript. Use `serve()` from `@nextrush/adapter-bun`, which wraps `Bun.serve()`:
 
 ```typescript title="src/index.ts"
 import { createApp, createRouter } from '@nextrush/core';
-import { bunAdapter } from '@nextrush/adapter-bun';
+import { serve } from '@nextrush/adapter-bun';
 
 const app = createApp();
 const router = createRouter();
@@ -246,7 +235,7 @@ const router = createRouter();
 router.get('/', (ctx) => ctx.json({ message: 'Hello from Bun' }));
 app.route('/', router);
 
-bunAdapter(app, { port: 8080 });
+serve(app, { port: 8080 });
 ```
 
 ```bash

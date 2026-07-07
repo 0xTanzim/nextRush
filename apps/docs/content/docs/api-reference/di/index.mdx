@@ -52,8 +52,8 @@ The DI system and decorators are designed to work together:
 ## Quick Example
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin, Service, Controller, Get, Post, Body, Param } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+import { registerControllers, Service, Controller, Get, Post, Body, Param } from 'nextrush/class';
 
 // Service with DI
 @Service()
@@ -89,15 +89,7 @@ class UserController {
 
 // Bootstrap
 const app = createApp();
-const router = createRouter();
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-  })
-);
-app.route('/', router);
+await registerControllers(app, { root: './src', prefix: '/api' });
 await listen(app, 8080);
 ```
 

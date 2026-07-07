@@ -14,7 +14,7 @@ NextRush v3 development tracks what has shipped, what is actively being built, a
 
 ## Current Status
 
-**Package versions**: **3.0.5** (unified across `@nextrush/*`)
+**Package versions**: **3.0.x** (unified line across `@nextrush/*`; individual packages patch independently)
 
 NextRush v3 packages are published on npm under semver **3.0.x**. Breaking API changes require a **major** version bump; new features ship in **minor** releases when applicable.
 
@@ -43,6 +43,7 @@ _Status: Complete_
 - [x] Guard system for route protection
 - [x] Dev tools CLI with hot reload and watch mode (`@nextrush/dev`)
 - [x] Meta package re-exporting core essentials (`nextrush`)
+- [x] Interactive project scaffolder — `pnpm create nextrush` (`create-nextrush`)
 
 ---
 
@@ -54,12 +55,15 @@ _Status: Complete_
 
 - [x] CORS (`@nextrush/cors`)
 - [x] Security headers (`@nextrush/helmet`)
-- [x] Body parsing — JSON, URL-encoded, multipart (`@nextrush/body-parser`)
+- [x] CSRF protection — Signed Double-Submit Cookie pattern (`@nextrush/csrf`)
+- [x] Body parsing — JSON, URL-encoded (`@nextrush/body-parser`)
+- [x] Multipart / file upload parsing (`@nextrush/multipart`)
 - [x] Response compression (`@nextrush/compression`)
 - [x] Cookie handling (`@nextrush/cookies`)
 - [x] Rate limiting with pluggable store interface (`@nextrush/rate-limit`)
 - [x] Request ID generation (`@nextrush/request-id`)
 - [x] Request timing (`@nextrush/timer`)
+- [x] Standard Schema request validation — Zod, Valibot, ArkType (`@nextrush/validation`)
 
 ### Plugins
 
@@ -68,6 +72,8 @@ _Status: Complete_
 - [x] Template engine (`@nextrush/template`)
 - [x] Event system (`@nextrush/events`)
 - [x] WebSocket support (`@nextrush/websocket`)
+- [x] Response streaming — SSE, NDJSON, built for AI/agentic apps (`@nextrush/stream`)
+- [x] Zero-config OpenAPI 3.1 generation from route metadata (`@nextrush/openapi`)
 
 ---
 
@@ -102,25 +108,20 @@ These items have no implementation yet. Some are tracked in RFCs; others are asp
 ### Middleware & Security
 
 - [ ] Session management middleware
-- [ ] CSRF protection middleware
 - [ ] Built-in Redis store for rate limiting
 
 ### Developer Tooling
 
-- [ ] CLI command for project scaffolding (`nextrush init`)
 - [ ] Security audit and dependency scanning
 
 ### Ecosystem Integrations
 
-- [ ] OpenAPI / Swagger generation
 - [ ] GraphQL plugin
-- [ ] Server-Sent Events support
 - [ ] AWS Lambda adapter
 - [ ] Database integration guides (Drizzle, Prisma)
 
 ### Documentation
 
-- [ ] API reference completion for all packages
 - [ ] Cookbook with task-oriented recipes
 - [ ] Starter templates and example repository
 

@@ -299,7 +299,7 @@ console.log(a === b); // false
 
 ## Container API
 
-The global `container` and containers created with `createContainer()` implement `ContainerInterface`.
+The global `container` and containers created with `createContainer()` implement `Container`.
 
 ### `container.register(token, provider)`
 
@@ -327,7 +327,7 @@ container.register('DB', {
     },
     useValue: { type: 'T', description: 'Return this exact value when the token is resolved' },
     useFactory: {
-      type: '(container: ContainerInterface) => T',
+      type: '(container: Container) => T',
       description: 'Call this factory function when the token is resolved',
     },
   }}
@@ -596,7 +596,7 @@ import {
 
 // Types
 import type {
-  ContainerInterface,
+  Container,
   Provider,
   ClassProvider,
   ValueProvider,

@@ -1,6 +1,8 @@
 # Core concepts
 
-`@nextrush/core` gives you three pieces: an **application** instance (middleware + routes + plugins), a **context** (`ctx`) per request, and **middleware** composition with `await next()`.
+`@nextrush/core` gives you three pieces: an **application** instance (middleware
++ routes + extensions), a **context** (`ctx`) per request, and **middleware**
+composition with `await next()`.
 
 For request lifecycle detail, see [Request lifecycle](https://0xtanzim.github.io/nextRush/docs/concepts/request-lifecycle) on the docs site.
 
@@ -8,7 +10,9 @@ For request lifecycle detail, see [Request lifecycle](https://0xtanzim.github.io
 
 ## Application
 
-`createApp()` returns an `Application`: register middleware, mount routers, attach plugins, set a global error handler, then start listening.
+`createApp()` returns an `Application`: register middleware, mount routers,
+extend with long-lived services, set a global error handler, then start
+listening.
 
 ```typescript
 import { createApp, listen } from 'nextrush';
@@ -40,12 +44,20 @@ users.get('/', listUsers);
 app.route('/api/users', users);
 ```
 
-### Plugins
+### Extend (rare — long-lived services)
 
 ```typescript
-app.plugin(loggerPlugin({ level: 'info' }));
-await app.plugin(databasePlugin({ uri: process.env.DATABASE_URL! }));
+import { events } from '@nextrush/events';
+
+app.extend(events());
+await app.ready(); // adapters call this automatically before start()
+
+app.events.emit('server:started', {});
 ```
+
+Most features are middleware, not extensions — see
+**[Extending NextRush](Plugins)** for the full taxonomy (Middleware / Registrar
+/ Extension) before reaching for `app.extend()`.
 
 ### Errors
 
@@ -65,7 +77,12 @@ app.setErrorHandler((error, ctx) => {
 
 ### Lifecycle
 
-After `listen()` resolves, configuration is frozen: no more `use()`, `route()`, or `plugin()` on that instance. Use `app.close()` for graceful shutdown (plugins tear down in reverse order).
+`app.ready()` boots the application: it runs every registered extension's
+`setup()` once, in registration order, then mounts the app-owned router last.
+Adapters call `ready()` automatically before `start()`. After `ready()`
+resolves, configuration is frozen: no more `use()`, `route()`, or `extend()` on
+that instance. Use `app.close()` for graceful shutdown (extensions tear down in
+reverse order).
 
 ---
 
@@ -128,26 +145,34 @@ Share data with `ctx.state` so downstream middleware and handlers see the same o
 
 ---
 
-## Plugins
+## Extensions (rare, framework-author-only)
 
-A **plugin** implements `Plugin`: usually `install(app)` registers middleware or hooks.
+An **Extension** attaches long-lived state to the app — an event bus, a
+database pool — and needs async boot or teardown. Register with
+`app.extend()`; `setup()` runs at `app.ready()`.
 
 ```typescript
-import type { Plugin, Application } from 'nextrush';
+import type { Extension } from '@nextrush/types';
 
-const myPlugin: Plugin = {
-  name: 'my-plugin',
-  install(app: Application) {
-    app.use(/* … */);
-  },
-};
-
-app.plugin(myPlugin);
+export function myExtension(): Extension {
+  return {
+    name: 'my-extension',
+    setup(ctx) {
+      ctx.decorate('myThing', someValue);
+    },
+    destroy() {
+      /* cleanup on app.close() */
+    },
+  };
+}
 ```
 
-**`PluginWithHooks`** adds optional `extendContext`, `onRequest`, `onResponse`, `onError`, and `destroy` for instrumentation or cleanup.
+There is no public `app.decorate()` — only `ctx.decorate()` inside `setup()`.
+Use `app.hasDecorator(name)` to check whether a name is already taken.
 
-Use `app.hasPlugin('name')` / `app.getPlugin('name')` when another plugin needs to detect optional peers.
+Most extensibility needs are covered by plain middleware (`app.use()`) or a
+registrar function (a plain import + call, e.g. `registerControllers`). See
+**[Extending NextRush](Plugins)** for the full taxonomy.
 
 ---
 
@@ -155,4 +180,4 @@ Use `app.hasPlugin('name')` / `app.getPlugin('name')` when another plugin needs 
 
 - [Middleware](Middleware) — packaged middleware and ordering
 - [Routing](Routing) — router API
-- [Plugins concept](https://0xtanzim.github.io/nextRush/docs/concepts/plugins) — docs site
+- [Extending NextRush](Plugins) — the Middleware / Registrar / Extension taxonomy

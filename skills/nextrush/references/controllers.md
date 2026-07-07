@@ -1,7 +1,7 @@
 # Controllers & Decorators
 
 Decorator-based controllers with route decorators, parameter injection, guards,
-response decorators, and auto-discovery via `controllersPlugin`.
+response decorators, and auto-discovery via `registerControllers`.
 
 ## Prerequisites
 
@@ -12,13 +12,13 @@ response decorators, and auto-discovery via `controllersPlugin`.
 ```typescript
 // Using meta-package (recommended)
 import { createApp, createRouter, listen } from 'nextrush';
-import { Controller, Get, Post, Body, Param, Service, controllersPlugin } from 'nextrush/class';
+import { Controller, Get, Post, Body, Param, Service, registerControllers } from 'nextrush/class';
 import type { GuardFn, CanActivate, GuardContext } from 'nextrush/class';
 
 // Using individual packages
 import { Controller, Get, Post } from '@nextrush/decorators';
 import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
+import { registerControllers } from '@nextrush/controllers';
 ```
 
 ## Create a Controller
@@ -75,23 +75,23 @@ class ProductController {
 
 ## Register Controllers
 
-```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin } from 'nextrush/class';
+`registerControllers` is a **registrar** — a plain function, not a plugin. It
+reads `app.router` and `app.container` directly, so create the app with a
+router (via `createApp()` from `nextrush`, or `createApp({ router })` when
+using `@nextrush/core` directly) and await the call before serving traffic.
 
-const app = createApp();
-const router = createRouter();
+```typescript
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
+
+const app = createApp(); // batteries-included: owns a default router
 
 // Auto-discovery: scans ALL .ts/.js files under root for @Controller classes
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-  })
-);
+await registerControllers(app, {
+  root: './src',
+  prefix: '/api',
+});
 
-app.route('/', router);
 listen(app, 8080);
 ```
 
@@ -238,20 +238,22 @@ class PageController {
 }
 ```
 
-## controllersPlugin Options
+## `registerControllers` Options
 
 | Option        | Type                 | Default                     | Description                                       |
-| ------------- | -------------------- | --------------------------- | ------------------------------------------------- |
-| `router`      | `Router`             | _required_                  | Router instance for route registration            |
-| `root`        | `string`             | —                           | Directory to scan for `@Controller` classes       |
-| `include`     | `string[]`           | `['**/*.ts', '**/*.js']`    | Glob patterns for auto-discovery                  |
-| `exclude`     | `string[]`           | test/spec/node_modules/dist | Patterns to exclude                               |
-| `prefix`      | `string`             | `''`                        | Route prefix for all controllers                  |
-| `debug`       | `boolean`            | `false`                     | Log discovered controllers to stderr              |
-| `controllers` | `Function[]`         | `[]`                        | Manual controller list (skip auto-discovery)      |
-| `container`   | `ContainerInterface` | global                      | Custom DI container                               |
-| `middleware`  | `Middleware[]`       | `[]`                        | Global middleware for all controllers             |
-| `strict`      | `boolean`            | `false`                     | Throw on discovery errors (default logs warnings) |
+| ------------- | -------------------- | ---------------------------- | ------------------------------------------------- |
+| `root`        | `string`             | —                            | Directory to scan for `@Controller` classes       |
+| `include`     | `string[]`           | `['**/*.ts', '**/*.js']`     | Glob patterns for auto-discovery                  |
+| `exclude`     | `string[]`           | test/spec/node_modules/dist  | Patterns to exclude                                |
+| `prefix`      | `string`             | `''`                         | Route prefix for all controllers                   |
+| `debug`       | `boolean`            | `false`                      | Log discovered controllers to stderr               |
+| `controllers` | `Function[]`         | `[]`                         | Manual controller list (skip auto-discovery)       |
+| `middleware`  | `Middleware[]`       | `[]`                         | Global middleware for all controllers              |
+| `strict`      | `boolean`            | `false`                      | Throw on discovery errors (default logs warnings)  |
+
+`router` and `container` are not options — `registerControllers` reads
+`app.router` and `app.container` directly. Renamed from `ControllersPluginOptions`
+to `ControllersOptions`.
 
 ## Rules
 
@@ -275,5 +277,5 @@ class PageController {
 | Parameters undefined | Missing decorator                   | Add `@Body()`, `@Param()` etc. to method params              |
 | Decorator errors     | Missing tsconfig flags              | Enable `experimentalDecorators` + `emitDecoratorMetadata`    |
 | "TypeInfo not known" | `emitDecoratorMetadata` false       | Enable in tsconfig.json; `nextrush dev` validates at startup |
-| Route not registered | Missing `app.route()`               | Mount the router after calling `controllersPlugin`           |
+| Route not registered | Missing `app.route()`               | Ensure the app has a router (`createApp()` from `nextrush`, or `createApp({ router })`) |
 | Double response      | Handler sends + returns             | Either return a value OR use `ctx.json()` — not both         |

@@ -1,349 +1,288 @@
 ---
-title: Plugins
-description: Extend NextRush without bloating the core
+title: Extending NextRush
+description: Middleware, Registrars, and Extensions — the three ways to add capability to an app
 ---
 
-Plugins extend your application without modifying the core. They add middleware, hook into request lifecycle events, and clean up after themselves on shutdown.
+NextRush has no `Plugin` interface. There is no `app.plugin()`. Capability is added through three idioms, and almost everything you write is the first one.
 
-## The Problem
+## The Three Kinds
 
-Frameworks face a dilemma:
+<Callout type="info" title="Not equal in weight">
+  These three kinds are not three equally-likely choices. Reach for **Middleware** by default.
+  Reach for a **Registrar** when wiring class-based controllers. Reach for an **Extension** only
+  when you're building long-lived, app-level infrastructure — which is rare.
+</Callout>
 
-- **Include everything**: Bloated core, unused code, slow cold starts
-- **Include nothing**: Every project reinvents common patterns
+| Kind | Idiom | Share of real usage | Examples |
+| --- | --- | --- | --- |
+| Middleware | `app.use(fn())` | ~99% | cors, helmet, body-parser, logger, static, rate-limit, compression, openapi, template |
+| Registrar | direct import + call (`await` if async) | ~0.9% | `registerControllers(app, opts)`, `createWebSocket()` |
+| Extension | `app.extend(ext)` + `await app.ready()` | ~0.1% | `events()` |
 
-NextRush resolves this with a plugin system that keeps the core minimal. The core handles middleware composition and plugin management. Everything else — logging, events, static files, WebSocket — ships as a separate plugin package.
+Most features you'll ever add — security headers, request logging, static files, API docs, HTML rendering — are middleware. You register them with `app.use()` and move on. A registrar wires up a subsystem (class-based controllers, a WebSocket server) with a plain function call. An Extension is reserved for framework-level, long-lived services that need a boot phase and a teardown phase — an event bus is the one example that ships today.
 
 ## Mental Model
 
-Think of plugins like **USB devices** for your computer:
+Think of it as three different tools for three different jobs, not three tiers of the same tool:
 
-- The computer (core) provides ports (the `Plugin` interface)
-- Devices (plugins) add capabilities (keyboard, mouse, storage)
-- Each device declares what it needs (`install`)
-- Unplugging triggers cleanup (`destroy`)
-
-The core doesn't know about specific plugins. Plugins don't modify core internals. They interact through a defined contract.
+- **Middleware** is a step in the request pipeline. It runs on every request, in registration order, and it's how almost all functionality — security, parsing, logging, rendering — gets attached to your app.
+- **A Registrar** is setup code that runs once, before the server starts. It reads what it needs from the app (a router, a container) and configures it. It's a function, not an object with a lifecycle.
+- **An Extension** is a long-lived service the app itself depends on for its whole lifetime — booted once at `app.ready()`, torn down once at `app.close()`. Writing one is a framework-author task, not something most application code needs.
 
 <Mermaid
   chart="
 flowchart LR
-    App[Application] -->|app.plugin| I{install}
-    I --> MW[Add Middleware]
-    I --> H[Register Hooks]
-    I --> S[Setup Resources]
-    App -->|app.close| D[destroy in reverse order]
-    style App fill:#3b82f6,stroke:#1d4ed8,color:#fff
-    style D fill:#ef4444,stroke:#dc2626,color:#fff
+    subgraph Middleware
+        U[app.use(fn())] --> R[Runs every request]
+    end
+    subgraph Registrar
+        C[await registerX(app, opts)] --> W[Wires router/DI once at startup]
+    end
+    subgraph Extension
+        E[app.extend(ext)] --> Y[app.ready() runs setup]
+        Y --> Z[app.close() runs destroy]
+    end
+    style Middleware fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style Registrar fill:#f59e0b,stroke:#d97706,color:#fff
+    style Extension fill:#ef4444,stroke:#dc2626,color:#fff
 "
 />
 
-## Plugin Interface
+## Middleware — the default (~99%)
 
-Every plugin implements this interface from `@nextrush/types`:
+Middleware is a function you pass to `app.use()`. Nearly every package NextRush ships — cors, helmet, body-parser, logger, static, rate-limit, compression, openapi, template — is middleware, because nearly everything an HTTP framework does is "run some logic for each request."
 
-```typescript title="Plugin Interface"
-interface Plugin {
-  readonly name: string;
-  readonly version?: string;
-  install(app: ApplicationLike): void | Promise<void>;
-  destroy?(): void | Promise<void>;
-}
-```
-
-- **`name`** — Unique identifier. Duplicate names throw an error.
-- **`version`** — Optional semver string.
-- **`install`** — Called by `app.plugin()`. Receives an `ApplicationLike` with `use()` and `getPlugin()` methods.
-- **`destroy`** — Called during `app.close()`. Clean up connections, timers, and resources here.
-
-## Minimal Usage
-
-Plugins can be plain objects, factory functions, or async with cleanup. The factory pattern is recommended for configurable plugins:
-
-<Tabs items={['Object Plugin', 'Factory (Recommended)', 'Async with Cleanup']}>
-  <Tab value="Object Plugin">
-    ```typescript title="Timer Plugin"
-    import type { Plugin } from '@nextrush/types';
-
-    const timerPlugin: Plugin = {
-      name: 'timer',
-
-      install(app) {
-        app.use(async (ctx, next) => {
-          const start = Date.now();
-          await next();
-          ctx.set('X-Response-Time', `${Date.now() - start}ms`);
-        });
-      },
-    };
-
-    app.plugin(timerPlugin);
-    ```
-
-  </Tab>
-  <Tab value="Factory (Recommended)">
-    Return a `Plugin` from a function to accept configuration:
-
-    ```typescript title="Configurable Logger Plugin"
-    import type { Plugin } from '@nextrush/types';
-
-    interface LoggerOptions {
-      level: 'debug' | 'info' | 'warn' | 'error';
-      prefix?: string;
-    }
-
-    function loggerPlugin(options: LoggerOptions): Plugin {
-      return {
-        name: 'logger',
-
-        install(app) {
-          app.use(async (ctx, next) => {
-            console.log(`${options.prefix ?? ''} [${options.level}] → ${ctx.method} ${ctx.path}`);
-            await next();
-            console.log(`${options.prefix ?? ''} [${options.level}] ← ${ctx.status}`);
-          });
-        },
-      };
-    }
-
-    app.plugin(loggerPlugin({ level: 'info', prefix: '[API]' }));
-    ```
-
-  </Tab>
-  <Tab value="Async with Cleanup">
-    ```typescript title="Database Plugin"
-    function databasePlugin(connectionString: string): Plugin {
-      let connection: DatabaseConnection | null = null;
-
-      return {
-        name: 'database',
-
-        async install(app) {
-          connection = await connect(connectionString);
-          app.use(async (ctx, next) => {
-            ctx.state.db = connection;
-            await next();
-          });
-        },
-
-        async destroy() {
-          if (connection) {
-            await connection.close();
-            connection = null;
-          }
-        },
-      };
-    }
-    ```
-
-  </Tab>
-</Tabs>
-
-## Installing Plugins
-
-`app.plugin()` handles both sync and async plugins. It returns `this` for sync plugins and `Promise<this>` for async ones.
-
-```typescript title="Installing Plugins"
-import { createApp } from '@nextrush/core';
+```typescript title="Adding capability via middleware"
+import { createApp, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+import { openapi } from '@nextrush/openapi';
 
 const app = createApp();
 
-// Sync plugins — chainable
-app.plugin(timerPlugin).plugin(eventsPlugin());
+app.use(helmet());
+app.use(cors());
+app.use(openapi({ router: app.router!, info: { title: 'API', version: '1.0.0' } }));
 
-// Async plugins — await the call
-await app.plugin(databasePlugin('postgres://...'));
-await app.plugin(cachePlugin('redis://...'));
+await listen(app, 8080);
 ```
+
+If you're writing your own reusable capability — a custom logger, a request-timing header, a feature flag check — write it as middleware first. Only reach for a Registrar or an Extension if middleware genuinely can't express what you need (see the next two sections for when that's true).
+
+See [Middleware Internals](/docs/concepts/middleware-internals) for how `app.use()` and `compose()` work under the hood.
+
+## Registrar — plain functions for wiring (~0.9%)
+
+A Registrar is not a type or an interface — it's just a function you call directly, `await`ing it if it's async. It exists for subsystems that need to read from the app (its router, its DI container) and configure something at startup, rather than run per request.
+
+The clearest example is `registerControllers()`, which scans for `@Controller`-decorated classes, resolves them through the app's DI container, and registers their routes on the app's router:
+
+```typescript title="Registrar: wiring class-based controllers"
+import 'reflect-metadata';
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get() findAll() {
+    return this.users.findAll();
+  }
+}
+
+const app = createApp();
+await registerControllers(app, { root: './src' }); // must be awaited before serve()
+await listen(app, 8080);
+```
+
+`createWebSocket()` (from `@nextrush/websocket`) is the other current example — it's a factory you call directly, then attach with `app.use(wss.upgrade())`.
 
 <Callout type="warn">
-  Do not chain after an async plugin without `await`. The return value is a `Promise`, not the app
-  instance.
+  A Registrar has no lifecycle hooks and no destroy step. It runs once, synchronously in effect
+  (even if the function itself is `async`), and must complete before `listen()`/`serve()` starts
+  the server — that's why `registerControllers()` is always awaited.
 </Callout>
 
-```typescript title="Plugin Status"
-// Check if installed
-app.hasPlugin('logger'); // true | false
+## Extension — rare, framework-level infrastructure (~0.1%)
 
-// Retrieve a plugin instance
-const db = app.getPlugin<DatabasePlugin>('database');
+An Extension is for a long-lived, app-scoped service that needs a real boot phase (possibly async, possibly depending on other extensions) and a real teardown phase on shutdown. It is registered with `app.extend()`, which only queues it — the actual `setup()` runs later, when `app.ready()` is called.
+
+The event bus in `@nextrush/events` is the reference example:
+
+```typescript title="Extension: a long-lived event bus"
+import { createApp, listen } from 'nextrush';
+import { events } from '@nextrush/events';
+
+const app = createApp();
+
+app.extend(events());
+await app.ready(); // adapters call this automatically before start(), but you can call it yourself too
+
+app.events.emit('server:started', {});
+app.events.on('user:created', (data) => console.log(data));
+
+await listen(app, 8080);
 ```
 
-## Plugin Lifecycle
+Before reaching for `app.extend()`, ask whether the capability could instead be middleware or a registrar — in the overwhelming majority of cases it can. Write an Extension only when you have state that must outlive any single request, must boot before the app starts serving traffic, and must clean up on shutdown.
+
+### Writing an Extension
+
+```typescript title="my-extension.ts"
+import type { Extension } from '@nextrush/types';
+
+export function myExtension(): Extension {
+  return {
+    name: 'my-extension',
+    needs: [], // optional: names of other extensions that must register first
+    setup(ctx) {
+      // ctx: { app, logger, env, name, container?, decorate }
+      ctx.decorate('myThing', someValue); // attach a value to app.myThing
+      ctx.app.use(someMiddleware);
+    },
+    destroy() {
+      // cleanup — runs in reverse registration order at app.close()
+    },
+  };
+}
+```
+
+Declare the type it adds to `Application` via module augmentation:
+
+```typescript
+declare module '@nextrush/core' {
+  interface Application {
+    myThing: Foo;
+  }
+}
+```
+
+<Callout type="warn" title="There is no app.decorate()">
+  Attaching a value to the app is only possible through `ctx.decorate()` inside `setup()` — this
+  is intentional (RFC-NEXTRUSH-PLUGIN-SYSTEM §6.1). The only public, read-only way to check for a
+  decoration from outside an extension is `app.hasDecorator(name)`.
+</Callout>
+
+## Extension Lifecycle
+
+`app.extend()` is synchronous and only queues the extension — nothing runs yet. The actual boot work happens once, in registration order, when `app.ready()` is called:
 
 <Mermaid
   chart="
 flowchart TB
-    A[app.plugin] --> B{Name taken?}
-    B -->|Yes| X[Throw Error]
-    B -->|No| C[plugin.install]
-    C --> D[Store in registry]
-    D --> E[Middleware runs per request]
-    E --> F[app.close]
-    F --> G[destroy plugins in reverse order]
-    G --> H[Clear registry]
+    A[app.extend(ext)] --> B[Queued — setup() NOT run yet]
+    B --> C[app.ready() called]
+    C --> D{needs satisfied?}
+    D -->|No| X[Throw: needs unmet dependency]
+    D -->|Yes| E[setup(ctx) runs, in registration order]
+    E --> F[Configuration frozen — use/route/extend now throw]
+    F --> G[Requests served]
+    G --> H[app.close()]
+    H --> I[destroy() runs, reverse order, Promise.allSettled]
     style A fill:#3b82f6,stroke:#1d4ed8,color:#fff
     style X fill:#ef4444,stroke:#dc2626,color:#fff
-    style F fill:#ef4444,stroke:#dc2626,color:#fff
+    style H fill:#ef4444,stroke:#dc2626,color:#fff
 "
 />
 
-On shutdown, `app.close()` destroys plugins in **reverse installation order** using `Promise.allSettled`. If a plugin's `destroy()` throws, the error is collected but remaining plugins still run. `close()` returns an `Error[]` — empty on success.
+Adapters (`listen()`, `serve()`) call `app.ready()` for you automatically before starting the server. You only need to call it yourself if you need extensions booted before some other setup step, or in tests that build a request handler without going through an adapter.
 
-## Lifecycle Hooks
+`app.ready()` is idempotent — calling it twice is safe. Once it resolves, the app's configuration is frozen: `use()`, `route()`, and `extend()` all throw if called afterward.
 
-For deeper integration, implement `PluginWithHooks`. The application calls these hooks automatically during request processing:
-
-```typescript title="Metrics Plugin with Hooks"
-import type { PluginWithHooks } from '@nextrush/types';
-
-const metricsPlugin: PluginWithHooks = {
-  name: 'metrics',
-
-  install(app) {
-    // Setup or register middleware
-  },
-
-  extendContext(ctx) {
-    // Called before each request — add properties to ctx
-  },
-
-  onRequest(ctx) {
-    ctx.state.requestStart = Date.now();
-  },
-
-  onResponse(ctx) {
-    const duration = Date.now() - (ctx.state.requestStart as number);
-    recordMetric('http_request_duration', duration, {
-      method: ctx.method,
-      path: ctx.path,
-      status: ctx.status,
-    });
-  },
-
-  onError(error, ctx) {
-    recordMetric('http_errors', 1, {
-      method: ctx.method,
-      path: ctx.path,
-      error: error.name,
-    });
-  },
-};
-```
-
-Hook execution order per request: `extendContext` → `onRequest` → middleware chain → `onResponse`. If the middleware chain throws, `onError` runs instead of `onResponse`.
-
-<Callout type="info">
-  Hook properties are validated at build time (`app.callback()`). If `onRequest` is not a function,
-  a `TypeError` is thrown immediately — not silently ignored at runtime.
-</Callout>
+On shutdown, `app.close()` destroys extensions in **reverse registration order** using `Promise.allSettled`, so one failing `destroy()` never prevents the others from running. `close()` returns an `Error[]` — empty on success.
 
 ## Error Behavior
 
-| Scenario                             | Error                                                           | When             |
-| ------------------------------------ | --------------------------------------------------------------- | ---------------- |
-| Duplicate plugin name                | `Error: Plugin "X" is already installed`                        | `app.plugin()`   |
-| Plugin installed after `app.start()` | `Error: Cannot call plugin() after the application has started` | `app.plugin()`   |
-| Hook property is not a function      | `TypeError: Plugin "X": onRequest must be a function`           | `app.callback()` |
-| Plugin `destroy()` throws            | Error collected in return array                                 | `app.close()`    |
+| Scenario | Error | When |
+| --- | --- | --- |
+| Duplicate extension name | `Error: Extension "X" is already registered` | `app.extend()` |
+| `setup` is not a function | `TypeError: Extension must have a setup() method` | `app.extend()` |
+| `extend()`/`use()`/`route()` after `ready()` | `Error: Cannot call X() after app.ready() — configuration is frozen` | any of those calls |
+| `needs` dependency not yet registered | `Error: Extension "X" needs "Y", but "Y" was not registered before it` | `app.ready()` |
+| Decoration name collision | `Error: Decoration "X" already exists on the application` | inside `setup()`, via `ctx.decorate()` |
+| Extension `destroy()` throws | Error collected in the return array | `app.close()` |
 
-Plugin dependencies are not enforced automatically. If your plugin requires another, check with `app.getPlugin()` inside `install()` and throw a descriptive error.
-
-```typescript title="Checking Dependencies"
-function authPlugin(): Plugin {
-  return {
-    name: 'auth',
-    install(app) {
-      if (!app.getPlugin('session')) {
-        throw new Error('auth plugin requires session plugin — install it first');
-      }
-      // ... auth middleware
-    },
-  };
-}
-```
+Extension dependencies are declared, not auto-sorted: `needs` is asserted against registration order, not used to reorder anything. If your extension needs another extension's decoration, register that extension first and list it in `needs`.
 
 ## Performance Notes
 
-- **Hook collection runs once, at `app.callback()` time**, not per request. `callback()` filters installed plugins for `onRequest`/`onResponse`/`onError`/`extendContext` and validates each hook is a function up front — this cost is paid once at startup, not on every request.
-- **Per-request hook overhead scales with hook count, not plugin count.** Only plugins that implement lifecycle hooks are iterated during request handling; plugins that only add middleware in `install()` add zero per-request hook overhead.
-- **`onResponse`/`onError` hook failures are isolated** — each hook runs in its own try/catch, logged via `app.logger.warn()` on failure, so one failing hook does not block the others or the response.
-- **Shutdown cost is bounded by the slowest `destroy()`, not the sum of all of them.** `app.close()` runs all `destroy()` calls concurrently via `Promise.allSettled`, in reverse installation order.
+- `app.extend()` is O(1) — it only pushes to an internal array and checks a `Set` for name collisions. No work happens until `ready()`.
+- `setup()` for every registered extension runs once, at `ready()`, not per request. There is zero per-request extension overhead once the app is serving traffic — extensions only add per-request cost if their `setup()` itself registers middleware (which then behaves like any other middleware).
+- `app.close()` runs every `destroy()` concurrently via `Promise.allSettled`, so shutdown time is bounded by the slowest `destroy()`, not their sum.
 
 ## Common Mistakes
 
-### Duplicate Plugin Names
+### Reaching for an Extension when middleware would do
 
 ```typescript
-// ❌ Throws: Plugin "logger" is already installed
-app.plugin(loggerPlugin());
-app.plugin(loggerPlugin());
-
-// ✅ Install once
-app.plugin(loggerPlugin());
-```
-
-### Forgetting to Await Async Plugins
-
-```typescript
-// ❌ Plugin not installed before next line runs
-app.plugin(databasePlugin('postgres://...'));
-app.plugin(authPlugin()); // database may not be ready
-
-// ✅ Await async plugins
-await app.plugin(databasePlugin('postgres://...'));
-app.plugin(authPlugin());
-```
-
-### Missing Cleanup
-
-```typescript
-// ❌ Resource leak — interval never cleared
-const plugin: Plugin = {
-  name: 'poller',
-  install() {
-    setInterval(poll, 1000);
+// ❌ Overkill — a static value doesn't need a boot/teardown lifecycle
+app.extend({
+  name: 'config',
+  setup(ctx) {
+    ctx.decorate('config', loadConfig());
   },
-};
+});
 
-// ✅ Store the handle, clear in destroy
-function pollerPlugin(): Plugin {
-  let intervalId: ReturnType<typeof setInterval> | null = null;
-
-  return {
-    name: 'poller',
-    install() {
-      intervalId = setInterval(poll, 1000);
-    },
-    destroy() {
-      if (intervalId) clearInterval(intervalId);
-    },
-  };
-}
+// ✅ Just a constant, or middleware if it needs per-request access
+const config = loadConfig();
+app.use(async (ctx, next) => {
+  ctx.state.config = config;
+  await next();
+});
 ```
 
-### Wrong Dependency Order
+### Forgetting to await a Registrar
 
 ```typescript
-// ❌ Auth checks for session, but session not installed yet
-app.plugin(authPlugin());
-app.plugin(sessionPlugin());
+// ❌ registerControllers is async — routes may not exist yet when listen() runs
+registerControllers(app, { root: './src' });
+await listen(app, 8080);
 
-// ✅ Install dependencies first
-app.plugin(sessionPlugin());
-app.plugin(authPlugin());
+// ✅ Await it first
+await registerControllers(app, { root: './src' });
+await listen(app, 8080);
+```
+
+### Registering an Extension after `ready()`
+
+```typescript
+await app.ready();
+app.extend(events()); // ❌ throws — configuration is frozen after ready()
+```
+
+### Expecting `app.decorate()` to exist
+
+```typescript
+// ❌ There is no public app.decorate() — it only exists inside an Extension's setup()
+app.decorate('myThing', value);
+
+// ✅ Wrap it in an Extension
+app.extend({
+  name: 'my-thing',
+  setup(ctx) {
+    ctx.decorate('myThing', value);
+  },
+});
 ```
 
 ## See Also
 
 <Cards>
   <Card title="Application" href="/docs/concepts/application">
-    Plugin registration and lifecycle methods.
+    `app.use()`, `app.extend()`, `app.ready()`, and `app.close()` on the Application class.
   </Card>
-  <Card title="Middleware" href="/docs/concepts/middleware">
-    How plugins add middleware to the stack.
+  <Card title="Middleware Internals" href="/docs/concepts/middleware-internals">
+    How `compose()` turns the middleware stack into a single request handler.
   </Card>
   <Card title="Context" href="/docs/concepts/context">
-    Extending context via plugins.
+    The object every middleware receives and mutates.
   </Card>
 </Cards>

@@ -17,9 +17,46 @@ NextRush follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-## v3.0.4
+## v3.0.7
 
 **Status**: Current stable line (`3.0.x` patch releases)
+
+### Highlights
+
+- **`create-nextrush`**: Simplified scaffold template code; the scaffolder auto-installs **`@nextrush/dev`** so generated projects have a working `nextrush dev` / `nextrush build` out of the box.
+
+---
+
+## v3.0.6
+
+**Status**: Superseded by **v3.0.7** (kept for history)
+
+### Highlights
+
+- **CLI install reliability**: The **`nextrush`** meta-package no longer declares a **`bin`** entry (prevents pnpm bin-link conflicts with **`@nextrush/dev`**'s own binaries).
+- **`@nextrush/dev`**: Always builds before publish, so the `nextrush` / `nextrush-dev` binaries are present in the published package.
+- **`create-nextrush`**: Scaffolded projects use `nextrush dev` / `nextrush build` scripts directly (no `npx` indirection); scaffolded dev dependencies include `@nextrush/dev`.
+- Added a repo-wide bin validator to catch missing `bin` targets during release verification.
+
+---
+
+## v3.0.5
+
+**Status**: Superseded by **v3.0.6** (kept for history)
+
+### Highlights
+
+- **`@nextrush/validation`** (new package): Standard Schema request validation middleware. `validate(schema)` validates and coerces `ctx.body`; `validate({ body, query, params })` validates any combination of targets. Works with any [Standard Schema](https://standardschema.dev) library — Zod, Valibot, ArkType. See [API reference](/docs/api-reference/middleware/validation).
+- **`@nextrush/openapi`** (new package): Zero-config OpenAPI 3.1 generation — the first renderer of the Route Metadata System. `app.plugin(openapi({ router }))` serves `/openapi.json` and a Swagger UI at `/docs`, generated from `validate()`/`endpoint()` metadata. See [API reference](/docs/api-reference/plugins/openapi).
+- **Route Metadata System**: New foundation in `@nextrush/types` and `@nextrush/router` — `endpoint()` and `Router.getRoutes()` — that lets tooling read a route's request/response shapes without duplicating schemas. Additive and backward-compatible; the request hot path is unaffected. See [Routing — Route Metadata](/docs/concepts/routing#route-metadata).
+- **`nextrush`**: Re-exports `endpoint()` and the `RouteDefinition`/`RouteMetadata` types.
+- **`@nextrush/di`**: `container.reset()` clears resolution tracking; Vitest `fileParallelism: false` avoids parallel test files racing the global container (more reliable CI / local tests).
+
+---
+
+## v3.0.4
+
+**Status**: Historical (`3.0.x` lineage)
 
 ### Highlights
 

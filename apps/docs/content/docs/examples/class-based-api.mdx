@@ -297,30 +297,23 @@ export class UserController {
 
 ```typescript title="src/index.ts"
 // reflect-metadata is auto-imported by the nextrush meta-package
-import { createApp, createRouter, listen } from 'nextrush';
-import { controllersPlugin } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 
 async function main() {
   const app = createApp();
-  const router = createRouter();
 
   // Middleware
   app.use(cors());
   app.use(json());
 
-  // Auto-discover all controllers in ./src
-  await app.plugin(
-    controllersPlugin({
-      router,
-      root: './src',
-      prefix: '/api',
-    })
-  );
-
-  // Mount router
-  app.route('/', router);
+  // Auto-discover all controllers in ./src — registrar, must be awaited
+  await registerControllers(app, {
+    root: './src',
+    prefix: '/api',
+  });
 
   // Start server
   await listen(app, 8080);
@@ -333,7 +326,7 @@ main();
   The `nextrush` meta-package auto-imports `reflect-metadata`. No manual import needed.
 </Callout>
 
-When the app starts with `debug: true` added to the plugin options, you'll see:
+When the app starts with `debug: true` added to the registrar options, you'll see:
 
 ```
 [Controllers] Starting auto-discovery in: ./src

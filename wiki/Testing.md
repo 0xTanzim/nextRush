@@ -131,8 +131,7 @@ it('should catch NotFoundError', async () => {
 
 ```typescript
 import 'reflect-metadata';
-import { Service } from '@nextrush/di';
-import { Controller, Get, controllersPlugin } from '@nextrush/controllers';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -152,15 +151,10 @@ class UserController {
 }
 
 it('should resolve controller and service from DI', async () => {
-  const router = createRouter();
-  app.plugin(
-    controllersPlugin({
-      router,
-      controllers: [UserController],
-    }),
-  );
+  // registerControllers reads app.router and app.container — must be
+  // awaited before the app serves traffic.
+  await registerControllers(app, { controllers: [UserController] });
 
-  app.route('/', router);
   const res = await testRequest(app, 'GET', '/users');
 
   expect(res.status).toBe(200);

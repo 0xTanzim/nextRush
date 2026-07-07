@@ -59,11 +59,13 @@ Your `tsconfig.json` must include:
 
 ## Minimal Usage
 
-A controller with one injected service, wired to the router via `controllersPlugin`:
+A controller with one injected service, registered with `registerControllers` — a **registrar**:
+a plain async function you call once, awaited, before starting the server. It reads `app.router`
+and `app.container` directly; there is no plugin lifecycle to opt into.
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-import { Controller, Get, Param, Service, controllersPlugin } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Param, Service, registerControllers } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -94,17 +96,12 @@ class UserController {
 }
 
 const app = createApp();
-const router = createRouter();
 
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src', // Auto-discovers all @Controller classes
-    prefix: '/api',
-  })
-);
+await registerControllers(app, {
+  root: './src', // Auto-discovers all @Controller classes
+  prefix: '/api',
+});
 
-app.use(router.routes());
 await listen(app, 8080);
 ```
 
@@ -113,7 +110,7 @@ await listen(app, 8080);
   metadata is available for all classes.
 </Callout>
 
-For how the plugin resolves controllers, executes guards, and builds handlers internally, see
+For how the registrar resolves controllers, executes guards, and builds handlers internally, see
 [DI & Decorators](/docs/concepts/di-decorators#how-the-controllers-plugin-works).
 
 ## Registering Services
@@ -221,7 +218,7 @@ CORS and body parsing wired in. Install the middleware separately:
 <summary>Full authenticated REST API example</summary>
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
+import { createApp, listen } from 'nextrush';
 import {
   Controller,
   Get,
@@ -233,7 +230,7 @@ import {
   UseGuard,
   Service,
   Repository,
-  controllersPlugin,
+  registerControllers,
 } from 'nextrush/class';
 import { json } from '@nextrush/body-parser';
 import { cors } from '@nextrush/cors';
@@ -351,22 +348,17 @@ class UserController {
 
 // ===== Bootstrap =====
 const app = createApp();
-const router = createRouter();
 
 // Global middleware
 app.use(cors());
 app.use(json());
 
 // Auto-discover all @Controller classes in ./src
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-  })
-);
+await registerControllers(app, {
+  root: './src',
+  prefix: '/api',
+});
 
-app.use(router.routes());
 await listen(app, 8080);
 ```
 
@@ -454,21 +446,15 @@ class ServiceA {
 
 ```typescript
 // ❌ Wrong - no root provided, nothing will be discovered
-await app.plugin(
-  controllersPlugin({
-    router,
-    // Missing root: './src'
-  })
-);
+await registerControllers(app, {
+  // Missing root: './src'
+});
 
 // ✅ Correct - auto-discover all controllers
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src', // Scans all .ts/.js files recursively
-    prefix: '/api',
-  })
-);
+await registerControllers(app, {
+  root: './src', // Scans all .ts/.js files recursively
+  prefix: '/api',
+});
 ```
 
 ## Verification

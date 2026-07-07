@@ -108,7 +108,7 @@ await listen(app, 8080);
   <HighlightItem
     icon="puzzle"
     title="Modular"
-    description="33 packages — cors, helmet, body-parser, controllers, websocket, and more as separate installs."
+    description="30 packages on npm (33 in the monorepo). Install cors, helmet, body-parser, controllers, websocket, and more as needed."
   />
 </HighlightGrid>
 
@@ -222,33 +222,42 @@ const users = createRouter();
 
 users.get('/', (ctx) => ctx.json([]));
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
-users.post('/', (ctx) => ctx.json(ctx.body, 201));
+users.post('/', (ctx) => {
+  ctx.status = 201;
+  ctx.json(ctx.body);
+});
 
 app.route('/users', users);
 ```
 
 [Routing →](/docs/concepts/routing)
 
-### Plugins
+### Extensions, middleware, and registrars
 
-Extend the app at startup: register middleware, routes, or lifecycle hooks without forking core.
+Extend the app at startup. Most extension work is **middleware** (`app.use`); a plain **registrar**
+function covers wiring that already holds the object it configures (like controllers); the
+**Extension** kind (`app.extend()` + `app.ready()`) is rare — reserved for long-lived services that
+attach state to the app, like an event bus.
 
 ```typescript
-import { controllersPlugin } from '@nextrush/controllers';
-import { eventsPlugin } from '@nextrush/events';
+import { events } from '@nextrush/events';
+import { registerControllers } from 'nextrush/class';
 
-app.plugin(eventsPlugin());
-app.plugin(controllersPlugin({ router, root: './src' }));
+app.extend(events());
+await app.ready();
+app.events.emit('server:started', {});
+
+await registerControllers(app, { root: './src' });
 ```
 
-[Plugins →](/docs/concepts/plugins)
+[Extensions →](/docs/concepts/plugins)
 
 ### Guards
 
 Route-level access checks. Return `false` → 403 before the handler runs.
 
 ```typescript
-import type { GuardFn } from '@nextrush/decorators';
+import { UseGuard, Controller, Get, type GuardFn } from 'nextrush/class';
 
 const AuthGuard: GuardFn = (ctx) => {
   return Boolean(ctx.get('authorization'));
@@ -256,7 +265,7 @@ const AuthGuard: GuardFn = (ctx) => {
 
 @UseGuard(AuthGuard)
 @Controller('/admin')
-class AdminController {
+export class AdminController {
   @Get('/dashboard')
   dashboard() {
     return { admin: true };
@@ -271,17 +280,17 @@ class AdminController {
 Register services (singleton or transient) and inject into controllers.
 
 ```typescript
-import { Service } from '@nextrush/di';
+import { Service, Controller, Get } from 'nextrush/class';
 
 @Service()
-class UserService {
+export class UserService {
   async findAll() {
     return [{ id: 1, name: 'Alice' }];
   }
 }
 
 @Controller('/users')
-class UserController {
+export class UserController {
   constructor(private users: UserService) {}
 
   @Get()
@@ -291,18 +300,37 @@ class UserController {
 }
 ```
 
+[Dependency injection →](/docs/concepts/di-decorators)
+
 ### Adapters
 
 Runtime-specific HTTP I/O. Your app code stays the same.
 
 ```typescript
 import { listen } from 'nextrush'; // Node.js (default)
-// import { listen } from '@nextrush/adapter-bun';
-// import { listen } from '@nextrush/adapter-deno';
-// import { listen } from '@nextrush/adapter-edge';
+// import { listen } from '@nextrush/adapter-bun';   // Bun
+// import { listen } from '@nextrush/adapter-deno';   // Deno
 
-await listen(app, 8080);
+await listen(app, 8080); // Node, Bun, Deno
+
+// Edge (Cloudflare, Vercel) has no listen() — export a fetch handler instead:
+// import { createFetchHandler } from '@nextrush/adapter-edge';
+// export default { fetch: createFetchHandler(app) };
 ```
+
+[Adapters →](/docs/concepts/runtime-compatibility)
+
+## Beyond routing
+
+A real API needs more than routes. These ship as separate packages, so the core stays small — add them as the need shows up:
+
+- **Validation** — `@nextrush/validation` runs any Standard Schema validator (Zod, Valibot, ArkType) as `validate()` middleware.
+- **API docs** — `@nextrush/openapi` reads your route metadata and `validate()` schemas to generate an OpenAPI 3.1 document and docs UI, with zero config.
+- **Streaming** — `@nextrush/stream` writes text, Server-Sent Events (SSE), and NDJSON responses, built for AI and agentic apps.
+- **Real-time** — `@nextrush/websocket` adds WebSocket connections alongside your HTTP routes.
+- **File uploads** — `@nextrush/multipart` parses multipart form-data.
+
+`validation`, `openapi`, and `stream` are the newest packages and are rolling out to npm. For everything published today, see [the package finder](/docs/api-reference#which-package-do-i-need).
 
 ## Package architecture
 
@@ -362,7 +390,8 @@ Use functions for small services; add controllers and DI when the API grows. Bot
     });
 
     router.post('/users', (ctx) => {
-      ctx.json(ctx.body, 201);
+      ctx.status = 201;
+      ctx.json(ctx.body);
     });
 
     router.get('/users/:id', (ctx) => {
@@ -375,14 +404,14 @@ Use functions for small services; add controllers and DI when the API grows. Bot
 
   </Tab>
   <Tab value="Class-based">
-    Controllers with DI.
+    Controllers with DI. `registerControllers` only registers **exported** `@Controller` classes it finds under `root` (the scaffolder puts each in its own file under `src/`).
 
     ```typescript title="src/index.ts"
-    import { createApp, createRouter, listen } from 'nextrush';
-    import { controllersPlugin, Controller, Get, Post, Body, Service } from 'nextrush/class';
+    import { createApp, listen } from 'nextrush';
+    import { registerControllers, Controller, Get, Post, Body, Service } from 'nextrush/class';
 
     @Service()
-    class UserService {
+    export class UserService {
       private users = [{ id: 1, name: 'Alice' }];
 
       findAll() {
@@ -397,7 +426,7 @@ Use functions for small services; add controllers and DI when the API grows. Bot
     }
 
     @Controller('/users')
-    class UserController {
+    export class UserController {
       constructor(private userService: UserService) {}
 
       @Get()
@@ -412,10 +441,8 @@ Use functions for small services; add controllers and DI when the API grows. Bot
     }
 
     const app = createApp();
-    const router = createRouter();
 
-    await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
-    app.route('/', router);
+    await registerControllers(app, { root: './src', prefix: '/api' });
 
     await listen(app, 8080);
     ```
@@ -469,7 +496,7 @@ The `nextrush` package ships the Node adapter. Install other adapters when you t
 | **Request surface** | `req` / `res` / `next` | `request` / `reply` | Single **`ctx`** + **`ctx.next()`** (Koa-style) |
 | **Routing** | Linear match order | Radix tree (`find-my-way`) | Segment trie (`@nextrush/router`) |
 | **Types** | DefinitelyTyped | First-class | Strict, first-party types |
-| **Validation** | Manual / middleware | JSON Schema (built-in) | Bring Zod, Valibot, etc. (transforms on params) |
+| **Validation** | Manual / middleware | JSON Schema (built-in) | Bring your own (Zod, Valibot, …) via param transforms |
 | **Structure** | Free-form | Encapsulated plugins | Optional **controllers + DI** via `nextrush/class` |
 
 </DocTableWrap>
@@ -482,7 +509,7 @@ The `nextrush` package ships the Node adapter. Install other adapters when you t
 
 ### Fastify
 
-- **Plugins**: Fastify encapsulation vs flat NextRush `plugin()` installs
+- **Extensibility**: Fastify plugin encapsulation vs NextRush's three-kind model — middleware for the request pipeline, plain registrar functions for wiring, `app.extend()` for the rare long-lived service
 - **Validation**: JSON Schema vs transforms (Zod, Valibot, …)
 - **Decorators**: add-on only vs `@Controller` / `@Get` with DI when you want them
 
@@ -496,12 +523,15 @@ The `nextrush` package ships the Node adapter. Install other adapters when you t
 | `@nextrush/errors`       | HTTP errors (4xx / 5xx)                   |
 | `@nextrush/types`        | Shared types                              |
 
+The `nextrush/class` entry additionally bundles `@nextrush/di`, `@nextrush/decorators`, and `@nextrush/controllers` (plus `reflect-metadata`).
+
 Optional layers:
 
 | Category       | Examples                                                                                        |
 | -------------- | ----------------------------------------------------------------------------------------------- |
-| **Middleware** | `cors`, `helmet`, `body-parser`, `compression`, `cookies`, `rate-limit`, `request-id`, `timer` |
-| **Plugins**    | `controllers`, `events`, `logger`, `static`, `template`, `websocket`                            |
+| **Middleware** | `cors`, `helmet`, `body-parser`, `compression`, `cookies`, `csrf`, `multipart`, `rate-limit`, `request-id`, `timer`, `validation` |
+| **Extensions** | `controllers`, `events`, `logger`, `openapi`, `static`, `template`, `websocket`                            |
+| **Streaming**  | `stream` (text, SSE, NDJSON — built for AI and agentic apps) |
 | **Adapters**   | `adapter-bun`, `adapter-deno`, `adapter-edge`                                                   |
 | **DI**         | `di`, `decorators`                                                                              |
 

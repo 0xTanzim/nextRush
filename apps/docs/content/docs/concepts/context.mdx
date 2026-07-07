@@ -451,7 +451,7 @@ With `proxy: false` (the default), `ctx.ip` is read directly from the underlying
 
 - **Never trust `ctx.headers` or `ctx.body` without validation.** Both come directly from the client. Validate shape and type before use — a missing body-parser or malformed input surfaces as `undefined` or an unexpected shape, not a validation error.
 - **`ctx.raw` bypasses all cross-runtime guarantees.** It exposes the platform-specific request/response object (`IncomingMessage`/`ServerResponse` on Node.js, `Request`/`Response` on Bun/Deno/Edge). Code that reads `ctx.raw` only works on the runtime it was written for.
-- **`ctx.ip` requires explicit proxy configuration.** With `proxy: false` (default), forwarding headers are ignored and `ctx.ip` reflects the real socket peer. Setting `proxy: true` trusts `X-Forwarded-For`/`X-Real-IP` — only enable this behind a proxy you control, since these headers are otherwise attacker-controlled and easy to spoof.
+- **`ctx.ip` requires explicit proxy configuration.** With `proxy: false` (default), forwarding headers are ignored and `ctx.ip` reflects the real socket peer. Setting `proxy: true` trusts `X-Forwarded-For`/`X-Real-IP` — only enable this behind a proxy you control, since these headers are otherwise attacker-controlled and trivially spoofed.
 
 ## Common Mistakes
 

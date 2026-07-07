@@ -38,8 +38,9 @@ bunx create-nextrush
   Use `pnpm dlx create-nextrush`, not `pnpm dlx create nextrush`. The latter is not a valid package name; the scaffolder’s name on npm is `create-nextrush` (with a hyphen).
 </Callout>
 
-<Callout type="info" title="&quot;command not found&quot; on npm">
-  If `npm create` or `npx` fails with `create-nextrush: command not found`, the installed `create-nextrush` build does not include the published `bin` file. Use the latest version from the registry once a fixed release is available, or scaffold from a local clone of this repository.
+<Callout type="info" title="If the command isn't found">
+  If `npm create nextrush` reports `create-nextrush: command not found`, pin the latest version
+  explicitly: `npm create nextrush@latest` (or `pnpm dlx create-nextrush@latest`).
 </Callout>
 
 The CLI walks you through project name, style, middleware preset, and runtime target.
@@ -118,7 +119,7 @@ import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
 const router = createRouter();
-const PORT = resolvePort();
+const PORT = Number(process.env.PORT) || 8080;
 
 router.get('/', (ctx) => ctx.json({ message: 'Welcome to NextRush!' }));
 
@@ -126,7 +127,7 @@ app.route('/', router);
 await listen(app, PORT);
 ```
 
-The generated `src/index.ts` includes `resolvePort()`, which reads `PORT` and falls back to `8080`.
+The generated `src/index.ts` reads `PORT` from the environment and falls back to `8080`.
 
 ### `class-based`
 
@@ -146,7 +147,7 @@ my-api/
 ```
 
 The scaffold splits services and controllers into separate files (see `src/index.ts` for
-`controllersPlugin` and route wiring).
+`registerControllers` and route wiring).
 
 ```typescript title="src/services/app.service.ts"
 import { Service } from 'nextrush/class';

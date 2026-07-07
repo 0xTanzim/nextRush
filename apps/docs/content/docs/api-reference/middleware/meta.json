@@ -12,6 +12,7 @@
     "compression",
     "cookies",
     "request-id",
-    "timer"
+    "timer",
+    "validation"
   ]
 }

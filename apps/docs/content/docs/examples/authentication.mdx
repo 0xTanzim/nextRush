@@ -410,13 +410,12 @@ export class UserController {
 
 ```typescript title="src/index.ts"
 // reflect-metadata is auto-imported by the nextrush meta-package
-import { createApp, createRouter, listen, errorHandler } from 'nextrush';
-import { controllersPlugin } from 'nextrush/class';
+import { createApp, listen, errorHandler } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 
 const app = createApp();
-const router = createRouter();
 
 // Error handler must be registered first
 app.use(errorHandler());
@@ -425,16 +424,8 @@ app.use(errorHandler());
 app.use(cors());
 app.use(json());
 
-// Controllers
-await app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api',
-  })
-);
-
-app.route('/', router);
+// Controllers — registrar, must be awaited before listen()
+await registerControllers(app, { root: './src', prefix: '/api' });
 
 // 404
 app.use((ctx) => {

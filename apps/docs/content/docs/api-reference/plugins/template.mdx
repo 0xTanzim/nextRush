@@ -252,22 +252,6 @@ const html = await renderAsync('Hello {{name}}!', { name: 'World' });
 
 ---
 
-## Template Plugin
-
-Use as a plugin:
-
-```typescript
-import { templatePlugin } from '@nextrush/template';
-
-app.plugin(
-  templatePlugin('ejs', {
-    root: './views',
-  })
-);
-```
-
----
-
 ## Common Mistakes
 
 **Forgetting to install the engine package.** Passing `'ejs'` without the `ejs` npm package installed causes an error at startup. Install the engine before using it.

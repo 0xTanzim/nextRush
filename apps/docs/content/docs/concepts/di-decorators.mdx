@@ -23,8 +23,8 @@ flowchart TB
         D --> E[Circular dep detection + error enhancement]
     end
 
-    subgraph "Layer 3: Controllers Plugin"
-        F[controllersPlugin] --> G[Read metadata via getControllerDefinition]
+    subgraph "Layer 3: Controllers Registrar"
+        F[registerControllers] --> G[Read metadata via getControllerDefinition]
         G --> H[Resolve controller from DI]
         H --> I[Build handler + register on Router]
     end
@@ -87,7 +87,7 @@ Both packages define their own key constants:
 
 ### Reading Metadata
 
-The `@nextrush/decorators` package exports reader functions. The controllers plugin uses `getControllerDefinition`:
+The `@nextrush/decorators` package exports reader functions. The controllers registrar uses `getControllerDefinition`:
 
 ```typescript
 import { getControllerDefinition } from '@nextrush/decorators';
@@ -200,7 +200,7 @@ class ServiceA {
 
 ### Container Interface
 
-The `ContainerInterface` exposes these methods:
+The `Container` interface exposes these methods:
 
 | Method                      | Purpose                                               |
 | --------------------------- | ----------------------------------------------------- |
@@ -214,9 +214,9 @@ The `ContainerInterface` exposes these methods:
 
 `createContainer()` creates a new isolated container by spawning a child of the global tsyringe container and resetting it.
 
-## How the Controllers Plugin Works
+## How the Controllers Registrar Works
 
-The `controllersPlugin` connects decorators, DI, and the router. It requires a `router` instance:
+`registerControllers()` connects decorators, DI, and the router. It reads `app.router` (required) and `app.container`:
 
 ### Class Guards Resolved from DI
 
@@ -246,30 +246,30 @@ class RoleGuard implements CanActivate {
 class AdminController {}
 ```
 
-At request time, the controllers plugin resolves `RoleGuard` from the same DI container as
+At request time, the controllers registrar resolves `RoleGuard` from the same DI container as
 controllers and services, so `authService` is injected automatically — no manual instantiation.
 
 <Mermaid chart={`
 sequenceDiagram
     participant App as Application
-    participant Plugin as controllersPlugin
+    participant Reg as registerControllers
     participant Dec as Decorators
     participant DI as Container
     participant Router as Router
 
-    App->>Plugin: app.plugin(controllersPlugin({ router, root: './src' }))
-    Plugin->>Plugin: Discover or receive controller classes
+    App->>Reg: await registerControllers(app, { root: './src' })
+    Reg->>Reg: Discover or receive controller classes
 
     loop For each controller
-        Plugin->>Dec: getControllerDefinition(controller)
-        Dec-->>Plugin: { target, controller, routes, params }
-        Plugin->>Dec: getAllGuards(target, methodName)
-        Dec-->>Plugin: Guard[]
+        Reg->>Dec: getControllerDefinition(controller)
+        Dec-->>Reg: { target, controller, routes, params }
+        Reg->>Dec: getAllGuards(target, methodName)
+        Dec-->>Reg: Guard[]
 
         loop For each route
-            Plugin->>Plugin: buildHandler(guards, paramMetadata)
-            Plugin->>DI: container.resolve(controller) [deferred to request time]
-            Plugin->>Router: router.get/post/...(fullPath, handler)
+            Reg->>Reg: buildHandler(guards, paramMetadata)
+            Reg->>DI: container.resolve(controller) [deferred to request time]
+            Reg->>Router: router.get/post/...(fullPath, handler)
         end
     end
 
@@ -409,7 +409,7 @@ Container wrapper and registration decorators:
 
 Orchestration — reads metadata, resolves from DI, registers on the router:
 
-- **Plugin**: `ControllersPlugin` class, `controllersPlugin` factory function
+- **Registrar**: `registerControllers` async function, `registerController` (single-class helper)
 - **Builder**: `buildRoutes` (creates handlers from `ControllerDefinition`)
 - **Discovery**: `discoverControllers` (auto-scan directories for `@Controller` classes)
 - **Registry**: `ControllerRegistry` (manages registered controllers)
@@ -427,7 +427,7 @@ This package does NOT re-export decorators or DI — import those from their own
 | `@nextrush/di`          | Manage object lifecycle (tsyringe wrapper) |
 | `@nextrush/controllers` | Connect metadata + DI + router at startup  |
 
-You can use decorators without DI, or DI without controllers. The controllers plugin is the only package that depends on both.
+You can use decorators without DI, or DI without controllers. The controllers registrar is the only package that depends on both.
 
 ### Testability
 
@@ -498,7 +498,7 @@ Controller is decorated but has no route methods. Check:
     Set up proper build tools for decorator metadata.
   </Card>
   <Card title="Controllers Package" href="/docs/api-reference/plugins/controllers">
-    Full API reference for the controllers plugin.
+    Full API reference for the controllers registrar.
   </Card>
   <Card title="DI Package" href="/docs/api-reference/di/di">
     Full API reference for dependency injection.

@@ -58,11 +58,11 @@ is critical — using the wrong entry point will cause missing export errors.
 import { createApp, createRouter, listen } from 'nextrush';
 
 // CLASS-BASED API — DI, decorators, controllers (auto-imports reflect-metadata)
-import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 ```
 
 **Rule**: Never import class-based APIs (`Controller`, `Service`, `inject`,
-`controllersPlugin`, etc.) from `'nextrush'` — they only exist in
+`registerControllers`, etc.) from `'nextrush'` — they only exist in
 `'nextrush/class'`. Functional APIs (`createApp`, `createRouter`, `listen`,
 errors, types) only exist in `'nextrush'`.
 
@@ -78,7 +78,7 @@ import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { Service, container } from '@nextrush/di';
 import { Controller, Get, Body } from '@nextrush/decorators';
-import { controllersPlugin } from '@nextrush/controllers';
+import { registerControllers } from '@nextrush/controllers';
 import { NotFoundError } from '@nextrush/errors';
 import type { Context, Middleware } from '@nextrush/types';
 ```
@@ -110,7 +110,7 @@ import type { Context, Middleware } from '@nextrush/types';
 | `@nextrush/multipart`    | `@nextrush/multipart`    | File uploads (disk/memory storage)             |
 | `@nextrush/request-id`   | `@nextrush/request-id`   | Request ID, correlation, tracing               |
 | `@nextrush/timer`        | `@nextrush/timer`        | Response time, Server-Timing header            |
-| `@nextrush/events`       | `@nextrush/events`       | Event emitter plugin                           |
+| `@nextrush/events`       | `@nextrush/events`       | Event bus extension                            |
 | `@nextrush/logger`       | `@nextrush/logger`       | Structured logging plugin                      |
 | `@nextrush/static`       | `@nextrush/static`       | Static file serving                            |
 | `@nextrush/template`     | `@nextrush/template`     | Template engine (EJS, Handlebars, Pug, etc.)   |
@@ -139,7 +139,7 @@ listen(app, 8080);
 
 ```typescript
 import { createApp, createRouter, listen } from 'nextrush';
-import { Controller, Get, Post, Body, Service, controllersPlugin } from 'nextrush/class';
+import { Controller, Get, Post, Body, Service, registerControllers } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -164,9 +164,7 @@ class UserController {
 }
 
 const app = createApp();
-const router = createRouter();
-await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
-app.route('/', router);
+await registerControllers(app, { prefix: '/api' });
 listen(app, 8080);
 ```
 
@@ -237,10 +235,10 @@ const app = createApp({ env: 'production', proxy: true });
 
 app.use(middleware); // Register middleware
 app.route('/prefix', router); // Mount router at prefix
-await app.plugin(myPlugin); // Install plugin (sync or async)
+app.extend(myExtension()); // Queue an extension (setup() runs at ready())
+await app.ready(); // Boot extensions — adapters call this automatically
+app.hasDecorator('name'); // Check if an extension decorated this name
 app.setErrorHandler(handler); // Custom error handler
-app.getPlugin('name'); // Get installed plugin
-app.hasPlugin('name'); // Check if plugin installed
 app.callback(); // Build request handler (for adapters)
 ```
 
@@ -286,8 +284,7 @@ import {
   Service,
   Repository,
   inject,
-  container,
-  controllersPlugin,
+  registerControllers,
 } from 'nextrush/class';
 import type { GuardFn, CanActivate, GuardContext } from 'nextrush/class';
 ```
@@ -372,30 +369,37 @@ app.use(rateLimit({ max: 100, window: 60 })); // Rate limiting
 
 See [middleware.md](references/middleware.md) for detailed configuration.
 
-## Plugins
+## Extending NextRush
+
+NextRush has no `Plugin` interface and no `app.plugin()`. Extending an app
+falls into three kinds, unequal in weight — reach for Middleware first:
 
 ```typescript
-// Controllers — auto-discovery of @Controller classes
-import { controllersPlugin } from 'nextrush/class';
-await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
+// Registrar (~1%) — a plain function, called directly, awaited if async
+import { registerControllers } from 'nextrush/class';
+await registerControllers(app, { root: './src', prefix: '/api' });
 
-// Events — pub/sub event system
-import { eventsPlugin } from '@nextrush/events';
+// Extension (rare) — app.extend() + app.ready() for long-lived services
+import { events } from '@nextrush/events';
+app.extend(events());
+await app.ready(); // adapters call this automatically
+app.events.emit('server:started', {});
 
-// Logger — structured logging
-import { createLogger } from '@nextrush/logger';
+// Static — serve static files (middleware)
+import { serveStatic } from '@nextrush/static';
+app.use(serveStatic({ root: './public' }));
 
-// Static — serve static files
-import { staticMiddleware } from '@nextrush/static';
+// Template — render templates (middleware)
+import { template } from '@nextrush/template';
+app.use(template('ejs', { root: './views' }));
 
-// Template — render templates (EJS, Handlebars, Pug, etc.)
-import { templateMiddleware } from '@nextrush/template';
-
-// WebSocket — real-time communication
+// WebSocket — a registrar-style factory + middleware upgrade
 import { createWebSocket } from '@nextrush/websocket';
+const wss = createWebSocket();
+app.use(wss.upgrade());
 ```
 
-See [ecosystem.md](references/ecosystem.md) for detailed plugin docs.
+See [ecosystem.md](references/ecosystem.md) for the full taxonomy and every package.
 
 ## Adapters
 

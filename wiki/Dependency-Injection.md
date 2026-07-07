@@ -147,13 +147,15 @@ child.register('ScopedService', { useClass: ScopedService });
 
 ## With controllers
 
-`controllersPlugin` resolves `@Controller` classes from the same container:
+`registerControllers` resolves `@Controller` classes from the app's own
+container (`app.container`), falling back to a container passed in options,
+then the global container:
 
 ```typescript
 import 'reflect-metadata';
 import { createApp, listen } from 'nextrush';
 import { Service, Repository } from '@nextrush/di';
-import { Controller, Get, controllersPlugin } from '@nextrush/controllers';
+import { Controller, Get, registerControllers } from '@nextrush/controllers';
 
 @Repository()
 class ProductRepository {
@@ -181,17 +183,17 @@ class ProductController {
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({ root: './src' }));
+await registerControllers(app, { root: './src' });
 listen(app, 8080);
 ```
 
 ```mermaid
 flowchart LR
-  Plugin[controllersPlugin]
+  Reg[registerControllers]
   Ctr[ProductController]
   Svc[ProductService]
   Repo[ProductRepository]
-  Plugin --> Ctr --> Svc --> Repo
+  Reg --> Ctr --> Svc --> Repo
 ```
 
 See also [Controllers and Decorators](Controllers-and-Decorators).

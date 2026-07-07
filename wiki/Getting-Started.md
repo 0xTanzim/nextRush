@@ -85,6 +85,10 @@ npx tsx src/index.ts
 
 ## Hello world (class controllers)
 
+`registerControllers` is a **registrar** — a plain function you import and
+call directly, not a plugin. It reads `app.router` and `app.container`, so it
+must be awaited before the server starts serving traffic.
+
 ```bash
 pnpm add @nextrush/di @nextrush/decorators @nextrush/controllers
 ```
@@ -92,7 +96,7 @@ pnpm add @nextrush/di @nextrush/decorators @nextrush/controllers
 ```typescript
 import 'reflect-metadata';
 import { createApp, listen } from 'nextrush';
-import { Controller, Get, Service, controllersPlugin } from '@nextrush/controllers';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 
 @Service()
 class GreetingService {
@@ -112,8 +116,8 @@ class GreetingController {
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({ root: './src' }));
-listen(app, 8080);
+await registerControllers(app, { root: './src' });
+await listen(app, 8080);
 ```
 
 ---

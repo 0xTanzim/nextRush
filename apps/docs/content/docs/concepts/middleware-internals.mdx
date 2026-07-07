@@ -170,74 +170,50 @@ This means both `throw new Error(...)` and `return Promise.reject(...)` behave i
 
 ## The callback() Pipeline
 
-`Application.callback()` builds the complete request handler. It does more than compose — it integrates plugin lifecycle hooks:
+`Application.callback()` builds the complete request handler. It snapshots the middleware stack once, at call time, then wraps the composed function with error handling:
 
 ```ts
+// Actual implementation (faithful to real behavior — see packages/core/src/application.ts)
 callback(): (ctx: Context) => Promise<void> {
-  const fn = compose(this.middlewareStack); // Snapshot
+  const fn = compose(this.middlewareStack);
 
-  // Collect plugins with lifecycle hooks (once)
-  const hookPlugins = /* plugins with onRequest/onResponse/onError/extendContext */;
-
-  return async (ctx) => {
+  return async (ctx: Context): Promise<void> => {
     try {
-      // 1. Run plugin hooks: extendContext, then onRequest
-      for (const p of hookPlugins) {
-        if (p.extendContext) p.extendContext(ctx);
-        if (p.onRequest) await p.onRequest(ctx);
-      }
-
-      // 2. Execute composed middleware
       await fn(ctx);
-
-      // 3. Run onResponse hooks (isolated — one failure doesn't block others)
-      for (const p of hookPlugins) {
-        if (p.onResponse) {
-          try { await p.onResponse(ctx); }
-          catch (e) { /* logged, not propagated */ }
-        }
-      }
     } catch (error) {
-      // 4. Run onError hooks, then app error handler
-      for (const p of hookPlugins) {
-        if (p.onError) {
-          try { await p.onError(err, ctx); }
-          catch (e) { /* logged */ }
-        }
-      }
       await this.handleError(error, ctx);
     }
   };
 }
 ```
 
-The execution order for each request:
+Note what this does **not** do: there is no plugin-hook system, no `onRequest`/`onResponse`/`onError`/`extendContext` collection step. Every piece of per-request behavior — logging, auth, context augmentation — is a middleware function in `this.middlewareStack`, dispatched by `compose()`. Extensions that need to touch every request add their own middleware inside `setup()` (via `ctx.app.use(...)`); they don't get a separate hook lane.
 
-1. Plugin `extendContext` hooks (synchronous, adds properties to ctx)
-2. Plugin `onRequest` hooks (async, can short-circuit)
-3. Composed middleware chain (the dispatch loop)
-4. Plugin `onResponse` hooks (async, errors isolated)
-5. On error: plugin `onError` hooks, then app error handler
+The execution order for each request is:
+
+1. `compose()`'s dispatch loop runs the middleware stack (see [The Dispatch Mechanism](#the-dispatch-mechanism) above)
+2. If any middleware throws or its returned promise rejects, `handleError()` runs: the custom error handler set via `setErrorHandler()` if one exists, otherwise the default handler
 
 <Callout type="warn">
   `callback()` snapshots the middleware stack at call time. Middleware registered after `callback()`
-  is called will not be included in the returned handler. Adapters call `callback()` once during
-  server startup.
+  is called will not be included in the returned handler. Adapters call `app.ready()` (which mounts
+  the app-owned router as the final middleware entry) and then `callback()` once during server
+  startup.
 </Callout>
 
 ## Runtime Safety
 
-`Application` prevents middleware registration after the server starts:
+`Application` freezes its configuration once `app.ready()` has booted every extension:
 
 ```ts
-app.start(); // Called by adapters when server begins listening
+await app.ready(); // boots extensions, then freezes configuration
 
-app.use(middleware); // Throws: "Cannot call use() after the application has started"
-app.route('/api', router); // Throws: "Cannot call route() after the application has started"
-app.plugin(somePlugin); // Throws: "Cannot call plugin() after the application has started"
+app.use(middleware); // Throws: "Cannot call use() after app.ready() — configuration is frozen"
+app.route('/api', router); // Throws: "Cannot call route() after app.ready() — configuration is frozen"
+app.extend(someExtension); // Throws: "Cannot call extend() after app.ready() — configuration is frozen"
 ```
 
-The `start()` method sets an internal flag checked by `assertNotRunning()`. This prevents race conditions where middleware is added while requests are in flight.
+Each mutating method calls a private `assertConfigurable()` guard first, which checks `this._isReady || this._isRunning` and throws before any state changes. This prevents race conditions where middleware or extensions are added while requests are in flight.
 
 `app.use()` also validates each argument is a function at registration time:
 

@@ -104,7 +104,7 @@ listen(app, 8080);
 ```typescript
 import 'reflect-metadata';
 import { createApp, listen } from 'nextrush';
-import { Controller, Get, Param, Service, controllersPlugin } from '@nextrush/controllers';
+import { Controller, Get, Param, Service, registerControllers } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -129,7 +129,7 @@ class UserController {
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({ root: './src' }));
+await registerControllers(app, { root: './src' });
 listen(app, 8080);
 ```
 
@@ -150,7 +150,7 @@ listen(app, 8080);
 | **Operations** | |
 | [Middleware](Middleware) | Built-in packages, stack ordering, custom middleware |
 | [Error Handling](Error-Handling) | HTTP error hierarchy, handlers, factory functions |
-| [Plugins](Plugins) | Plugin interface, lifecycle hooks, built-in plugins |
+| [Plugins](Plugins) | Extension model — middleware, registrars, and extensions |
 | **Under the hood** | |
 | [Request Lifecycle](Request-Lifecycle) | How requests flow through the system, timing breakdown |
 | [Adapters](Adapters) | Runtime adapters (Node, Bun, Deno, Edge), platform abstraction |
@@ -196,9 +196,9 @@ flowchart TB
 
   subgraph optional["Optional"]
     MW["middleware/*"]
-    PL["plugins/*"]
+    EXT["extensions/*"]
     MW -.-> C
-    PL -.-> C
+    EXT -.-> C
   end
 ```
 

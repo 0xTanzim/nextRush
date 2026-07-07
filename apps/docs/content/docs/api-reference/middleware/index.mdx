@@ -14,12 +14,15 @@ graph LR
     subgraph Security
         cors[cors]
         helmet[helmet]
+        csrf[csrf]
         rate[rate-limit]
     end
 
     subgraph Parsing
         body[body-parser]
+        multipart[multipart]
         cookies[cookies]
+        validation[validation]
     end
 
     subgraph Performance
@@ -40,7 +43,10 @@ graph LR
 | -------------------------------------------------------------- | --------------------- | ---------------------- |
 | [@nextrush/cors](/docs/api-reference/middleware/cors)               | Cross-origin requests | Browser API access     |
 | [@nextrush/helmet](/docs/api-reference/middleware/helmet)           | Security headers      | Production hardening   |
+| [@nextrush/csrf](/docs/api-reference/middleware/csrf)               | CSRF protection       | Form/session security  |
 | [@nextrush/body-parser](/docs/api-reference/middleware/body-parser) | Request body parsing  | JSON/form APIs         |
+| [@nextrush/multipart](/docs/api-reference/middleware/multipart)     | File upload parsing   | Multipart form uploads |
+| [@nextrush/validation](/docs/api-reference/middleware/validation)   | Request validation    | Zod/Valibot/ArkType schemas |
 | [@nextrush/rate-limit](/docs/api-reference/middleware/rate-limit)   | Request throttling    | API protection         |
 | [@nextrush/compression](/docs/api-reference/middleware/compression) | Response compression  | Bandwidth reduction    |
 | [@nextrush/cookies](/docs/api-reference/middleware/cookies)         | Cookie handling       | Session management     |
@@ -180,5 +186,8 @@ Explore individual middleware documentation:
 
 - [CORS](/docs/api-reference/middleware/cors) — Enable cross-origin requests
 - [Helmet](/docs/api-reference/middleware/helmet) — Set security headers
+- [CSRF](/docs/api-reference/middleware/csrf) — Protect against cross-site request forgery
 - [Body Parser](/docs/api-reference/middleware/body-parser) — Parse request bodies
+- [Multipart](/docs/api-reference/middleware/multipart) — Parse file uploads
+- [Validation](/docs/api-reference/middleware/validation) — Validate requests with Zod/Valibot/ArkType
 - [Rate Limit](/docs/api-reference/middleware/rate-limit) — Throttle requests

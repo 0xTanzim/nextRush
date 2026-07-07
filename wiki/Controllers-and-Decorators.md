@@ -215,51 +215,63 @@ class UserController {
 
 ---
 
-## `controllersPlugin`
+## `registerControllers` (registrar)
+
+Controller discovery is a **registrar** — a plain async function you import and
+await, not a plugin or an application method. It reads `app.router` (required)
+and `app.container` (falls back to a container passed in options, then the
+global container).
 
 ### Discovery
 
 ```typescript
-import { controllersPlugin } from '@nextrush/controllers';
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from '@nextrush/controllers';
 
-const app = createApp();
-const router = createRouter();
+const app = createApp(); // owns a default router (batteries-included)
 
-app.plugin(
-  controllersPlugin({
-    router,
-    root: './src',
-    prefix: '/api/v1',
-    debug: true,
-  }),
-);
+await registerControllers(app, {
+  root: './src',
+  prefix: '/api/v1',
+  debug: true,
+});
 
-app.route('/', router);
 listen(app, 8080);
 ```
+
+`registerControllers` throws if `app` has no router configured. Use
+`createApp()` from `nextrush` (injects a default router) or
+`createApp({ router: createRouter() })` if you're using `@nextrush/core`
+directly.
 
 ### Explicit list
 
 ```typescript
-app.plugin(
-  controllersPlugin({
-    router,
-    controllers: [UserController, PostController],
-  }),
-);
+await registerControllers(app, {
+  controllers: [UserController, PostController],
+});
 ```
 
-### Options
+### Single controller (lower-level helper)
+
+```typescript
+import { registerController } from '@nextrush/controllers';
+
+registerController(router, UserController); // no discovery, no async boot
+```
+
+### Options (`ControllersOptions`)
 
 | Option | Role |
 |--------|------|
-| `router` | Target router |
 | `root` | Scan directory |
 | `prefix` | Global URL prefix |
-| `controllers` | Explicit classes instead of scan |
+| `controllers` | Explicit classes instead of scan (`@deprecated` — prefer `root`) |
 | `include` / `exclude` | Glob filters |
 | `debug` | Log discoveries |
 | `container` | Custom DI container |
+| `middleware` | Global middleware applied to all controllers |
+| `strict` | Throw on discovery errors instead of logging warnings |
 
 ### Errors you may see
 
