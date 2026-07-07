@@ -219,8 +219,21 @@ describe('Application', () => {
       expect(a.container).toBe(fakeContainer);
     });
 
+    it('should throw a distinct error when needs references a name that is never registered at all', async () => {
+      // 'ghost' is never registered as any extension's name anywhere — this is a
+      // genuinely missing dependency, not just an ordering mistake, and should be
+      // diagnosable as such rather than reusing the "wasn't registered before it"
+      // wording that also covers the (recoverable) wrong-order case.
+      app.extend(makeExtension('db', { needs: ['ghost'] }));
+
+      await expect(app.ready()).rejects.toThrow(
+        'Extension "db" needs "ghost", but no extension named "ghost" was ever registered.'
+      );
+    });
+
     it('should assert declared needs are registered before the dependent', async () => {
       app.extend(makeExtension('db', { needs: ['events'] }));
+      app.extend(makeExtension('events')); // registered, but too late — after "db"
 
       await expect(app.ready()).rejects.toThrow(
         'Extension "db" needs "events", but "events" was not registered before it.'
@@ -236,6 +249,35 @@ describe('Application', () => {
 
       await expect(app.ready()).resolves.toBe(app);
       expect(order).toEqual(['events', 'db']);
+    });
+
+    it('should satisfy a diamond dependency (two extensions sharing one prerequisite)', async () => {
+      // A (base) <- B needs [A], C needs [A] <- D needs [B, C]
+      const order: string[] = [];
+      app.extend(makeExtension('a', { setup: () => void order.push('a') }));
+      app.extend(makeExtension('b', { needs: ['a'], setup: () => void order.push('b') }));
+      app.extend(makeExtension('c', { needs: ['a'], setup: () => void order.push('c') }));
+      app.extend(
+        makeExtension('d', { needs: ['b', 'c'], setup: () => void order.push('d') })
+      );
+
+      await expect(app.ready()).resolves.toBe(app);
+      expect(order).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('should throw on the specific unmet dependency in a diamond when order is wrong', async () => {
+      // c registered before its shared dependency a — must fail on "a", not silently pass
+      app.extend(makeExtension('a', {}));
+      app.extend(makeExtension('c', { needs: ['a'] }));
+      app.extend(makeExtension('b', { needs: ['x'] }));
+      app.extend(makeExtension('x')); // registered, but too late — after "b" needs it
+
+      // c's needs are satisfied (a is registered first); b's are not (x registers
+      // after b, not before) — the thrown message must name the actual unmet
+      // dependency, not just the first extension in the array.
+      await expect(app.ready()).rejects.toThrow(
+        'Extension "b" needs "x", but "x" was not registered before it.'
+      );
     });
   });
 

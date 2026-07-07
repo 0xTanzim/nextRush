@@ -86,6 +86,21 @@ export interface ExtensionContext {
  * augmentation. Defaults to `{}` so plain, untyped `Extension` usages
  * (the common case for internal/test extensions) are unaffected.
  *
+ * @remarks
+ * Two things to know before relying on this:
+ *
+ * - **TypeScript trusts `TDecorated`, it never verifies it.** Nothing checks
+ *   that the declared shape actually matches what `setup()` calls
+ *   `ctx.decorate()` with — `Extension<{ foo: Foo }>` whose `setup()` never
+ *   decorates `foo` still typechecks, and `app.foo` will be `undefined` at
+ *   runtime with no warning. Keep the generic and the `decorate()` call in
+ *   sync by hand.
+ * - **The inferred type is lost on `let` reassignment.** Chain in one
+ *   expression (`const app = createApp().extend(x)`), not
+ *   `let app = createApp(); app = app.extend(x);` — TypeScript widens the
+ *   reassignment to the `let` binding's originally-inferred type, silently
+ *   dropping `TDecorated`. Every example below chains for this reason.
+ *
  * @example
  * ```typescript
  * function events<T extends EventMap>(): Extension<{ events: EventEmitter<T> }> {

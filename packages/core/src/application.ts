@@ -422,6 +422,24 @@ export class Application {
       return this;
     }
 
+    // Pre-flight: every `needs` entry must name a genuinely registered
+    // extension SOMEWHERE (regardless of order) — catches a typo'd or
+    // never-registered dependency name with a distinct message from the
+    // order-sensitive check below, before running any setup().
+    const allNames = new Set(this.extensions.map((e) => e.name));
+    for (const extension of this.extensions) {
+      if (extension.needs) {
+        for (const dep of extension.needs) {
+          if (!allNames.has(dep)) {
+            throw new Error(
+              `Extension "${extension.name}" needs "${dep}", but no extension named ` +
+                `"${dep}" was ever registered.`
+            );
+          }
+        }
+      }
+    }
+
     const setupDone = new Set<string>();
 
     for (const extension of this.extensions) {
