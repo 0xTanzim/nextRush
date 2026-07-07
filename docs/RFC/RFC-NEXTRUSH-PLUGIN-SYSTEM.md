@@ -445,7 +445,7 @@ The design has reached the point the reviewer flagged: **further features would 
 | `events` | local `Plugin` + `defineProperty` | `Extension`: `setup(ctx){ ctx.decorate('events', emitter) }` + `destroy` | Extension |
 | `template` | `template()` **and** `templatePlugin()` | `app.use(template(...))` only; delete `templatePlugin` | Middleware |
 | `controllers` | `Plugin`, `install(_app)` ignores app | `await registerControllers(app, opts)` | Registrar |
-| `websocket` | factory | `createWebSocket()` + `app.use(wss.upgrade())`; optional `attach` Extension | Registrar / Extension |
+| `websocket` | factory | `createWebSocket()` + `app.use(wss.upgrade())`; `wss.attach(server)` called manually | Registrar |
 | `logger` | middleware + `(ctx as LoggerContext)` | middleware; `ctx.log` via `declare module` — cast removed | Middleware |
 | `static` | middleware under `plugins/` | middleware; relocate to `middleware/` | Middleware |
 

@@ -331,6 +331,8 @@ app.events.emit('server:started', {});
 
 `app.extend()` is synchronous and only queues the extension — `setup()` doesn't run until `app.ready()`. Registering a duplicate extension name throws. Extensions cannot be registered after `app.ready()`.
 
+An extension can declare `needs: readonly string[]` — names of other extensions that must already be registered *before* it. At `ready()`, in registration order, this is asserted (not auto-sorted): registering `db` before `events` when `db` needs `events` throws `Extension "db" needs "events", but "events" was not registered before it.` See [Extending NextRush](/docs/concepts/plugins) for the full lifecycle diagram and dependency-ordering rules.
+
 ## Lifecycle
 
 Adapters call `app.ready()` (booting extensions and mounting the router) and then `app.start()` (marking the app as running) automatically before serving traffic. After `ready()`, `use()`, `route()`, and `extend()` throw to prevent unsafe mutations.

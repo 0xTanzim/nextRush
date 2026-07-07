@@ -25,11 +25,11 @@ graph LR
 
     subgraph Registrar
         ctrl[controllers]
+        ws[websocket]
     end
 
     subgraph Extension
         events[events]
-        ws[websocket]
     end
 
     app -->|app.use| log
@@ -38,8 +38,8 @@ graph LR
     app -->|app.use| stream
     app -->|app.use| openapi
     app -->|await registerX| ctrl
+    app -->|create + app.use| ws
     app -->|app.extend| events
-    app -->|app.extend| ws
 ```
 
 ---
@@ -51,7 +51,7 @@ graph LR
 | [@nextrush/controllers](/docs/api-reference/plugins/controllers) | Decorator-based controllers | Registrar  | Structured REST APIs       |
 | [@nextrush/logger](/docs/api-reference/plugins/logger)           | Request logging             | Middleware | Observability, debugging   |
 | [@nextrush/static](/docs/api-reference/plugins/static)           | Static file serving         | Middleware | Frontend assets, downloads |
-| [@nextrush/websocket](/docs/api-reference/plugins/websocket)     | Real-time communication     | Registrar + middleware | Chat, live updates |
+| [@nextrush/websocket](/docs/api-reference/plugins/websocket)     | Real-time communication     | Registrar | Chat, live updates |
 | [@nextrush/events](/docs/api-reference/plugins/events)           | Event emitter               | Extension  | Decoupled architecture     |
 | [@nextrush/template](/docs/api-reference/plugins/template)       | HTML rendering               | Middleware | Server-side pages          |
 | [@nextrush/stream](/docs/api-reference/plugins/stream)           | Response streaming (SSE/NDJSON) | Middleware | AI/agentic token streaming |

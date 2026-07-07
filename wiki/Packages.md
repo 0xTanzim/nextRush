@@ -39,16 +39,16 @@ import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 
 | Package | Role |
 |---------|------|
-| `@nextrush/types` | Shared interfaces: `Context`, `Middleware`, `Plugin`, HTTP helpers |
+| `@nextrush/types` | Shared interfaces: `Context`, `Middleware`, `Extension`, HTTP helpers |
 | `@nextrush/errors` | `HttpError` subclasses, factories, `errorHandler`, `notFoundHandler` |
-| `@nextrush/core` | `createApp`, `compose`, plugin registration |
+| `@nextrush/core` | `createApp`, `compose`, `app.extend()`/`app.ready()` |
 | `@nextrush/router` | `createRouter`, trie-backed matching |
 | `@nextrush/runtime` | Runtime detection helpers |
 
 Typical imports:
 
 ```typescript
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Extension } from '@nextrush/types';
 import { createApp, compose } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 ```
@@ -93,18 +93,23 @@ See [Middleware](Middleware) on this wiki for patterns and ordering.
 
 ---
 
-## Plugins (application features)
+## Extensions & Registrars (application features)
 
-| Package | Purpose |
-|---------|---------|
-| `@nextrush/controllers` | Controller discovery + route binding |
-| `@nextrush/di` | DI container (tsyringe wrapper) |
-| `@nextrush/decorators` | Route and param decorators |
-| `@nextrush/logger` | Structured logging |
-| `@nextrush/static` | Static files |
-| `@nextrush/template` | Template engines |
-| `@nextrush/websocket` | WebSocket integration |
-| `@nextrush/events` | Typed app events |
+NextRush has no `Plugin` interface. Capability beyond middleware falls into
+two idioms: a **Registrar** (a plain function you call and `await`) or an
+**Extension** (`app.extend()` + `await app.ready()`, rare — long-lived
+services only).
+
+| Package | Idiom | Purpose |
+|---------|-------|---------|
+| `@nextrush/controllers` | Registrar | Controller discovery + route binding |
+| `@nextrush/di` | — (DI container) | tsyringe wrapper, no app lifecycle |
+| `@nextrush/decorators` | — (decorators) | Route and param decorators |
+| `@nextrush/logger` | Middleware | Structured logging |
+| `@nextrush/static` | Middleware | Static files |
+| `@nextrush/template` | Middleware | Template engines |
+| `@nextrush/websocket` | **Registrar** | `createWebSocket()` + `app.use(wss.upgrade())`; `wss.attach(server)` called manually |
+| `@nextrush/events` | **Extension** | Typed app events — `app.extend(events())` |
 
 ---
 

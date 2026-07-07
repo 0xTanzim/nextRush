@@ -104,7 +104,22 @@ app.setErrorHandler((error, ctx) => { /* ... */ });
 - **Bun and Deno `serve()`/`listen()` are now `async`** — `await` them.
 - Writing an Extension: `{ name, needs?, setup(ctx), destroy? }`. Attach app state with
   `ctx.decorate(name, value)` (collision-checked) and type it with
-  `declare module '@nextrush/core' { interface Application { … } }`.
+  `declare module '@nextrush/core' { interface Application { … } }` (or, since this
+  session, the `Extension<TDecorated>` generic — see §11).
+- **`needs` is declare-and-assert, not auto-sorted.** At `ready()`, in registration
+  order, before running each extension's `setup()`, every name in its `needs` array
+  must already have completed `setup()`. If not, `ready()` throws:
+  `Extension "db" needs "events", but "events" was not registered before it. Register the "events" extension before "db".`
+  Register dependencies before dependents — there is no automatic reordering.
+
+## 7a. `close()` before `ready()`
+
+Both `app.callback()` and `app.close()` warn (via `app.logger.warn(...)`) if extensions
+were registered via `extend()` but `ready()` was never called — their `setup()` never
+ran, so `close()` still calls `destroy()` on them with no established state. In normal
+usage (via any adapter's `serve`/`listen`) this never fires, since adapters always call
+`ready()` first. It only fires if you build your own `app.callback()`/`app.close()` call
+path and skip `ready()`.
 
 ## 8. DI container
 
@@ -116,3 +131,37 @@ exports `Container` (the previous `ContainerInterface` alias has been removed). 
 
 Folders were reorganized (`packages/middleware/*`, `packages/extensions/*`,
 `packages/controllers`), but **package names and imports are unchanged** — no action needed.
+
+## 10. `Router` interface narrowing (breaking, easy to miss)
+
+`@nextrush/types`' structural `Router` interface's `use()` no longer accepts a
+sub-router: `use(middleware: Middleware): this` only. Sub-router mounting
+(`router.use(path, subRouter)`) remains on the **concrete** `@nextrush/router`
+`Router` class (it needs internal tree access the structural interface can't
+express) — it was never removed there, only from the public type.
+
+If you typed a function parameter, custom router-like object, or test double
+against `import type { Router } from '@nextrush/types'` and relied on
+`router.use(path, subRouter)` compiling against that type, it will no longer
+typecheck. Use the concrete `@nextrush/router` class directly, or
+`Application.route(path, router)` for cross-package router composition.
+
+## 11. `Extension<TDecorated>` generic inference (additive, non-breaking)
+
+`Extension` now takes an optional type parameter describing what it decorates:
+`Extension<{ events: EventEmitter<T> }>`. `Application.extend()` returns
+`this & TDecorated`, so `app.extend(events<MyEvents>()).events` is statically
+typed with **zero `declare module` augmentation** — this supersedes the
+`declare module` pattern shown in §6/§7 above for extensions that adopt it
+(`@nextrush/events` already does). Existing plain `Extension` implementations
+with no generic are unaffected — `TDecorated` defaults to `{}`.
+
+Two things to know if you write your own typed extension:
+
+- Chain in one expression (`const app = createApp().extend(x)`), not a `let`
+  reassignment (`let app = createApp(); app = app.extend(x);`) — the decorated
+  type is lost on reassignment because the `let` binding's declared type
+  doesn't carry the intersection.
+- `TDecorated` is a phantom type — TypeScript trusts it, it never verifies the
+  declared shape matches what `setup()` actually calls `ctx.decorate()` with.
+  A mismatched generic will typecheck and autocomplete incorrectly.
