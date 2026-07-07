@@ -303,15 +303,13 @@ wss.closeAll(1001, 'Server shutting down');
 wss.close(); // Stops heartbeat, closes all connections, releases resources
 ```
 
-## Integration Helper
+## Attaching to the HTTP Server
 
-<Callout type="warn" title="Requires an app.listen() method">
-  `withWebSocket()` calls `app.listen(port, callback)` internally and expects that call to return a
-  raw `node:http` `Server`. NextRush's `Application` (from `@nextrush/core`) has no `listen()`
-  method — only the adapter package does, and it returns a `ServerInstance` wrapper, not a raw
-  `Server`. Use the manual `listen()` + `wss.attach(server.server)` pattern shown above with
-  NextRush; `withWebSocket()` is for host objects that expose `listen()` directly, matching Express's
-  shape.
+<Callout type="info" title="No withWebSocket() helper">
+  There is no `withWebSocket()` integration helper — it required an
+  `app.listen(port, callback)` method that `Application` never had, and had
+  no real callers. Use the `listen()` + `wss.attach(server.server)` pattern
+  from Minimal Usage above; it is the only supported integration path.
 </Callout>
 
 ## Common Mistakes

@@ -152,7 +152,8 @@ Sequential procedures with numbered steps. Globally registered from Fumadocs.
     ### Start the server
 
     ```ts
-    app.listen(8080);
+    import { listen } from '@nextrush/adapter-node';
+    listen(app, 8080);
     ```
 
   </Step>

@@ -111,6 +111,7 @@ ctx.next(); // Call next middleware
 ```typescript
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
+import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 const users = createRouter();
@@ -119,7 +120,7 @@ users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
 app.route('/users', users);
-app.listen(8080);
+listen(app, 8080);
 ```
 
 ### Class-Based Style

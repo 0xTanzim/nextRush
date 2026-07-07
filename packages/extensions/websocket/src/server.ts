@@ -148,9 +148,11 @@ export class WebSocketServer {
   }
 
   /**
-   * Attach to HTTP server and start handling WebSocket connections
+   * Attach to the raw HTTP server and start handling WebSocket connections.
    *
-   * @internal Called automatically when app.listen() is invoked
+   * Call this explicitly after starting the server (e.g.
+   * `const { server } = await listen(app, port); wss.attach(server);`) —
+   * nothing calls this automatically.
    */
   async attach(httpServer: Server): Promise<void> {
     if (this.initialized) return;

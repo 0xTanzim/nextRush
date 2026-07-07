@@ -134,16 +134,16 @@ A **registrar**-style factory: call it directly, then register its upgrade
 handler as middleware. WebSocket support with rooms and broadcasting.
 
 ```typescript
-import { createWebSocket, withWebSocket } from '@nextrush/websocket';
+import { createWebSocket } from '@nextrush/websocket';
+import { listen } from '@nextrush/adapter-node';
 const wss = createWebSocket({ heartbeatInterval: 30000, maxPayload: 1024 * 1024 });
 wss.on('/chat', (conn) => {
   conn.join('general');
   conn.on('message', (msg) => conn.broadcast('general', msg));
 });
 app.use(wss.upgrade());
-const server = app.listen(8080);
+const { server } = await listen(app, 8080);
 wss.attach(server);
-// Or: await withWebSocket(app, wss, 8080);
 ```
 
 Options: `heartbeatInterval`, `maxPayload`, `maxConnections`, `verifyClient`. Advanced: `Connection`, `RoomManager`, `WebSocketServer`.

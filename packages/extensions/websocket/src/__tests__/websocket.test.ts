@@ -448,7 +448,6 @@ describe('Exports', () => {
 
     // Factory functions
     expect(typeof exports.createWebSocket).toBe('function');
-    expect(typeof exports.withWebSocket).toBe('function');
 
     // Classes
     expect(exports.WebSocketServer).toBeDefined();

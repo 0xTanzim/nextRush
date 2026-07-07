@@ -188,15 +188,22 @@ ctx.state; // Share data between middleware
 | `@nextrush/request-id`  | Request ID generation       |
 | `@nextrush/timer`       | Response time tracking      |
 
-### Plugins (install separately)
+### Extensions (install separately)
+
+Long-lived, stateful services — registered with `app.extend()`, booted at `app.ready()`.
+
+| Package               | Description             |
+| --------------------- | ------------------------ |
+| `@nextrush/events`    | Type-safe event emitter (Extension) |
+| `@nextrush/websocket` | WebSocket support (factory + middleware) |
+
+### More Middleware & Registrars (install separately)
 
 | Package               | Description             |
 | --------------------- | ----------------------- |
 | `@nextrush/static`    | Static file serving     |
-| `@nextrush/websocket` | WebSocket support       |
 | `@nextrush/template`  | Template rendering      |
 | `@nextrush/logger`    | Structured logging      |
-| `@nextrush/events`    | Type-safe event emitter |
 | `@nextrush/stream`    | Response streaming — SSE, NDJSON, built for AI/agentic apps |
 | `@nextrush/openapi`   | Zero-config OpenAPI 3.1 generation from route metadata |
 
@@ -312,8 +319,9 @@ nextrush/
 │   ├── errors/          # @nextrush/errors
 │   ├── runtime/         # @nextrush/runtime
 │   ├── adapters/        # Platform adapters (node, bun, deno, edge)
-│   ├── middleware/       # cors, helmet, body-parser, validation, etc.
-│   ├── plugins/          # controllers, websocket, template, stream, openapi, etc.
+│   ├── middleware/       # cors, helmet, body-parser, validation, static, template, logger, openapi, etc.
+│   ├── extensions/       # events, websocket
+│   ├── controllers/      # @nextrush/controllers (registrar)
 │   ├── di/              # Dependency injection
 │   ├── decorators/      # Controller decorators
 │   ├── dev/             # CLI: dev server, build, generators
@@ -323,7 +331,7 @@ nextrush/
 │   ├── docs/            # Documentation site
 │   ├── benchmark/       # Benchmark suite
 │   └── playground/      # Testing playground
-└── draft/               # Architecture docs & RFCs
+└── docs/                # Architecture docs, RFCs, migration guides
 ```
 
 ## Documentation

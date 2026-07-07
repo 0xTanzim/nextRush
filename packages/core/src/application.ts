@@ -593,6 +593,15 @@ export class Application {
   async close(): Promise<Error[]> {
     this._isRunning = false;
 
+    if (!this._isReady && this.extensions.length > 0) {
+      this.logger.warn(
+        `close() was called before ready(), but ${this.extensions.length} extension(s) ` +
+          `were registered via extend() — their setup() never ran, yet destroy() will still ` +
+          `be called on them now. If destroy() assumes setup()-established state, this may ` +
+          `throw or behave incorrectly. Call \`await app.ready()\` before \`close()\`.`
+      );
+    }
+
     const reversed = [...this.extensions].reverse();
     const destroyable = reversed.filter(
       (e): e is Extension & { destroy: () => void | Promise<void> } =>

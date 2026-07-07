@@ -53,6 +53,7 @@ pnpm add @nextrush/router
 ```typescript
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
+import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 const router = createRouter();
@@ -66,7 +67,7 @@ router.get('/users/:id', (ctx) => {
 });
 
 app.route('/', router);
-app.listen(8080);
+listen(app, 8080);
 ```
 
 ## Features

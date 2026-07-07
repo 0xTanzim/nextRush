@@ -24,6 +24,7 @@ pnpm add @nextrush/multipart
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { multipart } from '@nextrush/multipart';
+import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 const router = createRouter();
@@ -44,7 +45,7 @@ router.post('/upload', (ctx) => {
 });
 
 app.route('/', router);
-app.listen(8080);
+listen(app, 8080);
 ```
 
 ## Configuration

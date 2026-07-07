@@ -27,6 +27,7 @@ pnpm add @nextrush/csrf
 ```typescript
 import { createApp } from '@nextrush/core';
 import { csrf } from '@nextrush/csrf';
+import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 
@@ -37,7 +38,7 @@ const { protect, tokenProvider } = csrf({
 // Apply CSRF protection globally
 app.use(protect);
 
-app.listen(8080);
+listen(app, 8080);
 ```
 
 ## How It Works
@@ -119,6 +120,7 @@ interface CsrfContext {
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { csrf } from '@nextrush/csrf';
+import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 const router = createRouter();
@@ -136,7 +138,7 @@ router.get('/csrf-token', tokenProvider, async (ctx) => {
 // Protected API routes
 app.use(protect);
 app.route('/api', router);
-app.listen(8080);
+listen(app, 8080);
 ```
 
 Client-side:

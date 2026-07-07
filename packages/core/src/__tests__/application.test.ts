@@ -437,6 +437,35 @@ describe('Application', () => {
   });
 
   describe('close() resilience', () => {
+    it('should warn when destroying extensions that were never booted via ready()', async () => {
+      const warnSpy = vi.fn();
+      const destroySpy = vi.fn();
+      const loggedApp = createApp({
+        logger: { info: vi.fn(), warn: warnSpy, error: vi.fn(), debug: vi.fn() },
+      });
+      loggedApp.extend(makeExtension('never-booted', { destroy: destroySpy }));
+
+      // Deliberately skip ready() — setup() never ran, but close() still
+      // destroys the extension. This is the close()/callback() lifecycle
+      // asymmetry the audit flagged: only callback() warned before this.
+      await loggedApp.close();
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ready()'));
+    });
+
+    it('should NOT warn on close() when ready() was called first', async () => {
+      const warnSpy = vi.fn();
+      const loggedApp = createApp({
+        logger: { info: vi.fn(), warn: warnSpy, error: vi.fn(), debug: vi.fn() },
+      });
+      loggedApp.extend(makeExtension('booted'));
+
+      await loggedApp.ready();
+      await loggedApp.close();
+
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
     it('should not throw when an extension destroy fails, and returns the error', async () => {
       app.extend(
         makeExtension('failing', {

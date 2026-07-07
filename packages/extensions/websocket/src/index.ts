@@ -7,6 +7,7 @@
  * @example
  * ```typescript
  * import { createApp } from '@nextrush/core';
+ * import { listen } from '@nextrush/adapter-node';
  * import { createWebSocket } from '@nextrush/websocket';
  *
  * const app = createApp();
@@ -26,16 +27,15 @@
  * // Attach to app (just handles upgrade)
  * app.use(wss.upgrade());
  *
- * // Start server - wss auto-attaches to HTTP server
- * const server = app.listen(8080, () => {
- *   wss.attach(server);
- * });
+ * // Start the server, then attach the WebSocket server to the raw
+ * // node:http Server (listen()'s ServerInstance.server, not the wrapper).
+ * const { server } = await listen(app, 8080);
+ * wss.attach(server);
  * ```
  *
  * @packageDocumentation
  */
 
-import type { Server } from 'node:http';
 import { WebSocketServer } from './server';
 import type { WebSocketOptions } from './types';
 
@@ -77,46 +77,6 @@ import type { WebSocketOptions } from './types';
  */
 export function createWebSocket(options: WebSocketOptions = {}): WebSocketServer {
   return new WebSocketServer(options);
-}
-
-/**
- * Integrate WebSocket server with NextRush app
- *
- * Helper function to auto-attach WebSocket server when app starts.
- *
- * @example
- * ```typescript
- * import { createApp } from '@nextrush/core';
- * import { createWebSocket, withWebSocket } from '@nextrush/websocket';
- *
- * const app = createApp();
- * const wss = createWebSocket();
- *
- * wss.on('/chat', (conn) => {
- *   conn.on('message', (msg) => conn.send(msg));
- * });
- *
- * // Option 1: Manual attachment
- * const server = app.listen(8080);
- * wss.attach(server);
- *
- * // Option 2: Using withWebSocket helper
- * withWebSocket(app, wss, 8080);
- * ```
- */
-export async function withWebSocket(
-  app: { listen: (port: number, callback?: () => void) => Server },
-  wss: WebSocketServer,
-  port: number,
-  callback?: () => void
-): Promise<Server> {
-  return new Promise((resolve) => {
-    const server = app.listen(port, async () => {
-      await wss.attach(server);
-      callback?.();
-      resolve(server);
-    });
-  });
 }
 
 // Re-export types
