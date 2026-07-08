@@ -13,45 +13,16 @@ import {
     existsSync,
     exitProcess,
     getCwd,
-    getEnv,
     getRuntimeInfo,
     initFsSync,
     onSignal,
-    readFileSync,
     resolvePath,
     spawn,
-    type Runtime,
     type SpawnResult,
 } from '../runtime/index.js';
 import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
 import { banner, clear, error, info, log } from '../utils/logger.js';
-
-const DEFAULT_DEV_PORT = 8080;
-
-function parsePositiveInteger(value: string | undefined, flag: string): number {
-  const parsed = Number(value);
-
-  if (!value || !Number.isInteger(parsed) || parsed <= 0) {
-    error(`${flag} expects a positive integer.`);
-    exitProcess(1);
-  }
-
-  return parsed;
-}
-
-function resolveDevPort(explicitPort: number | undefined): number {
-  if (explicitPort !== undefined) {
-    return explicitPort;
-  }
-
-  const envPort = getEnv('PORT');
-  if (!envPort) {
-    return DEFAULT_DEV_PORT;
-  }
-
-  const parsed = Number(envPort);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_DEV_PORT;
-}
+import { detectProjectRuntime, parsePositiveInteger, resolveDevPort } from './dev-helpers.js';
 
 /**
  * Development server options
@@ -73,27 +44,6 @@ export interface DevOptions {
   watch?: string[];
   /** Verbose output */
   verbose?: boolean;
-}
-
-/**
- * Detect the project's target runtime from package.json adapter dependency.
- * Falls back to the CLI process's runtime when not found or on error.
- */
-function detectProjectRuntime(): Runtime {
-  try {
-    const pkgPath = resolvePath(getCwd(), 'package.json');
-    const content = readFileSync(pkgPath);
-    const pkg = JSON.parse(content) as Record<string, unknown>;
-    const deps: Record<string, string> = {
-      ...((pkg.dependencies as Record<string, string> | undefined) ?? {}),
-      ...((pkg.devDependencies as Record<string, string> | undefined) ?? {}),
-    };
-    if (deps['@nextrush/adapter-bun']) return 'bun';
-    if (deps['@nextrush/adapter-deno']) return 'deno';
-  } catch {
-    // package.json may not exist yet; fall through to process runtime
-  }
-  return detectRuntime();
 }
 
 /**

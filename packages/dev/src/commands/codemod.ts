@@ -10,7 +10,7 @@
  * @packageDocumentation
  */
 
-import { globSync } from 'glob';
+import { globSync } from 'node:fs';
 import { consolidateImports } from '../codemods/consolidate-imports.js';
 import { getCwd, exitProcess, readFile, writeFile } from '../runtime/index.js';
 import { error, log, success } from '../utils/logger.js';
