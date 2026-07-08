@@ -15,6 +15,7 @@
  */
 
 import type { Application } from '@nextrush/core';
+import { getAllGuards, isGuardClass } from '@nextrush/decorators';
 import { container as globalContainer, type Container } from '@nextrush/di';
 import { ROUTE_METADATA, type Router } from '@nextrush/types';
 import 'reflect-metadata';
@@ -134,6 +135,51 @@ function validateControllers(
 }
 
 /**
+ * Eagerly resolve every distinct class-based guard used by any registered route
+ * once, so a guard with an unsatisfiable or circular dependency fails at boot
+ * instead of surfacing as a 500 on the first request to a guarded route.
+ *
+ * Guards are resolved per-request in `builder.ts` via `container.resolve(guard)`,
+ * so a class guard skipped by {@link validateControllers} (which only resolves
+ * controller tokens) would otherwise fail late — the exact gap eager validation
+ * exists to close. Function guards need no DI resolution and are skipped; each
+ * class guard is resolved once (deduped) even when shared across routes.
+ */
+function validateGuards(
+  registered: RegisteredController[],
+  container: Container
+): void {
+  const resolved = new Set<Function>();
+
+  for (const controller of registered) {
+    for (const route of controller.definition.routes) {
+      const guards = getAllGuards(controller.target, route.methodName);
+      for (const guard of guards) {
+        if (!isGuardClass(guard) || resolved.has(guard)) {
+          continue;
+        }
+        resolved.add(guard);
+        try {
+          container.resolve(guard);
+        } catch (error) {
+          const guardName = guard.name || 'AnonymousGuard';
+          throw new Error(
+            `Failed to resolve guard "${guardName}" from the DI container ` +
+              `(used by controller "${controller.target.name}").\n\n` +
+              `A class-based guard is resolved from DI on every request to a guarded ` +
+              `route. Surfacing the failure here means an unresolvable or circular guard ` +
+              `dependency fails at boot instead of as a 500 on the first request.\n\n` +
+              `Ensure "${guardName}" and all of its constructor dependencies are registered ` +
+              `in the DI container.`,
+            { cause: error instanceof Error ? error : undefined }
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
  * Discover and register decorator-based controllers on an application.
  *
  * Reads `app.router` (required) and `app.container` (falls back to a custom
@@ -204,6 +250,7 @@ export async function registerControllers(
 
   if (opts.validate) {
     validateControllers(registered, opts.container);
+    validateGuards(registered, opts.container);
   }
 
   debugLog(opts.debug, `Registered ${registry.routeCount} routes`);

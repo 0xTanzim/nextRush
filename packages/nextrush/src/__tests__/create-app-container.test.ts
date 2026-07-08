@@ -1,30 +1,29 @@
 /**
  * nextrush meta-package — createApp() container ownership
  *
- * The class-based flow (`registerControllers`) reads `app.container`. The
- * batteries-included `createApp` from `nextrush` must therefore guarantee a
- * container is always present, while still honoring an explicitly supplied one.
+ * The functional `nextrush` entry is DI-free: `createApp()` must NOT eagerly
+ * import or attach a `@nextrush/di` container, otherwise importing `nextrush`
+ * transitively loads `reflect-metadata` + tsyringe and defeats the
+ * `nextrush` vs `nextrush/class` split (functional users pay a cost they never
+ * asked for). See NEW-1 in docs/audits/class-based-master-audit.md.
  *
- * The default is the shared `@nextrush/di` container export (explicit ownership,
- * zero DI-resolution behavior change) — a single seam a future per-app-isolation
- * RFC can swap. See docs/RFC/RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP.md.
+ * Container is bring-your-own via `options.container`. The class-based flow
+ * (`registerControllers`) supplies the global `@nextrush/di` container fallback
+ * itself (`options.container ?? app.container ?? globalContainer`), so class
+ * users — who import `nextrush/class` — are unaffected.
  */
 
-import { container as sharedContainer, createContainer } from '@nextrush/di';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { createContainer } from '@nextrush/di';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../index.js';
 
 describe('createApp() container ownership', () => {
-  it('guarantees app.container is defined by default', () => {
+  it('leaves app.container undefined by default (DI-free functional path)', () => {
     const app = createApp();
 
-    expect(app.container).toBeDefined();
-  });
-
-  it('defaults app.container to the shared @nextrush/di container', () => {
-    const app = createApp();
-
-    expect(app.container).toBe(sharedContainer);
+    expect(app.container).toBeUndefined();
   });
 
   it('honors an explicitly passed container', () => {
@@ -33,5 +32,15 @@ describe('createApp() container ownership', () => {
     const app = createApp({ container: custom });
 
     expect(app.container).toBe(custom);
+  });
+
+  it('does not statically import @nextrush/di (functional-path purity)', () => {
+    const indexPath = fileURLToPath(new URL('../index.ts', import.meta.url));
+    const source = readFileSync(indexPath, 'utf8');
+
+    // A static `import ... from '@nextrush/di'` transitively loads
+    // reflect-metadata + tsyringe. Prose mentions in docblocks are fine; only an
+    // actual import defeats the functional/class split (NEW-1).
+    expect(source).not.toMatch(/from\s+['"]@nextrush\/di['"]/);
   });
 });

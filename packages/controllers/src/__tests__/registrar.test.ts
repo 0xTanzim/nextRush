@@ -7,7 +7,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get } from '@nextrush/decorators';
+import { Controller, Get, UseGuard, type CanActivate } from '@nextrush/decorators';
 import { Service, createContainer, inject, type Container } from '@nextrush/di';
 import { Router } from '@nextrush/router';
 import 'reflect-metadata';
@@ -51,6 +51,44 @@ class BrokenController {
   @Get()
   list() {
     void this.missing;
+    return [];
+  }
+}
+
+// Dependency-free class guard: resolvable everywhere, used to exercise the
+// eager guard-validation happy path.
+class PassGuard implements CanActivate {
+  canActivate(): boolean {
+    return true;
+  }
+}
+
+// Class guard with an unsatisfiable constructor dependency (@inject of an
+// unregistered token). Resolving it must fail — the fix surfaces that failure
+// at boot instead of on the first request to the guarded route.
+class BrokenGuard implements CanActivate {
+  constructor(@inject('MISSING_GUARD_TOKEN') private readonly missing: unknown) {}
+
+  canActivate(): boolean {
+    void this.missing;
+    return true;
+  }
+}
+
+@UseGuard(PassGuard)
+@Controller('/guarded-ok')
+class GuardedOkController {
+  @Get()
+  list() {
+    return [];
+  }
+}
+
+@UseGuard(BrokenGuard)
+@Controller('/guarded-broken')
+class GuardedBrokenController {
+  @Get()
+  list() {
     return [];
   }
 }
@@ -162,6 +200,48 @@ describe('registerControllers()', () => {
         registerControllers(app, { controllers: [BrokenController], validate: false })
       ).resolves.toBeUndefined();
       expect(router.match('GET', '/broken')).not.toBeNull();
+    });
+  });
+
+  describe('eager class-guard validation', () => {
+    it('rejects at boot when a route uses a class guard with an unresolvable dependency', async () => {
+      const container = createContainer();
+      // Guards are resolved from DI at request time in builder.ts; register the
+      // class guard so resolution attempts injection and fails on its missing dep.
+      container.register(BrokenGuard, { useClass: BrokenGuard });
+      const app = new Application({ router, container });
+
+      // Without eager guard validation this resolves the (dependency-free)
+      // controller, never touches the guard, and only 500s on the first request.
+      await expect(
+        registerControllers(app, { controllers: [GuardedBrokenController], container })
+      ).rejects.toThrow(/BrokenGuard/);
+    });
+
+    it('still registers a controller whose class guard resolves cleanly', async () => {
+      const container = createContainer();
+      container.register(PassGuard, { useClass: PassGuard });
+      const app = new Application({ router, container });
+
+      await expect(
+        registerControllers(app, { controllers: [GuardedOkController], container })
+      ).resolves.toBeUndefined();
+      expect(router.match('GET', '/guarded-ok')).not.toBeNull();
+    });
+
+    it('skips guard validation when validate: false, deferring the failure to request time', async () => {
+      const container = createContainer();
+      container.register(BrokenGuard, { useClass: BrokenGuard });
+      const app = new Application({ router, container });
+
+      await expect(
+        registerControllers(app, {
+          controllers: [GuardedBrokenController],
+          container,
+          validate: false,
+        })
+      ).resolves.toBeUndefined();
+      expect(router.match('GET', '/guarded-broken')).not.toBeNull();
     });
   });
 });

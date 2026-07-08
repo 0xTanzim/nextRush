@@ -87,27 +87,30 @@ import {
   createApp as createBareApp,
   type ApplicationOptions,
 } from '@nextrush/core';
-import { container as sharedContainer } from '@nextrush/di';
 import { createRouter as createDefaultRouter } from '@nextrush/router';
 
 /**
  * Create an application with a default router wired in, so `app.get`/`app.post`
- * work out of the box, and an owned DI container so class-based registrars
- * (`registerControllers`) always have an `app.container` to target.
+ * work out of the box.
  *
- * The container defaults to the shared `@nextrush/di` container export — a
- * single, explicit seam. This keeps DI resolution behavior identical to before
- * (that container was already the runtime fallback) while giving future per-app
- * isolation work one place to swap. See
+ * The functional `nextrush` entry is deliberately DI-free: it does NOT import or
+ * attach a `@nextrush/di` container. Doing so would transitively load
+ * `reflect-metadata` + tsyringe, making functional users pay a cost that belongs
+ * only to the class-based paradigm (see NEW-1 in
+ * docs/audits/class-based-master-audit.md).
+ *
+ * The container is bring-your-own: pass `options.container` to attach one. Class
+ * users are unaffected — they import from `nextrush/class`, and
+ * `registerControllers` supplies the global `@nextrush/di` container fallback
+ * itself (`options.container ?? app.container ?? globalContainer`). See
  * docs/RFC/RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP.md.
  *
- * Import `createApp` from `@nextrush/core` for a minimal engine where both the
- * router and container are bring-your-own.
+ * Import `createApp` from `@nextrush/core` for a minimal engine where the router
+ * is also bring-your-own.
  */
 export function createApp(options?: ApplicationOptions): Application {
   const router = options?.router ?? createDefaultRouter();
-  const container = options?.container ?? sharedContainer;
-  return createBareApp({ ...options, router, container });
+  return createBareApp({ ...options, router });
 }
 
 export { Application, compose };
