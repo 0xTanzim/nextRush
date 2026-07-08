@@ -1,37 +1,36 @@
 /**
  * @nextrush/controllers
  *
- * Controller registrar for NextRush — automatic discovery, DI integration,
- * and route registration for decorator-based controllers.
+ * @deprecated Import from '@nextrush/class' instead.
+ * This package is a compatibility shim and will be removed in a future major version.
  *
  * @packageDocumentation
  */
 
-// Canonical reflect-metadata load for the package. Decorator metadata (route,
-// param, and DI reflection) depends on this side-effect import being evaluated
-// before any decorated class is defined; keeping it at the entry point avoids
-// scattering the same import across internal modules.
+// Canonical reflect-metadata load for back-compat
 import 'reflect-metadata';
 
+// Backward-compatibility re-exports from @nextrush/class
+
 // Registration
-export { registerControllers } from './registrar.js';
+export { registerControllers } from '@nextrush/class';
 
 // Module registration
-export { registerModule, type ModuleRegistrationOptions } from './module-registrar.js';
-export { collectModuleControllers, collectModuleGraph } from './module-graph.js';
+export { registerModule, type ModuleRegistrationOptions } from '@nextrush/class';
+export { collectModuleControllers, collectModuleGraph } from '@nextrush/class';
 
 // Discovery
 export {
     discoverControllers,
     getControllersFromResults,
     getErrorsFromResults
-} from './discovery.js';
+} from '@nextrush/class';
 
 // Registry
-export { ControllerRegistry } from './registry.js';
+export { ControllerRegistry } from '@nextrush/class';
 
 // Builder
-export { buildRoutes } from './builder.js';
+export { buildRoutes } from '@nextrush/class';
 
 // Types
 export type {
@@ -41,7 +40,7 @@ export type {
     DiscoveryResult,
     RegisteredController,
     ResolvedOptions
-} from './types.js';
+} from '@nextrush/class';
 
 // Errors
 export {
@@ -56,9 +55,9 @@ export {
     NotAModuleError,
     ParameterInjectionError,
     RouteRegistrationError
-} from './errors.js';
+} from '@nextrush/class';
 
-// Re-export commonly used items from dependencies
+// Re-export commonly used items from dependencies (for back-compat)
 export {
     Body,
     Controller,
@@ -76,9 +75,9 @@ export {
     UseFilter,
     UseGuard,
     UseInterceptor
-} from '@nextrush/decorators';
-export type { ExceptionFilter, GuardContext, GuardFn, Interceptor, ModuleOptions, ModuleProvider, ModuleProviderConfig, OnInit, OnShutdown } from '@nextrush/decorators';
-export { getModuleMetadata, isModule, isOnInit, isOnShutdown } from '@nextrush/decorators';
+} from '@nextrush/class';
+export type { ExceptionFilter, GuardContext, GuardFn, Interceptor, ModuleOptions, ModuleProvider, ModuleProviderConfig, OnInit, OnShutdown } from '@nextrush/class';
+export { getModuleMetadata, isModule, isOnInit, isOnShutdown } from '@nextrush/class';
 export {
     Repository,
     Service,

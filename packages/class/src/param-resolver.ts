@@ -6,7 +6,7 @@
  * (zod, valibot, etc.) and async custom extractors.
  */
 
-import type { ParamMetadata } from '@nextrush/decorators';
+import type { ParamMetadata } from './param-types.js';
 import type { Context } from '@nextrush/types';
 import { MissingParameterError, ParameterInjectionError } from './errors.js';
 

@@ -69,6 +69,7 @@
   ],
   "dependencies": {
     "@nextrush/adapter-node": "workspace:*",
+    "@nextrush/class": "workspace:*",
     "@nextrush/controllers": "workspace:*",
     "@nextrush/core": "workspace:*",
     "@nextrush/decorators": "workspace:*",

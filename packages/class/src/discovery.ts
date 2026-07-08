@@ -15,12 +15,12 @@
  * controllers that import them, or directly when matched).
  */
 
-import { isController } from '@nextrush/decorators';
+import { isController } from './metadata.js';
 import { readdir } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DiscoveryError } from './errors.js';
-import type { DiscoveryOptions, DiscoveryResult } from './types.js';
+import type { DiscoveryOptions, DiscoveryResult } from './registrar-types.js';
 
 /**
  * Default include patterns — the `*.controller.*` naming convention.

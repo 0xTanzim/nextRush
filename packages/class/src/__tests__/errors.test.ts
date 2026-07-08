@@ -41,7 +41,7 @@ describe('Controller Errors', () => {
       expect(error.status).toBe(500);
       expect(error.message).toContain('UserService');
       expect(error.message).toContain('@Controller');
-      expect(error.message).toContain("import { Controller } from '@nextrush/decorators'");
+      expect(error.message).toContain("import { Controller } from '@nextrush/class'");
     });
   });
 

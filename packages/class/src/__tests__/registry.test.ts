@@ -2,7 +2,7 @@
  * @nextrush/controllers - Registry Tests
  */
 
-import { Controller, Delete, Get, Post } from '@nextrush/decorators';
+import { Controller, Delete, Get, Post } from '../index.js';
 import { Service, createContainer, type Container } from '@nextrush/di';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';

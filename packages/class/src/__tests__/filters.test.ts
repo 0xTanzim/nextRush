@@ -6,8 +6,8 @@
  * propagate to the global error middleware unchanged.
  */
 
-import { Catch, Controller, Get, getControllerDefinition, UseFilter } from '@nextrush/decorators';
-import type { ExceptionFilter } from '@nextrush/decorators';
+import { Catch, Controller, Get, getControllerDefinition, UseFilter } from '../index.js';
+import type { ExceptionFilter } from '../index.js';
 import { createContainer, inject, Injectable, type Container } from '@nextrush/di';
 import type { Context } from '@nextrush/types';
 import 'reflect-metadata';

@@ -7,15 +7,15 @@
  */
 
 import type {
-  ControllerDefinition,
   ControllerMetadata,
   MiddlewareRef,
   RouteMetadata,
-} from '@nextrush/decorators';
+} from './types.js';
+import type { ControllerDefinition } from './metadata.js';
 import type { Container } from '@nextrush/di';
 import type { MetadataContribution, Middleware } from '@nextrush/types';
 import { createRouteHandler } from './handler.js';
-import type { BuiltRoute } from './types.js';
+import type { BuiltRoute } from './registrar-types.js';
 
 /**
  * Resolve middleware references to actual middleware functions.

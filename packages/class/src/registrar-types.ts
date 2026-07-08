@@ -4,7 +4,7 @@
  * Types for the controller registrar.
  */
 
-import type { ControllerDefinition } from '@nextrush/decorators';
+import type { ControllerDefinition } from './metadata.js';
 import type { Container } from '@nextrush/di';
 import type { MetadataContribution, Middleware, RouteHandler } from '@nextrush/types';
 import type { DiscoveryError } from './errors.js';

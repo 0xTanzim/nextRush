@@ -13,7 +13,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get, Post } from '@nextrush/decorators';
+import { Controller, Get, Post } from '../index.js';
 import {
   Optional,
   Service,

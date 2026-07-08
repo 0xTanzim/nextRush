@@ -15,7 +15,7 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { getAllGuards, isGuardClass } from '@nextrush/decorators';
+import { getAllGuards, isGuardClass } from './guards.js';
 import { container as globalContainer, createContainer, DIError, type Container } from '@nextrush/di';
 import { ROUTE_METADATA, type Router } from '@nextrush/types';
 import {
@@ -34,7 +34,7 @@ import type {
   BuiltRoute,
   RegisteredController,
   ResolvedOptions,
-} from './types.js';
+} from './registrar-types.js';
 
 /** Debug logger that writes to stderr (never to stdout). */
 function debugLog(debug: boolean, message: string): void {

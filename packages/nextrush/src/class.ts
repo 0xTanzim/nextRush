@@ -66,18 +66,14 @@ export type {
 } from '@nextrush/di';
 
 // ============================================
-// DECORATORS: Controller, Route & Parameter
+// DECORATORS & CONTROLLERS: From @nextrush/class
 // ============================================
 export {
-  // Route decorators
+  // Decorators
   All,
-  // Parameter decorators
   Body,
-  // Class decorators
   Controller,
-  // Module decorator
   Module,
-  // Custom param decorator factory
   createCustomParamDecorator,
   Ctx,
   Delete,
@@ -91,24 +87,24 @@ export {
   Post,
   Put,
   Query,
-  // Response decorators
   Redirect,
   Req,
   Res,
   SetHeader,
-  // Guard decorators
   UseGuard,
-  // Exception filter decorators
   Catch,
   UseFilter,
-  // Interceptor decorators
   UseInterceptor,
-} from '@nextrush/decorators';
-// Service lifecycle hook guards (duck-typed interfaces — no decorator)
-export { isOnInit, isOnShutdown } from '@nextrush/decorators';
-// Module metadata readers
-export { getModuleMetadata, isModule } from '@nextrush/decorators';
+  isOnInit,
+  isOnShutdown,
+  getModuleMetadata,
+  isModule,
+  // Controllers
+  registerControllers,
+  registerModule,
+} from '@nextrush/class';
 export type {
+  // Decorators
   BodyOptions,
   CanActivate,
   ControllerMetadata,
@@ -130,13 +126,9 @@ export type {
   RouteMetadata,
   RouteOptions,
   TransformFn,
-} from '@nextrush/decorators';
-export type { OnInit, OnShutdown } from '@nextrush/decorators';
-
-// ============================================
-// CONTROLLERS: Auto-discovery Plugin
-// ============================================
-export { registerControllers } from '@nextrush/controllers';
-export { registerModule } from '@nextrush/controllers';
-export type { ControllersOptions } from '@nextrush/controllers';
-export type { ModuleRegistrationOptions } from '@nextrush/controllers';
+  OnInit,
+  OnShutdown,
+  // Controllers
+  ControllersOptions,
+  ModuleRegistrationOptions,
+} from '@nextrush/class';

@@ -16,7 +16,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get } from '@nextrush/decorators';
+import { Controller, Get } from '../index.js';
 import { Service, container as globalContainer, inject } from '@nextrush/di';
 import { Router } from '@nextrush/router';
 import type { Context } from '@nextrush/types';

@@ -18,7 +18,7 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { isOnInit, isOnShutdown } from '@nextrush/decorators';
+import { isOnInit, isOnShutdown } from './lifecycle-types.js';
 import type { Container, Token } from '@nextrush/di';
 import { collectServiceGraph } from './isolation.js';
 

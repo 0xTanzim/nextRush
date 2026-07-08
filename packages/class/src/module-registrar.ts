@@ -19,9 +19,11 @@
 import type { Application } from '@nextrush/core';
 import {
   getModuleMetadata,
-  type ModuleProvider,
-  type ModuleProviderConfig,
-} from '@nextrush/decorators';
+} from './module.js';
+import type {
+  ModuleProvider,
+  ModuleProviderConfig,
+} from './module-types.js';
 import {
   container as globalContainer,
   createContainer,
@@ -32,7 +34,7 @@ import {
 } from '@nextrush/di';
 import { collectModuleControllers, collectModuleGraph } from './module-graph.js';
 import { registerControllers } from './registrar.js';
-import type { ControllersOptions } from './types.js';
+import type { ControllersOptions } from './registrar-types.js';
 
 /**
  * Options for {@link registerModule}. Mirrors the subset of

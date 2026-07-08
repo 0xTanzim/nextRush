@@ -2,7 +2,7 @@
  * @nextrush/controllers - Builder Tests
  */
 
-import type { CanActivate, GuardContext, GuardFn } from '@nextrush/decorators';
+import type { CanActivate, GuardContext, GuardFn } from '../index.js';
 import {
   Body,
   Controller,
@@ -17,7 +17,7 @@ import {
   Redirect,
   SetHeader,
   UseGuard,
-} from '@nextrush/decorators';
+} from '../index.js';
 import { createContainer, type Container } from '@nextrush/di';
 import { UnauthorizedError } from '@nextrush/errors';
 import type { Context, Middleware } from '@nextrush/types';

@@ -1,7 +1,7 @@
 {
   "name": "@nextrush/decorators",
   "version": "3.1.0",
-  "description": "Metadata-only decorators for NextRush controllers",
+  "description": "DEPRECATED: Metadata-only decorators for NextRush controllers. Use @nextrush/class instead.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -19,22 +19,18 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test": "echo 'Tests moved to @nextrush/class'",
+    "test:watch": "echo 'Tests moved to @nextrush/class'",
+    "test:coverage": "echo 'Tests moved to @nextrush/class'",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@nextrush/di": "workspace:*",
-    "@nextrush/types": "workspace:*",
-    "reflect-metadata": "^0.2.2"
+    "@nextrush/class": "workspace:*"
   },
   "devDependencies": {
-    "rimraf": "^6.1.3",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.2"
   },
   "peerDependencies": {
     "typescript": ">=5.0.0"
@@ -42,9 +38,8 @@
   "keywords": [
     "nextrush",
     "decorators",
-    "controller",
-    "routing",
-    "typescript"
+    "deprecated",
+    "shim"
   ],
   "author": {
     "name": "Tanzim Hossain",

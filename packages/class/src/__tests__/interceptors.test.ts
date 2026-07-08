@@ -16,8 +16,8 @@ import {
   getControllerDefinition,
   UseFilter,
   UseInterceptor,
-} from '@nextrush/decorators';
-import type { ExceptionFilter, Interceptor } from '@nextrush/decorators';
+} from '../index.js';
+import type { ExceptionFilter, Interceptor } from '../index.js';
 import { createContainer, inject, Injectable, type Container } from '@nextrush/di';
 import type { Context } from '@nextrush/types';
 import 'reflect-metadata';

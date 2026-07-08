@@ -4,12 +4,12 @@
  * Manages registration and tracking of controllers.
  */
 
-import { getControllerDefinition, isController } from '@nextrush/decorators';
+import { getControllerDefinition, isController } from './metadata.js';
 import type { Container } from '@nextrush/di';
 import type { Middleware } from '@nextrush/types';
 import { buildRoutes } from './builder.js';
 import { NoRoutesError, NotAControllerError } from './errors.js';
-import type { BuiltRoute, RegisteredController } from './types.js';
+import type { BuiltRoute, RegisteredController } from './registrar-types.js';
 
 /**
  * Registry for tracking and building controller routes

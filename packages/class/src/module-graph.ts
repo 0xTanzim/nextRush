@@ -6,7 +6,7 @@
  * diamond/duplicate imports, and guards import cycles. See RFC-NEXTRUSH-MODULES.
  */
 
-import { getModuleMetadata, isModule } from '@nextrush/decorators';
+import { getModuleMetadata, isModule } from './module.js';
 import { NotAModuleError } from './errors.js';
 
 /**

@@ -5,8 +5,8 @@
  * runs. Class guards are resolved from the DI container.
  */
 
-import type { CanActivate, Guard, GuardContext } from '@nextrush/decorators';
-import { isGuardClass } from '@nextrush/decorators';
+import type { CanActivate, Guard, GuardContext } from './guard-types.js';
+import { isGuardClass } from './guards.js';
 import type { Container } from '@nextrush/di';
 import type { Context } from '@nextrush/types';
 import { GuardRejectionError } from './errors.js';

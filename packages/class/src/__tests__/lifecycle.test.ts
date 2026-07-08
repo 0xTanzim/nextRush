@@ -12,7 +12,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get, type OnInit, type OnShutdown } from '@nextrush/decorators';
+import { Controller, Get, type OnInit, type OnShutdown } from '../index.js';
 import { Service, inject } from '@nextrush/di';
 import { Router } from '@nextrush/router';
 import 'reflect-metadata';

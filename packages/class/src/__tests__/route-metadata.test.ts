@@ -7,7 +7,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get, getControllerDefinition, Post } from '@nextrush/decorators';
+import { Controller, Get, getControllerDefinition, Post } from '../index.js';
 import { createContainer, type Container } from '@nextrush/di';
 import { createRouter } from '@nextrush/router';
 import 'reflect-metadata';

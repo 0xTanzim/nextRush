@@ -1,17 +1,13 @@
 /**
  * @nextrush/decorators
  *
- * Decorator-based metadata for building HTTP controllers.
- * Provides @Controller, route decorators, and parameter decorators.
+ * @deprecated Import from '@nextrush/class' instead.
+ * This package is a compatibility shim and will be removed in a future major version.
  *
  * @packageDocumentation
  */
 
-// reflect-metadata polyfill — loaded once at the package entry point so every decorator
-// (applied in consumer code reached via this barrel) has Reflect.defineMetadata available.
-import 'reflect-metadata';
-
-// Types
+// Backward-compatibility re-exports from @nextrush/class
 export type {
   BodyOptions,
   CanActivate,
@@ -41,34 +37,34 @@ export type {
   RouteMethods,
   RouteOptions,
   TransformFn,
-} from './types.js';
+} from '@nextrush/class';
 
 export {
   DECORATOR_METADATA_KEYS,
   isGuardClass,
   isValidHttpMethod,
   isValidParamSource,
-} from './types.js';
+} from '@nextrush/class';
 
-// Service Lifecycle Hooks (duck-typed — no decorator)
-export type { OnInit, OnShutdown } from './lifecycle-types.js';
-export { isOnInit, isOnShutdown } from './lifecycle-types.js';
+// Service Lifecycle Hooks
+export type { OnInit, OnShutdown } from '@nextrush/class';
+export { isOnInit, isOnShutdown } from '@nextrush/class';
 
 // Class Decorators
-export { Controller } from './class.js';
+export { Controller } from '@nextrush/class';
 
 // Module Decorator
-export { Module, getModuleMetadata, isModule } from './module.js';
+export { Module, getModuleMetadata, isModule } from '@nextrush/class';
 export type {
   ModuleMetadata,
   ModuleOptions,
   ModuleProvider,
   ModuleProviderConfig,
-} from './module-types.js';
+} from '@nextrush/class';
 
 // Response Decorators
-export { HttpCode } from './http-code.js';
-export { Redirect, SetHeader } from './response-decorators.js';
+export { HttpCode } from '@nextrush/class';
+export { Redirect, SetHeader } from '@nextrush/class';
 
 // Route Decorators
 export {
@@ -80,13 +76,13 @@ export {
   Patch,
   Post,
   Put,
-} from './routes.js';
+} from '@nextrush/class';
 
 // Parameter Decorators
-export { Body, Ctx, Header, Param, Query, Req, Res, createCustomParamDecorator } from './params.js';
+export { Body, Ctx, Header, Param, Query, Req, Res, createCustomParamDecorator } from '@nextrush/class';
 
 // Guard Decorators
-export { UseGuard, getAllGuards, getClassGuards, getMethodGuards } from './guards.js';
+export { UseGuard, getAllGuards, getClassGuards, getMethodGuards } from '@nextrush/class';
 
 // Exception Filter Decorators
 export {
@@ -96,7 +92,7 @@ export {
   getCatchTypes,
   getClassFilters,
   getMethodFilters,
-} from './filters.js';
+} from '@nextrush/class';
 
 // Interceptor Decorators
 export {
@@ -104,11 +100,10 @@ export {
   getAllInterceptors,
   getClassInterceptors,
   getMethodInterceptors,
-} from './interceptors.js';
+} from '@nextrush/class';
 
 // Metadata Readers
-export type { ControllerDefinition } from './metadata.js';
-
+export type { ControllerDefinition } from '@nextrush/class';
 export {
   getAllParamMetadata,
   getControllerDefinition,
@@ -119,7 +114,7 @@ export {
   getResponseHeaders,
   getRouteMetadata,
   isController,
-} from './metadata.js';
+} from '@nextrush/class';
 
-// Internal reflection helpers (for cross-package DI use by @nextrush/controllers)
-export { getConstructorParamTypes } from './reflection.js';
+// Internal reflection helpers
+export { getConstructorParamTypes } from '@nextrush/class';

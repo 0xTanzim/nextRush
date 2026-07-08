@@ -7,7 +7,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get, UseGuard, type CanActivate } from '@nextrush/decorators';
+import { Controller, Get, UseGuard, type CanActivate } from '../index.js';
 import {
   CircularDependencyError,
   DIError,

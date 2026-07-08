@@ -8,8 +8,8 @@
  * it — preserving current, filter-free behavior.
  */
 
-import type { ExceptionFilter, ExceptionFilterClass } from '@nextrush/decorators';
-import { getCatchTypes } from '@nextrush/decorators';
+import type { ExceptionFilter, ExceptionFilterClass } from './filter-types.js';
+import { getCatchTypes } from './filters.js';
 import type { Container } from '@nextrush/di';
 import type { Context, Next, RouteHandler } from '@nextrush/types';
 

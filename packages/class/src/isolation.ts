@@ -22,7 +22,7 @@ import {
   type Scope,
   type Token,
 } from '@nextrush/di';
-import { getConstructorParamTypes } from '@nextrush/decorators';
+import { getConstructorParamTypes, getOwnMetadata } from './reflection.js';
 
 /**
  * tsyringe stores `@inject(token)` descriptors under this reflect-metadata key,
@@ -58,7 +58,7 @@ function tokenOf(descriptor: unknown): unknown {
 export function collectDependencyClasses(target: Function): Function[] {
   const paramTypes = getConstructorParamTypes(target);
   const injectionTokens =
-    (Reflect.getOwnMetadata(TSYRINGE_INJECTION_TOKENS, target) as
+    (getOwnMetadata<Record<number, unknown>>(TSYRINGE_INJECTION_TOKENS, target) as
       | Record<number, unknown>
       | undefined) ?? {};
   const optional = getOptionalParams(target);

@@ -11,7 +11,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get, Module, type OnInit } from '@nextrush/decorators';
+import { Controller, Get, Module, type OnInit } from '../index.js';
 import { Service, createContainer, inject, type Container } from '@nextrush/di';
 import { Router } from '@nextrush/router';
 import 'reflect-metadata';

@@ -39,7 +39,7 @@ export class NotAControllerError extends ControllerError {
     super(
       `Class "${className}" is not a controller.\n\n` +
         `To make it a controller, add the @Controller decorator:\n\n` +
-        `  import { Controller } from '@nextrush/decorators';\n\n` +
+        `  import { Controller } from '@nextrush/class';\n\n` +
         `  @Controller('/path')\n` +
         `  class ${className} {\n` +
         `    // ...\n` +
@@ -59,7 +59,7 @@ export class NoRoutesError extends ControllerError {
     super(
       `Controller "${className}" has no routes defined.\n\n` +
         `Add route decorators to your controller methods:\n\n` +
-        `  import { Controller, Get, Post } from '@nextrush/decorators';\n\n` +
+        `  import { Controller, Get, Post } from '@nextrush/class';\n\n` +
         `  @Controller('/users')\n` +
         `  class ${className} {\n` +
         `    @Get()\n` +
@@ -111,7 +111,7 @@ export class ControllerResolutionError extends ControllerError {
         `  2. Controller has unresolvable dependencies\n` +
         `  3. Circular dependency detected\n\n` +
         `Note: @Controller automatically registers with DI - no @Service() needed!\n\n` +
-        `  import { Controller } from '@nextrush/decorators';\n\n` +
+        `  import { Controller } from '@nextrush/class';\n\n` +
         `  @Controller('/path')\n` +
         `  class ${controllerName} {\n` +
         `    constructor(private readonly service: SomeService) { }\n` +
@@ -251,7 +251,7 @@ export class NotAModuleError extends ControllerError {
     super(
       `Class "${className}" is not a module.\n\n` +
         `To make it a module, add the @Module decorator:\n\n` +
-        `  import { Module } from '@nextrush/decorators';\n\n` +
+        `  import { Module } from '@nextrush/class';\n\n` +
         `  @Module({\n` +
         `    controllers: [SomeController],\n` +
         `    providers: [SomeService],\n` +

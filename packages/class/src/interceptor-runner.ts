@@ -12,7 +12,7 @@
  * which wrap the whole handler, can still catch it.
  */
 
-import type { Interceptor, InterceptorClass } from '@nextrush/decorators';
+import type { Interceptor, InterceptorClass } from './interceptor-types.js';
 import type { Container } from '@nextrush/di';
 import type { Context } from '@nextrush/types';
 

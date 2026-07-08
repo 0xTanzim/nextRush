@@ -1,7 +1,7 @@
 {
-  "name": "@nextrush/controllers",
+  "name": "@nextrush/class",
   "version": "3.1.0",
-  "description": "DEPRECATED: Controller registrar for NextRush. Use @nextrush/class instead.",
+  "description": "Class-based API for NextRush - decorators, DI, and controller registration",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -19,19 +19,23 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'Tests moved to @nextrush/class'",
-    "test:watch": "echo 'Tests moved to @nextrush/class'",
-    "test:coverage": "echo 'Tests moved to @nextrush/class'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@nextrush/class": "workspace:*",
+    "@nextrush/core": "workspace:*",
     "@nextrush/di": "workspace:*",
+    "@nextrush/errors": "workspace:*",
+    "@nextrush/router": "workspace:*",
+    "@nextrush/types": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   },
   "peerDependencies": {
     "@nextrush/core": "workspace:*",
@@ -39,9 +43,11 @@
   },
   "keywords": [
     "nextrush",
+    "class",
+    "decorators",
+    "di",
     "controllers",
-    "deprecated",
-    "shim"
+    "registrar"
   ],
   "author": {
     "name": "Tanzim Hossain",
@@ -52,11 +58,11 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/controllers#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/class#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/0xTanzim/nextRush.git",
-    "directory": "packages/controllers"
+    "directory": "packages/class"
   },
   "engines": {
     "node": ">=22.0.0"
