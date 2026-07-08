@@ -13,6 +13,7 @@ import type {
   RouteMetadata,
 } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
+import { getOwnMetadata as getOwnMetadataFromReflection } from './reflection.js';
 
 /**
  * Check if a class has @Controller decorator.
@@ -27,7 +28,9 @@ import { DECORATOR_METADATA_KEYS } from './types.js';
  * ```
  */
 export function isController(target: Function): boolean {
-  return Reflect.hasOwnMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, target);
+  return (
+    getOwnMetadataFromReflection<ControllerMetadata>(DECORATOR_METADATA_KEYS.CONTROLLER, target) !== undefined
+  );
 }
 
 /**
@@ -44,7 +47,7 @@ export function isController(target: Function): boolean {
  * ```
  */
 export function getControllerMetadata(target: Function): ControllerMetadata | undefined {
-  const meta = Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, target);
+  const meta = getOwnMetadataFromReflection<ControllerMetadata>(DECORATOR_METADATA_KEYS.CONTROLLER, target);
   return meta ? { ...meta } : undefined;
 }
 
@@ -68,7 +71,7 @@ export function getControllerMetadata(target: Function): ControllerMetadata | un
  * ```
  */
 export function getRouteMetadata(target: Function): RouteMetadata[] {
-  const routes = Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.ROUTES, target);
+  const routes = getOwnMetadataFromReflection<RouteMetadata[]>(DECORATOR_METADATA_KEYS.ROUTES, target);
   return routes ? [...routes] : [];
 }
 
@@ -89,10 +92,10 @@ export function getRouteMetadata(target: Function): RouteMetadata[] {
  * ```
  */
 export function getParamMetadata(target: Function, methodName: string | symbol): ParamMetadata[] {
-  const allParams: Map<string, ParamMetadata[]> =
-    Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target) ?? new Map();
+  const allParams: Map<string, ParamMetadata[]> | undefined =
+    getOwnMetadataFromReflection<Map<string, ParamMetadata[]>>(DECORATOR_METADATA_KEYS.PARAMS, target);
 
-  const params = allParams.get(String(methodName));
+  const params = allParams?.get(String(methodName));
   return params ? [...params] : [];
 }
 
@@ -107,7 +110,10 @@ export function getParamMetadata(target: Function, methodName: string | symbol):
  * ```
  */
 export function getAllParamMetadata(target: Function): Map<string, ParamMetadata[]> {
-  const params = Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target);
+  const params = getOwnMetadataFromReflection<Map<string, ParamMetadata[]>>(
+    DECORATOR_METADATA_KEYS.PARAMS,
+    target
+  );
   if (!params) return new Map();
   // Return a shallow copy to prevent external mutation
   const copy = new Map<string, ParamMetadata[]>();
@@ -170,10 +176,9 @@ export interface ControllerDefinition {
  * or an empty array if none are defined.
  */
 export function getResponseHeaders(target: Function, methodName: string): ResponseHeaderMetadata[] {
-  const map: Map<string, ResponseHeaderMetadata[]> | undefined = Reflect.getOwnMetadata(
-    DECORATOR_METADATA_KEYS.RESPONSE_HEADERS,
-    target
-  );
+  const map: Map<string, ResponseHeaderMetadata[]> | undefined = getOwnMetadataFromReflection<
+    Map<string, ResponseHeaderMetadata[]>
+  >(DECORATOR_METADATA_KEYS.RESPONSE_HEADERS, target);
   return [...(map?.get(methodName) ?? [])];
 }
 
@@ -187,10 +192,9 @@ export function getRedirectMetadata(
   target: Function,
   methodName: string
 ): RedirectMetadata | undefined {
-  const map: Map<string, RedirectMetadata> | undefined = Reflect.getOwnMetadata(
-    DECORATOR_METADATA_KEYS.REDIRECT,
-    target
-  );
+  const map: Map<string, RedirectMetadata> | undefined = getOwnMetadataFromReflection<
+    Map<string, RedirectMetadata>
+  >(DECORATOR_METADATA_KEYS.REDIRECT, target);
   return map?.get(methodName);
 }
 
@@ -201,7 +205,7 @@ export function getRedirectMetadata(
  * method is not decorated.
  */
 export function getHttpCode(target: Function, methodName: string): number | undefined {
-  const map: Map<string, number> | undefined = Reflect.getOwnMetadata(
+  const map: Map<string, number> | undefined = getOwnMetadataFromReflection<Map<string, number>>(
     DECORATOR_METADATA_KEYS.HTTP_CODE,
     target
   );

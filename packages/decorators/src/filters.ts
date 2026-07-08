@@ -9,6 +9,7 @@
  * behaves exactly as before — errors propagate to the global error middleware.
  */
 
+import { getMetadata, defineMetadata } from './reflection.js';
 import type { ExceptionFilterClass, FilterMetadata } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
@@ -35,7 +36,7 @@ import { DECORATOR_METADATA_KEYS } from './types.js';
  */
 export function Catch(...errorTypes: Function[]): ClassDecorator {
   return function catchDecorator(target: object): void {
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.CATCH, errorTypes, target);
+    defineMetadata(DECORATOR_METADATA_KEYS.CATCH, errorTypes, target);
   };
 }
 
@@ -75,7 +76,7 @@ export function UseFilter(...filters: ExceptionFilterClass[]): ClassDecorator & 
     if (propertyKey !== undefined && descriptor !== undefined) {
       // Method decorator - store on method
       const existing: FilterMetadata[] =
-        Reflect.getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target.constructor, propertyKey) ?? [];
+        getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target.constructor, propertyKey) ?? [];
 
       const metadata: FilterMetadata = {
         filters,
@@ -83,7 +84,7 @@ export function UseFilter(...filters: ExceptionFilterClass[]): ClassDecorator & 
         methodName: propertyKey,
       };
 
-      Reflect.defineMetadata(
+      defineMetadata(
         DECORATOR_METADATA_KEYS.FILTERS,
         [...existing, metadata],
         target.constructor,
@@ -92,14 +93,14 @@ export function UseFilter(...filters: ExceptionFilterClass[]): ClassDecorator & 
     } else {
       // Class decorator - store on class
       const existing: FilterMetadata[] =
-        Reflect.getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target) ?? [];
+        getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target) ?? [];
 
       const metadata: FilterMetadata = {
         filters,
         target: 'class',
       };
 
-      Reflect.defineMetadata(DECORATOR_METADATA_KEYS.FILTERS, [...existing, metadata], target);
+      defineMetadata(DECORATOR_METADATA_KEYS.FILTERS, [...existing, metadata], target);
     }
   };
 }
@@ -111,7 +112,7 @@ export function UseFilter(...filters: ExceptionFilterClass[]): ClassDecorator & 
  * @returns Error constructors from `@Catch` (empty array = catch-all)
  */
 export function getCatchTypes(target: Function): Function[] {
-  return Reflect.getMetadata(DECORATOR_METADATA_KEYS.CATCH, target) ?? [];
+  return getMetadata(DECORATOR_METADATA_KEYS.CATCH, target) ?? [];
 }
 
 /**
@@ -122,7 +123,7 @@ export function getCatchTypes(target: Function): Function[] {
  */
 export function getClassFilters(target: Function): ExceptionFilterClass[] {
   const metadata: FilterMetadata[] =
-    Reflect.getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target) ?? [];
+    getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target) ?? [];
   return metadata.flatMap((m) => m.filters);
 }
 
@@ -138,7 +139,7 @@ export function getMethodFilters(
   methodName: string | symbol
 ): ExceptionFilterClass[] {
   const metadata: FilterMetadata[] =
-    Reflect.getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target, methodName) ?? [];
+    getMetadata(DECORATOR_METADATA_KEYS.FILTERS, target, methodName) ?? [];
   return metadata.flatMap((m) => m.filters);
 }
 

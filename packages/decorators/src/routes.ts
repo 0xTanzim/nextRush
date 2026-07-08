@@ -5,6 +5,7 @@
  * Uses legacy decorators for compatibility with parameter decorators.
  */
 
+import { getOwnMetadata, defineMetadata } from './reflection.js';
 import { normalizePath } from './path-utils.js';
 import type { RouteMetadata, RouteMethods, RouteOptions } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
@@ -36,9 +37,9 @@ function createRouteDecorator(method: RouteMethods) {
       };
 
       const existingRoutes: RouteMetadata[] =
-        Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.ROUTES, target.constructor) ?? [];
+        getOwnMetadata(DECORATOR_METADATA_KEYS.ROUTES, target.constructor) ?? [];
 
-      Reflect.defineMetadata(
+      defineMetadata(
         DECORATOR_METADATA_KEYS.ROUTES,
         [...existingRoutes, metadata],
         target.constructor

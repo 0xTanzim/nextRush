@@ -22,6 +22,7 @@ import {
   type Scope,
   type Token,
 } from '@nextrush/di';
+import { getConstructorParamTypes } from '@nextrush/decorators';
 
 /**
  * tsyringe stores `@inject(token)` descriptors under this reflect-metadata key,
@@ -32,9 +33,6 @@ import {
  * `@nextrush/di`'s own `@Optional()` decorator reads and writes the same key.
  */
 const TSYRINGE_INJECTION_TOKENS = 'injectionTokens';
-
-/** The design-time constructor parameter types emitted by `emitDecoratorMetadata`. */
-const DESIGN_PARAMTYPES = 'design:paramtypes';
 
 /**
  * A single `@inject` descriptor may be either the raw token or a
@@ -58,8 +56,7 @@ function tokenOf(descriptor: unknown): unknown {
  * to resolve to `undefined` rather than forcing a registration.
  */
 export function collectDependencyClasses(target: Function): Function[] {
-  const paramTypes =
-    (Reflect.getMetadata(DESIGN_PARAMTYPES, target) as unknown[] | undefined) ?? [];
+  const paramTypes = getConstructorParamTypes(target);
   const injectionTokens =
     (Reflect.getOwnMetadata(TSYRINGE_INJECTION_TOKENS, target) as
       | Record<number, unknown>

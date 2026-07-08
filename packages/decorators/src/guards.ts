@@ -11,6 +11,7 @@
  * - Feature flags
  */
 
+import { getMetadata, defineMetadata } from './reflection.js';
 import type { Guard, GuardMetadata } from './types.js';
 import { DECORATOR_METADATA_KEYS, isGuardClass } from './types.js';
 
@@ -109,7 +110,7 @@ export function UseGuard(...guards: Guard[]): ClassDecorator & MethodDecorator {
     if (propertyKey !== undefined && descriptor !== undefined) {
       // Method decorator - store on method
       const existingGuards: GuardMetadata[] =
-        Reflect.getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target.constructor, propertyKey) ?? [];
+        getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target.constructor, propertyKey) ?? [];
 
       const metadata: GuardMetadata = {
         guards,
@@ -117,7 +118,7 @@ export function UseGuard(...guards: Guard[]): ClassDecorator & MethodDecorator {
         methodName: propertyKey,
       };
 
-      Reflect.defineMetadata(
+      defineMetadata(
         DECORATOR_METADATA_KEYS.GUARDS,
         [...existingGuards, metadata],
         target.constructor,
@@ -126,14 +127,14 @@ export function UseGuard(...guards: Guard[]): ClassDecorator & MethodDecorator {
     } else {
       // Class decorator - store on class
       const existingGuards: GuardMetadata[] =
-        Reflect.getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target) ?? [];
+        getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target) ?? [];
 
       const metadata: GuardMetadata = {
         guards,
         target: 'class',
       };
 
-      Reflect.defineMetadata(DECORATOR_METADATA_KEYS.GUARDS, [...existingGuards, metadata], target);
+      defineMetadata(DECORATOR_METADATA_KEYS.GUARDS, [...existingGuards, metadata], target);
     }
   };
 }
@@ -149,7 +150,7 @@ export function UseGuard(...guards: Guard[]): ClassDecorator & MethodDecorator {
  */
 export function getClassGuards(target: Function): Guard[] {
   const metadata: GuardMetadata[] =
-    Reflect.getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target) ?? [];
+    getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target) ?? [];
   return metadata.flatMap((m) => m.guards);
 }
 
@@ -164,7 +165,7 @@ export function getClassGuards(target: Function): Guard[] {
  */
 export function getMethodGuards(target: Function, methodName: string | symbol): Guard[] {
   const metadata: GuardMetadata[] =
-    Reflect.getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target, methodName) ?? [];
+    getMetadata(DECORATOR_METADATA_KEYS.GUARDS, target, methodName) ?? [];
   return metadata.flatMap((m) => m.guards);
 }
 

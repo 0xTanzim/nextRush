@@ -6,6 +6,7 @@
  * the controllers handler builder.
  */
 
+import { getOwnMetadata, defineMetadata } from './reflection.js';
 import type { RedirectMetadata, ResponseHeaderMetadata } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
@@ -39,14 +40,14 @@ export function SetHeader(name: string, value: string): MethodDecorator {
     const methodKey = String(propertyKey);
 
     const existing: Map<string, ResponseHeaderMetadata[]> =
-      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.RESPONSE_HEADERS, target.constructor) ??
+      getOwnMetadata(DECORATOR_METADATA_KEYS.RESPONSE_HEADERS, target.constructor) ??
       new Map();
 
     const headers = existing.get(methodKey) ?? [];
     headers.push({ name, value });
     existing.set(methodKey, headers);
 
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.RESPONSE_HEADERS, existing, target.constructor);
+    defineMetadata(DECORATOR_METADATA_KEYS.RESPONSE_HEADERS, existing, target.constructor);
 
     return descriptor;
   };
@@ -89,11 +90,11 @@ export function Redirect(url: string, statusCode = 302): MethodDecorator {
     const methodKey = String(propertyKey);
 
     const existing: Map<string, RedirectMetadata> =
-      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.REDIRECT, target.constructor) ?? new Map();
+      getOwnMetadata(DECORATOR_METADATA_KEYS.REDIRECT, target.constructor) ?? new Map();
 
     existing.set(methodKey, { url, statusCode });
 
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.REDIRECT, existing, target.constructor);
+    defineMetadata(DECORATOR_METADATA_KEYS.REDIRECT, existing, target.constructor);
 
     return descriptor;
   };

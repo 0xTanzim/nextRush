@@ -9,6 +9,7 @@
  */
 
 import { markInjectable } from '@nextrush/di';
+import { defineMetadata } from './reflection.js';
 import { normalizePath } from './path-utils.js';
 import type { ControllerMetadata, ControllerOptions } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
@@ -55,7 +56,7 @@ export function Controller(pathOrOptions?: string | ControllerOptions): ClassDec
     };
 
     // Store controller metadata
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, metadata, target);
+    defineMetadata(DECORATOR_METADATA_KEYS.CONTROLLER, metadata, target);
 
     // Make the class injectable (resolvable by DI container)
     // Lifecycle (singleton vs transient) is controlled by the container/registry,

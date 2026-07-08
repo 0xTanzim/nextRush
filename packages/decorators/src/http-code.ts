@@ -6,6 +6,7 @@
  * file-size ceiling.
  */
 
+import { getOwnMetadata, defineMetadata } from './reflection.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
 /**
@@ -39,11 +40,11 @@ export function HttpCode(statusCode: number): MethodDecorator {
     const methodKey = String(propertyKey);
 
     const existing: Map<string, number> =
-      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.HTTP_CODE, target.constructor) ?? new Map();
+      getOwnMetadata(DECORATOR_METADATA_KEYS.HTTP_CODE, target.constructor) ?? new Map();
 
     existing.set(methodKey, statusCode);
 
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.HTTP_CODE, existing, target.constructor);
+    defineMetadata(DECORATOR_METADATA_KEYS.HTTP_CODE, existing, target.constructor);
 
     return descriptor;
   };

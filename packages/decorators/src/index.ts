@@ -120,3 +120,6 @@ export {
   getRouteMetadata,
   isController,
 } from './metadata.js';
+
+// Internal reflection helpers (for cross-package DI use by @nextrush/controllers)
+export { getConstructorParamTypes } from './reflection.js';

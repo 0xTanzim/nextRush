@@ -12,6 +12,7 @@
  */
 
 import { markInjectable } from '@nextrush/di';
+import { defineMetadata, getOwnMetadata, hasOwnMetadata } from './reflection.js';
 import { DECORATOR_METADATA_KEYS } from './metadata-keys.js';
 import type { ModuleMetadata, ModuleOptions } from './module-types.js';
 
@@ -41,7 +42,7 @@ export function Module(options: ModuleOptions = {}): ClassDecorator {
       exports: [...(options.exports ?? [])],
     };
 
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.MODULE, metadata, target);
+    defineMetadata(DECORATOR_METADATA_KEYS.MODULE, metadata, target);
 
     // Mark injectable for symmetry with @Controller so a module class can itself
     // participate in DI graph walks without special-casing.
@@ -55,7 +56,7 @@ export function Module(options: ModuleOptions = {}): ClassDecorator {
  * Check if a class carries `@Module` metadata.
  */
 export function isModule(target: Function): boolean {
-  return Reflect.hasOwnMetadata(DECORATOR_METADATA_KEYS.MODULE, target);
+  return hasOwnMetadata(DECORATOR_METADATA_KEYS.MODULE, target);
 }
 
 /**
@@ -64,7 +65,7 @@ export function isModule(target: Function): boolean {
  * module.
  */
 export function getModuleMetadata(target: Function): ModuleMetadata | undefined {
-  const meta: ModuleMetadata | undefined = Reflect.getOwnMetadata(
+  const meta: ModuleMetadata | undefined = getOwnMetadata(
     DECORATOR_METADATA_KEYS.MODULE,
     target
   );

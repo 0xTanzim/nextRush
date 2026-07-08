@@ -16,6 +16,7 @@
  * - Cross-cutting error mapping (try/catch around `next()`)
  */
 
+import { getMetadata, defineMetadata } from './reflection.js';
 import type { InterceptorClass, InterceptorMetadata } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
@@ -58,7 +59,7 @@ export function UseInterceptor(
     if (propertyKey !== undefined && descriptor !== undefined) {
       // Method decorator - store on method
       const existing: InterceptorMetadata[] =
-        Reflect.getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target.constructor, propertyKey) ??
+        getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target.constructor, propertyKey) ??
         [];
 
       const metadata: InterceptorMetadata = {
@@ -67,7 +68,7 @@ export function UseInterceptor(
         methodName: propertyKey,
       };
 
-      Reflect.defineMetadata(
+      defineMetadata(
         DECORATOR_METADATA_KEYS.INTERCEPTORS,
         [...existing, metadata],
         target.constructor,
@@ -76,14 +77,14 @@ export function UseInterceptor(
     } else {
       // Class decorator - store on class
       const existing: InterceptorMetadata[] =
-        Reflect.getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target) ?? [];
+        getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target) ?? [];
 
       const metadata: InterceptorMetadata = {
         interceptors,
         target: 'class',
       };
 
-      Reflect.defineMetadata(
+      defineMetadata(
         DECORATOR_METADATA_KEYS.INTERCEPTORS,
         [...existing, metadata],
         target
@@ -103,7 +104,7 @@ export function UseInterceptor(
  */
 export function getClassInterceptors(target: Function): InterceptorClass[] {
   const metadata: InterceptorMetadata[] =
-    Reflect.getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target) ?? [];
+    getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target) ?? [];
   return metadata.flatMap((m) => m.interceptors);
 }
 
@@ -119,7 +120,7 @@ export function getMethodInterceptors(
   methodName: string | symbol
 ): InterceptorClass[] {
   const metadata: InterceptorMetadata[] =
-    Reflect.getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target, methodName) ?? [];
+    getMetadata(DECORATOR_METADATA_KEYS.INTERCEPTORS, target, methodName) ?? [];
   return metadata.flatMap((m) => m.interceptors);
 }
 
