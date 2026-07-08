@@ -8,6 +8,7 @@ import {
   UseGuard,
 } from '@nextrush/decorators';
 import { inject, Optional } from '@nextrush/di';
+import { NotFoundError } from 'nextrush';
 import { AdminGuard } from '../guards/auth.guard.js';
 import { ItemRepository } from '../services/item.repository.js';
 import type { ILogger } from '../services/logger.service.js';
@@ -68,7 +69,7 @@ export class ItemController {
   findById(@Param('id', { transform: Number }) id: number, @RequestTimestamp timestamp: string) {
     const item = this.itemRepo.findById(id);
     if (!item) {
-      return { error: 'Item not found', timestamp };
+      throw new NotFoundError('Item not found');
     }
     return { ...item, fetchedAt: timestamp };
   }

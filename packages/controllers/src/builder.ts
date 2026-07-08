@@ -182,25 +182,34 @@ function createRouteHandler(
   const responseHeaders = getResponseHeaders(controllerClass, methodName);
   const redirectMeta = getRedirectMetadata(controllerClass, methodName);
 
+  // Controllers are registered as singletons, so the instance never changes.
+  // Resolve it lazily on the first request and memoize it — this keeps the hot
+  // path allocation-free without forcing resolution at build time (so a
+  // `validate: false` opt-out still defers DI resolution to request time).
+  let controllerInstance: unknown;
+  let isResolved = false;
+
   return async (ctx: Context): Promise<void> => {
-    // Execute guards first (if any)
+    // Execute guards first (if any) — always per-request, never hoisted.
     if (guards.length > 0) {
       await executeGuards(guards, ctx, container, controllerClass.name, methodName);
     }
 
-    let controllerInstance: unknown;
-
-    try {
-      controllerInstance = container.resolve(
-        controllerClass as new (...args: unknown[]) => unknown
-      );
-    } catch (error) {
-      throw new ControllerResolutionError(
-        controllerClass.name,
-        error instanceof Error ? error : undefined
-      );
+    if (!isResolved) {
+      try {
+        controllerInstance = container.resolve(
+          controllerClass as new (...args: unknown[]) => unknown
+        );
+      } catch (error) {
+        // Do not memoize a failed resolution — keep retrying on each request
+        // until it succeeds (preserves retry-on-failure semantics).
+        throw new ControllerResolutionError(
+          controllerClass.name,
+          error instanceof Error ? error : undefined
+        );
+      }
+      isResolved = true;
     }
-
     const args = await resolveParametersFromPlan(
       ctx,
       sortedParams,

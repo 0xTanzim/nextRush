@@ -422,6 +422,53 @@ Headers from `@SetHeader` are precomputed at build time and applied before the h
 
 ---
 
+## Response & status codes
+
+A value returned from a handler is serialized as JSON with **HTTP 200**. Returning an object with a
+`status` field does not change the HTTP status — the response is still `200`, with `status` sitting
+in the body.
+
+```typescript
+@Get('/:id')
+findOne(@Param('id') id: string) {
+  return { id }; // 200 OK, Content-Type: application/json
+}
+```
+
+To send a different status code, pick one of three approaches:
+
+| Approach                                       | Use when                                         |
+| ---------------------------------------------- | ------------------------------------------------ |
+| Route option `@Get('/x', { statusCode: 201 })` | The status is fixed for the route                |
+| Inject `@Ctx()` and set `ctx.status`           | The status depends on runtime logic              |
+| `throw` an `HttpError` subclass                | Signalling an error (e.g. `NotFoundError` → 404) |
+
+The thrown-error path is the idiomatic way to return a `404` from a controller — throw a typed
+`HttpError` and let the error handler map it to the right status and body.
+
+```typescript
+import { NotFoundError } from 'nextrush';
+
+@Controller('/users')
+export class UserController {
+  @Get('/:id')
+  findById(@Param('id', { transform: Number }) id: number) {
+    const user = this.userService.findById(id);
+    if (!user) {
+      throw new NotFoundError('User not found'); // → 404 Not Found
+    }
+    return user; // → 200 OK
+  }
+}
+```
+
+<Callout type="info" title="@HttpCode() is proposed, not yet available">
+  A dedicated `@HttpCode()` decorator is a proposed future enhancement tracked by an RFC. Until it
+  lands, set status via the route `statusCode` option, `ctx.status`, or a thrown `HttpError`.
+</Callout>
+
+---
+
 ## Guards
 
 Guards protect routes by returning a boolean to allow or deny access.

@@ -23,7 +23,7 @@ import type { Context, Middleware } from '@nextrush/types';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildRoutes } from '../builder.js';
-import { GuardRejectionError } from '../errors.js';
+import { ControllerResolutionError, GuardRejectionError } from '../errors.js';
 
 describe('buildRoutes', () => {
   let container: Container;
@@ -875,6 +875,103 @@ describe('buildRoutes', () => {
       await routes[0].handler(mockCtx);
 
       expect(mockCtx.json).toHaveBeenCalledWith({ user: 'bob' });
+    });
+  });
+
+  describe('controller resolution hoisting (P2-10)', () => {
+    it('resolves the controller once across requests while running method and guards per-request', async () => {
+      let methodCalls = 0;
+      let guardCalls = 0;
+
+      const countingGuard: GuardFn = () => {
+        guardCalls++;
+        return true;
+      };
+
+      @UseGuard(countingGuard)
+      @Controller('/users')
+      class UserController {
+        @Get()
+        findAll() {
+          methodCalls++;
+          return [];
+        }
+      }
+
+      container.register(UserController, { useClass: UserController });
+      const resolveSpy = vi.spyOn(container, 'resolve');
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+      const handler = routes[0].handler;
+
+      await handler(createMockContext('GET', '/users'));
+      await handler(createMockContext('GET', '/users'));
+      await handler(createMockContext('GET', '/users'));
+
+      // Singletons never change — resolve the instance once, reuse it after.
+      const controllerResolves = resolveSpy.mock.calls.filter((call) => call[0] === UserController);
+      expect(controllerResolves).toHaveLength(1);
+
+      // Method body and guards must still run on every request.
+      expect(methodCalls).toBe(3);
+      expect(guardCalls).toBe(3);
+
+      resolveSpy.mockRestore();
+    });
+
+    it('does not cache a failed resolution — retries until resolve succeeds, then memoizes', async () => {
+      @Controller('/retry')
+      class RetryController {
+        @Get()
+        ping() {
+          return { ok: true };
+        }
+      }
+
+      container.register(RetryController, { useClass: RetryController });
+
+      const realResolve = container.resolve.bind(container);
+      let failuresRemaining = 2;
+      const resolveSpy = vi
+        .spyOn(container, 'resolve')
+        .mockImplementation((token: Parameters<Container['resolve']>[0]) => {
+          if (token === RetryController && failuresRemaining > 0) {
+            failuresRemaining--;
+            throw new Error('DI temporarily unavailable');
+          }
+          return realResolve(token);
+        });
+
+      const definition = getControllerDefinition(RetryController)!;
+      const routes = buildRoutes(definition, container, '', []);
+      const handler = routes[0].handler;
+
+      // First two requests fail — failure must NOT be cached.
+      await expect(handler(createMockContext('GET', '/retry'))).rejects.toBeInstanceOf(
+        ControllerResolutionError
+      );
+      await expect(handler(createMockContext('GET', '/retry'))).rejects.toBeInstanceOf(
+        ControllerResolutionError
+      );
+
+      // Third request resolves successfully.
+      const okCtx = createMockContext('GET', '/retry');
+      await handler(okCtx);
+      expect(okCtx.json).toHaveBeenCalledWith({ ok: true });
+
+      const resolvesBeforeCacheHit = resolveSpy.mock.calls.filter(
+        (call) => call[0] === RetryController
+      ).length;
+      expect(resolvesBeforeCacheHit).toBe(3);
+
+      // Fourth request reuses the memoized instance — no further resolve.
+      await handler(createMockContext('GET', '/retry'));
+      const resolvesAfterCacheHit = resolveSpy.mock.calls.filter(
+        (call) => call[0] === RetryController
+      ).length;
+      expect(resolvesAfterCacheHit).toBe(3);
+
+      resolveSpy.mockRestore();
     });
   });
 });

@@ -13,6 +13,7 @@ import {
   UseGuard,
 } from '@nextrush/decorators';
 import type { Context } from 'nextrush';
+import { NotFoundError } from 'nextrush';
 import { AuthGuard } from '../guards/auth.guard.js';
 import { UserService } from '../services/user.service.js';
 
@@ -55,7 +56,7 @@ export class UserController {
   findById(@Param('id', { transform: Number }) id: number) {
     const user = this.userService.findById(id);
     if (!user) {
-      return { error: 'User not found', status: 404 };
+      throw new NotFoundError('User not found');
     }
     return user;
   }
@@ -83,7 +84,7 @@ export class UserController {
   ) {
     const user = this.userService.update(id, data);
     if (!user) {
-      return { error: 'User not found', status: 404 };
+      throw new NotFoundError('User not found');
     }
     return { updated: true, user };
   }

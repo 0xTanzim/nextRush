@@ -347,6 +347,45 @@ throw new MissingParameterError('UserController', 'create', 'email', 'body');
 // Body: { "message": "Required body parameter \"email\" is missing", "code": "MISSING_PARAMETER" }
 ```
 
+## Response & status codes
+
+A plain value returned from a handler is serialized as JSON with **HTTP 200**:
+
+```typescript
+@Get('/:id')
+findOne(@Param('id') id: string) {
+  return { id }; // → 200 OK, Content-Type: application/json
+}
+```
+
+Returning an object with a `status` field does **not** change the HTTP status — the response is
+still `200`, with `status` sitting inside the body. To send a different status code, use one of:
+
+| Approach                                        | Use when                                        |
+| ----------------------------------------------- | ----------------------------------------------- |
+| Route option `@Get('/x', { statusCode: 201 })`  | The status is fixed for the route               |
+| Inject `@Ctx()` and set `ctx.status = 202`      | The status depends on runtime logic             |
+| `throw` an `HttpError` subclass                 | Signalling an error (e.g. `NotFoundError` → 404) |
+
+```typescript
+import { NotFoundError } from 'nextrush';
+
+@Controller('/users')
+export class UserController {
+  @Get('/:id')
+  findById(@Param('id', { transform: Number }) id: number) {
+    const user = this.userService.findById(id);
+    if (!user) {
+      throw new NotFoundError('User not found'); // → 404 Not Found
+    }
+    return user; // → 200 OK
+  }
+}
+```
+
+> A dedicated `@HttpCode()` decorator is a **proposed** future enhancement (RFC) and is not yet
+> available. Set status via the route `statusCode` option, `ctx.status`, or a thrown `HttpError`.
+
 ## registerControllers Options
 
 ```typescript
