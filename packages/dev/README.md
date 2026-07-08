@@ -65,7 +65,9 @@ pnpm add -D @nextrush/dev
 
 ### `nextrush dev` - Development Server
 
-Start a development server with hot reload and decorator support.
+Start a development server with auto-restart on change and decorator support.
+(Changes trigger a full process restart via the runtime's native watcher — this
+is auto-restart, not state-preserving HMR.)
 
 ```bash
 # Auto-detects entry file
@@ -120,6 +122,8 @@ nextrush build --target es2020
 | `--no-sourcemap`          | -     | -        | Disable sourcemaps           |
 | `--minify`                | `-m`  | `false`  | Minify output                |
 | `--no-decorator-metadata` | -     | -        | Skip decorator metadata      |
+| `--dts` / `--no-dts`      | -     | `--dts`  | Emit `.d.ts` declarations (fails the build on error unless `--no-dts`) |
+| `--no-cache`              | -     | -        | Bypass the incremental build cache |
 | `--no-clean`              | -     | -        | Don't clean output directory |
 | `--verbose`               | `-v`  | `false`  | Verbose output               |
 
@@ -459,3 +463,25 @@ For a deep dive into how this package works, see [ARCHITECTURE.md](./ARCHITECTUR
 ## License
 
 MIT © NextRush Team
+
+## Behavior & Cross-Platform Notes
+
+- **Auto-restart, not HMR.** `nextrush dev` uses the runtime's native watcher
+  (`node --watch`, `bun --watch`, `deno run --watch`). A change restarts the
+  process; module state is not preserved.
+- **Watch paths are honored per runtime.** `--watch <path>` (repeatable) maps to
+  `node --watch-path=<path>`, `deno --watch=<paths>`; on Bun (no path-scoped
+  watch) it warns and falls back to watching imported files.
+- **Flags accept `--flag=value` and `--flag value`.** Unknown flags are a hard
+  error (non-zero exit), not silently ignored.
+- **Cross-platform.** The SWC dev loader is resolved as a `file://` URL (correct
+  on Windows), path handling uses `node:path`, and Node child processes are
+  spawned via the running Node binary — no reliance on `npx`/PATH shims.
+- **Declarations are deterministic.** `.d.ts` files are generated with the
+  project's locally-installed TypeScript (no `npx`, no network); a declaration
+  failure fails the build unless `--no-dts` is passed.
+- **Safe cleaning.** `nextrush build` refuses to clean an output directory that
+  is the project root, an ancestor, the source directory, or outside the project.
+- **Output is ESM** (`module: es6`); `.ts`/`.tsx` → `.js`, `.mts` → `.mjs`,
+  `.cts` → `.cjs`. An incremental content-hash cache skips unchanged files
+  (`--no-cache` to bypass).

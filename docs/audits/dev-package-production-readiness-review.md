@@ -48,6 +48,25 @@ safety, a broken flag, and test coverage of the risky core — all closable with
 
 # Findings by Severity
 
+# Findings by Severity
+
+> **Post-audit remediation status (2026-07-08).** The findings below were resolved across four
+> code waves (commits `bb2c5c6`, `53fe14a`, `04f1f8e`, + this docs wave). Summary:
+> - **C1 FIXED** — dev loader resolved via `new URL(..., import.meta.url).href` (Windows-safe); tested with posix + `file:///C:/` fixtures.
+> - **C2 FIXED** — `cleanDirectory` throws (deletes nothing) for cwd/ancestor/outside/src `outDir`.
+> - **H1 FIXED** — `--watch <path>` honored (`node --watch-path`, `deno --watch=`, bun warns); display accurate.
+> - **H2 FIXED** — declarations via local TypeScript + `process.execPath` (no `npx`/network); real failure unless `--no-dts`.
+> - **H3 FIXED** — `@nextrush/dev` tests 116 → 193 (+77) covering spawn, buildDevArgs, cleanup guard, cache, concurrency, atomic writes, file-scanner, watch paths, arg parsing, Deno perms.
+> - **F1 FIXED** — Node spawns via `process.execPath` (no PATH/`.cmd`); `npx` eliminated.
+> - **M1–M6 DONE** — bounded-concurrency + content-hash cache (M1), `.tsx/.mts/.cts` (M2), auto-restart naming (M3), atomic writes (M4), `node:path` helpers (M5), `--flag=value` + unknown-flag errors (M6).
+> - **Remaining (noted, non-blocking):** a Deno+Windows posix-path fallback edge; a full end-to-end `build()` integration test (unit coverage of every build sub-module is in place); real Windows/macOS CI is the final platform gate.
+>
+> Verified (forced, raw turbo): typecheck 56/56, build 37/37, test 72/72; zero `any`; no dev
+> source file over cap. **Revised recommendation: the C/H/F blockers are closed — dev is
+> `1.0`-ready pending Windows/macOS CI confirmation.**
+
+---
+
 ## 🔴 Critical
 
 ### C1 — Windows dev loader path is malformed (`nextrush dev` broken on Windows)
