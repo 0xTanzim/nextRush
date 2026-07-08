@@ -59,6 +59,35 @@ layer. A stable tag on either is a promise you will be forced to break.
 
 ---
 
+---
+
+# Post-Review Remediation Status (2026-07-08)
+
+The Top-20 program was executed wave-by-wave after this review. Current state:
+
+- **B2 — CLOSED.** `@nextrush/class` public surface sealed: internals (`deepFreeze`,
+  `bootstrapPipeline`, `BootstrapContext`, `ResolvedBootstrapOptions`, `ClassRef`) moved behind
+  `src/internal.ts`; a `public-surface.test.ts` snapshot now locks the export-name set (Top-20
+  #2/#3, +#20 as the guard). Symbols still public only because the deprecated shims re-export
+  them are bounded to the shim-removal window (ADR-0005).
+- **B1 — RE-CLASSIFIED (not a blocker).** The extension-model migration is **code-complete**
+  (TODO M1–M7 shipped; zero old-`Plugin` references in source; core ships `extend()`/`ready()`).
+  The review was misled by stale TODO checkboxes, which have been reconciled. Only the M8
+  release checklist remains.
+- **Mechanical Top-20 done:** `build.ts` 674→215 + modules, `glob` dependency removed (#10, #17);
+  `dev.ts` trimmed under cap; scratch/draft/superseded docs purged; versioning RFC relocated;
+  ADRs 0002–0006 added (#16); package tiers + shim window encoded (H2/H3/#19).
+- **H1/M1/M3/#14 — DEFERRED WITH DECISION** (ADR-0006): module encapsulation, per-app isolation
+  default, pipeline observability, typed config are 1.x features, not 1.0 blockers.
+- **Verification:** forced no-cache typecheck 56/56, build 37/37, test 72/72; zero `any` and no
+  source file over cap in touched packages.
+
+**Revised recommendation: the two blockers are closed/re-classified. The framework is
+`1.0.0-rc` ready.** Remaining before the RC tag is the M8 release mechanics (changeset version
+bump + CHANGELOG), not further architecture work.
+
+---
+
 # Release-Blocker Classification
 
 ## 🔴 Release Blockers (minimum set — nothing minor included)
