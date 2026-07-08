@@ -96,6 +96,9 @@ export {
   SetHeader,
   // Guard decorators
   UseGuard,
+  // Exception filter decorators
+  Catch,
+  UseFilter,
 } from '@nextrush/decorators';
 export type {
   BodyOptions,
@@ -103,6 +106,7 @@ export type {
   ControllerMetadata,
   ControllerOptions,
   CustomParamExtractor,
+  ExceptionFilter,
   GuardContext,
   GuardFn,
   HeaderOptions,

@@ -19,6 +19,9 @@ export type {
   ControllerMetadata,
   ControllerOptions,
   CustomParamExtractor,
+  ExceptionFilter,
+  ExceptionFilterClass,
+  FilterMetadata,
   Guard,
   GuardContext,
   GuardFn,
@@ -69,6 +72,16 @@ export { Body, Ctx, Header, Param, Query, Req, Res, createCustomParamDecorator }
 
 // Guard Decorators
 export { UseGuard, getAllGuards, getClassGuards, getMethodGuards } from './guards.js';
+
+// Exception Filter Decorators
+export {
+  Catch,
+  UseFilter,
+  getAllFilters,
+  getCatchTypes,
+  getClassFilters,
+  getMethodFilters,
+} from './filters.js';
 
 // Metadata Readers
 export type { ControllerDefinition } from './metadata.js';

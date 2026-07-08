@@ -8,6 +8,7 @@
 
 import type { RouteMetadata } from '@nextrush/decorators';
 import {
+  getAllFilters,
   getAllGuards,
   getHttpCode,
   getParamMetadata,
@@ -17,6 +18,7 @@ import {
 import type { Container } from '@nextrush/di';
 import type { Context, RouteHandler } from '@nextrush/types';
 import { ControllerResolutionError } from './errors.js';
+import { wrapWithFilters } from './filter-runner.js';
 import { executeGuards } from './guard-runner.js';
 import { resolveParametersFromPlan } from './param-resolver.js';
 
@@ -36,6 +38,7 @@ export function createRouteHandler(
   const methodName = String(route.methodName);
   const paramMetadata = getParamMetadata(controllerClass, methodName);
   const guards = getAllGuards(controllerClass, methodName);
+  const filters = getAllFilters(controllerClass, methodName);
 
   // Precompute sorted param injection plan at build time (not per-request)
   const sortedParams =
@@ -48,7 +51,7 @@ export function createRouteHandler(
   const responseHeaders = getResponseHeaders(controllerClass, methodName);
   const redirectMeta = getRedirectMetadata(controllerClass, methodName);
 
-  return async (ctx: Context): Promise<void> => {
+  const execute: RouteHandler = async (ctx: Context): Promise<void> => {
     // Execute guards first (if any) — always per-request, never hoisted.
     if (guards.length > 0) {
       await executeGuards(guards, ctx, container, controllerClass.name, methodName);
@@ -129,4 +132,9 @@ export function createRouteHandler(
       }
     }
   };
+
+  // Wrap with the exception-filter pipeline only when the route declares
+  // filters — filter-free routes keep their original, unwrapped behavior so
+  // errors propagate to the global error middleware exactly as before.
+  return filters.length > 0 ? wrapWithFilters(execute, filters, container) : execute;
 }

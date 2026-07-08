@@ -58,6 +58,7 @@ export {
     Body,
     Controller,
     Ctx,
+    Catch,
     Delete,
     Get,
     Header,
@@ -66,9 +67,10 @@ export {
     Post,
     Put,
     Query,
+    UseFilter,
     UseGuard
 } from '@nextrush/decorators';
-export type { GuardContext, GuardFn } from '@nextrush/decorators';
+export type { ExceptionFilter, GuardContext, GuardFn } from '@nextrush/decorators';
 export {
     Repository,
     Service,

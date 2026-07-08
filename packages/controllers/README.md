@@ -310,6 +310,68 @@ const AuthGuard: GuardFn = (ctx) => {
 The guard's error is never swallowed or downgraded to a generic 403 — its status, message, and
 stack are preserved. This makes 401 (and any other status) expressible from a guard.
 
+## Exception filters
+
+Exception filters localize error handling to a controller or a single route. They are
+**opt-in**: a controller/route with no filter behaves exactly as before — thrown errors
+propagate to the global error middleware.
+
+A filter is a class implementing `ExceptionFilter`. It declares which errors it handles with
+`@Catch(...)` and produces the response by mutating `ctx`. Attach filters with `@UseFilter`
+(usable at both the controller and method level).
+
+```typescript
+import { Catch, Controller, Get, UseFilter, type ExceptionFilter } from '@nextrush/controllers';
+import { Service } from '@nextrush/di';
+import type { Context } from '@nextrush/types';
+
+class EntityNotFoundError extends Error {}
+
+@Service()
+@Catch(EntityNotFoundError)
+class NotFoundFilter implements ExceptionFilter {
+  catch(error: unknown, ctx: Context): void {
+    ctx.status = 404;
+    ctx.json({ error: 'Not found' });
+  }
+}
+
+@UseFilter(NotFoundFilter)
+@Controller('/users')
+class UserController {
+  @Get('/:id')
+  findOne() {
+    throw new EntityNotFoundError('no such user'); // → handled by NotFoundFilter (404)
+  }
+}
+```
+
+### Resolution
+
+Filters are **class-based and resolved from the DI container** (like class guards), so they can
+inject services — a logger, metrics, or an error-to-response mapper. Register a filter the same
+way you register any injectable, and resolution happens lazily, only when an error is actually
+thrown.
+
+### Matching and precedence
+
+When a route's body throws — from a guard, parameter resolution, or the handler method — the
+first matching filter handles it:
+
+- `@Catch(A, B)` matches when `error instanceof A` **or** `error instanceof B` (subclasses
+  included).
+- No-arg `@Catch()` (or a filter with no `@Catch`) is a **catch-all** and matches any error.
+- **Method-level filters take precedence over class-level filters**; within a level, the
+  first-listed matching filter wins.
+- The first matching filter is invoked and remaining filters are skipped.
+
+### Relation to the global error middleware
+
+Filters sit **in front of** the global error middleware, not in place of it. If **no** filter
+matches the thrown error, it is **rethrown unchanged** and the global error middleware handles
+it exactly as it does today. This is what keeps filters non-breaking and preserves guard-error
+propagation: a filter only intercepts errors it explicitly opts into via `@Catch`.
+
 ## Parameter Extraction
 
 Parameters are extracted from the request based on decorator metadata:

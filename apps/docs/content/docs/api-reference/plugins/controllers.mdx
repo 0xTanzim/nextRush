@@ -597,6 +597,67 @@ export class ResourceController {}
 
 ---
 
+## Exception filters
+
+Exception filters localize error handling to a controller or a single route. They are opt-in and
+non-breaking: a route with no filter behaves exactly as before — thrown errors propagate to the
+global error middleware.
+
+A filter is a class implementing `ExceptionFilter`. It declares which errors it handles with
+`@Catch(...)` and sets the response through `ctx`. Attach filters with `@UseFilter`, usable at
+both the controller and method level (mirroring `@UseGuard`).
+
+```typescript
+import { Catch, Controller, Get, UseFilter } from '@nextrush/decorators';
+import { Service } from '@nextrush/di';
+import type { ExceptionFilter } from '@nextrush/decorators';
+import type { Context } from '@nextrush/types';
+
+class EntityNotFoundError extends Error {}
+
+@Service()
+@Catch(EntityNotFoundError)
+class NotFoundFilter implements ExceptionFilter {
+  catch(error: unknown, ctx: Context): void {
+    ctx.status = 404;
+    ctx.json({ error: 'Not found' });
+  }
+}
+
+@UseFilter(NotFoundFilter)
+@Controller('/users')
+export class UserController {
+  @Get('/:id')
+  findOne() {
+    throw new EntityNotFoundError('no such user'); // handled by NotFoundFilter (404)
+  }
+}
+```
+
+Filters are resolved from the DI container like class guards, so they can inject services
+(loggers, metrics, error mappers). Resolution is lazy — a filter is only resolved when an error
+is actually thrown and it is about to run.
+
+Matching and precedence when a route body throws (from a guard, parameter resolution, or the
+handler):
+
+<TypeTable
+  title="Matching rules"
+  types={{
+    'catch types': { type: '@Catch(A, B)', description: 'Matches when error instanceof A or B (subclasses included)' },
+    'catch-all': { type: '@Catch()', description: 'No-arg (or no @Catch) matches any error' },
+    precedence: { type: 'method → class', description: 'Method-level filters run before class-level; first match wins' },
+    unmatched: { type: 'rethrow', description: 'No matching filter re-throws to the global error middleware' },
+  }}
+/>
+
+<Callout type="info" title="Relation to the global error middleware">
+  Filters sit in front of the global error middleware, not in place of it. An error no filter
+  matches is rethrown unchanged, so the global handler runs exactly as it does today.
+</Callout>
+
+---
+
 ## Dependency Injection
 
 Import DI decorators from `@nextrush/di`.
@@ -824,12 +885,14 @@ import {
   Req,
   Res,
   UseGuard,
+  Catch,
+  UseFilter,
   SetHeader,
   Redirect,
   createCustomParamDecorator,
 } from '@nextrush/decorators';
 
-import type { GuardFn, GuardContext, CanActivate } from '@nextrush/decorators';
+import type { GuardFn, GuardContext, CanActivate, ExceptionFilter } from '@nextrush/decorators';
 
 // DI
 import { Service, Repository, container, createContainer } from '@nextrush/di';
