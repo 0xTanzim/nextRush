@@ -66,6 +66,37 @@ export interface ControllersOptions {
   container?: Container;
 
   /**
+   * Give this registration call its **own** isolated DI container so two apps in
+   * the same process do not share service singletons.
+   *
+   * `@Service`/`@Repository`/`@Config` register their classes into the global
+   * `@nextrush/di` container at import time, so by default every app that falls
+   * back to the global container shares one instance of each service. With
+   * `isolate: true`, `registerControllers` creates a fresh container via
+   * `createContainer()` and re-registers the reachable service graph (each
+   * controller's constructor dependency classes, transitively) into it with each
+   * class's declared scope. Each isolated app then owns its own service
+   * singletons; the controllers, their handlers, and boot-time validation all
+   * resolve from this container.
+   *
+   * When `options.container` is provided it always wins — even under
+   * `isolate: true` — because the caller has taken explicit ownership; the
+   * service graph is registered into that container instead of a fresh one.
+   *
+   * String/symbol `@inject('TOKEN')` dependencies and any value/factory providers
+   * carry no class metadata, so the graph walk cannot auto-register them. Register
+   * them on the container you pass **before** calling `registerControllers` (see
+   * the README). `@Optional()` dependencies that stay unregistered resolve to
+   * `undefined` as usual.
+   *
+   * Non-breaking: defaults to `false`, preserving the current shared-container
+   * behavior for every existing caller.
+   *
+   * @default false
+   */
+  isolate?: boolean;
+
+  /**
    * Global middleware to apply to all controllers
    */
   middleware?: Middleware[];
@@ -112,6 +143,7 @@ export interface ResolvedOptions {
   readonly prefix: string;
   readonly strict: boolean;
   readonly validate: boolean;
+  readonly isolate: boolean;
 }
 
 /**

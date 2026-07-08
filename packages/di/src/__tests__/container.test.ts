@@ -8,6 +8,7 @@ import {
   CircularDependencyError,
   container,
   createContainer,
+  DependencyResolutionError,
   inject,
   InvalidProviderError,
   Optional,
@@ -588,6 +589,40 @@ describe('@nextrush/di - Container', () => {
     });
   });
 
+  describe('error classification (P2-11)', () => {
+    it('should classify a missing constructor dependency as DependencyResolutionError (not circular)', () => {
+      // tsyringe wraps a missing *constructor* dependency in a message containing BOTH
+      // "Cannot inject the dependency" AND "unregistered dependency token". A genuine
+      // missing dep must map to DependencyResolutionError, never CircularDependencyError.
+      @Service()
+      class MissingDepService {
+        constructor(@inject('UNREGISTERED_DEP') public dep: unknown) {}
+      }
+
+      container.register(MissingDepService, { useClass: MissingDepService });
+
+      expect(() => container.resolve(MissingDepService)).toThrow(DependencyResolutionError);
+      expect(() => container.resolve(MissingDepService)).not.toThrow(CircularDependencyError);
+    });
+
+    it('should still classify a true circular dependency as CircularDependencyError', () => {
+      @Service()
+      class CycleA {
+        constructor(@inject('CycleB') public b: unknown) {}
+      }
+
+      @Service()
+      class CycleB {
+        constructor(@inject(CycleA) public a: unknown) {}
+      }
+
+      container.register(CycleA, { useClass: CycleA });
+      container.register('CycleB', { useClass: CycleB });
+
+      expect(() => container.resolve(CycleA)).toThrow(CircularDependencyError);
+    });
+  });
+
   describe('@Optional resolution behavior', () => {
     it('should resolve class with missing optional dep as undefined', () => {
       @Service()
@@ -643,7 +678,7 @@ describe('@nextrush/di - Container', () => {
 
       container.register(RequiredOnly, { useClass: RequiredOnly });
 
-      expect(() => container.resolve(RequiredOnly)).toThrow();
+      expect(() => container.resolve(RequiredOnly)).toThrow(DependencyResolutionError);
     });
   });
 });

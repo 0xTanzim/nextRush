@@ -22,6 +22,8 @@ import {
     InvalidProviderError,
 } from './errors.js';
 
+import { getServiceScope } from './decorators.js';
+
 /**
  * Get a human-readable name for a token.
  */
@@ -70,7 +72,11 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
       bootstrappedValues.delete(token);
 
       if (isClassProvider(provider)) {
-        if (options?.scope === 'singleton') {
+        // Scope defaults are unified on 'singleton'. An explicit `options.scope` wins;
+        // otherwise the class's declared `di:scope` metadata is the single source of
+        // truth (getServiceScope defaults undecorated classes to 'singleton').
+        const scope = options?.scope ?? getServiceScope(provider.useClass);
+        if (scope === 'singleton') {
           tsyInstance.registerSingleton(tsyToken, provider.useClass);
         } else {
           tsyInstance.register(tsyToken, { useClass: provider.useClass });
@@ -131,29 +137,39 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
           throw error;
         }
 
-        // Detect tsyringe-internal circular dependencies (stack overflow)
-        if (error instanceof RangeError && error.message.includes('Maximum call stack')) {
-          const cycle = [...resolutionStack, tokenName];
-          throw new CircularDependencyError(cycle);
-        }
+        const message = error instanceof Error ? error.message.toLowerCase() : '';
 
-        // Detect tsyringe "Cannot inject" errors (typically circular deps)
-        if (error instanceof Error && error.message.includes('Cannot inject the dependency')) {
-          const cycle = [...resolutionStack, tokenName];
-          throw new CircularDependencyError(cycle);
-        }
-
-        // Enhance error message for missing registrations
-        if (error instanceof Error) {
-          const message = error.message.toLowerCase();
-
-          if (
-            message.includes('not registered') ||
+        // Missing / unregistered dependency → resolution error. This MUST be checked
+        // before any "Cannot inject" heuristic below: tsyringe wraps a missing
+        // *constructor* dependency in a message containing BOTH "Cannot inject the
+        // dependency" AND "unregistered dependency token", so checking "Cannot inject"
+        // first would misreport a genuine missing dep as a circular dependency.
+        if (
+          error instanceof Error &&
+          (message.includes('not registered') ||
             message.includes('cannot resolve') ||
-            message.includes('unregistered dependency')
-          ) {
-            throw new DependencyResolutionError([...resolutionStack], tokenName);
-          }
+            message.includes('unregistered'))
+        ) {
+          throw new DependencyResolutionError([...resolutionStack], tokenName);
+        }
+
+        // True cycle signals, in order of confidence:
+        //  (a) tsyringe recursion blew the JS stack (RangeError / "maximum call stack");
+        //  (b) the message explicitly names a circular/cyclic dependency;
+        //  (c) a nested "Cannot inject the dependency" chain with NO missing-token signal
+        //      (the missing-token case was already handled above) — tsyringe's shape for a
+        //      cycle where every participant IS registered.
+        const isStackOverflow =
+          (error instanceof RangeError && error.message.includes('Maximum call stack')) ||
+          message.includes('maximum call stack');
+        if (
+          isStackOverflow ||
+          message.includes('circular') ||
+          message.includes('cyclic') ||
+          message.includes('cannot inject the dependency')
+        ) {
+          const cycle = [...resolutionStack, tokenName];
+          throw new CircularDependencyError(cycle);
         }
 
         throw error;

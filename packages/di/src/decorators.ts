@@ -208,13 +208,20 @@ export function getServiceType(target: object): string | undefined {
 }
 
 /**
- * Get the scope from a decorated class.
+ * Get the declared scope of a class — the single source of truth for service scope.
+ *
+ * Scope defaults are unified on `'singleton'`: `@Service()`, `@Repository()`, and
+ * `@Config()` all declare `singleton` unless `{ scope: 'transient' }` is passed, and an
+ * undecorated class (no `di:scope` metadata) is treated as `singleton` too. The
+ * low-level {@link Container.register} reads this value so a class's declared scope —
+ * not the call site — decides singleton vs transient.
  *
  * @param target - The class to check
- * @returns The scope ('singleton' | 'transient') or undefined
+ * @returns The declared scope (`'singleton'` | `'transient'`); `'singleton'` when undeclared
  */
-export function getServiceScope(target: object): Scope | undefined {
-  return Reflect.getMetadata(METADATA_KEYS.SERVICE_SCOPE, target) as Scope | undefined;
+export function getServiceScope(target: object): Scope {
+  return (Reflect.getMetadata(METADATA_KEYS.SERVICE_SCOPE, target) as Scope | undefined) ??
+    'singleton';
 }
 
 /**
@@ -279,6 +286,44 @@ export function getConfigPrefix(target: object): string | undefined {
 }
 
 /**
+ * Deliberate, isolated coupling to tsyringe internals.
+ *
+ * tsyringe stores per-parameter `@inject()` descriptors under the private
+ * `'injectionTokens'` metadata key and honours an `isOptional` flag on each descriptor
+ * to return `undefined` (instead of throwing) for an unregistered optional dependency.
+ * There is no public tsyringe API for "optional inject", so {@link Optional} sets that
+ * flag directly. This adapter is the ONE place that touches tsyringe's descriptor shape.
+ *
+ * It is defensive by design: if a future tsyringe upgrade changes the descriptor shape,
+ * this is a no-op rather than a throw, and the end-to-end `@Optional()` resolution test
+ * (`decorators.test.ts`) fails loudly so the breakage is caught at CI time.
+ *
+ * @param target - The class constructor the parameter belongs to
+ * @param parameterIndex - Zero-based index of the constructor parameter
+ * @internal
+ */
+function markTsyringeParamOptional(target: object, parameterIndex: number): void {
+  const TSYRINGE_INJECTION_KEY = 'injectionTokens';
+  try {
+    const descriptors =
+      (Reflect.getOwnMetadata(TSYRINGE_INJECTION_KEY, target) as
+        | Record<number, unknown>
+        | undefined) ?? {};
+    const descriptor = descriptors[parameterIndex];
+
+    // @inject() (which runs before @Optional() in right-to-left param-decorator order)
+    // must already have created the descriptor with a `token` field.
+    if (descriptor && typeof descriptor === 'object' && 'token' in descriptor) {
+      (descriptor as Record<string, unknown>).isOptional = true;
+      Reflect.defineMetadata(TSYRINGE_INJECTION_KEY, descriptors, target);
+    }
+  } catch {
+    // Descriptor shape changed across a tsyringe version — degrade gracefully. Our own
+    // OPTIONAL_PARAMS metadata is still recorded; the e2e resolution test guards the flag.
+  }
+}
+
+/**
  * Mark a constructor parameter as optional.
  *
  * When a dependency marked `@Optional()` cannot be resolved, the container
@@ -312,23 +357,9 @@ export function Optional(): ParameterDecorator {
     existing.add(parameterIndex);
     Reflect.defineMetadata(METADATA_KEYS.OPTIONAL_PARAMS, existing, target);
 
-    // Set isOptional on tsyringe's injection token descriptor so that tsyringe
-    // natively returns undefined for unregistered optional deps instead of throwing.
-    // This works because @inject() runs before @Optional() (right-to-left param decorator order)
-    // and @Service()/@injectable() runs after both (class decorator order).
-    const TSYRINGE_INJECTION_KEY = 'injectionTokens';
-    const descriptors =
-      (Reflect.getOwnMetadata(TSYRINGE_INJECTION_KEY, target) as
-        | Record<number, unknown>
-        | undefined) ?? {};
-    const descriptor = descriptors[parameterIndex];
-
-    if (descriptor && typeof descriptor === 'object' && 'token' in descriptor) {
-      // @inject() already created the descriptor — set isOptional flag
-      (descriptor as Record<string, unknown>).isOptional = true;
-    }
-
-    Reflect.defineMetadata(TSYRINGE_INJECTION_KEY, descriptors, target);
+    // Flip tsyringe's native `isOptional` flag so unregistered optional deps resolve to
+    // undefined instead of throwing. Isolated behind a single guarded adapter.
+    markTsyringeParamOptional(target, parameterIndex);
   };
 }
 

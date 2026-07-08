@@ -460,6 +460,10 @@ interface ControllersOptions {
   // DI container — defaults to app.container, then the global container
   container?: Container;
 
+  // Per-app DI isolation — give this registration its own container so two apps
+  // in one process don't share service singletons (opt-in, default false)
+  isolate?: boolean;
+
   // Debugging
   debug?: boolean; // Log discovered routes
   strict?: boolean; // Throw on discovery errors
@@ -467,6 +471,50 @@ interface ControllersOptions {
 ```
 
 `registerControllers` resolves its container in this order: `options.container` → `app.container` → the global `@nextrush/di` container. There is no `router` option — it always registers on `app.router`, so the app must be created with a router (`createApp()` from `nextrush`, or `createApp({ router })` from `@nextrush/core`).
+
+### Isolated container (opt-in)
+
+`@Service`/`@Repository`/`@Config` register their classes into the process-global
+`@nextrush/di` container at import time. So by default, two `createApp()` instances in the
+same process that fall back to the global container **share one instance of each service** —
+a `container.register(TOKEN, { useValue })` on one app is visible to the other, and test state
+leaks between apps.
+
+Pass `isolate: true` to give a registration call its **own** container:
+
+```typescript
+// Each app owns its own service singletons — no cross-app sharing.
+await registerControllers(app1, { controllers: [UserController], isolate: true });
+await registerControllers(app2, { controllers: [UserController], isolate: true });
+```
+
+`registerControllers` creates a fresh container with `createContainer()` and re-registers the
+reachable service graph into it: for each controller it reads the constructor dependency
+**classes** (transitively) and registers every `@Service`/`@Repository`/`@Config` among them
+with its declared scope. Controllers, their route handlers, and boot-time validation all
+resolve from this isolated container.
+
+**Register non-class providers first.** The graph walk can only auto-register **class**
+dependencies. String/symbol `@inject('TOKEN')` tokens and any `useValue`/`useFactory`
+providers carry no class metadata, so you must register them on the container you pass
+**before** calling `registerControllers` — which also means passing your own `container`
+(it always wins, even under `isolate: true`):
+
+```typescript
+const container = createContainer();
+container.register('DATABASE_URL', { useValue: process.env.DATABASE_URL });
+container.register('CACHE', { useFactory: () => new RedisCache() });
+
+const app = createApp({ container });
+await registerControllers(app, {
+  controllers: [UserController],
+  container,        // caller-owned container always wins
+  isolate: true,    // still re-registers the @Service graph into it
+});
+```
+
+`@Optional()` dependencies that stay unregistered resolve to `undefined`, exactly as without
+isolation. `isolate` defaults to `false`, so existing callers are unaffected.
 
 ### Explicit Registration
 

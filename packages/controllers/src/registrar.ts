@@ -16,7 +16,7 @@
 
 import type { Application } from '@nextrush/core';
 import { getAllGuards, isGuardClass } from '@nextrush/decorators';
-import { container as globalContainer, DIError, type Container } from '@nextrush/di';
+import { container as globalContainer, createContainer, DIError, type Container } from '@nextrush/di';
 import { ROUTE_METADATA, type Router } from '@nextrush/types';
 import {
   DEFAULT_EXCLUDE,
@@ -26,6 +26,7 @@ import {
   getErrorsFromResults,
 } from './discovery.js';
 import { ControllerResolutionError, RouteRegistrationError } from './errors.js';
+import { registerServiceGraph } from './isolation.js';
 import { ControllerRegistry } from './registry.js';
 import type {
   ControllersOptions,
@@ -74,6 +75,7 @@ function resolveOptions(
     prefix: options.prefix ?? '',
     strict: options.strict ?? false,
     validate: options.validate ?? true,
+    isolate: options.isolate ?? false,
   };
 }
 
@@ -221,7 +223,13 @@ export async function registerControllers(
     );
   }
 
-  const container: Container = options.container ?? app.container ?? globalContainer;
+  // Container ownership: an explicit `options.container` always wins (the caller
+  // has taken ownership). Otherwise `isolate: true` gives this registration its
+  // own fresh container so its service graph is isolated from other apps; the
+  // default (non-isolate) path is unchanged — app.container, then the global one.
+  const container: Container =
+    options.container ??
+    (options.isolate ? createContainer() : (app.container ?? globalContainer));
   const opts = resolveOptions(options, container);
   const registry = new ControllerRegistry(
     opts.container,
@@ -260,6 +268,13 @@ export async function registerControllers(
   if (controllers.length === 0) {
     warnLog('No controllers found. Check your root path or patterns.');
     return;
+  }
+
+  // Under isolation, re-register the reachable service graph into this app's own
+  // container BEFORE bootstrap/validation, so controllers and their dependencies
+  // resolve to per-app singletons instead of delegating to the shared global one.
+  if (opts.isolate) {
+    registerServiceGraph(controllers, opts.container);
   }
 
   // Bootstrap async factory providers before controller resolution.
