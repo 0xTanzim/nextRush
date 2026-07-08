@@ -193,3 +193,17 @@ export function getRedirectMetadata(
   );
   return map?.get(methodName);
 }
+
+/**
+ * Get the `@HttpCode()` status code for a controller method.
+ *
+ * Returns the status code stored by `@HttpCode(code)`, or `undefined` if the
+ * method is not decorated.
+ */
+export function getHttpCode(target: Function, methodName: string): number | undefined {
+  const map: Map<string, number> | undefined = Reflect.getOwnMetadata(
+    DECORATOR_METADATA_KEYS.HTTP_CODE,
+    target
+  );
+  return map?.get(methodName);
+}

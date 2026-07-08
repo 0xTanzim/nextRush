@@ -82,6 +82,7 @@ export {
   Get,
   Head,
   Header,
+  HttpCode,
   Options,
   Param,
   Patch,

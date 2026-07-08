@@ -306,6 +306,25 @@ class UserController {
 search() {}
 ```
 
+### `@HttpCode(statusCode)`
+
+Set a fixed HTTP status code for a handler that returns a value.
+
+```typescript
+@Controller('/users')
+class UserController {
+  @Post()
+  @HttpCode(201)
+  create(@Body() data: CreateUserDto) {
+    return this.users.create(data); // → 201 Created
+  }
+}
+```
+
+`@HttpCode` takes precedence over the route decorator's `statusCode` option when both are set.
+It does not apply to error responses (a thrown `HttpError` keeps its own status) or to
+`@Redirect` (the redirect status wins).
+
 ### `@SetHeader(name, value)`
 
 Set response headers on a route. Multiple headers can be applied by stacking decorators.
@@ -634,6 +653,7 @@ export { Controller, Get, Post, Put, Patch, Delete, Head, Options, All };
 export { Body, Param, Query, Header, Ctx, Req, Res };
 export { UseGuard };
 export { SetHeader, Redirect };
+export { HttpCode };
 export { createCustomParamDecorator };
 
 // Types
@@ -657,7 +677,7 @@ export type { ControllerDefinition };
 export { isController, getControllerMetadata, getRouteMetadata, getParamMetadata };
 export { getAllParamMetadata, getControllerDefinition };
 export { getAllGuards, getClassGuards, getMethodGuards, isGuardClass };
-export { getResponseHeaders, getRedirectMetadata };
+export { getResponseHeaders, getRedirectMetadata, getHttpCode };
 
 // Constants & type guards
 export { DECORATOR_METADATA_KEYS, isValidHttpMethod, isValidParamSource };

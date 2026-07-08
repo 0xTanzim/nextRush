@@ -10,6 +10,7 @@ import {
   Ctx,
   Get,
   getControllerDefinition,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -780,6 +781,68 @@ describe('buildRoutes', () => {
 
       expect(mockCtx.set).toHaveBeenCalledWith('X-A', 'a');
       expect(mockCtx.set).toHaveBeenCalledWith('X-B', 'b');
+    });
+  });
+
+  describe('@HttpCode integration (DX-2)', () => {
+    it('should set the response status from @HttpCode when the method returns a body', async () => {
+      @Controller('/users')
+      class UserController {
+        @Post()
+        @HttpCode(201)
+        create() {
+          return { id: 1 };
+        }
+      }
+
+      container.register(UserController, { useClass: UserController });
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('POST', '/users', { name: 'John' });
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.status).toBe(201);
+      expect(mockCtx.json).toHaveBeenCalledWith({ id: 1 });
+    });
+
+    it('should let @HttpCode override the route statusCode option (precedence)', async () => {
+      @Controller('/users')
+      class UserController {
+        @Post('/', { statusCode: 200 })
+        @HttpCode(201)
+        create() {
+          return { id: 1 };
+        }
+      }
+
+      container.register(UserController, { useClass: UserController });
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('POST', '/users');
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.status).toBe(201);
+    });
+
+    it('should fall back to the route statusCode when @HttpCode is absent', async () => {
+      @Controller('/users')
+      class UserController {
+        @Post('/', { statusCode: 202 })
+        create() {
+          return { id: 1 };
+        }
+      }
+
+      container.register(UserController, { useClass: UserController });
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('POST', '/users');
+      await routes[0].handler(mockCtx);
+
+      expect(mockCtx.status).toBe(202);
     });
   });
 

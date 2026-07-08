@@ -47,6 +47,9 @@ export {
 // Class Decorators
 export { Controller } from './class.js';
 
+// Response Decorators
+export { HttpCode } from './http-code.js';
+
 // Route Decorators
 export {
   All,
@@ -74,6 +77,7 @@ export {
   getAllParamMetadata,
   getControllerDefinition,
   getControllerMetadata,
+  getHttpCode,
   getParamMetadata,
   getRedirectMetadata,
   getResponseHeaders,

@@ -379,6 +379,7 @@ still `200`, with `status` sitting inside the body. To send a different status c
 
 | Approach                                        | Use when                                        |
 | ----------------------------------------------- | ----------------------------------------------- |
+| `@HttpCode(201)` on the method                  | The status is fixed for the handler             |
 | Route option `@Get('/x', { statusCode: 201 })`  | The status is fixed for the route               |
 | Inject `@Ctx()` and set `ctx.status = 202`      | The status depends on runtime logic             |
 | `throw` an `HttpError` subclass                 | Signalling an error (e.g. `NotFoundError` → 404) |
@@ -399,8 +400,29 @@ export class UserController {
 }
 ```
 
-> A dedicated `@HttpCode()` decorator is a **proposed** future enhancement (RFC) and is not yet
-> available. Set status via the route `statusCode` option, `ctx.status`, or a thrown `HttpError`.
+### `@HttpCode(statusCode)`
+
+Set a fixed status code for a handler that returns a value:
+
+```typescript
+import { Controller, Post, HttpCode, Body } from 'nextrush/class';
+
+@Controller('/users')
+export class UserController {
+  @Post()
+  @HttpCode(201)
+  create(@Body() data: CreateUserDto) {
+    return this.userService.create(data); // → 201 Created
+  }
+}
+```
+
+Precedence:
+
+- `@HttpCode` **overrides** the route decorator's `statusCode` option when both are present
+  (`@Post('/', { statusCode: 200 }) @HttpCode(201)` responds with `201`).
+- A thrown `HttpError` keeps the error's status (`@HttpCode` does not apply to error responses).
+- `@Redirect` keeps the redirect status (the redirect wins over `@HttpCode`).
 
 ## Controller lifecycle: singletons
 
