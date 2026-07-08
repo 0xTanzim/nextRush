@@ -153,6 +153,22 @@ export function buildCli(args: string[]): void {
         options.decoratorMetadata = false;
         break;
       }
+      case '--dts': {
+        options.dts = true;
+        break;
+      }
+      case '--no-dts': {
+        options.dts = false;
+        break;
+      }
+      case '--cache': {
+        options.cache = true;
+        break;
+      }
+      case '--no-cache': {
+        options.cache = false;
+        break;
+      }
       case '--no-clean': {
         options.clean = false;
         break;
@@ -194,6 +210,10 @@ Options:
   --no-sourcemap            Disable sourcemaps
   --minify, -m              Minify output
   --no-decorator-metadata   Disable decorator metadata emission
+  --dts                     Generate .d.ts files (default: true)
+  --no-dts                  Disable .d.ts generation
+  --cache                   Use incremental build cache (default: true)
+  --no-cache                Disable build cache
   --no-clean                Don't clean output directory
   --verbose, -v             Verbose output
 
@@ -202,6 +222,8 @@ Examples:
   nextrush build ./src/index.ts
   nextrush build --outDir dist --minify
   nextrush build --target esnext --no-sourcemap
+  nextrush build --no-dts
+  nextrush build --no-cache
 
 Note:
   This command uses SWC to compile TypeScript with decorator metadata
