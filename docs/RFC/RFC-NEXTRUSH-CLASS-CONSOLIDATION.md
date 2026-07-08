@@ -1,6 +1,6 @@
 # RFC-NEXTRUSH-CLASS-CONSOLIDATION — The `@nextrush/class` Runtime
 
-**Status:** 🟡 Proposed (awaiting maintainer decision on open questions §7)
+**Status:** 🟢 Accepted — v2 (maintainer-approved 2026-07-08, 9.7/10; internal-structure refinements folded in; D1–D4 decided §7). Implementation gated only on execution go-ahead, not further design.
 **Date:** 2026-07-08
 **Type:** Package architecture + public-API (breaking — major version)
 **Supersedes/settles:** the "surface consolidation" recommendation in `docs/audits/class-based-v3-strategic-audit.md`
@@ -98,12 +98,27 @@ with its own barrel; none is a god-file (300-line cap holds).
   lifecycle/         # OnInit/OnShutdown collection + app.extend bridge
   request/           # request-scope + scope bubbling (formerly scope.ts) + isolation
   modules/           # @Module graph, module-registrar
-  discovery/         # filesystem discovery
-  registrar/         # ControllerRegistry + registration
-  bootstrap/         # ★ named linear stages (see §5)
+  discovery/         # ★ DiscoverySource interface (filesystem | manifest | generated | memory)
+  registrar/         # ControllerRegistry + registration (boot-time)
+  bootstrap/         # ★ named linear stages producing the Application Graph (see §5)
+  runtime/           # ★ request-time EXECUTION: handler assembly + guard→interceptor→method→filter
+                     #   onion + per-request binding + request-scope child-container resolution
+  diagnostics/       # ★ opt-in, zero-cost-when-off: route/provider graph dump, boot/reflection timing
   errors.ts
   index.ts           # public barrel (the class surface)
 ```
+
+**Three-phase discipline (no folder becomes the new god-folder):**
+
+| Phase | Owner | Responsibility |
+| --- | --- | --- |
+| Boot-time — build | `discovery/` + `bootstrap/` | Discover classes, read metadata (via `reflection/`), compute the frozen Application Graph. |
+| Boot-time — register | `registrar/` | Register providers + routes + lifecycle bridge from the graph. |
+| Request-time — execute | `runtime/` | Assemble/execute the handler onion and per-request (child-container) resolution against the frozen graph. |
+
+`runtime/` owns *execution*, not *construction* — it never reads `Reflect` (that already
+happened at boot, cached in the graph) and never re-discovers. This keeps `bootstrap/` from
+growing unbounded (the maintainer's concern) without letting `runtime/` absorb boot concerns.
 
 ### 4a. `reflection/` — the future-proofing keystone
 
@@ -144,10 +159,85 @@ bootstrap(app, options):
   6. router        → mount routes on app.router
 ```
 
-Each stage is a pure-ish function taking the accumulated context and returning the next.
-`registerControllers`/`registerModule` become thin orchestrators over these stages. Benefit:
-each stage unit-testable in isolation; future stages (e.g. an OpenAPI-metadata stage) slot
-in by name. Cost: an internal refactor with characterization tests — zero behavior change.
+Each stage is a pure-ish function taking a single **`BootstrapContext`** and returning the
+next — never a 15-parameter signature. The context accumulates as it flows:
+
+```ts
+interface BootstrapContext {
+  readonly app: Application;
+  readonly options: ResolvedOptions;
+  readonly source: DiscoverySource;      // §4/§D-new: how classes were found
+  controllers: ClassRef[];
+  providers: ProviderNode[];
+  metadata: MetadataGraph;               // read once, frozen after stage 2 (see below)
+  graph: ApplicationGraph;               // the IR, built by stage 3
+  routes: BuiltRoute[];
+  diagnostics: Diagnostics;              // opt-in; no-op sink when disabled
+}
+```
+
+`registerControllers`/`registerModule` become thin orchestrators over these stages. Each
+stage is unit-testable in isolation; future stages (e.g. an OpenAPI-metadata stage) slot in
+by name.
+
+### 5a. The Application Graph (immutable IR) — "read once, freeze, run"
+
+The keystone refinement. Instead of re-reading `Reflect`/metadata during execution, the
+bootstrap builds a **frozen Application Graph** — the framework's internal representation,
+in the lineage of the Angular compiler, NestJS's module graph, and ASP.NET Core's endpoint
+model:
+
+```
+reflection  →  MetadataGraph (frozen after stage 2)  →  ApplicationGraph (frozen after stage 3)
+                                                              │
+                                       controllers · providers · routes · modules ·
+                                       guards · filters · interceptors · effective scopes
+                                                              │
+                                                       runtime/ executes it
+```
+
+- **Metadata is read exactly once** (stage 2, through `reflection/`) into a `MetadataGraph`,
+  then `Object.freeze`d. No `Reflect.getMetadata` on the request path. This satisfies the
+  maintainer's "read once, freeze, run" requirement and removes reflection from the hot path.
+- The `ApplicationGraph` (stage 3) is the composed IR the registrar registers and `runtime/`
+  executes.
+
+**Two honesty flags (written in so they aren't discovered later):**
+
+1. **The IR freezes the *shape*, not the *instances*.** Routes, provider graph, metadata,
+   and effective scopes are immutable; **request-scoped controllers/services still
+   instantiate per request** from the frozen graph via the child-container path (Wave 13).
+   Freezing instances would silently break request scope. The graph is a *plan*, not a cache
+   of live objects.
+2. **This is a genuine boot-path internal redesign, not the mechanical move of steps 1–2.**
+   It raises the consolidation's cost and gets its own migration phase (§8, phase 3b). No
+   public-API change; behavior identical; but it is a rewrite of the boot sequence guarded by
+   characterization tests, not a file relocation. Worth it for the reflection-isolation and
+   diagnostics payoff — stated plainly rather than sold as free.
+
+### 5b. `DiscoverySource` — discovery doesn't know the filesystem
+
+Stage 1 depends on a `DiscoverySource` interface, not `fs` directly:
+
+```ts
+interface DiscoverySource {
+  discover(): Promise<ClassRef[]>;   // or sync
+}
+// implementations: FilesystemSource (today), ManifestSource, GeneratedSource, MemorySource
+```
+
+`MemorySource` makes `@nextrush/testing` trivial (feed classes directly, no disk);
+`GeneratedSource`/`ManifestSource` future-proof for build-time codegen — the same axis
+`ADR-0001` flags as a possible decorator-dialect successor. Non-breaking: `FilesystemSource`
+is the default and preserves today's `root`-scanning behavior.
+
+### 5c. Diagnostics — first-class, zero-cost when off
+
+`diagnostics/` exposes the route graph, provider graph, duplicate-route/circular-dependency
+detection, and boot/reflection timing — the data a CLI (`nextrush graph`, `nextrush doctor`)
+and better error messages need. **Constraint:** disabled by default and behind a no-op sink,
+so it adds nothing to boot time when off (protects the §12 "boot performance unchanged"
+criterion). Enabled via option or env for tooling.
 
 ---
 
@@ -186,6 +276,15 @@ import {
 | D3 | Reflection abstraction depth | service object vs. free functions | Free functions in `reflection/` with a stable internal interface — enough to isolate the dialect, not a heavyweight service. |
 | D4 | Timing | ship before or with the Extension-model v4 major | Fold into the same major to spend one migration budget, not two. |
 
+**Decisions (maintainer, 2026-07-08 — all accepted):**
+- **D1 → (b)** standalone `@nextrush/class`; functional/edge users must not install
+  reflect-metadata + decorators + controller runtime. `nextrush/class` kept as a re-export
+  subpath for discoverability.
+- **D2 → absorb** `@nextrush/decorators` into `@nextrush/class/decorators`; deprecation shim
+  for one major. "Nobody imports `@nextrush/decorators` in 2027."
+- **D3 → free functions** in `reflection/`; no service object.
+- **D4 → fold into the Extension-model v4 major**; one migration budget, not two.
+
 ---
 
 ## 8. Migration plan
@@ -199,9 +298,15 @@ import {
 3. **Physical merge (breaking, major):** `decorators` + `controllers` → `@nextrush/class`
    with the §4 layout. Ship a `@nextrush/decorators` / `@nextrush/controllers` deprecation
    shim that re-exports from `@nextrush/class` for one major line.
-4. **Codemod:** `nextrush-codemod consolidate-imports` rewriting old imports → `nextrush/class`.
-5. **`@nextrush/testing`:** land as its own package (see §9).
-6. **Freeze:** declare the boundary the long-term contract; stable major.
+4. **Application Graph (IR) + `BootstrapContext` + `runtime/` split (breaking-internal only,
+   same major):** the boot-path redesign (§5a). Behavior identical, public API unchanged, but
+   a genuine rewrite of the boot sequence — guarded by characterization tests captured
+   *before* the change. Introduce `DiscoverySource` and `diagnostics/` here. This is the
+   phase whose cost §5a flags; it is deliberately *after* the mechanical merge so the merge
+   stays a low-risk move.
+5. **Codemod:** `nextrush-codemod consolidate-imports` rewriting old imports → `nextrush/class`.
+6. **`@nextrush/testing`:** land as its own package (see §9), backed by `MemorySource`.
+7. **Freeze:** declare the boundary the long-term contract; stable major.
 
 **Migration cost:** high (major + codemod + migration guide), but *lower than the forced
 migration later* — most real users import from `nextrush/class` already, so the shim + codemod
@@ -255,3 +360,26 @@ evolve. Future class-model features (`@Cron`, `@Resolver`, `@WebSocket`, `@Event
 have an unambiguous home (their *decorators* in `@nextrush/class`, their *engines* in their
 own packages), and the reflection boundary makes the one bet the framework can't easily walk
 back (`ADR-0001`) survivable. This is the release that earns a stable major.
+
+---
+
+## 12. Success criteria (measurable — this is the "done" definition)
+
+The consolidation is complete only when **all** of these hold. Each is checkable, not a vibe.
+
+| # | Criterion | How it's verified |
+| --- | --- | --- |
+| S1 | Users only ever need to remember **`nextrush`** (functional) or **`nextrush/class`** (class). | Docs, examples, generators, and `create-nextrush` templates reference no other class import path. Grep of `apps/` + `docs/` for `@nextrush/decorators` / `@nextrush/controllers` returns only historical/migration files. |
+| S2 | No user-facing docs mention `controllers`, `decorators`, `reflection`, `metadata`, or any internal package as an import surface. | Docs audit; the tiered docs standards updated. |
+| S3 | Every internal API is replaceable without a public break. | `reflection/` is the sole `Reflect`/`design:paramtypes` consumer (lint rule / grep gate); swapping it changes no public type. |
+| S4 | **Request-time performance unchanged** (± noise). | `apps/benchmark` before/after: RPS within run-to-run variance on the class-controller scenario; zero `Reflect` calls on the request path (IR frozen at boot). |
+| S5 | **Bundle size unchanged for functional users**; class users pay only the class runtime. | Functional-only import graph excludes reflect-metadata + class runtime (D1 standalone package makes this structural). Size check in CI. |
+| S6 | Boot performance not regressed beyond a stated budget. | Boot-timing diagnostic; IR build within an agreed ms budget on the reference app (diagnostics off by default so the measurement path adds nothing when disabled). |
+| S7 | **Codemod migrates ≥95% of imports automatically.** | Run `nextrush-codemod consolidate-imports` against playground + examples + a sample repo; manual edits ≤5% of changed import sites. |
+| S8 | Zero behavior change. | Full forced no-cache `typecheck --force` + `build` + `test` green; characterization tests captured before the IR redesign still pass. |
+| S9 | Deprecation shims present for one major. | `@nextrush/decorators` / `@nextrush/controllers` re-export from `@nextrush/class` and emit a documented deprecation notice. |
+
+**Anti-goals (explicitly out of scope for this release):** no new user-facing features, no
+pipeline/stage *engine* abstraction, no DI merge, no default flip of per-app isolation, no
+module-encapsulation enforcement (that is its own RFC). This release is boundary hygiene +
+internal future-proofing only.
