@@ -10,6 +10,7 @@ import type { RouteMetadata } from '@nextrush/decorators';
 import {
   getAllFilters,
   getAllGuards,
+  getAllInterceptors,
   getHttpCode,
   getParamMetadata,
   getRedirectMetadata,
@@ -20,6 +21,7 @@ import type { Context, RouteHandler } from '@nextrush/types';
 import { ControllerResolutionError } from './errors.js';
 import { wrapWithFilters } from './filter-runner.js';
 import { executeGuards } from './guard-runner.js';
+import { runInterceptors } from './interceptor-runner.js';
 import { resolveParametersFromPlan } from './param-resolver.js';
 
 /**
@@ -39,6 +41,7 @@ export function createRouteHandler(
   const paramMetadata = getParamMetadata(controllerClass, methodName);
   const guards = getAllGuards(controllerClass, methodName);
   const filters = getAllFilters(controllerClass, methodName);
+  const interceptors = getAllInterceptors(controllerClass, methodName);
 
   // Precompute sorted param injection plan at build time (not per-request)
   const sortedParams =
@@ -91,7 +94,15 @@ export function createRouteHandler(
       throw new Error(`Method "${methodName}" not found on controller "${controllerClass.name}"`);
     }
 
-    const result = await method.apply(controllerInstance, args);
+    // Invoke the method through the interceptor onion when interceptors are
+    // declared; otherwise call it directly (no overhead for interceptor-free
+    // routes). The (possibly transformed) result flows into response handling.
+    const invokeMethod = (): Promise<unknown> =>
+      Promise.resolve(method.apply(controllerInstance, args));
+    const result =
+      interceptors.length > 0
+        ? await runInterceptors(interceptors, ctx, container, invokeMethod)
+        : await invokeMethod();
 
     // Apply response headers from @SetHeader() metadata
     for (const header of responseHeaders) {

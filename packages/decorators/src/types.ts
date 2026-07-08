@@ -51,6 +51,13 @@ export type {
   FilterMetadata,
 } from './filter-types.js';
 
+// Interceptor concern
+export type {
+  Interceptor,
+  InterceptorClass,
+  InterceptorMetadata,
+} from './interceptor-types.js';
+
 // Runtime values (metadata keys + type-guard helpers)
 export {
   DECORATOR_METADATA_KEYS,

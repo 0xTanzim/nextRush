@@ -99,6 +99,8 @@ export {
   // Exception filter decorators
   Catch,
   UseFilter,
+  // Interceptor decorators
+  UseInterceptor,
 } from '@nextrush/decorators';
 export type {
   BodyOptions,
@@ -110,6 +112,7 @@ export type {
   GuardContext,
   GuardFn,
   HeaderOptions,
+  Interceptor,
   ParamMetadata,
   ParamOptions,
   ParamSource,

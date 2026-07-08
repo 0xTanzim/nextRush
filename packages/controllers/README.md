@@ -372,6 +372,78 @@ matches the thrown error, it is **rethrown unchanged** and the global error midd
 it exactly as it does today. This is what keeps filters non-breaking and preserves guard-error
 propagation: a filter only intercepts errors it explicitly opts into via `@Catch`.
 
+## Interceptors
+
+Interceptors wrap the controller-method call (around advice / onion). An interceptor runs code
+**before** calling `next()`, awaits the downstream result, and may **transform or replace** it
+before the value flows into the existing response handling (`@HttpCode` / `@SetHeader` /
+`@Redirect` / `ctx.json`). They are **opt-in**: a controller/route with no interceptor invokes
+the method directly — behavior is exactly as before.
+
+An interceptor is a class implementing `Interceptor`. Attach interceptors with `@UseInterceptor`
+(usable at both the controller and method level).
+
+```typescript
+import { Controller, Get, UseInterceptor, type Interceptor } from '@nextrush/controllers';
+import { Service } from '@nextrush/di';
+import type { Context } from '@nextrush/types';
+
+@Service()
+class EnvelopeInterceptor implements Interceptor {
+  async intercept(ctx: Context, next: () => Promise<unknown>): Promise<unknown> {
+    const data = await next(); // run the handler (and inner interceptors)
+    return { data, path: ctx.path }; // transform the result
+  }
+}
+
+@UseInterceptor(EnvelopeInterceptor)
+@Controller('/users')
+class UserController {
+  @Get()
+  findAll() {
+    return [{ id: 1 }]; // response body becomes { data: [{ id: 1 }], path: '/users' }
+  }
+}
+```
+
+### Resolution
+
+Interceptors are **class-based and resolved from the DI container** (like class guards and
+filters), so they can inject services — a logger, metrics, or a cache. Register an interceptor
+the same way you register any injectable; each layer is resolved lazily at request time.
+
+### Onion order
+
+`@UseInterceptor` works at both levels, and the layers nest:
+
+- **Class interceptors are outermost**; method interceptors are inner, closest to the handler.
+- On the way **in**: class `before`-code → method `before`-code → handler.
+- On the way **out**: method transform → class transform (the mirror image).
+- Within a level, interceptors run in TypeScript decorator order (bottom-to-top).
+
+### Errors: relation to guards and filters
+
+The three cross-cutting hooks compose along the request path:
+
+- **Guards** run **before** the handler and decide whether it runs at all.
+- **Interceptors** run **around** the method call — you can wrap `next()` in `try/catch` to
+  observe or recover from a handler error, then return a fallback value.
+- **Exception filters** wrap the **whole** handler, outside interceptors. An error an
+  interceptor does not itself handle propagates out and is catchable by a `@UseFilter`.
+
+```typescript
+@Service()
+class RecoverInterceptor implements Interceptor {
+  async intercept(_ctx: Context, next: () => Promise<unknown>): Promise<unknown> {
+    try {
+      return await next();
+    } catch {
+      return { recovered: true }; // handler error observed and recovered
+    }
+  }
+}
+```
+
 ## Parameter Extraction
 
 Parameters are extracted from the request based on decorator metadata:

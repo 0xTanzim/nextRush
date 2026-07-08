@@ -19,6 +19,7 @@ export const DECORATOR_METADATA_KEYS = {
   PARAMS: Symbol.for('nextrush:params'),
   MIDDLEWARE: Symbol.for('nextrush:middleware'),
   GUARDS: Symbol.for('nextrush:guards'),
+  INTERCEPTORS: Symbol.for('nextrush:interceptors'),
   FILTERS: Symbol.for('nextrush:filters'),
   CATCH: Symbol.for('nextrush:catch'),
   RESPONSE_HEADERS: Symbol.for('nextrush:response-headers'),

@@ -27,6 +27,9 @@ export type {
   GuardFn,
   GuardMetadata,
   HeaderOptions,
+  Interceptor,
+  InterceptorClass,
+  InterceptorMetadata,
   MiddlewareRef,
   ParamMetadata,
   ParamOptions,
@@ -81,6 +84,14 @@ export {
   getClassFilters,
   getMethodFilters,
 } from './filters.js';
+
+// Interceptor Decorators
+export {
+  UseInterceptor,
+  getAllInterceptors,
+  getClassInterceptors,
+  getMethodInterceptors,
+} from './interceptors.js';
 
 // Metadata Readers
 export type { ControllerDefinition } from './metadata.js';
