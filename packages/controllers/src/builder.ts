@@ -2,7 +2,7 @@
  * @nextrush/controllers - Handler Builder
  *
  * Builds route handlers from controller methods with parameter injection.
- * Supports async transforms, guards (function and class-based), and interceptors.
+ * Supports async transforms and guards (function and class-based).
  */
 
 import type {

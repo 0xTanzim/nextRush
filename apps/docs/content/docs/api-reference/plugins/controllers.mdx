@@ -609,18 +609,15 @@ In non-strict mode (default), discovery errors are logged as warnings but don't 
 
 ## Manual Registration
 
-For testing or when you need explicit control, pass `controllers` directly instead of `root`, or use the lower-level `registerController()` helper for a single class:
+For testing or when you need explicit control, pass `controllers` directly instead of `root`:
 
 ```typescript
-import { registerControllers, registerController } from '@nextrush/controllers';
+import { registerControllers } from '@nextrush/controllers';
 
 // Explicit controller list (no filesystem scanning)
 await registerControllers(app, {
   controllers: [UserController, PostController],
 });
-
-// Or register a single controller directly on a router
-registerController(app.router!, UserController);
 ```
 
 <Callout type="info">
@@ -658,7 +655,6 @@ Required compiler options for decorators:
 import {
   // Registrar
   registerControllers,
-  registerController,
 
   // Discovery
   discoverControllers,

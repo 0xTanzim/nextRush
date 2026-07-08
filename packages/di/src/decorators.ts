@@ -146,11 +146,6 @@ export function Injectable() {
 }
 
 /**
- * @deprecated Use `@Injectable()` instead. Will be removed in v4.
- */
-export const AutoInjectable = Injectable;
-
-/**
  * Make a class resolvable by the DI container without adding service metadata.
  *
  * Used internally by `@Controller()` to enable constructor injection

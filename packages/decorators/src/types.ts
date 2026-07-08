@@ -303,7 +303,6 @@ export const DECORATOR_METADATA_KEYS = {
   PARAMS: Symbol.for('nextrush:params'),
   MIDDLEWARE: Symbol.for('nextrush:middleware'),
   GUARDS: Symbol.for('nextrush:guards'),
-  INTERCEPTORS: Symbol.for('nextrush:interceptors'),
   RESPONSE_HEADERS: Symbol.for('nextrush:response-headers'),
   REDIRECT: Symbol.for('nextrush:redirect'),
 } as const;

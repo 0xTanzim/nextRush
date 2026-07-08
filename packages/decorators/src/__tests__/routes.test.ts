@@ -57,6 +57,17 @@ describe('Route Decorators', () => {
       expect(routes[0].path).toBe('/active');
     });
 
+    it('should preserve a trailing slash on the route path', () => {
+      @Controller('/users')
+      class UserController {
+        @Get('/active/')
+        findActive() {}
+      }
+
+      const routes = getRouteMetadata(UserController);
+      expect(routes[0].path).toBe('/active/');
+    });
+
     it('should accept options object', () => {
       @Controller('/users')
       class UserController {

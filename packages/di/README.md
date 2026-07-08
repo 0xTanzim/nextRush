@@ -143,22 +143,6 @@ class UserService {
 }
 ```
 
-#### `@AutoInjectable()`
-
-Mark a class as injectable in the container. Sets service type metadata to `'service'`.
-
-```typescript
-@AutoInjectable()
-class FeatureService {
-  constructor(private logger: Logger) {}
-}
-
-// Resolve through the container
-const service = container.resolve(FeatureService);
-```
-
-> **Note:** Despite the name, `@AutoInjectable()` does not enable dependency injection via `new`. The current implementation uses tsyringe's `injectable()` decorator internally. Dependencies are resolved only through `container.resolve()`.
-
 #### `delay(tokenFactory)`
 
 Defer resolution to break circular dependencies. Returns a lazy token for use with `@inject()`.
@@ -337,10 +321,7 @@ import {
   DIError,
   DependencyResolutionError,
   CircularDependencyError,
-  TypeInferenceError,
-  MissingDependencyError,
   InvalidProviderError,
-  ContainerDisposedError,
 } from '@nextrush/di';
 
 try {
@@ -360,10 +341,7 @@ try {
 | --------------------------- | --------------------------------------------------------------------------------------------- |
 | `DependencyResolutionError` | Token not registered — includes fix suggestions (`@Service()`, import order, manual register) |
 | `CircularDependencyError`   | Circular dependency detected (wrapper-level + tsyringe-internal chains)                       |
-| `MissingDependencyError`    | _(Deprecated)_ Use `DependencyResolutionError` instead                                        |
 | `InvalidProviderError`      | Provider missing `useClass`, `useValue`, or `useFactory`                                      |
-| `TypeInferenceError`        | Constructor parameter type not available at runtime                                           |
-| `ContainerDisposedError`    | Container has been reset or disposed                                                          |
 
 ## TypeScript Exports
 
@@ -372,7 +350,7 @@ try {
 import { container, createContainer } from '@nextrush/di';
 
 // Decorators
-import { Service, Repository, AutoInjectable, Optional, inject, delay } from '@nextrush/di';
+import { Service, Repository, Optional, inject, delay } from '@nextrush/di';
 
 // Utility functions
 import {
@@ -391,10 +369,7 @@ import {
   DIError,
   DependencyResolutionError,
   CircularDependencyError,
-  MissingDependencyError,
   InvalidProviderError,
-  TypeInferenceError,
-  ContainerDisposedError,
 } from '@nextrush/di';
 
 // Types

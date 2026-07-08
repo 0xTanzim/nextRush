@@ -8,7 +8,7 @@
  */
 
 // Registration
-export { registerControllers, registerController } from './registrar.js';
+export { registerControllers } from './registrar.js';
 
 // Discovery
 export {

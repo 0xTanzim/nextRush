@@ -43,7 +43,6 @@ import 'reflect-metadata';
 // DI: Dependency Injection Container
 // ============================================
 export {
-  AutoInjectable,
   Config,
   container,
   createContainer,

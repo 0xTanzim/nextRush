@@ -82,47 +82,6 @@ Strategies to break the cycle:
 }
 
 /**
- * Error thrown when TypeScript cannot infer constructor parameter types.
- *
- * Usually caused by missing type annotations or incorrect tsconfig.
- */
-export class TypeInferenceError extends DIError {
-  public readonly className: string;
-  public readonly parameterIndex: number;
-
-  constructor(className: string, parameterIndex: number) {
-    super(`
-❌ Cannot Resolve Constructor Parameter
-
-${className} constructor parameter at index ${parameterIndex} has no type information.
-
-This usually means:
-  1. Missing type annotation on the parameter
-  2. emitDecoratorMetadata is not enabled in tsconfig.json
-
-Fix option 1 - Add explicit type annotation:
-  constructor(private service: ServiceClass) {}
-                              ^^^^^^^^^^^^
-
-Fix option 2 - Update tsconfig.json:
-  {
-    "compilerOptions": {
-      "experimentalDecorators": true,
-      "emitDecoratorMetadata": true
-    }
-  }
-
-Fix option 3 - Use explicit @inject():
-  constructor(@inject(ServiceClass) private service: ServiceClass) {}
-`);
-
-    this.name = 'TypeInferenceError';
-    this.className = className;
-    this.parameterIndex = parameterIndex;
-  }
-}
-
-/**
  * Error thrown when an invalid provider configuration is given.
  */
 export class InvalidProviderError extends DIError {
@@ -146,52 +105,6 @@ Example:
 `);
 
     this.name = 'InvalidProviderError';
-    this.token = token;
-  }
-}
-
-/**
- * Error thrown when trying to resolve from a disposed container.
- */
-export class ContainerDisposedError extends DIError {
-  constructor() {
-    super(`
-❌ Container Has Been Disposed
-
-The container has been reset or disposed and cannot resolve dependencies.
-
-If you're in a test environment, ensure you're creating a fresh container
-for each test or using container.clearInstances() between tests.
-`);
-
-    this.name = 'ContainerDisposedError';
-  }
-}
-
-/**
- * Error thrown when a required dependency is not found.
- *
- * @deprecated Use {@link DependencyResolutionError} instead — it provides
- * the same information plus the resolution chain context.
- */
-export class MissingDependencyError extends DIError {
-  public readonly token: string;
-
-  constructor(token: string) {
-    super(`
-❌ Missing Required Dependency
-
-Token: "${token}"
-
-The requested dependency is not registered in the container.
-
-Make sure to:
-  1. Register the dependency before resolving
-  2. Check spelling of the token
-  3. Verify the service has @Service() or @Repository() decorator
-`);
-
-    this.name = 'MissingDependencyError';
     this.token = token;
   }
 }

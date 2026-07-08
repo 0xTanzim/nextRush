@@ -655,8 +655,7 @@ export type { ControllerDefinition };
 
 // Metadata readers
 export { isController, getControllerMetadata, getRouteMetadata, getParamMetadata };
-export { getAllParamMetadata, getControllerDefinition, buildFullPath };
-export { getMethodParameterTypes, getMethodReturnType };
+export { getAllParamMetadata, getControllerDefinition };
 export { getAllGuards, getClassGuards, getMethodGuards, isGuardClass };
 export { getResponseHeaders, getRedirectMetadata };
 

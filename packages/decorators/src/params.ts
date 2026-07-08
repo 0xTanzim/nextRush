@@ -50,17 +50,7 @@ function createParamDecorator<
         transform: paramOptions?.transform,
       };
 
-      const methodKey = `${String(propertyKey)}`;
-
-      // Use getOwnMetadata to prevent inheriting parent class metadata
-      const existingParams: Map<string, ParamMetadata[]> =
-        Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
-
-      const methodParams = existingParams.get(methodKey) ?? [];
-      methodParams.push(metadata);
-      existingParams.set(methodKey, methodParams);
-
-      Reflect.defineMetadata(DECORATOR_METADATA_KEYS.PARAMS, existingParams, target.constructor);
+      pushParamMetadata(target, propertyKey, metadata);
     };
   };
 }
@@ -86,6 +76,30 @@ function normalizeParamInput<TOptions>(
   }
 
   return { paramOptions: options };
+}
+
+/**
+ * Append parameter metadata for a method onto its controller class.
+ *
+ * Uses `getOwnMetadata` so a subclass never inherits a parent's parameter map.
+ * Shared by every parameter decorator to avoid duplicating the read-append-write
+ * dance against reflect-metadata.
+ */
+function pushParamMetadata(
+  target: object,
+  propertyKey: string | symbol,
+  metadata: ParamMetadata
+): void {
+  const methodKey = `${String(propertyKey)}`;
+
+  const existingParams: Map<string, ParamMetadata[]> =
+    Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
+
+  const methodParams = existingParams.get(methodKey) ?? [];
+  methodParams.push(metadata);
+  existingParams.set(methodKey, methodParams);
+
+  Reflect.defineMetadata(DECORATOR_METADATA_KEYS.PARAMS, existingParams, target.constructor);
 }
 
 /**
@@ -231,17 +245,7 @@ export function Ctx(): ParameterDecorator {
       required: false,
     };
 
-    const methodKey = `${String(propertyKey)}`;
-
-    // Use getOwnMetadata to prevent inheriting parent class metadata
-    const existingParams: Map<string, ParamMetadata[]> =
-      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
-
-    const methodParams = existingParams.get(methodKey) ?? [];
-    methodParams.push(metadata);
-    existingParams.set(methodKey, methodParams);
-
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.PARAMS, existingParams, target.constructor);
+    pushParamMetadata(target, propertyKey, metadata);
   };
 }
 
@@ -275,15 +279,7 @@ export function Req(): ParameterDecorator {
       required: false,
     };
 
-    const methodKey = `${String(propertyKey)}`;
-    const existingParams: Map<string, ParamMetadata[]> =
-      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
-
-    const methodParams = existingParams.get(methodKey) ?? [];
-    methodParams.push(metadata);
-    existingParams.set(methodKey, methodParams);
-
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.PARAMS, existingParams, target.constructor);
+    pushParamMetadata(target, propertyKey, metadata);
   };
 }
 
@@ -317,15 +313,7 @@ export function Res(): ParameterDecorator {
       required: false,
     };
 
-    const methodKey = `${String(propertyKey)}`;
-    const existingParams: Map<string, ParamMetadata[]> =
-      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
-
-    const methodParams = existingParams.get(methodKey) ?? [];
-    methodParams.push(metadata);
-    existingParams.set(methodKey, methodParams);
-
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.PARAMS, existingParams, target.constructor);
+    pushParamMetadata(target, propertyKey, metadata);
   };
 }
 
@@ -384,14 +372,6 @@ export function createCustomParamDecorator(
       customExtractor: extractor,
     };
 
-    const methodKey = `${String(propertyKey)}`;
-    const existingParams: Map<string, ParamMetadata[]> =
-      Reflect.getOwnMetadata(DECORATOR_METADATA_KEYS.PARAMS, target.constructor) ?? new Map();
-
-    const methodParams = existingParams.get(methodKey) ?? [];
-    methodParams.push(metadata);
-    existingParams.set(methodKey, methodParams);
-
-    Reflect.defineMetadata(DECORATOR_METADATA_KEYS.PARAMS, existingParams, target.constructor);
+    pushParamMetadata(target, propertyKey, metadata);
   };
 }

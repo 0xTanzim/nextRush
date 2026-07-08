@@ -6,13 +6,14 @@
  * @nextrush/openapi, exactly like functional routes using endpoint().
  */
 
+import { Application } from '@nextrush/core';
 import { Controller, Get, getControllerDefinition, Post } from '@nextrush/decorators';
 import { createContainer, type Container } from '@nextrush/di';
 import { createRouter } from '@nextrush/router';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '../builder.js';
-import { registerController } from '../registrar.js';
+import { registerControllers } from '../registrar.js';
 
 describe('controller route metadata → RouteDefinition', () => {
   let container: Container;
@@ -46,7 +47,7 @@ describe('controller route metadata → RouteDefinition', () => {
     expect(create.metadata).toMatchObject({ deprecated: true, tags: ['users'] });
   });
 
-  it('registers metadata onto the router so getRoutes() exposes it', () => {
+  it('registers metadata onto the router so getRoutes() exposes it', async () => {
     @Controller({ path: '/posts', tags: ['posts'] })
     class PostController {
       @Get('/:id', { description: 'Get a post' })
@@ -58,7 +59,8 @@ describe('controller route metadata → RouteDefinition', () => {
     container.register(PostController, { useClass: PostController });
 
     const router = createRouter();
-    registerController(router, PostController, container);
+    const app = new Application({ router, container });
+    await registerControllers(app, { controllers: [PostController], container });
 
     const def = router.getRoutes().find((r) => r.path === '/posts/:id');
     expect(def).toBeDefined();

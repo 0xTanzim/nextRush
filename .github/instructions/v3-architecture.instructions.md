@@ -79,7 +79,7 @@ Wraps tsyringe with enhanced error messages and NextRush-specific patterns.
 export { container, createContainer } from './container';
 
 // Decorators
-export { Service, Repository, AutoInjectable } from './decorators';
+export { Service, Repository } from './decorators';
 
 // Re-exports from tsyringe
 export { inject, injectable, singleton, delay } from 'tsyringe';

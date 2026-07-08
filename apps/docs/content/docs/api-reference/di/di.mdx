@@ -120,25 +120,6 @@ class UserRepository {
 
 The only difference from `@Service()` is the metadata type stored — `'repository'` instead of `'service'`. The `@nextrush/controllers` plugin uses this for auto-discovery.
 
-### `@AutoInjectable()`
-
-Mark a class as injectable in the container without setting a scope.
-
-```typescript
-@AutoInjectable()
-class FeatureService {
-  constructor(private logger: Logger) {}
-}
-
-const service = container.resolve(FeatureService);
-```
-
-<Callout type="warn">
-  Despite the name, `@AutoInjectable()` does not enable dependency injection via `new`. Dependencies
-  are resolved only through `container.resolve()`. The decorator registers the class as injectable
-  (transient) and sets service type metadata.
-</Callout>
-
 ### `@inject(token)`
 
 Explicitly specify which token to inject for a constructor parameter. Use this for string tokens, symbol tokens, or interface-based injection where TypeScript cannot infer the concrete type at runtime.
@@ -249,10 +230,6 @@ class FeatureService {
 
 const service = container.resolve(FeatureService);
 ```
-
-<Callout type="info">
-  `@AutoInjectable()` is a deprecated alias for `@Injectable()` and will be removed in v4. Use `@Injectable()` in new code.
-</Callout>
 
 ---
 
@@ -432,24 +409,10 @@ try {
       description:
         'Circular dependency detected during resolution (wrapper-level + tsyringe-internal chains). Includes cycle property.',
     },
-    MissingDependencyError: {
-      type: 'DIError',
-      description:
-        '(Deprecated) Use DependencyResolutionError instead. Required dependency not found. Includes token property.',
-    },
     InvalidProviderError: {
       type: 'DIError',
       description:
         'Provider object missing useClass, useValue, or useFactory. Includes token property.',
-    },
-    TypeInferenceError: {
-      type: 'DIError',
-      description:
-        'Constructor parameter type cannot be read at runtime. Includes className and parameterIndex properties.',
-    },
-    ContainerDisposedError: {
-      type: 'DIError',
-      description: 'Attempted resolution on a reset or disposed container.',
     },
   }}
 />
@@ -536,8 +499,6 @@ markInjectable(SomeControllerClass);
 
 **Forgetting `@Service()` on a dependency** — if class `B` depends on class `A`, both must be decorated. An undecorated `A` causes `DependencyResolutionError`.
 
-**Assuming `@AutoInjectable()` enables `new`-based injection** — it does not. Always resolve through `container.resolve()`.
-
 ## When Not To Use
 
 - Pure functional applications with no class-based services. Manual wiring or factory functions are sufficient.
@@ -563,7 +524,6 @@ import {
   Repository,
   Config,
   Injectable,
-  AutoInjectable,
   Optional,
   inject,
   delay,
@@ -588,10 +548,7 @@ import {
   DIError,
   DependencyResolutionError,
   CircularDependencyError,
-  MissingDependencyError,
   InvalidProviderError,
-  TypeInferenceError,
-  ContainerDisposedError,
 } from '@nextrush/di';
 
 // Types

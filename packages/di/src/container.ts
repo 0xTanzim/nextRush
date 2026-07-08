@@ -166,7 +166,7 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
         return bootstrappedValues.get(token) as T;
       }
       const result = wrapper.resolve<T | Promise<T>>(token);
-      return result instanceof Promise ? result : result;
+      return await result;
     },
 
     async bootstrap(): Promise<void> {

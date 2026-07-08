@@ -262,11 +262,8 @@ describe('UserService', () => {
 | --------------------------- | --------------------------------------------------- |
 | `DIError`                   | Base error for all DI errors                        |
 | `DependencyResolutionError` | Failed to resolve a dependency                      |
-| `MissingDependencyError`    | Required dependency not registered                  |
 | `CircularDependencyError`   | Circular dependency chain detected                  |
-| `ContainerDisposedError`    | Container used after disposal                       |
 | `InvalidProviderError`      | Invalid provider configuration                      |
-| `TypeInferenceError`        | Cannot infer type (missing `emitDecoratorMetadata`) |
 
 All errors importable from `@nextrush/di`. They are thrown automatically by the container.
 
@@ -289,7 +286,7 @@ All errors importable from `@nextrush/di`. They are thrown automatically by the 
 | Singleton holds stale ref | Scope mismatch                         | Don't inject transient into singleton                          |
 | Token not found           | Missing registration                   | `container.register(TOKEN, { useClass: Impl })` before resolve |
 | New instance every time   | Using `@Injectable()` not `@Service()` | Use `@Service()` for singletons                                |
-| TypeInferenceError        | `emitDecoratorMetadata` disabled       | Enable in tsconfig.json                                        |
+| Metadata inference fails  | `emitDecoratorMetadata` disabled       | Enable in tsconfig.json                                        |
 | @Optional not working     | Wrong decorator order                  | Put `@Optional()` before `@inject()`                           |
 
 ## Rules
@@ -310,5 +307,5 @@ All errors importable from `@nextrush/di`. They are thrown automatically by the 
 | Singleton holds stale ref | Scope mismatch                         | Don't inject transient into singleton                          |
 | Token not found           | Missing registration                   | `container.register(TOKEN, { useClass: Impl })` before resolve |
 | New instance every time   | Using `@Injectable()` not `@Service()` | Use `@Service()` for singletons                                |
-| TypeInferenceError        | `emitDecoratorMetadata` disabled       | Enable in tsconfig.json                                        |
+| Metadata inference fails  | `emitDecoratorMetadata` disabled       | Enable in tsconfig.json                                        |
 | @Optional not working     | Wrong decorator order                  | Put `@Optional()` before `@inject()`                           |

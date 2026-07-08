@@ -10,6 +10,7 @@
 
 import { markInjectable } from '@nextrush/di';
 import 'reflect-metadata';
+import { normalizePath } from './path-utils.js';
 import type { ControllerMetadata, ControllerOptions } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';
 
@@ -74,13 +75,15 @@ function normalizeControllerOptions(
   className: string
 ): ControllerOptions {
   if (typeof input === 'string') {
-    return { path: normalizePath(input) };
+    return { path: normalizePath(input, { stripTrailingSlash: true }) };
   }
 
   if (input && typeof input === 'object') {
     return {
       ...input,
-      path: input.path ? normalizePath(input.path) : derivePathFromClassName(className),
+      path: input.path
+        ? normalizePath(input.path, { stripTrailingSlash: true })
+        : derivePathFromClassName(className),
     };
   }
 
@@ -108,21 +111,4 @@ function derivePathFromClassName(className: string): string {
     .toLowerCase();
 
   return `/${kebabCase}`;
-}
-
-/**
- * Normalize path to ensure it starts with / and has no trailing /.
- */
-function normalizePath(path: string): string {
-  let normalized = path.trim();
-
-  if (!normalized.startsWith('/')) {
-    normalized = '/' + normalized;
-  }
-
-  if (normalized.length > 1 && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
-  }
-
-  return normalized;
 }

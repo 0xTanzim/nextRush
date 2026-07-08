@@ -136,12 +136,9 @@ child.register('ScopedService', { useClass: ScopedService });
 
 | Error | Typical cause |
 |-------|----------------|
-| `MissingDependencyError` | Class not registered |
 | `CircularDependencyError` | Circular ctor graph |
 | `DependencyResolutionError` | Resolution aborted |
-| `TypeInferenceError` | Missing or incomplete decorator metadata |
 | `InvalidProviderError` | Bad manual registration |
-| `ContainerDisposedError` | Resolve after dispose |
 
 ---
 

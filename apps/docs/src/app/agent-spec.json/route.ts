@@ -84,7 +84,6 @@ const AGENT_SPEC = {
       doc_url: toAbsoluteUrl('/docs/api-reference/plugins/controllers'),
       public_api: [
         'registerControllers',
-        'registerController',
         'discoverControllers',
       ],
     },

@@ -6,6 +6,7 @@
  */
 
 import 'reflect-metadata';
+import { normalizePath } from './path-utils.js';
 import type {
   RedirectMetadata,
   ResponseHeaderMetadata,
@@ -72,19 +73,6 @@ function normalizeRouteInput(
   }
 
   return { path: '/', routeOptions: options };
-}
-
-/**
- * Normalize path to ensure proper format.
- */
-function normalizePath(path: string): string {
-  let normalized = path.trim();
-
-  if (!normalized.startsWith('/')) {
-    normalized = '/' + normalized;
-  }
-
-  return normalized;
 }
 
 /**

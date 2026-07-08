@@ -252,14 +252,6 @@ await registerControllers(app, {
 });
 ```
 
-### Single controller (lower-level helper)
-
-```typescript
-import { registerController } from '@nextrush/controllers';
-
-registerController(router, UserController); // no discovery, no async boot
-```
-
 ### Options (`ControllersOptions`)
 
 | Option | Role |

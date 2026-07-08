@@ -454,7 +454,7 @@ pnpm add -D @nextrush/dev
 
 ```typescript
 // Registration
-export { registerControllers, registerController } from '@nextrush/controllers';
+export { registerControllers } from '@nextrush/controllers';
 
 // Discovery
 export { discoverControllers, getControllersFromResults, getErrorsFromResults } from '@nextrush/controllers';

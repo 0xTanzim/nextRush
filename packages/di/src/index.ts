@@ -46,7 +46,6 @@ export { container, createContainer } from './container.js';
 
 // Decorators
 export {
-  AutoInjectable,
   Config,
   Injectable,
   Optional,
@@ -83,10 +82,7 @@ export { METADATA_KEYS } from './types.js';
 // Errors
 export {
   CircularDependencyError,
-  ContainerDisposedError,
   DIError,
   DependencyResolutionError,
   InvalidProviderError,
-  MissingDependencyError,
-  TypeInferenceError,
 } from './errors.js';

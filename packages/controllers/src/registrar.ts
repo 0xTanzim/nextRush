@@ -189,29 +189,3 @@ export async function registerControllers(
 
   debugLog(opts.debug, `Registered ${registry.routeCount} routes`);
 }
-
-/**
- * Register a single controller on a router (lower-level helper).
- *
- * @param router - Router instance
- * @param controller - Controller class
- * @param container - Optional DI container (defaults to the global container)
- */
-export function registerController(
-  router: Router,
-  controller: Function,
-  container?: Container
-): void {
-  const registry = new ControllerRegistry(container ?? globalContainer, '', [], false);
-  const registered = registry.register(controller);
-
-  for (const route of registered.routes) {
-    const method = route.method.toLowerCase() as keyof Router;
-    if (typeof router[method] === 'function') {
-      (router[method] as (path: string, ...entries: unknown[]) => unknown)(
-        route.path,
-        ...buildRouteEntries(route)
-      );
-    }
-  }
-}

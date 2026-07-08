@@ -6,7 +6,6 @@ import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../class.js';
 import {
-    buildFullPath,
     getAllParamMetadata,
     getControllerDefinition,
     getControllerMetadata,
@@ -203,50 +202,6 @@ describe('Metadata Readers', () => {
       class UserService {}
 
       expect(getControllerDefinition(UserService)).toBeUndefined();
-    });
-  });
-
-  describe('buildFullPath', () => {
-    it('should combine controller and route paths', () => {
-      const controller = { path: '/users' };
-      const route = { path: '/:id', method: 'GET' as const, methodName: 'findOne', propertyKey: 'findOne' };
-
-      expect(buildFullPath(controller, route)).toBe('/users/:id');
-    });
-
-    it('should handle root paths', () => {
-      const controller = { path: '/' };
-      const route = { path: '/users', method: 'GET' as const, methodName: 'findAll', propertyKey: 'findAll' };
-
-      expect(buildFullPath(controller, route)).toBe('/users');
-    });
-
-    it('should handle root route path', () => {
-      const controller = { path: '/users' };
-      const route = { path: '/', method: 'GET' as const, methodName: 'findAll', propertyKey: 'findAll' };
-
-      expect(buildFullPath(controller, route)).toBe('/users');
-    });
-
-    it('should include version prefix', () => {
-      const controller = { path: '/users', version: 'v1' };
-      const route = { path: '/:id', method: 'GET' as const, methodName: 'findOne', propertyKey: 'findOne' };
-
-      expect(buildFullPath(controller, route)).toBe('/v1/users/:id');
-    });
-
-    it('should handle double slashes', () => {
-      const controller = { path: '/api/' };
-      const route = { path: '/users', method: 'GET' as const, methodName: 'findAll', propertyKey: 'findAll' };
-
-      expect(buildFullPath(controller, route)).toBe('/api/users');
-    });
-
-    it('should return root for empty paths', () => {
-      const controller = { path: '/' };
-      const route = { path: '/', method: 'GET' as const, methodName: 'index', propertyKey: 'index' };
-
-      expect(buildFullPath(controller, route)).toBe('/');
     });
   });
 });

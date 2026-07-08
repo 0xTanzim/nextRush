@@ -390,7 +390,7 @@ Pure metadata storage and reading — no runtime behavior:
 - **Response**: `SetHeader`, `Redirect`
 - **Params**: `Body`, `Param`, `Query`, `Header`, `Ctx`, `Req`, `Res`, `createCustomParamDecorator`
 - **Guards**: `UseGuard`, `getAllGuards`, `getClassGuards`, `getMethodGuards`
-- **Readers**: `getControllerDefinition`, `getControllerMetadata`, `getRouteMetadata`, `getParamMetadata`, `buildFullPath`, `isController`, `getResponseHeaders`, `getRedirectMetadata`
+- **Readers**: `getControllerDefinition`, `getControllerMetadata`, `getRouteMetadata`, `getParamMetadata`, `isController`, `getResponseHeaders`, `getRedirectMetadata`
 
 `@All` creates route entries for GET, POST, PUT, DELETE, and PATCH (5 methods).
 
@@ -399,17 +399,17 @@ Pure metadata storage and reading — no runtime behavior:
 Container wrapper and registration decorators:
 
 - **Container**: `container` (global instance), `createContainer` (isolated child)
-- **Decorators**: `Service`, `Repository`, `AutoInjectable`, `Optional`
+- **Decorators**: `Service`, `Repository`, `Optional`
 - **Injection**: `inject` (explicit token), `delay` (break circular deps)
 - **Introspection**: `hasServiceMetadata`, `getServiceType`, `getServiceScope`, `isParameterOptional`, `getOptionalParams`
-- **Errors**: `CircularDependencyError`, `DependencyResolutionError`, `MissingDependencyError`, `InvalidProviderError`, `TypeInferenceError`
+- **Errors**: `CircularDependencyError`, `DependencyResolutionError`, `InvalidProviderError`
 - **Constants**: `METADATA_KEYS`
 
 ### @nextrush/controllers
 
 Orchestration — reads metadata, resolves from DI, registers on the router:
 
-- **Registrar**: `registerControllers` async function, `registerController` (single-class helper)
+- **Registrar**: `registerControllers` async function
 - **Builder**: `buildRoutes` (creates handlers from `ControllerDefinition`)
 - **Discovery**: `discoverControllers` (auto-scan directories for `@Controller` classes)
 - **Registry**: `ControllerRegistry` (manages registered controllers)

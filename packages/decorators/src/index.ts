@@ -67,12 +67,9 @@ export { UseGuard, getAllGuards, getClassGuards, getMethodGuards } from './guard
 export type { ControllerDefinition } from './metadata.js';
 
 export {
-  buildFullPath,
   getAllParamMetadata,
   getControllerDefinition,
   getControllerMetadata,
-  getMethodParameterTypes,
-  getMethodReturnType,
   getParamMetadata,
   getRedirectMetadata,
   getResponseHeaders,
