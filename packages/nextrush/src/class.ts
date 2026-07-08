@@ -102,6 +102,8 @@ export {
   // Interceptor decorators
   UseInterceptor,
 } from '@nextrush/decorators';
+// Service lifecycle hook guards (duck-typed interfaces — no decorator)
+export { isOnInit, isOnShutdown } from '@nextrush/decorators';
 export type {
   BodyOptions,
   CanActivate,
@@ -121,6 +123,7 @@ export type {
   RouteOptions,
   TransformFn,
 } from '@nextrush/decorators';
+export type { OnInit, OnShutdown } from '@nextrush/decorators';
 
 // ============================================
 // CONTROLLERS: Auto-discovery Plugin

@@ -71,7 +71,8 @@ export {
     UseGuard,
     UseInterceptor
 } from '@nextrush/decorators';
-export type { ExceptionFilter, GuardContext, GuardFn, Interceptor } from '@nextrush/decorators';
+export type { ExceptionFilter, GuardContext, GuardFn, Interceptor, OnInit, OnShutdown } from '@nextrush/decorators';
+export { isOnInit, isOnShutdown } from '@nextrush/decorators';
 export {
     Repository,
     Service,

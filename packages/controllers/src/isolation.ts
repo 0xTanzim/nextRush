@@ -89,18 +89,18 @@ function collectDependencyClasses(target: Function): Function[] {
 }
 
 /**
- * Transitively register every `@Service`/`@Repository`/`@Config` class reachable
- * from `controllers`' constructor dependency graph into `container`, each with
- * its declared scope (`getServiceScope(dep) ?? 'singleton'`).
+ * Walk the constructor dependency graph of `controllers` and return the distinct
+ * `@Service`/`@Repository`/`@Config` classes reachable from it, in breadth-first
+ * order (a controller's direct service deps first, then their transitive deps).
  *
- * Each class is registered at most once (memoized). A class already registered
- * on the container is left untouched, so a provider the caller registered
- * explicitly (e.g. a mock or a pre-bound instance) always wins. Non-service
- * classes and non-class tokens are skipped — they fall back to the container's
- * parent/global chain or must be registered by the caller.
+ * The walk only traverses *through* service classes: a non-service dependency is
+ * a leaf (its own deps are not followed), matching {@link registerServiceGraph}'s
+ * original inline behavior. Callers that need dependency-first ordering (service
+ * lifecycle hooks) reverse the returned list.
  */
-export function registerServiceGraph(controllers: Function[], container: Container): void {
+export function collectServiceGraph(controllers: Function[]): Function[] {
   const visited = new Set<Function>();
+  const result: Function[] = [];
   // FIFO queue with a moving head pointer — avoids repeated O(n) Array.shift().
   const queue: Function[] = [];
   for (const controller of controllers) {
@@ -120,14 +120,32 @@ export function registerServiceGraph(controllers: Function[], container: Contain
       continue;
     }
 
+    result.push(dep);
+
+    for (const sub of collectDependencyClasses(dep)) {
+      queue.push(sub);
+    }
+  }
+  return result;
+}
+
+/**
+ * Transitively register every `@Service`/`@Repository`/`@Config` class reachable
+ * from `controllers`' constructor dependency graph into `container`, each with
+ * its declared scope (`getServiceScope(dep) ?? 'singleton'`).
+ *
+ * Each class is registered at most once (the graph walk dedupes). A class already
+ * registered on the container is left untouched, so a provider the caller
+ * registered explicitly (e.g. a mock or a pre-bound instance) always wins.
+ * Non-service classes and non-class tokens are skipped — they fall back to the
+ * container's parent/global chain or must be registered by the caller.
+ */
+export function registerServiceGraph(controllers: Function[], container: Container): void {
+  for (const dep of collectServiceGraph(controllers)) {
     const scope: Scope = getServiceScope(dep) ?? 'singleton';
     const token = dep as Token;
     if (!container.isRegistered(token)) {
       container.register(token, { useClass: dep as Constructor }, { scope });
-    }
-
-    for (const sub of collectDependencyClasses(dep)) {
-      queue.push(sub);
     }
   }
 }

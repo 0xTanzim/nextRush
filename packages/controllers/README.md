@@ -595,6 +595,46 @@ are themselves singletons (or explicitly `transient`). Only **per-request** stat
 > Request-scoped DI — a fresh controller/service instance per request — is **proposed** future
 > work and requires an RFC. `Scope` is `'singleton' | 'transient'` today.
 
+## Lifecycle hooks
+
+A service (`@Service`/`@Repository`/`@Config`) that manages a long-lived resource can hook into
+the application lifecycle by implementing `OnInit` and/or `OnShutdown`. These are **duck-typed**
+interfaces — there is no decorator. A service opts in purely by declaring the method:
+
+```typescript
+import { Service } from '@nextrush/di';
+import type { OnInit, OnShutdown } from '@nextrush/decorators';
+
+@Service()
+export class Database implements OnInit, OnShutdown {
+  async onInit(): Promise<void> {
+    await this.pool.connect(); // runs at app.ready()
+  }
+
+  async onShutdown(): Promise<void> {
+    await this.pool.end(); // runs at app.close()
+  }
+}
+```
+
+**When they fire.** `registerControllers` walks the controller + transitive service graph,
+resolves each service, and registers one internal extension. `onInit()` runs at `app.ready()`
+(adapters call this before serving — so hooks run *after* registration, not during it).
+`onShutdown()` runs at `app.close()`. Both may be async and are awaited.
+
+**Ordering.** `onInit()` runs **dependencies first** — a service's dependencies initialize
+before the service that depends on them (a reverse-BFS approximation of the dependency graph,
+sufficient for typical shallow graphs). `onShutdown()` runs in the **reverse** of the `onInit`
+order.
+
+**Register before serving.** The hooks are bridged via `app.extend()`, which is only allowed
+before the app is booted. Always call `registerControllers` **before** `serve()`/`listen()`/
+`ready()`. If the app is already booted or running when hook-implementing services are found,
+`registerControllers` throws a clear error.
+
+Services that implement neither hook are untouched, and no extension is registered when no
+service implements a hook.
+
 ## registerControllers Options
 
 ```typescript

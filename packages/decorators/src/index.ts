@@ -50,6 +50,10 @@ export {
   isValidParamSource,
 } from './types.js';
 
+// Service Lifecycle Hooks (duck-typed — no decorator)
+export type { OnInit, OnShutdown } from './lifecycle-types.js';
+export { isOnInit, isOnShutdown } from './lifecycle-types.js';
+
 // Class Decorators
 export { Controller } from './class.js';
 

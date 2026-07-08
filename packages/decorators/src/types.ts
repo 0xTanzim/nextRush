@@ -58,6 +58,9 @@ export type {
   InterceptorMetadata,
 } from './interceptor-types.js';
 
+// Service lifecycle concern
+export type { OnInit, OnShutdown } from './lifecycle-types.js';
+
 // Runtime values (metadata keys + type-guard helpers)
 export {
   DECORATOR_METADATA_KEYS,
@@ -65,3 +68,5 @@ export {
   isValidHttpMethod,
   isValidParamSource,
 } from './metadata-keys.js';
+
+export { isOnInit, isOnShutdown } from './lifecycle-types.js';

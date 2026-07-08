@@ -27,6 +27,7 @@ import {
 } from './discovery.js';
 import { ControllerResolutionError, RouteRegistrationError } from './errors.js';
 import { registerServiceGraph } from './isolation.js';
+import { registerLifecycleExtension } from './lifecycle.js';
 import { ControllerRegistry } from './registry.js';
 import type {
   ControllersOptions,
@@ -287,6 +288,10 @@ export async function registerControllers(
     validateControllers(registered, opts.container, registry.instances);
     validateGuards(registered, opts.container);
   }
+
+  // Bridge service lifecycle hooks (OnInit/OnShutdown) into app.ready()/close().
+  // No-op unless a resolved controller/service implements a hook.
+  registerLifecycleExtension(app, controllers, opts.container, registry.instances);
 
   debugLog(opts.debug, `Registered ${registry.routeCount} routes`);
 }
