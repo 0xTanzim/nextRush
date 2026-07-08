@@ -203,3 +203,12 @@ Interceptors, exception filters, service lifecycle hooks, module system, request
 
 ### Verdict
 The remediation was real and well-tested, but this audit's headline is that **CRITICAL-2 remains open by design and its interim seam introduced NEW-1**, and **CRITICAL-3 is incomplete (NEW-2)**. Closing NEW-1, NEW-2, and the DI-ownership RFC would move the class-based system from "good, single-app-ready" to genuinely enterprise-grade.
+
+---
+
+## Update — Wave 8 (commit `90e7350`)
+
+- **CRITICAL-2 (global DI container / per-app isolation)** — ⚠️→✅ **Opt-in isolation shipped.** `registerControllers(app, { isolate: true })` now gives an app its own service-singleton graph via a child container + transitive `@Service`/`@Repository`/`@Config` re-registration (`packages/controllers/src/isolation.ts`). Default (`isolate: false`) is unchanged and non-breaking; `@Service` still registers globally for back-compat. Proven by a multi-app isolation test. Flipping the default to isolation is a future major (RFC Option A → next major). The functional-path cost (RFC §8) was already resolved in Wave 6.
+- **P2-11 (DI internals)** — ✅ **Resolved.** (a) Missing/unregistered dependencies now throw `DependencyResolutionError` (checked before the "Cannot inject" cycle heuristic — fixes the Wave-7 misclassification as `CircularDependencyError`); true cycles still throw `CircularDependencyError`. (b) Scope defaults unified on the declared `di:scope` (singleton default; explicit `options.scope` wins). (c) The `@Optional()` tsyringe-descriptor manipulation is isolated behind one documented, defensively-guarded adapter (`markTsyringeParamOptional`) with an end-to-end test — deliberate, contained tsyringe coupling (full decoupling would mean dropping tsyringe).
+
+Remaining known items: full per-app isolation *by default* (future major, RFC), request-scoped DI + interceptors/filters/lifecycle-hooks/module-system/`@HttpCode` (RFC backlog in `TODO.md`), and a `builder.ts` size split (>300-line ceiling, pre-existing structural debt).

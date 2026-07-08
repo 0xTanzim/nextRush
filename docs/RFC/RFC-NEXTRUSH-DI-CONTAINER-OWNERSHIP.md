@@ -1,6 +1,6 @@
 # RFC: Per-App DI Container Ownership & Isolation
 
-**Status:** 📝 Proposed
+**Status:** ✅ Accepted — Option A (opt-in `isolate`) shipped in Wave 8 (commit `90e7350`); flipping the default to isolation is deferred to a future major.
 **Date:** 2026-07-08
 **Author:** NextRush Core Team
 **Packages:** `@nextrush/di`, `@nextrush/decorators`, `@nextrush/controllers`, `nextrush` (meta)
