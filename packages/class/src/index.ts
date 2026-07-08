@@ -149,16 +149,11 @@ export {
 } from './discovery/discovery.js';
 
 // Discovery Source (new)
-export type { DiscoverySource, ClassRef } from './discovery/source.js';
+export type { DiscoverySource } from './discovery/source.js';
 export { FilesystemSource, MemorySource } from './discovery/source.js';
-
-// Bootstrap (new)
-export type { BootstrapContext, ResolvedBootstrapOptions } from './bootstrap/context.js';
-export { bootstrapPipeline } from './bootstrap/pipeline.js';
 
 // Bootstrap Graph IR (RFC-NEXTRUSH-CLASS-CONSOLIDATION P3.4)
 export type { ApplicationGraph } from './bootstrap/graph.js';
-export { deepFreeze } from './bootstrap/graph.js';
 
 // Diagnostics (RFC-NEXTRUSH-CLASS-CONSOLIDATION P3.6)
 export type {

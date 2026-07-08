@@ -22,8 +22,8 @@ import {
   DEFAULT_INCLUDE,
 } from '../discovery/discovery.js';
 import { ControllerResolutionError } from '../errors.js';
-import { bootstrapPipeline } from '../bootstrap/pipeline.js';
-import type { BootstrapContext } from '../bootstrap/context.js';
+import { bootstrapPipeline } from '../internal.js';
+import type { BootstrapContext } from '../internal.js';
 import type { DiscoverySource } from '../discovery/source.js';
 import { FilesystemSource, MemorySource } from '../discovery/source.js';
 import type {

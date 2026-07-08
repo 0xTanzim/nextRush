@@ -6,7 +6,8 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { buildApplicationGraph, deepFreeze } from '../bootstrap/graph.js';
+import { buildApplicationGraph } from '../bootstrap/graph.js';
+import { deepFreeze } from '../internal.js';
 
 class CtrlA {}
 class DepA {}
