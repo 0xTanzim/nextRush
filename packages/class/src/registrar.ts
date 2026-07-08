@@ -17,21 +17,17 @@
 import type { Application } from '@nextrush/core';
 import { getAllGuards, isGuardClass } from './guards.js';
 import { container as globalContainer, createContainer, DIError, type Container } from '@nextrush/di';
-import { ROUTE_METADATA, type Router } from '@nextrush/types';
 import {
   DEFAULT_EXCLUDE,
   DEFAULT_INCLUDE,
-  discoverControllers,
-  getControllersFromResults,
-  getErrorsFromResults,
 } from './discovery.js';
-import { ControllerResolutionError, RouteRegistrationError } from './errors.js';
-import { registerLifecycleExtension } from './lifecycle.js';
-import { ControllerRegistry } from './registry.js';
-import { bindRequestScopes } from './scope.js';
+import { ControllerResolutionError } from './errors.js';
+import { bootstrapPipeline } from './bootstrap/pipeline.js';
+import type { BootstrapContext } from './bootstrap/context.js';
+import type { DiscoverySource } from './discovery/source.js';
+import { FilesystemSource, MemorySource } from './discovery/source.js';
 import type {
   ControllersOptions,
-  BuiltRoute,
   RegisteredController,
   ResolvedOptions,
 } from './registrar-types.js';
@@ -52,15 +48,6 @@ function warnLog(message: string): void {
  * metadata marker (only when the route carries decorator docs), then the
  * handler — using the ROUTE_METADATA contribution protocol from `@nextrush/types`.
  */
-function buildRouteEntries(route: BuiltRoute): unknown[] {
-  const entries: unknown[] = [...route.middleware];
-  if (route.metadata) {
-    entries.push({ [ROUTE_METADATA]: route.metadata });
-  }
-  entries.push(route.handler);
-  return entries;
-}
-
 function resolveOptions(
   options: ControllersOptions,
   container: Container
@@ -80,39 +67,6 @@ function resolveOptions(
   };
 }
 
-/** Register built routes on the router. */
-function registerRoutes(router: Router, registered: RegisteredController[]): void {
-  for (const controller of registered) {
-    for (const route of controller.routes) {
-      try {
-        const method = route.method.toLowerCase() as keyof Router;
-
-        if (typeof router[method] !== 'function') {
-          throw new RouteRegistrationError(
-            controller.target.name,
-            route.method,
-            route.path,
-            `Router does not support HTTP method: ${route.method}`
-          );
-        }
-
-        (router[method] as (path: string, ...entries: unknown[]) => unknown)(
-          route.path,
-          ...buildRouteEntries(route)
-        );
-      } catch (error) {
-        throw new RouteRegistrationError(
-          controller.target.name,
-          route.method,
-          route.path,
-          error instanceof Error ? error.message : String(error),
-          error instanceof Error ? error : undefined
-        );
-      }
-    }
-  }
-}
-
 /**
  * Eagerly resolve every registered controller once so unsatisfiable or circular
  * constructor dependencies fail at boot rather than as a 500 on the first
@@ -128,7 +82,7 @@ function registerRoutes(router: Router, registered: RegisteredController[]): voi
  * is rethrown as-is so its specific, actionable message surfaces at boot rather
  * than being buried in the `.cause` of a generic wrapper.
  */
-function validateControllers(
+export function validateControllers(
   registered: RegisteredController[],
   container: Container,
   instanceCache: Map<Function, unknown>
@@ -165,7 +119,7 @@ function validateControllers(
  * its specific guidance surfaces at boot; any other failure is wrapped with a
  * guard-specific message.
  */
-function validateGuards(
+export function validateGuards(
   registered: RegisteredController[],
   container: Container
 ): void {
@@ -231,67 +185,51 @@ export async function registerControllers(
   const container: Container =
     options.container ??
     (options.isolate ? createContainer() : (app.container ?? globalContainer));
-  const opts = resolveOptions(options, container);
+  const resolvedOpts = resolveOptions(options, container);
 
-  let controllers: Function[] = [];
-
-  if (opts.root) {
-    debugLog(opts.debug, `Starting auto-discovery in: ${opts.root}`);
-    const results = await discoverControllers({
-      root: opts.root,
-      include: opts.include,
-      exclude: opts.exclude,
-      debug: opts.debug,
-    });
-    controllers = getControllersFromResults(results);
-    const errors = getErrorsFromResults(results);
-    if (errors.length > 0) {
-      for (const error of errors) {
-        if (opts.strict) {
-          throw error;
-        }
-        warnLog(error.message);
-      }
-    }
-    debugLog(opts.debug, `Discovered ${controllers.length} controller(s)`);
+  // Determine the discovery source
+  let source: DiscoverySource;
+  if (options.source) {
+    // Explicit source provided (programmatic/test use)
+    source = options.source;
+  } else if (resolvedOpts.root) {
+    // Auto-discovery mode: use FilesystemSource
+    source = new FilesystemSource(
+      resolvedOpts.root,
+      resolvedOpts.include,
+      resolvedOpts.exclude,
+      resolvedOpts.debug
+    );
+  } else {
+    // Manual mode: wrap explicit controllers in MemorySource
+    source = new MemorySource([...resolvedOpts.controllers]);
   }
 
-  if (opts.controllers.length > 0) {
-    controllers = [...controllers, ...opts.controllers];
-  }
+  // Create bootstrap context
+  const ctx: BootstrapContext = {
+    app,
+    router,
+    container,
+    resolvedOptions: resolvedOpts,
+    source,
+    discoveredClasses: [],
+    controllerDefinitions: [],
+    providerGraph: new Map(),
+    requestScoped: new Set(),
+    registryInstances: new Map(),
+    builtRoutes: [],
+    lifecycleData: {
+      controllerClasses: [],
+    },
+  };
 
-  if (controllers.length === 0) {
+  // Run the bootstrap pipeline
+  await bootstrapPipeline(ctx);
+
+  if (ctx.discoveredClasses.length === 0) {
     warnLog('No controllers found. Check your root path or patterns.');
     return;
   }
 
-  // Compute effective DI scopes (request-scope bubbling) and bind request-effective
-  // classes to the container's request lifecycle. Returns the request-scoped set
-  // that drives per-controller registration and per-request child resolution.
-  const requestScoped = bindRequestScopes(controllers, opts.container, opts.isolate);
-
-  const registry = new ControllerRegistry(
-    opts.container,
-    opts.prefix,
-    opts.middleware,
-    opts.debug,
-    requestScoped
-  );
-
-  // Bootstrap async factory providers before controller resolution.
-  await opts.container.bootstrap();
-
-  const registered = registry.registerAll(controllers);
-  registerRoutes(router, registered);
-
-  if (opts.validate) {
-    validateControllers(registered, opts.container, registry.instances);
-    validateGuards(registered, opts.container);
-  }
-
-  // Bridge service lifecycle hooks (OnInit/OnShutdown) into app.ready()/close().
-  // No-op unless a resolved controller/service implements a hook.
-  registerLifecycleExtension(app, controllers, opts.container, registry.instances);
-
-  debugLog(opts.debug, `Registered ${registry.routeCount} routes`);
+  debugLog(resolvedOpts.debug, `Registered ${ctx.builtRoutes.length} routes`);
 }

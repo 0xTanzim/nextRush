@@ -8,6 +8,7 @@ import type { ControllerDefinition } from './metadata.js';
 import type { Container } from '@nextrush/di';
 import type { MetadataContribution, Middleware, RouteHandler } from '@nextrush/types';
 import type { DiscoveryError } from './errors.js';
+import type { DiscoverySource } from './discovery/source.js';
 
 /**
  * Options for the controllers registrar
@@ -58,6 +59,17 @@ export interface ControllersOptions {
    * source tree is unavailable). Merged with any `root`-discovered controllers.
    */
   controllers?: Function[];
+
+  /**
+   * Custom discovery source for controller discovery.
+   *
+   * For programmatic/test use: supply a `DiscoverySource` that returns
+   * controller classes instead of using filesystem scanning or the `controllers`
+   * list. Advanced option; typically used with `MemorySource` in tests.
+   *
+   * Takes precedence over `root` and is incompatible with `controllers`.
+   */
+  source?: DiscoverySource;
 
   /**
    * Custom DI container to use.

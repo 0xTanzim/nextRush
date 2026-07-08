@@ -148,6 +148,14 @@ export {
     getErrorsFromResults
 } from './discovery.js';
 
+// Discovery Source (new)
+export type { DiscoverySource, ClassRef } from './discovery/source.js';
+export { FilesystemSource, MemorySource } from './discovery/source.js';
+
+// Bootstrap (new)
+export type { BootstrapContext, ResolvedBootstrapOptions } from './bootstrap/context.js';
+export { bootstrapPipeline } from './bootstrap/pipeline.js';
+
 // Registry
 export { ControllerRegistry } from './registry.js';
 
