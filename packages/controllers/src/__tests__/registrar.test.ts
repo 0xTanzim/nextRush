@@ -8,10 +8,11 @@
 
 import { Application } from '@nextrush/core';
 import { Controller, Get } from '@nextrush/decorators';
-import { Service, createContainer, type Container } from '@nextrush/di';
+import { Service, createContainer, inject, type Container } from '@nextrush/di';
 import { Router } from '@nextrush/router';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { ControllerResolutionError } from '../errors.js';
 import { registerControllers } from '../registrar.js';
 
 @Service()
@@ -28,6 +29,29 @@ class GreetController {
   @Get()
   say() {
     return { message: this.greeting.greet() };
+  }
+}
+
+// Dependency-free controller: resolvable everywhere, including under esbuild
+// (vitest's transformer), which does not emit `design:paramtypes` metadata and
+// therefore cannot inject implicit constructor dependencies. Used to exercise
+// the eager-validation happy path.
+@Controller('/health')
+class HealthController {
+  @Get()
+  check() {
+    return { status: 'ok' };
+  }
+}
+
+@Controller('/broken')
+class BrokenController {
+  constructor(@inject('MISSING_SERVICE_TOKEN') private readonly missing: unknown) {}
+
+  @Get()
+  list() {
+    void this.missing;
+    return [];
   }
 }
 
@@ -49,7 +73,10 @@ describe('registerControllers()', () => {
   it('should register manually-provided controllers on app.router', async () => {
     const app = new Application({ router });
 
-    await registerControllers(app, { controllers: [GreetController] });
+    // Wiring test: GreetController's implicit constructor dep can't be DI-resolved
+    // under esbuild (no emitDecoratorMetadata), so validation is scoped out here —
+    // eager DI validation is covered by the "eager DI validation" describe block.
+    await registerControllers(app, { controllers: [GreetController], validate: false });
 
     const match = router.match('GET', '/greet');
     expect(match).not.toBeNull();
@@ -64,6 +91,7 @@ describe('registerControllers()', () => {
     await registerControllers(app, {
       controllers: [GreetController],
       container: optionsContainer,
+      validate: false,
     });
 
     // Resolvable via the container we explicitly passed, not app.container
@@ -74,7 +102,7 @@ describe('registerControllers()', () => {
     const appContainer: Container = createContainer();
     const app = new Application({ router, container: appContainer });
 
-    await registerControllers(app, { controllers: [GreetController] });
+    await registerControllers(app, { controllers: [GreetController], validate: false });
 
     expect(appContainer.isRegistered(GreetController)).toBe(true);
   });
@@ -95,5 +123,45 @@ describe('registerControllers()', () => {
       registerControllers(app, { root: './__does_not_exist__', strict: true })
     ).resolves.toBeUndefined();
     expect(router.match('GET', '/greet')).toBeNull();
+  });
+
+  describe('eager DI validation', () => {
+    it('rejects at boot when a registered controller has an unresolvable dependency', async () => {
+      const app = new Application({ router, container: createContainer() });
+
+      // BrokenController @inject('MISSING_SERVICE_TOKEN') — never registered, so
+      // resolution must fail at registration instead of on the first request.
+      await expect(
+        registerControllers(app, { controllers: [BrokenController] })
+      ).rejects.toThrow(ControllerResolutionError);
+    });
+
+    it('names the failing controller in the boot-time error', async () => {
+      const app = new Application({ router, container: createContainer() });
+
+      await expect(
+        registerControllers(app, { controllers: [BrokenController] })
+      ).rejects.toThrow(/BrokenController/);
+    });
+
+    it('still registers a resolvable controller with validation on (default)', async () => {
+      const app = new Application({ router, container: createContainer() });
+
+      await expect(
+        registerControllers(app, { controllers: [HealthController] })
+      ).resolves.toBeUndefined();
+      expect(router.match('GET', '/health')).not.toBeNull();
+    });
+
+    it('lets callers opt out of validation with validate: false', async () => {
+      const app = new Application({ router, container: createContainer() });
+
+      // With validation disabled, an unresolvable dependency no longer fails at
+      // boot — routes register and the failure is deferred to request time.
+      await expect(
+        registerControllers(app, { controllers: [BrokenController], validate: false })
+      ).resolves.toBeUndefined();
+      expect(router.match('GET', '/broken')).not.toBeNull();
+    });
   });
 });

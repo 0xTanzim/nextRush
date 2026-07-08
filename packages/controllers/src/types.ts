@@ -72,6 +72,15 @@ export interface ControllersOptions {
    * @default false - logs warnings instead
    */
   strict?: boolean;
+
+  /**
+   * Whether to eagerly resolve every registered controller once at the end of
+   * registration, so unsatisfiable or circular constructor dependencies fail at
+   * boot (throwing {@link ControllerResolutionError}) instead of surfacing as a
+   * 500 on the first HTTP request.
+   * @default true
+   */
+  validate?: boolean;
 }
 
 /**
@@ -87,6 +96,7 @@ export interface ResolvedOptions {
   readonly debug: boolean;
   readonly prefix: string;
   readonly strict: boolean;
+  readonly validate: boolean;
 }
 
 /**

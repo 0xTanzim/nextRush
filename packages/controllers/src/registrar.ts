@@ -23,7 +23,7 @@ import {
   getControllersFromResults,
   getErrorsFromResults,
 } from './discovery.js';
-import { RouteRegistrationError } from './errors.js';
+import { ControllerResolutionError, RouteRegistrationError } from './errors.js';
 import { ControllerRegistry } from './registry.js';
 import type {
   ControllersOptions,
@@ -82,6 +82,7 @@ function resolveOptions(
     debug: options.debug ?? false,
     prefix: options.prefix ?? '',
     strict: options.strict ?? false,
+    validate: options.validate ?? true,
   };
 }
 
@@ -114,6 +115,29 @@ function registerRoutes(router: Router, registered: RegisteredController[]): voi
           error instanceof Error ? error : undefined
         );
       }
+    }
+  }
+}
+
+/**
+ * Eagerly resolve every registered controller once so unsatisfiable or circular
+ * constructor dependencies fail at boot rather than as a 500 on the first
+ * request. Mirrors the per-request resolution in `builder.ts`, surfacing the
+ * same {@link ControllerResolutionError}.
+ */
+function validateControllers(
+  registered: RegisteredController[],
+  container: Container
+): void {
+  for (const controller of registered) {
+    const token = controller.target as new (...args: unknown[]) => unknown;
+    try {
+      container.resolve(token);
+    } catch (error) {
+      throw new ControllerResolutionError(
+        controller.target.name,
+        error instanceof Error ? error : undefined
+      );
     }
   }
 }
@@ -186,6 +210,10 @@ export async function registerControllers(
 
   const registered = registry.registerAll(controllers);
   registerRoutes(router, registered);
+
+  if (opts.validate) {
+    validateControllers(registered, opts.container);
+  }
 
   debugLog(opts.debug, `Registered ${registry.routeCount} routes`);
 }

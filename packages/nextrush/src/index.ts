@@ -87,16 +87,27 @@ import {
   createApp as createBareApp,
   type ApplicationOptions,
 } from '@nextrush/core';
+import { container as sharedContainer } from '@nextrush/di';
 import { createRouter as createDefaultRouter } from '@nextrush/router';
 
 /**
  * Create an application with a default router wired in, so `app.get`/`app.post`
- * work out of the box. Import `createApp` from `@nextrush/core` for a minimal
- * engine where routing is bring-your-own.
+ * work out of the box, and an owned DI container so class-based registrars
+ * (`registerControllers`) always have an `app.container` to target.
+ *
+ * The container defaults to the shared `@nextrush/di` container export — a
+ * single, explicit seam. This keeps DI resolution behavior identical to before
+ * (that container was already the runtime fallback) while giving future per-app
+ * isolation work one place to swap. See
+ * docs/RFC/RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP.md.
+ *
+ * Import `createApp` from `@nextrush/core` for a minimal engine where both the
+ * router and container are bring-your-own.
  */
 export function createApp(options?: ApplicationOptions): Application {
   const router = options?.router ?? createDefaultRouter();
-  return createBareApp({ ...options, router });
+  const container = options?.container ?? sharedContainer;
+  return createBareApp({ ...options, router, container });
 }
 
 export { Application, compose };
