@@ -12,6 +12,7 @@ import type { DiscoverySource } from '../discovery/source.js';
 import type { BuiltRoute } from '../registrar-types.js';
 import type { ControllerDefinition } from '../metadata.js';
 import type { ApplicationGraph } from './graph.js';
+import type { TimingEntry } from '../diagnostics/types.js';
 
 /**
  * The complete bootstrap context. All fields are populated incrementally
@@ -48,6 +49,12 @@ export interface BootstrapContext {
 
   // Lifecycle integration state
   lifecycleData: LifecycleData;
+
+  /**
+   * Bootstrap stage timings (collected when diagnostics enabled).
+   * Array of { stage, ms } entries for each stage executed.
+   */
+  timings: TimingEntry[];
 }
 
 /**
@@ -63,6 +70,7 @@ export interface ResolvedBootstrapOptions {
   strict: boolean;
   container: Container;
   isolate: boolean;
+  diagnostics: boolean;
 }
 
 /**

@@ -160,6 +160,17 @@ export { bootstrapPipeline } from './bootstrap/pipeline.js';
 export type { ApplicationGraph } from './bootstrap/graph.js';
 export { deepFreeze } from './bootstrap/graph.js';
 
+// Diagnostics (RFC-NEXTRUSH-CLASS-CONSOLIDATION P3.6)
+export type {
+  CircularDependency,
+  DiagnosticsReport,
+  DuplicateRoute,
+  ProviderEntry,
+  RouteEntry,
+  TimingEntry,
+} from './diagnostics/index.js';
+export { getClassDiagnostics } from './get-diagnostics.js';
+
 // Registry
 export { ControllerRegistry } from './registry.js';
 

@@ -64,6 +64,7 @@ function resolveOptions(
     strict: options.strict ?? false,
     validate: options.validate ?? true,
     isolate: options.isolate ?? false,
+    diagnostics: options.diagnostics ?? false,
   };
 }
 
@@ -222,6 +223,7 @@ export async function registerControllers(
     lifecycleData: {
       controllerClasses: [],
     },
+    timings: [],
   };
 
   // Run the bootstrap pipeline

@@ -139,6 +139,20 @@ export interface ControllersOptions {
    * @default true
    */
   validate?: boolean;
+
+  /**
+   * Enable opt-in diagnostics collection from the ApplicationGraph IR.
+   *
+   * When true, collects routes, providers, duplicate routes, circular
+   * dependencies, and bootstrap stage timings. Call getClassDiagnostics(app)
+   * to retrieve the report after registration completes.
+   *
+   * Zero-cost when disabled: no timing measurement, no report collection,
+   * no WeakMap storage. Use this for introspection, debugging, and dev tooling.
+   *
+   * @default false
+   */
+  diagnostics?: boolean;
 }
 
 /**
@@ -156,6 +170,7 @@ export interface ResolvedOptions {
   readonly strict: boolean;
   readonly validate: boolean;
   readonly isolate: boolean;
+  readonly diagnostics: boolean;
 }
 
 /**
