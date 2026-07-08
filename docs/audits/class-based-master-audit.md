@@ -73,30 +73,30 @@ Overall class-based health: **72 / 100** (up from 62). Production-ready for sing
 - **Trade-offs:** Slightly more boot work; instantiates guard singletons at boot (consistent with controllers).
 - **Priority:** High.
 
-### 🟡 NEW-3 — Redundant double-resolve on first request under `validate: true` (Confidence: High)
+### 🟡 NEW-3 — Redundant double-resolve on first request under `validate: true` (Confidence: High) — ✅ RESOLVED (Wave 7, `4c0fff8`)
 - **Evidence:** With `validate: true` (default), `validateControllers` resolves each controller at boot; then `createRouteHandler`'s lazy memoize resolves the *same* singleton again on the first request (`isResolved` starts false in the closure).
 - **Impact:** One redundant `container.resolve` per route on first hit (returns the cached tsyringe singleton, so correctness is fine; pure micro-waste). At 1000 controllers it's 1000 extra first-hit resolves.
 - **Recommended fix:** Have `validateControllers` hand the resolved instances back to the builder (or pre-seed the handler closures), so the boot resolve and the memoized instance are the same reference.
 - **Priority:** Medium (perf polish).
 
-### 🟡 NEW-4 — Eager validation flattens `CircularDependencyError`/`DependencyResolutionError` into a generic `ControllerResolutionError` (Confidence: High)
+### 🟡 NEW-4 — Eager validation flattens `CircularDependencyError`/`DependencyResolutionError` into a generic `ControllerResolutionError` (Confidence: High) — ✅ RESOLVED (Wave 7, `4c0fff8`)
 - **Evidence:** `validateControllers` wraps *any* resolve error as `new ControllerResolutionError(name, cause)`. `@nextrush/di` produces excellent specific messages (`CircularDependencyError` with cycle + break strategies; `DependencyResolutionError` with fix recipes) — these are now nested in `.cause`, and the top-level boot error is the generic controller message.
 - **Impact:** The best diagnostic messages in the codebase are demoted to a cause chain at exactly the moment (boot failure) a developer most needs them.
 - **Recommended fix:** In `validateControllers`, if the error is already a `DIError` subclass, rethrow it as-is (or surface its message) rather than always wrapping.
 - **Priority:** Medium (DX).
 
-### 🟡 NEW-5 — `bootstrap()` on the shared global container is not idempotent across apps (Confidence: Medium)
+### 🟡 NEW-5 — `bootstrap()` on the shared global container is not idempotent across apps (Confidence: Medium) — ✅ RESOLVED (Wave 7, `4c0fff8`)
 - **Evidence:** `container.ts` `bootstrap()` iterates `factoryTokens` then `factoryTokens.clear()`. `registerControllers` calls `opts.container.bootstrap()`. Because `createApp()` defaults every app to the *same* shared container wrapper (NEW findings + CRITICAL-2), the first app's `bootstrap()` clears `factoryTokens`; a second `createApp()`+`registerControllers()` in the same process finds an empty set and silently bootstraps nothing.
 - **Impact:** In multi-app-per-process setups (tests, serverless warm reuse, embedding), factory providers may not bootstrap for the second app. Silent.
 - **Recommended fix:** Part of the DI-ownership RFC (per-app containers); short-term, make `bootstrap()` re-derive factory tokens or be safely re-runnable.
 - **Priority:** Medium (edge, but silent).
 
-### 🟢 NEW-6 — Guard `GuardContext` snapshot can desync from a mutated `ctx` (Confidence: Medium)
+### 🟢 NEW-6 — Guard `GuardContext` snapshot can desync from a mutated `ctx` (Confidence: Medium) — ✅ RESOLVED (Wave 7, `4c0fff8`, documented contract)
 - **Evidence:** `executeGuards` builds a `guardContext` object copying `ctx.method/path/params/query/headers/body/state`. `state` is passed by reference (mutations visible), but `body`/`params` are captured by value at guard time. A guard mutating `ctx.body` via the real context isn't possible (it only has the snapshot), and a guard that sets `guardContext.state.user` works only because `state` is the same reference.
 - **Impact:** Subtle: guards can attach to `state` (works) but the value-captured fields could drift if middleware mutates `ctx` after the snapshot — not currently exploitable since guards run before the handler, but it's an implicit contract.
 - **Priority:** Low (document the contract).
 
-### 🟢 NEW-7 — `import 'reflect-metadata'` duplicated as a side-effect import across many source files (Confidence: High)
+### 🟢 NEW-7 — `import 'reflect-metadata'` duplicated as a side-effect import across many source files (Confidence: High) — ✅ RESOLVED (Wave 7, `4c0fff8`)
 - **Evidence:** `builder.ts`, `registrar.ts`, `registry.ts`, `discovery.ts`, decorator files, and di all carry top-level `import 'reflect-metadata'`. Harmless (idempotent) but scattered.
 - **Priority:** Low (tidy to a single entry-point import).
 
