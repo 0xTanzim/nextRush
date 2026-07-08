@@ -7,6 +7,12 @@
  * @packageDocumentation
  */
 
+// Canonical reflect-metadata load for the package. Decorator metadata (route,
+// param, and DI reflection) depends on this side-effect import being evaluated
+// before any decorated class is defined; keeping it at the entry point avoids
+// scattering the same import across internal modules.
+import 'reflect-metadata';
+
 // Registration
 export { registerControllers } from './registrar.js';
 

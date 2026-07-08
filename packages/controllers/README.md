@@ -263,6 +263,20 @@ class AuthGuard implements CanActivate {
 - **Function guards**: Called directly with `GuardContext`
 - **Class guards**: Resolved from the app's DI container, then `canActivate()` called
 
+### Guard Context (snapshot contract)
+
+Every guard receives a `GuardContext` — a per-guard snapshot built once, before any
+guard on the route runs. The fields are **not** all the same kind of reference:
+
+- **`state` is the live `ctx.state` reference.** Mutations are visible to later guards
+  and to the handler, so this is the supported channel for a guard to pass data forward
+  (for example `ctx.state.user = user` in the examples above).
+- **`method`, `path`, `params`, `query`, `headers`, and `body` are captured by value**
+  at guard time. A guard sees the request as it was when guards began; it cannot mutate
+  the real request through these fields, and a mutation made by middleware _after_ the
+  snapshot would not be observed. Attach forward state via `state`, never by writing to
+  the snapshotted fields.
+
 ### Guard Rejection
 
 A guard denies access in one of two ways, with different outcomes:

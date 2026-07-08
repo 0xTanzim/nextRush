@@ -4,7 +4,6 @@
  * Lightweight wrapper around tsyringe with enhanced error handling.
  */
 
-import 'reflect-metadata';
 import type { DependencyContainer, InjectionToken } from 'tsyringe';
 import { container as tsyContainer } from 'tsyringe';
 
@@ -170,13 +169,20 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
     },
 
     async bootstrap(): Promise<void> {
-      for (const token of factoryTokens) {
+      // Re-runnable by design: the global container can be shared across multiple apps
+      // / registration cycles in one process (createApp + registerControllers reuse), so
+      // bootstrap() must stay idempotent AND keep processing factories registered after
+      // an earlier bootstrap(). We therefore DO NOT clear factoryTokens — already
+      // bootstrapped factories are skipped via the bootstrappedValues cache, and any
+      // factory whose cache was dropped (clearInstances) or registered later is
+      // (re-)resolved on the next call. Iterate a snapshot so a factory that registers
+      // another factory during resolution cannot mutate the set mid-iteration.
+      for (const token of [...factoryTokens]) {
         if (bootstrappedValues.has(token)) continue;
         const result = wrapper.resolve<unknown>(token);
         const value = result instanceof Promise ? await result : result;
         bootstrappedValues.set(token, value);
       }
-      factoryTokens.clear();
     },
 
     resolveAll<T>(token: Token<T>): T[] {

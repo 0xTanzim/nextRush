@@ -7,7 +7,6 @@
 import { getControllerDefinition, isController } from '@nextrush/decorators';
 import type { Container } from '@nextrush/di';
 import type { Middleware } from '@nextrush/types';
-import 'reflect-metadata';
 import { buildRoutes } from './builder.js';
 import { NoRoutesError, NotAControllerError } from './errors.js';
 import type { BuiltRoute, RegisteredController } from './types.js';
@@ -21,6 +20,19 @@ export class ControllerRegistry {
   private readonly globalPrefix: string;
   private readonly globalMiddleware: Middleware[];
   private readonly debug: boolean;
+
+  /**
+   * Shared controller-instance cache, keyed by controller class.
+   *
+   * Owned by the registry so a single resolved singleton is reused across the
+   * boot-time eager validation (`validateControllers`) and the per-request
+   * handlers built by {@link buildRoutes}. Without a shared cache, `validate: true`
+   * resolves each controller twice: once at boot and again on the first request.
+   *
+   * A failed resolve is never stored, so resolution retries on each request until
+   * it succeeds (see `createRouteHandler` in `builder.ts`).
+   */
+  private readonly instanceCache: Map<Function, unknown> = new Map();
 
   constructor(
     container: Container,
@@ -62,7 +74,8 @@ export class ControllerRegistry {
       definition,
       this.container,
       this.globalPrefix,
-      this.globalMiddleware
+      this.globalMiddleware,
+      this.instanceCache
     );
 
     const registered: RegisteredController = {
@@ -78,6 +91,17 @@ export class ControllerRegistry {
     }
 
     return registered;
+  }
+
+  /**
+   * The shared controller-instance cache.
+   *
+   * Exposed so `registerControllers` can pre-seed it during eager validation
+   * (`validate: true`), making the boot-time resolve and the per-request handler
+   * share one singleton instead of resolving the same controller twice.
+   */
+  get instances(): Map<Function, unknown> {
+    return this.instanceCache;
   }
 
   /**

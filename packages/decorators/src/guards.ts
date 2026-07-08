@@ -11,7 +11,6 @@
  * - Feature flags
  */
 
-import 'reflect-metadata';
 import type { Guard, GuardMetadata } from './types.js';
 import { DECORATOR_METADATA_KEYS, isGuardClass } from './types.js';
 

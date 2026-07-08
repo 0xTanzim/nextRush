@@ -9,7 +9,6 @@
  */
 
 import { markInjectable } from '@nextrush/di';
-import 'reflect-metadata';
 import { normalizePath } from './path-utils.js';
 import type { ControllerMetadata, ControllerOptions } from './types.js';
 import { DECORATOR_METADATA_KEYS } from './types.js';

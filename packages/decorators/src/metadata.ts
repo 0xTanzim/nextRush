@@ -5,7 +5,6 @@
  * Used by @nextrush/controllers' registrar to build routes.
  */
 
-import 'reflect-metadata';
 import type {
   ControllerMetadata,
   ParamMetadata,

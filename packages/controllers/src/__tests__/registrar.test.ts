@@ -8,11 +8,18 @@
 
 import { Application } from '@nextrush/core';
 import { Controller, Get, UseGuard, type CanActivate } from '@nextrush/decorators';
-import { Service, createContainer, inject, type Container } from '@nextrush/di';
+import {
+  CircularDependencyError,
+  DIError,
+  Service,
+  createContainer,
+  inject,
+  type Container,
+} from '@nextrush/di';
 import { Router } from '@nextrush/router';
+import type { Context } from '@nextrush/types';
 import 'reflect-metadata';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { ControllerResolutionError } from '../errors.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerControllers } from '../registrar.js';
 
 @Service()
@@ -93,6 +100,57 @@ class GuardedBrokenController {
   }
 }
 
+// Two services in a direct dependency cycle. Token-based @inject is used (not
+// implicit design:paramtypes) so the cycle is reproducible under vitest's esbuild
+// transformer, which does not emit constructor metadata.
+@Service()
+class CycleA {
+  constructor(@inject('CycleB') public readonly b: unknown) {}
+}
+
+@Service()
+class CycleB {
+  constructor(@inject(CycleA) public readonly a: CycleA) {}
+}
+
+// Controller whose constructor dependency chain contains a circular dependency.
+// Resolving it must surface @nextrush/di's CircularDependencyError.
+@Controller('/cycle')
+class CircularController {
+  constructor(@inject(CycleA) private readonly a: CycleA) {}
+
+  @Get()
+  list() {
+    void this.a;
+    return [];
+  }
+}
+
+/** Minimal Context stub for invoking a matched route handler directly. */
+function createMockContext(method: string, path: string): Context {
+  return {
+    method: method as Context['method'],
+    url: path,
+    path,
+    query: {},
+    headers: {},
+    ip: '127.0.0.1',
+    body: undefined,
+    params: {},
+    status: 200,
+    state: {},
+    responded: false,
+    json: vi.fn(),
+    send: vi.fn(),
+    html: vi.fn(),
+    redirect: vi.fn(),
+    set: vi.fn(),
+    get: vi.fn(),
+    next: async () => {},
+    raw: { req: {}, res: { writableEnded: false } },
+  } as unknown as Context;
+}
+
 describe('registerControllers()', () => {
   let router: Router;
 
@@ -164,14 +222,16 @@ describe('registerControllers()', () => {
   });
 
   describe('eager DI validation', () => {
-    it('rejects at boot when a registered controller has an unresolvable dependency', async () => {
+    it('rejects at boot with the DI-native error (not a generic wrapper) when a registered controller has an unresolvable dependency', async () => {
       const app = new Application({ router, container: createContainer() });
 
       // BrokenController @inject('MISSING_SERVICE_TOKEN') — never registered, so
       // resolution must fail at registration instead of on the first request.
+      // Per NEW-4, the @nextrush/di error (a DIError subclass) surfaces as-is so
+      // its actionable message isn't buried in a ControllerResolutionError.cause.
       await expect(
         registerControllers(app, { controllers: [BrokenController] })
-      ).rejects.toThrow(ControllerResolutionError);
+      ).rejects.toThrow(DIError);
     });
 
     it('names the failing controller in the boot-time error', async () => {
@@ -200,6 +260,19 @@ describe('registerControllers()', () => {
         registerControllers(app, { controllers: [BrokenController], validate: false })
       ).resolves.toBeUndefined();
       expect(router.match('GET', '/broken')).not.toBeNull();
+    });
+
+    it('surfaces @nextrush/di CircularDependencyError as-is (not the generic wrapper)', async () => {
+      const container = createContainer();
+      container.register(CycleA, { useClass: CycleA });
+      container.register('CycleB', { useClass: CycleB });
+      const app = new Application({ router, container });
+
+      // The specific DI error (with its cycle + break strategies) must surface at
+      // boot rather than being buried in the .cause of a ControllerResolutionError.
+      await expect(
+        registerControllers(app, { controllers: [CircularController], container })
+      ).rejects.toThrow(CircularDependencyError);
     });
   });
 
@@ -242,6 +315,55 @@ describe('registerControllers()', () => {
         })
       ).resolves.toBeUndefined();
       expect(router.match('GET', '/guarded-broken')).not.toBeNull();
+    });
+  });
+
+  describe('shared controller-instance cache (single resolve)', () => {
+    it('resolves a controller exactly once across boot validation and N requests', async () => {
+      const container = createContainer();
+      const resolveSpy = vi.spyOn(container, 'resolve');
+      const app = new Application({ router, container });
+
+      // validate: true (default) resolves HealthController once at boot and seeds
+      // the shared cache; request-time handlers must reuse it, not re-resolve.
+      await registerControllers(app, { controllers: [HealthController], container });
+
+      const match = router.match('GET', '/health');
+      expect(match).not.toBeNull();
+
+      for (let i = 0; i < 3; i++) {
+        await match!.handler(createMockContext('GET', '/health'));
+      }
+
+      const controllerResolves = resolveSpy.mock.calls.filter(
+        (call) => call[0] === HealthController
+      ).length;
+      expect(controllerResolves).toBe(1);
+    });
+
+    it('stays lazy under validate: false — the first request resolves once, later requests reuse it', async () => {
+      const container = createContainer();
+      const resolveSpy = vi.spyOn(container, 'resolve');
+      const app = new Application({ router, container });
+
+      await registerControllers(app, {
+        controllers: [HealthController],
+        container,
+        validate: false,
+      });
+
+      // No boot-time resolve when validation is off.
+      expect(resolveSpy.mock.calls.filter((call) => call[0] === HealthController)).toHaveLength(0);
+
+      const match = router.match('GET', '/health');
+      for (let i = 0; i < 3; i++) {
+        await match!.handler(createMockContext('GET', '/health'));
+      }
+
+      const controllerResolves = resolveSpy.mock.calls.filter(
+        (call) => call[0] === HealthController
+      ).length;
+      expect(controllerResolves).toBe(1);
     });
   });
 });

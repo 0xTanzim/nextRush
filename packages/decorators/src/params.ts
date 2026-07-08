@@ -5,7 +5,6 @@
  * Uses legacy decorators (parameter decorators not supported in Stage 3).
  */
 
-import 'reflect-metadata';
 import type {
   BodyOptions,
   CustomParamExtractor,

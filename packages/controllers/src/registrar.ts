@@ -16,9 +16,8 @@
 
 import type { Application } from '@nextrush/core';
 import { getAllGuards, isGuardClass } from '@nextrush/decorators';
-import { container as globalContainer, type Container } from '@nextrush/di';
+import { container as globalContainer, DIError, type Container } from '@nextrush/di';
 import { ROUTE_METADATA, type Router } from '@nextrush/types';
-import 'reflect-metadata';
 import {
   DEFAULT_EXCLUDE,
   DEFAULT_INCLUDE,
@@ -115,17 +114,30 @@ function registerRoutes(router: Router, registered: RegisteredController[]): voi
  * Eagerly resolve every registered controller once so unsatisfiable or circular
  * constructor dependencies fail at boot rather than as a 500 on the first
  * request. Mirrors the per-request resolution in `builder.ts`, surfacing the
- * same {@link ControllerResolutionError}.
+ * same {@link ControllerResolutionError} for non-DI failures.
+ *
+ * Each successfully resolved singleton is stored in the shared `instanceCache`,
+ * so the per-request handler reuses this instance instead of resolving the same
+ * controller a second time on its first hit.
+ *
+ * When the underlying failure is a `@nextrush/di` error (a {@link DIError}
+ * subclass such as `CircularDependencyError` or `DependencyResolutionError`), it
+ * is rethrown as-is so its specific, actionable message surfaces at boot rather
+ * than being buried in the `.cause` of a generic wrapper.
  */
 function validateControllers(
   registered: RegisteredController[],
-  container: Container
+  container: Container,
+  instanceCache: Map<Function, unknown>
 ): void {
   for (const controller of registered) {
     const token = controller.target as new (...args: unknown[]) => unknown;
     try {
-      container.resolve(token);
+      instanceCache.set(token, container.resolve(token));
     } catch (error) {
+      if (error instanceof DIError) {
+        throw error;
+      }
       throw new ControllerResolutionError(
         controller.target.name,
         error instanceof Error ? error : undefined
@@ -144,6 +156,11 @@ function validateControllers(
  * controller tokens) would otherwise fail late — the exact gap eager validation
  * exists to close. Function guards need no DI resolution and are skipped; each
  * class guard is resolved once (deduped) even when shared across routes.
+ *
+ * A `@nextrush/di` error (a {@link DIError} subclass such as
+ * `CircularDependencyError` or `DependencyResolutionError`) is rethrown as-is so
+ * its specific guidance surfaces at boot; any other failure is wrapped with a
+ * guard-specific message.
  */
 function validateGuards(
   registered: RegisteredController[],
@@ -162,6 +179,9 @@ function validateGuards(
         try {
           container.resolve(guard);
         } catch (error) {
+          if (error instanceof DIError) {
+            throw error;
+          }
           const guardName = guard.name || 'AnonymousGuard';
           throw new Error(
             `Failed to resolve guard "${guardName}" from the DI container ` +
@@ -249,7 +269,7 @@ export async function registerControllers(
   registerRoutes(router, registered);
 
   if (opts.validate) {
-    validateControllers(registered, opts.container);
+    validateControllers(registered, opts.container, registry.instances);
     validateGuards(registered, opts.container);
   }
 

@@ -7,6 +7,10 @@
  * @packageDocumentation
  */
 
+// reflect-metadata polyfill — loaded once at the package entry point so every decorator
+// (applied in consumer code reached via this barrel) has Reflect.defineMetadata available.
+import 'reflect-metadata';
+
 // Types
 export type {
   BodyOptions,

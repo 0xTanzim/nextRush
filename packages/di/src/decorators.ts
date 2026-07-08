@@ -5,7 +5,6 @@
  * Uses legacy TypeScript decorators for maximum compatibility with tsyringe.
  */
 
-import 'reflect-metadata';
 import {
   delay as tsyDelay,
   inject as tsyInject,

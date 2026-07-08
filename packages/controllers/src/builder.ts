@@ -24,7 +24,6 @@ import {
 } from '@nextrush/decorators';
 import type { Container } from '@nextrush/di';
 import type { Context, MetadataContribution, Middleware, RouteHandler } from '@nextrush/types';
-import 'reflect-metadata';
 import {
   ControllerResolutionError,
   GuardRejectionError,
@@ -60,19 +59,25 @@ function resolveMiddlewareRefs(refs: MiddlewareRef[], container: Container): Mid
 }
 
 /**
- * Build route handlers for a controller
+ * Build route handlers for a controller.
+ *
+ * @param instanceCache - Shared controller-instance cache (keyed by controller
+ *   class). Handlers read-or-populate it so a controller singleton is resolved
+ *   exactly once across boot-time validation and all requests. Defaults to a
+ *   fresh per-call map when omitted (standalone use), preserving lazy resolution.
  */
 export function buildRoutes(
   definition: ControllerDefinition,
   container: Container,
   globalPrefix: string,
-  globalMiddleware: Middleware[]
+  globalMiddleware: Middleware[],
+  instanceCache: Map<Function, unknown> = new Map()
 ): BuiltRoute[] {
   const routes: BuiltRoute[] = [];
   const { target, controller, routes: routeMetadata } = definition;
 
   for (const route of routeMetadata) {
-    const handler = createRouteHandler(target, route, container);
+    const handler = createRouteHandler(target, route, container, instanceCache);
     const fullPath = buildFullRoutePath(
       globalPrefix,
       controller.path,
@@ -163,12 +168,17 @@ function buildFullRoutePath(
 }
 
 /**
- * Create a route handler that resolves the controller and injects parameters
+ * Create a route handler that resolves the controller and injects parameters.
+ *
+ * @param instanceCache - Shared controller-instance cache. The controller
+ *   singleton is resolved once and stored here, so `validate: true`'s boot-time
+ *   resolve and the first request share one instance rather than resolving twice.
  */
 function createRouteHandler(
   controllerClass: Function,
   route: RouteMetadata,
-  container: Container
+  container: Container,
+  instanceCache: Map<Function, unknown>
 ): RouteHandler {
   const methodName = String(route.methodName);
   const paramMetadata = getParamMetadata(controllerClass, methodName);
@@ -182,34 +192,33 @@ function createRouteHandler(
   const responseHeaders = getResponseHeaders(controllerClass, methodName);
   const redirectMeta = getRedirectMetadata(controllerClass, methodName);
 
-  // Controllers are registered as singletons, so the instance never changes.
-  // Resolve it lazily on the first request and memoize it — this keeps the hot
-  // path allocation-free without forcing resolution at build time (so a
-  // `validate: false` opt-out still defers DI resolution to request time).
-  let controllerInstance: unknown;
-  let isResolved = false;
-
   return async (ctx: Context): Promise<void> => {
     // Execute guards first (if any) — always per-request, never hoisted.
     if (guards.length > 0) {
       await executeGuards(guards, ctx, container, controllerClass.name, methodName);
     }
 
-    if (!isResolved) {
+    // Controllers are registered as singletons, so the instance never changes.
+    // Resolve lazily on first use and memoize in the shared cache — this keeps
+    // the hot path allocation-free without forcing resolution at build time (so
+    // a `validate: false` opt-out still defers DI resolution to request time),
+    // and reuses the instance already resolved by boot-time eager validation.
+    if (!instanceCache.has(controllerClass)) {
       try {
-        controllerInstance = container.resolve(
-          controllerClass as new (...args: unknown[]) => unknown
+        instanceCache.set(
+          controllerClass,
+          container.resolve(controllerClass as new (...args: unknown[]) => unknown)
         );
       } catch (error) {
-        // Do not memoize a failed resolution — keep retrying on each request
+        // Do not cache a failed resolution — keep retrying on each request
         // until it succeeds (preserves retry-on-failure semantics).
         throw new ControllerResolutionError(
           controllerClass.name,
           error instanceof Error ? error : undefined
         );
       }
-      isResolved = true;
     }
+    const controllerInstance = instanceCache.get(controllerClass);
     const args = await resolveParametersFromPlan(
       ctx,
       sortedParams,
@@ -270,6 +279,20 @@ function createRouteHandler(
  * Execute guards and throw if any guard rejects.
  * Supports both function-based and class-based guards.
  * Class guards are resolved from the DI container.
+ *
+ * GuardContext snapshot contract:
+ * - The {@link GuardContext} handed to each guard is a per-guard snapshot built
+ *   once here, before any guard runs.
+ * - `state` is the **live** `ctx.state` reference (not a copy): guards read and
+ *   attach data through it (e.g. `ctx.state.user = ...`), and those mutations are
+ *   visible to later guards and to the handler. This is the supported channel for
+ *   a guard to pass data forward.
+ * - `method`, `path`, `params`, `query`, `headers`, and `body` are captured **by
+ *   value** at guard time. Guards see the request as it was when guards began; a
+ *   guard cannot mutate the real request through these fields, and if middleware
+ *   mutated `ctx` after this snapshot the guard would not observe it. Guards run
+ *   before the handler, so this is not currently exploitable — but attach forward
+ *   state via `state`, never by mutating the snapshotted fields.
  *
  * Rejection semantics:
  * - A guard that returns `false` throws {@link GuardRejectionError} (403).

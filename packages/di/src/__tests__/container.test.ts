@@ -466,6 +466,78 @@ describe('@nextrush/di - Container', () => {
       expect(result).toBe('resolved');
       expect(callCount).toBe(1);
     });
+
+    it('bootstrap() twice keeps factory values resolvable and invokes the factory once', async () => {
+      let callCount = 0;
+      container.register('BOOT_TWICE', {
+        useFactory: async () => {
+          callCount++;
+          return 'value';
+        },
+      });
+
+      await container.bootstrap();
+      await container.bootstrap();
+
+      expect(container.resolve<string>('BOOT_TWICE')).toBe('value');
+      expect(callCount).toBe(1);
+    });
+
+    it('processes a factory registered after a previous bootstrap()', async () => {
+      let firstCalls = 0;
+      container.register('FIRST_FACTORY', {
+        useFactory: async () => {
+          firstCalls++;
+          return 'first';
+        },
+      });
+
+      await container.bootstrap();
+      expect(container.resolve<string>('FIRST_FACTORY')).toBe('first');
+
+      // A NEW factory registered after the first bootstrap must be bootstrapped by a
+      // second bootstrap() — the global container is shared across apps/registration
+      // cycles in one process (createApp/registerControllers reuse).
+      let secondCalls = 0;
+      container.register('SECOND_FACTORY', {
+        useFactory: async () => {
+          secondCalls++;
+          return 'second';
+        },
+      });
+
+      await container.bootstrap();
+
+      // Async value already awaited during bootstrap → resolve returns it synchronously.
+      expect(container.resolve<string>('SECOND_FACTORY')).toBe('second');
+      expect(secondCalls).toBe(1);
+      // First factory not re-invoked — cached from the first bootstrap.
+      expect(firstCalls).toBe(1);
+    });
+
+    it('stays re-runnable: re-bootstraps async factories after clearInstances()', async () => {
+      let callCount = 0;
+      container.register('RERUNNABLE', {
+        useFactory: async () => {
+          callCount++;
+          return 'ready';
+        },
+      });
+
+      await container.bootstrap();
+      expect(container.resolve<string>('RERUNNABLE')).toBe('ready');
+      expect(callCount).toBe(1);
+
+      // clearInstances() drops the bootstrap cache but keeps registrations. bootstrap()
+      // must remain re-runnable so a second call re-resolves the async factory and
+      // resolve() again returns the awaited value synchronously (not a pending Promise).
+      container.clearInstances();
+
+      await container.bootstrap();
+
+      expect(container.resolve<string>('RERUNNABLE')).toBe('ready');
+      expect(callCount).toBe(2);
+    });
   });
 
   describe('circular dependency detection (Set-based)', () => {

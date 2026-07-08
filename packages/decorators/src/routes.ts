@@ -5,7 +5,6 @@
  * Uses legacy decorators for compatibility with parameter decorators.
  */
 
-import 'reflect-metadata';
 import { normalizePath } from './path-utils.js';
 import type {
   RedirectMetadata,
