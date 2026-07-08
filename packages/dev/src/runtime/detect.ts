@@ -77,7 +77,7 @@ export function getRuntimeInfo(): RuntimeInfo {
         runtime: 'node',
         version: getNodeVersion(),
         supportsTypeScript: false, // Node.js needs transpilation
-        supportsWatch: true, // Node.js 18+ has --watch
+        supportsWatch: true, // Node.js 22+ has --watch
         needsSwc: true, // Need SWC for decorator metadata
       };
   }

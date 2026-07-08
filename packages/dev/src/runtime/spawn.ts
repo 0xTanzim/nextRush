@@ -11,6 +11,9 @@ import { detectRuntime, type Runtime } from './detect.js';
 import { getCwd } from './fs.js';
 import { getSwcNodeRegisterPath, NODE_CHILD_PROCESS } from './node-modules.js';
 
+// Memoize runtime detection to avoid repeated calls
+const memoizedRuntime: Runtime = detectRuntime();
+
 export interface SpawnOptions {
   cwd?: string;
   env?: Record<string, string>;
@@ -31,9 +34,7 @@ export async function spawn(
   args: string[],
   options: SpawnOptions = {}
 ): Promise<SpawnResult> {
-  const runtime = detectRuntime();
-
-  switch (runtime) {
+  switch (memoizedRuntime) {
     case 'bun':
       return spawnBun(command, args, options);
     case 'deno':
@@ -46,6 +47,9 @@ export async function spawn(
 
 /**
  * Node.js spawn implementation
+ *
+ * For the 'node' command, uses process.execPath to spawn the current Node.js binary.
+ * This avoids PATH resolution issues and .cmd file handling on Windows.
  */
 async function spawnNode(
   command: string,
@@ -54,7 +58,10 @@ async function spawnNode(
 ): Promise<SpawnResult> {
   const { spawn: nodeSpawn } = await import(/* @vite-ignore */ NODE_CHILD_PROCESS);
 
-  const child = nodeSpawn(command, args, {
+  // Use process.execPath for 'node' command to avoid PATH/.cmd issues on Windows
+  const actualCommand = command === 'node' ? process.execPath : command;
+
+  const child = nodeSpawn(actualCommand, args, {
     cwd: options.cwd ?? getCwd(),
     env: {
       ...(process.env as Record<string, string>),
