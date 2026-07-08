@@ -4,6 +4,7 @@
 
 import type { BootstrapContext } from '../context.js';
 import { bindRequestScopes } from '../../scope.js';
+import { collectDependencyClasses } from '../../isolation.js';
 
 export async function providerGraphStage(ctx: BootstrapContext): Promise<void> {
   // Compute effective DI scopes (request-scope bubbling) and bind request-effective
@@ -14,7 +15,12 @@ export async function providerGraphStage(ctx: BootstrapContext): Promise<void> {
     ctx.resolvedOptions.isolate
   );
 
-  // Provider graph is populated as a side-effect of bindRequestScopes.
-  // (The providerGraph field can be populated from isolation/scope functions
-  // if needed in the future; for now it serves as a placeholder.)
+  // Populate the provider dependency graph (controller/service -> its constructor
+  // dependency classes) so the frozen Application Graph carries real provider
+  // data for diagnostics and introspection. Read once here, never at request time.
+  const graph = new Map<Function, Function[]>();
+  for (const cls of ctx.discoveredClasses) {
+    graph.set(cls, collectDependencyClasses(cls));
+  }
+  ctx.providerGraph = graph;
 }

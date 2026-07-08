@@ -11,6 +11,7 @@ import type { Container } from '@nextrush/di';
 import type { DiscoverySource } from '../discovery/source.js';
 import type { BuiltRoute } from '../registrar-types.js';
 import type { ControllerDefinition } from '../metadata.js';
+import type { ApplicationGraph } from './graph.js';
 
 /**
  * The complete bootstrap context. All fields are populated incrementally
@@ -37,6 +38,13 @@ export interface BootstrapContext {
   // Built artifacts
   registryInstances: Map<Function, unknown>;
   builtRoutes: BuiltRoute[];
+
+  /**
+   * The immutable Application Graph (IR), assembled and deep-frozen once after
+   * the registrar stage. The router stage registers from `graph.routes`. Null
+   * until the pipeline builds it. Freezes shape, not instances.
+   */
+  graph: ApplicationGraph | null;
 
   // Lifecycle integration state
   lifecycleData: LifecycleData;

@@ -11,7 +11,11 @@ import type { BuiltRoute } from '../../registrar-types.js';
 export function routerStage(ctx: BootstrapContext): void {
   const router = ctx.router;
 
-  for (const route of ctx.builtRoutes) {
+  // Register from the frozen Application Graph (the source of truth once built);
+  // fall back to the raw built routes defensively if the graph is not assembled.
+  const routes = ctx.graph ? ctx.graph.routes : ctx.builtRoutes;
+
+  for (const route of routes) {
     try {
       const method = route.method.toLowerCase() as keyof Router;
 

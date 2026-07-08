@@ -10,6 +10,7 @@ import { validationStage } from './stages/validation.js';
 import { registrarStage } from './stages/registrar.js';
 import { routerStage } from './stages/router.js';
 import { registerLifecycleExtension } from '../lifecycle.js';
+import { buildApplicationGraph } from './graph.js';
 
 /**
  * Execute the bootstrap pipeline in sequence:
@@ -42,7 +43,12 @@ export async function bootstrapPipeline(ctx: BootstrapContext): Promise<void> {
   // Registry and route building
   registrarStage(ctx);
 
-  // Router registration
+  // Assemble + deep-freeze the immutable Application Graph (IR) once. The router
+  // stage below registers from this frozen graph; request-time execution reads
+  // only baked route data (zero Reflect on the request path).
+  ctx.graph = buildApplicationGraph(ctx.builtRoutes, ctx.providerGraph, ctx.requestScoped);
+
+  // Router registration (from the frozen graph)
   routerStage(ctx);
 
   // Lifecycle hook integration

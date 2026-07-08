@@ -218,6 +218,7 @@ export async function registerControllers(
     requestScoped: new Set(),
     registryInstances: new Map(),
     builtRoutes: [],
+    graph: null,
     lifecycleData: {
       controllerClasses: [],
     },

@@ -156,6 +156,10 @@ export { FilesystemSource, MemorySource } from './discovery/source.js';
 export type { BootstrapContext, ResolvedBootstrapOptions } from './bootstrap/context.js';
 export { bootstrapPipeline } from './bootstrap/pipeline.js';
 
+// Bootstrap Graph IR (RFC-NEXTRUSH-CLASS-CONSOLIDATION P3.4)
+export type { ApplicationGraph } from './bootstrap/graph.js';
+export { deepFreeze } from './bootstrap/graph.js';
+
 // Registry
 export { ControllerRegistry } from './registry.js';
 
