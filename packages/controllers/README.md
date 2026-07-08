@@ -263,16 +263,36 @@ class AuthGuard implements CanActivate {
 
 ### Guard Rejection
 
-When a guard returns `false` or throws:
+A guard denies access in one of two ways, with different outcomes:
+
+**1. Return `false`** → `GuardRejectionError` (403 Forbidden):
 
 ```typescript
-// Results in:
-throw new GuardRejectionError('AuthGuard', 'Access denied by guard');
+const AuthGuard: GuardFn = (ctx) => Boolean(ctx.get('authorization'));
 
+// When it returns false:
+throw new GuardRejectionError('AuthGuard');
 // HTTP Response:
 // Status: 403 Forbidden
 // Body: { "error": "GuardRejectionError", "message": "Access denied", "code": "GUARD_REJECTED" }
 ```
+
+**2. Throw an error** → the error propagates **unchanged**. Throw a typed `HttpError` to
+control the status and message — for example `UnauthorizedError` for a 401:
+
+```typescript
+import { UnauthorizedError } from '@nextrush/errors';
+
+const AuthGuard: GuardFn = (ctx) => {
+  if (!ctx.get('authorization')) {
+    throw new UnauthorizedError('Missing bearer token'); // → 401, not 403
+  }
+  return true;
+};
+```
+
+The guard's error is never swallowed or downgraded to a generic 403 — its status, message, and
+stack are preserved. This makes 401 (and any other status) expressible from a guard.
 
 ## Parameter Extraction
 
@@ -338,7 +358,7 @@ interface ControllersOptions {
 
   // Auto-discovery options
   root?: string; // Directory to scan
-  include?: string[]; // Glob patterns (default: ['**/*.ts', '**/*.js'])
+  include?: string[]; // Glob patterns (default: ['**/*.controller.ts', '**/*.controller.js'])
   exclude?: string[]; // Exclude patterns (default: tests, node_modules, dist, __tests__)
 
   // Route configuration
@@ -371,16 +391,30 @@ await registerControllers(app, {
 ### Auto-Discovery (Recommended)
 
 ```typescript
-// ✅ Recommended — scans ALL .ts/.js files, no file naming convention required
+// ✅ Recommended — imports files matching the *.controller.* convention
 await registerControllers(app, {
   root: './src',
   prefix: '/api',
 });
 ```
 
-`@Controller` classes are discovered regardless of file name — `users.ts`, `user.controller.ts`,
-`userController.ts`, `modules/user/index.ts` — all work. Use `include` only to narrow the scan
-when you want to exclude certain areas.
+By default, discovery imports only files matching the `*.controller.*` convention
+(`user.controller.ts`, `modules/user/user.controller.ts`, …). Services, guards, and
+repositories do **not** need to match — they load transitively via the controllers that
+import them, so their `@Service`/`@Repository` registration side-effects still fire.
+
+To scan every source file instead (the pre-v3.2 behavior), pass the scan-all escape hatch:
+
+```typescript
+await registerControllers(app, {
+  root: './src',
+  include: ['**/*.ts', '**/*.js'], // scan-all: import every source file
+});
+```
+
+> **Import side-effect:** discovery works by dynamically `import()`ing each matched module,
+> which runs its top-level code (DI registration, singleton construction, etc.). Narrow
+> `include` if a module has side-effects you don't want executed at startup.
 
 ## Error Hierarchy
 

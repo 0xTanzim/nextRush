@@ -26,9 +26,19 @@ export interface ControllersOptions {
 
   /**
    * Glob patterns to include in auto-discovery.
-   * Defaults to all .ts/.js files — no naming convention required.
-   * Any file exporting a @Controller class will be discovered.
-   * @default `['**‍/*.ts', '**‍/*.js']`
+   *
+   * Defaults to the `*.controller.*` naming convention, so only files named
+   * like `user.controller.ts` are imported. Non-controller modules (services,
+   * guards, repositories) still load transitively via the controllers that
+   * import them, so their `@Service`/`@Repository` side-effects still fire.
+   *
+   * To scan every source file instead (the pre-v3.2 behavior), pass the
+   * scan-all escape hatch: `['**‍/*.ts', '**‍/*.js']`.
+   *
+   * Side-effect: each matched file is dynamically `import()`ed, which runs its
+   * top-level module code.
+   *
+   * @default `['**‍/*.controller.ts', '**‍/*.controller.js']`
    */
   include?: string[];
 

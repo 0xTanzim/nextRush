@@ -39,9 +39,15 @@ describe('Discovery', () => {
       await mkdir(join(testDir, 'controllers'), { recursive: true });
       await mkdir(join(testDir, 'services'), { recursive: true });
 
-      // Create a simple file (not a controller, but should be scanned)
-      await writeFile(join(testDir, 'controllers', 'test.ts'), 'export const foo = 1;');
-      await writeFile(join(testDir, 'services', 'test.ts'), 'export const bar = 2;');
+      // Files matching the default `*.controller.*` convention are scanned
+      await writeFile(
+        join(testDir, 'controllers', 'a.controller.ts'),
+        'export const foo = 1;'
+      );
+      await writeFile(
+        join(testDir, 'services', 'b.controller.ts'),
+        'export const bar = 2;'
+      );
 
       const results = await discoverControllers({ root: testDir });
 
@@ -49,9 +55,54 @@ describe('Discovery', () => {
       expect(results.length).toBe(2);
     });
 
+    it('should only import files matching the *.controller.* convention by default', async () => {
+      await writeFile(join(testDir, 'user.controller.ts'), 'export const x = 1;');
+      await writeFile(join(testDir, 'user.service.ts'), 'export const y = 2;');
+      await writeFile(join(testDir, 'helpers.ts'), 'export const z = 3;');
+
+      const results = await discoverControllers({ root: testDir });
+
+      // Non-controller files are not imported by default (their side-effects
+      // still run transitively via the controllers that import them).
+      expect(results.length).toBe(1);
+      expect(results[0].filePath).toContain('user.controller.ts');
+    });
+
+    it('should scan all files when include is set to the scan-all escape hatch', async () => {
+      await writeFile(join(testDir, 'user.ts'), 'export const x = 1;');
+      await writeFile(join(testDir, 'helpers.ts'), 'export const y = 2;');
+
+      const results = await discoverControllers({
+        root: testDir,
+        include: ['**/*.ts', '**/*.js'],
+      });
+
+      expect(results.length).toBe(2);
+    });
+
+    it('should discover every file when file count exceeds the concurrency cap', async () => {
+      const fileCount = 40; // > IMPORT_CONCURRENCY (16)
+      const expectedNames: string[] = [];
+      for (let i = 0; i < fileCount; i++) {
+        const name = `c${String(i).padStart(3, '0')}.controller.ts`;
+        expectedNames.push(name);
+        await writeFile(join(testDir, name), `export const v${i} = ${i};`);
+      }
+
+      const results = await discoverControllers({ root: testDir });
+
+      expect(results.length).toBe(fileCount);
+      // Deterministic aggregation: every scanned file has exactly one result.
+      const seen = results.map((r) => r.filePath.split('/').pop()).sort();
+      expect(seen).toEqual([...expectedNames].sort());
+    });
+
     it('should skip node_modules directory', async () => {
       await mkdir(join(testDir, 'node_modules', 'package'), { recursive: true });
-      await writeFile(join(testDir, 'node_modules', 'package', 'index.ts'), 'export const x = 1;');
+      await writeFile(
+        join(testDir, 'node_modules', 'package', 'index.controller.ts'),
+        'export const x = 1;'
+      );
 
       const results = await discoverControllers({ root: testDir });
 
@@ -60,7 +111,7 @@ describe('Discovery', () => {
 
     it('should skip dist directory', async () => {
       await mkdir(join(testDir, 'dist'), { recursive: true });
-      await writeFile(join(testDir, 'dist', 'index.js'), 'export const x = 1;');
+      await writeFile(join(testDir, 'dist', 'index.controller.js'), 'export const x = 1;');
 
       const results = await discoverControllers({ root: testDir });
 
@@ -69,7 +120,7 @@ describe('Discovery', () => {
 
     it('should skip __tests__ directory', async () => {
       await mkdir(join(testDir, '__tests__'), { recursive: true });
-      await writeFile(join(testDir, '__tests__', 'test.ts'), 'export const x = 1;');
+      await writeFile(join(testDir, '__tests__', 'a.controller.ts'), 'export const x = 1;');
 
       const results = await discoverControllers({ root: testDir });
 
@@ -81,7 +132,12 @@ describe('Discovery', () => {
       await writeFile(join(testDir, 'controller.test.ts'), 'export const b = 2;');
       await writeFile(join(testDir, 'controller.spec.ts'), 'export const c = 3;');
 
-      const results = await discoverControllers({ root: testDir });
+      // Scan-all escape hatch: the exclude patterns (not the include default)
+      // are what filter out the test/spec files here.
+      const results = await discoverControllers({
+        root: testDir,
+        include: ['**/*.ts', '**/*.js'],
+      });
 
       // Should only find controller.ts
       expect(results.length).toBe(1);
@@ -93,7 +149,10 @@ describe('Discovery', () => {
     it('should skip .d.ts files', async () => {
       await writeFile(join(testDir, 'types.d.ts'), 'export type X = string;');
 
-      const results = await discoverControllers({ root: testDir });
+      const results = await discoverControllers({
+        root: testDir,
+        include: ['**/*.ts', '**/*.js'],
+      });
 
       expect(results).toEqual([]);
     });
@@ -102,7 +161,10 @@ describe('Discovery', () => {
       await mkdir(join(testDir, '.hidden'), { recursive: true });
       await writeFile(join(testDir, '.hidden', 'file.ts'), 'export const x = 1;');
 
-      const results = await discoverControllers({ root: testDir });
+      const results = await discoverControllers({
+        root: testDir,
+        include: ['**/*.ts', '**/*.js'],
+      });
 
       expect(results).toEqual([]);
     });

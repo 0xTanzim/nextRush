@@ -18,6 +18,7 @@ import {
   UseGuard,
 } from '@nextrush/decorators';
 import { createContainer, type Container } from '@nextrush/di';
+import { UnauthorizedError } from '@nextrush/errors';
 import type { Context, Middleware } from '@nextrush/types';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -390,6 +391,109 @@ describe('buildRoutes', () => {
       const mockCtx = createMockContext('GET', '/users');
 
       await expect(routes[0].handler(mockCtx)).rejects.toThrow(GuardRejectionError);
+    });
+
+    it('should map a false-returning guard rejection to 403', async () => {
+      const rejectGuard: GuardFn = () => false;
+
+      @UseGuard(rejectGuard)
+      @Controller('/users')
+      class UserController {
+        @Get()
+        findAll() {
+          return [];
+        }
+      }
+
+      container.register(UserController, { useClass: UserController });
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/users');
+
+      await expect(routes[0].handler(mockCtx)).rejects.toMatchObject({ status: 403 });
+    });
+
+    it('should propagate a thrown HttpError from a function guard unchanged (401, not 403)', async () => {
+      const authGuard: GuardFn = () => {
+        throw new UnauthorizedError('Missing token');
+      };
+
+      @UseGuard(authGuard)
+      @Controller('/users')
+      class UserController {
+        @Get()
+        findAll() {
+          return [];
+        }
+      }
+
+      container.register(UserController, { useClass: UserController });
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/users');
+
+      // The original UnauthorizedError (401) must reach the caller — not be
+      // swallowed into a generic GuardRejectionError (403).
+      await expect(routes[0].handler(mockCtx)).rejects.toBeInstanceOf(UnauthorizedError);
+      await expect(routes[0].handler(mockCtx)).rejects.not.toBeInstanceOf(GuardRejectionError);
+      await expect(routes[0].handler(mockCtx)).rejects.toMatchObject({
+        status: 401,
+        message: 'Missing token',
+      });
+    });
+
+    it('should propagate a thrown HttpError from a class guard unchanged (401, not 403)', async () => {
+      class AuthGuard implements CanActivate {
+        canActivate(_ctx: GuardContext): boolean {
+          throw new UnauthorizedError('Denied by class guard');
+        }
+      }
+
+      @UseGuard(AuthGuard)
+      @Controller('/users')
+      class UserController {
+        @Get()
+        findAll() {
+          return [];
+        }
+      }
+
+      container.register(AuthGuard, { useClass: AuthGuard });
+      container.register(UserController, { useClass: UserController });
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/users');
+
+      await expect(routes[0].handler(mockCtx)).rejects.toBeInstanceOf(UnauthorizedError);
+      await expect(routes[0].handler(mockCtx)).rejects.toMatchObject({ status: 401 });
+    });
+
+    it('should preserve an arbitrary thrown error from a guard (no conversion to 403)', async () => {
+      const brokenGuard: GuardFn = () => {
+        throw new TypeError('boom');
+      };
+
+      @UseGuard(brokenGuard)
+      @Controller('/users')
+      class UserController {
+        @Get()
+        findAll() {
+          return [];
+        }
+      }
+
+      container.register(UserController, { useClass: UserController });
+      const definition = getControllerDefinition(UserController)!;
+      const routes = buildRoutes(definition, container, '', []);
+
+      const mockCtx = createMockContext('GET', '/users');
+
+      // A programming error in a guard must surface as-is, not be masked as 403.
+      await expect(routes[0].handler(mockCtx)).rejects.toBeInstanceOf(TypeError);
+      await expect(routes[0].handler(mockCtx)).rejects.not.toBeInstanceOf(GuardRejectionError);
     });
 
     it('should execute class-based guards from DI container', async () => {

@@ -261,6 +261,13 @@ function createRouteHandler(
  * Execute guards and throw if any guard rejects.
  * Supports both function-based and class-based guards.
  * Class guards are resolved from the DI container.
+ *
+ * Rejection semantics:
+ * - A guard that returns `false` throws {@link GuardRejectionError} (403).
+ * - A guard that *throws* propagates its error unchanged, so a guard can throw
+ *   `UnauthorizedError` (401) — or any other `HttpError` — and get the correct
+ *   status and message. Errors are never swallowed or downgraded to a generic
+ *   403; a bug in a guard surfaces as its real error rather than a masked 403.
  */
 async function executeGuards(
   guards: Guard[],
@@ -285,30 +292,21 @@ async function executeGuards(
     let guardName: string;
     let result: boolean;
 
-    try {
-      if (isGuardClass(guard)) {
-        // Class-based guard - resolve from DI container
-        guardName = guard.name || `ClassGuard[${i}]`;
-        const guardInstance = container.resolve(guard) as CanActivate;
-        result = await guardInstance.canActivate(guardContext);
-      } else {
-        // Function-based guard
-        guardName = guard.name || `Guard[${i}]`;
-        result = await guard(guardContext);
-      }
+    // A thrown guard error propagates unchanged (no try/catch conversion), so
+    // typed HTTP errors keep their status/message/stack.
+    if (isGuardClass(guard)) {
+      // Class-based guard - resolve from DI container
+      guardName = guard.name || `ClassGuard[${i}]`;
+      const guardInstance = container.resolve(guard) as CanActivate;
+      result = await guardInstance.canActivate(guardContext);
+    } else {
+      // Function-based guard
+      guardName = guard.name || `Guard[${i}]`;
+      result = await guard(guardContext);
+    }
 
-      if (!result) {
-        throw new GuardRejectionError(guardName);
-      }
-    } catch (error) {
-      if (error instanceof GuardRejectionError) {
-        throw error;
-      }
-      // Guard threw an error - treat as rejection
-      const errorGuardName = isGuardClass(guard)
-        ? guard.name || `ClassGuard[${i}]`
-        : guard.name || `Guard[${i}]`;
-      throw new GuardRejectionError(errorGuardName);
+    if (!result) {
+      throw new GuardRejectionError(guardName);
     }
   }
 }

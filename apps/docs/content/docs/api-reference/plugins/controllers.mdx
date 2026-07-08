@@ -28,9 +28,10 @@ await registerControllers(app, {
 });
 ```
 
-Add a controller file anywhere in `./src` — any name, any subdirectory. Decorate the class with
-`@Controller` and it is automatically discovered and registered. No imports, no arrays, no naming
-convention enforced.
+Add a controller file matching the `*.controller.*` convention (e.g. `user.controller.ts`) anywhere
+in `./src` — any subdirectory. Decorate the class with `@Controller` and it is automatically
+discovered and registered. No imports, no arrays. Services and guards need no special name; they
+load transitively via the controllers that import them.
 
 ---
 
@@ -158,8 +159,9 @@ Reads `app.router` (required — throws if absent) and `app.container` (falls ba
     },
     include: {
       type: 'string[]',
-      description: 'Glob patterns to include in auto-discovery',
-      default: "['**/*.ts', '**/*.js']",
+      description:
+        'Glob patterns to include. Defaults to the *.controller.* convention; pass ["**/*.ts", "**/*.js"] to scan every source file. Matched files are dynamically imported (runs their top-level code).',
+      default: "['**/*.controller.ts', '**/*.controller.js']",
     },
     exclude: {
       type: 'string[]',
@@ -222,24 +224,31 @@ Reads `app.router` (required — throws if absent) and `app.container` (falls ba
 
 ### Default Patterns
 
-By default, `registerControllers` scans for all `.ts` and `.js` files, excluding tests and build artifacts:
+By default, `registerControllers` imports files matching the `*.controller.*` convention, excluding tests and build artifacts:
 
 ```typescript
 await registerControllers(app, {
   root: './src',
   // Default patterns:
-  // include: ['**/*.ts', '**/*.js']
+  // include: ['**/*.controller.ts', '**/*.controller.js']
   // exclude: ['**/*.test.ts', '**/*.spec.ts', '**/*.test.js', '**/*.spec.js',
   //           '**/node_modules/**', '**/dist/**', '**/__tests__/**']
 });
 ```
 
+<Callout type="warn" title="Discovery imports run module code">
+  Discovery dynamically `import()`s every matched module, executing its top-level code (DI
+  registration, singleton construction). Only `*.controller.*` files are imported by default —
+  narrow `include` further if a matched module has side-effects you don't want at startup.
+</Callout>
+
 ### Custom Patterns
 
 <Callout type="info">
-  The `include` option is **not required**. By default, discovery scans all `.ts` and `.js` files
-  under `root` — it does not care how files are named. Use `include` only to narrow the scan when
-  needed (e.g. to skip a large `src/generated/` folder or enforce team conventions).
+  By default, discovery imports only files matching the `*.controller.*` convention under `root`.
+  Services, guards, and repositories need no special name — they load transitively via the
+  controllers that import them. To scan every `.ts`/`.js` file instead, pass the scan-all escape
+  hatch: `include: ['**/*.ts', '**/*.js']`.
 </Callout>
 
 Narrow the scan to specific directories or naming conventions:
@@ -416,6 +425,12 @@ Headers from `@SetHeader` are precomputed at build time and applied before the h
 ## Guards
 
 Guards protect routes by returning a boolean to allow or deny access.
+
+<Callout type="info" title="401 vs 403 from a guard">
+  Returning `false` produces a `GuardRejectionError` (403). To return a different status, **throw**
+  a typed error instead — it propagates unchanged. For example, `throw new UnauthorizedError()`
+  (from `@nextrush/errors`) yields a 401. Thrown guard errors are never downgraded to a generic 403.
+</Callout>
 
 ### Function Guards
 

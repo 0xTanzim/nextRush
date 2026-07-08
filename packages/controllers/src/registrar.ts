@@ -19,6 +19,8 @@ import { container as globalContainer, type Container } from '@nextrush/di';
 import { ROUTE_METADATA, type Router } from '@nextrush/types';
 import 'reflect-metadata';
 import {
+  DEFAULT_EXCLUDE,
+  DEFAULT_INCLUDE,
   discoverControllers,
   getControllersFromResults,
   getErrorsFromResults,
@@ -31,17 +33,6 @@ import type {
   RegisteredController,
   ResolvedOptions,
 } from './types.js';
-
-const DEFAULT_INCLUDE = ['**/*.ts', '**/*.js'];
-const DEFAULT_EXCLUDE = [
-  '**/*.test.ts',
-  '**/*.spec.ts',
-  '**/*.test.js',
-  '**/*.spec.js',
-  '**/node_modules/**',
-  '**/dist/**',
-  '**/__tests__/**',
-];
 
 /** Debug logger that writes to stderr (never to stdout). */
 function debugLog(debug: boolean, message: string): void {

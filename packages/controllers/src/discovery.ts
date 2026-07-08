@@ -3,6 +3,16 @@
  *
  * Automatic controller discovery by scanning directories.
  * Uses glob patterns to find files and imports them to discover controllers.
+ *
+ * ## Import side-effect (important)
+ *
+ * Discovery works by **dynamically `import()`ing every matched module**, then
+ * inspecting its exports for `@Controller` classes. Importing a module runs its
+ * top-level code — so any side-effects at module scope (DI registration via
+ * `@Service`/`@Repository`, singleton construction, connection setup) execute
+ * during discovery. This is load-bearing: services and guards register with the
+ * DI container as a side-effect of being imported (transitively via the
+ * controllers that import them, or directly when matched).
  */
 
 import { isController } from '@nextrush/decorators';
@@ -12,8 +22,23 @@ import { pathToFileURL } from 'node:url';
 import { DiscoveryError } from './errors.js';
 import type { DiscoveryOptions, DiscoveryResult } from './types.js';
 
-const DEFAULT_INCLUDE = ['**/*.ts', '**/*.js'];
-const DEFAULT_EXCLUDE = [
+/**
+ * Default include patterns — the `*.controller.*` naming convention.
+ *
+ * Only files named like `user.controller.ts` are imported by default, rather
+ * than every source file under `root`. This keeps startup fast and avoids
+ * running unrelated module side-effects. Non-controller modules (services,
+ * guards, repositories) still load transitively via the controllers that import
+ * them, so their `@Service`/`@Repository` registration side-effects still fire.
+ *
+ * To restore scan-all behavior, pass `include: ['**‍/*.ts', '**‍/*.js']`.
+ *
+ * Single source of truth: re-used by the registrar so both entry points agree.
+ */
+export const DEFAULT_INCLUDE = ['**/*.controller.ts', '**/*.controller.js'];
+
+/** Default exclude patterns — tests and build/vendor artifacts. */
+export const DEFAULT_EXCLUDE = [
   '**/*.test.ts',
   '**/*.spec.ts',
   '**/*.test.js',
@@ -22,6 +47,13 @@ const DEFAULT_EXCLUDE = [
   '**/dist/**',
   '**/__tests__/**',
 ];
+
+/**
+ * Maximum number of module imports performed concurrently during discovery.
+ * Bounds the import fan-out so a large source tree can't open an unbounded
+ * number of module evaluations at once, while still parallelizing I/O.
+ */
+const IMPORT_CONCURRENCY = 16;
 
 /**
  * Check if a filename matches any of the patterns
@@ -157,14 +189,27 @@ async function importControllers(
 }
 
 /**
- * Discover all controllers in a directory
+ * Discover all controllers in a directory.
+ *
+ * Scans `root` for files matching `include` (default: the `*.controller.*`
+ * convention) and dynamically imports each match to find `@Controller` classes.
+ *
+ * @remarks
+ * **Side-effect:** every matched module is `import()`ed, which runs its
+ * top-level code (including DI registration). See the module-level docs. Only
+ * files matching the convention are imported by default; pass
+ * `include: ['**‍/*.ts', '**‍/*.js']` to scan every source file instead.
+ *
+ * Imports run in parallel with a bounded concurrency cap
+ * ({@link IMPORT_CONCURRENCY}); results are aggregated deterministically in
+ * scan order regardless of import completion order.
  *
  * @param options - Discovery options
- * @returns Array of discovered controller classes
+ * @returns Array of discovery results (one per scanned file), in scan order
  *
  * @example
  * ```typescript
- * // Scans ALL .ts/.js files — discovers any class with @Controller
+ * // Imports only *.controller.ts / *.controller.js files
  * const controllers = await discoverControllers({
  *   root: './src',
  * });
@@ -189,17 +234,22 @@ export async function discoverControllers(options: DiscoveryOptions): Promise<Di
     process.stderr.write(`[Controllers] Found ${files.length} files to scan\n`);
   }
 
-  // Import and discover controllers
-  const results: DiscoveryResult[] = [];
+  // Import and discover controllers in parallel with a bounded concurrency cap.
+  // Results are written by index so aggregation stays deterministic (scan
+  // order), independent of which import settles first.
+  const results: DiscoveryResult[] = new Array(files.length);
+  let cursor = 0;
 
-  for (const filePath of files) {
-    const { controllers, errors } = await importControllers(filePath, debug);
-    results.push({
-      filePath,
-      controllers,
-      errors,
-    });
-  }
+  const worker = async (): Promise<void> => {
+    for (let index = cursor++; index < files.length; index = cursor++) {
+      const filePath = files[index]!;
+      const { controllers, errors } = await importControllers(filePath, debug);
+      results[index] = { filePath, controllers, errors };
+    }
+  };
+
+  const workerCount = Math.min(IMPORT_CONCURRENCY, files.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return results;
 }
