@@ -108,7 +108,7 @@ function printHelp(): void {
 Usage: nextrush <command> [options]
 
 Commands:
-  dev          Start development server with hot reload
+  dev          Start development server with auto-restart on file change
   build        Build for production with decorator metadata
   generate, g  Generate controller, service, middleware, guard, or route
   codemod      Run automated code transformations

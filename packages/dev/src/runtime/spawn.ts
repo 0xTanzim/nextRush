@@ -193,46 +193,60 @@ async function spawnDeno(
  * - SWC properly emits decorator metadata (emitDecoratorMetadata)
  * - Decorator metadata is required for DI constructor injection
  * - Node.js >= 22 has built-in --watch that auto-watches imported files
+ *
+ * Watch paths behavior:
+ * - Node.js: uses --watch-path=<dir> for each path (repeatable); bare --watch if none given
+ * - Deno: uses --watch=path1,path2 for paths; bare --watch if none given
+ * - Bun: warns that custom paths unsupported (bun watches imported files); uses bare --watch
  */
 export function buildDevArgs(
   runtime: Runtime,
   entry: string,
-  _watchPaths: string[],
+  watchPaths: string[],
   inspect?: boolean,
-  inspectPort?: number
+  inspectPort?: number,
+  denoPermissions?: string[],
+  onWarnUnsupported?: () => void
 ): { command: string; args: string[] } {
   switch (runtime) {
-    case 'bun':
+    case 'bun': {
+      // Bun's --watch always watches imported files; custom paths not supported
+      if (watchPaths.length > 0 && onWarnUnsupported) {
+        onWarnUnsupported();
+      }
       return {
         command: 'bun',
         args: ['--watch', ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []), entry],
       };
+    }
 
-    case 'deno':
+    case 'deno': {
+      const permissions = denoPermissions ?? ['--allow-net', '--allow-read', '--allow-env'];
+      const watchArg = watchPaths.length > 0 ? `--watch=${watchPaths.join(',')}` : '--watch';
       return {
         command: 'deno',
         args: [
           'run',
-          '--watch',
-          '--allow-net',
-          '--allow-read',
-          '--allow-env',
+          watchArg,
+          ...permissions,
           ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []),
           entry,
         ],
       };
+    }
 
     case 'node':
     default: {
       // Use SWC for TypeScript transpilation with decorator metadata support
-      // Node.js --watch auto-watches all imported files for changes
       const swcLoaderPath = getSwcNodeRegisterPath();
+      const watchArgs =
+        watchPaths.length > 0 ? watchPaths.map((p) => `--watch-path=${p}`) : ['--watch'];
       return {
         command: 'node',
         args: [
           '--import',
           swcLoaderPath,
-          '--watch',
+          ...watchArgs,
           ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []),
           entry,
         ],

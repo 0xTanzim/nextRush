@@ -1,7 +1,7 @@
 /**
  * @nextrush/dev - Dev Command
  *
- * Development server with hot reload support.
+ * Development server with auto-restart on file change.
  * Works across Node.js, Bun, and Deno.
  *
  * @packageDocumentation
@@ -21,8 +21,8 @@ import {
     type SpawnResult,
 } from '../runtime/index.js';
 import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
-import { banner, clear, error, info, log } from '../utils/logger.js';
-import { detectProjectRuntime, parsePositiveInteger, resolveDevPort } from './dev-helpers.js';
+import { banner, clear, error, info, log, warn } from '../utils/logger.js';
+import { detectProjectRuntime } from './dev-helpers.js';
 
 /**
  * Development server options
@@ -66,7 +66,10 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
   const resolvedEntry = entry ?? options.entry ?? findEntry();
   // Respect PORT env var if options.port is not explicitly set.
-  const port = resolveDevPort(options.port);
+  const port =
+    options.port !== undefined
+      ? options.port
+      : parseInt(process.env.PORT ?? '8080', 10) || 8080;
   const cwd = getCwd();
 
   // Clear screen unless disabled
@@ -104,7 +107,17 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
   // Build watch paths
   const watchPaths = options.watch ?? getDefaultWatchPaths();
-  info('Watching', watchPaths.join(', '));
+
+  // Determine what we're watching
+  let watchDisplay = '';
+  if (watchPaths.length > 0 && watchPaths[0] !== '.') {
+    watchDisplay = watchPaths.join(', ');
+  } else if (targetRuntime === 'bun') {
+    watchDisplay = 'imported files (auto)';
+  } else {
+    watchDisplay = watchPaths.length > 0 ? watchPaths.join(', ') : 'imported files (auto)';
+  }
+  info('Watching', watchDisplay);
 
   // Show runtime-specific info
   if (runtimeInfo.needsSwc) {
@@ -122,12 +135,18 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
   log(''); // Blank line
 
   // Build command arguments based on target runtime
+  const warnUnsupported = targetRuntime === 'bun' && watchPaths.length > 0 ? () => {
+    warn('Custom watch paths are not supported in Bun. Bun will watch all imported files instead.');
+  } : undefined;
+
   const { command, args } = buildDevArgs(
     targetRuntime,
     resolvedEntry,
     watchPaths,
     options.inspect,
-    options.inspectPort
+    options.inspectPort,
+    undefined,
+    warnUnsupported
   );
 
   // Prepare environment
@@ -159,95 +178,4 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
   onSignal('SIGTERM', cleanup);
 
   return child;
-}
-
-/**
- * CLI entry point for dev command
- */
-export function devCli(args: string[]): void {
-  const options: DevOptions = {};
-  let entry: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i] ?? '';
-
-    switch (arg) {
-      case '--port':
-      case '-p': {
-        const portArg = args[++i];
-        options.port = parsePositiveInteger(portArg, '--port');
-        break;
-      }
-      case '--inspect': {
-        options.inspect = true;
-        break;
-      }
-      case '--inspect-port': {
-        const inspectArg = args[++i];
-        options.inspectPort = parsePositiveInteger(inspectArg, '--inspect-port');
-        break;
-      }
-      case '--watch':
-      case '-w': {
-        const watchArg = args[++i];
-        if (watchArg) {
-          options.watch ??= [];
-          options.watch.push(watchArg);
-        }
-        break;
-      }
-      case '--no-clear': {
-        options.clearScreen = false;
-        break;
-      }
-      case '--verbose':
-      case '-v': {
-        options.verbose = true;
-        break;
-      }
-      case '--help':
-      case '-h': {
-        devHelp();
-        exitProcess(0);
-      }
-      default: {
-        if (!arg.startsWith('-')) {
-          entry = arg;
-        }
-        break;
-      }
-    }
-  }
-
-  // Run dev server
-  dev(entry, options).catch((err) => {
-    error(`Failed to start dev server: ${err.message}`);
-    exitProcess(1);
-  });
-}
-
-/**
- * Print dev command help
- */
-export function devHelp(): void {
-  log(`
-\x1b[36m⚡ NextRush Dev Server\x1b[0m
-
-Usage: nextrush dev [entry] [options]
-
-Options:
-  --port, -p <port>    Port number (default: 8080; env PORT overrides)
-  --watch, -w <path>   Additional path to watch (can be used multiple times)
-  --inspect            Enable Node.js inspector
-  --inspect-port       Inspector port (default: 9229)
-  --no-clear           Don't clear screen on start
-  --verbose, -v        Verbose output
-
-Examples:
-  nextrush dev
-  nextrush dev ./src/app.ts
-  nextrush dev --port 4000
-  nextrush dev --watch ./src --watch ./config
-  nextrush dev ./src/app.ts --port 4000 --inspect
-`);
 }

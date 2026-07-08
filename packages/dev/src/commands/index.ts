@@ -6,7 +6,8 @@
  * @packageDocumentation
  */
 
-export { dev, devCli, devHelp, type DevOptions } from './dev.js';
+export { dev, type DevOptions } from './dev.js';
+export { devCli, devHelp } from './dev-cli.js';
 
 export { build, buildCli, buildHelp, type BuildOptions } from './build.js';
 

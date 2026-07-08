@@ -178,8 +178,42 @@ export function buildCli(args: string[]): void {
         options.verbose = true;
         break;
       }
+      case '--help':
+      case '-h': {
+        buildHelp();
+        exitProcess(0);
+      }
       default: {
-        if (!arg.startsWith('-')) {
+        if (arg.startsWith('--') || arg.startsWith('-')) {
+          // Handle --flag=value syntax
+          if (arg.includes('=')) {
+            const eqIndex = arg.indexOf('=');
+            const flagPart = arg.substring(0, eqIndex);
+            const valuePart = arg.substring(eqIndex + 1);
+            switch (flagPart) {
+              case '--outDir':
+              case '-o': {
+                options.outDir = valuePart;
+                break;
+              }
+              case '--target':
+              case '-t': {
+                options.target = parseBuildTarget(valuePart);
+                break;
+              }
+              default: {
+                error(`Unknown flag: ${arg}`);
+                error('Run "nextrush build --help" for available options.');
+                exitProcess(1);
+              }
+            }
+          } else {
+            // Unknown flag without value
+            error(`Unknown flag: ${arg}`);
+            error('Run "nextrush build --help" for available options.');
+            exitProcess(1);
+          }
+        } else {
           entry = arg;
         }
         break;
