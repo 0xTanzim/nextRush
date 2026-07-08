@@ -166,12 +166,7 @@ For each route method, a handler is created:
 ```typescript
 // Pseudo-code of the generated handler:
 async function handler(ctx: Context) {
-  // 1. Apply response headers (from @SetHeader, precomputed)
-  for (const { name, value } of responseHeaders) {
-    ctx.set(name, value);
-  }
-
-  // 2. Execute guards (in order)
+  // 1. Execute guards (class → method order)
   for (const guard of guards) {
     if (isGuardClass(guard)) {
       const instance = container.resolve(guard);
@@ -185,23 +180,30 @@ async function handler(ctx: Context) {
     }
   }
 
-  // 3. Resolve controller from DI
+  // 2. Resolve controller from DI (singleton — resolved once, then memoized)
   const controller = container.resolve(UserController);
 
-  // 4. Extract parameters (with async transform support)
+  // 3. Extract & transform parameters (async transform support)
   //    Supports: body, query, param, header, ctx, req, res, custom
   const args = await resolveParameters(ctx, paramMetadata);
 
-  // 5. Call method
+  // 4. Call the controller method
   const result = await controller.findOne(...args);
 
+  // 5. Apply @SetHeader headers + route statusCode — AFTER the method returns
+  for (const { name, value } of responseHeaders) {
+    ctx.set(name, value);
+  }
+  if (statusCode !== undefined) {
+    ctx.status = statusCode;
+  }
+
   // 6. Handle response
-  //    - @Redirect: set Location header, override URL from return value
-  //    - Default: ctx.json(result) if not already sent
+  //    - @Redirect: set Location header, override URL/status from return value
+  //    - Default: ctx.json(result) if nothing has been sent yet
   if (redirectMetadata) {
     const url = typeof result === 'string' ? result : redirectMetadata.url;
-    const code = result?.statusCode ?? redirectMetadata.statusCode;
-    ctx.status = code;
+    ctx.status = result?.statusCode ?? redirectMetadata.statusCode;
     ctx.set('Location', url);
     ctx.send('');
   } else if (result !== undefined) {
@@ -386,14 +388,51 @@ export class UserController {
 > A dedicated `@HttpCode()` decorator is a **proposed** future enhancement (RFC) and is not yet
 > available. Set status via the route `statusCode` option, `ctx.status`, or a thrown `HttpError`.
 
+## Controller lifecycle: singletons
+
+Controllers are resolved from the DI container as **singletons**. One instance is created
+lazily on the first request to a route and reused for every request afterward — and it is
+shared across all concurrent requests.
+
+Keep controllers **stateless**. Per-request data stored on `this` leaks across requests:
+
+```typescript
+// ❌ Wrong — `this.currentUser` is shared by every request to this controller
+@Controller('/users')
+export class UserController {
+  private currentUser?: User;
+
+  @Get('/me')
+  me(@Ctx() ctx: Context) {
+    this.currentUser = ctx.state.user as User; // leaks into the next request
+    return this.currentUser;
+  }
+}
+
+// ✅ Correct — per-request state lives in ctx.state / @Ctx, never on `this`
+@Controller('/users')
+export class UserController {
+  @Get('/me')
+  me(@Ctx() ctx: Context) {
+    return ctx.state.user;
+  }
+}
+```
+
+Constructor-injected dependencies (services, repositories) are safe to hold on `this` — they
+are themselves singletons (or explicitly `transient`). Only **per-request** state is unsafe.
+
+> Request-scoped DI — a fresh controller/service instance per request — is **proposed** future
+> work and requires an RFC. `Scope` is `'singleton' | 'transient'` today.
+
 ## registerControllers Options
 
 ```typescript
 import type { ControllersOptions } from '@nextrush/controllers';
 
 interface ControllersOptions {
-  // Manual controller registration
-  controllers?: Function[]; // @deprecated — prefer auto-discovery with `root`
+  // Explicit controller list — a first-class alternative to auto-discovery
+  controllers?: Function[];
 
   // Auto-discovery options
   root?: string; // Directory to scan
@@ -415,17 +454,24 @@ interface ControllersOptions {
 
 `registerControllers` resolves its container in this order: `options.container` → `app.container` → the global `@nextrush/di` container. There is no `router` option — it always registers on `app.router`, so the app must be created with a router (`createApp()` from `nextrush`, or `createApp({ router })` from `@nextrush/core`).
 
-### Manual Registration (Deprecated)
+### Explicit Registration
 
-> **⚠️ Deprecated:** Manual registration is for testing only. Prefer auto-discovery with `root` option.
+Pass `controllers` directly to register a known list of controller classes without
+scanning the filesystem. This is a **first-class, fully supported** alternative to
+auto-discovery — reach for it when explicit wiring reads better than convention:
+greppable registration, deterministic order, no filesystem scan (tests, bundled or
+serverless builds where dynamic `import()` of a source tree isn't available).
 
 ```typescript
-// ❌ Deprecated - only for testing
+// Explicit controller list — no filesystem scanning
 await registerControllers(app, {
   controllers: [UserController, ProductController],
   prefix: '/api',
 });
 ```
+
+`root` (auto-discovery) and `controllers` (explicit) can also be combined — discovered
+controllers and those passed in `controllers` are merged.
 
 ### Auto-Discovery (Recommended)
 

@@ -49,8 +49,13 @@ export interface ControllersOptions {
   exclude?: string[];
 
   /**
-   * Array of controller classes (manual registration)
-   * Use this when you want explicit control or for testing
+   * Explicit list of controller classes to register.
+   *
+   * A first-class alternative to `root`-based auto-discovery — not deprecated.
+   * Prefer it when explicit wiring reads better than convention: greppable
+   * registration, a deterministic registration order, or no filesystem scan at
+   * all (tests, bundled or serverless builds where dynamically `import()`ing a
+   * source tree is unavailable). Merged with any `root`-discovered controllers.
    */
   controllers?: Function[];
 

@@ -208,7 +208,7 @@ Reads `app.router` (required — throws if absent) and `app.container` (falls ba
     },
     controllers: {
       type: 'Function[]',
-      description: 'Manual controller array (deprecated — prefer auto-discovery with root)',
+      description: 'Explicit controller list — a first-class alternative to auto-discovery (no filesystem scan). Merged with any `root`-discovered controllers.',
       optional: true,
     },
   }}
@@ -418,7 +418,9 @@ export class ApiController {
 }
 ```
 
-Headers from `@SetHeader` are precomputed at build time and applied before the handler response is sent. `@Redirect` sets the `Location` header and sends an empty body.
+Headers from `@SetHeader` are precomputed at build time and applied **after** your handler
+method returns, just before the response is serialized. `@Redirect` sets the `Location` header
+and sends an empty body.
 
 ---
 
@@ -465,6 +467,46 @@ export class UserController {
 <Callout type="info" title="@HttpCode() is proposed, not yet available">
   A dedicated `@HttpCode()` decorator is a proposed future enhancement tracked by an RFC. Until it
   lands, set status via the route `statusCode` option, `ctx.status`, or a thrown `HttpError`.
+</Callout>
+
+---
+
+## Controller lifecycle: singletons
+
+Controllers are resolved from the DI container as **singletons**. One instance is created lazily
+on the first request to a route, then reused for every request afterward and shared across all
+concurrent requests. Keep controllers stateless — put per-request data in `ctx.state` (via
+`@Ctx()`), never on `this`.
+
+```typescript
+// ❌ Wrong — `this.currentUser` is shared by every request
+@Controller('/users')
+export class UserController {
+  private currentUser?: User;
+
+  @Get('/me')
+  me(@Ctx() ctx: Context) {
+    this.currentUser = ctx.state.user as User; // leaks into the next request
+    return this.currentUser;
+  }
+}
+
+// ✅ Correct — per-request state lives in ctx.state
+@Controller('/users')
+export class UserController {
+  @Get('/me')
+  me(@Ctx() ctx: Context) {
+    return ctx.state.user;
+  }
+}
+```
+
+Constructor-injected services and repositories are safe to hold on `this` — they are themselves
+singletons (or explicitly `transient`). Only per-request state is unsafe.
+
+<Callout type="warn" title="Request-scoped DI is proposed, not yet available">
+  A fresh controller/service instance per request requires request-scoped DI, which is proposed
+  future work tracked by an RFC. `Scope` is `'singleton' | 'transient'` today.
 </Callout>
 
 ---
@@ -669,21 +711,26 @@ In non-strict mode (default), discovery errors are logged as warnings but don't 
 
 ---
 
-## Manual Registration
+## Explicit Registration
 
-For testing or when you need explicit control, pass `controllers` directly instead of `root`:
+Pass `controllers` directly to register a known list of classes without scanning the
+filesystem. This is a **first-class, fully supported** alternative to auto-discovery — reach
+for it when explicit wiring reads better than convention: greppable registration,
+deterministic order, or no filesystem scan (tests, bundled or serverless builds where dynamic
+`import()` of a source tree isn't available):
 
 ```typescript
 import { registerControllers } from '@nextrush/controllers';
 
-// Explicit controller list (no filesystem scanning)
+// Explicit controller list — no filesystem scanning
 await registerControllers(app, {
   controllers: [UserController, PostController],
 });
 ```
 
 <Callout type="info">
-  Manual registration is useful for tests where you want to control which controllers are active.
+  `root` (auto-discovery) and `controllers` (explicit) can be combined — discovered controllers
+  and those passed in `controllers` are merged.
 </Callout>
 
 ---

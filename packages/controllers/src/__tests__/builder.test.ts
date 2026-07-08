@@ -974,6 +974,39 @@ describe('buildRoutes', () => {
       resolveSpy.mockRestore();
     });
   });
+
+  describe('singleton controller contract (HIGH-3)', () => {
+    it('observes the SAME controller instance across requests — instance state accumulates', async () => {
+      @Controller('/counter')
+      class CounterController {
+        // Per-request state stored on `this` LEAKS across requests because
+        // controllers are DI singletons. This characterization test pins that
+        // contract: it passes today and would fail if controllers ever became
+        // transient or request-scoped (each request would then see hits === 1).
+        private hits = 0;
+
+        @Get()
+        increment() {
+          this.hits += 1;
+          return { hits: this.hits };
+        }
+      }
+
+      container.register(CounterController, { useClass: CounterController });
+      const definition = getControllerDefinition(CounterController)!;
+      const routes = buildRoutes(definition, container, '', []);
+      const handler = routes[0].handler;
+
+      const firstCtx = createMockContext('GET', '/counter');
+      await handler(firstCtx);
+      const secondCtx = createMockContext('GET', '/counter');
+      await handler(secondCtx);
+
+      // Same singleton instance → the counter accumulates across requests.
+      expect(firstCtx.json).toHaveBeenCalledWith({ hits: 1 });
+      expect(secondCtx.json).toHaveBeenCalledWith({ hits: 2 });
+    });
+  });
 });
 
 /**

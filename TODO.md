@@ -82,3 +82,20 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - **R1 (app-owned router) validated** against the real dep graph: `core`→`errors`+`types` only; `router`→`types` only; they are siblings, wired by the `nextrush` meta-package. Batteries-included `createApp` lives in the meta-package.
 - `ExtensionContext` grows additively: M1 ships `{ app, logger, env, name, decorate }`; `runtime` + `container` added in M3/M4 when their sources are wired.
 - Workspace-wide build stays red between M1 and M5 (contract deleted, consumers not yet migrated) — expected; each milestone verifies its own packages in isolation.
+
+---
+
+## Class-based framework — RFC-required enhancements
+
+Net-new capabilities intentionally **not** implemented in the class-based remediation
+(Waves 1–5). Each is a public-API addition, so each needs its own approved RFC before work
+starts (repo iron law: *RFC before implementation* for public APIs). The remediation waves
+fixed correctness, DX, and doc-accuracy defects only — they did not add new surface.
+
+- [ ] **Request-scoped DI** — add a `request` value to `Scope` (`'singleton' | 'transient'` today) for a fresh controller/service instance per request. Removes the singleton-state footgun documented in `packages/controllers/README.md` (§ Controller lifecycle).
+- [ ] **Interceptors** — before/after-handler wrapping (transform result, timing, caching). An `INTERCEPTORS` metadata key exists in `@nextrush/decorators` with no implementation behind it.
+- [ ] **Exception filters** — declarative per-controller/route error mapping, as an alternative to a global error-handling middleware.
+- [ ] **Service lifecycle hooks** — `onModuleInit` / `onApplicationBootstrap` / `onShutdown`-style hooks for DI-managed services.
+- [ ] **Module system / encapsulation** — group controllers + providers into modules with their own provider scope and explicit exports.
+- [ ] **`@HttpCode()` decorator** — set a route's success status code declaratively (today: route `statusCode` option, `ctx.status`, or a thrown `HttpError`).
+- [ ] **Full per-app DI isolation** — genuine per-app child containers so two `createApp()` instances have fully isolated service singletons. See `docs/RFC/RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP.md`.
