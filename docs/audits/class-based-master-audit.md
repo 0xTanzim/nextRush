@@ -53,7 +53,8 @@ Overall class-based health: **72 / 100** (up from 62). Production-ready for sing
 
 ## New Findings
 
-### 🟠 NEW-1 — Functional `nextrush` entry now transitively loads `reflect-metadata` + tsyringe (Confidence: High)
+### 🟠 NEW-1 — Functional `nextrush` entry now transitively loads `reflect-metadata` + tsyringe (Confidence: High) — ✅ RESOLVED (Wave 6, commit `55d0766`)
+> `createApp()` no longer imports `@nextrush/di` or attaches a container by default; the functional path is DI-free again, verified by a source-level guard test.
 - **Evidence:** `packages/nextrush/src/index.ts` now has `import { container as sharedContainer } from '@nextrush/di'`, used by `createApp()`. `@nextrush/di`'s `index.ts` begins with `import 'reflect-metadata'` and re-exports `container.ts`, which does `import { container as tsyContainer } from 'tsyringe'`.
 - **Root cause:** Wave 2's container-seam wired the DI container into the *functional* meta entry to guarantee `app.container`.
 - **Impact:** The entire reason `nextrush` (functional) and `nextrush/class` (OOP) are split — per the file's own docblock, *"Functional users who only need createApp/createRouter should import from nextrush — no reflect-metadata overhead"* — is now violated. Every functional user pays the `reflect-metadata` global-`Reflect`-patch + tsyringe bundle/startup cost.
@@ -62,7 +63,8 @@ Overall class-based health: **72 / 100** (up from 62). Production-ready for sing
 - **Trade-offs:** Lazy wiring adds a small indirection; the alternative (accept the coupling) permanently taxes the functional path.
 - **Priority:** High — it silently erased a headline architectural property.
 
-### 🟠 NEW-2 — Eager DI validation covers controllers but NOT class-based guards or middleware-token failures uniformly (Confidence: High)
+### 🟠 NEW-2 — Eager DI validation covers controllers but NOT class-based guards or middleware-token failures uniformly (Confidence: High) — ✅ RESOLVED (Wave 6, commit `55d0766`)
+> `registerControllers` eager validation now also resolves every distinct class-based guard, so guard DI fails at boot; RED-GREEN tested. (Middleware token refs were already resolved eagerly at build time.)
 - **Evidence:** `registrar.ts` `validateControllers()` loops registered controllers and calls `container.resolve(controller.target)` only. `builder.ts` `executeGuards` resolves class guards with `container.resolve(guard)` **lazily, per-request**. Middleware string/symbol refs are resolved **eagerly** in `resolveMiddlewareRefs` at `buildRoutes` time.
 - **Root cause:** CRITICAL-3's fix was scoped to controller tokens; the guard and middleware resolution paths were not folded into the boot-time validation.
 - **Impact:** Three different DI-failure timings: middleware-token failure → at registration; controller dep failure → at registration (validate); **class-guard dep failure → 500 on first request to a guarded route** (fail-late, the exact class of bug CRITICAL-3 set out to kill). Inconsistent and surprising.
