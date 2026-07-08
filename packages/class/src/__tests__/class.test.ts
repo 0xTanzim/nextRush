@@ -4,8 +4,8 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
-import { getControllerMetadata, isController } from '../metadata.js';
+import { Controller } from '../decorators/class.js';
+import { getControllerMetadata, isController } from '../metadata/metadata.js';
 
 describe('@Controller', () => {
   describe('path handling', () => {

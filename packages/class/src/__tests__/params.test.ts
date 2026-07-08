@@ -4,8 +4,8 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
-import { getParamMetadata } from '../metadata.js';
+import { Controller } from '../decorators/class.js';
+import { getParamMetadata } from '../metadata/metadata.js';
 import {
   Body,
   createCustomParamDecorator,
@@ -15,8 +15,8 @@ import {
   Query,
   Req,
   Res,
-} from '../params.js';
-import { Get, Post } from '../routes.js';
+} from '../binding/params.js';
+import { Get, Post } from '../decorators/routes.js';
 
 describe('Parameter Decorators', () => {
   describe('@Body', () => {

@@ -7,7 +7,7 @@ import { Service, createContainer, type Container } from '@nextrush/di';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { NoRoutesError, NotAControllerError } from '../errors.js';
-import { ControllerRegistry } from '../registry.js';
+import { ControllerRegistry } from '../registrar/registry.js';
 
 describe('ControllerRegistry', () => {
   let container: Container;

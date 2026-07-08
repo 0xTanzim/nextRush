@@ -4,10 +4,10 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
-import { HttpCode } from '../http-code.js';
-import { getHttpCode } from '../metadata.js';
-import { Get, Post } from '../routes.js';
+import { Controller } from '../decorators/class.js';
+import { HttpCode } from '../decorators/http-code.js';
+import { getHttpCode } from '../metadata/metadata.js';
+import { Get, Post } from '../decorators/routes.js';
 
 describe('@HttpCode', () => {
   it('stores the status code for the decorated method', () => {

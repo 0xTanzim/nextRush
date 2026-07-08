@@ -6,7 +6,7 @@ import type { BootstrapContext } from '../context.js';
 import type { Router } from '@nextrush/core';
 import { ROUTE_METADATA } from '@nextrush/types';
 import { RouteRegistrationError } from '../../errors.js';
-import type { BuiltRoute } from '../../registrar-types.js';
+import type { BuiltRoute } from '../../registrar/registrar-types.js';
 
 export function routerStage(ctx: BootstrapContext): void {
   const router = ctx.router;

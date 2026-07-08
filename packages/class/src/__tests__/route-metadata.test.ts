@@ -12,8 +12,8 @@ import { createContainer, type Container } from '@nextrush/di';
 import { createRouter } from '@nextrush/router';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildRoutes } from '../builder.js';
-import { registerControllers } from '../registrar.js';
+import { buildRoutes } from '../registrar/builder.js';
+import { registerControllers } from '../registrar/registrar.js';
 
 describe('controller route metadata → RouteDefinition', () => {
   let container: Container;

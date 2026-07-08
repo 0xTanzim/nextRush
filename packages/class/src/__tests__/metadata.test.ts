@@ -4,7 +4,7 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
+import { Controller } from '../decorators/class.js';
 import {
     getAllParamMetadata,
     getControllerDefinition,
@@ -12,9 +12,9 @@ import {
     getParamMetadata,
     getRouteMetadata,
     isController,
-} from '../metadata.js';
-import { Body, Param } from '../params.js';
-import { Delete, Get, Post } from '../routes.js';
+} from '../metadata/metadata.js';
+import { Body, Param } from '../binding/params.js';
+import { Delete, Get, Post } from '../decorators/routes.js';
 
 describe('Metadata Readers', () => {
   describe('isController', () => {

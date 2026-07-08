@@ -17,7 +17,7 @@ import { Service, inject } from '@nextrush/di';
 import { Router } from '@nextrush/router';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { registerControllers } from '../registrar.js';
+import { registerControllers } from '../registrar/registrar.js';
 
 /** Shared ordered log of hook invocations across a single test. */
 let events: string[] = [];

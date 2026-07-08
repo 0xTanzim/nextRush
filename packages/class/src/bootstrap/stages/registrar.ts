@@ -4,8 +4,8 @@
  */
 
 import type { BootstrapContext } from '../context.js';
-import { ControllerRegistry } from '../../registry.js';
-import { validateControllers, validateGuards } from '../../registrar.js';
+import { ControllerRegistry } from '../../registrar/registry.js';
+import { validateControllers, validateGuards } from '../../registrar/registrar.js';
 
 export function registrarStage(ctx: BootstrapContext): void {
   // Create the registry with resolved options and request-scoped set

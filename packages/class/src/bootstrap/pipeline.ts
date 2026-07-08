@@ -9,7 +9,7 @@ import { providerGraphStage } from './stages/provider-graph.js';
 import { validationStage } from './stages/validation.js';
 import { registrarStage } from './stages/registrar.js';
 import { routerStage } from './stages/router.js';
-import { registerLifecycleExtension } from '../lifecycle.js';
+import { registerLifecycleExtension } from '../lifecycle/lifecycle.js';
 import { buildApplicationGraph } from './graph.js';
 import { collectDiagnostics } from '../diagnostics/collector.js';
 import type { Application } from '@nextrush/core';

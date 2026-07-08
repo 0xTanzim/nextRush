@@ -4,8 +4,8 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
-import { getRedirectMetadata, getResponseHeaders, getRouteMetadata } from '../metadata.js';
+import { Controller } from '../decorators/class.js';
+import { getRedirectMetadata, getResponseHeaders, getRouteMetadata } from '../metadata/metadata.js';
 import {
   All,
   Delete,
@@ -15,8 +15,8 @@ import {
   Patch,
   Post,
   Put,
-} from '../routes.js';
-import { Redirect, SetHeader } from '../response-decorators.js';
+} from '../decorators/routes.js';
+import { Redirect, SetHeader } from '../decorators/response-decorators.js';
 
 describe('Route Decorators', () => {
   describe('@Get', () => {

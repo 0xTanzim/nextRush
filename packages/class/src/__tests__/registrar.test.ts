@@ -20,7 +20,7 @@ import { Router } from '@nextrush/router';
 import type { Context } from '@nextrush/types';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { registerControllers } from '../registrar.js';
+import { registerControllers } from '../registrar/registrar.js';
 
 @Service()
 class GreetingService {

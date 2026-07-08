@@ -13,7 +13,7 @@ import {
   isOnShutdown,
   type OnInit,
   type OnShutdown,
-} from '../lifecycle-types.js';
+} from '../lifecycle/lifecycle-types.js';
 
 describe('Service lifecycle hook interfaces', () => {
   describe('isOnInit', () => {

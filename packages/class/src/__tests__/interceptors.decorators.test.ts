@@ -10,14 +10,14 @@
 import type { Context } from '@nextrush/types';
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
+import { Controller } from '../decorators/class.js';
 import {
   getAllInterceptors,
   getClassInterceptors,
   getMethodInterceptors,
   UseInterceptor,
-} from '../interceptors.js';
-import { Get } from '../routes.js';
+} from '../interceptors/interceptors.js';
+import { Get } from '../decorators/routes.js';
 import type { Interceptor } from '../types.js';
 
 class LogInterceptor implements Interceptor {

@@ -8,8 +8,8 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Module } from '../module.js';
-import { getModuleMetadata, isModule } from '../module.js';
+import { Module } from '../modules/module.js';
+import { getModuleMetadata, isModule } from '../modules/module.js';
 import type { ModuleProvider } from '../module-types.js';
 
 class UserController {}

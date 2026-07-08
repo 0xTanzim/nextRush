@@ -38,7 +38,7 @@ export class FilesystemSource implements DiscoverySource {
     // Deferred import to avoid circular dependency — discovery.ts exports
     // the actual filesystem scanning logic.
     const { discoverControllers, getControllersFromResults, getErrorsFromResults } = await import(
-      '../discovery.js'
+      './discovery.js'
     );
 
     const results = await discoverControllers({

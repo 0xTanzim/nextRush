@@ -12,7 +12,7 @@ import { createContainer, inject, Injectable, type Container } from '@nextrush/d
 import type { Context } from '@nextrush/types';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildRoutes } from '../builder.js';
+import { buildRoutes } from '../registrar/builder.js';
 
 class DomainError extends Error {}
 class UnrelatedError extends Error {}

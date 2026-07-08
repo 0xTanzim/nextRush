@@ -3,7 +3,7 @@
  */
 
 import type { BootstrapContext } from '../context.js';
-import { getControllerDefinition } from '../../metadata.js';
+import { getControllerDefinition } from '../../metadata/metadata.js';
 
 export function metadataStage(ctx: BootstrapContext): void {
   ctx.controllerDefinitions = ctx.discoveredClasses.map((cls) => {

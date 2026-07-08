@@ -4,9 +4,9 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
-import { getAllGuards, getClassGuards, getMethodGuards, UseGuard } from '../guards.js';
-import { Get, Post } from '../routes.js';
+import { Controller } from '../decorators/class.js';
+import { getAllGuards, getClassGuards, getMethodGuards, UseGuard } from '../guards/guards.js';
+import { Get, Post } from '../decorators/routes.js';
 import type { CanActivate, GuardContext, GuardFn } from '../types.js';
 import { isGuardClass } from '../types.js';
 

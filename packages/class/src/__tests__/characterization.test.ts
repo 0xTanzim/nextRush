@@ -18,7 +18,7 @@ import { Router } from '@nextrush/router';
 import type { Context, Interceptor } from '@nextrush/types';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { registerControllers } from '../registrar.js';
+import { registerControllers } from '../registrar/registrar.js';
 
 /** Minimal Context stub whose `json()` captures the serialized payload. */
 function createCapturingContext(method: string, path: string, body?: unknown): {

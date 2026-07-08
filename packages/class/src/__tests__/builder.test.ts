@@ -23,7 +23,7 @@ import { UnauthorizedError } from '@nextrush/errors';
 import type { Context, Middleware } from '@nextrush/types';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildRoutes } from '../builder.js';
+import { buildRoutes } from '../registrar/builder.js';
 import { ControllerResolutionError, GuardRejectionError } from '../errors.js';
 
 describe('buildRoutes', () => {

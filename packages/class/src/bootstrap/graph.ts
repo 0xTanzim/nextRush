@@ -15,7 +15,7 @@
  * - Middleware and provider graph nodes
  */
 
-import type { BuiltRoute } from '../registrar-types.js';
+import type { BuiltRoute } from '../registrar/registrar-types.js';
 
 /**
  * Assemble the immutable {@link ApplicationGraph} from the boot artifacts and

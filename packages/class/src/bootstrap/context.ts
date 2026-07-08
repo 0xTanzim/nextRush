@@ -9,8 +9,8 @@
 import type { Application, Router, Middleware } from '@nextrush/core';
 import type { Container } from '@nextrush/di';
 import type { DiscoverySource } from '../discovery/source.js';
-import type { BuiltRoute } from '../registrar-types.js';
-import type { ControllerDefinition } from '../metadata.js';
+import type { BuiltRoute } from '../registrar/registrar-types.js';
+import type { ControllerDefinition } from '../metadata/metadata.js';
 import type { ApplicationGraph } from './graph.js';
 import type { TimingEntry } from '../diagnostics/types.js';
 

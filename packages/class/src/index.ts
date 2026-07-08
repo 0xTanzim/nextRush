@@ -57,24 +57,24 @@ export {
 } from './types.js';
 
 // Service Lifecycle Hooks (duck-typed — no decorator)
-export type { OnInit, OnShutdown } from './lifecycle-types.js';
-export { isOnInit, isOnShutdown } from './lifecycle-types.js';
+export type { OnInit, OnShutdown } from './lifecycle/lifecycle-types.js';
+export { isOnInit, isOnShutdown } from './lifecycle/lifecycle-types.js';
 
 // Class Decorators
-export { Controller } from './class.js';
+export { Controller } from './decorators/class.js';
 
 // Module Decorator
-export { Module, getModuleMetadata, isModule } from './module.js';
+export { Module, getModuleMetadata, isModule } from './modules/module.js';
 export type {
   ModuleMetadata,
   ModuleOptions,
   ModuleProvider,
   ModuleProviderConfig,
-} from './module-types.js';
+} from './modules/module-types.js';
 
 // Response Decorators
-export { HttpCode } from './http-code.js';
-export { Redirect, SetHeader } from './response-decorators.js';
+export { HttpCode } from './decorators/http-code.js';
+export { Redirect, SetHeader } from './decorators/response-decorators.js';
 
 // Route Decorators
 export {
@@ -86,13 +86,13 @@ export {
   Patch,
   Post,
   Put,
-} from './routes.js';
+} from './decorators/routes.js';
 
 // Parameter Decorators
-export { Body, Ctx, Header, Param, Query, Req, Res, createCustomParamDecorator } from './params.js';
+export { Body, Ctx, Header, Param, Query, Req, Res, createCustomParamDecorator } from './binding/params.js';
 
 // Guard Decorators
-export { UseGuard, getAllGuards, getClassGuards, getMethodGuards } from './guards.js';
+export { UseGuard, getAllGuards, getClassGuards, getMethodGuards } from './guards/guards.js';
 
 // Exception Filter Decorators
 export {
@@ -102,7 +102,7 @@ export {
   getCatchTypes,
   getClassFilters,
   getMethodFilters,
-} from './filters.js';
+} from './filters/filters.js';
 
 // Interceptor Decorators
 export {
@@ -110,10 +110,10 @@ export {
   getAllInterceptors,
   getClassInterceptors,
   getMethodInterceptors,
-} from './interceptors.js';
+} from './interceptors/interceptors.js';
 
 // Metadata Readers
-export type { ControllerDefinition } from './metadata.js';
+export type { ControllerDefinition } from './metadata/metadata.js';
 
 export {
   getAllParamMetadata,
@@ -125,28 +125,28 @@ export {
   getResponseHeaders,
   getRouteMetadata,
   isController,
-} from './metadata.js';
+} from './metadata/metadata.js';
 
 // Internal reflection helpers (for DI use)
-export { getConstructorParamTypes } from './reflection.js';
+export { getConstructorParamTypes } from './reflection/reflection.js';
 
 // ============================================
 // CONTROLLERS: Auto-discovery & Registration
 // ============================================
 
 // Registration
-export { registerControllers } from './registrar.js';
+export { registerControllers } from './registrar/registrar.js';
 
 // Module registration
-export { registerModule, type ModuleRegistrationOptions } from './module-registrar.js';
-export { collectModuleControllers, collectModuleGraph } from './module-graph.js';
+export { registerModule, type ModuleRegistrationOptions } from './modules/module-registrar.js';
+export { collectModuleControllers, collectModuleGraph } from './modules/module-graph.js';
 
 // Discovery
 export {
     discoverControllers,
     getControllersFromResults,
     getErrorsFromResults
-} from './discovery.js';
+} from './discovery/discovery.js';
 
 // Discovery Source (new)
 export type { DiscoverySource, ClassRef } from './discovery/source.js';
@@ -169,13 +169,13 @@ export type {
   RouteEntry,
   TimingEntry,
 } from './diagnostics/index.js';
-export { getClassDiagnostics } from './get-diagnostics.js';
+export { getClassDiagnostics } from './diagnostics/get-diagnostics.js';
 
 // Registry
-export { ControllerRegistry } from './registry.js';
+export { ControllerRegistry } from './registrar/registry.js';
 
 // Builder
-export { buildRoutes } from './builder.js';
+export { buildRoutes } from './registrar/builder.js';
 
 // Types
 export type {
@@ -185,7 +185,7 @@ export type {
     DiscoveryResult,
     RegisteredController,
     ResolvedOptions
-} from './registrar-types.js';
+} from './registrar/registrar-types.js';
 
 // Errors
 export {

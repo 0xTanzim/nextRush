@@ -12,7 +12,7 @@ import {
   discoverControllers,
   getControllersFromResults,
   getErrorsFromResults,
-} from '../discovery.js';
+} from '../discovery/discovery.js';
 import type { DiscoveryResult } from '../types.js';
 
 describe('Discovery', () => {

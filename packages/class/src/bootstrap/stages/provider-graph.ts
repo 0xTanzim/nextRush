@@ -3,8 +3,8 @@
  */
 
 import type { BootstrapContext } from '../context.js';
-import { bindRequestScopes } from '../../scope.js';
-import { collectDependencyClasses } from '../../isolation.js';
+import { bindRequestScopes } from '../../request/scope.js';
+import { collectDependencyClasses } from '../../request/isolation.js';
 
 export async function providerGraphStage(ctx: BootstrapContext): Promise<void> {
   // Compute effective DI scopes (request-scope bubbling) and bind request-effective

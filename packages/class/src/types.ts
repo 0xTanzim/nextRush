@@ -11,7 +11,7 @@ export type {
   ControllerMetadata,
   ControllerOptions,
   MiddlewareRef,
-} from './controller-types.js';
+} from './decorators/controller-types.js';
 
 // Route concern
 export type {
@@ -20,7 +20,7 @@ export type {
   RouteMetadata,
   RouteMethods,
   RouteOptions,
-} from './route-types.js';
+} from './decorators/route-types.js';
 
 // Parameter concern
 export type {
@@ -32,7 +32,7 @@ export type {
   ParamSource,
   QueryOptions,
   TransformFn,
-} from './param-types.js';
+} from './binding/param-types.js';
 
 // Guard concern
 export type {
@@ -42,24 +42,24 @@ export type {
   GuardContext,
   GuardFn,
   GuardMetadata,
-} from './guard-types.js';
+} from './guards/guard-types.js';
 
 // Exception filter concern
 export type {
   ExceptionFilter,
   ExceptionFilterClass,
   FilterMetadata,
-} from './filter-types.js';
+} from './filters/filter-types.js';
 
 // Interceptor concern
 export type {
   Interceptor,
   InterceptorClass,
   InterceptorMetadata,
-} from './interceptor-types.js';
+} from './interceptors/interceptor-types.js';
 
 // Service lifecycle concern
-export type { OnInit, OnShutdown } from './lifecycle-types.js';
+export type { OnInit, OnShutdown } from './lifecycle/lifecycle-types.js';
 
 // Runtime values (metadata keys + type-guard helpers)
 export {
@@ -67,6 +67,6 @@ export {
   isGuardClass,
   isValidHttpMethod,
   isValidParamSource,
-} from './metadata-keys.js';
+} from './metadata/metadata-keys.js';
 
-export { isOnInit, isOnShutdown } from './lifecycle-types.js';
+export { isOnInit, isOnShutdown } from './lifecycle/lifecycle-types.js';

@@ -17,8 +17,8 @@ import { Router } from '@nextrush/router';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { NotAModuleError } from '../errors.js';
-import { collectModuleControllers, collectModuleGraph } from '../module-graph.js';
-import { registerModule } from '../module-registrar.js';
+import { collectModuleControllers, collectModuleGraph } from '../modules/module-graph.js';
+import { registerModule } from '../modules/module-registrar.js';
 
 // --- (a) controllers + providers ---------------------------------------------
 

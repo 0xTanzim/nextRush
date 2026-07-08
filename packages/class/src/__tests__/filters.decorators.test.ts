@@ -4,7 +4,7 @@
 
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../class.js';
+import { Controller } from '../decorators/class.js';
 import {
   Catch,
   getAllFilters,
@@ -12,8 +12,8 @@ import {
   getClassFilters,
   getMethodFilters,
   UseFilter,
-} from '../filters.js';
-import { Get, Post } from '../routes.js';
+} from '../filters/filters.js';
+import { Get, Post } from '../decorators/routes.js';
 import type { Context } from '@nextrush/types';
 import type { ExceptionFilter } from '../types.js';
 
