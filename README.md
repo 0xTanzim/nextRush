@@ -98,12 +98,12 @@ listen(app, 8080);
 ### Class-Based Controllers
 
 ```bash
-pnpm add nextrush @nextrush/di @nextrush/decorators @nextrush/controllers
+pnpm add nextrush
 ```
 
 ```typescript
 import 'reflect-metadata';
-import { Controller, Get, Post, Body, Param, Service } from 'nextrush';
+import { Controller, Get, Post, Body, Param, Service } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -138,7 +138,7 @@ class UserController {
 Services are singletons by default. Pass `scope` for other lifecycles:
 
 ```typescript
-import { Service } from 'nextrush';
+import { Service } from 'nextrush/class';
 
 @Service()                        // singleton — one shared instance
 class ConfigService {}

@@ -77,8 +77,7 @@ main();
 ```
 
 ```typescript title="src/controllers/user.controller.ts"
-import { Controller, Get, Post, Body } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
+import { Controller, Get, Post, Body, Service } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -377,7 +376,7 @@ export class UserController {
 Use `createCustomParamDecorator()` from `@nextrush/decorators` to create reusable parameter extractors:
 
 ```typescript
-import { createCustomParamDecorator } from '@nextrush/decorators';
+import { createCustomParamDecorator } from 'nextrush/class';
 import type { Context } from '@nextrush/types';
 
 const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
@@ -398,7 +397,7 @@ Custom parameters use the `'custom'` source type internally and are fully suppor
 Set response headers or redirect behavior declaratively:
 
 ```typescript
-import { SetHeader, Redirect, Controller, Get } from '@nextrush/decorators';
+import { SetHeader, Redirect, Controller, Get } from 'nextrush/class';
 
 @Controller('/api')
 export class ApiController {
@@ -524,7 +523,7 @@ Guards protect routes by returning a boolean to allow or deny access.
 ### Function Guards
 
 ```typescript
-import type { GuardFn } from '@nextrush/decorators';
+import type { GuardFn } from 'nextrush/class';
 
 const AuthGuard: GuardFn = async (ctx) => {
   const token = ctx.headers['authorization'];
@@ -577,8 +576,8 @@ export class AdminController {
 For guards that need dependencies:
 
 ```typescript
-import { Service } from '@nextrush/di';
-import type { CanActivate, GuardContext } from '@nextrush/decorators';
+import { Service } from 'nextrush/class';
+import type { CanActivate, GuardContext } from 'nextrush/class';
 
 @Service()
 class PermissionGuard implements CanActivate {
@@ -608,9 +607,9 @@ A filter is a class implementing `ExceptionFilter`. It declares which errors it 
 both the controller and method level (mirroring `@UseGuard`).
 
 ```typescript
-import { Catch, Controller, Get, UseFilter } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import type { ExceptionFilter } from '@nextrush/decorators';
+import { Catch, Controller, Get, UseFilter } from 'nextrush/class';
+import { Service } from 'nextrush/class';
+import type { ExceptionFilter } from 'nextrush/class';
 import type { Context } from '@nextrush/types';
 
 class EntityNotFoundError extends Error {}
@@ -665,7 +664,7 @@ Import DI decorators from `@nextrush/di`.
 ### Service Registration
 
 ```typescript
-import { Service, Repository } from '@nextrush/di';
+import { Service, Repository } from 'nextrush/class';
 
 // Singleton by default
 @Service()
@@ -689,8 +688,8 @@ class UserRepository {
 ### Custom Container
 
 ```typescript
-import { createContainer } from '@nextrush/di';
-import { registerControllers } from '@nextrush/controllers';
+import { createContainer } from 'nextrush/class';
+import { registerControllers } from 'nextrush/class';
 
 const container = createContainer();
 
@@ -724,7 +723,7 @@ import {
   MissingParameterError,
   ParameterInjectionError,
   ControllerResolutionError,
-} from '@nextrush/controllers';
+} from 'nextrush/class';
 
 // Global error handler
 app.use(async (ctx, next) => {
@@ -781,7 +780,7 @@ deterministic order, or no filesystem scan (tests, bundled or serverless builds 
 `import()` of a source tree isn't available):
 
 ```typescript
-import { registerControllers } from '@nextrush/controllers';
+import { registerControllers } from 'nextrush/class';
 
 // Explicit controller list — no filesystem scanning
 await registerControllers(app, {
@@ -848,7 +847,7 @@ import {
   NotAControllerError,
   ParameterInjectionError,
   RouteRegistrationError,
-} from '@nextrush/controllers';
+} from 'nextrush/class';
 
 import type {
   BuiltRoute,
@@ -857,7 +856,7 @@ import type {
   DiscoveryResult,
   RegisteredController,
   ResolvedOptions,
-} from '@nextrush/controllers';
+} from 'nextrush/class';
 ```
 
 </details>
@@ -890,12 +889,12 @@ import {
   SetHeader,
   Redirect,
   createCustomParamDecorator,
-} from '@nextrush/decorators';
+} from 'nextrush/class';
 
-import type { GuardFn, GuardContext, CanActivate, ExceptionFilter } from '@nextrush/decorators';
+import type { GuardFn, GuardContext, CanActivate, ExceptionFilter } from 'nextrush/class';
 
 // DI
-import { Service, Repository, container, createContainer } from '@nextrush/di';
+import { Service, Repository, container, createContainer } from 'nextrush/class';
 ```
 
 </details>

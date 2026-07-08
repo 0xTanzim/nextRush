@@ -81,7 +81,7 @@ If any guard returns `false` or throws, the chain stops immediately.
     Lightweight, no dependencies needed:
 
     ```typescript title="Function Guard"
-    import type { GuardFn } from '@nextrush/decorators';
+    import type { GuardFn } from 'nextrush/class';
 
     const AuthGuard: GuardFn = async (ctx) => {
       const token = ctx.get('authorization');
@@ -362,7 +362,7 @@ import type {
   CanActivate, // Interface with canActivate(ctx) for class guards
   GuardContext, // Read-only request context for guards
   Guard, // GuardFn | Constructor<CanActivate>
-} from '@nextrush/decorators';
+} from 'nextrush/class';
 ```
 
 ## Next Steps

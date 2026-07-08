@@ -3,11 +3,12 @@ import {
   Controller,
   createCustomParamDecorator,
   Get,
+  inject,
+  Optional,
   Param,
   Post,
   UseGuard,
-} from '@nextrush/decorators';
-import { inject, Optional } from '@nextrush/di';
+} from 'nextrush/class';
 import { NotFoundError } from 'nextrush';
 import { AdminGuard } from '../guards/auth.guard.js';
 import { ItemRepository } from '../services/item.repository.js';

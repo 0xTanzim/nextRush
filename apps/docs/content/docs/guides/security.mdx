@@ -232,7 +232,7 @@ router.post('/users', async (ctx) => {
 
 ```typescript
 import { z } from 'zod';
-import { Controller, Post, Body } from '@nextrush/decorators';
+import { Controller, Post, Body } from 'nextrush/class';
 
 const CreateUserSchema = z.object({
   name: z.string().min(1).max(100),

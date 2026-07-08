@@ -1,4 +1,4 @@
-import { Service } from '@nextrush/di';
+import { Service } from 'nextrush/class';
 
 /**
  * LoggerService — intentionally NOT registered in the DI container

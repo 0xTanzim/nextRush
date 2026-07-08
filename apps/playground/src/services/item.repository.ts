@@ -1,4 +1,4 @@
-import { Repository } from '@nextrush/di';
+import { Repository } from 'nextrush/class';
 
 export interface Item {
   id: number;

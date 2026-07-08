@@ -119,7 +119,7 @@ For how the registrar resolves controllers, executes guards, and builds handlers
 Constructor parameter types resolve automatically — no manual wiring:
 
 ```typescript
-import { Repository, Service } from '@nextrush/di';
+import { Repository, Service } from 'nextrush/class';
 
 @Repository()
 class UserRepository {
@@ -149,7 +149,7 @@ Use `{ scope: 'request' }` for a service that lives for one request and is share
 collaborator within that request — a per-request identity, a unit-of-work, or a correlation ID:
 
 ```typescript
-import { Service } from '@nextrush/di';
+import { Service } from 'nextrush/class';
 
 @Service({ scope: 'request' })
 class RequestId {
@@ -213,7 +213,7 @@ Guards protect routes by returning `true` or `false` before the handler runs. A 
 the simplest form:
 
 ```typescript
-import { UseGuard, type GuardFn } from '@nextrush/decorators';
+import { UseGuard, type GuardFn } from 'nextrush/class';
 
 const AuthGuard: GuardFn = async (ctx) => {
   const token = ctx.get('authorization');
@@ -404,7 +404,7 @@ Controllers are testable by design — dependencies are injected through the con
 
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createContainer } from '@nextrush/di';
+import { createContainer } from 'nextrush/class';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -437,7 +437,7 @@ describe('UserController', () => {
 
 ```typescript
 // ❌ Wrong - decorators fail silently
-import { Service } from '@nextrush/di';
+import { Service } from 'nextrush/class';
 
 @Service()
 class MyService {}
@@ -467,7 +467,7 @@ class ServiceB {
 }
 
 // ✅ Correct - use delay() for circular deps
-import { delay, inject } from '@nextrush/di';
+import { delay, inject } from 'nextrush/class';
 
 @Service()
 class ServiceA {

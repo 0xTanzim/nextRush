@@ -2,6 +2,8 @@
 
 > Connect decorators, dependency injection, and routing into automatic controller registration with guards and parameter extraction.
 
+> **Note**: This is an internal package of the class-based runtime. Application code should import from `nextrush/class` instead (see [RFC-NEXTRUSH-CLASS-CONSOLIDATION](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/RFC-NEXTRUSH-CLASS-CONSOLIDATION.md) for details).
+
 ## The Problem
 
 Decorator-based controllers don't wire themselves. Without a connection layer:

@@ -36,7 +36,7 @@ This package provides decorators for defining controllers, routes, parameters, a
 
 ```typescript
 import 'reflect-metadata'; // Not needed if using the nextrush meta-package
-import { Controller, Get, Post, Body, Param } from '@nextrush/decorators';
+import { Controller, Get, Post, Body, Param } from 'nextrush/class';
 
 @Controller('/users')
 class UserController {
@@ -267,7 +267,7 @@ create(@Body({ transform: CreateUserSchema.parse }) data: z.infer<typeof CreateU
 Set response headers on a route. Multiple headers can be applied by stacking decorators.
 
 ```typescript
-import { SetHeader, Controller, Get } from '@nextrush/decorators';
+import { SetHeader, Controller, Get } from 'nextrush/class';
 
 @Controller('/api')
 class ApiController {
@@ -287,7 +287,7 @@ Headers are precomputed at build time and applied before the handler sends a res
 Redirect the request to another URL. Default status code is `302` (Found).
 
 ```typescript
-import { Redirect, Controller, Get } from '@nextrush/decorators';
+import { Redirect, Controller, Get } from 'nextrush/class';
 
 @Controller('/legacy')
 class LegacyController {
@@ -328,7 +328,7 @@ The redirect is implemented via `Location` header, not `ctx.redirect()`.
 Create reusable parameter decorators with `createCustomParamDecorator()`. This is the public API for extending the parameter system.
 
 ```typescript
-import { createCustomParamDecorator } from '@nextrush/decorators';
+import { createCustomParamDecorator } from 'nextrush/class';
 import type { Context } from '@nextrush/types';
 
 // Extract current user from state (set by auth middleware)
@@ -388,7 +388,7 @@ Guards control access to routes by returning a boolean. You can write guards as 
   <Tab value="Function Guards">
 
 ```ts
-import type { GuardFn, GuardContext } from '@nextrush/decorators';
+import type { GuardFn, GuardContext } from 'nextrush/class';
 
 // Simple guard
 const AuthGuard: GuardFn = async (ctx) => {
@@ -418,8 +418,8 @@ class AdminController {
   <Tab value="Class Guards">
 
 ```ts
-import type { CanActivate, GuardContext } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
+import type { CanActivate, GuardContext } from 'nextrush/class';
+import { Service } from 'nextrush/class';
 
 @Service()
 class AuthGuard implements CanActivate {
@@ -503,7 +503,7 @@ import {
   isController,
   getResponseHeaders,
   getRedirectMetadata,
-} from '@nextrush/decorators';
+} from 'nextrush/class';
 
 // Check if class is a controller
 isController(UserController); // true
@@ -566,7 +566,7 @@ import type {
   CustomParamExtractor,
   ResponseHeaderMetadata,
   RedirectMetadata,
-} from '@nextrush/decorators';
+} from 'nextrush/class';
 
 import {
   Controller,
@@ -604,7 +604,7 @@ import {
   isValidHttpMethod,
   isValidParamSource,
   DECORATOR_METADATA_KEYS,
-} from '@nextrush/decorators';
+} from 'nextrush/class';
 ```
 
 </details>

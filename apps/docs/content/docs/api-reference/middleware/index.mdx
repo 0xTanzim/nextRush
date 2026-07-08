@@ -137,7 +137,7 @@ app.route('/', router);
 All middleware work with both functional and class-based patterns. Apply middleware to a controller via the `middleware` option on `@Controller`:
 
 ```ts
-import { Controller, Get } from '@nextrush/decorators';
+import { Controller, Get } from 'nextrush/class';
 import { cors } from '@nextrush/cors';
 import { rateLimit } from '@nextrush/rate-limit';
 

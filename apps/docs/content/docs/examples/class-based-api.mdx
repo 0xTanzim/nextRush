@@ -97,7 +97,7 @@ export interface UpdateUserDto {
 ## Repository
 
 ```typescript title="src/repositories/user.repository.ts"
-import { Repository } from '@nextrush/di';
+import { Repository } from 'nextrush/class';
 import type { User, CreateUserDto } from '../types/user';
 
 @Repository()
@@ -163,7 +163,7 @@ export class UserRepository {
 ## Service
 
 ```typescript title="src/services/user.service.ts"
-import { Service } from '@nextrush/di';
+import { Service } from 'nextrush/class';
 import { NotFoundError, ConflictError, BadRequestError } from 'nextrush';
 import { UserRepository } from '../repositories/user.repository';
 import type { User, CreateUserDto, UpdateUserDto } from '../types/user';
@@ -243,7 +243,7 @@ export class UserService {
 ## Controller
 
 ```typescript title="src/controllers/user.controller.ts"
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Ctx } from '@nextrush/decorators';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Ctx } from 'nextrush/class';
 import type { Context } from 'nextrush';
 import { UserService } from '../services/user.service';
 import type { CreateUserDto, UpdateUserDto } from '../types/user';
@@ -366,7 +366,7 @@ node dist/index.js
 Protect routes with guards:
 
 ```typescript title="src/guards/auth.guard.ts"
-import type { GuardFn } from '@nextrush/decorators';
+import type { GuardFn } from 'nextrush/class';
 
 export const AuthGuard: GuardFn = async (ctx) => {
   const token = ctx.get('authorization');
@@ -396,7 +396,7 @@ function verifyToken(token: string): { id: string; role: string } | null {
 ```
 
 ```typescript title="src/controllers/user.controller.ts"
-import { Controller, Get, UseGuard } from '@nextrush/decorators';
+import { Controller, Get, UseGuard } from 'nextrush/class';
 import { AuthGuard } from '../guards/auth.guard';
 import { UserService } from '../services/user.service';
 
@@ -417,7 +417,7 @@ export class UserController {
 ## Role-Based Access
 
 ```typescript title="src/guards/role.guard.ts"
-import type { GuardFn } from '@nextrush/decorators';
+import type { GuardFn } from 'nextrush/class';
 
 export const RoleGuard =
   (allowedRoles: string[]): GuardFn =>
@@ -431,7 +431,7 @@ export const RoleGuard =
 ```
 
 ```typescript title="src/controllers/admin.controller.ts"
-import { Controller, Get, UseGuard, SetHeader, Redirect } from '@nextrush/decorators';
+import { Controller, Get, UseGuard, SetHeader, Redirect } from 'nextrush/class';
 import { AuthGuard } from '../guards/auth.guard';
 import { RoleGuard } from '../guards/role.guard';
 
@@ -460,14 +460,14 @@ export class AdminController {
 Extract common values cleanly with `createCustomParamDecorator`:
 
 ```typescript title="src/decorators/current-user.ts"
-import { createCustomParamDecorator } from '@nextrush/decorators';
+import { createCustomParamDecorator } from 'nextrush/class';
 import type { Context } from 'nextrush';
 
 export const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
 ```
 
 ```typescript title="src/controllers/profile.controller.ts"
-import { Controller, Get } from '@nextrush/decorators';
+import { Controller, Get } from 'nextrush/class';
 import { CurrentUser } from '../decorators/current-user';
 
 @Controller('/profile')

@@ -1,5 +1,5 @@
 import { bodyParser } from '@nextrush/body-parser';
-import { registerControllers } from '@nextrush/controllers';
+import { registerControllers } from 'nextrush/class';
 import { errorHandler } from '@nextrush/errors';
 import { openapi } from '@nextrush/openapi';
 import { validate } from '@nextrush/validation';

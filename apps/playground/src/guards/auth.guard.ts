@@ -1,5 +1,4 @@
-import type { CanActivate, GuardContext, GuardFn } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
+import { Service, type CanActivate, type GuardContext, type GuardFn } from 'nextrush/class';
 
 /**
  * Simple function guard — checks for Authorization header.

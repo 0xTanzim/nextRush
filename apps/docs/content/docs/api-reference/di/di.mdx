@@ -42,7 +42,7 @@ Most modern runners (`tsx`, `esbuild`, `node --experimental-strip-types`) strip 
 
 ```typescript
 import 'reflect-metadata'; // Not needed if using the nextrush meta-package
-import { Service, Repository, container } from '@nextrush/di';
+import { Service, Repository, container } from 'nextrush/class';
 
 @Repository()
 class UserRepository {
@@ -125,7 +125,7 @@ The only difference from `@Service()` is the metadata type stored — `'reposito
 Explicitly specify which token to inject for a constructor parameter. Use this for string tokens, symbol tokens, or interface-based injection where TypeScript cannot infer the concrete type at runtime.
 
 ```typescript
-import { Service, inject } from '@nextrush/di';
+import { Service, inject } from 'nextrush/class';
 
 @Service()
 class PaymentService {
@@ -141,7 +141,7 @@ class PaymentService {
 Defer resolution to break circular dependencies. Returns a lazy token usable with `@inject()`.
 
 ```typescript
-import { Service, inject, delay } from '@nextrush/di';
+import { Service, inject, delay } from 'nextrush/class';
 
 @Service()
 class ServiceA {
@@ -159,7 +159,7 @@ class ServiceB {
 Mark a constructor parameter as optional. When the dependency is not registered, the container injects `undefined` instead of throwing.
 
 ```typescript
-import { Service, Optional, inject } from '@nextrush/di';
+import { Service, Optional, inject } from 'nextrush/class';
 
 @Service()
 class NotificationService {
@@ -393,7 +393,7 @@ child.register('CONFIG', { useValue: { port: 4000 } });
 Create a new isolated container with no inherited registrations. Internally creates a child of the global tsyringe container and immediately resets it.
 
 ```typescript
-import { createContainer } from '@nextrush/di';
+import { createContainer } from 'nextrush/class';
 
 const testContainer = createContainer();
 testContainer.register(UserRepository, { useClass: MockUserRepository });
@@ -406,7 +406,7 @@ testContainer.register(UserRepository, { useClass: MockUserRepository });
 All DI errors extend `DIError` and include actionable messages with fix suggestions.
 
 ```typescript
-import { DIError, DependencyResolutionError, CircularDependencyError } from '@nextrush/di';
+import { DIError, DependencyResolutionError, CircularDependencyError } from 'nextrush/class';
 
 try {
   container.resolve(UnregisteredService);
@@ -450,8 +450,8 @@ try {
 These functions inspect decorator metadata set by `@Service()` and `@Repository()`.
 
 ```typescript
-import { hasServiceMetadata, getServiceType, getServiceScope } from '@nextrush/di';
-import { isParameterOptional, getOptionalParams, Optional } from '@nextrush/di';
+import { hasServiceMetadata, getServiceType, getServiceScope } from 'nextrush/class';
+import { isParameterOptional, getOptionalParams, Optional } from 'nextrush/class';
 
 @Service({ scope: 'transient' })
 class MyService {}
@@ -477,7 +477,7 @@ Used internally by `@nextrush/controllers` for auto-discovery. Useful when build
 Read the environment variable prefix stored by `@Config({ prefix })` on a class. Returns `undefined` if the class has no `@Config()` decorator or no `prefix` was set.
 
 ```typescript
-import { Config, getConfigPrefix } from '@nextrush/di';
+import { Config, getConfigPrefix } from 'nextrush/class';
 
 @Config({ prefix: 'DB' })
 class DatabaseConfig {}
@@ -496,7 +496,7 @@ getConfigPrefix(DatabaseConfig); // 'DB'
 Registers a class constructor as injectable with the underlying tsyringe container, without setting NextRush service-type metadata. This is the abstraction boundary that lets `@nextrush/decorators` register controller classes for constructor injection without depending on tsyringe directly.
 
 ```typescript
-import { markInjectable } from '@nextrush/di';
+import { markInjectable } from 'nextrush/class';
 
 markInjectable(SomeControllerClass);
 ```
@@ -542,7 +542,7 @@ All types and runtime exports are available from the package entry point.
 
 ```ts
 // Container
-import { container, createContainer } from '@nextrush/di';
+import { container, createContainer } from 'nextrush/class';
 
 // Decorators
 import {
@@ -553,7 +553,7 @@ import {
   Optional,
   inject,
   delay,
-} from '@nextrush/di';
+} from 'nextrush/class';
 
 // Utility functions
 import {
@@ -564,10 +564,10 @@ import {
   markInjectable,
   isParameterOptional,
   getOptionalParams,
-} from '@nextrush/di';
+} from 'nextrush/class';
 
 // Metadata keys
-import { METADATA_KEYS } from '@nextrush/di';
+import { METADATA_KEYS } from 'nextrush/class';
 
 // Error classes
 import {
@@ -575,7 +575,7 @@ import {
   DependencyResolutionError,
   CircularDependencyError,
   InvalidProviderError,
-} from '@nextrush/di';
+} from 'nextrush/class';
 
 // Types
 import type {
@@ -589,7 +589,7 @@ import type {
   Scope,
   ServiceOptions,
   ConfigOptions,
-} from '@nextrush/di';
+} from 'nextrush/class';
 ```
 
 </details>

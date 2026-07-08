@@ -2,6 +2,8 @@
 
 > Decorator-based metadata for building HTTP controllers with guards, dependency injection, and type-safe parameter extraction.
 
+> **Note**: This is an internal package of the class-based runtime. Application code should import from `nextrush/class` instead (see [RFC-NEXTRUSH-CLASS-CONSOLIDATION](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/RFC-NEXTRUSH-CLASS-CONSOLIDATION.md) for details).
+
 ## The Problem
 
 Building structured APIs in Node.js often leads to scattered route definitions, manual parameter parsing, and inconsistent authentication checks. Without a declarative system:

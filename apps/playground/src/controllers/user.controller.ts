@@ -11,7 +11,7 @@ import {
   Query,
   SetHeader,
   UseGuard,
-} from '@nextrush/decorators';
+} from 'nextrush/class';
 import type { Context } from 'nextrush';
 import { NotFoundError } from 'nextrush';
 import { AuthGuard } from '../guards/auth.guard.js';

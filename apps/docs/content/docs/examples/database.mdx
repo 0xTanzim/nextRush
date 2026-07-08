@@ -97,7 +97,7 @@ export interface BaseRepository<T, CreateDto, UpdateDto> {
 ### User Repository
 
 ```typescript title="src/repositories/user.repository.ts"
-import { Repository } from '@nextrush/di';
+import { Repository } from 'nextrush/class';
 import type { BaseRepository } from './base.repository';
 
 export interface User {
@@ -159,7 +159,7 @@ export class UserRepository implements BaseRepository<User, CreateUserDto, Updat
 <summary>SQLite repository implementation (click to expand)</summary>
 
 ```typescript title="src/repositories/user.sqlite.repository.ts"
-import { Repository } from '@nextrush/di';
+import { Repository } from 'nextrush/class';
 import type { Application } from '@nextrush/core';
 import type { User, CreateUserDto, UpdateUserDto } from './user.repository';
 import type { BaseRepository } from './base.repository';
@@ -312,7 +312,7 @@ export function drizzleExtension(): Extension {
 <summary>Drizzle ORM repository implementation (click to expand)</summary>
 
 ```typescript title="src/repositories/user.drizzle.repository.ts"
-import { Repository } from '@nextrush/di';
+import { Repository } from 'nextrush/class';
 import { eq } from 'drizzle-orm';
 import type { Application } from '@nextrush/core';
 import { users, type User } from '../database/schema';
@@ -366,7 +366,7 @@ export class UserDrizzleRepository implements BaseRepository<User, CreateUserDto
 The service layer contains business logic, independent of the database choice:
 
 ```typescript title="src/services/user.service.ts"
-import { Service } from '@nextrush/di';
+import { Service } from 'nextrush/class';
 import { NotFoundError, ConflictError, BadRequestError } from 'nextrush';
 import { UserRepository } from '../repositories/user.repository';
 import type { User, CreateUserDto, UpdateUserDto } from '../repositories/user.repository';
@@ -434,7 +434,7 @@ export class UserService {
 ## Controller
 
 ```typescript title="src/controllers/user.controller.ts"
-import { Controller, Get, Post, Put, Delete, Body, Param, Ctx } from '@nextrush/decorators';
+import { Controller, Get, Post, Put, Delete, Body, Param, Ctx } from 'nextrush/class';
 import type { Context } from 'nextrush';
 import { UserService } from '../services/user.service';
 import type { CreateUserDto, UpdateUserDto } from '../repositories/user.repository';
@@ -481,7 +481,7 @@ export class UserController {
 // reflect-metadata is auto-imported by the nextrush meta-package
 import { createApp, listen } from 'nextrush';
 import { registerControllers } from 'nextrush/class';
-import { createContainer } from '@nextrush/di';
+import { createContainer } from 'nextrush/class';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 

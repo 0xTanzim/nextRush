@@ -90,7 +90,7 @@ Both packages define their own key constants:
 The `@nextrush/decorators` package exports reader functions. The controllers registrar uses `getControllerDefinition`:
 
 ```typescript
-import { getControllerDefinition } from '@nextrush/decorators';
+import { getControllerDefinition } from 'nextrush/class';
 
 const definition = getControllerDefinition(UserController);
 // Returns ControllerDefinition:
@@ -190,7 +190,7 @@ class ServiceB {
 Use `delay()` to break cycles with lazy resolution:
 
 ```typescript
-import { delay, inject } from '@nextrush/di';
+import { delay, inject } from 'nextrush/class';
 
 @Service()
 class ServiceA {
@@ -224,8 +224,8 @@ Guards implementing `CanActivate` are classes, so they can declare their own dep
 the constructor — useful when a guard needs a service like token verification:
 
 ```typescript
-import { type CanActivate, type GuardContext } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
+import { type CanActivate, type GuardContext } from 'nextrush/class';
+import { Service } from 'nextrush/class';
 
 @Service()
 class RoleGuard implements CanActivate {

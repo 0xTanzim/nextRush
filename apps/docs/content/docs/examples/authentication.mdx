@@ -110,7 +110,7 @@ The auth service handles registration, login, token generation, and refresh work
 <summary>Complete AuthService implementation (click to expand)</summary>
 
 ```typescript title="src/services/auth.service.ts"
-import { Service } from '@nextrush/di';
+import { Service } from 'nextrush/class';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { UnauthorizedError, BadRequestError, ConflictError } from 'nextrush';
@@ -271,8 +271,8 @@ export class AuthService {
 ## Guards
 
 ```typescript title="src/guards/auth.guard.ts"
-import type { GuardFn } from '@nextrush/decorators';
-import { container } from '@nextrush/di';
+import type { GuardFn } from 'nextrush/class';
+import { container } from 'nextrush/class';
 import { AuthService } from '../services/auth.service';
 
 export const AuthGuard: GuardFn = async (ctx) => {
@@ -305,7 +305,7 @@ export const AuthGuard: GuardFn = async (ctx) => {
 The role guard uses a factory pattern — it returns a guard function configured for the specified roles.
 
 ```typescript title="src/guards/role.guard.ts"
-import type { GuardFn } from '@nextrush/decorators';
+import type { GuardFn } from 'nextrush/class';
 
 interface AuthUser {
   id: string;
@@ -334,7 +334,7 @@ export const AdminGuard = RoleGuard(['admin']);
 ## Auth Controller
 
 ```typescript title="src/controllers/auth.controller.ts"
-import { Controller, Post, Body, Ctx } from '@nextrush/decorators';
+import { Controller, Post, Body, Ctx } from 'nextrush/class';
 import type { Context } from 'nextrush';
 import { AuthService } from '../services/auth.service';
 import type { LoginDto, RegisterDto } from '../types';
@@ -373,7 +373,7 @@ export class AuthController {
 ## Protected Controller
 
 ```typescript title="src/controllers/user.controller.ts"
-import { Controller, Get, UseGuard, Ctx } from '@nextrush/decorators';
+import { Controller, Get, UseGuard, Ctx } from 'nextrush/class';
 import type { Context } from 'nextrush';
 import { AuthGuard } from '../guards/auth.guard';
 import { AdminGuard } from '../guards/role.guard';

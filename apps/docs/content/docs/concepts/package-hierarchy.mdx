@@ -134,8 +134,8 @@ The essential packages that make up the framework:
 ```ts
 import { createApp, compose } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
-import { Service, Repository, container } from '@nextrush/di';
-import { Controller, Get, Post, Body, Param } from '@nextrush/decorators';
+import { Service, Repository, container } from 'nextrush/class';
+import { Controller, Get, Post, Body, Param } from 'nextrush/class';
 ```
 
 ### Adapter Layer
@@ -194,7 +194,7 @@ Extended functionality — mostly middleware, plus a few registrars (`registerCo
 | `@nextrush/events`      | Event system (pub/sub)         | —                             |
 
 ```ts
-import { registerControllers } from '@nextrush/controllers';
+import { registerControllers } from 'nextrush/class';
 import { logger } from '@nextrush/logger';
 import { serveStatic } from '@nextrush/static';
 ```
