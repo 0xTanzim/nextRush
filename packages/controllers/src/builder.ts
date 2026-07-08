@@ -56,13 +56,14 @@ export function buildRoutes(
   container: Container,
   globalPrefix: string,
   globalMiddleware: Middleware[],
-  instanceCache: Map<Function, unknown> = new Map()
+  instanceCache: Map<Function, unknown> = new Map(),
+  isRequestScoped = false
 ): BuiltRoute[] {
   const routes: BuiltRoute[] = [];
   const { target, controller, routes: routeMetadata } = definition;
 
   for (const route of routeMetadata) {
-    const handler = createRouteHandler(target, route, container, instanceCache);
+    const handler = createRouteHandler(target, route, container, instanceCache, isRequestScoped);
     const fullPath = buildFullRoutePath(
       globalPrefix,
       controller.path,

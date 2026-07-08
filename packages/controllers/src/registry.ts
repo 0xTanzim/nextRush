@@ -22,6 +22,14 @@ export class ControllerRegistry {
   private readonly debug: boolean;
 
   /**
+   * Classes whose effective DI scope is `'request'` (self or dependency graph
+   * declares `scope: 'request'`). A request-scoped controller is registered with
+   * the request lifecycle and resolved from a per-request child on every request
+   * instead of being memoized. Empty by default (pure singleton/transient graph).
+   */
+  private readonly requestScopedClasses: ReadonlySet<Function>;
+
+  /**
    * Shared controller-instance cache, keyed by controller class.
    *
    * Owned by the registry so a single resolved singleton is reused across the
@@ -38,12 +46,14 @@ export class ControllerRegistry {
     container: Container,
     globalPrefix: string,
     globalMiddleware: Middleware[],
-    debug: boolean
+    debug: boolean,
+    requestScopedClasses: ReadonlySet<Function> = new Set()
   ) {
     this.container = container;
     this.globalPrefix = globalPrefix;
     this.globalMiddleware = globalMiddleware;
     this.debug = debug;
+    this.requestScopedClasses = requestScopedClasses;
   }
 
   /**
@@ -75,7 +85,8 @@ export class ControllerRegistry {
       this.container,
       this.globalPrefix,
       this.globalMiddleware,
-      this.instanceCache
+      this.instanceCache,
+      this.requestScopedClasses.has(controllerClass)
     );
 
     const registered: RegisteredController = {
@@ -159,13 +170,17 @@ export class ControllerRegistry {
   }
 
   /**
-   * Register the controller in the DI container as a singleton
+   * Register the controller in the DI container with its effective scope: a
+   * request-effective controller (self or dependency graph declares
+   * `scope: 'request'`) uses the request (ContainerScoped) lifecycle so a fresh
+   * instance is built per request; every other controller stays a singleton.
    */
   private registerInContainer(controllerClass: Function): void {
     const token = controllerClass as new (...args: unknown[]) => unknown;
 
     if (!this.container.isRegistered(token)) {
-      this.container.register(token, { useClass: token }, { scope: 'singleton' });
+      const scope = this.requestScopedClasses.has(controllerClass) ? 'request' : 'singleton';
+      this.container.register(token, { useClass: token }, { scope });
     }
   }
 

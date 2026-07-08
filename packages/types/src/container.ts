@@ -33,8 +33,15 @@ export interface ValueProvider<T> {
 /** Union of all provider kinds. */
 export type Provider<T> = ClassProvider<T> | FactoryProvider<T> | ValueProvider<T>;
 
-/** Lifecycle scope for registered services. */
-export type Scope = 'singleton' | 'transient';
+/**
+ * Lifecycle scope for registered services.
+ *
+ * - `'singleton'` — one shared instance for the process lifetime.
+ * - `'transient'` — a fresh instance on every resolve.
+ * - `'request'` — one instance per request, shared within that request. Backed
+ *   by a per-request child container; see RFC-NEXTRUSH-REQUEST-SCOPE.
+ */
+export type Scope = 'singleton' | 'transient' | 'request';
 
 /** Options for service registration. */
 export interface ServiceOptions {

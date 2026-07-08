@@ -143,6 +143,39 @@ Mark a constructor parameter as optional with `@Optional()` so the app still res
 dependency isn't registered — see
 [DI & Decorators](/docs/concepts/di-decorators#package-responsibilities) for details.
 
+### Request scope
+
+Use `{ scope: 'request' }` for a service that lives for one request and is shared by every
+collaborator within that request — a per-request identity, a unit-of-work, or a correlation ID:
+
+```typescript
+import { Service } from '@nextrush/di';
+
+@Service({ scope: 'request' })
+class RequestId {
+  readonly id = crypto.randomUUID();
+}
+```
+
+When a controller (or anything in its dependency graph) uses request scope, `registerControllers`
+resolves that controller from a fresh per-request child container on every request. Request-scoped
+instances are fresh per request and shared within one; singletons stay shared across requests.
+
+**Scope bubbling.** A singleton (or transient) that transitively depends on a request-scoped
+service is itself treated as request-scoped — otherwise a singleton controller would cache one
+request's instances forever. You do not annotate the outer class; the effective scope is computed
+from the dependency graph.
+
+**Cost.** A purely-singleton controller keeps the lazy-memoized singleton path — no per-request
+child is created, so there is zero added per-request overhead unless request scope is actually in
+play.
+
+<Callout type="info" title="Accessing the request inside a service">
+  Request-scoped services do not receive the request `Context` in their constructor. Read the
+  request in the controller via the `@Ctx` parameter decorator and pass what the service needs.
+  Constructor-injected request context is future work.
+</Callout>
+
 ## Controller and Parameter Decorators
 
 `@Controller('/path')` groups routes under a common prefix. Route decorators (`@Get`, `@Post`,

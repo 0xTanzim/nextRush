@@ -106,13 +106,24 @@ class MyService {}
 // Transient (new instance each time)
 @Service({ scope: 'transient' })
 class RequestLogger {}
+
+// Request (one instance per request, shared within it — via a per-request child container)
+@Service({ scope: 'request' })
+class RequestId {
+  readonly id = crypto.randomUUID();
+}
 ```
 
 **`ServiceOptions`:**
 
-| Property | Type                         | Default       | Description        |
-| -------- | ---------------------------- | ------------- | ------------------ |
-| `scope`  | `'singleton' \| 'transient'` | `'singleton'` | Instance lifecycle |
+| Property | Type                                      | Default       | Description        |
+| -------- | ----------------------------------------- | ------------- | ------------------ |
+| `scope`  | `'singleton' \| 'transient' \| 'request'` | `'singleton'` | Instance lifecycle |
+
+> `request` maps to tsyringe's `ContainerScoped` lifecycle: resolve it from a
+> per-request child (`container.createChild()`) for one instance per request.
+> With `@nextrush/controllers`, request scope (and scope bubbling) is automatic —
+> see RFC-NEXTRUSH-REQUEST-SCOPE.
 
 #### `@Repository(options?)`
 
@@ -234,7 +245,7 @@ Get the service type from a decorated class. Returns `'service'`, `'repository'`
 
 #### `getServiceScope(target)`
 
-Get the scope from a decorated class. Returns `'singleton'`, `'transient'`, or `undefined`.
+Get the scope from a decorated class. Returns `'singleton'`, `'transient'`, `'request'`, or `undefined`.
 
 ### Container
 

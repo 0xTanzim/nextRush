@@ -26,9 +26,9 @@ import {
   getErrorsFromResults,
 } from './discovery.js';
 import { ControllerResolutionError, RouteRegistrationError } from './errors.js';
-import { registerServiceGraph } from './isolation.js';
 import { registerLifecycleExtension } from './lifecycle.js';
 import { ControllerRegistry } from './registry.js';
+import { bindRequestScopes } from './scope.js';
 import type {
   ControllersOptions,
   BuiltRoute,
@@ -232,12 +232,6 @@ export async function registerControllers(
     options.container ??
     (options.isolate ? createContainer() : (app.container ?? globalContainer));
   const opts = resolveOptions(options, container);
-  const registry = new ControllerRegistry(
-    opts.container,
-    opts.prefix,
-    opts.middleware,
-    opts.debug
-  );
 
   let controllers: Function[] = [];
 
@@ -271,12 +265,18 @@ export async function registerControllers(
     return;
   }
 
-  // Under isolation, re-register the reachable service graph into this app's own
-  // container BEFORE bootstrap/validation, so controllers and their dependencies
-  // resolve to per-app singletons instead of delegating to the shared global one.
-  if (opts.isolate) {
-    registerServiceGraph(controllers, opts.container);
-  }
+  // Compute effective DI scopes (request-scope bubbling) and bind request-effective
+  // classes to the container's request lifecycle. Returns the request-scoped set
+  // that drives per-controller registration and per-request child resolution.
+  const requestScoped = bindRequestScopes(controllers, opts.container, opts.isolate);
+
+  const registry = new ControllerRegistry(
+    opts.container,
+    opts.prefix,
+    opts.middleware,
+    opts.debug,
+    requestScoped
+  );
 
   // Bootstrap async factory providers before controller resolution.
   await opts.container.bootstrap();

@@ -5,7 +5,7 @@
  */
 
 import type { DependencyContainer, InjectionToken } from 'tsyringe';
-import { container as tsyContainer } from 'tsyringe';
+import { container as tsyContainer, Lifecycle } from 'tsyringe';
 
 import type {
     Constructor,
@@ -78,6 +78,16 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
         const scope = options?.scope ?? getServiceScope(provider.useClass);
         if (scope === 'singleton') {
           tsyInstance.registerSingleton(tsyToken, provider.useClass);
+        } else if (scope === 'request') {
+          // Request scope → tsyringe ContainerScoped: one instance per container.
+          // A per-request child (`createChild()`) constructs its own instance and
+          // shares it within that request; singletons stay on the parent. See
+          // RFC-NEXTRUSH-REQUEST-SCOPE.
+          tsyInstance.register(
+            tsyToken,
+            { useClass: provider.useClass },
+            { lifecycle: Lifecycle.ContainerScoped }
+          );
         } else {
           tsyInstance.register(tsyToken, { useClass: provider.useClass });
         }

@@ -97,9 +97,9 @@ class RequestLogger {}
   title="ServiceOptions"
   types={{
     scope: {
-      type: "'singleton' | 'transient'",
+      type: "'singleton' | 'transient' | 'request'",
       description:
-        'Instance lifecycle. Singleton shares one instance; transient creates a new instance per resolve.',
+        'Instance lifecycle. Singleton shares one instance; transient creates a new instance per resolve; request creates one instance per request (shared within it).',
       default: "'singleton'",
     },
   }}
@@ -237,7 +237,7 @@ const service = container.resolve(FeatureService);
 
 Two lifecycle scopes control how the container manages instances:
 
-<Tabs items={['Singleton (Default)', 'Transient']}>
+<Tabs items={['Singleton (Default)', 'Transient', 'Request']}>
   <Tab value="Singleton (Default)">
 
 One instance shared across all `resolve()` calls:
@@ -270,7 +270,33 @@ console.log(a === b); // false
 ```
 
   </Tab>
+  <Tab value="Request">
+
+One instance per request, shared within that request. Backed by tsyringe's
+`ContainerScoped` lifecycle and a per-request child container (`createChild()`):
+
+```ts
+@Service({ scope: 'request' })
+class RequestId {
+  readonly id = crypto.randomUUID();
+}
+
+const child = container.createChild(); // one child per request
+const a = child.resolve(RequestId);
+const b = child.resolve(RequestId);
+console.log(a === b); // true — shared within the request
+```
+
+  </Tab>
 </Tabs>
+
+<Callout type="info" title="Request scope through controllers">
+  With `registerControllers`, request scope is automatic. A controller (or any
+  service in its dependency graph) that uses `scope: 'request'` is resolved from
+  a fresh per-request child on each request; a purely-singleton controller keeps
+  the memoized fast path with zero added per-request cost. See the
+  [class-based guide](/docs/guides/class-based).
+</Callout>
 
 ---
 

@@ -57,7 +57,7 @@ function tokenOf(descriptor: unknown): unknown {
  * metadata to walk (the caller registers them), and the latter must be allowed
  * to resolve to `undefined` rather than forcing a registration.
  */
-function collectDependencyClasses(target: Function): Function[] {
+export function collectDependencyClasses(target: Function): Function[] {
   const paramTypes =
     (Reflect.getMetadata(DESIGN_PARAMTYPES, target) as unknown[] | undefined) ?? [];
   const injectionTokens =
@@ -132,7 +132,8 @@ export function collectServiceGraph(controllers: Function[]): Function[] {
 /**
  * Transitively register every `@Service`/`@Repository`/`@Config` class reachable
  * from `controllers`' constructor dependency graph into `container`, each with
- * its declared scope (`getServiceScope(dep) ?? 'singleton'`).
+ * its **effective** scope (request bubbling applied) when `effectiveScopes` is
+ * provided, otherwise its declared scope (`getServiceScope(dep) ?? 'singleton'`).
  *
  * Each class is registered at most once (the graph walk dedupes). A class already
  * registered on the container is left untouched, so a provider the caller
@@ -140,9 +141,13 @@ export function collectServiceGraph(controllers: Function[]): Function[] {
  * Non-service classes and non-class tokens are skipped — they fall back to the
  * container's parent/global chain or must be registered by the caller.
  */
-export function registerServiceGraph(controllers: Function[], container: Container): void {
+export function registerServiceGraph(
+  controllers: Function[],
+  container: Container,
+  effectiveScopes?: Map<Function, Scope>
+): void {
   for (const dep of collectServiceGraph(controllers)) {
-    const scope: Scope = getServiceScope(dep) ?? 'singleton';
+    const scope: Scope = effectiveScopes?.get(dep) ?? getServiceScope(dep) ?? 'singleton';
     const token = dep as Token;
     if (!container.isRegistered(token)) {
       container.register(token, { useClass: dep as Constructor }, { scope });

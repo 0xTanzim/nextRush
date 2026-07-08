@@ -133,6 +133,31 @@ class UserController {
 }
 ```
 
+### Service Scopes
+
+Services are singletons by default. Pass `scope` for other lifecycles:
+
+```typescript
+import { Service } from 'nextrush';
+
+@Service()                        // singleton — one shared instance
+class ConfigService {}
+
+@Service({ scope: 'transient' })  // a fresh instance on every resolve
+class Formatter {}
+
+@Service({ scope: 'request' })    // one instance per request, shared within it
+class RequestId {
+  readonly id = crypto.randomUUID();
+}
+```
+
+Request scope is backed by a per-request child container. When a controller (or anything in its
+dependency graph) is request-scoped, `registerControllers` resolves it fresh per request; a
+purely-singleton controller keeps the memoized fast path with zero added per-request cost. This
+bubbling is automatic — see the class-based guide and `docs/RFC/RFC-NEXTRUSH-REQUEST-SCOPE.md`.
+Services read the request via the controller's `@Ctx` parameter, not constructor injection.
+
 ## Context API
 
 NextRush uses a unified context object for clean, intuitive code:

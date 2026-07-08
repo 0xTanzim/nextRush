@@ -24,18 +24,80 @@ import { executeGuards } from './guard-runner.js';
 import { runInterceptors } from './interceptor-runner.js';
 import { resolveParametersFromPlan } from './param-resolver.js';
 
+/** A controller-class token tsyringe can resolve. */
+type ControllerToken = new (...args: unknown[]) => unknown;
+
+/**
+ * Lazy-memoized singleton resolution (the default, zero new per-request cost).
+ *
+ * Resolves the controller on first use and caches it in the shared
+ * `instanceCache`, so `validate: true`'s boot resolve and the first request
+ * share one instance. A failed resolve is never cached — resolution retries on
+ * each request until it succeeds.
+ */
+function resolveMemoizedSingleton(
+  controllerClass: Function,
+  container: Container,
+  instanceCache: Map<Function, unknown>
+): () => unknown {
+  return () => {
+    if (!instanceCache.has(controllerClass)) {
+      try {
+        instanceCache.set(controllerClass, container.resolve(controllerClass as ControllerToken));
+      } catch (error) {
+        throw new ControllerResolutionError(
+          controllerClass.name,
+          error instanceof Error ? error : undefined
+        );
+      }
+    }
+    return instanceCache.get(controllerClass);
+  };
+}
+
+/**
+ * Per-request-child resolution for effectively request-scoped controllers.
+ *
+ * A fresh child container is created on each request and the controller resolved
+ * from it — request-scoped (ContainerScoped) dependencies are fresh per request
+ * and shared within one, while singletons resolve from the parent and stay
+ * shared. The instance is never memoized.
+ */
+function resolveFromRequestChild(
+  controllerClass: Function,
+  container: Container
+): () => unknown {
+  return () => {
+    try {
+      return container.createChild().resolve(controllerClass as ControllerToken);
+    } catch (error) {
+      throw new ControllerResolutionError(
+        controllerClass.name,
+        error instanceof Error ? error : undefined
+      );
+    }
+  };
+}
+
 /**
  * Create a route handler that resolves the controller and injects parameters.
  *
  * @param instanceCache - Shared controller-instance cache. The controller
  *   singleton is resolved once and stored here, so `validate: true`'s boot-time
  *   resolve and the first request share one instance rather than resolving twice.
+ * @param isRequestScoped - Whether this controller is effectively request-scoped
+ *   (itself or anything in its dependency graph declares `scope: 'request'`).
+ *   When true, a fresh per-request child container is created on each request and
+ *   the controller resolved from it (never memoized), so request-scoped instances
+ *   are fresh per request and shared within one. When false, the lazy-memoized
+ *   singleton path is kept — zero new per-request overhead.
  */
 export function createRouteHandler(
   controllerClass: Function,
   route: RouteMetadata,
   container: Container,
-  instanceCache: Map<Function, unknown>
+  instanceCache: Map<Function, unknown>,
+  isRequestScoped = false
 ): RouteHandler {
   const methodName = String(route.methodName);
   const paramMetadata = getParamMetadata(controllerClass, methodName);
@@ -54,33 +116,18 @@ export function createRouteHandler(
   const responseHeaders = getResponseHeaders(controllerClass, methodName);
   const redirectMeta = getRedirectMetadata(controllerClass, methodName);
 
+  // Choose the controller-resolution strategy once, at build time.
+  const resolveControllerInstance = isRequestScoped
+    ? resolveFromRequestChild(controllerClass, container)
+    : resolveMemoizedSingleton(controllerClass, container, instanceCache);
+
   const execute: RouteHandler = async (ctx: Context): Promise<void> => {
     // Execute guards first (if any) — always per-request, never hoisted.
     if (guards.length > 0) {
       await executeGuards(guards, ctx, container, controllerClass.name, methodName);
     }
 
-    // Controllers are registered as singletons, so the instance never changes.
-    // Resolve lazily on first use and memoize in the shared cache — this keeps
-    // the hot path allocation-free without forcing resolution at build time (so
-    // a `validate: false` opt-out still defers DI resolution to request time),
-    // and reuses the instance already resolved by boot-time eager validation.
-    if (!instanceCache.has(controllerClass)) {
-      try {
-        instanceCache.set(
-          controllerClass,
-          container.resolve(controllerClass as new (...args: unknown[]) => unknown)
-        );
-      } catch (error) {
-        // Do not cache a failed resolution — keep retrying on each request
-        // until it succeeds (preserves retry-on-failure semantics).
-        throw new ControllerResolutionError(
-          controllerClass.name,
-          error instanceof Error ? error : undefined
-        );
-      }
-    }
-    const controllerInstance = instanceCache.get(controllerClass);
+    const controllerInstance = resolveControllerInstance();
     const args = await resolveParametersFromPlan(
       ctx,
       sortedParams,
