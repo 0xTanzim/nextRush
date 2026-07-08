@@ -14,6 +14,9 @@ export default defineConfig({
     'src/commands/index.ts',
     'src/commands/dev.ts',
     'src/commands/build.ts',
+    'src/commands/codemod.ts',
+    'src/codemods/index.ts',
+    'src/codemods/consolidate-imports.ts',
     'src/runtime/index.ts',
     'src/runtime/detect.ts',
     'src/runtime/spawn.ts',
@@ -37,6 +40,7 @@ export default defineConfig({
     'node:module',
     'node:url',
     'node:process',
+    'glob',
   ],
   define: {
     __VERSION__: JSON.stringify(pkg.version),
