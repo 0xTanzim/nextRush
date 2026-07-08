@@ -1,6 +1,6 @@
 # RFC-NEXTRUSH-CLASS-CONSOLIDATION — The `@nextrush/class` Runtime
 
-**Status:** 🟢 Accepted — v2 (maintainer-approved 2026-07-08, 9.7/10; internal-structure refinements folded in; D1–D4 decided §7). Implementation gated only on execution go-ahead, not further design.
+**Status:** 🚀 Shipped — Phase 3 landed (P3.1 merge → @nextrush/class; P3.3 bootstrap stages + DiscoverySource; P3.4 immutable Application Graph IR; P3.6 diagnostics; P3.7 @nextrush/testing; P3.8 codemod; P3.9 changesets + migration guide). P3.2 (cosmetic folder reorg) and P3.5 (runtime folder move) were folded into the redesign phases (functional intent met without high-churn moves). Additive/non-breaking this release via deprecation shims; shim removal is a future major.
 **Date:** 2026-07-08
 **Type:** Package architecture + public-API (breaking — major version)
 **Supersedes/settles:** the "surface consolidation" recommendation in `docs/audits/class-based-v3-strategic-audit.md`

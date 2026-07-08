@@ -292,9 +292,11 @@ Long-lived, stateful services — registered with `app.extend()`, booted at `app
 
 | Package                 | Description                 |
 | ----------------------- | --------------------------- |
-| `@nextrush/controllers` | Decorator-based controllers |
-| `@nextrush/di`          | Dependency injection        |
-| `@nextrush/decorators`  | Route & param decorators    |
+| `@nextrush/class`       | Class runtime — decorators, controllers, guards, filters, interceptors, lifecycle, request scope, modules (import via `nextrush/class`) |
+| `@nextrush/di`          | Dependency injection (independent) |
+| `@nextrush/testing`     | Test harness — `createTestModule().override().compile()` |
+| `@nextrush/controllers` | **Deprecated** — compatibility shim for `@nextrush/class` |
+| `@nextrush/decorators`  | **Deprecated** — compatibility shim for `@nextrush/class` |
 
 ### Development
 
