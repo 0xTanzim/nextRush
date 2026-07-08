@@ -15,9 +15,8 @@ import {
   Patch,
   Post,
   Put,
-  Redirect,
-  SetHeader,
 } from '../routes.js';
+import { Redirect, SetHeader } from '../response-decorators.js';
 
 describe('Route Decorators', () => {
   describe('@Get', () => {

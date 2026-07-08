@@ -52,6 +52,7 @@ export { Controller } from './class.js';
 
 // Response Decorators
 export { HttpCode } from './http-code.js';
+export { Redirect, SetHeader } from './response-decorators.js';
 
 // Route Decorators
 export {
@@ -63,8 +64,6 @@ export {
   Patch,
   Post,
   Put,
-  Redirect,
-  SetHeader,
 } from './routes.js';
 
 // Parameter Decorators
