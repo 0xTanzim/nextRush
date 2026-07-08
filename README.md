@@ -158,6 +158,62 @@ purely-singleton controller keeps the memoized fast path with zero added per-req
 bubbling is automatic — see the class-based guide and `docs/RFC/RFC-NEXTRUSH-REQUEST-SCOPE.md`.
 Services read the request via the controller's `@Ctx` parameter, not constructor injection.
 
+## Modules
+
+As an app grows, a **module** groups a feature's controllers, providers, and the
+sub-features it composes behind one declaration. `registerModule` wires the whole
+graph in one call — it reuses the same pipeline as `registerControllers` (route
+building, DI validation, lifecycle hooks, request scope).
+
+```typescript
+import { createApp, listen } from 'nextrush';
+import { Module, Controller, Get, Service, registerModule } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() { return [{ id: 1, name: 'Alice' }]; }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+  @Get() findAll() { return this.users.findAll(); }
+}
+
+@Module({
+  controllers: [UserController],
+  providers: [UserService],
+})
+class UserModule {}
+
+// Compose feature modules through `imports`
+@Module({ imports: [UserModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule, { prefix: '/api' });
+listen(app, 8080);
+```
+
+`@Module` takes four optional fields:
+
+| Field         | Purpose                                                     |
+| ------------- | ----------------------------------------------------------- |
+| `imports`     | Other `@Module` classes this module composes                |
+| `controllers` | `@Controller` classes owned by this module                  |
+| `providers`   | Services/values/factories registered with DI                |
+| `exports`     | Providers made visible to importers (recorded, not yet enforced) |
+
+Providers are either a bare class (registered with its declared `@Service`
+scope) or a config binding a token: `{ provide, useClass }`, `{ provide,
+useValue }`, or `{ provide, useFactory, inject, scope }`. Imports are walked
+safely — diamond/duplicate imports register once and import cycles are guarded.
+
+> **Modules group, they do not yet encapsulate.** Every provider in the graph is
+> visible to every module through the shared DI container; `exports` is recorded
+> but not enforced. True per-module encapsulation (module-private providers) is
+> planned follow-up work — see `docs/RFC/RFC-NEXTRUSH-MODULES.md`.
+
 ## Context API
 
 NextRush uses a unified context object for clean, intuitive code:

@@ -243,6 +243,27 @@ export class GuardRejectionError extends ForbiddenError {
 }
 
 /**
+ * Error thrown when a class passed where a module is expected is not a valid
+ * module. This is a server configuration error (500).
+ */
+export class NotAModuleError extends ControllerError {
+  constructor(className: string) {
+    super(
+      `Class "${className}" is not a module.\n\n` +
+        `To make it a module, add the @Module decorator:\n\n` +
+        `  import { Module } from '@nextrush/decorators';\n\n` +
+        `  @Module({\n` +
+        `    controllers: [SomeController],\n` +
+        `    providers: [SomeService],\n` +
+        `  })\n` +
+        `  class ${className} {}\n`,
+      'NOT_A_MODULE'
+    );
+    this.name = 'NotAModuleError';
+  }
+}
+
+/**
  * Re-export HttpError for type checking in consumers
  */
 export { HttpError };

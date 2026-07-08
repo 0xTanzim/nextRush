@@ -75,6 +75,8 @@ export {
   Body,
   // Class decorators
   Controller,
+  // Module decorator
+  Module,
   // Custom param decorator factory
   createCustomParamDecorator,
   Ctx,
@@ -104,6 +106,8 @@ export {
 } from '@nextrush/decorators';
 // Service lifecycle hook guards (duck-typed interfaces — no decorator)
 export { isOnInit, isOnShutdown } from '@nextrush/decorators';
+// Module metadata readers
+export { getModuleMetadata, isModule } from '@nextrush/decorators';
 export type {
   BodyOptions,
   CanActivate,
@@ -115,6 +119,10 @@ export type {
   GuardFn,
   HeaderOptions,
   Interceptor,
+  ModuleMetadata,
+  ModuleOptions,
+  ModuleProvider,
+  ModuleProviderConfig,
   ParamMetadata,
   ParamOptions,
   ParamSource,
@@ -129,4 +137,6 @@ export type { OnInit, OnShutdown } from '@nextrush/decorators';
 // CONTROLLERS: Auto-discovery Plugin
 // ============================================
 export { registerControllers } from '@nextrush/controllers';
+export { registerModule } from '@nextrush/controllers';
 export type { ControllersOptions } from '@nextrush/controllers';
+export type { ModuleRegistrationOptions } from '@nextrush/controllers';

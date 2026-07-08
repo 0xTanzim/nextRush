@@ -57,6 +57,15 @@ export { isOnInit, isOnShutdown } from './lifecycle-types.js';
 // Class Decorators
 export { Controller } from './class.js';
 
+// Module Decorator
+export { Module, getModuleMetadata, isModule } from './module.js';
+export type {
+  ModuleMetadata,
+  ModuleOptions,
+  ModuleProvider,
+  ModuleProviderConfig,
+} from './module-types.js';
+
 // Response Decorators
 export { HttpCode } from './http-code.js';
 export { Redirect, SetHeader } from './response-decorators.js';

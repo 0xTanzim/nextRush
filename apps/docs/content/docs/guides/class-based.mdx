@@ -515,6 +515,107 @@ Expected responses:
 - `POST /api/users` without `x-api-key` → `403 Forbidden`
 - `POST /api/users` with valid key → `{"id":"...","email":"bob@example.com","name":"Bob"}`
 
+## Grouping Features with Modules
+
+As an application grows, listing every controller in one `registerControllers`
+call stops describing the shape of the app. A **module** groups a feature's
+controllers, its providers, and the sub-features it composes behind one
+declaration, and `registerModule` wires the whole graph in one call.
+
+```ts
+import { Module, Controller, Get, Service } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+
+@Module({
+  controllers: [UserController],
+  providers: [UserService],
+})
+class UserModule {}
+```
+
+`@Module` takes four optional fields:
+
+| Field         | Purpose                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `imports`     | Other `@Module` classes this module composes                     |
+| `controllers` | `@Controller` classes owned by this module                       |
+| `providers`   | Services/values/factories this module registers with DI          |
+| `exports`     | Providers made visible to importers (recorded now — see below)   |
+
+### Composing modules with `imports`
+
+A root module composes feature modules through `imports`. `registerModule` walks
+the graph, registers every module's providers, and registers all controllers
+across the graph through the same pipeline as `registerControllers`:
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { registerModule } from 'nextrush/class';
+
+@Module({
+  imports: [UserModule, BillingModule],
+})
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule, { prefix: '/api' });
+await listen(app, 8080);
+```
+
+Imports are walked safely: a module reached through two paths (a diamond) is
+registered once, and a mutual import cycle is guarded rather than looping
+forever.
+
+### Provider forms
+
+A provider is either a bare class (registered with its declared `@Service`
+scope) or a config object binding a token to a class, value, or factory:
+
+```ts
+@Module({
+  controllers: [ReportController],
+  providers: [
+    ReportService, // bare class — uses its @Service scope
+    { provide: 'CONFIG', useValue: { pageSize: 20 } }, // constant
+    { provide: 'CLOCK', useClass: SystemClock }, // class under a token
+    { provide: 'DB', useFactory: () => connectDb(), scope: 'singleton' }, // factory
+  ],
+})
+class ReportModule {}
+```
+
+Services read these tokens with `@inject('CONFIG')` in their constructors.
+
+<Callout type="warn" title="Modules group, they do not yet encapsulate">
+  Today `@Module` is a composition and grouping unit. Every provider in the graph
+  is visible to every other module through the shared DI container — there is no
+  module-private scoping yet. The `exports` field is recorded in metadata but not
+  enforced. True per-module encapsulation (private providers, export-gated
+  resolution) is planned follow-up work; see
+  `docs/RFC/RFC-NEXTRUSH-MODULES.md`.
+</Callout>
+
+`registerModule` accepts the same options as `registerControllers` where they
+apply: `prefix`, `middleware`, `container`, `isolate`, `validate`, and `debug`.
+Lifecycle hooks (`OnInit`/`OnShutdown`) and request-scoped services work through
+a module exactly as they do through `registerControllers`.
+
 ## Next Steps
 
 <Cards>

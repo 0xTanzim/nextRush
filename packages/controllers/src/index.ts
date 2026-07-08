@@ -16,6 +16,10 @@ import 'reflect-metadata';
 // Registration
 export { registerControllers } from './registrar.js';
 
+// Module registration
+export { registerModule, type ModuleRegistrationOptions } from './module-registrar.js';
+export { collectModuleControllers, collectModuleGraph } from './module-graph.js';
+
 // Discovery
 export {
     discoverControllers,
@@ -49,6 +53,7 @@ export {
     MissingParameterError,
     NoRoutesError,
     NotAControllerError,
+    NotAModuleError,
     ParameterInjectionError,
     RouteRegistrationError
 } from './errors.js';
@@ -62,6 +67,7 @@ export {
     Delete,
     Get,
     Header,
+    Module,
     Param,
     Patch,
     Post,
@@ -71,8 +77,8 @@ export {
     UseGuard,
     UseInterceptor
 } from '@nextrush/decorators';
-export type { ExceptionFilter, GuardContext, GuardFn, Interceptor, OnInit, OnShutdown } from '@nextrush/decorators';
-export { isOnInit, isOnShutdown } from '@nextrush/decorators';
+export type { ExceptionFilter, GuardContext, GuardFn, Interceptor, ModuleOptions, ModuleProvider, ModuleProviderConfig, OnInit, OnShutdown } from '@nextrush/decorators';
+export { getModuleMetadata, isModule, isOnInit, isOnShutdown } from '@nextrush/decorators';
 export {
     Repository,
     Service,

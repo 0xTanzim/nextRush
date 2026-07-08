@@ -15,6 +15,7 @@ import type { RouteMethods } from './route-types.js';
  */
 export const DECORATOR_METADATA_KEYS = {
   CONTROLLER: Symbol.for('nextrush:controller'),
+  MODULE: Symbol.for('nextrush:module'),
   ROUTES: Symbol.for('nextrush:routes'),
   PARAMS: Symbol.for('nextrush:params'),
   MIDDLEWARE: Symbol.for('nextrush:middleware'),
