@@ -1,0 +1,81 @@
+[
+
+{"name":"@nextrush/di","keywords":["nextrush","di","dependency-injection","ioc","container","typescript"],"version":"3.0.7","description":"Lightweight dependency injection container for NextRush","sanitized_name":"@nextrush/di","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:18.284Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/di#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/di"}}
+
+,
+
+{"name":"@nextrush/router","keywords":["nextrush","router","radix-tree","http","framework"],"version":"3.0.7","description":"High-performance radix tree router for NextRush","sanitized_name":"@nextrush/router","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:21.545Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/router#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/router"}}
+
+,
+
+{"name":"@nextrush/errors","keywords":["nextrush","errors","http-errors","middleware"],"version":"3.0.7","description":"Standardized error handling for NextRush","sanitized_name":"@nextrush/errors","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:18.685Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/errors#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/errors"}}
+
+,
+
+{"name":"@nextrush/adapter-node","keywords":["nextrush","adapter","node","http","framework"],"version":"3.0.7","description":"Node.js HTTP adapter for NextRush","sanitized_name":"@nextrush/adapter-node","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:18.504Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/adapters/node#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/adapter-node"}}
+
+,
+
+{"name":"@nextrush/runtime","keywords":["nextrush","runtime","detection","bun","deno","edge","node"],"version":"3.0.7","description":"Runtime detection and cross-runtime abstractions for NextRush","sanitized_name":"@nextrush/runtime","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:21.721Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/runtime#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/runtime"}}
+
+,
+
+{"name":"@nextrush/decorators","keywords":["nextrush","decorators","controller","routing","typescript"],"version":"3.0.7","description":"Metadata-only decorators for NextRush controllers","sanitized_name":"@nextrush/decorators","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:18.353Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/decorators#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/decorators"}}
+
+,
+
+{"name":"@nextrush/core","keywords":["nextrush","framework","http","server","middleware","context"],"version":"3.0.7","description":"Core functionality for NextRush framework - Application, Context, Middleware","sanitized_name":"@nextrush/core","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:18.464Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/core#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/core"}}
+
+,
+
+{"name":"@nextrush/controllers","keywords":["nextrush","controllers","decorators","di","plugin"],"version":"3.0.7","description":"Controller plugin for NextRush - automatic discovery, DI integration, and route registration","sanitized_name":"@nextrush/controllers","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:18.546Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/plugins/controllers#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/controllers"}}
+
+,
+
+{"name":"@nextrush/cors","keywords":["nextrush","cors","middleware"],"version":"3.0.5","description":"CORS middleware for NextRush","sanitized_name":"@nextrush/cors","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:45.031Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/cors#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/cors"}}
+
+,
+
+{"name":"@nextrush/types","keywords":["nextrush","types","typescript"],"version":"3.0.7","description":"Shared TypeScript types for NextRush framework","sanitized_name":"@nextrush/types","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:21.637Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/types#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/types"}}
+
+,
+
+{"name":"@nextrush/logger","keywords":["nextrush","logger","logging","middleware","request-logging"],"version":"3.0.5","description":"Request logging middleware for NextRush - wraps @nextrush/log","sanitized_name":"@nextrush/logger","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:49.751Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/plugins/logger#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/logger"}}
+
+,
+
+{"name":"@nextrush/body-parser","keywords":["nextrush","body-parser","json","urlencoded","middleware"],"version":"3.0.5","description":"Body parsing middleware for NextRush","sanitized_name":"@nextrush/body-parser","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:43.989Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/body-parser#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/body-parser"}}
+
+,
+
+{"name":"@nextrush/helmet","keywords":["nextrush","helmet","security","middleware"],"version":"3.0.5","description":"Security headers middleware for NextRush","sanitized_name":"@nextrush/helmet","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:45.068Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/helmet#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/helmet"}}
+
+,
+
+{"name":"@nextrush/static","keywords":["nextrush","static","files","serve","middleware","http","server"],"version":"3.0.5","description":"High-performance static file serving middleware for NextRush","sanitized_name":"@nextrush/static","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:49.178Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/plugins/static#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/static"}}
+
+,
+
+{"name":"@nextrush/rate-limit","keywords":["nextrush","rate-limit","rate-limiter","middleware","token-bucket","sliding-window","api-limit","throttle"],"version":"3.0.5","description":"Production-grade rate limiting middleware for NextRush with multiple algorithms","sanitized_name":"@nextrush/rate-limit","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:44.568Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/rate-limit#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/rate-limit"}}
+
+,
+
+{"name":"@nextrush/multipart","keywords":["nextrush","multipart","file-upload","form-data","middleware","streaming"],"version":"3.0.5","description":"Streaming multipart/form-data parser and file upload middleware for NextRush","sanitized_name":"@nextrush/multipart","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:44.668Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/multipart#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/multipart"}}
+
+,
+
+{"name":"@nextrush/template","keywords":["nextrush","template","templating","mustache","handlebars","html","render"],"version":"3.0.6","description":"Modern template engine for NextRush - Mustache-like syntax with helpers, partials, layouts, and streaming","sanitized_name":"@nextrush/template","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:21.783Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/plugins/template#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/template"}}
+
+,
+
+{"name":"@nextrush/compression","keywords":["nextrush","compression","gzip","brotli","deflate","middleware"],"version":"3.0.5","description":"High-performance response compression middleware for NextRush with Gzip, Brotli, and Deflate support","sanitized_name":"@nextrush/compression","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:44.179Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/compression#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/compression"}}
+
+,
+
+{"name":"@nextrush/websocket","keywords":["nextrush","websocket","ws","realtime","rooms","channels"],"version":"3.0.5","description":"WebSocket plugin for NextRush with rooms, broadcasting, and simple DX","sanitized_name":"@nextrush/websocket","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:49.200Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/plugins/websocket#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/websocket"}}
+
+,
+
+{"name":"nextrush","keywords":["framework","web","http","server","minimal","fast","typescript","nodejs","backend","api","rest"],"version":"3.0.7","description":"Minimal, modular, blazing fast Node.js framework","sanitized_name":"nextrush","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-06-10T01:32:18.605Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/nextrush#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/nextrush"}}
+]
+
