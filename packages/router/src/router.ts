@@ -11,7 +11,6 @@
 
 import {
     HTTP_METHODS,
-    ROUTE_METADATA,
     type Context,
     type HttpMethod,
     type MetadataContribution,
@@ -20,8 +19,6 @@ import {
     type RouteEntry,
     type RouteHandler,
     type RouteMatch,
-    type RouteMetadata,
-    type RouteMetaMarker,
     type RouterOptions,
 } from '@nextrush/types';
 import {
@@ -34,6 +31,8 @@ import {
     type RadixNode,
 } from './radix-tree';
 import { createRedirectHandler, type RedirectStatus } from './redirect';
+import { GroupRouter, type RouteGroup } from './group-router';
+import { mergeContributions, readContribution } from './route-metadata';
 
 /** Frozen empty params for static routes — avoids allocation per request */
 const EMPTY_PARAMS: Record<string, string> = Object.freeze(
@@ -41,54 +40,9 @@ const EMPTY_PARAMS: Record<string, string> = Object.freeze(
 );
 
 /**
- * Declare route metadata inline in a route's argument list. Returns a pure
- * data marker (not a middleware) — the router reads its metadata at
- * registration and never executes it per request.
- *
- * @example
- * ```typescript
- * router.post('/users',
- *   validate(User),
- *   endpoint({ summary: 'Create a user', responses: { 201: UserResponse } }),
- *   handler,
- * );
- * ```
+ * Inline route metadata declaration — re-exported from its own module (RT-3).
  */
-export function endpoint(metadata: MetadataContribution): RouteMetaMarker {
-  return { [ROUTE_METADATA]: metadata };
-}
-
-/** Mutable view of RouteMetadata, used only while merging contributions. */
-type MutableRouteMetadata = { -readonly [K in keyof RouteMetadata]?: RouteMetadata[K] };
-
-/**
- * Merge metadata contributions (from validate(), endpoint(), etc.) in
- * registration order. Scalars and arrays are last-write-wins; the `request`
- * and `responses` maps merge per key. Returns undefined when nothing
- * contributed (an undocumented route).
- */
-function mergeContributions(
-  contributions: readonly MetadataContribution[]
-): RouteMetadata | undefined {
-  if (contributions.length === 0) return undefined;
-
-  const meta: MutableRouteMetadata = {};
-  for (const c of contributions) {
-    if (c.summary !== undefined) meta.summary = c.summary;
-    if (c.description !== undefined) meta.description = c.description;
-    if (c.deprecated !== undefined) meta.deprecated = c.deprecated;
-    if (c.visibility !== undefined) meta.visibility = c.visibility;
-    if (c.tags !== undefined) meta.tags = c.tags;
-    if (c.request) meta.request = { ...meta.request, ...c.request };
-    if (c.responses) meta.responses = { ...meta.responses, ...c.responses };
-  }
-  return meta;
-}
-
-/** Read a route entry's metadata contribution, if it carries one. */
-function readContribution(entry: RouteEntry): MetadataContribution | undefined {
-  return (entry as Partial<RouteMetaMarker>)[ROUTE_METADATA];
-}
+export { endpoint } from './route-metadata';
 
 /**
  * Router class — high-performance segment trie router
@@ -862,11 +816,11 @@ export class Router {
    */
   group(
     prefix: string,
-    middlewareOrCallback: Middleware[] | ((router: Router) => void),
-    callback?: (router: Router) => void
+    middlewareOrCallback: Middleware[] | ((router: RouteGroup) => void),
+    callback?: (router: RouteGroup) => void
   ): this {
     let middleware: Middleware[] = [];
-    let cb: (router: Router) => void;
+    let cb: (router: RouteGroup) => void;
 
     if (Array.isArray(middlewareOrCallback)) {
       middleware = middlewareOrCallback;
@@ -878,11 +832,9 @@ export class Router {
       cb = middlewareOrCallback;
     }
 
-    // Create a temporary router to collect routes
+    // Collect the group's routes via a GroupRouter (RT-6: properly typed, no cast).
     const groupRouter = new GroupRouter(this, prefix, middleware);
-
-    // Execute callback with the group router
-    cb(groupRouter as unknown as Router);
+    cb(groupRouter);
 
     return this;
   }
@@ -917,121 +869,6 @@ export class Router {
     groupMiddleware: Middleware[]
   ): void {
     this.addRoute(method, path, handlers, groupMiddleware);
-  }
-}
-
-/**
- * Internal router class for handling route groups
- * Wraps the parent router and adds prefix/middleware to all routes
- * @internal
- */
-class GroupRouter {
-  private readonly parent: Router;
-  private readonly prefix: string;
-  private readonly middleware: Middleware[];
-
-  constructor(parent: Router, prefix: string, middleware: Middleware[]) {
-    this.parent = parent;
-    this.prefix = prefix;
-    this.middleware = middleware;
-  }
-
-  private fullPath(path: string): string {
-    // Handle root path in group
-    if (path === '/' || path === '') {
-      return this.prefix;
-    }
-    // Combine prefix and path
-    const cleanPrefix = this.prefix.endsWith('/') ? this.prefix.slice(0, -1) : this.prefix;
-    const cleanPath = path.startsWith('/') ? path : '/' + path;
-    return cleanPrefix + cleanPath;
-  }
-
-  get(path: string, ...handlers: RouteHandler[]): this {
-    this.parent._addGroupRoute('GET', this.fullPath(path), handlers, this.middleware);
-    return this;
-  }
-
-  post(path: string, ...handlers: RouteHandler[]): this {
-    this.parent._addGroupRoute('POST', this.fullPath(path), handlers, this.middleware);
-    return this;
-  }
-
-  put(path: string, ...handlers: RouteHandler[]): this {
-    this.parent._addGroupRoute('PUT', this.fullPath(path), handlers, this.middleware);
-    return this;
-  }
-
-  delete(path: string, ...handlers: RouteHandler[]): this {
-    this.parent._addGroupRoute('DELETE', this.fullPath(path), handlers, this.middleware);
-    return this;
-  }
-
-  patch(path: string, ...handlers: RouteHandler[]): this {
-    this.parent._addGroupRoute('PATCH', this.fullPath(path), handlers, this.middleware);
-    return this;
-  }
-
-  head(path: string, ...handlers: RouteHandler[]): this {
-    this.parent._addGroupRoute('HEAD', this.fullPath(path), handlers, this.middleware);
-    return this;
-  }
-
-  options(path: string, ...handlers: RouteHandler[]): this {
-    this.parent._addGroupRoute('OPTIONS', this.fullPath(path), handlers, this.middleware);
-    return this;
-  }
-
-  all(path: string, ...handlers: RouteHandler[]): this {
-    for (const method of HTTP_METHODS) {
-      this.parent._addGroupRoute(method, this.fullPath(path), handlers, this.middleware);
-    }
-    return this;
-  }
-
-  /**
-   * Register a redirect within the group (uses the shared redirect handler,
-   * audit RT-4 — no more naive replaceAll param substitution).
-   */
-  redirect(from: string, to: string, status: RedirectStatus = 301): this {
-    const redirectHandler = createRedirectHandler(to, status);
-
-    this.parent._addGroupRoute('GET', this.fullPath(from), [redirectHandler], this.middleware);
-    this.parent._addGroupRoute('HEAD', this.fullPath(from), [redirectHandler], this.middleware);
-
-    return this;
-  }
-
-  /**
-   * Nested group support
-   */
-  group(
-    prefix: string,
-    middlewareOrCallback: Middleware[] | ((router: GroupRouter) => void),
-    callback?: (router: GroupRouter) => void
-  ): this {
-    let nestedMiddleware: Middleware[] = [];
-    let cb: (router: GroupRouter) => void;
-
-    if (Array.isArray(middlewareOrCallback)) {
-      nestedMiddleware = middlewareOrCallback;
-      if (!callback) {
-        throw new Error('Callback function is required when providing middleware array');
-      }
-      cb = callback;
-    } else {
-      cb = middlewareOrCallback;
-    }
-
-    // Create nested group with combined prefix and middleware
-    const nestedRouter = new GroupRouter(this.parent, this.fullPath(prefix), [
-      ...this.middleware,
-      ...nestedMiddleware,
-    ]);
-
-    cb(nestedRouter);
-
-    return this;
   }
 }
 

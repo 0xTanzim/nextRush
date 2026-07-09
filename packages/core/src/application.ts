@@ -19,12 +19,9 @@ import type {
   RouteEntry,
   Router,
 } from '@nextrush/types';
-import { getErrorStatus, getHttpStatusMessage, NextRushError } from '@nextrush/errors';
 import { compose } from './middleware';
-
-/** @internal Symbol keys for route() state — avoids polluting user's ctx.state namespace */
-const ORIGINAL_PATH = Symbol.for('nextrush.originalPath');
-const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
+import { writeDefaultErrorResponse } from './error-handler';
+import { createPrefixMount } from './route-mount';
 
 /**
  * Error handler function type
@@ -247,45 +244,8 @@ export class Application {
     if (!normalizedPrefix.startsWith('/')) {
       normalizedPrefix = '/' + normalizedPrefix;
     }
-    const prefixLen = normalizedPrefix.length;
 
-    const mountedMiddleware: Middleware = async (ctx, next) => {
-      const currentPath = ctx.path;
-
-      // Fast prefix check
-      if (!currentPath.startsWith(normalizedPrefix)) {
-        return next();
-      }
-
-      // Check prefix boundary (avoid /api/usersxxx matching /api/users)
-      const hasCharAfterPrefix = prefixLen < currentPath.length;
-      if (hasCharAfterPrefix && currentPath.charCodeAt(prefixLen) !== 47) {
-        // 47 = '/'
-        return next();
-      }
-
-      // Direct path manipulation (no Proxy - fast!)
-      const adjustedPath = currentPath.slice(prefixLen) || '/';
-      (ctx as { path: string }).path = adjustedPath;
-
-      // Store original for recovery (Symbol keys avoid ctx.state pollution)
-      (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH] = currentPath;
-      (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX] = normalizedPrefix;
-
-      try {
-        await routerMiddleware(ctx, async () => {
-          (ctx as { path: string }).path = currentPath;
-          await next();
-          (ctx as { path: string }).path = adjustedPath;
-        });
-      } finally {
-        (ctx as { path: string }).path = currentPath;
-        (ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH] = undefined;
-        (ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX] = undefined;
-      }
-    };
-
-    this.middlewareStack.push(mountedMiddleware);
+    this.middlewareStack.push(createPrefixMount(normalizedPrefix, routerMiddleware));
     return this;
   }
 
@@ -582,34 +542,13 @@ export class Application {
   }
 
   /**
-   * Default error handler.
-   *
-   * Produces the same JSON shape as `@nextrush/errors`' `errorHandler()` so the
-   * framework has ONE error contract (audit C-1): a `NextRushError` serializes
-   * via its own `toJSON()` (carrying `code`/`status`/`details`/`issues`), and a
-   * plain error becomes a safe coded 500. 5xx are always logged (C-7); 4xx only
-   * outside production.
+   * Default error handler — delegates to the shared error serializer so the
+   * default response matches `@nextrush/errors`' `errorHandler()` (audit C-1).
    */
   private defaultErrorHandler(error: Error, ctx: Context): void {
-    const status = getErrorStatus(error);
-
-    if (status >= 500 || !this.isProduction) {
-      this.logger.error('Request error:', error);
-    }
-
-    ctx.status = status;
-
-    if (error instanceof NextRushError) {
-      ctx.json(error.toJSON());
-      return;
-    }
-
-    const expose = status < 500;
-    ctx.json({
-      error: expose ? error.name : getHttpStatusMessage(status),
-      message: expose ? error.message : 'Internal Server Error',
-      code: 'INTERNAL_ERROR',
-      status,
+    writeDefaultErrorResponse(error, ctx, {
+      logger: this.logger,
+      isProduction: this.isProduction,
     });
   }
 

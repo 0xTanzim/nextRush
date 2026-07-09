@@ -15,6 +15,9 @@
 // Router
 export { createRouter, endpoint, Router } from './router';
 
+// Route groups
+export type { RouteGroup } from './group-router';
+
 // Segment trie internals (for advanced usage; type/function names retain the
 // historical "radix" prefix and will be renamed in a future major — audit RT-2)
 export { createNode, NodeType, parseSegments } from './radix-tree';
