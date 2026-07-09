@@ -216,7 +216,7 @@ function probeCapabilities(): RuntimeCapabilities {
   const hasWebStreams = typeof (globalThis as { ReadableStream?: unknown }).ReadableStream !== 'undefined';
   const g = globalThis as {
     WebSocket?: unknown;
-    crypto?: { subtle?: unknown };
+    crypto?: { subtle?: unknown } | null;
     Worker?: unknown;
   };
   return {

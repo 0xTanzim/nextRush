@@ -47,10 +47,11 @@ export function headersToRecord(headers: Headers): IncomingHeaders {
 
   if (hasSetCookieApi) {
     const cookies = getSetCookie.call(headers);
-    if (cookies.length === 1) {
-      record['set-cookie'] = cookies[0] as string;
-    } else if (cookies.length > 1) {
+    if (cookies.length > 1) {
       record['set-cookie'] = cookies;
+    } else {
+      const only = cookies[0];
+      if (only !== undefined) record['set-cookie'] = only;
     }
   }
 
@@ -85,8 +86,8 @@ function isIPv6(value: string): boolean {
 
   if (halves.length === 2) {
     // Compressed form: '::' stands in for one or more zero groups.
-    const head = halves[0] === '' ? [] : (halves[0] as string).split(':');
-    const tail = halves[1] === '' ? [] : (halves[1] as string).split(':');
+    const head = halves[0] ? halves[0].split(':') : [];
+    const tail = halves[1] ? halves[1].split(':') : [];
     if (head.length + tail.length > 7) return false;
     return groupsValid(head, false) && groupsValid(tail, true);
   }

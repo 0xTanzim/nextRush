@@ -133,6 +133,21 @@ class HttpError extends NextRushError {
       optional: true,
     },
     cause: { type: 'unknown', description: 'Original error for error chaining', optional: true },
+    requestId: {
+      type: 'string',
+      description: 'Correlation/request identifier for tracing (surfaced in toJSON when set)',
+      optional: true,
+    },
+    traceId: {
+      type: 'string',
+      description: 'Distributed-trace identifier (surfaced in toJSON when set)',
+      optional: true,
+    },
+    timestamp: {
+      type: 'string',
+      description: 'ISO-8601 creation timestamp (surfaced in toJSON when set)',
+      optional: true,
+    },
   }}
 />
 
@@ -319,6 +334,42 @@ throw notFound('User not found');
 throw conflict('Email already exists');
 throw tooManyRequests('Rate limit exceeded');
 throw internalError('Database connection failed');
+```
+
+`createError(status)` returns the correctly-typed class for every status that
+has one (so `createError(413)` is a `PayloadTooLargeError` with code
+`PAYLOAD_TOO_LARGE`), falling back to a generic `HttpError` (`HTTP_<status>`)
+only for statuses without a dedicated class.
+
+## Error Codes Registry
+
+`ERROR_CODES` is the single source of truth mapping HTTP status → canonical
+machine-readable code; `codeForStatus()` resolves one code (falling back to
+`HTTP_<status>`). The typed classes and `createError` both resolve through it,
+so a status maps to exactly one code regardless of construction path.
+
+```typescript
+import { ERROR_CODES, codeForStatus } from '@nextrush/errors';
+
+ERROR_CODES[404];        // 'NOT_FOUND'
+codeForStatus(413);      // 'PAYLOAD_TOO_LARGE'
+codeForStatus(499);      // 'HTTP_499' (no dedicated class)
+```
+
+## Serialization Across Services
+
+`toJSON()` includes the serialized `cause` chain (for exposed errors) and any
+correlation identity. `HttpError.fromJSON()` reconstructs a typed error — with a
+working `instanceof` — from a payload received over the wire.
+
+```typescript
+import { HttpError, NotFoundError } from '@nextrush/errors';
+
+const wire = new NotFoundError('missing', { requestId: 'req-1' }).toJSON();
+const restored = HttpError.fromJSON(wire);
+restored instanceof HttpError; // true
+restored.status;               // 404
+restored.requestId;            // 'req-1'
 ```
 
 ## Error Utilities

@@ -56,7 +56,7 @@ throw new NotFoundError('User #123 not found');
 
 // Server errors (5xx): expose = false by default
 throw new InternalServerError('Redis connection timeout');
-// → Client sees: {"message": "Internal Server Error", "code": "INTERNAL_ERROR"}
+// → Client sees: {"message": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}
 // → Server logs: Full error with stack trace
 ```
 
@@ -263,6 +263,18 @@ throw tooManyRequests('Rate limit exceeded', {
 
 // Custom status code
 throw createError(418, "I'm a teapot");
+```
+
+`createError(status)` returns the correctly-typed class (and canonical `code`)
+for any status with a dedicated class. Codes come from the shared `ERROR_CODES`
+registry — use `codeForStatus(status)` to resolve one, or `HttpError.fromJSON()`
+to rebuild a typed error from a serialized payload across a service boundary:
+
+```typescript
+import { ERROR_CODES, codeForStatus, HttpError } from '@nextrush/errors';
+
+codeForStatus(413); // 'PAYLOAD_TOO_LARGE'
+const restored = HttpError.fromJSON(err.toJSON()); // typed error, instanceof works
 ```
 
 ## Validation Errors

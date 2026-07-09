@@ -125,6 +125,24 @@ console.log(caps);
 // }
 ```
 
+For an unknown or future runtime, capabilities are **feature-probed** from the
+available globals (`fetch`, `ReadableStream`, `crypto.subtle`, …) rather than
+reported as all-`false`, so a capable-but-unrecognized runtime is not
+needlessly downgraded.
+
+#### `capabilitiesFor(runtime: Runtime): RuntimeCapabilities`
+
+Pure resolver behind `getRuntimeCapabilities()`. Returns the capability matrix
+for a given runtime; `'unknown'` is answered by probing globals. Useful for
+testing or describing a runtime other than the current one.
+
+```typescript
+import { capabilitiesFor } from '@nextrush/runtime';
+
+capabilitiesFor('deno-deploy').fileSystem; // false
+capabilitiesFor('unknown').fetch;          // probed from globalThis.fetch
+```
+
 #### `getRuntimeInfo(): RuntimeInfo`
 
 Get complete runtime information in one call.
