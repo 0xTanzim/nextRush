@@ -74,9 +74,11 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
   const { decode } = options;
 
   return async function cookiesMiddleware(ctx: Context, next) {
-    // Parse incoming cookies from request header
-    const cookieHeader = ctx.get('cookie') ?? ctx.headers.cookie;
-    const parsed = parseCookies(cookieHeader as string | undefined, {
+    // Parse incoming cookies from request header. Some proxies / HTTP/2 stacks
+    // surface repeated Cookie headers as an array — join them (CK-9).
+    const rawCookie = ctx.get('cookie') ?? ctx.headers.cookie;
+    const cookieHeader = Array.isArray(rawCookie) ? rawCookie.join('; ') : rawCookie;
+    const parsed = parseCookies(cookieHeader, {
       decode: decode === undefined,
     });
 
@@ -96,9 +98,6 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
       }
     }
 
-    // Track Set-Cookie headers to send
-    const setCookies: string[] = [];
-
     // Create cookie context
     const cookieContext: CookieContext = {
       get(name: string): string | undefined {
@@ -110,8 +109,12 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
           path: '/',
           ...cookieOptions,
         });
-        setCookies.push(serialized);
-        // Update parsed cookies for subsequent reads
+        // Write eagerly (CK-1): the Node adapter commits the response the moment
+        // the handler calls ctx.json()/send(), so Set-Cookie must be emitted at
+        // set() time (before the commit), not deferred to after next(). ctx.set
+        // appends Set-Cookie on every runtime, so multiple cookies accumulate.
+        ctx.set('Set-Cookie', serialized);
+        // Update parsed cookies for subsequent reads within this request
         parsed[name] = value;
       },
 
@@ -120,7 +123,7 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
           path: '/',
           ...cookieOptions,
         });
-        setCookies.push(serialized);
+        ctx.set('Set-Cookie', serialized);
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete parsed[name];
       },
@@ -137,13 +140,9 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
     // Add to state
     ctx.state.cookies = cookieContext;
 
-    // Continue to next middleware
+    // Continue to next middleware. Set-Cookie headers were already written
+    // eagerly at set()/delete() time, so nothing to flush here.
     await next();
-
-    // Set cookies on response
-    if (setCookies.length > 0) {
-      setResponseCookies(ctx, setCookies);
-    }
   };
 }
 
@@ -189,9 +188,9 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
   }
 
   return async function signedCookiesMiddleware(ctx: Context, next) {
-    const cookieHeader = ctx.get('cookie') ?? ctx.headers.cookie;
-    const parsed = parseCookies(cookieHeader as string | undefined);
-    const setCookies: string[] = [];
+    const rawCookie = ctx.get('cookie') ?? ctx.headers.cookie;
+    const cookieHeader = Array.isArray(rawCookie) ? rawCookie.join('; ') : rawCookie;
+    const parsed = parseCookies(cookieHeader);
 
     // Signed cookie context with async methods
     const signedContext: SignedCookieContext = {
@@ -212,7 +211,10 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
           path: '/',
           ...cookieOptions,
         });
-        setCookies.push(serialized);
+        // Eager write (CK-1). Store the signed value so get() within the same
+        // request round-trips the value (CK-4 read-after-write).
+        ctx.set('Set-Cookie', serialized);
+        parsed[name] = signedValue;
       },
 
       delete(name: string, cookieOptions: Pick<CookieOptions, 'domain' | 'path'> = {}): void {
@@ -220,7 +222,9 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
           path: '/',
           ...cookieOptions,
         });
-        setCookies.push(serialized);
+        ctx.set('Set-Cookie', serialized);
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete parsed[name];
       },
     };
 
@@ -228,57 +232,12 @@ export function signedCookies(options: SignedCookieMiddlewareOptions): Middlewar
     ctx.state.signedCookies = signedContext;
 
     await next();
-
-    // Set cookies on response
-    if (setCookies.length > 0) {
-      setResponseCookies(ctx, setCookies);
-    }
   };
 }
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-/**
- * Set cookies on the response.
- *
- * Uses raw response `setHeader` with an array to correctly emit
- * multiple `Set-Cookie` headers. Falls back to `ctx.set` for adapters
- * that don't expose the raw response.
- */
-function setResponseCookies(ctx: Context, newCookies: string[]): void {
-  // Prefer raw res.setHeader — it natively supports string[] for Set-Cookie
-  const raw = ctx.raw as {
-    res?: {
-      getHeader?: (name: string) => string | string[] | number | undefined;
-      setHeader?: (name: string, value: string[]) => void;
-    };
-  };
-
-  if (raw.res?.setHeader) {
-    const existing = raw.res.getHeader?.('set-cookie');
-    let allCookies: string[];
-
-    if (Array.isArray(existing)) {
-      allCookies = [...existing, ...newCookies];
-    } else if (typeof existing === 'string') {
-      allCookies = [existing, ...newCookies];
-    } else {
-      allCookies = newCookies;
-    }
-
-    raw.res.setHeader('Set-Cookie', allCookies);
-    return;
-  }
-
-  // Fallback: ctx.set (last resort — may overwrite on some adapters)
-  if (typeof ctx.set === 'function') {
-    for (const cookie of newCookies) {
-      ctx.set('Set-Cookie', cookie);
-    }
-  }
-}
 
 /**
  * Create secure cookie options for production.

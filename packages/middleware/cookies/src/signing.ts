@@ -244,19 +244,19 @@ export async function unsignCookieWithRotation(
  * This is provided for cases where manual comparison is needed.
  */
 export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Still need constant-time operation for equal-length case
-    let _result = 0;
-    const maxLen = Math.max(a.length, b.length);
-    for (let i = 0; i < maxLen; i++) {
-      _result |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length);
-    }
-    return false;
-  }
+  const aLen = a.length;
+  const bLen = b.length;
 
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  // Fold the length difference into the result so unequal lengths always fail,
+  // and compare over the longer length so timing does not short-circuit on a
+  // shared prefix. (True constant time also can't be guaranteed at the string
+  // level — the real signed-cookie path uses crypto.subtle.verify.)
+  let result = aLen ^ bLen;
+  const len = aLen > bLen ? aLen : bLen;
+  for (let i = 0; i < len; i++) {
+    const ca = i < aLen ? a.charCodeAt(i) : 0;
+    const cb = i < bLen ? b.charCodeAt(i) : 0;
+    result |= ca ^ cb;
   }
 
   return result === 0;

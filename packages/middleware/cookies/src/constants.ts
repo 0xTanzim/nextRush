@@ -142,6 +142,12 @@ export const DEFAULT_COOKIE_OPTIONS: CookieOptions = {
 
 /**
  * Common public suffixes for domain validation.
+ *
+ * @remarks
+ * This is a curated list of the most common public suffixes and shared-hosting
+ * suffixes (a footgun-prevention heuristic), NOT the exhaustive Public Suffix
+ * List. For complete coverage, integrate the full PSL (https://publicsuffix.org/).
+ *
  * @see https://publicsuffix.org/
  */
 export const COMMON_PUBLIC_SUFFIXES = new Set([
@@ -153,6 +159,12 @@ export const COMMON_PUBLIC_SUFFIXES = new Set([
   'com.cn', 'net.cn', 'org.cn',
   'com.br', 'net.br', 'org.br',
   'de', 'fr', 'it', 'es', 'ru', 'cn', 'jp', 'kr', 'uk', 'au', 'ca',
+  // Common shared-hosting public suffixes — setting a cookie's Domain on any of
+  // these would scope it across every tenant of that platform (CK-3).
+  'github.io', 'gitlab.io', 'vercel.app', 'netlify.app', 'pages.dev',
+  'workers.dev', 'herokuapp.com', 'web.app', 'firebaseapp.com',
+  'azurewebsites.net', 'cloudfront.net', 'onrender.com', 'fly.dev',
+  'surge.sh', 'now.sh', 'glitch.me', 'appspot.com',
 ]);
 
 // ============================================================================

@@ -62,8 +62,21 @@ function createMockContext(cookieHeader?: string) {
     redirect: vi.fn(),
     throw: vi.fn(),
     assert: vi.fn(),
-    set: vi.fn((field: string, value: string | number) => {
-      responseHeaders[field.toLowerCase()] = String(value);
+    set: vi.fn((field: string, value: string | number | string[]) => {
+      const key = field.toLowerCase();
+      // Mirror the real ctx.set Set-Cookie contract: strings append, arrays replace.
+      if (key === 'set-cookie' && !Array.isArray(value)) {
+        const existing = responseHeaders[key];
+        if (existing === undefined) {
+          responseHeaders[key] = [String(value)];
+        } else if (Array.isArray(existing)) {
+          existing.push(String(value));
+        } else {
+          responseHeaders[key] = [String(existing), String(value)];
+        }
+        return;
+      }
+      responseHeaders[key] = Array.isArray(value) ? value : String(value);
     }),
     get: vi.fn((field: string) => {
       if (field.toLowerCase() === 'cookie') return cookieHeader;
@@ -96,8 +109,21 @@ function createMockContextWithoutRaw(cookieHeader?: string) {
     redirect: vi.fn(),
     throw: vi.fn(),
     assert: vi.fn(),
-    set: vi.fn((field: string, value: string | number) => {
-      responseHeaders[field.toLowerCase()] = String(value);
+    set: vi.fn((field: string, value: string | number | string[]) => {
+      const key = field.toLowerCase();
+      // Mirror the real ctx.set Set-Cookie contract: strings append, arrays replace.
+      if (key === 'set-cookie' && !Array.isArray(value)) {
+        const existing = responseHeaders[key];
+        if (existing === undefined) {
+          responseHeaders[key] = [String(value)];
+        } else if (Array.isArray(existing)) {
+          existing.push(String(value));
+        } else {
+          responseHeaders[key] = [String(existing), String(value)];
+        }
+        return;
+      }
+      responseHeaders[key] = Array.isArray(value) ? value : String(value);
     }),
     get: vi.fn((field: string) => {
       if (field.toLowerCase() === 'cookie') return cookieHeader;

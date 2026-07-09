@@ -39,8 +39,19 @@ function createMockContext(cookieHeader?: string) {
     redirect: vi.fn(),
     throw: vi.fn(),
     assert: vi.fn(),
-    set: vi.fn((field: string, value: string | number) => {
-      responseHeaders[field.toLowerCase()] = String(value);
+    set: vi.fn((field: string, value: string | number | string[]) => {
+      const key = field.toLowerCase();
+      // Mirror the real ctx.set Set-Cookie contract: strings append, arrays replace.
+      if (key === 'set-cookie' && !Array.isArray(value)) {
+        const existing = responseHeaders[key];
+        if (Array.isArray(existing)) {
+          existing.push(String(value));
+        } else {
+          responseHeaders[key] = [String(value)];
+        }
+        return;
+      }
+      responseHeaders[key] = Array.isArray(value) ? value : String(value);
     }),
     get: vi.fn((field: string) => {
       if (field.toLowerCase() === 'cookie') return cookieHeader;
@@ -317,5 +328,83 @@ describe('helper functions', () => {
       expect(options.path).toBe('/');
       expect(options.maxAge).toBeUndefined();
     });
+  });
+});
+
+describe('CK-1: eager Set-Cookie write (Node immediate-commit safety)', () => {
+  it('writes Set-Cookie at set() time, before the response commits', async () => {
+    const middleware = cookies();
+    const ctx = createMockContext();
+
+    const next = vi.fn(async () => {
+      const api = ctx.state.cookies as CookieContext;
+      api.set('session', 'abc123');
+      // Before next() resolves (i.e. before any deferred/after-next flush and
+      // before the handler would commit the response) the header must already
+      // be present. Under the old deferred model this array is still undefined.
+      const setCookie = ctx._responseHeaders['set-cookie'] as string[] | undefined;
+      expect(setCookie).toBeDefined();
+      expect(setCookie?.some((c) => c.includes('session=abc123'))).toBe(true);
+    });
+
+    await middleware(ctx as never, next);
+  });
+
+  it('accumulates multiple cookies set in the same request', async () => {
+    const middleware = cookies();
+    const ctx = createMockContext();
+
+    const next = vi.fn(async () => {
+      const api = ctx.state.cookies as CookieContext;
+      api.set('a', '1');
+      api.set('b', '2');
+    });
+
+    await middleware(ctx as never, next);
+
+    const setCookie = ctx._responseHeaders['set-cookie'] as string[];
+    expect(setCookie.some((c) => c.includes('a=1'))).toBe(true);
+    expect(setCookie.some((c) => c.includes('b=2'))).toBe(true);
+  });
+});
+
+describe('CK-4: signed cookie read-after-write', () => {
+  it('get() returns the value just set() within the same request', async () => {
+    const middleware = signedCookies({ secret: 'secret' });
+    const ctx = createMockContext();
+    let readBack: string | undefined;
+
+    const next = vi.fn(async () => {
+      const api = ctx.state.signedCookies as {
+        set: (n: string, v: string) => Promise<void>;
+        get: (n: string) => Promise<string | undefined>;
+      };
+      await api.set('user', 'john');
+      readBack = await api.get('user');
+    });
+
+    await middleware(ctx as never, next);
+    expect(readBack).toBe('john');
+  });
+});
+
+describe('CK-9: multiple Cookie request headers', () => {
+  it('parses cookies when the Cookie header arrives as an array', async () => {
+    const middleware = cookies();
+    const state: Record<string, unknown> = {};
+    // Some proxies / HTTP/2 stacks surface repeated Cookie headers as an array.
+    const ctx = {
+      method: 'GET',
+      headers: { cookie: ['a=1', 'b=2'] },
+      state,
+      get: (field: string) => (field.toLowerCase() === 'cookie' ? undefined : undefined),
+      set: vi.fn(),
+    };
+
+    await middleware(ctx as never, vi.fn().mockResolvedValue(undefined));
+
+    const api = ctx.state.cookies as CookieContext;
+    expect(api.get('a')).toBe('1');
+    expect(api.get('b')).toBe('2');
   });
 });
