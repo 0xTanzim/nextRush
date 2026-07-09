@@ -1,7 +1,7 @@
 /**
  * @nextrush/router - High-Performance Router for NextRush
  *
- * This package provides a radix tree based router with:
+ * This package provides a segment trie based router with:
  * - O(k) route matching where k is path length
  * - Named parameters (/users/:id)
  * - Wildcard routes (/files/*)
@@ -15,7 +15,8 @@
 // Router
 export { createRouter, endpoint, Router } from './router';
 
-// Radix tree internals (for advanced usage)
+// Segment trie internals (for advanced usage; type/function names retain the
+// historical "radix" prefix and will be renamed in a future major — audit RT-2)
 export { createNode, NodeType, parseSegments } from './radix-tree';
 export type { HandlerEntry, ParsedSegment, RadixNode } from './radix-tree';
 

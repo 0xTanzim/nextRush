@@ -117,7 +117,7 @@ export { Application, compose };
 export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 
 // ============================================
-// ROUTER: Radix Tree Routing + Route Metadata
+// ROUTER: Segment Trie Routing + Route Metadata
 // ============================================
 export { Router, createRouter, endpoint } from '@nextrush/router';
 export type { RouterOptions } from '@nextrush/router';
@@ -149,10 +149,14 @@ export {
     // Factory functions
     createError,
     // Error handling middleware
-    errorHandler, isHttpError, notFoundHandler
+    errorHandler, isHttpError, notFoundHandler,
+    // Central error-code registry + validation (audit N-4)
+    ERROR_CODES,
+    codeForStatus,
+    ValidationError
 } from '@nextrush/errors';
 
-export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
+export type { ErrorHandlerOptions, HttpErrorOptions, ValidationIssue } from '@nextrush/errors';
 
 // ============================================
 // TYPES: Essential TypeScript Types

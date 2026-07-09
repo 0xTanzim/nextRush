@@ -384,7 +384,9 @@ describe('Application', () => {
       await loggedApp.callback()(ctx);
 
       expect(ctx.status).toBe(500);
-      expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
+      expect(ctx.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Internal Server Error', code: 'INTERNAL_ERROR', status: 500 })
+      );
       expect(errorSpy).toHaveBeenCalled();
     });
 
@@ -396,7 +398,9 @@ describe('Application', () => {
 
       const ctx = createMockContext();
       await prodApp.callback()(ctx);
-      expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
+      expect(ctx.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Internal Server Error', code: 'INTERNAL_ERROR', status: 500 })
+      );
     });
 
     it('should expose error message when error has expose=true', async () => {
@@ -408,7 +412,9 @@ describe('Application', () => {
       await app.callback()(ctx);
 
       expect(ctx.status).toBe(404);
-      expect(ctx.json).toHaveBeenCalledWith({ error: 'Not Found' });
+      expect(ctx.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Not Found', code: 'INTERNAL_ERROR', status: 404 })
+      );
     });
 
     it('should hide message for 5xx errors even with expose=false', async () => {
@@ -420,7 +426,9 @@ describe('Application', () => {
       await app.callback()(ctx);
 
       expect(ctx.status).toBe(500);
-      expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
+      expect(ctx.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Internal Server Error', code: 'INTERNAL_ERROR', status: 500 })
+      );
     });
   });
 
@@ -576,7 +584,9 @@ describe('Application', () => {
       await app2.callback()(ctx);
 
       expect(ctx.status).toBe(500);
-      expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
+      expect(ctx.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Internal Server Error', code: 'INTERNAL_ERROR', status: 500 })
+      );
     });
   });
 

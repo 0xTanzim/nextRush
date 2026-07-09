@@ -20,8 +20,14 @@ export type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
 export interface ComposeOptions {
   /**
    * Warn when a middleware sends a response AND calls next().
-   * Enabled by default in non-production environments.
-   * @default process.env.NODE_ENV !== 'production'
+   *
+   * @remarks
+   * Opt-in and defaults to `false` — `@nextrush/core` is a runtime-agnostic
+   * package and must not read `process.env` (global-rules §2, audit C-4). The
+   * `Application` enables this in non-production by passing the flag from its
+   * own `env` option.
+   *
+   * @default false
    */
   warnDoubleResponse?: boolean;
 }
@@ -70,7 +76,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
     }
   }
 
-  const warnDoubleResponse = options?.warnDoubleResponse ?? process.env.NODE_ENV !== 'production';
+  const warnDoubleResponse = options?.warnDoubleResponse ?? false;
 
   // Snapshot middleware array at compose time
   const stack = [...middleware];

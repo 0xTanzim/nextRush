@@ -1,6 +1,6 @@
 # @nextrush/router
 
-> High-performance radix tree router for NextRush. O(k) route matching where k = path length, not route count.
+> High-performance segment trie router for NextRush. O(k) route matching where k = path segment count, not route count.
 
 ## The Problem
 
@@ -8,10 +8,10 @@ Traditional array-based routers iterate through all routes to find a match. With
 
 ## How NextRush Approaches This
 
-The router uses a **radix tree** (compressed prefix tree):
+The router uses a **segment trie** (a trie keyed by whole path segments, e.g. `users`, `:id` — not by individual characters, so it is not a compressed radix tree):
 
-- Routes share common prefixes in the tree structure
-- Matching is O(k) where k is path length (typically 10-50 characters)
+- Routes branch by path segment in the tree structure
+- Matching is O(k) where k is the number of path segments (typically a handful)
 - Route count doesn't affect matching speed
 - Memory efficient: shared prefixes stored once
 

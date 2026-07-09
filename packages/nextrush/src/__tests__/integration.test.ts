@@ -1029,7 +1029,17 @@ describe('Error Handling Integration', () => {
     await callback(ctx);
 
     expect(ctx.status).toBe(500);
-    expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
+    // Unified error shape (audit C-1): coded body, but the internal message
+    // ("Database connection failed") is never exposed in production.
+    expect(ctx.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Internal Server Error',
+        code: 'INTERNAL_ERROR',
+        status: 500,
+      })
+    );
+    const body = (ctx.json as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0];
+    expect(JSON.stringify(body)).not.toContain('Database connection failed');
 
     consoleSpy.mockRestore();
   });

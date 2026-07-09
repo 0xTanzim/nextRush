@@ -24,7 +24,7 @@
 - `listen`, `serve`, `createHandler` — Start HTTP server (Node.js)
 - `compose` — Compose middleware
 - Error classes (`HttpError`, `NotFoundError`, `BadRequestError`, `MethodNotAllowedError`, etc.)
-- Error utilities (`createError`, `isHttpError`, `errorHandler`, `notFoundHandler`, `catchAsync`)
+- Error utilities (`createError`, `isHttpError`, `errorHandler`, `notFoundHandler`) — plus the **deprecated** `catchAsync` (a no-op; async errors propagate automatically)
 - TypeScript types (`Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `HttpMethod`, etc.)
 - Constants (`HttpStatus`, `ContentType`)
 
@@ -164,7 +164,7 @@ This meta package re-exports from:
 | `@nextrush/router`       | `createRouter`, `Router`                                                                                                             |
 | `@nextrush/adapter-node` | `listen`, `serve`, `createHandler`                                                                                                   |
 | `@nextrush/types`        | `Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `HttpMethod`, `HttpStatus`, `ContentType`          |
-| `@nextrush/errors`       | `HttpError`, `NextRushError`, error classes (4xx/5xx), `createError`, `isHttpError`, `errorHandler`, `notFoundHandler`, `catchAsync` |
+| `@nextrush/errors`       | `HttpError`, `NextRushError`, error classes (4xx/5xx), `createError`, `isHttpError`, `errorHandler`, `notFoundHandler` (`catchAsync` — deprecated) |
 
 ## Available Packages
 
@@ -173,7 +173,7 @@ This meta package re-exports from:
 | Package                  | Description                          |
 | ------------------------ | ------------------------------------ |
 | `@nextrush/core`         | Application & middleware composition |
-| `@nextrush/router`       | High-performance radix tree router   |
+| `@nextrush/router`       | High-performance segment trie router   |
 | `@nextrush/adapter-node` | Node.js HTTP adapter                 |
 | `@nextrush/types`        | Shared TypeScript types              |
 | `@nextrush/errors`       | HTTP error classes                   |

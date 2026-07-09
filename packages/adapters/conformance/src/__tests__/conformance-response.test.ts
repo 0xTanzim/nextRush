@@ -123,7 +123,10 @@ describe.each(drivers)('conformance: response behaviors [$name]', (driver) => {
       app.use((ctx) => ctx.throw(403, 'Forbidden-XYZ'));
     });
     expect(thrown.status).toBe(403);
-    expect(json<{ error: string }>(thrown).error).toBe('Forbidden-XYZ');
+    // Unified error shape (audit C-1): the exposed message lives in `message`,
+    // `status`/`code` are present, and `error` carries the error class name.
+    expect(json<{ message: string; status: number }>(thrown).message).toBe('Forbidden-XYZ');
+    expect(json<{ status: number }>(thrown).status).toBe(403);
 
     const unknown = await driver.dispatch((app) => {
       app.use(() => {
@@ -131,8 +134,8 @@ describe.each(drivers)('conformance: response behaviors [$name]', (driver) => {
       });
     });
     expect(unknown.status).toBe(500);
-    const body = json<{ error: string }>(unknown);
-    expect(body.error).toBe('Internal Server Error');
+    const body = json<{ error: string; message: string }>(unknown);
+    expect(body.message).toBe('Internal Server Error');
     expect(unknown.text()).not.toContain('secret-leak-123');
   });
 });

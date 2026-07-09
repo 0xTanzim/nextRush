@@ -67,7 +67,7 @@ app.use(async (ctx, next) => {
   console.log(`← ${ctx.status}`);
 });
 
-listen(app, { port: 8080 });
+listen(app, 8080);
 ```
 
 > **Note:** `createRouter` is exported by `@nextrush/router`, not `@nextrush/core`. The import above works because `nextrush` (the meta package) re-exports both — using `@nextrush/core` directly, install `@nextrush/router` separately.
@@ -585,7 +585,7 @@ http.createServer(callback).listen(8080);
 
 // Or use an adapter (recommended)
 import { listen } from '@nextrush/adapter-node';
-listen(app, { port: 8080 });
+listen(app, 8080);
 ```
 
 ## API Reference

@@ -248,7 +248,7 @@ ctx.state; // Share data between middleware
 | Package                  | Description                          |
 | ------------------------ | ------------------------------------ |
 | `@nextrush/core`         | Application & middleware composition |
-| `@nextrush/router`       | High-performance radix tree router   |
+| `@nextrush/router`       | High-performance segment trie router   |
 | `@nextrush/adapter-node` | Node.js HTTP adapter                 |
 | `@nextrush/types`        | Shared TypeScript types              |
 | `@nextrush/errors`       | HTTP error classes                   |

@@ -33,6 +33,7 @@ import {
     type HandlerEntry,
     type RadixNode,
 } from './radix-tree';
+import { createRedirectHandler, type RedirectStatus } from './redirect';
 
 /** Frozen empty params for static routes — avoids allocation per request */
 const EMPTY_PARAMS: Record<string, string> = Object.freeze(
@@ -129,6 +130,9 @@ export class Router {
   /** Whether any routes have params or wildcards (disables static-only fast path) */
   private hasParamRoutes = false;
 
+  /** Whether router-level middleware has already been sealed into executors (audit RT-7) */
+  private _sealed = false;
+
   constructor(options: RouterOptions = {}) {
     this.root = createNode('');
     this.opts = {
@@ -183,16 +187,15 @@ export class Router {
           node.paramChild = createNode(seg.segment, NodeType.PARAM);
           node.paramChild.paramName = seg.paramName;
         } else if (node.paramChild.paramName !== seg.paramName) {
-          // Warn about param name collision — same position, different names
-          // This helps catch accidental mismatches like :id vs :userId
-          if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            const existing = node.paramChild.paramName;
-            console.warn(
-              `[nextrush:router] Route param name conflict at "${normalized}": ` +
-                `":${String(seg.paramName)}" conflicts with existing ":${String(existing)}". ` +
-                `The existing name ":${String(existing)}" will be used.`
-            );
-          }
+          // Same position, different param names — this silently loses one name
+          // at runtime (params[newName] is undefined), so fail fast at
+          // registration rather than warn (audit RT-5). Also removes the
+          // process.env / console.warn usage that was here.
+          throw new Error(
+            `Route param name conflict at "${normalized}": ":${String(seg.paramName)}" ` +
+              `conflicts with existing ":${String(node.paramChild.paramName)}" at the same ` +
+              `position. Use the same param name for this segment across all routes.`
+          );
         }
         node = node.paramChild;
       } else if (seg.type === NodeType.WILDCARD) {
@@ -361,83 +364,8 @@ export class Router {
    * router.redirect('/users/:id', '/profiles/:id');
    * ```
    */
-  redirect(from: string, to: string, status: 301 | 302 | 303 | 307 | 308 = 301): this {
-    // Precompile the target template at registration time.
-    // If `to` contains route-style `:param` placeholders, build a parts
-    // array of alternating literal / param-name entries so the per-request
-    // handler can substitute without sorting or scanning the string.
-    //
-    // Only `:` preceded by `/` or at position 0 is a param slot.  This
-    // avoids misinterpreting `https://` or other non-route colons.
-    let compiledParts: string[] | undefined;
-
-    {
-      const parts: string[] = [];
-      let pos = 0;
-      let found = false;
-
-      while (pos < to.length) {
-        // Find next `:` that looks like a route param
-        let idx = -1;
-        for (let i = pos; i < to.length; i++) {
-          if (
-            to[i] === ':' &&
-            (i === 0 || to[i - 1] === '/') &&
-            i + 1 < to.length &&
-            to[i + 1] !== '/'
-          ) {
-            idx = i;
-            break;
-          }
-        }
-        if (idx === -1) break;
-
-        found = true;
-        parts.push(to.slice(pos, idx)); // literal before ':'
-        const end = to.indexOf('/', idx + 1);
-        if (end === -1) {
-          parts.push(to.slice(idx + 1)); // param name (rest of string)
-          pos = to.length;
-        } else {
-          parts.push(to.slice(idx + 1, end)); // param name
-          pos = end;
-        }
-      }
-
-      if (found) {
-        parts.push(to.slice(pos)); // trailing literal
-        compiledParts = parts;
-      }
-    }
-
-    const redirectHandler: RouteHandler = (ctx: Context) => {
-      let targetPath: string;
-
-      if (compiledParts) {
-        // Fast path: build from precompiled template
-        const params = ctx.params;
-        const parts = compiledParts;
-        const head = parts[0];
-        if (head === undefined) {
-          targetPath = to;
-        } else {
-          let result = head;
-          for (let i = 1; i < parts.length - 1; i += 2) {
-            const paramKey = parts[i];
-            const tail = parts[i + 1];
-            if (paramKey === undefined || tail === undefined) break;
-            result += (params[paramKey] ?? '') + tail;
-          }
-          targetPath = result;
-        }
-      } else {
-        targetPath = to;
-      }
-
-      ctx.status = status;
-      ctx.set('Location', targetPath);
-      ctx.body = '';
-    };
+  redirect(from: string, to: string, status: RedirectStatus = 301): this {
+    const redirectHandler = createRedirectHandler(to, status);
 
     // Register for common methods. 307/308 preserve the original method,
     // so register all standard methods for those status codes.
@@ -776,6 +704,13 @@ export class Router {
    * Called once when routes() is invoked, not per-request.
    */
   private sealRouterMiddleware(): void {
+    // Idempotent: sealing prepends routerMiddleware into every executor in
+    // place, so running it twice would prepend the middleware twice (audit
+    // RT-7). routes() can be invoked more than once (e.g. mounted and also
+    // app.route()'d), so guard against re-sealing.
+    if (this._sealed) return;
+    this._sealed = true;
+
     const routerMw = [...this.routerMiddleware];
 
     // Walk the tree and re-compile every handler entry
@@ -965,6 +900,10 @@ export class Router {
     this.staticRoutes.clear();
     this.routerMiddleware.length = 0;
     this.hasParamRoutes = false;
+    // Clear the introspection registry too, or getRoutes()/OpenAPI would emit
+    // ghost routes after a reset (audit RT-1).
+    this.routeDefinitions.length = 0;
+    this._sealed = false;
   }
 
   /**
@@ -1051,23 +990,11 @@ class GroupRouter {
   }
 
   /**
-   * Register a redirect within the group
+   * Register a redirect within the group (uses the shared redirect handler,
+   * audit RT-4 — no more naive replaceAll param substitution).
    */
-  redirect(from: string, to: string, status: 301 | 302 | 303 | 307 | 308 = 301): this {
-    const redirectHandler: RouteHandler = (ctx: Context) => {
-      let targetPath = to;
-
-      if (targetPath.includes(':')) {
-        const entries = Object.entries(ctx.params).sort((a, b) => b[0].length - a[0].length);
-        for (const [key, value] of entries) {
-          targetPath = targetPath.replaceAll(`:${key}`, value);
-        }
-      }
-
-      ctx.status = status;
-      ctx.set('Location', targetPath);
-      ctx.body = '';
-    };
+  redirect(from: string, to: string, status: RedirectStatus = 301): this {
+    const redirectHandler = createRedirectHandler(to, status);
 
     this.parent._addGroupRoute('GET', this.fullPath(from), [redirectHandler], this.middleware);
     this.parent._addGroupRoute('HEAD', this.fullPath(from), [redirectHandler], this.middleware);

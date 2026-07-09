@@ -357,6 +357,11 @@ app.use(notFoundHandler('Route not found'));
 
 ### catchAsync(fn)
 
+> **Deprecated.** `catchAsync` is a no-op — async errors propagate through the
+> middleware chain and are caught by `errorHandler()` automatically. Use the
+> handler directly. Kept only for backward compatibility; scheduled for removal
+> in a future major version.
+
 Wrap async handlers to catch errors:
 
 ```typescript

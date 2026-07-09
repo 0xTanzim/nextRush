@@ -19,6 +19,7 @@ import type {
   RouteEntry,
   Router,
 } from '@nextrush/types';
+import { getErrorStatus, getHttpStatusMessage, NextRushError } from '@nextrush/errors';
 import { compose } from './middleware';
 
 /** @internal Symbol keys for route() state — avoids polluting user's ctx.state namespace */
@@ -145,6 +146,9 @@ export class Application {
 
   /** Whether the app has been booted (extensions set up, config frozen) */
   private _isReady = false;
+
+  /** Whether ready() mounted the app-owned router (so close() can undo it) */
+  private _routerMounted = false;
 
   /** The app-owned router (optional). Route methods delegate to it. */
   readonly router?: Router;
@@ -366,6 +370,7 @@ export class Application {
    * @returns this for chaining
    */
   setErrorHandler(handler: ErrorHandler): this {
+    this.assertConfigurable('setErrorHandler');
     this._errorHandler = handler;
     return this;
   }
@@ -480,6 +485,7 @@ export class Application {
     // (both user- and extension-registered).
     if (this.router) {
       this.middlewareStack.push(this.router.routes());
+      this._routerMounted = true;
     }
 
     this._isReady = true;
@@ -544,7 +550,9 @@ export class Application {
       );
     }
 
-    const fn = compose(this.middlewareStack);
+    const fn = compose(this.middlewareStack, {
+      warnDoubleResponse: !this.isProduction,
+    });
 
     return async (ctx: Context): Promise<void> => {
       try {
@@ -576,26 +584,33 @@ export class Application {
   /**
    * Default error handler.
    *
-   * Uses the `expose` flag on errors (set by HttpError/NextRushError) to decide
-   * whether to include the message. 4xx expose by default; 5xx never do.
+   * Produces the same JSON shape as `@nextrush/errors`' `errorHandler()` so the
+   * framework has ONE error contract (audit C-1): a `NextRushError` serializes
+   * via its own `toJSON()` (carrying `code`/`status`/`details`/`issues`), and a
+   * plain error becomes a safe coded 500. 5xx are always logged (C-7); 4xx only
+   * outside production.
    */
   private defaultErrorHandler(error: Error, ctx: Context): void {
-    if (!this.isProduction) {
+    const status = getErrorStatus(error);
+
+    if (status >= 500 || !this.isProduction) {
       this.logger.error('Request error:', error);
     }
 
-    const errorMeta = error as Error & { status?: number; expose?: boolean };
-    let status = 500;
-    if (typeof errorMeta.status === 'number') {
-      const raw = errorMeta.status;
-      status = raw >= 400 && raw < 600 ? raw : 500;
-    }
     ctx.status = status;
 
-    const expose = errorMeta.expose === true;
-    const message = expose ? error.message : 'Internal Server Error';
+    if (error instanceof NextRushError) {
+      ctx.json(error.toJSON());
+      return;
+    }
 
-    ctx.json({ error: message });
+    const expose = status < 500;
+    ctx.json({
+      error: expose ? error.name : getHttpStatusMessage(status),
+      message: expose ? error.message : 'Internal Server Error',
+      code: 'INTERNAL_ERROR',
+      status,
+    });
   }
 
   // ===========================================================================
@@ -653,6 +668,13 @@ export class Application {
     this.extensions.length = 0;
     this.extensionNames.clear();
     this._isReady = false;
+
+    // Undo the router mount that ready() appended, so a subsequent ready()
+    // (re-boot in tests / hot reload) does not stack a second router (audit C-2).
+    if (this._routerMounted) {
+      this.middlewareStack.pop();
+      this._routerMounted = false;
+    }
 
     return results
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
