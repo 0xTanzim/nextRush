@@ -9,6 +9,8 @@
  * @packageDocumentation
  */
 
+import { NextRushError } from '@nextrush/errors';
+
 /** Known, normalized startup failure codes. */
 export type ServerStartErrorCode = 'EADDRINUSE' | 'EACCES' | 'EADDRNOTAVAIL' | 'UNKNOWN';
 
@@ -16,11 +18,13 @@ export type ServerStartErrorCode = 'EADDRINUSE' | 'EACCES' | 'EADDRNOTAVAIL' | '
  * Error thrown when a server adapter fails to bind/start.
  *
  * @remarks
- * Carries a machine-readable {@link ServerStartErrorCode} and preserves the
- * original error via `cause`, so callers can branch on `code` regardless of
- * runtime.
+ * Part of the {@link NextRushError} hierarchy (audit R-4) so it shares one
+ * failure contract with the rest of the framework: `status` (500), a
+ * machine-readable {@link ServerStartErrorCode}, and the original error
+ * preserved via native `cause`. `expose` is `false` — a bind failure is an
+ * operator concern, never a client response.
  */
-export class ServerStartError extends Error {
+export class ServerStartError extends NextRushError {
   /** Normalized startup failure code. */
   readonly code: ServerStartErrorCode;
   /** The port the adapter tried to bind (when known). */
@@ -32,8 +36,15 @@ export class ServerStartError extends Error {
     message: string,
     options: { code: ServerStartErrorCode; port?: number; host?: string; cause?: unknown }
   ) {
-    super(message, { cause: options.cause });
+    super(message, {
+      status: 500,
+      code: options.code,
+      expose: false,
+      cause: options.cause,
+    });
     this.name = 'ServerStartError';
+    // Reassign after super(): class-field declarations re-run post-super under
+    // `useDefineForClassFields`, so these must be set here to survive.
     this.code = options.code;
     this.port = options.port;
     this.host = options.host;

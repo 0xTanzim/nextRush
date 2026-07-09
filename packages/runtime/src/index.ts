@@ -29,6 +29,7 @@ export type {
 export {
   detectEdgeRuntime,
   detectRuntime,
+  capabilitiesFor,
   getRuntime,
   getRuntimeCapabilities,
   getRuntimeInfo,

@@ -23,7 +23,16 @@ export function headersToRecord(headers: Headers): IncomingHeaders {
     string | string[]
   >;
 
+  // `Headers.getSetCookie()` returns each Set-Cookie header separately; the
+  // spec folds every other multi-valued header into a single comma-joined
+  // string. Handle set-cookie out of band so multiple cookies survive as an
+  // array instead of being collapsed (audit R-10).
+  const getSetCookie = (headers as { getSetCookie?: () => string[] }).getSetCookie;
+  const hasSetCookieApi = typeof getSetCookie === 'function';
+
   headers.forEach((value, key) => {
+    if (hasSetCookieApi && key === 'set-cookie') return; // handled below
+
     const existing = record[key];
     if (existing !== undefined) {
       if (Array.isArray(existing)) {
@@ -36,17 +45,66 @@ export function headersToRecord(headers: Headers): IncomingHeaders {
     }
   });
 
+  if (hasSetCookieApi) {
+    const cookies = getSetCookie.call(headers);
+    if (cookies.length === 1) {
+      record['set-cookie'] = cookies[0] as string;
+    } else if (cookies.length > 1) {
+      record['set-cookie'] = cookies;
+    }
+  }
+
   return record;
 }
 
+/** Validate a dotted-decimal IPv4 literal (four octets, each 0–255). */
+function isIPv4(value: string): boolean {
+  const parts = value.split('.');
+  if (parts.length !== 4) return false;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return false;
+    if (Number(part) > 255) return false;
+  }
+  return true;
+}
+
 /**
- * Basic client-IP format validation.
+ * Validate an IPv6 literal, including `::` compression and a trailing
+ * IPv4-mapped group (e.g. `::ffff:192.0.2.1`).
+ */
+function isIPv6(value: string): boolean {
+  const halves = value.split('::');
+  if (halves.length > 2) return false; // at most one '::'
+
+  const isHextet = (h: string): boolean => /^[\da-fA-F]{1,4}$/.test(h);
+  const groupsValid = (groups: string[], allowV4Tail: boolean): boolean =>
+    groups.every((g, i) => {
+      if (allowV4Tail && i === groups.length - 1 && g.includes('.')) return isIPv4(g);
+      return isHextet(g);
+    });
+
+  if (halves.length === 2) {
+    // Compressed form: '::' stands in for one or more zero groups.
+    const head = halves[0] === '' ? [] : (halves[0] as string).split(':');
+    const tail = halves[1] === '' ? [] : (halves[1] as string).split(':');
+    if (head.length + tail.length > 7) return false;
+    return groupsValid(head, false) && groupsValid(tail, true);
+  }
+
+  // Uncompressed: exactly 8 groups (or 6 + IPv4 tail).
+  const groups = value.split(':');
+  if (groups.length !== 8 && !(groups.length === 7 && value.includes('.'))) return false;
+  return groupsValid(groups, true);
+}
+
+/**
+ * Structural client-IP validation.
  *
  * @remarks
- * Accepts only characters valid in IPv4/IPv6 literals (hex digits, `.`, `:`).
- * Rejects clearly-malformed / injected values (e.g. a spoofed
- * `X-Forwarded-For` carrying `<script>`), matching the Node adapter's original
- * guard. Empty / whitespace-only values are rejected.
+ * Validates that the value is a well-formed IPv4 or IPv6 literal (audit R-7),
+ * not merely a permitted character set — so injected or malformed values such
+ * as `999.999.999.999`, `...`, or `::::` are rejected while real addresses pass.
+ * Empty / whitespace-only values are rejected. Runtime-agnostic: no `node:net`.
  *
  * @param value - Candidate IP (may be undefined).
  * @returns The trimmed IP if well-formed, otherwise `undefined`.
@@ -55,7 +113,7 @@ export function isValidClientIp(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   const trimmed = value.trim();
   if (trimmed === '') return undefined;
-  return /^[\da-fA-F.:]+$/.test(trimmed) ? trimmed : undefined;
+  return isIPv4(trimmed) || isIPv6(trimmed) ? trimmed : undefined;
 }
 
 /**

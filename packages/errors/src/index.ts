@@ -9,6 +9,9 @@
 // Base classes
 export { HttpError, NextRushError, getHttpStatusMessage } from './base';
 
+// Central error-code registry
+export { ERROR_CODES, GENERIC_ERROR_CODE, VALIDATION_ERROR_CODE, codeForStatus } from './codes';
+
 // HTTP errors - 4xx
 export {
   BadRequestError,

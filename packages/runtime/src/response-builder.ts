@@ -289,6 +289,17 @@ export class WebResponseBuilder {
     }
 
     const status = this._status;
+
+    // A 1xx informational status is not a valid final response status — the Web
+    // `Response` constructor only accepts 200–599 and would otherwise throw an
+    // opaque `RangeError`. Fail with an actionable message instead (audit R-6).
+    if (status < 200) {
+      throw new RangeError(
+        `Cannot build a Response with informational (1xx) status ${String(status)}; ` +
+          `1xx responses are not valid final responses.`
+      );
+    }
+
     const suppressBody = isBodylessResponse(this.method, status);
 
     return new Response(suppressBody ? null : this._body, {

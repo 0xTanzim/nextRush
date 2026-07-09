@@ -105,6 +105,10 @@ export function detectRuntime(): Runtime {
 // Cache for runtime detection (computed once)
 let cachedRuntime: Runtime | undefined;
 
+// Cache for edge detection (computed once). Declared alongside cachedRuntime so
+// resetRuntimeCache() does not forward-reference a later `let` (audit R-5).
+let cachedEdgeInfo: EdgeRuntimeInfo | undefined;
+
 /**
  * Get the current runtime (cached)
  *
@@ -194,18 +198,51 @@ export function getRuntimeVersion(): string | undefined {
  * ```
  */
 export function getRuntimeCapabilities(): RuntimeCapabilities {
-  const runtime = getRuntime();
+  return capabilitiesFor(getRuntime());
+}
 
-  const baseCapabilities: RuntimeCapabilities = {
-    nodeStreams: false,
-    webStreams: false,
-    fileSystem: false,
-    webSocket: false,
-    fetch: false,
-    cryptoSubtle: false,
-    workers: false,
+/**
+ * Probe the current environment's Web-platform capabilities.
+ *
+ * @remarks
+ * Used as the capability answer for `'unknown'`/future runtimes (audit R-3):
+ * instead of reporting an all-`false` matrix — which would make the framework
+ * disable features a capable-but-unrecognized runtime actually supports — we
+ * feature-detect the relevant globals. `nodeStreams`/`fileSystem` cannot be
+ * probed without importing `node:*`, so they stay conservative (`false`).
+ */
+function probeCapabilities(): RuntimeCapabilities {
+  const hasFetch = typeof globalThis.fetch === 'function';
+  const hasWebStreams = typeof (globalThis as { ReadableStream?: unknown }).ReadableStream !== 'undefined';
+  const g = globalThis as {
+    WebSocket?: unknown;
+    crypto?: { subtle?: unknown };
+    Worker?: unknown;
   };
+  return {
+    nodeStreams: false,
+    webStreams: hasWebStreams,
+    fileSystem: false,
+    webSocket: typeof g.WebSocket !== 'undefined',
+    fetch: hasFetch,
+    cryptoSubtle: typeof g.crypto === 'object' && g.crypto !== null && 'subtle' in g.crypto,
+    workers: typeof g.Worker !== 'undefined',
+  };
+}
 
+/**
+ * Resolve the capability matrix for a given runtime.
+ *
+ * @remarks
+ * Extracted from {@link getRuntimeCapabilities} so it is pure and unit-testable
+ * (audit R-3). Known runtimes use a curated matrix; `'unknown'` (and any future
+ * runtime that falls through) is answered by {@link probeCapabilities} rather
+ * than a blanket all-`false`.
+ *
+ * @param runtime - The runtime to describe.
+ * @returns The capability matrix for that runtime.
+ */
+export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
   switch (runtime) {
     case 'node':
       return {
@@ -265,7 +302,7 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
       };
 
     default:
-      return baseCapabilities;
+      return probeCapabilities();
   }
 }
 
@@ -370,8 +407,7 @@ export interface EdgeRuntimeInfo {
   isGenericEdge: boolean;
 }
 
-// Cache for edge detection (computed once)
-let cachedEdgeInfo: EdgeRuntimeInfo | undefined;
+// Cache for edge detection is declared near cachedRuntime (see above).
 
 /**
  * Detect the specific edge runtime platform.
@@ -386,6 +422,12 @@ let cachedEdgeInfo: EdgeRuntimeInfo | undefined;
 export function detectEdgeRuntime(): EdgeRuntimeInfo {
   if (cachedEdgeInfo !== undefined) return cachedEdgeInfo;
 
+  // NOTE (audit R-2): detectEdgeRuntime answers a *different* question than
+  // detectRuntime() — "which edge platform am I on" (defaulting to generic
+  // 'edge'), not "which JS engine". They intentionally differ (e.g. Netlify
+  // Edge runs on Deno: detectRuntime()='deno', detectEdgeRuntime()='edge'
+  // + isNetlify). Kept independent so the edge adapter's platform contract
+  // holds; the shared code is only the small platform-flag probes below.
   let runtime: Runtime = 'edge';
   let isCloudflare = false;
   let isVercel = false;

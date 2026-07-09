@@ -56,17 +56,20 @@ export class BodyTooLargeError extends PayloadTooLargeError {
  * ```typescript
  * // In @nextrush/adapter-node
  * export class NodeBodySource extends AbstractBodySource {
- *   constructor(req: IncomingMessage) {
+ *   constructor(private req: IncomingMessage) {
  *     super(req.headers['content-length'], req.headers['content-type']);
- *     this._stream = req;
  *   }
  *
  *   protected async _buffer(): Promise<Uint8Array> {
  *     const chunks: Buffer[] = [];
- *     for await (const chunk of this._stream) {
+ *     for await (const chunk of this.req) {
  *       chunks.push(chunk);
  *     }
  *     return Buffer.concat(chunks);
+ *   }
+ *
+ *   protected _stream(): NodeStreamLike {
+ *     return this.req;
  *   }
  * }
  * ```

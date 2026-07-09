@@ -37,7 +37,8 @@ export class ValidationError extends NextRushError {
       code: 'VALIDATION_ERROR',
       expose: true,
     });
-    this.issues = issues;
+    // Freeze a snapshot so issues are immutable after construction (audit E-6).
+    this.issues = Object.freeze([...issues]) as ValidationIssue[];
   }
 
   /**
