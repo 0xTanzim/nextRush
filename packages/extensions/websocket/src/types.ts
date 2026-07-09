@@ -137,7 +137,7 @@ export interface WebSocketOptions {
 
   /**
    * Heartbeat interval in milliseconds (0 to disable)
-   * @default 80800 (30 seconds)
+   * @default 30000 (30 seconds)
    */
   heartbeatInterval?: number;
 

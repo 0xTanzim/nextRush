@@ -159,7 +159,7 @@ export interface StaticOptions {
   /**
    * Timeout for streaming operations in milliseconds
    * Set to 0 to disable timeout
-   * @default 80800 (30 seconds)
+   * @default 30000 (30 seconds)
    */
   streamTimeout?: number;
 }
