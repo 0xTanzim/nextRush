@@ -2,7 +2,13 @@
  * @nextrush/adapter-deno - Body Source Tests
  */
 
-import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
+import {
+  BodyConsumedError,
+  BodyTooLargeError,
+  createWebBodySource,
+  EmptyBodySource as RuntimeEmptyBodySource,
+  WebBodySource,
+} from '@nextrush/runtime';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDenoBodySource,
@@ -299,5 +305,25 @@ describe('createEmptyBodySource', () => {
   it('should create EmptyBodySource instance', () => {
     const bodySource = createEmptyBodySource();
     expect(bodySource).toBeInstanceOf(EmptyBodySource);
+  });
+});
+
+describe('F-04a — shared WebBodySource reuse', () => {
+  it('DenoBodySource is the shared runtime WebBodySource', () => {
+    expect(DenoBodySource).toBe(WebBodySource);
+  });
+
+  it('createDenoBodySource is the shared runtime factory', () => {
+    expect(createDenoBodySource).toBe(createWebBodySource);
+  });
+
+  it('EmptyBodySource is the shared runtime EmptyBodySource', () => {
+    expect(EmptyBodySource).toBe(RuntimeEmptyBodySource);
+  });
+
+  it('json() rejects a non-JSON content-type before parsing (shared behavior)', async () => {
+    const request = createRequestWithBody('{"a":1}', 'text/plain');
+    const bodySource = new DenoBodySource(request);
+    await expect(bodySource.json()).rejects.toThrow(/content type/i);
   });
 });

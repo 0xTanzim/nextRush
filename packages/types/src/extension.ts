@@ -57,7 +57,7 @@ export interface ExtensionContext {
    * exposing app-level surface (e.g. `app.events`). Throws if `name` is already
    * decorated or collides with a core `Application` member.
    */
-  decorate<V>(name: string, value: V): void;
+  decorate(name: string, value: unknown): void;
 }
 
 /**

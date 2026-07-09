@@ -6,37 +6,16 @@
  * @packageDocumentation
  */
 
-import type { Application } from '@nextrush/core';
+import type { Application, Logger } from '@nextrush/core';
+import {
+  DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  normalizeStartupError,
+} from '@nextrush/runtime';
+import type { HandlerOptions, ServerAdapter } from '@nextrush/types';
 import { createDenoContext } from './context';
 
-// Deno types (simplified for cross-compatibility)
-declare const Deno: {
-  serve(options: DenoServeInit): DenoServer;
-  version: { deno: string };
-};
-
-interface DenoServeInit {
-  port?: number;
-  hostname?: string;
-  signal?: AbortSignal;
-  handler: (request: Request, info: DenoServeHandlerInfo) => Response | Promise<Response>;
-  onListen?: (params: { port: number; hostname: string }) => void;
-  onError?: (error: unknown) => Response | Promise<Response>;
-  cert?: string;
-  key?: string;
-}
-
-interface DenoServeHandlerInfo {
-  remoteAddr: { hostname: string; port: number };
-}
-
-interface DenoServer {
-  finished: Promise<void>;
-  ref(): void;
-  unref(): void;
-  shutdown(): Promise<void>;
-  addr: { port: number; hostname: string };
-}
+// Deno runtime types are declared ambiently in ./deno.d.ts (audit F-17).
 
 /**
  * Server options for Deno adapter
@@ -53,6 +32,17 @@ export interface ServeOptions {
   port?: number;
 
   /**
+   * Host to bind to (canonical option — audit F-05).
+   *
+   * @remarks
+   * Defaults to `0.0.0.0`. Prefer `host` over `hostname`; when both are given,
+   * `host` wins.
+   *
+   * @default '0.0.0.0'
+   */
+  host?: string;
+
+  /**
    * Hostname to bind to.
    *
    * @remarks
@@ -60,6 +50,7 @@ export interface ServeOptions {
    * environments. In production, consider binding to a specific interface
    * (e.g. `'127.0.0.1'`) if the server should not be publicly reachable.
    *
+   * @deprecated Use {@link ServeOptions.host}. Kept for backward compatibility.
    * @default '0.0.0.0'
    */
   hostname?: string;
@@ -67,7 +58,7 @@ export interface ServeOptions {
   /**
    * Callback when server starts listening
    */
-  onListen?: (info: { port: number; hostname: string }) => void;
+  onListen?: (info: { port: number; host: string; hostname: string }) => void;
 
   /**
    * Custom error handler for uncaught errors
@@ -88,7 +79,7 @@ export interface ServeOptions {
    * Grace period in milliseconds to drain in-flight requests during
    * shutdown. Deno's native `server.shutdown()` waits for all in-flight
    * requests but has no timeout — this guards against hanging forever.
-   * @default 80800
+   * @default 30000 (30 seconds)
    */
   shutdownTimeout?: number;
 
@@ -100,9 +91,14 @@ export interface ServeOptions {
    * level, returning 504 Gateway Timeout on expiry.
    *
    * Set to 0 to disable.
-   * @default 80800
+   * @default 30000 (30 seconds)
    */
   timeout?: number;
+
+  /**
+   * Logger for adapter diagnostics. Defaults to app.logger.
+   */
+  logger?: Logger;
 }
 
 /**
@@ -119,14 +115,20 @@ export interface ServerInstance {
   /** Port the server is listening on */
   port: number;
 
-  /** Hostname the server is bound to */
+  /** Host the server is bound to (canonical — audit F-05). */
+  host: string;
+
+  /**
+   * Hostname the server is bound to.
+   * @deprecated Use {@link ServerInstance.host}.
+   */
   hostname: string;
 
   /** Close the server */
   close(): Promise<void>;
 
-  /** Address info */
-  address(): { port: number; hostname: string };
+  /** Address info (canonical `{ port, host }`, with `hostname` alias for compat). */
+  address(): { port: number; host: string; hostname: string };
 
   /** Promise that resolves when server finishes */
   finished: Promise<void>;
@@ -152,11 +154,13 @@ export interface ServerInstance {
  */
 export function createHandler(
   app: Application,
-  options: { timeout?: number } = {}
+  options: HandlerOptions = {}
 ): (request: Request, info: DenoServeHandlerInfo) => Promise<Response> {
   const handler = app.callback();
   const trustProxy = app.options.proxy ?? false;
-  const timeout = options.timeout ?? 30_000;
+  const logger = options.logger ?? app.logger;
+  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
+  const TIMEOUT_SENTINEL = Symbol('timeout');
 
   return async (request: Request, info: DenoServeHandlerInfo): Promise<Response> => {
     const ctx = createDenoContext(
@@ -170,47 +174,42 @@ export function createHandler(
     try {
       if (timeout > 0) {
         let timerId: ReturnType<typeof setTimeout> | undefined;
-        const TIMEOUT_SENTINEL = Symbol('timeout');
+        try {
+          const result = await Promise.race([
+            handler(ctx).then(() => undefined),
+            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+              timerId = setTimeout(() => {
+                resolve(TIMEOUT_SENTINEL);
+              }, timeout);
+            }),
+          ]);
 
-        const result = await Promise.race([
-          handler(ctx).then(() => {
-            if (timerId !== undefined) clearTimeout(timerId);
-            return undefined;
-          }),
-          new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-            timerId = setTimeout(() => {
-              resolve(TIMEOUT_SENTINEL);
-            }, timeout);
-          }),
-        ]);
-
-        if (result === TIMEOUT_SENTINEL) {
-          return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
-            status: 504,
-            headers: { 'Content-Type': 'application/json' },
-          });
+          if (result === TIMEOUT_SENTINEL) {
+            ctx.triggerTimeout(); // F-08: cancel the still-running handler
+            return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
+              status: 504,
+              headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            });
+          }
+        } finally {
+          if (timerId !== undefined) clearTimeout(timerId); // F-08: always clear
         }
       } else {
         await handler(ctx);
       }
 
-      if (!ctx.responded) {
-        if (ctx.status === 404) {
-          return new Response(JSON.stringify({ error: 'Not Found' }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-        return new Response(null, { status: ctx.status });
+      // F-02: finalize through the context so ctx.set() headers survive an
+      // implicit/empty response; the 404 body is written through the same builder.
+      if (!ctx.responded && ctx.status === 404) {
+        ctx.json({ error: 'Not Found' });
       }
-
       return ctx.getResponse();
     } catch (error) {
-      app.logger.error('Request error:', error);
+      logger.error('Request error:', error);
 
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
     }
   };
@@ -246,19 +245,22 @@ export async function serve(
 ): Promise<ServerInstance> {
   const {
     port = 8080,
-    hostname = '0.0.0.0',
     onListen,
     onError,
     cert,
     key,
-    shutdownTimeout = 30_000,
-    timeout = 30_000,
+    shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
+    timeout = DEFAULT_TIMEOUT_MS,
   } = options;
+
+  // F-05: accept both `host` (canonical) and `hostname` (deprecated alias).
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional read of the back-compat alias
+  const host = options.host ?? options.hostname ?? '0.0.0.0';
 
   // Boot extensions before building the request handler (deferred boot barrier).
   await app.ready();
 
-  const handler = createHandler(app, { timeout });
+  const handler = createHandler(app, { timeout, logger: options.logger });
 
   // AbortController for signal-based shutdown support
   const abortController = new AbortController();
@@ -266,7 +268,7 @@ export async function serve(
   // Build Deno.serve options
   const denoOptions: DenoServeInit = {
     port,
-    hostname,
+    hostname: host,
     signal: abortController.signal,
     handler,
     onListen: (params) => {
@@ -274,7 +276,7 @@ export async function serve(
       app.start();
 
       if (onListen) {
-        onListen(params);
+        onListen({ port: params.port, host: params.hostname, hostname: params.hostname });
       }
     },
     onError: (error) => {
@@ -286,7 +288,7 @@ export async function serve(
 
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
     },
   };
@@ -298,13 +300,25 @@ export async function serve(
   }
 
   // Start server
-  const server = Deno.serve(denoOptions);
+  // F-15: normalize bind/startup failures into one shared typed error so
+  // node/bun/deno surface EADDRINUSE (etc.) identically.
+  let server: DenoServer;
+  try {
+    server = Deno.serve(denoOptions);
+  } catch (error: unknown) {
+    throw normalizeStartupError(error, { port, host });
+  }
 
   return {
     server,
     port: server.addr.port,
+    host: server.addr.hostname,
     hostname: server.addr.hostname,
-    address: () => ({ port: server.addr.port, hostname: server.addr.hostname }),
+    address: () => ({
+      port: server.addr.port,
+      host: server.addr.hostname,
+      hostname: server.addr.hostname,
+    }),
     close: async () => {
       // Signal the server to stop accepting new connections
       abortController.abort();
@@ -346,3 +360,10 @@ export async function listen(app: Application, port = 8080): Promise<ServerInsta
     },
   });
 }
+
+// F-01: compile-time conformance guard against the shared server-adapter shape.
+const _denoConformance: ServerAdapter<Application, ServeOptions, ServerInstance> = {
+  serve,
+  createHandler,
+};
+void _denoConformance;

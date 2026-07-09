@@ -395,6 +395,9 @@ export class Application {
     extension: Extension<TDecorated>
   ): this & TDecorated {
     this.assertConfigurable('extend');
+    // Runtime guard for externally-supplied input: the type says non-null with a
+    // required setup(), but user/plugin code can still violate that at runtime.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive validation of external input
     if (!extension || typeof extension.setup !== 'function') {
       throw new TypeError('Extension must have a setup() method');
     }
@@ -464,7 +467,7 @@ export class Application {
         container: this.container,
         env: this.options.env ?? 'development',
         name: extension.name,
-        decorate: <V>(name: string, value: V): void => {
+        decorate: (name: string, value: unknown): void => {
           this.decorate(name, value);
         },
       };
@@ -534,7 +537,7 @@ export class Application {
   callback(): (ctx: Context) => Promise<void> {
     if (!this._isReady && this.extensions.length > 0) {
       this.logger.warn(
-        `callback() was called before ready(), but ${this.extensions.length} extension(s) ` +
+        `callback() was called before ready(), but ${String(this.extensions.length)} extension(s) ` +
           `were registered via extend() — their setup() will NOT run, and anything they ` +
           `would decorate (e.g. app.events) will be missing. Call \`await app.ready()\` ` +
           `before \`callback()\`. Adapters (listen/serve) do this automatically.`
@@ -619,7 +622,7 @@ export class Application {
 
     if (!this._isReady && this.extensions.length > 0) {
       this.logger.warn(
-        `close() was called before ready(), but ${this.extensions.length} extension(s) ` +
+        `close() was called before ready(), but ${String(this.extensions.length)} extension(s) ` +
           `were registered via extend() — their setup() never ran, yet destroy() will still ` +
           `be called on them now. If destroy() assumes setup()-established state, this may ` +
           `throw or behave incorrectly. Call \`await app.ready()\` before \`close()\`.`
@@ -644,7 +647,7 @@ export class Application {
 
     // Clean up decorations so the instance can be re-booted (e.g. in tests)
     for (const name of this.decorations) {
-      delete (this as unknown as Record<string, unknown>)[name];
+      Reflect.deleteProperty(this, name);
     }
     this.decorations.clear();
     this.extensions.length = 0;

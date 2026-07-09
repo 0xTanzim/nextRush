@@ -2,7 +2,13 @@
  * @nextrush/adapter-bun - Body Source Tests
  */
 
-import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
+import {
+  BodyConsumedError,
+  BodyTooLargeError,
+  createWebBodySource,
+  EmptyBodySource as RuntimeEmptyBodySource,
+  WebBodySource,
+} from '@nextrush/runtime';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   BunBodySource,
@@ -304,5 +310,25 @@ describe('createEmptyBodySource', () => {
   it('should create EmptyBodySource instance', () => {
     const bodySource = createEmptyBodySource();
     expect(bodySource).toBeInstanceOf(EmptyBodySource);
+  });
+});
+
+describe('F-04a — shared WebBodySource reuse', () => {
+  it('BunBodySource is the shared runtime WebBodySource', () => {
+    expect(BunBodySource).toBe(WebBodySource);
+  });
+
+  it('createBunBodySource is the shared runtime factory', () => {
+    expect(createBunBodySource).toBe(createWebBodySource);
+  });
+
+  it('EmptyBodySource is the shared runtime EmptyBodySource', () => {
+    expect(EmptyBodySource).toBe(RuntimeEmptyBodySource);
+  });
+
+  it('json() rejects a non-JSON content-type before parsing (shared behavior)', async () => {
+    const request = createRequestWithBody('{"a":1}', 'text/plain');
+    const bodySource = new BunBodySource(request);
+    await expect(bodySource.json()).rejects.toThrow(/content type/i);
   });
 });

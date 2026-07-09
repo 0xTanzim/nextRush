@@ -21,7 +21,7 @@
  */
 export interface SSEEvent {
   /** Event payload. Objects are JSON-serialized; strings are sent as-is. */
-  data: string | unknown;
+  data: unknown;
   /** SSE `event:` field — lets the client dispatch to a named listener. */
   event?: string;
   /** SSE `id:` field — enables client auto-reconnect from the last-seen id. */

@@ -6,7 +6,13 @@
  * @packageDocumentation
  */
 
-import type { Application } from '@nextrush/core';
+import type { Application, Logger } from '@nextrush/core';
+import {
+  DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  normalizeStartupError,
+} from '@nextrush/runtime';
+import type { HandlerOptions, ServerAdapter } from '@nextrush/types';
 import { createBunContext } from './context';
 
 /**
@@ -24,6 +30,17 @@ export interface ServeOptions {
   port?: number;
 
   /**
+   * Host to bind to (canonical option — audit F-05).
+   *
+   * @remarks
+   * Defaults to `0.0.0.0`. Prefer `host` over `hostname` for portability across
+   * NextRush adapters; when both are given, `host` wins.
+   *
+   * @default '0.0.0.0'
+   */
+  host?: string;
+
+  /**
    * Hostname to bind to.
    *
    * @remarks
@@ -31,6 +48,7 @@ export interface ServeOptions {
    * environments. In production, consider binding to a specific interface
    * (e.g. `'127.0.0.1'`) if the server should not be publicly reachable.
    *
+   * @deprecated Use {@link ServeOptions.host}. Kept for backward compatibility.
    * @default '0.0.0.0'
    */
   hostname?: string;
@@ -38,7 +56,7 @@ export interface ServeOptions {
   /**
    * Callback when server starts listening
    */
-  onListen?: (info: { port: number; hostname: string }) => void;
+  onListen?: (info: { port: number; host: string; hostname: string }) => void;
 
   /**
    * Custom error handler for uncaught errors
@@ -75,7 +93,7 @@ export interface ServeOptions {
    * level, returning 504 Gateway Timeout on expiry.
    * Matches @nextrush/adapter-node default of 30 s.
    *
-   * @default 80800 (30 seconds)
+   * @default 30000 (30 seconds)
    */
   timeout?: number;
 
@@ -88,9 +106,14 @@ export interface ServeOptions {
   /**
    * Grace period in milliseconds to drain in-flight requests during
    * shutdown before force-closing connections.
-   * @default 80800
+   * @default 30000 (30 seconds)
    */
   shutdownTimeout?: number;
+
+  /**
+   * Logger for adapter diagnostics. Defaults to app.logger.
+   */
+  logger?: Logger;
 }
 
 /**
@@ -107,24 +130,112 @@ export interface ServerInstance {
   /** Port the server is listening on */
   port: number;
 
-  /** Hostname the server is bound to */
+  /** Host the server is bound to (canonical — audit F-05). */
+  host: string;
+
+  /**
+   * Hostname the server is bound to.
+   * @deprecated Use {@link ServerInstance.host}.
+   */
   hostname: string;
 
   /** Close the server */
   close(): Promise<void>;
 
-  /** Address info */
-  address(): { port: number; hostname: string };
+  /** Address info (canonical `{ port, host }`, with `hostname` alias for compat). */
+  address(): { port: number; host: string; hostname: string };
 
   /** Reload server configuration */
   reload(options?: Partial<ServeOptions>): void;
 }
 
 /**
+ * A Bun fetch handler `(request, server) => Promise<Response>`.
+ */
+export type BunFetchHandler = (
+  request: Request,
+  server: ReturnType<typeof Bun.serve>
+) => Promise<Response>;
+
+/**
+ * Build the shared per-request runner for the Bun adapter.
+ *
+ * @remarks
+ * The single source of truth used by both `createHandler` and `serve` (audit
+ * F-07: `serve` previously forked its own `trackedHandler` and the exported
+ * `createHandler` silently lacked the timeout). Owns context creation, the
+ * timeout race with cooperative cancellation (F-08), the header-preserving
+ * finalize path (F-02), and error handling.
+ */
+function createBunRequestRunner(
+  app: Application,
+  options: HandlerOptions
+): BunFetchHandler {
+  const handler = app.callback();
+  const trustProxy = app.options.proxy ?? false;
+  const logger = options.logger ?? app.logger;
+  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
+  const TIMEOUT_SENTINEL = Symbol('timeout');
+
+  return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
+    const clientIp = server.requestIP(request)?.address ?? '';
+    const ctx = createBunContext(request, clientIp, trustProxy);
+
+    try {
+      if (timeout > 0) {
+        let timerId: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const result = await Promise.race([
+            handler(ctx).then(() => undefined),
+            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+              timerId = setTimeout(() => {
+                resolve(TIMEOUT_SENTINEL);
+              }, timeout);
+            }),
+          ]);
+
+          if (result === TIMEOUT_SENTINEL) {
+            ctx.triggerTimeout(); // F-08: cancel the still-running handler
+            return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
+              status: 504,
+              headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            });
+          }
+        } finally {
+          if (timerId !== undefined) clearTimeout(timerId); // F-08: always clear
+        }
+      } else {
+        await handler(ctx);
+      }
+
+      // F-02: finalize through the context so ctx.set() headers survive an
+      // implicit/empty response; the 404 body is written through the same builder.
+      if (!ctx.responded && ctx.status === 404) {
+        ctx.json({ error: 'Not Found' });
+      }
+      return ctx.getResponse();
+    } catch (error) {
+      logger.error('Request error:', error);
+
+      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      });
+    }
+  };
+}
+
+/**
  * Create HTTP request handler for Application
  *
  * @param app - NextRush Application instance
+ * @param options - Handler options (`timeout`, `logger`) — audit F-06/F-07
  * @returns Bun-compatible fetch handler
+ *
+ * @remarks
+ * Now honors `timeout` (default 30 s) so `Bun.serve({ fetch: createHandler(app) })`
+ * behaves identically to `serve(app, { timeout })` (audit F-07). Pass
+ * `{ timeout: 0 }` to disable.
  *
  * @example
  * ```typescript
@@ -138,46 +249,8 @@ export interface ServerInstance {
  * Bun.serve({ fetch: handler, port: 8080 });
  * ```
  */
-export function createHandler(
-  app: Application
-): (request: Request, server: ReturnType<typeof Bun.serve>) => Promise<Response> {
-  const handler = app.callback();
-  const trustProxy = app.options.proxy ?? false;
-
-  return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
-    // Get client IP from Bun server.
-    // Returns '' (empty string) when requestIP returns null — this is
-    // intentional. Context.ip is typed as `string`, so undefined would be
-    // a type violation. Consumers should check `ctx.ip !== ''` instead of
-    // a truthy check.
-    const clientIp = server.requestIP(request)?.address ?? '';
-
-    const ctx = createBunContext(request, clientIp, trustProxy);
-
-    try {
-      await handler(ctx);
-
-      // If not responded, send appropriate response
-      if (!ctx.responded) {
-        if (ctx.status === 404) {
-          return new Response(JSON.stringify({ error: 'Not Found' }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-        return new Response(null, { status: ctx.status });
-      }
-
-      return ctx.getResponse();
-    } catch (error) {
-      app.logger.error('Request error:', error);
-
-      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-  };
+export function createHandler(app: Application, options: HandlerOptions = {}): BunFetchHandler {
+  return createBunRequestRunner(app, options);
 }
 
 /**
@@ -210,15 +283,19 @@ export async function serve(
 ): Promise<ServerInstance> {
   const {
     port = 8080,
-    hostname = '0.0.0.0',
     onListen,
     onError,
     tls,
     maxRequestBodySize = 1_048_576,
-    timeout = 30_000,
+    timeout = DEFAULT_TIMEOUT_MS,
     development = false,
-    shutdownTimeout = 30_000,
+    shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
   } = options;
+
+  // F-05: accept both `host` (canonical) and `hostname` (deprecated alias).
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional read of the back-compat alias
+  const host = options.host ?? options.hostname ?? '0.0.0.0';
+  const logger = options.logger ?? app.logger;
 
   // In-flight request tracking for graceful shutdown
   let activeRequests = 0;
@@ -227,66 +304,16 @@ export async function serve(
   // Boot extensions before building the request handler (deferred boot barrier).
   await app.ready();
 
-  const appCallback = app.callback();
-  const trustProxy = app.options.proxy ?? false;
-
-  // Wrap handler to track in-flight requests
+  // F-07: serve composes the SAME handler createHandler produces (with timeout),
+  // then wraps it only with in-flight tracking for graceful drain.
+  const baseHandler = createHandler(app, { timeout, logger });
   const trackedHandler = async (
     request: Request,
     bunServer: ReturnType<typeof Bun.serve>
   ): Promise<Response> => {
     activeRequests++;
     try {
-      const clientIp = bunServer.requestIP(request)?.address ?? '';
-      const ctx = createBunContext(request, clientIp, trustProxy);
-
-      try {
-        if (timeout > 0) {
-          // Race handler against timeout — mirrors edge adapter pattern
-          let timerId: ReturnType<typeof setTimeout> | undefined;
-          const TIMEOUT_SENTINEL = Symbol('timeout');
-
-          const result = await Promise.race([
-            appCallback(ctx).then(() => {
-              if (timerId !== undefined) clearTimeout(timerId);
-              return undefined;
-            }),
-            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-              timerId = setTimeout(() => {
-                resolve(TIMEOUT_SENTINEL);
-              }, timeout);
-            }),
-          ]);
-
-          if (result === TIMEOUT_SENTINEL) {
-            return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
-              status: 504,
-              headers: { 'Content-Type': 'application/json' },
-            });
-          }
-        } else {
-          await appCallback(ctx);
-        }
-
-        if (!ctx.responded) {
-          if (ctx.status === 404) {
-            return new Response(JSON.stringify({ error: 'Not Found' }), {
-              status: 404,
-              headers: { 'Content-Type': 'application/json' },
-            });
-          }
-          return new Response(null, { status: ctx.status });
-        }
-
-        return ctx.getResponse();
-      } catch (error) {
-        app.logger.error('Request error:', error);
-
-        return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
+      return await baseHandler(request, bunServer);
     } finally {
       activeRequests--;
       if (activeRequests === 0 && drainResolve) {
@@ -298,7 +325,7 @@ export async function serve(
   // Build Bun.serve options
   const bunOptions: Parameters<typeof Bun.serve>[0] = {
     port,
-    hostname,
+    hostname: host,
     fetch: trackedHandler,
     development,
   };
@@ -334,34 +361,29 @@ export async function serve(
   try {
     server = Bun.serve(bunOptions);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    if (msg.includes('EADDRINUSE') || msg.includes('address already in use')) {
-      throw new Error(
-        `Port ${String(options.port ?? 8080)} is already in use. ` +
-          `Kill the process using that port or choose a different one.`,
-        { cause: error }
-      );
-    }
-    throw error;
+    // F-15: normalize bind/startup failures into one shared typed error so
+    // node/bun/deno surface EADDRINUSE (etc.) identically.
+    throw normalizeStartupError(error, { port, host });
   }
 
   // Mark app as running
   app.start();
 
-  // Get actual port and hostname from server
-  const actualPort = server.port ?? options.port ?? 8080;
-  const actualHostname = server.hostname ?? options.hostname ?? 'localhost';
+  // Get actual port and host from server
+  const actualPort = server.port ?? port;
+  const actualHost = server.hostname ?? host;
 
   // Call onListen callback
   if (onListen) {
-    onListen({ port: actualPort, hostname: actualHostname });
+    onListen({ port: actualPort, host: actualHost, hostname: actualHost });
   }
 
   return {
     server,
     port: actualPort,
-    hostname: actualHostname,
-    address: () => ({ port: actualPort, hostname: actualHostname }),
+    host: actualHost,
+    hostname: actualHost,
+    address: () => ({ port: actualPort, host: actualHost, hostname: actualHost }),
     close: async () => {
       // 1. Stop accepting new connections
       void server.stop();
@@ -419,3 +441,10 @@ export async function listen(app: Application, port = 8080): Promise<ServerInsta
     },
   });
 }
+
+// F-01: compile-time conformance guard against the shared server-adapter shape.
+const _bunConformance: ServerAdapter<Application, ServeOptions, ServerInstance> = {
+  serve,
+  createHandler,
+};
+void _bunConformance;

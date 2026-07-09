@@ -59,6 +59,33 @@ export {
 } from './context';
 
 // ============================================================================
+// Adapter Context Contracts (F-13) — additive supersets of Context
+// ============================================================================
+
+export {
+  // Lifecycle primitive exposed by every adapter
+  type AdapterContext,
+  // Web/fetch adapter surface (getResponse/waitUntil/env)
+  type FetchContext,
+} from './adapter-context';
+
+// ============================================================================
+// Adapter Conformance Contract (F-01) — light `satisfies` shapes
+// ============================================================================
+
+export {
+  type FetchAdapter,
+  type FetchHandler,
+  type FetchHandlerOptions,
+  type HandlerOptions,
+  // Adapter shapes
+  type ServerAdapter,
+  // Canonical address + handle
+  type ServerAddress,
+  type ServerHandle,
+} from './adapter';
+
+// ============================================================================
 // Extension Types (see docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md)
 // ============================================================================
 

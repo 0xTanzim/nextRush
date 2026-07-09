@@ -8,15 +8,21 @@
  */
 
 import { HttpError } from '@nextrush/errors';
-import { getRuntime, METHODS_WITHOUT_BODY } from '@nextrush/runtime';
+import {
+  assertHeaderSafe,
+  getRuntime,
+  isBodylessResponse,
+  METHODS_WITHOUT_BODY,
+  resolveClientIp,
+} from '@nextrush/runtime';
 import {
   runNDJSONStream,
   runSSEStream,
   runTextStream,
 } from '@nextrush/stream';
 import type {
+    AdapterContext,
     BodySource,
-    Context,
     ContextState,
     HttpMethod,
     IncomingHeaders,
@@ -59,7 +65,7 @@ const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RoutePar
 /**
  * Node.js Context implementation
  */
-export class NodeContext implements Context {
+export class NodeContext implements AdapterContext {
   readonly method: HttpMethod;
   readonly url: string;
   readonly path: string;
@@ -105,24 +111,22 @@ export class NodeContext implements Context {
   }
 
   /**
-   * Get client IP address.
-   * Only trusts X-Forwarded-For when trustProxy is explicitly enabled.
+   * Get client IP address using the shared cross-adapter policy (audit F-11).
+   *
+   * @remarks
+   * Only trusts proxy headers when `trustProxy` is enabled. Precedence and
+   * format validation match Bun/Deno/Edge exactly (x-forwarded-for → x-real-ip,
+   * each validated), so `ctx.ip` behaves identically across runtimes.
    */
   private getClientIp(req: IncomingMessage, trustProxy: boolean): string {
-    if (trustProxy) {
-      const forwarded = req.headers['x-forwarded-for'];
-      if (typeof forwarded === 'string') {
-        const firstIp = forwarded.split(',')[0]?.trim() ?? '';
-        // Basic IP format validation: reject clearly malformed values
-        if (firstIp && /^[\da-fA-F.:]+$/.test(firstIp)) {
-          return firstIp;
-        }
-        // Malformed X-Forwarded-For — fall through to socket address
-      }
-    }
-
-    // Fall back to socket remote address
-    return req.socket.remoteAddress ?? '';
+    const directIp = req.socket.remoteAddress ?? '';
+    return resolveClientIp(
+      (name) => {
+        const value = req.headers[name];
+        return Array.isArray(value) ? value[0] : value;
+      },
+      { trustProxy, directIp }
+    );
   }
 
   /**
@@ -142,12 +146,7 @@ export class NodeContext implements Context {
    * HEAD requests, 204 No Content, and 304 Not Modified must not include a body (RFC 7231).
    */
   private shouldSuppressBody(): boolean {
-    return (
-      this.method === 'HEAD' ||
-      this.status === 204 ||
-      this.status === 304 ||
-      (this.status >= 100 && this.status < 200)
-    );
+    return isBodylessResponse(this.method, this.status);
   }
 
   json(data: unknown): void {
@@ -415,21 +414,8 @@ export class NodeContext implements Context {
   // ===========================================================================
 
   set(field: string, value: string | number | string[]): void {
-    // Validate for CRLF injection (header splitting attack)
-    if (field.includes('\r') || field.includes('\n')) {
-      throw new Error('Header field contains invalid characters');
-    }
-    if (typeof value === 'string') {
-      if (value.includes('\r') || value.includes('\n')) {
-        throw new Error('Header value contains invalid characters');
-      }
-    } else if (Array.isArray(value)) {
-      for (const v of value) {
-        if (v.includes('\r') || v.includes('\n')) {
-          throw new Error('Header value contains invalid characters');
-        }
-      }
-    }
+    // Guard against CRLF injection (header splitting) via the shared helper.
+    assertHeaderSafe(field, value);
     this.raw.res.setHeader(field, value);
   }
 

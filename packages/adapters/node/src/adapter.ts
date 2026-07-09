@@ -7,6 +7,13 @@
  */
 
 import type { Application, Logger } from '@nextrush/core';
+import {
+  DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
+  DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  normalizeStartupError,
+} from '@nextrush/runtime';
+import type { HandlerOptions, ServerAdapter } from '@nextrush/types';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createNodeContext } from './context';
 
@@ -27,9 +34,16 @@ export interface ServeOptions {
   host?: string;
 
   /**
+   * Hostname to bind to.
+   * @deprecated Use {@link ServeOptions.host}. Accepted as an alias for
+   * cross-adapter portability (audit F-05); when both are given, `host` wins.
+   */
+  hostname?: string;
+
+  /**
    * Callback when server starts listening
    */
-  onListen?: (info: { port: number; host: string }) => void;
+  onListen?: (info: { port: number; host: string; hostname: string }) => void;
 
   /**
    * Custom error handler for uncaught errors
@@ -38,7 +52,7 @@ export interface ServeOptions {
 
   /**
    * Request timeout in milliseconds
-   * @default 80800 (30 seconds)
+   * @default 30000 (30 seconds)
    */
   timeout?: number;
 
@@ -56,7 +70,7 @@ export interface ServeOptions {
   /**
    * Graceful shutdown timeout in milliseconds.
    * Forces closure if open connections don't drain within this time.
-   * @default 80800 (30 seconds)
+   * @default 30000 (30 seconds)
    */
   shutdownTimeout?: number;
 }
@@ -77,16 +91,21 @@ export interface ServerInstance {
   /** Close the server */
   close(): Promise<void>;
 
-  /** Address info */
-  address(): { port: number; host: string };
+  /** Address info (canonical `{ port, host }`, with `hostname` alias for compat). */
+  address(): { port: number; host: string; hostname: string };
 }
 
 /**
  * Create HTTP request handler for Application
+ *
+ * @remarks
+ * Accepts the shared {@link HandlerOptions} for cross-adapter consistency
+ * (audit F-06). Node enforces `timeout` at the socket level in {@link serve}
+ * (`server.timeout`), not per-handler, so only `logger` is consumed here.
  */
 export function createHandler(
   app: Application,
-  options: { logger?: Logger } = {}
+  options: HandlerOptions = {}
 ): (req: IncomingMessage, res: ServerResponse) => void {
   const handler = app.callback();
   const trustProxy = app.options.proxy ?? false;
@@ -151,13 +170,16 @@ export function createHandler(
 export async function serve(app: Application, options: ServeOptions = {}): Promise<ServerInstance> {
   const {
     port = 8080,
-    host = '0.0.0.0',
     onListen,
     onError,
-    timeout = 30000,
-    keepAliveTimeout = 5000,
-    shutdownTimeout = 30_000,
+    timeout = DEFAULT_TIMEOUT_MS,
+    keepAliveTimeout = DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
+    shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
   } = options;
+
+  // F-05: accept both `host` (canonical) and `hostname` (deprecated alias).
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional read of the back-compat alias
+  const host = options.host ?? options.hostname ?? '0.0.0.0';
 
   const logger = options.logger ?? app.logger;
 
@@ -175,7 +197,8 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   return new Promise((resolve, reject) => {
     // Use a one-time error listener for startup failures (e.g., EADDRINUSE)
     const onStartupError = (error: Error): void => {
-      reject(error);
+      // F-15: normalize into the shared typed error so all adapters agree.
+      reject(normalizeStartupError(error, { port, host }));
     };
     server.once('error', onStartupError);
 
@@ -197,7 +220,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
       const addr = server.address();
       const actualPort = typeof addr === 'object' && addr !== null ? addr.port : port;
       const actualHost = typeof addr === 'object' && addr !== null ? addr.address : host;
-      const info = { port: actualPort, host: actualHost };
+      const info = { port: actualPort, host: actualHost, hostname: actualHost };
 
       if (onListen) {
         onListen(info);
@@ -254,3 +277,10 @@ export async function listen(app: Application, port = 8080): Promise<ServerInsta
 
 // Re-export context
 export { createNodeContext, NodeContext } from './context';
+
+// F-01: compile-time conformance guard against the shared server-adapter shape.
+const _nodeConformance: ServerAdapter<Application, ServeOptions, ServerInstance> = {
+  serve,
+  createHandler,
+};
+void _nodeConformance;

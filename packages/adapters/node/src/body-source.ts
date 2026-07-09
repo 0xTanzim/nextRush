@@ -192,7 +192,7 @@ export function createNodeBodySource(
 /**
  * Empty body source for requests without a body
  */
-class EmptyBodySource implements BodySource {
+export class EmptyBodySource implements BodySource {
   readonly consumed = false;
   readonly contentLength = 0;
   readonly contentType = undefined;

@@ -19,6 +19,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ignore-pattern '**/__tests__/**'",
     "lint:fix": "eslint src --fix",
@@ -53,7 +55,8 @@
   "devDependencies": {
     "@types/node": "^25.5.2",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   },
   "sideEffects": false
 }

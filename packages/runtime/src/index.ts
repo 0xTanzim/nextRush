@@ -53,13 +53,45 @@ export { parseQueryString } from './query';
 // Constants
 // ============================================================================
 
-export { METHODS_WITHOUT_BODY } from './constants';
+export {
+  DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
+  DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  METHODS_WITHOUT_BODY,
+} from './constants';
 
 // ============================================================================
 // Headers Utilities
 // ============================================================================
 
-export { getClientIp, getEdgeClientIp, headersToRecord } from './headers';
+export {
+  getClientIp,
+  getEdgeClientIp,
+  headersToRecord,
+  isValidClientIp,
+  resolveClientIp,
+} from './headers';
+export type { ClientIpOptions, HeaderLookup } from './headers';
+
+// ============================================================================
+// Request Signal (timeout ↔ ctx.signal combiner)
+// ============================================================================
+
+export { combineAbortSignal } from './request-signal';
+export type { CombinedAbort } from './request-signal';
+
+// ============================================================================
+// Server Startup Errors
+// ============================================================================
+
+export { normalizeStartupError, ServerStartError } from './server-error';
+export type { ServerStartErrorCode } from './server-error';
+
+// ============================================================================
+// Web Response Builder (shared Fetch-API response logic for Bun/Deno/Edge)
+// ============================================================================
+
+export { assertHeaderSafe, isBodylessResponse, WebResponseBuilder } from './response-builder';
 
 // ============================================================================
 // Body Source
