@@ -147,6 +147,12 @@ export class Application {
   /** Whether ready() mounted the app-owned router (so close() can undo it) */
   private _routerMounted = false;
 
+  /** In-flight boot promise — memoized so concurrent ready() calls share one boot (H-1) */
+  private _readyPromise: Promise<this> | null = null;
+
+  /** In-flight shutdown promise — memoized so concurrent close() calls share one (H-3) */
+  private _closePromise: Promise<Error[]> | null = null;
+
   /** The app-owned router (optional). Route methods delegate to it. */
   readonly router?: Router;
 
@@ -194,7 +200,10 @@ export class Application {
    */
   private assertConfigurable(method: string): void {
     if (this._isReady || this._isRunning) {
-      throw new Error(`Cannot call ${method}() after app.ready() — configuration is frozen`);
+      throw new Error(
+        `Cannot call ${method}() after the app has booted (ready()) or started — ` +
+          `configuration is frozen`
+      );
     }
   }
 
@@ -352,8 +361,8 @@ export class Application {
    * @example
    * ```typescript
    * const extended = app.extend(events<MyEvents>());
-   * extended.events.emit('user:created', { id: '1' }); // inferred
-   * await app.ready(); // adapters call this automatically
+   * await app.ready(); // adapters call this automatically — runs setup()/decorate()
+   * extended.events.emit('user:created', { id: '1' }); // available only AFTER ready()
    * ```
    */
   extend<TDecorated = Record<string, never>>(
@@ -393,7 +402,23 @@ export class Application {
       return this;
     }
 
-    // Pre-flight: every `needs` entry must name a genuinely registered
+    // Memoize the in-flight boot so concurrent `await app.ready()` calls share a
+    // single setup() pass (H-1). Without this, two racing callers both clear the
+    // `_isReady` guard, run every extension's setup() twice, and the second
+    // decorate() throws a collision. On failure, clear the memo so a retry can
+    // re-attempt boot.
+    this._readyPromise ??= this._boot().catch((err: unknown) => {
+      this._readyPromise = null;
+      throw err;
+    });
+    return this._readyPromise;
+  }
+
+  /**
+   * Run the boot sequence once (extension setup + router mount). Guarded and
+   * memoized by {@link ready}.
+   */
+  private async _boot(): Promise<this> {
     // extension SOMEWHERE (regardless of order) — catches a typo'd or
     // never-registered dependency name with a distinct message from the
     // order-sensitive check below, before running any setup().
@@ -538,7 +563,14 @@ export class Application {
       }
     }
 
-    this.defaultErrorHandler(err, ctx);
+    // The default handler can itself throw (e.g. ctx.json when the response is
+    // already committed). Swallow-and-log so the request settles instead of
+    // rejecting out of callback() into the adapter as an unhandled error (H-2).
+    try {
+      this.defaultErrorHandler(err, ctx);
+    } catch (fatal) {
+      this.logger.error('Default error handler threw:', fatal);
+    }
   }
 
   /**
@@ -572,6 +604,14 @@ export class Application {
    * @returns Array of errors from extensions that failed to destroy (empty on success)
    */
   async close(): Promise<Error[]> {
+    // Memoize the in-flight shutdown so concurrent close() calls (e.g. two
+    // signal handlers) destroy each extension exactly once (H-3).
+    this._closePromise ??= this._shutdown();
+    return this._closePromise;
+  }
+
+  /** Run the shutdown sequence once. Guarded and memoized by {@link close}. */
+  private async _shutdown(): Promise<Error[]> {
     this._isRunning = false;
 
     if (!this._isReady && this.extensions.length > 0) {
@@ -607,6 +647,10 @@ export class Application {
     this.extensions.length = 0;
     this.extensionNames.clear();
     this._isReady = false;
+    // Reset the boot/shutdown memos so the instance can be cleanly re-booted
+    // (re-boot in tests / hot reload) — a fresh ready()/close() must re-run.
+    this._readyPromise = null;
+    this._closePromise = null;
 
     // Undo the router mount that ready() appended, so a subsequent ready()
     // (re-boot in tests / hot reload) does not stack a second router (audit C-2).
