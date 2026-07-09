@@ -470,3 +470,37 @@ describe('runtime detection', () => {
     expect(validRuntimes).toContain(ctx.runtime);
   });
 });
+
+describe('NodeContext.set — Set-Cookie contract', () => {
+  /** Build a context over a real ServerResponse so header accumulation is observable. */
+  function realCtx(): { ctx: NodeContext; res: ServerResponse } {
+    const socket = new Socket();
+    const rawReq = new IncomingMessage(socket);
+    rawReq.method = 'GET';
+    rawReq.url = '/';
+    rawReq.headers = {};
+    const rawRes = new ServerResponse(rawReq);
+    return { ctx: new NodeContext(rawReq, rawRes), res: rawRes };
+  }
+
+  it('appends multiple Set-Cookie headers instead of overwriting (matches web adapter)', () => {
+    const { ctx, res } = realCtx();
+    ctx.set('Set-Cookie', 'a=1; Path=/');
+    ctx.set('Set-Cookie', 'b=2; Path=/');
+    expect(res.getHeader('set-cookie')).toEqual(['a=1; Path=/', 'b=2; Path=/']);
+  });
+
+  it('replaces the header when given an array (set-these semantics)', () => {
+    const { ctx, res } = realCtx();
+    ctx.set('Set-Cookie', 'stale=1');
+    ctx.set('Set-Cookie', ['a=1', 'b=2']);
+    expect(res.getHeader('set-cookie')).toEqual(['a=1', 'b=2']);
+  });
+
+  it('still overwrites non-cookie headers', () => {
+    const { ctx, res } = realCtx();
+    ctx.set('X-Test', '1');
+    ctx.set('X-Test', '2');
+    expect(res.getHeader('x-test')).toBe('2');
+  });
+});

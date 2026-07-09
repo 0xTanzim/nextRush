@@ -416,7 +416,34 @@ export class NodeContext implements AdapterContext {
   set(field: string, value: string | number | string[]): void {
     // Guard against CRLF injection (header splitting) via the shared helper.
     assertHeaderSafe(field, value);
-    this.raw.res.setHeader(field, value);
+
+    const res = this.raw.res;
+
+    // Set-Cookie must accumulate across calls (multiple headers), not overwrite —
+    // matching the web adapter's append semantics so `ctx.set('Set-Cookie', …)`
+    // behaves identically on every runtime. An array value means "set exactly
+    // these", so it still replaces (Node emits one header per array element).
+    if (!Array.isArray(value) && field.toLowerCase() === 'set-cookie') {
+      const cookie = String(value);
+      const appendHeader = (res as { appendHeader?: (name: string, v: string) => void })
+        .appendHeader;
+      if (typeof appendHeader === 'function') {
+        appendHeader.call(res, field, cookie);
+        return;
+      }
+      // Fallback for response objects without appendHeader: merge manually.
+      const existing = res.getHeader(field);
+      if (existing === undefined) {
+        res.setHeader(field, [cookie]);
+      } else if (Array.isArray(existing)) {
+        res.setHeader(field, [...existing.map(String), cookie]);
+      } else {
+        res.setHeader(field, [String(existing), cookie]);
+      }
+      return;
+    }
+
+    res.setHeader(field, value);
   }
 
   get(field: string): string | undefined {
