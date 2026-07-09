@@ -57,7 +57,7 @@ import { sanitizeCookieValue } from './validation.js';
  *   // Get a cookie
  *   const session = ctx.state.cookies?.get('session');
  *
- *   // Set a cookie (secure by default)
+ *   // Set a cookie (defaults: HttpOnly + SameSite=Lax + Path=/; add secure:true in production)
  *   ctx.state.cookies?.set('theme', 'dark', {
  *     maxAge: 86400,
  *     httpOnly: true

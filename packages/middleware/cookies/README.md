@@ -149,6 +149,10 @@ Cookie values are automatically sanitized:
 ctx.state.cookies.set('safe', 'value\r\nSet-Cookie: evil=payload');
 ```
 
+> CRLF sequences and control characters are stripped **silently** (the value is
+> mutated, not rejected). Don't store raw binary or control bytes in a cookie
+> value — base64/URL-encode it first.
+
 ### Cookie Prefix Enforcement
 
 The `__Secure-` and `__Host-` prefixes have strict requirements:

@@ -109,7 +109,7 @@ app.use(
 | `type`     | `string \| string[]` | `['application/json']`    | Content-Types to parse                                                           |
 | `rawBody`  | `boolean`            | `false`                   | Store raw Buffer in `ctx.rawBody` (for signature verification)                   |
 | `reviver`  | `JsonReviver`        | `undefined`               | Transform values during parsing (passed to `JSON.parse`)                         |
-| `maxDepth` | `number`             | `undefined`               | Maximum JSON nesting depth. Rejects deeper payloads after parsing                |
+| `maxDepth` | `number`             | `64`                      | Maximum JSON nesting depth. Rejects deeper payloads after parsing (set `Infinity` to disable) |
 | `verify`   | `VerifyCallback`     | `undefined`               | Callback invoked with raw buffer before parsing — throw to reject                |
 
 **Behavior:**
@@ -364,7 +364,6 @@ app.use(async (ctx, next) => {
 | `TOO_MANY_PARAMETERS`      | 413    | URL-encoded parameter count exceeded                                  |
 | `DEPTH_EXCEEDED`           | 400    | URL-encoded nesting too deep                                          |
 | `INVALID_PARAMETER`        | 400    | Prototype pollution attempt (`__proto__`, `constructor`, `prototype`) |
-| `UNSUPPORTED_CHARSET`      | 415    | Unknown charset in Content-Type                                       |
 | `UNSUPPORTED_CONTENT_TYPE` | 415    | Content type not handled (e.g. `multipart/form-data`)                 |
 | `BODY_READ_ERROR`          | 400    | Error reading request stream                                          |
 | `REQUEST_CLOSED`           | 400    | Connection closed before body was received                            |
@@ -419,15 +418,20 @@ Event listeners are properly cleaned up on request abort:
 
 ### Charset Validation
 
-Only safe, supported charsets are accepted:
+Text is decoded with the Web-standard `TextDecoder`, so charset handling is
+identical on every runtime. An **unrecognized charset falls back to UTF-8**
+rather than rejecting the request:
 
 ```typescript
-// Content-Type: application/json; charset=utf-8       → ✓ OK
-// Content-Type: application/json; charset=ascii        → ✓ OK
-// Content-Type: application/json; charset=fake-charset → ✗ UNSUPPORTED_CHARSET
+// Content-Type: text/plain; charset=utf-8         → decoded as UTF-8
+// Content-Type: text/plain; charset=utf-16le       → decoded as UTF-16LE
+// Content-Type: text/plain; charset=latin1         → decoded as Latin-1
+// Content-Type: text/plain; charset=fake-charset   → falls back to UTF-8 (lenient)
 ```
 
-Supported: `utf-8`, `utf8`, `ascii`, `latin1`, `binary`, `base64`, `hex`, `utf16le`, `utf-16le`, `ucs2`, `ucs-2`
+Recognized charsets: `utf-8`/`utf8`, `utf-16le`/`utf16le`/`ucs-2`/`ucs2`,
+`latin1`/`binary`/`iso-8859-1`, `ascii`. A leading UTF-8 BOM is stripped
+automatically.
 
 ---
 
@@ -636,7 +640,10 @@ This body-parser is **not designed for**:
 
 ## Runtime Compatibility
 
-This package works across all JavaScript runtimes via the `BodySource` abstraction:
+The byte layer uses the Web-standard `TextDecoder` and `Uint8Array` and reads
+the body through the `BodySource` abstraction — there is no `node:` import and no
+unconditional `Buffer` use, so the package loads and runs unchanged on every
+runtime:
 
 | Runtime             | Supported |
 | ------------------- | --------- |
@@ -645,6 +652,13 @@ This package works across all JavaScript runtimes via the `BodySource` abstracti
 | Deno                | ✅        |
 | Cloudflare Workers  | ✅        |
 | Vercel Edge Runtime | ✅        |
+| Netlify Edge        | ✅        |
+
+> **Raw body type:** `ctx.rawBody` (and the `raw()` parser's `ctx.body`) is a Node
+> `Buffer` when the runtime provides one — so `.toString('utf8')`, `.readUInt32BE`,
+> and HMAC `.update(body)` work — and a plain `Uint8Array` on edge runtimes. Type
+> it as `Buffer | Uint8Array` (or `Uint8Array`) and use `Buffer.from(body)` if you
+> need Buffer-only methods on edge.
 
 ---
 
