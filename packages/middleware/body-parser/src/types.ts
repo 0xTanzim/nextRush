@@ -149,12 +149,14 @@ export type JsonReviver = (key: string, value: unknown) => unknown;
  * Throw an error to reject the request body.
  *
  * @param ctx - Request context
- * @param body - Raw body buffer
- * @param encoding - Content encoding
+ * @param body - Raw body bytes. A Node `Buffer` when the runtime provides one
+ *   (so `.toString('hex')`, HMAC `.update(body)`, etc. work), otherwise a plain
+ *   `Uint8Array` on edge runtimes.
+ * @param encoding - Content encoding / charset
  */
 export type VerifyCallback = (
   ctx: BodyParserContext,
-  body: Buffer,
+  body: Uint8Array,
   encoding: string
 ) => void | Promise<void>;
 
@@ -208,8 +210,8 @@ export interface JsonOptions extends BaseParserOptions {
   /**
    * Maximum JSON nesting depth.
    * Rejects payloads deeper than this limit after parsing.
-   * Set to `undefined` to disable depth checking.
-   * @default undefined
+   * Set to `Infinity` to disable depth checking.
+   * @default 64
    */
   readonly maxDepth?: number;
 }
@@ -310,8 +312,8 @@ export type BodyParserErrorCode =
  * Result of reading a request body
  */
 export interface ReadBodyResult {
-  /** The body buffer */
-  readonly buffer: Buffer;
+  /** The body bytes */
+  readonly buffer: Uint8Array;
 
   /** Number of bytes received */
   readonly length: number;

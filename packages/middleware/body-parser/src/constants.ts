@@ -35,6 +35,15 @@ export const DEFAULT_PARAMETER_LIMITS = {
 } as const;
 
 /**
+ * Default maximum JSON nesting depth (BP-6).
+ *
+ * Generous enough that legitimate API payloads never hit it, but low enough
+ * that a small `[[[…]]]` payload cannot be used as a cheap DoS. Override per
+ * call via `json({ maxDepth })`, or disable with `maxDepth: Infinity`.
+ */
+export const DEFAULT_JSON_MAX_DEPTH = 64;
+
+/**
  * Default content types
  */
 export const DEFAULT_CONTENT_TYPES = {

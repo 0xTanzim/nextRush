@@ -8,10 +8,10 @@
 
 import type { Middleware } from '@nextrush/types';
 
-import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
+import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_JSON_MAX_DEPTH, DEFAULT_LIMITS } from '../constants.js';
 import { Errors } from '../errors.js';
 import type { BodyParserContext, JsonOptions } from '../types.js';
-import { bufferToString } from '../utils/buffer.js';
+import { bufferToString, toRawBody } from '../utils/buffer.js';
 import { getContentType, isJsonContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
@@ -95,7 +95,7 @@ export function json(options: JsonOptions = {}): Middleware {
     rawBody = false,
     strict = true,
     verify,
-    maxDepth,
+    maxDepth = DEFAULT_JSON_MAX_DEPTH,
   } = options;
 
   // Pre-compute configuration
@@ -132,9 +132,9 @@ export function json(options: JsonOptions = {}): Middleware {
     // Read body
     const buffer = await readBody(ctx, limitBytes);
 
-    // Store raw body if requested
+    // Store raw body if requested (Buffer on Node, Uint8Array on edge)
     if (rawBody) {
-      ctx.rawBody = buffer;
+      ctx.rawBody = toRawBody(buffer);
     }
 
     // Handle empty body
@@ -145,7 +145,7 @@ export function json(options: JsonOptions = {}): Middleware {
 
     // Invoke verify callback before parsing
     if (verify) {
-      await verify(ctx, buffer, 'utf-8');
+      await verify(ctx, toRawBody(buffer), 'utf-8');
     }
 
     // Parse JSON

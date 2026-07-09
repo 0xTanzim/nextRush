@@ -10,7 +10,7 @@ import type { Middleware } from '@nextrush/types';
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
 import type { BodyParserContext, TextOptions } from '../types.js';
-import { bufferToString } from '../utils/buffer.js';
+import { bufferToString, toRawBody } from '../utils/buffer.js';
 import {
   extractCharset,
   getContentType,
@@ -86,9 +86,9 @@ export function text(options: TextOptions = {}): Middleware {
     // Read body
     const buffer = await readBody(ctx, limitBytes);
 
-    // Store raw body if requested
+    // Store raw body if requested (Buffer on Node, Uint8Array on edge)
     if (rawBody) {
-      ctx.rawBody = buffer;
+      ctx.rawBody = toRawBody(buffer);
     }
 
     // Handle empty body
@@ -104,11 +104,11 @@ export function text(options: TextOptions = {}): Middleware {
 
     // Invoke verify callback before parsing
     if (verify) {
-      await verify(ctx, buffer, encoding);
+      await verify(ctx, toRawBody(buffer), encoding);
     }
 
-    // Convert buffer to string
-    ctx.body = bufferToString(buffer, encoding as BufferEncoding);
+    // Decode bytes to string via the runtime-agnostic decoder
+    ctx.body = bufferToString(buffer, encoding);
 
     if (next) await next();
   }) as unknown as Middleware;

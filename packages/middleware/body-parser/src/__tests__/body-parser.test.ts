@@ -2441,35 +2441,38 @@ describe('JSON BOM handling', () => {
     next = vi.fn().mockResolvedValue(undefined);
   });
 
-  it('should reject JSON with UTF-8 BOM (V8 JSON.parse limitation)', async () => {
-    // UTF-8 BOM character \uFEFF is NOT handled by JSON.parse in V8
-    // This documents a known limitation — BOM must be stripped before sending
+  it('strips a leading UTF-8 BOM so BOM-prefixed JSON parses (runtime-agnostic decode)', async () => {
+    // TextDecoder (the runtime-agnostic decode path, BP-1) strips a leading
+    // UTF-8 BOM by default — consistent across Node/Bun/Deno/edge — so a client
+    // that prepends a BOM no longer produces an INVALID_JSON error. (Node's old
+    // Buffer.toString path kept the BOM and rejected; edge would have differed.)
     const jsonStr = '{"name":"John"}';
     const bom = '\uFEFF';
     const bodyWithBom = bom + jsonStr;
+    const encoded = new TextEncoder().encode(bodyWithBom);
 
     const ctx: BodyParserContext = {
       method: 'POST',
       path: '/',
       headers: {
         'content-type': 'application/json',
-        'content-length': String(Buffer.byteLength(bodyWithBom)),
+        'content-length': String(encoded.byteLength),
       },
       bodySource: {
         async text() {
           return bodyWithBom;
         },
         async buffer() {
-          return new TextEncoder().encode(bodyWithBom);
+          return encoded;
         },
         async json() {
-          return JSON.parse(bodyWithBom);
+          return JSON.parse(jsonStr);
         },
         get consumed() {
           return false;
         },
         get contentLength() {
-          return Buffer.byteLength(bodyWithBom);
+          return encoded.byteLength;
         },
         get contentType() {
           return 'application/json';
@@ -2477,8 +2480,8 @@ describe('JSON BOM handling', () => {
       },
     };
 
-    // JSON.parse rejects BOM prefix — throws INVALID_JSON error
-    await expect(json()(ctx, next)).rejects.toThrow('Invalid JSON');
+    await expect(json()(ctx, next)).resolves.toBeUndefined();
+    expect(ctx.body).toEqual({ name: 'John' });
   });
 });
 

@@ -58,12 +58,18 @@ export function setNestedValue(
   value: string,
   maxDepth: number = DEFAULT_PARAMETER_LIMITS.MAX_DEPTH
 ): void {
-  // Split key into parts: 'user[profile][name]' -> ['user', 'profile', 'name']
-  const parts = key.split(/\[|\]/).filter(Boolean);
+  // `key[]` is append-to-array notation. Strip the trailing `[]` and remember
+  // to push rather than assign (BP-3).
+  const isArrayPush = key.endsWith('[]');
+  const cleanKey = isArrayPush ? key.slice(0, -2) : key;
 
-  // Check depth limit
-  if (parts.length > maxDepth) {
-    throw Errors.depthExceeded(parts.length, maxDepth);
+  // Split key into parts: 'user[profile][name]' -> ['user', 'profile', 'name']
+  const parts = cleanKey.split(/\[|\]/).filter(Boolean);
+
+  // Check depth limit (an array push adds one implicit level)
+  const effectiveDepth = parts.length + (isArrayPush ? 1 : 0);
+  if (effectiveDepth > maxDepth) {
+    throw Errors.depthExceeded(effectiveDepth, maxDepth);
   }
 
   // Validate all parts for prototype pollution
@@ -73,7 +79,11 @@ export function setNestedValue(
     }
   }
 
-  // Navigate/create the nested structure
+  if (parts.length === 0) {
+    return;
+  }
+
+  // Navigate/create the nested structure down to the parent of the last part
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
@@ -82,30 +92,31 @@ export function setNestedValue(
       continue;
     }
 
-    // Check if current part exists
-    if (!(part in current)) {
-      // Check next part to determine if we need an array or object
-      const nextPart = parts[i + 1];
-      const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
-      current[part] = isNextNumeric ? [] : (Object.create(null) as Record<string, unknown>);
-    }
+    const nextPart = parts[i + 1];
+    const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
+    const existing = current[part];
 
-    const next = current[part];
-
-    // Ensure we have an object to traverse into
-    if (typeof next !== 'object' || next === null) {
-      // Can't traverse into primitive, overwrite with object
-      const nextPart = parts[i + 1];
-      const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
+    // Create an object/array to traverse into when missing or a primitive
+    if (typeof existing !== 'object' || existing === null) {
       current[part] = isNextNumeric ? [] : (Object.create(null) as Record<string, unknown>);
     }
 
     current = current[part] as Record<string, unknown>;
   }
 
-  // Set the final value
   const lastPart = parts[parts.length - 1];
   if (lastPart === undefined) {
+    return;
+  }
+
+  // key[] → append to (or create) an array at the final key
+  if (isArrayPush) {
+    const existing = current[lastPart];
+    if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      current[lastPart] = [value];
+    }
     return;
   }
 

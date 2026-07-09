@@ -33,7 +33,7 @@ import { getContentLength } from '../utils/content-type.js';
  * const text = buffer.toString('utf-8');
  * ```
  */
-export async function readBody(ctx: BodyParserContext, limit: number): Promise<Buffer> {
+export async function readBody(ctx: BodyParserContext, limit: number): Promise<Uint8Array> {
   // Modern cross-runtime path: use bodySource if available
   if (ctx.bodySource) {
     return readBodyFromSource(ctx, limit);
@@ -45,7 +45,7 @@ export async function readBody(ctx: BodyParserContext, limit: number): Promise<B
   }
 
   // No body source available - return empty buffer
-  return Buffer.alloc(0);
+  return new Uint8Array(0);
 }
 
 /**
@@ -53,7 +53,7 @@ export async function readBody(ctx: BodyParserContext, limit: number): Promise<B
  *
  * Works on Node.js, Bun, Deno, and Edge runtimes.
  */
-async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promise<Buffer> {
+async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promise<Uint8Array> {
   const bodySource = ctx.bodySource!;
 
   // Pre-check Content-Length if available (synchronous rejection)
@@ -71,8 +71,9 @@ async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promis
       throw Errors.entityTooLargeStreaming(limit);
     }
 
-    // Zero-copy conversion: share underlying ArrayBuffer memory
-    return Buffer.from(uint8Array.buffer, uint8Array.byteOffset, uint8Array.byteLength);
+    // Return the bytes as-is (runtime-agnostic). Parsers decode via TextDecoder
+    // and expose raw bytes as a Node Buffer only where the runtime provides one.
+    return uint8Array;
   } catch (err) {
     // Re-throw BodyParserError
     if (err instanceof Error && err.name === 'BodyParserError') {
@@ -99,7 +100,7 @@ async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promis
  *
  * @deprecated Prefer using BodySource for cross-runtime compatibility.
  */
-function readBodyFromNodeStream(ctx: BodyParserContext, limit: number): Promise<Buffer> {
+function readBodyFromNodeStream(ctx: BodyParserContext, limit: number): Promise<Uint8Array> {
   // Pre-check Content-Length if available (synchronous rejection)
   const contentLength = getContentLength(ctx.headers);
 

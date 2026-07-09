@@ -11,6 +11,7 @@ import type { Middleware } from '@nextrush/types';
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
 import type { BodyParserContext, RawOptions } from '../types.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
+import { toRawBody } from '../utils/buffer.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
 
@@ -77,19 +78,22 @@ export function raw(options: RawOptions = {}): Middleware {
       return;
     }
 
-    // Read body as raw buffer
+    // Read body as raw bytes
     const buffer = await readBody(ctx, limitBytes);
+
+    // Present as a Node Buffer where available (DX), Uint8Array on edge.
+    const body = toRawBody(buffer);
 
     // Invoke verify callback before setting body
     if (verify) {
-      await verify(ctx, buffer, 'binary');
+      await verify(ctx, body, 'binary');
     }
 
-    // For raw parser, body is always the buffer
-    ctx.body = buffer;
+    // For raw parser, body is always the raw bytes
+    ctx.body = body;
 
     // Also set rawBody for consistency
-    ctx.rawBody = buffer;
+    ctx.rawBody = body;
 
     if (next) await next();
   }) as unknown as Middleware;
