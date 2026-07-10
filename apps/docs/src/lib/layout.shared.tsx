@@ -1,69 +1,32 @@
-import { AskAiTrigger } from '@/components/ask-ai-trigger';
-import { VersionSwitcher } from '@/components/version-switcher';
+import { appConfig } from '@/config/appConfig';
+import { SiteHeader } from '@/components/site-header';
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import { Zap } from 'lucide-react';
 
 /**
  * Shared nav/layout options consumed by every top-level route group
  * ((home), docs, skills, blog) — see apps/docs/src/app/**\/layout.tsx.
  *
- * Destinations follow the Phase 1 nav shell (T7, docs/documentation-rebuild/PLAN.md):
- * Documentation, Packages, Reference, Recipes, Blog + search + version affordance + Ask AI
- * slot + GitHub. "Packages" and "Blog" both get real "coming soon" pages (T13/T20 build the
- * real content) rather than reusing another nav item's URL or a dead link.
+ * `nav.component` replaces Fumadocs' default navbar entirely (the documented "Replace
+ * Navbar" extension point — fumadocs.dev/docs/ui/layouts/nav#replace-navbar) with
+ * `SiteHeader` (src/components/site-header.tsx). This is a deliberate rewrite, not the
+ * original Phase 1 nav shell (T7): a UX audit found Fumadocs' default `DocsLayout` has
+ * no persistent top navbar — `nav.links` renders inside the sidebar `<aside>` at every
+ * viewport, worst on mobile where there's no header to separate "global site nav" from
+ * "this page's doc tree". Documentation, Packages, Reference, Blog, Skills, and GitHub
+ * now all live exclusively inside `SiteHeader`'s real `<header>` DOM, never the sidebar
+ * — `links`/`githubUrl` on `BaseLayoutProps` are intentionally unset here since Fumadocs
+ * ignores both when a custom `nav.component` is set. `--fd-nav-height` must stay accurate
+ * to `SiteHeader`'s real height (see global.css) or Fumadocs' internal layout math breaks.
  */
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: (
-        <span className="flex items-center gap-2 font-bold">
-          <Zap className="size-5 text-[#3b82f6]" />
-          <span className="gradient-text">NextRush</span>
-        </span>
-      ),
+      // `nav.title` is unused by SiteHeader (nav.component fully replaces the navbar),
+      // but Fumadocs' DocsLayout sidebar still renders an internal `navTitle` slot from
+      // this same context — leaving it unset produces an empty, unlabeled <a href="/">
+      // in the sidebar (a real WCAG 2.2 AA link-name violation, confirmed via axe-core).
+      title: 'NextRush',
+      component: <SiteHeader version={appConfig.version} />,
     },
-    links: [
-      {
-        text: 'Documentation',
-        url: '/docs',
-        active: 'nested-url',
-      },
-      {
-        text: 'Packages',
-        url: '/packages',
-        active: 'nested-url',
-      },
-      {
-        text: 'Reference',
-        url: '/docs/reference',
-        active: 'nested-url',
-      },
-      {
-        text: 'Recipes',
-        url: '/docs/recipes',
-        active: 'nested-url',
-      },
-      {
-        text: 'Blog',
-        url: '/blog',
-        active: 'nested-url',
-      },
-      {
-        text: 'Skills',
-        url: '/skills',
-        active: 'nested-url',
-      },
-      {
-        type: 'custom',
-        secondary: true,
-        children: <VersionSwitcher />,
-      },
-      {
-        type: 'custom',
-        secondary: true,
-        children: <AskAiTrigger />,
-      },
-    ],
-    githubUrl: 'https://github.com/0xTanzim/nextrush',
   };
 }

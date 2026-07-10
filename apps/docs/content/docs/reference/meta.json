@@ -1,5 +1,5 @@
 {
-  "title": "API Reference",
+  "title": "Reference",
   "description": "Detailed documentation of NextRush's API, including core components, adapters, middleware, plugins, and dependency injection.",
 
   "pages": ["core", "class", "adapters", "middleware", "plugins"]

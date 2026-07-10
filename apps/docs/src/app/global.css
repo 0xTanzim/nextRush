@@ -676,3 +676,43 @@ kbd {
   background: rgba(59, 130, 246, 0.3);
   color: var(--text-primary);
 }
+
+/*
+ * Fumadocs UI ships a few internal chrome buttons (sidebar collapse/expand toggle,
+ * search trigger) without an explicit `cursor: pointer`, which fails STEP 26 of the
+ * UX audit ("missing cursor: pointer" is a named interaction-design anti-pattern) on
+ * otherwise fully clickable controls. Targeting the stable, semantic `aria-label`
+ * rather than a hashed/internal class name so this survives a Fumadocs version bump.
+ */
+button[aria-label="Collapse Sidebar"],
+button[aria-label="Expand Sidebar"],
+button[aria-label="Open Search"] {
+  cursor: pointer;
+}
+
+/*
+ * The sidebar's global top-nav links (Documentation/Packages/.../Skills) were REMOVED
+ * from here entirely — see src/components/site-header.tsx and layout.shared.tsx's
+ * `nav.component` rewrite. The sidebar is now exclusively: search, version, Ask AI,
+ * then the current page's doc tree. This rule keeps a subtle boundary between the
+ * utility-controls block (version/Ask AI, rendered as <div>s) and the page-tree root
+ * link that immediately precedes the tree's <div> folder items — the one remaining
+ * region boundary in the sidebar, now that the far larger top-nav-vs-tree ambiguity
+ * this rule originally targeted no longer exists.
+ */
+aside [data-radix-scroll-area-viewport] a:has(+ div) {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-fd-border);
+}
+
+/*
+ * SiteHeader (src/components/site-header.tsx) replaces Fumadocs' default navbar via
+ * `nav.component` in layout.shared.tsx. Per Fumadocs' documented "Replace Navbar" guide,
+ * `--fd-nav-height` must be overridden to the custom navbar's real height or Fumadocs'
+ * internal sidebar/content offset math breaks. 56px matches the header's actual rendered
+ * height (icon-sized controls + py-1.5 buttons) — verified visually, not guessed.
+ */
+:root {
+  --fd-nav-height: 56px !important;
+}

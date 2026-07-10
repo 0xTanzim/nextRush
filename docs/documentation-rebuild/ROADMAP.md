@@ -116,8 +116,8 @@ generated tables match source · docs-standards quality score met.
 **Validator overall verdict: PASS — FINAL VERDICT FOR THE ENTIRE 22-TASK REBUILD: PASS.** Every T21/T22 claim independently re-derived from raw output (BM25 query, live endpoint fetches, a fresh Lighthouse run, a fresh build+harness run) — zero fabrication found. Regression sweep across 3 earlier-phase fixes (Phase 3's `createRouter` import fix, Phase 2's DI-import fix, Phase 5's own density claim) found **zero regressions**.
 
 **Two things honestly disclosed rather than smoothed over, consistent with this rebuild's standard:**
-1. **Docker rebuild not independently re-executed in this final pass** — the environment's disk space (1.6–2.1GB free throughout Phase 5, following the mid-phase infrastructure failure logged below) made a safe re-run too risky to attempt twice in one session. The Dockerfile itself is byte-unchanged since Phase 3's already-independently-reproduced PASS (fresh container, fresh port, genuine `healthy` status, real 200s) — risk of an undetected regression is low but explicitly not zero, and this is recorded as an open item rather than rounded up to "re-verified."
-2. **Two content files** (`concepts/routing.mdx`, `concepts/request-lifecycle.mdx`) received small, correct, in-scope-in-spirit link/import fixes (`@nextrush/core`+`@nextrush/router`→`nextrush` meta package; removed a stale `@nextrush/controllers` mention) that neither T21 nor T22's implementer disclosed making. Personally confirmed both diffs are genuinely correct and harmless — a process-hygiene gap (undisclosed scope), not a correctness defect.
+1. ~~Docker rebuild not independently re-executed in this final pass~~ — **RESOLVED 2026-07-10 (later session).** Disk headroom improved to 75GB free; re-ran the full gate from scratch at the user's request: `docker build --no-cache` succeeded (17 packages, 0 vulnerabilities, identical to the original build), container reported `healthy` in 8s, `/health` returned real `HTTP/1.1 200 OK` `{"status":"ok"}`, `/` returned real `HTTP/1.1 200 OK` `{"message":"Hello from NextRush in Docker!"}`, Docker's own health-probe log showed 2 consecutive exit-code-0 checks, and full cleanup (container + image) was confirmed empty afterward. This is the third independent reproduction of this exact gate across the rebuild (Phase 3's original validator, Phase 5's implementer, and now this closing re-verification) — zero drift, zero regression.
+2. **Two content files** (`concepts/routing.mdx`, `concepts/request-lifecycle.mdx`) received small, correct, in-scope-in-spirit link/import fixes (`@nextrush/core`+`@nextrush/router`→`nextrush` meta package; removed a stale `@nextrush/controllers` mention) that neither T21 nor T22's implementer disclosed making. Personally confirmed both diffs are genuinely correct and harmless — a process-hygiene gap (undisclosed scope), not a correctness defect. Still open as a minor process note; not a functional issue.
 
 **Mid-phase infrastructure interruption (recorded for the log, not a task failure):** the first Phase 5 dispatch failed outright — the root filesystem hit 100% used (816MB free), which prevented even starting a sub-agent session. Diagnosed before any blind retry: cleared `apps/docs/.next` (~600MB) and the repo's root `.turbo/cache`+`.turbo/daemon` (~770MB) — both fully regenerable build artifacts, zero source or content touched. This bought headroom to resume, but the underlying pressure was machine-wide (`/home/tanzim` at 279GB total, well outside this task's scope) — escalated to the user rather than guessing further into unrelated files, then resumed once the user confirmed more headroom existed.
 
@@ -203,6 +203,17 @@ Append a dated entry when a task changes status.
   byte-unchanged since its independently-reproduced Phase 3 PASS, so risk is low but not
   zero) and two content files received small undisclosed-but-verified-correct link fixes.
   See the Phase 5 table above for the full closing record.
+- _2026-07-10_ — **Docker gate closing re-verification, at user request.** Disk headroom had
+  improved to 75GB free (from the 1.6–2.1GB that made re-running it too risky during Phase 5's
+  own close). Re-ran the exact real artifact (`apps/docs/public/examples/docker-deploy/`) from
+  scratch: `docker build --no-cache` succeeded (17 packages, 0 vulnerabilities — identical to
+  the original build), container reached `healthy` in 8s, `/health` and `/` both returned real
+  200s with the documented response bodies, Docker's own probe log showed 2 consecutive
+  exit-0 checks, and full cleanup (container + image) confirmed empty afterward. Third
+  independent reproduction of this exact gate across the rebuild — zero drift. The last
+  disclosed open item from Phase 5's closing record is now resolved. Rebuild remains 22/22
+  complete; only the minor process-hygiene note (two undisclosed-but-verified-correct link
+  fixes) remains open, and it was never a functional defect.
 
 **⚠ Tracked item (not part of this rebuild, but sitting in the shared working tree):**
 `packages/router/src/router.ts`, `radix-tree.ts`, `packages/types/src/router.ts`, associated

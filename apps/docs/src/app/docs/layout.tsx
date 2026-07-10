@@ -6,21 +6,24 @@ import Link from 'next/link';
 
 function SidebarFooterLinks() {
   return (
-    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-fd-muted-foreground">
-      <Link href="/" className="hover:text-fd-accent-foreground">
-        Home
-      </Link>
-      <Link href="/skills" className="hover:text-fd-accent-foreground">
-        Skills
-      </Link>
-      <Link
-        href="https://github.com/0xTanzim/nextrush"
-        target="_blank"
-        rel="noreferrer"
-        className="hover:text-fd-accent-foreground"
-      >
-        GitHub
-      </Link>
+    <div className="mt-3 flex flex-col gap-3">
+      <SkillsSidebarPromo />
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-fd-muted-foreground">
+        <Link href="/" className="hover:text-fd-accent-foreground">
+          Home
+        </Link>
+        <Link href="/skills" className="hover:text-fd-accent-foreground">
+          Skills
+        </Link>
+        <Link
+          href="https://github.com/0xTanzim/nextrush"
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-fd-accent-foreground"
+        >
+          GitHub
+        </Link>
+      </div>
     </div>
   );
 }
@@ -31,7 +34,6 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
       tree={source.getPageTree()}
       {...baseOptions()}
       sidebar={{
-        banner: <SkillsSidebarPromo />,
         footer: <SidebarFooterLinks />,
       }}
     >
