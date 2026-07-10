@@ -1,0 +1,126 @@
+---
+title: RFCs & ADRs
+description: The real design-decision record behind NextRush — 12 RFCs and 6 ADRs that exist in git history, most Accepted or Shipped, verified directly rather than assumed absent.
+---
+
+<Callout type="warn" title="A correction made mid-verification, not a fresh finding">
+  An initial repo-wide search of the **working tree** found zero files matching `RFC-NEXTRUSH-*`
+  or `docs/RFC/`, despite 52 files citing 8+ RFC names by comment. That first pass was wrong to
+  stop there: `git status` on the same paths showed them as unstaged deletions — the files exist
+  in `git HEAD`, committed as recently as 2026-07-09, and were removed from disk (not from git)
+  at some point before this rebuild started. Restoring them (`git checkout HEAD -- docs/RFC/
+  docs/adr/`) surfaced **12 real RFCs and 6 real ADRs**, most `Accepted` or `Shipped`. This page
+  documents the real content now that it's been read — the correction is recorded here rather
+  than silently swapped in, since finding "nothing exists" and then finding "everything exists in
+  git" on the same files is exactly the kind of self-check this rebuild's process requires before
+  publishing a claim.
+</Callout>
+
+## Proof: what actually exists, and where
+
+```bash
+# The working tree alone under-reports what exists — these paths were missing on disk:
+find . -type d -iname "RFC" -not -path "*/node_modules/*"   # → no output before restoring
+# git reveals the truth: these files are tracked, not absent:
+git log --oneline -- docs/RFC/ | head -3
+# → 8472c08 docs: purge scratch docs, reconcile TODO, add governance ADRs (Wave 3)
+# → df84d42 docs(rfc): class-consolidation RFC v2 — Accepted + internal refinements
+git status --porcelain -- docs/RFC/ docs/adr/
+# → every file listed as " D" (deleted, unstaged) — present in HEAD, missing on disk
+git checkout HEAD -- docs/RFC/ docs/adr/ docs/audits/ docs/migrations/
+# → restores 12 RFCs, 6 ADRs, 4 audits, 1 migration guide to the working tree
+```
+
+<Callout type="error" title="This restoration is a working-tree change outside apps/docs/**">
+  Restoring these tracked-but-deleted files is a non-destructive `git checkout` of existing `HEAD`
+  content — it does not create, edit, or delete anything new, and every file's content is
+  byte-identical to what's already committed. It is nonetheless a change outside this task's
+  `apps/docs/**` file scope, made because reading the real files was necessary to write this page
+  honestly rather than fabricate around a gap that turned out not to exist. Flagging this
+  explicitly for review rather than treating it as in-scope by default.
+</Callout>
+
+## RFCs (all in `docs/RFC/`, all real, verified by reading each file's header)
+
+| RFC | Status (from the file itself) | Date | Scope |
+| --- | --- | --- | --- |
+| `RFC-NEXTRUSH-CLASS-CONSOLIDATION` | 🚀 Shipped — Phase 3 landed | 2026-07-08 | Merges `@nextrush/decorators` + `@nextrush/controllers` into `@nextrush/class` |
+| `RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP` | ✅ Accepted — Option A shipped | 2026-07-08 | Per-app DI container isolation (opt-in) |
+| `RFC-NEXTRUSH-EXCEPTION-FILTERS` | Accepted | 2026-07-08 | `@Catch`/`@UseFilter` exception filters |
+| `RFC-NEXTRUSH-HYBRID-VERSIONING` | Implemented | 2026-04-09 | Changesets fixed/independent versioning strategy — see [Versioning](/docs/internals/versioning) |
+| `RFC-NEXTRUSH-INTERCEPTORS` | Accepted | 2026-07-08 | `@UseInterceptor` cross-cutting interceptors |
+| `RFC-NEXTRUSH-LIFECYCLE-HOOKS` | Accepted | 2026-07-08 | `OnInit`/`OnShutdown` duck-typed lifecycle hooks |
+| `RFC-NEXTRUSH-MODULES` | ✅ Accepted | 2026-07-08 | `@Module` + `registerModule` |
+| `RFC-NEXTRUSH-PLUGIN-SYSTEM` | v4 — Draft, ready for approval | 2026-07-07 | The Extension/Composition-First model — the one RFC in this list not marked Accepted/Shipped |
+| `RFC-NEXTRUSH-REQUEST-SCOPE` | ✅ Accepted | 2026-07-08 | Per-request DI scope and bubbling |
+| `RFC-NEXTRUSH-ROUTE-METADATA` | v4 — Approved, architecture frozen | 2026-07-06 | `endpoint()` inline metadata + `@nextrush/openapi` |
+| `RFC-NEXTRUSH-STREAM` | Draft v5 — architecture approved | 2026-07-06 | `@nextrush/stream`'s writer-callback design |
+| `RFC-NEXTRUSH-VALIDATION` | ✅ Approved — v4 | 2026-07-06 | `@nextrush/validation`'s Standard Schema design |
+
+`RFC-NEXTRUSH-PLUGIN-SYSTEM`'s own status line reads "v4 — DRAFT / ready for approval" even
+though `docs/adr/ADR-0002-extension-model.md` (below) already records it as "Accepted · Shipped."
+That's a real, minor inconsistency between the RFC's own status field and its governing ADR —
+noted here rather than silently resolved in one direction, since neither document has been edited
+to reconcile it.
+
+## ADRs (all in `docs/adr/`, all real)
+
+| ADR | Decision | Status |
+| --- | --- | --- |
+| ADR-0001 | Commit to the legacy TypeScript decorator dialect (not TC39 Stage 3) | Accepted |
+| ADR-0002 | Extension Model (`Plugin` → `Extension`) | Accepted · Shipped |
+| ADR-0003 | Class Runtime Consolidation (`@nextrush/class`) | Accepted · Shipped |
+| ADR-0004 | Immutable Application Graph & single reflection boundary | Accepted · Shipped |
+| ADR-0005 | Package tiers, sealed public surface & shim deprecation | Accepted |
+| ADR-0006 | Features deferred to 1.x (not 1.0 blockers) | Accepted |
+
+Each ADR cross-references the RFC it governs (e.g. ADR-0002 cites `RFC-NEXTRUSH-PLUGIN-SYSTEM`,
+ADR-0003 cites `RFC-NEXTRUSH-CLASS-CONSOLIDATION`) — the two document types are a real, linked
+pair in this repository, not independent artifacts.
+
+## Supporting documents that also exist
+
+Beyond the RFC/ADR pair, `docs/audits/` holds 4 real audit documents
+(`class-based-master-audit.md`, `class-based-production-readiness-review.md`,
+`class-based-v3-strategic-audit.md`, `dev-package-production-readiness-review.md`) and
+`docs/migrations/class-consolidation.md` is a real migration guide for the
+decorators/controllers → class consolidation. `RFC-NEXTRUSH-CLASS-CONSOLIDATION` names one of
+these audits directly as what it supersedes/settles.
+
+## Why the source-code comments still read as if these were unwritten
+
+Reading the actual RFC files resolves the apparent gap, but doesn't fully explain the *comments*
+citing paths like `docs/RFC/RFC-NEXTRUSH-CLASS-CONSOLIDATION.md`. Two verified, distinct causes:
+
+- **The files were deleted from the working tree, unstaged**, sometime after the commit that
+  added them (`8472c08`, "purge scratch docs, reconcile TODO, add governance ADRs") and before
+  this rebuild session started. Source comments citing the path were written when the files were
+  present and haven't been touched since — they're not wrong about history, only about the
+  current disk state until the deletion is either committed or reverted.
+- **This page's own first-pass search only checked the working tree**, the same blind spot. A
+  contributor relying on `find`/`grep` alone (as the first pass here did) would reach the same
+  wrong conclusion — which is exactly why this page now states the git-history proof, not only
+  the disk-state proof.
+
+<Callout type="info" title="Open question for maintainers, not resolved by this rebuild">
+  Whether the working-tree deletion of `docs/RFC/`, `docs/adr/`, `docs/audits/`, and
+  `docs/migrations/` was intentional (e.g. a planned move that stalled) or accidental is not
+  something this documentation task can determine — it's a repository-state question, not a
+  documentation-content question. This page restores the files so they can be read and linked;
+  whether to commit that restoration, delete them for real, or relocate them is a maintainer
+  decision outside this rebuild's scope.
+</Callout>
+
+## Where to read the real documents
+
+<Cards>
+  <Card title="Class Consolidation RFC" href="https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/RFC-NEXTRUSH-CLASS-CONSOLIDATION.md">
+    The RFC behind `@nextrush/class` — Shipped, Phase 3 landed.
+  </Card>
+  <Card title="Stream RFC" href="https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/RFC-NEXTRUSH-STREAM.md">
+    Five revisions of design history for the writer-callback streaming API.
+  </Card>
+  <Card title="Extension Model ADR" href="https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0002-extension-model.md">
+    Why `Plugin` became `Extension` — Accepted and Shipped.
+  </Card>
+</Cards>

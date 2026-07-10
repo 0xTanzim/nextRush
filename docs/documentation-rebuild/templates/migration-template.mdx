@@ -1,0 +1,98 @@
+---
+title: '[PLACEHOLDER: Migration title — e.g. "Migrating from Express", "Upgrading to v3.1"]'
+description: '[PLACEHOLDER: One sentence — what the reader is moving from and to.]'
+---
+
+<!--
+MIGRATION PAGE TEMPLATE
+Lives under migrate/ — covers from-framework migrations, deprecation shims
+(e.g. @nextrush/decorators, @nextrush/controllers -> nextrush/class), and version
+upgrade guides (PLAN.md T17). Required for every breaking change per
+global-rules.instructions.md section 7. Delete this comment block before publishing.
+-->
+
+## What's Changing
+
+[PLACEHOLDER: State plainly what moved, was renamed, or was removed — and what
+replaces it. One or two sentences, no hedging.]
+
+<Callout type="warn" title="Breaking Change">
+  [PLACEHOLDER: only include if this is a breaking change — state the removal
+  version. Delete this callout for a same-version from-framework migration guide.]
+</Callout>
+
+## Why It Changed
+
+[PLACEHOLDER: The reason for the change — the problem the old approach had, or
+the consolidation it's part of (e.g. "@nextrush/decorators and
+@nextrush/controllers merged into nextrush/class"). Link to the RFC if one exists.]
+
+## Before / After
+
+<Tabs items={['Before', 'After']}>
+  <Tab value="Before">
+    ```ts
+    // [PLACEHOLDER: the old/source-framework code]
+    ```
+  </Tab>
+  <Tab value="After">
+    ```ts
+    // [PLACEHOLDER: the equivalent NextRush code]
+    ```
+  </Tab>
+</Tabs>
+
+[PLACEHOLDER: One paragraph walking through the concrete differences a reader must
+account for — do not claim it's "similar" without naming what changed. Name anything
+that has no direct equivalent.]
+
+## Step-by-Step Migration
+
+<Steps>
+  <Step>
+    ### [PLACEHOLDER: first migration action]
+
+    ```bash
+    [PLACEHOLDER: e.g. pnpm remove @nextrush/decorators @nextrush/controllers]
+    pnpm add nextrush
+    ```
+
+  </Step>
+  <Step>
+    ### [PLACEHOLDER: second migration action]
+
+    ```ts
+    // [PLACEHOLDER: updated import / call site]
+    ```
+
+  </Step>
+  <Step>
+    ### [PLACEHOLDER: verify the migration]
+
+    ```bash
+    [PLACEHOLDER: e.g. pnpm typecheck && pnpm test]
+    ```
+
+  </Step>
+</Steps>
+
+## Deprecation Timeline
+
+[PLACEHOLDER: Only include for a deprecation-driven migration. State the
+deprecated-since version, the planned removal version, and whether a
+compatibility shim exists in the meantime. Delete this section for a
+from-other-framework migration guide.]
+
+| Deprecated API | Since | Removed in | Replacement |
+| --------------- | ----- | ----------- | ------------ |
+| `[PLACEHOLDER]` | `[PLACEHOLDER: version]` | `[PLACEHOLDER: version or "not yet scheduled"]` | `[PLACEHOLDER]` |
+
+## Common Migration Mistakes
+
+1. **[PLACEHOLDER: mistake name]** — [PLACEHOLDER: what goes wrong and the fix].
+2. **[PLACEHOLDER: mistake name]** — [PLACEHOLDER: what goes wrong and the fix].
+
+## Related
+
+- [PLACEHOLDER: link to the concept page for the new API]
+- [PLACEHOLDER: link to the RFC/ADR behind this change, if one exists]

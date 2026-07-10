@@ -55,7 +55,7 @@ The Application never processes requests directly. It builds the pipeline, then 
 
 ## Execution Flow
 
-When a request arrives, the handler produced by `callback()` runs the composed middleware chain (the onion model — see [Middleware Internals](/docs/concepts/middleware-internals)). If anything throws, the error handler runs instead.
+When a request arrives, the handler produced by `callback()` runs the composed middleware chain (the onion model — see [Middleware Internals](/docs/internals/middleware-internals)). If anything throws, the error handler runs instead.
 
 ```
 Request → middleware₁ → middleware₂ → … → router → Response
@@ -439,7 +439,7 @@ The Application class is the right choice for most NextRush apps. Consider alter
   <Card title="Extending NextRush" href="/docs/concepts/plugins">
     Middleware, Registrar, and Extension — the three ways to add capability.
   </Card>
-  <Card title="@nextrush/core API" href="/docs/api-reference/core/core">
+  <Card title="@nextrush/core API" href="/docs/reference/core/core">
     Full API reference for the core package.
   </Card>
 </Cards>

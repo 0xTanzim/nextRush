@@ -69,11 +69,11 @@ await listen(app, 8080);
 
 If you're writing your own reusable capability — a custom logger, a request-timing header, a feature flag check — write it as middleware first. Only reach for a Registrar or an Extension if middleware genuinely can't express what you need (see the next two sections for when that's true).
 
-See [Middleware Internals](/docs/concepts/middleware-internals) for how `app.use()` and `compose()` work under the hood.
+See [Middleware Internals](/docs/internals/middleware-internals) for how `app.use()` and `compose()` work under the hood.
 
 ## Registrar — plain functions for wiring (~0.9%)
 
-A Registrar is not a type or an interface — it's just a function you call directly, `await`ing it if it's async. It exists for subsystems that need to read from the app (its router, its DI container) and configure something at startup, rather than run per request.
+A Registrar is not a type or an interface — it's a function you call directly, `await`ing it if it's async. It exists for subsystems that need to read from the app (its router, its DI container) and configure something at startup, rather than run per request.
 
 The clearest example is `registerControllers()`, which scans for `@Controller`-decorated classes, resolves them through the app's DI container, and registers their routes on the app's router:
 
@@ -279,7 +279,7 @@ app.extend({
   <Card title="Application" href="/docs/concepts/application">
     `app.use()`, `app.extend()`, `app.ready()`, and `app.close()` on the Application class.
   </Card>
-  <Card title="Middleware Internals" href="/docs/concepts/middleware-internals">
+  <Card title="Middleware Internals" href="/docs/internals/middleware-internals">
     How `compose()` turns the middleware stack into a single request handler.
   </Card>
   <Card title="Context" href="/docs/concepts/context">

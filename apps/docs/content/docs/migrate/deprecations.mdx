@@ -1,0 +1,108 @@
+---
+title: Deprecations
+description: The canonical old-import → new-import map. @nextrush/decorators and @nextrush/controllers are compatibility shims — everything moves to nextrush/class.
+---
+
+`@nextrush/decorators` and `@nextrush/controllers` still publish to npm at `3.1.0`, but both are
+now thin re-export shims over `@nextrush/class` — confirmed by reading each package's actual
+`src/index.ts` directly (not assumed from history or naming convention). Neither package
+contains its own logic anymore.
+
+<Callout type="warn" title="Both packages will be removed in a future major version">
+  Each shim's own source file states `@deprecated Import from '@nextrush/class' instead.` New
+  code should never import from `@nextrush/decorators` or `@nextrush/controllers` — use
+  `nextrush/class` directly.
+</Callout>
+
+## `@nextrush/decorators` → `nextrush/class`
+
+`packages/decorators/src/index.ts` re-exports the following, every one of them **verbatim** from
+`@nextrush/class` (not re-implemented):
+
+| Old import (`@nextrush/decorators`)                                                                                        | New import (`nextrush/class`)                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `Controller`                                                                                                                          | `Controller`                                                              |
+| `Module`, `getModuleMetadata`, `isModule`                                                                                   | `Module`, `getModuleMetadata`, `isModule`                        |
+| `HttpCode`                                                                                                                             | `HttpCode`                                                                 |
+| `Redirect`, `SetHeader`                                                                                                              | `Redirect`, `SetHeader`                                                  |
+| `All`, `Delete`, `Get`, `Head`, `Options`, `Patch`, `Post`, `Put`                                                        | `All`, `Delete`, `Get`, `Head`, `Options`, `Patch`, `Post`, `Put`  |
+| `Body`, `Ctx`, `Header`, `Param`, `Query`, `Req`, `Res`, `createCustomParamDecorator`                                | Same names                                                                 |
+| `UseGuard`, `getAllGuards`, `getClassGuards`, `getMethodGuards`                                                            | Same names                                                                 |
+| `Catch`, `UseFilter`, `getAllFilters`, `getCatchTypes`, `getClassFilters`, `getMethodFilters`                          | Same names                                                                 |
+| `UseInterceptor`, `getAllInterceptors`, `getClassInterceptors`, `getMethodInterceptors`                                 | Same names                                                                 |
+| `isOnInit`, `isOnShutdown` (+ types `OnInit`, `OnShutdown`)                                                              | Same names                                                                 |
+| `isController`, `getControllerMetadata`, `getControllerDefinition`, `getRouteMetadata`, `getParamMetadata`, `getAllParamMetadata`, `getHttpCode`, `getRedirectMetadata`, `getResponseHeaders` | Same names |
+| `getConstructorParamTypes`                                                                                                            | Same name                                                                  |
+| `DECORATOR_METADATA_KEYS`, `isGuardClass`, `isValidHttpMethod`, `isValidParamSource`                                     | Same names                                                                 |
+| Types: `BodyOptions`, `CanActivate`, `Constructor`, `ControllerMetadata`, `ControllerOptions`, `CustomParamExtractor`, `ExceptionFilter`, `ExceptionFilterClass`, `FilterMetadata`, `Guard`, `GuardContext`, `GuardFn`, `GuardMetadata`, `HeaderOptions`, `Interceptor`, `InterceptorClass`, `InterceptorMetadata`, `MiddlewareRef`, `ParamMetadata`, `ParamOptions`, `ParamSource`, `QueryOptions`, `RedirectMetadata`, `ResponseHeaderMetadata`, `RouteMetadata`, `RouteMethods`, `RouteOptions`, `TransformFn`, `ModuleMetadata`, `ModuleOptions`, `ModuleProvider`, `ModuleProviderConfig`, `ControllerDefinition` | Same names |
+
+Migration is a one-line import change — no code shape changes:
+
+```diff
+- import { Controller, Get, UseGuard } from '@nextrush/decorators';
++ import { Controller, Get, UseGuard } from 'nextrush/class';
+```
+
+## `@nextrush/controllers` → `nextrush/class`
+
+`packages/controllers/src/index.ts` re-exports the following, also verbatim from
+`@nextrush/class` (registration/discovery surface, plus a set of commonly-used decorators
+re-exported for convenience):
+
+| Old import (`@nextrush/controllers`)                                                                                          | New import (`nextrush/class`)                              |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `registerControllers`                                                                                                                    | `registerControllers`                                                |
+| `registerModule` (+ type `ModuleRegistrationOptions`)                                                                                 | Same names                                                            |
+| `collectModuleControllers`, `collectModuleGraph`                                                                                    | Same names                                                            |
+| `discoverControllers`, `getControllersFromResults`, `getErrorsFromResults`                                                       | Same names                                                            |
+| `ControllerRegistry`                                                                                                                        | Same name                                                             |
+| `buildRoutes`                                                                                                                                | Same name                                                             |
+| Types: `BuiltRoute`, `ControllersOptions`, `DiscoveryOptions`, `DiscoveryResult`, `RegisteredController`, `ResolvedOptions`      | Same names                                                            |
+| Errors: `ControllerError`, `ControllerResolutionError`, `DiscoveryError`, `GuardRejectionError`, `HttpError`, `MissingParameterError`, `NoRoutesError`, `NotAControllerError`, `NotAModuleError`, `ParameterInjectionError`, `RouteRegistrationError` | Same names |
+| `Body`, `Controller`, `Ctx`, `Catch`, `Delete`, `Get`, `Header`, `Module`, `Param`, `Patch`, `Post`, `Put`, `Query`, `UseFilter`, `UseGuard`, `UseInterceptor` (convenience re-exports)                                                          | Same names |
+| Types: `ExceptionFilter`, `GuardContext`, `GuardFn`, `Interceptor`, `ModuleOptions`, `ModuleProvider`, `ModuleProviderConfig`, `OnInit`, `OnShutdown`                                                                                              | Same names |
+| `getModuleMetadata`, `isModule`, `isOnInit`, `isOnShutdown`                                                                              | Same names                                                            |
+
+```diff
+- import { registerControllers, Controller, Get } from '@nextrush/controllers';
++ import { registerControllers, Controller, Get } from 'nextrush/class';
+```
+
+<Callout type="error" title="One exception — DI symbols come from @nextrush/di, not through the shim">
+  `@nextrush/controllers` also re-exports `Repository`, `Service`, `container`, `createContainer`,
+  `inject`, and the `Container` type — but its source imports these **directly from
+  `@nextrush/di`**, not from `@nextrush/class`. The end result is the same six symbols either
+  way, but if you're auditing imports mechanically: `packages/controllers/src/index.ts`'s final
+  block is `export { Repository, Service, container, createContainer, inject, type Container }
+  from '@nextrush/di'` — not `from '@nextrush/class'`. Import from `nextrush/class` (which itself
+  re-exports the identical six symbols from `@nextrush/di`) going forward; both paths resolve to
+  the same implementation.
+</Callout>
+
+## What does NOT move to `nextrush/class`
+
+Some symbols exist only on `@nextrush/di` and were never re-exported by `@nextrush/class`,
+`@nextrush/decorators`, or `@nextrush/controllers` at any point. If you see one of these
+imported from `nextrush/class` anywhere (including in older drafts of this documentation), it is
+wrong — confirmed by reading `packages/class/src/index.ts`'s DI re-export block, which contains
+**only** `Repository, Service, container, createContainer, inject, Container`:
+
+- `@Config`, `@Injectable`, `@Optional` — DI-only decorators/utilities, not re-exported.
+- `delay` — tsyringe's lazy-resolution helper, DI-only.
+- The `DIError` family — DI-only error classes.
+
+For any of these, `import { ... } from '@nextrush/di'` directly.
+
+## Verification note
+
+The two tables above are a line-by-line transcription of `packages/decorators/src/index.ts` and
+`packages/controllers/src/index.ts` as they exist today — every export in the "old import"
+column is copied from the actual shim file's `export { ... } from '@nextrush/class'` /
+`from '@nextrush/di'` statements, not inferred. Both packages are versioned `3.1.0`, matching
+`@nextrush/class`.
+
+## Next steps
+
+- [`@nextrush/class` reference](/docs/reference/class) — the complete current export surface.
+- [Modules](/docs/concepts/modules), [Dependency Injection & Scopes](/docs/concepts/dependency-injection).
+- [Upgrade guide](/docs/migrate/upgrade-guide) — what a version bump means today.

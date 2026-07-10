@@ -5,16 +5,22 @@ import os from 'node:os';
 const cpuThreads = Math.max(2, Math.min(os.cpus().length, 16));
 
 export const PROFILES = {
-  /** Fast feedback during development. Single run, low concurrency. */
+  /**
+   * Fast feedback during development. Single run, low concurrency.
+   * NOT publishable — a single run has no variance and must never back a
+   * published number (audit FAIR-02).
+   */
   quick: {
     duration: '10s',
     connections: [64],
     threads: Math.min(cpuThreads, 4),
     runs: 1,
     warmupDuration: '5s',
+    scenarioWarmupDuration: '2s',
     cooldownMs: 2000,
     pauseBetweenTestsMs: 1000,
-    description: 'Quick dev iteration (single run, 64 connections)',
+    publishable: false,
+    description: 'Quick dev iteration (single run, 64 connections) — NOT publishable',
   },
 
   /** Regular CI testing. Multiple concurrency levels, 3 runs for statistics. */
@@ -24,8 +30,10 @@ export const PROFILES = {
     threads: Math.min(cpuThreads, 4),
     runs: 3,
     warmupDuration: '10s',
+    scenarioWarmupDuration: '3s',
     cooldownMs: 3000,
     pauseBetweenTestsMs: 2000,
+    publishable: true,
     description: 'Standard CI benchmark (3 runs, 3 concurrency levels incl. serial baseline)',
   },
 
@@ -36,8 +44,10 @@ export const PROFILES = {
     threads: cpuThreads,
     runs: 5,
     warmupDuration: '15s',
+    scenarioWarmupDuration: '5s',
     cooldownMs: 5000,
     pauseBetweenTestsMs: 3000,
+    publishable: true,
     description: 'Full release benchmark (5 runs, 4 concurrency levels)',
   },
 
@@ -48,9 +58,11 @@ export const PROFILES = {
     threads: cpuThreads,
     runs: 3,
     warmupDuration: '15s',
+    scenarioWarmupDuration: '5s',
     cooldownMs: 5000,
     pauseBetweenTestsMs: 5000,
-    description: 'Stress test (3 runs, high concurrency, 2min duration)',
+    publishable: false,
+    description: 'Stress test (3 runs, high concurrency, 2min duration) — NOT publishable',
   },
 };
 

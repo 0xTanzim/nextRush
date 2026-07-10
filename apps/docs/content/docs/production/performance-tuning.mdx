@@ -1,0 +1,62 @@
+---
+title: Performance Tuning
+description: Optimize NextRush applications for production throughput — Node.js runtime flags, hot-path hygiene, connection handling, and where the deep-dive content lives.
+---
+
+<Callout type="info" title="Canonical home stays at /docs/performance/tuning">
+  Performance tuning has independent readership outside the production spine — it is linked
+  from [Start](/docs/start), [FAQ](/docs/resources/faq), and [Migration](/docs/guides/migration).
+  Moving it here would break those existing links or require touching files outside this
+  task's scope, so this page stays a short pointer rather than a duplicate. The full guide
+  lives at **[Performance Tuning](/docs/performance/tuning)**.
+</Callout>
+
+## What you'll find there
+
+- **Middleware order** — reject-early ordering (rate limit → CORS → auth → body parsing)
+  so expensive work never runs for requests that end up rejected.
+- **Route-specific middleware** — avoid applying body parsing or other route-scoped work
+  globally when only some routes need it.
+- **JSON response hygiene** — avoid double-serialization in class-based controllers, and
+  pre-compute static responses that don't change per request.
+- **Connection handling** — keep-alive at the reverse proxy, and Node.js cluster mode to use
+  all CPU cores.
+- **Production environment variables** — `NODE_ENV=production`, `UV_THREADPOOL_SIZE`, and
+  `NODE_OPTIONS=--max-old-space-size` for heap limits.
+- **Graceful shutdown** — draining in-flight requests on `SIGTERM` before exit.
+
+## Routing performance
+
+NextRush's router is a **segment trie** with **O(k) lookup**, where `k` is the number of path
+segments in the request path — not the number of registered routes. Route count does not
+affect matching speed. This is documented and test-verified in
+[`packages/router/README.md`](https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md)
+("O(k) route matching where k = path segment count, not route count") and audited in
+[`packages/router/ROUTER_AUDIT.md`](https://github.com/0xTanzim/nextRush/blob/main/packages/router/ROUTER_AUDIT.md)
+(200 router tests, correctness-focused, not a performance benchmark). For the mental model and
+matching algorithm, see [Concepts: Routing](/docs/concepts/routing).
+
+## Avoiding blocking I/O in hot paths
+
+The request-handling path (middleware chain, router lookup) runs on Node's single event loop.
+Synchronous, CPU-bound work or blocking I/O (synchronous file reads, `crypto` sync APIs, tight
+loops) in a middleware or handler stalls every other in-flight request on that process. Prefer
+the `async`/`await`-native APIs already used throughout NextRush's own middleware, and offload
+genuinely CPU-heavy work (image processing, heavy compression) to a worker thread or a separate
+service rather than the request path.
+
+## Connection pooling
+
+NextRush's core has no database client — connection pooling is the responsibility of whichever
+client library you pair with a data store (e.g. `pg.Pool` for PostgreSQL, a Redis client's
+built-in pool). The pattern that applies regardless of client: create the pool once at startup
+(module scope, outside any request handler) and inject or import the shared instance — never
+open a new connection per request. This mirrors the framework's own DI singleton pattern (see
+[Concepts: Dependency Injection](/docs/concepts/dependency-injection)) — a database pool is a
+natural fit for a singleton-scoped service.
+
+## Next steps
+
+- Full tuning guide with code samples: **[/docs/performance/tuning](/docs/performance/tuning)**
+- Benchmark methodology: [Benchmarking](/docs/production/benchmarking)
+- Router internals: [Concepts: Routing](/docs/concepts/routing)

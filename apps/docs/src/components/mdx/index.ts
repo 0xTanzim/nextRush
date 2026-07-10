@@ -20,6 +20,7 @@ export type {
 } from './doc-page';
 export { Feature, FeatureGrid } from './feature-grid';
 export { Mermaid } from './mermaid';
+export { OpenInStackBlitz } from './open-in-stackblitz';
 export { PackageInstall } from './package-install';
 export { PackageCard, PackageGrid, PackageSection } from './package-grid';
 export { TypeTable } from './type-table';

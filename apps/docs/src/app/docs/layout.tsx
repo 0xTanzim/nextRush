@@ -30,7 +30,6 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
     <DocsLayout
       tree={source.getPageTree()}
       {...baseOptions()}
-      links={[]}
       sidebar={{
         banner: <SkillsSidebarPromo />,
         footer: <SidebarFooterLinks />,

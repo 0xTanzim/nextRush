@@ -1,0 +1,112 @@
+---
+title: Benchmarking
+description: How NextRush's benchmark suite validates fairness and measures throughput — and where the full methodology page lives.
+---
+
+<Callout type="info" title="Canonical home stays at /docs/performance">
+  Benchmark methodology has independent readership outside the production spine — it is linked
+  from [Start](/docs/start), [FAQ](/docs/resources/faq), the marketing homepage, and
+  [Roadmap](/docs/resources/roadmap). Moving it here would break those existing links or
+  require touching files outside this task's scope, so this page stays a short pointer rather
+  than a duplicate. The full methodology lives at **[Benchmarks](/docs/performance)**.
+</Callout>
+
+<Callout type="warn" title="Numbers are being re-measured">
+  Published RPS figures were withdrawn pending re-measurement on a clean, CPU-pinned
+  environment. Earlier numbers came from single-run sessions on a shared machine and were not
+  reproducible to a publishable standard. This page does not restate any specific figure — run
+  the suite yourself. Source: [`apps/benchmark/README.md`](https://github.com/0xTanzim/nextRush/blob/main/apps/benchmark/README.md)
+  ("Numbers are being re-measured..."; "Do not cite them.").
+</Callout>
+
+## What the suite measures
+
+The suite in `apps/benchmark` compares **six servers** — NextRush v3, Fastify, Express, Koa,
+Hono, and a raw Node.js baseline — across **10 scenarios** (hello-world, json-serialize,
+route-params, query-string, post-json, deep-route, middleware-stack, error-handling,
+large-json, empty-response), per `apps/benchmark/README.md`.
+
+## Tools
+
+<Tabs items={['wrk', 'autocannon']}>
+  <Tab value="wrk">
+    C-based, runs as a separate process — does not share the Node.js event loop with the
+    server under test. The primary tool for publishable numbers. Install with
+    `sudo apt install wrk` / `brew install wrk`. Source: `apps/benchmark/README.md`
+    ("wrk is the primary tool. It runs as a separate C process and does not share the Node.js
+    event loop").
+  </Tab>
+  <Tab value="autocannon">
+    Node.js-based, runs in-process and shares the event loop with the server — always
+    available via `pnpm`, no system install required. Used as the automatic fallback when
+    `wrk` isn't installed. Source: `apps/benchmark/README.md` ("autocannon is the automatic
+    fallback... Good for quick comparisons").
+  </Tab>
+</Tabs>
+
+## Fairness is validated, not assumed
+
+`pnpm bench:validate` boots every server and asserts byte-identical response bodies, matching
+statuses, and identical middleware headers **before any timing happens**; the runner also runs
+this as a pre-flight and aborts on mismatch. Source: `apps/benchmark/README.md` ("Fairness
+Guarantees... Enforced mechanically by `pnpm bench:validate`").
+
+Two scenarios are explicitly **not** like-for-like and are disclosed as such: **middleware-stack**
+(each framework uses its own idiomatic 5-layer mechanism — middleware chains vs Fastify
+`onRequest` hooks vs a raw-node manual function chain) and **error-handling** (each framework's
+own error handler). The other 8 scenarios return byte-identical response bodies across all six
+servers.
+
+## Publishable profiles only
+
+<TypeTable
+  title="Benchmark profiles"
+  types={{
+    quick: { type: 'string', description: '10s, 64 connections, 1 run — dev iteration only. NOT publishable.' },
+    standard: { type: 'string', description: '30s, connections 1/64/256, 3 runs — CI-grade, publishable.' },
+    full: { type: 'string', description: '60s, connections 1/64/256/512, 5 runs — release validation, publishable.' },
+    stress: { type: 'string', description: '120s, connections 256/512/1024, 3 runs — breaking-point analysis. NOT publishable.' },
+  }}
+/>
+
+Only `standard` and `full` may back published numbers; both report mean ± sample standard
+deviation and Coefficient of Variation (CV%). Source: `apps/benchmark/README.md` ("Single-run
+(`quick`) and stress profiles are marked NOT publishable... Only the `standard` and `full`
+profiles are publishable").
+
+## Running it yourself
+
+```bash
+cd apps/benchmark
+pnpm install
+
+# 1. Confirm fairness — all servers must return identical bodies/headers
+pnpm bench:validate
+
+# 2. Publishable comparison (5 runs, 4 concurrency levels, mean ± stddev + CV)
+pnpm bench:compare --profile full
+
+# Optional: pin server processes to CPU cores (Linux, taskset) for lower scheduler noise
+node scripts/run.js --compare --profile full --pin 2-7
+```
+
+Source: `apps/benchmark/README.md` (Quick Start / CLI Reference sections) and the root
+[`README.md`](https://github.com/0xTanzim/nextRush/blob/main/README.md) ("Publishable numbers
+are multi-run").
+
+## Known limitations (disclosed, not hidden)
+
+- **Loopback-bound** — the load generator and the server under test share the same machine, so
+  absolute RPS reflects the whole box, not the framework in isolation. Use relative rankings on
+  identical hardware, not absolute numbers across different machines.
+- **autocannon shares the Node.js event loop** with the server — prefer `wrk` for accuracy.
+- **No Docker isolation** — servers and the load tool share the OS scheduler.
+
+Source: `apps/benchmark/README.md` ("Known Limitations").
+
+## Next steps
+
+- Full methodology, scenario tables, and design trade-offs vs Fastify:
+  **[/docs/performance](/docs/performance)**
+- Performance tuning guidance: [Performance Tuning](/docs/production/performance-tuning)
+- Run the suite: `apps/benchmark/README.md` in the repository

@@ -4,11 +4,16 @@
   "description": "NextRush framework documentation — concepts, guides, and API reference.",
   "pages": [
     "index",
-    "getting-started",
+    "start",
     "concepts",
     "guides",
-    "examples",
-    "api-reference",
+    "production",
+    "reference",
+    "recipes",
+    "migrate",
+    "internals",
+    "resources",
+    "---",
     "performance",
     "community"
   ]

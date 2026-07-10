@@ -1,0 +1,181 @@
+---
+title: Dependency Injection & Scopes
+description: How NextRush resolves class dependencies, and what singleton, transient, and request scope actually guarantee
+---
+
+## The Real Problem
+
+A service that depends on another service needs some way to get an instance of it — construct it inline, pass it through a chain of function arguments, or reach for a global. Constructing inline couples every class to its dependencies' concrete constructors, making tests and swaps (a mock repository, a different cache backend) awkward. A global registry avoids that coupling but hides what a class actually needs, and gives every class the same lifetime whether that's appropriate or not.
+
+## Why NextRush Solves It This Way
+
+NextRush wraps [tsyringe](https://github.com/microsoft/tsyringe) with a small container API (`@nextrush/di`, re-exported from `nextrush/class`) that resolves constructor dependencies automatically from TypeScript's emitted parameter types. You declare what a class needs in its constructor; the container looks up each parameter's type and resolves it, recursively, before constructing your class.
+
+The wrapper's job is narrower than tsyringe's full surface: constructor injection, three lifecycle scopes, circular-dependency detection with an actual dependency chain in the error, and isolated child containers for testing. It intentionally does not expose every tsyringe feature — that keeps the public API small enough to hold in your head.
+
+<Callout type="warn" title="Constructor metadata requires proper compilation">
+  The container resolves constructor parameter types via `design:paramtypes`, which TypeScript
+  only emits with `emitDecoratorMetadata` enabled and a compiler that respects it. Most fast
+  bundlers (esbuild, tsx, plain swc) skip this. Use `nextrush dev` / `nextrush build`, which
+  compile with the metadata emission NextRush's DI depends on.
+</Callout>
+
+## Mental Model
+
+Think of the container as a lazy, memoizing factory. Nothing is constructed at the moment a class is decorated — `@Service()` only records metadata. Construction happens at `resolve()` time, and what the container does at that moment depends on the class's scope:
+
+<Mermaid
+  chart="
+flowchart LR
+    A[resolve(UserService)] --> B{Scope?}
+    B -->|singleton| C[Return cached instance, or construct once and cache]
+    B -->|transient| D[Construct a new instance every time]
+    B -->|request| E[Return this request's instance, or construct once per request]
+"
+/>
+
+## How It Works
+
+### Declaring a service
+
+```ts title="user.service.ts"
+import { Service } from 'nextrush/class';
+
+@Service() // singleton by default
+class UserRepository {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Service()
+class UserService {
+  constructor(private repo: UserRepository) {}
+
+  getUsers() {
+    return this.repo.findAll();
+  }
+}
+```
+
+`@Service()` records the class's type (`'service'`) and scope in reflect-metadata, then applies the matching tsyringe registration (`singleton()` for singleton scope, `injectable()` otherwise). `@Repository()` is identical in behavior — it exists purely so you can name a data-access class by what it is, not what scope it has.
+
+### Resolving
+
+```ts
+import { container } from 'nextrush/class';
+
+const userService = container.resolve(UserService);
+```
+
+Resolving `UserService` triggers the container to first resolve `UserRepository` (reading it from `UserService`'s constructor parameter types), then construct `UserService` with it. Inside a controller, this happens automatically — `registerControllers()` (or `registerModule()`) resolves each controller from the same container your services are registered in, so a controller's constructor dependencies are injected the same way.
+
+## Scopes
+
+<TypeTable
+  title="Scope"
+  types={{
+    singleton: {
+      type: "'singleton'",
+      description: 'One instance shared for the entire application lifetime. The default when no scope is given.',
+    },
+    transient: {
+      type: "'transient'",
+      description: 'A new instance is constructed on every resolve() call.',
+    },
+    request: {
+      type: "'request'",
+      description: 'One instance per HTTP request, shared by everything that resolves it within that request.',
+    },
+  }}
+/>
+
+```ts title="Declaring scope explicitly"
+import { Service } from 'nextrush/class';
+
+@Service() // singleton — implicit, same as { scope: 'singleton' }
+class ConfigService {}
+
+@Service({ scope: 'transient' }) // a fresh instance every resolve
+class Formatter {}
+
+@Service({ scope: 'request' }) // one instance per HTTP request
+class RequestId {
+  readonly id = crypto.randomUUID();
+}
+```
+
+Singleton is implemented as a real tsyringe singleton — constructed once, cached, returned on every subsequent resolve. Transient is a plain `injectable()` registration with no caching — every `resolve()` runs the constructor again. Request scope maps to tsyringe's `ContainerScoped` lifecycle: one instance per *container*, and NextRush resolves request-scoped dependencies from a per-request child container, so "per container" becomes "per request" in practice.
+
+### Request-scope bubbling
+
+A class's own declared scope is not the only thing that determines whether it behaves as request-scoped. NextRush computes each class's **effective** scope by walking its constructor dependency graph: a class is effectively request-scoped if it declares `scope: 'request'` itself, *or* if anything it transitively depends on does.
+
+```ts title="Bubbling in practice"
+import { Service, Controller, Get } from 'nextrush/class';
+
+@Service({ scope: 'request' })
+class RequestId {
+  readonly id = crypto.randomUUID();
+}
+
+@Service() // declared singleton — but bubbles to request-effective
+class AuditLogger {
+  constructor(private requestId: RequestId) {}
+
+  log(message: string) {
+    console.log(`[${this.requestId.id}] ${message}`);
+  }
+}
+
+@Controller('/orders') // undecorated — also bubbles to request-effective
+class OrderController {
+  constructor(private audit: AuditLogger) {}
+
+  @Get()
+  list() {
+    this.audit.log('listing orders');
+    return [];
+  }
+}
+```
+
+`AuditLogger` declares no scope at all — by itself it would default to singleton — but because it depends on `RequestId`, its *effective* scope is request. `OrderController` bubbles the same way because it depends on `AuditLogger`. Without bubbling, a singleton `AuditLogger` would resolve `RequestId` once, ever, and every request would log the same stale ID.
+
+Bubbling is mandatory, not opt-in — there's no configuration flag to disable it, because a singleton that silently cached a request-scoped dependency's first-ever value would be a correctness bug, not a valid choice.
+
+## What Happens Automatically
+
+- **Circular dependencies are detected, not silently infinite-looped.** The container tracks a resolution stack; a class that appears twice in a single resolution chain throws `CircularDependencyError` with the actual chain (e.g. `ServiceA → ServiceB → ServiceA`) rather than overflowing the call stack.
+- **Request-scoped classes are re-registered onto the request lifecycle automatically** by the controller registrar — you write `{ scope: 'request' }` once on the class; nothing in your controller code opts into per-request resolution explicitly.
+- **A request-scoped dependency anywhere in a controller's graph makes controller resolution request-scoped too** — you don't need to mark every intermediate class; only the leaf that genuinely needs per-request state does.
+
+## Trade-offs & Guarantees
+
+NextRush guarantees that within a single resolution chain, a circular dependency is caught and reported with its full chain rather than crashing the process. It guarantees singleton instances are constructed at most once per container and transient instances never share state across resolves.
+
+It does not guarantee low overhead for request scope: a request-scoped dependency means a resolution — and the child-container mechanics behind it — runs on every matching request, not once at boot. A purely singleton controller graph keeps a memoized fast path with no added per-request cost; introducing one request-scoped leaf anywhere in the graph opts the whole resolution into per-request work.
+
+<Callout type="warn" title="Breaking a genuine circular dependency">
+  Two services that legitimately need each other (`ServiceA` needs `ServiceB` and vice versa)
+  will always throw `CircularDependencyError` — the container does not attempt lazy proxying.
+  Break the cycle by extracting the shared behavior into a third service both depend on, or by
+  restructuring so the dependency is one-directional.
+</Callout>
+
+## Common Mistakes
+
+1. **Using a fast bundler that doesn't emit decorator metadata** — the error is usually a vague resolution failure or `undefined` constructor arguments, not an obvious "metadata missing" message. Build with `nextrush dev`/`nextrush build` for class-based apps.
+2. **Assuming `transient` means "fresh per request"** — transient means fresh per `resolve()` call, which can happen multiple times within a single request (e.g. once for the controller, once elsewhere) or never at all if nothing resolves it. Use `request` scope when the requirement is specifically "once per request."
+3. **Expecting a singleton to see per-request data without declaring or depending on a request-scoped class** — a class stays a true singleton, with one instance for the app's lifetime, unless it declares `scope: 'request'` or depends (transitively) on something that does.
+
+## When Not to Use This
+
+Not every class needs DI. A pure function, a stateless formatter with no dependencies of its own, or a value object gains nothing from `@Service()` and container resolution — write it as a plain function or class and construct it directly. Reach for DI when a class has dependencies that benefit from being swapped in tests (a mock repository) or shared across the app (a database pool).
+
+## Related
+
+- [Modules](/docs/concepts/modules) — grouping providers and controllers, and how module providers register into the same container
+- [Guards](/docs/concepts/guards) — class guards implementing `CanActivate` are resolved from the same container, so they can inject services
+- [Lifecycle](/docs/concepts/lifecycle) — `OnInit`/`OnShutdown` hooks on DI-managed services
+- [`@nextrush/di` Reference](/docs/reference/class/di) — full `Container`, `Service`, `Repository`, and error type signatures

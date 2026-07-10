@@ -1,0 +1,162 @@
+---
+title: Caching
+description: Caching is an architectural pattern in NextRush, not a built-in feature — how to apply HTTP cache headers and a service-layer cache correctly.
+---
+
+<Callout type="info" title="No built-in caching package">
+  NextRush does not ship a `@nextrush/cache` package. There is no middleware, extension,
+  or registrar for caching in the [35-package registry](/packages). Everything on this
+  page is a **pattern** you implement in your own application code — HTTP response
+  headers the browser/CDN respects, plus an optional cache layer in your own service
+  code. Nothing here is a NextRush feature.
+</Callout>
+
+## Why there's no framework-level cache
+
+Caching correctness depends entirely on your data's invalidation semantics — how long a
+resource is valid, what invalidates it, and whether staleness is acceptable. A generic
+framework-level cache either guesses wrong for your domain or forces a configuration
+surface large enough to become its own subsystem. NextRush keeps caching out of the
+core and middleware layers and gives you the primitives — HTTP headers and a plain
+`ctx` — to build the cache that fits your data.
+
+---
+
+## Pattern 1 — HTTP cache headers
+
+The cheapest and most effective cache is the one a browser or CDN applies without your
+server doing any work on a cache hit. Set `Cache-Control` with `ctx.set()`
+(`packages/adapters/node/src/context.ts`) on any response that is safe to cache:
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/articles/:id', async (ctx) => {
+  const article = await getArticle(ctx.params.id);
+
+  // Public, cacheable for 60s; a stale copy may be served for another 30s
+  // while a fresh copy is fetched in the background.
+  ctx.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
+  ctx.json(article);
+});
+
+app.route('/', router);
+listen(app, 8080);
+```
+
+Verified: booting this exact handler and requesting it returns the header unchanged —
+
+```bash
+$ curl -sD - -o /dev/null http://localhost:8931/articles/42
+HTTP/1.1 200 OK
+Cache-Control: public, max-age=60, stale-while-revalidate=30
+Content-Type: application/json; charset=utf-8
+Content-Length: 37
+```
+
+<Callout type="warn" title="Never cache authenticated or per-user responses as public">
+  `public` tells any intermediary (CDN, shared proxy) it may cache and serve the
+  response to other users. A response containing per-user data must use
+  `private` (cacheable only by the requesting browser) or `no-store` (never cached),
+  never `public`.
+</Callout>
+
+Common directives for an API:
+
+| Directive | Use for |
+| --- | --- |
+| `no-store` | Any authenticated or per-user response |
+| `private, max-age=<n>` | Per-user data safe to cache in that user's browser only |
+| `public, max-age=<n>` | Identical response for all callers (public catalog, static lookups) |
+| `stale-while-revalidate=<n>` | Serve stale while refetching in the background — good for high-read, low-volatility data |
+
+Conditional requests (`ETag` / `If-None-Match`, `Last-Modified` / `If-Modified-Since`)
+follow the same pattern: compute the value from your data, set it with `ctx.set()`, and
+check the matching request header before doing the expensive work.
+
+---
+
+## Pattern 2 — a cache layer in your service code
+
+For data that's expensive to compute or fetch but doesn't map cleanly to an HTTP
+response (an aggregated report, a third-party API result, a DB query used by multiple
+routes), put a cache in the service/domain layer — not in a middleware or the route
+handler.
+
+```typescript
+// services/article-service.ts
+interface CacheStore {
+  get<T>(key: string): Promise<T | undefined>;
+  set<T>(key: string, value: T, ttlMs: number): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+
+class ArticleService {
+  constructor(
+    private readonly db: ArticleRepository,
+    private readonly cache: CacheStore
+  ) {}
+
+  async getArticle(id: string) {
+    const cached = await this.cache.get<Article>(`article:${id}`);
+    if (cached) return cached;
+
+    const article = await this.db.findById(id);
+    await this.cache.set(`article:${id}`, article, 60_000);
+    return article;
+  }
+
+  async updateArticle(id: string, data: UpdateArticleInput) {
+    const updated = await this.db.update(id, data);
+    await this.cache.delete(`article:${id}`); // invalidate on write
+    return updated;
+  }
+}
+```
+
+`CacheStore` is your own interface — implement it with an in-memory `Map` for a
+single-process deployment, or a Redis client for anything that scales to more than one
+process (see [Scaling](/docs/production/scaling) for why a single process's in-memory
+cache doesn't work once you run multiple instances). The route handler stays thin and
+calls one service method; it never talks to the cache directly — that's the same
+"business logic out of the handler" rule the project applies everywhere else.
+
+```typescript
+router.get('/articles/:id', async (ctx) => {
+  const article = await articleService.getArticle(ctx.params.id);
+  ctx.json(article);
+});
+```
+
+---
+
+## Invalidation strategy
+
+Pick one deliberately — an unstated invalidation strategy is a bug waiting to surface
+as stale data in production:
+
+- **TTL-only** — simplest. Accept that data can be stale for up to the TTL window.
+  Fine for data where staleness has low cost (a homepage list, a public catalog).
+- **Write-through invalidation** — the mutation that changes the data also deletes or
+  updates the cache entry (as in `updateArticle` above). Needed wherever staleness
+  after a write would be user-visible and confusing (e.g., a user's own profile).
+- **Event-driven invalidation** — a write in one service publishes an event that other
+  services/processes use to invalidate their own cache entries. Needed once caching
+  spans more than one process, since TTL-only or write-through within a single
+  process's memory won't reach the other instances.
+
+---
+
+## Next steps
+
+<Cards>
+  <Card title="Scaling" href="/docs/production/scaling">
+    Why an in-memory cache or rate-limit store breaks once you run more than one process.
+  </Card>
+  <Card title="Dependency Injection" href="/docs/concepts/dependency-injection">
+    Register a cache client as a singleton service and inject it into your services.
+  </Card>
+</Cards>

@@ -16,7 +16,11 @@
     "bench:autocannon": "node scripts/run.js --tool autocannon",
     "bench:nextrush": "node scripts/run.js --framework nextrush-v3",
     "bench:baseline": "node scripts/run.js --framework raw-node",
+    "bench:validate": "node scripts/validate-parity.js",
+    "bench:check": "node scripts/check-regression.js",
+    "bench:mixed": "wrk -t4 -c64 -d10s -s wrk/mixed.lua http://localhost:8080/",
     "smoke-test": "node scripts/smoke-test.js",
+    "test": "node --test scripts/lib/__tests__/*.test.js",
     "report": "node scripts/report.js",
     "report:latest": "node scripts/report.js --latest",
     "report:list": "node scripts/report.js --list",
@@ -24,20 +28,20 @@
     "clean": "rm -rf results/*"
   },
   "devDependencies": {
-    "@hono/node-server": "^1.19.13",
+    "@hono/node-server": "1.19.13",
     "@nextrush/adapter-node": "workspace:*",
     "@nextrush/body-parser": "workspace:*",
     "@nextrush/core": "workspace:*",
     "@nextrush/router": "workspace:*",
     "@nextrush/runtime": "workspace:*",
     "@nextrush/types": "workspace:*",
-    "autocannon": "^8.0.0",
-    "express": "^5.2.1",
-    "fastify": "^5.8.4",
-    "hono": "^4.12.12",
-    "koa": "^3.2.0",
-    "koa-bodyparser": "^4.4.1",
-    "koa-router": "^14.0.0"
+    "autocannon": "8.0.0",
+    "express": "5.2.1",
+    "fastify": "5.8.4",
+    "hono": "4.12.12",
+    "koa": "3.2.0",
+    "koa-bodyparser": "4.4.1",
+    "koa-router": "14.0.0"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -18,41 +18,36 @@
 
 ## Performance
 
-Benchmark snapshot from a single lab machine (Intel i5-8300H, 8 cores) running Node.js v25.9.0.
-All tests: 10s duration, 64 connections, 4 threads. All servers implement identical endpoints with equivalent work.
-For methodology, versions, and reproducible scripts, see `apps/benchmark`.
+NextRush is built for high throughput with a zero-dependency core, and it benchmarks
+competitively against Fastify, Hono, Koa, and Express. The suite in `apps/benchmark` compares
+six servers (including a raw Node.js baseline) across 10 scenarios using **wrk** (C-based,
+process-isolated) and **autocannon** (Node.js-based).
 
-### wrk (C-based, process-isolated)
+> **Published numbers are being re-measured on a clean, CPU-pinned environment with the
+> hardened, parity-validated harness.** Earlier figures came from single-run sessions on a
+> shared machine and were not reproducible to a publishable standard, so they have been
+> withdrawn pending re-measurement. Run the suite yourself for current numbers on your hardware.
 
-| Framework       | Hello World    | Route Params   | POST JSON      | Middleware Stack |
-| --------------- | -------------- | -------------- | -------------- | ---------------- |
-| Raw Node.js     | 35,863 RPS     | 33,326 RPS     | 25,116 RPS     | 30,738 RPS       |
-| Fastify         | 35,592 RPS     | 32,407 RPS     | 18,799 RPS     | 27,968 RPS       |
-| **NextRush v3** | **31,311 RPS** | **29,688 RPS** | **18,460 RPS** | **32,377 RPS**   |
-| Hono            | 26,438 RPS     | 26,586 RPS     | 10,826 RPS     | 22,179 RPS       |
-| Koa             | 23,350 RPS     | 21,890 RPS     | 14,954 RPS     | 20,972 RPS       |
-| Express         | 17,784 RPS     | 17,598 RPS     | 12,947 RPS     | 17,356 RPS       |
+What the harness guarantees (see `apps/benchmark/README.md` and the audit reports there):
 
-### autocannon (Node.js-based, shares runtime)
+- **Fairness is validated, not assumed** — `pnpm bench:validate` asserts byte-identical response
+  bodies, statuses, and middleware headers across all six servers before any timing.
+- **Publishable numbers are multi-run** — only the `standard` (3 runs) and `full` (5 runs)
+  profiles may back published figures; each reports mean ± stddev and CV.
+- **Identical runtime config** — same Node flags, `NODE_ENV=production`, and payloads everywhere.
+- **Honest scope** — 8 scenarios do byte-identical work; the middleware and error scenarios use
+  each framework's idiomatic mechanism and are labeled as not like-for-like.
 
-| Framework       | Hello World    | Route Params   | POST JSON      | Middleware Stack |
-| --------------- | -------------- | -------------- | -------------- | ---------------- |
-| Raw Node.js     | 36,903 RPS     | 33,936 RPS     | 24,936 RPS     | 31,471 RPS       |
-| Fastify         | 34,063 RPS     | 31,095 RPS     | 18,532 RPS     | 28,744 RPS       |
-| **NextRush v3** | **31,733 RPS** | **29,534 RPS** | **19,192 RPS** | **32,220 RPS**   |
-| Hono            | 28,209 RPS     | 25,966 RPS     | 10,798 RPS     | 22,258 RPS       |
-| Koa             | 23,845 RPS     | 22,421 RPS     | 15,323 RPS     | 21,125 RPS       |
-| Express         | 19,496 RPS     | 18,209 RPS     | 13,063 RPS     | 17,352 RPS       |
+```bash
+cd apps/benchmark
+pnpm install
+pnpm bench:validate                       # confirm fairness
+pnpm bench:compare --profile full         # publishable comparison (5 runs)
+```
 
-NextRush v3 leads on middleware-stack in both tools and is competitive across all scenarios.
+> Performance varies by hardware. The only numbers that matter for your capacity planning are
+> the ones you measure on your own machine.
 
-Benchmarks are run via **2 built-in tools** in `apps/benchmark`:
-- **wrk** (C-based, process-isolated) — primary tool, most accurate results
-- **autocannon** (Node.js-based) — automatic fallback
-
-The runner auto-detects wrk first; use `--tool wrk|autocannon` to force a specific tool.
-
-> Performance varies by hardware. Run `pnpm benchmark` to test on your machine.
 
 ## Quick Start
 
@@ -102,7 +97,6 @@ pnpm add nextrush
 ```
 
 ```typescript
-import 'reflect-metadata';
 import { Controller, Get, Post, Body, Param, Service } from 'nextrush/class';
 
 @Service()

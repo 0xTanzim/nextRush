@@ -201,7 +201,7 @@ async function getUser(ctx) {
 }
 ```
 
-For class-based controllers (registered via `registerControllers()` from `@nextrush/controllers` / `nextrush/class`), the handler building pipeline adds steps before calling your method:
+For class-based controllers (registered via `registerControllers()` from `nextrush/class`), the handler building pipeline adds steps before calling your method:
 
 1. Execute guards (class-level, then method-level)
 2. Resolve controller instance from the app's DI container
@@ -247,8 +247,8 @@ You can throw errors from anywhere in the middleware chain:
 // HTTP error with status
 ctx.throw(404, 'User not found');
 
-// Error classes from @nextrush/errors
-import { NotFoundError } from '@nextrush/errors';
+// Error classes from nextrush
+import { NotFoundError } from 'nextrush';
 throw new NotFoundError('User not found');
 
 // Plain errors become 500
@@ -274,7 +274,7 @@ throw new Error('Database connection failed');
 
 Now that you understand the request lifecycle:
 
-- Learn how [middleware composition](/docs/concepts/middleware-internals) works in detail
+- Learn how [middleware composition](/docs/internals/middleware-internals) works in detail
 - See how NextRush achieves [runtime compatibility](/docs/concepts/runtime-compatibility)
-- Explore the [package hierarchy](/docs/concepts/package-hierarchy)
+- Explore the [package hierarchy](/docs/internals/package-hierarchy)
 - Learn about [extending NextRush](/docs/concepts/plugins) with middleware, registrars, and extensions

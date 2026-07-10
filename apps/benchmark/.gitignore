@@ -1,2 +1,5 @@
-results/
+# Generated benchmark runs are not committed. A single pinned `baseline/` may be
+# committed so `pnpm bench:check` has something to compare against in CI.
+/results/*
+!/results/baseline/
 node_modules/

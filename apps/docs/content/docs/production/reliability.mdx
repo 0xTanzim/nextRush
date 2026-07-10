@@ -1,0 +1,239 @@
+---
+title: Reliability
+description: Graceful shutdown, health checks, and request timeouts for NextRush apps running in production.
+---
+
+Running in production means surviving deploys, restarts, and slow or hanging
+requests without dropping in-flight work or hanging forever. NextRush gives
+you three real primitives to build this on — `Application.close()`, the
+`OnInit`/`OnShutdown` lifecycle hooks, and the Node adapter's `timeout`/
+`shutdownTimeout` options. There is no single `gracefulShutdown()` call or
+built-in `/health` route — you compose these primitives yourself, as shown
+below.
+
+## Graceful shutdown
+
+When your process receives `SIGTERM` (the signal most orchestrators — Docker,
+Kubernetes, systemd — send before killing a container), it should stop
+accepting new connections, let in-flight requests finish, clean up resources,
+and exit. Cutting connections immediately drops requests mid-flight.
+
+`Application.close()` (verified in `packages/core/src/application.ts`) runs
+every registered extension's `destroy()` in reverse registration order:
+
+```ts
+async close(): Promise<Error[]> {
+  this._closePromise ??= this._shutdown();
+  return this._closePromise;
+}
+```
+
+It returns an array of errors from any extension that failed to tear down
+cleanly — it never throws. The Node adapter's `serve()` (verified in
+`packages/adapters/node/src/adapter.ts`) already calls `close()` for you as
+part of `ServerInstance.close()`: it stops the HTTP server, drains
+connections up to `shutdownTimeout`, force-closes remaining sockets if the
+drain doesn't finish in time, and only then calls `app.close()`.
+
+The pattern is: listen for the signal, call the server's `close()`, exit.
+
+```ts
+import { createApp, listen } from 'nextrush';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({ message: 'Hello World' });
+});
+
+const server = await listen(app, 8080);
+
+async function shutdown(signal: string): Promise<void> {
+  app.logger.info(`${signal} received, shutting down`);
+  await server.close();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+```
+
+<Callout type="warn" title="This is a pattern, not a built-in">
+  NextRush has no global signal handler and no `gracefulShutdown()` helper.
+  You register `process.on('SIGTERM', ...)` yourself and call
+  `server.close()` — shown above — which internally drains connections and
+  calls `app.close()` for you.
+</Callout>
+
+### Cleanup with `OnShutdown` (class-based apps)
+
+If you use the class runtime, a `@Service` or `@Repository` can implement
+`OnShutdown` to release resources — closing a database pool, flushing a
+queue — without wiring anything into your signal handler. `registerControllers`
+bridges this automatically: it registers an internal extension that calls
+every resolved service's `onShutdown()` when `app.close()` runs, in the
+reverse of `onInit` order. This is verified in
+`packages/class/src/lifecycle/lifecycle-types.ts` and
+`packages/class/src/lifecycle/lifecycle.ts`.
+
+```ts
+import { Service } from '@nextrush/di';
+import type { OnInit, OnShutdown } from 'nextrush/class';
+
+@Service()
+class Database implements OnInit, OnShutdown {
+  private pool = createPool();
+
+  async onInit(): Promise<void> {
+    await this.pool.connect();
+  }
+
+  async onShutdown(): Promise<void> {
+    await this.pool.end();
+  }
+}
+```
+
+`OnInit`/`OnShutdown` are duck-typed interfaces — there is no decorator. A
+class opts in purely by declaring the method; `registerControllers` detects
+it via `isOnShutdown()`, which checks for a callable `onShutdown` member.
+Your `SIGTERM` handler still only needs to call `server.close()` — the
+service's cleanup runs as part of that same `app.close()` call.
+
+## Health checks
+
+NextRush has no built-in health-check middleware or route — you write a plain
+handler. Orchestrators poll a health endpoint to decide whether to route
+traffic to an instance (readiness) or restart it (liveness).
+
+### Minimal liveness check
+
+Confirms the process is alive and able to respond. No dependency checks.
+
+```ts
+import { createApp, listen } from 'nextrush';
+
+const app = createApp();
+
+app.get('/health', (ctx) => {
+  ctx.json({ status: 'ok' });
+});
+
+listen(app, 8080);
+```
+
+### Readiness check with dependency verification
+
+Confirms the app can actually serve traffic — its database and other
+downstream dependencies are reachable. Return `503` when a dependency is
+down, so a load balancer stops routing to this instance.
+
+```ts
+import { createApp, listen } from 'nextrush';
+
+const app = createApp();
+
+app.get('/health/ready', async (ctx) => {
+  const checks: Record<string, boolean> = {};
+
+  try {
+    await db.query('SELECT 1');
+    checks.database = true;
+  } catch {
+    checks.database = false;
+  }
+
+  const healthy = Object.values(checks).every(Boolean);
+
+  ctx.status = healthy ? 200 : 503;
+  ctx.json({ status: healthy ? 'ok' : 'degraded', checks });
+});
+
+listen(app, 8080);
+```
+
+<Callout type="info" title="Liveness vs. readiness">
+  Keep these as two separate routes. A liveness check that queries a database
+  can cause an orchestrator to kill a healthy process solely because a
+  downstream dependency is temporarily slow — restarting the process doesn't
+  fix a database outage. Readiness checks are for traffic routing; liveness
+  checks are for "should this process be restarted."
+</Callout>
+
+## Request timeouts
+
+The Node adapter enforces a request timeout at the socket level via
+`server.timeout` — this is a real, built-in option, not something you need to
+build yourself. Verified in `packages/adapters/node/src/adapter.ts`:
+
+```ts
+export interface ServeOptions {
+  /**
+   * Request timeout in milliseconds
+   * @default 30000 (30 seconds)
+   */
+  timeout?: number;
+  /**
+   * Graceful shutdown timeout in milliseconds.
+   * @default 30000 (30 seconds)
+   */
+  shutdownTimeout?: number;
+  /**
+   * Keep-alive timeout in milliseconds
+   * @default 5000 (5 seconds)
+   */
+  keepAliveTimeout?: number;
+}
+```
+
+The defaults come from `@nextrush/runtime`'s shared constants
+(`DEFAULT_TIMEOUT_MS = 30_000`, `DEFAULT_SHUTDOWN_TIMEOUT_MS = 30_000`,
+`DEFAULT_KEEP_ALIVE_TIMEOUT_MS = 5_000`), so every adapter documents and
+defaults to the same values.
+
+```ts
+import { listen, serve } from 'nextrush';
+
+const server = await serve(app, {
+  port: 8080,
+  timeout: 15_000, // socket-level request timeout
+  shutdownTimeout: 10_000, // drain window used by server.close()
+  keepAliveTimeout: 5_000,
+});
+```
+
+<Callout type="warn" title="Node's timeout is socket-level, not per-handler">
+  On the Node adapter, `timeout` closes the underlying socket via
+  `server.timeout` — it does not run your handler on a race and does not
+  produce a `504` response body. This is confirmed by the adapter conformance
+  suite (`packages/adapters/conformance/src/drivers/node-driver.ts`:
+  `handlerTimeout504: false`). The Web-standard adapters (Bun, Deno, Edge) use
+  an `AbortController` to race the handler and return a real `504 Gateway
+  Timeout`, aborting `ctx.signal` so a cooperative handler can stop early
+  (`handlerTimeout504: true` on those adapters). If you deploy on Node and
+  need a `504` body plus cooperative cancellation inside the handler, wrap
+  the handler yourself with `AbortSignal.timeout()` and check `ctx.signal`,
+  or switch to a Web-standard adapter.
+</Callout>
+
+For handlers that call a slow downstream service, use `ctx.signal` (combined
+by the adapter with the request's own abort signal) to cancel outbound work
+cooperatively rather than relying solely on the transport-level timeout:
+
+```ts
+app.get('/report', async (ctx) => {
+  const response = await fetch('https://slow-service.example.com/data', {
+    signal: ctx.signal,
+  });
+  ctx.json(await response.json());
+});
+```
+
+## Next steps
+
+- [Configuration](/docs/production/configuration) — environment values these
+  patterns read (ports, shutdown windows, database URLs).
+- [Deployment](/docs/production/deployment) — how orchestrators use these
+  health checks and signals in practice.
+- [Observability](/docs/production/observability) — logging what happens
+  during shutdown and timeout events.

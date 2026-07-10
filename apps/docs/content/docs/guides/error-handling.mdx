@@ -15,7 +15,7 @@ A NextRush application with:
 
 ## Prerequisites
 
-- A working NextRush application ([Getting Started](/docs/getting-started))
+- A working NextRush application ([Getting Started](/docs/start))
 - Basic understanding of [middleware](/docs/concepts/middleware)
 
 ## Installation
@@ -375,7 +375,7 @@ router.get('/users/:id', async (ctx) => {
 
 ## Controller-Specific Errors
 
-When using `@nextrush/controllers`, these additional errors are thrown automatically:
+When using controllers from `nextrush/class`, these additional errors are thrown automatically:
 
 | Error                       | Status | When                                     |
 | --------------------------- | ------ | ---------------------------------------- |
@@ -470,6 +470,6 @@ app.use(notFoundHandler());
   <Card
     title="Errors API Reference"
     description="Full HTTP error hierarchy and usage."
-    href="/docs/api-reference/core/errors"
+    href="/docs/reference/core/errors"
   />
 </Cards>

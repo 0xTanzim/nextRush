@@ -1,0 +1,140 @@
+---
+title: Logging
+description: Structured request logging with @nextrush/logger — levels, ctx.log, and production defaults.
+---
+
+`@nextrush/logger` wraps [`@nextrush/log`](https://www.npmjs.com/package/@nextrush/log) and adds
+a request-logging middleware, an attached `ctx.log` for handlers, and automatic correlation ID
+handling. Full options and every re-exported symbol are documented in the
+[reference page](/docs/reference/plugins/logger) — this page focuses on how to use it day-to-day
+in production.
+
+<Callout type="warn">
+  Register `logger()` before your route handlers. It attaches `ctx.log` and starts the request
+  timer; anything registered after it can read `ctx.log`, anything before it cannot.
+</Callout>
+
+## Minimal usage
+
+Verified against `packages/middleware/logger/src/index.ts`:
+
+```ts
+import { createApp } from 'nextrush';
+import { logger, createLogger } from '@nextrush/logger';
+
+const app = createApp();
+
+app.use(logger());
+
+app.get('/users', (ctx) => {
+  ctx.log.info('Fetching users', { path: ctx.path });
+  ctx.json({ users: [] });
+});
+
+// For code outside a request (startup, background jobs), create a standalone logger.
+const log = createLogger('startup');
+log.info('Server starting');
+```
+
+## What `logger()` does by default
+
+Reading `logger()`'s destructured options in source (`packages/middleware/logger/src/index.ts`):
+
+```ts
+successLevel = 'info',
+clientErrorLevel = 'warn',
+serverErrorLevel = 'error',
+logRequestStart = !isProductionBuild(),
+correlationIdHeader = 'x-request-id',
+generateCorrelationId: shouldGenerateId = true,
+context: loggerContext = 'nextrush',
+```
+
+- Logs request completion with `method`, `path`, `status`, and `duration` (ms).
+- Chooses the log level from the response status: `info` for 2xx/3xx, `warn` for 4xx, `error`
+  for 5xx (`error` also used automatically if the request threw).
+- Logs a `debug`-level "Request started" line, but **only in development** by default
+  (`logRequestStart` defaults to `!isProductionBuild()`).
+- Reads the incoming `x-request-id` header for correlation, or generates a UUID if absent.
+- Attaches the request-scoped logger to `ctx.log` (typed via the `LoggerContext` interface).
+
+## Log levels on `ctx.log`
+
+Every level from `@nextrush/log`'s `ILogger` is available on `ctx.log`:
+
+```ts
+app.use(logger());
+
+app.get('/orders/:id', async (ctx) => {
+  ctx.log.trace('Entering handler');
+  ctx.log.debug('Looking up order', { id: ctx.params.id });
+  ctx.log.info('Order found');
+  ctx.log.warn('Order is past due', { id: ctx.params.id });
+
+  try {
+    await chargeCard();
+  } catch (err) {
+    ctx.log.error('Charge failed', err as Error);
+    throw err;
+  }
+});
+```
+
+### Child loggers for sub-components
+
+Use `ctx.log.child(name)` to prefix log lines from a specific part of request handling — the
+child logger still carries the parent's correlation ID:
+
+```ts
+app.get('/orders/:id', async (ctx) => {
+  const dbLog = ctx.log.child('database');
+  dbLog.info('Querying orders table');
+});
+```
+
+## Silencing noisy paths
+
+Skip logging for health checks or other high-frequency, low-value routes with `skip`:
+
+```ts
+app.use(
+  logger({
+    skip: (ctx) => ctx.path === '/health' || ctx.path === '/metrics',
+  })
+);
+```
+
+## Production vs. development configuration
+
+`logRequestStart` already defaults to development-only, but most teams also want quieter,
+non-colored output in production and full detail while developing:
+
+```ts
+// Production — quieter, no request-start noise
+app.use(
+  logger({
+    successLevel: 'info',
+    logRequestStart: false,
+    skip: (ctx) => ctx.path === '/health',
+  })
+);
+
+// Development — everything, including request start
+app.use(
+  logger({
+    logRequestStart: true,
+  })
+);
+```
+
+<Callout type="error" title="Don't log secrets">
+  `ctx.log.info('Login', { password: ctx.body.password })` writes the password to your log
+  sink. Never pass request bodies, tokens, or credentials as log metadata — pick the specific
+  fields you need instead of spreading the whole object.
+</Callout>
+
+## Related
+
+- [Observability overview](/docs/production/observability) — how logger, request-id, and timer compose
+- [`@nextrush/logger` reference](/docs/reference/plugins/logger) — full option table and every re-export
+- [Request tracking & tracing](/docs/production/observability/request-tracing) — request-id, timer, and metrics/tracing integration

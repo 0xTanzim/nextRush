@@ -1,0 +1,41 @@
+---
+title: Internals
+description: Design principles, package hierarchy, engine internals, adapter contracts, RFCs/ADRs, versioning, and contributing.
+---
+
+This section explains **how NextRush works internally** — the design decisions behind the public
+API, the actual data structures and algorithms inside the router and DI container, what the
+adapter conformance suite enforces, and the project's honest state on RFCs and versioning. If
+you're looking for how to *use* a feature, see [Concepts](/docs/concepts) or
+[Guides](/docs/guides) instead — this section is for understanding or contributing to the
+framework itself.
+
+<Cards>
+  <Card title="Design Principles" href="/docs/internals/design-principles">
+    Minimal core, explicit over implicit, zero dependencies — verified against source and README.
+  </Card>
+  <Card title="Package Hierarchy" href="/docs/internals/package-hierarchy">
+    Dependency order and a dependency graph generated from every package.json, not hand-drawn.
+  </Card>
+  <Card title="Middleware Flow" href="/docs/internals/middleware-internals">
+    The compose() engine — dispatch mechanics, error propagation, and the callback() pipeline.
+  </Card>
+  <Card title="Router Internals" href="/docs/internals/router-internals">
+    The segment trie's real node structure, match priority, and audited edge cases.
+  </Card>
+  <Card title="Dependency Injection Internals" href="/docs/internals/di-internals">
+    How @nextrush/di wraps tsyringe — scope mapping, cycle detection, and the tsyringe coupling boundary.
+  </Card>
+  <Card title="Adapter Contract" href="/docs/internals/adapters">
+    What the cross-adapter conformance suite actually enforces across Node, Bun, Deno, and Edge.
+  </Card>
+  <Card title="RFCs & ADRs" href="/docs/internals/rfcs">
+    12 real RFCs and 6 ADRs exist in git history — deleted from the working tree, restored and indexed here.
+  </Card>
+  <Card title="Versioning & Compatibility" href="/docs/internals/versioning">
+    The real 16/20 mixed-version split across 35 published packages, verified per package.json.
+  </Card>
+  <Card title="Contributing" href="/docs/internals/contributing">
+    Build, test, and PR workflow — with CONTRIBUTING.md's stale sections flagged, not repeated.
+  </Card>
+</Cards>

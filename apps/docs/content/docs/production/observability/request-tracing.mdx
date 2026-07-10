@@ -1,0 +1,193 @@
+---
+title: Request Tracking & Tracing
+description: Request IDs, response timing, middleware ordering, and a bring-your-own pattern for metrics and tracing.
+---
+
+`@nextrush/request-id` and `@nextrush/timer` are independent of `@nextrush/logger` — you can use
+either without the other. This page covers both, why middleware registration order changes what
+they can see, and how to wire standard metrics/tracing tooling into NextRush since the framework
+does not ship its own metrics or tracing package.
+
+## `@nextrush/request-id`
+
+Generates a request ID with `crypto.randomUUID()` and stores it in `ctx.state`. Unlike
+`logger()`, it does not attach anything to `ctx.log` — it is a standalone building block for
+services that need an ID without full request logging.
+
+Verified against `packages/middleware/request-id/src/middleware.ts`:
+
+```ts
+import { createApp } from 'nextrush';
+import { requestId } from '@nextrush/request-id';
+
+const app = createApp();
+app.use(requestId());
+
+app.get('/data', (ctx) => {
+  ctx.json({ requestId: ctx.state['requestId'] });
+});
+// Response header: X-Request-Id: <uuid>
+```
+
+`correlationId()` and `traceId()` are the same middleware with a different header/state-key pair
+(`X-Correlation-Id` / `ctx.state.correlationId` and `X-Trace-Id` / `ctx.state.traceId`) — useful
+when a downstream service already uses one of those header names. See the
+[reference page](/docs/reference/middleware/request-id) for the full option table, including
+`trustIncoming` and the ID-spoofing protections.
+
+<Callout type="warn" title="request-id and logger generate independently">
+  `requestId()` writes its ID to `ctx.state`, not to the incoming request headers — so
+  `logger()`, which only reads the **incoming** `x-request-id` header for correlation, cannot
+  see an ID that `requestId()` generated on the same request. If you need one ID for both,
+  use `logger()` alone (it already generates and exposes `x-request-id`) rather than stacking
+  both packages for the same header.
+</Callout>
+
+## `@nextrush/timer`
+
+Measures request duration with `performance.now()` and stores it in `ctx.state`.
+
+Verified against `packages/middleware/timer/src/middleware.ts`:
+
+```ts
+import { createApp } from 'nextrush';
+import { timer } from '@nextrush/timer';
+
+const app = createApp();
+app.use(timer());
+
+app.use(async (ctx, next) => {
+  await next();
+  console.log('Response time:', ctx.state['responseTime'], 'ms');
+});
+```
+
+`exposeHeader` (default `false`) opts into setting an `X-Response-Time` response header;
+`serverTiming()` sets the standard `Server-Timing` header instead, visible in browser DevTools.
+See the [reference page](/docs/reference/middleware/timer) for `detailedTimer()` and the full
+options for all three functions.
+
+## Middleware order controls what a middleware can observe
+
+NextRush composes middleware in the onion model (see [Performance Tuning](/docs/performance/tuning)
+for the same rule applied to throughput): the middleware registered **first** wraps everything
+registered after it, so its code after `await next()` runs **last** — after every downstream
+middleware and the route handler have already finished.
+
+This matters concretely for `timer()`: it sets `ctx.state.responseTime` in a `finally` block
+that runs after its own `next()` resolves. Anything that wants to read that value must be
+registered **before** `timer()`, so it is further outside and its own post-`next()` code runs
+after timer's `finally` has already executed.
+
+```ts
+// ✅ Correct — the reader is OUTSIDE timer(), so it runs after timer's finally block
+app.use(async (ctx, next) => {
+  await next();
+  console.log(ctx.state['responseTime']); // a number
+});
+app.use(timer());
+```
+
+```ts
+// ❌ Wrong — the reader is INSIDE timer(), so it runs before timer's finally block
+app.use(timer());
+app.use(async (ctx, next) => {
+  await next();
+  console.log(ctx.state['responseTime']); // undefined
+});
+```
+
+This was confirmed by running both orderings against the built packages: the "wrong" ordering
+above logs `undefined` for `ctx.state.responseTime` every time, and the "correct" ordering logs
+the real measured duration every time. It is standard onion-model behavior, not a defect in
+`timer()` — but it runs backwards from what intuition suggests, since you might expect a middleware
+registered "after" the timer to see the timer's result immediately.
+
+## Metrics & tracing (integration pattern, not a NextRush package)
+
+<Callout type="info" title="Bring your own">
+  NextRush does not ship a `@nextrush/metrics` or `@nextrush/tracing` package. This section
+  shows the pattern for wiring a standard library — OpenTelemetry, in this example — into
+  NextRush as ordinary middleware. Everything above this section (`@nextrush/logger`,
+  `@nextrush/request-id`, `@nextrush/timer`) is a real, first-party NextRush package; this
+  section is not.
+</Callout>
+
+OpenTelemetry's Node SDK instruments `http`/`https` automatically at the transport level, so a
+NextRush server already gets basic HTTP spans without any NextRush-specific code, as long as the
+SDK is started before the app's request handling begins:
+
+```ts
+// instrumentation.ts — imported first, before any NextRush import
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+
+const sdk = new NodeSDK({
+  instrumentations: [getNodeAutoInstrumentations()],
+});
+
+sdk.start();
+```
+
+To attach route-level attributes (the matched path, rather than the raw URL) and propagate the
+NextRush correlation ID onto the active span, add an ordinary middleware after `logger()`:
+
+```ts
+import { trace } from '@opentelemetry/api';
+import { createApp } from 'nextrush';
+import { logger } from '@nextrush/logger';
+
+const app = createApp();
+
+app.use(logger());
+app.use(async (ctx, next) => {
+  const span = trace.getActiveSpan();
+  span?.setAttribute('nextrush.route', ctx.path);
+  span?.setAttribute('correlation.id', ctx.log.getCorrelationId() ?? '');
+  await next();
+});
+```
+
+For request-count and latency metrics without a full tracing SDK, a Prometheus client library
+(e.g. `prom-client`) integrates the same way — as middleware that wraps the request:
+
+```ts
+import { Histogram, Registry } from 'prom-client';
+import { createApp } from 'nextrush';
+
+const registry = new Registry();
+const httpDuration = new Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'HTTP request duration in seconds',
+  labelNames: ['method', 'path', 'status'],
+  registers: [registry],
+});
+
+const app = createApp();
+
+app.use(async (ctx, next) => {
+  const start = process.hrtime.bigint();
+  await next();
+  const seconds = Number(process.hrtime.bigint() - start) / 1e9;
+  httpDuration.observe(
+    { method: ctx.method, path: ctx.path, status: String(ctx.status) },
+    seconds
+  );
+});
+
+app.get('/metrics', async (ctx) => {
+  ctx.set('content-type', registry.contentType);
+  ctx.send(await registry.metrics());
+});
+```
+
+Both patterns are ordinary NextRush middleware — no NextRush-specific integration hooks are
+required or provided.
+
+## Related
+
+- [Observability overview](/docs/production/observability) — the logger + request-id + timer correlation walkthrough
+- [Logging](/docs/production/observability/logging) — `@nextrush/logger` in depth
+- [`@nextrush/request-id` reference](/docs/reference/middleware/request-id)
+- [`@nextrush/timer` reference](/docs/reference/middleware/timer)
+- [Performance Tuning](/docs/performance/tuning) — middleware ordering for throughput

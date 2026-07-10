@@ -1,6 +1,6 @@
 import { type InferPageType, loader } from 'fumadocs-core/source';
 import { toFumadocsSource } from 'fumadocs-mdx/runtime/server';
-import { docs, skills as skillsCollection } from 'fumadocs-mdx:collections/server';
+import { blog as blogCollection, docs, skills as skillsCollection } from 'fumadocs-mdx:collections/server';
 
 // See https://fumadocs.dev/docs/headless/source-api for more info
 export const source = loader({
@@ -12,6 +12,11 @@ export const source = loader({
 export const skillsSource = loader({
   baseUrl: '/skills',
   source: toFumadocsSource(skillsCollection, []),
+});
+
+export const blogSource = loader({
+  baseUrl: '/blog',
+  source: toFumadocsSource(blogCollection, []),
 });
 
 function sanitizeLLMMarkdown(markdown: string): string {

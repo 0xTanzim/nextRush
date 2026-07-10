@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "prebuild": "fumadocs-mdx && tsx ../../scripts/docs/build-docs.ts",
-    "build": "next build && tsx ../../scripts/docs/postbuild.ts",
-    "dev": "fumadocs-mdx && next dev",
+    "build": "NODE_OPTIONS=--max-old-space-size=3072 next build && tsx ../../scripts/docs/postbuild.ts && tsx scripts/generate-legacy-redirects.ts",
+    "dev": "fumadocs-mdx && NODE_OPTIONS=--max-old-space-size=2048 next dev",
     "start": "serve out",
-    "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "types:check": "fumadocs-mdx && next typegen && NODE_OPTIONS=--max-old-space-size=2048 tsc --noEmit",
     "typecheck": "pnpm types:check",
+    "docs:verify-registry": "tsx scripts/verify-registry-parity.ts",
     "lint": "eslint",
+    "docs:verify": "tsx scripts/verify/index.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
@@ -19,6 +21,7 @@
     "class-variance-authority": "^0.7.1",
     "fumadocs-core": "16.7.11",
     "fumadocs-mdx": "14.2.11",
+    "fumadocs-typescript": "5.3.0",
     "fumadocs-ui": "16.7.11",
     "lucide-react": "^1.8.0",
     "mermaid": "^11.14.0",
@@ -41,6 +44,7 @@
     "postcss": "^8.5.9",
     "serve": "^14.2.6",
     "tailwindcss": "^4.2.2",
+    "tsx": "4.21.0",
     "typescript": "^6.0.2"
   }
 }

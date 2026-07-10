@@ -1,0 +1,770 @@
+---
+title: 'Decorators'
+description: 'Controller, route, parameter, response, guard, interceptor, and filter decorators.'
+---
+
+Class, route, parameter, response, guard, interceptor, and exception-filter decorators from
+`nextrush/class`. For dependency-injection decorators (`@Service`, `@Repository`, `@Config`,
+`@inject`), see [Dependency Injection](/docs/reference/class/di).
+
+---
+
+## Installation
+
+<PackageInstall packages={['nextrush']} />
+
+Or install `@nextrush/class` directly:
+
+<PackageInstall packages={['@nextrush/class']} />
+
+**Required `tsconfig.json` settings:**
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
+```
+
+---
+
+## Quick Start
+
+```typescript
+import 'reflect-metadata'; // Not needed if using the nextrush meta-package
+import { Controller, Get, Post, Body, Param } from 'nextrush/class';
+
+@Controller('/users')
+class UserController {
+  @Get()
+  list() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) {
+    return { id, name: 'Alice' };
+  }
+
+  @Post()
+  create(@Body() data: { name: string }) {
+    return { id: Date.now(), ...data };
+  }
+}
+```
+
+---
+
+## Controller Decorator
+
+Define a controller class with a path prefix or a full options object:
+
+```ts
+// Simple prefix
+@Controller('/users')
+class UserController {}
+
+// With options
+@Controller({
+  path: '/api/v1/users',
+  version: 'v1',
+  tags: ['users'],
+})
+class VersionedUserController {}
+```
+
+<TypeTable
+  title="ControllerOptions"
+  types={{
+    path: {
+      type: 'string',
+      description: 'Base path prefix for all routes in this controller',
+      optional: true,
+    },
+    version: {
+      type: 'string',
+      description: "API version prefix (e.g., 'v1' → '/v1/users')",
+      optional: true,
+    },
+    middleware: {
+      type: 'MiddlewareRef[]',
+      description: 'Middleware applied to all routes in this controller',
+      optional: true,
+    },
+    tags: {
+      type: 'string[]',
+      description: 'Tags for documentation grouping',
+      optional: true,
+    },
+  }}
+/>
+
+---
+
+## Route Decorators
+
+Map methods to HTTP endpoints:
+
+```typescript
+@Controller('/items')
+class ItemController {
+  @Get() // GET /items
+  list() {}
+
+  @Get('/:id') // GET /items/:id
+  findOne() {}
+
+  @Post() // POST /items
+  create() {}
+
+  @Put('/:id') // PUT /items/:id
+  replace() {}
+
+  @Patch('/:id') // PATCH /items/:id
+  update() {}
+
+  @Delete('/:id') // DELETE /items/:id
+  remove() {}
+
+  @Head() // HEAD /items
+  head() {}
+
+  @Options() // OPTIONS /items
+  options() {}
+
+  @All('/hook') // All methods on /items/hook
+  webhook() {}
+}
+```
+
+---
+
+## Parameter Decorators
+
+Extract data from requests.
+
+### `@Body`
+
+```typescript
+@Post()
+create(@Body() data: CreateUserDto) {
+  // data = full parsed body
+}
+
+@Post()
+createWithField(@Body('name') name: string) {
+  // name = body.name
+}
+```
+
+### `@Param`
+
+```typescript
+@Get('/:id')
+findOne(@Param('id') id: string) {
+  // id = route param :id
+}
+
+@Get('/:category/:id')
+findByCategory(@Param() params: { category: string; id: string }) {
+  // params = all route params
+}
+```
+
+### `@Query`
+
+```typescript
+@Get()
+list(@Query('page') page: string, @Query('limit') limit: string) {
+  // ?page=1&limit=10
+}
+
+@Get()
+search(@Query() query: Record<string, string>) {
+  // query = all query params
+}
+```
+
+### `@Header`
+
+```typescript
+@Get()
+info(@Header('authorization') auth: string) {
+  // auth = Authorization header
+}
+
+@Get()
+allHeaders(@Header() headers: Record<string, string>) {
+  // headers = all headers
+}
+```
+
+### `@Ctx`
+
+```typescript
+import type { Context } from '@nextrush/types';
+
+@Get()
+handler(@Ctx() ctx: Context) {
+  // Full access to request/response
+}
+```
+
+### `@Req` / `@Res`
+
+Raw Node.js request/response objects:
+
+```typescript
+@Get()
+raw(@Req() req: IncomingMessage, @Res() res: ServerResponse) {
+  // Raw Node.js objects
+}
+```
+
+### Parameter Transforms
+
+```typescript
+// Convert to number
+@Get('/:id')
+findOne(@Param('id', { transform: Number }) id: number) {}
+
+// Validate with Zod
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+@Post()
+create(@Body({ transform: CreateUserSchema.parse }) data: z.infer<typeof CreateUserSchema>) {}
+```
+
+### Custom Parameter Decorators
+
+Create reusable parameter decorators with `createCustomParamDecorator()`:
+
+```typescript
+import { createCustomParamDecorator } from 'nextrush/class';
+import type { Context } from '@nextrush/types';
+
+const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+
+const ApiKey = createCustomParamDecorator((ctx: Context) => ctx.get('x-api-key'), {
+  required: true,
+});
+
+@Controller('/users')
+class UserController {
+  @Get('/me')
+  getProfile(@CurrentUser user: User) {
+    return user;
+  }
+
+  @Get('/data')
+  getData(@ApiKey apiKey: string) {
+    return { apiKey };
+  }
+}
+```
+
+<TypeTable
+  title="createCustomParamDecorator Options"
+  types={{
+    required: {
+      type: 'boolean',
+      description: 'Throw MissingParameterError if the extracted value is undefined',
+      default: 'false',
+    },
+    transform: {
+      type: 'TransformFn',
+      description: 'Transform the extracted value (sync or async)',
+      optional: true,
+    },
+  }}
+/>
+
+<Callout type="info">
+  Custom parameter decorators use the `'custom'` param source internally. They can only be used on
+  method parameters, not constructor parameters.
+</Callout>
+
+---
+
+## Response Decorators
+
+### `@SetHeader`
+
+Set response headers on a route. Multiple headers stack:
+
+```typescript
+import { SetHeader, Controller, Get } from 'nextrush/class';
+
+@Controller('/api')
+class ApiController {
+  @SetHeader('X-Custom-Header', 'my-value')
+  @SetHeader('Cache-Control', 'no-store')
+  @Get('/data')
+  getData() {
+    return { result: 'ok' };
+  }
+}
+```
+
+Headers are precomputed at build time and applied before the handler sends a response.
+
+### `@Redirect`
+
+Redirect the request to another URL. Default status code is `302` (Found).
+
+```typescript
+import { Redirect, Controller, Get } from 'nextrush/class';
+
+@Controller('/legacy')
+class LegacyController {
+  @Redirect('/new-dashboard', 301)
+  @Get('/dashboard')
+  oldDashboard() {
+    // Handler return value is ignored when @Redirect is applied
+  }
+
+  @Redirect('/default-page')
+  @Get('/home')
+  home() {
+    // Return a string to override the redirect URL
+    return '/custom-page';
+  }
+
+  @Redirect('/fallback')
+  @Get('/dynamic')
+  dynamic() {
+    // Return { url?, statusCode? } to override both
+    return { url: '/new-location', statusCode: 307 };
+  }
+}
+```
+
+**Override behavior:**
+
+| Return value | Effect |
+| --- | --- |
+| `void` | Uses the URL and status code from the decorator |
+| `string` | Overrides the redirect URL |
+| `{ url?, statusCode? }` | Overrides URL and/or status code |
+
+The redirect is implemented via the `Location` header, not `ctx.redirect()`.
+
+### `@HttpCode`
+
+Set a fixed HTTP status code for a route, resolved at build time and applied when the handler
+returns without setting `ctx.status` itself.
+
+```typescript
+import { HttpCode, Controller, Post } from 'nextrush/class';
+
+@Controller('/users')
+class UserController {
+  @HttpCode(201)
+  @Post()
+  create() {
+    return { created: true };
+  }
+}
+```
+
+---
+
+## Guards
+
+Guards control access to routes by returning a boolean. Write them as functions or as
+DI-injectable classes.
+
+<Tabs items={['Function Guards', 'Class Guards']}>
+  <Tab value="Function Guards">
+
+```ts
+import type { GuardFn, GuardContext } from 'nextrush/class';
+
+// Simple guard
+const AuthGuard: GuardFn = async (ctx) => {
+  return Boolean(ctx.get('authorization'));
+};
+
+// Guard factory
+const RoleGuard =
+  (roles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    return user ? roles.includes(user.role) : false;
+  };
+
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
+class AdminController {
+  @Get()
+  dashboard() {
+    return { admin: true };
+  }
+}
+```
+
+  </Tab>
+  <Tab value="Class Guards">
+
+```ts
+import type { CanActivate, GuardContext } from 'nextrush/class';
+import { Service } from 'nextrush/class';
+
+@Service()
+class AuthGuard implements CanActivate {
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const token = ctx.get('authorization');
+    if (!token) return false;
+
+    const user = await verifyToken(token);
+    ctx.state.user = user;
+    return Boolean(user);
+  }
+}
+
+// Use class guard - resolved from DI
+@UseGuard(AuthGuard)
+@Controller('/protected')
+class ProtectedController {}
+```
+
+  </Tab>
+</Tabs>
+
+### Guard Execution Order
+
+Guards run in order: class guards first, then method guards.
+
+```typescript
+@UseGuard(ClassGuard1) // 1st
+@UseGuard(ClassGuard2) // 2nd
+@Controller('/example')
+class ExampleController {
+  @UseGuard(MethodGuard1) // 3rd
+  @UseGuard(MethodGuard2) // 4th
+  @Get()
+  handler() {}
+}
+```
+
+<Callout type="info" title="403 vs other statuses from a guard">
+  Returning `false` produces a `GuardRejectionError` (403). To return a different status,
+  **throw** a typed error instead — it propagates unchanged. For example, `throw new
+  UnauthorizedError()` (from `@nextrush/errors`) yields a 401. Thrown guard errors are never
+  downgraded to a generic 403.
+</Callout>
+
+### Guard Context
+
+Guards receive a lightweight context — no response methods, only request data:
+
+<TypeTable
+  title="GuardContext"
+  types={{
+    method: { type: 'string', description: 'HTTP request method' },
+    path: { type: 'string', description: 'Request path' },
+    params: { type: 'Record<string, string>', description: 'Route parameters' },
+    query: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Query parameters',
+    },
+    headers: {
+      type: 'Record<string, string | string[] | undefined>',
+      description: 'Request headers',
+    },
+    body: { type: 'unknown', description: 'Parsed request body' },
+    state: {
+      type: 'Record<string, unknown>',
+      description: 'Mutable state bag shared between middleware and guards',
+    },
+    'get(name)': {
+      type: '(name: string) => string | undefined',
+      description: 'Get a specific header value',
+    },
+  }}
+/>
+
+---
+
+## Interceptors
+
+`@UseInterceptor` runs cross-cutting logic around a handler's execution — usable at both the
+controller and method level, mirroring `@UseGuard`.
+
+```typescript
+import { UseInterceptor, Controller, Get } from 'nextrush/class';
+import type { Interceptor } from 'nextrush/class';
+
+const timing: Interceptor = async (ctx, next) => {
+  const start = Date.now();
+  const result = await next();
+  console.log(`${ctx.path} took ${Date.now() - start}ms`);
+  return result;
+};
+
+@UseInterceptor(timing)
+@Controller('/users')
+class UserController {
+  @Get()
+  list() {
+    return [];
+  }
+}
+```
+
+Interceptors resolved from a class (`InterceptorClass`) are resolved from the DI container the
+same way class guards are.
+
+---
+
+## Exception Filters
+
+Exception filters localize error handling to a controller or a single route. They are opt-in and
+non-breaking: a route with no filter behaves exactly as before — thrown errors propagate to the
+global error middleware.
+
+A filter is a class implementing `ExceptionFilter`. It declares which errors it handles with
+`@Catch(...)` and sets the response through `ctx`. Attach filters with `@UseFilter`.
+
+```typescript
+import { Catch, Controller, Get, UseFilter } from 'nextrush/class';
+import { Service } from 'nextrush/class';
+import type { ExceptionFilter } from 'nextrush/class';
+import type { Context } from '@nextrush/types';
+
+class EntityNotFoundError extends Error {}
+
+@Service()
+@Catch(EntityNotFoundError)
+class NotFoundFilter implements ExceptionFilter {
+  catch(error: unknown, ctx: Context): void {
+    ctx.status = 404;
+    ctx.json({ error: 'Not found' });
+  }
+}
+
+@UseFilter(NotFoundFilter)
+@Controller('/users')
+class UserController {
+  @Get('/:id')
+  findOne() {
+    throw new EntityNotFoundError('no such user'); // handled by NotFoundFilter (404)
+  }
+}
+```
+
+Filters are resolved from the DI container like class guards, so they can inject services
+(loggers, metrics, error mappers). Resolution is lazy — a filter is only resolved when an error
+is actually thrown and it is about to run.
+
+<TypeTable
+  title="Matching rules"
+  types={{
+    'catch types': { type: '@Catch(A, B)', description: 'Matches when error instanceof A or B (subclasses included)' },
+    'catch-all': { type: '@Catch()', description: 'No-arg (or no @Catch) matches any error' },
+    precedence: { type: 'method → class', description: 'Method-level filters run before class-level; first match wins' },
+    unmatched: { type: 'rethrow', description: 'No matching filter re-throws to the global error middleware' },
+  }}
+/>
+
+<Callout type="info" title="Relation to the global error middleware">
+  Filters sit in front of the global error middleware, not in place of it. An error no filter
+  matches is rethrown unchanged, so the global handler runs exactly as it does today.
+</Callout>
+
+---
+
+## Lifecycle Hooks
+
+`OnInit` and `OnShutdown` are duck-typed interfaces — no decorator required. A class
+implementing `onModuleInit()` and/or `onModuleShutdown()` is called automatically when
+discovered through `registerControllers`/`registerModule`.
+
+```typescript
+import type { OnInit, OnShutdown } from 'nextrush/class';
+import { Service } from 'nextrush/class';
+
+@Service()
+class ConnectionPool implements OnInit, OnShutdown {
+  async onModuleInit() {
+    // open connections
+  }
+
+  async onModuleShutdown() {
+    // close connections
+  }
+}
+```
+
+Use `isOnInit(target)` / `isOnShutdown(target)` to check whether a class implements the
+respective hook.
+
+---
+
+## Metadata Readers
+
+Access decorator metadata programmatically:
+
+```typescript
+import {
+  getControllerMetadata,
+  getRouteMetadata,
+  getParamMetadata,
+  getAllParamMetadata,
+  getControllerDefinition,
+  getAllGuards,
+  getClassGuards,
+  getMethodGuards,
+  isController,
+  getResponseHeaders,
+  getRedirectMetadata,
+  getHttpCode,
+} from 'nextrush/class';
+
+// Check if class is a controller
+isController(UserController); // true
+
+// Get controller metadata
+const meta = getControllerMetadata(UserController);
+// { path: '/users', version: undefined, middleware: undefined, tags: undefined }
+
+// Get all routes for a controller
+const routes = getRouteMetadata(UserController);
+// [{ method: 'GET', path: '/', ... }, { method: 'GET', path: '/:id', ... }]
+
+// Get parameter metadata for a specific method
+const params = getParamMetadata(UserController, 'findOne');
+// [{ source: 'param', index: 0, name: 'id' }]
+
+// Get all guards for a route (class + method guards)
+const guards = getAllGuards(UserController, 'findOne');
+
+// Get response headers for a method
+const headers = getResponseHeaders(UserController.prototype, 'getData');
+// [{ name: 'Cache-Control', value: 'no-store' }]
+
+// Get redirect metadata for a method
+const redirect = getRedirectMetadata(UserController.prototype, 'oldDashboard');
+// { url: '/new-dashboard', statusCode: 301 }
+```
+
+Also available: `getAllFilters`, `getClassFilters`, `getMethodFilters`, `getCatchTypes`,
+`getAllInterceptors`, `getClassInterceptors`, `getMethodInterceptors`, `isGuardClass`,
+`isValidHttpMethod`, `isValidParamSource`, `getConstructorParamTypes`.
+
+---
+
+## TypeScript Exports
+
+All types and runtime exports are available from the package entry point.
+
+<details>
+<summary>Complete import reference</summary>
+
+```ts
+import type {
+  ControllerMetadata,
+  ControllerOptions,
+  RouteMetadata,
+  RouteOptions,
+  RouteMethods,
+  ParamMetadata,
+  ParamOptions,
+  ParamSource,
+  BodyOptions,
+  QueryOptions,
+  HeaderOptions,
+  GuardFn,
+  GuardContext,
+  GuardMetadata,
+  CanActivate,
+  Guard,
+  Interceptor,
+  InterceptorClass,
+  InterceptorMetadata,
+  ExceptionFilter,
+  ExceptionFilterClass,
+  FilterMetadata,
+  Constructor,
+  TransformFn,
+  MiddlewareRef,
+  ControllerDefinition,
+  CustomParamExtractor,
+  ResponseHeaderMetadata,
+  RedirectMetadata,
+} from 'nextrush/class';
+
+import type { OnInit, OnShutdown } from 'nextrush/class';
+
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Head,
+  Options,
+  All,
+  Body,
+  Param,
+  Query,
+  Header,
+  Ctx,
+  Req,
+  Res,
+  HttpCode,
+  Redirect,
+  SetHeader,
+  UseGuard,
+  UseInterceptor,
+  Catch,
+  UseFilter,
+  createCustomParamDecorator,
+  isController,
+  isOnInit,
+  isOnShutdown,
+  getControllerMetadata,
+  getRouteMetadata,
+  getParamMetadata,
+  getAllParamMetadata,
+  getControllerDefinition,
+  getAllGuards,
+  getClassGuards,
+  getMethodGuards,
+  getAllFilters,
+  getClassFilters,
+  getMethodFilters,
+  getCatchTypes,
+  getAllInterceptors,
+  getClassInterceptors,
+  getMethodInterceptors,
+  isGuardClass,
+  getResponseHeaders,
+  getRedirectMetadata,
+  getHttpCode,
+  isValidHttpMethod,
+  isValidParamSource,
+  getConstructorParamTypes,
+  DECORATOR_METADATA_KEYS,
+} from 'nextrush/class';
+```
+
+</details>
+
+---
+
+## Next Steps
+
+- [Controllers](/docs/reference/class/controllers) — Auto-discovery and `registerControllers()`
+- [Modules](/docs/reference/class/modules) — `@Module` and `registerModule()`
+- [Dependency Injection](/docs/reference/class/di) — `@Service`, scopes, and the container
+- [@nextrush/class overview](/docs/reference/class) — How the class runtime fits together

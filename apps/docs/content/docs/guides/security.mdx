@@ -127,7 +127,7 @@ app.use(
 );
 ```
 
-See [Helmet API Reference](/docs/api-reference/middleware/helmet) for all options.
+See [Helmet API Reference](/docs/reference/middleware/helmet) for all options.
 
 ---
 
@@ -155,7 +155,7 @@ app.use(
   using cookies or auth headers.
 </Callout>
 
-See [CORS API Reference](/docs/api-reference/middleware/cors) for all options.
+See [CORS API Reference](/docs/reference/middleware/cors) for all options.
 
 ---
 
@@ -171,7 +171,7 @@ const { protect } = csrf({ secret: process.env.CSRF_SECRET! }); // min 32 charac
 app.use(protect);
 ```
 
-See [CSRF API Reference](/docs/api-reference/middleware/csrf) for the full token lifecycle, session binding, and origin-check options.
+See [CSRF API Reference](/docs/reference/middleware/csrf) for the full token lifecycle, session binding, and origin-check options.
 
 ---
 
@@ -181,7 +181,7 @@ Never trust client data. Validate at the boundary.
 
 ### Functional Style
 
-The recommended approach is [`@nextrush/validation`](/docs/api-reference/middleware/validation) — it validates against any Standard Schema library and produces a consistent, secure error shape without hand-written conversion code:
+The recommended approach is [`@nextrush/validation`](/docs/reference/middleware/validation) — it validates against any Standard Schema library and produces a consistent, secure error shape without hand-written conversion code:
 
 ```typescript
 import { validate } from '@nextrush/validation';
@@ -296,7 +296,7 @@ function requireRole(...roles: string[]): Middleware {
 adminRouter.get('/users', requireAuth, requireRole('admin'), listUsers);
 ```
 
-See the [Authentication example](/docs/examples/authentication) for JWT implementation.
+See the [Authentication guide](/docs/guides/authentication) for JWT implementation.
 
 ---
 
@@ -373,7 +373,7 @@ uploadRouter.post('/document', bodyParser({ limit: '50mb' }), handleUpload);
   <Card title="Error Handling" href="/docs/guides/error-handling">
     Build consistent error responses with typed error classes.
   </Card>
-  <Card title="Authentication Example" href="/docs/examples/authentication">
+  <Card title="Authentication" href="/docs/guides/authentication">
     Full JWT auth implementation with guards and RBAC.
   </Card>
   <Card title="Deployment" href="/docs/guides/deployment">

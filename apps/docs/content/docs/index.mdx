@@ -3,123 +3,171 @@ title: NextRush Documentation
 description: Minimal, modular, type-safe Node.js backend framework — docs home.
 ---
 
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
 NextRush is a **minimal, modular, type-safe** HTTP framework for Node.js and other runtimes. The core stays
 under 3,000 lines with **no runtime dependencies**; you add `@nextrush/*` packages when you need them.
-Everything is written for **TypeScript strict mode**.
 
 <Callout type="info" title="Current Version">
   NextRush v3 is in active development. APIs are stabilizing — suitable for early adopters. Requires
   Node.js 22+.
 </Callout>
 
-## Why NextRush?
-
-Most backend frameworks force a trade-off:
-
-1. **Minimalist but limiting** — Great for prototypes, frustrating at scale.
-2. **Feature-rich but opaque** — Lots of features, but behavior is hidden from you.
-
-NextRush takes a different approach: **small core, modular packages, explicit behavior**. You install what you need and see what happens at every layer.
-
-<FeatureGrid>
-  <Feature
-    icon="⚡"
-    title="Lean routing"
-    description="Segment trie routing with O(k) lookup."
+<Cards>
+  <Card
+    title="Get started →"
+    description="Install NextRush and ship your first route in a few minutes."
+    href="/docs/start"
   />
-  <Feature icon="🎯" title="Type Safe" description="Full TypeScript strict mode. Zero `any`." />
-  <Feature icon="📦" title="Modular" description="33 packages in the monorepo. Install what you need." />
-  <Feature icon="🌐" title="Multi-Runtime" description="Node.js, Bun, Deno, and Edge adapters." />
-  <Feature
-    icon="🔌"
-    title="Extensible"
-    description="Plugin system for controllers, WebSocket, and more."
+  <Card
+    title="Read NextRush in One Page"
+    description="The whole framework — architecture, styles, packages — on a single scroll."
+    href="/docs/start/overview"
   />
-  <Feature
-    icon="🛡️"
-    title="Security Middleware"
-    description="Helmet, CORS, rate limiting available as packages."
-  />
-</FeatureGrid>
+</Cards>
 
-## Quick Start
-
-<PackageInstall packages={['nextrush']} />
-
-```typescript title="src/index.ts"
-import { createApp, createRouter, listen } from 'nextrush';
-
-const app = createApp();
-
-const users = createRouter();
-users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
-users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
-
-app.route('/users', users);
-
-await listen(app, 8080);
-```
-
-```bash title="Terminal"
-npx tsx src/index.ts
-# → 🚀 NextRush listening on http://localhost:8080
-```
+Looking for something specific? Press **⌘K** (or **Ctrl+K**) anywhere on this site to search every
+page, or jump straight to a goal in the [capability finder](#what-do-you-want-to-do) below.
 
 ## Choose your path
 
 <Cards>
   <Card
-    title="Introduction"
-    description="What NextRush is, trade-offs vs other frameworks, and when to use it."
-    href="/docs/getting-started"
+    title="New to NextRush"
+    description="What NextRush is, when to use it, and the core mental model."
+    href="/docs/start"
   />
   <Card
-    title="Framework overview"
-    description="Full map: hello world, lifecycle, packages, styles, benchmarks."
-    href="/docs/getting-started/overview"
-  />
-  <Card
-    title="Core concepts"
-    description="Context, middleware, routing, plugins, and guards in depth."
-    href="/docs/concepts"
-  />
-  <Card
-    title="API reference"
-    description="Lookup tables for core, middleware, plugins, and adapters."
-    href="/docs/api-reference"
-  />
-  <Card
-    title="Guides"
-    description="REST APIs, auth, validation, testing, deployment."
+    title="Build an API"
+    description="Task-oriented guides — REST APIs, validation, middleware, testing."
     href="/docs/guides"
   />
   <Card
-    title="Benchmarks"
-    description="Lab methodology, snapshots, and tuning notes."
-    href="/docs/performance"
+    title="Go to Production"
+    description="Deploy to Docker, Railway, Fly.io, Vercel Edge, and Cloudflare Workers."
+    href="/docs/guides/deployment"
+  />
+  <Card
+    title="Migrate from Express"
+    description="Concept mapping and a step-by-step migration path from Express."
+    href="/docs/guides/migration"
+  />
+</Cards>
+
+## What do you want to do?
+
+<Cards>
+  <Card
+    title="Add authentication"
+    description="JWT-based auth with guards and DI, from the class-based example app."
+    href="/docs/guides/authentication"
+  />
+  <Card
+    title="Parse a request body"
+    description="JSON, form, and text body parsing with @nextrush/body-parser."
+    href="/docs/reference/middleware/body-parser"
+  />
+  <Card
+    title="Rate-limit an endpoint"
+    description="Token-bucket and sliding-window limiting with @nextrush/rate-limit."
+    href="/docs/reference/middleware/rate-limit"
+  />
+  <Card
+    title="Serve static files"
+    description="Static file serving middleware with @nextrush/static."
+    href="/docs/reference/plugins/static"
+  />
+  <Card
+    title="Add CORS"
+    description="Configurable cross-origin resource sharing with @nextrush/cors."
+    href="/docs/reference/middleware/cors"
+  />
+  <Card
+    title="Generate OpenAPI docs"
+    description="Zero-config OpenAPI 3.1 generation from route validation metadata."
+    href="/docs/reference/plugins/openapi"
+  />
+</Cards>
+
+Need something not listed here? The [reference "which package do I need"
+table](/docs/reference#which-package-do-i-need) covers 20+ more goals.
+
+## Featured packages
+
+Six packages from the [35-package registry](/docs/reference) that cover the most common needs —
+core routing, structured controllers, security, rate limiting, generated API docs, and real-time.
+
+<Cards>
+  <Card
+    title="nextrush"
+    description="Meta package that re-exports the core framework and the class runtime subpath."
+    href="/docs/reference/core/nextrush"
+  />
+  <Card
+    title="@nextrush/class"
+    description="Consolidated class runtime — decorators, DI, controllers, modules, guards, interceptors, filters."
+    href="/docs/reference/class"
+  />
+  <Card
+    title="@nextrush/cors"
+    description="CORS header middleware with configurable origin, method, and header allow-lists."
+    href="/docs/reference/middleware/cors"
+  />
+  <Card
+    title="@nextrush/rate-limit"
+    description="Rate limiting middleware with token-bucket and sliding-window algorithms."
+    href="/docs/reference/middleware/rate-limit"
+  />
+  <Card
+    title="@nextrush/openapi"
+    description="Zero-config OpenAPI 3.1 generation from route validation metadata."
+    href="/docs/reference/plugins/openapi"
+  />
+  <Card
+    title="@nextrush/websocket"
+    description="WebSocket support with rooms, broadcasting, and a factory + middleware API."
+    href="/docs/reference/plugins/websocket"
+  />
+</Cards>
+
+<Callout type="info" title="Packages directory">
+  A filterable catalog of all 35 packages at `/packages` is planned for a later phase (T13). Until
+  then, browse the full list on the [reference](/docs/reference) page.
+</Callout>
+
+## Popular guides
+
+<Cards>
+  <Card
+    title="Building REST APIs"
+    description="Create a REST API with routing, services, and response formatting."
+    href="/docs/guides/rest-api"
+  />
+  <Card
+    title="Class-Based Controllers"
+    description="Build structured APIs with decorators, dependency injection, and automatic route registration."
+    href="/docs/guides/class-based"
+  />
+  <Card
+    title="Request Validation"
+    description="Validate and transform request data with Zod schemas."
+    href="/docs/guides/validation"
+  />
+  <Card
+    title="Security"
+    description="Harden your API with helmet, CORS, rate limiting, and input validation."
+    href="/docs/guides/security"
   />
 </Cards>
 
 ## Design Philosophy
 
-NextRush is built on these principles:
-
 | Principle                        | What It Means                                                                 |
-| -------------------------------- | ----------------------------------------------------------------------------- |
+| --------------------------------- | -------------------------------------------------------------------------------- |
 | **Minimal Core**                 | Core is under 3,000 lines of code.                                            |
 | **Explicit Over Implicit**       | No hidden behavior. You see what happens.                                     |
 | **Composition Over Inheritance** | Build with functions and middleware, not deep class hierarchies.              |
 | **Type Safety First**            | TypeScript strict mode from the ground up. Zero `any` allowed.                |
 | **Zero Runtime Dependencies**    | No external runtime deps in core. `reflect-metadata` is auto-imported for DI. |
-
-## Dual Paradigm
-
-NextRush supports both **functional** and **class-based** programming styles. Start with functions for simplicity, add decorators and DI when your project grows. Both styles work together — no forced migration.
-
-[Learn more about programming styles →](/docs/concepts#two-programming-styles)
-
-## What's Next?
-
-Start with the [Getting Started guide](/docs/getting-started) to install NextRush and create your first API.
 
 Questions? Use [GitHub Discussions](https://github.com/0xTanzim/nextrush/discussions) or open an issue. For AI-assisted workflows, see the [Skills directory](/skills).

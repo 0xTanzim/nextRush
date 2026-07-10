@@ -1,0 +1,13 @@
+{
+  "title": "Recipes",
+  "description": "Short, copy-paste solutions to common NextRush tasks.",
+  "pages": [
+    "index",
+    "pagination",
+    "jwt-authentication",
+    "rate-limiting",
+    "cors-multi-tenant",
+    "postgres-service",
+    "background-jobs"
+  ]
+}

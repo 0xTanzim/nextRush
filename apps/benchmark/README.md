@@ -40,6 +40,9 @@ The suite supports two benchmark tools. You can force a specific tool with `--to
 # Install dependencies
 pnpm install
 
+# Validate fairness (all servers return identical bodies/headers) — run this first
+pnpm bench:validate
+
 # Quick benchmark (NextRush only)
 pnpm bench:quick
 
@@ -78,12 +81,15 @@ pnpm bench:stress
 
 ## Profiles
 
-| Profile    | Duration | Connections     | Runs | Warmup | Use Case                     |
-| ---------- | -------- | --------------- | ---- | ------ | ---------------------------- |
-| `quick`    | 10s      | 64              | 1    | 5s     | Dev iteration, smoke testing |
-| `standard` | 30s      | 1, 64, 256      | 3    | 10s    | CI benchmark, daily checks   |
-| `full`     | 60s      | 1, 64, 256, 512 | 5    | 15s    | Release validation           |
-| `stress`   | 120s     | 256, 512, 1024  | 3    | 15s    | Breaking-point analysis      |
+| Profile    | Duration | Connections     | Runs | Warmup | Publishable | Use Case                     |
+| ---------- | -------- | --------------- | ---- | ------ | ----------- | ---------------------------- |
+| `quick`    | 10s      | 64              | 1    | 5s     | ❌ No       | Dev iteration, smoke testing |
+| `standard` | 30s      | 1, 64, 256      | 3    | 10s    | ✅ Yes      | CI benchmark, daily checks   |
+| `full`     | 60s      | 1, 64, 256, 512 | 5    | 15s    | ✅ Yes      | Release validation           |
+| `stress`   | 120s     | 256, 512, 1024  | 3    | 15s    | ❌ No       | Breaking-point analysis      |
+
+Single-run (`quick`) and stress profiles are marked **NOT publishable** — their reports carry a
+warning banner and their numbers must never be published (no variance / adversarial load).
 
 Thread count auto-scales based on CPU cores (capped at 16). `standard` and `full` include a 1-connection serial baseline for pure latency measurement.
 
@@ -99,10 +105,14 @@ All 10 scenarios are implemented identically across every server:
 | query-string     | GET    | `/search?q=benchmark&limit=10`           | Query string parsing         |
 | post-json        | POST   | `/users`                                 | JSON body parsing + response |
 | deep-route       | GET    | `/api/v1/orgs/123/teams/456/members/789` | Deep parameterized route     |
-| middleware-stack | GET    | `/middleware`                            | 5 middleware layers          |
-| error-handling   | GET    | `/error`                                 | Error throw + catch pipeline |
+| middleware-stack | GET    | `/middleware`                            | 5 idiomatic layers † |
+| error-handling   | GET    | `/error`                                 | Error handler → 500 †|
 | large-json       | GET    | `/large-json`                            | Large payload (~5KB array)   |
 | empty-response   | GET    | `/empty`                                 | 204 No Content, zero payload |
+
+† **Not like-for-like.** These two use each framework's idiomatic mechanism (middleware chain
+vs Fastify hooks vs raw-node manual chain / dedicated error handler vs local catch). They
+measure per-framework 5-layer and error-path cost, not a single shared mechanism.
 
 The `quick` profile runs a subset: hello-world, route-params, post-json, middleware-stack.
 
@@ -119,11 +129,27 @@ The `quick` profile runs a subset: hello-world, route-params, post-json, middlew
 
 ### Fairness Guarantees
 
-- **No pre-computed JSON** — all servers serialize per-request (including raw Node.js baseline)
-- **Body parsing only on POST** — no global middleware that penalizes GET routes
-- **Error handling is equivalent** — all servers throw and catch (including raw Node.js)
-- **Same response payloads** — identical data structures across all implementations
-- **No pipelining** — pipelining=1 simulates real client behavior
+Enforced mechanically by `pnpm bench:validate` (the runner also runs it as a pre-flight):
+
+- **Byte-identical bodies** — for the 8 identical-work scenarios, every server returns the
+  same response bytes, built from a single shared payload module (`servers/_shared/payloads.js`).
+  The validator normalizes only the random POST `id` and timestamps.
+- **Identical middleware headers** — the 5-layer scenario sets the same 5 headers (same names
+  and values) in every framework; the validator fails if any is missing or differs.
+- **No pre-computed JSON** — all servers serialize per-request (including the raw Node.js baseline).
+- **Body parsing only on POST** — attached at the route level; no global middleware penalizes GET routes.
+- **Identical runtime config** — same Node flags (`--expose-gc --max-old-space-size=512`),
+  `NODE_ENV=production`, and port for every server.
+- **No pipelining** — pipelining=1 simulates real client behavior.
+
+**Explicitly NOT like-for-like (by design, disclosed):**
+
+- **Middleware stack** — each framework uses its idiomatic 5-layer mechanism (Koa/Express/Hono/
+  NextRush middleware chains, Fastify `onRequest` hooks, raw-node a manual function chain). This
+  measures each framework's own 5-layer dispatch cost, not one shared mechanism. Do not read it
+  as "framework A's middleware beats framework B's" at face value.
+- **Error handling** — routed through each framework's idiomatic error handler; the raw-node
+  baseline uses a local catch because it has no pipeline. Returns 500 everywhere.
 
 ## CLI Reference
 
@@ -149,8 +175,23 @@ node scripts/run.js --connections 256
 # Enable GC tracking (slower, more data)
 node scripts/run.js --trace-gc
 
+# Pin server processes to CPU cores (Linux, taskset) for lower noise
+node scripts/run.js --compare --pin 2-7
+
+# Randomize framework execution order to cancel position/thermal bias (off by default)
+node scripts/run.js --compare --shuffle
+
+# Skip the parity pre-flight (not advised — parity is the fairness gate)
+node scripts/run.js --compare --no-validate
+
+# Validate fairness (byte-identical bodies + headers) without benchmarking
+pnpm bench:validate
+
+# Fail if the latest run regressed vs results/baseline (CI gate)
+pnpm bench:check
+
 # Combine options
-node scripts/run.js --compare --profile standard --trace-gc
+node scripts/run.js --compare --profile full --pin 2-7 --trace-gc
 ```
 
 ## Results
@@ -183,13 +224,21 @@ node scripts/report.js --id <run-id>    # Show specific run
 
 ## Methodology
 
-1. **Process isolation** — wrk runs as a separate C process (isolated from Node.js). autocannon shares the runtime — use wrk for production-grade accuracy
-2. **Warmup** — real HTTP traffic warmup before measurement (5-15s depending on profile)
-3. **Cooldown** — pause between frameworks to prevent resource carryover
-4. **No pipelining** — pipelining=1 for realistic client simulation
-5. **Identical work** — all servers do equivalent per-request computation
-6. **Memory tracking** — RSS sampled from `/proc/<pid>/status` during benchmark (Linux)
-7. **Statistical rigor** — sample standard deviation across multiple runs
+1. **Parity gate** — before timing, `validate-parity.js` boots every server and asserts
+   byte-identical bodies, matching statuses, and identical middleware headers. A run that fails
+   parity aborts.
+2. **Process isolation** — wrk runs as a separate C process. autocannon shares the runtime
+   (single process, no worker threads) — prefer wrk for accuracy.
+3. **Warmup** — framework-level (root route) plus a per-scenario warmup so each measured code
+   path (body parsing, middleware chain, deep-route descent) is JIT-warm before timing.
+4. **Cooldown** — pause between frameworks to prevent resource carryover.
+5. **No pipelining** — pipelining=1 for realistic client simulation.
+6. **Identical work** — the 8 core scenarios return byte-identical responses; middleware-stack
+   and error-handling are per-framework idiomatic (mechanisms differ, disclosed above).
+7. **Non-2xx guard** — any non-2xx in a success scenario flags the run invalid.
+8. **Memory tracking** — RSS sampled from `/proc/<pid>/status` during the benchmark (Linux).
+9. **Statistical rigor** — mean ± sample stddev + CV across runs; **only `standard`/`full`
+   (3–5 runs) are publishable**. Single-run `quick` reports are stamped NOT publishable.
 
 ## Smoke Testing
 
@@ -202,6 +251,15 @@ node scripts/smoke-test.js nextrush-v3  # Test specific server
 
 Tests all 10 endpoints on each server with expected status codes.
 
+## Unit Tests
+
+The pure logic — statistics, run validity (invalid-run exclusion), latency aggregation, and
+CPU-sample analysis — is unit-tested with the built-in Node test runner (no extra dependency):
+
+```bash
+pnpm test   # node --test scripts/lib/__tests__/*.test.js
+```
+
 ## Platform Notes
 
 - **Memory tracking** uses `/proc/<pid>/status` — Linux only. On macOS, memory data will be empty.
@@ -213,15 +271,29 @@ Tests all 10 endpoints on each server with expected status codes.
 ```
 apps/benchmark/
 ├── config/
+│   ├── constants.js      # Port, V8 flags, sampling intervals, tolerances
 │   ├── frameworks.js     # Framework definitions
-│   ├── profiles.js       # Benchmark profiles (duration, connections, runs)
-│   └── scenarios.js      # Test scenarios (endpoints, methods, payloads)
+│   ├── profiles.js       # Benchmark profiles (duration, connections, runs, publishable)
+│   └── scenarios.js      # Test scenarios (endpoints, methods, payloads, expectStatus)
 ├── scripts/
-│   ├── run.js            # Main orchestrator
-│   ├── smoke-test.js     # Server verification
+│   ├── run.js            # Orchestrator (parity pre-flight → per-framework loop → report)
+│   ├── bench-exec.js     # Measurement loop, warmup, single-run execution
+│   ├── report-md.js      # Markdown report generation
+│   ├── validate-parity.js# Fairness gate: byte-identical bodies + headers across servers
+│   ├── check-regression.js# CI gate: latest vs results/baseline
+│   ├── smoke-test.js     # Server verification (status + middleware headers)
 │   ├── report.js         # Report viewer
-│   └── utils.js          # Server lifecycle, wrk/autocannon runners, stats
+│   ├── utils.js          # Thin barrel re-exporting scripts/lib/*
+│   └── lib/              # Focused modules (each < 120 LOC):
+│       ├── logging.js args.js time.js system.js fsx.js paths.js
+│       ├── server.js     # process lifecycle
+│       ├── metrics.js    # RSS + CPU sampling/analysis
+│       ├── stats.js      # computeStats, run validity, latency aggregation
+│       ├── tools/        # wrk.js, autocannon.js, version.js
+│       └── __tests__/    # node:test unit tests (stats, metrics)
 ├── servers/
+│   ├── _shared/
+│   │   └── payloads.js   # Canonical response payloads + identical middleware headers
 │   ├── raw-node.js       # Zero-framework baseline
 │   ├── nextrush-v3.js    # NextRush v3
 │   ├── express.js        # Express 5
@@ -230,48 +302,50 @@ apps/benchmark/
 │   └── hono.js           # Hono 4
 ├── wrk/
 │   ├── post-json.lua     # POST body script for wrk
-│   └── mixed.lua         # Mixed workload script (manual use)
-└── results/              # Benchmark output (gitignored)
-    ├── latest/           # Copy of most recent run
-    └── <timestamp>/      # Historical runs
+│   └── mixed.lua         # Mixed workload (via `pnpm bench:mixed`)
+└── results/              # Benchmark output
+    ├── baseline/         # Optional pinned baseline for `bench:check` — create via `cp -r results/latest results/baseline`
+    ├── latest/           # Copy of most recent run (gitignored)
+    └── <timestamp>/      # Historical runs (gitignored)
 ```
 
-## Latest Results (NextRush v3 — Quick Profile)
+## Latest Results
 
-> Run on Intel i5-8300H (8 cores), 15.5 GB RAM, Node.js v25.9.0
-> Profile: `quick` — 10s duration, single run, 64 connections, 4 threads
+> **Numbers are being re-measured on a clean, CPU-pinned environment with the hardened
+> harness (parity-validated servers, multi-run `full` profile). They are intentionally not
+> published here yet.**
 
-### wrk (C-based, process-isolated)
+Previous published figures came from single-run (`quick`) sessions on a shared, unpinned
+machine and are not reproducible to a publishable standard — see the consolidated audit report
+in this folder (`BENCHMARK_AUDIT_REPORT.md`). Do not cite them.
 
-| Scenario         | RPS        | Latency p50 | Latency p99 | Memory (RSS peak) |
-| ---------------- | ---------- | ----------- | ----------- | ----------------- |
-| Hello World      | **31,311** | 1ms         | 3ms         | 109.8 MB          |
-| Route Parameters | 29,688     | 2ms         | 4ms         | 109.8 MB          |
-| POST JSON        | 18,460     | 3ms         | 6ms         | 109.8 MB          |
-| Middleware Stack | **32,377** | 1ms         | 3ms         | 109.8 MB          |
+To produce current numbers on your own hardware:
 
-### autocannon (Node.js-based, shares runtime)
+```bash
+# Validate fairness first, then run the publishable profile
+pnpm bench:validate
+pnpm bench:compare --profile full        # 5 runs, 4 concurrency levels, mean ± stddev + CV
+node scripts/run.js --compare --profile full --pin 2-7   # optional CPU pinning (Linux, taskset)
+```
 
-| Scenario         | RPS        | Latency p50 | Latency p99 | Memory (RSS peak) |
-| ---------------- | ---------- | ----------- | ----------- | ----------------- |
-| Hello World      | **31,733** | 1ms         | 3ms         | 109.8 MB          |
-| Route Parameters | 29,534     | 2ms         | 4ms         | 109.8 MB          |
-| POST JSON        | 19,192     | 3ms         | 6ms         | 109.8 MB          |
-| Middleware Stack | **32,220** | 1ms         | 3ms         | 109.8 MB          |
-
-Results differ by ~4% between tools; relative rankings stay consistent.
-
-### Key Observations
-
-- **Middleware lead:** NextRush v3 middleware stack (32,377 RPS wrk) outperforms all other frameworks and even raw Node.js — `compose()` pre-compilation pays off
-- **Hello World baseline:** ~31K RPS — exceeding 30K target
-- **Route params overhead:** Within ~8% of hello world — segment trie is efficient
-- **POST JSON gap:** Body parsing narrows the gap with Fastify to within ~4%
-- **Memory footprint:** ~110 MB peak RSS under sustained load
+Only the `standard` and `full` profiles are publishable. The `quick` profile is single-run
+(no variance) and its reports are stamped **NOT publishable**.
 
 ## Known Limitations
 
-- No Docker isolation — servers and benchmark tool share the same OS scheduler
-- No CPU pinning — results may vary under OS load
-- Memory sampling uses `/proc` — Linux only (macOS/Windows logs a warning and skips)
-- autocannon shares the Node.js event loop — use wrk for accurate results
+- **Single-run profiles carry no variance** — only `standard`/`full` (3–5 runs) are publishable.
+- **Loopback-bound** — client and server share the machine's cores, so absolute RPS reflects
+  the whole box, not the framework in isolation. Use relative rankings, not absolute numbers.
+- **CPU pinning** is available via `--pin <cores>` (Linux/taskset) to cut scheduler noise; it is
+  off by default. Recommended for publishable runs.
+- **No Docker isolation** — servers and the load tool share the OS scheduler.
+- **Middleware/error scenarios are per-framework idiomatic** (different mechanisms) — not
+  like-for-like; see Fairness Guarantees.
+- **Memory sampling uses `/proc`** — Linux only (macOS/Windows logs a warning and skips).
+- **autocannon shares the Node.js event loop** — prefer wrk for accurate results; autocannon
+  runs single-process (no worker threads), so its results are not "N-threaded."
+- **`bench:mixed` is a manual probe** — it drives a mixed traffic distribution via wrk but you
+  must start a server yourself first (`node servers/<name>.js`). It is not parity-validated and
+  its `limit=5` query intentionally differs from the query scenario's `limit=10`.
+- **Framework order** is fixed by default for reproducibility; pass `--shuffle` to randomize it
+  and cancel position/thermal bias across a comparison.

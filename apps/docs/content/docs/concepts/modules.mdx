@@ -1,0 +1,119 @@
+---
+title: Modules
+description: Group a feature's controllers and providers behind one declaration and compose features with imports
+---
+
+## The Real Problem
+
+As an application grows past a handful of controllers, wiring them all through `registerControllers()` puts every controller and every provider registration in one flat list. There's no way to say "these five controllers and these three services belong together as one feature" — you have a pile of classes and hope the DI graph sorts itself out. Adding a second team or a second feature area means untangling that pile to see what belongs to what.
+
+## Why NextRush Solves It This Way
+
+A `@Module` groups a feature's controllers and providers behind one class declaration, and modules compose other modules through `imports`. This mirrors how most teams already think about a codebase — as feature boundaries — without inventing a new runtime concept: a module is metadata (`imports`, `controllers`, `providers`, `exports`) read by one registrar, `registerModule()`, which reuses the exact same pipeline as `registerControllers()` underneath (route building, DI validation, lifecycle hooks, request scope).
+
+<Callout type="info" title="Modules group, they do not yet encapsulate">
+  Every provider in a module graph is visible to every other module through the shared DI
+  container. `exports` is recorded on the module's metadata but not enforced — declaring a
+  provider in `exports` documents intent for readers today; module-private providers are
+  planned follow-up work, not current behavior.
+</Callout>
+
+## Mental Model
+
+<Mermaid
+  chart="
+flowchart LR
+    A[AppModule] --> U[UserModule]
+    A --> B[BillingModule]
+    U --> C1[UserController]
+    U --> P1[UserService]
+    B --> C2[BillingController]
+    B --> P2[BillingService]
+"
+/>
+
+A module is a labeled box around a set of controllers and providers. `imports` draws an arrow from one box to another. `registerModule()` walks every arrow starting from the root module, collects every controller and every provider across the whole graph, and hands that flattened list to the same registration machinery a single `registerControllers()` call would use.
+
+## How It Works
+
+`registerModule(app, RootModule, options)` does three things, in order:
+
+1. **Walks the import graph** (`collectModuleGraph`) starting from the root module, in post-order — an imported module is visited before the module that imports it, so a feature module's providers register before the root's.
+2. **Registers every module's providers** into the chosen DI container (an explicit `options.container`, else an isolated container if `options.isolate` is set, else the app's own container, else the global container).
+3. **Collects every controller across the graph** (`collectModuleControllers`, deduplicated) and passes them to the existing `registerControllers()` pipeline — so route building, guard validation, lifecycle-hook bridging, and request-scope bubbling all behave exactly as they do for a controller registered directly.
+
+The import walk deduplicates a module reached more than once (a "diamond" — two modules importing the same shared module) and guards against import cycles: a back-edge to a module already being visited is skipped rather than recursed into, so `A imports B imports A` terminates instead of looping forever.
+
+## Minimal Correct Usage
+
+```ts title="app-module.ts"
+import { createApp, listen } from 'nextrush';
+import { Module, Controller, Get, Service, registerModule } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+
+@Module({
+  controllers: [UserController],
+  providers: [UserService],
+})
+class UserModule {}
+
+@Module({ imports: [UserModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule, { prefix: '/api' });
+
+await listen(app, 8080);
+```
+
+This registers `UserController` at `/api/users`, exactly as `registerControllers(app, { controllers: [UserController] })` would — `registerModule()` is a composition layer on top of that same registrar, not a separate registration path.
+
+## What Happens Automatically
+
+- **Diamond imports register once** — a module imported by two different branches of the graph is only walked and only has its providers registered a single time.
+- **Import cycles terminate** — a mutual import (`A` imports `B`, `B` imports `A`) is detected and skipped rather than causing infinite recursion. The escape hatch: don't rely on this — restructure so shared code lives in a module both import, instead of two modules importing each other.
+- **Providers register before controllers that need them** — the post-order walk means a feature module's providers are in the container before `registerControllers()` tries to resolve any controller that depends on them.
+
+## Trade-offs & Guarantees
+
+NextRush guarantees the import walk is deterministic (post-order, first-completed-wins for duplicates) and that `registerModule()` produces the same routes `registerControllers()` would for the same flattened controller list — there is no separate, module-specific route-building code path to drift from the one used by direct controller registration.
+
+NextRush does **not** guarantee provider isolation between modules. A provider registered by one module is resolvable by a controller in a completely unrelated module in the same graph, because everything shares one DI container by default. `exports` records which providers a module intends to expose to importers, but nothing currently blocks an un-exported provider from being resolved elsewhere.
+
+<Callout type="warn" title="A non-module class in imports throws">
+  Every entry in `imports` must itself carry `@Module` metadata. Passing a plain class — a
+  controller or service that isn't decorated with `@Module` — throws `NotAModuleError` when
+  `registerModule()` walks the graph.
+</Callout>
+
+## Common Mistakes
+
+1. **Expecting `exports` to hide providers** — declaring a provider without listing it in `exports` does not make it private today. Every provider in the graph is visible everywhere. Treat `exports` as documentation of intent, not an access-control boundary, until per-module encapsulation ships.
+2. **Passing a controller or service directly in `imports`** — `imports` is for other `@Module` classes only. Put a controller in `controllers` and a service in `providers`; only compose modules through `imports`.
+3. **Registering the same controllers both via a module and via a direct `registerControllers()` call on the same app** — this can double-register routes. Pick one registration path per app; use `registerModule()` for the whole graph once modules are in use.
+
+## When Not to Use This
+
+A small application with a handful of controllers and no meaningful feature boundaries doesn't need modules — call `registerControllers(app, { root: './src' })` directly and skip the extra `@Module` declarations. Reach for modules when the codebase has grown enough that grouping by feature communicates something a flat controller list doesn't.
+
+## Related
+
+- [Dependency Injection & Scopes](/docs/concepts/dependency-injection) — how the providers a module registers interact with singleton/transient/request scope
+- [Guards](/docs/concepts/guards) — access control that composes with controllers inside a module
+- [`nextrush/class` Reference](/docs/reference/class/modules) — full `registerModule` and `@Module` signatures

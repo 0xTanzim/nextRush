@@ -1,0 +1,95 @@
+---
+title: '[PLACEHOLDER: Production topic — e.g. "Deployment", "Observability", "Caching"]'
+description: '[PLACEHOLDER: One sentence — the operational concern this page addresses.]'
+---
+
+<!--
+PRODUCTION PAGE TEMPLATE
+Lives under production/ — the day-2 operations spine (PLAN.md T15). Audience is an
+engineer about to ship or already running NextRush in production. Be explicit
+about defaults, trade-offs, and failure modes — this is where "zero config ≠ zero
+explanation" matters most. Delete this comment block before publishing.
+-->
+
+## The Operational Concern
+
+[PLACEHOLDER: What breaks, degrades, or becomes a liability in production if this
+topic is ignored? State it concretely — e.g. "unhandled promise rejections crash
+the process" — not abstractly.]
+
+## Default Behavior
+
+[PLACEHOLDER: What NextRush does out of the box for this concern, with no
+configuration. State the trade-off of the default explicitly.]
+
+<Callout type="warn" title="[PLACEHOLDER: production-specific gotcha, or delete]">
+  [PLACEHOLDER: a default that is fine in development but wrong/dangerous in
+  production — e.g. verbose error responses, permissive CORS. Delete if none.]
+</Callout>
+
+## Configuration
+
+```ts title="[PLACEHOLDER: filename]"
+import { createApp, listen } from 'nextrush';
+
+// [PLACEHOLDER: production-appropriate configuration example]
+const app = createApp({
+  /* [PLACEHOLDER: relevant options] */
+});
+
+listen(app, 8080);
+```
+
+<TypeTable
+  title="[PLACEHOLDER: Options]"
+  types={{
+    '[PLACEHOLDER: optionName]': { type: '[PLACEHOLDER: type]', description: '[PLACEHOLDER: description]', default: '[PLACEHOLDER: default]' },
+  }}
+/>
+
+## Deployment / Runtime Notes
+
+[PLACEHOLDER: Runtime-specific guidance if applicable — use Tabs to compare
+Node.js / Bun / Deno / Docker where behavior differs. Omit this section entirely
+if the topic is runtime-agnostic.]
+
+<Tabs items={['Node.js', 'Docker']}>
+  <Tab value="Node.js">
+    ```bash
+    [PLACEHOLDER: e.g. node dist/index.js]
+    ```
+  </Tab>
+  <Tab value="Docker">
+    ```dockerfile
+    [PLACEHOLDER: minimal production Dockerfile snippet]
+    ```
+  </Tab>
+</Tabs>
+
+## Failure Behavior
+
+[PLACEHOLDER: What happens when this subsystem fails — a dropped connection, a
+missing env var, a downstream timeout. State what NextRush guarantees (fails
+fast? retries? logs?) and what the operator must handle themselves.]
+
+## Observability
+
+[PLACEHOLDER: What should be logged, measured, or traced for this concern.
+Reference `@nextrush/logger` / `@nextrush/request-id` / `@nextrush/timer` where
+relevant rather than re-describing them — link to their reference pages.]
+
+## Security Considerations
+
+[PLACEHOLDER: Security-relevant defaults and hardening steps for this topic.
+Delete this section only if genuinely not applicable — most production topics
+have at least one security implication.]
+
+## Common Mistakes
+
+1. **[PLACEHOLDER: mistake name]** — [PLACEHOLDER: what goes wrong in production and the fix].
+2. **[PLACEHOLDER: mistake name]** — [PLACEHOLDER: what goes wrong in production and the fix].
+
+## Related
+
+- [PLACEHOLDER: link to the concept page underlying this operational concern]
+- [PLACEHOLDER: link to a sibling production page — e.g. Scaling ↔ Caching]

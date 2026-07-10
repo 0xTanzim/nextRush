@@ -90,10 +90,10 @@ describe('Router Edge Cases', () => {
       expect(match?.params.filename).toBe('document.pdf');
     });
 
-    it('should extract URL-encoded special characters', () => {
+    it('should decode URL-encoded special characters by default', () => {
       router.get('/search/:query', vi.fn());
       const match = router.match('GET', '/search/hello%20world');
-      expect(match?.params.query).toBe('hello%20world');
+      expect(match?.params.query).toBe('hello world');
     });
 
     it('should extract parameters with plus signs', () => {

@@ -78,8 +78,7 @@ When a request reaches the router:
 ## Basic Usage
 
 ```typescript title="Basic Routing"
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
+import { createApp, createRouter } from 'nextrush';
 
 const app = createApp();
 const router = createRouter();
@@ -136,8 +135,7 @@ NextRush provides several ways to compose routers. Choose the approach that fits
     Mount routers directly on the application with a path prefix:
 
     ```typescript title="app.ts"
-    import { createApp } from '@nextrush/core';
-    import { createRouter } from '@nextrush/router';
+    import { createApp, createRouter } from 'nextrush';
 
     const users = createRouter();
     users.get('/', (ctx) => ctx.json([]));
@@ -209,10 +207,10 @@ router.get('/admin', authMiddleware, roleCheck, handler);
 
 ## Route Metadata
 
-Alongside middleware and the handler, a route's argument list can carry a metadata marker — an object with no runtime behavior that never enters the executed chain. `endpoint()` creates one directly; `validate()` (from [`@nextrush/validation`](/docs/api-reference/middleware/validation)) attaches one to itself as a non-enumerable property, so it works as both a functioning middleware and a metadata source at once.
+Alongside middleware and the handler, a route's argument list can carry a metadata marker — an object with no runtime behavior that never enters the executed chain. `endpoint()` creates one directly; `validate()` (from [`@nextrush/validation`](/docs/reference/middleware/validation)) attaches one to itself as a non-enumerable property, so it works as both a functioning middleware and a metadata source at once.
 
 ```typescript
-import { createRouter, endpoint } from '@nextrush/router';
+import { createRouter, endpoint } from 'nextrush';
 import { validate } from '@nextrush/validation';
 import { z } from 'zod';
 
@@ -314,13 +312,13 @@ If your application has fewer than 5 routes and no parameters, a router adds unn
   <Card title="Middleware" href="/docs/concepts/middleware">
     How middleware works with routes and groups.
   </Card>
-  <Card title="@nextrush/validation" href="/docs/api-reference/middleware/validation">
+  <Card title="@nextrush/validation" href="/docs/reference/middleware/validation">
     The middleware that contributes request schemas to route metadata.
   </Card>
-  <Card title="@nextrush/openapi" href="/docs/api-reference/plugins/openapi">
+  <Card title="@nextrush/openapi" href="/docs/reference/plugins/openapi">
     Generates an OpenAPI 3.1 document from route metadata.
   </Card>
-  <Card title="@nextrush/router API" href="/docs/api-reference/core/router">
+  <Card title="@nextrush/router API" href="/docs/reference/core/router">
     Full API reference for createRouter, Router, and RouterOptions.
   </Card>
 </Cards>

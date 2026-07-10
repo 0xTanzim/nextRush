@@ -286,6 +286,32 @@ src/
   </Step>
 </Steps>
 
+## Response Format
+
+The routes above follow a consistent response shape — a `data` envelope for single resources,
+`data` + `total`/`meta` for lists, and a structured error body for failures:
+
+```json
+// Single resource
+{ "data": { "id": "1", "name": "Alice", "email": "alice@example.com" } }
+
+// List
+{ "data": [ /* ... */ ], "total": 2 }
+
+// Error (thrown via a typed error class — see Error Handling)
+{ "error": "NotFoundError", "message": "User not found", "code": "NOT_FOUND", "status": 404 }
+```
+
+`@nextrush/errors` exports one class per common status —  `NotFoundError`, `BadRequestError`,
+`UnauthorizedError`, `ForbiddenError`, and `ConflictError` are the ones a CRUD API reaches for most.
+
+<Callout type="info" title="Typed error classes">
+  Throwing `NotFoundError`, `BadRequestError`, `UnauthorizedError`, `ForbiddenError`, or
+  `ConflictError` from a handler is caught automatically and converted to the response shape
+  above — no manual try/catch needed. See [Error Handling](/docs/guides/error-handling) for the
+  full class list and custom error handling.
+</Callout>
+
 ## Adding Pagination
 
 For large datasets, add query-based pagination to the list endpoint:
@@ -306,13 +332,35 @@ usersRouter.get('/', (ctx) => {
 });
 ```
 
+## Adding Search
+
+Filter the list endpoint by a free-text query and an exact-match field:
+
+```typescript
+usersRouter.get('/', (ctx) => {
+  let result = userService.findAll();
+
+  const search = ctx.query.q?.toLowerCase();
+  if (search) {
+    result = result.filter(
+      (user) => user.name.toLowerCase().includes(search) || user.email.toLowerCase().includes(search)
+    );
+  }
+
+  const name = ctx.query.name;
+  if (name) {
+    result = result.filter((user) => user.name === name);
+  }
+
+  ctx.json({ data: result, total: result.length });
+});
+```
+
 ## Using Class-Based Controllers
 
-For larger applications, you can use decorator-based controllers with dependency injection. This requires additional packages:
-
-<PackageInstall
-  packages={['@nextrush/decorators', '@nextrush/di', '@nextrush/controllers', 'reflect-metadata']}
-/>
+For larger applications, you can use decorator-based controllers with dependency injection from
+`nextrush/class` — already included in the `nextrush` meta-package installed above, no additional
+packages required.
 
 <details>
 <summary>Full class-based controller implementation</summary>
@@ -489,11 +537,11 @@ usersRouter.get('/:id', (ctx) => {
   <Card
     title="Context API Reference"
     description="Full context methods and properties."
-    href="/docs/api-reference/core/context"
+    href="/docs/reference/core/context"
   />
   <Card
     title="Router API Reference"
     description="Segment trie routing — all methods and options."
-    href="/docs/api-reference/core/router"
+    href="/docs/reference/core/router"
   />
 </Cards>

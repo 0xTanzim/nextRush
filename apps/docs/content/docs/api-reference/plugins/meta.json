@@ -1,5 +1,0 @@
-{
-  "title": "Plugins",
-  "description": "API reference for all built-in NextRush plugin packages.",
-  "pages": ["index", "controllers", "logger", "static", "websocket", "events", "template", "stream", "openapi"]
-}

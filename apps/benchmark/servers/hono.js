@@ -1,115 +1,77 @@
 /**
- * Hono Benchmark Server — All scenarios via @hono/node-server.
+ * Hono benchmark server — all scenarios via @hono/node-server.
+ *
+ * Fairness notes:
+ * - Response bodies come from the shared payload module.
+ * - `app.onError` is idiomatic and fires only on error (no per-request cost).
  */
 
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 
+import {
+  ERROR_BODY,
+  ERROR_MESSAGE,
+  HELLO_WORLD,
+  JSON_USER,
+  LARGE_JSON,
+  MIDDLEWARE_BODY,
+  MIDDLEWARE_HEADERS,
+  deepRoute,
+  mwHeaderValue,
+  postUserResponse,
+  searchResponse,
+  userById,
+} from './_shared/payloads.js';
+
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = new Hono();
 
-// 1. Hello World
-app.get('/', (c) => c.json({ message: 'Hello World' }));
+// Fairness: Hono's c.json() emits `application/json` (no charset). Every other
+// server emits `application/json; charset=utf-8`. This helper does the same work
+// as c.json (stringify + set header) but with the identical content-type so
+// responses are byte-identical on the wire, headers included (audit F-M02).
+const CONTENT_TYPE = 'application/json; charset=utf-8';
+const jsonRes = (c, obj, status = 200) => {
+  c.header('Content-Type', CONTENT_TYPE);
+  return c.body(JSON.stringify(obj), status);
+};
 
-// 2. JSON serialization
-app.get('/json', (c) =>
-  c.json({ id: 1, name: 'John Doe', email: 'john@example.com', role: 'developer', active: true })
+app.get('/', (c) => jsonRes(c, HELLO_WORLD));
+app.get('/json', (c) => jsonRes(c, JSON_USER));
+app.get('/large-json', (c) => jsonRes(c, LARGE_JSON));
+
+app.get('/users/:id', (c) => jsonRes(c, userById(c.req.param('id'))));
+
+app.get('/search', (c) => jsonRes(c, searchResponse(c.req.query('q'), c.req.query('limit'))));
+
+app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (c) =>
+  jsonRes(c, deepRoute(c.req.param('orgId'), c.req.param('teamId'), c.req.param('memberId')))
 );
 
-// 3. Route parameters
-app.get('/users/:id', (c) => {
-  const id = c.req.param('id');
-  return c.json({ id, name: `User ${id}`, email: `user${id}@example.com` });
-});
+app.post('/users', async (c) => jsonRes(c, postUserResponse(await c.req.json())));
 
-// 4. Query strings
-app.get('/search', (c) => {
-  const q = c.req.query('q') || '';
-  const limit = Math.min(parseInt(c.req.query('limit') || '10', 10), 10);
-  return c.json({
-    query: q,
-    limit,
-    results: Array.from({ length: limit }, (_, i) => ({
-      id: i + 1,
-      title: `Result ${i + 1} for "${q}"`,
-    })),
+// 5-layer middleware stack — one header per layer.
+for (const header of MIDDLEWARE_HEADERS) {
+  app.use('/middleware', async (c, next) => {
+    c.header(header.name, mwHeaderValue(header));
+    await next();
   });
-});
+}
+app.get('/middleware', (c) => jsonRes(c, MIDDLEWARE_BODY));
 
-// 5. POST JSON
-app.post('/users', async (c) => {
-  const data = await c.req.json();
-  return c.json({
-    success: true,
-    user: { id: Math.floor(Math.random() * 10000), ...data, createdAt: new Date().toISOString() },
-  });
-});
-
-// 6. Deep route
-app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (c) => {
-  return c.json({
-    orgId: c.req.param('orgId'),
-    teamId: c.req.param('teamId'),
-    memberId: c.req.param('memberId'),
-  });
-});
-
-// 7. Middleware stack — 5 middleware layers
-app.use('/middleware', async (c, next) => {
-  c.header('X-Request-Id', '12345');
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Timestamp', Date.now().toString());
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Framework', 'hono');
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Version', '4.0');
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Processed', 'true');
-  await next();
-});
-app.get('/middleware', (c) => c.json({ middleware: true, layers: 5 }));
-
-// 8. Error handling
 app.get('/error', () => {
-  throw new Error('Benchmark error');
+  throw new Error(ERROR_MESSAGE);
 });
 
-// 9. Large JSON
-const largeData = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  name: `User ${i + 1}`,
-  email: `user${i + 1}@example.com`,
-  role: i % 2 === 0 ? 'developer' : 'designer',
-  active: i % 3 !== 0,
-}));
+app.get('/empty', (c) => c.newResponse(null, 204));
 
-app.get('/large-json', (c) => c.json(largeData));
-
-// 10. Empty response
-app.get('/empty', (c) => {
-  c.status(204);
-  return c.body(null);
-});
-
-// Error handler
-app.onError((err, c) => {
-  return c.json({ error: 'Internal Server Error' }, 500);
-});
+app.onError((_err, c) => jsonRes(c, ERROR_BODY, 500));
 
 const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
   console.log(`Hono server listening on http://localhost:${info.port}`);
 });
 
-const shutdown = () => {
-  server.close(() => process.exit(0));
-};
+const shutdown = () => server.close(() => process.exit(0));
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

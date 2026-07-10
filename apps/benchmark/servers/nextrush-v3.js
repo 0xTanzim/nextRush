@@ -1,8 +1,12 @@
 /**
- * NextRush v3 Benchmark Server
+ * NextRush v3 benchmark server — all scenarios.
  *
- * All benchmark scenarios implemented with conditional body parser.
- * No logging middleware, production mode.
+ * Fairness notes:
+ * - Response bodies come from the shared payload module.
+ * - Error handling uses `app.setErrorHandler` (fires only on error, zero
+ *   per-request overhead) — matching Fastify/Express/Hono's dedicated handlers
+ *   instead of a per-request try/catch middleware (audit FAIR-04).
+ * - The body parser is attached only to the POST route.
  */
 
 import { listen } from '@nextrush/adapter-node';
@@ -10,127 +14,61 @@ import { json } from '@nextrush/body-parser';
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 
+import {
+  ERROR_BODY,
+  ERROR_MESSAGE,
+  HELLO_WORLD,
+  JSON_USER,
+  LARGE_JSON,
+  MIDDLEWARE_BODY,
+  MIDDLEWARE_HEADERS,
+  deepRoute,
+  mwHeaderValue,
+  postUserResponse,
+  searchResponse,
+  userById,
+} from './_shared/payloads.js';
+
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
 const app = createApp();
 const router = createRouter();
 
-// 1. Hello World — baseline
-router.get('/', (ctx) => {
-  ctx.json({ message: 'Hello World' });
-});
+router.get('/', (ctx) => ctx.json(HELLO_WORLD));
+router.get('/json', (ctx) => ctx.json(JSON_USER));
+router.get('/large-json', (ctx) => ctx.json(LARGE_JSON));
 
-// 2. JSON serialization — moderate payload
-router.get('/json', (ctx) => {
-  ctx.json({
-    id: 1,
-    name: 'John Doe',
-    email: 'john@example.com',
-    role: 'developer',
-    active: true,
-  });
-});
+router.get('/users/:id', (ctx) => ctx.json(userById(ctx.params.id)));
 
-// 3. Route parameters — router performance
-router.get('/users/:id', (ctx) => {
-  const { id } = ctx.params;
-  ctx.json({ id, name: `User ${id}`, email: `user${id}@example.com` });
-});
+router.get('/search', (ctx) => ctx.json(searchResponse(ctx.query.q, ctx.query.limit)));
 
-// 4. Query strings — query parsing
-router.get('/search', (ctx) => {
-  const { q = '', limit = '10' } = ctx.query;
-  const limitNum = Math.min(parseInt(limit, 10), 10);
-  ctx.json({
-    query: q,
-    limit: limitNum,
-    results: Array.from({ length: limitNum }, (_, i) => ({
-      id: i + 1,
-      title: `Result ${i + 1} for "${q}"`,
-    })),
-  });
-});
+router.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (ctx) =>
+  ctx.json(deepRoute(ctx.params.orgId, ctx.params.teamId, ctx.params.memberId))
+);
 
-// 5. POST JSON — body parser performance
-router.post('/users', json(), (ctx) => {
-  const data = ctx.body;
-  ctx.json({
-    success: true,
-    user: {
-      id: Math.floor(Math.random() * 10000),
-      ...data,
-      createdAt: new Date().toISOString(),
-    },
-  });
-});
+router.post('/users', json(), (ctx) => ctx.json(postUserResponse(ctx.body)));
 
-// 6. Deep route — radix tree depth
-router.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (ctx) => {
-  ctx.json({
-    orgId: ctx.params.orgId,
-    teamId: ctx.params.teamId,
-    memberId: ctx.params.memberId,
-  });
-});
-
-// 7. Middleware stack — 5 layers (inline middleware on route)
-const mw1 = (ctx) => {
-  ctx.set('X-Request-Id', '12345');
+// 5-layer middleware stack — one header per layer, using the modern ctx.next()
+// syntax (now works for per-route middleware after the router compileExecutor fix).
+const middleware = MIDDLEWARE_HEADERS.map((header) => (ctx) => {
+  ctx.set(header.name, mwHeaderValue(header));
   return ctx.next();
-};
-const mw2 = (ctx) => {
-  ctx.set('X-Timestamp', Date.now().toString());
-  return ctx.next();
-};
-const mw3 = (ctx) => {
-  ctx.set('X-Framework', 'nextrush');
-  return ctx.next();
-};
-const mw4 = (ctx) => {
-  ctx.set('X-Version', '3.0');
-  return ctx.next();
-};
-const mw5 = (ctx) => {
-  ctx.set('X-Processed', 'true');
-  return ctx.next();
-};
-
-router.get('/middleware', mw1, mw2, mw3, mw4, mw5, (ctx) => {
-  ctx.json({ middleware: true, layers: 5 });
 });
+router.get('/middleware', ...middleware, (ctx) => ctx.json(MIDDLEWARE_BODY));
 
-// 8. Error handling — error pipeline
 router.get('/error', () => {
-  throw new Error('Benchmark error');
+  throw new Error(ERROR_MESSAGE);
 });
 
-// 9. Large JSON — payload serialization
-const largeData = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  name: `User ${i + 1}`,
-  email: `user${i + 1}@example.com`,
-  role: i % 2 === 0 ? 'developer' : 'designer',
-  active: i % 3 !== 0,
-}));
-
-router.get('/large-json', (ctx) => {
-  ctx.json(largeData);
-});
-
-// 10. Empty response — 204 no content
 router.get('/empty', (ctx) => {
   ctx.status = 204;
   ctx.send();
 });
 
-// Error handler — must wrap routes (Koa-style: add before routes)
-app.use(async (ctx) => {
-  try {
-    await ctx.next();
-  } catch {
-    ctx.status = 500;
-    ctx.json({ error: 'Internal Server Error' });
-  }
+// Idiomatic error handler — invoked only when a route throws (no per-request cost).
+app.setErrorHandler((_err, ctx) => {
+  ctx.status = 500;
+  ctx.json(ERROR_BODY);
 });
 
 app.route('/', router);

@@ -1,0 +1,156 @@
+---
+title: WebSocket Chat
+description: Build a real-time chat application with NextRush WebSocket support.
+---
+
+A real-time chat server using `@nextrush/websocket`. Handles connections, rooms, broadcasts, and graceful disconnection.
+
+## What This Example Demonstrates
+
+- `createWebSocket()` server setup and attaching to the HTTP server
+- Connection lifecycle (`message`, `close`)
+- Room-based broadcasting via `conn.join()` and `conn.broadcast()`
+- User identification via query params
+- Graceful disconnect with notifications
+
+## Prerequisites
+
+- Node.js 22+
+- `nextrush` and `@nextrush/websocket` installed
+- The `ws` package (a peer dependency, loaded dynamically by `@nextrush/websocket`)
+
+```bash
+pnpm add nextrush @nextrush/websocket ws
+```
+
+## Full Code
+
+```typescript title="src/chat.ts"
+import { createApp, createRouter } from 'nextrush';
+import { listen } from '@nextrush/adapter-node';
+import { createWebSocket, type WSConnection } from '@nextrush/websocket';
+
+const app = createApp();
+const router = createRouter();
+const wss = createWebSocket();
+
+// Track username per connection id (Connection has no built-in metadata slot)
+const usernames = new Map<string, string>();
+
+// Health check
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+
+// REST endpoint — room membership is only visible through broadcasts in this
+// example; expose whatever room bookkeeping your app needs here.
+
+wss.on('/ws', (conn: WSConnection) => {
+  const url = new URL(conn.url, 'http://localhost');
+  const room = url.searchParams.get('room') ?? 'general';
+  const username = url.searchParams.get('user') ?? 'anonymous';
+
+  usernames.set(conn.id, username);
+  conn.join(room);
+
+  conn.broadcastJson(room, {
+    type: 'system',
+    message: `${username} joined`,
+    timestamp: Date.now(),
+  });
+
+  conn.on('message', (data) => {
+    const message = typeof data === 'string' ? data : data.toString();
+
+    conn.broadcastJson(room, {
+      type: 'message',
+      user: username,
+      message,
+      timestamp: Date.now(),
+    });
+  });
+
+  conn.on('close', () => {
+    usernames.delete(conn.id);
+
+    conn.broadcastJson(room, {
+      type: 'system',
+      message: `${username} left`,
+      timestamp: Date.now(),
+    });
+  });
+});
+
+app.use(wss.upgrade());
+app.route('/', router);
+
+const { server } = await listen(app, 8080);
+wss.attach(server);
+
+console.log('Chat server running on http://localhost:8080');
+console.log('WebSocket endpoint: ws://localhost:8080/ws?room=general&user=alice');
+```
+
+<Callout type="info" title="conn.broadcast excludes the sender">
+  `conn.broadcastJson(room, data)` sends to every other member of `room` — never back to the
+  connection that called it. There is no `exclude` parameter to configure; the sender is always
+  excluded automatically.
+</Callout>
+
+## How to Run
+
+```bash
+nextrush dev src/chat.ts
+```
+
+## Test with wscat
+
+```bash
+# Terminal 1 — Alice joins
+npx wscat -c "ws://localhost:8080/ws?room=general&user=alice"
+
+# Terminal 2 — Bob joins
+npx wscat -c "ws://localhost:8080/ws?room=general&user=bob"
+
+# In Alice's terminal, type:
+> Hello Bob!
+
+# Bob sees:
+< {"type":"message","user":"alice","message":"Hello Bob!","timestamp":1704067200000}
+```
+
+## Expected Output
+
+When Alice connects:
+
+```json
+// Bob receives:
+{ "type": "system", "message": "alice joined", "timestamp": 1704067200000 }
+```
+
+When Alice sends "Hello":
+
+```json
+// Bob receives:
+{ "type": "message", "user": "alice", "message": "Hello", "timestamp": 1704067200001 }
+```
+
+When Alice disconnects:
+
+```json
+// Bob receives:
+{ "type": "system", "message": "alice left", "timestamp": 1704067200002 }
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="@nextrush/websocket API Reference"
+    description="Full Connection, RoomManager, and configuration options."
+    href="/docs/reference/plugins/websocket"
+  />
+  <Card
+    title="REST API Guide"
+    description="Combine WebSocket routes with a standard REST API on the same app."
+    href="/docs/guides/rest-api"
+  />
+</Cards>

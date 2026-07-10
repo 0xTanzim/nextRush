@@ -299,8 +299,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
 <Tabs items={['Node.js', 'Bun', 'Deno', 'Edge']}>
   <Tab value="Node.js">
     ```ts
-    import { createApp } from '@nextrush/core';
-    import { listen } from '@nextrush/adapter-node';
+    import { createApp, listen } from 'nextrush';
 
     const app = createApp();
     // ... configure app
@@ -311,7 +310,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
   </Tab>
   <Tab value="Bun">
     ```ts
-    import { createApp } from '@nextrush/core';
+    import { createApp } from 'nextrush';
     import { serve } from '@nextrush/adapter-bun';
 
     const app = createApp();
@@ -323,7 +322,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
   </Tab>
   <Tab value="Deno">
     ```ts
-    import { createApp } from '@nextrush/core';
+    import { createApp } from 'nextrush';
     import { serve } from '@nextrush/adapter-deno';
 
     const app = createApp();
@@ -338,6 +337,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
 
     ```ts
     // Cloudflare Workers
+    import { createApp } from 'nextrush';
     import { createCloudflareHandler } from '@nextrush/adapter-edge';
     const app = createApp();
     export default createCloudflareHandler(app);
@@ -345,6 +345,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
 
     ```ts
     // Vercel Edge Functions
+    import { createApp } from 'nextrush';
     import { createVercelHandler } from '@nextrush/adapter-edge';
     const app = createApp();
     export const config = { runtime: 'edge' };
@@ -353,6 +354,7 @@ Each adapter handles the platform-specific HTTP primitives while your applicatio
 
     ```ts
     // Netlify Edge Functions
+    import { createApp } from 'nextrush';
     import { createNetlifyHandler } from '@nextrush/adapter-edge';
     const app = createApp();
     export default createNetlifyHandler(app);
@@ -466,6 +468,6 @@ router.get('/socket-info', (ctx) => {
 
 ## Next Steps
 
-- See the complete list of packages in the [package hierarchy](/docs/concepts/package-hierarchy)
-- Learn about each adapter in the [adapters documentation](/docs/api-reference/adapters)
-- Explore [middleware packages](/docs/api-reference/middleware) that work across runtimes
+- See the complete list of packages in the [package hierarchy](/docs/internals/package-hierarchy)
+- Learn about each adapter in the [adapters documentation](/docs/reference/adapters)
+- Explore [middleware packages](/docs/reference/middleware) that work across runtimes

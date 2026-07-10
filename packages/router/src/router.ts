@@ -93,6 +93,7 @@ export class Router {
       prefix: options.prefix ?? '',
       caseSensitive: options.caseSensitive ?? false,
       strict: options.strict ?? false,
+      decode: options.decode ?? true,
     };
   }
 
@@ -130,6 +131,14 @@ export class Router {
     entries: RouteEntry[],
     middleware: Middleware[] = []
   ): void {
+    // Runtime guard for untyped JS callers — without this, a non-string path is
+    // silently coerced (`'' + null` → 'null') into a bogus literal route.
+    const rawPath: unknown = path;
+    if (typeof rawPath !== 'string') {
+      throw new TypeError(
+        `Route path must be a string, received ${rawPath === null ? 'null' : typeof rawPath}.`
+      );
+    }
     const normalized = this.normalizePath(path);
     const segments = parseSegments(normalized, this.opts.caseSensitive);
 
@@ -456,6 +465,11 @@ export class Router {
    * Match a route and return handler + params
    */
   match(method: HttpMethod, path: string): RouteMatch | null {
+    // Query string must not affect path matching (RFC 3986 §3.4). Strip it here
+    // so both the normalized lookup path and extracted param values exclude it.
+    const queryIdx = path.indexOf('?');
+    if (queryIdx !== -1) path = path.slice(0, queryIdx);
+
     const isCaseInsensitive = !this.opts.caseSensitive;
     let normalized = isCaseInsensitive ? path.toLowerCase() : path;
 
@@ -532,6 +546,21 @@ export class Router {
   }
 
   /**
+   * Percent-decode an extracted param/wildcard value when `decode` is enabled.
+   * Fast-paths values with no `%`, and falls back to the raw value on malformed
+   * encoding (decodeURIComponent throws a URIError) so a bad request never crashes
+   * routing.
+   */
+  private decodeParam(value: string): string {
+    if (!this.opts.decode || !value.includes('%')) return value;
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+
+  /**
    * Extract the next segment from path at given position without allocating arrays.
    * Returns [segment, nextIndex] where nextIndex is position after the trailing '/'.
    */
@@ -582,9 +611,9 @@ export class Router {
       if (paramName === undefined) return null;
       if (originalPath) {
         const [origSeg] = this.extractSegment(originalPath, pos);
-        params[paramName] = origSeg;
+        params[paramName] = this.decodeParam(origSeg);
       } else {
-        params[paramName] = segment;
+        params[paramName] = this.decodeParam(segment);
       }
       const result = this.matchNodeIndexed(
         node.paramChild,
@@ -601,7 +630,7 @@ export class Router {
     // Try wildcard match (catches remaining path) — use original-case path
     if (node.wildcardChild) {
       const src = originalPath ?? path;
-      params['*'] = src.slice(pos);
+      params['*'] = this.decodeParam(src.slice(pos));
       return node.wildcardChild.handlers.get(method) ?? null;
     }
 

@@ -1,0 +1,259 @@
+---
+title: 'Dependency Injection'
+description: 'Constructor injection, scoped lifecycles, and circular dependency detection for NextRush applications.'
+---
+
+## Overview
+
+Dependency injection is implemented in `@nextrush/di` and used by `nextrush/class`. `nextrush/class`
+re-exports only the core DI surface — `Service`, `Repository`, `container`, `createContainer`,
+`inject`, and the `Container` type. Everything else on this page (`@Config`, `@Injectable`,
+`@Optional`, `delay`, error classes, and the metadata utilities) is **not** re-exported by
+`nextrush/class` — import it directly from `@nextrush/di`. `@nextrush/di` wraps
+[tsyringe](https://github.com/microsoft/tsyringe) with enhanced error
+messages, O(1) circular-dependency detection, semantic decorators (`@Service`, `@Repository`,
+`@Config`), and optional dependencies. This page is the API reference — signatures, options, and
+behavior. For the problem DI solves, the mental model, and when to reach for it, see
+[Dependency Injection & Scopes concepts](/docs/concepts/dependency-injection).
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/di']} />
+
+<Callout type="info" title="reflect-metadata">
+  If you use the `nextrush` meta-package, `reflect-metadata` is auto-imported. Otherwise, install it
+  separately: `pnpm add reflect-metadata` and add `import 'reflect-metadata'` at your entry point.
+</Callout>
+
+## Configuration
+
+<Callout type="warn" title="Required TypeScript Settings">
+  The DI container uses `reflect-metadata` to read constructor parameter types at runtime. Without
+  these settings, resolution fails with `TypeInfo not known` errors.
+</Callout>
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
+```
+
+Most modern runners (`tsx`, `esbuild`, `node --experimental-strip-types`) strip types without emitting decorator metadata. Use `tsc + node` or `@nextrush/dev` for correct behavior.
+
+---
+
+## Minimal Correct Usage
+
+```typescript
+import 'reflect-metadata'; // Not needed if using the nextrush meta-package
+import { Service, Repository, container } from 'nextrush/class';
+
+@Repository()
+class UserRepository {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Service()
+class UserService {
+  constructor(private repo: UserRepository) {}
+
+  getUsers() {
+    return this.repo.findAll();
+  }
+}
+
+const userService = container.resolve(UserService);
+console.log(userService.getUsers()); // [{ id: 1, name: 'Alice' }]
+```
+
+---
+
+## What Happens Automatically
+
+- `@Service()` and `@Repository()` default to **singleton** scope. One instance is shared across all `resolve()` calls.
+- Constructor parameter types are read via `emitDecoratorMetadata`. If parameter `repo` has type `UserRepository`, the container resolves `UserRepository` automatically — no manual `@inject()` needed for class tokens.
+
+As noted above, this depends on `reflect-metadata` being imported before any decorated class loads — the `nextrush` meta-package handles this automatically; individual `@nextrush/*` package imports do not.
+
+---
+
+## Service Decorators
+
+### `@Service(options?)`
+
+Mark a class as an injectable service. Singleton by default.
+
+```typescript
+@Service()
+class UserService {}
+
+@Service({ scope: 'transient' })
+class RequestLogger {}
+```
+
+<TypeTable
+  title="ServiceOptions"
+  types={{
+    scope: {
+      type: "'singleton' | 'transient' | 'request'",
+      description:
+        'Instance lifecycle. Singleton shares one instance; transient creates a new instance per resolve; request creates one instance per request (shared within it).',
+      default: "'singleton'",
+    },
+  }}
+/>
+
+### `@Repository(options?)`
+
+Semantic alias for `@Service()`. Indicates a data access class. Accepts the same `ServiceOptions`.
+
+```typescript
+@Repository()
+class UserRepository {
+  findById(id: string) {
+    /* ... */
+  }
+}
+```
+
+The only difference from `@Service()` is the metadata type stored — `'repository'` instead of `'service'`. The controller registrar uses this for auto-discovery.
+
+### `@inject(token)`
+
+Explicitly specify which token to inject for a constructor parameter. Use this for string tokens, symbol tokens, or interface-based injection where TypeScript cannot infer the concrete type at runtime.
+
+```typescript
+import { Service, inject } from 'nextrush/class';
+
+@Service()
+class PaymentService {
+  constructor(
+    @inject('STRIPE_KEY') private stripeKey: string,
+    @inject('PaymentGateway') private gateway: IPaymentGateway
+  ) {}
+}
+```
+
+### `delay(tokenFactory)`
+
+Defer resolution to break circular dependencies. Returns a lazy token usable with `@inject()`.
+Import `delay` from `@nextrush/di` directly — it is not re-exported by `nextrush/class`.
+
+```typescript
+import { Service, inject } from 'nextrush/class';
+import { delay } from '@nextrush/di';
+
+@Service()
+class ServiceA {
+  constructor(@inject(delay(() => ServiceB)) private b: ServiceB) {}
+}
+
+@Service()
+class ServiceB {
+  constructor(@inject(delay(() => ServiceA)) private a: ServiceA) {}
+}
+```
+
+### `@Optional()`
+
+Mark a constructor parameter as optional. When the dependency is not registered, the container
+injects `undefined` instead of throwing. Import `Optional` from `@nextrush/di` — it is not
+re-exported by `nextrush/class`.
+
+```typescript
+import { Service, inject } from 'nextrush/class';
+import { Optional } from '@nextrush/di';
+
+@Service()
+class NotificationService {
+  constructor(
+    @Optional() private emailService?: EmailService,
+    @inject('SLACK_TOKEN') @Optional() private slackToken?: string
+  ) {}
+
+  notify(message: string) {
+    if (this.emailService) {
+      this.emailService.send(message);
+    }
+  }
+}
+```
+
+<Callout type="info">
+  `@Optional()` works with both class tokens and string/symbol tokens. It stores metadata as a `Set<number>` for O(1) lookup.
+</Callout>
+
+### `@Config(options?)`
+
+Mark a class as a centralized configuration holder. Configuration classes are always **singleton** — the scope cannot be overridden.
+Import `Config` from `@nextrush/di` — it is not re-exported by `nextrush/class`.
+
+```typescript
+import { Service } from 'nextrush/class';
+import { Config } from '@nextrush/di';
+
+// Simple configuration class
+@Config()
+class AppConfig {
+  readonly port = Number(process.env.PORT ?? 8080);
+  readonly host = process.env.HOST ?? 'localhost';
+}
+
+// With an env prefix — documents that this config reads DB_* vars
+@Config({ prefix: 'DB' })
+class DatabaseConfig {
+  readonly host = process.env.DB_HOST ?? 'localhost';
+  readonly port = Number(process.env.DB_PORT ?? 5432);
+}
+
+@Service()
+class UserService {
+  constructor(private config: DatabaseConfig) {}
+}
+```
+
+<TypeTable
+  title="ConfigOptions"
+  types={{
+    prefix: {
+      type: 'string',
+      description: 'Documents the environment variable prefix this config class reads. Stored as metadata, retrievable via getConfigPrefix().',
+      optional: true,
+    },
+  }}
+/>
+
+`@Config()` stores `'config'` as the service type metadata (distinct from `'service'`/`'repository'`) and registers the class as a tsyringe singleton. Resolve it like any other dependency with `container.resolve()` or constructor injection.
+
+### `@Injectable()`
+
+Make a class resolvable by the container with **transient** scope — a new instance is created on every `resolve()` call. Unlike `@Service()`, which defaults to singleton, `@Injectable()` never caches instances.
+Import `Injectable` from `@nextrush/di` — it is not re-exported by `nextrush/class`.
+
+```typescript
+import { container } from 'nextrush/class';
+import { Injectable } from '@nextrush/di';
+
+@Injectable()
+class FeatureService {
+  constructor(private logger: Logger) {}
+}
+
+const service = container.resolve(FeatureService);
+```
+
+---
+
+## Next Steps
+
+- [DI container & scopes](/docs/reference/class/di-container) — Scopes, container API, performance and security notes
+- [DI errors & utilities](/docs/reference/class/di-errors) — Error classes, metadata inspection, TypeScript exports
+- [Decorators](/docs/reference/class/decorators) — Controller, route, parameter, guard, interceptor, and filter decorators
+- [@nextrush/class overview](/docs/reference/class) — How the class runtime fits together

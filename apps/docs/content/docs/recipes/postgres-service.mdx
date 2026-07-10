@@ -1,0 +1,101 @@
+---
+title: 'Postgres in a Service Layer'
+description: Wire a pooled Postgres client into a DI-managed service without an ORM.
+---
+
+Not every service needs an ORM — sometimes a thin, pooled client plus hand-written SQL is the
+right amount of abstraction. This recipe wires the [`postgres`](https://www.npmjs.com/package/postgres)
+client (a third-party dependency; it is not part of NextRush) into a `@Service`-scoped class so
+the pool is created once and injected wherever it's needed.
+
+## Solution
+
+```ts title="src/services/database.service.ts"
+import { Service } from 'nextrush/class';
+import postgres from 'postgres';
+
+@Service()
+export class DatabaseService {
+  readonly sql = postgres(process.env.DATABASE_URL ?? '', {
+    max: 10, // pool size
+    idle_timeout: 30,
+  });
+
+  async close(): Promise<void> {
+    await this.sql.end();
+  }
+}
+```
+
+```ts title="src/services/user.service.ts"
+import { Service } from 'nextrush/class';
+import { DatabaseService } from './database.service';
+
+interface User {
+  id: number;
+  email: string;
+}
+
+@Service()
+export class UserService {
+  constructor(private db: DatabaseService) {}
+
+  async findById(id: number): Promise<User | null> {
+    const rows = await this.db.sql<User[]>`
+      SELECT id, email FROM users WHERE id = ${id}
+    `;
+    return rows[0] ?? null;
+  }
+}
+```
+
+```ts title="src/controllers/user.controller.ts"
+import { Controller, Get, Param } from 'nextrush/class';
+import { NotFoundError } from 'nextrush';
+import { UserService } from '../services/user.service';
+
+@Controller('/users')
+export class UserController {
+  constructor(private users: UserService) {}
+
+  @Get('/:id')
+  async findOne(@Param('id') id: string) {
+    const user = await this.users.findById(Number(id));
+    if (!user) throw new NotFoundError('User not found');
+    return user;
+  }
+}
+```
+
+`@Service()` (re-exported from `@nextrush/di` — `packages/class/src/index.ts` confirms
+`nextrush/class` re-exports exactly `Repository`, `Service`, `container`, `createContainer`,
+`inject`, `Container` from `@nextrush/di`, nothing more) defaults to singleton scope, so
+`DatabaseService`'s pool is constructed once per process and shared by every service that
+injects it — constructor injection (`UserService`'s `db: DatabaseService` parameter) is all the
+wiring needed. The tagged-template `sql` calls are parameterized by the `postgres` client itself,
+which is what prevents SQL injection here, not anything NextRush-specific.
+
+<Callout type="warn" title="Close the pool on shutdown">
+  Call `DatabaseService.close()` during your app's shutdown sequence (or from an
+  [Extension](/docs/concepts/plugins)'s `destroy()` if you attach the pool to the app instance
+  instead) — an unclosed pool holds the process open and leaks connections on redeploy.
+</Callout>
+
+## Try It
+
+```bash
+createdb recipe_demo
+psql recipe_demo -c "CREATE TABLE users (id serial PRIMARY KEY, email text NOT NULL);"
+psql recipe_demo -c "INSERT INTO users (email) VALUES ('a@example.com');"
+
+DATABASE_URL="postgres://localhost/recipe_demo" npx tsx src/index.ts &
+curl http://localhost:8080/users/1
+```
+
+**Expected result:** `{"id":1,"email":"a@example.com"}`.
+
+## Related
+
+- [Dependency Injection](/docs/concepts/dependency-injection) — scopes and constructor injection
+- [Database Integration guide](/docs/guides/database) — the Repository + Extension pattern for a full data-access layer
+- [Error Handling](/docs/guides/error-handling) — `NotFoundError` and the rest of the `HttpError` hierarchy

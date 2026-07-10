@@ -71,54 +71,52 @@ export function compileExecutor(
 ): (ctx: Context) => Promise<void> {
   const len = middleware.length;
 
-  // FAST PATH: No middleware - direct handler call
+  // FAST PATH: No middleware — direct handler call. Wire ctx.next() to a no-op
+  // so a handler that calls it settles safely.
   if (len === 0) {
     return async (ctx: Context) => {
+      if (ctx.setNext) ctx.setNext(NOOP_NEXT);
       await handler(ctx, NOOP_NEXT);
     };
   }
 
-  // FAST PATH: Single middleware
-  if (len === 1) {
-    const mw = middleware[0];
-    if (mw === undefined) throw new Error('middleware length mismatch');
-    return async (ctx: Context) => {
-      await mw(ctx, async () => {
-        await handler(ctx, NOOP_NEXT);
-      });
-    };
-  }
+  // Middleware present: guarded recursive dispatch. This mirrors core `compose()`
+  // so per-route middleware behave identically to application middleware:
+  //  - `ctx.next()` (modern) and the `(ctx, next)` argument advance the SAME chain
+  //    (ctx.setNext is wired before each layer),
+  //  - a synchronous throw is turned into a rejected promise (proper propagation),
+  //  - calling next() more than once in a layer rejects with a clear error.
+  return (ctx: Context): Promise<void> => {
+    let index = -1;
 
-  // FAST PATH: Two middleware (very common)
-  if (len === 2) {
-    const mw0 = middleware[0];
-    const mw1 = middleware[1];
-    if (mw0 === undefined || mw1 === undefined) throw new Error('middleware length mismatch');
-    return async (ctx: Context) => {
-      await mw0(ctx, async () => {
-        await mw1(ctx, async () => {
-          await handler(ctx, NOOP_NEXT);
-        });
-      });
-    };
-  }
+    const dispatch = (i: number): Promise<void> => {
+      if (i <= index) {
+        return Promise.reject(new Error('next() called multiple times'));
+      }
+      index = i;
 
-  // General case: Build recursive dispatch
-  // Note: This closure is created ONCE at registration, not per request
-  return async (ctx: Context): Promise<void> => {
-    let index = 0;
+      if (i < len) {
+        const mw = middleware[i];
+        if (mw === undefined) return Promise.reject(new Error('middleware length mismatch'));
+        const next = (): Promise<void> => dispatch(i + 1);
+        if (ctx.setNext) ctx.setNext(next);
+        try {
+          return Promise.resolve(mw(ctx, next));
+        } catch (err) {
+          return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
 
-    const dispatch = async (): Promise<void> => {
-      if (index < len) {
-        const mw = middleware[index++];
-        if (mw === undefined) throw new Error('middleware length mismatch');
-        await mw(ctx, dispatch);
-      } else {
-        await handler(ctx, NOOP_NEXT);
+      // Final handler. A handler calling next() is a safe no-op.
+      if (ctx.setNext) ctx.setNext(NOOP_NEXT);
+      try {
+        return Promise.resolve(handler(ctx, NOOP_NEXT));
+      } catch (err) {
+        return Promise.reject(err instanceof Error ? err : new Error(String(err)));
       }
     };
 
-    await dispatch();
+    return dispatch(0);
   };
 }
 

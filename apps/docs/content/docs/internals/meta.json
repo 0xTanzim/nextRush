@@ -1,0 +1,16 @@
+{
+  "title": "Internals",
+  "description": "Design principles, package hierarchy, engine internals, adapter contracts, RFCs/ADRs, versioning, and contributing.",
+  "pages": [
+    "index",
+    "design-principles",
+    "package-hierarchy",
+    "middleware-internals",
+    "router-internals",
+    "di-internals",
+    "adapters",
+    "rfcs",
+    "versioning",
+    "contributing"
+  ]
+}

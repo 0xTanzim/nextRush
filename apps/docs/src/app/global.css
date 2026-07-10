@@ -9,7 +9,11 @@
 :root {
   /* Primary Colors */
   --rush-blue: #3b82f6;
-  --rush-purple: #8b5cf6;
+  /* WCAG AA fix (T22 launch hardening): was #8b5cf6 (4.15:1 vs --bg-card,
+     just under the 4.5:1 minimum for normal text when used as TypeTable's
+     type-column text color) — confirmed via lighthouse a11y audit. #9d75f8
+     clears 5.30:1 while staying the same brand hue. */
+  --rush-purple: #9d75f8;
   --rush-cyan: #22d3ee;
   --rush-green: #22c55e;
 
@@ -33,7 +37,11 @@
 
   --text-primary: #eef0f5;
   --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  /* WCAG AA fix (T22 launch hardening): was #64748b (3.69:1 vs card bg, fails
+     4.5:1 minimum for normal text) — confirmed via lighthouse a11y audit +
+     relative-luminance calc. #94a3b8 clears 6.85:1 against the card bg while
+     staying visually "muted" relative to --text-secondary/--text-primary. */
+  --text-muted: #94a3b8;
 
   /* Code block chrome */
   --code-bg: #0d1117;
@@ -78,7 +86,10 @@
 
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  /* WCAG AA fix (T22 launch hardening): was #94a3b8 (2.47-2.56:1 vs both light
+     backgrounds, badly fails 4.5:1) — confirmed via lighthouse a11y audit +
+     relative-luminance calc. #64748b clears 4.59-4.76:1. */
+  --text-muted: #64748b;
 
   /* Light mode specific color adjustments for better contrast */
   --rush-cyan: #0891b2;

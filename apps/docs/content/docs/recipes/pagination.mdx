@@ -1,0 +1,109 @@
+---
+title: Paginate a List Endpoint
+description: Turn query-string page/limit params into a bounded slice of a list.
+---
+
+A list endpoint that returns every row does not scale, and a client should not have to guess
+your default page size. This recipe reads `page`/`limit` from `ctx.query`, validates them, and
+returns a bounded slice plus enough metadata for the client to fetch the next page.
+
+## Solution
+
+```ts title="src/routes/users.ts"
+import { createApp, listen, BadRequestError } from 'nextrush';
+
+interface User {
+  id: number;
+  name: string;
+}
+
+// Replace with a real data source — this recipe is about the pagination
+// contract, not storage.
+const users: User[] = Array.from({ length: 247 }, (_, i) => ({
+  id: i + 1,
+  name: `User ${i + 1}`,
+}));
+
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+
+function parsePagination(query: Record<string, string | string[] | undefined>) {
+  const rawPage = Array.isArray(query.page) ? query.page[0] : query.page;
+  const rawLimit = Array.isArray(query.limit) ? query.limit[0] : query.limit;
+
+  const page = rawPage ? Number(rawPage) : 1;
+  const limit = rawLimit ? Number(rawLimit) : DEFAULT_LIMIT;
+
+  if (!Number.isInteger(page) || page < 1) {
+    throw new BadRequestError('page must be a positive integer');
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+    throw new BadRequestError(`limit must be between 1 and ${MAX_LIMIT}`);
+  }
+
+  return { page, limit };
+}
+
+const app = createApp();
+
+app.get('/users', (ctx) => {
+  const { page, limit } = parsePagination(ctx.query);
+  const start = (page - 1) * limit;
+  const items = users.slice(start, start + limit);
+  const totalPages = Math.ceil(users.length / limit);
+
+  ctx.json({
+    items,
+    page,
+    limit,
+    total: users.length,
+    totalPages,
+    hasNextPage: page < totalPages,
+  });
+});
+
+listen(app, 8080);
+```
+
+`ctx.query` values are always `string | string[] | undefined` — a repeated query key
+(`?page=1&page=2`) parses as an array, which is why `parsePagination` normalizes before
+calling `Number()`. Rejecting non-integer or out-of-range values with `BadRequestError` keeps
+malformed input from becoming `NaN` and slicing the whole array. See
+[Context](/docs/concepts/context) for the full request/response API.
+
+<Callout type="info" title="Cursor-based pagination">
+  Offset pagination (`page`/`limit`) is simple but degrades on very large or frequently-changing
+  datasets. For a cursor (`?after=<id>`) instead, sort by a stable, indexed column and filter
+  `WHERE id > :after LIMIT :limit` at the data layer — the endpoint contract above stays the
+  same, only `parsePagination` and the slice change.
+</Callout>
+
+## Try It
+
+```bash
+curl "http://localhost:8080/users?page=2&limit=5"
+```
+
+**Expected result:**
+
+```json
+{
+  "items": [
+    { "id": 6, "name": "User 6" },
+    { "id": 7, "name": "User 7" },
+    { "id": 8, "name": "User 8" },
+    { "id": 9, "name": "User 9" },
+    { "id": 10, "name": "User 10" }
+  ],
+  "page": 2,
+  "limit": 5,
+  "total": 247,
+  "totalPages": 50,
+  "hasNextPage": true
+}
+```
+
+## Related
+
+- [Context](/docs/concepts/context) — `ctx.query` typing and the full request/response API
+- [Error Handling](/docs/guides/error-handling) — `BadRequestError` and the rest of the `HttpError` hierarchy

@@ -39,7 +39,7 @@ The request flows inward through each layer (before `next()`), reaches the handl
 ## Execution Flow
 
 ```typescript title="Onion model in action"
-import { createApp } from '@nextrush/core';
+import { createApp } from 'nextrush';
 
 const app = createApp();
 
@@ -117,7 +117,7 @@ app.use(cors()).use(helmet()).use(json());
 `compose()` combines multiple middleware into a single function:
 
 ```typescript
-import { compose } from '@nextrush/core';
+import { compose } from 'nextrush';
 
 const security = compose([cors(), helmet(), rateLimit({ max: 100 })]);
 
@@ -131,11 +131,18 @@ app.use(security);
 `compose()` accepts a second `options` argument:
 
 ```typescript
-import { compose, type ComposeOptions } from '@nextrush/core';
+import { compose } from 'nextrush';
+import type { ComposeOptions } from '@nextrush/core';
 
 const options: ComposeOptions = { warnDoubleResponse: true };
 const pipeline = compose([cors(), helmet()], options);
 ```
+
+<Callout type="info" title="ComposeOptions is not re-exported from nextrush">
+  `nextrush` re-exports `compose()` itself, but not the `ComposeOptions` type. Import the type
+  from `@nextrush/core` directly until the meta package adds it — this is the one place this
+  page imports from a granular package, and only for the type, not the function.
+</Callout>
 
 <TypeTable
   title="ComposeOptions"
@@ -319,10 +326,10 @@ type Middleware = (ctx: Context, next: Next) => void | Promise<void>;
   <Card title="Routing" href="/docs/concepts/routing">
     Route-level middleware and path matching.
   </Card>
-  <Card title="@nextrush/core API" href="/docs/api-reference/core">
+  <Card title="@nextrush/core API" href="/docs/reference/core">
     Full compose() and Application API reference.
   </Card>
-  <Card title="Middleware Packages" href="/docs/api-reference">
+  <Card title="Middleware Packages" href="/docs/reference">
     Available middleware packages (CORS, helmet, body-parser, etc.).
   </Card>
 </Cards>

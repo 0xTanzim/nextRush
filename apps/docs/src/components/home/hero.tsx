@@ -109,7 +109,7 @@ export function Hero() {
           <p className="text-xl md:text-2xl text-fd-muted-foreground mb-4 max-w-2xl animate-fade-up animate-delay-200">
             TypeScript-first HTTP stack for Node.js and other runtimes.
           </p>
-          <p className="text-lg text-fd-muted-foreground/70 mb-8 max-w-xl animate-fade-up animate-delay-300">
+          <p className="text-lg text-fd-muted-foreground mb-8 max-w-xl animate-fade-up animate-delay-300">
             Composable middleware, segment trie routing, optional DI and decorators.{' '}
             <Link href="/docs/performance" className="text-[var(--rush-cyan)] font-medium underline-offset-4 hover:underline">
               Benchmarks
@@ -119,7 +119,7 @@ export function Hero() {
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16 animate-fade-up animate-delay-400">
             <Link
-              href="/docs/getting-started"
+              href="/docs/start"
               className="btn-primary inline-flex items-center gap-2 text-lg"
             >
               Get Started

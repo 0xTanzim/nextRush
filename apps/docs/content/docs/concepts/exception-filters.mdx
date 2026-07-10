@@ -1,0 +1,116 @@
+---
+title: Exception Filters
+description: Localize error handling to a specific controller or route with a class that turns a thrown error into a response
+---
+
+## The Real Problem
+
+A single global error handler works for generic failures, but it doesn't know the domain-specific meaning of every error your application can throw. A `UserController` might want `EntityNotFoundError` to become a specific 404 shape with a `resourceType` field, while a `BillingController` wants the same base error to include an `invoiceId`. Cramming every route's special case into one application-wide error handler makes that handler grow without bound and couples unrelated features through shared error-handling code.
+
+## Why NextRush Solves It This Way
+
+An exception filter is a class that declares, via `@Catch(...)`, which error types it handles, and implements a `catch(error, ctx)` method that turns a thrown error into a response by mutating `ctx`. Attaching it to a controller or route with `@UseFilter(...)` scopes that handling to exactly the routes that need it — everything else keeps using the application's default error handler untouched.
+
+Filters are resolved from the DI container, so — like guards and interceptors — a filter's constructor can inject services (a logger, an error-tracking client) the same way a controller can.
+
+## Mental Model
+
+<Mermaid
+  chart="
+flowchart LR
+    A[Handler throws] --> B{Method filters match?}
+    B -->|Yes| C[First matching filter handles it]
+    B -->|No| D{Class filters match?}
+    D -->|Yes| C
+    D -->|No| E[Rethrown to global error middleware]
+"
+/>
+
+A filter is a targeted catch block scoped to one controller or route, checked before falling back to the application-wide error handler that would otherwise catch everything.
+
+## How It Works
+
+`@Catch(NotFoundError)` records which error constructors a filter handles, matched via `instanceof` — so it matches `NotFoundError` and any of its subclasses. `@Catch()` with no arguments, or no `@Catch` at all, makes the filter a catch-all that matches any thrown value.
+
+When a route handler throws, `getAllFilters(target, methodName)` returns the applicable filters in precedence order — method-level filters first (higher precedence), then class-level filters. The runner walks that list and resolves the *first* filter whose declared types match the actual error, calling its `catch(error, ctx)`. If no attached filter matches, the error is rethrown unchanged, exactly as if no filters were attached at all — it flows to the global error middleware.
+
+## Minimal Correct Usage
+
+```ts title="not-found-filter.ts"
+import { Catch, Service } from 'nextrush/class';
+import type { ExceptionFilter } from 'nextrush/class';
+import type { Context } from '@nextrush/types';
+import { NotFoundError } from 'nextrush';
+
+@Service()
+@Catch(NotFoundError)
+class NotFoundFilter implements ExceptionFilter {
+  catch(error: unknown, ctx: Context): void {
+    ctx.status = 404;
+    ctx.json({ error: 'Resource not found' });
+  }
+}
+```
+
+```ts title="user.controller.ts"
+import { Controller, Get, UseFilter } from 'nextrush/class';
+import { NotFoundError } from 'nextrush';
+
+@UseFilter(NotFoundFilter)
+@Controller('/users')
+class UserController {
+  @Get('/:id')
+  findById() {
+    throw new NotFoundError('User not found'); // caught by NotFoundFilter
+  }
+}
+```
+
+`NotFoundFilter` only runs for errors that are (or subclass) `NotFoundError`, and only on routes that have `@UseFilter(NotFoundFilter)` attached — directly or via the controller class. A `BadRequestError` thrown from the same handler would not match this filter and would fall through to the global error handler instead.
+
+### Method-level precedence
+
+```ts title="Method filter overrides class filter"
+@UseFilter(GenericErrorFilter)
+@Controller('/orders')
+class OrderController {
+  @UseFilter(PaymentDeclinedFilter) // checked first for this route
+  @Post()
+  create() {
+    throw new PaymentDeclinedError('Card declined');
+  }
+}
+```
+
+For the `create()` route, `PaymentDeclinedFilter` is checked before `GenericErrorFilter`, because method-level filters take precedence. Other routes on `OrderController` with no method-level filter fall back to `GenericErrorFilter`.
+
+## What Happens Automatically
+
+- **An unmatched error is rethrown unchanged** — attaching filters to a controller never suppresses errors that filter doesn't declare interest in; they propagate exactly as they would with no filters attached.
+- **Method-level filters are always checked before class-level filters** — you don't need to order `@UseFilter` calls carefully to get this precedence; it's structural, not decorator-order-dependent.
+
+## Trade-offs & Guarantees
+
+NextRush guarantees the first filter whose `@Catch` types match (via `instanceof`) is the one that handles the error — filters after it in the precedence list are never invoked for that error, even if they would also match. It does not guarantee that attaching a filter makes error handling for that route exhaustive: any error type the attached filters don't declare still needs to be handled correctly by the global error middleware.
+
+<Callout type="warn" title="A filter that itself throws is not caught by another filter">
+  If a filter's own `catch()` method throws, that error is not re-routed through the remaining
+  filters — it propagates out of the filter runner the way any other uncaught error would.
+  Keep filter `catch()` implementations simple and defensive.
+</Callout>
+
+## Common Mistakes
+
+1. **Attaching `@UseFilter` without a matching `@Catch`** — a filter class with no `@Catch` at all is a catch-all, which may be intentional, but a filter meant for one specific error type can end up silently swallowing everything if the `@Catch(...)` decorator is forgotten.
+2. **Expecting filter order within a single `@UseFilter(A, B)` call to matter for different error types** — order matters for which filter wins when *multiple* filters could match the *same* error; if `A` and `B` handle disjoint error types, only the one whose type actually matches ever runs.
+3. **Relying on a filter to catch errors from outside the controller-method call** — filters wrap the route handler's execution (guards, parameter resolution, and the method body); a rejection somewhere earlier in the middleware chain, before the controller resolves, is not something a controller-attached filter sees.
+
+## When Not to Use This
+
+If your application has one consistent error-response shape and no route needs special-cased handling, a single global error handler set with `app.setErrorHandler()` is simpler and easier to audit than scattering filters across controllers. Reach for filters when specific routes genuinely need domain-specific error shapes that would otherwise bloat a single global handler with route-specific branches.
+
+## Related
+
+- [Guards](/docs/concepts/guards) — access-control errors that guards raise flow through the same global error handling, not through attached filters
+- [Interceptors](/docs/concepts/interceptors) — the layer that runs around a successful call; filters are the layer for a failed one
+- [Application](/docs/concepts/application) — the global `setErrorHandler()` that catches anything no filter handles

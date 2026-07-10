@@ -1,0 +1,28 @@
+---
+title: Migrate
+description: Move an existing Express, Koa, Fastify, or NestJS app to NextRush, retire deprecated imports, and plan version upgrades.
+---
+
+Each guide below maps concepts from one framework to their NextRush equivalent, using real
+before/after code. Pick the guide that matches where you're coming from — you don't need to
+read the others.
+
+<Cards>
+  <Card title="From Express" description="req/res/next → ctx, app.use() middleware, error handling." href="/docs/migrate/from-express" />
+  <Card title="From Koa" description="Closest existing mental model — ctx and the onion model, with real differences." href="/docs/migrate/from-koa" />
+  <Card title="From Fastify" description="Schema-based validation, plugin encapsulation, and what NextRush does instead." href="/docs/migrate/from-fastify" />
+  <Card title="From NestJS" description="Decorators and DI — @Injectable/@Controller/@Module → @Service/@Controller/@Module." href="/docs/migrate/from-nestjs" />
+</Cards>
+
+## Already on NextRush?
+
+<Cards>
+  <Card title="Deprecations" description="The canonical old-import → new-import map: @nextrush/decorators and @nextrush/controllers → nextrush/class." href="/docs/migrate/deprecations" />
+  <Card title="Upgrade guide" description="What a version bump means today, and how to read a package's CHANGELOG before upgrading." href="/docs/migrate/upgrade-guide" />
+</Cards>
+
+<Callout type="info" title="Every code sample here is verified against source">
+  Every import shown in these guides is checked against the real package exports at the time of
+  writing (`packages/*/src/index.ts`) — not assumed from another framework's conventions or an
+  older NextRush release. If a page shows an import, that import exists.
+</Callout>

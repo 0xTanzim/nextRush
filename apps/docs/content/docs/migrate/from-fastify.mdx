@@ -1,0 +1,101 @@
+---
+title: From Fastify
+description: Fastify's JSON Schema validation vs NextRush's bring-your-own-schema approach, and what else differs.
+---
+
+Fastify and NextRush both prioritize a fast, explicit request pipeline, but they solve request
+validation very differently — Fastify bakes JSON Schema into route registration; NextRush ships
+a thin middleware that works with whatever schema library you already use.
+
+## Validation: the real difference
+
+<TypeTable
+  title="Validation model"
+  types={{
+    'Schema format': { type: 'JSON Schema [Fastify] vs Standard Schema [NextRush]', description: 'Fastify validates against a route-level JSON Schema option; NextRush accepts any library implementing the Standard Schema interface (Zod, Valibot, ArkType).' },
+    'Where it lives': { type: 'route registration option [Fastify] vs a middleware [NextRush]', description: 'Fastify: { schema: { body, querystring } } passed to app.get/post. NextRush: validate(schema) composed like any other middleware.' },
+    'Serialization': { type: 'fast-json-stringify (AOT) [Fastify] vs native JSON.stringify [NextRush]', description: "Fastify compiles a response schema into a fast serializer ahead of time; NextRush uses ctx.json(), which calls JSON.stringify directly. Fastify's AOT approach can outperform on JSON-heavy routes." },
+  }}
+/>
+
+<Tabs items={['Fastify', 'NextRush']}>
+  <Tab value="Fastify">
+    ```ts
+    const UserSchema = {
+      body: {
+        type: 'object',
+        required: ['name', 'email'],
+        properties: {
+          name: { type: 'string', minLength: 1 },
+          email: { type: 'string', format: 'email' },
+        },
+      },
+    };
+
+    app.post('/users', { schema: UserSchema }, async (request, reply) => {
+      return { received: request.body };
+    });
+    ```
+  </Tab>
+  <Tab value="NextRush">
+    ```ts
+    import { validate } from '@nextrush/validation';
+    import { z } from 'zod';
+
+    const User = z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+    });
+
+    router.post('/users', validate(User), (ctx) => {
+      ctx.json({ received: ctx.body }); // ctx.body is the validated, coerced value
+    });
+    ```
+  </Tab>
+</Tabs>
+
+`validate()` (from `@nextrush/validation`) validates the request body by default, or a
+`{ body, query, params }` map for multiple targets. On success it overwrites `ctx.body` with the
+coerced value; `ctx.query`/`ctx.params` are validated but left as strings (see the
+[validation package's own docs](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/validation#one-source-of-truth)
+for why). Failures throw the framework's existing `ValidationError` from `@nextrush/errors`,
+rendered as a `400` with aggregated issues — there's no separate error-shape convention to learn
+per validator.
+
+<Callout type="info" title="Bring your own schema library">
+  NextRush doesn't ship a validator. Any library implementing
+  [Standard Schema](https://standardschema.dev) — Zod 3.24+, Valibot 1.0+, ArkType 2.0+ — works
+  identically with `validate()`. Switching libraries later doesn't change your routes.
+</Callout>
+
+## Other differences
+
+<TypeTable
+  title="Request/response model"
+  types={{
+    'request + reply': { type: 'Single ctx', description: 'NextRush merges both into one context object, same as it does coming from Express.' },
+    'Lifecycle hooks (onRequest, onSend, ...)': { type: 'Middleware onion model', description: "Fastify's named hook points map onto NextRush's before/after middleware — see Middleware." },
+    'fastify-plugin encapsulation': { type: 'Middleware + registrars, no encapsulation scope', description: 'NextRush middleware and registrars are global to the app; there is no per-plugin scoping boundary.' },
+    'Runtime targets': { type: 'Node.js only [Fastify] vs Node, Bun, Deno, Edge [NextRush]', description: 'NextRush ships separate adapters per runtime — see Runtime Compatibility.' },
+  }}
+/>
+
+```ts
+// Fastify hook
+app.addHook('onRequest', async (request, reply) => {
+  /* runs before the handler */
+});
+
+// NextRush equivalent
+app.use(async (ctx, next) => {
+  /* before */
+  await next();
+  /* after — no separate hook needed */
+});
+```
+
+## Next steps
+
+- [Validation](/docs/reference) — the full `validate()` API and error shape.
+- [Middleware](/docs/concepts/middleware) — the onion model behind NextRush's hooks equivalent.
+- [Runtime Compatibility](/docs/concepts/runtime-compatibility) — Node, Bun, Deno, and Edge adapters.

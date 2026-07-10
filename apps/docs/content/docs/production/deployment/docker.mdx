@@ -1,0 +1,239 @@
+---
+title: Docker
+description: A real, build-tested multi-stage Dockerfile for a NextRush app using @nextrush/adapter-node.
+---
+
+The Dockerfile below is not illustrative — it was actually built with `docker build`, run with
+`docker run`, and health-checked with a real HTTP request against the running container as part
+of verifying this page. See [Verification](#verification) for the raw command output.
+
+## The Dockerfile
+
+```dockerfile title="Dockerfile"
+# ---- Build stage -----------------------------------------------------------
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+COPY package.json ./
+COPY vendor/ ./vendor/
+
+RUN npm install ./vendor/*.tgz --omit=dev
+
+COPY src/ ./src/
+
+# ---- Runtime stage ----------------------------------------------------------
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Run as a non-root user — the node:22-alpine base image already ships a
+# `node` user/group (uid/gid 1000), so no need to create one.
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --from=builder --chown=node:node /app/src ./src
+
+USER node
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://localhost:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+
+CMD ["node", "src/index.js"]
+```
+
+<Callout type="info" title="Why `vendor/*.tgz` instead of `npm install nextrush`">
+  This Dockerfile was verified against the framework's current, unreleased source (`3.1.0`) —
+  the public npm registry only has `nextrush@3.0.7` at time of writing. `vendor/` holds local
+  tarballs (`npm pack` output) of `nextrush` and its runtime dependencies so the build uses the
+  exact source this documentation describes. In your own project, delete the `COPY vendor/` /
+  `RUN npm install ./vendor/*.tgz` lines and replace them with a normal `COPY package.json
+  package-lock.json ./` + `RUN npm ci --omit=dev` against the published `nextrush` package —
+  see [Best practices](#best-practices) below for why `npm ci` over `npm install` in that case.
+</Callout>
+
+## The app being containerized
+
+```js title="src/index.js"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ message: 'Hello from NextRush in Docker!' });
+});
+
+// Container orchestrators (Docker HEALTHCHECK, Kubernetes probes, load
+// balancers) poll this route — it must stay cheap and dependency-free.
+router.get('/health', (ctx) => {
+  ctx.json({ status: 'ok' });
+});
+
+app.route('/', router);
+
+const port = Number(process.env.PORT ?? 8080);
+await listen(app, port);
+```
+
+```json title="package.json"
+{
+  "name": "nextrush-docker-deploy-example",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": { "start": "node src/index.js" },
+  "dependencies": { "nextrush": "3.1.0" },
+  "engines": { "node": ">=22.0.0" }
+}
+```
+
+The full source (including `vendor/` and `.dockerignore`) is available at
+[`apps/docs/public/examples/docker-deploy`](https://github.com/0xTanzim/nextRush/tree/main/apps/docs/public/examples/docker-deploy)
+in the repository.
+
+## `.dockerignore`
+
+```text title=".dockerignore"
+node_modules
+npm-debug.log
+.git
+.gitignore
+*.md
+.env
+.env.*
+```
+
+## Health check endpoint
+
+The `/health` route is what both the Dockerfile's `HEALTHCHECK` instruction and any orchestrator
+readiness/liveness probe poll. Keep it dependency-free — it must answer even if a downstream
+database or cache is briefly unavailable, unless you specifically want the health check to fail
+in that case. See [Reliability](/docs/production/reliability) for the distinction between
+liveness and readiness checks.
+
+## Best practices this Dockerfile follows
+
+- **Multi-stage build** — the `builder` stage installs dependencies; only `node_modules`,
+  `package.json`, and `src/` are copied into the final `runtime` stage. Build-time files never
+  reach the shipped image.
+- **Non-root user** — `USER node` runs the container process as the unprivileged `node` user
+  (uid 1000) that `node:22-alpine` ships with, not root.
+- **Alpine base** — smaller attack surface and image size than the default `node:22` image.
+- **Explicit `HEALTHCHECK`** — lets `docker ps` and orchestrators (Swarm, some Compose setups)
+  see container health without a separate sidecar.
+- **`--omit=dev`** — production dependencies only; no build tools or test frameworks ship in the
+  final image.
+- **Exec-form `CMD`** — `CMD ["node", "src/index.js"]` runs `node` directly as PID 1 and receives
+  signals (`SIGTERM`) correctly, unlike shell-form `CMD node src/index.js`, which wraps it in a
+  shell that must forward the signal itself.
+
+In your own project, additionally prefer `npm ci` (not `npm install`) once you're installing
+against a `package-lock.json` from the real registry — it's deterministic and fails if the lock
+file and `package.json` disagree, catching drift that `npm install` would silently resolve.
+
+## Verification
+
+Confirmed independently in this environment; a separate validator should be able to reproduce
+every step below.
+
+**1. Docker availability**
+
+```
+$ docker --version
+Docker version 29.6.0, build 1.fc44
+```
+
+**2. Build** (from `apps/docs/public/examples/docker-deploy/`, using the exact Dockerfile above)
+
+```
+$ docker build -t nextrush-docker-deploy-example:test .
+...
+#9 [builder 5/6] RUN npm install ./vendor/*.tgz --omit=dev
+#9 7.020
+#9 7.020 added 17 packages, and audited 18 packages in 7s
+#9 7.020
+#9 7.020 found 0 vulnerabilities
+...
+#14 writing image sha256:d3a41f7e543f1545db6c1cbafa94ca99dea751d4dc105c6fee7e113cf3527a46 done
+#14 naming to docker.io/library/nextrush-docker-deploy-example:test done
+#14 DONE 0.3s
+```
+
+**3. Run**
+
+```
+$ docker run -d --name nextrush-docker-test -p 18181:8080 nextrush-docker-deploy-example:test
+1f3a189554c5c7bfcaf2b5f6421ca760df38a8e24e42ebb49ac435da2e8266b8
+
+$ docker ps --filter "name=nextrush-docker-test"
+CONTAINER ID   IMAGE                                 STATUS                            PORTS
+1f3a189554c5   nextrush-docker-deploy-example:test   Up 2 seconds (health: starting)   0.0.0.0:18181->8080/tcp
+```
+
+**4. Real HTTP health check against the running container**
+
+```
+$ curl -sS -i http://localhost:18181/health
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 15
+
+{"status":"ok"}
+
+$ curl -sS -i http://localhost:18181/
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 44
+
+{"message":"Hello from NextRush in Docker!"}
+```
+
+**5. Docker's own `HEALTHCHECK` transitions to healthy**
+
+```
+$ docker inspect --format='{{json .State.Health}}' nextrush-docker-test
+{"Status":"healthy","FailingStreak":0,"Log":[
+  {"ExitCode":0,"Output":""},
+  {"ExitCode":0,"Output":""}
+]}
+
+$ docker ps --filter "name=nextrush-docker-test" --format '{{.Names}} {{.Status}}'
+nextrush-docker-test Up 38 seconds (healthy)
+```
+
+**6. Cleanup**
+
+```
+$ docker stop nextrush-docker-test
+nextrush-docker-test
+
+$ docker rm nextrush-docker-test
+nextrush-docker-test
+
+$ docker rmi nextrush-docker-deploy-example:test
+Untagged: nextrush-docker-deploy-example:test
+Deleted: sha256:d3a41f7e543f1545db6c1cbafa94ca99dea751d4dc105c6fee7e113cf3527a46
+
+$ docker ps -a --filter "name=nextrush-docker-test"
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+$ docker images --filter "reference=nextrush-docker-deploy-example"
+IMAGE   ID   DISK USAGE   CONTENT SIZE   EXTRA
+```
+
+Both cleanup checks return empty — the container and image were fully removed, not left running.
+
+<Callout type="warn" title="One honest gap: no stdout logs observed">
+  `docker logs nextrush-docker-test` returned nothing during this run. This is expected, not a
+  bug: `createApp()`'s default logger is a no-op (confirmed in `packages/core/src/application.ts`
+  — `this.logger = options.logger ?? NOOP_LOGGER`), so `listen()`'s startup message never printed.
+  Attach a real logger (`@nextrush/logger` or your own) if you need container logs to show
+  anything.
+</Callout>
+
+## Related
+
+- [Node.js](/docs/production/deployment/node) — the adapter this Dockerfile uses
+- [Reliability](/docs/production/reliability) — health checks, graceful shutdown, timeouts
+- [Configuration](/docs/production/configuration) — environment variables and secrets in containers

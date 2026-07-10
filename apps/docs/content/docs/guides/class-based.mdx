@@ -46,16 +46,10 @@ Your `tsconfig.json` must include:
 
 ## Installation
 
-<PackageInstall
-  packages={[
-    '@nextrush/core',
-    '@nextrush/router',
-    '@nextrush/adapter-node',
-    '@nextrush/controllers',
-  ]}
-/>
+<PackageInstall packages={['nextrush']} />
 
-`@nextrush/decorators`, `@nextrush/di`, and `reflect-metadata` are installed automatically as dependencies of `@nextrush/controllers`. The `nextrush` meta-package auto-imports `reflect-metadata`.
+The `nextrush` meta-package includes the class runtime (`nextrush/class`) — controllers,
+decorators, and DI — and auto-imports `reflect-metadata`. No separate packages to install.
 
 ## Minimal Usage
 
@@ -111,7 +105,7 @@ await listen(app, 8080);
 </Callout>
 
 For how the registrar resolves controllers, executes guards, and builds handlers internally, see
-[DI & Decorators](/docs/concepts/di-decorators#how-the-controllers-plugin-works).
+[Controllers Reference](/docs/reference/class/controllers).
 
 ## Registering Services
 
@@ -137,11 +131,11 @@ class UserService {
 
 Services are singletons by default; pass `{ scope: 'transient' }` for a new instance per
 resolution. For how DI resolves dependencies and detects circular references, see
-[DI & Decorators](/docs/concepts/di-decorators#how-di-works).
+[Dependency Injection & Scopes](/docs/concepts/dependency-injection#how-it-works).
 
 Mark a constructor parameter as optional with `@Optional()` so the app still resolves when the
 dependency isn't registered — see
-[DI & Decorators](/docs/concepts/di-decorators#package-responsibilities) for details.
+[Dependency Injection & Scopes](/docs/concepts/dependency-injection) for details.
 
 ### Request scope
 
@@ -205,7 +199,7 @@ class ProductController {
 
 `@SetHeader()`, `@Redirect()`, and `createCustomParamDecorator()` cover response headers,
 redirects, and custom extractors. Full signatures and options are in the
-[Controllers API reference](/docs/api-reference/plugins/controllers).
+[Decorators API reference](/docs/reference/class/decorators).
 
 ## Guards
 
@@ -237,8 +231,73 @@ class UserController {
 Guards can also be classes resolved from DI, useful when the guard itself has dependencies (for
 example, an injected `AuthService`). Class guards run before method guards, and a `false` return
 rejects the request with 403 Forbidden. See
-[DI & Decorators](/docs/concepts/di-decorators#how-the-controllers-plugin-works) for the class
+[Decorators Reference](/docs/reference/class/decorators) for the class
 guard pattern and how rejection integrates with error handling.
+
+### Role-based access
+
+Stack a second guard, built as a factory, to restrict a controller to specific roles:
+
+```typescript title="src/guards/role.guard.ts"
+import type { GuardFn } from 'nextrush/class';
+
+export const RoleGuard =
+  (allowedRoles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    if (!user) return false;
+    return allowedRoles.includes(user.role);
+  };
+```
+
+```typescript title="src/controllers/admin.controller.ts"
+import { Controller, Get, UseGuard, SetHeader, Redirect } from 'nextrush/class';
+import { AuthGuard } from '../guards/auth.guard';
+import { RoleGuard } from '../guards/role.guard';
+
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
+export class AdminController {
+  @SetHeader('Cache-Control', 'no-store')
+  @Get('/stats')
+  getStats() {
+    return { users: 100, orders: 500 };
+  }
+
+  @Redirect('/admin/stats', 301)
+  @Get('/dashboard')
+  legacyDashboard() {
+    // Redirects to /admin/stats
+  }
+}
+```
+
+Multiple `@UseGuard` decorators stack — every guard must return `true` for the handler to run.
+
+### Custom parameter decorators
+
+Extract common values cleanly with `createCustomParamDecorator`:
+
+```typescript title="src/decorators/current-user.ts"
+import { createCustomParamDecorator } from 'nextrush/class';
+import type { Context } from 'nextrush';
+
+export const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+```
+
+```typescript title="src/controllers/profile.controller.ts"
+import { Controller, Get } from 'nextrush/class';
+import { CurrentUser } from '../decorators/current-user';
+
+@Controller('/profile')
+export class ProfileController {
+  @Get()
+  getProfile(@CurrentUser user: { id: string; role: string }) {
+    return { user };
+  }
+}
+```
 
 ## Integration Example
 
@@ -431,6 +490,50 @@ describe('UserController', () => {
 });
 ```
 
+Services and repositories are plain classes, so you can skip the container entirely and construct
+them by hand when a test only needs one or two collaborators:
+
+```typescript title="src/services/user.service.test.ts"
+import { describe, it, expect, beforeEach } from 'vitest';
+import { UserService } from './user.service';
+import { UserRepository } from '../repositories/user.repository';
+
+describe('UserService', () => {
+  let service: UserService;
+  let repo: UserRepository;
+
+  beforeEach(() => {
+    repo = new UserRepository();
+    service = new UserService(repo);
+  });
+
+  it('should throw on duplicate email', () => {
+    expect(() => {
+      service.create({ name: 'Dup', email: 'alice@example.com' });
+    }).toThrow('Email already exists');
+  });
+});
+```
+
+Both patterns work because `@Service()` and `@Repository()` classes have no framework coupling —
+`createContainer()` is for exercising DI resolution itself; direct construction is faster when the
+dependency graph is small enough to wire by hand.
+
+## Functional vs Class-Based
+
+| Aspect        | Functional     | Class-Based      |
+| ------------- | -------------- | ---------------- |
+| Lines of code | ~80 lines      | ~200 lines       |
+| Setup         | Minimal        | More boilerplate |
+| DI support    | Manual         | Automatic        |
+| Testing       | Mock functions | Inject mocks     |
+| Type safety   | Good           | Excellent        |
+| Scalability   | Medium         | High             |
+
+Choose functional for simplicity, class-based for structure. See
+[Building REST APIs](/docs/guides/rest-api) for the same user-management API built without
+decorators.
+
 ## Common Mistakes
 
 ### 1. Missing reflect-metadata Import
@@ -622,14 +725,14 @@ a module exactly as they do through `registerControllers`.
   <Card title="Dev Tools" href="/docs/guides/dev-tools">
     Set up development and build tools for decorators.
   </Card>
-  <Card title="DI & Decorators Architecture" href="/docs/concepts/di-decorators">
-    Understand how DI and decorators work internally.
+  <Card title="Dependency Injection & Scopes" href="/docs/concepts/dependency-injection">
+    Understand how DI and scopes work internally.
   </Card>
   <Card title="Testing" href="/docs/guides/testing">
     Test your controllers and services.
   </Card>
-  <Card title="Controllers Package" href="/docs/api-reference/plugins/controllers">
-    Full API reference for the controllers plugin.
+  <Card title="Controllers Package" href="/docs/reference/class/controllers">
+    Full API reference for controller registration and discovery.
   </Card>
   <Card title="Security Best Practices" href="/docs/guides/security">
     Helmet, CORS, rate limiting, and input validation.

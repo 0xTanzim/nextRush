@@ -1,0 +1,78 @@
+---
+title: 'CORS for a Multi-Tenant SaaS API'
+description: Allow every tenant subdomain plus a marketing domain, with credentials, using one validator function.
+---
+
+A SaaS product often serves each customer from its own subdomain (`acme.app.example.com`,
+`globex.app.example.com`, …) while also needing the top-level marketing site to call the API
+without cookies. A static origin list cannot express "any subdomain of `app.example.com`" — use
+an origin validator function instead.
+
+## Solution
+
+```ts title="src/index.ts"
+import { createApp, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+
+const APP_DOMAIN_SUFFIX = '.app.example.com';
+const MARKETING_ORIGIN = 'https://example.com';
+
+const app = createApp();
+
+app.use(
+  cors({
+    origin: (origin) => {
+      if (origin === MARKETING_ORIGIN) return true;
+      try {
+        return new URL(origin).hostname.endsWith(APP_DOMAIN_SUFFIX);
+      } catch {
+        return false;
+      }
+    },
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id'],
+    exposedHeaders: ['X-Request-Id'],
+    maxAge: 86400, // cache preflight for 24h
+  })
+);
+
+app.get('/api/dashboard', (ctx) => {
+  ctx.json({ tenant: ctx.get('x-tenant-id') ?? 'unknown' });
+});
+
+listen(app, 8080);
+```
+
+`origin` accepts an `OriginValidator` function (`packages/middleware/cors/src/types.ts`) that
+receives the raw `Origin` header and returns a boolean — this is how a suffix match becomes
+possible without listing every tenant subdomain individually. `@nextrush/cors` refuses to
+combine `credentials: true` with a wildcard origin (`packages/middleware/cors/src/middleware.ts`),
+so this pattern is the correct way to allow a dynamic set of origins while still supporting
+cookies/`Authorization` cross-origin. See [Middleware](/docs/concepts/middleware) for how `cors()`
+composes with the rest of the chain.
+
+<Callout type="warn" title="Validate before matching">
+  `new URL(origin)` throws on a malformed `Origin` header — the `try/catch` above is required,
+  not defensive padding. An unhandled throw inside the validator would surface as a 500 instead
+  of a clean CORS rejection.
+</Callout>
+
+## Try It
+
+```bash
+curl -i http://localhost:8080/api/dashboard \
+  -H "Origin: https://acme.app.example.com" \
+  -H "X-Tenant-Id: acme"
+
+curl -i http://localhost:8080/api/dashboard -H "Origin: https://evil.example.net"
+```
+
+**Expected result:** the first request gets
+`Access-Control-Allow-Origin: https://acme.app.example.com` and `{"tenant":"acme"}`; the second
+gets no `Access-Control-Allow-Origin` header (the origin fails the suffix check).
+
+## Related
+
+- [CORS reference](/docs/reference/middleware/cors) — full `CorsOptions` and the built-in presets (`strictCors`, `internalCors`, …)
+- [Security guide — CORS](/docs/guides/security#cors) — the general credentials/wildcard rule
+- [Middleware](/docs/concepts/middleware) — registration order and composition

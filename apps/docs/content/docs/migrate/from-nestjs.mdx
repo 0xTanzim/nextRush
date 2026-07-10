@@ -1,0 +1,214 @@
+---
+title: From NestJS
+description: Map NestJS decorators and dependency injection to nextrush/class — every import below is verified against packages/class/src/index.ts.
+---
+
+NestJS and NextRush's class runtime (`nextrush/class`) both use decorators and constructor
+injection, so the shape of a controller looks similar. The decorator *names* differ, and
+NextRush's DI container is a focused wrapper around [tsyringe](https://github.com/microsoft/tsyringe)
+rather than Nest's own Angular-style container — smaller surface, fewer concepts.
+
+<Callout type="warn" title="Every import below is verified">
+  Every decorator and function shown as importable from `nextrush/class` in this guide is
+  checked directly against that package's real export list
+  (`packages/class/src/index.ts`) — not assumed from NestJS's naming conventions. See
+  [Deprecations](/docs/migrate/deprecations) for the full source-matched export list.
+</Callout>
+
+## Decorator mapping
+
+<TypeTable
+  title="NestJS → nextrush/class"
+  types={{
+    '@Injectable()': { type: '@Service()', description: 'Marks a class as a DI-managed service. Singleton by default in both frameworks.' },
+    '@Controller(path)': { type: '@Controller(path)', description: 'Same name, same purpose — groups routes under a path prefix.' },
+    '@Module({ ... })': { type: '@Module({ ... })', description: 'Same name. NextRush\'s fields are controllers, providers, imports, exports — see Modules.' },
+    '@Get() / @Post() / etc.': { type: '@Get() / @Post() / @Put() / @Patch() / @Delete() / @Head() / @Options() / @All()', description: 'Same route-method decorators; NextRush additionally has @All() for catch-all registration.' },
+    '@Body() / @Param() / @Query()': { type: '@Body() / @Param() / @Query()', description: 'Same names, same purpose — extract parts of the request into handler parameters.' },
+    '@Req() / @Res()': { type: '@Req() / @Res()', description: 'Same names. NextRush additionally exposes @Ctx() for the unified context object.' },
+    '@UseGuards(...)': { type: '@UseGuard(...)', description: 'Singular in NextRush. A guard is a GuardFn or a class implementing CanActivate, and returns a boolean rather than throwing.' },
+    '@UseInterceptors(...)': { type: '@UseInterceptor(...)', description: 'Singular in NextRush.' },
+    '@Catch(...) + implements ExceptionFilter': { type: '@Catch(...) + implements ExceptionFilter', description: 'Same shape — a class with a catch(error, ctx) method, attached with @UseFilter(...) (NextRush) vs @UseFilters(...) (Nest).' },
+    'OnModuleInit / OnModuleDestroy': { type: 'OnInit / OnShutdown', description: 'NextRush\'s lifecycle hooks are duck-typed interfaces, not decorators — implement the interface, no decorator needed.' },
+  }}
+/>
+
+## Before / After
+
+<Tabs items={['NestJS', 'NextRush']}>
+  <Tab value="NestJS">
+    ```ts
+    import { Injectable, Controller, Get, Module } from '@nestjs/common';
+
+    @Injectable()
+    class UserService {
+      findAll() {
+        return [{ id: 1, name: 'Alice' }];
+      }
+    }
+
+    @Controller('users')
+    class UserController {
+      constructor(private userService: UserService) {}
+
+      @Get()
+      findAll() {
+        return this.userService.findAll();
+      }
+    }
+
+    @Module({
+      controllers: [UserController],
+      providers: [UserService],
+    })
+    class AppModule {}
+    ```
+  </Tab>
+  <Tab value="NextRush">
+    ```ts
+    import { Service, Controller, Get, Module } from 'nextrush/class';
+
+    @Service()
+    class UserService {
+      findAll() {
+        return [{ id: 1, name: 'Alice' }];
+      }
+    }
+
+    @Controller('/users')
+    class UserController {
+      constructor(private userService: UserService) {}
+
+      @Get()
+      findAll() {
+        return this.userService.findAll();
+      }
+    }
+
+    @Module({
+      controllers: [UserController],
+      providers: [UserService],
+    })
+    class AppModule {}
+    ```
+  </Tab>
+</Tabs>
+
+`Service`, `Controller`, `Get`, and `Module` are all real exports of `nextrush/class` — confirmed
+directly against `packages/class/src/index.ts`: `export { Controller } from './decorators/class.js'`,
+`export { Module, ... } from './modules/module.js'`, `export { Get, ... } from './decorators/routes.js'`,
+and `export { ..., Service, ... } from '@nextrush/di'` (re-exported, not defined in `class`
+itself).
+
+## Wiring the module into an app
+
+NestJS bootstraps via `NestFactory.create(AppModule)`. NextRush wires a module with
+`registerModule`, which is also exported from `nextrush/class`:
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { registerModule } from 'nextrush/class';
+import { AppModule } from './app.module';
+
+const app = createApp();
+await registerModule(app, AppModule);
+await listen(app, 8080);
+```
+
+For a single controller without a module, `registerControllers` (also in `nextrush/class`) does
+filesystem discovery or takes an explicit list — see
+[Controllers reference](/docs/reference/class/controllers).
+
+## Dependency injection — what's smaller
+
+NestJS's DI container supports a broad Angular-derived feature set (custom providers, dynamic
+modules, circular-reference forwarding, request-scoped providers via `REQUEST`). NextRush's
+container (`@nextrush/di`, re-exported by `nextrush/class`) is intentionally narrower:
+
+<TypeTable
+  title="DI surface, re-exported from nextrush/class"
+  types={{
+    Service: { type: 'decorator', description: 'Marks a class as DI-managed. Singleton by default; pass { scope } for transient or request scope.' },
+    Repository: { type: 'decorator', description: 'Identical behavior to @Service() — names a data-access class by role, not by scope.' },
+    container: { type: 'Container instance', description: 'The default global container — container.resolve(SomeService).' },
+    createContainer: { type: 'function', description: 'Creates an isolated container, mainly for tests.' },
+    inject: { type: 'function', description: "Low-level resolve — same job as container.resolve, exposed as a standalone function." },
+    Container: { type: 'type', description: 'The container interface type.' },
+  }}
+/>
+
+<Callout type="error" title="Only these six DI symbols exist on nextrush/class">
+  `nextrush/class` re-exports **exactly** `Service`, `Repository`, `container`, `createContainer`,
+  `inject`, and the `Container` type from `@nextrush/di` — confirmed by reading
+  `packages/class/src/index.ts`'s final export block. There is no `@Injectable`, `@Config`,
+  `@Optional`, `delay`, or `DIError`-family export on `nextrush/class` — those exist only on
+  `@nextrush/di` directly. If you need them, `import { ... } from '@nextrush/di'`, not
+  `'nextrush/class'`. This is exactly the class of mistake this rebuild caught and fixed in an
+  earlier phase — see [Deprecations](/docs/migrate/deprecations) for the full picture.
+</Callout>
+
+There's no NextRush equivalent to NestJS's `REQUEST`-scoped injection token — request scope
+in NextRush is a `@Service({ scope: 'request' })` option, resolved from a per-request child
+container automatically. See
+[Dependency Injection & Scopes](/docs/concepts/dependency-injection) for how scopes actually
+work.
+
+## Guards return booleans, not decisions objects
+
+NestJS guards implement `canActivate()` returning `boolean | Promise<boolean> | Observable<boolean>`.
+NextRush guards are the same idea with a narrower return type — a `GuardFn` or a class
+implementing `CanActivate`, returning `boolean | Promise<boolean>`:
+
+```ts
+import { UseGuard, Controller, Get } from 'nextrush/class';
+import type { CanActivate, GuardContext } from 'nextrush/class';
+
+class AuthGuard implements CanActivate {
+  canActivate(ctx: GuardContext): boolean {
+    return Boolean(ctx.get('authorization'));
+  }
+}
+
+@UseGuard(AuthGuard)
+@Controller('/admin')
+class AdminController {
+  @Get('/users')
+  getUsers() {
+    /* guard already ran */
+  }
+}
+```
+
+A guard returning `false` rejects the request with `GuardRejectionError` (403) — there's no
+Observable variant to reason about. See [Guards](/docs/concepts/guards) for the full model.
+
+## Exception filters
+
+Both frameworks use a `@Catch(...)` decorator and a class implementing a `catch` method.
+NextRush's attach decorator is `@UseFilter` (singular), matched against thrown errors via
+`instanceof` in method-then-class precedence order:
+
+```ts
+import { Catch, Service } from 'nextrush/class';
+import type { ExceptionFilter } from 'nextrush/class';
+import type { Context } from '@nextrush/types';
+import { NotFoundError } from 'nextrush';
+
+@Service()
+@Catch(NotFoundError)
+class NotFoundFilter implements ExceptionFilter {
+  catch(error: unknown, ctx: Context): void {
+    ctx.status = 404;
+    ctx.json({ error: 'Resource not found' });
+  }
+}
+```
+
+See [Exception Filters](/docs/concepts/exception-filters) for the full matching model.
+
+## Next steps
+
+- [Modules](/docs/concepts/modules) — composing controllers and providers across features.
+- [Dependency Injection & Scopes](/docs/concepts/dependency-injection) — singleton, transient, and request scope.
+- [Guards](/docs/concepts/guards), [Interceptors](/docs/concepts/interceptors), [Exception Filters](/docs/concepts/exception-filters).
+- [`@nextrush/class` reference](/docs/reference/class) — the complete export surface, grouped by concern.

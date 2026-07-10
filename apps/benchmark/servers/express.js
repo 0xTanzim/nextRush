@@ -1,119 +1,88 @@
 /**
- * Express 5 Benchmark Server — All scenarios.
+ * Express 5 benchmark server — all scenarios.
+ *
+ * Fairness notes:
+ * - Response bodies come from the shared payload module.
+ * - Body parser is attached only to the POST route.
+ * - Error-handling middleware (4-arg) fires only on error (no per-request cost).
  */
 
 import express from 'express';
 
+import {
+  ERROR_BODY,
+  ERROR_MESSAGE,
+  HELLO_WORLD,
+  JSON_USER,
+  LARGE_JSON,
+  MIDDLEWARE_BODY,
+  MIDDLEWARE_HEADERS,
+  deepRoute,
+  mwHeaderValue,
+  postUserResponse,
+  searchResponse,
+  userById,
+} from './_shared/payloads.js';
+
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = express();
-
-// Body parser ONLY for POST routes (fair comparison)
+// Fairness: Express sends `X-Powered-By: Express` by default, extra header bytes
+// no other server emits. Disable it so on-the-wire responses match (audit F-M01).
+app.disable('x-powered-by');
 const jsonParser = express.json();
 
-// 1. Hello World
-app.get('/', (req, res) => {
-  res.json({ message: 'Hello World' });
+app.get('/', (_req, res) => {
+  res.json(HELLO_WORLD);
+});
+app.get('/json', (_req, res) => {
+  res.json(JSON_USER);
+});
+app.get('/large-json', (_req, res) => {
+  res.json(LARGE_JSON);
 });
 
-// 2. JSON serialization
-app.get('/json', (req, res) => {
-  res.json({ id: 1, name: 'John Doe', email: 'john@example.com', role: 'developer', active: true });
-});
-
-// 3. Route parameters
 app.get('/users/:id', (req, res) => {
-  const { id } = req.params;
-  res.json({ id, name: `User ${id}`, email: `user${id}@example.com` });
+  res.json(userById(req.params.id));
 });
 
-// 4. Query strings
 app.get('/search', (req, res) => {
-  const { q = '', limit = '10' } = req.query;
-  const limitNum = Math.min(parseInt(limit, 10), 10);
-  res.json({
-    query: q,
-    limit: limitNum,
-    results: Array.from({ length: limitNum }, (_, i) => ({
-      id: i + 1,
-      title: `Result ${i + 1} for "${q}"`,
-    })),
-  });
+  res.json(searchResponse(req.query.q, req.query.limit));
 });
 
-// 5. POST JSON
-app.post('/users', jsonParser, (req, res) => {
-  const data = req.body;
-  res.json({
-    success: true,
-    user: { id: Math.floor(Math.random() * 10000), ...data, createdAt: new Date().toISOString() },
-  });
-});
-
-// 6. Deep route
 app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (req, res) => {
-  res.json({ orgId: req.params.orgId, teamId: req.params.teamId, memberId: req.params.memberId });
+  res.json(deepRoute(req.params.orgId, req.params.teamId, req.params.memberId));
 });
 
-// 7. Middleware stack
-const mw1 = (req, res, next) => {
-  res.set('X-Request-Id', '12345');
-  next();
-};
-const mw2 = (req, res, next) => {
-  res.set('X-Timestamp', Date.now().toString());
-  next();
-};
-const mw3 = (req, res, next) => {
-  res.set('X-Framework', 'express');
-  next();
-};
-const mw4 = (req, res, next) => {
-  res.set('X-Version', '5.0');
-  next();
-};
-const mw5 = (req, res, next) => {
-  res.set('X-Processed', 'true');
-  next();
-};
-
-app.get('/middleware', mw1, mw2, mw3, mw4, mw5, (req, res) => {
-  res.json({ middleware: true, layers: 5 });
+app.post('/users', jsonParser, (req, res) => {
+  res.json(postUserResponse(req.body));
 });
 
-// 8. Error handling
-app.get('/error', (req, res) => {
-  throw new Error('Benchmark error');
+// 5-layer middleware stack — one header per layer, chained via next().
+const middleware = MIDDLEWARE_HEADERS.map((header) => (_req, res, next) => {
+  res.set(header.name, mwHeaderValue(header));
+  next();
+});
+app.get('/middleware', ...middleware, (_req, res) => {
+  res.json(MIDDLEWARE_BODY);
 });
 
-// 9. Large JSON
-const largeData = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  name: `User ${i + 1}`,
-  email: `user${i + 1}@example.com`,
-  role: i % 2 === 0 ? 'developer' : 'designer',
-  active: i % 3 !== 0,
-}));
-
-app.get('/large-json', (req, res) => {
-  res.json(largeData);
+app.get('/error', () => {
+  throw new Error(ERROR_MESSAGE);
 });
 
-// 10. Empty response
-app.get('/empty', (req, res) => {
+app.get('/empty', (_req, res) => {
   res.status(204).end();
 });
 
-// Error handler middleware
-app.use((err, req, res, _next) => {
-  res.status(500).json({ error: 'Internal Server Error' });
+// eslint-disable-next-line no-unused-vars -- Express identifies error middleware by 4 args.
+app.use((_err, _req, res, _next) => {
+  res.status(500).json(ERROR_BODY);
 });
 
 const server = app.listen(PORT, () => {
   console.log(`Express server listening on http://localhost:${PORT}`);
 });
 
-const shutdown = () => {
-  server.close(() => process.exit(0));
-};
+const shutdown = () => server.close(() => process.exit(0));
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

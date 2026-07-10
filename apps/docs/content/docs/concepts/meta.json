@@ -1,19 +1,23 @@
 {
   "title": "Concepts",
-  "description": "Core architectural concepts behind NextRush — application, context, middleware, and routing.",
+  "description": "Core architectural concepts behind NextRush — application, context, middleware, routing, and the class runtime's deeper subsystems.",
   "pages": [
     "index",
     "application",
     "context",
     "middleware",
-    "middleware-internals",
     "routing",
+    "---",
     "plugins",
     "guards",
     "---",
+    "dependency-injection",
+    "modules",
+    "interceptors",
+    "exception-filters",
+    "lifecycle",
+    "---",
     "request-lifecycle",
-    "di-decorators",
-    "runtime-compatibility",
-    "package-hierarchy"
+    "runtime-compatibility"
   ]
 }

@@ -21,13 +21,13 @@ const AGENT_SPEC = {
     {
       name: '@nextrush/types',
       responsibility: 'Shared TypeScript types — Context, Middleware, Plugin, Router interfaces',
-      doc_url: toAbsoluteUrl('/docs/api-reference/core/types'),
+      doc_url: toAbsoluteUrl('/docs/reference/core/types'),
       public_api: ['ContentType', 'HttpStatus', 'HTTP_METHODS'],
     },
     {
       name: '@nextrush/errors',
       responsibility: 'HTTP error hierarchy with proper status codes and factory functions',
-      doc_url: toAbsoluteUrl('/docs/api-reference/core/errors'),
+      doc_url: toAbsoluteUrl('/docs/reference/core/errors'),
       public_api: [
         'HttpError',
         'BadRequestError',
@@ -44,25 +44,20 @@ const AGENT_SPEC = {
     {
       name: '@nextrush/core',
       responsibility: 'Application lifecycle, middleware composition, plugin system',
-      doc_url: toAbsoluteUrl('/docs/api-reference/core/core'),
+      doc_url: toAbsoluteUrl('/docs/reference/core/core'),
       public_api: ['createApp', 'Application', 'compose', 'flattenMiddleware'],
     },
     {
       name: '@nextrush/router',
-      responsibility: 'Radix tree routing with parameterized and wildcard routes',
-      doc_url: toAbsoluteUrl('/docs/api-reference/core/router'),
+      responsibility: 'Segment trie routing with O(k) lookup, parameterized and wildcard routes',
+      doc_url: toAbsoluteUrl('/docs/reference/core/router'),
       public_api: ['createRouter', 'Router'],
     },
     {
-      name: '@nextrush/di',
-      responsibility: 'Dependency injection container wrapping tsyringe',
-      doc_url: toAbsoluteUrl('/docs/api-reference/di/di'),
-      public_api: ['container', 'createContainer', 'Service', 'Repository', 'inject'],
-    },
-    {
-      name: '@nextrush/decorators',
-      responsibility: 'Controller, route, parameter, and guard decorators',
-      doc_url: toAbsoluteUrl('/docs/api-reference/di/decorators'),
+      name: '@nextrush/class',
+      responsibility:
+        'Unified class runtime — decorators, DI, controllers, modules, guards, interceptors, filters, lifecycle. Consolidates the deprecated @nextrush/decorators and @nextrush/controllers packages and re-exports @nextrush/di.',
+      doc_url: toAbsoluteUrl('/docs/reference/class'),
       public_api: [
         'Controller',
         'Get',
@@ -76,21 +71,37 @@ const AGENT_SPEC = {
         'Header',
         'Ctx',
         'UseGuard',
+        'Module',
+        'registerModule',
+        'registerControllers',
       ],
     },
     {
+      name: '@nextrush/di',
+      responsibility: 'Dependency injection container wrapping tsyringe',
+      doc_url: toAbsoluteUrl('/docs/reference/class/di'),
+      public_api: ['container', 'createContainer', 'Service', 'Repository', 'inject'],
+    },
+    {
+      name: '@nextrush/decorators',
+      responsibility:
+        'Deprecated — compatibility shim for @nextrush/class. Use @nextrush/class instead.',
+      doc_url: toAbsoluteUrl('/docs/reference/class/decorators'),
+      deprecated: true,
+      public_api: [],
+    },
+    {
       name: '@nextrush/controllers',
-      responsibility: 'Auto-discovery and handler building for decorator-based controllers',
-      doc_url: toAbsoluteUrl('/docs/api-reference/plugins/controllers'),
-      public_api: [
-        'registerControllers',
-        'discoverControllers',
-      ],
+      responsibility:
+        'Deprecated — compatibility shim for @nextrush/class. Use @nextrush/class instead.',
+      doc_url: toAbsoluteUrl('/docs/reference/class/controllers'),
+      deprecated: true,
+      public_api: [],
     },
     {
       name: '@nextrush/adapter-node',
       responsibility: 'Node.js HTTP adapter for NextRush applications',
-      doc_url: toAbsoluteUrl('/docs/api-reference/adapters/node'),
+      doc_url: toAbsoluteUrl('/docs/reference/adapters/node'),
       public_api: ['createNodeAdapter'],
     },
   ],

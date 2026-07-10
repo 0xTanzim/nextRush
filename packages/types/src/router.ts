@@ -176,6 +176,14 @@ export interface RouterOptions {
    * @default false
    */
   strict?: boolean;
+
+  /**
+   * Whether to percent-decode extracted param and wildcard values
+   * (via `decodeURIComponent`). Malformed encoding falls back to the raw value
+   * and never throws. Set to `false` to receive raw, undecoded values.
+   * @default true
+   */
+  decode?: boolean;
 }
 
 // ============================================================================

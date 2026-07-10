@@ -1,0 +1,111 @@
+---
+title: Contributing
+description: How to build, test, and submit changes to NextRush — summarized from the repository's own CONTRIBUTING.md, with its stale sections flagged rather than repeated as fact.
+---
+
+The canonical contributor guide is
+[`CONTRIBUTING.md`](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md) at the
+repository root. This page summarizes it and cross-links to the internals pages that hold the
+current, verified version of anything `CONTRIBUTING.md` states inaccurately — that file is
+outside this rebuild's `apps/docs/**` file scope, so it hasn't been edited here, but repeating
+its stale claims as if they were current would defeat the point of this rebuild.
+
+## Getting started
+
+```bash
+git clone https://github.com/0xTanzim/nextrush.git
+cd nextrush
+pnpm install    # does not run a full compile — see below
+pnpm build      # build all packages
+pnpm test       # run all tests
+```
+
+Requires **Node.js ≥ 22.0.0**, **pnpm** (latest), and **Git** — stated in `CONTRIBUTING.md` and
+consistent with every package's `engines.node` field.
+
+<Callout type="info" title="Install doesn't compile">
+  `pnpm install` does not run a full build — this matches the root README's own quick-start note.
+  Run `pnpm build` when you need compiled output from any package.
+</Callout>
+
+## Development commands
+
+```bash
+pnpm build                             # Build all packages
+pnpm test                              # Run all tests
+pnpm typecheck                         # Type check all packages
+pnpm lint                              # Lint all packages
+pnpm clean                             # Clean build artifacts
+pnpm --filter @nextrush/<pkg> test     # Test a specific package
+pnpm --filter @nextrush/<pkg> build    # Build a specific package
+```
+
+## Coding standards, as stated in CONTRIBUTING.md
+
+- **TypeScript strict mode** — zero `any` usage; ES2022 target; `verbatimModuleSyntax` enabled
+  (use `import type` for type-only imports).
+- **Naming**: `camelCase` for functions/variables, `PascalCase` for types/interfaces/classes,
+  `SCREAMING_SNAKE_CASE` for constants, `kebab-case.ts` filenames, barrel exports via `index.ts`.
+- **Zero dependencies**: no external runtime dependencies beyond the three named exceptions —
+  see [Design Principles](/docs/internals/design-principles) for the exact list
+  (`reflect-metadata`, `tsyringe`, `@clack/prompts`), which is more precise than
+  `CONTRIBUTING.md`'s own "except `reflect-metadata`" phrasing (it omits `tsyringe` and
+  `@clack/prompts`, both genuinely used per the [generated dependency
+  graph](/docs/internals/package-hierarchy#dependency-graph-generated-from-source)).
+
+## Testing
+
+- **Vitest**, co-located as `src/__tests__/*.test.ts`.
+- **Coverage target: 90%+ per package** — matches
+  [`v3-testing.instructions.md`](https://github.com/0xTanzim/nextRush/blob/main/.kiro/steering/v3-testing.instructions.md)'s
+  same figure.
+- Test both happy paths and error scenarios; `pnpm --filter @nextrush/core test -- --coverage`
+  runs one package's suite with coverage.
+
+## Making a change
+
+`CONTRIBUTING.md`'s workflow: fork, branch from `main` (`feat/my-feature`), make the change
+following the standards above, add tests, run `pnpm build && pnpm typecheck && pnpm test`, commit
+with a `type(scope): description` message (`feat`, `fix`, `test`, `docs`, `refactor`, `perf`,
+`chore`), then open a PR against `main`.
+
+## Where CONTRIBUTING.md is stale — verified against real source, not assumed
+
+Two claims in the current root `CONTRIBUTING.md` don't match the codebase as it exists today.
+Both are named here explicitly rather than silently repeated, since presenting stale claims as
+current would be exactly the kind of drift this rebuild exists to remove:
+
+<Callout type="error" title="Package hierarchy diagram is outdated">
+  `CONTRIBUTING.md` states the hierarchy as
+  `types → errors → core → router → di → decorators → controllers → adapters → middleware` and
+  describes the router as "Radix tree routing." Both are pre-consolidation: the real current
+  hierarchy is documented at [Package Hierarchy](/docs/internals/package-hierarchy) (built from
+  every package.json's actual `dependencies` field), `@nextrush/decorators` and
+  `@nextrush/controllers` are deprecated shims over `@nextrush/class` — not standalone hierarchy
+  steps — and the router is a **segment trie**, not a radix tree (see [Router
+  Internals](/docs/internals/router-internals)).
+</Callout>
+
+`CONTRIBUTING.md`'s monorepo structure listing also omits `@nextrush/class`, `@nextrush/stream`,
+and the `di`/`class` split's current shape (`decorators/` is listed as if it were the primary
+class-based package, and there is no `plugins/` directory in the actual `packages/` tree today —
+the real structure is `middleware/`, `extensions/`, `adapters/`, `class`, `decorators`,
+`controllers`, `di`, listed individually, not nested under a `plugins/` parent).
+
+## Package size limits
+
+`CONTRIBUTING.md` defers to ".github/copilot-instructions.md" for size limits. The
+verified, current limits (per `.kiro/steering/v3-architecture.instructions.md`, cross-checked
+against real package LOC targets) are listed in [Package Hierarchy → Package Size
+Targets](/docs/internals/package-hierarchy#package-size-targets).
+
+## Next steps
+
+<Cards>
+  <Card title="Package Hierarchy" href="/docs/internals/package-hierarchy">
+    The current, verified dependency structure — not the diagram in CONTRIBUTING.md.
+  </Card>
+  <Card title="Design Principles" href="/docs/internals/design-principles">
+    The zero-dependency rule and its three real exceptions, verified against source.
+  </Card>
+</Cards>

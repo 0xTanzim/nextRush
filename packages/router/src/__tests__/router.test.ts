@@ -34,6 +34,22 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
   } as Context;
 }
 
+/**
+ * Mock context whose setNext/next behave like a real adapter context:
+ * `setNext` stores the next fn and `ctx.next()` invokes it. Used to exercise the
+ * modern `ctx.next()` middleware syntax through the router executor.
+ */
+function createNextAwareContext(overrides: Partial<Context> = {}): Context {
+  let stored: () => Promise<void> = () => Promise.resolve();
+  return createMockContext({
+    setNext: (fn: () => Promise<void>) => {
+      stored = fn;
+    },
+    next: () => stored(),
+    ...overrides,
+  });
+}
+
 describe('Router', () => {
   let router: Router;
 
@@ -160,11 +176,11 @@ describe('Router', () => {
       expect(match?.params).toEqual({ userId: '1', postId: '2' });
     });
 
-    it('should handle URL-encoded parameters', () => {
+    it('should decode URL-encoded parameters by default', () => {
       router.get('/search/:query', vi.fn());
 
       const match = router.match('GET', '/search/hello%20world');
-      expect(match?.params).toEqual({ query: 'hello%20world' });
+      expect(match?.params).toEqual({ query: 'hello world' });
     });
   });
 
@@ -312,6 +328,104 @@ describe('Router', () => {
       const ctx = createMockContext({ method: 'GET', path: '/test' });
       const routesMiddleware = router.routes();
       await routesMiddleware(ctx, async () => {});
+
+      expect(order).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('ctx.next() modern middleware syntax', () => {
+    it('runs a single per-route middleware that uses ctx.next()', async () => {
+      const order: number[] = [];
+      const mw = async (ctx: Context) => {
+        order.push(1);
+        await ctx.next();
+      };
+      const handler: RouteHandler = async () => {
+        order.push(2);
+      };
+      router.get('/one', mw, handler);
+
+      const ctx = createNextAwareContext({ method: 'GET', path: '/one' });
+      await router.routes()(ctx, async () => {});
+
+      expect(order).toEqual([1, 2]);
+    });
+
+    it('runs two per-route middleware that use ctx.next()', async () => {
+      const order: number[] = [];
+      const mw0 = async (ctx: Context) => {
+        order.push(1);
+        await ctx.next();
+      };
+      const mw1 = async (ctx: Context) => {
+        order.push(2);
+        await ctx.next();
+      };
+      const handler: RouteHandler = async () => {
+        order.push(3);
+      };
+      router.get('/two', mw0, mw1, handler);
+
+      const ctx = createNextAwareContext({ method: 'GET', path: '/two' });
+      await router.routes()(ctx, async () => {});
+
+      expect(order).toEqual([1, 2, 3]);
+    });
+
+    it('runs a chain of 5 per-route middleware that use ctx.next() (general path)', async () => {
+      const order: number[] = [];
+      const layers = [1, 2, 3, 4, 5].map((n) => async (ctx: Context) => {
+        order.push(n);
+        await ctx.next();
+      });
+      const handler: RouteHandler = async () => {
+        order.push(6);
+      };
+      router.get('/five', ...layers, handler);
+
+      const ctx = createNextAwareContext({ method: 'GET', path: '/five' });
+      await router.routes()(ctx, async () => {});
+
+      expect(order).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    it('lets ctx.next() middleware observe side effects of every layer (all headers set)', async () => {
+      const headers: Record<string, string> = {};
+      const setHeader = (name: string, value: string) => (ctx: Context) => {
+        headers[name] = value;
+        return ctx.next();
+      };
+      router.get(
+        '/headers',
+        setHeader('X-A', '1'),
+        setHeader('X-B', '2'),
+        setHeader('X-C', '3'),
+        async (ctx: Context) => ctx.json({ ok: true })
+      );
+
+      const ctx = createNextAwareContext({ method: 'GET', path: '/headers' });
+      await router.routes()(ctx, async () => {});
+
+      expect(headers).toEqual({ 'X-A': '1', 'X-B': '2', 'X-C': '3' });
+    });
+
+    it('interoperates with the traditional (ctx, next) signature in the same chain', async () => {
+      const order: number[] = [];
+      const modern = async (ctx: Context) => {
+        order.push(1);
+        await ctx.next();
+      };
+      const traditional = async (_ctx: Context, next: () => Promise<void>) => {
+        order.push(2);
+        await next();
+      };
+      const handler: RouteHandler = async () => {
+        order.push(3);
+      };
+      router.get('/mixed', modern, traditional, handler);
+
+      const ctx = createNextAwareContext({ method: 'GET', path: '/mixed' });
+      await router.routes()(ctx, async () => {});
 
       expect(order).toEqual([1, 2, 3]);
     });
