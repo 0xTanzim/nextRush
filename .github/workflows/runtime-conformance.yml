@@ -1,0 +1,63 @@
+name: Runtime Conformance
+
+# Proves the adapters on their REAL runtimes (not simulated under Node/vitest):
+# - Deno adapter under real Deno
+# - Edge adapter inside a real workerd isolate (miniflare)
+# See openspec/changes/harden-runtime-edge-serverless (task group 3).
+#
+# Locally reproducible with `act`:
+#   act -j deno-conformance
+#   act -j workerd-conformance
+# (see packages/adapters/conformance/README.md)
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deno-conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Build the Deno adapter + its workspace deps so the import map resolves dist.
+      - run: pnpm --filter "@nextrush/adapter-deno..." build
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.6.3 # pinned; bump deliberately
+      - name: Deno conformance
+        working-directory: packages/adapters/conformance/deno-runner
+        run: deno task conformance
+
+  workerd-conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Build the edge adapter + its workspace deps so the worker entry resolves dist.
+      - run: pnpm --filter "@nextrush/adapter-edge..." build
+      - name: Workerd conformance (miniflare)
+        working-directory: packages/adapters/conformance/workerd-runner
+        run: |
+          pnpm dlx miniflare@4 --version
+          node --test conformance.workerd.test.mjs
