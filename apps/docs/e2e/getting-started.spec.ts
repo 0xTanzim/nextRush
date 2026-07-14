@@ -16,7 +16,6 @@ test.describe('Getting started — layout and UX', () => {
     await expect(page.getByText('Start here')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Where other frameworks trade off' })).toBeVisible();
     await expect(page.getByText('Express', { exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Core mental model' })).toBeVisible();
   });
 
   test('framework overview: stats strip and highlight cards', async ({ page }) => {

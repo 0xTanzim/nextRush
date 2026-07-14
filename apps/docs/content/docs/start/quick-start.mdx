@@ -1,354 +1,363 @@
 ---
-title: Quick Start
-description: Manual REST API walkthrough — routers, middleware, JSON bodies, and where to go next
+title: Build a Task API
+description: A guided tutorial — build a real Task API with NextRush, from an empty folder to create, read, update, and delete over HTTP.
 ---
 
-This guide is the **manual path**. You create the project yourself so the routing and middleware
-order stay visible.
+You'll build one thing here: a **Task API** you can actually talk to. By the end it stores tasks,
+reads them back, updates them, and returns a real `404` when you ask for one that isn't there. No
+copy-paste-and-hope — every step runs, and each builds on the last.
 
-<Callout type="info" title="Before you start">
-  Use **Node.js 22+** and a package manager. The steps use **pnpm**; npm and yarn work with the same
-  commands where equivalents exist. Use the `tsconfig.json` shape from
-  [Installation](/docs/start/installation#configure-typescript) so module resolution matches
-  the scaffolder. For a generated app, use [Installation](/docs/start/installation) and
-  [create-nextrush](/docs/start/create-nextrush) for scaffold commands and flags.
+This is the manual path. You wire the server yourself so the router, the store, and middleware order
+stay visible. Want a project generated for you instead? Use [create-nextrush](/docs/start/create-nextrush).
+
+## What you'll build
+
+A few endpoints backed by a real in-memory store. The finished API answers like this:
+
+```bash
+# create a task
+curl -X POST http://localhost:8080/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Write the docs"}'
+# → {"id":1,"title":"Write the docs","done":false}
+
+# read that exact task back
+curl http://localhost:8080/tasks/1
+# → {"id":1,"title":"Write the docs","done":false}
+
+# ask for one that doesn't exist
+curl -i http://localhost:8080/tasks/999
+# → HTTP/1.1 404 Not Found
+```
+
+That `999` returning a real 404 — not a hardcoded record — is the whole point. The `GET` gives back
+what the `POST` stored, because there's an actual store underneath.
+
+<Callout type="info" title="Prerequisites">
+  **Node.js 22+** and a package manager. The commands use **pnpm**; npm and yarn work the same way.
+  Basic TypeScript is assumed — no prior NextRush knowledge.
 </Callout>
 
 <Steps>
+
 <Step>
-### Create a new project
+### Create the project
 
 ```bash
-mkdir my-nextrush-api
-cd my-nextrush-api
+mkdir task-api && cd task-api
 pnpm init
 ```
 
-Add `"type": "module"` to `package.json` so Node runs ESM entrypoints the same way as the scaffolder.
+Add `"type": "module"` to `package.json` so Node runs the TypeScript entry as ESM.
 
 </Step>
 
 <Step>
-### Install dependencies
+### Install NextRush
 
-<PackageInstall packages={["nextrush"]} dev={["tsx", "typescript", "@types/node"]} />
+<PackageInstall packages={["nextrush", "@nextrush/body-parser"]} dev={["tsx", "typescript", "@types/node"]} />
+
+`nextrush` is the framework. `@nextrush/body-parser` is separate on purpose — you only pay for JSON
+parsing on the routes that need it, and you'll add it in step 5 exactly when the first `POST` needs a
+parsed body. `tsx` runs TypeScript directly, no build step.
+
 </Step>
 
 <Step>
-### Create the entry point
+### Start a server with one route
 
 Create `src/index.ts`:
 
 ```typescript title="src/index.ts"
 import { createApp, createRouter, listen } from 'nextrush';
 
-// Create the application
 const app = createApp();
+const router = createRouter();
 
-// Create feature routers
-const health = createRouter();
-health.get('/', (ctx) => {
-  ctx.json({
-    name: 'My API',
-    version: '1.0.0',
-    status: 'healthy',
-  });
+router.get('/', (ctx) => {
+  ctx.json({ name: 'Task API', status: 'ok' });
 });
 
-const users = createRouter();
-users.get('/', (ctx) => {
-  ctx.json([
-    { id: 1, name: 'Alice', email: 'alice@example.com' },
-    { id: 2, name: 'Bob', email: 'bob@example.com' },
-  ]);
-});
-
-users.get('/:id', (ctx) => {
-  const { id } = ctx.params;
-  ctx.json({
-    id: Number(id),
-    name: 'Alice',
-    email: 'alice@example.com',
-  });
-});
-
-// Mount routers
-app.route('/', health);
-app.route('/users', users);
-
-// Start the server
+app.route('/', router);
 await listen(app, 8080);
 ```
 
-</Step>
-
-<Step>
-### Run the server
+Run it:
 
 ```bash
 npx tsx src/index.ts
 ```
 
-`tsx` starts the server and it keeps running. NextRush's default logger is a no-op, so nothing prints unless you pass one (`createApp({ logger: console })`). Confirm it's up by opening http://localhost:8080 or running the curl calls below.
+The server stays up. NextRush's default logger is a no-op, so nothing prints — that's expected.
+In another terminal:
+
+```bash
+curl http://localhost:8080/
+# → {"name":"Task API","status":"ok"}
+```
 
 </Step>
 
 <Step>
-### Test your API
+### Add a store and create tasks
 
-Open another terminal and test the endpoints:
+Now the real work. Add an in-memory `Map` as the store, a `POST /tasks` that creates, and a
+`GET /tasks` that lists what's there. A `Map` is enough for a tutorial — swap it for a database later
+without changing the route shape.
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen, BadRequestError } from 'nextrush';
+
+type Task = { id: number; title: string; done: boolean };
+
+const tasks = new Map<number, Task>();
+let nextId = 1;
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/tasks', (ctx) => {
+  ctx.json([...tasks.values()]);
+});
+
+router.post('/tasks', (ctx) => {
+  const body = ctx.body as { title?: string };
+  if (!body?.title) throw new BadRequestError('title is required');
+
+  const task: Task = { id: nextId++, title: body.title, done: false };
+  tasks.set(task.id, task);
+
+  ctx.status = 201;
+  ctx.json(task);
+});
+
+app.route('/', router);
+await listen(app, 8080);
+```
+
+`ctx.body` is `undefined` for now — the server never parses the request body until you add the parser
+in step 5. That's the next thing you'll fix, and you'll see exactly why.
+
+</Step>
+
+<Step>
+### Parse the body, then read tasks back
+
+The `POST` above reads `ctx.body`, but nothing populates it yet. Register the JSON body parser with
+`app.use(json())` **before** the routes, so the body is parsed before a handler runs. Then add
+`GET /tasks/:id`, which reads a task back out of the store — and throws `NotFoundError` when the id
+isn't there.
+
+```typescript title="src/index.ts"
+import { createApp, createRouter, listen, BadRequestError, NotFoundError } from 'nextrush';
+import { json } from '@nextrush/body-parser';
+
+type Task = { id: number; title: string; done: boolean };
+
+const tasks = new Map<number, Task>();
+let nextId = 1;
+
+const app = createApp();
+
+// Parse JSON bodies before any route runs — without this, ctx.body stays undefined.
+app.use(json());
+
+const router = createRouter();
+
+router.get('/tasks', (ctx) => {
+  ctx.json([...tasks.values()]);
+});
+
+router.post('/tasks', (ctx) => {
+  const body = ctx.body as { title?: string };
+  if (!body?.title) throw new BadRequestError('title is required');
+
+  const task: Task = { id: nextId++, title: body.title, done: false };
+  tasks.set(task.id, task);
+
+  ctx.status = 201;
+  ctx.json(task);
+});
+
+router.get('/tasks/:id', (ctx) => {
+  const task = tasks.get(Number(ctx.params.id));
+  if (!task) throw new NotFoundError('Task not found');
+  ctx.json(task);
+});
+
+app.route('/', router);
+await listen(app, 8080);
+```
+
+Restart the server, then create a task and read it straight back:
 
 ```bash
-# Root endpoint
-curl http://localhost:8080/
-# → {"name":"My API","version":"1.0.0","status":"healthy"}
+curl -X POST http://localhost:8080/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Write the docs"}'
+# → {"id":1,"title":"Write the docs","done":false}
 
-# List users
-curl http://localhost:8080/users
-# → [{"id":1,"name":"Alice",...},{"id":2,"name":"Bob",...}]
+curl http://localhost:8080/tasks/1
+# → {"id":1,"title":"Write the docs","done":false}
 
-# Get user by ID
-curl http://localhost:8080/users/1
-# → {"id":1,"name":"Alice","email":"alice@example.com"}
+curl -i http://localhost:8080/tasks/999
+# → HTTP/1.1 404 Not Found  (NotFoundError became the response)
+```
+
+The `id:1` you get back is the one you stored, and `999` takes the real miss path. Throwing
+`NotFoundError` is all it takes — NextRush's error handler turns any `HttpError` into the matching
+status and JSON.
+
+</Step>
+
+<Step>
+### Update and delete
+
+Finish the CRUD set. `PATCH /tasks/:id` toggles `done`; `DELETE /tasks/:id` removes a task and
+answers `204 No Content`. Add both to the router:
+
+```typescript title="src/index.ts"
+router.patch('/tasks/:id', (ctx) => {
+  const task = tasks.get(Number(ctx.params.id));
+  if (!task) throw new NotFoundError('Task not found');
+
+  task.done = !task.done;
+  ctx.json(task);
+});
+
+router.delete('/tasks/:id', (ctx) => {
+  const existed = tasks.delete(Number(ctx.params.id));
+  if (!existed) throw new NotFoundError('Task not found');
+
+  ctx.status = 204;
+  ctx.send('');
+});
 ```
 
 </Step>
+
 </Steps>
 
-## Adding Middleware
+## Verify it works
 
-Middleware runs before your route handlers. Register it **before** `app.route()` so it wraps mounted
-routers.
-
-Add a timer that prints to stdout (fine for local dev; in production, send timings to your logger):
-
-```typescript title="src/index.ts"
-import { createApp, createRouter, listen } from 'nextrush';
-
-const app = createApp();
-
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  const ms = Date.now() - start;
-  // Example only — use structured logging in production
-  console.log(`${ctx.method} ${ctx.path} - ${ms}ms`);
-});
-
-const health = createRouter();
-health.get('/', (ctx) => {
-  ctx.json({
-    name: 'My API',
-    version: '1.0.0',
-    status: 'healthy',
-  });
-});
-
-const users = createRouter();
-users.get('/', (ctx) => {
-  ctx.json([
-    { id: 1, name: 'Alice', email: 'alice@example.com' },
-    { id: 2, name: 'Bob', email: 'bob@example.com' },
-  ]);
-});
-
-users.get('/:id', (ctx) => {
-  const { id } = ctx.params;
-  ctx.json({
-    id: Number(id),
-    name: 'Alice',
-    email: 'alice@example.com',
-  });
-});
-
-app.route('/', health);
-app.route('/users', users);
-
-await listen(app, 8080);
-```
-
-<Callout type="info" title="Middleware order">
-  Middleware runs in registration order. The logger runs first because it is registered before the
-  routers are mounted.
-</Callout>
-
-## Security headers, JSON bodies, and POST
-
-Add CORS, security headers, and JSON parsing. Register **`cors` → `helmet` → `json`** before your
-logger so bodies are parsed before timing runs:
-
-<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
-
-```typescript title="src/index.ts"
-import { createApp, createRouter, listen } from 'nextrush';
-import { cors } from '@nextrush/cors';
-import { helmet } from '@nextrush/helmet';
-import { json } from '@nextrush/body-parser';
-
-const app = createApp();
-
-app.use(cors());
-app.use(helmet());
-app.use(json());
-
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  const ms = Date.now() - start;
-  console.log(`${ctx.method} ${ctx.path} - ${ms}ms`);
-});
-
-const health = createRouter();
-health.get('/', (ctx) => {
-  ctx.json({
-    name: 'My API',
-    version: '1.0.0',
-    status: 'healthy',
-  });
-});
-
-const users = createRouter();
-
-users.get('/', (ctx) => {
-  ctx.json([
-    { id: 1, name: 'Alice', email: 'alice@example.com' },
-    { id: 2, name: 'Bob', email: 'bob@example.com' },
-  ]);
-});
-
-users.get('/:id', (ctx) => {
-  const { id } = ctx.params;
-  ctx.json({
-    id: Number(id),
-    name: 'Alice',
-    email: 'alice@example.com',
-  });
-});
-
-users.post('/', (ctx) => {
-  const { name, email } = ctx.body as { name: string; email: string };
-
-  ctx.status = 201;
-  ctx.json({
-    id: Date.now(),
-    name,
-    email,
-  });
-});
-
-app.route('/', health);
-app.route('/users', users);
-
-await listen(app, 8080);
-```
-
-Test it:
+Restart, then run the whole flow — create, list, toggle, delete, confirm it's gone:
 
 ```bash
-curl -X POST http://localhost:8080/users \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Charlie","email":"charlie@example.com"}'
+curl -X POST http://localhost:8080/tasks -H 'Content-Type: application/json' -d '{"title":"Ship it"}'
+# → {"id":1,"title":"Ship it","done":false}
+
+curl -X PATCH http://localhost:8080/tasks/1
+# → {"id":1,"title":"Ship it","done":true}
+
+curl http://localhost:8080/tasks
+# → [{"id":1,"title":"Ship it","done":true}]
+
+curl -X DELETE http://localhost:8080/tasks/1   # → 204, empty body
+curl -i http://localhost:8080/tasks/1
+# → HTTP/1.1 404 Not Found
 ```
 
-## Complete example
+The task you created is the task you toggled, listed, and then deleted. That round trip through a real
+store is what a first API should teach.
 
-The block below matches the POST section above — one file you can paste into `src/index.ts`:
+## Complete code
 
 <details>
-<summary>Full application code with routing, middleware, and POST handling</summary>
+<summary>Full <code>src/index.ts</code> — the finished Task API</summary>
 
 ```typescript title="src/index.ts"
-import { createApp, createRouter, listen } from 'nextrush';
-import { cors } from '@nextrush/cors';
-import { helmet } from '@nextrush/helmet';
+import { createApp, createRouter, listen, BadRequestError, NotFoundError } from 'nextrush';
 import { json } from '@nextrush/body-parser';
 
-const app = createApp();
+type Task = { id: number; title: string; done: boolean };
 
-// Middleware
-app.use(cors());
-app.use(helmet());
+const tasks = new Map<number, Task>();
+let nextId = 1;
+
+const app = createApp();
 app.use(json());
 
-// Logger
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+const router = createRouter();
+
+router.get('/tasks', (ctx) => {
+  ctx.json([...tasks.values()]);
 });
 
-// Feature routers
-const health = createRouter();
-health.get('/', (ctx) => {
-  ctx.json({ name: 'My API', version: '1.0.0' });
-});
+router.post('/tasks', (ctx) => {
+  const body = ctx.body as { title?: string };
+  if (!body?.title) throw new BadRequestError('title is required');
 
-const users = createRouter();
-users.get('/', (ctx) => {
-  ctx.json([
-    { id: 1, name: 'Alice' },
-    { id: 2, name: 'Bob' },
-  ]);
-});
+  const task: Task = { id: nextId++, title: body.title, done: false };
+  tasks.set(task.id, task);
 
-users.get('/:id', (ctx) => {
-  ctx.json({ id: Number(ctx.params.id), name: 'Alice' });
-});
-
-users.post('/', (ctx) => {
-  const { name, email } = ctx.body as { name: string; email: string };
   ctx.status = 201;
-  ctx.json({ id: Date.now(), name, email });
+  ctx.json(task);
 });
 
-// Mount routers
-app.route('/', health);
-app.route('/users', users);
+router.get('/tasks/:id', (ctx) => {
+  const task = tasks.get(Number(ctx.params.id));
+  if (!task) throw new NotFoundError('Task not found');
+  ctx.json(task);
+});
 
-// Start
+router.patch('/tasks/:id', (ctx) => {
+  const task = tasks.get(Number(ctx.params.id));
+  if (!task) throw new NotFoundError('Task not found');
+
+  task.done = !task.done;
+  ctx.json(task);
+});
+
+router.delete('/tasks/:id', (ctx) => {
+  const existed = tasks.delete(Number(ctx.params.id));
+  if (!existed) throw new NotFoundError('Task not found');
+
+  ctx.status = 204;
+  ctx.send('');
+});
+
+app.route('/', router);
 await listen(app, 8080);
 ```
 
 </details>
 
-Try the same code directly in the browser:
+Run the finished project in the browser:
 
 <OpenInStackBlitz
-  title="NextRush Quick Start"
-  dependencies={{ nextrush: 'latest', '@nextrush/cors': 'latest', '@nextrush/helmet': 'latest', '@nextrush/body-parser': 'latest' }}
+  title="NextRush Task API"
+  dependencies={{ nextrush: 'latest', '@nextrush/body-parser': 'latest' }}
   files={[
     {
       path: 'src/index.ts',
-      content: "import { createApp, createRouter, listen } from 'nextrush';\nimport { cors } from '@nextrush/cors';\nimport { helmet } from '@nextrush/helmet';\nimport { json } from '@nextrush/body-parser';\n\nconst app = createApp();\n\n// Middleware\napp.use(cors());\napp.use(helmet());\napp.use(json());\n\n// Logger\napp.use(async (ctx) => {\n  const start = Date.now();\n  await ctx.next();\n  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);\n});\n\n// Feature routers\nconst health = createRouter();\nhealth.get('/', (ctx) => {\n  ctx.json({ name: 'My API', version: '1.0.0' });\n});\n\nconst users = createRouter();\nusers.get('/', (ctx) => {\n  ctx.json([\n    { id: 1, name: 'Alice' },\n    { id: 2, name: 'Bob' },\n  ]);\n});\n\nusers.get('/:id', (ctx) => {\n  ctx.json({ id: Number(ctx.params.id), name: 'Alice' });\n});\n\nusers.post('/', (ctx) => {\n  const { name, email } = ctx.body as { name: string; email: string };\n  ctx.status = 201;\n  ctx.json({ id: Date.now(), name, email });\n});\n\n// Mount routers\napp.route('/', health);\napp.route('/users', users);\n\n// Start\nawait listen(app, 8080);\n",
+      content: "import { createApp, createRouter, listen, BadRequestError, NotFoundError } from 'nextrush';\nimport { json } from '@nextrush/body-parser';\n\ntype Task = { id: number; title: string; done: boolean };\n\nconst tasks = new Map<number, Task>();\nlet nextId = 1;\n\nconst app = createApp();\napp.use(json());\n\nconst router = createRouter();\n\nrouter.get('/tasks', (ctx) => {\n  ctx.json([...tasks.values()]);\n});\n\nrouter.post('/tasks', (ctx) => {\n  const body = ctx.body as { title?: string };\n  if (!body?.title) throw new BadRequestError('title is required');\n\n  const task: Task = { id: nextId++, title: body.title, done: false };\n  tasks.set(task.id, task);\n\n  ctx.status = 201;\n  ctx.json(task);\n});\n\nrouter.get('/tasks/:id', (ctx) => {\n  const task = tasks.get(Number(ctx.params.id));\n  if (!task) throw new NotFoundError('Task not found');\n  ctx.json(task);\n});\n\nrouter.patch('/tasks/:id', (ctx) => {\n  const task = tasks.get(Number(ctx.params.id));\n  if (!task) throw new NotFoundError('Task not found');\n\n  task.done = !task.done;\n  ctx.json(task);\n});\n\nrouter.delete('/tasks/:id', (ctx) => {\n  const existed = tasks.delete(Number(ctx.params.id));\n  if (!existed) throw new NotFoundError('Task not found');\n\n  ctx.status = 204;\n  ctx.send('');\n});\n\napp.route('/', router);\nawait listen(app, 8080);\n",
     },
   ]}
 />
 
-## Common mistakes
+## What you learned
 
-<Callout type="warn" title="Forgetting ctx.next()">
-  If your middleware doesn't call `await ctx.next()`, the request will hang. Always call
-  `ctx.next()` unless you're intentionally ending the response.
-</Callout>
+- **Routing** — `createRouter()`, path params like `/tasks/:id`, and mounting with `app.route()`. [Routing deep dive](/docs/concepts/routing)
+- **Context** — reading `ctx.body`/`ctx.params` and writing with `ctx.json()` and `ctx.status`. [Context deep dive](/docs/concepts/context)
+- **Middleware order** — `json()` runs before routes, or `ctx.body` stays `undefined`. [Middleware deep dive](/docs/concepts/middleware)
+- **Errors** — throwing `NotFoundError`/`BadRequestError` and letting the framework map them to responses. [Error handling](/docs/guides/error-handling)
 
-Middleware registered **after** `app.route()` calls won't run for those routes. Register middleware before mounting routers.
-
-## What's next?
+## Next steps
 
 <Cards>
   <Card
+    title="Add validation"
+    description="Validate the request body with a schema instead of hand-checking title."
+    href="/docs/guides/validation"
+  />
+  <Card
+    title="Swap in a database"
+    description="Replace the in-memory Map with a real data layer — the routes don't change."
+    href="/docs/guides/database"
+  />
+  <Card
     title="Core concepts"
-    description="Context, middleware, routing, and plugins."
+    description="Context, middleware, routing, and plugins in depth."
     href="/docs/concepts"
-  />
-  <Card
-    title="API reference"
-    description="Lookup for core, middleware, and adapters."
-    href="/docs/reference"
-  />
-  <Card
-    title="Guides"
-    description="Auth, validation, deployment, testing."
-    href="/docs/guides"
   />
 </Cards>

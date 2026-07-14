@@ -46,15 +46,15 @@
 
 ## 5. Serverless adapter: execution model + generic adapter-scoped EventMapper registry + first mapper (spec: serverless-adapter)
 
-- [ ] 5.1 RFC-gate the `@nextrush/adapter-serverless` public surface (`createServerlessAdapter({ mappers, provider? })` → `FetchAdapter`, generic `EventMapper<Event, Result, Ctx>`, explicit-over-detect selection) per repo rules
-- [ ] 5.2 Scaffold `packages/adapters/serverless` (package.json, tsup, vitest, README, barrel) following the adapter package convention; add the FetchAdapter conformance guard
-- [ ] 5.3 RED: define + test the generic `EventMapper<Event, Result, Ctx>` type and the adapter-scoped immutable registry — mappers supplied at construction; assert no global registry, two adapters with different mappers stay isolated in one process
-- [ ] 5.4 RED→GREEN: selection is explicit-first — a named `provider` wins; `detect()` runs only when omitted (assert an explicit choice is not overridden by a matching `detect()`)
-- [ ] 5.5 GREEN: implement the execution model in `createServerlessAdapter(...).createFetchHandler` (per-invocation, runs `app.callback()` via the shared context factory) resolving the mapper from the per-adapter list
-- [ ] 5.6 RED→GREEN: implement the `lambda-function-url` `EventMapper` (pure, generically typed) with golden-fixture round-trips
-- [ ] 5.7 RED→GREEN: response-streaming path — a handler returning `ReadableStream` streams (not buffers) under Function URL
-- [ ] 5.8 RED→GREEN: per-invocation `timeout` races the handler → 504 and aborts `ctx.signal`
-- [ ] 5.9 VERIFY: local sample handler serves a real Function URL event object; assert tree-shaking (including only one mapper does not bundle the others)
+- [x] 5.1 RFC-gate the `@nextrush/adapter-serverless` public surface (`createServerlessAdapter({ mappers, provider? })` → `FetchAdapter`, generic `EventMapper<Event, Result, Ctx>`, explicit-over-detect selection) per repo rules
+- [x] 5.2 Scaffold `packages/adapters/serverless` (package.json, tsup, vitest, README, barrel) following the adapter package convention; add the FetchAdapter conformance guard
+- [x] 5.3 RED: define + test the generic `EventMapper<Event, Result, Ctx>` type and the adapter-scoped immutable registry — mappers supplied at construction; assert no global registry, two adapters with different mappers stay isolated in one process
+- [x] 5.4 RED→GREEN: selection is explicit-first — a named `provider` wins; `detect()` runs only when omitted (assert an explicit choice is not overridden by a matching `detect()`)
+- [x] 5.5 GREEN: implement the execution model in `createServerlessAdapter(...).createFetchHandler` (per-invocation, runs `app.callback()` via the shared context factory) resolving the mapper from the per-adapter list
+- [x] 5.6 RED→GREEN: implement the `lambda-function-url` `EventMapper` (pure, generically typed) with golden-fixture round-trips
+- [x] 5.7 RED→GREEN: response-streaming path — a handler returning `ReadableStream` streams (not buffers) under Function URL
+- [x] 5.8 RED→GREEN: per-invocation `timeout` races the handler → 504 and aborts `ctx.signal`
+- [x] 5.9 VERIFY: local sample handler serves a real Function URL event object; assert tree-shaking (including only one mapper does not bundle the others)
 
 ## 6. Remaining EventMappers + full-chain fixtures (spec: serverless-adapter)
 
@@ -108,3 +108,8 @@
 - [ ] 12.5 Add one verified deploy example per platform (Cloudflare Workers + AWS Lambda Function URL at minimum), runnable from the docs alone
 - [ ] 12.6 Record future-direction notes (per-platform edge adapters; framework-integrations as the recommended next OpenSpec) in the change/docs without implementing them
 - [ ] 12.7 VERIFY: `pnpm verify` (build + test + typecheck + lint) green end-to-end; `docs:validate` green; `openspec validate harden-runtime-edge-serverless --strict` passes
+
+## 5a. Follow-ups from Task group 5 (not blocking)
+
+- [ ] 5a.1 True Function URL response streaming (`awslambda.streamifyResponse`) — current `lambda-function-url` mapper uses the buffered v2 result format; a streamed `Response` body is buffered. True streaming is a distinct result shape, lands with group 6.
+- [ ] 5a.2 Public method named `createHandler` (event→result), not `createFetchHandler` — the FetchAdapter engine is reused from edge internally. See RFC-NEXTRUSH-ADAPTER-SERVERLESS deviation note.
