@@ -19,3 +19,9 @@ export type {
   LambdaFunctionUrlEvent,
   LambdaFunctionUrlResult,
 } from './mappers/lambda-function-url';
+
+export { apigwV2 } from './mappers/apigw-v2';
+export type { ApiGatewayV2Event, ApiGatewayV2Result } from './mappers/apigw-v2';
+
+export { apigwV1 } from './mappers/apigw-v1';
+export type { ApiGatewayV1Event, ApiGatewayV1Result } from './mappers/apigw-v1';

@@ -197,3 +197,52 @@ describe('execution model', () => {
     expect(text).toBe('chunk1chunk2');
   });
 });
+
+describe('apigw-v2 mapper', () => {
+  it('round-trips a v2 event (shares the format with lambda-function-url)', async () => {
+    const { apigwV2 } = await import('../index');
+    const app = createApp();
+    app.use((ctx) => {
+      ctx.json({ method: ctx.method, path: ctx.path });
+    });
+    const handler = createServerlessAdapter({ mappers: [apigwV2] }).createHandler(app);
+    const res = await handler(event({ rawPath: '/v2', requestContext: { http: { method: 'GET' } } }));
+    const body = JSON.parse(res.body) as { method: string; path: string };
+    expect(body.method).toBe('GET');
+    expect(body.path).toBe('/v2');
+  });
+});
+
+describe('apigw-v1 mapper (REST, payload format 1.0)', () => {
+  it('maps multi-value query params into arrays', async () => {
+    const { apigwV1 } = await import('../index');
+    const app = createApp();
+    app.use((ctx) => {
+      ctx.json({ b: ctx.query.b, path: ctx.path });
+    });
+    const handler = createServerlessAdapter({ mappers: [apigwV1] }).createHandler(app);
+    const res = await handler({
+      httpMethod: 'GET',
+      path: '/rest',
+      multiValueQueryStringParameters: { b: ['2', '3'] },
+      multiValueHeaders: { 'x-test': ['v1', 'v2'] },
+      isBase64Encoded: false,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as { b: string[]; path: string };
+    expect(body.b).toEqual(['2', '3']);
+    expect(body.path).toBe('/rest');
+  });
+
+  it('puts Set-Cookie into multiValueHeaders', async () => {
+    const { apigwV1 } = await import('../index');
+    const app = createApp();
+    app.use((ctx) => {
+      ctx.set('set-cookie', 'sid=abc; Path=/');
+      ctx.json({ ok: true });
+    });
+    const handler = createServerlessAdapter({ mappers: [apigwV1] }).createHandler(app);
+    const res = await handler({ httpMethod: 'GET', path: '/c', multiValueHeaders: {} });
+    expect(res.multiValueHeaders?.['set-cookie']?.some((c) => c.includes('sid=abc'))).toBe(true);
+  });
+});
