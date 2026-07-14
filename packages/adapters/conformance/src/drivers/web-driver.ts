@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- conformance test driver selects the adapter under test by runtime; not a capability decision */
 /**
  * Web-adapter conformance drivers (Bun, Deno, Edge).
  *

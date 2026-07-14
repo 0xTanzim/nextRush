@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- the dev CLI's own runtime detection helper; runtime identity is the subject here, not a capability gate */
 /**
  * @nextrush/dev - Runtime Detection
  *

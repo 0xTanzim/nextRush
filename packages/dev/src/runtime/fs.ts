@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- dev CLI runtime-specific filesystem APIs (Deno/Bun/Node differ); platform optimization, not a request-path capability decision */
 /**
  * @nextrush/dev - Cross-Runtime File System Operations
  *

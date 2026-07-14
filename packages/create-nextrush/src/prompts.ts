@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- scaffolder prompts choose the target runtime for the generated project; not a runtime capability decision */
 import * as p from '@clack/prompts';
 
 import {

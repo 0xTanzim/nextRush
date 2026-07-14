@@ -12,8 +12,9 @@ import {
   DEFAULT_TIMEOUT_MS,
   normalizeStartupError,
 } from '@nextrush/runtime';
-import type { HandlerOptions, ServerAdapter } from '@nextrush/types';
+import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
 import { createDenoContext } from './context';
+import type { DenoContext } from './context';
 
 // Deno runtime types are declared ambiently in ./deno.d.ts (audit F-17).
 
@@ -367,3 +368,11 @@ const _denoConformance: ServerAdapter<Application, ServeOptions, ServerInstance>
   createHandler,
 };
 void _denoConformance;
+
+// RFC-NEXTRUSH-ADAPTER-CONTRACT: prove the context factory produces an
+// AdapterContext over the shared Context contract.
+const _denoContextFactory: AdapterContextFactory<
+  [Request, { remoteAddr?: { hostname: string } }?, boolean?],
+  DenoContext
+> = createDenoContext;
+void _denoContextFactory;

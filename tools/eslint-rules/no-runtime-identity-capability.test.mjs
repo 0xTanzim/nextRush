@@ -6,7 +6,7 @@
 
 import { RuleTester } from 'eslint';
 import test from 'node:test';
-import { noRuntimeIdentityCapability } from './no-runtime-identity-capability.js';
+import { noRuntimeIdentityCapability } from './no-runtime-identity-capability.mjs';
 
 const ruleTester = new RuleTester({
   languageOptions: { ecmaVersion: 2022, sourceType: 'module' },

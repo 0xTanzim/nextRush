@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- dev CLI runtime-specific process spawning (node/bun/deno binaries); platform optimization */
 /**
  * @nextrush/dev - Cross-Runtime Process Spawning
  *

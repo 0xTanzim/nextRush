@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- dev CLI selects runtime-specific build/bundling; platform optimization, not a request-path capability decision */
 /**
  * @nextrush/dev - Build Command
  *

@@ -12,8 +12,9 @@ import {
   DEFAULT_TIMEOUT_MS,
   normalizeStartupError,
 } from '@nextrush/runtime';
-import type { HandlerOptions, ServerAdapter } from '@nextrush/types';
+import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
 import { createBunContext } from './context';
+import type { BunContext } from './context';
 
 /**
  * Server options for Bun adapter
@@ -448,3 +449,9 @@ const _bunConformance: ServerAdapter<Application, ServeOptions, ServerInstance> 
   createHandler,
 };
 void _bunConformance;
+
+// RFC-NEXTRUSH-ADAPTER-CONTRACT: prove the context factory produces an
+// AdapterContext over the shared Context contract.
+const _bunContextFactory: AdapterContextFactory<[Request, string?, boolean?], BunContext> =
+  createBunContext;
+void _bunContextFactory;

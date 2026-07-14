@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- dev CLI runtime-specific dev-server spawn; platform optimization */
 /**
  * @nextrush/dev - Dev Command
  *

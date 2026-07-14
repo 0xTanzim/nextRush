@@ -7,10 +7,10 @@
 - [x] 1.5 VERIFY: run `@nextrush/adapter-conformance` under Node before/after retrofit — assert byte-identical responses; `pnpm typecheck` green  <!-- conformance 92/92 green; types/node/edge/bun/deno typecheck+lint green -->
 - [x] 1.6 Update the repo-wide public-surface snapshot for `@nextrush/types`; add a changeset  <!-- changeset added; repo-wide surface-snapshot harness is separate task T005 (only @nextrush/class has one today) -->
 
-## 1a. Follow-ups discovered during Task group 1 (not blocking)
+## 1a. Follow-ups discovered during Task group 1 (COMPLETE)
 
-- [ ] 1a.1 Add context-factory guards to `adapter-bun` / `adapter-deno` (they lack an exported context-options type; shape guards already present)
-- [ ] 1a.2 When the repo-wide surface-snapshot harness (T005) lands, include `@nextrush/types` adapter contracts in it
+- [x] 1a.1 Add context-factory guards to `adapter-bun` / `adapter-deno`  <!-- added AdapterContextFactory guards; bun/deno typecheck green -->
+- [ ] 1a.2 When the repo-wide surface-snapshot harness (T005) lands, include `@nextrush/types` adapter contracts in it  <!-- blocked on T005 (separate change) -->
 
 ## 2. Enforce capability negotiation (spec: runtime-capability-negotiation)
 
@@ -22,10 +22,11 @@
 - [x] 2.6 RED→GREEN: expose named `CapabilityProfile`s (Node/Bun/Deno/Cloudflare/Lambda) derived from `capabilitiesFor()`; unknown runtimes get a `probeCapabilities()`-built profile; assert the lint rule still permits reading a profile but rejects runtime-identity branching  <!-- packages/runtime/src/profiles.ts + profiles.test.ts -->
 - [x] 2.7 VERIFY: `pnpm lint` + `pnpm test` green  <!-- @nextrush/runtime lint+typecheck clean, 105 tests pass; rule RuleTester green; adapter-node lint regression-checked -->
 
-## 2a. Follow-ups discovered during Task group 2 (not blocking)
+## 2a. Follow-ups discovered during Task group 2 (COMPLETE)
 
-- [ ] 2.3a Roll the `no-runtime-identity-capability` rule out repo-wide (widen the `files` glob in `eslint.config.mjs` from `packages/runtime/**` to `packages/**`), annotating/fixing the ~34 detection/optimization sites (dev, create-nextrush, adapters, compression) in a dedicated sweep so lint does not break everywhere at once
-- [ ] 2.3b Consider renaming `tools/eslint-rules/*.js` → `.mjs` (or add `"type":"module"` to root package.json) to silence the MODULE_TYPELESS_PACKAGE_JSON warning (cosmetic; lint exit code is 0)
+- [x] 2.3a Roll the `no-runtime-identity-capability` rule out repo-wide  <!-- glob widened to packages/**/src; 24 legit detection/optimization sites annotated (dev runtime/commands, create-nextrush, conformance driver) via file-level capability-exempt; eslint packages/**/src → 0 violations -->
+- [x] 2.3b Rename `tools/eslint-rules/*.js` → `.mjs` to silence MODULE_TYPELESS warning  <!-- renamed + import paths updated -->
+- [ ] 2.3c Add a `lint` script to `@nextrush/dev` (currently unlinted per-package; covered only by root-level eslint runs)
 
 ## 3. Prove edge on real runtimes (spec: runtime-proof-harness)
 

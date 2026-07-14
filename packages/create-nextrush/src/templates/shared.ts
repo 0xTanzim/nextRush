@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- scaffolder emits runtime-specific template snippets; not a capability decision */
 import { getAdapterPackages, getMiddlewarePackages } from '../constants.js';
 import { getCoreRange } from '../version-store.js';
 import type { DependencySet, ProjectOptions, Runtime } from '../types.js';
