@@ -17,7 +17,7 @@
  */
 
 import type { Application } from '@nextrush/core';
-import type { FetchAdapter } from '@nextrush/types';
+import type { AdapterContextFactory, FetchAdapter } from '@nextrush/types';
 import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './context';
 
 /**
@@ -304,3 +304,12 @@ export const createHandler = createFetchHandler;
 // drifts from the shared `FetchAdapter` contract, this stops compiling.
 const _edgeConformance: FetchAdapter<Application, EdgeExecutionContext> = { createFetchHandler };
 void _edgeConformance;
+
+// RFC-NEXTRUSH-ADAPTER-CONTRACT: prove the context factory produces an
+// AdapterContext over the shared Context contract. A drift in createEdgeContext's
+// return type stops compiling here.
+const _edgeContextFactory: AdapterContextFactory<
+  [Request, EdgeExecutionContext?, boolean?, unknown?],
+  EdgeContext
+> = createEdgeContext;
+void _edgeContextFactory;

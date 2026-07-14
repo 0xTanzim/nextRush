@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { AdapterContext, AdapterContextFactory } from '../adapter-context';
 import type {
   FetchAdapter,
   FetchHandler,
@@ -98,5 +99,50 @@ describe('FetchAdapter', () => {
     const handler = adapter.createFetchHandler({ name: 'app' });
     const res = await handler(new Request('http://localhost/'));
     expect(res.status).toBe(200);
+  });
+});
+
+describe('ServerAdapter — negative (contract is enforced)', () => {
+  it('rejects an adapter missing createHandler', () => {
+    // prettier-ignore
+    // @ts-expect-error - a ServerAdapter missing createHandler must not satisfy the contract
+    const bad: ServerAdapter = { serve: (_app: unknown) => Promise.resolve({ address: () => ({ port: 0, host: '' }), close: () => Promise.resolve() }) };
+    void bad;
+    expect(true).toBe(true);
+  });
+
+  it('rejects an adapter whose serve does not return a ServerHandle', () => {
+    // prettier-ignore
+    // @ts-expect-error - serve must resolve to a ServerHandle, not a bare object
+    const bad: ServerAdapter = { serve: (_app: unknown) => Promise.resolve({ nope: true }), createHandler: (_app: unknown) => () => undefined };
+    void bad;
+    expect(true).toBe(true);
+  });
+});
+
+describe('FetchAdapter — negative (contract is enforced)', () => {
+  it('rejects a fetch adapter whose handler does not return a Response', () => {
+    // prettier-ignore
+    // @ts-expect-error - createFetchHandler must return a FetchHandler producing a Response
+    const bad: FetchAdapter = { createFetchHandler: (_app: unknown) => (_req: Request): string => 'not a response' };
+    void bad;
+    expect(true).toBe(true);
+  });
+});
+
+describe('AdapterContextFactory', () => {
+  it('is satisfiable by a factory that returns an AdapterContext', () => {
+    const factory = ((_req: Request): AdapterContext => {
+      return { markResponded: () => undefined } as unknown as AdapterContext;
+    }) satisfies AdapterContextFactory<[Request]>;
+
+    const ctx = factory(new Request('http://localhost/'));
+    expect(typeof ctx.markResponded).toBe('function');
+  });
+
+  it('carries the platform input tuple in its type', () => {
+    expectTypeOf<
+      Parameters<AdapterContextFactory<[Request, { trustProxy: boolean }?]>>
+    >().toEqualTypeOf<[Request, { trustProxy: boolean }?]>();
   });
 });

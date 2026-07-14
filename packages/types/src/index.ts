@@ -65,6 +65,8 @@ export {
 export {
   // Lifecycle primitive exposed by every adapter
   type AdapterContext,
+  // Shared context-factory shape (adapters build Context via a factory)
+  type AdapterContextFactory,
   // Web/fetch adapter surface (getResponse/waitUntil/env)
   type FetchContext,
 } from './adapter-context';

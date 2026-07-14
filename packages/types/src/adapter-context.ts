@@ -68,3 +68,31 @@ export interface FetchContext extends AdapterContext {
    */
   env?: unknown;
 }
+
+/**
+ * The shape of an adapter's context factory.
+ *
+ * @remarks
+ * Every adapter builds the per-request context through a factory that takes
+ * platform-specific inputs (e.g. Node's `(req, res, options)`, a fetch runtime's
+ * `(request, options)`) and returns an {@link AdapterContext} over the shared
+ * {@link Context} contract. This type formalizes that invariant — "adapters build
+ * `Context` via a factory and run `app.callback()`" — at the type level, generic
+ * over the platform input tuple so server- and fetch-style factories both conform.
+ *
+ * @typeParam Args - The platform-specific factory argument tuple.
+ * @typeParam Ctx - The concrete {@link AdapterContext} the factory returns.
+ *
+ * @example
+ * ```typescript
+ * // Node adapter
+ * const _factory = createNodeContext satisfies AdapterContextFactory<
+ *   [IncomingMessage, ServerResponse, NodeContextOptions?],
+ *   NodeContext
+ * >;
+ * ```
+ */
+export type AdapterContextFactory<
+  Args extends readonly unknown[],
+  Ctx extends AdapterContext = AdapterContext,
+> = (...args: Args) => Ctx;

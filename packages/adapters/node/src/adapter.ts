@@ -13,9 +13,10 @@ import {
   DEFAULT_TIMEOUT_MS,
   normalizeStartupError,
 } from '@nextrush/runtime';
-import type { HandlerOptions, ServerAdapter } from '@nextrush/types';
+import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createNodeContext } from './context';
+import type { NodeContext, NodeContextOptions } from './context';
 
 /**
  * Server options
@@ -284,3 +285,12 @@ const _nodeConformance: ServerAdapter<Application, ServeOptions, ServerInstance>
   createHandler,
 };
 void _nodeConformance;
+
+// RFC-NEXTRUSH-ADAPTER-CONTRACT: prove the context factory produces an
+// AdapterContext over the shared Context contract (not just the serve/handler
+// shape above). A drift in createNodeContext's return type stops compiling here.
+const _nodeContextFactory: AdapterContextFactory<
+  [IncomingMessage, ServerResponse, NodeContextOptions?],
+  NodeContext
+> = createNodeContext;
+void _nodeContextFactory;
