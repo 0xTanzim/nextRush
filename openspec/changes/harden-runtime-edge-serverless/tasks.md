@@ -31,7 +31,7 @@
 ## 3. Prove edge on real runtimes (spec: runtime-proof-harness)
 
 - [ ] 3.1 Add pinned Docker images (digest-pinned) for real Deno and `workerd`/miniflare
-- [ ] 3.2 Write thin runners executing the existing conformance suite under real Deno (`deno test`) against the Deno adapter
+- [x] 3.2 Write thin runners executing the existing conformance suite under real Deno (`deno test`) against the Deno adapter  <!-- deno-runner/: 6/6 pass under real Deno 2.6.3; detectRuntime()===deno verified -->
 - [ ] 3.3 Write a runner executing the conformance suite inside a `workerd`/miniflare isolate against the edge adapter
 - [ ] 3.4 Add CI jobs for both; ensure a seeded edge regression fails only the Workers job
 - [ ] 3.5 VERIFY locally with `act` against the pinned images — same pass/fail as CI; document the local command

@@ -1,0 +1,16 @@
+{
+  "//": "Real-runtime conformance runner (task 3.2). Runs the Deno adapter under REAL Deno (not simulated under Node/vitest). @nextrush/* map to built dist — run `pnpm --filter @nextrush/adapter-deno... build` first.",
+  "imports": {
+    "@nextrush/types": "../../../types/dist/index.js",
+    "@nextrush/errors": "../../../errors/dist/index.js",
+    "@nextrush/core": "../../../core/dist/index.js",
+    "@nextrush/router": "../../../router/dist/index.js",
+    "@nextrush/runtime": "../../../runtime/dist/index.js",
+    "@nextrush/stream": "../../../stream/dist/index.js",
+    "@nextrush/di": "../../../di/dist/index.js",
+    "@nextrush/adapter-deno": "../../deno/dist/index.js"
+  },
+  "tasks": {
+    "conformance": "deno test --no-check --allow-env --allow-read conformance.deno.test.ts"
+  }
+}
