@@ -45,6 +45,23 @@ export {
 export type { EdgeRuntimeInfo } from './detection';
 
 // ============================================================================
+// Named Capability Profiles (documented view of capabilitiesFor)
+// ============================================================================
+
+export {
+  BunProfile,
+  CloudflareProfile,
+  DenoDeployProfile,
+  DenoProfile,
+  EdgeProfile,
+  LambdaProfile,
+  NodeProfile,
+  VercelEdgeProfile,
+  capabilityProfileFor,
+} from './profiles';
+export type { CapabilityProfile } from './profiles';
+
+// ============================================================================
 // Query String Parsing
 // ============================================================================
 

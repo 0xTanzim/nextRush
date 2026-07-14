@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
+import { noRuntimeIdentityCapability } from './tools/eslint-rules/no-runtime-identity-capability.js';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -42,5 +43,17 @@ export default tseslint.config(
       '**/_archive/**',
       '**/.turbo/**',
     ],
+  },
+  {
+    // Capability negotiation (RFC/ADR-R6): capability decisions must query
+    // RuntimeCapabilities, not runtime identity. Enforced first in the runtime
+    // package (the authoritative capability source); repo-wide rollout tracked
+    // as a follow-up (openspec harden-runtime-edge-serverless task 2.3a) so the
+    // ~34 legitimate detection/optimization sites elsewhere can be annotated in
+    // a dedicated sweep rather than breaking lint everywhere at once.
+    files: ['packages/runtime/src/**/*.ts'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    plugins: { nextrush: { rules: { 'no-runtime-identity-capability': noRuntimeIdentityCapability } } },
+    rules: { 'nextrush/no-runtime-identity-capability': 'error' },
   }
 );

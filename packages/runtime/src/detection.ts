@@ -380,6 +380,7 @@ export function isDeno(): boolean {
  */
 export function isEdge(): boolean {
   const runtime = getRuntime();
+  // capability-exempt: detection helper (adapter selection / "which platform"), not a capability decision.
   return runtime === 'cloudflare-workers' || runtime === 'vercel-edge' || runtime === 'edge';
 }
 

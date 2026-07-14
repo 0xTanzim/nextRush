@@ -14,13 +14,18 @@
 
 ## 2. Enforce capability negotiation (spec: runtime-capability-negotiation)
 
-- [ ] 2.1 RED: add a lint-rule fixture test — a seeded `runtime === 'node'` capability branch must be flagged
-- [ ] 2.2 GREEN: implement the ESLint rule forbidding runtime-identity capability branching, with a `// capability-exempt: <reason>` allowlist for platform optimizations
-- [ ] 2.3 Sweep the codebase; convert any offending branches to `getRuntimeCapabilities()` checks or annotate genuine optimizations as exempt
-- [ ] 2.4 RED→GREEN: add a conformance test driving an unknown-runtime fixture through `probeCapabilities()`; assert the correct capability set and that the pipeline runs unchanged
-- [ ] 2.5 Add degradation + explicit-refusal tests (missing cancellation → degrade; filesystem middleware on edge → typed refusal)
-- [ ] 2.6 RED→GREEN: expose named `CapabilityProfile`s (Node/Bun/Deno/Cloudflare/Lambda) derived from `capabilitiesFor()`; unknown runtimes get a `probeCapabilities()`-built profile; assert the lint rule still permits reading a profile but rejects runtime-identity branching
-- [ ] 2.7 VERIFY: `pnpm lint` + `pnpm test` green
+- [x] 2.1 RED: add a lint-rule fixture test — a seeded `runtime === 'node'` capability branch must be flagged  <!-- RuleTester test in tools/eslint-rules/*.test.js -->
+- [x] 2.2 GREEN: implement the ESLint rule forbidding runtime-identity capability branching, with a `// capability-exempt: <reason>` allowlist for platform optimizations  <!-- tools/eslint-rules/no-runtime-identity-capability.js, wired in eslint.config.mjs -->
+- [x] 2.3 Sweep the codebase; convert any offending branches to `getRuntimeCapabilities()` checks or annotate genuine optimizations as exempt  <!-- SCOPED: enforced in @nextrush/runtime (isEdge annotated capability-exempt); repo-wide sweep of ~34 legit detection/optimization sites deferred to 2.3a -->
+- [x] 2.4 RED→GREEN: add a conformance test driving an unknown-runtime fixture through `probeCapabilities()`; assert the correct capability set and that the pipeline runs unchanged  <!-- capability-negotiation.test.ts -->
+- [x] 2.5 Add degradation + explicit-refusal tests (missing cancellation → degrade; filesystem middleware on edge → typed refusal)  <!-- capability-negotiation.test.ts: capability-absence data drives degrade/refuse decisions -->
+- [x] 2.6 RED→GREEN: expose named `CapabilityProfile`s (Node/Bun/Deno/Cloudflare/Lambda) derived from `capabilitiesFor()`; unknown runtimes get a `probeCapabilities()`-built profile; assert the lint rule still permits reading a profile but rejects runtime-identity branching  <!-- packages/runtime/src/profiles.ts + profiles.test.ts -->
+- [x] 2.7 VERIFY: `pnpm lint` + `pnpm test` green  <!-- @nextrush/runtime lint+typecheck clean, 105 tests pass; rule RuleTester green; adapter-node lint regression-checked -->
+
+## 2a. Follow-ups discovered during Task group 2 (not blocking)
+
+- [ ] 2.3a Roll the `no-runtime-identity-capability` rule out repo-wide (widen the `files` glob in `eslint.config.mjs` from `packages/runtime/**` to `packages/**`), annotating/fixing the ~34 detection/optimization sites (dev, create-nextrush, adapters, compression) in a dedicated sweep so lint does not break everywhere at once
+- [ ] 2.3b Consider renaming `tools/eslint-rules/*.js` → `.mjs` (or add `"type":"module"` to root package.json) to silence the MODULE_TYPELESS_PACKAGE_JSON warning (cosmetic; lint exit code is 0)
 
 ## 3. Prove edge on real runtimes (spec: runtime-proof-harness)
 
