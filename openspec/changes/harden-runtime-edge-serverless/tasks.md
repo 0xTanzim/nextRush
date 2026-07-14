@@ -58,13 +58,13 @@
 
 ## 6. Remaining EventMappers + full-chain fixtures (spec: serverless-adapter)
 
-- [ ] 6.1 RED→GREEN: `apigw-v2` mapper (base64 body, multi-value headers, query encoding, isBase64Encoded result)
-- [ ] 6.2 RED→GREEN: `apigw-v1` mapper
-- [ ] 6.3 RED→GREEN: `gcf` mapper
-- [ ] 6.4 RED→GREEN: `azure` mapper (v4 Node HTTP-trigger shape — confirm against a current fixture; resolves the design Open Question)
-- [ ] 6.5 Add committed golden fixtures `packages/adapters/serverless/fixtures/<provider>/{event.json,expected-result.json}` for each built-in provider
-- [ ] 6.6 RED→GREEN: full-chain integration test runner — `event.json → mapper → app.callback() → mapper → result` equals `expected-result.json`; wire into CI
-- [ ] 6.7 VERIFY: all providers pass full-chain fixtures; a seeded mapper change fails the corresponding fixture diff
+- [x] 6.1 RED→GREEN: `apigw-v2` mapper (base64 body, multi-value headers, query encoding, isBase64Encoded result)
+- [x] 6.2 RED→GREEN: `apigw-v1` mapper
+- [x] 6.3 RED→GREEN: `gcf` mapper
+- [x] 6.4 RED→GREEN: `azure` mapper (v4 Node HTTP-trigger shape — confirm against a current fixture; resolves the design Open Question)
+- [x] 6.5 Add committed golden fixtures `packages/adapters/serverless/fixtures/<provider>/{event.json,expected-result.json}` for each built-in provider
+- [x] 6.6 RED→GREEN: full-chain integration test runner — `event.json → mapper → app.callback() → mapper → result` equals `expected-result.json`; wire into CI
+- [x] 6.7 VERIFY: all providers pass full-chain fixtures; a seeded mapper change fails the corresponding fixture diff
 
 ## 7. Container reuse + cold-start benchmark (specs: serverless-adapter, runtime-proof-harness)
 

@@ -246,3 +246,36 @@ describe('apigw-v1 mapper (REST, payload format 1.0)', () => {
     expect(res.multiValueHeaders?.['set-cookie']?.some((c) => c.includes('sid=abc'))).toBe(true);
   });
 });
+
+describe('gcf mapper', () => {
+  it('maps method/path/query and returns a statusCode result', async () => {
+    const { gcf } = await import('../index');
+    const app = createApp();
+    app.use((ctx) => {
+      ctx.json({ method: ctx.method, path: ctx.path, a: ctx.query.a });
+    });
+    const handler = createServerlessAdapter({ mappers: [gcf], provider: 'gcf' }).createHandler(app);
+    const res = await handler({ method: 'GET', path: '/g', query: { a: '1' } });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as { method: string; path: string; a: string };
+    expect(body.method).toBe('GET');
+    expect(body.path).toBe('/g');
+    expect(body.a).toBe('1');
+  });
+});
+
+describe('azure mapper (v4)', () => {
+  it('accepts a full URL and returns an HttpResponseInit-shaped result (status, not statusCode)', async () => {
+    const { azure } = await import('../index');
+    const app = createApp();
+    app.use((ctx) => {
+      ctx.json({ path: ctx.path, a: ctx.query.a });
+    });
+    const handler = createServerlessAdapter({ mappers: [azure], provider: 'azure' }).createHandler(app);
+    const res = await handler({ method: 'GET', url: 'https://fn.example.com/az?a=9' });
+    expect(res.status).toBe(200);
+    const body = JSON.parse(res.body) as { path: string; a: string };
+    expect(body.path).toBe('/az');
+    expect(body.a).toBe('9');
+  });
+});
