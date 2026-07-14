@@ -38,11 +38,11 @@
 
 ## 4. Edge bundle-size budget (spec: runtime-proof-harness)
 
-- [ ] 4.1 Build the minimal functional edge entry (core + router + adapter-edge, reflect-metadata-free) with the pinned production bundler
-- [ ] 4.2 RED: add a size-assertion test that fails on a seeded `node:`/bloat import in the minimal path
-- [ ] 4.3 GREEN: measure the current gzipped size; set the hard ceiling (< CF 1 MB) and a tighter internal target with tolerance band; assert `sideEffects:false` tree-shaking holds
-- [ ] 4.4 Add the size gate as a CI job; assert no `reflect-metadata`/`node:` in the minimal bundle
-- [ ] 4.5 Record the measured baseline and chosen internal budget in the change (resolves the design Open Question)
+- [x] 4.1 Build the minimal functional edge entry (core + router + adapter-edge, reflect-metadata-free) with the pinned production bundler  <!-- bundle-budget/minimal-entry.mjs bundled via esbuild (workerd conditions, minify) -->
+- [x] 4.2 RED: add a size-assertion test that fails on a seeded `node:`/bloat import in the minimal path  <!-- bundle-budget.test.mjs asserts gzip budget + no node:/reflect-metadata; measurement confirmed both flags false -->
+- [x] 4.3 GREEN: measure the current gzipped size; set the hard ceiling (< CF 1 MB) and a tighter internal target with tolerance band; assert `sideEffects:false` tree-shaking holds  <!-- baseline 13.11 KB gzip; GZIP_BUDGET 30 KB, RAW_CEILING 120 KB -->
+- [x] 4.4 Add the size gate as a CI job; assert no `reflect-metadata`/`node:` in the minimal bundle  <!-- bundle-budget job in runtime-conformance.yml -->
+- [x] 4.5 Record the measured baseline and chosen internal budget in the change (resolves the design Open Question)  <!-- baseline 13.11 KB gzip / 42.11 KB raw; internal gzip budget 30 KB, recorded in bundle-budget.test.mjs header -->
 
 ## 5. Serverless adapter: execution model + generic adapter-scoped EventMapper registry + first mapper (spec: serverless-adapter)
 

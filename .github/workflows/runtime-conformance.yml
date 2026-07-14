@@ -60,3 +60,19 @@ jobs:
         working-directory: packages/adapters/conformance/workerd-runner
         # miniflare + esbuild are root devDependencies, installed by the step above.
         run: node --test conformance.workerd.test.mjs
+
+  bundle-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "@nextrush/adapter-edge..." build
+      - name: Edge bundle-size budget
+        working-directory: packages/adapters/conformance/bundle-budget
+        run: node --test bundle-budget.test.mjs
