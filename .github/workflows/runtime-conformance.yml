@@ -58,6 +58,5 @@ jobs:
       - run: pnpm --filter "@nextrush/adapter-edge..." build
       - name: Workerd conformance (miniflare)
         working-directory: packages/adapters/conformance/workerd-runner
-        run: |
-          pnpm dlx miniflare@4 --version
-          node --test conformance.workerd.test.mjs
+        # miniflare + esbuild are root devDependencies, installed by the step above.
+        run: node --test conformance.workerd.test.mjs

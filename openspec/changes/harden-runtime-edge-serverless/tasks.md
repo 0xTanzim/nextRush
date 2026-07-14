@@ -32,7 +32,7 @@
 
 - [x] 3.1 Pin real Deno + `workerd`/miniflare versions for the runners  <!-- pinned via setup-deno@v2 (v2.6.3) + miniflare@4 + compat-date in the CI workflow; act runs these in Docker locally -->
 - [x] 3.2 Write thin runners executing the existing conformance suite under real Deno (`deno test`) against the Deno adapter  <!-- deno-runner/: 6/6 pass under real Deno 2.6.3; detectRuntime()===deno verified -->
-- [x] 3.3 Write a runner executing the conformance suite inside a `workerd`/miniflare isolate against the edge adapter  <!-- workerd-runner/: esbuild-bundled worker + miniflare test; runs in CI (miniflare not installed locally to verify here) -->
+- [x] 3.3 Write a runner executing the conformance suite inside a `workerd`/miniflare isolate against the edge adapter  <!-- workerd-runner/: esbuild-bundled worker + miniflare test; VERIFIED locally 3/3 under real workerd via miniflare@4 -->
 - [x] 3.4 Add CI jobs for both; ensure a seeded edge regression fails only the Workers job  <!-- .github/workflows/runtime-conformance.yml: deno-conformance + workerd-conformance jobs -->
 - [x] 3.5 VERIFY locally with `act` against the pinned images — same pass/fail as CI; document the local command  <!-- documented in packages/adapters/conformance/README.md (act -j deno-conformance / workerd-conformance) -->
 
