@@ -26,6 +26,7 @@
     "build": "tsup",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
     "test": "vitest run"
   },
   "keywords": [
