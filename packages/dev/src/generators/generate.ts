@@ -13,6 +13,7 @@
 
 import { exists, exitProcess, getCwd, joinPath, mkdir, writeFile } from '../runtime/index.js';
 import { error, success } from '../utils/logger.js';
+import { adapterFiles } from './adapter-templates.js';
 import { GENERATOR_ALIASES, GENERATOR_TYPES, GENERATORS, type GeneratorType } from './templates.js';
 
 /** Valid name pattern: lowercase letters, numbers, hyphens */
@@ -76,6 +77,52 @@ export async function generate(type: GeneratorType, name: string, cwd?: string):
 }
 
 /**
+ * Scaffold a contract-conformant adapter (Adapter Development Kit, group 11.2).
+ *
+ * Emits a directory `<cwd>/<name>/` with `src/adapter.ts` (the `FetchAdapter`
+ * guard + context-factory TODO), `src/__tests__/conformance.test.ts` (wired to
+ * the shared conformance suite), `fixtures/`, `README.md`, and a CI snippet — so
+ * a new runtime adapter is certifiable from day one.
+ *
+ * @param name - The adapter name (kebab-case).
+ * @param cwd - Base directory (defaults to the process cwd).
+ * @returns The absolute paths of the files written.
+ */
+export async function generateAdapter(name: string, cwd?: string): Promise<string[]> {
+  const root = cwd ?? getCwd();
+  const base = joinPath(root, name);
+  if (await exists(base)) {
+    throw new Error(`Directory already exists: ${base}`);
+  }
+
+  const files = adapterFiles(name);
+
+  // Collect every directory needed, shallowest first, so parents exist before
+  // children even if mkdir is not recursive.
+  const dirs = new Set<string>([base]);
+  for (const rel of Object.keys(files)) {
+    const segments = rel.split('/');
+    segments.pop(); // drop the filename
+    let acc = base;
+    for (const segment of segments) {
+      acc = joinPath(acc, segment);
+      dirs.add(acc);
+    }
+  }
+  for (const dir of [...dirs].sort((a, b) => a.length - b.length)) {
+    if (!(await exists(dir))) await mkdir(dir);
+  }
+
+  const written: string[] = [];
+  for (const [rel, content] of Object.entries(files)) {
+    const full = joinPath(base, ...rel.split('/'));
+    await writeFile(full, content);
+    written.push(full);
+  }
+  return written;
+}
+
+/**
  * CLI entry point for `nextrush generate`.
  * Parses args, validates, runs generator, reports.
  */
@@ -87,6 +134,29 @@ export async function generateCli(args: string[]): Promise<void> {
     error('Missing generator type.');
     generateHelp();
     exitProcess(1);
+  }
+
+  // Adapter Development Kit — a multi-file scaffold, distinct from the
+  // single-file generators (group 11.2).
+  if (typeArg.toLowerCase() === 'adapter' || typeArg.toLowerCase() === 'ad') {
+    if (!nameArg) {
+      error('Missing name. Usage: nextrush generate adapter <name>');
+      exitProcess(1);
+    }
+    const adapterNameError = validateName(nameArg);
+    if (adapterNameError) {
+      error(adapterNameError);
+      exitProcess(1);
+    }
+    try {
+      const written = await generateAdapter(nameArg);
+      success(`Scaffolded adapter "${nameArg}" (${written.length} files):`);
+      for (const file of written) success(`  ${file}`);
+    } catch (err) {
+      error((err as Error).message);
+      exitProcess(1);
+    }
+    return;
   }
 
   const type = resolveGeneratorType(typeArg);
@@ -133,6 +203,7 @@ Types:
   middleware, mw   Create a middleware fn     (src/middleware/<name>.ts)
   guard, g         Create a guard fn          (src/guards/<name>.guard.ts)
   route, r         Create a route module      (src/routes/<name>.ts)
+  adapter, ad      Scaffold a runtime adapter (<name>/ — contract guard + conformance suite + CI)
 
 Examples:
   nextrush g controller user       Create src/controllers/user.controller.ts
@@ -140,5 +211,6 @@ Examples:
   nextrush g mw logger             Create src/middleware/logger.ts
   nextrush g guard auth            Create src/guards/auth.guard.ts
   nextrush g r products            Create src/routes/products.ts
+  nextrush g adapter my-runtime    Scaffold my-runtime/ (certifiable adapter package)
 `);
 }

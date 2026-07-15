@@ -105,9 +105,9 @@
 
 ## 11. Adapter Development Kit (spec: adapter-development-kit)
 
-- [ ] 11.1 Make the conformance suite consumable by external authors via a testing-tier entrypoint; classify it as testing/dev tier in the public-surface snapshot (not the frozen runtime API)
-- [ ] 11.2 RED→GREEN: add `nextrush generate adapter <name>` to the `@nextrush/dev` generator suite, emitting `adapter.ts` (with the `satisfies` guard + context-factory stub), `conformance.test.ts` (wired to the shared suite), `fixtures/`, `README.md`, and a CI snippet
-- [ ] 11.3 VERIFY: scaffold a throwaway adapter with the generator — it type-checks, satisfies a contract, and its generated conformance test runs the shared suite and reports pass/fail
+- [x] 11.1 Make the conformance suite consumable by external authors via a testing-tier entrypoint; classify it as testing/dev tier in the public-surface snapshot (not the frozen runtime API)
+- [x] 11.2 RED→GREEN: add `nextrush generate adapter <name>` to the `@nextrush/dev` generator suite, emitting `adapter.ts` (with the `satisfies` guard + context-factory stub), `conformance.test.ts` (wired to the shared suite), `fixtures/`, `README.md`, and a CI snippet
+- [x] 11.3 VERIFY: scaffold a throwaway adapter with the generator — it type-checks, satisfies a contract, and its generated conformance test runs the shared suite and reports pass/fail
 
 ## 12. Wire-up, ADR, docs, examples (all specs)
 
