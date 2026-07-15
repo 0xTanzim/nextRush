@@ -47,16 +47,20 @@ function resolveMapper<Event, Result, Ctx>(
 /**
  * Create a serverless adapter over an immutable, adapter-scoped mapper registry.
  *
+ * @advanced **Runtime authors only (Tier 3).** Application developers should use a
+ * Tier-1 handler — {@link createLambdaHandler}, `createGoogleHandler`,
+ * `createAzureHandler` — which wires the right mapper(s) for you. Reach for this
+ * only to support a platform NextRush doesn't ship (Oracle, Fly.io, OpenFaaS).
+ *
  * @param options - The mappers, optional explicit provider, and per-invocation timeout.
  * @returns A `{ createHandler(app) }` factory producing an event→result handler.
  *
  * @example
  * ```typescript
- * import { createServerlessAdapter, lambdaFunctionUrl } from '@nextrush/adapter-serverless';
+ * import { createServerlessAdapter, type EventMapper } from '@nextrush/adapter-serverless';
  *
- * const adapter = createServerlessAdapter({ mappers: [lambdaFunctionUrl] });
- * const handler = adapter.createHandler(app);
- * export const fetch = handler; // Lambda Function URL entry
+ * const adapter = createServerlessAdapter({ mappers: [myOracleMapper] });
+ * export const handler = adapter.createHandler(app);
  * ```
  */
 export function createServerlessAdapter<Event, Result, Ctx = unknown>(

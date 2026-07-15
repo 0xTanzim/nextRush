@@ -1,19 +1,37 @@
 /**
  * @nextrush/adapter-serverless - Serverless adapter for NextRush
  *
- * Maps native serverless events (AWS Lambda Function URL / API Gateway v2, and —
- * as they land — GCF and Azure) to the shared `Context` pipeline via a generic,
- * adapter-scoped `EventMapper` registry. Execution model (per-invocation,
- * stateless, timeout→504, warm `ready()` reuse) is shared with the edge adapter.
+ * Deploy a NextRush app to a serverless platform in one line:
+ *
+ * ```typescript
+ * import { createLambdaHandler } from '@nextrush/adapter-serverless';
+ * export const handler = createLambdaHandler(app);
+ * ```
+ *
+ * The sophisticated internals (an adapter-scoped `EventMapper` registry, the
+ * shared `Context` execution model, warm-instance reuse, timeout→504) stay out
+ * of your way. *Internal complexity must never become user complexity.*
  *
  * @packageDocumentation
  * @module @nextrush/adapter-serverless
  */
 
+// ─── Tier 1: per-provider handlers (what 95% of users import) ───────────────
+export { createLambdaHandler } from './lambda';
+export type { LambdaEvent, LambdaResult } from './lambda';
+export { createGoogleHandler } from './google';
+export { createAzureHandler } from './azure';
+export type { ServerlessHandlerOptions } from './types';
+// (Cloudflare's Tier-1 handler ships in @nextrush/adapter-edge as createCloudflareHandler.)
+
+// ─── Advanced / Runtime authors only (Tier 3) ──────────────────────────────
+// You need these ONLY to add a platform NextRush doesn't ship (Oracle, Fly.io,
+// OpenFaaS, an internal platform). Application developers should use a Tier-1
+// handler above and never import from here.
 export { createServerlessAdapter } from './adapter';
 export type { EventMapper, ServerlessAdapterOptions, ServerlessHandler } from './types';
 
-// Built-in mappers
+// Built-in mappers (Tier 3 building blocks — the Tier-1 handlers wire these for you)
 export { lambdaFunctionUrl } from './mappers/lambda-function-url';
 export type {
   LambdaFunctionUrlEvent,

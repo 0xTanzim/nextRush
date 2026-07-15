@@ -1,0 +1,111 @@
+# @nextrush/adapter-serverless
+
+Deploy a NextRush app to AWS Lambda, Google Cloud Functions, or Azure Functions — in one line.
+
+```ts
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+
+export const handler = createLambdaHandler(app);
+```
+
+That's the whole API for most people. No mapper registry, no provider strings, no
+event plumbing — the handler runs your app's normal `Context` pipeline and hands the
+platform back the result shape it expects.
+
+## Install
+
+```bash
+pnpm add @nextrush/adapter-serverless
+```
+
+## The three handlers
+
+Each takes your app and returns the platform's handler. `createLambdaHandler` covers
+Lambda Function URL, API Gateway HTTP API (v2), and API Gateway REST (v1) — it detects
+which event it got, so you don't pick.
+
+```ts
+// AWS Lambda — Function URL / API Gateway (v1 + v2), auto-detected
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+export const handler = createLambdaHandler(app);
+```
+
+```ts
+// Google Cloud Functions (functions-framework hands you an Express-style req/res)
+import { createGoogleHandler } from '@nextrush/adapter-serverless';
+import * as functions from '@google-cloud/functions-framework';
+
+const api = createGoogleHandler(app);
+functions.http('api', async (req, res) => {
+  const r = await api({ method: req.method, path: req.path, query: req.query,
+    headers: req.headers, body: req.rawBody?.toString() });
+  res.status(r.statusCode).set(r.headers).send(r.body);
+});
+```
+
+```ts
+// Azure Functions (v4 model hands you an HttpRequest)
+import { createAzureHandler } from '@nextrush/adapter-serverless';
+import { app as functions } from '@azure/functions';
+
+const api = createAzureHandler(app);
+functions.http('api', { handler: async (req) => {
+  const r = await api({ method: req.method, url: req.url,
+    headers: Object.fromEntries(req.headers), body: await req.text() });
+  return { status: r.status, headers: r.headers, body: r.body };
+}});
+```
+
+AWS hands your function a plain JSON event, so `createLambdaHandler(app)` is a true
+drop-in. GCP and Azure hand you an SDK request object instead, so you map its fields
+into the handler call — the one adapting line above. Cloudflare's one-liner
+(`createCloudflareHandler`) lives in `@nextrush/adapter-edge`, since edge is a
+fetch runtime, not a serverless-event one.
+
+## Tuning (Tier 2)
+
+The handlers take an options object when you need it. Nothing else changes.
+
+```ts
+export const handler = createLambdaHandler(app, { timeout: 5000 });
+```
+
+| Option    | Type     | Default | Description                                              |
+| --------- | -------- | ------- | -------------------------------------------------------- |
+| `timeout` | `number` | none    | Per-invocation cap in ms; exceeding it returns a **504** |
+
+> True Function URL response streaming (`awslambda.streamifyResponse`) is not wired
+> yet — a streamed response body is buffered into the result today. It lands as a
+> follow-up once the streamed result shape does.
+
+## Advanced — adding a platform NextRush doesn't ship (Tier 3)
+
+Runtime authors only. To support Oracle, Fly.io, OpenFaaS, or an internal platform,
+implement an `EventMapper` and pass it to `createServerlessAdapter`. The adapter never
+grows a provider `switch`; a new platform is a new mapper, nothing else.
+
+```ts
+import { createServerlessAdapter, type EventMapper } from '@nextrush/adapter-serverless';
+
+const oracle: EventMapper<OracleEvent, OracleResult> = {
+  name: 'oracle',
+  toRequest: (event) => new Request(/* … */),
+  fromResponse: (response) => ({ /* … */ }),
+  detect: (event) => 'fnInvokeType' in event,
+};
+
+export const handler = createServerlessAdapter({ mappers: [oracle] }).createHandler(app);
+```
+
+Selection is explicit-first: a named `provider` wins; `detect()` runs only when you
+omit one. The mapper list is per-adapter and immutable — there is no global registry.
+
+## How it fits together
+
+```
+Platform event → EventMapper.toRequest → Context pipeline → Response → EventMapper.fromResponse → Platform result
+```
+
+The Tier-1 handlers are thin wrappers that pick the right mapper(s) for you. The
+execution model (warm-instance reuse via `app.ready()`, the timeout→504 race, the
+shared `Context` pipeline) is the same one the edge adapter uses.

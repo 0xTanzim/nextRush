@@ -12,6 +12,12 @@
  * Maps a provider's native event to a Web `Request` and the produced `Response`
  * back to the provider's expected result shape.
  *
+ * @advanced **Runtime authors only (Tier 3).** Application developers should use
+ * a Tier-1 handler ({@link createLambdaHandler}, `createGoogleHandler`,
+ * `createAzureHandler`) instead — they never need to touch `EventMapper`. Implement
+ * this only to add support for a platform NextRush doesn't ship (Oracle, Fly.io,
+ * OpenFaaS, an internal platform).
+ *
  * @remarks
  * Generic over the platform event, the platform result, and an optional platform
  * context (e.g. a Lambda `context`), so mapper authors keep full type safety at
@@ -56,3 +62,22 @@ export type ServerlessHandler<Event, Result, Ctx = unknown> = (
   event: Event,
   platformCtx?: Ctx
 ) => Promise<Result>;
+
+/**
+ * Options for the Tier-1 per-provider handlers ({@link createLambdaHandler} etc.).
+ *
+ * @remarks
+ * Tuning only — no architecture (mappers/provider) is exposed here. That is the
+ * point of Tier 2: a power user tweaks behavior without meeting the internals.
+ */
+export interface ServerlessHandlerOptions {
+  /**
+   * Per-invocation timeout in ms. When the handler exceeds it, a 504 result is
+   * produced instead of hanging the invocation.
+   */
+  readonly timeout?: number;
+  // NOTE: `streaming` is intentionally not exposed yet — true Function URL
+  // streaming (awslambda.streamifyResponse) is deferred (follow-up 5a.1); a
+  // no-op flag would be misleading DX. It lands here when the streamed result
+  // shape does.
+}

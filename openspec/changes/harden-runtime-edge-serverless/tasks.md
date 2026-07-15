@@ -58,13 +58,13 @@
 
 ## 5b. Minimal DX — tiered per-provider handlers (spec: serverless-adapter → Tiered public API)
 
-- [ ] 5b.1 RED: tests asserting `createLambdaHandler(app)` (no options) serves both Lambda Function URL (v2) and API Gateway (v1/v2) events with zero config
-- [ ] 5b.2 GREEN: implement Tier-1 `createLambdaHandler(app, opts?)` wrapping `createServerlessAdapter({ mappers: [lambdaFunctionUrl, apigwV1] })` with detect-based selection
-- [ ] 5b.3 GREEN: implement `createGoogleHandler(app, opts?)` (gcf) and `createAzureHandler(app, opts?)` (azure)
-- [ ] 5b.4 Tier 2: thread `{ timeout?, streaming? }` options through the Tier-1 handlers (no architecture exposed)
-- [ ] 5b.5 Mark Tier 3 as runtime-authors-only: add `@advanced` JSDoc to `createServerlessAdapter` + `EventMapper`; export Tier-1 handlers as the documented primary surface from the barrel
-- [ ] 5b.6 Docs: per-provider "deploy to X" one-liner is the headline; `createServerlessAdapter`/`EventMapper` documented under an "Advanced / Runtime Authors" section only
-- [ ] 5b.7 VERIFY: tests green; a normal-user example imports only `createXHandler`; typecheck + lint clean
+- [x] 5b.1 RED: tests asserting `createLambdaHandler(app)` (no options) serves both Lambda Function URL (v2) and API Gateway (v1/v2) events with zero config
+- [x] 5b.2 GREEN: implement Tier-1 `createLambdaHandler(app, opts?)` wrapping `createServerlessAdapter({ mappers: [lambdaFunctionUrl, apigwV1] })` with detect-based selection
+- [x] 5b.3 GREEN: implement `createGoogleHandler(app, opts?)` (gcf) and `createAzureHandler(app, opts?)` (azure)
+- [x] 5b.4 Tier 2: thread `{ timeout }` through the Tier-1 handlers (streaming deferred to 5a.1 — a no-op flag would be misleading DX; not exposed until true streamifyResponse lands)
+- [x] 5b.5 Mark Tier 3 as runtime-authors-only: add `@advanced` JSDoc to `createServerlessAdapter` + `EventMapper`; export Tier-1 handlers as the documented primary surface from the barrel
+- [x] 5b.6 Docs: per-provider "deploy to X" one-liner is the headline; `createServerlessAdapter`/`EventMapper` documented under an "Advanced / Runtime Authors" section only
+- [x] 5b.7 VERIFY: tests green; a normal-user example imports only `createXHandler`; typecheck + lint clean
 
 ## 6. Remaining EventMappers + full-chain fixtures (spec: serverless-adapter)
 
