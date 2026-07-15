@@ -111,13 +111,13 @@
 
 ## 12. Wire-up, ADR, docs, examples (all specs)
 
-- [ ] 12.1 Export `@nextrush/adapter-serverless` from the meta `nextrush` surface; update the repo-wide public-surface snapshot; add a changeset
-- [ ] 12.2 Write the ADR ratifying the enforced two-tier adapter contract + the execution-model/event-format (`EventMapper`) separation (append/reference `docs/audits/07-runtime-architecture.md` per its amendment rule)
-- [ ] 12.3 Write `docs/migrations/adapter-contract.md` (before/after + codemod invocation) for the BREAKING contract export; add a codemod stub in `@nextrush/dev` where mechanical
-- [ ] 12.4 Document the edge-safe middleware subset, the `EventMapper` authoring guide (how to add a provider via the `mappers` list), the capability profiles, and the serverless container-reuse pattern
-- [ ] 12.5 Add one verified deploy example per platform (Cloudflare Workers + AWS Lambda Function URL at minimum), runnable from the docs alone
-- [ ] 12.6 Record future-direction notes (per-platform edge adapters; framework-integrations as the recommended next OpenSpec) in the change/docs without implementing them
-- [ ] 12.7 VERIFY: `pnpm verify` (build + test + typecheck + lint) green end-to-end; `docs:validate` green; `openspec validate harden-runtime-edge-serverless --strict` passes
+- [x] 12.1 Export `@nextrush/adapter-serverless` from the meta `nextrush` surface; update the repo-wide public-surface snapshot; add a changeset
+- [x] 12.2 Write the ADR ratifying the enforced two-tier adapter contract + the execution-model/event-format (`EventMapper`) separation (append/reference `docs/audits/07-runtime-architecture.md` per its amendment rule)
+- [x] 12.3 Write `docs/migrations/adapter-contract.md` (before/after + codemod invocation) for the BREAKING contract export; add a codemod stub in `@nextrush/dev` where mechanical
+- [x] 12.4 Document the edge-safe middleware subset, the `EventMapper` authoring guide (how to add a provider via the `mappers` list), the capability profiles, and the serverless container-reuse pattern
+- [x] 12.5 Add one verified deploy example per platform (Cloudflare Workers + AWS Lambda Function URL at minimum), runnable from the docs alone
+- [x] 12.6 Record future-direction notes (per-platform edge adapters; framework-integrations as the recommended next OpenSpec) in the change/docs without implementing them
+- [x] 12.7 VERIFY: `pnpm verify` (build + test + typecheck + lint) green end-to-end; `docs:validate` green; `openspec validate harden-runtime-edge-serverless --strict` passes
 
 ## 5a. Follow-ups from Task group 5 (not blocking)
 
