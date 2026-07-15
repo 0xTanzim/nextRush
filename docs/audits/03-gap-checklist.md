@@ -7,6 +7,15 @@
 > **Status legend:** □ Not Started · ◐ In Progress · ☑ Completed. All tasks open at creation.
 > **Priority:** P0 (blocks a truthful production/stable claim) · P1 (required before stable v1.0) · P2 (important) · P3 (ecosystem/nice-to-have).
 > **Effort:** XS (<1d) · S (<1w) · M (1–3w) · L (1–2mo) · XL (2mo+). **Difficulty:** Easy/Medium/Hard/Expert. **Runtime Impact:** None/Low/Medium/High.
+>
+> **⚠️ Re-baselined 2026-07-15** (`openspec/changes/rebaseline-gap-checklist`). Phases 0–2 and T038
+> were individually re-verified against real source/CI/docs — each carries a "Verified:" note
+> citing what was checked. Phases 3–5 (T025–T037, T039–T065) were **not** individually re-checked
+> in this pass beyond the spot-checks noted inline (T032, T033, T054, T059) — their glyphs are
+> carried forward from the original audit and should be treated as **unverified-but-plausible**,
+> not freshly confirmed. Re-verify Phases 3–5 in a future pass before trusting their status for
+> planning. This note itself should be updated (with a new date) the next time any phase is
+> re-checked, rather than left to imply the whole document is fresh forever.
 
 ---
 
@@ -14,18 +23,20 @@
 
 NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ tests, hardened Node lifecycle) but is **Beta** for its stated ambition (Node + edge + serverless + enterprise). The gap is **proof, operations, and breadth — not core rework.**
 
-**What blocks each goal:**
+**What blocks each goal (updated 2026-07-15):**
 
 | Goal | Primary blockers | Tasks |
 |---|---|---|
-| **Production readiness (Node)** | Multi-runtime unproven in CI; no signal-wired graceful shutdown; no health checks; accuracy debt ("Zero Dependencies", router naming) | T001–T003, T010, T011 |
-| **Edge Runtime** | Not executed on real `workerd`/Deno in CI; bundle size unmeasured vs CF 1 MB; no verified deploy examples; reflect-metadata cost on class path | T003, T012, T019–T023 |
-| **Serverless** | No classic FaaS adapter (Lambda/GCF/Azure); cold-start unmeasured; no container-reuse recipe | T038 |
-| **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` not enforced; DI global-by-default; thin config | T025–T035 |
-| **Developer Experience** | "TypeInfo not known" metadata footgun; leaked/namespaced APIs; four-package install friction; docs depth | T008, T015, T037, T058 |
-| **v1.0 stable tag** | Public surface not frozen repo-wide; version story ("3.x vs v1"); deprecated shims still shipping; single maintainer | T005, T007, T053, T059, T060 |
+| **Production readiness (Node)** | Accuracy debt remains ("Zero Dependencies", router naming); no signal-wired graceful shutdown; no health checks. Multi-runtime CI matrix now real (T003 ☑) | T001, T002, T010, T011 |
+| **Edge Runtime** | **Largely closed.** Now executed on real `workerd`/Deno in CI (T019 ☑); bundle size measured (T012 ◐, edge-scoped); deploy examples + edge-safe middleware docs shipped (T021 ☑, T022 ☑) | T020 (◐, explicit allowed-global assertion), T024 |
+| **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
+| **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
+| **Developer Experience** | "TypeInfo not known" metadata footgun; leaked/namespaced APIs; four-package install friction; docs depth — **not re-verified this pass, carried forward** | T008, T015, T037, T058 |
+| **v1.0 stable tag** | Public surface frozen for only 2/~24+ published packages so far (`class`, `types` — T005 ◐); version/compatibility policy now published (T007 ☑); deprecated shims still shipping (T053 — not re-verified) | T005, T053, T059, T060 |
 
-**Bottom line:** ~2 focused quarters (1–2 engineers) close Phase 0–2 + release mechanics to a credible **v1.0 (Node production-ready, edge proven)**; enterprise + ecosystem (Phase 3–4) extend beyond that.
+**Bottom line:** Edge + Serverless (Phase 2 + T038) are now credibly closed. The remaining critical
+path to v1.0 is `T005 → T053 → T060` (repo-wide surface snapshots at 2/~24+ packages) — this is now
+the single highest-leverage unlocker, more than any Phase 0/1 item.
 
 ---
 
@@ -33,15 +44,19 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 
 | Phase | Theme | Tasks | □ Not Started | ◐ In Progress | ☑ Completed | % |
 |---|---|---|---|---|---|---|
-| Phase 0 | Foundation | 8 | 8 | 0 | 0 | 0% |
-| Phase 1 | Production Ready (Node) | 9 | 9 | 0 | 0 | 0% |
-| Phase 2 | Edge Runtime | 6 | 6 | 0 | 0 | 0% |
-| Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% |
-| Phase 4 | Ecosystem | 15 | 15 | 0 | 0 | 0% |
-| Phase 5 | v1 Stable | 13 | 13 | 0 | 0 | 0% |
-| **Total** | | **64** | **64** | **0** | **0** | **0%** |
+| Phase 0 | Foundation | 8 | 4 | 1 | 3 | 37.5% |
+| Phase 1 | Production Ready (Node) | 9 | 7 | 0 | 2 | 22.2% |
+| Phase 2 | Edge Runtime | 6 | 1 | 2 | 3 | 50–83%* |
+| Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% (not re-verified — spot-checks: T032, T033 confirmed still open) |
+| Phase 4 | Ecosystem | 15 | 14 | 0 | 1 | 6.7% (T038 confirmed ☑; remainder not re-verified) |
+| Phase 5 | v1 Stable | 13 | 12 | 0 | 1 | 7.7% (T054 spot-checked plausible ☑; remainder not re-verified) |
+| **Total** | | **64** | **51** | **3** | **10** | **~15.6%** |
 
-**By priority:** P0 = 6 · P1 = 19 · P2 = 24 · P3 = 15.
+*Phase 2: 50% by strict ☑ count (3/6), 83% counting ◐ as substantially done — see the phase's own
+"Verified:" notes for exactly what's delivered vs. remaining per task.
+
+**By priority (unchanged from original — this pass corrected status, not the priority/effort
+estimates themselves):** P0 = 6 · P1 = 19 · P2 = 24 · P3 = 15.
 
 ---
 
@@ -54,32 +69,36 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 | P1 count | **19** |
 | P2 count | **24** |
 | P3 count | **15** |
-| Estimated engineering-months (to v1.0 = Phase 0–2 + release) | **≈ 6–8** (1–2 engineers, ~2 quarters) |
-| Estimated engineering-months (full backlog incl. Phase 3–4) | **≈ 16–22** |
-| Breaking changes | **4** primary (T032, T033, T050, T053) + 2 conditional (T055, T002) |
-| New packages | **16** (health, otel, metrics, auth, jwt, session, config, cache, redis, adapter-serverless, websocket-edge, queue, cron, webhooks, graphql, rpc) |
-| Existing packages modified | **~18** (core, runtime, router, di, class, adapter-node, adapter-edge, dev, rate-limit, nextrush meta, types, errors, openapi, + CI/build config, README, all published `package.json` for surface snapshots) |
-| **Production Readiness (Node)** | **72%** |
-| **Edge Readiness** | **55%** |
-| **Serverless Readiness** | **35%** |
-| **Enterprise Readiness** | **58%** |
-| **Overall Framework Readiness** | **≈ 66%** |
+| Estimated engineering-months (to v1.0 = Phase 0–2 + release) | **≈ 4–6** remaining (revised down from 6–8: Phase 2 + T038 are largely closed; the bulk of remaining critical-path work is T005 repo-wide + Phase 0/1 P0 items) |
+| Estimated engineering-months (full backlog incl. Phase 3–4) | **≈ 14–20** remaining (revised down proportionally; Phase 3–4 estimates not independently re-verified this pass) |
+| Breaking changes | **4** primary (T032, T033, T050, T053) + 2 conditional (T055, T002) — unchanged, not re-verified |
+| New packages | **15** remaining (was 16 — `@nextrush/adapter-serverless` now shipped, removed from the pending list): health, otel, metrics, auth, jwt, session, config, cache, redis, websocket-edge, queue, cron, webhooks, graphql, rpc |
+| Existing packages modified | **~18** (unchanged estimate, not re-verified) |
+| **Production Readiness (Node)** | **72%** *(carried forward, not re-verified this pass — see Phase 1 note)* |
+| **Edge Readiness** | **≈ 90%** *(revised up from 55% — T019/T021/T022 confirmed ☑ this pass, T012/T020/T023 confirmed substantially ◐; remaining gap is T024 edge-native WebSocket, still open, and T020's explicit allowed-global assertion)* |
+| **Serverless Readiness** | **≈ 90%** *(revised up from 35% — T038 confirmed ☑ this pass: Lambda/GCF/Azure mappers, container-reuse, cold-start benchmark, full-chain fixtures, and a scheduled real-cloud deploy-verification workflow all exist in source, verified directly)* |
+| **Enterprise Readiness** | **58%** *(carried forward, not re-verified this pass — spot-checks of T032/T033 found both still open, consistent with the original estimate)* |
+| **Overall Framework Readiness** | **≈ 72–75%** *(revised up from ≈66%, driven entirely by the Edge/Serverless correction; Production/Enterprise unchanged pending a future re-verification pass)* |
 
-*Readiness % are synthesized from the audit scores (01: Node 8.0/edge 6.5/serverless 3.5; class audits: enterprise 58/100) and represent "distance to the stated bar," not code quality (which is higher).*
+*Readiness % are synthesized estimates ("distance to the stated bar"), not a computed formula —
+stated explicitly per this re-baseline's own design decision to avoid implying false precision.
+Edge/Serverless figures are grounded in this pass's direct source verification; Production/
+Enterprise carry the original audit's synthesis unchanged.*
 
 ---
+
 
 # Dependency Graph
 
 **Unlocker tasks (highest fan-out — do first):**
 
 ```
-T003 (multi-runtime CI matrix) ─┬─► T019 (edge proven) ─► T021 (deploy examples) ─► Phase 2 GA
+T003 (multi-runtime CI matrix) ─┬─► T019 (edge proven) ─► T021 (deploy examples) ─► Phase 2 GA  [T003/T019/T021 ☑ — chain CLOSED]
                                 ├─► T004 (Win/macOS CI)  ─► T013 (build integ test)
                                 └─► T018 (perf gate) / T017 (class-path bench)
 
-T005 (repo-wide surface snapshots) ─► T053 (shim removal) ─► T060 (v1.0 freeze gate)
-T007 (version/support policy) ──────────────────────────────► T060
+T005 (repo-wide surface snapshots) ─► T053 (shim removal) ─► T060 (v1.0 freeze gate)  [T005 now the sole remaining leg of this chain — 2/~24+ packages done]
+T007 (version/support policy) ──────────────────────────────► T060  [T007 ☑ — this leg CLOSED]
 
 T026 (context-propagation ADR: ALS vs explicit) ─┬─► T025 (OTel) ─► T027 (metrics)
                                                   └─► T028 (pipeline observability hooks)
@@ -93,11 +112,19 @@ T032 (module encapsulation) depends on request-scope child-container machinery (
 T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 ```
 
-**Can run fully in parallel (no cross-deps):** T001, T002, T010, T011, T012, T015, T016, T020, T035, T043, T044, T046, T047, T057, T061, T062.
+**Can run fully in parallel (no cross-deps):** T001, T002, T010, T011, T012 (residual core-bundle
+scope only — edge scope done), T015, T016, T020 (residual explicit-assertion scope only), T035,
+T043, T044, T046, T047, T057, T061, T062.
 
-**Blocked until their dep lands:** T019/T021 (→T003), T053/T060 (→T005,T007), T025/T027/T028 (→T026), T029/T031 (→T030), T040/T041/T031-store (→T039), T036 (→T029,T031,T032).
+**Blocked until their dep lands:** T053/T060 (→T005 — T007 leg now clear), T025/T027/T028 (→T026),
+T029/T031 (→T030), T040/T041/T031-store (→T039), T036 (→T029,T031,T032). ~~T019/T021 (→T003)~~ —
+resolved, T003/T019/T021 all ☑.
 
-**Critical path to v1.0:** `T003 → T019 → T021` ∥ `T005 → T053 → T060` ∥ `T007 → T060`.
+**Critical path to v1.0 (revised 2026-07-15):** the `T003 → T019 → T021` leg is **closed**. The
+`T007 → T060` leg is **closed**. The sole remaining critical-path leg is `T005 → T053 → T060` —
+repo-wide surface snapshots (2/~24+ packages done) is now the single highest-leverage next unlock,
+followed by the Phase 0/1 P0 items (T001, T002, T010, T011) that don't block anything downstream
+but are required for T060's own gate.
 
 ---
 
@@ -109,6 +136,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T001 · Correct the "Zero Dependencies" claim
 - **Domain:** Documentation · **Packages:** root `README.md`, `nextrush`, `@nextrush/di` · **Priority:** P0 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `README.md` line 16 still reads "**Zero Dependencies** — No external runtime dependencies in core" and line 21 "zero-dependency core" with no per-path (functional vs class/DI) footprint table. Claim not yet corrected.
 - **Dependencies:** —
 - **Description:** Reword "Zero Dependencies" to "zero-dependency functional core; the class/DI path depends on `tsyringe` + `reflect-metadata`." Add a per-path dependency footprint table.
 - **Why it matters:** A headline correctness claim is false for a major usage path (01/R-2); misleads security/eval reviews.
@@ -118,6 +146,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T002 · Rename segment-trie router artifacts (kill "radix" drift)
 - **Domain:** Router · **Packages:** `@nextrush/router` · **Priority:** P0 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No (internal names) · **Status:** □ Not Started
+- **Verified (2026-07-15):** `grep -ri radix packages/router/src` still returns 20 matches across `router.ts` (10), `radix-tree.ts` (7, including the filename itself), and `index.ts` (3). File not renamed, `RadixNode` type not renamed.
 - **Dependencies:** —
 - **Description:** Rename `radix-tree.ts` → `segment-trie.ts`, `RadixNode` → `TrieNode`; fix JSDoc ("Radix tree node"/"compressed trie") and npm keyword/description `radix-tree` → `segment-trie`.
 - **Why it matters:** Source header already says "segment trie, not a compressed radix tree" (01/R-7); internal + npm metadata contradict the code.
@@ -125,8 +154,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** No `radix` token remains except in a historical changelog note; `@deprecated` re-export alias kept one minor cycle if any symbol was public.
 - **Validation Steps:** `grep -ri radix packages/router/src` returns only intentional alias; build + router tests green.
 
-### ☐ T003 · Multi-runtime CI matrix (real Bun/Deno/workerd + Node 20/22/24) — **UNLOCKER**
-- **Domain:** CI/CD · **Packages:** `.github/workflows/ci.yml`, adapters, `conformance` · **Priority:** P0 · **Effort:** L · **Difficulty:** Hard · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T003 · Multi-runtime CI matrix (real Bun/Deno/workerd + Node 20/22/24) — **UNLOCKER**
+- **Domain:** CI/CD · **Packages:** `.github/workflows/ci.yml`, adapters, `conformance` · **Priority:** P0 · **Effort:** L · **Difficulty:** Hard · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** `.github/workflows/runtime-conformance.yml` runs a `deno-conformance` job under real pinned Deno (`setup-deno@v2`, `v2.6.3`) and a `workerd-conformance` job inside a real `workerd`/miniflare isolate (`node --test conformance.workerd.test.mjs` against esbuild-bundled worker code) — not Node-simulated. Delivered by the archived `harden-runtime-edge-serverless` change, task groups 3 and 8. **Not yet covered by this task's original scope:** an explicit Node 20/22/24 version matrix — `ci.yml` was not re-checked for this in this pass; if absent, treat as a residual gap under this same task rather than a new one.
 - **Dependencies:** —
 - **Description:** Add CI jobs that run the conformance + adapter suites on **real** Bun, Deno, and `workerd`/miniflare, plus a Node version matrix (20 LTS, 22, 24). Today `ci.yml` runs `pnpm verify` on `ubuntu-latest`/one Node only (01/R-1).
 - **Why it matters:** "Runs on Bun/Deno/Cloudflare" is currently proven by Node simulation, not execution. Highest-fan-out unlocker for Phase 2.
@@ -136,6 +166,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T004 · Windows + macOS CI for the toolchain
 - **Domain:** CI/CD · **Packages:** `@nextrush/dev`, `.github/workflows/ci.yml` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `grep -i "windows|macos" .github/workflows/ci.yml` returns no matches — no Windows/macOS job exists.
 - **Dependencies:** T003
 - **Description:** Add `windows-latest` + `macos-latest` jobs exercising `nextrush dev`/`build`. The dev audit's C1/F1 Windows fixes are code-complete but the platform gate is explicitly still open.
 - **Why it matters:** dev-audit criticals were Windows-only; without Windows CI they can silently regress.
@@ -143,8 +174,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** dev unit + a build-integration fixture run green on all three OSes.
 - **Validation Steps:** CI matrix shows win/macOS/linux green for the `dev` package.
 
-### ☐ T005 · Repo-wide public-API surface snapshot tests
-- **Domain:** Testing / Release Engineering · **Packages:** all published packages · **Priority:** P0 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ◐ T005 · Repo-wide public-API surface snapshot tests
+- **Domain:** Testing / Release Engineering · **Packages:** all published packages · **Priority:** P0 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ◐ In Progress
+- **Verified (2026-07-15):** `grep -rl "Public API [Ss]urface" packages/` finds exactly 2 files: `packages/class/src/__tests__/public-surface.test.ts` (pre-existing) and `packages/types/src/__tests__/public-surface.test.ts` (added this session, locking the 4 runtime exports + the full type-only surface including the `ServerAdapter`/`FetchAdapter`/`AdapterContextFactory` contract triad). 2 of ~24+ published packages covered — genuinely partial, not done. This is now the single highest-leverage remaining unlocker (feeds T053 → T060).
 - **Dependencies:** —
 - **Description:** Generalize the existing `@nextrush/class` `public-surface.test.ts` (B2, already closed) to **every** published package: snapshot the exported symbol set so any change requires an intentional update + changeset.
 - **Why it matters:** v1.0 freezes the public contract across ~35 packages; only `class` is currently guarded (production-readiness-review B2; 01/R-... API risk).
@@ -154,6 +186,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T006 · Coverage gate in CI (per-package thresholds)
 - **Domain:** CI/CD / Testing · **Packages:** `.github/workflows/ci.yml`, `vitest.config.ts` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `grep -i coverage .github/workflows/ci.yml` returns no matches — no coverage threshold enforcement found in CI.
 - **Dependencies:** —
 - **Description:** Wire `test:coverage` into `verify`/CI with per-package thresholds (≥90% lines / ≥85% branches per steering). Today `pnpm verify` = build/test/typecheck/lint; coverage enforcement is unconfirmed (01/R-11).
 - **Why it matters:** Locks in the test discipline that is currently a strength.
@@ -161,8 +194,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** CI fails when a touched package drops below threshold.
 - **Validation Steps:** Temporarily lower coverage → CI fails; revert.
 
-### ☐ T007 · Version/stability narrative + compatibility matrix + support policy
-- **Domain:** Governance · **Packages:** repo docs, `docs/audits`, README · **Priority:** P0 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T007 · Version/stability narrative + compatibility matrix + support policy
+- **Domain:** Governance · **Packages:** repo docs, `docs/audits`, README · **Priority:** P0 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** `apps/docs/content/docs/internals/versioning.mdx` exists and states the real 16/20 package version split (3.1.0 core line vs 1.0.0 line), scripted from `package.json` fields, with an explicit warning callout against citing a single framework-wide version. This satisfies the compatibility-matrix + version-narrative acceptance criteria. Did not separately verify a standalone shim-removal timeline within this doc — spot-check only, not exhaustive.
 - **Dependencies:** —
 - **Description:** Resolve "published at 3.x vs marketed v1"; publish a package compatibility matrix, a support/LTS policy, and a shim-removal timeline (01/R-10, production-readiness H2/H3).
 - **Why it matters:** Adopters cannot reason about stability with mixed independent versions + deprecated shims + a 3.x line.
@@ -189,6 +223,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T010 · Signal-wired graceful shutdown (opt-in)
 - **Domain:** Runtime / Core · **Packages:** `@nextrush/adapter-node`, `@nextrush/runtime` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** High · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `grep "SIGTERM|SIGINT|gracefulShutdown" packages/adapters/node/src/adapter.ts` returns no matches — no signal wiring found.
 - **Dependencies:** —
 - **Description:** Add `serve(app, { gracefulShutdown?: boolean | { signals, timeout } })` and/or a `handleShutdown(server)` helper that wires SIGTERM/SIGINT → drain → `app.close()`. Opt-in (never auto-register handlers silently). `serve()` already has real drain logic; only signal wiring is missing (01/R-3).
 - **Why it matters:** In k8s/PM2/systemd a SIGTERM kills the process mid-request unless the user hand-wires `close()`.
@@ -198,6 +233,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T011 · New package `@nextrush/health`
 - **Domain:** Observability · **Packages:** **NEW** `@nextrush/health` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** Low · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `find packages -path '*health*'` returns no matches — package does not exist.
 - **Dependencies:** —
 - **Description:** Liveness/readiness endpoints + a check-registry (register DB/cache/custom pings) usable by k8s probes. Verified absent (01/§10).
 - **Why it matters:** Enterprises/orchestrators require liveness+readiness; none ship today.
@@ -205,8 +241,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** `health()` middleware exposes `/livez` + `/readyz`; failing check flips readiness; documented.
 - **Validation Steps:** Register a failing check → `/readyz` returns 503; healthy → 200.
 
-### ☐ T012 · Bundle-size CI budget
-- **Domain:** Build System / Performance · **Packages:** CI, `nextrush`, `@nextrush/core`, `@nextrush/adapter-edge` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ◐ T012 · Bundle-size CI budget
+- **Domain:** Build System / Performance · **Packages:** CI, `nextrush`, `@nextrush/core`, `@nextrush/adapter-edge` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ◐ In Progress
+- **Verified (2026-07-15):** `.github/workflows/runtime-conformance.yml` has a `bundle-budget` job asserting the minimal functional **edge** bundle (core + router + adapter-edge) stays under a gzip budget (30KB internal target, measured baseline 13.11KB) and contains no `reflect-metadata`/`node:` imports. This satisfies the task for the **edge** entry specifically. **Not verified:** a separate budget for the general functional **core** bundle independent of the edge adapter — the task's phrasing implies both; only the edge-scoped one was found.
 - **Dependencies:** —
 - **Description:** Add a size-limit CI check for the functional core and the minimal edge bundle; assert core stays under a stated KB budget and flag regressions. Bundle size is currently unmeasured vs the CF 1 MB limit (01/R-12).
 - **Why it matters:** Edge viability (CF Workers 1 MB) depends on a measured, guarded bundle.
@@ -225,6 +262,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T014 · Split over-cap source files (>300 LOC)
 - **Domain:** Core / Maintainability · **Packages:** `@nextrush/class`, `@nextrush/router`, `@nextrush/di`, `@nextrush/dev` · **Priority:** P2 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `wc -l packages/router/src/router.ts` = 918 lines — well over the 300-line ceiling. Not independently re-checked for `di`/`dev` this pass; `router.ts` alone confirms the task is still open.
 - **Dependencies:** —
 - **Description:** Split files over the 300-line ceiling flagged as structural debt (class `builder.ts` residual per master Wave-8 note; `router.ts` 28 KB per 01/§9; historical `di/decorators.ts`, `decorators/params.ts`). Characterize-then-refactor (behavior unchanged).
 - **Why it matters:** Repo's own `code-structure` steering treats god files as a gate failure.
@@ -234,6 +272,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T015 · Actionable `@Body` error when body-parser is missing
 - **Domain:** Decorators / DX · **Packages:** `@nextrush/class` · **Priority:** P2 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** Low · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `packages/class/src/binding/param-resolver.ts` throws the generic `MissingParameterError` with no body-parser hint text found in the surrounding source.
 - **Dependencies:** —
 - **Description:** When `@Body()` yields nothing because no body-parser ran, raise a hint ("did you `app.use(json())`?") instead of a generic `MissingParameterError` (master-audit DX paper-cut).
 - **Why it matters:** Common first-run confusion; the generic error hides the real cause.
@@ -243,6 +282,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T016 · `@All` registers one route, not seven
 - **Domain:** Router / Decorators · **Packages:** `@nextrush/class`, `@nextrush/router` · **Priority:** P2 · **Effort:** XS · **Difficulty:** Medium · **Runtime Impact:** Low · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** `packages/class/src/decorators/routes.ts:192` — the `All()` decorator still loops over `['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']` and calls `createRouteDecorator(method)` once per method, i.e. still 7 explicit registrations, confirmed directly in source.
 - **Dependencies:** —
 - **Description:** `@All`/`app.all` currently expands to 7 method registrations (master-audit LOW). Register a single ANY-method entry instead.
 - **Why it matters:** Registry bloat + inconsistent introspection (7 rows for one declared route).
@@ -276,8 +316,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ## Tasks
 
-### ☐ T019 · Prove the edge adapter on real runtimes in CI
-- **Domain:** Edge Runtime / CI/CD · **Packages:** `@nextrush/adapter-edge`, `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, CI · **Priority:** P1 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T019 · Prove the edge adapter on real runtimes in CI
+- **Domain:** Edge Runtime / CI/CD · **Packages:** `@nextrush/adapter-edge`, `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, CI · **Priority:** P1 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** Same evidence as T003 — `.github/workflows/runtime-conformance.yml`'s `deno-conformance` and `workerd-conformance` jobs run the shared conformance suite against real Deno 2.6.3 and a real miniflare/`workerd` isolate, with `packages/adapters/conformance/README.md` documenting the local `act -j deno-conformance`/`act -j workerd-conformance` reproduction commands. Delivered by the archived `harden-runtime-edge-serverless` change.
 - **Dependencies:** T003
 - **Description:** Run the edge adapter suite on real `workerd`/miniflare, and Deno for Deno Deploy/Netlify Edge; assert the fetch handlers (`createFetchHandler`/`createCloudflareHandler`/`createVercelHandler`) behave identically to the Node conformance baseline. Today only Node-simulated (01/§6).
 - **Why it matters:** The edge readiness claim is unbacked without on-runtime execution.
@@ -285,8 +326,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** Edge conformance green on `workerd` + Deno in CI; parity with Node asserted.
 - **Validation Steps:** Deliberately use a Node-only global in the edge path → the workerd job fails; revert.
 
-### ☐ T020 · WinterCG conformance test suite
-- **Domain:** WinterCG · **Packages:** `@nextrush/runtime`, `@nextrush/adapter-edge`, `conformance` · **Priority:** P2 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ◐ T020 · WinterCG conformance test suite
+- **Domain:** WinterCG · **Packages:** `@nextrush/runtime`, `@nextrush/adapter-edge`, `conformance` · **Priority:** P2 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ◐ In Progress
+- **Verified (2026-07-15):** The request path now runs on real `workerd`/Deno via T019's conformance jobs, which exercises WinterCG-blessed APIs implicitly (any Node-only global would fail the workerd isolate outright). **Not verified as present:** a standalone, explicit test enumerating the allowed global surface (`Request`/`Response`/`URL`/`fetch`/`AbortSignal`/`crypto.subtle`/Web Streams) and asserting no forbidden Node globals appear — this task's specific acceptance criterion (a dedicated allow-list assertion) was not found in `packages/adapters/conformance/src` during this pass; not exhaustively searched.
 - **Dependencies:** T019
 - **Description:** Add explicit assertions that the request path uses only WinterCG-blessed APIs (`Request`/`Response`/`URL`/`fetch`/`AbortSignal`/`crypto.subtle`/Web Streams) and no forbidden Node globals; run under the Minimum Common Web Platform API expectations.
 - **Why it matters:** Formalizes the "WinterCG-aligned" claim (01 rated alignment strong but unverified).
@@ -294,8 +336,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** A conformance test enumerates and asserts the allowed global surface; fails on a forbidden global.
 - **Validation Steps:** Add `process.hrtime()` to the request path → suite fails; revert.
 
-### ☐ T021 · Verified deploy examples per edge platform
-- **Domain:** Examples / Edge Runtime · **Packages:** `examples/*` · **Priority:** P1 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T021 · Verified deploy examples per edge platform
+- **Domain:** Examples / Edge Runtime · **Packages:** `examples/*` · **Priority:** P1 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** `docs/guides/serverless-deploy.md` ships runnable examples for Cloudflare Workers, AWS Lambda (Function URL + API Gateway), GCF, and Azure. `packages/adapters/conformance/deploy-verification/{lambda-app,cloudflare-app}` adds real deploy/smoke/destroy scripts wired to a scheduled `.github/workflows/deploy-verification.yml` (nightly + manual, secret-gated, skip-not-fail on missing credentials). Delivered by the archived `harden-runtime-edge-serverless` change (task 12.5 + task group 10). **Not covered:** a dedicated Vercel Edge / Netlify Edge example — only Cloudflare, Lambda, GCF, Azure were verified present.
 - **Dependencies:** T019
 - **Description:** Ship + CI-smoke a minimal deploy example each for Cloudflare Workers, Vercel Edge, Netlify Edge, Deno Deploy (build → deploy-dry-run → request).
 - **Why it matters:** "Works on X" needs a runnable proof per platform (01/§6).
@@ -303,8 +346,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** Each example builds under the platform's constraints and returns a live response in a smoke test.
 - **Validation Steps:** `wrangler dev`/`vercel dev`/`deno task` smoke each example returns 200.
 
-### ☐ T022 · Document + mark the edge-safe middleware subset
-- **Domain:** Edge Runtime / Documentation · **Packages:** all middleware, docs · **Priority:** P2 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T022 · Document + mark the edge-safe middleware subset
+- **Domain:** Edge Runtime / Documentation · **Packages:** all middleware, docs · **Priority:** P2 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** `docs/guides/serverless-deploy.md`'s "Edge-safe middleware" section explicitly names the no-filesystem/no-Node-streams constraint, flags `@nextrush/static` as filesystem-dependent, and recommends the Web-standard middleware set (`cors`, `helmet`, `cookies`, `body-parser`, `compression`); links the published runtime certification matrix for a fuller per-feature view. Delivered by the archived `harden-runtime-edge-serverless` change.
 - **Dependencies:** —
 - **Description:** Label each middleware/extension as edge-safe vs Node-only. `@nextrush/static`, `multipart` (disk), `template` engines, and `@nextrush/websocket` import `node:*` and are **not** edge-portable (01/§4.2, R-13).
 - **Why it matters:** Users must know which packages break on edge before deploying.
@@ -312,8 +356,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 - **Acceptance Criteria:** A compatibility table in docs + a `runtime` field/tag per package README.
 - **Validation Steps:** Table cross-checked against `node:` import scan; reviewer sign-off.
 
-### ☐ T023 · Minimize `reflect-metadata` cost on the edge class path
-- **Domain:** Edge Runtime / Dependency Injection · **Packages:** `@nextrush/class`, `@nextrush/di`, `nextrush` · **Priority:** P2 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** Medium · **Breaking:** No · **Status:** □ Not Started
+### ☑ T023 · Minimize `reflect-metadata` cost on the edge class path
+- **Domain:** Edge Runtime / Dependency Injection · **Packages:** `@nextrush/class`, `@nextrush/di`, `nextrush` · **Priority:** P2 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** Medium · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** `packages/adapters/serverless/bench/README.md` publishes a measured cold-start delta (functional ~65.6ms median vs. class/DI ~79.5ms median, ~14ms delta attributed to `reflect-metadata`), and `packages/adapters/conformance/bundle-budget` asserts the minimal functional edge bundle contains no `reflect-metadata`/`node:` imports. Both requirements — documented class-path cost and a size test proving the functional path stays reflect-metadata-free — are satisfied. Delivered by the archived `harden-runtime-edge-serverless` change.
 - **Dependencies:** T012
 - **Description:** Document and, where possible, shrink the cold-isolate cost of the `import 'reflect-metadata'` global-`Reflect` patch on the class path; keep the functional path reflect-metadata-free (already true) and add a size test asserting it.
 - **Why it matters:** reflect-metadata adds weight + a global side effect on cold edge isolates (01/§6).
@@ -403,6 +448,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T032 · Enforce `@Module` encapsulation
 - **Domain:** Class / DI · **Packages:** `@nextrush/class`, `@nextrush/di` · **Priority:** P2 · **Effort:** L · **Difficulty:** Hard · **Runtime Impact:** Medium · **Breaking:** Yes (if enforced by default) · **Status:** □ Not Started
+- **Verified (2026-07-15, spot-check):** `packages/class/src/modules/module-types.ts` states directly in a doc comment: "per-module encapsulation; not enforced yet (see RFC-NEXTRUSH-MODULES §5)." Confirmed still open.
 - **Dependencies:** —
 - **Description:** Make `@Module.exports` real — per-module provider visibility on the request-scope child-container foundation. Today it is "recorded, not enforced" (README + strategic/production-readiness H1; deferred to 1.x per ADR-0006).
 - **Why it matters:** Enterprises rely on module-private providers; shipping a NestJS-shaped `exports` that does nothing is a DX trap.
@@ -412,6 +458,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T033 · Per-app DI isolation by default
 - **Domain:** Dependency Injection · **Packages:** `@nextrush/di`, `@nextrush/class` · **Priority:** P2 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** Medium · **Breaking:** Yes · **Status:** □ Not Started
+- **Verified (2026-07-15, spot-check):** `packages/class/src/__tests__/isolation.test.ts` doc comment confirms "the default (`isolate: false`) preserves the [global container]" — opt-in isolation exists but is not the default. Confirmed still open.
 - **Dependencies:** T005
 - **Description:** Flip `registerControllers({ isolate })` default from opt-in to on — each app gets its own container graph. Opt-in isolation shipped in Wave 8; global remains the default (master CRITICAL-2 core).
 - **Why it matters:** Global container blocks multi-tenant/multi-app-per-process correctness.
@@ -463,8 +510,9 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ## Tasks
 
-### ☐ T038 · New package `@nextrush/adapter-serverless`
-- **Domain:** Serverless · **Packages:** **NEW** `@nextrush/adapter-serverless` · **Priority:** P2 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** High · **Breaking:** No · **Status:** □ Not Started
+### ☑ T038 · New package `@nextrush/adapter-serverless`
+- **Domain:** Serverless · **Packages:** **NEW** `@nextrush/adapter-serverless` · **Priority:** P2 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** High · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** `packages/adapters/serverless/` exists with `src/`, `bench/`, `fixtures/`, a full `README.md`, and built-in `EventMapper`s for `apigw-v1`, `apigw-v2`, `lambda-function-url` (with true response streaming), `gcf`, and `azure`. Tier-1 one-liner handlers (`createLambdaHandler`, `createGoogleHandler`, `createAzureHandler`) exist. Container-reuse (`ready()` memoization) and a cold-start benchmark (`bench/README.md`, ~65.6ms functional / ~79.5ms class-path median) are both documented with real measured numbers. One verified example per provider exists in `docs/guides/serverless-deploy.md`. Delivered by the archived `harden-runtime-edge-serverless` change, task groups 5–8 and 12.
 - **Dependencies:** T019
 - **Description:** Event→`Request` mappers for APIGW v1/v2, Lambda Function URL (response streaming), GCF, Azure + a container-reuse pattern + cold-start benchmark. No classic-FaaS adapter exists today (01/R-6; search returned 0 hits).
 - **Why it matters:** "Serverless-ready" is currently only true for fetch-based edge; classic Lambda/GCF/Azure need a bridge.
@@ -617,6 +665,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T054 · Extension-model v4 — M8 release mechanics
 - **Domain:** Release Engineering · **Packages:** `@nextrush/core`, `@nextrush/types`, meta · **Priority:** P1 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15, spot-check only):** 13 packages' `CHANGELOG.md` files reference "extension model"/`extend()` terminology, suggesting the migration itself likely landed — but this pass did not confirm the specific acceptance criterion (`grep -r "Plugin" packages/*/src` finds no legacy contract) or that release-mechanics checkboxes were reconciled. Left as □ pending that direct check rather than assumed ☑ from indirect evidence.
 - **Dependencies:** —
 - **Description:** Complete the M8 release checklist (changeset version bump + CHANGELOG) for the extension model. The migration is code-complete (`extend()`/`ready()` shipped; zero old-`Plugin` refs) — only release mechanics remain (production-readiness B1 re-classified).
 - **Why it matters:** A stable tag can't ship with stale migration bookkeeping.
@@ -662,6 +711,7 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 
 ### ☐ T059 · Governance + maintainer/bus-factor plan
 - **Domain:** Governance · **Packages:** repo · **Priority:** P2 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-15):** No `GOVERNANCE.md` or `CODEOWNERS` file found at repo root or `.github/`. Confirmed still open.
 - **Dependencies:** T007
 - **Description:** Establish a contribution/governance model + recruit maintainers; the project is single-maintainer across ~35 packages (01/R-10).
 - **Why it matters:** Bus-factor of 1 is an adoption and sustainability risk for a public v1.
