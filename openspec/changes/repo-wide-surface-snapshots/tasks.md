@@ -1,13 +1,14 @@
 ## 1. Foundation layer (types, errors already/next)
 
-- [ ] 1.1 `@nextrush/errors` — read `src/index.ts`, write `public-surface.test.ts` locking its runtime export list
+- [x] 1.1 `@nextrush/errors` — read `src/index.ts`, write `public-surface.test.ts` locking its runtime export list  <!-- 68 runtime exports locked via Object.keys() + 5 type-only exports (HttpErrorOptions/ValidationIssue/ErrorContext/ErrorHandlerOptions/ErrorMiddleware) via compile-time tuple. Tests 7/7 files, 195 passed. Typecheck clean. Lint: zero new violations (pre-existing errors in index.ts/validation.ts unrelated to this test file). -->
 
 ## 2. Core / router / runtime / di
 
-- [ ] 2.1 `@nextrush/core` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 2.2 `@nextrush/router` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 2.3 `@nextrush/runtime` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 2.4 `@nextrush/di` — read `src/index.ts`, write `public-surface.test.ts`
+- [x] 2.1 `@nextrush/core` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 14 runtime exports (Application/createApp/compose/flattenMiddleware/isMiddleware/7 re-exported error classes/ContentType/HttpStatus) + 21-type compile-time tuple. Tests 7/7 files, 111 passed. Typecheck clean, lint clean. -->
+- [x] 2.2 `@nextrush/router` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 6 runtime exports (createRouter/endpoint/Router/createNode/NodeType/parseSegments - the createNode/NodeType/parseSegments trio retains the historical "radix" naming per gap-checklist T002, locked as-is) + 11-type compile-time tuple. Tests 8/8 files, 202 passed. Typecheck clean, lint clean. -->
+- [x] 2.3 `@nextrush/runtime` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 41 runtime exports (detection fns, 8 named CapabilityProfiles, query/constants/headers/request-signal/server-error/response-builder/body-source) + 11-type compile-time tuple. Caught + fixed a real bug in my own first draft (METHODS_WITHOUT_BODY is a ReadonlySet, not an array - fixed the assertion, not the source). Tests 9/9 files, 107 passed. Typecheck clean, lint clean. -->
+- [x] 2.4 `@nextrush/di` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 19 runtime exports (container/decorators/METADATA_KEYS/4 error classes) + 11-type compile-time tuple. public-surface.test.ts itself: 2/2 passed. NOTE: 2 pre-existing, unrelated test timeouts in container.errors.test.ts (circular-dependency detection tests, 5000ms timeout) - confirmed pre-existing by re-running after a no-op git stash (no local tracked changes to stash, same failure reproduced identically), not caused by this task; logged as a Finding, not fixed here (out of this task's scope). Typecheck clean, lint clean on the new file. -->
+
 
 ## 3. Adapters
 
