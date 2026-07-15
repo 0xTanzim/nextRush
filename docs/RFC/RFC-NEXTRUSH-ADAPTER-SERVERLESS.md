@@ -14,7 +14,34 @@ format**:
 Runtime Core → Adapter (execution model: serverless) → EventMapper (event format) → Platform
 ```
 
-## Public surface
+## Public DX — three tiers (minimal by default)
+
+**Architectural rule:** *internal complexity must never become user complexity.* The
+`EventMapper`/registry is internal architecture — 95% of users deploy to a named
+platform and should write one line. The public surface is tiered:
+
+```ts
+// Tier 1 (95%) — zero config, zero framework knowledge
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+export const handler = createLambdaHandler(app);
+// createGoogleHandler(app) · createAzureHandler(app)
+// createCloudflareHandler(app) already ships in @nextrush/adapter-edge
+
+// Tier 2 (4%) — tuning only, still no architecture
+export const handler = createLambdaHandler(app, { timeout: 5000, streaming: true });
+
+// Tier 3 (1%, runtime authors) — the extension SDK, marked @advanced
+import { createServerlessAdapter, type EventMapper } from '@nextrush/adapter-serverless';
+const adapter = createServerlessAdapter({ mappers: [myOracleMapper] });
+```
+
+`createLambdaHandler` auto-configures the AWS mappers and detects Function URL (v2)
+vs API Gateway (v1/v2) — the user never names a mapper or provider. `createServerlessAdapter`
+and `EventMapper` stay exported but are marked `@advanced` / "Runtime authors only"
+(Oracle/Fly.io/OpenFaaS/internal platform teams/NextRush contributors), never the path
+an application developer is pointed at.
+
+## Tier 3 surface (runtime authors only)
 
 ```ts
 // generic over the platform event, result, and optional platform context
@@ -36,6 +63,15 @@ const lambdaFunctionUrl: EventMapper<LambdaFunctionUrlEvent, LambdaFunctionUrlRe
 ```
 
 ## Decisions
+
+- **Minimal DX is the primary requirement, internals are Tier 3.** Per-provider handlers
+  (`createLambdaHandler`/`createGoogleHandler`/`createAzureHandler`, signature
+  `(app, opts?) => handler`) are the surface a normal user sees; `createServerlessAdapter` +
+  `EventMapper` are the runtime-author extension SDK. Both ship from `@nextrush/adapter-serverless`
+  (one install, tree-shakeable named exports) rather than a package-per-provider — this keeps the
+  "I'm deploying to Lambda" mental model without inflating the ~35→50 package count `06` already
+  flags. (Per-provider re-export packages like `@nextrush/aws-lambda` remain a possible later
+  convenience, not required.)
 
 - **Generic `EventMapper`** — mapper authors get real types at the boundary, not
   `unknown`/`any` (matches the repo TypeScript steering).

@@ -1,11 +1,25 @@
 ## ADDED Requirements
 
-### Requirement: Serverless adapter is a FetchAdapter
-`@nextrush/adapter-serverless` SHALL expose a single `createFetchHandler(app, opts)` conforming to the `FetchAdapter` contract, running the same `Context` pipeline as every other adapter. Provider differences MUST be isolated to pure `event → Request` and `Response → platform result` mapper functions.
+### Requirement: Tiered public API — per-provider handlers hide internals
+The serverless adapter SHALL expose a tiered public API so ordinary users never encounter internal architecture (`EventMapper`, registry, provider selection). *Internal complexity MUST NOT become user complexity.*
 
-#### Scenario: One handler surface across providers
-- **WHEN** a developer builds a serverless handler for any supported provider
-- **THEN** they use the same `createFetchHandler(app, opts)` surface, selecting the provider via `opts.provider`
+- **Tier 1 (primary surface):** per-provider one-liner handlers — `createLambdaHandler(app)`, `createGoogleHandler(app)`, `createAzureHandler(app)` — that auto-configure the correct mapper(s) with zero configuration. (Cloudflare's Tier-1 handler already ships in `@nextrush/adapter-edge`.)
+- **Tier 2:** the same handlers accept an options object (`{ timeout?, streaming? }`) for tuning — no architecture exposed.
+- **Tier 3 (runtime authors only):** `createServerlessAdapter({ mappers })` and the `EventMapper` interface remain exported but MUST be marked `@advanced` / "Runtime authors only" in JSDoc and docs.
+
+Tier-1 handlers MUST run the same `Context` pipeline and execution model (timeout→504, warm `ready()` reuse) as Tier 3.
+
+#### Scenario: Zero-config Lambda handler
+- **WHEN** a user writes `export const handler = createLambdaHandler(app)` with no options
+- **THEN** it serves both Lambda Function URL and API Gateway events without the user naming a mapper or a provider
+
+#### Scenario: Internals not required for normal use
+- **WHEN** a normal application developer deploys to Lambda / Google / Azure
+- **THEN** they can do so using only `createXHandler(app)`, never importing or referencing `EventMapper` or `createServerlessAdapter`
+
+#### Scenario: Advanced tier remains available for runtime authors
+- **WHEN** a runtime author needs an unsupported platform (e.g. Oracle, Fly.io)
+- **THEN** `createServerlessAdapter({ mappers: [customMapper] })` is available and documented as runtime-authors-only
 
 ### Requirement: Generic, adapter-scoped EventMapper registry
 The adapter SHALL separate the execution model (owned by the adapter) from the provider event format (owned by an `EventMapper`). The `EventMapper` type MUST be generic over the platform event, the platform result, and an optional context: `EventMapper<Event, Result, Ctx = unknown>` with `toRequest(event, ctx): Request` and `fromResponse(response, event): Result | Promise<Result>`, and an optional `detect(event): boolean`. Mappers MUST be supplied as an **immutable per-adapter list** at construction (`createServerlessAdapter({ mappers })`); the framework MUST NOT expose a global mutable mapper registry. Built-in mappers SHALL be provided for `apigw-v1`, `apigw-v2`, `lambda-function-url`, `gcf`, and `azure`. A new provider MUST be addable by supplying its `EventMapper` WITHOUT modifying the adapter, and the adapter MUST NOT contain a provider `switch`. Selection MUST be explicit-first: a named `provider`/mapper wins, and `detect()` runs only when no provider is specified. Mapping MUST correctly handle base64-encoded bodies, binary vs text payloads, multi-value headers, and query-string encoding.
