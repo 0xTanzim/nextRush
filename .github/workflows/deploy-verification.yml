@@ -1,0 +1,103 @@
+name: Real-Cloud Deploy Verification
+
+# Proves the built serverless/edge handlers deploy and respond on the REAL
+# platforms (AWS Lambda, Cloudflare Workers) — see
+# packages/adapters/conformance/deploy-verification/README.md and
+# openspec/changes/harden-runtime-edge-serverless (task group 10).
+#
+# NEVER runs on pull_request/push — scheduled (nightly) + manual dispatch only.
+# Skipped (not failed) when the required secrets aren't configured, so a fork
+# or an environment without deploy credentials sees a clean skip, not a red X.
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # 03:00 UTC nightly
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # required for AWS OIDC role assumption
+
+jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      aws_ready: ${{ steps.check.outputs.aws_ready }}
+      cloudflare_ready: ${{ steps.check.outputs.cloudflare_ready }}
+    steps:
+      - id: check
+        run: |
+          if [[ -n "${{ secrets.AWS_DEPLOY_VERIFY_ROLE_ARN }}" && -n "${{ secrets.NEXTRUSH_DEPLOY_VERIFY_LAMBDA_ROLE_ARN }}" ]]; then
+            echo "aws_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "aws_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" && -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]]; then
+            echo "cloudflare_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cloudflare_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  lambda-deploy-verify:
+    needs: check-secrets
+    if: needs.check-secrets.outputs.aws_ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_REGION: us-east-1
+      NEXTRUSH_DEPLOY_VERIFY_LAMBDA_ROLE_ARN: ${{ secrets.NEXTRUSH_DEPLOY_VERIFY_LAMBDA_ROLE_ARN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "@nextrush/adapter-serverless..." build
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_VERIFY_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Deploy
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./lambda-app/deploy.sh
+      - name: Smoke test
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./lambda-app/smoke.sh
+      - name: Destroy (always)
+        if: always()
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./lambda-app/destroy.sh
+
+  cloudflare-deploy-verify:
+    needs: check-secrets
+    if: needs.check-secrets.outputs.cloudflare_ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "@nextrush/adapter-edge..." build
+      - name: Deploy
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./cloudflare-app/deploy.sh
+      - name: Smoke test
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./cloudflare-app/smoke.sh
+      - name: Destroy (always)
+        if: always()
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./cloudflare-app/destroy.sh
