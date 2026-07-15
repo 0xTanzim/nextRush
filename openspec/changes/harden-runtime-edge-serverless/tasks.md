@@ -78,10 +78,10 @@
 
 ## 7. Container reuse + cold-start benchmark (specs: serverless-adapter, runtime-proof-harness)
 
-- [ ] 7.1 RED: test that `ready()` runs exactly once across concurrent warm invocations using the `app ??= build()` pattern
-- [ ] 7.2 RED: test that no cross-invocation request state leaks between two invocations on one warm instance
-- [ ] 7.3 GREEN: confirm/adjust the adapter so both hold on the memoized `ready()`; document the container-reuse recipe
-- [ ] 7.4 Add a cold-start benchmark (functional path) + a separate class/DI-path figure; record the baseline
+- [x] 7.1 RED: test that `ready()` runs exactly once across concurrent warm invocations using the `app ??= build()` pattern
+- [x] 7.2 RED: test that no cross-invocation request state leaks between two invocations on one warm instance
+- [x] 7.3 GREEN: confirm/adjust the adapter so both hold on the memoized `ready()`; document the container-reuse recipe
+- [x] 7.4 Add a cold-start benchmark (functional path) + a separate class/DI-path figure; record the baseline
 
 ## 8. Conformance parity for the serverless adapter (spec: serverless-adapter)
 

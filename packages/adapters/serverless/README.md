@@ -109,3 +109,31 @@ Platform event → EventMapper.toRequest → Context pipeline → Response → E
 The Tier-1 handlers are thin wrappers that pick the right mapper(s) for you. The
 execution model (warm-instance reuse via `app.ready()`, the timeout→504 race, the
 shared `Context` pipeline) is the same one the edge adapter uses.
+
+## Container reuse (warm instances)
+
+Serverless platforms keep a "warm" instance alive between invocations. Build the
+handler **once at module scope** so the app boots once and is reused:
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+
+// Module scope — runs once per cold start, reused across every warm invocation.
+const app = createApp();
+app.use(/* … */);
+export const handler = createLambdaHandler(app);
+```
+
+The adapter memoizes the boot barrier: `app.ready()` runs **exactly once**, even
+under concurrent warm invocations, and the booted handler is reused. Do **not**
+call `createApp()` or `createLambdaHandler()` inside the handler — that re-boots on
+every request and defeats warm reuse.
+
+State isolation holds automatically: each invocation builds a fresh `Context`, so
+no request state (`ctx.state`, headers, body) leaks between invocations on the same
+warm instance. Keep per-request data on `ctx`/`ctx.state`, never in module-scope
+mutable variables.
+
+See `bench/README.md` for the cold-start baseline and the functional-vs-class/DI
+cost difference.
