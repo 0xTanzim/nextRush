@@ -67,11 +67,20 @@ const lambdaFunctionUrl: EventMapper<LambdaFunctionUrlEvent, LambdaFunctionUrlRe
 - **Minimal DX is the primary requirement, internals are Tier 3.** Per-provider handlers
   (`createLambdaHandler`/`createGoogleHandler`/`createAzureHandler`, signature
   `(app, opts?) => handler`) are the surface a normal user sees; `createServerlessAdapter` +
-  `EventMapper` are the runtime-author extension SDK. Both ship from `@nextrush/adapter-serverless`
-  (one install, tree-shakeable named exports) rather than a package-per-provider — this keeps the
-  "I'm deploying to Lambda" mental model without inflating the ~35→50 package count `06` already
-  flags. (Per-provider re-export packages like `@nextrush/aws-lambda` remain a possible later
-  convenience, not required.)
+  `EventMapper` are the runtime-author extension SDK.
+- **One package, named exports — NOT a package per provider (decided).** All Tier-1/2/3 surface
+  ships from `@nextrush/adapter-serverless` via named exports:
+  ```ts
+  import { createLambdaHandler, createGoogleHandler, createAzureHandler } from '@nextrush/adapter-serverless';
+  ```
+  *Why not `@nextrush/aws-lambda` / `-google-functions` / `-azure-functions`?* Each separate package
+  would carry its own versioning, README, tests, changelog, release pipeline, and maintenance — for
+  what is often a single `export function createLambdaHandler(app) {…}`. That is not enough value to
+  justify a package, and it inflates the ~35→50 package count `06` already flags. Named exports give
+  the same one-liner DX, tree-shakeable, with no duplicated logic. **v2+ escape hatch:** if real
+  demand appears for `import { createLambdaHandler } from '@nextrush/aws-lambda'`, publish *thin
+  re-export* packages (`export { createLambdaHandler } from '@nextrush/adapter-serverless'`) — near-zero
+  maintenance, no duplication. Not needed for v1.
 
 - **Generic `EventMapper`** — mapper authors get real types at the boundary, not
   `unknown`/`any` (matches the repo TypeScript steering).
@@ -97,17 +106,37 @@ handler, the public method is **`createHandler`** returning `(event, ctx?) => re
 and the `FetchAdapter` conformance lives on the reused edge engine (which already
 carries its guard). The mapper layer is guarded by the `EventMapper` type annotation.
 
+## Package structure (one package, DX at the surface)
+
+The Tier-1 handlers live in per-provider files; the Tier-3 internals sit under `mappers/`
+(the `event-mapper/` role) and `adapter.ts`. `index.ts` exposes Tier-1 as the headline and
+Tier-3 as `@advanced`:
+
+```
+packages/adapters/serverless/src/
+├── lambda.ts          # createLambdaHandler  (Tier 1)
+├── google.ts          # createGoogleHandler  (Tier 1)
+├── azure.ts           # createAzureHandler   (Tier 1)
+├── adapter.ts         # createServerlessAdapter  (Tier 3)
+├── types.ts           # EventMapper contract     (Tier 3)
+├── mappers/           # the EventMapper implementations (Tier 3 internals)
+│   ├── _v2.ts · lambda-function-url.ts · apigw-v2.ts · apigw-v1.ts · gcf.ts · azure.ts
+└── index.ts           # barrel: Tier 1 headline, Tier 3 under "Advanced / Runtime Authors"
+```
+
 ## Deferred
 
-- **True Function URL response streaming** (`awslambda.streamifyResponse`) — the
-  current `lambda-function-url` mapper uses the **buffered** v2 result format
-  (a streamed `Response` body is buffered into the result). True streaming is a
-  distinct result shape and lands with the remaining provider work (task group 6).
-- **Additional mappers** (`apigw-v1`, `apigw-v2`, `gcf`, `azure`) — task group 6.
+- **True Function URL response streaming** (`awslambda.streamifyResponse`) — the current
+  `lambda-function-url` mapper uses the **buffered** v2 result format (a streamed `Response`
+  body is buffered into the result). True streaming is a distinct result shape (tracked as
+  follow-up `5a.1`).
+- **Tier-1 handler implementation** (`createLambdaHandler`/`createGoogleHandler`/`createAzureHandler`)
+  — the mappers + Tier-3 `createServerlessAdapter` are done; the Tier-1 wrappers are task group 5b.
 
 ## Verification
 
-`pnpm --filter @nextrush/adapter-serverless test` — 10 tests: lambda round-trip
-(method/path/query, JSON POST, base64 body, Set-Cookie→cookies), explicit-over-detect
-selection, unknown-provider error, adapter-scoped isolation, timeout→504, streamed-body
-buffering. Build + typecheck + lint clean.
+`pnpm --filter @nextrush/adapter-serverless test` — 19 tests: lambda/apigw-v2/apigw-v1/gcf/azure
+mapper round-trips (method/path/query, JSON POST, base64 body, multi-value params/headers,
+Set-Cookie handling), explicit-over-detect selection, unknown-provider error, adapter-scoped
+isolation, timeout→504, streamed-body buffering, and full-chain golden fixtures per provider.
+Build + typecheck + lint clean.
