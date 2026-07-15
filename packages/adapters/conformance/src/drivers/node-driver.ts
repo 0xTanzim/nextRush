@@ -71,6 +71,7 @@ export const nodeDriver: ConformanceDriver = {
   name: 'node',
   handlerTimeout504: false, // Node timeout is socket-level (server.timeout), not a 504 (F-08)
   teardownOnShutdown: true,
+  transportAbortFiresSignal: true,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
     const app = createApp({ proxy: init?.proxy ?? false });

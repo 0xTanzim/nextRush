@@ -57,3 +57,26 @@ act -j workerd-conformance
 
 Pin runtime versions in the workflow (Deno `v2.6.3`, miniflare `@4`, compat date
 `2024-11-01`); bump deliberately, reproducing with `act` before pushing.
+
+## Serverless target (task group 8)
+
+`serverlessDriver` runs the same request/response assertions through
+`createLambdaHandler` (the real Tier-1 handler), converting each `DispatchInit`
+into an API Gateway v2 event and normalizing the platform result back. The
+serverless adapter reuses the edge execution engine, so it passes parity with
+node/bun/deno/edge; two behaviors are encoded as capability flags rather than
+skipped:
+
+- `teardownOnShutdown: false` — a serverless invocation has no server lifetime,
+  so extension `destroy()` never runs (F-14, same as edge).
+- `transportAbortFiresSignal: false` — the platform delivers a fully-buffered
+  event, so there is no mid-request transport abort; cancellation is
+  timeout-driven (#13), where `ctx.signal` still fires (proven by the driver's
+  `timeoutResult()`).
+
+**Real-runtime note (8.3):** the serverless adapter's deployment runtime is
+**Node** (AWS Lambda / GCF / Azure Functions are Node runtimes), so its
+conformance target runs under Node/vitest — that *is* its real runtime. It is
+not an edge/Deno runtime, so running the serverless target under `workerd`/Deno
+is not applicable; the Web-standard fetch engine it reuses is separately proven
+under real Deno and `workerd` by the `deno-runner/` and `workerd-runner/` suites.

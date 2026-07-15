@@ -5,6 +5,7 @@
  */
 
 import { nodeDriver } from './node-driver';
+import { serverlessDriver } from './serverless-driver';
 import { bunDriver, denoDriver, edgeDriver } from './web-driver';
 import type { ConformanceDriver } from './types';
 
@@ -14,6 +15,7 @@ export const drivers: readonly ConformanceDriver[] = [
   bunDriver,
   denoDriver,
   edgeDriver,
+  serverlessDriver,
 ];
 
 export type { ConformanceDriver, DispatchInit, DispatchResult } from './types';

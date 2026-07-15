@@ -315,6 +315,9 @@ importers:
       '@nextrush/adapter-node':
         specifier: workspace:^
         version: link:../node
+      '@nextrush/adapter-serverless':
+        specifier: workspace:^
+        version: link:../serverless
       '@nextrush/core':
         specifier: workspace:^
         version: link:../../core

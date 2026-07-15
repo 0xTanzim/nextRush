@@ -17,6 +17,7 @@
     "@nextrush/adapter-deno": "workspace:^",
     "@nextrush/adapter-edge": "workspace:^",
     "@nextrush/adapter-node": "workspace:^",
+    "@nextrush/adapter-serverless": "workspace:^",
     "@nextrush/core": "workspace:^",
     "@nextrush/errors": "workspace:^",
     "@nextrush/runtime": "workspace:^",

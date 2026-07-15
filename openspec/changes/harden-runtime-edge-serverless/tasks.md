@@ -85,9 +85,9 @@
 
 ## 8. Conformance parity for the serverless adapter (spec: serverless-adapter)
 
-- [ ] 8.1 RED: wire `@nextrush/adapter-serverless` into `@nextrush/adapter-conformance` as a new target; a seeded divergence must fail
-- [ ] 8.2 GREEN: make the parity matrix green for the serverless adapter alongside node/bun/deno/edge
-- [ ] 8.3 VERIFY: run the serverless conformance target under real Deno and (where applicable) the Workers isolate via `act`
+- [x] 8.1 RED: wire `@nextrush/adapter-serverless` into `@nextrush/adapter-conformance` as a new target; a seeded divergence must fail
+- [x] 8.2 GREEN: make the parity matrix green for the serverless adapter alongside node/bun/deno/edge
+- [x] 8.3 VERIFY: run the serverless conformance target under real Deno and (where applicable) the Workers isolate via `act`
 
 ## 9. Runtime certification matrix (spec: runtime-proof-harness)
 

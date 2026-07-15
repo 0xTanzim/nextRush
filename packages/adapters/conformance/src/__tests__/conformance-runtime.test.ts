@@ -26,15 +26,23 @@ describe.each(drivers)('conformance: runtime behaviors [$name]', (driver) => {
   it('#15 abort: ctx.signal fires when the transport aborts mid-request', async () => {
     // Node: real client disconnect closes the socket. Web: the platform
     // Request.signal aborts. Both must propagate to ctx.signal identically.
-    expect(await driver.abortFiresSignal()).toBe(true);
+    if (driver.transportAbortFiresSignal) {
+      expect(await driver.abortFiresSignal()).toBe(true);
+    } else {
+      // Serverless: the platform delivers a fully-buffered event, so there is no
+      // mid-request transport abort to propagate. Cancellation is timeout-driven
+      // (#13), where ctx.signal DOES fire. Encoded difference, not a skip.
+      expect(await driver.abortFiresSignal()).toBe(false);
+    }
   });
 
-  it('#18/#14 lifecycle capability: teardown runs on shutdown except on Edge', () => {
-    // Encodes the documented Edge exception (F-14): server adapters (node/bun/
-    // deno) run extension destroy() on close(); Edge has no server lifetime and
-    // intentionally never tears down. Shutdown/drain itself is a serve()-level
-    // concern covered by each server adapter's own adapter.test.ts.
-    expect(driver.teardownOnShutdown).toBe(driver.name !== 'edge');
+  it('#18/#14 lifecycle capability: teardown runs on shutdown except on lifetime-less adapters', () => {
+    // Encodes the documented exception (F-14): server adapters (node/bun/deno)
+    // run extension destroy() on close(); edge and serverless have no server
+    // lifetime and intentionally never tear down. Shutdown/drain itself is a
+    // serve()-level concern covered by each server adapter's own adapter.test.ts.
+    const hasServerLifetime = driver.name !== 'edge' && driver.name !== 'serverless';
+    expect(driver.teardownOnShutdown).toBe(hasServerLifetime);
   });
 
   it('#19 client IP: same precedence + validation across adapters (F-11)', async () => {

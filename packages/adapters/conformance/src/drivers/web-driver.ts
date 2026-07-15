@@ -59,6 +59,7 @@ function createWebDriver(name: string, invoke: WebInvoke): ConformanceDriver {
     name,
     handlerTimeout504: true,
     teardownOnShutdown: name !== 'edge', // edge has no teardown seam (F-14)
+    transportAbortFiresSignal: true,
 
     async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
       const app = createApp({ proxy: init?.proxy ?? false });

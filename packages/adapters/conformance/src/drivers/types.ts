@@ -83,6 +83,15 @@ export interface ConformanceDriver {
   abortFiresSignal(): Promise<boolean>;
 
   /**
+   * Whether the runtime can deliver a mid-request transport abort at all (#15).
+   * Node/Bun/Deno/Edge: yes — a socket close or `Request.signal` abort reaches
+   * `ctx.signal`. Serverless: no — the platform delivers a fully-buffered event,
+   * so there is no mid-request transport to abort; cancellation is timeout-driven
+   * (#13), where `ctx.signal` still fires. An encoded difference, not a skip.
+   */
+  readonly transportAbortFiresSignal: boolean;
+
+  /**
    * Handler-level timeout outcome (#13, F-08): the Web adapters race the
    * handler against a timer, return 504, and cancel the still-running handler
    * via `ctx.signal`. Returns `null` for Node (socket-level timeout).
