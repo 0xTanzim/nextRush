@@ -91,10 +91,10 @@
 
 ## 9. Runtime certification matrix (spec: runtime-proof-harness)
 
-- [ ] 9.1 Tag conformance-suite cases by feature (Request, Streaming, AbortSignal, Cookies, Multipart, SSE, Compression, WebSockets, Shutdown, Timeouts)
-- [ ] 9.2 RED→GREEN: generate a certification matrix (feature × runtime, per-runtime coverage %) from conformance results — not hand-maintained
-- [ ] 9.3 Publish the matrix as user-facing docs; assert a seeded capability regression drops the affected runtime's score
-- [ ] 9.4 VERIFY: matrix regenerates in CI and reflects real pass/fail
+- [x] 9.1 Tag conformance-suite cases by feature (Request, Streaming, AbortSignal, Cookies, Multipart, SSE, Compression, WebSockets, Shutdown, Timeouts)
+- [x] 9.2 RED→GREEN: generate a certification matrix (feature × runtime, per-runtime coverage %) from conformance results — not hand-maintained
+- [x] 9.3 Publish the matrix as user-facing docs; assert a seeded capability regression drops the affected runtime's score
+- [x] 9.4 VERIFY: matrix regenerates in CI and reflects real pass/fail
 
 ## 10. Scheduled real-cloud deploy verification (spec: runtime-proof-harness)
 

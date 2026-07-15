@@ -8,6 +8,7 @@
     "build": "echo 'no build — conformance is a test-only package'",
     "test": "vitest run",
     "test:watch": "vitest",
+    "cert:matrix": "vitest run -u src/__tests__/certification.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ignore-pattern '**/__tests__/**'",
     "clean": "rm -rf dist"
