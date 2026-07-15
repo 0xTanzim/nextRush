@@ -126,12 +126,10 @@ packages/adapters/serverless/src/
 
 ## Deferred
 
-- **True Function URL response streaming** (`awslambda.streamifyResponse`) — the current
-  `lambda-function-url` mapper uses the **buffered** v2 result format (a streamed `Response`
-  body is buffered into the result). True streaming is a distinct result shape (tracked as
-  follow-up `5a.1`).
-- **Tier-1 handler implementation** (`createLambdaHandler`/`createGoogleHandler`/`createAzureHandler`)
-  — the mappers + Tier-3 `createServerlessAdapter` are done; the Tier-1 wrappers are task group 5b.
+- _(none outstanding)_ — the buffered `createLambdaHandler`, the Tier-1 handlers
+  (group 5b), and **true Function URL response streaming** via
+  `createLambdaStreamingHandler` (`awslambda.streamifyResponse`, follow-up 5a.1)
+  are all implemented and tested.
 
 ## Verification
 

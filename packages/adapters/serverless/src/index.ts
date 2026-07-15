@@ -21,6 +21,13 @@ export { createLambdaHandler } from './lambda';
 export type { LambdaEvent, LambdaResult } from './lambda';
 export { createGoogleHandler } from './google';
 export { createAzureHandler } from './azure';
+export { createLambdaStreamingHandler } from './lambda-streaming';
+export type {
+  AwsLambdaStreaming,
+  LambdaResponseStream,
+  LambdaStreamMetadata,
+  StreamingLambdaHandler,
+} from './lambda-streaming';
 export type { ServerlessHandlerOptions } from './types';
 // (Cloudflare's Tier-1 handler ships in @nextrush/adapter-edge as createCloudflareHandler.)
 

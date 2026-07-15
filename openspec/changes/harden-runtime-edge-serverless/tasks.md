@@ -121,5 +121,5 @@
 
 ## 5a. Follow-ups from Task group 5 (not blocking)
 
-- [ ] 5a.1 True Function URL response streaming (`awslambda.streamifyResponse`) — current `lambda-function-url` mapper uses the buffered v2 result format; a streamed `Response` body is buffered. True streaming is a distinct result shape, lands with group 6.
-- [ ] 5a.2 Public method named `createHandler` (event→result), not `createFetchHandler` — the FetchAdapter engine is reused from edge internally. See RFC-NEXTRUSH-ADAPTER-SERVERLESS deviation note.
+- [x] 5a.1 True Function URL response streaming (`awslambda.streamifyResponse`) — current `lambda-function-url` mapper uses the buffered v2 result format; a streamed `Response` body is buffered. True streaming is a distinct result shape, lands with group 6.
+- [x] 5a.2 Public method named `createHandler` (event→result), not `createFetchHandler` — the FetchAdapter engine is reused from edge internally. See RFC-NEXTRUSH-ADAPTER-SERVERLESS deviation note.

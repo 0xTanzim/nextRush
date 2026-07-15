@@ -74,9 +74,21 @@ export const handler = createLambdaHandler(app, { timeout: 5000 });
 | --------- | -------- | ------- | -------------------------------------------------------- |
 | `timeout` | `number` | none    | Per-invocation cap in ms; exceeding it returns a **504** |
 
-> True Function URL response streaming (`awslambda.streamifyResponse`) is not wired
-> yet — a streamed response body is buffered into the result today. It lands as a
-> follow-up once the streamed result shape does.
+### Response streaming
+
+`createLambdaHandler` buffers the response body into the result. For **true**
+Function URL response streaming (lower TTFB, unbounded body), use the dedicated
+streaming handler — it writes chunks to Lambda's `responseStream` as they are
+produced, wrapped with `awslambda.streamifyResponse` on the real runtime:
+
+```ts
+import { createLambdaStreamingHandler } from '@nextrush/adapter-serverless';
+
+export const handler = createLambdaStreamingHandler(app); // Function URL RESPONSE_STREAM mode
+```
+
+Configure the Function URL for `RESPONSE_STREAM` invoke mode. Anything your app
+streams via `ctx.sendStream(...)` is written incrementally, not collected first.
 
 ## Advanced — adding a platform NextRush doesn't ship (Tier 3)
 
