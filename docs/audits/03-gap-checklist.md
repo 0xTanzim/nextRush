@@ -8,8 +8,9 @@
 > **Priority:** P0 (blocks a truthful production/stable claim) · P1 (required before stable v1.0) · P2 (important) · P3 (ecosystem/nice-to-have).
 > **Effort:** XS (<1d) · S (<1w) · M (1–3w) · L (1–2mo) · XL (2mo+). **Difficulty:** Easy/Medium/Hard/Expert. **Runtime Impact:** None/Low/Medium/High.
 >
-> **⚠️ Re-baselined 2026-07-15, updated 2026-07-16 (twice)** (`openspec/changes/rebaseline-gap-checklist`,
-> `openspec/changes/repo-wide-surface-snapshots`, `openspec/changes/remove-deprecated-shims`).
+> **⚠️ Re-baselined 2026-07-15, updated 2026-07-16 (three times)** (`openspec/changes/rebaseline-gap-checklist`,
+> `openspec/changes/repo-wide-surface-snapshots`, `openspec/changes/remove-deprecated-shims`, and an
+> out-of-band cleanup pass not tied to a numbered task — see the note below the dashboard).
 > Phases 0–2 and T038 were individually re-verified against real source/CI/docs — each carries a
 > "Verified:" note citing what was checked. T005 and T053 were both closed on 2026-07-16 (all 35
 > publishable packages carry a surface-lock test; the two deprecated shim packages were removed).
@@ -41,6 +42,27 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 surface snapshots) closed 2026-07-16, and T053 (deprecated shim removal) closed the same day. The
 `T005 → T053 → T060` chain now has only T060 itself remaining — the final v1.0 freeze sign-off,
 gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
+
+> **Out-of-band cleanup (2026-07-16, not tied to a numbered task):** at explicit user request, a
+> full-repo pass removed all confirmed stale documentation (a recurring "Plugin system"/"radix
+> tree"/"decorators+controllers as separate packages" pattern across `.github/*` instruction
+> files, `skills/nextrush/`, `apps/docs/content/`, package READMEs, `PUBLISHING.md`, and `wiki/`
+> — all fixed against `.kiro/steering/architecture.instructions.md` as ground truth) and removed
+> a batch of confirmed dead runtime backward-compatibility aliases as a deliberate breaking
+> change: adapter `hostname` fields (bun/deno/node), `{Bun,Deno,Edge}BodySource` +
+> `create*BodySource` aliases, `@nextrush/core`'s `createHttpError`, `@nextrush/errors`'
+> `ErrorContext`/`ErrorMiddleware`/`catchAsync`, `body-parser`'s Node-stream fallback
+> (`ctx.raw`/`RequestStream`/`BodyParserMiddleware`), `helmet`'s `frameguard`/`XFrameOptionsValue`
+> (superseded by CSP `frame-ancestors`), and `cors`'s `CorsMiddleware`. Explicitly **not**
+> removed, per a discovery pass that classified them as currently-supported features rather than
+> dead cruft: `rate-limit`'s `legacyHeaders` option, `@nextrush/types`' `ServerAddress.hostname`
+> (real cross-adapter parity data), and the intentional per-package `Middleware<TContext>`
+> aliases in helmet/request-id/timer (a deliberate zero-dependency measure). Verified via
+> cache-bypassed `turbo run typecheck --force` (58/58 green) and `turbo run test --force` (72/74
+> green — the 2 failures are the same pre-existing DI circular-dependency timeout flake logged
+> against T005 and T053, confirmed unrelated). Changesets added: `remove-backcompat-aliases.md`.
+> This work has no task ID in this checklist because it wasn't sourced from an audit finding —
+> flagging it here so the history isn't lost, not because it changes any phase's completion state.
 
 ---
 
