@@ -13,7 +13,7 @@ Hard rules that apply everywhere — code, docs, tests, prompts, agents. No exce
 ## 1. Package Hierarchy (Immutable)
 
 ```
-types → errors → core → router → di → decorators → controllers → adapters → middleware
+types → errors → core → router → runtime → di → class → adapters → middleware → extensions
 ```
 
 | Rule                                                         | Enforcement              |
@@ -165,6 +165,6 @@ If detected, fix immediately before any other work proceeds.
 - All exports through barrel files (`index.ts`)
 - Proper error hierarchy usage (`HttpError` subclasses)
 - Middleware follows Koa-style async pattern
-- Plugin implements the `Plugin` interface
+- Capability is added via Middleware (`app.use()`, ~99% of cases), a Registrar (plain function, e.g. `registerControllers`/`registerModule`), or rarely an Extension (`app.extend()` + `await app.ready()`) — never a `Plugin` interface
 - Adapter isolates platform-specific code
 - Context API used for request/response (never raw `req`/`res`)

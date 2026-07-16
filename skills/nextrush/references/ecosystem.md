@@ -14,15 +14,13 @@ function you call directly, ~1%), and **Extension** (`app.extend(ext)` +
 `await app.ready()`, rare — for long-lived services like an event bus). The
 sections below use the correct idiom for each package.
 
-### 1. Controllers (`@nextrush/controllers`)
+### 1. Controllers (`nextrush/class`)
 
 A **registrar**. `registerControllers` auto-discovers `@Controller` classes,
 integrates DI, and registers routes on `app.router`. It reads `app.router`
 and `app.container` directly — no `router` option, no `app.plugin()`.
 
 ```typescript
-import { registerControllers } from 'nextrush/class';
-// Or via nextrush/class subpath:
 import { registerControllers } from 'nextrush/class';
 
 const app = createApp(); // owns a router (batteries-included)
@@ -49,7 +47,7 @@ await registerControllers(app, { controllers: [UserController] });
 - `NoRoutesError` — controller has no route decorators
 - `RouteRegistrationError` — route could not be registered
 
-Re-exports: `@Controller`, `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Body`, `@Param`, `@Query`, `@Header`, `@Ctx`, `@UseGuard` from `@nextrush/decorators`; `Service`, `Repository`, `container`, `inject` from `@nextrush/di`.
+`nextrush/class` re-exports `@Controller`, `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Body`, `@Param`, `@Query`, `@Header`, `@Ctx`, `@UseGuard`, `Service`, `Repository`, `container`, `inject` — a single unified class runtime, not separate decorator/controller packages.
 
 ### 2. Events (`@nextrush/events`)
 

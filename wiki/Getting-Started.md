@@ -90,7 +90,7 @@ call directly, not a plugin. It reads `app.router` and `app.container`, so it
 must be awaited before the server starts serving traffic.
 
 ```bash
-pnpm add @nextrush/di @nextrush/decorators @nextrush/controllers
+pnpm add nextrush
 ```
 
 ```typescript

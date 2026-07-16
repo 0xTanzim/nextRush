@@ -14,8 +14,8 @@ export type { BootstrapContext, ResolvedBootstrapOptions } from './bootstrap/con
 // Graph utilities — used by bootstrap but not public API
 export { deepFreeze } from './bootstrap/graph.js';
 
-// Route builder — internal utility (exposed only via controllers shim for back-compat)
-// buildRoutes stays public because @nextrush/controllers shim re-exports it
-// to maintain backward compatibility with legacy code
+// Route builder — buildRoutes is re-exported publicly from ./index.ts because
+// the registrar (ControllerRegistry) and the package's own test suite call it
+// directly; it is not purely an internal implementation detail.
 
 export type { ClassRef } from './discovery/source.js';

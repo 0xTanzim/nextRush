@@ -91,9 +91,8 @@ services only).
 
 | Package | Idiom | Purpose |
 |---------|-------|---------|
-| `@nextrush/controllers` | Registrar | Controller discovery + route binding |
+| `@nextrush/class` | Registrar (`registerControllers`/`registerModule`) + decorators | Controller discovery, route binding, decorators |
 | `@nextrush/di` | — (DI container) | tsyringe wrapper, no app lifecycle |
-| `@nextrush/decorators` | — (decorators) | Route and param decorators |
 | `@nextrush/logger` | Middleware | Structured logging |
 | `@nextrush/static` | Middleware | Static files |
 | `@nextrush/template` | Middleware | Template engines |

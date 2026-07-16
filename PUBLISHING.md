@@ -34,10 +34,10 @@ This guarantees independent package changes are never merged without release met
 
 | Tier                         | Packages                                                                                                                                                                                                                |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core (lockstep)**          | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`, `@nextrush/di`, `@nextrush/decorators`, `@nextrush/controllers`, `@nextrush/adapter-node`                 |
+| **Core (lockstep)**          | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`, `@nextrush/di`, `@nextrush/adapter-node`                 |
 | **Adapters (independent)**   | `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`                                                                                                                                             |
 | **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer` |
-| **Plugins (independent)**    | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
+| **Extensions/registrars (independent)** | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
 
 **Tooling (independent):** `@nextrush/dev`, `create-nextrush` — the scaffolder is **not** in the core lockstep group. Changes under `packages/create-nextrush/` that you publish to npm need a **changeset** for `'create-nextrush'` (patch/minor/major as usual). Editing only `apps/docs` or other private apps does not require a changeset unless you also change a published package.
 
@@ -255,8 +255,6 @@ Changesets config lives in `.changeset/config.json`:
       "@nextrush/router",
       "@nextrush/runtime",
       "@nextrush/di",
-      "@nextrush/decorators",
-      "@nextrush/controllers",
       "@nextrush/adapter-node",
       "nextrush"
     ]

@@ -21,8 +21,13 @@ How NextRush compares to popular Node.js frameworks — not only speed, but how 
 | Middleware model | Koa-style onion             | Linear chain           | Hooks + lifecycle    | Koa-style onion       | Onion model         |
 | Built-in DI      | Yes (`@nextrush/di`)        | No                     | No                   | No                    | No                  |
 | Decorators       | Yes (`@Controller`, `@Get`) | No                     | Via plugins          | No                    | No                  |
-| Plugin system    | `Plugin` interface          | `app.use()`            | Encapsulated plugins | Middleware only       | `app.use()`         |
+| Extensibility    | Extension + middleware      | `app.use()`            | Encapsulated plugins | Middleware only       | `app.use()`         |
 | Routing          | Segment trie (O(k))         | Linear scan (O(n))     | Radix tree (O(k))    | Radix tree (O(k))     | Via koa-router      |
+
+NextRush's extensibility model is layered: `app.use()` middleware for the vast majority of
+cases, plain-function registrars (e.g. `registerControllers`) for wiring subsystems, and the
+rare, long-lived `Extension` (via `app.extend()` + `await app.ready()`) for app-scoped services
+like an event bus. There is no `Plugin` interface or plugin registration API.
 
 ---
 

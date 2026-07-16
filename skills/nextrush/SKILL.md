@@ -90,12 +90,11 @@ import type { Context, Middleware } from '@nextrush/types';
 | **Meta (functional)**    | `nextrush`               | createApp, createRouter, listen, errors, types |
 | **Meta (class-based)**   | `nextrush/class`         | DI, decorators, controllers, reflect-metadata  |
 | `@nextrush/core`         | `@nextrush/core`         | Application, middleware composition            |
-| `@nextrush/router`       | `@nextrush/router`       | Radix tree routing                             |
+| `@nextrush/router`       | `@nextrush/router`       | Segment trie routing                           |
 | `@nextrush/errors`       | `@nextrush/errors`       | HTTP error hierarchy (40+ classes)             |
 | `@nextrush/types`        | `@nextrush/types`        | Shared TypeScript types                        |
 | `@nextrush/di`           | `@nextrush/di`           | Dependency injection (tsyringe wrapper)        |
-| `@nextrush/decorators`   | `@nextrush/decorators`   | Controller, route, param, guard decorators     |
-| `@nextrush/controllers`  | `@nextrush/controllers`  | Auto-discovery, handler building               |
+| `@nextrush/class`        | `nextrush/class`         | Class runtime — decorators, controllers, DI-facing API, guards, filters, interceptors, modules |
 | `@nextrush/adapter-node` | `@nextrush/adapter-node` | Node.js HTTP adapter                           |
 | `@nextrush/adapter-bun`  | `@nextrush/adapter-bun`  | Bun adapter                                    |
 | `@nextrush/adapter-deno` | `@nextrush/adapter-deno` | Deno adapter                                   |

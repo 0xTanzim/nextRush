@@ -105,21 +105,21 @@ nextrush build
 
 - `Context` — The request/response wrapper
 - `Middleware` — Middleware function signature
-- `Plugin` — Plugin interface
+- `Extension` — Extension interface for long-lived, app-scoped services
 - `HttpMethod` — HTTP method types
 - `Runtime` — Runtime identifier
 
 All other packages depend on types. It has **zero runtime dependencies**.
 
 ```typescript
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Extension } from '@nextrush/types';
 ```
 
 ## The Core Package
 
 `@nextrush/core` provides:
 
-- `Application` class — The container for middleware and plugins
+- `Application` class — The container for middleware and extensions
 - `createApp()` — Factory function
 - `compose()` — Middleware composition
 
@@ -194,7 +194,7 @@ if (isBun()) {
     Meta package with all essentials for Node.js.
   </Card>
   <Card title="@nextrush/core" href="/docs/reference/core/core">
-    Application class, middleware composition, plugin system.
+    Application class, middleware composition, extension host.
   </Card>
   <Card title="@nextrush/router" href="/docs/reference/core/router">
     Segment trie routing with O(k) performance.

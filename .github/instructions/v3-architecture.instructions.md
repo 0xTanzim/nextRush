@@ -17,33 +17,34 @@ NextRush v3 uses a modular monorepo architecture with Turborepo and pnpm workspa
        ↓
 @nextrush/core         → Application, Context, Middleware (depends on types)
        ↓
-@nextrush/router       → Radix tree routing (depends on types)
+@nextrush/router       → Segment trie routing (depends on types)
+       ↓
+@nextrush/runtime      → listen / runtime helpers
        ↓
 @nextrush/di           → Dependency injection (wraps tsyringe)
        ↓
-@nextrush/decorators   → @Controller, @Get, @UseGuard (depends on types)
-       ↓
-@nextrush/controllers  → Auto-discovery, handler building (depends on di, decorators, errors)
+@nextrush/class        → Controllers, decorators, guards, modules, DI re-exports
        ↓
 @nextrush/adapter-*    → Platform adapters (depends on core, types)
        ↓
 @nextrush/middleware/* → cors, helmet, body-parser (depends on types)
+       ↓
+@nextrush/extensions/* → events, websocket (long-lived app-scoped services)
        ↓
 nextrush               → Meta package (re-exports all essentials)
 ```
 
 ## Core Concepts
 
-1. **Application** (`@nextrush/core`): Main entry point, middleware registration, plugin system
+1. **Application** (`@nextrush/core`): Main entry point, middleware registration, extension/plugin wiring
 2. **Context**: Request/response wrapper with DX-focused API
 3. **Middleware**: Koa-style async middleware with `compose()`
-4. **Plugin**: Extension mechanism via `Plugin` interface
-5. **Router** (`@nextrush/router`): High-performance radix tree routing
+4. **Extension mechanism**: Middleware (~99%, `app.use()`) is the default; a Registrar (~0.9%, e.g. `registerControllers`/`registerModule`) wires a subsystem; an Extension (~0.1%, rare) is a long-lived app-scoped service via `app.extend()` + `await app.ready()`
+5. **Router** (`@nextrush/router`): High-performance segment trie routing, O(k) lookup
 6. **Adapter**: Platform-specific HTTP handling (Node.js, Bun, Edge)
 7. **DI Container** (`@nextrush/di`): Dependency injection with tsyringe wrapper
-8. **Decorators** (`@nextrush/decorators`): Controller, route, param, and guard decorators
-9. **Controllers Plugin** (`@nextrush/controllers`): Auto-discovery and handler building
-10. **Errors** (`@nextrush/errors`): HTTP error hierarchy with proper status codes
+8. **Class runtime** (`@nextrush/class`): Controller, route, param, and guard decorators, modules, request scope
+9. **Errors** (`@nextrush/errors`): HTTP error hierarchy with proper status codes
 
 ## Context API (DX-First Design)
 
@@ -101,7 +102,7 @@ class RequestLogger {}
 class UserRepository {}
 ```
 
-## Decorators (`@nextrush/decorators`)
+## Decorators (`@nextrush/class`)
 
 Provides controller, route, parameter, and guard decorators.
 
@@ -196,14 +197,14 @@ interface CanActivate {
 }
 ```
 
-## Controllers Registrar (`@nextrush/controllers`)
+## Controllers Registrar (`@nextrush/class`)
 
 Connects DI, decorators, and router to auto-register controllers.
 
 ### Usage
 
 ```typescript
-import { registerControllers } from '@nextrush/controllers';
+import { registerControllers } from 'nextrush/class';
 
 const app = createApp();
 
@@ -248,7 +249,7 @@ HttpError (base)
 Validation errors (`@nextrush/errors`):
 └── ValidationError (400) - Parameter validation failed
 
-Controller-specific errors (`@nextrush/controllers`):
+Controller-specific errors (`@nextrush/class`):
 ├── MissingParameterError (400) - Required parameter missing
 └── GuardRejectionError (403) - Guard returned false
 ```
@@ -260,10 +261,9 @@ Controller-specific errors (`@nextrush/controllers`):
 | types         | 500     | Shared TypeScript types     |
 | errors        | 600     | HTTP error classes          |
 | core          | 1,500   | Application, Middleware     |
-| router        | 1,000   | Radix tree routing          |
+| router        | 1,000   | Segment trie routing        |
 | di            | 400     | DI container wrapper        |
-| decorators    | 800     | Controller/route decorators |
-| controllers   | 800     | Handler building, discovery |
+| class         | —       | Consolidated class runtime  |
 | adapter-\*    | 500     | Platform adapters           |
 | middleware/\* | 300     | Individual middleware       |
 
@@ -280,18 +280,17 @@ Controller-specific errors (`@nextrush/controllers`):
 - `packages/core/src/application.ts` - Application class
 - `packages/core/src/middleware.ts` - Middleware composition
 
-### DI & Decorators
+### DI & Class Runtime
 
 - `packages/di/src/container.ts` - DI container wrapper
 - `packages/di/src/decorators.ts` - @Service, @Repository
-- `packages/decorators/src/class.ts` - @Controller
-- `packages/decorators/src/routes.ts` - @Get, @Post, etc.
-- `packages/decorators/src/params.ts` - @Body, @Param, etc.
-- `packages/decorators/src/guards.ts` - @UseGuard
-- `packages/decorators/src/types.ts` - GuardFn, CanActivate, GuardContext
+- `packages/class/src/decorators/class.ts` - @Controller
+- `packages/class/src/decorators/routes.ts` - @Get, @Post, etc.
+- `packages/class/src/binding/params.ts` - @Body, @Param, etc.
+- `packages/class/src/guards/` - @UseGuard, GuardFn, CanActivate, GuardContext
 
-### Controllers Plugin
+### Class Runtime Registrar
 
-- `packages/controllers/src/registrar.ts` - Registrar entry (`registerControllers`)
-- `packages/controllers/src/builder.ts` - Handler building
-- `packages/controllers/src/errors.ts` - Controller errors
+- `packages/class/src/registrar/registrar.ts` - Registrar entry (`registerControllers`)
+- `packages/class/src/registrar/builder.ts` - Handler building
+- `packages/class/src/errors.ts` - Controller errors

@@ -200,14 +200,13 @@ This meta package re-exports from:
 | `@nextrush/websocket`    | Registrar  | WebSocket support with rooms (`createWebSocket()` + `app.use(wss.upgrade())`) |
 | `@nextrush/template`     | Middleware | Multi-engine template rendering                                             |
 | `@nextrush/events`       | Extension  | Type-safe event emitter (`app.extend(events())`)                            |
-| `@nextrush/controllers`  | Registrar  | Decorator-based controllers (`await registerControllers(app, opts)`)         |
 
 ### Advanced (install separately)
 
 | Package                | Description                    |
 | ---------------------- | ------------------------------ |
 | `@nextrush/di`         | Dependency injection container |
-| `@nextrush/decorators` | Controller & route decorators  |
+| `@nextrush/class`      | Class runtime — decorators, controller discovery/registration (`await registerControllers(app, opts)`), guards, filters, interceptors, modules (import via `nextrush/class`) |
 
 ### Dev Tools
 

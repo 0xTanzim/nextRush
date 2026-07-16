@@ -83,7 +83,7 @@ Not every package needs the same depth. Classify before writing.
 
 ### Tier 1 — Core Infrastructure
 
-**Packages:** core, runtime, router, di, decorators, controllers, types, errors
+**Packages:** core, runtime, router, di, class, types, errors
 
 **Required sections:**
 
@@ -107,7 +107,7 @@ These pages are architectural. Full depth required.
 
 ---
 
-### Tier 2 — Middleware and Plugins
+### Tier 2 — Middleware and Extensions
 
 **Packages:** cors, helmet, body-parser, rate-limit, compression, cookies, logger, static, template, events, websocket
 
@@ -304,12 +304,12 @@ Each entry must include:
 
 ## Content Priorities
 
-| Priority | Scope                                             | Risk If Weak          |
-| -------- | ------------------------------------------------- | --------------------- |
-| P1       | Getting Started, Quick Start, Core Concepts       | Adoption failure      |
-| P2       | App lifecycle, Routing, Plugin system, Middleware | "How do I…" questions |
-| P3       | Auth, Database, Testing, Deployment               | Advanced friction     |
-| P4       | API reference, Package config, Types              | Accuracy issues       |
+| Priority | Scope                                                | Risk If Weak          |
+| -------- | ----------------------------------------------------- | --------------------- |
+| P1       | Getting Started, Quick Start, Core Concepts          | Adoption failure      |
+| P2       | App lifecycle, Routing, Extension model, Middleware  | "How do I…" questions |
+| P3       | Auth, Database, Testing, Deployment                  | Advanced friction     |
+| P4       | API reference, Package config, Types                 | Accuracy issues       |
 
 ---
 
@@ -343,14 +343,14 @@ Required for breaking changes:
 
 ### Canonical Terms
 
-| Concept              | Approved Term     |
-| -------------------- | ----------------- |
-| Request context      | Context (`ctx`)   |
-| Middleware unit      | Middleware        |
-| Extension mechanism  | Plugin            |
-| Request handler      | Handler           |
-| URL mapping          | Route             |
-| Application instance | Application / app |
+| Concept              | Approved Term                       |
+| -------------------- | ------------------------------------ |
+| Request context      | Context (`ctx`)                     |
+| Middleware unit      | Middleware                          |
+| Extension mechanism  | Middleware / Registrar / Extension  |
+| Request handler      | Handler                             |
+| URL mapping          | Route                                |
+| Application instance | Application / app                   |
 
 ### Capitalization
 

@@ -122,8 +122,8 @@ class RequestId {
 
 > `request` maps to tsyringe's `ContainerScoped` lifecycle: resolve it from a
 > per-request child (`container.createChild()`) for one instance per request.
-> With `@nextrush/controllers`, request scope (and scope bubbling) is automatic —
-> see RFC-NEXTRUSH-REQUEST-SCOPE.
+> With `@nextrush/class`'s `registerControllers`/`registerModule`, request scope
+> (and scope bubbling) is automatic — see RFC-NEXTRUSH-REQUEST-SCOPE.
 
 #### `@Repository(options?)`
 
@@ -420,7 +420,7 @@ class AuthGuard implements CanActivate {
 }
 ```
 
-The `@nextrush/controllers` plugin automatically detects class guards and resolves them from the container.
+Guard auto-detection is built into `@nextrush/class`: `registerControllers`/`registerModule` wire each controller's guards through `executeGuards` (`packages/class/src/guards/guard-runner.ts`), which resolves `CanActivate` guards from the DI container automatically.
 
 ## Troubleshooting
 
