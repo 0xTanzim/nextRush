@@ -121,7 +121,7 @@ describe('Public API surface (type-only exports, incl. runtime-adapter-contract)
     // task group 1) promoted to an enforced public contract.
     expectTypeOf<ServerAdapter<object, object>>().not.toBeNever();
     expectTypeOf<FetchAdapter<object>>().not.toBeNever();
-    expectTypeOf<AdapterContextFactory<object>>().not.toBeNever();
+    expectTypeOf<AdapterContextFactory<readonly unknown[]>>().not.toBeNever();
   });
 
   it('every other listed type-only export remains importable from the barrel', () => {
@@ -190,10 +190,10 @@ describe('Public API surface (type-only exports, incl. runtime-adapter-contract)
       StandardSchemaIssue,
       StandardSchemaPathSegment,
       StandardSchemaProps,
-      StandardSchemaResult,
+      StandardSchemaResult<unknown>,
       StandardSchemaV1,
-      StreamRun,
-      StreamSource,
+      StreamRun<BaseStreamWriter>,
+      StreamSource<unknown>,
       TextStreamWriter,
       Token,
       ValueProvider<object>,
