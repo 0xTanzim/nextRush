@@ -135,16 +135,69 @@
 
 ## 4. Cross-cutting verification
 
-- [ ] 4.1 Run the full repo `pnpm verify` locally with all changes applied — confirm no
+- [x] 4.1 Run the full repo `pnpm verify` locally with all changes applied — confirm no
       interaction effects between the loader fix, the core-bundle budget, and the build e2e test.
-- [ ] 4.2 Confirm no file outside this change's declared scope (per proposal.md's Impact section)
+      **Verified (2026-07-16, independent validator pass):** `pnpm exec turbo run verify --continue`
+      → 126/130 tasks successful. The 4 failures are all confirmed pre-existing and unrelated to
+      this branch: `@nextrush/di#test` and `@nextrush/class#test` (both the same
+      `CircularDependencyError`-detection test timing out — 5000ms/10000ms respectively — a
+      known flake already logged against T005/T053/T006), `@nextrush/dev#lint` (405 pre-existing
+      ESLint errors in legacy files `config.ts`/`logger.ts`/etc. — independently confirmed the
+      one file this branch's section 1 actually edited, `node-modules.ts`, lints with zero errors
+      on its own), and `docs#lint` (apps/docs untouched). Cross-checked via
+      `git diff --stat 6eaf108..HEAD -- packages/di packages/class apps/docs` → empty diff,
+      confirming none of the 3 failing packages/docs were touched by this branch's commits.
+      No new regressions found; zero failures fall outside the known set.
+- [x] 4.2 Confirm no file outside this change's declared scope (per proposal.md's Impact section)
       was modified.
-- [ ] 4.3 Add a changeset for `@nextrush/dev` (this is a real bug fix — patch-level, following
+      **Verified (2026-07-16):** this branch's actual merge-base is `6eaf108` (its own 4th-from-top
+      commit, "chore: archive close-phase0-ci-matrix-and-metadata-preflight") — confirmed via
+      `git merge-base HEAD close-phase0-ci-matrix-and-metadata-preflight`, the branch this one
+      actually diverged from, not `main` directly (whose merge-base sits further back at
+      `39be332`). `git diff --stat 6eaf108..HEAD` shows 12 files changed, all within
+      proposal.md's declared Impact: `.github/workflows/ci.yml`,
+      `.github/workflows/runtime-conformance.yml`, `examples/dev-cli-fixture/src/index.ts`
+      (fixture), this change's own `tasks.md`,
+      `packages/adapters/conformance/bundle-budget/{bundle-budget-core.test.mjs,
+      minimal-core-entry.mjs}` (new), `packages/adapters/conformance/package.json` (new
+      devDependency), `packages/dev/src/__tests__/{build-e2e-integration,cli-dev-integration,
+      runtime-node-modules}.test.ts`, `packages/dev/src/runtime/node-modules.ts` (the fix), and
+      `pnpm-lock.yaml` (expected side effect of the new conformance devDependency). No file
+      outside declared scope found. No `packages/di/README.md` or `packages/dev/README.md`
+      change was needed — proposal.md's own Impact section states "Affected docs: None expected"
+      unless documented CLI behavior changed, and it did not (dev goes from broken to working as
+      already documented).
+- [x] 4.3 Add a changeset for `@nextrush/dev` (this is a real bug fix — patch-level, following
       the same reasoning as the prior change's build-fail-fast changeset).
-- [ ] 4.4 Update `docs/audits/03-gap-checklist.md`: mark T012 ☑ (with a note that this closes the
+      **Verified (2026-07-16):** `.changeset/` on this branch had zero new changesets from
+      sections 1-3 (`git diff --name-status 6eaf108..HEAD -- .changeset/` was empty) — the existing
+      `build-decorator-metadata-preflight.md` belongs entirely to the prior, separate
+      `close-phase0-ci-matrix-and-metadata-preflight` branch (T008, commit `ff055e4`), not to this
+      change. Section 1 (the loader-resolution fix) IS a real, user-facing `@nextrush/dev` behavior
+      change (`nextrush dev` goes from broken to working) and needs one, following the exact same
+      precedent as T008's changeset. Added `fix-dev-loader-resolution.md` (`@nextrush/dev`: patch).
+      Sections 2 (CI-only bundle-budget check) and 3 (test-only build-e2e-integration test) introduce
+      no behavior change to any published package — no additional changeset needed for either. The
+      separate, already-completed `bump-swc-core-and-swc-node-register` change/changeset on a
+      different branch is unrelated and was not referenced or depended on.
+- [x] 4.4 Update `docs/audits/03-gap-checklist.md`: mark T012 ☑ (with a note that this closes the
       previously-residual core-bundle scope, following the citation style already used for the
       edge-bundle portion) and T013 ☑, each with a Verified: note citing this change's commits.
       Recompute the Progress Dashboard's Phase 1 row and Total row. Also log the loader-resolution
       bug fix itself as a new, out-of-band entry (it wasn't a numbered task in the original
       checklist) — following the same "Out-of-band cleanup" note pattern already used elsewhere
       in the document for undocumented work, so the fix isn't lost from the record.
+      **Verified (2026-07-16):** T012 and T013 flipped to ☑ Completed with `Verified (2026-07-16):`
+      notes citing commits `7977d69` (core-bundle numbers: 17.65KB gzip / 59.48KB raw) and `7d67ffb`
+      (build-e2e test), following the exact citation style of the adjacent T001/T002/T006/T008
+      entries. Added a new out-of-band entry for the loader-resolution fix (commit `72afe3d`),
+      following the existing "Out-of-band cleanup" template verbatim. Recomputed the Progress
+      Dashboard: independently re-derived Phase 1's true glyph count from the actual T010-T018
+      section (8☐/1◐/0☑ pre-edit) rather than trusting the stale dashboard row, which already read
+      `9|7|0|2` — a pre-existing 2-task drift in the *dashboard's own count* that predated this pass.
+      After flipping T012/T013, the true post-edit count is 7☐/0◐/2☑, which is what the dashboard row
+      already displayed — so the row required no further numeric edit (confirmed by direct count, not
+      assumed). Total row (46/2/16) is unaffected for the same reason. Original Description/Why-it-
+      matters/Risk/Acceptance-Criteria/Validation-Steps text for both tasks was left untouched — only
+      glyphs, Status fields, and new Verified: notes were added, per this checklist's own
+      anti-silent-rewrite discipline.

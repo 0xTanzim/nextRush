@@ -79,6 +79,38 @@ gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
 > This work has no task ID in this checklist because it wasn't sourced from an audit finding —
 > flagging it here so the history isn't lost, not because it changes any phase's completion state.
 
+> **Out-of-band cleanup (2026-07-16, not tied to a numbered task):** `nextrush dev` was broken
+> end-to-end on every platform — not a Windows/macOS-specific gap, a universal one. Diagnosed
+> directly against source and a real reproduction: running `nextrush dev` against a fresh fixture
+> failed immediately with `ERR_MODULE_NOT_FOUND` for `packages/dev/loaders/swc-loader.mjs` (a path
+> missing its `dist/` segment). Root cause: `resolveLoaderFromUrl()` in
+> `packages/dev/src/runtime/node-modules.ts` computed `../loaders/swc-loader.mjs` relative to its
+> own `import.meta.url`, assuming it always runs from `dist/runtime/node-modules.js` (one directory
+> under `dist/`). Because `tsup.config.ts` sets `splitting: false`, the package's real CLI entry
+> point (`bin/nextrush.js` → `dist/cli.js`) inlines that function's code directly into `cli.js`
+> itself — zero directories under `dist/`, not one — so the hardcoded relative climb landed one
+> level too high, at a nonexistent `packages/dev/loaders/` instead of the real
+> `packages/dev/dist/loaders/`. Fixed by resolving the loader path relative to the package root
+> (found once via `package.json` location) instead of assuming a fixed directory depth relative to
+> the calling module — depth-independent regardless of which entry point's bundle the resolution
+> code ends up inlined into. The existing non-`dist` (source-mode) fallback branch was left
+> untouched. Verified against the real built artifact, not only the unit-level function: a new
+> integration-level test spawns the actual built CLI binary (`bin/nextrush.js dev`) against a
+> fixture and asserts the dev server starts successfully — this is the class of test that would
+> have caught the original bug, since the pre-existing unit tests for
+> `resolveLoaderFromUrl()`/`getSwcNodeRegisterPath()` passed the entire time this bug existed (they
+> called the function at the depth it assumed, never at the real bundle's actual depth). Manually
+> reproduced the exact original failure and confirmed the fix closes it: `nextrush dev` from
+> `examples/dev-cli-fixture` (built package, not source) now starts successfully and serves a
+> request. Full `@nextrush/dev` suite green, zero regressions to the untouched dev-mode fallback
+> path. A `@nextrush/dev` patch changeset (`fix-dev-loader-resolution.md`) was added, since this is
+> a real, user-facing behavior change (`nextrush dev` goes from broken to working). Delivered by
+> `openspec/changes/fix-dev-loader-resolution-and-build-proof` (section 1), commit `72afe3d`.
+> This work has no task ID in this checklist because it wasn't a numbered task in the original
+> audit-derived backlog — flagging it here so the fix isn't lost from the record, not because it
+> changes any phase's completion state (T012/T013, the two numbered tasks this same change closes,
+> are updated in their own entries above).
+
 ---
 
 # Progress Dashboard
@@ -285,9 +317,10 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** `health()` middleware exposes `/livez` + `/readyz`; failing check flips readiness; documented.
 - **Validation Steps:** Register a failing check → `/readyz` returns 503; healthy → 200.
 
-### ◐ T012 · Bundle-size CI budget
-- **Domain:** Build System / Performance · **Packages:** CI, `nextrush`, `@nextrush/core`, `@nextrush/adapter-edge` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ◐ In Progress
-- **Verified (2026-07-15):** `.github/workflows/runtime-conformance.yml` has a `bundle-budget` job asserting the minimal functional **edge** bundle (core + router + adapter-edge) stays under a gzip budget (30KB internal target, measured baseline 13.11KB) and contains no `reflect-metadata`/`node:` imports. This satisfies the task for the **edge** entry specifically. **Not verified:** a separate budget for the general functional **core** bundle independent of the edge adapter — the task's phrasing implies both; only the edge-scoped one was found.
+### ☑ T012 · Bundle-size CI budget
+- **Domain:** Build System / Performance · **Packages:** CI, `nextrush`, `@nextrush/core`, `@nextrush/adapter-edge` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-15):** `.github/workflows/runtime-conformance.yml` has a `bundle-budget` job asserting the minimal functional **edge** bundle (core + router + adapter-edge) stays under a gzip budget (30KB internal target, measured baseline 13.11KB) and contains no `reflect-metadata`/`node:` imports. This satisfies the task for the **edge** entry specifically. **Not verified (as of 2026-07-15):** a separate budget for the general functional **core** bundle independent of the edge adapter — the task's phrasing implies both; only the edge-scoped one was found at that time.
+- **Verified (2026-07-16):** the core-bundle residual scope is now closed. `packages/adapters/conformance/bundle-budget/minimal-core-entry.mjs` (core + router + `@nextrush/adapter-node`, which pulls in `@nextrush/runtime` + `@nextrush/stream`) and `bundle-budget-core.test.mjs` measure the general functional core bundle via the same `esbuild` + `gzipSync` mechanism as the edge check, `platform: 'node'`, asserting a 40KB gzip budget / 175KB raw ceiling against a measured 17.65KB gzip / 59.48KB raw baseline (2026-07-16), with the figure published in the test file's header docstring, matching the edge figure's own publication location. Wired into `.github/workflows/runtime-conformance.yml`'s existing `bundle-budget` job as a new "Core bundle-size budget (T012 residual)" step. The regression-catch path was independently re-verified for this session (a temporary ~1.2MB inlined import pushed both assertions to fail — 225.92 KB > 40 KB gzip, 1162.23 KB > 175 KB raw — then fully reverted). Delivered by `openspec/changes/fix-dev-loader-resolution-and-build-proof` (section 2), commit `7977d69`.
 - **Dependencies:** —
 - **Description:** Add a size-limit CI check for the functional core and the minimal edge bundle; assert core stays under a stated KB budget and flag regressions. Bundle size is currently unmeasured vs the CF 1 MB limit (01/R-12).
 - **Why it matters:** Edge viability (CF Workers 1 MB) depends on a measured, guarded bundle.
@@ -295,9 +328,10 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** CI reports gzipped size per entry; PR fails on budget regression; a published "minimal edge bundle" number exists.
 - **Validation Steps:** Add a heavy import to core → CI size check fails; revert.
 
-### ☐ T013 · End-to-end build integration test for `@nextrush/dev`
-- **Domain:** Testing / Tooling · **Packages:** `@nextrush/dev` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
-- **Dependencies:** T004
+### ☑ T013 · End-to-end build integration test for `@nextrush/dev`
+- **Domain:** Testing / Tooling · **Packages:** `@nextrush/dev` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Dependencies:** T004 (☑, closed)
+- **Verified (2026-07-16):** `packages/dev/src/__tests__/build-e2e-integration.test.ts` spawns the real built `bin/nextrush.js build` (not an in-process function call) against `examples/dev-cli-fixture`, extended with an exported `HealthStatus` interface and `describeHealth()` function to exercise declaration emission. Asserts `dist/index.js` exists and is non-empty, `dist/index.ts` does NOT exist (extension-mapping regression guard), `dist/index.js.map` exists and parses as valid JSON, and `dist/index.d.ts` exists and contains `HealthStatus`/`describeHealth`/`ok: boolean`. Assertion strength independently confirmed by temporarily deleting each expected output file inside the test body — both caused the correct `existsSync` assertion to fail, then were reverted. `nextrush build` itself required zero implementation changes (manually verified via a direct `dist/` inspection outside the test harness: `index.js`/`index.js.map`/`index.d.ts`/`index.d.ts.map` all present and correct, ~600ms build time). Now wired into the Windows/macOS `dev-cli-cross-platform` CI job (T004) via a new `pnpm --filter @nextrush/dev test` step in `.github/workflows/ci.yml` — previously that job only ran manual bash smoke steps, never the vitest suite; the Linux `ci` job already ran it via `pnpm verify`. Full `@nextrush/dev` suite: 21 test files / 208 tests, all green, zero regressions. Delivered by `openspec/changes/fix-dev-loader-resolution-and-build-proof` (section 3), commit `7d67ffb`.
 - **Description:** Compile a fixture project via `nextrush build` and assert JS output + `.d.ts` + sourcemaps + correct extension mapping. Dev audit resolved the criticals but flagged a full e2e build test as still open.
 - **Why it matters:** The build pipeline's correctness (declarations, extensions) is the library-publishing contract.
 - **Risk if ignored:** A build regression ships packages with missing/incorrect `.d.ts` (H2 class of bug) undetected.
