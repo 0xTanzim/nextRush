@@ -58,37 +58,89 @@
 
 ## 2. T011 — New package `@nextrush/health`
 
-- [ ] 2.1 Scaffold `packages/middleware/health/` matching `packages/middleware/request-id/`'s
+- [x] 2.1 Scaffold `packages/middleware/health/` matching `packages/middleware/request-id/`'s
       file layout (`middleware.ts`, `types.ts`, `constants.ts`, `index.ts`,
       `src/__tests__/`, `package.json`, `README.md`) and package.json conventions (name
       `@nextrush/health`, same `exports`/`main` shape).
-- [ ] 2.2 RED: write failing tests asserting `/livez` returns `200` with no checks registered, and
+      Verified: created `package.json` (name `@nextrush/health`, identical `exports`/`main`/
+      `sideEffects: false` shape to request-id, only `dependencies`/`description`/`keywords`
+      differ), `tsconfig.json`, `tsconfig.build.json`, `tsup.config.ts` as byte-for-byte
+      structural copies of request-id's, adjusted only for package name/description.
+- [x] 2.2 RED: write failing tests asserting `/livez` returns `200` with no checks registered, and
       remains `200` even when a registered readiness check fails (per spec's liveness/readiness
       separation, D5).
-- [ ] 2.3 RED: write failing tests asserting `/readyz` returns `200` when all registered checks
-      pass, and `503` when any registered check fails or throws.
-- [ ] 2.4 RED: write a failing test asserting a check that never resolves still results in a
+      Verified: 3 tests written in `health.test.ts`'s `describe('livez', ...)` block (no-checks
+      200, failing-check-still-200, throwing-check-still-200).
+- [x] 2.3 RED: write failing tests asserting `/readyz` returns `200` when all checks pass, and
+      `503` when any check fails or throws.
+      Verified: 5 tests written in the `describe('readyz', ...)` block, including a
+      pass-through-to-`next()` test for unrelated paths (not explicitly requested by this
+      sub-task but required to prove the middleware doesn't swallow non-health routes).
+- [x] 2.4 RED: write a failing test asserting a check that never resolves still produces a
       bounded-time `503` response (timeout handling, per design.md's Risk mitigation) rather than
       an indefinite hang.
-- [ ] 2.5 RED: write a failing test asserting both sync (`() => boolean`) and async
+      Verified: `describe('check timeout', ...)` — registers a check returning
+      `new Promise<boolean>(() => {})` (never settles), asserts `503` and elapsed time
+      `< 1000ms` against a configured `checkTimeoutMs: 50`.
+- [x] 2.5 RED: write a failing test asserting both sync (`() => boolean`) and async
       (`() => Promise<boolean>`) check functions are supported (resolves design.md's Open
       Question — confirm the decision during this step, adjust the test accordingly if the
       decision lands on async-only instead).
-- [ ] 2.6 Verify RED: run all new tests, confirm they fail because the package doesn't exist yet.
-- [ ] 2.7 GREEN: implement the middleware, check registry, and the two endpoints per design.md
+      Verified: **decision — support both**, per design.md's own "lean toward supporting both"
+      steer and no strong reason found during implementation to narrow it. 3 tests in
+      `describe('sync and async checks', ...)`: sync-only, async-only, and a mixed sync+async
+      registration where the async one fails (confirms `Promise.all` over the check map handles
+      a heterogeneous mix correctly, not just a homogeneous one).
+- [x] 2.6 Verify RED: run all new tests, confirm they fail because the package doesn't exist yet.
+      Verified: `pnpm --filter @nextrush/health exec vitest run` failed with
+      `Cannot find module '../index'` / `ERR_MODULE_NOT_FOUND` — genuinely absent implementation,
+      not a test-setup mistake.
+- [x] 2.7 GREEN: implement the middleware, check registry, and the two endpoints per design.md
       D4-D5 and the spec's scenarios. Keep the file under this repo's 300-line ceiling per
       `code-structure.md` — split into the planned `middleware.ts`/`types.ts`/`constants.ts`
       files from the start rather than one large file.
-- [ ] 2.8 Verify GREEN: run all new tests — green. Confirm no test asserts on internals rather
+      Verified: `constants.ts` (66 lines), `types.ts` (103 lines), `middleware.ts` (159 lines
+      after the REFACTOR-step lint fix), `index.ts` (49 lines) — all well under the 300-line hard
+      cap. `middleware.ts` holds `runCheckWithTimeout` (the `Promise.race` timeout wrapper),
+      `runAllChecks` (concurrent check runner → name→pass map), and `health()` (the factory
+      returning `{ middleware, registerCheck }`). `/livez` never calls `runAllChecks` at all
+      (D5 — structurally enforced, not just tested).
+- [x] 2.8 Verify GREEN: run all new tests — green. Confirm no test asserts on internals rather
       than observable HTTP behavior, per this repo's TDD steering.
-- [ ] 2.9 Write `packages/middleware/health/README.md`, explicitly stating the default
+      Verified: 14/14 tests pass (12 behavioral + 2 in the new locked public-surface test).
+      Every behavioral assertion is on `ctx.status`, `ctx._json` (the mock's captured
+      `ctx.json()` argument), or `next()` call count/timing — no test reaches into `health()`'s
+      internal `Map` or calls `runCheckWithTimeout`/`runAllChecks` directly. `tsc --noEmit`
+      clean; `eslint` clean on all 4 src files after one fix (see 2.11 note).
+- [x] 2.9 Write `packages/middleware/health/README.md`, explicitly stating the default
       unauthenticated/cluster-internal security posture per design.md's Non-Goals and the spec's
       own security-disclosure scenario — do not leave this implicit.
-- [ ] 2.10 Add `@nextrush/health` to the root `README.md`'s middleware table, alongside the
+      Verified: dedicated "Security Posture — Read Before Deploying" section states the
+      unauthenticated-by-default posture explicitly, why it's intentional (matches Kubernetes
+      convention, auth would cause false-negative outages since orchestrator probes can't supply
+      credentials), the network-layer mitigation (NetworkPolicy / ingress-level restriction, not
+      app-level auth), what the response body does/doesn't leak (boolean per-check only, no
+      stack traces/connection strings), and the most likely misconfiguration (mounting behind an
+      auth middleware by mistake). Mid-task correction: an earlier draft of the "Integrating with
+      graceful shutdown" example referenced a fabricated `onDrainStart` callback that doesn't
+      exist on the real `GracefulShutdownOptions` (verified against
+      `packages/adapters/node/src/adapter.ts:103-115` via the graph) — caught before commit and
+      rewritten to use the actual, working manual-listener coordination pattern instead.
+- [x] 2.10 Add `@nextrush/health` to the root `README.md`'s middleware table, alongside the
       existing entries.
-- [ ] 2.11 REFACTOR: confirm the check-registry API is simple and consistent (one clear way to
+      Verified: one row added after `@nextrush/timer`; confirmed no duplicate via grep
+      (`grep '@nextrush/health' README.md` → exactly 1 match).
+- [x] 2.11 REFACTOR: confirm the check-registry API is simple and consistent (one clear way to
       register a check, one clear return contract), no speculative configurability beyond what
       the spec actually requires.
+      Verified: registry is a single `Map<string, CheckFn>` with exactly one write path —
+      `registerCheck(name, check)`. No `unregisterCheck`, no per-check timeout override, no
+      priority/tags/groups, no separate sync/async registration methods — matches design.md's
+      explicit Non-Goal ("not making checks async-queue-based... a simple array... run on each
+      `/readyz` request"). One real fix applied during this pass: `eslint`'s
+      `@typescript-eslint/no-confusing-void-expression` flagged the `setTimeout` callback in
+      `runCheckWithTimeout` (`() => resolve(false)` as an implicit-return arrow) — added explicit
+      braces; re-ran the full suite after the fix, still 14/14 green.
 
 ## 3. Cross-cutting
 

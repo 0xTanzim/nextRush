@@ -280,6 +280,7 @@ ctx.state; // Share data between middleware
 | `@nextrush/validation`  | Standard Schema request validation (Zod/Valibot/ArkType) |
 | `@nextrush/request-id`  | Request ID generation       |
 | `@nextrush/timer`       | Response time tracking      |
+| `@nextrush/health`      | Liveness/readiness endpoints for orchestrator probes |
 
 ### Extensions (install separately)
 
