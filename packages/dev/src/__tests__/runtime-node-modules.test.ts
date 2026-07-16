@@ -92,5 +92,44 @@ describe('Node Modules Loader Resolution', () => {
       const parsed = new URL(result);
       expect(parsed.protocol).toBe('file:');
     });
+
+    it('should resolve correctly when called from dist/cli.js (zero directories under dist/)', () => {
+      // tsup builds packages/dev with splitting: false, so resolveLoaderFromUrl's code
+      // is inlined separately into EVERY entry-point bundle, including dist/cli.js — the
+      // real CLI entry point bin/nextrush.js loads. At that call site, import.meta.url is
+      // dist/cli.js itself: zero directories under dist/, not one (unlike
+      // dist/runtime/node-modules.js, tested above). A resolution scheme anchored to an
+      // assumed calling-module depth breaks here; the fix must be depth-independent.
+      const cliDist = 'file:///home/u/pkg/dist/cli.js';
+      const result = resolveLoaderFromUrl(cliDist);
+
+      // Must be a valid file:// URL
+      expect(result).toMatch(/^file:\/\//);
+
+      // Must resolve to the real on-disk location: dist/loaders/swc-loader.mjs —
+      // never packages/dev/loaders/swc-loader.mjs (doesn't exist; the original bug).
+      expect(result).toContain('/dist/loaders/swc-loader.mjs');
+      expect(result).not.toMatch(/\/pkg\/loaders\/swc-loader\.mjs$/);
+
+      // Should be parseable as a valid URL
+      expect(() => {
+        new URL(result);
+      }).not.toThrow();
+    });
+
+    it('should resolve to the same absolute loader location regardless of calling-module depth under dist/', () => {
+      // The package root is the same on disk whether the resolving code is inlined into
+      // dist/cli.js (depth 0) or dist/runtime/node-modules.js (depth 1) — both must land
+      // on the identical dist/loaders/swc-loader.mjs file, proving resolution is anchored
+      // to the package root rather than to the caller's own directory depth.
+      const depthZero = 'file:///home/u/pkg/dist/cli.js';
+      const depthOne = 'file:///home/u/pkg/dist/runtime/node-modules.js';
+
+      const resultZero = resolveLoaderFromUrl(depthZero);
+      const resultOne = resolveLoaderFromUrl(depthOne);
+
+      expect(resultZero).toBe(resultOne);
+      expect(resultZero).toBe('file:///home/u/pkg/dist/loaders/swc-loader.mjs');
+    });
   });
 });

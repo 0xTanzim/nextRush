@@ -24,25 +24,69 @@ export const NODE_PROCESS = 'node:process';
 export const NODE_UTIL = 'node:util';
 export const NODE_OS = 'node:os';
 
+/** The `dist/` segment every build output lives under — the depth-independent anchor. */
+const DIST_SEGMENT = '/dist/';
+
+/** Path joined onto the resolved `dist/` root to locate the SWC loader. */
+const LOADER_RELATIVE_PATH = 'loaders/swc-loader.mjs';
+
+/**
+ * Find the `dist/` root of a `file://` URL — the URL truncated right after its first
+ * `/dist/` segment — regardless of how many directories deep under `dist/` the URL goes.
+ *
+ * Why this instead of a fixed relative climb (the original bug) or a real filesystem
+ * walk-up to `package.json`: `packages/dev`'s `tsup.config.ts` builds with
+ * `splitting: false`, so this module's code is inlined SEPARATELY into every one of the
+ * package's 14 entry-point bundles — including `dist/cli.js` (the real CLI entry point).
+ * Depending which bundle the caller ends up in, `import.meta.url` can be `dist/cli.js`
+ * itself (zero directories under `dist/`) or `dist/runtime/node-modules.js` (one
+ * directory under `dist/`). A hardcoded relative climb (`'../loaders/...'`) is only
+ * correct for one of those depths. Anchoring on the literal `/dist/` segment sidesteps
+ * the depth question entirely: the root is the same URL prefix regardless of which
+ * bundle called in, and — unlike a `package.json` filesystem walk — this stays a pure
+ * string/URL transform with no I/O, so it is testable with a synthetic `import.meta.url`
+ * that has no real file backing it on disk (exactly what this file's own test suite does).
+ *
+ * `import.meta.resolve('@nextrush/dev/package.json')` was considered instead (design.md
+ * D1) but rejected: `@nextrush/dev`'s `package.json` only declares an `exports["."]`
+ * entry, not a `./package.json` subpath export, so that call throws
+ * `ERR_PACKAGE_PATH_NOT_EXPORTED` even for a correctly workspace-linked install (verified
+ * directly against this repo's fixture before choosing this approach, per design.md's
+ * Open Question).
+ *
+ * @param fileUrlBase The `file://` URL to search (assumed to already contain `/dist/`
+ *   — callers check that via {@link resolveLoaderFromUrl}'s dev-mode branch first)
+ * @returns The `file://` URL of the `dist/` directory itself (trailing slash included)
+ */
+function findDistRoot(fileUrlBase: string): string {
+  const distIndex = fileUrlBase.indexOf(DIST_SEGMENT);
+  // Slice up to and including the trailing slash of "/dist/" so the result is a
+  // directory URL ready to have a relative path joined onto it.
+  return fileUrlBase.slice(0, distIndex + DIST_SEGMENT.length);
+}
+
 /**
  * Resolve the SWC loader path from a file URL base.
  *
  * Pure function for testability — factors out URL resolution logic.
  * Handles both posix and Windows file:// URLs correctly.
  *
+ * Resolution is anchored to the URL's `/dist/` segment (via {@link findDistRoot}), not to
+ * the calling module's own directory depth beneath it — see that function's doc comment
+ * for why a depth-relative climb is unsafe here.
+ *
  * @param fileUrlBase The URL of THIS file (import.meta.url)
  * @returns Either a file:// URL to the loader or the npm package fallback
  */
 export function resolveLoaderFromUrl(fileUrlBase: string): string {
   // Check if this is a dist location
-  if (!fileUrlBase.includes('/dist/')) {
+  if (!fileUrlBase.includes(DIST_SEGMENT)) {
     // Dev mode: fallback to npm package
     return '@swc-node/register/esm-register';
   }
 
-  // Resolve relative to the file URL using URL constructor
-  // This handles Windows paths correctly (file:///C:/...) without corruption
-  const loaderUrl = new URL('../loaders/swc-loader.mjs', fileUrlBase).href;
+  const distRoot = findDistRoot(fileUrlBase);
+  const loaderUrl = new URL(LOADER_RELATIVE_PATH, distRoot).href;
   return loaderUrl;
 }
 
