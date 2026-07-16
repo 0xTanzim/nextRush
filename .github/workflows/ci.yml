@@ -77,3 +77,69 @@ jobs:
 
       - name: Build, test, typecheck, lint
         run: pnpm verify
+
+  # T004 (close-phase0-ci-matrix-and-metadata-preflight): exercises `@nextrush/dev`'s `dev`
+  # and `build` CLI commands on Windows and macOS against a minimal fixture, so platform-
+  # specific regressions (path separators, line endings, process spawning) are caught before
+  # release. Scoped to the dev/build CLI fixture only — not the full monorepo suite (see
+  # design.md D4) — to bound CI cost and the blast radius of platform-runner flakiness.
+  dev-cli-cross-platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: examples/dev-cli-fixture
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Build the fixture's workspace dependencies (nextrush, @nextrush/dev)
+        working-directory: .
+        run: pnpm turbo run build --filter=dev-cli-fixture...
+
+      - name: nextrush build (produces expected output files)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node ../../packages/dev/bin/nextrush.js build
+          test -f dist/index.js
+
+      - name: nextrush dev (smoke test — starts, responds, shuts down cleanly)
+        shell: bash
+        env:
+          PORT: "8080"
+        run: |
+          set -euo pipefail
+          node ../../packages/dev/bin/nextrush.js dev &
+          DEV_PID=$!
+
+          cleanup() {
+            kill "$DEV_PID" 2>/dev/null || true
+            wait "$DEV_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          READY=""
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:${PORT}/" -o response.json; then
+              READY="1"
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -z "$READY" ]; then
+            echo "nextrush dev did not respond on port ${PORT} within 30s" >&2
+            exit 1
+          fi
+
+          grep -q '"ok":true' response.json
+
+          cleanup
+          trap - EXIT

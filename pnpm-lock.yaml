@@ -239,6 +239,19 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
 
+  examples/dev-cli-fixture:
+    dependencies:
+      nextrush:
+        specifier: workspace:*
+        version: link:../../packages/nextrush
+    devDependencies:
+      '@nextrush/dev':
+        specifier: workspace:*
+        version: link:../../packages/dev
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+
   examples/openapi-basic:
     dependencies:
       '@nextrush/body-parser':
