@@ -8,11 +8,12 @@
 > **Priority:** P0 (blocks a truthful production/stable claim) · P1 (required before stable v1.0) · P2 (important) · P3 (ecosystem/nice-to-have).
 > **Effort:** XS (<1d) · S (<1w) · M (1–3w) · L (1–2mo) · XL (2mo+). **Difficulty:** Easy/Medium/Hard/Expert. **Runtime Impact:** None/Low/Medium/High.
 >
-> **⚠️ Re-baselined 2026-07-15, updated 2026-07-16** (`openspec/changes/rebaseline-gap-checklist`,
-> `openspec/changes/repo-wide-surface-snapshots`). Phases 0–2 and T038 were individually
-> re-verified against real source/CI/docs — each carries a "Verified:" note citing what was
-> checked. T005 was closed on 2026-07-16 (all 35 publishable packages now carry a surface-lock
-> test). Phases 3–5 beyond T005/T038/T054/T032/T033/T059 spot-checks were **not** individually
+> **⚠️ Re-baselined 2026-07-15, updated 2026-07-16 (twice)** (`openspec/changes/rebaseline-gap-checklist`,
+> `openspec/changes/repo-wide-surface-snapshots`, `openspec/changes/remove-deprecated-shims`).
+> Phases 0–2 and T038 were individually re-verified against real source/CI/docs — each carries a
+> "Verified:" note citing what was checked. T005 and T053 were both closed on 2026-07-16 (all 35
+> publishable packages carry a surface-lock test; the two deprecated shim packages were removed).
+> Phases 3–5 beyond T005/T038/T053/T054/T032/T033/T059 spot-checks were **not** individually
 > re-checked in this pass — their glyphs are carried forward from the original audit and should
 > be treated as **unverified-but-plausible**, not freshly confirmed. Re-verify Phases 3–5 in a
 > future pass before trusting their status for planning. This note itself should be updated (with
@@ -34,11 +35,12 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 | **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
 | **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
 | **Developer Experience** | "TypeInfo not known" metadata footgun; leaked/namespaced APIs; four-package install friction; docs depth — **not re-verified this pass, carried forward** | T008, T015, T037, T058 |
-| **v1.0 stable tag** | Public surface now frozen across all 35 published packages (T005 ☑); version/compatibility policy published (T007 ☑); deprecated shims still shipping, now genuinely unblocked for removal (T053); single maintainer | T053, T059, T060 |
+| **v1.0 stable tag** | Public surface frozen across all 35 published packages (T005 ☑); version/compatibility policy published (T007 ☑); deprecated shims removed (T053 ☑); single maintainer | T059, T060 |
 
-**Bottom line:** Edge + Serverless (Phase 2 + T038) are now credibly closed, and T005 (repo-wide
-surface snapshots) closed 2026-07-16. The remaining critical path to v1.0 is T053 (shim removal)
-and T060 itself (the freeze sign-off) — both genuinely unblocked now, not gated on a chain.
+**Bottom line:** Edge + Serverless (Phase 2 + T038) are now credibly closed. T005 (repo-wide
+surface snapshots) closed 2026-07-16, and T053 (deprecated shim removal) closed the same day. The
+`T005 → T053 → T060` chain now has only T060 itself remaining — the final v1.0 freeze sign-off,
+gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
 
 ---
 
@@ -51,8 +53,8 @@ and T060 itself (the freeze sign-off) — both genuinely unblocked now, not gate
 | Phase 2 | Edge Runtime | 6 | 1 | 2 | 3 | 50–83%* |
 | Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% (not re-verified — spot-checks: T032, T033 confirmed still open) |
 | Phase 4 | Ecosystem | 15 | 14 | 0 | 1 | 6.7% (T038 confirmed ☑; remainder not re-verified) |
-| Phase 5 | v1 Stable | 13 | 12 | 0 | 1 | 7.7% (T054 spot-checked plausible ☑; remainder not re-verified) |
-| **Total** | | **64** | **51** | **2** | **11** | **~17.2%** |
+| Phase 5 | v1 Stable | 13 | 11 | 0 | 2 | 15.4% (T053 verified ☑ this pass; T054 spot-checked plausible ☑; remainder not re-verified) |
+| **Total** | | **64** | **50** | **2** | **12** | **~18.75%** |
 
 *Phase 2: 50% by strict ☑ count (3/6), 83% counting ◐ as substantially done — see the phase's own
 "Verified:" notes for exactly what's delivered vs. remaining per task.
@@ -71,7 +73,7 @@ estimates themselves):** P0 = 6 · P1 = 19 · P2 = 24 · P3 = 15.
 | P1 count | **19** |
 | P2 count | **24** |
 | P3 count | **15** |
-| Estimated engineering-months (to v1.0 = Phase 0–2 + release) | **≈ 4–6** remaining (revised down from 6–8: Phase 2 + T038 are largely closed; the bulk of remaining critical-path work is T005 repo-wide + Phase 0/1 P0 items) |
+| Estimated engineering-months (to v1.0 = Phase 0–2 + release) | **≈ 4–6** remaining (revised down from 6–8: Phase 2 + T038 are largely closed, T005/T053 are now closed; the bulk of remaining critical-path work is T060's own gate + Phase 0/1 P0 items) |
 | Estimated engineering-months (full backlog incl. Phase 3–4) | **≈ 14–20** remaining (revised down proportionally; Phase 3–4 estimates not independently re-verified this pass) |
 | Breaking changes | **4** primary (T032, T033, T050, T053) + 2 conditional (T055, T002) — unchanged, not re-verified |
 | New packages | **15** remaining (was 16 — `@nextrush/adapter-serverless` now shipped, removed from the pending list): health, otel, metrics, auth, jwt, session, config, cache, redis, websocket-edge, queue, cron, webhooks, graphql, rpc |
@@ -99,7 +101,7 @@ T003 (multi-runtime CI matrix) ─┬─► T019 (edge proven) ─► T021 (depl
                                 ├─► T004 (Win/macOS CI)  ─► T013 (build integ test)
                                 └─► T018 (perf gate) / T017 (class-path bench)
 
-T005 (repo-wide surface snapshots) ─► T053 (shim removal) ─► T060 (v1.0 freeze gate)  [T005 ☑ — this leg's first link CLOSED; T053/T060 remain, now genuinely unblocked]
+T005 (repo-wide surface snapshots) ─► T053 (shim removal) ─► T060 (v1.0 freeze gate)  [T005 ☑, T053 ☑ — both links CLOSED; only T060 itself remains]
 T007 (version/support policy) ──────────────────────────────► T060  [T007 ☑ — this leg CLOSED]
 
 T026 (context-propagation ADR: ALS vs explicit) ─┬─► T025 (OTel) ─► T027 (metrics)
@@ -118,14 +120,17 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 scope only — edge scope done), T015, T016, T020 (residual explicit-assertion scope only), T035,
 T043, T044, T046, T047, T057, T061, T062.
 
-**Blocked until their dep lands:** T053/T060 (→T005 — now unblocked, T005 ☑), T025/T027/T028 (→T026),
-T029/T031 (→T030), T040/T041/T031-store (→T039), T036 (→T029,T031,T032).
+**Blocked until their dep lands:** T025/T027/T028 (→T026),
+T029/T031 (→T030), T040/T041/T031-store (→T039), T036 (→T029,T031,T032). ~~T053/T060 (→T005)~~ —
+resolved, T005/T053 both ☑; only T060 itself (the final freeze sign-off) remains on that chain,
+gated on all P0 + Phase 0-2 P1 items, not just this one leg.
 
-**Critical path to v1.0 (revised 2026-07-16):** `T003 → T019 → T021` is **closed**. `T007 → T060` is
-**closed**. `T005` is now **closed** — the remaining critical-path work is T053 (remove the
-deprecated shim packages, gated on a codemod + migration guide, itself now genuinely unblocked)
-and T060 itself (the final freeze sign-off, gated on all P0 + Phase 0–2 P1 items, not just the
-three chains above).
+**Critical path to v1.0 (revised 2026-07-16):** `T003 → T019 → T021` is **closed**. `T007 → T060`
+is **closed**. `T005 → T053 → T060` is now **closed except for T060 itself** — both prerequisite
+legs (repo-wide surface snapshots, deprecated shim removal) are done. What remains for v1.0 is
+T060's own gate (the final freeze sign-off, which checks all P0 + Phase 0-2 P1 items, not just
+these three chains) and the Phase 0/1 P0 items that don't block anything downstream but are
+required for T060's own acceptance criteria.
 
 ---
 
@@ -655,9 +660,10 @@ three chains above).
 
 ## Tasks
 
-### ☐ T053 · Remove deprecated shim packages
-- **Domain:** Package Ecosystem · **Packages:** `@nextrush/controllers`, `@nextrush/decorators` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** Yes · **Status:** □ Not Started
-- **Dependencies:** T005, T007
+### ☑ T053 · Remove deprecated shim packages
+- **Domain:** Package Ecosystem · **Packages:** `@nextrush/controllers`, `@nextrush/decorators` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** Yes · **Status:** ☑ Completed
+- **Verified (2026-07-16):** Both packages deleted from the workspace (`openspec/changes/archive/*-remove-deprecated-shims/`). A repo-wide grep sweep before removal found zero internal import-statement consumers, but a `pnpm install` run *after* deletion caught a real gap the import-only sweep missed: `apps/playground` and `packages/nextrush` both still declared the two packages as dead `package.json` dependencies (zero actual imports, just unused entries) — fixed both, plus `.changeset/config.json`'s `fixed` version group, which explicitly listed both names. The docs sweep also caught a real logic bug (not just stale text) in `apps/docs/scripts/verify/reference-match.ts`'s package-inference function, which would have resolved `decorators.mdx`/`controllers.mdx` to the now-deleted packages — fixed with an explicit `@nextrush/class` mapping. 6 live JSDoc `@example` blocks in `packages/class/src` (IDE-hover-visible, not historical) and 10 current-tense wiki/skill doc examples were also fixed, since they were genuinely broken instructions, not historical record. `docs/RFC/*`, `CHANGELOG.md` entries, and blog posts correctly left untouched as historical record. Migration path (already-existing `nextrush codemod consolidate-imports` + rewritten `deprecations.mdx`) ships as the outward-facing mitigation for any external consumer. Cache-bypassed `turbo run typecheck --force`: 58/58 green. Cache-bypassed `turbo run test --force`: 72/74 green, the 2 failures being the same pre-existing `@nextrush/class`/`@nextrush/di` circular-dependency timeout flake already logged against T005, confirmed unrelated. Changeset added (`major` bump on `nextrush` and `@nextrush/class`).
+- **Dependencies:** T005 ☑, T007 ☑
 - **Description:** Remove the single-file re-export shims per the ADR-0005 window; ship the `consolidate-imports` codemod + migration guide. They currently still publish as first-class packages (production-readiness H2).
 - **Why it matters:** Publishing them at 1.0 commits to carrying them forever; the triple-export drift persists while they exist (strategic).
 - **Risk if ignored:** Permanent maintenance burden + import ambiguity.
