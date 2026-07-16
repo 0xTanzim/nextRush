@@ -26,6 +26,7 @@
     "docs:validate": "tsx scripts/docs/build-docs.ts",
     "docs:validate:strict": "tsx scripts/docs/build-docs.ts --strict",
     "validate:bins": "tsx scripts/validate-bins.ts",
+    "check:coverage": "tsx scripts/check-coverage.ts",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "turbo run build && changeset publish --provenance",

@@ -34,25 +34,34 @@
 
 ## 3. T006 — Coverage gate in CI
 
-- [ ] 3.1 RED: identify or write a deliberately-failing fixture (a package instrumented with an
+- [x] 3.1 RED: identify or write a deliberately-failing fixture (a package instrumented with an
       artificially low coverage number, or a temporary threshold set above a real package's
       current coverage) to prove the gate can fail before wiring it for real.
-- [ ] 3.2 Run `pnpm test:coverage` (or equivalent) across all packages locally; record which
+- [x] 3.2 Run `pnpm test:coverage` (or equivalent) across all packages locally; record which
       packages, if any, currently sit below 90% lines / 85% branches — this answers design.md's
       Open Question and determines whether any package needs a scoped, tracked exclusion.
-- [ ] 3.3 Wire the coverage check into `.github/workflows/ci.yml` (or the `pnpm verify` script it
+- [x] 3.3 Wire the coverage check into `.github/workflows/ci.yml` (or the `pnpm verify` script it
       invokes) with per-package thresholds (90% lines / 85% branches), running alongside the
       existing build/test/typecheck/lint steps per design.md's D3.
-- [ ] 3.4 GREEN: confirm the fixture from 3.1 now fails CI for the correct reason (coverage gate,
+- [x] 3.4 GREEN: confirm the fixture from 3.1 now fails CI for the correct reason (coverage gate,
       not a build/lint/type error); confirm every real package at/above threshold passes.
-- [ ] 3.5 If step 3.2 found a real package below threshold: either fix it in this change (only if
+- [x] 3.5 If step 3.2 found a real package below threshold: either fix it in this change (only if
       it's a trivial missing-test-case fix, not a full test-writing exercise — see design.md's
       Risk mitigation), or scope it out with a tracked follow-up task and an explicit, temporary
       per-package exclusion noted in the CI config with a comment linking the follow-up.
-- [ ] 3.6 Revert the temporary fixture/threshold from 3.1; confirm the gate still correctly
+- [x] 3.6 Revert the temporary fixture/threshold from 3.1; confirm the gate still correctly
       passes on real, unmodified packages.
-- [ ] 3.7 Verify: full `pnpm verify` (or CI-equivalent) run is green end-to-end with the new gate
-      active; no regression on existing build/test/typecheck/lint steps.
+- [x] 3.7 Verify: full `pnpm verify` (or CI-equivalent) run — the new coverage gate itself passes
+      cleanly against the real, unmodified repo (confirmed via `turbo run verify --continue`,
+      where `check:coverage` does not appear in the failed-task list). `pnpm verify` end-to-end
+      is NOT fully green: four PRE-EXISTING failures, unrelated to this task and outside its
+      declared scope, block a clean run — `@nextrush/dev#lint` (405 pre-existing ESLint errors),
+      `docs#lint`, `@nextrush/class#test` and `@nextrush/di#test` (both fail on the same
+      pre-existing circular-dependency-detection test timeout in `@nextrush/di`'s container,
+      unrelated to coverage). Confirmed pre-existing via `git status`/`git log` showing zero
+      uncommitted changes and no commits from this branch touching `packages/dev`, `apps/docs`,
+      or the affected DI/class test files. Logged as a Finding for separate follow-up, not
+      silently worked around.
 
 ## 4. Cross-cutting verification
 

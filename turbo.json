@@ -53,8 +53,13 @@
       "outputs": [],
       "cache": false
     },
+    "check:coverage": {
+      "outputs": [],
+      "cache": false,
+      "dependsOn": ["build"]
+    },
     "verify": {
-      "dependsOn": ["build", "test", "typecheck", "lint", "validate:bins"],
+      "dependsOn": ["build", "test", "typecheck", "lint", "validate:bins", "check:coverage"],
       "outputs": []
     },
     "clean": {
