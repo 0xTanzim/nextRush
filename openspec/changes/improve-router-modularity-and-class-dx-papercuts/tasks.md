@@ -280,15 +280,91 @@
 
 ## 4. Cross-cutting
 
-- [ ] 4.1 Run the full repo `pnpm verify` with all three tasks' changes applied together —
+- [x] 4.1 Run the full repo `pnpm verify` with all three tasks' changes applied together —
       confirm no interaction effect (e.g. T014's file split changing something T016's
       implementation depends on).
-- [ ] 4.2 Confirm no file outside this change's declared scope (per proposal.md's Impact section)
+      **Verified — found and fixed one real, new regression before confirming clean.**
+      `pnpm exec turbo run verify --continue` initially returned 5 failures, not the documented
+      4: the known pre-existing set (`@nextrush/di#test`, `@nextrush/class#test`,
+      `@nextrush/dev#lint`, `docs#lint`) plus a genuinely new `@nextrush/router#lint` error at
+      `router.ts:250` (`@typescript-eslint/no-confusing-void-expression` on `redirect()`'s
+      injected-callback arrow, `(method, path, entries) => this.addRoute(...)` — an
+      arrow-shorthand body whose sole statement is a void-returning call). Confirmed via
+      `git show add-graceful-shutdown-and-health-package:packages/router/src/router.ts` that
+      `redirect()` called `addRoute()` as a plain statement pre-T014, never through an arrow
+      callback — this pattern only exists because of T014's own extraction (task 1.3's
+      `redirect()`-into-`registration.ts` split), making it a real interaction effect this
+      sub-task exists to catch, not a pre-existing issue. Fixed with a minimal, mechanical brace
+      wrap (zero behavior change — verified via `@nextrush/router`'s full suite staying 212/212
+      and `tsc --noEmit` clean before and after) in its own commit (`ce8c779`), separate from
+      T014-T016's own commits. Re-ran the full repo verify after the fix: exactly the 4
+      documented pre-existing failures remain, confirmed byte-identical by test name/assertion/
+      timeout duration against what T015's and T016's own sessions already documented — in
+      particular, `@nextrush/class#test`'s failure is
+      `registrar.test.ts > registerControllers() > eager DI validation > surfaces @nextrush/di
+      CircularDependencyError as-is (not the generic wrapper)`, a 10000ms timeout on
+      `container.register(CycleA, { useClass: CycleA })` — the exact same test name, fixture, and
+      timeout duration cited by both prior sessions, not a new or different class-package
+      failure. No other interaction effect between T014/T015/T016 found.
+- [x] 4.2 Confirm no file outside this change's declared scope (per proposal.md's Impact section)
       was modified.
-- [ ] 4.3 Add changesets: `@nextrush/router` (patch — internal split, verified non-breaking via
+      **Verified.** Merge-base `1f5143e` (confirmed via `git merge-base HEAD
+      add-graceful-shutdown-and-health-package`, matching the commit that closed Phase 1 in the
+      gap checklist). `git diff --stat 1f5143e..HEAD` touches 22 files (before this task group's
+      own lint-fix/changeset/gap-checklist commits, which add 4 more, all within this same
+      change's own bookkeeping scope). Every file traces to a documented, in-scope rationale:
+      the three files proposal.md names explicitly (`router.ts`, `param-resolver.ts`,
+      `routes.ts`); design.md's D1-D3 extraction modules (`matching.ts`, `match-route.ts`,
+      `composition.ts`, `middleware-adapter.ts`, `registration.ts`); files covered by proposal's
+      own catch-all ("any router-level code that currently assumes one route registration per
+      HTTP method for `@All`") — `group-router.ts` (a second `.all()` call site found only
+      during 3.2's implementation) and `errors.ts`/`route-types.ts`/`metadata-keys.ts` (T015's
+      `MissingParameterError` extension, T016's `'ALL'` sentinel widening); and
+      `@nextrush/openapi`'s `generate.ts` + test, which is not named in proposal.md's Impact
+      *bullet list* but is explicitly pre-authorized by the Impact *section's own prose* and
+      design.md's Risk mitigation ("if a real consumer depends on the 7-row shape, that consumer
+      needs updating in the same change, not left broken") — exactly the contingency task 3.1
+      triggered by finding a real consumer. `public-surface.test.ts` shows zero diff, confirming
+      "verify unchanged" rather than "edited." No file outside this accounting was touched.
+- [x] 4.3 Add changesets: `@nextrush/router` (patch — internal split, verified non-breaking via
       surface snapshot) and `@nextrush/class` (patch for T015's error-message improvement; note
       whether T016's introspection-output change warrants a different bump level than patch,
       per semver conventions for an observable-but-non-API behavior change — decide during
       implementation based on this repo's existing precedent for similar changes).
-- [ ] 4.4 Update `docs/audits/03-gap-checklist.md`: mark T014, T015, T016 ☑ with Verified: notes
+      **Verified — patch for both, plus a third changeset for the real openapi consumer fix not
+      named in this sub-task's own text.** `.changeset/split-router-and-class-dx-papercuts.md`
+      (`@nextrush/router` + `@nextrush/class`, both patch) covers T014-T016's router/class-side
+      changes. A separate `.changeset/fix-openapi-any-method-expansion.md` (`@nextrush/openapi`,
+      patch) covers T016's real consumer-side correctness fix — added because `@nextrush/openapi`
+      has genuine user-facing behavior change and is not in `.changeset/config.json`'s `fixed`
+      version group (unlike `@nextrush/router`, which is), so it needed its own entry to be
+      released correctly. **Bump-level decision for T016, per this sub-task's own instruction to
+      check precedent first:** patch, not minor — grounded in `packages/errors/CHANGELOG.md`
+      3.1.0's existing precedent (a `errorHandler()` fix for `ValidationError.issues` being
+      silently dropped from an existing method's output, classified patch, with the stated
+      reasoning "the shape for existing... usage is unchanged"). T016 is the same class of
+      change: an existing method's (`getRoutes()`) output changing for one already-possible
+      input shape (an `@All()` route) because the old output was arguably incorrect/inconsistent,
+      not a new capability being added. Contrasted against `packages/router/CHANGELOG.md`
+      3.1.0's *minor* bump for `getRoutes()` itself — that precedent doesn't apply here because
+      introducing the method was a brand-new capability, which is categorically different from
+      changing what an existing method already returns. `pnpm exec changeset status --verbose`
+      confirms all three changesets parse correctly and are picked up by the tooling.
+- [x] 4.4 Update `docs/audits/03-gap-checklist.md`: mark T014, T015, T016 ☑ with Verified: notes
       citing this change's commits; recompute the Progress Dashboard's Phase 1 row and Total row.
+      **Verified.** T014/T015/T016 each carry a new "Verified (2026-07-17):" note citing this
+      branch's real commit hashes (`71c2dc4`, `38d475e`, `069de37`) and re-derived evidence, not
+      the source sessions' self-reports — including an honest correction that T014's own
+      473-line figure (accurate as of its own commit) is stale at final HEAD, where `router.ts`
+      is 525 lines (T016 layered more code onto the same file afterward), still the sole file
+      over the 300-line cap. Phase 1's dashboard row recomputed from its actual 9 task bodies
+      (T010-T018): 7 ☑ / 2 □ (T017/T018 remain genuinely open) = 77.8%, replacing a stale
+      "9/100%" that already contradicted its own section's body glyphs before this task group
+      started. Total row recomputed from an exact count across all 64 task bodies in the
+      document (42 □ / 1 ◐ / 21 ☑ = 32.8%), which also corrects a second, unrelated pre-existing
+      discrepancy: the prior Total's "2 ◐" never matched the document body (only one task, T020,
+      has ever been ◐) — flagging, not silently fixing, that Phase 2's own row has the same kind
+      of pre-existing mismatch (states "1|2|3" against T019-T024's actual 1□/1◐/4☑), which is
+      outside this sub-task's declared scope (Phase 1 + Total only) and wasn't independently
+      re-verified. No original task description was rewritten anywhere — confirmed via `git
+      diff` showing only the intended status-glyph and dashboard-row lines changed.
