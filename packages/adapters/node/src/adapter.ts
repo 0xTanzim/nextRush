@@ -67,7 +67,55 @@ export interface ServeOptions {
    * @default 30000 (30 seconds)
    */
   shutdownTimeout?: number;
+
+  /**
+   * Opt-in: wire OS termination signals to the server's existing connection-drain
+   * `close()` logic. When omitted (the default), NO signal handler is installed and
+   * process behavior is unchanged — this is a deliberate opt-in, not an auto-installed
+   * global side effect (see `docs/RFC`'s graceful-shutdown design notes, decision D3).
+   *
+   * - `true` — install handlers for the default signal set (`SIGTERM`, `SIGINT`),
+   *   using {@link ServeOptions.shutdownTimeout} as the drain timeout.
+   * - `{ signals, timeout }` — override the signal set and/or the drain timeout for the
+   *   signal-triggered path specifically. `timeout` falls back to `shutdownTimeout` when
+   *   omitted; there is one timeout concept, not two competing ones.
+   *
+   * The handler simply invokes the same `close()` this function already returns — it
+   * does not duplicate the drain logic. It is removed once that `close()` completes, so
+   * repeated `serve()`/`close()` cycles in one process (e.g. in tests) never accumulate
+   * duplicate listeners.
+   *
+   * @remarks
+   * Registering a signal handler changes Node's default behavior for that signal
+   * (default: immediate process exit). If your own code also listens for the same
+   * signal, coordinate directly rather than enabling this option — do not rely on both.
+   * `SIGKILL` is deliberately not supported: it cannot be caught, so listing it would be
+   * misleading.
+   *
+   * @default undefined (no signal handler installed)
+   */
+  gracefulShutdown?: boolean | GracefulShutdownOptions;
 }
+
+/**
+ * Explicit override shape for {@link ServeOptions.gracefulShutdown}.
+ */
+export interface GracefulShutdownOptions {
+  /**
+   * Signals that trigger the drain-and-exit sequence.
+   * @default ['SIGTERM', 'SIGINT']
+   */
+  signals?: readonly NodeJS.Signals[];
+
+  /**
+   * Drain timeout in milliseconds for the signal-triggered path. Falls back to
+   * {@link ServeOptions.shutdownTimeout} when omitted.
+   */
+  timeout?: number;
+}
+
+/** Default signal set for {@link ServeOptions.gracefulShutdown} when `true`. */
+const DEFAULT_GRACEFUL_SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
 
 /**
  * Server instance returned by serve()
@@ -138,6 +186,83 @@ export function createHandler(
 }
 
 /**
+ * The ONE connection-drain implementation: stop accepting new connections, force-close
+ * if they don't drain within `shutdownTimeout`, then destroy app extensions. Both the
+ * manually-called `close()` and the signal-triggered path (via
+ * {@link buildCloseWithGracefulShutdown}) invoke this exact function — there is
+ * deliberately no second drain implementation for the signal path (T010 1.8).
+ */
+async function drainAndClose(server: Server, app: Application, shutdownTimeout: number): Promise<void> {
+  // 1. Stop accepting new connections with drain timeout
+  await new Promise<void>((res) => {
+    const forceTimer = setTimeout(() => {
+      // Force-close if connections don't drain in time
+      server.closeAllConnections();
+      res();
+    }, shutdownTimeout);
+
+    server.close(() => {
+      clearTimeout(forceTimer);
+      res();
+    });
+  });
+  // 2. Destroy extensions after server is fully drained
+  await app.close();
+}
+
+/**
+ * Build the `close()` returned by {@link serve}, optionally wiring OS signals to invoke
+ * it per {@link ServeOptions.gracefulShutdown} (design.md D1-D3).
+ *
+ * When `gracefulShutdown` is omitted/falsy, this is a no-op wrapper: no signal handler
+ * is installed, and `close()` behaves exactly as it did before this option existed.
+ *
+ * When truthy, a signal handler is registered for each configured signal; each handler
+ * calls this SAME `drainAndClose`, then all of this call's handlers are removed —
+ * whether shutdown was triggered by a signal or by the caller invoking `close()`
+ * directly — so repeated `serve()`/`close()` cycles in one process never accumulate
+ * duplicate listeners (T010 1.3).
+ */
+function buildCloseWithGracefulShutdown(params: {
+  server: Server;
+  app: Application;
+  shutdownTimeout: number;
+  gracefulShutdown: ServeOptions['gracefulShutdown'];
+}): () => Promise<void> {
+  const { server, app, shutdownTimeout, gracefulShutdown } = params;
+
+  if (!gracefulShutdown) {
+    return () => drainAndClose(server, app, shutdownTimeout);
+  }
+
+  const config = gracefulShutdown === true ? {} : gracefulShutdown;
+  const signals = config.signals ?? DEFAULT_GRACEFUL_SHUTDOWN_SIGNALS;
+  const effectiveTimeout = config.timeout ?? shutdownTimeout;
+
+  let drainPromise: Promise<void> | undefined;
+  const removeSignalHandlers = (): void => {
+    for (const signal of signals) {
+      process.removeListener(signal, onSignal);
+    }
+  };
+
+  const onSignal = (): void => {
+    void runClose();
+  };
+
+  const runClose = (): Promise<void> => {
+    drainPromise ??= drainAndClose(server, app, effectiveTimeout).finally(removeSignalHandlers);
+    return drainPromise;
+  };
+
+  for (const signal of signals) {
+    process.once(signal, onSignal);
+  }
+
+  return runClose;
+}
+
+/**
  * Start HTTP server for Application
  *
  * @param app - NextRush Application instance
@@ -169,6 +294,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     timeout = DEFAULT_TIMEOUT_MS,
     keepAliveTimeout = DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
     shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
+    gracefulShutdown,
   } = options;
 
   const host = options.host ?? '0.0.0.0';
@@ -223,23 +349,12 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
         port: actualPort,
         host: actualHost,
         address: () => info,
-        close: async () => {
-          // 1. Stop accepting new connections with drain timeout
-          await new Promise<void>((res) => {
-            const forceTimer = setTimeout(() => {
-              // Force-close if connections don't drain in time
-              server.closeAllConnections();
-              res();
-            }, shutdownTimeout);
-
-            server.close(() => {
-              clearTimeout(forceTimer);
-              res();
-            });
-          });
-          // 2. Destroy extensions after server is fully drained
-          await app.close();
-        },
+        close: buildCloseWithGracefulShutdown({
+          server,
+          app,
+          shutdownTimeout,
+          gracefulShutdown,
+        }),
       });
     });
   });

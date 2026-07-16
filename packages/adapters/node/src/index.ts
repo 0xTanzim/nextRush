@@ -10,7 +10,7 @@
 
 // Adapter
 export { createHandler, listen, serve } from './adapter';
-export type { ServeOptions, ServerInstance } from './adapter';
+export type { GracefulShutdownOptions, ServeOptions, ServerInstance } from './adapter';
 
 // Context
 export { HttpError } from '@nextrush/errors';

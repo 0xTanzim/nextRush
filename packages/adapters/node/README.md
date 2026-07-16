@@ -54,6 +54,7 @@ function serve(app: Application, options?: ServeOptions): Promise<ServerInstance
 | `timeout`          | `number`                                         | `30000`      | Request timeout in milliseconds                 |
 | `keepAliveTimeout` | `number`                                         | `5000`       | Keep-alive timeout in milliseconds              |
 | `shutdownTimeout`  | `number`                                         | `30000`      | Graceful shutdown timeout in milliseconds       |
+| `gracefulShutdown` | `boolean \| GracefulShutdownOptions`             | —            | Opt-in: wire `SIGTERM`/`SIGINT` to the connection-drain `close()` logic — see [Graceful Shutdown](#graceful-shutdown) |
 | `onListen`         | `(info: { port: number; host: string }) => void` | —            | Callback when server starts listening           |
 | `onError`          | `(error: Error) => void`                         | —            | Custom error handler for uncaught server errors |
 | `logger`           | `Logger`                                         | `app.logger` | Logger for adapter diagnostics                  |
@@ -116,6 +117,35 @@ server.listen(443);
 
 `ServerInstance.close()` stops accepting new connections, waits for in-flight requests to drain (up to `shutdownTimeout`), then calls `app.close()` for extension teardown.
 
+### Signal-wired (recommended)
+
+Pass `gracefulShutdown: true` to wire `SIGTERM`/`SIGINT` directly to that same drain logic — the exact signals every orchestrator (Kubernetes, PM2, systemd, Docker) sends for a graceful stop:
+
+```typescript
+const server = await serve(app, {
+  port: 8080,
+  gracefulShutdown: true, // installs SIGTERM + SIGINT handlers
+});
+```
+
+Override the signal set and/or the drain timeout:
+
+```typescript
+const server = await serve(app, {
+  port: 8080,
+  gracefulShutdown: {
+    signals: ['SIGTERM'], // only SIGTERM, not SIGINT
+    timeout: 5_000, // falls back to shutdownTimeout when omitted
+  },
+});
+```
+
+`gracefulShutdown` is opt-in — omitting it installs no signal handler at all, and process behavior is unchanged from before this option existed. Enabling it changes Node's default behavior for the configured signal(s) (default: immediate process exit); if your own code also listens for the same signal, coordinate directly rather than enabling both. `SIGKILL` is not supported — it cannot be caught by design. The handler is removed once shutdown completes, so repeated `serve()`/`close()` cycles in one process (e.g. in tests) never accumulate duplicate listeners.
+
+### Manual
+
+For custom coordination (e.g. your own signal handling, or a non-signal shutdown trigger), call `close()` directly instead:
+
 ```typescript
 const server = await serve(app, { port: 8080 });
 
@@ -151,6 +181,7 @@ import {
   createHandler,
   type ServeOptions,
   type ServerInstance,
+  type GracefulShutdownOptions,
 
   // Context
   NodeContext,

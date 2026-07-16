@@ -9,7 +9,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as adapterNodeApi from '../index';
 import type { Application } from '../index';
 import type { BodySource, Context, HttpMethod, Middleware, Runtime } from '../index';
-import type { NodeContextOptions, ServeOptions, ServerInstance } from '../index';
+import type { NodeContextOptions, ServeOptions, ServerInstance, GracefulShutdownOptions } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
   it('exports exactly the intended runtime symbols', () => {
@@ -53,6 +53,7 @@ describe('Public API surface (type-only exports)', () => {
     // this file to type-check.
     type Surface = [
       ServeOptions,
+      GracefulShutdownOptions,
       ServerInstance,
       NodeContextOptions,
       Application,
