@@ -144,15 +144,48 @@
 
 ## 3. Cross-cutting
 
-- [ ] 3.1 (Optional integration, per design.md D4) Add a documented example in
+- [x] 3.1 (Optional integration, per design.md D4) Add a documented example in
       `@nextrush/health`'s README showing how to register a "draining" check that reads a shared
       flag set by `gracefulShutdown`'s signal handler — demonstrate the integration without
       creating a hard code dependency between the two packages.
-- [ ] 3.2 Run the full repo `pnpm verify` — confirm no regression.
-- [ ] 3.3 Add changesets: `@nextrush/adapter-node` (minor — new optional field, additive) and
+      Verified: already present from task group 2 (commit `b281669`) — the README's
+      "Integrating with graceful shutdown" section demonstrates a shared `isDraining` boolean
+      flag set by the user's own `process.on('SIGTERM'/'SIGINT', ...)` listeners (run alongside,
+      not instead of, `gracefulShutdown`'s own handler), read by a `registerCheck('draining', ...)`
+      call. No import of one package's internals by the other — confirmed via `grep -rn
+      "@nextrush/adapter-node" packages/middleware/health/src` (no matches) and `grep -rn
+      "@nextrush/health" packages/adapters/node/src` (no matches). Correctly notes that
+      `gracefulShutdown` has no `onDrainStart` callback today (verified against
+      `packages/adapters/node/src/adapter.ts`'s actual `GracefulShutdownOptions` shape — no such
+      field exists), so the example uses the working manual-listener pattern rather than a
+      fabricated API. Confirmed correct as-is; not duplicated.
+- [x] 3.2 Run the full repo `pnpm verify` — confirm no regression.
+      Verified: `pnpm exec turbo run verify --continue` → `129 successful, 4 failed, 133 total`.
+      All 4 failures are the pre-existing, previously-confirmed set: `@nextrush/di#test` and
+      `@nextrush/class#test` (both time out on the same `CircularDependencyError`-detection test
+      — `container.errors.test.ts`'s "should detect direct circular dependency with clear error"
+      and registrar.test.ts's "surfaces @nextrush/di CircularDependencyError as-is", each hitting
+      their vitest timeout at ~44-50s), `@nextrush/dev#lint` (pre-existing ESLint errors),
+      `docs#lint` (pre-existing, `apps/docs` untouched). Cross-checked via `git diff --stat
+      c31ccd2..HEAD -- packages/di packages/class apps/docs` — empty output, confirming this
+      branch touches none of those three paths, so all 4 failures are structurally guaranteed
+      pre-existing, not caused by this change. `@nextrush/adapter-node` and `@nextrush/health`
+      both built/tested/linted successfully with zero failures. No other package failed — no
+      regression introduced by this change.
+- [x] 3.3 Add changesets: `@nextrush/adapter-node` (minor — new optional field, additive) and
       `@nextrush/health` (this is a new package's first release — check this repo's convention
       for a brand-new package's initial changeset, e.g. how `@nextrush/adapter-serverless` was
       introduced, and match it).
-- [ ] 3.4 Update `docs/audits/03-gap-checklist.md`: mark T010 and T011 ☑ with Verified: notes
+      Verified: added `.changeset/add-graceful-shutdown-signal-wiring.md`
+      (`@nextrush/adapter-node: minor`) and `.changeset/add-health-package.md`
+      (`@nextrush/health: minor`), matching `.changeset/adapter-serverless.md`'s convention for
+      introducing a brand-new package (a `minor` bump on the new package's own name, prose
+      describing the capability being shipped — that package's initial changeset is still
+      present in `.changeset/`, confirmed via `git log --oneline -- .changeset/adapter-serverless.md`
+      showing it was added in commit `bec1c1d` and never removed).
+- [x] 3.4 Update `docs/audits/03-gap-checklist.md`: mark T010 and T011 ☑ with Verified: notes
       citing this change's commits; recompute the Progress Dashboard's Phase 1 row (should
       become 9/9, 100%) and Total row.
+      Verified: T010 and T011 entries flipped to ☑, each with a `Verified (2026-07-17):` note
+      citing commits `2efa95d`/`b281669` and the 86/86 and 14/14 test results. Progress Dashboard's
+      Phase 1 row recomputed to `9/9, 0/0/9, 100%`; Total row recomputed to `64, 44, 2, 18, 28.1%`.

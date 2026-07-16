@@ -46,7 +46,7 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 
 | Goal | Primary blockers | Tasks |
 |---|---|---|
-| **Production readiness (Node)** | Accuracy debt corrected (T001 ☑, T002 ☑), coverage gate live (T006 ☑), and Windows/macOS toolchain CI now real (T004 ☑); no signal-wired graceful shutdown; no health checks. Multi-runtime CI matrix now real (T003 ☑) | T010, T011 |
+| **Production readiness (Node)** | **Closed.** Accuracy debt corrected (T001 ☑, T002 ☑), coverage gate live (T006 ☑), Windows/macOS toolchain CI real (T004 ☑), multi-runtime CI matrix real (T003 ☑), signal-wired graceful shutdown shipped (T010 ☑), `@nextrush/health` liveness/readiness endpoints shipped (T011 ☑) | — |
 | **Edge Runtime** | **Largely closed.** Now executed on real `workerd`/Deno in CI (T019 ☑); bundle size measured (T012 ◐, edge-scoped); deploy examples + edge-safe middleware docs shipped (T021 ☑, T022 ☑) | T020 (◐, explicit allowed-global assertion), T024 |
 | **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
 | **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
@@ -118,12 +118,12 @@ gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
 | Phase | Theme | Tasks | □ Not Started | ◐ In Progress | ☑ Completed | % |
 |---|---|---|---|---|---|---|
 | Phase 0 | Foundation | 8 | 0 | 0 | 8 | 100% |
-| Phase 1 | Production Ready (Node) | 9 | 7 | 0 | 2 | 22.2% |
+| Phase 1 | Production Ready (Node) | 9 | 0 | 0 | 9 | 100% |
 | Phase 2 | Edge Runtime | 6 | 1 | 2 | 3 | 50–83%* |
 | Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% (not re-verified — spot-checks: T032, T033 confirmed still open) |
 | Phase 4 | Ecosystem | 15 | 14 | 0 | 1 | 6.7% (T038 confirmed ☑; remainder not re-verified) |
 | Phase 5 | v1 Stable | 13 | 11 | 0 | 2 | 15.4% (T053 verified ☑ this pass; T054 spot-checked plausible ☑; remainder not re-verified) |
-| **Total** | | **64** | **46** | **2** | **16** | **~25%** |
+| **Total** | | **64** | **44** | **2** | **18** | **28.1%** |
 
 *Phase 2: 50% by strict ☑ count (3/6), 83% counting ◐ as substantially done — see the phase's own
 "Verified:" notes for exactly what's delivered vs. remaining per task.
@@ -297,9 +297,10 @@ required for T060's own acceptance criteria.
 
 ## Tasks
 
-### ☐ T010 · Signal-wired graceful shutdown (opt-in)
-- **Domain:** Runtime / Core · **Packages:** `@nextrush/adapter-node`, `@nextrush/runtime` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** High · **Breaking:** No · **Status:** □ Not Started
+### ☑ T010 · Signal-wired graceful shutdown (opt-in)
+- **Domain:** Runtime / Core · **Packages:** `@nextrush/adapter-node`, `@nextrush/runtime` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** High · **Breaking:** No · **Status:** ☑ Completed
 - **Verified (2026-07-15):** `grep "SIGTERM|SIGINT|gracefulShutdown" packages/adapters/node/src/adapter.ts` returns no matches — no signal wiring found.
+- **Verified (2026-07-17):** Delivered by `openspec/changes/add-graceful-shutdown-and-health-package` (section 1), commit `2efa95d`. `ServeOptions.gracefulShutdown` (boolean or `{ signals, timeout }`) wires the specified signal set (default `['SIGTERM', 'SIGINT']`) via `process.once` to the pre-existing `drainAndClose()` logic — exactly one drain implementation confirmed via AST pattern search (a single `server.close(...)`/`server.closeAllConnections()` pair, invoked identically from both the manual and signal-wired paths). Handlers install only when the option is truthy and are removed via `.finally(removeSignalHandlers)` once the drain settles, preventing listener accumulation across repeated `serve()`/`close()` cycles. Proven via a real child-process integration test (`graceful-shutdown.integration.test.ts`) spawning a pre-built `.mjs` fixture, sending a real `SIGTERM`, and asserting an in-flight slow request completes successfully before exit — full `@nextrush/adapter-node` suite: 86/86 tests passing, zero regressions, confirmed independently before this task group started. `packages/adapters/node/README.md` documents the option with default/override examples and the opt-in/removal/SIGKILL caveats.
 - **Dependencies:** —
 - **Description:** Add `serve(app, { gracefulShutdown?: boolean | { signals, timeout } })` and/or a `handleShutdown(server)` helper that wires SIGTERM/SIGINT → drain → `app.close()`. Opt-in (never auto-register handlers silently). `serve()` already has real drain logic; only signal wiring is missing (01/R-3).
 - **Why it matters:** In k8s/PM2/systemd a SIGTERM kills the process mid-request unless the user hand-wires `close()`.
@@ -307,9 +308,10 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** Opt-in flag installs and removes handlers cleanly; integration test proves 0 dropped in-flight requests on SIGTERM.
 - **Validation Steps:** Start server, hold a slow request, send SIGTERM → request completes, then process exits within `shutdownTimeout`.
 
-### ☐ T011 · New package `@nextrush/health`
-- **Domain:** Observability · **Packages:** **NEW** `@nextrush/health` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** Low · **Breaking:** No · **Status:** □ Not Started
+### ☑ T011 · New package `@nextrush/health`
+- **Domain:** Observability · **Packages:** **NEW** `@nextrush/health` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** Low · **Breaking:** No · **Status:** ☑ Completed
 - **Verified (2026-07-15):** `find packages -path '*health*'` returns no matches — package does not exist.
+- **Verified (2026-07-17):** Delivered by `openspec/changes/add-graceful-shutdown-and-health-package` (section 2), commit `b281669`. New package `packages/middleware/health/` matches `packages/middleware/request-id/`'s file layout (`middleware.ts`/`types.ts`/`constants.ts`/`index.ts`, all well under the 300-line ceiling). `health()` returns `{ middleware, registerCheck }`; `/livez` never calls the check runner at all (D5's liveness/readiness separation enforced structurally, not just tested) and stays `200` regardless of registered-check state; `/readyz` runs all registered checks concurrently under a configurable `checkTimeoutMs` (default 5000ms) via a `Promise.race` timeout wrapper, flipping to `503` on any failure, thrown error, or timeout — confirmed via a dedicated test registering a check whose promise never resolves, asserting a bounded `503` response. Both sync (`() => boolean`) and async (`() => Promise<boolean>`) check functions are supported, including a mixed-registration test. Full suite: 14/14 tests passing (12 behavioral + 2 locked-public-surface), confirmed independently before this task group started. README includes a dedicated "Security Posture — Read Before Deploying" section stating the unauthenticated-by-default posture explicitly, the network-layer mitigation for restricting access, and what the response body does/doesn't leak — resolving this task's acceptance criteria plus the security-disclosure scenario in `specs/health-check-endpoints/spec.md`. Added to the root `README.md`'s middleware table (one row, no duplicate).
 - **Dependencies:** —
 - **Description:** Liveness/readiness endpoints + a check-registry (register DB/cache/custom pings) usable by k8s probes. Verified absent (01/§10).
 - **Why it matters:** Enterprises/orchestrators require liveness+readiness; none ship today.
