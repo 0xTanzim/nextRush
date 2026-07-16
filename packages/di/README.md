@@ -445,6 +445,12 @@ npx tsx src/index.ts
 nextrush dev
 ```
 
+> **Note**: `nextrush build` validates `tsconfig.json`'s `experimentalDecorators` /
+> `emitDecoratorMetadata` flags before compiling, and fails the build immediately with
+> remediation text if they're mismatched — instead of silently shipping an artifact that would
+> hit this error later at runtime. `nextrush dev` still warns and continues (so an active dev
+> session isn't interrupted); `nextrush build` is a one-shot gate and stops the build.
+
 ### Error: "reflect-metadata not found"
 
 **Cause**: `reflect-metadata` must be imported before decorators.

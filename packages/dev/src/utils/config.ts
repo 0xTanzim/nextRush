@@ -124,14 +124,34 @@ function isTruthyCompilerFlag(value: unknown): boolean {
 }
 
 /**
+ * Options controlling {@link validateDecoratorConfig}'s failure mode.
+ */
+export interface ValidateDecoratorConfigOptions {
+  /**
+   * When `true`, throw an `Error` (instead of returning warnings) as soon as
+   * a decorator-metadata mismatch is detected. Callers that need a fail-fast
+   * preflight (e.g. `nextrush build`) opt in explicitly; the default (`false`)
+   * preserves the existing warn-and-return-warnings behavior relied on by
+   * `nextrush dev`'s warn-and-continue UX.
+   */
+  throwOnMismatch?: boolean;
+}
+
+/**
  * Validate tsconfig.json when decorators or decorator metadata are in use.
  * Returns warnings for inconsistent or incomplete settings that would break DI.
  *
  * When both `experimentalDecorators` and `emitDecoratorMetadata` are omitted or not `true`,
  * returns no warnings — that matches create-nextrush "functional" projects. If either flag is
  * `true`, the other must also be `true` or we report what is missing.
+ *
+ * @param options - See {@link ValidateDecoratorConfigOptions}. Omitted/default behavior is
+ *   unchanged from before this option existed.
+ * @throws {Error} When `options.throwOnMismatch` is `true` and a mismatch is detected. The
+ *   error message is the same remediation text this function otherwise returns as warnings.
  */
-export function validateDecoratorConfig(): string[] {
+export function validateDecoratorConfig(options: ValidateDecoratorConfigOptions = {}): string[] {
+  const { throwOnMismatch = false } = options;
   const cwd = getCwd();
   const warnings: string[] = [];
 
@@ -176,6 +196,10 @@ export function validateDecoratorConfig(): string[] {
     }
   } catch {
     // tsconfig exists but couldn't be parsed; SWC reads it natively via typescript API
+  }
+
+  if (throwOnMismatch && warnings.length > 0) {
+    throw new Error(warnings.join('\n'));
   }
 
   return warnings;

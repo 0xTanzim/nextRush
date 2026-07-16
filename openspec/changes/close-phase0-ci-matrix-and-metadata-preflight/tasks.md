@@ -33,34 +33,34 @@
 
 ## 2. T008 — `nextrush build` fails fast on decorator-metadata misconfiguration
 
-- [ ] 2.1 Check `packages/dev/src/__tests__/public-surface.test.ts` — confirm whether
+- [x] 2.1 Check `packages/dev/src/__tests__/public-surface.test.ts` — confirm whether
       `validateDecoratorConfig` is part of the locked public surface (resolves design.md's Open
       Question). This determines whether the new option must be strictly additive/optional.
-- [ ] 2.2 RED: write a failing test for `build()` (in `packages/dev/src/__tests__/` — extend the
+- [x] 2.2 RED: write a failing test for `build()` (in `packages/dev/src/__tests__/` — extend the
       existing build test files rather than creating a new one, matching this package's existing
       test organization) asserting that building a fixture with a mismatched tsconfig
       (`experimentalDecorators: true`, `emitDecoratorMetadata` absent/false) throws/exits with a
       remediation-text error, instead of completing.
-- [ ] 2.3 RED: write a failing test asserting a decorator-free fixture (neither flag set) still
+- [x] 2.3 RED: write a failing test asserting a decorator-free fixture (neither flag set) still
       builds successfully with no error (regression guard for design.md's Non-Goal — do not
       break functional/decorator-free projects).
-- [ ] 2.4 RED: write a failing test asserting a correctly-configured decorator fixture (both
+- [x] 2.4 RED: write a failing test asserting a correctly-configured decorator fixture (both
       flags true) still builds successfully with no error.
-- [ ] 2.5 Verify RED: run the three new tests, confirm they fail for the right reason (missing
+- [x] 2.5 Verify RED: run the three new tests, confirm they fail for the right reason (missing
       implementation, not a typo/setup bug).
-- [ ] 2.6 GREEN: add a `throwOnMismatch` option to `validateDecoratorConfig()` in
+- [x] 2.6 GREEN: add a `throwOnMismatch` option to `validateDecoratorConfig()` in
       `packages/dev/src/utils/config.ts` (per design.md D1) — default `false`, preserving
       `dev.ts`'s current call site unchanged.
-- [ ] 2.7 GREEN: wire `build.ts` to call `validateDecoratorConfig({ throwOnMismatch: true })`
+- [x] 2.7 GREEN: wire `build.ts` to call `validateDecoratorConfig({ throwOnMismatch: true })`
       and exit via `exitProcess(1)` (matching the existing entry-file-not-found pattern in the
       same file) with the returned remediation text when a mismatch is detected.
-- [ ] 2.8 Verify GREEN: run the three new tests from 2.2-2.4 — all green. Run the full
+- [x] 2.8 Verify GREEN: run the three new tests from 2.2-2.4 — all green. Run the full
       `@nextrush/dev` package test suite — no regressions, including the existing `dev.ts`
       warn-and-continue tests (confirm they still pass unchanged, per design.md's Non-Goal).
-- [ ] 2.9 Update `packages/di/README.md`'s "TypeInfo not known" troubleshooting section (or
+- [x] 2.9 Update `packages/di/README.md`'s "TypeInfo not known" troubleshooting section (or
       `packages/dev/README.md`) to note that `nextrush build` now fails fast on this
       misconfiguration rather than shipping a broken artifact, per design.md's Impact/Risk note.
-- [ ] 2.10 REFACTOR: confirm the remediation text used in the new build failure path is the same
+- [x] 2.10 REFACTOR: confirm the remediation text used in the new build failure path is the same
       string(s) `validateDecoratorConfig()` already returns for `dev.ts`'s warning (design.md
       D3) — no duplicated/diverged copy.
 

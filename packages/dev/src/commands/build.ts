@@ -18,7 +18,7 @@ import {
   joinPath,
   resolvePath,
 } from '../runtime/index.js';
-import { findEntry } from '../utils/config.js';
+import { findEntry, validateDecoratorConfig } from '../utils/config.js';
 import { banner, error, formatDuration, info, log, newline, success, warn } from '../utils/logger.js';
 import {
   cleanDirectory,
@@ -89,6 +89,18 @@ export async function build(entry?: string, options: BuildOptions = {}): Promise
   const tsconfigPath = joinPath(cwd, 'tsconfig.json');
   if (!existsSync(tsconfigPath)) {
     warn('No tsconfig.json found, using default settings');
+  }
+
+  // Fail fast on a decorator-metadata toolchain misconfiguration (mismatched
+  // experimentalDecorators/emitDecoratorMetadata) — a broken build should not
+  // ship silently, unlike `nextrush dev`'s warn-and-continue path.
+  try {
+    validateDecoratorConfig({ throwOnMismatch: true });
+  } catch (err) {
+    for (const line of (err as Error).message.split('\n')) {
+      error(line);
+    }
+    exitProcess(1);
   }
 
   // Clean output directory if requested
