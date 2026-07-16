@@ -73,6 +73,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter "@nextrush/adapter-edge..." build
+      - run: pnpm --filter "@nextrush/adapter-node..." build
       - name: Edge bundle-size budget
         working-directory: packages/adapters/conformance/bundle-budget
         run: node --test bundle-budget.test.mjs
+      - name: Core bundle-size budget (T012 residual)
+        working-directory: packages/adapters/conformance/bundle-budget
+        run: node --test bundle-budget-core.test.mjs

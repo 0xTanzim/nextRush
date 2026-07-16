@@ -331,6 +331,9 @@ importers:
       '@nextrush/errors':
         specifier: workspace:^
         version: link:../../errors
+      '@nextrush/router':
+        specifier: workspace:^
+        version: link:../../router
       '@nextrush/runtime':
         specifier: workspace:^
         version: link:../../runtime

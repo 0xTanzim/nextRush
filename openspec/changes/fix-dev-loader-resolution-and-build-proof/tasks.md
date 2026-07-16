@@ -32,16 +32,43 @@
 
 ## 2. T012 residual — core functional bundle size budget
 
-- [ ] 2.1 Identify the existing edge-bundle budget CI job (`.github/workflows/runtime-conformance.yml`'s
+- [x] 2.1 Identify the existing edge-bundle budget CI job (`.github/workflows/runtime-conformance.yml`'s
       `bundle-budget` job, per the gap checklist's own citation) as the pattern to extend or
       parallel for the core bundle.
-- [ ] 2.2 Add a CI check measuring the gzipped size of the general functional core bundle
+      **Verified:** located the job — measures `core + adapter-edge` via `esbuild` (browser/workerd
+      platform, minified) + `gzipSync`, asserting a 30KB gzip budget / 120KB raw ceiling against a
+      13.11KB/42.11KB measured baseline, plus a `node:`/`reflect-metadata`-free check, in
+      `packages/adapters/conformance/bundle-budget/bundle-budget.test.mjs`, run via `node --test`.
+- [x] 2.2 Add a CI check measuring the gzipped size of the general functional core bundle
       (`createApp`/`createRouter`/`listen` entry, independent of the edge adapter) with a stated
       KB budget, following the same measurement approach as the existing edge-bundle check.
-- [ ] 2.3 Verify: deliberately add a heavy import to the core entry in a throwaway test commit,
+      **Verified:** added `minimal-core-entry.mjs` (core + router + `@nextrush/adapter-node`,
+      which itself pulls in `@nextrush/runtime` + `@nextrush/stream` — matching the task's
+      "core+router+runtime" scope through adapter-node's real dependency graph, since `listen`
+      is exported by `adapter-node`, not `@nextrush/runtime` directly) and
+      `bundle-budget-core.test.mjs` (same `esbuild` + `gzipSync` mechanism, `platform: 'node'`
+      instead of `browser`/`workerd` since this is the Node-path bundle, no `reflect-metadata`
+      check since DI isn't in scope of the functional core). Added `@nextrush/router` as a
+      devDependency of `@nextrush/adapter-conformance` (was missing; `@nextrush/adapter-node` was
+      already present). Wired a new "Core bundle-size budget (T012 residual)" step into the
+      existing `bundle-budget` CI job, after building `@nextrush/adapter-node`.
+- [x] 2.3 Verify: deliberately add a heavy import to the core entry in a throwaway test commit,
       confirm the new CI check fails; revert.
-- [ ] 2.4 Publish the measured core-bundle number (in CI output and/or a docs location consistent
+      **Verified:** temporarily inlined a ~1.2MB static JSON literal into `minimal-core-entry.mjs`
+      (uncommitted, local-only) — confirmed both new assertions failed correctly (gzip 225.92 KB
+      > 40 KB budget; raw 1162.23 KB > 175 KB ceiling), then fully reverted the file to its clean
+      state and confirmed via `git status` that no throwaway artifact remained (only the two
+      intended new files are untracked) and both tests pass again cleanly.
+- [x] 2.4 Publish the measured core-bundle number (in CI output and/or a docs location consistent
       with where the edge-bundle number is already published).
+      **Verified:** the edge figure (13.11KB/42.11KB) is only published in
+      `bundle-budget.test.mjs`'s docstring (not in `apps/docs` or the conformance package's
+      README) — matched that exact pattern: the core figure (17.65KB gzip / 59.48KB raw,
+      measured 2026-07-16, `esbuild` minify, `platform: 'node'`) is documented in
+      `bundle-budget-core.test.mjs`'s header docstring with the same baseline+headroom reasoning
+      shown inline, and is also emitted in CI output via the assertion failure message format
+      (e.g. `minimal core bundle X.XX KB gzipped exceeds budget Y KB`) on any regression, plus a
+      passing run's test name in `node --test` output.
 
 ## 3. T013 — end-to-end build integration test for `@nextrush/dev`
 

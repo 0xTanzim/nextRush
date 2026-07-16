@@ -26,6 +26,7 @@
     "@nextrush/adapter-serverless": "workspace:^",
     "@nextrush/core": "workspace:^",
     "@nextrush/errors": "workspace:^",
+    "@nextrush/router": "workspace:^",
     "@nextrush/runtime": "workspace:^",
     "@nextrush/types": "workspace:^",
     "@types/bun": "^1.3.11",
