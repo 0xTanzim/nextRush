@@ -8,14 +8,16 @@
 > **Priority:** P0 (blocks a truthful production/stable claim) · P1 (required before stable v1.0) · P2 (important) · P3 (ecosystem/nice-to-have).
 > **Effort:** XS (<1d) · S (<1w) · M (1–3w) · L (1–2mo) · XL (2mo+). **Difficulty:** Easy/Medium/Hard/Expert. **Runtime Impact:** None/Low/Medium/High.
 >
-> **⚠️ Re-baselined 2026-07-15** (`openspec/changes/rebaseline-gap-checklist`). Phases 0–2 and T038
-> were individually re-verified against real source/CI/docs — each carries a "Verified:" note
-> citing what was checked. Phases 3–5 (T025–T037, T039–T065) were **not** individually re-checked
-> in this pass beyond the spot-checks noted inline (T032, T033, T054, T059) — their glyphs are
-> carried forward from the original audit and should be treated as **unverified-but-plausible**,
-> not freshly confirmed. Re-verify Phases 3–5 in a future pass before trusting their status for
-> planning. This note itself should be updated (with a new date) the next time any phase is
-> re-checked, rather than left to imply the whole document is fresh forever.
+> **⚠️ Re-baselined 2026-07-15, updated 2026-07-16** (`openspec/changes/rebaseline-gap-checklist`,
+> `openspec/changes/repo-wide-surface-snapshots`). Phases 0–2 and T038 were individually
+> re-verified against real source/CI/docs — each carries a "Verified:" note citing what was
+> checked. T005 was closed on 2026-07-16 (all 35 publishable packages now carry a surface-lock
+> test). Phases 3–5 beyond T005/T038/T054/T032/T033/T059 spot-checks were **not** individually
+> re-checked in this pass — their glyphs are carried forward from the original audit and should
+> be treated as **unverified-but-plausible**, not freshly confirmed. Re-verify Phases 3–5 in a
+> future pass before trusting their status for planning. This note itself should be updated (with
+> a new date) the next time any phase is re-checked, rather than left to imply the whole document
+> is fresh forever.
 
 ---
 
@@ -32,11 +34,11 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 | **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
 | **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
 | **Developer Experience** | "TypeInfo not known" metadata footgun; leaked/namespaced APIs; four-package install friction; docs depth — **not re-verified this pass, carried forward** | T008, T015, T037, T058 |
-| **v1.0 stable tag** | Public surface frozen for only 2/~24+ published packages so far (`class`, `types` — T005 ◐); version/compatibility policy now published (T007 ☑); deprecated shims still shipping (T053 — not re-verified) | T005, T053, T059, T060 |
+| **v1.0 stable tag** | Public surface now frozen across all 35 published packages (T005 ☑); version/compatibility policy published (T007 ☑); deprecated shims still shipping, now genuinely unblocked for removal (T053); single maintainer | T053, T059, T060 |
 
-**Bottom line:** Edge + Serverless (Phase 2 + T038) are now credibly closed. The remaining critical
-path to v1.0 is `T005 → T053 → T060` (repo-wide surface snapshots at 2/~24+ packages) — this is now
-the single highest-leverage unlocker, more than any Phase 0/1 item.
+**Bottom line:** Edge + Serverless (Phase 2 + T038) are now credibly closed, and T005 (repo-wide
+surface snapshots) closed 2026-07-16. The remaining critical path to v1.0 is T053 (shim removal)
+and T060 itself (the freeze sign-off) — both genuinely unblocked now, not gated on a chain.
 
 ---
 
@@ -44,13 +46,13 @@ the single highest-leverage unlocker, more than any Phase 0/1 item.
 
 | Phase | Theme | Tasks | □ Not Started | ◐ In Progress | ☑ Completed | % |
 |---|---|---|---|---|---|---|
-| Phase 0 | Foundation | 8 | 4 | 1 | 3 | 37.5% |
+| Phase 0 | Foundation | 8 | 4 | 0 | 4 | 50% |
 | Phase 1 | Production Ready (Node) | 9 | 7 | 0 | 2 | 22.2% |
 | Phase 2 | Edge Runtime | 6 | 1 | 2 | 3 | 50–83%* |
 | Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% (not re-verified — spot-checks: T032, T033 confirmed still open) |
 | Phase 4 | Ecosystem | 15 | 14 | 0 | 1 | 6.7% (T038 confirmed ☑; remainder not re-verified) |
 | Phase 5 | v1 Stable | 13 | 12 | 0 | 1 | 7.7% (T054 spot-checked plausible ☑; remainder not re-verified) |
-| **Total** | | **64** | **51** | **3** | **10** | **~15.6%** |
+| **Total** | | **64** | **51** | **2** | **11** | **~17.2%** |
 
 *Phase 2: 50% by strict ☑ count (3/6), 83% counting ◐ as substantially done — see the phase's own
 "Verified:" notes for exactly what's delivered vs. remaining per task.
@@ -97,7 +99,7 @@ T003 (multi-runtime CI matrix) ─┬─► T019 (edge proven) ─► T021 (depl
                                 ├─► T004 (Win/macOS CI)  ─► T013 (build integ test)
                                 └─► T018 (perf gate) / T017 (class-path bench)
 
-T005 (repo-wide surface snapshots) ─► T053 (shim removal) ─► T060 (v1.0 freeze gate)  [T005 now the sole remaining leg of this chain — 2/~24+ packages done]
+T005 (repo-wide surface snapshots) ─► T053 (shim removal) ─► T060 (v1.0 freeze gate)  [T005 ☑ — this leg's first link CLOSED; T053/T060 remain, now genuinely unblocked]
 T007 (version/support policy) ──────────────────────────────► T060  [T007 ☑ — this leg CLOSED]
 
 T026 (context-propagation ADR: ALS vs explicit) ─┬─► T025 (OTel) ─► T027 (metrics)
@@ -116,15 +118,14 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 scope only — edge scope done), T015, T016, T020 (residual explicit-assertion scope only), T035,
 T043, T044, T046, T047, T057, T061, T062.
 
-**Blocked until their dep lands:** T053/T060 (→T005 — T007 leg now clear), T025/T027/T028 (→T026),
-T029/T031 (→T030), T040/T041/T031-store (→T039), T036 (→T029,T031,T032). ~~T019/T021 (→T003)~~ —
-resolved, T003/T019/T021 all ☑.
+**Blocked until their dep lands:** T053/T060 (→T005 — now unblocked, T005 ☑), T025/T027/T028 (→T026),
+T029/T031 (→T030), T040/T041/T031-store (→T039), T036 (→T029,T031,T032).
 
-**Critical path to v1.0 (revised 2026-07-15):** the `T003 → T019 → T021` leg is **closed**. The
-`T007 → T060` leg is **closed**. The sole remaining critical-path leg is `T005 → T053 → T060` —
-repo-wide surface snapshots (2/~24+ packages done) is now the single highest-leverage next unlock,
-followed by the Phase 0/1 P0 items (T001, T002, T010, T011) that don't block anything downstream
-but are required for T060's own gate.
+**Critical path to v1.0 (revised 2026-07-16):** `T003 → T019 → T021` is **closed**. `T007 → T060` is
+**closed**. `T005` is now **closed** — the remaining critical-path work is T053 (remove the
+deprecated shim packages, gated on a codemod + migration guide, itself now genuinely unblocked)
+and T060 itself (the final freeze sign-off, gated on all P0 + Phase 0–2 P1 items, not just the
+three chains above).
 
 ---
 
@@ -174,9 +175,9 @@ but are required for T060's own gate.
 - **Acceptance Criteria:** dev unit + a build-integration fixture run green on all three OSes.
 - **Validation Steps:** CI matrix shows win/macOS/linux green for the `dev` package.
 
-### ◐ T005 · Repo-wide public-API surface snapshot tests
-- **Domain:** Testing / Release Engineering · **Packages:** all published packages · **Priority:** P0 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ◐ In Progress
-- **Verified (2026-07-15):** `grep -rl "Public API [Ss]urface" packages/` finds exactly 2 files: `packages/class/src/__tests__/public-surface.test.ts` (pre-existing) and `packages/types/src/__tests__/public-surface.test.ts` (added this session, locking the 4 runtime exports + the full type-only surface including the `ServerAdapter`/`FetchAdapter`/`AdapterContextFactory` contract triad). 2 of ~24+ published packages covered — genuinely partial, not done. This is now the single highest-leverage remaining unlocker (feeds T053 → T060).
+### ☑ T005 · Repo-wide public-API surface snapshot tests
+- **Domain:** Testing / Release Engineering · **Packages:** all published packages · **Priority:** P0 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-16):** All 35 publishable packages now have a `public-surface.test.ts` (2 pre-existing — `@nextrush/class`, `@nextrush/types` — plus 33 added by `openspec/changes/repo-wide-surface-snapshots`: `errors`, `core`, `router`, `runtime`, `di`, all 5 adapters, all 15 middleware, all 3 extensions/stream, both deprecated shims — `controllers`/`decorators`, and `dev`/`testing`/`create-nextrush`/`nextrush` meta). `create-nextrush` has no library barrel (CLI-only entry point) — locked via a structural "no export statement" assertion instead, which is the correct lock for that shape. Sanity-checked on 2 packages (`core`, `types`) by adding/removing a real export and confirming the test fails/passes correctly; also caught 2 real bugs in the test files themselves during a forced, cache-bypassed `turbo run typecheck --force` (a stale turbo cache had been silently reporting a clean typecheck during authoring — see the change's tasks.md 8.2a for the process finding). Repo-wide `turbo run typecheck --force`: 0 errors, 62/62 tasks green. `turbo run test --force`: 76/77 tasks green, the sole failure a pre-existing DI circular-dependency-detection timeout flake unrelated to any of the 33 new files. **FINDING carried over from the change:** `@nextrush/controllers` and `@nextrush/decorators`'s own `package.json` `test` scripts are no-op placeholders ("Tests moved to @nextrush/class") — their new surface-lock tests pass when run directly via `vitest run` but are not wired into `pnpm test` for those two packages; left for T053's own scope to address when the shims are removed.
 - **Dependencies:** —
 - **Description:** Generalize the existing `@nextrush/class` `public-surface.test.ts` (B2, already closed) to **every** published package: snapshot the exported symbol set so any change requires an intentional update + changeset.
 - **Why it matters:** v1.0 freezes the public contract across ~35 packages; only `class` is currently guarded (production-readiness-review B2; 01/R-... API risk).
