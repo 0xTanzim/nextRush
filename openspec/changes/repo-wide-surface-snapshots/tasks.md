@@ -12,11 +12,11 @@
 
 ## 3. Adapters
 
-- [ ] 3.1 `@nextrush/adapter-node` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 3.2 `@nextrush/adapter-bun` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 3.3 `@nextrush/adapter-deno` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 3.4 `@nextrush/adapter-edge` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 3.5 `@nextrush/adapter-serverless` — read `src/index.ts`, write `public-surface.test.ts`
+- [x] 3.1 `@nextrush/adapter-node` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 14 runtime exports (adapter fns, HttpError, NodeContext, body-source classes re-exported from runtime, utilities) + 9-type compile-time tuple. Tests 5/5 files, 83 passed. Typecheck clean, lint clean (source scope). -->
+- [x] 3.2 `@nextrush/adapter-bun` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 14 runtime exports incl. the deprecated BunBodySource/createBunBodySource back-compat aliases (locked as-is, not renamed here) + 8-type compile-time tuple. Tests 5/5 files, 116 passed. Typecheck clean, lint clean. -->
+- [x] 3.3 `@nextrush/adapter-deno` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 14 runtime exports incl. the deprecated DenoBodySource/createDenoBodySource back-compat aliases + 8-type compile-time tuple. Tests 5/5 files, 114 passed. Typecheck clean, lint clean. -->
+- [x] 3.4 `@nextrush/adapter-edge` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 19 runtime exports incl. createCloudflareHandler/createVercelHandler/createNetlifyHandler and the deprecated EdgeBodySource/createEdgeBodySource aliases + 11-type compile-time tuple. Tests 5/5 files, 121 passed. Typecheck clean, lint clean. -->
+- [x] 3.5 `@nextrush/adapter-serverless` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 10 runtime exports (Tier-1 handlers: createLambdaHandler/createGoogleHandler/createAzureHandler/createLambdaStreamingHandler; Tier-3 createServerlessAdapter; 5 built-in mappers) + 20-type compile-time tuple covering all event/result/streaming types. Tests 6/6 files, 30 passed. Typecheck clean, lint clean. -->
 
 ## 4. Middleware
 
