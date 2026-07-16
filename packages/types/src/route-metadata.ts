@@ -79,4 +79,15 @@ export interface RouteDefinition {
   /** Full, mount/prefix-resolved path pattern. */
   readonly path: string;
   readonly metadata?: RouteMetadata;
+  /**
+   * `true` when this entry represents an any-method route (registered via
+   * `router.all()` / `@All()`), matching every standard HTTP method under a
+   * single introspection row rather than one row per method (T016). `method`
+   * is still a real `HttpMethod` value for structural compatibility with
+   * existing consumers that read `.method` unconditionally — check this flag
+   * first when the distinction matters (e.g. an OpenAPI renderer expanding
+   * one row into per-verb operations). Absent (`undefined`) for every
+   * ordinary single-method route.
+   */
+  readonly isAnyMethod?: boolean;
 }

@@ -145,28 +145,138 @@
 
 ## 3. T016 — `@All` registers one route, not seven
 
-- [ ] 3.1 Search the codebase for consumers of `getRoutes()` / route-table introspection
+- [x] 3.1 Search the codebase for consumers of `getRoutes()` / route-table introspection
       (`@nextrush/openapi`'s route generation, `@nextrush/class`'s diagnostics/discovery code, any
       other in-repo consumer) per design.md's Risk section — confirm whether any consumer assumes
       the current 7-row-per-`@All` shape before changing the registration behavior.
-- [ ] 3.2 RED: write a failing test asserting `@All('/x')` (and/or `app.all('/x', handler)`)
+      **Found (not "not found" — a real consumer):** grep across the repo for `getRoutes` located
+      exactly one real production consumer: `@nextrush/openapi`. Its `middleware.ts` calls
+      `options.router.getRoutes()` once (cached), and `generate.ts`'s `generateDocument()` iterates
+      the result doing `pathItem[route.method.toLowerCase()] = await buildOperation(route, ...)` —
+      keying an OpenAPI PathItem object by the row's `.method`. This is exactly the 7-row
+      assumption design.md's Risk section flagged: today, an `@All()`/`.all()` route produces 7
+      concrete-method `RouteDefinition` rows, so the generator naturally emits 7 OpenAPI operations
+      (`get`, `post`, `put`, ...) for that path. `@nextrush/class`'s own diagnostics/discovery code
+      (`diagnostics/collector.ts`) was also checked — it reads route metadata for a diagnostics
+      report but does not key or branch on method-row-count, so it needed no change. No other
+      in-repo consumer of `getRoutes()`/route-table introspection exists (confirmed via
+      `grep -r getRoutes` across `packages/`, 18 files, all either the router's own
+      implementation/tests, class-package tests, or `@nextrush/openapi`). **Action taken (3.6):**
+      updated `@nextrush/openapi/src/generate.ts` in this same task — see 3.6's note.
+- [x] 3.2 RED: write a failing test asserting `@All('/x')` (and/or `app.all('/x', handler)`)
       produces exactly one entry in `getRoutes()`, not seven.
-- [ ] 3.3 RED: write a failing test (if not already covered by existing tests) asserting all
+      **Verified:** added to `packages/router/src/__tests__/router.test.ts` ("should register
+      .all() as a single route-table entry, not one per method (T016)") — confirmed RED against
+      current behavior: `expected [...7 entries...] to have a length of 1 but got 7`. Also added
+      an equivalent decorator-level test to `packages/class/src/__tests__/routes.test.ts`
+      (replacing the old `@All` test, which only asserted method *coverage* across 7 rows, not
+      row count) — confirmed RED the same way. A third case was found necessary during
+      implementation and is not part of the original plan: `GroupRouter.all()`
+      (`packages/router/src/group-router.ts`) is a second, independent call site with the exact
+      same per-method-registration pattern (`router.group(...).all(...)`) — added a matching test
+      ("should register a group's .all() as a single route-table entry...") once discovered; see
+      3.5's note for why this needed its own fix.
+- [x] 3.3 RED: write a failing test (if not already covered by existing tests) asserting all
       standard HTTP methods still correctly match a route registered via `@All`/`app.all`, as a
       regression guard for the matching behavior itself.
-- [ ] 3.4 Verify RED: confirm both fail for the right reason against current (7-registration)
+      **Already covered — no new test needed.** `router.test.ts`'s pre-existing "should register
+      all methods with .all()" test already asserts every standard method matches via
+      `router.match()`, and was already green before this task (confirmed: ran it in isolation,
+      passed against the pre-fix 7-registration behavior). Re-ran it after the GREEN
+      implementation — still green, confirming matching is completely unaffected by the
+      introspection-only change. `router-audit`/`audit-fixes` and the existing "should support
+      .all() in groups" matching test were similarly re-checked and remain green.
+- [x] 3.4 Verify RED: confirm both fail for the right reason against current (7-registration)
       behavior.
-- [ ] 3.5 GREEN: change `@All()`'s decorator implementation (`packages/class/src/decorators/routes.ts`)
+      **Verified:** both 3.2 tests failed with `expected [...] to have a length of 1 but got 7` —
+      the exact shape of the bug, not an unrelated setup/import error. Ran before any source
+      change in both packages.
+- [x] 3.5 GREEN: change `@All()`'s decorator implementation (`packages/class/src/decorators/routes.ts`)
       and/or the router's `all()` method to register a single ANY-method route entry, per the
       spec's requirement — the exact mechanism (a new "any method" marker on `RouteDefinition`,
       or a special HTTP-method sentinel value the matcher already understands) is a small design
       decision to make during implementation, informed by 1.2's matching-engine extraction (if
       T014 landed first) or the current `router.ts` structure (if not).
-- [ ] 3.6 If 3.1 found a real consumer assuming the old shape, update that consumer in this same
+      **Verified — mechanism chosen and implemented across 4 packages:**
+      - `@nextrush/types` (`route-metadata.ts`): added `readonly isAnyMethod?: boolean` to
+        `RouteDefinition` — purely additive, does not touch the RFC-frozen `method: HttpMethod`
+        field (widening `HttpMethod` itself to add an `'ANY'` value was considered and rejected —
+        it would ripple into the matcher's static-route hash keys and every downstream consumer
+        of that core type for no benefit; the router's matching engine is completely untouched
+        by this change).
+      - `@nextrush/router`: `registration.ts`'s `addRoute()` gained an optional
+        `recordIntrospection = true` parameter — when `false`, it still inserts the concrete
+        per-method trie handler (so that method still matches) but skips pushing an
+        introspection row. `Router.all()` calls `addRoute` 7× with `recordIntrospection: false`
+        (unchanged matching, per-method trie insertion identical to before), then pushes exactly
+        ONE consolidated row itself with `isAnyMethod: true`. `Router.private addRoute()` wrapper
+        and `GroupRouterHost`/`GroupRouter.all()` were extended with the same flag/consolidation
+        pattern once the group-router duplicate (found during 3.2, not pre-planned) surfaced.
+      - `@nextrush/class`: `RouteMethods` (`decorators/route-types.ts`, a class-package-LOCAL
+        type, not the router's `HttpMethod`) widened to include `'ALL'` as a decorator-metadata
+        sentinel meaning "every standard method," never a real on-the-wire verb.
+        `isValidHttpMethod` (`metadata/metadata-keys.ts`) updated to accept `'ALL'` too — checked
+        first (via grep) that this exported public function has zero in-repo call sites, so
+        widening its accepted set carries no behavioral risk to existing logic.
+        `All()` in `decorators/routes.ts` changed from a 7-iteration loop calling
+        `createRouteDecorator(method)` per method to a single
+        `export const All = createRouteDecorator('ALL')` — mirroring `Get`/`Post`/etc.'s own
+        one-liner shape exactly, not a special case.
+      - `bootstrap/stages/router.ts` needed **zero changes** — its existing generic dispatch
+        (`router[route.method.toLowerCase()]`) already resolves `'ALL'.toLowerCase()` → `'all'`
+        → `Router.all()` correctly, since that method already existed under that exact name.
+        Confirmed by direct instrumentation during a debugging session (see 3.7's note on a
+        stale-build issue found along the way) that this dispatch was never the problem.
+      - `@nextrush/openapi` (`generate.ts`): see 3.6.
+- [x] 3.6 If 3.1 found a real consumer assuming the old shape, update that consumer in this same
       task (per the spec's "no existing route-table consumer breaks" scenario) — do not ship this
       change with a known-broken downstream consumer.
-- [ ] 3.7 Verify GREEN: both new tests pass. Run the full `@nextrush/class` and `@nextrush/router`
+      **Done.** `generate.ts`'s `deriveOperationId`/`buildOperation` were changed to accept an
+      explicit `verb` parameter instead of reading `route.method` implicitly. `generateDocument`'s
+      main loop now checks `route.isAnyMethod`: for a normal row it still emits exactly one
+      operation keyed by `route.method.toLowerCase()` (unchanged behavior — all 21 pre-existing
+      openapi tests still pass verbatim); for an `isAnyMethod: true` row it expands into 7
+      operations, one per `ALL_OPENAPI_VERBS` (`get`/`post`/`put`/`delete`/`patch`/`head`/
+      `options`), each with a distinct `operationId` (`${verb}_${slug}`). Added a RED-first test
+      ("expands an isAnyMethod route into an operation for every standard HTTP method (T016)")
+      confirming the pre-fix behavior would have silently emitted only ONE operation (dropping 6
+      methods from the generated spec) — a real correctness bug, not just a hypothetical risk,
+      caught by writing the test before assuming "no test broke" meant "no test needed."
+- [x] 3.7 Verify GREEN: both new tests pass. Run the full `@nextrush/class` and `@nextrush/router`
       test suites — zero regressions.
+      **Verified, with one real detour worth recording.** After the GREEN source changes, a new
+      end-to-end test through the real DI/bootstrap pipeline
+      (`registerControllers` → `bootstrap/stages/router.ts` → `Router.all()`) initially FAILED
+      even though the unit-level decorator test and the router-level test both passed — root
+      cause (confirmed via the 5-field root-cause checkpoint, not assumed): `@nextrush/router`'s
+      published `package.json` `exports`/`main` resolve to `./dist/index.js`, and that `dist/`
+      (along with `@nextrush/types`'s) was stale from BEFORE this session started (timestamped
+      before this session's first edit) — `@nextrush/class`'s cross-package import of
+      `@nextrush/router` was silently running pre-T016 compiled code even though `src/` was
+      correct. Rebuilt `@nextrush/types` then `@nextrush/router` (in dependency order — router's
+      own DTS build failed first, correctly, because `types`' stale dist didn't have
+      `isAnyMethod` yet) then `@nextrush/openapi`, then re-ran the end-to-end test: passed,
+      confirming the source-level implementation was correct all along and this was purely a
+      stale-artifact issue, not a design flaw. **Full suite results after rebuild:**
+      `@nextrush/router` — 212/212 (211 baseline/1.x-added + 1 new single-entry test), `tsc`
+      clean. `@nextrush/class` — 305/306 (304 baseline + 1 new/updated `@All` test + 1 new
+      end-to-end test; single failure is `registrar.test.ts`'s pre-existing DI
+      circular-dependency 10s timeout, confirmed unrelated to T016 — same failure T015's session
+      already documented as pre-existing, reconfirmed here since none of T016's files touch
+      DI/registrar code), `tsc` clean. `@nextrush/openapi` — 22/22 (21 baseline + 1 new), `tsc`
+      clean. `@nextrush/core` — 111/111 (unaffected, re-run as a sanity check since it also
+      depends on `@nextrush/router`), confirming no regression at the integration boundary.
+      **Flagging for follow-up (not fixed here, out of this task's scope):** the stale-`dist/`
+      issue is systemic, not T016-specific — `packages/{core,di,errors}/dist/` are ALSO
+      timestamped before this session started, meaning any prior source-only change to a
+      cross-package dependency in this repo is silently invisible to consumers' cross-package
+      tests until a `pnpm build` runs. Since T014/T015 only edited `src/` within their own single
+      package and ran `vitest`/`tsc` directly (not through a cross-package boundary), this never
+      surfaced for them — but it will resurface for any future task that changes a lower-layer
+      package and expects a higher-layer package's tests to see it without an explicit rebuild
+      step. Worth a `pnpm build` (or a `turbo build` dependency-aware rebuild) as a standing step
+      before any cross-package integration test, or a workspace-level fix (e.g. TS project
+      references / `exports` pointing at `src/` in dev). Logged as a lesson-memory candidate.
 
 ## 4. Cross-cutting
 

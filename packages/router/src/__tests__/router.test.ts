@@ -121,6 +121,22 @@ describe('Router', () => {
       }
     });
 
+    it('should register .all() as a single route-table entry, not one per method (T016)', () => {
+      const handler: RouteHandler = vi.fn();
+      router.all('/any', handler);
+
+      const routes = router.getRoutes();
+      const anyRoutes = routes.filter((r) => r.path === '/any');
+
+      // The introspection registry (getRoutes()) must show exactly ONE entry
+      // for an .all() route, not one row per HTTP method — this is the
+      // observable, spec-mandated behavior change (T016). Matching behavior
+      // (every method still dispatches correctly) is covered separately by
+      // 'should register all methods with .all()' above and is unaffected.
+      expect(anyRoutes).toHaveLength(1);
+      expect(anyRoutes[0]?.isAnyMethod).toBe(true);
+    });
+
     it('should allow method chaining', () => {
       const result = router.get('/a', vi.fn()).post('/b', vi.fn()).put('/c', vi.fn());
 
@@ -560,6 +576,22 @@ describe('Router', () => {
       expect(router.match('GET', '/api/any')).not.toBeNull();
       expect(router.match('POST', '/api/any')).not.toBeNull();
       expect(router.match('PUT', '/api/any')).not.toBeNull();
+    });
+
+    it('should register a group\'s .all() as a single route-table entry, not one per method (T016)', () => {
+      // GroupRouter.all() forwards through _addGroupRoute rather than
+      // Router.all() directly — a second, independent call site for the same
+      // 7-registrations bug, found during T016's own implementation (not a
+      // pre-planned test) and fixed alongside Router.all() itself.
+      router.group('/api', (r) => {
+        r.all('/any', vi.fn());
+      });
+
+      const routes = router.getRoutes();
+      const anyRoutes = routes.filter((r) => r.path === '/api/any');
+
+      expect(anyRoutes).toHaveLength(1);
+      expect(anyRoutes[0]?.isAnyMethod).toBe(true);
     });
   });
 

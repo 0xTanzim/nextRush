@@ -7,7 +7,7 @@
  */
 
 import { Application } from '@nextrush/core';
-import { Controller, Get, getControllerDefinition, Post } from '../index.js';
+import { All, Controller, Get, getControllerDefinition, Post } from '../index.js';
 import { createContainer, type Container } from '@nextrush/di';
 import { createRouter } from '@nextrush/router';
 import 'reflect-metadata';
@@ -81,5 +81,35 @@ describe('controller route metadata → RouteDefinition', () => {
     const routes = buildRoutes(definition, container, '', []);
 
     expect(routes[0].metadata).toBeUndefined();
+  });
+
+  it('registers @All() as a single any-method route on the real router, end to end (T016)', async () => {
+    // Exercises the full chain the unit-level tests above don't reach:
+    // @All() decorator -> buildRoutes -> bootstrap's routerStage ->
+    // Router.all(). Confirms routerStage's generic
+    // `router[route.method.toLowerCase()]` dispatch correctly resolves the
+    // 'ALL' decorator sentinel to Router.all() (not a per-method call), and
+    // that the resulting getRoutes() row is the single isAnyMethod entry.
+    @Controller('/proxy')
+    class ProxyController {
+      @All('/forward')
+      handle() {
+        return { ok: true };
+      }
+    }
+
+    container.register(ProxyController, { useClass: ProxyController });
+
+    const router = createRouter();
+    const app = new Application({ router, container });
+    await registerControllers(app, { controllers: [ProxyController], container });
+
+    const anyRoutes = router.getRoutes().filter((r) => r.path === '/proxy/forward');
+    expect(anyRoutes).toHaveLength(1);
+    expect(anyRoutes[0]?.isAnyMethod).toBe(true);
+
+    for (const method of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const) {
+      expect(router.match(method, '/proxy/forward')).not.toBeNull();
+    }
   });
 });

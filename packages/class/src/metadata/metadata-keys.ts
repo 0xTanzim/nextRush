@@ -29,10 +29,11 @@ export const DECORATOR_METADATA_KEYS = {
 } as const;
 
 /**
- * Type guard to check if a value is a valid HTTP method
+ * Type guard to check if a value is a valid HTTP method (decorator-metadata
+ * sense — includes `'ALL'`, the `@All()` any-method sentinel; T016).
  */
 export function isValidHttpMethod(method: string): method is RouteMethods {
-  return ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].includes(method);
+  return ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'ALL'].includes(method);
 }
 
 /**

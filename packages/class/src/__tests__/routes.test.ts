@@ -184,7 +184,11 @@ describe('Route Decorators', () => {
   });
 
   describe('@All', () => {
-    it('should register routes for all methods', () => {
+    it('should register a single any-method route entry, not one per method (T016)', () => {
+      // Prior behavior (pre-T016) registered 7 explicit RouteMetadata rows —
+      // one per enumerated method — producing a 7-row getRoutes() shape for a
+      // single @All() route. The spec requires exactly one entry, matched via
+      // the router's own single-entry ANY-method registration (Router.all()).
       @Controller('/proxy')
       class ProxyController {
         @All('/forward')
@@ -192,13 +196,11 @@ describe('Route Decorators', () => {
       }
 
       const routes = getRouteMetadata(ProxyController);
-      const methods = routes.map((r) => r.method);
 
-      expect(methods).toContain('GET');
-      expect(methods).toContain('POST');
-      expect(methods).toContain('PUT');
-      expect(methods).toContain('DELETE');
-      expect(methods).toContain('PATCH');
+      expect(routes).toHaveLength(1);
+      expect(routes[0]?.method).toBe('ALL');
+      expect(routes[0]?.path).toBe('/forward');
+      expect(routes[0]?.methodName).toBe('handle');
     });
   });
 

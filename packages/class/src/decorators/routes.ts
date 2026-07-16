@@ -178,7 +178,11 @@ export const Options = createRouteDecorator('OPTIONS');
 
 /**
  * @All decorator - Marks a method as handling all HTTP methods.
- * This creates multiple route entries for the same handler.
+ * Registers a single any-method route entry (T016) — matched by every
+ * standard HTTP method via the router's own `Router.all()`/`GroupRouter.all()`
+ * ANY-method registration, rather than one explicit RouteMetadata entry per
+ * enumerated method. `getRoutes()`/route introspection sees one row for an
+ * `@All()` route, consistent with how it was actually authored.
  *
  * @example
  * ```typescript
@@ -189,21 +193,4 @@ export const Options = createRouteDecorator('OPTIONS');
  * }
  * ```
  */
-export function All(
-  pathOrOptions?: string | RouteOptions,
-  options?: RouteOptions
-): MethodDecorator {
-  return function allDecorator(
-    target: object,
-    propertyKey: string | symbol,
-    descriptor: PropertyDescriptor
-  ): PropertyDescriptor {
-    const methods: RouteMethods[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
-
-    for (const method of methods) {
-      createRouteDecorator(method)(pathOrOptions, options)(target, propertyKey, descriptor);
-    }
-
-    return descriptor;
-  };
-}
+export const All = createRouteDecorator('ALL');

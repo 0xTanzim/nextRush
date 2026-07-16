@@ -71,9 +71,19 @@ const STATUS_TEXT: Readonly<Record<number, string>> = {
   500: 'Internal Server Error',
 };
 
-function deriveOperationId(route: RouteDefinition): string {
+/**
+ * Every OpenAPI-representable HTTP method key, in a stable rendering order —
+ * used to expand a single `isAnyMethod` route (T016) into one operation per
+ * verb, matching how `@All()`/`router.all()` actually registers the route
+ * (one handler answering every standard method) rather than the single
+ * placeholder `method` value the row's `RouteDefinition.method` field carries
+ * for structural compatibility with ordinary single-method rows.
+ */
+const ALL_OPENAPI_VERBS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'] as const;
+
+function deriveOperationId(route: RouteDefinition, verb: string): string {
   const slug = route.path.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  return `${route.method.toLowerCase()}${slug ? `_${slug}` : ''}`;
+  return `${verb}${slug ? `_${slug}` : ''}`;
 }
 
 async function buildResponses(
@@ -96,10 +106,11 @@ async function buildResponses(
 
 async function buildOperation(
   route: RouteDefinition,
+  verb: string,
   convert: SchemaConverter
 ): Promise<Record<string, unknown>> {
   const md = route.metadata;
-  const op: Record<string, unknown> = { operationId: deriveOperationId(route) };
+  const op: Record<string, unknown> = { operationId: deriveOperationId(route, verb) };
 
   if (md?.summary) op.summary = md.summary;
   if (md?.description) op.description = md.description;
@@ -161,7 +172,15 @@ export async function generateDocument(
 
     const oaPath = toOpenApiPath(route.path);
     const pathItem = (paths[oaPath] ??= {});
-    pathItem[route.method.toLowerCase()] = await buildOperation(route, convert);
+
+    // An isAnyMethod row (T016) represents one handler answering every
+    // standard HTTP method — expand it into an operation per verb rather
+    // than keying off its single placeholder `.method` value, which would
+    // silently drop the other 6 methods from the generated spec.
+    const verbs = route.isAnyMethod ? ALL_OPENAPI_VERBS : [route.method.toLowerCase()];
+    for (const verb of verbs) {
+      pathItem[verb] = await buildOperation(route, verb, convert);
+    }
   }
 
   return { openapi: '3.1.0', info, paths };

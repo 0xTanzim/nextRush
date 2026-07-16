@@ -53,6 +53,16 @@ export interface RegistrationState {
  * @param normalized - Already-normalized path (caller applies `Router`'s own
  *   prefix/strict-mode normalization before calling this — normalization
  *   itself stays a `Router` method since it only touches `opts`, not the trie).
+ * @param recordIntrospection - When `false`, skips pushing this call's row
+ *   into `state.routeDefinitions` while still inserting the concrete
+ *   per-method trie handler (matching is completely unaffected either way).
+ *   `Router.all()` (T016) sets this to `false` on each of its 7 per-method
+ *   `addRoute` calls, then pushes exactly one consolidated
+ *   `isAnyMethod: true` row itself — so an any-method route yields a single
+ *   `getRoutes()` entry instead of one row per enumerated method, without
+ *   touching how any individual method is matched. Every other call site
+ *   (`get`/`post`/etc., `redirect`, sub-router mounting) omits this parameter
+ *   and keeps the original one-row-per-call behavior unchanged.
  * @returns `true` if the registered route has a param or wildcard segment —
  *   the caller (`Router.addRoute`) uses this to flip its own `hasParamRoutes`
  *   flag. Returned rather than mutated through `state` because it's a
@@ -64,7 +74,8 @@ export function addRoute(
   normalized: string,
   entries: RouteEntry[],
   middleware: Middleware[],
-  state: RegistrationState
+  state: RegistrationState,
+  recordIntrospection = true
 ): boolean {
   const segments = parseSegments(normalized, state.caseSensitive);
 
@@ -157,13 +168,18 @@ export function addRoute(
   }
 
   // Record in the introspection registry (side structure — never touched by
-  // request dispatch). key is the canonical `${METHOD} ${pathPattern}`.
-  state.routeDefinitions.push({
-    key: `${method} ${normalized}`,
-    method,
-    path: normalized,
-    metadata: mergeContributions(contributions),
-  });
+  // request dispatch). key is the canonical `${METHOD} ${pathPattern}`. Skipped
+  // when the caller is consolidating multiple addRoute calls into a single row
+  // itself (Router.all(), T016) — the concrete trie handler above is still
+  // inserted regardless, so matching for this method is unaffected.
+  if (recordIntrospection) {
+    state.routeDefinitions.push({
+      key: `${method} ${normalized}`,
+      method,
+      path: normalized,
+      metadata: mergeContributions(contributions),
+    });
+  }
 
   return hasParams;
 }

@@ -151,4 +151,24 @@ describe('generateDocument', () => {
     expect(paths['/internal/metrics']).toBeUndefined();
     expect(paths['/public']).toBeDefined();
   });
+
+  it('expands an isAnyMethod route into an operation for every standard HTTP method (T016)', async () => {
+    // @All()/router.all() now yields a single RouteDefinition with
+    // isAnyMethod: true instead of one row per method (T016). Without this,
+    // generate.ts's `pathItem[route.method.toLowerCase()] = ...` would key
+    // off the row's single placeholder `method` and silently emit only ONE
+    // operation for an any-method route — dropping the other 6 methods from
+    // the generated spec. This is the exact "no existing route-table
+    // consumer breaks" acceptance scenario from spec.md.
+    const doc = await generateDocument(
+      [{ ...route({ method: 'GET', path: '/proxy' }), isAnyMethod: true }],
+      {}
+    );
+    const pathItem = (doc.paths as Record<string, any>)['/proxy'];
+    expect(pathItem).toBeDefined();
+    for (const verb of ['get', 'post', 'put', 'delete', 'patch', 'head', 'options']) {
+      expect(pathItem[verb]).toBeDefined();
+      expect(pathItem[verb].operationId).toBe(`${verb}_proxy`);
+    }
+  });
 });

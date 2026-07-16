@@ -121,7 +121,8 @@ export class Router {
     method: HttpMethod,
     path: string,
     entries: RouteEntry[],
-    middleware: Middleware[] = []
+    middleware: Middleware[] = [],
+    recordIntrospection = true
   ): void {
     // Runtime guard for untyped JS callers — without this, a non-string path is
     // silently coerced (`'' + null` → 'null') into a bogus literal route.
@@ -133,12 +134,19 @@ export class Router {
     }
     const normalized = this.normalizePath(path);
 
-    const hasParams = addRouteImpl(method, normalized, entries, middleware, {
-      root: this.root,
-      caseSensitive: this.opts.caseSensitive,
-      staticRoutes: this.staticRoutes,
-      routeDefinitions: this.routeDefinitions,
-    });
+    const hasParams = addRouteImpl(
+      method,
+      normalized,
+      entries,
+      middleware,
+      {
+        root: this.root,
+        caseSensitive: this.opts.caseSensitive,
+        staticRoutes: this.staticRoutes,
+        routeDefinitions: this.routeDefinitions,
+      },
+      recordIntrospection
+    );
     if (hasParams) this.hasParamRoutes = true;
   }
 
@@ -181,10 +189,34 @@ export class Router {
     return this;
   }
 
+  /**
+   * Register a route matching every standard HTTP method under a single
+   * introspection entry (T016).
+   *
+   * Internally still inserts one concrete trie handler per method in
+   * `HTTP_METHODS` — `match()`/`allowedMethods()` are completely unaffected,
+   * every method dispatches exactly as it did before this change. Only
+   * `getRoutes()`'s output changes: instead of one row per enumerated method
+   * (the pre-T016 shape), this pushes exactly one `RouteDefinition` row with
+   * `isAnyMethod: true`, so a renderer iterating `getRoutes()` sees one entry
+   * per `.all()`/`@All()` route, matching how the route was actually authored.
+   */
   all(path: string, ...entries: RouteEntry[]): this {
     for (const method of HTTP_METHODS) {
-      this.addRoute(method, path, entries);
+      // recordIntrospection=false: insert the concrete per-method trie handler
+      // (so this method still matches) without pushing a per-call
+      // introspection row — the single consolidated row below replaces all 7.
+      this.addRoute(method, path, entries, [], false);
     }
+
+    const normalized = this.normalizePath(path);
+    this.routeDefinitions.push({
+      key: `${HTTP_METHODS[0]} ${normalized}`,
+      method: HTTP_METHODS[0],
+      path: normalized,
+      isAnyMethod: true,
+    });
+
     return this;
   }
 
@@ -455,9 +487,29 @@ export class Router {
     method: HttpMethod,
     path: string,
     handlers: RouteHandler[],
-    groupMiddleware: Middleware[]
+    groupMiddleware: Middleware[],
+    recordIntrospection = true
   ): void {
-    this.addRoute(method, path, handlers, groupMiddleware);
+    this.addRoute(method, path, handlers, groupMiddleware, recordIntrospection);
+  }
+
+  /**
+   * Push a single consolidated any-method `RouteDefinition` row (T016).
+   * `GroupRouter.all()` inserts its 7 concrete per-method trie handlers via
+   * `_addGroupRoute(..., recordIntrospection=false)`, then calls this once to
+   * record the introspection-registry entry — mirrors `Router.all()`'s own
+   * consolidation, exposed here since a group's routes live on the parent
+   * `Router` instance, not on `GroupRouter` itself.
+   * @internal
+   */
+  _pushAnyMethodRouteDefinition(path: string): void {
+    const normalized = this.normalizePath(path);
+    this.routeDefinitions.push({
+      key: `${HTTP_METHODS[0]} ${normalized}`,
+      method: HTTP_METHODS[0],
+      path: normalized,
+      isAnyMethod: true,
+    });
   }
 }
 

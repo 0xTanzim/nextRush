@@ -30,8 +30,11 @@ export interface GroupRouterHost {
     method: HttpMethod,
     path: string,
     handlers: RouteHandler[],
-    groupMiddleware: Middleware[]
+    groupMiddleware: Middleware[],
+    recordIntrospection?: boolean
   ): void;
+  /** Record a single any-method introspection row (T016) — see `Router._pushAnyMethodRouteDefinition`. */
+  _pushAnyMethodRouteDefinition(path: string): void;
 }
 
 /**
@@ -120,10 +123,18 @@ export class GroupRouter implements RouteGroup {
     return this;
   }
 
+  /**
+   * Register a route matching every HTTP method under a single introspection
+   * entry, mirroring `Router.all()` (T016) — a group's `.all()` must not
+   * regress to the pre-T016 one-row-per-method shape just because
+   * registration is routed through `_addGroupRoute` instead of `addRoute`
+   * directly.
+   */
   all(path: string, ...handlers: RouteHandler[]): this {
     for (const method of HTTP_METHODS) {
-      this.parent._addGroupRoute(method, this.fullPath(path), handlers, this.middleware);
+      this.parent._addGroupRoute(method, this.fullPath(path), handlers, this.middleware, false);
     }
+    this.parent._pushAnyMethodRouteDefinition(this.fullPath(path));
     return this;
   }
 
