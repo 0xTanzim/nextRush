@@ -14,6 +14,21 @@
 > Phases 0–2 and T038 were individually re-verified against real source/CI/docs — each carries a
 > "Verified:" note citing what was checked. T005 and T053 were both closed on 2026-07-16 (all 35
 > publishable packages carry a surface-lock test; the two deprecated shim packages were removed).
+>
+> **Re-verified again 2026-07-16 (later same day):** T001, T002, and T006 closed via
+> `openspec/changes/archive/2026-07-16-fix-dependency-claim-router-naming-coverage-gate`
+> (commits `2654009`, `b380f86`, `78e2e06`) — README/di-docs dependency claim corrected with a
+> footprint table, router `radix-tree.ts`/`RadixNode` renamed to `segment-trie.ts`/`TrieNode`
+> with zero public-surface impact (confirmed via snapshot diff), and a 90%/85% per-package
+> coverage gate wired into the `verify` pipeline via `turbo.json`. **Phase 0 is now 6/8, NOT
+> complete** — T004 (Windows/macOS CI) and T008 (deterministic metadata-emitting build / "TypeInfo
+> not known") remain open, confirmed still absent from source this same pass (no
+> `windows-latest`/`macos-latest` job in `.github/workflows/`; "TypeInfo not known" still cited as
+> the "#1 DX footgun" in `docs/audits/06-framework-design-review.md`). T006's coverage gate also
+> surfaced a real, disclosed follow-up: `@nextrush/router` itself sits in the gate's own
+> `KNOWN_BELOW_THRESHOLD` exclusion list (90.02% lines / 78.49% branches, below the 85% branch
+> bar) — not a T006 defect, but an open item worth tracking given its adjacency to T002's rename.
+>
 > Phases 3–5 beyond T005/T038/T053/T054/T032/T033/T059 spot-checks were **not** individually
 > re-checked in this pass — their glyphs are carried forward from the original audit and should
 > be treated as **unverified-but-plausible**, not freshly confirmed. Re-verify Phases 3–5 in a
@@ -31,7 +46,7 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 
 | Goal | Primary blockers | Tasks |
 |---|---|---|
-| **Production readiness (Node)** | Accuracy debt remains ("Zero Dependencies", router naming); no signal-wired graceful shutdown; no health checks. Multi-runtime CI matrix now real (T003 ☑) | T001, T002, T010, T011 |
+| **Production readiness (Node)** | Accuracy debt corrected (T001 ☑, T002 ☑) and coverage gate live (T006 ☑); no signal-wired graceful shutdown; no health checks. Multi-runtime CI matrix now real (T003 ☑) | T010, T011 |
 | **Edge Runtime** | **Largely closed.** Now executed on real `workerd`/Deno in CI (T019 ☑); bundle size measured (T012 ◐, edge-scoped); deploy examples + edge-safe middleware docs shipped (T021 ☑, T022 ☑) | T020 (◐, explicit allowed-global assertion), T024 |
 | **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
 | **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
@@ -70,13 +85,13 @@ gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
 
 | Phase | Theme | Tasks | □ Not Started | ◐ In Progress | ☑ Completed | % |
 |---|---|---|---|---|---|---|
-| Phase 0 | Foundation | 8 | 4 | 0 | 4 | 50% |
+| Phase 0 | Foundation | 8 | 2 | 0 | 6 | 75% |
 | Phase 1 | Production Ready (Node) | 9 | 7 | 0 | 2 | 22.2% |
 | Phase 2 | Edge Runtime | 6 | 1 | 2 | 3 | 50–83%* |
 | Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% (not re-verified — spot-checks: T032, T033 confirmed still open) |
 | Phase 4 | Ecosystem | 15 | 14 | 0 | 1 | 6.7% (T038 confirmed ☑; remainder not re-verified) |
 | Phase 5 | v1 Stable | 13 | 11 | 0 | 2 | 15.4% (T053 verified ☑ this pass; T054 spot-checked plausible ☑; remainder not re-verified) |
-| **Total** | | **64** | **50** | **2** | **12** | **~18.75%** |
+| **Total** | | **64** | **48** | **2** | **14** | **~21.9%** |
 
 *Phase 2: 50% by strict ☑ count (3/6), 83% counting ◐ as substantially done — see the phase's own
 "Verified:" notes for exactly what's delivered vs. remaining per task.
@@ -138,7 +153,7 @@ T032 (module encapsulation) depends on request-scope child-container machinery (
 T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 ```
 
-**Can run fully in parallel (no cross-deps):** T001, T002, T010, T011, T012 (residual core-bundle
+**Can run fully in parallel (no cross-deps):** T010, T011, T012 (residual core-bundle
 scope only — edge scope done), T015, T016, T020 (residual explicit-assertion scope only), T035,
 T043, T044, T046, T047, T057, T061, T062.
 
@@ -162,9 +177,9 @@ required for T060's own acceptance criteria.
 
 ## Tasks
 
-### ☐ T001 · Correct the "Zero Dependencies" claim
-- **Domain:** Documentation · **Packages:** root `README.md`, `nextrush`, `@nextrush/di` · **Priority:** P0 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
-- **Verified (2026-07-15):** `README.md` line 16 still reads "**Zero Dependencies** — No external runtime dependencies in core" and line 21 "zero-dependency core" with no per-path (functional vs class/DI) footprint table. Claim not yet corrected.
+### ☑ T001 · Correct the "Zero Dependencies" claim
+- **Domain:** Documentation · **Packages:** root `README.md`, `nextrush`, `@nextrush/di` · **Priority:** P0 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-16):** `README.md` now states "**Zero-Dependency Functional Core** — `createApp`/`createRouter`/`listen` pull in no external runtime dependencies; the class/DI path (`nextrush/class`) depends on `tsyringe` + `reflect-metadata`," with a "Dependency Footprint" table distinguishing the two paths. `packages/di/README.md` carries the equivalent correction. `grep -i "zero dependenc" README.md` confirms no remaining unqualified/absolute claim. Delivered by `openspec/changes/archive/2026-07-16-fix-dependency-claim-router-naming-coverage-gate` (T001 task group), commit `2654009`.
 - **Dependencies:** —
 - **Description:** Reword "Zero Dependencies" to "zero-dependency functional core; the class/DI path depends on `tsyringe` + `reflect-metadata`." Add a per-path dependency footprint table.
 - **Why it matters:** A headline correctness claim is false for a major usage path (01/R-2); misleads security/eval reviews.
@@ -172,9 +187,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** README + `@nextrush/di` README state the true footprint; functional vs class dependency trees documented.
 - **Validation Steps:** `pnpm why reflect-metadata tsyringe` output matches docs; reviewer confirms no remaining "zero dependencies" absolute claim.
 
-### ☐ T002 · Rename segment-trie router artifacts (kill "radix" drift)
-- **Domain:** Router · **Packages:** `@nextrush/router` · **Priority:** P0 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No (internal names) · **Status:** □ Not Started
-- **Verified (2026-07-15):** `grep -ri radix packages/router/src` still returns 20 matches across `router.ts` (10), `radix-tree.ts` (7, including the filename itself), and `index.ts` (3). File not renamed, `RadixNode` type not renamed.
+### ☑ T002 · Rename segment-trie router artifacts (kill "radix" drift)
+- **Domain:** Router · **Packages:** `@nextrush/router` · **Priority:** P0 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No (internal names) · **Status:** ☑ Completed
+- **Verified (2026-07-16):** `packages/router/src/radix-tree.ts` renamed to `segment-trie.ts` (git-mv, history preserved); `RadixNode` type renamed to `TrieNode` across `router.ts`, `segment-trie.ts`, and `index.ts`; JSDoc updated to describe the segment-trie implementation. `grep -ri radix packages/router/src` returns zero matches. Public-surface snapshot test confirmed byte-identical before/after (proves `RadixNode` was never exported — no `@deprecated` alias needed). `package.json` keywords: "segment-trie" added as primary; "radix-tree" kept as a transitional secondary npm-search keyword per design decision (metadata only, zero src/ impact). Delivered by `openspec/changes/archive/2026-07-16-fix-dependency-claim-router-naming-coverage-gate` (T002 task group), commit `b380f86`. **Follow-up note (not part of T002's own scope):** `@nextrush/router` sits in the T006 coverage gate's `KNOWN_BELOW_THRESHOLD` exclusion list at 90.02% lines / 78.49% branches — below the 85% branch bar. Pre-existing gap, not introduced by this rename (confirmed via `git show --stat` on the rename commit touching no test files' assertions), but adjacent enough to flag for a near-term follow-up.
 - **Dependencies:** —
 - **Description:** Rename `radix-tree.ts` → `segment-trie.ts`, `RadixNode` → `TrieNode`; fix JSDoc ("Radix tree node"/"compressed trie") and npm keyword/description `radix-tree` → `segment-trie`.
 - **Why it matters:** Source header already says "segment trie, not a compressed radix tree" (01/R-7); internal + npm metadata contradict the code.
@@ -212,9 +227,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** Each published package has a surface snapshot; an unintended export fails CI.
 - **Validation Steps:** Add a throwaway export to one package → CI fails on its snapshot; revert.
 
-### ☐ T006 · Coverage gate in CI (per-package thresholds)
-- **Domain:** CI/CD / Testing · **Packages:** `.github/workflows/ci.yml`, `vitest.config.ts` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
-- **Verified (2026-07-15):** `grep -i coverage .github/workflows/ci.yml` returns no matches — no coverage threshold enforcement found in CI.
+### ☑ T006 · Coverage gate in CI (per-package thresholds)
+- **Domain:** CI/CD / Testing · **Packages:** `.github/workflows/ci.yml`, `vitest.config.ts` · **Priority:** P1 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-16):** `scripts/check-coverage.ts` enforces 90% lines / 85% branches per package (not repo-wide average), wired as `check:coverage` in `turbo.json`, which `verify` now depends on (`"dependsOn": ["build", "test", "typecheck", "lint", "validate:bins", "check:coverage"]`) — the same pipeline `.github/workflows/ci.yml` invokes via `pnpm verify`, not a separate parallel job. A repo-wide coverage run at wiring time found several packages already below threshold; non-trivial ones (real test-writing gaps, not missing-one-case fixes) were scoped out via an explicit, commented `KNOWN_BELOW_THRESHOLD` exclusion list in `scripts/check-coverage.ts` rather than forced green with speculative tests — **carries forward as open follow-up work, not closed by T006 itself**: `@nextrush/router` (90.02%/78.49%), `@nextrush/runtime` (76.66%/66.86%), and others per the script's inline list. Delivered by `openspec/changes/archive/2026-07-16-fix-dependency-claim-router-naming-coverage-gate` (T006 task group), commit `78e2e06`. Full `pnpm verify`/`turbo run verify` run: 126/130 tasks green; the 4 failures (`@nextrush/class#test`, `@nextrush/di#test` — a pre-existing circular-dependency-detection timeout; `@nextrush/dev#lint`, `docs#lint`) are confirmed pre-existing and unrelated via `git log`/`git show --stat` predating this change's commits — `check:coverage` itself is not among the failures.
 - **Dependencies:** —
 - **Description:** Wire `test:coverage` into `verify`/CI with per-package thresholds (≥90% lines / ≥85% branches per steering). Today `pnpm verify` = build/test/typecheck/lint; coverage enforcement is unconfirmed (01/R-11).
 - **Why it matters:** Locks in the test discipline that is currently a strength.
