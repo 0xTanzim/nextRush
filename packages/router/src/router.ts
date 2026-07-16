@@ -246,9 +246,9 @@ export class Router {
    * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#redirects | README: Redirects} for usage examples
    */
   redirect(from: string, to: string, status: RedirectStatus = 301): this {
-    registerRedirect(from, to, status, (method, path, entries) =>
-      this.addRoute(method, path, entries)
-    );
+    registerRedirect(from, to, status, (method, path, entries) => {
+          this.addRoute(method, path, entries);
+        });
     return this;
   }
 
