@@ -2,6 +2,13 @@
 
 Lightweight dependency injection container for NextRush v3.
 
+> **Dependency footprint**: `@nextrush/di` depends on `tsyringe@^4.10.0` and
+> `reflect-metadata@^0.2.2` — it is not part of NextRush's zero-dependency functional core
+> (`createApp`/`createRouter`/`listen`). Any usage path that pulls in `@nextrush/di` (directly,
+> or transitively via `nextrush/class`) carries these two runtime dependencies. See the root
+> [README's Dependency Footprint table](../../README.md#dependency-footprint) for the full
+> per-path breakdown.
+
 ## Features
 
 - **Constructor Injection** — Automatic dependency resolution via TypeScript metadata

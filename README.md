@@ -13,12 +13,30 @@
 - **Modular** — Install only what you need
 - **Fast** — Competes with Fastify, Hono, and Koa
 - **Type-Safe** — Full TypeScript with zero `any`
-- **Zero Dependencies** — No external runtime dependencies in core
+- **Zero-Dependency Functional Core** — `createApp`/`createRouter`/`listen` pull in no external
+  runtime dependencies; the class/DI path (`nextrush/class`) depends on `tsyringe` +
+  `reflect-metadata` (see [Dependency Footprint](#dependency-footprint))
 - **Modern DX** — Clean context API, async/await native
+
+## Dependency Footprint
+
+NextRush's runtime dependencies differ by which path you use — there is no single "zero
+dependencies" claim that holds for the whole framework:
+
+| Usage path                                          | Entry point         | Runtime dependencies                |
+| ---------------------------------------------------- | -------------------- | ------------------------------------ |
+| Functional core (routing, middleware, context)       | `createApp`, `createRouter`, `listen` from `nextrush` | None |
+| Class-based / DI (`@Controller`, `@Service`, guards…) | `nextrush/class`     | `tsyringe@^4.10.0`, `reflect-metadata@^0.2.2` |
+
+Confirmed via `pnpm -r why reflect-metadata tsyringe` against this repo: both packages resolve
+only through `@nextrush/di`, which is pulled in by `@nextrush/class` and re-exported by the
+`nextrush` meta-package's `nextrush/class` subpath. `@nextrush/core`, `@nextrush/router`, and
+`@nextrush/runtime` — the packages backing the functional path — do not appear anywhere in that
+dependency graph.
 
 ## Performance
 
-NextRush is built for high throughput with a zero-dependency core, and it benchmarks
+NextRush is built for high throughput with a zero-dependency functional core, and it benchmarks
 competitively against Fastify, Hono, Koa, and Express. The suite in `apps/benchmark` compares
 six servers (including a raw Node.js baseline) across 10 scenarios using **wrk** (C-based,
 process-isolated) and **autocannon** (Node.js-based).
