@@ -31,12 +31,6 @@ describe('Public API surface (runtime exports)', () => {
       'EmptyBodySource',
       'createEmptyBodySource',
 
-      // Deprecated back-compat aliases (renamed to WebBodySource/
-      // createWebBodySource in @nextrush/runtime; kept one major cycle —
-      // locked as-is, removal is its own breaking change)
-      'DenoBodySource',
-      'createDenoBodySource',
-
       // Shared error classes re-exported from @nextrush/runtime
       'BodyConsumedError',
       'BodyTooLargeError',

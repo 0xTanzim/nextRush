@@ -32,7 +32,6 @@ export {
   NextRushError,
   NotFoundError,
   UnauthorizedError,
-  createHttpError,
 } from './errors';
 
 // Re-export types for convenience

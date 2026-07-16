@@ -5,7 +5,7 @@
 import type { Context } from '@nextrush/types';
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestError, InternalServerError, NotFoundError } from '../http-errors';
-import { catchAsync, errorHandler, notFoundHandler } from '../middleware';
+import { errorHandler, notFoundHandler } from '../middleware';
 import { ValidationError } from '../validation';
 
 function createMockContext(): Context {
@@ -337,38 +337,6 @@ describe('notFoundHandler', () => {
 
     expect(ctx.status).toBe(201);
     expect(ctx.json).not.toHaveBeenCalled();
-  });
-});
-
-describe('catchAsync', () => {
-  it('should pass through successful handlers', async () => {
-    const innerHandler = vi.fn().mockResolvedValue(undefined);
-    const handler = catchAsync(innerHandler);
-    const ctx = createMockContext();
-
-    await handler(ctx, noop);
-
-    expect(innerHandler).toHaveBeenCalledWith(ctx, noop);
-  });
-
-  it('should re-throw errors', async () => {
-    const error = new NotFoundError('Not found');
-    const innerHandler = vi.fn().mockRejectedValue(error);
-    const handler = catchAsync(innerHandler);
-    const ctx = createMockContext();
-
-    await expect(handler(ctx, noop)).rejects.toThrow(error);
-  });
-
-  it('should pass next to inner handler', async () => {
-    const innerHandler = vi.fn().mockResolvedValue(undefined);
-    const handler = catchAsync(innerHandler);
-    const ctx = createMockContext();
-    const next = vi.fn();
-
-    await handler(ctx, next);
-
-    expect(innerHandler).toHaveBeenCalledWith(ctx, next);
   });
 });
 

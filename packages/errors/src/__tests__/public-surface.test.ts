@@ -7,7 +7,7 @@
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as errorsApi from '../index';
-import type { ErrorContext, ErrorHandlerOptions, ErrorMiddleware } from '../index';
+import type { ErrorHandlerOptions } from '../index';
 import type { HttpErrorOptions } from '../index';
 import type { ValidationIssue } from '../index';
 
@@ -100,7 +100,6 @@ describe('Public API surface (runtime exports)', () => {
       'unprocessableEntity',
 
       // Middleware
-      'catchAsync',
       'errorHandler',
       'notFoundHandler',
     ].sort();
@@ -113,7 +112,7 @@ describe('Public API surface (type-only exports)', () => {
   it('the type-only surface stays importable from the barrel', () => {
     // Compile-time only: removing/renaming any of these in src/index.ts fails
     // this file to type-check.
-    type Surface = [HttpErrorOptions, ValidationIssue, ErrorContext, ErrorHandlerOptions, ErrorMiddleware];
+    type Surface = [HttpErrorOptions, ValidationIssue, ErrorHandlerOptions];
     expectTypeOf<Surface>().not.toBeNever();
   });
 });

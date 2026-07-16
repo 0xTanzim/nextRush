@@ -10,12 +10,19 @@ import type { Middleware } from '@nextrush/types';
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES } from '../constants.js';
 import { Errors } from '../errors.js';
-import type { BodyParserContext, BodyParserMiddleware, BodyParserOptions } from '../types.js';
+import type { BodyParserContext, BodyParserOptions } from '../types.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
 import { json } from './json.js';
 import { raw } from './raw.js';
 import { text } from './text.js';
 import { urlencoded } from './urlencoded.js';
+
+/**
+ * Internal signature shared by the individual parser middlewares
+ * (json/urlencoded/text/raw), used only to type the pre-created parser
+ * instances this function composes. Not part of the public API.
+ */
+type ParserFn = (ctx: BodyParserContext, next?: () => Promise<void>) => void | Promise<void>;
 
 /**
  * Create combined body parser middleware.
@@ -99,23 +106,18 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
     : [];
 
   // Pre-create individual parsers with correct options
-  // Cast to BodyParserMiddleware for internal use (optional next parameter)
-  const jsonParser =
-    jsonOptions !== false ? (json(jsonOptions) as unknown as BodyParserMiddleware) : null;
+  // Cast to ParserFn for internal use (optional next parameter)
+  const jsonParser = jsonOptions !== false ? (json(jsonOptions) as unknown as ParserFn) : null;
   const urlencodedParser =
     urlencodedOptions !== false
-      ? (urlencoded(urlencodedOptions) as unknown as BodyParserMiddleware)
+      ? (urlencoded(urlencodedOptions) as unknown as ParserFn)
       : null;
   // Text and raw parsers only created when explicitly enabled
   const textParser = hasTextOptions
-    ? (text(
-        textOptions as Exclude<typeof textOptions, false | undefined>
-      ) as unknown as BodyParserMiddleware)
+    ? (text(textOptions as Exclude<typeof textOptions, false | undefined>) as unknown as ParserFn)
     : null;
   const rawParser = hasRawOptions
-    ? (raw(
-        rawOptions as Exclude<typeof rawOptions, false | undefined>
-      ) as unknown as BodyParserMiddleware)
+    ? (raw(rawOptions as Exclude<typeof rawOptions, false | undefined>) as unknown as ParserFn)
     : null;
 
   return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {

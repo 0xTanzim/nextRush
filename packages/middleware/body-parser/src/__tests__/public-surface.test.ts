@@ -8,7 +8,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as bodyParserApi from '../index';
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS, DEFAULT_PARAMETER_LIMITS, PATTERNS, SIZE_UNITS, SUPPORTED_CHARSETS } from '../index';
-import type { BodyParserContext, BodyParserErrorCode, BodyParserMiddleware, BodyParserOptions, JsonOptions, RawOptions, TextOptions, UrlEncodedOptions, VerifyCallback } from '../index';
+import type { BodyParserContext, BodyParserErrorCode, BodyParserOptions, JsonOptions, RawOptions, TextOptions, UrlEncodedOptions, VerifyCallback } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
   it('exports exactly the intended runtime symbols (default export excluded — vitest module namespace)', () => {
@@ -62,7 +62,7 @@ describe('Public API surface (type-only exports)', () => {
   it('the type-only surface stays importable from the barrel', () => {
     // Compile-time only: removing/renaming any of these in src/index.ts fails
     // this file to type-check.
-    type Surface = [BodyParserContext, BodyParserErrorCode, BodyParserMiddleware, BodyParserOptions, JsonOptions, RawOptions, TextOptions, UrlEncodedOptions, VerifyCallback];
+    type Surface = [BodyParserContext, BodyParserErrorCode, BodyParserOptions, JsonOptions, RawOptions, TextOptions, UrlEncodedOptions, VerifyCallback];
     expectTypeOf<Surface>().not.toBeNever();
   });
 });

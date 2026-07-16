@@ -14,7 +14,6 @@ import {
   CspBuilder,
   devHelmet,
   extractNonce,
-  frameguard,
   generateCspNonce,
   generateNonce,
   helmet,
@@ -71,7 +70,6 @@ describe('helmet middleware', () => {
       expect(ctx.headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
       expect(ctx.headers.get('Cross-Origin-Resource-Policy')).toBe('same-origin');
       expect(ctx.headers.get('X-DNS-Prefetch-Control')).toBe('off');
-      expect(ctx.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
       expect(ctx.headers.has('Strict-Transport-Security')).toBe(true);
       expect(ctx.headers.get('X-Content-Type-Options')).toBe('nosniff');
       expect(ctx.headers.get('Origin-Agent-Cluster')).toBe('?1');
@@ -275,33 +273,6 @@ describe('helmet middleware', () => {
       await middleware(ctx, next);
 
       expect(ctx.headers.has('X-DNS-Prefetch-Control')).toBe(false);
-    });
-  });
-
-  describe('X-Frame-Options (frameguard)', () => {
-    it('should set SAMEORIGIN by default', async () => {
-      const middleware = helmet();
-      await middleware(ctx, next);
-
-      expect(ctx.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
-    });
-
-    it('should allow DENY', async () => {
-      const middleware = helmet({
-        frameguard: 'DENY',
-      });
-      await middleware(ctx, next);
-
-      expect(ctx.headers.get('X-Frame-Options')).toBe('DENY');
-    });
-
-    it('should disable when set to false', async () => {
-      const middleware = helmet({
-        frameguard: false,
-      });
-      await middleware(ctx, next);
-
-      expect(ctx.headers.has('X-Frame-Options')).toBe(false);
     });
   });
 
@@ -612,23 +583,6 @@ describe('individual middleware functions', () => {
     });
   });
 
-  describe('frameguard()', () => {
-    it('should only set X-Frame-Options header', async () => {
-      const middleware = frameguard();
-      await middleware(ctx, next);
-
-      expect(ctx.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
-      expect(ctx.headers.has('Content-Security-Policy')).toBe(false);
-    });
-
-    it('should accept DENY action', async () => {
-      const middleware = frameguard('DENY');
-      await middleware(ctx, next);
-
-      expect(ctx.headers.get('X-Frame-Options')).toBe('DENY');
-    });
-  });
-
   describe('noSniff()', () => {
     it('should only set X-Content-Type-Options header', async () => {
       const middleware = noSniff();
@@ -689,7 +643,6 @@ describe('edge cases', () => {
       crossOriginOpenerPolicy: false,
       crossOriginResourcePolicy: false,
       dnsPrefetchControl: false,
-      frameguard: false,
       hsts: false,
       noSniff: false,
       originAgentCluster: false,
@@ -752,8 +705,8 @@ describe('edge cases', () => {
       middleware(ctx2, vi.fn().mockResolvedValue(undefined)),
     ]);
 
-    expect(ctx1.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
-    expect(ctx2.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+    expect(ctx1.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(ctx2.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
   it('should pass through errors from next', async () => {
@@ -1451,7 +1404,6 @@ describe('security presets', () => {
 
       expect(ctx.headers.has('Content-Security-Policy')).toBe(true);
       expect(ctx.headers.has('Strict-Transport-Security')).toBe(true);
-      expect(ctx.headers.get('X-Frame-Options')).toBe('DENY');
       expect(ctx.headers.get('X-Content-Type-Options')).toBe('nosniff');
     });
   });

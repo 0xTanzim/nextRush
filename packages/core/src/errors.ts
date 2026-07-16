@@ -16,10 +16,3 @@ export {
   NotFoundError,
   UnauthorizedError,
 } from '@nextrush/errors';
-
-/**
- * @deprecated Use `createError` (from `nextrush` or `@nextrush/errors`).
- * `createHttpError` is a legacy alias for the same function and will be
- * removed in a future major version (audit N-3).
- */
-export { createError as createHttpError } from '@nextrush/errors';

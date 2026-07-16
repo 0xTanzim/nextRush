@@ -6,9 +6,6 @@
  * `@nextrush/runtime` (audit F-04a). Body-reading behavior is now identical
  * across the Web adapters (Bun/Deno/Edge) and fixed in one place.
  *
- * The old names remain as backward-compatible re-export aliases so the public
- * API surface does not break.
- *
  * @packageDocumentation
  */
 
@@ -20,16 +17,3 @@ import {
 } from '@nextrush/runtime';
 
 export { createEmptyBodySource, createWebBodySource, EmptyBodySource, WebBodySource };
-
-/**
- * @deprecated Renamed to {@link WebBodySource} (from `@nextrush/runtime`). This
- * alias is kept for backward compatibility and will be removed in a future
- * major version.
- */
-export const EdgeBodySource = WebBodySource;
-export type EdgeBodySource = WebBodySource;
-
-/**
- * @deprecated Use {@link createWebBodySource} from `@nextrush/runtime`.
- */
-export const createEdgeBodySource = createWebBodySource;

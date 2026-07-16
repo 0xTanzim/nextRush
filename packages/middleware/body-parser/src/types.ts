@@ -60,25 +60,6 @@ export interface BodyParserBodySource {
 }
 
 /**
- * Node.js request stream interface (minimal) - DEPRECATED
- *
- * @deprecated Use BodyParserBodySource instead. This is kept for backward compatibility.
- */
-export interface RequestStream {
-  on(event: 'data', listener: (chunk: Buffer) => void): this;
-  on(event: 'end', listener: () => void): this;
-  on(event: 'error', listener: (err: Error) => void): this;
-  on(event: 'close', listener: () => void): this;
-  on(event: 'aborted', listener: () => void): this;
-  off(event: 'data', listener: (chunk: Buffer) => void): this;
-  off(event: 'end', listener: () => void): this;
-  off(event: 'error', listener: (err: Error) => void): this;
-  off(event: 'close', listener: () => void): this;
-  off(event: 'aborted', listener: () => void): this;
-  readonly destroyed?: boolean;
-}
-
-/**
  * Minimal context interface for body-parser middleware
  *
  * This interface defines the minimum requirements for a context object
@@ -86,11 +67,8 @@ export interface RequestStream {
  * with NextRush Context while remaining decoupled from core.
  *
  * @remarks
- * The body-parser supports two modes:
- * 1. **Modern (cross-runtime)**: Uses `ctx.bodySource` for Node, Bun, Deno, Edge
- * 2. **Legacy (Node.js only)**: Uses `ctx.raw.req` stream events
- *
- * If both are available, `bodySource` takes priority for better performance.
+ * Requires `ctx.bodySource` for cross-runtime body reading (Node, Bun, Deno,
+ * Edge adapters all provide this).
  */
 export interface BodyParserContext {
   /** HTTP method (GET, POST, etc.) */
@@ -107,18 +85,8 @@ export interface BodyParserContext {
    *
    * @remarks
    * Modern adapters (Node, Bun, Deno, Edge) provide this for unified body reading.
-   * This is the preferred way to read request bodies.
    */
   readonly bodySource?: BodyParserBodySource;
-
-  /**
-   * Raw platform-specific request/response objects
-   *
-   * @deprecated For body reading, prefer `bodySource` for cross-runtime compatibility.
-   */
-  readonly raw?: {
-    readonly req?: RequestStream;
-  };
 
   /** Parsed request body (set by body-parser) */
   body?: unknown;
@@ -126,17 +94,6 @@ export interface BodyParserContext {
   /** Raw request body buffer (optional, when rawBody option is true) */
   rawBody?: Buffer | Uint8Array;
 }
-
-/**
- * Body parser middleware function signature
- *
- * @deprecated Use `Middleware` from `@nextrush/types` instead.
- * All body parser functions now return the standard `Middleware` type.
- */
-export type BodyParserMiddleware = (
-  ctx: BodyParserContext,
-  next?: () => Promise<void>
-) => void | Promise<void>;
 
 /**
  * JSON reviver function for custom parsing

@@ -94,11 +94,4 @@ export {
 } from './factory';
 
 // Middleware
-export {
-  catchAsync,
-  errorHandler,
-  notFoundHandler,
-  type ErrorContext,
-  type ErrorHandlerOptions,
-  type ErrorMiddleware,
-} from './middleware';
+export { errorHandler, notFoundHandler, type ErrorHandlerOptions } from './middleware';

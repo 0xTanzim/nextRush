@@ -42,19 +42,6 @@ export interface ServeOptions {
   host?: string;
 
   /**
-   * Hostname to bind to.
-   *
-   * @remarks
-   * Defaults to `0.0.0.0` for convenience in development and container
-   * environments. In production, consider binding to a specific interface
-   * (e.g. `'127.0.0.1'`) if the server should not be publicly reachable.
-   *
-   * @deprecated Use {@link ServeOptions.host}. Kept for backward compatibility.
-   * @default '0.0.0.0'
-   */
-  hostname?: string;
-
-  /**
    * Callback when server starts listening
    */
   onListen?: (info: { port: number; host: string; hostname: string }) => void;
@@ -133,12 +120,6 @@ export interface ServerInstance {
 
   /** Host the server is bound to (canonical — audit F-05). */
   host: string;
-
-  /**
-   * Hostname the server is bound to.
-   * @deprecated Use {@link ServerInstance.host}.
-   */
-  hostname: string;
 
   /** Close the server */
   close(): Promise<void>;
@@ -293,9 +274,7 @@ export async function serve(
     shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
   } = options;
 
-  // F-05: accept both `host` (canonical) and `hostname` (deprecated alias).
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional read of the back-compat alias
-  const host = options.host ?? options.hostname ?? '0.0.0.0';
+  const host = options.host ?? '0.0.0.0';
   const logger = options.logger ?? app.logger;
 
   // In-flight request tracking for graceful shutdown
@@ -383,7 +362,6 @@ export async function serve(
     server,
     port: actualPort,
     host: actualHost,
-    hostname: actualHost,
     address: () => ({ port: actualPort, host: actualHost, hostname: actualHost }),
     close: async () => {
       // 1. Stop accepting new connections

@@ -47,12 +47,6 @@ describe('Public API surface (runtime exports)', () => {
       'EmptyBodySource',
       'WebBodySource',
 
-      // Deprecated back-compat aliases (renamed to EmptyBodySource/
-      // WebBodySource/createWebBodySource; kept one major cycle — locked
-      // as-is, removal is its own breaking change)
-      'createEdgeBodySource',
-      'EdgeBodySource',
-
       // Shared error classes (parity with node/bun/deno — audit F-10)
       'BodyConsumedError',
       'BodyTooLargeError',

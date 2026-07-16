@@ -35,13 +35,6 @@ export interface ServeOptions {
   host?: string;
 
   /**
-   * Hostname to bind to.
-   * @deprecated Use {@link ServeOptions.host}. Accepted as an alias for
-   * cross-adapter portability (audit F-05); when both are given, `host` wins.
-   */
-  hostname?: string;
-
-  /**
    * Callback when server starts listening
    */
   onListen?: (info: { port: number; host: string; hostname: string }) => void;
@@ -178,9 +171,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
   } = options;
 
-  // F-05: accept both `host` (canonical) and `hostname` (deprecated alias).
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional read of the back-compat alias
-  const host = options.host ?? options.hostname ?? '0.0.0.0';
+  const host = options.host ?? '0.0.0.0';
 
   const logger = options.logger ?? app.logger;
 

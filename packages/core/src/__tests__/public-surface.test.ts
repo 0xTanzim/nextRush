@@ -55,7 +55,6 @@ describe('Public API surface (runtime exports)', () => {
       'NextRushError',
       'NotFoundError',
       'UnauthorizedError',
-      'createHttpError',
 
       // Re-exported constants from @nextrush/types
       'ContentType',

@@ -30,7 +30,6 @@ import type {
   PermissionsPolicyFeature,
   ReferrerPolicyValue,
   StrictTransportSecurityOptions,
-  XFrameOptionsValue,
 } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
@@ -43,7 +42,6 @@ describe('Public API surface (runtime exports)', () => {
       'apiHelmet',
       'contentSecurityPolicy',
       'devHelmet',
-      'frameguard',
       'hidePoweredBy',
       'hsts',
       'logoutHelmet',
@@ -128,7 +126,6 @@ describe('Public API surface (type-only exports)', () => {
       PermissionsPolicyFeature,
       ReferrerPolicyValue,
       StrictTransportSecurityOptions,
-      XFrameOptionsValue,
       HstsValidationResult,
     ];
     expectTypeOf<Surface>().not.toBeNever();

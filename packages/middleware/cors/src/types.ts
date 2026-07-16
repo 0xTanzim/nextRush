@@ -220,11 +220,6 @@ export interface CorsOptions {
 }
 
 /**
- * CORS middleware function type (for backward compatibility)
- */
-export type CorsMiddleware = Middleware;
-
-/**
  * Re-export core types for convenience
  */
 export type { Context, Middleware };

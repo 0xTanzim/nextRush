@@ -8,7 +8,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as corsApi from '../index';
 import { CORS_HEADERS, DEFAULT_MAX_AGE, DEFAULT_METHODS, DEFAULT_OPTIONS_SUCCESS_STATUS, ORIGIN_HEADER, PREFLIGHT_INDICATORS, VARY_HEADER } from '../index';
-import type { Context, CorsContext, CorsMiddleware, CorsOptions, Middleware, Next, OriginOption, OriginValidator, SecuritySeverity } from '../index';
+import type { Context, CorsContext, CorsOptions, Middleware, Next, OriginOption, OriginValidator, SecuritySeverity } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
   it('exports exactly the intended runtime symbols (default export excluded — vitest module namespace)', () => {
@@ -63,7 +63,7 @@ describe('Public API surface (type-only exports)', () => {
   it('the type-only surface stays importable from the barrel', () => {
     // Compile-time only: removing/renaming any of these in src/index.ts fails
     // this file to type-check.
-    type Surface = [CorsContext, CorsMiddleware, CorsOptions, OriginOption, OriginValidator, SecuritySeverity, Context, Middleware, Next];
+    type Surface = [CorsContext, CorsOptions, OriginOption, OriginValidator, SecuritySeverity, Context, Middleware, Next];
     expectTypeOf<Surface>().not.toBeNever();
   });
 });

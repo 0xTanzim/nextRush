@@ -145,7 +145,7 @@ export {
     ServiceUnavailableError,
     TooManyRequestsError,
     UnauthorizedError,
-    UnprocessableEntityError, catchAsync,
+    UnprocessableEntityError,
     // Factory functions
     createError,
     // Error handling middleware

@@ -10,27 +10,6 @@ import type { Context, Middleware, Next } from '@nextrush/types';
 import { HttpError, NextRushError, getHttpStatusMessage } from './base';
 
 /**
- * Minimal context interface for error handling.
- *
- * @deprecated Use `Context` from `@nextrush/types` instead.
- * Kept for backward compatibility — will be removed in v4.
- */
-export interface ErrorContext {
-  method: string;
-  path: string;
-  status: number;
-  json: (data: unknown) => void;
-}
-
-/**
- * Error handler middleware function type.
- *
- * @deprecated Use `Middleware` from `@nextrush/types` instead.
- * Kept for backward compatibility — will be removed in v4.
- */
-export type ErrorMiddleware = Middleware;
-
-/**
  * Error handler options
  */
 export interface ErrorHandlerOptions {
@@ -168,22 +147,3 @@ export function notFoundHandler(message = 'Not Found'): Middleware {
   };
 }
 
-/**
- * Catch async errors wrapper for route handlers
- *
- * @example
- * ```typescript
- * router.get('/users/:id', catchAsync(async (ctx) => {
- *   const user = await db.users.findById(ctx.params.id);
- *   if (!user) throw new NotFoundError('User not found');
- *   ctx.json(user);
- * }));
- * ```
- *
- * @deprecated This wrapper is redundant — async errors propagate naturally
- * through the middleware chain and are caught by `errorHandler()`. Use the
- * handler directly instead.
- */
-export function catchAsync(handler: (ctx: Context, next: Next) => Promise<void>): Middleware {
-  return handler;
-}

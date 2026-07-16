@@ -29,7 +29,7 @@ import { createRouter } from '@nextrush/router';
 import { bodyParser, json, raw, text, urlencoded } from '@nextrush/body-parser';
 import { compression, deflate, gzip } from '@nextrush/compression';
 import { cors, devCors, strictCors } from '@nextrush/cors';
-import { catchAsync, errorHandler, notFoundHandler } from '@nextrush/errors';
+import { errorHandler, notFoundHandler } from '@nextrush/errors';
 import { devHelmet, helmet, strictHelmet } from '@nextrush/helmet';
 
 // ============================================================================
@@ -501,20 +501,6 @@ describe('Error Handler Middleware Integration', () => {
     });
   });
 
-  describe('catchAsync', () => {
-    it('should wrap async route handlers', async () => {
-      const asyncHandler = catchAsync(async (ctx) => {
-        await new Promise((resolve) => setTimeout(resolve, 1));
-        ctx.json({ success: true });
-      });
-
-      const ctx = createMockContext();
-
-      await asyncHandler(ctx, async () => {});
-
-      expect(ctx.json).toHaveBeenCalledWith({ success: true });
-    });
-  });
 });
 
 // ============================================================================

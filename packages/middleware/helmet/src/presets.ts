@@ -45,7 +45,6 @@ export function contentSecurityPolicy(options: ContentSecurityPolicyOptions = {}
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     dnsPrefetchControl: false,
-    frameguard: false,
     hsts: false,
     noSniff: false,
     originAgentCluster: false,
@@ -79,35 +78,7 @@ export function hsts(options: StrictTransportSecurityOptions = {}): Middleware {
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     dnsPrefetchControl: false,
-    frameguard: false,
     hsts: options,
-    noSniff: false,
-    originAgentCluster: false,
-    referrerPolicy: false,
-    xssFilter: false,
-    ieNoOpen: false,
-    permittedCrossDomainPolicies: false,
-    hidePoweredBy: false,
-  });
-}
-
-/**
- * X-Frame-Options only middleware.
- *
- * @param action - Frame action ('DENY' or 'SAMEORIGIN')
- * @returns Middleware function
- *
- * @deprecated Use CSP frame-ancestors instead
- */
-export function frameguard(action: 'DENY' | 'SAMEORIGIN' = 'SAMEORIGIN'): Middleware {
-  return helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: false,
-    crossOriginResourcePolicy: false,
-    dnsPrefetchControl: false,
-    frameguard: action,
-    hsts: false,
     noSniff: false,
     originAgentCluster: false,
     referrerPolicy: false,
@@ -130,7 +101,6 @@ export function noSniff(): Middleware {
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     dnsPrefetchControl: false,
-    frameguard: false,
     hsts: false,
     noSniff: true,
     originAgentCluster: false,
@@ -157,7 +127,6 @@ export function referrerPolicy(
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     dnsPrefetchControl: false,
-    frameguard: false,
     hsts: false,
     noSniff: false,
     originAgentCluster: false,
@@ -204,7 +173,6 @@ export function strictHelmet(overrides: Partial<HelmetOptions> = {}): Middleware
     crossOriginOpenerPolicy: 'same-origin',
     crossOriginResourcePolicy: 'same-origin',
     dnsPrefetchControl: 'off',
-    frameguard: 'DENY',
     hsts: {
       maxAge: 31536000, // 1 year
       includeSubDomains: true,
@@ -242,7 +210,6 @@ export function apiHelmet(overrides: Partial<HelmetOptions> = {}): Middleware {
     crossOriginOpenerPolicy: 'same-origin',
     crossOriginResourcePolicy: 'same-origin',
     dnsPrefetchControl: 'off',
-    frameguard: 'DENY',
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,
@@ -287,7 +254,6 @@ export function devHelmet(): Middleware {
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     dnsPrefetchControl: false,
-    frameguard: false,
     hsts: false, // Don't force HTTPS in dev
     noSniff: true, // Keep this
     originAgentCluster: false,
@@ -324,7 +290,6 @@ export function staticHelmet(overrides: Partial<HelmetOptions> = {}): Middleware
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: 'cross-origin', // Allow cross-origin resource loading
     dnsPrefetchControl: 'off',
-    frameguard: false, // Allow embedding
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,
@@ -370,7 +335,6 @@ export function logoutHelmet(
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     dnsPrefetchControl: false,
-    frameguard: false,
     hsts: false,
     originAgentCluster: false,
     xssFilter: false,
@@ -399,7 +363,6 @@ export function hidePoweredBy(): Middleware {
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     dnsPrefetchControl: false,
-    frameguard: false,
     hsts: false,
     noSniff: false,
     originAgentCluster: false,

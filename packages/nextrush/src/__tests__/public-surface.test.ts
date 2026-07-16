@@ -7,7 +7,7 @@
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as nextrushApi from '../index';
-import { Application, ContentType, HttpStatus, ERROR_CODES, codeForStatus, HttpError, NextRushError, BadRequestError, BadGatewayError, ConflictError, ForbiddenError, GatewayTimeoutError, InternalServerError, MethodNotAllowedError, NotFoundError, NotImplementedError, ServiceUnavailableError, TooManyRequestsError, UnauthorizedError, UnprocessableEntityError, ValidationError, catchAsync, createError, errorHandler, isHttpError, notFoundHandler, Router, compose, createApp, createRouter, endpoint, createHandler, listen, serve } from '../index';
+import { Application, ContentType, HttpStatus, ERROR_CODES, codeForStatus, HttpError, NextRushError, BadRequestError, BadGatewayError, ConflictError, ForbiddenError, GatewayTimeoutError, InternalServerError, MethodNotAllowedError, NotFoundError, NotImplementedError, ServiceUnavailableError, TooManyRequestsError, UnauthorizedError, UnprocessableEntityError, ValidationError, createError, errorHandler, isHttpError, notFoundHandler, Router, compose, createApp, createRouter, endpoint, createHandler, listen, serve } from '../index';
 import type { ApplicationOptions, ComposedMiddleware, RouterOptions, ServeOptions, ServerInstance, ErrorHandlerOptions, HttpErrorOptions, ValidationIssue, Context, Extension, ExtensionContext, HttpMethod, HttpStatusCode, Middleware, Next, RouteHandler, RouteDefinition, RouteMetadata, Runtime } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
@@ -42,7 +42,6 @@ describe('Public API surface (runtime exports)', () => {
       'TooManyRequestsError',
       'UnauthorizedError',
       'UnprocessableEntityError',
-      'catchAsync',
       'createError',
       'errorHandler',
       'isHttpError',
@@ -86,7 +85,6 @@ describe('Public API surface (runtime exports)', () => {
     expect(typeof UnauthorizedError).toBe('function');
     expect(typeof UnprocessableEntityError).toBe('function');
     expect(typeof ValidationError).toBe('function');
-    expect(typeof catchAsync).toBe('function');
     expect(typeof createError).toBe('function');
     expect(typeof errorHandler).toBe('function');
   });

@@ -1,4 +1,3 @@
-import { EventEmitter } from 'events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bodyParser,
@@ -21,13 +20,49 @@ import {
 } from '../index';
 import { isCharsetSupported } from '../utils/content-type.js';
 
+/**
+ * Build a synchronous BodyParserBodySource mock backed by an in-memory buffer.
+ */
+function createBodySource(body?: string | Buffer): BodyParserContext['bodySource'] {
+  let consumed = false;
+  const buf =
+    body !== undefined
+      ? typeof body === 'string'
+        ? new TextEncoder().encode(body)
+        : new Uint8Array(body)
+      : new Uint8Array(0);
+
+  return {
+    async text() {
+      consumed = true;
+      return typeof body === 'string' ? body : new TextDecoder().decode(buf);
+    },
+    async buffer() {
+      consumed = true;
+      return buf;
+    },
+    async json<T>() {
+      consumed = true;
+      return JSON.parse(new TextDecoder().decode(buf)) as T;
+    },
+    get consumed() {
+      return consumed;
+    },
+    get contentLength() {
+      return undefined;
+    },
+    get contentType() {
+      return undefined;
+    },
+  };
+}
+
 function createMockContext(
   method: string = 'POST',
   contentType?: string,
   body?: string | Buffer,
   contentLength?: number
 ): BodyParserContext {
-  const emitter = new EventEmitter();
   const headers: Record<string, string | undefined> = {};
 
   if (contentType) {
@@ -39,33 +74,12 @@ function createMockContext(
     headers['content-length'] = String(Buffer.byteLength(body));
   }
 
-  const ctx: BodyParserContext = {
+  return {
     method,
     path: '/',
     headers,
-    raw: {
-      req: {
-        on: (event: string, listener: (arg?: Buffer | Error) => void) => {
-          emitter.on(event, listener);
-        },
-      } as BodyParserContext['raw']['req'],
-    },
+    bodySource: createBodySource(body),
   };
-
-  // Emit body data after a tick
-  if (body !== undefined) {
-    setImmediate(() => {
-      const buffer = typeof body === 'string' ? Buffer.from(body) : body;
-      emitter.emit('data', buffer);
-      emitter.emit('end');
-    });
-  } else {
-    setImmediate(() => {
-      emitter.emit('end');
-    });
-  }
-
-  return ctx;
 }
 
 describe('json middleware', () => {
@@ -1704,36 +1718,6 @@ describe('Null-prototype objects (URL-encoded)', () => {
   });
 });
 
-describe('Destroyed stream handling', () => {
-  let next: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    next = vi.fn().mockResolvedValue(undefined);
-  });
-
-  it('should reject if stream is already destroyed', async () => {
-    const emitter = new EventEmitter();
-    const ctx: BodyParserContext = {
-      method: 'POST',
-      path: '/',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': '10',
-      },
-      raw: {
-        req: {
-          on: (event: string, listener: (arg?: Buffer | Error) => void) => {
-            emitter.on(event, listener);
-          },
-          destroyed: true,
-        } as BodyParserContext['raw']['req'],
-      },
-    };
-
-    await expect(json()(ctx, next)).rejects.toThrow('closed');
-  });
-});
-
 describe('Empty body behavior', () => {
   let next: ReturnType<typeof vi.fn>;
 
@@ -2176,143 +2160,6 @@ describe('getContentLength security', () => {
 });
 
 // =============================================================================
-// STREAM LIFECYCLE TESTS (Node.js path)
-// =============================================================================
-
-describe('Stream lifecycle (Node.js path)', () => {
-  let next: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    next = vi.fn().mockResolvedValue(undefined);
-  });
-
-  it('should handle stream error event', async () => {
-    const emitter = new EventEmitter();
-    const ctx: BodyParserContext = {
-      method: 'POST',
-      path: '/',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': '15',
-      },
-      raw: {
-        req: {
-          on: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.on(event, listener);
-          },
-          off: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.off(event, listener);
-          },
-        } as BodyParserContext['raw']['req'],
-      },
-    };
-
-    setImmediate(() => {
-      emitter.emit('error', new Error('stream broken'));
-    });
-
-    await expect(json()(ctx, next)).rejects.toThrow();
-  });
-
-  it('should handle stream abort event', async () => {
-    const emitter = new EventEmitter();
-    const ctx: BodyParserContext = {
-      method: 'POST',
-      path: '/',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': '15',
-      },
-      raw: {
-        req: {
-          on: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.on(event, listener);
-          },
-          off: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.off(event, listener);
-          },
-        } as BodyParserContext['raw']['req'],
-      },
-    };
-
-    setImmediate(() => {
-      emitter.emit('aborted');
-    });
-
-    await expect(json()(ctx, next)).rejects.toThrow();
-  });
-
-  it('should cleanup all listeners after successful read', async () => {
-    const emitter = new EventEmitter();
-    const offSpy = vi.fn();
-
-    const ctx: BodyParserContext = {
-      method: 'POST',
-      path: '/',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': '15',
-      },
-      raw: {
-        req: {
-          on: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.on(event, listener);
-          },
-          off: (event: string, listener: (...args: unknown[]) => void) => {
-            offSpy(event);
-            emitter.off(event, listener);
-          },
-        } as BodyParserContext['raw']['req'],
-      },
-    };
-
-    setImmediate(() => {
-      emitter.emit('data', Buffer.from('{"name":"John"}'));
-      emitter.emit('end');
-    });
-
-    await json()(ctx, next);
-
-    expect(ctx.body).toEqual({ name: 'John' });
-    // Should have cleaned up all 5 event listeners
-    const cleanedEvents = offSpy.mock.calls.map((c: unknown[]) => c[0]);
-    expect(cleanedEvents).toContain('data');
-    expect(cleanedEvents).toContain('end');
-    expect(cleanedEvents).toContain('error');
-    expect(cleanedEvents).toContain('close');
-    expect(cleanedEvents).toContain('aborted');
-  });
-
-  it('should handle close event during read', async () => {
-    const emitter = new EventEmitter();
-    const ctx: BodyParserContext = {
-      method: 'POST',
-      path: '/',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': '15',
-      },
-      raw: {
-        req: {
-          on: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.on(event, listener);
-          },
-          off: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.off(event, listener);
-          },
-        } as BodyParserContext['raw']['req'],
-      },
-    };
-
-    setImmediate(() => {
-      emitter.emit('close');
-    });
-
-    await expect(json()(ctx, next)).rejects.toThrow();
-  });
-});
-
-// =============================================================================
 // BODY RE-PARSING GUARD TESTS
 // =============================================================================
 
@@ -2581,31 +2428,7 @@ describe('Negative Content-Length bypass prevention', () => {
   it('should not bypass size limit with negative Content-Length', async () => {
     // A large body that exceeds the 10-byte limit
     const largeBody = 'x'.repeat(100);
-    const emitter = new EventEmitter();
-
-    const ctx: BodyParserContext = {
-      method: 'POST',
-      path: '/',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': '-1', // Negative header — should be treated as absent
-      },
-      raw: {
-        req: {
-          on: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.on(event, listener);
-          },
-          off: (event: string, listener: (...args: unknown[]) => void) => {
-            emitter.off(event, listener);
-          },
-        } as BodyParserContext['raw']['req'],
-      },
-    };
-
-    setImmediate(() => {
-      emitter.emit('data', Buffer.from(largeBody));
-      emitter.emit('end');
-    });
+    const ctx = createMockContext('POST', 'application/json', largeBody, -1);
 
     // With a tiny limit of 10 bytes, the large body should still be rejected
     // The negative Content-Length should not bypass the streaming size check
