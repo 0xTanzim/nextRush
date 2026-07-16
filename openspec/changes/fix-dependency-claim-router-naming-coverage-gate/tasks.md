@@ -65,11 +65,38 @@
 
 ## 4. Cross-cutting verification
 
-- [ ] 4.1 Run the full repo `pnpm verify` (build + test + typecheck + lint + coverage) once with
+- [x] 4.1 Run the full repo `pnpm verify` (build + test + typecheck + lint + coverage) once with
       all three fixes applied together — confirm no interaction effects between the README edit,
-      router rename, and CI config change.
-- [ ] 4.2 Add a changeset for the router package if npm metadata (keywords/description) counts as
+      router rename, and CI config change. Ran `pnpm exec turbo run verify --continue`: 126/130
+      tasks successful. `check:coverage` is NOT in the failed-task list (passes cleanly). The 4
+      failures (`@nextrush/dev#lint`, `docs#lint`, `@nextrush/class#test`, `@nextrush/di#test`)
+      are byte-identical to T006's own report and confirmed pre-existing via `git log` (none of
+      this branch's 3 commits touch `packages/dev`, `apps/docs`, or `packages/di/src/container`).
+      No new interaction effect between the README edit, router rename, and coverage gate — the
+      failures are orthogonal to all three and were present before this change.
+- [x] 4.2 Add a changeset for the router package if npm metadata (keywords/description) counts as
       a publishable change per this repo's changeset conventions; no changeset needed for the
-      README-only or CI-only fixes (no package version impact).
-- [ ] 4.3 Confirm no file outside this change's declared scope (README.md, di README,
-      packages/router/src/*, CI config) was modified.
+      README-only or CI-only fixes (no package version impact). Decision: NO changeset added.
+      `.changeset/config.json` places `@nextrush/router` in the `fixed` lockstep group; the only
+      router diff is (a) an internal rename (`radix-tree.ts` -> `segment-trie.ts`, `RadixNode` ->
+      `TrieNode`) with zero public-surface impact (confirmed by T002's before/after snapshot
+      match) and (b) a `package.json` keywords-only addition (`"segment-trie"` added,
+      `"radix-tree"` kept). Read 2 existing changesets (`harden-adapter-contract.md`,
+      `remove-deprecated-controllers-decorators.md`) — both document genuine functional/API
+      changes (major breaking removal, minor new type/package). A metadata-only keyword edit
+      with no behavioral or API difference has nothing to changelog for a consumer and doesn't
+      fit either convention. README-only and CI-only fixes confirmed to need no changeset (no
+      package version impact) — reasoning is correct for this repo's conventions.
+- [x] 4.3 Confirm no file outside this change's declared scope (README.md, di README,
+      packages/router/src/*, CI config) was modified. Diffed against the actual branch point
+      (`2654009~1`, the commit immediately preceding T001) since `main` is far behind and diffing
+      against it pulls in ~1000 unrelated files from other completed work. Real diff: `README.md`,
+      `packages/di/README.md`, `packages/router/package.json`, `packages/router/src/index.ts`,
+      `packages/router/src/router.ts`, `packages/router/src/__tests__/public-surface.test.ts`,
+      `packages/router/src/radix-tree.ts` -> `segment-trie.ts`, `scripts/check-coverage.ts`
+      (new), `package.json` (root, +1 script), `turbo.json` (+task wiring), plus this `tasks.md`.
+      All fall within declared scope: root `package.json`'s `verify` script is `turbo run verify`,
+      and `.github/workflows/ci.yml` calls `pnpm verify` — so `package.json`, `turbo.json`, and
+      `scripts/check-coverage.ts` are exactly "the `pnpm verify` script it calls," which the
+      proposal explicitly names as an alternative to editing `ci.yml` directly. No file outside
+      declared scope — no process violation.
