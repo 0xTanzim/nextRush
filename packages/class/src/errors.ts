@@ -163,6 +163,14 @@ export class ParameterInjectionError extends BadRequestError {
 /**
  * Error thrown when a required parameter is missing.
  * This is a CLIENT error (400) - the request is incomplete.
+ *
+ * `messageOverride` lets callers replace the generic
+ * `Required <source> parameter "<name>" is missing` text with a more
+ * specific message (e.g. `@Body()` appends a body-parser remediation hint
+ * in `resolveParametersFromPlan` — see `binding/param-resolver.ts`) while
+ * keeping `code`/`details`/`instanceof MissingParameterError` unchanged, so
+ * existing error-handling code that switches on the error type is
+ * unaffected.
  */
 export class MissingParameterError extends BadRequestError {
   declare name: string;
@@ -176,9 +184,10 @@ export class MissingParameterError extends BadRequestError {
     controllerName: string,
     methodName: string,
     paramName: string,
-    source: string
+    source: string,
+    messageOverride?: string
   ) {
-    super(`Required ${source} parameter "${paramName}" is missing`, {
+    super(messageOverride ?? `Required ${source} parameter "${paramName}" is missing`, {
       code: 'MISSING_PARAMETER',
       details: {
         parameter: paramName,

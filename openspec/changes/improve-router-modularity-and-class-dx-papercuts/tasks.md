@@ -85,20 +85,63 @@
 
 ## 2. T015 — Actionable `@Body` error when body-parser is missing
 
-- [ ] 2.1 RED: write a failing test in `packages/class/src/__tests__/` (check existing
+- [x] 2.1 RED: write a failing test in `packages/class/src/__tests__/` (check existing
       param-resolver test file naming first) asserting that a route using `@Body()` with no
       body-parser registered produces an error whose message mentions body-parser / the likely
       fix, not just the generic `MissingParameterError` text.
-- [ ] 2.2 Verify RED: run it, confirm it fails because the current error lacks the hint, not for
+      **Verified:** no `param-resolver.test.ts` existed yet (only `errors.test.ts` covers
+      `MissingParameterError`'s constructor directly, and only for the `'param'` source).
+      Created `src/__tests__/param-resolver.test.ts` (matching the 1:1 source-filename
+      convention used by `route-metadata.test.ts`/`path-utils.test.ts`) calling
+      `resolveParametersFromPlan` directly against a minimal `Context` stub with
+      `ctx.body === undefined` (simulating no body-parser having run) for a required
+      `@Body()` param. Three tests: (1) the RED case — asserts the thrown error is
+      `instanceof MissingParameterError` AND its message matches `/body-?parser/i` and
+      contains `app.use(json())`; (2) a `@Body()` route WITH `ctx.body` populated resolves
+      correctly (guards the spec's second scenario — unaffected happy path); (3) a `@Param`
+      (non-body) missing-parameter case keeps the generic message with no body-parser text
+      (guards against over-broadening the hint to sources it wasn't meant for).
+- [x] 2.2 Verify RED: run it, confirm it fails because the current error lacks the hint, not for
       an unrelated reason.
-- [ ] 2.3 GREEN: update `packages/class/src/binding/param-resolver.ts` to detect the
+      **Verified:** ran `vitest run src/__tests__/param-resolver.test.ts` before any source
+      change. Test 1 failed with `AssertionError: expected 'Required body parameter "index 0"
+      is …' to match /body-?parser/i` — confirms it failed specifically because the message
+      lacked the hint, not for an unrelated reason (wrong import, bad fixture, etc.). Tests 2
+      and 3 passed even pre-change, as expected (they assert on behavior that wasn't broken).
+- [x] 2.3 GREEN: update `packages/class/src/binding/param-resolver.ts` to detect the
       "`@Body()` yielded nothing" case specifically and include the remediation hint in the
       thrown error (extending `MissingParameterError` with a more specific message, or a
       dedicated subtype — decide based on how `MissingParameterError` is used elsewhere in the
       codebase, to avoid breaking any existing `instanceof` check).
-- [ ] 2.4 Verify GREEN: the new test passes. Run the full `@nextrush/class` test suite — zero
+      **Verified — extended the message, did NOT introduce a subtype.** Searched the whole
+      repo (graph + text search) for `instanceof MissingParameterError` and any other coupling
+      to the type: found exactly one runtime use (a re-throw guard inside
+      `resolveParametersFromPlan`'s own catch block, unaffected either way) and one docs
+      example (`controllers.mdx`'s error-handling snippet, which checks
+      `instanceof MissingParameterError` generically and reads `.message` — stays accurate
+      since a subtype would still pass an `instanceof MissingParameterError` check via
+      subclassing, but a message-only change is the smaller diff and keeps `error.code ===
+      'MISSING_PARAMETER'` stable for any consumer keying off `.code` in a JSON API). Added an
+      optional 5th constructor parameter `messageOverride?: string` to `MissingParameterError`
+      in `errors.ts` (backward-compatible — existing 4-arg call sites in `errors.test.ts` and
+      the non-body path in `param-resolver.ts` are unaffected). Added a
+      `createMissingParameterError()` helper in `param-resolver.ts` that composes the
+      body-parser remediation hint only when `source === 'body'`, leaving every other source
+      (`param`, `query`, `header`, `custom`) on the original generic message.
+- [x] 2.4 Verify GREEN: the new test passes. Run the full `@nextrush/class` test suite — zero
       regressions, including any existing test that asserts on `MissingParameterError`'s current
       shape/message for other (non-body) parameter types.
+      **Verified:** `param-resolver.test.ts` — 3/3 passing. `tsc --noEmit` on the package — 0
+      errors. Full `@nextrush/class` suite: 304/305 passing, including `errors.test.ts`'s
+      existing `MissingParameterError` test (asserts the `'param'`-source message/shape is
+      unchanged — still passes verbatim, no edit needed). The 1 failure
+      (`registrar.test.ts` › `surfaces @nextrush/di CircularDependencyError as-is`, a 10s
+      timeout) is **pre-existing and unrelated to this task** — confirmed by stashing this
+      task's changes and re-running against the exact T014-baseline commit: identical timeout,
+      byte-for-byte same failure. That test exercises DI container circular-dependency
+      detection (`container.register(CycleA, ...)`), nothing in `files_in_scope` for T015
+      (`param-resolver.ts`, `errors.ts`) touches DI/registrar code. Not fixed here — out of
+      scope, flagged as a finding for whichever session covers `di`/`registrar`.
 
 ## 3. T016 — `@All` registers one route, not seven
 

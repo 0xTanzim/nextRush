@@ -35,7 +35,7 @@ export async function resolveParametersFromPlan(
 
       if (value === undefined) {
         if (param.required && param.defaultValue === undefined) {
-          throw new MissingParameterError(
+          throw createMissingParameterError(
             controllerName,
             methodName,
             param.name ?? `index ${param.index}`,
@@ -61,6 +61,38 @@ export async function resolveParametersFromPlan(
   }
 
   return args;
+}
+
+/**
+ * Build the `MissingParameterError` thrown when a required parameter
+ * resolves to nothing.
+ *
+ * `@Body()` is special-cased: resolving to `undefined` almost always means
+ * no body-parser middleware (e.g. `json()` from `@nextrush/body-parser`) ran
+ * before the route handler, not that the caller genuinely omitted a body.
+ * The generic "required parameter is missing" message gives no signal
+ * toward that root cause, so the body case gets an appended remediation
+ * hint naming the likely fix. Other sources (`param`, `query`, `header`,
+ * `custom`) keep the original message unchanged, and the error remains a
+ * plain `MissingParameterError` — no subtype — since nothing in the
+ * codebase discriminates on a more specific type and the existing
+ * `code: 'MISSING_PARAMETER'` / `instanceof MissingParameterError` contract
+ * stays stable for consumers.
+ */
+function createMissingParameterError(
+  controllerName: string,
+  methodName: string,
+  paramName: string,
+  source: string
+): MissingParameterError {
+  const messageOverride =
+    source === 'body'
+      ? `Required body parameter "${paramName}" is missing. No body was parsed for ` +
+        'this request — register a body-parser middleware before this route ' +
+        "(e.g. app.use(json()) from '@nextrush/body-parser')."
+      : undefined;
+
+  return new MissingParameterError(controllerName, methodName, paramName, source, messageOverride);
 }
 
 /**
