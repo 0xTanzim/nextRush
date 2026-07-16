@@ -44,7 +44,7 @@ export type GuardFn = (ctx: GuardContext) => boolean | Promise<boolean>;
  * @example
  * ```typescript
  * import { Service } from '@nextrush/di';
- * import type { CanActivate, GuardContext } from '@nextrush/decorators';
+ * import type { CanActivate, GuardContext } from 'nextrush/class';
  *
  * @Service()
  * class AuthGuard implements CanActivate {

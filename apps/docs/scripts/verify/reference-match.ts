@@ -22,8 +22,8 @@
  * tree lives at `reference/`, not the old `api-reference/`):
  *   reference/middleware/cors.mdx     -> @nextrush/cors
  *   reference/class/di.mdx            -> @nextrush/di
- *   reference/class/decorators.mdx    -> @nextrush/decorators
- *   reference/class/controllers.mdx   -> @nextrush/controllers
+ *   reference/class/decorators.mdx    -> @nextrush/class (former shim, removed)
+ *   reference/class/controllers.mdx   -> @nextrush/class (former shim, removed)
  *   reference/plugins/websocket.mdx   -> @nextrush/websocket
  *   reference/adapters/node.mdx       -> @nextrush/adapter-node
  *   reference/core/core.mdx           -> @nextrush/core
@@ -68,6 +68,13 @@ function inferPackageName(relativePath: string): string | null {
   // exported directly from @nextrush/class (packages/class/src/index.ts) —
   // there is no standalone "@nextrush/modules" package.
   if (dirSlug === 'class' && fileSlug === 'modules') {
+    return '@nextrush/class';
+  }
+  // reference/class/decorators.mdx and controllers.mdx document nextrush/class's
+  // own decorator and registrar surface. The former standalone
+  // @nextrush/decorators and @nextrush/controllers packages were removed
+  // (T053/remove-deprecated-shims) — both pages now check against @nextrush/class.
+  if (dirSlug === 'class' && (fileSlug === 'decorators' || fileSlug === 'controllers')) {
     return '@nextrush/class';
   }
 

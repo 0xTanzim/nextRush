@@ -204,12 +204,6 @@ importers:
       '@nextrush/body-parser':
         specifier: workspace:*
         version: link:../../packages/middleware/body-parser
-      '@nextrush/controllers':
-        specifier: workspace:*
-        version: link:../../packages/controllers
-      '@nextrush/decorators':
-        specifier: workspace:*
-        version: link:../../packages/decorators
       '@nextrush/di':
         specifier: workspace:*
         version: link:../../packages/di
@@ -486,31 +480,6 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
 
-  packages/controllers:
-    dependencies:
-      '@nextrush/class':
-        specifier: workspace:*
-        version: link:../class
-      '@nextrush/core':
-        specifier: workspace:*
-        version: link:../core
-      '@nextrush/di':
-        specifier: workspace:*
-        version: link:../di
-      '@nextrush/router':
-        specifier: workspace:*
-        version: link:../router
-      reflect-metadata:
-        specifier: ^0.2.2
-        version: 0.2.2
-    devDependencies:
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-
   packages/core:
     dependencies:
       '@nextrush/errors':
@@ -551,19 +520,6 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.5.2)(@vitest/coverage-v8@4.1.4)(@vitest/ui@4.1.4)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-
-  packages/decorators:
-    dependencies:
-      '@nextrush/class':
-        specifier: workspace:*
-        version: link:../class
-    devDependencies:
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.24)(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
 
   packages/dev:
     dependencies:
@@ -946,15 +902,9 @@ importers:
       '@nextrush/class':
         specifier: workspace:*
         version: link:../class
-      '@nextrush/controllers':
-        specifier: workspace:*
-        version: link:../controllers
       '@nextrush/core':
         specifier: workspace:*
         version: link:../core
-      '@nextrush/decorators':
-        specifier: workspace:*
-        version: link:../decorators
       '@nextrush/di':
         specifier: workspace:*
         version: link:../di

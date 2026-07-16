@@ -79,7 +79,7 @@ import { DECORATOR_METADATA_KEYS, isGuardClass } from '../types.js';
  * @example Class-based guard with DI
  * ```typescript
  * import { Service } from '@nextrush/di';
- * import type { CanActivate, GuardContext } from '@nextrush/decorators';
+ * import type { CanActivate, GuardContext } from 'nextrush/class';
  *
  * @Service()
  * class AuthGuard implements CanActivate {

@@ -29,7 +29,7 @@
  * @example
  * ```typescript
  * import { Service } from '@nextrush/di';
- * import type { OnInit } from '@nextrush/decorators';
+ * import type { OnInit } from 'nextrush/class';
  *
  * @Service()
  * class Database implements OnInit {
@@ -53,7 +53,7 @@ export interface OnInit {
  * @example
  * ```typescript
  * import { Service } from '@nextrush/di';
- * import type { OnShutdown } from '@nextrush/decorators';
+ * import type { OnShutdown } from 'nextrush/class';
  *
  * @Service()
  * class Database implements OnShutdown {

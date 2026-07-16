@@ -28,7 +28,7 @@ import type { Constructor } from '../guards/guard-types.js';
  * @example
  * ```typescript
  * import { Service } from '@nextrush/di';
- * import type { Interceptor } from '@nextrush/decorators';
+ * import type { Interceptor } from 'nextrush/class';
  * import type { Context } from '@nextrush/types';
  *
  * @Service()

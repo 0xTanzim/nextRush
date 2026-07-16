@@ -70,9 +70,7 @@
   "dependencies": {
     "@nextrush/adapter-node": "workspace:*",
     "@nextrush/class": "workspace:*",
-    "@nextrush/controllers": "workspace:*",
     "@nextrush/core": "workspace:*",
-    "@nextrush/decorators": "workspace:*",
     "@nextrush/di": "workspace:*",
     "@nextrush/errors": "workspace:*",
     "@nextrush/router": "workspace:*",

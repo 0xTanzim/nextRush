@@ -23,7 +23,7 @@ import type { Constructor } from '../guards/guard-types.js';
  * @example
  * ```typescript
  * import { Service } from '@nextrush/di';
- * import { Catch, type ExceptionFilter } from '@nextrush/decorators';
+ * import { Catch, type ExceptionFilter } from 'nextrush/class';
  * import { NotFoundError } from '@nextrush/errors';
  * import type { Context } from '@nextrush/types';
  *

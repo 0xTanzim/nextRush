@@ -11,8 +11,6 @@
       "@nextrush/runtime",
       "@nextrush/stream",
       "@nextrush/di",
-      "@nextrush/decorators",
-      "@nextrush/controllers",
       "@nextrush/adapter-node",
       "nextrush"
     ]
