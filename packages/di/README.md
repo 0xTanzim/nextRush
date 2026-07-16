@@ -403,7 +403,7 @@ Class-based guards implementing `CanActivate` are resolved from the DI container
 
 ```typescript
 import { Service } from '@nextrush/di';
-import type { CanActivate, GuardContext } from '@nextrush/decorators';
+import type { CanActivate, GuardContext } from 'nextrush/class';
 
 @Service()
 class AuthGuard implements CanActivate {

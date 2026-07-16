@@ -185,8 +185,9 @@ import { validate } from '@nextrush/validation';
 ### Class Runtime, Extensions & Registrars Layer
 
 `@nextrush/class` is the unified class-based API — it consolidates the former
-`@nextrush/decorators` and `@nextrush/controllers` split, and re-exports `@nextrush/di`. Beyond
-that, the remaining extensions layer is mostly middleware, plus one registrar and one Extension:
+`@nextrush/decorators` and `@nextrush/controllers` split (both packages have been removed — see
+[Deprecations](/docs/migrate/deprecations)), and re-exports `@nextrush/di`. Beyond that, the
+remaining extensions layer is mostly middleware, plus one registrar and one Extension:
 
 | Package               | Responsibility                                                      | Dependencies                |
 | ---------------------- | --------------------------------------------------------------------- | ----------------------------- |
@@ -203,11 +204,11 @@ import { logger } from '@nextrush/logger';
 import { serveStatic } from '@nextrush/static';
 ```
 
-<Callout type="info" title="Deprecated shims still exist, but are not the primary path">
-  `@nextrush/decorators` and `@nextrush/controllers` remain published as compatibility shims that
-  re-export from `@nextrush/class`, for code written against the pre-consolidation split. New
-  code should import from `nextrush/class` directly — see
-  [Migrating from decorators/controllers](/docs/migrate) once that guide ships.
+<Callout type="info" title="Decorators/controllers shims removed — import from nextrush/class">
+  `@nextrush/decorators` and `@nextrush/controllers` — the pre-consolidation split — have been
+  removed from the workspace. Import everything from `nextrush/class` directly; see
+  [Deprecations](/docs/migrate/deprecations) for the exact old-import → new-import map and the
+  automated codemod.
 </Callout>
 
 ### Dev Tools
@@ -429,13 +430,13 @@ diagram, since a hand-arranged diagram can hide exactly this kind of detail:
   (`reflect-metadata`, `tsyringe`, `@clack/prompts`). Verified directly against
   `packages/middleware/logger/package.json` — this is not a typo in the graph script, `@nextrush/log`
   really is declared as a runtime dependency there.
-- **`nextrush` (the meta package) still depends on the deprecated `@nextrush/decorators` and
-  `@nextrush/controllers` shims directly**, alongside `@nextrush/class`. This matches the
-  documented compatibility-shim story above, not a bug — but it means the meta package's own
-  dependency tree pulls in both the old split and its consolidated replacement simultaneously.
+- **`nextrush` (the meta package) no longer depends on `@nextrush/decorators` or
+  `@nextrush/controllers`** — both were removed from its `dependencies` when the two shim
+  packages were deleted from the workspace (see [Deprecations](/docs/migrate/deprecations)). It
+  depends only on `@nextrush/class` for the class-based API surface now.
 
 <details>
-<summary>Full generated edge list (all 36 packages, exact `dependencies` field)</summary>
+<summary>Full generated edge list (34 packages, exact `dependencies` field)</summary>
 
 - **@nextrush/adapter-bun** `1.0.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
 - **@nextrush/adapter-conformance** `1.0.0` → (none)
@@ -445,12 +446,10 @@ diagram, since a hand-arranged diagram can hide exactly this kind of detail:
 - **@nextrush/body-parser** `3.1.0` → @nextrush/types
 - **@nextrush/class** `3.1.0` → @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
 - **@nextrush/compression** `3.1.0` → @nextrush/types
-- **@nextrush/controllers** `3.1.0` → @nextrush/class, @nextrush/di [external: reflect-metadata]
 - **@nextrush/cookies** `1.0.0` → @nextrush/types
 - **@nextrush/core** `3.1.0` → @nextrush/errors, @nextrush/types
 - **@nextrush/cors** `3.1.0` → @nextrush/types
 - **@nextrush/csrf** `1.0.0` → @nextrush/types
-- **@nextrush/decorators** `3.1.0` → @nextrush/class
 - **@nextrush/dev** `1.0.0` → (none) [external: @swc-node/register, @swc/core, tsx]
 - **@nextrush/di** `3.1.0` → @nextrush/types [external: reflect-metadata, tsyringe]
 - **@nextrush/errors** `3.1.0` → @nextrush/types
@@ -472,7 +471,7 @@ diagram, since a hand-arranged diagram can hide exactly this kind of detail:
 - **@nextrush/validation** `1.0.0` → @nextrush/errors, @nextrush/types
 - **@nextrush/websocket** `1.0.0` → @nextrush/types
 - **create-nextrush** `1.0.0` → (none) [external: @clack/prompts]
-- **nextrush** `3.1.0` → @nextrush/adapter-node, @nextrush/class, @nextrush/controllers, @nextrush/core, @nextrush/decorators, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
+- **nextrush** `3.1.0` → @nextrush/adapter-node, @nextrush/class, @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
 
 </details>
 

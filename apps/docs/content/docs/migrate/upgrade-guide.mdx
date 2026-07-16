@@ -85,8 +85,8 @@ together.
 2. Grep your codebase for anything the changelog lists as removed (`Plugin`, `app.plugin()`,
    `ControllersPlugin`, etc. for the 3.1.0 example above).
 3. If you're still importing from `@nextrush/decorators` or `@nextrush/controllers`, see
-   [Deprecations](/docs/migrate/deprecations) — both are compatibility shims today, but a future
-   major version removes them.
+   [Deprecations](/docs/migrate/deprecations) — both packages have been removed; the page has
+   the exact old-import → new-import map and an automated codemod.
 4. Run your test suite. NextRush's own steering requires every bug fix to ship a regression
    test and every breaking change to ship a migration path — the changelog entry is that path.
 

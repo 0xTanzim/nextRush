@@ -77,8 +77,8 @@ When using individual packages directly (advanced), import from `@nextrush/*`:
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { Service, container } from '@nextrush/di';
-import { Controller, Get, Body } from '@nextrush/decorators';
-import { registerControllers } from '@nextrush/controllers';
+import { Controller, Get, Body } from 'nextrush/class';
+import { registerControllers } from 'nextrush/class';
 import { NotFoundError } from '@nextrush/errors';
 import type { Context, Middleware } from '@nextrush/types';
 ```

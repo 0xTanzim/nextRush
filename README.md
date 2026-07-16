@@ -289,8 +289,6 @@ Long-lived, stateful services — registered with `app.extend()`, booted at `app
 | `@nextrush/class`       | Class runtime — decorators, controllers, guards, filters, interceptors, lifecycle, request scope, modules (import via `nextrush/class`) |
 | `@nextrush/di`          | Dependency injection (independent) |
 | `@nextrush/testing`     | Test harness — `createTestModule().override().compile()` |
-| `@nextrush/controllers` | **Deprecated** — compatibility shim for `@nextrush/class` |
-| `@nextrush/decorators`  | **Deprecated** — compatibility shim for `@nextrush/class` |
 
 ### Development
 
@@ -400,7 +398,6 @@ nextrush/
 │   ├── extensions/       # events, websocket
 │   ├── controllers/      # @nextrush/controllers (registrar)
 │   ├── di/              # Dependency injection
-│   ├── decorators/      # Controller decorators
 │   ├── dev/             # CLI: dev server, build, generators
 │   ├── create-nextrush/ # Project scaffolder
 │   └── nextrush/        # Meta package

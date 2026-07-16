@@ -128,10 +128,8 @@ listen(app, 8080);
 ```typescript
 import 'reflect-metadata';
 import { createApp, listen } from '@nextrush/core';
-import { Controller, Get, Post, Body, UseGuard } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import { registerControllers } from '@nextrush/controllers';
-import type { GuardFn } from '@nextrush/decorators';
+import { Controller, Get, Post, Body, UseGuard, Service, registerControllers } from 'nextrush/class';
+import type { GuardFn } from 'nextrush/class';
 
 @Service()
 class UserService {

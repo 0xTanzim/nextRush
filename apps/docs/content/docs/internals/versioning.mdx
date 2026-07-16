@@ -1,6 +1,6 @@
 ---
 title: Versioning & Compatibility
-description: NextRush's real, mixed-version reality across 36 packages — verified per package.json, not assumed — and the semver/changesets policy that governs releases.
+description: NextRush's real, mixed-version reality across 34 packages — verified per package.json, not assumed — and the semver/changesets policy that governs releases.
 ---
 
 NextRush does not ship one framework-wide version number. This page states the actual, current
@@ -8,33 +8,34 @@ split verified directly against every package's `package.json`, and the release 
 `.changeset/config.json` and the root [README](https://github.com/0xTanzim/nextRush/blob/main/README.md).
 
 <Callout type="warn" title="Never state a single version for the whole framework">
-  36 packages exist across two version lines. A page, example, or announcement that says
+  34 packages exist across two version lines. A page, example, or announcement that says
   "NextRush 3.1.0" without qualifying which packages that covers is incorrect for roughly
   half of them — verify per-package before citing a version anywhere in this documentation.
 </Callout>
 
 ## The real split, scripted from source
 
-Scanning every `packages/**/package.json`'s `version` field (36 files total — 35 publishable
-packages plus `@nextrush/adapter-conformance`, which is `"private": true` and never published;
-see [Adapter Contract](/docs/internals/adapters)) gives an exact 16 / 20 split across the 35
-publishable packages:
+Scanning every `packages/**/package.json`'s `version` field (34 files total — 32 publishable
+packages plus `@nextrush/adapter-conformance` and the `nextrush-deploy-verification-lambda` test
+fixture, both `"private": true` and never published; see [Adapter
+Contract](/docs/internals/adapters)) gives a 14 / 18 split across the 32 publishable packages
+(after the removal of `@nextrush/decorators` and `@nextrush/controllers` — see
+[Deprecations](/docs/migrate/deprecations)):
 
-**`3.1.0`** (16 packages — the original core line):
+**`3.1.0`** (14 packages — the original core line):
 `@nextrush/adapter-node`, `@nextrush/body-parser`, `@nextrush/class`, `@nextrush/compression`,
-`@nextrush/controllers`, `@nextrush/core`, `@nextrush/cors`, `@nextrush/decorators`,
-`@nextrush/di`, `@nextrush/errors`, `@nextrush/helmet`, `@nextrush/router`, `@nextrush/runtime`,
-`@nextrush/stream`, `@nextrush/types`, `nextrush`.
+`@nextrush/core`, `@nextrush/cors`, `@nextrush/di`, `@nextrush/errors`, `@nextrush/helmet`,
+`@nextrush/router`, `@nextrush/runtime`, `@nextrush/stream`, `@nextrush/types`, `nextrush`.
 
-**`1.0.0`** (19 publishable packages, plus the private `@nextrush/adapter-conformance` test
-suite which shares this version number but is never published — 20 total `1.0.0` entries in the
+**`1.0.0`** (18 publishable packages, plus the private `@nextrush/adapter-conformance` test
+suite which shares this version number but is never published — 19 total `1.0.0` entries in the
 raw scan):
 `@nextrush/adapter-bun`, `@nextrush/adapter-deno`,
-`@nextrush/adapter-edge`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/dev`,
-`@nextrush/events`, `@nextrush/logger`, `@nextrush/multipart`, `@nextrush/openapi`,
-`@nextrush/rate-limit`, `@nextrush/request-id`, `@nextrush/static`, `@nextrush/template`,
-`@nextrush/testing`, `@nextrush/timer`, `@nextrush/validation`, `@nextrush/websocket`,
-`create-nextrush`.
+`@nextrush/adapter-edge`, `@nextrush/adapter-serverless`, `@nextrush/cookies`, `@nextrush/csrf`,
+`@nextrush/dev`, `@nextrush/events`, `@nextrush/logger`, `@nextrush/multipart`,
+`@nextrush/openapi`, `@nextrush/rate-limit`, `@nextrush/request-id`, `@nextrush/static`,
+`@nextrush/template`, `@nextrush/testing`, `@nextrush/timer`, `@nextrush/validation`,
+`@nextrush/websocket`, `create-nextrush`.
 
 This is not a mistake to fix — it's the accurate current state, reflecting when each package was
 introduced relative to the original 3.x core, not a coupled framework-wide release number.
@@ -48,21 +49,22 @@ bumps together on every release, regardless of which one changed:
 "fixed": [
   [
     "@nextrush/types", "@nextrush/errors", "@nextrush/core", "@nextrush/router",
-    "@nextrush/runtime", "@nextrush/stream", "@nextrush/di", "@nextrush/decorators",
-    "@nextrush/controllers", "@nextrush/adapter-node", "nextrush"
+    "@nextrush/runtime", "@nextrush/stream", "@nextrush/di",
+    "@nextrush/adapter-node", "nextrush"
   ]
 ]
 ```
 
+
 Two things worth naming precisely rather than rounding up:
 
-- This fixed group has **11** packages, not all 16 currently at `3.1.0`. `@nextrush/class`,
+- This fixed group has **9** packages, not all 14 currently at `3.1.0`. `@nextrush/class`,
   `@nextrush/body-parser`, `@nextrush/compression`, `@nextrush/cors`, and `@nextrush/helmet` are
   at `3.1.0` today but are **not** in the fixed group — they happen to share the current version
   number, but a future release could bump the fixed group to `3.2.0` while these five stay at
   `3.1.0`, or move independently. Don't assume "same version today" means "versions together
   going forward" for any package outside this exact list.
-- Every other package (the 20 at `1.0.0`, plus the five `3.1.0` packages named above) is **not**
+- Every other package (the 18 at `1.0.0`, plus the five `3.1.0` packages named above) is **not**
   in any `fixed` or `linked` group (`"linked": []` — empty) — each releases independently, on its
   own semver track, whenever it has a change worth publishing.
 
@@ -97,7 +99,7 @@ work, not a gap in this page.
 
 - Cite the exact version from the specific package's `package.json` — never "NextRush 3.1.0" as
   a framework-wide claim.
-- If describing a change that touches a `fixed`-group package, the other 10 fixed-group members
+- If describing a change that touches a `fixed`-group package, the other 8 fixed-group members
   bump too, even if their own code didn't change — this is expected Changesets behavior, not a
   spurious diff.
 - If describing a `1.0.0` package's evolution, its version history is independent of the core
@@ -111,6 +113,6 @@ work, not a gap in this page.
     The real dependency edges behind this version split.
   </Card>
   <Card title="Packages Directory" href="/packages">
-    Browse all 36 packages with their current version and status badges.
+    Browse all 34 packages with their current version and status badges.
   </Card>
 </Cards>

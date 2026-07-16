@@ -81,9 +81,9 @@ current would be exactly the kind of drift this rebuild exists to remove:
   describes the router as "Radix tree routing." Both are pre-consolidation: the real current
   hierarchy is documented at [Package Hierarchy](/docs/internals/package-hierarchy) (built from
   every package.json's actual `dependencies` field), `@nextrush/decorators` and
-  `@nextrush/controllers` are deprecated shims over `@nextrush/class` — not standalone hierarchy
-  steps — and the router is a **segment trie**, not a radix tree (see [Router
-  Internals](/docs/internals/router-internals)).
+  `@nextrush/controllers` were deprecated shims over `@nextrush/class` — removed from the
+  workspace, not standalone hierarchy steps — and the router is a **segment trie**, not a radix
+  tree (see [Router Internals](/docs/internals/router-internals)).
 </Callout>
 
 `CONTRIBUTING.md`'s monorepo structure listing also omits `@nextrush/class`, `@nextrush/stream`,

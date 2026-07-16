@@ -21,7 +21,7 @@ integrates DI, and registers routes on `app.router`. It reads `app.router`
 and `app.container` directly — no `router` option, no `app.plugin()`.
 
 ```typescript
-import { registerControllers } from '@nextrush/controllers';
+import { registerControllers } from 'nextrush/class';
 // Or via nextrush/class subpath:
 import { registerControllers } from 'nextrush/class';
 

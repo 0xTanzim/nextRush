@@ -31,7 +31,7 @@ Start with `nextrush` — it includes routing, middleware, and the Node.js serve
 | Render HTML templates              | `@nextrush/template`                                             | [template](/docs/reference/plugins/template)           |
 | Emit structured logs               | `@nextrush/logger`                                               | [logger](/docs/reference/plugins/logger)               |
 | Use a type-safe event emitter      | `@nextrush/events`                                               | [events](/docs/reference/plugins/events)               |
-| Build class-based controllers      | `@nextrush/class` (merges former `@nextrush/controllers`, `@nextrush/decorators`, `@nextrush/di`) | [class](/docs/reference/class)                         |
+| Build class-based controllers      | `@nextrush/class` (merges former `@nextrush/controllers`, `@nextrush/decorators` — both removed, `@nextrush/di`) | [class](/docs/reference/class)                         |
 | Inject dependencies (DI)           | `@nextrush/class` (re-exports `@nextrush/di`)                    | [di](/docs/reference/class/di)                         |
 | Run on Bun, Deno, or Edge          | `@nextrush/adapter-bun` · `-deno` · `-edge`                      | [adapters](/docs/reference/adapters)                   |
 | Hot-reload dev server & build      | `@nextrush/dev`                                                  | [dev](/docs/reference/core/dev)                        |
@@ -201,9 +201,11 @@ For class-based applications with decorators, dependency injection, and modules.
 | [`@nextrush/class`](/docs/reference/class)     | Decorators, controllers, modules, guards, interceptors, filters, and a re-export of `@nextrush/di` — the single import surface (`nextrush/class`) |
 | [`@nextrush/di`](/docs/reference/class/di)     | Dependency injection container (used directly by `@nextrush/class`) |
 
-<Callout type="warn" title="@nextrush/decorators and @nextrush/controllers are deprecated">
-  Both are compatibility shims that re-export from `@nextrush/class`. New code should import
-  from `nextrush/class` directly — see [`@nextrush/class` reference](/docs/reference/class).
+<Callout type="warn" title="@nextrush/decorators and @nextrush/controllers were removed">
+  Both were compatibility shims that re-exported from `@nextrush/class` — they no longer publish
+  new versions. Import from `nextrush/class` directly — see
+  [`@nextrush/class` reference](/docs/reference/class) and
+  [Deprecations](/docs/migrate/deprecations) for the migration map and codemod.
 </Callout>
 
 <PackageInstall packages={['@nextrush/class']} />

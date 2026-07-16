@@ -1,6 +1,8 @@
 # Controllers and decorators
 
-Class routes live across **`@nextrush/decorators`** (metadata), **`@nextrush/di`** (construction), and **`@nextrush/controllers`** (discovery + HTTP binding). `@nextrush/controllers` re-exports the pieces you typically import together.
+Class routes live in **`@nextrush/class`** (decorators, discovery + HTTP binding — the unified
+class runtime) and **`@nextrush/di`** (construction). `@nextrush/class` re-exports the DI pieces
+you typically import together.
 
 Docs: [Class-based guide](https://0xtanzim.github.io/nextRush/docs/guides/class-based), [Guards concept](https://0xtanzim.github.io/nextRush/docs/concepts/guards).
 
@@ -9,7 +11,7 @@ Docs: [Class-based guide](https://0xtanzim.github.io/nextRush/docs/guides/class-
 ## Setup
 
 ```bash
-pnpm add @nextrush/di @nextrush/decorators @nextrush/controllers
+pnpm add nextrush
 ```
 
 ```json
@@ -32,7 +34,7 @@ import 'reflect-metadata';
 ## `@Controller(prefix)`
 
 ```typescript
-import { Controller } from '@nextrush/decorators';
+import { Controller } from 'nextrush/class';
 
 @Controller('/users')
 class UserController {
@@ -163,7 +165,7 @@ sequenceDiagram
 ### Function guard
 
 ```typescript
-import type { GuardFn } from '@nextrush/decorators';
+import type { GuardFn } from 'nextrush/class';
 
 const AuthGuard: GuardFn = async (ctx) => {
   const token = ctx.get('authorization');
@@ -177,7 +179,7 @@ const AuthGuard: GuardFn = async (ctx) => {
 
 ```typescript
 import { Service } from '@nextrush/di';
-import type { CanActivate, GuardContext } from '@nextrush/decorators';
+import type { CanActivate, GuardContext } from 'nextrush/class';
 
 @Service()
 class RoleGuard implements CanActivate {
@@ -226,7 +228,7 @@ global container).
 
 ```typescript
 import { createApp, listen } from 'nextrush';
-import { registerControllers } from '@nextrush/controllers';
+import { registerControllers } from 'nextrush/class';
 
 const app = createApp(); // owns a default router (batteries-included)
 

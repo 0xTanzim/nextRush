@@ -152,7 +152,7 @@ then the global container:
 import 'reflect-metadata';
 import { createApp, listen } from 'nextrush';
 import { Service, Repository } from '@nextrush/di';
-import { Controller, Get, registerControllers } from '@nextrush/controllers';
+import { Controller, Get, registerControllers } from 'nextrush/class';
 
 @Repository()
 class ProductRepository {

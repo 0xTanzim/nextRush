@@ -5,7 +5,9 @@ interceptors, lifecycle hooks, request scope, and modules — now lives in one
 package: **`@nextrush/class`**. Application code should import it through the
 single entry point **`nextrush/class`**.
 
-`@nextrush/decorators` and `@nextrush/controllers` still exist as `@deprecated`
+`@nextrush/decorators` and `@nextrush/controllers` have since been removed (see
+`openspec/changes/archive/*-remove-deprecated-shims/` for that removal), after existing as
+`@deprecated`
 compatibility shims that re-export from `@nextrush/class`, so **existing code keeps
 working**. They will be removed in a future major — migrate at your convenience.
 

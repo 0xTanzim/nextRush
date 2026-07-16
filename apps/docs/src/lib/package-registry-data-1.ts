@@ -94,24 +94,6 @@ export const packageRegistryDataPart1: readonly PackageEntry[] = [
     summary: 'Test harness with DI isolation for class-based controllers and services.',
     sinceVersion: '1.0.0',
   },
-  {
-    name: '@nextrush/decorators',
-    category: 'Class Runtime',
-    type: 'Core',
-    status: 'Deprecated',
-    summary:
-      'Compatibility shim for the former standalone decorators package — use @nextrush/class.',
-    sinceVersion: '3.1.0',
-  },
-  {
-    name: '@nextrush/controllers',
-    category: 'Class Runtime',
-    type: 'Core',
-    status: 'Deprecated',
-    summary:
-      'Compatibility shim for the former standalone controller registrar — use @nextrush/class.',
-    sinceVersion: '3.1.0',
-  },
 
   // ---- Security -----------------------------------------------------------
   {

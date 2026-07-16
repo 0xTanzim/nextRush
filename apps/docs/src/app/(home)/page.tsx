@@ -130,7 +130,7 @@ export default function HomePage() {
               { name: 'create-nextrush', desc: 'CLI scaffolding', color: 'rush-purple' },
               { name: '@nextrush/dev', desc: 'Dev tools & multi-runtime', color: 'rush-cyan' },
               { name: '@nextrush/core', desc: 'App, Context, Middleware', color: 'rush-green' },
-              { name: '@nextrush/controllers', desc: 'Controller plugin', color: 'rush-blue' },
+              { name: '@nextrush/class', desc: 'Controllers, decorators, DI', color: 'rush-blue' },
               { name: '@nextrush/di', desc: 'Dependency injection', color: 'rush-purple' },
               { name: '@nextrush/events', desc: 'Type-safe emitter', color: 'rush-cyan' },
               { name: '@nextrush/errors', desc: 'Error handling', color: 'rush-green' },

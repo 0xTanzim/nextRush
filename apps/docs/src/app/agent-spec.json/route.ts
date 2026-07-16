@@ -56,7 +56,7 @@ const AGENT_SPEC = {
     {
       name: '@nextrush/class',
       responsibility:
-        'Unified class runtime — decorators, DI, controllers, modules, guards, interceptors, filters, lifecycle. Consolidates the deprecated @nextrush/decorators and @nextrush/controllers packages and re-exports @nextrush/di.',
+        'Unified class runtime — decorators, DI, controllers, modules, guards, interceptors, filters, lifecycle. Consolidates the former @nextrush/decorators and @nextrush/controllers packages (removed) and re-exports @nextrush/di.',
       doc_url: toAbsoluteUrl('/docs/reference/class'),
       public_api: [
         'Controller',
@@ -81,22 +81,6 @@ const AGENT_SPEC = {
       responsibility: 'Dependency injection container wrapping tsyringe',
       doc_url: toAbsoluteUrl('/docs/reference/class/di'),
       public_api: ['container', 'createContainer', 'Service', 'Repository', 'inject'],
-    },
-    {
-      name: '@nextrush/decorators',
-      responsibility:
-        'Deprecated — compatibility shim for @nextrush/class. Use @nextrush/class instead.',
-      doc_url: toAbsoluteUrl('/docs/reference/class/decorators'),
-      deprecated: true,
-      public_api: [],
-    },
-    {
-      name: '@nextrush/controllers',
-      responsibility:
-        'Deprecated — compatibility shim for @nextrush/class. Use @nextrush/class instead.',
-      doc_url: toAbsoluteUrl('/docs/reference/class/controllers'),
-      deprecated: true,
-      public_api: [],
     },
     {
       name: '@nextrush/adapter-node',

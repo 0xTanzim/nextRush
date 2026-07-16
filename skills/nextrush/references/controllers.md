@@ -16,9 +16,9 @@ import { Controller, Get, Post, Body, Param, Service, registerControllers } from
 import type { GuardFn, CanActivate, GuardContext } from 'nextrush/class';
 
 // Using individual packages
-import { Controller, Get, Post } from '@nextrush/decorators';
+import { Controller, Get, Post } from 'nextrush/class';
 import { Service } from '@nextrush/di';
-import { registerControllers } from '@nextrush/controllers';
+import { registerControllers } from 'nextrush/class';
 ```
 
 ## Create a Controller

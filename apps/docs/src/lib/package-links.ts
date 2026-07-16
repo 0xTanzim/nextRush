@@ -32,8 +32,6 @@ export const packageLinks: Readonly<Record<string, PackageLinks>> = {
   '@nextrush/class': { reference: '/docs/reference/class', guide: '/docs/concepts/dependency-injection' },
   '@nextrush/di': { reference: '/docs/reference/class/di', guide: '/docs/concepts/dependency-injection' },
   '@nextrush/testing': { guide: '/docs/guides/testing' },
-  '@nextrush/decorators': { reference: '/docs/reference/class/decorators' },
-  '@nextrush/controllers': { reference: '/docs/reference/class/controllers' },
 
   // ---- Security -----------------------------------------------------------
   '@nextrush/helmet': { reference: '/docs/reference/middleware/helmet', guide: '/docs/guides/security' },

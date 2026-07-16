@@ -4,12 +4,12 @@ description: 'The class runtime — decorators, dependency injection, modules, g
 ---
 
 `@nextrush/class` is the single package behind every class-based NextRush API. It merges what
-used to be three separate packages — `@nextrush/decorators`, `@nextrush/controllers`, and a
-re-export of `@nextrush/di` — into one import surface: `nextrush/class`.
+used to be three separate packages — `@nextrush/decorators`, `@nextrush/controllers` (both
+removed), and a re-export of `@nextrush/di` — into one import surface: `nextrush/class`.
 
-<Callout type="warn" title="@nextrush/decorators and @nextrush/controllers are deprecated">
-  Both packages are compatibility shims that re-export from `@nextrush/class`. New code should
-  import from `nextrush/class` directly. See [Deprecated packages](#deprecated-packages) below.
+<Callout type="warn" title="@nextrush/decorators and @nextrush/controllers were removed">
+  Both packages were compatibility shims that re-exported from `@nextrush/class`. Import from
+  `nextrush/class` directly. See [Removed packages](#removed-packages) below.
 </Callout>
 
 ---
@@ -234,14 +234,13 @@ import type { Container } from 'nextrush/class';
 
 ---
 
-## Deprecated packages
+## Removed packages
 
-`@nextrush/decorators` and `@nextrush/controllers` still exist as npm packages, but each is a
-thin compatibility shim that re-exports the corresponding symbols from `@nextrush/class`. They
-receive no independent development — fix an issue in `@nextrush/class` and both shims pick it up
-automatically.
+`@nextrush/decorators` and `@nextrush/controllers` were thin compatibility shims that
+re-exported the corresponding symbols from `@nextrush/class`, and have been removed from the
+workspace — they no longer publish new versions.
 
-| Deprecated import                | Replacement                                     |
+| Removed import                    | Replacement                                     |
 | --------------------------------- | ------------------------------------------------ |
 | `@nextrush/decorators`            | `nextrush/class` — [Decorators reference](/docs/reference/class/decorators) |
 | `@nextrush/controllers`           | `nextrush/class` — [Controllers reference](/docs/reference/class/controllers) |

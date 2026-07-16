@@ -16,18 +16,7 @@ import { NotFoundError, errorHandler } from 'nextrush';
 import type { Context, Middleware } from 'nextrush';
 ```
 
-Class-based API (decorators, controllers registrar):
-
-```typescript
-import {
-  Controller,
-  Get,
-  Service,
-  registerControllers,
-} from '@nextrush/controllers';
-```
-
-Or use the **`nextrush/class`** export:
+Class-based API (decorators, controllers registrar) — import from **`nextrush/class`**:
 
 ```typescript
 import { Controller, Get, Service, registerControllers } from 'nextrush/class';
