@@ -1,0 +1,66 @@
+## 1. T001 — Correct the "Zero Dependencies" claim
+
+- [x] 1.1 Run `pnpm why reflect-metadata tsyringe` at repo root; capture actual output to ground
+      the dependency table (evidence must be real command output, not asserted).
+- [x] 1.2 Edit root `README.md`: reword lines 16–17 ("Zero Dependencies — No external runtime
+      dependencies in core") to state the true per-path footprint (zero-dependency functional
+      core; class/DI path depends on `tsyringe` + `reflect-metadata`).
+- [x] 1.3 Add a dependency footprint table to `README.md` (functional path vs. class/DI path,
+      listing actual runtime dependencies per path).
+- [x] 1.4 Apply the same correction to `packages/di/README.md`.
+- [x] 1.5 Verify: reread both READMEs; confirm no remaining unqualified "zero dependencies"
+      absolute claim; confirm the table matches step 1.1's real `pnpm why` output.
+
+## 2. T002 — Rename segment-trie router artifacts
+
+- [x] 2.1 Confirm `RadixNode` is not in `@nextrush/router`'s public-surface snapshot
+      (`packages/router/src/__tests__/public-surface.test.ts`) before making any change — this
+      is the evidence backing design.md's D2 (no `@deprecated` alias needed).
+- [x] 2.2 Rename `packages/router/src/radix-tree.ts` → `packages/router/src/segment-trie.ts`.
+- [x] 2.3 Rename the `RadixNode` type to `TrieNode` and update all references in
+      `router.ts`, `segment-trie.ts` (formerly `radix-tree.ts`), and `index.ts`.
+- [x] 2.4 Update JSDoc comments referencing "Radix tree node" / "compressed trie" to accurately
+      describe the segment-trie implementation.
+- [x] 2.5 Update internal-name references (variable names, comments) inside
+      `public-surface.test.ts` — without touching the actual exported-symbol assertions the
+      snapshot test checks.
+- [x] 2.6 Update `packages/router/package.json` keywords/description: add "segment-trie" as
+      primary; decide whether to retain "radix-tree" as a transitional secondary keyword per
+      design.md's open question, and note the decision in the PR description.
+- [x] 2.7 Verify: `grep -ri radix packages/router/src` returns zero matches (or only an
+      explicitly justified exception). Run the router package's full test suite - green.
+- [x] 2.8 Verify: run the public-surface snapshot test before/after and confirm the exported
+      symbol set is byte-identical (proves the rename had zero public API impact).
+
+## 3. T006 — Coverage gate in CI
+
+- [ ] 3.1 RED: identify or write a deliberately-failing fixture (a package instrumented with an
+      artificially low coverage number, or a temporary threshold set above a real package's
+      current coverage) to prove the gate can fail before wiring it for real.
+- [ ] 3.2 Run `pnpm test:coverage` (or equivalent) across all packages locally; record which
+      packages, if any, currently sit below 90% lines / 85% branches — this answers design.md's
+      Open Question and determines whether any package needs a scoped, tracked exclusion.
+- [ ] 3.3 Wire the coverage check into `.github/workflows/ci.yml` (or the `pnpm verify` script it
+      invokes) with per-package thresholds (90% lines / 85% branches), running alongside the
+      existing build/test/typecheck/lint steps per design.md's D3.
+- [ ] 3.4 GREEN: confirm the fixture from 3.1 now fails CI for the correct reason (coverage gate,
+      not a build/lint/type error); confirm every real package at/above threshold passes.
+- [ ] 3.5 If step 3.2 found a real package below threshold: either fix it in this change (only if
+      it's a trivial missing-test-case fix, not a full test-writing exercise — see design.md's
+      Risk mitigation), or scope it out with a tracked follow-up task and an explicit, temporary
+      per-package exclusion noted in the CI config with a comment linking the follow-up.
+- [ ] 3.6 Revert the temporary fixture/threshold from 3.1; confirm the gate still correctly
+      passes on real, unmodified packages.
+- [ ] 3.7 Verify: full `pnpm verify` (or CI-equivalent) run is green end-to-end with the new gate
+      active; no regression on existing build/test/typecheck/lint steps.
+
+## 4. Cross-cutting verification
+
+- [ ] 4.1 Run the full repo `pnpm verify` (build + test + typecheck + lint + coverage) once with
+      all three fixes applied together — confirm no interaction effects between the README edit,
+      router rename, and CI config change.
+- [ ] 4.2 Add a changeset for the router package if npm metadata (keywords/description) counts as
+      a publishable change per this repo's changeset conventions; no changeset needed for the
+      README-only or CI-only fixes (no package version impact).
+- [ ] 4.3 Confirm no file outside this change's declared scope (README.md, di README,
+      packages/router/src/*, CI config) was modified.

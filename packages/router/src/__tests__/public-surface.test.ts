@@ -13,13 +13,13 @@ import type {
   HttpMethod,
   Middleware,
   ParsedSegment,
-  RadixNode,
   Route,
   RouteGroup,
   RouteHandler,
   RouteMatch,
   RouterInterface,
   RouterOptions,
+  TrieNode,
 } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
@@ -27,9 +27,9 @@ describe('Public API surface (runtime exports)', () => {
     const actualExports = Object.keys(routerApi).sort();
 
     // SEALED: intentional public runtime API surface.
-    // Note: `createNode`/`NodeType`/`parseSegments` retain the historical
-    // "radix" naming (see the barrel's own comment, audit RT-2 / gap-checklist
-    // T002) — locked as-is here; a future rename is a separate breaking change.
+    // `createNode`/`NodeType`/`parseSegments` are internal segment-trie
+    // helpers exposed for advanced usage (see the barrel's own comment) —
+    // locked as-is here; renaming any of them is a separate breaking change.
     const expectedRuntime = ['createRouter', 'endpoint', 'Router', 'createNode', 'NodeType', 'parseSegments'].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
@@ -45,7 +45,7 @@ describe('Public API surface (type-only exports)', () => {
       RouteGroup,
       HandlerEntry,
       ParsedSegment,
-      RadixNode,
+      TrieNode,
       HttpMethod,
       Middleware,
       Route,

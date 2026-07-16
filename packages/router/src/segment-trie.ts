@@ -2,7 +2,8 @@
  * @nextrush/router - Segment Trie Node
  *
  * Internal segment trie implementation for high-performance route matching.
- * Uses a compressed trie structure for O(k) lookups where k is path length.
+ * Segments are split by `/` and matched one trie level per segment for O(k)
+ * lookups where k is path length.
  *
  * @packageDocumentation
  * @internal
@@ -23,23 +24,23 @@ export const enum NodeType {
 }
 
 /**
- * Radix tree node
+ * Segment trie node
  */
-export interface RadixNode {
+export interface TrieNode {
   /** Path segment for this node */
   segment: string;
   /** Node type */
   type: NodeType;
   /** Children nodes keyed by first character */
-  children: Map<string, RadixNode>;
+  children: Map<string, TrieNode>;
   /** Parameter name if this is a param node */
   paramName?: string;
   /** Handlers keyed by HTTP method */
   handlers: Map<HttpMethod, HandlerEntry>;
   /** Wildcard child if any */
-  wildcardChild?: RadixNode;
+  wildcardChild?: TrieNode;
   /** Parameter child if any */
-  paramChild?: RadixNode;
+  paramChild?: TrieNode;
 }
 
 /**
@@ -121,9 +122,9 @@ export function compileExecutor(
 }
 
 /**
- * Create a new radix node
+ * Create a new segment trie node
  */
-export function createNode(segment: string, type: NodeType = NodeType.STATIC): RadixNode {
+export function createNode(segment: string, type: NodeType = NodeType.STATIC): TrieNode {
   return {
     segment,
     type,

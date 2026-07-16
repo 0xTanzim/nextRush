@@ -4,7 +4,7 @@
  * High-performance router using a segment trie for route matching.
  * Routes are keyed by full path segments (e.g. "users", ":id"), not by
  * individual characters — this is a segment-based trie, not a compressed
- * radix tree. Supports parameters, wildcards, and method-based routing.
+ * segment trie. Supports parameters, wildcards, and method-based routing.
  *
  * @packageDocumentation
  */
@@ -28,8 +28,8 @@ import {
     NOOP_NEXT,
     parseSegments,
     type HandlerEntry,
-    type RadixNode,
-} from './radix-tree';
+    type TrieNode,
+} from './segment-trie';
 import { createRedirectHandler, type RedirectStatus } from './redirect';
 import { GroupRouter, type RouteGroup } from './group-router';
 import { mergeContributions, readContribution } from './route-metadata';
@@ -63,7 +63,7 @@ export { endpoint } from './route-metadata';
  * ```
  */
 export class Router {
-  private readonly root: RadixNode;
+  private readonly root: TrieNode;
   private readonly opts: Required<RouterOptions>;
   private readonly routerMiddleware: Middleware[] = [];
 
@@ -75,7 +75,7 @@ export class Router {
 
   /**
    * Introspection registry: every registered route as a RouteDefinition.
-   * Kept SEPARATE from the hot-path structures (radix tree + staticRoutes) so
+   * Kept SEPARATE from the hot-path structures (segment trie + staticRoutes) so
    * request dispatch never reads metadata — only getRoutes() (at doc-generation
    * time) touches this.
    */
@@ -123,7 +123,7 @@ export class Router {
   }
 
   /**
-   * Add a route to the radix tree
+   * Add a route to the segment trie
    */
   private addRoute(
     method: HttpMethod,
@@ -420,7 +420,7 @@ export class Router {
    * Recursively copy routes from another router
    */
   private copyRoutes(
-    node: RadixNode,
+    node: TrieNode,
     prefix: string,
     segments: string[],
     subRouterMiddleware: Middleware[]
@@ -576,7 +576,7 @@ export class Router {
    * Index-based recursive node matching (avoids array allocation)
    */
   private matchNodeIndexed(
-    node: RadixNode,
+    node: TrieNode,
     path: string,
     pos: number,
     params: Record<string, string>,
@@ -697,7 +697,7 @@ export class Router {
     const routerMw = [...this.routerMiddleware];
 
     // Walk the tree and re-compile every handler entry
-    const walk = (node: RadixNode): void => {
+    const walk = (node: TrieNode): void => {
       for (const [method, entry] of node.handlers) {
         const combinedMw = [...routerMw, ...entry.middleware];
         entry.executor = compileExecutor(entry.handler, combinedMw);
@@ -779,7 +779,7 @@ export class Router {
    * Walk the tree to find the node matching a path (ignoring HTTP method)
    * @internal
    */
-  private findNode(node: RadixNode, segments: string[], index: number): RadixNode | null {
+  private findNode(node: TrieNode, segments: string[], index: number): TrieNode | null {
     if (index === segments.length) {
       return node;
     }

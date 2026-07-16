@@ -45,6 +45,7 @@
   "keywords": [
     "nextrush",
     "router",
+    "segment-trie",
     "radix-tree",
     "http",
     "framework"
