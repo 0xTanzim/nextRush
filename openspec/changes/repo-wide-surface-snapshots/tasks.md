@@ -20,32 +20,33 @@
 
 ## 4. Middleware
 
-- [ ] 4.1 `@nextrush/cors` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.2 `@nextrush/helmet` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.3 `@nextrush/csrf` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.4 `@nextrush/body-parser` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.5 `@nextrush/multipart` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.6 `@nextrush/rate-limit` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.7 `@nextrush/compression` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.8 `@nextrush/cookies` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.9 `@nextrush/validation` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.10 `@nextrush/request-id` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.11 `@nextrush/timer` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.12 `@nextrush/static` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.13 `@nextrush/template` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.14 `@nextrush/logger` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 4.15 `@nextrush/openapi` — read `src/index.ts`, write `public-surface.test.ts`
+- [x] 4.1 `@nextrush/cors` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 29 runtime + default export + 9-type tuple. Fixed 2 wrong assertions during authoring: DEFAULT_METHODS is a comma-joined string not array; PREFLIGHT_INDICATORS is an object not array. Tests 2/2 files, 72 total pass. -->
+- [x] 4.2 `@nextrush/helmet` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 45 runtime + default export + 21-type tuple. Tests 2/2 files, 151 pass. -->
+- [x] 4.3 `@nextrush/csrf` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 11 runtime + 6-type tuple. Tests 2/2 files, 134 pass. -->
+- [x] 4.4 `@nextrush/body-parser` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 26 runtime + default export + 9-type tuple. Fixed 1 wrong assertion: BODYLESS_METHODS is a Set not array. Tests 5/5 files pass. -->
+- [x] 4.5 `@nextrush/multipart` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 6 runtime + 10-type tuple. Tests 2/2 files pass. -->
+- [x] 4.6 `@nextrush/rate-limit` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 39 runtime + default export + 14-type tuple. Fixed 1 wrong assertion: fixedWindow/slidingWindow/tokenBucket are algorithm objects not functions. Tests 2/2 files pass. -->
+- [x] 4.7 `@nextrush/compression` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 41 runtime + default export + 12-type tuple. Tests 2/2 files pass. -->
+- [x] 4.8 `@nextrush/cookies` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 30 runtime + 12-type tuple. Tests 8/8 files pass. -->
+- [x] 4.9 `@nextrush/validation` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 2 runtime + 1-type tuple. Tests 5/5 files pass. -->
+- [x] 4.10 `@nextrush/request-id` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 18 runtime + 7-type tuple. Tests 2/2 files pass. -->
+- [x] 4.11 `@nextrush/timer` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 12 runtime + 7-type tuple. Tests 2/2 files pass. -->
+- [x] 4.12 `@nextrush/static` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 13 runtime + 8-type tuple. Tests 2/2 files pass. -->
+- [x] 4.13 `@nextrush/template` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 89 runtime (incl. VERSION const and the full helpers surface) + 29-type tuple. Tests 3/3 files pass. -->
+- [x] 4.14 `@nextrush/logger` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 60 runtime (re-exports everything from @nextrush/log plus 4 NextRush-specific symbols) + 19-type tuple. Tests 2/2 files pass. -->
+- [x] 4.15 `@nextrush/openapi` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 4 runtime + 4-type tuple. Tests 4/4 files pass. -->
 
 ## 5. Extensions / streaming
 
-- [ ] 5.1 `@nextrush/events` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 5.2 `@nextrush/websocket` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 5.3 `@nextrush/stream` — read `src/index.ts`, write `public-surface.test.ts`
+- [x] 5.1 `@nextrush/events` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 7 runtime + 8-type tuple. Tests 2/2 files pass. -->
+- [x] 5.2 `@nextrush/websocket` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 9 runtime + 5-type tuple. Tests 2/2 files pass. -->
+- [x] 5.3 `@nextrush/stream` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 9 runtime + 8-type tuple. Tests 2/2 files pass. -->
 
 ## 6. Deprecated shims (still published — surface must be locked before T053 can remove them safely)
 
-- [ ] 6.1 `@nextrush/controllers` — read `src/index.ts`, write `public-surface.test.ts`
-- [ ] 6.2 `@nextrush/decorators` — read `src/index.ts`, write `public-surface.test.ts`
+- [x] 6.1 `@nextrush/controllers` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 41 runtime (re-exports from @nextrush/class + @nextrush/di) + 17-type tuple. FINDING: this package's own package.json "test" script is a no-op ("Tests moved to @nextrush/class") - my new test file passes 2/2 when run directly via `vitest run`, but `pnpm test` for this package will NOT execute it. Flagging for T053's own scope (or a follow-up) to wire this test into an actual test run before shim removal, rather than silently overriding the package's existing test-script convention here. -->
+- [x] 6.2 `@nextrush/decorators` — read `src/index.ts`, write `public-surface.test.ts`  <!-- 51 runtime (re-exports from @nextrush/class) + 34-type tuple. Same FINDING as 6.1: package.json "test" script is the same no-op placeholder; new test passes 2/2 when run directly, not wired into `pnpm test`. -->
+
 
 ## 7. Tooling / meta
 
