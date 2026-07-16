@@ -228,13 +228,19 @@ describe('Router audit', () => {
       expect(router.match('DELETE', '/r')).toBeNull();
     });
 
-    it('reports allowed methods for a path', () => {
+    it('reports allowed methods for a path (via the public allowedMethods() middleware)', async () => {
       router.get('/r', h());
       router.post('/r', h());
-      const allowed = router.findAllowedMethods('/r');
-      expect(allowed).toContain('GET');
-      expect(allowed).toContain('POST');
-      expect(allowed).not.toContain('DELETE');
+      const ctx = {
+        method: 'OPTIONS',
+        path: '/r',
+        status: 404,
+        set: vi.fn(),
+      } as unknown as import('@nextrush/types').Context;
+      await router.allowedMethods()(ctx, async () => {});
+      expect(ctx.set).toHaveBeenCalledWith('Allow', expect.stringContaining('GET'));
+      expect(ctx.set).toHaveBeenCalledWith('Allow', expect.stringContaining('POST'));
+      expect(ctx.set).not.toHaveBeenCalledWith('Allow', expect.stringContaining('DELETE'));
     });
   });
 

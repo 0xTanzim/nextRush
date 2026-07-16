@@ -13,7 +13,6 @@ import {
     HTTP_METHODS,
     type Context,
     type HttpMethod,
-    type MetadataContribution,
     type Middleware,
     type RouteDefinition,
     type RouteEntry,
@@ -22,22 +21,18 @@ import {
     type RouterOptions,
 } from '@nextrush/types';
 import {
-    compileExecutor,
     createNode,
-    NodeType,
     NOOP_NEXT,
-    parseSegments,
     type HandlerEntry,
     type TrieNode,
 } from './segment-trie';
-import { createRedirectHandler, type RedirectStatus } from './redirect';
+import { type RedirectStatus } from './redirect';
 import { GroupRouter, type RouteGroup } from './group-router';
-import { mergeContributions, readContribution } from './route-metadata';
-
-/** Frozen empty params for static routes — avoids allocation per request */
-const EMPTY_PARAMS: Record<string, string> = Object.freeze(
-  Object.create(null) as Record<string, string>
-);
+import { findAllowedMethods } from './matching';
+import { matchRoute } from './match-route';
+import { copyRoutes } from './composition';
+import { sealRouterMiddleware as sealRouterMiddlewareImpl } from './middleware-adapter';
+import { addRoute as addRouteImpl, registerRedirect } from './registration';
 
 /**
  * Inline route metadata declaration — re-exported from its own module (RT-3).
@@ -45,22 +40,13 @@ const EMPTY_PARAMS: Record<string, string> = Object.freeze(
 export { endpoint } from './route-metadata';
 
 /**
- * Router class — high-performance segment trie router
+ * Router class — high-performance segment trie router.
  *
  * Routes are indexed by path segment, giving O(d) lookup where d is the
  * number of segments. Static routes are additionally stored in a hash map
  * for O(1) fast-path lookup.
  *
- * @example
- * ```typescript
- * const router = createRouter();
- *
- * router.get('/users', listUsers);
- * router.get('/users/:id', getUser);
- * router.post('/users', createUser);
- *
- * app.use(router.routes());
- * ```
+ * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md | @nextrush/router README} for the full mental model and usage examples.
  */
 export class Router {
   private readonly root: TrieNode;
@@ -123,7 +109,13 @@ export class Router {
   }
 
   /**
-   * Add a route to the segment trie
+   * Add a route to the segment trie. Validates the raw path and normalizes it
+   * (both `Router`-specific concerns — `normalizePath` only touches `opts`),
+   * then delegates the actual trie insertion to the extracted `addRoute`
+   * (design.md D2 — `addRoute`'s internals extracted since it was 116 lines,
+   * the highest-complexity function in the file). The extracted function
+   * returns whether the route had a param/wildcard segment since a primitive
+   * boolean can't be mutated back through a passed struct field.
    */
   private addRoute(
     method: HttpMethod,
@@ -140,106 +132,14 @@ export class Router {
       );
     }
     const normalized = this.normalizePath(path);
-    const segments = parseSegments(normalized, this.opts.caseSensitive);
 
-    let node = this.root;
-
-    for (const seg of segments) {
-      if (seg.type === NodeType.PARAM) {
-        if (!node.paramChild) {
-          node.paramChild = createNode(seg.segment, NodeType.PARAM);
-          node.paramChild.paramName = seg.paramName;
-        } else if (node.paramChild.paramName !== seg.paramName) {
-          // Same position, different param names — this silently loses one name
-          // at runtime (params[newName] is undefined), so fail fast at
-          // registration rather than warn (audit RT-5). Also removes the
-          // process.env / console.warn usage that was here.
-          throw new Error(
-            `Route param name conflict at "${normalized}": ":${String(seg.paramName)}" ` +
-              `conflicts with existing ":${String(node.paramChild.paramName)}" at the same ` +
-              `position. Use the same param name for this segment across all routes.`
-          );
-        }
-        node = node.paramChild;
-      } else if (seg.type === NodeType.WILDCARD) {
-        node.wildcardChild ??= createNode('*', NodeType.WILDCARD);
-        node = node.wildcardChild;
-        break; // Wildcard must be last
-      } else {
-        const key = seg.segment;
-        let child = node.children.get(key);
-        if (!child) {
-          child = createNode(seg.segment, NodeType.STATIC);
-          node.children.set(key, child);
-        }
-        node = child;
-      }
-    }
-
-    // Partition entries: functions are behavior (inline middleware + the final
-    // handler); pure markers (endpoint()) contribute metadata only and never
-    // execute. Every entry may also carry a metadata contribution (e.g. a
-    // function like validate() that both runs and contributes its schema).
-    const functions: Middleware[] = [];
-    const contributions: MetadataContribution[] = [];
-    for (const routeEntry of entries) {
-      const contribution = readContribution(routeEntry);
-      if (contribution) contributions.push(contribution);
-      if (typeof routeEntry === 'function') functions.push(routeEntry);
-    }
-
-    // Combine functions into a single handler with inline middleware
-    const combinedMiddleware = [...middleware];
-    const finalHandler: RouteHandler | undefined = functions[functions.length - 1];
-
-    if (!finalHandler) {
-      throw new Error('At least one handler is required');
-    }
-
-    // Inline middleware = every function before the last
-    for (let i = 0; i < functions.length - 1; i++) {
-      const fn = functions[i];
-      if (fn) combinedMiddleware.push(fn);
-    }
-
-    // Pre-compile executor at registration time (not per-request!)
-    const executor = compileExecutor(finalHandler, combinedMiddleware);
-
-    const handlerEntry: HandlerEntry = {
-      handler: finalHandler,
-      middleware: combinedMiddleware,
-      executor,
-    };
-
-    // Detect duplicate route registration
-    if (node.handlers.has(method)) {
-      throw new Error(
-        `Route conflict: ${method} ${normalized} is already registered. ` +
-          'Remove the duplicate or use a different path.'
-      );
-    }
-
-    node.handlers.set(method, handlerEntry);
-
-    // Populate static route hash map for O(1) lookup
-    const hasParams = segments.some(
-      (s) => s.type === NodeType.PARAM || s.type === NodeType.WILDCARD
-    );
-    if (hasParams) {
-      this.hasParamRoutes = true;
-    } else {
-      const normalizedKey = this.opts.caseSensitive ? normalized : normalized.toLowerCase();
-      this.staticRoutes.set(`${method} ${normalizedKey}`, handlerEntry);
-    }
-
-    // Record in the introspection registry (side structure — never touched by
-    // request dispatch). key is the canonical `${METHOD} ${pathPattern}`.
-    this.routeDefinitions.push({
-      key: `${method} ${normalized}`,
-      method,
-      path: normalized,
-      metadata: mergeContributions(contributions),
+    const hasParams = addRouteImpl(method, normalized, entries, middleware, {
+      root: this.root,
+      caseSensitive: this.opts.caseSensitive,
+      staticRoutes: this.staticRoutes,
+      routeDefinitions: this.routeDefinitions,
     });
+    if (hasParams) this.hasParamRoutes = true;
   }
 
   // ===========================================================================
@@ -305,42 +205,18 @@ export class Router {
   }
 
   /**
-   * Register a redirect route from one path to another
+   * Register a redirect route from one path to another.
    *
    * @param from - Source path to redirect from
    * @param to - Target path or URL to redirect to
    * @param status - HTTP status code (default: 301 permanent redirect)
    * @returns this for chaining
-   *
-   * @example
-   * ```typescript
-   * // Permanent redirect (301)
-   * router.redirect('/old-page', '/new-page');
-   *
-   * // Temporary redirect (302)
-   * router.redirect('/temp', '/destination', 302);
-   *
-   * // Redirect to external URL
-   * router.redirect('/docs', 'https://docs.example.com');
-   *
-   * // With parameters - redirects /users/:id to /profiles/:id
-   * router.redirect('/users/:id', '/profiles/:id');
-   * ```
+   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#redirects | README: Redirects} for usage examples
    */
   redirect(from: string, to: string, status: RedirectStatus = 301): this {
-    const redirectHandler = createRedirectHandler(to, status);
-
-    // Register for common methods. 307/308 preserve the original method,
-    // so register all standard methods for those status codes.
-    this.addRoute('GET', from, [redirectHandler]);
-    this.addRoute('HEAD', from, [redirectHandler]);
-    if (status === 307 || status === 308) {
-      this.addRoute('POST', from, [redirectHandler]);
-      this.addRoute('PUT', from, [redirectHandler]);
-      this.addRoute('PATCH', from, [redirectHandler]);
-      this.addRoute('DELETE', from, [redirectHandler]);
-    }
-
+    registerRedirect(from, to, status, (method, path, entries) =>
+      this.addRoute(method, path, entries)
+    );
     return this;
   }
 
@@ -370,7 +246,7 @@ export class Router {
   }
 
   /**
-   * Mount a sub-router at a path prefix (Hono-style)
+   * Mount a sub-router at a path prefix (Hono-style).
    *
    * This is the explicit API for mounting sub-routers.
    * Equivalent to `router.use(path, subRouter)` but more semantic.
@@ -378,28 +254,7 @@ export class Router {
    * @param path - Path prefix for the sub-router
    * @param router - Router instance to mount
    * @returns this for chaining
-   *
-   * @example
-   * ```typescript
-   * // Create modular routers
-   * const users = createRouter();
-   * users.get('/', listUsers);
-   * users.get('/:id', getUser);
-   *
-   * const posts = createRouter();
-   * posts.get('/', listPosts);
-   *
-   * // Mount sub-routers
-   * const api = createRouter();
-   * api.mount('/users', users);
-   * api.mount('/posts', posts);
-   *
-   * // Or use on main router
-   * const router = createRouter();
-   * router.mount('/api', api);
-   *
-   * app.use(router.routes());
-   * ```
+   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#sub-router-mounting | README: Sub-Router Mounting} for usage examples
    */
   mount(path: string, router: Router): this {
     this.mountRouter(path, router);
@@ -413,48 +268,7 @@ export class Router {
    * `subrouter.use(mw)` middleware applies to every copied route.
    */
   private mountRouter(prefix: string, router: Router): void {
-    this.copyRoutes(router.root, prefix, [], router.routerMiddleware);
-  }
-
-  /**
-   * Recursively copy routes from another router
-   */
-  private copyRoutes(
-    node: TrieNode,
-    prefix: string,
-    segments: string[],
-    subRouterMiddleware: Middleware[]
-  ): void {
-    // Copy handlers at this node
-    for (const [method, entry] of node.handlers) {
-      const path = prefix + '/' + segments.join('/');
-      // Prepend sub-router middleware so it runs before the route's own middleware
-      const combined =
-        subRouterMiddleware.length > 0
-          ? [...subRouterMiddleware, ...entry.middleware]
-          : entry.middleware;
-      this.addRoute(method, path || '/', [entry.handler], combined);
-    }
-
-    // Copy static children
-    for (const [, child] of node.children) {
-      this.copyRoutes(child, prefix, [...segments, child.segment], subRouterMiddleware);
-    }
-
-    // Copy param child
-    if (node.paramChild) {
-      this.copyRoutes(
-        node.paramChild,
-        prefix,
-        [...segments, node.paramChild.segment],
-        subRouterMiddleware
-      );
-    }
-
-    // Copy wildcard child
-    if (node.wildcardChild) {
-      this.copyRoutes(node.wildcardChild, prefix, [...segments, '*'], subRouterMiddleware);
-    }
+    copyRoutes(router.root, prefix, [], router.routerMiddleware, this.addRoute.bind(this));
   }
 
   // ===========================================================================
@@ -462,179 +276,30 @@ export class Router {
   // ===========================================================================
 
   /**
-   * Match a route and return handler + params
+   * Match a route and return handler + params. Delegates to the extracted
+   * `matchRoute` (design.md D1) — this is the "thin delegating wrapper"
+   * D1 describes; it only attaches `routerMiddleware` (not read by
+   * `matchRoute` itself) to the result.
    */
   match(method: HttpMethod, path: string): RouteMatch | null {
-    // Query string must not affect path matching (RFC 3986 §3.4). Strip it here
-    // so both the normalized lookup path and extracted param values exclude it.
-    const queryIdx = path.indexOf('?');
-    if (queryIdx !== -1) path = path.slice(0, queryIdx);
-
-    const isCaseInsensitive = !this.opts.caseSensitive;
-    let normalized = isCaseInsensitive ? path.toLowerCase() : path;
-
-    // Fast-path: skip regex when no double slashes (99%+ of requests)
-    if (normalized.includes('//')) {
-      normalized = normalized.replace(/\/+/g, '/');
-    }
-
-    // For strict mode, keep trailing slash; otherwise remove it
-    if (!this.opts.strict && normalized.length > 1 && normalized.endsWith('/')) {
-      normalized = normalized.slice(0, -1);
-    }
-
-    // FAST PATH: O(1) static route lookup (no tree traversal)
-    // For static routes, trailing slash is irrelevant — always strip for lookup
-    const staticKey =
-      normalized.length > 1 && normalized.endsWith('/')
-        ? `${method} ${normalized.slice(0, -1)}`
-        : `${method} ${normalized}`;
-    const staticEntry = this.staticRoutes.get(staticKey);
-    if (staticEntry) {
-      return {
-        handler: staticEntry.handler,
-        params: EMPTY_PARAMS,
-        middleware: this.routerMiddleware,
-        executor: staticEntry.executor,
-      };
-    }
-
-    // Only walk tree if we have param/wildcard routes
-    if (!this.hasParamRoutes) return null;
-
-    // Use index-based path scanning instead of split('/').filter(Boolean)
-    const params: Record<string, string> = {};
-
-    // For case-insensitive mode, preserve original-case path for param values
-    let originalPath: string | undefined;
-    if (isCaseInsensitive) {
-      originalPath = path;
-      if (originalPath.includes('//')) {
-        originalPath = originalPath.replace(/\/+/g, '/');
-      }
-      if (!this.opts.strict && originalPath.length > 1 && originalPath.endsWith('/')) {
-        originalPath = originalPath.slice(0, -1);
-      }
-    }
-
-    const result = this.matchNodeIndexed(
-      this.root,
-      normalized,
-      1, // Start after leading '/'
-      params,
+    const result = matchRoute(
       method,
-      originalPath
+      path,
+      this.root,
+      this.staticRoutes,
+      this.hasParamRoutes,
+      this.opts.caseSensitive,
+      this.opts.strict,
+      this.opts.decode
     );
     if (!result) return null;
 
-    // Check if any params were actually set
-    let hasParams = false;
-    for (const key of Object.keys(params)) {
-      if (params[key] === undefined) {
-        Reflect.deleteProperty(params, key);
-      } else {
-        hasParams = true;
-      }
-    }
-
     return {
       handler: result.handler,
-      params: hasParams ? params : EMPTY_PARAMS,
+      params: result.params,
       middleware: this.routerMiddleware,
       executor: result.executor,
     };
-  }
-
-  /**
-   * Percent-decode an extracted param/wildcard value when `decode` is enabled.
-   * Fast-paths values with no `%`, and falls back to the raw value on malformed
-   * encoding (decodeURIComponent throws a URIError) so a bad request never crashes
-   * routing.
-   */
-  private decodeParam(value: string): string {
-    if (!this.opts.decode || !value.includes('%')) return value;
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  }
-
-  /**
-   * Extract the next segment from path at given position without allocating arrays.
-   * Returns [segment, nextIndex] where nextIndex is position after the trailing '/'.
-   */
-  private extractSegment(path: string, start: number): [segment: string, nextIndex: number] {
-    const slashPos = path.indexOf('/', start);
-    if (slashPos === -1) {
-      return [path.slice(start), path.length];
-    }
-    return [path.slice(start, slashPos), slashPos + 1];
-  }
-
-  /**
-   * Index-based recursive node matching (avoids array allocation)
-   */
-  private matchNodeIndexed(
-    node: TrieNode,
-    path: string,
-    pos: number,
-    params: Record<string, string>,
-    method: HttpMethod,
-    originalPath?: string
-  ): HandlerEntry | null {
-    // Reached end of path
-    if (pos >= path.length) {
-      return node.handlers.get(method) ?? null;
-    }
-
-    const [segment, nextPos] = this.extractSegment(path, pos);
-    if (segment === '') return node.handlers.get(method) ?? null;
-
-    // Try static match first (most specific)
-    const staticChild = node.children.get(segment);
-    if (staticChild) {
-      const result = this.matchNodeIndexed(
-        staticChild,
-        path,
-        nextPos,
-        params,
-        method,
-        originalPath
-      );
-      if (result) return result;
-    }
-
-    // Try parameter match — use original-case segment for param value
-    if (node.paramChild) {
-      const paramName = node.paramChild.paramName;
-      if (paramName === undefined) return null;
-      if (originalPath) {
-        const [origSeg] = this.extractSegment(originalPath, pos);
-        params[paramName] = this.decodeParam(origSeg);
-      } else {
-        params[paramName] = this.decodeParam(segment);
-      }
-      const result = this.matchNodeIndexed(
-        node.paramChild,
-        path,
-        nextPos,
-        params,
-        method,
-        originalPath
-      );
-      if (result) return result;
-      Reflect.deleteProperty(params, paramName);
-    }
-
-    // Try wildcard match (catches remaining path) — use original-case path
-    if (node.wildcardChild) {
-      const src = originalPath ?? path;
-      params['*'] = this.decodeParam(src.slice(pos));
-      return node.wildcardChild.handlers.get(method) ?? null;
-    }
-
-    return null;
   }
 
   // ===========================================================================
@@ -642,13 +307,8 @@ export class Router {
   // ===========================================================================
 
   /**
-   * Get routes middleware function
-   * Mount this on the application
-   *
-   * @example
-   * ```typescript
-   * app.use(router.routes());
-   * ```
+   * Get routes middleware function. Mount this on the application.
+   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#routerroutes | README: router.routes()}
    */
   routes(): Middleware {
     // Seal router-level middleware into route executors at routes() call time
@@ -694,30 +354,7 @@ export class Router {
     if (this._sealed) return;
     this._sealed = true;
 
-    const routerMw = [...this.routerMiddleware];
-
-    // Walk the tree and re-compile every handler entry
-    const walk = (node: TrieNode): void => {
-      for (const [method, entry] of node.handlers) {
-        const combinedMw = [...routerMw, ...entry.middleware];
-        entry.executor = compileExecutor(entry.handler, combinedMw);
-        node.handlers.set(method, entry);
-      }
-      for (const [, child] of node.children) {
-        walk(child);
-      }
-      if (node.paramChild) walk(node.paramChild);
-      if (node.wildcardChild) walk(node.wildcardChild);
-    };
-
-    walk(this.root);
-
-    // Also update static route entries
-    for (const [key, entry] of this.staticRoutes) {
-      const combinedMw = [...routerMw, ...entry.middleware];
-      entry.executor = compileExecutor(entry.handler, combinedMw);
-      this.staticRoutes.set(key, entry);
-    }
+    sealRouterMiddlewareImpl(this.root, this.staticRoutes, this.routerMiddleware);
   }
 
   /**
@@ -733,7 +370,7 @@ export class Router {
       if (ctx.status !== 404) return;
 
       // Single tree walk to find all allowed methods instead of N×match()
-      const allowed = this.findAllowedMethods(ctx.path);
+      const allowed = findAllowedMethods(ctx.path, this.root, this.opts.caseSensitive, this.opts.strict);
 
       if (allowed.length === 0) return;
 
@@ -753,95 +390,18 @@ export class Router {
     };
   }
 
-  /**
-   * Find all HTTP methods registered for a given path via single tree walk
-   * @internal
-   */
-  private findAllowedMethods(path: string): HttpMethod[] {
-    let normalized = this.opts.caseSensitive ? path : path.toLowerCase();
-
-    if (normalized.includes('//')) {
-      normalized = normalized.replace(/\/+/g, '/');
-    }
-
-    if (!this.opts.strict && normalized.length > 1 && normalized.endsWith('/')) {
-      normalized = normalized.slice(0, -1);
-    }
-
-    const segments = normalized.split('/').filter(Boolean);
-    const node = this.findNode(this.root, segments, 0);
-    if (!node || node.handlers.size === 0) return [];
-
-    return Array.from(node.handlers.keys());
-  }
-
-  /**
-   * Walk the tree to find the node matching a path (ignoring HTTP method)
-   * @internal
-   */
-  private findNode(node: TrieNode, segments: string[], index: number): TrieNode | null {
-    if (index === segments.length) {
-      return node;
-    }
-
-    const segment = segments[index];
-    if (segment === undefined) return null;
-
-    // Static match
-    const staticChild = node.children.get(segment);
-    if (staticChild) {
-      const result = this.findNode(staticChild, segments, index + 1);
-      if (result) return result;
-    }
-
-    // Param match
-    if (node.paramChild) {
-      const result = this.findNode(node.paramChild, segments, index + 1);
-      if (result) return result;
-    }
-
-    // Wildcard match
-    if (node.wildcardChild) {
-      return node.wildcardChild;
-    }
-
-    return null;
-  }
-
   // ===========================================================================
   // Route Groups
   // ===========================================================================
 
   /**
-   * Create a route group with shared prefix and middleware
+   * Create a route group with shared prefix and middleware.
    *
    * @param prefix - Path prefix for all routes in the group
    * @param middlewareOrCallback - Middleware array or callback function
    * @param callback - Callback function if middleware is provided
    * @returns this for chaining
-   *
-   * @example
-   * ```typescript
-   * // Simple group with prefix
-   * router.group('/api', (r) => {
-   *   r.get('/users', listUsers);
-   *   r.get('/posts', listPosts);
-   * });
-   *
-   * // Group with middleware
-   * router.group('/admin', [authMiddleware], (r) => {
-   *   r.get('/dashboard', dashboard);
-   *   r.post('/settings', updateSettings);
-   * });
-   *
-   * // Nested groups
-   * router.group('/api/v1', (r) => {
-   *   r.group('/users', [rateLimit], (ur) => {
-   *     ur.get('/', listUsers);
-   *     ur.get('/:id', getUser);
-   *   });
-   * });
-   * ```
+   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#route-groups | README: Route Groups} for usage examples
    */
   group(
     prefix: string,
@@ -902,16 +462,11 @@ export class Router {
 }
 
 /**
- * Create a new Router instance
+ * Create a new Router instance.
  *
  * @param options - Router options
  * @returns New Router instance
- *
- * @example
- * ```typescript
- * const router = createRouter();
- * const apiRouter = createRouter({ prefix: '/api/v1' });
- * ```
+ * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#quick-start | README: Quick Start} for usage examples
  */
 export function createRouter(options?: RouterOptions): Router {
   return new Router(options);
