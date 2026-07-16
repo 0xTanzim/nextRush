@@ -93,7 +93,7 @@ Use individual parsers when you need to handle specific content types only.
 Combined parser that routes to the appropriate parser based on `Content-Type`.
 
 ```ts
-function bodyParser(options?: BodyParserOptions): BodyParserMiddleware;
+function bodyParser(options?: BodyParserOptions): Middleware;
 ```
 
 <TypeTable
@@ -140,7 +140,7 @@ Multipart requests (`multipart/form-data`) throw an `UNSUPPORTED_CONTENT_TYPE` e
 ### `json(options?)`
 
 ```ts
-function json(options?: JsonOptions): BodyParserMiddleware;
+function json(options?: JsonOptions): Middleware;
 ```
 
 <TypeTable
@@ -183,7 +183,7 @@ function json(options?: JsonOptions): BodyParserMiddleware;
 ### `urlencoded(options?)`
 
 ```ts
-function urlencoded(options?: UrlEncodedOptions): BodyParserMiddleware;
+function urlencoded(options?: UrlEncodedOptions): Middleware;
 ```
 
 <TypeTable
@@ -226,7 +226,7 @@ function urlencoded(options?: UrlEncodedOptions): BodyParserMiddleware;
 ### `text(options?)`
 
 ```ts
-function text(options?: TextOptions): BodyParserMiddleware;
+function text(options?: TextOptions): Middleware;
 ```
 
 <TypeTable
@@ -259,7 +259,7 @@ function text(options?: TextOptions): BodyParserMiddleware;
 ### `raw(options?)`
 
 ```ts
-function raw(options?: RawOptions): BodyParserMiddleware;
+function raw(options?: RawOptions): Middleware;
 ```
 
 <TypeTable

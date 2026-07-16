@@ -64,7 +64,7 @@ import {
 } from '@nextrush/errors';
 
 // Middleware
-import { errorHandler, notFoundHandler, catchAsync } from '@nextrush/errors';
+import { errorHandler, notFoundHandler } from '@nextrush/errors';
 ```
 
 ## Basic Usage
@@ -495,15 +495,16 @@ app.use(notFoundHandler());
 app.use(notFoundHandler('Route not found'));
 ```
 
-### catchAsync()
+### catchAsync() — removed
 
-<Callout type="warn" title="Deprecated">
-  `catchAsync()` is redundant — async errors propagate through the middleware chain and are caught
-  by `errorHandler()`. Use handlers directly.
+<Callout type="warn" title="Removed">
+  `catchAsync()` was removed — it was a no-op wrapper (`return handler`). Async errors already
+  propagate through the middleware chain and are caught by `errorHandler()`. Use handlers
+  directly.
 </Callout>
 
 ```typescript
-// catchAsync is no longer needed. This works without it:
+// catchAsync was never needed. This works without it:
 router.get('/users', async (ctx) => {
   const users = await db.users.findAll();
   ctx.json(users);
@@ -574,8 +575,6 @@ import type {
   HttpErrorOptions,
   ValidationIssue,
   ErrorHandlerOptions,
-  ErrorMiddleware,
-  ErrorContext,
 } from '@nextrush/errors';
 ```
 

@@ -107,6 +107,7 @@ app.use(
         'script-src': ["'self'", 'https://cdn.example.com'],
         'style-src': ["'self'", "'unsafe-inline'"],
         'img-src': ["'self'", 'data:', 'https:'],
+        'frame-ancestors': ["'self'"],
       },
     },
     hsts: {
@@ -114,7 +115,6 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
-    frameguard: 'DENY',
     referrerPolicy: 'strict-origin-when-cross-origin',
   })
 );
@@ -147,11 +147,6 @@ app.use(
       type: "'on' | 'off' | false",
       description: 'X-DNS-Prefetch-Control header',
       default: "'off'",
-    },
-    frameguard: {
-      type: "'DENY' | 'SAMEORIGIN' | false",
-      description: 'X-Frame-Options header',
-      default: "'SAMEORIGIN'",
     },
     hsts: {
       type: 'StrictTransportSecurityOptions | false',
@@ -404,17 +399,15 @@ app.use(
 Apply specific headers without the full Helmet stack:
 
 ```ts
-import { contentSecurityPolicy, hsts, frameguard, noSniff, referrerPolicy } from '@nextrush/helmet';
+import { contentSecurityPolicy, hsts, noSniff, referrerPolicy } from '@nextrush/helmet';
 
 app.use(
   contentSecurityPolicy({
-    directives: { 'default-src': ["'self'"] },
+    directives: { 'default-src': ["'self'"], 'frame-ancestors': ["'self'"] },
   })
 );
 
 app.use(hsts({ maxAge: 31536000, includeSubDomains: true, preload: true }));
-
-app.use(frameguard('DENY'));
 
 app.use(noSniff());
 
@@ -447,7 +440,7 @@ These are the most frequent configuration errors when using Helmet.
   Using camelCase produces invalid headers silently.
 </Callout>
 
-**Using `frameguard` with an object** — `frameguard` takes a string (`'DENY'` or `'SAMEORIGIN'`), not `{ action: 'deny' }`.
+**Clickjacking protection moved to CSP** — `frameguard()` / `X-Frame-Options` were removed in favor of the Content-Security-Policy `frame-ancestors` directive, which every modern browser honors and which subsumes what `X-Frame-Options` did. Set `contentSecurityPolicy: { directives: { 'frame-ancestors': ["'self'"] } }` (or `["'none'"]` to block all framing) instead of the old `frameguard` option.
 
 **Enabling `hsts.preload` prematurely** — HSTS preload is permanent. Only enable after submitting to the [HSTS Preload List](https://hstspreload.org). Preload requires `maxAge >= 31536000` and `includeSubDomains: true`.
 

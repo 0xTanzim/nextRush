@@ -58,7 +58,7 @@ const app = createApp();
 
 const server = serve(app, {
   port: 8080,
-  hostname: '0.0.0.0',
+  host: '0.0.0.0',
   development: true,
   onListen: ({ port, hostname }) => {
     console.log(`Server running at http://${hostname}:${port}`);
@@ -75,9 +75,9 @@ const server = serve(app, {
   title="Options"
   types={{
     port: { type: 'number', description: 'Port to listen on', default: '8080' },
-    hostname: { type: 'string', description: 'Hostname to bind to', default: "'0.0.0.0'" },
+    host: { type: 'string', description: 'Host to bind to', default: "'0.0.0.0'" },
     onListen: {
-      type: '(info: { port: number; hostname: string }) => void',
+      type: '(info: { port: number; host: string; hostname: string }) => void',
       description: 'Callback when server starts listening',
       optional: true,
     },

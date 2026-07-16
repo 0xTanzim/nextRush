@@ -78,12 +78,34 @@ middleware you use lists a matching "Updated dependencies" entry for the same re
 Changesets telling you those packages moved in lockstep and are safe (or required) to bump
 together.
 
+## A second example: the backward-compat alias removal
+
+A later change removed a batch of dead compatibility aliases across several packages — each
+alias had been superseded for at least one release and carried zero remaining internal use. This
+is the kind of change that touches several packages at once but is still one coherent removal:
+
+| Package | Removed | Use instead |
+| --- | --- | --- |
+| `@nextrush/adapter-bun`, `-deno`, `-node` | `ServeOptions.hostname` / `ServerInstance.hostname` | `host` |
+| `@nextrush/adapter-bun`, `-deno`, `-edge` | `{Bun,Deno,Edge}BodySource`, `create{Bun,Deno,Edge}BodySource` | `WebBodySource`, `createWebBodySource` (`@nextrush/runtime`) |
+| `@nextrush/core` | `createHttpError` | `createError` |
+| `@nextrush/errors` | `ErrorContext`, `ErrorMiddleware`, `catchAsync()` | `Context`/`Middleware` (`@nextrush/types`); nothing — `catchAsync()` was a no-op |
+| `@nextrush/body-parser` | `ctx.raw`, `RequestStream`, `BodyParserMiddleware` | `ctx.bodySource` (every adapter provides it); `Middleware` |
+| `@nextrush/helmet` | `frameguard()`, `XFrameOptionsValue`, the `frameguard` option | CSP `frame-ancestors` directive |
+| `@nextrush/cors` | `CorsMiddleware` | `Middleware` (`@nextrush/types`) |
+
+None of these had a replacement that changes call-site shape beyond a rename or an import-path
+swap — `frameguard('DENY')` becomes a `frame-ancestors` CSP directive, everything else is a
+straight type/name substitution. See each package's own `CHANGELOG.md` for the exact changeset
+entry.
+
 ## What to do before any version bump
 
 1. Read the target package's `CHANGELOG.md` for every version between what you have and what
    you're moving to, not only the latest entry.
 2. Grep your codebase for anything the changelog lists as removed (`Plugin`, `app.plugin()`,
-   `ControllersPlugin`, etc. for the 3.1.0 example above).
+   `ControllersPlugin`, etc. for the 3.1.0 example above; `hostname`, `frameguard`,
+   `catchAsync`, `createHttpError`, `*BodySource` for the alias-removal example above).
 3. If you're still importing from `@nextrush/decorators` or `@nextrush/controllers`, see
    [Deprecations](/docs/migrate/deprecations) — both packages have been removed; the page has
    the exact old-import → new-import map and an automated codemod.

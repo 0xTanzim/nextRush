@@ -369,8 +369,8 @@ router.get('/users/:id', async (ctx) => {
 ```
 
 <Callout type="info">
-  `catchAsync()` is deprecated and does nothing — it returns the handler unchanged. Remove it from
-  existing code.
+  `catchAsync()` has been removed. It was a no-op wrapper — async errors already propagate to
+  `errorHandler()` without it. Remove any remaining calls from existing code.
 </Callout>
 
 ## Controller-Specific Errors

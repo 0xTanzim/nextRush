@@ -145,7 +145,6 @@ import {
   isHttpError,
   errorHandler,
   notFoundHandler,
-  catchAsync,
 } from 'nextrush';
 
 import type { ErrorHandlerOptions, HttpErrorOptions } from 'nextrush';
@@ -172,7 +171,6 @@ import type { ErrorHandlerOptions, HttpErrorOptions } from 'nextrush';
 | `isHttpError`              | Guard      | Type guard for HTTP errors                   |
 | `errorHandler`             | Middleware | Error handling middleware                    |
 | `notFoundHandler`          | Middleware | 404 fallback middleware                      |
-| `catchAsync`               | Deprecated | No-op — async errors propagate automatically |
 
 ### Types
 

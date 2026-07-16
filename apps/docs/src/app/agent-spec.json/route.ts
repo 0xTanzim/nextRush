@@ -20,7 +20,7 @@ const AGENT_SPEC = {
   packages: [
     {
       name: '@nextrush/types',
-      responsibility: 'Shared TypeScript types — Context, Middleware, Plugin, Router interfaces',
+      responsibility: 'Shared TypeScript types — Context, Middleware, Extension, Router interfaces',
       doc_url: toAbsoluteUrl('/docs/reference/core/types'),
       public_api: ['ContentType', 'HttpStatus', 'HTTP_METHODS'],
     },
@@ -37,7 +37,6 @@ const AGENT_SPEC = {
         'ValidationError',
         'errorHandler',
         'notFoundHandler',
-        'catchAsync',
         'createError',
       ],
     },
