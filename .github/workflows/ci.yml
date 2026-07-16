@@ -103,6 +103,16 @@ jobs:
         working-directory: .
         run: pnpm turbo run build --filter=dev-cli-fixture...
 
+      # T013 (fix-dev-loader-resolution-and-build-proof): the @nextrush/dev vitest suite
+      # (including build-e2e-integration.test.ts and cli-dev-integration.test.ts, both of
+      # which spawn the real built CLI against this fixture) already runs on Linux via
+      # `pnpm verify`/turbo `test` in the `ci` job above — this step is what runs it on
+      # Windows/macOS too, per this task's own acceptance criteria ("runs in the Win/macOS/
+      # Linux matrix", not only the original Linux job).
+      - name: "@nextrush/dev test suite (includes build/dev e2e integration tests)"
+        working-directory: .
+        run: pnpm --filter @nextrush/dev test
+
       - name: nextrush build (produces expected output files)
         shell: bash
         run: |

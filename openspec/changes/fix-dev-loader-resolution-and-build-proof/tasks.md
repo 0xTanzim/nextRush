@@ -72,24 +72,66 @@
 
 ## 3. T013 — end-to-end build integration test for `@nextrush/dev`
 
-- [ ] 3.1 Confirm section 1's loader fix is committed and its tests are green before starting
+- [x] 3.1 Confirm section 1's loader fix is committed and its tests are green before starting
       this section (per proposal.md's explicit sequencing rationale).
-- [ ] 3.2 RED: write a build-integration test that runs `nextrush build` against a fixture (reuse
+      **Verified:** `git log --oneline` on this branch shows `7977d69` (section 2, T012
+      residual) and `72afe3d` (section 1, loader-path fix) at the top, both present before
+      any work in this section began. Did not re-run section 1/2's tests per this task's
+      explicit "do not re-verify them" instruction.
+- [x] 3.2 RED: write a build-integration test that runs `nextrush build` against a fixture (reuse
       or extend `examples/dev-cli-fixture`, adding whatever source shape is needed to exercise
       declaration emission — e.g. an exported type) and asserts the expected JS output file(s),
       `.d.ts` file(s), sourcemap file(s), and correct extension mapping (`.ts` → `.js`/`.d.ts`,
       not e.g. `.ts` → `.ts`) are all present.
-- [ ] 3.3 Verify RED: run the test, confirm it fails for the right reason (missing test coverage,
+      **Verified:** the fixture's `src/index.ts` had no exported type (only inline routing) —
+      added `HealthStatus` interface + `describeHealth()` function (behavior-preserving; the
+      route still returns `{ ok: true }`, confirmed the existing CI `grep -q '"ok":true'`
+      smoke check still matches). New test `packages/dev/src/__tests__/build-e2e-integration.test.ts`
+      spawns the real built `bin/nextrush.js build` against the fixture (same real-CLI-spawn
+      pattern as `cli-dev-integration.test.ts`, not a call to `buildWithSwc()` in-process) and
+      asserts: `dist/index.js` exists and is non-empty, `dist/index.ts` does NOT exist
+      (extension-mapping regression guard), `dist/index.js.map` exists and parses as valid
+      JSON, `dist/index.d.ts` exists and contains `HealthStatus`/`describeHealth`/`ok: boolean`.
+- [x] 3.3 Verify RED: run the test, confirm it fails for the right reason (missing test coverage,
       not because `nextrush build` is itself broken — if `build` fails for an unrelated reason,
       that's a separate bug to report, not to silently work around here).
-- [ ] 3.4 GREEN: if the test reveals `nextrush build` already produces correct output (likely,
+      **Verified:** the test passed immediately on first write (`nextrush build` was already
+      correct — see 3.4). Per this task's own instruction to prove the assertions are
+      meaningful rather than trivially true, temporarily deleted each expected-output file
+      inside the test body (`rmSync(OUTPUT_JS, ...)` and, separately, `rmSync(OUTPUT_DTS, ...)`)
+      and re-ran: both caused the correct assertion to fail (`expected false to be true` on
+      `existsSync(...)`) for the right reason, confirming the test would catch a real
+      regression. Both temporary deletions were removed immediately after and the file was
+      restored to its clean state (confirmed via `git diff`/re-read — no leftover temp code).
+- [x] 3.4 GREEN: if the test reveals `nextrush build` already produces correct output (likely,
       since `build.ts` was not implicated in this session's bug diagnosis), the test should pass
       once written with no implementation change needed — confirm this explicitly rather than
       assuming it.
-- [ ] 3.5 Verify: run this test as part of the multi-OS CI matrix from the prior
+      **Verified:** `nextrush build` required zero changes to `packages/dev/src/commands/build.ts`
+      or any file under `packages/dev/src/commands/build/`. Manually ran
+      `node packages/dev/bin/nextrush.js build` from the fixture directory and inspected
+      `dist/` directly (outside the test harness) — `index.js`, `index.js.map`, `index.d.ts`,
+      `index.d.ts.map` all present and correct, `index.d.ts` contains the real emitted
+      declaration (`export interface HealthStatus {...}`, `export declare function
+      describeHealth(): HealthStatus;`), build completed in ~600ms. Ran the full
+      `@nextrush/dev` suite (`pnpm --filter @nextrush/dev test`): 21 test files, 208 tests,
+      all green, zero regressions from the fixture edit or the new test file. No genuine
+      `build.ts` bug was found — nothing to escalate.
+- [x] 3.5 Verify: run this test as part of the multi-OS CI matrix from the prior
       `close-phase0-ci-matrix-and-metadata-preflight` change (T004) — confirm it's wired into the
       Windows/macOS jobs, not only the original Linux job, per this task's own acceptance
       criteria ("runs in the Win/macOS/Linux matrix").
+      **Verified:** the Linux `ci` job already runs the full `@nextrush/dev` vitest suite
+      (including this new test) via `pnpm verify` → turbo `test` → each package's `test`
+      script. The `dev-cli-cross-platform` job (Windows/macOS, added by T004) did NOT run
+      the vitest suite at all — it only ran manual bash smoke steps invoking the built CLI
+      directly. Added a new step, "`@nextrush/dev` test suite (includes build/dev e2e
+      integration tests)" (`pnpm --filter @nextrush/dev test`), to `.github/workflows/ci.yml`'s
+      `dev-cli-cross-platform` job, placed after the fixture's workspace-dependency build step
+      and before the existing manual bash smoke steps. This closes the gap: the same
+      `build-e2e-integration.test.ts` and `cli-dev-integration.test.ts` files now run in all
+      three OS jobs, not only the original Linux one. Validated the modified workflow file
+      parses as well-formed YAML (`python3 -c "import yaml; yaml.safe_load(...)"`).
 
 ## 4. Cross-cutting verification
 
