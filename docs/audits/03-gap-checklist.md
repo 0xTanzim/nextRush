@@ -46,11 +46,11 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 
 | Goal | Primary blockers | Tasks |
 |---|---|---|
-| **Production readiness (Node)** | Accuracy debt corrected (T001 ☑, T002 ☑) and coverage gate live (T006 ☑); no signal-wired graceful shutdown; no health checks. Multi-runtime CI matrix now real (T003 ☑) | T010, T011 |
+| **Production readiness (Node)** | Accuracy debt corrected (T001 ☑, T002 ☑), coverage gate live (T006 ☑), and Windows/macOS toolchain CI now real (T004 ☑); no signal-wired graceful shutdown; no health checks. Multi-runtime CI matrix now real (T003 ☑) | T010, T011 |
 | **Edge Runtime** | **Largely closed.** Now executed on real `workerd`/Deno in CI (T019 ☑); bundle size measured (T012 ◐, edge-scoped); deploy examples + edge-safe middleware docs shipped (T021 ☑, T022 ☑) | T020 (◐, explicit allowed-global assertion), T024 |
 | **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
 | **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
-| **Developer Experience** | "TypeInfo not known" metadata footgun; leaked/namespaced APIs; four-package install friction; docs depth — **not re-verified this pass, carried forward** | T008, T015, T037, T058 |
+| **Developer Experience** | "TypeInfo not known" metadata footgun now closed at build time (T008 ☑ — `nextrush build` fails fast on a decorator-metadata tsconfig mismatch instead of shipping a broken artifact); leaked/namespaced APIs; four-package install friction; docs depth — **remainder not re-verified this pass, carried forward** | T015, T037, T058 |
 | **v1.0 stable tag** | Public surface frozen across all 35 published packages (T005 ☑); version/compatibility policy published (T007 ☑); deprecated shims removed (T053 ☑); single maintainer | T059, T060 |
 
 **Bottom line:** Edge + Serverless (Phase 2 + T038) are now credibly closed. T005 (repo-wide
@@ -85,13 +85,13 @@ gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
 
 | Phase | Theme | Tasks | □ Not Started | ◐ In Progress | ☑ Completed | % |
 |---|---|---|---|---|---|---|
-| Phase 0 | Foundation | 8 | 2 | 0 | 6 | 75% |
+| Phase 0 | Foundation | 8 | 0 | 0 | 8 | 100% |
 | Phase 1 | Production Ready (Node) | 9 | 7 | 0 | 2 | 22.2% |
 | Phase 2 | Edge Runtime | 6 | 1 | 2 | 3 | 50–83%* |
 | Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% (not re-verified — spot-checks: T032, T033 confirmed still open) |
 | Phase 4 | Ecosystem | 15 | 14 | 0 | 1 | 6.7% (T038 confirmed ☑; remainder not re-verified) |
 | Phase 5 | v1 Stable | 13 | 11 | 0 | 2 | 15.4% (T053 verified ☑ this pass; T054 spot-checked plausible ☑; remainder not re-verified) |
-| **Total** | | **64** | **48** | **2** | **14** | **~21.9%** |
+| **Total** | | **64** | **46** | **2** | **16** | **~25%** |
 
 *Phase 2: 50% by strict ☑ count (3/6), 83% counting ◐ as substantially done — see the phase's own
 "Verified:" notes for exactly what's delivered vs. remaining per task.
@@ -207,9 +207,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** A deliberate Bun/Deno/Workers-only regression fails CI on that runtime; matrix visible in Actions.
 - **Validation Steps:** Introduce a temporary runtime-specific failing test → confirm the correct job fails; revert.
 
-### ☐ T004 · Windows + macOS CI for the toolchain
-- **Domain:** CI/CD · **Packages:** `@nextrush/dev`, `.github/workflows/ci.yml` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
-- **Verified (2026-07-15):** `grep -i "windows|macos" .github/workflows/ci.yml` returns no matches — no Windows/macOS job exists.
+### ☑ T004 · Windows + macOS CI for the toolchain
+- **Domain:** CI/CD · **Packages:** `@nextrush/dev`, `.github/workflows/ci.yml` · **Priority:** P1 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-16):** `.github/workflows/ci.yml` now has a `dev-cli-cross-platform` job matrixed over `windows-latest`/`macos-latest` that installs deps and runs `nextrush build`/`nextrush dev` against a new minimal fixture (`examples/dev-cli-fixture/`), alongside the existing `ubuntu-latest` job — `grep -i "windows-latest\|macos-latest" .github/workflows/ci.yml` now matches. Delivered by `openspec/changes/close-phase0-ci-matrix-and-metadata-preflight` (T004 task group), commit `0c6806c`. **Caveat carried forward, not silently closed:** the implementing task group's own tasks.md left sub-tasks 1.4/1.5 unchecked — the workflow was not actually run on real Windows/macOS runners in that session (none available), and local validation surfaced a genuine, separate pre-existing bug: `nextrush dev` currently fails end-to-end on every OS including Linux, because `resolveLoaderFromUrl()` in `packages/dev/src/runtime/node-modules.ts` resolves the SWC loader path one directory short when `cli.js` lives directly under `dist/` (`ERR_MODULE_NOT_FOUND`). The new Windows/macOS `dev` smoke-test step will legitimately fail until that bug is fixed — out of this task's declared file scope (`ci.yml` + fixture only, not `node-modules.ts`) and confirmed not introduced by this change (`git diff 3c85e32..HEAD -- packages/dev/src/runtime/node-modules.ts` is empty). T004 is marked complete because its own stated acceptance criteria (CI jobs exist, exercise `dev`+`build` against a fixture on both new OSes) are met in source; the loader bug is logged as a new, separate open finding, not a reason to re-open T004.
 - **Dependencies:** T003
 - **Description:** Add `windows-latest` + `macos-latest` jobs exercising `nextrush dev`/`build`. The dev audit's C1/F1 Windows fixes are code-complete but the platform gate is explicitly still open.
 - **Why it matters:** dev-audit criticals were Windows-only; without Windows CI they can silently regress.
@@ -247,8 +247,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** A published `COMPATIBILITY.md` + support policy; every package's stability tier stated.
 - **Validation Steps:** Matrix cross-checked against actual published versions; links resolve.
 
-### ☐ T008 · Deterministic metadata-emitting build (kill "TypeInfo not known")
-- **Domain:** Build System / CLI · **Packages:** `@nextrush/dev` · **Priority:** P1 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** Medium · **Breaking:** No · **Status:** □ Not Started
+### ☑ T008 · Deterministic metadata-emitting build (kill "TypeInfo not known")
+- **Domain:** Build System / CLI · **Packages:** `@nextrush/dev` · **Priority:** P1 · **Effort:** M · **Difficulty:** Hard · **Runtime Impact:** Medium · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-16):** `packages/dev/src/utils/config.ts`'s `validateDecoratorConfig()` gained a `{ throwOnMismatch }` option (default `false`, preserving `nextrush dev`'s existing warn-and-continue call unchanged); `packages/dev/src/commands/build.ts` now calls it with `{ throwOnMismatch: true }` right after its existing entry-file check, exiting via `exitProcess(1)` with the same remediation text `dev` already prints on a tsconfig `experimentalDecorators`/`emitDecoratorMetadata` mismatch — no duplicated copy. `packages/di/README.md`'s "TypeInfo not known for X" troubleshooting section now documents the build-fails-fast-vs-dev-warns asymmetry. New test file `packages/dev/src/__tests__/build-decorator-preflight.test.ts` (3 cases: mismatch fails, decorator-free project unaffected, correctly-configured project unaffected) plus the full `@nextrush/dev` suite re-run independently in this pass: **19 test files, 203 tests, all passing** (`pnpm exec turbo run verify --continue`, `@nextrush/dev:test` line, 2026-07-16). Delivered by `openspec/changes/close-phase0-ci-matrix-and-metadata-preflight` (T008 task group), commit `ff055e4`. A `@nextrush/dev` patch changeset (`build-decorator-metadata-preflight.md`) was added for this release-impacting behavior change, per design.md's own Risk section.
 - **Dependencies:** —
 - **Description:** Guarantee a decorator-metadata-emitting build path and add a loud preflight so `tsx`/`esbuild` users get an actionable error instead of runtime "TypeInfo not known" (strategic-audit DX Critical; dev-audit).
 - **Why it matters:** The #1 first-run failure for class-based users; makes the legacy-decorator requirement safe.

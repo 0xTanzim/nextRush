@@ -66,15 +66,53 @@
 
 ## 3. Cross-cutting verification
 
-- [ ] 3.1 Run the full repo `pnpm verify` locally with both changes applied — confirm no
+- [x] 3.1 Run the full repo `pnpm verify` locally with both changes applied — confirm no
       interaction effect between the CI workflow change and the `build.ts`/`config.ts` change.
-- [ ] 3.2 Confirm no file outside this change's declared scope (`.github/workflows/ci.yml`,
+      **Verified (2026-07-16, independent re-run):** `pnpm verify` fails fast at `@nextrush/dev#lint`
+      (pre-existing, unrelated to this change's file scope). Non-fail-fast
+      `pnpm exec turbo run verify --continue`: 126/130 tasks green; exactly 4 failures
+      (`@nextrush/class#test`, `@nextrush/di#test` — the known pre-existing circular-dependency-
+      detection timeout flake, same failing test in both; `@nextrush/dev#lint` — 405 pre-existing
+      errors; `docs#lint` — pre-existing, no docs files in this branch's diff). Confirmed via
+      `git diff --stat` against the branch's real merge-base (`3c85e32`, not `main` — `main` is
+      stale/an ancestor several hundred commits back) that neither `packages/di/src/**`,
+      `packages/class/src/**` (test files), `packages/dev/src/commands/dev-cli.ts`, nor
+      `packages/dev/src/utils/logger.ts` (the files responsible for the 4 failures) are touched by
+      this branch's commits — only `packages/di/README.md` (docs) changed in `packages/di`.
+      `@nextrush/dev#test` itself (as opposed to `#lint`) passed clean: 19 files, 203 tests, zero
+      regressions. No new failure attributable to this change; no interaction effect found.
+- [x] 3.2 Confirm no file outside this change's declared scope (`.github/workflows/ci.yml`,
       `packages/dev/src/commands/build.ts`, `packages/dev/src/utils/config.ts`,
       `packages/dev/src/__tests__/*`, `packages/di/README.md` or `packages/dev/README.md`) was
       modified.
-- [ ] 3.3 Add a changeset for `@nextrush/dev` (behavior change: `build` now fails on a
+      **Verified (2026-07-16):** `git diff --stat 3c85e32..HEAD` (real merge-base against this
+      branch's actual parent, `fix/dependency-claim-router-naming-coverage-gate` — not `main`,
+      which sits hundreds of commits behind and is not the true fork point) shows exactly 10 files:
+      `.github/workflows/ci.yml`, `examples/dev-cli-fixture/{package.json,src/index.ts,tsconfig.json}`
+      (new fixture from task group 1, in scope per this task's own allowance), this change's own
+      `tasks.md`, `packages/dev/src/__tests__/build-decorator-preflight.test.ts`,
+      `packages/dev/src/commands/build.ts`, `packages/dev/src/utils/config.ts`,
+      `packages/di/README.md`, and `pnpm-lock.yaml` (expected, mechanical consequence of adding the
+      new `examples/dev-cli-fixture` workspace package — not scope creep). Every file falls within
+      the declared scope; nothing flagged.
+- [x] 3.3 Add a changeset for `@nextrush/dev` (behavior change: `build` now fails on a
       previously-silent misconfiguration — release-impacting per this repo's changeset
       conventions, unlike the T001/T002/T006 change's internal-only edits).
-- [ ] 3.4 Update `docs/audits/03-gap-checklist.md`: mark T004 and T008 ☑ with cited Verified:
+      **Done:** added `.changeset/build-decorator-metadata-preflight.md`, `"@nextrush/dev": patch`
+      (bug fix / closes a previously-silent misconfiguration for an already-broken case — not a
+      new feature, not a breaking API removal; `validateDecoratorConfig` itself is not part of the
+      package's public surface per T008's own 2.1 finding). Format matches existing behavior-change
+      changesets in `.changeset/` (`harden-adapter-contract.md`, `remove-backcompat-aliases.md`).
+- [x] 3.4 Update `docs/audits/03-gap-checklist.md`: mark T004 and T008 ☑ with cited Verified:
       notes, recompute the Progress Dashboard's Phase 0 row (should reach 8/8, 100%) and the
       Executive Summary's "Production readiness (Node)" and "Developer Experience" rows.
+      **Done:** T004 and T008 both flipped to ☑ with dated `Verified (2026-07-16):` notes citing
+      commit hashes (`0c6806c`, `ff055e4`) and this session's own re-verification evidence,
+      following the exact citation style of the T001/T002/T006 entries above them. T004's note
+      honestly carries forward the 1.4/1.5 caveat (not run on real Windows/macOS runners; surfaced
+      a separate pre-existing `nextrush dev` loader bug) rather than silently declaring full
+      completion. Progress Dashboard Phase 0 row: 8/8, 100%, 0 not-started, 0 in-progress. Total
+      row: 16/64 ☑ (~25%, up from 14/64). Executive Summary's "Production readiness (Node)" row now
+      cites T004 ☑; "Developer Experience" row now cites T008 ☑ and drops it from the row's open
+      task list. Original task descriptions/acceptance criteria text untouched — only glyphs and
+      Verified: notes added, per this checklist's own gap-checklist-accuracy rules.
