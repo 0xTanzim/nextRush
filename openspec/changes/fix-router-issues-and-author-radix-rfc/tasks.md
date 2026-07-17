@@ -207,7 +207,16 @@
       `fixed` group that already versions both in lockstep). No changeset authored for the RFC
       (docs/RFC/ design artifact, not a published-package change). Non-breaking re-confirmed via
       public-surface.test.ts byte-identical + 212/212 router suite. -->
-- [ ] 5.4 Update `docs/audits/03-gap-checklist.md` if any of this work maps to an open task
+- [x] 5.4 Update `docs/audits/03-gap-checklist.md` if any of this work maps to an open task
       (the `router.ts` split completion relates to T014's spec; the doc-accuracy work extends
       T002's original scope into `types`) — add Verified: notes citing this change's commits,
       following the checklist's own citation style; do not rewrite original task text.
+      <!-- DONE: appended dated "Verified (2026-07-17, follow-up)" notes to T014 (router.ts split
+      now fully under the 300-line cap — the disclosed 525-line partial is resolved; largest src
+      file now router.ts at 298; cites commit e9b0774) and T002 (doc-accuracy sweep extended into
+      @nextrush/types — the types/src/router.ts "uses a radix tree" header drift T002's
+      router/src-scoped sweep missed, corrected in commit 00a9546; also honestly records that
+      `grep -rni radix packages/router/src packages/types/src` now returns 2 ACCURATE references —
+      a "not a radix tree" negation + a radix-RFC pointer — neither a residual drift claim).
+      Original task text not rewritten; only dated bullets appended. No glyph changed (T002 & T014
+      both stay ☑), so no Progress Dashboard recomputation was needed. -->
