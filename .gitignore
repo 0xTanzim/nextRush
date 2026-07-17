@@ -29,6 +29,7 @@ logs_*/
 # ===== DEVELOPMENT FILES =====
 # IDE & Editor files
 .idea/
+.zed/
 *.swp
 *.swo
 *.sublime-*
