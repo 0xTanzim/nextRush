@@ -54,12 +54,17 @@ function buildRequest(init: DispatchInit | undefined, signal?: AbortSignal): Req
 }
 
 /** Create a conformance driver for a Web adapter. */
-function createWebDriver(name: string, invoke: WebInvoke): ConformanceDriver {
+function createWebDriver(
+  name: string,
+  invoke: WebInvoke,
+  honorsCloudflareIp: boolean
+): ConformanceDriver {
   return {
     name,
     handlerTimeout504: true,
     teardownOnShutdown: name !== 'edge', // edge has no teardown seam (F-14)
     transportAbortFiresSignal: true,
+    honorsCloudflareIp,
 
     async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
       const app = createApp({ proxy: init?.proxy ?? false });
@@ -133,14 +138,14 @@ export const bunDriver: ConformanceDriver = createWebDriver('bun', (app, request
   // for the conformance path; erase the Bun-specific server type at this seam.
   const serverStub = { requestIP: () => ({ address: ip, family: 'IPv4', port: 0 }) };
   return (handler as unknown as (r: Request, s: unknown) => Promise<Response>)(request, serverStub);
-});
+}, false);
 
 export const denoDriver: ConformanceDriver = createWebDriver('deno', (app, request, options, ip) => {
   const handler = createDenoHandler(app, options);
   return handler(request, { remoteAddr: { hostname: ip, port: 0 } });
-});
+}, false);
 
 export const edgeDriver: ConformanceDriver = createWebDriver('edge', async (app, request, options) => {
   const handler = createFetchHandler(app, options);
   return handler(request);
-});
+}, true);

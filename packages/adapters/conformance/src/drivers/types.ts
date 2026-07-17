@@ -72,6 +72,15 @@ export interface ConformanceDriver {
    */
   readonly teardownOnShutdown: boolean;
 
+  /**
+   * Whether the adapter consults Cloudflare's `cf-connecting-ip` at the front of
+   * the client-IP precedence when proxies are trusted. Only the edge adapter
+   * (and serverless, which reuses the edge engine) honor it; Node/Bun/Deno
+   * ignore it and fall through to `x-forwarded-for`/`x-real-ip`. An encoded
+   * difference (F-11), so a future edit cannot silently drop the precedence.
+   */
+  readonly honorsCloudflareIp: boolean;
+
   /** Configure an app, dispatch one request, and return the normalized result. */
   dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult>;
 

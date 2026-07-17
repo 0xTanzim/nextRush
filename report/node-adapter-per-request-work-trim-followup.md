@@ -1,8 +1,28 @@
 # Follow-up: per-request-work trims for Bun / Deno / Edge adapters
 
 **Source change:** `node-adapter-per-request-work-trim` (hot-path review P1, Node-only).
-**Status:** open follow-up — a **Non-Goal** of the source change, deliberately scoped out to
-keep that change measurable against the one adapter the benchmark suite actually exercises.
+**Status:** ✅ **DONE** — shipped as `web-adapters-per-request-work-trim` (Bun/Deno/Edge).
+Originally a **Non-Goal** of the source change, deliberately scoped out to keep that change
+measurable against the one adapter the benchmark suite actually exercises.
+
+## Resolution (web-adapters-per-request-work-trim)
+
+- **HP-1 + HP-7 applied** to `packages/adapters/{bun,deno,edge}/src/context.ts`, byte-identical
+  `ctx.ip` / `ctx.next()` behavior, pinned by new per-adapter
+  `__tests__/per-request-work-trim.test.ts` and by extended `packages/adapters/conformance`
+  (cross-adapter `ctx.ip` trust/precedence + `ctx.next()` ordering/rejection/no-op, plus the Edge
+  `cf-connecting-ip` precedence gated on a new `honorsCloudflareIp` driver capability).
+- **HP-4 does NOT apply to the siblings** (correction to the "HP-4 equivalent" note below): their
+  context factories take `trustProxy` **positionally** (`createBunContext(request, clientIp,
+  trustProxy)`, etc.), so there is no per-request `{ trustProxy }` options object to hoist.
+- **`serverless` shares no independent shape** — it wraps the Edge fetch engine
+  (`createEdgeFetchHandler`), so the Edge trim covers it transitively; no separate change or
+  follow-up needed (the Open Question below is resolved).
+- **Allocation gate (design D7):** `apps/benchmark/scripts/web-context-alloc.js`
+  (`pnpm bench:alloc:web`) — legacy 56.1 B/req → trimmed 8.1 B/req on the isolated removed-work
+  path, 48.0 B/req removed per request, CV ~0%, for each of bun/deno/edge. Reported as absolute
+  before/after bytes, not overstated as a total-request-allocation percentage. No sibling RPS
+  claim is made (the `wrk` suite drives only the Node server).
 
 ## What was done (Node)
 
@@ -37,7 +57,9 @@ The Bun, Deno, and Edge adapters carry the same three shapes and would benefit i
 - HP-1 on Edge must keep the `cf-connecting-ip` → `x-forwarded-for` → `x-real-ip` precedence for
   `trustProxy: true`; only the `trustProxy: false` fast path is a direct `directIp` return.
 
-## Open question (from the source proposal)
+## Open question (from the source proposal) — RESOLVED
 
-Bundle all three siblings into one follow-up change, or one change per adapter? Deferred; not
-gating the Node change.
+Bundle all three siblings into one follow-up change, or one change per adapter? **Resolved:**
+bundled into one change (`web-adapters-per-request-work-trim`, design D6) — the trim is
+mechanically identical across them and the conformance suite pins all four adapters together.
+The separate serverless question is also resolved: it wraps Edge, so no independent work applies.

@@ -72,6 +72,7 @@ export const nodeDriver: ConformanceDriver = {
   handlerTimeout504: false, // Node timeout is socket-level (server.timeout), not a 504 (F-08)
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
+  honorsCloudflareIp: false, // Node ignores cf-connecting-ip (F-11)
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
     const app = createApp({ proxy: init?.proxy ?? false });

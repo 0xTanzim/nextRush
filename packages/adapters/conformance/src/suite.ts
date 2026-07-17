@@ -350,6 +350,77 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     });
     expect(validated.text()).toBe('198.51.100.2');
   });
+
+  it('#19 client IP: untrusted proxy headers are ignored on every adapter (HP-1 parity)', async () => {
+    // trustProxy false → the proxy headers are never consulted; ctx.ip is the
+    // platform direct address (identical policy across adapters, differing only
+    // in the platform-supplied value: socket for node/deno, clientIp for bun,
+    // '' for edge). The invariant asserted here is "not the proxy value".
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => { ctx.send(ctx.ip); });
+    }, {
+      proxy: false,
+      directIp: '10.0.0.1',
+      headers: { 'x-forwarded-for': '203.0.113.9', 'x-real-ip': '198.51.100.2', 'cf-connecting-ip': '198.51.100.7' },
+    });
+    expect(res.text()).not.toBe('203.0.113.9');
+    expect(res.text()).not.toBe('198.51.100.2');
+    expect(res.text()).not.toBe('198.51.100.7');
+  });
+
+  it('#19 client IP: Cloudflare cf-connecting-ip precedence is honored only by edge/serverless', async () => {
+    // Pins design D2/D5: the edge trim must not drop cf-connecting-ip when
+    // trustProxy is true. Edge (and serverless, which reuses the edge context)
+    // put cf-connecting-ip at the front; Node/Bun/Deno ignore it and fall to
+    // x-forwarded-for. An encoded difference so a future edit can't silently drop it.
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => { ctx.send(ctx.ip); });
+    }, {
+      proxy: true,
+      directIp: '10.0.0.1',
+      headers: { 'cf-connecting-ip': '198.51.100.7', 'x-forwarded-for': '203.0.113.9' },
+    });
+    if (driver.honorsCloudflareIp) {
+      expect(res.text()).toBe('198.51.100.7');
+    } else {
+      expect(res.text()).toBe('203.0.113.9');
+    }
+  });
+
+  it('#17 ctx.next(): tail next() is a resolved no-op (last middleware may await it, then respond)', async () => {
+    // HP-7: the innermost middleware's ctx.next() forwards to the composer's
+    // terminal thunk, which resolves without throwing. Awaiting it and then
+    // responding must succeed identically on every adapter.
+    const res = await driver.dispatch((app) => {
+      app.use(async (ctx) => {
+        await ctx.next();
+        ctx.json({ ok: true });
+      });
+    });
+    expect(res.status).toBe(200);
+    expect(json<{ ok: boolean }>(res).ok).toBe(true);
+  });
+
+  it('#17 ctx.next(): a downstream rejection propagates to an awaiting upstream middleware', async () => {
+    // HP-7: ctx.next() returns the dispatch thunk's promise directly, so a
+    // downstream throw surfaces as a rejection the upstream `await ctx.next()`
+    // can catch — identical across adapters.
+    const res = await driver.dispatch((app) => {
+      app.use(async (ctx) => {
+        try {
+          await ctx.next();
+        } catch {
+          ctx.status = 418;
+          ctx.json({ caught: true });
+        }
+      });
+      app.use(() => {
+        throw new Error('downstream boom');
+      });
+    });
+    expect(res.status).toBe(418);
+    expect(json<{ caught: boolean }>(res).caught).toBe(true);
+  });
 }
 
 /**

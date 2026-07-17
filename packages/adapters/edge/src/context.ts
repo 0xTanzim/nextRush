@@ -65,6 +65,9 @@ export interface EdgeExecutionContext {
 /** Shared empty params object — avoids allocation per request (overwritten by router) */
 const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
 
+/** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
+const RESOLVED_NEXT: Promise<void> = Promise.resolve();
+
 /**
  * Edge Context implementation
  *
@@ -141,8 +144,15 @@ export class EdgeContext<Env = unknown> implements FetchContext {
     // Convert Headers to record format
     this.headers = headersToRecord(request.headers);
 
-    // Get client IP from CF headers or standard headers
-    this.ip = getEdgeClientIp(request, trustProxy);
+    // Get client IP from CF headers or standard headers.
+    //
+    // HP-1 trim: Edge has no socket, so when `trustProxy` is false (default) the
+    // client IP is `''` — returned directly, with no per-request header-lookup
+    // closure and no `getEdgeClientIp` policy call (byte-identical to
+    // `getEdgeClientIp(request, false)`, whose `directIp` is `''`). When true,
+    // resolution still goes through `getEdgeClientIp`, preserving the Cloudflare
+    // `cf-connecting-ip` → `x-forwarded-for` → `x-real-ip` precedence.
+    this.ip = trustProxy ? getEdgeClientIp(request, true) : '';
 
     // Create body source
     this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
@@ -245,10 +255,18 @@ export class EdgeContext<Env = unknown> implements FetchContext {
   // Middleware
   // ===========================================================================
 
-  async next(): Promise<void> {
-    if (this._next) {
-      await this._next();
-    }
+  /**
+   * Advance the middleware chain.
+   *
+   * @remarks
+   * HP-7 trim: forwards the composer's dispatch thunk directly instead of
+   * wrapping it in an extra `async` frame. The thunk always returns a promise
+   * and never throws synchronously (the composer converts sync throws to
+   * `Promise.reject`), so ordering, rejection propagation, and the
+   * `Promise<void>` contract are preserved. Unwired → a cached resolved promise.
+   */
+  next(): Promise<void> {
+    return this._next ? this._next() : RESOLVED_NEXT;
   }
 
   // ===========================================================================

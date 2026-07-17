@@ -58,6 +58,7 @@ export const serverlessDriver: ConformanceDriver = {
   handlerTimeout504: true, // reuses the edge engine's timeout→504 race (F-08)
   teardownOnShutdown: false, // no server lifetime, like edge (F-14)
   transportAbortFiresSignal: false, // buffered event model — no mid-request transport abort
+  honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
     const app = createApp({ proxy: init?.proxy ?? false });

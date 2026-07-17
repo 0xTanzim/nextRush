@@ -55,6 +55,9 @@ type BunRawHttp = RawHttp<Request, undefined>;
 /** Shared empty params object — avoids allocation per request (overwritten by router) */
 const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
 
+/** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
+const RESOLVED_NEXT: Promise<void> = Promise.resolve();
+
 /**
  * Bun Context implementation
  *
@@ -105,12 +108,15 @@ export class BunContext implements FetchContext {
     // Convert Headers to record format
     this.headers = headersToRecord(request.headers);
 
-    // Get client IP (Bun provides this via server.requestIP)
-    this.ip = clientIp
-      ? trustProxy
-        ? getClientIp(request, clientIp, true)
-        : clientIp
-      : getClientIp(request, '', trustProxy);
+    // Get client IP (Bun provides this via server.requestIP).
+    //
+    // HP-1 trim: when `trustProxy` is false (default) the Bun-supplied `clientIp`
+    // IS the client address, so it is returned directly — no per-request
+    // header-lookup closure, no `getClientIp` policy call — byte-identical to the
+    // policy's own `trustProxy: false` branch. When true, resolution goes through
+    // the shared policy (directIp = `clientIp ?? ''`) so precedence/validation
+    // match Node/Deno/Edge.
+    this.ip = trustProxy ? getClientIp(request, clientIp ?? '', true) : (clientIp ?? '');
 
     // Create body source
     this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
@@ -208,10 +214,18 @@ export class BunContext implements FetchContext {
   // Middleware
   // ===========================================================================
 
-  async next(): Promise<void> {
-    if (this._next) {
-      await this._next();
-    }
+  /**
+   * Advance the middleware chain.
+   *
+   * @remarks
+   * HP-7 trim: forwards the composer's dispatch thunk directly instead of
+   * wrapping it in an extra `async` frame. The thunk always returns a promise
+   * and never throws synchronously (the composer converts sync throws to
+   * `Promise.reject`), so ordering, rejection propagation, and the
+   * `Promise<void>` contract are preserved. Unwired → a cached resolved promise.
+   */
+  next(): Promise<void> {
+    return this._next ? this._next() : RESOLVED_NEXT;
   }
 
   // ===========================================================================
