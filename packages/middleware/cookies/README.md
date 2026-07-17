@@ -23,6 +23,11 @@ You need cookies that are secure by default, transparent in behavior, and flexib
 - **Key rotation** — Verify with current key, fall back to previous keys during rotation
 - **Explicit API** — No hidden magic, every behavior documented
 
+## Runtime Support
+
+**Edge-safe.** HMAC signing uses `crypto.subtle` (Web Crypto API) — zero `node:` imports. Safe on
+Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

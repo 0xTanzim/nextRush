@@ -14,6 +14,20 @@ the Node, Bun, Deno, and Edge adapters. Not published.
 
 ## Real-runtime runners
 
+### Bun (`bun-runner/`) — verified locally, runs in CI
+
+Runs the Bun adapter under real Bun, through a real `Bun.serve()` server hit over
+the network (not a bare in-process handler call — Bun's fetch handler receives a
+live `server` param that only a real server provides; see the runner's header
+comment for the Bun-specific bug this distinction caught). Bun resolves the pnpm
+workspace's built dist directly, no import map needed:
+
+```bash
+pnpm --filter "@nextrush/adapter-bun..." build
+cd packages/adapters/conformance/bun-runner
+bun test
+```
+
 ### Deno (`deno-runner/`) — verified locally
 
 Runs the Deno adapter under real Deno. Build the adapter's dist first (the import
@@ -42,21 +56,22 @@ node --test conformance.workerd.test.mjs
 
 ## CI
 
-`.github/workflows/runtime-conformance.yml` runs both as separate jobs
-(`deno-conformance`, `workerd-conformance`) on pinned runtime versions, so a
-regression in one adapter fails only that runtime's job.
+`.github/workflows/runtime-conformance.yml` runs all three as separate jobs
+(`bun-conformance`, `deno-conformance`, `workerd-conformance`) on pinned runtime
+versions, so a regression in one adapter fails only that runtime's job.
 
 ## Local reproduction with `act`
 
 Run the CI jobs locally against the same images (requires Docker + [`act`](https://github.com/nektos/act)):
 
 ```bash
+act -j bun-conformance
 act -j deno-conformance
 act -j workerd-conformance
 ```
 
-Pin runtime versions in the workflow (Deno `v2.6.3`, miniflare `@4`, compat date
-`2024-11-01`); bump deliberately, reproducing with `act` before pushing.
+Pin runtime versions in the workflow (Bun `1.3.14`, Deno `v2.6.3`, miniflare `@4`,
+compat date `2024-11-01`); bump deliberately, reproducing with `act` before pushing.
 
 ## Serverless target (task group 8)
 

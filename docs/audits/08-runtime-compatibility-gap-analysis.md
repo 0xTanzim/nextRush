@@ -20,6 +20,17 @@
 > **How to read the evidence tags.** Every finding cites the file/function it was verified
 > against. `✅ VERIFIED` = confirmed present/true in source. `❌ ABSENT` = confirmed missing.
 > `⚠️ GAP` = present but incomplete or coupled in a way that limits a stated goal.
+>
+> **⚠️ Reconciled 2026-07-17 (same day)** via `openspec/changes/close-runtime-compatibility-gaps`
+> (task groups 1–7): **R1 (request-id coupling), R2 (real Bun conformance runner), R3 (WinterCG
+> allowed-globals assertion), R4 (Vercel + GCF deploy verification), R5 (matrix proof-level
+> honesty), R6 (lint rule broadened to switch/startsWith/includes), R7 (per-package runtime-support
+> docs) all landed and are independently re-verified — not self-reported — below each affected
+> finding.** Findings 1, 2, 5 are now closed; Finding 3 is partially closed (Vercel+GCF deploy
+> verification added; Netlify/Azure remain open, as R4's own scope always stated). Finding 6
+> (T024/T026 seams) is explicitly unchanged — out of scope for that change by design. This note is
+> additive, matching `03-gap-checklist.md`'s own re-baseline convention — the original findings
+> below are left intact as the historical record of what was found before the fix, not rewritten.
 
 ---
 
@@ -128,7 +139,15 @@ but the **proof** (bottom, "real runners") only reaches Node, Deno, and Cloudfla
 
 ---
 
-## Finding 1 — `@nextrush/request-id` is needlessly Node-coupled ⚠️ GAP (NEW)
+## Finding 1 — `@nextrush/request-id` is needlessly Node-coupled ⚠️ GAP (NEW) — ✅ CLOSED 2026-07-17
+
+- **Closed via:** `close-runtime-compatibility-gaps` task group 1. `constants.ts` now calls the
+  global `crypto.randomUUID()`, guarded by the capability check `requestId()` already performed.
+  Verified independently: `grep "from 'node:" packages/middleware/request-id/src/*.ts` → 0 matches;
+  full package suite 65/65 (up from 64, the new package-wide `node:`-import guard test added); an
+  `esbuild --platform=browser` bundle of the package resolves with zero Node builtins in the
+  output — the available proxy for "loads under workerd with no resolution error," since no
+  workerd fixture imports this package yet. Patch changeset added.
 
 - **Current situation.** `packages/middleware/request-id/src/constants.ts:8` does
   `import { randomUUID } from 'node:crypto'`, and `defaultGenerator` calls it. This is the only
@@ -157,7 +176,17 @@ but the **proof** (bottom, "real runners") only reaches Node, Deno, and Cloudfla
 
 ---
 
-## Finding 2 — Bun is advertised as a native target but never executed on real Bun ⚠️ GAP
+## Finding 2 — Bun is advertised as a native target but never executed on real Bun ⚠️ GAP — ✅ CLOSED 2026-07-17
+
+- **Closed via:** `close-runtime-compatibility-gaps` task group 3. Added
+  `conformance/bun-runner/conformance.bun.test.ts` (real `Bun.serve()` server, hit over the
+  network) and a `bun-conformance` CI job (`oven-sh/setup-bun`, pinned `1.3.14`). **Building the
+  real runner immediately surfaced a genuine, previously-undetected Bun-specific bug** — calling
+  the Bun adapter's handler bare (no live server) throws (`server.requestIP()` assumes a real
+  Bun `Server` instance), exactly the class of bug this finding predicted a Node-simulated pass
+  would miss. Fixed the runner to dispatch through a real server; verified the fix by deliberately
+  re-breaking `requestIP` in the built `dist` and confirming the Bun job fails (5/6) while the
+  Deno adapter's `dist` stayed untouched — then reverted. 6/6 pass against real Bun.
 
 - **Current situation.** The conformance package has real-runtime runners for Deno
   (`conformance/deno-runner/`, real Deno 2.6.3) and Cloudflare (`conformance/workerd-runner/`, real
@@ -189,7 +218,20 @@ but the **proof** (bottom, "real runners") only reaches Node, Deno, and Cloudfla
 
 ---
 
-## Finding 3 — Edge/serverless proof is uneven across platforms ⚠️ GAP
+## Finding 3 — Edge/serverless proof is uneven across platforms ⚠️ GAP — ◐ PARTIALLY CLOSED 2026-07-17
+
+- **Partially closed via:** `close-runtime-compatibility-gaps` task group 5. Added
+  `deploy-verification/vercel-app/` and `deploy-verification/gcf-app/` (deploy → smoke → destroy,
+  mirroring the existing `cloudflare-app`/`lambda-app` pattern exactly) and two new secret-gated,
+  skip-not-fail CI jobs. The GCF app's bridge (GCF's real Express-style `(req, res)` → the
+  normalized `GcfEvent` `createGoogleHandler` expects) was verified empirically, not just
+  type-checked: staged the real built `@nextrush/adapter-serverless` dist, ran a real
+  `functions-framework` server against it, and curled `{"ok":true,"runtime":"gcf"}` on HTTP 200
+  before committing the app. Skip-independence verified by simulating the `check-secrets` bash
+  logic with partial secret sets — each platform's readiness flag computes independently.
+  **Still open, unchanged from the original finding:** Netlify Edge and Azure Functions deploy
+  verification — always out of this change's stated scope (design.md's Non-Goals), deferred to a
+  follow-up.
 
 - **Current situation.** Real execution and real deploys are concentrated on two platforms:
   - **Real conformance execution:** Deno (deno-runner) and Cloudflare/workerd (workerd-runner) only.
@@ -248,7 +290,22 @@ but the **proof** (bottom, "real runners") only reaches Node, Deno, and Cloudfla
 
 ---
 
-## Finding 5 — The capability-branching lint rule is real but narrow ✅ VERIFIED (with limitation)
+## Finding 5 — The capability-branching lint rule is real but narrow ✅ VERIFIED (with limitation) — ✅ CLOSED 2026-07-17
+
+- **Closed via:** `close-runtime-compatibility-gaps` task group 7. The rule now flags `switch`
+  discriminants and `.startsWith`/`.includes` member-calls against runtime-name literals, while
+  structurally exempting `return`-only "producer" switches (`capabilitiesFor()`,
+  `getRuntimeVersion()`) without needing an annotation. **Running the broadened rule repo-wide
+  surfaced two genuine false positives** — `create-nextrush/src/{cli,utils}.ts` check `'bun'` as
+  one of four *package-manager* names (npm/pnpm/yarn/bun), an unrelated domain that happens to
+  share a string with `RUNTIME_NAMES`; both annotated `capability-exempt` with the reason. Two real
+  bugs were also found and fixed in the rule's own implementation while building it: (1) the
+  initial producer-switch check didn't recurse into `case 'x': { ...; return y; }`'s block-wrapped
+  body, wrongly flagging `getRuntimeVersion`; (2) `isExempt`'s comment-proximity check only looked
+  at individual comment-token positions, missing a multi-line `//` explanation block entirely
+  (each `//` line is a separate AST token, not one multi-line token) — fixed by grouping
+  contiguous comment lines into logical blocks. Both fixes are covered by new regression fixtures
+  in the rule's own test file. Repo-wide rescan: 0 violations; rule's own suite green.
 
 - **Current situation.** `no-runtime-identity-capability` exists and is wired into
   `eslint.config.mjs`. It forbids `runtime === 'node'`-style capability branching, steering code to
@@ -337,17 +394,17 @@ Legend: 🟢 proven on real runtime in CI/deploy · 🟡 implemented, proof is i
 | Runtime | Adapter (contract) | Detection | Capability profile | Real-runtime CI | Real deploy smoke | Verdict |
 |---|---|---|---|---|---|---|
 | **Node** | `ServerAdapter` | `'node'` | explicit | ✅ node-driver (native) | n/a (host) | 🟢 |
-| **Bun** | `ServerAdapter` | `'bun'` | explicit | ❌ **none — no bun-runner** | ❌ | 🟡 **(Finding 2)** |
+| **Bun** | `ServerAdapter` | `'bun'` | explicit | ✅ bun-runner (real Bun 1.3.14) — closed 2026-07-17 | ❌ | 🟢 |
 | **Deno** | `ServerAdapter` | `'deno'` | explicit | ✅ deno-runner (Deno 2.6.3) | ❌ | 🟢 |
 | **Deno Deploy** | `FetchAdapter`/server | `'deno-deploy'` | explicit (fs=false) | 🟡 via deno-runner (real Deno, not Deploy) | ❌ | 🟡 |
 | **Cloudflare Workers** | `FetchAdapter` | `isCloudflare` | explicit | ✅ workerd-runner (miniflare) | ✅ cloudflare-app | 🟢 |
-| **Vercel Edge** | `FetchAdapter` | `isVercel` | explicit | 🟡 web-driver sim / workerd (diff isolate) | ❌ | 🟡 **(Finding 3)** |
-| **Netlify Edge** | `FetchAdapter` | `isNetlify`→`'edge'` | ⚠️ inherited, no dedicated profile | 🟡 web-driver sim | ❌ | 🟡 **(Findings 3,4)** |
-| **WinterCG (generic)** | `FetchAdapter` | fallback/`'edge'` | `probeCapabilities()` | 🟡 sim; no allow-list assertion | n/a | 🟡 **(Finding 6, T020)** |
+| **Vercel Edge** | `FetchAdapter` | `isVercel` | explicit | 🟡 web-driver sim / workerd (diff isolate) | ✅ vercel-app — added 2026-07-17 | 🟡 **(Finding 3 — deploy verification closed, real-runtime CI execution still open)** |
+| **Netlify Edge** | `FetchAdapter` | `isNetlify`→`'edge'` | ⚠️ inherited, no dedicated profile | 🟡 web-driver sim | ❌ | 🟡 **(Findings 3,4 — still open, out of this change's scope)** |
+| **WinterCG (generic)** | `FetchAdapter` | fallback/`'edge'` | `probeCapabilities()` | ✅ allow-list assertion added 2026-07-17 (`wintercg-globals.test.ts`) | n/a | 🟢 |
 | **AWS Lambda (APIGW v1/v2)** | serverless `FetchAdapter` | event-driven | n/a | 🟡 serverless-driver (event sim) | ✅ lambda-app | 🟢 |
 | **AWS Lambda (Function URL / stream)** | serverless streaming | event-driven | n/a | 🟡 serverless-driver | ✅ lambda-app | 🟢 |
-| **Google Cloud Functions** | serverless (gcf mapper) | event-driven | n/a | 🟡 serverless-driver only | ❌ **no gcf-app** | 🟡 **(Finding 3)** |
-| **Azure Functions** | serverless (azure mapper) | event-driven | n/a | 🟡 serverless-driver only | ❌ **no azure-app** | 🟡 **(Finding 3)** |
+| **Google Cloud Functions** | serverless (gcf mapper) | event-driven | n/a | 🟡 serverless-driver only | ✅ gcf-app — added 2026-07-17 | 🟢 |
+| **Azure Functions** | serverless (azure mapper) | event-driven | n/a | 🟡 serverless-driver only | ❌ **no azure-app (still open, out of this change's scope)** | 🟡 **(Finding 3)** |
 
 *This matrix differs from `03`'s "After backlog" column deliberately: `03` shows the target
 post-backlog state (mostly 🟢); this shows the **verified current** state. The gap between the two

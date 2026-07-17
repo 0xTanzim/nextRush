@@ -22,6 +22,11 @@ flowchart LR
     C --> U["GET /docs (Swagger UI)"]
 ```
 
+## Runtime Support
+
+**Edge-safe.** Reads route metadata already collected by the router and serves JSON/HTML — zero
+`node:` imports. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

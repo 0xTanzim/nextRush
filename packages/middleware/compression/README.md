@@ -20,6 +20,12 @@ Response compression is critical for web performance, but frameworks often make 
 - **BREACH attack mitigation** — Optional random padding prevents compression ratio analysis attacks
 - **Transparent behavior** — Compression stats available via `getCompressionInfo()` for debugging
 
+## Runtime Support
+
+**Edge-safe.** Uses the Web Compression Streams API (`CompressionStream`) rather than Node's
+`zlib` — zero `node:` imports. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and
+Netlify Edge.
+
 ## Installation
 
 ```bash

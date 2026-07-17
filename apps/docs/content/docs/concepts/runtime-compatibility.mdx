@@ -79,6 +79,17 @@ NextRush uses three strategies to achieve runtime compatibility:
   serving.
 </Callout>
 
+<Callout type="info" title="Proof basis for this matrix">
+  This grid asserts feature-level parity across adapters, all covered by the shared cross-adapter
+  conformance suite. Whether a given runtime's *conformance result* comes from real-platform
+  execution or in-process simulation is a separate, narrower question — Node, Bun, Deno, and
+  Cloudflare Workers (`workerd`) each run the suite on their real runtime in CI; Vercel Edge and
+  Netlify Edge currently share the edge adapter's simulated conformance run rather than their own
+  real-platform execution. See the [Compatibility Matrix](/docs/resources/compatibility-matrix)'s
+  "Runtime support matrix" for the per-platform breakdown, and
+  `docs/audits/08-runtime-compatibility-gap-analysis.md` for the full analysis.
+</Callout>
+
 ## The Context Interface
 
 The `Context` interface is the contract between your code and the runtime. All adapters implement this interface:

@@ -13,6 +13,12 @@ High-performance, security-first static file serving middleware for NextRush.
 - 🌊 **Efficient Streaming** - Small files buffered, large files streamed with timeout
 - 🎯 **TOCTOU Safe** - Verifies file integrity after read
 
+## Runtime Support
+
+**Node-only.** Serves files from the local filesystem (`node:fs`) — inherently requires
+filesystem access, which edge/serverless isolates do not provide. Use platform-native asset
+serving (e.g. Cloudflare Pages, Vercel's static output) on edge deployments instead.
+
 ## Installation
 
 ```bash

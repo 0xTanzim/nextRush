@@ -25,6 +25,11 @@ NextRush's CORS middleware treats **security as a first-class feature**, not an 
 - **Fail-secure validators** block requests when custom validators throw errors
 - **Private Network Access** support for local development scenarios
 
+## Runtime Support
+
+**Edge-safe.** Zero `node:` imports — origin validation and header logic use only standard
+JavaScript. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

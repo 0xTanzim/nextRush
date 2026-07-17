@@ -16,6 +16,11 @@ Parsing request bodies is deceptively dangerous. Without proper safeguards:
 
 Most body parsers either ignore these threats or handle them inconsistently. NextRush's body-parser treats security as a first-class concern.
 
+## Runtime Support
+
+**Edge-safe.** Reads the request body via the Web-standard `Request`/`ReadableStream` APIs — no
+`node:` imports. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

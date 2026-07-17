@@ -16,6 +16,11 @@ CSRF protection middleware for NextRush using the **Signed Double-Submit Cookie*
 - **Dual extraction** — Reads tokens from headers, body fields, or query parameters
 - **Token provider** — Separate middleware for issuing tokens without enforcing protection
 
+## Runtime Support
+
+**Edge-safe.** Uses the Web Crypto API (`crypto.subtle`) exclusively for HMAC signing — zero
+`node:` imports. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

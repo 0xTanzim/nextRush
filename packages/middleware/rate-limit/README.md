@@ -22,6 +22,13 @@ Rate limiting is critical for API security and stability, but most implementatio
 - **Input validation** - Comprehensive validation with descriptive error messages
 - **Zero dependencies** - No external runtime dependencies
 
+## Runtime Support
+
+**Edge-safe.** Zero `node:` imports — the built-in memory store uses only in-memory JavaScript
+data structures. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+(A distributed store for multi-instance deployments is tracked separately — see the
+`@nextrush/redis`-backed store proposal.)
+
 ## Installation
 
 ```bash

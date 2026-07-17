@@ -66,6 +66,10 @@ export function detectPackageManager(): PackageManager {
 
   if (userAgent.startsWith('pnpm')) return 'pnpm';
   if (userAgent.startsWith('yarn')) return 'yarn';
+  // capability-exempt: 'bun' here identifies a PACKAGE MANAGER choice
+  // (npm/pnpm/yarn/bun), not a NextRush JS-runtime capability decision —
+  // collides with a runtime name in RUNTIME_NAMES, but this function never
+  // branches on which JS runtime is executing.
   if (userAgent.startsWith('bun')) return 'bun';
   return 'npm';
 }

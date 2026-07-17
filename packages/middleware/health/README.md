@@ -30,6 +30,13 @@ exactly the outage scenario the probe exists to detect.
 - **One clear registration API** — `registerCheck(name, check)`, nothing more configurable than
   that until a real need for it is demonstrated.
 
+## Runtime Support
+
+**Edge-safe.** Zero `node:` imports — probes are user-supplied functions run under a
+`Promise.race` timeout. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge
+(portability of what a registered check itself pings — e.g. a database client — depends on that
+client's own runtime support).
+
 ## Installation
 
 ```bash

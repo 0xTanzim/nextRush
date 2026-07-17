@@ -20,6 +20,11 @@ Performance monitoring requires accurate timing data:
 - **RFC 7230 compliant** header sanitization for security
 - **Zero dependencies** with pure TypeScript implementation
 
+## Runtime Support
+
+**Edge-safe.** Uses the Web-standard `performance.now()` — zero `node:` imports. Safe on Node,
+Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

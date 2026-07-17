@@ -268,6 +268,12 @@ import type {
 } from '@nextrush/request-id';
 ```
 
+## Runtime Support
+
+**Edge-safe.** Zero `node:` imports — uses only the global `crypto.randomUUID()` (Web Crypto API,
+available on Node ≥19, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge). Safe to use
+on every runtime NextRush supports, including edge/serverless deployments.
+
 ## Multi-Runtime Support
 
 Uses only universal APIs compatible with all JavaScript runtimes:

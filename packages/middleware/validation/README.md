@@ -27,6 +27,12 @@ flowchart LR
     F --> G["errorHandler → 400"]
 ```
 
+## Runtime Support
+
+**Edge-safe.** Glue code around a Standard Schema validator — zero `node:` imports. Safe on Node,
+Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge (portability of the validator library
+you bring, e.g. Zod/Valibot/ArkType, depends on that library's own runtime support).
+
 ## Installation
 
 ```bash

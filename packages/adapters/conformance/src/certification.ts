@@ -35,6 +35,33 @@ export type Feature = (typeof FEATURES)[number];
 /** Support level for a feature on a runtime. */
 export type Support = 'full' | 'partial' | 'na' | 'none';
 
+/**
+ * Whether a target's certification result comes from execution on the real
+ * runtime, or from the in-process driver simulation (task group 6, R5).
+ *
+ * The in-process conformance suite (`drivers/`) is ALWAYS a simulation — it
+ * runs entirely under Node/vitest, by construction, regardless of which
+ * driver is selected (`web-driver.ts` backs `bun`/`deno`/`edge` identically).
+ * `real-runtime` is asserted here only when a SEPARATE real-runtime runner
+ * exists and actually executes that target's adapter on-platform:
+ * `bun-runner/` (real Bun, task group 3), `deno-runner/` (real Deno),
+ * `workerd-runner/` (real Cloudflare/workerd). `serverless`'s real
+ * deployment runtime IS Node (Lambda/GCF/Azure), which `node`'s own
+ * real-runtime coverage already backs — see the package README's
+ * "Real-runtime note" — so it is intentionally NOT double-counted as a
+ * second `real-runtime` row.
+ */
+export type ProofLevel = 'real-runtime' | 'simulated';
+
+/** Static fact about the harness's structure — not derived from driver data. */
+const REAL_RUNTIME_RUNNER_EXISTS: Record<string, boolean> = {
+  node: true, // native node-driver IS the real runtime (no separate runner needed)
+  bun: true, // bun-runner/ (task group 3, R2)
+  deno: true, // deno-runner/
+  edge: true, // workerd-runner/ (real miniflare/workerd isolate)
+  serverless: false, // real target is Node, already covered by `node`'s row
+};
+
 /** The capability inputs the matrix is computed from (one per conformance target). */
 export interface CertInput {
   readonly name: string;
@@ -42,6 +69,7 @@ export interface CertInput {
   readonly handlerTimeout504: boolean;
   readonly teardownOnShutdown: boolean;
   readonly transportAbortFiresSignal: boolean;
+  readonly proofLevel: ProofLevel;
 }
 
 /** Map a conformance-driver name to the runtime whose capabilities it deploys on. */
@@ -105,16 +133,26 @@ export function certInputs(): CertInput[] {
     handlerTimeout504: d.handlerTimeout504,
     teardownOnShutdown: d.teardownOnShutdown,
     transportAbortFiresSignal: d.transportAbortFiresSignal,
+    proofLevel: REAL_RUNTIME_RUNNER_EXISTS[d.name] === true ? 'real-runtime' : 'simulated',
   }));
 }
 
 const CELL: Record<Support, string> = { full: '✅', partial: '⚠️', na: '➖', none: '❌' };
+const PROOF_LABEL: Record<ProofLevel, string> = {
+  'real-runtime': '🟢 real-runtime',
+  simulated: '🟡 simulated',
+};
 
-/** Render the certification matrix as user-facing Markdown (task 9.3). */
+/** Render the certification matrix as user-facing Markdown (task 9.3; proof-level added task group 6, R5). */
 export function renderCertificationMarkdown(): string {
   const inputs = certInputs();
   const header = `| Feature | ${inputs.map((i) => i.name).join(' | ')} |`;
   const sep = `| --- | ${inputs.map(() => '---').join(' | ')} |`;
+  // Proof is the FIRST body row (after the separator). A row placed between
+  // the header and the `---` separator is invalid GFM and renders broken on
+  // GitHub/GitLab — caught by rendering the actual output and inspecting
+  // it, not assumed correct from string concatenation alone.
+  const proofRow = `| **Proof** | ${inputs.map((i) => `**${PROOF_LABEL[i.proofLevel]}**`).join(' | ')} |`;
   const rows = FEATURES.map((feature) => {
     const cells = inputs.map((i) => CELL[featureSupport(feature, i)]);
     return `| ${feature} | ${cells.join(' | ')} |`;
@@ -130,10 +168,19 @@ export function renderCertificationMarkdown(): string {
     '> cross-adapter conformance driver flags — the same data the conformance',
     '> suite asserts. A capability regression drops the affected runtime here.',
     '',
+    '> **Proof level.** The `Proof` row states whether that column\'s result comes',
+    '> from execution on the REAL runtime (a separate real-runtime runner:',
+    '> `bun-runner/`, `deno-runner/`, `workerd-runner/`, or the native Node driver)',
+    '> or from the in-process driver SIMULATION (`drivers/web-driver.ts`, which',
+    '> always runs under Node/vitest regardless of which target it simulates).',
+    '> Only 🟢 `real-runtime` rows back a "proven" claim in public docs — see',
+    '> `docs/audits/08-runtime-compatibility-gap-analysis.md`.',
+    '',
     'Legend: ✅ full · ⚠️ partial (different model) · ➖ not applicable by design · ❌ unsupported',
     '',
     header,
     sep,
+    proofRow,
     ...rows,
     coverage,
     '',
@@ -145,6 +192,9 @@ export function renderCertificationMarkdown(): string {
     '  so there is no mid-request transport abort; `ctx.signal` still fires on timeout.',
     '- **Shutdown** — ➖ for `edge`/`serverless`: no server lifetime, so extension',
     "  `destroy()` never runs (F-14). Excluded from coverage rather than scored as a failure.",
+    '- **Proof (`serverless`)** — 🟡 simulated here because its real deployment runtime',
+    '  IS Node (Lambda/GCF/Azure all run Node); real-runtime coverage for that target',
+    "  is `node`'s own row, not double-counted as a second real-runtime proof.",
     '',
   ].join('\n');
 }

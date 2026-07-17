@@ -29,6 +29,11 @@ Helmet protects against **browser-based attacks** via HTTP response headers. It 
 
 Each of these concerns has its own dedicated NextRush middleware package.
 
+## Runtime Support
+
+**Edge-safe.** Zero `node:` imports — sets response headers only, no filesystem or Node-specific
+API access. Safe on Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

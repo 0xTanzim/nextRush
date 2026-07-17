@@ -64,4 +64,23 @@ describe('certification matrix', () => {
     // script) and asserts equality otherwise — so CI regenerates and checks it.
     await expect(renderCertificationMarkdown()).toMatchFileSnapshot(docPath);
   });
+
+  it('6.2 (R5) every input carries a proof level distinguishing real-runtime from simulated', () => {
+    // node/bun/deno/edge each have a real-runtime runner (native driver,
+    // bun-runner/, deno-runner/, workerd-runner/ respectively) — see the
+    // REAL_RUNTIME_RUNNER_EXISTS map's own doc comment for why.
+    expect(inputByName('node').proofLevel).toBe('real-runtime');
+    expect(inputByName('bun').proofLevel).toBe('real-runtime');
+    expect(inputByName('deno').proofLevel).toBe('real-runtime');
+    expect(inputByName('edge').proofLevel).toBe('real-runtime');
+    // serverless's real deployment runtime IS Node, already covered by
+    // node's row — not double-counted as its own real-runtime proof.
+    expect(inputByName('serverless').proofLevel).toBe('simulated');
+  });
+
+  it('6.2 (R5) the rendered matrix labels each runtime with its proof level', () => {
+    const md = renderCertificationMarkdown();
+    expect(md).toContain('real-runtime');
+    expect(md).toContain('simulated');
+  });
 });

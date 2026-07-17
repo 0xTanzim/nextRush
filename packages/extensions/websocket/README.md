@@ -13,6 +13,12 @@ WebSocket support for NextRush with rooms, broadcasting, and simple DX.
 - **🛡️ Security Hardened** - Origin validation, room limits, input validation
 - **📦 Node.js Native** - Uses the battle-tested `ws` library
 
+## Runtime Support
+
+**Node-only.** Built on the `ws` npm library (`node:net`/`node:http` based). No edge-native path
+(`WebSocketPair`/Durable Objects for Cloudflare, `Deno.upgradeWebSocket` for Deno) exists yet —
+tracked separately as a future edge-native WebSocket capability.
+
 ## Installation
 
 ```bash

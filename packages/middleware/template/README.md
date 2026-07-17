@@ -11,6 +11,12 @@
 - **⚡ Production Ready** - Automatic caching, layouts, and 70+ helpers
 - **📝 Express Compatible** - Familiar `ctx.render()` API
 
+## Runtime Support
+
+**Node-only.** All engine adapters (built-in, EJS, Handlebars, Nunjucks, Pug, Eta) resolve and
+read template files from disk via `node:fs`/`node:path`. Not usable on edge/serverless runtimes
+without a filesystem today.
+
 ## Installation
 
 ```bash

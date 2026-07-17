@@ -1,11 +1,16 @@
 name: Runtime Conformance
 
 # Proves the adapters on their REAL runtimes (not simulated under Node/vitest):
+# - Bun adapter under real Bun (a real Bun.serve() server, hit over the network —
+#   Bun's fetch handler receives a live `server` param that a bare in-process call
+#   cannot reproduce; see bun-runner/conformance.bun.test.ts's header comment)
 # - Deno adapter under real Deno
 # - Edge adapter inside a real workerd isolate (miniflare)
-# See openspec/changes/harden-runtime-edge-serverless (task group 3).
+# See openspec/changes/harden-runtime-edge-serverless (task group 3) and
+# openspec/changes/close-runtime-compatibility-gaps (task group 3, Bun).
 #
 # Locally reproducible with `act`:
+#   act -j bun-conformance
 #   act -j deno-conformance
 #   act -j workerd-conformance
 # (see packages/adapters/conformance/README.md)
@@ -23,6 +28,27 @@ permissions:
   contents: read
 
 jobs:
+  bun-conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Build the Bun adapter + its workspace deps; Bun resolves the pnpm
+      # workspace's dist directly (no import map needed, unlike Deno).
+      - run: pnpm --filter "@nextrush/adapter-bun..." build
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14 # pinned; bump deliberately
+      - name: Bun conformance
+        working-directory: packages/adapters/conformance/bun-runner
+        run: bun test
+
   deno-conformance:
     runs-on: ubuntu-latest
     timeout-minutes: 15

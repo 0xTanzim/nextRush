@@ -14,6 +14,11 @@ Type-safe event emitter for NextRush v3 - simple, fast, and async-ready.
 - 🔒 **Security Hardened** - Input validation, race-safe handlers
 - 🌐 **Universal Runtime** - Node.js, Bun, Deno, edge runtimes
 
+## Runtime Support
+
+**Edge-safe.** Zero `node:` imports — the emitter is implemented in pure JavaScript. Safe on Node,
+Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+
 ## Installation
 
 ```bash

@@ -1,9 +1,10 @@
 name: Real-Cloud Deploy Verification
 
 # Proves the built serverless/edge handlers deploy and respond on the REAL
-# platforms (AWS Lambda, Cloudflare Workers) — see
-# packages/adapters/conformance/deploy-verification/README.md and
-# openspec/changes/harden-runtime-edge-serverless (task group 10).
+# platforms (AWS Lambda, Cloudflare Workers, Vercel Edge, Google Cloud
+# Functions) — see packages/adapters/conformance/deploy-verification/README.md,
+# openspec/changes/harden-runtime-edge-serverless (task group 10), and
+# openspec/changes/close-runtime-compatibility-gaps (task group 5, Vercel+GCF).
 #
 # NEVER runs on pull_request/push — scheduled (nightly) + manual dispatch only.
 # Skipped (not failed) when the required secrets aren't configured, so a fork
@@ -28,6 +29,8 @@ jobs:
     outputs:
       aws_ready: ${{ steps.check.outputs.aws_ready }}
       cloudflare_ready: ${{ steps.check.outputs.cloudflare_ready }}
+      vercel_ready: ${{ steps.check.outputs.vercel_ready }}
+      gcp_ready: ${{ steps.check.outputs.gcp_ready }}
     steps:
       - id: check
         run: |
@@ -40,6 +43,16 @@ jobs:
             echo "cloudflare_ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "cloudflare_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -n "${{ secrets.VERCEL_TOKEN }}" ]]; then
+            echo "vercel_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "vercel_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -n "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" && -n "${{ secrets.GCP_DEPLOY_VERIFY_SERVICE_ACCOUNT }}" && -n "${{ secrets.GCP_PROJECT_ID }}" ]]; then
+            echo "gcp_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "gcp_ready=false" >> "$GITHUB_OUTPUT"
           fi
 
   lambda-deploy-verify:
@@ -101,3 +114,62 @@ jobs:
         if: always()
         working-directory: packages/adapters/conformance/deploy-verification
         run: ./cloudflare-app/destroy.sh
+
+  vercel-deploy-verify:
+    needs: check-secrets
+    if: needs.check-secrets.outputs.vercel_ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "@nextrush/adapter-edge..." build
+      - name: Deploy
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./vercel-app/deploy.sh
+      - name: Smoke test
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./vercel-app/smoke.sh
+      - name: Destroy (always)
+        if: always()
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./vercel-app/destroy.sh
+
+  gcf-deploy-verify:
+    needs: check-secrets
+    if: needs.check-secrets.outputs.gcp_ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "@nextrush/adapter-serverless..." build
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_VERIFY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Deploy
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./gcf-app/deploy.sh
+      - name: Smoke test
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./gcf-app/smoke.sh
+      - name: Destroy (always)
+        if: always()
+        working-directory: packages/adapters/conformance/deploy-verification
+        run: ./gcf-app/destroy.sh

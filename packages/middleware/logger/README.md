@@ -7,6 +7,12 @@ Request logging middleware for NextRush. This package wraps [@nextrush/log](http
 - **Automatic correlation ID** handling
 - **Context-attached logger** (`ctx.log`) for request handlers
 
+## Runtime Support
+
+**Edge-safe.** Zero `node:` imports in the middleware itself. Safe on Node, Bun, Deno, Cloudflare
+Workers, Vercel Edge, and Netlify Edge (portability of a custom log transport/sink you configure
+depends on that transport's own runtime support).
+
 ## Installation
 
 ```bash
