@@ -13,9 +13,11 @@ Copilot-Processing.md
 
 # Build outputs
 dist/
-build/
 **/dist/
-**/build/
+# Compiled build output only (never a source folder literally named `build/`,
+# e.g. packages/dev/src/commands/build/ — those are legitimate source modules).
+/build/
+apps/*/build/
 apps/docs/.vitepress/cache
 # Turbo cache
 .turbo/
