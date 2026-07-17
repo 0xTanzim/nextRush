@@ -9,12 +9,7 @@
  * @packageDocumentation
  */
 
-import {
-  HTTP_METHODS,
-  type HttpMethod,
-  type Middleware,
-  type RouteHandler,
-} from '@nextrush/types';
+import { HTTP_METHODS, type HttpMethod, type Middleware, type RouteHandler } from '@nextrush/types';
 import { createRedirectHandler, type RedirectStatus } from './redirect';
 
 /**
@@ -160,26 +155,54 @@ export class GroupRouter implements RouteGroup {
     middlewareOrCallback: Middleware[] | ((router: RouteGroup) => void),
     callback?: (router: RouteGroup) => void
   ): this {
-    let nestedMiddleware: Middleware[] = [];
-    let cb: (router: RouteGroup) => void;
-
-    if (Array.isArray(middlewareOrCallback)) {
-      nestedMiddleware = middlewareOrCallback;
-      if (!callback) {
-        throw new Error('Callback function is required when providing middleware array');
-      }
-      cb = callback;
-    } else {
-      cb = middlewareOrCallback;
-    }
-
-    const nestedRouter = new GroupRouter(this.parent, this.fullPath(prefix), [
-      ...this.middleware,
-      ...nestedMiddleware,
-    ]);
-
-    cb(nestedRouter);
-
+    runRouteGroup(
+      this.parent,
+      this.fullPath(prefix),
+      middlewareOrCallback,
+      callback,
+      this.middleware
+    );
     return this;
   }
+}
+
+/**
+ * Resolve a `group()` call's `(middleware[], callback)` | `(callback)` overload
+ * and run the callback against a fresh {@link GroupRouter} bound to `host`.
+ *
+ * @remarks
+ * Shared by `Router.group()` and the nested `GroupRouter.group()` so the
+ * overload handling and the "throw when a middleware array has no callback"
+ * guard have a single definition.
+ *
+ * @param host - Parent router the group registers routes into.
+ * @param prefix - Fully-resolved path prefix for the group.
+ * @param middlewareOrCallback - Either the group middleware array or the callback.
+ * @param callback - The callback, required when a middleware array is passed.
+ * @param inheritedMiddleware - Middleware from an enclosing group, prepended
+ *   ahead of this group's own (empty for a top-level `Router.group()`).
+ */
+export function runRouteGroup(
+  host: GroupRouterHost,
+  prefix: string,
+  middlewareOrCallback: Middleware[] | ((router: RouteGroup) => void),
+  callback: ((router: RouteGroup) => void) | undefined,
+  inheritedMiddleware: Middleware[] = []
+): void {
+  let middleware: Middleware[] = [];
+  let cb: (router: RouteGroup) => void;
+
+  if (Array.isArray(middlewareOrCallback)) {
+    middleware = middlewareOrCallback;
+    if (!callback) {
+      throw new Error('Callback function is required when providing middleware array');
+    }
+    cb = callback;
+  } else {
+    cb = middlewareOrCallback;
+  }
+
+  const combined =
+    inheritedMiddleware.length > 0 ? [...inheritedMiddleware, ...middleware] : middleware;
+  cb(new GroupRouter(host, prefix, combined));
 }

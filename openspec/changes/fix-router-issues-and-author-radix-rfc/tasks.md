@@ -69,17 +69,59 @@
 
 ## 3. Finish the `router.ts` split (completes T014 / router-module-size-compliance)
 
-- [ ] 3.1 Measure current `router.ts` line count and identify the remaining over-cap clusters
+- [x] 3.1 Measure current `router.ts` line count and identify the remaining over-cap clusters
       (registration primitives, any-method/group-route helpers per design.md D2) to extract along
       the same seams the earlier split used — do NOT introduce a new structural pattern.
-- [ ] 3.2 Characterize first: confirm the clusters being moved have test coverage; add
+      <!-- DONE: router.ts measured at 525 lines (over the 300 cap). Read in full; identified the
+      extractable clusters along T014's existing seams (all pure-function extractions, NO new
+      structural pattern — no mixins/base classes): (a) dispatch/allowed-methods middleware
+      generation (routes()/allowedMethods() closures), (b) registration primitives
+      (normalizePath, the any-method introspection-row push shared by all()/_pushAnyMethodRouteDefinition),
+      (c) match-result assembly (match() → resolveMatch), (d) route-group setup (group() overload
+      resolution), (e) trie reset (reset()'s node clearing), (f) router-state construction
+      (constructor opts + memoized state struct). Confirmed >1 extraction needed (a single dispatch
+      extraction only reached ~477). -->
+- [x] 3.2 Characterize first: confirm the clusters being moved have test coverage; add
       characterization tests for any gap BEFORE moving code (refactor-TDD steering).
-- [ ] 3.3 Extract one cluster at a time into a focused module, running the full router test suite
+      <!-- DONE: Captured a GREEN baseline of 212 tests / 9 files BEFORE any move (incl.
+      public-surface.test.ts). Confirmed the risk-sensitive seams are already covered — prefix /
+      strict / trailing-slash normalization, `.all()`, `.group()`, and isAnyMethod appear across
+      router.test.ts, router-edge-cases.test.ts, router-audit.test.ts (56 matches); routes()/
+      allowedMethods() in allowed-methods.test.ts + middleware-pipeline.test.ts; reset() in
+      audit-fixes.test.ts (RT-1); match()/params in param-decoding.test.ts. NO coverage gap → no
+      new characterization test required (all moves are mechanical relocations of existing logic;
+      the existing suite IS the characterization, re-run green after every single extraction). -->
+- [x] 3.3 Extract one cluster at a time into a focused module, running the full router test suite
       after EACH single extraction.
-- [ ] 3.4 Verify: `find packages/router/src -name '*.ts' -not -path '*__tests__*' | xargs wc -l |
+      <!-- DONE: Extracted incrementally, full @nextrush/router suite (212) GREEN after EACH step:
+      NEW dispatch.ts (106 lines: createRoutesMiddleware + createAllowedMethodsMiddleware) 525→477;
+      registration.ts (+normalizeRegistrationPath +pushAnyMethodDefinition; Router memoizes the
+      shared state struct) 477→442; group-router.ts (+runRouteGroup, also dedups the nested
+      GroupRouter.group() overload logic) 442→418; inline sealRouterMiddleware into routes() +
+      remove banner-ASCII dividers + trim re-typed @param JSDoc 418→376; match-route.ts
+      (+MatchState +resolveMatch, Router.match now a 1-line delegator — matchRoute's own contract
+      untouched) 376→366; segment-trie.ts (+clearNode for reset()) + JSDoc compaction 366→325;
+      merged the reg/match state structs into one (DRY) 325→319; NEW state.ts (52 lines:
+      resolveRouterOptions + createRouterState — thins the constructor) 319→304; final JSDoc
+      compaction 304→298. Router stays the public shell delegating to the extracted pure functions.
+      Every module ≤300: router.ts 298, dispatch.ts 106, state.ts 52, registration.ts 282,
+      match-route.ts 171, group-router.ts 208, segment-trie.ts 195. -->
+- [x] 3.4 Verify: `find packages/router/src -name '*.ts' -not -path '*__tests__*' | xargs wc -l |
       awk '$1>300'` returns nothing.
-- [ ] 3.5 Verify: public-surface snapshot byte-identical before/after; full router suite green;
+      <!-- DONE: the awk '$1>300' check returns NOTHING (empty). Largest shipping src files:
+      router.ts 298, registration.ts 282, group-router.ts 208, matching.ts 196, segment-trie.ts
+      195, match-route.ts 171. All ≤300. -->
+- [x] 3.5 Verify: public-surface snapshot byte-identical before/after; full router suite green;
       run adapter-level routing integration tests to catch any integration regression.
+      <!-- DONE: public surface byte-identical — src/index.ts (the barrel) has an EMPTY git diff and
+      public-surface.test.ts is green (runtime exports still exactly {createRouter, endpoint, Router,
+      createNode, NodeType, parseSegments}; type-only surface unchanged). New modules dispatch.ts/
+      state.ts are internal, NOT re-exported from the barrel. Full @nextrush/router suite 212/212
+      green; adapter-node integration 86/86 green (real app+router boot, incl. graceful-shutdown);
+      typecheck clean, ESLint clean (0 warnings), tsup build success. NOTE: format:check flags
+      index.ts/matching.ts/redirect.ts — PRE-EXISTING prettier drift (all three have an empty git
+      diff, untouched by this section); all 7 files THIS section touched are prettier-clean. -->
+
 
 ## 4. Author the radix-package RFC (per design.md D5 + the RFC outline)
 

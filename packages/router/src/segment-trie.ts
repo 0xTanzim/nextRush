@@ -134,6 +134,18 @@ export function createNode(segment: string, type: NodeType = NodeType.STATIC): T
 }
 
 /**
+ * Reset a trie node to its empty state — clears children/handlers and drops the
+ * param/wildcard branches. Used by `Router.reset()` for test isolation and
+ * hot-reload re-registration.
+ */
+export function clearNode(node: TrieNode): void {
+  node.children.clear();
+  node.handlers.clear();
+  node.paramChild = undefined;
+  node.wildcardChild = undefined;
+}
+
+/**
  * Parse path segments
  * Splits path into segments and identifies param/wildcard types
  *

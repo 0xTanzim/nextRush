@@ -13,7 +13,7 @@
  * @internal
  */
 
-import type { Context, HttpMethod, RouteHandler } from '@nextrush/types';
+import type { Context, HttpMethod, Middleware, RouteMatch, RouteHandler } from '@nextrush/types';
 import { EMPTY_PARAMS } from './constants';
 import { matchNodeIndexed, normalizePathForMatch } from './matching';
 import type { HandlerEntry, TrieNode } from './segment-trie';
@@ -86,9 +86,7 @@ export function matchRoute(
   // so extracted param values keep their casing while lookup uses the lowercased
   // `normalized`. `caseSensitive: true` here means "normalize but do not fold
   // case".
-  const originalPath = caseSensitive
-    ? undefined
-    : normalizePathForMatch(path, true, strict);
+  const originalPath = caseSensitive ? undefined : normalizePathForMatch(path, true, strict);
 
   const result = matchNodeIndexed(
     root,
@@ -121,6 +119,53 @@ export function matchRoute(
   return {
     handler: result.handler,
     params: hasParams ? params : EMPTY_PARAMS,
+    executor: result.executor,
+  };
+}
+
+/**
+ * Stable router state `resolveMatch` reads on every request. All fields are
+ * fixed references for the router's lifetime, so the caller memoizes this once
+ * rather than rebuilding it per request.
+ */
+export interface MatchState {
+  readonly root: TrieNode;
+  readonly staticRoutes: Map<string, HandlerEntry>;
+  readonly caseSensitive: boolean;
+  readonly strict: boolean;
+  readonly decode: boolean;
+  readonly routerMiddleware: Middleware[];
+}
+
+/**
+ * Resolve a request to a full {@link RouteMatch}: run {@link matchRoute}, then
+ * attach `state.routerMiddleware` (which `matchRoute` deliberately never reads).
+ * `Router.match()` is a one-line delegator to this — the thin wrapper design.md
+ * D1 describes. `hasParamRoutes` is passed separately from `state` because it is
+ * the one piece of router state that flips after construction.
+ */
+export function resolveMatch(
+  state: MatchState,
+  hasParamRoutes: boolean,
+  method: HttpMethod,
+  path: string
+): RouteMatch | null {
+  const result = matchRoute(
+    method,
+    path,
+    state.root,
+    state.staticRoutes,
+    hasParamRoutes,
+    state.caseSensitive,
+    state.strict,
+    state.decode
+  );
+  if (!result) return null;
+
+  return {
+    handler: result.handler,
+    params: result.params,
+    middleware: state.routerMiddleware,
     executor: result.executor,
   };
 }

@@ -1,69 +1,58 @@
 /**
  * @nextrush/router - Router Implementation
  *
- * High-performance router using a segment trie for route matching.
- * Routes are keyed by full path segments (e.g. "users", ":id"), not by
- * individual characters — this is a segment-based trie, not a compressed
- * segment trie. Supports parameters, wildcards, and method-based routing.
+ * The public `Router` shell: a thin, chainable facade delegating registration,
+ * matching, dispatch, composition, and grouping to focused sibling modules
+ * (design.md D1/D2). Segment trie keyed by whole path segments, not a radix tree.
  *
  * @packageDocumentation
  */
 
 import {
-    HTTP_METHODS,
-    type Context,
-    type HttpMethod,
-    type Middleware,
-    type RouteDefinition,
-    type RouteEntry,
-    type RouteHandler,
-    type RouteMatch,
-    type RouterOptions,
+  HTTP_METHODS,
+  type HttpMethod,
+  type Middleware,
+  type RouteDefinition,
+  type RouteEntry,
+  type RouteHandler,
+  type RouteMatch,
+  type RouterOptions,
 } from '@nextrush/types';
-import {
-    createNode,
-    NOOP_NEXT,
-    type HandlerEntry,
-    type TrieNode,
-} from './segment-trie';
+import { clearNode, createNode, type HandlerEntry, type TrieNode } from './segment-trie';
 import { type RedirectStatus } from './redirect';
-import { GroupRouter, type RouteGroup } from './group-router';
-import { findAllowedMethods } from './matching';
-import { matchRoute } from './match-route';
+import { runRouteGroup, type RouteGroup } from './group-router';
+import { resolveMatch, type MatchState } from './match-route';
 import { copyRoutes } from './composition';
 import { sealRouterMiddleware as sealRouterMiddlewareImpl } from './middleware-adapter';
-import { addRoute as addRouteImpl, registerRedirect } from './registration';
+import {
+  addRoute as addRouteImpl,
+  normalizeRegistrationPath,
+  pushAnyMethodDefinition,
+  registerRedirect,
+  type RegistrationState,
+} from './registration';
+import { createAllowedMethodsMiddleware, createRoutesMiddleware } from './dispatch';
+import { createRouterState, resolveRouterOptions } from './state';
 
-/**
- * Inline route metadata declaration — re-exported from its own module (RT-3).
- */
+/** Inline route metadata declaration — re-exported from its own module (RT-3). */
 export { endpoint } from './route-metadata';
 
 /**
- * Router class — high-performance segment trie router.
- *
- * Routes are indexed by path segment, giving O(d) lookup where d is the
- * number of segments. Static routes are additionally stored in a hash map
- * for O(1) fast-path lookup.
- *
- * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md | @nextrush/router README} for the full mental model and usage examples.
+ * High-performance segment-trie router: O(d) lookup by path segment, with a
+ * static-route hash map for an O(1) fast path.
+ * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md | @nextrush/router README}
  */
 export class Router {
   private readonly root: TrieNode;
   private readonly opts: Required<RouterOptions>;
   private readonly routerMiddleware: Middleware[] = [];
 
-  /**
-   * Static route hash map for O(1) lookup.
-   * Key: "METHOD path" (e.g. "GET /users"), Value: HandlerEntry
-   */
+  /** Static-route fast path: O(1) lookup keyed by `"METHOD path"`. */
   private readonly staticRoutes = new Map<string, HandlerEntry>();
 
   /**
-   * Introspection registry: every registered route as a RouteDefinition.
-   * Kept SEPARATE from the hot-path structures (segment trie + staticRoutes) so
-   * request dispatch never reads metadata — only getRoutes() (at doc-generation
-   * time) touches this.
+   * Introspection registry, kept SEPARATE from the hot-path trie/staticRoutes
+   * so request dispatch never reads metadata — only getRoutes() touches it.
    */
   private readonly routeDefinitions: RouteDefinition[] = [];
 
@@ -73,49 +62,24 @@ export class Router {
   /** Whether router-level middleware has already been sealed into executors (audit RT-7) */
   private _sealed = false;
 
+  /** Memoized state the extracted registration/matching functions read (see {@link createRouterState}). */
+  private readonly state: RegistrationState & MatchState;
+
   constructor(options: RouterOptions = {}) {
     this.root = createNode('');
-    this.opts = {
-      prefix: options.prefix ?? '',
-      caseSensitive: options.caseSensitive ?? false,
-      strict: options.strict ?? false,
-      decode: options.decode ?? true,
-    };
+    this.opts = resolveRouterOptions(options);
+    this.state = createRouterState(
+      this.root,
+      this.opts,
+      this.staticRoutes,
+      this.routeDefinitions,
+      this.routerMiddleware
+    );
   }
 
   /**
-   * Normalize path based on router options
-   */
-  private normalizePath(path: string): string {
-    // Handle prefix with trailing slash and path with leading slash
-    let prefix = this.opts.prefix;
-    if (prefix.endsWith('/') && path.startsWith('/')) {
-      prefix = prefix.slice(0, -1);
-    }
-
-    let normalized = prefix + path;
-
-    // Fast-path: skip regex when no double slashes (99%+ of requests)
-    if (normalized.includes('//')) {
-      normalized = normalized.replace(/\/+/g, '/');
-    }
-
-    // For non-strict mode during registration, remove trailing slash
-    if (!this.opts.strict && normalized.length > 1 && normalized.endsWith('/')) {
-      normalized = normalized.slice(0, -1);
-    }
-
-    return normalized.startsWith('/') ? normalized : '/' + normalized;
-  }
-
-  /**
-   * Add a route to the segment trie. Validates the raw path and normalizes it
-   * (both `Router`-specific concerns — `normalizePath` only touches `opts`),
-   * then delegates the actual trie insertion to the extracted `addRoute`
-   * (design.md D2 — `addRoute`'s internals extracted since it was 116 lines,
-   * the highest-complexity function in the file). The extracted function
-   * returns whether the route had a param/wildcard segment since a primitive
-   * boolean can't be mutated back through a passed struct field.
+   * Validate + normalize a raw path, then delegate trie insertion to the
+   * extracted `addRoute` (design.md D2); flips `hasParamRoutes` from its return.
    */
   private addRoute(
     method: HttpMethod,
@@ -124,35 +88,18 @@ export class Router {
     middleware: Middleware[] = [],
     recordIntrospection = true
   ): void {
-    // Runtime guard for untyped JS callers — without this, a non-string path is
-    // silently coerced (`'' + null` → 'null') into a bogus literal route.
+    // Guard untyped-JS callers: a non-string path would coerce to a bogus literal route.
     const rawPath: unknown = path;
     if (typeof rawPath !== 'string') {
       throw new TypeError(
         `Route path must be a string, received ${rawPath === null ? 'null' : typeof rawPath}.`
       );
     }
-    const normalized = this.normalizePath(path);
-
-    const hasParams = addRouteImpl(
-      method,
-      normalized,
-      entries,
-      middleware,
-      {
-        root: this.root,
-        caseSensitive: this.opts.caseSensitive,
-        staticRoutes: this.staticRoutes,
-        routeDefinitions: this.routeDefinitions,
-      },
-      recordIntrospection
-    );
-    if (hasParams) this.hasParamRoutes = true;
+    const normalized = normalizeRegistrationPath(path, this.opts.prefix, this.opts.strict);
+    if (addRouteImpl(method, normalized, entries, middleware, this.state, recordIntrospection)) {
+      this.hasParamRoutes = true;
+    }
   }
-
-  // ===========================================================================
-  // HTTP Method Shortcuts
-  // ===========================================================================
 
   get(path: string, ...entries: RouteEntry[]): this {
     this.addRoute('GET', path, entries);
@@ -190,33 +137,19 @@ export class Router {
   }
 
   /**
-   * Register a route matching every standard HTTP method under a single
-   * introspection entry (T016).
-   *
-   * Internally still inserts one concrete trie handler per method in
-   * `HTTP_METHODS` — `match()`/`allowedMethods()` are completely unaffected,
-   * every method dispatches exactly as it did before this change. Only
-   * `getRoutes()`'s output changes: instead of one row per enumerated method
-   * (the pre-T016 shape), this pushes exactly one `RouteDefinition` row with
-   * `isAnyMethod: true`, so a renderer iterating `getRoutes()` sees one entry
-   * per `.all()`/`@All()` route, matching how the route was actually authored.
+   * Register a route for every HTTP method under one consolidated `isAnyMethod`
+   * introspection row (T016) — matching is unchanged (see {@link pushAnyMethodDefinition}).
    */
   all(path: string, ...entries: RouteEntry[]): this {
+    // recordIntrospection=false: insert each per-method handler without its own
+    // introspection row; the single consolidated row below replaces all 7.
     for (const method of HTTP_METHODS) {
-      // recordIntrospection=false: insert the concrete per-method trie handler
-      // (so this method still matches) without pushing a per-call
-      // introspection row — the single consolidated row below replaces all 7.
       this.addRoute(method, path, entries, [], false);
     }
-
-    const normalized = this.normalizePath(path);
-    this.routeDefinitions.push({
-      key: `${HTTP_METHODS[0]} ${normalized}`,
-      method: HTTP_METHODS[0],
-      path: normalized,
-      isAnyMethod: true,
-    });
-
+    pushAnyMethodDefinition(
+      this.routeDefinitions,
+      normalizeRegistrationPath(path, this.opts.prefix, this.opts.strict)
+    );
     return this;
   }
 
@@ -226,250 +159,104 @@ export class Router {
   }
 
   /**
-   * Return every registered route as a read-only list of RouteDefinitions.
-   *
-   * Consumed by renderers (`@nextrush/openapi`, and future SDK/Postman/RPC
-   * generators). This is a doc-generation-time projection of the introspection
-   * registry — the request hot path never calls it.
+   * Every registered route as a read-only list, for renderers (`@nextrush/openapi`,
+   * SDK/RPC generators). Doc-generation-time only — never on the request path.
    */
   getRoutes(): readonly RouteDefinition[] {
     return this.routeDefinitions;
   }
 
   /**
-   * Register a redirect route from one path to another.
-   *
-   * @param from - Source path to redirect from
-   * @param to - Target path or URL to redirect to
-   * @param status - HTTP status code (default: 301 permanent redirect)
-   * @returns this for chaining
-   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#redirects | README: Redirects} for usage examples
+   * Register a redirect from one path to another (301 by default). 307/308
+   * additionally register POST/PUT/PATCH/DELETE to preserve the method.
+   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#redirects | README: Redirects}
    */
   redirect(from: string, to: string, status: RedirectStatus = 301): this {
     registerRedirect(from, to, status, (method, path, entries) => {
-          this.addRoute(method, path, entries);
-        });
+      this.addRoute(method, path, entries);
+    });
     return this;
   }
 
-  // ===========================================================================
-  // Router Composition
-  // ===========================================================================
-
   use(pathOrMiddleware: string | Middleware | Router, routerOrUndefined?: Router): this {
     if (typeof pathOrMiddleware === 'function') {
-      // Middleware function
       this.routerMiddleware.push(pathOrMiddleware);
     } else if (typeof pathOrMiddleware === 'string' && routerOrUndefined instanceof Router) {
-      // Mount sub-router at path
       this.mountRouter(pathOrMiddleware, routerOrUndefined);
     } else if (typeof pathOrMiddleware === 'string') {
-      // String prefix without a Router — unsupported, throw clear error
       throw new Error(
         `router.use('${pathOrMiddleware}', ...) requires a Router instance as the second argument. ` +
           'Use router.group(prefix, callback) for prefix-scoped middleware, ' +
           'or router.use(middlewareFn) to register middleware without a prefix.'
       );
     } else if (pathOrMiddleware instanceof Router) {
-      // Mount router at root
       this.mountRouter('', pathOrMiddleware);
     }
     return this;
   }
 
   /**
-   * Mount a sub-router at a path prefix (Hono-style).
-   *
-   * This is the explicit API for mounting sub-routers.
-   * Equivalent to `router.use(path, subRouter)` but more semantic.
-   *
-   * @param path - Path prefix for the sub-router
-   * @param router - Router instance to mount
-   * @returns this for chaining
-   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#sub-router-mounting | README: Sub-Router Mounting} for usage examples
+   * Mount a sub-router at a path prefix (Hono-style) — the explicit, more
+   * semantic equivalent of `router.use(path, subRouter)`.
+   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#sub-router-mounting | README: Sub-Router Mounting}
    */
   mount(path: string, router: Router): this {
     this.mountRouter(path, router);
     return this;
   }
 
-  /**
-   * Mount a sub-router (internal)
-   *
-   * Carries the sub-router's own `routerMiddleware` forward so that
-   * `subrouter.use(mw)` middleware applies to every copied route.
-   */
+  /** Mount a sub-router, carrying its own `routerMiddleware` onto every copied route. */
   private mountRouter(prefix: string, router: Router): void {
     copyRoutes(router.root, prefix, [], router.routerMiddleware, this.addRoute.bind(this));
   }
 
-  // ===========================================================================
-  // Route Matching
-  // ===========================================================================
-
-  /**
-   * Match a route and return handler + params. Delegates to the extracted
-   * `matchRoute` (design.md D1) — this is the "thin delegating wrapper"
-   * D1 describes; it only attaches `routerMiddleware` (not read by
-   * `matchRoute` itself) to the result.
-   */
+  /** Match a request to a route — delegates to {@link resolveMatch} (design.md D1). */
   match(method: HttpMethod, path: string): RouteMatch | null {
-    const result = matchRoute(
-      method,
-      path,
-      this.root,
-      this.staticRoutes,
-      this.hasParamRoutes,
-      this.opts.caseSensitive,
-      this.opts.strict,
-      this.opts.decode
-    );
-    if (!result) return null;
-
-    return {
-      handler: result.handler,
-      params: result.params,
-      middleware: this.routerMiddleware,
-      executor: result.executor,
-    };
+    return resolveMatch(this.state, this.hasParamRoutes, method, path);
   }
 
-  // ===========================================================================
-  // Middleware Generation
-  // ===========================================================================
-
   /**
-   * Get routes middleware function. Mount this on the application.
+   * Return the router's dispatch middleware — mount this on the application.
    * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#routerroutes | README: router.routes()}
    */
   routes(): Middleware {
-    // Seal router-level middleware into route executors at routes() call time
-    // This avoids per-request closure creation
-    const hasRouterMiddleware = this.routerMiddleware.length > 0;
-    if (hasRouterMiddleware) {
-      this.sealRouterMiddleware();
+    // Seal router middleware into every executor once (audit RT-7 idempotency):
+    // routes() may run more than once, so the _sealed guard prevents re-prepend.
+    if (this.routerMiddleware.length > 0 && !this._sealed) {
+      this._sealed = true;
+      sealRouterMiddlewareImpl(this.root, this.staticRoutes, this.routerMiddleware);
     }
-
-    return async (ctx: Context, next?: () => Promise<void>): Promise<void> => {
-      const match = this.match(ctx.method, ctx.path);
-
-      if (!match) {
-        // No route matched — set 404 so allowedMethods() and notFoundHandler() can act
-        ctx.status = 404;
-        if (next) await next();
-        return;
-      }
-
-      // Set params on context
-      ctx.params = match.params;
-
-      // Use pre-compiled executor (includes router middleware if any)
-      if (match.executor) {
-        await match.executor(ctx);
-        return;
-      }
-
-      // Fallback: No executor (shouldn't happen but be safe)
-      await match.handler(ctx, NOOP_NEXT);
-    };
+    return createRoutesMiddleware((method, path) => this.match(method, path));
   }
 
   /**
-   * Re-compile all route executors to include router-level middleware.
-   * Called once when routes() is invoked, not per-request.
-   */
-  private sealRouterMiddleware(): void {
-    // Idempotent: sealing prepends routerMiddleware into every executor in
-    // place, so running it twice would prepend the middleware twice (audit
-    // RT-7). routes() can be invoked more than once (e.g. mounted and also
-    // app.route()'d), so guard against re-sealing.
-    if (this._sealed) return;
-    this._sealed = true;
-
-    sealRouterMiddlewareImpl(this.root, this.staticRoutes, this.routerMiddleware);
-  }
-
-  /**
-   * Generate allowed methods middleware
-   * Responds to OPTIONS and sets Allow header
+   * Generate allowed-methods middleware. Responds to OPTIONS with an `Allow`
+   * header and returns 405 for a known path hit with an unregistered method.
    */
   allowedMethods(): Middleware {
-    return async (ctx: Context, next?: () => Promise<void>): Promise<void> => {
-      if (next) {
-        await next();
-      }
-
-      if (ctx.status !== 404) return;
-
-      // Single tree walk to find all allowed methods instead of N×match()
-      const allowed = findAllowedMethods(ctx.path, this.root, this.opts.caseSensitive, this.opts.strict);
-
-      if (allowed.length === 0) return;
-
-      const allowHeader = allowed.join(', ');
-
-      // If OPTIONS request, respond with allowed methods
-      if (ctx.method === 'OPTIONS') {
-        ctx.status = 200;
-        ctx.set('Allow', allowHeader);
-        ctx.body = '';
-        return;
-      }
-
-      // Otherwise, return 405 Method Not Allowed
-      ctx.status = 405;
-      ctx.set('Allow', allowHeader);
-    };
+    return createAllowedMethodsMiddleware(this.root, this.opts.caseSensitive, this.opts.strict);
   }
 
-  // ===========================================================================
-  // Route Groups
-  // ===========================================================================
-
   /**
-   * Create a route group with shared prefix and middleware.
-   *
-   * @param prefix - Path prefix for all routes in the group
-   * @param middlewareOrCallback - Middleware array or callback function
-   * @param callback - Callback function if middleware is provided
-   * @returns this for chaining
-   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#route-groups | README: Route Groups} for usage examples
+   * Create a route group with a shared prefix and middleware. The callback
+   * receives a {@link RouteGroup} to register routes against.
+   * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#route-groups | README: Route Groups}
    */
   group(
     prefix: string,
     middlewareOrCallback: Middleware[] | ((router: RouteGroup) => void),
     callback?: (router: RouteGroup) => void
   ): this {
-    let middleware: Middleware[] = [];
-    let cb: (router: RouteGroup) => void;
-
-    if (Array.isArray(middlewareOrCallback)) {
-      middleware = middlewareOrCallback;
-      if (!callback) {
-        throw new Error('Callback function is required when providing middleware array');
-      }
-      cb = callback;
-    } else {
-      cb = middlewareOrCallback;
-    }
-
-    // Collect the group's routes via a GroupRouter (RT-6: properly typed, no cast).
-    const groupRouter = new GroupRouter(this, prefix, middleware);
-    cb(groupRouter);
-
+    runRouteGroup(this, prefix, middlewareOrCallback, callback);
     return this;
   }
 
   /**
-   * Remove all registered routes and middleware, resetting the router to its
-   * initial state. Useful for test isolation or hot-reload scenarios that
-   * need to re-register routes on the same router instance.
+   * Remove all routes and middleware, resetting the router to its initial
+   * state — for test isolation or hot-reload re-registration.
    */
   reset(): void {
-    this.root.children.clear();
-    this.root.handlers.clear();
-    this.root.paramChild = undefined;
-    this.root.wildcardChild = undefined;
+    clearNode(this.root);
     this.staticRoutes.clear();
     this.routerMiddleware.length = 0;
     this.hasParamRoutes = false;
@@ -479,10 +266,7 @@ export class Router {
     this._sealed = false;
   }
 
-  /**
-   * Internal method to add route with group context
-   * @internal
-   */
+  /** Register a route on behalf of a {@link RouteGroup} (group context). @internal */
   _addGroupRoute(
     method: HttpMethod,
     path: string,
@@ -494,31 +278,20 @@ export class Router {
   }
 
   /**
-   * Push a single consolidated any-method `RouteDefinition` row (T016).
-   * `GroupRouter.all()` inserts its 7 concrete per-method trie handlers via
-   * `_addGroupRoute(..., recordIntrospection=false)`, then calls this once to
-   * record the introspection-registry entry — mirrors `Router.all()`'s own
-   * consolidation, exposed here since a group's routes live on the parent
-   * `Router` instance, not on `GroupRouter` itself.
-   * @internal
+   * Group-facing entry point to {@link pushAnyMethodDefinition} — a group's `.all()`
+   * records its consolidated row here since group routes live on the parent. @internal
    */
   _pushAnyMethodRouteDefinition(path: string): void {
-    const normalized = this.normalizePath(path);
-    this.routeDefinitions.push({
-      key: `${HTTP_METHODS[0]} ${normalized}`,
-      method: HTTP_METHODS[0],
-      path: normalized,
-      isAnyMethod: true,
-    });
+    pushAnyMethodDefinition(
+      this.routeDefinitions,
+      normalizeRegistrationPath(path, this.opts.prefix, this.opts.strict)
+    );
   }
 }
 
 /**
- * Create a new Router instance.
- *
- * @param options - Router options
- * @returns New Router instance
- * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#quick-start | README: Quick Start} for usage examples
+ * Create a new {@link Router} instance.
+ * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#quick-start | README: Quick Start}
  */
 export function createRouter(options?: RouterOptions): Router {
   return new Router(options);

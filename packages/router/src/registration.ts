@@ -18,6 +18,7 @@
  * @internal
  */
 
+import { HTTP_METHODS } from '@nextrush/types';
 import type {
   HttpMethod,
   MetadataContribution,
@@ -43,6 +44,40 @@ export interface RegistrationState {
   readonly caseSensitive: boolean;
   readonly staticRoutes: Map<string, HandlerEntry>;
   readonly routeDefinitions: RouteDefinition[];
+}
+
+/**
+ * Normalize a route path at registration time: join the router prefix,
+ * collapse duplicate slashes, drop a trailing slash in non-strict mode, and
+ * guarantee a leading slash.
+ *
+ * @remarks
+ * This is registration-time normalization — it joins the router `prefix` and
+ * never case-folds (case handling belongs to trie insertion / matching). It is
+ * a distinct concern from `normalizePathForMatch` in `matching.ts`, which
+ * normalizes an *incoming request* path for lookup; both were extracted from
+ * `Router` to keep each single-definition (design.md D2/D3).
+ */
+export function normalizeRegistrationPath(path: string, prefix: string, strict: boolean): string {
+  // Handle prefix with trailing slash and path with leading slash
+  let joinedPrefix = prefix;
+  if (joinedPrefix.endsWith('/') && path.startsWith('/')) {
+    joinedPrefix = joinedPrefix.slice(0, -1);
+  }
+
+  let normalized = joinedPrefix + path;
+
+  // Fast-path: skip regex when no double slashes (99%+ of requests)
+  if (normalized.includes('//')) {
+    normalized = normalized.replace(/\/+/g, '/');
+  }
+
+  // For non-strict mode during registration, remove trailing slash
+  if (!strict && normalized.length > 1 && normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  return normalized.startsWith('/') ? normalized : '/' + normalized;
 }
 
 /**
@@ -159,9 +194,7 @@ export function addRoute(
   node.handlers.set(method, handlerEntry);
 
   // Populate static route hash map for O(1) lookup
-  const hasParams = segments.some(
-    (s) => s.type === NodeType.PARAM || s.type === NodeType.WILDCARD
-  );
+  const hasParams = segments.some((s) => s.type === NodeType.PARAM || s.type === NodeType.WILDCARD);
   if (!hasParams) {
     const normalizedKey = state.caseSensitive ? normalized : normalized.toLowerCase();
     state.staticRoutes.set(`${method} ${normalizedKey}`, handlerEntry);
@@ -190,11 +223,7 @@ export function addRoute(
  * `registerRedirect` doesn't need `Router` instance access, same pattern as
  * `copyRoutes`'s `AddRouteFn` in `composition.ts`.
  */
-export type RegisterRouteFn = (
-  method: HttpMethod,
-  path: string,
-  entries: RouteEntry[]
-) => void;
+export type RegisterRouteFn = (method: HttpMethod, path: string, entries: RouteEntry[]) => void;
 
 /**
  * Register a redirect route from one path to another across every HTTP
@@ -224,4 +253,30 @@ export function registerRedirect(
     addRoute('PATCH', from, [redirectHandler]);
     addRoute('DELETE', from, [redirectHandler]);
   }
+}
+
+/**
+ * Push a single consolidated any-method (`isAnyMethod: true`) introspection
+ * row (T016) into the registry.
+ *
+ * @remarks
+ * `Router.all()` / `GroupRouter.all()` insert one concrete per-method trie
+ * handler each (so every method still matches) with `recordIntrospection`
+ * off, then call this exactly once — so `getRoutes()` yields a single row per
+ * `.all()`/`@All()` route instead of one row per enumerated HTTP method,
+ * without changing how any individual method is matched.
+ *
+ * @param routeDefinitions - The router's introspection registry to append to.
+ * @param normalized - The already-normalized route path.
+ */
+export function pushAnyMethodDefinition(
+  routeDefinitions: RouteDefinition[],
+  normalized: string
+): void {
+  routeDefinitions.push({
+    key: `${HTTP_METHODS[0]} ${normalized}`,
+    method: HTTP_METHODS[0],
+    path: normalized,
+    isAnyMethod: true,
+  });
 }
