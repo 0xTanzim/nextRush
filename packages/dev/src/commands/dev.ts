@@ -20,8 +20,9 @@ import {
     resolvePath,
     spawn,
     type SpawnResult,
+    validateDenoPermissions,
 } from '../runtime/index.js';
-import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
+import { findEntry, getDefaultWatchPaths, loadConfig, validateDecoratorConfig } from '../utils/config.js';
 import { banner, clear, error, info, log, warn } from '../utils/logger.js';
 import { detectProjectRuntime } from './dev-helpers.js';
 
@@ -140,13 +141,26 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     warn('Custom watch paths are not supported in Bun. Bun will watch all imported files instead.');
   } : undefined;
 
+  // Load project config for extra Deno permissions (dev-deno-permissions spec, D1: extend
+  // the default set, never replace it). Validate fail-fast before ever spawning Deno.
+  const config = await loadConfig();
+  const denoPermissions = config.dev?.deno?.permissions;
+  if (denoPermissions && denoPermissions.length > 0) {
+    try {
+      validateDenoPermissions(denoPermissions);
+    } catch (err) {
+      error((err as Error).message);
+      exitProcess(1);
+    }
+  }
+
   const { command, args } = buildDevArgs(
     targetRuntime,
     resolvedEntry,
     watchPaths,
     options.inspect,
     options.inspectPort,
-    undefined,
+    denoPermissions,
     warnUnsupported
   );
 

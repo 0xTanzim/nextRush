@@ -47,7 +47,7 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 | Goal | Primary blockers | Tasks |
 |---|---|---|
 | **Production readiness (Node)** | **Closed.** Accuracy debt corrected (T001 ☑, T002 ☑), coverage gate live (T006 ☑), Windows/macOS toolchain CI real (T004 ☑), multi-runtime CI matrix real (T003 ☑), signal-wired graceful shutdown shipped (T010 ☑), `@nextrush/health` liveness/readiness endpoints shipped (T011 ☑) | — |
-| **Edge Runtime** | **Largely closed.** Now executed on real `workerd`/Deno in CI (T019 ☑); bundle size measured (T012 ◐, edge-scoped); deploy examples + edge-safe middleware docs shipped (T021 ☑, T022 ☑) | T020 (◐, explicit allowed-global assertion), T024 |
+| **Edge Runtime** | **Largely closed.** Now executed on real `workerd`/Deno in CI (T019 ☑); bundle size measured (T012 ◐, edge-scoped); deploy examples + edge-safe middleware docs shipped (T021 ☑, T022 ☑) | T024 (edge WebSocket, P3 — RFC 016 authored, not built) |
 | **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
 | **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
 | **Developer Experience** | "TypeInfo not known" metadata footgun now closed at build time (T008 ☑ — `nextrush build` fails fast on a decorator-metadata tsconfig mismatch instead of shipping a broken artifact); leaked/namespaced APIs; four-package install friction; docs depth — **remainder not re-verified this pass, carried forward** | T015, T037, T058 |
@@ -119,14 +119,16 @@ gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
 |---|---|---|---|---|---|---|
 | Phase 0 | Foundation | 8 | 0 | 0 | 8 | 100% |
 | Phase 1 | Production Ready (Node) | 9 | 0 | 0 | 9 | 100% (T014–T018 all verified ☑ 2026-07-17; T017/T018 closed by `add-class-path-perf-benchmark-and-ci-gate`) |
-| Phase 2 | Edge Runtime | 6 | 1 | 2 | 3 | 50–83%* |
+| Phase 2 | Edge Runtime | 6 | 1 | 0 | 5 | 83% |
 | Phase 3 | Enterprise | 13 | 13 | 0 | 0 | 0% (not re-verified — spot-checks: T032, T033 confirmed still open) |
-| Phase 4 | Ecosystem | 15 | 14 | 0 | 1 | 6.7% (T038 confirmed ☑; remainder not re-verified) |
-| Phase 5 | v1 Stable | 13 | 11 | 0 | 2 | 15.4% (T053 verified ☑ this pass; T054 spot-checked plausible ☑; remainder not re-verified) |
-| **Total** | | **64** | **40** | **1** | **23** | **35.9%** |
+| Phase 4 | Ecosystem | 15 | 12 | 0 | 3 | 20% (T038 confirmed ☑; T043/T044 ☑ this pass — see their Verified notes; remainder not re-verified) |
+| Phase 5 | v1 Stable | 13 | 12 | 0 | 1 | 7.7% (T053 verified ☑; T054 is □ per its own glyph — the earlier "spot-checked plausible ☑" was never reflected in the task entry, corrected here; remainder not re-verified) |
+| **Total** | | **64** | **38** | **0** | **26** | **40.6%** |
 
-*Phase 2: 50% by strict ☑ count (3/6), 83% counting ◐ as substantially done — see the phase's own
-"Verified:" notes for exactly what's delivered vs. remaining per task.
+*Phase 2: 5/6 = 83% by strict ☑ count — T019/T020/T021/T022/T023 done (T020 flipped ◐→☑ on
+2026-07-17, see its Verified note). The sole remaining task is T024 (edge-native WebSocket, P3),
+now designed in `docs/RFC/runtime-adapters/016-websocket-edge.md` but not built — and not a v1.0
+blocker (Phase 2's only P1 tasks, T019 + T021, are both ☑).
 
 **By priority (unchanged from original — this pass corrected status, not the priority/effort
 estimates themselves):** P0 = 6 · P1 = 19 · P2 = 24 · P3 = 15.
@@ -148,7 +150,7 @@ estimates themselves):** P0 = 6 · P1 = 19 · P2 = 24 · P3 = 15.
 | New packages | **15** remaining (was 16 — `@nextrush/adapter-serverless` now shipped, removed from the pending list): health, otel, metrics, auth, jwt, session, config, cache, redis, websocket-edge, queue, cron, webhooks, graphql, rpc |
 | Existing packages modified | **~18** (unchanged estimate, not re-verified) |
 | **Production Readiness (Node)** | **72%** *(carried forward, not re-verified this pass — see Phase 1 note)* |
-| **Edge Readiness** | **≈ 90%** *(revised up from 55% — T019/T021/T022 confirmed ☑ this pass, T012/T020/T023 confirmed substantially ◐; remaining gap is T024 edge-native WebSocket, still open, and T020's explicit allowed-global assertion)* |
+| **Edge Readiness** | **≈ 90%** *(revised up from 55% — T019/T020/T021/T022 confirmed ☑ this pass; T020's WinterCG allowed-global assertion shipped + passing 2026-07-17; the sole remaining edge gap is T024 edge-native WebSocket (P3), still open — RFC 016 authored, not built)* |
 | **Serverless Readiness** | **≈ 90%** *(revised up from 35% — T038 confirmed ☑ this pass: Lambda/GCF/Azure mappers, container-reuse, cold-start benchmark, full-chain fixtures, and a scheduled real-cloud deploy-verification workflow all exist in source, verified directly)* |
 | **Enterprise Readiness** | **58%** *(carried forward, not re-verified this pass — spot-checks of T032/T033 found both still open, consistent with the original estimate)* |
 | **Overall Framework Readiness** | **≈ 72–75%** *(revised up from ≈66%, driven entirely by the Edge/Serverless correction; Production/Enterprise unchanged pending a future re-verification pass)* |
@@ -186,8 +188,8 @@ T050 (replace tsyringe) depends on T005 (surface snapshot) to bound breakage
 ```
 
 **Can run fully in parallel (no cross-deps):** T010, T011, T012 (residual core-bundle
-scope only — edge scope done), T015, T016, T020 (residual explicit-assertion scope only), T035,
-T043, T044, T046, T047, T057, T061, T062.
+scope only — edge scope done), T015, T016, T035,
+T046, T047, T057, T061, T062.
 
 **Blocked until their dep lands:** T025/T027/T028 (→T026),
 T029/T031 (→T030), T040/T041/T031-store (→T039), T036 (→T029,T031,T032). ~~T053/T060 (→T005)~~ —
@@ -413,9 +415,10 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** Edge conformance green on `workerd` + Deno in CI; parity with Node asserted.
 - **Validation Steps:** Deliberately use a Node-only global in the edge path → the workerd job fails; revert.
 
-### ◐ T020 · WinterCG conformance test suite
-- **Domain:** WinterCG · **Packages:** `@nextrush/runtime`, `@nextrush/adapter-edge`, `conformance` · **Priority:** P2 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ◐ In Progress
+### ☑ T020 · WinterCG conformance test suite
+- **Domain:** WinterCG · **Packages:** `@nextrush/runtime`, `@nextrush/adapter-edge`, `conformance` · **Priority:** P2 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
 - **Verified (2026-07-15):** The request path now runs on real `workerd`/Deno via T019's conformance jobs, which exercises WinterCG-blessed APIs implicitly (any Node-only global would fail the workerd isolate outright). **Not verified as present:** a standalone, explicit test enumerating the allowed global surface (`Request`/`Response`/`URL`/`fetch`/`AbortSignal`/`crypto.subtle`/Web Streams) and asserting no forbidden Node globals appear — this task's specific acceptance criterion (a dedicated allow-list assertion) was not found in `packages/adapters/conformance/src` during this pass; not exhaustively searched.
+- **Verified (2026-07-17):** The missing criterion now exists and passes. `packages/adapters/conformance/src/__tests__/wintercg-globals.test.ts` exports `WINTERCG_ALLOWED_GLOBALS` — enumerating the allowed surface (`Request`/`Response`/`URL`/`URLSearchParams`/`fetch`/`Headers`/`AbortController`/`AbortSignal`/`ReadableStream`/`WritableStream`/`TransformStream`/`TextEncoder`/`TextDecoder`/`crypto`/`structuredClone`/timers/`queueMicrotask`/`globalThis`) — and scans 31 request-path source files across `core`/`router`/`runtime`/`errors`/`stream`, asserting none reference a forbidden Node-only global (`process`/`Buffer`/`__dirname`/`__filename`) via an identifier-level matcher that strips comments and string/template literals (so `buffer.length` or the word "process" in prose does not false-positive), excluding `@nextrush/runtime`'s `detection.ts` by name (its documented job is one-time startup platform detection, not per-request handling). Re-ran independently this pass: `pnpm exec vitest run src/__tests__/wintercg-globals.test.ts` in `packages/adapters/conformance` → **2 tests passed, exit 0**. This meets the acceptance criterion (enumerate + assert the allowed surface; fail on a forbidden global) and the validation step (adding a forbidden global to a request-path file trips the scan). The test references `router/src/dispatch.ts`/`state.ts` — modules created by the same-day router split (`fix-router-issues-and-author-radix-rfc`) — so it post-dates the 2026-07-15 note above, which is why that pass did not find it. Flipped ◐ → ☑.
 - **Dependencies:** T019
 - **Description:** Add explicit assertions that the request path uses only WinterCG-blessed APIs (`Request`/`Response`/`URL`/`fetch`/`AbortSignal`/`crypto.subtle`/Web Streams) and no forbidden Node globals; run under the Minimum Common Web Platform API expectations.
 - **Why it matters:** Formalizes the "WinterCG-aligned" claim (01 rated alignment strong but unverified).
@@ -455,6 +458,7 @@ required for T060's own acceptance criteria.
 
 ### ☐ T024 · Edge-native WebSocket path
 - **Domain:** Edge Runtime / WebSocket · **Packages:** **NEW** `@nextrush/websocket-edge` (or edge mode) · **Priority:** P3 · **Effort:** L · **Difficulty:** Expert · **Runtime Impact:** High · **Breaking:** No · **Status:** □ Not Started
+- **RFC (2026-07-17):** Design authored — `docs/RFC/runtime-adapters/016-websocket-edge.md` (Proposed, design-only; registered as RFC 016 in `docs/RFC/INDEX.md`). Specifies the separate-package rationale (keeps the `ws` dependency + `node:*` imports out of edge bundles, protecting the T012 bundle budget and T020 WinterCG gate), a portable Web-standard `EdgeWSConnection` contract, `WebSocketPair` (Cloudflare) + `Deno.upgradeWebSocket` (Deno) transports, a Durable-Object-backed room model for cross-connection state, Vercel/Netlify edge explicitly unsupported (no persistent WS — matches this task's Workers + Deno Deploy acceptance scope), and a parity conformance suite run under T019's real-runtime CI. **No code shipped — glyph stays □ Not Started; only the design exists.**
 - **Dependencies:** T019
 - **Description:** Provide a Cloudflare `WebSocketPair`/Durable Objects (and Deno `Deno.upgradeWebSocket`) path, since `@nextrush/websocket` is `node:*`-coupled and edge-incompatible (01/R-13).
 - **Why it matters:** "Realtime on edge" is currently impossible.
@@ -643,8 +647,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** A no-op/second transpiler can be dropped in via the interface without touching build orchestration.
 - **Validation Steps:** Implement a trivial alternate transpiler → build routes through it.
 
-### ☐ T043 · Configurable Deno permissions in dev/build
-- **Domain:** Tooling / Deno · **Packages:** `@nextrush/dev` · **Priority:** P3 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T043 · Configurable Deno permissions in dev/build
+- **Domain:** Tooling / Deno · **Packages:** `@nextrush/dev` · **Priority:** P3 · **Effort:** S · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-17):** Implemented via `dev-cli-deno-perms-and-build-scoping`. `nextrush.config.ts`'s `dev.deno.permissions: string[]` (and `build.deno.permissions`) is merged into the default `--allow-net --allow-read --allow-env` set and deduplicated in `buildDevArgs` (`packages/dev/src/runtime/spawn.ts`) — never replaces it; `dev.ts` loads config and calls the new `validateDenoPermissions()` before spawning, exiting non-zero with the offending value named on an invalid (non `--allow-`/`--deny-` prefixed) entry. Re-ran independently: `pnpm --filter @nextrush/dev exec vitest run src/__tests__/deno-permissions.test.ts` → **17 tests passed**, including "default permissions unchanged when unconfigured," "configured extra permission merged with defaults," "duplicate permission not passed twice," and `validateDenoPermissions` fail-fast cases. Full package suite (`pnpm --filter @nextrush/dev exec vitest run`) → **222/222 passed**, no regressions. `typecheck` clean; `lint` at 418 problems (up from a 415-problem pre-existing baseline — the +3 delta is the same pre-existing `any`-from-dynamic-`import()` pattern already pervasive in `file-scanner.ts`, now also present in the new `findPackageBoundary`/`hasPackageJson` helpers added for T044, not a new violation category; confirmed via `git stash` baseline diff before those helpers existed). Docs added to `packages/dev/README.md` (permissions escape hatch + explicit sandbox-weakening caveat).
 - **Dependencies:** —
 - **Description:** Let apps extend the hardcoded `--allow-net --allow-read --allow-env` set (need `--allow-write`/`--allow-ffi`/etc.) (dev-audit Q9).
 - **Why it matters:** Deno apps needing extra permissions can't run under the fixed set.
@@ -652,8 +657,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** A config/flag adds permissions; defaults unchanged.
 - **Validation Steps:** Run a Deno app needing `--allow-write` → succeeds with the new option.
 
-### ☐ T044 · Monorepo/workspace-aware build scoping
-- **Domain:** Tooling / Build System · **Packages:** `@nextrush/dev` · **Priority:** P3 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T044 · Monorepo/workspace-aware build scoping
+- **Domain:** Tooling / Build System · **Packages:** `@nextrush/dev` · **Priority:** P3 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-17):** Implemented via `dev-cli-deno-perms-and-build-scoping`. `findTypeScriptFiles` (`packages/dev/src/commands/build/file-scanner.ts`) resolves its scan root to the nearest enclosing `package.json` directory by walking upward from the entry file's own directory (`findPackageBoundary`), never ascends above that boundary, and excludes any subdirectory inside the scanned tree that carries its own `package.json` (a nested/vendored package). Falls back to the entry-directory-rooted scan when no `package.json` is found above the entry. An independent re-check of the first implementation attempt correctly flagged that it kept the scan root fixed at the entry's directory rather than genuinely resolving/ascending to the boundary, contradicting the spec's literal requirement text — corrected to the ascending implementation described above before sign-off. Re-ran independently: `pnpm --filter @nextrush/dev exec vitest run src/__tests__/build-workspace-scoping.test.ts` → **6 tests passed**, including a test that specifically distinguishes ascending-boundary resolution from entry-directory-only scanning (a root-level `.ts` file, a sibling of `src/`, is only found because the scan root genuinely moved up to the package.json directory). Existing `build-e2e-integration.test.ts` (spawns the real CLI binary against `examples/dev-cli-fixture`) and the rest of the package suite still pass (222/222 total); `pnpm --filter @nextrush/dev exec vitest run --coverage` completes with real, non-zero coverage on `file-scanner.ts`. Separately found and fixed during this verification: the repo's `.gitignore` had an overbroad `**/build/` pattern that silently excluded the legitimate source folder `packages/dev/src/commands/build/` (11 files, including this task's own `file-scanner.ts`) from every git commit since that directory was created — confirmed via `git log --all` returning empty for these paths. Narrowed the pattern to actual compiled-output paths (`/build/`, `apps/*/build/`) and force-added the previously-untracked files. Documented in `packages/dev/README.md` under "Monorepo / Workspace Build Scoping."
 - **Dependencies:** —
 - **Description:** Scope the recursive file scan to workspace boundaries; document monorepo behavior (dev-audit Q15).
 - **Why it matters:** In a workspace the build can mis-scope files.

@@ -264,6 +264,41 @@ const info = getRuntimeInfo();
 // }
 ```
 
+### Deno Permissions
+
+`nextrush dev` spawns Deno with a fixed default permission set:
+`--allow-net --allow-read --allow-env`. If your app needs more (writing files,
+FFI, spawning subprocesses, …), extend the default set via `nextrush.config.ts`:
+
+```typescript
+// nextrush.config.ts
+import type { NextRushConfig } from '@nextrush/dev';
+
+export default {
+  dev: {
+    deno: {
+      permissions: ['--allow-write', '--allow-ffi'],
+    },
+  },
+} satisfies NextRushConfig;
+```
+
+Configured permissions are **merged into** the default set — they extend it, they
+never replace it. `--allow-net`, `--allow-read`, and `--allow-env` are always present
+even when you add more; a permission you configure that's already in the default set
+is simply not duplicated. Scoped forms are supported as pass-through strings, e.g.
+`--allow-read=./data` or `--allow-write=./dist`.
+
+Each configured value must begin with `--allow-` or `--deny-`. An invalid value
+(missing that prefix) fails the command before Deno is spawned, naming the offending
+value in the error.
+
+> **Adding permissions weakens Deno's sandbox.** Only grant what your application
+> actually needs — never configure `--allow-all` as a default. The CLI itself never
+> adds `--allow-all` automatically, and there is currently no way to *remove* a
+> default permission (extend-only by design); if you genuinely need a narrower
+> sandbox than the defaults, run `deno` directly instead of through `nextrush dev`.
+
 ## Programmatic API (Optional)
 
 > **Note:** The programmatic API is optional. Most users only need the CLI commands (`nextrush dev` and `nextrush build`), which auto-detect everything.
@@ -485,3 +520,39 @@ MIT © NextRush Team
 - **Output is ESM** (`module: es6`); `.ts`/`.tsx` → `.js`, `.mts` → `.mjs`,
   `.cts` → `.cjs`. An incremental content-hash cache skips unchanged files
   (`--no-cache` to bypass).
+
+## Monorepo / Workspace Build Scoping
+
+`nextrush build` resolves its scan root to the nearest enclosing `package.json`
+directory — walking upward from the entry file's own directory (e.g. from `src/` for
+the common `src/index.ts` layout) until it finds one. That directory is the package
+boundary: the scan never ascends above it, and any subdirectory *inside* the scanned
+tree that carries its **own** `package.json` is excluded entirely — a nested or
+vendored package is never pulled into the current package's build output.
+
+```
+my-package/
+├── package.json          ← scan root resolves here (not src/)
+├── config.ts             ✅ scanned — sibling of src/, at the package root
+├── src/
+│   ├── index.ts          ✅ scanned
+│   ├── utils.ts          ✅ scanned
+│   └── vendor/
+│       ├── package.json  ⛔ this makes `vendor/` a separate package —
+│       └── lib.ts            excluded entirely, never descended into
+└── dist/                  (build output)
+```
+
+In a pnpm/npm/Turborepo workspace, a sibling package (e.g. `packages/other-package`
+next to `packages/my-package`) is excluded because the scan stops ascending the moment
+it finds `packages/my-package/package.json` — it never continues upward into the
+workspace root or sideways into a directory outside that boundary. If no
+`package.json` can be found anywhere above the entry file (an unusual, non-package
+layout), the build falls back to scanning from the entry's own directory — the
+behavior this feature builds on. This holds for every layout: single-package
+projects, workspace packages, and projects with no `package.json` at all (which
+scan exactly as they did before this feature).
+
+**In short:** if you have a directory nested inside your source tree that is its
+own package (has its own `package.json`), it is always excluded from the build —
+this is intended, not a bug, and there is no config flag to change it.

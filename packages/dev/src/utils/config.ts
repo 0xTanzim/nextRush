@@ -66,6 +66,25 @@ export function findEntry(): string {
 }
 
 /**
+ * Deno-specific configuration for `nextrush dev`/`nextrush build`.
+ */
+export interface DenoConfig {
+  /**
+   * Extra Deno permission flags (e.g. `"--allow-write"`, `"--allow-read=./data"`,
+   * `"--allow-ffi"`) to grant in addition to the CLI's default set
+   * (`--allow-net --allow-read --allow-env`).
+   *
+   * These are merged into the defaults, deduplicated — they never replace them (see
+   * the `dev-deno-permissions` spec, D1). Each value must begin with `--allow-` or
+   * `--deny-`; an invalid value fails the command before Deno is spawned.
+   *
+   * Adding permissions (especially `--allow-all`) weakens Deno's sandbox — only add
+   * what the application actually needs.
+   */
+  permissions?: string[];
+}
+
+/**
  * Load nextrush.config.ts if it exists
  */
 export interface NextRushConfig {
@@ -74,6 +93,7 @@ export interface NextRushConfig {
     port?: number;
     watch?: string[];
     env?: Record<string, string>;
+    deno?: DenoConfig;
   };
   build?: {
     entry?: string;
@@ -82,6 +102,7 @@ export interface NextRushConfig {
     sourcemap?: boolean;
     minify?: boolean;
     decoratorMetadata?: boolean;
+    deno?: DenoConfig;
   };
 }
 

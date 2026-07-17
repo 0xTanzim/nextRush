@@ -188,6 +188,53 @@ async function spawnDeno(
 }
 
 /**
+ * Default Deno permission set used when no extra permissions are configured.
+ *
+ * These are the only permissions `nextrush dev`/`build` grant under Deno unless a
+ * project explicitly opts in to more via config — see {@link validateDenoPermissions}
+ * and the `dev-deno-permissions` spec (D1: extend, never replace).
+ */
+const DEFAULT_DENO_PERMISSIONS = ['--allow-net', '--allow-read', '--allow-env'];
+
+/**
+ * Validate that every configured Deno permission is a recognized permission flag
+ * (`--allow-*` or `--deny-*`).
+ *
+ * Deno permission flags are pass-through strings (not modeled per-permission) so the
+ * CLI stays forward-compatible with new/scoped forms (`--allow-read=./data`) — see
+ * design.md D2. This validator only checks the flag *prefix*; it does not otherwise
+ * interpret the value.
+ *
+ * @param permissions - Raw permission flag strings from project config.
+ * @throws {Error} Naming the first offending value, if any permission does not begin
+ *   with `--allow-` or `--deny-`. Callers should surface this as a fail-fast, non-zero
+ *   exit before spawning Deno — never a warning.
+ */
+export function validateDenoPermissions(permissions: string[]): void {
+  for (const permission of permissions) {
+    if (!permission.startsWith('--allow-') && !permission.startsWith('--deny-')) {
+      throw new Error(
+        `Invalid Deno permission "${permission}": must begin with "--allow-" or "--deny-".`
+      );
+    }
+  }
+}
+
+/**
+ * Merge configured extra Deno permissions into the default set, deduplicated.
+ *
+ * Per `dev-deno-permissions` spec (D1), configured permissions always *extend* the
+ * default set — they never replace it. A configured value already present in the
+ * defaults is not duplicated in the result.
+ */
+function mergeDenoPermissions(configured: string[] | undefined): string[] {
+  if (!configured || configured.length === 0) {
+    return [...DEFAULT_DENO_PERMISSIONS];
+  }
+  return [...new Set([...DEFAULT_DENO_PERMISSIONS, ...configured])];
+}
+
+/**
  * Build runtime-specific dev command arguments
  *
  * For Node.js, we use @swc-node/register via --import because:
@@ -199,6 +246,11 @@ async function spawnDeno(
  * - Node.js: uses --watch-path=<dir> for each path (repeatable); bare --watch if none given
  * - Deno: uses --watch=path1,path2 for paths; bare --watch if none given
  * - Bun: warns that custom paths unsupported (bun watches imported files); uses bare --watch
+ *
+ * Deno permissions: `denoPermissions` (if given) is merged into the default
+ * `--allow-net --allow-read --allow-env` set, deduplicated — it never replaces the
+ * defaults. Callers should validate the array with {@link validateDenoPermissions}
+ * before calling this function.
  */
 export function buildDevArgs(
   runtime: Runtime,
@@ -222,7 +274,7 @@ export function buildDevArgs(
     }
 
     case 'deno': {
-      const permissions = denoPermissions ?? ['--allow-net', '--allow-read', '--allow-env'];
+      const permissions = mergeDenoPermissions(denoPermissions);
       const watchArg = watchPaths.length > 0 ? `--watch=${watchPaths.join(',')}` : '--watch';
       return {
         command: 'deno',
