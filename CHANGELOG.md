@@ -4,6 +4,34 @@ All notable changes to the NextRush framework will be documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses a unified version across all `@nextrush/*` packages.
 
+## [Unreleased]
+
+### Policy
+
+- **Module format: ESM-only, permanently ratified.** NextRush publishes ESM only. No
+  `@nextrush/*` package's `exports` map will ever declare a `require` condition, and
+  CommonJS output is banned — not deferred, not "currently unsupported," not a roadmap
+  item. Dual-publish (ESM + CommonJS) was formally evaluated and explicitly **rejected**:
+  see `apps/docs/content/docs/internals/versioning.mdx` ("Module format: ESM-only,
+  permanently") and `openspec/changes/archive/2026-07-17-module-format-policy/design.md`
+  for the full rationale (dual-package hazard on the `@nextrush/di`
+  `reflect-metadata`/`tsyringe` path; Node ≥22's native `require(esm)` already covering
+  the strongest historical case for dual-publishing; doubled maintenance cost across ~35
+  packages). CommonJS consumers use dynamic `import()`, or native `require(esm)` on Node
+  ≥22.12 for synchronous import graphs.
+- **Enforced in CI, not just documented.** A new `pnpm validate:esm-only` check
+  (`scripts/validate-esm-only.ts`) fails the build if any published package's `exports`
+  map ever gains a `require` condition, or if `"type": "module"` is dropped from any
+  package's `package.json`. Wired into `pnpm verify`.
+- **Fixed a pre-existing CI wiring gap** discovered while adding the check above:
+  `check:coverage` and `validate:bins` were listed in `turbo.json`'s `verify`
+  `dependsOn` but Turborepo never actually dispatched either — both are root-only
+  `package.json` scripts with no matching per-package task, so they silently resolved
+  to zero executions despite exiting 0. The coverage gate and bin validator have not
+  been enforced by CI's `pnpm verify` until this fix. The root `verify` script now
+  explicitly runs `turbo run verify && pnpm validate:bins && pnpm validate:esm-only &&
+  pnpm check:coverage`.
+
 ## [3.0.7]
 
 ### Changed

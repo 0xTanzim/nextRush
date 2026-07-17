@@ -106,7 +106,45 @@ work, not a gap in this page.
   line's — a `1.0.0` package existing "for a shorter time" doesn't mean it is less stable; it
   means it started its own semver count later.
 
-## Next steps
+## Module format: ESM-only, permanently
+
+**NextRush is ESM-only. This is a ratified, permanent architectural decision — not a default,
+not "for now," and not open for reconsideration absent a new decision.** No `@nextrush/*`
+package's `exports` map will ever declare a `require` condition. CommonJS output is not
+published, is not a roadmap item, and will not be added.
+
+Why this is the decision, not merely the current state:
+
+- **The dual-package hazard is a real risk on the DI/decorator-metadata path.** `@nextrush/di`
+  relies on `reflect-metadata`'s global patch and a `tsyringe` container. If a CJS-loaded copy
+  and an ESM-loaded copy of the same package both existed in one process, `@Injectable()` could
+  register into one container while `resolve()` reads from the other — silently, with no
+  exception. ESM-only eliminates this class of bug by construction; dual-publishing would
+  reintroduce it.
+- **NextRush's Node engine floor is `>=22`.** Current Node LTS (22.12+) already lets a
+  CommonJS project `require()` a synchronous ESM module natively — the strongest historical
+  argument for dual-publishing (`require()` literally cannot load ESM) is already covered by
+  the runtime NextRush mandates.
+- **Dual-publishing is a permanent, doubled maintenance cost**, not a one-time change — every
+  release across ~35 packages would need to verify the `exports` map, both module conditions,
+  types, source maps, and singleton/runtime behavior twice, forever.
+- **The framework's own architecture already assumes ESM** — `verbatimModuleSyntax`, `import
+  type`, decorator metadata via SWC, and the package `exports` maps all already commit to it.
+
+**Enforced in CI, not merely documented:** `pnpm validate:esm-only` (`scripts/validate-esm-only.ts`,
+run as part of `pnpm verify`) fails the build if any published package's `exports` map ever gains
+a `require` condition, or if `"type": "module"` is ever dropped from a package's `package.json`.
+
+**If you consume NextRush from a CommonJS project:**
+- On Node ≥22.12 with a synchronous import graph, `require('nextrush')` works natively via
+  Node's own ESM-in-CJS interop — no code change needed on NextRush's side.
+- Otherwise, use a dynamic import: `const { createApp } = await import('nextrush');`.
+
+Dual-publish (ESM + CJS) was formally evaluated and rejected — see
+`openspec/changes/archive/2026-07-17-module-format-policy/design.md` for the full comparison
+against the alternative.
+
+
 
 <Cards>
   <Card title="Package Hierarchy" href="/docs/internals/package-hierarchy">

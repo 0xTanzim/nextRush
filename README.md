@@ -13,10 +13,33 @@
 - **Modular** — Install only what you need
 - **Fast** — Competes with Fastify, Hono, and Koa
 - **Type-Safe** — Full TypeScript with zero `any`
+- **ESM-only, permanently** — No package ever publishes a `require` condition; CommonJS output
+  is not supported and will not be added. This is a ratified architectural decision, not a
+  temporary state — see [Module Format Policy](#module-format-policy) below.
 - **Zero-Dependency Functional Core** — `createApp`/`createRouter`/`listen` pull in no external
   runtime dependencies; the class/DI path (`nextrush/class`) depends on `tsyringe` +
   `reflect-metadata` (see [Dependency Footprint](#dependency-footprint))
 - **Modern DX** — Clean context API, async/await native
+
+## Module Format Policy
+
+**NextRush is ESM-only. Permanently.** No `@nextrush/*` package's `exports` map will ever
+declare a `require` condition, and none currently does. CommonJS output is not supported and
+will not be added — this is a ratified architectural decision, not a temporary state pending
+demand, and reconsidering it requires a new, deliberate decision, not a feature request.
+
+Why: the Node ≥22 engine floor this framework already requires gives CommonJS consumers native
+`require(esm)` support for synchronous import graphs on current LTS (22.12+) — the strongest
+historical reason to dual-publish is already covered by the runtime NextRush mandates. Dual-
+publishing would also reintroduce the ESM/CJS dual-package hazard specifically on the
+`@nextrush/di` path (`reflect-metadata`'s global patch + a `tsyringe` singleton container can
+silently split into two instances if both a CJS and an ESM copy load in one process), at the
+cost of a doubled, permanent build/test/publish matrix across ~35 packages. See
+[Module Format & Compatibility](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/internals/versioning.mdx)
+for the full rationale and the documented CommonJS interop path.
+
+**Enforced in CI**, not just documented: `pnpm validate:esm-only` fails the build if any package
+ever gains a `require` condition.
 
 ## Dependency Footprint
 
