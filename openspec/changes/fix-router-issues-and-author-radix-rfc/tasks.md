@@ -174,15 +174,39 @@
 
 ## 5. Cross-cutting
 
-- [ ] 5.1 Run the full repo `pnpm verify` — confirm no regression beyond the known pre-existing
+- [x] 5.1 Run the full repo `pnpm verify` — confirm no regression beyond the known pre-existing
       failures (@nextrush/di#test + @nextrush/class#test circular-dep timeout, @nextrush/dev#lint,
       docs#lint); classify any new failure as a real regression requiring investigation.
-- [ ] 5.2 Confirm no file outside this change's declared scope (per proposal.md's Impact section)
+      <!-- DONE (independent validator): `pnpm exec turbo run verify --continue` → 129/133 tasks
+      successful; the ONLY 4 failures are the exact known pre-existing set, re-derived from raw
+      output: @nextrush/di#test (container.errors.test.ts — "should detect direct circular
+      dependency with clear error" + "should still classify a true circular dependency as
+      CircularDependencyError", both 5000ms timeouts), @nextrush/class#test (registrar.test.ts:265 —
+      "surfaces @nextrush/di CircularDependencyError as-is (not the generic wrapper)", 10000ms
+      timeout), @nextrush/dev#lint, docs#lint. NO NEW REGRESSION. Critically, @nextrush/router and
+      @nextrush/types are NOT in the failed list — @nextrush/router:test 212/212 across 9 files, and
+      every router/types verify sub-task (build/test/lint/typecheck/check:coverage) succeeded. The 4
+      failures are unreachable by this branch: `git diff --stat 48c2745..HEAD -- packages/di
+      packages/class apps/docs` is EMPTY. -->
+- [x] 5.2 Confirm no file outside this change's declared scope (per proposal.md's Impact section)
       was modified.
-- [ ] 5.3 Add a changeset for `@nextrush/router` (patch — internal split + dedup + doc fixes,
+      <!-- DONE: merge-base = 48c2745 (`git merge-base HEAD
+      improve-router-modularity-and-class-dx-papercuts`). `git diff --stat 48c2745..HEAD` = 13
+      files, ALL within proposal.md's Impact scope: packages/types/src/router.ts (header doc),
+      packages/router/README.md, packages/router/src/* (router.ts, segment-trie.ts, match-route.ts,
+      matching.ts, registration.ts, group-router.ts + new modules constants.ts/dispatch.ts/state.ts),
+      docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md, and this change's own tasks.md. No out-of-scope file
+      touched. -->
+- [x] 5.3 Add a changeset for `@nextrush/router` (patch — internal split + dedup + doc fixes,
       verified non-breaking via surface snapshot) and `@nextrush/types` (patch — doc-comment-only
       correction). No changeset for the RFC (a docs/RFC/ design artifact, not a published-package
       change).
+      <!-- DONE: added `.changeset/router-doc-accuracy-split-and-dedup.md` declaring
+      @nextrush/router: patch + @nextrush/types: patch (one file, both packages — matches the
+      existing split-router-and-class-dx-papercuts.md precedent and the .changeset/config.json
+      `fixed` group that already versions both in lockstep). No changeset authored for the RFC
+      (docs/RFC/ design artifact, not a published-package change). Non-breaking re-confirmed via
+      public-surface.test.ts byte-identical + 212/212 router suite. -->
 - [ ] 5.4 Update `docs/audits/03-gap-checklist.md` if any of this work maps to an open task
       (the `router.ts` split completion relates to T014's spec; the doc-accuracy work extends
       T002's original scope into `types`) — add Verified: notes citing this change's commits,
