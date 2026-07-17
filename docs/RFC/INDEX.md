@@ -33,6 +33,7 @@ references the old number, per this repo's `tdd-workflow.md` "RFC before impleme
 | [013](runtime-adapters/013-adapter-contract.md) | Enforced adapter contract (`ServerAdapter`/`FetchAdapter`) | Shipped — see ADR-0007 | runtime-adapters |
 | [014](runtime-adapters/014-adapter-serverless.md) | `@nextrush/adapter-serverless` | Shipped — see ADR-0007 | runtime-adapters |
 | [015](runtime-adapters/015-router-radix.md) | `@nextrush/router-radix` (opt-in radix router) | **Proposed — deferred**, not built | runtime-adapters |
+| [016](runtime-adapters/016-websocket-edge.md) | `@nextrush/websocket-edge` (edge-native WebSocket) | **Proposed** — design-only, not built | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 
