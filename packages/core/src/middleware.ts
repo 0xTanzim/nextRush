@@ -15,6 +15,29 @@ import type { Context, Middleware, Next } from '@nextrush/types';
 export type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
 
 /**
+ * Rejection message shared by BOTH the general path and the single-middleware
+ * fast path (design D4). Downstream code/tests assert on this exact string, so
+ * it is defined once to prevent the two paths from drifting.
+ */
+const MULTIPLE_NEXT_MESSAGE = 'next() called multiple times';
+
+/**
+ * Emit the double-response warning for the middleware at `index`.
+ *
+ * Shared by the general path and the fast path so the text (including the
+ * index reference) cannot diverge between them (design D4). Fires only when
+ * `warnDoubleResponse` is enabled AND the context has already committed a
+ * response — the caller supplies both conditions.
+ */
+function emitDoubleResponseWarning(index: number): void {
+  console.warn(
+    `[nextrush] Middleware at index ${String(index)} called next() after the response was already committed. ` +
+      'Downstream middleware may attempt to write to an already-finished response. ' +
+      'Either await next() to delegate downstream, or send a response without calling next().'
+  );
+}
+
+/**
  * Options for middleware composition
  */
 export interface ComposeOptions {
@@ -89,6 +112,46 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
     };
   }
 
+  // FAST PATH: Exactly one middleware — the overwhelmingly common application
+  // shape (a single mounted router). Avoids allocating the recursive `dispatch`
+  // closure and the per-call index comparison of the general path while
+  // preserving every observable semantic (design D2/D3/D7):
+  //   - a PER-INVOCATION guard (`called`) declared inside the returned function,
+  //     never hoisted, so concurrent requests cannot corrupt each other;
+  //   - the SAME guarded thunk is passed as the `next` argument AND wired to
+  //     `ctx.setNext`, so a double-call is caught across either surface;
+  //   - a synchronous throw becomes a rejected promise and non-`Error` throws
+  //     are wrapped, identical to the general path.
+  if (len === 1) {
+    const only = stack[0];
+    if (only) {
+      return function composedSingle(ctx: Context, next?: Next): Promise<void> {
+        let called = false; // PER-INVOCATION — must never be hoisted out of here
+        const nextFn = (): Promise<void> => {
+          if (called) {
+            return Promise.reject(new Error(MULTIPLE_NEXT_MESSAGE));
+          }
+          called = true;
+          if (warnDoubleResponse && ctx.responded) {
+            emitDoubleResponseWarning(0);
+          }
+          return next ? next() : Promise.resolve();
+        };
+
+        // Wire ctx.next() to the SAME thunk passed as the argument (design D3).
+        if (ctx.setNext) {
+          ctx.setNext(nextFn);
+        }
+
+        try {
+          return Promise.resolve(only(ctx, nextFn));
+        } catch (err: unknown) {
+          return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      };
+    }
+  }
+
   /**
    * Composed middleware function
    * Uses index-based dispatch to avoid per-request closure chains
@@ -100,7 +163,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
 
     function dispatch(i: number): Promise<void> {
       if (i <= index) {
-        return Promise.reject(new Error('next() called multiple times'));
+        return Promise.reject(new Error(MULTIPLE_NEXT_MESSAGE));
       }
 
       index = i;
@@ -118,11 +181,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
 
       const nextFn = (): Promise<void> => {
         if (warnDoubleResponse && ctx.responded) {
-          console.warn(
-            `[nextrush] Middleware at index ${String(i)} called next() after the response was already committed. ` +
-              'Downstream middleware may attempt to write to an already-finished response. ' +
-              'Either await next() to delegate downstream, or send a response without calling next().'
-          );
+          emitDoubleResponseWarning(i);
         }
         return dispatch(i + 1);
       };

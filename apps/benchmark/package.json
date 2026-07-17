@@ -16,6 +16,7 @@
     "bench:autocannon": "node scripts/run.js --tool autocannon",
     "bench:nextrush": "node scripts/run.js --framework nextrush-v3",
     "bench:baseline": "node scripts/run.js --framework raw-node",
+    "bench:alloc": "node scripts/compose-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
     "bench:check": "node scripts/check-regression.js",
     "bench:mixed": "wrk -t4 -c64 -d10s -s wrk/mixed.lua http://localhost:8080/",
