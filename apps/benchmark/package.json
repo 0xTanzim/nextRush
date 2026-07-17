@@ -28,7 +28,7 @@
     "clean": "rm -rf results/*"
   },
   "devDependencies": {
-    "@hono/node-server": "1.19.13",
+    "@hono/node-server": "2.0.10",
     "@nextrush/adapter-node": "workspace:*",
     "@nextrush/body-parser": "workspace:*",
     "@nextrush/class": "workspace:*",
@@ -38,9 +38,9 @@
     "@nextrush/types": "workspace:*",
     "autocannon": "8.0.0",
     "express": "5.2.1",
-    "fastify": "5.8.4",
-    "hono": "4.12.12",
-    "koa": "3.2.0",
+    "fastify": "5.10.0",
+    "hono": "4.12.30",
+    "koa": "3.2.1",
     "koa-bodyparser": "4.4.1",
     "koa-router": "14.0.0"
   },
