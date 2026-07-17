@@ -4,6 +4,8 @@
 
 Parse JSON, URL-encoded, text, and raw request bodies with built-in protection against prototype pollution, DoS attacks, and memory leaks.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Parsing request bodies is deceptively dangerous. Without proper safeguards:

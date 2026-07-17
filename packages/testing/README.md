@@ -2,6 +2,8 @@
 
 Spring/Nest-parity test harness for NextRush applications — provides isolated, type-safe test modules with DI overrides and in-memory request routing.
 
+**Support tier:** Public — tooling (stable). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Installation
 
 ```bash

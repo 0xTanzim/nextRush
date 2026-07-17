@@ -2,6 +2,8 @@
 
 Type-safe event emitter for NextRush v3 - simple, fast, and async-ready.
 
+**Support tier:** Public — extensions (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Features
 
 - 🎯 **Full TypeScript Support** - Typed events with autocomplete

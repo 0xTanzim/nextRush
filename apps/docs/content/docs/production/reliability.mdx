@@ -102,62 +102,42 @@ service's cleanup runs as part of that same `app.close()` call.
 
 ## Health checks
 
-NextRush has no built-in health-check middleware or route — you write a plain
-handler. Orchestrators poll a health endpoint to decide whether to route
-traffic to an instance (readiness) or restart it (liveness).
-
-### Minimal liveness check
-
-Confirms the process is alive and able to respond. No dependency checks.
+`@nextrush/health` ships `/livez` (liveness) and `/readyz` (readiness) as a
+mountable middleware plus a check registry — you don't need to hand-write
+these routes. Orchestrators poll a health endpoint to decide whether to
+route traffic to an instance (readiness) or restart it (liveness).
 
 ```ts
 import { createApp, listen } from 'nextrush';
+import { health } from '@nextrush/health';
 
 const app = createApp();
+const { middleware, registerCheck } = health();
 
-app.get('/health', (ctx) => {
-  ctx.json({ status: 'ok' });
+app.use(middleware);
+
+registerCheck('database', async () => {
+  await db.ping();
+  return true;
 });
 
 listen(app, 8080);
 ```
 
-### Readiness check with dependency verification
-
-Confirms the app can actually serve traffic — its database and other
-downstream dependencies are reachable. Return `503` when a dependency is
-down, so a load balancer stops routing to this instance.
-
-```ts
-import { createApp, listen } from 'nextrush';
-
-const app = createApp();
-
-app.get('/health/ready', async (ctx) => {
-  const checks: Record<string, boolean> = {};
-
-  try {
-    await db.query('SELECT 1');
-    checks.database = true;
-  } catch {
-    checks.database = false;
-  }
-
-  const healthy = Object.values(checks).every(Boolean);
-
-  ctx.status = healthy ? 200 : 503;
-  ctx.json({ status: healthy ? 'ok' : 'degraded', checks });
-});
-
-listen(app, 8080);
-```
+`/livez` never evaluates the check registry — it always responds `200` once
+mounted, reflecting only that the process can respond at all. `/readyz` runs
+every registered check (bounded by `checkTimeoutMs`, default `5000`) and
+returns `503` if any fails, throws, or times out. See the
+[`@nextrush/health` reference](/docs/reference/middleware/health) for the
+full options and response shape.
 
 <Callout type="info" title="Liveness vs. readiness">
-  Keep these as two separate routes. A liveness check that queries a database
-  can cause an orchestrator to kill a healthy process solely because a
-  downstream dependency is temporarily slow — restarting the process doesn't
-  fix a database outage. Readiness checks are for traffic routing; liveness
-  checks are for "should this process be restarted."
+  Keep these as two separate paths — `health()` already does. A liveness
+  check that depends on a database can cause an orchestrator to kill a
+  healthy process solely because a downstream dependency is temporarily
+  slow; restarting the process doesn't fix a database outage. Readiness
+  checks are for traffic routing; liveness checks are for "should this
+  process be restarted."
 </Callout>
 
 ## Request timeouts

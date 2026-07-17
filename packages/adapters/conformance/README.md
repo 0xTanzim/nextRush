@@ -2,6 +2,7 @@
 
 Cross-adapter behavioral conformance — asserts identical observable behavior across
 the Node, Bun, Deno, and Edge adapters. Not published.
+**Support tier:** Internal — cross-adapter conformance test harness (may change without a major). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
 
 ## Two layers
 

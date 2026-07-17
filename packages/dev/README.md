@@ -2,6 +2,8 @@
 
 > Development server and build tools for NextRush with multi-runtime support.
 
+**Support tier:** Public — tooling (stable). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Quick Start
 
 ```bash

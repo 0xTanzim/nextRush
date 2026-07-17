@@ -69,28 +69,28 @@ following the standards above, add tests, run `pnpm build && pnpm typecheck && p
 with a `type(scope): description` message (`feat`, `fix`, `test`, `docs`, `refactor`, `perf`,
 `chore`), then open a PR against `main`.
 
-## Where CONTRIBUTING.md is stale — verified against real source, not assumed
+## CONTRIBUTING.md — previously stale, now corrected
 
-Two claims in the current root `CONTRIBUTING.md` don't match the codebase as it exists today.
-Both are named here explicitly rather than silently repeated, since presenting stale claims as
-current would be exactly the kind of drift this rebuild exists to remove:
+Two claims in the root `CONTRIBUTING.md` previously didn't match the codebase as it existed at
+the time. Both have since been corrected directly in that file, and are named here for the
+record rather than silently dropped:
 
-<Callout type="error" title="Package hierarchy diagram is outdated">
-  `CONTRIBUTING.md` states the hierarchy as
+<Callout type="info" title="Package hierarchy diagram and router terminology — fixed">
+  `CONTRIBUTING.md` used to state the hierarchy as
   `types → errors → core → router → di → decorators → controllers → adapters → middleware` and
-  describes the router as "Radix tree routing." Both are pre-consolidation: the real current
-  hierarchy is documented at [Package Hierarchy](/docs/internals/package-hierarchy) (built from
-  every package.json's actual `dependencies` field), `@nextrush/decorators` and
-  `@nextrush/controllers` were deprecated shims over `@nextrush/class` — removed from the
-  workspace, not standalone hierarchy steps — and the router is a **segment trie**, not a radix
-  tree (see [Router Internals](/docs/internals/router-internals)).
+  describe the router as "Radix tree routing." Both were pre-consolidation. The file now states
+  the current hierarchy (`types → errors → core → router → runtime → di → class → adapters →
+  middleware → extensions`) — matching [Package Hierarchy](/docs/internals/package-hierarchy)
+  (built from every package.json's actual `dependencies` field) — and correctly describes the
+  router as a **segment trie**, not a radix tree (see
+  [Router Internals](/docs/internals/router-internals)). `@nextrush/decorators` and
+  `@nextrush/controllers` were deprecated shims over `@nextrush/class`, removed from the
+  workspace; the hierarchy no longer lists them as standalone steps.
 </Callout>
 
-`CONTRIBUTING.md`'s monorepo structure listing also omits `@nextrush/class`, `@nextrush/stream`,
-and the `di`/`class` split's current shape (`decorators/` is listed as if it were the primary
-class-based package, and there is no `plugins/` directory in the actual `packages/` tree today —
-the real structure is `middleware/`, `extensions/`, `adapters/`, `class`, `decorators`,
-`controllers`, `di`, listed individually, not nested under a `plugins/` parent).
+`CONTRIBUTING.md`'s monorepo structure listing now includes `@nextrush/class` and
+`@nextrush/extensions/` (events, websocket) rather than a `decorators/` package and a
+`plugins/` parent directory that no longer exist in the actual `packages/` tree.
 
 ## Package size limits
 

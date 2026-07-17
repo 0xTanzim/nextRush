@@ -144,6 +144,31 @@ How-to: [Security guide — Error Handling Security](/docs/guides/security#error
 
 ---
 
+## Health endpoints
+
+- [ ] `/readyz` (from `@nextrush/health`) is not exposed through a public-facing
+      load balancer or gateway if its check-name breakdown (which dependencies
+      exist and their pass/fail state) should not be visible outside your cluster.
+- [ ] `livezPath`/`readyzPath` are exempted from `@nextrush/rate-limit` (or mounted
+      before it), so a legitimate high-frequency orchestrator probe is never
+      throttled as abusive traffic.
+
+Reference: [`@nextrush/health`](/docs/reference/middleware/health)
+
+---
+
+## Response-timing headers
+
+- [ ] `@nextrush/timer`'s `X-Response-Time`/`Server-Timing` headers are disabled or
+      stripped on routes where response latency itself is sensitive (e.g.
+      authentication endpoints) — precise timing can let an attacker distinguish
+      code paths (a valid vs. invalid username, a cache hit vs. miss) by latency
+      alone, independent of the response body or status code.
+
+Reference: [`@nextrush/timer`](/docs/reference/middleware/timer)
+
+---
+
 ## Next steps
 
 <Cards>

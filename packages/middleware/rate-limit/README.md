@@ -2,6 +2,8 @@
 
 > Production-grade rate limiting middleware with multiple algorithms, tiered limits, and enterprise security features.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Rate limiting is critical for API security and stability, but most implementations fall short:

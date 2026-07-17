@@ -125,6 +125,46 @@ Converter packages are loaded via dynamic `import()` and never bundled — their
 
 Zero runtime dependencies beyond `@nextrush/types`. Runs anywhere NextRush runs: Node.js 22+, Bun, Deno, Cloudflare Workers, Vercel Edge.
 
+## Programmatic API
+
+The document generator that powers `openapi()` is exported directly — use it
+if you need the raw OpenAPI document without mounting the middleware (e.g.
+to write it to a file at build time, or feed it to a different serving
+mechanism).
+
+```ts
+function generateDocument(
+  routes: readonly RouteDefinition[],
+  options: Pick<OpenApiOptions, 'info' | 'exclude' | 'toJsonSchema'>
+): Promise<OpenApiDocument>;
+```
+
+```ts
+import { generateDocument } from '@nextrush/openapi';
+
+const doc = await generateDocument(router.getRoutes(), {
+  info: { title: 'My API', version: '2.0.0' },
+});
+```
+
+This is a pure transform — no I/O, no router coupling, no caching. `openapi()`
+calls it once (lazily, on first request) and caches the result; calling it
+yourself runs the full conversion every time.
+
+Two small path-pattern helpers `generateDocument` uses internally are also
+exported, for cases where you're building custom OpenAPI tooling on top of
+NextRush's route metadata:
+
+```ts
+function toOpenApiPath(path: string): string;
+function extractPathParams(path: string): string[];
+```
+
+```ts
+toOpenApiPath('/users/:id'); // '/users/{id}'
+extractPathParams('/users/:id/posts/:postId'); // ['id', 'postId']
+```
+
 ## Related
 
 - [`@nextrush/validation`](/docs/reference/middleware/validation) — the middleware that contributes request schemas to route metadata

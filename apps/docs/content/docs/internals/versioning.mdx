@@ -144,6 +144,38 @@ Dual-publish (ESM + CJS) was formally evaluated and rejected — see
 `openspec/changes/archive/2026-07-17-module-format-policy/design.md` for the full comparison
 against the alternative.
 
+## Node engine floor: `>=22`, and why it's `>=22` and not `>=20`
+
+Every published package declares `"engines": { "node": ">=22.0.0" }`. This is a **deliberate
+choice, not a hard technical minimum** — worth stating plainly, because the gap between "what
+the floor requires" and "what the floor actually needs" is real:
+
+- **What actually requires ≥22:** the ESM-only posture above leans on Node 22.12's native
+  `require(esm)` interop for synchronous import graphs (see the module-format section) — that
+  specific guarantee needs the ≥22.12 LTS backport, not merely ≥20.
+- **What does *not* require ≥22:** `AbortSignal.any()`, used for request cancellation and
+  timeout composition across the adapters, only needs Node **≥20.3** — Node 20 LTS would have
+  been sufficient for this alone.
+- **Why `>=22` anyway:** NextRush targets modern, TypeScript-first, ESM-first Node
+  applications — not the broadest possible range of historical Node deployments. Once that
+  audience is fixed, floors follow from it: staying on the newest LTS keeps the framework
+  aligned with where the ecosystem (and the runtime interop guarantee above) is heading, rather
+  than carrying two supported floors for a marginal compatibility gain. This mirrors the
+  ESM-only decision's own reasoning (see above) — a deliberate, stated boundary rather than an
+  accidental one.
+
+**When this would be reconsidered:** if concrete adopter demand for Node 20 LTS support
+materializes and the ESM-in-CJS interop guarantee is not the deciding factor for that adopter
+(e.g. they already use dynamic `import()`), the floor is revisited — it is a decision, not a
+technical wall, and is documented here specifically so it can be reopened deliberately rather
+than debated from scratch each time it comes up.
+
+**Current CI reality (stated plainly, not glossed over):** CI today runs against a single pinned
+Node version (24, via the shared `setup-toolchain` action) — there is no Node 20/22/24 version
+matrix yet, despite that matrix being part of T003's original acceptance criteria. The `>=22`
+floor is therefore validated by the single Node-24 run plus the engine-floor rationale above, not
+by a dedicated multi-version matrix. Closing that gap is tracked separately, not by this change.
+
 
 
 <Cards>

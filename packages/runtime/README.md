@@ -4,6 +4,8 @@
 
 Detect the current JavaScript runtime and use unified abstractions that work across Node.js, Bun, Deno, Deno Deploy, and Edge environments.
 
+**Support tier:** Internal (may change without a major — see [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)). Not part of the semver-guarded public contract; consume via `nextrush`/`@nextrush/core` instead where possible.
+
 ## The Problem
 
 JavaScript now runs everywhere:

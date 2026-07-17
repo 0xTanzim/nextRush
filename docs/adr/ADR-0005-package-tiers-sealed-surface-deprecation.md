@@ -30,13 +30,14 @@ Each package is classified so the supported surface is explicit:
 | **Public — middleware/registrar** | body-parser, cors, helmet, csrf, rate-limit, compression, cookies, multipart, validation, request-id, timer, static, template, logger, openapi, stream | Stable |
 | **Public — extensions** | events, websocket | Stable |
 | **Public — tooling** | dev, create-nextrush, testing | Stable |
-| **Deprecated (shims)** | decorators, controllers | Removed next major (below) |
 | **Internal** | runtime, non-`-node` adapters until GA | May change without a major |
 
-### Shim deprecation window
-`@nextrush/decorators` and `@nextrush/controllers` are `@deprecated` compatibility shims
-re-exporting from `@nextrush/class`. They are supported through the 1.x line and **removed in
-the next major after 1.0**. Migration: `nextrush codemod consolidate-imports "src/**/*.ts"`.
+### Shim deprecation window (historical — resolved)
+`@nextrush/decorators` and `@nextrush/controllers` were `@deprecated` compatibility shims
+re-exporting from `@nextrush/class`. Per the window declared above, both packages were
+**removed** (T053, 2026-07-16) rather than carried into the current major line. Migration
+path for any remaining external consumer: `nextrush codemod consolidate-imports "src/**/*.ts"`.
+No package currently occupies a "Deprecated (shims)" tier.
 
 ## Consequences
 

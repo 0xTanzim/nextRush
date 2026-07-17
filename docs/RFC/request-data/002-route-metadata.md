@@ -195,13 +195,13 @@ Metadata is read **zero times** during dispatch, so throughput is unaffected by 
 Zero-config first:
 
 ```typescript
-app.plugin(openapi()); // serves /openapi.json and /docs — that's it
+app.use(openapi()); // serves /openapi.json and /docs — that's it
 ```
 
 Every option is optional:
 
 ```typescript
-app.plugin(openapi({
+app.use(openapi({
   info: { title: 'My API', version: '2.1.0' }, // defaults inferred from package.json
   docs: '/reference',                          // relocate the UI
   exclude: ['/internal/*'],                    // path-level exclusion (§9)
@@ -210,7 +210,7 @@ app.plugin(openapi({
 
 On the **first** request to the spec route, it calls `router.getRoutes(): readonly RouteDefinition[]` (a fully immutable view — `readonly T[]` is identical to `ReadonlyArray<T>` and is the form the repo's lint mandates), converts schemas → JSON Schema (§A), assembles OpenAPI 3.1, **caches** it, and serves the cached object thereafter. It skips `visibility: 'internal'` routes and `exclude` matches. It depends only on the public introspection contract + `@nextrush/types`.
 
-**Plugin/registration order does not matter.** OpenAPI **snapshots the route registry lazily on the first request** to the spec route — by which point every plugin and route has registered. So `app.plugin(openapi())` may appear before or after the routers/plugins it documents.
+**Middleware registration order does not matter.** OpenAPI **snapshots the route registry lazily on the first request** to the spec route — by which point every middleware and route has registered. So `app.use(openapi())` may appear before or after the routers/middleware it documents.
 
 ---
 
@@ -218,7 +218,7 @@ On the **first** request to the spec route, it calls `router.getRoutes(): readon
 
 - **Auto-include, with `visibility`.** Every route appears by default (zero-config DX); `endpoint({ visibility: 'internal' })` marks a route out of *all* public artifacts — a cross-renderer semantic.
 - **Renderer-level `exclude`.** `openapi({ exclude: ['/internal/*'] })` drops paths without touching route code.
-- **Mounting is the conscious opt-in.** The spec exists only because you called `openapi()`. For sensitive deployments, gate it (`app.plugin(openapi())` only in non-production, or rely on `visibility`/`exclude`). Documented prominently so exposing internal routes is never accidental.
+- **Mounting is the conscious opt-in.** The spec exists only because you called `openapi()`. For sensitive deployments, gate it (`app.use(openapi())` only in non-production, or rely on `visibility`/`exclude`). Documented prominently so exposing internal routes is never accidental.
 
 ---
 

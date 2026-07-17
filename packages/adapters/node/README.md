@@ -2,6 +2,8 @@
 
 Node.js HTTP adapter for NextRush. Connects your application to Node.js's built-in `http.createServer`.
 
+**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Installation
 
 ```bash

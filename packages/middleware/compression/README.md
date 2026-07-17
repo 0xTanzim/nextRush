@@ -2,6 +2,8 @@
 
 > High-performance, multi-runtime response compression middleware with automatic content negotiation and BREACH attack mitigation.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Response compression is critical for web performance, but frameworks often make it either too magical or too complex:

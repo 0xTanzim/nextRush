@@ -2,6 +2,7 @@
 
 Deploy a NextRush app to AWS Lambda, Google Cloud Functions, or Azure Functions — in one line.
 
+**Support tier:** Internal — non-`-node` adapter until GA (may change without a major). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
 ```ts
 import { createLambdaHandler } from '@nextrush/adapter-serverless';
 

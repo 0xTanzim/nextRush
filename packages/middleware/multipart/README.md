@@ -2,6 +2,8 @@
 
 Zero-dependency multipart/form-data file upload middleware for NextRush. Uses Web Streams API — works on Node.js, Bun, Deno, and Edge runtimes.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Features
 
 - **Zero dependencies** — custom streaming parser, no busboy or formidable

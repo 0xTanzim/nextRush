@@ -268,6 +268,45 @@ cors({ origin: /(.*)+\.example\.com/ });
 cors({ origin: /\.example\.com$/ });
 ```
 
+## Advanced: building custom CORS logic
+
+The source labels these exports "for advanced use cases" and "for custom
+implementations" — application code should reach for the presets and
+`cors()` options above first. These are exported for building your own CORS
+variant or unit-testing origin logic directly.
+
+<TypeTable
+  title="Origin validation"
+  types={{
+    isOriginAllowed: { type: '(origin: string, option: OriginOption) => boolean', description: 'Core matcher: whether an origin satisfies a configured OriginOption (string/array/RegExp/validator).' },
+    isOriginInList: { type: '(origin: string, list: string[]) => boolean', description: 'Whether origin exactly matches an entry in list.' },
+    isOriginMatchingPattern: { type: '(origin: string, pattern: RegExp) => boolean', description: 'Whether origin matches pattern, guarded by isRegexSafe.' },
+    isOriginSecure: { type: '(origin: string) => boolean', description: 'Whether an origin uses HTTPS (or is localhost, exempted for local dev).' },
+    isValidOriginFormat: { type: '(origin: string) => boolean', description: 'Structural validation of an Origin header value before any matching logic runs.' },
+    isRegexSafe: { type: '(pattern: RegExp) => boolean', description: 'ReDoS guard — rejects patterns with catastrophic-backtracking risk before use.' },
+    createOriginCache: { type: '() => Map<string, boolean>', description: 'A cache the middleware uses internally to avoid re-validating the same origin on every request.' },
+    securityWarning: { type: '(message: string) => void', description: 'The internal dev-time console warning helper (e.g. for a risky origin+credentials combination).' },
+  }}
+/>
+
+<TypeTable
+  title="Header helpers"
+  types={{
+    appendVary: { type: '(ctx: Context, value: string) => void', description: 'Appends a value to the Vary header without clobbering existing values.' },
+    setVaryHeaders: { type: '(ctx: Context) => void', description: "Sets the middleware's required Vary: Origin (and related) headers." },
+    buildMethodList: { type: '(methods: string | string[]) => string', description: 'Normalizes a methods option into the comma-joined header value.' },
+    normalizeHeaders: { type: '(headers: string | string[]) => string[]', description: 'Normalizes a headers option into an array form for comparison.' },
+    parseHeaderList: { type: '(value: string) => string[]', description: 'Parses a comma-separated header value (e.g. Access-Control-Request-Headers) into an array.' },
+    headerContains: { type: '(list: string[], value: string) => boolean', description: 'Case-insensitive membership check used when reflecting allowed headers.' },
+  }}
+/>
+
+Constants (`CORS_HEADERS`, `DEFAULT_MAX_AGE`, `DEFAULT_METHODS`,
+`DEFAULT_OPTIONS_SUCCESS_STATUS`, `ORIGIN_HEADER`, `PREFLIGHT_INDICATORS`,
+`VARY_HEADER`) are the literal header names and defaults the middleware
+itself uses — exported so a custom implementation stays consistent with
+NextRush's own naming rather than duplicating string literals.
+
 ## Troubleshooting
 
 **No CORS headers in response** — Verify the request includes an `Origin` header and that the origin matches your configuration. With `origin: false` (the default), no CORS headers are set.

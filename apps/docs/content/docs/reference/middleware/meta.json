@@ -11,6 +11,7 @@
     "rate-limit",
     "compression",
     "cookies",
+    "health",
     "request-id",
     "timer",
     "validation"

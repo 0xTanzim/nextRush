@@ -2,6 +2,8 @@
 
 HTTP security headers middleware for NextRush v3. Sets 13 headers with OWASP-recommended defaults in a single call.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## What Is Helmet?
 
 When a browser loads a web page, the server's HTTP response includes **headers** — metadata that tells the browser how to handle the content. Many of these headers control security behavior: whether scripts can run, whether the page can be embedded in an iframe, whether the browser should enforce HTTPS.

@@ -2,6 +2,8 @@
 
 CSRF protection middleware for NextRush using the **Signed Double-Submit Cookie** pattern with HMAC-SHA256 — the approach recommended by OWASP.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Features
 
 - **OWASP-compliant** — Signed Double-Submit Cookie pattern (not the naive/insecure variant)

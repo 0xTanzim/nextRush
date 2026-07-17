@@ -69,25 +69,26 @@ service class, and `@Module` composes other modules via `imports` rather than a 
 hierarchy. `registerControllers` and `registerModule` walk a graph of plain classes wired
 together by DI, not an inheritance tree.
 
-## Where the constraints are still catching up to the code
+## Where the constraints were catching up to the code (now closed)
 
-Design principles are only useful if they're checked against what actually ships, so two honest
-gaps are worth naming rather than glossing over:
+Design principles are only useful if they're checked against what actually ships. Two gaps were
+tracked here rather than glossed over, and both are now fixed:
 
-- **The router's internal file is still named `radix-tree.ts`.** The router's own doc comments
-  are explicit that the data structure is a **segment trie**, not a compressed radix tree (see
-  [Router Internals](/docs/internals/router-internals) for the distinction) — but the
-  implementation file and its `RadixNode` type predate that terminology correction and haven't
-  been renamed. The comments are the source of truth; the filenames are a known naming debt.
-- **`CONTRIBUTING.md` at the repo root still says "Radix tree routing"** and lists a package
-  hierarchy (`decorators → controllers → adapters`) that predates the `@nextrush/class`
-  consolidation. `CONTRIBUTING.md` is outside this rebuild's file scope (`apps/docs/**`
-  only), so it hasn't been corrected here — but [Contributing](/docs/internals/contributing)
-  states the current, verified hierarchy so a new contributor isn't misled by the stale file.
+- **The router's internal file was named `radix-tree.ts`.** The router's own doc comments were
+  already explicit that the data structure is a **segment trie**, not a compressed radix tree
+  (see [Router Internals](/docs/internals/router-internals) for the distinction), but the
+  implementation file and its `RadixNode` type predated that terminology correction. Both have
+  since been renamed — `radix-tree.ts` → `segment-trie.ts`, `RadixNode` → `TrieNode` — closing
+  the naming debt (verified: `grep -rni radix packages/router/src` returns only an intentional
+  negation, "segment trie... not a radix tree").
+- **`CONTRIBUTING.md` at the repo root said "Radix tree routing"** and listed a package
+  hierarchy (`decorators → controllers → adapters`) that predated the `@nextrush/class`
+  consolidation. `CONTRIBUTING.md` has since been corrected to the current hierarchy and
+  terminology; [Contributing](/docs/internals/contributing) documents the verified hierarchy.
 
-Both are small, tracked inconsistencies rather than architectural drift — the design principles
+Both were small, tracked inconsistencies rather than architectural drift — the design principles
 above hold at the level that matters (dependency direction, package boundaries, zero-dep audit),
-but "explicit over implicit" applies to documentation honesty too.
+and "explicit over implicit" applies to documentation honesty too.
 
 ## Next steps
 

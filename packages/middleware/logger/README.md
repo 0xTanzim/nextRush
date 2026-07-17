@@ -7,6 +7,8 @@ Request logging middleware for NextRush. This package wraps [@nextrush/log](http
 - **Automatic correlation ID** handling
 - **Context-attached logger** (`ctx.log`) for request handlers
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Runtime Support
 
 **Edge-safe.** Zero `node:` imports in the middleware itself. Safe on Node, Bun, Deno, Cloudflare

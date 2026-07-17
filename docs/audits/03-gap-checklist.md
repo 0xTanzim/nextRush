@@ -50,7 +50,7 @@ NextRush has a **genuinely strong core** (runtime-agnostic, strict TS, 145+ test
 | **Edge Runtime** | **Largely closed.** Now executed on real `workerd`/Deno in CI (T019 ☑); bundle size measured (T012 ◐, edge-scoped); deploy examples + edge-safe middleware docs shipped (T021 ☑, T022 ☑) | T024 (edge WebSocket, P3 — RFC 016 authored, not built) |
 | **Serverless** | **Closed.** `@nextrush/adapter-serverless` ships (Lambda/GCF/Azure), cold-start measured, container-reuse documented | T038 ☑ — no remaining blocker at P1/P2 scope |
 | **Enterprise adoption** | No OTel/metrics/health; no auth/session; module `exports` confirmed still not enforced; DI still global-by-default; thin config — **not re-verified this pass, carried forward** | T025–T035 |
-| **Developer Experience** | "TypeInfo not known" metadata footgun now closed at build time (T008 ☑ — `nextrush build` fails fast on a decorator-metadata tsconfig mismatch instead of shipping a broken artifact); leaked/namespaced APIs; four-package install friction; docs depth — **remainder not re-verified this pass, carried forward** | T015, T037, T058 |
+| **Developer Experience** | "TypeInfo not known" metadata footgun now closed at build time (T008 ☑ — `nextrush build` fails fast on a decorator-metadata tsconfig mismatch instead of shipping a broken artifact); docs depth now closed (T058 ☑); leaked/namespaced APIs; four-package install friction — **remainder not re-verified this pass, carried forward** | T015, T037 |
 | **v1.0 stable tag** | Public surface frozen across all 35 published packages (T005 ☑); version/compatibility policy published (T007 ☑); deprecated shims removed (T053 ☑); single maintainer | T059, T060 |
 
 **Bottom line:** Edge + Serverless (Phase 2 + T038) are now credibly closed. T005 (repo-wide
@@ -759,9 +759,10 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** Shims removed on the stated timeline; codemod migrates imports to `nextrush/class`; migration guide published.
 - **Validation Steps:** Run codemod on a shim-using fixture → compiles against `nextrush/class`; shims absent from the registry.
 
-### ☐ T054 · Extension-model v4 — M8 release mechanics
-- **Domain:** Release Engineering · **Packages:** `@nextrush/core`, `@nextrush/types`, meta · **Priority:** P1 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T054 · Extension-model v4 — M8 release mechanics
+- **Domain:** Release Engineering · **Packages:** `@nextrush/core`, `@nextrush/types`, meta · **Priority:** P1 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
 - **Verified (2026-07-15, spot-check only):** 13 packages' `CHANGELOG.md` files reference "extension model"/`extend()` terminology, suggesting the migration itself likely landed — but this pass did not confirm the specific acceptance criterion (`grep -r "Plugin" packages/*/src` finds no legacy contract) or that release-mechanics checkboxes were reconciled. Left as □ pending that direct check rather than assumed ☑ from indirect evidence.
+- **Verified (2026-07-17):** Delivered by `openspec/changes/phase5-release-hygiene` (task group 1). Direct source scan for the legacy contract (`PluginWithHooks|PluginFactory|app\.plugin\(|getPlugin\(|interface Plugin\b|type Plugin\b|class Plugin\b`) across `packages/*/src/**/*.ts` returns zero matches — confirming the acceptance criterion this task's own Validation Step names. The changeset + CHANGELOG requirement was already satisfied before this pass: 12 package CHANGELOG.md files plus root `CHANGELOG.md` already record "Removed the plugin system... `app.plugin()`, `app.pluginAsync()`, `app.getPlugin()`, `app.hasPlugin()`... are gone" — no new changeset needed. One genuine current-tense doc violation was found and fixed during this pass: `docs/RFC/request-data/002-route-metadata.md` presented `app.plugin(openapi())` as live example code in 4 places (not history); corrected to `app.use(openapi())`. Two incidental non-contract "Plugin" comments (JSDoc in `extensions/events/src/index.ts`, banner in `middleware/template/src/template.types.ts`) were also scrubbed for grep-unambiguity — comment-only, confirmed via `git diff` + a full `vitest run` (228/228 passing, including both packages' `public-surface.test.ts`) that no export changed.
 - **Dependencies:** —
 - **Description:** Complete the M8 release checklist (changeset version bump + CHANGELOG) for the extension model. The migration is code-complete (`extend()`/`ready()` shipped; zero old-`Plugin` refs) — only release mechanics remain (production-readiness B1 re-classified).
 - **Why it matters:** A stable tag can't ship with stale migration bookkeeping.
@@ -769,8 +770,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** TODO checkboxes reconciled; changeset + CHANGELOG entries land.
 - **Validation Steps:** `grep -r "Plugin" packages/*/src` finds no legacy contract; changeset present.
 
-### ☐ T055 · Internal package-tier convention
-- **Domain:** Package Ecosystem / Governance · **Packages:** all ~35 packages · **Priority:** P2 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T055 · Internal package-tier convention
+- **Domain:** Package Ecosystem / Governance · **Packages:** all ~35 packages · **Priority:** P2 · **Effort:** S · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-17):** Delivered by `openspec/changes/phase5-release-hygiene` (task group 2). `ADR-0005`'s stale "Deprecated (shims)" row (still listing `@nextrush/decorators`/`@nextrush/controllers` as live, though T053 removed both on 2026-07-16) was corrected to a historical note. All 36 published package READMEs now carry a `**Support tier:** <tier>. See [ADR-0005](...)` marker sourced from ADR-0005's tier table — confirmed via `grep -rl '\*\*Support tier:\*\*' packages --include=README.md` returning exactly 36 files (8 Public–core, 16 Public–middleware/registrar, 2 Public–extensions, 3 Public–tooling, 5 Internal + `adapters/conformance`). Internal-only packages (`runtime`, non-`-node` adapters) explicitly state "may change without a major"; `runtime`'s marker additionally redirects consumers to `nextrush`/`@nextrush/core`. Spot-checked `core` and `runtime` READMEs — both state tier + link ADR-0005 before any usage content, satisfying the newcomer-identifiable acceptance criterion.
 - **Dependencies:** T007
 - **Description:** Mark which packages/symbols are supported public surface vs internal plumbing (production-readiness H3). ADR-0005 encoded tiers; propagate a visible convention across the tree.
 - **Why it matters:** Contributors/adopters can't tell the supported surface from internals across ~35 packages.
@@ -787,8 +789,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** ADR states the trigger + migration plan; reflection confined to one module (asserted by a test/lint).
 - **Validation Steps:** `grep -rl "reflect-metadata" packages/*/src` shows reflection isolated to the intended files.
 
-### ☐ T057 · Node engine floor policy
-- **Domain:** Governance / Runtime · **Packages:** all `package.json`, docs · **Priority:** P3 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T057 · Node engine floor policy
+- **Domain:** Governance / Runtime · **Packages:** all `package.json`, docs · **Priority:** P3 · **Effort:** XS · **Difficulty:** Easy · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Completed
+- **Verified (2026-07-17):** Delivered by `openspec/changes/phase5-release-hygiene` (task group 3). Confirmed `"node": ">=22.0.0"` uniform across all 36 `packages/*/package.json` files declaring `engines.node`. Added a dedicated "Node engine floor" section to `apps/docs/content/docs/internals/versioning.mdx`, stating what actually requires `>=22` (Node 22.12's native `require(esm)` interop, per the module-format-policy decision), what does not (`AbortSignal.any()` needs only ≥20.3), why `>=22` is the floor anyway (a deliberate audience choice, not a technical wall), and the reconsideration condition. **This task's own Validation Step ("CI matrix matches") is only partially met — disclosed honestly rather than silently claimed:** `.github/workflows/{ci,runtime-conformance,deploy-verification}.yml` all pin a single Node version (24, via `.github/actions/setup-toolchain/action.yml`); no Node 20/22/24 version matrix exists in CI today. The `ci.yml` `matrix:` block is the T004 Windows/macOS OS matrix, not a Node-version matrix. This is the same residual gap T003's own entry above already flagged ("an explicit Node 20/22/24 version matrix... if absent, treat as a residual gap under this same task") — now confirmed with direct evidence rather than left unverified. The versioning docs state this CI reality plainly instead of claiming a match that doesn't exist. **Follow-up note (not part of T057's own scope):** building the actual Node version matrix is tracked under T003, not here.
 - **Dependencies:** T007
 - **Description:** Document why `engines.node >= 22` (drops Node 20 LTS); reconsider a 20-LTS floor if adoption demands (01/R-14). `AbortSignal.any` needs ≥20.3 but the floor is 22.
 - **Why it matters:** A high floor narrows adoption while Node 20 is still in maintenance.
@@ -796,8 +799,9 @@ required for T060's own acceptance criteria.
 - **Acceptance Criteria:** A documented, justified engine floor; matrix (T003) covers the supported range.
 - **Validation Steps:** Docs state the floor + reason; CI matrix matches.
 
-### ☐ T058 · Complete user-facing documentation
-- **Domain:** Documentation · **Packages:** `apps/docs`, all package READMEs · **Priority:** P1 · **Effort:** L · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+### ☑ T058 · Complete user-facing documentation
+- **Domain:** Documentation · **Packages:** `apps/docs`, all package READMEs · **Priority:** P1 · **Effort:** L · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** ☑ Complete
+- **Verified (2026-07-17):** Full reference-coverage cross-check against the T005 public-surface-lock symbol lists (34 `public-surface.test.ts` files) closed 3 missing-package gaps (`@nextrush/health`, `@nextrush/testing`, `@nextrush/adapter-serverless`) and 4 missing-surface gaps within existing pages (`openapi` programmatic API, `logger`'s `@nextrush/log` re-export surface, `cors`/`helmet` advanced builder utilities). Accuracy sweep across all 260 unique `nextrush`-scoped doc imports found and fixed 2 genuine defects: a stale "no health middleware" claim in `production/reliability.mdx`, and a false `VERSION` export claim in `reference/core/nextrush.mdx` (not exported by source; claimed value was also wrong). Security-posture sweep across every network-exposed package closed 2 gaps (`@nextrush/health`, `@nextrush/timer`). `pnpm docs:validate:strict` green (134 files, 0 errors/warnings). D4 scope guard confirmed holding — no unbuilt Phase 3 feature documented as usable. EDS-015 publish-safety checks passed on all new/edited pages. Residual, explicitly acknowledged: internal constants/helpers for `template`/`rate-limit`/`cookies`/`body-parser` are not individually tabled (judgment call under the Tier-2 depth convention, not a coverage failure on the primary API); a full EDS-014 substance review was run on new pages only, not retroactively across all 134 pre-existing pages.
 - **Dependencies:** —
 - **Description:** Fill enterprise topics (observability, config, deployment hardening, graceful shutdown) and ensure every public API has an accurate doc entry; no claim contradicted by source (01/§9; strategic docs 68/100).
 - **Why it matters:** Docs are a stated core feature; partial user docs cap adoption.
@@ -817,6 +821,7 @@ required for T060's own acceptance criteria.
 
 ### ☐ T060 · Final v1.0 API-freeze sign-off + Definition-of-Done verification — **GATE**
 - **Domain:** Release Engineering · **Packages:** all · **Priority:** P0 · **Effort:** S · **Difficulty:** Hard · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
+- **Verified (2026-07-17):** T058 (user-facing documentation) is now ☑ complete. This gate still requires **T064** (security architecture audit) before it can close — T058 alone does not unblock the tag; both are required per the Definition-of-Done below.
 - **Dependencies:** T003, T005, T007, T053, and all P0/P1 tasks in Phases 0–2
 - **Description:** Verify every Definition-of-Done item (below) is met, freeze the public surface across all packages, and tag `1.0.0`.
 - **Why it matters:** The single stability promise; must be a checklist, not a vibe.

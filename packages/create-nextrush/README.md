@@ -2,6 +2,8 @@
 
 > Create a new NextRush project with one command.
 
+**Support tier:** Public — tooling (stable). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Usage
 
 When you run `create nextrush` (with a **space**), your package manager expands that to the npm package **`create-nextrush`**. That is the correct, supported form—`create` and `nextrush` are two words, not `createnextrush`.

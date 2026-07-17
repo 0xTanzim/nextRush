@@ -2,6 +2,8 @@
 
 > Unique request identification with ID spoofing protection and distributed tracing support.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Debugging distributed systems without request IDs is like finding a needle in a haystack:

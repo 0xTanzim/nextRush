@@ -2,6 +2,8 @@
 
 > High-performance segment trie router for NextRush. O(k) route matching where k = path segment count, not route count.
 
+**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Traditional array-based routers iterate through all routes to find a match. With 1,000 routes, that's 1,000 comparisons per request. Route order matters. Performance degrades linearly.

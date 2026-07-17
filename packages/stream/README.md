@@ -2,6 +2,8 @@
 
 > Runtime-agnostic response streaming for NextRush — text, Server-Sent Events, and NDJSON. Built for AI/agentic apps, works for any chunked response.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 LLM responses don't arrive as a value — they arrive as a sequence of tokens over time. Streaming them correctly means solving four problems at once, and most hand-rolled implementations get at least one wrong:

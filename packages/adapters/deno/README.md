@@ -2,6 +2,8 @@
 
 Deno HTTP adapter for NextRush. Connects your NextRush application to Deno's native `Deno.serve()` API.
 
+**Support tier:** Internal — non-`-node` adapter until GA (may change without a major). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Installation
 
 ```typescript

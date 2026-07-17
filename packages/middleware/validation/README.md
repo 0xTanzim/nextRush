@@ -2,6 +2,8 @@
 
 > Request validation for NextRush — bring your own schema library (Zod, Valibot, ArkType, or any Standard Schema).
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Validating request input is something every API does, yet hand-rolled validation is where bugs and inconsistency creep in:

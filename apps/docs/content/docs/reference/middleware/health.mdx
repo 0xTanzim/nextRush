@@ -1,0 +1,136 @@
+---
+title: "@nextrush/health"
+description: Liveness and readiness health-check endpoints for orchestrator probes (Kubernetes, PM2, systemd, Docker).
+---
+
+## Problem
+
+Orchestrators need two different signals to manage a running instance:
+"is this process alive at all" (liveness — restart if it fails) and "can
+this instance actually serve traffic right now" (readiness — stop routing
+to it if it fails, without restarting). Conflating the two causes an
+orchestrator to kill a healthy process solely because a downstream dependency
+(database, cache) is temporarily slow.
+
+## Default behavior
+
+`health()` returns a middleware plus a check registry:
+
+- `/livez` **never** evaluates registered checks — it only reflects that the
+  handler ran, i.e. the process can respond at all. Always `200 { status:
+  'ok' }` once mounted.
+- `/readyz` runs every registered check concurrently and returns `200` only
+  if all pass; `503` if any check fails, throws, or times out.
+- A check may be sync (`() => boolean`) or async (`() => Promise<boolean>`).
+- Each check is bounded by `checkTimeoutMs` (default `5000`) — a hung check
+  is treated as a failure, never an indefinite hang on `/readyz`.
+- A throwing check is caught and reported as `false`; the client never sees
+  an internal stack trace from a failing check.
+
+## Install
+
+<PackageInstall packages={['@nextrush/health']} />
+
+## Usage
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { health } from '@nextrush/health';
+
+const app = createApp();
+const { middleware, registerCheck } = health();
+
+app.use(middleware);
+
+registerCheck('database', async () => {
+  await db.ping();
+  return true;
+});
+
+listen(app, 8080);
+```
+
+`registerCheck(name, check)` may be called any time after `health()` — each
+call replaces any prior check registered under the same `name`. Only
+`/readyz` is affected; `/livez` never depends on the registry.
+
+## Options
+
+```ts
+interface HealthOptions {
+  /** @default '/livez' */
+  livezPath?: string;
+  /** @default '/readyz' */
+  readyzPath?: string;
+  /** Max time (ms) a single check may take before it's treated as failed. @default 5000 */
+  checkTimeoutMs?: number;
+}
+```
+
+```ts
+const { middleware, registerCheck } = health({
+  livezPath: '/health/live',
+  readyzPath: '/health/ready',
+  checkTimeoutMs: 2000,
+});
+```
+
+## Response shape
+
+```ts
+interface HealthResponseBody {
+  status: 'ok' | 'error';
+  /** Only present on /readyz responses. */
+  checks?: Record<string, boolean>;
+}
+```
+
+`/readyz` example body when a check fails:
+
+```json
+{ "status": "error", "checks": { "database": false } }
+```
+
+## Integration
+
+Mount `health()`'s middleware early in the pipeline — it short-circuits on
+`livezPath`/`readyzPath` and calls `next()` for every other path, so ordering
+relative to other middleware only matters for those two paths.
+
+Point your orchestrator's liveness probe at `livezPath` and its readiness
+probe at `readyzPath` (e.g. a Kubernetes `livenessProbe`/`readinessProbe`, or
+Docker's `HEALTHCHECK`). See [Reliability](/docs/production/reliability) for
+the broader shutdown/timeout picture these endpoints fit into.
+
+## Troubleshooting
+
+<Callout type="warn" title="Liveness must not depend on readiness">
+  Do not register a check against `livezPath` — the design is deliberate:
+  `/livez` never evaluates checks, so a downstream outage never causes an
+  orchestrator to restart an otherwise-healthy process. Use `/readyz` for
+  anything that should gate traffic routing.
+</Callout>
+
+<Callout type="info" title="A hung check resolves to failure, not a hang">
+  `checkTimeoutMs` races the check against a timer; if the check never
+  settles, `/readyz` still responds (as failing) instead of hanging the
+  request indefinitely.
+</Callout>
+
+## Security posture
+
+`health()` mounts `livezPath`/`readyzPath` with **no built-in authentication**
+— both endpoints respond to any client that can reach them. This is
+intentional (orchestrator probes typically can't attach credentials), but it
+has two consequences to account for before exposing them publicly:
+
+- `/readyz`'s response body names every registered check (e.g.
+  `"database": false`) — this reveals internal topology (what dependencies
+  exist) to anyone who can reach the endpoint. If that's a concern, restrict
+  the paths to your cluster-internal network (e.g. a Kubernetes probe hitting
+  a pod directly) rather than exposing them through a public-facing load
+  balancer or gateway.
+- Because there's no rate limit on these paths, mount `health()`'s middleware
+  before any global rate-limiter that would otherwise throttle a legitimate,
+  high-frequency orchestrator probe — or explicitly exempt `livezPath`/
+  `readyzPath` from your `@nextrush/rate-limit` configuration.

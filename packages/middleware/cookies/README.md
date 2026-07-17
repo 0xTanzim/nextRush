@@ -2,6 +2,8 @@
 
 > Secure, RFC 6265-compliant cookie middleware with HMAC signing, CRLF injection protection, and key rotation support.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Cookies seem simple until they aren't. Session hijacking, CRLF injection, cross-site request forgery—these attacks exploit frameworks that treat cookies as plain strings. Most cookie libraries either:

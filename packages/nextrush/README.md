@@ -7,6 +7,8 @@
 [![Node.js](https://img.shields.io/badge/Node.js-≥22-339933?logo=node.js)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
 
+**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Why NextRush?
 
 - **Fast** — 50-60% faster than Express, competes with Fastify and Hono

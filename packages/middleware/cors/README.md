@@ -2,6 +2,8 @@
 
 > Enterprise-grade Cross-Origin Resource Sharing with built-in protection against security vulnerabilities.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 CORS is one of the most misconfigured security features on the web. Every API that serves different origins faces the same challenges:

@@ -4,6 +4,8 @@
 
 This package consolidates the entire class-based runtime: decorators for routes and parameters, a DI container for dependency management, and controller auto-discovery with handler registration.
 
+**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## What It Does
 
 Build structured APIs with TypeScript decorators, dependency injection, and type-safe parameter extraction:

@@ -179,6 +179,106 @@ app.use(
 
 ---
 
+## Programmatic API (re-exported from `@nextrush/log`)
+
+Beyond the middleware surface above, this package re-exports its entire
+underlying `@nextrush/log` library — useful for application code that needs
+structured logging outside a request (startup, background jobs, CLI
+scripts).
+
+<TypeTable
+  title="Configuration"
+  types={{
+    configure: { type: '(config: Partial<GlobalLoggerConfig>) => void', description: 'Set global logger defaults (level, transports, redaction) for every logger created afterward.' },
+    configureFromEnv: { type: '() => void', description: 'Populate global config from environment variables (e.g. LOG_LEVEL).' },
+    getGlobalConfig: { type: '() => GlobalLoggerConfig', description: 'Read the current global configuration.' },
+    resetGlobalConfig: { type: '() => void', description: 'Reset global configuration to defaults — mainly for test isolation.' },
+    setGlobalLevel: { type: '(level: LogLevel) => void', description: 'Set the minimum log level globally.' },
+    onConfigChange: { type: '(cb: (config: GlobalLoggerConfig) => void) => () => void', description: 'Subscribe to global config changes; returns an unsubscribe function.' },
+  }}
+/>
+
+<TypeTable
+  title="Transports"
+  types={{
+    createConsoleTransport: { type: '(options?) => LogTransport', description: 'The default transport — writes to stdout/stderr.' },
+    createBatchTransport: { type: '(transport: LogTransport, options?) => LogTransport', description: 'Batches entries before forwarding, to reduce I/O overhead under high log volume.' },
+    createFilteredTransport: { type: '(transport: LogTransport, predicate) => LogTransport', description: 'Wraps a transport to only forward entries matching a predicate.' },
+    createPredicateTransport: { type: '(predicate, transport: LogTransport) => LogTransport', description: 'Alias form of createFilteredTransport.' },
+    createRateLimitedTransport: { type: '(transport: LogTransport, options: RateLimitOptions) => LogTransport', description: 'Caps entries-per-window forwarded to the underlying transport.' },
+    createNamespaceRateLimitedTransport: { type: '(transport: LogTransport, limits: NamespaceRateLimits) => LogTransport', description: 'Per-namespace variant of the rate-limited transport.' },
+    addGlobalTransport: { type: '(transport: LogTransport) => void', description: 'Register an additional transport for every logger.' },
+    clearGlobalTransports: { type: '() => void', description: 'Remove all globally registered transports.' },
+  }}
+/>
+
+<TypeTable
+  title="Formatters"
+  types={{
+    formatJSON: { type: '(entry: LogEntry) => string', description: 'Newline-delimited JSON — the default in production.' },
+    formatPrettyJSON: { type: '(entry: LogEntry) => string', description: 'Indented, human-readable JSON.' },
+    formatPrettyTerminal: { type: '(entry: LogEntry) => string', description: 'Colorized terminal output — the default in development.' },
+    formatPrettyTimestamp: { type: '(date: Date) => string', description: "Formats a timestamp for the pretty-terminal formatter's header." },
+    formatTimestamp: { type: '(date: Date) => string', description: 'Formats a timestamp for the JSON formatters (ISO 8601).' },
+  }}
+/>
+
+<TypeTable
+  title="Context (AsyncLocalStorage)"
+  types={{
+    runWithContext: { type: '<T>(context: LogContext, fn: () => T) => T', description: 'Runs fn with LogContext available to any logger call inside it, without explicit passing.' },
+    getAsyncContext: { type: '() => LogContext | undefined', description: 'Reads the current AsyncLocalStorage-backed context, if any.' },
+    getContextCorrelationId: { type: '() => string | undefined', description: 'Convenience accessor for the correlation ID on the current context.' },
+    getContextMetadata: { type: '() => Record<string, unknown> | undefined', description: 'Reads arbitrary metadata attached to the current context.' },
+    isAsyncContextAvailable: { type: '() => boolean', description: 'Whether AsyncLocalStorage is supported in the current runtime.' },
+    createContextMiddleware: { type: '() => Middleware', description: 'A NextRush middleware that seeds runWithContext for the request lifecycle.' },
+  }}
+/>
+
+<TypeTable
+  title="Redaction & serialization"
+  types={{
+    DEFAULT_SENSITIVE_KEYS: { type: 'readonly string[]', description: 'The built-in list of keys redacted by default (password, token, authorization, etc.).' },
+    mergeSensitiveKeys: { type: '(...lists: string[][]) => string[]', description: 'Combines the default list with custom keys.' },
+    shouldRedact: { type: '(key: string, sensitiveKeys: string[]) => boolean', description: 'Whether a given key matches the redaction list.' },
+    containsSensitivePattern: { type: '(value: string) => boolean', description: 'Heuristic check for values that look sensitive even under an unlisted key (e.g. a JWT-shaped string).' },
+    redactSensitiveValues: { type: '(data: unknown, sensitiveKeys: string[]) => unknown', description: 'Deep-redacts matching keys in an object before logging.' },
+    sanitizeContext: { type: '(context: LogContext, sensitiveKeys: string[]) => LogContext', description: 'Applies redaction to a LogContext object specifically.' },
+    safeSerialize: { type: '(value: unknown) => unknown', description: 'Serializes a value defensively — handles circular references and non-JSON-safe types.' },
+    serializeError: { type: '(error: Error) => SerializedError', description: 'Converts an Error into a plain, loggable object (message, stack, cause).' },
+  }}
+/>
+
+<TypeTable
+  title="Levels & runtime"
+  types={{
+    LOG_LEVELS: { type: 'readonly LogLevel[]', description: "Every level in ascending severity: ['trace', 'debug', 'info', 'warn', 'error', 'fatal']." },
+    LOG_LEVEL_PRIORITY: { type: 'Record<LogLevel, number>', description: 'Numeric priority per level, used for minLevel comparisons.' },
+    compareLevels: { type: '(a: LogLevel, b: LogLevel) => number', description: 'Compares two levels by priority.' },
+    isValidLogLevel: { type: '(value: unknown) => value is LogLevel', description: 'Type guard for a LogLevel string.' },
+    parseLogLevel: { type: '(value: string, fallback: LogLevel) => LogLevel', description: 'Parses an environment/config string into a LogLevel, falling back if invalid.' },
+    shouldLog: { type: '(level: LogLevel, minLevel: LogLevel) => boolean', description: 'Whether an entry at level clears the minLevel threshold.' },
+    isProductionBuild: { type: '() => boolean', description: 'Whether the current build/environment is production (drives several defaults).' },
+    isError: { type: '(value: unknown) => value is Error', description: 'Type guard for Error-like values.' },
+    detectRuntime: { type: '() => RuntimeEnvironment', description: 'Detects Node.js/Bun/Deno/browser/edge at the logging layer (independent of `@nextrush/runtime`).' },
+    getRuntime: { type: '() => RuntimeEnvironment', description: 'Cached accessor for the detected runtime.' },
+    getRuntimeInfo: { type: '() => RuntimeInfo', description: 'Extended runtime detail (name + version) for log metadata.' },
+    getEnvVar: { type: '(name: string) => string | undefined', description: 'Cross-runtime environment variable read (Node, Deno, Bun).' },
+    getProcessId: { type: '() => number | undefined', description: 'Process ID for log metadata, where available.' },
+    getTime: { type: '() => number', description: 'High-resolution timestamp source used for duration calculations.' },
+    isNamespaceEnabled: { type: '(namespace: string) => boolean', description: 'Whether a given logger namespace currently passes the enable/disable filters below.' },
+    enableNamespaces: { type: '(...patterns: string[]) => void', description: 'Enables logging for namespaces matching the given patterns.' },
+    disableNamespaces: { type: '(...patterns: string[]) => void', description: 'Disables logging for namespaces matching the given patterns.' },
+    enableLogging: { type: '() => void', description: 'Globally re-enables logging after disableLogging().' },
+    disableLogging: { type: '() => void', description: 'Globally suppresses all log output — mainly for tests.' },
+    log: { type: '(level: LogLevel, message: string, ...args) => void', description: 'The lowest-level log call, bypassing a named Logger instance.' },
+    defaultLogger: { type: 'ILogger', description: "The library's own default logger instance (aliased from @nextrush/log's `logger`)." },
+    scopedLogger: { type: '(namespace: string) => ILogger', description: 'Alias for creating a namespace-scoped logger, equivalent to createLogger(namespace).' },
+  }}
+/>
+
+---
+
 ## Integration Example
 
 ### Correlation IDs Across Services

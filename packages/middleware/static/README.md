@@ -2,6 +2,8 @@
 
 High-performance, security-first static file serving middleware for NextRush.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Features
 
 - 🔒 **Security-First** - Symlink protection, path traversal prevention, X-Content-Type-Options

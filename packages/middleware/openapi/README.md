@@ -2,6 +2,8 @@
 
 > Zero-config OpenAPI 3.1 for NextRush. Your routes are already the spec — no decorators, no duplication.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Most OpenAPI tooling makes you describe your data twice: once for runtime validation, once for the docs (`@ApiProperty()` on every field, hand-written JSON Schema, and so on). It drifts, it's tedious, and people stop maintaining it.

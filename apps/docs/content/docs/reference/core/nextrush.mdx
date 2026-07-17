@@ -27,7 +27,6 @@ You want to build an API, not manage dependencies.
 | `listen()`, `serve()`, `createHandler()`      | `@nextrush/adapter-node` |
 | HTTP error classes and utilities              | `@nextrush/errors`       |
 | TypeScript types, `HttpStatus`, `ContentType` | `@nextrush/types`        |
-| `VERSION`                                     | `nextrush`               |
 
 One install and one import path; defaults cover a typical Node.js API without extra config files.
 
@@ -192,14 +191,22 @@ import { HttpStatus, ContentType } from 'nextrush';
 ### Constants
 
 ```typescript
-import { VERSION, HttpStatus, ContentType } from 'nextrush';
+import { HttpStatus, ContentType } from 'nextrush';
 ```
 
 | Export        | Description                          |
 | ------------- | ------------------------------------ |
-| `VERSION`     | Current NextRush version (`"3.0.0"`) |
 | `HttpStatus`  | HTTP status code constants           |
 | `ContentType` | Content type constants               |
+
+<Callout type="warn" title="No VERSION export">
+  `nextrush` does not export a `VERSION` constant — the meta package
+  deliberately omits it to preserve Edge runtime compatibility (no
+  `node:fs` access to resolve it at build time). Read the installed
+  version from your own `package.json`/lockfile, or see the
+  [Compatibility Matrix](/docs/resources/compatibility-matrix) for the
+  current published version of every package.
+</Callout>
 
 ## Common Patterns
 

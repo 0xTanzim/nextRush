@@ -4,6 +4,8 @@
 
 Connect your NextRush application to [Bun](https://bun.sh). This adapter bridges NextRush's middleware system to `Bun.serve()`, handling context creation, in-flight request tracking, and graceful shutdown.
 
+**Support tier:** Internal — non-`-node` adapter until GA (may change without a major). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Why Bun?
 
 ```

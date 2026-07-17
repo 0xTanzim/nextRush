@@ -125,10 +125,10 @@ const config = container.resolve<Config>('CONFIG');
 Resolve all instances registered under a token. Returns an empty array if none are registered.
 
 ```typescript
-container.register('Plugin', { useValue: pluginA });
-container.register('Plugin', { useValue: pluginB });
+container.register('Handler', { useValue: handlerA });
+container.register('Handler', { useValue: handlerB });
 
-const plugins = container.resolveAll<Plugin>('Plugin'); // [pluginA, pluginB]
+const handlers = container.resolveAll<Handler>('Handler'); // [handlerA, handlerB]
 ```
 
 ### `container.isRegistered(token)`

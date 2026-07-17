@@ -2,6 +2,8 @@
 
 > Standardized HTTP error handling that eliminates response inconsistency and builds API client trust.
 
+**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Every API returns errors differently. This creates chaos for both developers and API consumers:

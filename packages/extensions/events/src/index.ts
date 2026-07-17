@@ -99,7 +99,7 @@ export interface EventsOptions extends EventEmitterOptions {
  * Attaches `app.events` for direct access throughout your app.
  *
  * @template T - Event map type
- * @param options - Plugin options
+ * @param options - Extension options
  * @returns A NextRush Extension. `app.extend(events<T>())` returns `app`
  * intersected with `{ events: EventEmitter<T> }` — `app.events` is inferred
  * automatically, with no `declare module` augmentation required.

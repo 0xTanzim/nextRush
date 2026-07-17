@@ -2,6 +2,8 @@
 
 WebSocket support for NextRush with rooms, broadcasting, and simple DX.
 
+**Support tier:** Public — extensions (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Features
 
 - **🏭 Factory Pattern** - Explicit, typed API with `createWebSocket()`

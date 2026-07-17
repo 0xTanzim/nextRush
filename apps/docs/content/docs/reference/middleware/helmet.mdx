@@ -448,6 +448,68 @@ These are the most frequent configuration errors when using Helmet.
 
 ---
 
+## Advanced: CSP builders and nonces
+
+Beyond the `contentSecurityPolicy()` preset above, the package exports the
+builder and nonce primitives directly — use these when a single static CSP
+config isn't enough (e.g. a per-request nonce for inline `<script>` tags).
+
+<TypeTable
+  title="CSP builder"
+  types={{
+    createCspBuilder: { type: '() => CspBuilder', description: 'Fluent builder for constructing a CSP directive set programmatically instead of a static options object.' },
+    buildCspHeader: { type: '(directives: ContentSecurityPolicyDirectives) => string', description: 'Serializes a directives object into the literal CSP header value.' },
+    buildCspWithNonce: { type: '(directives: ContentSecurityPolicyDirectives, nonce: string) => string', description: "Same as buildCspHeader, injecting 'nonce-<value>' into script-src/style-src." },
+    analyzeCsp: { type: '(header: string) => { warnings: string[] }', description: 'Parses an existing CSP header string and flags common misconfigurations.' },
+    analyzeCspSecurity: { type: '(directives: ContentSecurityPolicyDirectives) => HstsValidationResult', description: 'Structural security analysis of a directive set (e.g. flags unsafe-inline without a nonce).' },
+  }}
+/>
+
+<TypeTable
+  title="Nonces (per-request inline script/style allowlisting)"
+  types={{
+    generateNonce: { type: '() => string', description: 'Generates a cryptographically random nonce value (base64).' },
+    generateCspNonce: { type: '() => string', description: 'Alias of generateNonce, named for CSP call sites.' },
+    createNonceProvider: { type: '() => NonceProvider', description: 'Per-request nonce factory — call once per request, then pass the same value to buildCspWithNonce and your template.' },
+    createNoncedScript: { type: '(nonce: string, src: string) => string', description: 'Renders a `<script nonce="...">` tag string for a given nonce and source.' },
+    createNoncedStyle: { type: '(nonce: string, css: string) => string', description: 'Renders a `<style nonce="...">` tag string.' },
+    extractNonce: { type: '(cspHeaderValue: string) => string | undefined', description: 'Reads the nonce back out of an already-built CSP header value.' },
+    validateNonce: { type: '(nonce: string) => boolean', description: "Structural validation — rejects a nonce that doesn't look like a real generated value." },
+    isValidNonce: { type: '(nonce: string) => boolean', description: 'Alias of validateNonce.' },
+  }}
+/>
+
+<TypeTable
+  title="Permissions-Policy builder"
+  types={{
+    createPermissionsPolicyBuilder: { type: '() => PermissionsPolicyBuilder', description: 'Fluent builder for Permissions-Policy directives, mirroring createCspBuilder.' },
+    buildPermissionsPolicyHeader: { type: '(directives: PermissionsPolicyDirectives) => string', description: 'Serializes a directives object into the literal Permissions-Policy header value.' },
+    restrictivePermissionsPolicy: { type: 'PermissionsPolicyDirectives', description: "A preset directive set that denies every feature by default (camera, microphone, geolocation, etc.) — start here and allowlist what you actually use." },
+  }}
+/>
+
+<TypeTable
+  title="Validation"
+  types={{
+    isValidCspDirective: { type: '(name: string) => name is CspDirectiveName', description: 'Type guard for a recognized CSP directive name.' },
+    isBooleanCspDirective: { type: '(name: string) => boolean', description: "Whether a directive is boolean-valued (e.g. upgrade-insecure-requests) rather than a source list." },
+    isCspValueSafe: { type: '(value: string) => boolean', description: "Rejects a source-list value containing an unsafe token (`'unsafe-inline'`, `'unsafe-eval'`, or a bare `*`) — used to warn, not silently strip." },
+    isUnsafeCspValue: { type: '(value: string) => boolean', description: 'Negation-style check against the same unsafe-token list.' },
+    isValidHash: { type: '(value: string) => boolean', description: "Validates a CSP hash-source value (`'sha256-...'`)." },
+    sanitizeCspValue: { type: '(value: string) => string', description: 'Strips characters that would break CSP header serialization or enable header injection.' },
+    sanitizeHeaderValue: { type: '(value: string) => string', description: 'General header-injection guard applied to any user-influenced header value this package sets.' },
+    validateHstsOptions: { type: '(options: StrictTransportSecurityOptions) => HstsValidationResult', description: 'Validates an HSTS config before use — e.g. warns if preload is set without includeSubDomains.' },
+    securityWarning: { type: '(message: string) => void', description: 'The internal dev-time console warning helper for a risky configuration.' },
+  }}
+/>
+
+Constants (`DEFAULT_CSP_DIRECTIVES`, `STRICT_CSP_DIRECTIVES`,
+`BOOLEAN_CSP_DIRECTIVES`, `VALID_CSP_DIRECTIVES`, `UNSAFE_CSP_VALUES`,
+`DEFAULT_HSTS_MAX_AGE`, `RECOMMENDED_HSTS_MAX_AGE`,
+`MIN_HSTS_PRELOAD_MAX_AGE`, `HEADERS`) are the literal directive lists and
+threshold values the presets themselves use — exported so a custom
+configuration can start from the same baseline rather than hardcoding it.
+
 ## Troubleshooting
 
 **Cross-origin resources fail to load** — The default `Cross-Origin-Embedder-Policy: require-corp` blocks resources without CORP headers. Set `crossOriginEmbedderPolicy: false` or `'credentialless'` if loading third-party resources.

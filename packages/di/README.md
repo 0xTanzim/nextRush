@@ -9,6 +9,8 @@ Lightweight dependency injection container for NextRush v3.
 > [README's Dependency Footprint table](../../README.md#dependency-footprint) for the full
 > per-path breakdown.
 
+**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Features
 
 - **Constructor Injection** — Automatic dependency resolution via TypeScript metadata

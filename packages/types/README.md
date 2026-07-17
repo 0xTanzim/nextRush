@@ -2,6 +2,8 @@
 
 > Shared TypeScript type definitions for the NextRush framework.
 
+**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Backend frameworks often have types scattered across packages. This creates:

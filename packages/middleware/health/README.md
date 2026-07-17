@@ -2,6 +2,8 @@
 
 > Liveness and readiness health check endpoints for orchestrator probes — Kubernetes, PM2, systemd, Docker.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## The Problem
 
 Running a Node.js service in an orchestrator without a standard health contract creates real

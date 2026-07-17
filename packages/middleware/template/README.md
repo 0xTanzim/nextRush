@@ -2,6 +2,8 @@
 
 > Modern, secure template engine for NextRush with Mustache-like syntax, 70+ helpers, partials, layouts, and multi-engine support.
 
+**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
 ## Highlights
 
 - **🔒 Security First** - Blocks prototype pollution, path traversal, XSS, and infinite recursion

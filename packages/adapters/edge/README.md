@@ -2,6 +2,7 @@
 
 > **Universal Edge Runtime Adapter for NextRush** — Deploy anywhere the Fetch API runs
 
+**Support tier:** Internal — non-`-node` adapter until GA (may change without a major). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
 [![npm version](https://img.shields.io/npm/v/@nextrush/adapter-edge)](https://www.npmjs.com/package/@nextrush/adapter-edge)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue)](https://www.typescriptlang.org/)
 [![Edge Ready](https://img.shields.io/badge/Edge-Ready-orange)](https://workers.cloudflare.com/)
