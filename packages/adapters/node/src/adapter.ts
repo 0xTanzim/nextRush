@@ -153,8 +153,14 @@ export function createHandler(
   const trustProxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
 
+  // Hoist the constant context-options object out of the per-request path
+  // (hot-path review HP-4): `trustProxy` is fixed for the server's lifetime, so the
+  // object is built once and reused. Frozen so a stray mutation cannot leak across
+  // requests; the NodeContext constructor only reads `options.trustProxy`.
+  const contextOptions: NodeContextOptions = Object.freeze({ trustProxy });
+
   return (req: IncomingMessage, res: ServerResponse): void => {
-    const ctx = createNodeContext(req, res, { trustProxy });
+    const ctx = createNodeContext(req, res, contextOptions);
 
     // Single promise chain: .then(onFulfilled, onRejected) avoids extra microtask
     handler(ctx).then(

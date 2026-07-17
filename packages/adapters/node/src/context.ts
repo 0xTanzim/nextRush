@@ -62,6 +62,9 @@ export interface NodeContextOptions {
 /** Shared empty params object — avoids allocation per request (overwritten by router) */
 const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
 
+/** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
+const RESOLVED_NEXT: Promise<void> = Promise.resolve();
+
 /**
  * Node.js Context implementation
  */
@@ -111,21 +114,27 @@ export class NodeContext implements AdapterContext {
   }
 
   /**
-   * Get client IP address using the shared cross-adapter policy (audit F-11).
+   * Resolve the client IP via the shared cross-adapter policy (audit F-11).
    *
    * @remarks
-   * Only trusts proxy headers when `trustProxy` is enabled. Precedence and
-   * format validation match Bun/Deno/Edge exactly (x-forwarded-for → x-real-ip,
-   * each validated), so `ctx.ip` behaves identically across runtimes.
+   * HP-1 trim: when `trustProxy` is false (default) the socket address IS the
+   * client IP, so it is returned directly — no header-lookup closure, no
+   * {@link resolveClientIp} call — byte-identical to the policy's own
+   * `trustProxy: false` branch. When true, resolution goes through the shared
+   * policy so precedence/validation match Bun/Deno/Edge. The socket address is
+   * read eagerly, so `ctx.ip` stays stable even after the socket is torn down.
    */
   private getClientIp(req: IncomingMessage, trustProxy: boolean): string {
     const directIp = req.socket.remoteAddress ?? '';
+    if (!trustProxy) {
+      return directIp;
+    }
     return resolveClientIp(
       (name) => {
         const value = req.headers[name];
         return Array.isArray(value) ? value[0] : value;
       },
-      { trustProxy, directIp }
+      { trustProxy: true, directIp }
     );
   }
 
@@ -458,10 +467,19 @@ export class NodeContext implements AdapterContext {
   // Middleware
   // ===========================================================================
 
-  async next(): Promise<void> {
-    if (this._next) {
-      await this._next();
-    }
+  /**
+   * Advance the middleware chain.
+   *
+   * @remarks
+   * HP-7 trim: forwards the composer's dispatch thunk directly instead of
+   * wrapping it in an extra `async` frame. The thunk always returns a promise
+   * and never throws synchronously (the composer converts sync throws to
+   * `Promise.reject`), so ordering, rejection propagation, and the
+   * `Promise<void>` contract are preserved. Unwired → a cached resolved promise
+   * (the same no-op as before, without a per-call allocation).
+   */
+  next(): Promise<void> {
+    return this._next ? this._next() : RESOLVED_NEXT;
   }
 
   // ===========================================================================
