@@ -19,19 +19,53 @@
 
 ## 2. Resolve internal duplications (per design.md D3)
 
-- [ ] 2.1 Extract `EMPTY_PARAMS` to a single internal leaf module (e.g.
+- [x] 2.1 Extract `EMPTY_PARAMS` to a single internal leaf module (e.g.
       `packages/router/src/constants.ts` or similar) imported by both `router.ts` and
       `match-route.ts` — a leaf constant has no import cycle, so the cycle concern the current
       comments cite is resolvable. Remove both local definitions.
-- [ ] 2.2 Consolidate the two path-normalization sites (`matchRoute` in `match-route.ts` vs
+      <!-- DONE: created leaf `packages/router/src/constants.ts` (imports nothing → cycle
+      impossible by construction) exporting EMPTY_PARAMS; `match-route.ts` now imports it.
+      DISCREPANCY vs audit premise: EMPTY_PARAMS was defined ONCE, not twice — only in
+      `match-route.ts` (grep + graph confirmed: router.ts neither defines nor uses it; the T014
+      split already removed the router.ts copy). Removed the sole def + its stale "also defined
+      in router.ts / dodges an import cycle" comment. Frozen-null-prototype semantics identical
+      (`Object.freeze(Object.create(null))`). Did NOT add an unused import to router.ts (it has
+      no EMPTY_PARAMS reference), so only match-route.ts imports the shared constant today. -->
+- [x] 2.2 Consolidate the two path-normalization sites (`matchRoute` in `match-route.ts` vs
       `findAllowedMethods` in `matching.ts`) into one shared internal helper both call, so the
       query-strip/lowercase/`//`-collapse/trailing-slash logic has a single definition.
-- [ ] 2.3 Investigate the redundant `hasParams` post-match loop in `matchRoute`: determine
+      <!-- DONE: added shared `normalizePathForMatch(path, caseSensitive, strict)` in
+      `matching.ts` (lowercase + //-collapse + trailing-slash); both matchRoute and
+      findAllowedMethods call it. Query-strip kept caller-specific in matchRoute — confirmed
+      intentional: findAllowedMethods receives an already-query-free ctx.path. matchRoute's
+      case-preserving `originalPath` reuses the helper with caseSensitive=true. Behavior
+      identical (212 tests green, incl. case-insensitive param-case preservation).
+      NOTE (out of scope, flagged not touched): a THIRD method `Router.normalizePath` (router.ts)
+      shares the //-collapse+trailing-slash mechanics but is a separate registration-time concern
+      (prefix-join + leading-slash ensure + never case-folds) — correctly outside D3's named
+      2-site scope and inside section 3's file; left untouched. -->
+- [x] 2.3 Investigate the redundant `hasParams` post-match loop in `matchRoute`: determine
       whether it's truly redundant given `matchNodeIndexed`'s backtrack deletion. Simplify/remove
       ONLY if the existing test suite (including param-backtracking edge cases) proves it
       behavior-preserving. If any doubt, leave it and add a comment documenting why it's retained.
-- [ ] 2.4 Verify: full `@nextrush/router` test suite green after each dedup; the router's
+      <!-- DONE: RETAINED-WITH-REASON (one-line WHY comment added in matchRoute). Analysis: the
+      `deleteProperty` branch is defensive, not functional — matchNodeIndexed only ever assigns
+      string param values and deletes its own keys on backtrack, so no undefined-valued key can
+      survive a successful match; the loop's LIVE purpose is computing `hasParams` to return the
+      shared frozen EMPTY_PARAMS sentinel vs an allocated object. Removal buys nothing (Object.keys
+      runs regardless to decide hasParams) while dropping the guard, and hot-path rewrites are
+      deferred to the radix RFC benchmark (design.md D4). Full suite incl. router-edge-cases.test
+      + param-decoding backtracking green — but retained per D3's "do not remove defensive code on
+      a hunch" since removal has no upside. -->
+- [x] 2.4 Verify: full `@nextrush/router` test suite green after each dedup; the router's
       public-surface snapshot unchanged (dedup is internal only).
+      <!-- DONE: `pnpm --filter @nextrush/router test` → 212/212 passed across 9 files (router,
+      router-edge-cases, router-audit, allowed-methods, param-decoding, route-metadata,
+      middleware-pipeline, audit-fixes, public-surface). public-surface.test.ts green → runtime +
+      type export set byte-identical (index.ts untouched; new EMPTY_PARAMS/normalizePathForMatch
+      are internal, not re-exported from the barrel). typecheck clean, ESLint clean (0 warnings),
+      tsup build success. -->
+
 
 ## 3. Finish the `router.ts` split (completes T014 / router-module-size-compliance)
 

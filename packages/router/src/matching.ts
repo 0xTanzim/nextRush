@@ -76,6 +76,43 @@ export function findNode(node: TrieNode, segments: string[], index: number): Tri
 }
 
 /**
+ * Normalize a request path for segment-trie matching: fold case (unless
+ * `caseSensitive`), collapse repeated slashes, and strip a single trailing
+ * slash (unless `strict`). This is the one definition of the match-time
+ * normalization rules, shared by `matchRoute` (in `match-route.ts`) and
+ * {@link findAllowedMethods}.
+ *
+ * Query-string removal is intentionally NOT done here — it is caller-specific:
+ * `matchRoute` strips the query before calling, while `findAllowedMethods`
+ * receives an already query-free `ctx.path`. Pass `caseSensitive: true` to
+ * normalize while preserving case (used by `matchRoute` to build the
+ * original-case path from which param values are extracted).
+ *
+ * NOTE: registration-time normalization (`Router.normalizePath`) is a separate
+ * concern — it joins the router prefix, guarantees a leading slash, and never
+ * folds case — so it deliberately does not share this helper.
+ */
+export function normalizePathForMatch(
+  path: string,
+  caseSensitive: boolean,
+  strict: boolean
+): string {
+  let normalized = caseSensitive ? path : path.toLowerCase();
+
+  // Fast-path: skip the regex when there are no double slashes (99%+ of requests).
+  if (normalized.includes('//')) {
+    normalized = normalized.replace(/\/+/g, '/');
+  }
+
+  // Non-strict mode treats a trailing slash as insignificant; strict keeps it.
+  if (!strict && normalized.length > 1 && normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  return normalized;
+}
+
+/**
  * Find all HTTP methods registered for a given path via a single tree walk.
  * `caseSensitive`/`strict` (formerly `this.opts.*`) and `root` (formerly
  * `this.root`) are threaded explicitly.
@@ -86,15 +123,7 @@ export function findAllowedMethods(
   caseSensitive: boolean,
   strict: boolean
 ): HttpMethod[] {
-  let normalized = caseSensitive ? path : path.toLowerCase();
-
-  if (normalized.includes('//')) {
-    normalized = normalized.replace(/\/+/g, '/');
-  }
-
-  if (!strict && normalized.length > 1 && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
-  }
+  const normalized = normalizePathForMatch(path, caseSensitive, strict);
 
   const segments = normalized.split('/').filter(Boolean);
   const node = findNode(root, segments, 0);

@@ -14,18 +14,9 @@
  */
 
 import type { Context, HttpMethod, RouteHandler } from '@nextrush/types';
+import { EMPTY_PARAMS } from './constants';
+import { matchNodeIndexed, normalizePathForMatch } from './matching';
 import type { HandlerEntry, TrieNode } from './segment-trie';
-import { matchNodeIndexed } from './matching';
-
-/**
- * Frozen empty params for static routes — avoids allocation per request.
- * Duplicated here (also defined in `router.ts`) rather than shared via an
- * import cycle — both are tiny, module-local, and never diverge in practice
- * since `Object.freeze(Object.create(null))` has exactly one meaning.
- */
-const EMPTY_PARAMS: Record<string, string> = Object.freeze(
-  Object.create(null) as Record<string, string>
-);
 
 /**
  * `matchRoute`'s result, before the caller (`Router.match`) attaches
@@ -60,23 +51,15 @@ export function matchRoute(
   decode: boolean
 ): RouteMatchResult | null {
   let path = rawPath;
-  // Query string must not affect path matching (RFC 3986 §3.4). Strip it here
-  // so both the normalized lookup path and extracted param values exclude it.
+  // Query string must not affect path matching (RFC 3986 §3.4). Strip it here,
+  // before normalization, so both the lookup path and extracted param values
+  // exclude it. This strip is caller-specific: `findAllowedMethods` receives an
+  // already query-free `ctx.path`, so the shared `normalizePathForMatch` does
+  // not strip — only `matchRoute` does.
   const queryIdx = path.indexOf('?');
   if (queryIdx !== -1) path = path.slice(0, queryIdx);
 
-  const isCaseInsensitive = !caseSensitive;
-  let normalized = isCaseInsensitive ? path.toLowerCase() : path;
-
-  // Fast-path: skip regex when no double slashes (99%+ of requests)
-  if (normalized.includes('//')) {
-    normalized = normalized.replace(/\/+/g, '/');
-  }
-
-  // For strict mode, keep trailing slash; otherwise remove it
-  if (!strict && normalized.length > 1 && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
-  }
+  const normalized = normalizePathForMatch(path, caseSensitive, strict);
 
   // FAST PATH: O(1) static route lookup (no tree traversal)
   // For static routes, trailing slash is irrelevant — always strip for lookup
@@ -99,17 +82,13 @@ export function matchRoute(
   // Use index-based path scanning instead of split('/').filter(Boolean)
   const params: Record<string, string> = {};
 
-  // For case-insensitive mode, preserve original-case path for param values
-  let originalPath: string | undefined;
-  if (isCaseInsensitive) {
-    originalPath = path;
-    if (originalPath.includes('//')) {
-      originalPath = originalPath.replace(/\/+/g, '/');
-    }
-    if (!strict && originalPath.length > 1 && originalPath.endsWith('/')) {
-      originalPath = originalPath.slice(0, -1);
-    }
-  }
+  // For case-insensitive mode, preserve the original-case (query-stripped) path
+  // so extracted param values keep their casing while lookup uses the lowercased
+  // `normalized`. `caseSensitive: true` here means "normalize but do not fold
+  // case".
+  const originalPath = caseSensitive
+    ? undefined
+    : normalizePathForMatch(path, true, strict);
 
   const result = matchNodeIndexed(
     root,
@@ -122,7 +101,14 @@ export function matchRoute(
   );
   if (!result) return null;
 
-  // Check if any params were actually set
+  // Post-match: compute `hasParams` so a zero-param walk returns the shared
+  // frozen EMPTY_PARAMS sentinel rather than a throwaway object. RETAINED (not
+  // removed) per task 2.3 / design.md D3: the `deleteProperty` branch is a cheap
+  // defensive guard — `matchNodeIndexed` only ever assigns string param values
+  // and deletes its own keys on backtrack, so an undefined-valued key cannot
+  // occur today — but removing the loop buys nothing (Object.keys still runs to
+  // decide `hasParams`) while dropping that guard, and hot-path rewrites are
+  // deferred to the radix RFC's benchmark (design.md D4).
   let hasParams = false;
   for (const key of Object.keys(params)) {
     if (params[key] === undefined) {
