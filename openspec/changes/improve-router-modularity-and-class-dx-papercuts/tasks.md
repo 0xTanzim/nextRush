@@ -67,13 +67,29 @@
       edit to the test itself is byte-identical confirmation. None of the 5 new internal files
       (`matching.ts`, `match-route.ts`, `composition.ts`, `middleware-adapter.ts`,
       `registration.ts`) are re-exported from `src/index.ts`.
-- [ ] 1.6 Verify: `find packages/router/src -name '*.ts' -not -path '*__tests__*' | xargs wc -l |
+- [x] 1.6 Verify: `find packages/router/src -name '*.ts' -not -path '*__tests__*' | xargs wc -l |
       awk '$1>300'` returns none.
-      **Not satisfied.** Command returns `473 packages/router/src/router.ts` — see 1.3's note
-      for the full accounting of why, and what was tried. Every other source file in the package
-      (`matching.ts` 167, `match-route.ts` 140, `composition.ts` 75, `middleware-adapter.ts` 57,
-      `registration.ts` 211, `segment-trie.ts` 183, `group-router.ts` 174, `redirect.ts` 97,
-      `route-metadata.ts` 68, `index.ts` 34) is comfortably under the ceiling.
+      **Now satisfied — closed by a sibling change, independently re-verified here, not by
+      trusting either session's self-report.** This task was left open at 473 (later 525) lines
+      because D1-D3's named clusters ran out before reaching 300, per 1.3's note. The remaining
+      gap was closed by change `fix-router-issues-and-author-radix-rfc`'s section 3
+      ("Finish the `router.ts` split (completes T014 / router-module-size-compliance)"),
+      committed as `71c2dc4`/`e9b0774` on top of this change's own work — it extracted
+      `dispatch.ts` (106 lines), `state.ts` (52 lines), and moved more of `registration.ts`/
+      `group-router.ts`/`match-route.ts`/`segment-trie.ts`, going beyond D1-D3's originally
+      named clusters (an escape hatch this proposal's design.md already anticipated by leaving
+      the exact final split "a during-implementation decision"). Re-ran the verification command
+      myself against current HEAD rather than accepting the other change's tasks.md claim at
+      face value: `find packages/router/src -name '*.ts' -not -path '*__tests__*' | xargs wc -l |
+      grep -v total | awk '$1>300'` → empty (confirmed). Largest file is now `router.ts` at 298
+      lines. Also independently re-ran `pnpm --filter @nextrush/router test` (212/212 passing,
+      9 files, including `public-surface.test.ts` green — export set unchanged) and
+      `pnpm --filter @nextrush/router typecheck` (clean, zero errors) rather than trusting the
+      prior commit messages. All source files: `router.ts` 298, `registration.ts` 282,
+      `group-router.ts` 208, `matching.ts` 196, `segment-trie.ts` 195, `match-route.ts` 171,
+      `dispatch.ts` 106, `redirect.ts` 97, `route-metadata.ts` 68, `composition.ts` 75,
+      `state.ts` 52, `middleware-adapter.ts` 57, `constants.ts` 25, `index.ts` 34 — every file
+      comfortably under the 300-line ceiling.
 - [x] 1.7 Run any adapter-level or cross-package integration tests that exercise routing
       end-to-end (not just the router package's own unit tests) to catch an integration-level
       regression the unit suite might miss.
