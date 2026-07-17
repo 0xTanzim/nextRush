@@ -125,7 +125,7 @@
 
 ## 4. Author the radix-package RFC (per design.md D5 + the RFC outline)
 
-- [ ] 4.1 Author `docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md` following the existing RFC convention
+- [x] 4.1 Author `docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md` following the existing RFC convention
       (naming + structure of `RFC-NEXTRUSH-ADAPTER-CONTRACT.md`), covering all 9 outline sections
       from design.md: summary/motivation, current state (accurately post-doc-fix), segment-trie
       vs radix tradeoff, the shared `Router` contract (incl. the composition-surface gap), the
@@ -133,12 +133,44 @@
       (contract+conformance first, radix package second), the deferred `Reflect.deleteProperty`
       optimization as measurement-gated, costs/risks (maintenance/bus-factor, docs split,
       default-router positioning), and non-goals/open questions.
-- [ ] 4.2 Record the concrete driver for radix (Fastify-migrant familiarity vs. a perf
+      <!-- DONE: created docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md (315 lines) following the
+      `RFC-NEXTRUSH-*` naming + the ADAPTER-CONTRACT/SERVERLESS header convention (`# RFC — …`,
+      Status·Change blockquote). Status set to "Proposed — deferred" (honest: design specified,
+      package NOT built, gated on driver + T017) rather than "Accepted" since the other RFCs were
+      Accepted because their code shipped in-change; this ships no code. All 9 outline sections
+      present as numbered §1–§9 headings: §1 summary/motivation, §2 current state (accurate 3-layer
+      segment-trie engine grounded in real matchRoute/matchNodeIndexed/compileExecutor via
+      code-intelligence lookups), §3 segment-trie-vs-radix tradeoff (numbers deferred to T017),
+      §4 shared Router contract + the composition-surface gap (group/mount/use excluded from the
+      structural interface per types/router.ts JSDoc), §5 @nextrush/router-conformance modeled on
+      packages/adapters/conformance's defineConformanceSuite+capability-flag pattern, run against
+      BOTH routers, §6 sequencing (contract-harden + characterize segment-trie FIRST, radix SECOND),
+      §7 deferred Reflect.deleteProperty/pair-array-materialize as MEASUREMENT-GATED on T017,
+      §8 costs/risks (T059 single-maintainer bus-factor, docs split, segment-trie-default/radix-opt-in),
+      §9 non-goals & open questions. Verified all 4 spec.md acceptance scenarios hold. -->
+- [x] 4.2 Record the concrete driver for radix (Fastify-migrant familiarity vs. a perf
       hypothesis) in RFC §1/§3 — or carry it as an explicit open question if unresolved, and note
       that T017's benchmark is the evidence gate for both the "why" and the deferred hot-path item.
-- [ ] 4.3 Cross-link the RFC from the router README and/or `architecture.instructions.md`'s
+      <!-- DONE: carried as an EXPLICIT open question — NOT fabricated. §1 lists both candidate
+      drivers ((a) Fastify-migrant familiarity = ecosystem/DX arg; (b) a perf hypothesis =
+      UNPROVEN, gated on T017) and states the RFC "does not pick one for the maintainer"; §3 frames
+      the tradeoff honestly (hard numbers deferred to T017) and says the benchmark is the evidence
+      gate for the "why," so if radix shows no realistic win only the weaker familiarity driver
+      remains; §9's first open question is "The concrete driver (the blocker)" — stays
+      "Proposed — deferred" until the maintainer confirms a driver, "No driver → no package," and
+      T017 is named as the shared gate for BOTH the perf "why" (§3) AND the §7 hot-path item. -->
+- [x] 4.3 Cross-link the RFC from the router README and/or `architecture.instructions.md`'s
       router section if that's this repo's convention for surfacing RFCs (check how existing RFCs
       are referenced before adding a link).
+      <!-- DONE: checked the convention first — a markdown-prose search for `docs/RFC/RFC-NEXTRUSH`
+      shows the established pattern is a RELATIVE link from a package README/ARCHITECTURE.md to
+      `../../docs/RFC/…` (packages/stream/README.md + stream/validation ARCHITECTURE.md all do this).
+      No docs/RFC index file exists (dir has only RFC-*.md), and architecture.instructions.md lives
+      under .kiro/ which is gitignored — a link there would not be committed or reach readers. So
+      followed the committed-artifact convention: added a brief `## Design & RFCs` section to
+      packages/router/README.md linking `../../docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md` (identical
+      relative-link form to stream/README.md), with a one-line summary noting the segment trie
+      stays the default and radix is opt-in. -->
 
 ## 5. Cross-cutting
 

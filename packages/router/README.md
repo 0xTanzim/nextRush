@@ -614,6 +614,10 @@ router.post('/users', handler2);
 - **Unmatched routes**: `routes()` middleware sets `ctx.status = 404` and calls `next()`, allowing downstream middleware like `allowedMethods()` to respond.
 - **Parameter name conflicts**: In development, a warning is logged when two routes define different parameter names at the same tree position. The first registered name takes precedence.
 
+## Design & RFCs
+
+- [`docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md`](../../docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md) — RFC for a future, opt-in `@nextrush/router-radix` package: the shared `Router` contract a conformant router must implement, a router-conformance parity harness (modeled on `packages/adapters/conformance`), and the honest segment-trie-vs-radix tradeoff. The segment trie documented here remains the default; radix, if built, is opt-in.
+
 ## License
 
 MIT
