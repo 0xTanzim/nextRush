@@ -31,7 +31,7 @@ export interface TrieNode {
   segment: string;
   /** Node type */
   type: NodeType;
-  /** Children nodes keyed by first character */
+  /** Static child nodes keyed by whole path segment (e.g. `users`), not the first character */
   children: Map<string, TrieNode>;
   /** Parameter name if this is a param node */
   paramName?: string;

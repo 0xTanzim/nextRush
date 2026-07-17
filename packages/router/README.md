@@ -72,7 +72,7 @@ listen(app, 8080);
 
 ## Features
 
-- **Radix Tree Algorithm**: O(k) lookup where k = path length
+- **Segment Trie Algorithm**: O(k) lookup where k = path segment count
 - **Route Parameters**: Named parameters with `:param` syntax
 - **Wildcard Routes**: Catch-all with `*` parameter
 - **Route Groups**: Prefix-based grouping with middleware
@@ -344,7 +344,7 @@ router.match('GET', '/users/'); // ✓ matches (normalized)
 
 ## Performance
 
-The radix tree router provides:
+The segment trie router provides:
 
 - **O(k) Lookup**: Where k is the path length, not route count
 - **Memory Efficient**: Shared prefixes are stored once

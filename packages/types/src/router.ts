@@ -2,7 +2,8 @@
  * @nextrush/types - Router Type Definitions
  *
  * Types for the NextRush router system.
- * The router uses a radix tree for efficient route matching.
+ * The router matches routes with a segment trie keyed by whole path segments,
+ * giving O(k) lookups where k is the number of path segments.
  *
  * @packageDocumentation
  */
