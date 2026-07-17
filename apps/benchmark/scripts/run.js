@@ -9,8 +9,10 @@
  *   node scripts/run.js --profile full           # publishable profile
  *   node scripts/run.js --tool autocannon        # force autocannon
  *   node scripts/run.js --framework fastify      # specific framework
+ *   node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class  # explicit set (targeted comparison / CI gate)
  *   node scripts/run.js --scenario hello-world   # specific scenario
  *   node scripts/run.js --connections 256        # override connections
+ *   node scripts/run.js --duration 3 --runs 3    # override per-run duration + run count (fast multi-run / CI smoke)
  *   node scripts/run.js --pin 0-3                # pin servers to CPU cores (taskset)
  *   node scripts/run.js --no-validate            # skip the parity pre-flight (not advised)
  */
@@ -68,8 +70,36 @@ const skipValidate = args['no-validate'] === true;
 const enableTraceGc = args['trace-gc'] === true;
 const connectionsOverride = args.connections ? [parseInt(args.connections, 10)] : null;
 
+// Optional overrides for a fast, still-multi-run measurement (a targeted
+// class-vs-functional comparison, or the CI perf-gate smoke) without authoring
+// a new profile. `--duration 3` is normalized to "3s" so parseDuration/wrk
+// accept it; a unit-suffixed value ("3s"/"2m"/"1h") passes through unchanged.
+const durationOverride = args.duration
+  ? /^\d+$/.test(String(args.duration))
+    ? `${args.duration}s`
+    : String(args.duration)
+  : null;
+const runsOverride = args.runs ? parseInt(args.runs, 10) : null;
+
 let frameworkIds;
-if (args.framework) {
+if (args.frameworks) {
+  // `--frameworks a,b,c` — an explicit, comma-separated set. Runs exactly the
+  // named servers (in the given order) without pulling in the whole
+  // DEFAULT_FRAMEWORKS cross-framework set. Used for a targeted comparison
+  // (e.g. functional-vs-class within NextRush) and by the CI perf gate, which
+  // must benchmark a fixed, small set rather than every competitor.
+  frameworkIds = String(args.frameworks)
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const unknown = frameworkIds.filter((id) => !FRAMEWORKS[id]);
+  if (frameworkIds.length === 0 || unknown.length > 0) {
+    logError(
+      `Unknown framework(s): ${unknown.join(', ') || '(none provided)'}. Available: ${Object.keys(FRAMEWORKS).join(', ')}`
+    );
+    process.exit(1);
+  }
+} else if (args.framework) {
   if (!FRAMEWORKS[args.framework]) {
     logError(`Unknown framework: ${args.framework}. Available: ${Object.keys(FRAMEWORKS).join(', ')}`);
     process.exit(1);
@@ -129,9 +159,9 @@ async function main() {
   log(`Profile:      ${profileName} — ${profile.description}`);
   log(`Publishable:  ${profile.publishable ? 'yes' : 'NO (dev/stress profile)'}`);
   log(`Tool:         ${activeTool}`);
-  log(`Duration:     ${profile.duration} per test`);
+  log(`Duration:     ${durationOverride || profile.duration} per test`);
   log(`Connections:  ${connections.join(', ')}`);
-  log(`Runs:         ${profile.runs} per configuration`);
+  log(`Runs:         ${runsOverride || profile.runs} per configuration`);
   log(`Scenarios:    ${scenarios.length}`);
   log(`Frameworks:   ${frameworkIds.map((id) => FRAMEWORKS[id].name).join(', ')}`);
   log(`CPU pinning:  ${pinCores ? `cores ${pinCores}` : 'off'}`);
@@ -168,8 +198,8 @@ async function main() {
       port: PORT,
       scenarios,
       connections,
-      runs: profile.runs,
-      duration: profile.duration,
+      runs: runsOverride || profile.runs,
+      duration: durationOverride || profile.duration,
       threads: profile.threads,
       profile,
       pinCores,
@@ -194,9 +224,9 @@ async function main() {
     tool: activeTool,
     system: sysInfo,
     configuration: {
-      duration: profile.duration,
+      duration: durationOverride || profile.duration,
       connections,
-      runs: profile.runs,
+      runs: runsOverride || profile.runs,
       threads: profile.threads,
       pinCores,
       order: shuffleOrder ? 'shuffled' : 'fixed',

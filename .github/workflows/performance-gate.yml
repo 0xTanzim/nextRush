@@ -1,0 +1,111 @@
+name: Performance Gate
+
+# Per-PR performance regression gate (gap-checklist T018).
+#
+# Runs the existing `apps/benchmark` harness's FAST smoke profile (design.md D3 —
+# deliberately NOT the multi-run `standard`/`full` publishable profile) on the
+# functional-vs-class NextRush pair, then fails the PR if a scenario regressed
+# beyond tolerance versus a committed baseline, using the already-built
+# `scripts/check-regression.js`.
+#
+# SCOPING (design.md Non-Goals): this job triggers only on PRs that touch
+# performance-sensitive code (core, router, runtime, di, class, adapters) or the
+# benchmark app itself. A docs-only or unrelated-middleware PR does not match the
+# `paths:` filter below, so it never pays the benchmark's wall-clock cost — the
+# accepted, disclosed trade-off is that a regression introduced entirely outside
+# these paths (e.g. via a shared util a middleware pulls in) can slip through;
+# widen the filter if that is ever observed, rather than over-scoping preemptively.
+#
+# BASELINE (design.md "baseline stored + updatable" + this repo's own README):
+# the gate compares against a pinned `apps/benchmark/results/baseline/` committed
+# by a maintainer from a clean, quiet, CPU-pinned run — NOT from a noisy CI runner.
+# Until that baseline is committed the gate is INACTIVE-BUT-WIRED: it runs the
+# smoke, uploads the result, and passes with a notice explaining how to seed the
+# baseline. It becomes enforcing automatically the moment a baseline lands.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/core/**'
+      - 'packages/router/**'
+      - 'packages/runtime/**'
+      - 'packages/di/**'
+      - 'packages/class/**'
+      - 'packages/adapters/**'
+      - 'apps/benchmark/**'
+      - '.github/workflows/performance-gate.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  perf-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      # Build only the workspace packages the benchmark servers import (core,
+      # router, runtime, di, class, adapter-node, body-parser, types, errors, …).
+      # turbo skips the benchmark app itself (it has no build task) and caches deps.
+      - name: Build benchmark workspace dependencies
+        run: pnpm turbo run build --filter=nextrush-benchmark...
+
+      # wrk (C-based, process-isolated) is the harness's primary tool. If the apt
+      # package were ever unavailable the runner auto-falls-back to autocannon, but
+      # a baseline and its comparison MUST use the same tool — so fail loudly here
+      # rather than silently drifting to a different measurement tool.
+      - name: Install wrk
+        run: sudo apt-get update && sudo apt-get install -y wrk
+
+      # Fairness integrity gate: the two servers must return byte-identical
+      # bodies/statuses/headers before any timing is trusted (run explicitly so a
+      # parity break is its own clear failure).
+      - name: Fairness gate (byte-identical responses)
+        working-directory: apps/benchmark
+        run: node scripts/validate-parity.js nextrush-v3 nextrush-v3-class
+
+      # Smoke profile (fast, single-machine): 4 quick scenarios, 3 short runs for a
+      # stable-enough mean, functional vs class only. --no-validate because the
+      # fairness gate already ran as its own step above.
+      - name: Benchmark smoke (functional vs class)
+        working-directory: apps/benchmark
+        run: >-
+          node scripts/run.js
+          --frameworks nextrush-v3,nextrush-v3-class
+          --profile quick --duration 5 --runs 3 --no-validate
+
+      - name: Performance regression gate (vs committed baseline)
+        working-directory: apps/benchmark
+        run: |
+          set -euo pipefail
+          if [ -f results/baseline/results.json ]; then
+            # Tolerance is deliberately LOOSE (design.md Risk mitigation): a shared,
+            # un-pinned CI runner is far noisier than the pinned host a publishable
+            # figure needs, so the gate targets GROSS regressions (e.g. an accidental
+            # O(n²) in a hot path or a ~doubled latency), not normal CI jitter. 0.25 =
+            # a scenario may drop up to 25% below baseline mean RPS before the PR fails.
+            # Tighten it only once a committed baseline shows the CI runner is quiet
+            # enough to justify it.
+            node scripts/check-regression.js --tolerance 0.25
+          else
+            echo "::notice title=Performance gate inactive::No committed baseline at apps/benchmark/results/baseline/results.json — the regression gate ran the smoke benchmark but has nothing to compare against, so it passes. To activate it, a maintainer seeds a baseline from a clean, quiet, CPU-pinned run: cd apps/benchmark && pnpm bench:validate nextrush-v3 nextrush-v3-class && node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class --profile full --pin 2-7 && cp -r results/latest results/baseline, then commit results/baseline/ (it is git-exempted from the results/ ignore)."
+          fi
+
+      # Always upload the smoke result so a maintainer can inspect it or seed the
+      # first baseline from a CI run if they choose to.
+      - name: Upload benchmark result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-gate-smoke-result
+          path: apps/benchmark/results/latest
+          if-no-files-found: warn

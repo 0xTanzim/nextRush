@@ -121,7 +121,8 @@ The `quick` profile runs a subset: hello-world, route-params, post-json, middlew
 | Framework       | Version   | Role                          |
 | --------------- | --------- | ----------------------------- |
 | Raw Node.js     | built-in  | Zero-framework baseline       |
-| **NextRush v3** | workspace | Subject under test            |
+| **NextRush v3** | workspace | Subject under test (functional path) |
+| **NextRush v3 (class)** | workspace | Class/DI path — opt-in via `--frameworks`, not in the default `--compare` set (see [Class-Path Overhead](#class-path-overhead-functional-vs-classdi)) |
 | Fastify         | 5.x       | Performance leader comparison |
 | Express         | 5.x       | Industry standard comparison  |
 | Koa             | 3.x       | Middleware pattern comparison |
@@ -162,6 +163,9 @@ node scripts/run.js --compare
 
 # Specific framework
 node scripts/run.js --framework nextrush-v3|fastify|express|koa|hono|raw-node
+
+# Explicit framework set — targeted comparison (functional vs class) or the CI perf gate
+node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class
 
 # Specific scenario
 node scripts/run.js --scenario hello-world
@@ -281,6 +285,8 @@ apps/benchmark/
 │   ├── report-md.js      # Markdown report generation
 │   ├── validate-parity.js# Fairness gate: byte-identical bodies + headers across servers
 │   ├── check-regression.js# CI gate: latest vs results/baseline
+│   ├── registration-cost.js# Class-path boot cost by controller count (spawns child per scale×run)
+│   ├── registration-cost-child.js# Child harness: boots N controllers, prints { n, bootMs }
 │   ├── smoke-test.js     # Server verification (status + middleware headers)
 │   ├── report.js         # Report viewer
 │   ├── utils.js          # Thin barrel re-exporting scripts/lib/*
@@ -295,7 +301,8 @@ apps/benchmark/
 │   ├── _shared/
 │   │   └── payloads.js   # Canonical response payloads + identical middleware headers
 │   ├── raw-node.js       # Zero-framework baseline
-│   ├── nextrush-v3.js    # NextRush v3
+│   ├── nextrush-v3.js    # NextRush v3 (functional path)
+│   ├── nextrush-v3-class.js # NextRush v3 (class/DI path) — mirrors nextrush-v3.js via @Controller
 │   ├── express.js        # Express 5
 │   ├── fastify.js        # Fastify 5
 │   ├── koa.js            # Koa 3
@@ -308,6 +315,65 @@ apps/benchmark/
     ├── latest/           # Copy of most recent run (gitignored)
     └── <timestamp>/      # Historical runs (gitignored)
 ```
+
+## Class-Path Overhead (functional vs class/DI)
+
+NextRush exposes two ways to build an app: the **functional path** (`createApp`/`createRouter`,
+zero runtime dependencies) and the **class/DI path** (`@Controller` + `registerControllers()`,
+which pulls in `tsyringe` + `reflect-metadata`). This suite ships a reproducible,
+fairness-validated benchmark for honestly disclosing what the class path costs relative to the
+functional path — both **registration/boot cost** (how it scales with controller count) and
+**per-request overhead**.
+
+`servers/nextrush-v3-class.js` mirrors `servers/nextrush-v3.js` scenario-for-scenario through
+the class path's own idiomatic mechanism (`@Controller`/`@Get`/`@Post` decorators, one
+`UseInterceptor` per middleware layer). Both pass the same byte-identical-response gate before
+any timing, so the comparison is apples-to-apples:
+
+```bash
+pnpm bench:validate nextrush-v3 nextrush-v3-class   # both agree with the raw-node reference
+```
+
+### Registration cost (boot time by controller count)
+
+`scripts/registration-cost.js` boots the class path with N generated controllers in a fresh
+child process per (scale × run) — timing only `registerControllers()` — and reports mean ±
+stddev + CV per scale plus a linear/super-linear scaling verdict:
+
+```bash
+node scripts/registration-cost.js --scales 1,10,100,1000 --runs 5
+```
+
+Use it to confirm registration stays **sub-linear** as controller count grows (no hidden O(n²)
+at 1000+ controllers). Boot cost is a one-time startup expense, not a per-request one. Output is
+written to `results/registration-cost-<timestamp>/registration-cost.json`.
+
+### Per-request overhead (class vs functional)
+
+Run both NextRush paths back-to-back in one comparison. The `--frameworks` set keeps it to just
+these two — the class server is deliberately **not** in the default `--compare` set (this axis
+is functional-vs-class *within* NextRush, not a new cross-framework competitor):
+
+```bash
+# quick smoke (single machine, fast) — shows the shape of the overhead, NOT a publishable figure
+node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class --profile quick
+
+# publishable-grade — multi-run mean ± stddev + CV, CPU-pinned to cut scheduler noise
+pnpm bench:validate nextrush-v3 nextrush-v3-class
+node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class --profile full --pin 2-7
+```
+
+Because both paths are measured back-to-back on the same cores, same Node flags, and same load
+tool, the **ratio** between them (class ÷ functional) cancels most shared-machine noise — a far
+more portable statement than an absolute RPS number. Expect the class path's relative overhead
+to be largest on the cheapest scenario (hello-world), where per-request DI/interceptor
+resolution is a big fraction of a tiny workload, and to shrink as the handler does real work
+(body parsing, more headers).
+
+> **Numbers follow the same clean-measurement policy as [Latest Results](#latest-results).**
+> Publishable class-vs-functional figures come from the multi-run `standard`/`full` profile on a
+> quiet, CPU-pinned host — run the commands above on your own hardware rather than citing a
+> shared-machine number.
 
 ## Latest Results
 

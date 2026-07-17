@@ -13,6 +13,12 @@ export const FRAMEWORKS = {
     description: 'NextRush v3 with router + conditional body parser',
     isTarget: true,
   },
+  'nextrush-v3-class': {
+    name: 'NextRush v3 (class)',
+    file: 'nextrush-v3-class.js',
+    description: 'NextRush v3 class/DI path — @Controller + registerControllers()',
+    isTarget: true,
+  },
   fastify: {
     name: 'Fastify',
     file: 'fastify.js',
