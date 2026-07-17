@@ -20,12 +20,12 @@ deferral is a decision, not an omission:
 1. **Module encapsulation** (highest-value next feature). Today `@Module` groups and composes;
    `exports` is recorded but **not enforced** — every provider is visible through the shared
    container. Enforcing module-private providers / real `exports` needs per-module container
-   work (`RFC-NEXTRUSH-MODULES.md`). The current behavior is documented honestly in the README.
+   work (`docs/RFC/class-runtime/012-modules.md`). The current behavior is documented honestly in the README.
    *Interim:* the `exports` field is treated as reserved-until-enforced; no code should rely on
    it hiding anything.
 
 2. **Full per-app DI isolation by default.** Opt-in `isolate` ships now; flipping it to the
-   default is breaking (`RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP.md`) → 2.0.
+   default is breaking (`docs/RFC/class-runtime/006-di-container-ownership.md`) → 2.0.
 
 3. **Request-pipeline observability.** First-class metrics/trace hooks around
    guard → interceptor → handler → filter. Dev-time diagnostics (`getClassDiagnostics`) exist;

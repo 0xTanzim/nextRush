@@ -6,7 +6,7 @@
  * maps a raw chunk. All lifecycle (abort, backpressure, close) lives in the
  * controller — not here.
  *
- * See docs/RFC/RFC-NEXTRUSH-STREAM.md §5, §7.
+ * See docs/RFC/request-data/003-stream.md §5, §7.
  *
  * @packageDocumentation
  */

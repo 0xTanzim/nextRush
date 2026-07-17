@@ -5,7 +5,7 @@
  * adapter's `ctx.sendStream()` primitive. Runtime-agnostic: identical code path
  * on Node (eager pump) and Bun/Deno/Edge (lazy Response body).
  *
- * See docs/RFC/RFC-NEXTRUSH-STREAM.md §5, §6.
+ * See docs/RFC/request-data/003-stream.md §5, §6.
  *
  * @packageDocumentation
  */

@@ -616,7 +616,7 @@ router.post('/users', handler2);
 
 ## Design & RFCs
 
-- [`docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md`](../../docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md) — RFC for a future, opt-in `@nextrush/router-radix` package: the shared `Router` contract a conformant router must implement, a router-conformance parity harness (modeled on `packages/adapters/conformance`), and the honest segment-trie-vs-radix tradeoff. The segment trie documented here remains the default; radix, if built, is opt-in.
+- [`docs/RFC/runtime-adapters/015-router-radix.md`](../../docs/RFC/runtime-adapters/015-router-radix.md) — RFC for a future, opt-in `@nextrush/router-radix` package: the shared `Router` contract a conformant router must implement, a router-conformance parity harness (modeled on `packages/adapters/conformance`), and the honest segment-trie-vs-radix tradeoff. The segment trie documented here remains the default; radix, if built, is opt-in.
 
 ## License
 

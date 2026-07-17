@@ -121,7 +121,7 @@ Legend: 🟢 Production-capable · 🟡 Beta (implemented, not fully proven) · 
 | **Technical debt** | 🟡 Naming/versioning/docs | `radix-tree.ts`/`RadixNode` vs "segment trie"; deprecated shim packages (`@nextrush/controllers`, `@nextrush/decorators`); mixed independent versions |
 | **Scalability risk** | 🟡 Single maintainer | One author/maintainer across ~35 packages (`package.json` author; every `packages.json` entry same publisher) — bus-factor risk for a v1 |
 | **Public API risk** | 🟡 Large surface, pre-frozen | Broad exported surface across many packages; `nextrush/class` re-exports ~40 symbols. Freezing this for v1 is a large commitment |
-| **Plugin/extension limits** | 🟡 `exports` not enforced | `@Module` `exports` is *recorded but not enforced* (README + `RFC-NEXTRUSH-MODULES.md`) — modules group but do not encapsulate |
+| **Plugin/extension limits** | 🟡 `exports` not enforced | `@Module` `exports` is *recorded but not enforced* (README + `docs/RFC/class-runtime/012-modules.md`) — modules group but do not encapsulate |
 | **Release risk** | 🟡 Already at 3.x | Published at `3.x` on npm while positioned as "preparing v1" — the semver story is confusing for adopters |
 
 ---

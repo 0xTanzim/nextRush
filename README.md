@@ -167,7 +167,7 @@ class RequestId {
 Request scope is backed by a per-request child container. When a controller (or anything in its
 dependency graph) is request-scoped, `registerControllers` resolves it fresh per request; a
 purely-singleton controller keeps the memoized fast path with zero added per-request cost. This
-bubbling is automatic — see the class-based guide and `docs/RFC/RFC-NEXTRUSH-REQUEST-SCOPE.md`.
+bubbling is automatic — see the class-based guide and `docs/RFC/class-runtime/008-request-scope.md`.
 Services read the request via the controller's `@Ctx` parameter, not constructor injection.
 
 ## Modules
@@ -224,7 +224,7 @@ safely — diamond/duplicate imports register once and import cycles are guarded
 > **Modules group, they do not yet encapsulate.** Every provider in the graph is
 > visible to every module through the shared DI container; `exports` is recorded
 > but not enforced. True per-module encapsulation (module-private providers) is
-> planned follow-up work — see `docs/RFC/RFC-NEXTRUSH-MODULES.md`.
+> planned follow-up work — see `docs/RFC/class-runtime/012-modules.md`.
 
 ## Context API
 

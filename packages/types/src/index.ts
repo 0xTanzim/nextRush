@@ -88,7 +88,7 @@ export {
 } from './adapter';
 
 // ============================================================================
-// Extension Types (see docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md)
+// Extension Types (see docs/RFC/class-runtime/005-plugin-system.md)
 // ============================================================================
 
 export {

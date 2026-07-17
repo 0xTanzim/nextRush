@@ -129,4 +129,4 @@ Numeric segments become `[n]` (array indices); everything else becomes `.key`. T
 ## See Also
 
 - [`README.md`](./README.md) — usage and API reference
-- [`docs/RFC/RFC-NEXTRUSH-VALIDATION.md`](../../../docs/RFC/RFC-NEXTRUSH-VALIDATION.md) — design rationale and revision history
+- [`docs/RFC/request-data/004-validation.md`](../../../docs/RFC/request-data/004-validation.md) — design rationale and revision history

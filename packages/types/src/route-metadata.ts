@@ -7,7 +7,7 @@
  * router itself is renderer-agnostic — it stores raw schemas and generic
  * metadata, never OpenAPI shapes.
  *
- * See docs/RFC/RFC-NEXTRUSH-ROUTE-METADATA.md.
+ * See docs/RFC/request-data/002-route-metadata.md.
  *
  * @packageDocumentation
  */

@@ -103,7 +103,7 @@ import { createRouter as createDefaultRouter } from '@nextrush/router';
  * users are unaffected — they import from `nextrush/class`, and
  * `registerControllers` supplies the global `@nextrush/di` container fallback
  * itself (`options.container ?? app.container ?? globalContainer`). See
- * docs/RFC/RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP.md.
+ * docs/RFC/class-runtime/006-di-container-ownership.md.
  *
  * Import `createApp` from `@nextrush/core` for a minimal engine where the router
  * is also bring-your-own.

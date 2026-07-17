@@ -3,7 +3,7 @@
 > Status: **Proposed — deferred.** The design is specified; the package is **not** built by this
 > change. Go/no-go is gated on a confirmed driver (§9) and the T017 router benchmark (§3, §7).
 > Change: `fix-router-issues-and-author-radix-rfc` (Task group 4)
-> Models: `docs/RFC/RFC-NEXTRUSH-ADAPTER-CONTRACT.md` + the `packages/adapters/conformance` precedent.
+> Models: `docs/RFC/runtime-adapters/013-adapter-contract.md` + the `packages/adapters/conformance` precedent.
 
 ## 1. Summary & motivation
 
@@ -306,7 +306,7 @@ specific optimization. Neither is committed by this RFC.
 
 ## Acceptance / verification
 
-This RFC is satisfied when: the file exists at `docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md` following the
+This RFC is satisfied when: the file exists at `docs/RFC/runtime-adapters/015-router-radix.md` following the
 existing RFC convention (§ all); it defines the shared `Router` contract a conformant router must
 implement (§4) and a conformance-parity harness modeled on `packages/adapters/conformance`, run
 against both routers (§5); its costs section addresses the single-maintainer bus-factor and states

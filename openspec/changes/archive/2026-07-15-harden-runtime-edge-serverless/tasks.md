@@ -1,6 +1,6 @@
 ## 1. Formalize the two adapter contracts (spec: runtime-adapter-contract)
 
-- [x] 1.1 RFC-gate the new public contract types: draft `docs/RFC/RFC-NEXTRUSH-ADAPTER-CONTRACT.md` (ServerAdapter/FetchAdapter/AdapterContextFactory shapes, why enforced now) per the repo's RFC-before-public-API rule
+- [x] 1.1 RFC-gate the new public contract types: draft `docs/RFC/runtime-adapters/013-adapter-contract.md` (ServerAdapter/FetchAdapter/AdapterContextFactory shapes, why enforced now) per the repo's RFC-before-public-API rule
 - [x] 1.2 RED: add type-level tests asserting a malformed adapter (missing method / widened `Context`) fails to satisfy the contract
 - [x] 1.3 GREEN: define `ServerAdapter<App, Opts, Instance>`, `FetchAdapter<App, Opts>`, and `AdapterContextFactory` in `@nextrush/types`; export via the barrel  <!-- ServerAdapter/FetchAdapter already existed+exported; AdapterContextFactory added -->
 - [x] 1.4 Add a compile-time conformance guard (`satisfies`) to `adapter-node`, `-bun`, `-deno`, `-edge`; retrofit signatures to the contract with no behavior change  <!-- shape guards already existed on all four; added NEW context-factory guards to node (server tier) + edge (fetch tier) -->

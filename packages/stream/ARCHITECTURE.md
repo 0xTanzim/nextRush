@@ -13,7 +13,7 @@
 3. **One normalization path.** Every accepted source shape (`AsyncIterable`, Node `Readable`, Web `ReadableStream`) converges to a single async-iterator contract before anything consumes it.
 4. **The writer never touches transport.** `TextWriter` / `SSEWriter` / `NDJSONWriter` only format; they call `controller.enqueue()` and never see a socket, a `Response`, or an adapter type.
 
-See [`docs/RFC/RFC-NEXTRUSH-STREAM.md`](../../docs/RFC/RFC-NEXTRUSH-STREAM.md) for the full API decision history (why writer-callback over `AsyncIterable`-first, why `consume()` not `pipe()`, why three writers not one).
+See [`docs/RFC/request-data/003-stream.md`](../../docs/RFC/request-data/003-stream.md) for the full API decision history (why writer-callback over `AsyncIterable`-first, why `consume()` not `pipe()`, why three writers not one).
 
 ---
 
@@ -215,4 +215,4 @@ Coverage thresholds enforced per `v3-testing.instructions.md`: 90% lines/functio
 ## See Also
 
 - [`README.md`](./README.md) — usage-focused documentation and API reference
-- [`docs/RFC/RFC-NEXTRUSH-STREAM.md`](../../docs/RFC/RFC-NEXTRUSH-STREAM.md) — full design rationale, revision history, and rejected alternatives
+- [`docs/RFC/request-data/003-stream.md`](../../docs/RFC/request-data/003-stream.md) — full design rationale, revision history, and rejected alternatives

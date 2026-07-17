@@ -32,7 +32,7 @@
   - Zero runtime dependencies.
 
   See the [package README](../packages/middleware/validation/README.md) for the
-  full API and [RFC-NEXTRUSH-VALIDATION](../docs/RFC/RFC-NEXTRUSH-VALIDATION.md)
+  full API and [RFC 004 — Validation](../docs/RFC/request-data/004-validation.md)
   for the design rationale.
 
 - 32a0db6: Add the Route Metadata System — the framework-level foundation that lets any tool (OpenAPI, and later SDK/Postman/RPC generators) read a route's request/response shapes and documentation without duplication.

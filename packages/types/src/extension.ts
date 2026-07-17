@@ -6,7 +6,7 @@
  * a database pool, a websocket attach. Most framework features are **middleware**
  * (`app.use`) or plain **registrar** functions, not Extensions.
  *
- * See docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md.
+ * See docs/RFC/class-runtime/005-plugin-system.md.
  *
  * @packageDocumentation
  */

@@ -409,7 +409,7 @@ export interface Context {
 
   // =========================================================================
   // RESPONSE STREAMING (text / SSE / NDJSON)
-  // See docs/RFC/RFC-NEXTRUSH-STREAM.md
+  // See docs/RFC/request-data/003-stream.md
   // =========================================================================
 
   /**

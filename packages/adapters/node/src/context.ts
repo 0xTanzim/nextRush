@@ -333,7 +333,7 @@ export class NodeContext implements AdapterContext {
   }
 
   // ===========================================================================
-  // Response Streaming (see docs/RFC/RFC-NEXTRUSH-STREAM.md)
+  // Response Streaming (see docs/RFC/request-data/003-stream.md)
   // ===========================================================================
 
   /**

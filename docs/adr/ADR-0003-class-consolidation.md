@@ -2,7 +2,7 @@
 
 - **Status:** Accepted · Shipped
 - **Date:** 2026-07
-- **RFC:** `docs/RFC/RFC-NEXTRUSH-CLASS-CONSOLIDATION.md` (shipped)
+- **RFC:** `docs/RFC/class-runtime/007-class-consolidation.md` (shipped)
 
 ## Context
 

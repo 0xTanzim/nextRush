@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07
 - **Addresses:** OpenSpec change `harden-runtime-edge-serverless`; runtime audit `docs/audits/07-runtime-architecture.md` (Adapter model `[CURRENT/FORMALIZED]`, Serverless Runtime)
-- **RFCs:** `RFC-NEXTRUSH-ADAPTER-CONTRACT`, `RFC-NEXTRUSH-ADAPTER-SERVERLESS`
+- **RFCs:** `docs/RFC/runtime-adapters/013-adapter-contract.md`, `docs/RFC/runtime-adapters/014-adapter-serverless.md`
 
 ## Context
 

@@ -77,6 +77,9 @@ importers:
       '@nextrush/body-parser':
         specifier: workspace:*
         version: link:../../packages/middleware/body-parser
+      '@nextrush/class':
+        specifier: workspace:*
+        version: link:../../packages/class
       '@nextrush/core':
         specifier: workspace:*
         version: link:../../packages/core

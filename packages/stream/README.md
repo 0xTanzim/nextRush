@@ -302,7 +302,7 @@ Verified with real integration tests against Node's HTTP server, and against rea
 ## See Also
 
 - [Architecture documentation](./ARCHITECTURE.md) — internal design of `StreamController`, backpressure, and cross-runtime wiring
-- [`docs/RFC/RFC-NEXTRUSH-STREAM.md`](../../docs/RFC/RFC-NEXTRUSH-STREAM.md) — full design rationale and API decision history
+- [`docs/RFC/request-data/003-stream.md`](../../docs/RFC/request-data/003-stream.md) — full design rationale and API decision history
 - [`@nextrush/core`](../core) — application framework
 - [`@nextrush/adapter-node`](../adapters/node) — Node.js HTTP adapter
 

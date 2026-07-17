@@ -6,7 +6,7 @@
  * `StreamAbortedError`. Built for AI/agentic apps (LLM token streaming) but works
  * for any chunked response (CSV export, progress logs, structured traces).
  *
- * See docs/RFC/RFC-NEXTRUSH-STREAM.md.
+ * See docs/RFC/request-data/003-stream.md.
  *
  * @packageDocumentation
  * @module @nextrush/stream

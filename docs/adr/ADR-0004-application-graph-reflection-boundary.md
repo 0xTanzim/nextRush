@@ -2,7 +2,7 @@
 
 - **Status:** Accepted · Shipped
 - **Date:** 2026-07
-- **RFC:** `docs/RFC/RFC-NEXTRUSH-CLASS-CONSOLIDATION.md` (§ IR/runtime redesign)
+- **RFC:** `docs/RFC/class-runtime/007-class-consolidation.md` (§ IR/runtime redesign)
 
 ## Context
 

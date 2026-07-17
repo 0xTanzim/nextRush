@@ -3,7 +3,7 @@
 - **Status:** Accepted · Shipped
 - **Date:** 2026-07
 - **Supersedes:** the original `Plugin` / `app.plugin()` system
-- **RFC:** `docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md` (approved)
+- **RFC:** `docs/RFC/class-runtime/005-plugin-system.md` (approved)
 
 ## Context
 

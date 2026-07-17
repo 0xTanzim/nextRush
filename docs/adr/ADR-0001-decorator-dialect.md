@@ -4,7 +4,7 @@
 **Date:** 2026-07-08
 **Deciders:** NextRush Core Team
 **Packages affected:** `@nextrush/decorators`, `@nextrush/di`, `@nextrush/controllers`, `@nextrush/dev`, `nextrush` (meta)
-**Related:** class-based audit finding **HIGH-4** (legacy-decorator lock-in); `docs/RFC/RFC-NEXTRUSH-DI-CONTAINER-OWNERSHIP.md`
+**Related:** class-based audit finding **HIGH-4** (legacy-decorator lock-in); `docs/RFC/class-runtime/006-di-container-ownership.md`
 
 ---
 

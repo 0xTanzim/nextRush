@@ -229,6 +229,6 @@ Detailed standards are maintained in `.github/instructions/`:
 
 ## Reference Documents
 
-- `docs/RFC/RFC-NEXTRUSH-REQUEST-SCOPE.md` — Request scope RFC
-- `docs/RFC/RFC-NEXTRUSH-MODULES.md` — Modules RFC
+- `docs/RFC/class-runtime/008-request-scope.md` — Request scope RFC
+- `docs/RFC/class-runtime/012-modules.md` — Modules RFC
 - `docs/documentation-rebuild/PLAN.md` — Documentation rebuild scope and tracker

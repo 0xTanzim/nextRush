@@ -6,7 +6,7 @@
  * The protocol writers ({@link TextWriter}/{@link SSEWriter}/{@link NDJSONWriter})
  * are thin formatting wrappers over this — they never touch lifecycle directly.
  *
- * See docs/RFC/RFC-NEXTRUSH-STREAM.md §5.
+ * See docs/RFC/request-data/003-stream.md §5.
  *
  * @packageDocumentation
  */

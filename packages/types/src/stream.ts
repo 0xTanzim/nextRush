@@ -6,7 +6,7 @@
  * the `Context` interface can reference them without `@nextrush/types` depending
  * on any higher-tier package.
  *
- * See `docs/RFC/RFC-NEXTRUSH-STREAM.md`.
+ * See `docs/RFC/request-data/003-stream.md`.
  *
  * @packageDocumentation
  */

@@ -1,7 +1,7 @@
 # Migration Guide — Plugin System → Extension Model
 
 This is a **breaking major**. NextRush replaced the plugin system with a
-**Composition-First** extension model. See `docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md`
+**Composition-First** extension model. See `docs/RFC/class-runtime/005-plugin-system.md`
 for the rationale.
 
 **The one-line summary:** *middleware for the request pipeline; a plain function

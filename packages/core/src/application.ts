@@ -4,7 +4,7 @@
  * The Application class is the main entry point for NextRush.
  * It manages middleware registration and the extension lifecycle.
  *
- * See docs/RFC/RFC-NEXTRUSH-PLUGIN-SYSTEM.md for the extension model.
+ * See docs/RFC/class-runtime/005-plugin-system.md for the extension model.
  *
  * @packageDocumentation
  */
