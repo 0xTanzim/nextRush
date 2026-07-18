@@ -745,8 +745,10 @@ micro-trims (HP-2 / HP-14 / HP-15).
   POST-JSON `--profile full` A/B was not run to a publishable standard on shared hardware (per the
   README's withdrawn-numbers note); parity is confirmed and the win is the removed per-chunk
   async-iterator/promise overhead, not an overstated POST RPS claim (`JSON.parse` dominates POST).
-  **Follow-up:** a `WebBodySource` (Bun/Deno/Edge) sibling review is a candidate but likely a
-  smaller effect (Web streams differ) — noted, not gated on this change.
+  **Follow-up (resolved):** the `WebBodySource` (Bun/Deno/Edge) sibling was reviewed under
+  `web-adapters-context-response-microtrims` and is a **verified non-finding** — `_buffer`
+  already uses a `reader.read()` loop with incremental size enforcement + an `arrayBuffer()`
+  fast path, not the `for await…of` pattern this finding removed on Node.
 - ✅ **P4 cleanup — HP-5 / HP-17 / HP-18** shipped as `router-context-final-cleanup`:
   - **HP-17** — `findNode` (the `findAllowedMethods` / 405-OPTIONS walker) rewritten from
     recursion to an explicit-stack walk, closing the deep-path stack-overflow the P2 rewrite
@@ -764,6 +766,20 @@ micro-trims (HP-2 / HP-14 / HP-15).
   - **HP-18** — no code change (the P2 rewrite already removed the backtrack
     `Reflect.deleteProperty` and `Object.keys` post-loop); added a static regression guard that
     fails if either is reintroduced into the router match sources.
+- ✅ **Web-adapter siblings — HP-2-web / HP-15-web / HP-5-web** shipped as
+  `web-adapters-context-response-microtrims`: `parseQueryString` returns a shared frozen
+  `EMPTY_QUERY` on its empty/over-limit early-returns (HP-2-web); `WebResponseBuilder.set` gates
+  the `set-cookie` `toLowerCase()` behind a constant-time length + first-char pre-check
+  (HP-15-web); and the Bun/Deno/Edge contexts build `ctx.raw` via a lazy memoized getter over a
+  private `_req` field, with `signal`/`triggerTimeout` rewired to it (HP-5-web). Behavior-
+  preserving — pinned by the new capability's scenarios and the `packages/adapters/conformance`
+  suite (148 tests, byte-identical cross-adapter). Allocation micro-bench
+  (`apps/benchmark/scripts/web-context-microtrims-alloc.js`) shows the empty-`query` object
+  (192→8 B/req, ~184 removed) and the `{ req, res }` wrapper (48→8 B/req, ~40 removed) no longer
+  allocated on a query-less, raw-unread request; `bench:validate` parity holds. Each trim <1% RPS
+  (no RPS claim). **HP-16-web — verified non-finding:** `WebBodySource._buffer` already uses a
+  `reader.read()` loop with incremental size enforcement + an `arrayBuffer()` fast path, not the
+  slow `for await…of` pattern HP-16 removed on Node — nothing to rewrite.
 - ⬜ **P3 remainder (HP-2 / HP-14 / HP-15)** pending.
 - ⏳ **Cross-cutting open item:** the CPU-pinned `--profile full` A/B that turns the shipped
   allocation wins into publishable RPS numbers has **not** been run on a clean environment yet.
