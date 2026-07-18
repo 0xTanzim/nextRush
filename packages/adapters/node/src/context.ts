@@ -83,7 +83,6 @@ export class NodeContext implements AdapterContext {
   readonly query: QueryParams;
   readonly headers: IncomingHeaders;
   readonly ip: string;
-  readonly raw: NodeRawHttp;
   readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
@@ -92,12 +91,23 @@ export class NodeContext implements AdapterContext {
   status = 200;
   state: ContextState = {};
 
+  /**
+   * HP-5: the request/response are held as private fields; the public
+   * `{ req, res }` wrapper is built lazily by {@link raw} and memoized here, so
+   * a request that never reads `ctx.raw` allocates no wrapper. Every internal
+   * response method reads these fields, never `this.raw`.
+   */
+  private readonly _req: IncomingMessage;
+  private readonly _res: ServerResponse;
+  private _raw?: NodeRawHttp;
+
   private _next: (() => Promise<void>) | null = null;
   private _responded = false;
   private _abortController?: AbortController;
 
   constructor(req: IncomingMessage, res: ServerResponse, options: NodeContextOptions = {}) {
-    this.raw = { req, res };
+    this._req = req;
+    this._res = res;
     this.runtime = getRuntime();
     this.method = (req.method?.toUpperCase() ?? 'GET') as HttpMethod;
     this.url = req.url ?? '/';
@@ -147,6 +157,20 @@ export class NodeContext implements AdapterContext {
   }
 
   /**
+   * The raw `{ req, res }` pair (HP-5).
+   *
+   * @remarks
+   * Built lazily and memoized: the wrapper object is allocated only on first
+   * read and the same object is returned thereafter (`ctx.raw === ctx.raw`),
+   * matching the identity of the former eager field. Internal response methods
+   * use the private `_req`/`_res` fields instead, so a request that never reads
+   * `ctx.raw` allocates no wrapper at all.
+   */
+  get raw(): NodeRawHttp {
+    return (this._raw ??= { req: this._req, res: this._res });
+  }
+
+  /**
    * Set the next function for middleware chaining
    * @internal
    */
@@ -167,10 +191,10 @@ export class NodeContext implements AdapterContext {
   }
 
   json(data: unknown): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
     this._responded = true;
 
-    const res = this.raw.res;
+    const res = this._res;
     const json = JSON.stringify(data);
 
     // HP-14: one outgoing-header-map write instead of two setHeader calls.
@@ -191,9 +215,9 @@ export class NodeContext implements AdapterContext {
   }
 
   send(data: ResponseBody): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
 
-    const res = this.raw.res;
+    const res = this._res;
     res.statusCode = this.status;
     const suppress = this.shouldSuppressBody();
 
@@ -328,10 +352,10 @@ export class NodeContext implements AdapterContext {
   }
 
   html(content: string): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
     this._responded = true;
 
-    const res = this.raw.res;
+    const res = this._res;
     res.statusCode = this.status;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Length', Buffer.byteLength(content));
@@ -344,10 +368,10 @@ export class NodeContext implements AdapterContext {
   }
 
   redirect(url: string, status = 302): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
     this._responded = true;
 
-    const res = this.raw.res;
+    const res = this._res;
     res.statusCode = status;
     res.setHeader('Location', url);
     // Use plain text to avoid HTML injection via user-controlled URLs
@@ -373,8 +397,8 @@ export class NodeContext implements AdapterContext {
       const abort = (): void => {
         if (!controller.signal.aborted) controller.abort();
       };
-      this.raw.res.on('close', abort);
-      this.raw.req.on('aborted', abort);
+      this._res.on('close', abort);
+      this._req.on('aborted', abort);
     }
     return this._abortController.signal;
   }
@@ -384,10 +408,10 @@ export class NodeContext implements AdapterContext {
    * when the stream is fully flushed; rejects on a non-abort transport error.
    */
   sendStream(source: ReadableStream<Uint8Array>): Promise<void> {
-    if (this._responded || this.raw.res.headersSent) return Promise.resolve();
+    if (this._responded || this._res.headersSent) return Promise.resolve();
     this._responded = true;
 
-    const res = this.raw.res;
+    const res = this._res;
     res.statusCode = this.status;
     const reader = source.getReader();
     // Cancel the source if the client disconnects mid-stream.
@@ -440,7 +464,7 @@ export class NodeContext implements AdapterContext {
     // Guard against CRLF injection (header splitting) via the shared helper.
     assertHeaderSafe(field, value);
 
-    const res = this.raw.res;
+    const res = this._res;
 
     // Set-Cookie must accumulate across calls (multiple headers), not overwrite —
     // matching the web adapter's append semantics so `ctx.set('Set-Cookie', …)`

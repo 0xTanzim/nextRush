@@ -15,10 +15,10 @@
 
 ## 4. HP-5 — lazy `ctx.raw` (measurement-gated, park-able)
 
-- [ ] 4.1 RED: `ctx.raw` returns identical `{ req, res }` and is memoized (`ctx.raw === ctx.raw`); a raw-unread request allocates no wrapper (assert via the micro-bench in 4.4); every response method (`json`/`send`/`html`/`redirect`/streams), `ctx.signal`, and `ctx.ip` behave identically.
-- [ ] 4.2 GREEN: add `private readonly _req`/`_res`; rewire ALL `this.raw.req`/`this.raw.res` sites (from 1.2) to `this._req`/`this._res`; replace the `raw` field with a memoized getter `get raw() { return (this._raw ??= { req: this._req, res: this._res }); }`.
-- [ ] 4.3 Full adapter-node suite green (response methods, streaming, ip, graceful-shutdown); `bench:validate` byte-identical.
-- [ ] 4.4 Allocation micro-bench: a raw-unread request allocates no `{ req, res }` wrapper. **Decision gate (design D2):** if the churn/benefit is poor, park HP-5 (keep HP-17 + the HP-18 guard) and record the outcome. Commit or park accordingly.
+- [x] 4.1 RED: `ctx.raw` returns identical `{ req, res }` and is memoized (`ctx.raw === ctx.raw`); a raw-unread request allocates no wrapper (assert via the micro-bench in 4.4); every response method (`json`/`send`/`html`/`redirect`/streams), `ctx.signal`, and `ctx.ip` behave identically.
+- [x] 4.2 GREEN: add `private readonly _req`/`_res`; rewire ALL `this.raw.req`/`this.raw.res` sites (from 1.2) to `this._req`/`this._res`; replace the `raw` field with a memoized getter `get raw() { return (this._raw ??= { req: this._req, res: this._res }); }`.
+- [x] 4.3 Full adapter-node suite green (response methods, streaming, ip, graceful-shutdown); `bench:validate` byte-identical.
+- [x] 4.4 Allocation micro-bench: a raw-unread request allocates no `{ req, res }` wrapper. **Decision gate (design D2):** SHIPPED — micro-bench shows 83% reduction (lazy 8.1 B/req vs eager 47.6 B/req, deterministic cv ≤2.3%), full suite green, churn modest/mechanical. HP-5 not parked.
 
 ## 5. Verification & finalize
 
