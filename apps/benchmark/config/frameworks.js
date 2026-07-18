@@ -24,21 +24,21 @@ export const FRAMEWORKS = {
     file: 'fastify.js',
     description: 'Fastify 5.x — logger disabled, default config',
   },
-  express: {
-    name: 'Express',
-    file: 'express.js',
-    description: 'Express 5.x — minimal middleware',
+  hono: {
+    name: 'Hono',
+    file: 'hono.js',
+    description: 'Hono 4.x via @hono/node-server',
   },
   koa: {
     name: 'Koa',
     file: 'koa.js',
     description: 'Koa 3.x with koa-router and koa-bodyparser',
   },
-  hono: {
-    name: 'Hono',
-    file: 'hono.js',
-    description: 'Hono 4.x via @hono/node-server',
+  express: {
+    name: 'Express',
+    file: 'express.js',
+    description: 'Express 5.x — minimal middleware',
   },
 };
 
-export const DEFAULT_FRAMEWORKS = ['raw-node', 'nextrush-v3', 'fastify', 'express', 'koa', 'hono'];
+export const DEFAULT_FRAMEWORKS = ['raw-node', 'nextrush-v3', 'fastify', 'hono', 'koa', 'express'];
