@@ -33,7 +33,7 @@
 
 ## 6. Cross-cutting verification & finalize
 
-- [ ] 6.1 Confirm no router source file exceeds the 300-line cap after the rewrite; extract a helper if needed (design D7).
-- [ ] 6.2 Full router suite + adapter-level routing integration + `bench:validate` parity all green; per-package coverage ≥90% with rewritten AND new safety branches covered; typecheck + lint clean.
-- [ ] 6.3 Run `openspec validate router-match-path-allocation-trim --strict`; ensure the change is a clean stack of per-trim atomic commits (each independently revertible).
-- [ ] 6.4 Feed the HP-11 benchmark + iterative/DoS + null-proto outcomes back into `docs/RFC/runtime-adapters/015-router-radix.md` (D4 deferral now measured) and update the report §9 status when the change archives.
+- [x] 6.1 Confirm no router source file exceeds the 300-line cap after the rewrite; extract a helper if needed (design D7).
+- [x] 6.2 Full router suite + adapter-level routing integration + `bench:validate` parity all green; per-package coverage ≥90% with rewritten AND new safety branches covered; typecheck + lint clean.
+- [x] 6.3 Run `openspec validate router-match-path-allocation-trim --strict`; ensure the change is a clean stack of per-trim atomic commits (each independently revertible).
+- [x] 6.4 Feed the HP-11 benchmark + iterative/DoS + null-proto outcomes back into `docs/RFC/runtime-adapters/015-router-radix.md` (D4 deferral now measured) and update the report §9 status when the change archives.

@@ -102,3 +102,25 @@ spies. The final Route-Params RPS A/B (`--profile full`, CPU-pinned) is deferred
 to clean hardware — the same stance the repo takes on all published RPS numbers —
 and is the one gate not runnable here; it does not affect the keep decision since
 the hardening is mandatory. Recorded for RFC 015 (task 6.4).
+
+## Phase 6 — cross-cutting verification
+
+- **File-size cap (6.1):** no router source file exceeds 300 lines (max: router.ts 298,
+  matching.ts 293, registration.ts 291). matching.ts/router.ts are near-cap; the
+  case-normalization cluster (`isProvablyLowerAscii`/`collapseAndStrip`/`normalizePathForMatch`)
+  is the documented future extraction lever if headroom is needed — not required now.
+- **Suites (6.2):** router 241, core 148, adapter-node 101 — all green (no cross-package
+  regression). Router coverage: src 95.53% lines / 86.98% branch (all-files 96.14% lines),
+  above the 90% floor; the only uncovered router-src lines are the `seg===''` defensive
+  terminal (unreachable after slash-collapse, mirrors the prior matcher's guard). Typecheck +
+  lint clean (zero warnings).
+- **Parity (6.2):** `pnpm bench:validate` green — 6 servers agree byte-for-byte on bodies,
+  content-types, statuses, and middleware headers (confirms the rewritten router produces
+  identical responses through the real Node adapter).
+- **Validate (6.3):** `openspec validate router-match-path-allocation-trim --strict` → valid.
+  Atomic commit stack: `8338116` (P1 harness) → `42e8e39` (HP-10) → `d5cd964` (HP-9) →
+  `562faba` (HP-12) → `0c80e87` (HP-11+HP-13) → Phase-6 finalize — each independently revertible.
+- **RFC/report (6.4):** RFC 015 (§7 hot-path micro-opt) updated to record that the deferred
+  pair-array-then-materialize + iterative/null-proto walk was executed in the segment-trie
+  router (radix package should adopt it from day one); report §6 annotated with implementation
+  status. Route-Params RPS A/B remains deferred to CPU-pinned hardware.

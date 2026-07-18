@@ -253,6 +253,28 @@ dictionary/slow mode) — a deopt on the single most-executed function in the fr
 So T017 is the shared evidence gate for **both** the package's performance "why" (§3) and this
 specific optimization. Neither is committed by this RFC.
 
+> **Update (2026-07 — executed by `router-match-path-allocation-trim`).** The
+> "pair-array-then-materialize" alternative above has now been implemented in the **shipped
+> segment-trie router**, not deferred to the radix package. `matchNodeIndexed` was rewritten as an
+> **iterative explicit-stack DFS** that defers `:param`/`*` bindings onto parallel name/value
+> stacks and **materializes the params object once, on the accepted terminal**, on a
+> **null-prototype** object — removing the `Reflect.deleteProperty` param-backtrack (the hidden-
+> class deopt described above), the per-segment `[segment, next]` tuple arrays, and the `Object.keys`
+> post-loop. The iterative walk also closes a latent stack-overflow DoS on pathological segment
+> counts (a 60k-segment path that previously threw `RangeError: Maximum call stack size exceeded`
+> now resolves/misses cleanly) with **no behavior-changing segment cap**. Behavior is byte-identical
+> to the prior matcher across a 66-probe differential golden plus 15 safety scenarios (null-proto
+> params, `__proto__`/`constructor` own-key binding without pollution, `%2F`/`%2E` never
+> re-segmenting, concurrency isolation). The deopt-removal and DoS/pollution hardening are kept on
+> correctness grounds regardless of RPS; the transient-allocation delta is not observable via a
+> net-retained micro-bench (a documented measurement limitation — GC-churn proxies are defeated by
+> V8 escape analysis), so it is verified structurally and by deterministic spies rather than a heap
+> delta. **The Route-Params RPS A/B (`--profile full`, CPU-pinned) remains the one open number**,
+> deferred to clean hardware exactly as this RFC's T017 gate intended — the keep decision does not
+> depend on it because the hardening is mandatory. **The greenfield radix package should therefore
+> adopt the iterative, deferred-materialize, null-prototype walk from day one** (the "adopt from day
+> one" option (c) above), now that it is proven byte-compatible in the segment-trie router.
+
 ## 8. Costs & risks
 
 - **Maintenance & bus-factor (the dominant cost).** T059 flags this as a **single-maintainer**

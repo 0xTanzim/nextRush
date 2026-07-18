@@ -138,6 +138,14 @@ describe('HP-11 — miss / 405 / executor critical flow', () => {
     expect(router.match('POST', '/x/42')).toBeNull();
   });
 
+  it('returns null for a wildcard path requested with an unregistered method', () => {
+    const router = createRouter();
+    router.get('/w/*', noop);
+    // Wildcard child exists but has no POST handler → the walk pops the deferred
+    // '*' bind and backtracks to a clean null (not a spurious match).
+    expect(router.match('POST', '/w/a/b')).toBeNull();
+  });
+
   it('returns the pre-compiled executor on a matched param route (not re-composed)', () => {
     const router = createRouter();
     router.get('/x/:id', noop);
