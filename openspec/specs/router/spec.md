@@ -409,3 +409,78 @@ rather than an RPS A/B, and coverage MUST NOT decrease.
 #### Scenario: Coverage is maintained and refactored branches are covered
 - **WHEN** the adapter-node and router test suites run with coverage
 - **THEN** per-package line coverage stays at or above 90% and the refactored `ctx.raw` and iterative `findNode` branches are covered
+
+### Requirement: Route dispatch forwards route execution without adding an async frame
+
+`createRoutesMiddleware` (the router's primary dispatch middleware) and the no-middleware
+(`len === 0`) compiled executor (`compileExecutor`) SHALL forward the route's promise directly
+rather than wrapping it in an additional `async` frame, while preserving every observable dispatch
+semantic. Both SHALL remain valid `Middleware`/executor functions returning `Promise<void>`. The
+`len >= 1` executor path (which is already non-`async`) SHALL be unchanged.
+
+#### Scenario: A matched route runs the compiled executor without an extra async frame
+- **WHEN** a request matches a route with a pre-compiled executor
+- **THEN** `createRoutesMiddleware` returns the executor's promise directly (no wrapping `async` frame), the executor runs, and the response is produced identically to today
+
+#### Scenario: A synchronous handler is wrapped without an extra await hop
+- **WHEN** a matched no-middleware route's handler is synchronous (e.g. `ctx => ctx.json(...)` returning `undefined`)
+- **THEN** the `len === 0` executor returns a resolved `Promise<void>` for the handler's result without the async form's internal `await` microtask hop, and the response is byte-identical to today
+
+#### Scenario: A synchronous throw from a handler becomes a rejected promise
+- **WHEN** a matched route's handler throws synchronously (e.g. the `/error` route)
+- **THEN** the executor returns a rejected promise (it never throws synchronously out of dispatch), the rejection propagates through `createRoutesMiddleware` and the composer, and the application error handler produces its response (e.g. 500) — identical to today
+
+#### Scenario: An async handler rejection or returned rejected promise propagates
+- **WHEN** a matched route's handler is `async` and rejects, or returns a rejected promise
+- **THEN** that rejection propagates unchanged out of the executor and `createRoutesMiddleware` to the error handler
+
+#### Scenario: A thenable handler return is adopted, not dropped
+- **WHEN** a handler returns a non-`Promise` thenable
+- **THEN** the executor adopts it (the returned promise settles with the thenable), matching the previous `await handler(...)` behavior — the async work is not dropped
+
+#### Scenario: A non-Error throw is wrapped as an Error
+- **WHEN** a handler throws a non-`Error` value (string, number, null, undefined, object)
+- **THEN** the rejection is an `Error` whose message equals `String(thrownValue)`, matching today
+
+#### Scenario: A miss sets 404 and forwards next() for the allowedMethods fall-through
+- **WHEN** no route matches
+- **THEN** `createRoutesMiddleware` sets `ctx.status = 404` and returns `next()` (or a resolved promise if there is no `next`), so `allowedMethods()`/a 404 handler still runs and can turn a known-path/unregistered-method miss into a 405
+
+#### Scenario: The load-bearing setNext(NOOP_NEXT) still terminates the chain at the handler
+- **WHEN** a route handler on a no-middleware route calls `ctx.next()`, in an app whose stack has middleware mounted AFTER the router
+- **THEN** `ctx.next()` is a safe no-op (the executor's `ctx.setNext(NOOP_NEXT)` is preserved) and does NOT advance into the app-level middleware after the router — identical to today
+
+#### Scenario: The per-route middleware chain (len >= 1) is unchanged
+- **WHEN** a route registered with per-route middleware (e.g. the 5-layer `/middleware` route) runs, each layer using `ctx.next()`
+- **THEN** onion ordering, `ctx.next()` advancement, and multiple-`next()` detection are identical to today (the `len >= 1` executor is untouched), and `createRoutesMiddleware` forwards its promise unchanged
+
+#### Scenario: Match behavior is byte-identical (differential golden)
+- **WHEN** the router differential golden corpus is matched and dispatched before and after the change
+- **THEN** the resolved handler, params, executor, and response bytes are identical for every input
+
+#### Scenario: Behavior is identical across adapters
+- **WHEN** the same dispatch behavior is exercised on each supported adapter (Node/Bun/Deno/Edge)
+- **THEN** the observable behavior is identical, since the router (and its dispatch) is shared across adapters
+
+### Requirement: The dispatch de-async is validated by allocation, parity, and coverage gates
+
+Because the change is behavior-preserving and the end-to-end RPS effect is not measurable on
+unpinned hardware, it SHALL be accepted on deterministic allocation reduction + byte-identical
+parity + differential-golden equivalence + a quick-profile smoke showing no regression, with the
+publishable CPU-pinned A/B deferred. Per-package coverage MUST NOT decrease.
+
+#### Scenario: An allocation micro-benchmark documents the removed async frames
+- **WHEN** the dispatch allocation micro-benchmark (`bench:alloc:dispatch`) runs the matched no-middleware path
+- **THEN** it shows the two router-layer `async` state machines are no longer allocated per matched request (the flattened path allocates materially less than the pre-change 3-frame path)
+
+#### Scenario: Response parity is unaffected
+- **WHEN** `pnpm bench:validate` runs across all benchmark servers
+- **THEN** response bodies, statuses, and Content-Type remain byte-identical (including the `/error` route's 500)
+
+#### Scenario: The quick-profile smoke shows no regression
+- **WHEN** `pnpm bench:compare:quick` is run before and after on Hello World and Route Params
+- **THEN** there is no obvious regression; a clear regression parks the change pending the deferred CPU-pinned `--profile full` A/B
+
+#### Scenario: Coverage is maintained and the changed branches are covered
+- **WHEN** the router test suite runs with coverage
+- **THEN** per-package line coverage stays at or above 90% and the de-async'd `createRoutesMiddleware` (match/miss/404) and `len === 0` executor (void/promise/thenable/throw) branches are covered

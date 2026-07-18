@@ -309,3 +309,54 @@ regression.
 #### Scenario: Coverage is maintained and changed branches are covered (per-request work)
 - **WHEN** the test suite runs with coverage
 - **THEN** per-package line coverage stays at or above 90% and the changed `ip` / `next()` / options branches are covered
+
+### Requirement: `ctx.state` is materialized lazily with stable identity
+
+`NodeContext` SHALL allocate the `ctx.state` object only when `state` is first accessed, exposing it
+via a memoized accessor over a private backing field, so a request that never touches `state`
+allocates no object. `ctx.state` SHALL remain a mutable object with stable identity across reads
+(`ctx.state === ctx.state`), SHALL be reassignable (`ctx.state = {...}`), and SHALL support the
+symbol-keyed writes the prefix-mount path performs — behavior-identical to the previous eager
+`state = {}` field.
+
+#### Scenario: A request that never reads state allocates no object
+- **WHEN** a request is handled by a handler that uses `ctx.json`/`ctx.body`/`ctx.params` but never reads or writes `ctx.state`
+- **THEN** no `state` object is allocated for that request
+
+#### Scenario: state materializes on first access and is identity-stable
+- **WHEN** `ctx.state` is read (once or repeatedly)
+- **THEN** it returns a mutable object, and repeated reads return the same object (`ctx.state === ctx.state`)
+
+#### Scenario: Middleware share data through state as today
+- **WHEN** one middleware writes `ctx.state.user = u` and a later middleware/handler reads `ctx.state.user`
+- **THEN** the value is shared within the request exactly as with the previous eager object
+
+#### Scenario: state is reassignable
+- **WHEN** code assigns `ctx.state = { fresh: true }`
+- **THEN** the assignment succeeds and subsequent reads of `ctx.state` return the assigned object
+
+#### Scenario: Symbol-keyed prefix-mount writes work through the lazy accessor
+- **WHEN** a router mounted at a prefix handles a request, writing/clearing its symbol keys on `ctx.state` (as `createPrefixMount` does)
+- **THEN** the symbol writes land and are cleared correctly (the read materializes `state`), and the request is served identically to today
+
+#### Scenario: Cross-adapter behavior is unchanged
+- **WHEN** the cross-adapter behavioral/conformance suites run
+- **THEN** `ctx.state` behaves identically as an observable mutable object; the laziness is an internal Node-scoped implementation detail with no observable difference (sibling adapters unchanged)
+
+### Requirement: The lazy `ctx.state` trim is validated by allocation, parity, and coverage gates
+
+Because the trim is behavior-preserving and small, it SHALL be accepted on deterministic allocation
+reduction + byte-identical parity rather than an RPS A/B, and per-package coverage MUST NOT
+decrease.
+
+#### Scenario: An allocation micro-benchmark documents the removed object
+- **WHEN** the context-state allocation micro-benchmark (`bench:alloc:context-state`) runs a state-unread request path
+- **THEN** it shows the per-request `state` object is no longer allocated on the state-unread path (mirroring the lazy-`raw` result)
+
+#### Scenario: Response parity is unaffected
+- **WHEN** `pnpm bench:validate` runs across all benchmark servers
+- **THEN** response bodies and Content-Type remain byte-identical
+
+#### Scenario: Coverage is maintained and the accessor branches are covered
+- **WHEN** the adapter-node test suite runs with coverage
+- **THEN** per-package line coverage stays at or above 90% and the lazy `state` getter/setter (first-access materialization, reassignment, symbol-key write) branches are covered
