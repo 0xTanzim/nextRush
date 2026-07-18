@@ -80,7 +80,6 @@ export class BunContext implements FetchContext {
   readonly query: QueryParams;
   readonly headers: IncomingHeaders;
   readonly ip: string;
-  readonly raw: BunRawHttp;
   readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
@@ -93,9 +92,13 @@ export class BunContext implements FetchContext {
   private readonly _response: WebResponseBuilder;
   /** Lazily-created combiner of the request signal and the timeout signal (F-08). */
   private _abort?: CombinedAbort;
+  /** The platform request, held privately so `raw` is built lazily (HP-5-web). */
+  private readonly _req: Request;
+  /** Memoized `{ req, res }` wrapper — built only when `ctx.raw` is read (HP-5-web). */
+  private _raw?: BunRawHttp;
 
   constructor(request: Request, clientIp?: string, trustProxy = false) {
-    this.raw = { req: request, res: undefined };
+    this._req = request;
     this.method = request.method.toUpperCase() as HttpMethod;
     this.runtime = getRuntime();
 
@@ -159,11 +162,24 @@ export class BunContext implements FetchContext {
   // ===========================================================================
 
   /**
+   * Raw platform request/response handles.
+   *
+   * @remarks
+   * HP-5-web: built lazily and memoized — the `{ req, res }` wrapper is
+   * allocated only when a caller reads `ctx.raw`, which almost no handler does.
+   * `res` is always `undefined` on the Web adapters, so the shape and identity
+   * match the previous eager field exactly.
+   */
+  get raw(): BunRawHttp {
+    return (this._raw ??= { req: this._req, res: undefined });
+  }
+
+  /**
    * Abort signal — combines the platform request signal (client disconnect)
    * with an adapter-owned controller that fires on request timeout (F-08).
    */
   get signal(): AbortSignal {
-    this._abort ??= combineAbortSignal(this.raw.req.signal);
+    this._abort ??= combineAbortSignal(this._req.signal);
     return this._abort.signal;
   }
 
@@ -172,7 +188,7 @@ export class BunContext implements FetchContext {
    * @internal
    */
   triggerTimeout(reason?: unknown): void {
-    this._abort ??= combineAbortSignal(this.raw.req.signal);
+    this._abort ??= combineAbortSignal(this._req.signal);
     this._abort.abort(reason ?? new Error('Request timeout'));
   }
 
