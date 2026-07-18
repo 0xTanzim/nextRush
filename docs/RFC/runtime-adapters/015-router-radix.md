@@ -272,8 +272,39 @@ specific optimization. Neither is committed by this RFC.
 > delta. **The Route-Params RPS A/B (`--profile full`, CPU-pinned) remains the one open number**,
 > deferred to clean hardware exactly as this RFC's T017 gate intended — the keep decision does not
 > depend on it because the hardening is mandatory. **The greenfield radix package should therefore
-> adopt the iterative, deferred-materialize, null-prototype walk from day one** (the "adopt from day
+> adopt the iterative, deferred-materialize, null-prototype walk from> day one** (the "adopt from day
 > one" option (c) above), now that it is proven byte-compatible in the segment-trie router.
+
+> **Update (2026-07 — T017 executed by `router-param-path-profile-gate`).** The deferred T017
+> route-params measurement has now been run (measurement-only; no matcher change). Full evidence:
+> `report/route-params-profile.md`. Findings that settle this section's open questions:
+>
+> - **The param path is NOT allocation-bound, and the gap is NOT dominated by the matcher.** A new
+>   *gross*-allocation profiler (`apps/benchmark/scripts/param-match-alloc.js`, the instrument the
+>   net-retained bench could not provide) measures depth-2 param at **442 B/op gross** vs 340 B/op
+>   net-retained — confirming ~102 B/op of transient frame/bind allocation the old bench was blind
+>   to. **But ~98% of the whole param allocation is escape-analysis-eligible** (discard-mode floor
+>   ~3–9 B/op), and in a `--heap-prof` of the **real server under load** the matcher is **~0.34% of
+>   heap traffic** (`matchNodeIndexed`/frames/bind arrays sample at **zero**). A `--cpu-prof` puts
+>   the **whole matcher at ~4% of CPU** (GC ~1%); the request is dominated by response `writev`
+>   (~33%) and JSON serialization (~4.8%). The largest *matcher* term is `matchNodeIndexed`'s
+>   per-segment `Map.get` walk at **1.44%**.
+> - **Defensible RPS gap = −7.4% vs Fastify** (pinned, 5-run; cv 2.0%), not the −13.9% single-run
+>   figure — roughly half the headline gap was measurement noise. NextRush is ~7% behind raw Node
+>   too, so this is per-request framework overhead, not a routing-algorithm deficit.
+> - **HP-11 verdict: KEEP; its allocation story is net-neutral in production.** The safety hardening
+>   (DoS, `__proto__` pollution, deopt) is mandatory regardless. The 169 → 340 B/op "doubling"
+>   NF-3 flagged was net-retained-bench noise, not an RPS regression: the transient the iterative
+>   walk adds is escape-elided under load. This resolves the `router-match-path-allocation-trim` D6
+>   gate.
+> - **Trim-vs-radix decision:** on route-params grounds, **neither** is justified. A segment-trie
+>   allocation trim targets ~1% of already-elided cost (projected RPS gain ≈ 0); radix targets only
+>   the 1.44% `Map.get` walk — far less than the ~7% gap. **This RFC's §7 optimization and the radix
+>   package both remain deferred**, now on *evidence* rather than absence of it: radix needs a driver
+>   beyond route-params RPS (large tables / deep shared prefixes), which this workload does not
+>   supply. The remaining gap is not in the matcher; the next lever, if taken, is per-request
+>   context/dispatch overhead. The one still-open number is the publishable 5-run **clean-host**
+>   `--profile full` A/B (this report's −7.4% is directional/pinned, not publishable).
 
 ## 8. Costs & risks
 

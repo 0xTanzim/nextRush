@@ -342,8 +342,15 @@ for the router pass were never measured** — see NF-3.
 
 ### NF-3 — Route-parameter matching is the widest competitive gap, the heaviest allocator, and has never been profiled or RPS-tested
 
-- **Severity:** **P0 (validation gap)** — highest-value area, currently *blocked on measurement*,
-  not on code.
+- **Severity:** **P0 (validation gap)** — ~~currently *blocked on measurement*~~ **RESOLVED
+  2026-07-18 by `router-param-path-profile-gate` → `report/route-params-profile.md`.** The gap was
+  profiled and decided: it is **not** allocation-bound (matcher ~0.34% of server heap, ~98%
+  escape-elided) and **not** matcher-dominated (whole matcher ~4% CPU; request dominated by response
+  `writev` ~33% + JSON serialize). The defensible pinned 5-run gap is **−7.4% vs Fastify** (not the
+  −13.9% single-run figure). **Decision: neither an allocation trim (≈0 projected gain) nor a radix
+  rewrite (targets only the 1.44% `Map.get` walk) is justified on route-params grounds; HP-11 is
+  kept, its allocation story net-neutral in production.** Next lever, if any, is per-request
+  context/dispatch overhead — see the profile report §6.
 - **Runtime Layer:** V8 (allocation) + algorithm/data-structure (segment trie) + the whole
   benchmark/validation harness.
 - **File / Function:** `router/src/matching.ts` `matchNodeIndexed`; `router/src/match-route.ts`
@@ -585,7 +592,7 @@ Ordered by *evidence strength × leverage ÷ risk*. Every RPS figure is a **hypo
 | 1 | **Run the deferred measurements first** — CPU-pinned `--profile full` A/B + a real allocation/CPU profile of the hot path (esp. route-params) | NF-3, Hidden #1 | **P0-validation** | none | no | *This unblocks everything below.* |
 | 2 | **De-async the router dispatch layer** — forward promises in `createRoutesMiddleware` + `len=0` executor | NF-1, NF-4 | P1 | Low | no | frame-removal A/B + parity + Hello/route-params RPS A/B |
 | 3 | **Lazy `ctx.state`** getter | NF-2 | P2 | Low | no | `context-state-alloc` micro-bench + adapter/core suites |
-| 4 | **Profile-driven route-params work** — reduce per-match allocation *or* execute radix (RFC 015), decided by #1 | NF-3 | P1 | Med | no (internal) / RFC (radix) | the profile from #1; differential golden |
+| 4 | **Profile-driven route-params work** — ~~reduce per-match allocation *or* execute radix (RFC 015)~~ **DECIDED 2026-07-18 (`report/route-params-profile.md`): park both** — allocation is escape-elided (≈0 gain from a trim), radix targets only the 1.44% `Map.get` walk (≪ the −7.4% gap); the gap is not in the matcher | NF-3 | ~~P1~~ **decided** | none | no | done — profile + pinned A/B; differential golden green |
 | 5 | `ctx.json` response-path micro-trim (measure first; may be a non-finding) | NF-5 | P3 | Low | no | JSON-response A/B + header parity |
 | 6 | Update the stale tracking table | NF-6 | P4 | none | no | doc review |
 

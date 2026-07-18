@@ -22,6 +22,7 @@
     "bench:alloc:context-raw": "node scripts/context-raw-alloc.js",
     "bench:alloc:context-state": "node scripts/context-state-alloc.js",
     "bench:alloc:router": "node scripts/router-match-alloc.js",
+    "bench:alloc:param-match": "node scripts/param-match-alloc.js",
     "bench:alloc:web": "node scripts/web-context-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
     "bench:check": "node scripts/check-regression.js",
