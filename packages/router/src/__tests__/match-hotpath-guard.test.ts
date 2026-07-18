@@ -29,8 +29,12 @@ import { describe, expect, it } from 'vitest';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = join(HERE, '..');
 
-/** The two files that make up the router match path (design.md / proposal). */
-const MATCH_SOURCES = ['matching.ts', 'match-route.ts'] as const;
+/**
+ * The files that make up the router match path (design.md / proposal). `find-node.ts`
+ * holds the method-agnostic walk split out of `matching.ts` during the HP-17
+ * rewrite, so it is guarded alongside the two match sources.
+ */
+const MATCH_SOURCES = ['matching.ts', 'match-route.ts', 'find-node.ts'] as const;
 
 /**
  * Remove block (`/* ... *\/`) and line (`// ...`) comments so the guard scans

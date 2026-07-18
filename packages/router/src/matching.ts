@@ -33,45 +33,12 @@ export function decodeParam(value: string, decode: boolean): string {
  * Return the path segment starting at `start`, up to the next `/` (or end).
  * Scalar — no tuple array (the iterative walk tracks the next position itself).
  * Used to recover an original-case param value from the original-case path at a
- * position already validated against the (folded) lookup path.
+ * position already validated against the (folded) lookup path, and by the
+ * {@link findNode} allowed-methods walk to scan segments off the lookup path.
  */
-function segmentAt(path: string, start: number): string {
+export function segmentAt(path: string, start: number): string {
   const slashPos = path.indexOf('/', start);
   return slashPos === -1 ? path.slice(start) : path.slice(start, slashPos);
-}
-
-/**
- * Walk the tree to find the node matching a path (ignoring HTTP method).
- * Pure function of its three parameters — no implicit dependency on `Router`
- * instance state.
- */
-export function findNode(node: TrieNode, segments: string[], index: number): TrieNode | null {
-  if (index === segments.length) {
-    return node;
-  }
-
-  const segment = segments[index];
-  if (segment === undefined) return null;
-
-  // Static match
-  const staticChild = node.children.get(segment);
-  if (staticChild) {
-    const result = findNode(staticChild, segments, index + 1);
-    if (result) return result;
-  }
-
-  // Param match
-  if (node.paramChild) {
-    const result = findNode(node.paramChild, segments, index + 1);
-    if (result) return result;
-  }
-
-  // Wildcard match
-  if (node.wildcardChild) {
-    return node.wildcardChild;
-  }
-
-  return null;
 }
 
 /**
@@ -143,26 +110,6 @@ export function normalizePathForMatch(
 ): string {
   const folded = caseSensitive || isProvablyLowerAscii(path) ? path : path.toLowerCase();
   return collapseAndStrip(folded, strict);
-}
-
-/**
- * Find all HTTP methods registered for a given path via a single tree walk.
- * `caseSensitive`/`strict` (formerly `this.opts.*`) and `root` (formerly
- * `this.root`) are threaded explicitly.
- */
-export function findAllowedMethods(
-  path: string,
-  root: TrieNode,
-  caseSensitive: boolean,
-  strict: boolean
-): HttpMethod[] {
-  const normalized = normalizePathForMatch(path, caseSensitive, strict);
-
-  const segments = normalized.split('/').filter(Boolean);
-  const node = findNode(root, segments, 0);
-  if (!node || node.handlers.size === 0) return [];
-
-  return Array.from(node.handlers.keys());
 }
 
 /**

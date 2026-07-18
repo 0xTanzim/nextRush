@@ -20,7 +20,7 @@
 
 import type { Context, HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { NOOP_NEXT, type TrieNode } from './segment-trie';
-import { findAllowedMethods } from './matching';
+import { findAllowedMethods } from './find-node';
 
 /**
  * Build the router's primary dispatch middleware.

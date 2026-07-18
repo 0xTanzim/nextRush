@@ -5,13 +5,13 @@
 
 ## 2. HP-18 — regression guard (no code change; land first, trivial)
 
-- [ ] 2.1 Add a guard test asserting `packages/router/src` match sources contain no backtrack `Reflect.deleteProperty` and no `Object.keys`-based post-match loop. It passes today (P2 removed them); it fails if reintroduced. Commit.
+- [x] 2.1 Add a guard test asserting `packages/router/src` match sources contain no backtrack `Reflect.deleteProperty` and no `Object.keys`-based post-match loop. It passes today (P2 removed them); it fails if reintroduced. Commit.
 
 ## 3. HP-17 — iterative `findNode`
 
-- [ ] 3.1 RED: differential test — `findAllowedMethods` results identical between the current recursive `findNode` and the (to-be) iterative one across a corpus (static, param, wildcard, nested, trailing-slash, method-miss); precedence (static>param>wildcard) preserved; a **deep-path** (many-segment) 405/OPTIONS case that would overflow the recursive form.
-- [ ] 3.2 GREEN: rewrite `findNode` to walk with an explicit stack (mirroring `matchNodeIndexed`), reusing the scalar `segmentAt` scan; keep it method-agnostic (returns the node).
-- [ ] 3.3 Full router suite + differential green; the deep-path test no longer risks overflow. Commit.
+- [x] 3.1 RED: differential test — `findAllowedMethods` results identical between the current recursive `findNode` and the (to-be) iterative one across a corpus (static, param, wildcard, nested, trailing-slash, method-miss); precedence (static>param>wildcard) preserved; a **deep-path** (many-segment) 405/OPTIONS case that would overflow the recursive form.
+- [x] 3.2 GREEN: rewrite `findNode` to walk with an explicit stack (mirroring `matchNodeIndexed`), reusing the scalar `segmentAt` scan; keep it method-agnostic (returns the node).
+- [x] 3.3 Full router suite + differential green; the deep-path test no longer risks overflow. Commit.
 
 ## 4. HP-5 — lazy `ctx.raw` (measurement-gated, park-able)
 
