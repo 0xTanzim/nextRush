@@ -182,6 +182,19 @@ describe('HP-17 — findNode iterative rewrite: differential parity with recursi
     expect(prodNode('/definitely/not/here', root, false, false)).toBeNull();
     expect(refNode('/definitely/not/here', root, false, false)).toBeNull();
   });
+
+  it('treats an empty segment as a terminal (defensive: startPos landing on a slash)', () => {
+    // Normalization collapses `//`, so findAllowedMethods never feeds an empty
+    // mid-segment; this exercises findNode's empty-segment guard directly. A
+    // walk position sitting on a `/` yields an empty segment, which the walker
+    // treats as "path exhausted here" and returns the current node.
+    const r = buildRoot([['GET', '/a']]);
+    // '/a/' walked from the leading slash: after 'a' the trailing slash makes
+    // the next position land at the end; feed a raw double-slash to hit the
+    // seg === '' branch at a non-terminal position.
+    const node = findNode(r, '/a//', 3);
+    expect(node).not.toBeNull();
+  });
 });
 
 describe('HP-17 — deep-path 405/OPTIONS safety (RED before the iterative rewrite)', () => {
