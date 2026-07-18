@@ -49,4 +49,14 @@ describe('parseQueryString — HP-2-web shared frozen empty query', () => {
     // The non-empty result is a mutable own object (not the frozen shared one).
     expect(Object.isFrozen(parsed)).toBe(false);
   });
+
+  it('accumulates repeated keys into an array on its own object', () => {
+    expect(parseQueryString('c=1&c=2&c=3')).toEqual({ c: ['1', '2', '3'] });
+  });
+
+  it('returns the raw component when percent-decoding fails (safe decode)', () => {
+    // A lone '%' is invalid percent-encoding; decodeURIComponent throws and the
+    // parser falls back to the raw substring rather than erroring.
+    expect(parseQueryString('k=%')).toEqual({ k: '%' });
+  });
 });
