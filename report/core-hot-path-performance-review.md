@@ -711,7 +711,7 @@ Visual tracker — every finding and whether it has shipped. (HP-3 and HP-8 were
 | HP-1  | eager `ctx.ip` lookup closure | P1 | ✅ shipped (all 4 adapters) |
 | HP-2  | per-request empty `query` object | P3 | ⬜ pending |
 | HP-4  | per-request `{ trustProxy }` options object | P1 | ✅ shipped (Node; N/A siblings) |
-| HP-5  | `raw = { req, res }` wrapper object | P4 | ⬜ pending |
+| HP-5  | `raw = { req, res }` wrapper object | P4 | ✅ shipped (`router-context-final-cleanup`; Node — lazy memoized getter, 83% wrapper-alloc cut on raw-unread) |
 | HP-6  | redundant single-middleware `compose` layer | P0 | ✅ shipped |
 | HP-7  | `ctx.next()` extra async frame | P1 | ✅ shipped (all 4 adapters) |
 | HP-9  | per-request `staticKey` string (method-nested map) | P2 | ✅ shipped |
@@ -722,11 +722,11 @@ Visual tracker — every finding and whether it has shipped. (HP-3 and HP-8 were
 | HP-14 | `ctx.json` double `setHeader` | P3 | ⬜ pending |
 | HP-15 | `ctx.set` `toLowerCase()` per call | P3 | ⬜ pending |
 | HP-16 | `NodeBodySource` `for await` body read | P2 (indep.) | ✅ shipped (`node-body-read-fastpath`; Node only — `WebBodySource` follow-up noted) |
-| HP-17 | `findNode` traversal duplication | P4 | ⬜ pending |
-| HP-18 | provably-dead defensive branches | P4 | ⬜ pending |
+| HP-17 | `findNode` recursion → iterative (405-path DoS) + shared scan | P4 | ✅ shipped (`router-context-final-cleanup`; iterative walk, `find-node.ts` split; full merge with `matchNodeIndexed` remains a Non-Goal) |
+| HP-18 | backtrack `Reflect.deleteProperty` / `Object.keys` post-loop | P4 | ✅ shipped (`router-context-final-cleanup`; regression guard — no code change, patterns already removed by P2) |
 
-**11 of 16 shipped** (P0 + P1 + P2, incl. cross-adapter). Remaining: the P3 response
-micro-trims (HP-2 / HP-14 / HP-15), and P4 cleanup (HP-5 / HP-17 / HP-18).
+**14 of 16 shipped** (P0 + P1 + P2 + P4, incl. cross-adapter). Remaining: the P3 response
+micro-trims (HP-2 / HP-14 / HP-15).
 
 ### Progress snapshot (2026-07-18)
 
@@ -747,7 +747,24 @@ micro-trims (HP-2 / HP-14 / HP-15), and P4 cleanup (HP-5 / HP-17 / HP-18).
   async-iterator/promise overhead, not an overstated POST RPS claim (`JSON.parse` dominates POST).
   **Follow-up:** a `WebBodySource` (Bun/Deno/Edge) sibling review is a candidate but likely a
   smaller effect (Web streams differ) — noted, not gated on this change.
-- ⬜ **P3 remainder (HP-2 / HP-14 / HP-15)** and **P4 cleanup (HP-5 / HP-17 / HP-18)** pending.
+- ✅ **P4 cleanup — HP-5 / HP-17 / HP-18** shipped as `router-context-final-cleanup`:
+  - **HP-17** — `findNode` (the `findAllowedMethods` / 405-OPTIONS walker) rewritten from
+    recursion to an explicit-stack walk, closing the deep-path stack-overflow the P2 rewrite
+    left on the allowed-methods path (the same DoS class HP-11 closed for the match path);
+    reuses the scalar `segmentAt` scan and drops the `split('/').filter(Boolean)` allocation.
+    Extracted with `findAllowedMethods` into `find-node.ts` (the rewrite pushed `matching.ts`
+    past the 300-line ceiling). A full merge with `matchNodeIndexed` stays a Non-Goal (they
+    answer different questions). Pinned by a node-identity + `findAllowedMethods` differential
+    against a frozen reference recursion, plus deep-path (60k-segment) no-overflow tests.
+  - **HP-5** — `ctx.raw` built lazily: `req`/`res` held as private fields, the `{ req, res }`
+    wrapper built by a memoized getter only when a handler reads `ctx.raw`. **Shipped, not
+    parked** (design D2 gate): the allocation micro-bench shows the wrapper is no longer
+    allocated on a raw-unread request — 83% fewer bytes/req (lazy 8.1 vs eager 47.6 B/req,
+    deterministic). `bench:validate` byte-identical; adapter-node suite green.
+  - **HP-18** — no code change (the P2 rewrite already removed the backtrack
+    `Reflect.deleteProperty` and `Object.keys` post-loop); added a static regression guard that
+    fails if either is reintroduced into the router match sources.
+- ⬜ **P3 remainder (HP-2 / HP-14 / HP-15)** pending.
 - ⏳ **Cross-cutting open item:** the CPU-pinned `--profile full` A/B that turns the shipped
   allocation wins into publishable RPS numbers has **not** been run on a clean environment yet.
 
@@ -791,17 +808,18 @@ shape *and* removes an entire async frame plus closures, not just one allocation
 
 | ID | Change | Complexity | Risk | Breaking | Status |
 |----|--------|------------|------|----------|--------|
-| HP-17 | Consolidate `findNode` traversal with `matchNodeIndexed` | Low | Low | No | ⬜ Pending |
-| HP-18 | Remove provably-unreachable defensive branches under test coverage | Low | Low | No | ⬜ Pending |
-| HP-5 | Lazy `ctx.raw` (only if bundled into a Context refactor) | Medium | Low | No | ⬜ Pending |
+| HP-17 | `findNode` recursion → iterative explicit-stack walk (405-path DoS fix) + shared `segmentAt` scan; extracted to `find-node.ts`. Full `matchNodeIndexed` merge remains a Non-Goal | Low | Low | No | ✅ **Shipped** — `router-context-final-cleanup` |
+| HP-18 | Regression guard against reintroduced backtrack `Reflect.deleteProperty` / `Object.keys` post-loop (patterns already removed by P2; no code change) | Low | Low | No | ✅ **Shipped** — same change |
+| HP-5 | Lazy memoized `ctx.raw` (private `_req`/`_res`; wrapper built only when read) | Medium | Low | No | ✅ **Shipped** — same change; 83% wrapper-alloc cut on raw-unread |
 
 ### Sequencing recommendation
 
 **Done:** HP-4/HP-1/HP-7 (P1) → HP-6 (P0) → the router batch HP-9/HP-10/HP-11/HP-12/HP-13 (P2,
-`router-match-path-allocation-trim`) — all shipped and archived, extended cross-adapter. **Next:**
-**HP-16** (POST body-read fast path) against NextRush's weakest scenario, as its own change. Then
-the P3 response micro-trims (HP-2 / HP-14 / HP-15) and P4 cleanup (HP-5 / HP-17 / HP-18). The
-cross-cutting `--profile full` A/B remains outstanding to publish RPS numbers for the shipped work.
+`router-match-path-allocation-trim`) → **HP-16** (POST body-read fast path,
+`node-body-read-fastpath`) → **P4 cleanup HP-5/HP-17/HP-18** (`router-context-final-cleanup`) —
+all shipped and archived (P0–P2 extended cross-adapter). **Next:** the P3 response micro-trims
+(HP-2 / HP-14 / HP-15). The cross-cutting `--profile full` A/B remains outstanding to publish RPS
+numbers for the shipped work.
 
 ---
 

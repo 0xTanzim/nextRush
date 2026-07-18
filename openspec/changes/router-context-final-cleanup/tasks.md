@@ -22,6 +22,6 @@
 
 ## 5. Verification & finalize
 
-- [ ] 5.1 Full adapter-node + router suites green; `bench:validate` parity; `bench:compare:quick` smoke no regression; per-package coverage ≥90% with refactored branches covered; typecheck + lint clean.
-- [ ] 5.2 Run `openspec validate router-context-final-cleanup --strict`; keep the work as independent per-finding commits (HP-18 guard, HP-17, HP-5) so each is revertible.
-- [ ] 5.3 On archive, update the report §9 findings index (HP-5 / HP-17 / HP-18 → ✅) — completing the roadmap — and note any parked item (e.g. HP-5) honestly.
+- [x] 5.1 Full adapter-node + router suites green; `bench:validate` parity; `bench:compare:quick` smoke no regression; per-package coverage ≥90% with refactored branches covered; typecheck + lint clean.
+- [x] 5.2 Run `openspec validate router-context-final-cleanup --strict`; keep the work as independent per-finding commits (HP-18 guard, HP-17, HP-5) so each is revertible.
+- [x] 5.3 On archive, update the report §9 findings index (HP-5 / HP-17 / HP-18 → ✅) — completing the roadmap — and note any parked item (e.g. HP-5) honestly.
