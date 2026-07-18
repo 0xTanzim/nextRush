@@ -84,49 +84,55 @@ export function matchRoute(
   // Only walk tree if we have param/wildcard routes
   if (!hasParamRoutes) return null;
 
-  // Use index-based path scanning instead of split('/').filter(Boolean)
-  const params: Record<string, string> = {};
-
   // Original-case (query-stripped) path so extracted param values keep their
   // casing while lookup uses the lowercased `normalized`. Needed ONLY when a
   // fold actually happened (HP-12): when case-stable, `normalized` already IS
-  // the original-case structure, so `matchNodeIndexed` extracts from it and no
-  // second normalize pass runs.
+  // the original-case structure, so the walk extracts from it and no second
+  // normalize pass runs.
   const originalPath = caseStable ? undefined : collapseAndStrip(path, strict);
 
-  const result = matchNodeIndexed(
+  // Deferred param binding (HP-11): the walk records the accepted path's
+  // `:param`/`*` bindings onto these parallel stacks (pushed on descent, popped
+  // on backtrack) so params are materialized ONCE here on the accepted terminal
+  // — no eager bind + backtrack `Reflect.deleteProperty`.
+  const bindNames: string[] = [];
+  const bindValues: string[] = [];
+
+  const entry = matchNodeIndexed(
     root,
     normalized,
     1, // Start after leading '/'
-    params,
+    bindNames,
+    bindValues,
     method,
     decode,
     originalPath
   );
-  if (!result) return null;
+  if (!entry) return null;
 
-  // Post-match: compute `hasParams` so a zero-param walk returns the shared
-  // frozen EMPTY_PARAMS sentinel rather than a throwaway object. RETAINED (not
-  // removed) per task 2.3 / design.md D3: the `deleteProperty` branch is a cheap
-  // defensive guard — `matchNodeIndexed` only ever assigns string param values
-  // and deletes its own keys on backtrack, so an undefined-valued key cannot
-  // occur today — but removing the loop buys nothing (Object.keys still runs to
-  // decide `hasParams`) while dropping that guard, and hot-path rewrites are
-  // deferred to the radix RFC's benchmark (design.md D4).
-  let hasParams = false;
-  for (const key of Object.keys(params)) {
-    if (params[key] === undefined) {
-      Reflect.deleteProperty(params, key);
-    } else {
-      hasParams = true;
+  // Materialize params once on a null-prototype object (design.md D8): a param
+  // named `__proto__`/`constructor`/`prototype` binds as an OWN key with no
+  // prototype mutation, and no inherited member is visible on `ctx.params`. The
+  // bind count replaces the former `Object.keys` post-loop (HP-13); zero binds
+  // returns the shared frozen `EMPTY_PARAMS`.
+  const count = bindNames.length;
+  let params: Record<string, string>;
+  if (count === 0) {
+    params = EMPTY_PARAMS;
+  } else {
+    params = Object.create(null) as Record<string, string>;
+    for (let i = 0; i < count; i++) {
+      const name = bindNames[i];
+      const value = bindValues[i];
+      if (name !== undefined && value !== undefined) params[name] = value;
     }
   }
 
   return {
-    handler: result.handler,
-    params: hasParams ? params : EMPTY_PARAMS,
+    handler: entry.handler,
+    params,
     middleware: routerMiddleware,
-    executor: result.executor,
+    executor: entry.executor,
   };
 }
 

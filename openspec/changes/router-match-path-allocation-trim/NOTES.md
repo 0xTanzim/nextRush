@@ -68,4 +68,37 @@ claim transient-garbage reductions.
   Verified: `match-normalize-fastpath.test.ts` (toLowerCase not invoked on stable
   paths incl. a full param match; byte-identity for ASCII + non-ASCII uppercase),
   differential golden byte-identical, full suite green.
-- HP-11 + HP-13 (param-walk rewrite): _pending_
+- HP-11 + HP-13 (param-walk rewrite): DONE — kept in full (D6 decision below).
+  matching.ts: `matchNodeIndexed` is now an ITERATIVE explicit-stack DFS (frame
+  stage-machine 0=extract+static, 1=param, 2=wildcard/backtrack), closing the
+  latent stack-overflow DoS with NO behavior-changing segment cap. Param/wildcard
+  bindings are DEFERRED onto caller-owned parallel stacks (`bindNames`/`bindValues`,
+  pushed on descent, popped on backtrack), so matchRoute materializes params ONCE
+  on the accepted terminal on a null-prototype object (D8) — removing the eager
+  bind + backtrack `Reflect.deleteProperty` (V8 hidden-class deopt) and the
+  `Object.keys` post-loop (HP-13; bind count drives the EMPTY_PARAMS decision).
+  `decodeParam` stays strictly post-split (D9). `extractSegment` (tuple) removed;
+  scalar `segmentAt` replaces its one remaining use.
+  Verified: 66-probe differential golden BYTE-IDENTICAL; `match-safety.test.ts`
+  (15 scenarios) green — null-proto params + `__proto__`/`constructor` own-key
+  binding with no global pollution; `%2F`/`%2E` never re-segment; 60k-segment
+  match resolves + 60k miss, both without stack overflow (was RangeError before);
+  concurrency isolation; clean-null miss / 405 / compiled-executor; and
+  DETERMINISTIC spies proving `Object.keys` and `Reflect.deleteProperty` are no
+  longer invoked on the match path. 240 router tests, typecheck + lint clean.
+
+### D6 decision gate (task 5.6)
+
+HP-11 is KEPT in full. The null-proto (D8), traversal-safe decode (D9), and
+iterative/DoS hardening are mandated on correctness/safety grounds regardless of
+RPS, and they are INSEPARABLE from the same rewrite — you cannot revert the
+"perf" mechanism (deferred materialize) while keeping the null-proto/DoS
+properties, because they are the same code path. The perf mechanism removes real
+work (the `Object.keys` post-loop, the `Reflect.deleteProperty` deopt, the second
+original-case extraction) with zero correctness regression (golden byte-identical).
+Per the established measurement finding, the net-retained micro-bench cannot
+observe this transient-garbage delta; removal is proven by the deterministic
+spies. The final Route-Params RPS A/B (`--profile full`, CPU-pinned) is deferred
+to clean hardware — the same stance the repo takes on all published RPS numbers —
+and is the one gate not runnable here; it does not affect the keep decision since
+the hardening is mandatory. Recorded for RFC 015 (task 6.4).

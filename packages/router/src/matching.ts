@@ -30,15 +30,14 @@ export function decodeParam(value: string, decode: boolean): string {
 }
 
 /**
- * Extract the next segment from path at given position without allocating arrays.
- * Returns [segment, nextIndex] where nextIndex is position after the trailing '/'.
+ * Return the path segment starting at `start`, up to the next `/` (or end).
+ * Scalar — no tuple array (the iterative walk tracks the next position itself).
+ * Used to recover an original-case param value from the original-case path at a
+ * position already validated against the (folded) lookup path.
  */
-export function extractSegment(path: string, start: number): [segment: string, nextIndex: number] {
+function segmentAt(path: string, start: number): string {
   const slashPos = path.indexOf('/', start);
-  if (slashPos === -1) {
-    return [path.slice(start), path.length];
-  }
-  return [path.slice(start, slashPos), slashPos + 1];
+  return slashPos === -1 ? path.slice(start) : path.slice(start, slashPos);
 }
 
 /**
@@ -167,63 +166,127 @@ export function findAllowedMethods(
 }
 
 /**
- * Index-based recursive node matching (avoids array allocation).
+ * One node in the iterative walk's explicit stack. `stage` is a small state
+ * machine (0 = extract + try static, 1 = try param, 2 = try wildcard/backtrack)
+ * so a single frame can be revisited on backtrack without recursion. `bound`
+ * records whether this frame pushed a deferred param binding, so backtracking
+ * can pop it without an object-property delete.
+ */
+interface WalkFrame {
+  node: TrieNode;
+  pos: number;
+  stage: 0 | 1 | 2;
+  seg: string;
+  next: number;
+  bound: boolean;
+}
+
+/**
+ * Iterative, index-based segment-trie match (HP-11 / HP-13, design.md D4).
  *
- * `decode` is threaded explicitly (was `this.opts.decode` on the class) — this
- * function has no implicit dependency on `Router` instance state.
+ * Walks the trie with an EXPLICIT stack instead of recursion, so a pathological
+ * segment count cannot overflow the call stack (DoS safety) — behavior is
+ * otherwise byte-identical to the former recursive matcher: precedence is
+ * static > param > wildcard at each node, a partially-matching branch backtracks
+ * cleanly, and the first accepted terminal wins.
+ *
+ * Param/wildcard bindings are DEFERRED onto the caller-owned `bindNames` /
+ * `bindValues` stacks and popped on backtrack, so params are materialized ONCE
+ * on the accepted terminal by the caller (no eager bind + backtrack
+ * `Reflect.deleteProperty`, and no `Object.keys` post-loop — the caller reads
+ * the bind count). `decode` runs strictly on the already-split segment/remainder
+ * (design.md D9), so an encoded slash/dot decodes into the value only and can
+ * never create new path segments.
+ *
+ * `originalPath` (present only when case-folding actually occurred) supplies the
+ * original-case param value at the same position as the folded lookup path.
  */
 export function matchNodeIndexed(
-  node: TrieNode,
+  root: TrieNode,
   path: string,
-  pos: number,
-  params: Record<string, string>,
+  startPos: number,
+  bindNames: string[],
+  bindValues: string[],
   method: HttpMethod,
   decode: boolean,
   originalPath?: string
 ): HandlerEntry | null {
-  // Reached end of path
-  if (pos >= path.length) {
-    return node.handlers.get(method) ?? null;
-  }
+  const stack: WalkFrame[] = [
+    { node: root, pos: startPos, stage: 0, seg: '', next: 0, bound: false },
+  ];
 
-  const [segment, nextPos] = extractSegment(path, pos);
-  if (segment === '') return node.handlers.get(method) ?? null;
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1];
+    if (frame === undefined) break;
 
-  // Try static match first (most specific)
-  const staticChild = node.children.get(segment);
-  if (staticChild) {
-    const result = matchNodeIndexed(staticChild, path, nextPos, params, method, decode, originalPath);
-    if (result) return result;
-  }
-
-  // Try parameter match — use original-case segment for param value
-  if (node.paramChild) {
-    const paramName = node.paramChild.paramName;
-    if (paramName === undefined) return null;
-    if (originalPath) {
-      const [origSeg] = extractSegment(originalPath, pos);
-      params[paramName] = decodeParam(origSeg, decode);
-    } else {
-      params[paramName] = decodeParam(segment, decode);
+    // Stage 0 — first visit: terminal checks, then try the static child.
+    if (frame.stage === 0) {
+      if (frame.pos >= path.length) {
+        const handler = frame.node.handlers.get(method);
+        if (handler) return handler; // accepted — bind stacks hold this path's params
+        stack.pop();
+        continue;
+      }
+      const slashPos = path.indexOf('/', frame.pos);
+      if (slashPos === -1) {
+        frame.seg = path.slice(frame.pos);
+        frame.next = path.length;
+      } else {
+        frame.seg = path.slice(frame.pos, slashPos);
+        frame.next = slashPos + 1;
+      }
+      if (frame.seg === '') {
+        const handler = frame.node.handlers.get(method);
+        if (handler) return handler;
+        stack.pop();
+        continue;
+      }
+      frame.stage = 1;
+      const staticChild = frame.node.children.get(frame.seg);
+      if (staticChild) {
+        stack.push({ node: staticChild, pos: frame.next, stage: 0, seg: '', next: 0, bound: false });
+      }
+      continue;
     }
-    const result = matchNodeIndexed(
-      node.paramChild,
-      path,
-      nextPos,
-      params,
-      method,
-      decode,
-      originalPath
-    );
-    if (result) return result;
-    Reflect.deleteProperty(params, paramName);
-  }
 
-  // Try wildcard match (catches remaining path) — use original-case path
-  if (node.wildcardChild) {
-    const src = originalPath ?? path;
-    params['*'] = decodeParam(src.slice(pos), decode);
-    return node.wildcardChild.handlers.get(method) ?? null;
+    // Stage 1 — static child (if any) has failed: try the param child, deferring
+    // its binding onto the shared stacks.
+    if (frame.stage === 1) {
+      frame.stage = 2;
+      const paramChild = frame.node.paramChild;
+      if (paramChild) {
+        const paramName = paramChild.paramName;
+        if (paramName === undefined) return null; // degenerate param node → whole walk fails (as before)
+        const value =
+          originalPath !== undefined
+            ? decodeParam(segmentAt(originalPath, frame.pos), decode)
+            : decodeParam(frame.seg, decode);
+        bindNames.push(paramName);
+        bindValues.push(value);
+        frame.bound = true;
+        stack.push({ node: paramChild, pos: frame.next, stage: 0, seg: '', next: 0, bound: false });
+      }
+      continue;
+    }
+
+    // Stage 2 — param branch (if taken) failed: undo its deferred bind, then try
+    // the wildcard child (a terminal — it captures the original-case remainder).
+    if (frame.bound) {
+      bindNames.pop();
+      bindValues.pop();
+      frame.bound = false;
+    }
+    const wildcardChild = frame.node.wildcardChild;
+    if (wildcardChild) {
+      const src = originalPath ?? path;
+      bindNames.push('*');
+      bindValues.push(decodeParam(src.slice(frame.pos), decode));
+      const handler = wildcardChild.handlers.get(method);
+      if (handler) return handler;
+      bindNames.pop();
+      bindValues.pop();
+    }
+    stack.pop();
   }
 
   return null;
