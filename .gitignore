@@ -140,3 +140,12 @@ Copilot-Processing.md
 .gstack
 .kiro
 .playwright-cli
+
+# ===== OPENSPEC =====
+# Change archive is disposable local scratch, intentionally NOT version-controlled.
+# Rationale: it is never read for truth; git commit history is the record of shipped
+# changes, and durable architectural decisions are promoted to docs/RFC/ (see
+# openspec/README.md). Living truth lives in openspec/specs/ (tracked). Local copies
+# stay on disk for peeking — delete them anytime; git ignores the folder either way.
+openspec/changes/archive/*
+!openspec/changes/archive/.gitkeep

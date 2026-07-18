@@ -1,20 +1,68 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# Project context (shown to AI when creating artifacts)
+context: |
+  NextRush — minimal, modular, high-performance, ESM-only Node.js HTTP framework
+  (TypeScript strict, pnpm/Turborepo monorepo, Node >= 22). Conventional commits.
+  Engineering constitution: AGENTS.md. Repo rules: .kiro/steering/*.instructions.md.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  ── SPEC GOVERNANCE — READ BEFORE CREATING ANY CHANGE ───────────────────────────
+  `openspec/specs/` is a SMALL, STABLE set of capability specs (~16) describing what the
+  framework does TODAY. It is the source of truth we actually read. It must NOT grow
+  one-folder-per-change.
+
+  THE ONE RULE: a change EDITS an EXISTING capability's requirements (ADDED / MODIFIED /
+  REMOVED). It does NOT create a new `specs/<capability>/` folder unless a genuinely new,
+  durable capability is being born (rare — expect to justify it).
+
+  FIXED CAPABILITY LIST (see openspec/README.md for what each owns):
+    router · core-middleware · node-adapter · web-adapters · body-parser ·
+    portable-middleware · graceful-shutdown · health · performance-gate ·
+    runtime-adapter-contract · runtime-capability-negotiation · runtime-proof-harness ·
+    serverless-adapter · adapter-development-kit · public-surface-lock · gap-checklist-accuracy
+
+  A capability is named after a DURABLE thing (`router`, `node-adapter`), never after a
+  change (`router-match-path-allocation-trim`, `*-fastpath`, `*-trim`, `*-cleanup`,
+  `*-microtrims`, `*-final-*`). Every capability spec has a real `## Purpose` — never a
+  "TBD - created by archiving…" stub.
+
+  ── ARCHIVE IS DISPOSABLE ────────────────────────────────────────────────────────
+  `changes/archive/` is gitignored local scratch — never read for truth, safe to delete
+  anytime. Git commit history is the record of shipped changes. Durable architectural
+  decisions ("why segment-trie", "why ESM-only") live in `docs/RFC/` as RFCs/ADRs and
+  MUST be captured there BEFORE a change is archived — never only in a prunable archive.
+
+  ── RFC GATING ─────────────────────────────────────────────────────────────────
+  A new package, a new capability, a public-API/Context/routing/middleware/DI/adapter
+  change, or any breaking change is RFC-gated: an approved `docs/RFC/` entry precedes
+  implementation. The RFC defines the architecture; the change's tasks validate it (TDD).
+
+# Per-artifact rules
+rules:
+  proposal:
+    - State explicitly which EXISTING capability (from the fixed list) this change modifies.
+    - If claiming a NEW capability, justify why it is not requirements added to an existing one.
+    - Keep it tight — Why / What changes / Impact. No implementation-detail dumps; no restated tasks.
+    - A breaking public-API change ships a migration path and is RFC-gated (docs/RFC/) before code.
+    - Never use change-shaped names (*-fastpath, *-trim, *-cleanup, *-microtrims, *-final-*).
+    - Note the durable decision, if any, that must land in docs/RFC/ before this change is archived.
+  spec:
+    - Write deltas as "## ADDED Requirements" / "## MODIFIED Requirements" / "## REMOVED Requirements"
+      against an EXISTING capability — do not spin up a new specs/<capability>/ folder for a change.
+    - Every "### Requirement:" has at least one "#### Scenario:" with WHEN/THEN (strict-validated).
+    - Requirement text is a contract: precise, testable, uses SHALL/MUST. Prefer MODIFIED over adding
+      a near-duplicate requirement.
+    - Capability specs are kebab-case, durable-named, and carry a real ## Purpose (never a TBD stub).
+    - Keep requirement titles unique within a capability (two "validated by…" reqs need distinct titles).
+  design:
+    - Only write design.md for architecturally non-trivial changes; skip it for a one-line fix.
+    - Record WHY — tradeoffs, alternatives rejected, constraints — not a restatement of tasks.
+    - Link the governing docs/RFC/ entry when the change implements or extends an RFC.
+    - Respect the package hierarchy (lower never imports from higher) and zero-dependency core rule.
+  tasks:
+    - Order test-first (RED -> GREEN -> REFACTOR); no production code before a failing test exists.
+    - Keep tasks small and independently verifiable — one concern per task.
+    - Where any adapter is touched, include a cross-adapter conformance/parity check task
+      (packages/adapters/conformance) — observable behavior must stay identical across runtimes.
+    - Include the gate checks: per-package line coverage stays >= 90%, ESLint clean, tsc strict clean.
+    - Performance work is correctness-first and measurement-gated (bench:validate + a CPU-pinned A/B).
