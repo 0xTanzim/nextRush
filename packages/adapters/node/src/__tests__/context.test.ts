@@ -32,6 +32,11 @@ function createMockRes(): ServerResponse {
   // Mock response methods
   vi.spyOn(res, 'setHeader').mockImplementation(() => res);
   vi.spyOn(res, 'end').mockImplementation(() => res);
+  // Mirror writeHead's statusCode side effect so status assertions stay faithful.
+  vi.spyOn(res, 'writeHead').mockImplementation((status: number) => {
+    res.statusCode = status;
+    return res;
+  });
 
   return res;
 }
@@ -99,8 +104,12 @@ describe('NodeContext', () => {
     it('should send JSON response', () => {
       ctx.json({ message: 'hello' });
 
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json; charset=utf-8');
-      // Response is sent as string directly (optimized - no Buffer.from intermediate)
+      // HP-14: Content-Type + Content-Length + status go through a single
+      // writeHead (not two setHeader calls); the body is sent as a string directly.
+      expect(res.writeHead).toHaveBeenCalledWith(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': String(Buffer.byteLength('{"message":"hello"}')),
+      });
       expect(res.end).toHaveBeenCalledWith('{"message":"hello"}');
     });
 

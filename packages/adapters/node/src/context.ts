@@ -62,6 +62,14 @@ export interface NodeContextOptions {
 /** Shared empty params object — avoids allocation per request (overwritten by router) */
 const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
 
+/**
+ * Shared frozen empty query object (HP-2) — avoids allocating a fresh `{}` on
+ * every query-less request (the common case), mirroring {@link EMPTY_PARAMS}.
+ * `ctx.query` is typed `readonly` and holds URL-parsed data, so the frozen
+ * shared instance is safe; no code path mutates `ctx.query`.
+ */
+const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(null)) as QueryParams;
+
 /** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
 const RESOLVED_NEXT: Promise<void> = Promise.resolve();
 
@@ -101,7 +109,7 @@ export class NodeContext implements AdapterContext {
       this.query = parseQueryString(this.url.slice(questionIndex + 1));
     } else {
       this.path = this.url;
-      this.query = {};
+      this.query = EMPTY_QUERY;
     }
 
     this.headers = req.headers as IncomingHeaders;
@@ -165,9 +173,15 @@ export class NodeContext implements AdapterContext {
     const res = this.raw.res;
     const json = JSON.stringify(data);
 
-    res.statusCode = this.status;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Length', Buffer.byteLength(json));
+    // HP-14: one outgoing-header-map write instead of two setHeader calls.
+    // Node merges these with any headers set earlier via setHeader() (e.g. a
+    // middleware's ctx.set() headers, including accumulated Set-Cookie), giving
+    // writeHead precedence — so prior headers survive and json()'s Content-Type
+    // still overrides a middleware-set one, byte-identical to the old two-call form.
+    res.writeHead(this.status, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Length': String(Buffer.byteLength(json)),
+    });
 
     if (this.shouldSuppressBody()) {
       res.end();
@@ -432,7 +446,17 @@ export class NodeContext implements AdapterContext {
     // matching the web adapter's append semantics so `ctx.set('Set-Cookie', …)`
     // behaves identically on every runtime. An array value means "set exactly
     // these", so it still replaces (Node emits one header per array element).
-    if (!Array.isArray(value) && field.toLowerCase() === 'set-cookie') {
+    //
+    // HP-15: gate the toLowerCase() allocation behind a constant-time pre-check —
+    // 'set-cookie' is exactly 10 chars and starts with 's'/'S' — so a lowercased
+    // string is only ever allocated for a field that could actually be set-cookie,
+    // not for every header. Detection stays case-insensitive across all casings.
+    if (
+      !Array.isArray(value) &&
+      field.length === 10 &&
+      (field.charCodeAt(0) | 0x20) === 0x73 /* 's' */ &&
+      field.toLowerCase() === 'set-cookie'
+    ) {
       const cookie = String(value);
       const appendHeader = (res as { appendHeader?: (name: string, v: string) => void })
         .appendHeader;
