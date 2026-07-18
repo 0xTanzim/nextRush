@@ -76,11 +76,56 @@ export function findNode(node: TrieNode, segments: string[], index: number): Tri
 }
 
 /**
+ * True only when `path.toLowerCase()` is provably a no-op: every character is
+ * ASCII (`<= 0x7F`) and none is an ASCII uppercase letter (`A`–`Z`). Any
+ * non-ASCII byte is treated as UNCERTAIN (it could be uppercase like `Ü`), so
+ * this returns `false` and the caller folds — never skipping unicode case
+ * folding (design.md D3). This lets `normalizePathForMatch` skip the
+ * `toLowerCase()` allocation for the overwhelmingly common all-lowercase-ASCII
+ * request path while staying byte-identical to always folding.
+ */
+export function isProvablyLowerAscii(path: string): boolean {
+  for (let i = 0; i < path.length; i++) {
+    const c = path.charCodeAt(i);
+    if ((c >= 0x41 && c <= 0x5a) || c > 0x7f) return false;
+  }
+  return true;
+}
+
+/**
+ * Structural match-time normalization WITHOUT case folding: collapse repeated
+ * slashes and strip a single trailing slash (unless `strict`). Split out of
+ * {@link normalizePathForMatch} so the case-fold decision and the structural
+ * pass are separable — `matchRoute` reuses this to build the original-case path
+ * only when a fold actually happened (HP-12), rather than running the full
+ * normalize twice.
+ */
+export function collapseAndStrip(path: string, strict: boolean): string {
+  let normalized = path;
+
+  // Fast-path: skip the regex when there are no double slashes (99%+ of requests).
+  if (normalized.includes('//')) {
+    normalized = normalized.replace(/\/+/g, '/');
+  }
+
+  // Non-strict mode treats a trailing slash as insignificant; strict keeps it.
+  if (!strict && normalized.length > 1 && normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  return normalized;
+}
+
+/**
  * Normalize a request path for segment-trie matching: fold case (unless
  * `caseSensitive`), collapse repeated slashes, and strip a single trailing
  * slash (unless `strict`). This is the one definition of the match-time
  * normalization rules, shared by `matchRoute` (in `match-route.ts`) and
  * {@link findAllowedMethods}.
+ *
+ * The `toLowerCase()` call is skipped when the path is provably case-stable
+ * ({@link isProvablyLowerAscii}) — byte-identical to always folding, but with
+ * no throwaway string on the common all-lowercase-ASCII path (HP-12 / D3).
  *
  * Query-string removal is intentionally NOT done here — it is caller-specific:
  * `matchRoute` strips the query before calling, while `findAllowedMethods`
@@ -97,19 +142,8 @@ export function normalizePathForMatch(
   caseSensitive: boolean,
   strict: boolean
 ): string {
-  let normalized = caseSensitive ? path : path.toLowerCase();
-
-  // Fast-path: skip the regex when there are no double slashes (99%+ of requests).
-  if (normalized.includes('//')) {
-    normalized = normalized.replace(/\/+/g, '/');
-  }
-
-  // Non-strict mode treats a trailing slash as insignificant; strict keeps it.
-  if (!strict && normalized.length > 1 && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
-  }
-
-  return normalized;
+  const folded = caseSensitive || isProvablyLowerAscii(path) ? path : path.toLowerCase();
+  return collapseAndStrip(folded, strict);
 }
 
 /**

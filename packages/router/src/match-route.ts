@@ -15,7 +15,7 @@
 
 import type { HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { EMPTY_PARAMS } from './constants';
-import { matchNodeIndexed, normalizePathForMatch } from './matching';
+import { matchNodeIndexed, collapseAndStrip, isProvablyLowerAscii } from './matching';
 import type { StaticRouteMap, TrieNode } from './segment-trie';
 
 /**
@@ -54,7 +54,13 @@ export function matchRoute(
   const queryIdx = path.indexOf('?');
   if (queryIdx !== -1) path = path.slice(0, queryIdx);
 
-  const normalized = normalizePathForMatch(path, caseSensitive, strict);
+  // HP-12: decide case-stability ONCE. When the path is provably case-stable
+  // (case-sensitive router, or an all-lowercase-ASCII path), folding is a no-op
+  // and the original-case path equals the normalized one — so we skip both the
+  // `toLowerCase()` allocation and the second original-case normalize pass.
+  const caseStable = caseSensitive || isProvablyLowerAscii(path);
+  const folded = caseStable ? path : path.toLowerCase();
+  const normalized = collapseAndStrip(folded, strict);
 
   // FAST PATH: O(1) static route lookup (no tree traversal). Method-nested map
   // (HP-9): select the inner map by method, then probe by the normalized path —
@@ -81,11 +87,12 @@ export function matchRoute(
   // Use index-based path scanning instead of split('/').filter(Boolean)
   const params: Record<string, string> = {};
 
-  // For case-insensitive mode, preserve the original-case (query-stripped) path
-  // so extracted param values keep their casing while lookup uses the lowercased
-  // `normalized`. `caseSensitive: true` here means "normalize but do not fold
-  // case".
-  const originalPath = caseSensitive ? undefined : normalizePathForMatch(path, true, strict);
+  // Original-case (query-stripped) path so extracted param values keep their
+  // casing while lookup uses the lowercased `normalized`. Needed ONLY when a
+  // fold actually happened (HP-12): when case-stable, `normalized` already IS
+  // the original-case structure, so `matchNodeIndexed` extracts from it and no
+  // second normalize pass runs.
+  const originalPath = caseStable ? undefined : collapseAndStrip(path, strict);
 
   const result = matchNodeIndexed(
     root,

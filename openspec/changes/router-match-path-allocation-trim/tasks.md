@@ -18,9 +18,9 @@
 
 ## 4. HP-12 — case-normalization fast-paths (unicode-correct)
 
-- [ ] 4.1 RED: an already-lowercase ASCII path normalizes identically with no new allocation; a **non-ASCII uppercase** path still folds byte-identically to `path.toLowerCase()` (the fast-path does NOT wrongly skip); case-insensitive param matching resolves without a second normalize pass.
-- [ ] 4.2 GREEN: skip `toLowerCase()` only when the path is provably case-stable (fall back to full fold on any non-ASCII/uncertain byte); remove the second `normalizePathForMatch` pass (derive original-case segments during the walk).
-- [ ] 4.3 Differential harness green (incl. non-ASCII corpus entries); `--profile full` A/B (Route Params) no regression (else revert HP-12 alone). Commit.
+- [x] 4.1 RED: an already-lowercase ASCII path normalizes identically with no new allocation; a **non-ASCII uppercase** path still folds byte-identically to `path.toLowerCase()` (the fast-path does NOT wrongly skip); case-insensitive param matching resolves without a second normalize pass.
+- [x] 4.2 GREEN: skip `toLowerCase()` only when the path is provably case-stable (fall back to full fold on any non-ASCII/uncertain byte); remove the second `normalizePathForMatch` pass (derive original-case segments during the walk).
+- [x] 4.3 Differential harness green (incl. non-ASCII corpus entries); `--profile full` A/B (Route Params) no regression (else revert HP-12 alone). Commit.
 
 ## 5. HP-11 + HP-13 — param-walk rewrite (land LAST, riskiest, park-able)
 

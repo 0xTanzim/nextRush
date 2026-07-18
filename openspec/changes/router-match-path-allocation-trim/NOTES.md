@@ -58,4 +58,14 @@ claim transient-garbage reductions.
   string removal is a transient-garbage elimination — proven structurally (the
   concat is gone from source), not by the net-retained micro-bench (see finding above).
 - HP-12 (unicode-correct normalize fast-path): _pending_
+- HP-12 (unicode-correct normalize fast-path): DONE. matching.ts gains
+  `isProvablyLowerAscii` (false on any `A`–`Z` or any byte `> 0x7F`) and
+  `collapseAndStrip`; `normalizePathForMatch` skips `toLowerCase()` only when
+  provably case-stable (byte-identical to always folding — non-ASCII uppercase
+  still folds). `matchRoute` decides case-stability ONCE and, when stable, skips
+  both the fold allocation AND the second original-case normalize pass (extracts
+  param values from `normalized`, which equals the original-case structure).
+  Verified: `match-normalize-fastpath.test.ts` (toLowerCase not invoked on stable
+  paths incl. a full param match; byte-identity for ASCII + non-ASCII uppercase),
+  differential golden byte-identical, full suite green.
 - HP-11 + HP-13 (param-walk rewrite): _pending_
