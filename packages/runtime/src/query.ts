@@ -19,6 +19,16 @@ const MAX_QUERY_LENGTH = 2048;
 const DENIED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
+ * Shared frozen empty query returned for the empty and over-limit early-return
+ * branches (HP-2-web). The only callers are the four adapter context
+ * constructors, each assigning the result to `readonly ctx.query`; none mutate
+ * it, so a single shared instance avoids a per-request throwaway allocation on
+ * every query-less Web request. Frozen so any future mutating caller fails
+ * loudly rather than corrupting shared state.
+ */
+const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(null) as QueryParams);
+
+/**
  * Safely decode a URI component, returning the original string on failure.
  * Replaces '+' with space before decoding (form-encoded convention).
  */
@@ -41,9 +51,10 @@ function safeDecodeURIComponent(str: string): string {
  * @returns Parsed query parameters (null-prototype object)
  */
 export function parseQueryString(qs: string): QueryParams {
-  const result: QueryParams = Object.create(null) as QueryParams;
+  // Empty or over-limit → the shared frozen empty query (no per-request alloc).
+  if (!qs || qs.length > MAX_QUERY_LENGTH) return EMPTY_QUERY;
 
-  if (!qs || qs.length > MAX_QUERY_LENGTH) return result;
+  const result: QueryParams = Object.create(null) as QueryParams;
 
   // Single-pass scanner — avoids split('&') intermediate array allocation.
   // Walks the string with indexOf('&') to locate pair boundaries.
