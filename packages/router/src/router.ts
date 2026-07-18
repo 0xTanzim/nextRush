@@ -18,7 +18,7 @@ import {
   type RouteMatch,
   type RouterOptions,
 } from '@nextrush/types';
-import { clearNode, createNode, type HandlerEntry, type TrieNode } from './segment-trie';
+import { clearNode, createNode, type StaticRouteMap, type TrieNode } from './segment-trie';
 import { type RedirectStatus } from './redirect';
 import { runRouteGroup, type RouteGroup } from './group-router';
 import { resolveMatch, type MatchState } from './match-route';
@@ -47,8 +47,8 @@ export class Router {
   private readonly opts: Required<RouterOptions>;
   private readonly routerMiddleware: Middleware[] = [];
 
-  /** Static-route fast path: O(1) lookup keyed by `"METHOD path"`. */
-  private readonly staticRoutes = new Map<string, HandlerEntry>();
+  /** Static-route fast path: method-nested map for O(1) lookup with no per-request key string (HP-9). */
+  private readonly staticRoutes: StaticRouteMap = new Map();
 
   /**
    * Introspection registry, kept SEPARATE from the hot-path trie/staticRoutes

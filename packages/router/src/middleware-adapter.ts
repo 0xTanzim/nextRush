@@ -17,7 +17,7 @@
  * @internal
  */
 
-import { compileExecutor, type HandlerEntry, type TrieNode } from './segment-trie';
+import { compileExecutor, type StaticRouteMap, type TrieNode } from './segment-trie';
 import type { Middleware } from '@nextrush/types';
 
 /**
@@ -28,7 +28,7 @@ import type { Middleware } from '@nextrush/types';
  */
 export function sealRouterMiddleware(
   root: TrieNode,
-  staticRoutes: Map<string, HandlerEntry>,
+  staticRoutes: StaticRouteMap,
   routerMiddleware: Middleware[]
 ): void {
   const routerMw = [...routerMiddleware];
@@ -48,10 +48,12 @@ export function sealRouterMiddleware(
 
   walk(root);
 
-  // Also update static route entries
-  for (const [key, entry] of staticRoutes) {
-    const combinedMw = [...routerMw, ...entry.middleware];
-    entry.executor = compileExecutor(entry.handler, combinedMw);
-    staticRoutes.set(key, entry);
+  // Also update static route entries (method-nested map, HP-9).
+  for (const [, methodMap] of staticRoutes) {
+    for (const [key, entry] of methodMap) {
+      const combinedMw = [...routerMw, ...entry.middleware];
+      entry.executor = compileExecutor(entry.handler, combinedMw);
+      methodMap.set(key, entry);
+    }
   }
 }

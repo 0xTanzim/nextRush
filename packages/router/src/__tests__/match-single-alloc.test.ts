@@ -15,7 +15,7 @@
 import type { Middleware, RouteHandler } from '@nextrush/types';
 import { describe, expect, it } from 'vitest';
 import { matchRoute } from '../match-route';
-import { compileExecutor, createNode, NodeType, type HandlerEntry } from '../segment-trie';
+import { compileExecutor, createNode, NodeType, type HandlerEntry, type StaticRouteMap } from '../segment-trie';
 import { createRouter } from '../router';
 
 const noop: RouteHandler = async () => {
@@ -38,7 +38,7 @@ describe('HP-10 — single RouteMatch allocation', () => {
       'GET',
       '/users/42',
       root,
-      new Map<string, HandlerEntry>(),
+      new Map() as StaticRouteMap,
       true,
       false,
       false,
@@ -57,8 +57,8 @@ describe('HP-10 — single RouteMatch allocation', () => {
   it('matchRoute attaches routerMiddleware on the static fast path too', () => {
     const root = createNode('');
     const executor = compileExecutor(noop, []);
-    const staticRoutes = new Map<string, HandlerEntry>([
-      ['GET /s', { handler: noop, middleware: [], executor }],
+    const staticRoutes: StaticRouteMap = new Map([
+      ['GET', new Map<string, HandlerEntry>([['/s', { handler: noop, middleware: [], executor }]])],
     ]);
     const routerMiddleware: Middleware[] = [async (_ctx, next) => next?.()];
 

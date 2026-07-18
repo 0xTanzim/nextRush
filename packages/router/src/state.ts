@@ -10,7 +10,7 @@
  */
 
 import type { Middleware, RouteDefinition, RouterOptions } from '@nextrush/types';
-import type { HandlerEntry, TrieNode } from './segment-trie';
+import type { StaticRouteMap, TrieNode } from './segment-trie';
 import type { RegistrationState } from './registration';
 import type { MatchState } from './match-route';
 
@@ -36,7 +36,7 @@ export function resolveRouterOptions(options: RouterOptions): Required<RouterOpt
 export function createRouterState(
   root: TrieNode,
   opts: Required<RouterOptions>,
-  staticRoutes: Map<string, HandlerEntry>,
+  staticRoutes: StaticRouteMap,
   routeDefinitions: RouteDefinition[],
   routerMiddleware: Middleware[]
 ): RegistrationState & MatchState {

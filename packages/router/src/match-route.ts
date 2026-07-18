@@ -16,7 +16,7 @@
 import type { HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { EMPTY_PARAMS } from './constants';
 import { matchNodeIndexed, normalizePathForMatch } from './matching';
-import type { HandlerEntry, TrieNode } from './segment-trie';
+import type { StaticRouteMap, TrieNode } from './segment-trie';
 
 /**
  * Match a route and return the full {@link RouteMatch} in a SINGLE allocation
@@ -38,7 +38,7 @@ export function matchRoute(
   method: HttpMethod,
   rawPath: string,
   root: TrieNode,
-  staticRoutes: Map<string, HandlerEntry>,
+  staticRoutes: StaticRouteMap,
   hasParamRoutes: boolean,
   caseSensitive: boolean,
   strict: boolean,
@@ -56,20 +56,23 @@ export function matchRoute(
 
   const normalized = normalizePathForMatch(path, caseSensitive, strict);
 
-  // FAST PATH: O(1) static route lookup (no tree traversal)
-  // For static routes, trailing slash is irrelevant — always strip for lookup
-  const staticKey =
-    normalized.length > 1 && normalized.endsWith('/')
-      ? `${method} ${normalized.slice(0, -1)}`
-      : `${method} ${normalized}`;
-  const staticEntry = staticRoutes.get(staticKey);
-  if (staticEntry) {
-    return {
-      handler: staticEntry.handler,
-      params: EMPTY_PARAMS,
-      middleware: routerMiddleware,
-      executor: staticEntry.executor,
-    };
+  // FAST PATH: O(1) static route lookup (no tree traversal). Method-nested map
+  // (HP-9): select the inner map by method, then probe by the normalized path —
+  // no per-request `${method} ${path}` key-string allocation. For static routes
+  // a trailing slash is irrelevant, so always strip it for the probe.
+  const methodMap = staticRoutes.get(method);
+  if (methodMap) {
+    const staticKey =
+      normalized.length > 1 && normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+    const staticEntry = methodMap.get(staticKey);
+    if (staticEntry) {
+      return {
+        handler: staticEntry.handler,
+        params: EMPTY_PARAMS,
+        middleware: routerMiddleware,
+        executor: staticEntry.executor,
+      };
+    }
   }
 
   // Only walk tree if we have param/wildcard routes
@@ -127,7 +130,7 @@ export function matchRoute(
  */
 export interface MatchState {
   readonly root: TrieNode;
-  readonly staticRoutes: Map<string, HandlerEntry>;
+  readonly staticRoutes: StaticRouteMap;
   readonly caseSensitive: boolean;
   readonly strict: boolean;
   readonly decode: boolean;

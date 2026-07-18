@@ -33,6 +33,7 @@ import {
   NodeType,
   parseSegments,
   type HandlerEntry,
+  type StaticRouteMap,
   type TrieNode,
 } from './segment-trie';
 import { mergeContributions, readContribution } from './route-metadata';
@@ -42,7 +43,7 @@ import { createRedirectHandler, type RedirectStatus } from './redirect';
 export interface RegistrationState {
   readonly root: TrieNode;
   readonly caseSensitive: boolean;
-  readonly staticRoutes: Map<string, HandlerEntry>;
+  readonly staticRoutes: StaticRouteMap;
   readonly routeDefinitions: RouteDefinition[];
 }
 
@@ -193,11 +194,19 @@ export function addRoute(
 
   node.handlers.set(method, handlerEntry);
 
-  // Populate static route hash map for O(1) lookup
+  // Populate static route hash map for O(1) lookup. Method-nested (HP-9): the
+  // outer map is keyed by method, the inner by the (lowercased, unless
+  // case-sensitive) path — so matching selects the inner map by method and
+  // probes by the raw path with no per-request key-string concatenation.
   const hasParams = segments.some((s) => s.type === NodeType.PARAM || s.type === NodeType.WILDCARD);
   if (!hasParams) {
     const normalizedKey = state.caseSensitive ? normalized : normalized.toLowerCase();
-    state.staticRoutes.set(`${method} ${normalizedKey}`, handlerEntry);
+    let methodMap = state.staticRoutes.get(method);
+    if (!methodMap) {
+      methodMap = new Map<string, HandlerEntry>();
+      state.staticRoutes.set(method, methodMap);
+    }
+    methodMap.set(normalizedKey, handlerEntry);
   }
 
   // Record in the introspection registry (side structure — never touched by

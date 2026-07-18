@@ -48,5 +48,14 @@ claim transient-garbage reductions.
   Verified: `match-single-alloc.test.ts` (single-object contract) + differential golden
   unchanged + full suite green. Structural fact: 2 result objects → 1.
 - HP-9 (method-nested static map): _pending_
+- HP-9 (method-nested static map): DONE. `staticRoutes` is now
+  `Map<HttpMethod, Map<string, HandlerEntry>>` across segment-trie.ts (new
+  `StaticRouteMap` type), registration.ts, match-route.ts, state.ts, router.ts,
+  middleware-adapter.ts. Lookup selects the inner map by method then probes by the
+  trailing-slash-normalized path — no `${method} ${path}` concat. `reset()` clears
+  the outer map (drops all inner maps). Verified: differential golden byte-identical,
+  `static-map-reset.test.ts` (full-clear/no-ghost), full suite green. `staticKey`
+  string removal is a transient-garbage elimination — proven structurally (the
+  concat is gone from source), not by the net-retained micro-bench (see finding above).
 - HP-12 (unicode-correct normalize fast-path): _pending_
 - HP-11 + HP-13 (param-walk rewrite): _pending_

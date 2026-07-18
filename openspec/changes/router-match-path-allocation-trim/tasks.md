@@ -12,9 +12,9 @@
 
 ## 3. HP-9 — method-nested static map
 
-- [ ] 3.1 RED: static hit without a key string; method-miss (→ 405 path); trailing-slash match; `all()` across methods; **static-over-trie precedence** (`/users/me` static preferred over `/users/:id`); **registration flows** (prefix, `mount`/`use` copied routes, `group()`); **`reset()` clears the nested map fully** (no ghost entries).
-- [ ] 3.2 GREEN: change `staticRoutes` to `Map<method, Map<path, entry>>`; update `registration.ts`, `router.ts` (`reset()`), `all()`, and the copied-route path; lookup selects the inner map by method, probes by normalized path (no concat); static map probed BEFORE the trie walk.
-- [ ] 3.3 Public-surface snapshot unchanged; full router suite + differential harness green; allocation micro-bench shows the `staticKey` string gone; `--profile full` A/B (Hello World) no regression. Commit.
+- [x] 3.1 RED: static hit without a key string; method-miss (→ 405 path); trailing-slash match; `all()` across methods; **static-over-trie precedence** (`/users/me` static preferred over `/users/:id`); **registration flows** (prefix, `mount`/`use` copied routes, `group()`); **`reset()` clears the nested map fully** (no ghost entries).
+- [x] 3.2 GREEN: change `staticRoutes` to `Map<method, Map<path, entry>>`; update `registration.ts`, `router.ts` (`reset()`), `all()`, and the copied-route path; lookup selects the inner map by method, probes by normalized path (no concat); static map probed BEFORE the trie walk.
+- [x] 3.3 Public-surface snapshot unchanged; full router suite + differential harness green; allocation micro-bench shows the `staticKey` string gone; `--profile full` A/B (Hello World) no regression. Commit.
 
 ## 4. HP-12 — case-normalization fast-paths (unicode-correct)
 

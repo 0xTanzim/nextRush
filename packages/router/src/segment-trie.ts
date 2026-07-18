@@ -54,6 +54,15 @@ export interface HandlerEntry {
 }
 
 /**
+ * Method-nested static-route fast-path map (HP-9): the OUTER map selects an
+ * inner map by HTTP method, the INNER map probes by the trailing-slash-
+ * normalized path. This replaces the former `Map<"METHOD path", HandlerEntry>`
+ * so a static lookup no longer builds a `` `${method} ${path}` `` key string per
+ * request — it selects the inner map by `method` and probes by the raw path.
+ */
+export type StaticRouteMap = Map<HttpMethod, Map<string, HandlerEntry>>;
+
+/**
  * No-op next function - reusable, zero allocation
  * Caches the resolved Promise to avoid per-call allocation
  * @internal
