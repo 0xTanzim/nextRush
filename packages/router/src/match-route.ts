@@ -13,32 +13,26 @@
  * @internal
  */
 
-import type { Context, HttpMethod, Middleware, RouteMatch, RouteHandler } from '@nextrush/types';
+import type { HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { EMPTY_PARAMS } from './constants';
 import { matchNodeIndexed, normalizePathForMatch } from './matching';
 import type { HandlerEntry, TrieNode } from './segment-trie';
 
 /**
- * `matchRoute`'s result, before the caller (`Router.match`) attaches
- * `middleware: this.routerMiddleware` — that field is intentionally left off
- * here since `matchRoute` only reads `routerMiddleware`-independent state.
- */
-export interface RouteMatchResult {
-  handler: RouteHandler;
-  params: Record<string, string>;
-  executor?: (ctx: Context) => Promise<void>;
-}
-
-/**
- * Match a route and return handler + params.
+ * Match a route and return the full {@link RouteMatch} in a SINGLE allocation
+ * (design.md D1 / HP-10).
  *
- * Extracted as a standalone function per design.md D1 — `Router.match()`
- * becomes a thin delegating wrapper around this. Every piece of `Router`
- * state it reads (`opts`, `root`, `staticRoutes`, `hasParamRoutes`) is
- * read-only here (no mutation, unlike `addRoute` in `registration.ts`), so
- * it's threaded as plain parameters. `routerMiddleware` is intentionally NOT
- * a parameter — the caller attaches `middleware: this.routerMiddleware` to
- * the result itself, since this function never reads the array's contents.
+ * `matchRoute` builds the final `RouteMatch` — including `middleware:
+ * routerMiddleware` — directly at each return site, so `Router.match()` gets
+ * one object per matched request instead of a bare result later re-wrapped by
+ * `resolveMatch`. `routerMiddleware` is threaded in as a parameter (its
+ * contents are never read here — only attached by reference), preserving the
+ * "no implicit `Router` state" property of the earlier extraction while
+ * removing the duplicate wrapper object.
+ *
+ * Every other piece of `Router` state it reads (`root`, `staticRoutes`,
+ * `hasParamRoutes`, the option flags) is read-only here (no mutation, unlike
+ * `addRoute` in `registration.ts`), so it is threaded as plain parameters.
  */
 export function matchRoute(
   method: HttpMethod,
@@ -48,8 +42,9 @@ export function matchRoute(
   hasParamRoutes: boolean,
   caseSensitive: boolean,
   strict: boolean,
-  decode: boolean
-): RouteMatchResult | null {
+  decode: boolean,
+  routerMiddleware: Middleware[]
+): RouteMatch | null {
   let path = rawPath;
   // Query string must not affect path matching (RFC 3986 §3.4). Strip it here,
   // before normalization, so both the lookup path and extracted param values
@@ -72,6 +67,7 @@ export function matchRoute(
     return {
       handler: staticEntry.handler,
       params: EMPTY_PARAMS,
+      middleware: routerMiddleware,
       executor: staticEntry.executor,
     };
   }
@@ -119,6 +115,7 @@ export function matchRoute(
   return {
     handler: result.handler,
     params: hasParams ? params : EMPTY_PARAMS,
+    middleware: routerMiddleware,
     executor: result.executor,
   };
 }
@@ -138,10 +135,11 @@ export interface MatchState {
 }
 
 /**
- * Resolve a request to a full {@link RouteMatch}: run {@link matchRoute}, then
- * attach `state.routerMiddleware` (which `matchRoute` deliberately never reads).
- * `Router.match()` is a one-line delegator to this — the thin wrapper design.md
- * D1 describes. `hasParamRoutes` is passed separately from `state` because it is
+ * Resolve a request to a full {@link RouteMatch}. Thin delegator to
+ * {@link matchRoute}, which now builds the final `RouteMatch` (incl.
+ * `state.routerMiddleware`) in one allocation — so this no longer wraps a
+ * result in a second object (HP-10). `Router.match()` is a one-line delegator
+ * to this. `hasParamRoutes` is passed separately from `state` because it is
  * the one piece of router state that flips after construction.
  */
 export function resolveMatch(
@@ -150,7 +148,7 @@ export function resolveMatch(
   method: HttpMethod,
   path: string
 ): RouteMatch | null {
-  const result = matchRoute(
+  return matchRoute(
     method,
     path,
     state.root,
@@ -158,14 +156,7 @@ export function resolveMatch(
     hasParamRoutes,
     state.caseSensitive,
     state.strict,
-    state.decode
+    state.decode,
+    state.routerMiddleware
   );
-  if (!result) return null;
-
-  return {
-    handler: result.handler,
-    params: result.params,
-    middleware: state.routerMiddleware,
-    executor: result.executor,
-  };
 }

@@ -6,9 +6,9 @@
 
 ## 2. HP-10 — one RouteMatch allocation (land FIRST, lowest risk)
 
-- [ ] 2.1 RED: a matched request yields a single `RouteMatch` with the unchanged shape; router-level middleware is attached exactly once (`RouteMatch.middleware === routerMiddleware`).
-- [ ] 2.2 GREEN: build the `RouteMatch` once (matchRoute returns the final shape, or resolveMatch attaches `middleware` by mutation) — no second wrapper object.
-- [ ] 2.3 Full router suite + differential harness green; allocation micro-bench shows one fewer object per matched request; `--profile full` A/B (Hello World) no regression. Commit.
+- [x] 2.1 RED: a matched request yields a single `RouteMatch` with the unchanged shape; router-level middleware is attached exactly once (`RouteMatch.middleware === routerMiddleware`).
+- [x] 2.2 GREEN: build the `RouteMatch` once (matchRoute returns the final shape, or resolveMatch attaches `middleware` by mutation) — no second wrapper object.
+- [x] 2.3 Full router suite + differential harness green; allocation micro-bench shows one fewer object per matched request; `--profile full` A/B (Hello World) no regression. Commit.
 
 ## 3. HP-9 — method-nested static map
 
