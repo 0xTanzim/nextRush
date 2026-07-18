@@ -8,7 +8,7 @@
  * compose it instead of copy-pasting ~200 lines each.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertHeaderSafe, isBodylessResponse, WebResponseBuilder } from '../response-builder.js';
 
 describe('isBodylessResponse', () => {
@@ -203,5 +203,87 @@ describe('WebResponseBuilder', () => {
     const u = new WebResponseBuilder('GET');
     u.send(new Uint8Array([1, 2, 3, 4]), 200);
     expect(u.getResponse(200).headers.get('Content-Length')).toBe('4');
+  });
+});
+
+// ===========================================================================
+// HP-15-web — set-cookie detection gated behind a constant-time pre-check
+//
+// OpenSpec change `web-adapters-context-response-microtrims`: `set()` must
+// detect `set-cookie` (case-insensitively, all casings) via a cheap length +
+// first-char pre-check BEFORE `field.toLowerCase()`, so a non-cookie header
+// allocates no lowercased string. `assertHeaderSafe` and the array-value
+// delete+append branch are unchanged.
+// ===========================================================================
+
+describe('WebResponseBuilder.set — HP-15-web set-cookie pre-check', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('detects Set-Cookie across all casings and accumulates each', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.set('Set-Cookie', 'a=1');
+    rb.set('set-cookie', 'b=2');
+    rb.set('SET-COOKIE', 'c=3');
+    rb.set('SeT-CooKie', 'd=4');
+    const cookies = rb.getResponse(200).headers.getSetCookie();
+    expect(cookies).toHaveLength(4);
+    expect(cookies).toEqual(expect.arrayContaining(['a=1', 'b=2', 'c=3', 'd=4']));
+  });
+
+  it('[trim] the first-char pre-check short-circuits the detection toLowerCase for a non-cookie field', () => {
+    // Native Headers name-normalization also calls String.prototype.toLowerCase,
+    // so a raw "not called" spy can't isolate our detection. Instead compare two
+    // 10-char fields that differ ONLY in the first char and both hit
+    // `_headers.set` (neither is a cookie): the 's…' field passes the cheap
+    // pre-check and reaches the `field.toLowerCase()` fallback; the 'x…' field
+    // fails the first-char check and skips it. Equal length ⇒ identical native
+    // normalization, so the call-count delta is exactly our one detection call.
+    const original = String.prototype.toLowerCase;
+    let calls = 0;
+    vi.spyOn(String.prototype, 'toLowerCase').mockImplementation(function (this: string) {
+      calls += 1;
+      return original.call(this);
+    });
+
+    const rbS = new WebResponseBuilder('GET');
+    calls = 0;
+    rbS.set('sxxxxxxxxx', 'v'); // 10 chars, first char 's' → reaches the fallback
+    const withFallback = calls;
+
+    const rbX = new WebResponseBuilder('GET');
+    calls = 0;
+    rbX.set('xxxxxxxxxx', 'v'); // 10 chars, first char 'x' → skips the fallback
+    const withoutFallback = calls;
+
+    expect(withFallback - withoutFallback).toBe(1);
+    // Neither is a cookie → both set as normal headers.
+    expect(rbS.getResponse(200).headers.get('sxxxxxxxxx')).toBe('v');
+    expect(rbX.getResponse(200).headers.get('xxxxxxxxxx')).toBe('v');
+  });
+
+  it('a 10-char non-cookie header starting with s is replaced, not accumulated', () => {
+    // Guards the fallback compare: length===10 + first-char 's' alone must NOT
+    // be treated as set-cookie — the full `=== 'set-cookie'` check still decides.
+    const rb = new WebResponseBuilder('GET');
+    rb.set('sec-fetch1', 'first');
+    rb.set('sec-fetch1', 'second');
+    expect(rb.getResponse(200).headers.get('sec-fetch1')).toBe('second');
+  });
+
+  it('the CRLF guard still throws for field and value', () => {
+    const rb = new WebResponseBuilder('GET');
+    expect(() => rb.set('X-Bad\r\n', 'v')).toThrow('Header field contains invalid characters');
+    expect(() => rb.set('X-Ok', 'a\r\nb')).toThrow('Header value contains invalid characters');
+  });
+
+  it('an array value still deletes then appends each entry', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.set('Set-Cookie', 'old=1');
+    rb.set('Set-Cookie', ['n1=a', 'n2=b']);
+    const cookies = rb.getResponse(200).headers.getSetCookie();
+    expect(cookies).toHaveLength(2);
+    expect(cookies).toEqual(expect.arrayContaining(['n1=a', 'n2=b']));
   });
 });

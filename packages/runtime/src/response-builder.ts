@@ -270,7 +270,15 @@ export class WebResponseBuilder {
     }
 
     const stringValue = typeof value === 'string' ? value : String(value);
-    if (field.toLowerCase() === 'set-cookie') {
+    // HP-15-web: gate the set-cookie detection behind a constant-time pre-check
+    // (length + case-insensitive first char) so a non-cookie header never
+    // allocates a lowercased string. 'set-cookie' is 10 chars starting with 's'
+    // (0x73); only a field passing both cheap checks falls back to toLowerCase.
+    const isSetCookie =
+      field.length === 10 &&
+      (field.charCodeAt(0) | 0x20) === 0x73 &&
+      field.toLowerCase() === 'set-cookie';
+    if (isSetCookie) {
       this._headers.append(field, stringValue);
     } else {
       this._headers.set(field, stringValue);
