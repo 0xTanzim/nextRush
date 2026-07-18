@@ -40,10 +40,12 @@ expensive; their sum is the overhead. The highest-leverage work is:
 4. **Kill the per-segment tuple-array allocations** in parameter matching, which is why the
    route-params gap to Fastify is wider than the hello-world gap. *(P2)*
 
-> **Progress (2026-07-18):** items 1 and 2 (P0 + P1) have **shipped and been archived**, and P1
-> was extended across all four adapters. Allocation wins are measured (P0 −47.6% B/op; adapter
-> context path −85.6% / −48 B/req), but **RPS confirmation via `--profile full` is still pending**.
-> Items 3 and 4 (the P2 router batch) are the **next change** to implement. Full status in §9.
+> **Progress (2026-07-18):** items 1–4 (P0 + P1 + the P2 router batch) have **shipped and been
+> archived** — P1 was extended across all four adapters, and the router pass landed the iterative /
+> null-prototype / traversal-safe matcher hardening. Allocation wins are measured, but **RPS
+> confirmation via `--profile full` is still pending**. **HP-16** (POST body-read) has since
+> shipped as `node-body-read-fastpath` (byte-identical event-listener read; parity confirmed,
+> POST-JSON magnitude deferred to clean hardware). Full per-finding status in the §9 findings index.
 
 **Every RPS figure below is a hypothesis, not a promise.** The baseline is a single-run
 `quick` profile (the report file states it is *not publishable*; `CV 0%` only means one
@@ -700,20 +702,53 @@ directional gain on the *affected* scenario, not the whole suite; they are delib
 as ranges, not false-precise numbers. The **Status** column tracks implementation as of
 2026-07-18.
 
+### Findings status index (all HP-*)
+
+Visual tracker — every finding and whether it has shipped. (HP-3 and HP-8 were never assigned.)
+
+| Finding | What it removes / does | Tier | Status |
+|---------|------------------------|------|--------|
+| HP-1  | eager `ctx.ip` lookup closure | P1 | ✅ shipped (all 4 adapters) |
+| HP-2  | per-request empty `query` object | P3 | ⬜ pending |
+| HP-4  | per-request `{ trustProxy }` options object | P1 | ✅ shipped (Node; N/A siblings) |
+| HP-5  | `raw = { req, res }` wrapper object | P4 | ⬜ pending |
+| HP-6  | redundant single-middleware `compose` layer | P0 | ✅ shipped |
+| HP-7  | `ctx.next()` extra async frame | P1 | ✅ shipped (all 4 adapters) |
+| HP-9  | per-request `staticKey` string (method-nested map) | P2 | ✅ shipped |
+| HP-10 | duplicate match-result object | P2 | ✅ shipped |
+| HP-11 | per-segment tuple arrays + backtrack `Reflect.deleteProperty` | P2 | ✅ shipped |
+| HP-12 | `toLowerCase` + second normalize pass | P2 | ✅ shipped |
+| HP-13 | `Object.keys` post-match loop | P2 | ✅ shipped |
+| HP-14 | `ctx.json` double `setHeader` | P3 | ⬜ pending |
+| HP-15 | `ctx.set` `toLowerCase()` per call | P3 | ⬜ pending |
+| HP-16 | `NodeBodySource` `for await` body read | P2 (indep.) | ✅ shipped (`node-body-read-fastpath`; Node only — `WebBodySource` follow-up noted) |
+| HP-17 | `findNode` traversal duplication | P4 | ⬜ pending |
+| HP-18 | provably-dead defensive branches | P4 | ⬜ pending |
+
+**11 of 16 shipped** (P0 + P1 + P2, incl. cross-adapter). Remaining: the P3 response
+micro-trims (HP-2 / HP-14 / HP-15), and P4 cleanup (HP-5 / HP-17 / HP-18).
+
 ### Progress snapshot (2026-07-18)
 
-- ✅ **P0 — HP-6** shipped as `core-single-middleware-fastpath` (archived). Allocation gate met
-  (−47.6% B/op on the compose path, CV <0.1%); RPS confirmation via a CPU-pinned `--profile full`
-  A/B still **pending**.
-- ✅ **P1 — HP-1 / HP-4 / HP-7** shipped as `node-adapter-per-request-work-trim` (archived), then
-  extended to Bun/Deno/Edge as `web-adapters-per-request-work-trim` (archived). HP-4 applies to
-  **Node only** — the siblings pass `trustProxy` positionally, so there is no options object to
-  hoist. Allocation gates met; RPS A/B **pending** (and out of the `wrk` harness's reach for the
-  non-Node adapters).
-- ⬜ **P2 router batch — HP-11 / HP-9 / HP-10 (+ HP-13 / HP-12 folded in)** is the **next change**
-  (`router-match-path-allocation-trim`). **HP-16** (POST body-read) is tracked **independently**.
-- ⬜ **P3 remainder (HP-2 / HP-14 / HP-15)** and **P4 cleanup (HP-17 / HP-18 / HP-5)** pending.
-- ⏳ **Cross-cutting open item:** the CPU-pinned `--profile full` A/B that turns the shipped P0/P1
+- ✅ **P0 — HP-6** shipped as `core-single-middleware-fastpath` (archived); −47.6% B/op, CV <0.1%.
+- ✅ **P1 — HP-1 / HP-4 / HP-7** shipped as `node-adapter-per-request-work-trim`, then extended to
+  Bun/Deno/Edge as `web-adapters-per-request-work-trim` (both archived). HP-4 is Node-only
+  (siblings pass `trustProxy` positionally).
+- ✅ **P2 router batch — HP-9 / HP-10 / HP-11 / HP-12 / HP-13** shipped as
+  `router-match-path-allocation-trim` (archived), with the iterative / null-prototype /
+  traversal-safe matcher hardening; RFC 015 updated with the outcome.
+- ✅ **HP-16** (POST body-read fast path) shipped as `node-body-read-fastpath` —
+  `NodeBodySource.buffer()` rewritten from `for await…of` to event-listener accumulation
+  (byte-identical results, identical limit/error/cache semantics, explicit handling of
+  already-ended streams, mid-body disconnect, single-settle, and listener cleanup). Pinned by a
+  differential harness + behavior matrix; `bench:validate` parity holds. **Honest scope:** the
+  POST-JSON `--profile full` A/B was not run to a publishable standard on shared hardware (per the
+  README's withdrawn-numbers note); parity is confirmed and the win is the removed per-chunk
+  async-iterator/promise overhead, not an overstated POST RPS claim (`JSON.parse` dominates POST).
+  **Follow-up:** a `WebBodySource` (Bun/Deno/Edge) sibling review is a candidate but likely a
+  smaller effect (Web streams differ) — noted, not gated on this change.
+- ⬜ **P3 remainder (HP-2 / HP-14 / HP-15)** and **P4 cleanup (HP-5 / HP-17 / HP-18)** pending.
+- ⏳ **Cross-cutting open item:** the CPU-pinned `--profile full` A/B that turns the shipped
   allocation wins into publishable RPS numbers has **not** been run on a clean environment yet.
 
 ### P0 — Critical RPS improvements (structural, universal path)
@@ -737,17 +772,17 @@ shape *and* removes an entire async frame plus closures, not just one allocation
 
 | ID | Change | RPS est. (affected) | Complexity | Risk | Breaking | Status |
 |----|--------|---------------------|------------|------|----------|--------|
-| HP-11 | Remove per-segment tuple arrays; single extraction path | mid single-digit % (params) | Medium | Low | No | ⬜ **Next** — `router-match-path-allocation-trim` |
-| HP-9 | Method-nested static map (drop per-request `staticKey` concat) | low single-digit % (static) | Medium | Low | No | ⬜ **Next** — same change |
-| HP-10 | Collapse the two match-result objects into one allocation | low single-digit % (all matched) | Low–Medium | Low | No | ⬜ **Next** — same change |
-| HP-16 | Event-listener buffered body-read fast path | POST-focused; validate | Medium | Medium (preserve limits/errors) | No | ⬜ Pending — tracked independently (POST body-read) |
+| HP-11 | Remove per-segment tuple arrays; single extraction path | mid single-digit % (params) | Medium | Low | No | ✅ **Shipped** — `router-match-path-allocation-trim` (archived) |
+| HP-9 | Method-nested static map (drop per-request `staticKey` concat) | low single-digit % (static) | Medium | Low | No | ✅ **Shipped** — same change |
+| HP-10 | Collapse the two match-result objects into one allocation | low single-digit % (all matched) | Low–Medium | Low | No | ✅ **Shipped** — same change |
+| HP-16 | Event-listener buffered body-read fast path | POST-focused; validate | Medium | Medium (preserve limits/errors) | No | ⬜ **Next** — this spec (`node-body-read-fastpath`) |
 
 ### P3 — Memory-allocation reductions (small, bankable)
 
 | ID | Change | RPS est. | Complexity | Risk | Breaking | Status |
 |----|--------|----------|------------|------|----------|--------|
-| HP-12 | `toLowerCase` fast-path skip; avoid second normalize on param routes | low % | Low–Medium | Low | No (default flip is separate/breaking) | ⬜ **Next** — folded into `router-match-path-allocation-trim` |
-| HP-13 | Drop `Object.keys` post-match loop via a walk-time param flag | low % (params) | Low | Low | No | ⬜ **Next** — folded into the router pass |
+| HP-12 | `toLowerCase` fast-path skip; avoid second normalize on param routes | low % | Low–Medium | Low | No (default flip is separate/breaking) | ✅ **Shipped** — folded into `router-match-path-allocation-trim` |
+| HP-13 | Drop `Object.keys` post-match loop via a walk-time param flag | low % (params) | Low | Low | No | ✅ **Shipped** — folded into the router pass |
 | HP-2 | Shared empty `query` object (if `query` is read-only by contract) | <1% | Trivial | Low (contract-dependent) | Confirm first | ⬜ Pending |
 | HP-14 | Single `writeHead` in `ctx.json` | <1% | Low | Low (Node-version sensitive) | No | ⬜ Pending |
 | HP-15 | Cheap `set-cookie` pre-check before `toLowerCase` in `ctx.set` | <1% (mw) | Low | Low | No | ⬜ Pending |
@@ -762,11 +797,11 @@ shape *and* removes an entire async frame plus closures, not just one allocation
 
 ### Sequencing recommendation
 
-**Done:** HP-4/HP-1/HP-7 (P1) landed first, then HP-6 (P0) — all shipped and archived, extended
-cross-adapter. **Next:** the router batch **HP-11 → HP-9 → HP-10 → HP-13 → HP-12** as one cohesive
-router pass (`router-match-path-allocation-trim`), landed as ordered, individually-benchmarked
-commits. Treat **HP-16** independently against the POST scenario. Do cleanup (P4) alongside the
-router pass so the defensive branches are removed only once their replacements have tests.
+**Done:** HP-4/HP-1/HP-7 (P1) → HP-6 (P0) → the router batch HP-9/HP-10/HP-11/HP-12/HP-13 (P2,
+`router-match-path-allocation-trim`) — all shipped and archived, extended cross-adapter. **Next:**
+**HP-16** (POST body-read fast path) against NextRush's weakest scenario, as its own change. Then
+the P3 response micro-trims (HP-2 / HP-14 / HP-15) and P4 cleanup (HP-5 / HP-17 / HP-18). The
+cross-cutting `--profile full` A/B remains outstanding to publish RPS numbers for the shipped work.
 
 ---
 

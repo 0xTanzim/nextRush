@@ -110,25 +110,90 @@ export class NodeBodySource implements BodySource {
 
     this._consumed = true;
 
-    // Collect chunks from stream
-    const chunks: Buffer[] = [];
-    let totalLength = 0;
+    const req = this.req;
+    const limit = this.options.limit;
 
-    for await (const rawChunk of this.req) {
-      const chunk = chunkToBuffer(rawChunk);
-      totalLength += chunk.length;
-
-      // Check limit during streaming
-      if (totalLength > this.options.limit) {
-        // Destroy the stream to stop reading
-        this.req.destroy();
-        throw new BodyTooLargeError(this.options.limit, totalLength);
-      }
-
-      chunks.push(chunk);
+    // Already-ended guard (D3): if the stream was fully consumed before buffer() was
+    // called, an `end` listener would never fire and the read would hang. The
+    // `for await…of` form handled this implicitly; the event form must not.
+    if (req.readableEnded) {
+      const empty = Buffer.concat([]);
+      this._cachedBuffer = empty;
+      return empty;
     }
 
-    const buffer = Buffer.concat(chunks);
+    // Accumulate via event listeners rather than `for await…of`: this avoids the
+    // async-iterator + per-chunk promise allocation of iterating an IncomingMessage,
+    // while a single-settle guard (D2) and explicit cleanup preserve every observable
+    // behavior — limits, error propagation, client-disconnect rejection, and no leaks.
+    const buffer = await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      let totalLength = 0;
+      let settled = false;
+
+      const cleanup = (): void => {
+        req.off('data', onData);
+        req.off('end', onEnd);
+        req.off('error', onError);
+        req.off('close', onClose);
+      };
+
+      const settleResolve = (value: Buffer): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      };
+
+      const settleReject = (err: Error): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(err);
+      };
+
+      const onData = (rawChunk: unknown): void => {
+        let chunk: Buffer;
+        try {
+          chunk = chunkToBuffer(rawChunk);
+        } catch (err) {
+          // Preserve the pre-change behavior: an unexpected chunk type rejects the read.
+          settleReject(err as Error);
+          req.destroy();
+          return;
+        }
+        totalLength += chunk.length;
+
+        // Streaming limit check on the running total (D5) — identical to before.
+        if (totalLength > limit) {
+          settleReject(new BodyTooLargeError(limit, totalLength));
+          req.destroy();
+          return;
+        }
+
+        chunks.push(chunk);
+      };
+
+      const onEnd = (): void => {
+        settleResolve(Buffer.concat(chunks));
+      };
+
+      const onError = (err: Error): void => {
+        settleReject(err);
+      };
+
+      const onClose = (): void => {
+        // Premature close with no prior `end` (client disconnect / abort): reject so the
+        // read never stays pending (D4). A normal end removes this listener first.
+        settleReject(new Error('Request stream closed before body was fully read'));
+      };
+
+      req.on('data', onData);
+      req.once('end', onEnd);
+      req.once('error', onError);
+      req.once('close', onClose);
+    });
+
     this._cachedBuffer = buffer;
 
     return buffer;

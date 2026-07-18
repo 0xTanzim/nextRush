@@ -2,8 +2,7 @@
  * @nextrush/adapter-node - BodySource Tests
  */
 
-import { IncomingMessage } from 'node:http';
-import { Socket } from 'node:net';
+import type { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { createEmptyBodySource, NodeBodySource } from '../body-source';
@@ -12,23 +11,17 @@ function createMockReq(
   body: string | Buffer = '',
   headers: Record<string, string> = {}
 ): IncomingMessage {
-  const socket = new Socket();
-  const req = new IncomingMessage(socket);
+  // A Readable that emits the body via real `data`/`end` events, matching how
+  // NodeBodySource.buffer() consumes the request (event listeners, not async iterator).
+  const readable = new Readable({ read() {} });
+  const req = readable as unknown as IncomingMessage;
   req.headers = headers;
 
-  // Push body data and end
-  const readable = new Readable({
-    read() {
-      if (body.length > 0) {
-        this.push(Buffer.from(body));
-      }
-      this.push(null);
-    },
-  });
-
-  // Pipe readable into req's internal stream
-  Object.assign(req, {
-    [Symbol.asyncIterator]: readable[Symbol.asyncIterator].bind(readable),
+  setImmediate(() => {
+    if (body.length > 0) {
+      readable.push(Buffer.from(body));
+    }
+    readable.push(null);
   });
 
   return req;
