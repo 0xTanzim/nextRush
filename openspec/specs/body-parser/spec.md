@@ -1,8 +1,14 @@
-# actionable-body-parser-error Specification
+# body-parser
 
 ## Purpose
-TBD - created by archiving change improve-router-modularity-and-class-dx-papercuts. Update Purpose after archive.
+
+Request body parsing (`@nextrush/body-parser`) and its developer-experience contract: when a route
+depends on a parsed body (e.g. `@Body()`) but no body-parser middleware ran, the failure names the
+likely cause and fix rather than surfacing a generic parameter-injection error, while a correctly
+configured body-parser path resolves the body unchanged.
+
 ## Requirements
+
 ### Requirement: A missing body-parser produces an actionable `@Body` error
 When `@Body()` resolves to nothing because no body-parser middleware ran, the resulting error
 SHALL name the likely cause and fix, rather than a generic parameter-injection error with no
@@ -19,4 +25,3 @@ diagnostic hint.
 - **WHEN** a body-parser middleware is registered and a route using `@Body()` receives a valid
   request
 - **THEN** the body resolves correctly with no error, exactly as before this change
-

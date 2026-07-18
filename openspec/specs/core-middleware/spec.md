@@ -1,8 +1,15 @@
-# single-middleware-fastpath Specification
+# core-middleware
 
 ## Purpose
-TBD - created by archiving change core-single-middleware-fastpath. Update Purpose after archive.
+
+The `@nextrush/core` middleware-composition engine (`compose()`) and its execution contract:
+Koa-style onion ordering, the guarded `next()` (single-call detection, error propagation,
+double-response warning), per-invocation state isolation under concurrency, and the
+allocation-lighter single-middleware fast path — all held byte-identical across the general,
+empty, and single-entry paths and across every adapter, since `compose()` is runtime-agnostic core.
+
 ## Requirements
+
 ### Requirement: `compose()` provides an allocation-lighter path for a single-middleware stack
 
 `@nextrush/core`'s `compose()` SHALL provide a dedicated execution path when the composed stack
@@ -207,4 +214,3 @@ aesthetics.
 #### Scenario: Coverage is maintained and the new branch is covered
 - **WHEN** the test suite runs with coverage
 - **THEN** per-package line coverage stays at or above 90% and the new `len === 1` branch is covered
-

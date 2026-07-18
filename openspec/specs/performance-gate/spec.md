@@ -1,8 +1,29 @@
-# class-path-overhead-benchmark Specification
+# performance-gate
 
 ## Purpose
-TBD - created by archiving change add-class-path-perf-benchmark-and-ci-gate. Update Purpose after archive.
+
+NextRush's CI performance-regression defense and its benchmark methodology: a fast, low-sample
+"smoke" gate that runs on performance-sensitive PRs without becoming a merge bottleneck (distinct
+from the slow multi-run profile used for publishable figures), plus a reproducible, fairness-
+validated benchmark that measures the class/DI path's registration/boot cost at multiple
+controller-count scales and its per-request overhead relative to the functional path.
+
 ## Requirements
+
+### Requirement: The per-PR performance gate is fast enough to run routinely
+The CI performance gate SHALL use a fast, low-sample "smoke" benchmark profile distinct from the
+slower, multi-run profile used for publishable figures, so it can run on relevant PRs without
+becoming a merge bottleneck.
+
+#### Scenario: The CI gate completes within a reasonable time budget
+- **WHEN** the performance-gate job runs on a PR
+- **THEN** it completes using the smoke profile, not the full multi-run publishable profile
+
+#### Scenario: The gate's tolerance accounts for CI environment noise
+- **WHEN** the gate's regression tolerance is configured
+- **THEN** it is set loosely enough to avoid failing on normal CI runner jitter, while still
+  catching a gross regression, with the chosen value documented alongside the CI job
+
 ### Requirement: A reproducible benchmark measures class-path overhead against the functional path
 A benchmark SHALL exist that measures and publishes: (a) registration/boot cost of the class/DI
 path at multiple controller-count scales, and (b) per-request overhead of the class path relative
@@ -41,4 +62,3 @@ configured tolerance.
 - **WHEN** a pull request touches only paths unrelated to performance-sensitive code (per the
   scoping decided in design.md's Non-Goals)
 - **THEN** the performance-gate job does not run, avoiding unnecessary CI cost
-

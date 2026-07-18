@@ -1,8 +1,16 @@
-# edge-portable-middleware Specification
+# portable-middleware
 
 ## Purpose
-TBD - created by archiving change close-runtime-compatibility-gaps. Update Purpose after archive.
+
+The edge-portability contract for NextRush middleware and extensions: they use Web-standard globals
+(`crypto.randomUUID()`, `crypto.subtle`, `TextEncoder`, …) instead of `node:*` imports wherever a
+Web-standard equivalent exists, so packages load and run across Node, Bun, Deno, Cloudflare,
+Vercel, and Netlify; each package declares its runtime support (`edge-safe` / `Node-only` /
+`mixed`, per-strategy where it varies) and that declaration is kept honest against the package's
+actual `node:` coupling by a regression guard.
+
 ## Requirements
+
 ### Requirement: No needless runtime coupling in middleware
 Middleware and extensions SHALL NOT import from `node:*` (or reference a Node-only global) for
 functionality that is available via a Web-standard global on the framework's supported runtimes.

@@ -1,8 +1,14 @@
-# signal-wired-graceful-shutdown Specification
+# graceful-shutdown
 
 ## Purpose
-TBD - created by archiving change add-graceful-shutdown-and-health-package. Update Purpose after archive.
+
+Opt-in, signal-wired graceful shutdown for `serve()`: an optional `gracefulShutdown` field on
+`ServeOptions` that wires `SIGTERM`/`SIGINT` (or a specified signal set) to the server's existing
+connection-drain `close()` logic, draining in-flight requests within a configurable timeout and
+removing its own handler after completing — with zero behavioral change when the option is omitted.
+
 ## Requirements
+
 ### Requirement: `serve()` supports opt-in signal-wired graceful shutdown
 `serve()` SHALL accept an optional `gracefulShutdown` field on `ServeOptions` (boolean, or an
 object specifying `signals` and/or `timeout`) that, when truthy, wires `SIGTERM`/`SIGINT` (or the
@@ -29,32 +35,3 @@ is omitted, no signal handler SHALL be installed — behavior identical to today
 - **WHEN** a graceful shutdown completes (drain finished, process about to exit)
 - **THEN** the signal handler registered for that `serve()` call is removed, so a subsequent
   `serve()` call in the same process does not accumulate duplicate handlers
-
-### Requirement: `@nextrush/health` exposes liveness and readiness endpoints with a check registry
-A new `@nextrush/health` middleware package SHALL expose a `/livez` endpoint (reflecting process
-liveness only) and a `/readyz` endpoint (reflecting registered readiness checks), plus an API for
-registering custom readiness checks at setup time.
-
-#### Scenario: `/readyz` reflects a failing registered check
-- **WHEN** a registered readiness check returns/resolves to `false` or throws
-- **THEN** `/readyz` responds with `503`
-
-#### Scenario: `/readyz` reflects all-passing checks
-- **WHEN** every registered readiness check passes
-- **THEN** `/readyz` responds with `200`
-
-#### Scenario: `/livez` does not depend on registered checks
-- **WHEN** one or more registered readiness checks are failing
-- **THEN** `/livez` still responds with `200`, as long as the process itself can respond at all
-
-#### Scenario: A hung check does not hang the endpoint indefinitely
-- **WHEN** a registered check's promise never resolves
-- **THEN** `/readyz` still responds within a bounded time, treating the timed-out check as a
-  failure
-
-#### Scenario: The package's README states its default security posture explicitly
-- **WHEN** a reader consults `@nextrush/health`'s README
-- **THEN** it explicitly states that `/livez`/`/readyz` are unauthenticated by default (the
-  conventional cluster-internal-probe pattern) and how to restrict access if the deployment
-  requires it
-

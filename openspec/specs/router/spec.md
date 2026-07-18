@@ -1,8 +1,18 @@
-# router-match-path-allocation-trim Specification
+# router
 
 ## Purpose
-TBD - created by archiving change router-match-path-allocation-trim. Update Purpose after archive.
+
+The `@nextrush/router` segment-trie router: how requests are matched (O(k) static and param/wildcard
+lookup, static-over-trie precedence, percent-decoding, case-folding, degenerate-path safety),
+how routes are registered (direct, `all()`/`@All` single any-method entries, prefix, mount, group),
+how a match is materialized (single `RouteMatch`, null-prototype params, shared frozen
+`EMPTY_PARAMS`, clean 404/405 dispatch), and the concurrency-safety, allocation, module-size
+(≤300-line files), internal-dedup, documentation-accuracy, and future-radix-RFC discipline that
+keep the package correct and honest. Behavior is pinned byte-identical to the pre-optimization
+matcher by a differential harness, allocation micro-benchmarks, and CPU-pinned A/Bs.
+
 ## Requirements
+
 ### Requirement: Static route lookup drops the per-request key string
 
 The static-route store SHALL be method-nested so lookup selects by method and probes by path,
@@ -214,7 +224,144 @@ respond 405. A matched route's pre-compiled `executor` SHALL be invoked (not re-
 - **WHEN** a route with a pre-compiled executor matches
 - **THEN** that executor is invoked (the middleware chain is not re-composed per request), identical to today
 
-### Requirement: The rewrite is behaviorally identical to the pre-change matcher
+### Requirement: The findNode walk used by findAllowedMethods is iterative
+
+`findNode` SHALL walk the trie with an explicit stack rather than recursion, so a pathological
+segment count on the 405/OPTIONS path cannot overflow the call stack, while producing byte-identical
+results (same static > param > wildcard precedence, same first-matching node).
+
+#### Scenario: findAllowedMethods results are unchanged
+- **WHEN** `findAllowedMethods` is exercised across a corpus (static, param, wildcard, nested, trailing-slash, method-miss)
+- **THEN** the returned method sets are identical to the recursive implementation for every input
+
+#### Scenario: A deep path on the 405/OPTIONS path does not overflow the stack
+- **WHEN** a request with a very large number of segments hits the allowed-methods walk (e.g. an OPTIONS or unregistered-method request to a deep path)
+- **THEN** `findNode` resolves or returns null without a stack overflow (iterative walk), matching the DoS-safety the match path already has
+
+#### Scenario: Precedence is preserved
+- **WHEN** static, param, and wildcard branches could match at a node
+- **THEN** the iterative `findNode` selects the same branch order (static > param > wildcard) as the recursive form
+
+### Requirement: The router hot path stays free of the removed deopt patterns (HP-18 guard)
+
+The router match path SHALL remain free of the backtrack `Reflect.deleteProperty` and the
+`Object.keys` post-match loop that the P2 rewrite removed; a regression guard MUST fail if either is
+reintroduced into the router match source.
+
+#### Scenario: No Reflect.deleteProperty or Object.keys post-loop in the router match path
+- **WHEN** the router match sources (`matching.ts` / `match-route.ts`) are checked by the guard
+- **THEN** they contain no backtrack `Reflect.deleteProperty` and no `Object.keys`-based post-match param loop
+
+### Requirement: `@All`/`app.all` registers a single any-method route entry
+`@All()` (class decorator) and `app.all()` (functional API) SHALL register one route entry that
+matches all HTTP methods, rather than one explicit registration per enumerated method.
+
+#### Scenario: `@All` yields a single route-table row
+- **WHEN** a route is registered via `@All('/x')` or `app.all('/x', handler)`
+- **THEN** `getRoutes()` (or the equivalent route-introspection API) shows exactly one entry for
+  that path, not one row per HTTP method
+
+#### Scenario: All HTTP methods still match the registered route
+- **WHEN** a request with any standard HTTP method (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`,
+  `HEAD`, `OPTIONS`) is made against a path registered via `@All`/`app.all`
+- **THEN** the request matches and is handled correctly, identical to before this change
+
+#### Scenario: No existing route-table consumer breaks
+- **WHEN** any in-repo consumer of route introspection (e.g. `@nextrush/openapi`'s route
+  generation, or class-package diagnostics) processes a route table containing an `@All` route
+- **THEN** it correctly handles the single-entry, any-method shape without producing incorrect
+  output (this scenario governs the pre-implementation consumer search noted in design.md's Risk
+  section)
+
+### Requirement: Router source files stay within the 300-line ceiling
+No shipping source file in `@nextrush/router` SHALL exceed 300 lines. Any split performed to
+satisfy this SHALL preserve all existing observable behavior, verified by a passing test suite
+and an unchanged public-surface snapshot.
+
+#### Scenario: The router package has no over-cap file after the split
+- **WHEN** every `.ts` file under `packages/router/src` (excluding test files) is measured
+- **THEN** none exceeds 300 lines
+
+#### Scenario: The public API surface is unchanged after the split
+- **WHEN** the router package's public-surface snapshot test runs before and after the file
+  reorganization
+- **THEN** the exported symbol set is identical
+
+#### Scenario: Existing router behavior is unchanged after the split
+- **WHEN** the full router package test suite (plus any characterization tests added to cover
+  gaps found during the refactor) runs after the split
+- **THEN** all tests pass with no behavior change from before the split
+
+### Requirement: Audit-identified internal duplications are resolved or explicitly justified
+The internal duplications the router audit identified SHALL be resolved to single sources where
+safe, or their retention explicitly justified in a comment, with all observable behavior
+preserved.
+
+#### Scenario: EMPTY_PARAMS has a single definition
+- **WHEN** `EMPTY_PARAMS` usage across the router package is examined
+- **THEN** it is defined once in a shared internal module and imported by both former sites, OR
+  its duplication carries an explicit, verified justification (a genuine import cycle)
+
+#### Scenario: Path normalization has a single definition
+- **WHEN** the path-normalization logic used by route matching and by allowed-methods lookup is
+  examined
+- **THEN** it is defined once in a shared helper both call, rather than encoded twice
+
+#### Scenario: A behavior-sensitive dedup is gated on tests
+- **WHEN** a duplication whose removal could change observable behavior (e.g. the `hasParams`
+  post-match cleanup loop) is considered for removal
+- **THEN** it is only removed if the existing test suite — including param-backtracking edge
+  cases — proves the removal behavior-preserving; otherwise it is retained with a documented reason
+
+### Requirement: Router documentation and type docs accurately describe the segment-trie algorithm
+All documentation and type-level doc comments across `@nextrush/router` and `@nextrush/types`
+SHALL accurately describe the segment-trie algorithm the router actually implements, with no
+residual "radix tree" claims and no stale structural descriptions that misrepresent the
+implementation.
+
+#### Scenario: No residual radix claim remains in router code or types
+- **WHEN** `@nextrush/router`'s source and `@nextrush/types`' router types are searched for the
+  term "radix" (case-insensitive)
+- **THEN** no matches remain except an explicitly historical changelog reference
+
+#### Scenario: The router README does not contradict itself
+- **WHEN** `packages/router/README.md` is read end-to-end
+- **THEN** it describes the algorithm as a segment trie consistently, with no "Radix Tree
+  Algorithm" heading or "the radix tree router provides" claim contradicting its own opening
+
+#### Scenario: The TrieNode.children doc matches the code
+- **WHEN** `TrieNode.children`'s doc comment is compared to how the code keys that map
+- **THEN** the comment accurately states children are keyed by whole path segment, not "by first
+  character"
+
+### Requirement: A published RFC specifies the future radix router package
+A published RFC at `docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md` SHALL specify the future
+`@nextrush/router-radix` package before that package is implemented, following this repo's
+RFC-before-implementation discipline for new packages.
+
+#### Scenario: The RFC exists and follows the repo's RFC convention
+- **WHEN** the RFC is authored
+- **THEN** it exists at `docs/RFC/RFC-NEXTRUSH-ROUTER-RADIX.md`, matching the naming and
+  structure of existing RFCs (e.g. `RFC-NEXTRUSH-ADAPTER-CONTRACT.md`)
+
+#### Scenario: The RFC specifies the shared contract and conformance-parity model
+- **WHEN** the RFC is reviewed for completeness
+- **THEN** it defines the `Router` contract a conformant router must implement, and a
+  router-conformance parity harness (modeled on `packages/adapters/conformance`) that runs
+  against both the segment-trie and radix routers
+
+#### Scenario: The RFC states honest costs and the default-router positioning
+- **WHEN** the RFC's costs/risks section is read
+- **THEN** it explicitly addresses the maintenance/bus-factor cost of a second router against a
+  single-maintainer project, and states that the segment-trie router remains the default with
+  radix opt-in for a stated reason — never a forced choice
+
+#### Scenario: The RFC captures the deferred hot-path optimization as measurement-gated
+- **WHEN** the RFC's design-considerations section is read
+- **THEN** it records the `Reflect.deleteProperty`/param-materialization consideration as a
+  measurement-gated item (settled by benchmark T017), not a committed change
+
+### Requirement: The match-path rewrite is behaviorally identical to the pre-change matcher
 
 A differential harness SHALL confirm the new match path returns results identical to the pre-change
 matcher across a broad path corpus covering every edge case above.
@@ -223,7 +370,7 @@ matcher across a broad path corpus covering every edge case above.
 - **WHEN** a corpus of paths (static, nested params, backtracking, wildcard incl. empty capture, param+wildcard, cased incl. non-ASCII, percent-encoded incl. `%2F` and malformed, empty/root/repeated-slash, trailing-slash, method-miss, `all()`, mounted/grouped/prefixed) is matched by both the pre-change and post-change matcher
 - **THEN** the resolved handler, `params` contents (and their key ownership/prototype), and executor are identical for every input
 
-### Requirement: The optimization is validated by benchmark and coverage gates, with HP-11 park-able
+### Requirement: The match-path optimization is validated by benchmark and coverage gates, with HP-11 park-able
 
 Each trim SHALL ship with allocation evidence and a `--profile full` A/B on its target scenario.
 The param-walk rewrite (HP-11) SHALL be reverted/parked if its CPU-pinned A/B does not move Route
@@ -245,3 +392,20 @@ Params beyond stddev, while the safer trims remain.
 - **WHEN** the router test suite runs with coverage
 - **THEN** per-package line coverage stays at or above 90% and the rewritten match/normalize branches — including the new safety branches — are covered
 
+### Requirement: The context/findNode cleanup is validated by allocation, parity, and coverage gates
+
+Because both trims are cleanup (HP-5 <1%, HP-17 off the throughput path), the change SHALL be
+accepted on deterministic allocation evidence, differential parity, and the deep-path safety test
+rather than an RPS A/B, and coverage MUST NOT decrease.
+
+#### Scenario: An allocation micro-benchmark confirms the lazy raw saving
+- **WHEN** the allocation micro-bench runs on a raw-unread request
+- **THEN** it shows the `{ req, res }` wrapper is no longer allocated
+
+#### Scenario: Response parity is unaffected (cleanup)
+- **WHEN** `pnpm bench:validate` runs across all benchmark servers
+- **THEN** response bodies and Content-Type remain byte-identical
+
+#### Scenario: Coverage is maintained and refactored branches are covered
+- **WHEN** the adapter-node and router test suites run with coverage
+- **THEN** per-package line coverage stays at or above 90% and the refactored `ctx.raw` and iterative `findNode` branches are covered
