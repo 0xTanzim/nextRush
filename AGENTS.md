@@ -362,6 +362,36 @@ If any answer raises significant doubt, redesign before implementation.
 
 ---
 
+# 20. Specs Are the Source of Truth
+
+NextRush uses OpenSpec (`openspec/`) for spec-driven development. It has two layers with
+opposite lifecycles — confusing them is how the system rots.
+
+- **`openspec/specs/` is TRUTH** — what the framework does *now*. A SMALL, STABLE set of
+  capability specs (~16), one folder per durable capability (`router`, `node-adapter`, …).
+  This is what we read. It must never grow one-folder-per-change.
+- **`openspec/changes/archive/` is HISTORY** — why we did it. Disposable, gitignored local
+  scratch; git commit history is the record, and durable decisions are promoted to `docs/RFC/`.
+
+**The one rule:** a change **EDITS an existing capability's requirements** (ADDED / MODIFIED /
+REMOVED). It does **not** create a new `specs/<capability>/` folder unless a genuinely new,
+durable capability is born — a rare, justified decision.
+
+Consequences that are non-negotiable:
+
+- Capabilities are named after durable things (`router`), never after changes
+  (`router-match-path-allocation-trim`, `*-fastpath`, `*-trim`, `*-cleanup`).
+- Every capability spec carries a real `## Purpose` — never a "TBD - created by archiving" stub.
+- Durable architectural decisions land in `docs/RFC/` **before** a change is archived, never
+  only in a prunable archive.
+- New packages, capabilities, and public-API/breaking changes are RFC-gated.
+
+The capability registry and full governance live in `openspec/README.md`; the enforceable
+per-artifact rules live in `openspec/config.yaml`. When either drifts from the code, the code
+wins — fix the docs.
+
+---
+
 # Principle
 
 NextRush succeeds when developers spend less time learning the framework and more time building their applications.
