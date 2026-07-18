@@ -13,10 +13,10 @@
     "@nextrush/openapi": "workspace:*",
     "@nextrush/validation": "workspace:*",
     "nextrush": "workspace:*",
-    "zod": "^4.0.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "tsx": "^4.20.3",
-    "typescript": "^6.0.2"
+    "tsx": "^4.23.1",
+    "typescript": "^6.0.3"
   }
 }
