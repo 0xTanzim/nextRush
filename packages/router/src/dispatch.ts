@@ -23,6 +23,13 @@ import { NOOP_NEXT, type TrieNode } from './segment-trie';
 import { findAllowedMethods } from './find-node';
 
 /**
+ * Shared resolved promise for the no-`next` miss path (NF-1). Reused rather than
+ * allocating a fresh `Promise.resolve()` per miss, mirroring the router's
+ * existing `NOOP_NEXT`/`RESOLVED_PROMISE` sentinels.
+ */
+const RESOLVED: Promise<void> = Promise.resolve();
+
+/**
  * Build the router's primary dispatch middleware.
  *
  * On each request it resolves the route via the injected `match` function,
@@ -36,26 +43,30 @@ import { findAllowedMethods } from './find-node';
 export function createRoutesMiddleware(
   match: (method: HttpMethod, path: string) => RouteMatch | null
 ): Middleware {
-  return async (ctx: Context, next?: () => Promise<void>): Promise<void> => {
+  return (ctx: Context, next?: () => Promise<void>): Promise<void> => {
     const routeMatch = match(ctx.method, ctx.path);
 
     if (!routeMatch) {
-      // No route matched — set 404 so allowedMethods()/notFoundHandler() can act
+      // No route matched — set 404 so allowedMethods()/notFoundHandler() can act,
+      // then forward to the next middleware (the allowedMethods fall-through).
       ctx.status = 404;
-      if (next) await next();
-      return;
+      return next ? next() : RESOLVED;
     }
 
     ctx.params = routeMatch.params;
 
-    // Use pre-compiled executor (includes router middleware if any)
-    if (routeMatch.executor) {
-      await routeMatch.executor(ctx);
-      return;
-    }
-
-    // Fallback: no executor (shouldn't happen, but stay safe)
-    await routeMatch.handler(ctx, NOOP_NEXT);
+    // NF-1: forward the executor's promise DIRECTLY instead of `await`-ing it in
+    // an extra `async` frame. The executor already returns a `Promise<void>`,
+    // converts synchronous throws to rejections, and terminates the chain at the
+    // handler, so ordering, rejection propagation, and the `setNext(NOOP_NEXT)`
+    // guard are unchanged — one state machine + one microtask hop removed. A
+    // synchronous throw from `match()` itself is still converted to a rejection
+    // by the composer's `try/catch` that wraps this middleware call.
+    return routeMatch.executor
+      ? routeMatch.executor(ctx)
+      : // Fallback (no pre-compiled executor — shouldn't happen): wrap so a void
+        // or thenable return still yields a Promise<void> and never a sync throw.
+        Promise.resolve(routeMatch.handler(ctx, NOOP_NEXT));
   };
 }
 

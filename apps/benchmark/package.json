@@ -17,6 +17,7 @@
     "bench:nextrush": "node scripts/run.js --framework nextrush-v3",
     "bench:baseline": "node scripts/run.js --framework raw-node",
     "bench:alloc": "node scripts/compose-alloc.js",
+    "bench:alloc:dispatch": "node scripts/dispatch-alloc.js",
     "bench:alloc:context": "node scripts/context-alloc.js",
     "bench:alloc:context-raw": "node scripts/context-raw-alloc.js",
     "bench:alloc:router": "node scripts/router-match-alloc.js",

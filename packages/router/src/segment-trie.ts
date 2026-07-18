@@ -81,12 +81,27 @@ export function compileExecutor(
 ): (ctx: Context) => Promise<void> {
   const len = middleware.length;
 
-  // FAST PATH: No middleware — direct handler call. Wire ctx.next() to a no-op
-  // so a handler that calls it settles safely.
+  // FAST PATH: No middleware — direct handler call, no extra async frame (NF-1).
   if (len === 0) {
-    return async (ctx: Context) => {
+    return (ctx: Context): Promise<void> => {
+      // `setNext(NOOP_NEXT)` is LOAD-BEARING, not redundant (NF-4a): it
+      // terminates the middleware chain at the handler so a handler that calls
+      // `ctx.next()` is a safe no-op and cannot leak into app-level middleware
+      // mounted AFTER the router (the general `compose` dispatch wires ctx._next
+      // to advance into that middleware before running the router).
       if (ctx.setNext) ctx.setNext(NOOP_NEXT);
-      await handler(ctx, NOOP_NEXT);
+      try {
+        // `Promise.resolve(...)` — NOT `x instanceof Promise ? x : RESOLVED` — so
+        // a non-Promise THENABLE return is adopted (its async work awaited), not
+        // dropped: byte-identical to the former `await handler(...)`, minus the
+        // async form's internal microtask hop. A native promise is returned as-is
+        // (`Promise.resolve(p) === p`); a void return yields a resolved promise.
+        return Promise.resolve(handler(ctx, NOOP_NEXT));
+      } catch (err) {
+        // Self-contained "never throw synchronously" contract, identical to the
+        // len >= 1 branch: a sync throw becomes a rejection; a non-Error is wrapped.
+        return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+      }
     };
   }
 
