@@ -89,7 +89,6 @@ export class NodeContext implements AdapterContext {
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
   status = 200;
-  state: ContextState = {};
 
   /**
    * HP-5: the request/response are held as private fields; the public
@@ -100,6 +99,13 @@ export class NodeContext implements AdapterContext {
   private readonly _req: IncomingMessage;
   private readonly _res: ServerResponse;
   private _raw?: NodeRawHttp;
+
+  /**
+   * NF-2: `ctx.state` backing field, materialized lazily by {@link state}. A
+   * request that never touches `state` allocates no object — mirroring the lazy
+   * `_raw` wrapper above.
+   */
+  private _state?: ContextState;
 
   private _next: (() => Promise<void>) | null = null;
   private _responded = false;
@@ -168,6 +174,27 @@ export class NodeContext implements AdapterContext {
    */
   get raw(): NodeRawHttp {
     return (this._raw ??= { req: this._req, res: this._res });
+  }
+
+  /**
+   * Per-request shared state (NF-2).
+   *
+   * @remarks
+   * Materialized lazily and memoized: the `{}` object is allocated only on first
+   * access (`??=`) and the same object is returned thereafter
+   * (`ctx.state === ctx.state`), matching the identity of the former eager
+   * `state = {}` field. A request that never reads `state` (the Hello-World /
+   * route-params / POST hot paths) allocates no object at all. The setter
+   * preserves whole-object reassignment (`ctx.state = {...}`); reads and
+   * symbol-keyed writes (the `createPrefixMount` path) both go through the
+   * getter, so behavior is identical to the eager object.
+   */
+  get state(): ContextState {
+    return (this._state ??= {});
+  }
+
+  set state(value: ContextState) {
+    this._state = value;
   }
 
   /**

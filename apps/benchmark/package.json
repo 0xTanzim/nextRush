@@ -20,6 +20,7 @@
     "bench:alloc:dispatch": "node scripts/dispatch-alloc.js",
     "bench:alloc:context": "node scripts/context-alloc.js",
     "bench:alloc:context-raw": "node scripts/context-raw-alloc.js",
+    "bench:alloc:context-state": "node scripts/context-state-alloc.js",
     "bench:alloc:router": "node scripts/router-match-alloc.js",
     "bench:alloc:web": "node scripts/web-context-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
