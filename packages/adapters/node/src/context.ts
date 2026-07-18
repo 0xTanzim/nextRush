@@ -112,7 +112,7 @@ export class NodeContext implements AdapterContext {
       this.query = EMPTY_QUERY;
     }
 
-    this.headers = req.headers as IncomingHeaders;
+    this.headers = req.headers;
     this.ip = this.getClientIp(req, options.trustProxy ?? false);
 
     // Create body source (empty for methods without body)
