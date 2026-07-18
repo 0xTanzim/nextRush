@@ -18,6 +18,7 @@
     "bench:baseline": "node scripts/run.js --framework raw-node",
     "bench:alloc": "node scripts/compose-alloc.js",
     "bench:alloc:context": "node scripts/context-alloc.js",
+    "bench:alloc:router": "node scripts/router-match-alloc.js",
     "bench:alloc:web": "node scripts/web-context-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
     "bench:check": "node scripts/check-regression.js",
