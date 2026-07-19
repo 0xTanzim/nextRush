@@ -1,0 +1,97 @@
+---
+title: 'Faster, safer body parsing: closing NextRush''s POST gap'
+description: >
+  NextRush led Hello World but slipped on POST JSON. A body-parser audit found a real
+  limit-enforcement bug and a handful of per-request costs. Here is what we fixed, what it
+  bought, and — honestly — what is still structural.
+author: NextRush Team
+date: '2026-07-19'
+tags:
+  - performance
+  - body-parser
+  - internals
+---
+
+NextRush was the fastest framework in our suite on Hello World — and then slipped to fourth the
+moment a request had a JSON body to parse. That is a specific, measurable signal, so we ran a
+deep audit of `@nextrush/body-parser`. It surfaced two things: a genuine correctness/security
+bug, and a set of small per-request costs on the POST hot path. This post walks through both,
+grounded in the actual code and numbers.
+
+## The bug hiding under the benchmark
+
+The headline finding was not a performance nit — it was that **the body-size `limit` you
+configure never reached the code that reads the body.**
+
+`@nextrush/body-parser` buffers the request body and then parses it. The *reading* (and the
+incremental size check that protects against a memory-flooding client) lives one layer down, in
+the Node adapter's `NodeBodySource.buffer()`. But the context was built with no options, so the
+adapter always enforced its **1 MB default**, and the parser's configured limit was only applied
+*after* the whole body was already in memory.
+
+Two ways that goes wrong:
+
+- `json({ limit: '5mb' })` — a legitimate 2 MB upload was **silently rejected**, because the
+  adapter tore the stream down at 1 MB. The error even quoted "5 MB", for a request that died at 1.
+- `json({ limit: '10kb' })` — an attacker could stream up to ~1 MB into memory *per request*
+  before the post-read check rejected it. The small limit you set gave **no incremental
+  protection at all**. Multiply by concurrent connections and that is a memory-pressure DoS you
+  thought you had capped at 10 KB.
+
+The fix is an architecture correction, not a patch: the parser owns the *policy* (the limit), the
+adapter owns the *mechanism* (reading + tearing down). We connected them with an additive
+contract change — `BodySource.buffer(limit?)` — so the configured limit flows to the reader and is
+enforced **incrementally, during the read**, on every runtime (Node, Bun, Deno, Edge), with an
+error that reports the limit that actually fired. An honest oversized `Content-Length` is still
+rejected synchronously, before a byte is read.
+
+If you set a body limit, it now does what it says. That is the real win here.
+
+## The per-request trims
+
+With correctness fixed, we removed avoidable work from the JSON hot path — each change measured,
+each kept only if it actually helped:
+
+- **Depth-walk byte-floor gate.** The JSON depth guard walked the entire parsed object a second
+  time (allocating two working arrays) on *every* request. But a body smaller than
+  `2·(maxDepth+1)` bytes provably cannot exceed the depth limit — so for the common small payload
+  we skip the walk entirely. Same protection, none of the work.
+- **Node UTF-8 fast path.** The bytes are already a `Buffer`, so `Buffer.toString('utf8')` decodes
+  measurably faster than `TextDecoder` for small/mid payloads — and we verified it is byte-identical,
+  including how both handle malformed UTF-8. `TextDecoder` stays as the edge/non-UTF-8 fallback, so
+  the package remains edge-safe with no `node:` import.
+- **Lazy body source.** A body-method request that never reads its body now allocates no reader and
+  attaches no stream listeners — matching the adapter's existing lazy `ctx.raw` / `ctx.state`.
+- **One content-type detection.** The combined `bodyParser()` used to route to a sub-parser that
+  re-checked the method and content-type it had *just* checked. Now it detects once.
+
+## What it bought — and what it did not
+
+On a CPU-pinned quick run (single run, so directional, not publishable — the suite says so
+loudly), POST JSON at 64 connections:
+
+| Framework | POST JSON rps |
+| --------- | ------------- |
+| Raw Node  | 24,888 |
+| Fastify   | 19,634 |
+| Hono      | 19,582 |
+| NextRush  | 19,070 |
+
+NextRush closed from roughly 7–8% behind Fastify/Hono to **~2.6–2.9%** — effectively parity at
+this resolution, while staying a strong #2 on Hello World.
+
+Here is the honest part: the trims were small by design, and they are not what closes the last
+gap. The remaining ~23% overhead versus raw Node is **structural** — the per-request async layering
+on the read, and dominantly **response serialization**. Fastify's edge on POST is
+`fast-json-stringify` (schema-compiled), not its body parser; NextRush still uses `JSON.stringify`.
+That is a genuinely different feature with its own public API, so it is going through an RFC rather
+than being rushed in. We would rather tell you where the ceiling is than pretend a micro-optimization
+moved it.
+
+## Upgrading
+
+Nothing to change in your code. The one behavior difference: a configured body `limit` larger than
+1 MB now works (it was silently capped before), and a limit smaller than 1 MB now protects
+incrementally. Both are strictly improvements. Run the suite on your own hardware —
+`pnpm bench:compare --profile standard` — because the only numbers that matter for your capacity
+planning are the ones you measure yourself.

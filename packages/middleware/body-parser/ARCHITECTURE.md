@@ -91,10 +91,10 @@ src/
                                ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     4. Body Reading                              │
-│    • Stream data events into buffer chunks                       │
-│    • Validate size during streaming (streaming check)            │
-│    • Clean up event listeners (close/aborted/error)              │
-│    • Single-chunk optimization (avoid Buffer.concat)             │
+│    • reader.ts calls ctx.bodySource.buffer(limit) (RFC 017)      │
+│    • Adapter drains the stream + enforces the limit incrementally│
+│    • Adapter handles listener cleanup + single-chunk fast path   │
+│    • reader.ts keeps a post-read length check (belt-and-braces)  │
 └─────────────────────────────────────────────────────────────────┘
                                │
                                ▼
@@ -119,6 +119,15 @@ src/
 ```
 
 ### Body Reading Detail (reader.ts)
+
+> **Note (RFC 017):** the stream drain, incremental size enforcement, listener
+> cleanup, and single-chunk optimization shown below now live in the **adapter's**
+> `BodySource.buffer(limit)` (`NodeBodySource` for Node; `AbstractBodySource` /
+> `WebBodySource` for Bun/Deno/Edge). `reader.ts` is a thin layer that does the
+> synchronous Content-Length pre-check, calls `bodySource.buffer(limit)` with the
+> parser's configured limit so the adapter enforces it during the read, maps the
+> adapter's `BodyTooLargeError` to `ENTITY_TOO_LARGE`, and keeps a post-read length
+> check as a backstop. The diagram below describes that combined read path.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -168,10 +177,10 @@ src/
 | Threat | Mitigation | Implementation |
 |--------|------------|----------------|
 | **Prototype Pollution** | Block `__proto__`, `constructor`, `prototype` keys | `url-decode.ts` → `FORBIDDEN_KEYS` |
-| **DoS via Large Body** | Size limits with streaming validation | `reader.ts` → limit check |
+| **DoS via Large Body** | Configured limit enforced incrementally at read time | `reader.ts` passes the parser limit to the adapter's `BodySource.buffer(limit)` (RFC 017), which checks the running total and destroys the stream on breach |
 | **DoS via Deep Nesting** | Depth limit for nested objects | `url-decode.ts` → `depth` param |
 | **DoS via Many Parameters** | Parameter count limit | `urlencoded.ts` → `parameterLimit` |
-| **Memory Exhaustion** | Event listener cleanup on abort | `reader.ts` → `cleanup()` |
+| **Memory Exhaustion** | Stream listener cleanup on end/error/abort | adapter `BodySource.buffer()` (`NodeBodySource`) — single-settle + `cleanup()` |
 | **Injection via Charset** | Whitelist supported charsets | `content-type.ts` → `normalizeCharset()` |
 | **ReDoS** | Pre-compiled regex patterns | `constants.ts` → `PATTERNS` |
 
@@ -548,3 +557,56 @@ Works with all NextRush adapters:
 - [Node.js StringDecoder](https://nodejs.org/api/string_decoder.html)
 - [HTTP 413 Payload Too Large](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413)
 - [Content-Type Header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
+
+---
+
+## Performance — what makes it fast
+
+Body parsing sits on the request hot path, so every parser does the minimum work per request.
+The techniques that keep it competitive (validated against Fastify/Hono/Koa/Express in
+`apps/benchmark`):
+
+### Correct + cheap size limiting (RFC 017)
+The configured `limit` is passed through `reader.ts` to the adapter's `BodySource.buffer(limit)`
+and enforced **incrementally during the read** (running-total + stop), so an over-limit body is
+rejected before more than ~`limit` bytes are buffered — no fixed 1 MB adapter default, no
+post-materialization surprise. An honest `Content-Length` over the limit is rejected
+**synchronously**, before a single body byte is read.
+
+### Skip work that can't change the outcome
+- **Depth-walk byte-floor gate (BP-D):** `checkJsonDepth` (a full second traversal of the parsed
+  object + two working arrays) is skipped when the body is smaller than `2·(maxDepth+1)` bytes —
+  a body that small provably cannot exceed `maxDepth`. The common small-JSON request (and the
+  45-byte benchmark payload) never allocates the walk arrays or re-walks the object.
+- **Early short-circuit:** every parser bails on bodyless method → already-parsed body →
+  non-matching content-type *before* reading anything.
+
+### Fewer allocations on the decode/read path
+- **Node UTF-8 fast path (BP-G):** when the bytes are already a `Buffer` and the charset is UTF-8,
+  decode via `Buffer.toString('utf8')` (measurably faster than `TextDecoder` for small/mid
+  payloads), byte-identical including malformed-sequence replacement; `TextDecoder` remains the
+  edge/non-UTF-8 fallback (no `node:` import — still edge-safe).
+- **Cached `TextDecoder`** instances, **zero-copy `toRawBody`** (a `Buffer` view over the same
+  memory), **single-chunk concat** short-circuit, and a **pre-allocated empty buffer** /
+  **shared `EmptyBodySource` singleton**.
+- **Lazy `ctx.bodySource` (BP-F):** the body source is built only when first read, so a body-method
+  request that never touches the body allocates nothing and attaches no stream listeners.
+- **Event-listener stream drain** (in the adapter) avoids the async-iterator per-chunk promise
+  allocation of `for await…of`.
+
+### No duplicated framework work
+- The framework never auto-reads the body — parsing is opt-in middleware, read exactly once
+  (`_cachedBuffer`), decoded once, parsed once.
+- **Single content-type detection (BP-E):** `bodyParser()` routes once and the delegated parser
+  skips re-detecting method + content-type (a `prechecked` fast path), so the combined parser
+  costs one detection per request, not two.
+
+### V8-friendly
+Parser closures capture a fixed set of primitives at registration (`limitBytes`, `types`,
+`useSimpleCheck`) so TurboFan can inline the hot path; `ctx.body` has a stable monomorphic shape
+per route. The one megamorphic step over untrusted shapes (`checkJsonDepth`) is exactly what the
+byte-floor gate removes for the common case.
+
+> Numbers move with hardware and load — run `pnpm bench:compare --profile standard` (pinned) on
+> your own machine. The design goal is: do the minimum correct work per request, allocate as little
+> as possible, and never buffer more than the configured limit.
