@@ -32,22 +32,12 @@ import { getContentLength } from '../utils/content-type.js';
  * ```
  */
 export async function readBody(ctx: BodyParserContext, limit: number): Promise<Uint8Array> {
-  // Cross-runtime path: use bodySource
-  if (ctx.bodySource) {
-    return readBodyFromSource(ctx, limit);
+  const bodySource = ctx.bodySource;
+
+  // No body source available (modern adapters always provide one) — empty body.
+  if (!bodySource) {
+    return new Uint8Array(0);
   }
-
-  // No body source available - return empty buffer
-  return new Uint8Array(0);
-}
-
-/**
- * Read body using the modern BodySource API
- *
- * Works on Node.js, Bun, Deno, and Edge runtimes.
- */
-async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promise<Uint8Array> {
-  const bodySource = ctx.bodySource!;
 
   // Pre-check Content-Length if available (synchronous rejection)
   const contentLength = bodySource.contentLength ?? getContentLength(ctx.headers);
