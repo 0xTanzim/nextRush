@@ -7,14 +7,15 @@
  */
 
 /**
- * HTTP methods that typically do not have request bodies
+ * HTTP methods that do not carry a request body (aligned with the runtime
+ * `METHODS_WITHOUT_BODY` policy — DELETE excluded, TRACE included; see BP-H).
  */
-export type BodylessMethod = 'GET' | 'HEAD' | 'DELETE' | 'OPTIONS';
+export type BodylessMethod = 'GET' | 'HEAD' | 'OPTIONS' | 'TRACE';
 
 /**
- * HTTP methods that may have request bodies
+ * HTTP methods that may carry a request body (DELETE may per RFC 7231 §4.3.5).
  */
-export type BodyMethod = 'POST' | 'PUT' | 'PATCH';
+export type BodyMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 /**
  * Supported buffer encodings for text parsing
@@ -43,8 +44,13 @@ export interface BodyParserBodySource {
   /** Read the body as a UTF-8 string */
   text(): Promise<string>;
 
-  /** Read the body as a Uint8Array buffer */
-  buffer(): Promise<Uint8Array>;
+  /**
+   * Read the body as a Uint8Array buffer.
+   *
+   * @param limit - Optional per-read byte limit enforced incrementally by the
+   *   adapter (RFC 017). When omitted, the source's construction-time limit governs.
+   */
+  buffer(limit?: number): Promise<Uint8Array>;
 
   /** Read the body as JSON */
   json<T = unknown>(): Promise<T>;

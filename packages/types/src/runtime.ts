@@ -99,12 +99,17 @@ export interface BodySource {
   text(): Promise<string>;
 
   /**
-   * Read the body as a Uint8Array buffer
+   * Read the body as a Uint8Array buffer.
    *
+   * @param limit - Optional per-read byte limit. When provided, it is the value
+   *   enforced for both the Content-Length pre-check and the incremental
+   *   streaming check (taking precedence over the source's construction-time
+   *   limit); when omitted, the construction-time limit governs. See
+   *   docs/RFC/request-data/017-body-source-limit-propagation.md.
    * @returns Promise resolving to the body as Uint8Array
    * @throws Error if body has already been consumed
    */
-  buffer(): Promise<Uint8Array>;
+  buffer(limit?: number): Promise<Uint8Array>;
 
   /**
    * Read the body as JSON

@@ -93,7 +93,7 @@ export class NodeBodySource implements BodySource {
     return this._consumed;
   }
 
-  async buffer(): Promise<Uint8Array> {
+  async buffer(limit?: number): Promise<Uint8Array> {
     // Return cached buffer if available
     if (this._consumed && this._cachedBuffer) {
       return this._cachedBuffer;
@@ -103,15 +103,20 @@ export class NodeBodySource implements BodySource {
       throw new BodyConsumedError();
     }
 
+    // Effective limit: the caller-supplied per-read limit takes precedence over the
+    // construction-time limit (RFC 017 — BodySource limit propagation), so a parser's
+    // configured limit is enforced incrementally rather than a fixed adapter default.
+    const effectiveLimit = limit ?? this.options.limit;
+
     // Check content-length limit before reading
-    if (this.contentLength !== undefined && this.contentLength > this.options.limit) {
-      throw new BodyTooLargeError(this.options.limit, this.contentLength);
+    if (this.contentLength !== undefined && this.contentLength > effectiveLimit) {
+      throw new BodyTooLargeError(effectiveLimit, this.contentLength);
     }
 
     this._consumed = true;
 
     const req = this.req;
-    const limit = this.options.limit;
+    const limit_ = effectiveLimit;
 
     // Already-ended guard (D3): if the stream was fully consumed before buffer() was
     // called, an `end` listener would never fire and the read would hang. The
@@ -164,9 +169,10 @@ export class NodeBodySource implements BodySource {
         }
         totalLength += chunk.length;
 
-        // Streaming limit check on the running total (D5) — identical to before.
-        if (totalLength > limit) {
-          settleReject(new BodyTooLargeError(limit, totalLength));
+        // Streaming limit check on the running total (D5) — enforces the effective
+        // (caller-supplied or construction-time) limit.
+        if (totalLength > limit_) {
+          settleReject(new BodyTooLargeError(limit_, totalLength));
           req.destroy();
           return;
         }

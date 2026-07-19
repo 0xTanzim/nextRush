@@ -84,7 +84,12 @@ export class NodeContext implements AdapterContext {
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly runtime: Runtime;
-  readonly bodySource: BodySource;
+
+  /**
+   * BP-F: backing field for the lazily-built {@link bodySource}. A body-method
+   * request that never reads the body allocates no `NodeBodySource`.
+   */
+  private _bodySource?: BodySource;
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
@@ -130,11 +135,23 @@ export class NodeContext implements AdapterContext {
 
     this.headers = req.headers;
     this.ip = this.getClientIp(req, options.trustProxy ?? false);
+  }
 
-    // Create body source (empty for methods without body)
-    this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
+  /**
+   * Cross-runtime request body source (BP-F).
+   *
+   * @remarks
+   * Built lazily and memoized, mirroring the lazy `_raw` / `_state` / `signal`
+   * fields: a body-method request (`POST`/`PUT`/`PATCH`/…) whose body is never
+   * read allocates no `NodeBodySource` and attaches no stream listeners. Bodyless
+   * methods (per the runtime `METHODS_WITHOUT_BODY` policy) resolve to the shared
+   * `EmptyBodySource` singleton. Identity is stable across reads
+   * (`ctx.bodySource === ctx.bodySource`).
+   */
+  get bodySource(): BodySource {
+    return (this._bodySource ??= METHODS_WITHOUT_BODY.has(this.method)
       ? createEmptyBodySource()
-      : new NodeBodySource(req);
+      : new NodeBodySource(this._req));
   }
 
   /**

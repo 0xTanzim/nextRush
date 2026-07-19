@@ -63,24 +63,27 @@ export function text(options: TextOptions = {}): Middleware {
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.TEXT);
   const types = Array.isArray(type) ? type : [type];
 
-  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
-    // Skip methods that don't have bodies
-    if (BODYLESS_METHODS.has(ctx.method)) {
-      if (next) await next();
-      return;
-    }
-
-    // Skip if body already parsed by another middleware
-    if (ctx.body !== undefined) {
-      if (next) await next();
-      return;
-    }
-
-    // Check content type
+  return (async (
+    ctx: BodyParserContext,
+    next?: () => Promise<void>,
+    prechecked = false
+  ): Promise<void> => {
+    // Content-type is needed below for charset detection, so compute it always; the
+    // guard checks are skipped when routed by the combined parser (BP-E).
     const contentType = getContentType(ctx.headers);
-    if (!matchContentType(contentType, types)) {
-      if (next) await next();
-      return;
+    if (!prechecked) {
+      if (BODYLESS_METHODS.has(ctx.method)) {
+        if (next) await next();
+        return;
+      }
+      if (ctx.body !== undefined) {
+        if (next) await next();
+        return;
+      }
+      if (!matchContentType(contentType, types)) {
+        if (next) await next();
+        return;
+      }
     }
 
     // Read body

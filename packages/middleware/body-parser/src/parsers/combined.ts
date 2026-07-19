@@ -22,7 +22,11 @@ import { urlencoded } from './urlencoded.js';
  * (json/urlencoded/text/raw), used only to type the pre-created parser
  * instances this function composes. Not part of the public API.
  */
-type ParserFn = (ctx: BodyParserContext, next?: () => Promise<void>) => void | Promise<void>;
+type ParserFn = (
+  ctx: BodyParserContext,
+  next?: () => Promise<void>,
+  prechecked?: boolean
+) => void | Promise<void>;
 
 /**
  * Create combined body parser middleware.
@@ -127,6 +131,13 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
       return;
     }
 
+    // Skip if the body was already parsed upstream — the combined parser owns the
+    // "already parsed" short-circuit so the prechecked sub-parsers below never re-read.
+    if (ctx.body !== undefined) {
+      if (next) await next();
+      return;
+    }
+
     // Get content type for routing
     const contentType = getContentType(ctx.headers);
 
@@ -135,28 +146,28 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
 
     // JSON
     if (jsonParser && matchContentType(contentType, jsonTypes)) {
-      await jsonParser(ctx);
+      await jsonParser(ctx, undefined, true);
       if (next) await next();
       return;
     }
 
     // URL-encoded
     if (urlencodedParser && matchContentType(contentType, urlencodedTypes)) {
-      await urlencodedParser(ctx);
+      await urlencodedParser(ctx, undefined, true);
       if (next) await next();
       return;
     }
 
     // Text
     if (textParser && matchContentType(contentType, textTypes)) {
-      await textParser(ctx);
+      await textParser(ctx, undefined, true);
       if (next) await next();
       return;
     }
 
     // Raw (fallback for binary)
     if (rawParser && matchContentType(contentType, rawTypes)) {
-      await rawParser(ctx);
+      await rawParser(ctx, undefined, true);
       if (next) await next();
       return;
     }

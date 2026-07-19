@@ -51,6 +51,20 @@ export function bufferToString(bytes: Uint8Array, charset = 'utf-8'): string {
   if (bytes.length === 0) {
     return '';
   }
+  // BP-G: on Node-family runtimes the body bytes are already a `Buffer`, and
+  // `Buffer.toString('utf8')` decodes measurably faster than `TextDecoder` for the
+  // common small-to-mid UTF-8 payload (see the decode micro-bench) with byte-identical
+  // output — including U+FFFD replacement for malformed sequences. The exact-string
+  // charset checks avoid a per-call `toLowerCase()` allocation on the hot path. Falls
+  // back to the cached `TextDecoder` for non-UTF-8 charsets and true edge runtimes
+  // (plain `Uint8Array`, no `Buffer` global).
+  if (
+    (charset === 'utf-8' || charset === 'utf8') &&
+    typeof Buffer !== 'undefined' &&
+    Buffer.isBuffer(bytes)
+  ) {
+    return bytes.toString('utf8');
+  }
   return decoderFor(charset).decode(bytes);
 }
 

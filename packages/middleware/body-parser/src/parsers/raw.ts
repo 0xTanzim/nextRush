@@ -58,24 +58,26 @@ export function raw(options: RawOptions = {}): Middleware {
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.RAW);
   const types = Array.isArray(type) ? type : [type];
 
-  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
-    // Skip methods that don't have bodies
-    if (BODYLESS_METHODS.has(ctx.method)) {
-      if (next) await next();
-      return;
-    }
-
-    // Skip if body already parsed by another middleware
-    if (ctx.body !== undefined) {
-      if (next) await next();
-      return;
-    }
-
-    // Check content type
-    const contentType = getContentType(ctx.headers);
-    if (!matchContentType(contentType, types)) {
-      if (next) await next();
-      return;
+  return (async (
+    ctx: BodyParserContext,
+    next?: () => Promise<void>,
+    prechecked = false
+  ): Promise<void> => {
+    // Detection skipped when routed by the combined parser (BP-E).
+    if (!prechecked) {
+      if (BODYLESS_METHODS.has(ctx.method)) {
+        if (next) await next();
+        return;
+      }
+      if (ctx.body !== undefined) {
+        if (next) await next();
+        return;
+      }
+      const contentType = getContentType(ctx.headers);
+      if (!matchContentType(contentType, types)) {
+        if (next) await next();
+        return;
+      }
     }
 
     // Read body as raw bytes

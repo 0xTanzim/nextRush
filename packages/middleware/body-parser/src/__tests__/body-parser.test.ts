@@ -137,11 +137,11 @@ describe('json middleware', () => {
       expect(ctx.body).toBeUndefined();
     });
 
-    it('should skip DELETE requests', async () => {
-      const ctx = createMockContext('DELETE', 'application/json');
+    it('should parse DELETE requests with a body (RFC 7231 §4.3.5)', async () => {
+      const ctx = createMockContext('DELETE', 'application/json', '{"gone":true}');
       await json()(ctx, next);
 
-      expect(ctx.body).toBeUndefined();
+      expect(ctx.body).toEqual({ gone: true });
     });
 
     it('should skip non-JSON content types', async () => {
@@ -1180,7 +1180,7 @@ describe('HTTP Method Handling', () => {
     expect((ctx.body as Record<string, string>).method).toBe(method);
   });
 
-  it.each(['GET', 'HEAD', 'DELETE', 'OPTIONS'])('should skip %s requests', async (method) => {
+  it.each(['GET', 'HEAD', 'OPTIONS', 'TRACE'])('should skip %s requests', async (method) => {
     const ctx = createMockContext(method, 'application/json', '{"method":"' + method + '"}');
     await json()(ctx, next);
     expect(ctx.body).toBeUndefined();

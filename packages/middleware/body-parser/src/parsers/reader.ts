@@ -56,8 +56,10 @@ async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promis
   }
 
   try {
-    // Read body as Uint8Array using cross-runtime API
-    const uint8Array = await bodySource.buffer();
+    // Read body as Uint8Array using cross-runtime API. Pass the parser's configured
+    // limit so the adapter enforces it incrementally during the read (RFC 017), rather
+    // than a fixed adapter default with only a post-materialization check here.
+    const uint8Array = await bodySource.buffer(limit);
 
     // Post-read size check (for chunked transfers without Content-Length)
     if (uint8Array.length > limit) {
