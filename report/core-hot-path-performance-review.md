@@ -709,7 +709,7 @@ Visual tracker — every finding and whether it has shipped. (HP-3 and HP-8 were
 | Finding | What it removes / does | Tier | Status |
 |---------|------------------------|------|--------|
 | HP-1  | eager `ctx.ip` lookup closure | P1 | ✅ shipped (all 4 adapters) |
-| HP-2  | per-request empty `query` object | P3 | ⬜ pending |
+| HP-2  | per-request empty `query` object | P3 | ✅ shipped (`node-context-response-microtrims`) |
 | HP-4  | per-request `{ trustProxy }` options object | P1 | ✅ shipped (Node; N/A siblings) |
 | HP-5  | `raw = { req, res }` wrapper object | P4 | ✅ shipped (`router-context-final-cleanup`; Node — lazy memoized getter, 83% wrapper-alloc cut on raw-unread) |
 | HP-6  | redundant single-middleware `compose` layer | P0 | ✅ shipped |
@@ -719,14 +719,16 @@ Visual tracker — every finding and whether it has shipped. (HP-3 and HP-8 were
 | HP-11 | per-segment tuple arrays + backtrack `Reflect.deleteProperty` | P2 | ✅ shipped |
 | HP-12 | `toLowerCase` + second normalize pass | P2 | ✅ shipped |
 | HP-13 | `Object.keys` post-match loop | P2 | ✅ shipped |
-| HP-14 | `ctx.json` double `setHeader` | P3 | ⬜ pending |
-| HP-15 | `ctx.set` `toLowerCase()` per call | P3 | ⬜ pending |
+| HP-14 | `ctx.json` double `setHeader` | P3 | ✅ shipped (`node-context-response-microtrims`) |
+| HP-15 | `ctx.set` `toLowerCase()` per call | P3 | ✅ shipped (`node-context-response-microtrims`) |
 | HP-16 | `NodeBodySource` `for await` body read | P2 (indep.) | ✅ shipped (`node-body-read-fastpath`; Node only — `WebBodySource` follow-up noted) |
 | HP-17 | `findNode` recursion → iterative (405-path DoS) + shared scan | P4 | ✅ shipped (`router-context-final-cleanup`; iterative walk, `find-node.ts` split; full merge with `matchNodeIndexed` remains a Non-Goal) |
 | HP-18 | backtrack `Reflect.deleteProperty` / `Object.keys` post-loop | P4 | ✅ shipped (`router-context-final-cleanup`; regression guard — no code change, patterns already removed by P2) |
 
-**14 of 16 shipped** (P0 + P1 + P2 + P4, incl. cross-adapter). Remaining: the P3 response
-micro-trims (HP-2 / HP-14 / HP-15).
+**All 16 shipped** (P0 + P1 + P2 + P3 + P4, incl. cross-adapter). The P3 response micro-trims
+(HP-2 / HP-14 / HP-15) shipped as `node-context-response-microtrims` — verified in `context.ts` at
+HEAD (`1878042`): shared frozen `EMPTY_QUERY`, single `res.writeHead`, and the gated `set-cookie`
+pre-check are all present.
 
 ### Progress snapshot (2026-07-18)
 
@@ -780,7 +782,7 @@ micro-trims (HP-2 / HP-14 / HP-15).
   (no RPS claim). **HP-16-web — verified non-finding:** `WebBodySource._buffer` already uses a
   `reader.read()` loop with incremental size enforcement + an `arrayBuffer()` fast path, not the
   slow `for await…of` pattern HP-16 removed on Node — nothing to rewrite.
-- ⬜ **P3 remainder (HP-2 / HP-14 / HP-15)** pending.
+- ✅ **P3 remainder (HP-2 / HP-14 / HP-15)** shipped as `node-context-response-microtrims` (archived).
 - ⏳ **Cross-cutting open item:** the CPU-pinned `--profile full` A/B that turns the shipped
   allocation wins into publishable RPS numbers has **not** been run on a clean environment yet.
 
@@ -816,9 +818,9 @@ shape *and* removes an entire async frame plus closures, not just one allocation
 |----|--------|----------|------------|------|----------|--------|
 | HP-12 | `toLowerCase` fast-path skip; avoid second normalize on param routes | low % | Low–Medium | Low | No (default flip is separate/breaking) | ✅ **Shipped** — folded into `router-match-path-allocation-trim` |
 | HP-13 | Drop `Object.keys` post-match loop via a walk-time param flag | low % (params) | Low | Low | No | ✅ **Shipped** — folded into the router pass |
-| HP-2 | Shared empty `query` object (if `query` is read-only by contract) | <1% | Trivial | Low (contract-dependent) | Confirm first | ⬜ Pending |
-| HP-14 | Single `writeHead` in `ctx.json` | <1% | Low | Low (Node-version sensitive) | No | ⬜ Pending |
-| HP-15 | Cheap `set-cookie` pre-check before `toLowerCase` in `ctx.set` | <1% (mw) | Low | Low | No | ⬜ Pending |
+| HP-2 | Shared empty `query` object (if `query` is read-only by contract) | <1% | Trivial | Low (contract-dependent) | Confirm first | ✅ **Shipped** — `node-context-response-microtrims` (shared frozen `EMPTY_QUERY`) |
+| HP-14 | Single `writeHead` in `ctx.json` | <1% | Low | Low (Node-version sensitive) | No | ✅ **Shipped** — same change |
+| HP-15 | Cheap `set-cookie` pre-check before `toLowerCase` in `ctx.set` | <1% (mw) | Low | Low | No | ✅ **Shipped** — same change |
 
 ### P4 — Code cleanup (maintainability; negligible direct RPS)
 
@@ -833,9 +835,11 @@ shape *and* removes an entire async frame plus closures, not just one allocation
 **Done:** HP-4/HP-1/HP-7 (P1) → HP-6 (P0) → the router batch HP-9/HP-10/HP-11/HP-12/HP-13 (P2,
 `router-match-path-allocation-trim`) → **HP-16** (POST body-read fast path,
 `node-body-read-fastpath`) → **P4 cleanup HP-5/HP-17/HP-18** (`router-context-final-cleanup`) —
-all shipped and archived (P0–P2 extended cross-adapter). **Next:** the P3 response micro-trims
-(HP-2 / HP-14 / HP-15). The cross-cutting `--profile full` A/B remains outstanding to publish RPS
-numbers for the shipped work.
+all shipped and archived (P0–P2 extended cross-adapter), and the **P3 response micro-trims
+(HP-2 / HP-14 / HP-15)** subsequently shipped as `node-context-response-microtrims`. The one
+remaining cross-cutting item is the `--profile full` CPU-pinned A/B to publish RPS numbers for the
+shipped work. Second-pass structural follow-ups (dispatch de-async, lazy `ctx.state`, the
+route-params profiling gap) are tracked in `report/performance-review.md`.
 
 ---
 

@@ -360,3 +360,27 @@ decrease.
 #### Scenario: Coverage is maintained and the accessor branches are covered
 - **WHEN** the adapter-node test suite runs with coverage
 - **THEN** per-package line coverage stays at or above 90% and the lazy `state` getter/setter (first-access materialization, reassignment, symbol-key write) branches are covered
+
+### Requirement: The Node adapter listens with an explicit, sane TCP accept-queue backlog
+
+`listen()` in `@nextrush/adapter-node` SHALL pass an explicit `backlog` value to the underlying
+`server.listen()` call instead of relying on Node's platform default (511), so the accept queue can
+absorb a larger burst of incoming connections before the operating system starts delaying or
+dropping them. The value SHALL be a named constant, not derived from the running host's live
+`net.core.somaxconn`, so behavior does not silently change across deployment environments.
+
+#### Scenario: The server listens with the configured backlog
+- **WHEN** `listen(app, port)` starts the Node HTTP server
+- **THEN** the underlying `server.listen()` call is made with an explicit backlog value greater than Node's 511 default
+
+#### Scenario: The backlog value is a named constant, not host-derived
+- **WHEN** the backlog value is read
+- **THEN** it comes from a documented constant in the adapter's source, not from inspecting the host's `net.core.somaxconn` at runtime
+
+#### Scenario: Accepted-connection behavior is unaffected
+- **WHEN** a connection is accepted and a request is served (any route: static, param, POST, error, 404)
+- **THEN** the response is byte-identical to before this change — the backlog only affects how many pending connections can queue before being accepted, not per-request behavior
+
+#### Scenario: Cross-adapter scope is Node-only
+- **WHEN** the Bun, Deno, or Edge adapters listen for connections
+- **THEN** they are unaffected by this change (the backlog is a `node:net`/`node:http` server option with no equivalent required elsewhere in this change's scope)

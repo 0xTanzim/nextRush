@@ -14,6 +14,11 @@
  *   node scripts/run.js --connections 256        # override connections
  *   node scripts/run.js --duration 3 --runs 3    # override per-run duration + run count (fast multi-run / CI smoke)
  *   node scripts/run.js --pin 0-3                # pin servers to CPU cores (taskset)
+ *   node scripts/run.js --pin 2-7 --client-pin 0-1  # ALSO pin the wrk client to a
+ *                                                  # disjoint core set — isolates server
+ *                                                  # CPU from client/loopback contention
+ *                                                  # on one machine (router-highload-
+ *                                                  # harness-fixes, performance-gate)
  *   node scripts/run.js --no-validate            # skip the parity pre-flight (not advised)
  */
 
@@ -66,6 +71,7 @@ function detectWrk() {
 
 const toolName = args.tool || detectWrk();
 const pinCores = typeof args.pin === 'string' ? args.pin : null;
+const clientPinCores = typeof args['client-pin'] === 'string' ? args['client-pin'] : null;
 const skipValidate = args['no-validate'] === true;
 const enableTraceGc = args['trace-gc'] === true;
 const connectionsOverride = args.connections ? [parseInt(args.connections, 10)] : null;
@@ -165,6 +171,7 @@ async function main() {
   log(`Scenarios:    ${scenarios.length}`);
   log(`Frameworks:   ${frameworkIds.map((id) => FRAMEWORKS[id].name).join(', ')}`);
   log(`CPU pinning:  ${pinCores ? `cores ${pinCores}` : 'off'}`);
+  log(`Client pin:   ${clientPinCores ? `cores ${clientPinCores}` : 'off'}`);
   log(`Order:        ${shuffleOrder ? 'shuffled' : 'fixed'}`);
   log(`Run ID:       ${runId}`);
 
@@ -203,6 +210,7 @@ async function main() {
       threads: profile.threads,
       profile,
       pinCores,
+      clientPinCores,
       traceGc: enableTraceGc,
     });
 

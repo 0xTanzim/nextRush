@@ -5,14 +5,35 @@ import { join } from 'node:path';
 
 import { WRK_DIR } from '../paths.js';
 import { parseDuration } from '../time.js';
+import { hasTaskset } from '../system.js';
+import { logWarn } from '../logging.js';
 
-export function runWrk({ url, connections, threads, duration, script, latency = true }) {
+export function runWrk({ url, connections, threads, duration, script, latency = true, pinCores = null }) {
   const args = ['-c', String(connections), '-t', String(Math.min(threads, connections)), '-d', duration];
   if (latency) args.push('--latency');
   if (script) args.push('-s', join(WRK_DIR, script));
   args.push(url);
 
-  const result = execSync(`wrk ${args.join(' ')}`, {
+  // Optional CPU pinning (taskset, Linux) for the LOAD GENERATOR — the server-side
+  // equivalent already exists via `--pin` (see lib/server.js). Pinning wrk to a
+  // disjoint core set from the server is what `router-highload-harness-fixes`
+  // (performance-gate spec, "Dev-quick benchmarking can isolate server CPU from
+  // client CPU on one machine") calls "core isolation": on a single dev machine,
+  // client and server otherwise compete for the same cores, confounding any
+  // conclusion about server-side CPU cost specifically (this is exactly what made
+  // the c64->c128->c256 sweep in report/router-highload-saturation-findings.md
+  // inconclusive about the router). Graceful skip, same pattern as server pinning:
+  // taskset unavailable or non-Linux -> warn and run unpinned, never a hard failure.
+  let command = 'wrk';
+  let commandArgs = args;
+  if (pinCores && process.platform === 'linux' && hasTaskset()) {
+    command = 'taskset';
+    commandArgs = ['-c', String(pinCores), 'wrk', ...args];
+  } else if (pinCores) {
+    logWarn('Client CPU pinning requested but taskset is unavailable (or non-Linux) — running unpinned.');
+  }
+
+  const result = execSync(`${command} ${commandArgs.join(' ')}`, {
     encoding: 'utf-8',
     timeout: parseDuration(duration) * 1000 + 30000,
   });

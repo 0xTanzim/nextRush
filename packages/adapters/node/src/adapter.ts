@@ -19,6 +19,23 @@ import { createNodeContext } from './context';
 import type { NodeContext, NodeContextOptions } from './context';
 
 /**
+ * TCP accept-queue depth for `server.listen()`.
+ *
+ * Node's own default is 511, which `report/router-highload-saturation-findings.md`
+ * identified as a plausible bottleneck under a connection burst: at high client
+ * concurrency (`wrk -c256` in that investigation), throughput collapsed and server idle
+ * time INCREASED — the signature of connections queueing at the OS accept queue, not
+ * the server running out of CPU. 1024 is a fixed, portable default (not read from this
+ * host's live `net.core.somaxconn`, which varies across deployment environments and
+ * would silently change behavior per-host if used) — comfortably above Node's default,
+ * comfortably below typical OS/container ceilings (see design.md D1 for the full
+ * tradeoff: a deeper queue absorbs bursts but can mask real overload by queueing longer
+ * instead of failing fast, so this is a deliberate, bounded increase, not "maximize the
+ * queue").
+ */
+const DEFAULT_LISTEN_BACKLOG = 1024;
+
+/**
  * Server options
  */
 export interface ServeOptions {
@@ -326,7 +343,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     };
     server.once('error', onStartupError);
 
-    server.listen(port, host, () => {
+    server.listen(port, host, DEFAULT_LISTEN_BACKLOG, () => {
       // Remove startup-only listener, replace with persistent runtime handler
       server.removeListener('error', onStartupError);
       server.on('error', (error: Error) => {

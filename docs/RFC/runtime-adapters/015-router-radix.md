@@ -306,6 +306,21 @@ specific optimization. Neither is committed by this RFC.
 >   context/dispatch overhead. The one still-open number is the publishable 5-run **clean-host**
 >   `--profile full` A/B (this report's −7.4% is directional/pinned, not publishable).
 
+> **Update (2026-07-19 — concurrency re-test, `router-highload-harness-fixes`).** A follow-up
+> attempted a cheaper alternative to the deferred clean-host `--profile full` A/B: raise `wrk`
+> concurrency (c64→c128→c256) with `taskset` core-pinning and a fixed `listen()` backlog, hoping to
+> drive the server CPU-bound cheaply and make the matcher's ~4% RPS-relevant. **Explicitly noted at
+> the time, and confirmed by the result: this is orthogonal to T017.** T017's driver is route-table
+> *shape* (large tables, deep shared prefixes); the re-test used the same small, shallow benchmark
+> table as every prior measurement and varied only request *concurrency*. **Nothing in this update
+> moves T017, or the radix keep/defer decision above, forward or backward** — recorded here only so
+> a future reader does not mistake a concurrency experiment for the shape-based T017 evidence this
+> RFC actually needs. (Full result: folded into `report/router-engine-review.md`'s Post-Review
+> Update — the server was
+> never driven CPU-bound at any tested concurrency; a real throughput collapse was found at c256 but
+> traced to neither the accept queue nor core contention alone, and remains open, unrelated to
+> routing.)
+
 ## 8. Costs & risks
 
 - **Maintenance & bus-factor (the dominant cost).** T059 flags this as a **single-maintainer**

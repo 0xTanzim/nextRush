@@ -44,6 +44,7 @@ export async function runBenchmark(tool, opts) {
       threads: opts.threads,
       duration: opts.duration,
       latency: true,
+      pinCores: opts.clientPinCores ?? null,
     };
     if (opts.scenario.method === 'POST') wrkOpts.script = 'post-json.lua';
     return runWrk(wrkOpts);
@@ -103,7 +104,7 @@ export async function warmupScenario(tool, scenario, durationStr, port) {
  * per-concurrency runs → memory/GC → stop. Returns the framework result object.
  */
 export async function benchmarkFramework(tool, framework, opts) {
-  const { frameworkId, port, scenarios, connections, runs, duration, threads, profile, pinCores, traceGc } = opts;
+  const { frameworkId, port, scenarios, connections, runs, duration, threads, profile, pinCores, clientPinCores, traceGc } = opts;
   const results = { framework: framework.name, frameworkId, scenarios: {} };
 
   let serverHandle;
@@ -135,6 +136,7 @@ export async function benchmarkFramework(tool, framework, opts) {
             threads,
             duration,
             scenario,
+            clientPinCores,
           });
           if (isInvalidRun(scenario, result)) {
             logWarn(`    Non-2xx (${result.errors.nonOk}) in a success scenario — run excluded from stats.`);
