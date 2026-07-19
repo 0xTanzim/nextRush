@@ -32,11 +32,14 @@ describe('NodeBodySource.buffer(limit) — caller limit precedence (BP-A)', () =
     expect(req.listenerCount('data')).toBe(0); // pre-check threw synchronously
   });
 
-  it('rejects mid-stream over the caller limit (no Content-Length)', async () => {
+  it('rejects mid-stream over the caller limit (no Content-Length), without a socket reset (BP-K)', async () => {
     const req = makeReq(['x'.repeat(30), 'y'.repeat(30)]); // 60 bytes, chunked
     const source = new NodeBodySource(req); // default 1 MB
     await expect(source.buffer(40)).rejects.toBeInstanceOf(BodyTooLargeError);
-    expect(req.destroyed).toBe(true);
+    // BP-K: the stream is NOT destroyed (an immediate destroy raced the 413 response);
+    // consumption stops via listener detach + pause so the response can flush cleanly.
+    expect(req.destroyed).toBe(false);
+    expect(req.listenerCount('data')).toBe(0);
   });
 
   it('reports the caller limit that fired in the error', async () => {

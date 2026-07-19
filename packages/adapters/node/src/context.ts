@@ -151,7 +151,7 @@ export class NodeContext implements AdapterContext {
   get bodySource(): BodySource {
     return (this._bodySource ??= METHODS_WITHOUT_BODY.has(this.method)
       ? createEmptyBodySource()
-      : new NodeBodySource(this._req));
+      : new NodeBodySource(this._req, undefined, this._res));
   }
 
   /**

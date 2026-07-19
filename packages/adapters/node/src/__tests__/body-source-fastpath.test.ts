@@ -128,11 +128,12 @@ describe('NodeBodySource.buffer() — behavior matrix (§2)', () => {
     expect(req.listenerCount('data')).toBe(0);
   });
 
-  it('2.3 streamed body over limit (no content-length) → destroy + BodyTooLargeError mid-stream', async () => {
+  it('2.3 streamed body over limit (no content-length) → graceful stop + BodyTooLargeError mid-stream (BP-K)', async () => {
     const req = makeReq(['x'.repeat(30), 'y'.repeat(30)]);
     const source = new NodeBodySource(req, { limit: 40 });
     await expect(source.buffer()).rejects.toBeInstanceOf(BodyTooLargeError);
-    expect(req.destroyed).toBe(true);
+    // BP-K: reject without destroying the socket (an immediate destroy raced the 413).
+    expect(req.destroyed).toBe(false);
   });
 
   it('2.4a second read → BodyConsumedError', async () => {
@@ -226,7 +227,7 @@ describe('NodeBodySource.buffer() — stream-lifecycle edge cases (§3)', () => 
     expect(req.listenerCount('close')).toBe(0);
   });
 
-  it('3.5b on limit-breach settle → listeners removed after destroy', async () => {
+  it('3.5b on limit-breach settle → listeners removed, socket not destroyed (BP-K)', async () => {
     const req = makeReq(['x'.repeat(100)]);
     const source = new NodeBodySource(req, { limit: 10 });
     await expect(source.buffer()).rejects.toBeInstanceOf(BodyTooLargeError);
@@ -234,6 +235,7 @@ describe('NodeBodySource.buffer() — stream-lifecycle edge cases (§3)', () => 
     expect(req.listenerCount('end')).toBe(0);
     expect(req.listenerCount('error')).toBe(0);
     expect(req.listenerCount('close')).toBe(0);
+    expect(req.destroyed).toBe(false); // BP-K: graceful stop, not a socket teardown
   });
 
   it('3.x unexpected chunk type → rejects (TypeError) and destroys the stream', async () => {

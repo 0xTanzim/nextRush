@@ -40,6 +40,34 @@ describe.each(drivers)('conformance: BodySource.buffer(limit) [$name]', (driver)
     expect(res.status).toBe(413);
   });
 
+  it('rejects a chunked over-limit body (no Content-Length) with 413 — not a reset (BP-K)', async () => {
+    const res = await driver.dispatch(
+      (app) => {
+        app.use(async (ctx) => {
+          try {
+            await ctx.bodySource.buffer(10); // 10-byte caller limit
+            ctx.status = 200;
+            ctx.send('accepted');
+          } catch (err) {
+            ctx.status = (err as { status?: number }).status ?? 500;
+            ctx.send('rejected');
+          }
+        });
+      },
+      {
+        method: 'POST',
+        path: '/',
+        // No Content-Length → the Node driver sends it chunked, exercising the
+        // mid-stream breach path. BP-K: the adapter must deliver a clean 413 instead
+        // of destroying the socket (which surfaced as ECONNRESET). Kept small so the
+        // client finishes sending before the server responds, making it deterministic.
+        headers: { 'content-type': 'text/plain' },
+        body: 'x'.repeat(100),
+      }
+    );
+    expect(res.status).toBe(413);
+  });
+
   it('accepts a body within the caller limit', async () => {
     const res = await driver.dispatch(
       (app) => {
