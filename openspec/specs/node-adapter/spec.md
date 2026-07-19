@@ -37,16 +37,23 @@ today for the same request, and `text()` / `json()` (which call it) SHALL behave
 
 ### Requirement: Body size limits are preserved exactly
 
-The content-length pre-check and the streaming size check SHALL behave exactly as today, throwing
-`BodyTooLargeError(limit, size)` and destroying the stream on a mid-stream breach.
+The content-length pre-check and the streaming size check SHALL continue to run at the same two
+points and SHALL still throw `BodyTooLargeError(effectiveLimit, size)` and destroy the stream on a
+mid-stream breach. The enforced value is the **effective limit**: the caller-supplied `limit`
+passed to `buffer(limit)` when present, otherwise the construction-time `options.limit` (which
+remains the 1 MB default). Passing no argument preserves today's behavior exactly.
 
-#### Scenario: A content-length over the limit throws before reading
-- **WHEN** `content-length` exceeds the configured limit
+#### Scenario: A content-length over the effective limit throws before reading
+- **WHEN** `content-length` exceeds the effective limit
 - **THEN** `buffer()` throws `BodyTooLargeError` before any body bytes are consumed
 
-#### Scenario: A streamed body over the limit is rejected mid-stream
-- **WHEN** a body without an accurate `content-length` exceeds the limit while streaming
-- **THEN** the running-total check triggers `this.req.destroy()` and the read rejects with `BodyTooLargeError(limit, totalRead)`
+#### Scenario: A streamed body over the effective limit is rejected mid-stream
+- **WHEN** a body without an accurate `content-length` exceeds the effective limit while streaming
+- **THEN** the running-total check triggers `this.req.destroy()` and the read rejects with `BodyTooLargeError(effectiveLimit, totalRead)`
+
+#### Scenario: A no-argument read enforces the construction-time limit unchanged
+- **WHEN** `buffer()` is called with no argument
+- **THEN** it enforces the construction-time `options.limit` exactly as today (backward-compatible)
 
 ### Requirement: Consumed and cache semantics are preserved
 
@@ -384,3 +391,58 @@ dropping them. The value SHALL be a named constant, not derived from the running
 #### Scenario: Cross-adapter scope is Node-only
 - **WHEN** the Bun, Deno, or Edge adapters listen for connections
 - **THEN** they are unaffected by this change (the backlog is a `node:net`/`node:http` server option with no equivalent required elsewhere in this change's scope)
+
+### Requirement: `NodeBodySource.buffer()` accepts an optional per-read limit
+
+`NodeBodySource.buffer(limit?: number)` SHALL accept an optional byte limit; when provided it
+takes precedence over the construction-time `options.limit` for both the content-length pre-check
+and the streaming running-total check, without changing the read mechanism (event listeners),
+the consumed/cache semantics, or the stream-lifecycle handling. The sibling `AbstractBodySource`
+(runtime) and `WebBodySource` (Bun/Deno/Edge) SHALL honor the same optional-limit contract so
+body-size enforcement is identical across adapters (RFC 017).
+
+#### Scenario: A caller limit lower than the construction default is enforced
+- **WHEN** `buffer(limit)` is called with a `limit` lower than `options.limit` and the body
+  exceeds `limit`
+- **THEN** the read is rejected against the lower caller `limit`
+
+#### Scenario: A caller limit higher than the construction default is honored
+- **WHEN** `buffer(limit)` is called with a `limit` higher than the construction default and the
+  body is between the two sizes
+- **THEN** the body is read successfully (the higher caller `limit` governs, not the 1 MB default)
+
+#### Scenario: An omitted limit preserves construction-time behavior
+- **WHEN** `buffer()` is called with no `limit` argument
+- **THEN** enforcement falls back to `options.limit`, identical to today
+
+#### Scenario: Web adapters honor the same optional-limit contract
+- **WHEN** the cross-adapter conformance suite exercises `buffer(limit)` on the Bun/Deno/Edge
+  `WebBodySource`
+- **THEN** an over-limit body is rejected against the caller `limit` identically to the Node adapter
+
+### Requirement: `ctx.bodySource` is built lazily for body-bearing methods
+
+`NodeContext` SHALL construct the `NodeBodySource` only when `ctx.bodySource` is first read,
+exposing it via a memoized accessor, so a body-method (`POST`/`PUT`/`PATCH`) request whose body is
+never read allocates no body source and attaches no stream listeners. Bodyless methods SHALL
+continue to resolve to the shared `EmptyBodySource` singleton. `ctx.bodySource` SHALL have stable
+identity across reads (`ctx.bodySource === ctx.bodySource`).
+
+#### Scenario: A POST that never reads the body allocates no body source
+- **WHEN** a `POST` request is handled by a route with no body parser and the handler never reads
+  `ctx.bodySource`
+- **THEN** no `NodeBodySource` is allocated and no `data`/`end`/`error`/`close` listeners are
+  attached for it
+
+#### Scenario: Reading ctx.bodySource materializes it once with stable identity
+- **WHEN** `ctx.bodySource` is read (once or repeatedly) on a body-method request
+- **THEN** it returns a `NodeBodySource`, and repeated reads return the same instance
+
+#### Scenario: Bodyless methods use the shared empty singleton
+- **WHEN** a `GET`, `HEAD`, `OPTIONS`, or `TRACE` request is handled
+- **THEN** `ctx.bodySource` is the shared `EmptyBodySource` singleton (no per-request allocation)
+
+#### Scenario: Cross-adapter body-reading behavior is unchanged
+- **WHEN** the cross-adapter behavioral/conformance suites run
+- **THEN** observable body-reading behavior is identical across Node/Bun/Deno/Edge; the laziness
+  is an internal Node-scoped implementation detail with no observable difference
