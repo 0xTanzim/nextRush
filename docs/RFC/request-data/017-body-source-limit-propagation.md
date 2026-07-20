@@ -1,6 +1,7 @@
 # RFC 017 — BodySource limit propagation
 
 - **Status:** Accepted
+- **Date:** 2026-07-19
 - **Area:** request-data
 - **Related change:** `openspec/changes/body-parser-limit-and-hot-path-fixes`
 - **Capabilities touched:** `node-adapter`, `web-adapters`, `runtime-adapter-contract`, `body-parser`

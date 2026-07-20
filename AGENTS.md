@@ -8,6 +8,8 @@ Every decision must make applications easier to build, easier to understand, eas
 
 Developer experience is a product feature, not a tradeoff.
 
+The bar is always: **easier to adopt, less to configure, less code to write, clearer to read, and better supported.** Every change reduces developer hassle — never adds it. Clear, current, teaching-quality documentation and actionable errors are part of that bar, not an afterthought.
+
 ---
 
 # 1. Framework Philosophy
@@ -43,6 +45,13 @@ Optimize for:
 
 The best API requires little documentation because it behaves exactly as developers expect.
 
+Concretely, every feature commits to:
+
+- one obvious golden path — copy-paste-runnable, working out of the box
+- less hassle than doing it by hand — never more
+- clear, current docs and actionable errors as first-class deliverables
+- real developer support: examples, troubleshooting, and migration notes
+
 ---
 
 # 3. Simplicity Over Cleverness
@@ -54,6 +63,8 @@ Prefer:
 - small APIs
 - clear naming
 - understandable implementations
+- clear documentation
+- clean dx (makes it easy for developers to get started)
 
 Avoid:
 
@@ -120,29 +131,27 @@ Avoid architectural shortcuts.
 
 ---
 
-# 7. Runtime Independence
+# 7. Runtime Independence & Compatibility (mandatory)
 
-The Web Platform is the foundation.
+The Web Platform is the foundation. Every runtime is an implementation detail behind an adapter.
 
-Every runtime is an implementation detail.
+Node.js, Bun, Deno, Cloudflare Workers, Vercel Edge, AWS Lambda — and every future runtime — must
+all behave **identically** for the same application code.
 
-Node.js
+Non-negotiable:
 
-Bun
+- **Core imports no runtime API.** No `node:*`, `process`, `Buffer`, `Deno`, or `Bun` in
+  `core` / `router` / `middleware` — platform-specific code lives behind an adapter.
+- **Behavior is decided by negotiated capabilities, never runtime identity.** No
+  `if (runtime === 'x')` branch decides what a feature does.
+- **Cross-adapter parity is proven, not assumed.** Every runtime-touching change runs the
+  conformance suite (`packages/adapters/conformance`); observable behavior must stay identical
+  across adapters.
+- **Edge-first.** The request path speaks only Web-standard `Request` / `Response` /
+  `ReadableStream` / `AbortSignal` / `URL` / `crypto.subtle`. Node is the "extra capabilities"
+  case, not the baseline.
 
-Deno
-
-Cloudflare Workers
-
-Vercel Edge
-
-AWS Lambda
-
-Future runtimes
-
-must all remain behind adapters.
-
-Framework core must never depend on runtime-specific behavior.
+A feature that works on one runtime and not another is not done.
 
 ---
 
@@ -253,6 +262,11 @@ Every feature should include:
 - migration notes (when applicable)
 
 Documentation should teach concepts—not simply list methods.
+
+Every package ships **both** a `README.md` (how to use it — the npm landing page) and an
+`ARCHITECTURE.md` (how it works internally — with diagrams), authored from the shared templates
+in `docs/templates/`. README teaches usage; ARCHITECTURE teaches internals. Neither is optional
+for a public package. See §21.
 
 Outdated documentation is a bug.
 
@@ -389,6 +403,35 @@ Consequences that are non-negotiable:
 The capability registry and full governance live in `openspec/README.md`; the enforceable
 per-artifact rules live in `openspec/config.yaml`. When either drifts from the code, the code
 wins — fix the docs.
+
+---
+
+# 21. Templates Govern Every Artifact
+
+Recurring documents are authored from shared templates so structure, quality, and tone stay
+consistent across the project — and so **agentic and human work produce the same shape**. Do not
+invent a per-document structure: copy the template, fill it in, delete its guidance blocks, and
+run its built-in done-checklist before it is considered complete.
+
+| Artifact | Template |
+| -------- | -------- |
+| Design proposal / architectural change (RFC) | `docs/RFC/TEMPLATE.md` |
+| Terse final decision record (ADR) | `docs/adr/TEMPLATE.md` |
+| Point-in-time review / audit report | `report/TEMPLATE.md` |
+| Package `README.md` (npm page) | `docs/templates/package-readme.template.md` (+ authoring guide) |
+| Package `ARCHITECTURE.md` (internals) | `docs/templates/package-architecture.template.md` |
+
+Rules:
+
+- RFC-gated work (new package/capability, or a public-API / routing / middleware / DI / adapter /
+  breaking change — §5, §20) starts from the RFC template; the durable decision is then recorded
+  as an ADR from the ADR template, before the change is archived.
+- A review or audit is written from the report template; a finding that becomes a decision
+  graduates to an RFC/ADR — it is never duplicated across both.
+- Agents follow these templates by default in any documentation, decision, or review task. A
+  document that ignores its template is treated as incomplete — the same as a missing test.
+
+Templates index: `docs/templates/README.md`.
 
 ---
 

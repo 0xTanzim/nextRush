@@ -6,6 +6,11 @@ into subfolders (as `docs/RFC/` now is) would add navigation overhead without be
 renumber or delete an ADR after it is accepted; a reversed decision gets a new ADR that
 supersedes the old one by reference, the old file stays for history.
 
+**Writing a new ADR?** Copy [`TEMPLATE.md`](TEMPLATE.md) — the standard terse ADR format
+(Status/Date/RFC metadata → Context → Decision → Options → Consequences → Compliance, with a
+done-checklist). ADRs are the terse decision record; the design exploration lives in the
+governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
+
 | ADR | Decision | Status | Governing RFC |
 | --- | --- | --- | --- |
 | [ADR-0001](ADR-0001-decorator-dialect.md) | Commit to the legacy TypeScript decorator dialect (not TC39 Stage 3) | Accepted | — |

@@ -4,6 +4,12 @@ Formal architecture/performance/security reviews and audits live here, **grouped
 the directory stays navigable as more reports land. These files are tracked in git (they are part
 of the project's history — not gitignored).
 
+**Writing a new report?** Copy [`TEMPLATE.md`](TEMPLATE.md) — the standard audit/review format
+(Executive Summary → System Understanding → Architecture → Data Flow → per-area findings →
+prioritised recommendations → migration → conclusion, with a nine-field finding block and a
+done-checklist). It follows the `architecture-review.md` steering: understand before judging,
+evidence-cited findings, no generic filenames.
+
 ## Layout
 
 Group by the package/domain the report is about, mirroring the capability/package structure:

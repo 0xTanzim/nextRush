@@ -5,6 +5,11 @@ subfolders — the number is a stable, citable identity; the folder is where it 
 browsing. Never renumber a shipped RFC; a superseding decision gets a new RFC/ADR that
 references the old number, per this repo's `tdd-workflow.md` "RFC before implementation" rule.
 
+**Writing a new RFC?** Copy [`TEMPLATE.md`](TEMPLATE.md) — the universal, professional RFC
+format every new RFC follows (frontmatter, numbered sections, mandatory issue→solution mapping,
+explicit phased implementation plan). It exists to end the format drift across older RFCs; do not
+invent a new structure per RFC.
+
 ## Groups
 
 | Folder | Covers |
@@ -34,6 +39,8 @@ references the old number, per this repo's `tdd-workflow.md` "RFC before impleme
 | [014](runtime-adapters/014-adapter-serverless.md) | `@nextrush/adapter-serverless` | Shipped — see ADR-0007 | runtime-adapters |
 | [015](runtime-adapters/015-router-radix.md) | `@nextrush/router-radix` (opt-in radix router) | **Proposed — deferred**, not built | runtime-adapters |
 | [016](runtime-adapters/016-websocket-edge.md) | `@nextrush/websocket-edge` (edge-native WebSocket) | **Proposed** — design-only, not built | runtime-adapters |
+| [017](request-data/017-body-source-limit-propagation.md) | `BodySource.buffer(limit?)` — cross-runtime body-size limit propagation | Accepted — shipped | request-data |
+| [018](request-data/018-response-serialization.md) | Response serialization strategy for `ctx.json` — keep `JSON.stringify` as the default | Approved | request-data |
 
 ## Note on RFC-005 (Plugin System)
 
