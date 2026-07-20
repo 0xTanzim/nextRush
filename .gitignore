@@ -94,6 +94,7 @@ yarn.lock
 tmp/
 temp/
 .tmp/
+.tmp-*/
 .temp/
 
 # Cache directories
@@ -149,3 +150,6 @@ Copilot-Processing.md
 # stay on disk for peeking — delete them anytime; git ignores the folder either way.
 openspec/changes/archive/*
 !openspec/changes/archive/.gitkeep
+
+
+examples

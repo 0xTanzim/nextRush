@@ -17,7 +17,7 @@
  */
 
 import { detectRuntime, type Runtime } from './detect.js';
-import { NODE_FS, NODE_FS_PROMISES, NODE_MODULE, NODE_PATH } from './node-modules.js';
+import { NODE_FS, NODE_FS_PROMISES, NODE_PATH, getNodeModule, getNodePath } from './node-modules.js';
 
 // Cache the runtime detection (called once at module load)
 const runtime: Runtime = detectRuntime();
@@ -67,19 +67,21 @@ function getFsSync(): typeof import('node:fs') {
  * Call this early in your application to enable sync fs methods
  */
 export async function initFsSync(): Promise<void> {
-  if (runtime === 'deno') return; // Deno doesn't need this
-
-  if (!cachedFs) {
-    const nodeModule = await import(/* @vite-ignore */ NODE_MODULE);
-    const require = nodeModule.createRequire(import.meta.url);
-    cachedFs = require(NODE_FS);
-  }
-
+  // node:path works on every runtime (Deno supports it). Cache it everywhere so path
+  // semantics (`..` collapse, absolute-segment reset) are identical across runtimes and
+  // resolvePath/joinPath never diverge (RFC-019 F-13) — Deno's old manual string-join
+  // doubled an absolute segment, breaking `nextrush build` there.
   if (!cachedPath) {
-    const nodeModule = await import(/* @vite-ignore */ NODE_MODULE);
-    const require = nodeModule.createRequire(import.meta.url);
-    cachedPath = require(NODE_PATH);
+    cachedPath = await getNodePath();
   }
+
+  if (runtime === 'deno') return; // Deno uses Deno.* for fs; only node:path is needed above.
+
+  cachedFs ??= await (async (): Promise<typeof import('node:fs')> => {
+    const nodeModule = await getNodeModule();
+    const require = nodeModule.createRequire(import.meta.url);
+    return require(NODE_FS) as typeof import('node:fs');
+  })();
 }
 
 // Initialize path module at module load time for Bun (it has require)
@@ -205,20 +207,12 @@ export async function mkdir(path: string): Promise<void> {
  * For Deno, falls back to manual path handling.
  */
 export function resolvePath(...paths: string[]): string {
-  if (runtime === 'deno') {
-    // Deno: manual resolve
-    const base = getCwd();
-    const segments = [base, ...paths];
-    return segments.join('/').replace(/\/+/g, '/');
-  }
-
-  // Node.js/Bun: use node:path.resolve
+  // Prefer node:path.resolve on ALL runtimes for identical semantics (F-13).
   if (cachedPath) {
     return cachedPath.resolve(...paths);
   }
 
-  // Fallback (should not happen in production, but safe)
-  // This is only reached before initFsSync in Node.js ESM
+  // Fallback only before initFsSync has run — best-effort manual join.
   const base = getCwd();
   const segments = [base, ...paths];
   return segments.join('/').replace(/\/+/g, '/');
@@ -230,17 +224,11 @@ export function resolvePath(...paths: string[]): string {
  * For Deno, falls back to manual path handling.
  */
 export function joinPath(...paths: string[]): string {
-  if (runtime === 'deno') {
-    // Deno: manual join
-    return paths.join('/').replace(/\/+/g, '/');
-  }
-
-  // Node.js/Bun: use node:path.join
+  // Prefer node:path.join on ALL runtimes for identical semantics (F-13).
   if (cachedPath) {
     return cachedPath.join(...paths);
   }
 
-  // Fallback (should not happen in production, but safe)
-  // This is only reached before initFsSync in Node.js ESM
+  // Fallback only before initFsSync has run.
   return paths.join('/').replace(/\/+/g, '/');
 }

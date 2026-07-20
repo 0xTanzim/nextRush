@@ -174,34 +174,29 @@ User runs: nextrush dev
 # What happens when you run:
 nextrush dev
 
-# Under the hood:
-node --watch \
-     --import tsx \
-     --experimental-strip-types \
+# Under the hood (default — no explicit --watch):
+node --import <@nextrush/dev SWC loader> \
+     --watch \
      src/index.ts
 
-# Or with SWC (if installed):
-node --watch \
-     --import @swc-node/register \
+# With explicit watch paths (nextrush dev --watch ./src):
+node --import <@nextrush/dev SWC loader> \
+     --watch-path=./src \
      src/index.ts
 ```
 
 **Components:**
-- `--watch`: Node.js native file watching (Node 18+)
-- `--import tsx`: TypeScript execution via tsx
-- `--experimental-strip-types`: Node 22+ native TS (fallback)
-- `@swc-node/register`: SWC-based loader for decorator metadata
+- `--import <SWC loader>`: `@nextrush/dev`'s loader registers `@swc-node/register`, so TypeScript
+  is transpiled on import **with `emitDecoratorMetadata`** — required for DI. This is the only
+  TypeScript mechanism used on Node; `tsx` / `--experimental-strip-types` are NOT used (they do
+  not emit decorator metadata).
+- `--watch`: Node's native watcher (imported files) — the portable default across all platforms.
+- `--watch-path=<dir>`: used only when explicit `--watch <path>` args are given, guarded with a
+  fallback to bare `--watch` where the platform/Node version does not support it (see RFC-019).
 
-**Why tsx for development?**
-- Fast startup
-- No compilation step
-- Hot reload via --watch
-- Works without decorator metadata for development testing
-
-**Why @swc-node/register?**
-- Emits decorator metadata at runtime
-- Required if testing DI during development
-- Slightly slower startup than tsx
+**Why the SWC loader (not `tsx`)?**
+- `tsx`/esbuild strip types WITHOUT emitting decorator metadata, so DI silently breaks.
+- `@swc-node/register` (via the loader) emits `design:paramtypes`, which the DI container needs.
 
 ### Bun Development
 
@@ -227,17 +222,17 @@ nextrush dev
 
 # Under the hood:
 deno run \
-     --allow-all \
      --watch \
-     --node-modules-dir \
+     --allow-net --allow-read --allow-env \
      src/index.ts
 ```
 
 **Deno specifics:**
-- `--watch`: Native file watching
-- `--node-modules-dir`: npm compatibility mode
-- `--allow-all`: Permission flags (configurable)
-- Native TypeScript support
+- `--watch`: Deno's native file watching.
+- Permissions: a fixed, minimal default set — `--allow-net --allow-read --allow-env`. The CLI
+  **never** grants `--allow-all`. A project may EXTEND (never replace) this set via
+  `nextrush.config.ts` (`dev.deno.permissions`); an invalid flag fails fast before Deno is spawned.
+- Native TypeScript support.
 
 ---
 
@@ -368,7 +363,7 @@ ensuring DI systems like tsyringe work correctly.
 // What happens in buildWithDeno():
 
 // Use npm: specifier for @swc/core
-const swc = await import('npm:@swc/core@1.11.1');
+const swc = await import('npm:@swc/core@1.15.43');
 
 // Then use same transform API as Node.js
 const result = await swc.transform(source, {
@@ -630,26 +625,32 @@ packages/dev/
 
 ### Current Status: ✅ Beta
 
-The package is functional across all major runtimes:
+Every row below is backed by a permanent, real-runtime regression test — not asserted.
+"Stable" means the behavior is proven under CI on that runtime; "Experimental" means it
+runs but has no automated regression guard yet.
 
-| Feature | Status | Notes |
+| Feature | Status | Evidence |
 |---------|--------|-------|
-| Node.js dev | ✅ Ready | Full support |
-| Node.js build | ✅ Ready | @swc/core - Full decorator metadata |
-| Bun dev | ✅ Ready | Native support |
-| Bun build | ✅ Ready | Bun.build() - Full decorator metadata |
-| Deno dev | ✅ Ready | Native support |
-| Deno build | ✅ Ready | npm:@swc/core - Full decorator metadata |
-| Tests | ✅ Unit tests | 29 tests passing |
+| Node.js dev | ✅ Stable | `dev-http-liveness.test.ts` (real HTTP response), `dev-restart-on-change.test.ts` (real `--watch` restart) |
+| Node.js build | ✅ Stable | `build-e2e-integration.test.ts`, `swc-builder-integration.test.ts` (cache, `.d.ts`, nested layout) |
+| Bun dev | 🧪 Experimental | Native support; no dedicated `nextrush dev` regression test on Bun yet |
+| Bun build | ✅ Stable | `build-bun-decorator-integration.test.ts` — asserts `design:paramtypes` literally appears in Bun-built output |
+| Deno dev | 🧪 Experimental | Native support; no dedicated `nextrush dev` regression test on Deno yet |
+| Deno build | ✅ Stable | `build-deno-integration.test.ts` — asserts non-empty, correctly-mapped `.js` output under real Deno |
+| Tests | ✅ Unit + integration | 262 tests passing (`pnpm --filter @nextrush/dev test`) |
 | Documentation | ✅ Complete | README + ARCHITECTURE |
+
+Bun/Deno `build` and `dev` regression tests run in CI on their real binaries via the
+`dev-tooling-cross-runtime` job in `.github/workflows/runtime-conformance.yml` (pinned
+Deno 2.6.3 / Bun 1.3.14) — see RFC-019 task 7.3.
 
 ### All Runtimes Support Decorator Metadata
 
-Verified decorator metadata emission across all runtimes:
+Decorator metadata emission is verified, not asserted, on every runtime `nextrush build` targets:
 
-- **Node.js**: @swc/core transform API
-- **Bun**: Native Bun.build() preserves metadata
-- **Deno**: npm:@swc/core via npm specifier
+- **Node.js**: @swc/core transform API — `swc-builder-integration.test.ts`
+- **Bun**: Native `Bun.build()` preserves metadata — `build-bun-decorator-integration.test.ts`
+- **Deno**: npm:@swc/core via npm specifier — `build-deno-integration.test.ts`
 
 ### Recommended Usage
 

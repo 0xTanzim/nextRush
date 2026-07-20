@@ -231,4 +231,4 @@ Detailed standards are maintained in `.github/instructions/`:
 
 - `docs/RFC/class-runtime/008-request-scope.md` — Request scope RFC
 - `docs/RFC/class-runtime/012-modules.md` — Modules RFC
-- `docs/documentation-rebuild/PLAN.md` — Documentation rebuild scope and tracker
+- Documentation: craft lives in the `engineering-documentation` skill; repo doc config in `.kiro/steering/documentation.instructions.md`. (The v3 docs rebuild is complete — its plan is in git history, not the working tree.)

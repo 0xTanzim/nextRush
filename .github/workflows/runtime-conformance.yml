@@ -88,6 +88,35 @@ jobs:
         # miniflare + esbuild are root devDependencies, installed by the step above.
         run: node --test conformance.workerd.test.mjs
 
+  # dev-tooling-reliability (task 7.3): the @nextrush/dev suite's Deno/Bun build
+  # integration tests (build-deno-integration.test.ts, build-bun-decorator-integration.test.ts
+  # — RFC-019 tasks 2.3/2.4) are `skipIf`-gated on the target binary being present, so on
+  # every OTHER job in this file (and the main ci.yml job) they silently no-op rather than
+  # fail — neither installs Deno+Bun together. This job installs both so those tests
+  # actually execute in CI, proving `nextrush build` on real Deno/Bun rather than only ever
+  # being verified by a developer running them locally.
+  dev-tooling-cross-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.6.3 # pinned; bump deliberately, matches deno-conformance above
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14 # pinned; bump deliberately, matches bun-conformance above
+      - name: Build @nextrush/dev + its workspace deps
+        run: pnpm --filter "@nextrush/dev..." build
+      - name: "@nextrush/dev test suite (Deno + Bun both present — no skipIf no-ops)"
+        run: pnpm --filter @nextrush/dev test
+
   bundle-budget:
     runs-on: ubuntu-latest
     timeout-minutes: 10

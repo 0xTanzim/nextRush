@@ -161,7 +161,7 @@ nextrush g r products            # Route
 
 ```typescript
 // nextrush g controller user → src/controllers/user.controller.ts
-import { Controller, Get, Post, Body, Param } from 'nextrush';
+import { Controller, Get, Post, Body, Param } from 'nextrush/class';
 
 @Controller('/user')
 export class UserController {
@@ -186,7 +186,7 @@ export class UserController {
 
 ```typescript
 // nextrush g s order → src/services/order.service.ts
-import { Service } from 'nextrush';
+import { Service } from 'nextrush/class';
 
 @Service()
 export class OrderService {
@@ -473,25 +473,30 @@ const filePath = await generate('controller', 'user', process.cwd());
 
 ### Current Status: Beta
 
-This package is functional and tested across all major runtimes:
+Every row below is backed by a permanent, real-runtime regression test — not asserted.
+"Stable" means the behavior is proven under CI on that runtime; "Experimental" means it
+runs but has no automated regression guard yet.
 
-| Feature       | Status    | Notes                   |
-| ------------- | --------- | ----------------------- |
-| Node.js dev   | ✅ Stable | Full support            |
-| Node.js build | ✅ Stable | Full decorator metadata |
-| Bun dev       | ✅ Stable | Native support          |
-| Bun build     | ✅ Stable | Full decorator metadata |
-| Deno dev      | ✅ Stable | Native support          |
-| Deno build    | ✅ Stable | Uses npm:@swc/core      |
-| Generate      | ✅ Stable | All 5 generator types   |
+| Feature       | Status         | Evidence                                                                   |
+| ------------- | -------------- | --------------------------------------------------------------------------- |
+| Node.js dev   | ✅ Stable      | `dev-http-liveness.test.ts` (real HTTP response), `dev-restart-on-change.test.ts` (real `--watch` restart) |
+| Node.js build | ✅ Stable      | `build-e2e-integration.test.ts`, `swc-builder-integration.test.ts` (cache, `.d.ts`, nested layout) |
+| Bun dev       | 🧪 Experimental | Native support; no dedicated `nextrush dev` regression test on Bun yet     |
+| Bun build     | ✅ Stable      | `build-bun-decorator-integration.test.ts` — asserts `design:paramtypes` literally appears in Bun-built output |
+| Deno dev      | 🧪 Experimental | Native support; no dedicated `nextrush dev` regression test on Deno yet    |
+| Deno build    | ✅ Stable      | `build-deno-integration.test.ts` — asserts non-empty, correctly-mapped `.js` output under real Deno |
+| Generate      | ✅ Stable      | `generators/*.test.ts` — all 5 generator types                             |
+
+Bun/Deno `build` and `dev` regression tests run in CI on their real binaries via the
+`dev-tooling-cross-runtime` job in `runtime-conformance.yml` (pinned Deno 2.6.3 / Bun 1.3.14).
 
 ### All Runtimes Support Decorator Metadata
 
-All three runtimes (`nextrush build`) now properly emit decorator metadata:
+Decorator metadata emission is verified, not asserted, on every runtime `nextrush build` targets:
 
-- **Node.js**: @swc/core transform API
-- **Bun**: Native bundler preserves metadata
-- **Deno**: npm:@swc/core via npm specifier
+- **Node.js**: `@swc/core` transform API — `swc-builder-integration.test.ts`
+- **Bun**: native bundler preserves `Reflect.metadata`/`design:paramtypes` — `build-bun-decorator-integration.test.ts`
+- **Deno**: `npm:@swc/core` via the `npm:` specifier — `build-deno-integration.test.ts`
 
 ### Architecture Documentation
 

@@ -22,7 +22,7 @@ import {
     type SpawnResult,
     validateDenoPermissions,
 } from '../runtime/index.js';
-import { findEntry, getDefaultWatchPaths, loadConfig, validateDecoratorConfig } from '../utils/config.js';
+import { findEntry, loadConfig, validateDecoratorConfig } from '../utils/config.js';
 import { banner, clear, error, info, log, warn } from '../utils/logger.js';
 import { detectProjectRuntime } from './dev-helpers.js';
 
@@ -107,18 +107,14 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     exitProcess(1);
   }
 
-  // Build watch paths
-  const watchPaths = options.watch ?? getDefaultWatchPaths();
+  // Watch strategy: only EXPLICIT `--watch <path>` args use path-scoped watching. With no
+  // explicit paths we use the runtime's portable "watch imported files" mode (bare
+  // `--watch` on Node) instead of `--watch-path`, which Node documents as macOS/Windows-only
+  // (RFC-019 D4, F-05). This makes the default `nextrush dev` portable across platforms.
+  const explicitWatchPaths = options.watch && options.watch.length > 0 ? options.watch : [];
 
-  // Determine what we're watching
-  let watchDisplay = '';
-  if (watchPaths.length > 0 && watchPaths[0] !== '.') {
-    watchDisplay = watchPaths.join(', ');
-  } else if (targetRuntime === 'bun') {
-    watchDisplay = 'imported files (auto)';
-  } else {
-    watchDisplay = watchPaths.length > 0 ? watchPaths.join(', ') : 'imported files (auto)';
-  }
+  const watchDisplay =
+    explicitWatchPaths.length > 0 ? explicitWatchPaths.join(', ') : 'imported files (auto)';
   info('Watching', watchDisplay);
 
   // Show runtime-specific info
@@ -136,10 +132,13 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
   log(''); // Blank line
 
-  // Build command arguments based on target runtime
-  const warnUnsupported = targetRuntime === 'bun' && watchPaths.length > 0 ? () => {
-    warn('Custom watch paths are not supported in Bun. Bun will watch all imported files instead.');
-  } : undefined;
+  // Warn if explicit watch paths were given on Bun (unsupported there).
+  const warnUnsupported =
+    targetRuntime === 'bun' && explicitWatchPaths.length > 0
+      ? () => {
+          warn('Custom watch paths are not supported in Bun. Bun will watch all imported files instead.');
+        }
+      : undefined;
 
   // Load project config for extra Deno permissions (dev-deno-permissions spec, D1: extend
   // the default set, never replace it). Validate fail-fast before ever spawning Deno.
@@ -154,16 +153,6 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     }
   }
 
-  const { command, args } = buildDevArgs(
-    targetRuntime,
-    resolvedEntry,
-    watchPaths,
-    options.inspect,
-    options.inspectPort,
-    denoPermissions,
-    warnUnsupported
-  );
-
   // Prepare environment
   const env: Record<string, string> = {
     PORT: String(port),
@@ -171,22 +160,97 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     ...options.env,
   };
 
-  // Spawn the process
-  const child = await spawn(command, args, {
-    cwd,
-    env,
-    stdio: 'inherit',
-  });
+  // Only Node + explicit paths uses `--watch-path`; that's the case the fallback guards.
+  const nodeUsesWatchPath = targetRuntime === 'node' && explicitWatchPaths.length > 0;
 
-  // Handle errors
-  child.onError((err) => {
-    error(`Process error: ${err.message}`);
-  });
+  const spawnWith = async (
+    watchPathsForArgs: string[]
+  ): Promise<{ child: SpawnResult; command: string }> => {
+    const built = buildDevArgs(
+      targetRuntime,
+      resolvedEntry,
+      watchPathsForArgs,
+      options.inspect,
+      options.inspectPort,
+      denoPermissions,
+      warnUnsupported
+    );
+    const spawned = await spawn(built.command, built.args, { cwd, env, stdio: 'inherit' });
+    return { child: spawned, command: built.command };
+  };
 
-  // Handle process signals
-  const cleanup = () => {
+  const launchTime = Date.now();
+  const first = await spawnWith(explicitWatchPaths);
+  let child = first.child;
+  const command = first.command;
+  let watchPathFallbackDone = false;
+  let shuttingDown = false;
+
+  const wireHandlers = (c: SpawnResult): void => {
+    c.onError((err) => {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        // A missing target-runtime binary: name it and how to proceed, not a raw ENOENT (F-11).
+        error(`Cannot start the dev server: "${command}" was not found on PATH.`);
+        if (targetRuntime !== detectRuntime()) {
+          error(
+            `This project targets ${targetRuntime} (detected from its adapter dependency). ` +
+              `Install ${targetRuntime}, or run the project under ${detectRuntime()}.`
+          );
+        }
+        exitProcess(1);
+      } else {
+        error(`Process error: ${err.message}`);
+      }
+    });
+
+    c.onExit((exitCode) => {
+      // Clean shutdown initiated by a signal — the child is gone, so exit now.
+      if (shuttingDown) {
+        exitProcess(0);
+        return;
+      }
+
+      // Guarded `--watch-path` fallback (F-05): if `node --watch-path` dies fast (an older
+      // Node/platform without recursive watch throws ERR_FEATURE_UNAVAILABLE_ON_PLATFORM),
+      // retry ONCE with the portable bare `--watch` rather than crashing the dev server.
+      const diedFast = Date.now() - launchTime < 3000;
+      if (nodeUsesWatchPath && !watchPathFallbackDone && diedFast && exitCode !== 0 && exitCode !== null) {
+        watchPathFallbackDone = true;
+        warn(
+          '`--watch-path` appears unsupported on this platform/Node version; falling back to bare `--watch` (watching imported files).'
+        );
+        void spawnWith([]).then(({ child: retried }) => {
+          child = retried;
+          wireHandlers(retried);
+        });
+        return;
+      }
+
+      // Otherwise surface a genuine crash instead of exiting 0 silently.
+      if (exitCode !== 0 && exitCode !== null) {
+        error(`Dev process exited with code ${exitCode}.`);
+        exitProcess(exitCode);
+      }
+    });
+  };
+
+  wireHandlers(child);
+
+  // Graceful shutdown: signal the child, let its `onExit` exit the parent once it is gone
+  // (so the port is released and the descendant app is reaped), and force-kill + exit if it
+  // does not terminate within the grace window rather than exiting instantly (F-04).
+  const cleanup = (): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     child.kill('SIGTERM');
-    exitProcess(0);
+    const force = setTimeout(() => {
+      child.kill('SIGKILL');
+      exitProcess(0);
+    }, 3000);
+    if (typeof (force as { unref?: () => void }).unref === 'function') {
+      (force as { unref: () => void }).unref();
+    }
   };
 
   onSignal('SIGINT', cleanup);

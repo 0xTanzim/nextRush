@@ -169,39 +169,45 @@ function serializeImports(groups: ImportGroup[]): string {
 }
 
 /**
- * Remove import statements from source.
- */
-function removeImports(source: string): string {
-  const importRegex =
-    /import\s+(type\s+)?{\s*[^}]+\s*}\s+from\s+['"][^'"]+['"]\s*;/g;
-  return source.replace(importRegex, '').trim();
-}
-
-/**
  * Main transform function: consolidates class-model imports.
  * Pure, deterministic, idempotent.
  */
 export function consolidateImports(source: string): string {
-  // Parse all imports
-  const groups = parseImports(source);
-
-  // Merge/consolidate
-  const merged = mergeImports(groups);
-
-  // Serialize back
-  const consolidatedImports = serializeImports(merged);
-
-  // Remove old imports and rebuild
-  const withoutImports = removeImports(source);
-
-  // Reconstruct: imports first, then code
-  if (!consolidatedImports) {
-    return source; // No imports to consolidate
+  // Build the consolidated nextrush/class import block from the target-source specs only.
+  const merged = mergeImports(parseImports(source));
+  const classGroups = merged.filter((g) => g.source === 'nextrush/class');
+  if (classGroups.length === 0) {
+    return source; // No class-model imports to consolidate — leave the file untouched.
   }
+  const consolidatedBlock = serializeImports(classGroups);
 
-  // If there's remaining code, add newline separator; otherwise just imports
-  const remaining = withoutImports.trim();
-  return remaining
-    ? `${consolidatedImports}\n${remaining}`
-    : consolidatedImports;
+  // Surgically rewrite the file: the FIRST target-source import becomes the consolidated
+  // block; every other target import is removed. Everything else — a leading license/header
+  // comment, unrelated imports (`@nextrush/di`, `nextrush`, third-party), and all code — is
+  // preserved byte-for-byte (RFC-019 F-09). A whole-file reprint is deliberately avoided: it
+  // relocated headers and reordered unrelated imports, and SWC's printer is not lossless.
+  const targetSources = new Set(['@nextrush/decorators', '@nextrush/controllers', 'nextrush/class']);
+  const importRegex = /import\s+(type\s+)?{\s*[^}]+\s*}\s+from\s+['"]([^'"]+)['"]\s*;/g;
+
+  let result = '';
+  let cursor = 0;
+  let replaced = false;
+  let match: RegExpExecArray | null;
+  while ((match = importRegex.exec(source)) !== null) {
+    const importSource = match[2];
+    if (!importSource || !targetSources.has(importSource)) {
+      continue; // Non-target import — leave it exactly where it is.
+    }
+    result += source.slice(cursor, match.index);
+    cursor = match.index + match[0].length;
+    if (!replaced) {
+      result += consolidatedBlock;
+      replaced = true;
+    } else {
+      // Removed a duplicate target import — swallow one trailing newline so no blank line is left.
+      if (source[cursor] === '\n') cursor++;
+    }
+  }
+  result += source.slice(cursor);
+  return result;
 }

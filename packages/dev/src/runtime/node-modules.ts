@@ -24,6 +24,44 @@ export const NODE_PROCESS = 'node:process';
 export const NODE_UTIL = 'node:util';
 export const NODE_OS = 'node:os';
 
+// ── Typed accessors for Node built-ins (RFC-019 D3) ────────────────────────────
+// These wrap the variable-specifier `import(NODE_*)` pattern — which stops
+// esbuild/tsup rewriting the `node:` prefix (Deno requires it) — in a typed cast so
+// `tsc` verifies usage again. Importing via the bare const specifier alone yields
+// `any`, which is how a runtime type error (a TypeScriptFile object passed where a
+// path string was expected) shipped undetected in deno-builder.ts. Prefer these over
+// a raw `await import(NODE_*)` anywhere the module's API is actually used.
+
+/** `node:path`, typed, with the bundler-safe variable specifier preserved. */
+export async function getNodePath(): Promise<typeof import('node:path')> {
+  return (await import(/* @vite-ignore */ NODE_PATH)) as typeof import('node:path');
+}
+
+/** `node:fs/promises`, typed, with the bundler-safe variable specifier preserved. */
+export async function getNodeFsPromises(): Promise<typeof import('node:fs/promises')> {
+  return (await import(/* @vite-ignore */ NODE_FS_PROMISES)) as typeof import('node:fs/promises');
+}
+
+/** `node:child_process`, typed, with the bundler-safe variable specifier preserved. */
+export async function getNodeChildProcess(): Promise<typeof import('node:child_process')> {
+  return (await import(/* @vite-ignore */ NODE_CHILD_PROCESS)) as typeof import('node:child_process');
+}
+
+/** `node:fs`, typed, with the bundler-safe variable specifier preserved. */
+export async function getNodeFs(): Promise<typeof import('node:fs')> {
+  return (await import(/* @vite-ignore */ NODE_FS)) as typeof import('node:fs');
+}
+
+/** `node:os`, typed, with the bundler-safe variable specifier preserved. */
+export async function getNodeOs(): Promise<typeof import('node:os')> {
+  return (await import(/* @vite-ignore */ NODE_OS)) as typeof import('node:os');
+}
+
+/** `node:module`, typed, with the bundler-safe variable specifier preserved. */
+export async function getNodeModule(): Promise<typeof import('node:module')> {
+  return (await import(/* @vite-ignore */ NODE_MODULE)) as typeof import('node:module');
+}
+
 /** The `dist/` segment every build output lives under — the depth-independent anchor. */
 const DIST_SEGMENT = '/dist/';
 
@@ -59,9 +97,12 @@ const LOADER_RELATIVE_PATH = 'loaders/swc-loader.mjs';
  * @returns The `file://` URL of the `dist/` directory itself (trailing slash included)
  */
 function findDistRoot(fileUrlBase: string): string {
-  const distIndex = fileUrlBase.indexOf(DIST_SEGMENT);
+  const distIndex = fileUrlBase.lastIndexOf(DIST_SEGMENT);
   // Slice up to and including the trailing slash of "/dist/" so the result is a
-  // directory URL ready to have a relative path joined onto it.
+  // directory URL ready to have a relative path joined onto it. We anchor on the LAST
+  // `/dist/` — the package's own build output — so an ancestor directory named `dist`
+  // in the install path (e.g. `/home/u/dist/app/node_modules/@nextrush/dev/dist/cli.js`)
+  // cannot win over the real one (RFC-019, F-12).
   return fileUrlBase.slice(0, distIndex + DIST_SEGMENT.length);
 }
 

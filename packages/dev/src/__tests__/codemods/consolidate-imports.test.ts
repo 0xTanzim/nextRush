@@ -175,4 +175,20 @@ export class UserController {}`;
     expect(output).toContain('registerControllers');
     expect(output).toContain('Delete');
   });
+
+  // ─── (F-09) Header comment + non-target imports preserved in place ───
+
+  it('preserves a leading license/header comment above the imports (F-09)', () => {
+    const input = `/* @license MIT */
+import { Get } from '@nextrush/decorators';
+import { Controller } from '@nextrush/controllers';
+
+export class X {}`;
+    const output = consolidateImports(input);
+    // Header stays at the very top — not relocated below the consolidated import.
+    expect(output.startsWith('/* @license MIT */')).toBe(true);
+    expect(output).toContain(`from 'nextrush/class'`);
+    expect(output).not.toContain('@nextrush/decorators');
+    expect(output.trimEnd().endsWith('export class X {}')).toBe(true);
+  });
 });

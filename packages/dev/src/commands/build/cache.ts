@@ -5,7 +5,26 @@
  * if the source hash matches and output exists. Invalidates on option changes.
  */
 
-import { createHash } from 'node:crypto';
+/**
+ * Pure-JS content fingerprint (cyrb53-derived, hex) — deliberately NOT `node:crypto`, so
+ * the bundle contains no static `node:*` import for the bundler to prefix-strip and thus
+ * stays Deno-loadable (RFC-019, F-01). Cache keys need collision-resistance for a project's
+ * file count, not cryptographic strength; a collision only causes a stale skip, and this
+ * 64-bit fingerprint is far beyond any realistic collision for that use.
+ */
+export function hashString(input: string): string {
+  let h1 = 0xdeadbeef ^ input.length;
+  let h2 = 0x41c6ce57 ^ input.length;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const hex = (n: number): string => (n >>> 0).toString(16).padStart(8, '0');
+  return hex(h2) + hex(h1);
+}
 
 export interface CacheEntry {
   sourceHash: string;
@@ -26,8 +45,7 @@ export function hashSourceAndOptions(
   sourceContent: string,
   options: { target: string; decoratorMetadata: boolean; sourcemap: boolean; minify: boolean }
 ): string {
-  const data = `${sourceContent}|${JSON.stringify(options)}`;
-  return createHash('sha256').update(data).digest('hex');
+  return hashString(`${sourceContent}|${JSON.stringify(options)}`);
 }
 
 /**
@@ -37,7 +55,7 @@ export async function loadCache(cacheFile: string): Promise<BuildCache | null> {
   try {
     const fs = await import(/* @vite-ignore */ 'node:fs/promises');
     const content = await fs.readFile(cacheFile, 'utf-8');
-    return JSON.parse(content);
+    return JSON.parse(content) as BuildCache;
   } catch {
     return null;
   }
@@ -51,13 +69,13 @@ export async function saveCache(cacheFile: string, cache: BuildCache): Promise<v
   const content = JSON.stringify(cache, null, 2);
 
   // Write atomically: temp file + rename
-  const suffix = `${Date.now()}.${Math.random().toString(36).slice(2, 10)}`;
+  const suffix = `${String(Date.now())}.${Math.random().toString(36).slice(2, 10)}`;
   const tempPath = `${cacheFile}.${suffix}.tmp`;
 
   try {
     await fs.writeFile(tempPath, content, 'utf-8');
     await fs.rename(tempPath, cacheFile);
-  } catch (err) {
+  } catch {
     try {
       await fs.unlink(tempPath);
     } catch {

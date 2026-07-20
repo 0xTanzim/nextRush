@@ -29,7 +29,7 @@ pnpm test:e2e:ui                        # interactive UI mode
 
 ## Verification harness (`pnpm docs:verify`)
 
-The documentation rebuild (`docs/documentation-rebuild/PLAN.md`, task T2) treats
+Documentation verification (`pnpm docs:verify`, introduced in the v3 rebuild) treats
 verification as the "test layer" for docs content — a green run is a precondition
 for merging any content change, the same way a green test suite gates code.
 

@@ -45,7 +45,9 @@ export default defineConfig({
   define: {
     __VERSION__: JSON.stringify(pkg.version),
   },
-  // Use esbuild options to preserve node: prefix
+  // Bare Node built-ins are aliased to their `node:` form; combined with removing all
+  // STATIC `node:*` imports from source (crypto→pure-JS hash, fs→variable-specifier), the
+  // bundle contains no prefix-stripped builtin, so Deno can load it (RFC-019, F-01).
   esbuildOptions(options) {
     options.alias = {
       'fs': 'node:fs',

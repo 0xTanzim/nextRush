@@ -1,19 +1,53 @@
 /**
- * Deno-based build with SWC decorator metadata emission support
+ * Deno-based build with SWC decorator metadata emission support.
+ *
+ * Consumes the `TypeScriptFile[]` produced by {@link findTypeScriptFiles} by its
+ * `path`/`ext` fields (never treating the record as a bare path string) and maps
+ * extensions with the shared {@link mapExtension} — the same as the Node builder —
+ * so the two paths cannot drift (RFC-019 D7, F-01).
  */
 
 import { getCwd, resolvePath } from '../../runtime/index.js';
-import { NODE_FS_PROMISES, NODE_PATH } from '../../runtime/node-modules.js';
+import { getNodeFsPromises, getNodePath } from '../../runtime/node-modules.js';
 import { error, info, log, success, warn, formatSize } from '../../utils/logger.js';
 import type { BuildOptions } from './types.js';
-import { findTypeScriptFiles } from './file-scanner.js';
+import { findTypeScriptFiles, mapExtension } from './file-scanner.js';
+import { buildSwcTransformOptions } from './swc-transform-options.js';
+
+/** SWC version pulled via Deno's `npm:` specifier — kept in sync with package.json. */
+const SWC_NPM_SPECIFIER = 'npm:@swc/core@1.15.43';
+
+/**
+ * The subset of the Deno global this file actually calls — no static Deno types are
+ * available in this Node-typed package, so a minimal local interface removes the
+ * `any` cascade from `globalThis.Deno` without needing a blanket eslint-disable.
+ */
+interface DenoCommandCtor {
+  Command: new (
+    cmd: string,
+    opts: Record<string, unknown>
+  ) => { output: () => Promise<{ code: number }> };
+}
+
+/** The subset of `@swc/core`'s API this file calls, resolved via Deno's `npm:` specifier. */
+interface SwcCoreLike {
+  transform: (
+    source: string,
+    options: ReturnType<typeof buildSwcTransformOptions>
+  ) => Promise<{ code: string; map?: string }>;
+}
 
 export async function buildWithDeno(entry: string, outDir: string, options: BuildOptions): Promise<void> {
   log('Building with Deno + SWC...');
 
   try {
-    // @ts-expect-error Deno global exists in Deno runtime
-    const Deno = globalThis.Deno;
+    // Deno has no static types available in this Node-typed package; a minimal local
+    // interface for just the members this function calls removes the `any` cascade
+    // without needing a blanket eslint-disable.
+    const globalWithDeno = globalThis as unknown as {
+      Deno: DenoCommandCtor;
+    };
+    const Deno = globalWithDeno.Deno;
 
     const cwd = getCwd();
     const target = options.target ?? 'es2022';
@@ -23,11 +57,11 @@ export async function buildWithDeno(entry: string, outDir: string, options: Buil
 
     // Find all TypeScript files
     const files = await findTypeScriptFiles(cwd, entry);
-    log(`Found ${files.length} TypeScript file(s)`);
+    log(`Found ${String(files.length)} TypeScript file(s)`);
 
     // Ensure output directory exists
-    const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-    const path = await import(/* @vite-ignore */ NODE_PATH);
+    const fs = await getNodeFsPromises();
+    const path = await getNodePath();
     const outPath = resolvePath(cwd, outDir);
     await fs.mkdir(outPath, { recursive: true });
 
@@ -36,48 +70,37 @@ export async function buildWithDeno(entry: string, outDir: string, options: Buil
 
     // Try to use @swc/core via npm: specifier
     try {
-      // @ts-expect-error npm: specifier is Deno-specific
-      const swc = await import('npm:@swc/core@1.11.1');
+      // The npm: specifier is Deno-specific; the variable specifier keeps it opaque
+      // to the bundler (so it's never prefix-stripped), and `SwcCoreLike` gives the
+      // result a real type instead of the `any` the variable-specifier import yields.
+      const swc = (await import(SWC_NPM_SPECIFIER)) as SwcCoreLike;
 
-      info('Using', '@swc/core via npm: specifier');
+      info('Using', `@swc/core via ${SWC_NPM_SPECIFIER}`);
 
-      // Transform each file
+      // Transform each file — operate on file.path/file.ext (TypeScriptFile), map
+      // extensions the same way the Node builder does.
       for (const file of files) {
-        const relativePath = path.relative(srcDir, file);
-        const outFile = path.join(outPath, relativePath).replace(/\.ts$/, '.js');
+        const relativePath = path.relative(srcDir, file.path);
+        const outExt = mapExtension(file.ext);
+        const outFile = path.join(outPath, relativePath).replace(/\.\w+$/, outExt);
 
         // Ensure output directory exists
         await fs.mkdir(path.dirname(outFile), { recursive: true });
 
         // Read source
-        const source = await fs.readFile(file, 'utf-8');
+        const source = await fs.readFile(file.path, 'utf-8');
 
-        // Transform with SWC
-        const result = await swc.transform(source, {
-          filename: file,
-          jsc: {
-            parser: {
-              syntax: 'typescript',
-              decorators: true,
-            },
-            target: target,
-            transform: {
-              legacyDecorator: true,
-              decoratorMetadata: decoratorMetadata,
-            },
-            keepClassNames: true,
-            minify: minify
-              ? {
-                  compress: true,
-                  mangle: true,
-                }
-              : undefined,
-          },
-          module: {
-            type: 'es6',
-          },
-          sourceMaps: sourcemap,
-        });
+        // Transform with SWC — options come from the shared helper (task 3.2) so this
+        // path and swc-builder.ts's cannot silently diverge again.
+        const result = await swc.transform(
+          source,
+          buildSwcTransformOptions(file.path, file.ext === '.tsx', {
+            target,
+            decoratorMetadata,
+            minify,
+            sourcemap,
+          })
+        );
 
         // Write output
         await fs.writeFile(outFile, result.code);
@@ -93,7 +116,7 @@ export async function buildWithDeno(entry: string, outDir: string, options: Buil
         }
       }
 
-      success(`Built ${files.length} file(s) to ${outDir}/`);
+      success(`Built ${String(files.length)} file(s) to ${outDir}/`);
 
       // Generate declaration files
       await generateDeclarationsWithDeno(cwd, outDir, Deno);
@@ -120,32 +143,36 @@ export async function buildWithDenoNative(
   warn('DI systems may not work correctly. Consider using Node.js or Bun for production builds.');
 
   try {
-    // @ts-expect-error Deno global exists in Deno runtime
-    const Deno = globalThis.Deno;
+    // Deno has no static types available in this Node-typed package; a minimal local
+    // interface for just the members this function calls removes the `any` cascade
+    // without needing a blanket eslint-disable.
+    const globalWithDeno = globalThis as unknown as {
+      Deno: { mkdir: (path: string, opts: { recursive: boolean }) => Promise<void> };
+    };
 
     const cwd = getCwd();
     const entryPath = resolvePath(cwd, entry);
     const outPath = resolvePath(cwd, outDir);
 
     // Ensure output directory exists
-    await Deno.mkdir(outPath, { recursive: true });
+    await globalWithDeno.Deno.mkdir(outPath, { recursive: true });
 
     warn('Copying TypeScript source directly (Deno runs TS natively)');
 
-    const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-    const path = await import(/* @vite-ignore */ NODE_PATH);
+    const fs = await getNodeFsPromises();
+    const path = await getNodePath();
 
     const srcDir = path.dirname(entryPath);
     const files = await findTypeScriptFiles(cwd, entry);
 
     for (const file of files) {
-      const relativePath = path.relative(srcDir, file);
+      const relativePath = path.relative(srcDir, file.path);
       const outFile = path.join(outPath, relativePath);
       await fs.mkdir(path.dirname(outFile), { recursive: true });
-      await fs.copyFile(file, outFile);
+      await fs.copyFile(file.path, outFile);
     }
 
-    success(`Copied ${files.length} TypeScript file(s) to ${outDir}/`);
+    success(`Copied ${String(files.length)} TypeScript file(s) to ${outDir}/`);
     log('Run with: deno run -A dist/index.ts');
   } catch (err) {
     error(`Deno build failed: ${(err as Error).message}`);
@@ -156,12 +183,7 @@ export async function buildWithDenoNative(
 export async function generateDeclarationsWithDeno(
   cwd: string,
   outDir: string,
-  Deno: {
-    Command: new (
-      cmd: string,
-      opts: Record<string, unknown>
-    ) => { output: () => Promise<{ code: number }> };
-  }
+  Deno: DenoCommandCtor
 ): Promise<void> {
   log('Generating type declarations...');
 

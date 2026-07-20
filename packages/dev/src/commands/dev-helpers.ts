@@ -57,10 +57,14 @@ export function resolveDevPort(explicitPort: number | undefined): number {
 /**
  * Detect the project's target runtime from its package.json adapter dependency.
  * Falls back to the CLI process's runtime when not found or on error.
+ *
+ * @param cwd - Directory to read `package.json` from. Defaults to the process cwd;
+ *   injectable so callers (and tests) don't need `process.chdir()`, which vitest's
+ *   thread-pool workers don't support.
  */
-export function detectProjectRuntime(): Runtime {
+export function detectProjectRuntime(cwd: string = getCwd()): Runtime {
   try {
-    const pkgPath = resolvePath(getCwd(), 'package.json');
+    const pkgPath = resolvePath(cwd, 'package.json');
     const content = readFileSync(pkgPath);
     const pkg = JSON.parse(content) as Record<string, unknown>;
     const deps: Record<string, string> = {

@@ -18,6 +18,7 @@ invent a new structure per RFC.
 | `request-data/` | Route metadata, request validation, response streaming — the request/response data path |
 | `class-runtime/` | The `@nextrush/class` decorator/DI/module system: extensions, DI ownership, class consolidation, request scope, lifecycle, interceptors, filters, modules |
 | `runtime-adapters/` | Platform adapters, adapter contracts, serverless execution, routing engines |
+| `dev-tooling/` | The `@nextrush/dev` toolchain: dev server, SWC build pipeline, watch/restart, CLI, generators, codemods |
 
 ## All RFCs (by number)
 
@@ -41,6 +42,7 @@ invent a new structure per RFC.
 | [016](runtime-adapters/016-websocket-edge.md) | `@nextrush/websocket-edge` (edge-native WebSocket) | **Proposed** — design-only, not built | runtime-adapters |
 | [017](request-data/017-body-source-limit-propagation.md) | `BodySource.buffer(limit?)` — cross-runtime body-size limit propagation | Accepted — shipped | request-data |
 | [018](request-data/018-response-serialization.md) | Response serialization strategy for `ctx.json` — keep `JSON.stringify` as the default | Approved | request-data |
+| [019](dev-tooling/019-dev-tooling-capability.md) | `@nextrush/dev` — the dev-tooling capability & verification-first hardening | Approved — see ADR-0008 | dev-tooling |
 
 ## Note on RFC-005 (Plugin System)
 

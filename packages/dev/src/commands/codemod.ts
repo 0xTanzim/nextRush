@@ -10,9 +10,9 @@
  * @packageDocumentation
  */
 
-import { globSync } from 'node:fs';
 import { consolidateImports } from '../codemods/consolidate-imports.js';
 import { getCwd, exitProcess, readFile, writeFile } from '../runtime/index.js';
+import { getNodeFs } from '../runtime/node-modules.js';
 import { error, log, success } from '../utils/logger.js';
 
 export interface CodemodOptions {
@@ -45,12 +45,17 @@ export function parseCodemodArgs(args: string[]): {
 
 /**
  * Run consolidate-imports codemod on files matching glob pattern
+ *
+ * @param cwd - Directory to resolve the glob and files against. Defaults to the process
+ *   cwd; injectable so callers (and tests) don't need `process.chdir()`, which vitest's
+ *   thread-pool workers don't support.
  */
 export async function runConsolidateImports(
   pattern: string,
   options?: { dryRun?: boolean },
+  cwd: string = getCwd(),
 ): Promise<{ changed: number; files: string[] }> {
-  const cwd = getCwd();
+  const { globSync } = await getNodeFs();
   const files = globSync(pattern, { cwd });
 
   if (files.length === 0) {

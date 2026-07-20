@@ -20,6 +20,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0005](ADR-0005-package-tiers-sealed-surface-deprecation.md) | Package tiers, sealed public surface & shim deprecation | Accepted | — |
 | [ADR-0006](ADR-0006-deferred-1x-features.md) | Features deferred to 1.x (not 1.0 blockers) | Accepted | — |
 | [ADR-0007](ADR-0007-serverless-adapter-and-enforced-contract.md) | Enforced adapter contract & serverless execution/event-format separation | Accepted | `docs/RFC/runtime-adapters/013-adapter-contract.md`, `docs/RFC/runtime-adapters/014-adapter-serverless.md` |
+| [ADR-0008](ADR-0008-dev-tooling-capability-and-verification-first.md) | `dev-tooling` capability & verification-first hardening of `@nextrush/dev` | Accepted | `docs/RFC/dev-tooling/019-dev-tooling-capability.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

@@ -19,11 +19,11 @@ export interface PoolOptions {
  * @returns Array of results matching task order
  */
 export async function runConcurrent<T>(
-  tasks: Array<() => Promise<T>>,
+  tasks: (() => Promise<T>)[],
   options: PoolOptions = {}
 ): Promise<T[]> {
   const concurrency = options.concurrency ?? getDefaultConcurrency();
-  const results: T[] = new Array(tasks.length);
+  const results: T[] = new Array<T>(tasks.length);
   let nextIndex = 0;
   let activeCount = 0;
   let error: Error | null = null;
@@ -41,18 +41,23 @@ export async function runConcurrent<T>(
         return;
       }
 
-      while (activeCount < concurrency && nextIndex < tasks.length && !error) {
+      while (activeCount < concurrency && nextIndex < tasks.length) {
         const taskIndex = nextIndex++;
         activeCount++;
 
-        tasks[taskIndex]?.()
-          ?.then((result) => {
+        const task = tasks[taskIndex];
+        if (!task) {
+          activeCount--;
+          continue;
+        }
+        task()
+          .then((result) => {
             results[taskIndex] = result;
             activeCount--;
             processNext();
           })
-          .catch((err) => {
-            error = err;
+          .catch((err: unknown) => {
+            error = err instanceof Error ? err : new Error(String(err));
             activeCount--;
             processNext();
           });
@@ -64,15 +69,13 @@ export async function runConcurrent<T>(
 }
 
 /**
- * Get default concurrency based on CPU count
+ * Fallback concurrency used only when a caller does not pass an explicit value.
+ *
+ * CPU-derived concurrency is computed by the caller (see swc-builder's
+ * `resolveConcurrency`) because reading `node:os` requires an async import in ESM;
+ * the previous `require('node:os')` here never ran in the ESM bundle and always fell
+ * through to this constant (RFC-019, F-16). This is now just the documented floor.
  */
 function getDefaultConcurrency(): number {
-  // Default to 4, or CPU count capped at 8
-  try {
-    const os = require('node:os');
-    const cpuCount = os.cpus?.()?.length ?? 4;
-    return Math.min(cpuCount, 8);
-  } catch {
-    return 4;
-  }
+  return 4;
 }

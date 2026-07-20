@@ -265,8 +265,8 @@ Documentation should teach concepts—not simply list methods.
 
 Every package ships **both** a `README.md` (how to use it — the npm landing page) and an
 `ARCHITECTURE.md` (how it works internally — with diagrams), authored from the shared templates
-in `docs/templates/`. README teaches usage; ARCHITECTURE teaches internals. Neither is optional
-for a public package. See §21.
+in `docs/templates/` using the `engineering-documentation` skill. README teaches usage;
+ARCHITECTURE teaches internals. Neither is optional for a public package. See §21.
 
 Outdated documentation is a bug.
 
@@ -399,6 +399,13 @@ Consequences that are non-negotiable:
 - Durable architectural decisions land in `docs/RFC/` **before** a change is archived, never
   only in a prunable archive.
 - New packages, capabilities, and public-API/breaking changes are RFC-gated.
+- **No dead-weight archive folders in the working tree.** Git history is the record of removed
+  work — do **not** keep an `_archive/` (or renamed-aside) copy of completed plans, docs, or code
+  in the tree. Stale files get indexed by code-intelligence tooling (`codebase-memory-mcp`) and
+  pollute agent context and search, and they mislead readers into treating dead work as current.
+  Prune them; recover from `git log` / `git show <sha>:<path>` if ever needed. The **sole
+  sanctioned exception** is `openspec/changes/archive/`, which is gitignored for exactly this
+  reason. When work is superseded, delete it — don't shelve it in the tree.
 
 The capability registry and full governance live in `openspec/README.md`; the enforceable
 per-artifact rules live in `openspec/config.yaml`. When either drifts from the code, the code
@@ -406,12 +413,18 @@ wins — fix the docs.
 
 ---
 
-# 21. Templates Govern Every Artifact
+# 21. The Documentation Skill & Templates Govern Every Artifact
 
-Recurring documents are authored from shared templates so structure, quality, and tone stay
-consistent across the project — and so **agentic and human work produce the same shape**. Do not
-invent a per-document structure: copy the template, fill it in, delete its guidance blocks, and
-run its built-in done-checklist before it is considered complete.
+Two things govern documentation, and both are mandatory:
+
+- **The `engineering-documentation` skill** (`.kiro/skills/engineering-documentation/`) owns the
+  *craft* — how to write: philosophy, voice, the Diátaxis page-type standards (EDS-001…022), MDX
+  components, accessibility, visuals, code examples, and the review/publish checklists. **Read its
+  `SKILL.md` router before writing or editing ANY documentation** — docs-site pages, tutorials,
+  concept/guide/reference pages, and every package's `README.md` / `ARCHITECTURE.md` alike.
+- **Shared templates** own the *structure*, so agentic and human work produce the same shape. Do
+  not invent a per-document structure: copy the template, fill it in, delete its guidance blocks,
+  and run its built-in done-checklist before the document is considered complete.
 
 | Artifact | Template |
 | -------- | -------- |
@@ -423,15 +436,25 @@ run its built-in done-checklist before it is considered complete.
 
 Rules:
 
+- **Every package ships a `README.md` AND an `ARCHITECTURE.md`, each authored from its template**
+  (§13) — README teaches usage (the npm landing page), ARCHITECTURE teaches internals with
+  diagrams. Neither is optional for a public package, and neither is hand-shaped: use the template.
+- **An existing document that doesn't match its current template/standard is rewritten to comply —
+  not left as-is.** A non-conforming doc is treated exactly like a missing one: off-pattern or
+  stale documentation is a bug (§13). When you touch a package or feature whose docs predate the
+  current templates/skill, bring its `README.md` / `ARCHITECTURE.md` / page into compliance as part
+  of that change — do not ship an update alongside docs that still follow the old pattern.
 - RFC-gated work (new package/capability, or a public-API / routing / middleware / DI / adapter /
   breaking change — §5, §20) starts from the RFC template; the durable decision is then recorded
   as an ADR from the ADR template, before the change is archived.
 - A review or audit is written from the report template; a finding that becomes a decision
   graduates to an RFC/ADR — it is never duplicated across both.
-- Agents follow these templates by default in any documentation, decision, or review task. A
-  document that ignores its template is treated as incomplete — the same as a missing test.
+- Agents follow the skill and these templates by default in any documentation, decision, or review
+  task. A document that ignores its template or the skill's standards is treated as incomplete —
+  the same as a missing test.
 
-Templates index: `docs/templates/README.md`.
+Documentation-craft skill: `.kiro/skills/engineering-documentation/SKILL.md`. Templates index:
+`docs/templates/README.md`. Repo docs-site config: `.kiro/steering/documentation.instructions.md`.
 
 ---
 
