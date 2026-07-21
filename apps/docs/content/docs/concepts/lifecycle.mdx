@@ -36,7 +36,7 @@ An app that opens a resource with no defined shutdown step works fine in develop
 
 ## The solution
 
-NextRush defines two lifecycle interfaces — `OnInit` and `OnShutdown` — that a `@Service`, `@Repository`, or controller class opts into by implementing the matching method. There is no decorator: the class runtime detects a lifecycle hook by checking whether the already-resolved instance has a callable `onInit`/`onShutdown` property. `registerControllers()` (and `registerModule()`, which reuses it) collects every instance in the reachable service graph that implements a hook, then registers one internal [Extension](/docs/concepts/plugins) that runs `onInit` at `app.ready()` and `onShutdown` at `app.close()`.
+NextRush defines two lifecycle interfaces — `OnInit` and `OnShutdown` — that a `@Service`, `@Repository`, or controller class opts into by implementing the matching method. There is no decorator: the class runtime detects a lifecycle hook by checking whether the already-resolved instance has a callable `onInit`/`onShutdown` property. `registerControllers()` (and `registerModule()`, which reuses it) collects every instance in the reachable service graph that implements a hook, then registers one internal [Extension](/docs/concepts/extensions) that runs `onInit` at `app.ready()` and `onShutdown` at `app.close()`.
 
 This app lifecycle is a different axis from the [request lifecycle](/docs/concepts/request-lifecycle): `onInit`/`onShutdown` run once, for the whole application, while the request lifecycle's middleware onion runs fresh for every request the server receives.
 
@@ -223,7 +223,7 @@ await registerControllers(app, { root: './src', validate: false });
   <Card title="Dependency injection & scopes" href="/docs/concepts/dependency-injection">
     How the container resolves the instances lifecycle collection walks and checks for hooks.
   </Card>
-  <Card title="Extending NextRush" href="/docs/concepts/plugins">
+  <Card title="Extending NextRush" href="/docs/concepts/extensions">
     The Extension mechanism the registrar uses internally to run these hooks at ready()/close().
   </Card>
 </Cards>

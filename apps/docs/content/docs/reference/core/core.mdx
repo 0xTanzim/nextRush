@@ -281,7 +281,7 @@ The client response is identical in every environment — a 500 never leaks its 
 
 ## Extension System
 
-Extensions are the rare (~0.1%) long-lived, app-scoped services — an event bus, a database pool — that need a boot phase and a teardown phase. Most capability is middleware (`app.use()`), not an Extension. See [Extending NextRush](/docs/concepts/plugins) for the full taxonomy (Middleware, Registrar, Extension) and when to reach for each.
+Extensions are the rare (~0.1%) long-lived, app-scoped services — an event bus, a database pool — that need a boot phase and a teardown phase. Most capability is middleware (`app.use()`), not an Extension. See [Extending NextRush](/docs/concepts/extensions) for the full taxonomy (Middleware, Registrar, Extension) and when to reach for each.
 
 ### Registering Extensions
 
@@ -543,7 +543,7 @@ Flattens nested middleware arrays into a single array.
   <Card title="Middleware Concept" href="/docs/concepts/middleware">
     Deep dive into the middleware pipeline.
   </Card>
-  <Card title="Extending NextRush" href="/docs/concepts/plugins">
+  <Card title="Extending NextRush" href="/docs/concepts/extensions">
     How middleware, registrars, and extensions add capability.
   </Card>
 </Cards>

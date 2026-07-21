@@ -146,7 +146,7 @@ process.on('SIGTERM', async () => {
 });
 ```
 
-Registering a database connection, an event bus, or a metrics client through `app.extend()` — instead of a top-level `await` in your entry file — is what gives shutdown a defined order: extensions are destroyed in the reverse of how they were registered, so a service that depends on another one set up earlier is always torn down before it. The full extension lifecycle, including the `needs` dependency ordering, lives in [extending NextRush](/docs/concepts/plugins).
+Registering a database connection, an event bus, or a metrics client through `app.extend()` — instead of a top-level `await` in your entry file — is what gives shutdown a defined order: extensions are destroyed in the reverse of how they were registered, so a service that depends on another one set up earlier is always torn down before it. The full extension lifecycle, including the `needs` dependency ordering, lives in [Extensions](/docs/concepts/extensions).
 
 ## Configuration
 

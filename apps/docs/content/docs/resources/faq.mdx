@@ -47,7 +47,7 @@ types → errors → core → router → di → class → adapters → middlewar
 
 ### What's the difference between middleware, a registrar, and an extension?
 
-**Middleware** (the default, ~99% of capability) processes requests — it runs on every request in the order you register it via `app.use()`. A **registrar** (~0.9%) is a plain function you call once to wire a subsystem, such as `registerControllers`. An **extension** (~0.1%, rare) is a long-lived, app-scoped service with its own boot/teardown lifecycle, registered with `app.extend()` and booted with `app.ready()` — the event bus is the canonical example. See [Middleware](/docs/concepts/middleware) and [Plugins](/docs/concepts/plugins) for the full taxonomy, or the [Glossary](/docs/resources/glossary) for short definitions.
+**Middleware** (the default, ~99% of capability) processes requests — it runs on every request in the order you register it via `app.use()`. A **registrar** (~0.9%) is a plain function you call once to wire a subsystem, such as `registerControllers`. An **extension** (~0.1%, rare) is a long-lived, app-scoped service with its own boot/teardown lifecycle, registered with `app.extend()` and booted with `app.ready()` — the event bus is the canonical example. See [Middleware](/docs/concepts/middleware) and [Extensions](/docs/concepts/extensions) for the full taxonomy, or the [Glossary](/docs/resources/glossary) for short definitions.
 
 ---
 

@@ -9,7 +9,7 @@
     "routing",
     "errors",
     "---",
-    "plugins",
+    "extensions",
     "guards",
     "---",
     "dependency-injection",
@@ -19,6 +19,7 @@
     "lifecycle",
     "---",
     "request-lifecycle",
-    "runtime-compatibility"
+    "runtime-compatibility",
+    "streaming"
   ]
 }

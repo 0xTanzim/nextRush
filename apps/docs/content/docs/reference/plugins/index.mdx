@@ -3,7 +3,7 @@ title: 'Extending NextRush: Package Catalog'
 description: 'Logging, static files, WebSocket, events, templates, streaming, and OpenAPI — the packages that extend a NextRush app.'
 ---
 
-NextRush has no `Plugin` interface and no `app.plugin()`. Capability is added through three idioms — middleware, registrars, and Extensions — covered in depth in [Extending NextRush](/docs/concepts/plugins). This page is the catalog of packages that use those idioms.
+NextRush has no `Plugin` interface and no `app.plugin()`. Capability is added through three idioms — middleware, registrars, and Extensions — covered in depth in [Extensions](/docs/concepts/extensions). This page is the catalog of packages that use those idioms.
 
 <Callout type="info">
   Class-based controllers (`registerControllers`, `@Controller`) live in
@@ -96,7 +96,7 @@ await listen(app, 8080); // adapters call app.ready() for you
 
 <Callout type="info" title="Reach for middleware by default">
   ~99% of what you'll ever add is middleware. Registrars and Extensions exist for the narrow
-  cases middleware genuinely can't express — see [Extending NextRush](/docs/concepts/plugins) for
+  cases middleware genuinely can't express — see [Extensions](/docs/concepts/extensions) for
   the full breakdown and decision guide.
 </Callout>
 
@@ -144,7 +144,7 @@ app.use(async (ctx, next) => {
 });
 ```
 
-Only reach for `app.extend()` when you have state that must outlive a single request, boot before the server starts serving traffic, and clean up on shutdown — see [Writing an Extension](/docs/concepts/plugins#writing-an-extension) for the full pattern.
+Only reach for `app.extend()` when you have state that must outlive a single request, boot before the server starts serving traffic, and clean up on shutdown — see [Writing an Extension](/docs/concepts/extensions#writing-an-extension) for the full pattern.
 
 ---
 
@@ -158,4 +158,4 @@ Explore individual package documentation:
 - [Stream](/docs/reference/plugins/stream) — AI/agentic response streaming (SSE, NDJSON)
 - [OpenAPI](/docs/reference/plugins/openapi) — Generate API docs from route metadata
 - [Controllers](/docs/reference/class/controllers) — Structured APIs with decorators (in `@nextrush/class`)
-- [Extending NextRush](/docs/concepts/plugins) — The full middleware/registrar/Extension taxonomy
+- [Extending NextRush](/docs/concepts/extensions) — The full middleware/registrar/Extension taxonomy
