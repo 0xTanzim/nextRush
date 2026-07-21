@@ -82,5 +82,20 @@ state in the state diagram) — but the underlying code should be fixed in a fut
 - `template`'s only integration-tested engine is `builtin`; the 5 external adapters are "structurally-integrated, not integration-tested" (same overclaim risk pattern as batch-1's validation/Zod finding — caught proactively this time, not via heal loop).
 - File-size violations flagged honestly in the docs themselves (not hidden): `multipart/parser.ts` (520), `static/{index,utils}.ts` (313/348), `template/{compiler,helpers,parser}.ts` (845/809/651) all exceed the 300-line middleware cap — pre-existing code debt, out of scope for this docs wave, logged for a future refactor pass.
 
-**Remaining:** 8 of 19 A2 packages — logger/request-id/timer/health (observability); openapi (API&docs);
-events/websocket/stream (extensions/streaming).
+### Work items (batch 4 — COMPLETE)
+| Package | Source of truth | Notable facts | README | ARCH | Done |
+| ------- | --------------- | -------------- | :----: | :--: | :--: |
+| `logger` | `packages/middleware/logger/src` | thin wrapper re-exporting `@nextrush/log@0.2.1` (external pkg); real redaction (~60 sensitive keys + pattern-based), on by default in production only | ✅ | ✅ | ✅ |
+| `request-id` | `packages/middleware/request-id/src` | secure-by-default (`trustIncoming: false`), UUID v4; downstream propagation is caller's responsibility (documented honestly, not overclaimed) | ✅ | ✅ | ✅ |
+| `timer` | `packages/middleware/timer/src` | 4 middleware variants sharing one measure-in-finally shape; Server-Timing appends, doesn't dedupe | ✅ | ✅ | ✅ |
+| `health` | `packages/middleware/health/src` | `/livez` unconditional 200 (never reads checks); `/readyz` has NO persisted/cached state — recomputes every request from a live check Map. Was already correct pre-batch — no fix needed. | ✅ | ✅ | ✅ |
+
+**Real finding for a maintainer decision (logged, NOT silently resolved):** `@nextrush/logger` depends
+on the external `@nextrush/log@0.2.1` package. `project-rules.instructions.md` §6's zero-dependency rule
+lists only `reflect-metadata`, `tsyringe`, `@clack/prompts` as approved runtime-dependency exceptions
+for core/router/errors/types/adapters/**middleware** packages — `@nextrush/log` is not on that list.
+Either this is an undocumented approved exception (steering needs updating) or a real policy violation
+(the dependency needs removing/justifying). The docs disclose the dependency honestly either way — this
+is a steering/policy gap, not a documentation defect.
+
+**Remaining:** 4 of 19 A2 packages — `openapi` (API&docs); `events`/`websocket`/`stream` (extensions/streaming).
