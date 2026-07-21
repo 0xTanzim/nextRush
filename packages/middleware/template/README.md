@@ -1,657 +1,454 @@
 # @nextrush/template
 
-> Modern, secure template engine for NextRush with Mustache-like syntax, 70+ helpers, partials, layouts, and multi-engine support.
+> Adapter-based template rendering for NextRush -- a zero-dependency, Mustache-like built-in engine plus optional adapters for EJS, Handlebars, Nunjucks, Pug, and Eta, behind one unified render API.
 
-**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+[![npm version](https://img.shields.io/npm/v/@nextrush/template.svg)](https://www.npmjs.com/package/@nextrush/template)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/template.svg)](https://www.npmjs.com/package/@nextrush/template)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/template.svg)](https://bundlephobia.com/package/@nextrush/template)
+[![types](https://img.shields.io/npm/types/@nextrush/template.svg)](https://www.npmjs.com/package/@nextrush/template)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/template.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
+
+|  |  |
+| --- | --- |
+| **Purpose** | Render HTML templates -- built-in engine by default, or EJS/Handlebars/Nunjucks/Pug/Eta via optional adapters -- behind one `ctx.render()` API |
+| **Package type** | Middleware |
+| **Status** | Stable |
+| **Included in `nextrush`?** | No -- standalone install; not re-exported from `nextrush` or `nextrush/class` |
+| **Support tier** | Public -- middleware (stable) -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Maintenance** | Active |
+| **Runtime** | Node.js only -- the built-in engine and file-loading paths use `node:fs`/`node:path`; no Bun/Deno/Edge claim is made by this package |
+| **Requires** | Node >=22, ESM-only, TypeScript >=5.x |
+| **Introduced** | v1.0.0 |
 
 ## Highlights
 
-- **🔒 Security First** - Blocks prototype pollution, path traversal, XSS, and infinite recursion
-- **🔌 Multi-Engine Support** - Use EJS, Handlebars, Nunjucks, Pug, Eta, or the built-in engine
-- **🎯 Simple One-Liner Setup** - Get started with just `app.use(template())`
-- **🚀 Zero Dependencies** - Built-in engine requires no external dependencies
-- **⚡ Production Ready** - Automatic caching, layouts, and 70+ helpers
-- **📝 Express Compatible** - Familiar `ctx.render()` API
+- Zero required runtime dependencies -- a types-only dependency on `@nextrush/types`; `@nextrush/core` and all five external template engines are *optional* peer dependencies, never installed automatically
+- Built-in Mustache-like engine ships with zero external dependencies: variables, blocks (`#if`/`#unless`/`#each`/`#with`), partials, layouts, comments, and 50+ helpers
+- Six real engines behind one adapter interface: `builtin`, `ejs`, `handlebars`, `nunjucks`, `pug`, `eta` -- switch engines without changing call sites
+- ESM-only, tree-shakable, side-effect-free (`sideEffects: false`)
+- Fully typed, strict TypeScript, zero `any`
 
-## Runtime Support
+<details>
+<summary><strong>Table of contents</strong></summary>
 
-**Node-only.** All engine adapters (built-in, EJS, Handlebars, Nunjucks, Pug, Eta) resolve and
-read template files from disk via `node:fs`/`node:path`. Not usable on edge/serverless runtimes
-without a filesystem today.
+[The problem](#the-problem) . [When to use](#when-to-use) . [Installation](#installation) . [Quick start](#quick-start) . [Capabilities](#capabilities) . [Mental model](#mental-model) . [Common tasks](#common-tasks) . [API overview](#api-overview) . [Options](#options) . [Compatibility](#compatibility) . [Troubleshooting](#troubleshooting) . [FAQ](#faq) . [Package relationships](#package-relationships) . [Architecture](#architecture) . [Resources](#resources)
+
+</details>
+
+---
+
+## The problem
+
+Every template engine has its own render function, its own file-loading convention, and its own
+caching behavior. Wiring any one of them into a request handler by hand looks simple at first:
+
+```ts
+// TODAY, without a shared render contract -- works, until you need a second engine
+// or forget to guard file-based caching yourself:
+import ejs from 'ejs';
+import { readFile } from 'node:fs/promises';
+
+app.get('/users/:id', async (ctx) => {
+  const source = await readFile('./views/user.ejs', 'utf-8'); // re-read on every request
+  const html = ejs.render(source, { id: ctx.params.id });     // re-compiled on every request
+  ctx.set('Content-Type', 'text/html');
+  ctx.body = html;
+});
+```
+
+There is no caching (every request re-reads and re-compiles the template), no layout support, no
+path-traversal guard on the template filename, and switching to a second engine later means
+rewriting every handler that calls `ejs.render()` directly.
+
+## When to use
+
+**Use `@nextrush/template` if:**
+
+- You want to render server-side HTML from templates, with `ctx.render(name, data)` staying the
+  same call site regardless of which engine renders it
+- You want file-based templates cached automatically once `NODE_ENV=production`, without wiring a
+  cache map yourself
+- You want to start with a zero-dependency built-in engine and adopt EJS/Handlebars/Nunjucks/Pug/
+  Eta later without changing the middleware call in your app
+
+**Reach for something else if:**
+
+- You're building a client-rendered SPA -- this package renders HTML strings on the server; it has
+  no browser runtime or hydration story
+- You need a JSON API response -- use `ctx.json()` directly; there's no templating overhead to pay
+- You need streaming server-rendered output (partial flush before the full response is ready) --
+  see [`@nextrush/stream`](../../stream) for SSE/NDJSON; this package renders a complete string
+
+---
 
 ## Installation
 
 ```bash
 pnpm add @nextrush/template
+# npm i @nextrush/template . yarn add @nextrush/template . bun add @nextrush/template
 ```
 
-### Optional Engines
+> [!NOTE]
+> `@nextrush/template` is not re-exported by the `nextrush` meta package -- install and import it
+> directly, as shown above. `@nextrush/core` is an *optional* peer dependency (for the
+> `Context`/`Middleware` type contracts); installing `nextrush` or `@nextrush/core` separately
+> satisfies it. The five external engines (`ejs`, `eta`, `handlebars`, `nunjucks`, `pug`) are also
+> optional peer dependencies -- install only the one you use; the built-in engine needs none of them.
 
-Install only the engines you need:
+## Quick start
 
-```bash
-pnpm add ejs          # For EJS
-pnpm add handlebars   # For Handlebars
-pnpm add nunjucks     # For Nunjucks
-pnpm add pug          # For Pug
-pnpm add eta          # For Eta (modern EJS)
-```
-
-## Quick Start
-
-```typescript
-import { createApp } from '@nextrush/core';
+```ts
+import { createApp, listen } from 'nextrush';
 import { template } from '@nextrush/template';
 
 const app = createApp();
 
-// Simplest setup - uses built-in engine
-app.use(template());
-
-// With views directory
-app.use(template({ root: './views' }));
+app.use(template()); // built-in engine, views in ./views by default
 
 app.get('/', async (ctx) => {
-  await ctx.render('home', { title: 'Welcome' });
+  await ctx.render('home', { title: 'Hello NextRush!' });
+});
+
+listen(app, 8080);
+```
+
+```text
+<!-- views/home.html -->
+<h1>{{title}}</h1>
+```
+
+`template()` with no arguments uses the zero-dependency built-in engine and adds `ctx.render()`
+to every request; no template engine package needs to be installed to run this example.
+
+## Capabilities
+
+**Engines (via adapters, one unified API)**
+- `builtin` (default) -- Mustache-like syntax, zero dependencies, always available
+- `ejs`, `handlebars`, `nunjucks`, `pug`, `eta` -- each loaded lazily via a dynamic `import()` the
+  first time that engine is used; each is an *optional* peer dependency, not bundled
+
+**Built-in engine syntax**
+- `{{variable}}` -- HTML-escaped interpolation; `{{{variable}}}` or `{{& variable}}` -- raw (unescaped) output
+- `{{variable | helper}}` -- pipe a value through a registered helper
+- `{{#if cond}}...{{else}}...{{/if}}`, `{{#unless cond}}...{{/unless}}`, `{{#each items}}...{{/each}}`, `{{#with obj}}...{{/with}}` -- block helpers
+- `{{> partialName}}` -- partial inclusion; `{{! comment }}` -- comments, stripped from output
+- 50+ built-in helpers: string (`upper`, `lower`, `capitalize`, `titleCase`, `truncate`, `stripHtml`, ...), number (`formatNumber`, `currency`, `percent`, `round`, ...), date (`formatDate`, `timeAgo`, `day`, `month`, `year`, `now`), array/object (`first`, `last`, `sort`, `unique`, `keys`, `values`, `get`, ...), comparison (`eq`, `ne`, `gt`, `lt`, `and`, `or`, `not`), and `json`/`safe` for output control
+
+**Security**
+- HTML-escaping is on by default for `{{variable}}` interpolation (`compile.escape: true`); use `{{{ }}}`/`{{& }}` or the `safe` helper only for trusted content
+- Property access through a dotted path (e.g. `{{user.name}}`) blocks `__proto__`, `constructor`, `prototype`, and getter/setter dunder properties -- a template cannot read or trigger a prototype-pollution-style property chain
+- Layout/partial rendering is depth-guarded: the compiler's internal recursion cap is 100 nested render calls (`MAX_RECURSION_DEPTH` in `compiler.ts`); the built-in file-based adapter additionally caps layout nesting at 10 (`MAX_LAYOUT_DEPTH` in `adapters/builtin.ts`) and the `TemplateEngine` class's file loader rejects a resolved template/partials path that would escape its configured `root` directory
+- These guards apply to the built-in engine and the `TemplateEngine`/`createBuiltinAdapter` file-loading paths; the EJS/Handlebars/Nunjucks/Pug/Eta adapters delegate escaping and recursion behavior to that engine's own library
+
+**Caching**
+- File-based rendering (`ctx.render()`, `TemplateEngine.render()`, and every adapter's `renderFile()`) caches the compiled template in memory once loaded
+- Caching defaults to **on when `NODE_ENV=production`, off otherwise** -- read directly from `process.env.NODE_ENV` in every adapter and in `TemplateEngine`; pass `cache: true`/`cache: false` explicitly to override
+- Each adapter and `TemplateEngine` instance keeps its own in-memory `Map` cache, keyed by resolved file path; `clearCache()` is available on every adapter and on `TemplateEngine`
+
+## Mental model
+
+`template(engine, options)` builds one adapter for the chosen engine and attaches `ctx.render()`
+to the request. Every subsequent `ctx.render(name, data)` call goes through that same adapter,
+regardless of which engine backs it.
+
+```text
+ctx.render(name, data) --> adapter.renderFile(name, { ...ctx.state, ...data })
+                                  |
+                    load template (cache hit, or read + compile) --> apply layout (if configured)
+                                  |
+                            ctx.html(renderedString)
+```
+
+**Rule:** `ctx.render()` always merges `ctx.state` underneath the data you pass -- explicit render
+data overrides anything already on `ctx.state` with the same key.
+
+> [!TIP]
+> The full render pipeline, the built-in engine's parse/compile/render stages, and the
+> path-traversal/recursion guards (with diagrams) are in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+---
+
+## Common tasks
+
+### Render with the built-in engine (no engine package installed)
+
+```ts
+import { template } from '@nextrush/template';
+
+app.use(template({ root: './views' })); // engine defaults to 'builtin'
+
+app.get('/profile/:id', async (ctx) => {
+  await ctx.render('profile', { userId: ctx.params.id });
 });
 ```
 
-## Using Different Engines
+### Switch to EJS
 
-### EJS
+```bash
+pnpm add ejs
+```
 
-```typescript
-import { template } from '@nextrush/template';
-
-// npm install ejs
+```ts
 app.use(template('ejs', { root: './views' }));
 
 app.get('/', async (ctx) => {
-  await ctx.render('home', { name: 'World' });
+  await ctx.render('home', { title: 'Hello' }); // views/home.ejs
 });
 ```
 
-**views/home.ejs:**
+### Switch to Handlebars, with a layout
 
-```html
-<h1>Hello <%= name %>!</h1>
+```bash
+pnpm add handlebars
 ```
 
-### Handlebars
-
-```typescript
-// npm install handlebars
+```ts
 app.use(
   template('handlebars', {
     root: './views',
     ext: '.hbs',
-    layout: 'layouts/main',
+    layout: 'layouts/main', // wraps every render() in views/layouts/main.hbs
   })
 );
 ```
 
-**views/home.hbs:**
+### Render a template string directly (no files, no middleware)
 
-```handlebars
-<h1>Hello {{name}}!</h1>
-```
+```ts
+import { render, renderAsync } from '@nextrush/template';
 
-### Nunjucks
+const html = render('Hello {{name}}!', { name: 'World' });
+// => 'Hello World!'
 
-```typescript
-// npm install nunjucks
-app.use(
-  template('nunjucks', {
-    root: './views',
-    autoescape: true,
-  })
-);
-```
-
-**views/home.njk:**
-
-```nunjucks
-<h1>Hello {{ name }}!</h1>
-```
-
-### Pug
-
-```typescript
-// npm install pug
-app.use(template('pug', { root: './views', pretty: true }));
-```
-
-**views/home.pug:**
-
-```pug
-h1 Hello #{name}!
-```
-
-### Eta (Modern EJS)
-
-```typescript
-// npm install eta
-app.use(template('eta', { root: './views', autoEscape: true }));
-```
-
-**views/home.eta:**
-
-```eta
-<h1>Hello <%= it.name %>!</h1>
-```
-
-### Built-in Engine (Default)
-
-The built-in engine uses Mustache-like syntax with no dependencies:
-
-```typescript
-app.use(template({ root: './views' }));
-```
-
-**views/home.html:**
-
-```html
-<h1>Hello {{name}}!</h1>
-```
-
-## Configuration Options
-
-### Common Options
-
-| Option    | Type      | Default              | Description                                                      |
-| --------- | --------- | -------------------- | ---------------------------------------------------------------- |
-| `root`    | `string`  | `'./views'`          | Template directory                                               |
-| `ext`     | `string`  | varies               | File extension (`.ejs`, `.hbs`, `.njk`, `.pug`, `.eta`, `.html`) |
-| `cache`   | `boolean` | `true` in production | Enable template caching                                          |
-| `layout`  | `string`  | -                    | Default layout template                                          |
-| `helpers` | `object`  | -                    | Custom helper functions                                          |
-
-### Engine-Specific Options
-
-#### EJS
-
-- `delimiter` - Custom delimiter (default: `%`)
-- `openDelimiter` - Opening delimiter
-- `closeDelimiter` - Closing delimiter
-
-#### Handlebars
-
-- `strict` - Enable strict mode
-- `preventIndent` - Prevent partial indentation
-
-#### Nunjucks
-
-- `autoescape` - Enable auto-escaping (default: `true`)
-- `throwOnUndefined` - Throw on undefined variables
-- `watch` - Watch for file changes (development)
-
-#### Pug
-
-- `pretty` - Pretty print output
-- `doctype` - HTML doctype
-
-#### Eta
-
-- `autoEscape` - Enable auto-escaping (default: `true`)
-- `autoTrim` - Trim whitespace
-
-## Features
-
-### Layouts
-
-```typescript
-app.use(
-  template('handlebars', {
-    root: './views',
-    layout: 'layouts/main',
-  })
-);
-```
-
-**views/layouts/main.hbs:**
-
-```handlebars
-<!DOCTYPE html>
-<html>
-<head><title>{{title}}</title></head>
-<body>
-  {{{body}}}
-</body>
-</html>
-```
-
-**views/home.hbs:**
-
-```handlebars
-<h1>{{title}}</h1>
-<p>Welcome to our site!</p>
-```
-
-### Custom Helpers
-
-```typescript
-app.use(
-  template({
-    helpers: {
-      formatDate: (date) => new Date(date).toLocaleDateString(),
-      currency: (value) => `$${Number(value).toFixed(2)}`,
-    },
-  })
-);
-```
-
-**Built-in template usage:**
-
-```html
-<p>Date: {{createdAt | formatDate}}</p>
-<p>Price: {{price | currency}}</p>
-```
-
-### Override Layout Per Request
-
-```typescript
-app.get('/admin', async (ctx) => {
-  await ctx.render('admin/dashboard', { user }, { layout: 'layouts/admin' });
+const htmlAsync = await renderAsync('{{#each items}}{{this}} {{/each}}', {
+  items: ['a', 'b', 'c'],
 });
-
-app.get('/print', async (ctx) => {
-  await ctx.render('report', { data }, { layout: null }); // No layout
-});
+// => 'a b c '
 ```
 
-## Built-in Engine Features
+### Use the standalone `TemplateEngine` outside middleware
 
-The built-in Mustache-like engine includes:
-
-### String Helpers
-
-| Helper       | Usage                             | Description             |
-| ------------ | --------------------------------- | ----------------------- |
-| `upper`      | `{{name \| upper}}`               | Convert to uppercase    |
-| `lower`      | `{{name \| lower}}`               | Convert to lowercase    |
-| `capitalize` | `{{name \| capitalize}}`          | Capitalize first letter |
-| `titleCase`  | `{{name \| titleCase}}`           | Title Case String       |
-| `trim`       | `{{text \| trim}}`                | Remove whitespace       |
-| `truncate`   | `{{text \| truncate 100 "..."}}`  | Limit length            |
-| `replace`    | `{{text \| replace "old" "new"}}` | Replace substring       |
-| `padStart`   | `{{num \| padStart 3 "0"}}`       | Pad start of string     |
-| `padEnd`     | `{{num \| padEnd 3 "0"}}`         | Pad end of string       |
-| `stripHtml`  | `{{html \| stripHtml}}`           | Remove HTML tags        |
-| `split`      | `{{csv \| split ","}}`            | Split string to array   |
-| `join`       | `{{arr \| join "-"}}`             | Join array to string    |
-| `reverse`    | `{{text \| reverse}}`             | Reverse string          |
-| `length`     | `{{text \| length}}`              | Get string/array length |
-
-### Number Helpers
-
-| Helper         | Usage                             | Description             |
-| -------------- | --------------------------------- | ----------------------- |
-| `round`        | `{{num \| round 2}}`              | Round to decimal places |
-| `floor`        | `{{num \| floor}}`                | Round down              |
-| `ceil`         | `{{num \| ceil}}`                 | Round up                |
-| `abs`          | `{{num \| abs}}`                  | Absolute value          |
-| `add`          | `{{num \| add 10}}`               | Add numbers             |
-| `subtract`     | `{{num \| subtract 5}}`           | Subtract numbers        |
-| `multiply`     | `{{num \| multiply 2}}`           | Multiply numbers        |
-| `divide`       | `{{num \| divide 2}}`             | Divide numbers          |
-| `mod`          | `{{num \| mod 3}}`                | Modulo operation        |
-| `formatNumber` | `{{num \| formatNumber "en-US"}}` | Locale formatting       |
-| `currency`     | `{{price \| currency "USD"}}`     | Currency formatting     |
-| `percent`      | `{{ratio \| percent 2}}`          | Percentage formatting   |
-
-### Array Helpers
-
-| Helper     | Usage                        | Description           |
-| ---------- | ---------------------------- | --------------------- |
-| `first`    | `{{arr \| first}}`           | First element         |
-| `last`     | `{{arr \| last}}`            | Last element          |
-| `at`       | `{{arr \| at 2}}`            | Element at index      |
-| `slice`    | `{{arr \| slice 1 3}}`       | Slice array           |
-| `sort`     | `{{arr \| sort}}`            | Sort array            |
-| `unique`   | `{{arr \| unique}}`          | Remove duplicates     |
-| `compact`  | `{{arr \| compact}}`         | Remove falsy values   |
-| `flatten`  | `{{arr \| flatten}}`         | Flatten nested arrays |
-| `includes` | `{{arr \| includes "item"}}` | Check if includes     |
-| `indexOf`  | `{{arr \| indexOf "item"}}`  | Find index            |
-
-### Object Helpers
-
-| Helper    | Usage                            | Description         |
-| --------- | -------------------------------- | ------------------- |
-| `keys`    | `{{obj \| keys}}`                | Get object keys     |
-| `values`  | `{{obj \| values}}`              | Get object values   |
-| `entries` | `{{obj \| entries}}`             | Get key-value pairs |
-| `get`     | `{{obj \| get "path.to.value"}}` | Get nested value    |
-
-### Comparison Helpers
-
-| Helper | Usage            | Description           |
-| ------ | ---------------- | --------------------- |
-| `eq`   | `{{a \| eq b}}`  | Equal                 |
-| `ne`   | `{{a \| ne b}}`  | Not equal             |
-| `lt`   | `{{a \| lt b}}`  | Less than             |
-| `lte`  | `{{a \| lte b}}` | Less than or equal    |
-| `gt`   | `{{a \| gt b}}`  | Greater than          |
-| `gte`  | `{{a \| gte b}}` | Greater than or equal |
-| `and`  | `{{a \| and b}}` | Logical AND           |
-| `or`   | `{{a \| or b}}`  | Logical OR            |
-| `not`  | `{{val \| not}}` | Logical NOT           |
-
-### Type Helpers
-
-| Helper     | Usage                 | Description     |
-| ---------- | --------------------- | --------------- |
-| `isArray`  | `{{val \| isArray}}`  | Check if array  |
-| `isObject` | `{{val \| isObject}}` | Check if object |
-| `isString` | `{{val \| isString}}` | Check if string |
-| `isNumber` | `{{val \| isNumber}}` | Check if number |
-| `isEmpty`  | `{{val \| isEmpty}}`  | Check if empty  |
-
-### Output Helpers
-
-| Helper    | Usage                           | Description              |
-| --------- | ------------------------------- | ------------------------ |
-| `json`    | `{{{data \| json}}}`            | JSON stringify           |
-| `safe`    | `{{html \| safe}}`              | Mark as safe (no escape) |
-| `default` | `{{val \| default "fallback"}}` | Default value            |
-| `if`      | `{{active \| if "Yes" "No"}}`   | Inline conditional       |
-
-## API Reference
-
-### compile(source, options?)
-
-Compile a template string into a reusable template object.
-
-```typescript
-import { compile } from '@nextrush/template';
-
-const template = compile('Hello {{name}}!', {
-  escape: true, // HTML escape by default (default: true)
-  strict: false, // Throw on missing variables (default: false)
-  delimiters: ['{{', '}}'], // Custom delimiters
-  helpers: {
-    // Custom helpers
-    double: (v) => Number(v) * 2,
-  },
-});
-
-// Synchronous render
-const result = template.render({ name: 'World' });
-
-// Async render (supports async helpers)
-const asyncResult = await template.renderAsync({ name: 'World' });
-```
-
-### parse(source, options?)
-
-Parse a template string into an AST.
-
-```typescript
-import { parse } from '@nextrush/template';
-
-const ast = parse('Hello {{name}}!');
-// Returns AST with body array of nodes
-```
-
-### validate(source, options?)
-
-Validate a template string without compiling.
-
-```typescript
-import { validate } from '@nextrush/template';
-
-const isValid = validate('Hello {{name}}!'); // true
-validate('Hello {{name'); // throws TemplateParseError
-```
-
-### createEngine(options?)
-
-Create a template engine for file-based templates.
-
-```typescript
+```ts
 import { createEngine } from '@nextrush/template';
 
-const engine = createEngine({
-  root: './views', // Template root directory
-  ext: '.hbs', // File extension
-  cache: true, // Enable caching (default: true)
-  layout: 'layouts/main', // Default layout
-  helpers: {}, // Global helpers
-  partials: {}, // Global partials
-});
-
-// Render a template file
-const html = await engine.render('pages/home', { title: 'Home' });
-
-// Render a string template
-const result = await engine.renderString('Hello {{name}}!', { name: 'World' });
-
-// Register helpers
-engine.registerHelper('shout', (v) => String(v).toUpperCase() + '!');
-
-// Register partials
-engine.registerPartial('header', '<header>{{title}}</header>');
-
-// Clear cache
-engine.clearCache();
+const engine = createEngine({ root: './views', cache: true });
+const html = await engine.render('home', { title: 'Hello' });
 ```
 
-## Custom Helpers
+### Register custom helpers
 
-### Value Helpers (Pipe Helpers)
-
-Value helpers receive the piped value and any additional arguments:
-
-```typescript
-const template = compile('{{value | double}}', {
-  helpers: {
-    double: (value) => Number(value) * 2,
-  },
-});
-
-// With arguments
-const template2 = compile('{{value | multiply 3}}', {
-  helpers: {
-    multiply: (value, factor) => Number(value) * Number(factor),
-  },
-});
-```
-
-### Async Helpers
-
-```typescript
-const template = compile('{{userId | fetchUser | get "name"}}', {
-  helpers: {
-    fetchUser: async (id) => {
-      const response = await fetch(`/api/users/${id}`);
-      return response.json();
-    },
-  },
-});
-
-const result = await template.renderAsync({ userId: 123 });
-```
-
-## NextRush Integration
-
-### Middleware
-
-```typescript
-import { createApp } from '@nextrush/core';
-import { template } from '@nextrush/template';
-
-const app = createApp();
-
-// Use template middleware
+```ts
 app.use(
   template({
     root: './views',
-    ext: '.hbs',
     helpers: {
-      formatDate: (d) => new Date(d).toLocaleDateString(),
+      formatPrice: (value: number) => `$${value.toFixed(2)}`,
     },
   })
 );
-
-// In route handlers
-app.get('/', async (ctx) => {
-  await ctx.render('home', {
-    title: 'Welcome',
-    user: ctx.state.user,
-  });
-});
 ```
 
-`template()` is a middleware, registered with `app.use()` — there is no separate plugin
-form. An earlier `templatePlugin()` export was removed; `app.use(template(...))` is the
-only way to install the template engine.
-
-## Security
-
-### XSS Protection
-
-By default, all variables are HTML-escaped to prevent XSS attacks:
-
-```typescript
-const template = compile('{{comment}}');
-template.render({ comment: '<script>alert("XSS")</script>' });
-// => '&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;'
+```text
+<!-- views/product.html -->
+<p>{{price | formatPrice}}</p>
 ```
 
-Use triple mustache `{{{raw}}}` or `{{& raw}}` only for trusted content:
+## API overview
 
-```typescript
-const template = compile('{{{trustedHtml}}}');
-template.render({ trustedHtml: '<b>Bold</b>' });
-// => '<b>Bold</b>'
+The sealed public surface (`src/index.ts`, guarded by a public-surface test -- ADR-0005).
+
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ----------- |
+| `template` | `(engine?: EngineName \| TemplateOptions, options?: TemplateOptions) => Middleware` | 1.0.0 | Stable | Middleware factory; attaches `ctx.render()` for the chosen engine. |
+| `render` | `(source: string, data?, options?) => string` | 1.0.0 | Stable | Render a template string synchronously with the built-in engine. |
+| `renderAsync` | `(source: string, data?, options?) => Promise<string>` | 1.0.0 | Stable | Render a template string asynchronously with the built-in engine (supports async helpers). |
+| `compile` | `(source: string, options?: CompileOptions) => CompiledTemplate` | 1.0.0 | Stable | Compile a template string into a reusable `CompiledTemplate`. |
+| `createEngine` | `(options?: EngineOptions) => TemplateEngine` | 1.0.0 | Stable | Create a standalone `TemplateEngine` (file loading, caching, layouts) without middleware. |
+| `createViewEngine` | `(options?: EngineOptions) => (filepath, data, callback) => void` | 1.0.0 | Stable | Express-compatible `app.engine(...)` view-engine function. |
+| `TemplateEngine` | class | 1.0.0 | Stable | File-based render engine with caching, layouts, helpers, and partials. |
+| `createAdapter` | `(engine?: EngineName, config?: AdapterConfig) => TemplateAdapter` | 1.0.0 | Stable | Create an adapter for a named engine (or a custom registered one). |
+| `createBuiltinAdapter` / `createEjsAdapter` / `createEtaAdapter` / `createHandlebarsAdapter` / `createNunjucksAdapter` / `createPugAdapter` | `(config?: AdapterConfig) => TemplateAdapter` | 1.0.0 | Stable | Per-engine adapter factories. |
+| `registerAdapter` | `(name: string, factory: AdapterFactory) => void` | 1.0.0 | Stable | Register a custom engine adapter under a new name. |
+| `hasAdapter` | `(engine: string) => boolean` | 1.0.0 | Stable | Whether an adapter is registered for the given engine name. |
+| `getAvailableEngines` | `() => string[]` | 1.0.0 | Stable | List all registered engine names. |
+| `parse` | `(source: string, options?: CompileOptions) => AST` | 1.0.0 | Stable | Parse template source into an AST (built-in syntax). |
+| `validate` | function | 1.0.0 | Stable | Validate template source without compiling. |
+| `TemplateParseError` | class | 1.0.0 | Stable | Thrown on a built-in-engine parse error; carries `line`/`column`/`code`. |
+| `VERSION` | `string` | 1.0.0 | Stable | Package version string. |
+| 50+ helper functions (`upper`, `lower`, `formatDate`, `eq`, `json`, `safe`, ...) | varies | 1.0.0 | Stable | Individually-exported built-in helpers; see [Capabilities](#capabilities). |
+| `builtinHelpers` | `Record<string, HelperFn \| ValueHelper>` | 1.0.0 | Stable | Map of every built-in helper, by name. |
+| `createHelperRegistry` | `() => Map<string, HelperFn \| ValueHelper>` | 1.0.0 | Stable | Fresh `Map` pre-populated with `builtinHelpers`. |
+| `type TemplateOptions` / `AdapterConfig` / `EngineOptions` / `RenderOptions` / `CompileOptions` / `CompiledTemplate` / `TemplateAdapter` / `EngineName` / `TemplateData` / `AST` / `ASTNode` / ... | -- | 1.0.0 | Stable | Public option, adapter, and AST type contracts. |
+
+## Options
+
+**`template(engine?, options?)`**
+
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------- | ----------- |
+| `engine` | `'builtin' \| 'ejs' \| 'handlebars' \| 'nunjucks' \| 'pug' \| 'eta'` | No | `'builtin'` | No | First positional argument; selects the rendering engine. |
+| `root` | `string` | No | `'./views'` | Yes | Directory templates are loaded from; every adapter validates the resolved path stays inside `root`. |
+| `ext` | `string` | No | per-engine (`.html` builtin, `.ejs`, `.hbs`, `.njk`, `.pug`, `.eta`) | No | Default file extension appended when a template name has none. |
+| `cache` | `boolean` | No | `process.env.NODE_ENV === 'production'` | No | Enables the in-memory compiled-template cache. |
+| `layout` | `string` | No | `undefined` | No | Default layout template every render is wrapped in. |
+| `helpers` | `Record<string, Function>` | No | `{}` | No | Custom helper functions merged with the built-ins (built-in engine) or registered with the underlying engine (adapters). |
+| `enableContextRender` | `boolean` | No | `true` | No | Whether `template()` attaches `ctx.render()` to the request. |
+
+**`createEngine(options?)` (`EngineOptions`, for the standalone `TemplateEngine`)**
+
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------- | ----------- |
+| `root` | `string` | No | `process.cwd()` | Yes | Root directory; template and partials-directory lookups reject a resolved path outside it. |
+| `ext` | `string` | No | `'.html'` | No | Default extension for template files without one. |
+| `cache` | `boolean` | No | `process.env.NODE_ENV === 'production'` | No | Enables the engine's compiled-template `Map` cache. |
+| `layout` | `string \| null` | No | `null` | No | Default layout wrapping every `render()` call. |
+| `partialsDir` | `string \| null` | No | `null` | No | Directory to auto-load partials from via `loadPartials()`. |
+| `helpers` | `Record<string, HelperFn \| ValueHelper>` | No | `{}` | No | Custom helpers merged with `builtinHelpers`. |
+| `partials` | `Record<string, string>` | No | `{}` | No | Inline partial sources registered at construction. |
+| `compile` | `CompileOptions` | No | see below | No | Compile-time options forwarded to `compile()`. |
+
+**`compile(source, options?)` (`CompileOptions`, built-in engine only)**
+
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------- | ----------- |
+| `escape` | `boolean` | No | `true` | Yes | HTML-escapes `{{variable}}` output; disabling it removes escaping for every interpolation in that compile. |
+| `strict` | `boolean` | No | `false` | No | Throws on a missing variable instead of rendering an empty string. |
+| `async` | `boolean` | No | `false` | No | Enables async-helper support during compilation (also settable per-render via `renderAsync`). |
+| `delimiters` | `[string, string]` | No | `['{{', '}}']` | No | Custom open/close delimiters for the built-in parser. |
+| `helpers` | `Record<string, HelperFn \| ValueHelper>` | No | `{}` | No | Compile-time helpers, merged under render-time helpers. |
+| `partials` | `Record<string, string \| CompiledTemplate>` | No | `{}` | No | Compile-time partials, merged under render-time partials. |
+
+## Compatibility
+
+**Requirements**
+
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | 3.x |
+| Node.js | >=22 |
+| TypeScript | >=5.x |
+
+**Runtimes**
+
+| Runtime | Supported | Notes |
+| ------- | :---: | ----- |
+| Node.js >=22 | Yes | ESM-only; the built-in engine's file loader and `TemplateEngine` use `node:fs/promises`/`node:path` directly |
+| Bun / Deno / Edge | Not claimed | This package targets Node's filesystem APIs with no adapter abstraction or conformance-suite coverage; the pure string-based `render()`/`renderAsync()`/`compile()` functions have no Node dependency, but file-based rendering (`ctx.render()`, `TemplateEngine`, adapter `renderFile()`) does |
+
+**Integration**
+- **Peer dependencies (all optional):** `@nextrush/core` (for the `Context`/`Middleware` type contracts) and, per chosen engine, `ejs@^3.0.0`, `eta@^3.0.0`, `handlebars@^4.0.0`, `nunjucks@^3.0.0`, `pug@^3.0.0` -- none are installed automatically; install only the one engine you use.
+- **Works with:** any NextRush middleware chain; register `template()` before route handlers that call `ctx.render()`.
+- **Incompatible with:** none directly.
+
+> [!IMPORTANT]
+> NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
+> can `require()` this ESM package natively. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+---
+
+## Troubleshooting
+
+<details>
+<summary><strong>"EJS is not installed. Please install it with: npm install ejs" (or the equivalent for another engine)</strong></summary>
+
+**Cause:** the chosen adapter (`ejs`, `handlebars`, `nunjucks`, `pug`, `eta`) lazily `import()`s
+its underlying package the first time it renders; that package is an optional peer dependency and
+is never installed for you. **Fix:** install the specific engine package the error names.
+
+```bash
+pnpm add ejs
 ```
 
-### Prototype Pollution Protection
+</details>
 
-Access to dangerous properties is blocked (based on CVE-2021-23369):
+<details>
+<summary><strong>Template edits aren't showing up after redeploy</strong></summary>
 
-```html
-{{__proto__}}              <!-- Returns empty -->
-{{constructor}}            <!-- Returns empty -->
-{{obj.__proto__.polluted}} <!-- Returns empty -->
-{{obj | get "constructor"}}<!-- Returns empty -->
+**Cause:** `cache` defaults to `true` whenever `process.env.NODE_ENV === 'production'` -- the
+compiled template stays in memory for the process lifetime once loaded. **Fix:** this is expected
+in production; restart the process after deploying new templates, or pass `cache: false`
+explicitly if templates must be re-read on every request (development-style behavior).
+
+```ts
+app.use(template({ root: './views', cache: false }));
 ```
 
-### Path Traversal Protection
+</details>
 
-Template file paths are validated to prevent reading arbitrary files:
+<details>
+<summary><strong>"Template path traversal detected" / "Path traversal detected" error</strong></summary>
 
-```typescript
-await ctx.render('../../../etc/passwd', {});
-// Throws: Path traversal detected: "../../../etc/passwd" contains ".." segments
+**Cause:** the resolved template or partials-directory path fell outside the configured `root` --
+either the template name contained a `..` segment, or (for `TemplateEngine`) the resolved absolute
+path didn't stay under `root`. **Fix:** this is by design; pass template names relative to `root`
+without `..` segments.
 
-await ctx.render('/etc/passwd', {});
-// Throws: Path traversal detected: "/etc/passwd" resolves outside the views directory
+</details>
+
+<details>
+<summary><strong>"Maximum template nesting depth (100) exceeded" / "Maximum layout nesting depth (10) exceeded"</strong></summary>
+
+**Cause:** a layout or partial ends up referencing itself (directly or through a chain), and the
+compiler's recursion guard (`MAX_RECURSION_DEPTH = 100` in `compiler.ts`) or the built-in file
+adapter's layout guard (`MAX_LAYOUT_DEPTH = 10` in `adapters/builtin.ts`) stopped it before it
+became an unbounded loop. **Fix:** check the named layout/partial for a circular reference.
+
+</details>
+
+## FAQ
+
+**Which template engines does this package actually support?**
+Six: the zero-dependency `builtin` engine (default), plus `ejs`, `handlebars`, `nunjucks`, `pug`,
+and `eta` -- each an adapter over that library's real `import()`, gated behind an optional peer
+dependency you install yourself (`packages/middleware/template/src/adapters/`).
+
+**Is HTML-escaping on by default?**
+Yes, for the built-in engine's `{{variable}}` syntax (`compile.escape: true` by default). Use
+`{{{variable}}}`, `{{& variable}}`, or the `safe` helper only for content you trust, since that
+output bypasses escaping entirely.
+
+**Why ESM-only?**
+See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+**Does it work on Bun / Deno / Edge?**
+Not claimed for file-based rendering (`ctx.render()`, `TemplateEngine`, any adapter's
+`renderFile()`), which use `node:fs`/`node:path` directly. The pure string functions --
+`render()`, `renderAsync()`, `compile()` -- have no Node-specific dependency themselves.
+
+---
+
+## Package relationships
+
+```text
+                         depends on            @nextrush/types  (Middleware/Context contract, types only)
+@nextrush/template ------------------->
+                         optional peer          @nextrush/core  (Context/Middleware types)
+                         optional peer (x5)      ejs / eta / handlebars / nunjucks / pug
+                         often used with         @nextrush/static  (serve compiled assets referenced by templates)
 ```
 
-### Recursion Protection
+- **Depends on:** [`@nextrush/types`](../../types) -- the `Middleware`/`Context` type contracts (types only, erased at build).
+- **Optional peer:** [`@nextrush/core`](../../core) -- satisfies the `Context`/`Middleware` shapes this package's types extend; not installed automatically.
+- **Optional peers (pick one or more):** `ejs`, `eta`, `handlebars`, `nunjucks`, `pug` -- installed only for the engine you choose.
+- **Often used with:** [`@nextrush/static`](../static) -- serve the CSS/JS/image assets a rendered template references.
+- **Alternative:** a client-side rendering framework (React, Vue, etc.) if the app doesn't need server-rendered HTML at all.
 
-Infinite partial and layout loops are prevented:
+## Architecture
 
-```typescript
-// If partial 'recursive' includes {{>recursive}}
-await ctx.render('page', {}, { partials: { recursive: '{{>recursive}}' } });
-// Throws: Maximum template nesting depth (100) exceeded
+Maintaining or contributing to this package? The internal design -- the adapter interface, the
+built-in engine's parse/compile/render pipeline, the caching and recursion-guard mechanics, the
+module layout, and the decisions and trade-offs behind them (with diagrams) -- is in
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
-// If layout A includes layout B which includes layout A
-await ctx.render('page', {}, { layout: 'A' });
-// Throws: Maximum layout nesting depth (10) exceeded
-```
+## Resources
 
-### Security Summary
+- Learn -- [Documentation](https://0xtanzim.github.io/nextRush/docs) . [Architecture](./ARCHITECTURE.md) . [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- Changelog -- [CHANGELOG.md](./CHANGELOG.md)
+- Report an issue -- [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- Contribute -- [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
 
-| Vulnerability              | Protection                                                  |
-| -------------------------- | ----------------------------------------------------------- |
-| XSS (Cross-Site Scripting) | HTML escaping enabled by default                            |
-| Prototype Pollution        | Blocked properties: `__proto__`, `constructor`, `prototype` |
-| Path Traversal             | Path validation, root directory enforcement                 |
-| DoS via Recursion          | Max nesting depth: 100 for partials, 10 for layouts         |
-| ReDoS                      | Safe regex patterns in parser                               |
+---
 
-## Performance
-
-The template engine is optimized for performance:
-
-- **Compiled Templates**: Templates are parsed once and reused
-- **Efficient Rendering**: Minimal allocations during rendering
-- **Caching**: Built-in template caching for file-based templates
-- **Benchmarks**: Handles 10,000+ items in under 500ms
-
-## Runtime Compatibility
-
-| Runtime                  | String Rendering | File Rendering         |
-| ------------------------ | ---------------- | ---------------------- |
-| Node.js 20+              | ✅ Full support  | ✅ Full support        |
-| Bun                      | ✅ Full support  | ✅ Full support        |
-| Deno                     | ✅ Full support  | ✅ With `--allow-read` |
-| Edge (Cloudflare/Vercel) | ✅ Full support  | ❌ No filesystem       |
-
-For edge runtimes without filesystem access, use string rendering:
-
-```typescript
-import { compile } from '@nextrush/template';
-
-// Pre-compile templates at build time
-const homeTemplate = compile(`
-  <h1>{{title}}</h1>
-  <p>Welcome, {{user.name}}!</p>
-`);
-
-// Render at runtime (no filesystem needed)
-export default {
-  async fetch(request) {
-    const html = homeTemplate.render({
-      title: 'Welcome',
-      user: { name: 'Edge User' },
-    });
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html' },
-    });
-  },
-};
-```
-
-## Error Handling
-
-```typescript
-import { compile, TemplateParseError } from '@nextrush/template';
-
-try {
-  compile('{{#if open}}content'); // Missing closing tag
-} catch (error) {
-  if (error instanceof TemplateParseError) {
-    console.log(error.message); // "Unclosed block: if"
-    console.log(error.line); // Line number
-    console.log(error.column); // Column number
-  }
-}
-```
-
-## TypeScript
-
-Full TypeScript support with type definitions:
-
-```typescript
-import type {
-  CompiledTemplate,
-  CompileOptions,
-  RenderOptions,
-  AST,
-  HelperFn,
-  ValueHelper,
-} from '@nextrush/template';
-
-// Custom helper type
-const myHelper: ValueHelper = (value, ...args) => {
-  return String(value).toUpperCase();
-};
-```
-
-## License
-
-MIT © NextRush Team
+MIT (c) [Tanzim Hossain](https://github.com/0xTanzim)

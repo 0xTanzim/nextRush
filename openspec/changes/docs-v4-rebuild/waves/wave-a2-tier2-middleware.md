@@ -70,6 +70,17 @@ state in the state diagram) — but the underlying code should be fixed in a fut
 - [ ] Diagrams precise/modern (EDS-012); README ASCII-only.
 - [ ] Terminology + no forbidden words.
 
-**Remaining batches (JIT briefs, not yet written):** multipart/static/template (files/rendering);
-logger/request-id/timer/health (observability); openapi (API&docs); events/websocket/stream
-(extensions/streaming). 11 of 19 packages remain.
+### Work items (batch 3 — COMPLETE)
+| Package | Source of truth | Notable facts | README | ARCH | Done |
+| ------- | --------------- | -------------- | :----: | :--: | :--: |
+| `multipart` | `packages/middleware/multipart/src` | collect-then-parse (buffers whole body, NOT true wire-streaming); DiskStorage path check is a bare `startsWith` (narrower than static's), Node-only | ✅ | ✅ | ✅ |
+| `static` | `packages/middleware/static/src` | two independent traversal layers (early reject + `root+sep` containment), weak ETag (FNV-1a), single-range only, Node-only | ✅ | ✅ | ✅ |
+| `template` | `packages/middleware/template/src` | **6 real engines** (builtin + ejs/handlebars/nunjucks/pug/eta, all lazy-loaded optional peers) — implementer found 2 more than the brief named; only builtin is integration-tested | ✅ | ✅ | ✅ |
+
+**Engineering findings logged (documentation is honest about them, not silently patched):**
+- `multipart`'s `DiskStorage` traversal check (`resolved.startsWith(this.dest)`) is a real, narrower sibling-directory-prefix risk vs `static`'s stricter `root+sep`/exact-equality check — documented as a contrast, with a suggested tighter check for a future code pass.
+- `template`'s only integration-tested engine is `builtin`; the 5 external adapters are "structurally-integrated, not integration-tested" (same overclaim risk pattern as batch-1's validation/Zod finding — caught proactively this time, not via heal loop).
+- File-size violations flagged honestly in the docs themselves (not hidden): `multipart/parser.ts` (520), `static/{index,utils}.ts` (313/348), `template/{compiler,helpers,parser}.ts` (845/809/651) all exceed the 300-line middleware cap — pre-existing code debt, out of scope for this docs wave, logged for a future refactor pass.
+
+**Remaining:** 8 of 19 A2 packages — logger/request-id/timer/health (observability); openapi (API&docs);
+events/websocket/stream (extensions/streaming).
