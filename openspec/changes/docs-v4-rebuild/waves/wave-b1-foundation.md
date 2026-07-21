@@ -1,7 +1,7 @@
 # Wave B1 — Docs-site foundation (`start/` + `concepts/`)
 
 - **Track:** B (docs-site MDX content)
-- **Status:** ✅ Landing + `<RuntimeSupport>` component DONE (validated 2026-07-21). **Remaining B1 work:** rest of `start/*` (installation/overview/create-nextrush — index+quick-start already done), `start/runtime/*` (5 new onboarding pages). **docs:verify total findings: steady at 22, all pre-existing/out-of-scope** (community/contributing.mdx, concepts/index.mdx compile errors; 2 heading-intent warnings). **Tooling gap found by the landing validator:** `docs:verify`'s compile-check `sampleSize=15` (alphabetical) silently excludes top-level `index.mdx`-style files from the official gate; forcing `sampleSize=200` surfaced ~2040 findings that look like a TS Language Service scaling artifact in the harness itself (not real regressions) — needs investigation at §12, not urgent now.
+- **Status:** ✅ Landing + `<RuntimeSupport>` ✅. `start/runtime/`: `node` ✅ `bun` ✅ (2/5 — heal loop caught 2 fabricated claims: an invented "Internal tier, may break" claim contradicting compatibility-matrix.mdx's real Stable/1.0.0 status, and a backwards maxRequestBodySize divergence claim — both are actually identical 1MB caps by deliberate design, not a difference). **Remaining B1 work:** `start/runtime/{deno,edge,serverless}`, rest of `start/*` (installation/overview/create-nextrush — index+quick-start already done). **docs:verify total findings: steady at 22, all pre-existing/out-of-scope.**
 - **Depends on:** **Wave B0 gate (frozen IA)** ✅ — unblocked. Independent of Track A.
 - **Gate:** `docs:verify` green + EDS-015 publish checklist per wave.
 - **tasks.md item:** §8
