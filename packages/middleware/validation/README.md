@@ -1,58 +1,104 @@
 # @nextrush/validation
 
-> Request validation for NextRush — bring your own schema library (Zod, Valibot, ArkType, or any Standard Schema).
+> Request validation for NextRush -- bring your own Standard Schema library (Zod, Valibot, ArkType) and get one consistent, secure error shape for the body, query, and route params.
 
-**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+[![npm version](https://img.shields.io/npm/v/@nextrush/validation.svg)](https://www.npmjs.com/package/@nextrush/validation)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/validation.svg)](https://www.npmjs.com/package/@nextrush/validation)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/validation.svg)](https://bundlephobia.com/package/@nextrush/validation)
+[![types](https://img.shields.io/npm/types/@nextrush/validation.svg)](https://www.npmjs.com/package/@nextrush/validation)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/validation.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-## The Problem
+|  |  |
+| --- | --- |
+| **Purpose** | Validate the request body, query, and route params against any Standard Schema (Zod, Valibot, ArkType) with one middleware call -- integration-tested against Zod |
+| **Package type** | Middleware |
+| **Status** | Stable |
+| **Included in `nextrush`?** | No -- standalone install. Not re-exported from `nextrush` or `nextrush/class`. |
+| **Support tier** | Public -- middleware/registrar (stable) -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Maintenance** | Active |
+| **Runtime** | Universal -- Node, Bun, Deno, Edge (zero `node:` imports) |
+| **Requires** | Node >=22, ESM-only, TypeScript >=5.x |
+| **Introduced** | v1.0.0 |
 
-Validating request input is something every API does, yet hand-rolled validation is where bugs and inconsistency creep in:
+## Highlights
 
-- **Every handler reinvents it.** Type checks, presence checks, and format checks are copy-pasted per route, each slightly different.
-- **Error shapes drift.** One route returns `{ error: 'bad email' }`, another `{ errors: [...] }` — clients can't rely on anything.
-- **`ctx.body` stays `unknown`.** Without a validation step, the handler works with untyped data and casts by hope.
-- **Locking into one library hurts.** A framework that ships its own validator forces its DSL on you, or an adapter per schema library.
+- Zero runtime dependencies (types-only dependencies on `@nextrush/types` and `@nextrush/errors`, erased at build) -- no schema library is bundled or required as a dependency
+- ESM-only, tree-shakable, side-effect-free (`sideEffects: false`)
+- Fully typed, strict TypeScript, zero `any`
+- Works with any [Standard Schema](https://standardschema.dev) library -- structurally compatible with Zod 3.24+, Valibot 1.0+, ArkType 2.0+ (any schema exposing the `~standard` contract) with no adapter; this package's own test suite integration-tests against Zod only -- see [Compatibility](#compatibility)
 
-NextRush ships the *glue*, not a validator. You bring the schema library you already use; NextRush validates against it and produces one consistent, secure error.
+<details>
+<summary><strong>Table of contents</strong></summary>
 
-## Mental Model
+[The problem](#the-problem) . [When to use](#when-to-use) . [Installation](#installation) . [Quick start](#quick-start) . [Capabilities](#capabilities) . [Mental model](#mental-model) . [Common tasks](#common-tasks) . [API overview](#api-overview) . [Options](#options) . [Compatibility](#compatibility) . [Troubleshooting](#troubleshooting) . [FAQ](#faq) . [Package relationships](#package-relationships) . [Architecture](#architecture) . [Resources](#resources)
 
-`validate()` sits between body-parsing and your handler. It runs your schema, and on success the coerced body **replaces** `ctx.body` — there is no second "validated" object to reach for.
+</details>
 
-```mermaid
-flowchart LR
-    A["Request"] --> B["body-parser<br/>(populates ctx.body)"]
-    B --> C["validate(User)"]
-    C -->|"valid"| D["ctx.body = coerced value"]
-    D --> E["handler"]
-    C -->|"invalid"| F["throw ValidationError"]
-    F --> G["errorHandler → 400"]
+---
+
+## The problem
+
+Every API validates request input, and every hand-rolled version tends to drift the same three ways: each route reinvents its own type/presence/format checks slightly differently, error shapes vary route to route so clients can't rely on a stable contract, and `ctx.body` stays `unknown` until someone casts it by hope rather than by proof.
+
+```ts
+// TODAY, without a validation layer -- each route writes its own checks, and its
+// own error shape, and ctx.body is still `unknown` after all of it:
+app.post('/users', async (ctx) => {
+  const body = ctx.body as { name?: string; email?: string }; // cast by hope
+  if (!body.name) {
+    ctx.status = 400;
+    ctx.json({ error: 'name is required' }); // this route's error shape
+    return;
+  }
+  if (!body.email || !body.email.includes('@')) {
+    ctx.status = 400;
+    ctx.json({ errors: ['bad email'] }); // a DIFFERENT error shape, one file over
+    return;
+  }
+  // ...
+});
 ```
 
-## Runtime Support
+`@nextrush/validation` doesn't add a schema DSL -- it adds the glue between a schema you already trust and the framework's existing error path, so every route's validation failure looks the same to a client.
 
-**Edge-safe.** Glue code around a Standard Schema validator — zero `node:` imports. Safe on Node,
-Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge (portability of the validator library
-you bring, e.g. Zod/Valibot/ArkType, depends on that library's own runtime support).
+## When to use
+
+**Use `@nextrush/validation` if:**
+
+- You already use (or want to use) Zod, Valibot, ArkType, or another Standard Schema library and want one consistent `400` shape across every route
+- You want the validated, coerced value to become `ctx.body` -- not a second "parsed" object to remember to read from
+- You need to validate the body, query, and route params together, with issues from all three aggregated into a single error
+
+**Reach for something else if:**
+
+- You need to parse the raw request stream into `ctx.body` first -- this package validates an already-parsed body; see [`@nextrush/body-parser`](../body-parser)
+- You want a framework-provided schema DSL instead of bringing your own library -- this package deliberately has none; your schema library is the DSL
+- You need response validation -- planned alongside `@nextrush/openapi`, not yet available
+
+---
 
 ## Installation
 
 ```bash
 pnpm add @nextrush/validation
+# npm i @nextrush/validation . yarn add @nextrush/validation . bun add @nextrush/validation
 ```
 
-Bring any Standard Schema library — for example Zod:
+Bring any Standard Schema library -- for example Zod:
 
 ```bash
 pnpm add zod
 ```
 
-## Golden Path
+> [!NOTE]
+> `@nextrush/validation` is not re-exported by the `nextrush` meta package -- install and import
+> it directly, as shown above.
 
-Pass a schema, get a middleware. On success, `ctx.body` **is** the validated, coerced value.
+## Quick start
 
-```typescript
-import { createApp } from '@nextrush/core';
+```ts
+import { createApp, listen } from 'nextrush';
 import { json } from '@nextrush/body-parser';
 import { validate } from '@nextrush/validation';
 import { z } from 'zod';
@@ -62,60 +108,85 @@ const app = createApp();
 const User = z.object({ name: z.string().min(1), email: z.string().email() });
 
 app.post('/users', json(), validate(User), (ctx) => {
-  const body = ctx.body; // validated + coerced
+  const body = ctx.body; // validated + coerced -- no cast needed
   ctx.status = 201;
   ctx.json(body);
 });
+
+listen(app, 8080);
 ```
 
-No accessor, no generic, no options bag. Invalid input never reaches the handler.
+On success, `ctx.body` **is** the validated, coerced value -- no accessor, no generic, no options bag. Invalid input never reaches the handler.
 
-## Works With Any Schema Library
+## Capabilities
 
-Your schema library **is** the validation DSL. Anything implementing [Standard Schema](https://standardschema.dev) works identically — no adapter, no config:
+**Schema interop**
+- Works with any [Standard Schema](https://standardschema.dev) library -- structurally compatible with Zod, Valibot, ArkType, and others -- with no adapter, because the interop is a structural TypeScript interface, not a NextRush-specific wrapper. This package's own test suite (unit + integration) exercises Zod; Valibot and ArkType interop follows from the shared `~standard` contract but is not separately exercised by this package's tests
+- Validates the body, query, and route params in one call: `validate({ body?, query?, params? })`
+- Body is overwritten in place with the coerced value; query and params are validated but intentionally left as their original string form
 
-```typescript
-// Zod
+**Security enforcement**
+- The offending input value is never carried into an error response -- Standard Schema issues don't expose it, and `ValidationError.toJSON()` strips `received` regardless
+- A schema that signals failure with an empty issues array still rejects the request -- failure is tracked with an explicit flag, never inferred from `issues.length`
+- Every target is checked before any mutation, so a later failure can never leave `ctx.body` half-updated
+
+**Developer experience**
+- Reuses the framework's existing `ValidationError` (from `@nextrush/errors`) -- no new error type, no custom formatter to learn
+- Fully typed, zero `any`; edge-safe (no `node:` imports anywhere in the package)
+- Issues from every validated target aggregate into a single `400`, path-prefixed by target (`body.email`, `query.sort`)
+
+## Mental model
+
+`validate()` sits between body-parsing and the route handler: it runs the schema you give it, and on success the coerced value **replaces** `ctx.body` -- there is no second "validated" object to reach for.
+
+```text
+request --> body-parser (populates ctx.body) --> validate(schema) --> handler
+                                                        |
+                                                        +-- invalid --> ValidationError --> errorHandler (400)
+```
+
+**Rule:** on success, `ctx.body` is overwritten with the coerced value; `ctx.query`/`ctx.params` are validated but never mutated, because they're typed as strings and a coerced non-string value would make TypeScript wrong about them.
+
+> [!TIP]
+> The full request lifecycle and the issue-aggregation sequence (with diagrams) are in
+> [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+---
+
+## Common tasks
+
+### Validate the request body
+
+```ts
+import { validate } from '@nextrush/validation';
 import { z } from 'zod';
-const User = z.object({ name: z.string(), email: z.string().email() });
 
-// Valibot
-import * as v from 'valibot';
-const User = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
+const User = z.object({ name: z.string().min(1), email: z.string().email() });
 
-// ArkType
-import { type } from 'arktype';
-const User = type({ name: 'string', email: 'string.email' });
+app.post('/users', json(), validate(User), (ctx) => {
+  ctx.json(ctx.body); // validated + coerced
+});
 ```
 
-All three drop into the same call unchanged:
+### Validate query parameters
 
-```typescript
-app.post('/users', validate(User), handler);
-```
-
-Zod (3.24+), Valibot (1.0+), and ArkType (2.0+) all expose the Standard Schema interface, so `validate()` never knows or cares which library produced the schema. Switch libraries later and your routes don't change.
-
-## Advanced — Params & Query
-
-Validate several parts of the request at once. A query-only case (a search endpoint):
-
-```typescript
+```ts
 const SearchQuery = z.object({ q: z.string().min(1), sort: z.enum(['asc', 'desc']) });
 
 app.get('/search', validate({ query: SearchQuery }), (ctx) => {
-  const { q, sort } = ctx.query; // rejected pre-handler if invalid
+  const { q, sort } = ctx.query; // rejected pre-handler if invalid; stays a string
   ctx.json({ q, sort });
 });
 ```
 
-All three targets together:
+### Validate body, params, and query together
 
-```typescript
-app.get('/users/:id',
+```ts
+app.get(
+  '/users/:id',
   validate({
-    body: UpdateUser,                                   // overwritten in place
-    params: z.object({ id: z.string().uuid() }),        // validated, left unmodified
+    body: UpdateUser, // overwritten in place
+    params: z.object({ id: z.string().uuid() }), // validated, left unmodified
     query: z.object({ sort: z.enum(['asc', 'desc']) }), // validated, left unmodified
   }),
   (ctx) => {
@@ -123,61 +194,13 @@ app.get('/users/:id',
     const { id } = ctx.params;
     const { sort } = ctx.query;
     ctx.json({ id, sort, body });
-  },
+  }
 );
 ```
 
-Issues from every target aggregate into a single `400`.
+### Handle a `ValidationError` explicitly
 
-## One Source of Truth
-
-| Target | On success | `ctx.*` after validation |
-| --- | --- | --- |
-| **body** | validate + coerce + **overwrite `ctx.body`** | the coerced value |
-| **params** | validate; leave unmodified | the original `string` values |
-| **query** | validate; leave unmodified | the original `string` / `string[]` values |
-
-**Why body overwrites and query/params don't:** `ctx.body` is typed `unknown`, so replacing it with the coerced object is honest — the type never disagrees with the runtime. `ctx.query`/`ctx.params` are declared as `string` maps; writing a coerced `number` back would make TypeScript report `string` while the runtime holds a `number` — a footgun. So query and params are **validated but intentionally left unmodified**: bad input is rejected, and what you read is exactly what the URL contained.
-
-```typescript
-// query is validated (rejects bad input) but stays a string — coerce explicitly:
-const page = Number(ctx.query.page);
-```
-
-## Middleware Order — `validate` Does Not Parse
-
-`validate()` validates the **already-parsed** `ctx.body`. It does not read or parse the request stream — parsing is body-parser's job. Place `validate()` **after** the body parser:
-
-```typescript
-app.post('/users',
-  json(),          // 1. parses the body → ctx.body
-  validate(User),  // 2. validates ctx.body, replaces it with the coerced value
-  handler,         // 3. reads the validated ctx.body
-);
-```
-
-If no body parser ran, `ctx.body` is `undefined` and the schema decides the outcome (a required object schema fails with a `400`). Query and params are populated by the router, so they need no parser.
-
-## Errors
-
-Every failure throws the framework's existing `ValidationError` (from `@nextrush/errors`) — no new error type, no custom formatter. It is already rendered by the framework's `errorHandler`, and its `toJSON()` strips raw input so passwords and tokens never leak. Issues aggregate across all validated targets, path-prefixed by target:
-
-```json
-{
-  "error": "ValidationError",
-  "message": "Validation failed",
-  "code": "VALIDATION_ERROR",
-  "status": 400,
-  "issues": [
-    { "path": "body.email", "message": "Invalid email address" },
-    { "path": "query.sort", "message": "Invalid enum value. Expected 'asc' | 'desc'" }
-  ]
-}
-```
-
-Catch it explicitly if you need to:
-
-```typescript
+```ts
 import { ValidationError } from '@nextrush/validation';
 
 app.use(async (ctx, next) => {
@@ -194,61 +217,176 @@ app.use(async (ctx, next) => {
 });
 ```
 
-## API Reference
+### Switch schema libraries without changing the route
 
-### `validate(schema)` / `validate(spec)`
+```ts
+// Any of these drop into the same call, unchanged:
+import { z } from 'zod';
+const ZodUser = z.object({ name: z.string(), email: z.string().email() });
 
-Create request-validation middleware.
+import * as v from 'valibot';
+const ValibotUser = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
 
-| Form | Validates |
-| --- | --- |
-| `validate(schema)` | the request body against `schema` |
-| `validate({ body?, query?, params? })` | each provided target against its schema |
+import { type } from 'arktype';
+const ArkTypeUser = type({ name: 'string', email: 'string.email' });
 
-**Behavior:**
+app.post('/users', validate(ZodUser), handler); // or ValibotUser / ArkTypeUser
+```
 
-- On success: overwrites `ctx.body` with the coerced value; leaves `ctx.query`/`ctx.params` unmodified; calls `next()`.
-- On failure: throws `ValidationError` aggregating every issue across every target (never calls `next()`).
-- Atomic: if any target fails, `ctx.body` is **not** overwritten.
-- A schema whose own `validate()` throws (not a validation failure) propagates unchanged — it is never swallowed into the 400.
+## API overview
 
-### `ValidationError`
+The sealed public surface (ADR-0005).
 
-Re-exported from `@nextrush/errors` for a single import site. See `@nextrush/errors` for its full API (`issues`, `hasErrorFor`, `toFlatObject`, `toJSON`, …).
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ----------- |
+| `validate` | `(arg: StandardSchemaV1 \| RequestSchemas) => Middleware` | 1.0.0 | Stable | Validates the body (schema form), or the body/query/params (map form). |
+| `ValidationError` | `class` (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | Thrown on any validation failure; carries aggregated `issues`, `status: 400`, `code: 'VALIDATION_ERROR'`. |
+| `type ValidationIssue` | -- (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | `{ path, message, rule?, expected?, received? }` -- the shape of one aggregated issue. |
 
-## Security
+## Options
 
-- **Raw input never leaks.** Standard Schema issues do not carry the offending value, and `ValidationError.toJSON()` strips `received` — invalid passwords or tokens never appear in the error response.
-- **No prototype pollution.** Issue paths are only ever joined into display strings (`body.__proto__.x` is a label, not an assignment); `validate` performs no object merging.
-- **Fail-closed.** A schema that signals failure — even with an empty issues array — rejects the request. Validation never silently passes.
-- **Validate before you trust.** Place `validate()` before any middleware or handler that acts on `ctx.body`.
+`validate()` takes exactly one argument -- either a schema (validates the body only) or a spec map (validates any combination of the three targets). There is no options object beyond this.
 
-## Runtime Compatibility
+| Argument form | Type | Required | Default | Security-sensitive | Description |
+| -------------- | ---- | -------- | ------- | ------------------- | ----------- |
+| `schema` | `StandardSchemaV1` | Yes (one of the two forms) | -- | No | Validates `ctx.body` against this schema; equivalent to `{ body: schema }`. |
+| `spec.body` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates and **overwrites** `ctx.body` with the coerced value. |
+| `spec.query` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates `ctx.query`; left unmodified (still a string map) on success. |
+| `spec.params` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates `ctx.params`; left unmodified (still a string map) on success. |
 
-Pure middleware with zero runtime dependencies — runs anywhere NextRush runs.
+### One source of truth
 
-| Runtime | Supported |
-| --- | --- |
-| Node.js 22+ | ✅ |
-| Bun 1.0+ | ✅ |
-| Deno 1.0+ | ✅ |
-| Cloudflare Workers / Vercel Edge | ✅ |
+| Target | On success | `ctx.*` after validation |
+| ------ | ----------- | -------------------------- |
+| **body** | validate + coerce + **overwrite `ctx.body`** | the coerced value |
+| **params** | validate; leave unmodified | the original `string` values |
+| **query** | validate; leave unmodified | the original `string` / `string[]` values |
 
-## Non-Goals
+**Why body overwrites and query/params don't:** `ctx.body` is typed `unknown`, so replacing it with the coerced object is honest -- the type never disagrees with the runtime. `ctx.query`/`ctx.params` are declared as `string` maps; writing a coerced `number` back would make TypeScript report `string` while the runtime holds a `number`. Query and params are validated but intentionally left unmodified: bad input is rejected, and what the handler reads is exactly what the URL contained.
 
-- **Coercing `ctx.query` / `ctx.params`** — validated but left unmodified (see [One Source of Truth](#one-source-of-truth)); typed coercion is a planned non-breaking upgrade.
-- **A schema DSL** — your schema library is the DSL.
-- **Body parsing** — that is `@nextrush/body-parser`'s job.
-- **Response validation** — planned alongside `@nextrush/openapi`.
-- **Decorator integration** (`@Body(schema)`) — planned once the middleware API is stable.
+```ts
+// query is validated (rejects bad input) but stays a string -- coerce explicitly:
+const page = Number(ctx.query.page);
+```
 
-## See Also
+## Compatibility
 
-- [Architecture](./ARCHITECTURE.md) — how `validate` runs a schema and maps issues
-- [`@nextrush/errors`](../../errors) — the `ValidationError` this package throws
-- [`@nextrush/body-parser`](../body-parser) — populates `ctx.body` before validation
-- [Standard Schema](https://standardschema.dev) — the interop spec
+**Requirements**
 
-## License
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | 3.x |
+| Node.js | >=22 |
+| TypeScript | >=5.x |
 
-MIT © [Tanzim Hossain](https://github.com/0xTanzim)
+**Runtimes**
+
+| Runtime | Supported | Notes |
+| ------- | --------- | ----- |
+| Node.js >=22 | Yes | ESM-only |
+| Bun / Deno / Edge | Yes / Yes / Yes | Zero `node:` imports -- portability of the schema library you bring (Zod/Valibot/ArkType) depends on that library's own runtime support |
+
+**Schema libraries**
+
+| Library | Compatibility basis | Exercised by this package's tests |
+| ------- | -------------------- | ---------------------------------- |
+| Zod 3.24+ | Standard Schema (`~standard`) | Yes -- `zod` is a devDependency; unit + integration tests run real Zod schemas |
+| Valibot 1.0+ | Standard Schema (`~standard`) | No -- not a dependency of this package, not exercised by its test suite |
+| ArkType 2.0+ | Standard Schema (`~standard`) | No -- not a dependency of this package, not exercised by its test suite |
+| Any other Standard Schema v1 implementation | Standard Schema (`~standard`) | No -- covered structurally (hand-written fake schemas in the unit tests), not library-by-library |
+
+**Integration**
+- **Peer dependencies:** none -- depends only on `@nextrush/types` (the `StandardSchemaV1` contract) and `@nextrush/errors` (`ValidationError`), both types/classes erased or bundled at build.
+- **Works with:** runs after `@nextrush/body-parser` -- `validate()` reads the already-parsed `ctx.body`, it does not read the request stream itself.
+- **Incompatible with:** none directly.
+
+> [!IMPORTANT]
+> NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
+> can `require()` this ESM package natively. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+---
+
+## Troubleshooting
+
+<details>
+<summary><strong>Validation runs but `ctx.body` is still `undefined`</strong></summary>
+
+**Cause:** `validate()` validates the **already-parsed** `ctx.body` -- it does not read or parse the request stream. If no body parser ran before it, `ctx.body` is `undefined` and the schema decides the outcome (a required object schema fails with a `400`). **Fix:** place a body parser before `validate()` in the middleware chain.
+
+```ts
+app.post('/users', json(), validate(User), handler); // json() must run first
+```
+
+</details>
+
+<details>
+<summary><strong>`ctx.query.page` is still a string after validating it as a number</strong></summary>
+
+**Cause:** query and params are validated but intentionally never overwritten (see [One source of truth](#one-source-of-truth)) -- `ctx.query`/`ctx.params` stay typed as string maps so TypeScript is never wrong about their runtime shape. **Fix:** coerce explicitly after validation confirms the value is well-formed.
+
+```ts
+const SearchQuery = z.object({ page: z.string().regex(/^\d+$/) });
+app.get('/search', validate({ query: SearchQuery }), (ctx) => {
+  const page = Number(ctx.query.page); // validated shape, explicit coercion
+});
+```
+
+</details>
+
+<details>
+<summary><strong>A schema's own `validate()` call throws, and the response isn't a clean `400`</strong></summary>
+
+**Cause:** this is by design -- a `ValidationError` from a failed schema check is caught and aggregated into the `400` response, but any **other** error a schema throws (a bug in the schema library, an unexpected exception) propagates unchanged rather than being folded into the validation-failure shape. **Fix:** treat a non-`ValidationError` thrown from inside `validate()` as a genuine bug in the schema or its dependencies, not a validation failure.
+
+</details>
+
+## FAQ
+
+**Can I use `@nextrush/validation` without a specific schema library preinstalled?**
+No -- you must add a Standard Schema library (Zod, Valibot, ArkType, or another) as a dependency yourself; `@nextrush/validation` provides the glue, not the schema DSL. It depends only on `@nextrush/types` and `@nextrush/errors` at the type/class level.
+
+**Is Valibot/ArkType support actually tested, or only structurally compatible?**
+This package's own test suite integration-tests against Zod only (`zod` is a devDependency here). Valibot and ArkType are expected to work because they implement the same `~standard` contract Zod does -- structural, not case-by-case -- but this package does not itself run Valibot/ArkType through its test suite. If you hit an interop gap with either, it's worth a bug report either way.
+
+**Why ESM-only?**
+See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+**Does it work on Bun / Deno / Edge?**
+Yes. The package has zero `node:` imports -- it only calls the schema's `~standard.validate()` method and maps the result; portability beyond that depends on the schema library you bring.
+
+**Why doesn't `validate()` coerce `ctx.query`/`ctx.params` the way it coerces `ctx.body`?**
+Because `ctx.query`/`ctx.params` are declared as string maps in the `Context` type. Overwriting them with a coerced non-string value (a `number`, a `boolean`) would make TypeScript's declared type disagree with the runtime value -- a footgun this package avoids by validating without mutating. Typed coercion for query/params is a planned, non-breaking upgrade (see [Non-Goals](#one-source-of-truth)).
+
+---
+
+## Package relationships
+
+```text
+                     depends on            @nextrush/types  (StandardSchemaV1 contract, types only)
+@nextrush/validation --------------->      @nextrush/errors  (ValidationError, re-exported)
+                     often used with       @nextrush/body-parser  (populates ctx.body before validation)
+                     usually used next     @nextrush/openapi  (route metadata this middleware contributes)
+```
+
+- **Depends on:** [`@nextrush/types`](../../types) -- the `StandardSchemaV1`/`InferOutput` contract (types only, erased at build); [`@nextrush/errors`](../../errors) -- the `ValidationError` class this package throws and re-exports.
+- **Often used with:** [`@nextrush/body-parser`](../body-parser) -- populates `ctx.body` before `validate()` runs.
+- **Usually used next:** [`@nextrush/openapi`](../openapi) -- reads the request-schema metadata `validate()` attaches to the route for spec generation.
+- **Alternative:** none for schema-based request validation -- hand-rolled per-route checks are the alternative this package exists to replace.
+
+## Architecture
+
+Maintaining or contributing to this package? The internal design -- the validation runner, the
+issue-mapping pipeline, and the decisions and trade-offs behind them (with diagrams) -- is in
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+## Resources
+
+- Learn -- [Documentation](https://0xtanzim.github.io/nextRush/docs) . [Architecture](./ARCHITECTURE.md) . [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- Changelog -- [CHANGELOG.md](./CHANGELOG.md)
+- Report an issue -- [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- Contribute -- [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
+
+---
+
+MIT (c) [Tanzim Hossain](https://github.com/0xTanzim)

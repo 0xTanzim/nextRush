@@ -1,0 +1,53 @@
+# Wave A2 — Tier-2 middleware/extension/stream packages (19)
+
+- **Track:** A (package docs)
+- **Status:** batch 1 COMPLETE — cors, helmet, body-parser, validation all done + independently validated, 2026-07-21. **Path correction:** middleware packages live under `packages/middleware/<name>/`, not `packages/<name>/` — brief corrected. **Recovered from 2 transient connection timeouts mid-batch** (infra, not logic — per §11, work already on disk was verified rather than blindly redone). **Real finding caught by the loop:** `validation`'s docs originally overclaimed equal Zod/Valibot/ArkType support; only Zod is an actual dependency/tested — fixed to distinguish "structurally compatible" (any Standard Schema v1 impl) from "integration-tested" (Zod only). cors' production-wildcard-safety claim independently confirmed genuinely enforced in `presets.ts`/`security.ts` (not just asserted).
+
+### Work items (batch 1 — COMPLETE)
+| Package | Source of truth | Notable facts | README | ARCH | Done |
+| ------- | --------------- | -------------- | :----: | :--: | :--: |
+| `cors` | `packages/middleware/cors/src` | wildcard+credentials rejection genuinely enforced (presets.ts) | ✅ | ✅ | ✅ |
+| `helmet` | `packages/middleware/helmet/src` | CSP/HSTS/etc headers verified against constants.ts | ✅ | ✅ | ✅ |
+| `body-parser` | `packages/middleware/body-parser/src` | 3-stage size-limit enforcement, prototype-pollution guard | ✅ | ✅ | ✅ |
+| `validation` | `packages/middleware/validation/src` | Zod-only tested; Valibot/ArkType structurally compatible, not tested | ✅ | ✅ | ✅ |
+- **Depends on:** task 0.6 (frozen templates) ✅ · Wave A1 ✅ — unblocked
+- **Gate:** Validator per-package (independent context)
+- **tasks.md item:** §4
+
+### Objective (measurable)
+All 19 Tier-2 packages have a `README.md` + `ARCHITECTURE.md` from the frozen templates, Tier-2 depth
+(problem → default behavior → install → usage → options → integration → troubleshooting), source-verified.
+
+### Scope
+- **In scope:** `packages/middleware/{cors,helmet,csrf,body-parser,multipart,rate-limit,compression,
+  cookies,validation,logger,static,template,openapi,request-id,timer,health}/`, `packages/extensions/
+  {events,websocket}/`, `packages/stream/` (`README.md` + `ARCHITECTURE.md` each — create if missing,
+  re-align to frozen template if present). **Note:** middleware packages live under `packages/middleware/`,
+  not `packages/<name>/` directly — verify the real path before dispatching (this brief's first draft
+  had it wrong; corrected 2026-07-21).
+- **Forbidden:** Tier-1/3 packages, docs-site MDX, `src/` code.
+
+### Templates & standards
+Same as A1: `docs/templates/package-{readme,architecture}.template.md`; Tier-2 depth per
+`documentation.instructions.md`. **Diagrams (EDS-012):** sequence for request-touching middleware
+(before/after `ctx.next()`), state for anything with a lifecycle (rate-limit windows, csrf token
+lifecycle), block-beta for package position — NOT basic flowcharts. README ASCII-only.
+
+### Work items (batch 1 of ~5)
+
+**Remaining batches (JIT briefs, not yet written):** csrf/rate-limit/cookies/compression (security+data);
+multipart/static/template (files/rendering); logger/request-id/timer/health (observability);
+openapi (API&docs); events/websocket/stream (extensions/streaming).
+
+### Mandatory context
+- Skill router + EDS-010/012/013, both package templates.
+- Exemplar bar: `packages/errors/{README,ARCHITECTURE}.md` (Tier-1, but same structural rigor).
+- Security boundaries (project-rules.instructions.md §4) apply directly to cors/helmet/csrf docs —
+  verify defaults match (no wildcard CORS in prod, etc.) rather than asserting from memory.
+
+### Done-condition & Validator checklist
+- [ ] Both files exist per package, frozen sections present, no placeholders.
+- [ ] Every option/default/behavior claim re-derived from `src/` — zero fabricated claims (A1/B1
+  found 5 real fabrications via the heal loop — same scrutiny applies here).
+- [ ] Diagrams precise/modern (EDS-012); README ASCII-only.
+- [ ] Terminology + no forbidden words.
