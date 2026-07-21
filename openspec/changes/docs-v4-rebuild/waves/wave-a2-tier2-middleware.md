@@ -33,11 +33,29 @@ Same as A1: `docs/templates/package-{readme,architecture}.template.md`; Tier-2 d
 (before/after `ctx.next()`), state for anything with a lifecycle (rate-limit windows, csrf token
 lifecycle), block-beta for package position — NOT basic flowcharts. README ASCII-only.
 
-### Work items (batch 1 of ~5)
+### Work items (batch 2 — COMPLETE)
+| Package | Source of truth | Notable facts | README | ARCH | Done |
+| ------- | --------------- | -------------- | :----: | :--: | :--: |
+| `csrf` | `packages/middleware/csrf/src` | encoded-token pattern (`len!sessionId!len!randomHex`), not a generic double-submit-cookie | ✅ | ✅ | ✅ |
+| `rate-limit` | `packages/middleware/rate-limit/src` | 3 real algorithms (token-bucket default, sliding-window, fixed-window); pluggable store, in-memory only bundled | ✅ | ✅ | ✅ |
+| `cookies` | `packages/middleware/cookies/src` | HMAC-SHA256 signing (integrity only, NOT encryption); async signed-cookie set, sync delete | ✅ | ✅ | ✅ |
+| `compression` | `packages/middleware/compression/src` | 3 real algorithms (gzip/deflate/br); **real bug found**: Brotli capability flag hardcoded true on Bun with no actual probe, silently fails-safe via degrade path | ✅ | ✅ | ✅ |
 
-**Remaining batches (JIT briefs, not yet written):** csrf/rate-limit/cookies/compression (security+data);
-multipart/static/template (files/rendering); logger/request-id/timer/health (observability);
-openapi (API&docs); events/websocket/stream (extensions/streaming).
+**Heal loop caught real defects in 3 of 4 packages:** cookies (2 rounds of LOC/file-count fabrication,
+fixed via `wc -l` measurement); compression (a genuine undocumented Bun/Brotli capability-detection
+bug — logged as an engineering finding, not just a doc fix); rate-limit (header-semantics mismatch:
+`RateLimit-Reset`=delta-seconds vs `X-RateLimit-Reset`=absolute-timestamp, different units; one missing
+proxy-header entry). csrf and rate-limit's algorithm/pattern claims were independently confirmed correct
+on first pass.
+
+**Engineering finding for maintainer follow-up (NOT a docs issue — a real code bug):** `packages/
+middleware/compression/src/compressor.ts`'s `detectCapabilities()` hardcodes `hasBrotli: true`
+unconditionally for Bun (`process.versions.bun` check) with no actual `CompressionStream` feature
+probe, and never sets `hasNodeZlib: true` on Bun either — so a negotiated `'br'` encoding on Bun always
+hits an unreachable implementation branch and throws. The middleware's degrade-to-uncompressed path
+catches it, so it fails safe, but the capability flag itself is wrong and silently defeats Brotli on
+Bun. Documented honestly in both docs (Compatibility table, Troubleshooting, a new `NoImplementation`
+state in the state diagram) — but the underlying code should be fixed in a future engineering pass.
 
 ### Mandatory context
 - Skill router + EDS-010/012/013, both package templates.
@@ -51,3 +69,7 @@ openapi (API&docs); events/websocket/stream (extensions/streaming).
   found 5 real fabrications via the heal loop — same scrutiny applies here).
 - [ ] Diagrams precise/modern (EDS-012); README ASCII-only.
 - [ ] Terminology + no forbidden words.
+
+**Remaining batches (JIT briefs, not yet written):** multipart/static/template (files/rendering);
+logger/request-id/timer/health (observability); openapi (API&docs); events/websocket/stream
+(extensions/streaming). 11 of 19 packages remain.

@@ -32,7 +32,7 @@ wave starts) — not all up front — so they don't go stale as earlier waves re
 | Tooling: advanced-diagram render + ZenUML | Tooling | *(jit)* | §2.5 | — | ⬜ open |
 | **B0 — IA & rebrand design** | B | `wave-b0-ia.md` + `wave-b0-final-review.md` | §7 | §1 | ✅ **done / frozen** |
 | **A1 — Tier-1 core (6 pkgs)** | A | `waves/wave-a1-tier1-core.md` | §3 | §0.6, §1.3 | ✅ done (6/6 validated) |
-| A2 — Tier-2 middleware/ext/stream (19) | A | `waves/wave-a2-tier2-middleware.md` | §4 | §0.6 | 🟡 in-progress (4/19: cors·helmet·body-parser·validation ✅) |
+| A2 — Tier-2 middleware/ext/stream (19) | A | `waves/wave-a2-tier2-middleware.md` | §4 | §0.6 | 🟡 in-progress (8/19: cors·helmet·body-parser·validation·csrf·rate-limit·cookies·compression ✅) |
 | A3 — Tier-3 adapters/tooling (8) | A | *(jit)* | §5 | §0.6 | ⬜ open |
 | Meta `nextrush` README | A | *(jit)* | §6 | A1–A3 | ⬜ open |
 | **B1 — start/ + concepts/** | B | `waves/wave-b1-foundation.md` | §8 | B0 | ✅ done (all pages validated) |

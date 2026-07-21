@@ -1,465 +1,379 @@
 # @nextrush/cookies
 
-> Secure, RFC 6265-compliant cookie middleware with HMAC signing, CRLF injection protection, and key rotation support.
+> Cookie parsing, serialization, and HMAC-SHA256 signing for NextRush -- RFC 6265 compliant, with built-in header-injection and prefix-rule enforcement.
 
-**Support tier:** Public — middleware/registrar (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+[![npm version](https://img.shields.io/npm/v/@nextrush/cookies.svg)](https://www.npmjs.com/package/@nextrush/cookies)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/cookies.svg)](https://www.npmjs.com/package/@nextrush/cookies)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/cookies.svg)](https://bundlephobia.com/package/@nextrush/cookies)
+[![types](https://img.shields.io/npm/types/@nextrush/cookies.svg)](https://www.npmjs.com/package/@nextrush/cookies)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/cookies.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-## The Problem
+|  |  |
+| --- | --- |
+| **Purpose** | Parse, set, delete, and HMAC-sign cookies through a `ctx.state.cookies` / `ctx.state.signedCookies` API |
+| **Package type** | Middleware |
+| **Status** | Stable |
+| **Included in `nextrush`?** | No -- standalone install. Not re-exported from `nextrush` or `nextrush/class`. |
+| **Support tier** | Public -- middleware/registrar (stable) -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Maintenance** | Active |
+| **Runtime** | Universal -- Node, Bun, Deno, Edge (Web Crypto API only, zero `node:` imports) |
+| **Requires** | Node >=22, ESM-only, TypeScript >=5.x |
+| **Introduced** | v1.0.0 |
 
-Cookies seem simple until they aren't. Session hijacking, CRLF injection, cross-site request forgery—these attacks exploit frameworks that treat cookies as plain strings. Most cookie libraries either:
+## Highlights
 
-1. **Provide no security** — leaving developers to manually handle encoding, validation, and signing
-2. **Hide too much** — auto-signing everything with no way to understand or customize
-3. **Lack key rotation** — forcing service downtime when you need to rotate secrets
+- Zero runtime dependencies (a types-only dependency on `@nextrush/types`, erased at build)
+- ESM-only, tree-shakable, side-effect-free (`sideEffects: false`)
+- Fully typed, strict TypeScript, zero `any`
+- RFC 6265 name/value validation plus `__Secure-`/`__Host-` prefix rule enforcement, CRLF header-injection stripping, and a curated public-suffix-domain guard -- hardened parsing, not bare string splitting
 
-You need cookies that are secure by default, transparent in behavior, and flexible when requirements change.
+<details>
+<summary><strong>Table of contents</strong></summary>
 
-## What NextRush Does Differently
+[The problem](#the-problem) . [When to use](#when-to-use) . [Installation](#installation) . [Quick start](#quick-start) . [Capabilities](#capabilities) . [Mental model](#mental-model) . [Common tasks](#common-tasks) . [API overview](#api-overview) . [Options](#options) . [Compatibility](#compatibility) . [Troubleshooting](#troubleshooting) . [FAQ](#faq) . [Package relationships](#package-relationships) . [Architecture](#architecture) . [Resources](#resources)
 
-`@nextrush/cookies` provides production-grade cookie handling:
+</details>
 
-- **Security-first defaults** — HttpOnly, SameSite=Lax, Path=/ applied automatically
-- **CRLF injection prevention** — Sanitizes values before serialization
-- **Cookie prefix validation** — Enforces `__Secure-` and `__Host-` requirements per spec
-- **HMAC-SHA256 signing** — Web Crypto API for runtime compatibility (Node.js, Bun, Edge)
-- **Key rotation** — Verify with current key, fall back to previous keys during rotation
-- **Explicit API** — No hidden magic, every behavior documented
+---
 
-## Runtime Support
+## The problem
 
-**Edge-safe.** HMAC signing uses `crypto.subtle` (Web Crypto API) — zero `node:` imports. Safe on
-Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+The `Cookie` request header and the `Set-Cookie` response header look trivial to handle by hand -- split on `;`, split on `=`, done. In practice, a hand-rolled version misses the rules that keep cookies from becoming a security liability: a value containing `\r\n` can inject an extra header into your response; a `__Host-` prefixed name has three attribute constraints (`Secure`, no `Domain`, `Path=/`) that must all hold together or the browser silently refuses the cookie; and a value the client tampered with looks exactly like a value the client didn't.
+
+```ts
+// TODAY, without this package -- looks fine, has real gaps:
+function setCookie(res, name, value) {
+  res.setHeader('Set-Cookie', `${name}=${value}`);
+  // No CRLF check -- a value like "x\r\nSet-Cookie: evil=1" injects a header.
+  // No prefix validation -- "__Host-session" silently fails in the browser
+  // if Secure/Domain/Path aren't exactly right, and nothing here catches it.
+  // No signature -- if this is session data, the client can edit it freely.
+}
+```
+
+## When to use
+
+**Use `@nextrush/cookies` if:**
+
+- You need to read, set, or delete cookies through a safe API instead of hand-building `Set-Cookie` strings
+- You want tamper-detection on cookie values (session flags, user preferences) without building a full session store
+- You need `__Secure-`/`__Host-` prefixed cookies and want their attribute constraints enforced automatically rather than discovered in the browser
+
+**Reach for something else if:**
+
+- You need CSRF protection specifically -- the double-submit cookie pattern with token validation is [`@nextrush/csrf`](../csrf), which handles its own cookie internally
+- You need encrypted (confidential) cookie contents -- signing proves a value was not tampered with, it does not hide the value from the client; see [FAQ](#faq)
+- You need full session storage (server-side session data keyed by a session ID) -- this package only signs/verifies a value the client holds, it does not persist anything server-side
+
+---
 
 ## Installation
 
 ```bash
 pnpm add @nextrush/cookies
+# npm i @nextrush/cookies . yarn add @nextrush/cookies . bun add @nextrush/cookies
 ```
 
-## Quick Start
+> [!NOTE]
+> `@nextrush/cookies` is not re-exported by the `nextrush` meta package -- install and import it
+> directly, as shown above.
 
-```typescript
-import { createApp } from '@nextrush/core';
+## Quick start
+
+```ts
+import { createApp, listen } from 'nextrush';
 import { cookies } from '@nextrush/cookies';
 
 const app = createApp();
 
 app.use(cookies());
 
-app.get('/profile', async (ctx) => {
+app.get('/login', (ctx) => {
+  ctx.state.cookies.set('session', 'user-session-id', {
+    httpOnly: true,
+    secure: true,
+    maxAge: 86400, // 1 day
+  });
+  ctx.json({ success: true });
+});
+
+app.get('/profile', (ctx) => {
   const session = ctx.state.cookies.get('session');
   ctx.json({ session });
 });
 
-app.post('/login', async (ctx) => {
-  ctx.state.cookies.set('session', 'user-123', {
-    httpOnly: true,
-    secure: true,
-    maxAge: 86400, // 1 day in seconds
-  });
-  ctx.json({ success: true });
+listen(app, 8080);
+```
+
+`cookies()` parses the incoming `Cookie` header once per request and attaches `get`/`set`/`delete`/`all`/`has` on `ctx.state.cookies`. `set()`/`delete()` write the `Set-Cookie` header immediately, in the same call -- there is nothing to flush later.
+
+## Capabilities
+
+**Parsing**
+- RFC 6265-shaped parsing of the `Cookie` header -- first occurrence of a duplicate name wins, matching the spec
+- A repeated `Cookie` header (some proxies/HTTP-2 stacks surface it as an array) is joined with `; ` before parsing
+- Caps parsing at 50 cookies per request (`maxCookies`) as a defense against an oversized header
+- Values are URL-decoded and stripped of CRLF/control characters by default; a failed `decodeURIComponent` falls back to the raw value rather than throwing
+
+**Serialization & validation**
+- `serializeCookie()` builds the `Set-Cookie` string and enforces, at call time: valid RFC 6265 name characters, `__Secure-`/`__Host-` prefix attribute rules, non-public-suffix domains, `SameSite=None` paired with `Secure`, and a 4096-byte total size cap
+- `createDeleteCookie()` expires a cookie by setting `Max-Age=0` and `Expires` to the epoch, while preserving the same prefix constraints the original cookie required
+- `createSecurePrefixCookie()` / `createHostPrefixCookie()` add the `__Secure-`/`__Host-` prefix and force the attributes each prefix requires
+
+**Signing (integrity, not encryption)**
+- `signCookie()` / `unsignCookie()` sign and verify a value with HMAC-SHA256 via the Web Crypto API (`crypto.subtle`) -- the signed format is `value.signature`, base64url-encoded
+- `unsignCookieWithRotation()` tries the current secret first, then each `previousSecrets` entry in order, so an old signing key can still verify cookies issued before a rotation
+- Signing proves the value was not modified since it was signed; it does not hide the value -- a signed cookie's contents remain readable by anyone with cookie access
+
+**Developer experience**
+- Zero runtime dependencies beyond `@nextrush/types`
+- `secureOptions()` / `sessionOptions()` helper presets for common attribute combinations
+- Fully typed, zero `any`; edge-safe (no `node:` imports anywhere in the package)
+
+## Mental model
+
+`cookies()` and `signedCookies()` are two separate middleware, not one with a flag -- `cookies()` gives you a plain read/write API, `signedCookies()` gives you the same shape but every `set()` signs and every `get()` verifies. Both write `Set-Cookie` the instant `set()`/`delete()` is called, because NextRush's response commits as soon as a handler sends a body -- there is no later "flush cookies" step to depend on.
+
+```text
+request --> cookies() --> parseCookies(header) --> ctx.state.cookies.{get,set,delete,all,has}
+                                                          |
+                                                          +-- set()/delete() --> ctx.set('Set-Cookie', ...) immediately
+
+request --> signedCookies({ secret }) --> ctx.state.signedCookies.{get,set,delete}
+                                                |
+                                                +-- get() --> unsignCookieWithRotation() --> value or undefined (tampered/missing)
+```
+
+**Rule:** a signed cookie's `get()` returns `undefined` for both "cookie not present" and "signature invalid" -- the same as `unsignCookie()`'s own contract -- so calling code cannot distinguish tampering from absence, by design.
+
+> [!TIP]
+> The full signing sequence and the middleware's parse/set/get lifecycle (with diagrams) are in
+> [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+---
+
+## Common tasks
+
+### Read, set, and delete a plain cookie
+
+```ts
+import { cookies } from '@nextrush/cookies';
+
+app.use(cookies());
+
+app.get('/theme', (ctx) => {
+  ctx.state.cookies.set('theme', 'dark', { maxAge: 86400 });
+  ctx.json({ ok: true });
 });
 
-app.post('/logout', async (ctx) => {
+app.get('/logout', (ctx) => {
   ctx.state.cookies.delete('session');
-  ctx.json({ success: true });
+  ctx.json({ ok: true });
 });
 ```
 
-## Mental Model
+### Sign and verify a tamper-sensitive cookie
 
-Think of this middleware as a **cookie vault**:
-
-1. **Parsing**: When a request arrives, cookies are parsed from the `Cookie` header and sanitized
-2. **Reading**: `ctx.state.cookies.get()` retrieves parsed values
-3. **Writing**: `ctx.state.cookies.set()` queues cookies for the response
-4. **Serialization**: After your handler runs, queued cookies are serialized to `Set-Cookie` headers
-
-Signed cookies add a **tamper-detection layer**:
-
-```
-Original: session=abc123
-Signed:   session=abc123.HmacSignature
-```
-
-If someone modifies `abc123`, the signature won't match, and `get()` returns `undefined`.
-
-## Default Behavior
-
-With zero configuration, `cookies()` applies these defaults to every cookie you set:
-
-- `httpOnly: true` — blocks JavaScript access via `document.cookie`
-- `sameSite: 'lax'` — prevents CSRF on cross-origin POST requests
-- `path: '/'` — scopes the cookie to the entire domain
-
-Values are URL-decoded and sanitized (CRLF characters stripped) during parsing.
-
-## Signed Cookies
-
-For tamper-proof cookies, use the signed cookies middleware:
-
-```typescript
+```ts
 import { signedCookies } from '@nextrush/cookies';
 
-app.use(
-  signedCookies({
-    secret: process.env.COOKIE_SECRET!,
-  })
-);
+app.use(signedCookies({ secret: process.env.COOKIE_SECRET! }));
 
-app.post('/auth', async (ctx) => {
-  await ctx.state.signedCookies.set('userId', 'user-456', {
-    httpOnly: true,
-    secure: true,
-  });
-  ctx.json({ success: true });
+app.get('/set-role', async (ctx) => {
+  await ctx.state.signedCookies.set('role', 'admin', { httpOnly: true });
+  ctx.json({ ok: true });
 });
 
-app.get('/profile', async (ctx) => {
-  const userId = await ctx.state.signedCookies.get('userId');
-  if (!userId) {
+app.get('/check-role', async (ctx) => {
+  const role = await ctx.state.signedCookies.get('role');
+  if (role === undefined) {
+    // Missing, or the client edited the value -- both look identical here.
     ctx.status = 401;
-    return ctx.json({ error: 'Invalid session' });
+    return ctx.json({ error: 'invalid or missing role cookie' });
   }
-  ctx.json({ userId });
+  ctx.json({ role });
 });
 ```
 
-### Key Rotation
+### Rotate a signing secret without invalidating existing cookies
 
-When rotating secrets, provide previous keys to maintain session continuity:
-
-```typescript
-app.use(
-  signedCookies({
-    secret: process.env.COOKIE_SECRET_NEW!,
-    previousSecrets: [process.env.COOKIE_SECRET_OLD!],
-  })
-);
+```ts
+app.use(signedCookies({
+  secret: process.env.COOKIE_SECRET_NEW!,
+  previousSecrets: [process.env.COOKIE_SECRET_OLD!],
+}));
 ```
 
-During rotation:
+Cookies signed under the old secret still verify (fallback order: current, then each `previousSecrets` entry) until they naturally expire; new cookies are always signed with the current secret only.
 
-1. New cookies are signed with `secret`
-2. Verification tries `secret` first, then `previousSecrets` in order
-3. Old sessions remain valid until they naturally expire
+### Use a `__Host-` prefixed cookie for the strongest scoping
 
-## Security Features
+```ts
+import { createHostPrefixCookie } from '@nextrush/cookies';
 
-### CRLF Injection Prevention
-
-Cookie values are automatically sanitized:
-
-```typescript
-// Attacker tries: "value\r\nSet-Cookie: evil=payload"
-// Result: "valueSet-Cookie: evil=payload" (CRLF removed)
-ctx.state.cookies.set('safe', 'value\r\nSet-Cookie: evil=payload');
+const header = createHostPrefixCookie('session', 'abc123', { httpOnly: true });
+// '__Host-session=abc123; Secure; Path=/; HttpOnly'
 ```
 
-> CRLF sequences and control characters are stripped **silently** (the value is
-> mutated, not rejected). Don't store raw binary or control bytes in a cookie
-> value — base64/URL-encode it first.
+### Apply secure defaults without repeating attributes
 
-### Cookie Prefix Enforcement
+```ts
+import { secureOptions } from '@nextrush/cookies';
 
-The `__Secure-` and `__Host-` prefixes have strict requirements:
-
-```typescript
-import { serializeCookie } from '@nextrush/cookies';
-
-// Valid: __Secure- requires secure=true
-serializeCookie('__Secure-token', 'value', { secure: true });
-
-// Valid: __Host- requires secure=true, path='/', no domain
-serializeCookie('__Host-session', 'value', { secure: true, path: '/' });
-
-// Throws SecurityError: __Secure- without secure flag
-serializeCookie('__Secure-token', 'value', { secure: false });
-
-// Throws SecurityError: __Host- with domain
-serializeCookie('__Host-session', 'value', { secure: true, domain: 'example.com' });
-```
-
-### Public Suffix Blocking
-
-Prevents setting cookies on TLDs:
-
-```typescript
-// Throws SecurityError: Cannot set cookie on public suffix
-serializeCookie('session', 'value', { domain: '.com' });
-serializeCookie('session', 'value', { domain: '.co.uk' });
-```
-
-### Size Limits
-
-Cookies exceeding 4KB are rejected:
-
-```typescript
-// Throws RangeError: Cookie exceeds maximum size
-serializeCookie('huge', 'x'.repeat(5000));
-```
-
-## API Reference
-
-### Middleware
-
-#### `cookies(options?)`
-
-Creates cookie middleware that adds `ctx.state.cookies`.
-
-```typescript
-function cookies(options?: CookieMiddlewareOptions): Middleware;
-```
-
-**Options:**
-
-| Option   | Type                        | Default              | Description                              |
-| -------- | --------------------------- | -------------------- | ---------------------------------------- |
-| `decode` | `(value: string) => string` | `decodeURIComponent` | Custom decode function for cookie values |
-
-**Context API (`ctx.state.cookies`):**
-
-| Method   | Signature                                                                   | Description            |
-| -------- | --------------------------------------------------------------------------- | ---------------------- |
-| `get`    | `(name: string) => string \| undefined`                                     | Get cookie value       |
-| `set`    | `(name: string, value: string, options?: CookieOptions) => void`            | Set cookie             |
-| `delete` | `(name: string, options?: Pick<CookieOptions, 'domain' \| 'path'>) => void` | Delete cookie          |
-| `all`    | `() => Record<string, string>`                                              | Get all cookies        |
-| `has`    | `(name: string) => boolean`                                                 | Check if cookie exists |
-
-#### `signedCookies(options)`
-
-Creates signed cookie middleware that adds `ctx.state.signedCookies`.
-
-```typescript
-function signedCookies(options: SignedCookieMiddlewareOptions): Middleware;
-```
-
-**Options:**
-
-| Option            | Type       | Required | Description                       |
-| ----------------- | ---------- | -------- | --------------------------------- |
-| `secret`          | `string`   | Yes      | Current signing secret            |
-| `previousSecrets` | `string[]` | No       | Previous secrets for key rotation |
-
-**Context API (`ctx.state.signedCookies`):**
-
-| Method   | Signature                                                                   | Description                  |
-| -------- | --------------------------------------------------------------------------- | ---------------------------- |
-| `get`    | `(name: string) => Promise<string \| undefined>`                            | Get and verify signed cookie |
-| `set`    | `(name: string, value: string, options?: CookieOptions) => Promise<void>`   | Set signed cookie            |
-| `delete` | `(name: string, options?: Pick<CookieOptions, 'domain' \| 'path'>) => void` | Delete cookie                |
-
-### Utility Functions
-
-#### `parseCookies(header, options?)`
-
-Parse a Cookie header string.
-
-```typescript
-function parseCookies(
-  header: string | null | undefined,
-  options?: ParseOptions
-): Record<string, string>;
-```
-
-**ParseOptions:**
-
-| Option       | Type      | Default | Description                           |
-| ------------ | --------- | ------- | ------------------------------------- |
-| `decode`     | `boolean` | `true`  | URL-decode cookie values              |
-| `sanitize`   | `boolean` | `true`  | Remove control characters from values |
-| `maxCookies` | `number`  | `50`    | Maximum number of cookies to parse    |
-
-```typescript
-parseCookies('name=value; session=abc123');
-// { name: 'value', session: 'abc123' }
-```
-
-#### `serializeCookie(name, value, options?)`
-
-Serialize a cookie for Set-Cookie header.
-
-```typescript
-function serializeCookie(name: string, value: string, options?: CookieOptions): string;
-```
-
-```typescript
-serializeCookie('session', 'abc123', { httpOnly: true, secure: true });
-// 'session=abc123; Path=/; HttpOnly; Secure; SameSite=Lax'
-```
-
-#### `signCookie(value, secret)`
-
-Sign a cookie value with HMAC-SHA256.
-
-```typescript
-function signCookie(value: string, secret: string): Promise<string>;
-```
-
-```typescript
-await signCookie('user-123', 'secret');
-// 'user-123.BASE64_SIGNATURE'
-```
-
-#### `unsignCookie(signedValue, secret)`
-
-Verify and extract a signed cookie value.
-
-```typescript
-function unsignCookie(signedValue: string, secret: string): Promise<string | undefined>;
-```
-
-```typescript
-await unsignCookie('user-123.BASE64_SIGNATURE', 'secret');
-// 'user-123' or undefined if invalid
-```
-
-#### `unsignCookieWithRotation(signedValue, keys)`
-
-Verify with key rotation support.
-
-```typescript
-function unsignCookieWithRotation(
-  signedValue: string,
-  keys: SigningKeys
-): Promise<string | undefined>;
-```
-
-**SigningKeys:**
-
-| Property   | Type       | Required | Description                             |
-| ---------- | ---------- | -------- | --------------------------------------- |
-| `current`  | `string`   | Yes      | Primary key for signing new cookies     |
-| `previous` | `string[]` | No       | Previous keys for verifying old cookies |
-
-### Helper Functions
-
-#### `secureOptions(options?)`
-
-Returns secure cookie preset. Merges your options with `httpOnly: true`, `secure: true`, `sameSite: 'strict'`, `path: '/'`.
-
-```typescript
-function secureOptions(options?: CookieOptions): CookieOptions;
-```
-
-```typescript
 ctx.state.cookies.set('session', value, secureOptions({ maxAge: 86400 }));
 // httpOnly: true, secure: true, sameSite: 'strict', path: '/', maxAge: 86400
 ```
 
-#### `sessionOptions(options?)`
+## API overview
 
-Returns session cookie preset. Merges your options with `httpOnly: true`, `sameSite: 'lax'`, `path: '/'`. Sets `maxAge` and `expires` to `undefined` so the cookie expires when the browser closes.
+The sealed public surface (ADR-0005).
 
-```typescript
-function sessionOptions(options?: CookieOptions): CookieOptions;
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ----------- |
+| `cookies` | `(options?: CookieMiddlewareOptions) => Middleware` | 1.0.0 | Stable | The plain cookie middleware factory. Attaches `ctx.state.cookies`. |
+| `signedCookies` | `(options: SignedCookieMiddlewareOptions) => Middleware` | 1.0.0 | Stable | The HMAC-signed cookie middleware factory. Attaches `ctx.state.signedCookies`. Throws if `secret` is missing. |
+| `secureOptions` / `sessionOptions` | `(options?: CookieOptions) => CookieOptions` | 1.0.0 | Stable | Attribute presets -- strict/secure and session-lifetime, respectively. |
+| `serializeCookie` | `(name, value, options?) => string` | 1.0.0 | Stable | Builds a validated `Set-Cookie` string. Throws `SecurityError`/`RangeError` on invalid input. |
+| `createDeleteCookie` | `(name, options?) => string` | 1.0.0 | Stable | Builds a `Set-Cookie` string that expires the named cookie. |
+| `createSecurePrefixCookie` / `createHostPrefixCookie` | `(name, value, options?) => string` | 1.0.0 | Stable | Builds a `__Secure-`/`__Host-` prefixed `Set-Cookie` string with the prefix's required attributes forced. |
+| `parseCookies` | `(header, options?: ParseOptions) => ParsedCookies` | 1.0.0 | Stable | Parses a raw `Cookie` header string into a plain object. |
+| `getCookie` / `hasCookie` / `getCookieNames` | `(header, name?) => ...` | 1.0.0 | Stable | Convenience wrappers over `parseCookies`. |
+| `signCookie` / `unsignCookie` | `(value, secret) => Promise<string>` / `(signedValue, secret) => Promise<string \| undefined>` | 1.0.0 | Stable | Low-level HMAC-SHA256 sign/verify, for advanced use. |
+| `unsignCookieWithRotation` | `(signedValue, keys: SigningKeys) => Promise<string \| undefined>` | 1.0.0 | Stable | Verifies against `keys.current`, then each `keys.previous` entry in order. |
+| `clearKeyCache` | `() => void` | 1.0.0 | Stable | Clears the internal `CryptoKey` cache. Exposed for testing. |
+| `timingSafeEqual` | `(a: string, b: string) => boolean` | 1.0.0 | Stable | Manual constant-time-shaped string comparison fallback -- the signing path itself uses `crypto.subtle.verify`, not this function. |
+| `isValidCookieName` / `isValidCookieValue` / `isValidDomain` / `isValidPath` / `isPublicSuffix` | `(input: string) => boolean` | 1.0.0 | Stable | Boolean validators used internally and exposed for custom implementations. |
+| `sanitizeCookieValue` | `(value: string) => string` | 1.0.0 | Stable | Strips CRLF, URL-encoded CRLF, and control characters from a value. |
+| `validateCookieOptions` / `validateCookiePrefix` | `(options \| name, options) => void` | 1.0.0 | Stable | Throwing validators; `serializeCookie` calls both internally. |
+| `SecurityError` | `class extends Error` | 1.0.0 | Stable | Thrown by validation failures; carries a `code` property. |
+| `COOKIE_PREFIXES` / `COMMON_PUBLIC_SUFFIXES` / `DEFAULT_COOKIE_OPTIONS` / `MAX_COOKIE_SIZE` / `MAX_NAME_LENGTH` / `MAX_VALUE_LENGTH` | `const` | 1.0.0 | Stable | Constants for custom implementations. |
+| `type CookieOptions` / `CookieContext` / `SignedCookieContext` / `CookieState` / `SignedCookieState` / `ParsedCookies` / `ParseOptions` / `SameSiteValue` / `CookiePriority` / `CookieMiddlewareOptions` / `SignedCookieMiddlewareOptions` / `SigningKeys` | -- | 1.0.0 | Stable | Public option and data contracts. |
+
+## Options
+
+Every default below is read directly from `src/constants.ts` and `src/types.ts`.
+
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------ | ----------- |
+| `cookies()`: `decode` | `(value: string) => string` | No | `decodeURIComponent` (built into the parser) | No | A custom decode is re-sanitized for CRLF after running, so a decode function cannot reintroduce header-injection characters. |
+| `signedCookies()`: `secret` | `string` | Yes | -- | Yes | Throws a `TypeError` at construction if missing or not a string. |
+| `signedCookies()`: `previousSecrets` | `string[]` | No | `undefined` | Yes | Checked in array order after `secret` fails to verify. |
+| `CookieOptions.httpOnly` | `boolean` | No | `true` (via `DEFAULT_COOKIE_OPTIONS`, applied by `cookies()`'s `set()`/`serializeCookie`) | Yes | Prevents `document.cookie` access from JavaScript. |
+| `CookieOptions.secure` | `boolean` | No | `false` in `DEFAULT_COOKIE_OPTIONS`; forced `true` by `createSecurePrefixCookie`/`createHostPrefixCookie`/`secureOptions` | Yes | Required for `__Secure-`/`__Host-` prefixes and for `sameSite: 'none'`. |
+| `CookieOptions.sameSite` | `'strict' \| 'lax' \| 'none' \| boolean` | No | `'lax'` | Yes | `'none'` (or `false`) requires `secure: true`, enforced by `validateCookieOptions`. |
+| `CookieOptions.path` | `string` | No | `'/'` | No | `__Host-` prefix forces this to `'/'` regardless of what is passed. |
+| `CookieOptions.domain` | `string` | No | `undefined` | Yes | Rejected if it resolves to a known public suffix (`isPublicSuffix`) or an invalid format; forbidden outright with `__Host-`. |
+| `CookieOptions.maxAge` | `number` | No | `undefined` (session cookie) | No | Must be non-negative, or `serializeCookie` throws `RangeError`. |
+| `CookieOptions.expires` | `Date \| number` | No | `undefined` | No | If both `maxAge` and `expires` are set, the serialized cookie includes both attributes as given -- `maxAge` is not deduplicated against `expires`. |
+| `CookieOptions.priority` | `'low' \| 'medium' \| 'high'` | No | `undefined` | No | Chrome's `Priority` cookie extension. |
+| `CookieOptions.partitioned` | `boolean` | No | `undefined` | No | CHIPS partitioned cookies. |
+| `ParseOptions.maxCookies` | `number` | No | `50` (`MAX_COOKIES_PER_DOMAIN`) | Yes | Parsing stops once this many distinct names have been captured, bounding processing of an oversized `Cookie` header. |
+| `ParseOptions.decode` / `ParseOptions.sanitize` | `boolean` | No | `true` / `true` | No | Disabling `sanitize` skips CRLF/control-character stripping on parsed values -- only intended for trusted, pre-validated input. |
+
+## Compatibility
+
+**Requirements**
+
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | 3.x |
+| Node.js | >=22 |
+| TypeScript | >=5.x |
+
+**Runtimes**
+
+| Runtime | Supported | Notes |
+| ------- | --------- | ----- |
+| Node.js >=22 | Yes | ESM-only |
+| Bun / Deno / Edge | Yes / Yes / Yes | Zero `node:` imports -- signing uses only `crypto.subtle`, `btoa`/`atob`, `TextEncoder` (Web Crypto API + standard globals) |
+
+**Integration**
+- **Peer dependencies:** none -- depends only on `@nextrush/types` (types, erased at build).
+- **Works with:** [`@nextrush/csrf`](../csrf) for CSRF-specific token cookies (it manages its own cookie internally, independent of this package); a session middleware that stores a session ID in a cookie set through this package.
+- **Incompatible with:** none directly, but `cookies()`'s `set()`/`delete()` write `Set-Cookie` immediately -- if another middleware also writes `Set-Cookie` after this one runs for the same name, both headers are sent (browsers apply the last one for a given name/domain/path).
+
+> [!IMPORTANT]
+> NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
+> can `require()` this ESM package natively. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+---
+
+## Troubleshooting
+
+<details>
+<summary><strong>"Cookie with __Host- prefix must not have Domain attribute" (or similar) thrown</strong></summary>
+
+**Cause:** `validateCookiePrefix()` enforces all three `__Host-` constraints together (`secure: true`, no `domain`, `path: '/'`) whenever a cookie name starts with `__Host-`. **Fix:** either drop the `domain` option, or use `createSecurePrefixCookie()`/a non-prefixed name if you genuinely need a `domain` attribute.
+
+</details>
+
+<details>
+<summary><strong>A signed cookie's `get()` always returns `undefined`, even right after `set()`</strong></summary>
+
+**Cause:** `unsignCookie()`/`unsignCookieWithRotation()` return `undefined` for a missing cookie, a malformed signed value, *and* a signature that fails to verify -- these are indistinguishable by design (the same contract `unsignCookie`'s own doc comment states). A common cause of the last case is `secret` changing between the request that set the cookie and the request that reads it (e.g. different environments, or a rotation without `previousSecrets`). **Fix:** confirm the same `secret` (or the old one via `previousSecrets`) is configured on every process reading the cookie.
+
+</details>
+
+<details>
+<summary><strong>"Cookie \"name\" exceeds maximum size of 4096 bytes" thrown</strong></summary>
+
+**Cause:** `serializeCookie()` sums the fully-encoded name, value, and all attributes and rejects anything over `MAX_COOKIE_SIZE` (4096) -- this mirrors the practical per-cookie limit most browsers enforce. **Fix:** store a reference (e.g. a session ID) in the cookie and keep the actual data server-side, rather than growing the cookie value itself.
+
+</details>
+
+<details>
+<summary><strong>Only some of the cookies sent by the client show up in `ctx.state.cookies.all()`</strong></summary>
+
+**Cause:** `parseCookies()` stops once it has captured `maxCookies` (default 50) distinct names, and per RFC 6265 the *first* occurrence of a duplicate name wins -- later same-named pairs in the header are ignored, not merged. **Fix:** if you control the client, avoid sending more distinct cookie names than you need; if you need a specific override, pass `{ maxCookies: <n> }` to `parseCookies()` directly (the `cookies()`/`signedCookies()` middleware do not currently expose this as a top-level option).
+
+</details>
+
+## FAQ
+
+**Does signing encrypt the cookie value?**
+No. `signCookie()`/`unsignCookie()` provide integrity (tamper detection), not confidentiality -- the signed format is `value.signature`, and `value` itself is plainly readable by anyone with access to the cookie. Do not put secret data you need to hide from the client in a signed-only cookie.
+
+**Why does a tampered cookie and a missing cookie both return `undefined`?**
+`unsignCookie()`'s contract deliberately does not distinguish the two -- returning a different result for "signature invalid" versus "not present" would let an attacker use the distinction as an oracle to probe whether a given cookie name exists at all.
+
+**Why ESM-only?**
+See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+**Does it work on Bun / Deno / Edge?**
+Yes. The package has zero `node:` imports -- signing uses `crypto.subtle`, and base64url encoding uses the standard `btoa`/`atob` globals, available identically on every supported runtime.
+
+---
+
+## Package relationships
+
+```text
+                   depends on           @nextrush/types  (Context / Middleware contracts, types only)
+@nextrush/cookies ---------------->
+                   often used with      @nextrush/csrf  (CSRF token cookie is managed separately, by that package)
+                   usually used next    @nextrush/helmet  (general security headers alongside cookie handling)
 ```
 
-```typescript
-ctx.state.cookies.set('temp', value, sessionOptions());
-// httpOnly: true, sameSite: 'lax', path: '/'
-```
+- **Depends on:** [`@nextrush/types`](../../types) -- shared `Context`/`Middleware` contracts, types only, erased at build.
+- **Often used with:** [`@nextrush/csrf`](../csrf) -- CSRF protection manages its own double-submit cookie internally; this package is for every other cookie in the app.
+- **Usually used next:** [`@nextrush/helmet`](../helmet) -- general HTTP security headers alongside cookie handling.
+- **Alternative:** none for cookie handling within NextRush -- a full session-store package would sit on top of this one, not replace it.
 
-#### `createSecurePrefixCookie(name, value, options?)`
+## Architecture
 
-Create a `__Secure-` prefixed cookie. Auto-sets `secure: true`.
+Maintaining or contributing to this package? The internal design -- the parse/set/get lifecycle,
+the HMAC signing sequence, the security invariants that require an RFC to change, and the
+decisions and trade-offs behind them (with diagrams) -- is in
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
-```typescript
-createSecurePrefixCookie('token', 'value', { maxAge: 3600 });
-// Validates prefix requirements, returns serialized cookie
-```
+## Resources
 
-#### `createHostPrefixCookie(name, value, options?)`
+- Learn -- [Documentation](https://0xtanzim.github.io/nextRush/docs) . [Architecture](./ARCHITECTURE.md) . [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- Changelog -- [CHANGELOG.md](./CHANGELOG.md)
+- Report an issue -- [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- Contribute -- [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
 
-Create a `__Host-` prefixed cookie. Auto-sets `secure: true`, `path: '/'`, and removes `domain`.
+---
 
-```typescript
-createHostPrefixCookie('session', 'value');
-// Validates prefix requirements (secure=true, path='/', no domain)
-```
-
-### Types
-
-```typescript
-import type {
-  CookieOptions,
-  CookieContext,
-  CookieState,
-  CookieMiddlewareOptions,
-  SignedCookieContext,
-  SignedCookieState,
-  SignedCookieMiddlewareOptions,
-  ParseOptions,
-  ParsedCookies,
-  SameSiteValue,
-  CookiePriority,
-  SigningKeys,
-} from '@nextrush/cookies';
-```
-
-#### `CookieOptions`
-
-```typescript
-interface CookieOptions {
-  domain?: string;
-  expires?: Date | number;
-  httpOnly?: boolean;
-  maxAge?: number;
-  path?: string;
-  sameSite?: SameSiteValue;
-  secure?: boolean;
-  priority?: CookiePriority;
-  partitioned?: boolean;
-}
-```
-
-## Common Mistakes
-
-### Setting secure cookies without HTTPS
-
-```typescript
-// Won't work: secure cookies require HTTPS
-ctx.state.cookies.set('session', 'value', { secure: true });
-// Browser ignores cookie on HTTP
-```
-
-### Forgetting to await signed cookie operations
-
-```typescript
-// Wrong — returns Promise, not value
-const userId = ctx.state.signedCookies.get('userId');
-
-// Correct
-const userId = await ctx.state.signedCookies.get('userId');
-```
-
-### Using SameSite=None without Secure
-
-```typescript
-// Browsers reject this combination
-ctx.state.cookies.set('cross', 'value', { sameSite: 'none' });
-
-// Correct
-ctx.state.cookies.set('cross', 'value', { sameSite: 'none', secure: true });
-```
-
-## When NOT to Use
-
-- **Large data storage** — Cookies have a 4KB limit; use sessions with server-side storage
-- **Sensitive data without signing** — Never store passwords or tokens in unsigned cookies
-- **Cross-domain state** — Consider tokens or other mechanisms for cross-origin authentication
-
-## Runtime Compatibility
-
-This package uses the Web Crypto API and works in:
-
-- Node.js 20+
-- Bun
-- Cloudflare Workers
-- Deno
-- Vercel Edge Runtime
-
-## License
-
-MIT
+MIT (c) [Tanzim Hossain](https://github.com/0xTanzim)
