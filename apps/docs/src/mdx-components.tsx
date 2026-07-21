@@ -19,6 +19,7 @@ import {
     PackageGrid,
     PackageInstall,
     PackageSection,
+    RuntimeSupport,
     ScalarApiReference,
     TypeTable,
 } from '@/components/mdx';
@@ -80,6 +81,9 @@ const customComponents = {
 
   // API reference type table
   TypeTable,
+
+  // Per-runtime support badge (Node/Bun/Deno/Edge/Serverless)
+  RuntimeSupport,
 
   // Generated reference table — from real TypeScript source (fumadocs-typescript)
   AutoTypeTable,
