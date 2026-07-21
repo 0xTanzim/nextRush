@@ -1,0 +1,233 @@
+---
+title: Deno
+description: Install NextRush on Deno, run a hello-world server on Deno.serve(), and see what Deno's permission model means for your NextRush app.
+difficulty: beginner
+estimatedTime: 10 minutes
+prerequisites: []
+---
+
+You'll get a NextRush server answering requests on [Deno](https://deno.com) — the same
+`createApp`/`createRouter` API as Node and Bun, running on `Deno.serve()` and started under
+Deno's explicit permission flags.
+
+Targeting a different runtime? [Node](/docs/start/runtime/node) ·
+[Bun](/docs/start/runtime/bun) · [Edge](/docs/reference/adapters/edge) ·
+[Serverless](/docs/reference/adapters/serverless) each implement the same Context and
+Application contract.
+
+## Finished project
+
+By the end you'll have:
+
+- ✓ A NextRush server listening on port `8080`, running on `Deno.serve()` — no build step
+- ✓ One route answering JSON
+- ✓ A clear picture of what Deno's permission model requires from your run command, and where
+  to go for deployment and the full adapter reference
+
+```bash
+curl http://localhost:8080/
+# → {"runtime":"deno","status":"ok"}
+```
+
+## Learning journey
+
+- ⬜ Step 1 — Confirm your Deno version
+- ⬜ Step 2 — Install NextRush and the Deno adapter
+- ⬜ Step 3 — Run a hello-world server
+- ⬜ Step 4 — Know what Deno's permission model changes
+
+## Prerequisites
+
+- **Required:** a terminal and [Deno](https://deno.com) installed. No prior NextRush knowledge
+  assumed.
+- **Difficulty · time:** Beginner · ~10 minutes
+
+<Steps>
+
+### Step 1 / 4 — Confirm your Deno version
+
+**Why now:** `@nextrush/adapter-deno` is built against Deno's stable `Deno.serve()` surface —
+confirming the runtime first avoids a confusing failure later.
+
+**Do:**
+
+```bash
+deno --version
+# needs to read deno 2.x.x or higher
+```
+
+If Deno isn't installed yet, follow the [install instructions](https://docs.deno.com/runtime/getting_started/installation/)
+before continuing.
+
+**Why it matters:** the adapter's request handler, timeout race, and TLS options all target
+`Deno.serve()` directly. The package declares its own hand-rolled ambient types for the subset
+of the `Deno` global it touches, verified against Deno 1.46/2.x — it does not depend on
+`@types/deno`.
+
+### Step 2 / 4 — Install NextRush and the Deno adapter
+
+**Why now:** like Bun, the `nextrush` meta-package does not bundle a runtime adapter — it ships
+only `@nextrush/adapter-node`. Running on Deno means adding `@nextrush/adapter-deno` alongside
+it.
+
+**Do:** Deno resolves npm packages directly with the `npm:` specifier — no separate lockfile
+step needed for a quick script:
+
+```ts title="server.ts"
+import { createApp, createRouter } from 'npm:nextrush';
+import { listen } from 'npm:@nextrush/adapter-deno';
+```
+
+Or pin the same imports in `deno.json` so every file in the project resolves them the same way:
+
+```json title="deno.json"
+{
+  "imports": {
+    "nextrush": "npm:nextrush",
+    "@nextrush/adapter-deno": "npm:@nextrush/adapter-deno"
+  }
+}
+```
+
+**Why it worked:** `createApp` and `createRouter` still come from `nextrush` — those two are
+runtime-independent. `listen`, `serve`, and `createHandler` come from `@nextrush/adapter-deno`
+instead, for the same reason as Bun: the meta-package's `listen` re-export is wired to
+`@nextrush/adapter-node` specifically, not resolved per runtime.
+
+<Callout type="info">
+Once the imports are in `deno.json`, every file in the project can write plain
+`import { createApp } from 'nextrush'` — the import map resolves the `npm:` specifier for you.
+</Callout>
+
+### Step 3 / 4 — Run a hello-world server
+
+**Why now:** the fastest way to confirm the install worked is a server that answers a real
+request.
+
+**Do:** create `server.ts`:
+
+```ts title="server.ts"
+import { createApp, createRouter } from 'nextrush';
+import { listen } from '@nextrush/adapter-deno';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ runtime: 'deno', status: 'ok' });
+});
+
+app.route('/', router);
+await listen(app, 8080);
+```
+
+Run it — Deno requires an explicit network permission before the process may open a socket:
+
+```bash
+deno run --allow-net server.ts
+```
+
+**Expected output:**
+
+```bash
+curl http://localhost:8080/
+# → {"runtime":"deno","status":"ok"}
+```
+
+**Why it worked:** `listen(app, 8080)` from `@nextrush/adapter-deno` calls `Deno.serve()`
+directly and hands each incoming request to NextRush's router through the same Context API
+Node and Bun use. `ctx.runtime` reads `'deno'` here for the same reason it reads `'node'`/`'bun'`
+on the other runtime pages — the adapter, not your route handler, decides that value.
+
+<Callout type="warn">
+`--allow-net` is not optional. Deno denies network access by default; omitting the flag fails
+the process before your route ever runs, with a permission-denied error rather than a NextRush
+error. Add `--allow-read` if you serve files from disk, or `--allow-env` if your app reads
+environment variables — grant only what your handlers actually use.
+</Callout>
+
+### Step 4 / 4 — Know what Deno's permission model changes
+
+**Why now:** before moving to production, it helps to know exactly what's different about
+running under Deno versus Node or Bun — and where the two are the same.
+
+**What's genuinely different, and why:** Deno denies filesystem, network, and environment
+access by default, so every `deno run` invocation needs the `--allow-*` flags your app actually
+uses (Step 3). This is a property of the Deno process, not something `@nextrush/adapter-deno`
+adds or works around — the adapter has no permission-checking code of its own; it calls
+`Deno.serve()` the same way your own code would, and Deno's own runtime enforces the sandbox
+before the adapter ever runs. A missing permission fails at the OS/runtime boundary, not inside
+NextRush.
+
+One adapter-level behavior worth knowing: `@nextrush/adapter-deno` adds its own request timeout
+(`Promise.race`-based, since `Deno.serve()` has no built-in per-request timeout) — it defaults
+to 30 seconds and returns a `504 Gateway Timeout` on expiry, matching the Node and Bun adapters'
+default so the observable behavior is the same across all three.
+
+**What's identical:** the Context API (`ctx.json`, `ctx.params`, `ctx.query`, `ctx.set`, …),
+`createApp`, `createRouter`, route registration, and middleware all behave the same as Node and
+Bun — nothing in your route handler above is Deno-specific.
+
+<Callout type="info">
+`@nextrush/adapter-deno` is versioned independently at `1.0.0` — see the
+[compatibility matrix](/docs/resources/compatibility-matrix) for its current status and how it's
+verified (CI runs its conformance suite on a real Deno process, not simulated under Node). Check
+the [Deno adapter reference](/docs/reference/adapters/deno) for its full surface before pinning a
+production version.
+</Callout>
+
+</Steps>
+
+## Checkpoint
+
+Confirm the server answers before moving on:
+
+```bash
+curl -i http://localhost:8080/
+# → HTTP/1.1 200 OK
+# → {"runtime":"deno","status":"ok"}
+```
+
+Your project now looks like:
+
+```text
+my-api/
+  deno.json
+  server.ts
+```
+
+## What you learned
+
+- **`nextrush` gives you the runtime-independent half** — `createApp`, `createRouter`, and route
+  registration are identical on Deno, Bun, and Node. [Runtime compatibility
+  concept](/docs/concepts/runtime-compatibility)
+- **`listen`/`serve`/`createHandler` come from `@nextrush/adapter-deno`, not the meta-package** —
+  the same pattern as Bun, for the same reason.
+- **Deno's permission flags are a runtime property, not a NextRush setting** — `--allow-net` (and
+  `--allow-read`/`--allow-env` as needed) gate the process before any NextRush code runs.
+
+## Next steps
+
+<Cards>
+  <Card title="Deploy to production" href="/docs/production/deployment/deno">
+    Deno Deploy and Docker deployment paths for a NextRush server on Deno.
+  </Card>
+  <Card title="Deno adapter reference" href="/docs/reference/adapters/deno">
+    The full `@nextrush/adapter-deno` surface — `serve()`, `createHandler()`, and Deno-specific
+    Context utilities.
+  </Card>
+</Cards>
+
+## Continue learning
+
+<Cards>
+  <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
+    Why Node, Bun, Deno, and the edge all run identical application code.
+  </Card>
+  <Card title="Build a Task API" href="/docs/start/quick-start">
+    Go past hello-world — routing, a request body, and real error handling.
+  </Card>
+  <Card title="All platform adapters" href="/docs/reference/adapters">
+    The Node, Bun, edge, and serverless adapter references.
+  </Card>
+</Cards>
