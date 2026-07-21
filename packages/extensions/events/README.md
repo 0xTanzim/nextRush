@@ -1,494 +1,369 @@
 # @nextrush/events
 
-Type-safe event emitter for NextRush v3 - simple, fast, and async-ready.
+> Type-safe, async-ready event emitter for NextRush apps -- attach it once with `app.extend()` and get `app.events` everywhere, or use it standalone in any TypeScript project.
 
-**Support tier:** Public — extensions (stable). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+[![npm version](https://img.shields.io/npm/v/@nextrush/events.svg)](https://www.npmjs.com/package/@nextrush/events)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/events.svg)](https://www.npmjs.com/package/@nextrush/events)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/events.svg)](https://bundlephobia.com/package/@nextrush/events)
+[![types](https://img.shields.io/npm/types/@nextrush/events.svg)](https://www.npmjs.com/package/@nextrush/events)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/events.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-## Features
+|  |  |
+| --- | --- |
+| **Purpose** | A typed pub/sub event emitter, exposed on the app as `app.events` for decoupling side effects (welcome emails, cache invalidation, logging) from the handlers that trigger them |
+| **Package type** | Extension |
+| **Status** | Stable |
+| **Included in `nextrush`?** | No -- standalone install. Not re-exported from `nextrush` or `nextrush/class`. |
+| **Support tier** | Public -- extensions (stable) -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Maintenance** | Active |
+| **Runtime** | Node.js, verified. Bun/Deno/edge are expected to work (no `node:` imports; core logic uses only `Map`, `Set`, `Promise`, `AggregateError`) but are not covered by a conformance test in this package -- see [Compatibility](#compatibility) |
+| **Requires** | Node >=22, ESM-only, TypeScript >=5.x |
+| **Introduced** | v1.0.0 |
 
-- 🎯 **Full TypeScript Support** - Typed events with autocomplete
-- ⚡ **Async-Ready** - Native async/await support
-- 🛡️ **Error Isolation** - One handler error won't crash others
-- 🎭 **Wildcard Events** - Subscribe to `*` or `user:*` patterns
-- 🧩 **Extension Integration** - Direct `app.events` access via `app.extend()`
-- 📦 **Zero Dependencies** - Lightweight and fast
-- ⚠️ **Memory Leak Warnings** - Alerts for potential leaks
-- 🔒 **Security Hardened** - Input validation, race-safe handlers
-- 🌐 **Universal Runtime** - Node.js, Bun, Deno, edge runtimes
+## Highlights
 
-## Runtime Support
+- Zero runtime dependencies -- `@nextrush/core` is an optional peer, needed only because `events()`'s return type references the `Extension`/`ExtensionContext` interfaces declared in `@nextrush/types` (re-exported by `@nextrush/core`)
+- ESM-only, tree-shakable, side-effect-free (`sideEffects: false`)
+- Fully typed, strict TypeScript, zero `any` -- `app.events` is inferred from `events<T>()`'s generic with no `declare module` augmentation
+- Async-native `emit()` -- returns a `Promise` that resolves once every handler (sync or async) has settled
 
-**Edge-safe.** Zero `node:` imports — the emitter is implemented in pure JavaScript. Safe on Node,
-Bun, Deno, Cloudflare Workers, Vercel Edge, and Netlify Edge.
+<details>
+<summary><strong>Table of contents</strong></summary>
+
+[The problem](#the-problem) . [When to use](#when-to-use) . [Installation](#installation) . [Quick start](#quick-start) . [Capabilities](#capabilities) . [Mental model](#mental-model) . [Common tasks](#common-tasks) . [API overview](#api-overview) . [Options](#options) . [Compatibility](#compatibility) . [Troubleshooting](#troubleshooting) . [FAQ](#faq) . [Package relationships](#package-relationships) . [Architecture](#architecture) . [Resources](#resources)
+
+</details>
+
+---
+
+## The problem
+
+A route handler that creates a user often needs to trigger things that aren't the handler's job: send a welcome email, warm a cache, write an audit log, notify another service. The obvious approach is to call all of it inline -- and now the handler owns four unrelated responsibilities, a slow mail API blocks the response, and every new side effect means editing a handler that has nothing to do with mail.
+
+```ts
+// TODAY, without an event bus -- the handler owns everything:
+router.post('/users', async (ctx) => {
+  const user = await db.users.create(ctx.body);
+  await mailer.sendWelcomeEmail(user);   // now the handler knows about email
+  await cache.invalidate('users:list');  // ...and caching
+  await audit.log('user.created', user); // ...and auditing
+  ctx.json(user);
+});
+```
+
+`@nextrush/events` decouples the "what happened" from the "what to do about it" -- the handler emits one typed event; anything that cares subscribes independently, anywhere in the app.
+
+## When to use
+
+**Use `@nextrush/events` if:**
+
+- You want to decouple side effects (email, cache invalidation, logging, webhooks) from the handler that triggers them
+- You want full TypeScript autocomplete on event names and payloads, inferred straight from `app.events`
+- You're building a standalone library or writing tests and want a typed pub/sub primitive with no framework dependency
+
+**Reach for something else if:**
+
+- You need cross-process or cross-service messaging -- this emitter is in-process, in-memory only; reach for a real message broker (a queue, Redis pub/sub, etc.) for that
+- You need guaranteed delivery, retries, or persistence -- a dropped process loses every pending handler invocation; this package has no durability story
+- You want request/response middleware behavior (`ctx.next()`, short-circuiting) -- that's what [`app.use()`](../../core) is for; an Extension like this one is for long-lived, app-scoped services, not per-request logic
+
+---
 
 ## Installation
 
 ```bash
-# npm
-npm install @nextrush/events
-
-# pnpm
 pnpm add @nextrush/events
-
-# yarn
-yarn add @nextrush/events
+# npm i @nextrush/events . yarn add @nextrush/events . bun add @nextrush/events
 ```
 
-## Quick Start
+> [!NOTE]
+> `@nextrush/events` is not re-exported by the `nextrush` meta package -- install and import it
+> directly, as shown above.
 
-### Primary Usage (with NextRush)
+## Quick start
 
-`events()` is a NextRush **Extension** — a long-lived service registered with `app.extend()` and booted at `app.ready()`. It decorates the app with `app.events`.
+`events()` is a NextRush **Extension**, not middleware -- register it with `app.extend()`, then
+call `app.ready()` once before handling traffic (adapters do this automatically when you call
+`listen()`).
 
-```typescript
-import { createApp } from '@nextrush/core';
+```ts
+import { createApp, listen } from 'nextrush';
+import { events } from '@nextrush/events';
+
+interface AppEvents {
+  'user:created': { id: string; name: string };
+}
+
+const app = createApp().extend(events<AppEvents>());
+await app.ready();
+
+app.events.on('user:created', (data) => {
+  console.log('User created:', data.name);
+});
+
+app.use(async (ctx) => {
+  await app.events.emit('user:created', { id: '1', name: 'Alice' });
+  ctx.json({ ok: true });
+});
+
+listen(app, 8080);
+```
+
+`app.events` is inferred as `EventEmitter<AppEvents>` straight from the `events<AppEvents>()` call passed to `extend()` -- no `declare module` augmentation, no manual cast.
+
+## Capabilities
+
+**Event emitter**
+- `on` / `once` / `off` -- standard subscribe/unsubscribe, each `on`/`once` returning an `Unsubscribe` function as an alternative to calling `off` by hand
+- `prepend` / `prependOnce` -- subscribe at the front of the handler list, for a handler (e.g. validation) that must run before everything already registered
+- Wildcard subscriptions -- `'*'` receives every event as `{ event, data }`; a `'prefix:*'` pattern receives every event starting with `prefix:` the same way
+- `emit()` is `async` -- runs every matching handler (direct, wildcard, pattern) concurrently via `Promise.allSettled` and resolves once they've all settled
+
+**Error handling**
+- Error isolation (default) -- one handler throwing never stops the others; the error goes to `onError` if supplied, otherwise `console.error` outside test env
+- Strict mode (`errorIsolation: false`) -- every handler still runs, but `emit()` rejects with an `AggregateError` collecting every thrown error once all handlers have settled
+
+**Safety**
+- Event names are validated: non-empty string, <=256 chars, or `emit`/`on`/etc. throw `TypeError`/`RangeError`
+- `once` handlers are removed synchronously before execution, so concurrent `emit()` calls never invoke a `once` handler more than once
+- `maxListeners` (default 10) logs a console warning past the threshold, to catch a likely leak -- it never throws or drops a handler
+
+**Developer experience**
+- Fully typed -- event names and payloads are checked against the `EventMap` generic
+- Standalone-usable via `createEvents()` -- no NextRush app required, e.g. for tests or non-NextRush libraries
+
+## Mental model
+
+`events()` returns an Extension. `app.extend()` queues it; `app.ready()` runs its `setup()` once, which decorates the app with `app.events` (or a custom property name). `app.close()` runs `destroy()`, clearing every handler.
+
+```text
+app.extend(events<T>())  --> queued
+app.ready()              --> setup(ctx): ctx.decorate('events', emitter)  --> app.events is live
+app.events.emit(name, data)
+     |
+     +--> direct handlers for `name`
+     +--> wildcard handlers on '*'                 (payload: { event, data })
+     +--> pattern handlers on 'prefix:*' matching   (payload: { event, data })
+     |
+     +--> Promise.allSettled(all matched handlers) --> emit() resolves
+app.close()               --> destroy(): emitter.clear()
+```
+
+**Rule:** `emit()` never rejects because a handler threw, unless you opt into `errorIsolation: false` -- by default, a broken handler is isolated, logged, and every other handler still runs.
+
+> [!TIP]
+> The full setup -> emit -> dispatch sequence and the extension boot/teardown lifecycle (both as
+> diagrams) are in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+---
+
+## Common tasks
+
+### Attach to the app and use directly
+
+```ts
+import { createApp, listen } from 'nextrush';
 import { events } from '@nextrush/events';
 
 const app = createApp().extend(events());
-await app.ready(); // adapters (listen/serve) call this for you automatically
+await app.ready();
 
-// Direct access via app.events - inferred, no augmentation needed!
 app.events.emit('user:created', { id: '1', name: 'Alice' });
-app.events.on('user:created', (data) => {
-  console.log('User created:', data);
-});
 ```
 
-### Standalone Usage (testing/libraries)
+### Type every event up front
 
-```typescript
-import { createEvents } from '@nextrush/events';
-
-// For testing or library use
-const events = createEvents();
-
-events.on('user:created', (data) => {
-  console.log(data);
-});
-
-await events.emit('user:created', { id: '1', name: 'Alice' });
-```
-
-## Typed Events
-
-`events<T>()` returns an `Extension<{ events: EventEmitter<T> }>`. `app.extend()` carries that shape into its return type, so `app.events` is fully typed — no `declare module` augmentation required.
-
-```typescript
-import { createApp } from '@nextrush/core';
-import { events } from '@nextrush/events';
-
-// 1. Define your event types
+```ts
 interface AppEvents {
   'user:created': { id: string; name: string };
   'user:deleted': { id: string };
   'order:placed': { orderId: string; total: number };
 }
 
-// 2. Pass the event map as a generic — that's it, app.events is now typed
 const app = createApp().extend(events<AppEvents>());
 await app.ready();
 
-// Fully typed, inferred from the extend() call above!
-app.events.emit('user:created', { id: '1', name: 'Alice' }); // ✅ Type-checked
-app.events.on('user:deleted', ({ id }) => console.log(id)); // ✅ Auto-complete
+app.events.on('user:deleted', ({ id }) => console.log(id)); // autocompletes `id`
 ```
 
-<details>
-<summary>Custom propertyName — the one case that still needs a manual type</summary>
+### Use standalone, without a NextRush app
 
-`events()`'s decorated shape assumes the default `propertyName: 'events'`. If
-you pass a custom `propertyName`, the value decorates correctly at runtime
-under that key, but `app.extend()`'s inferred type still exposes it as
-`.events`. For a custom property name at the type level, use `WithEvents<T>`
-(see below) or a `declare module` augmentation keyed to your chosen name.
+```ts
+import { createEvents } from '@nextrush/events';
 
-</details>
-
-## API Reference
-
-### `events<T>(options?)` - **Extension, primary usage**
-
-Create a NextRush Extension that attaches `app.events`. Register it with `app.extend()`; `setup()` runs once, in registration order, at `app.ready()`.
-
-```typescript
-const app = createApp();
-app.extend(
-  events({
-    maxListeners: 10, // Warn if exceeded (0 = disable)
-    errorIsolation: true, // Isolate handler errors (default)
-    onError: (err, event) => console.error(err),
-  })
-);
-await app.ready();
-
-// Now use app.events directly
-app.events.emit('user:created', { id: '1' });
+const bus = createEvents<{ 'app:ready': undefined }>();
+bus.on('app:ready', () => console.log('ready'));
+await bus.emit('app:ready', undefined);
 ```
 
-### `createEvents<T>(options?)` - **Standalone**
+### Subscribe to a whole category of events
 
-Create a standalone event emitter (for testing or non-NextRush use).
-
-```typescript
-const events = createEvents<MyEvents>({
-  maxListeners: 10,
-  errorIsolation: true,
-});
-```
-
-### Event Emitter Methods
-
-#### `on(event, handler)`
-
-Subscribe to an event. Returns an unsubscribe function.
-
-```typescript
-const unsubscribe = app.events.on('user:created', (data) => {
-  console.log('User created:', data);
-});
-
-// Later: unsubscribe
-unsubscribe();
-```
-
-#### `once(event, handler)`
-
-Subscribe once - auto-unsubscribes after first emit.
-
-```typescript
-app.events.once('app:ready', () => {
-  console.log('App started!');
-});
-```
-
-#### `off(event, handler)`
-
-Remove a specific handler.
-
-```typescript
-const handler = (data) => console.log(data);
-app.events.on('user:created', handler);
-
-// Later: remove
-app.events.off('user:created', handler);
-```
-
-#### `emit(event, data)`
-
-Emit an event. Returns a Promise that resolves when all handlers complete.
-
-```typescript
-await app.events.emit('user:created', { id: '1', name: 'Alice' });
-```
-
-#### `listenerCount(event?)`
-
-Get the number of listeners.
-
-```typescript
-app.events.listenerCount('user:created'); // Specific event
-app.events.listenerCount(); // Total
-```
-
-#### `clear(event?)`
-
-Remove all listeners.
-
-```typescript
-app.events.clear('user:created'); // Clear specific event
-app.events.clear(); // Clear all
-```
-
-#### `listeners(event)`
-
-Get an array of handlers for an event. Returns a copy (safe to iterate).
-
-```typescript
-const handlers = app.events.listeners('user:created');
-console.log(`${handlers.length} handlers registered`);
-```
-
-#### `hasListeners(event?)`
-
-Check if listeners exist without getting the full list.
-
-```typescript
-if (app.events.hasListeners('user:created')) {
-  await app.events.emit('user:created', data);
-}
-
-// Check if any listeners exist
-if (app.events.hasListeners()) {
-  console.log('Event system is active');
-}
-```
-
-#### `eventNames()`
-
-Get all registered event names.
-
-```typescript
-const events = app.events.eventNames();
-// ['user:created', 'user:deleted', 'order:placed']
-```
-
-#### `prepend(event, handler)`
-
-Add a handler at the beginning of the handler list.
-
-```typescript
-// Security handler runs first
-app.events.prepend('user:created', (data) => {
-  validateUserData(data);
-});
-```
-
-#### `prependOnce(event, handler)`
-
-Add a one-time handler at the beginning of the handler list.
-
-```typescript
-// Run initialization before other handlers, once
-app.events.prependOnce('app:ready', () => {
-  console.log('First handler to run on app:ready');
-});
-```
-
-#### `setMaxListeners(n)`
-
-Configure max listeners at runtime.
-
-```typescript
-app.events.setMaxListeners(20); // Allow more listeners
-app.events.setMaxListeners(0); // Disable warning
-```
-
-#### `getMaxListeners()`
-
-Get the current max listeners setting.
-
-```typescript
-const max = app.events.getMaxListeners();
-console.log(`Max listeners: ${max}`);
-```
-
-## Wildcard Events
-
-### All Events (`*`)
-
-```typescript
-app.events.on('*', ({ event, data }) => {
-  console.log(`Event: ${event}`, data);
-});
-```
-
-### Pattern Matching (`prefix:*`)
-
-```typescript
-// Subscribe to all user events
+```ts
 app.events.on('user:*', ({ event, data }) => {
   console.log(`User event: ${event}`, data);
 });
 
-app.events.emit('user:created', data); // ✅ Matches
-app.events.emit('user:deleted', data); // ✅ Matches
-app.events.emit('order:placed', data); // ❌ No match
+app.events.emit('user:created', data); // matches
+app.events.emit('order:placed', data);  // does not match
 ```
 
-## Error Handling
+### Run a handler before everything else already registered
 
-### Error Isolation (Default)
-
-Errors in one handler won't affect others:
-
-```typescript
-app.events.on('user:created', () => {
-  throw new Error('Handler 1 error');
-});
-
-app.events.on('user:created', (data) => {
-  console.log('Handler 2 still runs!'); // ✅ Executes
+```ts
+app.events.prepend('user:created', (data) => {
+  validateUserData(data); // runs first, regardless of registration order
 });
 ```
 
-### Custom Error Handler
+### Collect every handler error instead of isolating them
 
-```typescript
-app.extend(
-  events({
-    onError: (error, eventName) => {
-      logger.error(`Handler error for ${eventName}:`, error);
-    },
-  })
-);
-await app.ready();
-```
-
-### Strict Mode (AggregateError)
-
-With `errorIsolation: false`, all handlers run but errors are collected and thrown as an `AggregateError`:
-
-```typescript
-const events = createEvents({ errorIsolation: false });
-
-events.on('test', () => {
-  throw new Error('Error 1');
-});
-events.on('test', () => {
-  throw new Error('Error 2');
-});
-events.on('test', () => console.log('Still runs!')); // ✅ Executes
+```ts
+const bus = createEvents({ errorIsolation: false });
+bus.on('test', () => { throw new Error('one'); });
+bus.on('test', () => { throw new Error('two'); });
 
 try {
-  await events.emit('test', {});
-} catch (error) {
-  if (error instanceof AggregateError) {
-    console.log(`${error.errors.length} handlers failed`);
-    for (const e of error.errors) {
-      console.error(e.message);
-    }
+  await bus.emit('test', {});
+} catch (err) {
+  if (err instanceof AggregateError) {
+    console.log(err.errors.length); // 2
   }
 }
 ```
 
-## Security Features
+## API overview
 
-### Event Name Validation
+The sealed public surface (ADR-0005).
 
-Event names are validated to prevent abuse:
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ----------- |
+| `events` | `<T extends EventMap>(options?: EventsOptions) => Extension<{ events: EventEmitter<T> }>` | 1.0.0 | Stable | The Extension factory -- primary usage. Decorates the app with `app.events` (or a custom property name) at `app.ready()`. |
+| `createEvents` | `<T extends EventMap>(options?: EventEmitterOptions) => EventEmitter<T>` | 1.0.0 | Stable | Standalone emitter factory -- no app required. |
+| `EventEmitter` | `class EventEmitter<T> implements TypedEventEmitter<T>` | 1.0.0 | Stable | The concrete emitter class returned by both factories above. |
+| `VERSION` | `string` | 1.0.0 | Stable | The package's build-time version string. |
+| `DEFAULT_EMITTER_OPTIONS` | `{ maxListeners: 10, errorIsolation: true }` | 1.0.0 | Stable | The emitter's default options. |
+| `MAX_EVENT_NAME_LENGTH` | `256` | 1.0.0 | Stable | The maximum allowed event-name length. |
+| `VALID_PROPERTY_NAME` | `RegExp` | 1.0.0 | Stable | The identifier pattern `events()`'s `propertyName` option is validated against. |
+| `type WithEvents<T>` | `{ events: EventEmitter<T> }` | 1.0.0 | Stable | Type helper for functions that accept an app decorated with `app.events` under a custom property name. |
+| `type TypedEventEmitter<T>` | -- | 1.0.0 | Stable | The emitter interface (`on`, `once`, `off`, `emit`, `listenerCount`, `clear`, `eventNames`, `listeners`, `hasListeners`, `setMaxListeners`, `getMaxListeners`). |
+| `type EventMap` / `EventNames<T>` / `EventHandler<T>` / `Unsubscribe` / `EventEmitterOptions` / `EventsOptions` | -- | 1.0.0 | Stable | Supporting types for defining and consuming typed events. |
 
-```typescript
-// Maximum length: 256 characters
-events.emit('a'.repeat(257), data); // ❌ Throws TypeError
+## Options
 
-// Must be a string
-events.emit(123, data); // ❌ Throws TypeError
-events.emit(null, data); // ❌ Throws TypeError
+Every default below is read directly from `src/types.ts` and `src/index.ts`.
 
-// Empty strings are invalid
-events.emit('', data); // ❌ Throws TypeError
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------- | ----------- |
+| `maxListeners` | `number` | No | `10` | No | Warn via `console.warn` once an event's listener count exceeds this. `0` disables the warning entirely -- it never blocks a subscription. |
+| `errorIsolation` | `boolean` | No | `true` | No | `true`: one handler's error never stops the others. `false`: every handler still runs, but `emit()` rejects with an `AggregateError` collecting every thrown error. |
+| `onError` | `(error: Error, eventName: string) => void` | No | `undefined` | No | Called for each isolated error when `errorIsolation` is `true`. If omitted, the error is logged with `console.error` (skipped when `NODE_ENV === 'test'`). |
+| `propertyName` | `string` (Extension only, via `EventsOptions`) | No | `'events'` | Yes | The app property `events()` decorates. Validated against `VALID_PROPERTY_NAME` (`/^[a-zA-Z_$][a-zA-Z0-9_$]*$/`); an invalid value throws `TypeError` at `events()` call time, before `app.extend()` even runs. |
+
+## Compatibility
+
+**Requirements**
+
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | 3.x |
+| Node.js | >=22 |
+| TypeScript | >=5.x |
+
+**Runtimes**
+
+| Runtime | Supported | Notes |
+| ------- | --------- | ----- |
+| Node.js >=22 | Yes | ESM-only; the package's test suite runs on Node |
+| Bun / Deno / Edge | Expected, not conformance-tested | No `node:` imports and no `@nextrush/core` hard dependency, so nothing in the emitter's public API is Node-specific. One defensive check inside `executeHandler()`'s error-logging path reads the bare global `process` (`typeof process === 'undefined' || process.env.NODE_ENV !== 'test'`) to suppress `console.error` noise during this package's own Node-based test run -- it degrades safely (falls through to logging) if `process` is absent, but it means the emitter is not built from *only* `Map`/`Set`/`Promise`/`AggregateError` as earlier drafts of this doc claimed. No conformance suite in this package exercises Bun/Deno/edge; treat "supported" here as "no known blocker," not a tested guarantee. |
+
+**Integration**
+- **Peer dependencies:** `@nextrush/core` -- optional (needed only because `events()`'s return type references the `Extension`/`ExtensionContext` interfaces, which are declared in `@nextrush/types` and re-exported by `@nextrush/core`; `createEvents()` and the standalone `EventEmitter` class have no such dependency at all).
+- **Works with:** any NextRush app created via `createApp()`, through `app.extend(events())`.
+- **Incompatible with:** none.
+
+> [!IMPORTANT]
+> NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
+> can `require()` this ESM package natively. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+---
+
+## Why an Extension, not middleware
+
+Most NextRush capabilities are middleware (`app.use()`) -- request-scoped, run per request, composed in order. `events()` is one of the rare Extensions (per the taxonomy in `@nextrush/core`'s docs) because it is a long-lived, app-scoped service: it attaches state to the app once (`app.events`) and must tear that state down cleanly on shutdown (clearing every handler), the same shape a database connection pool or a websocket attach uses. Registering it with `app.use()` instead of `app.extend()` would not compile -- `use()` expects a `Middleware` function, not an `Extension` object.
+
+## Troubleshooting
+
+<details>
+<summary><strong><code>app.events</code> is <code>undefined</code> or throws "not a function"</strong></summary>
+
+**Cause:** `app.ready()` was never called (or not yet awaited) -- `setup()`, which decorates the app with `app.events`, only runs at `app.ready()`, not at `app.extend()` time. **Fix:** `await app.ready()` before touching `app.events`; `listen()` from an adapter calls it for you, but standalone `Application` usage does not.
+
+</details>
+
+<details>
+<summary><strong>A handler I registered with <code>once</code> ran more than once</strong></summary>
+
+**Cause:** unlikely with this emitter -- `once` handlers are removed from the handler set synchronously, before any handler executes, specifically so concurrent `emit()` calls can't race past the removal. If you're seeing this, check whether you registered the handler twice (once per `on`/`once` call is a separate subscription; call `off`/the returned `Unsubscribe` to remove one). **Fix:** log `listenerCount(eventName)` before emitting to confirm how many subscriptions actually exist.
+
+</details>
+
+<details>
+<summary><strong><code>events({ propertyName: '...' })</code> throws a <code>TypeError</code></strong></summary>
+
+**Cause:** the supplied `propertyName` isn't a valid JavaScript identifier (checked against `VALID_PROPERTY_NAME`) -- e.g. it contains a dash, starts with a digit, or is an empty string. **Fix:** use an identifier-safe name (`bus`, `$events`, `_events`); the default `'events'` always works.
+
+</details>
+
+<details>
+<summary><strong>Console warning: "Event '...' has N listeners. This might indicate a memory leak."</strong></summary>
+
+**Cause:** more than `maxListeners` (default 10) handlers are registered on one event -- often from re-registering the same handler in a loop or on every request instead of once at startup. **Fix:** move the `on()` call out of the hot path, or call `setMaxListeners()`/pass `{ maxListeners: 0 }` if the count is genuinely expected.
+
+</details>
+
+## FAQ
+
+**Can I use this without `nextrush`?**
+Yes -- `createEvents()` and the `EventEmitter` class have no dependency on any NextRush package; only the `events()` Extension factory's return type references the `Extension`/`ExtensionContext` types, which are declared in `@nextrush/types` and re-exported by `@nextrush/core` (an optional peer dependency).
+
+**Why ESM-only?**
+See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+**Does it work on Bun / Deno / Edge?**
+Expected to, but not conformance-tested by this package. There are no `node:` imports and no hard dependency on `@nextrush/core`, so nothing in the public API is Node-specific -- but one internal error-logging check reads the bare `process` global defensively (see [Compatibility](#compatibility)), and no test in this package runs against Bun/Deno/edge to confirm behavior there.
+
+**Does `emit()` wait for async handlers to finish?**
+Yes -- `emit()` collects a promise per matched handler and `await`s `Promise.allSettled(...)` before resolving, regardless of whether a given handler is sync or async.
+
+---
+
+## Package relationships
+
+```text
+                   peer depends on (optional, types only)   @nextrush/core  (re-exports Extension / ExtensionContext from @nextrush/types)
+@nextrush/events -------------------------------------------------------------->
+                   often used with                          @nextrush/class  (services emitting events from controllers)
 ```
 
-### Race-Safe Once Handlers
+- **Depends on:** none at the runtime-dependency level; `@nextrush/core` is an optional peer, used only because `events()`'s return type references the `Extension`/`ExtensionContext` types (declared in `@nextrush/types`, re-exported by `@nextrush/core`).
+- **Often used with:** [`@nextrush/class`](../../class) -- a `@Service` or controller can hold a reference to `app.events` (via constructor/`@Ctx` access) and emit domain events from business logic.
+- **Alternative:** `createEvents()` (this same package) for anyone who wants the emitter without the Extension wrapper -- there's no separate package for that.
 
-Once handlers are removed synchronously before execution, preventing race conditions:
+## Architecture
 
-```typescript
-// Safe: handler runs exactly once even with concurrent emits
-events.once('init', () => {
-  console.log('Only runs once');
-});
+Maintaining or contributing to this package? The internal design -- the emit-to-dispatch sequence,
+the extension boot/teardown lifecycle, and the decisions and trade-offs behind them (with
+diagrams) -- is in **[`ARCHITECTURE.md`](./ARCHITECTURE.md)**.
 
-// Concurrent emits are safe
-await Promise.all([events.emit('init', {}), events.emit('init', {}), events.emit('init', {})]);
-// Output: "Only runs once" (exactly once)
-```
+## Resources
 
-### Property Name Validation
+- Learn -- [Documentation](https://0xtanzim.github.io/nextRush/docs) . [Architecture](./ARCHITECTURE.md) . [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- Changelog -- [CHANGELOG.md](./CHANGELOG.md)
+- Report an issue -- [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- Contribute -- [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
 
-The extension validates the property name to prevent prototype pollution:
+---
 
-```typescript
-// ✅ Valid property names
-app.extend(events()); // Default: 'events'
-app.extend(events({ propertyName: 'bus' }));
-app.extend(events({ propertyName: '$events' }));
-
-// ❌ Invalid property names throw
-app.extend(events({ propertyName: '' }));
-app.extend(events({ propertyName: '123abc' }));
-app.extend(events({ propertyName: 'has-dash' }));
-```
-
-## Use in Middleware
-
-```typescript
-app.use(async (ctx) => {
-  // Emit events from middleware
-  await app.events.emit('request:received', {
-    method: ctx.method,
-    path: ctx.path,
-  });
-
-  await ctx.next();
-
-  await app.events.emit('request:completed', {
-    method: ctx.method,
-    path: ctx.path,
-    status: ctx.status,
-  });
-});
-```
-
-## Type Helper: WithEvents<T>
-
-The `WithEvents<T>` type helper makes it easy to type functions that accept an app with events:
-
-```typescript
-import type { WithEvents } from '@nextrush/events';
-
-interface MyEvents {
-  'user:created': { id: string };
-  'user:deleted': { id: string };
-}
-
-// Use in function signatures
-function setupUserRoutes(app: WithEvents<MyEvents>) {
-  app.events.emit('user:created', { id: '1' }); // ✅ Typed
-}
-
-// Combine with other app properties
-function initApp(app: Application & WithEvents<MyEvents>) {
-  app.use((ctx) => {
-    /* ... */
-  });
-  app.events.on('user:created', (data) => console.log(data));
-}
-```
-
-## Organize Event Handlers
-
-```typescript
-// events/user.events.ts
-export function registerUserEvents(events) {
-  events.on('user:created', sendWelcomeEmail);
-  events.on('user:deleted', cleanupUserData);
-  events.on('user:*', logUserEvent);
-}
-
-// main.ts
-import { registerUserEvents } from './events/user.events';
-
-registerUserEvents(app.events);
-```
-
-## Why an Extension, Not Middleware
-
-Most NextRush features are middleware (`app.use`) or plain registrar functions. `events()` is one of the rare Extensions because it's a long-lived service that must attach state to the app (`app.events`) and tear down cleanly on shutdown (unsubscribing all handlers) — the same reason a database pool or a websocket attach uses the Extension kind instead of middleware. See `@nextrush/core`'s README for the full extension model.
-
-## Runtime Compatibility
-
-| Runtime            | Version | Support | Notes              |
-| ------------------- | ------- | ------- | ------------------- |
-| Node.js            | 22+     | ✅ Full | Primary target     |
-| Bun                | 1.0+    | ✅ Full | Native ES modules  |
-| Deno               | 1.37+   | ✅ Full | Via npm: specifier |
-| Cloudflare Workers | -       | ✅ Full | Edge-compatible    |
-| Vercel Edge        | -       | ✅ Full | Edge-compatible    |
-
-**Zero Node.js-specific APIs**: Uses only `Map`, `Set`, `Promise`, `console`, and `AggregateError`.
-
-## Constants
-
-The package exports validation constants for advanced use cases:
-
-```typescript
-import { MAX_EVENT_NAME_LENGTH, VALID_PROPERTY_NAME } from '@nextrush/events';
-
-console.log(MAX_EVENT_NAME_LENGTH); // 256
-console.log(VALID_PROPERTY_NAME); // /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
-```
-
-## License
-
-MIT
+MIT (c) [Tanzim Hossain](https://github.com/0xTanzim)

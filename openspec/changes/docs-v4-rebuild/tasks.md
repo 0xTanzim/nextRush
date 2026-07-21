@@ -193,7 +193,7 @@ match source, EDS-014 + EDS-015 pass.
 - [x] 3. **Wave A1 — Tier 1 core (6 remaining; router done in pilot):** core, runtime, di, class,
       types, errors — README + ARCHITECTURE each. Full architectural depth. → Validator + Integrator.
       **Brief: [`waves/wave-a1-tier1-core.md`](./waves/wave-a1-tier1-core.md).**
-- [ ] 4. **Wave A2 — Tier 2 middleware/ext/stream (19):** cors, helmet, csrf, body-parser,
+- [x] 4. **Wave A2 — Tier 2 middleware/ext/stream (19):** cors, helmet, csrf, body-parser,
       multipart, rate-limit, compression, cookies, validation, logger, static, template, openapi,
       request-id, timer, health, events, websocket, stream. Depth: problem → default → install →
       usage → options → integration → troubleshooting. **Batching width (flat 19 vs sub-waves of

@@ -1,7 +1,12 @@
 # Wave A2 — Tier-2 middleware/extension/stream packages (19)
 
 - **Track:** A (package docs)
-- **Status:** batch 1 COMPLETE — cors, helmet, body-parser, validation all done + independently validated, 2026-07-21. **Path correction:** middleware packages live under `packages/middleware/<name>/`, not `packages/<name>/` — brief corrected. **Recovered from 2 transient connection timeouts mid-batch** (infra, not logic — per §11, work already on disk was verified rather than blindly redone). **Real finding caught by the loop:** `validation`'s docs originally overclaimed equal Zod/Valibot/ArkType support; only Zod is an actual dependency/tested — fixed to distinguish "structurally compatible" (any Standard Schema v1 impl) from "integration-tested" (Zod only). cors' production-wildcard-safety claim independently confirmed genuinely enforced in `presets.ts`/`security.ts` (not just asserted).
+- **Status:** ✅ **WAVE A2 COMPLETE (all 19/19 packages) — 2026-07-22.** History: batch 1 (cors, helmet,
+  body-parser, validation), batch 2 (csrf, rate-limit, cookies, compression), batch 3 (multipart, static,
+  template), batch 4 (logger, request-id, timer, health), batch 5 (openapi, events, websocket, stream —
+  see below for this batch's findings). **Path correction:** middleware packages live under
+  `packages/middleware/<name>/`, not `packages/<name>/`. **Recovered from 2 transient connection
+  timeouts** (infra, not logic — per §11, work already on disk was verified rather than blindly redone).
 
 ### Work items (batch 1 — COMPLETE)
 | Package | Source of truth | Notable facts | README | ARCH | Done |
@@ -98,4 +103,19 @@ Either this is an undocumented approved exception (steering needs updating) or a
 (the dependency needs removing/justifying). The docs disclose the dependency honestly either way — this
 is a steering/policy gap, not a documentation defect.
 
-**Remaining:** 4 of 19 A2 packages — `openapi` (API&docs); `events`/`websocket`/`stream` (extensions/streaming).
+### Work items (batch 5 — FINAL, Wave A2 COMPLETE)
+| Package | Source of truth | Notable facts | README | ARCH | Done |
+| ------- | --------------- | -------------- | :----: | :--: | :--: |
+| `openapi` | `packages/middleware/openapi/src` | dogfoods the same `generateDocument()` this session's `apps/docs/scripts/generate-openapi.ts` uses; no fabrications found on first pass | ✅ | ✅ | ✅ |
+| `events` | `packages/extensions/events/src` | correctly an Extension (not middleware); heal loop caught a Bun/Deno/Edge cross-runtime overclaim (no conformance test exists) and an Extension-interface misattribution, both fixed | ✅ | ✅ | ✅ |
+| `websocket` | `packages/extensions/websocket/src` | **Node-only** (implementer correctly overrode the brief's wrong Extension-framing assumption — it's a factory+middleware pair, not an Extension); **real dead-code bug found**: `clientTimeout` option declared+defaulted+tested but never read anywhere in `server.ts` — heartbeat interval alone drives termination | ✅ | ✅ | ✅ |
+| `stream` | `packages/stream/src` | **3 rounds of real defects caught**: fabricated `consume()` method + invented type union, broken duplicated table header, and (most importantly) complete template-shape non-conformance — missing Identity/Highlights/TOC/At-a-glance/Responsibilities/6 more frozen sections. Also a fabricated citation (`v3-testing.instructions.md` doesn't exist). All fixed; independently re-verified: 0 mermaid-in-README, 0 non-ASCII, all frozen sections present. | ✅ | ✅ | ✅ |
+
+**🎯 WAVE A2 COMPLETE — all 19/19 Tier-2 packages done, independently validated, 2026-07-22.**
+
+**Engineering findings logged for maintainer follow-up (NOT silently patched — real code, not doc, issues):**
+- `compression` (batch 2): Brotli capability flag hardcoded true on Bun with no real feature probe (fails safe, but wrong).
+- `websocket` (this batch): `clientTimeout` option is dead code — declared, defaulted, tested, never read.
+- `logger` (batch 4): depends on external `@nextrush/log`, not on the approved zero-dependency exception list in `project-rules.instructions.md` §6 — needs a maintainer decision (undocumented exception vs. real violation).
+
+**Process lesson for future waves (logged for §12/retrospective):** the `stream` node shows that **"content is factually accurate" and "template-shape conformant" are two different checks** — earlier passes verified facts against source but didn't check structural completeness against the frozen template, and a defect slipped through 2 rounds before a validator explicitly diffed headings against a sibling exemplar. Future validator prompts should always include an explicit heading-list diff against the frozen template, not just a factual spot-check.
