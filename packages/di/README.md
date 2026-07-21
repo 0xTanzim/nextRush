@@ -1,482 +1,397 @@
 # @nextrush/di
 
-Lightweight dependency injection container for NextRush v3.
+> A lightweight dependency-injection container for NextRush — decorator-driven constructor injection over `tsyringe`, with singleton / transient / request scopes and errors that tell you how to fix them.
 
-> **Dependency footprint**: `@nextrush/di` depends on `tsyringe@^4.10.0` and
-> `reflect-metadata@^0.2.2` — it is not part of NextRush's zero-dependency functional core
-> (`createApp`/`createRouter`/`listen`). Any usage path that pulls in `@nextrush/di` (directly,
-> or transitively via `nextrush/class`) carries these two runtime dependencies. See the root
-> [README's Dependency Footprint table](../../README.md#dependency-footprint) for the full
-> per-path breakdown.
+[![npm version](https://img.shields.io/npm/v/@nextrush/di.svg)](https://www.npmjs.com/package/@nextrush/di)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/di.svg)](https://www.npmjs.com/package/@nextrush/di)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/di.svg)](https://bundlephobia.com/package/@nextrush/di)
+[![types](https://img.shields.io/npm/types/@nextrush/di.svg)](https://www.npmjs.com/package/@nextrush/di)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/di.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+|  |  |
+| --- | --- |
+| **Purpose** | Decorator-driven dependency injection for NextRush — mark a class `@Service()`, declare dependencies in its constructor, and `container.resolve()` wires the graph |
+| **Package type** | Core |
+| **Status** | Stable ✅ |
+| **Included in `nextrush`?** | Partially — `Service`, `Repository`, `container`, `createContainer`, `inject`, and the `Container` type are re-exported through [`nextrush/class`](../class). Install `@nextrush/di` directly to use `@Config`, `@Injectable`, `@Optional`, `delay`, the DI error classes, or the metadata readers. |
+| **Support tier** | Public — core (stable, semver-guarded) — see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Maintenance** | Active |
+| **Runtime** | Universal — Node · Bun · Deno · Edge |
+| **Requires** | Node `>=22` · ESM-only · TypeScript `>=5.x` |
+| **Introduced** | `v3.0.0` |
 
-## Features
+## Highlights
 
-- **Constructor Injection** — Automatic dependency resolution via TypeScript metadata
-- **Singleton & Transient Scopes** — Control instance lifecycle per service
-- **Circular Dependency Detection** — O(1) Set-based detection with cycle visualization, catches tsyringe-internal chains
-- **Production-Grade Errors** — Actionable messages with fix suggestions (`@Service()`, `@Repository()`, `@Config()` hints)
-- **Optional Dependencies** — `@Optional()` decorator for graceful handling of missing services
-- **Test-Friendly** — Isolated containers and instance clearing for test setup
+- 🧩 **Decorator-driven** — `@Service()` / `@Repository()` + constructor parameters; no manual wiring for the common case
+- 🔁 **Three scopes** — `singleton` (default), `transient`, and `request` (per-request child container)
+- 🧭 **Actionable errors** — circular dependencies and unregistered tokens throw messages that name the cycle and list fixes
+- 📦 **Peer-depends on `tsyringe` + `reflect-metadata`** — this is the one core package with runtime dependencies (a sanctioned exception; the container wraps `tsyringe`)
+- ✅ **ESM-only**, side-effect-free, **fully typed** — strict TypeScript, zero `any`
 
-## Development
+<details>
+<summary><strong>Table of contents</strong></summary>
 
-For the best development experience with full decorator and DI support, use **`@nextrush/dev`**.
+[The problem](#the-problem) · [When to use](#when-to-use) · [Installation](#installation) · [Quick start](#quick-start) · [Capabilities](#capabilities) · [Mental model](#mental-model) · [Common tasks](#common-tasks) · [API overview](#api-overview) · [Options](#options) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Package relationships](#package-relationships) · [Architecture](#architecture) · [Resources](#resources)
 
-```bash
-pnpm add -D @nextrush/dev
+</details>
+
+---
+
+## The problem
+
+Wiring dependencies by hand starts simple and rots fast. A service needs a repository, which needs a database client, which needs config — and every construction site has to know the whole chain and build it in the right order. Swapping an implementation (a real repository for a fake in a test) means threading the change through every caller.
+
+```ts
+// TODAY, without a container — every call site rebuilds the whole graph by hand,
+// in the right order, and a swapped implementation ripples everywhere:
+const config = new DatabaseConfig();
+const db = new DatabaseClient(config);
+const userRepo = new UserRepository(db);
+const userService = new UserService(userRepo);
+// …and the next module that needs UserService does all of this again.
 ```
 
-Then in your `package.json`:
+As the graph grows, ordering bugs and duplicated construction multiply, and a single shared instance (a connection pool) can be built twice by accident. `@nextrush/di` inverts this: a class declares *what it needs* in its constructor and *how it should be shared* with a decorator, and the container resolves the graph once, in order, memoizing singletons.
 
-```json
-{
-  "scripts": {
-    "dev": "nextrush dev"
-  }
-}
-```
+## When to use
 
-### Why?
+`@nextrush/di` is the DI container behind NextRush's class-based runtime. If you use `@Controller` / `@Service` through [`nextrush/class`](../class), you are already using it. Reach for it **directly** when you want the container on its own, or the parts `nextrush/class` does not re-export.
 
-TypeScript's `emitDecoratorMetadata` option emits runtime type information that allows the DI container to automatically resolve constructor dependencies. Most modern fast runners (`tsx`, `esbuild`, `node --experimental-strip-types`) strip types but **do not** emit this metadata, causing errors like:
+**Use `@nextrush/di` if:**
 
-```
-TypeInfo not known for "UserService"
-```
+- ✓ You want constructor injection with decorators (`@Service`, `@Repository`) and automatic dependency resolution
+- ✓ You need lifecycle control — one shared instance (`singleton`), a fresh one each resolve (`transient`), or one per request (`request`)
+- ✓ You want circular-dependency and missing-dependency errors that explain how to fix them
+- ✓ You need the pieces beyond the `nextrush/class` re-export: `@Config`, `@Injectable`, `@Optional`, `delay()`, or the DI error classes
 
-| Runtime           | Decorator Metadata | Recommended      |
-| ----------------- | ------------------ | ---------------- |
-| **nextrush dev**  | Full Support       | Yes              |
-| **tsc + node**    | Full Support       | Yes (Production) |
-| **tsx / esbuild** | Not Supported      | No               |
-| **ts-node --esm** | Issues             | No               |
+**Reach for something else if:**
+
+- ✗ You only need controllers, guards, and request scope wired for you → use [`nextrush/class`](../class), which re-exports the common surface and drives the container for you
+- ✗ You have a two-object graph you construct once — a container is more machinery than a `new` call needs
+
+---
 
 ## Installation
 
 ```bash
 pnpm add @nextrush/di
+# npm i @nextrush/di · yarn add @nextrush/di · bun add @nextrush/di
 ```
 
-> If you use the `nextrush` meta-package, `reflect-metadata` is auto-imported. Otherwise, install it separately: `pnpm add reflect-metadata` and add `import 'reflect-metadata'` at your entry point.
+> [!NOTE]
+> Already using `nextrush`? `Service`, `Repository`, `container`, `createContainer`, and `inject`
+> are re-exported from [`nextrush/class`](../class) — `import { Service, container } from 'nextrush/class'`
+> works without installing this directly. Install `@nextrush/di` when you need `@Config`,
+> `@Injectable`, `@Optional`, `delay`, the DI error classes, or the metadata readers.
 
-## TypeScript Configuration
+> [!IMPORTANT]
+> Decorators need `reflect-metadata` loaded once before any decorated class is defined, and your
+> `tsconfig.json` needs `"experimentalDecorators": true` and `"emitDecoratorMetadata": true`.
+> Importing `@nextrush/di` (or `nextrush/class`) loads `reflect-metadata` for you.
 
-**Required** `tsconfig.json` settings:
+## Quick start
 
-```json
-{
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
-  }
-}
-```
-
-## Quick Start
-
-```typescript
-import 'reflect-metadata'; // Required when NOT using the nextrush meta-package
+```ts
 import { Service, Repository, container } from '@nextrush/di';
 
 @Repository()
 class UserRepository {
   findAll() {
-    return [{ id: 1, name: 'Alice' }];
+    return [{ id: 1, name: 'Ada' }];
   }
 }
 
 @Service()
 class UserService {
-  constructor(private repo: UserRepository) {}
+  constructor(private readonly repo: UserRepository) {}
 
   getUsers() {
     return this.repo.findAll();
   }
 }
 
-const userService = container.resolve(UserService);
-console.log(userService.getUsers()); // [{ id: 1, name: 'Alice' }]
+// Resolve the whole graph — UserRepository is constructed and injected automatically.
+const users = container.resolve(UserService);
+console.log(users.getUsers()); // [{ id: 1, name: 'Ada' }]
 ```
 
-## API Reference
+You never construct `UserRepository` yourself. `@Service()` marks `UserService` as resolvable, the constructor declares what it needs, and `container.resolve()` builds the graph in dependency order — memoizing each singleton so the second resolve returns the same instances.
 
-### Decorators
+## Capabilities
 
-#### `@Service(options?)`
+**Injection**
+- **Constructor injection** — declare dependencies as constructor parameters; the container resolves them by type
+- **`@inject(token)`** — inject by string/symbol token or interface when the type can't be inferred at runtime
+- **`@Optional()`** — an unresolved optional dependency is injected as `undefined` instead of throwing
+- **`delay(() => Class)`** — lazily resolve a dependency to break a circular reference
 
-Mark a class as an injectable service. Singletons by default.
+**Scopes** (the canonical reference — see [Mental model](#mental-model))
+- **`singleton`** (default) — one shared instance for the process lifetime
+- **`transient`** — a fresh instance on every resolve
+- **`request`** — one instance per request, shared within it, via a per-request child container
 
-```typescript
+**Providers**
+- **`useClass`** — construct a class (honoring its declared scope)
+- **`useValue`** — register a constant (config object, pre-built client)
+- **`useFactory`** — build lazily, optionally injecting other tokens; async factories are awaited by `bootstrap()`
+
+**Safety & developer experience**
+- **Circular-dependency detection** — an O(1) resolution-stack guard throws a `CircularDependencyError` that names the cycle *before* the call stack overflows
+- **Actionable errors** — `DependencyResolutionError` lists concrete fixes; `InvalidProviderError` shows the valid provider shapes
+- **Fully typed** — strict TypeScript, zero `any`; the container contract is shared through `@nextrush/types`
+
+## Mental model
+
+A class declares **what it needs** (constructor parameters) and **how it should be shared** (its scope). The container owns the *when* and *how many* — it resolves the graph in order and memoizes according to scope.
+
+```text
+@Service() / @Repository()  --->  container.register(token, { useClass }, { scope })
+class + constructor deps                    |   singleton | transient | request
+                                            v
+container.resolve(token)     --->  tsyringe constructs, injecting resolved deps
+        |
+        +-- cycle detected?  --->  CircularDependencyError (names the cycle, before the stack blows)
+        +-- token missing?   --->  DependencyResolutionError (lists the fixes)
+```
+
+**Rule:** the class's declared scope — not the call site — decides singleton vs transient; an explicit `register(..., { scope })` only overrides it deliberately.
+
+> [!TIP]
+> The resolution sequence, the request-scoped child container, and the instance lifecycle per
+> scope (with Mermaid diagrams) are in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+---
+
+## Common tasks
+
+### Mark a service and inject it
+
+```ts
+import { Service } from '@nextrush/di';
+
+@Service() // singleton by default — one shared instance
+class Logger {
+  info(msg: string) { console.log(msg); }
+}
+
 @Service()
-class MyService {}
+class OrderService {
+  constructor(private readonly logger: Logger) {} // injected automatically
+}
+```
 
-// Transient (new instance each time)
-@Service({ scope: 'transient' })
-class RequestLogger {}
+### Choose a scope
 
-// Request (one instance per request, shared within it — via a per-request child container)
-@Service({ scope: 'request' })
+```ts
+import { Service } from '@nextrush/di';
+
+@Service()                        // singleton — one shared instance
+class ConfigService {}
+
+@Service({ scope: 'transient' })  // a fresh instance on every resolve
+class Formatter {}
+
+@Service({ scope: 'request' })    // one instance per request, shared within it
 class RequestId {
   readonly id = crypto.randomUUID();
 }
 ```
 
-**`ServiceOptions`:**
+`request` scope only takes effect when the service is resolved from a per-request child container — the class-based runtime does this for you (see [`nextrush/class`](../class)); to do it manually, `container.createChild()` per request and resolve from the child.
 
-| Property | Type                                      | Default       | Description        |
-| -------- | ----------------------------------------- | ------------- | ------------------ |
-| `scope`  | `'singleton' \| 'transient' \| 'request'` | `'singleton'` | Instance lifecycle |
+### Inject by token, or make a dependency optional
 
-> `request` maps to tsyringe's `ContainerScoped` lifecycle: resolve it from a
-> per-request child (`container.createChild()`) for one instance per request.
-> With `@nextrush/class`'s `registerControllers`/`registerModule`, request scope
-> (and scope bubbling) is automatic — see RFC-NEXTRUSH-REQUEST-SCOPE.
-
-#### `@Repository(options?)`
-
-Semantic alias for `@Service()`. Sets metadata type to `'repository'` instead of `'service'`. Use for data access layers.
-
-```typescript
-@Repository()
-class UserRepository {
-  findById(id: string) {
-    return db.users.find(id);
-  }
-}
-```
-
-#### `@inject(token)`
-
-Explicitly inject a dependency by token. Use for interfaces, string tokens, or symbol tokens.
-
-```typescript
-const DATABASE_TOKEN = Symbol('Database');
-
-@Service()
-class UserService {
-  constructor(
-    @inject(DATABASE_TOKEN) private db: IDatabase,
-    @inject('API_KEY') private apiKey: string
-  ) {}
-}
-```
-
-#### `delay(tokenFactory)`
-
-Defer resolution to break circular dependencies. Returns a lazy token for use with `@inject()`.
-
-```typescript
-import { delay, inject, Service } from '@nextrush/di';
-
-@Service()
-class ServiceA {
-  constructor(@inject(delay(() => ServiceB)) private b: ServiceB) {}
-}
-
-@Service()
-class ServiceB {
-  constructor(@inject(delay(() => ServiceA)) private a: ServiceA) {}
-}
-```
-
-#### `@Optional()`
-
-Mark a constructor parameter as optional. When the dependency is not registered, the container injects `undefined` instead of throwing.
-
-```typescript
-import { Service, Optional, inject } from '@nextrush/di';
+```ts
+import { Service, inject, Optional } from '@nextrush/di';
 
 @Service()
 class NotificationService {
   constructor(
-    @Optional() private emailService?: EmailService,
-    @inject('SLACK_TOKEN') @Optional() private slackToken?: string
+    @inject('MAILER') private readonly mailer: Mailer,          // by string token
+    @Optional() @inject('SMS') private readonly sms?: SmsClient, // undefined if unregistered
   ) {}
-
-  notify(message: string) {
-    if (this.emailService) {
-      this.emailService.send(message);
-    }
-    if (this.slackToken) {
-      // send to Slack
-    }
-  }
 }
 ```
 
-#### `isParameterOptional(target, parameterIndex)`
+### Register a value or a factory manually
 
-Check if a specific constructor parameter is marked as optional.
+```ts
+import { container } from '@nextrush/di';
 
-```typescript
-import { isParameterOptional, Optional, Service } from '@nextrush/di';
-
-@Service()
-class MyService {
-  constructor(@Optional() private dep?: SomeDep) {}
-}
-
-isParameterOptional(MyService, 0); // true
-isParameterOptional(MyService, 1); // false
-```
-
-#### `getOptionalParams(target)`
-
-Get all optional parameter indices for a class. Returns a `ReadonlySet<number>`.
-
-```typescript
-import { getOptionalParams } from '@nextrush/di';
-
-const optionals = getOptionalParams(MyService);
-// Set { 0 }
-```
-
-### Utility Functions
-
-#### `hasServiceMetadata(target)`
-
-Check if a class has DI metadata (decorated with `@Service()` or `@Repository()`).
-
-```typescript
-import { hasServiceMetadata, Service } from '@nextrush/di';
-
-@Service()
-class MyService {}
-
-hasServiceMetadata(MyService); // true
-```
-
-#### `getServiceType(target)`
-
-Get the service type from a decorated class. Returns `'service'`, `'repository'`, or `undefined`.
-
-#### `getServiceScope(target)`
-
-Get the scope from a decorated class. Returns `'singleton'`, `'transient'`, `'request'`, or `undefined`.
-
-### Container
-
-#### `container.register(token, provider)`
-
-Register a dependency with the container.
-
-```typescript
-// Class provider
-container.register(UserService, { useClass: UserService });
-
-// Value provider
 container.register('CONFIG', { useValue: { port: 8080 } });
+container.register('CLOCK', { useFactory: () => new Date() });
 
-// Factory provider — receives the container for nested resolution
-container.register(Logger, {
-  useFactory: (c) => new Logger(c.resolve('CONFIG')),
+// Factory with injected dependencies + an async factory awaited by bootstrap()
+container.register('DB', {
+  useFactory: (url: string) => connect(url),
+  inject: ['DATABASE_URL'],
 });
+await container.bootstrap(); // resolves and caches async factory results
 ```
 
-#### `container.resolve(token)`
+### Isolate a container for tests
 
-Resolve a dependency from the container.
+```ts
+import { createContainer } from '@nextrush/di';
 
-```typescript
-const service = container.resolve(UserService);
-const config = container.resolve<Config>('CONFIG');
+const testContainer = createContainer(); // fresh, isolated child container
+testContainer.register(UserRepository, { useClass: FakeUserRepository });
+const service = testContainer.resolve(UserService); // uses the fake
 ```
 
-#### `container.resolveAll(token)`
+## API overview
 
-Resolve all dependencies registered under a token. Returns an empty array if none are registered.
+The sealed public surface (ADR-0005), grouped by role.
 
-```typescript
-container.register('Plugin', { useValue: pluginA });
-container.register('Plugin', { useValue: pluginB });
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ----------- |
+| `container` | `Container` | `3.0.0` | Stable ✅ | The default DI container instance. |
+| `createContainer` | `() => Container` | `3.0.0` | Stable ✅ | Create a fresh, isolated container (testing / scoping). |
+| `Service` | `(options?: ServiceOptions) => ClassDecorator` | `3.0.0` | Stable ✅ | Mark a class injectable (singleton by default). |
+| `Repository` | `(options?: ServiceOptions) => ClassDecorator` | `3.0.0` | Stable ✅ | Same as `Service`, semantically a data-access class. |
+| `Config` | `(options?: ConfigOptions) => ClassDecorator` | `3.0.0` | Stable ✅ | Mark a configuration holder — always a singleton. |
+| `Injectable` | `() => ClassDecorator` | `3.0.0` | Stable ✅ | Make a class resolvable without service metadata (transient). |
+| `inject` | `(token: unknown) => ParameterDecorator` | `3.0.0` | Stable ✅ | Inject a dependency by class/string/symbol token. |
+| `Optional` | `() => ParameterDecorator` | `3.0.0` | Stable ✅ | Inject `undefined` for an unresolved dependency instead of throwing. |
+| `delay` | `(factory: () => Constructor) => unknown` | `3.0.0` | Stable ✅ | Lazily resolve a token to break a circular dependency. |
+| `markInjectable` | `(target: Constructor) => void` | `3.0.0` | Stable ✅ | Make a class resolvable without service metadata (used by `@Controller`). |
+| `hasServiceMetadata` · `getServiceType` · `getServiceScope` · `getConfigPrefix` | `(target) => …` | `3.0.0` | Stable ✅ | Metadata readers for discovery / diagnostics. |
+| `getOptionalParams` · `isParameterOptional` | `(target[, index]) => …` | `3.0.0` | Stable ✅ | Read `@Optional()` parameter markers. |
+| `DIError` · `DependencyResolutionError` · `CircularDependencyError` · `InvalidProviderError` | `class` | `3.0.0` | Stable ✅ | The DI error hierarchy. |
+| `METADATA_KEYS` | `Readonly<Record<string, string>>` | `3.0.0` | Stable ✅ | The metadata key constants decorators write under. |
+| `type Container` · `Scope` · `Token` · `Provider` · `ClassProvider` · `FactoryProvider` · `ValueProvider` · `RegisterOptions` · `ServiceOptions` · `ConfigOptions` · `Constructor` | — | `3.0.0` | Stable ✅ | Public contracts (re-exported from `@nextrush/types`). |
 
-const plugins = container.resolveAll<Plugin>('Plugin');
-```
+The `Container` interface exposes: `register`, `resolve`, `resolveAsync`, `bootstrap`, `resolveAll`, `isRegistered`, `clearInstances`, `reset`, and `createChild`.
 
-#### `container.isRegistered(token)`
+## Options
 
-Check if a token is registered.
+`@nextrush/di` is decorator- and API-driven; the configurable inputs are the decorator/registration option bags.
 
-```typescript
-if (container.isRegistered(UserService)) {
-  // ...
-}
-```
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------ | ----------- |
+| `ServiceOptions.scope` | `'singleton' \| 'transient' \| 'request'` | No | `'singleton'` | — | Lifecycle for `@Service()` / `@Repository()`. |
+| `RegisterOptions.scope` | `'singleton' \| 'transient' \| 'request'` | No | class's declared scope (else `'singleton'` for a decorated class) | — | Per-`register()` override; an explicit scope wins over the class's declared scope. |
+| `ConfigOptions.prefix` | `string` | No | `undefined` | — | Environment-variable prefix recorded on a `@Config()` class (documents the `PREFIX_*` vars it reads). |
 
-#### `container.clearInstances()`
+## Compatibility
 
-Clear cached singleton instances. Registrations remain — the next `resolve()` creates fresh instances.
+**Requirements**
 
-```typescript
-beforeEach(() => {
-  container.clearInstances();
-});
-```
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | `3.x` |
+| Node.js | `>=22` |
+| TypeScript | `>=5.x` (with `experimentalDecorators` + `emitDecoratorMetadata`) |
 
-#### `container.reset()`
+**Runtimes**
 
-Reset the container completely, removing all registrations and instances.
+| Runtime | Supported | Notes |
+| ------- | --------- | ----- |
+| Node.js `>=22` | ✅ | ESM-only |
+| Bun / Deno / Edge | ✅ / ✅ / ✅ | Uses only `tsyringe` + `reflect-metadata` — no `node:*` APIs — so behavior is identical across runtimes |
 
-#### `container.createChild()`
+**Integration**
+- **Peer dependencies:** `tsyringe@^4.10.0` and `reflect-metadata@^0.2.2` (runtime), plus `@nextrush/types` (contract, types erased at build).
+- **Works with:** [`nextrush/class`](../class) (re-exports the common surface and drives the container per request), [`@nextrush/core`](../core) (each `Application` may own a container).
+- **Incompatible with:** none.
 
-Create a child container. The child inherits parent registrations but can override them independently.
+> [!IMPORTANT]
+> NextRush is **ESM-only, permanently** — no CommonJS build. On Node `>=22`, CommonJS consumers can
+> `require()` this ESM package natively. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
 
-#### `createContainer()`
-
-Create a new isolated container with no inherited registrations.
-
-```typescript
-const testContainer = createContainer();
-testContainer.register(UserService, { useClass: MockUserService });
-```
-
-## Error Handling
-
-All errors extend `DIError` and include actionable messages:
-
-```typescript
-import {
-  DIError,
-  DependencyResolutionError,
-  CircularDependencyError,
-  InvalidProviderError,
-} from '@nextrush/di';
-
-try {
-  container.resolve(UnregisteredService);
-} catch (error) {
-  if (error instanceof DependencyResolutionError) {
-    console.log(error.missingDependency); // token name
-    console.log(error.chain); // resolution path
-  }
-  if (error instanceof CircularDependencyError) {
-    console.log(error.cycle); // ['ServiceA', 'ServiceB', ...]
-  }
-}
-```
-
-| Error                       | Cause                                                                                         |
-| --------------------------- | --------------------------------------------------------------------------------------------- |
-| `DependencyResolutionError` | Token not registered — includes fix suggestions (`@Service()`, import order, manual register) |
-| `CircularDependencyError`   | Circular dependency detected (wrapper-level + tsyringe-internal chains)                       |
-| `InvalidProviderError`      | Provider missing `useClass`, `useValue`, or `useFactory`                                      |
-
-## TypeScript Exports
-
-```typescript
-// Container
-import { container, createContainer } from '@nextrush/di';
-
-// Decorators
-import { Service, Repository, Optional, inject, delay } from '@nextrush/di';
-
-// Utility functions
-import {
-  hasServiceMetadata,
-  getServiceType,
-  getServiceScope,
-  isParameterOptional,
-  getOptionalParams,
-} from '@nextrush/di';
-
-// Metadata keys
-import { METADATA_KEYS } from '@nextrush/di';
-
-// Error classes
-import {
-  DIError,
-  DependencyResolutionError,
-  CircularDependencyError,
-  InvalidProviderError,
-} from '@nextrush/di';
-
-// Types
-import type {
-  Container,
-  Provider,
-  ClassProvider,
-  ValueProvider,
-  FactoryProvider,
-  Token,
-  Constructor,
-  Scope,
-  ServiceOptions,
-} from '@nextrush/di';
-```
-
-## Integration with Guards
-
-Class-based guards implementing `CanActivate` are resolved from the DI container:
-
-```typescript
-import { Service } from '@nextrush/di';
-import type { CanActivate, GuardContext } from 'nextrush/class';
-
-@Service()
-class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService) {}
-
-  async canActivate(ctx: GuardContext): Promise<boolean> {
-    const token = ctx.get('authorization');
-    if (!token) return false;
-
-    const user = await this.authService.verify(token);
-    ctx.state.user = user;
-    return Boolean(user);
-  }
-}
-```
-
-Guard auto-detection is built into `@nextrush/class`: `registerControllers`/`registerModule` wire each controller's guards through `executeGuards` (`packages/class/src/guards/guard-runner.ts`), which resolves `CanActivate` guards from the DI container automatically.
+---
 
 ## Troubleshooting
 
-### Error: "TypeInfo not known for X"
+<details>
+<summary><strong><code>DependencyResolutionError</code>: a token is "not registered in the container"</strong></summary>
 
-**Cause**: `emitDecoratorMetadata` is not being emitted at runtime.
+**Cause:** the class you're resolving depends on a token nothing registered — usually a missing `@Service()` / `@Repository()` decorator, an interface injected without `@inject('TOKEN')`, or a module imported after `resolve()` ran. **Fix:** decorate the class, inject interface/string tokens explicitly, or register it manually.
 
-**Fix**: Use `@nextrush/dev` for development. It automatically handles metadata emission.
-
-```bash
-# ❌ Doesn't work (no decorator metadata)
-npx tsx src/index.ts
-
-# ✅ Works (full decorator support)
-nextrush dev
+```ts
+container.register(UserRepository, { useClass: UserRepository });
+// or add @Repository() to the class, or @inject('IUserRepository') on the parameter
 ```
 
-> **Note**: `nextrush build` validates `tsconfig.json`'s `experimentalDecorators` /
-> `emitDecoratorMetadata` flags before compiling, and fails the build immediately with
-> remediation text if they're mismatched — instead of silently shipping an artifact that would
-> hit this error later at runtime. `nextrush dev` still warns and continues (so an active dev
-> session isn't interrupted); `nextrush build` is a one-shot gate and stops the build.
+</details>
 
-### Error: "reflect-metadata not found"
+<details>
+<summary><strong><code>CircularDependencyError</code>: "circular dependency detected"</strong></summary>
 
-**Cause**: `reflect-metadata` must be imported before decorators.
+**Cause:** two (or more) classes depend on each other, so neither can be constructed first. The container detects the cycle and names it before the call stack overflows. **Fix:** break the cycle — extract shared logic into a third service, or lazily resolve one side with `delay()`.
 
-**Fix**: Import it first in your entry point:
+```ts
+import { inject, delay, Service } from '@nextrush/di';
 
-```typescript
-import 'reflect-metadata'; // MUST be first!
-import { Service } from '@nextrush/di';
-```
-
-### Constructor parameters not injected
-
-**Cause**: Class is missing `@Service()` decorator.
-
-**Fix**: Add the decorator:
-
-```typescript
-@Service() // Required for DI!
-class MyService {
-  constructor(private dep: SomeDependency) {}
+@Service()
+class A {
+  constructor(@inject(delay(() => B)) private readonly b: B) {}
 }
 ```
 
-## License
+</details>
 
-MIT
+<details>
+<summary><strong>Decorators throw <code>Reflect.getMetadata is not a function</code> or types don't inject</strong></summary>
+
+**Cause:** `reflect-metadata` wasn't loaded, or `emitDecoratorMetadata` is off, so no constructor type information exists. **Fix:** ensure `reflect-metadata` is imported once at your entry point (importing `@nextrush/di` / `nextrush/class` does this), and enable `experimentalDecorators` + `emitDecoratorMetadata` in `tsconfig.json`.
+
+</details>
+
+<details>
+<summary><strong>A <code>request</code>-scoped service behaves like a singleton</strong></summary>
+
+**Cause:** `request` scope only yields a per-request instance when resolved from a per-request **child** container. Resolving from the root container shares one instance. **Fix:** resolve from `container.createChild()` per request — the [`nextrush/class`](../class) runtime does this automatically for request-scoped controllers and their dependencies.
+
+</details>
+
+## FAQ
+
+**Can I use `@nextrush/di` without the rest of NextRush?**
+Yes. The container, decorators, and errors are standalone — they depend on `tsyringe`, `reflect-metadata`, and the types-only `@nextrush/types`. Nothing ties them to the HTTP layer.
+
+**Why ESM-only?**
+See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+**Does it work on Bun, Deno, and Edge?**
+Yes. The package uses only `tsyringe` and `reflect-metadata` (no `node:*` APIs), so resolution behaves identically across every supported runtime.
+
+**How is `request` scope different from `transient`?**
+`transient` builds a fresh instance on *every* resolve; `request` builds one instance per request and shares it across every collaborator resolved within that request's child container. Two services that both depend on a `request`-scoped value receive the *same* value within one request.
+
+---
+
+## Package relationships
+
+```text
+                depends on         @nextrush/types  (Container / Scope / Provider contract, types only)
+@nextrush/di ---------------->     tsyringe · reflect-metadata  (runtime — the container wraps tsyringe)
+                re-exported by     @nextrush/class  (Service, Repository, container, createContainer, inject)
+                used by            @nextrush/class  (resolves controllers, guards, interceptors, filters)
+```
+
+- **Depends on:** [`@nextrush/types`](../types) — the shared `Container` / `Scope` / `Provider` / `Token` contracts (types, erased at build) · `tsyringe` + `reflect-metadata` (runtime).
+- **Re-exported by:** [`nextrush/class`](../class) — `Service`, `Repository`, `container`, `createContainer`, `inject`, and the `Container` type reach users through the class runtime.
+- **Used by:** [`@nextrush/class`](../class) — resolves controllers, guards, interceptors, and exception filters from the container, and drives request scope.
+- **Alternative:** none within NextRush — this is the framework's DI container.
+
+## Architecture
+
+Maintaining or contributing to this package? The internal design — how the container wraps `tsyringe`,
+the scope-to-lifecycle mapping, the per-request child container behind `request` scope, circular- and
+missing-dependency detection, the architectural invariants, and the decisions and trade-offs behind
+them (with diagrams) — is in **[`ARCHITECTURE.md`](./ARCHITECTURE.md)**. Design history:
+[ADR-0005 (package tiers & sealed surface)](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+
+## Resources
+
+- 📖 **Learn** — [Documentation](https://0xtanzim.github.io/nextRush/docs) · [Architecture](./ARCHITECTURE.md) · [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- 📝 **Changelog** — [CHANGELOG.md](./CHANGELOG.md)
+- 🐛 **Report an issue** — [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- 🤝 **Contribute** — [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
+
+---
+
+MIT © [Tanzim Hossain](https://github.com/0xTanzim)

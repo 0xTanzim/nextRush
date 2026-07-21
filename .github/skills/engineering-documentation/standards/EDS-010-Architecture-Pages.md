@@ -10,15 +10,33 @@ Architecture pages are deep Diátaxis *explanation*. The most valuable thing the
 
 Assume the reader knows the basics, understands backend development, and wants framework internals — to contribute, to debug, or simply to understand deeply. The page's job is to answer *"why was this designed this way?"* far more than *"how does it work?"* Implementation details are cheap; the reasoning behind them is what transfers.
 
-## Structure
+## Structure — the canonical architecture page
 
-The universal flow (EDS-006) expanded on the mechanics-and-decisions end:
+An architecture page is an ADR + internal design doc. Most of it is about *reasoning*, not implementation. ⭐ marks the sections that carry that reasoning:
 
 ```text
-Problem → Design goals → Constraints → Architecture overview → Component responsibilities
-   → Data flow → Lifecycle → Engineering decisions → Trade-offs
-   → Performance → Failure scenarios → Evolution
+Architectural problem ⭐ → Requirements & constraints ⭐ → Design principles ⭐
+   → Architecture overview → Component boundaries ⭐ → Request lifecycle → Component lifecycle ⭐
+   → Engineering decisions ⭐ → Architectural invariants ⭐ → Failure scenarios ⭐
+   → Concurrency model ⭐ → Performance characteristics ⭐ → Security boundaries ⭐
+   → Extensibility ⭐ → Rejected alternatives ⭐ → Architecture validation → Evolution
+   → Future improvements → Related
 ```
+
+The load-bearing additions:
+
+- **Start with the problem**, not the overview — every architecture exists to solve one.
+- **Requirements & constraints** (not goals): "must support Node/Bun/Deno/Edge · zero-dep core · ESM-only" — these *explain* every later decision.
+- **Component boundaries** ⭐ — for each component: **owns · does NOT own · depends on · used by · owns-state**, plus the legal **dependency direction**. Prevents drift.
+- **Engineering decisions** are ADR-shaped: **Problem → Decision → Alternatives → Trade-offs → Consequences**.
+- **Architectural invariants** ⭐ — the constitution: rules that must never break ("router immutable after `ready()`", "Context is request-scoped", "core imports no runtime API"). The single most valuable section for contributors.
+- **Failure scenarios** = Failure → Detection → Recovery; **Concurrency model** = what's safe to share across requests.
+- **Rejected alternatives** get their own section — valuable history.
+- **Architecture validation** — how the design is protected from regression (conformance, golden, benchmark, regression tests).
+
+**No generic "Trade-offs" section.** Trade-offs and consequences live *inside each engineering decision*, which keeps the page cohesive — a standalone trade-offs list just duplicates them.
+
+Three diagrams, three questions (EDS-012): a **system** diagram (overview), a **dependency** diagram (component boundaries), and a **sequence** diagram (request lifecycle). One idea per diagram.
 
 ## Rules specific to architecture pages
 

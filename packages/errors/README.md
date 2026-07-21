@@ -1,85 +1,106 @@
 # @nextrush/errors
 
-> Standardized HTTP error handling that eliminates response inconsistency and builds API client trust.
+> A typed `HttpError` hierarchy and error-handling middleware that turn thrown errors into consistent, client-safe JSON responses — for NextRush application and middleware authors.
 
-**Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+[![npm version](https://img.shields.io/npm/v/@nextrush/errors.svg)](https://www.npmjs.com/package/@nextrush/errors)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/errors.svg)](https://www.npmjs.com/package/@nextrush/errors)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/errors.svg)](https://bundlephobia.com/package/@nextrush/errors)
+[![types](https://img.shields.io/npm/types/@nextrush/errors.svg)](https://www.npmjs.com/package/@nextrush/errors)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/errors.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-## The Problem
+|  |  |
+| --- | --- |
+| **Purpose** | Typed HTTP errors + error-handling middleware for NextRush — throw an error, get a consistent JSON response |
+| **Package type** | Core |
+| **Status** | Stable ✅ |
+| **Included in `nextrush`?** | ✅ Yes — the common error classes, `errorHandler`, `ValidationError`, `createError`, `ERROR_CODES` are re-exported. Install directly for the full catalog (every 4xx/5xx class, every factory helper, every validation subclass). |
+| **Support tier** | Public — core (stable, semver-guarded) — see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Maintenance** | Active |
+| **Runtime** | Universal — Node · Bun · Deno · Edge |
+| **Requires** | Node `>=22` · ESM-only · TypeScript `>=5.x` |
+| **Introduced** | `v3.0.0` |
 
-Every API returns errors differently. This creates chaos for both developers and API consumers:
+## Highlights
 
-**Inconsistent error responses** plague every backend project. One endpoint returns `{error: "..."}`, another returns `{message: "..."}`, and a third leaks stack traces in production. API clients can't reliably handle errors because there's no standard format.
+- ✅ **No third-party dependencies** — depends only on `@nextrush/types` (types, erased at build)
+- ✅ **ESM-only**, tree-shakable, side-effect-free — a thrown error pulls in only its own class
+- ✅ **Fully typed** — strict TypeScript, zero `any`; every error carries `status`, `code`, and `expose`
+- 🛡️ **Client-safe by default** — 5xx messages are hidden unless you opt in; internal detail never leaks
 
-**Internal errors leak to users.** A database connection timeout becomes `PostgreSQL connection failed on pool 'primary'` in the API response. Security researchers see your infrastructure. Users see confusing technical jargon instead of actionable messages.
+<details>
+<summary><strong>Table of contents</strong></summary>
 
-**Manual error formatting is tedious.** Every route handler manually sets status codes, constructs JSON responses, and decides what to expose. Copy-paste error handling leads to bugs. Forgetting `try-catch` crashes the server.
+[The problem](#the-problem) · [When to use](#when-to-use) · [Installation](#installation) · [Quick start](#quick-start) · [Capabilities](#capabilities) · [Mental model](#mental-model) · [Common tasks](#common-tasks) · [API overview](#api-overview) · [Options](#options) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Package relationships](#package-relationships) · [Architecture](#architecture) · [Resources](#resources)
 
-**No programmatic error handling.** API clients resort to parsing error messages with regex because there are no stable error codes. A typo in an error message breaks production integrations.
+</details>
 
-## How NextRush Approaches This
+---
 
-NextRush treats **errors as API contracts**, not exceptions.
+## The problem
 
-Every error has three responsibilities:
+Error handling is where consistency quietly erodes. One handler returns `{ error: "..." }`, the next returns `{ message: "..." }`, and a forgotten `try/catch` leaks a database stack trace straight to the client. Each handler re-decides the status code, the response shape, and what is safe to expose — and each one gets it slightly differently.
 
-1. **HTTP status code** - Semantic meaning for browsers and clients
-2. **Human message** - Clear explanation for developers/users
-3. **Machine code** - Stable identifier for programmatic handling
-
-The framework distinguishes between **client-safe errors** (4xx) and **server-internal errors** (5xx) with an `expose` flag. Client errors show detailed messages. Server errors hide implementation details by default.
-
-All errors serialize to a consistent JSON format automatically. No manual response formatting. No leaked stack traces. No security risks.
-
-## Mental Model
-
-Think of errors as **structured API responses**, not crashes.
-
-### Errors Are Contracts
-
-```
-User Request → Handler Logic → Error Thrown → Middleware Catches → JSON Response
-```
-
-When you throw `NotFoundError`, you're declaring an API contract:
-
-- **Status:** 404 Not Found
-- **Code:** `NOT_FOUND`
-- **Message:** Custom message you provide
-- **Format:** Consistent JSON structure
-
-### The Expose Flag
-
-Every error has an `expose` flag that acts as a **privacy boundary**:
-
-```typescript
-// Client errors (4xx): expose = true by default
-throw new NotFoundError('User #123 not found');
-// → Client sees: {"message": "User #123 not found", "code": "NOT_FOUND"}
-
-// Server errors (5xx): expose = false by default
-throw new InternalServerError('Redis connection timeout');
-// → Client sees: {"message": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}
-// → Server logs: Full error with stack trace
+```ts
+// TODAY, without a typed error layer — the shape drifts per handler,
+// and the internal message goes straight to the client:
+app.get('/users/:id', async (ctx) => {
+  const user = await db.findUser(ctx.params.id);
+  if (!user) {
+    ctx.status = 404;
+    return ctx.json({ error: 'not found' });        // one shape here…
+  }
+  // if db.findUser throws, the raw message ("ECONNREFUSED 10.0.0.5:5432")
+  // reaches the client unless every handler remembers to catch it.
+});
 ```
 
-This prevents security leaks while maintaining debuggability.
+As the app grows, API consumers can't handle errors programmatically (no stable codes), and each new endpoint is another chance to leak infrastructure detail. `@nextrush/errors` makes the error *itself* carry its status, machine code, and exposure rule — so the response shape is decided once, not per handler.
+
+## When to use
+
+`@nextrush/errors` is the error layer built into NextRush. `throw new NotFoundError(...)` from any handler, add `errorHandler()` to the middleware chain, and every error serializes the same way.
+
+**Use `@nextrush/errors` if:**
+
+- ✓ You're building a NextRush app or middleware and want thrown errors to become consistent JSON automatically
+- ✓ You need stable machine-readable `code`s (`NOT_FOUND`, `RATE_LIMIT`) that API clients can branch on
+- ✓ You want 5xx internals hidden from clients by default, while still logging the full error server-side
+- ✓ You need structured field-level validation errors (`ValidationError`) or to rebuild a typed error across a service boundary (`fromJSON`)
+
+**Reach for something else if:**
+
+- ✗ You're writing a reusable, transport-agnostic library — return a result value instead of throwing HTTP errors; throw at the HTTP boundary only
+- ✗ You want request-body size limits or content negotiation — those live in [`@nextrush/body-parser`](../middleware/body-parser) and the handler, not here
+
+---
 
 ## Installation
 
 ```bash
 pnpm add @nextrush/errors
+# npm i @nextrush/errors · yarn add @nextrush/errors · bun add @nextrush/errors
 ```
 
-## Quick Start
+> [!NOTE]
+> Already using `nextrush`? The common error classes plus `errorHandler`, `notFoundHandler`,
+> `createError`, `ValidationError`, `ERROR_CODES`, and `codeForStatus` are re-exported from the
+> meta package — `import { NotFoundError, errorHandler } from 'nextrush'` works without installing
+> this directly. Install `@nextrush/errors` when you need the full catalog or want to depend on it
+> explicitly.
 
-```typescript
-import { createApp } from '@nextrush/core';
+## Quick start
+
+```ts
+import { createApp, listen } from 'nextrush';
 import { errorHandler, NotFoundError, BadRequestError } from '@nextrush/errors';
 
 const app = createApp();
 
-// Add error handling middleware FIRST
+// Register the handler BEFORE your routes — it wraps the chain in a try/catch.
 app.use(errorHandler());
+
+const users = new Map([['1', { id: '1', name: 'Ada' }]]);
 
 app.get('/users/:id', (ctx) => {
   const user = users.get(ctx.params.id);
@@ -90,611 +111,370 @@ app.get('/users/:id', (ctx) => {
 });
 
 app.post('/users', (ctx) => {
-  if (!ctx.body.email) {
-    throw new BadRequestError('Email is required');
+  const { email } = (ctx.body ?? {}) as { email?: string };
+  if (!email) {
+    throw new BadRequestError('Email is required', { code: 'EMAIL_REQUIRED' });
   }
-  // Create user...
-  ctx.json({ success: true });
+  ctx.status = 201;
+  ctx.json({ ok: true });
 });
 
-// Request: GET /users/999
-// Response: 404 Not Found
-// {
-//   "error": "NotFoundError",
-//   "message": "User not found",
-//   "code": "NOT_FOUND",
-//   "status": 404
-// }
+listen(app, 8080);
 
-// Request: POST /users (no email)
-// Response: 400 Bad Request
-// {
-//   "error": "BadRequestError",
-//   "message": "Email is required",
-//   "code": "BAD_REQUEST",
-//   "status": 400
-// }
+// GET /users/999  →  404
+// { "error": "NotFoundError", "message": "User not found", "code": "NOT_FOUND", "status": 404 }
+//
+// POST /users (no email)  →  400
+// { "error": "BadRequestError", "message": "Email is required", "code": "EMAIL_REQUIRED", "status": 400 }
 ```
 
-## What NextRush Does Automatically
+You never write the response shape. You declare an error state by throwing a typed error, and `errorHandler()` catches it, sets the status, and serializes it through the error's own `toJSON()`.
 
-When you throw an `HttpError` with error middleware enabled:
+## Capabilities
 
-1. **Catches the error** - No uncaught exceptions crash your server
-2. **Sets HTTP status** - Correct status code from error class
-3. **Formats JSON response** - Consistent `{error, message, code, status}` structure
-4. **Applies expose flag** - Hides sensitive 5xx details, shows 4xx details
-5. **Logs appropriately** - 5xx logged as errors, 4xx as warnings
-6. **Preserves stack traces** - Full debugging in development, hidden in production
+**Error types**
+- **Full `HttpError` catalog** — 28 client (4xx) and 11 server (5xx) classes, each with the correct status and canonical `code`
+- **`ValidationError` family** — structured, multi-issue validation errors with field-level helpers
+- **Custom errors** — extend `HttpError` or `NextRushError` to add your own typed errors
 
-You don't write error handling code. You **declare error states** and NextRush handles the rest.
+**Safety**
+- **`expose` privacy boundary** — 4xx messages are shown, 5xx messages hidden by default; internal detail and stack traces stay server-side
+- **Bounded `cause` serialization** — nested `cause` chains are walked to a fixed depth with a cycle guard, and only on exposed errors
+- **Immutable details** — `details` and validation `issues` are frozen at construction, so an error can't be mutated after it's thrown
 
-## Features
+**Integration**
+- **`errorHandler()` middleware** — one Koa-style middleware catches, logs, and serializes every thrown error
+- **Stable machine codes** — a central `ERROR_CODES` registry maps every status to one canonical code
+- **Cross-service transport** — `toJSON()` / `fromJSON()` round-trips a typed error across an HTTP boundary
 
-- **Type-Safe Errors**: Full TypeScript support with proper error inheritance
-- **HTTP Status Codes**: All standard 4xx and 5xx errors included
-- **Validation Errors**: Built-in validation error types
-- **Factory Functions**: Quick error creation with `badRequest()`, `notFound()`, etc.
-- **Error Middleware**: Automatic error response formatting
-- **Error Codes**: Custom error codes for API consumers
+**Developer experience**
+- **Factory helpers** — `notFound()`, `badRequest()`, `createError(status)` for terse construction
+- **Fully typed** — strict TypeScript, zero `any`; contracts shared via `@nextrush/types`
 
-## HTTP Errors
+## Mental model
 
-### 4xx Client Errors
+An error is an **API response object**, not a crash. Throwing it declares a status, a machine code, and whether its message is safe to show — the framework does the rest.
 
-```typescript
-import {
-  BadRequestError, // 400
-  UnauthorizedError, // 401
-  PaymentRequiredError, // 402
-  ForbiddenError, // 403
-  NotFoundError, // 404
-  MethodNotAllowedError, // 405
-  NotAcceptableError, // 406
-  RequestTimeoutError, // 408
-  ConflictError, // 409
-  GoneError, // 410
-  LengthRequiredError, // 411
-  PreconditionFailedError, // 412
-  PayloadTooLargeError, // 413
-  UriTooLongError, // 414
-  UnsupportedMediaTypeError, // 415
-  RangeNotSatisfiableError, // 416
-  ExpectationFailedError, // 417
-  ImATeapotError, // 418
-  UnprocessableEntityError, // 422
-  LockedError, // 423
-  FailedDependencyError, // 424
-  TooEarlyError, // 425
-  UpgradeRequiredError, // 426
-  PreconditionRequiredError, // 428
-  TooManyRequestsError, // 429
-  RequestHeaderFieldsTooLargeError, // 431
-  UnavailableForLegalReasonsError, // 451
-} from '@nextrush/errors';
+```text
+throw new XError(msg)
+        │  status · code · expose · details
+        ▼
+errorHandler() catch ──▶ log (5xx→error, 4xx→warn) ──▶ err.toJSON() ──▶ ctx.json(body)
+                                                            │
+                                    expose === false ───────┴──▶ message becomes "Internal Server Error"
 ```
 
-### 5xx Server Errors
+**Rule:** the `expose` flag is the privacy boundary — `true` for 4xx (client's fault, safe to explain), `false` for 5xx (your fault, don't leak). Override it deliberately, never by accident.
 
-```typescript
-import {
-  InternalServerError, // 500
-  NotImplementedError, // 501
-  BadGatewayError, // 502
-  ServiceUnavailableError, // 503
-  GatewayTimeoutError, // 504
-  HttpVersionNotSupportedError, // 505
-  VariantAlsoNegotiatesError, // 506
-  InsufficientStorageError, // 507
-  LoopDetectedError, // 508
-  NotExtendedError, // 510
-  NetworkAuthRequiredError, // 511
-} from '@nextrush/errors';
+> [!TIP]
+> The full error hierarchy, the throw→response sequence, and the state lifecycle (with Mermaid
+> diagrams) are in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+---
+
+## Common tasks
+
+### Throw a typed HTTP error
+
+```ts
+import { NotFoundError, ForbiddenError } from '@nextrush/errors';
+
+throw new NotFoundError('User not found');   // 404, code NOT_FOUND, expose true
+throw new ForbiddenError();                  // 403, default message "Forbidden"
 ```
 
-## Usage Examples
+Every class defaults its message, status, and `code` — pass a message to override the default, and options to add more.
 
-### Basic Usage
+### Attach a machine code and details for API clients
 
-```typescript
-// Simple message
-throw new NotFoundError('User not found');
+```ts
+import { UnprocessableEntityError } from '@nextrush/errors';
 
-// With error code
-throw new BadRequestError('Invalid email format', {
-  code: 'INVALID_EMAIL',
-});
-
-// With additional details
 throw new UnprocessableEntityError('Validation failed', {
   code: 'VALIDATION_ERROR',
-  details: {
-    email: 'Invalid format',
-    age: 'Must be positive',
-  },
+  details: { email: 'Invalid format', age: 'Must be positive' },
 });
+// → 422 { error, message, code: 'VALIDATION_ERROR', status: 422, details: { … } }
 ```
 
-### With Error Codes
+`details` is surfaced in the JSON only when the error is exposed (all 4xx are, by default), and it's frozen so the error owns an immutable snapshot.
 
-```typescript
-throw new UnauthorizedError('Token expired', {
-  code: 'TOKEN_EXPIRED',
-  expose: true,
-});
+### Report field-level validation failures
 
-// API response:
-// {
-//   "error": "Token expired",
-//   "code": "TOKEN_EXPIRED",
-//   "status": 401
-// }
-```
+```ts
+import { ValidationError, RequiredFieldError } from '@nextrush/errors';
 
-## Factory Functions
-
-Create errors with less boilerplate:
-
-```typescript
-import {
-  badRequest,
-  unauthorized,
-  forbidden,
-  notFound,
-  methodNotAllowed,
-  conflict,
-  unprocessableEntity,
-  tooManyRequests,
-  internalError,
-  serviceUnavailable,
-  badGateway,
-  gatewayTimeout,
-  createError,
-} from '@nextrush/errors';
-
-// Quick creation
-throw badRequest('Invalid input');
-throw notFound('Resource not found');
-throw unauthorized('Please login');
-
-// With options
-throw tooManyRequests('Rate limit exceeded', {
-  code: 'RATE_LIMIT',
-  details: { retryAfter: 60 },
-});
-
-// Custom status code
-throw createError(418, "I'm a teapot");
-```
-
-`createError(status)` returns the correctly-typed class (and canonical `code`)
-for any status with a dedicated class. Codes come from the shared `ERROR_CODES`
-registry — use `codeForStatus(status)` to resolve one, or `HttpError.fromJSON()`
-to rebuild a typed error from a serialized payload across a service boundary:
-
-```typescript
-import { ERROR_CODES, codeForStatus, HttpError } from '@nextrush/errors';
-
-codeForStatus(413); // 'PAYLOAD_TOO_LARGE'
-const restored = HttpError.fromJSON(err.toJSON()); // typed error, instanceof works
-```
-
-## Validation Errors
-
-Specialized errors for input validation:
-
-```typescript
-import {
-  ValidationError,
-  RequiredFieldError,
-  TypeMismatchError,
-  RangeValidationError,
-  LengthError,
-  PatternError,
-  InvalidEmailError,
-  InvalidUrlError,
-} from '@nextrush/errors';
-
-// Generic validation error with issues
+// Multiple issues at once
 throw new ValidationError([
   { path: 'email', message: 'Required', rule: 'required' },
   { path: 'age', message: 'Must be positive', rule: 'range' },
 ]);
 
-// Static factory methods
+// Or the terse factory forms
 throw ValidationError.fromField('email', 'Invalid format', 'email');
-throw ValidationError.fromFields({ email: 'Required', age: 'Must be number' });
-
-// Specific field errors
+throw ValidationError.fromFields({ email: 'Required', age: 'Must be a number' });
 throw new RequiredFieldError('email');
-throw new TypeMismatchError('age', 'number', 'string');
-throw new RangeValidationError('age', 18, 100);
-throw new LengthError('password', 8, 128);
-throw new PatternError('username', '^[a-z0-9]+$');
-throw new InvalidEmailError('email');
-throw new InvalidUrlError('website');
 ```
 
-## Error Middleware
+`ValidationError` serializes an `issues` array and strips each issue's `received` value, so a rejected password or token is never echoed back.
 
-### errorHandler(options?)
+### Install the error handler and a 404 fallback
 
-Format errors as JSON responses:
+```ts
+import { errorHandler, notFoundHandler } from '@nextrush/errors';
 
-```typescript
-import { errorHandler } from '@nextrush/errors';
-
-app.use(
-  errorHandler({
-    // Include stack trace (default: false)
-    includeStack: process.env.NODE_ENV !== 'production',
-
-    // Custom error logger (default: logs 5xx as errors, 4xx as warnings)
-    logger: (err, ctx) => {
-      myLogger.error(err, { path: ctx.path });
-    },
-
-    // Custom error response transformer
-    transform: (err, ctx) => ({
-      error: err.message,
-      status: ctx.status,
-    }),
-  })
-);
+app.use(errorHandler({ includeStack: process.env.NODE_ENV !== 'production' })); // first
+// … your routes …
+app.use(notFoundHandler('Route not found')); // last — turns an unhandled 404 into JSON
 ```
 
-### notFoundHandler()
+`errorHandler()` wraps the rest of the chain in a `try/catch`; `notFoundHandler()` responds only when nothing else did and the status is `404`.
 
-Catch-all 404 handler:
+### Create an error by status, or rebuild one across a service boundary
 
-```typescript
-import { notFoundHandler } from '@nextrush/errors';
+```ts
+import { createError, codeForStatus, HttpError } from '@nextrush/errors';
 
-// Add after all routes
-app.use(notFoundHandler());
+throw createError(413, 'Upload too large'); // → PayloadTooLargeError, code PAYLOAD_TOO_LARGE
+codeForStatus(429);                         // 'TOO_MANY_REQUESTS'
 
-// Custom message
-app.use(notFoundHandler('Route not found'));
+// Downstream service: rebuild a typed error from the JSON it received
+const restored = HttpError.fromJSON(payload); // instanceof HttpError works again
 ```
 
-### catchAsync(fn)
+`createError(status)` returns the correctly-typed class for any status that has one (falling back to a bare `HttpError` otherwise); `fromJSON()` reverses `toJSON()`.
 
-> **Deprecated.** `catchAsync` is a no-op — async errors propagate through the
-> middleware chain and are caught by `errorHandler()` automatically. Use the
-> handler directly. Kept only for backward compatibility; scheduled for removal
-> in a future major version.
+## API overview
 
-Wrap async handlers to catch errors:
+The sealed public surface (ADR-0005), grouped by role.
 
-```typescript
-import { catchAsync } from '@nextrush/errors';
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ----------- |
+| `NextRushError` | `class (message, options?)` | `3.0.0` | Stable ✅ | Base error — owns `status`, `code`, `expose`, `details`, `cause`, `toJSON()`, `toResponse()`, `fromJSON()`. |
+| `HttpError` | `class (status, message?, options?)` | `3.0.0` | Stable ✅ | Base for all HTTP status errors; resolves `code` via the registry and `expose` from the status. |
+| `ValidationError` | `class (issues, message?)` | `3.0.0` | Stable ✅ | Multi-issue validation error (extends `NextRushError`, **not** `HttpError`); status `400`. |
+| `createError` | `(status, message?, options?) => HttpError` | `3.0.0` | Stable ✅ | Build the correctly-typed error for a status code. |
+| `errorHandler` | `(options?: ErrorHandlerOptions) => Middleware` | `3.0.0` | Stable ✅ | Catch, log, and serialize thrown errors as JSON. |
+| `notFoundHandler` | `(message?: string) => Middleware` | `3.0.0` | Stable ✅ | JSON 404 fallback for unhandled requests. |
+| `isHttpError` | `(error) => error is HttpError` | `3.0.0` | Stable ✅ | Type guard for `HttpError` (note: `false` for `ValidationError`). |
+| `getErrorStatus` | `(error) => number` | `3.0.0` | Stable ✅ | Status from any error (any `NextRushError`, duck-typed `status`, else `500`). |
+| `getSafeErrorMessage` | `(error) => string` | `3.0.0` | Stable ✅ | Message if the error is exposed, else `'Internal Server Error'`. |
+| `getHttpStatusMessage` | `(status) => string` | `3.0.0` | Stable ✅ | Canonical reason phrase for a status. |
+| `ERROR_CODES` | `Readonly<Record<number, string>>` | `3.1.0` | Stable ✅ | Frozen status→canonical-code registry. |
+| `codeForStatus` | `(status) => string` | `3.1.0` | Stable ✅ | Canonical code for a status (`HTTP_<status>` if none). |
+| `GENERIC_ERROR_CODE` · `VALIDATION_ERROR_CODE` | `string` | `3.1.0` | Stable ✅ | `'INTERNAL_ERROR'` · `'VALIDATION_ERROR'`. |
+| `type HttpErrorOptions` · `ValidationIssue` · `ErrorHandlerOptions` | — | `3.0.0` | Stable ✅ | Public option/data contracts. |
 
-app.get(
-  '/users/:id',
-  catchAsync(async (ctx) => {
-    const user = await db.findUser(ctx.params.id);
-    if (!user) throw new NotFoundError('User not found');
-    ctx.json(user);
-  })
-);
-```
+### HTTP error classes
 
-## Error Utilities
+Each class sets its status and canonical `code`; the message defaults to the status reason phrase.
 
-```typescript
-import { isHttpError, getErrorStatus, getSafeErrorMessage } from '@nextrush/errors';
-
-// Check if error is HTTP error
-if (isHttpError(err)) {
-  console.log(err.status, err.code);
-}
-
-// Get status from any error
-const status = getErrorStatus(err); // Returns 500 for unknown errors
-
-// Get safe message (hides internal errors)
-const message = getSafeErrorMessage(err);
-// Returns generic message for 500 errors in production
-```
-
-## Base Classes
-
-### HttpError
-
-Base class for all HTTP errors:
-
-```typescript
-import { HttpError } from '@nextrush/errors';
-
-class CustomError extends HttpError {
-  constructor(message: string) {
-    super(422, message, { code: 'CUSTOM_ERROR' });
-  }
-}
-```
-
-### NextRushError
-
-Base class for framework errors:
-
-```typescript
-import { NextRushError } from '@nextrush/errors';
-
-class ConfigError extends NextRushError {
-  constructor(message: string) {
-    super(message, { code: 'CONFIG_ERROR' });
-  }
-}
-```
-
-## API Reference
-
-### Exports
-
-```typescript
+```ts
 import {
-  // Base classes
-  HttpError,
-  NextRushError,
+  // 4xx client errors — expose: true by default
+  BadRequestError,                    // 400  BAD_REQUEST
+  UnauthorizedError,                  // 401  UNAUTHORIZED
+  PaymentRequiredError,               // 402  PAYMENT_REQUIRED
+  ForbiddenError,                     // 403  FORBIDDEN
+  NotFoundError,                      // 404  NOT_FOUND
+  MethodNotAllowedError,              // 405  METHOD_NOT_ALLOWED  (constructor: allowedMethods first)
+  NotAcceptableError,                 // 406  NOT_ACCEPTABLE
+  ProxyAuthRequiredError,             // 407  PROXY_AUTH_REQUIRED
+  RequestTimeoutError,                // 408  REQUEST_TIMEOUT
+  ConflictError,                      // 409  CONFLICT
+  GoneError,                          // 410  GONE
+  LengthRequiredError,                // 411  LENGTH_REQUIRED
+  PreconditionFailedError,            // 412  PRECONDITION_FAILED
+  PayloadTooLargeError,               // 413  PAYLOAD_TOO_LARGE
+  UriTooLongError,                    // 414  URI_TOO_LONG
+  UnsupportedMediaTypeError,          // 415  UNSUPPORTED_MEDIA_TYPE
+  RangeNotSatisfiableError,           // 416  RANGE_NOT_SATISFIABLE
+  ExpectationFailedError,             // 417  EXPECTATION_FAILED
+  ImATeapotError,                     // 418  IM_A_TEAPOT
+  UnprocessableEntityError,           // 422  UNPROCESSABLE_ENTITY
+  LockedError,                        // 423  LOCKED
+  FailedDependencyError,              // 424  FAILED_DEPENDENCY
+  TooEarlyError,                      // 425  TOO_EARLY
+  UpgradeRequiredError,               // 426  UPGRADE_REQUIRED
+  PreconditionRequiredError,          // 428  PRECONDITION_REQUIRED
+  TooManyRequestsError,               // 429  TOO_MANY_REQUESTS   (options.retryAfter)
+  RequestHeaderFieldsTooLargeError,   // 431  REQUEST_HEADER_FIELDS_TOO_LARGE
+  UnavailableForLegalReasonsError,    // 451  UNAVAILABLE_FOR_LEGAL_REASONS
 
-  // 4xx errors
-  BadRequestError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
-  // ... all 4xx errors
+  // 5xx server errors — expose: false by default
+  InternalServerError,                // 500  INTERNAL_SERVER_ERROR
+  NotImplementedError,                // 501  NOT_IMPLEMENTED
+  BadGatewayError,                    // 502  BAD_GATEWAY
+  ServiceUnavailableError,            // 503  SERVICE_UNAVAILABLE  (options.retryAfter)
+  GatewayTimeoutError,                // 504  GATEWAY_TIMEOUT
+  HttpVersionNotSupportedError,       // 505  HTTP_VERSION_NOT_SUPPORTED
+  VariantAlsoNegotiatesError,         // 506  VARIANT_ALSO_NEGOTIATES
+  InsufficientStorageError,           // 507  INSUFFICIENT_STORAGE
+  LoopDetectedError,                  // 508  LOOP_DETECTED
+  NotExtendedError,                   // 510  NOT_EXTENDED
+  NetworkAuthRequiredError,           // 511  NETWORK_AUTH_REQUIRED
+} from '@nextrush/errors';
+```
 
-  // 5xx errors
-  InternalServerError,
-  ServiceUnavailableError,
-  // ... all 5xx errors
+### Validation error classes
 
-  // Validation errors
-  ValidationError,
-  RequiredFieldError,
-  TypeMismatchError,
-  // ... all validation errors
+```ts
+import {
+  ValidationError,        // base — issues[], fromField(), fromFields(), hasErrorFor(), toFlatObject()
+  RequiredFieldError,     // "<field> is required"          rule: required
+  TypeMismatchError,      // expected vs received type      rule: type
+  RangeValidationError,   // numeric min/max                rule: range
+  LengthError,            // string length min/max          rule: length
+  PatternError,           // regex mismatch                 rule: pattern
+  InvalidEmailError,      // email format                   rule: email
+  InvalidUrlError,        // URL format                     rule: url
+} from '@nextrush/errors';
+```
 
-  // Factory functions
-  badRequest,
-  unauthorized,
-  notFound,
+### Factory functions
+
+```ts
+import {
+  badRequest, unauthorized, forbidden, notFound, methodNotAllowed,
+  conflict, unprocessableEntity, tooManyRequests,
+  internalError, serviceUnavailable, badGateway, gatewayTimeout,
   createError,
-  // ... all factory functions
-
-  // Middleware
-  errorHandler,
-  notFoundHandler,
-  catchAsync,
-
-  // Utilities
-  isHttpError,
-  getErrorStatus,
-  getSafeErrorMessage,
-} from '@nextrush/errors';
-```
-
-### Types
-
-```typescript
-import type {
-  HttpErrorOptions,
-  ValidationIssue,
-  ErrorContext,
-  ErrorHandlerOptions,
-  ErrorMiddleware,
 } from '@nextrush/errors';
 
-interface HttpErrorOptions {
-  code?: string;
-  expose?: boolean;
-  details?: Record<string, unknown>;
-  cause?: unknown;
-}
-
-interface ValidationIssue {
-  path: string;
-  message: string;
-  rule?: string;
-  expected?: unknown;
-  received?: unknown;
-}
+throw notFound('User not found');
+throw tooManyRequests('Rate limit exceeded', { retryAfter: 60 });
 ```
 
-````
+## Options
 
-## Common Mistakes
+`errorHandler(options?)` is the only configurable surface. Error classes take a plain `HttpErrorOptions` object (`code`, `expose`, `details`, `cause`, `requestId`, `traceId`, `timestamp`).
 
-### Mistake 1: Using Generic Errors for Specific Cases
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------ | ----------- |
+| `includeStack` | `boolean` | No | `false` | ⚠️ | Append the stack trace to the JSON body. Keep `false` in production — a stack trace leaks internal paths. |
+| `logger` | `(error, ctx) => void` | No | logs 5xx as `error`, 4xx as `warn` | — | Custom sink for caught errors (route to your structured logger). |
+| `transform` | `(error, ctx) => Record<string, unknown>` | No | the error's own `toJSON()` | — | Replace the serialized response body shape. |
+| `handlers` | `Map<ErrorClass, (error, ctx) => void>` | No | `undefined` | — | Per-error-type handlers; the first `instanceof` match runs and short-circuits serialization. |
 
-```typescript
-// ❌ Don't do this
-throw new Error('User not found');
-// → Returns 500 Internal Server Error, no error code
+## Compatibility
 
-// ✅ Do this instead
-throw new NotFoundError('User not found');
-// → Returns 404 Not Found with NOT_FOUND code
-````
+**Requirements**
 
-**Why it's wrong:** Generic JavaScript `Error` becomes 500 Internal Server Error. The client can't distinguish between "not found" and "server crash".
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | `3.x` |
+| Node.js | `>=22` |
+| TypeScript | `>=5.x` |
 
-### Mistake 2: Exposing Internal Implementation Details
+**Runtimes**
 
-```typescript
-// ❌ Don't do this
-throw new InternalServerError('PostgreSQL connection timeout on pool "primary"', {
-  expose: true, // Leaks infrastructure details!
-});
+| Runtime | Supported | Notes |
+| ------- | --------- | ----- |
+| Node.js `>=22` | ✅ | ESM-only |
+| Bun / Deno / Edge | ✅ / ✅ / ✅ | Uses only the native `Error` and Web-standard JavaScript; `Error.captureStackTrace` is feature-detected and skipped where absent |
 
-// ✅ Do this instead
-throw new InternalServerError('Database temporarily unavailable');
-// expose defaults to false for 5xx errors
-// Full error logged server-side for debugging
+**Integration**
+- **Peer dependencies:** none — depends only on `@nextrush/types` (types, erased at build).
+- **Works with:** `@nextrush/core` (the middleware chain that runs `errorHandler()`), any `@nextrush/*` middleware that throws (`body-parser` → `413`, `rate-limit` → `429`).
+- **Incompatible with:** none.
+
+> [!IMPORTANT]
+> NextRush is **ESM-only, permanently** — no CommonJS build. On Node `>=22`, CommonJS consumers
+> can `require()` this ESM package natively. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+---
+
+## Troubleshooting
+
+<details>
+<summary><strong>A thrown error returns <code>500</code> instead of my status code</strong></summary>
+
+**Cause:** you threw a generic `Error` (or `errorHandler()` isn't registered), so there's no `status` to read — the handler falls back to `500`. **Fix:** throw a typed error and register `errorHandler()` before your routes.
+
+```ts
+app.use(errorHandler());                    // ← register first
+throw new NotFoundError('User not found');  // ← typed, not `new Error(...)`
 ```
 
-**Why it's wrong:** Exposing database names, connection pools, or internal service names helps attackers understand your infrastructure.
+</details>
 
-### Mistake 3: Forgetting Error Middleware
+<details>
+<summary><strong>My 5xx response shows "Internal Server Error", not my message</strong></summary>
 
-```typescript
-// ❌ Errors won't be formatted
-const app = createApp();
+**Cause:** this is intended — 5xx errors default to `expose: false`, so `toJSON()` replaces the message to avoid leaking internals. The full error is still passed to the logger. **Fix:** only override `expose` for a message you've confirmed is client-safe.
 
-app.get('/users', (ctx) => {
-  throw new NotFoundError('User not found'); // Crashes or returns HTML error page!
-});
-
-// ✅ Add errorHandler BEFORE routes
-const app = createApp();
-app.use(errorHandler()); // This catches and formats errors
-
-app.get('/users', (ctx) => {
-  throw new NotFoundError('User not found'); // Returns proper JSON
-});
+```ts
+throw new ServiceUnavailableError('Down for maintenance until 14:00 UTC', { expose: true });
 ```
 
-### Mistake 4: Using Errors for Control Flow
+</details>
 
-```typescript
-// ❌ Don't use errors for expected business logic
-async function getUser(id: string): Promise<User> {
-  const user = await db.findUser(id);
-  if (!user) throw new NotFoundError(); // Too expensive for expected case
-  return user;
-}
+<details>
+<summary><strong><code>isHttpError(validationError)</code> returns <code>false</code></strong></summary>
 
-// ✅ Use nullable returns for expected cases
-async function getUser(id: string): Promise<User | null> {
-  return await db.findUser(id);
-}
+**Cause:** `ValidationError` extends `NextRushError` directly, not `HttpError`, so the `HttpError` type guard rejects it. **Fix:** use `getErrorStatus()` / `getSafeErrorMessage()` (which handle any `NextRushError`), or check `instanceof ValidationError`. `errorHandler()` already serializes it correctly.
 
-// ✅ Throw errors at the HTTP boundary
-app.get('/users/:id', async (ctx) => {
-  const user = await getUser(ctx.params.id);
-  if (!user) throw new NotFoundError('User not found');
-  ctx.json(user);
-});
+```ts
+import { getErrorStatus, ValidationError } from '@nextrush/errors';
+if (err instanceof ValidationError) { /* read err.issues */ }
+const status = getErrorStatus(err); // 400 for a ValidationError
 ```
 
-**Why it's wrong:** Throwing errors for control flow is expensive (stack trace construction) and makes code harder to reason about.
+</details>
 
-### Mistake 5: Missing Error Codes for API Clients
+<details>
+<summary><strong><code>details</code> or <code>cause</code> is missing from the JSON response</strong></summary>
 
-```typescript
-// ❌ Clients can't handle errors programmatically
-throw new BadRequestError('Invalid email format');
-// Response: {"message": "Invalid email format"} // No code!
+**Cause:** both are serialized only when the error is exposed (`expose === true`) — a non-exposed 5xx hides them to prevent leaking internal detail. **Fix:** read `error.cause` server-side (never gated), or set a client-safe error with `expose: true` if the detail is meant for the client.
 
-// ✅ Include error codes
-throw new BadRequestError('Invalid email format', {
-  code: 'INVALID_EMAIL',
-});
-// Response: {"message": "Invalid email format", "code": "INVALID_EMAIL"}
+</details>
 
-// Client can now:
-if (error.code === 'INVALID_EMAIL') {
-  // Show email field error
-}
+## FAQ
+
+**Can I use `@nextrush/errors` without the rest of NextRush?**
+Yes. The error classes depend on nothing but the native `Error`. `errorHandler()` needs the `Context` / `Middleware` type contracts from `@nextrush/types`, which are erased at build — there's no runtime dependency to install.
+
+**Why ESM-only?**
+See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+**Does it work on Bun, Deno, and Edge?**
+Yes. The classes use only the native `Error` and standard JavaScript; the V8-specific `Error.captureStackTrace` is feature-detected and skipped where it isn't available, so behavior is identical across runtimes.
+
+**Why doesn't `ValidationError` extend `HttpError`?**
+By design — a validation failure is a `NextRushError` that carries structured `issues`, not a status alone. It still resolves to `400`, is serialized by `errorHandler()`, and is recognized by `getErrorStatus()`; only the `isHttpError()` guard (which is `HttpError`-specific) returns `false` for it.
+
+---
+
+## Package relationships
+
+```text
+                 depends on          @nextrush/types  (Context / Middleware / Next contracts, types only)
+@nextrush/errors ─────────────▶
+                 often used with     @nextrush/core   (runs errorHandler() in the middleware chain)
+                 usually used next   @nextrush/validation · @nextrush/body-parser  (throw these errors)
 ```
 
-## When NOT to Use
+- **Depends on:** [`@nextrush/types`](../types) — the shared `Context` / `Middleware` / `Next` contracts, used only by the middleware (types, erased at build).
+- **Often used with:** [`@nextrush/core`](../core) — the `Application` whose middleware chain runs `errorHandler()`; every handler throws these classes.
+- **Usually used next:** [`@nextrush/validation`](../middleware/validation) (surfaces `ValidationError`-shaped failures) · [`@nextrush/body-parser`](../middleware/body-parser) (throws `413`) · [`@nextrush/rate-limit`](../middleware/rate-limit) (throws `429`).
+- **Alternative:** none — the `HttpError` hierarchy is the framework's error contract.
 
-### Don't Use for Validation in Reusable Libraries
+## Architecture
 
-If you're building a reusable library (not an HTTP handler), return validation results instead of throwing:
+Maintaining or contributing to this package? The internal design — the `NextRushError` → `HttpError` /
+`ValidationError` hierarchy, the `expose` privacy boundary, `cause`-chain serialization, the
+throw→response lifecycle, the architectural invariants, and the decisions and trade-offs behind them
+(with diagrams) — is in **[`ARCHITECTURE.md`](./ARCHITECTURE.md)**. Design history:
+[ADR-0005 (package tiers & sealed surface)](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
 
-```typescript
-// ❌ Don't throw in library code
-export function validateEmail(email: string): string {
-  if (!isValid(email)) throw new InvalidEmailError(); // Caller can't control behavior
-  return email;
-}
+## Resources
 
-// ✅ Return validation result
-export function validateEmail(email: string): { valid: boolean; error?: string } {
-  return isValid(email) ? { valid: true } : { valid: false, error: 'Invalid email format' };
-}
+- 📖 **Learn** — [Documentation](https://0xtanzim.github.io/nextRush/docs) · [Error handling guide](https://0xtanzim.github.io/nextRush/docs/guides/error-handling) · [Architecture](./ARCHITECTURE.md) · [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- 📝 **Changelog** — [CHANGELOG.md](./CHANGELOG.md)
+- 🐛 **Report an issue** — [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- 🤝 **Contribute** — [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
 
-// ✅ Throw at the HTTP boundary
-app.post('/users', (ctx) => {
-  const result = validateEmail(ctx.body.email);
-  if (!result.valid) {
-    throw new BadRequestError(result.error!, { code: 'INVALID_EMAIL' });
-  }
-});
-```
+---
 
-**Why:** Libraries should be composable. Throwing errors forces a specific error handling strategy on consumers.
-
-### Don't Use for Expected Empty Results
-
-```typescript
-// ❌ Don't throw for queries that might return nothing
-async function searchUsers(query: string): Promise<User[]> {
-  const users = await db.search(query);
-  if (users.length === 0) throw new NotFoundError(); // Expected case!
-  return users;
-}
-
-// ✅ Return empty arrays for "no results"
-async function searchUsers(query: string): Promise<User[]> {
-  return await db.search(query); // Empty array is valid
-}
-
-// ✅ Only throw when the resource *should* exist
-app.get('/users/:id', async (ctx) => {
-  const user = await db.getById(ctx.params.id);
-  if (!user) throw new NotFoundError(); // Specific ID should exist
-  ctx.json(user);
-});
-```
-
-### Don't Use for Non-HTTP Contexts
-
-```typescript
-// ❌ Don't use HTTP errors in background jobs
-async function processQueue() {
-  const job = await queue.pop();
-  if (!job) throw new NotFoundError(); // Wrong abstraction!
-}
-
-// ✅ Use domain-specific errors or return values
-async function processQueue() {
-  const job = await queue.pop();
-  if (!job) return { processed: false, reason: 'queue_empty' };
-  // Process job...
-  return { processed: true };
-}
-```
-
-## Runtime Compatibility
-
-Works on all NextRush-supported runtimes:
-
-| Runtime             | Supported | Notes        |
-| ------------------- | --------- | ------------ |
-| Node.js 20+         | ✅        | Full support |
-| Bun 1.0+            | ✅        | Full support |
-| Deno 2.0+           | ✅        | Full support |
-| Cloudflare Workers  | ✅        | Full support |
-| Vercel Edge Runtime | ✅        | Full support |
-
-**Zero external dependencies.** Uses only standard JavaScript `Error` APIs and NextRush types.
-
-## Best Practices
-
-1. **Use specific errors**: `NotFoundError` over generic `HttpError`
-2. **Include error codes**: Help API consumers handle errors programmatically
-3. **Don't expose internals**: Keep `expose: false` for 5xx errors (default)
-4. **Add error middleware first**: Before all routes
-5. **Validate early**: Throw validation errors at the start of handlers
-6. **Return nulls for expected "not found"**: Throw errors only at HTTP boundaries
-
-## License
-
-MIT
-
-```
-
-```
+MIT © [Tanzim Hossain](https://github.com/0xTanzim)

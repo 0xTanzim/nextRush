@@ -67,7 +67,7 @@ Plain fenced code, elevated. Always: a **language tag** for highlighting, and a 
 *Common names:* `APIPage`, `<endpoint>`, `Request`/`Response`, OpenAPI-generated blocks. **Use for** HTTP reference: method + path, params, an example request, and a real example response. Prefer generating from a schema (OpenAPI) when available, so the docs can't drift from the API.
 
 ### Diagrams
-Owned by **EDS-012**. Mermaid renders on the docs site and GitHub but **not on npm** — keep diagrams out of package READMEs (use ASCII or link out). Cross-reference EDS-012 for choosing the diagram type.
+Owned by **EDS-012**. Mermaid renders on the docs site (mermaid 11 — all core + modern types: architecture, block, packet, sankey, xychart, treemap, radar, …) and GitHub, but **not on npm** — keep diagrams out of package READMEs (use ASCII or link out). Choose the most precise type (C4/architecture/sequence/state/ER over a generic flowchart) and **load the `mermaid` skill** (`~/.kiro/skills/mermaid/SKILL.md`) for the syntax. Note: **ZenUML is not wired into the `<Mermaid>` component yet** (needs a plugin) and **C4 is experimental** — see EDS-012's renderer table.
 
 ### Badges, tooltips, glossary terms
 *Common names:* `Badge`, `Tooltip`, glossary `<Term>`. **Use sparingly** for status (`Beta`, `Deprecated`, `v3.2+`) and to define a term inline without derailing the sentence.

@@ -23,4 +23,5 @@ export { Mermaid } from './mermaid';
 export { OpenInStackBlitz } from './open-in-stackblitz';
 export { PackageInstall } from './package-install';
 export { PackageCard, PackageGrid, PackageSection } from './package-grid';
+export { ScalarApiReference } from './scalar-api-reference';
 export { TypeTable } from './type-table';

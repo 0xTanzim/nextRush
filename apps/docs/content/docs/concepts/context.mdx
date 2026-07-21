@@ -1,612 +1,232 @@
 ---
-title: Context API
-description: The ctx object provides unified access to request and response in every handler
+title: Context
+description: How NextRush folds request input, response output, and shared state into one ctx object per request — so a handler never touches raw req/res.
 ---
 
-The `ctx` object is your primary interface in NextRush. It provides unified access to request data and response methods in a single, coherent object.
+Every HTTP handler needs the same two things: the data that came in, and a way to send data back. Node's built-in model hands you those as two separate objects, `req` and `res`, and leaves you to remember which properties exist on which — and which middleware added them along the way. That ambiguity is where a surprising number of bugs live.
 
-## The Problem
+## What you'll learn
 
-Traditional Node.js frameworks split request and response:
+- **Understand** why splitting request and response into two objects makes handlers harder to reason about
+- **Understand** how NextRush unifies both into one per-request `ctx` object
+- **Recognize** which parts of `ctx` are input, which are output, and which are shared scratch space
+- **Choose** when to reach for the `ctx.raw` escape hatch — and why you rarely should
 
-```typescript title="Express Pattern"
-app.get('/users/:id', (req, res) => {
-  const id = req.params.id; // From req
-  const query = req.query; // From req
-  res.json({ id, query }); // To res
+## The problem
+
+The classic Node signature gives you two objects and no map of what is on them:
+
+```ts
+// The raw Node model — two objects, and you track which is which.
+import { createServer } from 'node:http';
+
+createServer((req, res) => {
+  const auth = req.headers['authorization']; // input lives on req
+  res.statusCode = 200;                       // output lives on res
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ ok: true }));      // manual serialization
 });
 ```
 
-When middleware needs to share data, you mutate `req`:
+This works, but it leans on you to remember three things at once: input reads from `req`, output writes to `res`, and any property a middleware attached (`req.user`, `req.session`) is invisible to the type system. When auth middleware sets `req.user`, nothing tells the next reader whether it is there. The bug hides in the gap between what is on the object and what you assume is on it.
 
-```typescript title="Express Middleware"
-app.use((req, res, next) => {
-  req.user = { id: 123 }; // Mutate req
-  next();
+## Why this matters
+
+A handler is the code you write most of in any application, and this friction is paid on every one of them. Multiplied across a growing team and a growing route table, "which object holds this again?" and "is `req.user` set here?" become a steady tax on reading and changing code — the kind of small, constant drag that never shows up as a single bug but slows every change. Removing it once, at the framework boundary, pays back on every handler you will ever write.
+
+## The solution
+
+NextRush gives every request a single **Context** object, conventionally named `ctx`. Request data, response methods, and a typed bag for sharing data between middleware all live on that one object, and the adapter translates between `ctx` and the platform's real request/response at the edges. You read input from `ctx`, write output through `ctx`, and never handle raw `req`/`res` unless you deliberately opt out.
+
+## Core idea
+
+Think of `ctx` as one envelope that travels the whole request. It has three faces: an **input** side (what the client sent), an **output** side (what you send back), and a **shared** side (`ctx.state`, scratch space that middleware and the handler pass along). The same object is handed from the adapter through every middleware to your handler and back — it is never copied or replaced.
+
+## Mental model
+
+<Mermaid
+  chart="
+sequenceDiagram
+    actor Client
+    participant Adapter
+    participant ctx as Context (ctx)
+    participant Pipeline as Middleware
+    participant Handler
+    Client->>Adapter: HTTP request
+    Adapter->>ctx: create one ctx from the raw request
+    activate ctx
+    Adapter->>Pipeline: pass ctx
+    Pipeline->>ctx: read ctx.headers, write ctx.state
+    Pipeline->>Handler: await ctx.next()
+    Handler->>ctx: read ctx.params / ctx.body
+    Handler->>ctx: ctx.json(data)
+    ctx-->>Adapter: status + headers + body
+    deactivate ctx
+    Adapter-->>Client: HTTP response
+"
+/>
+
+The activation bar on `ctx` is the point: one object is alive for the whole request, and everyone reads from and writes to it. Don't track two objects moving in parallel — notice that the adapter builds `ctx` once at the front, everything in between shares it, and the adapter serializes it back only at the end.
+
+## Quick example
+
+The smallest handler reads input and sends output through the same object, with no imports beyond the framework entry point:
+
+```ts title="app.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/users/:id', (ctx) => {
+  const id = ctx.params.id;      // input: route parameter
+  const fields = ctx.query.fields; // input: query string
+  ctx.json({ id, fields });      // output: JSON response
 });
+
+app.route('/', router);
+listen(app, 8080);
 ```
 
-This works, but it's unclear what properties exist on `req` at any point. TypeScript can't help you, and bugs hide in the ambiguity.
+There is no `res` and no `req` — `ctx.params` and `ctx.query` are the input, `ctx.json()` is the output, and both hang off the one object the handler is given.
 
-## How NextRush Approaches This
+## How it works
 
-NextRush combines everything into a single **Context** object:
+**Example** — a middleware sets a value, and the handler reads it:
 
-```typescript title="NextRush Pattern"
-app.get('/users/:id', (ctx) => {
-  const id = ctx.params.id; // Request data
-  const query = ctx.query; // Request data
-  ctx.json({ id, query }); // Response method
-});
-```
+```ts title="state-sharing.ts"
+import { createApp, createRouter, listen } from 'nextrush';
 
-For sharing data between middleware, use the typed `state` bag:
+const app = createApp();
 
-```typescript title="State Sharing"
-// Auth middleware
+// Runs first: attach a request id, then hand control onward.
 app.use(async (ctx) => {
-  ctx.state.user = { id: 123 };
+  ctx.state.requestId = ctx.get('X-Request-Id') ?? crypto.randomUUID();
+  ctx.set('X-Request-Id', ctx.state.requestId as string);
   await ctx.next();
 });
 
-// Handler
-app.get('/profile', (ctx) => {
-  ctx.json({ user: ctx.state.user });
-});
-```
-
-## Mental Model
-
-Think of Context as a **request envelope** that travels through your middleware pipeline:
-
-```
-┌─────────────────────────────────────────────┐
-│                 Context (ctx)                │
-├─────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────┐    │
-│  │  INPUT (Request)                    │    │
-│  │  • method, path, url                │    │
-│  │  • params, query, headers           │    │
-│  │  • body (after parser)              │    │
-│  │  • ip                               │    │
-│  └─────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────┐    │
-│  │  OUTPUT (Response)                  │    │
-│  │  • status                           │    │
-│  │  • json(), send(), html()           │    │
-│  │  • set(), redirect()                │    │
-│  └─────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────┐    │
-│  │  SHARED (State)                     │    │
-│  │  • state.user, state.requestId...   │    │
-│  └─────────────────────────────────────┘    │
-└─────────────────────────────────────────────┘
-```
-
-## Request Properties
-
-Request properties are read-only. See [Quick Reference](#quick-reference) for the full property table.
-
-<details>
-<summary>Detailed request property examples</summary>
-
-### `ctx.method`
-
-```typescript
-ctx.method; // 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | ...
-```
-
-### `ctx.path`
-
-```typescript
-// Request: GET /users/123?include=posts
-ctx.path; // '/users/123'
-```
-
-### `ctx.url`
-
-```typescript
-// Request: GET /users/123?include=posts
-ctx.url; // '/users/123?include=posts'
-```
-
-### `ctx.params`
-
-```typescript
-// Route: /users/:id
-// Request: GET /users/123
-ctx.params; // { id: '123' }
-ctx.params.id; // '123'
-```
-
-### `ctx.query`
-
-```typescript
-// Request: GET /users?page=2&limit=10
-ctx.query; // { page: '2', limit: '10' }
-ctx.query.page; // '2'
-```
-
-### `ctx.headers`
-
-Use `ctx.get()` for case-insensitive lookup across all runtimes.
-
-```typescript
-ctx.headers['content-type']; // 'application/json'
-ctx.headers['authorization']; // 'Bearer xxx'
-```
-
-### `ctx.body`
-
-```typescript
-import { json } from '@nextrush/body-parser';
-
-app.use(json());
-
-app.post('/users', (ctx) => {
-  const { name, email } = ctx.body as { name: string; email: string };
-});
-```
-
-### `ctx.ip`
-
-```typescript
-ctx.ip; // '192.168.1.1'
-```
-
-### `ctx.get(header)`
-
-```typescript
-ctx.get('Content-Type'); // 'application/json'
-ctx.get('Authorization'); // 'Bearer xxx'
-ctx.get('x-request-id'); // 'abc-123'
-```
-
-</details>
-
-The `body` property deserves special attention — it is not available by default.
-
-<Callout type="warn" title="Body Requires Parser">
-  `ctx.body` is `undefined` until a body parser middleware runs. Always add a body parser before
-  accessing `ctx.body`.
-</Callout>
-
-## Response Methods
-
-Response methods are documented in full in [Quick Reference](#quick-reference).
-
-<details>
-<summary>Detailed response method examples</summary>
-
-### `ctx.json(data)`
-
-```typescript
-ctx.json({ users: [] });
-ctx.json({ error: 'Not found' });
-```
-
-Sets `Content-Type: application/json; charset=utf-8`, serializes with `JSON.stringify()`.
-
-### `ctx.send(data)`
-
-Handles strings, `Buffer`, `Uint8Array`, `ArrayBuffer`, Node.js streams, Web `ReadableStream`, objects (delegates to `json()`), and `null`.
-
-```typescript
-ctx.send('Hello World'); // text/plain
-ctx.send(Buffer.from([0x48, 0x69])); // application/octet-stream
-ctx.send(readableStream); // pipes stream
-```
-
-### `ctx.html(content)`
-
-```typescript
-ctx.html('<h1>Hello World</h1>');
-```
-
-### `ctx.redirect(url, status?)`
-
-```typescript
-ctx.redirect('/login'); // 302 Found
-ctx.redirect('/new-page', 301); // 301 Moved Permanently
-```
-
-### `ctx.set(field, value)`
-
-```typescript
-ctx.set('X-Request-Id', 'abc-123');
-ctx.set('Cache-Control', 'no-store');
-ctx.set('Set-Cookie', ['a=1; Path=/', 'b=2; Path=/']);
-```
-
-### `ctx.status`
-
-```typescript
-ctx.status = 201; // Set status
-console.log(ctx.status); // Get status
-```
-
-</details>
-
-## Error Helpers
-
-### `ctx.throw(status, message?)`
-
-Throw an HTTP error that stops the pipeline.
-
-```typescript
-ctx.throw(404); // Not Found
-ctx.throw(404, 'User not found'); // With custom message
-ctx.throw(401, 'Invalid token');
-```
-
-### `ctx.assert(condition, status, message?)`
-
-Assert a condition or throw.
-
-```typescript
-const user = await getUser(id);
-ctx.assert(user, 404, 'User not found');
-ctx.assert(user.isAdmin, 403, 'Forbidden');
-
-// Equivalent to:
-if (!user) {
-  ctx.throw(404, 'User not found');
-}
-```
-
-## Middleware Flow
-
-### `ctx.next()`
-
-Call the next middleware in the chain.
-
-```typescript
-app.use(async (ctx) => {
-  console.log('Before');
-  await ctx.next(); // Call next middleware
-  console.log('After');
-});
-```
-
-<Callout type="info" title="Two Syntaxes">
-  Both syntaxes work identically:
-
-```typescript
-// Modern: ctx.next()
-app.use(async (ctx) => {
-  await ctx.next();
+const router = createRouter();
+router.get('/', (ctx) => {
+  ctx.json({ requestId: ctx.state.requestId }); // reads what the middleware wrote
 });
 
-// Koa-style: next parameter
-app.use(async (ctx, next) => {
-  await next();
-});
+app.route('/', router);
+listen(app, 8080);
 ```
 
-</Callout>
+**Observation** — the handler sees `ctx.state.requestId` even though a different function set it, and the `X-Request-Id` header goes out on the response — all through the same `ctx`.
 
-### `ctx.state`
+**Explanation** — three groups of members back that behavior:
 
-A mutable object for sharing data between middleware.
+- **Input (what the client sent):** `ctx.method`, `ctx.path`, `ctx.query`, `ctx.headers`, `ctx.ip`, and `ctx.get(name)` for a case-insensitive header lookup — these are read-only. `ctx.params` is also input, but the router populates it during matching (it is not read-only). `ctx.body` is input too, but it is `undefined` until a body-parser middleware fills it in.
+- **Output:** set `ctx.status`, then send with `ctx.json()`, `ctx.send()`, `ctx.html()`, or `ctx.redirect()`; add headers with `ctx.set()`. NextRush picks the `Content-Type`, sets `Content-Length`, and suppresses the body for `HEAD`/`204`/`304` responses on its own.
+- **Shared:** `ctx.state` is a plain object the whole pipeline reads and writes, and `ctx.next()` passes control to the next middleware. Sharing through `ctx.state` is what [middleware](/docs/concepts/middleware) uses to move data forward without a new object.
 
-```typescript
-// Auth middleware
-app.use(async (ctx) => {
-  const token = ctx.get('Authorization');
-  if (token) {
-    ctx.state.user = await verifyToken(token);
-  }
-  await ctx.next();
-});
+You never wire any of this yourself. The adapter constructs `ctx` from the platform's real request and serializes the response back — how that construction differs per runtime is the [adapter's job](/docs/internals/adapters), not the handler's.
 
-// Handler
-app.get('/profile', (ctx) => {
-  ctx.json({ user: ctx.state.user });
-});
-```
+## Typical use cases
 
-## Platform Access
+`ctx` earns its shape most in middleware, where reading input, sharing a derived value, and passing control all happen on one object:
 
-### `ctx.raw`
+```ts title="auth.ts"
+import { createApp } from 'nextrush';
 
-Access platform-specific request/response objects.
+// Your real token check — returns the authenticated user.
+declare function verifyToken(token: string): Promise<{ id: string }>;
 
-```typescript
-// Node.js
-ctx.raw.req; // http.IncomingMessage
-ctx.raw.res; // http.ServerResponse
+const app = createApp();
 
-// Bun/Deno/Edge
-ctx.raw.req; // Web Request object
-```
-
-<Callout type="warn" title="Escape Hatch">
-  Use `ctx.raw` only when you need platform-specific features. Prefer NextRush's cross-platform API
-  for compatibility.
-</Callout>
-
-### `ctx.runtime`
-
-Detect the current runtime.
-
-```typescript
-ctx.runtime;
-// 'node' | 'bun' | 'deno' | 'deno-deploy'
-// | 'cloudflare-workers' | 'vercel-edge' | 'edge' | 'unknown'
-
-if (ctx.runtime === 'bun') {
-  // Bun-specific optimization
-}
-```
-
-### `ctx.responded`
-
-Whether a response has already been sent. Useful in middleware that runs after downstream handlers.
-
-```typescript
-app.use(async (ctx) => {
-  await ctx.next();
-  if (!ctx.responded) {
-    ctx.status = 404;
-    ctx.json({ error: 'Not found' });
-  }
-});
-```
-
-### `ctx.bodySource`
-
-Low-level body source for reading raw request data. Most applications use `ctx.body` (set by body-parser middleware) instead. Useful when building custom body parsers.
-
-```typescript
-// In a custom body parser
-const text = await ctx.bodySource.text();
-const data = JSON.parse(text);
-```
-
-## What Happens Automatically
-
-Context handles several things without configuration:
-
-- **Status defaults to 200** — set `ctx.status` before calling a response method to override
-- **Content-Type detection** — `json()` sets `application/json`, `html()` sets `text/html`, `send()` infers from data type
-- **Content-Length** — set automatically for string, buffer, and JSON responses
-- **HEAD request handling** — response methods suppress the body for `HEAD` requests, `204`, and `304` status codes
-- **Query parsing** — `ctx.query` is parsed from the URL automatically
-- **Body is undefined by default** — requires body-parser middleware to populate
-
-## Common Patterns
-
-### Request Logging
-
-```typescript
-app.use(async (ctx) => {
-  const start = Date.now();
-  console.log(`→ ${ctx.method} ${ctx.path}`);
-
-  await ctx.next();
-
-  const ms = Date.now() - start;
-  console.log(`← ${ctx.status} (${ms}ms)`);
-});
-```
-
-### Request ID Propagation
-
-```typescript
-app.use(async (ctx) => {
-  const requestId = ctx.get('X-Request-Id') || crypto.randomUUID();
-  ctx.state.requestId = requestId;
-  ctx.set('X-Request-Id', requestId);
-  await ctx.next();
-});
-```
-
-### Authentication
-
-```typescript
 app.use(async (ctx) => {
   const token = ctx.get('Authorization')?.replace('Bearer ', '');
-
   if (token) {
-    try {
-      ctx.state.user = await verifyJWT(token);
-    } catch {
-      // Invalid token - continue without user
-    }
+    ctx.state.user = await verifyToken(token); // share with everything downstream
   }
-
   await ctx.next();
 });
 ```
+
+Any middleware that authenticates, logs, tags, or times a request follows this shape: read from `ctx`, optionally write to `ctx.state`, then `await ctx.next()`. The [request lifecycle](/docs/concepts/request-lifecycle) concept walks the full ordering of that pipeline.
 
 ## Configuration
 
-Context itself has no configuration surface — its behavior is fixed by the adapter that creates it. The one adapter-level setting that changes Context behavior is `proxy`:
+`ctx` itself has no options — its behavior is fixed by the adapter that builds it. The one application-level setting that changes what `ctx` reports is `proxy`, passed to `createApp`:
 
-```typescript
-const app = createApp({ proxy: true });
+```ts title="proxy.ts"
+import { createApp } from 'nextrush';
+
+const app = createApp({ proxy: true }); // trust X-Forwarded-For for ctx.ip
 ```
 
-<TypeTable
-  title="Application Options Affecting Context"
-  types={{
-    proxy: {
-      type: 'boolean',
-      description: 'When true, ctx.ip trusts X-Forwarded-For / X-Real-IP headers from the incoming request',
-      default: 'false',
-    },
-  }}
-/>
+With `proxy: false` (the default), `ctx.ip` reflects the real socket peer and forwarding headers are ignored. Set `proxy: true` only behind a proxy you control, because it makes `ctx.ip` trust the client-supplied `X-Forwarded-For`/`X-Real-IP` headers. The full option list lives in the [`@nextrush/core` reference](/docs/reference/core/core); this page covers only what the option *means* for `ctx`.
 
-With `proxy: false` (the default), `ctx.ip` is read directly from the underlying socket/connection and forwarding headers are ignored. There is no per-request or per-route override — `proxy` is set once when the app is created.
+## Performance
 
-## Performance Notes
+- **Complexity** — `ctx` is a per-request object created once; reading `ctx.query` or `ctx.params` is a plain property access, not a re-parse. Query parsing runs a single time when `ctx` is built.
+- **Memory** — `ctx.params`, `ctx.query`, and `ctx.state` are plain objects passed by reference and never deep-cloned, so mutating one mutates the live request state for the rest of the pipeline.
+- **Scaling** — `ctx.get()` does a case-insensitive lookup that costs slightly more than a direct `ctx.headers[key]` read, and `ctx.send()` inspects its argument's type to choose serialization. In a hot path where the header casing or response type is already known, `ctx.headers[key]`, `ctx.json()`, or `ctx.html()` skip that work. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before optimizing.
 
-- **Query parsing runs once per request.** `ctx.query` is parsed from the URL when the context is created, not lazily on first access.
-- **`ctx.get()` is case-insensitive by design** — it does a lookup independent of header casing, which costs slightly more than direct `ctx.headers[key]` access. Prefer `ctx.headers` in hot paths where casing is already known.
-- **`ctx.send()` performs type detection** on every call (string vs. Buffer vs. stream vs. object) to choose the right `Content-Type` and serialization path. Use `ctx.json()` or `ctx.html()` directly when the response type is known ahead of time to skip that dispatch.
-- **No deep cloning.** Context properties (`params`, `query`, `state`) are plain objects passed by reference — mutating them mutates the live request state for the remainder of the pipeline.
+## Security
 
-## Security Considerations
+`ctx` is the boundary between the client and your code, so everything it carries from the request is untrusted by default.
 
-- **Never trust `ctx.headers` or `ctx.body` without validation.** Both come directly from the client. Validate shape and type before use — a missing body-parser or malformed input surfaces as `undefined` or an unexpected shape, not a validation error.
-- **`ctx.raw` bypasses all cross-runtime guarantees.** It exposes the platform-specific request/response object (`IncomingMessage`/`ServerResponse` on Node.js, `Request`/`Response` on Bun/Deno/Edge). Code that reads `ctx.raw` only works on the runtime it was written for.
-- **`ctx.ip` requires explicit proxy configuration.** With `proxy: false` (default), forwarding headers are ignored and `ctx.ip` reflects the real socket peer. Setting `proxy: true` trusts `X-Forwarded-For`/`X-Real-IP` — only enable this behind a proxy you control, since these headers are otherwise attacker-controlled and trivially spoofed.
+- **Request input.** *Threat:* `ctx.body`, `ctx.query`, `ctx.params`, and `ctx.headers` are all attacker-controlled. *Why:* `ctx` transports them but does not validate them. *Safe default:* check type, range, length, and format before use — a missing body-parser surfaces as `undefined`, not an error. *Avoid:* passing any of them straight into a query, file path, or redirect target.
+- **Client IP.** *Threat:* a spoofed `X-Forwarded-For` can forge `ctx.ip`. *Why:* forwarding headers are client-supplied. *Safe default:* leave `proxy: false` unless you sit behind a proxy you control. *Avoid:* trusting `ctx.ip` for authorization or rate-limiting decisions when `proxy` is on but no trusted proxy sets the header.
+- **Raw escape hatch.** *Threat:* code that reads `ctx.raw` only runs on the runtime it was written for. *Why:* `ctx.raw` exposes the platform object (`IncomingMessage`/`ServerResponse` on Node, `Request` on Bun/Deno/Edge), bypassing every cross-runtime guarantee. *Safe default:* use the `ctx` API. *Avoid:* `ctx.raw` unless a platform feature genuinely has no `ctx` equivalent.
 
-## Common Mistakes
+<Callout type="warn">
+Everything the client sends arrives on `ctx` unvalidated. `ctx` guarantees a consistent shape across runtimes — it never guarantees the *values* are safe. Validating them is your handler's job.
+</Callout>
 
-### Forgetting await on next()
+## Trade-offs
 
-```typescript
-// ❌ Wrong: Response may be sent before downstream completes
-app.use(async (ctx) => {
-  ctx.next(); // Missing await!
-  ctx.set('X-After', 'value');
-});
+**Why one Context object** — it optimizes for handler clarity: one place to look for input, output, and shared state, fully typed.
 
-// ✅ Correct
-app.use(async (ctx) => {
-  await ctx.next();
-  ctx.set('X-After', 'value');
-});
-```
+- **Benefits** — a single, discoverable, type-safe surface; identical behavior across every runtime; no ambiguity about which object holds what, or whether a middleware value is present.
+- **Costs** — one layer of indirection over the platform's real request/response, and a per-request object allocation instead of reusing the raw handles directly.
+- **Alternatives** — the raw `req`/`res` model is closer to the metal but pushes cross-cutting bookkeeping into every handler; it remains reachable through `ctx.raw` when you truly need it.
+- **Why NextRush chose this** — the same application code has to run unchanged on Node, Bun, Deno, and edge runtimes, whose native request objects differ. A unified `ctx` is what makes that portability possible while keeping the common path readable.
 
-### Multiple Responses
+## Decision guide
 
-```typescript
-// ❌ Wrong: Two responses
-app.use((ctx) => {
-  ctx.json({ step: 1 });
-  ctx.json({ step: 2 }); // Error or ignored
-});
+**Use the `ctx` API when:**
 
-// ✅ Correct: One response
-app.use((ctx) => {
-  ctx.json({ steps: [1, 2] });
-});
-```
+- ✓ You are writing a handler or middleware — this is the default and the right choice for essentially all application code
+- ✓ You want the same code to run across Node, Bun, Deno, and edge runtimes
 
-### Accessing Body Without Parser
+**Reach for `ctx.raw` when:**
 
-```typescript
-// ❌ Wrong: body is undefined
-app.post('/users', (ctx) => {
-  console.log(ctx.body); // undefined!
-});
+- ✓ You need a platform-specific feature with no cross-runtime `ctx` equivalent, and you accept that the code is now runtime-bound
+- ✗ Avoid it for anything the `ctx` API already covers — you would trade portability for nothing
 
-// ✅ Correct: Add body parser first
-import { json } from '@nextrush/body-parser';
-app.use(json());
-app.post('/users', (ctx) => {
-  console.log(ctx.body); // { name: 'Alice', ... }
-});
-```
+## Common mistakes
 
-## TypeScript Types
+- **Reading `ctx.body` with no body parser.** *Why it happens:* `ctx.body` looks like it is always populated. *Correct approach:* add a body-parser middleware (for example [`@nextrush/body-parser`](/docs/reference/middleware/body-parser)) before the handler. *If ignored:* `ctx.body` is `undefined` and the handler misreads it as an empty payload.
+- **Forgetting `await` on `ctx.next()`.** *Why it happens:* `next()` returns a promise that is quick to overlook. *Correct approach:* always `await ctx.next()` when work must run after downstream middleware. *If ignored:* code after the call runs before downstream finishes, and the response can be sent early.
+- **Sending two responses.** *Why it happens:* two branches each call a send method on the same `ctx`. *Correct approach:* send exactly once per request. *If ignored:* the second call errors or is discarded, depending on where it runs.
 
-Import context types for type annotations:
+## Key takeaways
 
-```typescript
-import type { Context, ContextState } from '@nextrush/types';
+- `ctx` is one object per request that unifies request input, response output, and shared state.
+- Input members (`method`, `path`, `params`, `query`, `headers`, `body`) are what the client sent; `body` needs a body parser first.
+- Output goes through `ctx.status` plus `ctx.json()`/`ctx.send()`/`ctx.html()`/`ctx.redirect()` and `ctx.set()`.
+- `ctx.state` carries data between middleware; `ctx.next()` passes control down the pipeline.
+- Everything on `ctx` from the client is untrusted — validate before use.
+- `ctx.raw` is a runtime-specific escape hatch; prefer the cross-runtime `ctx` API.
 
-const handler = (ctx: Context) => {
-  ctx.json({ ok: true });
-};
-
-// Extend state type
-interface AppState extends ContextState {
-  user?: { id: string; email: string };
-  requestId: string;
-}
-```
-
-## Quick Reference
-
-<TypeTable
-  title="Request Properties (read-only)"
-  types={{
-    method: {
-      type: 'HttpMethod',
-      description: 'HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, TRACE, CONNECT)',
-    },
-    url: { type: 'string', description: 'Full URL including query string' },
-    path: { type: 'string', description: 'Request path without query string' },
-    query: {
-      type: 'Record<string, string | string[] | undefined>',
-      description: 'Parsed query string parameters',
-    },
-    headers: {
-      type: 'Record<string, string | string[] | undefined>',
-      description: 'Request headers',
-    },
-    ip: { type: 'string', description: 'Client IP address' },
-    runtime: { type: 'Runtime', description: 'Current JavaScript runtime' },
-    raw: { type: 'RawHttp', description: 'Platform-specific request/response objects' },
-    bodySource: { type: 'BodySource', description: 'Low-level body source for custom parsers' },
-    responded: { type: 'boolean', description: 'Whether a response has been sent' },
-  }}
-/>
-
-<TypeTable
-  title="Mutable Properties"
-  types={{
-    body: {
-      type: 'unknown',
-      description: 'Parsed request body (set by body-parser middleware)',
-      default: 'undefined',
-    },
-    params: { type: 'Record<string, string>', description: 'Route parameters (set by router)' },
-    status: { type: 'number', description: 'Response status code', default: '200' },
-    state: {
-      type: 'Record<string | symbol, unknown>',
-      description: 'Request-scoped state for middleware data sharing',
-    },
-  }}
-/>
-
-<TypeTable
-  title="Response Methods"
-  types={{
-    'json(data)': { type: '(data: unknown) => void', description: 'Send JSON response' },
-    'send(data)': {
-      type: '(data: ResponseBody) => void',
-      description: 'Send string, buffer, stream, or object response',
-    },
-    'html(content)': { type: '(content: string) => void', description: 'Send HTML response' },
-    'redirect(url, status?)': {
-      type: '(url: string, status?: number) => void',
-      description: 'Redirect (default 302)',
-    },
-    'set(field, value)': {
-      type: '(field: string, value: string | number | string[]) => void',
-      description: 'Set response header',
-    },
-    'get(field)': {
-      type: '(field: string) => string | undefined',
-      description: 'Get request header (case-insensitive)',
-    },
-    'throw(status, message?)': {
-      type: '(status: number, message?: string) => never',
-      description: 'Throw HTTP error',
-    },
-    'assert(condition, status, message?)': {
-      type: '(condition: unknown, status: number, message?: string) => asserts condition',
-      description: 'Assert or throw',
-    },
-    'next()': { type: '() => Promise<void>', description: 'Call next middleware' },
-  }}
-/>
-
-## See Also
+## Continue learning
 
 <Cards>
   <Card title="Middleware" href="/docs/concepts/middleware">
-    Understanding the request/response pipeline.
+    How the pipeline runs, and why ctx.state is the way to share data through it.
   </Card>
-  <Card title="Routing" href="/docs/concepts/routing">
-    Route patterns and parameters.
+  <Card title="Custom middleware" href="/docs/guides/custom-middleware">
+    Put ctx to work — read input, share state, and pass control in your own middleware.
   </Card>
-  <Card title="@nextrush/core" href="/docs/reference/core">
-    Full API reference for core.
+  <Card title="@nextrush/core reference" href="/docs/reference/core/core">
+    The full Context surface — every property and method, with signatures.
+  </Card>
+  <Card title="Adapters" href="/docs/internals/adapters">
+    How each runtime's adapter builds ctx from a native request and serializes it back.
   </Card>
 </Cards>

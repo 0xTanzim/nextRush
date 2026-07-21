@@ -85,9 +85,68 @@ any check has findings. Source: `scripts/verify/`.
    parameters or return type have drifted. `fumadocs-typescript` (T4) replaces
    this with generated tables that can't drift by construction.
 
-## Explore
+## Docs tooling foundation (llms.txt · AutoTypeTable · OpenAPI)
 
-In the project, you can see:
+The v4 docs site standardizes on three tooling capabilities (OpenSpec change
+`docs-v4-rebuild` §2). Two are live; the third is pending a decision.
+
+### `llms.txt` / `llms-full.txt` — first-class, static (2.1 ✅)
+
+AI/agent-readable docs are a **first-class, statically-generated** output, not an
+incidental build artifact:
+
+- `src/app/llms.txt/route.ts` — a structured index: every page grouped by section
+  (titles/order from `appConfig.llms.sectionTitles`), each linked to its `.md`
+  source and canonical URL, plus the skills catalog. `force-static`.
+- `src/app/llms-full.txt/route.ts` — the full corpus: every page's Markdown
+  concatenated via `getLLMText()`, which uses Fumadocs' native
+  `page.data.getText('processed')` and strips MDX components/imports
+  (`sanitizeLLMMarkdown` in `lib/source.ts`) so the output is clean prose. `force-static`.
+- `src/app/llm.txt/` and `ask-ai-index.json` round out the agent surface.
+
+> **v4-IA coupling:** `appConfig.llms.sectionTitles` still lists the v3 section
+> keys (`getting-started`, `api-reference`, …). Unknown sections are handled
+> gracefully (title-cased, appended), so nothing breaks — but when **Wave B0**
+> finalizes the v4 IA (`start`/`concepts`/`guides`/`recipes`/`production`/
+> `reference`/`internals`/`migrate`/`resources`), update `sectionTitles` to match.
+
+### `AutoTypeTable` — reference tables from live TS source (2.3 ✅)
+
+Reference type/option tables generate from the actual TypeScript source, so they
+cannot drift from the code. Prefer `AutoTypeTable` over the hand-authored
+`TypeTable` for reference pages (per `documentation.instructions.md`).
+
+- Wired in `source.config.ts` (the `remarkAutoTypeTable` plugin, output name
+  `AutoTypeTable`) **and** registered in `src/mdx-components.tsx` (the JSX form,
+  with a `path` resolved to the monorepo root). Shared generator + on-disk cache:
+  `src/lib/type-table-generator.ts`.
+- Usage: `<AutoTypeTable path="packages/types/src/context.ts" name="Context" />`.
+- Live sample: `content/docs/reference/core/types.mdx`.
+
+### OpenAPI reference via Scalar (2.2 ✅ — read-only, static)
+
+Interactive API reference, generated at build time and rendered client-side:
+
+- **Spec (build time):** `scripts/generate-openapi.ts` describes a representative
+  API as the framework's own `RouteDefinition[]` (with `endpoint()` docs + zod
+  request/response schemas) and runs the real `@nextrush/openapi`
+  `generateDocument()` — the same transform any NextRush app uses — writing
+  `public/openapi.json` (OpenAPI 3.1). Wired into `prebuild`, so it stays in sync
+  with the generator. Run it directly with `npx tsx scripts/generate-openapi.ts`.
+- **Renderer:** the `ScalarApiReference` MDX component
+  (`src/components/mdx/scalar-api-reference.tsx`, registered in `mdx-components.tsx`)
+  renders that spec via `@scalar/api-reference-react`. It's loaded with
+  `next/dynamic` + `ssr: false` because the site is a **static export** — Scalar is
+  a browser widget and must not run during prerender. Drop it into any reference
+  page: `<ScalarApiReference url="/openapi.json" />` (the reference page itself is
+  authored in Track B Wave B3).
+
+> **Static-export caveat:** the reference renders read-only. Scalar "try it out"
+> fires real requests and has **no live target** in a static deploy — the spec
+> carries no `servers` URL. Point `servers` at a separately-deployed demo API only
+> if live try-it-out is ever wanted; it does not affect the docs build.
+
+
 
 - `lib/source.ts`: Code for content source adapter, [`loader()`](https://fumadocs.dev/docs/headless/source-api) provides the interface to access your content.
 - `lib/layout.shared.tsx`: Shared options for layouts, optional but preferred to keep.

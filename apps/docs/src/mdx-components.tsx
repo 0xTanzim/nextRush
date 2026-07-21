@@ -19,6 +19,7 @@ import {
     PackageGrid,
     PackageInstall,
     PackageSection,
+    ScalarApiReference,
     TypeTable,
 } from '@/components/mdx';
 import { typeTableGenerator } from '@/lib/type-table-generator';
@@ -82,6 +83,9 @@ const customComponents = {
 
   // Generated reference table — from real TypeScript source (fumadocs-typescript)
   AutoTypeTable,
+
+  // Interactive OpenAPI reference (Scalar) — reads the build-time public/openapi.json
+  ScalarApiReference,
 
   // Mermaid diagrams with dark/light theme support
   Mermaid,

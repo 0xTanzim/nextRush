@@ -1,0 +1,228 @@
+---
+title: How to mount and group routes
+description: Organize a growing API into feature routers, mount them under path prefixes, and share middleware across a group without repeating it on every route.
+difficulty: beginner
+estimatedTime: 10 minutes
+---
+
+You can build a small API on a single router. As the project grows, that one file turns into a bottleneck: users, posts, and admin routes compete for space, the same `/api/v1` prefix is pasted onto every path, and the same auth check is copied onto every admin route. This guide reorganizes that into feature routers that scale with your app.
+
+## What you'll build
+
+By the end you'll have an API split into feature routers, mounted under a version prefix, with shared middleware applied once per group:
+
+- ✓ One router per feature (users, posts, admin)
+- ✓ A versioned API mounted at `/api/v1`
+- ✓ Admin routes behind a shared auth guard
+
+Resulting routes:
+
+```text
+GET  /api/v1/users
+GET  /api/v1/posts
+GET  /api/v1/admin/dashboard   (requires auth)
+```
+
+## Before and after
+
+**Before**
+- ❌ One large router holding every feature
+- ❌ The same middleware pasted onto route after route
+- ❌ `/api/v1` copied into every path
+
+**After**
+- ✓ A small router per feature, testable on its own
+- ✓ Shared middleware declared once per group
+- ✓ The version prefix set in one place, at mount time
+
+## Prerequisites
+
+- **Concepts:** [Routing](/docs/concepts/routing) (how a `Router` matches) and [Middleware](/docs/concepts/middleware) (the onion pipeline)
+- **Required knowledge:** basic NextRush app setup (`createApp` / `listen`)
+- **Difficulty · time:** Beginner · ~10 minutes
+
+## What you're building
+
+<Mermaid
+  chart="
+flowchart TB
+    app[Application] -->|mount /api/v1| api[api router]
+    api -->|mount /users| users[users router]
+    api -->|mount /posts| posts[posts router]
+    api -->|group /admin + auth| admin[admin routes]
+    style app fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style admin fill:#f59e0b,stroke:#d97706,color:#fff
+"
+/>
+
+## Recommended approach
+
+- **Use `mount(prefix, subRouter)`** because it rebases a feature router's paths under a prefix and states that intent at the call site.
+- **Avoid `use(prefix, router)`** because it does the same thing in an older, less explicit form — both work, but `mount` reads clearly.
+- **Alternative:** `group(prefix, [middleware], callback)` carves a prefixed section *within* one router and attaches middleware to all of it.
+- **When to choose the alternative:** when a set of routes shares both a prefix and middleware but doesn't warrant its own file.
+
+<Steps>
+
+### Split each feature into its own router
+
+**Why:** a feature router that knows nothing about where it will be mounted is testable in isolation and reusable across versions.
+
+**Do:**
+
+```ts title="routes/users.ts"
+import { createRouter } from '@nextrush/router';
+
+export const usersRouter = createRouter();
+
+usersRouter.get('/', (ctx) => ctx.json([{ id: 1, name: 'Ada' }]));
+usersRouter.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+usersRouter.post('/', (ctx) => {
+  ctx.status = 201;
+  ctx.json({ created: true });
+});
+```
+
+**Result:** a `usersRouter` with paths relative to its own root, ready to mount anywhere.
+
+### Mount feature routers under prefixes
+
+**Why:** composing routers with `mount` rebases each one's paths under a prefix, so features stay decoupled from the URL layout.
+
+**Do:**
+
+```ts title="routes/api.ts"
+import { createRouter } from '@nextrush/router';
+
+const usersRouter = createRouter();
+usersRouter.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+const postsRouter = createRouter();
+postsRouter.get('/:id', (ctx) => ctx.json({ postId: ctx.params.id }));
+
+export const apiRouter = createRouter();
+apiRouter.mount('/users', usersRouter); // → /users/:id
+apiRouter.mount('/posts', postsRouter); // → /posts/:id
+```
+
+**Result:** one `apiRouter` that owns the shape of the API, with feature routers plugged in.
+
+### Share middleware across a group
+
+**Why:** an admin section shares one concern — an auth check. A `group` declares it once for the whole section instead of on every route.
+
+**Do:**
+
+```ts title="routes/admin.ts"
+import { createRouter } from '@nextrush/router';
+import type { Middleware } from '@nextrush/types';
+
+const requireAdmin: Middleware = async (ctx, next) => {
+  if (ctx.get('authorization') !== 'Bearer admin-token') {
+    ctx.status = 401;
+    return ctx.json({ error: 'Unauthorized' });
+  }
+  await next();
+};
+
+export const adminRouter = createRouter();
+adminRouter.group('/admin', [requireAdmin], (admin) => {
+  admin.get('/dashboard', (ctx) => ctx.json({ page: 'dashboard' }));
+  admin.get('/settings', (ctx) => ctx.json({ page: 'settings' }));
+});
+```
+
+**Result:** every route inside the group runs `requireAdmin` first — add a route later and it is protected automatically.
+
+### Mount the API on the application
+
+**Why:** keeping the version prefix at the application layer lets the same feature routers serve `v1` today and `v2` later, unchanged.
+
+**Do:**
+
+```ts title="server.ts"
+import { createApp, listen } from 'nextrush';
+import { createRouter } from '@nextrush/router';
+
+const apiRouter = createRouter();
+apiRouter.get('/health', (ctx) => ctx.json({ ok: true }));
+
+const app = createApp();
+app.route('/api/v1', apiRouter); // → /api/v1/health
+listen(app, 8080);
+```
+
+**Result:** the composed API is live under `/api/v1`.
+
+</Steps>
+
+## Verify
+
+Start the server, then confirm each route. Each line is the request, its expected status, and what success means:
+
+```bash
+curl localhost:8080/api/v1/users                       # 200 — feature router mounted correctly
+curl localhost:8080/api/v1/posts                       # 200 — second feature router works
+curl localhost:8080/api/v1/admin/dashboard             # 401 — the group guard is active
+curl -H "authorization: Bearer admin-token" \
+     localhost:8080/api/v1/admin/dashboard             # 200 — credentials pass the guard
+```
+
+If the admin route returns `200` *without* the header, the guard is not wired — see Troubleshooting.
+
+## Production considerations
+
+### Security
+
+<Callout type="warn">
+  Group middleware order is a boundary. Attach an auth guard to the group **before** the routes it
+  protects, and register global auth before the router that mounts protected features. A protected
+  route mounted before its guard is an open route.
+</Callout>
+
+### Performance
+
+Mounting and grouping are registration-time work — they add no per-request cost. Keep feature routers focused; the composed tree matches at the same speed regardless of how many routers you mount.
+
+### Reliability
+
+Mount `app.use(router.allowedMethods())` after the routes so a known path hit with an unregistered method returns `405`, not `404`. Two routers mounted at the same prefix that register the same method and path throw at startup, so a collision surfaces immediately.
+
+### Deployment
+
+Keep version prefixes (`/api/v1`) at the application-mount layer, never baked into feature routers, so a router is reusable across versions. Feature routers hold no runtime-specific code, so the composed app deploys unchanged to any adapter.
+
+## Troubleshooting
+
+Ordered most common first:
+
+- **Every route returns `404`.** *Cause:* the router was built but never mounted. *Fix:* `app.route(prefix, router)` (or `app.use(router.routes())`).
+- **A protected route returns `200` without credentials.** *Cause:* the guard runs after the route, or the group was mounted before global auth. *Fix:* attach the guard to the group, and register cross-cutting middleware before the routers it protects.
+- **`Route conflict` thrown at startup.** *Cause:* two routers register the same method + path under the same mount. *Fix:* check your mount prefixes — two features mounted at the same prefix collide.
+
+## Common mistakes
+
+- **Baking the version prefix into feature routers.** *Why it happens:* it feels natural to write the full path where the route lives. *Fix:* put `/api/v1` at the `app.route()` mount so the router stays version-agnostic.
+- **Repeating middleware per route.** *Why it happens:* each route is added on its own, so the guard is copied alongside it. *Fix:* a shared concern across a prefixed set is a `group`, not three copies.
+- **Mounting before guarding.** *Why it happens:* routers are wired in the order features are built, not the order middleware must run. *Fix:* register cross-cutting middleware first, then mount the protected routers.
+
+## Key takeaways
+
+- Build one router per feature; keep it unaware of where it is mounted.
+- Mount routers instead of copying prefixes onto every path.
+- Use a `group` for middleware shared across a set of routes.
+- Keep API versioning at the application layer, not in feature routers.
+
+## Continue learning
+
+<Cards>
+  <Card title="Routing" href="/docs/concepts/routing">
+    The segment-trie model behind the routes you mounted here.
+  </Card>
+  <Card title="Authentication" href="/docs/guides/authentication">
+    Turn the admin guard above into real authentication.
+  </Card>
+  <Card title="@nextrush/router reference" href="/docs/reference/core/router">
+    Every router option and method — `mount`, `group`, `allowedMethods`, and more.
+  </Card>
+</Cards>
