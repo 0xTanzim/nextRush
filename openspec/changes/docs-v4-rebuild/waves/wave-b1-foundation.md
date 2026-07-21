@@ -1,7 +1,7 @@
 # Wave B1 — Docs-site foundation (`start/` + `concepts/`)
 
 - **Track:** B (docs-site MDX content)
-- **Status:** in-progress (concepts: `context` ✅ · `middleware` ✅ · `errors`⊕ ✅ — validated 2026-07-21)
+- **Status:** in-progress (concepts: `context`·`middleware`·`errors`⊕·`request-lifecycle`·`dependency-injection`·`guards`·`interceptors` ✅ (+`routing` pilot) · start: `quick-start` ✅ — validated 2026-07-21). **Committed:** `994b2a4` (concepts context/middleware/errors). **Tooling signal:** `docs:verify` compile-check samples only 15 files alphabetically by default — pages outside the sample aren't auto-gated; raise `sampleSize` (or verify-all) at the §12 verification wave before cutover. **Finding for B3:** `reference/class/decorators.mdx` shows a function-style interceptor contradicting source — fix in the Reference wave.
 - **Depends on:** **Wave B0 gate (frozen IA)** ✅ — unblocked. Independent of Track A.
 - **Gate:** `docs:verify` green + EDS-015 publish checklist per wave.
 - **tasks.md item:** §8
