@@ -1,75 +1,68 @@
 ---
 title: Installation
-description: Prerequisites, scaffold with create-nextrush, or install the nextrush meta-package by hand
+description: Install NextRush with your package manager of choice, confirm the Node.js version requirement, and get a server running in one file.
 ---
 
-NextRush requires **Node.js 22** or later. For Bun or Deno, add the matching adapter package (the
-scaffolder can do this when you pick a runtime).
+Installing a web framework should take one command and a couple of minutes, not a checklist of
+peripheral tooling. NextRush ships as a single meta-package with everything the functional core
+needs, so the fastest path from an empty folder to a running server is genuinely short — you'll
+have one here before this page ends.
+
+## What you'll have
+
+By the end of this page:
+
+- ✓ NextRush installed with your package manager of choice
+- ✓ Confirmation that your Node.js version meets the framework's requirement
+- ✓ A one-file server running and answering a request on `localhost:8080`
 
 ## Prerequisites
 
-Before installing NextRush, ensure you have:
-
-- **Node.js 22+** — [Download](https://nodejs.org/) or use a version manager like [nvm](https://github.com/nvm-sh/nvm)
-- **A package manager** — pnpm (recommended), npm, yarn, or bun
+- **Node.js 22.0.0 or newer.** [Download](https://nodejs.org/) or manage versions with
+  [nvm](https://github.com/nvm-sh/nvm). NextRush declares `"engines": { "node": ">=22.0.0" }` in
+  every published package — this isn't a recommendation, it's what the framework is built and
+  tested against.
+- **A package manager** — pnpm, npm, yarn, or bun. Examples on this page show all four.
 
 <Callout type="info" title="Why Node.js 22?">
-  The framework targets **ES2022**, stable **ESM**, and APIs the docs assume are available on the
-  supported Node line. Use **22.x or newer** so `pnpm create nextrush`, `tsx`, and the Node adapter
-  match what CI and examples run against.
+  The framework targets ES2022 and stable ESM throughout — no CommonJS build exists for any
+  `@nextrush/*` package. Node 22 is the oldest LTS line where that target lands cleanly, so it's
+  the floor every adapter and example assumes. See the [FAQ](/docs/resources/faq) for the full
+  reasoning.
 </Callout>
 
-## Choose your setup path
+## Recommended approach
 
-Pick one path and stay on it until you have a running server:
+Two paths reach a running server. **Use the scaffolder if you want a project generated for
+you** — it wires routing, middleware, scripts, and your chosen style (functional, class-based, or
+full) in one command, and it's what the [Task API tutorial](/docs/start/quick-start) assumes you
+skip if you're following this page instead. **Install by hand if you want to see every piece land**
+— useful when you're adding NextRush to an existing project, or you want to understand the
+manual setup before letting a generator do it for you.
+
+Both install the same `nextrush` package underneath; the scaffolder automates the folder, config,
+and file structure around it. If you're unsure, scaffold — you can still read every file it
+produces afterward.
 
 <Cards>
   <Card
     title="Scaffold a project"
-    description="Scaffold a ready-to-run app with runtime, middleware, and style presets."
-    href="#scaffold-a-project"
+    href="/docs/start/create-nextrush"
+    description="One command generates a ready-to-run app with your chosen style, middleware preset, and runtime."
   />
   <Card
     title="Install manually"
-    description="Pick packages yourself when you want to wire each layer explicitly."
     href="#install-manually"
+    description="Add nextrush to an existing project, or wire each piece yourself to see how it fits together."
   />
 </Cards>
-
-## Scaffold a project
-
-If you want a working app immediately, use `create-nextrush`.
-
-```bash
-# Interactive (space between "create" and "nextrush" is intentional)
-pnpm create nextrush
-npm create nextrush
-
-# Pin the scaffolder version
-npm create nextrush@latest
-
-# Same package via its npm name (hyphen)
-pnpm dlx create-nextrush@latest
-
-# non-interactive examples
-pnpm create nextrush my-api --style functional --middleware api --runtime node
-pnpm create nextrush my-bun-api --style functional --runtime bun --middleware api
-pnpm create nextrush my-deno-api --style functional --runtime deno --middleware minimal
-```
-
-The scaffolder generates a ready-to-run project with routing, middleware, scripts, and optional
-controllers + DI support. For every supported command (`npm create`, `npx`, `pnpm dlx`), flags, and
-templates, see [create-nextrush](/docs/start/create-nextrush).
-
-<Callout type="info" title="What the scaffold asks">
-  Project name, style (`functional`, `class-based`, or `full`), middleware preset, runtime target,
-  dependency install, and git init. The package manager is auto-detected (override with `--pm`).
-</Callout>
 
 ## Install manually
 
 <Steps>
+
 <Step>
+
 ### Create a project folder
 
 ```bash
@@ -77,34 +70,33 @@ mkdir my-api && cd my-api
 pnpm init
 ```
 
-Add `"type": "module"` to `package.json` so Node treats `.js` output as ESM (the scaffolder does this for you).
+Add `"type": "module"` to the generated `package.json`. NextRush is ESM-only — there's no
+CommonJS build to fall back to — so Node needs to know your `.ts`/`.js` files are ES modules
+before anything else runs.
 
 </Step>
-<Step>
-### Install NextRush
 
-Choose your preferred package manager:
+<Step>
+
+### Install NextRush
 
 <PackageInstall packages={['nextrush']} dev={['@nextrush/dev', 'tsx', 'typescript', '@types/node']} />
 
-The `nextrush` package is the runtime meta-package. Install **`@nextrush/dev`** as a dev dependency
-so your local scripts can run `nextrush dev` and `nextrush build`:
-
-- `@nextrush/core` — Application and middleware
-- `@nextrush/router` — HTTP routing
-- `@nextrush/adapter-node` — Node.js HTTP server adapter
-- `@nextrush/errors` — HTTP error classes
-- `@nextrush/types` — Shared TypeScript types
-- `@nextrush/dev` — Development server, production build, generators (dev dependency)
+`nextrush` is the meta-package: it re-exports `@nextrush/core`, `@nextrush/router`,
+`@nextrush/adapter-node`, `@nextrush/errors`, and `@nextrush/types`, so this one install covers
+the functional path (`createApp`, `createRouter`, `listen`) with no separate package to add. Add
+`@nextrush/dev` as a dev dependency so your project scripts can run `nextrush dev` and
+`nextrush build`.
 
 </Step>
 
 <Step>
-### Verify Installation
+
+### Write a server and run it
 
 Create `src/index.ts`:
 
-```typescript title="src/index.ts"
+```ts title="src/index.ts"
 import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
@@ -118,24 +110,30 @@ app.route('/', router);
 await listen(app, 8080);
 ```
 
-Run it:
+Run it with `tsx` so there's no separate compile step while you're getting started:
 
 ```bash
 npx tsx src/index.ts
 ```
 
-Open `http://localhost:8080` in your browser. You should see:
+**Expected output:** open `http://localhost:8080` (or `curl` it) and you should see:
 
 ```json
 { "status": "ok", "framework": "NextRush" }
 ```
 
+If you see that response, NextRush is installed and serving requests. `createApp()` builds the
+application, `createRouter()` gives you a router to attach routes to, `app.route('/', router)`
+mounts it, and `listen(app, 8080)` starts the Node adapter.
+
 </Step>
 
 <Step>
+
 ### Configure TypeScript
 
-NextRush is written in TypeScript and provides full type definitions. For accurate types and decorator metadata, use these `tsconfig.json` settings:
+NextRush ships full type definitions. This `tsconfig.json` matches what the framework's own
+examples and CI run against:
 
 ```json title="tsconfig.json"
 {
@@ -153,82 +151,71 @@ NextRush is written in TypeScript and provides full type definitions. For accura
 }
 ```
 
-<Callout type="info" title="Decorators and DI">
-  If you use class-based controllers from `nextrush/class`, add `"experimentalDecorators": true`
-  and `"emitDecoratorMetadata": true` to your `compilerOptions`. The `nextrush/class` entry
-  auto-imports `reflect-metadata` — no manual setup needed.
+<Callout type="info" title="Only using class-based controllers?">
+  Add `"experimentalDecorators": true` and `"emitDecoratorMetadata": true` to
+  `compilerOptions` if you import from `nextrush/class`. That entry point auto-imports
+  `reflect-metadata` itself — you don't add it to your own code or dependencies.
 </Callout>
+
 </Step>
 
-<Step>
-### Set Up Project Structure
-
-A typical NextRush project looks like this:
-
-```text
-my-api/
-├── src/
-│   ├── index.ts          # Application entry point
-│   ├── routes/           # Route handlers
-│   │   ├── users.ts
-│   │   └── products.ts
-│   └── middleware/       # Custom middleware
-│       └── auth.ts
-├── package.json
-└── tsconfig.json
-```
-
-NextRush does not enforce a specific project structure. Organize your code in whatever way makes sense for your team.
-</Step>
 </Steps>
 
----
+## Verify the install
 
-## Individual Packages
+Confirm the two things that actually matter before you build on top of this: the runtime version,
+and that the server responds.
 
-For more control, install packages individually:
+```bash
+node --version
+# → v22.x.x or newer — NextRush's package.json declares "engines": { "node": ">=22.0.0" }
+```
 
-<PackageInstall packages={['@nextrush/core', '@nextrush/router', '@nextrush/adapter-node']} />
+```bash
+curl http://localhost:8080/
+# → {"status":"ok","framework":"NextRush"}
+```
 
-This is useful when:
+If `node --version` reports below 22, install a newer version before continuing — NextRush's
+adapters and examples aren't tested against older lines, and package installs may warn or fail
+depending on your package manager's `engines` enforcement.
 
-- You want to minimize bundle size
-- You're using a different runtime adapter (Bun, Deno, Edge)
-- You need fine-grained control over versions
+## Production considerations
 
-<details>
-<summary>Optional packages reference</summary>
+- **Pin your Node version in deployment.** `engines` in `package.json` documents the requirement;
+  it doesn't enforce it everywhere a build might run (some platforms ignore it). Set the runtime
+  version explicitly in your platform config or Dockerfile.
+- **Install `@nextrush/dev` as a dev dependency only.** It's a build/CLI tool, not something your
+  running server needs — keeping it out of `dependencies` keeps your production install smaller.
+- **Beyond Node:** Bun and Deno need their matching adapter package instead of (or alongside)
+  `@nextrush/adapter-node` — see the [Node runtime guide](/docs/start/runtime/node) and its
+  siblings for per-runtime setup, including edge and serverless targets.
 
-### Middleware
+## Common mistakes
 
-<PackageInstall packages={['@nextrush/cors', '@nextrush/helmet', '@nextrush/body-parser']} />
+- **Server won't start; import errors on `nextrush`.** *Cause:* `package.json` is missing
+  `"type": "module"`, so Node tries to load ESM output as CommonJS. *Fix:* add `"type": "module"`
+  — NextRush publishes no CommonJS build for any package to fall back to.
+- **`node --version` is below 22.** *Cause:* an older Node install or version manager default.
+  *Fix:* install/select Node 22 or newer before running `pnpm add nextrush` — the framework's
+  `engines` field expects it everywhere.
+- **Decorators throw `reflect-metadata` errors.** *Cause:* importing `nextrush/class` without
+  `experimentalDecorators`/`emitDecoratorMetadata` enabled in `tsconfig.json`. *Fix:* add both
+  compiler options — the `reflect-metadata` import itself is already handled for you.
 
-### Extensions
+## Next steps
 
-<PackageInstall packages={['@nextrush/logger', '@nextrush/static', '@nextrush/template']} />
-
-### Runtime Adapters
-
-<PackageInstall
-  packages={['@nextrush/adapter-bun', '@nextrush/adapter-deno', '@nextrush/adapter-edge']}
-/>
-
-### Development Tools
-
-<PackageInstall packages={[]} dev={['@nextrush/dev', 'tsx', 'typescript', '@types/node']} />
-
-- **@nextrush/dev** — `nextrush dev`, `nextrush build`, and `nextrush generate` when you assemble packages individually (the **`nextrush`** meta-package also pulls this in; see scaffold or manual meta install)
-- **tsx** — Run TypeScript directly without compilation
-- **typescript** — TypeScript compiler
-- **@types/node** — Node.js type definitions
-
-</details>
-
-## Next Steps
-
-If you installed by hand, continue to the [Build a Task API tutorial](/docs/start/quick-start) —
-a hands-on walkthrough of routing, middleware, JSON bodies, and error handling.
-
-If you used the scaffold, open the generated `src/index.ts` and run the dev script from the project
-`package.json` (for example `pnpm dev`). For CLI flags and templates, see
-[create-nextrush](/docs/start/create-nextrush).
+<Cards>
+  <Card title="Build a Task API" href="/docs/start/quick-start">
+    The hands-on tutorial: routing, a JSON body, and a real 404 — starting from this install.
+  </Card>
+  <Card title="Scaffold with create-nextrush" href="/docs/start/create-nextrush">
+    Generate a project with your style, middleware, and runtime chosen up front.
+  </Card>
+  <Card title="Runtimes" href="/docs/start/runtime/node">
+    Running on Bun, Deno, the edge, or serverless — the adapter each one needs.
+  </Card>
+  <Card title="Framework overview" href="/docs/start/overview">
+    The mental model — Application, Context, Router, and how they compose.
+  </Card>
+</Cards>

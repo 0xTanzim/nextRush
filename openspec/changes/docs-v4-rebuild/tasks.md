@@ -251,7 +251,7 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
       cross-link/search/arch-vs-nav — clean, overlaps resolved), (6) naming freeze table. Ends with 5
       decisions needing the user's final word (reference URL form, standards/specs fold, i18n depth,
       version-switcher, brand). FREEZE on those 5 answers → B1–B4 proceed structurally locked. On approval: i18n needs design.md D8 + a tooling task.
-- [ ] 8. **MDX Wave B1 — foundation (highest traffic, sets the voice bar):** `start/` (landing +
+- [x] 8. **MDX Wave B1 — foundation (highest traffic, sets the voice bar):** `start/` (landing +
       install + first-app + guided tutorials — Landing/Tutorial, EDS-018/008) and `concepts/`
       (mental models — Concept, EDS-007). Independent of Track A; can run in parallel with Waves 3–5.
       **Brief: [`waves/wave-b1-foundation.md`](./waves/wave-b1-foundation.md).**

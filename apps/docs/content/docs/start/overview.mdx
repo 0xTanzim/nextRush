@@ -1,291 +1,92 @@
 ---
-title: NextRush in One Page
-description: The whole framework in one continuous scroll — every concept, one minimal example, one deep-dive link.
+title: What Is NextRush?
+description: A Node.js HTTP framework with a zero-dependency functional core and an optional class-based runtime, covered before you write your first route.
 ---
 
-This page is the fast path to understanding NextRush. Each section below is one concept, one
-minimal example, and a link to the full page. Read top to bottom once, then use the deep-dive
-links as your reference map.
+NextRush is an HTTP framework for Node.js built around one per-request `Context` object and a
+Koa-style middleware pipeline. Routes are matched by a segment trie, so lookup cost depends on how
+many segments a URL has, not on how many routes you've registered. You install the framework core,
+then add a package for each capability you need — validation, security headers, dependency
+injection — instead of taking on a fixed bundle.
 
-## What NextRush is
+## Two ways to write a route
 
-NextRush is a Node.js HTTP framework built around a single per-request `Context` object and a
-Koa-style middleware pipeline. The core has zero runtime dependencies, routes through a segment
-trie, and stays under 3,000 lines of code. Everything past routing and middleware — validation,
-security headers, DI, controllers — is a separate package you add when you need it.
+NextRush gives you two styles for the same request pipeline, and you can mix them in one project.
 
-## Application
+**Functional** — `createApp()` and `createRouter()`, plain handler functions:
 
-`createApp()` builds the orchestrator: it holds your middleware stack, boots any extensions, and
-produces the request handler an adapter serves.
-
-```typescript
-import { createApp, listen } from 'nextrush';
+```ts
+import { createApp, createRouter, listen } from 'nextrush';
 
 const app = createApp();
+const router = createRouter();
+
+router.get('/users/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+app.route('/', router);
 await listen(app, 8080);
 ```
 
-[Application → deep dive](/docs/concepts/application)
+**Class-based** — `@Controller` classes with dependency injection, from `nextrush/class`:
 
-## Context
-
-Every request gets one `ctx` object — your interface for reading the request and writing the
-response. There's no shared state across requests unless you put it there yourself.
-
-```typescript
-router.get('/users/:id', (ctx) => {
-  const { id } = ctx.params;
-  ctx.status = 200;
-  ctx.json({ id });
-});
-```
-
-[Context → deep dive](/docs/concepts/context)
-
-## Routing
-
-Routes are matched by a segment trie — lookup cost depends on the number of path segments in the
-URL, not on how many routes you've registered. Static segments, params, and wildcards are all
-supported.
-
-```typescript
-import { createRouter } from 'nextrush';
-
-const users = createRouter();
-users.get('/', (ctx) => ctx.json([]));
-users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
-
-app.route('/users', users);
-```
-
-[Routing → deep dive](/docs/concepts/routing)
-
-## Middleware
-
-Middleware wraps the request in an onion. Code before `ctx.next()` runs on the way in; code after
-runs on the way out — in reverse registration order.
-
-```typescript
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
-});
-```
-
-[Middleware → deep dive](/docs/concepts/middleware)
-
-## Error handling
-
-Thrown `HttpError` subclasses map to a status code and a consistent JSON shape. Throw from any
-middleware or handler — the application's error handler catches it centrally.
-
-```typescript
-import { NotFoundError } from 'nextrush';
-
-router.get('/users/:id', async (ctx) => {
-  const user = await db.findUser(ctx.params.id);
-  if (!user) throw new NotFoundError('User not found');
-  ctx.json(user);
-});
-```
-
-[Error handling → deep dive](/docs/guides/error-handling)
-
-## Extending NextRush
-
-Capability is added through three idioms, unequal in weight. Reach for middleware first — it
-covers almost everything.
-
-```typescript
-// Middleware (~99%) — the default
-app.use(cors());
-
-// Registrar (~0.9%) — wires a subsystem with a direct call
-await registerControllers(app, { root: './src' });
-
-// Extension (~0.1%, rare) — long-lived, app-scoped service
-app.extend(events());
-await app.ready();
-```
-
-[Extending → deep dive](/docs/concepts/extensions)
-
-## Dependency injection & scopes
-
-`nextrush/class` wraps tsyringe to resolve constructor dependencies from TypeScript's emitted
-parameter types. Services are singleton by default; `transient` gives a fresh instance per
-resolve, `request` shares one instance across a single HTTP request.
-
-```typescript
-import { Service } from 'nextrush/class';
-
-@Service() // singleton by default
-class UserService {
-  findAll() {
-    return [{ id: 1, name: 'Alice' }];
-  }
-}
-```
-
-[Dependency injection & scopes → deep dive](/docs/concepts/dependency-injection)
-
-## Modules
-
-A `@Module` groups a feature's controllers and providers behind one declaration. Modules compose
-other modules through `imports`, and `registerModule()` reuses the same registration pipeline as
-`registerControllers()`.
-
-```typescript
-import { Module, Controller, Get, Service, registerModule } from 'nextrush/class';
-
-@Service()
-class UserService {
-  findAll() {
-    return [{ id: 1, name: 'Alice' }];
-  }
-}
+```ts
+import { Controller, Get, Param } from 'nextrush/class';
 
 @Controller('/users')
 class UserController {
-  constructor(private users: UserService) {}
-  @Get() findAll() { return this.users.findAll(); }
-}
-
-@Module({ controllers: [UserController], providers: [UserService] })
-class UserModule {}
-
-await registerModule(app, UserModule);
-```
-
-[Modules → deep dive](/docs/concepts/modules)
-
-## Guards
-
-Guards are declarative access control for controller-based routes — a boolean gatekeeper that
-runs before the handler.
-
-```typescript
-import { UseGuard, Controller, Get, type GuardFn } from 'nextrush/class';
-
-const AuthGuard: GuardFn = (ctx) => Boolean(ctx.get('authorization'));
-
-@UseGuard(AuthGuard)
-@Controller('/admin')
-class AdminController {
-  @Get('/dashboard')
-  dashboard() {
-    return { admin: true };
+  @Get('/:id')
+  findOne(@Param('id') id: string) {
+    return { id };
   }
 }
 ```
 
-[Guards → deep dive](/docs/concepts/guards)
+Both compile to the same routing and middleware underneath — there's no functional-vs-class
+performance trade-off, only a style choice. [Application](/docs/concepts/application) covers the
+functional path in depth; [dependency injection](/docs/concepts/dependency-injection) covers the
+class-based one.
 
-## Interceptors
+## What's zero-dependency, and what isn't
 
-An interceptor wraps a controller method call — "around advice" resolved from the DI container.
-Call `next()` to run the handler (or the next interceptor); whatever you return becomes the new
-result.
+"Zero dependencies" isn't true for the whole framework — it depends on which path you import.
+`createApp`, `createRouter`, and `listen` come from `@nextrush/core`, `@nextrush/router`, and
+`@nextrush/adapter-node`. Checked directly against `packages/core/package.json`: its only
+`dependencies` are the internal `@nextrush/errors` and `@nextrush/types` workspace packages — no
+external runtime package. `@nextrush/router`'s only dependency is the same internal
+`@nextrush/types`.
 
-```typescript
-import { Service } from 'nextrush/class';
-import type { Interceptor } from 'nextrush/class';
-import type { Context } from '@nextrush/types';
+`nextrush/class` is a different story: `packages/di/package.json` lists `reflect-metadata` and
+`tsyringe` as real runtime dependencies — the DI container decorators are built on. Import
+`nextrush/class` and those two packages come with it; stay on the functional path and they don't.
 
-@Service()
-class TimingInterceptor implements Interceptor {
-  async intercept(ctx: Context, next: () => Promise<unknown>) {
-    const start = Date.now();
-    const result = await next();
-    ctx.set('X-Response-Time', `${Date.now() - start}ms`);
-    return result;
-  }
-}
-```
+## What you can build
 
-[Interceptors → deep dive](/docs/concepts/interceptors)
+- REST APIs and internal services, either style
+- Class-based applications with guards, interceptors, and request-scoped dependencies
+- Streaming responses — SSE and NDJSON — for AI/agentic apps
+- Services that share the same application code across Node.js, Bun, Deno, and the edge
 
-## Exception filters
-
-An exception filter declares, via `@Catch(...)`, which error types it handles, and turns a thrown
-error into a response scoped to one controller or route — everything else keeps using the
-application's default error handler.
-
-```typescript
-import { Catch, Service } from 'nextrush/class';
-import type { ExceptionFilter } from 'nextrush/class';
-import type { Context } from '@nextrush/types';
-import { NotFoundError } from 'nextrush';
-
-@Service()
-@Catch(NotFoundError)
-class NotFoundFilter implements ExceptionFilter {
-  catch(error: unknown, ctx: Context): void {
-    ctx.status = 404;
-    ctx.json({ error: 'Resource not found' });
-  }
-}
-```
-
-[Exception filters → deep dive](/docs/concepts/exception-filters)
-
-## Lifecycle hooks
-
-A `@Service`, `@Repository`, or controller class can implement `OnInit` / `OnShutdown` by
-declaring the matching method — no decorator required. `onInit` runs once at boot in dependency
-order; `onShutdown` runs once at shutdown in the exact reverse order.
-
-```typescript
-import type { OnInit, OnShutdown } from 'nextrush/class';
-import { Service } from 'nextrush/class';
-
-@Service()
-class DatabaseService implements OnInit, OnShutdown {
-  async onInit() {
-    // open the connection pool
-  }
-  async onShutdown() {
-    // close the connection pool
-  }
-}
-```
-
-[Lifecycle hooks → deep dive](/docs/concepts/lifecycle)
-
-## Adapters
-
-Your application code — routes, middleware, controllers — stays the same across runtimes. Only
-the adapter changes.
-
-```typescript
-import { listen } from 'nextrush'; // Node.js (default)
-await listen(app, 8080);
-
-// Edge has no listen() — export a fetch handler instead:
-// import { createFetchHandler } from '@nextrush/adapter-edge';
-// export default { fetch: createFetchHandler(app) };
-```
-
-[Adapters → deep dive](/docs/concepts/runtime-compatibility) · [Adapter reference](/docs/reference/adapters)
-
-## What's next
+## Where to next
 
 <Cards>
   <Card
-    title="Quick Start"
-    description="Run a server and hit your first route."
+    title="Build a Task API"
+    description="The full tutorial — install, run a server, then POST, GET, and a real 404."
     href="/docs/start/quick-start"
   />
   <Card
-    title="Guides"
-    description="Task-oriented how-tos — REST APIs, auth, testing, deployment."
-    href="/docs/guides"
+    title="Scaffold with create-nextrush"
+    description="Generate a project structure instead of hand-wiring one."
+    href="/docs/start/create-nextrush"
   />
   <Card
-    title="Reference"
-    description="Lookup material for every public API, generated from source."
-    href="/docs/reference"
+    title="Application"
+    description="How createApp() composes middleware and produces a request handler."
+    href="/docs/concepts/application"
+  />
+  <Card
+    title="Dependency injection"
+    description="Constructor injection, scopes, and the class-based runtime."
+    href="/docs/concepts/dependency-injection"
   />
 </Cards>
