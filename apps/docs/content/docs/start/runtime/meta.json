@@ -1,4 +1,4 @@
 {
-  "title": "Runtime guides",
+  "title": "Choose Your Runtime",
   "pages": ["node", "bun", "deno", "edge", "serverless"]
 }
