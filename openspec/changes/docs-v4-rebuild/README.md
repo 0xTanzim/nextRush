@@ -41,7 +41,8 @@ wave starts) — not all up front — so they don't go stale as earlier waves re
 | B2 — guides/ + recipes/ + production/ | B | `waves/wave-b2-guides-recipes-production.md` | §9 | B0 | ✅ done (dedup + 4 batches validated) |
 | B3 — reference/ + architecture/ | B | `waves/wave-b3-reference-architecture.md` | §10 | B0, §2 | ✅ done (D9.1/D9.3 IA migration executed + validated) |
 | B4 — migrate/ + community/ + help/ | B | `waves/wave-b4-migrate-community-help.md` | §11 | B0 | ✅ done (resources/ retired, validated) |
-| Cross-cutting checks · cutover · archive | — | (tasks §12–14) | §12–14 | all | ⬜ open |
+| Cross-cutting checks (12.1–12.3) | — | (tasks §12) | §12 | all | ✅ done (dedup fix + 39-file cross-link wiring + EDS-015 spot-check; `docs:verify` 0 findings) |
+| Cutover · archive (13.3 pending) | — | (tasks §13–14) | §13–14 | §12 | ⬜ open — 13.1/13.2 next; 13.3 is a main-agent decision |
 
 **Next-up, independent, can run in parallel:** A1 (core packages) and B1 (site foundation). Track A
 and Track B share no files.

@@ -278,10 +278,102 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
 ---
 ## 12. Cross-link & consistency sweep (both tracks)
 
-- [ ] 12.1 No orphan pages; every relative link resolves; no duplicated content across
+- [x] 12.1 No orphan pages; every relative link resolves; no duplicated content across
       concept/guide/reference or across README/ARCHITECTURE/site (single source of truth).
-- [ ] 12.2 Package README/ARCHITECTURE ↔ site `internals/` and `reference/` cross-links are wired.
-- [ ] 12.3 Full `pnpm docs:verify` green + skill publish checklist (EDS-015) across the site.
+      **Mechanical baseline first:** ran `pnpm --filter ./apps/docs run docs:verify` before any
+      change — **0 findings** (all 6 checks green: link-check, code-compile, lint, reference-match,
+      translation-freshness stub). This was the real, current baseline — the recorded 411-finding
+      number from task 0.5 was v3 content, since fully superseded by Waves B1–B4; not a number to
+      re-clear here. **Orphan-page check:** cross-referenced every `content/docs/**/meta.json`
+      against its folder's real files (via `glob` + direct reads, not assumption) — every one of
+      the 158 files in the tree is listed in a `pages` array and reachable from nav. One structural
+      gap found and fixed: `reference/class/` (7 files: `index`, `decorators`, `controllers`,
+      `modules`, `di`, `di-container`, `di-errors`) had no `meta.json` at all — every sibling
+      multi-page reference folder has one; pages were still reachable via `reference/meta.json`'s
+      `class` entry + in-page cross-links (not a broken orphan), but the missing file was an
+      inconsistency, so one was added. **Real duplication found and fixed (the actual finding of
+      this task):** `production/benchmarking.mdx` and `production/performance-tuning.mdx` (written
+      by Wave B2) each carried an explicit Callout stating "Canonical home stays at
+      /docs/performance" / "/docs/performance/tuning" — i.e. the NEW `production/` pages were thin
+      pointers back to the OLD `performance/` pages, the exact inverse of wave-b0-ia.md §7's frozen
+      MOVE/MERGE direction (`/docs/performance → /docs/production/benchmarking`,
+      `/docs/performance/tuning → /docs/production/performance-tuning`) and design.md D3/D9's
+      single-source-of-truth rule. Wave B2's own brief
+      (`waves/wave-b2-guides-recipes-production.md` line 156) independently assumed
+      `/docs/performance` "doesn't exist," confirming this was drift between two parts of the same
+      wave's work, not a deliberate design choice. **Fix:** inverted the pointer direction —
+      `production/benchmarking.mdx` and `production/performance-tuning.mdx` now hold the complete,
+      real content (merged in verbatim from `performance/index.mdx` and `performance/tuning.mdx` —
+      same facts, same source citations, zero new claims); `performance/index.mdx` and
+      `performance/tuning.mdx` are now short pointers back to `production/`. This satisfies the
+      frozen MERGE disposition without deleting the old URLs or touching files outside this
+      pipeline's scope (root `README.md`, `hero.tsx`, `help/faq.mdx`, and `community/roadmap.mdx`
+      all link to `/docs/performance` and `/docs/performance/tuning` directly — editing those is
+      outside `files_in_scope`, so the old paths stay live and correct rather than becoming dead
+      links pending the 13.3 cutover). `performance/comparison.mdx` (framework code-pattern
+      comparison, not benchmark methodology) has no `production/` equivalent and is not a
+      duplication — left as-is; flagged as a Track-B follow-up since wave-b0-ia.md's frozen IA
+      doesn't name an explicit new home for it and inventing one is out of this task's scope.
+      **Concept/guide/reference overlap spot-check:** manually compared the three highest-risk
+      subject areas with pages across multiple types — `concepts/errors.mdx` vs
+      `guides/error-handling.mdx` (why vs. how, correctly split); `concepts/routing.mdx` vs
+      `guides/mounting-and-grouping-routes.mdx` (mental model vs. task, correctly split and
+      cross-linked); `concepts/dependency-injection.mdx` vs `reference/class/di*.mdx` vs
+      `architecture/di-internals.mdx` (mental model vs. API signature vs. internals, correctly
+      split) — no single-source-of-truth violations found in this sample. Re-verified `docs:verify`
+      after every edit: **0 findings** throughout (one transient regression — 2 forbidden-word
+      "just" findings introduced mid-edit while rewriting the performance/production pointer
+      Callouts — caught and fixed immediately, back to 0 before moving on).
+- [x] 12.2 Package README/ARCHITECTURE ↔ site `internals/` and `reference/` cross-links are wired.
+      **Confirmed the gap was systemic, not partial**, via a `search_code` sweep across
+      `reference/*.mdx` and `architecture/*.mdx` for `github\.com/0xTanzim` before touching
+      anything: only 5 `architecture/*` files had any GitHub link at all, and none of those 5
+      pointed at a package's `README.md`/`ARCHITECTURE.md` (`rfcs.mdx` → RFC/ADR docs;
+      `design-principles.mdx`/`versioning.mdx` → root `README.md`; `package-hierarchy.mdx` → a
+      build script; `router-internals.mdx` → `ROUTER_AUDIT.md`, not `ARCHITECTURE.md`). Zero of the
+      42 `reference/*.mdx` files linked to their package's source docs at all — confirmed by direct
+      reads of `reference/cors.mdx`, `reference/router.mdx`, `reference/class/index.mdx`,
+      `reference/packages.mdx`, `reference/platforms/index.mdx` plus the broader grep finding no
+      `reference/` file in the GitHub-link result set. **No existing pattern to copy — established
+      one:** a `<Callout type="info" title="Source & internals">` right after each page's opening
+      description, linking `https://github.com/0xTanzim/nextRush/blob/main/packages/<real-path>/
+      {README,ARCHITECTURE}.md`, applied to all 35 packages' `reference/*.mdx` pages (verified every
+      package/page pair against real `packages/**/README.md` + `ARCHITECTURE.md` files via `glob`
+      before writing a single link — did not invent any path) plus the 4 `architecture/*-internals`
+      pages that discuss a specific package (`router-internals` → router; `di-internals` → di;
+      `middleware-internals` → core, since `compose()`/`Application.callback()` live in
+      `@nextrush/core` and there is no "middleware" package; `adapters` → all 5 adapter packages,
+      since the conformance suite it documents spans all of them). Special cases handled per real
+      file structure: `class/index.mdx` links both `@nextrush/class` and the re-exported
+      `@nextrush/di` (its `di.mdx`/`di-container.mdx`/`di-errors.mdx` continuation pages stay
+      uncited — one citation per concept, mirroring `comments.instructions.md`'s "one RFC/ADR
+      reference per architectural concept" rule applied to this cross-link convention).
+      `capability-composition.mdx` and `contracts.mdx` were checked and correctly left untouched —
+      both are cross-cutting architecture concepts with no single owning package. Verified: 39
+      files touched, `docs:verify` **0 findings** immediately after (unchanged from the pre-edit
+      baseline of 0) — every edit was an additive Callout; no existing content or link was altered.
+- [x] 12.3 Full `pnpm docs:verify` green + skill publish checklist (EDS-015) across the site.
+      **`docs:verify` was already green before this task started** (0 findings, confirmed by
+      direct run — the stale 411-finding number from task 0.5 was v3 content, fully superseded).
+      Ran it again after every edit across 12.1/12.2/12.3 (the performance/production merge, the
+      cross-link wiring, the EDS-015 casing fix below) — **0 findings at every checkpoint**, with
+      one transient 2-finding regression (forbidden word "just") caught and fixed immediately mid-
+      task. **EDS-015 spot-check** (read the checklist at
+      `.kiro/skills/engineering-documentation/checklists/EDS-015-Documentation-Publish-Checklist.md`
+      first, confirmed its real path, distinct from the sibling EDS-014 review checklist): checked
+      one representative page per content-map section — `start/quick-start.mdx`,
+      `concepts/routing.mdx`, `guides/mounting-and-grouping-routes.mdx`, `recipes/pagination.mdx`,
+      `production/performance-tuning.mdx`, `reference/cors.mdx`, `architecture/router-internals.mdx`,
+      `migrate/index.mdx`, `help/troubleshooting.mdx`, `community/index.mdx` — against all 8
+      checklist sections (accuracy, code-works, links/nav, metadata/SEO, accessibility, rendering,
+      consistency, completeness). **One real gap found and fixed:** 15 links across 7 files
+      (`community/{index,changelog,roadmap}.mdx`, `help/{faq,troubleshooting,compatibility-matrix}.mdx`,
+      `index.mdx`) used `github.com/0xTanzim/nextrush` (lowercase) while every sibling page and the
+      root/package READMEs consistently use `github.com/0xTanzim/nextRush` (the real repo's casing)
+      — a genuine EDS-015 §7 "Consistency" violation (terminology matching sibling pages), not a
+      dead link (GitHub repo paths are case-insensitive so nothing was actually broken). Normalized
+      all 15 occurrences. No other EDS-015 gap found in the sampled pages — front-matter, code
+      compile, a11y alt text, TODO/FIXME markers, and rendering were all clean on inspection.
 
 ## 13. v3 retirement & cutover (design.md D3)
 
