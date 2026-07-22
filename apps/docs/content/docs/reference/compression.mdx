@@ -5,6 +5,11 @@ description: 'Multi-runtime response compression with Gzip, Deflate, and Brotli 
 
 ## Problem
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/compression/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/compression/ARCHITECTURE.md)
+</Callout>
+
 Uncompressed HTTP responses waste bandwidth and slow page loads. Text-based payloads (JSON, HTML, CSS) often shrink 60–80% with compression, yet getting it right involves content negotiation, content-type filtering, threshold tuning, and runtime compatibility — details you should not have to manage per-route.
 
 ## Default Behavior

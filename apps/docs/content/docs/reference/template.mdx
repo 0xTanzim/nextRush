@@ -5,6 +5,11 @@ description: 'Template engine plugin with support for EJS, Handlebars, Nunjucks,
 
 ## Problem
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/template/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/template/ARCHITECTURE.md)
+</Callout>
+
 Server-rendered HTML requires a template engine, but each engine has a different API, file loading strategy, and caching mechanism. Switching engines means rewriting route handlers and learning a new integration pattern.
 
 The template plugin provides a unified interface across six engines. You swap engines by changing a single string — route handlers stay the same.

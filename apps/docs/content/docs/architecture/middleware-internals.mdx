@@ -7,6 +7,12 @@ import { Mermaid } from '@/components/mdx';
 
 This page explains **how** the middleware engine works internally. For the mental model, usage patterns, and common mistakes, see [Middleware Concepts](/docs/concepts/middleware).
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/core/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/core/ARCHITECTURE.md) —
+  `compose()` and `Application.callback()` live in `@nextrush/core`.
+</Callout>
+
 ## The Dispatch Mechanism
 
 The `compose()` function in `@nextrush/core` transforms a `Middleware[]` into a single `ComposedMiddleware` function. The return type accepts an optional outer `next`:

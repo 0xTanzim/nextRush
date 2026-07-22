@@ -7,6 +7,11 @@ description: Development server and build tools with multi-runtime support
 
 `@nextrush/dev` provides the `nextrush` CLI: a dev server with hot reload, a production build command that preserves decorator metadata for DI, and code generators for controllers, services, middleware, guards, and routes. It runs on Node.js, Bun, and Deno.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/dev/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/dev/ARCHITECTURE.md)
+</Callout>
+
 Fast bundlers like esbuild and tsup strip TypeScript decorator metadata, which breaks constructor-based dependency injection (`@Service`, `@Controller`). `nextrush build` uses SWC specifically to preserve it. See [`@nextrush/di`](/docs/reference/class/di) for why DI needs this metadata.
 
 ## Installation

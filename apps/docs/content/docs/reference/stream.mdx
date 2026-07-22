@@ -5,6 +5,11 @@ description: 'Runtime-agnostic response streaming — text, Server-Sent Events, 
 
 ## Why This Package Exists
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/stream/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/stream/ARCHITECTURE.md)
+</Callout>
+
 LLM responses arrive as a sequence of tokens, not a single value. Streaming them correctly means solving four problems at once:
 
 - **SSE framing has several rules a hand-rolled implementation tends to miss.** Multi-line `data:` fields need per-line escaping, `event:`/`id:`/`retry:` fields must precede `data:`, and the terminating blank line is a common omission.

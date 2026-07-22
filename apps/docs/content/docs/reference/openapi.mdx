@@ -5,6 +5,11 @@ description: 'Zero-config OpenAPI 3.1 generation — reads route metadata alread
 
 ## Why This Package Exists
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/openapi/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/openapi/ARCHITECTURE.md)
+</Callout>
+
 Most OpenAPI tooling makes you describe your data twice: once for runtime validation, once for the docs (decorators on every field, hand-written JSON Schema). The two drift apart, and teams stop maintaining the spec.
 
 NextRush's router already knows your routes and their schemas — when a route uses `validate(User)`, the router records that `User` is the request body via the Route Metadata System (`endpoint()` and `validate()` both contribute to `router.getRoutes()`). `@nextrush/openapi` reads what's already there and renders it. Nothing is restated.

@@ -5,6 +5,11 @@ description: 'Security-hardened CORS middleware with presets and origin validati
 
 Browsers block cross-origin API requests by default. CORS middleware tells browsers which origins, methods, and headers your API accepts. Without it, frontend applications on different domains cannot reach your endpoints.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/cors/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/cors/ARCHITECTURE.md)
+</Callout>
+
 This middleware implements the full CORS specification with additional protections against null origin attacks, regex denial-of-service, and credential misconfigurations.
 
 ## Default Behavior

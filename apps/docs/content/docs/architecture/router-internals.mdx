@@ -13,6 +13,11 @@ detection), `match-route.ts`/`matching.ts` (lookup, decoding), `state.ts`, `grou
 a correctness audit backed by a 200-test suite. `Router` itself is a thin, chainable facade over
 these focused modules, not a single file containing all matching logic.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/router/ARCHITECTURE.md)
+</Callout>
+
 <Callout type="info" title="It's a segment trie — the filename now says so too">
   The router's doc comments are explicit: "Routes are keyed by full path segments … this is a
   segment-based trie, not a compressed radix tree." The implementation file was previously named

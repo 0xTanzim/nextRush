@@ -5,6 +5,11 @@ description: 'Zero-dependency multipart/form-data file upload middleware with st
 
 Handle file uploads in multipart/form-data requests.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/multipart/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/multipart/ARCHITECTURE.md)
+</Callout>
+
 HTTP file uploads arrive as multipart-encoded streams with mixed files and form fields. This middleware parses them using a zero-dependency Web Streams parser, sanitizes filenames, enforces size limits, and delivers structured results on `ctx.state`. Built-in protections guard against path traversal, prototype pollution, oversized payloads, and platform-specific filesystem attacks.
 
 ---

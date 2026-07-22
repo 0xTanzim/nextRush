@@ -5,6 +5,11 @@ description: 'Parse JSON, URL-encoded, text, and raw request bodies with size li
 
 Parse incoming request bodies before your handlers process them.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/body-parser/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/body-parser/ARCHITECTURE.md)
+</Callout>
+
 HTTP request bodies arrive as raw byte streams. This middleware reads, validates, and parses them into usable JavaScript values — handling JSON, URL-encoded forms, plain text, and raw binary data. Built-in protections guard against oversized payloads, prototype pollution, and malformed input.
 
 ---

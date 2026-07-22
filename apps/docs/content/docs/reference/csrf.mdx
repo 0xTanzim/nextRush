@@ -5,6 +5,11 @@ description: 'CSRF protection middleware using the Signed Double-Submit Cookie p
 
 ## Why CSRF Protection Exists
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/csrf/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/csrf/ARCHITECTURE.md)
+</Callout>
+
 Cross-Site Request Forgery (CSRF) tricks a user's browser into making unwanted requests to your application — transferring funds, changing passwords, or deleting data — because the browser automatically attaches session cookies to every request.
 
 **Without CSRF protection, any website can forge requests that your server treats as legitimate** because session cookies alone cannot distinguish intentional user actions from forged ones.

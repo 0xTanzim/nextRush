@@ -5,6 +5,11 @@ description: 'Production-grade rate limiting with multiple algorithms and tiered
 
 Without rate limiting, a single client can exhaust your server's resources — intentionally or by accident. This middleware controls how many requests each client can make within a time window.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/rate-limit/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/rate-limit/ARCHITECTURE.md)
+</Callout>
+
 It supports three algorithms, tiered limits for different user types, CIDR-based whitelists and blacklists, and IETF-compliant response headers.
 
 ---

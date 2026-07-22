@@ -5,6 +5,11 @@ description: 'Static file serving middleware with caching, range requests, and p
 
 Every web application serves static assets — stylesheets, scripts, images, fonts. Doing it wrong means path traversal vulnerabilities, broken caching, or unnecessary re-downloads. This middleware handles file serving with built-in security, conditional caching, and range request support.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/static/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/static/ARCHITECTURE.md)
+</Callout>
+
 ## Default Behavior
 
 With only `root` set and otherwise default options, the middleware:

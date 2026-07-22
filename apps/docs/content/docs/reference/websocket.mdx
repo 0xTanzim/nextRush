@@ -5,6 +5,11 @@ description: 'WebSocket plugin for NextRush with rooms, broadcasting, and route-
 
 HTTP handles request-response. WebSocket handles persistent, bidirectional connections — chat, live dashboards, collaborative editing, and real-time notifications.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/extensions/websocket/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/extensions/websocket/ARCHITECTURE.md)
+</Callout>
+
 This plugin integrates the `ws` library with NextRush through two integration shapes: a
 NextRush Extension (`createWebSocketExtension()`, recommended — decorates `app.wss` and wires
 disposal into `app.close()`) and a manual factory (`createWebSocket()`, for full manual lifecycle

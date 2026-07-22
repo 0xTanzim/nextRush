@@ -11,6 +11,15 @@ behave identically." Where behavior legitimately can't be identical, the suite e
 difference as an explicit capability flag rather than skipping the case — that distinction (
 documented divergence vs. an actual bug) is the core design of this suite.
 
+<Callout type="info" title="Source & internals">
+  README/ARCHITECTURE per adapter:
+  [node](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/node/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/node/ARCHITECTURE.md) ·
+  [bun](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/bun/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/bun/ARCHITECTURE.md) ·
+  [deno](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/deno/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/deno/ARCHITECTURE.md) ·
+  [edge](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/edge/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/edge/ARCHITECTURE.md) ·
+  [serverless](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/serverless/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/serverless/ARCHITECTURE.md)
+</Callout>
+
 ## The driver interface
 
 Each adapter is exercised through one `ConformanceDriver` (`packages/adapters/conformance/src/drivers/types.ts`)

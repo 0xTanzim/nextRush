@@ -9,6 +9,11 @@ Validating request input is something every API does, yet hand-rolled validation
 
 NextRush ships the glue, not a validator. You bring the schema library you already use; `@nextrush/validation` runs it and produces one consistent, secure error shape.
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/validation/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/validation/ARCHITECTURE.md)
+</Callout>
+
 <Callout type="info">
   Requires a <a href="https://standardschema.dev">Standard Schema</a>–compatible library: Zod 3.24+,
   Valibot 1.0+, or ArkType 2.0+. `@nextrush/validation` never knows or cares which one produced the

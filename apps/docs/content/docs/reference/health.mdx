@@ -5,6 +5,11 @@ description: Liveness and readiness health-check endpoints for orchestrator prob
 
 ## Problem
 
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/health/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/health/ARCHITECTURE.md)
+</Callout>
+
 Orchestrators need two different signals to manage a running instance:
 "is this process alive at all" (liveness — restart if it fails) and "can
 this instance actually serve traffic right now" (readiness — stop routing
