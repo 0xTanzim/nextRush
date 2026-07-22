@@ -1,44 +1,165 @@
 # @nextrush/adapter-edge
 
-> **Universal Edge Runtime Adapter for NextRush** — Deploy anywhere the Fetch API runs
+> Runs a NextRush app on any Fetch API edge runtime -- Cloudflare Workers, Vercel Edge
+> Functions, and Netlify Edge Functions -- through one shared handler implementation.
 
-**Support tier:** Internal — non-`-node` adapter until GA (may change without a major). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
-[![npm version](https://img.shields.io/npm/v/@nextrush/adapter-edge)](https://www.npmjs.com/package/@nextrush/adapter-edge)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue)](https://www.typescriptlang.org/)
-[![Edge Ready](https://img.shields.io/badge/Edge-Ready-orange)](https://workers.cloudflare.com/)
+[![npm version](https://img.shields.io/npm/v/@nextrush/adapter-edge.svg)](https://www.npmjs.com/package/@nextrush/adapter-edge)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/adapter-edge.svg)](https://www.npmjs.com/package/@nextrush/adapter-edge)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/adapter-edge.svg)](https://bundlephobia.com/package/@nextrush/adapter-edge)
+[![types](https://img.shields.io/npm/types/@nextrush/adapter-edge.svg)](https://www.npmjs.com/package/@nextrush/adapter-edge)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/adapter-edge.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-The Edge adapter enables NextRush applications to run on **any edge runtime** that supports the standard Fetch API — including Cloudflare Workers, Vercel Edge Functions, Netlify Edge Functions, and more.
+|  |  |
+| --- | --- |
+| **Purpose** | Fetch-API entry points that run a NextRush `Application` on edge runtimes |
+| **Package type** | Adapter |
+| **Status** | Stable (implementation) -- but see Support tier below |
+| **Included in `nextrush`?** | No -- standalone install |
+| **Support tier** | Internal -- non-`-node` adapter until GA, may change without a major (see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)) |
+| **Maintenance** | Active |
+| **Runtime** | Edge -- any runtime implementing the Fetch API (Cloudflare Workers, Vercel Edge, Netlify Edge) |
+| **Requires** | Node `>=22` for local tooling/build -- ESM-only -- TypeScript `>=5.x` |
+| **Introduced** | `v1.0.0` |
 
-## Why Edge?
+## Highlights
 
-Edge runtimes execute code at network points of presence close to users, reducing round-trip latency.
+- Zero external runtime dependencies -- only `@nextrush/{core,errors,runtime,stream,types}` (workspace packages)
+- ESM-only, tree-shakable, side-effect-free (`sideEffects: false`)
+- One shared request runner behind three platform-specific entry points -- Cloudflare, Vercel,
+  and Netlify handlers cannot silently drift from each other
+- Fully typed -- strict TypeScript, zero `any`
 
-| Platform           | Compute Model |
-| ------------------ | ------------- |
-| Cloudflare Workers | V8 Isolates   |
-| Vercel Edge        | V8 Isolates   |
-| Netlify Edge       | Deno Deploy   |
+## The problem
 
-## Quick Start
+Edge runtimes agree on the Fetch API (`Request` in, `Response` out) but disagree on the
+surrounding module contract: Cloudflare Workers export `{ fetch(request, env, ctx) }`, Vercel
+Edge Functions export a plain `(request) => Response` with `export const config = { runtime:
+'edge' }`, and Netlify Edge Functions export the same plain shape again. Writing a NextRush app
+against each platform's raw contract by hand means re-deriving request timeout handling,
+404/error fallback, and `Application` boot sequencing three separate times -- and one of those
+copies quietly drifting is how a platform-specific bug ships.
 
-### Cloudflare Workers
+```ts
+// TODAY, without this package -- three near-duplicate handlers, easy to drift:
+export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // boot the app, race a timeout, build a Response... written by hand, three times
+  },
+};
+```
 
-```typescript
-// src/index.ts
+`@nextrush/adapter-edge` centralizes that request-handling logic in one internal runner and
+exposes a thin, platform-shaped wrapper per target.
+
+## When to use
+
+**Use `@nextrush/adapter-edge` if:**
+
+- You are deploying a NextRush app to Cloudflare Workers, Vercel Edge Functions, or Netlify
+  Edge Functions.
+- Your app only needs the Web-standard `Request`/`Response`/`fetch` surface -- no Node.js APIs.
+
+**Reach for something else if:**
+
+- You are deploying to a long-running Node.js process -> use
+  [`@nextrush/adapter-node`](../node) instead.
+- You are deploying to AWS Lambda, Google Cloud Functions, or another FaaS platform with its
+  own event format -> use [`@nextrush/adapter-serverless`](../serverless) (built on top of this
+  package's fetch handler -- see Package relationships below).
+- You are running on Bun or Deno directly (not via an edge platform) -> use
+  [`@nextrush/adapter-bun`](../bun) or [`@nextrush/adapter-deno`](../deno).
+
+## Installation
+
+```bash
+pnpm add @nextrush/adapter-edge @nextrush/core
+# npm i @nextrush/adapter-edge @nextrush/core
+# yarn add @nextrush/adapter-edge @nextrush/core
+# bun add @nextrush/adapter-edge @nextrush/core
+```
+
+> [!NOTE]
+> Not included in the `nextrush` meta package. Install it directly when deploying to an edge
+> runtime.
+
+## Quick start
+
+```ts
+// Cloudflare Workers -- src/index.ts
 import { createApp } from '@nextrush/core';
 import { createCloudflareHandler } from '@nextrush/adapter-edge';
 
 const app = createApp();
 
 app.use(async (ctx) => {
-  ctx.json({
-    message: 'Hello from the Edge!',
-    runtime: ctx.runtime,
-    timestamp: Date.now(),
-  });
+  ctx.json({ message: 'Hello from the edge', runtime: ctx.runtime });
 });
 
 export default createCloudflareHandler(app);
+```
+
+The handler boots the `Application` on the first incoming request (there is no separate
+`listen()` step on edge), then reuses that boot for every subsequent request in the same
+isolate.
+
+## Capabilities
+
+**Capabilities**
+- **Three platform entry points, one runner** -- `createCloudflareHandler`,
+  `createVercelHandler`, and `createNetlifyHandler` all delegate to the same internal request
+  runner (`createFetchHandler` is the runner exposed directly, for any other Fetch-API host).
+- **Cloudflare `env` bindings threaded onto context** -- `createCloudflareHandler`'s `env`
+  argument (KV, D1, R2, Durable Objects, Queues, secrets) is exposed as `ctx.env`, typed via a
+  generic.
+- **Cooperative request timeout** -- races the handler against a timer; on timeout, aborts
+  `ctx.signal` and returns `504`, so the framework's own bounded timeout fires before the
+  platform kills the isolate.
+- **`waitUntil` for fire-and-forget work** -- `ctx.waitUntil(promise)` extends the request
+  lifetime for background tasks (logging, analytics) when the platform provides an execution
+  context; a no-op otherwise.
+
+**Developer experience**
+- Fully typed exports, including a compile-time guard (`FetchAdapter`,
+  `AdapterContextFactory`) that fails the build if this adapter's shape drifts from the shared
+  cross-adapter contract.
+
+## Mental model
+
+```text
+Request (Fetch API) --> createXxxHandler --> shared request runner --> Application.callback()
+                                                     |
+                                                     +-- races Application against a timeout timer
+                                                     +-- builds Response via EdgeContext
+```
+
+**Rule:** every platform-specific handler (`createCloudflareHandler`, `createVercelHandler`,
+`createNetlifyHandler`) is a thin wrapper around the same internal runner -- there is exactly
+one request-handling code path to reason about, regardless of platform.
+
+> [!TIP]
+> The full request lifecycle (Mermaid) is in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+## Common tasks
+
+### Deploy to Cloudflare Workers
+
+```ts
+// src/index.ts
+import { createApp } from '@nextrush/core';
+import { createCloudflareHandler } from '@nextrush/adapter-edge';
+
+interface Env {
+  MY_KV: KVNamespace;
+}
+
+const app = createApp();
+app.use(async (ctx) => {
+  const value = await ctx.env?.MY_KV.get('key');
+  ctx.json({ value });
+});
+
+export default createCloudflareHandler<Env>(app);
 ```
 
 ```toml
@@ -48,415 +169,218 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 ```
 
-### Vercel Edge Functions
+### Deploy to Vercel Edge Functions
 
-```typescript
+```ts
 // api/hello.ts
 import { createApp } from '@nextrush/core';
 import { createVercelHandler } from '@nextrush/adapter-edge';
 
 const app = createApp();
-
 app.use(async (ctx) => {
-  ctx.json({
-    message: 'Hello from Vercel Edge!',
-    region: process.env.VERCEL_REGION,
-  });
+  ctx.json({ message: 'Hello from Vercel Edge' });
 });
 
 export const config = { runtime: 'edge' };
 export default createVercelHandler(app);
 ```
 
-### Netlify Edge Functions
+### Deploy to Netlify Edge Functions
 
-```typescript
+```ts
 // netlify/edge-functions/api.ts
 import { createApp } from '@nextrush/core';
 import { createNetlifyHandler } from '@nextrush/adapter-edge';
 
 const app = createApp();
-
 app.use(async (ctx) => {
-  ctx.json({
-    message: 'Hello from Netlify Edge!',
-    geo: ctx.get('x-nf-geo'),
-  });
+  ctx.json({ message: 'Hello from Netlify Edge' });
 });
 
 export default createNetlifyHandler(app);
 ```
 
-## Installation
+### Read the request body across runtimes
 
-```bash
-# npm
-npm install @nextrush/adapter-edge @nextrush/core
-
-# pnpm
-pnpm add @nextrush/adapter-edge @nextrush/core
-
-# yarn
-yarn add @nextrush/adapter-edge @nextrush/core
-```
-
-## API Reference
-
-### `createFetchHandler(app, options?)`
-
-Creates a universal fetch handler compatible with any edge runtime.
-
-```typescript
-import { createFetchHandler } from '@nextrush/adapter-edge';
-
-const handler = createFetchHandler(app, {
-  onError: (error, ctx) => {
-    console.error('Request failed:', error);
-    return new Response('Something went wrong', { status: 500 });
-  },
-});
-```
-
-**Parameters:**
-
-| Parameter         | Type                                                                | Description                                                                                          |
-| ----------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `app`             | `Application`                                                       | NextRush application instance                                                                        |
-| `options.onError` | `(error: Error, ctx: EdgeContext) => Response \| Promise<Response>` | Custom error handler                                                                                 |
-| `options.timeout` | `number`                                                            | Request timeout in ms. Races the handler and returns `504` if exceeded, cancelling via `ctx.signal`. Defaults to `25000` (`DEFAULT_EDGE_TIMEOUT_MS`, F-07) when omitted — below Vercel Edge's 25s wall limit. Pass `0` to disable. Cloudflare Workers' own CPU limit is typically 30000. |
-
-**Returns:** `FetchHandler` — A function `(request: Request, ctx?: EdgeExecutionContext) => Response | Promise<Response>`
-
-### `createCloudflareHandler(app, options?)`
-
-Creates a Cloudflare Workers module export.
-
-```typescript
-import { createCloudflareHandler } from '@nextrush/adapter-edge';
-
-export default createCloudflareHandler(app);
-// Returns: { fetch: FetchHandler }
-```
-
-### `createVercelHandler(app, options?)`
-
-Creates a Vercel Edge Function handler.
-
-```typescript
-import { createVercelHandler } from '@nextrush/adapter-edge';
-
-export const config = { runtime: 'edge' };
-export default createVercelHandler(app);
-```
-
-### `createNetlifyHandler(app, options?)`
-
-Creates a Netlify Edge Function handler.
-
-```typescript
-import { createNetlifyHandler } from '@nextrush/adapter-edge';
-
-export default createNetlifyHandler(app);
-```
-
-## EdgeContext
-
-`EdgeContext` implements the `Context` interface for edge runtimes:
-
-```typescript
-class EdgeContext implements Context {
-  // Runtime detection
-  readonly runtime: Runtime; // 'cloudflare-workers' | 'vercel-edge' | 'edge'
-  readonly bodySource: BodySource;
-
-  // Request data
-  readonly path: string;
-  readonly method: HttpMethod;
-  readonly url: string;
-  readonly query: QueryParams;
-  readonly params: RouteParams;
-  readonly headers: IncomingHeaders;
-  readonly ip: string;
-
-  // Raw Web API Request
-  readonly raw: { req: Request; res: undefined };
-
-  // Edge-specific
-  readonly executionContext?: EdgeExecutionContext;
-  waitUntil(promise: Promise<unknown>): void;
-
-  // Response methods
-  json(data: unknown): void;
-  send(data: ResponseBody): void;
-  html(content: string): void;
-  redirect(url: string, status?: number): void;
-
-  // Response building
-  getResponse(): Response;
-  readonly responded: boolean;
-}
-```
-
-### Body Parsing
-
-Use `bodySource` for cross-runtime body reading:
-
-```typescript
+```ts
 app.use(async (ctx) => {
-  // Using bodySource (cross-runtime compatible)
   const text = await ctx.bodySource.text();
-  const buffer = await ctx.bodySource.buffer();
   const json = await ctx.bodySource.json();
+  const buffer = await ctx.bodySource.buffer();
   const stream = ctx.bodySource.stream();
 });
 ```
 
-### Cloudflare-Specific Features
+### Handle errors with a custom handler
 
-Access Cloudflare-specific request metadata when running on Workers:
-
-```typescript
-app.use(async (ctx) => {
-  const request = ctx.raw.req;
-  const cf = (request as Request & { cf?: Record<string, unknown> }).cf;
-
-  if (cf) {
-    ctx.json({
-      colo: cf.colo,
-      country: cf.country,
-      city: cf.city,
-      timezone: cf.timezone,
-    });
-  }
-});
-```
-
-### Execution Context
-
-Use the `waitUntil` method for fire-and-forget background tasks:
-
-```typescript
-app.use(async (ctx) => {
-  // Run background task after response is sent
-  ctx.waitUntil(
-    fetch('https://analytics.example.com', {
-      method: 'POST',
-      body: JSON.stringify({ path: ctx.path }),
-    })
-  );
-
-  ctx.json({ status: 'ok' });
-});
-```
-
-## Routing with @nextrush/router
-
-```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { createCloudflareHandler } from '@nextrush/adapter-edge';
-
-const app = createApp();
-const router = createRouter();
-
-router.get('/users', async (ctx) => {
-  ctx.json({ users: [] });
-});
-
-router.get('/users/:id', async (ctx) => {
-  ctx.json({ id: ctx.params.id });
-});
-
-router.post('/users', async (ctx) => {
-  const body = await ctx.bodySource.text();
-  ctx.status = 201;
-  ctx.json({ created: true, data: JSON.parse(body) });
-});
-
-// Mount router — Hono-style
-app.route('/api', router);
-
-export default createCloudflareHandler(app);
-```
-
-## Middleware Compatibility
-
-All NextRush middleware works on edge:
-
-```typescript
-import { createApp } from '@nextrush/core';
-import { cors } from '@nextrush/cors';
-import { createCloudflareHandler } from '@nextrush/adapter-edge';
-
-const app = createApp();
-
-// CORS middleware
-app.use(
-  cors({
-    origin: 'https://example.com',
-    credentials: true,
-  })
-);
-
-// Request timing
-app.use(async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  const duration = Date.now() - start;
-  ctx.set('X-Response-Time', `${duration}ms`);
-});
-
-app.use(async (ctx) => {
-  ctx.json({ ok: true });
-});
-
-export default createCloudflareHandler(app);
-```
-
-## Error Handling
-
-### Custom Error Handler
-
-```typescript
+```ts
 const handler = createCloudflareHandler(app, {
   onError: (error, ctx) => {
-    // Log to external service
-    console.error({
-      error: error.message,
-      path: ctx.path,
-      method: ctx.method,
+    console.error({ error: error.message, path: ctx.path });
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
-
-    // Return custom error response
-    return new Response(
-      JSON.stringify({
-        error: 'Internal Server Error',
-        requestId: crypto.randomUUID(),
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
   },
 });
 ```
 
-### Application-Level Error Handling
+## API overview
 
-```typescript
-import { HttpError } from '@nextrush/errors';
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ------------ |
+| `createFetchHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Generic Fetch-API handler; the runner every other export delegates to |
+| `createCloudflareHandler` | `<Env>(app: Application, options?: FetchHandlerOptions) => { fetch: CloudflareFetchHandler<Env> }` | `1.0.0` | Internal | Cloudflare Workers module export -- `(request, env, ctx)` signature; threads `env` onto `ctx.env` |
+| `createVercelHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Vercel Edge Function handler (delegates to `createFetchHandler`) |
+| `createNetlifyHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Netlify Edge Function handler (delegates to `createFetchHandler`) |
+| `createHandler` | same as `createFetchHandler` | `1.0.0` | Internal | Alias of `createFetchHandler`, kept for naming consistency with other adapters |
+| `DEFAULT_EDGE_TIMEOUT_MS` | `25_000` | `1.0.0` | Internal | Default request timeout in ms when `options.timeout` is omitted |
+| `detectEdgeRuntime` | `() => EdgeRuntimeInfo` | `1.0.0` | Internal | Detects which edge platform is running -- see Runtime detection below |
+| `EdgeContext` | class | `1.0.0` | Internal | `Context` implementation for edge runtimes |
+| `createEdgeContext` | `<Env>(request, executionContext?, trustProxy?, env?) => EdgeContext<Env>` | `1.0.0` | Internal | Constructs an `EdgeContext` directly |
+| `type FetchHandler` | `(request: Request, ctx?: EdgeExecutionContext) => Response \| Promise<Response>` | `1.0.0` | Internal | The handler signature every `createXxxHandler` returns |
+| `type EdgeExecutionContext` | `{ waitUntil, passThroughOnException? }` | `1.0.0` | Internal | Platform execution-context shape consumed by `ctx.waitUntil` |
+| `type EdgeRuntimeInfo` | `{ runtime, isCloudflare, isVercel, isNetlify, isGenericEdge }` | `1.0.0` | Internal | Result shape of `detectEdgeRuntime()` |
+| `HttpError` | re-exported from `@nextrush/errors` | `1.0.0` | Internal | Uniform error class across all adapters |
 
-app.use(async (ctx) => {
-  try {
-    await ctx.next();
-  } catch (error) {
-    if (error instanceof HttpError) {
-      ctx.status = error.status;
-      ctx.json({ error: error.message });
-    } else {
-      ctx.status = 500;
-      ctx.json({ error: 'Internal Server Error' });
-    }
-  }
-});
-```
+## Options
 
-## Platform Deployment
+`FetchHandlerOptions`, accepted by every `createXxxHandler`:
 
-### Cloudflare Workers
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------- | ------------ |
+| `onError` | `(error: Error, ctx: EdgeContext) => Response \| Promise<Response>` | No | built-in JSON 500 | -- | Custom error handler; receives the thrown error and the in-flight context |
+| `timeout` | `number` | No | `25000` (`DEFAULT_EDGE_TIMEOUT_MS`) | -- | Request timeout in ms; races the handler and returns `504` on expiry, aborting `ctx.signal`. `0` disables the framework timeout (the platform's own limit still applies) |
 
-```bash
-# Install Wrangler
-npm install -g wrangler
+## Runtime detection
 
-# Login
-wrangler login
+`detectEdgeRuntime()` (re-exported from `@nextrush/runtime`) answers "which edge platform am I
+on", distinct from the generic `detectRuntime()`. Verified against
+`packages/runtime/src/detection.ts`, it checks exactly three platforms in order and has no
+AWS/Lambda branch:
 
-# Deploy
-wrangler deploy
-```
+1. **Cloudflare Workers** -- `navigator.userAgent` contains `'Cloudflare-Workers'` -> `runtime:
+   'cloudflare-workers'`, `isCloudflare: true`.
+2. **Vercel Edge** -- `process.env.VERCEL_REGION` is defined -> `runtime: 'vercel-edge'`,
+   `isVercel: true`.
+3. **Netlify Edge** -- a `Deno` global exists AND `process.env.NETLIFY === 'true'` (Netlify Edge
+   Functions run on Deno under the hood) -> `runtime: 'edge'` (not a distinct string),
+   `isNetlify: true`.
 
-### Vercel
+If none of the three match, `runtime` stays at its initial value of `'edge'` and
+`isGenericEdge` is `true`. There is no fourth branch for AWS Lambda or any other FaaS platform
+-- `@nextrush/adapter-serverless` builds its own handler on top of this package's fetch runner
+and inherits this same detection, so `ctx.runtime` reports `'edge'` there too (see
+[`@nextrush/adapter-serverless`](../serverless)'s own docs for that package's scope).
 
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Deploy
-vercel
-```
-
-### Netlify
-
-```bash
-# Install Netlify CLI
-npm install -g netlify-cli
-
-# Deploy
-netlify deploy --prod
-```
-
-## Runtime Detection
-
-The adapter detects the specific edge platform at startup:
-
-```typescript
+```ts
 import { detectEdgeRuntime } from '@nextrush/adapter-edge';
 
 const info = detectEdgeRuntime();
-// { runtime: 'cloudflare-workers', isCloudflare: true, isVercel: false, isNetlify: false, isGenericEdge: false }
+// Cloudflare Workers: { runtime: 'cloudflare-workers', isCloudflare: true,  isVercel: false, isNetlify: false, isGenericEdge: false }
+// Vercel Edge:        { runtime: 'vercel-edge',        isCloudflare: false, isVercel: true,  isNetlify: false, isGenericEdge: false }
+// Netlify Edge:        { runtime: 'edge',              isCloudflare: false, isVercel: false, isNetlify: true,  isGenericEdge: false }
+// Anything else:       { runtime: 'edge',              isCloudflare: false, isVercel: false, isNetlify: false, isGenericEdge: true }
 ```
 
-```typescript
-app.use(async (ctx) => {
-  // ctx.runtime is set automatically
-  console.log(ctx.runtime);
-  // 'cloudflare-workers' | 'vercel-edge' | 'edge'
-});
-```
+Result is cached after the first call within a given isolate.
+
+## Compatibility
+
+**Requirements**
+
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | `1.x` (`@nextrush/core`) |
+| Node.js (local build/test only) | `>=22` |
+| TypeScript | `>=5.x` |
+
+**Runtimes**
+
+| Runtime | Supported | Notes |
+| ------- | --------- | ------ |
+| Cloudflare Workers | Yes | via `createCloudflareHandler` |
+| Vercel Edge Functions | Yes | via `createVercelHandler` |
+| Netlify Edge Functions | Yes | via `createNetlifyHandler` (runs on Deno under the hood) |
+| Node.js | No | use [`@nextrush/adapter-node`](../node) |
+
+**Integration**
+- **Peer dependencies:** none -- direct workspace dependencies on `@nextrush/{core,errors,runtime,stream,types}`.
+- **Works with:** any NextRush middleware that only touches the `Context` API (no raw Node
+  `req`/`res` access).
+- **Built on by:** [`@nextrush/adapter-serverless`](../serverless), which wraps this package's
+  fetch handler for FaaS platforms (AWS Lambda, Google Cloud Functions).
+
+> [!IMPORTANT]
+> NextRush is ESM-only, permanently -- no CommonJS build. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
 
 ## Limitations
 
-Edge runtimes share common constraints:
+Edge runtimes share constraints this package does not paper over:
 
-- No file system access — use R2, S3, or external storage
-- No native Node.js modules — use Web API equivalents
-- No native addons
-- CPU time and memory limits vary by platform — consult platform documentation
-- Stream large payloads instead of buffering in memory
+- No file system access -- use platform storage (R2, KV) or an external store.
+- No native Node.js modules or native addons -- Web API equivalents only.
+- CPU time and memory limits vary by platform -- consult the platform's own documentation.
+- Large payloads should be streamed rather than buffered in memory.
 
-## TypeScript
+## FAQ
 
-All exports are fully typed:
+**Does `ctx.runtime` tell me I am on AWS Lambda?**
+No. `detectEdgeRuntime()` has no Lambda branch; it only distinguishes Cloudflare, Vercel, and
+Netlify, defaulting to the generic `'edge'` otherwise. `@nextrush/adapter-serverless` is built
+on this package and inherits the same detection, so Lambda deployments also report
+`runtime: 'edge'` -- verified in `packages/runtime/src/detection.ts`.
 
-```typescript
-import type { EdgeContext, FetchHandler, EdgeExecutionContext } from '@nextrush/adapter-edge';
-import type { Middleware } from '@nextrush/types';
+**Why is this package tier "Internal" instead of "Public"?**
+Per [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md),
+non-`-node` adapters (bun, deno, edge, serverless) stay Internal until each is declared GA;
+`@nextrush/adapter-node` is the only adapter in the Public-core tier today.
 
-// Type-safe middleware
-const authMiddleware: Middleware = async (ctx) => {
-  const token = ctx.get('authorization');
-  if (!token) {
-    ctx.status = 401;
-    ctx.json({ error: 'Unauthorized' });
-    return;
-  }
-  await ctx.next();
-};
+**Does it work without `@nextrush/router`?**
+Yes -- `app.use()` alone is enough for simple handlers. Add
+[`@nextrush/router`](../../router) only when you need dynamic route matching.
+
+**Can I use it outside Cloudflare/Vercel/Netlify?**
+Yes -- `createFetchHandler` (and its alias `createHandler`) is a plain `(request, ctx?) =>
+Response` function usable on any host that speaks the Fetch API, not only the three named
+platforms.
+
+## Package relationships
+
+```text
+                        depends on            @nextrush/{core,errors,runtime,stream,types}
+@nextrush/adapter-edge -------------->
+                        often used with       @nextrush/router
+                        usually used next     @nextrush/adapter-serverless (for FaaS platforms)
 ```
 
-## Related Packages
+- **Depends on:** [`@nextrush/core`](../../core), [`@nextrush/errors`](../../errors),
+  [`@nextrush/runtime`](../../runtime), [`@nextrush/stream`](../../stream),
+  [`@nextrush/types`](../../types).
+- **Often used with:** [`@nextrush/router`](../../router) -- for dynamic route matching beyond
+  a single `app.use()` handler.
+- **Usually used next:** [`@nextrush/adapter-serverless`](../serverless) -- if the deploy target
+  turns out to be AWS Lambda or Google Cloud Functions rather than an edge platform.
+- **Alternative:** [`@nextrush/adapter-node`](../node) -- for a long-running Node.js process
+  instead of an edge isolate; [`@nextrush/adapter-bun`](../bun) / [`@nextrush/adapter-deno`](../deno)
+  -- for running directly on Bun/Deno outside an edge platform.
 
-| Package                                    | Description                     |
-| ------------------------------------------ | ------------------------------- |
-| [@nextrush/core](../core)                  | Core application and middleware |
-| [@nextrush/router](../router)              | High-performance routing        |
-| [@nextrush/adapter-node](../adapters/node) | Node.js HTTP adapter            |
-| [@nextrush/adapter-bun](../adapters/bun)   | Bun runtime adapter             |
-| [@nextrush/adapter-deno](../adapters/deno) | Deno runtime adapter            |
-| [@nextrush/runtime](../runtime)            | Runtime detection utilities     |
+## Architecture
 
-## License
+Maintaining or contributing to this package? The internal design -- the shared request runner,
+context construction, and the compile-time adapter-contract guards -- is in
+[`ARCHITECTURE.md`](./ARCHITECTURE.md). Design history:
+[RFC-013 (adapter contract)](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/013-adapter-contract.md),
+[ADR-0010 (cross-runtime parity hardening)](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0010-cross-runtime-parity-hardening.md).
 
-MIT © NextRush Contributors
+## Resources
+
+- Learn -- [Documentation](https://0xtanzim.github.io/nextRush/docs) -- [Architecture](./ARCHITECTURE.md) -- [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- Changelog -- [CHANGELOG.md](./CHANGELOG.md)
+- Report an issue -- [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- Contribute -- [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
+
+---
+
+MIT (c) [Tanzim Hossain](https://github.com/0xTanzim)

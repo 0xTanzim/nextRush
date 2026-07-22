@@ -1,28 +1,45 @@
 # @nextrush/adapter-bun
 
-> Bun HTTP adapter for NextRush
+> Bun HTTP adapter for NextRush -- connects an Application to Bun.serve() with graceful shutdown and NextRush's shared Web-standard Context.
 
-Connect your NextRush application to [Bun](https://bun.sh). This adapter bridges NextRush's middleware system to `Bun.serve()`, handling context creation, in-flight request tracking, and graceful shutdown.
+[![npm version](https://img.shields.io/npm/v/@nextrush/adapter-bun.svg)](https://www.npmjs.com/package/@nextrush/adapter-bun)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/adapter-bun.svg)](https://www.npmjs.com/package/@nextrush/adapter-bun)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/adapter-bun.svg)](https://bundlephobia.com/package/@nextrush/adapter-bun)
+[![types](https://img.shields.io/npm/types/@nextrush/adapter-bun.svg)](https://www.npmjs.com/package/@nextrush/adapter-bun)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+[![license](https://img.shields.io/npm/l/@nextrush/adapter-bun.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-**Support tier:** Internal — non-`-node` adapter until GA (may change without a major). See [ADR-0005](../../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+|  |  |
+| --- | --- |
+| **Purpose** | Run a NextRush `Application` on Bun via `Bun.serve()` |
+| **Package type** | Adapter |
+| **Status** | Stable |
+| **Included in `nextrush`?** | No -- standalone install, chosen per deployment target |
+| **Support tier** | Public -- stable (sealed public API) -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Maintenance** | Active |
+| **Runtime** | Bun only (this adapter) -- part of the universal Node / Bun / Deno / Edge family |
+| **Requires** | Bun `>=1.0.0` -- ESM-only -- TypeScript `>=5.x` |
+| **Introduced** | `v1.0.0` |
 
-## Why Bun?
+## Highlights
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│  Bun.serve()  →  NextRush Handler  →  Your Middleware/Routes   │
-└────────────────────────────────────────────────────────────────┘
-```
-
-Bun's built-in HTTP server uses direct syscalls and avoids the overhead of Node.js's `http` module. The adapter adds minimal overhead on top of `Bun.serve()`.
+- Zero extra runtime dependencies beyond NextRush's own `core`/`errors`/`runtime`/`stream`/`types` packages
+- ESM-only, tree-shakable, side-effect-free
+- Fully typed -- strict TypeScript, zero `any`
+- Server-level request body cap set to 1 MB by default -- overrides Bun's native 128 MB default, matching `@nextrush/body-parser`'s own JSON default
 
 ## Installation
 
 ```bash
 bun add @nextrush/adapter-bun @nextrush/core
+# npm i @nextrush/adapter-bun @nextrush/core (if managing the project with npm/pnpm, still run with bun)
 ```
 
-## Quick Start
+> [!NOTE]
+> This adapter is not included in the `nextrush` meta package. Install it directly when your
+> deployment target is Bun; pick a different `@nextrush/adapter-*` package for another runtime.
+
+## Quick start
 
 ```typescript
 import { createApp } from '@nextrush/core';
@@ -34,40 +51,60 @@ app.use(async (ctx) => {
   ctx.json({ message: 'Hello from Bun!' });
 });
 
-serve(app, {
+await serve(app, {
   port: 8080,
-  onListen: ({ port }) => console.log(`🚀 Server running on port ${port}`),
+  onListen: ({ port }) => console.log(`Server running on port ${port}`),
 });
 ```
 
-## API Reference
+`serve()` boots the app's extensions (`app.ready()`), starts `Bun.serve()`, and returns a
+`ServerInstance` with `close()`/`reload()`/`address()`.
 
-### `serve(app, options?)`
+## Capabilities
 
-Start an HTTP server for your application.
+**Capabilities**
+- **`serve(app, options)`** -- starts a Bun HTTP server bound to the app
+- **`createHandler(app, options)`** -- a bare `(request, server) => Promise<Response>` fetch
+  handler for a hand-rolled `Bun.serve()` call
+- **`listen(app, port)`** -- `serve()` shorthand with a console-logged startup message
+- **Graceful shutdown** -- opt-in `SIGTERM`/`SIGINT` wiring to the same connection-drain `close()`
+- **TLS** -- `cert`/`key`/`ca` passed straight through to `Bun.serve()`
+
+**Performance**
+- Bun's own request/response path avoids Node's `http` module overhead; the adapter adds a
+  thin context-creation and timeout-race layer on top, not a second HTTP implementation
+
+**Developer experience**
+- Same `serve(app, options)` / `listen(app, port)` shape as `@nextrush/adapter-node`,
+  `@nextrush/adapter-deno`, and `@nextrush/adapter-edge` -- only the import changes
+
+## Mental model
+
+```text
+Bun.serve() ---> trackedHandler ---> BunContext ---> your middleware/routes
+                      |
+                      +-- in-flight request count (for graceful drain)
+```
+
+**Rule:** the adapter never re-implements HTTP -- it wraps one `fetch(request, server)` handler
+around `Bun.serve()` and hands your app a `BunContext` built on the shared Web-standard base used
+by every non-Node adapter.
+
+> [!TIP]
+> The full request lifecycle and shutdown sequence (Mermaid) are in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+## Common tasks
+
+### Start a server
 
 ```typescript
 import { serve } from '@nextrush/adapter-bun';
 
-const server = serve(app, {
-  port: 8080,           // Default: 8080
-  hostname: '0.0.0.0',  // Default: '0.0.0.0'
-  onListen: ({ port, hostname }) => { ... },
-  onError: (error) => { ... },
-  development: false,   // Enable dev mode
-  maxRequestBodySize: 128 * 1024 * 1024, // Bun default: 128MB
-  shutdownTimeout: 30_000, // Default: 30s drain timeout
-  gracefulShutdown: true, // Opt-in: wire SIGTERM/SIGINT to the drain (F-06)
-  tls: {                // Optional HTTPS
-    cert: certFile,
-    key: keyFile,
-  },
-});
+const server = await serve(app, { port: 8080 });
+console.log(`Listening on ${server.host}:${server.port}`);
 ```
 
-### Graceful Shutdown
-
-`close()` already stops accepting new connections and drains in-flight requests (up to `shutdownTimeout`) before tearing down extensions. Pass `gracefulShutdown: true` to wire `SIGTERM`/`SIGINT` directly to that same drain — the same opt-in option shape as `@nextrush/adapter-node`:
+### Wire graceful shutdown to OS signals
 
 ```typescript
 const server = await serve(app, {
@@ -82,283 +119,171 @@ const server2 = await serve(app, {
 });
 ```
 
-Omitting the option installs no signal handler — process behavior is unchanged. The handler is removed once shutdown completes, so repeated `serve()`/`close()` cycles never accumulate duplicate listeners.
+Omitting `gracefulShutdown` installs no signal handler -- process behavior is unchanged.
+`close()` (called manually or via a signal) always stops accepting new connections, drains
+in-flight requests up to `shutdownTimeout`, then tears down the app's extensions.
 
-// Server control
-console.log(`Running on port ${server.port}`);
-await server.close();
-```
-
-### `createHandler(app)`
-
-Create a fetch handler for custom Bun.serve configurations.
+### Use a custom `Bun.serve()` setup
 
 ```typescript
 import { createHandler } from '@nextrush/adapter-bun';
 
-const handler = createHandler(app);
+const handler = createHandler(app, { timeout: 10_000 });
 
-// Use with custom Bun.serve setup
-const server = Bun.serve({
+Bun.serve({
   port: 8080,
   fetch: handler,
-  // ... additional Bun options
 });
 ```
 
-### `listen(app, port?)`
-
-Quick start shorthand with console output.
+### Enable TLS
 
 ```typescript
-import { listen } from '@nextrush/adapter-bun';
-
-listen(app, 8080);
-// Output: 🚀 NextRush listening on http://localhost:8080 (Bun)
-```
-
-## Context
-
-The `BunContext` provides the standard NextRush Context interface optimized for Bun:
-
-```typescript
-app.use(async (ctx) => {
-  // Request (input)
-  ctx.method; // 'GET', 'POST', etc.
-  ctx.path; // '/users/123'
-  ctx.query; // { page: '1' }
-  ctx.params; // { id: '123' } (from router)
-  ctx.headers; // Request headers
-  ctx.body; // Parsed body (from body-parser)
-  ctx.ip; // Client IP
-
-  // Runtime info
-  ctx.runtime; // 'bun'
-  ctx.bodySource; // BodySource for raw body access
-
-  // Response (output)
-  ctx.status = 201;
-  ctx.json({ data: '...' });
-  ctx.send('text');
-  ctx.html('<h1>Hello</h1>');
-  ctx.redirect('/other');
-
-  // Headers
-  ctx.set('X-Custom', 'value');
-  ctx.get('content-type');
-
-  // Middleware
-  await ctx.next();
-
-  // Raw access (escape hatch)
-  ctx.raw.req; // Web API Request object
-});
-```
-
-### Bun-Specific Features
-
-```typescript
-// Access Bun's native Request
-const request = ctx.raw.req;
-console.log(request.url);
-
-// Get client IP (Bun provides this)
-console.log(ctx.ip);
-
-// Use Bun's fast JSON parsing via bodySource
-const data = await ctx.bodySource.json();
-```
-
-## Body Parsing
-
-The `BunBodySource` leverages Bun's optimized body parsing:
-
-```typescript
-// In middleware
-const text = await ctx.bodySource.text(); // Bun's native text()
-const json = await ctx.bodySource.json(); // Bun's native json()
-const buffer = await ctx.bodySource.buffer(); // Bun's native arrayBuffer()
-const stream = ctx.bodySource.stream(); // ReadableStream
-```
-
-### With @nextrush/body-parser
-
-```typescript
-import { json } from '@nextrush/body-parser';
-
-app.use(json());
-
-app.use(async (ctx) => {
-  // ctx.body is automatically parsed
-  const { name } = ctx.body as { name: string };
-});
-```
-
-## HTTPS / TLS
-
-```typescript
-serve(app, {
+await serve(app, {
   port: 443,
   tls: {
     cert: Bun.file('./cert.pem'),
     key: Bun.file('./key.pem'),
-    ca: Bun.file('./ca.pem'), // Optional
   },
 });
 ```
 
-## Error Handling
+## API overview
+
+| Export | Signature | Since | Stability | Description |
+| ------ | --------- | ----- | --------- | ----------- |
+| `serve` | `(app: Application, options?: ServeOptions) => Promise<ServerInstance>` | `1.0.0` | Stable | Starts `Bun.serve()` bound to the app |
+| `createHandler` | `(app: Application, options?: HandlerOptions) => BunFetchHandler` | `1.0.0` | Stable | Bare fetch handler for a custom `Bun.serve()` call |
+| `listen` | `(app: Application, port?: number) => Promise<ServerInstance>` | `1.0.0` | Stable | `serve()` shorthand with a startup log line |
+| `BunContext` | `class` | `1.0.0` | Stable | Bun-specific `Context` implementation |
+| `createBunContext` | `(request: Request, clientIp?: string, trustProxy?: boolean) => BunContext` | `1.0.0` | Stable | Constructs a `BunContext` |
+| `EmptyBodySource` / `createEmptyBodySource` | -- | `1.0.0` | Stable | Body source for bodyless requests, re-exported from `@nextrush/runtime` |
+| `BodyConsumedError` / `BodyTooLargeError` | -- | `1.0.0` | Stable | Shared body-reading errors, re-exported from `@nextrush/runtime` |
+| `getContentType` / `getContentLength` | `(headers: Headers) => string \| undefined` / `(headers: Headers) => number \| undefined` | `1.0.0` | Deprecated | Unused internally since body-parser owns content-type/length handling; kept for backward compatibility |
+| `type ServeOptions` | -- | `1.0.0` | Stable | `serve()` options |
+| `type ServerInstance` | -- | `1.0.0` | Stable | Return value of `serve()`/`listen()` |
+| `type GracefulShutdownOptions` | -- | `1.0.0` | Stable | Shape of `ServeOptions.gracefulShutdown` when not a plain boolean |
+
+## Options
+
+`ServeOptions` (passed to `serve()`):
+
+| Option | Type | Required | Default | Security-sensitive | Description |
+| ------ | ---- | -------- | ------- | ------------------ | ----------- |
+| `port` | `number` | No | `8080` | -- | Port to listen on |
+| `host` | `string` | No | `'0.0.0.0'` | Warning | Host to bind to -- canonical option; use with care in shared/multi-tenant environments |
+| `onListen` | `(info: { port; host; hostname }) => void` | No | -- | -- | Called once the server is listening |
+| `onError` | `(error: Error) => void` | No | logs via `app.logger` | -- | Called on an uncaught request error |
+| `tls` | `{ cert; key; ca? }` | No | -- | Warning | Enables HTTPS |
+| `maxRequestBodySize` | `number` | No | `1048576` (1 MB) | Warning | Server-level request body cap in bytes -- overrides Bun's native 128 MB default; matches `@nextrush/adapter-node`'s effective 1 MB default |
+| `timeout` | `number` | No | `30000` (30 s) | -- | Per-request timeout; returns `504` on expiry |
+| `development` | `boolean` | No | `false` | -- | Enables Bun's development-mode features |
+| `shutdownTimeout` | `number` | No | `30000` (30 s) | -- | Drain grace period before force-closing connections |
+| `logger` | `Logger` | No | `app.logger` | -- | Logger for adapter diagnostics |
+| `gracefulShutdown` | `boolean \| GracefulShutdownOptions` | No | `undefined` (no signal handler) | -- | Wires `SIGTERM`/`SIGINT` to `close()` |
+
+## Performance
+
+Bun's own HTTP implementation avoids the syscall overhead of Node's `http` module; this adapter
+adds one context-creation call and a `Promise.race`-based timeout per request on top. See
+`apps/benchmark` for cross-runtime comparisons run on your own hardware.
+
+## Compatibility
+
+**Requirements**
+
+| Requirement | Version |
+| ----------- | ------- |
+| NextRush | `3.x` |
+| Bun | `>=1.0.0` |
+| TypeScript | `>=5.x` |
+
+**Runtimes**
+
+| Runtime | Supported | Notes |
+| ------- | --------- | ----- |
+| Bun `>=1.0.0` | Yes | This package |
+| Node.js / Deno / Edge | Yes | Via `@nextrush/adapter-node` / `@nextrush/adapter-deno` / `@nextrush/adapter-edge` -- pinned by the internal conformance suite |
+
+**Integration**
+- **Peer dependencies:** none (depends directly on `@nextrush/core`, `@nextrush/errors`, `@nextrush/runtime`, `@nextrush/stream`, `@nextrush/types`)
+- **Works with:** `@nextrush/body-parser` for body parsing beyond the raw `bodySource`/`WebBodySource` access `BunContext` exposes
+- **Incompatible with:** other `@nextrush/adapter-*` packages in the same process (only one adapter binds a server per app)
+
+> [!IMPORTANT]
+> NextRush is ESM-only, permanently -- no CommonJS build. See the
+> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+## Troubleshooting
+
+<details>
+<summary><strong>Request body silently truncated or rejected as too large</strong></summary>
+
+**Cause:** `maxRequestBodySize` defaults to 1 MB, well below Bun's own 128 MB default -- this is
+deliberate, matching `@nextrush/body-parser`'s JSON default so both layers agree on the limit.
+**Fix:** raise `maxRequestBodySize` for the routes that need larger payloads.
 
 ```typescript
-serve(app, {
-  onError: (error) => {
-    console.error('Server error:', error);
-    // Log to monitoring service
-  },
-});
-
-// In middleware
-app.use(async (ctx) => {
-  ctx.throw(404, 'Not found');
-  // or
-  ctx.assert(user, 404, 'User not found');
-});
+await serve(app, { maxRequestBodySize: 50 * 1024 * 1024 }); // 50 MB
 ```
 
-## Hot Reload
+</details>
 
-Bun supports hot reloading out of the box:
+<details>
+<summary><strong>`EADDRINUSE` or another bind failure on startup</strong></summary>
 
-```bash
-bun --hot run server.ts
+**Cause:** another process already holds `port`/`host`, or the host/port combination is invalid.
+**Fix:** `serve()` normalizes the underlying `Bun.serve()` error into the same typed startup
+error every NextRush adapter throws -- catch it and inspect `error.code`.
+
+</details>
+
+## FAQ
+
+**Can I use this without `nextrush`?**
+Yes -- install `@nextrush/adapter-bun` alongside `@nextrush/core` directly; the meta package is
+not required.
+
+**Why ESM-only?**
+See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+
+**Does it work on Bun's hot reload?**
+Yes -- `bun --hot run server.ts` reloads the module graph as usual; `server.reload(options)`
+also updates non-structural `Bun.serve()` options (like `development`) on an existing server.
+
+**Is `ctx.bodySource` the same shape as the Node adapter's?**
+`BunContext` is built on the shared `WebContextBase`/`WebBodySource` from `@nextrush/runtime`,
+the same base every non-Node adapter (Bun, Deno, Edge) uses -- body-reading behavior is
+identical across those three by construction, not by convention.
+
+## Package relationships
+
+```text
+                 depends on            @nextrush/core, @nextrush/errors,
+@nextrush/adapter-bun ----------->     @nextrush/runtime, @nextrush/stream,
+                                        @nextrush/types
+                 often used with       @nextrush/body-parser
+                 usually used next     @nextrush/router
 ```
 
-Or use the `reload()` method to update non-structural configuration:
+- **Depends on:** [`@nextrush/core`](../../../core), [`@nextrush/runtime`](../../../runtime) -- application lifecycle and the shared Web-adapter context base
+- **Often used with:** [`@nextrush/body-parser`](../../../middleware/body-parser) -- parses `ctx.body` beyond the raw body source
+- **Usually used next:** [`@nextrush/router`](../../../router) -- most apps mount routes before calling `serve()`
+- **Alternative:** [`@nextrush/adapter-node`](../node), [`@nextrush/adapter-deno`](../deno), [`@nextrush/adapter-edge`](../edge) -- same DX for a different runtime
 
-```typescript
-const server = serve(app, { port: 8080 });
+## Architecture
 
-// Update configuration (port changes may not take effect)
-server.reload({ development: true });
-```
+Maintaining or contributing to this package? The internal design -- module layout, request
+lifecycle, shutdown sequence, invariants, and trade-offs (with diagrams) -- is in
+**[`ARCHITECTURE.md`](./ARCHITECTURE.md)**.
 
-## Full Example
+## Resources
 
-```typescript
-// server.ts
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { json } from '@nextrush/body-parser';
-import { cors } from '@nextrush/cors';
-import { serve } from '@nextrush/adapter-bun';
+- Learn -- [Documentation](https://0xtanzim.github.io/nextRush/docs) -- [Architecture](./ARCHITECTURE.md) -- [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- Changelog -- [CHANGELOG.md](./CHANGELOG.md)
+- Report an issue -- [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- Contribute -- [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
 
-const app = createApp();
-const router = createRouter();
+---
 
-// Middleware
-app.use(cors());
-app.use(json());
-
-// Routes
-router.get('/health', (ctx) => {
-  ctx.json({
-    status: 'healthy',
-    runtime: ctx.runtime, // 'bun'
-    version: Bun.version,
-  });
-});
-
-router.post('/users', async (ctx) => {
-  const { name, email } = ctx.body as { name: string; email: string };
-
-  ctx.status = 201;
-  ctx.json({ id: Date.now(), name, email });
-});
-
-router.get('/users/:id', (ctx) => {
-  const { id } = ctx.params;
-  ctx.json({ id, name: 'John Doe' });
-});
-
-// Mount router — Hono-style
-app.route('/', router);
-
-// Start server
-serve(app, {
-  port: 8080,
-  onListen: ({ port }) => {
-    console.log(`🚀 Server running on http://localhost:${port}`);
-    console.log(`   Runtime: Bun ${Bun.version}`);
-  },
-});
-```
-
-## DX Consistency
-
-This adapter maintains **identical DX** with other NextRush adapters:
-
-```typescript
-// Same code works with all adapters.
-// Change the import:
-
-// Node.js
-import { serve } from '@nextrush/adapter-node';
-
-// Bun
-import { serve } from '@nextrush/adapter-bun';
-
-// Deno
-import { serve } from '@nextrush/adapter-deno';
-
-// The rest of your code stays the same
-serve(app, { port: 8080 });
-```
-
-## Performance Tips
-
-### 1. Use Bun's Native Streaming
-
-```typescript
-router.get('/file', async (ctx) => {
-  ctx.send(Bun.file('./large-file.txt').stream());
-});
-```
-
-### 2. Enable Development Mode for Debugging
-
-```typescript
-serve(app, {
-  development: true, // Enables Bun's dev features
-});
-```
-
-### 3. Tune Body Size Limits
-
-```typescript
-serve(app, {
-  maxRequestBodySize: 50 * 1024 * 1024, // 50MB for file uploads
-});
-```
-
-## Types
-
-```typescript
-import type { ServeOptions, ServerInstance, BunContext } from '@nextrush/adapter-bun';
-```
-
-## Requirements
-
-- Bun >= 1.0.0
-- NextRush >= 3.0.0
-
-## See Also
-
-- [`@nextrush/core`](../core) - Core framework
-- [`@nextrush/adapter-node`](../adapters/node) - Node.js adapter
-- [`@nextrush/adapter-deno`](../adapters/deno) - Deno adapter
-- [`@nextrush/adapter-edge`](../adapters/edge) - Edge runtime adapter
-- [Bun Documentation](https://bun.sh/docs)
-
-## License
-
-MIT
+MIT (c) [Tanzim Hossain](https://github.com/0xTanzim)

@@ -198,7 +198,7 @@ match source, EDS-014 + EDS-015 pass.
       request-id, timer, health, events, websocket, stream. Depth: problem → default → install →
       usage → options → integration → troubleshooting. **Batching width (flat 19 vs sub-waves of
       ~5) — confirm with user at kickoff.** → Validator + Integrator.
-- [ ] 5. **Wave A3 — Tier 3 adapters/tooling (8):** adapter-{node,bun,deno,edge,serverless}, dev,
+- [x] 5. **Wave A3 — Tier 3 adapters/tooling (8):** adapter-{node,bun,deno,edge,serverless}, dev,
       testing, create-nextrush. Depth: purpose → install → minimal usage → reference → one example.
       Adapters share structure (one Implementer may template across the 5) but each gets its own
       Validator pass. → Validator + Integrator.
