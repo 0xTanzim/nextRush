@@ -1,102 +1,131 @@
 /**
- * Real-runtime conformance — Deno (runtime-proof-harness, task 3.2).
+ * Real-runtime conformance — Deno (F-01, ADR-0010).
  *
- * Runs the Deno adapter's real request handler under the REAL Deno runtime
- * (`deno test`), not simulated under Node/vitest. Asserts the same core
- * observable behaviors the cross-adapter suite pins, proving parity on-runtime.
+ * Runs the FULL shared `defineConformanceSuite` — not a hand-written subset —
+ * against the Deno adapter's real request handler under the REAL Deno runtime
+ * (`deno test`). Every behavior the in-process suite asserts (Set-Cookie
+ * arrays, HEAD/204/304 suppression, redirect, error-no-leak, timeout/504, IP
+ * precedence, streaming, SSE, body limits, etc.) is proven on real Deno,
+ * closing the "claim outruns proof" gap the runtime-platform review (F-01)
+ * identified — the previous version of this file asserted only 5 basic cases.
+ *
+ * `deno.json`'s import map redirects the conformance package's
+ * `@nextrush/adapter-conformance/test-primitives` specifier to a Deno-native
+ * `it`/`expect` (`test-primitives.deno.ts`, backed by `Deno.test` + `@std/
+ * expect`), so `defineConformanceSuite` registers its assertions through
+ * Deno's real test runner.
+ *
+ * The Deno adapter's `createHandler` is driven directly (not through a live
+ * `Deno.serve()` socket) — matching this file's pre-existing pattern and
+ * `web-driver.ts`'s rationale: the handler is the runtime-neutral seam; the
+ * Deno-specific piece under test is the REAL Deno runtime executing that
+ * handler (URL parsing, Headers, ReadableStream, AbortSignal, crypto — all
+ * real Deno implementations), not the loopback transport.
  *
  * Run: cd packages/adapters/conformance/deno-runner && deno task conformance
  */
 
-import assert from 'node:assert/strict';
-import { createApp } from '@nextrush/core';
+import { createApp, type Application } from '@nextrush/core';
 import { createHandler } from '@nextrush/adapter-deno';
 import { detectRuntime } from '@nextrush/runtime';
+import { defineConformanceSuite } from '@nextrush/adapter-conformance';
+import type {
+  ConformanceDriver,
+  Configure,
+  DispatchInit,
+  DispatchResult,
+} from '@nextrush/adapter-conformance';
+import { expect } from '@nextrush/adapter-conformance/test-primitives';
 
-/** Drive one request through the real Deno adapter handler. */
-async function dispatch(
-  configure: (app: ReturnType<typeof createApp>) => void,
-  init?: { method?: string; path?: string; headers?: Record<string, string>; body?: string },
-): Promise<Response> {
-  const app = createApp();
-  configure(app);
-  await app.ready();
-  const handler = createHandler(app);
-  const req = new Request(`http://localhost${init?.path ?? '/'}`, {
+Deno.test('sanity: runs under the real Deno runtime', () => {
+  expect(detectRuntime()).toBe('deno');
+});
+
+/** Build a Web Request from the dispatch spec. */
+function buildRequest(init?: DispatchInit): Request {
+  const requestInit: RequestInit = {
     method: init?.method ?? 'GET',
     headers: init?.headers,
-    ...(init?.body !== undefined ? { body: init.body } : {}),
-  });
-  return handler(req, { remoteAddr: { hostname: '127.0.0.1', port: 0 } });
+  };
+  if (init?.body !== undefined) requestInit.body = init.body;
+  return new Request(`http://localhost${init?.path ?? '/'}`, requestInit);
 }
 
-Deno.test('runs under the real Deno runtime', () => {
-  assert.equal(detectRuntime(), 'deno');
-});
+async function toResult(response: Response): Promise<DispatchResult> {
+  const bodyText = await response.text();
+  return {
+    status: response.status,
+    header: (name) => response.headers.get(name) ?? undefined,
+    setCookies: () => response.headers.getSetCookie(),
+    text: () => bodyText,
+  };
+}
 
-Deno.test('#1 method upper-cased; path split from query', async () => {
-  const res = await dispatch(
-    (app) => {
-      app.use((ctx) => {
-        ctx.json({ method: ctx.method, path: ctx.path });
-      });
-    },
-    { method: 'get', path: '/users/5?x=1' },
-  );
-  assert.equal(res.status, 200);
-  const body = (await res.json()) as { method: string; path: string };
-  assert.equal(body.method, 'GET');
-  assert.equal(body.path, '/users/5');
-});
+/** Real-Deno ConformanceDriver: drives the real Deno adapter handler under the real Deno runtime. */
+const realDenoDriver: ConformanceDriver = {
+  name: 'deno',
+  handlerTimeout504: true,
+  teardownOnShutdown: true,
+  transportAbortFiresSignal: true,
+  honorsCloudflareIp: false,
 
-Deno.test('#2 query repeats become arrays; __proto__ rejected', async () => {
-  const res = await dispatch(
-    (app) => {
-      app.use((ctx) => {
-        ctx.json({ a: ctx.query.a, b: ctx.query.b });
-      });
-    },
-    { path: '/q?a=1&b=2&b=3&__proto__=evil' },
-  );
-  const body = (await res.json()) as { a: string; b: string[] };
-  assert.equal(body.a, '1');
-  assert.deepEqual(body.b, ['2', '3']);
-  assert.equal((Object.prototype as Record<string, unknown>).evil, undefined);
-});
+  async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
+    const app: Application = createApp({ proxy: init?.proxy ?? false });
+    configure(app);
+    await app.ready();
+    const handler = createHandler(app, {});
+    const response = await handler(buildRequest(init), {
+      remoteAddr: { hostname: init?.directIp ?? '127.0.0.1', port: 0 },
+    });
+    return toResult(response);
+  },
 
-Deno.test('#3 route params writable + readable across middleware', async () => {
-  const res = await dispatch((app) => {
+  async abortFiresSignal(): Promise<boolean> {
+    let fired = false;
+    const controller = new AbortController();
+    const app = createApp();
     app.use(async (ctx) => {
-      ctx.params = { id: '42' };
-      await ctx.next();
-    });
-    app.use((ctx) => {
-      ctx.json({ id: ctx.params.id });
-    });
-  });
-  const body = (await res.json()) as { id: string };
-  assert.equal(body.id, '42');
-});
-
-Deno.test('#4 JSON body parsed on POST', async () => {
-  const res = await dispatch(
-    (app) => {
-      app.use(async (ctx) => {
-        const raw = await ctx.bodySource.text();
-        ctx.json({ echo: JSON.parse(raw) as unknown });
+      const signal = ctx.signal;
+      if (signal.aborted) {
+        fired = true;
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => {
+          fired = true;
+          resolve();
+        }, { once: true });
       });
-    },
-    { method: 'POST', path: '/echo', headers: { 'content-type': 'application/json' }, body: '{"n":7}' },
-  );
-  const body = (await res.json()) as { echo: { n: number } };
-  assert.equal(body.echo.n, 7);
-});
-
-Deno.test('#16 thrown HttpError maps to status; body not leaked as 500', async () => {
-  const res = await dispatch((app) => {
-    app.use((ctx) => {
-      ctx.throw(404, 'nope');
     });
-  });
-  assert.equal(res.status, 404);
-});
+    await app.ready();
+    const handler = createHandler(app, {});
+    const request = buildRequest({ path: '/' });
+    Object.defineProperty(request, 'signal', { value: controller.signal });
+    const pending = handler(request, { remoteAddr: { hostname: '127.0.0.1', port: 0 } });
+    setTimeout(() => controller.abort(), 5);
+    await pending.catch(() => undefined);
+    return fired;
+  },
+
+  async timeoutResult(): Promise<{ status: number; signalFired: boolean }> {
+    let signalFired = false;
+    const app = createApp();
+    app.use(async (ctx) => {
+      const signal = ctx.signal;
+      await new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => {
+          signalFired = true;
+          resolve();
+        }, { once: true });
+      });
+    });
+    await app.ready();
+    const handler = createHandler(app, { timeout: 10 });
+    const response = await handler(buildRequest({ path: '/' }), {
+      remoteAddr: { hostname: '127.0.0.1', port: 0 },
+    });
+    return { status: response.status, signalFired };
+  },
+};
+
+defineConformanceSuite(realDenoDriver);

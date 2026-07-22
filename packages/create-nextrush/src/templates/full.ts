@@ -17,6 +17,7 @@ export function generateFull(options: ProjectOptions): FileMap {
   files.set('src/routes/health.ts', generateHealthRoute());
   files.set('src/controllers/hello.controller.ts', generateHelloController());
   files.set('src/services/hello.service.ts', generateHelloService());
+  files.set('src/services/__tests__/hello.service.test.ts', generateHelloServiceTest());
   files.set('src/middleware/error-handler.ts', generateErrorHandler());
 
   return files;
@@ -126,6 +127,25 @@ export class HelloService {
     return { message: \`Hello, \${name}!\` };
   }
 }
+`;
+}
+
+function generateHelloServiceTest(): string {
+  return `import { describe, expect, it } from 'vitest';
+
+import { HelloService } from '../hello.service.js';
+
+describe('HelloService', () => {
+  it('greets with a default message', () => {
+    const service = new HelloService();
+    expect(service.greet()).toEqual({ message: 'Hello from NextRush!' });
+  });
+
+  it('greets by name', () => {
+    const service = new HelloService();
+    expect(service.greetByName('Ada')).toEqual({ message: 'Hello, Ada!' });
+  });
+});
 `;
 }
 

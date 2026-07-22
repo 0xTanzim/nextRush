@@ -13,6 +13,7 @@ export function generateClassBased(options: ProjectOptions): FileMap {
   files.set('src/index.ts', generateEntrypoint(options));
   files.set('src/controllers/health.controller.ts', generateHealthController());
   files.set('src/services/app.service.ts', generateAppService());
+  files.set('src/services/__tests__/app.service.test.ts', generateAppServiceTest());
 
   return files;
 }
@@ -88,5 +89,23 @@ export class AppService {
     };
   }
 }
+`;
+}
+
+function generateAppServiceTest(): string {
+  return `import { describe, expect, it } from 'vitest';
+
+import { AppService } from '../app.service.js';
+
+describe('AppService', () => {
+  it('reports status ok with a timestamp and uptime', () => {
+    const service = new AppService();
+    const result = service.getHealth();
+
+    expect(result.status).toBe('ok');
+    expect(new Date(result.timestamp).toString()).not.toBe('Invalid Date');
+    expect(result.uptime).toBeGreaterThanOrEqual(0);
+  });
+});
 `;
 }

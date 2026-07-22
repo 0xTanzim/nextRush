@@ -1,0 +1,171 @@
+---
+title: FAQ
+description: Frequently asked questions about NextRush — setup, design decisions, migration, and production readiness.
+---
+
+Common questions about NextRush, answered directly.
+
+## Getting started with NextRush
+
+### What is NextRush?
+
+A modular backend framework for Node.js, Bun, Deno, and Edge runtimes. Under 3,000 lines of code, zero runtime dependencies, full TypeScript strict mode. It gives you functional routes for quick prototypes and class-based controllers with DI when your project grows.
+
+### Can I use NextRush in production?
+
+Yes. NextRush v3 ships as **semver-stable** releases on npm (core packages at `3.1.0` today): breaking changes bump the major version per [Semantic Versioning](https://semver.org/). Follow release notes and upgrade guides when upgrading major versions. For regulated environments, run your usual QA and staging gates before rollout.
+
+### What Node.js version does NextRush require?
+
+Node.js **22.0.0 or higher**. NextRush uses modern JavaScript features (ESM, top-level await, native fetch) that require recent Node.js versions.
+
+### Why another Node.js framework?
+
+Different stacks optimize for different defaults: Express stays minimal, NestJS leans on structure and modules, Fastify targets Node.js throughput. NextRush keeps a small core and optional decorators/DI, ships several runtime adapters, and avoids extra runtime dependencies in core packages.
+
+---
+
+## Architecture
+
+### Why zero dependencies?
+
+External dependencies are the largest source of supply chain vulnerabilities and breaking changes. By implementing everything internally, NextRush controls its entire surface area. The only runtime dependencies across the core/adapter/middleware line are `reflect-metadata` (required for decorator-based DI) and, inside `@nextrush/di`, `tsyringe` (the DI container it wraps). See [Package Hierarchy](/docs/architecture/package-hierarchy) for the full dependency chain.
+
+### Why both functional and class-based styles?
+
+Different projects need different levels of structure. A 50-line microservice doesn't need decorators and DI. A large API with 200+ endpoints benefits from controllers, dependency injection, and guards. NextRush lets you start functional and adopt class-based patterns incrementally — both styles work together in the same application.
+
+### How does the package hierarchy work?
+
+NextRush is **35 publishable packages** in the monorepo, organized in a strict dependency chain:
+
+```
+types → errors → core → router → runtime → di → class → adapters → middleware
+```
+
+(`@nextrush/class` consolidates the former `@nextrush/decorators` + `@nextrush/controllers` split and re-exports `@nextrush/di`; both older packages have been removed after serving briefly as deprecated compatibility shims.) Lower packages never import from higher packages. You install only what you need. See [Package Hierarchy](/docs/architecture/package-hierarchy) for the full architecture and the real, current version table on the [Compatibility Matrix](/docs/help/compatibility-matrix).
+
+### What's the difference between middleware, a registrar, and an extension?
+
+**Middleware** (the default, ~99% of capability) processes requests — it runs on every request in the order you register it via `app.use()`. A **registrar** (~0.9%) is a plain function you call once to wire a subsystem, such as `registerControllers`. An **extension** (~0.1%, rare) is a long-lived, app-scoped service with its own boot/teardown lifecycle, registered with `app.extend()` and booted with `app.ready()` — the event bus is the canonical example. See [Middleware](/docs/concepts/middleware) and [Extensions](/docs/concepts/extensions) for the full taxonomy, or the [Glossary](/docs/help/glossary) for short definitions.
+
+---
+
+## Development
+
+### How do I set up hot reload?
+
+Use the `@nextrush/dev` CLI:
+
+```bash
+nextrush dev
+```
+
+This watches for file changes and restarts your server automatically. See the [Dev Tools guide](/docs/guides/dev-tools).
+
+### How do I validate request data?
+
+Use [`@nextrush/validation`](/docs/reference/validation) — it works with any [Standard Schema](https://standardschema.dev) library (Zod, Valibot, ArkType):
+
+```typescript
+import { validate } from '@nextrush/validation';
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+router.post('/users', validate(CreateUserSchema), (ctx) => {
+  ctx.json(ctx.body); // validated + coerced
+});
+```
+
+For class-based controllers, the `@Body({ transform })` decorator works the same way with a schema's `parseAsync`. See the [Validation guide](/docs/guides/validation) for both styles.
+
+### How do I handle errors?
+
+Throw typed error classes from `@nextrush/errors`:
+
+```typescript
+import { NotFoundError } from '@nextrush/errors';
+
+if (!user) throw new NotFoundError('User not found');
+// → 404 { "error": "NotFoundError", "message": "User not found", "code": "NOT_FOUND", "status": 404 }
+```
+
+See the [Error Handling guide](/docs/guides/error-handling) and the [Troubleshooting](/docs/help/troubleshooting) catalog for common error-related gotchas.
+
+### How do I test my NextRush app?
+
+See the [Testing guide](/docs/guides/testing) for integration-test patterns against a running handler chain, and `@nextrush/testing` for the class-runtime test harness (`createTestModule().override().compile()`).
+
+---
+
+## Performance
+
+### How fast is NextRush?
+
+Benchmark numbers are **currently being re-measured** on a clean, CPU-pinned environment with a hardened, parity-validated harness — earlier figures came from single-run sessions on a shared machine and were not reproducible to a publishable standard, so they were withdrawn. There is no current published RPS figure to cite here. See [Performance](/docs/performance) for the methodology, fairness guarantees, and how to run the suite (`apps/benchmark`) yourself for numbers on your own hardware.
+
+### Why might Fastify be faster on some scenarios?
+
+Fastify uses AOT JSON serialization with `fast-json-stringify`, a highly optimized C-level HTTP parser, and compiled JSON Schema validation. NextRush uses native `JSON.stringify` and the standard Node.js parser. Any specific gap is hardware- and scenario-dependent — see [Performance](/docs/performance) for the current, honest methodology rather than a fixed number.
+
+### Does adding middleware slow things down?
+
+NextRush's `compose()` pre-compiles the middleware pipeline, so per-middleware overhead is small relative to routing and I/O — but the exact magnitude is exactly what the benchmark re-measurement in progress will quantify. See [Performance](/docs/performance) for current status and [Performance Tuning](/docs/production/performance-tuning) for production guidance.
+
+---
+
+## Deployment
+
+### Which runtimes does NextRush support?
+
+| Runtime                   | Adapter                    | Package version |
+| -------------------------- | --------------------------- | ---------------- |
+| Node.js 22+                | `@nextrush/adapter-node`    | `3.1.0`           |
+| Bun                         | `@nextrush/adapter-bun`     | `1.0.0`           |
+| Deno                        | `@nextrush/adapter-deno`    | `1.0.0`           |
+| Edge (Cloudflare, Vercel)   | `@nextrush/adapter-edge`    | `1.0.0`           |
+
+See the [Compatibility Matrix](/docs/help/compatibility-matrix) for the full, regularly re-derived package/version table.
+
+### How do I deploy to production?
+
+See the [Deployment guide](/docs/production/deployment) for Node.js, Bun, Deno, Edge, and Docker — including a build-tested Dockerfile.
+
+---
+
+## Migration
+
+### Can I migrate from Express?
+
+Yes. The main changes are:
+
+- Replace `(req, res, next)` with a single `ctx` object
+- Replace `res.json()` with `ctx.json()`
+- Replace `req.params` with `ctx.params`
+- Wrap middleware to use `await ctx.next()` instead of a `next()` callback
+
+See the [Migration guide](/docs/migrate/from-express) for step-by-step instructions.
+
+### Can I use Express middleware with NextRush?
+
+Not directly — Express middleware uses `(req, res, next)` while NextRush uses `(ctx)`. Most middleware can be wrapped in a few lines. Common patterns (CORS, helmet, body-parser, rate-limit) have native NextRush packages that are faster and type-safe.
+
+---
+
+## Community
+
+### How do I contribute?
+
+See the [Contributing guide](/docs/community/contributing). NextRush uses pnpm workspaces with Turborepo. Run `pnpm install` to set up, `pnpm test` to run tests, and `pnpm typecheck` for type checking.
+
+### Where do I report bugs?
+
+Open an issue on [GitHub](https://github.com/0xTanzim/nextRush/issues). Include your Node.js version, NextRush version, and a minimal reproduction. Check [Troubleshooting](/docs/help/troubleshooting) first — your error may already have a documented fix.
+
+### Is there a Discord or community chat?
+
+Community channels are being set up. Follow the [GitHub repository](https://github.com/0xTanzim/nextRush) for announcements.

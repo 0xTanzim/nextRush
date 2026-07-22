@@ -22,9 +22,72 @@ A validated API endpoint that:
 - Familiarity with Zod schemas
 - `@nextrush/body-parser` configured for JSON parsing
 
-<PackageInstall packages={['zod', '@nextrush/body-parser']} />
+<Callout type="info" title="A dedicated validation package exists">
+  `@nextrush/validation` provides a `validate()` middleware built specifically for this task — it
+  validates the body/query/params against any [Standard Schema](https://standardschema.dev)
+  library in one call and reuses NextRush's `ValidationError`. It is not re-exported by `nextrush`
+  or `nextrush/class` — install it directly. Its own test suite integration-tests against Zod
+  only; Valibot and ArkType are structurally compatible (same `~standard` contract) but not
+  exercised by that package's tests. This guide first shows `@nextrush/validation`'s `validate()`,
+  then a hand-rolled pattern for cases needing more control than one middleware call gives you.
+</Callout>
 
-## Step 1 — Validate in Functional Routes
+<PackageInstall packages={['zod', '@nextrush/body-parser', '@nextrush/validation']} />
+
+## Step 0 — Validate with `@nextrush/validation` (recommended)
+
+For most routes, `validate()` is less code than hand-rolling `safeParse` + `ValidationError`
+yourself. It validates and replaces `ctx.body` with the coerced value on success:
+
+```typescript title="src/routes/users.ts"
+import { createApp, listen } from 'nextrush';
+import { json } from '@nextrush/body-parser';
+import { validate } from '@nextrush/validation';
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  email: z.string().email('Invalid email format'),
+  age: z.number().int().min(18, 'Must be at least 18').optional(),
+});
+
+const app = createApp();
+
+app.post('/users', json(), validate(CreateUserSchema), (ctx) => {
+  // ctx.body is now the validated, coerced value — no cast, no second variable
+  ctx.status = 201;
+  ctx.json({ data: ctx.body });
+});
+
+listen(app, 8080);
+```
+
+Validate query and route params together by passing a spec map instead of a bare schema:
+
+```typescript
+import { validate } from '@nextrush/validation';
+
+const PaginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+});
+
+app.get('/users', validate({ query: PaginationSchema }), (ctx) => {
+  // ctx.query is validated but left as strings — @nextrush/validation never
+  // coerces query/params in place, only ctx.body
+  ctx.json({ page: ctx.query.page, limit: ctx.query.limit });
+});
+```
+
+Invalid input never reaches the handler — `validate()` throws the same `ValidationError` this
+guide covers throughout, so it flows into `errorHandler()` exactly like a manually-thrown one. See
+the [`@nextrush/validation` README](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/validation) for the full options reference.
+
+## Step 1 — Hand-Roll Validation in Functional Routes
+
+The rest of this guide covers validating without `@nextrush/validation` — useful when you need
+per-field control `validate()`'s single middleware call doesn't give you, or when composing
+validation into a helper function rather than route-level middleware.
 
 <Steps>
   <Step>
@@ -49,9 +112,8 @@ A validated API endpoint that:
     Use `safeParse` and throw a `ValidationError` on failure:
 
     ```typescript title="src/routes/users.ts"
-    import { createRouter } from '@nextrush/router';
-    import { ValidationError } from '@nextrush/errors';
-    import type { ValidationIssue } from '@nextrush/errors';
+    import { createRouter, ValidationError } from 'nextrush';
+    import type { ValidationIssue } from 'nextrush';
     import { CreateUserSchema } from '../schemas/user.js';
 
     const router = createRouter();
@@ -136,8 +198,8 @@ For functional routes, a helper that converts Zod errors to `ValidationError` re
 
 ```typescript title="src/utils/validate.ts"
 import { z, ZodSchema, ZodError } from 'zod';
-import { ValidationError } from '@nextrush/errors';
-import type { ValidationIssue } from '@nextrush/errors';
+import { ValidationError } from 'nextrush';
+import type { ValidationIssue } from 'nextrush';
 
 export function validate<T>(schema: ZodSchema<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -229,9 +291,9 @@ For routes that need reusable validation without decorators, create validation m
 
 ```typescript title="src/middleware/validate.ts"
 import { ZodSchema } from 'zod';
-import type { Middleware } from '@nextrush/types';
-import { ValidationError } from '@nextrush/errors';
-import type { ValidationIssue } from '@nextrush/errors';
+import type { Middleware } from 'nextrush';
+import { ValidationError } from 'nextrush';
+import type { ValidationIssue } from 'nextrush';
 
 interface ValidationSchemas {
   body?: ZodSchema;
@@ -382,7 +444,7 @@ Test that validation rejects bad input and accepts good input:
 import { describe, it, expect } from 'vitest';
 import { validate } from '../../utils/validate.js';
 import { CreateUserSchema } from '../../schemas/user.js';
-import { ValidationError } from '@nextrush/errors';
+import { ValidationError } from 'nextrush';
 
 describe('CreateUserSchema', () => {
   it('accepts valid input', () => {

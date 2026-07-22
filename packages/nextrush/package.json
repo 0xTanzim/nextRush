@@ -18,11 +18,9 @@
   },
   "files": [
     "dist",
-    "scripts",
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
     "build": "tsup",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
@@ -69,19 +67,29 @@
   ],
   "dependencies": {
     "@nextrush/adapter-node": "workspace:*",
-    "@nextrush/class": "workspace:*",
     "@nextrush/core": "workspace:*",
-    "@nextrush/di": "workspace:*",
     "@nextrush/errors": "workspace:*",
     "@nextrush/router": "workspace:*",
-    "@nextrush/types": "workspace:*",
+    "@nextrush/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nextrush/class": "workspace:*",
+    "@nextrush/di": "workspace:*",
     "reflect-metadata": "^0.2.2"
+  },
+  "peerDependenciesMeta": {
+    "@nextrush/class": { "optional": true },
+    "@nextrush/di": { "optional": true },
+    "reflect-metadata": { "optional": true }
   },
   "devDependencies": {
     "@nextrush/body-parser": "workspace:*",
+    "@nextrush/class": "workspace:*",
     "@nextrush/compression": "workspace:*",
     "@nextrush/cors": "workspace:*",
+    "@nextrush/di": "workspace:*",
     "@nextrush/helmet": "workspace:*",
+    "reflect-metadata": "^0.2.2",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"

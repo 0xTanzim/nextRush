@@ -24,6 +24,7 @@ export type {
   Constructor,
   ControllerMetadata,
   ControllerOptions,
+  ControllerRouteMetadata,
   CustomParamExtractor,
   ExceptionFilter,
   ExceptionFilterClass,
@@ -43,11 +44,14 @@ export type {
   QueryOptions,
   RedirectMetadata,
   ResponseHeaderMetadata,
-  RouteMetadata,
   RouteMethods,
   RouteOptions,
   TransformFn,
 } from './types.js';
+// Re-exporting the deprecated alias itself (for the one-minor backward-compat window) is not a
+// violation of the deprecation — the rule should only fire on NEW consumers of the old name.
+// eslint-disable-next-line @typescript-eslint/no-deprecated
+export type { RouteMetadata } from './types.js';
 
 export {
   DECORATOR_METADATA_KEYS,

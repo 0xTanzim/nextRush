@@ -9,14 +9,23 @@ Security is layered. Each middleware adds one defense. Together they protect you
 
 <Mermaid
   chart={`
-flowchart LR
-    Request[Request] --> RL[Rate Limit]
-    RL --> Helmet[Helmet]
-    Helmet --> CORS[CORS]
-    CORS --> Body[Body Parser]
-    Body --> Validation[Validation]
-    Validation --> Auth[Auth Guard]
-    Auth --> Handler[Route Handler]
+sequenceDiagram
+    participant C as Client
+    participant RL as Rate Limit
+    participant H as Helmet
+    participant CO as CORS
+    participant B as Body Parser
+    participant V as Validation
+    participant A as Auth Guard
+    participant Han as Route Handler
+    C->>RL: Request
+    RL->>H: within limit
+    H->>CO: headers set
+    CO->>B: origin allowed
+    B->>V: body parsed
+    V->>A: schema valid
+    A->>Han: authorized
+    Han-->>C: Response
 `}
 />
 
@@ -127,7 +136,7 @@ app.use(
 );
 ```
 
-See [Helmet API Reference](/docs/reference/middleware/helmet) for all options.
+See [Helmet API Reference](/docs/reference/helmet) for all options.
 
 ---
 
@@ -155,7 +164,7 @@ app.use(
   using cookies or auth headers.
 </Callout>
 
-See [CORS API Reference](/docs/reference/middleware/cors) for all options.
+See [CORS API Reference](/docs/reference/cors) for all options.
 
 ---
 
@@ -171,7 +180,7 @@ const { protect } = csrf({ secret: process.env.CSRF_SECRET! }); // min 32 charac
 app.use(protect);
 ```
 
-See [CSRF API Reference](/docs/reference/middleware/csrf) for the full token lifecycle, session binding, and origin-check options.
+See [CSRF API Reference](/docs/reference/csrf) for the full token lifecycle, session binding, and origin-check options.
 
 ---
 
@@ -181,7 +190,7 @@ Never trust client data. Validate at the boundary.
 
 ### Functional Style
 
-The recommended approach is [`@nextrush/validation`](/docs/reference/middleware/validation) — it validates against any Standard Schema library and produces a consistent, secure error shape without hand-written conversion code:
+The recommended approach is [`@nextrush/validation`](/docs/reference/validation) — it validates against any Standard Schema library and produces a consistent, secure error shape without hand-written conversion code:
 
 ```typescript
 import { validate } from '@nextrush/validation';
@@ -204,8 +213,8 @@ For validation logic that needs finer control than `validate()` provides — for
 
 ```typescript
 import { z } from 'zod';
-import { ValidationError } from '@nextrush/errors';
-import type { ValidationIssue } from '@nextrush/errors';
+import { ValidationError } from 'nextrush';
+import type { ValidationIssue } from 'nextrush';
 
 const CreateUserSchema = z.object({
   name: z.string().min(1).max(100),
@@ -259,8 +268,8 @@ See the [Validation guide](/docs/guides/validation) for complete patterns.
 Use guards for route-level access control.
 
 ```typescript
-import type { Context, Middleware } from '@nextrush/types';
-import { UnauthorizedError, ForbiddenError } from '@nextrush/errors';
+import type { Context, Middleware } from 'nextrush';
+import { UnauthorizedError, ForbiddenError } from 'nextrush';
 
 // Auth middleware — runs on every request
 app.use(async (ctx) => {
@@ -376,7 +385,7 @@ uploadRouter.post('/document', bodyParser({ limit: '50mb' }), handleUpload);
   <Card title="Authentication" href="/docs/guides/authentication">
     Full JWT auth implementation with guards and RBAC.
   </Card>
-  <Card title="Deployment" href="/docs/guides/deployment">
+  <Card title="Deployment" href="/docs/production/deployment">
     Production deployment checklist and platform guides.
   </Card>
 </Cards>

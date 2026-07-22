@@ -19,6 +19,7 @@ import {
   runNDJSONStream,
   runSSEStream,
   runTextStream,
+  StreamAbortedError,
 } from '@nextrush/stream';
 import type {
     AdapterContext,
@@ -72,6 +73,56 @@ const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(null)) as QueryPara
 
 /** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
 const RESOLVED_NEXT: Promise<void> = Promise.resolve();
+
+/**
+ * Wait for `res` to drain, settling early if the response socket disconnects
+ * first (F-01 / design.md D5).
+ *
+ * @remarks
+ * `res.once('drain', ...)` alone never fires once the underlying socket is
+ * destroyed — a byte pump parked on it after a backpressured `res.write()`
+ * returns `false` hangs forever, so a disconnect during backpressure never
+ * settles the streaming handler's promise (no `finally` runs, no cleanup).
+ * This races the drain wait against `res` `'close'`/`'error'`, exactly the
+ * `settled`-guarded pattern already proven in
+ * `packages/middleware/static/src/send-file.ts`'s `streamToResponse`, adapted
+ * here as a small internal helper shared by both Node byte-pump call sites
+ * (`sendStream()` and the Web-`ReadableStream` branch of `send()`) instead of
+ * duplicated inline. Rejects with {@link StreamAbortedError} on disconnect so
+ * callers unwind through the same path as any other stream-abort — no new
+ * error type, no `@nextrush/stream` API change.
+ */
+function waitForDrainOrDisconnect(res: ServerResponse): Promise<void> {
+  if (!res.writableNeedDrain && !res.destroyed) {
+    // Already drained (or never actually needed to wait) — the common case
+    // when this is called defensively; avoids a listener round-trip.
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const onDrain = (): void => {
+      settle(resolve);
+    };
+    const onDisconnect = (): void => {
+      settle(() => {
+        reject(new StreamAbortedError());
+      });
+    };
+
+    function settle(fn: () => void): void {
+      if (settled) return;
+      settled = true;
+      res.off('drain', onDrain);
+      res.off('close', onDisconnect);
+      res.off('error', onDisconnect);
+      fn();
+    }
+
+    res.once('drain', onDrain);
+    res.once('close', onDisconnect);
+    res.once('error', onDisconnect);
+  });
+}
 
 /**
  * Node.js Context implementation
@@ -365,11 +416,17 @@ export class NodeContext implements AdapterContext {
             return;
           }
           if (!res.write(value)) {
-            await new Promise<void>((resolve) => res.once('drain', resolve));
+            await waitForDrainOrDisconnect(res);
           }
         }
       };
       pump().catch((err: unknown) => {
+        if (err instanceof StreamAbortedError) {
+          // Client disconnected while backpressured — expected, no response
+          // to salvage; the `res.on('close')` cleanup above already cancelled
+          // the reader.
+          return;
+        }
         if (!res.headersSent) {
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
@@ -442,9 +499,35 @@ export class NodeContext implements AdapterContext {
         if (!controller.signal.aborted) controller.abort();
       };
       this._res.on('close', abort);
-      this._req.on('aborted', abort);
+      // F-10: `req 'aborted'` is deprecated (Node 16+) in favor of `req 'close'`
+      // combined with `req.destroyed`/`req.aborted` state — a request stream
+      // that closes without having fully completed is the client-disconnect
+      // signal `'aborted'` used to carry, without relying on the deprecated event.
+      this._req.on('close', () => {
+        if (this._req.destroyed || !this._req.complete) abort();
+      });
     }
     return this._abortController.signal;
+  }
+
+  /**
+   * Abort the in-flight request via `ctx.signal` (F-04).
+   *
+   * @remarks
+   * Mirrors the Web adapters' `triggerTimeout` so a handler-level timeout race
+   * can cooperatively cancel a still-running Node handler. Reads `ctx.signal`
+   * first to ensure the (lazily-created) `AbortController` exists, then aborts
+   * it directly — the client-disconnect listeners wired by the `signal` getter
+   * are unaffected (they no-op once already aborted).
+   *
+   * @internal
+   */
+  triggerTimeout(reason?: unknown): void {
+    void this.signal; // ensure _abortController is materialized
+    if (!this._abortController) return; // unreachable after the line above; type-narrowing guard
+    if (!this._abortController.signal.aborted) {
+      this._abortController.abort(reason ?? new Error('Request timeout'));
+    }
   }
 
   /**
@@ -472,11 +555,18 @@ export class NodeContext implements AdapterContext {
             return;
           }
           if (!res.write(value)) {
-            await new Promise<void>((r) => res.once('drain', r));
+            await waitForDrainOrDisconnect(res);
           }
         }
       };
       pump().then(resolve, (err: unknown) => {
+        if (err instanceof StreamAbortedError) {
+          // Client disconnected while backpressured (F-01) — the reader was
+          // already cancelled by the `res.on('close')` handler above; settle
+          // cleanly instead of tearing down an already-gone response.
+          resolve();
+          return;
+        }
         if (!res.headersSent) {
           res.statusCode = 500;
           res.end();

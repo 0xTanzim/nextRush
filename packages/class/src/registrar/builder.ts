@@ -8,8 +8,8 @@
 
 import type {
   ControllerMetadata,
+  ControllerRouteMetadata,
   MiddlewareRef,
-  RouteMetadata,
 } from '../types.js';
 import type { ControllerDefinition } from '../metadata/metadata.js';
 import type { Container } from '@nextrush/di';
@@ -100,7 +100,7 @@ export function buildRoutes(
  */
 function toRouteMetaContribution(
   controller: ControllerMetadata,
-  route: RouteMetadata
+  route: ControllerRouteMetadata
 ): MetadataContribution | undefined {
   const contribution: {
     description?: string;

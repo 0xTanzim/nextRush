@@ -86,6 +86,7 @@ describe('Public API surface (runtime exports)', () => {
 
       // Request signal
       'combineAbortSignal',
+      'deriveDeadlineSignal',
 
       // Server startup errors
       'normalizeStartupError',
@@ -94,12 +95,17 @@ describe('Public API surface (runtime exports)', () => {
       // Web response builder
       'assertHeaderSafe',
       'isBodylessResponse',
+      'jsonErrorResponse',
       'WebResponseBuilder',
+
+      // Shared Web Context base (F-08, ADR-0010)
+      'WebContextBase',
 
       // Body source
       'AbstractBodySource',
       'BodyConsumedError',
       'BodyTooLargeError',
+      'RequestAbortedError',
       'DEFAULT_BODY_LIMIT',
       'EmptyBodySource',
       'WebBodySource',

@@ -1,280 +1,236 @@
 ---
 title: Request Lifecycle
-description: Follow a request through NextRush from arrival to response — understanding the complete execution flow.
+description: Follow one request through NextRush — adapter, context, the middleware onion, the router, your handler, and back out — so you always know where a concern belongs.
 ---
 
-import { Mermaid } from '@/components/mdx';
+A request arrives as bytes on a socket and leaves as bytes on a socket. Everything your application does happens in the space between those two moments. When that space is a mystery — why is `ctx.body` empty, why did auth not run, why does a header set after `ctx.next()` behave differently — every bug turns into a hunt through unfamiliar territory. Learn the path once and you always know where to look.
 
-Understanding how requests flow through NextRush helps you write better middleware and debug issues faster.
+## What you'll learn
 
-## The Complete Flow
+- **Understand** the ordered stages a request passes through, from the adapter to your handler and back
+- **Recognize** that the router is itself a middleware, not a separate phase bolted onto the pipeline
+- **Explain** why work registered after the router never runs, and why a body parser must run before the handler
+- **Choose** which stage a concern belongs in — middleware, handler, or the error boundary
 
-Every HTTP request passes through a small number of stages. The router is itself a middleware in the stack — not a separate layer — and it runs last, after every other middleware has had a chance to run.
+## The problem
 
-<Mermaid chart={`
+The tempting mental model is that a request "hits my handler." That picture is missing most of the story:
+
+```text
+Reality, when the simple picture breaks down:
+
+  request → ??? → handler → ??? → response
+             │                │
+             │                └─ who set Content-Length? who serialized my object?
+             └─ where did ctx.body get parsed? did auth run? in what order?
+```
+
+Everything in those `???` gaps — parsing, authentication, logging, route matching, response serialization — happens around your handler, and it is invisible if you only think in terms of the handler. So when the body is empty, or a guard never fired, or two responses collided, you have no map that tells you which stage to inspect. Guessing scales badly: the more middleware and routes you add, the more places a problem could be hiding.
+
+## Why this matters
+
+This path runs on every single request your server ever handles — it is the hottest code in your application. A concern placed in the wrong stage doesn't merely read awkwardly; it can silently fail. Auth registered after the router protects nothing. A response method called after the pipeline already responded throws. Because the cost of a misplaced stage is a security hole or a production error rather than a compile error, holding an accurate model of the lifecycle is what keeps those mistakes from ever reaching a review.
+
+## The solution
+
+NextRush runs every request through **one composed pipeline of async middleware**, and the router is the last middleware in it. There is no separate lifecycle-hook system, no per-plugin phase collection — a single onion of middleware wraps your handler, and an error boundary wraps the whole onion. The adapter builds a [Context](/docs/concepts/context) at the front, the composed pipeline runs, and the adapter serializes the response at the back. That is the entire journey.
+
+## Core idea
+
+Think of the lifecycle as **one request travelling inward through a stack of layers to reach your handler, then travelling back out through the same layers in reverse**. The adapter is the doorway on both sides: it translates the platform's native request into `ctx` on the way in, and `ctx` back into a native response on the way out. Between those doorways sits the [middleware onion](/docs/concepts/middleware) — and the [router](/docs/concepts/routing) is its innermost layer, the one that finally chooses and runs your handler.
+
+## Mental model
+
+<Mermaid chart="
 sequenceDiagram
-    participant Client
+    actor Client
     participant Adapter
-    participant Middleware
+    participant ctx as Context (ctx)
+    participant MW as Middleware onion
+    participant Router
     participant Handler
+    Client->>Adapter: HTTP request (bytes)
+    Adapter->>ctx: build one ctx from the raw request
+    activate ctx
+    Adapter->>MW: run composed pipeline(ctx)
+    activate MW
+    Note over MW: before await ctx.next() — registration order
+    MW->>Router: await ctx.next()
+    activate Router
+    Router->>Router: match ctx.method + ctx.path
+    Router->>Handler: set ctx.params, run matched handler
+    activate Handler
+    Handler->>ctx: ctx.json(data)
+    Handler-->>Router: return
+    deactivate Handler
+    Router-->>MW: return
+    deactivate Router
+    Note over MW: after await ctx.next() — reverse order
+    MW-->>Adapter: pipeline settles
+    deactivate MW
+    ctx-->>Adapter: status + headers + body
+    Adapter-->>Client: HTTP response (bytes)
+    deactivate ctx
+" />
 
-    Client->>Adapter: HTTP Request
-    Adapter->>Adapter: Create Context
-    Adapter->>Middleware: ctx
+Don't count the arrows — notice the stacked activation bars. The middleware layer stays alive across the entire request because it is the outermost thing running, the router lives inside it, and the handler is deepest. The router isn't a stage after the middleware; it *is* the innermost middleware, which is why anything registered after it never gets a turn.
 
-    loop Middleware chain (includes router)
-        Middleware->>Middleware: before next()
-        Middleware->>Middleware: await next()
-    end
+## Quick example
 
-    Middleware->>Handler: ctx with params
-    Handler-->>Middleware: Response
+The smallest app that makes the round trip visible: one middleware brackets the request, and one handler sits at the bottom of the onion.
 
-    loop Middleware unwind (reverse)
-        Middleware->>Middleware: after next()
-    end
+```ts title="app.ts"
+import { createApp, createRouter, listen } from 'nextrush';
 
-    Middleware-->>Adapter: done
-    Adapter-->>Client: HTTP Response
+const app = createApp();
 
-`} />
-
-## Stage by Stage
-
-<Steps>
-<Step>
-### Adapter Creates Context
-
-The adapter receives the raw HTTP request and creates a `Context` object. In the Node.js adapter, this happens inside `createHandler`:
-
-```ts
-// Simplified from @nextrush/adapter-node
-const handler = app.callback();
-
-return (req, res) => {
-  const ctx = createNodeContext(req, res, { trustProxy });
-
-  handler(ctx).then(
-    () => {
-      // Ensure response is sent if handler didn't respond
-      if (!ctx.responded && !res.headersSent) {
-        res.statusCode = ctx.status === 404 ? 404 : ctx.status;
-        res.end();
-      }
-    },
-    (error) => {
-      // Last-resort error handling
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.end(JSON.stringify({ error: 'Internal Server Error' }));
-      }
-    }
-  );
-};
-```
-
-The `Context` object wraps the raw request and response. It parses the URL, method, headers, query string, and client IP at construction time.
-
-Request properties are read-only and available immediately:
-
-```ts
-ctx.method; // 'GET', 'POST', etc.
-ctx.url; // '/users/123?page=1'
-ctx.path; // '/users/123'
-ctx.query; // { page: '1' }
-ctx.headers; // { 'content-type': 'application/json', ... }
-ctx.ip; // Client IP (respects trustProxy option)
-```
-
-Mutable state is populated by middleware and the router during the request lifecycle:
-
-```ts
-ctx.status; // Initially 200
-ctx.body; // Request body — undefined until body-parser middleware runs
-ctx.params; // Route params — empty until router sets them
-ctx.state; // {} — shared state bag for middleware
-```
-
-Response methods send data back to the client:
-
-```ts
-ctx.json(data); // Send JSON response
-ctx.send(data); // Send text, buffer, or stream
-ctx.html(str); // Send HTML
-ctx.redirect(url); // Redirect (302 by default)
-ctx.set(k, v); // Set response header
-```
-
-</Step>
-
-<Step>
-### Middleware Chain Executes
-
-`app.callback()` builds a single request handler by composing the middleware stack with `compose()`. There is nothing else wrapping the chain — no per-plugin hook collection, no lifecycle events outside the middleware model itself. Any long-lived service that needs to touch every request (an [Extension](/docs/concepts/plugins)) does so by registering ordinary middleware inside its own `setup()`, before `app.ready()` freezes configuration.
-
-Each middleware receives `(ctx, next)` and can run code before and after calling `next()`.
-
-```ts
+// Outermost layer: runs first on the way in, last on the way out.
 app.use(async (ctx) => {
-  const start = Date.now(); // BEFORE
-  await ctx.next(); // Continue to next middleware
-  const ms = Date.now() - start; // AFTER (all downstream complete)
-  ctx.set('X-Response-Time', `${ms}ms`);
+  const start = Date.now();
+  await ctx.next();                                       // hand control down the pipeline
+  ctx.set('X-Response-Time', `${Date.now() - start}ms`);  // runs after the handler responds
 });
-```
 
-Middleware executes like an onion — each layer wraps the next:
-
-```
-Request enters →
-  ┌───────────────────────────────────────┐
-  │  Middleware 1 (before)                │
-  │  ┌───────────────────────────────┐    │
-  │  │  Middleware 2 (before)        │    │
-  │  │  ┌───────────────────────┐    │    │
-  │  │  │  Router middleware    │    │    │
-  │  │  │  ┌─────────────────┐  │    │    │
-  │  │  │  │    Handler      │  │    │    │
-  │  │  │  └─────────────────┘  │    │    │
-  │  │  │  (router returns)     │    │    │
-  │  │  └───────────────────────┘    │    │
-  │  │  Middleware 2 (after)         │    │
-  │  └───────────────────────────────┘    │
-  │  Middleware 1 (after)                 │
-  └───────────────────────────────────────┘
-                            ← Response exits
-```
-
-<Callout type="warn">
-  Calling `next()` more than once in a single middleware throws an error. The `compose()` function
-  tracks dispatch index per request and rejects duplicate calls.
-</Callout>
-
-</Step>
-
-<Step>
-### Router Matches the Route
-
-The app-owned router is mounted as the **last** middleware in the stack — `app.ready()` pushes it on after every extension has registered its own middleware, so the router always sees a fully-assembled `ctx` by the time it runs. When it executes, it matches the request path against registered routes using a two-tier strategy:
-
-1. **Static routes** — O(1) hash map lookup (`"GET /users"` → handler)
-2. **Dynamic routes** — O(k) segment trie traversal, where k is the number of path segments
-
-```ts
 const router = createRouter();
-
-router.get('/users', listUsers); // Static: O(1) lookup
-router.get('/users/:id', getUser); // Dynamic: trie traversal
-router.get('/files/*', serveFile); // Wildcard: catches rest
+router.get('/users/:id', (ctx) => {
+  ctx.json({ id: ctx.params.id }); // the handler, reached last, builds the response
+});
 
 app.route('/', router);
+listen(app, 8080);
 ```
 
-When a route matches, the router sets `ctx.params` and calls the pre-compiled handler executor. When no route matches, it sets `ctx.status = 404` and calls `next()` to let downstream middleware handle it.
+The timing header is set *after* `await ctx.next()`, which is only possible because the middleware wraps everything downstream — including the router and handler — and finishes last.
 
-```ts
-// GET /users/123 matches router.get('/users/:id', getUser)
-// ctx.params → { id: '123' }
-```
+## How it works
 
-When you mount a router with a prefix via `app.route('/api', router)`, the prefix is stripped from `ctx.path` before the router sees it, then restored after.
+**Example** — trace the order by logging on both sides of `ctx.next()`:
 
-</Step>
+```ts title="lifecycle-trace.ts"
+import { createApp, createRouter, listen } from 'nextrush';
 
-<Step>
-### Handler Runs
+const app = createApp();
 
-The matched handler runs with the populated context:
-
-```ts
-async function getUser(ctx) {
-  const { id } = ctx.params;
-  const user = await db.users.findById(id);
-
-  if (!user) {
-    ctx.status = 404;
-    ctx.json({ error: 'User not found' });
-    return;
-  }
-
-  ctx.json(user);
-}
-```
-
-For class-based controllers (registered via `registerControllers()` from `nextrush/class`), the handler building pipeline adds steps before calling your method:
-
-1. Execute guards (class-level, then method-level)
-2. Resolve controller instance from the app's DI container
-3. Extract parameters using decorators (`@Body`, `@Param`, etc.)
-4. Call the controller method
-5. Serialize the return value as JSON
-
-</Step>
-
-<Step>
-### Response Finalization
-
-After the handler completes and the middleware chain unwinds, the adapter ensures a response is sent. If your handler or middleware already called a response method (`ctx.json()`, `ctx.send()`, etc.), the context is marked as responded and no further action is taken.
-
-If nothing responded, the adapter sends a fallback:
-
-- **Status 404**: sends `{ "error": "Not Found" }`
-- **Other status**: ends the response with the current `ctx.status`
-
-</Step>
-</Steps>
-
-## Error Handling
-
-Errors thrown at any stage are caught by `app.callback()`. There's a single error path: your custom handler (if set via `setErrorHandler`) runs, and if none is set — or it throws — the default handler responds.
-
-```ts
-// Set a custom error handler
-app.setErrorHandler((error, ctx) => {
-  if ('status' in error && typeof error.status === 'number') {
-    ctx.status = error.status;
-    ctx.json({ error: error.message });
-  } else {
-    ctx.status = 500;
-    ctx.json({ error: 'Internal Server Error' });
-  }
+app.use(async (ctx) => {
+  console.log(`→ ${ctx.method} ${ctx.path}`); // in: middleware, before next()
+  await ctx.next();                            // in: router matches, handler runs
+  console.log(`← ${ctx.status}`);              // out: response built, after next()
 });
+
+const router = createRouter();
+router.get('/hello', (ctx) => ctx.json({ ok: true }));
+app.route('/', router);
+
+listen(app, 8080);
+// GET /hello logs:  → GET /hello   then   ← 200
 ```
 
-You can throw errors from anywhere in the middleware chain:
+**Observation** — the `→` line runs before the handler and the `←` line runs after, from the *same* function. Nothing about the handler had to change for the middleware to bracket it.
 
-```ts
-// HTTP error with status
-ctx.throw(404, 'User not found');
+**Explanation** — five things happen in order, and each maps to a participant in the diagram:
 
-// Error classes from nextrush
-import { NotFoundError } from 'nextrush';
-throw new NotFoundError('User not found');
+1. **The adapter builds the context.** The platform hands the adapter a native request; the adapter constructs one `ctx`, parsing method, path, query, headers, and client IP up front. How that construction differs per runtime is the [adapter's job](/docs/architecture/adapters) — your code sees the same `ctx` everywhere.
+2. **The composed pipeline runs.** `createApp` folds every registered middleware into a single function with `compose()`. Each layer runs its "before" code, calls `ctx.next()`, and — after everything downstream settles — runs its "after" code. That inversion is the [onion model](/docs/concepts/middleware).
+3. **The router matches, as the innermost middleware.** When you register routes with `app.get()` / `app.post()`, the app-owned router is mounted *last*, so it sees a fully assembled `ctx`. On a match it sets `ctx.params` and runs your handler; on a miss it sets `ctx.status = 404` and calls `next()`. The matching strategy — static lookup then segment-trie traversal — lives in the [routing concept](/docs/concepts/routing).
+4. **The handler produces the response.** It reads `ctx.params` / `ctx.body` and sends through `ctx.json()`, `ctx.send()`, or `ctx.html()`. The full `ctx` surface is the [Context concept](/docs/concepts/context) — a lifecycle page teaches *when* each part is ready, not every member.
+5. **The adapter writes the response.** After the onion unwinds, the adapter serializes `ctx` back into a native response. If nothing in the pipeline responded, it sends a fallback: `{ "error": "Not Found" }` for a 404, otherwise an empty body with the current `ctx.status`.
 
-// Plain errors become 500
-throw new Error('Database connection failed');
+Any error thrown at any stage skips the rest and lands in one place — the boundary `callback()` wraps around the whole pipeline:
+
+```ts title="error-stage.ts"
+import { createApp, createRouter, listen, NotFoundError } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/users/:id', (ctx) => {
+  // Thrown from a handler or any middleware — the app's error boundary catches it.
+  throw new NotFoundError(`No user ${ctx.params.id}`);
+});
+
+app.route('/', router);
+listen(app, 8080);
 ```
+
+There is a single error path: your custom handler if you set one, otherwise the built-in handler that maps the [error](/docs/concepts/errors) to a safe response. The internals of how `compose()` dispatches the stack belong to the [middleware internals](/docs/architecture/middleware-internals) — a concept page teaches the model, not the machinery.
+
+## Typical use cases
+
+Knowing the stages is mostly useful for putting a concern in the right one — and for narrowing down where a bug lives:
+
+- **Empty `ctx.body`?** The body is parsed by a body-parser middleware, which must run *before* the handler. No parser registered means `ctx.body` is `undefined` when the handler reads it.
+- **A guard that never fires?** A security layer only guards what runs inside it. Registered after the router, it sits outside the handler entirely.
+- **A header that "won't set"?** Setting a header after the response has already been sent is too late — check whether an earlier stage responded first.
+- **A generic 500 in production?** The error boundary caught a throw and returned a safe response. Look at the stage that threw, not the response.
+
+## Performance
+
+- **Complexity** — context creation is O(1) (one allocation plus URL parsing); the pipeline is O(n) in the number of middleware it passes through; static route matches are O(1) and dynamic ones O(k) in the number of path segments. Route count does not enter the cost.
+- **Memory** — one `ctx` is allocated per request and passed by reference through every layer; it is never deep-cloned. The composed pipeline function is built once at startup and shared across all requests.
+- **Scaling** — the per-request cost grows with the *length* of the middleware chain, so keep hot-path layers lean and capture configuration at startup rather than per request. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before optimizing.
+
+## Security
+
+The lifecycle's ordering is a security boundary, and its edges are where untrusted data enters and where internal detail can leak out.
+
+- **Middleware order.** *Threat:* authentication, CORS, or rate-limiting registered after the router never runs before a handler. *Why:* the router is the innermost middleware, so anything after it is outside the layers that reach your code. *Safe default:* register security middleware before your routes and the app-owned router. *Avoid:* adding a guard after the route it is meant to protect.
+- **Untrusted input at construction.** *Threat:* `ctx.body`, `ctx.query`, `ctx.params`, and `ctx.headers` arrive attacker-controlled. *Why:* the adapter transports request data into `ctx` but never validates it. *Safe default:* validate type, range, length, and format before use. *Avoid:* passing raw request data into a query, file path, or redirect.
+- **Error leakage at the boundary.** *Threat:* a custom error handler echoes `err.message` or `err.stack` to the client. *Why:* raw error objects expose internal paths and structure. *Safe default:* the built-in handler returns a generic message in production; keep that behavior in any custom handler. *Avoid:* returning internal error detail from the error stage in production.
 
 <Callout type="warn">
-  In production, the default error handler returns a generic "Internal Server Error" to avoid
-  leaking internal details. Set a custom error handler to control error responses.
+In production the built-in error handler returns a generic response on purpose, so internal paths and stack traces never reach the client. If you replace it with a custom error handler, preserve that — do not send `err.message` or `err.stack` to clients.
 </Callout>
 
-## Performance Characteristics
+## Trade-offs
 
-| Stage                | Complexity | Notes                            |
-| -------------------- | ---------- | --------------------------------- |
-| Context creation     | O(1)       | Object allocation + URL parsing  |
-| Middleware execution | O(n)       | n = number of middleware          |
-| Static route match   | O(1)       | Hash map lookup                   |
-| Dynamic route match  | O(k)       | k = number of path segments       |
-| JSON serialization   | O(s)       | s = response data size            |
+**Why one pipeline with the router as its last layer** — it optimizes for a single model to learn: everything that touches a request is middleware, and one error boundary wraps them all.
 
-## Next Steps
+- **Benefits** — one mental model instead of a catalogue of lifecycle hooks; a single place to catch every error; predictable, order-driven behavior; the same journey on every runtime because only the adapter edges differ.
+- **Costs** — registration order becomes load-bearing, since "the router runs last" means a concern placed after it is dead code; the inward-then-outward onion takes a moment to internalize.
+- **Alternatives** — a framework with named per-phase hooks (before-route, after-handler, and so on) makes each phase explicit but multiplies the concepts you must learn and the places behavior can hide.
+- **Why NextRush chose this** — fewer moving parts. Composing one middleware stack and mounting the router within it means there is exactly one ordering rule to understand, and it composes cleanly across Node, Bun, Deno, and edge runtimes.
 
-Now that you understand the request lifecycle:
+## Decision guide
 
-- Learn how [middleware composition](/docs/internals/middleware-internals) works in detail
-- See how NextRush achieves [runtime compatibility](/docs/concepts/runtime-compatibility)
-- Explore the [package hierarchy](/docs/internals/package-hierarchy)
-- Learn about [extending NextRush](/docs/concepts/plugins) with middleware, registrars, and extensions
+**Put a concern in middleware when:**
+- ✓ It spans many routes — auth, logging, timing, CORS, body parsing
+- ✓ It needs to act both before the handler and after the response is produced
+
+**Put it in the handler when:**
+- ✓ It is specific to one route and produces that route's response
+
+**Put it in the error boundary when:**
+- ✓ It shapes how failures become responses across the whole app — set it once with `setErrorHandler`, don't repeat error formatting in every handler
+
+## Common mistakes
+
+- **Registering auth or a guard after the routes.** *Why it happens:* middleware is added in the order features are built, not the order they must run. *Correct approach:* register outer concerns before your routes so they wrap the handler. *If ignored:* the guard sits outside the router and never runs for the routes it was meant to protect — a silent security hole.
+- **Reading `ctx.body` with no body parser.** *Why it happens:* `ctx.body` looks like it is always populated. *Correct approach:* add a body-parser middleware before the handler. *If ignored:* `ctx.body` is `undefined` and the handler treats a real payload as empty.
+- **Forgetting `await` on `ctx.next()`.** *Why it happens:* `next()` returns a promise that is quick to overlook. *Correct approach:* always `await ctx.next()` when code must run after downstream finishes. *If ignored:* the "after" half runs before the response is ready, and the request can settle out from under you.
+- **Sending two responses.** *Why it happens:* two stages each call a send method on the same `ctx`. *Correct approach:* respond exactly once per request. *If ignored:* the second call errors or is discarded depending on where it runs.
+
+## Key takeaways
+
+- Every request follows one path: adapter builds `ctx` → middleware onion runs → router matches → handler responds → adapter writes the response.
+- The router is the innermost middleware, mounted last — anything registered after it never runs.
+- Middleware brackets the handler: "before" code runs in registration order, "after" code runs in reverse.
+- `ctx.body` is populated by a body-parser middleware that must run before the handler; it is `undefined` otherwise.
+- Errors thrown at any stage land in a single boundary, which returns a safe, generic response in production.
+- Where a concern belongs — middleware, handler, or error boundary — follows directly from where it needs to run in this path.
+
+## Continue learning
+
+<Cards>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    The onion model in depth — the layers the request travels through to reach your handler.
+  </Card>
+  <Card title="Write custom middleware" href="/docs/guides/custom-middleware">
+    Put a stage to work — read input, share state, and bracket the request in your own middleware.
+  </Card>
+  <Card title="@nextrush/core reference" href="/docs/reference">
+    The Application, compose(), and Context surface — signatures and options.
+  </Card>
+  <Card title="Adapters" href="/docs/architecture/adapters">
+    How each runtime's adapter builds ctx at the front of the path and serializes it back at the end.
+  </Card>
+</Cards>

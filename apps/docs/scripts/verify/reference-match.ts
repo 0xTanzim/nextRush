@@ -18,19 +18,20 @@
  * Closing that gap is exactly what T4 (fumadocs-typescript pilot) replaces
  * this stub with.
  *
- * Package inference from file path (post T6/T12 IA rename — the reference
- * tree lives at `reference/`, not the old `api-reference/`):
- *   reference/middleware/cors.mdx     -> @nextrush/cors
+ * Package inference from file path (post B3 IA flattening — the reference
+ * tree is flat at `reference/*.mdx`, with only `class/` and `platforms/` kept
+ * as subfolders; see the docs-v4-rebuild wave-b3 mapping table):
+ *   reference/cors.mdx                -> @nextrush/cors
  *   reference/class/di.mdx            -> @nextrush/di
  *   reference/class/decorators.mdx    -> @nextrush/class (former shim, removed)
  *   reference/class/controllers.mdx   -> @nextrush/class (former shim, removed)
- *   reference/plugins/websocket.mdx   -> @nextrush/websocket
- *   reference/adapters/node.mdx       -> @nextrush/adapter-node
- *   reference/core/core.mdx           -> @nextrush/core
- *   reference/core/nextrush.mdx       -> nextrush (bare meta-package)
- *   reference/core/dev.mdx            -> @nextrush/dev
- * `index.mdx` pages (catalog/overview pages, not a single package) are
- * skipped — they have no 1:1 package to check against.
+ *   reference/websocket.mdx           -> @nextrush/websocket
+ *   reference/platforms/node.mdx      -> @nextrush/adapter-node
+ *   reference/core.mdx                -> @nextrush/core
+ *   reference/nextrush.mdx            -> nextrush (bare meta-package)
+ *   reference/dev.mdx                 -> @nextrush/dev
+ * `index.mdx` and `packages.mdx` pages (catalog/index pages, not a single
+ * package) are skipped — they have no 1:1 package to check against.
  */
 
 import { readFileSync } from 'node:fs';
@@ -50,16 +51,23 @@ const SIGNATURE_RE = /^(?:export\s+)?(?:declare\s+)?function\s+([A-Za-z_$][\w$]*
 
 /** Infer the npm package name a given reference/**\/*.mdx file documents. */
 function inferPackageName(relativePath: string): string | null {
-  const match = relativePath.match(/^reference\/([^/]+)\/([^/]+)\.mdx$/);
-  if (!match) return null;
-  const [, , fileSlug] = match;
+  // Two shapes post B3 flattening: a flat page (`reference/foo.mdx`) or a
+  // page still nested one level under the two folders explicitly kept
+  // (`reference/class/*.mdx`, `reference/platforms/*.mdx`).
+  const nestedMatch = relativePath.match(/^reference\/([^/]+)\/([^/]+)\.mdx$/);
+  const flatMatch = relativePath.match(/^reference\/([^/]+)\.mdx$/);
+  if (!nestedMatch && !flatMatch) return null;
+
+  const dirSlug = nestedMatch?.[1] ?? null;
+  const fileSlug = nestedMatch ? nestedMatch[2] : flatMatch![1];
 
   if (fileSlug === 'index') return null; // catalog page, not a single package
+  if (dirSlug === null && fileSlug === 'packages') return null; // A-Z index page
 
   if (fileSlug === 'nextrush') return 'nextrush';
 
-  const dirSlug = match[1];
-  if (dirSlug === 'adapters') return `@nextrush/adapter-${fileSlug}`;
+  if (dirSlug === 'platforms') return `@nextrush/adapter-${fileSlug}`;
+
   // reference/class/di*.mdx documents @nextrush/di, not a "di" package under class/.
   if (dirSlug === 'class' && (fileSlug === 'di' || fileSlug === 'di-container' || fileSlug === 'di-errors')) {
     return '@nextrush/di';

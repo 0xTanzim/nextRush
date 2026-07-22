@@ -32,18 +32,23 @@ export function isDirectoryEmpty(dir: string): boolean {
   return entries.length === 0;
 }
 
-/** Returns the install command for a package manager. */
-export function getInstallCommand(pm: PackageManager): string {
+/** Returns the install command argv (for execFileSync — no shell interpolation) for a package manager. */
+export function getInstallArgv(pm: PackageManager): readonly [string, ...string[]] {
   switch (pm) {
     case 'pnpm':
-      return 'pnpm install';
+      return ['pnpm', 'install'];
     case 'yarn':
-      return 'yarn';
+      return ['yarn'];
     case 'bun':
-      return 'bun install';
+      return ['bun', 'install'];
     case 'npm':
-      return 'npm install';
+      return ['npm', 'install'];
   }
+}
+
+/** Returns the human-readable install command label for a package manager (for retry messages). */
+export function getInstallCommandLabel(pm: PackageManager): string {
+  return getInstallArgv(pm).join(' ');
 }
 
 /** Returns the run command prefix for a package manager. */

@@ -21,13 +21,13 @@ const AGENT_SPEC = {
     {
       name: '@nextrush/types',
       responsibility: 'Shared TypeScript types — Context, Middleware, Extension, Router interfaces',
-      doc_url: toAbsoluteUrl('/docs/reference/core/types'),
+      doc_url: toAbsoluteUrl('/docs/reference/types'),
       public_api: ['ContentType', 'HttpStatus', 'HTTP_METHODS'],
     },
     {
       name: '@nextrush/errors',
       responsibility: 'HTTP error hierarchy with proper status codes and factory functions',
-      doc_url: toAbsoluteUrl('/docs/reference/core/errors'),
+      doc_url: toAbsoluteUrl('/docs/reference/errors'),
       public_api: [
         'HttpError',
         'BadRequestError',
@@ -43,13 +43,13 @@ const AGENT_SPEC = {
     {
       name: '@nextrush/core',
       responsibility: 'Application lifecycle, middleware composition, plugin system',
-      doc_url: toAbsoluteUrl('/docs/reference/core/core'),
+      doc_url: toAbsoluteUrl('/docs/reference/core'),
       public_api: ['createApp', 'Application', 'compose', 'flattenMiddleware'],
     },
     {
       name: '@nextrush/router',
       responsibility: 'Segment trie routing with O(k) lookup, parameterized and wildcard routes',
-      doc_url: toAbsoluteUrl('/docs/reference/core/router'),
+      doc_url: toAbsoluteUrl('/docs/reference/router'),
       public_api: ['createRouter', 'Router'],
     },
     {
@@ -84,7 +84,7 @@ const AGENT_SPEC = {
     {
       name: '@nextrush/adapter-node',
       responsibility: 'Node.js HTTP adapter for NextRush applications',
-      doc_url: toAbsoluteUrl('/docs/reference/adapters/node'),
+      doc_url: toAbsoluteUrl('/docs/reference/platforms/node'),
       public_api: ['createNodeAdapter'],
     },
   ],

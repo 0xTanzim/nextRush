@@ -1,33 +1,60 @@
 {/*
-  RECIPE / COOKBOOK TEMPLATE. Standard: EDS-019. A COMPLETE, runnable end-to-end solution.
-  Show the whole thing, then annotate the key parts. Guide teaches a technique; a recipe hands over a working feature.
+  RECIPE / COOKBOOK TEMPLATE. Standard: EDS-019. A COMPLETE, production-shaped, runnable solution.
+  Reader intent: "just give me the working answer." Optimized for COPY → ADAPT → SHIP, not learning.
+  HARD RULE: everything shown is suitable for a real app — no placeholder secrets, no `...`, no
+  pseudo-code, no missing imports, no "left as an exercise". Copied into a fresh project, it runs
+  with only the documented configuration changes. Front-matter required.
 */}
 ---
-title: {{ "___" — the complete scenario, e.g. "JWT authentication" }}
-description: {{ 120–160 chars — what the recipe builds }}
+title: {{ "___" — the scenario, e.g. "JWT authentication" }}
+description: {{ 120–160 chars — the problem this solves }}
 ---
 
-## What you'll build
+## Scenario
 
-{{ The scenario + the result up front (EDS-019) — endpoints, behavior, a sample response — so the reader confirms this is the recipe they want. }}
+{{ The problem, stated so the searcher knows they're on the right page: "You have X. You need Y.
+   This recipe gives you Z." 2–4 lines. }}
 
-## When to use this
+## Finished result
 
-{{ The situation it fits, and when NOT to use it — a recipe is opinionated and specific (EDS-019). Link a Decision Guide (EDS-021) if there's a real choice. }}
+{{ The endpoints + a real sample response, so the reader confirms this is the recipe they want. }}
 
-## Prerequisites
+```bash
+curl -X POST localhost:3000/{{ … }}
+# {{ the actual response }}
+```
 
-<Callout type="info">
-{{ Packages, setup, assumed knowledge. }}
-</Callout>
+## Requirements
 
-## The complete solution
+- {{ Node >= 22 }}
+- {{ @nextrush/… }}, {{ third-party packages }}
+- {{ optional: PostgreSQL, Redis, … }}
 
-{{ The DEFINING rule (EDS-019): the full, runnable code. Real imports, all files, no "..." (EDS-013). Use a code group for multiple files. }}
+## Installation
+
+```bash
+pnpm add {{ package-a package-b }}
+```
+
+## Project structure
+
+{{ Where every file belongs — readers need this before pasting code. }}
+
+```text
+src/
+  app.ts
+  {{ feature }}/
+    {{ file }}.ts
+```
+
+## Complete solution
+
+{{ The DEFINING rule (EDS-019): the full, runnable code — real imports, all files, no "...".
+   Use a code group for multiple files. }}
 
 <CodeGroup>
 
-```ts title="src/auth.ts"
+```ts title="src/{{ file }}.ts"
 // {{ complete file }}
 ```
 
@@ -37,22 +64,78 @@ description: {{ 120–160 chars — what the recipe builds }}
 
 </CodeGroup>
 
+## Configuration
+
+{{ The env/config the recipe needs — recipes almost always need this. Never hardcode secrets. }}
+
+```env
+{{ JWT_SECRET= }}
+{{ DATABASE_URL= }}
+```
+
+## Verification
+
+{{ Prove it works: request → expected response. }}
+
+```bash
+curl {{ … }}
+# {{ expected JSON }}
+```
+
 ## How it works
 
-{{ Annotate the parts that matter — the decisions, not every line (EDS-019). The reader can run first, understand second. }}
+{{ File-by-file responsibilities and the decisions that matter — NOT every line. }}
+- **`{{ file.ts }}`** — {{ its responsibility }}
+- **`{{ app.ts }}`** — {{ how it wires together }}
 
-<Callout type="warning">
-{{ The security / correctness point that must not be removed when adapting. }}
+## Customization
+
+{{ What to change to fit a real app. }}
+- **Replace this:** {{ the dev secret, the fake DB, the stub logger — the things that MUST change }}
+- **{{ Common adaptation }}** — {{ e.g. "swap Zod for Valibot", "store to S3 instead of disk" }}
+
+<Callout type="warn">
+**Don't copy into production as-is:** {{ hardcoded secret · dev-only logger · in-memory/fake store · mock }}.
 </Callout>
+
+## Production checklist
+
+{{ Recipes get copied into prod — protect the reader. }}
+- [ ] Replace the development secret with a real, rotated one
+- [ ] Enable HTTPS and secure cookies
+- [ ] Add validation on all untrusted input
+- [ ] Add logging and monitoring
+- [ ] {{ recipe-specific item }}
+
+## Security
+
+- **Never commit secrets** — {{ … }}
+- **HTTPS + secure cookies** — {{ … }}
+- **Rotation / expiry** — {{ … }}
+- **Validate untrusted input** — {{ … }}
+
+## Troubleshooting
+
+{{ Symptom → Cause → Fix, most common first — copied code breaks in predictable ways. }}
+- **`401`.** *Cause:* {{ bad/absent secret }}. *Fix:* {{ … }}.
+- **`500`.** *Cause:* {{ missing env var }}. *Fix:* {{ … }}.
+
+## Common pitfalls
+
+{{ Distinct from Troubleshooting: "copied → works locally → fails later". }}
+- **{{ Forgot HTTPS }}** → {{ cookies silently fail in production }}.
+- **{{ Clock skew }}** → {{ tokens expire early across services }}.
 
 ## Variations
 
-- **{{ Common adaptation }}** — {{ what to change, e.g. "swap Zod for Valibot" }}.
+{{ The realistic alternatives, so the reader adapts without starting over. }}
+- **{{ Alternative approach }}** — {{ JWT vs sessions vs API keys — when each fits }}.
 
-## Production notes
+## Next improvements
 
-{{ What to harden before shipping — this gets copied into real apps verbatim. }}
+{{ The natural follow-ups, so the reader keeps building. }}
+- {{ Add refresh tokens }} → {{ role authorization }} → {{ rate limiting }} → {{ OpenAPI }}
 
 ## Related
 
-- [{{ Concept }}](/concepts/{{ slug }}) · [{{ Related recipe }}](/recipes/{{ slug }})
+- [{{ Concept }}](/docs/concepts/{{ slug }}) · [{{ Related recipe }}](/docs/recipes/{{ slug }})

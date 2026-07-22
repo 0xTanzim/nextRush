@@ -17,13 +17,31 @@ Production pages are the **day-2** layer (the "Evolve" content layer, EDS-002). 
 
 A guide's "Production considerations" section is a *paragraph*; a production page is that section made the whole point.
 
-## Structure
+## Structure — the canonical production page
+
+Written for an **on-call engineer**, not a developer. ⭐ marks the SRE-facing sections most framework docs skip:
 
 ```text
-The operational concern → Why it matters in production → Recommended setup
-   → Configuration (with safe defaults) → Verification → Failure modes & limits
-   → Security & cost notes → Checklist
+Production problem ⭐ → Production goals ⭐ → Where this fits ⭐ → Recommended setup (sized)
+   → Environment variables ⭐ → Configuration → Verification ⭐ → Observability ⭐ → Performance ⭐
+   → Failure modes ⭐ → Recovery ⭐ → Scaling ⭐ → Security ⭐ → Operational limits ⭐
+   → Deployment targets ⭐ → Go-live checklist → Runbook ⭐ → Related
 ```
+
+The additions that make it operational, not developer-facing:
+
+- **Production goals** ⭐ — what the config optimizes for (zero-downtime, predictable latency, easy rollback), so each setting has a reason.
+- **Environment variables** ⭐ and **Configuration** with **Required?** and an **If wrong** blast-radius column.
+- **Verification** ⭐ = health → logs → metrics → traffic, plus a load test — a real runnable check, not prose.
+- **Observability** ⭐ = logs + metrics + **alerting** (what pages someone). Production without it isn't production-ready.
+- **Failure modes** ⭐ are SRE-shaped: **Failure → Detection → Impact → Recovery**.
+- **Recovery** ⭐ is its own section, distinct from mitigation, and includes **rollback** and **disaster recovery** (dependency down → retry → circuit-break → degrade).
+- **Scaling · Operational limits · Deployment targets** ⭐ — boundaries and per-target notes.
+- **Runbook** ⭐ — the 2am "if X → do Y" list, plus a **Don't** callout (no root, no infinite shutdown timeout, no hardcoded secrets, no debug logging in prod).
+
+## Think like an on-call engineer
+
+The page must let the reader answer: **will this survive failure · how do I know it's healthy · how do I know it's unhealthy · how do I recover · how do I deploy safely · how do I monitor it · how do I scale it.** If those seven are answerable after reading, the page has done its job. Production is a distinct documentation category — its audience isn't learning the framework, it's keeping a real system up under load, during failure, and across deploys.
 
 ## Rules specific to production pages
 

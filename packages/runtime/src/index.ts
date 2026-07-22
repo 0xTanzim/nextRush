@@ -95,7 +95,7 @@ export type { ClientIpOptions, HeaderLookup } from './headers';
 // Request Signal (timeout ↔ ctx.signal combiner)
 // ============================================================================
 
-export { combineAbortSignal } from './request-signal';
+export { combineAbortSignal, deriveDeadlineSignal } from './request-signal';
 export type { CombinedAbort } from './request-signal';
 
 // ============================================================================
@@ -109,7 +109,14 @@ export type { ServerStartErrorCode } from './server-error';
 // Web Response Builder (shared Fetch-API response logic for Bun/Deno/Edge)
 // ============================================================================
 
-export { assertHeaderSafe, isBodylessResponse, WebResponseBuilder } from './response-builder';
+export { assertHeaderSafe, isBodylessResponse, jsonErrorResponse, WebResponseBuilder } from './response-builder';
+
+// ============================================================================
+// Shared Web Context Base (F-08, ADR-0010)
+// ============================================================================
+
+export { WebContextBase } from './web-context-base';
+export type { WebRawHttp, WebStreamRunners } from './web-context-base';
 
 // ============================================================================
 // Body Source
@@ -119,6 +126,7 @@ export {
   AbstractBodySource,
   BodyConsumedError,
   BodyTooLargeError,
+  RequestAbortedError,
   DEFAULT_BODY_LIMIT,
   EmptyBodySource,
   WebBodySource,

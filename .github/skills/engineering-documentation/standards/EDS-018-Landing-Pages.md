@@ -10,20 +10,30 @@ Every major section of a doc site has an entry point — the site homepage, and 
 
 A reader landing here is deciding whether to invest. In one screen they must learn *what this is*, *whether it fits their problem*, and *where to click next*. A landing page that opens with a wall of prose or an API table fails — it answers questions the reader hasn't asked yet.
 
-## Structure
+## Structure — the canonical landing page
+
+A landing page is the **navigation hub** for the whole doc system, scanned in 30 seconds. ⭐ marks the routing/orienting sections that make it more than a README:
 
 ```text
-One-line value proposition → What & why (2–3 sentences) → "At a glance" (key facts)
-   → Quick start CTA → Choose-your-path cards → Highlights (optional) → Where to go next
+Hero (one-line value prop) ⭐ → Why {Name} ⭐ → Quick facts ⭐ → Who is this for? ⭐
+   → Quick start ⭐ → What can you build? ⭐ → Documentation roadmap ⭐ → Learning paths ⭐
+   → Core concepts ⭐ → Popular guides ⭐ → Popular recipes ⭐ → Reference → Architecture
+   → Examples ⭐ → Community
 ```
 
-- **Value proposition** — one sentence a skimmer grasps instantly. Concrete, not marketing ("Minimal, multi-runtime HTTP framework with a zero-dependency core," not "The future of backend").
-- **What & why** — the problem it solves and who it's for, in a few tight sentences.
-- **At a glance** — the facts a developer scans for: runtimes, module format, size, stability. Bullets or a small table.
-- **Quick start CTA** — the single most important element. The fastest path to a working result, front and center. Most readers want copy → paste → run *before* they read philosophy.
-- **Choose-your-path cards** — a card grid (EDS-016) routing the main audiences: "New here → Tutorial," "Building X → Guides," "Looking something up → Reference." This is the page's core navigation function.
-- **Highlights** — a short feature grid *only if* it earns its place; never a marketing feature-dump.
-- **Where to go next** — explicit links onward, same as every page (EDS-002).
+The additions that turn it from a product intro into a router:
+
+- **Quick facts** ⭐ — latest version, runtimes, module format, requirements, dependencies, license — as a scannable table, not prose.
+- **Who is this for?** ⭐ — an honest **✓ choose if / ✗ not a fit if**. Developers decide fit in seconds; help them.
+- **Quick start** ⭐ — the full journey (install → create → run → visit) to a working server in under two minutes, followed by an explicit **"most developers learn next →"** so nobody stalls.
+- **What can you build?** ⭐ — outcomes (REST, microservices, WebSocket, edge), not a feature list.
+- **Documentation roadmap** ⭐ — the single most important addition: a visual of how the page types fit together (Tutorials → Concepts → Guides → Recipes → Reference → Architecture). This teaches readers how to *use the docs*, not just the product.
+- **Learning paths** ⭐ — New / Building-an-API / Migrating (with "coming from Express/Fastify/Hono?" links).
+- **Core concepts · Popular guides · Popular recipes · Examples** ⭐ — high-intent entry points, as card grids.
+
+## Route, don't teach
+
+A landing page's success is the reader clicking through to the *right* next page, not learning a concept in place. Front-load the value prop and quick start; push every explanation to a linked page. It should introduce not only the framework but **how to navigate the documentation itself**.
 
 ## Rules specific to landing pages
 

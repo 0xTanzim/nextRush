@@ -453,6 +453,14 @@ Rules:
   task. A document that ignores its template or the skill's standards is treated as incomplete —
   the same as a missing test.
 
+- **Diagrams use the `mermaid` skill and the modern diagram bar (EDS-012).** Every non-trivial doc,
+  `ARCHITECTURE.md`, and blog post visualizes system design with the *precise, modern* Mermaid type —
+  C4/architecture for topology, sequence for the request lifecycle, state for lifecycles, ER for data,
+  block/packet for structure — **not** a generic flowchart standing in for all of them. Load
+  `~/.kiro/skills/mermaid/SKILL.md` and read the per-type reference before authoring; a basic-by-default
+  diagram where a truer type was available is a quality-gate failure. npm `README.md` is ASCII-only
+  (no Mermaid); `ARCHITECTURE.md` (GitHub) and the docs site (mermaid 11) get the rich diagrams.
+
 Documentation-craft skill: `.kiro/skills/engineering-documentation/SKILL.md`. Templates index:
 `docs/templates/README.md`. Repo docs-site config: `.kiro/steering/documentation.instructions.md`.
 

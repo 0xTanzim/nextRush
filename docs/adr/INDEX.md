@@ -21,6 +21,10 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0006](ADR-0006-deferred-1x-features.md) | Features deferred to 1.x (not 1.0 blockers) | Accepted | — |
 | [ADR-0007](ADR-0007-serverless-adapter-and-enforced-contract.md) | Enforced adapter contract & serverless execution/event-format separation | Accepted | `docs/RFC/runtime-adapters/013-adapter-contract.md`, `docs/RFC/runtime-adapters/014-adapter-serverless.md` |
 | [ADR-0008](ADR-0008-dev-tooling-capability-and-verification-first.md) | `dev-tooling` capability & verification-first hardening of `@nextrush/dev` | Accepted | `docs/RFC/dev-tooling/019-dev-tooling-capability.md` |
+| [ADR-0009](ADR-0009-framework-composition-and-functional-install-boundary.md) | `framework-composition` capability & functional/class install boundary via optional peers | Accepted · Shipped | `docs/RFC/framework-composition/020-framework-composition-integrity.md` |
+| [ADR-0010](ADR-0010-cross-runtime-parity-hardening.md) | Cross-runtime observable-parity hardening: per-cell real-runtime proof + Node timeout→504 & Bun/Deno graceful-shutdown convergence | Accepted | `docs/RFC/runtime-adapters/013-adapter-contract.md` |
+| [ADR-0011](ADR-0011-project-scaffolding-version-resolution.md) | Per-package version resolution with a build-time fallback map for `create-nextrush` | Accepted · Shipped | `docs/RFC/scaffolding/021-project-scaffolding-capability.md` |
+| [ADR-0012](ADR-0012-bounded-teardown-lifecycle.md) | Bounded, per-hook-isolated `Application.close()` teardown | Accepted · Shipped | `docs/RFC/class-runtime/022-bounded-teardown-lifecycle.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

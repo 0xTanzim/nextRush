@@ -189,24 +189,40 @@ them. If someone breaks the edge adapter, the workerd conformance job fails whil
 Deno, and Lambda jobs stay green — the failure is localized to exactly the runtime it broke.
 
 **The certification matrix is conformance turned into a scorecard.** It's generated (not
-hand-written) from the conformance suite's actual pass/fail results per feature per runtime:
+hand-written) from the conformance suite's actual pass/fail results per feature per runtime —
+and, since F-01/F-02 (ADR-0010), each cell also carries how strong its proof actually is: `full`
+means an EXECUTED conformance assertion backs it; `capability-only` means the cell is inferred
+from a `capabilitiesFor()` bit with no behavioral assertion — a real distinction, not a rounding
+error, and one the matrix used to blur:
 
 | Feature | node | bun | deno | edge | serverless |
 |---|---|---|---|---|---|
-| Request / Streaming / Cookies / Multipart / SSE / Compression / WebSockets | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Request / Streaming / Cookies / SSE | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Multipart / Compression / WebSockets | 🔷 capability-only | 🔷 capability-only | 🔷 capability-only | 🔷 capability-only | 🔷 capability-only |
 | AbortSignal | ✅ | ✅ | ✅ | ✅ | ⚠️ partial |
-| Timeouts | ⚠️ partial | ✅ | ✅ | ✅ | ✅ |
+| Timeouts | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Shutdown | ✅ | ✅ | ✅ | ➖ n/a | ➖ n/a |
-| **Coverage** | 95% | 100% | 100% | 100% | 94.4% |
+| **Coverage** | 70% | 70% | 70% | 66.7% | 61.1% |
 
-The two partial marks aren't bugs, they're honestly-disclosed platform realities: Lambda/GCF/Azure
-deliver a buffered event, so there's no mid-request network-level abort the way a long-lived Node
-socket has (`ctx.signal` still fires on *timeout*, just not on transport-level cancellation).
-Plain Node enforces timeouts at the socket level rather than racing the handler to a clean 504
-the way every other adapter does. Because the matrix is regenerated from real test results, a
-future regression that breaks one of these features drops that runtime's score automatically —
-nobody has to remember to update a hand-maintained table, and nobody can quietly let a claim go
-stale.
+Two things changed here versus an older claim you might see cited elsewhere. **Node's Timeouts is
+now `full`, not `partial`** (F-04/ADR-0010): Node races the handler against `timeout` and returns
+a clean `504`, cancelling via `ctx.signal`, the same contract every other adapter already used —
+`server.timeout` remains as an independent slow-client guard, it doesn't replace the race.
+**Multipart/Compression/WebSockets dropped from ✅ to 🔷 capability-only** — the adapters implement
+no multipart parser, no response compression, and no WebSocket-upgrade path today; the old ✅ was
+inferred from a Web-Streams/WebSocket capability bit with zero conformance assertion behind it,
+which is exactly the "claim outruns proof" gap F-02 exists to close. Streaming and SSE, by
+contrast, earned their own `full`: a real `#20` conformance assertion now drives `ctx.stream()`
+and `ctx.sse()` output through every adapter and checks the bytes.
+
+The one remaining partial mark is an honestly-disclosed platform reality, not a bug:
+Lambda/GCF/Azure deliver a buffered event, so there's no mid-request network-level abort the way
+a long-lived Node socket has (`ctx.signal` still fires on *timeout*, just not on transport-level
+cancellation). Because the matrix is regenerated from real test results, a future regression that
+breaks one of these features drops that runtime's score automatically — nobody has to remember to
+update a hand-maintained table, and nobody can quietly let a claim go stale. Adding a real
+conformance assertion for a `capability-only` feature is exactly how it graduates to `full` — see
+`#20` in `packages/adapters/conformance/src/suite.ts` for the template Streaming/SSE followed.
 
 **One thing conformance deliberately does *not* cover yet:** a real, credentialed deploy to an
 actual AWS/Cloudflare account. The conformance suite proves behavior inside an emulator/real

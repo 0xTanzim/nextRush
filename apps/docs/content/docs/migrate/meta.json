@@ -1,5 +1,5 @@
 {
   "title": "Migrate",
   "description": "Migration guides from Express, Koa, Fastify, and NestJS, plus deprecations and version upgrades.",
-  "pages": ["index", "from-express", "from-koa", "from-fastify", "from-nestjs", "deprecations", "upgrade-guide"]
+  "pages": ["index", "from-express", "from-koa", "from-fastify", "from-nestjs", "deprecations", "breaking-changes", "v3-to-v4-docs", "upgrade-guide"]
 }

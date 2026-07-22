@@ -42,3 +42,32 @@ export function combineAbortSignal(base: AbortSignal): CombinedAbort {
     },
   };
 }
+
+/**
+ * Derive a bounded child `AbortSignal` from a parent signal (typically
+ * `ctx.signal`), so handler authors can race work against a deadline without
+ * hand-rolling `AbortSignal.any`/`setTimeout` composition themselves (audit
+ * F-06/F-13, N11 task 11.3).
+ *
+ * @remarks
+ * The returned signal aborts when EITHER `ms` milliseconds elapse OR the
+ * parent signal aborts — whichever happens first. Uses `AbortSignal.any` +
+ * `AbortSignal.timeout`, both available on every NextRush target runtime
+ * (Node ≥ 20.3, Bun, Deno, Cloudflare Workers), giving the same shared shape
+ * `combineAbortSignal` already relies on. `AbortSignal.timeout`'s own timer
+ * is unref'd/cleared internally by the platform once the signal settles, so
+ * no manual `clearTimeout` bookkeeping is needed here.
+ *
+ * @param parentSignal - The signal to inherit cancellation from (e.g. `ctx.signal`).
+ * @param ms - The deadline in milliseconds.
+ * @returns A signal that aborts on whichever of `parentSignal` or the `ms` deadline fires first.
+ *
+ * @example
+ * ```typescript
+ * const deadline = deriveDeadlineSignal(ctx.signal, 2_000);
+ * const result = await fetch(url, { signal: deadline });
+ * ```
+ */
+export function deriveDeadlineSignal(parentSignal: AbortSignal, ms: number): AbortSignal {
+  return AbortSignal.any([parentSignal, AbortSignal.timeout(ms)]);
+}

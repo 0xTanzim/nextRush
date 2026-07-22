@@ -2,7 +2,7 @@
 
 > Development server and build tools for NextRush with multi-runtime support.
 
-**Support tier:** Public — tooling (stable). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
+**Support tier:** Public - tooling (stable). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
 
 ## Quick Start
 
@@ -50,12 +50,12 @@ Most modern bundlers **strip types without emitting decorator metadata**:
 
 | Tool                 | Speed         | Decorator Metadata | DI Works? |
 | -------------------- | ------------- | ------------------ | --------- |
-| `tsup` / `esbuild`   | ⚡ Fast       | ❌ Not emitted     | ❌ No     |
-| `tsx`                | ⚡ Fast       | ❌ Not emitted     | ❌ No     |
-| `node --strip-types` | ⚡ Fast       | ❌ Not emitted     | ❌ No     |
-| `tsc`                | 🐢 Build step | ✅ Emitted         | ✅ Yes    |
-| **`nextrush dev`**   | ⚡ Fast       | ✅ Emitted         | ✅ Yes    |
-| **`nextrush build`** | ⚡ Fast       | ✅ Emitted         | ✅ Yes    |
+| `tsup` / `esbuild`   | Fast          | Not emitted         | No        |
+| `tsx`                | Fast          | Not emitted         | No        |
+| `node --strip-types` | Fast          | Not emitted         | No        |
+| `tsc`                | Slow (build step) | Emitted         | Yes       |
+| **`nextrush dev`**   | Fast          | Emitted             | Yes       |
+| **`nextrush build`** | Fast          | Emitted             | Yes       |
 
 ## Installation
 
@@ -68,7 +68,7 @@ pnpm add -D @nextrush/dev
 ### `nextrush dev` - Development Server
 
 Start a development server with auto-restart on change and decorator support.
-(Changes trigger a full process restart via the runtime's native watcher — this
+(Changes trigger a full process restart via the runtime's native watcher - this
 is auto-restart, not state-preserving HMR.)
 
 ```bash
@@ -160,7 +160,7 @@ nextrush g r products            # Route
 **Generated Controller Example:**
 
 ```typescript
-// nextrush g controller user → src/controllers/user.controller.ts
+// nextrush g controller user -> src/controllers/user.controller.ts
 import { Controller, Get, Post, Body, Param } from 'nextrush/class';
 
 @Controller('/user')
@@ -185,7 +185,7 @@ export class UserController {
 **Generated Service Example:**
 
 ```typescript
-// nextrush g s order → src/services/order.service.ts
+// nextrush g s order -> src/services/order.service.ts
 import { Service } from 'nextrush/class';
 
 @Service()
@@ -207,8 +207,50 @@ export class OrderService {
 **Naming Rules:**
 
 - Use lowercase letters, numbers, and hyphens: `user`, `user-profile`, `v2`
-- Multi-word names are converted to PascalCase: `user-profile` → `UserProfileController`
+- Multi-word names are converted to PascalCase: `user-profile` -> `UserProfileController`
 - Duplicate file detection: won't overwrite existing files
+
+### `nextrush generate adapter` - Scaffold a Runtime Adapter
+
+A distinct, multi-file scaffold (not a single-file generator): creates a
+contract-conformant adapter package skeleton under `<name>/` - source stub,
+conformance test wired to the shared suite, fixtures, README, and a CI snippet.
+
+```bash
+nextrush generate adapter my-runtime
+nextrush g ad my-runtime
+```
+
+| Type      | Alias | Output              | Contents                                                    |
+| --------- | ----- | -------------------- | ------------------------------------------------------------ |
+| `adapter` | `ad`  | `<name>/` (directory) | `src/adapter.ts`, `src/__tests__/conformance.test.ts`, `fixtures/`, `README.md`, CI snippet |
+
+### `nextrush codemod` - Automated Code Transformations
+
+Runs a codemod against files matching a glob pattern.
+
+```bash
+nextrush codemod consolidate-imports src/**/*.ts
+
+# Preview changes without writing to disk
+nextrush codemod consolidate-imports 'src/**/*.{ts,tsx}' --dry-run
+```
+
+**Available codemods:**
+
+| Codemod                | What it does                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `consolidate-imports`   | Rewrites `@nextrush/decorators` and `@nextrush/controllers` imports to `nextrush/class`, merging and deduplicating; leaves `@nextrush/di` untouched |
+
+**Options:**
+
+| Option      | Default | Description                          |
+| ----------- | ------- | ------------------------------------- |
+| `--dry-run` | `false` | Preview changes without writing to disk |
+
+The rewrite is surgical: only the matched import statements are touched. A leading
+license/header comment, unrelated imports, and all other code are preserved
+byte-for-byte - the file is never reprinted whole.
 
 ## Package.json Scripts
 
@@ -229,9 +271,9 @@ The CLI automatically detects and adapts to your runtime environment:
 
 | Runtime     | Dev Server              | Production Build  | Decorator Metadata |
 | ----------- | ----------------------- | ----------------- | ------------------ |
-| **Node.js** | ✅ `@swc-node/register` | ✅ @swc/core      | ✅ Full support    |
-| **Bun**     | ✅ Native `--watch`     | ✅ Native bundler | ✅ Full support    |
-| **Deno**    | ✅ Native `--watch`     | ✅ npm:@swc/core  | ✅ Full support    |
+| **Node.js** | Yes - `@swc-node/register` | Yes - @swc/core      | Yes - Full support    |
+| **Bun**     | Yes - Native `--watch`     | Yes - Native bundler | Yes - Full support    |
+| **Deno**    | Yes - Native `--watch`     | Yes - npm:@swc/core  | Yes - Full support    |
 
 ### How It Works
 
@@ -270,7 +312,7 @@ const info = getRuntimeInfo();
 
 `nextrush dev` spawns Deno with a fixed default permission set:
 `--allow-net --allow-read --allow-env`. If your app needs more (writing files,
-FFI, spawning subprocesses, …), extend the default set via `nextrush.config.ts`:
+FFI, spawning subprocesses, ...), extend the default set via `nextrush.config.ts`:
 
 ```typescript
 // nextrush.config.ts
@@ -285,7 +327,7 @@ export default {
 } satisfies NextRushConfig;
 ```
 
-Configured permissions are **merged into** the default set — they extend it, they
+Configured permissions are **merged into** the default set - they extend it, they
 never replace it. `--allow-net`, `--allow-read`, and `--allow-env` are always present
 even when you add more; a permission you configure that's already in the default set
 is simply not duplicated. Scoped forms are supported as pass-through strings, e.g.
@@ -296,7 +338,7 @@ Each configured value must begin with `--allow-` or `--deny-`. An invalid value
 value in the error.
 
 > **Adding permissions weakens Deno's sandbox.** Only grant what your application
-> actually needs — never configure `--allow-all` as a default. The CLI itself never
+> actually needs - never configure `--allow-all` as a default. The CLI itself never
 > adds `--allow-all` automatically, and there is currently no way to *remove* a
 > default permission (extend-only by design); if you genuinely need a narrower
 > sandbox than the defaults, run `deno` directly instead of through `nextrush dev`.
@@ -473,19 +515,19 @@ const filePath = await generate('controller', 'user', process.cwd());
 
 ### Current Status: Beta
 
-Every row below is backed by a permanent, real-runtime regression test — not asserted.
+Every row below is backed by a permanent, real-runtime regression test - not asserted.
 "Stable" means the behavior is proven under CI on that runtime; "Experimental" means it
 runs but has no automated regression guard yet.
 
 | Feature       | Status         | Evidence                                                                   |
 | ------------- | -------------- | --------------------------------------------------------------------------- |
-| Node.js dev   | ✅ Stable      | `dev-http-liveness.test.ts` (real HTTP response), `dev-restart-on-change.test.ts` (real `--watch` restart) |
-| Node.js build | ✅ Stable      | `build-e2e-integration.test.ts`, `swc-builder-integration.test.ts` (cache, `.d.ts`, nested layout) |
-| Bun dev       | 🧪 Experimental | Native support; no dedicated `nextrush dev` regression test on Bun yet     |
-| Bun build     | ✅ Stable      | `build-bun-decorator-integration.test.ts` — asserts `design:paramtypes` literally appears in Bun-built output |
-| Deno dev      | 🧪 Experimental | Native support; no dedicated `nextrush dev` regression test on Deno yet    |
-| Deno build    | ✅ Stable      | `build-deno-integration.test.ts` — asserts non-empty, correctly-mapped `.js` output under real Deno |
-| Generate      | ✅ Stable      | `generators/*.test.ts` — all 5 generator types                             |
+| Node.js dev   | Yes - Stable      | `dev-http-liveness.test.ts` (real HTTP response), `dev-restart-on-change.test.ts` (real `--watch` restart) |
+| Node.js build | Yes - Stable      | `build-e2e-integration.test.ts`, `swc-builder-integration.test.ts` (cache, `.d.ts`, nested layout) |
+| Bun dev       | Experimental | Native support; no dedicated `nextrush dev` regression test on Bun yet     |
+| Bun build     | Yes - Stable      | `build-bun-decorator-integration.test.ts` - asserts `design:paramtypes` literally appears in Bun-built output |
+| Deno dev      | Experimental | Native support; no dedicated `nextrush dev` regression test on Deno yet    |
+| Deno build    | Yes - Stable      | `build-deno-integration.test.ts` - asserts non-empty, correctly-mapped `.js` output under real Deno |
+| Generate      | Yes - Stable      | `generators/*.test.ts` - all 5 generator types                             |
 
 Bun/Deno `build` and `dev` regression tests run in CI on their real binaries via the
 `dev-tooling-cross-runtime` job in `runtime-conformance.yml` (pinned Deno 2.6.3 / Bun 1.3.14).
@@ -494,9 +536,9 @@ Bun/Deno `build` and `dev` regression tests run in CI on their real binaries via
 
 Decorator metadata emission is verified, not asserted, on every runtime `nextrush build` targets:
 
-- **Node.js**: `@swc/core` transform API — `swc-builder-integration.test.ts`
-- **Bun**: native bundler preserves `Reflect.metadata`/`design:paramtypes` — `build-bun-decorator-integration.test.ts`
-- **Deno**: `npm:@swc/core` via the `npm:` specifier — `build-deno-integration.test.ts`
+- **Node.js**: `@swc/core` transform API - `swc-builder-integration.test.ts`
+- **Bun**: native bundler preserves `Reflect.metadata`/`design:paramtypes` - `build-bun-decorator-integration.test.ts`
+- **Deno**: `npm:@swc/core` via the `npm:` specifier - `build-deno-integration.test.ts`
 
 ### Architecture Documentation
 
@@ -504,7 +546,7 @@ For a deep dive into how this package works, see [ARCHITECTURE.md](./ARCHITECTUR
 
 ## License
 
-MIT © NextRush Team
+MIT (c) NextRush Team
 
 ## Behavior & Cross-Platform Notes
 
@@ -518,48 +560,48 @@ MIT © NextRush Team
   error (non-zero exit), not silently ignored.
 - **Cross-platform.** The SWC dev loader is resolved as a `file://` URL (correct
   on Windows), path handling uses `node:path`, and Node child processes are
-  spawned via the running Node binary — no reliance on `npx`/PATH shims.
+  spawned via the running Node binary - no reliance on `npx`/PATH shims.
 - **Declarations are deterministic.** `.d.ts` files are generated with the
   project's locally-installed TypeScript (no `npx`, no network); a declaration
   failure fails the build unless `--no-dts` is passed.
 - **Safe cleaning.** `nextrush build` refuses to clean an output directory that
   is the project root, an ancestor, the source directory, or outside the project.
-- **Output is ESM** (`module: es6`); `.ts`/`.tsx` → `.js`, `.mts` → `.mjs`,
-  `.cts` → `.cjs`. An incremental content-hash cache skips unchanged files
+- **Output is ESM** (`module: es6`); `.ts`/`.tsx` -> `.js`, `.mts` -> `.mjs`,
+  `.cts` -> `.cjs`. An incremental content-hash cache skips unchanged files
   (`--no-cache` to bypass).
 
 ## Monorepo / Workspace Build Scoping
 
 `nextrush build` resolves its scan root to the nearest enclosing `package.json`
-directory — walking upward from the entry file's own directory (e.g. from `src/` for
+directory - walking upward from the entry file's own directory (e.g. from `src/` for
 the common `src/index.ts` layout) until it finds one. That directory is the package
 boundary: the scan never ascends above it, and any subdirectory *inside* the scanned
-tree that carries its **own** `package.json` is excluded entirely — a nested or
+tree that carries its **own** `package.json` is excluded entirely - a nested or
 vendored package is never pulled into the current package's build output.
 
 ```
 my-package/
-├── package.json          ← scan root resolves here (not src/)
-├── config.ts             ✅ scanned — sibling of src/, at the package root
-├── src/
-│   ├── index.ts          ✅ scanned
-│   ├── utils.ts          ✅ scanned
-│   └── vendor/
-│       ├── package.json  ⛔ this makes `vendor/` a separate package —
-│       └── lib.ts            excluded entirely, never descended into
-└── dist/                  (build output)
+|-- package.json          <- scan root resolves here (not src/)
+|-- config.ts             Yes - scanned - sibling of src/, at the package root
+|-- src/
+|   |-- index.ts          Yes - scanned
+|   |-- utils.ts          Yes - scanned
+|   `-- vendor/
+|       |-- package.json  Excluded - this makes `vendor/` a separate package -
+|       `-- lib.ts            excluded entirely, never descended into
+`-- dist/                  (build output)
 ```
 
 In a pnpm/npm/Turborepo workspace, a sibling package (e.g. `packages/other-package`
 next to `packages/my-package`) is excluded because the scan stops ascending the moment
-it finds `packages/my-package/package.json` — it never continues upward into the
+it finds `packages/my-package/package.json` - it never continues upward into the
 workspace root or sideways into a directory outside that boundary. If no
 `package.json` can be found anywhere above the entry file (an unusual, non-package
-layout), the build falls back to scanning from the entry's own directory — the
+layout), the build falls back to scanning from the entry's own directory - the
 behavior this feature builds on. This holds for every layout: single-package
 projects, workspace packages, and projects with no `package.json` at all (which
 scan exactly as they did before this feature).
 
 **In short:** if you have a directory nested inside your source tree that is its
-own package (has its own `package.json`), it is always excluded from the build —
+own package (has its own `package.json`), it is always excluded from the build -
 this is intended, not a bug, and there is no config flag to change it.

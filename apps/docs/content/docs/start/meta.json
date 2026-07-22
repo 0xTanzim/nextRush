@@ -1,5 +1,5 @@
 {
   "title": "Getting Started",
   "description": "Install NextRush and build your first application.",
-  "pages": ["index", "installation", "quick-start", "create-nextrush", "overview"]
+  "pages": ["index", "installation", "quick-start", "create-nextrush", "overview", "runtime"]
 }

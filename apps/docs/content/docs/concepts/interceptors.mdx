@@ -1,116 +1,299 @@
 ---
 title: Interceptors
-description: Wrap a controller method call to transform its result, time it, or short-circuit it with a cached value
+description: How NextRush wraps a controller method with code that runs before and after the handler — to time it, reshape its result, or return a cached value.
 ---
 
-## The Real Problem
+Some behavior has to run *around* a handler, not only before it: start a timer, then read it once the response is ready; wrap every result in a consistent envelope; return a cached value without running the handler at all. A [guard](/docs/concepts/guards) answers one yes/no question before the handler and then steps aside; [middleware](/docs/concepts/middleware) wraps the whole request but never sees a controller method's typed return value. Behavior that runs on both sides of one handler — and can reshape what it returned — needs a different tool.
 
-Some cross-cutting behavior needs to run around a handler, not only before it. Wrapping every response in a consistent envelope, timing how long a handler takes, or returning a cached value without running the handler at all all require code that runs both before *and* after the handler — and can see (and change) what the handler returned. Guards only answer yes/no before the handler runs; middleware wraps every request, not one specific route's return value.
+## What you'll learn
 
-## Why NextRush Solves It This Way
+- **Understand** why some cross-cutting behavior has to run both before *and* after a handler
+- **Understand** how an interceptor wraps a controller method and can transform its return value
+- **Recognize** the onion order — class interceptors outside, method interceptors inside
+- **Choose** an interceptor over a guard or middleware, and know when the reverse is true
 
-An interceptor is a class that wraps a controller method call the same way middleware wraps a request — an "around advice" pattern, resolved from the DI container so it can inject services like a logger or a metrics client. It receives the request context and a `next()` callback; calling `next()` runs the next interceptor (or, at the innermost layer, the actual controller method) and resolves to its result. Whatever the interceptor returns becomes the new result — return `next()`'s value unchanged to pass through, or return something else to transform it.
+## The problem
 
-Interceptors are Promise-based rather than modeled as multi-value streams, matching how the rest of `nextrush/class` already flows through async/await. They're opt-in: a route with no `@UseInterceptor` behaves exactly as it did before — the method's return value flows straight into response handling.
+The direct way to add timing and a response envelope is to write both into every handler. It reads fine in one method, then it repeats:
 
-## Mental Model
+```ts
+// Timing and enveloping are hand-rolled in every method; the real work is one line.
+import { Controller, Get } from 'nextrush/class';
 
-<Mermaid
-  chart="
-flowchart LR
-    A[Class Interceptor] --> B[Method Interceptor]
-    B --> C[Controller Method]
-    C --> B
-    B --> A
-"
-/>
+declare function loadUsers(): Promise<unknown[]>;
+declare function loadPosts(): Promise<unknown[]>;
 
-Interceptors nest like middleware: class-level interceptors are the outermost layer, method-level interceptors are inner, and the controller method itself is the innermost call. Each layer runs its own code before calling `next()`, then can inspect and transform what came back before returning to the layer above it.
-
-## How It Works
-
-`getAllInterceptors(target, methodName)` returns the applicable interceptor classes in onion order — class interceptors first (outermost), then method interceptors (innermost, closest to the handler). The runner folds this list from the inside out: it starts with a function that calls the real controller method, then wraps that with each interceptor in reverse, so the first interceptor in the list ends up as the outermost layer that runs first and returns last.
-
-Each interceptor is resolved from the DI container at request time — the same container your controllers and services use — so an interceptor's constructor can inject services exactly like a controller can.
-
-## Minimal Correct Usage
-
-```ts title="timing-interceptor.ts"
-import { Service } from 'nextrush/class';
-import type { Interceptor } from 'nextrush/class';
-import type { Context } from '@nextrush/types';
-
-@Service()
-class TimingInterceptor implements Interceptor {
-  async intercept(ctx: Context, next: () => Promise<unknown>): Promise<unknown> {
+@Controller('/api')
+class ApiController {
+  @Get('/users')
+  async users() {
     const start = Date.now();
-    const result = await next();
-    ctx.set('X-Response-Time', `${Date.now() - start}ms`);
-    return result;
+    const data = await loadUsers(); // the actual work
+    return { data, tookMs: Date.now() - start };
+  }
+
+  @Get('/posts')
+  async posts() {
+    const start = Date.now();
+    const data = await loadPosts(); // the actual work
+    return { data, tookMs: Date.now() - start };
   }
 }
 ```
 
-```ts title="user.controller.ts"
-import { Controller, Get, UseInterceptor } from 'nextrush/class';
+Each method repeats the same before-and-after scaffolding. Change the envelope shape and you edit every handler; add a new route and it starts life without the timing until someone remembers to paste it in.
+
+## Why this matters
+
+Response shaping, timing, and caching are not features of one route — they are behavior a whole controller surface is expected to share. Copied into each handler, the wrapping is code you read past to find the one line that matters, and a route that forgets it is inconsistent in a way no type checker will catch. The behavior wants to live once, in a declared layer, not scattered across every method that happens to need it.
+
+## The solution
+
+NextRush lets you attach an **interceptor** to a controller or a route with `@UseInterceptor`. An interceptor is a class whose `intercept(ctx, next)` method wraps the handler: code before `next()` runs on the way in, `next()` invokes the handler (or the next interceptor), and code after `next()` runs on the way out — with access to whatever the handler returned. Whatever `intercept()` returns becomes the result, so an interceptor can pass a value through unchanged or reshape it. Interceptors are resolved from the DI container, so one can inject a logger, a metrics client, or a cache exactly as a controller can.
+
+## Core idea
+
+Think of an interceptor as a **layer wrapped around the handler**, not a step before it. The request passes *inward* through each interceptor to reach the handler, and the result passes *outward* back through the same interceptors. Each layer gets two moments: one before it calls `next()`, and one after `next()` resolves — and on the way out it can transform the value before handing it up. This is "around" behavior, which is exactly what a [guard](/docs/concepts/guards) (before-only, yes/no) and [middleware](/docs/concepts/middleware) (whole request, untyped) cannot express over a single controller method's return value.
+
+## Mental model
+
+<Mermaid
+  chart="
+sequenceDiagram
+    actor Client
+    participant Runner as Interceptor runner
+    participant Class as Class interceptor — outer
+    participant Method as Method interceptor — inner
+    participant Handler
+    Client->>Runner: request to a route with interceptors
+    Runner->>Class: intercept(ctx, next)
+    activate Class
+    Note over Class: before next() — e.g. start a timer
+    Class->>Method: call next()
+    activate Method
+    Note over Method: before next()
+    Method->>Handler: call next() — runs the real method
+    activate Handler
+    Handler-->>Method: raw return value
+    deactivate Handler
+    Note over Method: after next() — may transform the value
+    Method-->>Class: (possibly transformed) result
+    deactivate Method
+    Note over Class: after next() — e.g. set X-Response-Time
+    Class-->>Client: final result → response
+    deactivate Class
+"
+/>
+
+Don't read this as a straight line: each interceptor runs code on the way *in* (before `next()`) and again on the way *out* (after it resolves), and the value returned on the way out is what the layer above — and finally response handling — actually sees.
+
+## Quick example
+
+The smallest interceptor times a handler and adds a header, then returns the result untouched. Attach it with `@UseInterceptor` and every route on the controller is wrapped:
+
+```ts title="app.ts"
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Service, UseInterceptor, registerControllers } from 'nextrush/class';
+import type { Interceptor } from 'nextrush/class';
+import type { Context } from 'nextrush';
+
+// An interceptor wraps the handler: code before next(), then code after it.
+@Service()
+class TimingInterceptor implements Interceptor {
+  async intercept(ctx: Context, next: () => Promise<unknown>): Promise<unknown> {
+    const start = Date.now();
+    const result = await next();                       // runs the handler
+    ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+    return result;                                     // pass the result through unchanged
+  }
+}
 
 @UseInterceptor(TimingInterceptor)
 @Controller('/users')
 class UserController {
   @Get()
   findAll() {
-    return [{ id: 1, name: 'Alice' }];
+    return [{ id: 1, name: 'Alice' }]; // no timing code here
+  }
+}
+
+const app = createApp();
+await registerControllers(app, { controllers: [UserController] });
+listen(app, 8080);
+```
+
+The handler holds no timing logic. `TimingInterceptor` captures the start time, calls `next()` to run `findAll()`, sets the header once the result is ready, and returns that result unchanged.
+
+## How it works
+
+**Example** — a class interceptor wraps every route with an envelope; a method interceptor wraps one route with an extra transform:
+
+```ts title="reports.controller.ts"
+import { Service, UseInterceptor, Controller, Get } from 'nextrush/class';
+import type { Interceptor } from 'nextrush/class';
+import type { Context } from 'nextrush';
+
+// Outermost: wraps EVERY route's result in an envelope.
+@Service()
+class EnvelopeInterceptor implements Interceptor {
+  async intercept(_ctx: Context, next: () => Promise<unknown>): Promise<unknown> {
+    const data = await next();
+    return { data, timestamp: Date.now() }; // the returned value becomes the response
+  }
+}
+
+// Inner: wraps one route only, closest to the handler.
+@Service()
+class UppercaseInterceptor implements Interceptor {
+  async intercept(_ctx: Context, next: () => Promise<unknown>): Promise<unknown> {
+    const result = await next();
+    return typeof result === 'string' ? result.toUpperCase() : result;
+  }
+}
+
+@UseInterceptor(EnvelopeInterceptor)
+@Controller('/reports')
+class ReportController {
+  @UseInterceptor(UppercaseInterceptor)
+  @Get('/title')
+  title() {
+    return 'quarterly summary';
   }
 }
 ```
 
-`TimingInterceptor` runs before `findAll()` (capturing the start time), calls `next()` to invoke the actual method, then runs again after it resolves (setting the header) before returning the unmodified result. Applying `@UseInterceptor` at the class level wraps every route on `UserController`; apply it to a single method instead to scope the wrapping to that one route.
+**Observation** — a request to `/reports/title` returns `{ data: 'QUARTERLY SUMMARY', timestamp: … }`. `UppercaseInterceptor` runs innermost and uppercases the handler's string; `EnvelopeInterceptor` runs outermost and wraps that already-transformed value. Reverse which layer is which and the envelope would wrap the lowercase string instead.
 
-### Transforming the result
+**Explanation** — a few rules from the interceptor runner govern that behavior:
 
-```ts title="envelope-interceptor.ts"
-import { Service } from 'nextrush/class';
+- **One contract.** An interceptor is a class implementing `Interceptor` — a single `intercept(ctx, next)` method. `next()` returns a `Promise` of the downstream result (the next interceptor, or at the innermost layer the controller method); return its value to pass through, or return something else to transform it.
+- **Resolved from the DI container.** `@UseInterceptor` takes interceptor *classes*, and the runner resolves each from the same container your controllers and [services](/docs/concepts/dependency-injection) use — so an interceptor's constructor can declare injected collaborators like a logger or cache.
+- **Onion order is fixed.** Class interceptors are always outermost and method interceptors always innermost, regardless of decorator order on the method. The runner folds the list from the inside out, so the first (class) interceptor ends up as the outer layer that runs first and returns last.
+- **The outermost return value is the response.** Whatever the outer interceptor returns is what response handling serializes — the controller method's original return value only survives if every layer passes it through.
+
+The exact fold and per-request resolution live in the [`@nextrush/class` reference](/docs/reference/class/decorators) — a concept teaches the model, not every signature.
+
+## Typical use cases
+
+Interceptors fit behavior that has to see and shape a handler's result:
+
+- **Response shaping** — wrap every controller result in a consistent `{ data, meta }` envelope in one declared place.
+- **Timing and metrics** — record how long a handler took and emit it as a header or to a metrics client, using the before/after split.
+- **Result caching** — check a cache before `next()` and return the hit without running the handler, or store `next()`'s value on the way out.
+
+Each needs the value the handler produced, or both sides of its execution. Access decisions belong in a [guard](/docs/concepts/guards); behavior that must run on every request regardless of controller belongs in [middleware](/docs/concepts/middleware).
+
+## Configuration
+
+`@UseInterceptor` takes no options object — only a rest list of interceptor classes, and their placement is the configuration:
+
+```ts title="composing-interceptors.ts"
+import { Service, UseInterceptor, Controller, Get } from 'nextrush/class';
 import type { Interceptor } from 'nextrush/class';
-import type { Context } from '@nextrush/types';
 
 @Service()
 class EnvelopeInterceptor implements Interceptor {
-  async intercept(ctx: Context, next: () => Promise<unknown>): Promise<unknown> {
-    const data = await next();
-    return { data, timestamp: Date.now() };
+  async intercept(_ctx: unknown, next: () => Promise<unknown>) {
+    return { data: await next() };
   }
+}
+
+@Service()
+class CacheInterceptor implements Interceptor {
+  async intercept(_ctx: unknown, next: () => Promise<unknown>) {
+    return next();
+  }
+}
+
+@UseInterceptor(EnvelopeInterceptor) // wraps every route on the controller
+@Controller('/posts')
+class PostController {
+  @Get()
+  list() {} // EnvelopeInterceptor only
+
+  @UseInterceptor(CacheInterceptor) // adds a second, inner layer to this route
+  @Get('/trending')
+  trending() {} // EnvelopeInterceptor (outer) then CacheInterceptor (inner)
 }
 ```
 
-Here the interceptor doesn't return `next()`'s value unchanged — it wraps it in an envelope object. Whatever `EnvelopeInterceptor` returns is what response handling actually serializes, not the controller method's original return value.
+To parameterize an interceptor — a cache TTL, an envelope key — inject the configuration through the DI container (a `useValue` binding or a config service) rather than passing it to the decorator; there is no options surface on `@UseInterceptor` itself.
 
-## What Happens Automatically
+## Performance
 
-- **A route with no `@UseInterceptor` has zero interceptor overhead** — the runner is only invoked when at least one interceptor applies to that route; there's no always-on wrapping layer to opt out of.
-- **Class and method interceptors compose in a fixed order** — class interceptors always end up outermost, method interceptors always innermost, regardless of decorator application order on the method itself.
+- **Complexity** — the interceptor list for a route is resolved once, when the route handler is built, and captured in a closure; it is not re-read from metadata per request. A request then runs the layers in sequence, so a route's interceptor cost is the *sum* of its layers, not the max.
+- **Memory** — a route with no `@UseInterceptor` pays nothing: the runner is invoked only when at least one interceptor applies, and otherwise the method is called directly. A singleton interceptor (`@Service()` default) resolves to one shared instance; a `transient` one is rebuilt per request.
+- **Scaling** — because each layer wraps the next, an interceptor that does async work on the way in and out adds that latency to every wrapped request. Keep the hot-path layers cheap, and order a short-circuiting layer (like a cache) close enough to the handler that a hit skips the work below it. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before tuning.
 
-## Trade-offs & Guarantees
+## Security
 
-NextRush guarantees the onion ordering is deterministic: `getAllInterceptors` always returns class interceptors before method interceptors, and the runner always folds them so the first entry in that list is outermost. It does not automatically catch errors for you — an interceptor that wraps `next()` in try/catch can observe and recover from a handler's thrown error, but an interceptor that doesn't will propagate the error past itself unchanged, exactly as if it weren't there.
+An interceptor sees and can reshape the handler's return value, so what it exposes and what it swallows both matter.
 
-<Callout type="warn" title="An unhandled error still reaches exception filters">
-  If an interceptor doesn't catch the error itself, it propagates out of the interceptor chain
-  the same way it would without any interceptors — [exception filters](/docs/concepts/exception-filters),
-  which wrap the whole handler, still get a chance to handle it.
+- **Leaked fields on the way out.** *Threat:* an envelope or serialization interceptor returns the handler's object verbatim, exposing fields the handler never meant to send. *Why:* the interceptor operates on the raw return value, not a view of it. *Safe default:* shape an allow-list of fields when wrapping a result. *Avoid:* spreading an entity straight into the response envelope.
+- **Swallowed errors.** *Threat:* an interceptor wraps `next()` in a broad `try/catch` and returns a fallback, hiding a failure — including one a guard or the handler raised deliberately. *Why:* a caught error never reaches the [exception filters](/docs/concepts/exception-filters) that wrap the interceptor chain. *Safe default:* catch only the errors you can meaningfully recover and rethrow the rest. *Avoid:* a catch-all that turns every failure into a `200`.
+- **Untrusted request input.** *Threat:* an interceptor reads `ctx` values (headers, query) to build a cache key or branch, trusting client-supplied data. *Why:* `ctx` carries unvalidated input verbatim. *Safe default:* validate anything from `ctx` before using it. *Avoid:* keying a cache on a raw header an attacker controls.
+
+<Callout type="warn">
+An interceptor that catches every error and returns a fallback silently swallows failures the
+[exception filters](/docs/concepts/exception-filters) were meant to handle — and can mask a guard's
+rejection. Catch narrowly and rethrow what you cannot recover.
 </Callout>
 
-## Common Mistakes
+## Trade-offs
 
-1. **Forgetting to return `next()`'s value** — an interceptor that calls `await next()` but doesn't return anything (or returns `undefined`) replaces the controller method's real result with `undefined`. Always `return` something from `intercept()`.
-2. **Expecting interceptors to run on routes without `@UseInterceptor`** — there's no global interceptor registration. An interceptor only runs on the specific controller or method it's attached to via `@UseInterceptor`.
-3. **Putting access-control logic in an interceptor** — an interceptor can't reject a request the way a guard can; it can only transform a result that's already going to be computed. Use a [guard](/docs/concepts/guards) for yes/no access decisions, and an interceptor for shaping what a permitted request returns.
+**Why an around-the-handler layer** — it isolates behavior that needs both sides of a handler's execution, and access to its typed return value, into a declared, reusable, injectable unit.
 
-## When Not to Use This
+- **Benefits** — cross-cutting shaping (envelopes, timing, caching) declared once and reused across a controller; the layer sees the handler's actual return value, which middleware operating on raw `ctx` cannot as directly; the onion order is deterministic; interceptors are DI-resolved and unit-testable in isolation.
+- **Costs** — interceptors apply only to class-based controller routes, not functional routes; the model is Promise-based, so it wraps a single result rather than a stream; an interceptor that forgets to `return` replaces the result with `undefined`; interceptors run inside guards and filters, so they cannot gate access.
+- **Alternatives** — a [guard](/docs/concepts/guards) for a yes/no access decision before the handler; [middleware](/docs/concepts/middleware) when the behavior must run on every request or on functional routes; an [exception filter](/docs/concepts/exception-filters) when the job is turning an error into a response.
+- **Why NextRush chose this** — an async/await onion mirrors how middleware already composes, so there is no new stream abstraction to learn, and resolving interceptors from the container keeps them consistent with the rest of the class runtime.
 
-If the transformation you need applies to every route uniformly — CORS headers, compression, request logging for the whole app — write it as ordinary middleware instead; it runs regardless of whether the route is a class-based controller. Reach for an interceptor specifically when the behavior needs to see and transform one controller method's typed return value, which middleware (operating on the raw context) can't do as directly.
+## Decision guide
 
-## Related
+**Choose an interceptor when:**
 
-- [Guards](/docs/concepts/guards) — access control that runs before an interceptor's `next()` chain even starts
-- [Exception Filters](/docs/concepts/exception-filters) — the layer that catches an error an interceptor didn't
-- [Middleware](/docs/concepts/middleware) — the application-wide alternative when the behavior doesn't need typed access to a controller's return value
+- ✓ Behavior must run before *and* after a controller method and see or transform its return value
+- ✓ You want response shaping, timing, or caching declared once on a controller or route and reused across its methods
+- ✓ The behavior benefits from injected services — a logger, a metrics client, a cache
+
+**Reach for something else when:**
+
+- ✗ The decision is yes/no access control — that is a [guard](/docs/concepts/guards), which runs before the interceptor chain even starts
+- ✗ The behavior must run on *every* request regardless of controller, or on a functional route — register [middleware](/docs/concepts/middleware)
+- ✗ You are turning an error into an HTTP response — that is an [exception filter](/docs/concepts/exception-filters)
+
+## Common mistakes
+
+- **Forgetting to return `next()`'s value.** *Why it happens:* the interceptor `await`s `next()` but doesn't return anything. *Correct approach:* always `return` from `intercept()` — the passed-through value, or your transformed one. *If ignored:* the handler's real result is replaced with `undefined` and the response is empty.
+- **Expecting interceptors on routes without `@UseInterceptor`.** *Why it happens:* interceptors feel like global middleware. *Correct approach:* attach the interceptor to the specific controller or method. *If ignored:* the behavior silently never runs — there is no global interceptor registration.
+- **Using an interceptor for access control.** *Why it happens:* an interceptor runs before the handler too. *Correct approach:* use a [guard](/docs/concepts/guards) for allow/deny; an interceptor can only shape a result that is already going to be computed. *If ignored:* rejection logic ends up in the wrong layer, running after guards and parameter resolution have already done their work.
+- **Assuming decorator stacking controls the onion order.** *Why it happens:* stacked decorators apply bottom-to-top. *Correct approach:* rely on the fixed rule — class interceptors are always outermost, method interceptors always innermost. *If ignored:* you reason about the wrong nesting and a transform wraps the wrong value.
+
+## Key takeaways
+
+- An interceptor wraps a controller method: code runs before `next()` and again after it resolves, around the handler.
+- `@UseInterceptor` takes interceptor *classes* implementing `Interceptor.intercept(ctx, next)`, resolved from the DI container so they can inject services.
+- `next()` runs the downstream layer or the handler; whatever `intercept()` returns becomes the result — return it unchanged to pass through, or return something else to transform.
+- Class interceptors are always outermost and method interceptors always innermost, regardless of decorator order.
+- A route with no `@UseInterceptor` pays zero interceptor cost — the method is called directly.
+- Interceptors shape results; they do not gate access (that is a guard) or run app-wide (that is middleware).
+
+## Continue learning
+
+<Cards>
+  <Card title="Guards" href="/docs/concepts/guards">
+    Access control that runs before an interceptor's next() chain even starts.
+  </Card>
+  <Card title="Exception filters" href="/docs/concepts/exception-filters">
+    The layer around the chain that catches an error an interceptor didn't.
+  </Card>
+  <Card title="Dependency injection & scopes" href="/docs/concepts/dependency-injection">
+    How a class interceptor gets its injected services and what its scope means.
+  </Card>
+  <Card title="Class-based guide" href="/docs/guides/class-based">
+    Put interceptors to work — build a class-based app end to end.
+  </Card>
+  <Card title="@nextrush/class reference" href="/docs/reference/class/decorators">
+    The full @UseInterceptor and Interceptor signatures.
+  </Card>
+</Cards>

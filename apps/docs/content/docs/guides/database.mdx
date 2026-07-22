@@ -36,7 +36,7 @@ shutdown.
 
 ```typescript title="src/extensions/database.extension.ts"
 import Database from 'better-sqlite3';
-import type { Extension } from '@nextrush/types';
+import type { Extension } from 'nextrush';
 
 declare module '@nextrush/core' {
   interface Application {
@@ -160,7 +160,7 @@ export class UserRepository implements BaseRepository<User, CreateUserDto, Updat
 
 ```typescript title="src/repositories/user.sqlite.repository.ts"
 import { Repository } from 'nextrush/class';
-import type { Application } from '@nextrush/core';
+import type { Application } from 'nextrush';
 import type { User, CreateUserDto, UpdateUserDto } from './user.repository';
 import type { BaseRepository } from './base.repository';
 
@@ -275,7 +275,7 @@ export type NewUser = typeof users.$inferInsert;
 ```typescript title="src/extensions/drizzle.extension.ts"
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import type { Extension } from '@nextrush/types';
+import type { Extension } from 'nextrush';
 import * as schema from '../database/schema';
 
 declare module '@nextrush/core' {
@@ -314,7 +314,7 @@ export function drizzleExtension(): Extension {
 ```typescript title="src/repositories/user.drizzle.repository.ts"
 import { Repository } from 'nextrush/class';
 import { eq } from 'drizzle-orm';
-import type { Application } from '@nextrush/core';
+import type { Application } from 'nextrush';
 import { users, type User } from '../database/schema';
 import type { BaseRepository, CreateUserDto, UpdateUserDto } from './user.repository';
 
@@ -571,4 +571,4 @@ describe('UserService', () => {
 - [Authentication](/docs/guides/authentication) — Add user authentication
 - [Testing Guide](/docs/guides/testing) — Test database code
 - [API Reference — Class Runtime](/docs/reference/class) — Container and service registration API
-- [Deployment](/docs/guides/deployment) — Deploy your application to production
+- [Deployment](/docs/production/deployment) — Deploy your application to production

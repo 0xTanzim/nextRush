@@ -1,0 +1,164 @@
+---
+title: Adapter Contract
+description: What the cross-adapter conformance suite actually enforces — the driver interface, and the exact behaviors every adapter must match or explicitly diverge from.
+---
+
+Every NextRush adapter (`@nextrush/adapter-node`, `-bun`, `-deno`, `-edge`, `-serverless`)
+implements the same `Application` handler contract. This page documents that contract as enforced
+by `packages/adapters/conformance/src` — a shared test suite that runs the **same assertions**
+against every adapter via `describe.each`, operationalizing the project rule "every adapter must
+behave identically." Where behavior legitimately can't be identical, the suite encodes the
+difference as an explicit capability flag rather than skipping the case — that distinction (
+documented divergence vs. an actual bug) is the core design of this suite.
+
+<Callout type="info" title="Source & internals">
+  README/ARCHITECTURE per adapter:
+  [node](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/node/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/node/ARCHITECTURE.md) ·
+  [bun](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/bun/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/bun/ARCHITECTURE.md) ·
+  [deno](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/deno/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/deno/ARCHITECTURE.md) ·
+  [edge](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/edge/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/edge/ARCHITECTURE.md) ·
+  [serverless](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/serverless/README.md)/[arch](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/serverless/ARCHITECTURE.md)
+</Callout>
+
+## The driver interface
+
+Each adapter is exercised through one `ConformanceDriver` (`packages/adapters/conformance/src/drivers/types.ts`)
+that knows how to configure an app, dispatch a request through that adapter's real handler, and
+normalize the result:
+
+```ts
+import type { Application } from '@nextrush/core';
+
+// Real shapes live in packages/adapters/conformance/src/drivers/types.ts (internal test package)
+type Configure = (app: Application) => void;
+interface DispatchInit {
+  method?: string;
+  path?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  proxy?: boolean;
+  directIp?: string;
+}
+interface DispatchResult {
+  readonly status: number;
+  header(name: string): string | undefined;
+  setCookies(): string[];
+  text(): string;
+}
+
+export interface ConformanceDriver {
+  readonly name: string;
+  readonly handlerTimeout504: boolean;
+  readonly teardownOnShutdown: boolean;
+  readonly honorsCloudflareIp: boolean;
+  readonly transportAbortFiresSignal: boolean;
+  dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult>;
+  abortFiresSignal(): Promise<boolean>;
+  timeoutResult(): Promise<{ status: number; signalFired: boolean } | null>;
+}
+```
+
+Four capability flags — booleans that let one test assert different, both-correct outcomes per
+adapter instead of pretending every runtime is capable of the same thing:
+
+- `handlerTimeout504` — Node enforces the `timeout` option at the socket level and never returns
+  a 504; the Web adapters (Bun/Deno/Edge) race the handler against a timer and do (F-08).
+- `teardownOnShutdown` — every adapter except Edge runs extension `destroy()` on `close()`; Edge
+  has no server lifetime to shut down, so it intentionally never does (F-14).
+- `honorsCloudflareIp` — whether the adapter consults `cf-connecting-ip` at the front of the
+  client-IP precedence when proxies are trusted. Only Edge (and Serverless, which reuses the edge
+  engine) honor it; Node/Bun/Deno ignore it and fall through to `x-forwarded-for`/`x-real-ip`
+  (F-11).
+- `transportAbortFiresSignal` — whether the runtime can deliver a mid-request transport abort at
+  all. Node/Bun/Deno/Edge can (a socket close or `Request.signal` abort reaches `ctx.signal`);
+  Serverless cannot — its platform delivers a fully-buffered event with no mid-request transport
+  to abort, so cancellation there is timeout-driven instead.
+
+## Behaviors verified identical across every adapter
+
+The suite runs 20+ shared assertions across three files. A representative sample, by category:
+
+**Request parsing** (`conformance-request.test.ts`)
+- HTTP method is upper-cased; path is split from the query string.
+- Query parsing turns repeated keys into arrays; `__proto__`-style keys are rejected
+  (prototype-pollution guard — verified as `Object.prototype.evil` staying `undefined`).
+- `ctx.params` defaults to an empty object and is both readable and writable across middleware.
+- `ctx.get()` header lookup is case-insensitive.
+- Body reading via `ctx.bodySource.text()` and `.json()` produce identical results.
+- A body over the default 1 MB limit returns **413** on every adapter.
+- Re-reading the body after `.stream()` has already consumed it returns **400** (`BodyConsumed`)
+  on every adapter.
+
+**Response behavior** (`conformance-response.test.ts`)
+- Headers set via `ctx.set()` survive an implicit/empty response and a redirect — labeled F-02 in
+  the suite's own comments as a headline guard, because this is the kind of behavior that
+  silently breaks on a Web `Response`-object adapter that constructs its response only once at
+  the end, while working correctly on Node's mutable response object without extra effort.
+- `Set-Cookie` set as an array produces multiple `Set-Cookie` headers, and survives a bodyless
+  `204` response; a later `ctx.set('Set-Cookie', [...])` call replaces the earlier one rather than
+  appending.
+- `ctx.json()`, `ctx.send()`, and `ctx.html()` all carry an identical `; charset=utf-8` suffix on
+  `Content-Type` — verified byte-identical across adapters, not merely present in some form.
+- `ctx.redirect()` defaults to **302**, sets `Location`, and sends a `text/plain; charset=utf-8`
+  body of the literal string `Redirecting to <path>`.
+- `ctx.state` is a mutable bag shared across the middleware chain.
+- Middleware executes in onion order: before-handlers run top-down, after-handlers run
+  bottom-up (same execution model as `compose()` — see [Middleware Flow](/docs/architecture/middleware-internals)).
+
+**Runtime/lifecycle behaviors** (`conformance-runtime.test.ts`)
+- `ctx.ip` resolution honors the same trust-proxy precedence and validation on every adapter:
+  with `proxy: true`, the first `X-Forwarded-For` entry wins; with `proxy: false`, proxy headers
+  are ignored entirely (never trusting a spoofed header); a malformed `X-Forwarded-For` value is
+  rejected by validation and the resolver falls through to `X-Real-IP`.
+- `ctx.signal` fires when the transport aborts mid-request, on every adapter — a real client
+  disconnect on Node, the platform `Request.signal` on the Web-standard adapters.
+
+## Documented, deliberate divergences — not bugs
+
+Four places the suite asserts **different** outcomes per adapter, each with a named reason in
+the source comments rather than a silent skip:
+
+| Behavior | Node | Bun / Deno / Edge | Serverless |
+| --- | --- | --- | --- |
+| Handler-level `timeout` option | Enforced at the socket level (`server.timeout`); closes the connection, never returns a 504 | Races the handler against a timer; returns **504** and fires `ctx.signal` to cancel the handler | Timeout-driven cancellation; `ctx.signal` still fires |
+| Extension `destroy()` teardown on shutdown | Runs on `close()` | Bun/Deno also run it — only **Edge** never does, because it has no server lifetime to shut down | Runs on the platform's own teardown hook |
+| Client-IP precedence honors `cf-connecting-ip` | No — falls through to `x-forwarded-for`/`x-real-ip` | Bun/Deno: no. **Edge**: yes, tried first when proxies are trusted | Yes — reuses the edge engine's precedence |
+| Mid-request transport abort reaches `ctx.signal` | Yes — a real socket close | Yes — the platform `Request.signal` aborts | **No** — the platform delivers a fully-buffered event; there is no mid-request transport to abort |
+
+The runtime test file names these explicitly: `handlerTimeout504` distinguishes Node's
+socket-level timeout from the Web adapters' handler-race timeout (audit finding F-08); the
+teardown assertion is literally `expect(driver.teardownOnShutdown).toBe(driver.name !== 'edge')`
+— Edge is the one adapter where "no teardown" is correct, not a gap (audit finding F-14);
+`honorsCloudflareIp` encodes the Cloudflare-header precedence as a per-adapter boolean so a future
+edit can't silently drop it (F-11); `transportAbortFiresSignal` distinguishes Serverless's
+buffered-event delivery, which has nothing to abort mid-flight, from every other adapter's real
+transport.
+
+<Callout type="warn" title="A capability flag is not the same as an untested difference">
+  Every divergence above has its own passing assertion for **both** branches — the suite doesn't
+  document that Node differs, it asserts what Node's actual behavior is (`result` is `null`
+  for the timeout case) with the same rigor as the Web adapters' 504 case. A new adapter that
+  can't match either documented branch fails the suite; it doesn't get to add a third, unverified
+  behavior.
+</Callout>
+
+## What this means for writing a new adapter
+
+A new adapter earns "conforms" by running against `packages/adapters/conformance/src/drivers` and
+passing every shared assertion — either by matching mainline behavior, or by matching one of the
+four already-documented divergence branches with a driver capability flag set correctly. There is
+no fifth, unencoded option in the suite today; a genuinely new kind of divergence would need its
+own capability flag and its own explicit multi-branch assertion, following the same pattern as
+`handlerTimeout504`/`teardownOnShutdown`/`honorsCloudflareIp`/`transportAbortFiresSignal` — not a
+silently adapter-specific `if` in application code.
+
+## Next steps
+
+<Cards>
+  <Card title="Deployment: Node" href="/docs/production/deployment/node">
+    Shipping the Node adapter to production.
+  </Card>
+  <Card title="Deployment: Edge" href="/docs/production/deployment/edge">
+    The one adapter that never runs the `destroy()` teardown hook on shutdown.
+  </Card>
+</Cards>

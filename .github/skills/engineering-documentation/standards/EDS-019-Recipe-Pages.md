@@ -17,13 +17,36 @@ Recipes are how-to pages (Diátaxis), but where a **Guide** (EDS-009) teaches *a
 
 If you're explaining *how something works step by step*, write a guide. If you're providing *the entire answer to "how do I build X"*, write a recipe.
 
-## Structure
+## Structure — the canonical recipe page
+
+Optimized for **copy → adapt → ship**, not learning. ⭐ marks what a reader actually needs *after* copying code:
 
 ```text
-What you'll build (+ result) → When to use this recipe → Prerequisites
-   → The complete solution (full, runnable) → How it works (the key parts)
-   → Variations → Production notes → Related recipes
+Scenario → Finished result → Requirements → Installation → Project structure
+   → Complete solution → Configuration → Verification → How it works (file-by-file)
+   → Customization (+ what NOT to copy) → Production checklist → Security
+   → Troubleshooting → Common pitfalls → Variations → Next improvements → Related
 ```
+
+- **Scenario** ⭐ — the problem, not a learning outcome ("You have X, need Y, this gives Z"). Recipes are searched by problem.
+- **Finished result** ⭐ — endpoints + a real response, so the reader confirms it's the right recipe.
+- **Requirements + Installation + Project structure** ⭐ — actual packages, the `pnpm add` line, and where every file belongs. Never assume.
+- **Configuration** ⭐ — the env/config the recipe needs (never hardcode a secret).
+- **Verification** ⭐ — request → expected response, so the reader knows it works.
+- **How it works** — file-by-file responsibilities and the *decisions*, not every line.
+- **Customization** ⭐ — a **Replace this** list and an explicit **what NOT to copy** (dev secret, stub logger, fake store, mock).
+- **Production checklist + Security** ⭐ — recipes get pasted into prod; a checkbox list and a dedicated security section protect the reader.
+- **Troubleshooting** (symptom→cause→fix) and **Common pitfalls** (copied → works → fails later) are distinct — keep both.
+- **Next improvements** ⭐ — the natural follow-ups, so the reader keeps building.
+
+## The production-ready mandate (non-negotiable)
+
+A recipe hands over a **production-ready implementation**, not a demo. Everything shown must be suitable for a real application:
+
+- No placeholder secrets, no `...`, no pseudo-code, no missing imports, no "left as an exercise".
+- Copied into a fresh project, it runs with **only the documented configuration changes**.
+
+A guide teaches *how to solve a problem*; a recipe *is the answer*. That difference is what makes a cookbook valuable rather than another tutorial — and it's why validation, error handling, and safe defaults are never trimmed "for brevity".
 
 ## Rules specific to recipes
 

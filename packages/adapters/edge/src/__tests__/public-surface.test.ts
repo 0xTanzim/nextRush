@@ -33,6 +33,7 @@ describe('Public API surface (runtime exports)', () => {
       'createHandler',
       'createNetlifyHandler',
       'createVercelHandler',
+      'DEFAULT_EDGE_TIMEOUT_MS',
 
       // Context
       'EdgeContext',

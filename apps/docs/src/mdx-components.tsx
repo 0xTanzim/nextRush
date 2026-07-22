@@ -19,6 +19,8 @@ import {
     PackageGrid,
     PackageInstall,
     PackageSection,
+    RuntimeSupport,
+    ScalarApiReference,
     TypeTable,
 } from '@/components/mdx';
 import { typeTableGenerator } from '@/lib/type-table-generator';
@@ -80,8 +82,14 @@ const customComponents = {
   // API reference type table
   TypeTable,
 
+  // Per-runtime support badge (Node/Bun/Deno/Edge/Serverless)
+  RuntimeSupport,
+
   // Generated reference table — from real TypeScript source (fumadocs-typescript)
   AutoTypeTable,
+
+  // Interactive OpenAPI reference (Scalar) — reads the build-time public/openapi.json
+  ScalarApiReference,
 
   // Mermaid diagrams with dark/light theme support
   Mermaid,

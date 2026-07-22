@@ -19,6 +19,8 @@ invent a new structure per RFC.
 | `class-runtime/` | The `@nextrush/class` decorator/DI/module system: extensions, DI ownership, class consolidation, request scope, lifecycle, interceptors, filters, modules |
 | `runtime-adapters/` | Platform adapters, adapter contracts, serverless execution, routing engines |
 | `dev-tooling/` | The `@nextrush/dev` toolchain: dev server, SWC build pipeline, watch/restart, CLI, generators, codemods |
+| `framework-composition/` | How NextRush's packages compose into one installable framework: the meta-package's dependency/install footprint, public-surface naming coherence, and manifest conventions |
+| `scaffolding/` | The `create-nextrush` project-generation contract: version resolution, template generation, the generated-project install/build/run guarantee |
 
 ## All RFCs (by number)
 
@@ -43,6 +45,9 @@ invent a new structure per RFC.
 | [017](request-data/017-body-source-limit-propagation.md) | `BodySource.buffer(limit?)` — cross-runtime body-size limit propagation | Accepted — shipped | request-data |
 | [018](request-data/018-response-serialization.md) | Response serialization strategy for `ctx.json` — keep `JSON.stringify` as the default | Approved | request-data |
 | [019](dev-tooling/019-dev-tooling-capability.md) | `@nextrush/dev` — the dev-tooling capability & verification-first hardening | Approved — see ADR-0008 | dev-tooling |
+| [020](framework-composition/020-framework-composition-integrity.md) | Framework composition integrity — functional/class install boundary, surface naming, manifest discipline | Shipped — see ADR-0009 | framework-composition |
+| [021](scaffolding/021-project-scaffolding-capability.md) | `create-nextrush` — the project-scaffolding capability & per-package version resolution | Approved — see ADR-0011 (Shipped) | scaffolding |
+| [022](class-runtime/022-bounded-teardown-lifecycle.md) | `@nextrush/core` — Bounded, cancellation-aware teardown lifecycle | Shipped — see ADR-0012 | class-runtime |
 
 ## Note on RFC-005 (Plugin System)
 

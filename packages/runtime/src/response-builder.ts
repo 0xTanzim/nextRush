@@ -310,9 +310,68 @@ export class WebResponseBuilder {
 
     const suppressBody = isBodylessResponse(this.method, status);
 
+    // F-03: a HEAD response SHALL carry the `Content-Length` the equivalent GET
+    // would (RFC 7231 §4.3.2). The body is suppressed, but the length is set from
+    // the would-be body when it is measurable (string / byte body; a stream has
+    // no known length). 204 and 304 legitimately omit it and are excluded, and an
+    // already-set Content-Length (binary bodies set it explicitly) is preserved.
+    if (
+      suppressBody &&
+      this.method === 'HEAD' &&
+      status !== 204 &&
+      status !== 304 &&
+      !this._headers.has('Content-Length')
+    ) {
+      const len = measureBodyLength(this._body);
+      if (len !== undefined) {
+        this._headers.set('Content-Length', String(len));
+      }
+    }
+
     return new Response(suppressBody ? null : this._body, {
       status,
       headers: this._headers,
     });
   }
+}
+
+/** UTF-8 encoder reused for measuring string body lengths on the HEAD path. */
+const HEAD_LENGTH_ENCODER = new TextEncoder();
+
+/**
+ * The byte length of a materialized response body, or `undefined` when it cannot
+ * be measured (a `ReadableStream` has no known length, and `null` has none).
+ *
+ * @remarks
+ * Used only on the HEAD/bodyless path (F-03) to emit a `Content-Length` equal to
+ * what the equivalent GET would carry.
+ */
+function measureBodyLength(body: BodyInit | null): number | undefined {
+  if (body === null) return undefined;
+  if (typeof body === 'string') return HEAD_LENGTH_ENCODER.encode(body).length;
+  if (body instanceof Uint8Array) return body.byteLength;
+  if (body instanceof ArrayBuffer) return body.byteLength;
+  return undefined;
+}
+
+/**
+ * Build a framework-generated JSON error response with a Content-Type that is
+ * uniform across every adapter (F-05).
+ *
+ * @remarks
+ * The Web adapters (Bun/Deno/Edge) and the serverless engine construct their
+ * `404`/`500`/`504` responses through this single helper so the charset cannot
+ * drift per adapter (Edge and Bun's server-level error path previously emitted a
+ * bare `application/json`). The body shape is `{ error: <message> }`, matching
+ * the adapters' existing error payloads.
+ *
+ * @param status - The HTTP status code.
+ * @param message - The human-readable error message placed under `error`.
+ * @returns A Web `Response` with `Content-Type: application/json; charset=utf-8`.
+ */
+export function jsonErrorResponse(status: number, message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
 }

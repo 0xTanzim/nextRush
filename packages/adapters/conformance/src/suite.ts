@@ -19,7 +19,8 @@
  * @packageDocumentation
  */
 
-import { expect, it } from 'vitest';
+import type { Application } from '@nextrush/core';
+import { expect, it } from '@nextrush/adapter-conformance/test-primitives';
 import type { ConformanceDriver } from './drivers/types';
 import { json } from './support';
 
@@ -169,6 +170,34 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     });
     expect(json<{ setupRan: boolean }>(res).setupRan).toBe(true);
   });
+
+  it('#20 (F-02) streaming: ctx.stream() delivers written chunks concatenated, in order', async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(async (ctx) => {
+        await ctx.stream(async (writer) => {
+          await writer.write('alpha-');
+          await writer.write('beta-');
+          await writer.write('gamma');
+        });
+      });
+    });
+    expect(res.text()).toBe('alpha-beta-gamma');
+  });
+
+  it('#20 (F-02) SSE: ctx.sse() delivers well-formed text/event-stream events', async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(async (ctx) => {
+        await ctx.sse(async (writer) => {
+          await writer.write({ event: 'greeting', data: 'hello' });
+          await writer.write({ data: 'world' });
+        });
+      });
+    });
+    expect(res.header('content-type')).toContain('text/event-stream');
+    const body = res.text();
+    expect(body).toContain('event: greeting\ndata: hello\n\n');
+    expect(body).toContain('data: world\n\n');
+  });
 }
 
 /** Response-side behaviors (audit F-01, spec rows #5-#10, #12). */
@@ -279,6 +308,21 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(notModifiedRes.text()).toBe('');
   });
 
+  it('#10 (F-03): HEAD carries a Content-Length equal to the equivalent GET body length', async () => {
+    const route = (app: Application): void => {
+      app.use((ctx) => {
+        ctx.json({ hello: 'world', n: 42, nested: { a: [1, 2, 3] } });
+      });
+    };
+
+    const getRes = await driver.dispatch(route, { method: 'GET' });
+    const headRes = await driver.dispatch(route, { method: 'HEAD' });
+
+    const expectedLength = new TextEncoder().encode(getRes.text()).length;
+    expect(headRes.text()).toBe('');
+    expect(headRes.header('content-length')).toBe(String(expectedLength));
+  });
+
   it('#12 error propagation: HttpError exposes status+message; unknown → 500, no leak', async () => {
     const thrown = await driver.dispatch((app) => {
       app.use((ctx) => ctx.throw(403, 'Forbidden-XYZ'));
@@ -296,12 +340,15 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     const body = json<{ error: string; message: string }>(unknown);
     expect(body.message).toBe('Internal Server Error');
     expect(unknown.text()).not.toContain('secret-leak-123');
+    // F-05: framework-generated error responses carry a uniform Content-Type
+    // (application/json; charset=utf-8) on every adapter — no bare application/json.
+    expect(unknown.header('content-type')).toBe('application/json; charset=utf-8');
   });
 }
 
 /** Runtime behaviors with encoded capability differences (rows #13-#15, #19). */
 export function defineRuntimeConformance(driver: ConformanceDriver): void {
-  it('#13 timeout: Web adapters return 504 and cancel via ctx.signal (F-08); Node is socket-level', async () => {
+  it('#13 timeout: every server/edge/serverless adapter races the handler and returns 504, cancelling via ctx.signal (F-04/F-08)', async () => {
     const result = await driver.timeoutResult();
     if (driver.handlerTimeout504) {
       expect(result).toEqual({ status: 504, signalFired: true });

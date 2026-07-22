@@ -137,6 +137,12 @@ Mark a constructor parameter as optional with `@Optional()` so the app still res
 dependency isn't registered — see
 [Dependency Injection & Scopes](/docs/concepts/dependency-injection) for details.
 
+<Callout type="info">
+`@Optional()` lives in `@nextrush/di`, not `nextrush/class` — import it directly:
+`import { Optional } from '@nextrush/di'`. Same applies to `delay()`, covered under Common
+Mistakes below.
+</Callout>
+
 ### Request scope
 
 Use `{ scope: 'request' }` for a service that lives for one request and is shared by every
@@ -507,10 +513,8 @@ describe('UserService', () => {
     service = new UserService(repo);
   });
 
-  it('should throw on duplicate email', () => {
-    expect(() => {
-      service.create({ name: 'Dup', email: 'alice@example.com' });
-    }).toThrow('Email already exists');
+  it('throws NotFoundError when the user does not exist', () => {
+    expect(() => service.findById('missing')).toThrow('User not found');
   });
 });
 ```
@@ -570,7 +574,9 @@ class ServiceB {
 }
 
 // ✅ Correct - use delay() for circular deps
-import { delay, inject } from 'nextrush/class';
+// delay() and Optional() live in @nextrush/di, not re-exported by nextrush/class
+import { Service, inject } from 'nextrush/class';
+import { delay } from '@nextrush/di';
 
 @Service()
 class ServiceA {

@@ -22,7 +22,7 @@ Along the way, you will learn the middleware type signature, the factory pattern
 Every middleware function receives two arguments:
 
 ```typescript
-import type { Context, Middleware, Next } from '@nextrush/types';
+import type { Context, Middleware, Next } from 'nextrush';
 
 // Formal signature
 type Middleware = (ctx: Context, next: Next) => void | Promise<void>;
@@ -65,7 +65,7 @@ Response ← [MW1 after] ← [MW2 after] ←────┘
 A logging middleware that records request duration and assigns a trace ID.
 
 ```typescript
-import type { Middleware } from '@nextrush/types';
+import type { Middleware } from 'nextrush';
 
 interface LoggerOptions {
   level?: 'debug' | 'info' | 'warn' | 'error';
@@ -102,8 +102,8 @@ The factory pattern — a function that returns a `Middleware` — is how all co
 This middleware verifies a bearer token and short-circuits with an error when authentication fails.
 
 ```typescript
-import type { Middleware } from '@nextrush/types';
-import { UnauthorizedError } from '@nextrush/errors';
+import type { Middleware } from 'nextrush';
+import { UnauthorizedError } from 'nextrush';
 
 interface AuthOptions {
   /** Paths that skip authentication */
@@ -159,8 +159,8 @@ When authentication fails, `UnauthorizedError` produces a 401 response and skips
 Wrap `next()` in a try/catch to observe or transform errors thrown by downstream middleware.
 
 ```typescript
-import type { Middleware } from '@nextrush/types';
-import { NotFoundError, ConflictError } from '@nextrush/errors';
+import type { Middleware } from 'nextrush';
+import { NotFoundError, ConflictError } from 'nextrush';
 
 function transformErrors(): Middleware {
   return async (ctx, next) => {
@@ -188,7 +188,7 @@ function transformErrors(): Middleware {
 ### Composing middleware into a single unit
 
 ```typescript
-import { compose } from '@nextrush/core';
+import { compose } from 'nextrush';
 
 const apiStack = compose([
   requestLogger(),
@@ -204,7 +204,7 @@ app.use(apiStack);
 When calling middleware directly (outside `compose`), pass `next` as the second argument:
 
 ```typescript
-import type { Context, Middleware } from '@nextrush/types';
+import type { Context, Middleware } from 'nextrush';
 
 function when(predicate: (ctx: Context) => boolean, middleware: Middleware): Middleware {
   return async (ctx, next) => {
@@ -241,7 +241,7 @@ app.use(auth({ ... }));
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import type { Context, Next } from '@nextrush/types';
+import type { Context, Next } from 'nextrush';
 
 function createMockContext(overrides: Partial<Context> = {}): Context {
   return {
@@ -298,7 +298,7 @@ describe('auth', () => {
   <Card
     title="Error Handling"
     description="Built-in error classes and the error handler middleware."
-    href="/docs/reference/core/errors"
+    href="/docs/reference/errors"
   />
   <Card
     title="Security Best Practices"

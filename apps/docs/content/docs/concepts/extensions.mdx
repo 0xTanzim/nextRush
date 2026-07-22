@@ -1,0 +1,228 @@
+---
+title: Extensions
+description: How app.extend() and app.ready() give long-lived, app-scoped services a boot and teardown lifecycle — and why almost nothing you write needs one.
+---
+
+An event bus needs to exist for the lifetime of the app, not one request. It needs to be created once, before the app starts serving traffic, and cleaned up once, when the app shuts down. Middleware runs per request and has no boot phase; a plain setup function runs once but has no teardown. Neither idiom fits a service the app itself depends on for its whole lifetime.
+
+## What you'll learn
+
+- **Understand** why a request-scoped idiom (middleware) can't express a service with a boot/teardown lifecycle
+- **Understand** how `app.extend()` queues a service and `app.ready()` boots it, in registration order
+- **Recognize** the shape of the `Extension` interface — `name`, `setup()`, `destroy()`
+- **Choose** an Extension only after ruling out middleware and a registrar, using the taxonomy and decision guide on this page
+
+## The problem
+
+Say you want a type-safe event bus attached to the app, so any handler or extension can do `app.events.emit(...)`. A first attempt reaches for middleware, since that's the default tool for adding capability:
+
+```ts
+import { createApp } from 'nextrush';
+import { EventEmitter } from '@nextrush/events';
+
+const app = createApp();
+const emitter = new EventEmitter();
+
+// A fresh emitter is created every time this middleware runs — every request
+// gets its own event bus, and nothing ever hears its own events.
+app.use(async (ctx) => {
+  ctx.state.events = new EventEmitter();
+  await ctx.next();
+});
+```
+
+Move the `new EventEmitter()` outside the middleware and it works for one process, but there's still no defined moment to release its resources when the app shuts down, and no way to declare "this must exist before anything else runs."
+
+## Why this matters
+
+An event bus, a database connection pool, a metrics client — these are infrastructure the whole app depends on, not per-request work. Booting them too late means the first few requests race against setup that hasn't finished; never tearing them down means connections and timers leak past the point the app claims to have stopped. Getting this lifecycle right is a one-time cost paid by the extension author, not by every application that uses it.
+
+## The solution
+
+NextRush reserves a third, deliberately rare idiom for exactly this case: the **Extension**. You register one with `app.extend()`, which only queues it — nothing runs yet. Its `setup()` runs once, in registration order, when `app.ready()` resolves; its `destroy()` runs once, in reverse order, when `app.close()` resolves. Everything in between — every request the app serves — sees the extension as already-booted, stable infrastructure.
+
+## Core idea
+
+An Extension is a **long-lived, app-scoped service with a boot phase and a teardown phase** — not a per-request step (that's middleware) and not a one-shot setup call (that's a registrar). NextRush has no `Plugin` interface and no `app.plugin()` — capability is added through exactly three idioms, and an Extension is by far the rarest:
+
+| Idiom | How you use it | Share of real usage | Examples |
+| --- | --- | --- | --- |
+| Middleware | `app.use(fn())` | ~99% | cors, helmet, body-parser, logger, static, rate-limit |
+| Registrar | direct function call (`await` if async) | ~0.9% | `registerControllers(app, opts)`, `createWebSocket()` |
+| Extension | `app.extend(ext)` + `await app.ready()` | ~0.1% | `events()` |
+
+Reach for middleware by default. Reach for a registrar when wiring a subsystem once at startup. Reach for an Extension only when a service needs the boot/teardown lifecycle this page teaches — see the decision guide below before choosing it.
+
+## Mental model
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant App as Application
+    participant Ext as events() extension
+    participant Handler as Route handler
+    App->>Ext: app.extend(events())
+    Note over App,Ext: queued only — setup() has NOT run
+    App->>App: await app.ready()
+    App->>Ext: setup(ctx)
+    Ext->>App: ctx.decorate('events', emitter)
+    Note over App: configuration now frozen — use/route/extend throw
+    App->>Handler: requests served
+    Handler->>Ext: app.events.emit(...)
+    App->>App: await app.close()
+    App->>Ext: destroy()
+    Note over Ext: emitter.clear() — reverse registration order
+"
+/>
+
+Don't read `app.extend()` as "the extension is running now" — notice the gap between the first two arrows: registration and boot are two separate moments, and every observable effect (`app.events` existing at all) starts at `ready()`, not at `extend()`.
+
+## Quick example
+
+The event bus from `@nextrush/events` is the reference Extension. `app.extend()` returns the app intersected with whatever the extension decorates, so `app.events` is inferred with no manual typing:
+
+```ts title="app.ts"
+import { createApp, listen } from 'nextrush';
+import { events } from '@nextrush/events';
+
+const app = createApp().extend(events());
+
+await app.ready(); // adapters call this for you — shown here for clarity
+
+app.events.on('user:created', (data) => console.log('created:', data));
+app.events.emit('user:created', { id: '1' });
+
+await listen(app, 8080);
+```
+
+## How it works
+
+**Example** — a typed event map makes every `emit`/`on` call checked against the events you declared:
+
+```ts title="typed-events.ts"
+import { createApp } from 'nextrush';
+import { events } from '@nextrush/events';
+
+interface AppEvents {
+  'user:created': { id: string };
+  'user:deleted': { id: string };
+  [event: string]: unknown;
+}
+
+const app = createApp().extend(events<AppEvents>());
+await app.ready();
+
+app.events.emit('user:created', { id: '1' }); // checked against AppEvents
+```
+
+**Observation** — `events<AppEvents>()` carries `AppEvents` all the way through `extend()`'s return type, so `app.events.emit('user:created', { id: '1' })` type-checks and `app.events.emit('user:created', { wrong: true })` does not — no `declare module` augmentation was written anywhere in this file.
+
+**Explanation** — `app.extend()` only pushes the extension onto an internal list and checks its name for a collision; the type system carries the phantom `TDecorated` generic through that call so `app.events` resolves statically, but no code runs. `app.ready()` walks that list once, in registration order, and for each extension builds an `ExtensionContext` — `{ app, logger, container, env, name, decorate }` — and awaits `extension.setup(ctx)`. `setup()` calls `ctx.decorate('events', emitter)`, which is the only sanctioned way to attach a value to the app; there is intentionally no public `app.decorate()`. Once every extension's `setup()` has resolved, the app-owned router mounts and the configuration freezes — `use()`, `route()`, and `extend()` all throw if called afterward. `app.close()` runs the same list in reverse, calling `destroy()` on every extension that defines one, via `Promise.allSettled` so one failing teardown never blocks the rest.
+
+## Writing an Extension
+
+An Extension is a plain object with a `name`, a `setup()`, and an optional `destroy()` — usually returned from a factory function so it can take configuration:
+
+```ts title="my-extension.ts"
+import type { Extension } from '@nextrush/types';
+
+interface MyThing {
+  greet(): string;
+}
+
+export function myExtension(): Extension<{ myThing: MyThing }> {
+  return {
+    name: 'my-extension',
+    needs: [], // optional — names of other extensions that must register first
+    setup(ctx) {
+      const myThing: MyThing = { greet: () => 'hello' };
+      ctx.decorate('myThing', myThing); // attaches app.myThing
+    },
+    destroy() {
+      // cleanup — runs in reverse registration order at app.close()
+    },
+  };
+}
+```
+
+Declaring `Extension<{ myThing: MyThing }>` is what makes `createApp().extend(myExtension()).myThing` type-check with no further work — TypeScript trusts that generic, it never verifies `setup()` actually decorates a matching value, so keep the declared shape and the `ctx.decorate()` call in sync by hand.
+
+## Typical use cases
+
+An Extension earns its complexity only when a service genuinely needs a lifecycle, not merely a place to live:
+
+- A type-safe event bus (`@nextrush/events`) other extensions and handlers can depend on
+- A database connection pool that must open before the first request and close on shutdown
+- A metrics or tracing client that batches and flushes on an interval, and must flush a final time on shutdown
+
+If the thing you're building can be a constant computed once at startup, or state read per request, it's very likely middleware or a plain value — not an Extension. See the decision guide below before reaching for `app.extend()`.
+
+## Security
+
+Extensions run before any request is served and can attach arbitrary state to the app, so a poorly-scoped one has a wide blast radius.
+
+- **Untrusted `setup()` code.** *Threat:* an extension's `setup()` runs with full access to the app, the logger, and the DI container. *Why:* `ExtensionContext` deliberately exposes those so a legitimate extension can wire itself in, but that access is not scoped per-extension. *Safe default:* only register extensions you wrote or audited — treat `app.extend()` the same as adding a dependency with `require`-time side effects. *Avoid:* extending with a third-party extension whose `setup()` you haven't read.
+- **Decoration name collisions.** *Threat:* two extensions decorate the same name, or an extension collides with a core `Application` member. *Why:* `ctx.decorate()` throws on collision by design, so this fails loudly at `ready()` rather than silently overwriting state — but only if you read the thrown error instead of retrying blindly. *Safe default:* give every extension you write a distinctive `propertyName`/decoration key. *Avoid:* swallowing the `ready()` rejection in a broad `try/catch`.
+
+<Callout type="warn">
+  `destroy()` runs even if `setup()` never did — if you call `app.close()` before `app.ready()`, every registered extension's `destroy()` still runs against state that was never established. Always `await app.ready()` before `app.close()`.
+</Callout>
+
+## Trade-offs
+
+**Why a separate Extension idiom** — it gives exactly one place in the framework a real boot/teardown lifecycle, instead of every middleware or registrar inventing its own ad-hoc convention for "run once at startup" and "clean up at shutdown."
+
+- **Benefits** — declared dependency ordering (`needs`) between extensions; guaranteed reverse-order teardown via `Promise.allSettled`; a decoration is type-inferred onto the app with zero manual augmentation.
+- **Costs** — a second concept to learn beyond middleware; the gap between `extend()` (queues) and `ready()` (boots) reads as synchronous at a glance; `let app = createApp(); app = app.extend(x)` silently drops the inferred type — chain in one expression instead.
+- **Alternatives** — a top-level `await` in the entry file that builds the service before `createApp()` skips the framework's lifecycle entirely, so nothing tears it down on `app.close()`; a singleton module-level instance works until you need two independently-configured apps in the same process (e.g. tests).
+- **Why NextRush chose this** — an explicit `setup()`/`destroy()` pair with framework-enforced ordering is the only design that makes shutdown correctness (destroy in reverse, not swallow one failure) the framework's job rather than every extension author's.
+
+## Decision guide
+
+**Choose middleware when:**
+- ✓ The concern runs per request — auth, logging, timing, CORS, body parsing
+
+**Choose a registrar when:**
+- ✓ You're wiring a subsystem once at startup with a plain function call — `registerControllers()`, `createWebSocket()`
+
+**Choose an Extension when:**
+- ✓ The service must exist for the app's entire lifetime, independent of any single request
+- ✓ It needs an async boot step, possibly depending on another extension having booted first
+- ✓ It holds resources (connections, timers, handlers) that must be released on shutdown
+
+**Avoid an Extension when:**
+- ✗ The value is a constant — compute it once at startup and close over it, no lifecycle needed
+- ✗ The state is per-request — that belongs on `ctx.state`, set by middleware
+
+## Common mistakes
+
+- **Reaching for `app.extend()` for a plain constant.** *Why it happens:* "attach something to the app" sounds like what Extensions do. *Correct approach:* compute the value once at startup and read it from a closure, or attach it to `ctx.state` in middleware if it's per-request. *If ignored:* a static value picks up a boot/teardown lifecycle it never needed, adding indirection with no benefit.
+- **Calling `app.close()` without a prior `app.ready()`.** *Why it happens:* shutdown code is often written and tested independently of startup code. *Correct approach:* always `await app.ready()` before `app.close()`, even in tests that never call `listen()`. *If ignored:* every extension's `destroy()` runs against state `setup()` never established, which can throw or behave unpredictably.
+- **Expecting a public `app.decorate()`.** *Why it happens:* `ctx.decorate()` inside `setup()` looks like it should have an app-level equivalent. *Correct approach:* wrap the value in an Extension and decorate it from inside `setup()` — that's the only sanctioned path. *If ignored:* `app.decorate` doesn't exist and the call fails to compile.
+- **Losing the inferred type on reassignment.** *Why it happens:* `let app = createApp(); app = app.extend(events())` looks equivalent to chaining. *Correct approach:* `const app = createApp().extend(events())` in one expression. *If ignored:* TypeScript widens the reassignment to the original binding's type, and `app.events` silently disappears from autocomplete and type-checking.
+
+## Key takeaways
+
+- An Extension is for a long-lived, app-scoped service with a real boot phase and a real teardown phase — not per-request work (middleware) and not one-shot startup wiring (a registrar).
+- `app.extend()` only queues; `setup()` runs later, once, in registration order, when `app.ready()` resolves.
+- `ctx.decorate()` inside `setup()` is the only way to attach a value to the app — there is no public `app.decorate()`.
+- `app.close()` runs every registered `destroy()` in reverse order via `Promise.allSettled`, so one failure never strands the rest.
+- Extensions are the rarest capability-addition idiom in NextRush — reach for middleware first, a registrar second, and an Extension only when a real lifecycle is unavoidable.
+- Chain `createApp().extend(x)` in one expression to keep the decorated type inferred; reassigning through a `let` drops it.
+
+## Continue learning
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    `app.use()`, `app.extend()`, `app.ready()`, and `app.close()` on the Application class.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    The Koa-style onion model — the default idiom, used for ~99% of real capability.
+  </Card>
+  <Card title="@nextrush/events reference" href="/docs/reference/events/events">
+    The full `EventEmitter` and `events()` extension API.
+  </Card>
+  <Card title="Middleware internals" href="/docs/architecture/middleware-internals">
+    How the app-owned router is mounted after every extension's setup() completes.
+  </Card>
+</Cards>

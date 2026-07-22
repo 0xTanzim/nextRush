@@ -36,8 +36,9 @@ describe('certification matrix', () => {
   });
 
   it('9.2 derives real per-runtime differences from capability/flag data', () => {
-    // Node timeout is socket-level → partial; the Web adapters return 504 → full.
-    expect(featureSupport('Timeouts', inputByName('node'))).toBe('partial');
+    // F-04/ADR-0010: Node now races the handler and returns a clean 504,
+    // converging with the Web/serverless adapters — Timeouts is full everywhere.
+    expect(featureSupport('Timeouts', inputByName('node'))).toBe('full');
     expect(featureSupport('Timeouts', inputByName('edge'))).toBe('full');
     // Edge/serverless have no server lifetime → Shutdown not applicable.
     expect(featureSupport('Shutdown', inputByName('edge'))).toBe('na');
@@ -57,6 +58,33 @@ describe('certification matrix', () => {
       capabilities: { ...bun.capabilities, webStreams: false, nodeStreams: false },
     };
     expect(coverageOf(regressed)).toBeLessThan(base);
+  });
+
+  it('9.5 (F-02) capability-only features are not counted full/proven', () => {
+    // WebSockets/Multipart/Compression have no executed cross-adapter assertion
+    // behind them — capped at capability-only regardless of the capability bit.
+    expect(featureSupport('WebSockets', inputByName('node'))).toBe('capability-only');
+    expect(featureSupport('Multipart', inputByName('node'))).toBe('capability-only');
+    expect(featureSupport('Compression', inputByName('node'))).toBe('capability-only');
+  });
+
+  it('9.6 (F-02) executed-assertion features (Streaming/SSE) earn full, not capability-only', () => {
+    // Streaming/SSE graduated to an executed conformance assertion (#20 in
+    // suite.ts, exercising ctx.stream()/ctx.sse() across every driver).
+    expect(featureSupport('Streaming', inputByName('node'))).toBe('full');
+    expect(featureSupport('SSE', inputByName('node'))).toBe('full');
+  });
+
+  it('9.7 (F-02) capability-only scores 0 toward coverage, like none — never inflating the published %', () => {
+    const node = inputByName('node');
+    const withCapabilityOnlyFeature = coverageOf(node);
+    const asIfNone: CertInput = {
+      ...node,
+      capabilities: { ...node.capabilities, webSocket: false },
+    };
+    // Revoking the WebSockets capability bit (none, not capability-only) must
+    // score identically to capability-only — both contribute 0 to coverage.
+    expect(coverageOf(asIfNone)).toBe(withCapabilityOnlyFeature);
   });
 
   it('9.4 the committed matrix doc is in sync with the generator (CI drift guard)', async () => {

@@ -1,65 +1,78 @@
 ---
-title: Lifecycle Hooks
-description: Run initialization and cleanup logic on a DI-managed service without a decorator, using OnInit and OnShutdown
+title: Application Lifecycle
+description: OnInit and OnShutdown — duck-typed hooks that run once at boot and once at shutdown, distinct from the per-request lifecycle that runs on every request.
 ---
 
-## The Real Problem
+A service that owns a resource — a database pool, a queue subscription, a background timer — needs to open that resource once, before the app takes its first request, and close it once, when the app shuts down. A constructor is the wrong place for either: constructors run the moment something first resolves the class, which can happen earlier than boot and has no equivalent moment for teardown at all.
 
-A service that owns a resource — a database connection pool, a message queue subscription — needs to open that resource once, before the app starts serving traffic, and close it once, when the app shuts down. Doing this inside the constructor is fragile: constructors run the moment something first resolves the class, which can happen earlier or later than you expect, and there's no equivalent moment for teardown at all.
+## What you'll learn
 
-## Why NextRush Solves It This Way
+- **Understand** why app-scoped setup/teardown needs a moment distinct from a class constructor
+- **Recognize** `OnInit`/`OnShutdown` as duck-typed interfaces, not decorators
+- **Distinguish** the app lifecycle (runs once, at boot and shutdown) from the per-request lifecycle (runs on every request)
+- **Choose** when a service needs a lifecycle hook versus when plain construction is enough
 
-NextRush defines two lifecycle interfaces, `OnInit` and `OnShutdown`, that a `@Service`, `@Repository`, or controller class can implement by declaring the matching method — there is no decorator to apply. The controllers registrar detects these methods by presence (duck typing) on already-resolved instances, not by inspecting decorators, because by the time lifecycle hooks run, the registrar has already resolved each class from the DI container.
+## The problem
 
-Choosing duck typing over a decorator keeps the contract minimal: any object with an `onInit`/`onShutdown` method participates, including instances the registrar didn't construct itself, without requiring you to remember an extra annotation on top of `@Service()`.
+A naive database service opens its connection in the constructor and hopes for the best:
 
-## Mental Model
+```ts
+// No defined moment for "before traffic" or "on shutdown."
+class Database {
+  private pool = /* opens a connection pool */ {} as unknown; // opens immediately — but immediately relative to what?
 
-<Mermaid
-  chart="
-flowchart LR
-    A[registerControllers/registerModule] --> B[app.ready()]
-    B --> C[onInit — dependency order]
-    C --> D[Serving requests]
-    D --> E[app.close()]
-    E --> F[onShutdown — reverse order]
-"
-/>
-
-`onInit` runs once, at boot, before the app serves its first request. `onShutdown` runs once, at shutdown, in the exact reverse of the order `onInit` ran in.
-
-## How It Works
-
-```ts title="lifecycle-types.ts (verified source)"
-export interface OnInit {
-  onInit(): void | Promise<void>;
-}
-
-export interface OnShutdown {
-  onShutdown(): void | Promise<void>;
+  async query(sql: string) {
+    return (this.pool as { query(sql: string): unknown }).query(sql);
+  }
+  // nothing closes this pool, ever — not even on SIGTERM
 }
 ```
 
-`isOnInit(value)` and `isOnShutdown(value)` narrow an arbitrary resolved instance by checking whether it has a callable `onInit`/`onShutdown` member — walking the prototype chain, so both plain objects and class instances are detected.
+The pool opens whenever the DI container first resolves `Database` — which could be before other setup finishes, or lazily on the first request if nothing eager forces resolution first. There's no matching moment to close it: a process exit that skips `pool.end()` leaves connections open until the OS reclaims them.
 
-When `registerControllers()` (or `registerModule()`, which reuses it) finishes registering routes, it walks the reachable service graph — every controller plus its transitive `@Service`/`@Repository` dependencies — resolves each from the container, and keeps the distinct instances that implement at least one hook. It then registers a single internal [Extension](/docs/concepts/plugins) that runs those hooks:
+## Why this matters
 
-- **`onInit` runs in dependency order** — a reverse-BFS approximation where a service's dependencies initialize before the service that depends on them. This happens at `app.ready()`, alongside every other extension's `setup()`.
-- **`onShutdown` runs in the exact reverse order**, at `app.close()` — dependents tear down before the dependencies they were using.
+An app that opens a resource with no defined shutdown step works fine in development, where the process rarely lives long enough to expose the leak. In production, every redeploy or restart repeats the same missing teardown, and the failure mode is not a crash — it's a slow accumulation of open connections until the database refuses new ones. Because construction order and shutdown order are two separate problems, solving only one (eager service instantiation) without the other (a guaranteed close step) fixes half the bug.
 
-An async hook is awaited: boot does not complete, and the app does not start serving requests, until every `onInit` has settled.
+## The solution
 
-<Callout type="info" title="No Extension is registered when nothing implements a hook">
-  If no controller and no service in the graph implements `OnInit` or `OnShutdown`, the
-  registrar adds no lifecycle Extension at all — there's no always-on hook-scanning overhead for
-  applications that don't use lifecycle hooks.
-</Callout>
+NextRush defines two lifecycle interfaces — `OnInit` and `OnShutdown` — that a `@Service`, `@Repository`, or controller class opts into by implementing the matching method. There is no decorator: the class runtime detects a lifecycle hook by checking whether the already-resolved instance has a callable `onInit`/`onShutdown` property. `registerControllers()` (and `registerModule()`, which reuses it) collects every instance in the reachable service graph that implements a hook, then registers one internal [Extension](/docs/concepts/extensions) that runs `onInit` at `app.ready()` and `onShutdown` at `app.close()`.
 
-## Minimal Correct Usage
+This app lifecycle is a different axis from the [request lifecycle](/docs/concepts/request-lifecycle): `onInit`/`onShutdown` run once, for the whole application, while the request lifecycle's middleware onion runs fresh for every request the server receives.
+
+## Core idea
+
+Think of the app lifecycle as **the two moments outside the request/response cycle** — the instant before the server accepts its first connection, and the instant after it stops accepting new ones. Everything in between is the request lifecycle's territory: routing, middleware, handlers. A service with an `onInit`/`onShutdown` method is opting into "run this once, at one of those two boundary moments," not "run this on some request."
+
+## Mental model
+
+<Mermaid
+  chart="
+stateDiagram-v2
+    [*] --> Created: createApp()
+    Created --> Initializing: app.ready()
+    Initializing --> Ready: onInit (dependency order)
+    Ready --> Ready: many requests — each its own request lifecycle
+    Ready --> ShuttingDown: app.close()
+    ShuttingDown --> Closed: onShutdown (reverse order)
+    Closed --> [*]
+"
+/>
+
+The self-loop on **Ready** is the point: the app lifecycle passes through that state once and stays there for the application's entire run, while the [request lifecycle](/docs/concepts/request-lifecycle) — context creation, the middleware onion, routing, the handler — repeats independently for every request that arrives during it. `onInit` runs during the single **Initializing** transition, before **Ready** is reached; `onShutdown` runs during the single **ShuttingDown** transition, after **Ready** ends. Neither hook has any per-request equivalent — that's what distinguishes this page from [request lifecycle](/docs/concepts/request-lifecycle).
+
+## Quick example
+
+A database service that opens its pool before the app serves anything, and closes it on shutdown:
 
 ```ts title="database.service.ts"
 import { Service } from 'nextrush/class';
 import type { OnInit, OnShutdown } from 'nextrush/class';
+
+interface Pool {
+  end(): Promise<void>;
+}
+declare function createPool(): Promise<Pool>;
 
 @Service()
 class Database implements OnInit, OnShutdown {
@@ -75,52 +88,142 @@ class Database implements OnInit, OnShutdown {
 }
 ```
 
-```ts title="app.ts"
-import { createApp, listen } from 'nextrush';
+Nothing calls `onInit()` or `onShutdown()` directly. Implementing the method with that exact name is the entire contract — no `@OnInit()` decorator exists.
+
+## How it works
+
+**Example** — register two dependent services and observe hook order:
+
+```ts title="lifecycle-order.ts"
+import { Service } from 'nextrush/class';
+import type { OnInit, OnShutdown } from 'nextrush/class';
+
+@Service()
+class Db implements OnInit, OnShutdown {
+  async onInit() { console.log('Db: connecting'); }
+  async onShutdown() { console.log('Db: closing'); }
+}
+
+@Service()
+class Cache implements OnInit, OnShutdown {
+  constructor(private db: Db) {}
+  async onInit() { console.log('Cache: warming'); }
+  async onShutdown() { console.log('Cache: flushing'); }
+}
+```
+
+**Observation** — booting and closing an app wired with both services logs:
+
+```text
+Db: connecting
+Cache: warming
+Cache: flushing
+Db: closing
+```
+
+`Db.onInit` runs before `Cache.onInit`, because `Cache` depends on `Db`. `Cache.onShutdown` runs before `Db.onShutdown` — the exact reverse.
+
+**Explanation** — three things happen, verified against `packages/class/src/lifecycle/lifecycle.ts`:
+
+- **Collection.** `collectLifecycleInstances()` walks the reachable service graph — every registered controller plus its transitive `@Service`/`@Repository` dependencies — reversing a breadth-first traversal so that a service's dependencies are considered before the service itself. For each, it resolves the instance from the DI container and keeps it only if `isOnInit()` or `isOnShutdown()` returns true. Controllers are added last, using only their already-resolved cached instance — the collector never force-resolves a controller purely to check for hooks.
+- **`isOnInit`/`isOnShutdown` are plain property checks**, not a prototype walk: `typeof value.onInit === 'function'`. Any object — a class instance, a plain object literal — with a callable property of that name qualifies.
+- **Registration.** If the collected list is non-empty, `registerLifecycleExtension()` adds one internal `Extension` via `app.extend()`. Its `setup()` (run at `app.ready()`) calls `onInit()` on every collected instance in collection order — dependencies first. Its `destroy()` (run at `app.close()`) calls `onShutdown()` on the same list reversed — dependents first. If nothing in the graph implements a hook, no Extension is added at all.
+
+<Callout type="info" title="Registering after boot throws">
+  `registerLifecycleExtension()` checks `app.isReady || app.isRunning` and throws before adding
+  the Extension if either is true — matching [`Application`](/docs/concepts/application)'s rule
+  that `extend()` only works during the Configuring state. Call `registerControllers()` /
+  `registerModule()` before `ready()`/`listen()`, never after.
+</Callout>
+
+## Typical use cases
+
+- **A connection pool or client that must open before the first request** — a database, a cache, a message broker client.
+- **A background interval or subscription that must stop cleanly** — a polling loop, a queue consumer, a file watcher.
+- **A resource with an explicit close step required by its own API** — anything whose client library exposes a `.close()`/`.end()`/`.disconnect()` that leaks a handle if skipped.
+
+None of these need a hook if the resource has no setup cost and nothing to release — most services fall into that category and implement neither interface.
+
+## Configuration
+
+There is no configuration surface for lifecycle hooks themselves — a class opts in purely by implementing `onInit`/`onShutdown` with the exact method name, on a class already registered as a `@Service`, `@Repository`, or controller. The one setting that affects whether a *controller's* hooks are detected lives on `registerControllers()`:
+
+```ts title="registration.ts"
+import { createApp } from 'nextrush';
 import { registerControllers } from 'nextrush/class';
 
 const app = createApp();
-
-await registerControllers(app, { root: './src' }); // must run before serve()/ready()
-
-await listen(app, 8080); // ready() runs onInit here, before the server starts accepting requests
-
-process.on('SIGTERM', async () => {
-  await app.close(); // runs onShutdown here
-  process.exit(0);
-});
+await registerControllers(app, { root: './src', validate: false });
 ```
 
-`Database.onInit()` opens the pool before `listen()` finishes booting; `Database.onShutdown()` closes it when `app.close()` runs. Nothing in the controller or service code calls these methods directly — the registrar's internal Extension does, as part of the app's normal boot/shutdown sequence.
+`validate: false` skips boot-time eager resolution of controllers, which keeps controller construction lazy — but a controller only participates in lifecycle collection through its already-resolved cached instance. Disabling validation means a controller implementing a hook goes undetected until something else resolves it. Service- and repository-level hooks are unaffected, because the collector resolves those directly from the container regardless of controller validation.
 
-## What Happens Automatically
+## Performance
 
-- **Registration must happen before `serve()`/`ready()`.** `registerControllers()`/`registerModule()` throws if called after the app is already booted or running, because by then configuration is frozen and the internal lifecycle Extension can no longer be added — this is the concrete failure mode if you try to register controllers after starting the server.
-- **A controller only participates via its already-resolved, cached instance.** The registrar never force-resolves a controller purely to check for lifecycle hooks — it only considers a controller's instance if boot-time eager validation already resolved it (the default). Disabling validation keeps controller construction lazy, and a controller implementing a hook in that mode is not detected.
-- **Dependency order is best-effort, not a strict topological guarantee for every graph shape.** It's a reverse-BFS approximation over the constructor dependency graph, which is correct for typical linear dependency chains but is an approximation, not a formally verified topological sort, for more tangled graphs.
+- **Complexity** — collection is O(n) in the size of the reachable service graph, run once at `app.ready()`, never on the request path. `onInit`/`onShutdown` themselves run once each, for the application's whole life.
+- **Memory** — the collected instance list is a flat array held by one closure inside the internal Extension; no additional per-service bookkeeping beyond what the DI container already holds for singletons.
+- **Scaling** — an application with no lifecycle hooks anywhere in its graph gets no Extension at all, so there's zero always-on overhead for the majority of services that never implement either interface.
 
-## Trade-offs & Guarantees
+## Security
 
-NextRush guarantees `onShutdown` order is the exact reverse of the order `onInit` ran in for that boot — you don't need to reason about the two orders independently. It does not guarantee hooks run for a service that's never resolved: an unresolvable service class (one that would throw on `container.resolve()`) is skipped silently during hook collection, so a genuinely broken dependency graph is caught by the registrar's separate eager validation step, not by lifecycle hook collection.
+- **Unhandled `onInit` rejection.** *Threat:* an async `onInit` that throws propagates out of `app.ready()` and fails the entire boot. *Why:* boot does not complete until every collected `onInit` has settled — one failing hook blocks the whole application from starting. *Safe default:* catch a recoverable failure (a database that might be briefly unreachable) inside `onInit()` itself, and only let genuinely fatal setup failures propagate. *Avoid:* letting a hook reject for a condition that should degrade gracefully instead of blocking startup entirely.
+- **Silent skip on an unresolvable service.** *Threat:* a service whose constructor dependencies can't be satisfied is skipped during hook collection with no error at that point. *Why:* `collectLifecycleInstances()` wraps each resolve in a try/catch and continues past a failure, so a broken dependency graph doesn't crash collection itself. *Safe default:* rely on `registerControllers()`'s separate eager-validation step to catch a genuinely broken dependency graph — that's the intended place for that failure to surface, not lifecycle collection. *Avoid:* assuming a missing `onInit` log line means the hook didn't run; check DI validation errors first.
 
 <Callout type="warn" title="A hook error during boot fails the whole boot">
-  An async `onInit` that rejects propagates out of `app.ready()`. If you need a service's
-  connection failure to be recoverable rather than fatal to startup, catch and handle it inside
-  `onInit()` itself rather than letting it reject.
+  An async `onInit` that rejects propagates out of `app.ready()` and stops the application from
+  starting at all — there is no partial-boot state.
 </Callout>
 
-## Common Mistakes
+## Trade-offs
 
-1. **Adding `@OnInit()` or `@OnShutdown()` as decorators** — there is no such decorator. Implementing the method itself, with the exact name `onInit` or `onShutdown`, is what makes it detected.
-2. **Registering controllers after calling `listen()`/`serve()`** — the lifecycle Extension can't be added once the app is booted; register controllers (directly or through a module) before starting the server, not after.
-3. **Assuming a controller's `onInit` runs even with `validate: false`** — a controller only participates in lifecycle hooks through its already-resolved instance from eager validation. Turning off validation for lazy controller construction also turns off controller-level lifecycle detection.
+**Why duck typing instead of a decorator** — it keeps the contract to one thing: implement a method with the right name. No import to remember beyond the type (optional, for compile-time checking), no annotation to apply on top of `@Service()`, and it works on any resolved instance, not only ones the registrar constructed itself.
 
-## When Not to Use This
+- **Benefits** — a service opts in with zero extra syntax beyond the method itself; the collector can detect hooks on plain objects too, not only decorated classes; there's no risk of a decorator applied without the matching method, or a method present with a forgotten decorator.
+- **Costs** — a typo in the method name (`onInt` instead of `onInit`) fails silently: the class never participates, with no error to flag the mistake. TypeScript's structural typing catches this only if you declare `implements OnInit`.
+- **Alternatives** — a `@OnInit()` decorator would give a compile-time-checkable, explicit opt-in, at the cost of one more decorator to import and apply correctly, and would still need a duck-typed detection fallback for plain objects the container didn't construct.
+- **Why NextRush chose duck typing** — the same reasoning as the rest of the class runtime's detection strategy: minimize what a developer has to remember on top of the method they're already writing.
 
-A stateless service with nothing to open or close on startup doesn't need either hook — most services fall into this category and never implement `OnInit`/`OnShutdown` at all. Reach for these hooks specifically when a service owns an external resource (a connection, a subscription, a background timer) whose lifetime should match the application's.
+## Decision guide
 
-## Related
+**Implement `OnInit`/`OnShutdown` when:**
 
-- [Dependency Injection & Scopes](/docs/concepts/dependency-injection) — how the container resolves the instances lifecycle hooks run against
-- [Extending NextRush](/docs/concepts/plugins) — the Extension mechanism the registrar uses internally to run hooks at `app.ready()`/`app.close()`
-- [Application](/docs/concepts/application) — `app.ready()` and `app.close()`, the two moments hooks run at
+- ✓ The service opens a connection, subscription, or timer that should live exactly as long as the application does
+- ✓ Skipping teardown would leak a handle, socket, or resource the underlying client library requires you to close
+
+**Skip both interfaces when:**
+
+- ✓ The service is stateless, or its state needs no explicit open/close step
+- ✗ Don't reach for `onInit` to do work that belongs in the [request lifecycle](/docs/concepts/request-lifecycle) instead — per-request setup is a middleware's job, not an app-lifecycle hook's
+
+## Common mistakes
+
+- **Adding `@OnInit()` or `@OnShutdown()` as decorators.** *Why it happens:* every other class-runtime feature (`@Get`, `@UseGuard`) is a decorator, so this looks like a gap. *Correct approach:* implement the plain method `onInit`/`onShutdown` — no decorator exists or is needed. *If ignored:* TypeScript reports an unknown decorator, or (if invented locally) the decorator has no effect the collector reads.
+- **Registering controllers after `listen()`/`ready()`.** *Why it happens:* registration and server start look independent, so ordering feels optional. *Correct approach:* call `registerControllers()`/`registerModule()` before `ready()`, `start()`, or `listen()`. *If ignored:* `registerLifecycleExtension()` throws, because the app's configuration is already frozen and the Extension can't be added.
+- **Expecting a lazily-constructed controller's hooks to run under `validate: false`.** *Why it happens:* nothing in a controller's own code hints that its hook detection depends on a registration-time flag. *Correct approach:* keep eager validation on for any controller that implements a lifecycle hook, or accept that hook detection is skipped for it. *If ignored:* the controller's `onInit`/`onShutdown` silently never runs, with no error.
+- **Confusing this page's hooks with the per-request lifecycle.** *Why it happens:* "lifecycle" sounds singular, but NextRush has two independent ones. *Correct approach:* reach for `OnInit`/`OnShutdown` for boot/shutdown, and middleware for anything that must run on every request — see [request lifecycle](/docs/concepts/request-lifecycle). *If ignored:* per-request setup ends up in `onInit`, running once for the app's whole life instead of once per request.
+
+## Key takeaways
+
+- `OnInit`/`OnShutdown` are duck-typed interfaces — a service participates by implementing `onInit`/`onShutdown`, with no decorator.
+- The app lifecycle (this page) runs its two hooks once each, at boot and shutdown; the [request lifecycle](/docs/concepts/request-lifecycle) runs its own pipeline fresh for every request in between.
+- `onInit` runs in dependency order at `app.ready()`; `onShutdown` runs in the exact reverse order at `app.close()`.
+- A controller's hooks are detected only through its already-resolved, eagerly-validated instance — `validate: false` also disables controller-level hook detection.
+- An async `onInit` that rejects fails the whole boot; catch a recoverable failure inside the hook rather than letting it propagate.
+- No service in the graph implementing a hook means no lifecycle Extension is added at all — zero always-on cost for applications that don't use this.
+
+## Continue learning
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    The composition root and its own ready()/start()/close() lifecycle that boots and tears down these hooks.
+  </Card>
+  <Card title="Request lifecycle" href="/docs/concepts/request-lifecycle">
+    The per-request pipeline that runs independently, many times, while the app lifecycle sits in Ready.
+  </Card>
+  <Card title="Dependency injection & scopes" href="/docs/concepts/dependency-injection">
+    How the container resolves the instances lifecycle collection walks and checks for hooks.
+  </Card>
+  <Card title="Extending NextRush" href="/docs/concepts/extensions">
+    The Extension mechanism the registrar uses internally to run these hooks at ready()/close().
+  </Card>
+</Cards>

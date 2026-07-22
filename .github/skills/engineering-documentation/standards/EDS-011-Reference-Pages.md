@@ -12,12 +12,28 @@ Assume the reader already understands the concept (if they don't, they need the 
 
 ## Structure
 
-Consistent across every reference page, so readers always know where to look:
+Consistent across every reference page, so readers always know where to look. It reads like a man page — facts first, tables over prose:
 
 ```text
-Overview (1–2 sentences) → Signature → Parameters → Return value
-   → Behavior → Example → Errors → Notes → Related
+Quick Facts → Import → Signature (+ overloads) → Parameters → Returns
+   → Properties (optional) → Methods (optional)
+   → Behavior (Execution · Lifecycle · Side effects) → Examples (Basic · Advanced)
+   → Errors (+ Recovery) → Compatibility → Version Notes → Related Types → Related
 ```
+
+The high-value additions that make it a real lookup tool:
+
+- **Quick facts** ⭐ — a table answering package · since · stability · runtime · async? · throws? at a glance, before anything else.
+- **Import** ⭐ — the exact import line, before the signature. Developers copy imports constantly; never make them guess the barrel (`createRouter` is `@nextrush/router`, not `@nextrush/core`).
+- **Overloads** — show every overload; never hide them behind one signature.
+- **Behavior split** into **Execution · Lifecycle · Side effects** (bullets, never long paragraphs) — plus complexity and state-transition notes where relevant (lifecycle APIs especially).
+- **Examples** ⭐ — Basic + Advanced (Tabs), each copy-paste-run, no pseudo-code.
+- **Errors + Recovery** ⭐ — engineers want the fix, not just the error name.
+- **Compatibility / Version Notes / Related Types** ⭐ — runtimes, `Since`/`Deprecated`/`Removal`, and the types this API consumes or returns.
+
+## The 30-second rule
+
+Every reference page must be answerable in under 30 seconds: **how do I import it · what's the signature · what do the params mean · what does it return · can it throw · lifecycle/compatibility constraints · where next.** If a reader has to read prose to extract any of those, the page has drifted toward a Concept or Guide and must be tightened.
 
 ## Rules specific to reference pages
 

@@ -1,31 +1,69 @@
 /**
- * Fetch latest published versions from npm registry at RUNTIME.
- * This ensures create-nextrush always generates projects with
- * the latest published packages, regardless of CLI version.
+ * Fetch latest published versions from npm registry at RUNTIME, per package.
  *
- * Falls back to build-time versions if offline.
+ * Every emitted @nextrush/* (or `nextrush`) dependency is resolved from its OWN registry
+ * entry — never proxied through another package's version (see RFC-021 / ADR-0011: the
+ * framework's packages version independently by design; `.changeset/config.json`'s `fixed`
+ * group intentionally excludes @nextrush/dev, the middleware packages, and the bun/deno
+ * adapters).
+ *
+ * Falls back to a build-time-injected PER-PACKAGE version map when the registry is
+ * unreachable for a given package (offline, timeout, 404, etc.) — never to another
+ * package's fallback value.
  */
 
-declare const __CORE_RANGE__: string;
-declare const __MW_RANGE__: string;
+declare const __FALLBACK_VERSIONS__: string;
 
-const CORE_FALLBACK: string = typeof __CORE_RANGE__ !== 'undefined' ? __CORE_RANGE__ : '^0.0.0';
-const MW_FALLBACK: string = typeof __MW_RANGE__ !== 'undefined' ? __MW_RANGE__ : '^0.0.0';
+/**
+ * Dev-mode-only per-package fallback used when this module runs WITHOUT the tsup build
+ * step (e.g. under `vitest` directly against `src/`, where `__FALLBACK_VERSIONS__` is
+ * never defined). Mirrors the current workspace's real major-version split so tests can
+ * exercise the offline path without a build. The published CLI always uses the build-time
+ * map injected by `tsup.config.ts` — this is never shipped as the primary source.
+ */
+const DEV_FALLBACK_VERSIONS: Record<string, string> = {
+  nextrush: '^3.1.0',
+  '@nextrush/types': '^3.1.0',
+  '@nextrush/class': '^3.1.0',
+  '@nextrush/dev': '^1.0.0',
+  '@nextrush/cors': '^3.1.0',
+  '@nextrush/body-parser': '^3.1.0',
+  '@nextrush/helmet': '^3.1.0',
+  '@nextrush/rate-limit': '^1.0.0',
+  '@nextrush/compression': '^3.1.0',
+  '@nextrush/request-id': '^1.0.0',
+  '@nextrush/adapter-bun': '^1.0.0',
+  '@nextrush/adapter-deno': '^1.0.0',
+};
 
-const NPM_REGISTRY = 'https://registry.npmjs.org';
+const FALLBACK_VERSIONS: Record<string, string> = (() => {
+  try {
+    return typeof __FALLBACK_VERSIONS__ !== 'undefined'
+      ? (JSON.parse(__FALLBACK_VERSIONS__) as Record<string, string>)
+      : DEV_FALLBACK_VERSIONS;
+  } catch {
+    return DEV_FALLBACK_VERSIONS;
+  }
+})();
 
-interface NpmVersionCache {
-  core: string;
-  mw: string;
+const DEFAULT_REGISTRY = 'https://registry.npmjs.org';
+const PROBE_TIMEOUT_MS = 5000;
+
+/** Resolves the npm registry to probe against, honoring the caller's configured registry. */
+function resolveRegistry(): string {
+  const configured = process.env.npm_config_registry;
+  if (configured && configured.trim().length > 0) {
+    return configured.replace(/\/+$/, '');
+  }
+  return DEFAULT_REGISTRY;
 }
 
-let cached: NpmVersionCache | null = null;
-
-async function fetchVersion(pkg: string): Promise<string> {
+async function fetchLatestVersion(pkg: string, registry: string): Promise<string> {
   try {
-    const res = await fetch(`${NPM_REGISTRY}/${pkg}/latest`, {
+    const encodedPkg = pkg.startsWith('@') ? pkg.replace('/', '%2F') : pkg;
+    const res = await fetch(`${registry}/${encodedPkg}/latest`, {
       headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
     if (!res.ok) return '';
     const data = (await res.json()) as { version?: string };
@@ -36,22 +74,33 @@ async function fetchVersion(pkg: string): Promise<string> {
 }
 
 /**
- * Fetch latest nextrush versions from npm.
- * Called once at CLI startup. Results are cached.
- * Returns { core, mw } version ranges like "^3.0.5".
+ * Resolves the version range for every requested package name, independently.
+ *
+ * Called once at CLI startup with the exact set of packages the chosen
+ * `{style, runtime, middleware}` will emit. Each package is probed in parallel under one
+ * shared timeout budget; a package whose probe fails or times out falls back to ITS OWN
+ * entry in the build-time fallback map — never another package's resolved/fallback value.
+ *
+ * @param packageNames - every `@nextrush/*` (or `nextrush`) package name to resolve.
+ * @returns a map of package name to a caret version range, e.g. `"^1.0.0"`.
  */
-export async function resolveVersions(): Promise<NpmVersionCache> {
-  if (cached) return cached;
+export async function resolveVersions(packageNames: readonly string[]): Promise<Map<string, string>> {
+  const registry = resolveRegistry();
+  const results = await Promise.all(
+    packageNames.map(async (pkg) => {
+      const liveVersion = await fetchLatestVersion(pkg, registry);
+      if (liveVersion) {
+        return [pkg, `^${liveVersion}`] as const;
+      }
+      const fallback = FALLBACK_VERSIONS[pkg];
+      if (!fallback) {
+        throw new Error(
+          `Unable to resolve a version for package "${pkg}": the registry probe failed and no fallback entry exists for it. This usually means a new package was added to the scaffolder without adding it to the fallback map in tsup.config.ts.`
+        );
+      }
+      return [pkg, fallback] as const;
+    })
+  );
 
-  const [coreVer, mwVer] = await Promise.all([
-    fetchVersion('nextrush'),
-    fetchVersion('@nextrush/cors'),
-  ]);
-
-  cached = {
-    core: coreVer ? `^${coreVer}` : CORE_FALLBACK,
-    mw: mwVer ? `^${mwVer}` : MW_FALLBACK,
-  };
-
-  return cached;
+  return new Map(results);
 }

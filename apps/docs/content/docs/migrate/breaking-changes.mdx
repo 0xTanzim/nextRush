@@ -1,0 +1,115 @@
+---
+title: Breaking Changes
+description: 'Real v4 API breaks: retired shims, backward-compat alias removals, and renamed internals — every item verified against source and commit history.'
+---
+
+Every item below is a real, shipped change — verified against `packages/*/src`, `CHANGELOG.md`,
+and the commit that made it, not inferred from another framework's conventions. If you're
+upgrading from an older NextRush install, read this before [Upgrade guide](/docs/migrate/upgrade-guide).
+
+<Callout type="info" title="Not the same as the docs-site reorg">
+  This page covers changes to the **framework's API and packages**. If you're looking for where
+  a documentation page moved, see [v3 → v4 docs map](/docs/migrate/v3-to-v4-docs) instead.
+</Callout>
+
+## `@nextrush/decorators` and `@nextrush/controllers` were removed
+
+Both packages were pure re-export shims over `@nextrush/class` — confirmed by reading each
+package's `src/index.ts` before removal, neither contained logic of its own. They no longer
+exist in this repository and no longer publish new versions.
+
+```diff
+- import { Controller, Get, UseGuard } from '@nextrush/decorators';
+- import { registerControllers } from '@nextrush/controllers';
++ import { Controller, Get, UseGuard, registerControllers } from 'nextrush/class';
+```
+
+Every symbol either package re-exported still exists under `nextrush/class` — see
+[Deprecations](/docs/migrate/deprecations) for the exact symbol-by-symbol map, or run the
+automated codemod:
+
+```bash
+nextrush codemod consolidate-imports "src/**/*.ts"
+```
+
+Their last-published npm versions (`3.1.0`) keep working as-is in an existing lockfile; this is
+a removal from the repository going forward, not a retroactive break.
+
+## A batch of dead backward-compatibility aliases was removed
+
+Confirmed superseded with zero remaining internal use before removal. If your code references
+any of these, switch to the replacement:
+
+| Package | Removed | Use instead |
+| --- | --- | --- |
+| `@nextrush/adapter-{bun,deno,edge}` | `{Bun,Deno,Edge}BodySource` type/value aliases, `create{Bun,Deno,Edge}BodySource` | `WebBodySource` / `createWebBodySource` from `@nextrush/runtime` |
+| `@nextrush/core` | `createHttpError` alias | `createError` |
+| `@nextrush/errors` | `ErrorContext`, `ErrorMiddleware` | `Context` / `Middleware` from `@nextrush/types` |
+| `@nextrush/errors` | `catchAsync()` | Remove the call — it was a no-op wrapper |
+| `@nextrush/body-parser` | Node-stream fallback path: `BodyParserContext.raw`, `RequestStream`, `BodyParserMiddleware` | `Middleware` from `@nextrush/types`; requires `ctx.bodySource`, which every current adapter provides |
+| `@nextrush/helmet` | `frameguard()`, the `frameguard` option, `XFrameOptionsValue` | The CSP `frame-ancestors` directive, honored by every modern browser |
+| `@nextrush/cors` | `CorsMiddleware` alias | `Middleware` from `@nextrush/types` |
+
+## Router internals renamed: radix tree → segment trie
+
+`@nextrush/router`'s internal data structure and its public-facing name both changed from
+"radix tree" to "segment trie" — `RadixNode` is now `TrieNode`, and `radix-tree.ts` is now
+`segment-trie.ts`. `RadixNode` was never part of the public runtime export surface (confirmed
+against the package's own `public-surface.test.ts`), so this is a naming/documentation
+correction, not an API removal. If you see "radix tree" anywhere in older NextRush
+documentation or steering files, it's describing a previous implementation and is stale — the
+router has always been, and remains, a **segment trie**: O(k) lookup per path segment,
+independent of route count.
+
+## `reference/` URL structure flattened
+
+Reference documentation URLs lost a redundant middle segment:
+
+```diff
+- /docs/reference/core/router
++ /docs/reference/router
+- /docs/reference/middleware/cors
++ /docs/reference/cors
+- /docs/reference/plugins/events
++ /docs/reference/events
+- /docs/reference/adapters/node
++ /docs/reference/platforms/node
+```
+
+Old links redirect automatically — see [v3 → v4 docs map](/docs/migrate/v3-to-v4-docs) for the
+full table. This is a documentation-site URL change; it does not affect the packages'
+JavaScript/TypeScript import paths.
+
+## `internals/` renamed to `architecture/`
+
+The docs section documenting NextRush's own internal design moved from `/docs/internals` to
+`/docs/architecture` (a documentation URL rename, not a package or import change). Its
+`contributing.mdx` page was merged into `/docs/community/contributing`.
+
+## "Plugin" renamed to "Extension"
+
+The concept previously called a "Plugin" — a long-lived, app-scoped service wired with
+`app.extend()` and booted with `app.ready()` — is now called an **Extension** throughout the
+documentation and steering. This is a terminology and documentation change: `app.extend()` and
+`app.ready()` are unchanged; only the noun used to describe what you're registering changed
+from "Plugin" to "Extension." `@nextrush/class`'s `ClassRef` and internal helpers
+(`deepFreeze`, `bootstrapPipeline`) were also sealed off the package's public surface around
+the same time (see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md))
+— if you were importing any of those from `@nextrush/class`, they were never part of the
+supported contract and were never re-exported by the removed shims either.
+
+## Not a breaking change: mixed-version monorepo
+
+Packages that shipped with the original v3 release version together at `3.1.0`; packages added
+afterward (`@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, and others) start their
+own semver line at `1.0.0` and version independently. A `1.0.0` package is not less mature than
+a `3.1.0` one — it started its own line later. See the
+[Compatibility Matrix](/docs/help/compatibility-matrix) for the current, real version of every
+package.
+
+## Next steps
+
+- [Deprecations](/docs/migrate/deprecations) — the exact old-import → new-import map for the
+  removed shims.
+- [Upgrade guide](/docs/migrate/upgrade-guide) — what a version bump means today.
+- [v3 → v4 docs map](/docs/migrate/v3-to-v4-docs) — where a bookmarked documentation URL moved.

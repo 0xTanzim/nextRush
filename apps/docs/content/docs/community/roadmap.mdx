@@ -1,0 +1,149 @@
+---
+title: Roadmap
+description: Current development status and planned features for NextRush, plus the documentation platform rebuild's own roadmap.
+---
+
+NextRush development tracks what has shipped, what is actively being built, and what comes
+next. Each item below reflects the actual state of the codebase — verified against source, not
+aspirational marketing copy.
+
+<Callout type="info">
+  Priorities may shift based on community feedback. Items without code or an RFC are considered
+  aspirational.
+</Callout>
+
+---
+
+## Current status
+
+**Package versions**: mixed — core packages at **`3.1.0`**, packages added after the initial
+release at **`1.0.0`** and versioning independently. See the
+[Compatibility Matrix](/docs/help/compatibility-matrix) for the full, regularly re-derived
+table.
+
+Breaking API changes require a **major** version bump; new features ship in **minor** releases
+when applicable, per [Semantic Versioning](https://semver.org/).
+
+---
+
+## Phase 1: Core foundation ✅
+
+_Status: Complete_
+
+- [x] Application core with middleware composition (`@nextrush/core`)
+- [x] Segment trie router (`@nextrush/router`)
+- [x] HTTP error hierarchy (`@nextrush/errors`)
+- [x] Shared type definitions (`@nextrush/types`)
+- [x] Runtime detection (`@nextrush/runtime`)
+- [x] Node.js adapter (`@nextrush/adapter-node`)
+
+## Phase 2: Developer experience ✅
+
+_Status: Complete_
+
+- [x] Dependency injection container (`@nextrush/di`)
+- [x] Consolidated class runtime — `@Controller`, `@Get`, `@Body`, `@UseGuard`, modules,
+      interceptors, exception filters, lifecycle hooks (`@nextrush/class`; the former
+      `@nextrush/decorators` and `@nextrush/controllers` packages have since been removed
+      after serving briefly as deprecated compatibility shims)
+- [x] Dev tools CLI with hot reload and SWC-based production builds (`@nextrush/dev`)
+- [x] Meta package re-exporting core essentials (`nextrush`)
+- [x] Interactive project scaffolder — `pnpm create nextrush` (`create-nextrush`)
+
+## Phase 3: Middleware & extensions ✅
+
+_Status: Complete_
+
+**Middleware:** CORS, security headers (Helmet), CSRF protection, body parsing, multipart/file
+upload, response compression, cookie handling, rate limiting, request ID generation, request
+timing, Standard Schema request validation (Zod/Valibot/ArkType), static file serving, template
+rendering, structured logging, zero-config OpenAPI 3.1 generation, liveness/readiness health
+checks for orchestrator probes (`@nextrush/health`).
+
+**Extensions:** type-safe event emitter (`@nextrush/events`), WebSocket support
+(`@nextrush/websocket`), response streaming for SSE/NDJSON (`@nextrush/stream`).
+
+## Phase 4: Multi-runtime adapters ✅
+
+_Status: Complete_
+
+- [x] Node.js adapter (`@nextrush/adapter-node`)
+- [x] Bun adapter (`@nextrush/adapter-bun`)
+- [x] Deno adapter (`@nextrush/adapter-deno`)
+- [x] Edge adapter — Cloudflare Workers, Vercel Edge, Netlify Edge (`@nextrush/adapter-edge`)
+- [x] Serverless adapter — AWS Lambda, Google Cloud Functions, Azure Functions
+      (`@nextrush/adapter-serverless`)
+
+## Phase 5: Performance validation 🚧
+
+_Status: In progress_
+
+- [x] Benchmarking suite comparing Express, Fastify, Hono, Koa, and a raw Node.js baseline
+      across 10 scenarios, with mechanically-validated fairness (`pnpm bench:validate`)
+- [ ] Published, reproducible benchmark results on a clean, CPU-pinned environment — prior
+      figures were withdrawn pending re-measurement (see [Performance](/docs/performance))
+- [ ] Memory profiling and optimization pass
+
+---
+
+## Planned
+
+Items with no implementation yet. Some are tracked in RFCs; others are aspirational.
+
+<details>
+<summary>View all planned items</summary>
+
+### Middleware & security
+
+- [ ] Session management middleware
+- [ ] Built-in Redis store for rate limiting
+
+### Developer tooling
+
+- [ ] Security audit and dependency scanning
+
+### Ecosystem integrations
+
+- [ ] GraphQL plugin
+- [ ] Database integration guides (Drizzle, Prisma)
+
+### Documentation
+
+- [ ] Cookbook with task-oriented recipes (see [Recipes](/docs/recipes))
+- [ ] Starter templates and example repository
+
+</details>
+
+---
+
+## Framework goals
+
+1. **Performance** — keep the benchmark harness honest and reproducible; document methodology
+   when it changes (see [Performance](/docs/performance)).
+2. **Bundle size** — keep the core under 200KB memory footprint.
+3. **Type safety** — full TypeScript strict mode, zero `any`.
+4. **Dual paradigm** — functional routes and decorator-based controllers, usable together.
+5. **Minimal runtime dependencies** — `reflect-metadata` for decorator metadata and `tsyringe`
+   inside `@nextrush/di` are the only runtime dependencies across the core/adapter/middleware
+   line.
+
+### Non-goals
+
+- Replacing Express or Fastify for every use case.
+- Building a full-stack framework (like Next.js).
+- Supporting Node.js versions below 22.
+
+---
+
+## Feature requests
+
+- **Vote** on existing issues to signal priority.
+- **Open a discussion** to propose new ideas.
+- **Contribute** by picking up an unassigned item — see [Contributing](/docs/community/contributing).
+
+[Open a feature request](https://github.com/0xTanzim/nextRush/issues/new?template=feature_request.md)
+
+## See also
+
+- [Changelog](/docs/community/changelog) — release history.
+- [Compatibility Matrix](/docs/help/compatibility-matrix) — current package versions.

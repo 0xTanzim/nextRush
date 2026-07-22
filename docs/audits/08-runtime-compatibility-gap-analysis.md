@@ -31,6 +31,24 @@
 > (T024/T026 seams) is explicitly unchanged — out of scope for that change by design. This note is
 > additive, matching `03-gap-checklist.md`'s own re-baseline convention — the original findings
 > below are left intact as the historical record of what was found before the fix, not rewritten.
+>
+> **⚠️ Reconciled 2026-07-22** via `openspec/changes/runtime-platform-parity-hardening` (report:
+> `report/adapters/runtime-platform-review.md`; decision: `docs/adr/ADR-0010-cross-runtime-parity-hardening.md`).
+> Closes the "claim outruns proof" gap R5 first identified, one layer deeper: the Bun and Deno
+> real-runtime conformance runners now execute the FULL shared `defineConformanceSuite` (31 cases,
+> up from 5 hand-written ones each) — verified running under real Bun 1.3.14 and real Deno 2.6.3,
+> not simulated. Real workerd was widened from 3 to 7 curated assertions; running its full suite
+> hit a genuine architectural limit (the suite's per-case closures cannot cross the separate-isolate
+> HTTP boundary `miniflare.dispatchFetch` requires) — documented in `certification.ts`'s new
+> `RealRuntimeCoverage` type (`full-suite` vs `curated-subset`) rather than papered over. Also
+> converged Node's request-timeout model with every other adapter (a clean `504` via a handler
+> race, `server.timeout` retained as an independent slow-client guard — ADR-0010 §2), fixed a real
+> HEAD `Content-Length` cross-runtime drift and an error-`Content-Type` charset drift, added
+> Bun/Deno `gracefulShutdown` parity with Node, gave Edge a bounded default timeout, and extracted
+> the Bun/Deno/Edge Context shell into one shared `WebContextBase`. The certification matrix's
+> `Multipart`/`Compression`/`WebSockets` cells dropped from a false `full` to an honest
+> `capability-only` — the adapters implement none of them; the previous "full" was inferred from a
+> capability bit, never an executed assertion.
 
 ---
 

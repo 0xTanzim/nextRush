@@ -22,15 +22,7 @@ A CRUD API for managing users:
 - Node.js 22+
 - TypeScript 5.x with strict mode
 
-<PackageInstall
-  packages={[
-    '@nextrush/core',
-    '@nextrush/router',
-    '@nextrush/adapter-node',
-    '@nextrush/body-parser',
-    '@nextrush/errors',
-  ]}
-/>
+<PackageInstall packages={['nextrush', '@nextrush/body-parser']} />
 
 ## Project Structure
 
@@ -137,8 +129,7 @@ src/
     Register routes on the router with relative paths. The mount prefix is applied when you attach the router to the app.
 
     ```typescript title="src/routes/users.ts"
-    import { createRouter } from '@nextrush/router';
-    import { NotFoundError, BadRequestError } from '@nextrush/errors';
+    import { createRouter, NotFoundError, BadRequestError } from 'nextrush';
     import { userService } from '../services/user';
     import type { CreateUserInput, UpdateUserInput } from '../types/user';
 
@@ -218,10 +209,8 @@ src/
     Wire everything together:
 
     ```typescript title="src/index.ts"
-    import { createApp } from '@nextrush/core';
-    import { listen } from '@nextrush/adapter-node';
+    import { createApp, listen, errorHandler, notFoundHandler } from 'nextrush';
     import { json } from '@nextrush/body-parser';
-    import { errorHandler, notFoundHandler } from '@nextrush/errors';
     import { usersRouter } from './routes/users';
 
     const app = createApp();
@@ -367,7 +356,7 @@ packages required.
 
 ```typescript title="src/controllers/users.controller.ts"
 import { Controller, Get, Post, Put, Delete, Body, Param, Service } from 'nextrush/class';
-import { NotFoundError, BadRequestError } from '@nextrush/errors';
+import { NotFoundError, BadRequestError } from 'nextrush';
 import type { User, CreateUserInput, UpdateUserInput } from '../types/user';
 
 @Service()
@@ -473,7 +462,7 @@ await listen(app, 8080);
 ### Route Grouping
 
 ```typescript
-import { createRouter } from '@nextrush/router';
+import { createRouter } from 'nextrush';
 
 const users = createRouter();
 users.get('/', listUsers);
@@ -537,11 +526,11 @@ usersRouter.get('/:id', (ctx) => {
   <Card
     title="Context API Reference"
     description="Full context methods and properties."
-    href="/docs/reference/core/context"
+    href="/docs/reference/context"
   />
   <Card
     title="Router API Reference"
     description="Segment trie routing — all methods and options."
-    href="/docs/reference/core/router"
+    href="/docs/reference/router"
   />
 </Cards>

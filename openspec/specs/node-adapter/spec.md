@@ -475,3 +475,86 @@ resets the connection before the `413` status line and body have flushed. The sy
 - **WHEN** the conformance suite drives an over-limit body through each adapter
 - **THEN** every adapter returns a `413` (Web adapters via their stream cancellation), with no
   adapter resetting the connection before the response is delivered
+
+### Requirement: Streaming responses settle deterministically when the client disconnects under backpressure
+The Node adapter's response byte pump — `sendStream()` and the Web-`ReadableStream` branch of
+`send()` — SHALL settle its returned promise when the client disconnects while the pump is parked
+on socket backpressure. A parked `res.once('drain')` wait MUST additionally observe `res` `'close'`
+and `'error'` (and the request abort signal) and resolve/reject promptly on any of them, so a
+disconnect ends the wait — and the awaiting handler — rather than leaving the wait permanently
+pending. A disconnected backpressured stream MUST NOT retain the pump frame, the `res`, the reader,
+or the stream controller after the request ends.
+
+#### Scenario: A disconnect while backpressured settles the handler
+- **WHEN** an SSE/stream response is parked on `res.once('drain')` (the socket write buffer is full)
+  and the client disconnects
+- **THEN** the streaming promise settles within milliseconds (as a client-abort outcome), and the
+  handler's `await ctx.sse(...)`/`await ctx.sendStream(...)` returns instead of hanging
+
+#### Scenario: Post-stream handler cleanup runs on backpressured disconnect
+- **WHEN** a handler has a `finally` block after `await ctx.stream(...)` and the client disconnects
+  while the stream is backpressured
+- **THEN** the `finally` block executes (e.g. a DB transaction is rolled back, a pooled resource is
+  released)
+
+#### Scenario: No pump state is retained after a backpressured disconnect
+- **WHEN** a backpressured stream is disconnected and the request has ended
+- **THEN** a heap snapshot shows the `res`, reader, and stream controller for that request are
+  collectable (no permanently-pending promise roots them)
+
+### Requirement: The Node request timeout matches the web adapters' cooperative handler timeout
+The Node adapter SHALL provide the same handler-level request timeout that
+`@nextrush/adapter-{bun,deno,edge}` already provide: a `timeout` on `ServeOptions` that, on overrun,
+aborts the request's `ctx.signal` and — if no response has yet been sent — emits a
+`504 Gateway Timeout`, defaulting to `DEFAULT_TIMEOUT_MS` with `0` disabling it. It SHALL be wired
+into `ctx.signal` via the shared `combineAbortSignal` primitive so a cooperative handler observes
+one signal for both client disconnect and timeout, and its observable behavior MUST be identical to
+the Bun/Deno/Edge timeout (status `504`, cooperative cancellation) as pinned by the cross-adapter
+conformance suite. A helper SHALL be provided to derive a child deadline `AbortSignal` from
+`ctx.signal` for per-operation budgets. The socket-level `server.timeout` remains as a complementary
+backstop.
+
+#### Scenario: A hung handler is cancelled and answered with 504, matching the web adapters
+- **WHEN** a handler does not respond within the configured `timeout`
+- **THEN** `ctx.signal.aborted` becomes `true` and, if headers are not yet sent, the client receives
+  a `504 Gateway Timeout` — byte-identical to the response Bun/Deno/Edge already return on timeout
+
+#### Scenario: Disabling the timeout allocates no per-request timer
+- **WHEN** `serve({ timeout: 0 })` is set
+- **THEN** no per-request timeout timer is created for that request
+
+#### Scenario: The request-timeout behavior is identical across all four adapters
+- **WHEN** the cross-adapter conformance suite exercises a handler that overruns the timeout on
+  Node, Bun, Deno, and Edge
+- **THEN** each returns `504` and aborts `ctx.signal`, with no behavioral divergence
+
+#### Scenario: A child deadline signal derives from ctx.signal
+- **WHEN** a handler derives a child deadline signal from `ctx.signal` via the provided helper
+- **THEN** the child signal aborts when either the deadline elapses or `ctx.signal` aborts (client
+  disconnect or request timeout)
+
+### Requirement: Response completion always sets a Content-Type
+When the adapter completes a request whose handler resolved without sending a response and without
+throwing, the emitted response SHALL carry an explicit `Content-Type`. The adapter MUST NOT emit a
+bare status with an absent `Content-Type` on the unhandled-completion fallback path.
+
+#### Scenario: The unhandled-completion fallback sets a Content-Type
+- **WHEN** a handler resolves without calling any response method and without error, and the status
+  is not `404`
+- **THEN** the response sent by the adapter includes an explicit `Content-Type` header
+
+### Requirement: A client abort during body read is classified as a client-side condition
+When the request stream closes before the body is fully read (client disconnect/abort), the adapter
+SHALL reject the body read with a typed client-abort error distinct from a server (`5xx`) error, so
+metrics and logs do not misattribute a client disconnect as a server fault. Disconnect detection
+MUST NOT rely on the deprecated `req 'aborted'` event.
+
+#### Scenario: A premature body close yields a typed client-abort, not a 500
+- **WHEN** the request stream closes before the declared body has been fully read
+- **THEN** the body read rejects with a typed client-abort error (a `4xx`-class condition), not a
+  generic error that surfaces as a `500`
+
+#### Scenario: Disconnect detection uses a non-deprecated mechanism
+- **WHEN** the adapter wires client-disconnect detection for `ctx.signal` and body reads
+- **THEN** it uses `req`/`res` `'close'` (with the destroyed/aborted checks) rather than the
+  deprecated `req 'aborted'` event

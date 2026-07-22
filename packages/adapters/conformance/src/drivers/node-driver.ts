@@ -69,7 +69,7 @@ function toResult(raw: RawResponse): DispatchResult {
 
 export const nodeDriver: ConformanceDriver = {
   name: 'node',
-  handlerTimeout504: false, // Node timeout is socket-level (server.timeout), not a 504 (F-08)
+  handlerTimeout504: true, // F-04/ADR-0010: Node now races the handler and returns a clean 504
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false, // Node ignores cf-connecting-ip (F-11)
@@ -120,9 +120,32 @@ export const nodeDriver: ConformanceDriver = {
     return fired;
   },
 
-  timeoutResult(): Promise<null> {
-    // Node enforces `timeout` at the socket level (`server.timeout`), which does
-    // not emit a 504 or cancel via ctx.signal — a documented difference (F-08).
-    return Promise.resolve(null);
+  timeoutResult(): Promise<{ status: number; signalFired: boolean }> {
+    // F-04/ADR-0010: Node now races the handler against `timeout` and returns a
+    // clean 504, cancelling via ctx.signal — mirroring Bun/Deno/Edge/Serverless.
+    let signalFired = false;
+    const app = createApp();
+    app.use(async (ctx) => {
+      const signal = ctx.signal;
+      await new Promise<void>((resolve) => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            signalFired = true;
+            resolve();
+          },
+          { once: true }
+        );
+      });
+    });
+    return (async () => {
+      const server = await serve(app, { port: 0, timeout: 10 });
+      try {
+        const raw = await rawRequest(server.port, { path: '/' });
+        return { status: raw.status, signalFired };
+      } finally {
+        await server.close();
+      }
+    })();
   },
 };

@@ -1,5 +1,0 @@
-{
-  "title": "Core",
-  "description": "API reference for the core application, router, types, errors, and runtime.",
-  "pages": ["index", "nextrush", "core", "router", "types", "errors", "runtime", "dev", "testing"]
-}

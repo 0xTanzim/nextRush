@@ -1,0 +1,5 @@
+{
+  "title": "Help",
+  "description": "FAQ, troubleshooting, glossary, and compatibility matrix — reference material for when you're stuck.",
+  "pages": ["index", "faq", "troubleshooting", "glossary", "compatibility-matrix"]
+}

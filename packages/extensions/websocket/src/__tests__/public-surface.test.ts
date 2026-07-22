@@ -17,6 +17,7 @@ describe('Public API surface (runtime exports)', () => {
     // SEALED: intentional public runtime API surface.
     const expectedRuntime = [
       'createWebSocket',
+      'createWebSocketExtension',
       'DEFAULT_MAX_ROOMS_PER_CONNECTION',
       'DEFAULT_WS_OPTIONS',
       'MAX_ROOM_NAME_LENGTH',

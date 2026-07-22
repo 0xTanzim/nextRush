@@ -67,9 +67,8 @@ export class UserController {
 }
 ```
 
-`@Service()` (re-exported from `@nextrush/di` — `packages/class/src/index.ts` confirms
-`nextrush/class` re-exports exactly `Repository`, `Service`, `container`, `createContainer`,
-`inject`, `Container` from `@nextrush/di`, nothing more) defaults to singleton scope, so
+`@Service()` (re-exported from `@nextrush/di` via `nextrush/class`, alongside the rest of the DI
+surface — `Repository`, `container`, `createContainer`, `inject`, and more) defaults to singleton scope, so
 `DatabaseService`'s pool is constructed once per process and shared by every service that
 injects it — constructor injection (`UserService`'s `db: DatabaseService` parameter) is all the
 wiring needed. The tagged-template `sql` calls are parameterized by the `postgres` client itself,
@@ -77,7 +76,7 @@ which is what prevents SQL injection here, not anything NextRush-specific.
 
 <Callout type="warn" title="Close the pool on shutdown">
   Call `DatabaseService.close()` during your app's shutdown sequence (or from an
-  [Extension](/docs/concepts/plugins)'s `destroy()` if you attach the pool to the app instance
+  [Extension](/docs/concepts/extensions)'s `destroy()` if you attach the pool to the app instance
   instead) — an unclosed pool holds the process open and leaks connections on redeploy.
 </Callout>
 

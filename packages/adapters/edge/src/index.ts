@@ -18,6 +18,7 @@ export {
   createHandler,
   createNetlifyHandler,
   createVercelHandler,
+  DEFAULT_EDGE_TIMEOUT_MS,
   type CloudflareFetchHandler, // Alias
   type FetchHandler,
   type FetchHandlerOptions,
@@ -42,6 +43,7 @@ export {
 export { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
 
 // Utility exports
+/* eslint-disable @typescript-eslint/no-deprecated -- F-09: intentional compat re-export, not a usage site */
 export {
   detectEdgeRuntime,
   getContentLength,
@@ -49,6 +51,7 @@ export {
   parseQueryString,
   type EdgeRuntimeInfo,
 } from './utils';
+/* eslint-enable @typescript-eslint/no-deprecated */
 
 // Re-export types for convenience (parity with node/bun/deno — audit F-10)
 export type {

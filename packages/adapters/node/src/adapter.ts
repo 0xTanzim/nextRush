@@ -159,8 +159,13 @@ export interface ServerInstance {
  *
  * @remarks
  * Accepts the shared {@link HandlerOptions} for cross-adapter consistency
- * (audit F-06). Node enforces `timeout` at the socket level in {@link serve}
- * (`server.timeout`), not per-handler, so only `logger` is consumed here.
+ * (audit F-06). Node retains `server.timeout` at the socket level in
+ * {@link serve} as an independent slow-client/slow-loris guard, AND (F-04, ADR-
+ * 0010) races the handler against `options.timeout` here, returning a clean
+ * `504 Gateway Timeout` and cancelling the handler via `ctx.signal` — the same
+ * observable contract as Bun/Deno/Edge/Serverless. Passing `timeout: 0`
+ * disables the handler-level race (pre-F-04 behavior); `server.timeout` is
+ * unaffected either way.
  */
 export function createHandler(
   app: Application,
@@ -169,6 +174,7 @@ export function createHandler(
   const handler = app.callback();
   const trustProxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
+  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
 
   // Hoist the constant context-options object out of the per-request path
   // (hot-path review HP-4): `trustProxy` is fixed for the server's lifetime, so the
@@ -179,33 +185,97 @@ export function createHandler(
   return (req: IncomingMessage, res: ServerResponse): void => {
     const ctx = createNodeContext(req, res, contextOptions);
 
-    // Single promise chain: .then(onFulfilled, onRejected) avoids extra microtask
-    handler(ctx).then(
-      () => {
-        // Ensure response is sent
-        if (!ctx.responded && !res.headersSent) {
-          if (ctx.status === 404) {
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ error: 'Not Found' }));
-          } else {
-            res.statusCode = ctx.status;
-            res.end();
-          }
-        }
-      },
-      (error: unknown) => {
-        // Error handling
-        logger.error('Request error:', error);
-
-        if (!res.headersSent) {
-          res.statusCode = 500;
+    const finalizeSuccess = (): void => {
+      // Ensure response is sent
+      if (!ctx.responded && !res.headersSent) {
+        if (ctx.status === 404) {
+          res.statusCode = 404;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ error: 'Internal Server Error' }));
+          res.end(JSON.stringify({ error: 'Not Found' }));
+        } else {
+          // F-09: a handler that resolves without responding (and without
+          // throwing) must still carry an explicit Content-Type — a bare
+          // status with no header violates project-rules §3 ("every response
+          // sets a Content-Type"). text/plain is the honest default: there is
+          // no body to type more specifically.
+          res.statusCode = ctx.status;
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+          res.end();
         }
       }
-    );
+    };
+
+    const finalizeError = (error: unknown): void => {
+      logger.error('Request error:', error);
+
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      }
+    };
+
+    if (timeout <= 0) {
+      // F-04: timeout disabled — behavior identical to before this change.
+      handler(ctx).then(finalizeSuccess, finalizeError);
+      return;
+    }
+
+    // F-04: race the handler against the configured timeout, mirroring the
+    // Bun/Deno/Edge/Serverless handler-race contract. `server.timeout` (set in
+    // `serve()`) remains the independent socket-level slow-client guard.
+    const TIMEOUT_SENTINEL = Symbol('timeout');
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    const handlerPromise = handler(ctx);
+    Promise.race([
+      handlerPromise.then(() => {
+        /* handler settled first */
+      }),
+      new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+        timerId = setTimeout(() => {
+          resolve(TIMEOUT_SENTINEL);
+        }, timeout);
+      }),
+    ])
+      .then((result) => {
+        if (timerId !== undefined) clearTimeout(timerId);
+
+        if (result === TIMEOUT_SENTINEL) {
+          // F-04: cancel the still-running handler cooperatively via ctx.signal.
+          ctx.triggerTimeout();
+          // Never clobber a response the handler already committed.
+          if (!ctx.responded && !res.headersSent) {
+            res.statusCode = 504;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ error: 'Gateway Timeout' }));
+          }
+          // Swallow a late handler rejection after the timeout already
+          // responded — it has nowhere useful to go, but must not crash the
+          // process as an unhandled rejection.
+          handlerPromise.catch(() => undefined);
+          return;
+        }
+
+        finalizeSuccess();
+      })
+      .catch((error: unknown) => {
+        if (timerId !== undefined) clearTimeout(timerId);
+        finalizeError(error);
+      });
   };
+}
+
+/**
+ * Mutable drain-state flag shared between the request listener and
+ * {@link drainAndClose}. A plain object (not a module-level variable) so each
+ * {@link serve} call gets its own independent flag — required for the
+ * repeated `serve()`/`close()` cycles the graceful-shutdown suite already
+ * exercises in a single process (no cross-instance leakage).
+ */
+interface DrainState {
+  /** `true` from the moment a drain begins until teardown completes. */
+  draining: boolean;
 }
 
 /**
@@ -214,8 +284,25 @@ export function createHandler(
  * manually-called `close()` and the signal-triggered path (via
  * {@link buildCloseWithGracefulShutdown}) invoke this exact function — there is
  * deliberately no second drain implementation for the signal path (T010 1.8).
+ *
+ * F-05: releases idle keep-alive connections at the START of the drain via the
+ * explicit `server.closeIdleConnections()` call below, rather than relying on
+ * `server.close()`'s own (Node-version-dependent) idle-connection handling. Flips
+ * {@link DrainState.draining} first so any response that completes for a request
+ * already in flight advertises `Connection: close` (set in the wrapped handler
+ * installed by {@link serve}) — the idle-connections call only releases sockets with
+ * NO in-flight request, so an active connection finishing its response during the
+ * drain needs this separate signal to tell the client not to reuse the socket.
  */
-async function drainAndClose(server: Server, app: Application, shutdownTimeout: number): Promise<void> {
+async function drainAndClose(
+  server: Server,
+  app: Application,
+  shutdownTimeout: number,
+  drainState: DrainState
+): Promise<void> {
+  drainState.draining = true;
+  server.closeIdleConnections();
+
   // 1. Stop accepting new connections with drain timeout
   await new Promise<void>((res) => {
     const forceTimer = setTimeout(() => {
@@ -229,8 +316,10 @@ async function drainAndClose(server: Server, app: Application, shutdownTimeout: 
       res();
     });
   });
-  // 2. Destroy extensions after server is fully drained
-  await app.close();
+  // 2. Destroy extensions after server is fully drained. Bound teardown by the
+  // same shutdownTimeout budget so a hung extension destroy() cannot outlast
+  // the drain (F-02, D1, RFC-022/ADR-0012).
+  await app.close({ timeout: shutdownTimeout });
 }
 
 /**
@@ -251,11 +340,12 @@ function buildCloseWithGracefulShutdown(params: {
   app: Application;
   shutdownTimeout: number;
   gracefulShutdown: ServeOptions['gracefulShutdown'];
+  drainState: DrainState;
 }): () => Promise<void> {
-  const { server, app, shutdownTimeout, gracefulShutdown } = params;
+  const { server, app, shutdownTimeout, gracefulShutdown, drainState } = params;
 
   if (!gracefulShutdown) {
-    return () => drainAndClose(server, app, shutdownTimeout);
+    return () => drainAndClose(server, app, shutdownTimeout, drainState);
   }
 
   const config = gracefulShutdown === true ? {} : gracefulShutdown;
@@ -274,7 +364,9 @@ function buildCloseWithGracefulShutdown(params: {
   };
 
   const runClose = (): Promise<void> => {
-    drainPromise ??= drainAndClose(server, app, effectiveTimeout).finally(removeSignalHandlers);
+    drainPromise ??= drainAndClose(server, app, effectiveTimeout, drainState).finally(
+      removeSignalHandlers
+    );
     return drainPromise;
   };
 
@@ -327,10 +419,41 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   // Boot extensions before building the request handler (deferred boot barrier).
   await app.ready();
 
-  const handler = createHandler(app, { logger });
-  const server = createServer(handler);
+  const handler = createHandler(app, { logger, timeout });
 
-  // Configure timeouts
+  // F-05: a response that completes WHILE a drain is in progress advertises
+  // `Connection: close`, so the client (and any intermediary) knows not to
+  // reuse this socket — `server.closeIdleConnections()` (called at drain
+  // start in `drainAndClose`) only releases sockets with NO in-flight
+  // request; it does not touch a socket that is actively finishing one. The
+  // wrapped handler below intercepts `res.writeHead` per-request so this is
+  // decided at RESPONSE time (a request already in flight when the drain
+  // begins must still see it), not at request-arrival time.
+  // `createHandler`'s own signature/`HandlerOptions` (a cross-adapter shared
+  // type in `@nextrush/types`) is untouched — this wraps its output.
+  const drainState: DrainState = { draining: false };
+  const wrappedHandler = (req: IncomingMessage, res: ServerResponse): void => {
+    // F-05: checked lazily, at the moment headers are actually about to be
+    // sent — not once at request-arrival time — because a request already
+    // in flight when the drain begins must still pick up `Connection: close`
+    // on ITS eventual response. `res.writeHead` covers every response path
+    // in this adapter (`ctx.json`, `ctx.send`, streaming) since they all
+    // call it before `res.end`; wrapping only `writeHead` (not `end`) avoids
+    // double-invoking user response logic and needs no `context.ts` change.
+    const originalWriteHead = res.writeHead.bind(res);
+    res.writeHead = ((...args: Parameters<ServerResponse['writeHead']>) => {
+      if (drainState.draining && !res.headersSent) {
+        res.setHeader('Connection', 'close');
+      }
+      return originalWriteHead(...args);
+    }) as ServerResponse['writeHead'];
+    handler(req, res);
+  };
+  const server = createServer(wrappedHandler);
+
+  // Configure timeouts. F-04/ADR-0010: server.timeout is the independent
+  // socket-level slow-client/slow-loris guard; createHandler's own handler-race
+  // (fed the same `timeout`) is what actually produces the clean 504.
   server.timeout = timeout;
   server.keepAliveTimeout = keepAliveTimeout;
 
@@ -377,6 +500,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
           app,
           shutdownTimeout,
           gracefulShutdown,
+          drainState,
         }),
       });
     });

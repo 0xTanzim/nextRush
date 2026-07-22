@@ -32,7 +32,8 @@ context: |
     router · core-middleware · node-adapter · web-adapters · body-parser ·
     portable-middleware · graceful-shutdown · health · performance-gate ·
     runtime-adapter-contract · runtime-capability-negotiation · runtime-proof-harness ·
-    serverless-adapter · adapter-development-kit · public-surface-lock · gap-checklist-accuracy
+    serverless-adapter · adapter-development-kit · public-surface-lock · gap-checklist-accuracy ·
+    framework-composition
 
   A capability is named after a DURABLE thing (`router`, `node-adapter`), never after a
   change (`router-match-path-allocation-trim`, `*-fastpath`, `*-trim`, `*-cleanup`,

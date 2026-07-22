@@ -1,0 +1,113 @@
+---
+title: '@nextrush/adapter-serverless'
+description: 'Deploy a NextRush app to AWS Lambda, Google Cloud Functions, or Azure Functions in one line.'
+---
+
+Run a NextRush app as a serverless function. The adapter separates the
+execution model (per-invocation, stateless, timeout→504, warm-instance
+reuse) from each provider's event format — you import one Tier-1 handler and
+never touch the mapper plumbing underneath.
+
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/serverless/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/adapters/serverless/ARCHITECTURE.md) ·
+  see also [Adapter Contract](/docs/architecture/adapters)
+</Callout>
+
+| | |
+| --- | --- |
+| **Package** | `@nextrush/adapter-serverless` |
+| **Status** | Stable |
+| **Support tier** | Public |
+| **Included in `nextrush`?** | No — standalone install |
+| **Runtime** | AWS Lambda, Google Cloud Functions, Azure Functions — built on `@nextrush/adapter-edge`'s fetch engine |
+
+<Callout type="info" title="Cloudflare Workers uses a different package">
+  Cloudflare's Tier-1 handler (`createCloudflareHandler`) ships in
+  [`@nextrush/adapter-edge`](/docs/reference/platforms/edge), not here — it
+  shares the edge execution model, not the serverless one.
+</Callout>
+
+## Installation
+
+<PackageInstall packages={['@nextrush/adapter-serverless']} />
+
+## Quick start
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  ctx.json({ message: 'Hello from Lambda!' });
+});
+
+export const handler = createLambdaHandler(app);
+```
+
+## Tier-1 handlers (what you actually import)
+
+| Function | Platform | Event shapes handled |
+| --- | --- | --- |
+| `createLambdaHandler(app, options?)` | AWS Lambda | Function URL / API Gateway HTTP API (v2) and REST API (v1) — auto-detected per invocation, no explicit provider needed |
+| `createLambdaStreamingHandler(app, options?)` | AWS Lambda response streaming (`awslambda.streamifyResponse`) | Lambda Function URL streaming |
+| `createGoogleHandler(app, options?)` | Google Cloud Functions | HTTP-triggered functions |
+| `createAzureHandler(app, options?)` | Azure Functions | HTTP-triggered functions |
+
+Each accepts `ServerlessHandlerOptions`:
+
+```typescript
+interface ServerlessHandlerOptions {
+  /** Per-invocation timeout (ms). Exceeding it produces a 504 result instead of hanging the invocation. */
+  timeout?: number;
+}
+```
+
+```typescript
+export const handler = createLambdaHandler(app, { timeout: 5000 });
+```
+
+## Advanced: building a custom provider (Tier 3)
+
+Application developers should stop at the Tier-1 handlers above. Implement
+`EventMapper` only to add a platform NextRush doesn't ship (Oracle, Fly.io,
+OpenFaaS, an internal platform):
+
+```typescript
+import { createServerlessAdapter } from '@nextrush/adapter-serverless';
+import type { EventMapper } from '@nextrush/adapter-serverless';
+
+const myMapper: EventMapper<MyEvent, MyResult> = {
+  name: 'my-platform',
+  toRequest(event) {
+    /* build a Web Request from the platform event */
+  },
+  fromResponse(response, event) {
+    /* map the Response back to the platform's expected result */
+  },
+};
+
+const adapter = createServerlessAdapter({ mappers: [myMapper] });
+export const handler = adapter.createHandler(app);
+```
+
+`mappers` is an immutable, per-adapter registry — there is no global mutable
+mapper registry. When more than one mapper is supplied, an explicit
+`provider` name wins; each mapper's optional `detect()` only runs as a
+fallback when no provider is named.
+
+## Troubleshooting
+
+<Callout type="warn" title="Timeout returns a 504 result, not a thrown error">
+  Exceeding `timeout` produces a 504-shaped result via the platform's normal
+  response path — it does not reject the returned promise. Check the
+  response status your platform's logs show, not a caught exception.
+</Callout>
+
+## Related
+
+- [Platforms overview](/docs/reference/platforms)
+- [`@nextrush/adapter-edge`](/docs/reference/platforms/edge) — Cloudflare Workers, Vercel Edge, Netlify Edge
+- [Deployment guides](/docs/production/deployment)

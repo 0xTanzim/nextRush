@@ -7,7 +7,7 @@
 
 import { getOwnMetadata, defineMetadata } from '../reflection/reflection.js';
 import { normalizePath } from '../path-utils.js';
-import type { RouteMetadata, RouteMethods, RouteOptions } from '../types.js';
+import type { ControllerRouteMetadata, RouteMethods, RouteOptions } from '../types.js';
 import { DECORATOR_METADATA_KEYS } from '../types.js';
 
 /**
@@ -25,7 +25,7 @@ function createRouteDecorator(method: RouteMethods) {
     ): PropertyDescriptor {
       const { path, routeOptions } = normalizeRouteInput(pathOrOptions, options);
 
-      const metadata: RouteMetadata = {
+      const metadata: ControllerRouteMetadata = {
         method,
         path,
         methodName: propertyKey,
@@ -36,7 +36,7 @@ function createRouteDecorator(method: RouteMethods) {
         deprecated: routeOptions?.deprecated,
       };
 
-      const existingRoutes: RouteMetadata[] =
+      const existingRoutes: ControllerRouteMetadata[] =
         getOwnMetadata(DECORATOR_METADATA_KEYS.ROUTES, target.constructor) ?? [];
 
       defineMetadata(

@@ -219,3 +219,82 @@ describe('sync and async checks', () => {
     expect(ctx.status).toBe(503);
   });
 });
+
+// ============================================================================
+// 10.1 — cancellable readiness checks on timeout (F-08, D7)
+// ============================================================================
+//
+// A timed-out check's in-flight work must be cancellable, not merely
+// abandoned: runCheckWithTimeout passes an AbortSignal to the check that is
+// aborted the moment the timeout fires. A cooperative check can observe this
+// to stop its own work; a signal-ignoring (existing) check keeps behaving
+// exactly as before — this is additive, not a breaking change (design.md D7).
+
+describe('check cancellation on timeout', () => {
+  it('aborts the signal passed to a cooperative check once checkTimeoutMs elapses', async () => {
+    const { middleware, registerCheck } = health({ checkTimeoutMs: 20 });
+    let capturedSignal: AbortSignal | undefined;
+
+    registerCheck('cooperative-hangs', (signal) => {
+      capturedSignal = signal;
+      // Never resolves on its own — only the timeout's abort ends this check.
+      return new Promise<boolean>(() => {});
+    });
+
+    const ctx = createMockContext('/readyz');
+    await middleware(ctx, noopNext);
+
+    // The timed-out check is still reported as a failure (unchanged contract).
+    expect(ctx.status).toBe(503);
+    expect(capturedSignal).toBeInstanceOf(AbortSignal);
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('gives each check invocation its own fresh signal (no cross-probe leakage)', async () => {
+    const { middleware, registerCheck } = health({ checkTimeoutMs: 20 });
+    const signals: AbortSignal[] = [];
+
+    registerCheck('probe-a', (signal) => {
+      if (signal) signals.push(signal);
+      return new Promise<boolean>(() => {});
+    });
+    registerCheck('probe-b', (signal) => {
+      if (signal) signals.push(signal);
+      return new Promise<boolean>(() => {});
+    });
+
+    const ctx = createMockContext('/readyz');
+    await middleware(ctx, noopNext);
+
+    expect(signals).toHaveLength(2);
+    expect(signals[0]).not.toBe(signals[1]);
+    expect(signals.every((s) => s.aborted)).toBe(true);
+  });
+
+  it('still passes/fails correctly for an existing check that ignores the signal argument', async () => {
+    const { middleware, registerCheck } = health({ checkTimeoutMs: 50 });
+    // Existing-style signalless check — must keep working exactly as before.
+    registerCheck('legacy-check', () => true);
+    const ctx = createMockContext('/readyz');
+
+    await middleware(ctx, noopNext);
+
+    expect(ctx.status).toBe(200);
+  });
+
+  it('does not abort the signal when a cooperative check settles before the timeout', async () => {
+    const { middleware, registerCheck } = health({ checkTimeoutMs: 200 });
+    let capturedSignal: AbortSignal | undefined;
+
+    registerCheck('fast-ok', (signal) => {
+      capturedSignal = signal;
+      return true;
+    });
+
+    const ctx = createMockContext('/readyz');
+    await middleware(ctx, noopNext);
+
+    expect(ctx.status).toBe(200);
+    expect(capturedSignal?.aborted).toBe(false);
+  });
+});

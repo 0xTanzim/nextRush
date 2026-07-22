@@ -1,0 +1,138 @@
+---
+title: '@nextrush/dev'
+description: Development server and build tools with multi-runtime support
+---
+
+## Purpose
+
+`@nextrush/dev` provides the `nextrush` CLI: a dev server with hot reload, a production build command that preserves decorator metadata for DI, and code generators for controllers, services, middleware, guards, and routes. It runs on Node.js, Bun, and Deno.
+
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/dev/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/dev/ARCHITECTURE.md)
+</Callout>
+
+Fast bundlers like esbuild and tsup strip TypeScript decorator metadata, which breaks constructor-based dependency injection (`@Service`, `@Controller`). `nextrush build` uses SWC specifically to preserve it. See [`@nextrush/di`](/docs/reference/class/di) for why DI needs this metadata.
+
+## Installation
+
+<PackageInstall packages={['@nextrush/dev']} dev />
+
+## Minimal Usage
+
+```bash
+nextrush dev              # start dev server (auto-detects entry)
+nextrush build            # production build to dist/
+nextrush generate controller user   # scaffold a controller
+```
+
+## API Reference
+
+### `nextrush dev [entry] [options]`
+
+Starts a dev server with hot reload. Auto-detects the entry file if omitted, checking `package.json` (`main`/`module`), then `src/index.ts`, `src/main.ts`, `src/app.ts`, `src/server.ts`, and root-level equivalents.
+
+<TypeTable
+  title="Dev Options"
+  types={{
+    '--port, -p': { type: 'number', description: 'Server port (env PORT overrides)', default: '8080' },
+    '--watch, -w': { type: 'string', description: 'Additional path to watch (repeatable)', default: "'src'" },
+    '--inspect': { type: 'boolean', description: 'Enable Node.js inspector', default: 'false' },
+    '--inspect-port': { type: 'number', description: 'Inspector port', default: '9229' },
+    '--no-clear': { type: 'boolean', description: "Don't clear screen on start" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
+
+On Node.js, `nextrush dev` uses SWC for TypeScript and decorator metadata; Bun and Deno use their native TypeScript support.
+
+### `nextrush build [entry] [options]`
+
+Compiles TypeScript to `dist/` with decorator metadata preserved (Node.js and Bun via SWC; Deno via `npm:@swc/core`, with a native-copy fallback that does **not** emit metadata).
+
+<TypeTable
+  title="Build Options"
+  types={{
+    '--outDir, -o': { type: 'string', description: 'Output directory', default: "'dist'" },
+    '--target, -t': { type: "'es2020' | 'es2021' | 'es2022' | 'esnext'", description: 'Target ES version', default: "'es2022'" },
+    '--sourcemap / --no-sourcemap': { type: 'boolean', description: 'Toggle source maps', default: 'true' },
+    '--minify, -m': { type: 'boolean', description: 'Minify output', default: 'false' },
+    '--no-decorator-metadata': { type: 'boolean', description: 'Skip decorator metadata emission' },
+    '--no-clean': { type: 'boolean', description: "Don't clean outDir before build" },
+    '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
+  }}
+/>
+
+### `nextrush generate <type> <name>` (alias `g`)
+
+Scaffolds a file from a template. `name` must match `^[a-z][a-z0-9-]*$`.
+
+<TypeTable
+  title="Generator Types"
+  types={{
+    'controller, c': { type: 'string', description: 'src/controllers/<name>.controller.ts' },
+    'service, s': { type: 'string', description: 'src/services/<name>.service.ts' },
+    'middleware, mw': { type: 'string', description: 'src/middleware/<name>.ts' },
+    'guard, g': { type: 'string', description: 'src/guards/<name>.guard.ts' },
+    'route, r': { type: 'string', description: 'src/routes/<name>.ts' },
+  }}
+/>
+
+### Programmatic API
+
+```typescript
+import { dev, build, type DevOptions, type BuildOptions } from '@nextrush/dev';
+import { generate, generateCli, generateHelp, GENERATOR_TYPES, type GeneratorType } from '@nextrush/dev';
+import { detectRuntime, isNode, isBun, isDeno, getRuntimeInfo, type Runtime, type RuntimeInfo } from '@nextrush/dev';
+import { findEntry, getDefaultWatchPaths, loadConfig, type NextRushConfig } from '@nextrush/dev';
+
+await dev('./src/index.ts', { port: 8080 });
+await build('./src/index.ts', { outDir: 'dist', minify: true });
+await generate('controller', 'user');       // writes the file, returns its path
+await generateCli(['controller', 'user']);  // parses CLI args and calls generate()
+generateHelp();                             // prints generator usage to stdout
+```
+
+`generate(type, name, cwd?)` validates the name, writes the templated file, and returns the output path — this is what `nextrush generate` calls internally. `generateCli(args)` is the CLI entry point (arg parsing, validation, error reporting) and `generateHelp()` prints the usage text shown by `nextrush generate --help`.
+
+`DevOptions` and `BuildOptions` accept the same fields as the CLI flags above (`port`, `watch`, `inspect`, `inspectPort` for dev; `outDir`, `target`, `sourcemap`, `minify`, `decoratorMetadata`, `clean` for build).
+
+## Configuration
+
+Decorator-based projects require both flags in `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
+```
+
+`nextrush dev` warns at startup if only one flag is set. Projects without decorators can omit both.
+
+## One Practical Example
+
+```json
+// package.json
+{
+  "scripts": {
+    "dev": "nextrush dev",
+    "build": "nextrush build --minify",
+    "start": "node dist/index.js"
+  }
+}
+```
+
+```bash
+pnpm dev      # hot-reload dev server on :8080
+pnpm build    # dist/ with decorator metadata + minification
+pnpm start    # run the build
+```
+
+## See Also
+
+- [`nextrush`](/docs/reference/nextrush) — Meta package
+- [`@nextrush/class`](/docs/reference/class/controllers) — Controllers and registration
+- [`@nextrush/di`](/docs/reference/class/di) — Dependency injection

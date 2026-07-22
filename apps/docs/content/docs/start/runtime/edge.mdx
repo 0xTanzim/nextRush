@@ -1,0 +1,266 @@
+---
+title: Edge
+description: Install NextRush on Cloudflare Workers or Vercel Edge, run a hello-world fetch handler, and see what changes when there's no long-running server.
+difficulty: beginner
+estimatedTime: 10 minutes
+prerequisites: []
+---
+
+You'll get a NextRush app answering requests as a `fetch` handler on [Cloudflare
+Workers](https://workers.cloudflare.com) or [Vercel Edge Functions](https://vercel.com/docs/functions/edge-functions)
+— the same `createApp`/`createRouter` API as Node, running with no `serve()` call and no
+long-running process at all.
+
+Targeting a different runtime? [Node](/docs/start/runtime/node) ·
+[Bun](/docs/start/runtime/bun) · [Deno](/docs/reference/platforms/deno) ·
+[Serverless](/docs/reference/platforms/serverless) each implement the same Context and
+Application contract.
+
+## Finished project
+
+By the end you'll have:
+
+- ✓ A NextRush `fetch` handler deployed to Cloudflare Workers (or ready for Vercel Edge) — no
+  server, no port
+- ✓ One route answering JSON
+- ✓ A clear picture of what changes with no long-running process, and where to go for
+  deployment and the full adapter reference
+
+```bash
+curl https://your-worker.workers.dev/
+# → {"runtime":"cloudflare-workers","status":"ok"}
+```
+
+## Learning journey
+
+- ⬜ Step 1 — Choose a target platform and its CLI
+- ⬜ Step 2 — Install NextRush and the edge adapter
+- ⬜ Step 3 — Run a hello-world fetch handler
+- ⬜ Step 4 — Know what's structurally different about edge
+
+## Prerequisites
+
+- **Required:** a terminal, a package manager, and an account with your target platform
+  (Cloudflare or Vercel) if you plan to deploy. No prior NextRush knowledge assumed.
+- **Difficulty · time:** Beginner · ~10 minutes
+
+<Steps>
+
+### Step 1 / 4 — Choose a target platform and its CLI
+
+**Why now:** `@nextrush/adapter-edge` targets the Fetch API standard, not one platform's SDK —
+but you still need that platform's CLI to run and deploy the handler.
+
+**Do:**
+
+<Tabs items={['Cloudflare Workers', 'Vercel Edge']}>
+  <Tab value="Cloudflare Workers">
+    ```bash
+    npm install -g wrangler
+    wrangler --version
+    ```
+  </Tab>
+  <Tab value="Vercel Edge">
+    ```bash
+    npm install -g vercel
+    vercel --version
+    ```
+  </Tab>
+</Tabs>
+
+**Why it matters:** the same `@nextrush/adapter-edge` package produces both platforms' handler
+shape — `createCloudflareHandler` returns Cloudflare's `{ fetch }` module export, and
+`createVercelHandler` returns the plain function Vercel's Edge runtime expects. The adapter code
+you write is the same shape either way; only the CLI and the exported handler wrapper differ.
+
+### Step 2 / 4 — Install NextRush and the edge adapter
+
+**Why now:** like Bun and Deno, the `nextrush` meta-package does not bundle a runtime adapter —
+it ships only `@nextrush/adapter-node`. Running on the edge means adding
+`@nextrush/adapter-edge` alongside it.
+
+**Do:**
+
+<PackageInstall packages={['nextrush', '@nextrush/adapter-edge']} />
+
+**Why it worked:** `createApp` and `createRouter` still come from `nextrush` — those two are
+runtime-independent. The handler factories (`createCloudflareHandler`, `createVercelHandler`,
+`createFetchHandler`) come from `@nextrush/adapter-edge` instead, for the same reason as Bun and
+Deno: the meta-package's `listen` re-export targets `@nextrush/adapter-node` specifically, and
+edge has no `listen()` at all — there is no port to listen on.
+
+### Step 3 / 4 — Run a hello-world fetch handler
+
+**Why now:** the fastest way to confirm the install worked is a handler that answers a real
+request.
+
+**Do:** create the handler for your platform:
+
+<Tabs items={['Cloudflare Workers', 'Vercel Edge']}>
+  <Tab value="Cloudflare Workers">
+    ```ts title="src/index.ts"
+    import { createApp, createRouter } from 'nextrush';
+    import { createCloudflareHandler } from '@nextrush/adapter-edge';
+
+    const app = createApp();
+    const router = createRouter();
+
+    router.get('/', (ctx) => {
+      ctx.json({ runtime: ctx.runtime, status: 'ok' });
+    });
+
+    app.route('/', router);
+    export default createCloudflareHandler(app);
+    ```
+
+    ```toml title="wrangler.toml"
+    name = "my-nextrush-worker"
+    main = "src/index.ts"
+    compatibility_date = "2025-01-01"
+    ```
+
+    Run it locally, then deploy:
+
+    ```bash
+    wrangler dev
+    wrangler deploy
+    ```
+  </Tab>
+  <Tab value="Vercel Edge">
+    ```ts title="api/hello.ts"
+    import { createApp, createRouter } from 'nextrush';
+    import { createVercelHandler } from '@nextrush/adapter-edge';
+
+    const app = createApp();
+    const router = createRouter();
+
+    router.get('/', (ctx) => {
+      ctx.json({ runtime: ctx.runtime, status: 'ok' });
+    });
+
+    app.route('/', router);
+    export const config = { runtime: 'edge' };
+    export default createVercelHandler(app);
+    ```
+
+    Run it locally, then deploy:
+
+    ```bash
+    vercel dev
+    vercel
+    ```
+  </Tab>
+</Tabs>
+
+**Expected output:**
+
+```bash
+curl https://your-worker.workers.dev/
+# → {"runtime":"cloudflare-workers","status":"ok"}
+```
+
+**Why it worked:** `createCloudflareHandler(app)` returns `{ fetch }`, and `createVercelHandler(app)`
+returns the fetch function directly — both wrap the same internal request runner, which lazily
+boots the application on the first request and hands every request to NextRush's router through
+the same Context API Node uses. `ctx.runtime` reports `'cloudflare-workers'` or `'vercel-edge'`
+depending on where the code runs — the adapter detects this, not your route handler.
+
+### Step 4 / 4 — Know what's structurally different about edge
+
+**Why now:** before moving to production, it helps to know exactly what changes with no
+long-running process — some of this is a real behavioral difference, not only a deployment
+detail.
+
+**What's genuinely different, and why:** edge runtimes give you a `fetch` function invoked per
+request, not a process you start — so `@nextrush/adapter-edge` has no `serve()`/`listen()` at
+all. The application boots lazily on the **first request** instead of upfront: there's no
+`serve()` moment to call `app.ready()` from, so the adapter's internal request runner memoizes a
+boot promise and runs it on first invocation, and every request after that reuses the already-
+booted handler. One consequence follows directly: `@nextrush/adapter-edge` never calls
+`app.close()` — edge platforms give you no shutdown hook to call it from, so `Extension.destroy()`
+teardown (timers, connections opened via `app.extend()`) is not guaranteed to run. Design
+extensions used on edge to not depend on teardown firing.
+
+The adapter also has no filesystem access, no native Node.js modules, and no native addons —
+those are edge-runtime constraints the adapter's own README documents as limitations, not
+NextRush-specific gaps; any Fetch-API-based edge runtime shares them. CPU time and memory limits
+vary by platform (Cloudflare Workers and Vercel Edge each publish their own), so the adapter's
+optional `timeout` option races the handler against a timer and returns a `504 Gateway Timeout`
+on expiry — the source recommends 30 000 ms for Cloudflare's CPU limit and 25 000 ms for Vercel's
+wall-clock limit, but the option itself defaults to no timeout enforced unless you set it.
+
+**What's identical:** the Context API (`ctx.json`, `ctx.params`, `ctx.query`, `ctx.set`, …),
+`createApp`, `createRouter`, route registration, and middleware all behave the same as Node —
+nothing in your route handler above is edge-specific.
+
+<Callout type="warn" title="No teardown on edge">
+`Extension.destroy()` is not guaranteed to run — there is no shutdown hook on Cloudflare Workers
+or Vercel Edge to call `app.close()` from. Don't rely on extension teardown for correctness on
+edge; design for it to be skipped.
+</Callout>
+
+<Callout type="info">
+`@nextrush/adapter-edge` is versioned independently at `1.0.0` — see the
+[compatibility matrix](/docs/help/compatibility-matrix) for its current status: Cloudflare
+Workers runs the adapter's conformance suite on a real `workerd`/miniflare isolate in CI, while
+Vercel Edge shares the same conformance suite but isn't yet executed on the real platform in CI.
+Check the [edge adapter reference](/docs/reference/platforms/edge) for its full surface before
+pinning a production version.
+</Callout>
+
+</Steps>
+
+## Checkpoint
+
+Confirm the handler answers before moving on:
+
+```bash
+curl -i https://your-worker.workers.dev/
+# → HTTP/1.1 200 OK
+# → {"runtime":"cloudflare-workers","status":"ok"}
+```
+
+Your project now looks like (Cloudflare Workers shown):
+
+```text
+my-worker/
+  wrangler.toml
+  src/
+    index.ts
+```
+
+## What you learned
+
+- **`nextrush` gives you the runtime-independent half** — `createApp`, `createRouter`, and route
+  registration are identical on edge and Node. [Runtime compatibility
+  concept](/docs/concepts/runtime-compatibility)
+- **The handler factories come from `@nextrush/adapter-edge`, not the meta-package** — and there
+  is no `listen()` on edge, because there is no port and no long-running process.
+- **The app boots lazily on the first request, and teardown never runs** — a direct consequence
+  of edge having no startup or shutdown hook.
+
+## Next steps
+
+<Cards>
+  <Card title="Deploy to production" href="/docs/production/deployment/edge">
+    Cloudflare Workers, Vercel Edge, and Netlify Edge deployment paths for a NextRush app.
+  </Card>
+  <Card title="Edge adapter reference" href="/docs/reference/platforms/edge">
+    The full `@nextrush/adapter-edge` surface — `createFetchHandler()`, `createCloudflareHandler()`,
+    `createVercelHandler()`, and edge-specific Context utilities.
+  </Card>
+</Cards>
+
+## Continue learning
+
+<Cards>
+  <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
+    Why Node, Bun, Deno, and the edge all run identical application code.
+  </Card>
+  <Card title="Build a Task API" href="/docs/start/quick-start">
+    Go past hello-world — routing, a request body, and real error handling.
+  </Card>
+  <Card title="All platform adapters" href="/docs/reference/platforms">
+    The Node, Bun, Deno, and serverless adapter references.
+  </Card>
+</Cards>

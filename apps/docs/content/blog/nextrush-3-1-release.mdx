@@ -13,7 +13,7 @@ tags:
 NextRush's core packages — `@nextrush/core`, `@nextrush/router`, `@nextrush/types`,
 `@nextrush/errors`, `@nextrush/di`, `@nextrush/class` — are all at **`3.1.0`** (verified
 against each package's `package.json` `version` field). Some newer middleware packages
-ship independently at `1.0.0`; see the [compatibility matrix](/docs/resources) for the
+ship independently at `1.0.0`; see the [compatibility matrix](/docs/help/compatibility-matrix) for the
 full breakdown. This post is a snapshot of what that version line actually contains, with
 every claim traceable to source.
 
@@ -44,7 +44,7 @@ listen(app, 8080);
 re-exported from `@nextrush/router` through that same meta package — it is **not**
 exported from `@nextrush/core` directly. That distinction mattered enough to be a
 verified defect fix earlier in this documentation rebuild (see the
-[package hierarchy reference](/docs/internals/package-hierarchy)), so it's worth stating
+[package hierarchy reference](/docs/architecture/package-hierarchy)), so it's worth stating
 plainly here too.
 
 ## 35 packages, one dependency order

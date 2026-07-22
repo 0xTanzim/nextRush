@@ -1,5 +1,5 @@
 {
   "title": "Community",
   "description": "Contributing guidelines and how to get involved.",
-  "pages": ["index", "contributing"]
+  "pages": ["index", "contributing", "roadmap", "changelog"]
 }

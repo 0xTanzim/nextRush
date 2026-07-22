@@ -6,7 +6,7 @@
  * metadata (@SetHeader headers, route status code, @Redirect).
  */
 
-import type { RouteMetadata } from '../types.js';
+import type { ControllerRouteMetadata } from '../types.js';
 import {
   getHttpCode,
   getParamMetadata,
@@ -94,7 +94,7 @@ function resolveFromRequestChild(
  */
 export function createRouteHandler(
   controllerClass: Function,
-  route: RouteMetadata,
+  route: ControllerRouteMetadata,
   container: Container,
   instanceCache: Map<Function, unknown>,
   isRequestScoped = false

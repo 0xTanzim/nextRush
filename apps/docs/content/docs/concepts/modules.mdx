@@ -1,52 +1,108 @@
 ---
 title: Modules
-description: Group a feature's controllers and providers behind one declaration and compose features with imports
+description: How @Module groups a feature's controllers and providers behind one declaration, and why registerModule composes them into a single app — without yet enforcing what a module exports.
 ---
 
-## The Real Problem
+A small class-based app registers a flat list of controllers, and each controller's services register themselves through `@Service`. That works until the app grows a "users" feature and a "billing" feature side by side — each with its own controllers, its own services, and its own sub-features it depends on. Nothing today says "this is the users feature and here is everything it owns"; the boundary lives only in which files happen to sit in the same folder.
 
-As an application grows past a handful of controllers, wiring them all through `registerControllers()` puts every controller and every provider registration in one flat list. There's no way to say "these five controllers and these three services belong together as one feature" — you have a pile of classes and hope the DI graph sorts itself out. Adding a second team or a second feature area means untangling that pile to see what belongs to what.
+## What you'll learn
 
-## Why NextRush Solves It This Way
+- **Understand** why a flat controller list stops expressing a feature's boundary as an app grows
+- **Understand** how `@Module` groups controllers and providers, and how `imports` composes feature modules into a graph
+- **Recognize** what `registerModule` actually does — walk the graph, register providers, then hand off to the existing controller pipeline
+- **Choose** modules for feature composition, and know why `exports` is not yet an encapsulation boundary
 
-A `@Module` groups a feature's controllers and providers behind one class declaration, and modules compose other modules through `imports`. This mirrors how most teams already think about a codebase — as feature boundaries — without inventing a new runtime concept: a module is metadata (`imports`, `controllers`, `providers`, `exports`) read by one registrar, `registerModule()`, which reuses the exact same pipeline as `registerControllers()` underneath (route building, DI validation, lifecycle hooks, request scope).
+## The problem
 
-<Callout type="info" title="Modules group, they do not yet encapsulate">
-  Every provider in a module graph is visible to every other module through the shared DI
-  container. `exports` is recorded on the module's metadata but not enforced — declaring a
-  provider in `exports` documents intent for readers today; module-private providers are
-  planned follow-up work, not current behavior.
-</Callout>
+Without modules, a class-based app registers its controllers directly and lets `@Service` classes register themselves as a side effect of import:
 
-## Mental Model
+```ts
+// Every feature's controllers get flattened into one list — no boundary between them.
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+  @Get() findAll() { return this.users.findAll(); }
+}
+
+@Service()
+class BillingService {
+  total() {
+    return { amount: 4200 };
+  }
+}
+
+@Controller('/billing')
+class BillingController {
+  constructor(private billing: BillingService) {}
+  @Get() total() { return this.billing.total(); }
+}
+
+const app = createApp();
+await registerControllers(app, {
+  controllers: [UserController, BillingController], // users and billing, indistinguishable
+});
+listen(app, 8080);
+```
+
+`UserController` and `BillingController` sit in the same array with no marker that they belong to different features. Add a third feature that depends on "users" — say, "orders" needs `UserService` — and there's no declared relationship to read; you'd only discover it by tracing imports across files.
+
+## Why this matters
+
+A feature boundary that exists only in folder layout is invisible to the framework and erodes as a team grows. "Which controllers belong to billing?" and "does orders depend on users?" become questions answered by reading source, not by reading a declaration. That cost is small in a demo app and compounds precisely where it matters most — a codebase with enough features that composing them by hand is itself becoming the risk.
+
+## The solution
+
+NextRush's `@Module` decorator groups a feature's `controllers` and `providers` behind one class, and its `imports` field composes other `@Module` classes into a graph. A single call to `registerModule(app, RootModule)` walks that graph, registers every module's providers into the DI container, then hands the whole flattened controller list to the same `registerControllers` pipeline every class-based app already uses. Modules don't replace that pipeline — they're a composition layer in front of it.
+
+## Core idea
+
+Think of a module as a **labeled group**, not a walled compartment. `@Module` says "these controllers and these providers belong together, and these other modules are part of this feature too" — but it does not (yet) say "and nothing outside this group can see what's inside." Composition is real; isolation is future work, covered honestly below.
+
+## Mental model
 
 <Mermaid
   chart="
-flowchart LR
-    A[AppModule] --> U[UserModule]
-    A --> B[BillingModule]
-    U --> C1[UserController]
-    U --> P1[UserService]
-    B --> C2[BillingController]
-    B --> P2[BillingService]
+flowchart TD
+  AppModule((AppModule))
+
+  subgraph UserModule
+    direction TB
+    UserCtl([UserController])
+    UserSvc[(UserService)]
+  end
+
+  subgraph BillingModule
+    direction TB
+    BillingCtl([BillingController])
+    BillingSvc[(BillingService)]
+  end
+
+  Container[(Shared DI container)]
+
+  AppModule --> UserModule
+  AppModule --> BillingModule
+  UserSvc --> Container
+  BillingSvc --> Container
 "
 />
 
-A module is a labeled box around a set of controllers and providers. `imports` draws an arrow from one box to another. `registerModule()` walks every arrow starting from the root module, collects every controller and every provider across the whole graph, and hands that flattened list to the same registration machinery a single `registerControllers()` call would use.
+Read the arrows from `AppModule` into `UserModule` and `BillingModule` as `imports` — `AppModule` composes both without owning their internals. The arrows into the container matter more than they look: both modules' providers land in the *same* shared container, which is exactly the limitation the next section is honest about.
 
-## How It Works
+## Quick example
 
-`registerModule(app, RootModule, options)` does three things, in order:
+The smallest module graph is one feature module imported by a root module. `registerModule` wires both in a single call:
 
-1. **Walks the import graph** (`collectModuleGraph`) starting from the root module, in post-order — an imported module is visited before the module that imports it, so a feature module's providers register before the root's.
-2. **Registers every module's providers** into the chosen DI container (an explicit `options.container`, else an isolated container if `options.isolate` is set, else the app's own container, else the global container).
-3. **Collects every controller across the graph** (`collectModuleControllers`, deduplicated) and passes them to the existing `registerControllers()` pipeline — so route building, guard validation, lifecycle-hook bridging, and request-scope bubbling all behave exactly as they do for a controller registered directly.
-
-The import walk deduplicates a module reached more than once (a "diamond" — two modules importing the same shared module) and guards against import cycles: a back-edge to a module already being visited is skipped rather than recursed into, so `A imports B imports A` terminates instead of looping forever.
-
-## Minimal Correct Usage
-
-```ts title="app-module.ts"
+```ts title="app.ts"
 import { createApp, listen } from 'nextrush';
 import { Module, Controller, Get, Service, registerModule } from 'nextrush/class';
 
@@ -60,11 +116,7 @@ class UserService {
 @Controller('/users')
 class UserController {
   constructor(private users: UserService) {}
-
-  @Get()
-  findAll() {
-    return this.users.findAll();
-  }
+  @Get() findAll() { return this.users.findAll(); }
 }
 
 @Module({
@@ -73,47 +125,178 @@ class UserController {
 })
 class UserModule {}
 
-@Module({ imports: [UserModule] })
+@Module({ imports: [UserModule] }) // composes UserModule into the app
 class AppModule {}
 
 const app = createApp();
 await registerModule(app, AppModule, { prefix: '/api' });
-
-await listen(app, 8080);
+listen(app, 8080);
 ```
 
-This registers `UserController` at `/api/users`, exactly as `registerControllers(app, { controllers: [UserController] })` would — `registerModule()` is a composition layer on top of that same registrar, not a separate registration path.
+`AppModule` declares no controllers or providers of its own — it composes `UserModule` through `imports`. One `registerModule` call registers `UserService` into the container and wires `UserController`'s route, exactly as `registerControllers` would have with an explicit `controllers` array.
 
-## What Happens Automatically
+## How it works
 
-- **Diamond imports register once** — a module imported by two different branches of the graph is only walked and only has its providers registered a single time.
-- **Import cycles terminate** — a mutual import (`A` imports `B`, `B` imports `A`) is detected and skipped rather than causing infinite recursion. The escape hatch: don't rely on this — restructure so shared code lives in a module both import, instead of two modules importing each other.
-- **Providers register before controllers that need them** — the post-order walk means a feature module's providers are in the container before `registerControllers()` tries to resolve any controller that depends on them.
+**Example** — a root module importing two sibling feature modules, each with its own controller and service:
 
-## Trade-offs & Guarantees
+```ts title="composing-features.ts"
+import { Module, Controller, Get, Service, registerModule } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
 
-NextRush guarantees the import walk is deterministic (post-order, first-completed-wins for duplicates) and that `registerModule()` produces the same routes `registerControllers()` would for the same flattened controller list — there is no separate, module-specific route-building code path to drift from the one used by direct controller registration.
+@Service()
+class UserService {
+  findAll() { return [{ id: 1, name: 'Alice' }]; }
+}
 
-NextRush does **not** guarantee provider isolation between modules. A provider registered by one module is resolvable by a controller in a completely unrelated module in the same graph, because everything shares one DI container by default. `exports` records which providers a module intends to expose to importers, but nothing currently blocks an un-exported provider from being resolved elsewhere.
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+  @Get() findAll() { return this.users.findAll(); }
+}
 
-<Callout type="warn" title="A non-module class in imports throws">
-  Every entry in `imports` must itself carry `@Module` metadata. Passing a plain class — a
-  controller or service that isn't decorated with `@Module` — throws `NotAModuleError` when
-  `registerModule()` walks the graph.
+@Module({ controllers: [UserController], providers: [UserService] })
+class UserModule {}
+
+@Service()
+class BillingService {
+  total() { return { amount: 4200 }; }
+}
+
+@Controller('/billing')
+class BillingController {
+  constructor(private billing: BillingService) {}
+  @Get() total() { return this.billing.total(); }
+}
+
+@Module({ controllers: [BillingController], providers: [BillingService] })
+class BillingModule {}
+
+@Module({ imports: [UserModule, BillingModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule, { prefix: '/api' });
+listen(app, 8080);
+```
+
+**Observation** — `AppModule` never touches `UserService` or `BillingController` directly. Both features register through one `registerModule(app, AppModule)` call, and both `/api/users` and `/api/billing` routes end up on the same app.
+
+**Explanation** — a few rules from the module registrar produce that behavior:
+
+- **The import graph is walked post-order, once per module.** `collectModuleGraph` visits `imports` depth-first and collects each module after its own imports, so a feature module's providers register before the module that imports it. A module reached twice — through a diamond import, or listed twice — is registered exactly once; a back-edge that would form a cycle (`A imports B imports A`) is skipped rather than recursed into.
+- **Providers register into one shared container.** For every module in graph order, `registerModule` registers each of its `providers` — a bare class keeps its own `@Service` scope (or `singleton` if undecorated); a provider config (`{ provide, useClass | useValue | useFactory }`) registers under its token with the matching kind. All of it lands in the *same* container: an explicit `options.container`, else a fresh one under `options.isolate`, else `app.container`, else the global container.
+- **Controllers flatten into the existing pipeline.** Every module's `controllers` are collected and deduplicated across the whole graph, then handed to `registerControllers` as if they'd been listed by hand — the same route building, DI validation, guard checks, and lifecycle-hook bridging that a plain `registerControllers(app, { controllers })` call already does. `registerModule` adds composition in front of that pipeline; it does not reimplement it.
+- **A class missing `@Module` fails loudly.** If the root or anything in an `imports` array isn't `@Module`-decorated, `collectModuleGraph` throws `NotAModuleError` before anything registers — a typo in an import list doesn't silently register nothing.
+
+The exact metadata shape and provider-registration code live in the [`@nextrush/class` reference](/docs/reference/class/modules) — a concept teaches the model, not every field.
+
+<Callout type="warn" title="`exports` is recorded, not enforced">
+  `@Module({ exports: [...] })` accepts a list of providers today, and `getModuleMetadata` returns
+  it — but nothing reads it to restrict visibility. Every provider registered anywhere in the graph
+  is resolvable by every controller in that graph, whether or not it appears in `exports`. See
+  [Trade-offs](#trade-offs) below for why, and what changes when this is enforced.
 </Callout>
 
-## Common Mistakes
+## Typical use cases
 
-1. **Expecting `exports` to hide providers** — declaring a provider without listing it in `exports` does not make it private today. Every provider in the graph is visible everywhere. Treat `exports` as documentation of intent, not an access-control boundary, until per-module encapsulation ships.
-2. **Passing a controller or service directly in `imports`** — `imports` is for other `@Module` classes only. Put a controller in `controllers` and a service in `providers`; only compose modules through `imports`.
-3. **Registering the same controllers both via a module and via a direct `registerControllers()` call on the same app** — this can double-register routes. Pick one registration path per app; use `registerModule()` for the whole graph once modules are in use.
+Reach for a module when a feature is big enough that its composition is worth declaring:
 
-## When Not to Use This
+- **Grouping a feature's own controllers and services** — one `@Module` per feature keeps its pieces named together instead of scattered across a flat `controllers: [...]` array.
+- **Composing sub-features into a larger app** — `imports` lets `AppModule` say "the app is users plus billing plus orders" without listing every controller those features own.
+- **Reusing the same feature across apps** — a self-contained module (its own controllers, its own providers) can be imported wherever the feature is needed, since `registerModule` walks whatever graph it's given.
 
-A small application with a handful of controllers and no meaningful feature boundaries doesn't need modules — call `registerControllers(app, { root: './src' })` directly and skip the extra `@Module` declarations. Reach for modules when the codebase has grown enough that grouping by feature communicates something a flat controller list doesn't.
+A single-controller app, or one where every controller already shares one flat namespace, gains little from a module — see the [decision guide](#decision-guide).
 
-## Related
+## Configuration
 
-- [Dependency Injection & Scopes](/docs/concepts/dependency-injection) — how the providers a module registers interact with singleton/transient/request scope
-- [Guards](/docs/concepts/guards) — access control that composes with controllers inside a module
-- [`nextrush/class` Reference](/docs/reference/class/modules) — full `registerModule` and `@Module` signatures
+`registerModule` takes the same registration options as `registerControllers`, minus the ones module composition replaces (`root`, `controllers`):
+
+```ts title="registration-options.ts"
+import { Module, registerModule } from 'nextrush/class';
+import { createApp, listen } from 'nextrush';
+
+@Module({ imports: [] })
+class AppModule {}
+
+const app = createApp();
+
+await registerModule(app, AppModule, {
+  prefix: '/api',        // route prefix applied to every controller in the graph
+  isolate: true,         // register providers into a fresh container, not the global one
+  validate: true,        // eagerly validate the DI graph before serving requests
+});
+
+listen(app, 8080);
+```
+
+`isolate` and an explicit `container` change *which* container the whole graph's providers land in — not whether they're shared once there. Two sibling modules registered into the same call always share one container, `isolate` or not; the option controls isolation from *other* `registerModule`/`registerControllers` calls, not isolation between modules in the same graph. The full option table lives in the [reference](/docs/reference/class/modules).
+
+## Performance
+
+- **Complexity** — the import graph is walked once, at `registerModule` time, not per request. Graph size is the number of distinct modules reachable through `imports`, and the walk is linear in that count plus the number of import edges.
+- **Memory** — provider instances follow the same scope rules as [dependency injection](/docs/concepts/dependency-injection) — a singleton provider registered by a module is built once and shared, regardless of which module registered it.
+- **Scaling** — module composition is a startup-time cost, not a request-time one; once `registerModule` resolves, request handling goes through the same route table `registerControllers` would have built directly. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before tuning.
+
+## Security
+
+Modules change how a graph is *assembled*, not how a request is authorized — but the shared-container reality below has a real consequence worth stating plainly.
+
+- **Assuming `exports` limits what a provider can reach.** *Threat:* a team writes an internal, security-sensitive service (a credential store, an admin-only client) into a module and assumes omitting it from `exports` keeps it private. *Why:* `exports` is recorded metadata only — nothing in the current registrar reads it to restrict resolution. *Safe default:* treat every provider registered anywhere in a `registerModule` graph as globally resolvable within that container, and gate access with a [guard](/docs/concepts/guards) or by not registering the sensitive dependency into a shared graph at all. *Avoid:* relying on `exports` as an access-control boundary — it is not one yet.
+- **Diamond imports registering a provider twice with different config.** *Threat:* two modules import the same feature module with conflicting provider configs, and only the first registration wins silently. *Why:* `collectModuleGraph` dedupes by module identity and provider registration skips a token that's already registered. *Safe default:* register a shared provider's canonical config in exactly one module that others import, rather than duplicating a similar-but-different config across modules. *Avoid:* assuming the *last* module in `imports` order wins — the *first* completed registration does.
+
+<Callout type="warn">
+  Everything a `registerModule` graph registers is visible to everything else in that graph. If a
+  provider must not be reachable from a given controller, keep it out of that `registerModule` call
+  entirely — `exports`/`imports` describe composition today, not a security boundary.
+</Callout>
+
+## Trade-offs
+
+**Why composition first, encapsulation later** — modules solve the 90% value (naming and wiring a feature's pieces in one declaration) without requiring the much larger machinery a hard module-private boundary needs.
+
+- **Benefits** — a feature's controllers and providers are named together instead of scattered; `imports` lets a root module compose sub-features without listing their internals; diamond imports and import cycles are handled for you instead of by convention; `registerModule` reuses `registerControllers` verbatim, so route building, validation, and lifecycle hooks behave identically whether or not modules are used.
+- **Costs** — `exports` is recorded but not enforced, so modules **group, they do not yet encapsulate** — every provider in a `registerModule` graph is visible to every controller in that graph through the shared container, regardless of `exports`; there is no dynamic-module pattern (`forRoot`/`forFeature`) yet.
+- **Alternatives** — a flat `controllers: [...]` array via `registerControllers` is simpler and loses nothing for a small app with no meaningful feature boundaries; `isolate: true` on a *separate* `registerModule`/`registerControllers` call gives real container isolation between unrelated app slices, at the cost of no shared singletons between them.
+- **Why NextRush chose this** — true per-module encapsulation needs per-module child containers and export-aware resolution — a change to `@nextrush/di`'s hierarchical container model large enough to risk the shared-container fast path every existing caller depends on. Shipping composition now, with `exports` already captured in metadata, means enabling enforcement later is a DI-layer change, not a rewrite of every `@Module` declaration. See [RFC-NEXTRUSH-MODULES §5](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/012-modules.md) for the full reasoning.
+
+## Decision guide
+
+**Choose a module when:**
+
+- ✓ A feature has enough controllers and providers that naming them together, in one declaration, is worth the indirection
+- ✓ You're composing an app from sub-features (`AppModule` importing `UserModule`, `BillingModule`, …) rather than listing every controller flat
+- ✓ You want diamond-import and import-cycle handling done for you instead of by convention
+
+**Avoid a module when:**
+
+- ✗ The app has one or two controllers with no real feature boundary — a flat `controllers: [...]` array via `registerControllers` is simpler
+- ✗ You need a provider to be genuinely inaccessible outside its module — that boundary doesn't exist yet; use a separate `registerModule`/`registerControllers` call with `isolate: true` instead
+
+## Common mistakes
+
+- **Treating `exports` as a privacy boundary.** *Why it happens:* `exports` reads like the NestJS-style encapsulation feature it's modeled after. *Correct approach:* know that every provider registered anywhere in a `registerModule` graph is currently resolvable from anywhere else in that same graph. *If ignored:* a service meant to be module-private is silently reachable by an unrelated controller, and the mistake surfaces only when something depends on it that shouldn't.
+- **Forgetting `@Module` on a class listed in `imports`.** *Why it happens:* a plain class looks like it should compose the same way a module does. *Correct approach:* every entry in `imports` (and the root passed to `registerModule`) must carry `@Module` metadata. *If ignored:* `collectModuleGraph` throws `NotAModuleError` before anything registers — loud, not silent, but a trap during refactoring, when an `@Module` decorator gets stripped along with everything else on a class being simplified.
+- **Expecting `isolate` to separate modules within one graph.** *Why it happens:* `isolate` sounds like per-module isolation. *Correct approach:* `isolate: true` gives the *entire* `registerModule` call a fresh container, separate from other calls — every module inside that one call still shares it. *If ignored:* two modules in the same `registerModule` call are assumed to be isolated from each other when they never were.
+
+## Key takeaways
+
+- `@Module` groups a feature's `controllers` and `providers` under one declaration; `imports` composes other `@Module` classes into a graph.
+- `registerModule(app, RootModule)` walks the import graph post-order, registers every module's providers into one shared container, then flattens all controllers into the existing `registerControllers` pipeline — no route-building or validation logic is duplicated.
+- Diamond imports register once; import cycles are guarded rather than recursed into; a non-`@Module` entry in `imports` throws `NotAModuleError`.
+- **Modules group, they do not yet encapsulate** — `exports` is recorded in metadata but nothing enforces it, so every provider in a graph is visible to every controller in that graph regardless of `exports`.
+- Choose a module when a feature's composition is worth naming; a small app with no real feature boundary loses nothing by staying with a flat `controllers` array.
+- True per-module encapsulation (export-gated resolution, per-module containers) is deferred follow-up work, not a hidden current behavior — treat any provider in a shared graph as globally reachable today.
+
+## Continue learning
+
+<Cards>
+  <Card title="Dependency injection & scopes" href="/docs/concepts/dependency-injection">
+    How the container a module registers providers into resolves and scopes them.
+  </Card>
+  <Card title="Class-based development" href="/docs/guides/class-based">
+    Put modules to work — structure a real app around feature modules.
+  </Card>
+  <Card title="Modules reference" href="/docs/reference/class/modules">
+    The full @Module, registerModule, and provider-config signatures.
+  </Card>
+</Cards>

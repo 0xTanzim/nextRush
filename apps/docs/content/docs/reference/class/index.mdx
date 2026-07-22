@@ -7,6 +7,14 @@ description: 'The class runtime — decorators, dependency injection, modules, g
 used to be three separate packages — `@nextrush/decorators`, `@nextrush/controllers` (both
 removed), and a re-export of `@nextrush/di` — into one import surface: `nextrush/class`.
 
+<Callout type="info" title="Source & internals">
+  `@nextrush/class`: [README](https://github.com/0xTanzim/nextRush/blob/main/packages/class/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/class/ARCHITECTURE.md).
+  `@nextrush/di` (re-exported, covered by [DI reference](/docs/reference/class/di)):
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/di/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/di/ARCHITECTURE.md).
+</Callout>
+
 <Callout type="warn" title="@nextrush/decorators and @nextrush/controllers were removed">
   Both packages were compatibility shims that re-exported from `@nextrush/class`. Import from
   `nextrush/class` directly. See [Removed packages](#removed-packages) below.

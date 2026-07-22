@@ -1,0 +1,228 @@
+---
+title: Streaming
+description: Why an LLM token stream or a live progress log needs a different response shape than JSON, and how ctx.stream()/ctx.sse()/ctx.ndjson() send many chunks over one open connection.
+---
+
+An LLM does not return an answer — it returns tokens, one at a time, over several seconds. Wait for `ctx.json()` to have the whole thing before sending anything, and a user watches a blank screen for the entire generation instead of watching words arrive as the model produces them.
+
+## What you'll learn
+
+- **Understand** why a normal request/response cannot represent a value that arrives over time
+- **Recognize** the three protocol-specific writers — `ctx.stream()`, `ctx.sse()`, `ctx.ndjson()` — and when each applies
+- **Understand** how the writer callback keeps the connection open until it resolves, then closes it automatically
+- **Choose** when a route needs streaming instead of a single JSON response
+
+## The problem
+
+`ctx.json(data)` assumes `data` exists, in full, at the moment you call it. That assumption holds for a database read; it does not hold for a token-by-token model completion, a multi-step agent trace, or a long export job reporting progress. Trying to force that shape onto response streaming means buffering everything server-side first:
+
+```ts
+import { createRouter } from 'nextrush';
+
+declare function generateFullReply(prompt: string): Promise<string>;
+
+const router = createRouter();
+
+router.post('/chat', async (ctx) => {
+  const reply = await generateFullReply(ctx.body as string); // blocks until the model is done
+  ctx.json({ reply });                                        // client sees nothing until now
+});
+```
+
+The handler is correct and the response is valid JSON — but the client's connection sits idle for the full generation time, and if the model takes thirty seconds, the user has no signal the request is even progressing.
+
+## Why this matters
+
+A chat UI, an agent trace viewer, or a CSV export all share the same shape: work that produces output incrementally, where showing each piece as it's ready is the point. Buffer that work into one response and the delay isn't limited to the first byte — the incremental signal is thrown away entirely, so a client that could render partial output instead renders nothing until the very end. The fix is not a bigger buffer; it's a response that can be written to more than once.
+
+## The solution
+
+`@nextrush/stream` gives every adapter three protocol-specific entry points on `ctx`: `stream()` for raw text or bytes, `sse()` for Server-Sent Events, and `ndjson()` for newline-delimited JSON. Each takes one callback, hands it a writer built for that wire format, and keeps the connection open until the callback resolves — write as many chunks as the work produces, then the response closes on its own.
+
+## Core idea
+
+A normal handler answers a question once. A streaming handler keeps the same connection open and answers it **in installments** — the client sees each chunk as soon as the writer sends it, instead of waiting for one final value. The writer, not the handler, owns how each chunk is framed on the wire; the handler's only job is to call `write()` (or hand off an existing async source with `consume()`) until there's nothing left to send.
+
+## Mental model
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant Client
+    participant Handler as ctx.sse() handler
+    participant LLM
+
+    Client->>Handler: POST /chat
+    Handler->>LLM: start completion (signal: writer.signal)
+    loop while tokens remain
+        LLM-->>Handler: token
+        Handler->>Client: data: token\n\n
+    end
+    alt client closes the tab early
+        Client--xHandler: connection closed
+        Handler->>LLM: abort (writer.signal fires)
+    end
+    LLM-->>Handler: generation complete
+    Handler->>Client: connection closes
+"
+/>
+
+Notice the `loop` sends several messages over one still-open connection, and the `alt` shows the abort path is a real, equally-expected outcome alongside the completion path — a streaming response has two ways to end, not one.
+
+## Quick example
+
+The smallest streaming handler writes a few chunks and lets the connection close on its own:
+
+```ts title="progress.ts"
+import { createApp, listen } from 'nextrush';
+
+const app = createApp();
+
+app.get('/progress', async (ctx) => {
+  await ctx.stream(async (writer) => {
+    await writer.write('Loading...\n');
+    await writer.write('Processing...\n');
+    await writer.write('Done.\n');
+  });
+});
+
+listen(app, 8080);
+```
+
+No content type to set, no manual flush — `ctx.stream()` sets `Content-Type: text/plain; charset=utf-8` and closes the response once the callback returns.
+
+## How it works
+
+**Example** — stream an LLM completion as Server-Sent Events, and cancel the upstream call the instant the client disconnects:
+
+```ts title="chat.ts"
+import { createApp, listen } from 'nextrush';
+
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+declare const openai: {
+  chat: {
+    completions: {
+      create(
+        body: { model: string; messages: ChatMessage[]; stream: true },
+        options: { signal: AbortSignal },
+      ): Promise<AsyncIterable<{ choices: { delta: { content?: string } }[] }>>;
+    };
+  };
+};
+
+const app = createApp();
+
+app.post('/chat', async (ctx) => {
+  await ctx.sse(async (writer) => {
+    const completion = await openai.chat.completions.create(
+      { model: 'gpt-5', messages: ctx.body as ChatMessage[], stream: true },
+      { signal: writer.signal }, // aborts OpenAI the moment the client disconnects
+    );
+
+    for await (const chunk of completion) {
+      const token = chunk.choices[0]?.delta?.content;
+      if (token) await writer.write({ data: token });
+    }
+  });
+});
+
+listen(app, 8080);
+```
+
+**Observation** — the client starts receiving `data:` lines as soon as the model produces the first token, not after the full reply is assembled. If the browser tab closes mid-generation, `writer.signal` fires and the `create()` call above receives the abort — the upstream request stops instead of running to completion for tokens nobody will read.
+
+**Explanation** — three things make this work:
+
+- **`ctx.sse(run)`** sets `Content-Type: text/event-stream` and `Cache-Control: no-cache`, builds an `SSEStreamWriter`, and calls `run(writer)`. The connection stays open for as long as `run` is pending.
+- **`writer.write({ data, event?, id?, retry? })`** formats one event to the SSE wire spec — multi-line `data` is split into one `data:` line per line, and `event`/`id` values have carriage returns and newlines stripped so a value can't inject an extra field or event.
+- **`writer.signal`** is an `AbortSignal` that fires the moment the client disconnects. Passing it into the model call's own `signal` option is what turns "the response stopped" into "the upstream generation stopped" — without it, a disconnected client still leaves the completion running server-side.
+
+Writing after the client has disconnected throws `StreamAbortedError` rather than dropping the chunk silently; `ctx.sse()` catches it at the boundary and closes cleanly, so a handler that ignores cancellation still cannot corrupt a response — see [errors](/docs/concepts/errors) for how NextRush's error hierarchy treats this as a controlled shutdown, not a failure. The full internal design — `StreamController`, backpressure, and how one code path serves Node's eager pump and Bun/Deno/edge's lazy `Response` body identically — lives in `@nextrush/stream`'s architecture documentation.
+
+## Typical use cases
+
+Reach for a streaming writer when the response is inherently incremental — not as a general substitute for `ctx.json()`:
+
+- **`ctx.stream()`** — plain progress text, log tails, CSV export rows: any chunked output with no framing requirements of its own.
+- **`ctx.sse()`** — LLM chat completions, live notifications, anything a browser's `EventSource` (or a hand-rolled SSE client) will consume with automatic reconnection semantics.
+- **`ctx.ndjson()`** — structured agent traces, tool-call logs, server-to-server pipelines where each line is its own JSON value and no browser-specific framing is needed.
+- **An existing async source** — an AI SDK's `textStream`, a database cursor, or a Node `Readable` can be handed to `writer.consume(source)` directly; it normalizes `AsyncIterable` and Web `ReadableStream` sources to the same internal iteration path, so the handler never branches on which shape it received.
+
+## Performance
+
+- **Complexity** — each `write()` call does constant-time formatting and one enqueue; total cost scales with the number of chunks written, not with response size held in memory at once.
+- **Memory** — nothing buffers the full response server-side. A ten-thousand-token completion holds, at most, the current chunk in memory — the opposite of `ctx.json()`, which must hold the entire payload before it can send the first byte.
+<Callout type="info">
+Cooperative backpressure means a slow client (or a slow network) pauses `write()` until the consumer is ready for more — the handler never outruns what the connection can actually deliver.
+</Callout>
+- **Scaling** — a long-lived streaming response holds a connection for its full duration, so a route that streams for minutes at a time consumes a connection slot for minutes, unlike a request/response route that frees its slot in milliseconds. Measure real hold times with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before sizing a connection pool around streaming traffic.
+
+## Security
+
+- **Abandoned upstream calls.** *Threat:* a client disconnects mid-generation, but the LLM (or any other paid upstream call) keeps running because nothing told it to stop — a direct cost leak. *Why:* without wiring `writer.signal` into the upstream SDK's own abort option, the writer knows the client is gone but the upstream call doesn't. *Safe default:* pass `{ signal: writer.signal }` (or the SDK's equivalent option) into every long-running call made inside a streaming handler. *Avoid:* starting an upstream call with no abort wiring and assuming the connection closing is enough.
+- **SSE field injection.** *Threat:* an `event` or `id` value containing a newline could inject an extra SSE field or a second event into the wire format. *Why:* the SSE spec treats a bare `\n` as a field terminator. *Safe default:* this is handled automatically — `writer.write()` strips carriage returns and newlines from `event`/`id` before framing. *Avoid:* bypassing the writer to hand-format SSE text directly.
+- **Silent data loss after disconnect.** *Threat:* a handler that keeps writing after the client is gone could silently drop chunks with no error surfaced anywhere. *Why:* a network write to a closed connection has no return value that says "nobody received this." *Safe default:* NextRush throws `StreamAbortedError` on write-after-abort instead of no-op'ing, so a handler that ignores cancellation still fails loudly rather than producing a response that quietly stops mid-stream. *Avoid:* catching `StreamAbortedError` broadly and continuing to write — the connection really is gone.
+
+<Callout type="warn">
+A streaming handler that starts an upstream LLM or database call without passing `writer.signal` into it leaves that call running, and being billed for, after every client has already left.
+</Callout>
+
+## Trade-offs
+
+**Why three protocol-specific writers instead of one generic streaming API** — each format optimizes for a different consumer, and picking the wrong one costs a rewrite once a real client shows up.
+
+- **Benefits** — `ctx.sse()` gets automatic reconnection semantics for free from any `EventSource`-based client; `ctx.ndjson()` needs no browser-specific framing for server-to-server pipelines; `ctx.stream()` covers raw text with no protocol overhead at all. Choosing the writer up front means the handler never reformats output later to fit a client it didn't anticipate.
+- **Costs** — three writer types to learn instead of one, and a handler written for `ctx.stream()` doesn't carry over to `ctx.sse()` without a rewrite of how each chunk is shaped.
+- **Alternatives** — WebSockets give a bidirectional channel, at the cost of a connection-management model neither `fetch` nor `EventSource` need; polling avoids a long-lived connection entirely, at the cost of latency between polls and repeated request overhead for output that's naturally continuous.
+- **Why NextRush chose this** — response streaming here is strictly server-to-client; a use case needing the client to send messages back over the same connection belongs on [`@nextrush/websocket`](/docs/reference/websocket) instead of stretching one of these three writers to do a job they weren't built for.
+
+## Decision guide
+
+**Choose `ctx.sse()` when:**
+- ✓ The client is (or could be) a browser using `EventSource`, or wants automatic reconnection
+- ✓ The output is a token stream, a notification feed, or anything naturally event-shaped
+
+**Choose `ctx.ndjson()` when:**
+- ✓ The consumer is a server, a CLI, or another backend service, not a browser
+- ✓ Each unit of output is a self-contained JSON value with no need for SSE's `event`/`id`/`retry` fields
+
+**Choose `ctx.stream()` when:**
+- ✓ The payload is plain text or raw bytes with no wire-format framing to apply
+
+**Avoid all three when:**
+- ✗ The full response is available immediately and cheaply — `ctx.json()` is the correct tool for a value that already exists in full
+
+## Common mistakes
+
+- **Starting an upstream call without `{ signal: writer.signal }`.** *Why it happens:* the streaming response works during testing, when nobody disconnects early, so the missing abort wiring never surfaces. *Correct approach:* pass `writer.signal` (or the SDK's equivalent abort option) into every upstream call made inside the writer callback. *If ignored:* a disconnected client leaves the upstream call running and billing for output nobody will ever read.
+- **Reaching for `ctx.stream()` when the client is a browser expecting `EventSource`.** *Why it happens:* `ctx.stream()` is the simplest of the three and looks interchangeable with `ctx.sse()` for plain text. *Correct approach:* use `ctx.sse()` whenever the consumer relies on SSE framing or reconnection — `ctx.stream()` sends no `event:`/`id:` fields at all. *If ignored:* an `EventSource`-based client never fires its `onmessage` handler, because the bytes arriving aren't valid SSE.
+- **Catching `StreamAbortedError` and continuing to write.** *Why it happens:* it looks like any other recoverable error, so a broad `catch` swallows it and the loop continues. *Correct approach:* let it propagate to the writer boundary (or catch it only to run cleanup, then stop writing) — the client is genuinely gone. *If ignored:* every subsequent `write()` throws the same error again, and any resources allocated for the retried writes are wasted.
+
+## Key takeaways
+
+- `ctx.stream()` / `ctx.sse()` / `ctx.ndjson()` all follow the same shape: pass a callback, receive a protocol-specific writer, write until done — the connection closes automatically when the callback resolves.
+- Response streaming differs from a normal request/response by keeping one connection open across several writes, instead of one value sent once.
+- `writer.signal` is an `AbortSignal` that fires on client disconnect — wire it into any upstream SDK call's own abort option, or a disconnected client leaves that call running server-side.
+- Writing after disconnect throws `StreamAbortedError`, caught and closed cleanly at the `ctx.stream()`/`ctx.sse()`/`ctx.ndjson()` boundary — a handler that ignores cancellation still cannot produce a corrupted response.
+- `writer.consume(source)` adapts an existing `AsyncIterable` or Web `ReadableStream` — an AI SDK's token stream, a database cursor — to the writer's `write()` calls in one call, with no manual loop.
+- The public writer API is identical on Node, Bun, Deno, and edge; only the internal transport (`ctx.sendStream()`) differs per adapter, and application code never touches it directly.
+
+## Continue learning
+
+<Cards>
+  <Card title="Errors" href="/docs/concepts/errors">
+    How StreamAbortedError fits NextRush's error hierarchy as a controlled shutdown, not a failure.
+  </Card>
+  <Card title="Runtime compatibility" href="/docs/concepts/runtime-compatibility">
+    Why the same streaming handler runs unmodified on Node, Bun, Deno, and edge adapters.
+  </Card>
+  <Card title="@nextrush/stream reference" href="/docs/reference/stream">
+    The full writer API — StreamController, StreamAbortedError, formatSSE, and the low-level run functions.
+  </Card>
+  <Card title="Extensions" href="/docs/concepts/extensions">
+    How a long-lived service like an event bus differs from a per-request writer.
+  </Card>
+</Cards>

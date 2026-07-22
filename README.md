@@ -57,6 +57,12 @@ only through `@nextrush/di`, which is pulled in by `@nextrush/class` and re-expo
 `@nextrush/runtime` — the packages backing the functional path — do not appear anywhere in that
 dependency graph.
 
+This is enforced at the **install** level, not just the import level: `nextrush` declares
+`@nextrush/class`, `@nextrush/di`, and `reflect-metadata` as **optional peer dependencies**, so
+a functional-only `pnpm add nextrush` never resolves them onto disk. Installing `@nextrush/class`
+alongside `nextrush` is what brings in the class/DI stack; `create-nextrush`'s class-based and
+full templates do this for you automatically.
+
 ## Performance
 
 NextRush is built for high throughput with a zero-dependency functional core, and it benchmarks
@@ -287,6 +293,8 @@ ctx.state; // Share data between middleware
 | `@nextrush/adapter-node` | Node.js HTTP adapter                 |
 | `@nextrush/types`        | Shared TypeScript types              |
 | `@nextrush/errors`       | HTTP error classes                   |
+| `@nextrush/runtime`      | Runtime detection & cross-runtime abstractions (ships with `@nextrush/adapter-node`) |
+| `@nextrush/stream`       | Response streaming — SSE, NDJSON, built for AI/agentic apps (ships with `@nextrush/adapter-node`; add as a direct dependency only to import its API yourself) |
 
 ### Middleware (install separately)
 
@@ -321,7 +329,6 @@ Long-lived, stateful services — registered with `app.extend()`, booted at `app
 | `@nextrush/static`    | Static file serving     |
 | `@nextrush/template`  | Template rendering      |
 | `@nextrush/logger`    | Structured logging      |
-| `@nextrush/stream`    | Response streaming — SSE, NDJSON, built for AI/agentic apps |
 | `@nextrush/openapi`   | Zero-config OpenAPI 3.1 generation from route metadata |
 
 ### Class-Based Development (install separately)

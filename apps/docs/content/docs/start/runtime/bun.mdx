@@ -1,0 +1,222 @@
+---
+title: Bun
+description: Install NextRush on Bun, run a hello-world server on Bun.serve(), and see exactly where the Bun adapter's import path diverges from Node's.
+difficulty: beginner
+estimatedTime: 10 minutes
+prerequisites: []
+---
+
+You'll get a NextRush server answering requests on [Bun](https://bun.sh) — the same
+`createApp`/`createRouter` API as Node, running on `Bun.serve()` instead of `node:http`. One
+import changes; nothing else about your route handlers does.
+
+Targeting a different runtime? [Node](/docs/start/runtime/node) ·
+[Deno](/docs/reference/platforms/deno) · [Edge](/docs/reference/platforms/edge) ·
+[Serverless](/docs/reference/platforms/serverless) each implement the same Context and Application
+contract.
+
+## Finished project
+
+By the end you'll have:
+
+- ✓ A NextRush server listening on port `8080`, running on `Bun.serve()` — no build step
+- ✓ One route answering JSON
+- ✓ A clear picture of the one import that differs from Node, and where to go for deployment and
+  the full adapter reference
+
+```bash
+curl http://localhost:8080/
+# → {"runtime":"bun","status":"ok"}
+```
+
+## Learning journey
+
+- ⬜ Step 1 — Confirm your Bun version
+- ⬜ Step 2 — Install NextRush and the Bun adapter
+- ⬜ Step 3 — Run a hello-world server
+- ⬜ Step 4 — Know the divergence from Node
+
+## Prerequisites
+
+- **Required:** a terminal and [Bun](https://bun.sh) installed. No prior NextRush knowledge
+  assumed.
+- **Difficulty · time:** Beginner · ~10 minutes
+
+<Steps>
+
+### Step 1 / 4 — Confirm your Bun version
+
+**Why now:** `@nextrush/adapter-bun` is built against Bun's stable `Bun.serve()` surface —
+confirming the runtime first avoids a confusing failure later.
+
+**Do:**
+
+```bash
+bun --version
+# needs to read 1.x.x or higher
+```
+
+If Bun isn't installed yet, follow the [install instructions](https://bun.sh/docs/installation)
+before continuing.
+
+**Why it matters:** the adapter's request handler, body source, and TLS options all target
+`Bun.serve()` directly — not Node's `http` module through Bun's Node-compat layer.
+
+### Step 2 / 4 — Install NextRush and the Bun adapter
+
+**Why now:** unlike Node, the `nextrush` meta-package does not bundle a runtime adapter — it
+ships only `@nextrush/adapter-node`. Running on Bun means adding `@nextrush/adapter-bun`
+alongside it.
+
+**Do:**
+
+<PackageInstall packages={["nextrush", "@nextrush/adapter-bun"]} />
+
+Or scaffold a project instead of adding it by hand:
+
+```bash
+bunx create-nextrush my-api --runtime bun
+```
+
+**Why it worked:** `createApp` and `createRouter` still come from `nextrush` — those two are
+runtime-independent. `listen`, `serve`, and `createHandler` come from `@nextrush/adapter-bun`
+instead, because the meta-package's `listen` re-export is wired to `@nextrush/adapter-node`
+specifically, not resolved per runtime.
+
+<Callout type="warn">
+This is the one place Bun's setup differs from Node's: `import { listen } from 'nextrush'`
+starts a Node server even when the process is running under Bun (Bun's Node-compat layer makes
+that import resolve, but it never reaches `Bun.serve()`). Import `listen`/`serve` from
+`@nextrush/adapter-bun` explicitly to run on Bun's native server.
+</Callout>
+
+### Step 3 / 4 — Run a hello-world server
+
+**Why now:** the fastest way to confirm the install worked is a server that answers a real
+request.
+
+**Do:** create `src/index.ts`:
+
+```ts title="src/index.ts"
+import { createApp, createRouter } from 'nextrush';
+import { listen } from '@nextrush/adapter-bun';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ runtime: 'bun', status: 'ok' });
+});
+
+app.route('/', router);
+await listen(app, 8080);
+```
+
+Run it:
+
+```bash
+bun run src/index.ts
+```
+
+**Expected output:**
+
+```bash
+curl http://localhost:8080/
+# → {"runtime":"bun","status":"ok"}
+```
+
+**Why it worked:** `listen(app, 8080)` from `@nextrush/adapter-bun` calls `Bun.serve()` directly
+and hands each incoming request to NextRush's router through the same Context API Node uses.
+`ctx.runtime` reads `'bun'` here for the same reason it reads `'node'` on the previous page — the
+adapter, not your route handler, decides that value.
+
+<Callout type="info">
+Bun's hot reload works without any NextRush-specific setup: `bun --hot run src/index.ts` restarts
+the process on file change.
+</Callout>
+
+### Step 4 / 4 — Know the divergence from Node
+
+**Why now:** before moving to production, it helps to know exactly where Bun's adapter behaves
+differently from Node's — and where it doesn't.
+
+**What's genuinely different, and why:** the import path (Step 2) is the real divergence — Bun
+requires `@nextrush/adapter-bun` explicitly because `nextrush` only bundles the Node adapter. One
+behavioral difference follows directly from a platform gap: `Bun.serve()` has no built-in request
+timeout the way `node:http` does, so `@nextrush/adapter-bun` adds its own `AbortController`-based
+timeout at the handler level — it defaults to the same 30 seconds as the Node adapter and returns
+a `504 Gateway Timeout` on expiry, so the observable behavior matches even though the mechanism
+underneath doesn't.
+
+**What's identical:** the Context API (`ctx.json`, `ctx.params`, `ctx.query`, `ctx.set`, …),
+`createApp`, `createRouter`, route registration, and middleware all behave the same as Node —
+nothing in your route handlers above is Bun-specific. The request body size limit is one case
+worth calling out explicitly because it looks like a likely divergence and isn't: `Bun.serve()`
+reads the full body before NextRush ever sees it, so `@nextrush/adapter-bun` caps
+`maxRequestBodySize` at the same 1&nbsp;MB default as `@nextrush/adapter-node` — a deliberate
+match, not a coincidence — rather than exposing Bun's much larger native ceiling.
+
+<Callout type="info">
+`@nextrush/adapter-bun` is a Stable, independently-versioned package (currently `1.0.0`) —
+CI-tested against a real Bun runtime, not Node's Bun-compat layer. Check the [Bun adapter
+reference](/docs/reference/platforms/bun) for its full surface before pinning a production
+version.
+</Callout>
+
+</Steps>
+
+## Checkpoint
+
+Confirm the server answers before moving on:
+
+```bash
+curl -i http://localhost:8080/
+# → HTTP/1.1 200 OK
+# → {"runtime":"bun","status":"ok"}
+```
+
+Your project now looks like:
+
+```text
+my-api/
+  package.json
+  src/
+    index.ts
+```
+
+## What you learned
+
+- **`nextrush` gives you the runtime-independent half** — `createApp`, `createRouter`, and route
+  registration are identical on Bun and Node. [Runtime compatibility
+  concept](/docs/concepts/runtime-compatibility)
+- **`listen`/`serve`/`createHandler` come from the adapter package, not the meta-package** — on
+  Bun that's `@nextrush/adapter-bun`; on Node it's implicitly `@nextrush/adapter-node` through
+  `nextrush`.
+- **The adapter ships independently and is Stable** — see the [Bun adapter
+  reference](/docs/reference/platforms/bun) for its full surface.
+
+## Next steps
+
+<Cards>
+  <Card title="Deploy to production" href="/docs/production/deployment/bun">
+    Docker and Bun-runtime deployment paths for a NextRush server on Bun.
+  </Card>
+  <Card title="Bun adapter reference" href="/docs/reference/platforms/bun">
+    The full `@nextrush/adapter-bun` surface — `serve()`, `createHandler()`, and Bun-specific
+    Context utilities.
+  </Card>
+</Cards>
+
+## Continue learning
+
+<Cards>
+  <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
+    Why Node, Bun, Deno, and the edge all run identical application code.
+  </Card>
+  <Card title="Build a Task API" href="/docs/start/quick-start">
+    Go past hello-world — routing, a request body, and real error handling.
+  </Card>
+  <Card title="All platform adapters" href="/docs/reference/platforms">
+    The Node, Deno, edge, and serverless adapter references.
+  </Card>
+</Cards>

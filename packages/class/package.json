@@ -4,6 +4,7 @@
   "description": "Class-based API for NextRush - decorators, DI, and controller registration",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -36,10 +37,6 @@
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
-  },
-  "peerDependencies": {
-    "@nextrush/core": "workspace:*",
-    "@nextrush/router": "workspace:*"
   },
   "keywords": [
     "nextrush",

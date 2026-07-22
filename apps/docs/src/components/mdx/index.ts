@@ -23,4 +23,7 @@ export { Mermaid } from './mermaid';
 export { OpenInStackBlitz } from './open-in-stackblitz';
 export { PackageInstall } from './package-install';
 export { PackageCard, PackageGrid, PackageSection } from './package-grid';
+export { RuntimeSupport } from './runtime-support';
+export type { RuntimeId, RuntimeSupportLevel, RuntimeSupportMap, RuntimeSupportProps } from './runtime-support';
+export { ScalarApiReference } from './scalar-api-reference';
 export { TypeTable } from './type-table';

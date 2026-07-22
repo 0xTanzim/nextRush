@@ -1,0 +1,407 @@
+---
+title: '@nextrush/websocket'
+description: 'WebSocket plugin for NextRush with rooms, broadcasting, and route-based handlers.'
+---
+
+HTTP handles request-response. WebSocket handles persistent, bidirectional connections — chat, live dashboards, collaborative editing, and real-time notifications.
+
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/extensions/websocket/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/extensions/websocket/ARCHITECTURE.md)
+</Callout>
+
+This plugin integrates the `ws` library with NextRush through two integration shapes: a
+NextRush Extension (`createWebSocketExtension()`, recommended — decorates `app.wss` and wires
+disposal into `app.close()`) and a manual factory (`createWebSocket()`, for full manual lifecycle
+control or attaching outside a NextRush `Application`). Both register route handlers and attach
+to your HTTP server; room management and broadcasting are built into either form.
+
+## Default Behavior
+
+With default options, the plugin:
+
+- Accepts WebSocket connections on registered route paths
+- Pings all connections every 30 seconds (heartbeat); terminates a connection the first tick it fails to respond to the previous ping
+- Limits messages to 1MB
+- Allows unlimited connections
+- Limits each connection to 100 rooms
+- Allows all origins
+
+## Installation
+
+<PackageInstall packages={['@nextrush/websocket', 'ws']} dev={['@types/ws']} />
+
+<Callout type="warn">
+  The `ws` package is a required peer dependency — install it alongside the plugin. This plugin
+  targets Node.js 22+ only — it imports `node:http`/`node:net` types directly and has no
+  Bun/Deno/edge code path; use each runtime's native WebSocket API there instead.
+</Callout>
+
+<Callout type="error" title="Authenticate Before Upgrade">
+  WebSocket connections bypass standard HTTP middleware after the upgrade. Use `verifyClient` to
+  authenticate during the handshake — not after the connection is open.
+</Callout>
+
+## Minimal Usage
+
+**Recommended: the Extension form.** `createWebSocketExtension()` decorates `app.wss` and wires
+`wss.close()` into `app.close()`'s teardown automatically — a missed manual disposal can never
+leak the heartbeat timer or leave sockets open after shutdown.
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { createWebSocketExtension } from '@nextrush/websocket';
+
+const app = createApp().extend(createWebSocketExtension());
+await app.ready();
+
+app.wss.on('/chat', (conn) => {
+  conn.join('general');
+  conn.on('message', (msg) => conn.broadcast('general', msg));
+  conn.on('close', () => console.log(`${conn.id} disconnected`));
+});
+
+app.use(app.wss.upgrade());
+
+const { server } = await listen(app, 8080);
+await app.wss.attach(server);
+
+// app.close() now also calls app.wss.close() — heartbeat cleared, connections
+// closed, underlying `ws` server closed. No separate wss.close() call needed.
+```
+
+**Manual form** — for attaching to a server that isn't a NextRush `Application`, or when you want
+full manual lifecycle control:
+
+```ts
+import { createApp } from '@nextrush/core';
+import { listen } from '@nextrush/adapter-node';
+import { createWebSocket } from '@nextrush/websocket';
+
+const app = createApp();
+const wss = createWebSocket();
+
+wss.on('/chat', (conn) => {
+  conn.on('message', (msg) => {
+    conn.send(`Echo: ${msg}`);
+  });
+
+  conn.on('close', (code, reason) => {
+    console.log('Disconnected:', code, reason);
+  });
+});
+
+app.use(wss.upgrade());
+
+const { server } = await listen(app, 8080);
+wss.attach(server);
+```
+
+Two separate calls do two separate jobs, in either form: `app.use(wss.upgrade())` (or
+`app.use(app.wss.upgrade())`) registers a passthrough Middleware so `app.use()` accepts it;
+`wss.attach(server)` is what actually wires the real `'upgrade'` event listener onto the raw
+`node:http` `Server`. Neither call does the other's job. `listen()` returns a `ServerInstance` —
+pass its `.server` property (the underlying `node:http` `Server`) to `attach()`, not the
+`ServerInstance` wrapper itself. Only *disposal* differs between the two forms — the Extension
+form wires `wss.close()` into `app.close()`; the manual form leaves it to you.
+
+## Configuration Options
+
+Pass options to `createWebSocket()` to customize behavior.
+
+```ts
+const wss = createWebSocket({
+  maxPayload: 512 * 1024,
+  heartbeatInterval: 15000,
+  maxConnections: 500,
+  maxRoomsPerConnection: 50,
+  allowedOrigins: ['https://example.com', 'https://*.example.com'],
+  perMessageDeflate: true,
+  verifyClient: async (req) => {
+    const token = req.headers['authorization'];
+    return Boolean(token);
+  },
+  onConnection: (conn) => console.log('Connected:', conn.id),
+  onClose: (conn, code, reason) => console.log('Closed:', conn.id, code),
+  onError: (conn, error) => console.error('Error:', conn.id, error.message),
+});
+```
+
+<TypeTable
+  title="WebSocketOptions"
+  types={{
+    path: {
+      type: 'string | string[]',
+      description: 'Allowed paths for WebSocket connections',
+      default: "['/']",
+      optional: true,
+    },
+    maxPayload: {
+      type: 'number',
+      description: 'Maximum message size in bytes',
+      default: '1048576 (1MB)',
+      optional: true,
+    },
+    heartbeatInterval: {
+      type: 'number',
+      description:
+        'Ping interval in ms (0 disables heartbeat entirely). A connection is terminated the first tick where it has not responded to the previous ping — a dead connection is detected within one heartbeatInterval window.',
+      default: '30000',
+      optional: true,
+    },
+    clientTimeout: {
+      type: 'number',
+      description:
+        'Declared but not read by any code path — has no observable effect. The actual termination window is governed entirely by heartbeatInterval. Kept in the type for forward compatibility; do not rely on it.',
+      default: '60000',
+      optional: true,
+    },
+    maxConnections: {
+      type: 'number',
+      description: 'Maximum concurrent connections (0 for unlimited)',
+      default: '0',
+      optional: true,
+    },
+    maxRoomsPerConnection: {
+      type: 'number',
+      description: 'Maximum rooms a connection can join (0 for unlimited)',
+      default: '100',
+      optional: true,
+    },
+    allowedOrigins: {
+      type: 'string[]',
+      description: 'Allowed origins for CORS. Supports wildcards. Empty array allows all.',
+      default: '[]',
+      optional: true,
+    },
+    perMessageDeflate: {
+      type: 'boolean',
+      description: 'Enable per-message deflate compression',
+      default: 'false',
+      optional: true,
+    },
+    verifyClient: {
+      type: '(req: IncomingMessage) => boolean | Promise<boolean>',
+      description: 'Custom client verification. Return true to allow, false to reject.',
+      optional: true,
+    },
+    onConnection: {
+      type: '(conn: WSConnection) => void',
+      description: 'Called when a connection is established',
+      optional: true,
+    },
+    onClose: {
+      type: '(conn: WSConnection, code: number, reason: string) => void',
+      description: 'Called when a connection is closed',
+      optional: true,
+    },
+    onError: {
+      type: '(conn: WSConnection, error: Error) => void',
+      description: 'Called when an error occurs',
+      optional: true,
+    },
+  }}
+/>
+
+## Route-Based Handlers
+
+Register handlers for different WebSocket paths with `wss.on(path, handler)`:
+
+```ts
+wss.on('/chat', (conn, request) => {
+  conn.on('message', (msg) => {
+    conn.broadcast('chat', msg);
+  });
+});
+
+wss.on('/notifications', (conn) => {
+  conn.json({ type: 'welcome', timestamp: Date.now() });
+});
+```
+
+Path matching supports exact matches, parameterized segments (`:id`), and wildcards (`*`).
+
+## Connection API
+
+Each handler receives a `WSConnection` with these properties and methods.
+
+<TypeTable
+  title="WSConnection Properties"
+  types={{
+    id: { type: 'string', description: 'Unique connection identifier (UUID)' },
+    url: { type: 'string', description: 'Connection URL path' },
+    isOpen: { type: 'boolean', description: 'Whether the connection is currently open' },
+    request: { type: 'IncomingMessage', description: 'Original HTTP upgrade request' },
+  }}
+/>
+
+### Sending Messages
+
+```ts
+conn.send('Hello'); // Send string
+conn.send(Buffer.from([1, 2, 3])); // Send binary buffer
+conn.json({ type: 'update', items: [] }); // Send JSON (auto-stringified)
+```
+
+### Events
+
+```ts
+conn.on('message', (data) => {
+  /* string or Buffer */
+});
+conn.on('close', (code, reason) => {
+  /* cleanup */
+});
+conn.on('error', (error) => {
+  /* handle error */
+});
+conn.on('ping', (data) => {
+  /* ping received */
+});
+conn.on('pong', (data) => {
+  /* pong received */
+});
+
+conn.off(event, handler); // Remove a listener
+```
+
+### Rooms
+
+Connections can join rooms for organized broadcasting:
+
+```ts
+conn.join('general');
+conn.join('notifications');
+conn.leave('general');
+conn.leaveAll();
+
+const rooms = conn.getRooms(); // ['notifications']
+```
+
+Room names must be non-empty strings with a maximum length of 256 characters. Each connection can join up to 100 rooms by default (configurable via `maxRoomsPerConnection`).
+
+### Broadcasting from a Connection
+
+`broadcast()` sends to all room members **excluding the sender**:
+
+```ts
+conn.broadcast('general', 'User joined!');
+conn.broadcastJson('general', { type: 'join', user: 'Alice' });
+```
+
+## Middleware
+
+Add WebSocket-specific middleware for cross-cutting concerns:
+
+```ts
+wss.use((conn, request, next) => {
+  console.log('New connection:', conn.id, request.url);
+  next();
+});
+
+wss.use((conn, request, next) => {
+  const token = request.headers['x-auth-token'];
+  if (!token) {
+    conn.close(4001, 'Unauthorized');
+    return;
+  }
+  next();
+});
+```
+
+Middleware runs in registration order before the route handler executes.
+
+## Server-Level APIs
+
+The WebSocket server instance provides broadcasting across all connections and server management.
+
+```ts
+// Broadcast to all connections
+wss.broadcast('Hello everyone!');
+wss.broadcastJson({ type: 'announcement', text: 'Server restarting' });
+
+// Broadcast to a specific room
+wss.broadcastToRoom('chat', 'System message');
+wss.broadcastJsonToRoom('chat', { type: 'system', text: 'Welcome' });
+
+// Exclude a specific connection
+wss.broadcast('Hello others!', currentConn);
+```
+
+### Server Statistics
+
+```ts
+const connections = wss.getConnections();
+const count = wss.getConnectionCount();
+const rooms = wss.getRooms();
+const members = wss.getRoomConnections('chat');
+```
+
+### Shutdown
+
+```ts
+wss.closeAll(1001, 'Server shutting down');
+wss.close(); // Stops heartbeat, closes all connections, releases resources
+```
+
+## Attaching to the HTTP Server
+
+<Callout type="info" title="No auto-attach helper — attach() is always explicit">
+  Neither integration form wires the HTTP `'upgrade'` event automatically. A NextRush
+  `Middleware` or `Extension.setup()` only ever receives the app/context, never the raw
+  `node:http` `Server` the upgrade handshake needs — so `wss.attach(server)` (or
+  `app.wss.attach(server)`) must always be called explicitly, once you have the real server
+  instance from `listen()`. This is true for both `createWebSocket()` and
+  `createWebSocketExtension()`; the Extension form only automates *disposal* via `app.close()`,
+  not the upgrade-wiring contract.
+</Callout>
+
+### Extension vs. manual factory
+
+| | `createWebSocket()` (manual) | `createWebSocketExtension()` (recommended) |
+| --- | --- | --- |
+| Returns | A plain `WebSocketServer` | A NextRush `Extension<{ wss: WebSocketServer }>` |
+| Access | The local `wss` variable you created | `app.wss`, via `app.extend()`'s decoration |
+| Disposal | You must call `wss.close()` yourself | `app.close()` calls it for you automatically |
+| Best for | Attaching to a server outside a NextRush `Application`; full manual lifecycle control | Any NextRush app using WebSockets — the default choice |
+
+## Common Mistakes
+
+**Forgetting to call `wss.attach(server.server)`.**
+The WebSocket server does not listen for connections until attached to the raw HTTP server. Without this step, upgrade requests are never handled.
+
+**Calling `conn.broadcast()` without joining a room first.**
+`broadcast(room, data)` sends to members of the specified room. If no connections have joined that room, the message goes nowhere.
+
+**Not installing the `ws` peer dependency.**
+The plugin dynamically imports `ws` at runtime. If the package is missing, an error is thrown with installation instructions.
+
+**Calling `wss.close()` manually with the Extension form.**
+`createWebSocketExtension()` already wires `wss.close()` into `app.close()`'s teardown — you do
+not need to call it yourself. Only the manual `createWebSocket()` form requires calling
+`wss.close()` on your own.
+
+**Sending non-string/Buffer data with `conn.send()`.**
+Use `conn.json(data)` for objects. `conn.send()` accepts `string` or `Buffer` only.
+
+## Troubleshooting
+
+**WebSocket connections return 404.**
+Ensure the request path matches a registered route via `wss.on(path, handler)` or the `path` option in configuration.
+
+**Connections drop after ~30 seconds of inactivity.**
+The heartbeat system terminates a connection the first ping tick where it hasn't responded to the previous ping — within one `heartbeatInterval` window (default: 30s), not `clientTimeout`. `clientTimeout` is declared in `WebSocketOptions` but no code path reads it; it has no observable effect. To change the termination window, adjust `heartbeatInterval` instead.
+
+**Origin rejected with 403 Forbidden.**
+When `allowedOrigins` is configured, requests without an `Origin` header are denied. Verify the client sends the correct `Origin` header.
+
+**MaxRoomsExceededError thrown.**
+A connection attempted to join more rooms than `maxRoomsPerConnection` allows. Increase the limit or have the connection leave unused rooms.
+
+---
+
+## Related
+
+- [Reference](/docs/reference) — All packages
+- [@nextrush/events](/docs/reference/events) — Event emitter plugin
+- [@nextrush/stream](/docs/reference/stream) — One-way SSE/NDJSON streaming, if you don't need bidirectional communication

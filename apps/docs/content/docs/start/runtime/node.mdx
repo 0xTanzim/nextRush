@@ -1,0 +1,205 @@
+---
+title: Node.js
+description: Install NextRush on Node.js, run a hello-world server, and see how the Node adapter sets the baseline every other runtime is measured against.
+difficulty: beginner
+estimatedTime: 10 minutes
+prerequisites: []
+---
+
+You'll get a NextRush server answering requests on Node.js — the runtime the framework is built
+against first. Every capability, every middleware package, and every adapter contract exists
+because it works here before it's asked to work anywhere else.
+
+Targeting a different runtime? [Bun](/docs/reference/platforms/bun) ·
+[Deno](/docs/reference/platforms/deno) · [Edge](/docs/reference/platforms/edge) ·
+[Serverless](/docs/reference/platforms/serverless) each implement the same Context and Application
+contract.
+
+## Finished project
+
+By the end you'll have:
+
+- ✓ A NextRush server listening on port `8080`, running on plain Node.js — no build step
+- ✓ One route answering JSON
+- ✓ A clear picture of what the Node adapter provides, and where to go for deployment and its
+  full adapter reference
+
+```bash
+curl http://localhost:8080/
+# → {"runtime":"node","status":"ok"}
+```
+
+## Learning journey
+
+- ⬜ Step 1 — Confirm your Node.js version
+- ⬜ Step 2 — Install NextRush
+- ⬜ Step 3 — Run a hello-world server
+- ⬜ Step 4 — Know the baseline
+
+## Prerequisites
+
+- **Required:** a terminal and a package manager (npm, pnpm, or yarn). No prior NextRush
+  knowledge assumed.
+- **Difficulty · time:** Beginner · ~10 minutes
+
+<Steps>
+
+### Step 1 / 4 — Confirm your Node.js version
+
+**Why now:** NextRush targets **Node.js 22 or later** — the engine floor the framework's ESM-only
+policy and `node:*` APIs assume. Checking first avoids a confusing failure later.
+
+**Do:**
+
+```bash
+node --version
+# needs to read v22.x.x or higher
+```
+
+If you're on an older line, install 22+ with [nvm](https://github.com/nvm-sh/nvm) or from
+[nodejs.org](https://nodejs.org/) before continuing.
+
+**Why it matters:** the Node adapter (`@nextrush/adapter-node`) is built against Node 22's stable
+ESM loader and `node:http` surface. An older runtime is not a supported target, not a "mostly
+works" one.
+
+### Step 2 / 4 — Install NextRush
+
+**Why now:** the `nextrush` meta-package already includes the Node adapter, so one install is
+everything this page needs.
+
+**Do:**
+
+<PackageInstall packages={["nextrush"]} dev={["tsx", "typescript", "@types/node"]} />
+
+Or scaffold a project instead of adding it by hand:
+
+```bash
+pnpm create nextrush my-api --runtime node
+```
+
+**Why it worked:** `@nextrush/core`, `@nextrush/router`, and `@nextrush/adapter-node` are all
+re-exported through the `nextrush` package, so `createApp`, `createRouter`, and `listen` are
+available from one import without adding the adapter separately.
+
+<Callout type="info">
+On every other runtime NextRush supports (Bun, Deno, edge, serverless), that same `nextrush`
+import stays identical — only the adapter running underneath changes.
+</Callout>
+
+### Step 3 / 4 — Run a hello-world server
+
+**Why now:** the fastest way to confirm the install worked is a server that answers a real
+request.
+
+**Do:** create `src/index.ts`:
+
+```ts title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ runtime: 'node', status: 'ok' });
+});
+
+app.route('/', router);
+await listen(app, 8080);
+```
+
+Run it:
+
+```bash
+npx tsx src/index.ts
+```
+
+**Expected output:**
+
+```bash
+curl http://localhost:8080/
+# → {"runtime":"node","status":"ok"}
+```
+
+**Why it worked:** `listen(app, 8080)` calls into `@nextrush/adapter-node`, which starts a plain
+`node:http` server and hands each incoming request to NextRush's router through the Context API.
+Nothing here is Node-specific in your code — the same four calls (`createApp`, `createRouter`,
+route registration, `listen`) are what every runtime's onboarding page starts from.
+
+### Step 4 / 4 — Know the baseline
+
+**Why now:** before moving to production or another runtime, it helps to know exactly what "runs
+on Node" gets you that other runtimes have to work to match.
+
+**What Node gives you, and why:** Node is the full-capability baseline the framework is designed
+against — full `node:*` module access, no cold-start behavior to design around, and every
+middleware package (`@nextrush/body-parser`, `@nextrush/static`, `@nextrush/multipart`, …) targets
+it directly. There is no Node-specific limitation to work around here; runtimes further along the
+persona journey (edge workers without `node:*`, serverless with cold starts) are the ones that
+trade capability for reach, not Node.
+
+<Callout type="warn">
+This does not mean Node is required — Bun, Deno, edge, and serverless adapters all implement the
+same Context and Application contract (see [each adapter's
+reference](/docs/reference/platforms)). It means Node is where that contract has the fewest
+constraints, so it's the reference point the [runtime compatibility
+concept](/docs/concepts/runtime-compatibility) measures every other adapter against.
+</Callout>
+
+</Steps>
+
+## Checkpoint
+
+Confirm the server answers before moving on:
+
+```bash
+curl -i http://localhost:8080/
+# → HTTP/1.1 200 OK
+# → {"runtime":"node","status":"ok"}
+```
+
+Your project now looks like:
+
+```text
+my-api/
+  package.json
+  src/
+    index.ts
+```
+
+## What you learned
+
+- **Node is the baseline runtime** — the framework's `node:*`-using packages, the Node adapter,
+  and the docs' default code examples all target it first. [Runtime compatibility
+  concept](/docs/concepts/runtime-compatibility)
+- **One `nextrush` import covers the adapter** — `createApp`, `createRouter`, and `listen` all
+  come from the meta-package; you never import `@nextrush/adapter-node` directly unless you need
+  its lower-level `serve()`/`createHandler()` surface.
+- **The same code moves between runtimes** — nothing in `src/index.ts` above is Node-specific;
+  swapping to Bun changes the runtime underneath, not your route handlers.
+
+## Next steps
+
+<Cards>
+  <Card title="Deploy to production" href="/docs/production/deployment/node">
+    Docker, PM2, and systemd deployment paths for a Node.js NextRush server.
+  </Card>
+  <Card title="Node adapter reference" href="/docs/reference/platforms/node">
+    The full `@nextrush/adapter-node` surface — `serve()`, `createHandler()`, and Node-specific
+    Context utilities.
+  </Card>
+</Cards>
+
+## Continue learning
+
+<Cards>
+  <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
+    Why Node, Bun, Deno, and the edge all run identical application code.
+  </Card>
+  <Card title="Build a Task API" href="/docs/start/quick-start">
+    Go past hello-world — routing, a request body, and real error handling.
+  </Card>
+  <Card title="All platform adapters" href="/docs/reference/platforms">
+    The Bun, Deno, edge, and serverless adapter references.
+  </Card>
+</Cards>

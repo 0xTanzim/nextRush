@@ -1,0 +1,293 @@
+---
+title: Errors
+description: How NextRush turns a thrown typed error into a safe, consistent HTTP response — so a handler signals failure by throwing, and never hand-builds an error body or leaks internals.
+---
+
+A handler can fail in a dozen ways: a record is missing, a token is invalid, a database call times out. Node gives you `throw` and nothing else — so every handler grows its own `try/catch`, its own status code, and its own JSON shape. The day one of them forgets, a raw stack trace goes out to the client with a `500`, and every other handler answers failures in a slightly different shape.
+
+## What you'll learn
+
+- **Understand** why an ad-hoc `try/catch` in every handler produces inconsistent, leaky error responses
+- **Understand** how throwing a typed `HttpError` lets the framework turn a failure into a correct HTTP response
+- **Recognize** the difference between exposed (4xx) and non-exposed (5xx) output, and why production never leaks internals
+- **Choose** between throwing an error class, `ctx.throw()`, and a custom error handler
+
+## The problem
+
+The direct way to handle a failure is to catch it where it happens and write the response by hand:
+
+```ts
+// The hand-rolled approach — every handler owns its own error shape.
+import { createRouter } from 'nextrush';
+
+const users = createRouter();
+
+users.get('/:id', async (ctx) => {
+  try {
+    const user = await findUser(ctx.params.id);
+    if (!user) {
+      ctx.status = 404;
+      ctx.json({ error: 'not found' }); // one handler's shape
+      return;
+    }
+    ctx.json(user);
+  } catch (err) {
+    ctx.status = 500;
+    ctx.json({ message: String(err) }); // leaks the raw error to the client
+  }
+});
+
+declare function findUser(id: string): Promise<unknown>;
+```
+
+This works for one handler and drifts across a hundred. Each one picks its own status, its own key names (`error` here, `message` there), and its own idea of what is safe to send back. The `catch` that stringifies `err` ships internal detail — a file path, a query, a stack — straight to the caller.
+
+## Why this matters
+
+Error paths run on every failure, and failures happen in production far more than in a test. A response shape that drifts per handler is a contract clients cannot rely on; a single forgotten `catch` is a stack trace handed to an attacker. Because this cost is paid on the unhappy path — the path least exercised in development — it stays invisible until the day it matters most. Fixing it once, at the framework boundary, means every handler answers failures the same safe way without writing a line of error-plumbing.
+
+## The solution
+
+NextRush treats an error as a value you **throw**, not a response you build. You throw a typed error — `throw new NotFoundError()` — and the framework catches it at the edge of the middleware pipeline, reads its status code, and serializes one consistent, safe JSON body. A handler declares *what went wrong*; the framework owns *turning that into an HTTP response*.
+
+## Core idea
+
+Throwing is the control flow. An `HttpError` carries everything the response needs — a `status`, a machine-readable `code`, and an `expose` flag that decides whether its message is safe to send — so the handler's only job is to throw the right one. The framework's pipeline wraps every handler in a single `try/catch`; you never write that `catch` yourself.
+
+## Mental model
+
+<Mermaid
+  chart="
+sequenceDiagram
+    actor Client
+    participant Pipeline as Middleware pipeline
+    participant Handler
+    participant ErrHandler as Error handler
+    Client->>Pipeline: HTTP request
+    Pipeline->>Handler: run matched handler
+    Handler--xPipeline: throw NotFoundError (404)
+    Pipeline->>ErrHandler: handleError(err, ctx)
+    ErrHandler->>ErrHandler: ctx.status = err.status
+    ErrHandler->>ErrHandler: body = err.toJSON()
+    ErrHandler-->>Client: 404 + safe JSON
+"
+/>
+
+The dashed arrow with the cross is the point: the handler doesn't *return* a response, it *throws*. Don't picture the handler formatting an error — notice that the throw unwinds to the pipeline's single `catch`, and one error handler turns it into the response. Every failure in your app converges on that one place.
+
+## Quick example
+
+Throw a typed error from a handler and send nothing else — the framework produces the response:
+
+```ts title="app.ts"
+import { createApp, createRouter, listen, NotFoundError } from 'nextrush';
+
+const app = createApp();
+const users = createRouter();
+
+users.get('/:id', async (ctx) => {
+  const user = await findUser(ctx.params.id);
+  if (!user) {
+    throw new NotFoundError('User not found'); // stop here — the framework responds
+  }
+  ctx.json(user);
+});
+
+app.route('/users', users);
+listen(app, 8080);
+
+declare function findUser(id: string): Promise<unknown>;
+```
+
+There is no `ctx.status`, no error `ctx.json()`, and no `catch`. The throw ends the handler, and the client receives `404` with a body of `{ "error": "NotFoundError", "message": "User not found", "code": "NOT_FOUND", "status": 404 }`.
+
+## How it works
+
+**Example** — the same intent, expressed three ways, all landing on the same response:
+
+```ts title="throwing.ts"
+import { NotFoundError } from 'nextrush';
+import type { Context } from 'nextrush';
+
+// 1. Throw a typed class directly.
+function a(ctx: Context, user: unknown) {
+  if (!user) throw new NotFoundError('User not found');
+}
+
+// 2. ctx.throw(status, message?) — a shorthand that throws an HttpError for you.
+function b(ctx: Context, user: unknown) {
+  if (!user) ctx.throw(404, 'User not found');
+}
+
+// 3. ctx.assert(condition, status, message?) — throw when the condition is falsy.
+function c(ctx: Context, user: unknown) {
+  ctx.assert(user, 404, 'User not found');
+}
+```
+
+**Observation** — all three produce an identical `404` response. `ctx.throw(404)` constructs and throws an `HttpError` under the hood, and `ctx.assert` throws the same when its condition is falsy.
+
+**Explanation** — two mechanisms back that behavior:
+
+- **A typed hierarchy carries the response data.** Every error extends `HttpError`, which extends the base `NextRushError`. The class fixes the `status` and `code` (`NotFoundError` → `404`/`NOT_FOUND`), and each error serializes itself through its own `toJSON()`. That method is the single source of truth for the body — a subclass that adds fields (a validation error's `issues`, a rate-limit's `retryAfter`) overrides it without the framework needing to know.
+- **The pipeline catches at one boundary.** The framework runs your middleware and handler inside one `try/catch`. A thrown `HttpError` (or any error) is caught there and passed to the default error handler, which sets `ctx.status` from the error and writes `error.toJSON()`. A plain, untyped `throw` becomes a safe coded `500`.
+
+<Mermaid
+  chart="
+classDiagram
+    Error <|-- NextRushError
+    NextRushError <|-- HttpError
+    HttpError <|-- BadRequestError
+    HttpError <|-- UnauthorizedError
+    HttpError <|-- NotFoundError
+    HttpError <|-- InternalServerError
+    class NextRushError {
+      +number status
+      +string code
+      +boolean expose
+      +toJSON()
+    }
+    class HttpError {
+      +constructor(status, message?)
+    }
+    class BadRequestError {
+      status = 400
+    }
+    class NotFoundError {
+      status = 404
+    }
+    class InternalServerError {
+      status = 500 · expose = false
+    }
+"
+/>
+
+The hierarchy is why throwing is enough: any node in this tree is an `HttpError` the pipeline knows how to serialize. `BadRequestError`, `NotFoundError`, and the rest are named presets over the same base — the full set lives in the [`@nextrush/errors` reference](/docs/reference/errors). How the pipeline installs its `catch` is the [middleware pipeline's job](/docs/architecture/middleware-internals), not the handler's.
+
+## Typical use cases
+
+You throw a typed error wherever a request cannot proceed — most often to reject bad input or a missing resource early, before the handler's main work:
+
+```ts title="guard-clauses.ts"
+import { createRouter, BadRequestError, NotFoundError } from 'nextrush';
+
+const orders = createRouter();
+
+orders.get('/:id', async (ctx) => {
+  const id = Number(ctx.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    throw new BadRequestError('id must be a positive integer'); // 400
+  }
+
+  const order = await findOrder(id);
+  if (!order) {
+    throw new NotFoundError(`Order ${id} not found`); // 404
+  }
+
+  ctx.json(order);
+});
+
+declare function findOrder(id: number): Promise<unknown>;
+```
+
+Reach for `4xx` classes (`BadRequestError`, `UnauthorizedError`, `ForbiddenError`, `NotFoundError`) to reject a request; a `5xx` is for a genuine server fault, and most of those you never throw by hand — an uncaught error becomes a safe `500` on its own.
+
+## Configuration
+
+The built-in error handler needs no configuration — a fresh app already turns thrown errors into safe responses. When you want to observe or reshape that output, add the `errorHandler` middleware from [`@nextrush/errors`](/docs/reference/errors) and pass options that change *what the handler does with a caught error*:
+
+```ts title="error-handler.ts"
+import { createApp } from 'nextrush';
+import { errorHandler } from 'nextrush';
+
+const app = createApp();
+
+app.use(
+  errorHandler({
+    includeStack: process.env.NODE_ENV !== 'production', // dev-only stack in the body
+    logger: (err, ctx) => myLogger.error(`${ctx.method} ${ctx.path}`, err),
+  })
+);
+
+declare const myLogger: { error(msg: string, err: Error): void };
+```
+
+- **`includeStack`** decides whether the error's stack trace is added to the response body. Gate it on the environment so a stack appears while you develop and never in production.
+- **`logger`** replaces the default console logging — the hook to route errors into your own observability stack.
+- **`transform`** lets you rewrite the response body when your API needs a shape other than the default. The full option list is in the Reference; this page covers only what changing each one *means*.
+
+## Performance
+
+- **Complexity** — throwing and catching is constant-time; the pipeline's single `try/catch` adds no per-hop cost on the success path, and serialization is one `toJSON()` call on failure.
+- **Memory** — a `4xx` client error that is exposed skips V8 stack-trace capture, because those are expected control-flow signals rather than bugs; `5xx` errors keep their stack for diagnosis. That keeps the common rejection path cheap.
+- **Scaling** — error cost is per-failure, not per-request, so it never enters the throughput budget of healthy traffic. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) if you need numbers on your own hardware.
+
+## Security
+
+The error path is where internal detail most easily escapes, so its defaults are built to keep server internals server-side.
+
+- **Leaking internals in the body.** *Threat:* a raw error message or stack trace reveals file paths, queries, and code structure. *Why:* stringifying an unknown error sends whatever it holds. *Safe default:* the framework only exposes the message of an error whose `expose` flag is true — `4xx` by default — and replaces every `5xx` body with a generic `Internal Server Error`. *Avoid:* hand-writing a `catch` that returns `String(err)` to the client.
+- **Stack traces in production.** *Threat:* a stack trace in the response is a map of your codebase. *Why:* `includeStack` adds it to the body. *Safe default:* the built-in handler never includes a stack; only opt in through `errorHandler({ includeStack })`, gated on a non-production environment. *Avoid:* enabling `includeStack` unconditionally.
+- **Trusting a thrown message as safe.** *Threat:* a message built from user input can reflect an injection payload back. *Why:* the message is sent verbatim when the error is exposed. *Safe default:* keep thrown messages descriptive but generic. *Avoid:* interpolating raw request data into a `4xx` message you expose.
+
+<Callout type="warn">
+An error with `expose: false` (every `5xx` by default) never sends its real message to the client — the body is a generic `Internal Server Error`. Read the true cause from your server logs, not the HTTP response.
+</Callout>
+
+## Trade-offs
+
+**Why typed errors over per-handler `try/catch`** — it optimizes for one consistent, safe response contract across every handler, with no error-plumbing in application code.
+
+- **Benefits** — one response shape framework-wide; a leak-safe default (`5xx` messages hidden, no stack in the body); status and code carried by the type, not repeated at every call site; failures converge on one handler you can observe or replace.
+- **Costs** — you learn a small hierarchy of error classes, and control flow now includes `throw` as a normal signal rather than only an exception.
+- **Alternatives** — returning an error value and letting each handler format it (the hand-rolled model) keeps everything explicit but reintroduces the drift and leak risk this design removes; for class-based apps, an [exception filter](/docs/concepts/exception-filters) maps a thrown error to a response with finer, per-controller control.
+- **Why NextRush chose this** — the same application code runs across Node, Bun, Deno, and edge runtimes, and a single catch-and-serialize boundary is what makes error behavior identical everywhere while keeping handlers free of response boilerplate.
+
+## Decision guide
+
+**Throw a typed error class when:**
+
+- ✓ You are in a handler or middleware and the request cannot proceed — this is the default and the right choice for essentially all failure paths
+- ✓ You want the status, code, and safe response shape decided by the error type
+
+**Use `ctx.throw()` / `ctx.assert()` when:**
+
+- ✓ You prefer a terse guard clause and don't need a specific error subclass — both throw an `HttpError` for you
+
+**Reach for a custom handler or exception filter when:**
+
+- ✓ Your API needs a response shape other than the default, or per-controller error mapping
+- ✗ Avoid rebuilding the default behavior by hand — you would trade the safe default for maintenance you don't need
+
+## Common mistakes
+
+- **Catching an error and returning `String(err)`.** *Why it happens:* it looks like helpful detail. *Correct approach:* throw a typed error and let the framework serialize it. *If ignored:* internal messages and stack traces reach the client.
+- **Sending a response *and* throwing.** *Why it happens:* a handler calls `ctx.json()` and then throws in a later branch. *Correct approach:* either respond or throw, never both, on one path. *If ignored:* the error handler tries to write to an already-committed response and the second write is dropped.
+- **Throwing a plain `Error` for an expected client failure.** *Why it happens:* `throw new Error('bad id')` is habit. *Correct approach:* throw `BadRequestError` so the client gets `400`, not `500`. *If ignored:* an expected `4xx` is reported as a server fault and its message is hidden.
+- **Enabling `includeStack` in production.** *Why it happens:* it was left on from development. *Correct approach:* gate it on `NODE_ENV`. *If ignored:* every error response leaks a stack trace.
+
+## Key takeaways
+
+- A handler signals failure by throwing a typed error; the framework catches it and writes the response.
+- Every error extends `HttpError` → `NextRushError`, carrying `status`, `code`, and an `expose` flag; each serializes through its own `toJSON()`.
+- `ctx.throw(status, message?)` and `ctx.assert(condition, status, message?)` are shorthands that throw an `HttpError`.
+- Exposed errors (`4xx` by default) send their message; non-exposed errors (`5xx`) send a generic body — production never leaks internals.
+- The built-in handler is safe with zero configuration; `errorHandler()` options (`includeStack`, `logger`, `transform`) reshape it.
+- A plain, untyped `throw` becomes a safe coded `500` — never a leaked stack.
+
+## Continue learning
+
+<Cards>
+  <Card title="Exception filters" href="/docs/concepts/exception-filters">
+    Map thrown errors to responses with per-controller control in class-based apps.
+  </Card>
+  <Card title="Error handling guide" href="/docs/guides/error-handling">
+    Put typed errors to work — custom handlers, logging, and API-specific shapes.
+  </Card>
+  <Card title="@nextrush/errors reference" href="/docs/reference/errors">
+    Every error class, factory, and handler option, with signatures.
+  </Card>
+  <Card title="Middleware pipeline internals" href="/docs/architecture/middleware-internals">
+    How the pipeline wraps handlers in the single catch that serializes errors.
+  </Card>
+</Cards>

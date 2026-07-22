@@ -133,4 +133,41 @@ describe('service lifecycle hooks', () => {
       registerControllers(app, { controllers: [XController], isolate: true })
     ).rejects.toThrow(/serve\(\)\/listen\(\)\/ready\(\)/);
   });
+
+  it('isolates a throwing onShutdown so later hooks in the reverse order still run (F-03)', async () => {
+    // Repo.onShutdown throws; Db.onShutdown runs AFTER it in the reverse (shutdown)
+    // order today (repo -> db). A throwing Repo.onShutdown must not strand Db's
+    // teardown — every hook must still be attempted, and the error collected
+    // rather than aborting the loop.
+    const app = new Application({ router: new Router() });
+    await registerControllers(app, { controllers: [XController], isolate: true });
+    await app.ready();
+
+    events.length = 0;
+    const originalOnShutdown = Repo.prototype.onShutdown;
+    Repo.prototype.onShutdown = function throwingOnShutdown() {
+      events.push('repo:shutdown'); // still record it ran, then throw
+      throw new Error('repo teardown failed');
+    };
+
+    try {
+      const errors = await app.close();
+
+      // Db's onShutdown (registered/initialized before Repo, so it tears down
+      // AFTER Repo in reverse order) must still have run despite Repo throwing.
+      expect(events).toEqual(['repo:shutdown', 'db:shutdown']);
+      // The thrown error must be collected, not silently swallowed — surfaced
+      // as an AggregateError naming how many hooks failed, with the original
+      // error(s) preserved on .errors for inspection.
+      const aggregate = errors.find(
+        (e): e is AggregateError => e instanceof AggregateError
+      );
+      expect(aggregate).toBeDefined();
+      expect(aggregate?.errors.some((e: Error) => e.message === 'repo teardown failed')).toBe(
+        true
+      );
+    } finally {
+      Repo.prototype.onShutdown = originalOnShutdown;
+    }
+  });
 });

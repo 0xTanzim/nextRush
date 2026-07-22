@@ -21,6 +21,7 @@ The rules live in separate files so this router stays short and you load only wh
 - **Reference is not education.** Lookup material and teaching material are different jobs.
 - **Be honest about trade-offs.** Trust is worth more than polish.
 - **Show, don't decorate.** Every diagram, component, and code block must earn its place by improving understanding.
+- **Diagrams must be precise and modern — never basic-by-default.** When a page needs a diagram, use the *most accurate* Mermaid type for the subject: **C4 / architecture-beta** for system topology, **sequence** for the request lifecycle, **state** for lifecycles, **ER / class** for data, **block / packet** for structure, **sankey / xychart / radar** for flow & metrics. A generic `flowchart` standing in for a system it doesn't truly model is a **quality-gate failure** (EDS-012). Load the `mermaid` skill (`~/.kiro/skills/mermaid/SKILL.md`) and read `references/<type>.md` before authoring — never guess syntax.
 
 ---
 
@@ -93,7 +94,7 @@ Paths are relative to this skill's root. Read a file at the moment its row appli
 | Placing a page in the larger doc set / designing navigation | `philosophy/EDS-002-Documentation-Architecture.md` |
 | Writing or editing **any** prose (always) | `standards/EDS-004-Voice-And-Tone.md`, `standards/EDS-005-Engineering-Storytelling.md` |
 | Laying out a page's section flow (always) | `standards/EDS-006-Page-Template.md` |
-| Adding a diagram | `standards/EDS-012-Visual-Standards.md` |
+| Adding a diagram | `standards/EDS-012-Visual-Standards.md` — then **load the `mermaid` skill** (`~/.kiro/skills/mermaid/SKILL.md`) and read `references/<type>.md` for the chosen type. Prefer precise, modern types (C4/architecture/sequence/state/ER/block/packet/sankey) over generic flowcharts. |
 | Adding a code example | `standards/EDS-013-Code-Example-Standards.md` |
 | Using MDX components (Tabs, Steps, Callouts, Cards, CodeGroup, TypeTable, …) | `standards/EDS-016-MDX-And-Interactive-Components.md` |
 | Setting front-matter, headings, alt text, titles/descriptions (always for a shipped page) | `standards/EDS-017-Accessibility-SEO-Metadata.md` |

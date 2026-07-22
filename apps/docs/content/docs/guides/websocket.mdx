@@ -7,7 +7,7 @@ A real-time chat server using `@nextrush/websocket`. Handles connections, rooms,
 
 ## What This Example Demonstrates
 
-- `createWebSocket()` server setup and attaching to the HTTP server
+- `createWebSocketExtension()` — the recommended way to wire a WebSocket server into a NextRush app, with automatic disposal on `app.close()`
 - Connection lifecycle (`message`, `close`)
 - Room-based broadcasting via `conn.join()` and `conn.broadcast()`
 - User identification via query params
@@ -15,7 +15,7 @@ A real-time chat server using `@nextrush/websocket`. Handles connections, rooms,
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 22+ — `@nextrush/websocket` is Node-only; it has no Bun, Deno, or edge runtime code path (use each runtime's native WebSocket API there instead)
 - `nextrush` and `@nextrush/websocket` installed
 - The `ws` package (a peer dependency, loaded dynamically by `@nextrush/websocket`)
 
@@ -26,13 +26,13 @@ pnpm add nextrush @nextrush/websocket ws
 ## Full Code
 
 ```typescript title="src/chat.ts"
-import { createApp, createRouter } from 'nextrush';
-import { listen } from '@nextrush/adapter-node';
-import { createWebSocket, type WSConnection } from '@nextrush/websocket';
+import { createApp, createRouter, listen } from 'nextrush';
+import { createWebSocketExtension, type WSConnection } from '@nextrush/websocket';
 
-const app = createApp();
+const app = createApp().extend(createWebSocketExtension());
+await app.ready();
+
 const router = createRouter();
-const wss = createWebSocket();
 
 // Track username per connection id (Connection has no built-in metadata slot)
 const usernames = new Map<string, string>();
@@ -43,7 +43,7 @@ router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
 // REST endpoint — room membership is only visible through broadcasts in this
 // example; expose whatever room bookkeeping your app needs here.
 
-wss.on('/ws', (conn: WSConnection) => {
+app.wss.on('/ws', (conn: WSConnection) => {
   const url = new URL(conn.url, 'http://localhost');
   const room = url.searchParams.get('room') ?? 'general';
   const username = url.searchParams.get('user') ?? 'anonymous';
@@ -79,11 +79,15 @@ wss.on('/ws', (conn: WSConnection) => {
   });
 });
 
-app.use(wss.upgrade());
+app.use(app.wss.upgrade());
 app.route('/', router);
 
 const { server } = await listen(app, 8080);
-wss.attach(server);
+await app.wss.attach(server);
+
+// app.close() now also calls app.wss.close() automatically — no separate
+// wss.close() call needed. See the manual createWebSocket() form below if you
+// need full manual lifecycle control instead.
 
 console.log('Chat server running on http://localhost:8080');
 console.log('WebSocket endpoint: ws://localhost:8080/ws?room=general&user=alice');
@@ -93,6 +97,16 @@ console.log('WebSocket endpoint: ws://localhost:8080/ws?room=general&user=alice'
   `conn.broadcastJson(room, data)` sends to every other member of `room` — never back to the
   connection that called it. There is no `exclude` parameter to configure; the sender is always
   excluded automatically.
+</Callout>
+
+<Callout type="info" title="Manual form: createWebSocket()">
+  `createWebSocketExtension()` (used above) is the recommended default — `app.extend()` decorates
+  `app.wss` and wires `app.wss.close()` into `app.close()`'s teardown automatically, so a missed
+  manual disposal can never leak the heartbeat timer or leave sockets open. Reach for the manual
+  `createWebSocket()` factory only when attaching to a server outside a NextRush `Application`, or
+  when you need full manual lifecycle control (including calling `wss.close()` yourself). Both
+  forms still require the same two-call upgrade wiring — `app.use(wss.upgrade())` and
+  `wss.attach(server)` — only *disposal* differs between them.
 </Callout>
 
 ## How to Run
@@ -146,7 +160,7 @@ When Alice disconnects:
   <Card
     title="@nextrush/websocket API Reference"
     description="Full Connection, RoomManager, and configuration options."
-    href="/docs/reference/plugins/websocket"
+    href="/docs/reference/websocket"
   />
   <Card
     title="REST API Guide"
