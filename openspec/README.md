@@ -51,8 +51,9 @@ consider (and justify) a new capability — not to fall back to a change-shaped 
 | `runtime-proof-harness` | CI proof of multi-runtime claims: real-runtime conformance, edge bundle budget, cold-start, cert matrix, scheduled cloud deploy, WinterCG assertion. |
 | `serverless-adapter` | `@nextrush/adapter-serverless` tiered API, `EventMapper` registry, streaming, timeout→504, warm reuse, full-chain fixtures. |
 | `adapter-development-kit` | `nextrush generate adapter` scaffolder + externally-consumable conformance entrypoint. |
-| `public-surface-lock` | Per-package exported-symbol lock tests (runtime `Object.keys` + compile-time type surface). |
+| `public-surface-lock` | Per-package exported-symbol lock tests (runtime `Object.keys` + compile-time type surface); cross-subpath public type-name coherence; README-documents-only-locked-exports accuracy. |
 | `gap-checklist-accuracy` | `docs/audits/03-gap-checklist.md` statuses verified against source, with citable notes. |
+| `framework-composition` | How NextRush's packages compose into one installable framework: the meta-package's dependency/install footprint matching its advertised footprint, the no-install-script rule, canonical publishable-manifest conventions, and satellite-package discoverability via a maintained catalog. |
 
 ## Archive retention
 

@@ -7,10 +7,10 @@
 
 import type {
   ControllerMetadata,
+  ControllerRouteMetadata,
   ParamMetadata,
   RedirectMetadata,
   ResponseHeaderMetadata,
-  RouteMetadata,
 } from '../types.js';
 import { DECORATOR_METADATA_KEYS } from '../types.js';
 import { getOwnMetadata as getOwnMetadataFromReflection } from '../reflection/reflection.js';
@@ -70,8 +70,8 @@ export function getControllerMetadata(target: Function): ControllerMetadata | un
  * // [{ method: 'GET', path: '/', ... }, { method: 'GET', path: '/:id', ... }]
  * ```
  */
-export function getRouteMetadata(target: Function): RouteMetadata[] {
-  const routes = getOwnMetadataFromReflection<RouteMetadata[]>(DECORATOR_METADATA_KEYS.ROUTES, target);
+export function getRouteMetadata(target: Function): ControllerRouteMetadata[] {
+  const routes = getOwnMetadataFromReflection<ControllerRouteMetadata[]>(DECORATOR_METADATA_KEYS.ROUTES, target);
   return routes ? [...routes] : [];
 }
 
@@ -163,7 +163,7 @@ export interface ControllerDefinition {
   readonly controller: ControllerMetadata;
 
   /** All route metadata */
-  readonly routes: RouteMetadata[];
+  readonly routes: ControllerRouteMetadata[];
 
   /** Parameter metadata keyed by method name */
   readonly params: Map<string, ParamMetadata[]>;

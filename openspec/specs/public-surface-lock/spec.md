@@ -71,3 +71,37 @@ harness) or being exempted from surface-lock coverage entirely.
 - **WHEN** locking a CLI-only package's surface
 - **THEN** the test reads the entry source file's text rather than importing and executing the
   module, avoiding the module's side effects under the test harness
+
+### Requirement: Public type names are coherent across a package's subpaths
+A package that exposes more than one entry point (e.g. `nextrush`'s `.` and `./class`) SHALL NOT
+export two structurally-divergent public types under the same name across those subpaths. A single
+public type name maps to a single meaning; a renderer/contract type and an implementation-detail
+type MUST NOT collide on one identifier. The surface-lock tooling MUST detect such a collision.
+
+#### Scenario: A cross-subpath type-name collision fails the coherence check
+- **WHEN** a type named `RouteMetadata` is exported from `nextrush` (the renderer-facing contract
+  from `@nextrush/types`) and a structurally-different `RouteMetadata` is exported from
+  `nextrush/class` (the decorator-storage shape from `@nextrush/class`)
+- **THEN** the cross-subpath coherence check fails until one is renamed (e.g. the class type to
+  `ControllerRouteMetadata`), reserving `RouteMetadata` for the single renderer-facing contract
+
+#### Scenario: A deprecated alias does not reintroduce the collision
+- **WHEN** the renamed type ships a temporary deprecated alias for one minor release
+- **THEN** the alias is marked `@deprecated` and the coherence check treats the canonical name — not the alias — as the locked identity, so the deprecation window does not itself count as a live collision
+
+### Requirement: A published README documents only symbols in the locked surface
+A publishable package's README SHALL NOT present, in an import example or an exports table, a
+runtime export that is absent from that package's locked surface. A check MUST fail the build when
+the README references an identifier as an export of the package that the surface-lock list does
+not contain (a removed or never-existing export).
+
+#### Scenario: A README documenting a non-existent export fails the check
+- **WHEN** the `nextrush` README shows `import { VERSION } from 'nextrush'` while `VERSION` is not
+  in the package's locked runtime surface
+- **THEN** the README↔surface check fails until either the export is added intentionally or the
+  README stops documenting it
+
+#### Scenario: A README documenting a removed export fails the check
+- **WHEN** the README lists a removed export (e.g. `catchAsync`) in its "what's included" table
+- **THEN** the README↔surface check fails until the entry is removed, keeping the published
+  landing page consistent with the sealed surface

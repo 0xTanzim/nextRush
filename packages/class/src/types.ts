@@ -15,12 +15,16 @@ export type {
 
 // Route concern
 export type {
+  ControllerRouteMetadata,
   RedirectMetadata,
   ResponseHeaderMetadata,
-  RouteMetadata,
   RouteMethods,
   RouteOptions,
 } from './decorators/route-types.js';
+// Re-exporting the deprecated alias itself (for the one-minor backward-compat window) is not a
+// violation of the deprecation — the rule should only fire on NEW consumers of the old name.
+// eslint-disable-next-line @typescript-eslint/no-deprecated
+export type { RouteMetadata } from './decorators/route-types.js';
 
 // Parameter concern
 export type {

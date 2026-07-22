@@ -1,0 +1,95 @@
+---
+title: Package Catalog
+description: Every publishable NextRush package, its tier, and its install command — the discovery mechanism for the ecosystem beyond the meta package's minimal runtime surface.
+---
+
+`nextrush` (the meta package) deliberately re-exports only the functional core — `createApp`,
+`createRouter`, `listen`, errors, and essential types. Everything else in the ecosystem is a
+separate install. This page is the discovery mechanism for that ecosystem: every publishable
+package, what it's for, and the exact command to add it. See the
+[Compatibility Matrix](/docs/resources/compatibility-matrix) for version numbers and
+[ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)
+for the tier policy.
+
+<Callout type="info" title="Why the meta package stays small">
+  Barreling every package below into `nextrush` would grow its runtime surface and defeat
+  "install only what you need" for functional-only users. This catalog is the intentional
+  trade-off: discovery lives here (and in `create-nextrush`'s presets), not in the import graph.
+</Callout>
+
+## Core (included in `nextrush`)
+
+Installed automatically by `pnpm add nextrush` — no separate install needed.
+
+| Package | Install | Description |
+| --- | --- | --- |
+| `@nextrush/core` | _(included)_ | Application & middleware composition |
+| `@nextrush/router` | _(included)_ | Segment-trie routing |
+| `@nextrush/adapter-node` | _(included)_ | Node.js HTTP adapter |
+| `@nextrush/types` | _(included)_ | Shared TypeScript types |
+| `@nextrush/errors` | _(included)_ | HTTP error classes |
+| `@nextrush/runtime` | _(included, transitive via `@nextrush/adapter-node`)_ | Runtime detection & cross-runtime abstractions |
+| `@nextrush/stream` | _(included, transitive via `@nextrush/adapter-node`)_ | Response streaming — SSE, NDJSON |
+
+## Class runtime (optional peer of `nextrush`)
+
+| Package | Install | Description |
+| --- | --- | --- |
+| `@nextrush/class` | `pnpm add @nextrush/class` | Decorators, controllers, guards, filters, interceptors, modules, request scope |
+| `@nextrush/di` | _(brought in by `@nextrush/class`)_ | Dependency injection container |
+| `@nextrush/testing` | `pnpm add -D @nextrush/testing` | Test harness — `createTestModule().override().compile()` |
+
+## Middleware
+
+| Package | Install | Description |
+| --- | --- | --- |
+| `@nextrush/body-parser` | `pnpm add @nextrush/body-parser` | JSON/form/text body parsing |
+| `@nextrush/multipart` | `pnpm add @nextrush/multipart` | File upload (multipart) parsing |
+| `@nextrush/cors` | `pnpm add @nextrush/cors` | CORS headers |
+| `@nextrush/helmet` | `pnpm add @nextrush/helmet` | Security headers |
+| `@nextrush/csrf` | `pnpm add @nextrush/csrf` | CSRF protection |
+| `@nextrush/rate-limit` | `pnpm add @nextrush/rate-limit` | Rate limiting |
+| `@nextrush/compression` | `pnpm add @nextrush/compression` | Response compression |
+| `@nextrush/cookies` | `pnpm add @nextrush/cookies` | Cookie handling |
+| `@nextrush/validation` | `pnpm add @nextrush/validation` | Standard Schema request validation (Zod/Valibot/ArkType) |
+| `@nextrush/request-id` | `pnpm add @nextrush/request-id` | Request ID generation |
+| `@nextrush/timer` | `pnpm add @nextrush/timer` | Response time tracking |
+| `@nextrush/health` | `pnpm add @nextrush/health` | Liveness/readiness endpoints |
+| `@nextrush/static` | `pnpm add @nextrush/static` | Static file serving |
+| `@nextrush/template` | `pnpm add @nextrush/template` | Template rendering |
+| `@nextrush/logger` | `pnpm add @nextrush/logger` | Structured logging |
+| `@nextrush/openapi` | `pnpm add @nextrush/openapi` | Zero-config OpenAPI 3.1 generation from route metadata |
+
+## Extensions
+
+Long-lived, stateful services — registered with `app.extend()`, booted at `app.ready()`.
+
+| Package | Install | Description |
+| --- | --- | --- |
+| `@nextrush/events` | `pnpm add @nextrush/events` | Type-safe event emitter |
+| `@nextrush/websocket` | `pnpm add @nextrush/websocket` | WebSocket support (factory + middleware) |
+
+## Adapters (other runtimes)
+
+`@nextrush/adapter-node` ships with `nextrush`; these are for other runtimes.
+
+| Package | Install | Description |
+| --- | --- | --- |
+| `@nextrush/adapter-bun` | `pnpm add @nextrush/adapter-bun` | Bun runtime adapter |
+| `@nextrush/adapter-deno` | `pnpm add @nextrush/adapter-deno` | Deno runtime adapter |
+| `@nextrush/adapter-edge` | `pnpm add @nextrush/adapter-edge` | Edge runtime adapter |
+| `@nextrush/adapter-serverless` | `pnpm add @nextrush/adapter-serverless` | Serverless event-driven adapter (AWS Lambda, etc.) |
+
+## Development
+
+| Package | Install | Description |
+| --- | --- | --- |
+| `@nextrush/dev` | `pnpm add -D @nextrush/dev` | Hot reload dev server, production builds, code generators |
+| `create-nextrush` | `pnpm create nextrush` | Project scaffolder |
+
+<Callout type="info" title="Keeping this catalog accurate">
+  A repo test (`packages/create-nextrush/src/__tests__/*` and the workspace's manifest tooling)
+  enumerates every publishable package; if a new one is added without a row here, that is a
+  documentation defect per this repo's "outdated documentation is a bug" rule — file it the same
+  as any other doc-drift issue.
+</Callout>

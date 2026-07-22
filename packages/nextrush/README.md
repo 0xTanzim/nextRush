@@ -5,17 +5,19 @@
 [![npm version](https://img.shields.io/npm/v/nextrush.svg)](https://www.npmjs.com/package/nextrush)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-≥22-339933?logo=node.js)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
 
 **Support tier:** Public — core (stable, semver-guarded). See [ADR-0005](../../docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md).
 
 ## Why NextRush?
 
-- **Fast** — 50-60% faster than Express, competes with Fastify and Hono
+- **Fast** — competes with Fastify and Hono; see [Performance](#performance) below
 - **Minimal** — Core under 3,000 lines of code
 - **Modular** — Install only what you need
 - **Type-Safe** — Full TypeScript with zero `any`
-- **Zero Dependencies** — No external runtime dependencies in core
+- **Zero Dependencies (functional path)** — `createApp`/`createRouter`/`listen` pull in no
+  external runtime dependencies; the class/DI path (`nextrush/class`) is a separate, optional
+  install (see [Class-Based Controllers](#class-based-controllers) below)
 
 ## This Package
 
@@ -25,18 +27,27 @@
 - `createRouter`, `Router` — Create and manage routers
 - `listen`, `serve`, `createHandler` — Start HTTP server (Node.js)
 - `compose` — Compose middleware
+- `endpoint` — Route metadata marker consumed by `@nextrush/openapi` and other renderers
 - Error classes (`HttpError`, `NotFoundError`, `BadRequestError`, `MethodNotAllowedError`, etc.)
-- Error utilities (`createError`, `isHttpError`, `errorHandler`, `notFoundHandler`) — plus the **deprecated** `catchAsync` (a no-op; async errors propagate automatically)
-- TypeScript types (`Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `HttpMethod`, etc.)
+- Error utilities (`createError`, `isHttpError`, `errorHandler`, `notFoundHandler`)
+- TypeScript types (`Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `RouteDefinition`, `RouteMetadata`, `HttpMethod`, etc.)
 - Constants (`HttpStatus`, `ContentType`)
 
-**Middleware, extensions, and registrars are installed separately.** This is intentional — you only pay for what you use.
+**Middleware, extensions, and the class runtime are installed separately.** This is
+intentional — you only pay for what you use. This runtime surface is locked by an automated
+test (`src/__tests__/public-surface.test.ts`); if this README ever claims an export that test
+doesn't list, that's a documentation bug — please file an issue.
 
 ## Installation
 
 ```bash
 pnpm add nextrush
 ```
+
+This installs only the functional core and its four internal dependencies
+(`@nextrush/core`, `@nextrush/router`, `@nextrush/adapter-node`, `@nextrush/errors`,
+`@nextrush/types`) — no class runtime, no DI container, no `reflect-metadata`, no `tsyringe`.
+See [Dependency Footprint](#dependency-footprint).
 
 ## Quick Start
 
@@ -55,35 +66,68 @@ app.route('/', router);
 listen(app, 8080);
 ```
 
+## Dependency Footprint
+
+NextRush's runtime dependencies differ by which path you use — there is no single "zero
+dependencies" claim that holds for the whole framework:
+
+| Usage path | Entry point | Install | Runtime dependencies |
+| ---------- | ----------- | ------- | --------------------- |
+| Functional core (routing, middleware, context) | `createApp`, `createRouter`, `listen` from `nextrush` | `pnpm add nextrush` | None |
+| Class-based / DI (`@Controller`, `@Service`, guards…) | `nextrush/class` | `pnpm add nextrush @nextrush/class` | `@nextrush/class`, `@nextrush/di` (wraps `tsyringe@^4.10.0`), `reflect-metadata@^0.2.2` |
+
+`@nextrush/class`, `@nextrush/di`, and `reflect-metadata` are **optional peer dependencies** of
+`nextrush` — a functional-only install never resolves them. If you import `nextrush/class`
+without installing the peer, you get an actionable error naming the exact install command
+rather than an opaque module-resolution failure.
+
+`@nextrush/stream` and `@nextrush/runtime` ship transitively with `@nextrush/adapter-node`
+(they power streaming responses and runtime detection) — they are always present once
+`nextrush` is installed. You only need to add `@nextrush/stream` as a direct dependency of your
+own project if you import its API directly rather than through the adapter.
+
 ## Performance
 
-Benchmark snapshot from a single lab machine (Intel i5-8300H, 8 cores) running Node.js v25.9.0.
-Two tools available: **wrk** (C-based, process-isolated) and **autocannon** (Node.js, automatic fallback).
-All tests: 10s duration, 64 connections, no pipelining. See [Performance](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx) for methodology and numbers.
+NextRush is built for high throughput with a zero-dependency functional core, and it benchmarks
+competitively against Fastify, Hono, Koa, and Express. The suite in `apps/benchmark` compares
+six servers (including a raw Node.js baseline) across 10 scenarios using **wrk** (C-based,
+process-isolated) and **autocannon** (Node.js-based).
 
-### wrk
+> **Published numbers are being re-measured on a clean, CPU-pinned environment with the
+> hardened, parity-validated harness.** Earlier figures came from single-run sessions on a
+> shared machine and were not reproducible to a publishable standard, so they have been
+> withdrawn pending re-measurement. Run the suite yourself for current numbers on your hardware.
 
-| Framework       | Hello World    | Route Params   | POST JSON      | Middleware Stack |
-| --------------- | -------------- | -------------- | -------------- | ---------------- |
-| Raw Node.js     | 35,863 RPS     | 33,326 RPS     | 25,116 RPS     | 30,738 RPS       |
-| Fastify         | 35,592 RPS     | 32,407 RPS     | 18,799 RPS     | 27,968 RPS       |
-| **NextRush v3** | **31,311 RPS** | **29,688 RPS** | **18,460 RPS** | **32,377 RPS**   |
-| Hono            | 26,438 RPS     | 26,586 RPS     | 10,826 RPS     | 22,179 RPS       |
-| Koa             | 23,350 RPS     | 21,890 RPS     | 14,954 RPS     | 20,972 RPS       |
-| Express         | 17,784 RPS     | 17,598 RPS     | 12,947 RPS     | 17,356 RPS       |
+What the harness guarantees (see `apps/benchmark/README.md` and the audit reports there):
 
-### autocannon
+- **Fairness is validated, not assumed** — `pnpm bench:validate` asserts byte-identical response
+  bodies, statuses, and middleware headers across all six servers before any timing.
+- **Publishable numbers are multi-run** — only the `standard` (3 runs) and `full` (5 runs)
+  profiles may back published figures; each reports mean ± stddev and CV.
+- **Identical runtime config** — same Node flags, `NODE_ENV=production`, and payloads everywhere.
+- **Honest scope** — 8 scenarios do byte-identical work; the middleware and error scenarios use
+  each framework's idiomatic mechanism and are labeled as not like-for-like.
 
-| Framework       | Hello World    | Route Params   | POST JSON      | Middleware Stack |
-| --------------- | -------------- | -------------- | -------------- | ---------------- |
-| Raw Node.js     | 36,903 RPS     | 33,936 RPS     | 24,936 RPS     | 31,471 RPS       |
-| Fastify         | 34,063 RPS     | 31,095 RPS     | 18,532 RPS     | 28,744 RPS       |
-| **NextRush v3** | **31,733 RPS** | **29,534 RPS** | **19,192 RPS** | **32,220 RPS**   |
-| Hono            | 28,209 RPS     | 25,966 RPS     | 10,798 RPS     | 22,258 RPS       |
-| Koa             | 23,845 RPS     | 22,421 RPS     | 15,323 RPS     | 21,125 RPS       |
-| Express         | 19,496 RPS     | 18,209 RPS     | 13,063 RPS     | 17,352 RPS       |
+```bash
+cd apps/benchmark
+pnpm install
+pnpm bench:validate                       # confirm fairness
+pnpm bench:compare --profile full         # publishable comparison (5 runs)
+```
 
-> Performance varies by hardware. Run `apps/benchmark` on your machine.
+> Performance varies by hardware. The only numbers that matter for your capacity planning are
+> the ones you measure on your own machine.
+
+## Scaffold a Project (Recommended)
+
+```bash
+pnpm create nextrush my-api
+cd my-api && pnpm dev
+```
+
+The `create nextrush` form (with a space) installs the `create-nextrush` package. You can also use `npx create-nextrush@latest` or `pnpm dlx create-nextrush@latest`. See the [create-nextrush docs](https://github.com/0xTanzim/nextRush/tree/main/packages/create-nextrush#usage).
+
+The interactive scaffolder lets you choose between functional, class-based, or full style, pick a middleware preset, and select your runtime target. For class-based and full projects, it adds `@nextrush/class` to your `package.json` automatically — you don't need to install it by hand.
 
 ## Adding Middleware
 
@@ -112,19 +156,14 @@ listen(app, 8080);
 
 ## Class-Based Controllers
 
-Class-based APIs (decorators, DI, controllers) are available via the `nextrush/class` subpath:
-
-- `nextrush` — Functional API (`createApp`, `createRouter`, `listen`, errors, types)
-- `nextrush/class` — Class-based API (`Controller`, `Get`, `Service`, `registerControllers`, etc.)
-
-The `nextrush/class` entry auto-imports `reflect-metadata`, so you can use decorators and DI without any extra setup:
+Class-based APIs (decorators, DI, controllers) are available via the `nextrush/class` subpath,
+behind an explicit, optional install:
 
 ```bash
-pnpm add nextrush
+pnpm add nextrush @nextrush/class
 ```
 
 ```typescript
-import 'reflect-metadata';
 import { createApp, listen } from 'nextrush';
 import { Controller, Get, Service, registerControllers } from 'nextrush/class';
 
@@ -150,9 +189,15 @@ await registerControllers(app, { root: './src' });
 await listen(app, 8080);
 ```
 
-`registerControllers` is a **registrar**, not a plugin — call and `await` it directly; it
-reads `app.router` and `app.container` (both injected automatically by `nextrush`'s
-`createApp()`) and must resolve before `listen()`/`serve()` starts the server.
+The `nextrush/class` entry auto-imports `reflect-metadata`, so decorators and DI work with no
+extra setup once `@nextrush/class` is installed. `registerControllers` is a **registrar**, not
+a plugin — call and `await` it directly; it reads `app.router` and `app.container` (both
+injected automatically by `nextrush`'s `createApp()`) and must resolve before
+`listen()`/`serve()` starts the server.
+
+If you forget to install `@nextrush/class`, importing `nextrush/class` fails with a message
+naming the exact install command — it never fails silently or with an opaque
+module-resolution error.
 
 > **`experimentalDecorators` and `emitDecoratorMetadata`** are required when you use `nextrush/class` with DI or decorators. `create-nextrush` turns them **on** for **class-based** and **full** templates, and **omits** them for **functional** (routes-only) projects where they are unnecessary.
 
@@ -163,59 +208,20 @@ This meta package re-exports from:
 | Package                  | Exports                                                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `@nextrush/core`         | `createApp`, `Application`, `compose`                                                                                                |
-| `@nextrush/router`       | `createRouter`, `Router`                                                                                                             |
+| `@nextrush/router`       | `createRouter`, `Router`, `endpoint`                                                                                                 |
 | `@nextrush/adapter-node` | `listen`, `serve`, `createHandler`                                                                                                   |
-| `@nextrush/types`        | `Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `HttpMethod`, `HttpStatus`, `ContentType`          |
-| `@nextrush/errors`       | `HttpError`, `NextRushError`, error classes (4xx/5xx), `createError`, `isHttpError`, `errorHandler`, `notFoundHandler` (`catchAsync` — deprecated) |
+| `@nextrush/types`        | `Context`, `Middleware`, `Next`, `Extension`, `ExtensionContext`, `RouteHandler`, `RouteDefinition`, `RouteMetadata`, `HttpMethod`, `HttpStatus`, `ContentType` |
+| `@nextrush/errors`       | `HttpError`, `NextRushError`, error classes (4xx/5xx), `createError`, `isHttpError`, `errorHandler`, `notFoundHandler`               |
+
+`@nextrush/stream` and `@nextrush/runtime` ship with `@nextrush/adapter-node` (not re-exported
+from `nextrush` directly — see [Dependency Footprint](#dependency-footprint)).
 
 ## Available Packages
 
-### Core (included in nextrush)
-
-| Package                  | Description                          |
-| ------------------------ | ------------------------------------ |
-| `@nextrush/core`         | Application & middleware composition |
-| `@nextrush/router`       | High-performance segment trie router   |
-| `@nextrush/adapter-node` | Node.js HTTP adapter                 |
-| `@nextrush/types`        | Shared TypeScript types              |
-| `@nextrush/errors`       | HTTP error classes                   |
-
-### Middleware (install separately)
-
-| Package                 | Description                            |
-| ----------------------- | -------------------------------------- |
-| `@nextrush/body-parser` | JSON/form/text body parsing            |
-| `@nextrush/cors`        | CORS headers                           |
-| `@nextrush/helmet`      | Security headers                       |
-| `@nextrush/cookies`     | Cookie handling                        |
-| `@nextrush/compression` | Response compression (gzip/brotli)     |
-| `@nextrush/rate-limit`  | Rate limiting with multiple algorithms |
-| `@nextrush/request-id`  | Request ID generation                  |
-| `@nextrush/timer`       | Request timing headers                 |
-
-### Extensions & Registrars (install separately)
-
-| Package                 | Kind       | Description                                                                  |
-| ------------------------ | ---------- | ----------------------------------------------------------------------------- |
-| `@nextrush/logger`       | Middleware | Structured logging                                                          |
-| `@nextrush/static`       | Middleware | Static file serving                                                         |
-| `@nextrush/websocket`    | Registrar  | WebSocket support with rooms (`createWebSocket()` + `app.use(wss.upgrade())`) |
-| `@nextrush/template`     | Middleware | Multi-engine template rendering                                             |
-| `@nextrush/events`       | Extension  | Type-safe event emitter (`app.extend(events())`)                            |
-
-### Advanced (install separately)
-
-| Package                | Description                    |
-| ---------------------- | ------------------------------ |
-| `@nextrush/di`         | Dependency injection container |
-| `@nextrush/class`      | Class runtime — decorators, controller discovery/registration (`await registerControllers(app, opts)`), guards, filters, interceptors, modules (import via `nextrush/class`) |
-
-### Dev Tools
-
-| Package           | Description                                               |
-| ----------------- | --------------------------------------------------------- |
-| `@nextrush/dev`   | Hot reload dev server, production builds, code generators |
-| `create-nextrush` | Project scaffolder — `pnpm create nextrush`, `npx create-nextrush` ([usage](https://github.com/0xTanzim/nextRush/blob/main/packages/create-nextrush/README.md)) |
+For the full catalog of publishable packages (middleware, extensions, adapters, class runtime,
+dev tooling) with install commands, see the
+[package catalog](https://0xtanzim.github.io/nextRush/docs/resources/package-catalog)
+or the [root README's package table](https://github.com/0xTanzim/nextRush#packages).
 
 ## Direct Package Usage
 
@@ -239,13 +245,6 @@ app.use(async (ctx) => {
   if (!user) throw new NotFoundError('User not found');
   if (!valid) throw new BadRequestError('Invalid input');
 });
-```
-
-## Version
-
-```typescript
-import { VERSION } from 'nextrush';
-console.log(VERSION); // '3.0.5'
 ```
 
 ## License

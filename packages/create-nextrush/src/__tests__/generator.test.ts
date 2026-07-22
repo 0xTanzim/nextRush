@@ -129,6 +129,14 @@ describe('generateProject', () => {
       expect(pkg.dependencies['reflect-metadata']).toBeUndefined();
     });
 
+    it('does not include @nextrush/class in dependencies (optional peer, functional-only)', () => {
+      // nextrush declares @nextrush/class as an OPTIONAL peer dependency (framework-composition
+      // integrity, task 5.6/5.1) — a functional project must not scaffold it.
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.dependencies['@nextrush/class']).toBeUndefined();
+    });
+
     it('includes middleware imports for api preset', () => {
       const files = generateProject(createOptions({ style: 'functional', middleware: 'api' }));
       const entry = files.get('src/index.ts')!;
@@ -228,6 +236,15 @@ describe('generateProject', () => {
       expect(pkg.dependencies['reflect-metadata']).toBeDefined();
     });
 
+    it('includes @nextrush/class in dependencies (required optional peer for the class subpath)', () => {
+      // nextrush declares @nextrush/class as an OPTIONAL peer dependency (framework-composition
+      // integrity, task 5.6) — class-based/full scaffolds must add it explicitly or
+      // `nextrush/class` fails to resolve for a generated project.
+      const files = generateProject(createOptions({ style: 'class-based' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.dependencies['@nextrush/class']).toBeDefined();
+    });
+
     it('does not generate functional route files', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       expect(files.has('src/routes/health.ts')).toBe(false);
@@ -268,6 +285,12 @@ describe('generateProject', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const pkg = JSON.parse(files.get('package.json')!);
       expect(pkg.dependencies['reflect-metadata']).toBeDefined();
+    });
+
+    it('includes @nextrush/class in dependencies (required optional peer for the class subpath)', () => {
+      const files = generateProject(createOptions({ style: 'full' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.dependencies['@nextrush/class']).toBeDefined();
     });
 
     it('error handler catches and returns JSON', () => {

@@ -29,7 +29,7 @@ export type RouteMethods =
 /**
  * Route metadata stored by @Get, @Post, etc. decorators
  */
-export interface RouteMetadata {
+export interface ControllerRouteMetadata {
   /** HTTP method for this route */
   readonly method: RouteMethods;
 
@@ -54,6 +54,15 @@ export interface RouteMetadata {
   /** Whether this route is deprecated */
   readonly deprecated?: boolean;
 }
+
+/**
+ * @deprecated Use {@link ControllerRouteMetadata}. `RouteMetadata` collided with the
+ * unrelated, renderer-facing `RouteMetadata` contract exported from `@nextrush/types` (and
+ * re-exported via `nextrush`'s `.` entry) — the two shapes are structurally incompatible
+ * despite sharing a name. This alias will be removed in the next major; migrate now.
+ * See docs/RFC/framework-composition/020-framework-composition-integrity.md.
+ */
+export type RouteMetadata = ControllerRouteMetadata;
 
 /**
  * Options for route decorators (@Get, @Post, etc.)
