@@ -128,7 +128,7 @@ listen(app, 8080);
 mounted, reflecting only that the process can respond at all. `/readyz` runs
 every registered check (bounded by `checkTimeoutMs`, default `5000`) and
 returns `503` if any fails, throws, or times out. See the
-[`@nextrush/health` reference](/docs/reference/middleware/health) for the
+[`@nextrush/health` reference](/docs/reference/health) for the
 full options and response shape.
 
 <Callout type="info" title="Liveness vs. readiness">

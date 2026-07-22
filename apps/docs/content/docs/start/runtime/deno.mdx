@@ -11,8 +11,8 @@ You'll get a NextRush server answering requests on [Deno](https://deno.com) — 
 Deno's explicit permission flags.
 
 Targeting a different runtime? [Node](/docs/start/runtime/node) ·
-[Bun](/docs/start/runtime/bun) · [Edge](/docs/reference/adapters/edge) ·
-[Serverless](/docs/reference/adapters/serverless) each implement the same Context and
+[Bun](/docs/start/runtime/bun) · [Edge](/docs/reference/platforms/edge) ·
+[Serverless](/docs/reference/platforms/serverless) each implement the same Context and
 Application contract.
 
 ## Finished project
@@ -172,7 +172,7 @@ Bun — nothing in your route handler above is Deno-specific.
 `@nextrush/adapter-deno` is versioned independently at `1.0.0` — see the
 [compatibility matrix](/docs/resources/compatibility-matrix) for its current status and how it's
 verified (CI runs its conformance suite on a real Deno process, not simulated under Node). Check
-the [Deno adapter reference](/docs/reference/adapters/deno) for its full surface before pinning a
+the [Deno adapter reference](/docs/reference/platforms/deno) for its full surface before pinning a
 production version.
 </Callout>
 
@@ -212,7 +212,7 @@ my-api/
   <Card title="Deploy to production" href="/docs/production/deployment/deno">
     Deno Deploy and Docker deployment paths for a NextRush server on Deno.
   </Card>
-  <Card title="Deno adapter reference" href="/docs/reference/adapters/deno">
+  <Card title="Deno adapter reference" href="/docs/reference/platforms/deno">
     The full `@nextrush/adapter-deno` surface — `serve()`, `createHandler()`, and Deno-specific
     Context utilities.
   </Card>
@@ -227,7 +227,7 @@ my-api/
   <Card title="Build a Task API" href="/docs/start/quick-start">
     Go past hello-world — routing, a request body, and real error handling.
   </Card>
-  <Card title="All platform adapters" href="/docs/reference/adapters">
+  <Card title="All platform adapters" href="/docs/reference/platforms">
     The Node, Bun, edge, and serverless adapter references.
   </Card>
 </Cards>

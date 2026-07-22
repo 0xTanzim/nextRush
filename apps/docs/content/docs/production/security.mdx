@@ -29,7 +29,7 @@ after any change to middleware order, CORS origins, or secret handling.
       (`require-corp` / `same-origin` / `same-origin`) and can break legitimate
       cross-origin asset loading if left unexamined.
 
-Reference: [`@nextrush/helmet`](/docs/reference/middleware/helmet) ·
+Reference: [`@nextrush/helmet`](/docs/reference/helmet) ·
 How-to: [Security guide — Security Headers](/docs/guides/security#security-headers-helmet)
 
 ---
@@ -49,7 +49,7 @@ How-to: [Security guide — Security Headers](/docs/guides/security#security-hea
 - [ ] Preflight `maxAge` is set to reduce OPTIONS request volume, but is not so long
       that a CORS policy change takes days to propagate to cached browsers.
 
-Reference: [`@nextrush/cors`](/docs/reference/middleware/cors) ·
+Reference: [`@nextrush/cors`](/docs/reference/cors) ·
 How-to: [Security guide — CORS](/docs/guides/security#cors)
 
 ---
@@ -66,7 +66,7 @@ How-to: [Security guide — CORS](/docs/guides/security#cors)
 - [ ] The CSRF secret is rotated on the same schedule as other application secrets,
       not left as a one-time setup value.
 
-Reference: [`@nextrush/csrf`](/docs/reference/middleware/csrf) ·
+Reference: [`@nextrush/csrf`](/docs/reference/csrf) ·
 How-to: [Security guide — CSRF Protection](/docs/guides/security#csrf-protection)
 
 ---
@@ -86,7 +86,7 @@ How-to: [Security guide — CSRF Protection](/docs/guides/security#csrf-protecti
       store is per-process state — see [Scaling](/docs/production/scaling) for why
       that matters once you run more than one instance.
 
-Reference: [`@nextrush/rate-limit`](/docs/reference/middleware/rate-limit) ·
+Reference: [`@nextrush/rate-limit`](/docs/reference/rate-limit) ·
 How-to: [Security guide — Rate Limiting](/docs/guides/security#rate-limiting)
 
 ---
@@ -153,7 +153,7 @@ How-to: [Security guide — Error Handling Security](/docs/guides/security#error
       before it), so a legitimate high-frequency orchestrator probe is never
       throttled as abusive traffic.
 
-Reference: [`@nextrush/health`](/docs/reference/middleware/health)
+Reference: [`@nextrush/health`](/docs/reference/health)
 
 ---
 
@@ -165,7 +165,7 @@ Reference: [`@nextrush/health`](/docs/reference/middleware/health)
       code paths (a valid vs. invalid username, a cache hit vs. miss) by latency
       alone, independent of the response body or status code.
 
-Reference: [`@nextrush/timer`](/docs/reference/middleware/timer)
+Reference: [`@nextrush/timer`](/docs/reference/timer)
 
 ---
 

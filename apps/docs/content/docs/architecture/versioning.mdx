@@ -1,0 +1,188 @@
+---
+title: Versioning & Compatibility
+description: NextRush's real, mixed-version reality across 34 packages — verified per package.json, not assumed — and the semver/changesets policy that governs releases.
+---
+
+NextRush does not ship one framework-wide version number. This page states the actual, current
+split verified directly against every package's `package.json`, and the release policy from
+`.changeset/config.json` and the root [README](https://github.com/0xTanzim/nextRush/blob/main/README.md).
+
+<Callout type="warn" title="Never state a single version for the whole framework">
+  34 packages exist across two version lines. A page, example, or announcement that says
+  "NextRush 3.1.0" without qualifying which packages that covers is incorrect for roughly
+  half of them — verify per-package before citing a version anywhere in this documentation.
+</Callout>
+
+## The real split, scripted from source
+
+Scanning every `packages/**/package.json`'s `version` field (34 files total — 32 publishable
+packages plus `@nextrush/adapter-conformance` and the `nextrush-deploy-verification-lambda` test
+fixture, both `"private": true` and never published; see [Adapter
+Contract](/docs/architecture/adapters)) gives a 14 / 18 split across the 32 publishable packages
+(after the removal of `@nextrush/decorators` and `@nextrush/controllers` — see
+[Deprecations](/docs/migrate/deprecations)):
+
+**`3.1.0`** (14 packages — the original core line):
+`@nextrush/adapter-node`, `@nextrush/body-parser`, `@nextrush/class`, `@nextrush/compression`,
+`@nextrush/core`, `@nextrush/cors`, `@nextrush/di`, `@nextrush/errors`, `@nextrush/helmet`,
+`@nextrush/router`, `@nextrush/runtime`, `@nextrush/stream`, `@nextrush/types`, `nextrush`.
+
+**`1.0.0`** (18 publishable packages, plus the private `@nextrush/adapter-conformance` test
+suite which shares this version number but is never published — 19 total `1.0.0` entries in the
+raw scan):
+`@nextrush/adapter-bun`, `@nextrush/adapter-deno`,
+`@nextrush/adapter-edge`, `@nextrush/adapter-serverless`, `@nextrush/cookies`, `@nextrush/csrf`,
+`@nextrush/dev`, `@nextrush/events`, `@nextrush/logger`, `@nextrush/multipart`,
+`@nextrush/openapi`, `@nextrush/rate-limit`, `@nextrush/request-id`, `@nextrush/static`,
+`@nextrush/template`, `@nextrush/testing`, `@nextrush/timer`, `@nextrush/validation`,
+`@nextrush/websocket`, `create-nextrush`.
+
+This is not a mistake to fix — it's the accurate current state, reflecting when each package was
+introduced relative to the original 3.x core, not a coupled framework-wide release number.
+
+## The `fixed` group: which packages actually version together
+
+`.changeset/config.json` defines a `fixed` group — packages [Changesets](https://github.com/changesets/changesets)
+bumps together on every release, regardless of which one changed:
+
+```json
+"fixed": [
+  [
+    "@nextrush/types", "@nextrush/errors", "@nextrush/core", "@nextrush/router",
+    "@nextrush/runtime", "@nextrush/stream", "@nextrush/di",
+    "@nextrush/adapter-node", "nextrush"
+  ]
+]
+```
+
+
+Two things worth naming precisely rather than rounding up:
+
+- This fixed group has **9** packages, not all 14 currently at `3.1.0`. `@nextrush/class`,
+  `@nextrush/body-parser`, `@nextrush/compression`, `@nextrush/cors`, and `@nextrush/helmet` are
+  at `3.1.0` today but are **not** in the fixed group — they happen to share the current version
+  number, but a future release could bump the fixed group to `3.2.0` while these five stay at
+  `3.1.0`, or move independently. Don't assume "same version today" means "versions together
+  going forward" for any package outside this exact list.
+- Every other package (the 18 at `1.0.0`, plus the five `3.1.0` packages named above) is **not**
+  in any `fixed` or `linked` group (`"linked": []` — empty) — each releases independently, on its
+  own semver track, whenever it has a change worth publishing.
+
+`updateInternalDependencies: "patch"` means when a fixed-group package bumps, packages that
+depend on it get an automatic patch bump to their declared version range — not a synchronized
+version number.
+
+## Semantic versioning policy
+
+From the project's own README, unchanged by this rebuild:
+
+- **Major** (`x.0.0`) — Breaking API changes.
+- **Minor** (`0.x.0`) — New features, backward-compatible.
+- **Patch** (`0.0.x`) — Bug fixes, security patches.
+- **Pre-release** (`-alpha.x`, `-beta.x`) — Unstable, API may change.
+
+This policy applies per package, independently — a `1.0.0` middleware package and the `3.1.0`
+core line each follow it on their own timeline. A breaking change to `@nextrush/rate-limit` alone
+would take it to `2.0.0` without implying anything about the `3.1.0` core packages' next version.
+
+## Compatibility across the split
+
+There is currently **no cross-version compatibility matrix requirement to satisfy** — every
+`1.0.0` package's own `package.json` declares its `@nextrush/*` peer/dependency requirements
+against the current `3.1.0` core packages directly (see the [generated dependency
+graph](/docs/architecture/package-hierarchy#dependency-graph-generated-from-source)), and there is
+only one released version of each package today. A compatibility matrix becomes meaningful once
+either line has multiple concurrently-supported major versions in the wild — tracked as future
+work, not a gap in this page.
+
+## What this means when you write documentation or release notes
+
+- Cite the exact version from the specific package's `package.json` — never "NextRush 3.1.0" as
+  a framework-wide claim.
+- If describing a change that touches a `fixed`-group package, the other 8 fixed-group members
+  bump too, even if their own code didn't change — this is expected Changesets behavior, not a
+  spurious diff.
+- If describing a `1.0.0` package's evolution, its version history is independent of the core
+  line's — a `1.0.0` package existing "for a shorter time" doesn't mean it is less stable; it
+  means it started its own semver count later.
+
+## Module format: ESM-only, permanently
+
+**NextRush is ESM-only. This is a ratified, permanent architectural decision — not a default,
+not "for now," and not open for reconsideration absent a new decision.** No `@nextrush/*`
+package's `exports` map will ever declare a `require` condition. CommonJS output is not
+published, is not a roadmap item, and will not be added.
+
+Why this is the decision, not merely the current state:
+
+- **The dual-package hazard is a real risk on the DI/decorator-metadata path.** `@nextrush/di`
+  relies on `reflect-metadata`'s global patch and a `tsyringe` container. If a CJS-loaded copy
+  and an ESM-loaded copy of the same package both existed in one process, `@Injectable()` could
+  register into one container while `resolve()` reads from the other — silently, with no
+  exception. ESM-only eliminates this class of bug by construction; dual-publishing would
+  reintroduce it.
+- **NextRush's Node engine floor is `>=22`.** Current Node LTS (22.12+) already lets a
+  CommonJS project `require()` a synchronous ESM module natively — the strongest historical
+  argument for dual-publishing (`require()` literally cannot load ESM) is already covered by
+  the runtime NextRush mandates.
+- **Dual-publishing is a permanent, doubled maintenance cost**, not a one-time change — every
+  release across ~35 packages would need to verify the `exports` map, both module conditions,
+  types, source maps, and singleton/runtime behavior twice, forever.
+- **The framework's own architecture already assumes ESM** — `verbatimModuleSyntax`, `import
+  type`, decorator metadata via SWC, and the package `exports` maps all already commit to it.
+
+**Enforced in CI, not merely documented:** `pnpm validate:esm-only` (`scripts/validate-esm-only.ts`,
+run as part of `pnpm verify`) fails the build if any published package's `exports` map ever gains
+a `require` condition, or if `"type": "module"` is ever dropped from a package's `package.json`.
+
+**If you consume NextRush from a CommonJS project:**
+- On Node ≥22.12 with a synchronous import graph, `require('nextrush')` works natively via
+  Node's own ESM-in-CJS interop — no code change needed on NextRush's side.
+- Otherwise, use a dynamic import: `const { createApp } = await import('nextrush');`.
+
+Dual-publish (ESM + CJS) was formally evaluated and rejected — see
+`openspec/changes/archive/2026-07-17-module-format-policy/design.md` for the full comparison
+against the alternative.
+
+## Node engine floor: `>=22`, and why it's `>=22` and not `>=20`
+
+Every published package declares `"engines": { "node": ">=22.0.0" }`. This is a **deliberate
+choice, not a hard technical minimum** — worth stating plainly, because the gap between "what
+the floor requires" and "what the floor actually needs" is real:
+
+- **What actually requires ≥22:** the ESM-only posture above leans on Node 22.12's native
+  `require(esm)` interop for synchronous import graphs (see the module-format section) — that
+  specific guarantee needs the ≥22.12 LTS backport, not merely ≥20.
+- **What does *not* require ≥22:** `AbortSignal.any()`, used for request cancellation and
+  timeout composition across the adapters, only needs Node **≥20.3** — Node 20 LTS would have
+  been sufficient for this alone.
+- **Why `>=22` anyway:** NextRush targets modern, TypeScript-first, ESM-first Node
+  applications — not the broadest possible range of historical Node deployments. Once that
+  audience is fixed, floors follow from it: staying on the newest LTS keeps the framework
+  aligned with where the ecosystem (and the runtime interop guarantee above) is heading, rather
+  than carrying two supported floors for a marginal compatibility gain. This mirrors the
+  ESM-only decision's own reasoning (see above) — a deliberate, stated boundary rather than an
+  accidental one.
+
+**When this would be reconsidered:** if concrete adopter demand for Node 20 LTS support
+materializes and the ESM-in-CJS interop guarantee is not the deciding factor for that adopter
+(e.g. they already use dynamic `import()`), the floor is revisited — it is a decision, not a
+technical wall, and is documented here specifically so it can be reopened deliberately rather
+than debated from scratch each time it comes up.
+
+**Current CI reality (stated plainly, not glossed over):** CI today runs against a single pinned
+Node version (24, via the shared `setup-toolchain` action) — there is no Node 20/22/24 version
+matrix yet, despite that matrix being part of T003's original acceptance criteria. The `>=22`
+floor is therefore validated by the single Node-24 run plus the engine-floor rationale above, not
+by a dedicated multi-version matrix. Closing that gap is tracked separately, not by this change.
+
+
+
+<Cards>
+  <Card title="Package Hierarchy" href="/docs/architecture/package-hierarchy">
+    The real dependency edges behind this version split.
+  </Card>
+  <Card title="Packages Directory" href="/packages">
+    Browse all 34 packages with their current version and status badges.
+  </Card>
+</Cards>

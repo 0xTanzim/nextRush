@@ -155,7 +155,7 @@ function setCache(key: string, value: unknown) {
 
 ### Stream Large Responses
 
-Don't load entire files into memory. Use [`ctx.stream()`](/docs/reference/plugins/stream) with a Node.js `Readable` or Web `ReadableStream`:
+Don't load entire files into memory. Use [`ctx.stream()`](/docs/reference/stream) with a Node.js `Readable` or Web `ReadableStream`:
 
 ```typescript
 import { createReadStream } from 'node:fs';

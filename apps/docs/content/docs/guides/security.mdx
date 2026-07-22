@@ -136,7 +136,7 @@ app.use(
 );
 ```
 
-See [Helmet API Reference](/docs/reference/middleware/helmet) for all options.
+See [Helmet API Reference](/docs/reference/helmet) for all options.
 
 ---
 
@@ -164,7 +164,7 @@ app.use(
   using cookies or auth headers.
 </Callout>
 
-See [CORS API Reference](/docs/reference/middleware/cors) for all options.
+See [CORS API Reference](/docs/reference/cors) for all options.
 
 ---
 
@@ -180,7 +180,7 @@ const { protect } = csrf({ secret: process.env.CSRF_SECRET! }); // min 32 charac
 app.use(protect);
 ```
 
-See [CSRF API Reference](/docs/reference/middleware/csrf) for the full token lifecycle, session binding, and origin-check options.
+See [CSRF API Reference](/docs/reference/csrf) for the full token lifecycle, session binding, and origin-check options.
 
 ---
 
@@ -190,7 +190,7 @@ Never trust client data. Validate at the boundary.
 
 ### Functional Style
 
-The recommended approach is [`@nextrush/validation`](/docs/reference/middleware/validation) — it validates against any Standard Schema library and produces a consistent, secure error shape without hand-written conversion code:
+The recommended approach is [`@nextrush/validation`](/docs/reference/validation) — it validates against any Standard Schema library and produces a consistent, secure error shape without hand-written conversion code:
 
 ```typescript
 import { validate } from '@nextrush/validation';

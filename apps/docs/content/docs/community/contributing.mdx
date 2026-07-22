@@ -1,31 +1,30 @@
 ---
-title: 'Contributing'
-description: 'How to contribute to NextRush — from setup to pull request.'
+title: Contributing
+description: How to build, test, and submit changes to NextRush — summarized from the repository's own CONTRIBUTING.md, with its stale sections flagged rather than repeated as fact.
 ---
 
-This guide covers setup, workflow, and conventions for contributing to NextRush.
-
----
+The canonical contributor guide is
+[`CONTRIBUTING.md`](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md) at the
+repository root. This page summarizes it and cross-links to the architecture pages that hold the
+current, verified version of anything `CONTRIBUTING.md` states inaccurately — that file is
+outside this rebuild's `apps/docs/**` file scope, so it hasn't been edited here, but repeating
+its stale claims as if they were current would defeat the point of this rebuild.
 
 ## Prerequisites
 
-| Requirement | Version                        |
-| ----------- | ------------------------------ |
-| Node.js     | >=22.0.0                       |
-| pnpm        | 10.29.3 (managed via corepack) |
-| Git         | Any recent version             |
+| Requirement | Version |
+| --- | --- |
+| Node.js | ≥ 22.0.0 |
+| pnpm | Latest, managed via [corepack](https://nodejs.org/api/corepack.html) (ships with Node.js ≥ 22) |
+| Git | Any recent version |
 
-The project uses [corepack](https://nodejs.org/api/corepack.html) to manage pnpm. Node.js >=22 ships with corepack built-in.
-
----
-
-## Quick Start
+## Getting started
 
 <Steps>
 
 <Step>
 
-### Fork and Clone
+### Fork and clone
 
 ```bash
 # Fork on GitHub, then:
@@ -37,33 +36,26 @@ cd nextrush
 
 <Step>
 
-### Install Dependencies
+### Install dependencies
 
 ```bash
-# Enable corepack (ships with Node.js >=22)
 corepack enable
-
-# Install project dependencies (uses pnpm@10.29.3 from packageManager field)
 pnpm install
 ```
 
+<Callout type="info" title="Install doesn't compile">
+  `pnpm install` does not run a full build — this matches the root README's own quick-start note.
+  Run `pnpm build` when you need compiled output from any package.
+</Callout>
+
 </Step>
 
 <Step>
 
-### Build Packages
+### Build and test
 
 ```bash
 pnpm build
-```
-
-</Step>
-
-<Step>
-
-### Run Tests
-
-```bash
 pnpm test
 ```
 
@@ -71,247 +63,62 @@ pnpm test
 
 <Step>
 
-### Create Branch
+### Create a branch
 
 ```bash
 git checkout -b feat/your-feature
 ```
 
-Branch prefix should match the commit type: `feat/`, `fix/`, `docs/`, `refactor/`, `test/`, `perf/`, `chore/`.
+Branch prefix matches the commit type: `feat/`, `fix/`, `docs/`, `refactor/`, `test/`, `perf/`, `chore/`.
 
 </Step>
 
 </Steps>
 
----
-
-## Repository Structure
-
-NextRush is a monorepo using Turborepo and pnpm workspaces:
-
-```
-nextrush/
-├── packages/
-│   ├── core/           # @nextrush/core
-│   ├── router/         # @nextrush/router
-│   ├── di/             # @nextrush/di
-│   ├── errors/         # @nextrush/errors
-│   ├── types/          # @nextrush/types
-│   ├── runtime/        # @nextrush/runtime
-│   ├── class/          # @nextrush/class (decorators, controllers, DI-facing API)
-│   ├── dev/            # @nextrush/dev
-│   ├── nextrush/       # nextrush (meta package)
-│   ├── adapters/       # Platform adapters
-│   │   ├── node/       # @nextrush/adapter-node
-│   │   ├── bun/        # @nextrush/adapter-bun
-│   │   ├── deno/       # @nextrush/adapter-deno
-│   │   └── edge/       # @nextrush/adapter-edge
-│   ├── middleware/     # Middleware packages
-│   │   ├── cors/
-│   │   ├── body-parser/
-│   │   └── ...
-│   └── plugins/        # Plugin packages
-│       ├── controllers/
-│       ├── logger/
-│       └── ...
-├── apps/
-│   ├── docs/           # Documentation site
-│   └── playground/     # Testing playground
-├── draft/              # Architecture documents
-└── turbo.json          # Turborepo config
-```
-
----
-
-## Development Workflow
-
-### Running Commands
-
-<details>
-<summary>View all available commands</summary>
+## Development commands
 
 ```bash
-# Build all packages
-pnpm build
-
-# Run all tests
-pnpm test
-
-# Run tests for specific package
-pnpm --filter @nextrush/core test
-
-# Type check
-pnpm typecheck
-
-# Lint
-pnpm lint
-
-# Lint and auto-fix
-pnpm lint:fix
-
-# Format
-pnpm format
-
-# Check formatting (CI)
-pnpm format:check
-
-# Run tests with coverage
-pnpm test:coverage
-
-# Clean build artifacts
-pnpm clean
+pnpm build                             # Build all packages
+pnpm test                              # Run all tests
+pnpm typecheck                         # Type check all packages
+pnpm lint                              # Lint all packages
+pnpm lint:fix                          # Lint and auto-fix
+pnpm format                            # Format
+pnpm format:check                      # Check formatting (CI)
+pnpm clean                             # Clean build artifacts
+pnpm --filter @nextrush/<pkg> test     # Test a specific package
+pnpm --filter @nextrush/<pkg> build    # Build a specific package
 ```
 
-</details>
+## Coding standards, as stated in CONTRIBUTING.md
 
-### Package Development
-
-When working on a specific package:
-
-```bash
-cd packages/core
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Build package
-pnpm build
-
-# Type check
-pnpm typecheck
-```
-
-### Documentation
-
-```bash
-cd apps/docs
-
-# Start dev server
-pnpm dev
-
-# Build docs
-pnpm build
-```
-
----
-
-## Code Style
-
-### TypeScript
-
-- **Strict mode**: Always use strict TypeScript
-- **No any**: Avoid `any` type; use `unknown` if needed
-- **Explicit types**: Export interfaces and types explicitly
-- **ESM**: Use ES modules (`import`/`export`)
-
-### File Structure
-
-```typescript
-// 1. Type imports
-import type { Context, Middleware } from '@nextrush/types';
-
-// 2. Value imports
-import { compose } from './middleware';
-
-// 3. Types/interfaces (export first)
-export interface MyOptions {
-  enabled: boolean;
-}
-
-// 4. Implementation
-export function myFunction(options: MyOptions): void {
-  // ...
-}
-```
-
-### Naming Conventions
-
-| Type             | Convention        | Example           |
-| ---------------- | ----------------- | ----------------- |
-| Files            | kebab-case        | `body-parser.ts`  |
-| Types/Interfaces | PascalCase        | `RouterOptions`   |
-| Functions        | camelCase         | `createRouter`    |
-| Constants        | UPPER_SNAKE       | `DEFAULT_TIMEOUT` |
-| Private fields   | underscore prefix | `_internal`       |
-
-### Comments
-
-```typescript
-// Good: Explain WHY, not WHAT
-// Rate limit is per-IP to prevent abuse from single sources
-const rateLimit = createRateLimiter({ keyGenerator: (ctx) => ctx.ip });
-
-// Bad: Obvious comment
-// Create router
-const router = createRouter();
-```
-
----
+- **TypeScript strict mode** — zero `any` usage; ES2022 target; `verbatimModuleSyntax` enabled
+  (use `import type` for type-only imports).
+- **Naming**: `camelCase` for functions/variables, `PascalCase` for types/interfaces/classes,
+  `SCREAMING_SNAKE_CASE` for constants, `kebab-case.ts` filenames, barrel exports via `index.ts`.
+- **Zero dependencies**: no external runtime dependencies beyond the three named exceptions —
+  see [Design Principles](/docs/architecture/design-principles) for the exact list
+  (`reflect-metadata`, `tsyringe`, `@clack/prompts`), which is more precise than
+  `CONTRIBUTING.md`'s own "except `reflect-metadata`" phrasing (it omits `tsyringe` and
+  `@clack/prompts`, both genuinely used per the [generated dependency
+  graph](/docs/architecture/package-hierarchy#dependency-graph-generated-from-source)).
+- Comments explain *why*, not *what* — a comment restating the line below it is noise, not documentation.
 
 ## Testing
 
-### Test Structure
+- **Vitest**, co-located as `src/__tests__/*.test.ts`.
+- **Coverage target: 90%+ per package** (lines, functions, statements; 85%+ branches).
+- Test happy paths, edge cases, and error scenarios — every public export needs at least one test.
+- `pnpm --filter @nextrush/core test -- --coverage` runs one package's suite with coverage;
+  `pnpm test:coverage` runs it for the whole workspace.
 
-```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
+## Making a change
 
-describe('MyFeature', () => {
-  describe('basic functionality', () => {
-    it('should do something', () => {
-      expect(result).toBe(expected);
-    });
-  });
+`CONTRIBUTING.md`'s workflow: fork, branch from `main` (`feat/my-feature`), make the change
+following the standards above, add tests, run `pnpm build && pnpm typecheck && pnpm test`, commit
+with a `type(scope): description` message, then open a PR against `main`.
 
-  describe('edge cases', () => {
-    it('should handle empty input', () => {
-      // ...
-    });
-  });
-
-  describe('error cases', () => {
-    it('should throw on invalid input', () => {
-      expect(() => fn(null)).toThrow();
-    });
-  });
-});
-```
-
-### Test Guidelines
-
-- **One assertion per test** when possible
-- **Descriptive names**: `should return 404 when user not found`
-- **Test behavior, not implementation**
-- **No mocking unless necessary**
-
-### Coverage Requirements
-
-| Metric     | Threshold |
-| ---------- | --------- |
-| Lines      | 90%       |
-| Functions  | 90%       |
-| Statements | 90%       |
-| Branches   | 85%       |
-
-- **All exports**: Every public function tested
-- **Error paths**: All error scenarios covered
-
-Run `pnpm test:coverage` to verify thresholds before submitting.
-
----
-
-## Pull Request Process
-
-### Before Submitting
-
-- [ ] Tests pass: `pnpm test`
-- [ ] Coverage meets thresholds: `pnpm test:coverage`
-- [ ] Types check: `pnpm typecheck`
-- [ ] Lint passes: `pnpm lint`
-- [ ] Formatting correct: `pnpm format:check`
-- [ ] Documentation updated (if needed)
-- [ ] Changeset added (if needed)
-
-### PR Title Format
+### PR title format
 
 ```
 type(scope): description
@@ -323,32 +130,27 @@ docs(guides): add authentication guide
 chore(deps): update typescript to 5.x
 ```
 
-### Types
+Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`.
 
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation
-- `chore`: Maintenance
-- `refactor`: Code change without feature/fix
-- `test`: Adding tests
-- `perf`: Performance improvement
+### Before submitting
 
-### Review Process
+- [ ] Tests pass: `pnpm test`
+- [ ] Coverage meets thresholds: `pnpm test:coverage`
+- [ ] Types check: `pnpm typecheck`
+- [ ] Lint passes: `pnpm lint`
+- [ ] Formatting correct: `pnpm format:check`
+- [ ] Documentation updated (if the change touches public API or behavior)
+- [ ] Changeset added (if the change affects a published package)
 
-1. **Automated checks** — CI must pass
-2. **Code review** — At least one approval
-3. **Documentation** — Updated if needed
-4. **Merge** — Squash and merge
+Review: automated checks must pass, at least one approval is required, and merges are squashed.
 
----
-
-## Adding a New Package
+## Adding a new package
 
 <Steps>
 
 <Step>
 
-### Create Package Structure
+### Create the package structure
 
 ```bash
 mkdir -p packages/middleware/my-middleware/src
@@ -359,78 +161,18 @@ cd packages/middleware/my-middleware
 
 <Step>
 
-### Create package.json
+### Add `package.json`, `tsconfig.json`, and `tsup.config.ts`
 
-```json
-{
-  "name": "@nextrush/my-middleware",
-  "version": "3.0.7",
-  "description": "Description here",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsup",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@nextrush/types": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
-  }
-}
-```
+Copy the shape of an existing package in the same category (e.g. `packages/middleware/cors` for
+a new middleware package) rather than writing these from scratch — every package's `tsconfig`
+extends the same shared base, and `tsup.config.ts` follows the same ESM-only, `dts: true`
+pattern.
 
 </Step>
 
 <Step>
 
-### Create tsconfig.json
-
-```json
-{
-  "extends": "../../../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src"
-  },
-  "include": ["src"]
-}
-```
-
-</Step>
-
-<Step>
-
-### Create tsup.config.ts
-
-```typescript
-import { defineConfig } from 'tsup';
-
-export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['esm'],
-  dts: true,
-  clean: true,
-  sourcemap: true,
-});
-```
-
-</Step>
-
-<Step>
-
-### Implement and Test
+### Implement against `@nextrush/types`, then test
 
 ```typescript
 // src/index.ts
@@ -442,52 +184,74 @@ export interface MyMiddlewareOptions {
 
 export function myMiddleware(options?: MyMiddlewareOptions): Middleware {
   return async (ctx, next) => {
-    // Implementation
     await next();
   };
 }
 ```
 
+New packages ship both a `README.md` and an `ARCHITECTURE.md` from the templates in
+`docs/templates/` — see Documentation Contributions below.
+
 </Step>
 
 </Steps>
 
----
+## Documentation contributions
 
-## Documentation Contributions
+- **Human-first**: explain the problem before the API.
+- **Show runnable examples**: every code block should be something a reader could paste and run.
+- **Be accurate**: verify signatures and defaults against the real source, not a prior version
+  of the docs — stale documentation is treated as a defect, not a lower-priority fix.
+- Every doc page states its purpose, shows the problem it solves, gives runnable examples, and
+  names common issues — see the
+  [Documentation Instructions](https://github.com/0xtanzim/nextrush/tree/main/.github/instructions)
+  for the full page-type standards.
 
-### Writing Guidelines
+## CONTRIBUTING.md — previously stale, now corrected
 
-- **Human-first**: Explain concepts before code
-- **Show examples**: Include runnable code
-- **Be accurate**: Test all code examples
-- **Keep current**: Update when APIs change
+Two claims in the root `CONTRIBUTING.md` previously didn't match the codebase as it existed at
+the time. Both have since been corrected directly in that file, and are named here for the
+record rather than silently dropped:
 
-### Structure
+<Callout type="info" title="Package hierarchy diagram and router terminology — fixed">
+  `CONTRIBUTING.md` used to state the hierarchy as
+  `types → errors → core → router → di → decorators → controllers → adapters → middleware` and
+  describe the router as "Radix tree routing." Both were pre-consolidation. The file now states
+  the current hierarchy (`types → errors → core → router → runtime → di → class → adapters →
+  middleware → extensions`) — matching [Package Hierarchy](/docs/architecture/package-hierarchy)
+  (built from every package.json's actual `dependencies` field) — and correctly describes the
+  router as a **segment trie**, not a radix tree (see
+  [Router Internals](/docs/architecture/router-internals)). `@nextrush/decorators` and
+  `@nextrush/controllers` were deprecated shims over `@nextrush/class`, removed from the
+  workspace; the hierarchy no longer lists them as standalone steps.
+</Callout>
 
-Every doc page should have:
+`CONTRIBUTING.md`'s monorepo structure listing now includes `@nextrush/class` and
+`@nextrush/extensions/` (events, websocket) rather than a `decorators/` package and a
+`plugins/` parent directory that no longer exist in the actual `packages/` tree.
 
-1. Title and description
-2. Problem explanation
-3. Solution overview
-4. Code examples
-5. Common issues
-6. Next steps
+## Package size limits
 
-See the [Documentation Instructions](https://github.com/0xtanzim/nextrush/tree/main/.github/instructions) for detailed guidelines.
+`CONTRIBUTING.md` defers to ".github/copilot-instructions.md" for size limits. The
+verified, current limits (per `.kiro/steering/architecture.instructions.md`, cross-checked
+against real package LOC targets) are listed in [Package Hierarchy → Package Size
+Targets](/docs/architecture/package-hierarchy#package-size-targets).
 
----
+## Getting help
 
-## Getting Help
+- **Questions**: open a [Discussion](https://github.com/0xtanzim/nextrush/discussions)
+- **Bugs**: open an [Issue](https://github.com/0xtanzim/nextrush/issues)
+- **Code review**: request review on your PR
 
-- **Questions**: Open a [Discussion](https://github.com/0xtanzim/nextrush/discussions)
-- **Bugs**: Open an [Issue](https://github.com/0xtanzim/nextrush/issues)
-- **Code review**: Request review on your PR
+<Callout type="info">First-time contributors: look for issues labeled `good first issue`.</Callout>
 
-<Callout type="info">First-time contributors: Look for issues labeled `good first issue`.</Callout>
+## Next steps
 
----
-
-## Questions?
-
-If anything in this guide is unclear, open a [Discussion](https://github.com/0xtanzim/nextrush/discussions). Contributions of all sizes are welcome.
+<Cards>
+  <Card title="Package Hierarchy" href="/docs/architecture/package-hierarchy">
+    The current, verified dependency structure — not the diagram in CONTRIBUTING.md.
+  </Card>
+  <Card title="Design Principles" href="/docs/architecture/design-principles">
+    The zero-dependency rule and its three real exceptions, verified against source.
+  </Card>
+</Cards>

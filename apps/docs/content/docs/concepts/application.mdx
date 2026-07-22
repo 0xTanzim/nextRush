@@ -159,7 +159,7 @@ const app = createApp({
 });
 ```
 
-`env` decides what `app.isProduction` reports, which in turn decides whether the default error handler logs and how it treats error messages — see [errors](/docs/concepts/errors) for what changes at each value. `proxy` decides whether `ctx.ip` trusts `X-Forwarded-For`/`X-Real-IP`; leave it `false` unless a proxy you control sets those headers. The full option list, including `logger`, `router`, and `container`, is in the [`@nextrush/core` reference](/docs/reference/core/core) — this page covers only what each one changes in the application's behavior.
+`env` decides what `app.isProduction` reports, which in turn decides whether the default error handler logs and how it treats error messages — see [errors](/docs/concepts/errors) for what changes at each value. `proxy` decides whether `ctx.ip` trusts `X-Forwarded-For`/`X-Real-IP`; leave it `false` unless a proxy you control sets those headers. The full option list, including `logger`, `router`, and `container`, is in the [`@nextrush/core` reference](/docs/reference) — this page covers only what each one changes in the application's behavior.
 
 ## Performance
 
@@ -227,7 +227,7 @@ Registration order is a security boundary, not a style choice. A guard middlewar
   <Card title="Application lifecycle" href="/docs/concepts/lifecycle">
     The full boot and shutdown sequence, including extension dependency ordering.
   </Card>
-  <Card title="@nextrush/core reference" href="/docs/reference/core/core">
+  <Card title="@nextrush/core reference" href="/docs/reference">
     The full Application API — every method, option, and property.
   </Card>
   <Card title="Runtime compatibility" href="/docs/concepts/runtime-compatibility">

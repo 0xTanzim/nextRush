@@ -121,7 +121,7 @@ cannot drift from the code. Prefer `AutoTypeTable` over the hand-authored
   with a `path` resolved to the monorepo root). Shared generator + on-disk cache:
   `src/lib/type-table-generator.ts`.
 - Usage: `<AutoTypeTable path="packages/types/src/context.ts" name="Context" />`.
-- Live sample: `content/docs/reference/core/types.mdx`.
+- Live sample: `content/docs/reference/types.mdx`.
 
 ### OpenAPI reference via Scalar (2.2 ✅ — read-only, static)
 

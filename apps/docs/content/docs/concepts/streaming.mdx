@@ -177,7 +177,7 @@ A streaming handler that starts an upstream LLM or database call without passing
 - **Benefits** — `ctx.sse()` gets automatic reconnection semantics for free from any `EventSource`-based client; `ctx.ndjson()` needs no browser-specific framing for server-to-server pipelines; `ctx.stream()` covers raw text with no protocol overhead at all. Choosing the writer up front means the handler never reformats output later to fit a client it didn't anticipate.
 - **Costs** — three writer types to learn instead of one, and a handler written for `ctx.stream()` doesn't carry over to `ctx.sse()` without a rewrite of how each chunk is shaped.
 - **Alternatives** — WebSockets give a bidirectional channel, at the cost of a connection-management model neither `fetch` nor `EventSource` need; polling avoids a long-lived connection entirely, at the cost of latency between polls and repeated request overhead for output that's naturally continuous.
-- **Why NextRush chose this** — response streaming here is strictly server-to-client; a use case needing the client to send messages back over the same connection belongs on [`@nextrush/websocket`](/docs/reference/plugins/websocket) instead of stretching one of these three writers to do a job they weren't built for.
+- **Why NextRush chose this** — response streaming here is strictly server-to-client; a use case needing the client to send messages back over the same connection belongs on [`@nextrush/websocket`](/docs/reference/websocket) instead of stretching one of these three writers to do a job they weren't built for.
 
 ## Decision guide
 
@@ -219,7 +219,7 @@ A streaming handler that starts an upstream LLM or database call without passing
   <Card title="Runtime compatibility" href="/docs/concepts/runtime-compatibility">
     Why the same streaming handler runs unmodified on Node, Bun, Deno, and edge adapters.
   </Card>
-  <Card title="@nextrush/stream reference" href="/docs/reference/plugins/stream">
+  <Card title="@nextrush/stream reference" href="/docs/reference/stream">
     The full writer API — StreamController, StreamAbortedError, formatSSE, and the low-level run functions.
   </Card>
   <Card title="Extensions" href="/docs/concepts/extensions">

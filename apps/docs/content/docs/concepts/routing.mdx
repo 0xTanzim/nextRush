@@ -104,7 +104,7 @@ router.get('/users/:id', (ctx) => ctx.json({ id: ctx.params.id })); // dynamic
 - **Static routes take an O(1) shortcut.** A route with no `:param` or `*` is stored in a method-nested hash map and resolved with a single lookup — no tree walk at all, and most routes in a real app are static.
 - **Dynamic routes walk the trie** in O(k), where `k` is the segment count, capturing params and wildcards as they descend.
 
-You interact with none of this directly. The full internal design — the two-path matcher, executor compilation, the data structures — lives in the [`@nextrush/router` architecture](/docs/internals/router-internals); a concept page teaches the model, not the implementation.
+You interact with none of this directly. The full internal design — the two-path matcher, executor compilation, the data structures — lives in the [`@nextrush/router` architecture](/docs/architecture/router-internals); a concept page teaches the model, not the implementation.
 
 ## Typical use cases
 
@@ -147,7 +147,7 @@ router.get('/users', (ctx) => ctx.json({ ok: true })); // matches GET /api/v1/us
 - **`caseSensitive`** lowercases *static* segments when `false`. Parameter **names and values always preserve their original case**, regardless of this setting.
 - **`strict`** decides whether `/users` and `/users/` are the same route; left `false`, the trailing slash is normalized away.
 
-The full option reference lives in the [`@nextrush/router` reference](/docs/reference/core/router); this page covers only what each one *means* for matching.
+The full option reference lives in the [`@nextrush/router` reference](/docs/reference/router); this page covers only what each one *means* for matching.
 
 ## Performance
 
@@ -166,7 +166,7 @@ The full option reference lives in the [`@nextrush/router` reference](/docs/refe
 Routing sits at the very front of every request, so its security properties matter before any of your own code runs.
 
 - **Untrusted parameters.** *Threat:* a captured `ctx.params.id` is attacker-controlled input. *Why:* the router extracts it but does not validate it. *Safe default:* check type, range, and format before using it. *Avoid:* passing a raw param into a query, file path, or redirect target.
-- **Wildcard captures.** *Threat:* a `/files/*` route hands you an attacker-controlled remainder. *Why:* `*` captures the whole rest of the URL. *Safe default:* serve files through [`@nextrush/static`](/docs/reference/plugins/static), which guards against traversal. *Avoid:* joining the captured path straight onto a filesystem path.
+- **Wildcard captures.** *Threat:* a `/files/*` route hands you an attacker-controlled remainder. *Why:* `*` captures the whole rest of the URL. *Safe default:* serve files through [`@nextrush/static`](/docs/reference/static), which guards against traversal. *Avoid:* joining the captured path straight onto a filesystem path.
 - **Method surface.** *Threat:* request smuggling and tunneling via `TRACE`/`CONNECT`. *Why:* those methods carry known risk. *Safe default:* `all()` deliberately excludes them, and duplicate registrations throw at startup rather than silently shadowing. *Avoid:* hand-registering `TRACE`/`CONNECT` handlers.
 
 <Callout type="warn">
@@ -236,10 +236,10 @@ router.get('/users/:id', (ctx) => {
   <Card title="Mount and group routes" href="/docs/guides/mounting-and-grouping-routes">
     Put feature routers to work — compose them, mount them, share middleware across a group.
   </Card>
-  <Card title="@nextrush/router reference" href="/docs/reference/core/router">
+  <Card title="@nextrush/router reference" href="/docs/reference/router">
     The full router API surface — every option and method.
   </Card>
-  <Card title="Router architecture" href="/docs/internals/router-internals">
+  <Card title="Router architecture" href="/docs/architecture/router-internals">
     The two-path matcher and data structures behind the model.
   </Card>
 </Cards>

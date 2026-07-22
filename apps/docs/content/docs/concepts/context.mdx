@@ -123,7 +123,7 @@ listen(app, 8080);
 - **Output:** set `ctx.status`, then send with `ctx.json()`, `ctx.send()`, `ctx.html()`, or `ctx.redirect()`; add headers with `ctx.set()`. NextRush picks the `Content-Type`, sets `Content-Length`, and suppresses the body for `HEAD`/`204`/`304` responses on its own.
 - **Shared:** `ctx.state` is a plain object the whole pipeline reads and writes, and `ctx.next()` passes control to the next middleware. Sharing through `ctx.state` is what [middleware](/docs/concepts/middleware) uses to move data forward without a new object.
 
-You never wire any of this yourself. The adapter constructs `ctx` from the platform's real request and serializes the response back — how that construction differs per runtime is the [adapter's job](/docs/internals/adapters), not the handler's.
+You never wire any of this yourself. The adapter constructs `ctx` from the platform's real request and serializes the response back — how that construction differs per runtime is the [adapter's job](/docs/architecture/adapters), not the handler's.
 
 ## Typical use cases
 
@@ -158,7 +158,7 @@ import { createApp } from 'nextrush';
 const app = createApp({ proxy: true }); // trust X-Forwarded-For for ctx.ip
 ```
 
-With `proxy: false` (the default), `ctx.ip` reflects the real socket peer and forwarding headers are ignored. Set `proxy: true` only behind a proxy you control, because it makes `ctx.ip` trust the client-supplied `X-Forwarded-For`/`X-Real-IP` headers. The full option list lives in the [`@nextrush/core` reference](/docs/reference/core/core); this page covers only what the option *means* for `ctx`.
+With `proxy: false` (the default), `ctx.ip` reflects the real socket peer and forwarding headers are ignored. Set `proxy: true` only behind a proxy you control, because it makes `ctx.ip` trust the client-supplied `X-Forwarded-For`/`X-Real-IP` headers. The full option list lives in the [`@nextrush/core` reference](/docs/reference); this page covers only what the option *means* for `ctx`.
 
 ## Performance
 
@@ -201,7 +201,7 @@ Everything the client sends arrives on `ctx` unvalidated. `ctx` guarantees a con
 
 ## Common mistakes
 
-- **Reading `ctx.body` with no body parser.** *Why it happens:* `ctx.body` looks like it is always populated. *Correct approach:* add a body-parser middleware (for example [`@nextrush/body-parser`](/docs/reference/middleware/body-parser)) before the handler. *If ignored:* `ctx.body` is `undefined` and the handler misreads it as an empty payload.
+- **Reading `ctx.body` with no body parser.** *Why it happens:* `ctx.body` looks like it is always populated. *Correct approach:* add a body-parser middleware (for example [`@nextrush/body-parser`](/docs/reference/body-parser)) before the handler. *If ignored:* `ctx.body` is `undefined` and the handler misreads it as an empty payload.
 - **Forgetting `await` on `ctx.next()`.** *Why it happens:* `next()` returns a promise that is quick to overlook. *Correct approach:* always `await ctx.next()` when work must run after downstream middleware. *If ignored:* code after the call runs before downstream finishes, and the response can be sent early.
 - **Sending two responses.** *Why it happens:* two branches each call a send method on the same `ctx`. *Correct approach:* send exactly once per request. *If ignored:* the second call errors or is discarded, depending on where it runs.
 
@@ -223,10 +223,10 @@ Everything the client sends arrives on `ctx` unvalidated. `ctx` guarantees a con
   <Card title="Custom middleware" href="/docs/guides/custom-middleware">
     Put ctx to work — read input, share state, and pass control in your own middleware.
   </Card>
-  <Card title="@nextrush/core reference" href="/docs/reference/core/core">
+  <Card title="@nextrush/core reference" href="/docs/reference">
     The full Context surface — every property and method, with signatures.
   </Card>
-  <Card title="Adapters" href="/docs/internals/adapters">
+  <Card title="Adapters" href="/docs/architecture/adapters">
     How each runtime's adapter builds ctx from a native request and serializes it back.
   </Card>
 </Cards>

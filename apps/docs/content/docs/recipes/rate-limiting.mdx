@@ -46,7 +46,7 @@ key generator reads it. See [Middleware](/docs/concepts/middleware) for composit
 <Callout type="info" title="Tiered limits by plan">
   If different user tiers (free/pro) need different limits rather than only different keys, use
   `tieredRateLimit()` with a `tierResolver` instead of a single `rateLimit()` call — see the
-  [rate-limit reference](/docs/reference/middleware/rate-limit) for `TieredRateLimitOptions`.
+  [rate-limit reference](/docs/reference/rate-limit) for `TieredRateLimitOptions`.
 </Callout>
 
 ## Try It
@@ -64,4 +64,4 @@ scoped to its own `user:<id>` key, not a shared IP-based counter.
 
 - [JWT Authentication (Functional)](/docs/recipes/jwt-authentication) — populate `ctx.state.user` before this recipe
 - [Middleware](/docs/concepts/middleware) — execution order and `ctx.next()`
-- [Rate Limiting reference](/docs/reference/middleware/rate-limit) — full `RateLimitOptions`
+- [Rate Limiting reference](/docs/reference/rate-limit) — full `RateLimitOptions`

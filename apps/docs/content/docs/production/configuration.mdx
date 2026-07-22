@@ -42,7 +42,7 @@ Use `createApp`'s `env` option to tell NextRush which mode it's running in.
 `Application.isProduction` is derived from it and controls default error
 verbosity (stack traces are hidden in production — see
 [Reliability](/docs/production/reliability) and
-[Error Handling](/docs/reference/core/errors)).
+[Error Handling](/docs/reference/errors)).
 
 ```ts
 import { createApp, listen } from 'nextrush';
@@ -218,7 +218,7 @@ behave like production for error-verbosity purposes even though your own
   With no `env` option, `createApp()` defaults to `'development'` — stack
   traces are included in error responses. Always set `env: 'production'`
   explicitly when deploying; see
-  [Error Handling](/docs/reference/core/errors) for what changes.
+  [Error Handling](/docs/reference/errors) for what changes.
 </Callout>
 
 ## Next steps
@@ -227,5 +227,5 @@ behave like production for error-verbosity purposes even though your own
   checks, and timeouts that read from this same config.
 - [Deployment](/docs/production/deployment) — how these environment variables
   reach the process in Docker and other runtimes.
-- [Error Handling](/docs/reference/core/errors) — how `env` affects error
+- [Error Handling](/docs/reference/errors) — how `env` affects error
   responses.

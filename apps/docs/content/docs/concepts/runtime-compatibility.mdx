@@ -156,7 +156,7 @@ const app = createApp({ proxy: true }); // trust X-Forwarded-For — same option
 - **Benefits** — application and middleware code never encodes a closed list of known runtimes; a platform NextRush has never seen (a future edge provider, a new sandboxed runtime) gets a correct answer from `probeCapabilities()` on day one; the cross-adapter conformance suite has one contract to verify instead of five bespoke ones.
 - **Costs** — a capability object to learn (`nodeStreams`, `webStreams`, `fileSystem`, `webSocket`, `fetch`, `cryptoSubtle`, `workers`) instead of a familiar `process.platform`-style string; code that wants a Node-only feature still has to route through `ctx.raw` or a Node-specific package, because capability negotiation intentionally doesn't expose every platform-specific API through one union type.
 - **Alternatives** — branching directly on `getRuntime()`'s string result is simpler to write once, at the cost of every future runtime needing that literal comparison edited in; a single "lowest common denominator" API surface (Web-only, nothing Node-specific) avoids the negotiation step entirely but throws away the extra capabilities Node.js, Bun, and Deno genuinely offer.
-- **Why NextRush chose this** — the framework's promise is that Node, Bun, Deno, and the edge behave identically for the same application code (see the [adapter contract](/docs/internals/adapters) for how that's verified); a capability object is what lets that promise extend to a runtime that doesn't exist yet, where a hardcoded name list cannot.
+- **Why NextRush chose this** — the framework's promise is that Node, Bun, Deno, and the edge behave identically for the same application code (see the [adapter contract](/docs/architecture/adapters) for how that's verified); a capability object is what lets that promise extend to a runtime that doesn't exist yet, where a hardcoded name list cannot.
 
 ## Decision guide
 
@@ -194,7 +194,7 @@ const app = createApp({ proxy: true }); // trust X-Forwarded-For — same option
   <Card title="Application" href="/docs/concepts/application">
     How createApp() and the adapter's listen()/serve() drive the same ready()/start()/close() lifecycle on every runtime.
   </Card>
-  <Card title="Adapter contract" href="/docs/internals/adapters">
+  <Card title="Adapter contract" href="/docs/architecture/adapters">
     The exact behaviors the conformance suite enforces identically across every adapter.
   </Card>
   <Card title="Compatibility matrix" href="/docs/resources/compatibility-matrix">

@@ -1,0 +1,392 @@
+---
+title: '@nextrush/logger'
+description: 'Request logging middleware with correlation IDs and structured output.'
+---
+
+HTTP requests leave no trace by default. When a production issue hits, you need structured logs with correlation IDs to track requests across services and find the failure point.
+
+The logger middleware solves this: structured request/response logging, automatic correlation ID tracking, and a request-scoped logger attached to every context as `ctx.log`.
+
+---
+
+## Default Behavior
+
+With default options, `logger()`:
+
+- Logs request completion with method, path, status code, and duration
+- Generates a UUID correlation ID per request (via `crypto.randomUUID()`)
+- Sets the correlation ID in the `x-request-id` response header
+- Attaches a scoped logger to `ctx.log` with the correlation ID
+- Logs request start in development only (based on `isProductionBuild()`)
+- Uses `info` level for 2xx/3xx, `warn` for 4xx, `error` for 5xx responses
+
+---
+
+## Installation
+
+<PackageInstall packages={['@nextrush/logger']} />
+
+This package wraps [@nextrush/log](https://www.npmjs.com/package/@nextrush/log) and re-exports all its functionality.
+
+---
+
+## Minimal Usage
+
+<Callout type="warn">
+  Register the logger middleware before route handlers. It must run first to attach `ctx.log` and
+  track request timing.
+</Callout>
+
+```ts
+import { createApp } from '@nextrush/core';
+import { logger } from '@nextrush/logger';
+
+const app = createApp();
+
+app.use(logger());
+
+app.use(async (ctx) => {
+  ctx.log.info('Processing request');
+  ctx.json({ ok: true });
+});
+```
+
+The middleware attaches `ctx.log` — a request-scoped logger that includes the correlation ID in every log entry.
+
+---
+
+## Configuration Options
+
+`LoggerMiddlewareOptions` controls the middleware behavior. It extends `LoggerOptions` from `@nextrush/log`.
+
+<TypeTable
+  title="Middleware Options"
+  types={{
+    skip: {
+      type: '(ctx: Context) => boolean',
+      description: 'Skip logging for matching requests',
+      optional: true,
+    },
+    formatMessage: {
+      type: '(ctx: Context, duration: number) => string',
+      description: 'Custom log message formatter',
+      optional: true,
+      default: '`${method} ${path}`',
+    },
+    successLevel: {
+      type: 'LogLevel',
+      description: 'Log level for 2xx/3xx responses',
+      optional: true,
+      default: '"info"',
+    },
+    clientErrorLevel: {
+      type: 'LogLevel',
+      description: 'Log level for 4xx responses',
+      optional: true,
+      default: '"warn"',
+    },
+    serverErrorLevel: {
+      type: 'LogLevel',
+      description: 'Log level for 5xx responses',
+      optional: true,
+      default: '"error"',
+    },
+    logRequestStart: {
+      type: 'boolean',
+      description: 'Log when request starts',
+      optional: true,
+      default: 'true in dev, false in production',
+    },
+    correlationIdHeader: {
+      type: 'string',
+      description: 'Header name for correlation ID',
+      optional: true,
+      default: '"x-request-id"',
+    },
+    generateCorrelationId: {
+      type: 'boolean',
+      description: 'Generate ID if not present in headers',
+      optional: true,
+      default: 'true',
+    },
+    context: {
+      type: 'string',
+      description: 'Logger namespace prefix',
+      optional: true,
+      default: '"nextrush"',
+    },
+  }}
+/>
+
+<TypeTable
+  title="Inherited from LoggerOptions"
+  types={{
+    minLevel: { type: 'LogLevel', description: 'Minimum log level to output', optional: true },
+    silent: {
+      type: 'boolean',
+      description: 'Suppress console output (transports still fire)',
+      optional: true,
+      default: 'false',
+    },
+    pretty: {
+      type: 'boolean',
+      description: 'Force pretty printing regardless of environment',
+      optional: true,
+    },
+    colors: { type: 'boolean', description: 'Enable/disable terminal colors', optional: true },
+    redact: {
+      type: 'boolean',
+      description: 'Redact sensitive keys in log output',
+      optional: true,
+      default: 'true in production',
+    },
+    sensitiveKeys: {
+      type: 'string[]',
+      description: 'Additional keys to redact (merged with defaults)',
+      optional: true,
+    },
+    transports: { type: 'LogTransport[]', description: 'Custom log transports', optional: true },
+    timestamps: { type: 'boolean', description: 'Include timestamps in output', optional: true },
+    metadata: {
+      type: 'LogContext',
+      description: 'Additional metadata for all log entries',
+      optional: true,
+    },
+    samplingRate: {
+      type: 'number',
+      description: 'Sampling rate for debug logs in production (0–1)',
+      optional: true,
+    },
+    env: {
+      type: "'development' | 'test' | 'production'",
+      description: 'Environment preset',
+      optional: true,
+    },
+  }}
+/>
+
+```ts
+app.use(
+  logger({
+    minLevel: 'info',
+    skip: (ctx) => ctx.path === '/health',
+    logRequestStart: false,
+    correlationIdHeader: 'x-request-id',
+    context: 'api',
+  })
+);
+```
+
+---
+
+## Programmatic API (re-exported from `@nextrush/log`)
+
+Beyond the middleware surface above, this package re-exports its entire
+underlying `@nextrush/log` library — useful for application code that needs
+structured logging outside a request (startup, background jobs, CLI
+scripts).
+
+<TypeTable
+  title="Configuration"
+  types={{
+    configure: { type: '(config: Partial<GlobalLoggerConfig>) => void', description: 'Set global logger defaults (level, transports, redaction) for every logger created afterward.' },
+    configureFromEnv: { type: '() => void', description: 'Populate global config from environment variables (e.g. LOG_LEVEL).' },
+    getGlobalConfig: { type: '() => GlobalLoggerConfig', description: 'Read the current global configuration.' },
+    resetGlobalConfig: { type: '() => void', description: 'Reset global configuration to defaults — mainly for test isolation.' },
+    setGlobalLevel: { type: '(level: LogLevel) => void', description: 'Set the minimum log level globally.' },
+    onConfigChange: { type: '(cb: (config: GlobalLoggerConfig) => void) => () => void', description: 'Subscribe to global config changes; returns an unsubscribe function.' },
+  }}
+/>
+
+<TypeTable
+  title="Transports"
+  types={{
+    createConsoleTransport: { type: '(options?) => LogTransport', description: 'The default transport — writes to stdout/stderr.' },
+    createBatchTransport: { type: '(transport: LogTransport, options?) => LogTransport', description: 'Batches entries before forwarding, to reduce I/O overhead under high log volume.' },
+    createFilteredTransport: { type: '(transport: LogTransport, predicate) => LogTransport', description: 'Wraps a transport to only forward entries matching a predicate.' },
+    createPredicateTransport: { type: '(predicate, transport: LogTransport) => LogTransport', description: 'Alias form of createFilteredTransport.' },
+    createRateLimitedTransport: { type: '(transport: LogTransport, options: RateLimitOptions) => LogTransport', description: 'Caps entries-per-window forwarded to the underlying transport.' },
+    createNamespaceRateLimitedTransport: { type: '(transport: LogTransport, limits: NamespaceRateLimits) => LogTransport', description: 'Per-namespace variant of the rate-limited transport.' },
+    addGlobalTransport: { type: '(transport: LogTransport) => void', description: 'Register an additional transport for every logger.' },
+    clearGlobalTransports: { type: '() => void', description: 'Remove all globally registered transports.' },
+  }}
+/>
+
+<TypeTable
+  title="Formatters"
+  types={{
+    formatJSON: { type: '(entry: LogEntry) => string', description: 'Newline-delimited JSON — the default in production.' },
+    formatPrettyJSON: { type: '(entry: LogEntry) => string', description: 'Indented, human-readable JSON.' },
+    formatPrettyTerminal: { type: '(entry: LogEntry) => string', description: 'Colorized terminal output — the default in development.' },
+    formatPrettyTimestamp: { type: '(date: Date) => string', description: "Formats a timestamp for the pretty-terminal formatter's header." },
+    formatTimestamp: { type: '(date: Date) => string', description: 'Formats a timestamp for the JSON formatters (ISO 8601).' },
+  }}
+/>
+
+<TypeTable
+  title="Context (AsyncLocalStorage)"
+  types={{
+    runWithContext: { type: '<T>(context: LogContext, fn: () => T) => T', description: 'Runs fn with LogContext available to any logger call inside it, without explicit passing.' },
+    getAsyncContext: { type: '() => LogContext | undefined', description: 'Reads the current AsyncLocalStorage-backed context, if any.' },
+    getContextCorrelationId: { type: '() => string | undefined', description: 'Convenience accessor for the correlation ID on the current context.' },
+    getContextMetadata: { type: '() => Record<string, unknown> | undefined', description: 'Reads arbitrary metadata attached to the current context.' },
+    isAsyncContextAvailable: { type: '() => boolean', description: 'Whether AsyncLocalStorage is supported in the current runtime.' },
+    createContextMiddleware: { type: '() => Middleware', description: 'A NextRush middleware that seeds runWithContext for the request lifecycle.' },
+  }}
+/>
+
+<TypeTable
+  title="Redaction & serialization"
+  types={{
+    DEFAULT_SENSITIVE_KEYS: { type: 'readonly string[]', description: 'The built-in list of keys redacted by default (password, token, authorization, etc.).' },
+    mergeSensitiveKeys: { type: '(...lists: string[][]) => string[]', description: 'Combines the default list with custom keys.' },
+    shouldRedact: { type: '(key: string, sensitiveKeys: string[]) => boolean', description: 'Whether a given key matches the redaction list.' },
+    containsSensitivePattern: { type: '(value: string) => boolean', description: 'Heuristic check for values that look sensitive even under an unlisted key (e.g. a JWT-shaped string).' },
+    redactSensitiveValues: { type: '(data: unknown, sensitiveKeys: string[]) => unknown', description: 'Deep-redacts matching keys in an object before logging.' },
+    sanitizeContext: { type: '(context: LogContext, sensitiveKeys: string[]) => LogContext', description: 'Applies redaction to a LogContext object specifically.' },
+    safeSerialize: { type: '(value: unknown) => unknown', description: 'Serializes a value defensively — handles circular references and non-JSON-safe types.' },
+    serializeError: { type: '(error: Error) => SerializedError', description: 'Converts an Error into a plain, loggable object (message, stack, cause).' },
+  }}
+/>
+
+<TypeTable
+  title="Levels & runtime"
+  types={{
+    LOG_LEVELS: { type: 'readonly LogLevel[]', description: "Every level in ascending severity: ['trace', 'debug', 'info', 'warn', 'error', 'fatal']." },
+    LOG_LEVEL_PRIORITY: { type: 'Record<LogLevel, number>', description: 'Numeric priority per level, used for minLevel comparisons.' },
+    compareLevels: { type: '(a: LogLevel, b: LogLevel) => number', description: 'Compares two levels by priority.' },
+    isValidLogLevel: { type: '(value: unknown) => value is LogLevel', description: 'Type guard for a LogLevel string.' },
+    parseLogLevel: { type: '(value: string, fallback: LogLevel) => LogLevel', description: 'Parses an environment/config string into a LogLevel, falling back if invalid.' },
+    shouldLog: { type: '(level: LogLevel, minLevel: LogLevel) => boolean', description: 'Whether an entry at level clears the minLevel threshold.' },
+    isProductionBuild: { type: '() => boolean', description: 'Whether the current build/environment is production (drives several defaults).' },
+    isError: { type: '(value: unknown) => value is Error', description: 'Type guard for Error-like values.' },
+    detectRuntime: { type: '() => RuntimeEnvironment', description: 'Detects Node.js/Bun/Deno/browser/edge at the logging layer (independent of `@nextrush/runtime`).' },
+    getRuntime: { type: '() => RuntimeEnvironment', description: 'Cached accessor for the detected runtime.' },
+    getRuntimeInfo: { type: '() => RuntimeInfo', description: 'Extended runtime detail (name + version) for log metadata.' },
+    getEnvVar: { type: '(name: string) => string | undefined', description: 'Cross-runtime environment variable read (Node, Deno, Bun).' },
+    getProcessId: { type: '() => number | undefined', description: 'Process ID for log metadata, where available.' },
+    getTime: { type: '() => number', description: 'High-resolution timestamp source used for duration calculations.' },
+    isNamespaceEnabled: { type: '(namespace: string) => boolean', description: 'Whether a given logger namespace currently passes the enable/disable filters below.' },
+    enableNamespaces: { type: '(...patterns: string[]) => void', description: 'Enables logging for namespaces matching the given patterns.' },
+    disableNamespaces: { type: '(...patterns: string[]) => void', description: 'Disables logging for namespaces matching the given patterns.' },
+    enableLogging: { type: '() => void', description: 'Globally re-enables logging after disableLogging().' },
+    disableLogging: { type: '() => void', description: 'Globally suppresses all log output — mainly for tests.' },
+    log: { type: '(level: LogLevel, message: string, ...args) => void', description: 'The lowest-level log call, bypassing a named Logger instance.' },
+    defaultLogger: { type: 'ILogger', description: "The library's own default logger instance (aliased from @nextrush/log's `logger`)." },
+    scopedLogger: { type: '(namespace: string) => ILogger', description: 'Alias for creating a namespace-scoped logger, equivalent to createLogger(namespace).' },
+  }}
+/>
+
+---
+
+## Integration Example
+
+### Correlation IDs Across Services
+
+Track requests through microservices using the correlation ID:
+
+```ts
+import { logger } from '@nextrush/logger';
+import type { LoggerContext } from '@nextrush/logger';
+
+app.use(logger());
+
+app.use(async (ctx) => {
+  const correlationId = (ctx as LoggerContext).log.getCorrelationId();
+
+  const response = await fetch('https://api.internal/data', {
+    headers: { 'x-request-id': correlationId ?? '' },
+  });
+
+  ctx.json(await response.json());
+});
+```
+
+<Callout type="warn">
+  Do not use `ctx.get('x-request-id')` to retrieve a generated correlation ID. The middleware sets
+  it on the response via `ctx.set()`. Use `ctx.log.getCorrelationId()` instead.
+</Callout>
+
+### Logger Without Request Logging
+
+Use `attachLogger()` when you need `ctx.log` but not automatic request/response logging:
+
+```ts
+import { attachLogger } from '@nextrush/logger';
+
+app.use(attachLogger({ context: 'api' }));
+
+app.use(async (ctx) => {
+  ctx.log.info('Handler called');
+  ctx.json({ ok: true });
+});
+```
+
+### Type Guards
+
+```ts
+import { hasLogger, getLogger } from '@nextrush/logger';
+
+app.use(async (ctx) => {
+  if (hasLogger(ctx)) {
+    ctx.log.info('Logger available');
+  }
+
+  // Get logger with automatic fallback
+  const log = getLogger(ctx, 'fallback-context');
+  log.info('Works with or without middleware');
+});
+```
+
+### Standalone Logger
+
+Create loggers outside of middleware context:
+
+```ts
+import { createLogger } from '@nextrush/logger';
+
+const log = createLogger('MyService');
+log.info('Server starting');
+log.error('Connection failed', new Error('timeout'));
+```
+
+---
+
+## Compatibility
+
+| Runtime | Supported | Notes |
+| ------- | --------- | ----- |
+| Node.js >=22 | Yes | ESM-only |
+| Bun / Deno | Yes | `@nextrush/log` detects these runtimes explicitly (`detectRuntime()`) and uses `AsyncLocalStorage`-based context where available |
+| Edge / Cloudflare Workers / browsers | Partial | `@nextrush/log` falls back to a non-`AsyncLocalStorage` context path per its own runtime detection; correlation-ID propagation through this package's middleware still works, since it does not depend on `AsyncLocalStorage` itself |
+
+`@nextrush/core` is an *optional* peer dependency — only needed for the `Middleware`/`Context`
+types it references at compile time; the middleware itself only needs a NextRush-shaped `Context`.
+
+---
+
+## Common Mistakes
+
+**Placing logger middleware after route handlers.** The middleware must run before handlers to attach `ctx.log`. Register it early in the middleware chain.
+
+**Skipping health checks without the `skip` option.** Health check endpoints generate high-volume logs with no diagnostic value. Use `skip: (ctx) => ctx.path === '/health'`.
+
+**Using `redactKeys` instead of `sensitiveKeys`.** The option inherited from `@nextrush/log` is `sensitiveKeys`, not `redactKeys`.
+
+---
+
+## Troubleshooting
+
+**`ctx.log` is undefined** — The logger middleware did not run before your handler. Ensure `app.use(logger())` is registered before route handlers. If using `skip`, verify your route is not being skipped.
+
+**Correlation ID not appearing in logs** — Set `generateCorrelationId: true` (the default). If using a custom header name, ensure `correlationIdHeader` matches the header your upstream service sends.
+
+**Too many logs in production** — Set `minLevel: 'info'` and `logRequestStart: false` to reduce volume. Use `skip` to exclude health checks and static asset paths.
+
+---
+
+## Related
+
+- [Reference](/docs/reference) — All packages
+- [@nextrush/request-id](/docs/reference/request-id) — Request ID middleware
+- [@nextrush/timer](/docs/reference/timer) — Response timing

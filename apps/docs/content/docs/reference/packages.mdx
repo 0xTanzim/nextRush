@@ -1,0 +1,78 @@
+---
+title: Packages A-Z
+description: Every publishable NextRush package in one alphabetical index, tagged by capability category and linked to its API reference.
+---
+
+35 publishable packages, alphabetized by npm name. This is a lookup index — for install
+guidance, tiering, and "which package do I need" narrative, see the
+[Package Catalog](/docs/resources/package-catalog); the two pages cross-link rather than
+duplicate each other's content.
+
+| Package | Category | Reference |
+| --- | --- | --- |
+| `@nextrush/adapter-bun` | Platform | [Bun](/docs/reference/platforms/bun) |
+| `@nextrush/adapter-deno` | Platform | [Deno](/docs/reference/platforms/deno) |
+| `@nextrush/adapter-edge` | Platform | [Edge](/docs/reference/platforms/edge) |
+| `@nextrush/adapter-node` | Platform | [Node.js](/docs/reference/platforms/node) |
+| `@nextrush/adapter-serverless` | Platform | [Serverless](/docs/reference/platforms/serverless) |
+| `@nextrush/body-parser` | Middleware | [body-parser](/docs/reference/body-parser) |
+| `@nextrush/class` | Class Runtime | [class](/docs/reference/class) |
+| `@nextrush/compression` | Middleware | [compression](/docs/reference/compression) |
+| `@nextrush/cookies` | Middleware | [cookies](/docs/reference/cookies) |
+| `@nextrush/core` | Core | [core](/docs/reference) |
+| `@nextrush/cors` | Middleware | [cors](/docs/reference/cors) |
+| `@nextrush/csrf` | Middleware | [csrf](/docs/reference/csrf) |
+| `@nextrush/dev` | Development | [dev](/docs/reference/dev) |
+| `@nextrush/di` | Class Runtime | [class → di](/docs/reference/class/di) |
+| `@nextrush/errors` | Core | [errors](/docs/reference/errors) |
+| `@nextrush/events` | Extension | [events](/docs/reference/events) |
+| `@nextrush/health` | Middleware | [health](/docs/reference/health) |
+| `@nextrush/helmet` | Middleware | [helmet](/docs/reference/helmet) |
+| `@nextrush/logger` | Middleware / Plugin | [logger](/docs/reference/logger) |
+| `@nextrush/multipart` | Middleware | [multipart](/docs/reference/multipart) |
+| `@nextrush/openapi` | Middleware / Plugin | [openapi](/docs/reference/openapi) |
+| `@nextrush/rate-limit` | Middleware | [rate-limit](/docs/reference/rate-limit) |
+| `@nextrush/request-id` | Middleware | [request-id](/docs/reference/request-id) |
+| `@nextrush/router` | Core | [router](/docs/reference/router) |
+| `@nextrush/runtime` | Core | [runtime](/docs/reference/runtime) |
+| `@nextrush/static` | Middleware / Plugin | [static](/docs/reference/static) |
+| `@nextrush/stream` | Core (streaming) | [stream](/docs/reference/stream) |
+| `@nextrush/template` | Middleware / Plugin | [template](/docs/reference/template) |
+| `@nextrush/testing` | Development | [testing](/docs/reference/testing) |
+| `@nextrush/timer` | Middleware | [timer](/docs/reference/timer) |
+| `@nextrush/types` | Core | [types](/docs/reference/types) |
+| `@nextrush/validation` | Middleware | [validation](/docs/reference/validation) |
+| `@nextrush/websocket` | Extension | [websocket](/docs/reference/websocket) |
+| `create-nextrush` | Development | [Create a project](/docs/start/create-nextrush) |
+| `nextrush` | Core (meta package) | [nextrush](/docs/reference/nextrush) |
+
+## Category legend
+
+| Category | Meaning |
+| --- | --- |
+| Core | Foundation packages (`types`, `errors`, `core`, `router`, `runtime`, `stream`) plus the `nextrush` meta package that re-exports them |
+| Platform | Runtime adapters — connect `Application` to a specific runtime's HTTP primitives (grouped under `reference/platforms/` per the [Adapter Contract](/docs/architecture/contracts)) |
+| Class Runtime | Decorators, DI, controllers, modules, guards, interceptors, filters (`@nextrush/class`, `@nextrush/di`) |
+| Middleware | `app.use()`-registered, per-request capability — the ~99% default idiom (see [Capability Composition](/docs/architecture/capability-composition)) |
+| Middleware / Plugin | Middleware-idiom packages that predate the "plugin" terminology retirement — functionally identical to Middleware, kept as a distinct tag only because their docs historically lived under a `plugins/` folder before this reference was flattened |
+| Extension | Long-lived, app-scoped services registered with `app.extend()` |
+| Development | Build-time and CLI tooling, not runtime dependencies of a deployed app |
+
+<Callout type="info" title="Keeping this index accurate">
+  35 is the current count, verified against `packages/**/package.json` at the time this page was
+  written. A repo test enumerates every publishable package (see the
+  [Package Catalog](/docs/resources/package-catalog)'s own accuracy note) — if a new package is
+  added without a row here, that's a documentation defect per this project's "outdated
+  documentation is a bug" rule.
+</Callout>
+
+## See also
+
+<Cards>
+  <Card title="Package Catalog" href="/docs/resources/package-catalog">
+    Install commands, tiers, and "which package do I need" narrative — the marketing/discovery view.
+  </Card>
+  <Card title="Package Hierarchy" href="/docs/architecture/package-hierarchy">
+    The dependency order between packages — which ones sit below which.
+  </Card>
+</Cards>

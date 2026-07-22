@@ -11,8 +11,8 @@ You'll get a NextRush server answering requests on [Bun](https://bun.sh) — the
 import changes; nothing else about your route handlers does.
 
 Targeting a different runtime? [Node](/docs/start/runtime/node) ·
-[Deno](/docs/reference/adapters/deno) · [Edge](/docs/reference/adapters/edge) ·
-[Serverless](/docs/reference/adapters/serverless) each implement the same Context and Application
+[Deno](/docs/reference/platforms/deno) · [Edge](/docs/reference/platforms/edge) ·
+[Serverless](/docs/reference/platforms/serverless) each implement the same Context and Application
 contract.
 
 ## Finished project
@@ -159,7 +159,7 @@ match, not a coincidence — rather than exposing Bun's much larger native ceili
 <Callout type="info">
 `@nextrush/adapter-bun` is a Stable, independently-versioned package (currently `1.0.0`) —
 CI-tested against a real Bun runtime, not Node's Bun-compat layer. Check the [Bun adapter
-reference](/docs/reference/adapters/bun) for its full surface before pinning a production
+reference](/docs/reference/platforms/bun) for its full surface before pinning a production
 version.
 </Callout>
 
@@ -193,7 +193,7 @@ my-api/
   Bun that's `@nextrush/adapter-bun`; on Node it's implicitly `@nextrush/adapter-node` through
   `nextrush`.
 - **The adapter ships independently and is Stable** — see the [Bun adapter
-  reference](/docs/reference/adapters/bun) for its full surface.
+  reference](/docs/reference/platforms/bun) for its full surface.
 
 ## Next steps
 
@@ -201,7 +201,7 @@ my-api/
   <Card title="Deploy to production" href="/docs/production/deployment/bun">
     Docker and Bun-runtime deployment paths for a NextRush server on Bun.
   </Card>
-  <Card title="Bun adapter reference" href="/docs/reference/adapters/bun">
+  <Card title="Bun adapter reference" href="/docs/reference/platforms/bun">
     The full `@nextrush/adapter-bun` surface — `serve()`, `createHandler()`, and Bun-specific
     Context utilities.
   </Card>
@@ -216,7 +216,7 @@ my-api/
   <Card title="Build a Task API" href="/docs/start/quick-start">
     Go past hello-world — routing, a request body, and real error handling.
   </Card>
-  <Card title="All platform adapters" href="/docs/reference/adapters">
+  <Card title="All platform adapters" href="/docs/reference/platforms">
     The Node, Deno, edge, and serverless adapter references.
   </Card>
 </Cards>

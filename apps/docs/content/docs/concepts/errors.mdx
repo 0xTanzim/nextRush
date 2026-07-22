@@ -162,7 +162,7 @@ classDiagram
 "
 />
 
-The hierarchy is why throwing is enough: any node in this tree is an `HttpError` the pipeline knows how to serialize. `BadRequestError`, `NotFoundError`, and the rest are named presets over the same base — the full set lives in the [`@nextrush/errors` reference](/docs/reference/core/errors). How the pipeline installs its `catch` is the [middleware pipeline's job](/docs/internals/middleware-internals), not the handler's.
+The hierarchy is why throwing is enough: any node in this tree is an `HttpError` the pipeline knows how to serialize. `BadRequestError`, `NotFoundError`, and the rest are named presets over the same base — the full set lives in the [`@nextrush/errors` reference](/docs/reference/errors). How the pipeline installs its `catch` is the [middleware pipeline's job](/docs/architecture/middleware-internals), not the handler's.
 
 ## Typical use cases
 
@@ -194,7 +194,7 @@ Reach for `4xx` classes (`BadRequestError`, `UnauthorizedError`, `ForbiddenError
 
 ## Configuration
 
-The built-in error handler needs no configuration — a fresh app already turns thrown errors into safe responses. When you want to observe or reshape that output, add the `errorHandler` middleware from [`@nextrush/errors`](/docs/reference/core/errors) and pass options that change *what the handler does with a caught error*:
+The built-in error handler needs no configuration — a fresh app already turns thrown errors into safe responses. When you want to observe or reshape that output, add the `errorHandler` middleware from [`@nextrush/errors`](/docs/reference/errors) and pass options that change *what the handler does with a caught error*:
 
 ```ts title="error-handler.ts"
 import { createApp } from 'nextrush';
@@ -284,10 +284,10 @@ An error with `expose: false` (every `5xx` by default) never sends its real mess
   <Card title="Error handling guide" href="/docs/guides/error-handling">
     Put typed errors to work — custom handlers, logging, and API-specific shapes.
   </Card>
-  <Card title="@nextrush/errors reference" href="/docs/reference/core/errors">
+  <Card title="@nextrush/errors reference" href="/docs/reference/errors">
     Every error class, factory, and handler option, with signatures.
   </Card>
-  <Card title="Middleware pipeline internals" href="/docs/internals/middleware-internals">
+  <Card title="Middleware pipeline internals" href="/docs/architecture/middleware-internals">
     How the pipeline wraps handlers in the single catch that serializes errors.
   </Card>
 </Cards>

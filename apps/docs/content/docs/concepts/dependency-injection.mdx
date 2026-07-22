@@ -153,7 +153,7 @@ class OrderController {
 
 **Observation** — `AuditLogger` declares no scope, so on its own it would be a singleton. Yet each request sees a fresh `RequestId`, and `OrderController` is resolved fresh per request too — even though neither class is marked `request`.
 
-**Explanation** — NextRush computes each class's **effective** scope by walking its constructor dependency graph. A class is effectively request-scoped if it declares `scope: 'request'` *or* anything it transitively depends on does. So `AuditLogger` bubbles to request-effective through `RequestId`, and `OrderController` bubbles through `AuditLogger`. For an effectively request-scoped controller, the runtime resolves it from a fresh `container.createChild()` on each request: request-scoped dependencies are built once per child and shared within that request, while true singletons still resolve from the parent and stay shared. Without this bubbling, a singleton `AuditLogger` would capture one `RequestId` forever and stamp every request with the same stale value. The deeper mechanics live in the [DI internals](/docs/internals/di-internals) — a concept teaches the model, not the machinery.
+**Explanation** — NextRush computes each class's **effective** scope by walking its constructor dependency graph. A class is effectively request-scoped if it declares `scope: 'request'` *or* anything it transitively depends on does. So `AuditLogger` bubbles to request-effective through `RequestId`, and `OrderController` bubbles through `AuditLogger`. For an effectively request-scoped controller, the runtime resolves it from a fresh `container.createChild()` on each request: request-scoped dependencies are built once per child and shared within that request, while true singletons still resolve from the parent and stay shared. Without this bubbling, a singleton `AuditLogger` would capture one `RequestId` forever and stamp every request with the same stale value. The deeper mechanics live in the [DI internals](/docs/architecture/di-internals) — a concept teaches the model, not the machinery.
 
 <Callout type="warn" title="DI needs decorator metadata at compile time">
   The container reads constructor parameter types from `design:paramtypes`, which TypeScript emits
@@ -265,7 +265,7 @@ DI decides *how long an instance and its state live*, which makes scope a correc
   <Card title="@nextrush/di reference" href="/docs/reference/class/di">
     The full Container, Service, Repository, and error-type signatures.
   </Card>
-  <Card title="DI internals" href="/docs/internals/di-internals">
+  <Card title="DI internals" href="/docs/architecture/di-internals">
     How resolution, scope bubbling, and per-request child containers are implemented.
   </Card>
 </Cards>

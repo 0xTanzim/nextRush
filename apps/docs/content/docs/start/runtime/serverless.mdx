@@ -11,8 +11,8 @@ You'll get a NextRush app answering requests as an AWS Lambda function — the s
 the event-mapping plumbing underneath.
 
 Targeting a different runtime? [Node](/docs/start/runtime/node) ·
-[Bun](/docs/start/runtime/bun) · [Deno](/docs/reference/adapters/deno) ·
-[Edge](/docs/reference/adapters/edge) each implement the same Context and Application contract.
+[Bun](/docs/start/runtime/bun) · [Deno](/docs/reference/platforms/deno) ·
+[Edge](/docs/reference/platforms/edge) each implement the same Context and Application contract.
 
 ## Finished project
 
@@ -173,11 +173,11 @@ Cloud Functions or Azure Functions by swapping `createLambdaHandler` for `create
 
 <Callout type="info">
 `@nextrush/adapter-serverless` is versioned independently at `1.0.0`, following the same
-mixed-version policy as every other post-v3 package — see [Versioning](/docs/internals) for
+mixed-version policy as every other post-v3 package — see [Versioning](/docs/architecture) for
 why. It doesn't yet have its own row in the [compatibility
 matrix](/docs/resources/compatibility-matrix)'s runtime support table, which currently only
 tracks Node, Bun, Deno, and the edge targets. Check the [serverless adapter
-reference](/docs/reference/adapters/serverless) for the complete surface, including the Tier-3
+reference](/docs/reference/platforms/serverless) for the complete surface, including the Tier-3
 `EventMapper` API for platforms NextRush doesn't ship a handler for, before pinning a
 production version.
 </Callout>
@@ -221,7 +221,7 @@ my-function/
     Node, Bun, Deno, and edge deployment paths — a dedicated serverless deployment guide is not
     published yet.
   </Card>
-  <Card title="Serverless adapter reference" href="/docs/reference/adapters/serverless">
+  <Card title="Serverless adapter reference" href="/docs/reference/platforms/serverless">
     The full `@nextrush/adapter-serverless` surface — `createLambdaHandler()`,
     `createLambdaStreamingHandler()`, `createGoogleHandler()`, `createAzureHandler()`, and the
     Tier-3 `EventMapper` API.
@@ -237,7 +237,7 @@ my-function/
   <Card title="Build a Task API" href="/docs/start/quick-start">
     Go past hello-world — routing, a request body, and real error handling.
   </Card>
-  <Card title="All platform adapters" href="/docs/reference/adapters">
+  <Card title="All platform adapters" href="/docs/reference/platforms">
     The Node, Bun, Deno, and edge adapter references.
   </Card>
 </Cards>

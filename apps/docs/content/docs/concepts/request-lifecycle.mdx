@@ -129,7 +129,7 @@ listen(app, 8080);
 
 **Explanation** — five things happen in order, and each maps to a participant in the diagram:
 
-1. **The adapter builds the context.** The platform hands the adapter a native request; the adapter constructs one `ctx`, parsing method, path, query, headers, and client IP up front. How that construction differs per runtime is the [adapter's job](/docs/internals/adapters) — your code sees the same `ctx` everywhere.
+1. **The adapter builds the context.** The platform hands the adapter a native request; the adapter constructs one `ctx`, parsing method, path, query, headers, and client IP up front. How that construction differs per runtime is the [adapter's job](/docs/architecture/adapters) — your code sees the same `ctx` everywhere.
 2. **The composed pipeline runs.** `createApp` folds every registered middleware into a single function with `compose()`. Each layer runs its "before" code, calls `ctx.next()`, and — after everything downstream settles — runs its "after" code. That inversion is the [onion model](/docs/concepts/middleware).
 3. **The router matches, as the innermost middleware.** When you register routes with `app.get()` / `app.post()`, the app-owned router is mounted *last*, so it sees a fully assembled `ctx`. On a match it sets `ctx.params` and runs your handler; on a miss it sets `ctx.status = 404` and calls `next()`. The matching strategy — static lookup then segment-trie traversal — lives in the [routing concept](/docs/concepts/routing).
 4. **The handler produces the response.** It reads `ctx.params` / `ctx.body` and sends through `ctx.json()`, `ctx.send()`, or `ctx.html()`. The full `ctx` surface is the [Context concept](/docs/concepts/context) — a lifecycle page teaches *when* each part is ready, not every member.
@@ -152,7 +152,7 @@ app.route('/', router);
 listen(app, 8080);
 ```
 
-There is a single error path: your custom handler if you set one, otherwise the built-in handler that maps the [error](/docs/concepts/errors) to a safe response. The internals of how `compose()` dispatches the stack belong to the [middleware internals](/docs/internals/middleware-internals) — a concept page teaches the model, not the machinery.
+There is a single error path: your custom handler if you set one, otherwise the built-in handler that maps the [error](/docs/concepts/errors) to a safe response. The internals of how `compose()` dispatches the stack belong to the [middleware internals](/docs/architecture/middleware-internals) — a concept page teaches the model, not the machinery.
 
 ## Typical use cases
 
@@ -227,10 +227,10 @@ In production the built-in error handler returns a generic response on purpose, 
   <Card title="Write custom middleware" href="/docs/guides/custom-middleware">
     Put a stage to work — read input, share state, and bracket the request in your own middleware.
   </Card>
-  <Card title="@nextrush/core reference" href="/docs/reference/core/core">
+  <Card title="@nextrush/core reference" href="/docs/reference">
     The Application, compose(), and Context surface — signatures and options.
   </Card>
-  <Card title="Adapters" href="/docs/internals/adapters">
+  <Card title="Adapters" href="/docs/architecture/adapters">
     How each runtime's adapter builds ctx at the front of the path and serializes it back at the end.
   </Card>
 </Cards>

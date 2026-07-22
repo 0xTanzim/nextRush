@@ -10,9 +10,9 @@ You'll get a NextRush server answering requests on Node.js — the runtime the f
 against first. Every capability, every middleware package, and every adapter contract exists
 because it works here before it's asked to work anywhere else.
 
-Targeting a different runtime? [Bun](/docs/reference/adapters/bun) ·
-[Deno](/docs/reference/adapters/deno) · [Edge](/docs/reference/adapters/edge) ·
-[Serverless](/docs/reference/adapters/serverless) each implement the same Context and Application
+Targeting a different runtime? [Bun](/docs/reference/platforms/bun) ·
+[Deno](/docs/reference/platforms/deno) · [Edge](/docs/reference/platforms/edge) ·
+[Serverless](/docs/reference/platforms/serverless) each implement the same Context and Application
 contract.
 
 ## Finished project
@@ -141,7 +141,7 @@ trade capability for reach, not Node.
 <Callout type="warn">
 This does not mean Node is required — Bun, Deno, edge, and serverless adapters all implement the
 same Context and Application contract (see [each adapter's
-reference](/docs/reference/adapters)). It means Node is where that contract has the fewest
+reference](/docs/reference/platforms)). It means Node is where that contract has the fewest
 constraints, so it's the reference point the [runtime compatibility
 concept](/docs/concepts/runtime-compatibility) measures every other adapter against.
 </Callout>
@@ -184,7 +184,7 @@ my-api/
   <Card title="Deploy to production" href="/docs/production/deployment/node">
     Docker, PM2, and systemd deployment paths for a Node.js NextRush server.
   </Card>
-  <Card title="Node adapter reference" href="/docs/reference/adapters/node">
+  <Card title="Node adapter reference" href="/docs/reference/platforms/node">
     The full `@nextrush/adapter-node` surface — `serve()`, `createHandler()`, and Node-specific
     Context utilities.
   </Card>
@@ -199,7 +199,7 @@ my-api/
   <Card title="Build a Task API" href="/docs/start/quick-start">
     Go past hello-world — routing, a request body, and real error handling.
   </Card>
-  <Card title="All platform adapters" href="/docs/reference/adapters">
+  <Card title="All platform adapters" href="/docs/reference/platforms">
     The Bun, Deno, edge, and serverless adapter references.
   </Card>
 </Cards>

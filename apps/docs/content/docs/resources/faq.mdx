@@ -29,7 +29,7 @@ Different stacks optimize for different defaults: Express stays minimal, NestJS 
 
 ### Why zero dependencies?
 
-External dependencies are the largest source of supply chain vulnerabilities and breaking changes. By implementing everything internally, NextRush controls its entire surface area. The only runtime dependencies across the core/adapter/middleware line are `reflect-metadata` (required for decorator-based DI) and, inside `@nextrush/di`, `tsyringe` (the DI container it wraps). See [Package Hierarchy](/docs/internals/package-hierarchy) for the full dependency chain.
+External dependencies are the largest source of supply chain vulnerabilities and breaking changes. By implementing everything internally, NextRush controls its entire surface area. The only runtime dependencies across the core/adapter/middleware line are `reflect-metadata` (required for decorator-based DI) and, inside `@nextrush/di`, `tsyringe` (the DI container it wraps). See [Package Hierarchy](/docs/architecture/package-hierarchy) for the full dependency chain.
 
 ### Why both functional and class-based styles?
 
@@ -43,7 +43,7 @@ NextRush is **35 publishable packages** in the monorepo, organized in a strict d
 types → errors → core → router → di → class → adapters → middleware
 ```
 
-(`@nextrush/class` consolidates the former `@nextrush/decorators` + `@nextrush/controllers` split and re-exports `@nextrush/di`; both older packages have been removed after serving briefly as deprecated compatibility shims.) Lower packages never import from higher packages. You install only what you need. See [Package Hierarchy](/docs/internals/package-hierarchy) for the full architecture and the real, current version table on the [Compatibility Matrix](/docs/resources/compatibility-matrix).
+(`@nextrush/class` consolidates the former `@nextrush/decorators` + `@nextrush/controllers` split and re-exports `@nextrush/di`; both older packages have been removed after serving briefly as deprecated compatibility shims.) Lower packages never import from higher packages. You install only what you need. See [Package Hierarchy](/docs/architecture/package-hierarchy) for the full architecture and the real, current version table on the [Compatibility Matrix](/docs/resources/compatibility-matrix).
 
 ### What's the difference between middleware, a registrar, and an extension?
 
@@ -65,7 +65,7 @@ This watches for file changes and restarts your server automatically. See the [D
 
 ### How do I validate request data?
 
-Use [`@nextrush/validation`](/docs/reference/middleware/validation) — it works with any [Standard Schema](https://standardschema.dev) library (Zod, Valibot, ArkType):
+Use [`@nextrush/validation`](/docs/reference/validation) — it works with any [Standard Schema](https://standardschema.dev) library (Zod, Valibot, ArkType):
 
 ```typescript
 import { validate } from '@nextrush/validation';

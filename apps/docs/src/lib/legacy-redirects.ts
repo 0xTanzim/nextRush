@@ -1,5 +1,5 @@
 /**
- * NextRush docs — Phase 1 (T6) legacy URL redirect map.
+ * NextRush docs — legacy URL redirect map (T6 folder renames + Wave B3 reference/architecture IA migration).
  *
  * This site is a full static export (`output: 'export'` in next.config.mjs), so Next.js's
  * `redirects()` config option is a no-op — it is only honored by the Node/Vercel server
@@ -12,9 +12,18 @@
  * client-side `redirect()` call, so browsers, crawlers, and `curl -L` all land on the new
  * page without a manual click.
  *
- * Source of the mapping: `git status --short` rename-detection output for the T6 folder
+ * `resolveLegacyRedirect()` is a single-hop lookup (no chaining) — every entry's target must be
+ * the CURRENT path, not an intermediate one. T6's original targets (`/docs/reference/core/*`,
+ * `/docs/reference/middleware/*`, `/docs/reference/plugins/*`, `/docs/reference/adapters/*`,
+ * `/docs/internals/*`) were themselves moved again by Wave B3 (reference flattening,
+ * adapters→platforms, internals→architecture) — those T6 entries below were updated in place to
+ * point straight at the final B3 path, and a second block of entries covers the pre-B3 → post-B3
+ * paths directly, so a bookmark from either era resolves in one hop.
+ *
+ * Source of the T6 mapping: `git status --short` rename-detection output for the T6 folder
  * moves (getting-started → start, api-reference → reference, examples → guides/examples),
- * enumerated per-page, not just per-folder.
+ * enumerated per-page, not just per-folder. Source of the B3 mapping: the frozen D9.1/D9.3
+ * decisions in `openspec/changes/docs-v4-rebuild/waves/wave-b3-reference-architecture.md`.
  */
 export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   // getting-started/* -> start/*
@@ -24,42 +33,42 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/getting-started/create-nextrush', '/docs/start/create-nextrush'],
   ['/docs/getting-started/overview', '/docs/start/overview'],
 
-  // api-reference/* -> reference/* (subfolders kept as-is, folder renamed only)
+  // api-reference/* -> reference/* (T6 targets updated in place to the post-B3 flat paths)
   ['/docs/api-reference', '/docs/reference'],
-  ['/docs/api-reference/core', '/docs/reference/core'],
-  ['/docs/api-reference/core/types', '/docs/reference/core/types'],
-  ['/docs/api-reference/core/errors', '/docs/reference/core/errors'],
-  ['/docs/api-reference/core/nextrush', '/docs/reference/core/nextrush'],
-  ['/docs/api-reference/core/dev', '/docs/reference/core/dev'],
-  ['/docs/api-reference/core/core', '/docs/reference/core/core'],
-  ['/docs/api-reference/core/runtime', '/docs/reference/core/runtime'],
-  ['/docs/api-reference/core/router', '/docs/reference/core/router'],
-  ['/docs/api-reference/adapters', '/docs/reference/adapters'],
-  ['/docs/api-reference/adapters/node', '/docs/reference/adapters/node'],
-  ['/docs/api-reference/adapters/bun', '/docs/reference/adapters/bun'],
-  ['/docs/api-reference/adapters/deno', '/docs/reference/adapters/deno'],
-  ['/docs/api-reference/adapters/edge', '/docs/reference/adapters/edge'],
-  ['/docs/api-reference/middleware', '/docs/reference/middleware'],
-  ['/docs/api-reference/middleware/validation', '/docs/reference/middleware/validation'],
-  ['/docs/api-reference/middleware/multipart', '/docs/reference/middleware/multipart'],
-  ['/docs/api-reference/middleware/timer', '/docs/reference/middleware/timer'],
-  ['/docs/api-reference/middleware/request-id', '/docs/reference/middleware/request-id'],
-  ['/docs/api-reference/middleware/rate-limit', '/docs/reference/middleware/rate-limit'],
-  ['/docs/api-reference/middleware/helmet', '/docs/reference/middleware/helmet'],
-  ['/docs/api-reference/middleware/csrf', '/docs/reference/middleware/csrf'],
-  ['/docs/api-reference/middleware/cors', '/docs/reference/middleware/cors'],
-  ['/docs/api-reference/middleware/cookies', '/docs/reference/middleware/cookies'],
-  ['/docs/api-reference/middleware/compression', '/docs/reference/middleware/compression'],
-  ['/docs/api-reference/middleware/body-parser', '/docs/reference/middleware/body-parser'],
-  ['/docs/api-reference/plugins', '/docs/reference/plugins'],
-  ['/docs/api-reference/plugins/openapi', '/docs/reference/plugins/openapi'],
-  ['/docs/api-reference/plugins/stream', '/docs/reference/plugins/stream'],
-  ['/docs/api-reference/plugins/websocket', '/docs/reference/plugins/websocket'],
+  ['/docs/api-reference/core', '/docs/reference'],
+  ['/docs/api-reference/core/types', '/docs/reference/types'],
+  ['/docs/api-reference/core/errors', '/docs/reference/errors'],
+  ['/docs/api-reference/core/nextrush', '/docs/reference/nextrush'],
+  ['/docs/api-reference/core/dev', '/docs/reference/dev'],
+  ['/docs/api-reference/core/core', '/docs/reference/core'],
+  ['/docs/api-reference/core/runtime', '/docs/reference/runtime'],
+  ['/docs/api-reference/core/router', '/docs/reference/router'],
+  ['/docs/api-reference/adapters', '/docs/reference/platforms'],
+  ['/docs/api-reference/adapters/node', '/docs/reference/platforms/node'],
+  ['/docs/api-reference/adapters/bun', '/docs/reference/platforms/bun'],
+  ['/docs/api-reference/adapters/deno', '/docs/reference/platforms/deno'],
+  ['/docs/api-reference/adapters/edge', '/docs/reference/platforms/edge'],
+  ['/docs/api-reference/middleware', '/docs/reference'],
+  ['/docs/api-reference/middleware/validation', '/docs/reference/validation'],
+  ['/docs/api-reference/middleware/multipart', '/docs/reference/multipart'],
+  ['/docs/api-reference/middleware/timer', '/docs/reference/timer'],
+  ['/docs/api-reference/middleware/request-id', '/docs/reference/request-id'],
+  ['/docs/api-reference/middleware/rate-limit', '/docs/reference/rate-limit'],
+  ['/docs/api-reference/middleware/helmet', '/docs/reference/helmet'],
+  ['/docs/api-reference/middleware/csrf', '/docs/reference/csrf'],
+  ['/docs/api-reference/middleware/cors', '/docs/reference/cors'],
+  ['/docs/api-reference/middleware/cookies', '/docs/reference/cookies'],
+  ['/docs/api-reference/middleware/compression', '/docs/reference/compression'],
+  ['/docs/api-reference/middleware/body-parser', '/docs/reference/body-parser'],
+  ['/docs/api-reference/plugins', '/docs/reference'],
+  ['/docs/api-reference/plugins/openapi', '/docs/reference/openapi'],
+  ['/docs/api-reference/plugins/stream', '/docs/reference/stream'],
+  ['/docs/api-reference/plugins/websocket', '/docs/reference/websocket'],
   ['/docs/api-reference/plugins/controllers', '/docs/reference/class/controllers'],
-  ['/docs/api-reference/plugins/template', '/docs/reference/plugins/template'],
-  ['/docs/api-reference/plugins/static', '/docs/reference/plugins/static'],
-  ['/docs/api-reference/plugins/logger', '/docs/reference/plugins/logger'],
-  ['/docs/api-reference/plugins/events', '/docs/reference/plugins/events'],
+  ['/docs/api-reference/plugins/template', '/docs/reference/template'],
+  ['/docs/api-reference/plugins/static', '/docs/reference/static'],
+  ['/docs/api-reference/plugins/logger', '/docs/reference/logger'],
+  ['/docs/api-reference/plugins/events', '/docs/reference/events'],
   ['/docs/api-reference/di', '/docs/reference/class'],
   ['/docs/api-reference/di/di', '/docs/reference/class/di'],
   ['/docs/api-reference/di/decorators', '/docs/reference/class/decorators'],
@@ -81,6 +90,62 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/guides/examples/database', '/docs/guides/database'],
   ['/docs/guides/examples/websocket', '/docs/guides/websocket'],
   ['/docs/guides/examples/file-upload', '/docs/guides/file-upload'],
+
+  // Wave B3 — reference/core/* -> reference/* (flatten, 8 pages)
+  ['/docs/reference/core', '/docs/reference'],
+  ['/docs/reference/core/nextrush', '/docs/reference/nextrush'],
+  ['/docs/reference/core/core', '/docs/reference/core'],
+  ['/docs/reference/core/router', '/docs/reference/router'],
+  ['/docs/reference/core/types', '/docs/reference/types'],
+  ['/docs/reference/core/errors', '/docs/reference/errors'],
+  ['/docs/reference/core/runtime', '/docs/reference/runtime'],
+  ['/docs/reference/core/dev', '/docs/reference/dev'],
+  ['/docs/reference/core/testing', '/docs/reference/testing'],
+
+  // Wave B3 — reference/middleware/* -> reference/* (flatten, 12 pages)
+  ['/docs/reference/middleware', '/docs/reference'],
+  ['/docs/reference/middleware/cors', '/docs/reference/cors'],
+  ['/docs/reference/middleware/helmet', '/docs/reference/helmet'],
+  ['/docs/reference/middleware/csrf', '/docs/reference/csrf'],
+  ['/docs/reference/middleware/body-parser', '/docs/reference/body-parser'],
+  ['/docs/reference/middleware/multipart', '/docs/reference/multipart'],
+  ['/docs/reference/middleware/rate-limit', '/docs/reference/rate-limit'],
+  ['/docs/reference/middleware/compression', '/docs/reference/compression'],
+  ['/docs/reference/middleware/cookies', '/docs/reference/cookies'],
+  ['/docs/reference/middleware/health', '/docs/reference/health'],
+  ['/docs/reference/middleware/request-id', '/docs/reference/request-id'],
+  ['/docs/reference/middleware/timer', '/docs/reference/timer'],
+  ['/docs/reference/middleware/validation', '/docs/reference/validation'],
+
+  // Wave B3 — reference/plugins/* -> reference/* (flatten, 7 pages)
+  ['/docs/reference/plugins', '/docs/reference'],
+  ['/docs/reference/plugins/logger', '/docs/reference/logger'],
+  ['/docs/reference/plugins/static', '/docs/reference/static'],
+  ['/docs/reference/plugins/websocket', '/docs/reference/websocket'],
+  ['/docs/reference/plugins/events', '/docs/reference/events'],
+  ['/docs/reference/plugins/template', '/docs/reference/template'],
+  ['/docs/reference/plugins/stream', '/docs/reference/stream'],
+  ['/docs/reference/plugins/openapi', '/docs/reference/openapi'],
+
+  // Wave B3 — reference/adapters/* -> reference/platforms/* (folder rename, 5 pages)
+  ['/docs/reference/adapters', '/docs/reference/platforms'],
+  ['/docs/reference/adapters/node', '/docs/reference/platforms/node'],
+  ['/docs/reference/adapters/bun', '/docs/reference/platforms/bun'],
+  ['/docs/reference/adapters/deno', '/docs/reference/platforms/deno'],
+  ['/docs/reference/adapters/edge', '/docs/reference/platforms/edge'],
+  ['/docs/reference/adapters/serverless', '/docs/reference/platforms/serverless'],
+
+  // Wave B3 — internals/* -> architecture/* (rename, 8 pages) + contributing.mdx merged into community/
+  ['/docs/internals', '/docs/architecture'],
+  ['/docs/internals/design-principles', '/docs/architecture/design-principles'],
+  ['/docs/internals/package-hierarchy', '/docs/architecture/package-hierarchy'],
+  ['/docs/internals/middleware-internals', '/docs/architecture/middleware-internals'],
+  ['/docs/internals/router-internals', '/docs/architecture/router-internals'],
+  ['/docs/internals/di-internals', '/docs/architecture/di-internals'],
+  ['/docs/internals/adapters', '/docs/architecture/adapters'],
+  ['/docs/internals/rfcs', '/docs/architecture/rfcs'],
+  ['/docs/internals/versioning', '/docs/architecture/versioning'],
+  ['/docs/internals/contributing', '/docs/community/contributing'],
 ]);
 
 /** Old `/docs/...` path -> new `/docs/...` path, or `undefined` if not a known legacy path. */

@@ -32,7 +32,7 @@ app.get('/data', (ctx) => {
 `correlationId()` and `traceId()` are the same middleware with a different header/state-key pair
 (`X-Correlation-Id` / `ctx.state.correlationId` and `X-Trace-Id` / `ctx.state.traceId`) — useful
 when a downstream service already uses one of those header names. See the
-[reference page](/docs/reference/middleware/request-id) for the full option table, including
+[reference page](/docs/reference/request-id) for the full option table, including
 `trustIncoming` and the ID-spoofing protections.
 
 <Callout type="warn" title="request-id and logger generate independently">
@@ -64,7 +64,7 @@ app.use(async (ctx, next) => {
 
 `exposeHeader` (default `false`) opts into setting an `X-Response-Time` response header;
 `serverTiming()` sets the standard `Server-Timing` header instead, visible in browser DevTools.
-See the [reference page](/docs/reference/middleware/timer) for `detailedTimer()` and the full
+See the [reference page](/docs/reference/timer) for `detailedTimer()` and the full
 options for all three functions.
 
 ## Middleware order controls what a middleware can observe
@@ -188,6 +188,6 @@ required or provided.
 
 - [Observability overview](/docs/production/observability) — the logger + request-id + timer correlation walkthrough
 - [Logging](/docs/production/observability/logging) — `@nextrush/logger` in depth
-- [`@nextrush/request-id` reference](/docs/reference/middleware/request-id)
-- [`@nextrush/timer` reference](/docs/reference/middleware/timer)
+- [`@nextrush/request-id` reference](/docs/reference/request-id)
+- [`@nextrush/timer` reference](/docs/reference/timer)
 - [Performance Tuning](/docs/performance/tuning) — middleware ordering for throughput

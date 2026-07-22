@@ -145,7 +145,7 @@ const a: Middleware = async (ctx) => { await ctx.next(); };
 const b: Middleware = async (ctx, next) => { await next(); };
 ```
 
-Both call the *same* underlying dispatch, so they behave identically — pick one style and stay consistent. Under the hood, `app.use()` collects your middleware into a stack and `compose()` folds that stack into one function. It gives each middleware a `next` that advances exactly one step, wires the same function to `ctx.next()`, and preserves the onion by awaiting each layer before unwinding. The internals — the composed dispatch, its fast paths, per-request isolation — belong to the [middleware internals](/docs/internals/middleware-internals); a concept page teaches the model, not the machinery. `compose()` is also exported directly when you want to bundle several middleware into one reusable unit:
+Both call the *same* underlying dispatch, so they behave identically — pick one style and stay consistent. Under the hood, `app.use()` collects your middleware into a stack and `compose()` folds that stack into one function. It gives each middleware a `next` that advances exactly one step, wires the same function to `ctx.next()`, and preserves the onion by awaiting each layer before unwinding. The internals — the composed dispatch, its fast paths, per-request isolation — belong to the [middleware internals](/docs/architecture/middleware-internals); a concept page teaches the model, not the machinery. `compose()` is also exported directly when you want to bundle several middleware into one reusable unit:
 
 ```ts title="compose.ts"
 import { createApp, compose } from 'nextrush';
@@ -268,10 +268,10 @@ Middleware order is not a style choice — it is your security posture. A layer 
   <Card title="Write custom middleware" href="/docs/guides/custom-middleware">
     Put the model to work — read input, share state, and pass control in your own middleware.
   </Card>
-  <Card title="@nextrush/core reference" href="/docs/reference/core/core">
+  <Card title="@nextrush/core reference" href="/docs/reference">
     The full compose() and Application.use() surface — signatures and options.
   </Card>
-  <Card title="Middleware internals" href="/docs/internals/middleware-internals">
+  <Card title="Middleware internals" href="/docs/architecture/middleware-internals">
     How compose() dispatches the stack and preserves the onion per request.
   </Card>
 </Cards>

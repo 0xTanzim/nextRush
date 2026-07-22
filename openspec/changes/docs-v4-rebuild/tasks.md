@@ -257,7 +257,7 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
       **Brief: [`waves/wave-b1-foundation.md`](./waves/wave-b1-foundation.md).**
 - [x] 9. **MDX Wave B2 — task docs:** `guides/` (Guide, EDS-009), `recipes/` (Recipe, EDS-019),
       `production/` (Production, EDS-022).
-- [ ] 10. **MDX Wave B3 — lookup + deep:** `reference/` (Reference, EDS-011 — **depends on §2**
+- [x] 10. **MDX Wave B3 — lookup + deep:** `reference/` (Reference, EDS-011 — **depends on §2**
       AutoTypeTable/Scalar) and `internals/` (Architecture, EDS-010 — **cross-links Track A's
       `ARCHITECTURE.md`**; do after the relevant package ARCHITECTUREs land).
 - [ ] 11. **MDX Wave B4 — support & migration:** `migrate/` (Migration, EDS-020 — includes a v3→v4

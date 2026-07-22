@@ -12,8 +12,8 @@ Workers](https://workers.cloudflare.com) or [Vercel Edge Functions](https://verc
 long-running process at all.
 
 Targeting a different runtime? [Node](/docs/start/runtime/node) ·
-[Bun](/docs/start/runtime/bun) · [Deno](/docs/reference/adapters/deno) ·
-[Serverless](/docs/reference/adapters/serverless) each implement the same Context and
+[Bun](/docs/start/runtime/bun) · [Deno](/docs/reference/platforms/deno) ·
+[Serverless](/docs/reference/platforms/serverless) each implement the same Context and
 Application contract.
 
 ## Finished project
@@ -204,7 +204,7 @@ edge; design for it to be skipped.
 [compatibility matrix](/docs/resources/compatibility-matrix) for its current status: Cloudflare
 Workers runs the adapter's conformance suite on a real `workerd`/miniflare isolate in CI, while
 Vercel Edge shares the same conformance suite but isn't yet executed on the real platform in CI.
-Check the [edge adapter reference](/docs/reference/adapters/edge) for its full surface before
+Check the [edge adapter reference](/docs/reference/platforms/edge) for its full surface before
 pinning a production version.
 </Callout>
 
@@ -245,7 +245,7 @@ my-worker/
   <Card title="Deploy to production" href="/docs/production/deployment/edge">
     Cloudflare Workers, Vercel Edge, and Netlify Edge deployment paths for a NextRush app.
   </Card>
-  <Card title="Edge adapter reference" href="/docs/reference/adapters/edge">
+  <Card title="Edge adapter reference" href="/docs/reference/platforms/edge">
     The full `@nextrush/adapter-edge` surface — `createFetchHandler()`, `createCloudflareHandler()`,
     `createVercelHandler()`, and edge-specific Context utilities.
   </Card>
@@ -260,7 +260,7 @@ my-worker/
   <Card title="Build a Task API" href="/docs/start/quick-start">
     Go past hello-world — routing, a request body, and real error handling.
   </Card>
-  <Card title="All platform adapters" href="/docs/reference/adapters">
+  <Card title="All platform adapters" href="/docs/reference/platforms">
     The Node, Bun, Deno, and serverless adapter references.
   </Card>
 </Cards>
