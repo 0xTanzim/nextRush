@@ -191,7 +191,7 @@ app.use(async (ctx) => {
 | Deno    | ✅   | ✅      | ❌     |
 | Edge    | ✅   | ✅      | ❌     |
 
-<Callout type="warn" title="Brotli is broken on Bun, not just unsupported">
+<Callout type="warn" title="Brotli is broken on Bun, not merely unsupported">
   `detectCapabilities()` hardcodes `hasBrotli: true` whenever it detects Bun, but never verifies
   that Bun's `CompressionStream` actually implements the `br` format — and Bun has no `node:zlib`
   fallback either. If a client's `Accept-Encoding` negotiates Brotli on Bun, `compress()` throws

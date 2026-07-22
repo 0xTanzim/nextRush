@@ -1,5 +1,6 @@
 /**
- * NextRush docs — legacy URL redirect map (T6 folder renames + Wave B3 reference/architecture IA migration).
+ * NextRush docs — legacy URL redirect map (T6 folder renames + Wave B3 reference/architecture IA
+ * migration + Wave B4 resources→help/community IA migration).
  *
  * This site is a full static export (`output: 'export'` in next.config.mjs), so Next.js's
  * `redirects()` config option is a no-op — it is only honored by the Node/Vercel server
@@ -18,12 +19,17 @@
  * `/docs/internals/*`) were themselves moved again by Wave B3 (reference flattening,
  * adapters→platforms, internals→architecture) — those T6 entries below were updated in place to
  * point straight at the final B3 path, and a second block of entries covers the pre-B3 → post-B3
- * paths directly, so a bookmark from either era resolves in one hop.
+ * paths directly, so a bookmark from either era resolves in one hop. Wave B4 retired
+ * `resources/` into a new `help/` folder plus 2 pages moved into `community/`, and retired
+ * `resources/package-catalog.mdx` entirely (duplicate of `reference/packages.mdx`) — its entry
+ * points straight at the replacement page.
  *
  * Source of the T6 mapping: `git status --short` rename-detection output for the T6 folder
  * moves (getting-started → start, api-reference → reference, examples → guides/examples),
  * enumerated per-page, not just per-folder. Source of the B3 mapping: the frozen D9.1/D9.3
  * decisions in `openspec/changes/docs-v4-rebuild/waves/wave-b3-reference-architecture.md`.
+ * Source of the B4 mapping: the frozen mapping table in
+ * `openspec/changes/docs-v4-rebuild/waves/wave-b4-migrate-community-help.md`.
  */
 export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   // getting-started/* -> start/*
@@ -146,6 +152,16 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/internals/rfcs', '/docs/architecture/rfcs'],
   ['/docs/internals/versioning', '/docs/architecture/versioning'],
   ['/docs/internals/contributing', '/docs/community/contributing'],
+
+  // Wave B4 — resources/* -> help/* or community/* (folder retirement/split, 9 pages)
+  ['/docs/resources', '/docs/help'],
+  ['/docs/resources/faq', '/docs/help/faq'],
+  ['/docs/resources/troubleshooting', '/docs/help/troubleshooting'],
+  ['/docs/resources/glossary', '/docs/help/glossary'],
+  ['/docs/resources/compatibility-matrix', '/docs/help/compatibility-matrix'],
+  ['/docs/resources/roadmap', '/docs/community/roadmap'],
+  ['/docs/resources/changelog', '/docs/community/changelog'],
+  ['/docs/resources/package-catalog', '/docs/reference/packages'],
 ]);
 
 /** Old `/docs/...` path -> new `/docs/...` path, or `undefined` if not a known legacy path. */

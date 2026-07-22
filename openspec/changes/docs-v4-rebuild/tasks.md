@@ -260,7 +260,7 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
 - [x] 10. **MDX Wave B3 — lookup + deep:** `reference/` (Reference, EDS-011 — **depends on §2**
       AutoTypeTable/Scalar) and `internals/` (Architecture, EDS-010 — **cross-links Track A's
       `ARCHITECTURE.md`**; do after the relevant package ARCHITECTUREs land).
-- [ ] 11. **MDX Wave B4 — support & migration:** `migrate/` (Migration, EDS-020 — includes a v3→v4
+- [x] 11. **MDX Wave B4 — support & migration:** `migrate/` (Migration, EDS-020 — includes a v3→v4
       docs/navigation migration guide for existing users) and `resources/` (FAQ, troubleshooting,
       glossary, compatibility matrix, changelog — mixed types).
 

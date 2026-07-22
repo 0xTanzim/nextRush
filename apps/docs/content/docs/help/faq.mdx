@@ -40,14 +40,14 @@ Different projects need different levels of structure. A 50-line microservice do
 NextRush is **35 publishable packages** in the monorepo, organized in a strict dependency chain:
 
 ```
-types → errors → core → router → di → class → adapters → middleware
+types → errors → core → router → runtime → di → class → adapters → middleware
 ```
 
-(`@nextrush/class` consolidates the former `@nextrush/decorators` + `@nextrush/controllers` split and re-exports `@nextrush/di`; both older packages have been removed after serving briefly as deprecated compatibility shims.) Lower packages never import from higher packages. You install only what you need. See [Package Hierarchy](/docs/architecture/package-hierarchy) for the full architecture and the real, current version table on the [Compatibility Matrix](/docs/resources/compatibility-matrix).
+(`@nextrush/class` consolidates the former `@nextrush/decorators` + `@nextrush/controllers` split and re-exports `@nextrush/di`; both older packages have been removed after serving briefly as deprecated compatibility shims.) Lower packages never import from higher packages. You install only what you need. See [Package Hierarchy](/docs/architecture/package-hierarchy) for the full architecture and the real, current version table on the [Compatibility Matrix](/docs/help/compatibility-matrix).
 
 ### What's the difference between middleware, a registrar, and an extension?
 
-**Middleware** (the default, ~99% of capability) processes requests — it runs on every request in the order you register it via `app.use()`. A **registrar** (~0.9%) is a plain function you call once to wire a subsystem, such as `registerControllers`. An **extension** (~0.1%, rare) is a long-lived, app-scoped service with its own boot/teardown lifecycle, registered with `app.extend()` and booted with `app.ready()` — the event bus is the canonical example. See [Middleware](/docs/concepts/middleware) and [Extensions](/docs/concepts/extensions) for the full taxonomy, or the [Glossary](/docs/resources/glossary) for short definitions.
+**Middleware** (the default, ~99% of capability) processes requests — it runs on every request in the order you register it via `app.use()`. A **registrar** (~0.9%) is a plain function you call once to wire a subsystem, such as `registerControllers`. An **extension** (~0.1%, rare) is a long-lived, app-scoped service with its own boot/teardown lifecycle, registered with `app.extend()` and booted with `app.ready()` — the event bus is the canonical example. See [Middleware](/docs/concepts/middleware) and [Extensions](/docs/concepts/extensions) for the full taxonomy, or the [Glossary](/docs/help/glossary) for short definitions.
 
 ---
 
@@ -94,7 +94,7 @@ if (!user) throw new NotFoundError('User not found');
 // → 404 { "error": "NotFoundError", "message": "User not found", "code": "NOT_FOUND", "status": 404 }
 ```
 
-See the [Error Handling guide](/docs/guides/error-handling) and the [Troubleshooting](/docs/resources/troubleshooting) catalog for common error-related gotchas.
+See the [Error Handling guide](/docs/guides/error-handling) and the [Troubleshooting](/docs/help/troubleshooting) catalog for common error-related gotchas.
 
 ### How do I test my NextRush app?
 
@@ -129,7 +129,7 @@ NextRush's `compose()` pre-compiles the middleware pipeline, so per-middleware o
 | Deno                        | `@nextrush/adapter-deno`    | `1.0.0`           |
 | Edge (Cloudflare, Vercel)   | `@nextrush/adapter-edge`    | `1.0.0`           |
 
-See the [Compatibility Matrix](/docs/resources/compatibility-matrix) for the full, regularly re-derived package/version table.
+See the [Compatibility Matrix](/docs/help/compatibility-matrix) for the full, regularly re-derived package/version table.
 
 ### How do I deploy to production?
 
@@ -164,7 +164,7 @@ See the [Contributing guide](/docs/community/contributing). NextRush uses pnpm w
 
 ### Where do I report bugs?
 
-Open an issue on [GitHub](https://github.com/0xTanzim/nextrush/issues). Include your Node.js version, NextRush version, and a minimal reproduction. Check [Troubleshooting](/docs/resources/troubleshooting) first — your error may already have a documented fix.
+Open an issue on [GitHub](https://github.com/0xTanzim/nextrush/issues). Include your Node.js version, NextRush version, and a minimal reproduction. Check [Troubleshooting](/docs/help/troubleshooting) first — your error may already have a documented fix.
 
 ### Is there a Discord or community chat?
 

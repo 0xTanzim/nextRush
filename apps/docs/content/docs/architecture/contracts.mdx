@@ -25,6 +25,8 @@ which idiom a given feature should use.
 ### `Extension<TDecorated>`
 
 ```typescript
+import type { ExtensionContext } from '@nextrush/types';
+
 interface Extension<TDecorated = Record<string, never>> {
   readonly name: string;
   readonly needs?: readonly string[];
@@ -52,6 +54,8 @@ The argument passed to `setup()` — a context object rather than the bare `Appl
 fields are additive and never break existing Extensions:
 
 ```typescript
+import type { ExtensionHost, Logger, Container } from '@nextrush/types';
+
 interface ExtensionContext {
   readonly app: ExtensionHost;
   readonly logger: Logger;
@@ -114,6 +118,8 @@ each adapter binds `App = Application` when it `satisfies` the shape.
 ### `ServerAdapter` — server-style runtimes (Node, Bun, Deno)
 
 ```typescript
+import type { ServerHandle, HandlerOptions } from '@nextrush/types';
+
 interface ServerAdapter<App = unknown, Opts = unknown, Instance extends ServerHandle = ServerHandle> {
   serve(app: App, options?: Opts): Promise<Instance>;
   createHandler(app: App, options?: HandlerOptions): unknown;
@@ -121,12 +127,14 @@ interface ServerAdapter<App = unknown, Opts = unknown, Instance extends ServerHa
 ```
 
 - `serve()` starts and owns a real listening server, returning a `ServerHandle`.
-- `createHandler()` builds just the request-handling function, for embedding into a host server
+- `createHandler()` builds only the request-handling function, for embedding into a host server
   the adapter doesn't own (e.g. mounting inside an existing Express/Node HTTP server).
 
 ### `FetchAdapter` — fetch-style runtimes (edge)
 
 ```typescript
+import type { FetchHandlerOptions } from '@nextrush/types';
+
 interface FetchAdapter<App = unknown, Exec = unknown> {
   createFetchHandler(app: App, options?: FetchHandlerOptions): FetchHandler<Exec>;
 }

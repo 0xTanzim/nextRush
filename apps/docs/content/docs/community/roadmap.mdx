@@ -18,7 +18,7 @@ aspirational marketing copy.
 
 **Package versions**: mixed — core packages at **`3.1.0`**, packages added after the initial
 release at **`1.0.0`** and versioning independently. See the
-[Compatibility Matrix](/docs/resources/compatibility-matrix) for the full, regularly re-derived
+[Compatibility Matrix](/docs/help/compatibility-matrix) for the full, regularly re-derived
 table.
 
 Breaking API changes require a **major** version bump; new features ship in **minor** releases
@@ -57,7 +57,8 @@ _Status: Complete_
 **Middleware:** CORS, security headers (Helmet), CSRF protection, body parsing, multipart/file
 upload, response compression, cookie handling, rate limiting, request ID generation, request
 timing, Standard Schema request validation (Zod/Valibot/ArkType), static file serving, template
-rendering, structured logging, zero-config OpenAPI 3.1 generation.
+rendering, structured logging, zero-config OpenAPI 3.1 generation, liveness/readiness health
+checks for orchestrator probes (`@nextrush/health`).
 
 **Extensions:** type-safe event emitter (`@nextrush/events`), WebSocket support
 (`@nextrush/websocket`), response streaming for SSE/NDJSON (`@nextrush/stream`).
@@ -69,7 +70,9 @@ _Status: Complete_
 - [x] Node.js adapter (`@nextrush/adapter-node`)
 - [x] Bun adapter (`@nextrush/adapter-bun`)
 - [x] Deno adapter (`@nextrush/adapter-deno`)
-- [x] Edge adapter — Cloudflare Workers, Vercel Edge (`@nextrush/adapter-edge`)
+- [x] Edge adapter — Cloudflare Workers, Vercel Edge, Netlify Edge (`@nextrush/adapter-edge`)
+- [x] Serverless adapter — AWS Lambda, Google Cloud Functions, Azure Functions
+      (`@nextrush/adapter-serverless`)
 
 ## Phase 5: Performance validation 🚧
 
@@ -102,7 +105,6 @@ Items with no implementation yet. Some are tracked in RFCs; others are aspiratio
 ### Ecosystem integrations
 
 - [ ] GraphQL plugin
-- [ ] AWS Lambda adapter
 - [ ] Database integration guides (Drizzle, Prisma)
 
 ### Documentation
@@ -143,5 +145,5 @@ Items with no implementation yet. Some are tracked in RFCs; others are aspiratio
 
 ## See also
 
-- [Changelog](/docs/resources/changelog) — release history.
-- [Compatibility Matrix](/docs/resources/compatibility-matrix) — current package versions.
+- [Changelog](/docs/community/changelog) — release history.
+- [Compatibility Matrix](/docs/help/compatibility-matrix) — current package versions.

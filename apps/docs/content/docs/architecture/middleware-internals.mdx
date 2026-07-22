@@ -12,6 +12,8 @@ This page explains **how** the middleware engine works internally. For the menta
 The `compose()` function in `@nextrush/core` transforms a `Middleware[]` into a single `ComposedMiddleware` function. The return type accepts an optional outer `next`:
 
 ```ts
+import type { Context, Next } from '@nextrush/types';
+
 type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
 ```
 
@@ -19,6 +21,18 @@ Composition works through index-based recursive dispatch. Each call to `next()` 
 
 ```ts
 // Actual implementation (faithful to real behavior — see packages/core/src/middleware.ts)
+import type { Middleware, Context, Next } from '@nextrush/types';
+
+type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
+
+interface ComposeOptions {
+  warnDoubleResponse?: boolean;
+}
+
+function emitDoubleResponseWarning(index: number): void {
+  // logs a dev-only warning; internal, not exported
+}
+
 export function compose(middleware: Middleware[], options?: ComposeOptions): ComposedMiddleware {
   const warnDoubleResponse = options?.warnDoubleResponse ?? false;
   const stack = [...middleware]; // Snapshot at compose time
@@ -26,7 +40,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
 
   // FAST PATH: no middleware
   if (len === 0) {
-    return (_ctx, next?) => (next ? next() : Promise.resolve());
+    return (_ctx: Context, next?: Next) => (next ? next() : Promise.resolve());
   }
 
   // FAST PATH: exactly one middleware — avoids the recursive dispatch closure
@@ -34,7 +48,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
   // (a per-invocation double-next guard, ctx.setNext wiring, sync-throw → rejection).
   if (len === 1) {
     const only = stack[0];
-    return function composedSingle(ctx, next?) {
+    return function composedSingle(ctx: Context, next?: Next) {
       let called = false; // per-invocation — never hoisted
       const nextFn = () => {
         if (called) return Promise.reject(new Error('next() called multiple times'));
@@ -52,7 +66,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
   }
 
   // GENERAL PATH: index-based dispatch, no per-request closure chains
-  return function composedMiddleware(ctx, next?) {
+  return function composedMiddleware(ctx: Context, next?: Next) {
     let index = -1; // Per-request state
 
     function dispatch(i: number): Promise<void> {
@@ -129,6 +143,9 @@ NextRush supports two equivalent calling styles for middleware:
 <Tabs items={['Modern (ctx.next)', 'Traditional (next param)']}>
   <Tab value="Modern (ctx.next)">
     ```ts
+    import { createApp } from 'nextrush';
+
+    const app = createApp();
     app.use(async (ctx) => {
       await ctx.next();
     });
@@ -136,6 +153,9 @@ NextRush supports two equivalent calling styles for middleware:
   </Tab>
   <Tab value="Traditional (next param)">
     ```ts
+    import { createApp } from 'nextrush';
+
+    const app = createApp();
     app.use(async (ctx, next) => {
       await next();
     });
@@ -146,8 +166,15 @@ NextRush supports two equivalent calling styles for middleware:
 Both call the same underlying dispatch function. The wiring happens inside `dispatch()`:
 
 ```ts
-const nextFn = () => dispatch(i + 1);
-if (ctx.setNext) ctx.setNext(nextFn);
+import type { Context } from '@nextrush/types';
+
+function dispatch(i: number): Promise<void> {
+  // ...
+  const ctx: Context = {} as Context; // (real ctx is passed through the outer closure)
+  const nextFn = () => dispatch(i + 1);
+  if (ctx.setNext) ctx.setNext(nextFn);
+  return Promise.resolve();
+}
 ```
 
 Before calling each middleware, `dispatch()` sets `ctx.next` to a function that calls `dispatch(i + 1)`. The `next` parameter passed to the middleware is the same `nextFn`. Both paths invoke the same dispatch — they are interchangeable.
@@ -170,6 +197,10 @@ dispatch(0) → MW 1 before code
 Any middleware can catch errors from downstream middleware with try/catch:
 
 ```ts
+import { createApp } from 'nextrush';
+import { HttpError } from '@nextrush/errors';
+
+const app = createApp();
 app.use(async (ctx, next) => {
   try {
     await next();
@@ -184,10 +215,14 @@ app.use(async (ctx, next) => {
 Synchronous exceptions inside middleware are caught by the try/catch in `dispatch()` and converted to rejected promises:
 
 ```ts
-try {
-  return Promise.resolve(fn(ctx, nextFn));
-} catch (err) {
-  return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+import type { Middleware, Context } from '@nextrush/types';
+
+function dispatch(fn: Middleware, ctx: Context, nextFn: () => Promise<void>): Promise<void> {
+  try {
+    return Promise.resolve(fn(ctx, nextFn));
+  } catch (err) {
+    return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+  }
 }
 ```
 
@@ -199,18 +234,29 @@ This means both `throw new Error(...)` and `return Promise.reject(...)` behave i
 
 ```ts
 // Actual implementation (faithful to real behavior — see packages/core/src/application.ts)
-callback(): (ctx: Context) => Promise<void> {
-  const fn = compose(this.middlewareStack, {
-    warnDoubleResponse: !this.isProduction,
-  });
+import type { Context, Middleware } from '@nextrush/types';
+import { compose } from '@nextrush/core';
 
-  return async (ctx: Context): Promise<void> => {
-    try {
-      await fn(ctx);
-    } catch (error) {
-      await this.handleError(error, ctx);
-    }
-  };
+class Application {
+  private readonly middlewareStack: Middleware[] = [];
+  private readonly isProduction: boolean = false;
+  private handleError(error: unknown, ctx: Context): Promise<void> {
+    return Promise.resolve();
+  }
+
+  callback(): (ctx: Context) => Promise<void> {
+    const fn = compose(this.middlewareStack, {
+      warnDoubleResponse: !this.isProduction,
+    });
+
+    return async (ctx: Context): Promise<void> => {
+      try {
+        await fn(ctx);
+      } catch (error) {
+        await this.handleError(error, ctx);
+      }
+    };
+  }
 }
 ```
 
@@ -233,6 +279,13 @@ The execution order for each request is:
 `Application` freezes its configuration once `app.ready()` has booted every extension:
 
 ```ts
+import { createApp, createRouter } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+const middleware = async (ctx: unknown, next: () => Promise<void>) => next();
+const someExtension = { name: 'example', setup() {}, destroy() {} };
+
 await app.ready(); // boots extensions, then freezes configuration
 
 app.use(middleware); // Throws: "Cannot call use() after the app has booted (ready()) or started — configuration is frozen"
@@ -245,7 +298,10 @@ Each mutating method calls the same private `assertConfigurable(method)` guard f
 `app.use()` also validates each argument is a function at registration time:
 
 ```ts
-app.use('not a function' as any); // Throws: TypeError("Middleware must be a function")
+import { createApp } from 'nextrush';
+
+const app = createApp();
+app.use('not a function' as unknown as never); // Throws: TypeError("Middleware must be a function")
 ```
 
 `compose()` performs the same validation — both the array type and each element.

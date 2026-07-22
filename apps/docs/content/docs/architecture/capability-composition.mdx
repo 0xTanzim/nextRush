@@ -27,7 +27,7 @@ source rather than restating the taxonomy in the abstract.
 
 Each idiom answers a different structural question a single `Plugin` interface would conflate:
 
-- **Middleware** answers *"what runs on every request, in what order?"* — a `Middleware` is just
+- **Middleware** answers *"what runs on every request, in what order?"* — a `Middleware` is
   `(ctx, next) => Promise<void>` (or the modern `ctx.next()` form); composing two middlewares is
   composing two functions. No lifecycle, no state beyond `ctx`.
 - **Registrar** answers *"what needs to run once, at startup, to wire something up?"* — a plain
@@ -43,7 +43,7 @@ Each idiom answers a different structural question a single `Plugin` interface w
   network layer, and the one place runtime identity is allowed to matter at all.
 
 Collapsing these into one `Plugin.setup()` would force every middleware author to write a
-lifecycle object for something that's actually just a function, and would force every registrar
+lifecycle object for something that's actually a plain function, and would force every registrar
 to accept a `destroy()` it will never use.
 
 ## A concrete example: `@nextrush/websocket` uses two idioms in one package
@@ -52,6 +52,9 @@ to accept a `destroy()` it will never use.
 choice, not a per-package one. `createWebSocketExtension()` returns a real `Extension`:
 
 ```typescript
+import type { Extension, ExtensionContext } from '@nextrush/types';
+import { WebSocketServer, type WebSocketOptions } from '@nextrush/websocket';
+
 export function createWebSocketExtension(
   options?: WebSocketOptions
 ): Extension<{ wss: WebSocketServer }> {

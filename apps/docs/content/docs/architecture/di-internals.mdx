@@ -22,6 +22,8 @@ and `packages/di/src/index.ts`.
 `createContainerWrapper()` closes over three pieces of state that don't exist in raw tsyringe:
 
 ```ts
+import type { Token } from '@nextrush/types';
+
 const resolutionStack = new Set<string>(); // in-flight resolution names, for cycle detection
 const factoryTokens = new Set<Token>(); // tokens registered via useFactory, for bootstrap()
 const bootstrappedValues = new Map<Token, unknown>(); // cached results of bootstrap()
@@ -56,6 +58,11 @@ on its own.
 calling into tsyringe:
 
 ```ts
+import { CircularDependencyError } from '@nextrush/di';
+
+const resolutionStack = new Set<string>();
+const tokenName = 'ExampleToken';
+
 if (resolutionStack.has(tokenName)) {
   const cycle = [...resolutionStack, tokenName];
   throw new CircularDependencyError(cycle);
@@ -126,6 +133,16 @@ but the error contract at the `@nextrush/di` boundary is NextRush's own.
 immediately:
 
 ```ts
+import type { Container } from '@nextrush/types';
+
+// tsyringe's own container type — @nextrush/di wraps it directly
+declare const tsyContainer: { createChildContainer(): DependencyContainer };
+interface DependencyContainer {
+  reset(): void;
+}
+
+declare function createContainerWrapper(tsyInstance: DependencyContainer): Container;
+
 export function createContainer(): Container {
   const childTsy = tsyContainer.createChildContainer();
   childTsy.reset();

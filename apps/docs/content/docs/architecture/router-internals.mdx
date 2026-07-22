@@ -26,12 +26,24 @@ these focused modules, not a single file containing all matching logic.
 Each node in the trie (`packages/router/src/segment-trie.ts`) holds:
 
 ```ts
-export interface TrieNode {
+// packages/router/src/segment-trie.ts
+const enum NodeType {
+  STATIC = 0,
+  PARAM = 1,
+  WILDCARD = 2,
+}
+
+interface HandlerEntry {
+  handler: (ctx: unknown, next: () => Promise<void>) => unknown;
+  middleware?: unknown[];
+}
+
+interface TrieNode {
   segment: string;
   type: NodeType; // STATIC | PARAM | WILDCARD
   children: Map<string, TrieNode>; // static children, keyed by segment string
   paramName?: string;
-  handlers: Map<HttpMethod, HandlerEntry>;
+  handlers: Map<string, HandlerEntry>; // keyed by HttpMethod
   wildcardChild?: TrieNode;
   paramChild?: TrieNode;
 }
@@ -53,13 +65,32 @@ needed:
 
 ```ts
 // packages/router/src/segment-trie.ts — parseSegments()
-if (part.startsWith(':')) {
-  segments.push({ segment: part, type: NodeType.PARAM, paramName: part.slice(1) });
-} else if (part === '*') {
-  segments.push({ segment: '*', type: NodeType.WILDCARD });
-  break; // wildcard must be last
-} else {
-  segments.push({ segment: caseSensitive ? part : part.toLowerCase(), type: NodeType.STATIC });
+const enum NodeType {
+  STATIC = 0,
+  PARAM = 1,
+  WILDCARD = 2,
+}
+
+interface ParsedSegment {
+  segment: string;
+  type: NodeType;
+  paramName?: string;
+}
+
+function parseSegments(path: string, caseSensitive = true): ParsedSegment[] {
+  const parts = path.startsWith('/') ? path.slice(1).split('/') : path.split('/');
+  const segments: ParsedSegment[] = [];
+  for (const part of parts) {
+    if (part.startsWith(':')) {
+      segments.push({ segment: part, type: NodeType.PARAM, paramName: part.slice(1) });
+    } else if (part === '*') {
+      segments.push({ segment: '*', type: NodeType.WILDCARD });
+      break; // wildcard must be last
+    } else {
+      segments.push({ segment: caseSensitive ? part : part.toLowerCase(), type: NodeType.STATIC });
+    }
+  }
+  return segments;
 }
 ```
 
@@ -76,8 +107,16 @@ string `/users/{id}`.
 a single flat map keyed by a concatenated string:
 
 ```ts
+// packages/router/src/router.ts
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+interface HandlerEntry {
+  handler: (ctx: unknown, next: () => Promise<void>) => unknown;
+}
 type StaticRouteMap = Map<HttpMethod, Map<string, HandlerEntry>>;
-private readonly staticRoutes: StaticRouteMap = new Map();
+
+class Router {
+  private readonly staticRoutes: StaticRouteMap = new Map();
+}
 ```
 
 Any route with no `:param` or `*` segments is additionally stored here: the outer map selects an
@@ -109,6 +148,8 @@ behavior. Malformed encoding never throws; it falls back to the raw value. This 
 `RouterOptions`, not a hidden default you can't see:
 
 ```ts
+import { createRouter } from '@nextrush/router';
+
 const router = createRouter({ decode: false }); // opt out of decoding
 ```
 
@@ -129,12 +170,20 @@ standalone `match()` API used for testing/introspection was wrong.
 **once**, when the route is registered, not on every incoming request:
 
 ```ts
-// Fast path: no per-route middleware — skip the dispatcher entirely
-if (len === 0) {
-  return async (ctx: Context) => {
-    if (ctx.setNext) ctx.setNext(NOOP_NEXT);
-    await handler(ctx, NOOP_NEXT);
-  };
+// packages/router/src/segment-trie.ts
+import type { Context } from '@nextrush/types';
+
+const NOOP_NEXT = (): Promise<void> => Promise.resolve();
+
+function compileExecutor(len: number, handler: (ctx: Context, next: () => Promise<void>) => unknown) {
+  // Fast path: no per-route middleware — skip the dispatcher entirely
+  if (len === 0) {
+    return async (ctx: Context) => {
+      if (ctx.setNext) ctx.setNext(NOOP_NEXT);
+      await handler(ctx, NOOP_NEXT);
+    };
+  }
+  // ...compiled dispatcher for the middleware+handler chain, when len > 0
 }
 ```
 

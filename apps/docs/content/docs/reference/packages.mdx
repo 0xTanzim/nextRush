@@ -3,10 +3,8 @@ title: Packages A-Z
 description: Every publishable NextRush package in one alphabetical index, tagged by capability category and linked to its API reference.
 ---
 
-35 publishable packages, alphabetized by npm name. This is a lookup index — for install
-guidance, tiering, and "which package do I need" narrative, see the
-[Package Catalog](/docs/resources/package-catalog); the two pages cross-link rather than
-duplicate each other's content.
+35 publishable packages, alphabetized by npm name. This is a lookup index — for the dependency
+chain and package tiers, see [Package Hierarchy](/docs/architecture/package-hierarchy).
 
 | Package | Category | Reference |
 | --- | --- | --- |
@@ -60,8 +58,7 @@ duplicate each other's content.
 
 <Callout type="info" title="Keeping this index accurate">
   35 is the current count, verified against `packages/**/package.json` at the time this page was
-  written. A repo test enumerates every publishable package (see the
-  [Package Catalog](/docs/resources/package-catalog)'s own accuracy note) — if a new package is
+  written. A repo test enumerates every publishable package — if a new package is
   added without a row here, that's a documentation defect per this project's "outdated
   documentation is a bug" rule.
 </Callout>
@@ -69,9 +66,6 @@ duplicate each other's content.
 ## See also
 
 <Cards>
-  <Card title="Package Catalog" href="/docs/resources/package-catalog">
-    Install commands, tiers, and "which package do I need" narrative — the marketing/discovery view.
-  </Card>
   <Card title="Package Hierarchy" href="/docs/architecture/package-hierarchy">
     The dependency order between packages — which ones sit below which.
   </Card>

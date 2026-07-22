@@ -40,7 +40,7 @@ wave starts) — not all up front — so they don't go stale as earlier waves re
 | **B1 — start/ + concepts/** | B | `waves/wave-b1-foundation.md` | §8 | B0 | ✅ done (all pages validated) |
 | B2 — guides/ + recipes/ + production/ | B | `waves/wave-b2-guides-recipes-production.md` | §9 | B0 | ✅ done (dedup + 4 batches validated) |
 | B3 — reference/ + architecture/ | B | `waves/wave-b3-reference-architecture.md` | §10 | B0, §2 | ✅ done (D9.1/D9.3 IA migration executed + validated) |
-| B4 — migrate/ + community/ + help/ | B | *(jit)* | §11 | B0 | ⬜ open |
+| B4 — migrate/ + community/ + help/ | B | `waves/wave-b4-migrate-community-help.md` | §11 | B0 | ✅ done (resources/ retired, validated) |
 | Cross-cutting checks · cutover · archive | — | (tasks §12–14) | §12–14 | all | ⬜ open |
 
 **Next-up, independent, can run in parallel:** A1 (core packages) and B1 (site foundation). Track A

@@ -195,6 +195,22 @@ paths). **Lesson for future waves: run a full `git status`/`git diff --stat` swe
 a "finding" about missing infrastructure — a narrow single-file check (just `next.config.mjs`)
 missed a real, working system one directory over.**
 
+**Real defect found LATER, during Wave B4's own verification pass — logged here since this file
+is genuinely B3's scope, not B4's, even though B4 discovered it:** running `pnpm docs:verify`
+during B4's closeout surfaced 112 pre-existing compile findings, 100% in
+`architecture/router-internals.mdx`. Root cause: several code blocks are illustrative fragments
+excerpted from real source (`parseSegments()`'s `if/else if` body, `compileExecutor()`'s
+early-return branch) or reference real types (`NodeType`, `HttpMethod`, `HandlerEntry`,
+`ParsedSegment`, `StaticRouteMap`) without importing them or being reconstructed as a complete,
+self-contained, typecheckable unit — EDS-013 has no documented "illustrative fragment, don't
+typecheck" exception, so the compile-checker correctly flags these. One block
+(`parseSegments()`) was fixed opportunistically (112→103 findings) before recognizing this was
+scope creep into a different wave's closed work; stopped there. **Logged as an explicit
+follow-up task** (not yet filed as its own tasks.md item — candidate: fold into §12's
+cross-checks pass, since it's exactly the kind of drift a final cross-check should catch): every
+remaining code block in `architecture/router-internals.mdx` needs the same treatment (either a
+type-only import line per snippet, or a fully-reconstructed self-contained excerpt).
+
 **`llms.txt`/`llms-full.txt`/`sitemap.xml`** are dynamically generated Next.js route handlers
 (confirmed at `apps/docs/src/app/{llms.txt,llms-full.txt,sitemap.xml}` — not static files with
 hardcoded paths), so they self-correct on the next build; not a real staleness risk, no action

@@ -49,6 +49,7 @@ bump any other package.
 | `@nextrush/adapter-bun` | `1.0.0` | Adapter |
 | `@nextrush/adapter-deno` | `1.0.0` | Adapter |
 | `@nextrush/adapter-edge` | `1.0.0` | Adapter |
+| `@nextrush/adapter-serverless` | `1.0.0` | Adapter |
 | `@nextrush/cookies` | `1.0.0` | Middleware |
 | `@nextrush/csrf` | `1.0.0` | Middleware |
 | `@nextrush/multipart` | `1.0.0` | Middleware |
@@ -60,6 +61,7 @@ bump any other package.
 | `@nextrush/template` | `1.0.0` | Middleware |
 | `@nextrush/logger` | `1.0.0` | Middleware |
 | `@nextrush/openapi` | `1.0.0` | Middleware |
+| `@nextrush/health` | `1.0.0` | Middleware |
 | `@nextrush/events` | `1.0.0` | Extension |
 | `@nextrush/websocket` | `1.0.0` | Extension |
 | `@nextrush/testing` | `1.0.0` | Tooling |
@@ -79,6 +81,7 @@ is `"private": true` — an internal conformance-test harness for adapters, not 
 | Cloudflare Workers | `@nextrush/adapter-edge` | `1.0.0` | Stable | 🟢 real-runtime (CI, real `workerd`/miniflare) |
 | Vercel Edge | `@nextrush/adapter-edge` | `1.0.0` | Stable | 🟡 simulated (shares the edge adapter's conformance suite; not yet executed on the real platform in CI) |
 | Netlify Edge | `@nextrush/adapter-edge` | `1.0.0` | Stable | 🟡 simulated (runs on Deno under the hood; not yet executed on the real platform in CI) |
+| AWS Lambda / GCF / Azure Functions | `@nextrush/adapter-serverless` | `1.0.0` | Stable | 🟡 simulated (built on `@nextrush/adapter-edge`'s fetch engine; not yet executed on a real serverless platform in CI) |
 
 <Callout type="info" title="What 🟢/🟡 means">
   🟢 **real-runtime** — the conformance suite executes on the actual runtime in CI (a real Bun/
@@ -87,6 +90,18 @@ is `"private": true` — an internal conformance-test harness for adapters, not 
   suite currently runs in-process under Node/vitest for this target, not on the real platform.
   See `docs/audits/08-runtime-compatibility-gap-analysis.md` for the full breakdown and the
   work tracked to close the remaining 🟡 rows.
+</Callout>
+
+<Callout type="warn" title="Known, unresolved conflict with ADR-0005">
+  This table classifies every non-Node adapter as **Stable**, based on adapter version and
+  conformance-suite results. [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)
+  classifies `runtime` and every non-`-node` adapter as **Internal — may change without a major
+  bump, until GA**, a stricter tier than "Stable" implies. This is a real, unresolved
+  disagreement between two source-of-truth documents, first identified during Wave B1 of the
+  v4 documentation rebuild — it is deliberately left logged here rather than silently resolved
+  in either direction pending a maintainer decision. Readers relying on this page for a
+  stability guarantee on Bun, Deno, Edge, or Serverless should also read ADR-0005's tier table
+  before treating "Stable" as a semver commitment.
 </Callout>
 
 ---
@@ -106,7 +121,7 @@ If your output differs from the table above, the table is stale — please
 
 ## See also
 
-- [Changelog](/docs/resources/changelog) — what changed in each release.
+- [Changelog](/docs/community/changelog) — what changed in each release.
 - [Package Hierarchy](/docs/architecture/package-hierarchy) — the dependency chain between
   packages.
 - [Packages directory](/packages) — browse all 35 packages with descriptions and category

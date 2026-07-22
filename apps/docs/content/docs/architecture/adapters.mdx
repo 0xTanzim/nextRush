@@ -18,6 +18,25 @@ that knows how to configure an app, dispatch a request through that adapter's re
 normalize the result:
 
 ```ts
+import type { Application } from '@nextrush/core';
+
+// Real shapes live in packages/adapters/conformance/src/drivers/types.ts (internal test package)
+type Configure = (app: Application) => void;
+interface DispatchInit {
+  method?: string;
+  path?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  proxy?: boolean;
+  directIp?: string;
+}
+interface DispatchResult {
+  readonly status: number;
+  header(name: string): string | undefined;
+  setCookies(): string[];
+  text(): string;
+}
+
 export interface ConformanceDriver {
   readonly name: string;
   readonly handlerTimeout504: boolean;

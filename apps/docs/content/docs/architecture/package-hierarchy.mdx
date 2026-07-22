@@ -559,7 +559,7 @@ Choose the pattern that matches your project needs.
     app.use(cors());
     app.use(helmet());
     app.use(json());
-    app.use(rateLimit({ windowMs: 60000, max: 100 }));
+    app.use(rateLimit({ window: '1m', max: 100 }));
 
     const router = createRouter();
     router.get('/', (ctx) => ctx.json({ hello: 'world' }));
