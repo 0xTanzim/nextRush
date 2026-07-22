@@ -3,7 +3,6 @@
   "description": "Task-oriented walkthroughs for routing, middleware, validation, testing, and more",
   "pages": [
     "index",
-    "hello-world",
     "rest-api",
     "class-based",
     "dev-tools",

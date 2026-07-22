@@ -22,15 +22,20 @@
  * paths directly, so a bookmark from either era resolves in one hop. Wave B4 retired
  * `resources/` into a new `help/` folder plus 2 pages moved into `community/`, and retired
  * `resources/package-catalog.mdx` entirely (duplicate of `reference/packages.mdx`) — its entry
- * points straight at the replacement page. The final block covers three rehomed pages from the
+ * points straight at the replacement page. The final block covers four rehomed pages from the
  * B0 IA design (`wave-b0-ia.md` §7 "Rehomed pages") that were retired outright during
  * implementation rather than kept as live pointers: `guides/migration.mdx` and
  * `guides/deployment.mdx` (superseded by the dedicated `migrate/` section and
- * `production/deployment/*` respectively) and `concepts/plugins.mdx` (renamed to
- * `concepts/extensions.mdx`). Unlike the `performance/*` pages (which stay live as short
- * pointers per task 12.1 — see those pages' own Callouts — because out-of-scope files still
- * link to them directly), these three have zero surviving inbound links from files outside this
- * pipeline's scope, so a hard redirect is correct rather than a live pointer page.
+ * `production/deployment/*` respectively), `concepts/plugins.mdx` (renamed to
+ * `concepts/extensions.mdx`), and `guides/hello-world.mdx` (the 4th row in that table, missed
+ * by every earlier wave until this pipeline's validator caught it — its content is now
+ * superseded across `start/runtime/*`'s per-runtime hello-world steps and
+ * `start/quick-start.mdx`'s deeper tutorial, not a 1:1 move, so it redirects to the closest
+ * equivalent rather than a page that never existed at a single new path). Unlike the
+ * `performance/*` pages (which stay live as short pointers per task 12.1 — see those pages' own
+ * Callouts — because out-of-scope files still link to them directly), these four have zero
+ * surviving inbound links from files outside this pipeline's scope, so a hard redirect is
+ * correct rather than a live pointer page.
  *
  * Source of the T6 mapping: `git status --short` rename-detection output for the T6 folder
  * moves (getting-started → start, api-reference → reference, examples → guides/examples),
@@ -181,6 +186,13 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/guides/deployment', '/docs/production/deployment'],
   // concepts/plugins.mdx was renamed to concepts/extensions.mdx (extension taxonomy terminology).
   ['/docs/concepts/plugins', '/docs/concepts/extensions'],
+  // guides/hello-world.mdx was retired outright (the 4th B0 "Rehomed pages" row, missed by
+  // every earlier wave): its content is now superseded, not moved — every start/runtime/* page
+  // bakes its own in-context "run a hello-world server" step directly into that runtime's
+  // tutorial, and start/quick-start.mdx is the deeper, complete "first app" tutorial the guides/
+  // page's plain snippet was a thinner stand-in for. No single page is a 1:1 replacement, so this
+  // points at quick-start.mdx as the closest equivalent "get a real server running" destination.
+  ['/docs/guides/hello-world', '/docs/start/quick-start'],
 ]);
 
 /** Old `/docs/...` path -> new `/docs/...` path, or `undefined` if not a known legacy path. */
