@@ -32,6 +32,11 @@
 
 - **v1 (2026-07-22)** — Initial draft, approved same-day following
   `report/framework/framework-composition-review.md`.
+- **v2 (2026-07-22)** — Addendum (§21) — the meta-package now ships a thin `bin` launcher to
+  fulfill this RFC's already-committed "actionable dev-CLI discovery" scenario. Records the
+  first-ever `bin` field on `nextrush` and its coexistence with `@nextrush/dev`'s bin. Governed by
+  ADR-0013; implemented by the `dev-cli-discoverability` OpenSpec change. No §1–20 decision changes
+  meaning.
 
 ---
 
@@ -478,3 +483,46 @@ functional-only users who never execute that code.
 - `docs/RFC/class-runtime/006-di-container-ownership.md` — prior art on DI container ownership,
   relevant to why a single `reflect-metadata`/`tsyringe` instance is preserved by this change.
 - `openspec/changes/framework-composition-integrity/` — the OpenSpec change implementing this RFC.
+
+---
+
+## 21. Addendum (v2) — the meta-package's `bin` launcher
+
+This section records an implementation that fulfills a scenario §1–20 already committed to; it
+changes no decision above, it makes a committed one true.
+
+### 21.1 What this addendum adds
+
+§6 (row 4) moved dev-CLI discovery off the removed `postinstall` script onto "README + scaffolder
++ **CLI message**". The CLI-message half was specified but unimplemented: `nextrush` shipped **no
+`bin` at all**, so there was nothing to print a message when `@nextrush/dev` was absent — the only
+package that could print it (`@nextrush/dev`) is the one that might be missing. This addendum adds
+the missing piece: `nextrush` ships its own thin `bin` launcher (`bin: { nextrush }`) that resolves
+`@nextrush/dev`'s CLI, delegates in-process on success, and prints an actionable,
+package-manager-aware install message on absence. This is the **first `bin` field the meta-package
+has ever declared**.
+
+### 21.2 Coexistence with `@nextrush/dev`'s bin (investigated, not assumed)
+
+`@nextrush/dev` already declares `bin: { nextrush, nextrush-dev }`. A spike (pnpm 11.10) confirmed
+two installed packages declaring the same `nextrush` bin name is **benign**: the install succeeds
+with no error and no warning, and pnpm links one of the two. Because both bins route to
+`@nextrush/dev`'s `cli()` when it is present, the full-install outcome is identical regardless of
+which links; and when `@nextrush/dev` is absent, only the meta declares `nextrush`, so its launcher
+links deterministically and prints the discovery message. `@nextrush/dev`'s manifest is therefore
+left unchanged — restructuring its bin surface belongs to the `dev-tooling` capability, not this
+composition change.
+
+### 21.3 Manifest-lock update
+
+The `package-manifest`/`no-install-script` lock tests previously asserted `nextrush` declares **no**
+`bin` (to avoid the then-unresolved bin-link question). This addendum reverses that specific
+assertion for the meta-package: the lock now asserts the `bin` **exists**, points to a file present
+in `files`, and that file is **not** wired to any `install`/`preinstall`/`postinstall` script — the
+"no install-time execution" invariant is preserved, only the "no bin" assertion is superseded.
+
+### 21.4 Governance
+
+Recorded as **ADR-0013** (ADR-0012 is taken by the bounded-teardown decision). Implemented by the
+`dev-cli-discoverability` OpenSpec change, which adds the launcher's own delegate-or-explain
+requirement to the `framework-composition` capability spec.

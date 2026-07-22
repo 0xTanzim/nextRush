@@ -25,6 +25,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0010](ADR-0010-cross-runtime-parity-hardening.md) | Cross-runtime observable-parity hardening: per-cell real-runtime proof + Node timeout→504 & Bun/Deno graceful-shutdown convergence | Accepted | `docs/RFC/runtime-adapters/013-adapter-contract.md` |
 | [ADR-0011](ADR-0011-project-scaffolding-version-resolution.md) | Per-package version resolution with a build-time fallback map for `create-nextrush` | Accepted · Shipped | `docs/RFC/scaffolding/021-project-scaffolding-capability.md` |
 | [ADR-0012](ADR-0012-bounded-teardown-lifecycle.md) | Bounded, per-hook-isolated `Application.close()` teardown | Accepted · Shipped | `docs/RFC/class-runtime/022-bounded-teardown-lifecycle.md` |
+| [ADR-0013](ADR-0013-nextrush-cli-launcher-discoverability.md) | Thin `nextrush` CLI launcher on the meta-package for dev-toolkit discoverability | Accepted | `docs/RFC/framework-composition/020-framework-composition-integrity.md` (§21 addendum) |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

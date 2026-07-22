@@ -57,7 +57,10 @@ templates, and MUST NOT add them for the functional (routes-only) template.
 No publishable NextRush package SHALL declare an `install`, `preinstall`, or `postinstall`
 lifecycle script. Discovery of optional tooling (e.g. `@nextrush/dev`) MUST be surfaced through
 documentation, the scaffolder, or an actionable runtime message from the CLI — never by executing
-a script during dependency installation.
+a script during dependency installation. The actionable runtime message MUST be produced by a
+launcher the `nextrush` meta-package ships itself (not by `@nextrush/dev`, which cannot run if it
+is the package that is missing), and MUST be checked by an automated test — not left as a
+documented-but-unverified scenario.
 
 #### Scenario: The meta-package manifest declares no install script
 - **WHEN** the `nextrush` `package.json` is inspected
@@ -65,7 +68,34 @@ a script during dependency installation.
 
 #### Scenario: The optional dev CLI is still discoverable
 - **WHEN** a developer wants the `nextrush dev`/`nextrush build` CLI
-- **THEN** the README quick-start and the scaffolder point to `@nextrush/dev`, and running the `nextrush` CLI without it installed prints an actionable install message
+- **THEN** the README quick-start and the scaffolder point to `@nextrush/dev`, and running the `nextrush` CLI without it installed prints an actionable install message, verified by an automated test that invokes the launcher with `@nextrush/dev` unresolvable and asserts the message names the missing package and the install command
+
+### Requirement: The nextrush launcher delegates transparently or explains absence actionably
+The `nextrush` meta-package SHALL ship a `bin` entry point (`nextrush`) that, on invocation,
+resolves `@nextrush/dev`'s CLI entry point. When resolution succeeds, the launcher MUST delegate
+to it transparently — passing through all arguments and mirroring its exit code — such that a
+developer who has `@nextrush/dev` installed observes no behavioral difference from invoking
+`@nextrush/dev`'s own binary directly. When resolution fails because `@nextrush/dev` is not
+installed, the launcher MUST print a message naming `@nextrush/dev`, the exact install command,
+and a one-line description of what the toolkit provides, then exit non-zero. The launcher MUST
+NOT execute during package installation, and MUST pass through any unrelated resolution or
+execution error unchanged rather than masking it as a missing-package case.
+
+#### Scenario: Delegation is transparent when the toolkit is installed
+- **WHEN** `@nextrush/dev` is installed and a developer runs `nextrush dev --port 4000`
+- **THEN** the launcher resolves and invokes `@nextrush/dev`'s CLI with the same arguments, and the process exits with the same code the underlying CLI would have produced
+
+#### Scenario: A missing toolkit produces an actionable, non-zero-exit message
+- **WHEN** `@nextrush/dev` is not installed and a developer runs `nextrush dev`
+- **THEN** the launcher prints a message naming `@nextrush/dev`, the command `pnpm add -D @nextrush/dev` (or the equivalent for the invoking package manager), and a one-line description of the toolkit, then exits with a non-zero status
+
+#### Scenario: An unrelated failure is not mistaken for a missing package
+- **WHEN** `@nextrush/dev` is installed but its CLI throws an unrelated error during execution
+- **THEN** the launcher does not print the missing-package message and instead surfaces the original error unchanged
+
+#### Scenario: The launcher never runs at install time
+- **WHEN** `nextrush` (or a project depending on it) is installed via any supported package manager
+- **THEN** the launcher binary is not invoked as part of the install — it only runs when a developer explicitly executes `nextrush <command>`
 
 ### Requirement: Always-shipped transitive packages are documented accurately
 Documentation SHALL NOT describe a package that already ships transitively with an installed
