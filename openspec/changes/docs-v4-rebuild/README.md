@@ -42,7 +42,7 @@ wave starts) — not all up front — so they don't go stale as earlier waves re
 | B3 — reference/ + architecture/ | B | `waves/wave-b3-reference-architecture.md` | §10 | B0, §2 | ✅ done (D9.1/D9.3 IA migration executed + validated) |
 | B4 — migrate/ + community/ + help/ | B | `waves/wave-b4-migrate-community-help.md` | §11 | B0 | ✅ done (resources/ retired, validated) |
 | Cross-cutting checks (12.1–12.3) | — | (tasks §12) | §12 | all | ✅ done (dedup fix + 39-file cross-link wiring + EDS-015 spot-check; `docs:verify` 0 findings) |
-| Redirect map + full validation (13.1–13.2) | — | (tasks §13) | §13.1–13.2 | §12 | ✅ done (3 missing B0 rehomed-page redirects added, 113→116 entries; `docs:verify` 0 findings; `pnpm build` exit 0, 564/564 pages, 116/116 redirects written) |
+| Redirect map + full validation (13.1–13.2) | — | (tasks §13) | §13.1–13.2 | §12 | ✅ done (4/4 B0 rehomed-page redirects — 3 found by the pipeline + 1 more caught by its own validator and closed after; 113→117 entries; `docs:verify` 0 findings; `pnpm build` exit 0, 564/564 pages, 117/117 redirects written) |
 | Cutover · archive (13.3 pending) | — | (tasks §13–14) | §13.3–14 | §13.1–13.2 | ⬜ open — 13.3 (merge/branch cleanup) is a main-agent decision, not autonomously executed |
 
 **Next-up, independent, can run in parallel:** A1 (core packages) and B1 (site foundation). Track A

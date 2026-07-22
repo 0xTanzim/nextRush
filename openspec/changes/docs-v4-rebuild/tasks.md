@@ -416,6 +416,25 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
       why `performance/*` was excluded (so a future reader doesn't "fix" it as a missed entry).
       **Map size: 113 → 116 entries**, confirmed by `grep -c` count immediately before the build
       check below.
+
+      **Follow-up gap closed after this task's own validator caught it:** the independent
+      validator stage re-checked §7's "Rehomed pages" table against the 3 entries added above and
+      found the table actually has **4 rows**, not 3 — `/docs/guides/hello-world →
+      /docs/start/hello-world` (echoed in §4's sitemap too) was missed by this task and every
+      earlier wave. Investigated directly rather than blindly adding the row as originally
+      specified: `start/` had no `hello-world.mdx` and never needed one by the time Wave B1
+      finished — every `start/runtime/*` page (node/bun/deno/edge/serverless) already bakes its own
+      in-context "run a hello-world server" step into that runtime's tutorial, and
+      `start/quick-start.mdx` is a complete, deeper "first app" tutorial the old plain snippet page
+      was a thinner stand-in for. §7's planned destination was correct when B0 was written but
+      superseded by how B1 actually built `start/`. Retired `guides/hello-world.mdx` outright
+      (removed the file + its `guides/meta.json` entry) instead of moving it, added the redirect to
+      `start/quick-start` (closest equivalent, not a 1:1 destination), and fixed
+      `migrate/v3-to-v4-docs.mdx`'s own stale v3→v4 table which still pointed at the now-retired
+      path. **Map size: 116 → 117 entries.** Re-verified `docs:verify` (0 findings) and a full
+      `pnpm build` (117/117 static redirect pages, up from 116) after this fix. §7's "Rehomed pages"
+      table is now fully covered: 4/4 rows accounted for (3 as live redirects to existing pages, 1
+      as a redirect to the closest equivalent after outright retirement).
 - [x] 13.2 Validate v4 fully: `docs:verify` green + publish checklist + a11y/build.
       **`docs:verify`**: re-ran after the 13.1 edit — **0 findings** across all 5 checks (link
       check, code-compile, lint, reference-match, translation-freshness stub), unchanged from the
@@ -444,8 +463,24 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
 
 ## 14. Done (whole change)
 
-- [ ] 14.1 Track A: all 35 packages README + ARCHITECTURE from templates, independently validated.
-- [ ] 14.2 Track B: v4 IA live; all content-map sections built in MDX, EDS-compliant, `docs:verify` green.
-- [ ] 14.3 Tooling: llms.txt pipeline + Scalar OpenAPI + AutoTypeTable live.
+- [x] 14.1 Track A: all 35 packages README + ARCHITECTURE from templates, independently validated.
+      Confirmed via tasks.md §3–6, all done with Validator + Integrator gates per package/wave.
+- [x] 14.2 Track B: v4 IA live; all content-map sections built in MDX, EDS-compliant, `docs:verify` green.
+      Confirmed via tasks.md §7–11 (all done) plus a fresh `pnpm docs:verify` run just now:
+      TOTAL FINDINGS: 0 across all 5 checks.
+- [x] 14.3 Tooling: llms.txt pipeline + Scalar OpenAPI + AutoTypeTable live.
+      Confirmed via tasks.md §2.1–2.3, each independently verified against real source/build output.
 - [ ] 14.4 v3 retired via tag; redirects (from the B0 URL map) live; tree free of dead-weight archive folders.
+      **Partially true, not fully — left unchecked rather than overclaimed.** The `docs-v3-final`
+      tag exists (task 0.2) and every entry in wave-b0-ia.md §7's old→new URL map now has a live
+      redirect (confirmed 4/4 "Rehomed pages" rows + all T6/B3/B4 blocks, task 13.1) — those two
+      clauses are true. The tree is confirmed free of `_archive/`-style folders (checked directly,
+      none found). But v3 content itself has **not** been removed from the live tree — that is
+      exactly what task 13.3 (cutover) does, and 13.3 is intentionally not done yet: it is a real
+      git-merge-and-content-deletion action on a live production docs site, which this session
+      treated as requiring the user's explicit go-ahead rather than autonomous execution (blast
+      radius 6+ under this session's own gating rules). Checking this box before 13.3 actually runs
+      would assert something not yet true.
 - [ ] 14.5 Archive this OpenSpec change (moves to the gitignored `openspec/changes/archive/`).
+      Blocked on 14.4/13.3 — archiving a change with an open cutover task misrepresents it as
+      finished. Do this immediately after 13.3 completes, not before.
