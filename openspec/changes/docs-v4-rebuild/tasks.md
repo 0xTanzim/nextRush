@@ -202,7 +202,7 @@ match source, EDS-014 + EDS-015 pass.
       testing, create-nextrush. Depth: purpose → install → minimal usage → reference → one example.
       Adapters share structure (one Implementer may template across the 5) but each gets its own
       Validator pass. → Validator + Integrator.
-- [ ] 6. **Meta package `nextrush` README** — main npm landing, landing-page treatment from template.
+- [x] 6. **Meta package `nextrush` README** — main npm landing, landing-page treatment from template.
 
 ---
 ## TRACK B — Docs-site MDX content (`apps/docs/content/docs/**`)  ·  gate: `docs:verify` + EDS-015 per wave
