@@ -69,7 +69,7 @@ export default defineConfig({
 Every test that calls a handler or middleware needs a `Context` object. Build a reusable factory:
 
 ```ts title="src/test/helpers.ts"
-import type { Context } from '@nextrush/types';
+import type { Context } from 'nextrush';
 import { vi } from 'vitest';
 
 export function createMockContext(overrides: Partial<Context> = {}): Context {
@@ -248,9 +248,7 @@ describe('Auth Middleware', () => {
 
 ```ts title="src/__tests__/integration/users.test.ts"
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { errorHandler } from '@nextrush/errors';
+import { createApp, createRouter, errorHandler } from 'nextrush';
 import { createMockContext } from '../../test/helpers';
 
 function createTestApp() {
@@ -314,8 +312,7 @@ For tests that need actual TCP connections, use `serve()` from the adapter:
 
 ```ts title="src/__tests__/e2e/api.test.ts"
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createApp } from '@nextrush/core';
-import { serve, type ServerInstance } from '@nextrush/adapter-node';
+import { createApp, serve, type ServerInstance } from 'nextrush';
 
 describe('API E2E', () => {
   let server: ServerInstance;
@@ -412,11 +409,11 @@ describe('UsersController', () => {
 
 ## Step 8 — Test Error Scenarios
 
-Use the error classes from `@nextrush/errors` to verify error behavior:
+Use the error classes from `nextrush` to verify error behavior:
 
 ```ts
 import { describe, it, expect } from 'vitest';
-import { NotFoundError, BadRequestError } from '@nextrush/errors';
+import { NotFoundError, BadRequestError } from 'nextrush';
 import { createMockContext } from '../test/helpers';
 
 describe('Error Handling', () => {
@@ -520,12 +517,12 @@ describe('UserService', () => {
   <Card
     title="Performance"
     description="Measure and optimize request throughput."
-    href="/docs/performance"
+    href="/docs/production/performance-tuning"
   />
   <Card
     title="Deployment"
     description="Deploy your app to Docker, Railway, Vercel Edge, and more."
-    href="/docs/guides/deployment"
+    href="/docs/production/deployment"
   />
   <Card
     title="Core API Reference"

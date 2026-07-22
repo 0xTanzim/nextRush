@@ -255,7 +255,7 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
       install + first-app + guided tutorials — Landing/Tutorial, EDS-018/008) and `concepts/`
       (mental models — Concept, EDS-007). Independent of Track A; can run in parallel with Waves 3–5.
       **Brief: [`waves/wave-b1-foundation.md`](./waves/wave-b1-foundation.md).**
-- [ ] 9. **MDX Wave B2 — task docs:** `guides/` (Guide, EDS-009), `recipes/` (Recipe, EDS-019),
+- [x] 9. **MDX Wave B2 — task docs:** `guides/` (Guide, EDS-009), `recipes/` (Recipe, EDS-019),
       `production/` (Production, EDS-022).
 - [ ] 10. **MDX Wave B3 — lookup + deep:** `reference/` (Reference, EDS-011 — **depends on §2**
       AutoTypeTable/Scalar) and `internals/` (Architecture, EDS-010 — **cross-links Track A's

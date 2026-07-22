@@ -3,6 +3,7 @@
   "description": "Task-oriented walkthroughs for routing, middleware, validation, testing, and more",
   "pages": [
     "index",
+    "hello-world",
     "rest-api",
     "class-based",
     "dev-tools",
@@ -11,10 +12,12 @@
     "validation",
     "custom-middleware",
     "mounting-and-grouping-routes",
+    "database",
+    "file-upload",
+    "authentication",
+    "websocket",
     "testing",
     "---",
-    "migration",
-    "deployment",
     "security"
   ]
 }

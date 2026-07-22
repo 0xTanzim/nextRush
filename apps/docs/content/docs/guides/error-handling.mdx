@@ -20,7 +20,17 @@ A NextRush application with:
 
 ## Installation
 
-<PackageInstall packages={['@nextrush/errors']} />
+<PackageInstall packages={['nextrush']} />
+
+<Callout type="info" title="Full error surface">
+  The classes and middleware used in this guide (`NotFoundError`, `BadRequestError`,
+  `ValidationError`, `errorHandler`, `notFoundHandler`, and friends) are re-exported by the
+  `nextrush` meta-package — no separate install needed. A few less-common exports
+  (`RequiredFieldError`, `TypeMismatchError`, the `badRequest`/`notFound`-style factory functions,
+  `getErrorStatus`, `getSafeErrorMessage`) are **not** re-exported by `nextrush` and are imported
+  directly from `@nextrush/errors` further down this guide — install it separately
+  (`pnpm add @nextrush/errors`) if you need those.
+</Callout>
 
 ## Error Class Hierarchy
 
@@ -76,7 +86,7 @@ Every `NextRushError` has these properties:
     Import typed error classes and throw them from your handlers. The error's status code, message, and details are carried through the middleware chain.
 
     ```typescript
-    import { NotFoundError, BadRequestError } from '@nextrush/errors';
+    import { NotFoundError, BadRequestError } from 'nextrush';
 
     router.get('/users/:id', async (ctx) => {
       const user = await db.users.findById(ctx.params.id);
@@ -109,9 +119,7 @@ Every `NextRushError` has these properties:
     The `errorHandler()` middleware catches thrown errors and formats them as JSON responses. Place it **first** in the middleware chain so it wraps all downstream middleware.
 
     ```typescript
-    import { createApp } from '@nextrush/core';
-    import { listen } from '@nextrush/adapter-node';
-    import { errorHandler } from '@nextrush/errors';
+    import { createApp, listen, errorHandler } from 'nextrush';
 
     const app = createApp();
 
@@ -228,8 +236,8 @@ Every `NextRushError` has these properties:
     `ValidationError` carries structured issue data. Each issue uses `path` (not `field`) to identify the problematic location:
 
     ```typescript
-    import { ValidationError } from '@nextrush/errors';
-    import type { ValidationIssue } from '@nextrush/errors';
+    import { ValidationError } from 'nextrush';
+    import type { ValidationIssue } from 'nextrush';
 
     router.post('/users', async (ctx) => {
       const data = ctx.body as Record<string, unknown>;
@@ -270,8 +278,12 @@ Every `NextRushError` has these properties:
 
     **Convenience constructors:**
 
+    `RequiredFieldError` and `TypeMismatchError` are not re-exported by the `nextrush`
+    meta-package — import them directly from `@nextrush/errors`:
+
     ```typescript
     import { RequiredFieldError, TypeMismatchError } from '@nextrush/errors';
+    import { ValidationError } from 'nextrush';
 
     // Single required field
     throw new RequiredFieldError('email');
@@ -293,7 +305,7 @@ Every `NextRushError` has these properties:
     The `notFoundHandler()` middleware catches requests that pass through all routes without a response. Place it **last** in the middleware chain.
 
     ```typescript
-    import { notFoundHandler } from '@nextrush/errors';
+    import { notFoundHandler } from 'nextrush';
 
     // After all routes and middleware
     app.use(notFoundHandler());
@@ -309,9 +321,12 @@ Every `NextRushError` has these properties:
 
 ## Factory Functions
 
-Create errors without `new`:
+Create errors without `new`. Only `createError` is re-exported by the `nextrush` meta-package —
+the per-status factory functions (`notFound`, `badRequest`, etc.) are imported from
+`@nextrush/errors` directly:
 
 ```typescript
+import { createError } from 'nextrush';
 import {
   badRequest,
   unauthorized,
@@ -325,7 +340,6 @@ import {
   badGateway,
   serviceUnavailable,
   gatewayTimeout,
-  createError,
 } from '@nextrush/errors';
 
 throw notFound('User not found');
@@ -338,7 +352,10 @@ throw createError(429, 'Slow down', { code: 'RATE_LIMITED' });
 ## Inspecting Errors
 
 ```typescript
-import { isHttpError, getErrorStatus, getSafeErrorMessage } from '@nextrush/errors';
+// isHttpError is re-exported by nextrush; getErrorStatus/getSafeErrorMessage are not —
+// import those directly from @nextrush/errors.
+import { isHttpError } from 'nextrush';
+import { getErrorStatus, getSafeErrorMessage } from '@nextrush/errors';
 
 try {
   await someOperation();

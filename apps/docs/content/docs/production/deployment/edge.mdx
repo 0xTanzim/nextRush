@@ -142,7 +142,7 @@ Unlike the long-running adapters, edge platforms enforce their own hard time lim
   title="FetchHandlerOptions"
   types={{
     onError: { type: '(error: Error, ctx: EdgeContext) => Response | Promise<Response>', description: 'Custom handler for uncaught errors.', optional: true },
-    timeout: { type: 'number', description: 'Request timeout in ms. Races the handler and returns 504 on expiry. No timeout is enforced when omitted.', optional: true },
+    timeout: { type: 'number', description: 'Request timeout in ms. Races the handler and returns 504 on expiry. Defaults to 25000 (DEFAULT_EDGE_TIMEOUT_MS); pass 0 to disable.', optional: true },
   }}
 />
 

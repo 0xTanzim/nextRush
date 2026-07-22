@@ -45,13 +45,19 @@ GET  /api/v1/admin/dashboard   (requires auth)
 
 <Mermaid
   chart="
-flowchart TB
-    app[Application] -->|mount /api/v1| api[api router]
-    api -->|mount /users| users[users router]
-    api -->|mount /posts| posts[posts router]
-    api -->|group /admin + auth| admin[admin routes]
-    style app fill:#3b82f6,stroke:#1d4ed8,color:#fff
-    style admin fill:#f59e0b,stroke:#d97706,color:#fff
+block-beta
+  columns 3
+  app[\"Application\"]:3
+  space:3
+  api[\"api router\\n(mount /api/v1)\"]:3
+  space:3
+  users[\"users router\\n(mount /users)\"] posts[\"posts router\\n(mount /posts)\"] admin[\"admin routes\\n(group /admin + auth)\"]
+  app --> api
+  api --> users
+  api --> posts
+  api --> admin
+  style app fill:#3b82f6,stroke:#1d4ed8,color:#fff
+  style admin fill:#f59e0b,stroke:#d97706,color:#fff
 "
 />
 
@@ -71,7 +77,7 @@ flowchart TB
 **Do:**
 
 ```ts title="routes/users.ts"
-import { createRouter } from '@nextrush/router';
+import { createRouter } from 'nextrush';
 
 export const usersRouter = createRouter();
 
@@ -92,7 +98,7 @@ usersRouter.post('/', (ctx) => {
 **Do:**
 
 ```ts title="routes/api.ts"
-import { createRouter } from '@nextrush/router';
+import { createRouter } from 'nextrush';
 
 const usersRouter = createRouter();
 usersRouter.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
@@ -114,8 +120,8 @@ apiRouter.mount('/posts', postsRouter); // → /posts/:id
 **Do:**
 
 ```ts title="routes/admin.ts"
-import { createRouter } from '@nextrush/router';
-import type { Middleware } from '@nextrush/types';
+import { createRouter } from 'nextrush';
+import type { Middleware } from 'nextrush';
 
 const requireAdmin: Middleware = async (ctx, next) => {
   if (ctx.get('authorization') !== 'Bearer admin-token') {
@@ -141,8 +147,7 @@ adminRouter.group('/admin', [requireAdmin], (admin) => {
 **Do:**
 
 ```ts title="server.ts"
-import { createApp, listen } from 'nextrush';
-import { createRouter } from '@nextrush/router';
+import { createApp, createRouter, listen } from 'nextrush';
 
 const apiRouter = createRouter();
 apiRouter.get('/health', (ctx) => ctx.json({ ok: true }));

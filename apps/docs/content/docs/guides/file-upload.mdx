@@ -26,7 +26,7 @@ Handles single and multiple file uploads in the same request.
 ```typescript title="src/upload.ts"
 import { createApp, createRouter, listen } from 'nextrush';
 import { multipart, DiskStorage } from '@nextrush/multipart';
-import { BadRequestError } from '@nextrush/errors';
+import { BadRequestError } from 'nextrush';
 import { readdir, stat, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { UploadedFile } from '@nextrush/multipart';

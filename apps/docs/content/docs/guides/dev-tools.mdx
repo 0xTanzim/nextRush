@@ -70,8 +70,8 @@ nextrush dev ./src/app.ts --port 4000 --inspect
     '--port, -p': { type: 'number', description: 'Server port', default: '8080' },
     '--watch, -w': {
       type: 'string',
-      description: 'Path to watch (replaces default; repeatable)',
-      default: 'src (or . if src/ missing)',
+      description: 'Additional path to watch (repeatable). With no explicit path, the dev server watches imported files automatically instead.',
+      optional: true,
     },
     '--inspect': { type: 'boolean', description: 'Enable Node.js inspector', default: 'false' },
     '--inspect-port': { type: 'number', description: 'Inspector port', default: '9229' },
@@ -81,6 +81,14 @@ nextrush dev ./src/app.ts --port 4000 --inspect
 />
 
 The port also respects the `PORT` environment variable when `--port` is not set.
+
+<Callout type="info" title="Watch strategy">
+  With no `--watch` flag, the dev server watches imported files automatically — the portable
+  default across Node.js, Bun, and Deno. Passing one or more explicit `--watch <path>` flags
+  switches Node.js to path-scoped watching (`--watch-path`); if that flag is unsupported on the
+  current platform/Node version, the dev server falls back to the automatic mode rather than
+  crashing. Bun does not support explicit watch paths and always watches imported files.
+</Callout>
 
 ## Build Options
 
@@ -104,6 +112,10 @@ nextrush build --outDir dist --minify --target es2022
       type: 'boolean',
       description: 'Disable decorator metadata emission',
     },
+    '--dts': { type: 'boolean', description: 'Generate .d.ts files', default: 'true' },
+    '--no-dts': { type: 'boolean', description: 'Disable .d.ts generation' },
+    '--cache': { type: 'boolean', description: 'Use incremental build cache', default: 'true' },
+    '--no-cache': { type: 'boolean', description: 'Disable build cache' },
     '--no-clean': { type: 'boolean', description: "Don't clean output directory before build" },
     '--verbose, -v': { type: 'boolean', description: 'Verbose output', default: 'false' },
   }}
@@ -144,7 +156,7 @@ The CLI loads settings from `nextrush.config.ts` or a `"nextrush"` field in `pac
 export default {
   dev: {
     port: 4000,
-    watch: ['src', 'config'],
+    watch: ['config'], // additional paths to watch, beyond the automatic imported-files mode
   },
   build: {
     outDir: 'dist',
@@ -173,7 +185,7 @@ You should see:
   Entry:    src/index.ts
   Port:     8080
   Local:    http://127.0.0.1:8080
-  Watching: src
+  Watching: imported files (auto)
 ```
 
 <Callout type="warn">
@@ -226,6 +238,6 @@ const runtime = detectRuntime(); // 'node' | 'bun' | 'deno'
   <Card
     title="Deployment"
     description="Deploy your application to production."
-    href="/docs/guides/deployment"
+    href="/docs/production/deployment"
   />
 </Cards>
