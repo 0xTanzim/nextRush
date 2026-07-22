@@ -2,8 +2,11 @@
  * @nextrush/websocket - Tests
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createServer, type Server } from 'node:http';
+import type { ExtensionContext } from '@nextrush/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MaxRoomsExceededError, RoomManager } from '../room-manager';
+import { WebSocketServer } from '../server';
 import type { WSConnection } from '../types';
 import {
     DEFAULT_MAX_ROOMS_PER_CONNECTION,
@@ -13,6 +16,11 @@ import {
     validateRoomName,
     WS_READY_STATE_OPEN,
 } from '../types';
+
+/** Minimal view of `WebSocketServer`'s private heartbeat timer, for observable-state assertions. */
+interface WithHeartbeatTimer {
+  heartbeatTimer: (NodeJS.Timeout & { hasRef?: () => boolean }) | null;
+}
 
 // Mock connection for testing
 function createMockConnection(id: string): WSConnection {
@@ -442,12 +450,112 @@ describe('WebSocketServer API', () => {
   });
 });
 
+describe('WebSocketServer heartbeat unref (F-04a, D4a)', () => {
+  let httpServer: Server;
+
+  beforeEach(() => {
+    httpServer = createServer();
+  });
+
+  afterEach(() => {
+    httpServer.close();
+  });
+
+  it('unrefs the heartbeat interval so it never keeps the event loop alive', async () => {
+    const wss = new WebSocketServer({ heartbeatInterval: 10 });
+
+    await wss.attach(httpServer);
+
+    const { heartbeatTimer } = wss as unknown as WithHeartbeatTimer;
+
+    expect(heartbeatTimer).not.toBeNull();
+    // Node's Timeout#hasRef() reports whether the handle is still keeping the
+    // event loop alive — false means unref() was called on it.
+    expect(heartbeatTimer?.hasRef?.()).toBe(false);
+
+    wss.close();
+  });
+
+  it('does not start a heartbeat timer when heartbeatInterval is disabled', async () => {
+    const wss = new WebSocketServer({ heartbeatInterval: 0 });
+
+    await wss.attach(httpServer);
+
+    const { heartbeatTimer } = wss as unknown as WithHeartbeatTimer;
+    expect(heartbeatTimer).toBeNull();
+
+    wss.close();
+  });
+});
+
+describe('createWebSocketExtension (F-04b, D4b)', () => {
+  let httpServer: Server;
+
+  beforeEach(() => {
+    httpServer = createServer();
+  });
+
+  afterEach(() => {
+    httpServer.close();
+  });
+
+  /** Minimal fake ExtensionContext capturing decorate() calls — same pattern as @nextrush/events. */
+  function fakeCtx() {
+    const decorate = vi.fn();
+    return { ctx: { decorate } as unknown as ExtensionContext, decorate };
+  }
+
+  it('decorates the app with the underlying WebSocketServer under `wss`', async () => {
+    const { createWebSocketExtension } = await import('../index');
+    const { ctx, decorate } = fakeCtx();
+
+    const ext = createWebSocketExtension();
+    expect(ext.name).toBe('websocket');
+
+    await ext.setup(ctx);
+
+    expect(decorate).toHaveBeenCalledWith('wss', expect.any(WebSocketServer));
+  });
+
+  it('destroy() calls the underlying WebSocketServer close(), clearing the heartbeat', async () => {
+    const { createWebSocketExtension } = await import('../index');
+    const { ctx, decorate } = fakeCtx();
+
+    const ext = createWebSocketExtension({ heartbeatInterval: 10 });
+    await ext.setup(ctx);
+
+    const wss = decorate.mock.calls[0]![1] as WebSocketServer;
+    await wss.attach(httpServer);
+
+    const closeSpy = vi.spyOn(wss, 'close');
+    const { heartbeatTimer } = wss as unknown as WithHeartbeatTimer;
+    expect(heartbeatTimer).not.toBeNull();
+
+    await ext.destroy?.();
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    // close() nulls out the private heartbeat timer field it cleared.
+    expect((wss as unknown as WithHeartbeatTimer).heartbeatTimer).toBeNull();
+  });
+
+  it('createWebSocket() (the existing factory) remains unchanged — still returns a plain WebSocketServer', async () => {
+    const { createWebSocket } = await import('../index');
+    const wss = createWebSocket();
+
+    expect(wss).toBeInstanceOf(WebSocketServer);
+    // Plain factory output is not an Extension — no `setup`/`destroy`/`name` contract.
+    expect((wss as unknown as { setup?: unknown }).setup).toBeUndefined();
+    expect((wss as unknown as { name?: unknown }).name).toBeUndefined();
+  });
+});
+
 describe('Exports', () => {
   it('should export all required types and classes', async () => {
     const exports = await import('../index');
 
     // Factory functions
     expect(typeof exports.createWebSocket).toBe('function');
+    expect(typeof exports.createWebSocketExtension).toBe('function');
 
     // Classes
     expect(exports.WebSocketServer).toBeDefined();

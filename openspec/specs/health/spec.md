@@ -56,3 +56,25 @@ code dependency between the two packages.
 - **WHEN** `@nextrush/health` is installed and used without `serve()`'s `gracefulShutdown` option
 - **THEN** `/livez` and `/readyz` function correctly using only whatever checks the user
   registered, with no error or missing dependency related to the shutdown feature
+
+### Requirement: A timed-out readiness check receives a cancellation signal
+When a registered readiness check exceeds `checkTimeoutMs`, `@nextrush/health` SHALL abort an
+`AbortSignal` passed to that check, so a cooperative check can cancel its in-flight work instead of
+leaking an orphaned operation on every probe. The check MUST still be treated as a failure on
+timeout. The signal parameter SHALL be optional so existing checks that ignore it keep working
+unchanged.
+
+#### Scenario: A hung cooperative check is aborted on timeout
+- **WHEN** a registered check reads the `AbortSignal` it is given and exceeds `checkTimeoutMs`
+- **THEN** that signal is aborted at the timeout, allowing the check to cancel its in-flight work,
+  and `/readyz` still reports the check as a failure
+
+#### Scenario: Existing signalless checks keep working
+- **WHEN** a registered check ignores the signal argument (the pre-existing shape)
+- **THEN** it continues to function, and a timeout is still treated as a failure with the endpoint
+  responding within the bounded time
+
+#### Scenario: The abort does not leak across probes
+- **WHEN** successive `/readyz` probes run the same check
+- **THEN** each invocation receives its own signal, and a timed-out invocation's abort does not
+  affect a later invocation

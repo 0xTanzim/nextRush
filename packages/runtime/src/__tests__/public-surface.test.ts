@@ -86,6 +86,7 @@ describe('Public API surface (runtime exports)', () => {
 
       // Request signal
       'combineAbortSignal',
+      'deriveDeadlineSignal',
 
       // Server startup errors
       'normalizeStartupError',
@@ -104,6 +105,7 @@ describe('Public API surface (runtime exports)', () => {
       'AbstractBodySource',
       'BodyConsumedError',
       'BodyTooLargeError',
+      'RequestAbortedError',
       'DEFAULT_BODY_LIMIT',
       'EmptyBodySource',
       'WebBodySource',

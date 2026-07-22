@@ -25,9 +25,17 @@ import type { Middleware } from '@nextrush/types';
  * that never settles is bounded by `checkTimeoutMs` and treated as failing
  * once that bound is exceeded (design.md Risks: hung-check mitigation).
  *
+ * Receives an optional `AbortSignal`, aborted the moment `checkTimeoutMs`
+ * elapses (design.md D7, F-08). A cooperative check can read it to cancel
+ * its own in-flight work instead of leaking it after the timeout has
+ * already counted the check as failed. The parameter is additive — an
+ * existing check that ignores it keeps working exactly as before.
+ *
+ * @param signal - Aborted when the check's timeout fires. Each invocation
+ *   gets its own fresh signal; never shared across checks or calls.
  * @returns `true` if the dependency is healthy, `false` otherwise.
  */
-export type CheckFn = () => boolean | Promise<boolean>;
+export type CheckFn = (signal?: AbortSignal) => boolean | Promise<boolean>;
 
 // ============================================================================
 // Options

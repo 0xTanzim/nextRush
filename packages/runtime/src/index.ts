@@ -95,7 +95,7 @@ export type { ClientIpOptions, HeaderLookup } from './headers';
 // Request Signal (timeout ↔ ctx.signal combiner)
 // ============================================================================
 
-export { combineAbortSignal } from './request-signal';
+export { combineAbortSignal, deriveDeadlineSignal } from './request-signal';
 export type { CombinedAbort } from './request-signal';
 
 // ============================================================================
@@ -126,6 +126,7 @@ export {
   AbstractBodySource,
   BodyConsumedError,
   BodyTooLargeError,
+  RequestAbortedError,
   DEFAULT_BODY_LIMIT,
   EmptyBodySource,
   WebBodySource,

@@ -123,10 +123,25 @@ export function registerLifecycleExtension(
       }
     },
     async destroy(): Promise<void> {
+      // Isolated, per-hook teardown (F-03 / RFC-022 D2): a throwing onShutdown()
+      // must not strand every later service's teardown. Mirrors the app-level
+      // Promise.allSettled isolation across extensions — this loop previously
+      // had none, so one throw aborted every subsequent hook in reverse order.
+      const errors: unknown[] = [];
       for (const instance of [...instances].reverse()) {
         if (isOnShutdown(instance)) {
-          await instance.onShutdown();
+          try {
+            await instance.onShutdown();
+          } catch (err) {
+            errors.push(err);
+          }
         }
+      }
+      if (errors.length > 0) {
+        throw new AggregateError(
+          errors,
+          `${String(errors.length)} onShutdown() hook(s) failed`
+        );
       }
     },
   });

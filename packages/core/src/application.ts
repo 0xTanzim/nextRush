@@ -28,6 +28,78 @@ import { createPrefixMount } from './route-mount';
  */
 export type ErrorHandler = (error: Error, ctx: Context) => void | Promise<void>;
 
+/**
+ * Options for {@link Application.close}.
+ *
+ * @see RFC-022 (`docs/RFC/class-runtime/022-bounded-teardown-lifecycle.md`) / ADR-0012.
+ */
+export interface CloseOptions {
+  /**
+   * Bound, in milliseconds, on total teardown time. Every teardown unit
+   * (extension `destroy()`) races against this budget independently — a
+   * unit that does not finish in time is reported as a {@link TeardownTimeoutError}
+   * in the returned array, and never blocks `close()` past the budget.
+   *
+   * @remarks Omitted = unbounded, identical to calling `close()` with no
+   * arguments today (`Promise.allSettled`, no timeout).
+   */
+  timeout?: number;
+}
+
+/**
+ * Reported when a teardown unit (extension `destroy()`) does not settle
+ * within the budget passed to {@link Application.close}. Named by the unit
+ * so operators can see exactly which extension leaked past the shutdown
+ * window (RFC-022 §8.5).
+ */
+export class TeardownTimeoutError extends Error {
+  constructor(unitName: string, timeoutMs: number) {
+    super(`Teardown unit "${unitName}" did not complete within ${String(timeoutMs)}ms`);
+    this.name = 'TeardownTimeoutError';
+  }
+}
+
+/**
+ * One named, independently-runnable teardown unit — the uniform shape shared
+ * by extension `destroy()`, class `onShutdown()` (bridged externally), and
+ * `onClose` hooks (RFC-022 §7.3: "teardown becomes a flat list of
+ * independently-isolated, budget-raced units").
+ */
+interface TeardownUnit {
+  readonly name: string;
+  run(): void | Promise<void>;
+}
+
+/**
+ * Run one teardown unit, isolated from every other unit's failure, optionally
+ * racing it against `timeoutMs`. Resolves to `null` on success or an `Error`
+ * describing the failure/timeout — never throws and never leaves the caller
+ * waiting past the budget.
+ */
+async function runTeardownUnit(unit: TeardownUnit, timeoutMs?: number): Promise<Error | null> {
+  const settle = Promise.resolve()
+    .then(() => unit.run())
+    .then((): Error | null => null)
+    .catch((err: unknown): Error => (err instanceof Error ? err : new Error(String(err))));
+
+  if (timeoutMs === undefined) {
+    return settle;
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<Error>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(new TeardownTimeoutError(unit.name, timeoutMs));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([settle, timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** No-op logger — default when no logger is configured */
 const NOOP_LOGGER: Logger = {
   error(..._args) {
@@ -126,6 +198,19 @@ export class Application {
   /** Registered extension names — enforces uniqueness */
   private readonly extensionNames = new Set<string>();
 
+  /**
+   * Combined teardown-unit registration order: extension `destroy()`s and
+   * {@link onClose} hooks interleaved in the exact order they were registered,
+   * so `_shutdown()` can run the whole set in one reverse-of-registration pass
+   * (RFC-022 §7.3 — "teardown becomes a flat list of independently-isolated,
+   * budget-raced units"). Populated lazily by {@link extend} (for extensions
+   * declaring `destroy()`) and {@link onClose}.
+   */
+  private readonly teardownUnits: TeardownUnit[] = [];
+
+  /** Whether {@link close} has started — {@link onClose} is a pre-shutdown-only registration point (RFC-022 §8.6). */
+  private _closeStarted = false;
+
   /** Names decorated onto the app — enforces collision detection */
   private readonly decorations = new Set<string>();
 
@@ -177,6 +262,16 @@ export class Application {
   /** Check if app is running */
   get isRunning(): boolean {
     return this._isRunning;
+  }
+
+  /**
+   * Whether a graceful shutdown is currently in progress — `true` from the
+   * moment {@link close} begins tearing down until it completes (F-12:
+   * shutdown observability, RFC-022). A readiness check or operator tooling
+   * can read this to reflect an in-progress drain.
+   */
+  get isDraining(): boolean {
+    return this._closeStarted;
   }
 
   /** Check if app has been booted via ready() */
@@ -383,6 +478,15 @@ export class Application {
     }
     this.extensionNames.add(extension.name);
     this.extensions.push(extension);
+    if (typeof extension.destroy === 'function') {
+      const destroyableExtension = extension as Extension<TDecorated> & {
+        destroy: () => void | Promise<void>;
+      };
+      this.teardownUnits.push({
+        name: extension.name,
+        run: () => destroyableExtension.destroy(),
+      });
+    }
     return this as this & TDecorated;
   }
 
@@ -598,21 +702,58 @@ export class Application {
   }
 
   /**
-   * Graceful shutdown. Destroys extensions in reverse registration order using
-   * `Promise.allSettled` so one failing `destroy()` never strands the others.
+   * Register a teardown hook for a resource outside the extension system
+   * (stateful middleware, a manually-attached service, …). Run during
+   * {@link close} under the SAME bounded/isolated guarantee as extension
+   * `destroy()` — one throwing/hanging hook never strands the others — in one
+   * combined reverse-of-registration order together with every `extend()`ed
+   * extension's `destroy()` (RFC-022 §8.1/§8.2).
    *
-   * @returns Array of errors from extensions that failed to destroy (empty on success)
+   * @param hook - Teardown callback. May be sync or async; a thrown/rejected
+   * hook is isolated and its error collected in {@link close}'s returned array.
+   *
+   * @remarks Registration is pre-shutdown only: a hook registered after
+   * `close()` has already started is not run in that shutdown (RFC-022 §8.6).
+   *
+   * @example
+   * ```typescript
+   * const store = new MemoryStore(options);
+   * app.onClose(() => store.shutdown());
+   * ```
    */
-  async close(): Promise<Error[]> {
+  onClose(hook: () => void | Promise<void>): void {
+    if (this._closeStarted) {
+      return;
+    }
+    this.teardownUnits.push({ name: 'onClose hook', run: hook });
+  }
+
+  /**
+   * Graceful shutdown. Destroys extensions in reverse registration order,
+   * each isolated from the others' failures — one failing/hanging `destroy()`
+   * never strands the rest (RFC-022 / ADR-0012).
+   *
+   * @param options - Optional teardown budget. Omitted = unbounded, byte-identical
+   * to today's behavior (`Promise.allSettled`, no timeout). When `timeout` is
+   * given, every teardown unit races against it independently; a unit that
+   * does not finish in time is reported as a {@link TeardownTimeoutError} in
+   * the returned array instead of blocking `close()` past the budget.
+   * @returns Array of errors from units that failed or timed out (empty on success)
+   */
+  async close(options?: CloseOptions): Promise<Error[]> {
     // Memoize the in-flight shutdown so concurrent close() calls (e.g. two
     // signal handlers) destroy each extension exactly once (H-3).
-    this._closePromise ??= this._shutdown();
+    this._closePromise ??= this._shutdown(options);
     return this._closePromise;
   }
 
   /** Run the shutdown sequence once. Guarded and memoized by {@link close}. */
-  private async _shutdown(): Promise<Error[]> {
+  private async _shutdown(options?: CloseOptions): Promise<Error[]> {
     this._isRunning = false;
+    this._closeStarted = true;
+    // F-12: surface the draining transition so operators/readiness checks can
+    // observe an in-progress shutdown instead of it being a silent black box.
+    this.logger.info('Application is draining: graceful shutdown starting');
 
     if (!this._isReady && this.extensions.length > 0) {
       this.logger.warn(
@@ -623,21 +764,23 @@ export class Application {
       );
     }
 
-    const reversed = [...this.extensions].reverse();
-    const destroyable = reversed.filter(
-      (e): e is Extension & { destroy: () => void | Promise<void> } =>
-        typeof e.destroy === 'function'
-    );
+    const timeoutMs = options?.timeout;
+    // Reverse of registration order across BOTH extension destroy() calls and
+    // onClose hooks — one uniform, combined teardown-unit list (RFC-022 §7.3),
+    // so a hook registered between two extend() calls runs at the correct
+    // point in the reversed sequence, not as a separate pass.
+    const units = [...this.teardownUnits].reverse();
 
-    const results = await Promise.allSettled(
-      destroyable.map((e) =>
-        Promise.resolve()
-          .then(() => e.destroy())
-          .catch((err: unknown) => {
-            throw err instanceof Error ? err : new Error(String(err));
-          })
-      )
-    );
+    const errors = (
+      await Promise.all(units.map((unit) => runTeardownUnit(unit, timeoutMs)))
+    ).filter((e): e is Error => e !== null);
+
+    // F-12: report the teardown outcome at completion — which unit(s) failed
+    // or timed out — rather than exiting silently. TeardownTimeoutError's own
+    // message already names the offending unit (§8.5).
+    for (const error of errors) {
+      this.logger.error('Teardown unit failed during shutdown:', error);
+    }
 
     // Clean up decorations so the instance can be re-booted (e.g. in tests)
     for (const name of this.decorations) {
@@ -646,11 +789,13 @@ export class Application {
     this.decorations.clear();
     this.extensions.length = 0;
     this.extensionNames.clear();
+    this.teardownUnits.length = 0;
     this._isReady = false;
     // Reset the boot/shutdown memos so the instance can be cleanly re-booted
     // (re-boot in tests / hot reload) — a fresh ready()/close() must re-run.
     this._readyPromise = null;
     this._closePromise = null;
+    this._closeStarted = false;
 
     // Undo the router mount that ready() appended, so a subsequent ready()
     // (re-boot in tests / hot reload) does not stack a second router (audit C-2).
@@ -659,9 +804,7 @@ export class Application {
       this._routerMounted = false;
     }
 
-    return results
-      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-      .map((r) => (r.reason instanceof Error ? r.reason : new Error(String(r.reason))));
+    return errors;
   }
 }
 

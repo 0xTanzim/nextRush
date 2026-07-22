@@ -197,6 +197,65 @@ describe('MemoryStore', () => {
   });
 });
 
+describe('rateLimit app.onClose wiring (N10, F-07)', () => {
+  /** Minimal fake of the structural onClose host `rateLimit()` accepts. */
+  function createFakeApp(): { onClose: (hook: () => void | Promise<void>) => void; runClose: () => Promise<void> } {
+    const hooks: Array<() => void | Promise<void>> = [];
+    return {
+      onClose(hook) {
+        hooks.push(hook);
+      },
+      async runClose() {
+        for (const hook of hooks) {
+          await hook();
+        }
+      },
+    };
+  }
+
+  it('registers the default MemoryStore cleanup interval via app.onClose when app is provided', async () => {
+    const app = createFakeApp();
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+
+    const middleware = rateLimit({ max: 10, window: '1m', app });
+
+    // Simulate app.close(): the registered hook must clear the store's interval.
+    await app.runClose();
+
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    clearIntervalSpy.mockRestore();
+    // shutdown() was already invoked via the onClose hook; a second call must
+    // remain a safe no-op (MemoryStore.shutdown() is idempotent).
+    await middleware.shutdown();
+  });
+
+  it('does not register anything when app is omitted (backward compatible)', async () => {
+    // No `app` passed — must behave exactly as before: no onClose call site
+    // exists, and the store's own unref'd interval is the only cleanup path.
+    const middleware = rateLimit({ max: 10, window: '1m' });
+    const ctx = createMockContext();
+
+    await middleware(ctx);
+
+    await middleware.shutdown();
+  });
+
+  it('does not register cleanup via app.onClose when a custom store is supplied', async () => {
+    const app = createFakeApp();
+    const onCloseSpy = vi.spyOn(app, 'onClose');
+    const customStore = createMemoryStore({ disableCleanup: true });
+
+    const middleware = rateLimit({ max: 10, window: '1m', app, store: customStore });
+
+    // Custom stores are caller-owned; rateLimit() must not silently take over
+    // their lifecycle just because `app` was passed.
+    expect(onCloseSpy).not.toHaveBeenCalled();
+
+    await middleware.shutdown();
+  });
+});
+
 describe('Algorithms', () => {
   let store: ReturnType<typeof createMemoryStore>;
 

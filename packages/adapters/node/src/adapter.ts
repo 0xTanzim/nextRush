@@ -193,7 +193,13 @@ export function createHandler(
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
           res.end(JSON.stringify({ error: 'Not Found' }));
         } else {
+          // F-09: a handler that resolves without responding (and without
+          // throwing) must still carry an explicit Content-Type — a bare
+          // status with no header violates project-rules §3 ("every response
+          // sets a Content-Type"). text/plain is the honest default: there is
+          // no body to type more specifically.
           res.statusCode = ctx.status;
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
           res.end();
         }
       }
@@ -261,13 +267,42 @@ export function createHandler(
 }
 
 /**
+ * Mutable drain-state flag shared between the request listener and
+ * {@link drainAndClose}. A plain object (not a module-level variable) so each
+ * {@link serve} call gets its own independent flag — required for the
+ * repeated `serve()`/`close()` cycles the graceful-shutdown suite already
+ * exercises in a single process (no cross-instance leakage).
+ */
+interface DrainState {
+  /** `true` from the moment a drain begins until teardown completes. */
+  draining: boolean;
+}
+
+/**
  * The ONE connection-drain implementation: stop accepting new connections, force-close
  * if they don't drain within `shutdownTimeout`, then destroy app extensions. Both the
  * manually-called `close()` and the signal-triggered path (via
  * {@link buildCloseWithGracefulShutdown}) invoke this exact function — there is
  * deliberately no second drain implementation for the signal path (T010 1.8).
+ *
+ * F-05: releases idle keep-alive connections at the START of the drain via the
+ * explicit `server.closeIdleConnections()` call below, rather than relying on
+ * `server.close()`'s own (Node-version-dependent) idle-connection handling. Flips
+ * {@link DrainState.draining} first so any response that completes for a request
+ * already in flight advertises `Connection: close` (set in the wrapped handler
+ * installed by {@link serve}) — the idle-connections call only releases sockets with
+ * NO in-flight request, so an active connection finishing its response during the
+ * drain needs this separate signal to tell the client not to reuse the socket.
  */
-async function drainAndClose(server: Server, app: Application, shutdownTimeout: number): Promise<void> {
+async function drainAndClose(
+  server: Server,
+  app: Application,
+  shutdownTimeout: number,
+  drainState: DrainState
+): Promise<void> {
+  drainState.draining = true;
+  server.closeIdleConnections();
+
   // 1. Stop accepting new connections with drain timeout
   await new Promise<void>((res) => {
     const forceTimer = setTimeout(() => {
@@ -281,8 +316,10 @@ async function drainAndClose(server: Server, app: Application, shutdownTimeout: 
       res();
     });
   });
-  // 2. Destroy extensions after server is fully drained
-  await app.close();
+  // 2. Destroy extensions after server is fully drained. Bound teardown by the
+  // same shutdownTimeout budget so a hung extension destroy() cannot outlast
+  // the drain (F-02, D1, RFC-022/ADR-0012).
+  await app.close({ timeout: shutdownTimeout });
 }
 
 /**
@@ -303,11 +340,12 @@ function buildCloseWithGracefulShutdown(params: {
   app: Application;
   shutdownTimeout: number;
   gracefulShutdown: ServeOptions['gracefulShutdown'];
+  drainState: DrainState;
 }): () => Promise<void> {
-  const { server, app, shutdownTimeout, gracefulShutdown } = params;
+  const { server, app, shutdownTimeout, gracefulShutdown, drainState } = params;
 
   if (!gracefulShutdown) {
-    return () => drainAndClose(server, app, shutdownTimeout);
+    return () => drainAndClose(server, app, shutdownTimeout, drainState);
   }
 
   const config = gracefulShutdown === true ? {} : gracefulShutdown;
@@ -326,7 +364,9 @@ function buildCloseWithGracefulShutdown(params: {
   };
 
   const runClose = (): Promise<void> => {
-    drainPromise ??= drainAndClose(server, app, effectiveTimeout).finally(removeSignalHandlers);
+    drainPromise ??= drainAndClose(server, app, effectiveTimeout, drainState).finally(
+      removeSignalHandlers
+    );
     return drainPromise;
   };
 
@@ -380,7 +420,36 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   await app.ready();
 
   const handler = createHandler(app, { logger, timeout });
-  const server = createServer(handler);
+
+  // F-05: a response that completes WHILE a drain is in progress advertises
+  // `Connection: close`, so the client (and any intermediary) knows not to
+  // reuse this socket — `server.closeIdleConnections()` (called at drain
+  // start in `drainAndClose`) only releases sockets with NO in-flight
+  // request; it does not touch a socket that is actively finishing one. The
+  // wrapped handler below intercepts `res.writeHead` per-request so this is
+  // decided at RESPONSE time (a request already in flight when the drain
+  // begins must still see it), not at request-arrival time.
+  // `createHandler`'s own signature/`HandlerOptions` (a cross-adapter shared
+  // type in `@nextrush/types`) is untouched — this wraps its output.
+  const drainState: DrainState = { draining: false };
+  const wrappedHandler = (req: IncomingMessage, res: ServerResponse): void => {
+    // F-05: checked lazily, at the moment headers are actually about to be
+    // sent — not once at request-arrival time — because a request already
+    // in flight when the drain begins must still pick up `Connection: close`
+    // on ITS eventual response. `res.writeHead` covers every response path
+    // in this adapter (`ctx.json`, `ctx.send`, streaming) since they all
+    // call it before `res.end`; wrapping only `writeHead` (not `end`) avoids
+    // double-invoking user response logic and needs no `context.ts` change.
+    const originalWriteHead = res.writeHead.bind(res);
+    res.writeHead = ((...args: Parameters<ServerResponse['writeHead']>) => {
+      if (drainState.draining && !res.headersSent) {
+        res.setHeader('Connection', 'close');
+      }
+      return originalWriteHead(...args);
+    }) as ServerResponse['writeHead'];
+    handler(req, res);
+  };
+  const server = createServer(wrappedHandler);
 
   // Configure timeouts. F-04/ADR-0010: server.timeout is the independent
   // socket-level slow-client/slow-loris guard; createHandler's own handler-race
@@ -431,6 +500,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
           app,
           shutdownTimeout,
           gracefulShutdown,
+          drainState,
         }),
       });
     });

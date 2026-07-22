@@ -33,11 +33,17 @@
  * wss.attach(server);
  * ```
  *
+ * For most apps, prefer {@link createWebSocketExtension} instead — it wires
+ * disposal into `app.close()` automatically (F-04b). Use the manual
+ * `createWebSocket()` factory above only when you need to attach to a server
+ * that isn't a NextRush `Application`, or want full manual lifecycle control.
+ *
  * @packageDocumentation
  */
 
 import { WebSocketServer } from './server';
 import type { WebSocketOptions } from './types';
+import type { Extension, ExtensionContext } from '@nextrush/types';
 
 /**
  * Create a WebSocket server instance
@@ -77,6 +83,52 @@ import type { WebSocketOptions } from './types';
  */
 export function createWebSocket(options: WebSocketOptions = {}): WebSocketServer {
   return new WebSocketServer(options);
+}
+
+/**
+ * Create a WebSocket server as a NextRush {@link Extension} — the recommended
+ * default (F-04b, D4b). Registering it with `app.extend()` decorates `app.wss`
+ * and wires `wss.close()` into `app.close()`'s bounded/isolated teardown, so a
+ * missed manual disposal can never leak the heartbeat timer or open sockets.
+ *
+ * The plain `createWebSocket()` factory is unchanged and still the right
+ * choice for manual attach/lifecycle control (e.g. attaching to a server not
+ * owned by a NextRush `Application`).
+ *
+ * @example
+ * ```typescript
+ * import { createApp } from '@nextrush/core';
+ * import { listen } from '@nextrush/adapter-node';
+ * import { createWebSocketExtension } from '@nextrush/websocket';
+ *
+ * const app = createApp().extend(createWebSocketExtension());
+ * await app.ready();
+ *
+ * app.wss.on('/chat', (conn) => {
+ *   conn.on('message', (msg) => conn.broadcast('general', msg));
+ * });
+ *
+ * const { server } = await listen(app, 8080);
+ * await app.wss.attach(server);
+ *
+ * // app.close() now also calls app.wss.close() — heartbeat cleared,
+ * // connections closed, underlying `ws` server closed.
+ * ```
+ */
+export function createWebSocketExtension(
+  options?: WebSocketOptions
+): Extension<{ wss: WebSocketServer }> {
+  const wss = new WebSocketServer(options);
+
+  return {
+    name: 'websocket',
+    setup(ctx: ExtensionContext): void {
+      ctx.decorate('wss', wss);
+    },
+    destroy(): void {
+      wss.close();
+    },
+  };
 }
 
 // Re-export types

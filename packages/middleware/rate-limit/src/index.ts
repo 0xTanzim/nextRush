@@ -90,6 +90,7 @@ import { validateOptions, validateTieredOptions } from './validation';
 export type {
   Algorithm,
   KeyGenerator,
+  OnCloseHost,
   OnRateLimited,
   RateLimitAlgorithm,
   RateLimitHandler,
@@ -234,12 +235,21 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
 
   const windowMs = parseWindow(config.window);
   const algorithm = getAlgorithm(config.algorithm);
+  const usingDefaultStore = config.store === undefined;
   const store =
     config.store ??
     createMemoryStore({
       cleanupInterval: config.cleanupInterval,
       disableCleanup: config.disableCleanup,
     });
+
+  // N10 / F-07 wiring: when the caller passes `app` and did not supply their
+  // own store, register the default MemoryStore's cleanup interval via
+  // app.onClose so app.close() deterministically clears it (RFC-022 §7.3).
+  // A caller-supplied store's lifecycle stays the caller's responsibility.
+  if (options.app && usingDefaultStore) {
+    options.app.onClose(() => store.shutdown?.());
+  }
 
   const keyGenerator =
     config.keyGenerator ??

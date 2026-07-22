@@ -259,7 +259,9 @@ async function drainAndClose(
     server.shutdown(),
     new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeout)),
   ]);
-  await app.close();
+  // Bound teardown by the same shutdownTimeout budget so a hung extension
+  // destroy() cannot outlast the drain (F-02, D1, RFC-022/ADR-0012).
+  await app.close({ timeout: shutdownTimeout });
 }
 
 /**

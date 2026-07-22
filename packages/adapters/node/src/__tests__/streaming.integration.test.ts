@@ -10,6 +10,7 @@
  */
 
 import { createServer, type Server } from 'node:http';
+import { connect, type Socket } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NodeContext } from '../context';
@@ -127,5 +128,112 @@ describe('Node streaming integration', () => {
     // Give the server loop a moment to observe the socket close.
     await new Promise((r) => setTimeout(r, 100));
     expect(observedAbort).toBe(true);
+  });
+
+  describe('backpressured disconnect (F-01)', () => {
+    /**
+     * Opens a raw TCP socket to the running server, sends a minimal HTTP/1.1
+     * request, and never reads the response — so the socket's OS receive
+     * buffer plus Node's internal write buffer fill up and `res.write()`
+     * starts returning `false` (backpressure) once the handler writes enough
+     * bytes. Returns the socket so the test can `destroy()` it mid-stream.
+     */
+    function openStalledClient(path = '/'): Promise<Socket> {
+      const { port } = server.address() as AddressInfo;
+      return new Promise((resolve, reject) => {
+        const socket = connect({ port, host: '127.0.0.1' }, () => {
+          socket.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: keep-alive\r\n\r\n`);
+          resolve(socket);
+        });
+        socket.on('error', reject);
+        // Never call socket.resume()/on('data') — leave the buffer un-drained
+        // so the socket fills and the server's res.write() backs up.
+        socket.pause();
+      });
+    }
+
+    it('settles the handler promise quickly when the client disconnects while parked on drain', async () => {
+      let finallyRan = false;
+      let settleMs = -1;
+      const start = Date.now();
+
+      await serve(async (ctx) => {
+        try {
+          await ctx.sse(async (writer) => {
+            // Feed chunks continuously with no exit condition of its own —
+            // the ONLY way this loop ends is the abort signal firing while
+            // parked on backpressure (StreamController re-checks the signal
+            // after a pull-wait), or the enclosing sendStream pump rejecting.
+            // A bounded-iteration or `writer.aborted`-gated loop would let the
+            // test pass by racing the disconnect away instead of proving the
+            // drain-wait itself unblocks.
+            const chunk = 'x'.repeat(64 * 1024);
+            for (;;) {
+              await writer.write({ data: chunk });
+            }
+          });
+        } finally {
+          finallyRan = true;
+          settleMs = Date.now() - start;
+        }
+      });
+
+      const socket = await openStalledClient();
+      // Give the pump a moment to actually hit backpressure (res.write() === false)
+      // and park on 'drain' before yanking the connection out from under it.
+      await new Promise((r) => setTimeout(r, 80));
+      socket.destroy();
+
+      // Poll for the finally to run instead of a single fixed sleep, so the
+      // assertion is about settle latency, not test-timing luck.
+      const deadline = Date.now() + 2000;
+      while (!finallyRan && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 10));
+      }
+
+      expect(finallyRan).toBe(true);
+      // "Milliseconds, not hang" per the done predicate — generous bound to
+      // absorb CI jitter while still failing fast on an actual indefinite hang.
+      expect(settleMs).toBeGreaterThanOrEqual(0);
+      expect(settleMs).toBeLessThan(1000);
+    });
+
+    it('settles sendStream() directly (Web ReadableStream branch) on client disconnect while parked on drain', async () => {
+      let settled = false;
+      let settleMs = -1;
+      const start = Date.now();
+
+      await serve(async (ctx) => {
+        const chunk = new TextEncoder().encode('x'.repeat(64 * 1024));
+        const readable = new ReadableStream<Uint8Array>({
+          pull(controller) {
+            // Feed unconditionally, forever — same rationale as above: no
+            // self-terminating condition, so settling depends entirely on the
+            // adapter's drain-wait observing the disconnect.
+            controller.enqueue(chunk);
+          },
+        });
+        try {
+          await ctx.sendStream(readable);
+        } catch {
+          // Expected on disconnect — the assertion is about settle time.
+        } finally {
+          settled = true;
+          settleMs = Date.now() - start;
+        }
+      });
+
+      const socket = await openStalledClient();
+      await new Promise((r) => setTimeout(r, 80));
+      socket.destroy();
+
+      const deadline = Date.now() + 2000;
+      while (!settled && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 10));
+      }
+
+      expect(settled).toBe(true);
+      expect(settleMs).toBeLessThan(1000);
+    });
   });
 });

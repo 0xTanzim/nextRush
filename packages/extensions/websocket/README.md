@@ -12,7 +12,7 @@
 |  |  |
 | --- | --- |
 | **Purpose** | A route-and-room-oriented WebSocket server, built on the `ws` library, for real-time features (chat, notifications, live updates) in a NextRush app |
-| **Package type** | Extension (by package location) -- structurally a factory + Middleware pair, not a NextRush `Extension` (see [Why not an Extension](#why-not-an-extension)) |
+| **Package type** | Extension (by package location) -- offers both a NextRush `Extension` (`createWebSocketExtension()`, recommended) and a manual factory + Middleware pair (`createWebSocket()`) -- see [Two integration shapes](#two-integration-shapes-extension-recommended-vs-manual-factory) |
 | **Status** | Stable |
 | **Included in `nextrush`?** | No -- standalone install. Not re-exported from `nextrush` or `nextrush/class`. |
 | **Support tier** | Public -- extensions (stable) -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
@@ -97,6 +97,38 @@ pnpm add @nextrush/websocket ws
 
 ## Quick start
 
+**Recommended: the Extension form.** `createWebSocketExtension()` decorates `app.wss` and wires
+`wss.close()` into `app.close()`'s teardown automatically (F-04b) — a missed manual disposal can
+never leak the heartbeat timer or leave sockets open after shutdown.
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { createWebSocketExtension } from '@nextrush/websocket';
+
+const app = createApp().extend(createWebSocketExtension());
+await app.ready();
+
+app.wss.on('/chat', (conn) => {
+  conn.join('general');
+  conn.on('message', (msg) => conn.broadcast('general', msg));
+  conn.on('close', () => console.log(`${conn.id} disconnected`));
+});
+
+app.use(app.wss.upgrade());
+
+const { server } = await listen(app, 8080);
+await app.wss.attach(server);
+
+// app.close() now also calls app.wss.close() -- heartbeat cleared, connections
+// closed, underlying `ws` server closed. No separate wss.close() call needed.
+```
+
+`app.use(app.wss.upgrade())` and `app.wss.attach(server)` still do the same two separate jobs
+described below -- the Extension form only changes *disposal*, not the upgrade-wiring contract.
+
+**Manual form** -- for attaching to a server that isn't a NextRush `Application`, or when you
+want full manual lifecycle control (including calling `wss.close()` yourself):
+
 ```ts
 import { createApp, listen } from 'nextrush';
 import { createWebSocket } from '@nextrush/websocket';
@@ -119,7 +151,7 @@ wss.attach(server);
 Two separate calls do two separate jobs: `app.use(wss.upgrade())` registers a passthrough
 Middleware so `app.use()` accepts it; `wss.attach(server)` is what actually wires the real
 `'upgrade'` event listener onto the raw `node:http` `Server` returned by `listen()`. Neither call
-does the other's job -- both are required.
+does the other's job -- both are required, in either form above.
 
 ## Capabilities
 
@@ -222,8 +254,9 @@ The sealed public surface (ADR-0005).
 
 | Export | Signature | Since | Stability | Description |
 | ------ | --------- | ----- | --------- | ----------- |
-| `createWebSocket` | `(options?: WebSocketOptions) => WebSocketServer` | 1.0.0 | Stable | The factory -- primary usage. |
-| `WebSocketServer` | `class` | 1.0.0 | Stable | The server class `createWebSocket()` returns; exported for advanced/custom usage. |
+| `createWebSocket` | `(options?: WebSocketOptions) => WebSocketServer` | 1.0.0 | Stable | The manual factory -- for attach targets outside a NextRush `Application`, or full manual lifecycle control. |
+| `createWebSocketExtension` | `(options?: WebSocketOptions) => Extension<{ wss: WebSocketServer }>` | 1.0.0 | Stable | **Recommended default.** Wraps a `WebSocketServer` as a NextRush `Extension` -- `app.extend(createWebSocketExtension())` decorates `app.wss` and wires `wss.close()` into `app.close()`'s teardown automatically (F-04b). |
+| `WebSocketServer` | `class` | 1.0.0 | Stable | The server class both factories return; exported for advanced/custom usage. |
 | `Connection` | `class implements WSConnection` | 1.0.0 | Stable | The per-connection wrapper over a raw `ws` socket. |
 | `RoomManager` | `class` | 1.0.0 | Stable | Room join/leave/broadcast bookkeeping; exported for advanced/custom usage or standalone testing. |
 | `MaxRoomsExceededError` | `class extends Error` | 1.0.0 | Stable | Thrown by `RoomManager.join()` when a connection is already at `maxRoomsPerConnection`. |
@@ -290,17 +323,43 @@ Every default below is read directly from `src/types.ts`'s `DEFAULT_WS_OPTIONS`.
 
 ---
 
-## Why not an Extension
+## Two integration shapes: Extension (recommended) vs. manual factory
 
-Most long-lived, app-scoped NextRush services are Extensions -- registered with `app.extend()`
-and booted at `app.ready()` (see [`@nextrush/events`](../events)). `@nextrush/websocket` is not:
 `createWebSocket()` returns a plain `WebSocketServer` object with its own `on`/`use`/`attach`/
-`upgrade` API, and nothing in `src/` references the `Extension`/`ExtensionContext` types at all.
-The reason is structural: a NextRush Middleware or Extension's `setup()` only ever receives the
-app/context, never the raw `node:http` `Server` that the WebSocket upgrade handshake needs -- so
-this package requires two explicit calls (`app.use(wss.upgrade())` for the (inert) Middleware
-slot, and `wss.attach(server)` once you have the real server instance) instead of one
-`app.extend()` call.
+`upgrade` API -- it is not, by itself, a NextRush `Extension`. That is still true, and still why
+this package needs two explicit calls for upgrade wiring (`app.use(wss.upgrade())` for the
+Middleware slot, `wss.attach(server)` once you have the real server instance): a NextRush
+Middleware or `Extension.setup()` only ever receives the app/context, never the raw `node:http`
+`Server` the WebSocket upgrade handshake needs.
+
+What changed (F-04b, D4b): the manual factory left disposal entirely up to the caller -- nothing
+called `wss.close()` when the app shut down, so a missed disposal could leak the heartbeat timer
+and leave sockets open. `createWebSocketExtension()` closes that gap by wrapping a
+`WebSocketServer` in a NextRush `Extension` whose `destroy()` calls `wss.close()` -- registering
+it with `app.extend()` means `app.close()` disposes the WebSocket server for you, under the same
+bounded/isolated teardown guarantee as every other extension. The upgrade-wiring contract is
+unchanged either way; only *who calls `wss.close()`* differs:
+
+| | `createWebSocket()` (manual) | `createWebSocketExtension()` (recommended) |
+| --- | --- | --- |
+| Returns | A plain `WebSocketServer` | A NextRush `Extension<{ wss: WebSocketServer }>` |
+| Access | The local `wss` variable you created | `app.wss`, via `app.extend()`'s decoration |
+| Disposal | You must call `wss.close()` yourself | `app.close()` calls it for you automatically |
+| Best for | Attaching to a server outside a NextRush `Application`; full manual lifecycle control | Any NextRush app using WebSockets -- the default choice |
+
+## Package relationships
+
+```text
+                     peer depends on              ws (npm)
+@nextrush/websocket -------------------------------------->
+                     runtime depends on            @nextrush/types
+                     often used with                @nextrush/adapter-node  (listen()'s raw server)
+                     often used with                @nextrush/core          (createWebSocketExtension()'s Extension contract)
+```
+
+- **Depends on:** [`@nextrush/types`](../../types) at the runtime level (the `Extension`/`ExtensionContext` types `createWebSocketExtension()` implements); `ws` (`^8.0.0`) as a peer dependency.
+- **Often used with:** [`@nextrush/adapter-node`](../../adapters/node) -- `listen()`'s returned `ServerInstance.server` is the object `wss.attach()` needs; [`@nextrush/core`](../../core) -- `app.extend()`/`app.close()` is what makes `createWebSocketExtension()`'s automatic disposal work.
+- **Alternative:** [`@nextrush/stream`](../../stream) for one-way SSE/NDJSON streaming instead of a full bidirectional socket.
 
 ## Troubleshooting
 
@@ -361,6 +420,19 @@ timing.
 
 </details>
 
+<details>
+<summary><strong>An un-awaited async call inside a message/connection handler crashed the process</strong></summary>
+
+**Cause:** a `conn.on('message', ...)`/`conn.on('close', ...)` handler (or a room broadcast) that
+starts async work without awaiting or catching it produces an unhandled rejection if that work
+later fails — `@nextrush/websocket`, like the rest of NextRush, installs no global
+`unhandledRejection` handler by default (see `@nextrush/core`'s README, "An un-awaited async call
+crashed the process"). **Fix:** guard detached work the same way — `void doWork().catch((err) =>
+logger.error(err))` — inside every connection/message handler that doesn't already return/await
+its promise.
+
+</details>
+
 ## FAQ
 
 **Can I use this without `nextrush`?**
@@ -381,19 +453,6 @@ No -- `broadcast()`/`broadcastToRoom()` only reach connections held by the singl
 (Redis, etc.) in your own application code if you need cross-process fan-out.
 
 ---
-
-## Package relationships
-
-```text
-                     peer depends on              ws (npm)
-@nextrush/websocket -------------------------------------->
-                     runtime depends on            @nextrush/types
-                     often used with                @nextrush/adapter-node  (listen()'s raw server)
-```
-
-- **Depends on:** [`@nextrush/types`](../../types) at the runtime level; `ws` (`^8.0.0`) as a peer dependency.
-- **Often used with:** [`@nextrush/adapter-node`](../../adapters/node) -- `listen()`'s returned `ServerInstance.server` is the object `wss.attach()` needs.
-- **Alternative:** [`@nextrush/stream`](../../stream) for one-way SSE/NDJSON streaming instead of a full bidirectional socket.
 
 ## Architecture
 

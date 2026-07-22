@@ -308,8 +308,9 @@ async function drainAndClose(
     ]);
   }
 
-  // 3. Tear down extensions
-  await app.close();
+  // 3. Tear down extensions. Bound teardown by the same shutdownTimeout budget
+  // so a hung extension destroy() cannot outlast the drain (F-02, D1, RFC-022/ADR-0012).
+  await app.close({ timeout: shutdownTimeout });
 }
 
 /**

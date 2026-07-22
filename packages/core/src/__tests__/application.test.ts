@@ -530,6 +530,222 @@ describe('Application', () => {
     });
   });
 
+  // ===========================================================================
+  // Bounded teardown budget (F-02, D1, RFC-022 / ADR-0012)
+  // ===========================================================================
+
+  describe('close({ timeout }) — bounded teardown budget', () => {
+    it('should resolve within the budget when an extension destroy() never resolves, and report it', async () => {
+      app.extend(
+        makeExtension('hung', {
+          // Never resolves within the test's lifetime — forces the timeout race.
+          destroy: () => new Promise<void>(() => undefined),
+        })
+      );
+      await app.ready();
+
+      const start = Date.now();
+      const errors = await app.close({ timeout: 50 });
+      const elapsed = Date.now() - start;
+
+      expect(elapsed).toBeLessThan(1000); // well under an unbounded hang
+      expect(errors).toHaveLength(1);
+      expect(errors[0]?.message).toContain('hung');
+    });
+
+    it('should resolve immediately for prompt teardown (not wait out the budget)', async () => {
+      const destroy = vi.fn().mockResolvedValue(undefined);
+      app.extend(makeExtension('prompt', { destroy }));
+      await app.ready();
+
+      const start = Date.now();
+      const errors = await app.close({ timeout: 5000 });
+      const elapsed = Date.now() - start;
+
+      expect(elapsed).toBeLessThan(200); // did not wait out the 5s budget
+      expect(errors).toEqual([]);
+      expect(destroy).toHaveBeenCalled();
+    });
+
+    it('should report every hung unit independently when two extensions hang simultaneously', async () => {
+      app.extend(makeExtension('hung-a', { destroy: () => new Promise<void>(() => undefined) }));
+      app.extend(makeExtension('hung-b', { destroy: () => new Promise<void>(() => undefined) }));
+      await app.ready();
+
+      const errors = await app.close({ timeout: 30 });
+
+      expect(errors).toHaveLength(2);
+      const messages = errors.map((e) => e.message).join(' ');
+      expect(messages).toContain('hung-a');
+      expect(messages).toContain('hung-b');
+    });
+
+    it('should behave exactly as today (unbounded) when timeout is omitted', async () => {
+      const destroy = vi.fn().mockResolvedValue(undefined);
+      app.extend(makeExtension('no-budget', { destroy }));
+      await app.ready();
+
+      const errors = await app.close();
+
+      expect(errors).toEqual([]);
+      expect(destroy).toHaveBeenCalled();
+    });
+  });
+
+  // ===========================================================================
+  // Shutdown observability (F-12, RFC-022): a draining state transition and
+  // the teardown outcome must be surfaced, not silent.
+  // ===========================================================================
+
+  describe('shutdown observability (F-12)', () => {
+    it('isDraining is false before close() and true once it starts', async () => {
+      let observedDuringTeardown: boolean | undefined;
+      app.extend(
+        makeExtension('observer', {
+          destroy: () => {
+            observedDuringTeardown = app.isDraining;
+          },
+        })
+      );
+      await app.ready();
+
+      expect(app.isDraining).toBe(false);
+      await app.close();
+
+      expect(observedDuringTeardown).toBe(true);
+    });
+
+    it('logs the draining transition when a shutdown begins', async () => {
+      const infoSpy = vi.fn();
+      const loggedApp = createApp({
+        logger: { info: infoSpy, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      });
+      await loggedApp.ready();
+
+      await loggedApp.close();
+
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('draining'));
+    });
+
+    it('reports which unit timed out at shutdown completion, via the logger', async () => {
+      const errorSpy = vi.fn();
+      const loggedApp = createApp({
+        logger: { info: vi.fn(), warn: vi.fn(), error: errorSpy, debug: vi.fn() },
+      });
+      loggedApp.extend(
+        makeExtension('slow-hook', { destroy: () => new Promise<void>(() => undefined) })
+      );
+      await loggedApp.ready();
+
+      await loggedApp.close({ timeout: 30 });
+
+      const loggedTimeout = errorSpy.mock.calls.some((call: unknown[]) =>
+        call.some((arg) => String(arg).includes('slow-hook'))
+      );
+      expect(loggedTimeout).toBe(true);
+    });
+  });
+
+  // ===========================================================================
+  // app.onClose(hook) teardown-registration API (F-07, D3, RFC-022 / ADR-0012)
+  // ===========================================================================
+
+  describe('onClose(hook)', () => {
+    it('should run a registered hook during close()', async () => {
+      const hook = vi.fn().mockResolvedValue(undefined);
+      app.onClose(hook);
+      await app.ready();
+
+      await app.close();
+
+      expect(hook).toHaveBeenCalledTimes(1);
+    });
+
+    it('should run hooks under the same bounded/isolated teardown as extension destroy()', async () => {
+      const hook = vi.fn().mockRejectedValue(new Error('hook boom'));
+      app.onClose(hook);
+      await app.ready();
+
+      const errors = await app.close();
+
+      expect(hook).toHaveBeenCalledTimes(1);
+      expect(errors.some((e) => e.message === 'hook boom')).toBe(true);
+    });
+
+    it('should not strand other hooks or extensions when one hook throws', async () => {
+      const order: string[] = [];
+      app.onClose(() => void order.push('hook-a'));
+      app.onClose(() => {
+        throw new Error('hook-b boom');
+      });
+      app.onClose(() => void order.push('hook-c'));
+      app.extend(makeExtension('ext', { destroy: () => void order.push('ext') }));
+      await app.ready();
+
+      const errors = await app.close();
+
+      // reverse of registration order: ext (last registered) first, then
+      // hook-c, then hook-b (throws, isolated), then hook-a — none stranded.
+      expect(order).toEqual(['ext', 'hook-c', 'hook-a']);
+      expect(errors.some((e) => e.message === 'hook-b boom')).toBe(true);
+    });
+
+    it('should bound a never-resolving hook by the same close({ timeout }) budget', async () => {
+      // Never resolves within the test's lifetime — forces the timeout race.
+      app.onClose(() => new Promise<void>(() => undefined));
+      await app.ready();
+
+      const start = Date.now();
+      const errors = await app.close({ timeout: 50 });
+      const elapsed = Date.now() - start;
+
+      expect(elapsed).toBeLessThan(1000);
+      expect(errors).toHaveLength(1);
+    });
+
+    it('should run hooks in reverse registration order, consistent with extension teardown', async () => {
+      const order: string[] = [];
+      app.onClose(() => void order.push('first'));
+      app.onClose(() => void order.push('second'));
+      await app.ready();
+
+      await app.close();
+
+      expect(order).toEqual(['second', 'first']);
+    });
+
+    it('should compose onClose hooks and extension destroy() in one combined reverse-registration order', async () => {
+      const order: string[] = [];
+      app.extend(makeExtension('ext-1', { destroy: () => void order.push('ext-1') }));
+      app.onClose(() => void order.push('hook-1'));
+      app.extend(makeExtension('ext-2', { destroy: () => void order.push('ext-2') }));
+      app.onClose(() => void order.push('hook-2'));
+      await app.ready();
+
+      await app.close();
+
+      // Registration order was: ext-1, hook-1, ext-2, hook-2. Reverse of that
+      // combined order is: hook-2, ext-2, hook-1, ext-1 — both hooks AND
+      // extensions run under one uniform reverse-of-registration sequence
+      // (RFC-022 §7.3's "flat list of independently-isolated units").
+      expect(order).toEqual(['hook-2', 'ext-2', 'hook-1', 'ext-1']);
+    });
+
+    it('should not run a hook registered after close() already started', async () => {
+      await app.ready();
+      const closePromise = app.close();
+      const hook = vi.fn();
+
+      // Registering after close() has already begun is documented as
+      // "not run in that shutdown" (RFC-022 §8.6) — no throw, just a no-op
+      // for the in-flight shutdown.
+      expect(() => {
+        app.onClose(hook);
+      }).not.toThrow();
+      await closePromise;
+    });
+  });
+
   describe('Logger', () => {
     it('should use a silent no-op logger by default', () => {
       expect(app.logger).toBeDefined();

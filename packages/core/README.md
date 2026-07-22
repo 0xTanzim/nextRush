@@ -371,6 +371,39 @@ app.use(async (ctx) => {
 
 </details>
 
+<details>
+<summary><strong>An un-awaited async call crashed the process</strong></summary>
+
+**Cause:** NextRush installs **no** global `unhandledRejection` or `uncaughtException` handler by
+default — the framework's core is deliberately silent on process-level policy, so an application
+owns that decision rather than inheriting a hidden one. Fire-and-forget work (an un-awaited
+`app.events.emit(...)`, a detached WebSocket message handler, a background task started from a
+middleware) that later rejects surfaces as an **unhandled rejection**, and depending on your
+process manager/runtime that can terminate the process. **Fix:** guard every detached call —
+`void somePromise().catch((err) => logger.error(err))` — or explicitly install your own
+`process.on('unhandledRejection', ...)` policy if your deployment needs one. This applies
+everywhere NextRush hands you a promise you don't have to await synchronously: extension
+`destroy()`/`onClose` hooks are awaited and isolated by the framework (see `app.onClose`), but a
+promise your own handler code starts and does not return or await is your responsibility.
+
+```ts
+// Risky — a rejection here is unhandled, not caught by anything in the pipeline.
+app.use(async (ctx) => {
+  app.events.emit('audit:logged', { path: ctx.path }); // not awaited
+  ctx.json({ ok: true });
+});
+
+// Safe — the detached call is explicitly guarded.
+app.use(async (ctx) => {
+  void app.events.emit('audit:logged', { path: ctx.path }).catch((err: unknown) => {
+    app.logger.error('audit emit failed:', err);
+  });
+  ctx.json({ ok: true });
+});
+```
+
+</details>
+
 ## FAQ
 
 **Why does `app.get(...)` work with `nextrush`'s `createApp` but throw with `@nextrush/core`'s?**

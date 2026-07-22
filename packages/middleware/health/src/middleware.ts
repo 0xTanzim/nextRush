@@ -30,19 +30,28 @@ import type { CheckFn, HealthInstance, HealthOptions } from './types';
  * `timeoutMs` all resolve to `false` here — the caller doesn't need to
  * distinguish "hung" from "explicitly failed" (design.md Risks: a hung
  * check must not hang `/readyz` indefinitely).
+ *
+ * A fresh `AbortController` is created per invocation and aborted when the
+ * timeout fires, so a cooperative check can cancel its own in-flight work
+ * instead of it being silently abandoned (design.md D7, F-08). The signal
+ * is passed as an additive, optional argument — a check that ignores it
+ * keeps behaving exactly as before. Either way, a timed-out check still
+ * counts as a failure.
  */
 async function runCheckWithTimeout(check: CheckFn, timeoutMs: number): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
 
   const timeout = new Promise<boolean>((resolve) => {
     timer = setTimeout(() => {
+      controller.abort();
       resolve(false);
     }, timeoutMs);
   });
 
   const invocation = (async (): Promise<boolean> => {
     try {
-      return await check();
+      return await check(controller.signal);
     } catch {
       // A throwing check is a failing check, not an error that propagates
       // to the caller — the endpoint reports it as an unhealthy check, it

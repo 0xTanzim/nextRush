@@ -5,6 +5,7 @@
 import type { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
+import { RequestAbortedError } from '@nextrush/runtime';
 import { createEmptyBodySource, NodeBodySource } from '../body-source';
 
 function createMockReq(
@@ -70,6 +71,20 @@ describe('NodeBodySource', () => {
 
       const buffer = await source.buffer();
       expect(new TextDecoder().decode(buffer)).toBe(body);
+    });
+
+    it('F-10: a premature close (client abort mid-body) rejects with a typed RequestAbortedError', async () => {
+      const readable = new Readable({ read() {} });
+      const req = readable as unknown as IncomingMessage;
+      req.headers = { 'content-type': 'text/plain' };
+      const source = new NodeBodySource(req);
+
+      setImmediate(() => {
+        readable.push(Buffer.from('partial'));
+        readable.emit('close'); // client disconnected before 'end'
+      });
+
+      await expect(source.buffer()).rejects.toBeInstanceOf(RequestAbortedError);
     });
   });
 });

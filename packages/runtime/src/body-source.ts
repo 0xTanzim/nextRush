@@ -43,6 +43,24 @@ export class BodyTooLargeError extends PayloadTooLargeError {
 }
 
 /**
+ * Error thrown when the request stream closes before the body has been fully
+ * read — a client disconnect/abort mid-body, not a server fault.
+ *
+ * @remarks
+ * F-10 (reliability hardening): classified as a client-side (4xx) condition
+ * distinct from a generic `Error`, so logs/metrics do not misattribute a
+ * client disconnect as a server (5xx) error.
+ */
+export class RequestAbortedError extends BadRequestError {
+  constructor() {
+    super('Request stream closed before the body was fully read (client disconnected)', {
+      code: 'REQUEST_ABORTED',
+    });
+    this.name = 'RequestAbortedError';
+  }
+}
+
+/**
  * Abstract base class for BodySource implementations
  *
  * @remarks

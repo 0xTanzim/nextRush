@@ -7,7 +7,7 @@
  */
 
 import { BadRequestError } from '@nextrush/errors';
-import { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
+import { BodyConsumedError, BodyTooLargeError, RequestAbortedError } from '@nextrush/runtime';
 import type { BodySource, BodySourceOptions, NodeStreamLike, WebStreamLike } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable, Transform } from 'node:stream';
@@ -232,7 +232,9 @@ export class NodeBodySource implements BodySource {
       const onClose = (): void => {
         // Premature close with no prior `end` (client disconnect / abort): reject so the
         // read never stays pending (D4). A normal end removes this listener first.
-        settleReject(new Error('Request stream closed before body was fully read'));
+        // F-10: typed as a client-side condition, not a generic Error, so
+        // logs/metrics don't misattribute a client disconnect as a server fault.
+        settleReject(new RequestAbortedError());
       };
 
       req.on('data', onData);

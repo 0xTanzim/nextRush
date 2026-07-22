@@ -432,6 +432,10 @@ export class WebSocketServer {
         connection.ping();
       }
     }, this.resolvedOptions.heartbeatInterval);
+
+    // Never let the heartbeat alone keep the Node event loop alive — a missed
+    // disposal (e.g. no app.close() wiring, see N9) must not hang shutdown.
+    this.heartbeatTimer.unref();
   }
 
   // Public API methods

@@ -10,8 +10,8 @@
 | --- | --- |
 | **Package** | `@nextrush/websocket` |
 | **Layer** | `extension` in name and directory (`packages/extensions/websocket`), but structurally a factory + Middleware pair — see "Why not an Extension" below |
-| **Depends on** | `@nextrush/types` (workspace, runtime dependency); `ws` (peer dependency, `^8.0.0`) |
-| **Depended on by** | Application code that calls `createWebSocket()`; not depended on by any other `@nextrush/*` package |
+| **Depends on** | `@nextrush/types` (workspace, runtime dependency -- also the source of the `Extension`/`ExtensionContext` types `createWebSocketExtension()` implements); `ws` (peer dependency, `^8.0.0`) |
+| **Depended on by** | Application code that calls `createWebSocket()` or `createWebSocketExtension()`; not depended on by any other `@nextrush/*` package |
 | **Public entry** | `src/index.ts` (barrel — the `createWebSocket()` factory plus re-exported types/classes/constants) |
 | **Internal modules** | 4 files (excl. tests) — `types.ts` (271 LOC), `connection.ts` (168 LOC), `room-manager.ts` (214 LOC), `server.ts` (537 LOC); `server.ts` is well over the 300-line extension cap in `architecture.instructions.md` — logged honestly below, not hidden |
 | **On the request hot path?** | No for the HTTP request path — `upgrade()`'s returned Middleware is a no-op passthrough (`await next()`); yes for the WebSocket message path once a connection is open (`connection.ts`'s `send`/`on('message')`) |
@@ -69,13 +69,14 @@ flowchart TB
 > [!IMPORTANT]
 > Imports flow **downward only**. `@nextrush/websocket` imports `@nextrush/types` (runtime
 > dependency) and MUST NOT be imported by `types`, `errors`, `core`, `router`, `class`, or any
-> adapter (project-rules §1). Unlike `@nextrush/events`, this package does **not** reference
-> `@nextrush/core`'s `Extension`/`ExtensionContext` types anywhere in `src/` — see "Why not an
-> Extension" for what that means architecturally.
+> adapter (project-rules §1). Since F-04b (`createWebSocketExtension`), `src/index.ts` imports
+> the `Extension`/`ExtensionContext` **types** from `@nextrush/types` (a type-only import, no
+> runtime dependency on `@nextrush/core`) to implement the `Extension` contract structurally --
+> see "Two integration shapes" below for what that changes vs. the original manual-only design.
 
 **Dependency rules:**
-- **Allowed:** `websocket → @nextrush/types` (runtime) · `websocket → ws` (peer, dynamic import)
-- **Forbidden:** `websocket → router / class / adapters / any middleware package` as a static import
+- **Allowed:** `websocket → @nextrush/types` (runtime -- includes the `Extension`/`ExtensionContext` types) · `websocket → ws` (peer, dynamic import)
+- **Forbidden:** `websocket → router / class / adapters / any middleware package` as a static import; `websocket → @nextrush/core` as any import (the `Extension` contract it implements is defined in `@nextrush/types`, not `core` — `core`'s `Application.extend()` is what *consumes* an `Extension`, this package only *produces* one)
 
 ---
 
@@ -326,7 +327,7 @@ The following are part of the package architecture. They do not change without a
 
 | Decision | Chosen | Trade-off accepted | Reference |
 | -------- | ------ | ------------------- | --------- |
-| Integration shape | A factory (`createWebSocket()`) returning a class with its own `on`/`use`/`attach`/`upgrade` API, not a NextRush `Extension` | Two explicit calls (`app.use(wss.upgrade())` + `wss.attach(server)`) instead of one `app.extend(...)` + automatic `ready()` wiring — see "Why not an Extension" | `src/index.ts`, `src/server.ts` — zero references to `Extension`/`ExtensionContext` anywhere in `src/` |
+| Integration shape | A factory (`createWebSocket()`) returning a class with its own `on`/`use`/`attach`/`upgrade` API, PLUS (since F-04b) an additive `createWebSocketExtension()` wrapping that same class as a NextRush `Extension` | Manual form: two explicit calls (`app.use(wss.upgrade())` + `wss.attach(server)`) instead of one `app.extend(...)` + automatic `ready()` wiring. Extension form: same two calls still apply (`app.use(app.wss.upgrade())` + `app.wss.attach(server)`) — only *disposal* becomes automatic via `app.close()`, not the upgrade-wiring contract itself | `src/index.ts` — `createWebSocket()` returns a bare `WebSocketServer`; `createWebSocketExtension()` returns `Extension<{ wss: WebSocketServer }>` |
 | `ws` loading | Dynamic `import('ws')` inside `attach()`, not a static top-level import | A consumer who never calls `attach()` never pays the cost of `ws` failing to resolve, at the price of the error only surfacing at `attach()` time instead of at import time | `server.ts`'s `loadWsLibrary()` |
 | Broadcast error handling | Swallow per-connection `send()` errors during fan-out (`try { conn.send(data) } catch { }`) | One dead connection can't abort a broadcast to the rest, but a broadcast's partial failure is currently unobservable (see the Concurrency warning above) | `server.ts`'s `broadcast()`/`broadcastToRoom()`, `room-manager.ts`'s `broadcast()` |
 | Origin-missing default | When `allowedOrigins` is configured, a request with **no** `Origin` header is denied, not allowed | Slightly stricter than some CORS-style implementations that treat a missing header as same-origin — chosen specifically to prevent bypassing origin restriction by omitting the header | `server.ts`'s `verifyOrigin()` |
@@ -344,8 +345,8 @@ The following are part of the package architecture. They do not change without a
 
 ## Rejected alternatives
 
-### Wiring `attach()` automatically from `upgrade()`'s Middleware
-Rejected: `upgrade()` returns a Middleware because `app.use()` requires one, but Middleware functions never receive the raw Node HTTP `Server` instance — only NextRush's `Context`. There is no hook available at Middleware-registration time to reach the underlying server, so `attach()` must remain a separate, explicit call made once the application has the real `Server` object (e.g. from `listen()`'s returned `ServerInstance.server`).
+### Wiring `attach()` automatically from `upgrade()`'s Middleware (or from the Extension's `setup()`)
+Rejected: `upgrade()` returns a Middleware because `app.use()` requires one, but Middleware functions never receive the raw Node HTTP `Server` instance — only NextRush's `Context`. `Extension.setup()` (what `createWebSocketExtension()` implements) has the same gap: it receives an `ExtensionContext`, not the raw server, because `app.ready()` runs before `listen()` starts the HTTP server in the typical flow. There is no hook available at either registration point to reach the underlying server, so `attach()` must remain a separate, explicit call made once the application has the real `Server` object (e.g. from `listen()`'s returned `ServerInstance.server`) — true for both the manual factory and the Extension form.
 
 ### Reordering the upgrade gate to check `verifyClient` before the cheaper path/origin/limit checks
 Rejected: `verifyClient` is async and caller-supplied — it may hit a database or external service. Running the cheap, synchronous checks (path match, origin, connection count) first means an unauthenticated flood of requests to a wrong path or disallowed origin never reaches the caller's (potentially expensive) authentication logic.
@@ -354,7 +355,7 @@ Rejected: `verifyClient` is async and caller-supplied — it may hit a database 
 
 ## Testing strategy
 
-- **Unit:** `websocket.test.ts` covers `RoomManager` (join/leave/leaveAll/broadcast/room-limit enforcement/rejoin-without-throw/unlimited-rooms), `validateRoomName`/`escapeRegex`, the `DEFAULT_WS_OPTIONS` constant, and `createWebSocket()`'s factory surface (route/middleware registration, option acceptance, exported method presence).
+- **Unit:** `websocket.test.ts` covers `RoomManager` (join/leave/leaveAll/broadcast/room-limit enforcement/rejoin-without-throw/unlimited-rooms), `validateRoomName`/`escapeRegex`, the `DEFAULT_WS_OPTIONS` constant, `createWebSocket()`'s factory surface (route/middleware registration, option acceptance, exported method presence), the heartbeat-timer `unref()` guarantee (F-04a), and `createWebSocketExtension()` (F-04b) — decoration onto a fake `ExtensionContext` (the same fake-`decorate`-spy pattern `@nextrush/events` uses), and that `destroy()` calls the wrapped `WebSocketServer.close()`, which clears the heartbeat timer.
 - **Integration:** none present in `__tests__/` that exercise a real HTTP upgrade end-to-end (no test opens a socket and performs an actual upgrade handshake against a running server) — the upgrade-gate sequence documented above is derived from reading `server.ts` directly, not from an observed integration test run.
 - **Public-surface test:** `__tests__/public-surface.test.ts` asserts the exact exported runtime symbol list (`createWebSocket`, the four constants, `Connection`, `MaxRoomsExceededError`, `RoomManager`, `WebSocketServer`) and the type-only surface (`WebSocketOptions`, `WSConnection`, `WSHandler`, `WSMiddleware`, `WSRoute`) stay in sync with the sealed surface (ADR-0005).
 - **Conformance / cross-adapter parity:** N/A — no adapter (`node`/`bun`/`deno`/`edge`/`serverless`) references WebSocket upgrade handling anywhere in `packages/adapters/*/src`; the conformance suite's `WebSockets` certification row (`packages/adapters/conformance/src/certification.ts`) measures whether a runtime's *global `WebSocket` client constructor* exists (`@nextrush/runtime`'s `capabilitiesFor()`), which is unrelated to this package's server-side implementation — do not cite that row as evidence for this package's runtime support.
@@ -362,7 +363,7 @@ Rejected: `verifyClient` is async and caller-supplied — it may hit a database 
 
 ## Evolution strategy
 
-- **Stable (semver-guarded):** `createWebSocket()`, `WebSocketServer`, `Connection`, `RoomManager`, `MaxRoomsExceededError`, and every exported type/constant (ADR-0005).
+- **Stable (semver-guarded):** `createWebSocket()`, `createWebSocketExtension()`, `WebSocketServer`, `Connection`, `RoomManager`, `MaxRoomsExceededError`, and every exported type/constant (ADR-0005).
 - **May change without notice:** the internal upgrade-gate helper methods (`matchPath`, `pathMatches`, `findHandler`, `executeMiddlewares`) as long as the observable handshake sequence and rejection status codes are preserved.
 - **Changes only via RFC:** an edge-native or Bun/Deno-native WebSocket path (a materially different implementation, not a config flag), and any reordering of the upgrade-gate check sequence.
 
@@ -372,10 +373,13 @@ work, not yet scheduled or RFC'd.
 
 ## Contributor notes
 
-Before changing this package, read `packages/types/src/extension.ts` if you're considering
-converting this package to a NextRush Extension — that would mean adopting `setup()`/`destroy()`
-and losing the current explicit two-call (`upgrade()` + `attach()`) integration shape, a decision
-significant enough to need an RFC, not a refactor. If you're touching the upgrade-gate sequence in
+Before changing this package, note that `createWebSocketExtension()` (F-04b) already wraps
+`WebSocketServer` in a NextRush `Extension` for disposal purposes — it does not replace or
+restructure the underlying `on`/`use`/`attach`/`upgrade` API, and `createWebSocket()`'s manual
+form is unchanged and still supported. If you're considering going further (e.g. having
+`setup()` itself call `attach()`, which would require `Extension.setup()` to somehow receive the
+raw `node:http` `Server` it doesn't have access to today), that is a materially different,
+RFC-significant change, not a refactor. If you're touching the upgrade-gate sequence in
 `handleUpgrade()`, read "Rejected alternatives" above first — the check ordering is a deliberate
 cost-based trade-off, not an arbitrary sequence free to reshuffle.
 

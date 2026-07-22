@@ -171,6 +171,21 @@ describe('F-04: createHandler finalize paths (implicit 404 / handler error) stay
     expect(res.body).toBe('');
   });
 
+  it('F-09: an unhandled-completion non-404 response always carries a Content-Type', async () => {
+    // A handler that resolves without calling any response method and without
+    // throwing (status not 404) must still get an explicit Content-Type on the
+    // adapter's fallback finalize path — not a bare status with no header.
+    const app = createApp();
+    app.use((ctx) => {
+      ctx.status = 200; // resolves without responding
+    });
+    instance = await serve(app, { port: 0, timeout: 5000 });
+
+    const res = await get(instance.port);
+    expect(res.status).toBe(200);
+    expect(res.contentType).toBeDefined();
+  });
+
   it('a synchronously-thrown handler error finalizes as a 500 with no leak', async () => {
     const app = createApp();
     app.use(() => {
