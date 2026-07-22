@@ -48,6 +48,7 @@ invent a new structure per RFC.
 | [020](framework-composition/020-framework-composition-integrity.md) | Framework composition integrity — functional/class install boundary, surface naming, manifest discipline | Shipped — see ADR-0009 | framework-composition |
 | [021](scaffolding/021-project-scaffolding-capability.md) | `create-nextrush` — the project-scaffolding capability & per-package version resolution | Approved — see ADR-0011 (Shipped) | scaffolding |
 | [022](class-runtime/022-bounded-teardown-lifecycle.md) | `@nextrush/core` — Bounded, cancellation-aware teardown lifecycle | Shipped — see ADR-0012 | class-runtime |
+| [023](dev-tooling/023-nextrush-doctor.md) | `@nextrush/dev` — `nextrush doctor` project health diagnostics | **Draft** — design-only, not built | dev-tooling |
 
 ## Note on RFC-005 (Plugin System)
 
