@@ -1,5 +1,0 @@
-{
-  "title": "Resources",
-  "description": "FAQ, troubleshooting, glossary, compatibility matrix, changelog, and roadmap.",
-  "pages": ["index", "faq", "troubleshooting", "glossary", "package-catalog", "compatibility-matrix", "changelog", "roadmap"]
-}
