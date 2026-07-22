@@ -1,17 +1,64 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 import * as p from '@clack/prompts';
 
 import { parseArgs, printHelp } from './cli.js';
-import { NEXTRUSH_VERSION } from './constants.js';
+import { MIN_NODE_MAJOR, NEXTRUSH_VERSION } from './constants.js';
 import { generateProject } from './generator.js';
 import { resolveVersions } from './npm-version.js';
 import { runPrompts } from './prompts.js';
-import { getInstallCommand, getRunCommand, isDirectoryEmpty, writeFiles } from './utils.js';
-import { setVersions } from './version-store.js';
+import { getAllPossiblePackageNames } from './templates/index.js';
+import {
+  getInstallArgv,
+  getInstallCommandLabel,
+  getRunCommand,
+  isDirectoryEmpty,
+  writeFiles,
+} from './utils.js';
+import { setVersionMap } from './version-store.js';
+
+/** Checks the running Node.js version against the framework floor (fixes F-05). */
+function assertSupportedNodeVersion(): void {
+  const [majorStr] = process.versions.node.split('.');
+  const major = Number(majorStr);
+  if (Number.isNaN(major) || major < MIN_NODE_MAJOR) {
+    console.error(
+      `create-nextrush requires Node.js >= ${MIN_NODE_MAJOR.toString()}.0.0, but this environment is running Node.js ${process.versions.node}.\n` +
+        `Upgrade Node.js (e.g. via https://nodejs.org or a version manager like nvm/fnm) and try again.`
+    );
+    process.exit(1);
+  }
+}
+
+/** Runs a captured command; on failure prints stderr + the exact manual retry command (fixes F-03). */
+function runCaptured(
+  argv: readonly [string, ...string[]],
+  cwd: string,
+  retryCommandLabel: string,
+  failureContext: string
+): boolean {
+  try {
+    const [command, ...commandArgs] = argv;
+    execFileSync(command, commandArgs, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
+    return true;
+  } catch (error) {
+    const stderr =
+      error && typeof error === 'object' && 'stderr' in error
+        ? String((error as { stderr: Buffer | string }).stderr)
+        : '';
+    console.error(`\n${failureContext} failed.`);
+    if (stderr.trim()) {
+      console.error(stderr.trim());
+    }
+    console.error(`\nRetry manually with:\n  ${retryCommandLabel}\n`);
+    return false;
+  }
+}
 
 async function main(): Promise<void> {
+  assertSupportedNodeVersion();
+
   const args = parseArgs(process.argv);
 
   if (args.version) {
@@ -26,12 +73,18 @@ async function main(): Promise<void> {
 
   p.intro('create-nextrush');
 
-  // Fetch latest versions from npm registry
-  const s = p.spinner();
-  s.start('Checking latest versions...');
-  const versions = await resolveVersions();
-  setVersions(versions.core, versions.mw);
-  s.stop(`Using nextrush ${versions.core}`);
+  // Version probing is gated on install: a --no-install offline scaffold never uses the
+  // resolved ranges for anything but display, so skip the network round-trip entirely
+  // (fixes F-18 — Doherty Threshold: no dead wait when nothing will be installed).
+  if (args.install) {
+    const s = p.spinner();
+    s.start('Checking latest versions...');
+    const versions = await resolveVersions(getAllPossiblePackageNames());
+    setVersionMap(versions);
+    s.stop(`Using nextrush ${versions.get('nextrush') ?? NEXTRUSH_VERSION}`);
+  } else {
+    setVersionMap(await resolveVersions(getAllPossiblePackageNames()));
+  }
 
   const options = await runPrompts(args);
 
@@ -55,6 +108,7 @@ async function main(): Promise<void> {
   }
 
   // Generate files
+  const s = p.spinner();
   s.start('Scaffolding project...');
 
   const files = generateProject(options);
@@ -65,25 +119,36 @@ async function main(): Promise<void> {
   // Initialize git
   if (options.git) {
     s.start('Initializing git repository...');
-    try {
-      execSync('git init', { cwd: targetDir, stdio: 'ignore' });
-      execSync('git add -A', { cwd: targetDir, stdio: 'ignore' });
+    const initOk = runCaptured(['git', 'init'], targetDir, 'git init', 'Git initialization');
+    const addOk =
+      initOk && runCaptured(['git', 'add', '-A'], targetDir, 'git add -A', 'Git staging');
+    const commitOk =
+      addOk &&
+      runCaptured(
+        ['git', 'commit', '-m', 'chore: initial commit from create-nextrush'],
+        targetDir,
+        'git commit -m "chore: initial commit from create-nextrush"',
+        'Git initial commit'
+      );
+
+    if (commitOk) {
       s.stop('Git repository initialized.');
-    } catch {
-      s.stop('Git initialization failed (git may not be installed).');
+    } else {
+      s.stop('Git initialization incomplete — see the error above.');
     }
   }
 
   // Install dependencies
   if (options.install) {
-    const cmd = getInstallCommand(options.packageManager);
+    const argv = getInstallArgv(options.packageManager);
     s.start(`Installing dependencies via ${options.packageManager}...`);
-    try {
-      execSync(cmd, { cwd: targetDir, stdio: 'ignore' });
-      s.stop('Dependencies installed.');
-    } catch {
-      s.stop('Dependency installation failed. Run install manually.');
-    }
+    const installOk = runCaptured(
+      argv,
+      targetDir,
+      getInstallCommandLabel(options.packageManager),
+      'Dependency installation'
+    );
+    s.stop(installOk ? 'Dependencies installed.' : 'Dependency installation failed — see the error above.');
   }
 
   // Done
@@ -95,13 +160,21 @@ async function main(): Promise<void> {
   }
 
   if (!options.install) {
-    nextSteps.push(getInstallCommand(options.packageManager));
+    nextSteps.push(getInstallCommandLabel(options.packageManager));
   }
 
   nextSteps.push(`${runCmd} dev`);
+  nextSteps.push(`# then open ${getVerificationUrl(options.style)}`);
 
   p.note(nextSteps.join('\n'), 'Next steps');
-  p.outro('Happy coding with Nextrush!');
+  p.outro('Happy coding with NextRush!');
+}
+
+/** The URL to open to verify the scaffolded app is running, for the selected style (fixes F-15). */
+function getVerificationUrl(style: 'functional' | 'class-based' | 'full'): string {
+  if (style === 'functional') return 'http://localhost:8080/health';
+  if (style === 'class-based') return 'http://localhost:8080/api/health';
+  return 'http://localhost:8080/health';
 }
 
 main().catch((error: unknown) => {

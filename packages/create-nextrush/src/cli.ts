@@ -29,13 +29,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
     middleware?: MiddlewarePreset;
     packageManager?: PackageManager;
     install: boolean;
+    installExplicit: boolean;
     git: boolean;
+    gitExplicit: boolean;
     yes: boolean;
     help: boolean;
     version: boolean;
   } = {
     install: true,
+    installExplicit: false,
     git: true,
+    gitExplicit: false,
     yes: false,
     help: false,
     version: false,
@@ -66,19 +70,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
       case '--no-install':
         parsed.install = false;
+        parsed.installExplicit = true;
         break;
 
       case '-i':
       case '--install':
         parsed.install = true;
+        parsed.installExplicit = true;
         break;
 
       case '--no-git':
         parsed.git = false;
+        parsed.gitExplicit = true;
         break;
 
       case '--git':
         parsed.git = true;
+        parsed.gitExplicit = true;
         break;
 
       case '-s':

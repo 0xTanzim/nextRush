@@ -1,93 +1,29 @@
-/* eslint-disable nextrush/no-runtime-identity-capability -- scaffolder emits runtime-specific template snippets; not a capability decision */
-import { getAdapterPackages, getMiddlewarePackages } from '../constants.js';
-import { getCoreRange } from '../version-store.js';
-import type { DependencySet, ProjectOptions, Runtime } from '../types.js';
+import type { FileMap, ProjectOptions, Runtime } from '../types.js';
 import { getRunCommand } from '../utils.js';
+import { getDependencies, getPackageMetadata, getRuntimeScripts } from './package-json.js';
 
-
-/** Generates tsconfig.json content for a new project. */
-export function generateTsconfig(needsDecorators: boolean): string {
-  const config: Record<string, unknown> = {
-    compilerOptions: {
-      target: 'ES2022',
-      module: 'NodeNext',
-      moduleResolution: 'NodeNext',
-      strict: true,
-      esModuleInterop: true,
-      skipLibCheck: true,
-      forceConsistentCasingInFileNames: true,
-      resolveJsonModule: true,
-      declaration: true,
-      declarationMap: true,
-      sourceMap: true,
-      outDir: './dist',
-      rootDir: './src',
-      ...(needsDecorators
-        ? {
-            experimentalDecorators: true,
-            emitDecoratorMetadata: true,
-          }
-        : {}),
-    },
-    include: ['src'],
-    exclude: ['dist', 'node_modules'],
-  };
-
-  return JSON.stringify(config, null, 2) + '\n';
-}
+export { generateTsconfig } from './tsconfig.js';
+export { getDependencies };
 
 /** Generates package.json content for a new project. */
 export function generatePackageJson(options: ProjectOptions): string {
   const deps = getDependencies(options);
   const scripts = getRuntimeScripts(options.runtime);
+  const metadata = getPackageMetadata(options.packageManager);
 
   const pkg: Record<string, unknown> = {
     name: options.name,
     version: '0.1.0',
     private: true,
     type: 'module',
+    engines: metadata.engines,
+    ...(metadata.packageManager ? { packageManager: metadata.packageManager } : {}),
     scripts,
     dependencies: deps.dependencies,
     devDependencies: deps.devDependencies,
   };
 
   return JSON.stringify(pkg, null, 2) + '\n';
-}
-
-/** Resolves the dependency sets for a project configuration. */
-export function getDependencies(options: ProjectOptions): DependencySet {
-  const core = getCoreRange();
-  const dependencies: Record<string, string> = {
-    nextrush: core,
-  };
-
-  const needsReflectMetadata = options.style === 'class-based' || options.style === 'full';
-
-  // reflect-metadata is auto-imported by the nextrush meta-package's `nextrush/class` subpath,
-  // but we keep it as an explicit dependency so it's resolvable. `@nextrush/class` itself is an
-  // OPTIONAL peer dependency of `nextrush` (framework-composition-integrity) — a class-based or
-  // full project must add it explicitly, or `nextrush/class` fails to resolve.
-  if (needsReflectMetadata) {
-    dependencies['reflect-metadata'] = '>=0.2.0';
-    dependencies['@nextrush/class'] = core;
-  }
-
-  // Middleware packages
-  const middlewareDeps = getMiddlewarePackages()[options.middleware];
-  Object.assign(dependencies, middlewareDeps);
-
-  // Runtime adapter packages (node uses built-in, others need adapters)
-  const adapterDeps = getAdapterPackages()[options.runtime];
-  Object.assign(dependencies, adapterDeps);
-
-  const devDependencies: Record<string, string> = {
-    '@nextrush/dev': core,
-    '@nextrush/types': core,
-    typescript: '^6.0.2',
-    '@types/node': '^26.0.0',
-  };
-
-  return { dependencies, devDependencies };
 }
 
 /** Generates .gitignore content. */
@@ -120,8 +56,13 @@ pnpm-debug.log*
 `;
 }
 
-/** Generates a README.md for the project. */
-export function generateReadme(options: ProjectOptions): string {
+/**
+ * Generates a README.md for the project, deriving the "Project Structure" section from
+ * the given FileMap so it can never drift from what the generator actually emits (fixes
+ * F-10 — the package README's `full` listing previously named a `not-found.ts` that was
+ * never generated, and this per-project README always showed the `functional` layout).
+ */
+export function generateReadme(options: ProjectOptions, files: FileMap): string {
   const pmRun = getRunCommand(options.packageManager);
 
   return `# ${options.name}
@@ -139,20 +80,15 @@ ${pmRun} build
 
 # Start production server
 ${pmRun === 'npm run' ? 'npm start' : `${pmRun} start`}
+
+# Run tests
+${pmRun === 'npm run' ? 'npm test' : `${pmRun} test`}
 \`\`\`
 
 ## Project Structure
 
 \`\`\`
-src/
-├── index.ts          # Application entry point
-${
-  options.style === 'functional'
-    ? `├── routes/           # Route handlers
-│   └── health.ts     # Health check route`
-    : `├── controllers/      # Controller classes
-│   └── health.controller.ts`
-}
+${renderFileTree(files)}
 \`\`\`
 
 ## Learn More
@@ -160,6 +96,11 @@ ${
 - [NextRush Documentation](https://github.com/0xTanzim/nextRush/tree/main/apps/docs)
 - [GitHub](https://github.com/0xTanzim/nextRush)
 `;
+}
+
+/** Renders a sorted, indented file tree from a generated FileMap's source paths. */
+function renderFileTree(files: FileMap): string {
+  return [...files.keys()].filter((path) => path.startsWith('src/')).sort().join('\n');
 }
 
 /** Generates the src/env.d.ts file for better type hints. */
@@ -173,11 +114,13 @@ export function getRuntimeEntrypointImports(
   runtime: Runtime,
   serverFn: 'listen' | 'serve'
 ): string[] {
+  /* eslint-disable nextrush/no-runtime-identity-capability -- scaffolder emits runtime-specific template snippets for the GENERATED project; not a capability decision in this CLI's own request path */
   if (runtime === 'node') {
     return [`import { createApp, createRouter, ${serverFn} } from 'nextrush';`];
   }
 
   const adapterPackage = runtime === 'bun' ? '@nextrush/adapter-bun' : '@nextrush/adapter-deno';
+  /* eslint-enable nextrush/no-runtime-identity-capability */
 
   return [
     "import { createApp, createRouter } from 'nextrush';",
@@ -187,6 +130,7 @@ export function getRuntimeEntrypointImports(
 
 /** Returns the PORT declaration line for the given runtime. */
 export function getPortDeclaration(runtime: Runtime): string {
+  /* eslint-disable-next-line nextrush/no-runtime-identity-capability -- scaffolder emits a runtime-specific template snippet for the GENERATED project; not a capability decision in this CLI's own request path */
   if (runtime === 'deno') {
     return "const PORT = Number(Deno.env.get('PORT')) || 8080;";
   }
@@ -196,34 +140,7 @@ export function getPortDeclaration(runtime: Runtime): string {
 /** Runtime-safe helpers for controller auto-discovery in src and dist contexts. */
 export function getControllerDiscoveryHelpers(): string {
   return `const IS_DIST_RUNTIME = import.meta.url.includes('/dist/');
-const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist' : './src';
+const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist/controllers' : './src/controllers';
 const CONTROLLERS_INCLUDE = IS_DIST_RUNTIME ? ['**/*.js'] : ['**/*.ts'];
 `;
-}
-
-function getRuntimeScripts(runtime: Runtime): {
-  readonly dev: string;
-  readonly build: string;
-  readonly start: string;
-} {
-  switch (runtime) {
-    case 'bun':
-      return {
-        dev: 'bun nextrush dev',
-        build: 'bun nextrush build',
-        start: 'bun dist/index.js',
-      };
-    case 'deno':
-      return {
-        dev: 'deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts',
-        build: 'deno run -A npm:@nextrush/dev@latest build',
-        start: 'deno run --allow-net --allow-read --allow-env dist/index.js',
-      };
-    case 'node':
-      return {
-        dev: 'nextrush dev',
-        build: 'nextrush build',
-        start: 'node dist/index.js',
-      };
-  }
 }

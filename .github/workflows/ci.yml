@@ -79,6 +79,28 @@ jobs:
       - name: Build, test, typecheck, lint
         run: pnpm verify
 
+  # project-scaffolding-hardening (RFC-021 / ADR-0011 / task 2.1 & 7.3): the system-of-record
+  # verifier for the P0 install-integrity claim — scaffolds every style x runtime x middleware
+  # combination and asserts each emitted dependency range resolves against its OWN package's
+  # real published (workspace) version, never a proxy for another package's version. This job
+  # is what turns "the generator produces structurally correct output" (already covered by
+  # `pnpm verify` above) into "the generator produces an INSTALLABLE output" — the exact gap
+  # that let F-01 ship (report/scaffolding/scaffolding-cli-review.md).
+  create-nextrush-install-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Build workspace packages the matrix resolves versions against
+        run: pnpm --filter "create-nextrush..." build
+
+      - name: Generate-then-install matrix (every style x runtime x middleware cell)
+        run: pnpm --filter create-nextrush test -- src/__tests__/generate-install-matrix.test.ts
+
   # T004 (close-phase0-ci-matrix-and-metadata-preflight): exercises `@nextrush/dev`'s `dev`
   # and `build` CLI commands on Windows and macOS against a minimal fixture, so platform-
   # specific regressions (path separators, line endings, process spawning) are caught before

@@ -74,9 +74,12 @@ Lightweight, function-based routing. Best for APIs and microservices.
 ```
 my-api/
 ├── src/
-│   ├── index.ts          # App setup + routes
+│   ├── index.ts               # App setup + routes
 │   └── routes/
-│       └── health.ts     # Health check route
+│       ├── health.ts          # Health check route
+│       ├── health-status.ts   # Pure health-check payload (unit-testable)
+│       └── __tests__/
+│           └── health-status.test.ts
 ├── package.json
 ├── tsconfig.json
 └── .gitignore
@@ -85,12 +88,11 @@ my-api/
 ```typescript
 import { createApp, createRouter, listen } from 'nextrush';
 
-const app = createApp();
 const router = createRouter();
+const app = createApp({ router });
 
 router.get('/', (ctx) => ctx.json({ message: 'Welcome to NextRush!' }));
 
-app.route('/', router);
 await listen(app, 8080);
 ```
 
@@ -105,7 +107,9 @@ my-api/
 │   ├── controllers/
 │   │   └── health.controller.ts
 │   └── services/
-│       └── app.service.ts
+│       ├── app.service.ts
+│       └── __tests__/
+│           └── app.service.test.ts
 ├── package.json
 ├── tsconfig.json
 └── .gitignore
@@ -150,10 +154,11 @@ my-api/
 │   ├── controllers/
 │   │   └── hello.controller.ts
 │   ├── services/
-│   │   └── hello.service.ts
+│   │   ├── hello.service.ts
+│   │   └── __tests__/
+│   │       └── hello.service.test.ts
 │   └── middleware/
-│       ├── error-handler.ts
-│       └── not-found.ts
+│       └── error-handler.ts
 ├── package.json
 ├── tsconfig.json
 └── .gitignore
@@ -175,12 +180,20 @@ cd my-api
 # Start development server (with hot reload)
 pnpm dev
 
+# Run the generated example test
+pnpm test
+
 # Build for production
 pnpm build
 
 # Run production build
 pnpm start
 ```
+
+Every generated project ships an `engines.node` field (`>=22.0.0`) and, for a non-npm package
+manager, a pinned `packageManager` field — and every emitted `@nextrush/*` dependency is
+resolved from that package's own published version (never proxied through another package's
+version), so `install` succeeds for every `style` × `runtime` × `middleware` combination.
 
 ## Requirements
 

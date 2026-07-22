@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   deriveProjectName,
   detectPackageManager,
-  getInstallCommand,
+  getInstallArgv,
+  getInstallCommandLabel,
   getRunCommand,
   isDirectoryEmpty,
   toPackageName,
@@ -67,12 +68,21 @@ describe('toPackageName', () => {
   });
 });
 
-describe('getInstallCommand', () => {
-  it('returns correct install commands', () => {
-    expect(getInstallCommand('npm')).toBe('npm install');
-    expect(getInstallCommand('pnpm')).toBe('pnpm install');
-    expect(getInstallCommand('yarn')).toBe('yarn');
-    expect(getInstallCommand('bun')).toBe('bun install');
+describe('getInstallArgv', () => {
+  it('returns correct install argv (no shell interpolation)', () => {
+    expect(getInstallArgv('npm')).toEqual(['npm', 'install']);
+    expect(getInstallArgv('pnpm')).toEqual(['pnpm', 'install']);
+    expect(getInstallArgv('yarn')).toEqual(['yarn']);
+    expect(getInstallArgv('bun')).toEqual(['bun', 'install']);
+  });
+});
+
+describe('getInstallCommandLabel', () => {
+  it('returns a human-readable install command label', () => {
+    expect(getInstallCommandLabel('npm')).toBe('npm install');
+    expect(getInstallCommandLabel('pnpm')).toBe('pnpm install');
+    expect(getInstallCommandLabel('yarn')).toBe('yarn');
+    expect(getInstallCommandLabel('bun')).toBe('bun install');
   });
 });
 
