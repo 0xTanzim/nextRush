@@ -53,7 +53,7 @@ function serve(app: Application, options?: ServeOptions): Promise<ServerInstance
 | ------------------ | ------------------------------------------------ | ------------ | ----------------------------------------------- |
 | `port`             | `number`                                         | `8080`       | Port to listen on                               |
 | `host`             | `string`                                         | `'0.0.0.0'`  | Host to bind to                                 |
-| `timeout`          | `number`                                         | `30000`      | Request timeout in milliseconds                 |
+| `timeout`          | `number`                                         | `30000`      | Request timeout in milliseconds — races the handler and returns a clean `504 Gateway Timeout` (F-04), cancelling via `ctx.signal`; also sets the socket-level `server.timeout` as an independent slow-client guard. Pass `0` to disable the handler-level race (socket guard unaffected). |
 | `keepAliveTimeout` | `number`                                         | `5000`       | Keep-alive timeout in milliseconds              |
 | `shutdownTimeout`  | `number`                                         | `30000`      | Graceful shutdown timeout in milliseconds       |
 | `gracefulShutdown` | `boolean \| GracefulShutdownOptions`             | —            | Opt-in: wire `SIGTERM`/`SIGINT` to the connection-drain `close()` logic — see [Graceful Shutdown](#graceful-shutdown) |

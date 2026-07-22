@@ -10,6 +10,7 @@ import type { Application, Logger } from '@nextrush/core';
 import {
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
+  jsonErrorResponse,
   normalizeStartupError,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
@@ -87,7 +88,51 @@ export interface ServeOptions {
    * Logger for adapter diagnostics. Defaults to app.logger.
    */
   logger?: Logger;
+
+  /**
+   * Opt-in: wire OS termination signals to the server's existing connection-drain
+   * `close()` logic (F-06/ADR-0010). Same shape and semantics as the Node/Bun
+   * adapters' `gracefulShutdown` option — when omitted (the default), NO signal
+   * handler is installed and process behavior is unchanged.
+   *
+   * - `true` — install handlers for the default signal set (`SIGTERM`, `SIGINT`),
+   *   using {@link ServeOptions.shutdownTimeout} as the drain timeout.
+   * - `{ signals, timeout }` — override the signal set and/or the drain timeout.
+   *   `timeout` falls back to `shutdownTimeout` when omitted.
+   *
+   * Deno 2's Node-compatibility layer provides `process.once`/`removeListener`
+   * for the signals this wires (`SIGTERM`/`SIGINT`), so the implementation
+   * matches Node/Bun exactly; the handler is removed once `close()` completes,
+   * so repeated `serve()`/`close()` cycles never accumulate duplicate listeners.
+   *
+   * @default undefined (no signal handler installed)
+   */
+  gracefulShutdown?: boolean | GracefulShutdownOptions;
 }
+
+/**
+ * Explicit override shape for {@link ServeOptions.gracefulShutdown} (F-06).
+ *
+ * @remarks
+ * Identical shape to the Node/Bun adapters' `GracefulShutdownOptions` so an
+ * operator configures shutdown the same way regardless of runtime.
+ */
+export interface GracefulShutdownOptions {
+  /**
+   * Signals that trigger the drain-and-exit sequence.
+   * @default ['SIGTERM', 'SIGINT']
+   */
+  signals?: readonly NodeJS.Signals[];
+
+  /**
+   * Drain timeout in milliseconds for the signal-triggered path. Falls back to
+   * {@link ServeOptions.shutdownTimeout} when omitted.
+   */
+  timeout?: number;
+}
+
+/** Default signal set for {@link ServeOptions.gracefulShutdown} when `true`. */
+const DEFAULT_GRACEFUL_SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
 
 /**
  * Server instance returned by serve()
@@ -168,10 +213,7 @@ export function createHandler(
 
           if (result === TIMEOUT_SENTINEL) {
             ctx.triggerTimeout(); // F-08: cancel the still-running handler
-            return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
-              status: 504,
-              headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            });
+            return jsonErrorResponse(504, 'Gateway Timeout');
           }
         } finally {
           if (timerId !== undefined) clearTimeout(timerId); // F-08: always clear
@@ -189,12 +231,88 @@ export function createHandler(
     } catch (error) {
       logger.error('Request error:', error);
 
-      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      });
+      return jsonErrorResponse(500, 'Internal Server Error');
     }
   };
+}
+
+/**
+ * The ONE connection-drain implementation for Deno: signal the server to stop
+ * accepting new connections, wait for `server.shutdown()` (with a timeout guard
+ * since it could otherwise hang on a stalled connection), then destroy app
+ * extensions. Both the manually-called `close()` and the signal-triggered path
+ * (via {@link buildCloseWithGracefulShutdown}) invoke this exact function (F-06,
+ * mirroring the Node/Bun adapters).
+ */
+async function drainAndClose(
+  abortController: AbortController,
+  server: DenoServer,
+  app: Application,
+  shutdownTimeout: number
+): Promise<void> {
+  // Signal the server to stop accepting new connections
+  abortController.abort();
+
+  // Graceful drain with timeout — Deno's shutdown() waits for
+  // in-flight requests but could hang if a connection stalls.
+  await Promise.race([
+    server.shutdown(),
+    new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeout)),
+  ]);
+  await app.close();
+}
+
+/**
+ * Build the `close()` returned by {@link serve}, optionally wiring OS signals to
+ * invoke it per {@link ServeOptions.gracefulShutdown} (F-06, ADR-0010) — the same
+ * contract as the Node/Bun adapters' `buildCloseWithGracefulShutdown`.
+ *
+ * When `gracefulShutdown` is omitted/falsy, this is a no-op wrapper: no signal
+ * handler is installed, and `close()` behaves exactly as it did before this
+ * option existed.
+ */
+function buildCloseWithGracefulShutdown(params: {
+  abortController: AbortController;
+  server: DenoServer;
+  app: Application;
+  shutdownTimeout: number;
+  gracefulShutdown: ServeOptions['gracefulShutdown'];
+}): () => Promise<void> {
+  const { abortController, server, app, shutdownTimeout, gracefulShutdown } = params;
+
+  const close = (): Promise<void> => drainAndClose(abortController, server, app, shutdownTimeout);
+
+  if (!gracefulShutdown) {
+    return close;
+  }
+
+  const config = gracefulShutdown === true ? {} : gracefulShutdown;
+  const signals = config.signals ?? DEFAULT_GRACEFUL_SHUTDOWN_SIGNALS;
+  const effectiveTimeout = config.timeout ?? shutdownTimeout;
+
+  let drainPromise: Promise<void> | undefined;
+  const removeSignalHandlers = (): void => {
+    for (const signal of signals) {
+      process.removeListener(signal, onSignal);
+    }
+  };
+
+  const onSignal = (): void => {
+    void runClose();
+  };
+
+  const runClose = (): Promise<void> => {
+    drainPromise ??= drainAndClose(abortController, server, app, effectiveTimeout).finally(
+      removeSignalHandlers
+    );
+    return drainPromise;
+  };
+
+  for (const signal of signals) {
+    process.once(signal, onSignal);
+  }
+
+  return runClose;
 }
 
 /**
@@ -233,6 +351,7 @@ export async function serve(
     key,
     shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
     timeout = DEFAULT_TIMEOUT_MS,
+    gracefulShutdown,
   } = options;
 
   const host = options.host ?? '0.0.0.0';
@@ -266,10 +385,7 @@ export async function serve(
         app.logger.error('Server error:', error);
       }
 
-      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      });
+      return jsonErrorResponse(500, 'Internal Server Error');
     },
   };
 
@@ -298,18 +414,13 @@ export async function serve(
       host: server.addr.hostname,
       hostname: server.addr.hostname,
     }),
-    close: async () => {
-      // Signal the server to stop accepting new connections
-      abortController.abort();
-
-      // Graceful drain with timeout — Deno's shutdown() waits for
-      // in-flight requests but could hang if a connection stalls.
-      await Promise.race([
-        server.shutdown(),
-        new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeout)),
-      ]);
-      await app.close();
-    },
+    close: buildCloseWithGracefulShutdown({
+      abortController,
+      server,
+      app,
+      shutdownTimeout,
+      gracefulShutdown,
+    }),
     finished: server.finished,
   };
 }

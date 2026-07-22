@@ -27,6 +27,7 @@ export {
 } from './body-source';
 
 // Utilities
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- F-09: intentional compat re-export, not a usage site
 export { getContentLength, getContentType, parseQueryString } from './utils';
 
 // Re-export types

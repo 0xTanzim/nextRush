@@ -57,7 +57,12 @@ export interface HandlerOptions {
  * Options for fetch-style handler factories (edge).
  */
 export interface FetchHandlerOptions {
-  /** Per-request timeout in milliseconds. When omitted, no timeout is enforced. */
+  /**
+   * Per-request timeout in milliseconds. Individual adapters may apply their
+   * own default when omitted (e.g. the edge adapter's `DEFAULT_EDGE_TIMEOUT_MS`,
+   * F-07/ADR-0010) rather than leaving the timeout unenforced — this shared
+   * type only pins the option's shape, not a specific default.
+   */
   timeout?: number;
   /**
    * Custom error handler. Receives the error and the fetch context and returns

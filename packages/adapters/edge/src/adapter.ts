@@ -17,8 +17,23 @@
  */
 
 import type { Application } from '@nextrush/core';
+import { jsonErrorResponse } from '@nextrush/runtime';
 import type { AdapterContextFactory, FetchAdapter } from '@nextrush/types';
 import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './context';
+
+/**
+ * Default request timeout applied when the caller specifies none (F-07,
+ * ADR-0010), converging Edge's default contract with Node/Bun/Deno (which all
+ * default to a bounded timeout rather than none).
+ *
+ * @remarks
+ * 25 000 ms — below the tightest common edge-platform wall limit (Vercel Edge
+ * Functions: 25 s), comfortably above typical handler durations, so the
+ * framework's clean `504` fires before the platform terminates the isolate.
+ * Pass `timeout: 0` to disable the framework timeout entirely (platform limit
+ * alone applies) or a positive value to override the default.
+ */
+export const DEFAULT_EDGE_TIMEOUT_MS = 25_000;
 
 /**
  * Options for the fetch handler
@@ -30,15 +45,22 @@ export interface FetchHandlerOptions {
   onError?: (error: Error, ctx: EdgeContext) => Response | Promise<Response>;
 
   /**
-   * Request timeout in milliseconds. When set, the handler races the
-   * application logic against a timer and returns a 504 Gateway Timeout
-   * if the timer fires first.
+   * Request timeout in milliseconds. The handler races the application logic
+   * against a timer and returns a 504 Gateway Timeout if the timer fires
+   * first, cancelling the still-running handler via `ctx.signal`.
    *
-   * Recommended defaults per platform:
+   * @remarks
+   * Defaults to {@link DEFAULT_EDGE_TIMEOUT_MS} (25 000 ms) when omitted
+   * (F-07/ADR-0010) — below the tightest common edge-platform wall limit
+   * (Vercel Edge: 25 s), so the framework's clean `504` fires before the
+   * platform terminates the isolate. Pass `0` to disable the framework
+   * timeout entirely (the platform's own limit still applies).
+   *
+   * Per-platform CPU/wall limits for context when overriding:
    * - Cloudflare Workers: 30 000 (30 s CPU limit)
    * - Vercel Edge:        25 000 (25 s wall limit)
    *
-   * When omitted, no timeout is enforced.
+   * @default DEFAULT_EDGE_TIMEOUT_MS (25000)
    */
   timeout?: number;
 }
@@ -105,7 +127,9 @@ function createRequestRunner(
   app: Application,
   options: FetchHandlerOptions
 ): (request: Request, executionContext?: EdgeExecutionContext, env?: unknown) => Promise<Response> {
-  const { timeout } = options;
+  // F-07/ADR-0010: default to DEFAULT_EDGE_TIMEOUT_MS when the caller specifies
+  // none (`undefined`); `0` remains an explicit opt-out (no framework timeout).
+  const timeout = options.timeout ?? DEFAULT_EDGE_TIMEOUT_MS;
   const trustProxy = app.options.proxy ?? false;
 
   /** Sentinel value returned by the timeout racer */
@@ -137,7 +161,7 @@ function createRequestRunner(
     const ctx = createEdgeContext(request, executionContext, trustProxy, env);
 
     try {
-      if (timeout !== undefined && timeout > 0) {
+      if (timeout > 0) {
         let timerId: ReturnType<typeof setTimeout> | undefined;
         try {
           const result = await Promise.race([
@@ -152,10 +176,7 @@ function createRequestRunner(
           if (result === TIMEOUT_SENTINEL) {
             // F-08: cancel the still-running handler cooperatively via ctx.signal.
             ctx.triggerTimeout();
-            return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
-              status: 504,
-              headers: { 'Content-Type': 'application/json' },
-            });
+            return jsonErrorResponse(504, 'Gateway Timeout');
           }
         } finally {
           // F-08: always clear the timer, on both handler-wins and timeout paths.
@@ -181,10 +202,7 @@ function createRequestRunner(
       // Default error handling
       app.logger.error('Request error:', error);
 
-      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonErrorResponse(500, 'Internal Server Error');
     }
   };
 }

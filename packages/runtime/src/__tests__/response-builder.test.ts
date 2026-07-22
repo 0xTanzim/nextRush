@@ -9,7 +9,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertHeaderSafe, isBodylessResponse, WebResponseBuilder } from '../response-builder.js';
+import { assertHeaderSafe, isBodylessResponse, jsonErrorResponse, WebResponseBuilder } from '../response-builder.js';
 
 describe('isBodylessResponse', () => {
   it('suppresses body for HEAD, 204, 304, and 1xx', () => {
@@ -285,5 +285,72 @@ describe('WebResponseBuilder.set — HP-15-web set-cookie pre-check', () => {
     const cookies = rb.getResponse(200).headers.getSetCookie();
     expect(cookies).toHaveLength(2);
     expect(cookies).toEqual(expect.arrayContaining(['n1=a', 'n2=b']));
+  });
+});
+
+describe('F-03: HEAD Content-Length by body type', () => {
+  it('a string body (via send) yields a measured Content-Length on HEAD', () => {
+    const rb = new WebResponseBuilder('HEAD');
+    rb.send('hello world', 200);
+    const res = rb.getResponse(200);
+    expect(res.headers.get('content-length')).toBe(String(new TextEncoder().encode('hello world').length));
+  });
+
+  it('a binary body (Uint8Array) already has an explicit Content-Length, preserved on HEAD', () => {
+    const rb = new WebResponseBuilder('HEAD');
+    rb.send(new Uint8Array([1, 2, 3, 4]), 200);
+    const res = rb.getResponse(200);
+    expect(res.headers.get('content-length')).toBe('4');
+  });
+
+  it('a null body (no response method called) has no measurable length — omitted', () => {
+    const rb = new WebResponseBuilder('HEAD');
+    const res = rb.getResponse(200);
+    expect(res.headers.has('content-length')).toBe(false);
+  });
+
+  it('a ReadableStream body has no known length — omitted on HEAD', () => {
+    const rb = new WebResponseBuilder('HEAD');
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      },
+    });
+    rb.sendStream(stream, 200);
+    const res = rb.getResponse(200);
+    expect(res.headers.has('content-length')).toBe(false);
+  });
+
+  it('204 and 304 never gain a Content-Length even on HEAD', () => {
+    const rb204 = new WebResponseBuilder('HEAD');
+    rb204.send('hidden', 204);
+    expect(rb204.getResponse(200).headers.has('content-length')).toBe(false);
+
+    const rb304 = new WebResponseBuilder('HEAD');
+    rb304.send('hidden', 304);
+    expect(rb304.getResponse(200).headers.has('content-length')).toBe(false);
+  });
+
+  it('GET is unaffected — no Content-Length is force-set for a string body', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.send('hello', 200);
+    // F-18: the runtime derives Content-Length from the string body; this
+    // builder never sets it explicitly for GET.
+    expect(rb.getResponse(200).headers.has('content-length')).toBe(false);
+  });
+});
+
+describe('F-05: jsonErrorResponse', () => {
+  it('builds a JSON error response with a uniform charset and the expected body shape', async () => {
+    const res = jsonErrorResponse(500, 'Internal Server Error');
+    expect(res.status).toBe(500);
+    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(await res.json()).toEqual({ error: 'Internal Server Error' });
+  });
+
+  it('supports arbitrary status codes and messages (e.g. 504 Gateway Timeout)', async () => {
+    const res = jsonErrorResponse(504, 'Gateway Timeout');
+    expect(res.status).toBe(504);
+    expect(await res.json()).toEqual({ error: 'Gateway Timeout' });
   });
 });

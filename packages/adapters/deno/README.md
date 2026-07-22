@@ -60,6 +60,7 @@ const server = serve(app, {
   port: 8080,            // Default: 8080
   hostname: '0.0.0.0',   // Default: '0.0.0.0'
   shutdownTimeout: 30000,// Default: 30000 (ms)
+  gracefulShutdown: true,// Opt-in: wire SIGTERM/SIGINT to the drain (F-06)
   onListen: ({ port, hostname }) => { ... },
   onError: (error) => { ... },
   cert: certPem,         // Optional TLS certificate
@@ -73,6 +74,25 @@ await server.close();
 // Wait for server to finish
 await server.finished;
 ```
+
+### Graceful Shutdown
+
+`close()` already signals the server to stop accepting connections and races `server.shutdown()` (which waits for in-flight requests) against `shutdownTimeout`, then tears down extensions. Pass `gracefulShutdown: true` to wire `SIGTERM`/`SIGINT` directly to that same drain — the same opt-in option shape as `@nextrush/adapter-node`/`-bun`:
+
+```typescript
+const server = await serve(app, {
+  port: 8080,
+  gracefulShutdown: true, // installs SIGTERM + SIGINT handlers
+});
+
+// Or override the signal set / drain timeout:
+const server2 = await serve(app, {
+  port: 8080,
+  gracefulShutdown: { signals: ['SIGTERM'], timeout: 5_000 },
+});
+```
+
+Omitting the option installs no signal handler — process behavior is unchanged. The handler is removed once shutdown completes, so repeated `serve()`/`close()` cycles never accumulate duplicate listeners.
 
 ### `createHandler(app)`
 

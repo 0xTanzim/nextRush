@@ -123,7 +123,7 @@ const handler = createFetchHandler(app, {
 | ----------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `app`             | `Application`                                                       | NextRush application instance                                                                        |
 | `options.onError` | `(error: Error, ctx: EdgeContext) => Response \| Promise<Response>` | Custom error handler                                                                                 |
-| `options.timeout` | `number`                                                            | Request timeout in ms. Returns 504 if exceeded. Recommended: 30000 for Cloudflare, 25000 for Vercel. |
+| `options.timeout` | `number`                                                            | Request timeout in ms. Races the handler and returns `504` if exceeded, cancelling via `ctx.signal`. Defaults to `25000` (`DEFAULT_EDGE_TIMEOUT_MS`, F-07) when omitted — below Vercel Edge's 25s wall limit. Pass `0` to disable. Cloudflare Workers' own CPU limit is typically 30000. |
 
 **Returns:** `FetchHandler` — A function `(request: Request, ctx?: EdgeExecutionContext) => Response | Promise<Response>`
 

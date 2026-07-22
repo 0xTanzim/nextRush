@@ -130,7 +130,8 @@ Detection is memoized after the first call, and the feature decision keys off `c
 
 **Cross-runtime request/response primitives**
 - **Body reading** — `WebBodySource` / `EmptyBodySource` / `AbstractBodySource` and `createWebBodySource()` with a `DEFAULT_BODY_LIMIT`; throws `BodyTooLargeError` / `BodyConsumedError`
-- **Response building** — `WebResponseBuilder` for Fetch-API adapters, plus `assertHeaderSafe()` and `isBodylessResponse()`
+- **Response building** — `WebResponseBuilder` for Fetch-API adapters, plus `assertHeaderSafe()`, `isBodylessResponse()`, and `jsonErrorResponse()` for a uniform framework-error `Content-Type` (F-05)
+- **Shared Context shell** — `WebContextBase` (F-08): the Bun/Deno/Edge contexts extend this one class for their response methods, lazy `raw`/`signal`, streaming, and `get`/`next`/`throw`/`assert`, instead of triplicating it
 - **Client IP** — one policy: `resolveClientIp()` / `getClientIp()` / `getEdgeClientIp()`, with structural `isValidClientIp()`
 - **Headers & query** — `headersToRecord()` (prototype-pollution-safe, keeps multi-value `set-cookie`) and `parseQueryString()` (single-pass, DoS-limited)
 - **Cancellation** — `combineAbortSignal()` merges client-disconnect and timeout into one `ctx.signal`
@@ -241,6 +242,8 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | `parseQueryString` | `(qs: string) => QueryParams` | `3.0.0` | Stable ✅ | Single-pass, DoS-limited, prototype-pollution-safe parser. |
 | `createWebBodySource` | `(body, opts?) => WebBodySource` | `3.1.0` | Stable ✅ | Size-limited Fetch-API body reader. |
 | `WebResponseBuilder` | `class` | `3.1.0` | Stable ✅ | Shared Fetch-`Response` builder for web adapters. |
+| `jsonErrorResponse` | `(status, message) => Response` | `3.1.0` | Stable ✅ | Uniform-charset framework error response (F-05). |
+| `WebContextBase` | `class` | `3.1.0` | Stable ✅ | Shared Web Context shell for Bun/Deno/Edge (F-08). |
 | `resolveClientIp` | `(get, opts) => string` | `3.1.0` | Stable ✅ | The one client-IP precedence + validation policy. |
 | `combineAbortSignal` | `(base: AbortSignal) => CombinedAbort` | `3.1.0` | Stable ✅ | Merge client-disconnect and timeout into one signal. |
 | `normalizeStartupError` | `(err, ctx) => ServerStartError` | `3.1.0` | Stable ✅ | Uniform bind-failure error across adapters. |
@@ -252,7 +255,8 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | **Detection** (`detection.ts`) | `detectRuntime` · `getRuntime` · `getRuntimeVersion` · `getRuntimeInfo` · `detectEdgeRuntime` · `isNode` · `isBun` · `isDeno` · `isEdge` · `isRuntime` · `resetRuntimeCache` · `capabilitiesFor` · `getRuntimeCapabilities` · type `EdgeRuntimeInfo` |
 | **Capability profiles** (`profiles.ts`) | `NodeProfile` · `BunProfile` · `DenoProfile` · `DenoDeployProfile` · `CloudflareProfile` · `VercelEdgeProfile` · `EdgeProfile` · `LambdaProfile` · `capabilityProfileFor` · type `CapabilityProfile` |
 | **Body source** (`body-source.ts`) | `AbstractBodySource` · `WebBodySource` · `EmptyBodySource` · `createWebBodySource` · `createEmptyBodySource` · `BodyConsumedError` · `BodyTooLargeError` · `DEFAULT_BODY_LIMIT` |
-| **Response builder** (`response-builder.ts`) | `WebResponseBuilder` · `assertHeaderSafe` · `isBodylessResponse` |
+| **Response builder** (`response-builder.ts`) | `WebResponseBuilder` · `assertHeaderSafe` · `isBodylessResponse` · `jsonErrorResponse` |
+| **Web Context base** (`web-context-base.ts`) | `WebContextBase` · types `WebRawHttp` · `WebStreamRunners` |
 | **Headers** (`headers.ts`) | `headersToRecord` · `resolveClientIp` · `getClientIp` · `getEdgeClientIp` · `isValidClientIp` · types `ClientIpOptions` · `HeaderLookup` |
 | **Query** (`query.ts`) | `parseQueryString` |
 | **Request signal** (`request-signal.ts`) | `combineAbortSignal` · type `CombinedAbort` |

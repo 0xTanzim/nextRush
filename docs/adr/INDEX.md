@@ -22,6 +22,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0007](ADR-0007-serverless-adapter-and-enforced-contract.md) | Enforced adapter contract & serverless execution/event-format separation | Accepted | `docs/RFC/runtime-adapters/013-adapter-contract.md`, `docs/RFC/runtime-adapters/014-adapter-serverless.md` |
 | [ADR-0008](ADR-0008-dev-tooling-capability-and-verification-first.md) | `dev-tooling` capability & verification-first hardening of `@nextrush/dev` | Accepted | `docs/RFC/dev-tooling/019-dev-tooling-capability.md` |
 | [ADR-0009](ADR-0009-framework-composition-and-functional-install-boundary.md) | `framework-composition` capability & functional/class install boundary via optional peers | Accepted · Shipped | `docs/RFC/framework-composition/020-framework-composition-integrity.md` |
+| [ADR-0010](ADR-0010-cross-runtime-parity-hardening.md) | Cross-runtime observable-parity hardening: per-cell real-runtime proof + Node timeout→504 & Bun/Deno graceful-shutdown convergence | Accepted | `docs/RFC/runtime-adapters/013-adapter-contract.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

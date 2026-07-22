@@ -22,6 +22,18 @@ app.use(async (ctx) => {
     ctx.throw(404, 'nope');
     return;
   }
+  if (ctx.path === '/cookies') {
+    ctx.set('Set-Cookie', ['a=1; Path=/', 'b=2; Path=/']);
+    ctx.status = 204;
+    return;
+  }
+  if (ctx.path === '/crash') {
+    throw new Error('secret-leak-123');
+  }
+  if (ctx.path === '/') {
+    ctx.json({ hello: 'world', n: 42, nested: { a: [1, 2, 3] } });
+    return;
+  }
   ctx.json({ method: ctx.method, path: ctx.path, a: ctx.query.a });
 });
 

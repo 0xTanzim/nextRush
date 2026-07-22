@@ -448,6 +448,26 @@ export class NodeContext implements AdapterContext {
   }
 
   /**
+   * Abort the in-flight request via `ctx.signal` (F-04).
+   *
+   * @remarks
+   * Mirrors the Web adapters' `triggerTimeout` so a handler-level timeout race
+   * can cooperatively cancel a still-running Node handler. Reads `ctx.signal`
+   * first to ensure the (lazily-created) `AbortController` exists, then aborts
+   * it directly — the client-disconnect listeners wired by the `signal` getter
+   * are unaffected (they no-op once already aborted).
+   *
+   * @internal
+   */
+  triggerTimeout(reason?: unknown): void {
+    void this.signal; // ensure _abortController is materialized
+    if (!this._abortController) return; // unreachable after the line above; type-narrowing guard
+    if (!this._abortController.signal.aborted) {
+      this._abortController.abort(reason ?? new Error('Request timeout'));
+    }
+  }
+
+  /**
    * @internal Stream a byte source to the client (Node eager pump). Resolves
    * when the stream is fully flushed; rejects on a non-abort transport error.
    */

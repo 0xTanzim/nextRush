@@ -14,27 +14,47 @@
 > Only 🟢 `real-runtime` rows back a "proven" claim in public docs — see
 > `docs/audits/08-runtime-compatibility-gap-analysis.md`.
 
-Legend: ✅ full · ⚠️ partial (different model) · ➖ not applicable by design · ❌ unsupported
+> **Real-runtime breadth (F-01, ADR-0010).** Even among `real-runtime` columns,
+> HOW MUCH of the shared behavioral contract each real runner actually proves
+> differs: `full-suite` means it runs the identical `defineConformanceSuite`
+> the in-process driver runs (Bun/Deno run their real binary IN-PROCESS with
+> the test, so the suite's per-case closures work normally — a behavior added
+> to the suite automatically runs there too). `curated-subset` means only a
+> hand-picked assertion set could be proven — workerd is a genuinely SEPARATE
+> isolate reached only over HTTP via miniflare, so the suite's closures cannot
+> cross that boundary; widening it needs a data-driven driver contract, an
+> RFC-gated decision this change does not make unilaterally.
+
+Legend: ✅ full (executed assertion) · ⚠️ partial (different model) · 🔷 capability-only (no executed assertion, F-02) · ➖ not applicable by design · ❌ unsupported
 
 | Feature | node | bun | deno | edge | serverless |
 | --- | --- | --- | --- | --- | --- |
 | **Proof** | **🟢 real-runtime** | **🟢 real-runtime** | **🟢 real-runtime** | **🟢 real-runtime** | **🟡 simulated** |
+| **Real-runtime breadth** | **🟢 full-suite** | **🟢 full-suite** | **🟢 full-suite** | **🟠 curated-subset** | **➖ n/a** |
 | Request | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
 | AbortSignal | ✅ | ✅ | ✅ | ✅ | ⚠️ |
 | Cookies | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Multipart | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Multipart | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
 | SSE | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Compression | ✅ | ✅ | ✅ | ✅ | ✅ |
-| WebSockets | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Compression | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
+| WebSockets | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
 | Shutdown | ✅ | ✅ | ✅ | ➖ | ➖ |
-| Timeouts | ⚠️ | ✅ | ✅ | ✅ | ✅ |
-| **Coverage** | **95%** | **100%** | **100%** | **100%** | **94.4%** |
+| Timeouts | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Coverage** | **70%** | **70%** | **70%** | **66.7%** | **61.1%** |
 
 ## Notes
 
-- **Timeouts** — ⚠️ for `node`: enforced at the socket level (`server.timeout`),
-  not a 504. Bun/Deno/Edge/serverless race the handler and return 504 (F-08).
+- **Timeouts** — ✅ full on every runtime (F-04/ADR-0010): Node now races the
+  handler against `timeout` and returns a clean 504, cancelling via `ctx.signal`,
+  the same contract Bun/Deno/Edge/serverless already used. `server.timeout`
+  remains an independent socket-level slow-client guard on Node, unaffected.
+- **Multipart / Compression / WebSockets** — 🔷 capability-only (F-02): support
+  is inferred from a `capabilitiesFor()` bit, not an executed cross-adapter
+  conformance assertion — the adapters implement no multipart parser, no
+  response-compression, and no WebSocket-upgrade path today. Not counted as
+  `full`/proven; add a real conformance assertion to graduate a feature out of
+  this state (as Streaming/SSE did — see `#20` in `suite.ts`).
 - **AbortSignal** — ⚠️ for `serverless`: the platform delivers a buffered event,
   so there is no mid-request transport abort; `ctx.signal` still fires on timeout.
 - **Shutdown** — ➖ for `edge`/`serverless`: no server lifetime, so extension

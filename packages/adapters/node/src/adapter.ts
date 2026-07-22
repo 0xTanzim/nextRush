@@ -159,8 +159,13 @@ export interface ServerInstance {
  *
  * @remarks
  * Accepts the shared {@link HandlerOptions} for cross-adapter consistency
- * (audit F-06). Node enforces `timeout` at the socket level in {@link serve}
- * (`server.timeout`), not per-handler, so only `logger` is consumed here.
+ * (audit F-06). Node retains `server.timeout` at the socket level in
+ * {@link serve} as an independent slow-client/slow-loris guard, AND (F-04, ADR-
+ * 0010) races the handler against `options.timeout` here, returning a clean
+ * `504 Gateway Timeout` and cancelling the handler via `ctx.signal` — the same
+ * observable contract as Bun/Deno/Edge/Serverless. Passing `timeout: 0`
+ * disables the handler-level race (pre-F-04 behavior); `server.timeout` is
+ * unaffected either way.
  */
 export function createHandler(
   app: Application,
@@ -169,6 +174,7 @@ export function createHandler(
   const handler = app.callback();
   const trustProxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
+  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
 
   // Hoist the constant context-options object out of the per-request path
   // (hot-path review HP-4): `trustProxy` is fixed for the server's lifetime, so the
@@ -179,32 +185,78 @@ export function createHandler(
   return (req: IncomingMessage, res: ServerResponse): void => {
     const ctx = createNodeContext(req, res, contextOptions);
 
-    // Single promise chain: .then(onFulfilled, onRejected) avoids extra microtask
-    handler(ctx).then(
-      () => {
-        // Ensure response is sent
-        if (!ctx.responded && !res.headersSent) {
-          if (ctx.status === 404) {
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ error: 'Not Found' }));
-          } else {
-            res.statusCode = ctx.status;
-            res.end();
-          }
-        }
-      },
-      (error: unknown) => {
-        // Error handling
-        logger.error('Request error:', error);
-
-        if (!res.headersSent) {
-          res.statusCode = 500;
+    const finalizeSuccess = (): void => {
+      // Ensure response is sent
+      if (!ctx.responded && !res.headersSent) {
+        if (ctx.status === 404) {
+          res.statusCode = 404;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ error: 'Internal Server Error' }));
+          res.end(JSON.stringify({ error: 'Not Found' }));
+        } else {
+          res.statusCode = ctx.status;
+          res.end();
         }
       }
-    );
+    };
+
+    const finalizeError = (error: unknown): void => {
+      logger.error('Request error:', error);
+
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      }
+    };
+
+    if (timeout <= 0) {
+      // F-04: timeout disabled — behavior identical to before this change.
+      handler(ctx).then(finalizeSuccess, finalizeError);
+      return;
+    }
+
+    // F-04: race the handler against the configured timeout, mirroring the
+    // Bun/Deno/Edge/Serverless handler-race contract. `server.timeout` (set in
+    // `serve()`) remains the independent socket-level slow-client guard.
+    const TIMEOUT_SENTINEL = Symbol('timeout');
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    const handlerPromise = handler(ctx);
+    Promise.race([
+      handlerPromise.then(() => {
+        /* handler settled first */
+      }),
+      new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+        timerId = setTimeout(() => {
+          resolve(TIMEOUT_SENTINEL);
+        }, timeout);
+      }),
+    ])
+      .then((result) => {
+        if (timerId !== undefined) clearTimeout(timerId);
+
+        if (result === TIMEOUT_SENTINEL) {
+          // F-04: cancel the still-running handler cooperatively via ctx.signal.
+          ctx.triggerTimeout();
+          // Never clobber a response the handler already committed.
+          if (!ctx.responded && !res.headersSent) {
+            res.statusCode = 504;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ error: 'Gateway Timeout' }));
+          }
+          // Swallow a late handler rejection after the timeout already
+          // responded — it has nowhere useful to go, but must not crash the
+          // process as an unhandled rejection.
+          handlerPromise.catch(() => undefined);
+          return;
+        }
+
+        finalizeSuccess();
+      })
+      .catch((error: unknown) => {
+        if (timerId !== undefined) clearTimeout(timerId);
+        finalizeError(error);
+      });
   };
 }
 
@@ -327,10 +379,12 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   // Boot extensions before building the request handler (deferred boot barrier).
   await app.ready();
 
-  const handler = createHandler(app, { logger });
+  const handler = createHandler(app, { logger, timeout });
   const server = createServer(handler);
 
-  // Configure timeouts
+  // Configure timeouts. F-04/ADR-0010: server.timeout is the independent
+  // socket-level slow-client/slow-loris guard; createHandler's own handler-race
+  // (fed the same `timeout`) is what actually produces the clean 504.
   server.timeout = timeout;
   server.keepAliveTimeout = keepAliveTimeout;
 
