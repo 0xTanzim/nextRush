@@ -1,11 +1,13 @@
 import { type InferPageType, loader } from 'fumadocs-core/source';
 import { toFumadocsSource } from 'fumadocs-mdx/runtime/server';
 import { blog as blogCollection, docs, skills as skillsCollection } from 'fumadocs-mdx:collections/server';
+import { i18n } from '@/lib/i18n';
 
 // See https://fumadocs.dev/docs/headless/source-api for more info
 export const source = loader({
   baseUrl: '/docs',
   source: docs.toFumadocsSource(),
+  i18n,
   plugins: [],
 });
 

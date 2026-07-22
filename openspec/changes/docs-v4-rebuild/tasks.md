@@ -166,13 +166,24 @@ shapes — proving one does not prove the other. One bad baked-in assumption oth
       `<AutoTypeTable path="packages/types/src/context.ts" name="Context" />` and that source file
       exists; collections compile clean. Documented in `apps/docs/README.md` (prefer over hand-authored
       `TypeTable` for reference pages, per `documentation.instructions.md`).
-- [ ] 2.4 **i18n-ready infrastructure (design.md D8):** wire Fumadocs `i18n` config with a **hidden
+- [x] 2.4 **i18n-ready infrastructure (design.md D8):** wire Fumadocs `i18n` config with a **hidden
       default locale** so English URLs are unchanged (verify against static export `output: 'export'`
       + Next.js 16.2.3 first — real technical risk), translatable UI chrome, a locale switcher, and
       `hreflang`/canonical. **Content stays English-first — no page translation in v4.** Add a
       `docs:verify` "translation-freshness" check stub (flags a localized page older than its source)
       for when translation begins. Retire the disabled `version-switcher` component in the same pass
       (D9.4 — v4 is single-version).
+
+      **Scope note (reduced, user-approved):** implemented `lib/i18n.ts` (`defineI18n`, English-only,
+      `hideLocale: 'default-locale'`), `hreflang`/canonical metadata, the translation-freshness
+      verify stub (real logic, tested against a fixture, genuine no-op today), and retired
+      `version-switcher`. **Deferred, explicitly:** the `app/[lang]/` route restructuring and a
+      locale switcher UI — both require moving 250+ live pages' routing with zero current
+      translation demand or committed locale maintainers (computed blast radius 6+, always gates
+      per this session's own rules; also a routing change requiring an RFC per this repo's process).
+      Also discovered and documented: Next.js middleware does not run in `output: 'export'` static
+      export — a future locale rollout needs a client-side redirect mechanism, not the standard
+      Fumadocs middleware pattern.
 - [x] 2.5 **Advanced-diagram rendering (design.md D10):** verify the docs-site `<Mermaid>` component
       renders the modern types the standard now mandates — **architecture-beta, block, packet, sankey,
       xychart, treemap, radar, state, ER, C4** (add a smoke-test MDX page exercising each). **Wire

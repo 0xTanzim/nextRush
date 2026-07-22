@@ -146,6 +146,50 @@ Interactive API reference, generated at build time and rendered client-side:
 > carries no `servers` URL. Point `servers` at a separately-deployed demo API only
 > if live try-it-out is ever wanted; it does not affect the docs build.
 
+## Internationalization — i18n-ready, English-first (task 2.4 ✅)
+
+Ships **i18n-*ready*, not i18n-*complete*** (design.md D8): the door is open at
+near-zero cost, content stays English-only until a locale has a committed
+maintainer. What's wired now:
+
+- **`src/lib/i18n.ts`** — `defineI18n({ defaultLanguage: 'en', languages: ['en'],
+  hideLocale: 'default-locale' })`, wired into `source.ts`'s `loader()`. English
+  URLs are completely unaffected today (confirmed via a full static build — all
+  251+ pages still generate at their existing, unprefixed paths).
+- **`canonical` + `hreflang`** — every `/docs/*` page now emits a real
+  `<link rel="canonical">` and `<link rel="alternate" hreflang="en">` /
+  `hreflang="x-default"` (verified via DOM inspection, not assumed), via
+  `generateMetadata()` in `app/docs/[[...slug]]/page.tsx`.
+- **Translation-freshness check** (`scripts/verify/i18n-freshness-check.ts`,
+  wired as check 5 of `pnpm docs:verify`) — flags a localized page
+  (`<slug>.<locale>.mdx`) whose English source is newer than it. A genuine
+  no-op today (no non-default locale configured), not a placeholder that
+  always silently passes — verified against a temp fixture with both a stale
+  and a fresh translation before shipping.
+- **`VersionSwitcher` retired** (D9.4 — v4 is single-version) — replaced with a
+  plain static `v{version}` badge in `SiteHeader`; the old component was a
+  permanently-disabled button that never did anything.
+
+**Deliberately not done yet, and why:** the actual `app/[lang]/` route
+restructuring (moving every page under a locale-prefixed dynamic segment per
+Fumadocs' documented pattern) is deferred. Doing it now would mean
+restructuring 250+ already-shipped, live pages' routing with zero current
+translation demand and zero committed locale maintainers — exactly the
+condition D8 itself names as the trigger to wait for ("translate
+incrementally... only for a locale with a committed maintainer"). It's also a
+routing change, which this repo's own process requires an RFC for before
+implementation. The config above means adding that RFC-gated route move later
+costs nothing extra today — nothing here needs to be undone or reworked to do
+it.
+
+Also confirmed while researching this: Next.js middleware (`proxy.ts`), which
+Fumadocs' own docs show for automatic browser-language redirects, **does not
+run at all** in this site's `output: 'export'` static export mode — it's
+explicitly listed under Next.js's own "Unsupported Features" for static
+export. A future locale rollout will need a client-side detection/redirect
+mechanism instead of the standard middleware-based approach; noting this now
+so the future RFC doesn't have to re-discover it.
+
 ## Mermaid diagram rendering — verified support (task 2.5 ✅)
 
 `src/components/mdx/mermaid.tsx` renders diagrams client-side via `mermaid@11.16.0`.

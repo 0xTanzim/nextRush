@@ -1,7 +1,6 @@
 'use client';
 
 import { AskAiTrigger } from '@/components/ask-ai-trigger';
-import { VersionSwitcher } from '@/components/version-switcher';
 import { cn } from '@/lib/cn';
 import { useSearchContext } from 'fumadocs-ui/contexts/search';
 import { SidebarTrigger } from 'fumadocs-ui/layouts/docs/slots/sidebar';
@@ -158,7 +157,9 @@ export function SiteHeader({ version }: { version: string }) {
         >
           <Search className="size-4" aria-hidden />
         </button>
-        <VersionSwitcher version={version} />
+        <span className="hidden items-center rounded-md border border-fd-border px-2 py-1 text-xs font-medium text-fd-muted-foreground sm:inline-flex">
+          v{version}
+        </span>
         <AskAiTrigger />
         <ThemeToggle />
         <Link

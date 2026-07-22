@@ -1,5 +1,6 @@
 import { FeedbackWidget } from '@/components/feedback-widget';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
+import { toAbsoluteUrl } from '@/config/appConfig';
 import { legacyRedirects, resolveLegacyRedirect } from '@/lib/legacy-redirects';
 import { getPageImage, source } from '@/lib/source';
 import { getMDXComponents } from '@/mdx-components';
@@ -83,9 +84,23 @@ export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): P
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
+  const canonicalPath = `/docs/${page.slugs.join('/')}`.replace(/\/$/, '') || '/docs';
+
   return {
     title: page.data.title,
     description: page.data.description,
+    alternates: {
+      // English is the only shipped locale today (design.md D8 — i18n-ready, not
+      // i18n-complete); `en` + `x-default` is the correct minimal hreflang baseline
+      // for a single-locale site, and the shape a future locale extends rather than
+      // introduces from scratch. hideLocale: 'default-locale' in lib/i18n.ts means
+      // this canonical path never gains an /en prefix.
+      canonical: toAbsoluteUrl(canonicalPath),
+      languages: {
+        en: toAbsoluteUrl(canonicalPath),
+        'x-default': toAbsoluteUrl(canonicalPath),
+      },
+    },
     openGraph: {
       images: getPageImage(page).url,
     },

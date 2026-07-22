@@ -28,7 +28,7 @@ wave starts) — not all up front — so they don't go stale as earlier waves re
 | Setup + template/standard freeze | — | (tasks §0) | §0.1–0.6 | — | ✅ done |
 | Pilots + gate | A+B | (tasks §1) | §1.1–1.3 | §0 | ✅ done |
 | Tooling: llms.txt · Scalar · AutoTypeTable | Tooling | (tasks §2) | §2.1–2.3 | — | ✅ done |
-| Tooling: i18n infra | Tooling | *(jit)* | §2.4 | B0 | ⬜ open |
+| Tooling: i18n infra | Tooling | *(jit)* | §2.4 | B0 | ✅ done, reduced scope (config + hreflang/canonical + freshness stub; `[lang]/` route move deferred — see tasks.md §2.4 note) |
 | Tooling: advanced-diagram render + ZenUML | Tooling | *(jit)* | §2.5 | — | ✅ done (block/block-beta upstream bug found + documented; ZenUML kept out-of-scope) |
 | **B0 — IA & rebrand design** | B | `wave-b0-ia.md` + `wave-b0-final-review.md` | §7 | §1 | ✅ **done / frozen** |
 | **A1 — Tier-1 core (6 pkgs)** | A | `waves/wave-a1-tier1-core.md` | §3 | §0.6, §1.3 | ✅ done (6/6 validated) |

@@ -12,6 +12,8 @@
  *   2. compile-check      — sampled ts/typescript code blocks typecheck for real
  *   3. lint-check          — forbidden words, generic headings, deprecated imports
  *   4. reference-match    — hand-written signatures exist in source (name-only, static)
+ *   5. i18n-freshness      — localized pages older than their English source (stub until
+ *                            a non-default locale is configured — see design.md D8)
  */
 
 import { dirname, join } from 'node:path';
@@ -20,6 +22,7 @@ import { checkLinks } from './link-check.js';
 import { checkCompile } from './compile-check.js';
 import { checkLint } from './lint-check.js';
 import { checkReferenceMatch } from './reference-match.js';
+import { checkTranslationFreshness } from './i18n-freshness-check.js';
 import { readMdxDocs } from './lib/fs-walk.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -67,6 +70,16 @@ async function main(): Promise<void> {
       : `  ${referenceFindings.length} reference-match finding(s).`
   );
   totalFindings += referenceFindings.length;
+
+  section('5. Translation-freshness check (stub — no non-default locale configured yet)');
+  const i18nFindings = checkTranslationFreshness(contentRoot, docs);
+  for (const f of i18nFindings) console.log(`  ✗ ${f.file} [${f.locale}] — ${f.reason}`);
+  console.log(
+    i18nFindings.length === 0
+      ? '  ✓ No stale translations (or no non-default locale configured yet).'
+      : `  ${i18nFindings.length} translation-freshness finding(s).`
+  );
+  totalFindings += i18nFindings.length;
 
   console.log('\n' + '═'.repeat(70));
   console.log(`  TOTAL FINDINGS: ${totalFindings}`);
