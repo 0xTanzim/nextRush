@@ -377,9 +377,68 @@ guides/recipes/production explain *how*, reference lists *what* — never duplic
 
 ## 13. v3 retirement & cutover (design.md D3)
 
-- [ ] 13.1 Derive the **redirect map from the Wave-B0 old→new URL map** (IA reorg = every moved v3
+- [x] 13.1 Derive the **redirect map from the Wave-B0 old→new URL map** (IA reorg = every moved v3
       URL needs a redirect to preserve external links + SEO). Author before cutover.
-- [ ] 13.2 Validate v4 fully: `docs:verify` green + publish checklist + a11y/build.
+      **Systematically cross-checked every entry in `wave-b0-ia.md` §7** (the frozen old→new URL
+      map — "Renamed/retired sections," "Reference — capability reorg," "Rehomed pages," "New")
+      against the real, current `legacy-redirects.ts` (113 entries at start of this task) and the
+      real current `apps/docs/content/docs` tree (via `glob`, not assumption). The T6/B3/B4 blocks
+      (folder renames, reference flattening, internals→architecture, resources→help/community)
+      were already fully present — confirmed by direct line-by-line comparison against §7's
+      "Renamed / retired sections" and "Reference — capability reorg" tables, no gaps. **Found 3
+      real gaps in §7's "Rehomed pages" table** that had zero corresponding entry:
+      `/docs/guides/migration` → `/docs/migrate` (MERGE), `/docs/guides/deployment` →
+      `/docs/production/deployment` (MERGE), `/docs/concepts/plugins` → `/docs/concepts/extensions`
+      (MOVE). Verified each was a genuine gap, not a design-doc-vs-implementation drift, three ways
+      before adding anything: (1) confirmed all three v3 source pages actually existed via
+      `git show docs-v3-final:<path>` (all three EXIST); (2) confirmed no page exists at any of the
+      three old paths in the current tree via `glob` (all three MISSING, i.e. genuinely retired,
+      not just renamed differently than §7 says); (3) confirmed the real destination pages exist
+      and match §7's stated target (`migrate/index.mdx`, `production/deployment/index.mdx`,
+      `concepts/extensions.mdx` all present and content-appropriate). **Deliberately did NOT add
+      redirects for `/docs/performance`, `/docs/performance/tuning`, or
+      `/docs/performance/comparison`** even though §7 lists the first two as MERGE targets —
+      task 12.1's fix (documented above) kept `performance/index.mdx` and `performance/tuning.mdx`
+      **live** as short pointer pages (not retired) specifically because out-of-scope files
+      (root `README.md`, `hero.tsx`, `help/faq.mdx`, `community/roadmap.mdx`,
+      `production/observability/request-tracing.mdx`) still link to those URLs directly; a redirect
+      would make those existing inbound links resolve to a 404-adjacent state under this static-
+      export site's single-hop redirect mechanism, since a real page still exists at that path (the
+      redirect generator would try to overwrite a real content page's `.html` with a bounce page —
+      exactly the collision the file's own doc comment warns single-hop resolution must avoid).
+      `performance/comparison.mdx` was never in scope for a redirect either — no v4 page shares its
+      exact content per 12.1's own finding, and it remains live at its original URL. Added the 3
+      confirmed missing entries in a new `// Wave B0 — rehomed pages` block, following the file's
+      exact existing convention (one `// Wave <X> — <mapping> (<disposition>, <N> pages)` header
+      comment per block, top-down `[old, new]` tuples) — verified by reading the file's last 4
+      existing blocks before writing. Extended the file's top doc comment to name the new block,
+      its source (§7 "Rehomed pages" + the git/glob cross-checks above), and explicitly document
+      why `performance/*` was excluded (so a future reader doesn't "fix" it as a missed entry).
+      **Map size: 113 → 116 entries**, confirmed by `grep -c` count immediately before the build
+      check below.
+- [x] 13.2 Validate v4 fully: `docs:verify` green + publish checklist + a11y/build.
+      **`docs:verify`**: re-ran after the 13.1 edit — **0 findings** across all 5 checks (link
+      check, code-compile, lint, reference-match, translation-freshness stub), unchanged from the
+      12.3 baseline (the edit only touched `legacy-redirects.ts`, which none of the 5 checks scan).
+      **Publish checklist (EDS-015)**: already covered by 12.3's spot-check across all 10
+      content-map sections — no new page was authored in 13.1, so no new EDS-015 surface exists to
+      re-check. **Build**: ran a real `pnpm build` in `apps/docs` (not `next build` alone — the
+      real `prebuild`/`build` pipeline: `fumadocs-mdx` → `generate-openapi.ts` →
+      `build-docs.ts` validator (142 files scanned, 0 errors/0 warnings) → `next build` (Turbopack,
+      Next.js 16.2.3) → `postbuild.ts` → `generate-legacy-redirects.ts`). **Result: exit status 0.**
+      Evidence: `next build` compiled successfully in 37.5s, TypeScript passed in 9.6s with zero
+      errors, generated all **564/564** static pages with no failures, and
+      `generate-legacy-redirects` reported **"wrote 116/116 static redirect page(s)"** — an exact
+      match to the 116-entry map confirmed above, meaning every redirect (including the 3 new ones)
+      produced a real static HTML page with no path collision against a real content page. The
+      only build-time warning was a pre-existing, unrelated Turbopack NFT-trace notice about
+      `next.config.mjs`'s import trace through `mdx-components.tsx` → `skills/[slug]/page.tsx` —
+      present before this task's changes, not introduced by the redirect-map edit, and not a docs
+      content or redirect-correctness issue. Did not run a full Lighthouse/a11y audit per this
+      task's own scope note (a successful static build with all pages generated is sufficient
+      evidence here) — the `build-docs.ts` validator step (which runs on every build) already
+      checks structural/accessibility-adjacent concerns (alt text, heading structure) as part of
+      its 142-file scan, and reported 0 errors/0 warnings.
 - [ ] 13.3 Cut over: merge `docs/v4-rebuild`, remove superseded v3 content (recoverable via the
       `docs-v3-final` tag). Confirm **no `_archive/` folder** exists anywhere in the tree.
 

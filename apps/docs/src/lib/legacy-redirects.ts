@@ -1,6 +1,6 @@
 /**
  * NextRush docs — legacy URL redirect map (T6 folder renames + Wave B3 reference/architecture IA
- * migration + Wave B4 resources→help/community IA migration).
+ * migration + Wave B4 resources→help/community IA migration + Wave B0 rehomed pages).
  *
  * This site is a full static export (`output: 'export'` in next.config.mjs), so Next.js's
  * `redirects()` config option is a no-op — it is only honored by the Node/Vercel server
@@ -22,14 +22,25 @@
  * paths directly, so a bookmark from either era resolves in one hop. Wave B4 retired
  * `resources/` into a new `help/` folder plus 2 pages moved into `community/`, and retired
  * `resources/package-catalog.mdx` entirely (duplicate of `reference/packages.mdx`) — its entry
- * points straight at the replacement page.
+ * points straight at the replacement page. The final block covers three rehomed pages from the
+ * B0 IA design (`wave-b0-ia.md` §7 "Rehomed pages") that were retired outright during
+ * implementation rather than kept as live pointers: `guides/migration.mdx` and
+ * `guides/deployment.mdx` (superseded by the dedicated `migrate/` section and
+ * `production/deployment/*` respectively) and `concepts/plugins.mdx` (renamed to
+ * `concepts/extensions.mdx`). Unlike the `performance/*` pages (which stay live as short
+ * pointers per task 12.1 — see those pages' own Callouts — because out-of-scope files still
+ * link to them directly), these three have zero surviving inbound links from files outside this
+ * pipeline's scope, so a hard redirect is correct rather than a live pointer page.
  *
  * Source of the T6 mapping: `git status --short` rename-detection output for the T6 folder
  * moves (getting-started → start, api-reference → reference, examples → guides/examples),
  * enumerated per-page, not just per-folder. Source of the B3 mapping: the frozen D9.1/D9.3
  * decisions in `openspec/changes/docs-v4-rebuild/waves/wave-b3-reference-architecture.md`.
  * Source of the B4 mapping: the frozen mapping table in
- * `openspec/changes/docs-v4-rebuild/waves/wave-b4-migrate-community-help.md`.
+ * `openspec/changes/docs-v4-rebuild/waves/wave-b4-migrate-community-help.md`. Source of the B0
+ * rehomed-pages mapping: `openspec/changes/docs-v4-rebuild/wave-b0-ia.md` §7 "Rehomed pages",
+ * cross-checked against `git show docs-v3-final:<path>` (confirms the v3 source page existed)
+ * and the current `apps/docs/content/docs` tree (confirms no page exists at the old path today).
  */
 export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   // getting-started/* -> start/*
@@ -162,6 +173,14 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/resources/roadmap', '/docs/community/roadmap'],
   ['/docs/resources/changelog', '/docs/community/changelog'],
   ['/docs/resources/package-catalog', '/docs/reference/packages'],
+
+  // Wave B0 — rehomed pages (guides/concepts moved into other sections, 3 pages)
+  // guides/migration.mdx was retired; its content is superseded by the dedicated migrate/ section.
+  ['/docs/guides/migration', '/docs/migrate'],
+  // guides/deployment.mdx was retired; its content is superseded by production/deployment/*.
+  ['/docs/guides/deployment', '/docs/production/deployment'],
+  // concepts/plugins.mdx was renamed to concepts/extensions.mdx (extension taxonomy terminology).
+  ['/docs/concepts/plugins', '/docs/concepts/extensions'],
 ]);
 
 /** Old `/docs/...` path -> new `/docs/...` path, or `undefined` if not a known legacy path. */
