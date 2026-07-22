@@ -12,7 +12,7 @@ contract; the toolchain that a generated project *invokes* (`@nextrush/dev`: bui
 generators) is owned by the `dev-tooling` capability, which this capability depends on but does not
 restate.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Generated projects install with fully resolvable dependency versions
 `create-nextrush` SHALL resolve the version of every `@nextrush/*` and framework dependency it emits

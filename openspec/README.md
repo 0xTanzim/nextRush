@@ -5,7 +5,7 @@ whole point.
 
 ```
 openspec/
-├── specs/      →  TRUTH:   what the framework does NOW.  SMALL & STABLE (~16 folders, forever).
+├── specs/      →  TRUTH:   what the framework does NOW.  SMALL & STABLE (~18 folders, forever).
 │                          One folder per durable CAPABILITY. Changes EDIT these. We read this.
 ├── changes/    →  HISTORY: why we did it.  Grows forever — that's fine, git is the real history.
 │   └── archive/            DISPOSABLE. Not read for truth. See "Archive retention" below.
@@ -30,7 +30,7 @@ The folder count stays flat no matter how many changes ship.
   (`*-fastpath`, `*-trim`, `*-cleanup`, `*-microtrims`).
 - Every capability spec has a **real `## Purpose`** — never a `TBD - created by archiving…` stub.
 
-## Capability registry (16)
+## Capability registry (18)
 
 Pick the target capability for any change from this list. If nothing fits, that is the signal to
 consider (and justify) a new capability — not to fall back to a change-shaped folder.
@@ -54,6 +54,7 @@ consider (and justify) a new capability — not to fall back to a change-shaped 
 | `public-surface-lock` | Per-package exported-symbol lock tests (runtime `Object.keys` + compile-time type surface); cross-subpath public type-name coherence; README-documents-only-locked-exports accuracy. |
 | `gap-checklist-accuracy` | `docs/audits/03-gap-checklist.md` statuses verified against source, with citable notes. |
 | `framework-composition` | How NextRush's packages compose into one installable framework: the meta-package's dependency/install footprint matching its advertised footprint, the no-install-script rule, canonical publishable-manifest conventions, and satellite-package discoverability via a maintained catalog. |
+| `project-scaffolding` | The `create-nextrush` project-generation contract: per-package framework-version resolution with an offline fallback map, template generation across every style × runtime × middleware combination, the generate-then-install verifier gate, and the guarantee that a generated project installs, builds, and runs with working DI on its selected runtime, carrying production-ready defaults and honest, self-consistent documentation. |
 
 ## Archive retention
 
