@@ -13,8 +13,9 @@ HOW TO USE
        - Every section must either contain content OR an explicit
          "_Not applicable — <one-line reason>_".
        - For documentation-only or process RFCs, sections that genuinely do not
-         apply (Architecture, Success Metrics, Rollback, Cross-Cutting) may be a
-         single N/A line — do not pad them with boilerplate.
+         apply (Architecture, Architecture Invariants, Success Metrics,
+         Rollback, Cross-Cutting, Terminology, Decision Drivers, Trade-offs)
+         may be a single N/A line — do not pad them with boilerplate.
        - Never silently DELETE a section heading; a missing heading reads as
          "the author forgot", an N/A line reads as "considered, doesn't apply".
   3. Delete every guidance block. Guidance blocks are the HTML comments
@@ -26,12 +27,21 @@ HOW TO USE
 
 SECTION MAP (fixed order — every RFC follows it)
   TOP-MATTER (unnumbered): metadata table · Progress Tracker
-  0 Revision History · 1 Summary · 2 Decision Summary · 3 Problem & Motivation
-  4 Goals & Non-Goals · 5 Impact · 6 Proposed Solution · 7 Architecture
+  0 Revision History · 1 Summary · 1a Terminology · 2 Decision Summary
+  2a Decision Drivers · 3 Problem & Motivation · 4 Goals & Non-Goals · 5 Impact
+  6 Proposed Solution · 6a Trade-offs · 7 Architecture · 7a Architecture Invariants
   8 Detailed Design · 9 Alternatives · 10 Rejected Ideas · 11 Risks
   12 Backward Compatibility · 13 Cross-Cutting Concerns · 14 Success Metrics
   15 Phased Implementation · 16 Rollback Plan · 17 Future Work
   18 Open Questions · 19 Decisions Log · 20 References
+
+  §1a, §2a, §6a, §7a are the four additions on top of the original 20-section
+  map (see docs/RFC/INDEX.md changelog / commit history for the rationale).
+  Each is skippable with an explicit N/A like any other section — the point is
+  a place to put the information when an RFC needs it, not a mandatory new
+  hoop. Do not add a fifth "extra" section without the same bar: it must have
+  already been repeatedly wished-for across several real RFCs, not guessed at
+  up front.
 
 PROGRESS BAR CONVENTION (identical in the ADR & audit-report templates)
   Bar = 20 cells, one filled cell (█) per 5%; empties are ░. Show percent + count.
@@ -123,6 +133,25 @@ and the single most important consequence (what gets better, what it costs)._
 
 ---
 
+## 1a. Terminology
+
+<!--
+> 📝 Only for RFCs that introduce or redefine domain vocabulary a reader needs
+>    before §2 makes sense (e.g. "Capability", "Plugin", "Adapter" used in a
+>    specific, load-bearing sense in this RFC). Skip with an N/A line for RFCs
+>    that introduce no new terms — most bug-fix/small RFCs will. Definitions
+>    here are binding for this RFC and should match prior RFCs' usage unless
+>    you are deliberately redefining a term (say so explicitly if you are).
+-->
+
+`<Term>`
+: _One-sentence definition, in this RFC's specific sense._
+
+`<Term>`
+: _One-sentence definition._
+
+---
+
 ## 2. Decision Summary
 
 <!--
@@ -139,6 +168,27 @@ and the single most important consequence (what gets better, what it costs)._
 - **Breaking:** `No` | `Yes — see §12`
 - **Migration required:** `None` | `<one line — see §12>`
 - **Blast radius:** `<low | medium | high>` — _see §5 for who's affected._
+
+---
+
+## 2a. Decision Drivers
+
+<!--
+> 📝 The priority order used to break ties DURING design — state it before
+>    presenting the solution, not after. Without this, reviewers debate a
+>    design from different unstated priorities (one assumes performance wins,
+>    another assumes simplicity wins) and the thread goes in circles. Order
+>    matters: list highest-priority first. Keep it short — 3–6 drivers, not a
+>    restatement of every principle in AGENTS.md.
+-->
+
+Priority (highest → lowest):
+
+1. _`<e.g. Runtime independence>`_
+2. _`<e.g. Performance>`_
+3. _`<e.g. API simplicity>`_
+4. _`<e.g. Maintainability>`_
+5. _`<e.g. Developer experience>`_
 
 ---
 
@@ -230,6 +280,30 @@ makes it work._
 
 ---
 
+## 6a. Trade-offs
+
+<!--
+> 📝 Every decision has costs — make them explicit, for the SOLUTION JUST
+>    CHOSEN (§6), not the alternatives (that's §9). Distinct from §11 Risks:
+>    a trade-off is a cost you are accepting on purpose and up front (e.g.
+>    "more boilerplate"); a risk is something that might go wrong LATER that
+>    you're mitigating (e.g. "adapter drift"). If a line could honestly go in
+>    either section, put the known, accepted cost here and the uncertain,
+>    future-facing one in §11.
+-->
+
+### Benefits
+
+- _`<concrete benefit of the chosen design>`_
+- _`<concrete benefit>`_
+
+### Costs
+
+- _`<concrete cost accepted knowingly — boilerplate, startup time, less "magic">`_
+- _`<concrete cost>`_
+
+---
+
 ## 7. Architecture
 
 <!--
@@ -260,6 +334,26 @@ flowchart LR
 _What the diagram doesn't say on its own: the key constraint or principle that
 drove this shape (layering, runtime independence, hot-path cost, package
 hierarchy). Tie back to the package graph in `.kiro/steering/architecture.instructions.md`._
+
+---
+
+## 7a. Architecture Invariants
+
+<!--
+> 📝 The standing rules this RFC must PRESERVE, or the specific ones it
+>    explicitly and deliberately BREAKS (with justification — breaking an
+>    invariant silently is how architecture rots). Don't re-derive NextRush's
+>    global invariants from scratch here — reference the canonical sources
+>    (`.kiro/steering/architecture.instructions.md` for the package hierarchy,
+>    `AGENTS.md` §7 for runtime independence) and list only the ones THIS RFC
+>    actually touches. A future RFC that would violate one of these must
+>    justify it explicitly, not silently drift past it. N/A only if this RFC
+>    is pure doc/process with zero architectural surface.
+-->
+
+- _`<invariant this RFC relies on and preserves — e.g. "Core never imports middleware">`_
+- _`<invariant this RFC relies on and preserves>`_
+- _`<invariant this RFC deliberately changes, if any>`_ — _justification: `<why breaking it is correct here, not accidental>`_
 
 ---
 
@@ -513,10 +607,14 @@ _What happens if this RFC is not adopted — the cost of the status quo._
 ============================================================================
  FINAL CHECK before setting Status to "In Review" — every box true:
    [ ] §2 Decision Summary readable in 30 seconds (breaking? migration? decided).
+   [ ] §1a Terminology present if new terms are introduced, else N/A.
+   [ ] §2a Decision Drivers stated in priority order before §6 is read.
    [ ] Every section has content OR an explicit "Not applicable — reason".
    [ ] Every problem in §3.2 has evidence and a matching solution in §6.
    [ ] §5 Impact lists affected packages (drives the test matrix) + "not affected".
+   [ ] §6a Trade-offs states real costs of the CHOSEN design, not just benefits.
    [ ] §7 has before/after diagrams (or N/A for doc/process RFCs).
+   [ ] §7a Architecture Invariants lists what's preserved, and justifies any break.
    [ ] §9 has ≥1 real alternative + "do nothing"; §10 records rejected ideas.
    [ ] §11 Risks separated from trade-offs, each with a mitigation.
    [ ] Backward-compat stated (§12); migration path present if breaking.
