@@ -173,7 +173,7 @@ shapes — proving one does not prove the other. One bad baked-in assumption oth
       `docs:verify` "translation-freshness" check stub (flags a localized page older than its source)
       for when translation begins. Retire the disabled `version-switcher` component in the same pass
       (D9.4 — v4 is single-version).
-- [ ] 2.5 **Advanced-diagram rendering (design.md D10):** verify the docs-site `<Mermaid>` component
+- [x] 2.5 **Advanced-diagram rendering (design.md D10):** verify the docs-site `<Mermaid>` component
       renders the modern types the standard now mandates — **architecture-beta, block, packet, sankey,
       xychart, treemap, radar, state, ER, C4** (add a smoke-test MDX page exercising each). **Wire
       ZenUML** via `mermaid.registerExternalDiagrams([zenuml])` + `@mermaid-js/mermaid-zenuml` (pinned)

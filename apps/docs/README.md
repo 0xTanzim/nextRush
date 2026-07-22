@@ -146,6 +146,51 @@ Interactive API reference, generated at build time and rendered client-side:
 > carries no `servers` URL. Point `servers` at a separately-deployed demo API only
 > if live try-it-out is ever wanted; it does not affect the docs build.
 
+## Mermaid diagram rendering — verified support (task 2.5 ✅)
+
+`src/components/mdx/mermaid.tsx` renders diagrams client-side via `mermaid@11.16.0`.
+Every type EDS-012's diagram-type table recommends was verified against a live
+render (DOM-inspected, not screenshot-assumed) using
+`content/docs/architecture/diagram-smoke-test.mdx` — an internal-only QA page,
+excluded from every `meta.json`, kept in the tree to re-run after any `mermaid`
+version bump.
+
+| Type | Status |
+| ---- | ------ |
+| `architecture-beta` | ✅ Renders |
+| `packet` | ✅ Renders (not `packet-beta` — that keyword doesn't exist) |
+| `sankey-beta` | ✅ Renders |
+| `xychart` | ✅ Renders (not `xychart-beta` — that keyword doesn't exist) |
+| `treemap-beta` | ✅ Renders |
+| `radar-beta` | ✅ Renders (`axis`/`curve` entries need an id + quoted label each) |
+| `stateDiagram-v2` | ✅ Renders |
+| `erDiagram` | ✅ Renders |
+| `C4Context` | ✅ Renders (upstream still labels it experimental — prefer `architecture-beta` for new diagrams) |
+| `sequenceDiagram` | ✅ Renders |
+| `block` / `block-beta` | ❌ **Broken — do not use** (real upstream bug, see below) |
+| ZenUML | ❌ Not wired — **decided out-of-scope**; use `sequenceDiagram` |
+
+**`block`/`block-beta` is broken in this app, not a syntax problem.** Both
+spellings are accepted by mermaid's own detector, and both trigger the same
+crash: the `block` layout engine's `setBlockSizes` calls `JSON.stringify` on a
+D3-selected DOM node during layout measurement, and in this app's
+React-managed container that node carries a `__reactFiber$*` back-reference,
+throwing `TypeError: Converting circular structure to JSON` and crashing the
+*entire page* (not just the one diagram — the exception isn't caught by any
+per-diagram boundary). Reproduced with mermaid's own minimal reference
+example. Use `flowchart` (with `subgraph` for nested groupings) or
+`architecture-beta` instead until upstream fixes this or the `<Mermaid>`
+component works around it.
+
+**ZenUML decision:** kept out-of-scope rather than wired in. Wiring it needs a
+new dependency (`@mermaid-js/mermaid-zenuml`) plus a
+`mermaid.registerExternalDiagrams([zenuml])` call in the shared `<Mermaid>`
+component, and no page in this docs site currently needs ZenUML's code-style
+notation over the already-verified `sequenceDiagram` — there's no content need
+driving the added dependency and shared-component change. Revisit only if a
+future page specifically needs ZenUML's notation.
+
+
 
 
 - `lib/source.ts`: Code for content source adapter, [`loader()`](https://fumadocs.dev/docs/headless/source-api) provides the interface to access your content.
