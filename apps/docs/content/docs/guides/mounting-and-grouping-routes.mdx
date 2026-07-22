@@ -44,21 +44,15 @@ GET  /api/v1/admin/dashboard   (requires auth)
 ## What you're building
 
 <Mermaid
-  chart="
-block-beta
-  columns 3
-  app[\"Application\"]:3
-  space:3
-  api[\"api router\\n(mount /api/v1)\"]:3
-  space:3
-  users[\"users router\\n(mount /users)\"] posts[\"posts router\\n(mount /posts)\"] admin[\"admin routes\\n(group /admin + auth)\"]
-  app --> api
-  api --> users
-  api --> posts
-  api --> admin
+  chart={`
+flowchart TD
+  app["Application"] --> api["api router\\n(mount /api/v1)"]
+  api --> users["users router\\n(mount /users)"]
+  api --> posts["posts router\\n(mount /posts)"]
+  api --> admin["admin routes\\n(group /admin + auth)"]
   style app fill:#3b82f6,stroke:#1d4ed8,color:#fff
   style admin fill:#f59e0b,stroke:#d97706,color:#fff
-"
+`}
 />
 
 ## Recommended approach

@@ -72,20 +72,23 @@ Think of a module as a **labeled group**, not a walled compartment. `@Module` sa
 
 <Mermaid
   chart="
-block-beta
-  columns 2
-  AppModule(('AppModule')) space
-  block:UserModule
-    columns 1
-    UserCtl(['UserController'])
-    UserSvc[('UserService')]
+flowchart TD
+  AppModule((AppModule))
+
+  subgraph UserModule
+    direction TB
+    UserCtl([UserController])
+    UserSvc[(UserService)]
   end
-  block:BillingModule
-    columns 1
-    BillingCtl(['BillingController'])
-    BillingSvc[('BillingService')]
+
+  subgraph BillingModule
+    direction TB
+    BillingCtl([BillingController])
+    BillingSvc[(BillingService)]
   end
-  Container[('Shared DI container')]
+
+  Container[(Shared DI container)]
+
   AppModule --> UserModule
   AppModule --> BillingModule
   UserSvc --> Container
