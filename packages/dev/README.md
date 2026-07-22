@@ -23,6 +23,11 @@ That's it! No configuration needed. The CLI auto-detects:
 - Runtime (Node.js, Bun, or Deno)
 - TypeScript settings from `tsconfig.json`
 
+> The `nextrush` command is also provided by the [`nextrush`](../nextrush) meta-package's launcher,
+> which delegates here when `@nextrush/dev` is installed and prints an actionable install hint when
+> it is not (see [ADR-0013](../../docs/adr/ADR-0013-nextrush-cli-launcher-discoverability.md)). Either
+> package installing this toolkit makes `nextrush dev`/`build`/`generate` work.
+
 ## The Problem
 
 TypeScript decorators with dependency injection require **`emitDecoratorMetadata`** to work. This compiler option emits type information at runtime:

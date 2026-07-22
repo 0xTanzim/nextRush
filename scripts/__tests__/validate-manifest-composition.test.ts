@@ -84,3 +84,33 @@ describe('canonical manifest shape — real workspace packages (fixed by tasks 2
     expect(allProblems).toEqual([]);
   });
 });
+
+describe('nextrush meta-package bin launcher shape (dev-cli-discoverability — ADR-0013)', () => {
+  type MetaPkg = {
+    readonly bin?: Record<string, string>;
+    readonly files?: readonly string[];
+    readonly scripts?: Record<string, string>;
+  };
+
+  async function readMetaPkg(): Promise<MetaPkg> {
+    const pkgJsonPath = path.join(repoRoot, 'packages/nextrush/package.json');
+    return parsePackageJson(await readFile(pkgJsonPath, 'utf8'), pkgJsonPath) as MetaPkg;
+  }
+
+  it('declares a nextrush bin pointing to a file inside the published files allow-list', async () => {
+    const pkg = await readMetaPkg();
+
+    const binTarget = pkg.bin?.nextrush;
+    expect(binTarget).toBe('./bin/nextrush.js');
+
+    // The bin's top-level directory must be shipped, or the published package has a broken bin.
+    const topDir = (binTarget ?? '').replace(/^\.\//, '').split('/')[0];
+    expect(pkg.files ?? []).toContain(topDir);
+  });
+
+  it('does not wire the bin to any install-lifecycle script (no install-time execution)', async () => {
+    const pkg = await readMetaPkg();
+    // The first-ever bin field must not reopen the install-time-execution hole RFC-020 closed.
+    expect(findInstallLifecycleScripts(pkg)).toEqual([]);
+  });
+});

@@ -18,8 +18,12 @@
   },
   "files": [
     "dist",
+    "bin",
     "README.md"
   ],
+  "bin": {
+    "nextrush": "./bin/nextrush.js"
+  },
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist",

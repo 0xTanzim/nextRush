@@ -30,10 +30,19 @@ describe('dev-CLI discovery (post-postinstall-removal)', () => {
     expect(pkg.files).not.toContain('scripts');
   });
 
-  it('does not declare a bin entry (unchanged from before)', async () => {
+  it('ships a bin launcher that adds no install-time execution', async () => {
     const pkgJsonUrl = new URL('../../package.json', import.meta.url);
-    const pkg = JSON.parse(await readFile(pkgJsonUrl, 'utf8')) as { bin?: unknown };
+    const pkg = JSON.parse(await readFile(pkgJsonUrl, 'utf8')) as {
+      bin?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
 
-    expect(pkg.bin).toBeUndefined();
+    // The meta-package now ships a `nextrush` bin (RFC-020 §21 / ADR-0013). A bin only runs on
+    // explicit `nextrush <command>` invocation — it must NOT be wired to any install-lifecycle
+    // script, so the "no install-time code execution" guarantee (F-04) still holds.
+    expect(pkg.bin?.nextrush).toBe('./bin/nextrush.js');
+    expect(pkg.scripts?.postinstall).toBeUndefined();
+    expect(pkg.scripts?.preinstall).toBeUndefined();
+    expect(pkg.scripts?.install).toBeUndefined();
   });
 });

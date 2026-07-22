@@ -86,6 +86,23 @@ exact dependency footprint by usage path.
 > class-based/full templates, `@nextrush/class`) for you - see
 > [Scaffold a project](#scaffold-a-project) below.
 
+### Two intentional install steps: Runtime and Development Toolkit
+
+`nextrush` is the **runtime** - everything you need to *serve* requests. The dev server, production
+builds, and code generators live in a separate **development toolkit**, `@nextrush/dev`, installed
+as a dev dependency. This split is deliberate (nothing dev-only ships to production), not a missing
+bundle:
+
+```bash
+pnpm add nextrush          # 1. Runtime - build and serve your app
+pnpm add -D @nextrush/dev  # 2. Development Toolkit - `nextrush dev` / `build` / `generate`
+```
+
+The `nextrush` command is provided by the runtime itself, so it always resolves. If you run
+`nextrush dev` before installing the toolkit, it doesn't fail with a raw "command not found" - it
+prints the exact install command for your package manager and a one-line description of what the
+toolkit provides. `pnpm create nextrush` adds both steps for you.
+
 ## Quick start
 
 ```ts

@@ -2,6 +2,8 @@
 # Dependencies
 node_modules/
 **/node_modules/
+deno.lock
+
 .internal
 .agents
 .cursor
@@ -22,6 +24,7 @@ apps/docs/.vitepress/cache
 # Turbo cache
 .turbo/
 **/.turbo/
+
 
 # Downloaded CI log folders (local debugging)
 logs_*/
@@ -128,6 +131,8 @@ Copilot-Processing.md
 !packages/create-nextrush/bin/**
 !packages/dev/bin/
 !packages/dev/bin/**
+!packages/nextrush/bin/
+!packages/nextrush/bin/**
 
 
 .commandcode
@@ -153,3 +158,5 @@ openspec/changes/archive/*
 
 
 examples
+
+feedback
