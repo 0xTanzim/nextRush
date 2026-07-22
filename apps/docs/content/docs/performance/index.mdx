@@ -3,41 +3,20 @@ title: Benchmarks
 description: Transparent, reproducible benchmarks — methodology, fairness guarantees, and how to run them.
 ---
 
-**Last updated:** 2026-07-09
-
-The benchmark suite in `apps/benchmark` compares six servers — NextRush v3, Fastify, Hono, Koa,
-Express, and a raw Node.js baseline — across 10 scenarios. This page documents the methodology
-and fairness guarantees. Your hardware will give different absolute RPS; relative rankings on
-identical hardware are what matter. In production, databases and external calls usually dominate
-latency, not the framework.
-
-<Callout type="warn" title="Numbers are being re-measured">
-  Published RPS figures were withdrawn pending re-measurement on a clean, CPU-pinned environment
-  with the hardened, parity-validated harness. Earlier numbers came from single-run sessions on a
-  shared machine and were not reproducible to a publishable standard. Run `apps/benchmark`
-  yourself for current numbers — that is the only number that matters for capacity planning.
+<Callout type="info" title="Canonical home moved to Production &gt; Benchmarking">
+  The full benchmark methodology now lives at
+  **[Benchmarking](/docs/production/benchmarking)**, alongside the rest of the
+  production/operations content. This page stays live (linked from
+  [Start](/docs/start), [FAQ](/docs/help/faq), the marketing homepage, and
+  [Roadmap](/docs/community/roadmap)) so those existing links keep resolving without
+  edits outside this task's scope — it no longer duplicates the content, only points to it.
 </Callout>
 
-## Tools
+See **[Benchmarking](/docs/production/benchmarking)** for the tools, fairness guarantees,
+publishable profiles, how to run the suite yourself, and known limitations.
 
-<BenchmarkCardGrid
-  items={[
-    {
-      label: 'wrk',
-      value: 'Primary — C-based',
-      detail:
-        'Runs as a separate C process, isolated from Node.js — no event loop interference. Install via `apt install wrk`. Preferred for publishable numbers.',
-    },
-    {
-      label: 'autocannon',
-      value: 'Fallback — Node.js',
-      detail:
-        'Runs in-process (single process, no worker threads). Always available via pnpm. Shares the event loop with the server, so numbers differ slightly from wrk. Good for quick checks.',
-    },
-  ]}
-/>
-
-The runner auto-detects wrk first; use `--tool wrk|autocannon` to force one.
+For code-pattern and architecture comparisons against Express/Fastify/Hono/Koa (not raw
+numbers), see [Framework Comparison](/docs/performance/comparison).
 
 ---
 
