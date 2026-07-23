@@ -44,9 +44,9 @@ export function LLMCopyButton({
       disabled={isLoading}
       className={cn(
         buttonVariants({
-          color: 'secondary',
+          color: 'ghost',
           size: 'sm',
-          className: 'gap-2 [&_svg]:size-3.5 [&_svg]:text-fd-muted-foreground',
+          className: 'gap-1.5 text-fd-muted-foreground [&_svg]:size-3.5',
         })
       )}
       onClick={onClick}
@@ -243,14 +243,14 @@ export function ViewOptions({
       <PopoverTrigger
         className={cn(
           buttonVariants({
-            color: 'secondary',
+            color: 'ghost',
             size: 'sm',
-            className: 'gap-2',
+            className: 'gap-1.5 text-fd-muted-foreground',
           })
         )}
       >
-        Open
-        <ChevronDown className="size-3.5 text-fd-muted-foreground" />
+        View
+        <ChevronDown className="size-3.5" />
       </PopoverTrigger>
       <PopoverContent className="flex flex-col">
         {items.map((item) => (

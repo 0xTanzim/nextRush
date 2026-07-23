@@ -1,0 +1,6 @@
+{
+  "title": "Security",
+  "icon": "ShieldCheck",
+  "defaultOpen": false,
+  "pages": ["cors", "helmet", "csrf", "rate-limit"]
+}

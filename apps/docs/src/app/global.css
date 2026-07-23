@@ -28,6 +28,201 @@
   --info: #3b82f6;
 }
 
+/* ============================================
+   Documentation Design System — Foundation tokens
+   ============================================
+   Layer 1 of 3 (Foundation -> Semantic -> Platform bridge). See
+   apps/docs/DESIGN/TOKENS.md for the full spec and verified contrast ratios.
+   Additive only (docs-design-system-rollout Phase 1): nothing below consumes
+   these yet, so this commit is a zero-visual-change diff. Foundation values
+   are theme-independent primitives; only the Semantic layer (next) is
+   theme-aware. Never reference a Foundation token from a component -- read
+   the Semantic layer instead. */
+:root {
+  /* Brand ramp (interaction only; DESIGN.md "Brand") */
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+
+  /* Neutral ramp -- one canonical scale, 0 lightest -> 950 darkest, in BOTH
+     themes (TOKENS.md 3.2: a theme changes which step a role points at,
+     never the number-to-hex mapping). */
+  --neutral-0: #ffffff;
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1e293b;
+  --neutral-900: #0f172a;
+  --neutral-950: #020617;
+
+  /* Ink -- dark-theme surface steps (bluer than pure slate; TOKENS.md 3.3) */
+  --ink-page: #0b1120;
+  --ink-sidebar: #0e1524;
+  --ink-card: #151d2e;
+  --ink-elevated: #1e2739;
+  --ink-code: #0a0f1c;
+
+  /* Status hues -- base (icon/border, >=3:1) + text (>=4.5:1 on white);
+     dark uses lighter tints (TOKENS.md 3.4, verified in TOKENS.md 7). */
+  --hue-success-base: #16a34a;
+  --hue-success-text: #15803d;
+  --hue-success-dark: #22c55e;
+  --hue-warning-base: #d97706;
+  --hue-warning-text: #b45309;
+  --hue-warning-dark: #fbbf24;
+  --hue-danger-base: #dc2626;
+  --hue-danger-dark: #f87171;
+  --hue-info-base: #0284c7;
+  --hue-info-text: #0369a1;
+  --hue-info-dark: #38bdf8;
+  --hue-experimental-base: #7c3aed;
+  --hue-experimental-dark: #a78bfa;
+
+  /* Learning hues -- educational visuals only, locked map (TOKENS.md 5) */
+  --hue-learning-application-light: #2563eb;
+  --hue-learning-application-dark: #60a5fa;
+  --hue-learning-middleware-light: #7c3aed;
+  --hue-learning-middleware-dark: #a78bfa;
+  --hue-learning-router-light: #ea580c;
+  --hue-learning-router-dark: #fb923c;
+  --hue-learning-context-light: #0891b2;
+  --hue-learning-context-dark: #22d3ee;
+  --hue-learning-runtime-light: #059669;
+  --hue-learning-runtime-dark: #34d399;
+  --hue-learning-extension-light: #ca8a04;
+  --hue-learning-extension-dark: #fbbf24;
+  --hue-learning-di-light: #9333ea;
+  --hue-learning-di-dark: #c084fc;
+}
+
+/* ============================================
+   Documentation Design System — Semantic tokens
+   ============================================
+   Layer 2 of 3. Roles point at Foundation tokens above; every value is
+   verified against WCAG 2.2 AA in TOKENS.md 7 (exceptions -- --text-subtle,
+   --border-subtle/-default -- are documented there, not silent). Author
+   component CSS against THESE tokens, never the Foundation layer. */
+.light {
+  --surface-page: #fbfcfe;
+  --surface-sidebar: #f7f9fc;
+  --surface-card: var(--neutral-0);
+  --surface-elevated: var(--neutral-100);
+  --surface-code: var(--neutral-50);
+
+  --ds-text-primary: var(--neutral-900);
+  --ds-text-secondary: var(--neutral-700);
+  --ds-text-muted: var(--neutral-500);
+  --ds-text-subtle: var(--neutral-400);
+
+  --border-subtle: #eef2f7;
+  --border-default: var(--neutral-200);
+  --border-strong: var(--neutral-300);
+  --border-interactive: #7c8797;
+
+  --brand-link: var(--brand-600);
+  --brand-hover: var(--brand-700);
+  --brand-solid: var(--brand-600);
+  --on-brand: #ffffff;
+  --brand-focus: var(--brand-500);
+  --brand-wash: var(--brand-50);
+
+  --status-success: var(--hue-success-base);
+  --status-success-text: var(--hue-success-text);
+  --status-warning: var(--hue-warning-base);
+  --status-warning-text: var(--hue-warning-text);
+  --status-danger: var(--hue-danger-base);
+  --status-info: var(--hue-info-base);
+  --status-info-text: var(--hue-info-text);
+  --status-experimental: var(--hue-experimental-base);
+
+  --learning-application: var(--hue-learning-application-light);
+  --learning-middleware: var(--hue-learning-middleware-light);
+  --learning-router: var(--hue-learning-router-light);
+  --learning-context: var(--hue-learning-context-light);
+  --learning-runtime: var(--hue-learning-runtime-light);
+  --learning-extension: var(--hue-learning-extension-light);
+  --learning-di: var(--hue-learning-di-light);
+}
+
+.dark {
+  --surface-page: var(--ink-page);
+  --surface-sidebar: var(--ink-sidebar);
+  --surface-card: var(--ink-card);
+  --surface-elevated: var(--ink-elevated);
+  --surface-code: var(--ink-code);
+
+  --ds-text-primary: #f1f5f9;
+  --ds-text-secondary: #cbd5e1;
+  --ds-text-muted: #94a3b8;
+  --ds-text-subtle: #64748b;
+
+  --border-subtle: #1e293b;
+  --border-default: #273449;
+  --border-strong: #3a4a63;
+  --border-interactive: #64748b;
+
+  --brand-link: var(--brand-400);
+  --brand-hover: var(--brand-300);
+  --brand-solid: var(--brand-600);
+  --on-brand: #ffffff;
+  --brand-focus: var(--brand-500);
+  --brand-wash: color-mix(in srgb, var(--brand-500) 14%, transparent);
+
+  --status-success: var(--hue-success-dark);
+  --status-success-text: var(--hue-success-dark);
+  --status-warning: var(--hue-warning-dark);
+  --status-warning-text: var(--hue-warning-dark);
+  --status-danger: var(--hue-danger-dark);
+  --status-info: var(--hue-info-dark);
+  --status-info-text: var(--hue-info-dark);
+  --status-experimental: var(--hue-experimental-dark);
+
+  --learning-application: var(--hue-learning-application-dark);
+  --learning-middleware: var(--hue-learning-middleware-dark);
+  --learning-router: var(--hue-learning-router-dark);
+  --learning-context: var(--hue-learning-context-dark);
+  --learning-runtime: var(--hue-learning-runtime-dark);
+  --learning-extension: var(--hue-learning-extension-dark);
+  --learning-di: var(--hue-learning-di-dark);
+}
+
+/* Tailwind v4 alias bridge (design.md 3): `inline` keeps these reactive to
+   the live custom property per theme, so `bg-surface-card` etc. switch with
+   .light/.dark instead of freezing a build-time value. Not consumed by any
+   component yet in Phase 1 -- available for Phase 3 migrations. */
+@theme inline {
+  --color-surface-page: var(--surface-page);
+  --color-surface-sidebar: var(--surface-sidebar);
+  --color-surface-card: var(--surface-card);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-code: var(--surface-code);
+  --color-text-primary: var(--ds-text-primary);
+  --color-text-secondary: var(--ds-text-secondary);
+  --color-text-muted: var(--ds-text-muted);
+  --color-text-subtle: var(--ds-text-subtle);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-interactive: var(--border-interactive);
+  --color-brand-link: var(--brand-link);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-solid: var(--brand-solid);
+  --color-on-brand: var(--on-brand);
+}
+
 /* Dark theme — Ink-blue-black palette with depth and visible layering */
 .dark {
   --bg-base: #0c0f17;
@@ -35,13 +230,29 @@
   --bg-hover: #1c2030;
   --bg-border: #2a2f3e;
 
-  --text-primary: #eef0f5;
-  --text-secondary: #94a3b8;
-  /* WCAG AA fix (T22 launch hardening): was #64748b (3.69:1 vs card bg, fails
-     4.5:1 minimum for normal text) — confirmed via lighthouse a11y audit +
-     relative-luminance calc. #94a3b8 clears 6.85:1 against the card bg while
-     staying visually "muted" relative to --text-secondary/--text-primary. */
-  --text-muted: #94a3b8;
+  --text-primary: var(--ds-text-primary);
+  /* Phase 3 of docs-design-system-rollout: --text-secondary now aliases the
+     Semantic layer's --ds-text-secondary (TOKENS.md 4.2) instead of its own
+     #94a3b8. That is a deliberate, verified change, not a silent regression:
+     the old value (11.34:1 -> now vs the prior pairing) was numerically
+     identical to this file's own --text-muted, leaving dark mode with only
+     3 distinguishable text steps instead of 4. The new value keeps AA (see
+     TOKENS.md 7) and restores the 4-step ramp primary/secondary/muted/subtle
+     was always meant to be. */
+  --text-secondary: var(--ds-text-secondary);
+  /* Numerically identical to --ds-text-muted already; aliased in Phase 3 so
+     the value has one source instead of two hardcoded copies. WCAG AA
+     verified in TOKENS.md 7 (6.57:1 on card). */
+  --text-muted: var(--ds-text-muted);
+  /* --text-subtle sits between --text-muted and --bg-border: a 5th neutral
+     step for chrome that needs to read as present but not readable (dividers
+     between grouped items, disabled-state text) without collapsing into the
+     border color. Distinct step count matters more than the exact hex here —
+     these four (primary/secondary/muted/subtle) plus --bg-border give a real
+     ramp instead of two grays doing five jobs. Aliased to --ds-text-subtle in
+     Phase 3 (same value, one source). */
+  --text-subtle: var(--ds-text-subtle);
+  --text-subtle: #64748b;
 
   /* Code block chrome */
   --code-bg: #0d1117;
@@ -58,23 +269,27 @@
   --code-punctuation: #94a3b8;
   --code-operator: #c084fc;
 
-  /* Fumadocs color overrides (--color-fd-* is what Tailwind v4 uses) */
-  --color-fd-background: #0c0f17;
-  --color-fd-foreground: #eef0f5;
-  --color-fd-muted: #151923;
-  --color-fd-muted-foreground: hsla(220, 20%, 70%, 0.8);
-  --color-fd-popover: #181c27;
-  --color-fd-popover-foreground: #e4e8ef;
-  --color-fd-card: #151923;
-  --color-fd-card-foreground: #f5f6f8;
-  --color-fd-border: hsla(220, 30%, 40%, 0.25);
-  --color-fd-primary: #60a5fa;
-  --color-fd-primary-foreground: #0c0f17;
-  --color-fd-secondary: #1c2030;
-  --color-fd-secondary-foreground: #e4e8ef;
-  --color-fd-accent: hsla(220, 50%, 45%, 0.18);
-  --color-fd-accent-foreground: #dde2eb;
-  --color-fd-ring: #3b82f6;
+  /* Fumadocs color overrides — derived from the Semantic layer (Phase 2 of
+     docs-design-system-rollout; see design.md 2 Layer 3 / TOKENS.md 6). No
+     value below is hand-set: every one reads a surface, text, brand, or
+     border Semantic token, so retuning a Semantic token retunes Fumadocs'
+     own chrome for free. Never hand-set --color-fd-* again. */
+  --color-fd-background: var(--surface-page);
+  --color-fd-foreground: var(--ds-text-primary);
+  --color-fd-muted: var(--surface-elevated);
+  --color-fd-muted-foreground: var(--ds-text-muted);
+  --color-fd-popover: var(--surface-elevated);
+  --color-fd-popover-foreground: var(--ds-text-primary);
+  --color-fd-card: var(--surface-card);
+  --color-fd-card-foreground: var(--ds-text-primary);
+  --color-fd-border: var(--border-default);
+  --color-fd-primary: var(--brand-link);
+  --color-fd-primary-foreground: var(--on-brand);
+  --color-fd-secondary: var(--surface-elevated);
+  --color-fd-secondary-foreground: var(--ds-text-secondary);
+  --color-fd-accent: var(--brand-wash);
+  --color-fd-accent-foreground: var(--ds-text-primary);
+  --color-fd-ring: var(--brand-focus);
 }
 
 /* Light theme — Clean, crisp Stripe/Vercel inspired */
@@ -84,12 +299,19 @@
   --bg-hover: #f1f4f8;
   --bg-border: #dde2eb;
 
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
+  --text-primary: var(--ds-text-primary);
+  /* Phase 3: aliases --ds-text-secondary (was #475569, 10.35:1 on card either
+     way — both AA-safe; #334155 is the TOKENS.md-verified value, kept as the
+     one source instead of two close-but-different hardcoded hex). */
+  --text-secondary: var(--ds-text-secondary);
   /* WCAG AA fix (T22 launch hardening): was #94a3b8 (2.47-2.56:1 vs both light
      backgrounds, badly fails 4.5:1) — confirmed via lighthouse a11y audit +
-     relative-luminance calc. #64748b clears 4.59-4.76:1. */
-  --text-muted: #64748b;
+     relative-luminance calc. #64748b clears 4.59-4.76:1. Aliased to
+     --ds-text-muted in Phase 3 (identical value, one source). */
+  --text-muted: var(--ds-text-muted);
+  /* See dark theme's --text-subtle comment — same 5th ramp step, light value.
+     Aliased to --ds-text-subtle in Phase 3 (identical value, one source). */
+  --text-subtle: var(--ds-text-subtle);
 
   /* Light mode specific color adjustments for better contrast */
   --rush-cyan: #0891b2;
@@ -111,23 +333,24 @@
   --code-punctuation: #64748b;
   --code-operator: #7c3aed;
 
-  /* Fumadocs color overrides */
-  --color-fd-background: #fafbfc;
-  --color-fd-foreground: #0f172a;
-  --color-fd-muted: #f1f4f8;
-  --color-fd-muted-foreground: #64748b;
-  --color-fd-popover: #ffffff;
-  --color-fd-popover-foreground: #1e293b;
-  --color-fd-card: #ffffff;
-  --color-fd-card-foreground: #0f172a;
-  --color-fd-border: #dde2eb;
-  --color-fd-primary: #2563eb;
-  --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: #f1f4f8;
-  --color-fd-secondary-foreground: #0f172a;
-  --color-fd-accent: #edf0f7;
-  --color-fd-accent-foreground: #0f172a;
-  --color-fd-ring: #2563eb;
+  /* Fumadocs color overrides — derived from the Semantic layer (Phase 2). See
+     the dark-mode block above for the rule: never hand-set --color-fd-*. */
+  --color-fd-background: var(--surface-page);
+  --color-fd-foreground: var(--ds-text-primary);
+  --color-fd-muted: var(--surface-elevated);
+  --color-fd-muted-foreground: var(--ds-text-muted);
+  --color-fd-popover: var(--surface-elevated);
+  --color-fd-popover-foreground: var(--ds-text-primary);
+  --color-fd-card: var(--surface-card);
+  --color-fd-card-foreground: var(--ds-text-primary);
+  --color-fd-border: var(--border-default);
+  --color-fd-primary: var(--brand-link);
+  --color-fd-primary-foreground: var(--on-brand);
+  --color-fd-secondary: var(--surface-elevated);
+  --color-fd-secondary-foreground: var(--ds-text-secondary);
+  --color-fd-accent: var(--brand-wash);
+  --color-fd-accent-foreground: var(--ds-text-primary);
+  --color-fd-ring: var(--brand-focus);
 }
 
 /* ============================================
@@ -164,56 +387,15 @@ kbd {
   background-clip: text;
 }
 
-.gradient-text-accent {
-  background: var(--rush-gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+/* .gradient-text-accent and standalone .gradient-border were removed here
+   (Phase 6 of docs-design-system-rollout): confirmed zero usages anywhere in
+   src/**, including Brand Mode — dead CSS, not a docs-scope removal. Recover
+   from git history if a future Brand-Mode surface wants them back. */
 
-/* Gradient border */
-.gradient-border {
-  position: relative;
-  border-radius: 0.75rem;
-}
-
-.gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  background: var(--rush-gradient);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* Glow effect */
-.glow {
-  box-shadow:
-    0 0 20px color-mix(in srgb, var(--rush-blue) 20%, transparent),
-    0 0 60px color-mix(in srgb, var(--rush-purple) 10%, transparent);
-}
-
-.glow-hover:hover {
-  box-shadow:
-    0 0 30px color-mix(in srgb, var(--rush-blue) 30%, transparent),
-    0 0 80px color-mix(in srgb, var(--rush-purple) 20%, transparent);
-}
-
-/* Card hover effect */
-.card-hover {
-  transition: all 0.2s ease-in-out;
-}
-
-.card-hover:hover {
-  transform: translateY(-2px);
-  border-color: var(--rush-blue);
-}
+/* .glow, .glow-hover, and .card-hover were removed here (Phase 6): confirmed
+   zero usages anywhere in src/**. .card-glow (below) is the live glass-morphism
+   card Brand Mode still uses; these three were superseded dead code, not a
+   docs-scope removal. Recover from git history if ever needed. */
 
 /* Button styles */
 .btn-primary {
@@ -251,21 +433,10 @@ kbd {
    ============================================ */
 
 /* Dot grid background pattern */
-.dot-grid {
-  background-image: radial-gradient(circle, var(--bg-border) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-/* Subtle noise texture overlay */
-.noise-overlay::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
-}
+/* .dot-grid and .noise-overlay were removed here (Phase 6): confirmed zero
+   usages anywhere in src/**, including Brand Mode — dead CSS, not a
+   docs-scope removal. Recover from git history if a future Brand-Mode
+   surface wants a texture overlay back. */
 
 /* Code block enhanced glow — refined, premium shadow */
 .code-glow {
@@ -404,47 +575,17 @@ kbd {
 }
 
 /* ============================================
-   Premium docs background (must not wrap DocsPage — Fumadocs grid needs direct children)
-   ============================================ */
-
+   Docs layout background (Phase 2 of docs-design-system-rollout)
+   ============================================
+   The Electric Rush radial-gradient blobs (`::before`/`::after` on this id)
+   were removed here: DESIGN.md's Documentation Mode bans decorative
+   background gradients on docs surfaces (see "Things we never do" and
+   MIGRATION.md's global.css audit, `#nd-docs-layout::before/::after` row).
+   The id/isolation stays because DocsPage's grid still relies on it as a
+   positioning context for other rules in this file. */
 #nd-docs-layout {
   position: relative;
   isolation: isolate;
-}
-
-#nd-docs-layout::before,
-#nd-docs-layout::after {
-  content: '';
-  position: fixed;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: 9999px;
-  filter: blur(64px);
-  opacity: 0.28;
-}
-
-#nd-docs-layout::before {
-  top: 6rem;
-  right: max(-12rem, -12vw);
-  width: clamp(18rem, 34vw, 32rem);
-  height: clamp(18rem, 34vw, 32rem);
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--rush-blue) 28%, transparent),
-    transparent 68%
-  );
-}
-
-#nd-docs-layout::after {
-  bottom: 10rem;
-  left: max(-14rem, -14vw);
-  width: clamp(16rem, 30vw, 28rem);
-  height: clamp(16rem, 30vw, 28rem);
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--rush-cyan) 20%, transparent),
-    transparent 70%
-  );
 }
 
 .prose :where(h2, h3) {
@@ -457,6 +598,9 @@ kbd {
 }
 
 .prose :where(h2)::after {
+  /* Flat, single-hue marker (Phase 2): DESIGN.md bans decorative gradient
+     rules on docs surfaces; a flat --brand-link bar keeps the same visual
+     landmark without the gradient. */
   content: '';
   position: absolute;
   left: 0;
@@ -464,25 +608,23 @@ kbd {
   width: 4rem;
   height: 2px;
   border-radius: 9999px;
-  background: linear-gradient(90deg, var(--rush-blue), var(--rush-cyan), transparent);
+  background: var(--brand-link);
 }
 
 .prose :where(blockquote) {
-  border-left-color: var(--rush-blue);
+  border-left-color: var(--brand-link);
   border-radius: 0 0.75rem 0.75rem 0;
   background: color-mix(in srgb, var(--color-fd-muted) 48%, transparent);
   padding: 0.85rem 1rem;
 }
 
 .prose :where(hr) {
+  /* Flat rule (Phase 2): was a gradient fade; DESIGN.md bans decorative
+     gradients on docs surfaces. --border-strong is the emphasis-divider
+     token (TOKENS.md 4.3). */
   border: 0;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--rush-blue) 35%, var(--color-fd-border)),
-    transparent
-  );
+  background: var(--border-strong);
 }
 
 /* ============================================
@@ -624,26 +766,15 @@ kbd {
   }
 }
 
-@keyframes pulse-glow {
-  0%,
-  100% {
-    box-shadow:
-      0 0 20px rgba(59, 130, 246, 0.2),
-      0 0 60px rgba(139, 92, 246, 0.1);
-  }
-  50% {
-    box-shadow:
-      0 0 30px rgba(59, 130, 246, 0.3),
-      0 0 80px rgba(139, 92, 246, 0.15);
-  }
-}
+/* @keyframes pulse-glow and .animate-pulse-glow were removed here (Phase 6
+   of docs-design-system-rollout): confirmed zero usages anywhere in src/**.
+   A decorative looping glow animation is banned in Documentation Mode
+   (DESIGN.md "Things we never do") and had no Brand-Mode consumer either —
+   genuinely dead code, not a docs-scope-only removal. Recover from git
+   history if a future Brand-Mode surface wants it back. */
 
 .animate-fade-in {
   animation: fade-in 0.5s ease-out;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
 }
 
 /* ============================================
@@ -715,4 +846,235 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
  */
 :root {
   --fd-nav-height: 56px !important;
+}
+
+/*
+ * ============================================
+ * Reading-experience refinements (product feedback pass)
+ * ============================================
+ * Fumadocs' default content column caps at max-w-[900px] against a much
+ * wider grid track, and the TOC column pads its own top (pt-12 = 48px)
+ * independently of where the title sits — together they read as "narrow
+ * content, oversized whitespace on both sides" even though 900px sits
+ * inside the range technical docs typically use. Widening it and trimming
+ * the TOC's own top offset closes both gaps without touching Fumadocs'
+ * grid math directly. Selectors verified against the real rendered DOM
+ * (Fumadocs' own class strings), not guessed.
+ */
+[class*='max-w-[900px]'] {
+  max-width: 1020px;
+}
+
+[class*='[grid-area:toc]'] {
+  padding-top: 1.5rem;
+}
+
+/* Deeper, more separated neutral levels for --color-fd-muted-foreground: no
+   longer a hand-set override here (Phase 2 of docs-design-system-rollout
+   made it a bridge value, --ds-text-muted, verified >=4.5:1 AA in TOKENS.md 7)
+   -- this block is intentionally empty so the derived value from the
+   .dark/.light blocks above wins the cascade, not a second hand-set hex. */
+
+/* Success is used by Callout's "success"-style states and any future
+   status pill; it existed as a bare hex value with no --color-fd-* bridge,
+   so components reading Fumadocs' color tokens had no success channel. */
+:root {
+  --color-fd-success: var(--success);
+}
+
+/* Accessible success FOREGROUND: --rush-green (#22c55e) is a background/graphic
+   hue and fails 4.5:1 as small text on a light card. These per-mode values are
+   dark-enough (light) / light-enough (dark) to clear WCAG 1.4.3 for label text
+   like the decision cards' "Best for". */
+.light {
+  --accent-success-fg: #166534;
+  --accent-link-fg: #1d4ed8;
+}
+.dark {
+  --accent-success-fg: #4ade80;
+  --accent-link-fg: #93c5fd;
+}
+
+/* ============================================
+   Core mental-model timeline
+   ============================================
+   Authored as real markdown h3 headings inside `<div className="mm-timeline">`
+   (not a JSX component) so each concept lands in the "on this page" tree nested
+   under its h2 — Fumadocs builds the TOC from markdown headings, not from
+   rendered components. The numbered dots, continuous spine, and per-concept
+   accent are painted here so the markup stays plain and semantic.
+
+   Accent = the memory hook (feedback: "the eye REMEMBERS by color"). It's a
+   tint + ring only; the dot number stays --text-primary because a saturated
+   green/cyan foreground would fail WCAG 1.4.3. The ring color is decorative and
+   redundant with the visible number + heading label, so it's exempt from the
+   1.4.11 non-text 3:1 minimum where a hue (green) falls short. */
+.mm-timeline {
+  /* Default before a per-position override applies below; Application's
+     locked color (TOKENS.md 5). */
+  --mm-accent: var(--learning-application);
+  position: relative;
+  margin: 1.5rem 0;
+  padding-left: 2.75rem;
+  counter-reset: mm-step;
+}
+
+/* One uninterrupted path behind the dots — structural, not decorative. Stops
+   follow the same locked Application/Middleware/Router/Context order as the
+   per-h3 accents below (TOKENS.md 5), not the earlier ad-hoc blue/green/
+   purple/cyan sequence. */
+.mm-timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.9375rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to bottom,
+    var(--learning-application),
+    var(--learning-middleware),
+    var(--learning-router),
+    var(--learning-context)
+  );
+  opacity: 0.55;
+}
+
+.mm-timeline :where(h3) {
+  position: relative;
+  margin-top: 2rem;
+  margin-bottom: 0.4rem;
+  font-size: 1rem;
+  scroll-margin-top: 6rem;
+  counter-increment: mm-step;
+}
+
+.mm-timeline > :where(h3):first-of-type {
+  margin-top: 0;
+}
+
+/* The one-sentence description directly under each h3 — the feedback's
+   "increase line-height for scanability" target, distinct from the tighter
+   bullet list below it. */
+.mm-timeline :where(h3) + p {
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+/* Numbered dot, sitting on the spine. `counter` would reset per-page; the four
+   concepts are fixed, so an explicit number per position is simpler and stable. */
+.mm-timeline :where(h3)::before {
+  content: counter(mm-step);
+  position: absolute;
+  left: -2.75rem;
+  top: -0.15rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--mm-accent) 16%, var(--color-fd-card));
+  border: 1.5px solid color-mix(in srgb, var(--mm-accent) 70%, var(--color-fd-border));
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.mm-timeline :where(h3):nth-of-type(1) {
+  /* Application -- locked learning color (TOKENS.md 5, "Core 4"). */
+  --mm-accent: var(--learning-application);
+}
+.mm-timeline :where(h3):nth-of-type(2) {
+  /* Middleware -- locked violet (TOKENS.md 5). Was --rush-green in an
+     earlier ad-hoc pass (Phase 5 of docs-design-system-rollout reconciles
+     it): green collides with --status-success and the separate --learning-
+     runtime concept, so the immutable map uses violet here instead. */
+  --mm-accent: var(--learning-middleware);
+}
+.mm-timeline :where(h3):nth-of-type(3) {
+  /* Router -- locked amber (TOKENS.md 5). Was --rush-purple in the earlier
+     ad-hoc pass; purple is reserved for --learning-middleware and
+     --status-experimental, so the immutable map uses amber here. */
+  --mm-accent: var(--learning-router);
+}
+.mm-timeline :where(h3):nth-of-type(4) {
+  /* Context -- locked cyan (TOKENS.md 5); already matched the ad-hoc value,
+     now sourced from the one immutable map instead of --rush-cyan directly. */
+  --mm-accent: var(--learning-context);
+}
+
+/* Bullets read as "what it owns / does" — tight, scannable, not dense prose. */
+.mm-timeline :where(ul) {
+  margin: 0.35rem 0 0;
+}
+
+.mm-timeline :where(li) {
+  margin: 0.1rem 0;
+  color: var(--text-secondary);
+}
+
+/* This is a Concept page, not Reference: code is a 3-4 line illustration, so
+   trim the figure chrome (margin, padding, shadow) to keep it conceptual.
+   Targets Fumadocs' shiki <figure> + its inner scroll container. */
+.mm-timeline figure {
+  margin: 0.6rem 0 0;
+  box-shadow: none;
+}
+
+.mm-timeline figure .fd-scroll-container {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+/* One section-level deep-dive link-card closes the timeline — replaces the
+   per-step "Learn more →" that repeated after every concept. */
+.mm-deepdive {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.6rem 0.1rem;
+  font-weight: 600;
+  color: var(--accent-link-fg);
+  transition: color 0.2s ease;
+}
+
+.mm-deepdive:hover {
+  color: var(--rush-blue);
+}
+
+.mm-deepdive:focus-visible {
+  outline: 2px solid var(--rush-blue);
+  outline-offset: 2px;
+}
+
+.mm-deepdive span[aria-hidden] {
+  transition: transform 0.2s ease;
+}
+
+.mm-deepdive:hover span[aria-hidden] {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-deepdive,
+  .mm-deepdive span[aria-hidden] {
+    transition: none;
+  }
+}
+
+/* Callouts sit one surface level above cards: a subtle tint in the callout's
+   own color (info reads blue, warning reads amber) plus a stronger left edge,
+   so a reader registers "note vs card" pre-attentively. Uses the
+   `--callout-color` Fumadocs sets inline per type — type-agnostic, never
+   recolors a warning as blue. */
+[style*='--callout-color'] {
+  border-left-width: 3px;
+  border-left-color: var(--callout-color);
+  background: color-mix(in srgb, var(--callout-color) 7%, var(--color-fd-card));
 }

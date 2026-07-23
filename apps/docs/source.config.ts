@@ -15,7 +15,14 @@ import { typeTableGenerator } from './src/lib/type-table-generator';
 export const docs = defineDocs({
   dir: 'content/docs',
   docs: {
-    schema: frontmatterSchema,
+    // `package` is an optional npm package name a Reference page documents. The sidebar
+    // label / H1 comes from `title` (a human capability name, e.g. "CORS"); `package`
+    // renders as an eyebrow above the title so the page still shows its `@nextrush/*`
+    // identity without the raw package name being the primary label (Recognition over
+    // Recall). Mirrors the same optional field on the `skills` collection below.
+    schema: frontmatterSchema.extend({
+      package: z.string().optional(),
+    }),
     postprocess: {
       includeProcessedMarkdown: {
         headingIds: true,

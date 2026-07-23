@@ -1,0 +1,6 @@
+{
+  "title": "API Documentation",
+  "icon": "BookOpen",
+  "defaultOpen": false,
+  "pages": ["openapi"]
+}

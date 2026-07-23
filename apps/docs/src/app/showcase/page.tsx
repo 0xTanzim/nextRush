@@ -54,7 +54,7 @@ export default function ShowcasePage() {
             >
               Tell us on GitHub Discussions
             </a>
-            {' '}and we'll add it here.
+            {' '}and we&apos;ll add it here.
           </p>
         </div>
       ) : (

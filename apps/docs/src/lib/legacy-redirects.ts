@@ -113,8 +113,10 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/guides/examples/websocket', '/docs/guides/websocket'],
   ['/docs/guides/examples/file-upload', '/docs/guides/file-upload'],
 
-  // Wave B3 — reference/core/* -> reference/* (flatten, 8 pages)
-  ['/docs/reference/core', '/docs/reference'],
+  // Wave B3 — reference/core/* -> reference/* (flatten, 8 pages).
+  // NOTE: `/docs/reference/core` itself is intentionally NOT redirected — it is a real
+  // current page (the @nextrush/core reference, now under the (core-routing) route group).
+  // Redirecting it here shadowed that page (307 -> /docs/reference); removed so it resolves.
   ['/docs/reference/core/nextrush', '/docs/reference/nextrush'],
   ['/docs/reference/core/core', '/docs/reference/core'],
   ['/docs/reference/core/router', '/docs/reference/router'],

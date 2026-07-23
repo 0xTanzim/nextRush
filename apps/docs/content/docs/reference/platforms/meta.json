@@ -1,5 +1,7 @@
 {
-  "title": "Platforms",
+  "title": "Runtime Adapters",
+  "icon": "Server",
+  "defaultOpen": false,
   "description": "Platform adapter API reference — Node.js, Bun, Deno, Edge, and serverless runtimes.",
   "pages": ["index", "node", "bun", "deno", "edge", "serverless"]
 }

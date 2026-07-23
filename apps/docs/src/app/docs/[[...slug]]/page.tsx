@@ -46,12 +46,22 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <div className="mb-8 flex flex-row items-center gap-2 rounded-2xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-card)_78%,transparent)] p-2 shadow-[0_16px_48px_-34px_color-mix(in_srgb,var(--rush-blue)_45%,transparent)] backdrop-blur">
-        <LLMCopyButton markdownUrl={markdownUrl} />
-        <ViewOptions markdownUrl={markdownUrl} githubUrl={githubUrl} llmsUrl={llmsUrl} />
+      {page.data.package ? (
+        <code className="mb-1.5 inline-block w-fit rounded-md border border-[var(--color-fd-border)] bg-[var(--color-fd-muted)] px-2 py-0.5 font-mono text-xs text-[var(--color-fd-muted-foreground)]">
+          {page.data.package}
+        </code>
+      ) : null}
+      {/* Page actions live top-right beside the title — one toolbar, anchored to what
+          it acts on (this page). A second copy at the page foot read as duplicated and
+          left readers asking "what am I copying, and why twice?" (proximity + recognition). */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <DocsTitle>{page.data.title}</DocsTitle>
+        <div className="not-prose flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_45%,var(--color-fd-card))] p-0.5">
+          <LLMCopyButton markdownUrl={markdownUrl} />
+          <ViewOptions markdownUrl={markdownUrl} githubUrl={githubUrl} llmsUrl={llmsUrl} />
+        </div>
       </div>
+      <DocsDescription className="mb-4 max-w-[70ch] text-base">{page.data.description}</DocsDescription>
       <DocsBody>
         <MDX
           components={getMDXComponents({

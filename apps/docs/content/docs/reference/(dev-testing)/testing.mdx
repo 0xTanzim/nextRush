@@ -1,0 +1,94 @@
+---
+title: 'Testing'
+package: '@nextrush/testing'
+description: Isolated, type-safe test modules for NextRush class-based controllers and services, with DI overrides and in-memory request routing.
+---
+
+## Purpose
+
+Testing a class-based controller usually means either spinning up a real
+HTTP server or hand-wiring a DI container per test. `@nextrush/testing`
+gives you a `createTestModule()` builder that compiles an isolated
+container + router per test, drives requests through the real router match
+and handler (no network socket), and lets you override any provider with a
+fake.
+
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/testing/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/testing/ARCHITECTURE.md)
+</Callout>
+
+## Install
+
+<PackageInstall packages={['@nextrush/testing']} dev={['@nextrush/testing']} />
+
+<Callout type="info" title="Not part of the nextrush meta package">
+  `@nextrush/testing` is a standalone dev dependency — it is not re-exported through `nextrush`.
+  It depends directly on `@nextrush/core`, `@nextrush/router`, `@nextrush/di`, and
+  `@nextrush/class` (all hard dependencies, not peers), so controllers and services are imported
+  from `@nextrush/class` directly in test files, not from the `nextrush/class` subpath.
+</Callout>
+
+## Minimal usage
+
+```ts
+import { createTestModule } from '@nextrush/testing';
+import { Controller, Get, Service } from '@nextrush/class';
+
+@Service()
+class UserService {
+  getUser(id: string) {
+    return { id, name: 'Alice' };
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get('/:id')
+  getUser() {
+    return this.users.getUser('123');
+  }
+}
+
+const testModule = createTestModule({
+  controllers: [UserController],
+  providers: [UserService],
+});
+
+const ref = await testModule.compile();
+
+const response = await ref.request('GET', '/users/123');
+// response.status === 200
+// response.body === { id: '123', name: 'Alice' }
+
+await ref.close();
+```
+
+## Reference
+
+`createTestModule(config?: TestModuleConfig): TestModuleBuilder`
+- `config.controllers?: Function[]` — controller classes to register.
+- `config.providers?: ModuleProvider[]` — bare classes or provider configs (`useValue`/`useClass`/`useFactory`).
+
+`TestModuleBuilder`
+- `.override(token).useValue(value)` / `.useClass(cls)` / `.useFactory(fn, inject?)` — replace a provider for this compiled module only; each returns the builder for chaining.
+- `.compile(): Promise<TestModuleRef>` — builds a fresh, isolated container + router and registers the configured controllers against it.
+
+`TestModuleRef`
+- `.get<T>(token: Token<T>): T` — resolve a provider from the isolated container.
+- `.request(method, path, body?): Promise<{ status: number; body: unknown }>` — matches the path against the compiled router and invokes the real handler; throws if no route matches.
+- `.close(): Promise<void>` — closes the underlying application, triggering every resolved service's `onShutdown()`.
+
+## Guarantees
+
+- Each `.compile()` call produces a fresh container and router — singletons are never shared across compiled modules.
+- Request-scoped providers (`@Service({ scope: 'request' })`) get a fresh instance per `.request()` call, matching production request-scope semantics.
+- `.close()` runs `OnShutdown` hooks in the same order `registerControllers` uses in production.
+
+## Troubleshooting
+
+<Callout type="warn" title="No route matched">
+  `.request()` throws `Error: No route matched: <method> <path>` if the compiled module's controllers don't expose that route — check the controller's `@Controller` prefix and method decorator path match what you're requesting.
+</Callout>

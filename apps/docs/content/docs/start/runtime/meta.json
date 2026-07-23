@@ -1,4 +1,4 @@
 {
   "title": "Choose Your Runtime",
-  "pages": ["node", "bun", "deno", "edge", "serverless"]
+  "pages": ["decision-guide", "node", "bun", "deno", "edge", "serverless"]
 }

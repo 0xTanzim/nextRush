@@ -1,27 +1,45 @@
 import {
+    ApiDemo,
+    ApiDemoRow,
     BenchmarkBars,
     BenchmarkCardGrid,
+    Challenge,
+    ChallengeList,
+    CheckpointItem,
     CompareGrid,
     CompareItem,
     DocHero,
+    DocHeroPill,
     DocPageOutline,
     DocPrerequisiteGrid,
+    DocSectionEyebrow,
     DocStat,
     DocStatStrip,
     DocTableWrap,
     Feature,
     FeatureGrid,
+    GraduationItem,
     HighlightGrid,
     HighlightItem,
+    LearningGoal,
+    LearningGoals,
     Mermaid,
+    MentalModelFlow,
+    Mistake,
+    MistakeList,
     OpenInStackBlitz,
     PackageCard,
     PackageGrid,
     PackageInstall,
+    PackagesAZTable,
     PackageSection,
     RuntimeSupport,
     ScalarApiReference,
+    TutorialCheckpoint,
+    TutorialGraduation,
+    TutorialProgress,
     TypeTable,
+    WhatChanged,
 } from '@/components/mdx';
 import { typeTableGenerator } from '@/lib/type-table-generator';
 import { AutoTypeTable as BaseAutoTypeTable, type AutoTypeTableProps } from 'fumadocs-typescript/ui';
@@ -75,6 +93,9 @@ const customComponents = {
   PackageGrid,
   PackageSection,
 
+  // Searchable/filterable A-Z packages lookup table, driven by the package registry
+  PackagesAZTable,
+
   // Feature showcase components
   Feature,
   FeatureGrid,
@@ -94,6 +115,9 @@ const customComponents = {
   // Mermaid diagrams with dark/light theme support
   Mermaid,
 
+  // Core Mental Model: the framework-flow anchor (Request → … → Response)
+  MentalModelFlow,
+
   // Runnable sandbox embed (T21) — real "Open in StackBlitz" project link
   OpenInStackBlitz,
 
@@ -101,15 +125,33 @@ const customComponents = {
   BenchmarkBars,
   BenchmarkCardGrid,
   DocHero,
+  DocHeroPill,
   DocStatStrip,
   DocStat,
   DocPageOutline,
   DocPrerequisiteGrid,
+  DocSectionEyebrow,
   CompareGrid,
   CompareItem,
   HighlightGrid,
   HighlightItem,
   DocTableWrap,
+
+  // Tutorial pacing helpers (quick-start and future multi-part tutorials)
+  TutorialProgress,
+  ApiDemo,
+  ApiDemoRow,
+  LearningGoals,
+  LearningGoal,
+  WhatChanged,
+  TutorialCheckpoint,
+  CheckpointItem,
+  TutorialGraduation,
+  GraduationItem,
+  ChallengeList,
+  Challenge,
+  MistakeList,
+  Mistake,
 };
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {

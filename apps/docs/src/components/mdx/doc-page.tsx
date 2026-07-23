@@ -13,26 +13,25 @@ const highlightIcons: Record<string, LucideIcon> = {
 };
 
 /**
- * Hero band for key docs pages — gradient border, modern spacing.
+ * Hero band for key docs pages. Documentation Mode allows at most one
+ * near-invisible brand wash behind a hero (DESIGN.md "Acceptable gradient
+ * usage") — not the two full-saturation blur blobs Brand Mode uses; those
+ * are removed here (Phase 3 of docs-design-system-rollout).
  */
 export function DocHero({ eyebrow, children }: { eyebrow?: string; children: ReactNode }) {
   return (
-    <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-6 shadow-[0_1px_0_0_color-mix(in_srgb,var(--rush-blue)_12%,transparent)] md:p-8">
+    <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-6 md:p-8">
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_srgb,var(--rush-blue)_18%,transparent)_0%,transparent_65%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-16 -left-16 size-56 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_srgb,var(--rush-purple)_14%,transparent)_0%,transparent_70%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,var(--brand-wash)_0%,transparent_60%)]"
       />
       <div className="relative z-10">
         {eyebrow ? (
-          <p className="mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--rush-cyan)]">
+          <p className="mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--brand-link)]">
             {eyebrow}
           </p>
         ) : null}
-        <div className="text-base leading-relaxed text-[var(--text-secondary)] md:text-lg [&_a]:font-medium [&_a]:text-[var(--rush-blue)] [&_a]:underline-offset-4 hover:[&_a]:text-[var(--rush-purple)] [&_strong]:font-semibold [&_strong]:text-[var(--text-primary)]">
+        <div className="text-base leading-relaxed text-[var(--text-secondary)] md:text-lg [&_a]:font-medium [&_a]:text-[var(--brand-link)] [&_a]:underline-offset-4 hover:[&_a]:text-[var(--brand-hover)] [&_strong]:font-semibold [&_strong]:text-[var(--text-primary)]">
           {children}
         </div>
       </div>
@@ -40,9 +39,22 @@ export function DocHero({ eyebrow, children }: { eyebrow?: string; children: Rea
   );
 }
 
+/**
+ * Inline metadata pill for a hero — requirements, runtime support, reading
+ * time. Deliberately not an alert/callout: this is page metadata a reader
+ * scans in passing, not a warning that demands attention.
+ */
+export function DocHeroPill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_55%,transparent)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]">
+      {children}
+    </span>
+  );
+}
+
 export function DocStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="doc-stat flex flex-col rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_55%,var(--color-fd-card))] px-4 py-3 transition-colors hover:border-[color-mix(in_srgb,var(--rush-blue)_35%,var(--color-fd-border))]">
+    <div className="doc-stat flex flex-col rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_55%,var(--color-fd-card))] px-4 py-3 transition-colors hover:border-[var(--border-strong)]">
       <span className="text-[0.65rem] font-medium uppercase tracking-wider text-[var(--text-muted)]">
         {label}
       </span>
@@ -183,13 +195,36 @@ export function CompareGrid({ children }: { children: ReactNode }) {
   );
 }
 
-export function CompareItem({ name, children }: { name: string; children: ReactNode }) {
+export function CompareItem({
+  name,
+  bestFor,
+  tradeoff,
+}: {
+  name: string;
+  /** The one scenario this framework is the strongest pick for. */
+  bestFor: string;
+  /** The main cost you take on by choosing it, relative to NextRush. */
+  tradeoff: string;
+}) {
   return (
-    <div className="group rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-all hover:border-[color-mix(in_srgb,var(--rush-blue)_28%,var(--color-fd-border))] hover:shadow-[0_12px_40px_-12px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)]">
+    <div className="group flex flex-col gap-3 rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_30%,var(--color-fd-card))] p-4 transition-colors hover:border-[var(--border-strong)]">
       <h3 className="text-sm font-semibold text-[var(--text-primary)]">{name}</h3>
-      <div className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)] [&_p]:m-0">
-        {children}
-      </div>
+      <dl className="flex flex-col gap-3 text-sm leading-snug">
+        <div className="flex flex-col gap-1">
+          <dt className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-success-fg)]">
+            Best for
+          </dt>
+          <dd className="text-[0.95rem] font-semibold leading-snug text-[var(--text-primary)]">
+            {bestFor}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-0.5 border-t border-[var(--color-fd-border)] pt-2.5">
+          <dt className="text-[0.62rem] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
+            Tradeoff
+          </dt>
+          <dd className="text-[0.8rem] text-[var(--text-secondary)]">{tradeoff}</dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -278,6 +313,21 @@ export function DocPageOutline({ items }: { items: DocPageOutlineItem[] }) {
         ))}
       </ul>
     </nav>
+  );
+}
+
+/**
+ * Small uppercase label placed directly above a heading to signal it's
+ * subordinate to the section above (supporting detail, not a new primary
+ * topic) without dropping the heading level itself — semantic heading
+ * structure (h2/h3) stays intact for a11y/outline purposes; this only
+ * changes the visual weight a reader perceives before they reach the text.
+ */
+export function DocSectionEyebrow({ children }: { children: ReactNode }) {
+  return (
+    <p className="not-prose mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[var(--text-subtle)]">
+      {children}
+    </p>
   );
 }
 

@@ -80,6 +80,14 @@ export const packageRegistryDataPart2: readonly PackageEntry[] = [
     summary: 'Response time tracking middleware.',
     sinceVersion: '1.0.0',
   },
+  {
+    name: '@nextrush/health',
+    category: 'Observability',
+    type: 'Middleware',
+    status: 'Stable',
+    summary: 'Liveness/readiness health check endpoints for orchestrator probes (Kubernetes, PM2, systemd).',
+    sinceVersion: '1.0.0',
+  },
 
   // ---- Real-time & Events --------------------------------------------------
   {
@@ -130,6 +138,14 @@ export const packageRegistryDataPart2: readonly PackageEntry[] = [
     type: 'Adapter',
     status: 'Stable',
     summary: 'Edge runtime adapter for Cloudflare Workers, Vercel Edge, and similar platforms.',
+    sinceVersion: '1.0.0',
+  },
+  {
+    name: '@nextrush/adapter-serverless',
+    category: 'Adapters',
+    type: 'Adapter',
+    status: 'Stable',
+    summary: 'Serverless adapter for AWS Lambda, API Gateway, GCF, and Azure via a generic event-mapper registry.',
     sinceVersion: '1.0.0',
   },
 

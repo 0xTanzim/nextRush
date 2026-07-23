@@ -6,34 +6,49 @@ estimatedTime: 10 minutes
 prerequisites: []
 ---
 
-You'll get a NextRush app answering requests as an AWS Lambda function — the same
-`createApp`/`createRouter` API as Node, deployed behind a one-line handler that never exposes
-the event-mapping plumbing underneath.
+<DocHero eyebrow="Runtime · Event-driven">
+
+Serverless platforms invoke your handler per event and can terminate the execution environment
+between calls — there's no process to keep alive, only a warm instance you might get to reuse.
+Same `createApp`/`createRouter` API as Node, deployed behind a one-line handler. The tradeoff is
+cold starts on a fresh instance and a deployment model built around short-lived invocations, not
+a server you manage.
+
+<div className="not-prose mt-5 flex flex-wrap gap-2">
+  <DocHeroPill>~10 min</DocHeroPill>
+  <DocHeroPill>Beginner</DocHeroPill>
+  <DocHeroPill>No server, no port</DocHeroPill>
+</div>
+
+</DocHero>
+
+<RuntimeSupport
+  support={{ node: 'full', bun: 'full', deno: 'full', edge: 'partial', serverless: 'partial' }}
+  links={{ node: '/docs/start/runtime/node', bun: '/docs/start/runtime/bun', deno: '/docs/start/runtime/deno', edge: '/docs/start/runtime/edge' }}
+/>
+
+"Partial" means the adapter is Stable but not yet verified against the real platform in CI (see
+the [compatibility matrix](/docs/help/compatibility-matrix)) — not that it's missing features.
 
 Targeting a different runtime? [Node](/docs/start/runtime/node) ·
-[Bun](/docs/start/runtime/bun) · [Deno](/docs/reference/platforms/deno) ·
-[Edge](/docs/reference/platforms/edge) each implement the same Context and Application contract.
+[Bun](/docs/start/runtime/bun) · [Deno](/docs/start/runtime/deno) ·
+[Edge](/docs/start/runtime/edge) each implement the same Context and Application contract. Not
+sure which one fits? See the [runtime decision guide](/docs/start/runtime/decision-guide).
 
 ## Finished project
 
-By the end you'll have:
+By the end you'll have a function answering one route per invocation, and a clear picture of
+warm-instance reuse and per-invocation timeouts:
 
-- ✓ A NextRush app exported as an AWS Lambda handler — no server, no port
-- ✓ One route answering JSON
-- ✓ A clear picture of warm-instance reuse and per-invocation timeouts, and where to go for the
-  full adapter reference
+<DocStatStrip>
+  <DocStat label="Runtime" value="AWS Lambda" hint="One-line handler — no server, no port" />
+  <DocStat label="Outcome" value="1 route" hint="Answers JSON per invocation" />
+</DocStatStrip>
 
 ```bash
 curl https://your-function-url.lambda-url.us-east-1.on.aws/
 # → {"runtime":"edge","status":"ok"}
 ```
-
-## Learning journey
-
-- ⬜ Step 1 — Install NextRush and the serverless adapter
-- ⬜ Step 2 — Write a hello-world Lambda handler
-- ⬜ Step 3 — Build the handler once, at module scope
-- ⬜ Step 4 — Know what changes with per-invocation execution
 
 ## Prerequisites
 
@@ -43,7 +58,7 @@ curl https://your-function-url.lambda-url.us-east-1.on.aws/
 
 <Steps>
 
-### Step 1 / 4 — Install NextRush and the serverless adapter
+### Step 1 of 4 — Install NextRush and the serverless adapter
 
 **Why now:** like the other non-Node runtimes, the `nextrush` meta-package does not bundle a
 runtime adapter — it ships only `@nextrush/adapter-node`. Running on Lambda means adding
@@ -58,18 +73,12 @@ runtime-independent. The Tier-1 handler factory (`createLambdaHandler`) comes fr
 `@nextrush/adapter-serverless` instead, for the same reason as Bun, Deno, and edge: the
 meta-package's `listen` re-export targets `@nextrush/adapter-node` specifically, and there is no
 `listen()` on a platform that invokes your code per event rather than running a process.
-
-<Callout type="info">
 `createLambdaHandler` covers AWS Lambda Function URLs and both API Gateway payload formats (HTTP
 API v2, REST API v1) — it detects which event shape it received, so you never name a provider or
 touch a mapper. Google Cloud Functions and Azure Functions have their own Tier-1 handlers
 (`createGoogleHandler`, `createAzureHandler`) exported from the same package.
-</Callout>
 
-### Step 2 / 4 — Write a hello-world Lambda handler
-
-**Why now:** the fastest way to confirm the install worked is a handler that answers a real
-invocation.
+### Step 2 of 4 — Write a hello-world Lambda handler
 
 **Do:** create `index.ts`:
 
@@ -110,7 +119,7 @@ Vercel, and Netlify). `ctx.runtime` here identifies the *adapter family* your ha
 on, not the platform invoking it — don't rely on it to distinguish Lambda from Cloudflare
 Workers.
 
-### Step 3 / 4 — Build the handler once, at module scope
+### Step 3 of 4 — Build the handler once, at module scope
 
 **Why now:** the pattern above works, but where you call `createApp()` and `createLambdaHandler()`
 determines whether Lambda's warm-instance reuse actually helps you.
@@ -145,11 +154,7 @@ instance — but a module-scope `let` you write to yourself will leak, because t
 survives across invocations exactly like the app instance does.
 </Callout>
 
-### Step 4 / 4 — Know what changes with per-invocation execution
-
-**Why now:** before moving to production, it helps to know exactly what a serverless deployment
-changes about your app's behavior — cold starts and response buffering are real, not only
-deployment details.
+### Step 4 of 4 — Know what changes with per-invocation execution
 
 **What's genuinely different, and why:** there is no long-running process — the platform invokes
 your handler per event and may terminate the execution environment between invocations, so the
@@ -171,7 +176,6 @@ nothing in your route handler above is Lambda-specific, and the same app code mo
 Cloud Functions or Azure Functions by swapping `createLambdaHandler` for `createGoogleHandler` or
 `createAzureHandler`.
 
-<Callout type="info">
 `@nextrush/adapter-serverless` is versioned independently at `1.0.0`, following the same
 mixed-version policy as every other post-v3 package — see [Versioning](/docs/architecture) for
 why. It doesn't yet have its own row in the [compatibility
@@ -180,13 +184,13 @@ tracks Node, Bun, Deno, and the edge targets. Check the [serverless adapter
 reference](/docs/reference/platforms/serverless) for the complete surface, including the Tier-3
 `EventMapper` API for platforms NextRush doesn't ship a handler for, before pinning a
 production version.
-</Callout>
 
 </Steps>
 
 ## Checkpoint
 
-Confirm the function answers before moving on:
+Confirm the function answers before moving on — if your output matches this, you're ready for
+what's next:
 
 ```bash
 curl -i https://your-function-url.lambda-url.us-east-1.on.aws/
@@ -202,7 +206,13 @@ my-function/
   index.ts
 ```
 
+**🎉 That's a real Lambda invocation, warm reuse and all.** The handler you built at module
+scope is exactly what makes the next invocation on the same warm instance skip the boot cost this
+one paid.
+
 ## What you learned
+
+Four things now describe how a request reaches your code on Lambda:
 
 - **`nextrush` gives you the runtime-independent half** — `createApp`, `createRouter`, and route
   registration are identical on Lambda and Node. [Runtime compatibility
@@ -215,6 +225,13 @@ my-function/
   `createLambdaStreamingHandler` when time-to-first-byte or body size matters.
 
 ## Next steps
+
+<Callout type="info" title="🚀 Build a Task API — recommended · ~20 min">
+  Go past hello-world on the runtime you set up: routing, a JSON body, and a real 404.
+  [Start the tutorial →](/docs/start/quick-start)
+</Callout>
+
+Other guides:
 
 <Cards>
   <Card title="Deployment overview" href="/docs/production/deployment">
@@ -231,13 +248,15 @@ my-function/
 ## Continue learning
 
 <Cards>
+  <Card title="Serverless adapter reference" href="/docs/reference/platforms/serverless">
+    The full `@nextrush/adapter-serverless` surface — `createLambdaHandler()`,
+    `createLambdaStreamingHandler()`, `createGoogleHandler()`, `createAzureHandler()`, and the
+    Tier-3 `EventMapper` API.
+  </Card>
   <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
     Why Node, Bun, Deno, and the edge all run identical application code.
   </Card>
-  <Card title="Build a Task API" href="/docs/start/quick-start">
-    Go past hello-world — routing, a request body, and real error handling.
-  </Card>
-  <Card title="All platform adapters" href="/docs/reference/platforms">
-    The Node, Bun, Deno, and edge adapter references.
+  <Card title="Back to Node" href="/docs/start/runtime/node">
+    The baseline runtime — a long-running process instead of per-invocation execution.
   </Card>
 </Cards>

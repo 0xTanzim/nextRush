@@ -13,46 +13,106 @@ Want the whole framework on one screen — every concept with a minimal example?
 [NextRush in one page](/docs/start/overview). Ready to build something? Jump to the
 [Task API tutorial](/docs/start/quick-start).
 
+<div className="not-prose mt-5 flex flex-wrap gap-2">
+  <DocHeroPill>Beginner</DocHeroPill>
+  <DocHeroPill>5 min</DocHeroPill>
+  <DocHeroPill>Node · Bun · Deno · Edge</DocHeroPill>
+  <DocHeroPill>TypeScript</DocHeroPill>
+</div>
+
 </DocHero>
 
-<Callout type="info" title="Requirements">
-  NextRush needs **Node.js 22.0.0 or later** and **TypeScript** with strict mode enabled.
+The whole framework fits on one line. Every request walks the same path, and every section on this
+page explains one stop on it:
+
+<MentalModelFlow steps={['Request', 'Application', 'Middleware', 'Router', 'Handler', 'Response']} />
+
+## Core mental model
+
+Four concepts carry every request, each owning one job — the colors below match the chips above so
+you recognize them on sight. This is the quick tour; for the full walkthrough with the request
+diagram, both programming styles, and the runtimes, read
+[NextRush in One Page](/docs/start/overview).
+
+<div className="mm-timeline">
+
+### Application
+
+The entry point — holds the middleware chain and hands each request down it. It orchestrates; it
+doesn't match routes or handle requests itself.
+
+### Middleware
+
+Behavior wrapped around a handler like layers of an onion — auth, parsing, logging — running before
+and after, so cross-cutting concerns live in one place.
+
+### Router
+
+Maps a path to the one handler responsible for it, matched by a segment trie so lookup cost tracks
+URL depth, not how many routes you've registered.
+
+### Context
+
+The one per-request object every step reads from and writes to — `params`/`query`/`body` in,
+`json`/status/headers out — fresh per request, so nothing leaks between them.
+
+</div>
+
+<a href="/docs/concepts" className="mm-deepdive not-prose">
+  <span>Deep dive into Concepts</span>
+  <span aria-hidden>→</span>
+</a>
+
+<Callout type="info">
+  Application owns the middleware chain. Middleware composes behavior around a handler. The router
+  picks which handler runs. Context is what they all read from and write to.
 </Callout>
 
 ## Where other frameworks trade off
 
-If you've shipped HTTP APIs before, you've felt these edges. NextRush picks a different point on each:
+If you've shipped HTTP APIs before, you've felt these edges. Each card names the one job a framework
+wins at and the cost you take on — so you can place NextRush against what you already know.
 
 <CompareGrid>
-  <CompareItem name="Express">
-    Fast to start, minimal structure, `@types` bolted on after the fact. Middleware wiring is manual.
-  </CompareItem>
-  <CompareItem name="Koa">
-    Clean async/await, but a smaller ecosystem where plugin quality varies.
-  </CompareItem>
-  <CompareItem name="Fastify">
-    Strong Node throughput and plugins; JSON-Schema validation gets verbose, and it's Node-focused.
-  </CompareItem>
-  <CompareItem name="NestJS">
-    Excellent structure and DI, heavier runtime — the patterns lean closer to Angular than to a small service.
-  </CompareItem>
-  <CompareItem name="Hono">
-    Modern and fast, younger ecosystem; edge-first defaults can feel tight for a classic Node server.
-  </CompareItem>
+  <CompareItem
+    name="Express"
+    bestFor="A familiar API up fast on the largest middleware ecosystem."
+    tradeoff="You wire middleware by hand and add types after the fact."
+  />
+  <CompareItem
+    name="Koa"
+    bestFor="A clean async/await core with a minimal surface."
+    tradeoff="Smaller ecosystem, and plugin quality varies."
+  />
+  <CompareItem
+    name="Fastify"
+    bestFor="High Node throughput with a rich plugin system."
+    tradeoff="Verbose JSON-Schema validation, and Node-only."
+  />
+  <CompareItem
+    name="NestJS"
+    bestFor="Batteries-included structure and DI for large teams."
+    tradeoff="Heavier runtime; Angular-style patterns for a small service."
+  />
+  <CompareItem
+    name="Hono"
+    bestFor="Edge-first deploys on a modern, fast core."
+    tradeoff="Younger ecosystem; defaults feel tight for a classic Node server."
+  />
 </CompareGrid>
 
 NextRush aims for the middle NestJS and Express leave open: strict TypeScript and optional structure
 (controllers, DI) without a heavy runtime, on a core that stays under 3,000 lines and runs the same
 code across four runtimes.
 
-## When NextRush fits
+### Choose NextRush if...
 
 - REST APIs and backend services that want strict TypeScript end to end
 - Projects that start functional and may grow into controllers and DI later
 - Deploying the same application code to more than one runtime (Node, Bun, Deno, Edge)
 - Teams who'd rather wire things explicitly than inherit implicit framework behavior
 
-## When to pick something else
+### Choose another framework if...
 
 <Callout type="warn" title="It's a backend API framework, not a full-stack one">
   NextRush doesn't do SSR or full-stack routing. For that, reach for Next.js, Remix, or SvelteKit.
@@ -64,22 +124,36 @@ code across four runtimes.
 
 ## Your next step
 
-One path, three stops. Start at the top:
+One path, three stops — each hands you straight to the next.
 
-<Cards>
-  <Card
-    title="1 · Install"
-    description="Scaffold a project or install by hand, then verify a running server."
-    href="/docs/start/installation"
-  />
-  <Card
-    title="2 · Build a Task API"
-    description="The hands-on tutorial: create, read, update, and delete over HTTP."
-    href="/docs/start/quick-start"
-  />
-  <Card
-    title="3 · NextRush in one page"
-    description="Every concept with a minimal example and a deep-dive link."
-    href="/docs/start/overview"
-  />
-</Cards>
+<div className="not-prose my-6 flex flex-col gap-0">
+  <a href="/docs/start/installation" className="group flex items-center gap-4 rounded-t-xl border border-b-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-blue)_6%,var(--color-fd-card))]">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--rush-blue)] text-sm font-bold text-white shadow-[0_0_0_3px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)]">1</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 1 · Set up</span>
+      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-blue)]">Install</span>
+      <span className="block text-sm text-[var(--text-secondary)]">Scaffold a project or install by hand, then verify a running server.</span>
+    </span>
+    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-blue)]" aria-hidden>→</span>
+  </a>
+  <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-blue),var(--rush-purple))]" aria-hidden />
+  <a href="/docs/start/quick-start" className="group flex items-center gap-4 rounded-none border border-y-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-purple)_6%,var(--color-fd-card))]">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-purple)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-purple)]">2</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 2 · Build</span>
+      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-purple)]">Build a Task API</span>
+      <span className="block text-sm text-[var(--text-secondary)]">The hands-on tutorial: create, read, update, and delete over HTTP.</span>
+    </span>
+    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-purple)]" aria-hidden>→</span>
+  </a>
+  <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-purple),var(--rush-cyan))]" aria-hidden />
+  <a href="/docs/start/overview" className="group flex items-center gap-4 rounded-b-xl border border-t-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-cyan)_8%,var(--color-fd-card))]">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-cyan)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-cyan)]">3</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 3 · Go deeper</span>
+      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-cyan)]">NextRush in one page</span>
+      <span className="block text-sm text-[var(--text-secondary)]">Every concept with a minimal example and a deep-dive link.</span>
+    </span>
+    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-cyan)]" aria-hidden>→</span>
+  </a>
+</div>

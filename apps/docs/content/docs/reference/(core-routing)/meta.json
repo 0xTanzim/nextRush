@@ -1,0 +1,6 @@
+{
+  "title": "Core & Routing",
+  "icon": "Boxes",
+  "defaultOpen": false,
+  "pages": ["nextrush", "core", "router", "runtime", "types", "errors"]
+}

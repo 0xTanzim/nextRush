@@ -1,3 +1,4 @@
+import { CollapsePreservingFolder } from '@/components/sidebar/collapse-preserving-folder';
 import { SkillsSidebarPromo } from '@/components/skills-sidebar-promo';
 import { baseOptions } from '@/lib/layout.shared';
 import { source } from '@/lib/source';
@@ -28,6 +29,17 @@ function SidebarFooterLinks() {
   );
 }
 
+/**
+ * Documentation Mode boundary (Phase 4 of docs-design-system-rollout,
+ * DESIGN.md "Hybrid design strategy"): this layout renders every `/docs/**`
+ * page. Fumadocs gives its root the stable id `#nd-docs-layout` (already the
+ * scoping hook for global.css's docs-only rules — see Phase 2's blob
+ * removal), so that id is the enforcement point, not a second, redundant
+ * `data-mode` attribute `DocsLayout` doesn't accept as a passthrough prop.
+ * Brand-Mode decorative utilities (`.gradient-*`, `.glow*`, `.dot-grid`,
+ * `.noise-overlay`) must never be applied inside this tree or `content/docs/**`
+ * — confirmed absent as of this phase (grep audit, MIGRATION.md Phase 4).
+ */
 export default function Layout({ children }: LayoutProps<'/docs'>) {
   return (
     <DocsLayout
@@ -35,6 +47,7 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
       {...baseOptions()}
       sidebar={{
         footer: <SidebarFooterLinks />,
+        components: { Folder: CollapsePreservingFolder },
       }}
     >
       {children}

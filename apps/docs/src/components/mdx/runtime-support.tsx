@@ -13,7 +13,22 @@
  * ```mdx
  * <RuntimeSupport support={{ node: 'full', bun: 'full', deno: 'partial', edge: 'none', serverless: 'partial' }} />
  * ```
+ *
+ * Entries can optionally link to that runtime's own page — each renders as a
+ * real `<a>`, not a `div` with a click handler, so keyboard/screen-reader
+ * navigation and right-click/open-in-new-tab keep working (EDS-017).
+ *
+ * @example
+ * ```mdx
+ * <RuntimeSupport
+ *   support={{ node: 'full', bun: 'full', deno: 'full', edge: 'partial', serverless: 'partial' }}
+ *   links={{ bun: '/docs/start/runtime/bun', deno: '/docs/start/runtime/deno' }}
+ * />
+ * ```
  */
+
+import Image from 'next/image';
+import Link from 'next/link';
 
 export type RuntimeSupportLevel = 'full' | 'partial' | 'none';
 
@@ -21,9 +36,13 @@ export type RuntimeId = 'node' | 'bun' | 'deno' | 'edge' | 'serverless';
 
 export type RuntimeSupportMap = Partial<Record<RuntimeId, RuntimeSupportLevel>>;
 
+export type RuntimeLinkMap = Partial<Record<RuntimeId, string>>;
+
 export interface RuntimeSupportProps {
   /** Per-runtime support level. Omitted runtimes are not rendered. */
   support: RuntimeSupportMap;
+  /** Optional per-runtime destination — renders that entry as a link. */
+  links?: RuntimeLinkMap;
 }
 
 interface RuntimeMeta {
@@ -56,7 +75,7 @@ const runtimeOrder: RuntimeId[] = ['node', 'bun', 'deno', 'edge', 'serverless'];
  * fonts. Runtimes not present in `support` are skipped rather than shown as
  * an implicit "none", so a caller only states what it has verified.
  */
-export function RuntimeSupport({ support }: RuntimeSupportProps) {
+export function RuntimeSupport({ support, links }: RuntimeSupportProps) {
   const entries = runtimeOrder.filter((id) => support[id] !== undefined);
 
   if (entries.length === 0) {
@@ -76,14 +95,11 @@ export function RuntimeSupport({ support }: RuntimeSupportProps) {
         }
         const meta = runtimeMeta[id];
         const status = statusMeta[level];
+        const href = links?.[id];
 
-        return (
-          <div
-            key={id}
-            role="listitem"
-            className="flex items-center gap-2 rounded-lg border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5"
-          >
-            <img src={meta.icon} alt="" width={16} height={16} className="size-4 shrink-0" aria-hidden />
+        const content = (
+          <>
+            <Image src={meta.icon} alt="" width={16} height={16} className="size-4 shrink-0" aria-hidden />
             <span className="text-sm font-medium text-[var(--text-primary)]">{meta.label}</span>
             <span
               className="flex items-center gap-1 text-xs font-medium"
@@ -92,6 +108,24 @@ export function RuntimeSupport({ support }: RuntimeSupportProps) {
               <span aria-hidden>{status.symbol}</span>
               <span>{status.text}</span>
             </span>
+          </>
+        );
+
+        const itemClassName =
+          'flex items-center gap-2 rounded-lg border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5';
+
+        return (
+          <div key={id} role="listitem">
+            {href ? (
+              <Link
+                href={href}
+                className={`${itemClassName} transition-colors hover:border-[var(--border-strong)]`}
+              >
+                {content}
+              </Link>
+            ) : (
+              <div className={itemClassName}>{content}</div>
+            )}
           </div>
         );
       })}
