@@ -43,7 +43,7 @@ description: Minimal, modular Node.js backend framework with a zero-dependency f
 
 ## Quick facts
 
-| | |
+| Property | Value |
 | --- | --- |
 | Latest (core packages) | `3.1.0` |
 | Runtimes | Node.js · Bun · Deno · Edge (Cloudflare Workers, Vercel Edge) |
@@ -70,9 +70,7 @@ description: Minimal, modular Node.js backend framework with a zero-dependency f
 
 ## Quick start
 
-```bash
-pnpm add nextrush
-```
+<PackageInstall packages={['nextrush']} dev={['tsx', 'typescript', '@types/node']} />
 
 ```ts title="app.ts"
 import { createApp, createRouter, listen } from 'nextrush';
@@ -92,6 +90,9 @@ npx tsx app.ts   # → visit http://localhost:8080
 
 **Most developers learn next:** [Routing](/docs/concepts/routing) →
 [Middleware](/docs/concepts/middleware) → [Context](/docs/concepts/context).
+
+Prefer to scaffold a project instead? [create-nextrush](/docs/start/create-nextrush) generates a
+runnable project with your style, runtime, and middleware preset in one command.
 
 ## What can you build?
 
@@ -115,17 +116,20 @@ for exactly what that changes.
 
 ## Documentation roadmap
 
-```text
-Start Here
-   │
-   ▼
-Tutorials    → Learn by building (start/)
-Concepts     → Understand the ideas (concepts/)
-Guides       → Accomplish a specific task (guides/)
-Recipes      → Copy a production-ready solution (recipes/)
-Reference    → Look up an API (reference/)
-Architecture → Understand framework internals (architecture/)
-```
+<Mermaid chart="
+flowchart TD
+  Start([🏠 Start Here]):::start
+  Start --> Tutorials[🎓 Tutorials / Learn by building]:::node
+  Tutorials --> Concepts[💡 Concepts / Understand the ideas]:::node
+  Concepts --> Guides[🛠 Guides / Accomplish a specific task]:::node
+  Guides --> Recipes[📋 Recipes / Copy a production-ready solution]:::node
+  Recipes --> Reference[📚 Reference / Look up an API]:::node
+  Guides --> Architecture[🏗 Architecture / Understand framework internals]:::arch
+
+  classDef start fill:#2563eb,stroke:#1d4ed8,color:#fff
+  classDef node fill:#3b82f6,stroke:#2563eb,color:#fff
+  classDef arch fill:#64748b,stroke:#475569,color:#fff
+" />
 
 Concepts explain *why* something works the way it does, once. Guides and recipes explain *how* to
 use it. Reference lists *what* is available. If a page starts re-explaining a concept, it should

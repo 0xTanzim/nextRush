@@ -60,7 +60,7 @@ export class ServerStartError extends NextRushError {
 function classifyStartupError(error: unknown): ServerStartErrorCode {
   const code =
     typeof error === 'object' && error !== null && 'code' in error
-      ? String((error as { code: unknown }).code)
+      ? String((error).code)
       : '';
   const message = error instanceof Error ? error.message : String(error);
   const haystack = `${code} ${message}`;

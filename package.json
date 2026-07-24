@@ -8,6 +8,7 @@
   },
   "packageManager": "pnpm@10.29.3",
   "scripts": {
+    "postinstall": "simple-git-hooks",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
@@ -28,9 +29,12 @@
     "validate:bins": "tsx scripts/validate-bins.ts",
     "validate:esm-only": "tsx scripts/validate-esm-only.ts",
     "validate:manifest-composition": "tsx scripts/validate-manifest-composition.ts",
+    "validate:changeset-baselines": "tsx scripts/validate-changeset-baselines.ts",
+    "verify:release-state": "tsx scripts/verify-release-state.ts",
     "check:coverage": "tsx scripts/check-coverage.ts",
     "changeset": "changeset",
-    "version": "changeset version",
+    "version": "pnpm validate:changeset-baselines && pnpm verify:release-state && changeset version",
+    "release:check": "pnpm verify:release-state && pnpm validate:changeset-baselines",
     "release": "turbo run build && changeset publish --provenance",
     "create": "node packages/create-nextrush/bin/create-nextrush.js"
   },
@@ -48,6 +52,7 @@
     "eslint-config-prettier": "^10.1.8",
     "miniflare": "^4.20260721.0",
     "prettier": "^3.9.6",
+    "simple-git-hooks": "2.13.1",
     "tsup": "^8.5.1",
     "tsx": "^4.23.1",
     "turbo": "^2.10.5",
@@ -68,5 +73,9 @@
     "email": "tanzimhossain2@gmail.com",
     "url": "https://github.com/0xTanzim"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec tsx scripts/git-hooks/pre-commit.ts",
+    "pre-push": "pnpm exec tsx scripts/git-hooks/pre-push.ts"
+  }
 }

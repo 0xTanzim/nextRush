@@ -1,252 +1,53 @@
 # Publishing Guide
 
-NextRush uses **hybrid versioning**:
+Quick reference for NextRush's package tiers, current Changesets config, and the GitHub setup a
+release depends on. For the actual step-by-step release procedure — what to run, in what order,
+and every real mistake we've already hit and fixed — read the
+[Release Handbook](apps/docs/content/docs/internals/release-handbook.mdx) instead. This file is
+the table you keep open in a second tab; that one is what you follow.
 
-- **Core packages** → lockstep versioning (released together)
-- **Ecosystem packages** (middleware, most plugins, non-default adapters) → independent versioning
+## Versioning model
 
-## How It Works
+NextRush uses hybrid versioning: nine core packages move together as one unit, everything else
+versions on its own schedule.
 
 ```
-Fix @nextrush/core        → Core lockstep group bumps (e.g., 3.0.0 → 3.0.1)
-Add feature to router     → Core lockstep group bumps (e.g., 3.0.1 → 3.1.0)
-Fix @nextrush/cors        → Only @nextrush/cors bumps (e.g., 3.0.0 → 3.0.1)
-Breaking change in core   → Core lockstep group major bump (e.g., 3.1.0 → 4.0.0)
+Fix @nextrush/core        → whole core group bumps together (e.g., 3.0.0 → 3.0.1)
+Add feature to router     → whole core group bumps together (e.g., 3.0.1 → 3.1.0)
+Fix @nextrush/cors        → only @nextrush/cors bumps (e.g., 3.0.0 → 3.0.1)
+Breaking change in core   → whole core group major bump (e.g., 3.1.0 → 4.0.0)
 ```
-
-Users track one **core** version and optional ecosystem package versions.
 
 ```bash
 npm install nextrush@3.2.0 @nextrush/cors@3.0.4
 # Core packages track the `nextrush` version.
-# Ecosystem packages version independently and declare compatibility via semver ranges.
+# Everything else versions independently and declares compatibility via semver ranges.
 ```
 
-## CI Release Guard
-
-CI enforces this rule on pull requests to `main`:
-
-- If a PR has release-impacting changes under `packages/` (excluding `packages/dev/` and docs/tests-only changes), the PR **must** include a `.changeset/*.md` file.
-
-This guarantees independent package changes are never merged without release metadata.
-
-## Packages
-
-| Tier                         | Packages                                                                                                                                                                                                                |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core (lockstep)**          | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`, `@nextrush/di`, `@nextrush/adapter-node`                 |
-| **Adapters (independent)**   | `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`                                                                                                                                             |
-| **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer` |
-| **Extensions/registrars (independent)** | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`                                                                                                                 |
-
-**Tooling (independent):** `@nextrush/dev`, `create-nextrush` — the scaffolder is **not** in the core lockstep group. Changes under `packages/create-nextrush/` that you publish to npm need a **changeset** for `'create-nextrush'` (patch/minor/major as usual). Editing only `apps/docs` or other private apps does not require a changeset unless you also change a published package.
-
-**Excluded (private / not published):** docs app, playground app, benchmark app.
-
-## Creating a Changeset
-
-After making changes to any package:
-
-```bash
-pnpm changeset
-```
-
-1. Select the package(s) you changed
-2. Choose bump type (patch / minor / major)
-3. Write a summary (goes into CHANGELOG)
-
-This creates a `.changeset/*.md` file. Commit it with your PR.
-
-### Bump type guide
-
-| Type    | When                                           |
-| ------- | ---------------------------------------------- |
-| `patch` | Bug fix, internal refactor, dependency update  |
-| `minor` | New feature, new API (backward compatible)     |
-| `major` | Breaking change (API removal, behavior change) |
-
-### When NOT to add a changeset
-
-- Documentation-only changes
-- Test-only changes
-- CI/CD configuration changes
-- `@nextrush/dev` changes
-
-## Release Workflow (Automated)
-
-```
-1. PR with changeset merges to main
-2. GitHub Action creates "Version Packages" PR
-   → all package.json versions bumped
-   → all CHANGELOG.md files updated
-3. Review + merge "Version Packages" PR
-4. GitHub Action publishes the packages in the release plan to npm
-5. GitHub Release created automatically
-```
-
-No manual intervention needed after step 3.
-
-### When the release workflow does NOT run
-
-The release workflow is intentionally guarded by a `paths` filter.
-It only triggers on pushes to `main` that touch release-relevant files:
-
-- `.changeset/**`
-- `packages/**`
-- `pnpm-lock.yaml`
-- `package.json`
-- `CHANGELOG.md`
-- `.github/workflows/release.yml`
-
-If you merge a PR that only changes documentation (for example `PUBLISHING.md`) or other non-release files, the release workflow will not run. This is expected.
-
-### Manually triggering a release run
-
-The workflow also supports manual runs via `workflow_dispatch`.
-Use GitHub → Actions → “Release” → “Run workflow” when you want to verify the pipeline without making a release-impacting change.
-
-## First Publish (Bootstrap)
-
-If NextRush has never been published to npm before, you have two valid paths.
-
-### Option A — Publish current versions (no version PR)
-
-Use this when the versions in `packages/*/package.json` are already the versions you want to publish (for example, `3.0.0`).
-
-1. Ensure there are no pending `.changeset/*.md` files meant for version bumps.
-2. Merge your code into `main`.
-3. The release workflow runs on `main` and executes `pnpm release`.
-4. Changesets publishes any package versions that do not exist on npm yet.
-
-This path does not require GitHub Actions to create a PR.
-
-### Option B — Create a version PR, then publish
-
-Use this when you want Changesets to generate changelogs and bump versions automatically.
-
-1. On your feature branch, create a changeset: `pnpm changeset`.
-2. Open a PR to `main`. CI enforces the presence of a changeset for release-impacting package changes.
-3. Merge to `main`.
-4. The release workflow opens the “Version Packages” PR from `changeset-release/main`.
-5. Merge the “Version Packages” PR.
-6. The release workflow publishes the release plan to npm.
-
-This path requires GitHub Actions permission to create PRs.
-
-### What happens when you change a core package?
-
-- Changeset includes any core package in the fixed group.
-- Changesets bumps **all core lockstep packages together**.
-- Independent ecosystem packages are only bumped if explicitly included.
-
-### What happens when you change an independent package?
-
-- CI requires a changeset for release-impacting changes.
-- Only that package (and any required dependents according to Changesets rules) is versioned and published.
-- Core lockstep versions stay unchanged unless core packages are part of the changeset.
-
-## Manual Release (Emergency)
-
-```bash
-# Apply version bumps
-pnpm run version
-
-# Build all packages
-pnpm build
-
-# Publish to npm (requires NPM_TOKEN env var)
-pnpm release
-```
-
-## Pre-releases
-
-For alpha/beta/RC testing. Always from a dedicated branch, never `main`.
-
-```bash
-# Create branch
-git checkout -b release/3.1.0-alpha
-
-# Enter pre-release mode
-pnpm changeset pre enter alpha
-
-# Add changesets + version + publish
-pnpm changeset
-pnpm run version        # Creates 3.1.0-alpha.0
-pnpm build
-pnpm changeset publish  # Publishes to npm with @alpha tag
-
-# Users test: npm install nextrush@alpha
-
-# When ready for stable
-pnpm changeset pre exit
-pnpm run version        # Creates 3.1.0
-pnpm build
-pnpm changeset publish  # Publishes to npm @latest
-```
-
-## Snapshot Releases (PR Testing)
-
-Publish a specific PR for testing without merging:
-
-```bash
-pnpm changeset version --snapshot pr-123
-pnpm changeset publish --tag pr-123 --no-git-tag
-# Users test: npm install nextrush@pr-123
-```
-
-## npm Setup
-
-## GitHub Requirements
-
-### Repository secrets
-
-- `NPM_TOKEN` (required) — npm token with publish access to the `@nextrush/*` scope.
-
-### GitHub Actions settings
-
-For the automated release workflow to open the “Version Packages” PR:
-
-- Settings → Actions → General → Workflow permissions → set to “Read and write permissions”.
-- Enable “Allow GitHub Actions to create and approve pull requests”.
-
-### Required secret
-
-Add `NPM_TOKEN` to GitHub repo → Settings → Secrets → Actions.
-
-Create a granular npm token scoped to `@nextrush/*` packages only.
-
-### Package requirements
-
-Every publishable package must have:
+## Package tiers
+
+| Tier | Packages |
+| --- | --- |
+| **Core (fixed group — always the same version)** | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`, `@nextrush/di`, `@nextrush/adapter-node` |
+| **Adapters (independent)** | `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`, `@nextrush/adapter-serverless` |
+| **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer`, `@nextrush/validation`, `@nextrush/openapi` |
+| **Extensions/registrars (independent)** | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`, `@nextrush/health` |
+| **Streaming (independent)** | `@nextrush/stream` — depends only on `@nextrush/types`; consumed by `@nextrush/adapter-node` as a regular dependency, but core does not depend on it. "Ships with `adapter-node`" (README) describes install-time bundling for end users, not a version-lockstep coupling. It never belongs in the `fixed` group — verified against the real import graph, not the README's prose, after that exact question came up during the 2026-07-24 release prep. |
+| **Class runtime / DI tooling (independent)** | `@nextrush/class`, `@nextrush/testing` |
+| **Tooling (independent)** | `@nextrush/dev`, `create-nextrush` |
+| **Private / never published** | docs app, playground app, benchmark app, `@nextrush/adapter-conformance` |
+
+A package's tier decides two things: whether it sits in `.changeset/config.json`'s `fixed` array,
+and whether its version is a computed fact (real npm history exists) or a hand-set first release
+(it's never been published — see the Release Handbook's Phase 1 for why this distinction matters
+more than it looks like it should).
+
+## Current `.changeset/config.json`
 
 ```json
 {
-  "publishConfig": { "access": "public" }
-}
-```
-
-All publishable packages already have this configured.
-
-## Adding a New Package
-
-1. Create the package under `packages/`
-2. Decide whether it is **core (lockstep)** or **ecosystem (independent)**
-3. Set version appropriately:
-
-- Core packages: match the current core lockstep version (e.g., `3.2.0`)
-- Ecosystem packages: match the current **core major** (e.g., start at `3.0.0`), then version independently
-
-4. Add `publishConfig.access: "public"`
-5. Add `repository.directory` field
-6. If it's a **core** package, add it to the `fixed` group in `.changeset/config.json`
-7. If it's an **ecosystem** package, prefer `workspace:^` for internal `@nextrush/*` deps so published ranges are compatible within a major
-
-## Configuration Reference
-
-Changesets config lives in `.changeset/config.json`:
-
-```json
-{
+  "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
+  "commit": false,
   "fixed": [
     [
       "@nextrush/types",
@@ -259,23 +60,138 @@ Changesets config lives in `.changeset/config.json`:
       "nextrush"
     ]
   ],
-  "ignore": ["api"],
-  "changelog": ["@changesets/changelog-github", { "repo": "0xTanzim/nextrush" }],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "api",
+    "@nextrush/stream", "@nextrush/class", "@nextrush/csrf", "@nextrush/multipart",
+    "@nextrush/rate-limit", "@nextrush/cookies", "@nextrush/validation", "@nextrush/logger",
+    "@nextrush/static", "@nextrush/template", "@nextrush/openapi", "@nextrush/request-id",
+    "@nextrush/timer", "@nextrush/health", "@nextrush/events", "@nextrush/websocket",
+    "@nextrush/dev", "create-nextrush", "@nextrush/adapter-bun", "@nextrush/adapter-deno",
+    "@nextrush/adapter-edge", "@nextrush/adapter-serverless", "@nextrush/testing"
+  ],
   "privatePackages": { "version": false, "tag": false },
   "snapshot": { "useCalculatedVersion": true, "prereleaseTemplate": "{tag}-{datetime}" }
 }
 ```
 
-| Key               | Purpose                                                       |
-| ----------------- | ------------------------------------------------------------- |
-| `fixed`           | All matching packages share the same version (lockstep)       |
-| `ignore`          | Packages excluded from versioning                             |
-| `changelog`       | GitHub-linked changelogs with PR links and author attribution |
-| `privatePackages` | Skip private packages (docs, playground, benchmark)           |
-| `snapshot`        | Use calculated versions for snapshot releases                 |
+| Key | Purpose |
+| --- | --- |
+| `fixed` | Packages inside one array always share the same version, whether or not each one individually changed |
+| `ignore` | Version-bumped and changelogged, but never actually published while listed — a **temporary** hold. This currently holds every never-published package for the duration of the 4.0.0 beta window, so none of them accidentally leak onto npm's `latest` tag before the real stable release (see the Release Handbook, Phase 3, for exactly why that risk is real and unconditional). Remove a package from here only once it's ready for its real first publish. Use `"private": true` in a package's own `package.json` instead if you want to block it permanently, not temporarily |
+| `changelog` | GitHub-linked changelogs — PR links and author attribution, needs a `GITHUB_TOKEN` locally to run outside CI |
+| `privatePackages` | Skip private packages (docs, playground, benchmark) entirely |
+| `snapshot` | Version format for one-off PR/snapshot test releases |
 
-## Further Reading
+The baseline guard (`pnpm validate:changeset-baselines`, see below) reads this file's `ignore`
+list and every pending changeset together — it's what caught the exact mistake that put twelve
+of those twenty-three packages here in the first place.
 
+## The baseline guard
+
+```bash
+pnpm validate:changeset-baselines
+```
+
+Checks every pending changeset's declared bump type against the real npm registry, and fails if
+a `patch`/`minor`/`major` is declared against a package with zero publish history. It's wired
+into `pnpm run version` automatically, so it runs on every release whether you remember to call
+it directly or not. Full story on why this exists: Release Handbook, Phase 2.
+
+## Creating a changeset
+
+```bash
+pnpm changeset
+```
+
+Select the package(s) you touched, choose a bump type, write the summary. That produces a
+`.changeset/*.md` file — commit it with your PR.
+
+| Bump type | When |
+| --- | --- |
+| `patch` | Bug fix, internal refactor, dependency update |
+| `minor` | New feature, new backward-compatible API |
+| `major` | Breaking change — API removal, behavior change, a dependency moved to `peerDependencies` |
+
+Skip a changeset for documentation-only changes, test-only changes, CI/CD config changes, or
+`@nextrush/dev` changes.
+
+## CI release guard (PRs to `main`)
+
+`ci.yml` blocks a PR that touches `packages/**` (excluding tests and docs) without an
+accompanying `.changeset/*.md` file. This guarantees a release-impacting change never merges
+without release metadata — but it only checks that a changeset *exists*, not that its declared
+bump type makes sense. Run the baseline guard above yourself before you rely on CI to catch a bad
+bump type; `ci.yml` doesn't call it independently yet.
+
+## GitHub Actions — what runs, and what it needs
+
+| Workflow | Triggers on | What it does |
+| --- | --- | --- |
+| `ci.yml` | push/PR to `main` | `pnpm verify` (build, test, typecheck, lint) + changeset-presence guard + scaffolder install matrix + cross-platform dev-CLI smoke test |
+| `release.yml` | push to `main` (paths: `.changeset/**`, `packages/**`, lockfile, root `package.json`) | Opens/updates the "Version Packages" PR via `changesets/action`; on merge, publishes to npm |
+| `docs-pages.yml` | push to `main` (paths: `apps/docs/**`) | Builds and deploys the docs site to GitHub Pages |
+| `runtime-conformance.yml` | push/PR to `main` | Real Bun/Deno/workerd conformance tests, plus a bundle-size budget check |
+| `performance-gate.yml` | PR touching perf-sensitive paths | Benchmark smoke test against a committed baseline (inactive-but-wired until a baseline is committed) |
+| `deploy-verification.yml` | nightly cron + manual | Real cloud deploys (Lambda, Cloudflare, Vercel, GCF) — skips cleanly if secrets are missing |
+
+**`release.yml` only triggers on `main`.** It has no trigger for a dedicated beta branch — that's
+why beta releases run from the CLI, not through this workflow. See the Release Handbook's Part 2
+for the full reasoning, not only this fact.
+
+### Required repository configuration
+
+- **Secrets**: `NPM_TOKEN` (publish access to `@nextrush/*`), `TURBO_TOKEN` + `TURBO_TEAM`
+  (remote build cache).
+- **Settings → Actions → General → Workflow permissions**: "Read and write permissions," plus
+  "Allow GitHub Actions to create and approve pull requests" — required for `changesets/action`
+  to open the Version Packages PR.
+- **Every publishable package's `package.json`** needs `"publishConfig": { "access": "public" }`.
+
+## Adding a new package
+
+1. Create it under `packages/`.
+2. Decide its tier (see the table above) — core fixed group, or independent.
+3. Set its version. If it's genuinely new (never published anywhere), start at `1.0.0` — not the
+   current core major, and not anything inflated. A first release inheriting a version number it
+   never earned is exactly the mistake this repo already made once; see the Release Handbook's
+   edge-case table.
+4. Add `publishConfig.access: "public"` and a `repository.directory` field.
+5. If it belongs in the core group, add it to `.changeset/config.json`'s `fixed` array —
+   only after checking the real dependency graph, not the package's own description of itself.
+6. For internal `@nextrush/*` dependencies, prefer `workspace:^` so published ranges stay
+   compatible within a major.
+
+## Manual / emergency release
+
+```bash
+pnpm run version   # runs the baseline guard, then changeset version
+pnpm build
+pnpm changeset publish --provenance   # requires NPM_TOKEN in the environment
+```
+
+This is what `release.yml` runs under the hood (`"release": "turbo run build && changeset publish
+--provenance"` in the root `package.json`). Running it by hand works the same way, and it's
+idempotent — safe to re-run if it fails partway through, since `changeset publish` only pushes a
+version that isn't already on the registry.
+
+## Snapshot releases (one-off PR testing, no version bump)
+
+```bash
+pnpm changeset version --snapshot pr-123
+pnpm changeset publish --tag pr-123 --no-git-tag
+# testers: npm install nextrush@pr-123
+```
+
+## Further reading
+
+- [Release Handbook](apps/docs/content/docs/internals/release-handbook.mdx) — the full lifecycle,
+  the CLI-vs-CI decision, mermaid diagrams for the release-time flow, and every real edge case
+  found running this process for the first time. Read this before running any release.
 - [Hybrid Versioning RFC](report/RFC-HYBRID-VERSIONING-AND-RELEASE-STRATEGY.md)
-- [Changesets Documentation](https://github.com/changesets/changesets)
-- [Changesets Fixed Packages](https://github.com/changesets/changesets/blob/main/docs/fixed-packages.md)
+- [Changesets documentation](https://github.com/changesets/changesets)
+- [Changesets: fixed packages](https://github.com/changesets/changesets/blob/main/docs/fixed-packages.md)
+- [Changesets: prereleases](https://github.com/changesets/changesets/blob/main/docs/prereleases.md)

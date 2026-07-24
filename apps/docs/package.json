@@ -5,9 +5,9 @@
   "scripts": {
     "prebuild": "fumadocs-mdx && tsx scripts/generate-openapi.ts && tsx ../../scripts/docs/build-docs.ts",
     "build": "NODE_OPTIONS=--max-old-space-size=3072 next build && tsx ../../scripts/docs/postbuild.ts && tsx scripts/generate-legacy-redirects.ts",
-    "dev": "fumadocs-mdx && NODE_OPTIONS=--max-old-space-size=2048 next dev -p 3020",
+    "dev": "fumadocs-mdx && next dev -p 3020",
     "start": "serve out",
-    "types:check": "fumadocs-mdx && next typegen && NODE_OPTIONS=--max-old-space-size=2048 tsc --noEmit",
+    "types:check": "fumadocs-mdx && next typegen && NODE_OPTIONS=--max-old-space-size=3048 tsc --noEmit",
     "typecheck": "pnpm types:check",
     "docs:verify-registry": "tsx scripts/verify-registry-parity.ts",
     "lint": "eslint",

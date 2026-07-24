@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/adapter-serverless",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.0",
   "description": "Serverless adapter for NextRush (AWS Lambda, API Gateway, GCF, Azure) via a generic, adapter-scoped EventMapper registry",
   "type": "module",
   "main": "./dist/index.js",

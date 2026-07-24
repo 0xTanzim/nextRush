@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/validation",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.0",
   "description": "Standard Schema request validation middleware for NextRush — works with Zod, Valibot, ArkType, and any Standard Schema library",
   "type": "module",
   "main": "./dist/index.js",

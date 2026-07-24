@@ -1,5 +1,13 @@
 # @nextrush/events
 
+## 1.0.0-beta.0
+
+### Patch Changes
+
+- Updated dependencies [eee4462]
+- Updated dependencies [793d596]
+  - @nextrush/core@4.0.0-beta.0
+
 ## 3.1.0
 
 ### Major Changes

@@ -21,10 +21,13 @@ export type {
     DocPrerequisiteItem
 } from './doc-page';
 export { Feature, FeatureGrid } from './feature-grid';
+export { FileTree } from './file-tree';
 export { Mermaid } from './mermaid';
 export { MentalModelFlow } from './mental-model';
 export { OpenInStackBlitz } from './open-in-stackblitz';
 export { PackageInstall } from './package-install';
+export { ScaffoldCommand } from './scaffold-command';
+export { WizardFlow, WizardStep } from './wizard-step';
 export { PackagesAZTable } from './packages-az-table';
 export { PackageCard, PackageGrid, PackageSection } from './package-grid';
 export { RuntimeSupport } from './runtime-support';
@@ -34,6 +37,8 @@ export { TypeTable } from './type-table';
 export {
   ApiDemo,
   ApiDemoRow,
+  ArchitectChallenge,
+  ArchitectQuestion,
   Challenge,
   ChallengeList,
   CheckpointItem,
@@ -42,8 +47,12 @@ export {
   LearningGoals,
   Mistake,
   MistakeList,
+  TutorialChapter,
   TutorialCheckpoint,
   TutorialGraduation,
+  TutorialPipeline,
   TutorialProgress,
   WhatChanged,
+  WhyItWorks,
+  WhyItem,
 } from './tutorial';

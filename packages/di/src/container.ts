@@ -57,11 +57,75 @@ function isFactoryProvider<T>(provider: Provider<T>): provider is FactoryProvide
 
 /**
  * Create a container wrapper with enhanced error handling.
+ *
+ * @param sharedState - Cycle-detection state to reuse instead of starting fresh.
+ *   Passed by `createChild()` so a child container's resolutions are checked
+ *   against the SAME resolutionStack/guardedTokens as its parent — cycle
+ *   detection is a property of the underlying tsyringe registration graph
+ *   (which a child inherits/delegates to via createChildContainer), not of
+ *   which wrapper object happens to be calling resolve(). Without sharing this,
+ *   a token registered on the parent but resolved through a child would guard
+ *   against the wrong (child's, empty) Set while the interceptor — registered
+ *   on the parent's tsyInstance at register() time — pushes onto the parent's
+ *   Set, leaking state the child's own snapshot/restore never touches.
  */
-function createContainerWrapper(tsyInstance: DependencyContainer): Container {
-  const resolutionStack = new Set<string>();
-  const factoryTokens = new Set<Token>();
-  const bootstrappedValues = new Map<Token, unknown>();
+function createContainerWrapper(
+  tsyInstance: DependencyContainer,
+  sharedState?: {
+    resolutionStack: Set<string>;
+    factoryTokens: Set<Token>;
+    bootstrappedValues: Map<Token, unknown>;
+    guardedTokens: Set<Token>;
+  }
+): Container {
+  const resolutionStack = sharedState?.resolutionStack ?? new Set<string>();
+  const factoryTokens = sharedState?.factoryTokens ?? new Set<Token>();
+  const bootstrappedValues = sharedState?.bootstrappedValues ?? new Map<Token, unknown>();
+  // Tokens with a beforeResolution/afterResolution guard already wired (see
+  // registerCycleGuard below) — prevents double-registering the interceptor pair
+  // on repeated register() calls for the same token, which would double-push/pop
+  // resolutionStack and desync the count.
+  const guardedTokens = sharedState?.guardedTokens ?? new Set<Token>();
+
+  /**
+   * Makes the fast Set-based cycle guard apply to tsyringe's OWN internal
+   * constructor-injection recursion, not just the wrapper.resolve() re-entry path
+   * factory providers already use.
+   *
+   * useClass providers never call back into wrapper.resolve() — tsyringe resolves
+   * the whole constructor graph itself (construct() -> resolveParams() ->
+   * resolve(), recursively), so resolutionStack's checks at the top of
+   * wrapper.resolve() never fire for this path. tsyringe's beforeResolution/
+   * afterResolution interceptors DO fire on every one of those internal recursive
+   * resolve() calls (dependency-container.js executePreResolutionInterceptor is
+   * called from inside resolve() itself), so wiring the same resolutionStack Set
+   * through them closes the gap: a cycle is now caught on the next recursive call,
+   * not after tens of thousands of stack frames.
+   */
+  function registerCycleGuard(token: Token, tsyToken: InjectionToken): void {
+    if (guardedTokens.has(token)) return;
+    guardedTokens.add(token);
+
+    const tokenName = getTokenName(token);
+    tsyInstance.beforeResolution(
+      tsyToken,
+      () => {
+        if (resolutionStack.has(tokenName)) {
+          const cycle = [...resolutionStack, tokenName];
+          throw new CircularDependencyError(cycle);
+        }
+        resolutionStack.add(tokenName);
+      },
+      { frequency: 'Always' }
+    );
+    tsyInstance.afterResolution(
+      tsyToken,
+      () => {
+        resolutionStack.delete(tokenName);
+      },
+      { frequency: 'Always' }
+    );
+  }
 
   const wrapper: Container = {
     register<T>(token: Token<T>, provider: Provider<T>, options?: RegisterOptions): void {
@@ -91,6 +155,7 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
         } else {
           tsyInstance.register(tsyToken, { useClass: provider.useClass });
         }
+        registerCycleGuard(token, tsyToken);
       } else if (isValueProvider(provider)) {
         tsyInstance.register(tsyToken, { useValue: provider.useValue });
       } else if (isFactoryProvider(provider)) {
@@ -126,22 +191,51 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
 
       const tokenName = getTokenName(token);
       const tsyToken = token as InjectionToken<T>;
+      // useClass tokens are guarded by the beforeResolution/afterResolution pair
+      // (registerCycleGuard) instead — that pair fires on every one of tsyringe's
+      // internal recursive resolve() calls too, not just this outer one, so it owns
+      // the push/pop for those tokens. Pushing here AS WELL would double-count the
+      // outermost call (this resolve() entry) against the interceptor's own push,
+      // producing a false-positive cycle on the very first, non-recursive resolution.
+      //
+      // Note: a class decorated with tsyringe's own @singleton()/@injectable()
+      // (which is what @Service()/@Repository()/@Config() call directly — see
+      // service-decorators.ts) is registered with tsyringe WITHOUT ever going
+      // through wrapper.register(), so guardedTokens never gets it added and this
+      // is correctly false for that case; it falls through to the manual push/pop
+      // guard below instead, same as it did before the interceptor guard existed.
+      const guardedByInterceptor = guardedTokens.has(token);
 
-      // Detect circular dependencies (O(1) lookup with Set)
-      if (resolutionStack.has(tokenName)) {
-        const cycle = [...resolutionStack, tokenName];
-        throw new CircularDependencyError(cycle);
+      // Snapshot BEFORE either guard path pushes anything, so finally's restore
+      // below undoes exactly what THIS call added — regardless of which of the two
+      // paths (interceptor-owned or manual) did the pushing.
+      const stackSnapshot = [...resolutionStack];
+
+      // Detect circular dependencies (O(1) lookup with Set) — only for tokens the
+      // interceptor pair does not already own (value providers, tokens with no
+      // registered class, resolveAll-only tokens, and any token registered via
+      // tsyringe's own decorators rather than wrapper.register()).
+      if (!guardedByInterceptor) {
+        if (resolutionStack.has(tokenName)) {
+          const cycle = [...resolutionStack, tokenName];
+          throw new CircularDependencyError(cycle);
+        }
+        resolutionStack.add(tokenName);
       }
 
-      resolutionStack.add(tokenName);
+      // On any exit (success OR failure, at any nesting depth) restore
+      // resolutionStack to exactly its pre-call contents — afterResolution only
+      // fires on a SUCCESSFUL resolve(), so a cycle/failure several constructor-
+      // injection frames deep would otherwise leave every frame between the failure
+      // and this call's entry stuck in resolutionStack forever, misreporting every
+      // later resolve() of those tokens as a false-positive cycle. Restoring the
+      // snapshot on the way out — rather than trusting each frame's own pop to have
+      // run — is correct regardless of how many guarded frames recursed underneath,
+      // since only one top-level call is ever in flight at a time (single JS thread).
 
       try {
-        const instance = tsyInstance.resolve<T>(tsyToken);
-        resolutionStack.delete(tokenName);
-        return instance;
+        return tsyInstance.resolve<T>(tsyToken);
       } catch (error) {
-        resolutionStack.delete(tokenName);
-
         // Re-throw our own errors as-is
         if (error instanceof CircularDependencyError) {
           throw error;
@@ -183,6 +277,9 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
         }
 
         throw error;
+      } finally {
+        resolutionStack.clear();
+        for (const name of stackSnapshot) resolutionStack.add(name);
       }
     },
 
@@ -240,11 +337,17 @@ function createContainerWrapper(tsyInstance: DependencyContainer): Container {
       bootstrappedValues.clear();
       factoryTokens.clear();
       resolutionStack.clear();
+      guardedTokens.clear();
     },
 
     createChild(): Container {
       const childTsy = tsyInstance.createChildContainer();
-      return createContainerWrapper(childTsy);
+      return createContainerWrapper(childTsy, {
+        resolutionStack,
+        factoryTokens,
+        bootstrappedValues,
+        guardedTokens,
+      });
     },
   };
 

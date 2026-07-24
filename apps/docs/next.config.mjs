@@ -22,8 +22,7 @@ const config = {
   // the rest of the monorepo (turbo tasks, MCP servers, editor) for all CPU cores/RAM
   // on a resource-constrained dev machine.
   experimental: {
-    cpus: 2,
-    webpackBuildWorker: true,
+    // webpackBuildWorker: true,
   },
   ...(normalizedBasePath
     ? {

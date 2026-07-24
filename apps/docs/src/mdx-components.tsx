@@ -1,6 +1,8 @@
 import {
     ApiDemo,
     ApiDemoRow,
+    ArchitectChallenge,
+    ArchitectQuestion,
     BenchmarkBars,
     BenchmarkCardGrid,
     Challenge,
@@ -18,6 +20,7 @@ import {
     DocTableWrap,
     Feature,
     FeatureGrid,
+    FileTree,
     GraduationItem,
     HighlightGrid,
     HighlightItem,
@@ -32,14 +35,21 @@ import {
     PackageGrid,
     PackageInstall,
     PackagesAZTable,
+    ScaffoldCommand,
     PackageSection,
     RuntimeSupport,
     ScalarApiReference,
+    TutorialChapter,
     TutorialCheckpoint,
     TutorialGraduation,
+    TutorialPipeline,
     TutorialProgress,
     TypeTable,
     WhatChanged,
+    WhyItWorks,
+    WhyItem,
+    WizardFlow,
+    WizardStep,
 } from '@/components/mdx';
 import { typeTableGenerator } from '@/lib/type-table-generator';
 import { AutoTypeTable as BaseAutoTypeTable, type AutoTypeTableProps } from 'fumadocs-typescript/ui';
@@ -88,6 +98,13 @@ const customComponents = {
   // Package installation with multiple package manager tabs
   PackageInstall,
 
+  // Scaffold command tabs (package-manager-specific create/init commands)
+  ScaffoldCommand,
+
+  // Wizard / timeline flow for prompt sequences
+  WizardFlow,
+  WizardStep,
+
   // Package grid with category sections
   PackageCard,
   PackageGrid,
@@ -99,6 +116,9 @@ const customComponents = {
   // Feature showcase components
   Feature,
   FeatureGrid,
+
+  // VSCode-style file tree
+  FileTree,
 
   // API reference type table
   TypeTable,
@@ -139,15 +159,21 @@ const customComponents = {
 
   // Tutorial pacing helpers (quick-start and future multi-part tutorials)
   TutorialProgress,
+  TutorialChapter,
+  TutorialPipeline,
   ApiDemo,
   ApiDemoRow,
   LearningGoals,
   LearningGoal,
   WhatChanged,
+  WhyItWorks,
+  WhyItem,
   TutorialCheckpoint,
   CheckpointItem,
   TutorialGraduation,
   GraduationItem,
+  ArchitectChallenge,
+  ArchitectQuestion,
   ChallengeList,
   Challenge,
   MistakeList,

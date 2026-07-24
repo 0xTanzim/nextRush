@@ -3,135 +3,149 @@ title: Scaffold with create-nextrush
 description: Generate a runnable NextRush project with one command — pick a style, a middleware preset, and a runtime, and skip the manual setup from Installation.
 ---
 
-Wiring a project by hand teaches you how the pieces fit together, which is why
-[Installation](/docs/start/installation) walks through it step by step. Once you've done that
-once, typing out the same `tsconfig.json`, `package.json`, and entry file for every new service
-is work the framework can do for you. `create-nextrush` asks four questions — style, runtime,
-middleware, and where to put it — and answers with a project that runs immediately.
+<DocHero eyebrow="Start · Scaffold">
+
+Wiring a project by hand teaches how the pieces fit — that's what
+[Installation](/docs/start/installation) and the [Task API tutorial](/docs/start/quick-start) are
+for. Once you've done that once, `create-nextrush` generates the same foundation in one command:
+`tsconfig.json`, scripts, middleware wiring, a sample route or controller, and a real unit test.
+
+<div className="not-prose mt-5 grid gap-2 sm:grid-cols-2">
+  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+    <span className="text-[var(--accent-success-fg)]">✓</span> Functional, class-based, or full layout
+  </div>
+  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+    <span className="text-[var(--accent-success-fg)]">✓</span> Node, Bun, or Deno scripts
+  </div>
+  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+    <span className="text-[var(--accent-success-fg)]">✓</span> Middleware preset wired for you
+  </div>
+  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+    <span className="text-[var(--accent-success-fg)]">✓</span> Runnable + testable out of the box
+  </div>
+</div>
+
+<div className="not-prose mt-5 flex flex-wrap gap-2">
+  <DocHeroPill>~2 min</DocHeroPill>
+  <DocHeroPill>Node 22+ to run CLI</DocHeroPill>
+  <DocHeroPill>Interactive or flags</DocHeroPill>
+</div>
+
+</DocHero>
+
+## What you'll have
+
+By the end, a new folder runs with `pnpm dev` (or your package manager's equivalent):
+
+<DocStatStrip>
+  <DocStat label="Project" value="Generated" hint="package.json, tsconfig, src/, .gitignore" />
+  <DocStat label="Server" value="Running" hint="Welcome route + /health (or /api/health)" />
+  <DocStat label="Tests" value="Passing" hint="vitest run — at least one real unit test" />
+</DocStatStrip>
+
+## Prerequisites
+
+<DocPrerequisiteGrid
+  items={[
+    { label: 'CLI runtime', value: 'Node.js 22+ — the scaffolder itself runs on Node' },
+    { label: 'Package manager', value: 'pnpm, npm, yarn, or bun' },
+    { label: 'When to scaffold', value: 'New project — not adding one package to an existing app' },
+  ]}
+/>
+
+Prefer wiring every file yourself first? Start with [Installation](/docs/start/installation) or the
+[Task API tutorial](/docs/start/quick-start), then come back here for your second project.
 
 ## Run it
 
-The scaffolder ships as its own npm package, `create-nextrush`, and your package manager can
-reach it two ways.
+The scaffolder is the npm package `create-nextrush`. Your package manager can invoke it several
+ways:
 
-<Tabs items={['pnpm create', 'npm create', 'npx', 'pnpm dlx']}>
-  <Tab value="pnpm create">
-
-```bash
-pnpm create nextrush my-api
-```
-
-  </Tab>
-  <Tab value="npm create">
-
-```bash
-npm create nextrush my-api
-```
-
-  </Tab>
-  <Tab value="npx">
-
-```bash
-npx create-nextrush@latest my-api
-```
-
-  </Tab>
-  <Tab value="pnpm dlx">
-
-```bash
-pnpm dlx create-nextrush@latest my-api
-```
-
-  </Tab>
-</Tabs>
+<ScaffoldCommand
+  commands={{
+    pnpm: 'pnpm create nextrush my-api',
+    bun: 'bun create nextrush my-api',
+    npm: 'npm create nextrush my-api',
+    yarn: 'yarn create nextrush my-api',
+    deno: 'deno run -A npm:create-nextrush@latest my-api',
+  }}
+/>
 
 <Callout type="warn" title="create nextrush vs. create-nextrush">
   `pnpm create nextrush` and `npm create nextrush` use a **space** — your package manager expands
   `create <name>` to the npm package `create-<name>`, so `nextrush` resolves to `create-nextrush`.
-  Calling the package directly (`npx`, `pnpm dlx`, `bunx`) needs the **hyphenated** name instead:
+  Calling the package directly (`npx`, `pnpm dlx`, `bunx`) needs the **hyphenated** name:
   `pnpm dlx create-nextrush`, not `pnpm dlx create nextrush`.
 </Callout>
 
-`my-api` here is the target directory — pass `.` to scaffold into the current folder, or omit it
-entirely to be prompted for one. Whichever way you invoke it, you land in the same interactive
-flow, built on [`@clack/prompts`](https://github.com/bombshell-dev/clack).
+`my-api` is the target directory — pass `.` to scaffold into the current folder, or omit it to be
+prompted. The flow is built on [`@clack/prompts`](https://github.com/bombshell-dev/clack).
 
-## What it asks
+## How it works
 
-The CLI runs four prompts in this order, each pre-filled with a default you can accept by
-pressing enter. This list is read directly from `runPrompts()` in
-`packages/create-nextrush/src/prompts.ts` — the labels below are the exact strings the CLI shows.
+Six prompts, every one with a default — press Enter to accept.
 
-<Steps>
+<WizardFlow>
+  <WizardStep number={1} title="Project name">
 
-### Where should we create your project?
+Where to create the project. Defaults to `my-nextrush-app` if you didn't pass a directory.
+The scaffolder derives `package.json`'s `name` from this path — invalid characters become
+hyphens, so `My API!` becomes `my-api`.
 
-A free-text path (default comes from the directory argument, or `my-nextrush-app` if you didn't
-pass one). The scaffolder derives your `package.json` name from this path — see
-[Options](#options) for the naming rules.
+  </WizardStep>
+  <WizardStep number={2} title="Style">
 
-### Which style do you want?
+Three choices. **Functional** is the default — the smallest surface.
 
-<DocTableWrap>
+<Cards>
+  <Card title="Functional (default)" description="Routes only, no decorators. Smallest surface — best for small APIs and microservices." />
+  <Card title="Class-based" description="Controllers, DI, and decorators. Routes register under /api. Best when you want structure from day one." />
+  <Card title="Full" description="Both styles side by side. A reference layout showing functional routes and class-based controllers together." />
+</Cards>
 
-| Choice | Label shown | What it generates |
-| --- | --- | --- |
-| `functional` (default) | Functional — routes only, no decorators | `createRouter()` handlers, no DI |
-| `class-based` | Class-based — controllers, DI, decorators (routes under `/api`) | `@Controller` classes with dependency injection |
-| `full` | Full — controllers + routes + middleware + error handling (controllers under `/api`) | Both styles together, plus generated error-handling middleware |
+Full comparison with generated trees and code: [Project styles](#project-styles).
 
-</DocTableWrap>
+  </WizardStep>
+  <WizardStep number={3} title="Runtime">
 
-Full breakdown of what each style writes to disk: [Project styles](#project-styles).
-
-### Middleware preset?
-
-<DocTableWrap>
-
-| Choice | Label shown | Packages installed |
-| --- | --- | --- |
-| `minimal` | Minimal — no middleware | none — core only |
-| `api` (default) | API — cors, body-parser, helmet | `@nextrush/cors`, `@nextrush/body-parser`, `@nextrush/helmet` |
-| `full` | Full — API + rate-limit, compression, request-id | the `api` set plus `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/request-id` |
-
-</DocTableWrap>
-
-The scaffolder also writes the matching `import` lines and `app.use()` calls into your entry
-file — you don't wire these by hand afterward.
-
-### Which runtime?
-
-<DocTableWrap>
-
-| Choice | Label shown | Onboarding page |
-| --- | --- | --- |
-| `node` (default) | Node.js | [Node](/docs/start/runtime/node) |
-| `bun` | Bun | [Bun](/docs/start/runtime/bun) |
-| `deno` | Deno | [Deno](/docs/start/runtime/deno) |
-
-</DocTableWrap>
-
-Node needs no adapter package — `nextrush` already re-exports `@nextrush/adapter-node`. Choosing
-Bun or Deno adds `@nextrush/adapter-bun` or `@nextrush/adapter-deno` as a dependency and swaps the
-generated import line and `dev`/`build`/`start` scripts to match (see
-[Generated scripts](#generated-scripts)).
+<Cards>
+  <Card title="Node.js (default)" description="No adapter needed — nextrush re-exports @nextrush/adapter-node." />
+  <Card title="Bun" description="Adds @nextrush/adapter-bun and swaps the generated import and scripts." />
+  <Card title="Deno" description="Adds @nextrush/adapter-deno and swaps the generated import and scripts." />
+</Cards>
 
 <Callout type="info" title="Edge and serverless aren't scaffolder targets">
-  The runtime prompt only offers Node, Bun, and Deno — matching `RUNTIMES` in
-  `packages/create-nextrush/src/constants.ts`. [Edge](/docs/start/runtime/edge) and
-  [Serverless](/docs/start/runtime/serverless) are onboarding paths you follow manually once you
-  have a project; there's no `--runtime edge` flag to scaffold one directly.
+  The runtime prompt only offers Node, Bun, and Deno. [Edge](/docs/start/runtime/edge) and
+  [Serverless](/docs/start/runtime/serverless) are paths you follow manually once a project exists.
 </Callout>
 
-</Steps>
+  </WizardStep>
+  <WizardStep number={4} title="Middleware preset">
 
-Two more prompts follow — **"Install dependencies?"** and **"Initialize a git repository?"** —
-both defaulting to yes. Answering no to either skips that one step; everything else about the
-generated project is identical.
+<Cards>
+  <Card title="Minimal" description="No middleware — core only." />
+  <Card title="API (default)" description="cors, body-parser, helmet. Registered in production-safe order." />
+  <Card title="Full" description="API preset + rate-limit, compression, request-id." />
+</Cards>
+
+The scaffolder writes the matching `import` lines and `app.use(...)` calls into `src/index.ts`.
+
+  </WizardStep>
+  <WizardStep number={5} title="Install dependencies?">
+
+Defaults to **yes**. Say no to scaffold files only and run `pnpm install` yourself afterward.
+
+  </WizardStep>
+  <WizardStep number={6} title="Initialize git?">
+
+Defaults to **yes** — `git init` plus an initial commit. Say no to skip.
+
+  </WizardStep>
+</WizardFlow>
 
 ## Skip the prompts
 
-Every prompt has a matching flag, so a fully-specified command never pauses for input:
+Every prompt has a matching flag. A fully-specified command never pauses:
 
 ```bash
 pnpm create nextrush my-api --style functional --runtime node --middleware api
@@ -145,13 +159,20 @@ pnpm create nextrush my-bun-api --style functional --runtime bun --middleware fu
 pnpm create nextrush my-deno-api --style class-based --runtime deno --middleware api
 ```
 
-`-y`/`--yes` accepts every default in one flag without specifying each option:
+`-y` / `--yes` accepts every default without specifying each option:
 
 ```bash
 pnpm create nextrush my-api --yes
 ```
 
-## Options
+Scaffold without install or git:
+
+```bash
+pnpm create nextrush my-api --yes --no-install --no-git
+```
+
+<details>
+<summary>All CLI flags</summary>
 
 <TypeTable
   title="create-nextrush flags"
@@ -163,7 +184,7 @@ pnpm create nextrush my-api --yes
     },
     '--runtime, -r': {
       type: '"node" | "bun" | "deno"',
-      description: 'Target runtime',
+      description: 'Target runtime for the generated project',
       default: '"node"',
     },
     '--middleware, -m': {
@@ -190,79 +211,103 @@ pnpm create nextrush my-api --yes
   }}
 />
 
-The project name comes from the directory you pass — `toPackageName()` lowercases it, replaces
-anything outside `a-z0-9-._~` with a hyphen, and trims leading/trailing hyphens, so `My API!`
-becomes `my-api`. Passing `.` names the project after the current folder instead.
+The project name comes from the directory you pass — invalid characters become hyphens, so
+`My API!` becomes `my-api`. Passing `.` names the project after the current folder.
+
+</details>
 
 ## Project styles
 
-Every style shares four files — `tsconfig.json`, `package.json`, `README.md`, `.gitignore`, and
-`src/env.d.ts` for editor type hints — then adds its own source layout.
+Every style shares `tsconfig.json`, `package.json`, `README.md`, `.gitignore`, and `src/env.d.ts`
+for editor hints — then adds its own source layout. Each ships at least one **real** `vitest` unit
+test, not a placeholder.
 
-### `functional`
+<Tabs items={['Functional', 'Class-based', 'Full']}>
+  <Tab value="Functional">
 
-```text
-my-api/
-├── src/
-│   ├── index.ts
-│   └── routes/
-│       └── health.ts
-├── package.json
-├── tsconfig.json
-└── .gitignore
-```
+**Best for:** Small APIs, microservices, minimal surface area.
 
-```ts title="src/index.ts (generated)"
+<FileTree
+  root="my-api"
+  files={[
+    'src/index.ts',
+    'src/routes/health.ts',
+    'src/routes/health-status.ts',
+    'src/routes/__tests__/health-status.test.ts',
+    'package.json',
+    'tsconfig.json',
+    '.gitignore',
+  ]}
+  highlight={['index.ts', 'health-status.ts']}
+/>
+
+`health-status.ts` holds a pure function the route calls — testable without spinning up HTTP.
+
+```ts title="src/index.ts (generated, api middleware)"
 import { createApp, createRouter, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+import { helmet } from '@nextrush/helmet';
 import { healthRouter } from './routes/health.js';
 
-const app = createApp();
 const router = createRouter();
+const app = createApp({ router });
 const PORT = Number(process.env.PORT) || 8080;
+
+// Middleware
+app.use(cors());
+app.use(helmet());
+app.use(json());
 
 // Routes
 router.get('/', (ctx) => {
   ctx.json({ message: 'Welcome to NextRush!' });
 });
 
-app.route('/', router);
 app.route('/health', healthRouter);
 
 await listen(app, PORT);
 ```
 
-On Bun or Deno, the two import lines change (`createApp`/`createRouter` still come from
-`nextrush`; `listen` comes from the chosen `@nextrush/adapter-*` package instead), and the `PORT`
-line reads `Deno.env.get('PORT')` instead of `process.env.PORT` when you pick Deno.
+Health lives at `GET /health`. On Bun or Deno, `listen` comes from `@nextrush/adapter-bun` or
+`@nextrush/adapter-deno` instead. Deno reads `Deno.env.get('PORT')` for the port line.
 
-### `class-based`
+  </Tab>
+  <Tab value="Class-based">
 
-```text
-my-api/
-├── src/
-│   ├── index.ts
-│   ├── controllers/
-│   │   └── health.controller.ts
-│   └── services/
-│       └── app.service.ts
-├── package.json
-├── tsconfig.json
-└── .gitignore
-```
+**Best for:** DI, decorators, structured architecture from day one.
 
-```ts title="src/services/app.service.ts (generated)"
-import { Service } from 'nextrush/class';
+<FileTree
+  root="my-api"
+  files={[
+    'src/index.ts',
+    'src/controllers/health.controller.ts',
+    'src/services/app.service.ts',
+    'src/services/__tests__/app.service.test.ts',
+    'package.json',
+    'tsconfig.json',
+    '.gitignore',
+  ]}
+  highlight={['index.ts', 'health.controller.ts', 'app.service.test.ts']}
+/>
 
-@Service()
-export class AppService {
-  getHealth() {
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    };
-  }
-}
+Controllers are **auto-discovered** — no manual mount list:
+
+```ts title="src/index.ts (generated excerpt)"
+import { createApp, createRouter, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
+
+const router = createRouter();
+const app = createApp({ router });
+
+await registerControllers(app, {
+  root: CONTROLLERS_ROOT,
+  include: CONTROLLERS_INCLUDE,
+  prefix: '/api',
+  strict: true,
+});
+
+await listen(app, PORT);
 ```
 
 ```ts title="src/controllers/health.controller.ts (generated)"
@@ -280,53 +325,60 @@ export class HealthController {
 }
 ```
 
-Choosing `class-based` or `full` also enables `experimentalDecorators` and
-`emitDecoratorMetadata` in the generated `tsconfig.json`, and adds `reflect-metadata` as a
-dependency — the same requirement covered in
-[Installation's TypeScript step](/docs/start/installation#configure-typescript).
+Health lives at **`GET /api/health`** — the `/api` prefix comes from `registerControllers`, not
+the controller decorator alone.
 
-### `full`
+Choosing `class-based` enables `experimentalDecorators` and `emitDecoratorMetadata` in
+`tsconfig.json`, and adds `reflect-metadata` plus `@nextrush/class` as explicit dependencies — same
+requirement as [Installation's TypeScript step](/docs/start/installation#configure-typescript).
 
-```text
-my-api/
-├── src/
-│   ├── index.ts
-│   ├── routes/
-│   │   └── health.ts
-│   ├── controllers/
-│   │   └── hello.controller.ts
-│   ├── services/
-│   │   └── hello.service.ts
-│   └── middleware/
-│       └── error-handler.ts
-├── package.json
-├── tsconfig.json
-└── .gitignore
-```
+  </Tab>
+  <Tab value="Full">
 
-`full` generates both the functional route and the class-based controller side by side, plus
-`error-handler.ts` middleware wired as the first middleware in the chain — useful as a reference
-for wiring your own error handling, or as a starting point if you genuinely want both styles in
-one service.
+**Best for:** Both routing styles in one service. A reference layout.
 
-## Generated scripts
+<FileTree
+  root="my-api"
+  files={[
+    'src/index.ts',
+    'src/routes/health.ts',
+    'src/controllers/hello.controller.ts',
+    'src/services/hello.service.ts',
+    'src/services/__tests__/hello.service.test.ts',
+    'src/middleware/error-handler.ts',
+    'package.json',
+    'tsconfig.json',
+    '.gitignore',
+  ]}
+  highlight={['index.ts', 'error-handler.ts', 'hello.service.test.ts']}
+/>
 
-`package.json` scripts differ by runtime, so `pnpm dev` always means the right thing for the
-project you generated:
+`full` combines a functional `/health` route, class-based `/api/hello` controllers, and
+`error-handler.ts` registered **first** in the middleware chain. The entry file uses `serve()`
+instead of `listen()` so startup can log the bound port.
 
-<DocTableWrap>
+Useful as a reference when you want both routing styles in one service — not the smallest starting
+point.
 
-| Runtime | `dev` | `build` | `start` |
-| --- | --- | --- | --- |
-| `node` | `nextrush dev` | `nextrush build` | `node dist/index.js` |
-| `bun` | `bun nextrush dev` | `bun nextrush build` | `bun dist/index.js` |
-| `deno` | `deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts` | `deno run -A npm:@nextrush/dev@latest build` | `deno run --allow-net --allow-read --allow-env dist/index.js` |
+  </Tab>
+</Tabs>
 
-</DocTableWrap>
+<details>
+<summary>Generated scripts reference</summary>
 
-The Deno `dev` script's explicit `--allow-*` flags are Deno's permission model, not a NextRush
-choice — see [Deno's onboarding page](/docs/start/runtime/deno) for what each flag unlocks and why
-Deno asks for them up front.
+`package.json` scripts differ by runtime. Every style also includes `"test": "vitest run"`.
+
+| Runtime | `dev` | `build` | `start` | `test` |
+| --- | --- | --- | --- | --- |
+| `node` | `nextrush dev` | `nextrush build` | `node dist/index.js` | `vitest run` |
+| `bun` | `bun nextrush dev` | `bun nextrush build` | `bun dist/index.js` | `vitest run` |
+| `deno` | `deno run … npm:nextrush dev` | `deno run … npm:nextrush build` | `deno run --allow-net --allow-read --allow-env dist/index.js` | `vitest run` |
+
+Deno's `dev`/`build` scripts route through `nextrush dev` and `nextrush build` (not a raw
+`deno run` on the entry file) so decorator metadata stays consistent with Node and Bun. The
+`--allow-*` flags are Deno's permission model — see [Deno onboarding](/docs/start/runtime/deno).
+
+</details>
 
 ## After scaffolding
 
@@ -334,37 +386,95 @@ Deno asks for them up front.
 cd my-api
 
 pnpm dev     # hot-reload dev server
+pnpm test    # run the generated unit test(s)
 pnpm build   # production build
 pnpm start   # run the production build
 ```
 
+Verify the server (functional style, default middleware):
+
+```bash
+curl http://localhost:8080/
+# → {"message":"Welcome to NextRush!"}
+
+curl http://localhost:8080/health
+# → {"status":"ok","timestamp":"…","uptime":…}
+```
+
+Class-based projects answer on `/api/health` instead of `/health`.
+
 <Callout type="info" title="Code generators">
-  Once the project exists, `nextrush generate` (aliased `nextrush g`) adds more controllers,
-  services, middleware, guards, and routes to it — see the
-  [generators guide](/docs/guides/generators).
+  Once the project exists, `nextrush generate` (alias `nextrush g`) adds controllers, services,
+  middleware, guards, and routes — see the [generators guide](/docs/guides/generators).
 </Callout>
+
+## Common mistakes
+
+<MistakeList>
+  <Mistake
+    severity="warn"
+    title="Wrong package name with dlx/npx"
+    symptom="Package not found when running pnpm dlx create nextrush"
+    cause="Direct invocations need the hyphenated npm name, not the create-space form"
+    fix="Use pnpm dlx create-nextrush or npx create-nextrush@latest"
+  />
+  <Mistake
+    severity="warn"
+    title="Looking for /health on a class-based project"
+    symptom="404 on GET /health after scaffolding class-based or full"
+    cause="Controllers register under the /api prefix"
+    fix="Try GET /api/health — or scaffold functional if you want /health at the root"
+  />
+  <Mistake
+    severity="info"
+    title="Git or install step failed"
+    symptom="CLI prints failed - see the error above but files exist on disk"
+    cause="Missing git on PATH, network blocked during install, or permission error"
+    fix="Files are already written — retry git init or pnpm install manually"
+  />
+  <Mistake
+    severity="warn"
+    title="Scaffolding into a non-empty directory"
+    symptom="CLI asks for confirmation before overwriting"
+    cause="Target folder already has files"
+    fix="Confirm only if you mean to merge, or pass a fresh directory name"
+  />
+</MistakeList>
+
+## What you learned
+
+<div className="not-prose mb-2">
+  <DocHeroPill>🎓 Achievement unlocked</DocHeroPill>
+</div>
+
+<Cards>
+  <Card title="✅ create-nextrush" description="Invoke the scaffolder with your package manager — pnpm, bun, npm, or yarn." />
+  <Card title="✅ Project styles" description="Functional, class-based, and full — what each generates and when to pick it." />
+  <Card title="✅ Runtime selection" description="Node, Bun, or Deno — and what the scaffolder changes for each." />
+  <Card title="✅ Middleware presets" description="Minimal, API, or Full — which packages get wired and in what order." />
+</Cards>
 
 ## Next steps
 
 <Cards>
   <Card
-    title="Build a Task API"
-    description="The hand-wired path — see every piece land instead of generating it."
+    title="⭐ Build a Task API — recommended if you skipped the tutorial"
+    description="Hand-wire create, read, and honest 404s to learn the request pipeline."
     href="/docs/start/quick-start"
   />
   <Card
     title="Class-based controllers"
-    description="Build on the class-based or full scaffold with guards, DI, and decorators."
+    description="Build on class-based or full with guards, DI, and decorators."
     href="/docs/guides/class-based"
   />
   <Card
     title="Dev tools"
-    description="Hot reload, production builds, and the generator commands mentioned above."
+    description="Hot reload, production builds, and generator commands."
     href="/docs/guides/dev-tools"
   />
   <Card
     title="Runtimes"
-    description="What changes on Bun, Deno, the edge, and serverless once your project exists."
+    description="What changes on Bun, Deno, edge, and serverless once your project exists."
     href="/docs/start/runtime/node"
   />
 </Cards>

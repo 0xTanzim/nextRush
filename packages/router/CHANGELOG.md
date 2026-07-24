@@ -1,5 +1,62 @@
 # @nextrush/router
 
+## 4.0.0-beta.0
+
+### Patch Changes
+
+- 838367f: Router documentation accuracy, an internal `router.ts` split, and audit-flagged deduplication —
+  all non-breaking (public-surface snapshot byte-identical; 212/212 behavioral tests green).
+
+  - **`@nextrush/router`**: finished splitting `router.ts` so every shipping source file is now
+    under the 300-line ceiling (`router.ts` is 298 lines; the remaining logic moved into focused
+    internal modules `dispatch.ts`, `state.ts`, and `constants.ts` plus existing siblings, along the
+    same seams the earlier modularity split used — no new structural pattern). Resolved the router
+    audit's flagged duplications: `EMPTY_PARAMS` now has a single definition in a leaf `constants.ts`
+    module, and the route-matching / allowed-methods path-normalization logic is consolidated into
+    one shared `normalizePathForMatch` helper. Corrected the residual "radix tree" wording to
+    "segment trie" across the README and the `TrieNode.children` JSDoc (which now accurately states
+    children are keyed by whole path segment, not by first character). No exported symbol, signature,
+    or runtime behavior changed — confirmed by the package's public-surface snapshot test and full
+    suite.
+
+  - **`@nextrush/types`**: documentation-comment-only correction. The `router.ts` type header no
+    longer claims the router "uses a radix tree for efficient route matching"; it now accurately
+    describes the segment trie keyed by whole path segments (O(k) lookups). No type, signature, or
+    export change.
+
+- 70197bb: Three small papercut fixes, batched because they touch the same class/router package pair:
+
+  - **`@nextrush/router`**: `router.ts` (918 lines) split into `matching.ts`, `match-route.ts`,
+    `composition.ts`, `middleware-adapter.ts`, and `registration.ts` along its existing thematic
+    seams (matching engine, sub-router composition, middleware adaptation, route registration).
+    `Router`'s public shape, exported symbols, and dispatch behavior are unchanged — confirmed via
+    the package's public-surface snapshot test (byte-identical before/after) and the full
+    behavioral suite (212/212 passing at every extraction step, not just at the end). Purely
+    internal file reorganization.
+
+  - **`@nextrush/router` + `@nextrush/class`**: `@All()`/`app.all()` (and `router.group(...).all()`)
+    now register a single ANY-method route-table entry instead of one entry per explicitly-
+    enumerated HTTP method. All 7 standard verbs still match an `@All()` route identically — this
+    changes only what `getRoutes()` reports for an `@All()` route (1 row instead of 7), not
+    dispatch. `@nextrush/openapi`, the one in-repo consumer of `getRoutes()` found via a codebase-
+    wide search, was updated in the same change: previously it silently emitted only 1 of 7
+    expected operations for an `@All()` route in a generated OpenAPI spec (a real correctness bug),
+    now it correctly expands an ANY-method row into one operation per standard verb. New,
+    additive `RouteDefinition.isAnyMethod?: boolean` field in `@nextrush/types`.
+
+  - **`@nextrush/class`**: `@Body()` resolving to nothing because no body-parser middleware ran now
+    throws a `MissingParameterError` whose message names the likely fix (`app.use(json())`),
+    instead of the same generic message used for every other missing-parameter case. Other
+    parameter sources (`@Param`, `@Query`, `@Header`) are unaffected — the hint is scoped to the
+    body source specifically, where "no parser ran" is the common, previously-unexplained cause.
+
+- Updated dependencies [2820a4c]
+- Updated dependencies [eee4462]
+- Updated dependencies [793d596]
+- Updated dependencies [838367f]
+  - @nextrush/types@4.0.0-beta.0
+  - @nextrush/core@4.0.0-beta.0
+
 ## 3.1.0
 
 ### Minor Changes

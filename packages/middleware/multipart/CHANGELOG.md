@@ -1,5 +1,13 @@
 # @nextrush/multipart
 
+## 1.0.0-beta.0
+
+### Patch Changes
+
+- Updated dependencies [2820a4c]
+- Updated dependencies [838367f]
+  - @nextrush/types@4.0.0-beta.0
+
 ## 3.0.6
 
 ### Patch Changes

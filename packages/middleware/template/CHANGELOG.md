@@ -1,5 +1,16 @@
 # @nextrush/template
 
+## 1.0.0-beta.0
+
+### Patch Changes
+
+- Updated dependencies [2820a4c]
+- Updated dependencies [eee4462]
+- Updated dependencies [793d596]
+- Updated dependencies [838367f]
+  - @nextrush/types@4.0.0-beta.0
+  - @nextrush/core@4.0.0-beta.0
+
 ## 3.1.0
 
 ### Major Changes

@@ -1,5 +1,38 @@
 # @nextrush/types
 
+## 4.0.0-beta.0
+
+### Minor Changes
+
+- 2820a4c: Enforce the two-tier adapter contract (RFC-NEXTRUSH-ADAPTER-CONTRACT).
+
+  - **`@nextrush/types`**: add the `AdapterContextFactory<Args, Ctx>` type, formalizing the shared "adapters build `Context` via a factory and run `app.callback()`" invariant at the type level. Additive — the existing `ServerAdapter`/`FetchAdapter`/`ServerHandle` contracts are unchanged.
+  - **Adapters**: add a compile-time context-factory conformance guard to the node (ServerAdapter tier) and edge (FetchAdapter tier) adapters, so a drift in the context factory's return type stops compiling. The pre-existing shape guards (`serve`/`createHandler`/`createFetchHandler`) remain. Internal, non-exported — no public surface change.
+
+  Also adds negative type-enforcement tests to `@nextrush/types` proving a malformed adapter (missing method, wrong return type) fails to satisfy the contract.
+
+### Patch Changes
+
+- 838367f: Router documentation accuracy, an internal `router.ts` split, and audit-flagged deduplication —
+  all non-breaking (public-surface snapshot byte-identical; 212/212 behavioral tests green).
+
+  - **`@nextrush/router`**: finished splitting `router.ts` so every shipping source file is now
+    under the 300-line ceiling (`router.ts` is 298 lines; the remaining logic moved into focused
+    internal modules `dispatch.ts`, `state.ts`, and `constants.ts` plus existing siblings, along the
+    same seams the earlier modularity split used — no new structural pattern). Resolved the router
+    audit's flagged duplications: `EMPTY_PARAMS` now has a single definition in a leaf `constants.ts`
+    module, and the route-matching / allowed-methods path-normalization logic is consolidated into
+    one shared `normalizePathForMatch` helper. Corrected the residual "radix tree" wording to
+    "segment trie" across the README and the `TrieNode.children` JSDoc (which now accurately states
+    children are keyed by whole path segment, not by first character). No exported symbol, signature,
+    or runtime behavior changed — confirmed by the package's public-surface snapshot test and full
+    suite.
+
+  - **`@nextrush/types`**: documentation-comment-only correction. The `router.ts` type header no
+    longer claims the router "uses a radix tree for efficient route matching"; it now accurately
+    describes the segment trie keyed by whole path segments (O(k) lookups). No type, signature, or
+    export change.
+
 ## 3.1.0
 
 ### Major Changes
