@@ -26,6 +26,26 @@ export type Runtime =
   | 'unknown';
 
 /**
+ * Named serverless/edge deployment platform, orthogonal to {@link Runtime}.
+ *
+ * @remarks
+ * `Runtime` answers "which JS engine" (node/bun/deno/edge); `PlatformId`
+ * answers "which vendor platform" (Lambda, GCF, Azure, Cloudflare Workers,
+ * Vercel Edge, Netlify Edge) — two independent questions that `Runtime`
+ * conflating would make into one. Exposed as `ctx.platform` alongside the
+ * unchanged `ctx.runtime`.
+ *
+ * @see RFC-026
+ */
+export type PlatformId =
+  | 'lambda'
+  | 'gcf'
+  | 'azure'
+  | 'cloudflare-workers'
+  | 'vercel-edge'
+  | 'netlify-edge';
+
+/**
  * Runtime feature capabilities
  *
  * @remarks

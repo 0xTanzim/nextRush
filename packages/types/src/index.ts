@@ -149,6 +149,7 @@ export {
   type BodySource,
   type BodySourceOptions,
   // Runtime detection
+  type PlatformId,
   type Runtime,
   type RuntimeCapabilities,
   type RuntimeInfo,

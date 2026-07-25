@@ -17,6 +17,7 @@
 export type {
   BodySource,
   BodySourceOptions,
+  PlatformId,
   Runtime,
   RuntimeCapabilities,
   RuntimeInfo,
@@ -28,6 +29,7 @@ export type {
 
 export {
   detectEdgeRuntime,
+  detectPlatform,
   detectRuntime,
   capabilitiesFor,
   getRuntime,
@@ -42,7 +44,7 @@ export {
   resetRuntimeCache,
 } from './detection';
 
-export type { EdgeRuntimeInfo } from './detection';
+export type { EdgeRuntimeInfo, PlatformInfo } from './detection';
 
 // ============================================================================
 // Named Capability Profiles (documented view of capabilitiesFor)

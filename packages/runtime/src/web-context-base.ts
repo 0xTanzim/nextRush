@@ -27,6 +27,7 @@ import type {
   HttpMethod,
   IncomingHeaders,
   NDJSONStreamWriter,
+  PlatformId,
   QueryParams,
   RawHttp,
   ResponseBody,
@@ -83,9 +84,24 @@ export abstract class WebContextBase implements FetchContext {
   readonly path: string;
   readonly query: QueryParams;
   readonly headers: IncomingHeaders;
-  readonly ip: string;
   readonly runtime: Runtime;
   readonly bodySource: BodySource;
+
+  /** Backing field for {@link ip} (P2-3: a getter, not a plain field, so a
+   * subclass can warn on read without changing the value or its identity). */
+  protected readonly _ip: string;
+
+  /**
+   * Named deployment platform, when known (RFC-026).
+   *
+   * @remarks
+   * Defaults to `undefined` — Bun/Deno report no named platform. Edge's
+   * subclass passes a resolved value through {@link protected constructor}'s
+   * `platform` parameter (detected, or explicitly supplied by a serverless
+   * Tier-1 handler); the field lives here, not duplicated per subclass, since
+   * every Web adapter must satisfy the same {@link Context.platform} contract.
+   */
+  readonly platform: PlatformId | undefined;
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
@@ -109,18 +125,23 @@ export abstract class WebContextBase implements FetchContext {
    * @param streamRunners - The concrete `@nextrush/stream` runner functions
    *   (passed through by the subclass so this base never imports `@nextrush/stream`
    *   directly, preserving the package hierarchy).
+   * @param platform - Named deployment platform, when known (RFC-026). Omitted
+   *   by Bun/Deno (always `undefined`); Edge passes its detected or
+   *   explicitly-supplied value.
    */
   protected constructor(
     request: Request,
     ip: string,
     runtime: Runtime,
-    streamRunners: WebStreamRunners
+    streamRunners: WebStreamRunners,
+    platform?: PlatformId
   ) {
     this._req = request;
     this._streamRunners = streamRunners;
     this.method = request.method.toUpperCase() as HttpMethod;
     this.runtime = runtime;
-    this.ip = ip;
+    this.platform = platform;
+    this._ip = ip;
 
     // Parse URL
     const urlObj = new URL(request.url);
@@ -137,6 +158,20 @@ export abstract class WebContextBase implements FetchContext {
       : new WebBodySource(request);
 
     this._response = new WebResponseBuilder(this.method);
+  }
+
+  /**
+   * The resolved client IP, per the concrete adapter's own policy.
+   *
+   * @remarks
+   * A getter (not a plain field) so a subclass can observe a read without
+   * changing the value — see {@link EdgeContext}'s override, which warns
+   * once per context in development when this is `''` because `trustProxy`
+   * is `false` (P2-3). Bun/Deno/Node never see that override; they always
+   * return a real resolved IP here, unchanged in value or behavior.
+   */
+  get ip(): string {
+    return this._ip;
   }
 
   /**

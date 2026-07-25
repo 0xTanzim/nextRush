@@ -44,6 +44,7 @@ describe('Public API surface (runtime exports)', () => {
     const expectedRuntime = [
       // Runtime detection
       'detectEdgeRuntime',
+      'detectPlatform',
       'detectRuntime',
       'capabilitiesFor',
       'getRuntime',

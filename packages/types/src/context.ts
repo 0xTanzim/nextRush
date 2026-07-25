@@ -13,7 +13,7 @@
  */
 
 import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody } from './http';
-import type { BodySource, Runtime } from './runtime';
+import type { BodySource, PlatformId, Runtime } from './runtime';
 import type {
   NDJSONStreamWriter,
   SSEStreamWriter,
@@ -389,6 +389,26 @@ export interface Context {
    * ```
    */
   readonly runtime: Runtime;
+
+  /**
+   * Named deployment platform, when known — orthogonal to {@link runtime}.
+   *
+   * @remarks
+   * `undefined` on adapters/runtimes with no named platform to report (e.g.
+   * plain Node.js, Bun, Deno). On `@nextrush/adapter-edge` and
+   * `@nextrush/adapter-serverless`, set when the platform is detectable
+   * (Cloudflare Workers, Vercel Edge, Netlify Edge) or explicitly known by
+   * the Tier-1 handler that built this context (AWS Lambda, Google Cloud
+   * Functions, Azure Functions).
+   *
+   * @example
+   * ```typescript
+   * if (ctx.platform === 'lambda') {
+   *   // AWS Lambda-specific behavior
+   * }
+   * ```
+   */
+  readonly platform: PlatformId | undefined;
 
   /**
    * Body source for cross-runtime body reading
