@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Interceptor Decorators
+ * @nextrush/class - Interceptor Decorators
  *
  * Interceptors wrap the controller-method call (onion / around advice). An
  * interceptor runs code before calling `next()`, awaits the downstream result,

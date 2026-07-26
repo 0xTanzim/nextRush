@@ -189,7 +189,6 @@ export interface Routable {
  * ```
  */
 export class Application {
-  /** Middleware stack */
   private readonly middlewareStack: Middleware[] = [];
 
   /** Registered extensions, in registration order (setup runs at ready()) */
@@ -214,13 +213,10 @@ export class Application {
   /** Names decorated onto the app — enforces collision detection */
   private readonly decorations = new Set<string>();
 
-  /** Custom error handler */
   private _errorHandler: ErrorHandler | null = null;
 
-  /** Pluggable logger */
   readonly logger: Logger;
 
-  /** Application options */
   readonly options: ApplicationOptions;
 
   /** Whether the app is running (server listening) */
@@ -302,10 +298,6 @@ export class Application {
     }
   }
 
-  // ===========================================================================
-  // Middleware Registration
-  // ===========================================================================
-
   /**
    * Register middleware function(s)
    *
@@ -322,10 +314,6 @@ export class Application {
     }
     return this;
   }
-
-  // ===========================================================================
-  // Router Mounting (Hono-style)
-  // ===========================================================================
 
   /**
    * Mount a router at a path prefix.
@@ -352,10 +340,6 @@ export class Application {
     this.middlewareStack.push(createPrefixMount(normalizedPrefix, routerMiddleware));
     return this;
   }
-
-  // ===========================================================================
-  // Routing (delegates to the app-owned router)
-  // ===========================================================================
 
   private requireRouter(): Router {
     if (!this.router) {
@@ -423,10 +407,6 @@ export class Application {
     return this;
   }
 
-  // ===========================================================================
-  // Error Handling
-  // ===========================================================================
-
   /**
    * Set the application error handler. Replaces any previously set handler.
    *
@@ -439,9 +419,7 @@ export class Application {
     return this;
   }
 
-  // ===========================================================================
-  // Extension System (see RFC-NEXTRUSH-PLUGIN-SYSTEM)
-  // ===========================================================================
+  // Extension System. See docs/RFC/class-runtime/005-plugin-system.md
 
   /**
    * Register an extension. Queues it — `setup()` runs later, at `ready()`,
@@ -616,10 +594,6 @@ export class Application {
     return this.decorations.has(name);
   }
 
-  // ===========================================================================
-  // Request Handler
-  // ===========================================================================
-
   /**
    * Create the request handler callback.
    *
@@ -687,10 +661,6 @@ export class Application {
       isProduction: this.isProduction,
     });
   }
-
-  // ===========================================================================
-  // Lifecycle
-  // ===========================================================================
 
   /**
    * Mark app as running and freeze configuration.

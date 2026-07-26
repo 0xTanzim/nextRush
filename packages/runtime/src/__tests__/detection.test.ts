@@ -1,8 +1,4 @@
-/**
- * @nextrush/runtime - Runtime Detection Tests
- *
- * @packageDocumentation
- */
+/** @nextrush/runtime - Runtime Detection Tests */
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {

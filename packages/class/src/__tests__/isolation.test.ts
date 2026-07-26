@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Per-app DI isolation (CRITICAL-2, opt-in)
+ * @nextrush/class - Per-app DI isolation (CRITICAL-2, opt-in)
  *
  * Proves that `registerControllers(app, { isolate: true })` gives each app its
  * own service singletons, while the default (`isolate: false`) preserves the

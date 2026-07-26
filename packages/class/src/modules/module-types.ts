@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Module Type Definitions
+ * @nextrush/class - Module Type Definitions
  *
  * Metadata and options shapes for the @Module decorator. A module groups a
  * feature's imports, controllers, and providers behind one registration entry

@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Custom Parameter Decorator Factory
+ * @nextrush/class - Custom Parameter Decorator Factory
  *
  * User-defined parameter extractors for custom injection patterns.
  */

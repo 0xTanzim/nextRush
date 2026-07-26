@@ -19,9 +19,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_PARAMS } from '../constants';
 import { createRouter } from '../router';
 
-const noop: RouteHandler = async () => {
-  /* no-op */
-};
+const noop: RouteHandler = async () => {};
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -51,7 +49,6 @@ describe('HP-11 — null-prototype params (D8)', () => {
     expect(match).not.toBeNull();
     expect(Object.prototype.hasOwnProperty.call(match?.params, '__proto__')).toBe(true);
     expect((match?.params as Record<string, string>)['__proto__']).toBe('danger');
-    // No global prototype pollution.
     expect(({} as Record<string, unknown>)['danger']).toBeUndefined();
     expect((Object.prototype as Record<string, unknown>)['danger']).toBeUndefined();
   });

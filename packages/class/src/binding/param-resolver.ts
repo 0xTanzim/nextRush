@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Parameter Resolver
+ * @nextrush/class - Parameter Resolver
  *
  * Resolves controller-method arguments from the request context using a
  * precomputed, pre-sorted parameter injection plan. Supports async transforms

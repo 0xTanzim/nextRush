@@ -7,7 +7,6 @@
  * default `--allow-net --allow-read --allow-env` set, deduplicated, and NEVER replace
  * it. The default set is unchanged when nothing is configured.
  *
- * @packageDocumentation
  */
 
 import { describe, expect, it } from 'vitest';

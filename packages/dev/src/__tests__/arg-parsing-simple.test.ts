@@ -3,7 +3,6 @@
  *
  * Test that --flag=value syntax is supported and unknown flags are rejected.
  *
- * @packageDocumentation
  */
 
 import { describe, expect, it, vi } from 'vitest';

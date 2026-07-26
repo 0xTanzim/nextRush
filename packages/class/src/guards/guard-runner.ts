@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Guard Runner
+ * @nextrush/class - Guard Runner
  *
  * Executes route guards (function-based and class-based) before the handler
  * runs. Class guards are resolved from the DI container.

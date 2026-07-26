@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Controller Registry
+ * @nextrush/class - Controller Registry
  *
  * Manages registration and tracking of controllers.
  */

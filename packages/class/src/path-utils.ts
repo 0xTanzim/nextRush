@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Path normalization utilities
+ * @nextrush/class - Path normalization utilities
  *
  * Single source of truth for path normalization shared by the controller
  * decorator and the route decorators. These two historically diverged:

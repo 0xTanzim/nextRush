@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Parameter Type Definitions
+ * @nextrush/class - Parameter Type Definitions
  *
  * Metadata and options shapes for parameter decorators (@Body, @Param, @Query,
  * @Header, and custom param decorators), plus their transform/extractor types.

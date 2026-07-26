@@ -33,10 +33,6 @@ function fakeRouter(): Router & { routesCalls: number } {
   return r as unknown as Router & { routesCalls: number };
 }
 
-// ---------------------------------------------------------------------------
-// C-1 — one error response shape, delegated to @nextrush/errors serialization
-// ---------------------------------------------------------------------------
-
 describe('C-1: default error handler emits the @nextrush/errors shape', () => {
   it('serializes a NextRushError via its toJSON (code + status + message)', async () => {
     const app = createApp();
@@ -72,10 +68,6 @@ describe('C-1: default error handler emits the @nextrush/errors shape', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// C-2 — close() undoes the router mount so a re-boot does not double-mount
-// ---------------------------------------------------------------------------
-
 describe('C-2: re-boot does not double-mount the router', () => {
   it('keeps a stable middleware count across close()/ready() cycles', async () => {
     const router = fakeRouter();
@@ -94,10 +86,6 @@ describe('C-2: re-boot does not double-mount the router', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// C-6 — setErrorHandler is frozen after ready()
-// ---------------------------------------------------------------------------
-
 describe('C-6: setErrorHandler is frozen after ready()', () => {
   it('throws when called after ready()', async () => {
     const app = createApp();
@@ -105,10 +93,6 @@ describe('C-6: setErrorHandler is frozen after ready()', () => {
     expect(() => app.setErrorHandler(() => {})).toThrow(/frozen/);
   });
 });
-
-// ---------------------------------------------------------------------------
-// C-4 — compose does not warn by default (no process.env read)
-// ---------------------------------------------------------------------------
 
 describe('C-4: compose double-response warning is opt-in (no process default)', () => {
   it('does not warn by default even when a response was already committed', async () => {
@@ -121,7 +105,7 @@ describe('C-4: compose double-response warning is opt-in (no process default)', 
       },
       async () => {},
     ];
-    await compose(mw)(ctx); // no options → must be silent
+    await compose(mw)(ctx);
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
   });

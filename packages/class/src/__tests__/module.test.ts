@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - registerModule() + module-graph Tests
+ * @nextrush/class - registerModule() + module-graph Tests
  *
  * Covers the module system: a module's controllers/providers register through
  * the existing pipeline, `imports` compose the whole graph, diamond/duplicate

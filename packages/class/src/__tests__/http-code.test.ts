@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - @HttpCode Tests
+ * @nextrush/class - @HttpCode Tests
  */
 
 import 'reflect-metadata';

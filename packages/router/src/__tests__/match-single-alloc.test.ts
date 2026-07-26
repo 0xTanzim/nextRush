@@ -18,9 +18,7 @@ import { matchRoute } from '../match-route';
 import { compileExecutor, createNode, NodeType, type HandlerEntry, type StaticRouteMap } from '../segment-trie';
 import { createRouter } from '../router';
 
-const noop: RouteHandler = async () => {
-  /* no-op */
-};
+const noop: RouteHandler = async () => {};
 
 describe('HP-10 — single RouteMatch allocation', () => {
   it('matchRoute attaches routerMiddleware to its own returned object (param walk)', () => {

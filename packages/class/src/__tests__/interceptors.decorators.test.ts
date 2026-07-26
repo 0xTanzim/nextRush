@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Interceptor Decorator Tests
+ * @nextrush/class - Interceptor Decorator Tests
  *
  * Mirrors the guard/filter decorator tests: metadata is stored at class and
  * method level, stacks bottom-to-top (TypeScript decorator order), and

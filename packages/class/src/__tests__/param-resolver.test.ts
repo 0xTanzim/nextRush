@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Parameter Resolver Tests
+ * @nextrush/class - Parameter Resolver Tests
  *
  * Covers `resolveParametersFromPlan`'s error-shaping behavior when a
  * required parameter resolves to nothing — in particular the `@Body()`

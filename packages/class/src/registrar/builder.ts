@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Handler Builder
+ * @nextrush/class - Handler Builder
  *
  * Builds route handlers from controller methods with parameter injection.
  * Orchestrates path construction, middleware resolution, and route metadata,

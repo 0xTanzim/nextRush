@@ -3,7 +3,6 @@
  *
  * Tests for runtime-specific watch path handling in buildDevArgs.
  *
- * @packageDocumentation
  */
 
 import { describe, expect, it, vi } from 'vitest';

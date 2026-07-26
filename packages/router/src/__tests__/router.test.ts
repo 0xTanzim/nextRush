@@ -6,9 +6,6 @@ import type { Context, HttpMethod, RouteHandler } from '@nextrush/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRouter, Router } from '../router';
 
-/**
- * Create mock context for testing
- */
 function createMockContext(overrides: Partial<Context> = {}): Context {
   return {
     method: 'GET',
@@ -269,7 +266,6 @@ describe('Router', () => {
       // the path normalization removes trailing slashes during split
       expect(r.match('GET', '/users')).not.toBeNull();
       expect(r.match('GET', '/users/')).not.toBeNull();
-      // Note: Full strict mode differentiation is a future enhancement
     });
   });
 
@@ -288,7 +284,6 @@ describe('Router', () => {
 
       await middleware(ctx, async () => {});
 
-      // Handler is called with ctx and a next function
       expect(handler).toHaveBeenCalled();
       expect(handler.mock.calls[0]?.[0]).toBe(ctx);
     });

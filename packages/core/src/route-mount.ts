@@ -10,6 +10,8 @@
 
 import type { Context, Middleware } from '@nextrush/types';
 
+const SLASH_CHAR_CODE = 0x2f; // '/'.charCodeAt(0)
+
 /** @internal Symbol keys for mount state — avoids polluting the user's ctx.state namespace */
 const ORIGINAL_PATH = Symbol.for('nextrush.originalPath');
 const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
@@ -43,8 +45,7 @@ export function createPrefixMount(
 
     // Check prefix boundary (avoid /api/usersxxx matching /api/users)
     const hasCharAfterPrefix = prefixLen < currentPath.length;
-    if (hasCharAfterPrefix && currentPath.charCodeAt(prefixLen) !== 47) {
-      // 47 = '/'
+    if (hasCharAfterPrefix && currentPath.charCodeAt(prefixLen) !== SLASH_CHAR_CODE) {
       return next();
     }
 

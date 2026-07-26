@@ -5,7 +5,6 @@
  * either uses a capability, degrades, or refuses. Unknown runtimes are answered
  * by feature-probing, never a blanket all-false matrix.
  *
- * @packageDocumentation
  */
 
 import { describe, expect, it } from 'vitest';

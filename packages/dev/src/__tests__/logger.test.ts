@@ -1,16 +1,7 @@
-/**
- * @nextrush/dev - Logger Utilities Tests
- *
- * Unit tests for logger utilities.
- *
- * @packageDocumentation
- */
+/** @nextrush/dev - Logger Utilities Tests */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-    formatDuration,
-    formatSize,
-} from '../utils/logger.js';
+import { formatDuration } from '../utils/logger.js';
 
 describe('Logger Utilities', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
@@ -41,23 +32,4 @@ describe('Logger Utilities', () => {
     });
   });
 
-  describe('formatSize', () => {
-    it('should format bytes correctly', () => {
-      expect(formatSize(500)).toBe('500 B');
-    });
-
-    it('should format kilobytes correctly', () => {
-      const size = formatSize(2048);
-      expect(size).toBe('2.0 KB');
-    });
-
-    it('should format megabytes correctly', () => {
-      const size = formatSize(2 * 1024 * 1024);
-      expect(size).toBe('2.00 MB');
-    });
-
-    it('should handle zero', () => {
-      expect(formatSize(0)).toBe('0 B');
-    });
-  });
 });

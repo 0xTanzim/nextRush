@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Exception Filter Decorator Tests
+ * @nextrush/class - Exception Filter Decorator Tests
  */
 
 import 'reflect-metadata';

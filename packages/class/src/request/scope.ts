@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Request-scope bubbling
+ * @nextrush/class - Request-scope bubbling
  *
  * Computes each reachable class's **effective** DI scope and binds
  * request-effective classes to the container's request (ContainerScoped)

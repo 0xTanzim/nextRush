@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Service lifecycle hooks (OnInit / OnShutdown)
+ * @nextrush/class - Service lifecycle hooks (OnInit / OnShutdown)
  *
  * Proves the registrar bridges duck-typed service lifecycle hooks into the app
  * lifecycle: `onInit` at `app.ready()` (not before), `onShutdown` at

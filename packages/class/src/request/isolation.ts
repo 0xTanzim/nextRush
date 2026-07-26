@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Per-app DI isolation
+ * @nextrush/class - Per-app DI isolation
  *
  * Re-registers the reachable `@Service`/`@Repository`/`@Config` graph of a set
  * of controllers into a specific container, so an app that opts into isolation

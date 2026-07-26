@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Parameter decorator factory helpers
+ * @nextrush/class - Parameter decorator factory helpers
  *
  * Shared machinery behind the standard parameter decorators: the source-specific
  * decorator factory, input normalization, and the read-append-write of parameter

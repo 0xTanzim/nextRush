@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - ApplicationGraph IR (Immutable Intermediate Representation)
+ * @nextrush/class - ApplicationGraph IR (Immutable Intermediate Representation)
  *
  * RFC-NEXTRUSH-CLASS-CONSOLIDATION P3.4: Immutable IR that documents the
  * bootstrap read-once, freeze-then-execute pattern.

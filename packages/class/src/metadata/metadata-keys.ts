@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Metadata Keys & Runtime Helpers
+ * @nextrush/class - Metadata Keys & Runtime Helpers
  *
  * The reflect-metadata storage keys plus the runtime type-guard helpers that
  * back the decorator implementations. These are the only runtime values in the

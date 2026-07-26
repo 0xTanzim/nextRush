@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Exception Filter Decorators
+ * @nextrush/class - Exception Filter Decorators
  *
  * Exception filters localize error handling to a controller or route. A filter
  * is a class implementing {@link ExceptionFilter}; it declares which errors it

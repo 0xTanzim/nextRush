@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Path Utility Tests
+ * @nextrush/class - Path Utility Tests
  *
  * Characterizes the two historically-divergent normalization behaviors that
  * were previously duplicated in class.ts (strips trailing slash) and routes.ts

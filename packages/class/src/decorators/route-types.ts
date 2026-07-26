@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Route Type Definitions
+ * @nextrush/class - Route Type Definitions
  *
  * Metadata and options shapes for route decorators (@Get, @Post, etc.) and the
  * response-shaping decorators (@SetHeader, @Redirect).

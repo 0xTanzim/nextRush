@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Class Decorators
+ * @nextrush/class - Class Decorators
  *
  * Controller decorator that marks a class as an HTTP controller.
  * Makes the class injectable for DI via @nextrush/di abstraction.

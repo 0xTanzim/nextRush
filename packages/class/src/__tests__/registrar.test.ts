@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - registerControllers() Integration Tests
+ * @nextrush/class - registerControllers() Integration Tests
  *
  * Covers the public registrar entry point itself (not the lower-level
  * ControllerRegistry/buildRoutes, which have their own unit tests) — the

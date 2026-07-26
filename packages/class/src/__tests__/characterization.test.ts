@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Characterization Tests for ApplicationGraph IR
+ * @nextrush/class - Characterization Tests for ApplicationGraph IR
  *
  * These tests prove that the ApplicationGraph IR (bootstrap read-once, freeze, execute)
  * preserves exact behavior for:

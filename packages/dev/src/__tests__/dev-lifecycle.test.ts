@@ -14,7 +14,6 @@
  * boundaries that cannot be safely triggered for real inside a vitest worker (a real
  * SIGINT would kill the worker; `exitProcess` is `never` for the same reason).
  *
- * @packageDocumentation
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

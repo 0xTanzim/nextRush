@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Exception Filter Integration Tests
+ * @nextrush/class - Exception Filter Integration Tests
  *
  * Verifies the per-request handler wraps guard/resolve/param/method/response in
  * a filter pipeline: matched filters set the response, unmatched errors

@@ -1,8 +1,8 @@
 /**
- * @nextrush/decorators - Metadata Readers
+ * @nextrush/class - Metadata Readers
  *
  * Utility functions to read decorator metadata from controller classes.
- * Used by @nextrush/controllers' registrar to build routes.
+ * Used by @nextrush/class' registrar to build routes.
  */
 
 import type {

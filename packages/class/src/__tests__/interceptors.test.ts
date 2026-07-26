@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Interceptor Integration Tests
+ * @nextrush/class - Interceptor Integration Tests
  *
  * Verifies the per-request handler wraps the controller-method call in the
  * interceptor onion (class interceptors outermost, method innermost), that an

@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Standard Parameter Decorators
+ * @nextrush/class - Standard Parameter Decorators
  *
  * Parameter decorators for injecting request data into controller method parameters.
  * Uses legacy decorators (parameter decorators not supported in Stage 3).

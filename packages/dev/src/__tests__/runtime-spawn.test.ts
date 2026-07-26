@@ -1,10 +1,4 @@
-/**
- * @nextrush/dev - Process Spawn Tests
- *
- * Unit tests for cross-platform process spawning.
- *
- * @packageDocumentation
- */
+/** @nextrush/dev - Process Spawn Tests */
 
 import { describe, expect, it } from 'vitest';
 import { buildDevArgs, toDenoStdio } from '../runtime/spawn.js';

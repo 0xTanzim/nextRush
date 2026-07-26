@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Builder Guards Tests
+ * @nextrush/class - Builder Guards Tests
  */
 
 import type { CanActivate, GuardContext, GuardFn } from '../index.js';

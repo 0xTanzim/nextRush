@@ -9,9 +9,6 @@ import type { Context, RouteHandler } from '@nextrush/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRouter, Router } from '../router';
 
-/**
- * Create mock context for testing
- */
 function createMockContext(overrides: Partial<Context> = {}): Context {
   return {
     method: 'GET',
@@ -260,7 +257,6 @@ describe('Router Edge Cases', () => {
 
     it('should not match wildcard if path ends at parent', () => {
       router.get('/files/*', vi.fn());
-      // Path doesn't have anything after /files
       expect(router.match('GET', '/files')).toBeNull();
     });
   });
@@ -387,7 +383,6 @@ describe('Router Edge Cases', () => {
       const ctx = createMockContext({ method: 'GET', path: '/chain' });
       await router.routes()(ctx, async () => {});
 
-      // Middleware should execute before handler
       expect(order).toEqual([1, 2, 0, 3, 4]);
     });
   });

@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Exception Filter Runner
+ * @nextrush/class - Exception Filter Runner
  *
  * Runs exception filters when a route handler body throws. Filters are matched
  * by their `@Catch` types (or catch-all), resolved from the DI container, and

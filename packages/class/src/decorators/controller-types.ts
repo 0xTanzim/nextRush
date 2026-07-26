@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Controller Type Definitions
+ * @nextrush/class - Controller Type Definitions
  *
  * Metadata and options shapes for the @Controller decorator, plus the shared
  * middleware reference type used by both controller- and route-level metadata.

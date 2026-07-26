@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Request scope (RFC-NEXTRUSH-REQUEST-SCOPE)
+ * @nextrush/class - Request scope (RFC-NEXTRUSH-REQUEST-SCOPE)
  *
  * Proves the request lifecycle end-to-end through real controllers + route
  * handlers:
@@ -154,7 +154,7 @@ class PureSingletonController {
   }
 }
 
-describe('@nextrush/controllers - request scope', () => {
+describe('@nextrush/class - request scope', () => {
   beforeEach(() => {
     globalContainer.clearInstances();
   });

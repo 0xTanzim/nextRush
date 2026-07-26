@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Type Definitions
+ * @nextrush/class - Type Definitions
  *
  * Types for the controller registrar.
  */

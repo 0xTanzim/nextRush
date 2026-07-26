@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Guard Decorators
+ * @nextrush/class - Guard Decorators
  *
  * Guards are functions or classes that determine if a request should be handled.
  * They run BEFORE the route handler and can prevent execution.
@@ -184,5 +184,5 @@ export function getAllGuards(target: Function, methodName: string | symbol): Gua
   return [...classGuards, ...methodGuards];
 }
 
-// Re-export type guard for use by @nextrush/controllers' registrar
+// Re-export type guard for use by @nextrush/class' registrar
 export { isGuardClass };

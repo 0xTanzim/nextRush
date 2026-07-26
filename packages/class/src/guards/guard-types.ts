@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Guard Type Definitions
+ * @nextrush/class - Guard Type Definitions
  *
  * Types for the @UseGuard decorator: the guard context, function and
  * class-based guard contracts, and the stored guard metadata. Also home to the

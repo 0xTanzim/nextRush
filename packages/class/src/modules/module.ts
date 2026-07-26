@@ -1,9 +1,9 @@
 /**
- * @nextrush/decorators - Module Decorator
+ * @nextrush/class - Module Decorator
  *
  * `@Module` records a feature's composition — its imported modules, controllers,
  * providers, and exports — as reflect-metadata. It is a grouping/composition
- * unit; the `@nextrush/controllers` `registerModule` registrar reads this
+ * unit; the `@nextrush/class` `registerModule` registrar reads this
  * metadata to wire the whole module graph in one call.
  *
  * This layer stores metadata only. Provider registration, route building, and

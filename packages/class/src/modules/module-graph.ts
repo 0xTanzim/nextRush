@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Module graph traversal
+ * @nextrush/class - Module graph traversal
  *
  * Walks a module's `imports` into a flat, ordered, deduplicated list. The walk
  * is post-order (imported feature modules before their importer), dedupes

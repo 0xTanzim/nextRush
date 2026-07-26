@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - @Module Decorator Tests
+ * @nextrush/class - @Module Decorator Tests
  *
  * Proves @Module records feature composition (imports/controllers/providers/
  * exports) as metadata and that the readers (isModule, getModuleMetadata)

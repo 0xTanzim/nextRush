@@ -7,7 +7,6 @@
  * shipping a metadata-broken artifact. Decorator-free and correctly
  * configured projects must be unaffected (regression guards).
  *
- * @packageDocumentation
  */
 
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';

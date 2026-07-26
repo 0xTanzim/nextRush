@@ -29,9 +29,7 @@ import { createRouter, Router } from '../../router';
 
 /** A tagged no-op handler so a match result's `handler` is identifiable. */
 function h(tag: string): RouteHandler {
-  const fn = (async (_ctx: Context) => {
-    /* no-op */
-  }) as RouteHandler & { tag: string };
+  const fn = (async (_ctx: Context) => {}) as RouteHandler & { tag: string };
   fn.tag = tag;
   return fn;
 }

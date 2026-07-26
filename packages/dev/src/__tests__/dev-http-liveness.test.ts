@@ -7,7 +7,6 @@
  * this test proves the server it starts is actually reachable and answering requests,
  * which is the literal behavior a developer running `nextrush dev` depends on.
  *
- * @packageDocumentation
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';

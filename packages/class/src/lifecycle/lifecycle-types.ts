@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Service Lifecycle Hook Type Definitions
+ * @nextrush/class - Service Lifecycle Hook Type Definitions
  *
  * Two duck-typed behavioral interfaces — `OnInit` and `OnShutdown` — that a
  * `@Service`/`@Repository`/`@Config` (or any DI-managed instance) may implement
@@ -12,7 +12,7 @@
  * already resolved each service from the container before deciding whether it
  * takes part in the lifecycle.
  *
- * @see `@nextrush/controllers` `registerControllers` — bridges these hooks into
+ * @see `@nextrush/class` `registerControllers` — bridges these hooks into
  *   `app.ready()` (calls `onInit`) and `app.close()` (calls `onShutdown`).
  */
 

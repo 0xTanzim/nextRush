@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Route Decorators
+ * @nextrush/class - Route Decorators
  *
  * HTTP method decorators for controller methods.
  * Uses legacy decorators for compatibility with parameter decorators.

@@ -18,7 +18,6 @@
  * - A sourcemap file exists.
  * - Extensions are mapped correctly: `.ts` source -> `.js` output (never `.ts` -> `.ts`).
  *
- * @packageDocumentation
  */
 
 import { spawn } from 'node:child_process';

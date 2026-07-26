@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Controller registration
+ * @nextrush/class - Controller registration
  *
  * `registerControllers(app, options)` is a **registrar**: it scans for
  * `@Controller` classes (or takes them explicitly), builds their routes, and

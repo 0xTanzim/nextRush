@@ -11,10 +11,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../application';
 import { createMockContext } from './_shared/create-mock-context';
 
-// ---------------------------------------------------------------------------
-// H-1 — concurrent ready() must run setup() exactly once
-// ---------------------------------------------------------------------------
-
 describe('H-1: ready() is safe under concurrent calls', () => {
   it('runs each extension setup() exactly once even when awaited concurrently', async () => {
     const app = createApp();
@@ -30,10 +26,6 @@ describe('H-1: ready() is safe under concurrent calls', () => {
     expect(app.isReady).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// H-2 — a failing default error handler must not reject the request
-// ---------------------------------------------------------------------------
 
 describe('H-2: request settles even if the default error handler throws', () => {
   it('logs and swallows when ctx.json throws (e.g. response already committed)', async () => {
@@ -55,10 +47,6 @@ describe('H-2: request settles even if the default error handler throws', () => 
     expect(errorSpy).toHaveBeenCalled();
   });
 });
-
-// ---------------------------------------------------------------------------
-// H-3 — concurrent close() must destroy each extension once
-// ---------------------------------------------------------------------------
 
 describe('H-3: close() is safe under concurrent calls', () => {
   it('destroys each extension exactly once when closed concurrently', async () => {

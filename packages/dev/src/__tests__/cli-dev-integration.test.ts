@@ -11,7 +11,6 @@
  * artifact proves the loader path is actually correct at zero directories under `dist/`
  * (see design.md D2, proposal.md's Why section).
  *
- * @packageDocumentation
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';

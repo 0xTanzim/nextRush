@@ -789,7 +789,7 @@ curl -X PUT http://localhost:8080/tasks/1 \
 
 Move the `Map` behind a factory so handlers talk to methods, not storage:
 
-```ts title="src/task-repository.ts"
+```ts twoslash title="src/task-repository.ts"
 export type Task = { id: number; title: string; done: boolean };
 
 export function createTaskRepository() {
@@ -813,6 +813,9 @@ export function createTaskRepository() {
     },
   };
 }
+
+const repo = createTaskRepository();
+//    ^?
 ```
 
 Handlers shrink to lookups and throws — no `Map` or `nextId` in the route file:

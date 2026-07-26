@@ -93,7 +93,7 @@ validation into a helper function rather than route-level middleware.
   <Step>
     ### Define a Zod schema
 
-    ```typescript title="src/schemas/user.ts"
+    ```ts twoslash title="src/schemas/user.ts"
     import { z } from 'zod';
 
     export const CreateUserSchema = z.object({
@@ -103,6 +103,12 @@ validation into a helper function rather than route-level middleware.
     });
 
     export type CreateUserInput = z.infer<typeof CreateUserSchema>;
+
+    const result = CreateUserSchema.safeParse({ name: 'Ada', email: 'ada@example.com' });
+    if (result.success) {
+      const data = result.data;
+      //    ^?
+    }
     ```
 
   </Step>
@@ -385,7 +391,9 @@ Each issue has a `path` string and a `message`. The `rule` and `expected` fields
 
 ### Cross-Field Validation
 
-```typescript
+```ts twoslash
+import { z } from 'zod';
+
 const PasswordSchema = z
   .object({
     password: z.string().min(8),
@@ -395,6 +403,11 @@ const PasswordSchema = z
     message: 'Passwords do not match',
     path: ['confirmPassword'],
   });
+
+type PasswordInput = z.infer<typeof PasswordSchema>;
+
+const valid = { password: 'secret123', confirmPassword: 'secret123' };
+//    ^?
 ```
 
 ### Async Validation
@@ -421,7 +434,9 @@ router.post('/users', async (ctx) => {
 
 ### Transform and Sanitize
 
-```typescript
+```ts twoslash
+import { z } from 'zod';
+
 const UserInputSchema = z.object({
   name: z
     .string()
@@ -434,6 +449,11 @@ const UserInputSchema = z.object({
     .toLowerCase()
     .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
 });
+
+type UserInput = z.output<typeof UserInputSchema>;
+
+const data = UserInputSchema.parse({ name: '  Ada  ', email: 'ADA@Example.com', username: 'Ada_Codes' });
+//    ^?
 ```
 
 ## Verification

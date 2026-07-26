@@ -1,8 +1,8 @@
 /**
- * @nextrush/controllers - Service lifecycle bridge
+ * @nextrush/class - Service lifecycle bridge
  *
  * Bridges duck-typed service lifecycle hooks (`OnInit`/`OnShutdown` from
- * `@nextrush/decorators`) into the application's Extension lifecycle without
+ * `@nextrush/class`) into the application's Extension lifecycle without
  * touching `@nextrush/core`:
  *
  * - `onInit()` runs at `app.ready()` (when adapters boot the app, before serving)

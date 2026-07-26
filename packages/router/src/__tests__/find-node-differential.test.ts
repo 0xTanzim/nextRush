@@ -27,9 +27,7 @@ import { normalizePathForMatch } from '../matching';
 import { addRoute, type RegistrationState } from '../registration';
 import { createNode, type TrieNode } from '../segment-trie';
 
-const noop: RouteHandler = async () => {
-  /* no-op */
-};
+const noop: RouteHandler = async () => {};
 
 /** Build a bare trie root from a route list, mirroring how `Router` inserts. */
 function buildRoot(

@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Controller Discovery
+ * @nextrush/class - Controller Discovery
  *
  * Automatic controller discovery by scanning directories.
  * Uses glob patterns to find files and imports them to discover controllers.

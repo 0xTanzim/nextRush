@@ -9,10 +9,6 @@ import type { Context } from '@nextrush/types';
 import { describe, expect, it, vi } from 'vitest';
 import { createRouter } from '../router';
 
-// ---------------------------------------------------------------------------
-// RT-1 — reset() must also clear routeDefinitions (getRoutes introspection)
-// ---------------------------------------------------------------------------
-
 describe('RT-1: reset() clears the introspection registry', () => {
   it('getRoutes() is empty after reset()', () => {
     const router = createRouter();
@@ -24,10 +20,6 @@ describe('RT-1: reset() clears the introspection registry', () => {
     expect(router.getRoutes()).toHaveLength(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// RT-5 — conflicting param names at the same position must throw, not warn
-// ---------------------------------------------------------------------------
 
 describe('RT-5: param-name conflict throws at registration', () => {
   it('throws when the same position uses two different param names', () => {
@@ -42,10 +34,6 @@ describe('RT-5: param-name conflict throws at registration', () => {
     expect(() => router.get('/users/:id/posts', vi.fn())).not.toThrow();
   });
 });
-
-// ---------------------------------------------------------------------------
-// RT-7 — routes() called twice must not seal router middleware twice
-// ---------------------------------------------------------------------------
 
 describe('RT-7: routes() is idempotent w.r.t. router middleware sealing', () => {
   it('runs router-level middleware exactly once even if routes() is called twice', async () => {

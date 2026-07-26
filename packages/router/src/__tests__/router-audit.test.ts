@@ -19,7 +19,6 @@ describe('Router audit', () => {
     router = createRouter();
   });
 
-  // ── Phase 1: route path syntax ──────────────────────────────────────────
   describe('phase 1 — path syntax support', () => {
     it('supports the colon param syntax /users/:id', () => {
       router.get('/users/:id', h());
@@ -28,7 +27,6 @@ describe('Router audit', () => {
 
     it('CHARACTERIZATION: brace syntax /users/{id} is a LITERAL static segment (not a param)', () => {
       router.get('/users/{id}', h());
-      // Only the literal path matches; it does NOT capture a param.
       expect(router.match('GET', '/users/{id}')).not.toBeNull();
       expect(router.match('GET', '/users/{id}')?.params).toEqual({});
       expect(router.match('GET', '/users/42')).toBeNull();
@@ -43,7 +41,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 2: routing correctness ─────────────────────────────────────────
   describe('phase 2 — correctness', () => {
     it('matches the root route', () => {
       router.get('/', h());
@@ -106,7 +103,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 3: priority ────────────────────────────────────────────────────
   describe('phase 3 — priority (static > param > wildcard)', () => {
     it('prefers a static route over a param route', () => {
       const staticH = h();
@@ -147,7 +143,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 4: nested / deep routes ────────────────────────────────────────
   describe('phase 4 — nested & deep routes', () => {
     it('matches deeply nested param chains', () => {
       router.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', h());
@@ -171,7 +166,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 6: query strings must not affect matching ──────────────────────
   describe('phase 6 — query strings are ignored during matching', () => {
     it('matches a static route with a query string', () => {
       router.get('/users', h());
@@ -189,7 +183,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 7: decoding & unicode ──────────────────────────────────────────
   describe('phase 7 — decoding & unicode', () => {
     it('matches unicode path segments (raw)', () => {
       router.get('/u/:name', h());
@@ -207,7 +200,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 8: HTTP methods ────────────────────────────────────────────────
   describe('phase 8 — HTTP methods', () => {
     it('registers and matches all standard methods', () => {
       const methods: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -244,7 +236,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 9: large scale ─────────────────────────────────────────────────
   describe('phase 9 — large scale', () => {
     it('stays correct with 1000 mixed static/param routes', () => {
       for (let i = 0; i < 1000; i++) {
@@ -258,7 +249,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 10: failure cases ──────────────────────────────────────────────
   describe('phase 10 — failure & graceful handling', () => {
     it('throws a clear error on duplicate route registration', () => {
       router.get('/dup', h());
@@ -286,7 +276,6 @@ describe('Router audit', () => {
     });
   });
 
-  // ── Phase 12: historical routing bugs from other frameworks ──────────────
   describe('phase 12 — hardening against known routing bugs', () => {
     it('does not confuse a param value with a similarly-named static route', () => {
       router.get('/search', h());

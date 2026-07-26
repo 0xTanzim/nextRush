@@ -1,10 +1,4 @@
-/**
- * @nextrush/dev - Node Modules Loader Tests
- *
- * Unit tests for SWC loader resolution.
- *
- * @packageDocumentation
- */
+/** @nextrush/dev - Node Modules Loader Tests */
 
 import { describe, expect, it } from 'vitest';
 import { resolveLoaderFromUrl } from '../runtime/node-modules.js';

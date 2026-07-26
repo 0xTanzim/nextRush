@@ -5,7 +5,6 @@
  * *data* for defaults/docs/debugging, derived from the single source of truth
  * (never a hand-maintained duplicate).
  *
- * @packageDocumentation
  */
 
 import { describe, expect, it } from 'vitest';

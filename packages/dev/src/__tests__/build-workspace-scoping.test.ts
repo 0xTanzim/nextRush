@@ -10,7 +10,6 @@
  * Uses real temporary directories (a true external boundary — the filesystem) rather
  * than mocking `fs`, per the project's "prefer real objects" testing standard.
  *
- * @packageDocumentation
  */
 
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';

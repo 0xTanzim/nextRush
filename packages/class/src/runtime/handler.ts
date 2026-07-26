@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Route Handler Factory
+ * @nextrush/class - Route Handler Factory
  *
  * Builds the per-route handler: runs guards, lazily resolves the controller
  * singleton, injects parameters, invokes the method, and applies response

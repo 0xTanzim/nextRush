@@ -13,9 +13,7 @@ import type { RouteHandler } from '@nextrush/types';
 import { describe, expect, it } from 'vitest';
 import { createRouter } from '../router';
 
-const noop: RouteHandler = async () => {
-  /* no-op */
-};
+const noop: RouteHandler = async () => {};
 
 describe('HP-9 — reset() clears the method-nested static map fully', () => {
   it('clears static entries across every method and leaves no ghost matches', () => {

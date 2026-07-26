@@ -10,7 +10,6 @@ import type { Application, Routable } from '../application';
 import { createApp } from '../application';
 import { createMockContext } from './_shared/create-mock-context';
 
-// Mock router that implements Routable
 function createMockRouter(): Routable & {
   handlers: Map<string, Middleware>;
   addRoute: (path: string, handler: Middleware) => void;
@@ -284,7 +283,6 @@ describe('app.route()', () => {
 
       await handler(ctx);
 
-      // State should be cleaned up after route handler
       expect((ctx.state as Record<symbol, unknown>)[ORIGINAL_PATH]).toBeUndefined();
       expect((ctx.state as Record<symbol, unknown>)[ROUTE_PREFIX]).toBeUndefined();
     });

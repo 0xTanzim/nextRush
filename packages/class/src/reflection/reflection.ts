@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Reflection API Isolation
+ * @nextrush/class - Reflection API Isolation
  *
  * Single point of contact for all Reflect.getMetadata, Reflect.defineMetadata,
  * and design:paramtypes reads. Isolates reflection plumbing from business logic.

@@ -14,9 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { normalizePathForMatch } from '../matching';
 import { createRouter } from '../router';
 
-const noop: RouteHandler = async () => {
-  /* no-op */
-};
+const noop: RouteHandler = async () => {};
 
 afterEach(() => {
   vi.restoreAllMocks();

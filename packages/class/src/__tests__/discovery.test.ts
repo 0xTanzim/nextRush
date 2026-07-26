@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Discovery Tests
+ * @nextrush/class - Discovery Tests
  *
  * Tests for automatic controller discovery functionality.
  */

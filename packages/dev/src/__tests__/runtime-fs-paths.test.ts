@@ -1,10 +1,4 @@
-/**
- * @nextrush/dev - File System Path Tests
- *
- * Unit tests for cross-platform path resolution.
- *
- * @packageDocumentation
- */
+/** @nextrush/dev - File System Path Tests */
 
 import { describe, expect, it } from 'vitest';
 import { resolvePath, joinPath } from '../runtime/fs.js';

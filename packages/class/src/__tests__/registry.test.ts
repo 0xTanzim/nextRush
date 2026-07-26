@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Registry Tests
+ * @nextrush/class - Registry Tests
  */
 
 import { Controller, Delete, Get, Post } from '../index.js';

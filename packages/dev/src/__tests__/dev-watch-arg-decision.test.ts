@@ -11,7 +11,6 @@
  * the only way to deterministically observe what `dev()` decided without actually
  * launching a runtime binary.
  *
- * @packageDocumentation
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Response Decorators
+ * @nextrush/class - Response Decorators
  *
  * Method decorators that shape the HTTP response: @SetHeader attaches response
  * headers and @Redirect declares a redirect. Stored as reflect-metadata read by

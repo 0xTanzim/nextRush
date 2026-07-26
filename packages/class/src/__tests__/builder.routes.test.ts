@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Builder Route Tests
+ * @nextrush/class - Builder Route Tests
  */
 
 import type { Container } from '@nextrush/di';

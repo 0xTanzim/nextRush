@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Exception Filter Type Definitions
+ * @nextrush/class - Exception Filter Type Definitions
  *
  * Types for the @UseFilter / @Catch decorators: the filter contract, its class
  * constructor alias, and the stored filter metadata.

@@ -1,3 +1,4 @@
+import { transformerTwoslash } from '@shikijs/twoslash';
 import { remarkMdxMermaid } from 'fumadocs-core/mdx-plugins';
 import {
   defineCollections,
@@ -93,6 +94,7 @@ export default defineConfig({
       // #57606a vs light #fafbfc = 6.17:1) rather than swapping the whole theme.
       themes: { light: 'github-light', dark: 'github-dark' },
       transformers: [
+        transformerTwoslash({ explicitTrigger: true }),
         {
           name: 'a11y-comment-contrast',
           tokens(tokens) {

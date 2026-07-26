@@ -10,7 +10,6 @@
  * Skipped (not failed) when `deno` is unavailable on the runner — see task 7.3: an
  * uncovered runtime must be documented, not silently asserted "stable" with no proof.
  *
- * @packageDocumentation
  */
 
 import { spawnSync } from 'node:child_process';

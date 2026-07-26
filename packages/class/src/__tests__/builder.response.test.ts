@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Builder Response & Lifecycle Tests
+ * @nextrush/class - Builder Response & Lifecycle Tests
  */
 
 import type { Container } from '@nextrush/di';

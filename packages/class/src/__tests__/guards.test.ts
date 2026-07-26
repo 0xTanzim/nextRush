@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Guards Decorator Tests
+ * @nextrush/class - Guards Decorator Tests
  */
 
 import 'reflect-metadata';

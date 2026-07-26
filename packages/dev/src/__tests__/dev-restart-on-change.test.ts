@@ -7,7 +7,6 @@
  * and asserts a subsequent request reflects the change — proving `--watch` actually
  * restarts the server, not just that it starts once.
  *
- * @packageDocumentation
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';

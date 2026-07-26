@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Interceptor Runner
+ * @nextrush/class - Interceptor Runner
  *
  * Builds and runs the interceptor onion around a controller-method call. Class
  * interceptors are the outermost layers, method interceptors are inner (closest

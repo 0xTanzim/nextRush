@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Error Classes
+ * @nextrush/class - Error Classes
  *
  * Production-grade error classes with actionable messages.
  * Client errors (4xx) extend HttpError for proper status codes.

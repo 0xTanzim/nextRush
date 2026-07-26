@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Error Tests
+ * @nextrush/class - Error Tests
  */
 
 import { BadRequestError, ForbiddenError, HttpError, InternalServerError } from '@nextrush/errors';

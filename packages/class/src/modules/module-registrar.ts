@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Module registrar
+ * @nextrush/class - Module registrar
  *
  * `registerModule(app, RootModule, options?)` wires a whole `@Module` graph in
  * one call: it walks `imports`, registers every module's providers into the DI

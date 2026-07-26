@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Type Definitions (barrel)
+ * @nextrush/class - Type Definitions (barrel)
  *
  * Aggregates the per-concern type modules so existing `from './types.js'`
  * imports (within this package and downstream) keep resolving unchanged.

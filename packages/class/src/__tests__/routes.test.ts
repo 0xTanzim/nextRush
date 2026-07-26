@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Route Decorator Tests
+ * @nextrush/class - Route Decorator Tests
  */
 
 import 'reflect-metadata';

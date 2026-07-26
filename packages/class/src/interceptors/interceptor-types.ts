@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Interceptor Type Definitions
+ * @nextrush/class - Interceptor Type Definitions
  *
  * Types for the @UseInterceptor decorator: the interceptor contract, its class
  * constructor alias, and the stored interceptor metadata.

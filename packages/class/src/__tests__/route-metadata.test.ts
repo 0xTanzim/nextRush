@@ -1,5 +1,5 @@
 /**
- * @nextrush/controllers - Route metadata mapping (M8)
+ * @nextrush/class - Route metadata mapping (M8)
  *
  * Decorator docs (@Controller tags, @Get/@Post description/deprecated) must flow
  * into the router's RouteDefinition so class-based routes are documented by

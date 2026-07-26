@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Parameter Decorators (Barrel)
+ * @nextrush/class - Parameter Decorators (Barrel)
  *
  * Re-exports all parameter decorator functionality:
  * - Standard decorators: @Body, @Param, @Query, @Header, @Ctx, @Req, @Res

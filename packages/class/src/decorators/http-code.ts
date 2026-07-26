@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - @HttpCode Decorator
+ * @nextrush/class - @HttpCode Decorator
  *
  * Sets the HTTP status code returned when a controller method resolves with a
  * value. Lives in its own module because `routes.ts` is already at the

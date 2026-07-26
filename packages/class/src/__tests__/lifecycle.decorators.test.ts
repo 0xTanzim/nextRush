@@ -1,5 +1,5 @@
 /**
- * @nextrush/decorators - Service Lifecycle Hook interfaces (OnInit / OnShutdown)
+ * @nextrush/class - Service Lifecycle Hook interfaces (OnInit / OnShutdown)
  *
  * These are duck-typed behavioral interfaces (no decorator) detected by the
  * presence of a method on an *instance*. The type guards therefore operate on

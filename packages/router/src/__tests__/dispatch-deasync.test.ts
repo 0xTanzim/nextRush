@@ -68,10 +68,6 @@ const run = (router: Router, ctx: Context): Promise<void> =>
 /** Settle a promise into its resolution or rejection reason without throwing. */
 const settle = (p: Promise<unknown>): Promise<unknown> => p.then((v) => v, (e) => e);
 
-// ===========================================================================
-// §2.1 — no extra async frame (structural identity probes, RED before change)
-// ===========================================================================
-
 describe('NF-1 §2.1: dispatch forwards without an extra async frame', () => {
   it('createRoutesMiddleware returns the executor promise directly (identity)', () => {
     const sentinel = Promise.resolve();
@@ -112,10 +108,6 @@ describe('NF-1 §2.1: dispatch forwards without an extra async frame', () => {
     expect(ctx.status).toBe(200);
   });
 });
-
-// ===========================================================================
-// §2.2–§2.5 — error / return-shape propagation (behavior contracts)
-// ===========================================================================
 
 describe('NF-1 §2.2: a synchronous throw becomes a rejected promise', () => {
   it('the executor never throws synchronously out of dispatch', async () => {
@@ -196,10 +188,6 @@ describe('NF-1 §2.5: a non-Error throw is wrapped as Error(String(thrown))', ()
   });
 });
 
-// ===========================================================================
-// §2.6 — miss → 404 → next() fall-through (allowedMethods 405)
-// ===========================================================================
-
 describe('NF-1 §2.6: a miss sets 404 and forwards next()', () => {
   it('a known-path/unregistered-method miss becomes 405 with Allow via allowedMethods', async () => {
     const router = createRouter();
@@ -222,10 +210,6 @@ describe('NF-1 §2.6: a miss sets 404 and forwards next()', () => {
     expect(ctx.status).toBe(404);
   });
 });
-
-// ===========================================================================
-// §2.7 — load-bearing setNext(NOOP_NEXT) chain termination (NF-4a KEPT)
-// ===========================================================================
 
 describe('NF-1 §2.7: setNext(NOOP_NEXT) terminates the chain at the handler', () => {
   it('a route handler calling ctx.next() does NOT advance into app middleware after the router', async () => {
@@ -251,10 +235,6 @@ describe('NF-1 §2.7: setNext(NOOP_NEXT) terminates the chain at the handler', (
     expect(handlerNextResolved).toBe(true);
   });
 });
-
-// ===========================================================================
-// §2.8 — the len >= 1 per-route middleware chain is unchanged
-// ===========================================================================
 
 describe('NF-1 §2.8: the len >= 1 executor path is unchanged', () => {
   it('preserves onion ordering across a 5-layer ctx.next() chain', async () => {

@@ -1,8 +1,4 @@
-/**
- * @nextrush/runtime - detectPlatform() Tests (RFC-026 P0)
- *
- * @packageDocumentation
- */
+/** @nextrush/runtime - detectPlatform() Tests (RFC-026 P0) */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { detectPlatform, resetRuntimeCache } from '../detection.js';
