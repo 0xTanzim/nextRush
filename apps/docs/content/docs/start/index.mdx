@@ -5,13 +5,13 @@ description: What NextRush is, who it's for, and the one path to your first runn
 
 <DocHero eyebrow="Start here">
 
-NextRush is a backend framework for Node.js, Bun, Deno, and Edge — **small core**, **strict
-TypeScript**, **explicit wiring**. You can follow a request through middleware, the router, and the
-adapter without hidden steps, and you install only the packages you actually use.
+<p className="mt-0 mb-4 text-xl font-bold leading-tight tracking-tight text-[var(--text-primary)] md:text-2xl">
+  One request flow. Every runtime. Zero hidden behavior.
+</p>
 
-Want the whole framework on one screen — every concept with a minimal example? Read
-[NextRush in one page](/docs/start/overview). Ready to build something? Jump to the
-[Task API tutorial](/docs/start/quick-start).
+NextRush is a backend framework for Node.js, Bun, Deno, and Edge — **small core**, **strict
+TypeScript**, **explicit wiring**. Follow a request through middleware, the router, and the adapter
+without hidden steps, and install only the packages you actually use.
 
 <div className="not-prose mt-5 flex flex-wrap gap-2">
   <DocHeroPill>Beginner</DocHeroPill>
@@ -20,38 +20,62 @@ Want the whole framework on one screen — every concept with a minimal example?
   <DocHeroPill>TypeScript</DocHeroPill>
 </div>
 
+<div className="not-prose mt-5 flex flex-wrap gap-3">
+  <a href="/docs/start/installation" className="doc-hero__cta--primary">Install →</a>
+  <a href="/docs/start/overview" className="doc-hero__cta--secondary">Read in one page</a>
+</div>
+
+<ul className="doc-trustbar not-prose">
+  <li><b>MIT</b></li>
+  <li><b>100%</b> <span>TypeScript</span></li>
+  <li><b>0</b> <span>core dependencies</span></li>
+  <li><b>4</b> <span>runtimes, one codebase</span></li>
+  <li><b>Open source</b></li>
+</ul>
+
 </DocHero>
 
-The whole framework fits on one line. Every request walks the same path, and every section on this
-page explains one stop on it:
+## Why NextRush exists
 
-<MentalModelFlow steps={['Request', 'Application', 'Middleware', 'Router', 'Handler', 'Response']} />
+Node backend frameworks usually force one of two extremes.
+
+**Tiny but unstructured** — a few hundred lines and a wildcard `app.use`. Fast to start, but every
+project reinvents how middleware composes, where types live, and how to grow past one file.
+
+**Powerful but heavy** — a full platform with decorators, modules, and its own runtime. Productive
+at scale, but the smallest service pays for the whole machine.
+
+NextRush sits in the middle. Strict TypeScript and optional structure (controllers, DI) when you
+want them, on a core that stays under 3,000 lines and runs the same code across four runtimes.
+One request path explains every feature; nothing is hidden behind a decorator or a global.
 
 ## Core mental model
 
-Four concepts carry every request, each owning one job — the colors below match the chips above so
-you recognize them on sight. This is the quick tour; for the full walkthrough with the request
-diagram, both programming styles, and the runtimes, read
+Four concepts carry every request, each owning one job — the flow below doubles as the page's
+chapter index: click any concept stop to jump to its walkthrough. For the full tour with the
+request diagram, both programming styles, and the runtimes, read
 [NextRush in One Page](/docs/start/overview).
+
+<MentalModelFlow steps={['Request', 'Application', 'Middleware', 'Router', 'Handler', 'Response']} />
 
 <div className="mm-timeline">
 
-### Application
+<h3 id="application">Application</h3>
 
 The entry point — holds the middleware chain and hands each request down it. It orchestrates; it
 doesn't match routes or handle requests itself.
 
-### Middleware
+<h3 id="middleware">Middleware</h3>
 
 Behavior wrapped around a handler like layers of an onion — auth, parsing, logging — running before
 and after, so cross-cutting concerns live in one place.
 
-### Router
+<h3 id="router">Router</h3>
 
 Maps a path to the one handler responsible for it, matched by a segment trie so lookup cost tracks
 URL depth, not how many routes you've registered.
 
-### Context
+<h3 id="context">Context</h3>
 
 The one per-request object every step reads from and writes to — `params`/`query`/`body` in,
 `json`/status/headers out — fresh per request, so nothing leaks between them.
@@ -67,6 +91,8 @@ The one per-request object every step reads from and writes to — `params`/`que
   Application owns the middleware chain. Middleware composes behavior around a handler. The router
   picks which handler runs. Context is what they all read from and write to.
 </Callout>
+
+<div className="section-band section-gap-major">
 
 ## Where other frameworks trade off
 
@@ -105,6 +131,9 @@ NextRush aims for the middle NestJS and Express leave open: strict TypeScript an
 (controllers, DI) without a heavy runtime, on a core that stays under 3,000 lines and runs the same
 code across four runtimes.
 
+**Migrating from Express, Fastify, Hono, or NestJS?** — the [migration guide](/docs/migrate) maps
+each one's habits to NextRush's, with side-by-side snippets and a difficulty rating per origin.
+
 ### Choose NextRush if...
 
 - REST APIs and backend services that want strict TypeScript end to end
@@ -121,6 +150,8 @@ code across four runtimes.
 - You need SSR or full-stack page routing
 - You want the widest npm middleware catalog available today (Express)
 - You need the longest production track record (Express, Fastify)
+
+</div>
 
 ## Your next step
 
@@ -157,3 +188,17 @@ One path, three stops — each hands you straight to the next.
     <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-cyan)]" aria-hidden>→</span>
   </a>
 </div>
+
+## Continue learning
+
+Three on-ramps pick up where this page leaves off — read in whichever order matches what you're
+building.
+
+<DocPageOutline
+  items={[
+    { href: '/docs/start/overview', title: 'NextRush in one page', description: 'Every concept with a minimal example, both programming styles, and the runtimes — the whole framework on one screen.' },
+    { href: '/docs/start/quick-start', title: 'Build a Task API', description: 'A hands-on CRUD tutorial that walks through middleware, routing, validation, and errors end to end.' },
+    { href: '/docs/start/runtime/decision-guide', title: 'Pick a runtime', description: 'Node, Bun, Deno, and Edge differ in cold starts, streaming, and platform APIs. This guide tells you which to reach for and when.' },
+    { href: '/docs/migrate', title: 'Migrate from another framework', description: 'Side-by-side maps from Express, Fastify, Hono, and NestJS, with a difficulty rating per origin.' },
+  ]}
+/>

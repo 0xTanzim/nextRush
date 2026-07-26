@@ -156,6 +156,19 @@
   --learning-runtime: var(--hue-learning-runtime-light);
   --learning-extension: var(--hue-learning-extension-light);
   --learning-di: var(--hue-learning-di-light);
+
+  /* Non-action accent: soft brand for decoration that should NOT compete with
+     primary CTAs (section accent lines, icon rings, eyebrow labels). Saturated
+     --brand-link is reserved for actions/links; --accent-soft stays a tint so
+     blue stops meaning "important" by accident (feedback start1.md #9). */
+  --accent-soft: var(--brand-300);
+
+  /* Section band: a surface step BETWEEN --surface-page and --surface-elevated.
+     Light mode's old white-on-white stacked cards read flat (feedback
+     start1.md #1) — alternating `.section-band` rows give the eye real depth
+     without adding a card border, satisfying "three elevation levels" via
+     spacing + wash instead of borders. */
+  --surface-band: #f1f5fb;
 }
 
 .dark {
@@ -198,6 +211,16 @@
   --learning-runtime: var(--hue-learning-runtime-dark);
   --learning-extension: var(--hue-learning-extension-dark);
   --learning-di: var(--hue-learning-di-dark);
+
+  /* Non-action accent decoration: in dark mode the softer blue reads as a
+     translucent wash against card surfaces rather than a saturated call
+     (feedback start1.md #9 — reserve saturated blue for actions). */
+  --accent-soft: var(--brand-400);
+
+  /* Section band — sits between --surface-page (#0b1120) and --surface-card
+     (#151d2e) so a full-width wash separates major sections by ELEVATION
+     instead of by border. Dark-mode depth gap from feedback start1.md #2. */
+  --surface-band: #0e1626;
 }
 
 /* Tailwind v4 alias bridge (design.md 3): `inline` keeps these reactive to
@@ -939,7 +962,11 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
     var(--learning-router),
     var(--learning-context)
   );
-  opacity: 0.55;
+  /* Spine carries one continuous pipeline, not "a list of steps" (feedback
+     start.md #3 / start1.md #11: the timeline must read as a flow, so the line
+     can no longer fade to 0.55 — opacity 0.85 makes it present without
+     competing with the dot rings above it). */
+  opacity: 0.85;
 }
 
 .mm-timeline :where(h3) {
@@ -976,7 +1003,11 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   height: 2rem;
   border-radius: 9999px;
   background: color-mix(in srgb, var(--mm-accent) 16%, var(--color-fd-card));
-  border: 1.5px solid color-mix(in srgb, var(--mm-accent) 70%, var(--color-fd-border));
+  /* Full-saturation accent ring replaces the 70% mix: each concept's dot now
+     owns its locked learning color outright (feedback start1.md #11 — the ring
+     was so desaturated it almost disappeared against the spine and dot). The
+     number stays --text-primary so it clears WCAG 1.4.3 regardless of hue. */
+  border: 1.5px solid var(--mm-accent);
   color: var(--text-primary);
   font-size: 0.8rem;
   font-weight: 700;
@@ -1078,4 +1109,224 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   border-left-width: 3px;
   border-left-color: var(--callout-color);
   background: color-mix(in srgb, var(--callout-color) 7%, var(--color-fd-card));
+}
+
+/* ============================================
+   Trust bar — inline, non-containerized
+   ============================================
+   Feedback start.md #5: the page answered none of "production ready? stable?
+   companies? downloads?" This row is the answer — but as facts, not boxes.
+   Every entry is a small uppercase label so it reads as page metadata, not a
+   set of equal-weight cards competing with the hero (per apps/docs/AGENTS.md's
+   "Cards should solve organization problems, not decoration"). */
+.doc-trustbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.25rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-trustbar > li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+}
+.doc-trustbar b {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.doc-trustbar span {
+  color: var(--text-muted);
+}
+
+/* ============================================
+   Mental-model flow diagram (.mm-flow)
+   ============================================
+   Replaces the old `MentalModelFlow` chips-then-arrow row (feedback start.md
+   #2/#6: chips looked like a list, "→" between pills read decorative, no real
+   diagram). This is a horizontally-wrapping connected diagram:
+   - a real connector LINE between stops (not a literal "→" glyph)
+   - clickable anchors on the four concept stops jump to the matching
+     `#concepts-<name>` heading on the same page, so the diagram is an index,
+     not decoration
+   - plumbing stops (Request/Handler/Response) stay neutral; concept stops
+     carry their locked learning color exactly like the timeline below, so the
+     eye recognizes Application→Middleware→Router→Context in both places. */
+.mm-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  margin: 1.5rem 0;
+  padding: 0;
+}
+.mm-flow > .mm-flow__stop {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.95rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--color-fd-muted) 35%, var(--color-fd-card));
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.mm-flow > .mm-flow__stop[data-concept] {
+  background: color-mix(in srgb, var(--mm-accent, var(--learning-application)) 12%, var(--color-fd-card));
+  border-color: color-mix(in srgb, var(--mm-accent, var(--learning-application)) 55%, var(--color-fd-border));
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.mm-flow > .mm-flow__stop[data-concept]:hover {
+  border-color: var(--mm-accent, var(--learning-application));
+  color: var(--mm-accent, var(--learning-application));
+}
+.mm-flow > .mm-flow__stop[data-concept]:focus-visible {
+  outline: 2px solid var(--mm-accent, var(--learning-application));
+  outline-offset: 2px;
+}
+/* The clickable inner anchor fills its pill so the entire stop is the hit
+   target, not just the text — and inherits color so hover/focus recolors the
+   whole stop, not just the link glyph. */
+.mm-flow__link {
+  display: contents;
+  color: inherit;
+  text-decoration: none;
+}
+/* Real connector — a 1.25rem ruled line between stops, the same height as the
+   pill's vertical center, in --text-subtle so it reads as structure, not as a
+   third concept. Wraps to the next row responsibly on narrow viewports. */
+.mm-flow > .mm-flow__connector {
+  display: inline-flex;
+  align-self: center;
+  width: 1.25rem;
+  height: 1.5px;
+  margin: 0 0.25rem;
+  background: var(--text-subtle);
+  border-radius: 9999px;
+}
+@media (max-width: 640px) {
+  /* On phones the diagram collapses to a vertical lane so each stop stays
+     legible without horizontal scroll; connectors rotate 90deg. */
+  .mm-flow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+  .mm-flow > .mm-flow__connector {
+    width: 1.5px;
+    height: 0.75rem;
+    margin: 0 0 0 1.1rem;
+  }
+}
+
+/* ============================================
+   Section band + major-section spacing
+   ============================================
+   Feedback start1.md #1/#4: light mode had no real surface hierarchy (white-
+   on-white-on-white) and major sections bled into each other. `.section-band`
+   is a full-bleed wash one step above the page surface — alternated under
+   major sections so the reader's eye registers a new chapter without us
+   adding a border to every component. `.section-gap-major` is the breathing
+   room those same boundaries need (start1.md #4: large gaps create chapters). */
+.section-band {
+  background: var(--surface-band);
+  /* Negative horizontal+top margins break the .fd-container max-width so the
+     wash spans the whole viewport width while text inside stays aligned; the
+     matching bottom margin restores vertical rhythm. */
+  margin: 2rem calc(50% - 50vw);
+  padding: 2rem calc(50vw - 50%);
+}
+@media (max-width: 1024px) {
+  /* Below the Fumadocs sidebar layout, the page is already full-width enough
+     that bleeding out further would cost too much; still apply the wash, just
+     within the normal page boxes. */
+  .section-band {
+    margin: 2rem 0;
+    padding: 2rem 1.25rem;
+    border-radius: 1rem;
+  }
+}
+.section-gap-major {
+  margin-top: 4rem;
+}
+@media (max-width: 640px) {
+  .section-gap-major {
+    margin-top: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-flow > .mm-flow__stop,
+  .mm-deepdive,
+  .mm-deepdive span[aria-hidden] {
+    transition: none;
+  }
+}
+
+/* ============================================
+   Hero CTAs — primary vs secondary
+   ============================================
+   Feedback start.md #1/#8/#10: the hero ends with a paragraph, not a clear
+   next move, and the existing in-page "Install / Read in one page / Build API"
+   row sits at the very BOTTOM of the page. The hero itself needs one primary
+   action and one secondary path so a first-time visitor exits the screen with
+   somewhere to go. Saturated --brand-solid is deliberately reserved for the
+   primary CTA only (start1.md #9 — blue is overused and is no longer
+   meaningful as "do this"). Secondary uses a bordered ghost rather than a
+   second colored fill, so the hierarchy is unambiguous. */
+.doc-hero__cta--primary,
+.doc-hero__cta--secondary {
+  /* Override DocHero's descendant `[&_a]:font-medium [&_a]:text-[brand-link]
+     [&_a]:underline` rules (those style in-body editorial links, not CTAs). */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.doc-hero__cta--primary {
+  background: var(--brand-solid);
+  color: var(--on-brand);
+}
+.doc-hero__cta--primary:hover {
+  background: var(--brand-hover);
+  transform: translateY(-1px);
+}
+.doc-hero__cta--primary:focus-visible {
+  outline: 2px solid var(--brand-focus);
+  outline-offset: 2px;
+}
+.doc-hero__cta--secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.doc-hero__cta--secondary:hover {
+  border-color: var(--brand-link);
+  background: var(--brand-wash);
+}
+.doc-hero__cta--secondary:focus-visible {
+  outline: 2px solid var(--brand-focus);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-hero__cta--primary,
+  .doc-hero__cta--secondary {
+    transition: none;
+    transform: none;
+  }
 }

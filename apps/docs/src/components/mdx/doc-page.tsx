@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { ArrowRight, Gauge, Globe2, Layers, Package, Puzzle, Sparkles, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, Globe2, Layers, Package, Puzzle, Sparkles, Zap } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 
 const highlightIcons: Record<string, LucideIcon> = {
@@ -188,8 +188,11 @@ export function BenchmarkCardGrid({ items }: { items: BenchmarkCardItem[] }) {
 }
 
 export function CompareGrid({ children }: { children: ReactNode }) {
+  // gap-4 (was gap-3) + my-10 (was my-8): breathing room per feedback
+  // start1.md #5 "comparison cards feel cramped" — denser cards compete with
+  // each other; the grid itself needed more space between members.
   return (
-    <div className="not-prose my-8 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className="not-prose my-10 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {children}
     </div>
   );
@@ -207,22 +210,30 @@ export function CompareItem({
   tradeoff: string;
 }) {
   return (
-    <div className="group flex flex-col gap-3 rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_30%,var(--color-fd-card))] p-4 transition-colors hover:border-[var(--border-strong)]">
+    // No hover-border, no elevated cursor: these cards are NOT clickable
+    // (feedback start1.md #6 — "Cards don't feel clickable"; making hover
+    // stronger implies a route that doesn't exist, so we make the rest of
+    // the surface flatter instead). p-5 (was p-4) addresses "cramped" (#5).
+    <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-5">
       <h3 className="text-sm font-semibold text-[var(--text-primary)]">{name}</h3>
       <dl className="flex flex-col gap-3 text-sm leading-snug">
         <div className="flex flex-col gap-1">
-          <dt className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-success-fg)]">
+          <dt className="flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-success-fg)]">
+            <CheckCircle2 className="size-3" strokeWidth={2.5} aria-hidden />
             Best for
           </dt>
           <dd className="text-[0.95rem] font-semibold leading-snug text-[var(--text-primary)]">
             {bestFor}
           </dd>
         </div>
-        <div className="flex flex-col gap-0.5 border-t border-[var(--color-fd-border)] pt-2.5">
-          <dt className="text-[0.62rem] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
+        <div className="flex flex-col gap-1 border-t border-[var(--color-fd-border)] pt-2.5">
+          <dt className="flex items-center gap-1.5 text-[0.62rem] font-medium uppercase tracking-[0.1em] text-[var(--status-warning-text)]">
+            <AlertTriangle className="size-3" strokeWidth={2.5} aria-hidden />
             Tradeoff
           </dt>
-          <dd className="text-[0.8rem] text-[var(--text-secondary)]">{tradeoff}</dd>
+          <dd className="text-[0.8125rem] leading-relaxed text-[var(--text-secondary)]">
+            {tradeoff}
+          </dd>
         </div>
       </dl>
     </div>
