@@ -48,8 +48,8 @@ bump any other package.
 | `@nextrush/dev` | `1.0.0` | Tooling |
 | `@nextrush/adapter-bun` | `1.0.0` | Adapter |
 | `@nextrush/adapter-deno` | `1.0.0` | Adapter |
-| `@nextrush/adapter-edge` | `1.0.0` | Adapter |
-| `@nextrush/adapter-serverless` | `1.0.0` | Adapter |
+| `@nextrush/adapter-edge` | `1.0.0-beta.0` | Adapter |
+| `@nextrush/adapter-serverless` | `1.0.0-beta.0` | Adapter |
 | `@nextrush/cookies` | `1.0.0` | Middleware |
 | `@nextrush/csrf` | `1.0.0` | Middleware |
 | `@nextrush/multipart` | `1.0.0` | Middleware |
@@ -78,10 +78,10 @@ is `"private": true` — an internal conformance-test harness for adapters, not 
 | Node.js 22+ | `@nextrush/adapter-node` | `3.1.0` | Stable | 🟢 real-runtime (native) |
 | Bun | `@nextrush/adapter-bun` | `1.0.0` | Stable | 🟢 real-runtime (CI, real Bun) |
 | Deno | `@nextrush/adapter-deno` | `1.0.0` | Stable | 🟢 real-runtime (CI, real Deno) |
-| Cloudflare Workers | `@nextrush/adapter-edge` | `1.0.0` | Stable | 🟢 real-runtime (CI, real `workerd`/miniflare) |
-| Vercel Edge | `@nextrush/adapter-edge` | `1.0.0` | Stable | 🟡 simulated (shares the edge adapter's conformance suite; not yet executed on the real platform in CI) |
-| Netlify Edge | `@nextrush/adapter-edge` | `1.0.0` | Stable | 🟡 simulated (runs on Deno under the hood; not yet executed on the real platform in CI) |
-| AWS Lambda / GCF / Azure Functions | `@nextrush/adapter-serverless` | `1.0.0` | Stable | 🟡 simulated (built on `@nextrush/adapter-edge`'s fetch engine; not yet executed on a real serverless platform in CI) |
+| Cloudflare Workers | `@nextrush/adapter-edge` | `1.0.0-beta.0` | Beta (Internal tier) | 🟢 real-runtime (CI, real `workerd`/miniflare) |
+| Vercel Edge | `@nextrush/adapter-edge` | `1.0.0-beta.0` | Beta (Internal tier) | 🟡 simulated (shares the edge adapter's conformance suite; not yet executed on the real platform in CI) |
+| Netlify Edge | `@nextrush/adapter-edge` | `1.0.0-beta.0` | Beta (Internal tier) | 🟡 simulated (runs on Deno under the hood; not yet executed on the real platform in CI) |
+| AWS Lambda / GCF / Azure Functions | `@nextrush/adapter-serverless` | `1.0.0-beta.0` | Beta (Internal tier) | 🟡 simulated (built on `@nextrush/adapter-edge`'s fetch engine; not yet executed on a real serverless platform in CI) |
 
 <Callout type="info" title="What 🟢/🟡 means">
   🟢 **real-runtime** — the conformance suite executes on the actual runtime in CI (a real Bun/

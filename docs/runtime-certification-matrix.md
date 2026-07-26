@@ -27,21 +27,21 @@
 
 Legend: ✅ full (executed assertion) · ⚠️ partial (different model) · 🔷 capability-only (no executed assertion, F-02) · ➖ not applicable by design · ❌ unsupported
 
-| Feature | node | bun | deno | edge | serverless |
-| --- | --- | --- | --- | --- | --- |
-| **Proof** | **🟢 real-runtime** | **🟢 real-runtime** | **🟢 real-runtime** | **🟢 real-runtime** | **🟡 simulated** |
-| **Real-runtime breadth** | **🟢 full-suite** | **🟢 full-suite** | **🟢 full-suite** | **🟠 curated-subset** | **➖ n/a** |
-| Request | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
-| AbortSignal | ✅ | ✅ | ✅ | ✅ | ⚠️ |
-| Cookies | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Multipart | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
-| SSE | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Compression | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
-| WebSockets | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
-| Shutdown | ✅ | ✅ | ✅ | ➖ | ➖ |
-| Timeouts | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Coverage** | **70%** | **70%** | **70%** | **66.7%** | **61.1%** |
+| Feature | node | bun | deno | edge | serverless | nextjs |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Proof** | **🟢 real-runtime** | **🟢 real-runtime** | **🟢 real-runtime** | **🟢 real-runtime** | **🟡 simulated** | **🟡 simulated** |
+| **Real-runtime breadth** | **🟢 full-suite** | **🟢 full-suite** | **🟢 full-suite** | **🟠 curated-subset** | **➖ n/a** | **➖ n/a** |
+| Request | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| AbortSignal | ✅ | ✅ | ✅ | ✅ | ⚠️ | ✅ |
+| Cookies | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Multipart | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
+| SSE | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Compression | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
+| WebSockets | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 | 🔷 |
+| Shutdown | ✅ | ✅ | ✅ | ➖ | ➖ | ➖ |
+| Timeouts | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Coverage** | **70%** | **70%** | **70%** | **66.7%** | **61.1%** | **66.7%** |
 
 ## Notes
 

@@ -7,6 +7,13 @@ Five runtimes run the same NextRush application code unmodified. The choice isn'
 works" — it's "which deployment model fits what you're building." Here's the fast answer, then
 the reasoning behind it.
 
+<Callout type="info" title="Already have an app in Next.js (or another framework)?">
+  This page is about choosing a **JS runtime** for a standalone NextRush app. If you already have
+  — or are creating — a Next.js project and want to mount a NextRush API inside it, that's a
+  different question with its own page: see [Next.js integration](/docs/start/frameworks/nextjs).
+  Next.js isn't a runtime choice; it runs on whichever runtime it's deployed to.
+</Callout>
+
 ## The fast answer
 
 | Situation | Recommendation |
@@ -17,6 +24,29 @@ the reasoning behind it.
 | 🔒 Deny-by-default, security-first | **[Deno](/docs/start/runtime/deno)** |
 | 🌍 Cloudflare Workers or Vercel Edge | **[Edge](/docs/start/runtime/edge)** |
 | ☁ AWS Lambda, GCF, or Azure Functions | **[Serverless](/docs/start/runtime/serverless)** |
+
+<Callout type="warn" title="Which package do I actually install? (Cloudflare vs. Lambda/GCF/Azure)">
+  "Edge" and "serverless" both describe event-driven, no-server-to-manage deployment — but they're
+  two different NextRush packages, split by which handler contract the platform speaks, not by
+  vaguely feeling "serverless." This table is the answer, since the split isn't obvious from
+  either package's name alone:
+
+  | You're deploying to... | Install | Handler |
+  | --- | --- | --- |
+  | Cloudflare Workers | `@nextrush/adapter-edge` | `createCloudflareHandler(app)` |
+  | Vercel Edge Functions | `@nextrush/adapter-edge` | `createVercelHandler(app)` |
+  | Netlify Edge Functions | `@nextrush/adapter-edge` | `createNetlifyHandler(app)` |
+  | AWS Lambda (Function URL / API Gateway) | `@nextrush/adapter-serverless` | `createLambdaHandler(app)` |
+  | Google Cloud Functions | `@nextrush/adapter-serverless` | `createGoogleHandler(app)` (alias: `createGcfHandler`) |
+  | Azure Functions | `@nextrush/adapter-serverless` | `createAzureHandler(app)` |
+
+  The rule of thumb: Cloudflare/Vercel/Netlify speak the Fetch API directly (`fetch(request)`) —
+  that's `@nextrush/adapter-edge`. AWS/GCP/Azure hand you a platform-specific event or SDK object
+  — that's `@nextrush/adapter-serverless`, which is itself built on `@nextrush/adapter-edge`'s
+  engine underneath (one execution model, six front doors). See each package's own README for the
+  full handler reference: [`adapter-edge`](https://github.com/0xTanzim/nextRush/tree/main/packages/adapters/edge#readme),
+  [`adapter-serverless`](https://github.com/0xTanzim/nextRush/tree/main/packages/adapters/serverless#readme).
+</Callout>
 
 <Callout type="info" title="Still unsure? Start with Node.js">
   Every tutorial, every guide, and every middleware package on this site targets Node first —

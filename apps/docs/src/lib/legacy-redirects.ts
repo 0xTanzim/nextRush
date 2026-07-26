@@ -170,6 +170,9 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/internals/rfcs', '/docs/architecture/rfcs'],
   ['/docs/internals/versioning', '/docs/architecture/versioning'],
   ['/docs/internals/contributing', '/docs/community/contributing'],
+  ['/docs/internals/release-handbook', '/docs/architecture/release-handbook'],
+  ['/docs/internals/beta-release-handbook', '/docs/architecture/release-handbook'],
+  ['/docs/internals/changesets-and-release-strategy', '/docs/architecture/release-handbook'],
 
   // Wave B4 — resources/* -> help/* or community/* (folder retirement/split, 9 pages)
   ['/docs/resources', '/docs/help'],

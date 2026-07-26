@@ -160,7 +160,13 @@ const handler = createFetchHandler(app, {
       type: 'number',
       description:
         'Request timeout in milliseconds. Races the handler and returns 504 Gateway Timeout on expiry, aborting ctx.signal. Set to 0 to disable the framework timeout (the platform\'s own limit still applies).',
-      default: '25000 (DEFAULT_EDGE_TIMEOUT_MS)',
+      default: '24000 (DEFAULT_EDGE_TIMEOUT_MS)',
+      optional: true,
+    },
+    platform: {
+      type: "PlatformId",
+      description:
+        "Overrides the detected value of ctx.platform. Set by @nextrush/adapter-serverless's Tier-1 handlers, which know their provider unambiguously; application code on Cloudflare, Vercel, or Netlify does not need it.",
       optional: true,
     },
   }}
@@ -250,7 +256,23 @@ const handler = createFetchHandler(app, {
 
 ## Edge Context
 
-`EdgeContext` exposes a `waitUntil()` method for fire-and-forget operations that complete after the response is sent:
+`ctx.runtime` answers what kind of runtime is executing (`'edge'` on most hosts).
+`ctx.platform` answers which named deployment platform it is, typed
+`PlatformId | undefined`:
+
+| Host | `ctx.runtime` | `ctx.platform` | Resolved by |
+| --- | --- | --- | --- |
+| Cloudflare Workers | `'cloudflare-workers'` | `'cloudflare-workers'` | Detection |
+| Vercel Edge | `'vercel-edge'` | `'vercel-edge'` | Detection |
+| Netlify Edge | `'edge'` | `'netlify-edge'` | Detection |
+| Any other Fetch host | `'edge'` | `undefined` | Nothing matched |
+| Lambda / GCF / Azure | `'edge'` | `'lambda'` / `'gcf'` / `'azure'` | Passed explicitly by `@nextrush/adapter-serverless` |
+
+Detection covers exactly the three named edge platforms. A serverless platform is
+never guessed — it only ever arrives through `FetchHandlerOptions.platform`, and an
+explicit value always wins over detection.
+
+`EdgeContext` also exposes a `waitUntil()` method for fire-and-forget operations that complete after the response is sent:
 
 ```typescript
 app.use(async (ctx) => {
@@ -265,6 +287,25 @@ app.use(async (ctx) => {
   ctx.json({ ok: true });
 });
 ```
+
+### Development-mode diagnostics
+
+Outside production, three otherwise-silent failure modes announce themselves once:
+
+- `ctx.waitUntil()` on a platform that supplies no execution context (Vercel Edge,
+  a serverless invocation) drops the promise without running it, and warns:
+  `[nextrush/edge] ctx.waitUntil() was called, but this platform provided no execution context — the promise was dropped without running.` On Cloudflare Workers
+  it usually means the platform `ctx` was not threaded into `createCloudflareHandler`.
+- A second, different `Application` booting in the same isolate warns that
+  `createApp()` is being called inside the exported handler instead of at module
+  scope, which defeats warm-instance reuse.
+- Reading `ctx.ip` while `trustProxy` is off (the default) returns `''`, since Edge has no
+  socket to fall back to — only a proxy header, which is only trusted when
+  `createApp({ proxy: true })` is set. Warns once per context:
+  `[nextrush/edge] ctx.ip is an empty string because trustProxy is false (the default) — Edge has no socket to fall back to, so no proxy headers means no IP.`
+
+Every 504 additionally logs the effective timeout and its source, in production too:
+`[nextrush/edge] Request timed out after 24000ms (default) — returning 504. GET /slow`.
 
 ---
 

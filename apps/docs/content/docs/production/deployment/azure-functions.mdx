@@ -1,0 +1,138 @@
+---
+title: Azure Functions
+description: Deploy a NextRush app to Azure Functions using @nextrush/adapter-serverless's true drop-in handler.
+---
+
+`@nextrush/adapter-serverless`'s `createAzureHandler` is a true drop-in for Azure Functions v4
+programming model's `HttpHandler` contract — no manual field bridge. Register it directly with
+`app.http(...)` and it handles the event translation via the same
+[Event mapping](/docs/concepts/event-mapping) mechanism every other serverless platform in this
+package uses.
+
+## Installation
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/adapter-serverless', '@azure/functions']} />
+
+`@azure/functions` is Azure's own v4 programming model SDK — it's what `app.http(...)` and the
+`HttpRequest`/`HttpResponseInit` types come from.
+
+## Minimal deployment
+
+```ts title="src/index.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createAzureHandler } from '@nextrush/adapter-serverless';
+import { app as functions } from '@azure/functions';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+functions.http('api', {
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  authLevel: 'anonymous',
+  handler: createAzureHandler(app),
+});
+```
+
+Every Function App also needs a `host.json` at the project root — this is an Azure Functions
+runtime requirement independent of NextRush:
+
+```json title="host.json"
+{
+  "version": "2.0",
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.*, 5.0.0)"
+  }
+}
+```
+
+Create a Consumption-plan, Linux, Node 22 Function App and deploy your project as a zip:
+
+```bash
+az functionapp create \
+  --name my-nextrush-api \
+  --resource-group <your-resource-group> \
+  --storage-account <your-storage-account> \
+  --consumption-plan-location eastus \
+  --runtime node \
+  --runtime-version 22 \
+  --functions-version 4 \
+  --os-type Linux
+
+zip -r function.zip .
+az functionapp deployment source config-zip \
+  --name my-nextrush-api \
+  --resource-group <your-resource-group> \
+  --src function.zip
+```
+
+`authLevel: 'anonymous'` makes the function publicly invocable with no function-key check — put
+your own authentication in NextRush middleware (`app.use(...)`) rather than relying on that
+setting alone; `authLevel: 'function'` is the alternative if every caller can present a valid
+function key.
+
+<Callout type="warn" title="Build the app at module scope, not inside the handler">
+  `createApp()` and `createAzureHandler()` must run once, at module scope, before
+  `functions.http(...)` registers the handler — not inside a wrapper function called per
+  invocation. Azure Functions keeps warm instances alive between invocations on a Consumption
+  plan and reuses them; rebuilding the app on every invocation defeats that reuse.
+</Callout>
+
+## What the drop-in actually does
+
+`createAzureHandler(app)` returns a `(req: HttpRequest) => Promise<HttpResponseInit>` function —
+the exact v4 `HttpHandler` shape. Internally it bridges Azure's real request object into the same
+`Request`/`Response` pair `@nextrush/adapter-edge`'s fetch engine runs everywhere else, using the
+built-in Azure `EventMapper`. Unlike the Google Cloud Functions bridge, the request body is read
+via the v4 `arrayBuffer()` contract, which is always available — there's no lossy fallback path to
+worry about on this side. One documented limitation: outgoing `Set-Cookie` headers are parsed into
+v4's structured `cookies` array by `name`/`value` pair only — attribute fidelity (`SameSite`,
+`Secure`, `Path`) is intentionally out of scope for that array; a handler that needs full
+attribute fidelity should emit a raw `Set-Cookie` header instead of relying on `ctx`'s cookie
+helpers to round-trip perfectly through this bridge.
+
+If you need the older struct-based signature instead (fixture testing, a custom bridge, a
+non-standard host), `createAzureEventHandler` preserves the pre-drop-in behavior unchanged — see
+[Serverless adapter reference](/docs/reference/platforms/serverless) for both signatures.
+
+## Timeout
+
+```ts
+functions.http('api', {
+  authLevel: 'anonymous',
+  handler: createAzureHandler(app, { timeout: 5000 }),
+});
+```
+
+`timeout` races the handler and returns a `504`-shaped result on expiry instead of hanging until
+Azure's own function timeout kills the invocation. On a Consumption plan the default function
+timeout is 5 minutes (configurable up to 10); set NextRush's `timeout` below whatever you
+configure so it fires first and produces an observable response.
+
+## Requirements
+
+- Node.js 22 runtime, Azure Functions v4 programming model (`@azure/functions` v4), functions
+  runtime version 4 (`--functions-version 4`).
+
+<Callout type="warn" title="Verification status — not yet run on a real Azure subscription in CI">
+  This deployment path is scaffolded and verified locally (deploy/smoke/destroy scripts exist and
+  were exercised against the drop-in handler's own test suite), but it is **not** wired into the
+  scheduled `deploy-verification` CI workflow the way [AWS Lambda](/docs/production/deployment/aws-lambda)
+  and [Google Cloud Functions](/docs/production/deployment/gcf) are — that requires provisioning
+  Azure service-principal/OIDC secrets, which is a deliberate, still-open infrastructure decision
+  (see `packages/adapters/conformance/deploy-verification/README.md`'s `WARNING` block). Treat the
+  commands above as correct per the adapter's own real, tested drop-in contract, but not yet
+  proven against a live deployment the way the other two serverless platforms are. See the
+  [compatibility matrix](/docs/help/compatibility-matrix) for the adapter's overall 🟡 simulated
+  status.
+</Callout>
+
+## Related
+
+- [Serverless runtime tutorial](/docs/start/runtime/serverless) — the getting-started walkthrough this page's deployment content extends.
+- [Serverless adapter reference](/docs/reference/platforms/serverless) — the full `@nextrush/adapter-serverless` surface, including `createAzureEventHandler` for the struct-based path.
+- [Event mapping](/docs/concepts/event-mapping) — how an Azure Functions request becomes the same `Context` every other adapter produces.
+- [Google Cloud Functions](/docs/production/deployment/gcf) — the sibling serverless platform page.

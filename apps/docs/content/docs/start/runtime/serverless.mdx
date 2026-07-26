@@ -27,7 +27,9 @@ a server you manage.
   links={{ node: '/docs/start/runtime/node', bun: '/docs/start/runtime/bun', deno: '/docs/start/runtime/deno', edge: '/docs/start/runtime/edge' }}
 />
 
-"Partial" means the adapter is Stable but not yet verified against the real platform in CI (see
+"Partial" means the adapter is functionally complete (Beta, Internal tier — see
+[ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md))
+but not yet verified against the real platform in CI (see
 the [compatibility matrix](/docs/help/compatibility-matrix)) — not that it's missing features.
 
 Targeting a different runtime? [Node](/docs/start/runtime/node) ·
@@ -75,8 +77,9 @@ meta-package's `listen` re-export targets `@nextrush/adapter-node` specifically,
 `listen()` on a platform that invokes your code per event rather than running a process.
 `createLambdaHandler` covers AWS Lambda Function URLs and both API Gateway payload formats (HTTP
 API v2, REST API v1) — it detects which event shape it received, so you never name a provider or
-touch a mapper. Google Cloud Functions and Azure Functions have their own Tier-1 handlers
-(`createGoogleHandler`, `createAzureHandler`) exported from the same package.
+touch a mapper (see [Event mapping](/docs/concepts/event-mapping) for how that detection and
+translation actually works). Google Cloud Functions and Azure Functions have their own Tier-1
+handlers (`createGoogleHandler`, `createAzureHandler`) exported from the same package.
 
 ### Step 2 of 4 — Write a hello-world Lambda handler
 
@@ -234,9 +237,14 @@ Four things now describe how a request reaches your code on Lambda:
 Other guides:
 
 <Cards>
-  <Card title="Deployment overview" href="/docs/production/deployment">
-    Node, Bun, Deno, and edge deployment paths — a dedicated serverless deployment guide is not
-    published yet.
+  <Card title="Deploy to AWS Lambda" href="/docs/production/deployment/aws-lambda">
+    Function URL or API Gateway, module-scope warm reuse, and response streaming.
+  </Card>
+  <Card title="Deploy to Google Cloud Functions" href="/docs/production/deployment/gcf">
+    A true drop-in for functions-framework — no manual field bridge.
+  </Card>
+  <Card title="Deploy to Azure Functions" href="/docs/production/deployment/azure-functions">
+    A true drop-in for the v4 programming model's `HttpHandler` contract.
   </Card>
   <Card title="Serverless adapter reference" href="/docs/reference/platforms/serverless">
     The full `@nextrush/adapter-serverless` surface — `createLambdaHandler()`,

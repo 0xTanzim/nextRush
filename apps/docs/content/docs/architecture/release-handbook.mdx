@@ -185,24 +185,40 @@ command instead of three follow-up debugging turns.
 
 ```bash
 pnpm validate:changeset-baselines
+pnpm verify:release-state
 ```
 
-This script reads every pending changeset's frontmatter, checks each named package against the
-real npm registry, and fails loudly if a `patch`, `minor`, or `major` bump is declared against a
-package that has **never been published**. Why that matters: `changeset version` has no idea
-whether a package has real history. It applies the bump literally, on top of whatever baseline it
-finds. Declare a `major` bump against a package sitting at an un-published `1.0.0`, and you get
-`2.0.0` — a number that claims a `1.x` line existed when it never did. We shipped exactly that
-mistake across nine packages before catching it by hand.
+The first script reads every pending changeset's frontmatter, checks each named package against
+the real npm registry, and fails loudly if a `patch`, `minor`, or `major` bump is declared
+against a package that has **never been published**. Why that matters: `changeset version` has
+no idea whether a package has real history. It applies the bump literally, on top of whatever
+baseline it finds. Declare a `major` bump against a package sitting at an un-published `1.0.0`,
+and you get `2.0.0` — a number that claims a `1.x` line existed when it never did. We shipped
+exactly that mistake across nine packages before catching it by hand.
 
-It's wired into `pnpm run version` automatically now, so it runs even if you forget. Run it
-explicitly here anyway — you want to see the failure before you're mid-release, not after.
+The second script exists because the first one has a blind spot: it only checks packages a
+*pending changeset* names. It would never have caught `@nextrush/class` sitting at a hardcoded
+`4.0.0-beta.0` with zero changesets pending — which is exactly what happened later the same day.
+`verify-release-state` checks the whole working tree independent of what's pending: every
+`fixed`-group package carries the identical version right now, no never-published package has a
+version that looks computed from a real release that never happened, nothing in `ignore` is
+depended on by a package that isn't also in `ignore`, and `.changeset/pre.json`'s snapshot
+actually matches the current `package.json` values (see Phase 4's edge case below for why that
+last check exists).
+
+Both are wired into `pnpm run version` automatically now, so they run even if you forget. Run
+them explicitly here anyway — you want to see a failure before you're mid-release, not after.
+They're also wired into git hooks: `pre-commit` runs `verify:release-state` whenever a staged
+diff touches a `package.json` or `.changeset/`, and `pre-push` runs it unconditionally as the
+last checkpoint before anything reaches origin. Installed via `simple-git-hooks` — run `npx
+simple-git-hooks` once after cloning if hooks aren't firing (`postinstall` should do this
+automatically, but confirm with `cat .git/hooks/pre-commit`).
 
 <Callout type="warn">
-If it fails, the fix is always the same: open the flagged changeset, delete that package's line
-from the frontmatter. Its `package.json` version already **is** its correct first release. A
-changeset entry adds nothing for a package with no history to be relative to — it only risks
-producing the exact wrong number this guard exists to catch.
+If the baseline check fails, the fix is always the same: open the flagged changeset, delete that
+package's line from the frontmatter. Its `package.json` version already **is** its correct first
+release. A changeset entry adds nothing for a package with no history to be relative to — it
+only risks producing the exact wrong number this guard exists to catch.
 </Callout>
 
 ### Phase 3 — Hold never-published packages out of the beta
@@ -275,6 +291,27 @@ from whatever the working tree happened to say; and nothing that's supposed to b
 shows up as changed at all. If something with zero npm history changed and it's *not* in
 `ignore`, stop — you missed a package in Phase 3.
 
+<Callout type="warn" title="Never re-run pre enter after correcting versions by hand">
+`changeset pre enter <tag>` snapshots the current `package.json` values into `.changeset/pre.json`'s
+`initialVersions` field — but only ONCE. If `pre.json` already exists, running `pre enter` again
+is a silent no-op on that snapshot; it does not refresh it. If you hand-correct a version while
+already inside a prerelease window (which we did, twice, on 2026-07-24 — once for the whole core
+group's baseline, once for a single package caught later), the snapshot keeps pointing at the old,
+wrong numbers, and `changeset version` computes the next beta number relative to that stale
+baseline instead of your correction.
+
+The fix is never to re-run `pre enter` on top of an existing `pre.json`. Exit first, then re-enter:
+
+```bash
+pnpm changeset pre exit      # deletes pre.json outright, no version side effects
+pnpm changeset pre enter beta   # re-snapshots from your CURRENT, corrected package.json
+```
+
+`verify:release-state` (Phase 2) checks for this drift automatically — it compares `pre.json`'s
+snapshot against the live `package.json` values and fails loudly if they disagree, so you don't
+have to remember to check by hand.
+</Callout>
+
 ### Phase 5 — Verify before you publish anything
 
 ```bash
@@ -301,8 +338,43 @@ release run finishes unusually slowly, that's a signal to open it up, not a numb
 ### Phase 6 — Publish the beta
 
 ```bash
-pnpm changeset publish --tag beta
+pnpm changeset publish
 ```
+
+No `--tag beta` here — that's the mistake to know about before you hit it, not after.
+
+<Callout type="warn" title="`--tag` is rejected while pre.json exists — this is not optional">
+Running `pnpm changeset publish --tag beta` while still in prerelease mode fails outright:
+
+```
+🦋  error Releasing under custom tag is not allowed in pre mode
+🦋  To resolve this exit the pre mode by running `changeset pre exit`
+```
+
+The instinct to add `--tag beta` is reasonable — it's the flag you'd reach for outside prerelease
+mode — but it's wrong here, and the fix is **not** the one the error message suggests. Do **not**
+run `changeset pre exit` just to get past this error. That command strips the `-beta.N` suffix and
+computes the real, final stable version — exiting the entire beta window early, weeks before
+you're actually done collecting bug reports. That's Phase 8, not Phase 6.
+
+The actual fix is to drop the flag entirely:
+
+```bash
+pnpm changeset publish
+```
+
+Why this works without `--tag`: `.changeset/pre.json` already records `"tag": "beta"` from when
+you ran `pre enter beta` in Phase 4. Changesets reads that field itself and tags every publish
+`beta` automatically — an explicit `--tag` on the command line is not just redundant, it's a
+second, conflicting instruction the tool refuses to reconcile with the one already recorded in
+`pre.json`. The version string does the rest: npm never routes a version containing a prerelease
+identifier (`-beta.N`) onto the `latest` dist-tag unless you force it, so `latest` stays exactly
+where it was — you get the same real-world result as `--tag beta` intended, through the
+mechanism the tool actually expects you to use here.
+
+Verify with `npm view nextrush dist-tags` after publishing; `beta` should be the only tag that
+moved.
+</Callout>
 
 Confirm the output lists only what you expect — nothing from `ignore` should appear anywhere.
 Then check the registry directly:
@@ -312,9 +384,9 @@ npm view nextrush dist-tags
 ```
 
 `beta` should point at the new version. `latest` should be exactly where it was before you
-started. If `latest` moved, something published without `--tag beta` while still in prerelease
-mode — stop and figure out why immediately, don't assume it's fine because the version number
-still has a `-beta` suffix in it.
+started. If `latest` moved, something published without prerelease mode active — stop and figure
+out why immediately, don't assume it's fine because the version number still has a `-beta` suffix
+in it.
 
 Tell your testers the actual install command: `npm install nextrush@beta`. Nobody guesses that on
 their own.
@@ -363,6 +435,12 @@ npm view nextrush dist-tags   # confirm latest actually moved
 | A never-published package almost rode along in a beta publish | First publish always lands on `latest`, prerelease mode or not — unconditional, undocumented-until-you-hit-it behavior | Phase 3: the `ignore` list, held until stable |
 | `@nextrush/stream` sat in the core `fixed` group with zero real dependency on core | README prose implied a coupling that the actual import graph didn't have | Always check the real dependency graph, not the description |
 | A circular-dependency test passed after 33 seconds instead of milliseconds | A fast cycle guard only covered one DI resolution path; the other path fell through to a much slower, technically-correct fallback | Phase 5: an unusually slow test is a bug to investigate, not a green check to accept |
+| A hardcoded version on a never-published package (`@nextrush/class` at `4.0.0-beta.0`) sat wrong with zero changesets pending to catch it | `validate:changeset-baselines` only checks packages a pending changeset names — an already-wrong version with nothing pending against it is invisible to it | `verify:release-state`'s never-published version-sanity check, independent of pending changesets |
+| `pnpm changeset publish --tag beta` failed with "Releasing under custom tag is not allowed in pre mode" | `.changeset/pre.json` already records the tag (`"tag": "beta"`) from `pre enter beta` in Phase 4; an explicit `--tag` is a second, conflicting instruction the tool won't reconcile with what's already recorded — it is never needed while `pre.json` exists | Phase 6: drop `--tag` entirely and run plain `pnpm changeset publish`; the version string's own `-beta.N` suffix keeps it off `latest` |
+| `@nextrush/adapter-bun@1.0.0-beta.0` and `@nextrush/dev@1.0.0-beta.0` both failed with `E409 Conflict` on publish | Both package names had been fully unpublished on npm weeks earlier (2026-07-08/09). npm's unpublish policy is permanent for that exact name+version combination — never just a 24/72-hour cooldown once the whole package was unpublished — so republishing the *same* version string is blocked forever, no matter how much time has passed | Bump to a new version string never used before (`1.0.0-beta.1`) — confirm with `npm view <pkg>` first; a `404 ... Unpublished on <date>` response (not a plain 404) is the tell that this is the permanent-reuse block, not a transient registry error |
+| `@nextrush/multipart` and `@nextrush/static` both failed with `E403 Forbidden` on their first-ever publish, while a dozen other brand-new package names in the same run succeeded | Neither name appeared in `npm access list packages @nextrush` at all beforehand (unlike the unpublish cases above, which return a dated 404) — a genuinely first-time package creation can hit npm's 2FA/granular-access-token publish policy even when the CLI token has write access to every *existing* package in the scope, because creating a brand-new package name is a stricter security check than publishing a new version of one already claimed | Not automated — needs an interactive `npm publish` (answers the 2FA/OTP prompt directly) or a token with "bypass 2FA" explicitly enabled, done by the account owner before an automated `changeset publish` retry can succeed for that specific package |
+| Two fixed-group packages (`nextrush`, `@nextrush/adapter-node`) depended on packages sitting in `ignore` (`@nextrush/class`, `@nextrush/stream`) — `changeset pre exit` refused to run | Changesets won't let a publishing package depend on one it can't resolve; the `ignore` list was built by "never published → hold back" without checking who actually consumes each package | `verify:release-state`'s ignore-vs-dependency-graph check, run proactively before `pre exit`/`version` instead of discovered as a runtime error |
+| Re-running `changeset pre enter beta` after hand-correcting versions left `pre.json`'s snapshot pointing at the old, wrong baseline | `pre enter` only snapshots `initialVersions` once; re-running it while `pre.json` already exists is a silent no-op on that snapshot | `verify:release-state`'s stale-`pre.json` check, plus the documented recovery (`pre exit` then `pre enter` again) in Phase 4 |
 | Two packages (`@nextrush/controllers`, `@nextrush/decorators`) are live on npm but deleted from the repo | Changesets only versions packages that exist in the current workspace — a removed package is invisible to the whole flow | Not automated. Deprecate manually with `npm deprecate`, tracked as its own task, never folded into a version bump |
 
 That last one is worth a sentence on its own, because it's the one thing in this whole handbook
@@ -386,8 +464,8 @@ git diff --stat   # look before you trust it
 # Verify
 pnpm build && pnpm test && pnpm typecheck && pnpm lint
 
-# Publish beta
-pnpm changeset publish --tag beta
+# Publish beta (no --tag: pre.json already records "beta" — see Phase 6's callout)
+pnpm changeset publish
 npm view nextrush dist-tags
 
 # Repeat version/verify/publish per fix during the window

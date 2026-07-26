@@ -1,5 +1,5 @@
 {
   "title": "Runtime & Streaming",
   "defaultOpen": false,
-  "pages": ["request-lifecycle", "runtime-compatibility", "streaming"]
+  "pages": ["request-lifecycle", "runtime-compatibility", "event-mapping", "streaming"]
 }
