@@ -12,19 +12,21 @@
 | --- | --- |
 | **Purpose** | Run a NextRush app as an AWS Lambda / GCF / Azure Functions handler |
 | **Package type** | Adapter |
-| **Status** | Stable |
+| **Status** | Beta |
 | **Included in `nextrush`?** | No -- standalone install |
-| **Support tier** | Public -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Support tier** | Internal -- non-`-node` adapter until GA, may change without a major -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
 | **Maintenance** | Active |
 | **Runtime** | AWS Lambda, Google Cloud Functions, Azure Functions -- built on `@nextrush/adapter-edge`'s fetch engine |
 | **Requires** | Node >=22 (Lambda's Node.js runtime) . ESM-only . TypeScript >=5.x |
-| **Introduced** | v1.0.0 |
+| **Introduced** | v1.0.0-beta.0 |
 
 ## Installation
 
 ```bash
-pnpm add @nextrush/adapter-serverless
-# npm i @nextrush/adapter-serverless . yarn add @nextrush/adapter-serverless . bun add @nextrush/adapter-serverless
+pnpm add @nextrush/adapter-serverless @nextrush/core
+# npm i @nextrush/adapter-serverless @nextrush/core
+# yarn add @nextrush/adapter-serverless @nextrush/core
+# bun add @nextrush/adapter-serverless @nextrush/core
 ```
 
 > [!NOTE]
@@ -54,7 +56,10 @@ is what lets AWS reuse the same booted instance across warm invocations.
 > provider (Lambda, GCF, Azure) -- **not** `'node'`. This adapter is built on
 > `@nextrush/adapter-edge`'s fetch engine, and edge's runtime detector has no AWS/GCP/Azure
 > branches; it defaults to `'edge'` unless it recognizes Cloudflare, Vercel, or Netlify. Code that
-> branches on `ctx.runtime === 'node'` will not match on any serverless platform.
+> branches on `ctx.runtime === 'node'` will not match on any serverless platform. Use
+> `ctx.platform` (`'lambda' | 'gcf' | 'azure' | ...`) instead when you need to know which provider
+> you're actually running on -- each Tier-1 handler here sets it explicitly, so it is never
+> detected/guessed on this package.
 
 ## The three platform handlers
 
@@ -64,17 +69,42 @@ is what lets AWS reuse the same booted instance across warm invocations.
 | `createGoogleHandler(app, options?)` | Google Cloud Functions (functions-framework) | Fixed to the `gcf` mapper |
 | `createAzureHandler(app, options?)` | Azure Functions v4 model | Fixed to the `azure` mapper |
 
-AWS hands your function a plain JSON event, so `createLambdaHandler(app)` is a true drop-in for
-`export const handler = ...`. GCP and Azure hand you an SDK request object (Express-style
-`req`/`res` for GCF, an `HttpRequest` for Azure) instead of a plain event, so you adapt its fields
-into the mapper's request shape at the platform's own entry point:
+All three are true drop-ins -- pass them straight to the platform's own registration call, with no
+hand-written field mapping:
 
 ```ts
 // Google Cloud Functions
 import { createGoogleHandler } from '@nextrush/adapter-serverless';
 import * as functions from '@google-cloud/functions-framework';
 
-const api = createGoogleHandler(app);
+functions.http('api', createGoogleHandler(app));
+```
+
+```ts
+// Azure Functions (v4 model)
+import { createAzureHandler } from '@nextrush/adapter-serverless';
+import { app as functions } from '@azure/functions';
+
+functions.http('api', { handler: createAzureHandler(app) });
+```
+
+> [!NOTE]
+> Cloudflare Workers is not a serverless-event platform (it speaks the Fetch API directly), so its
+> one-line handler -- `createCloudflareHandler` -- ships in `@nextrush/adapter-edge`, not here. See
+> the [full "which package do I install?" table](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/start/runtime/decision-guide.mdx)
+> if you're unsure which of the two packages a given platform needs.
+
+### The struct-based path (`createGoogleEventHandler` / `createAzureEventHandler`)
+
+Reach for these instead of the drop-ins only for fixture testing, a custom bridge, or a host whose
+request shape doesn't match the platform's standard SDK object. They carry the exact behavior
+`createGoogleHandler`/`createAzureHandler` had before this package's `1.0.0-beta.1`: a handler over
+a normalized event struct, with the field mapping written by you at the boundary.
+
+```ts
+import { createGoogleEventHandler } from '@nextrush/adapter-serverless';
+
+const api = createGoogleEventHandler(app);
 functions.http('api', async (req, res) => {
   const result = await api({
     method: req.method,
@@ -87,28 +117,13 @@ functions.http('api', async (req, res) => {
 });
 ```
 
-```ts
-// Azure Functions (v4 model)
-import { createAzureHandler } from '@nextrush/adapter-serverless';
-import { app as functions } from '@azure/functions';
-
-const api = createAzureHandler(app);
-functions.http('api', {
-  handler: async (req) => {
-    const result = await api({
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers),
-      body: await req.text(),
-    });
-    return { status: result.status, headers: result.headers, body: result.body };
-  },
-});
-```
-
 > [!NOTE]
-> Cloudflare Workers is not a serverless-event platform (it speaks the Fetch API directly), so its
-> one-line handler -- `createCloudflareHandler` -- ships in `@nextrush/adapter-edge`, not here.
+> **Migrating from `1.0.0-beta.0`?** `createGoogleHandler`/`createAzureHandler` changed from a
+> struct-taking handler to a true drop-in in `1.0.0-beta.1` (see
+> [RFC-027](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/027-serverless-gcf-azure-drop-in-handlers.md)).
+> If you have an existing hand-written bridge, either delete it and call the drop-in directly, or
+> rename your call to `createGoogleEventHandler`/`createAzureEventHandler` to keep it working
+> unchanged.
 
 ## Tuning
 
@@ -118,7 +133,7 @@ export const handler = createLambdaHandler(app, { timeout: 5000 });
 
 | Option | Type | Required | Default | Security-sensitive | Description |
 | --- | --- | --- | --- | --- | --- |
-| `timeout` | `number` | No | `25000` (edge default) | -- | Per-invocation cap in ms; exceeding it returns a 504 result instead of hanging |
+| `timeout` | `number` | No | `24000` (edge default) | -- | Per-invocation cap in ms; exceeding it returns a 504 result instead of hanging |
 
 ## Response streaming (AWS Lambda Function URL)
 
@@ -164,15 +179,20 @@ per-adapter and immutable -- there is no global mutable mapper registry.
 
 | Export | Signature | Since | Stability | Description |
 | --- | --- | --- | --- | --- |
-| `createLambdaHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<LambdaEvent, LambdaResult>` | 1.0.0 | Stable | AWS Lambda handler; auto-detects Function URL / API Gateway v1/v2 |
-| `createLambdaStreamingHandler` | `(app: Application, options?: ServerlessHandlerOptions) => StreamingLambdaHandler` | 1.0.0 | Stable | True Function URL response streaming |
-| `createGoogleHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<GcfEvent, GcfResult>` | 1.0.0 | Stable | Google Cloud Functions (functions-framework) handler |
-| `createAzureHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<AzureEvent, AzureResult>` | 1.0.0 | Stable | Azure Functions v4 handler |
-| `createServerlessAdapter` | `(options: ServerlessAdapterOptions<Event, Result, Ctx>) => { createHandler(app): ServerlessHandler<Event, Result, Ctx> }` | 1.0.0 | Stable | Runtime-author escape hatch -- build a handler from a custom `EventMapper` list |
-| `type EventMapper<Event, Result, Ctx>` | -- | 1.0.0 | Stable | The plugin shape: `toRequest`, `fromResponse`, optional `detect` |
-| `type ServerlessHandlerOptions` | -- | 1.0.0 | Stable | `{ timeout?: number }` -- Tier-1 handler tuning |
-| `type ServerlessAdapterOptions<Event, Result, Ctx>` | -- | 1.0.0 | Stable | `{ mappers, provider?, timeout? }` -- Tier-3 adapter configuration |
-| `lambdaFunctionUrl`, `apigwV1`, `apigwV2`, `gcf`, `azure` | `EventMapper<...>` | 1.0.0 | Stable | The built-in mappers each Tier-1 handler wires internally |
+| `createLambdaHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<LambdaEvent, LambdaResult>` | 1.0.0-beta.0 | Internal | AWS Lambda handler; auto-detects Function URL / API Gateway v1/v2 |
+| `createLambdaStreamingHandler` | `(app: Application, options?: ServerlessHandlerOptions) => StreamingLambdaHandler` | 1.0.0-beta.0 | Internal | True Function URL response streaming |
+| `createGoogleHandler` | `(app: Application, options?: ServerlessHandlerOptions) => (req: GcfHttpRequest, res: GcfHttpResponse) => Promise<void>` | 1.0.0-beta.1 | Internal | Google Cloud Functions true drop-in -- pass directly to `functions.http('api', handler)` |
+| `createAzureHandler` | `(app: Application, options?: ServerlessHandlerOptions) => (req: AzureHttpRequestLike) => Promise<AzureHttpResponseLike>` | 1.0.0-beta.1 | Internal | Azure Functions v4 true drop-in -- pass directly to `app.http('api', { handler })` |
+| `createGoogleEventHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<GcfEvent, GcfResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createGoogleHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
+| `createAzureEventHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<AzureEvent, AzureResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createAzureHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
+| `createServerlessAdapter` | `(options: ServerlessAdapterOptions<Event, Result, Ctx>) => { createHandler(app): ServerlessHandler<Event, Result, Ctx> }` | 1.0.0-beta.0 | Internal | Runtime-author escape hatch -- build a handler from a custom `EventMapper` list |
+| `toGcfEvent`, `writeGcfResult` | `(req: GcfHttpRequest) => GcfEvent`; `(res: GcfHttpResponse, result: GcfResult) => void` | 1.0.0-beta.1 | Internal | The pure bridge functions `createGoogleHandler` composes -- exported for a custom drop-in variant |
+| `toAzureEvent`, `toAzureResponse` | `(req: AzureHttpRequestLike) => Promise<AzureEvent>`; `(result: AzureResult) => AzureHttpResponseLike` | 1.0.0-beta.1 | Internal | The pure bridge functions `createAzureHandler` composes -- exported for a custom drop-in variant |
+| `type EventMapper<Event, Result, Ctx>` | -- | 1.0.0-beta.0 | Internal | The plugin shape: `toRequest`, `fromResponse`, optional `detect` |
+| `type ServerlessHandlerOptions` | -- | 1.0.0-beta.0 | Internal | `{ timeout?: number }` -- Tier-1 handler tuning |
+| `type ServerlessAdapterOptions<Event, Result, Ctx>` | -- | 1.0.0-beta.0 | Internal | `{ mappers, provider?, timeout?, platform? }` -- Tier-3 adapter configuration |
+| `type GcfHttpRequest`, `GcfHttpResponse`, `AzureHttpRequestLike`, `AzureHttpResponseLike` | -- | 1.0.0-beta.1 | Internal | Structural (duck-typed) shapes the real GCF/Azure SDK objects satisfy -- no SDK dependency |
+| `lambdaFunctionUrl`, `apigwV1`, `apigwV2`, `gcf`, `azure` | `EventMapper<...>` | 1.0.0-beta.0 | Internal | The built-in mappers each Tier-1 handler wires internally |
 
 ## Compatibility
 
@@ -230,9 +250,47 @@ export const handler = createLambdaHandler(app);
 **Cause:** this package's `ctx.runtime` value is `'edge'` on every provider (see the callout in
 Quick start), not `'node'` -- it inherits `@nextrush/adapter-edge`'s runtime detection.
 **Fix:** branch on a capability (e.g. an explicit option you pass in) instead of `ctx.runtime`, or
-check `ctx.env`/platform-specific fields directly if you need to distinguish providers.
+check `ctx.env`/platform-specific fields directly if you need to distinguish providers. `ctx.platform`
+is the supported way to name the provider (`'lambda' | 'gcf' | 'azure'`).
 
 </details>
+
+### Diagnostics reference
+
+**Mapper guard errors.** A mapper throws a named `[nextrush/serverless]` error, rather than a raw
+`TypeError` from framework internals, when the event it received cannot be the payload format it
+translates. Verbatim from `src/mappers/`:
+
+| Thrown by | Message |
+| --- | --- |
+| `_v2.ts` (Function URL / API Gateway HTTP API) | `[nextrush/serverless] Received an event with no requestContext.http.method — this mapper expects payload format 2.0 (AWS Lambda Function URL or API Gateway HTTP API). This usually means the event came from a different payload format (API Gateway v1, GCF, or Azure) or an incomplete test fixture.` |
+| `apigw-v1.ts` | `[nextrush/serverless] The apigw-v1 mapper received an event with no httpMethod. This usually means the event came from a different payload format (API Gateway v2, GCF, or Azure) or an incomplete test fixture — pass a real API Gateway REST API (v1) event.` |
+| `gcf.ts` | `[nextrush/serverless] The gcf mapper received an event with no method. This usually means the request-to-event bridge at your function's entry point is incomplete — check that it maps req.method onto the event's method field before calling the handler.` |
+| `azure.ts` | `[nextrush/serverless] The azure mapper received an event with no method.` / `... with no url.` — same "incomplete request-to-event bridge" guidance |
+
+The two "incomplete bridge" messages point at *your* bridge, so they can only fire on the
+struct-based path (`createGoogleEventHandler` / `createAzureEventHandler`); the drop-in handlers
+build the event themselves.
+
+**Missing raw body on GCF.** If `req.rawBody` is absent and `req.body` is a parsed object,
+`toGcfEvent` omits the body and warns with a `[nextrush/serverless]` prefix naming `rawBody` as the
+missing capability, instead of stringifying the object into `"[object Object]"`. Configure your
+function host to preserve `rawBody` if the request body matters.
+
+**Diagnostics inherited from `@nextrush/adapter-edge`.** Because every invocation here runs through
+edge's fetch engine, three of its development-mode diagnostics apply on Lambda/GCF/Azure too:
+
+- **`ctx.waitUntil()` no-op warning** — serverless invocations supply no execution context, so a
+  promise passed to `ctx.waitUntil()` is dropped without running. Outside production the first such
+  call warns once per context.
+- **Boot-reuse warning** — if a *different* `Application` boots in the same process than the one
+  that booted first (the mechanical signature of calling `createApp()` inside the exported handler),
+  a one-time development warning fires.
+- **Timeout attribution** — a 504 logs the effective timeout and whether it came from the default or
+  an explicit `options.timeout`, plus the method and path.
+
+Exact wording and the production/development gating are documented in
+[`@nextrush/adapter-edge`'s README](../edge/README.md#diagnostics).
 
 ## FAQ
 

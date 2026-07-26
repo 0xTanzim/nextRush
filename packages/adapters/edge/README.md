@@ -70,6 +70,11 @@ exposes a thin, platform-shaped wrapper per target.
 - You are running on Bun or Deno directly (not via an edge platform) -> use
   [`@nextrush/adapter-bun`](../bun) or [`@nextrush/adapter-deno`](../deno).
 
+> [!TIP]
+> Still unsure which of `adapter-edge` vs. `adapter-serverless` a given platform needs? See the
+> [full "which package do I install?" table](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/start/runtime/decision-guide.mdx) --
+> one shared answer instead of re-deriving it per package.
+
 ## Installation
 
 ```bash
@@ -234,7 +239,7 @@ const handler = createCloudflareHandler(app, {
 | `createVercelHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Vercel Edge Function handler (delegates to `createFetchHandler`) |
 | `createNetlifyHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Netlify Edge Function handler (delegates to `createFetchHandler`) |
 | `createHandler` | same as `createFetchHandler` | `1.0.0` | Internal | Alias of `createFetchHandler`, kept for naming consistency with other adapters |
-| `DEFAULT_EDGE_TIMEOUT_MS` | `25_000` | `1.0.0` | Internal | Default request timeout in ms when `options.timeout` is omitted |
+| `DEFAULT_EDGE_TIMEOUT_MS` | `24_000` | `1.0.0` | Internal | Default request timeout in ms when `options.timeout` is omitted |
 | `detectEdgeRuntime` | `() => EdgeRuntimeInfo` | `1.0.0` | Internal | Detects which edge platform is running -- see Runtime detection below |
 | `EdgeContext` | class | `1.0.0` | Internal | `Context` implementation for edge runtimes |
 | `createEdgeContext` | `<Env>(request, executionContext?, trustProxy?, env?) => EdgeContext<Env>` | `1.0.0` | Internal | Constructs an `EdgeContext` directly |
@@ -250,7 +255,63 @@ const handler = createCloudflareHandler(app, {
 | Option | Type | Required | Default | Security-sensitive | Description |
 | ------ | ---- | -------- | ------- | ------------------- | ------------ |
 | `onError` | `(error: Error, ctx: EdgeContext) => Response \| Promise<Response>` | No | built-in JSON 500 | -- | Custom error handler; receives the thrown error and the in-flight context |
-| `timeout` | `number` | No | `25000` (`DEFAULT_EDGE_TIMEOUT_MS`) | -- | Request timeout in ms; races the handler and returns `504` on expiry, aborting `ctx.signal`. `0` disables the framework timeout (the platform's own limit still applies) |
+| `timeout` | `number` | No | `24000` (`DEFAULT_EDGE_TIMEOUT_MS`) | -- | Request timeout in ms; races the handler and returns `504` on expiry, aborting `ctx.signal`. `0` disables the framework timeout (the platform's own limit still applies) |
+| `platform` | `PlatformId` | No | detected (see below) | -- | Overrides the detected value of `ctx.platform`. Set by `@nextrush/adapter-serverless`'s Tier-1 handlers, which know their provider unambiguously; application code on Cloudflare/Vercel/Netlify does not need it |
+
+## Platform reporting (`ctx.platform`)
+
+`ctx.runtime` answers "what kind of runtime am I on" (`'edge'` here, on every host). `ctx.platform`
+answers the different question "which named deployment platform is this", typed as
+`PlatformId | undefined` where `PlatformId` is
+`'lambda' | 'gcf' | 'azure' | 'cloudflare-workers' | 'vercel-edge' | 'netlify-edge'`.
+
+| Host | `ctx.runtime` | `ctx.platform` | How it is resolved |
+| ----- | ------------- | -------------- | ------------------- |
+| Cloudflare Workers | `'cloudflare-workers'` | `'cloudflare-workers'` | Auto-detected by `detectPlatform()` |
+| Vercel Edge | `'vercel-edge'` | `'vercel-edge'` | Auto-detected |
+| Netlify Edge | `'edge'` | `'netlify-edge'` | Auto-detected |
+| Any other Fetch host | `'edge'` | `undefined` | Nothing matched, and nothing was passed |
+| Lambda / GCF / Azure via `@nextrush/adapter-serverless` | `'edge'` | `'lambda'` / `'gcf'` / `'azure'` | Passed explicitly by that package's Tier-1 handler |
+
+`detectPlatform()` reuses `detectEdgeRuntime()`'s exact three named-platform probes and has no
+serverless branch: a FaaS platform is never guessed here, only ever declared through
+`FetchHandlerOptions.platform`. An explicit value always wins over detection. `ctx.platform` was
+added additively in RFC-026; `ctx.runtime`'s type and values are unchanged.
+
+## Diagnostics
+
+Three development-mode diagnostics exist to make otherwise-silent failures attributable. All three
+are gated on `app.isProduction` being false, except the timeout log, which always fires.
+
+**`ctx.waitUntil()` with no execution context** — the promise is dropped without running (unchanged
+behavior). Outside production the first such call per context warns:
+
+> `[nextrush/edge] ctx.waitUntil() was called, but this platform provided no execution context — the promise was dropped without running. This is expected on platforms with no background-task support (e.g. Vercel Edge); on Cloudflare Workers it usually means `ctx` was not passed through to createCloudflareHandler. (This message appears in development only.)`
+
+**A second, different `Application` booting in the same isolate** — the mechanical signature of
+building the app inside the exported handler instead of at module scope. Warns once per module
+instance, outside production:
+
+> `[nextrush/edge] A different Application booted in this process/isolate than the one that booted first. This usually means createApp() (or createFetchHandler/createCloudflareHandler/createVercelHandler/createNetlifyHandler) is being called inside the exported handler instead of at module scope — rebuilding the app on every invocation defeats warm-instance reuse and increases cold-start-like latency on every request. Build the app once, at module scope, above the export. (This message appears in development only.)`
+
+**Timeout attribution** — when the timeout race wins, `app.logger.warn` records the effective
+timeout, whether it came from the default or an explicit option, and the request:
+
+> `[nextrush/edge] Request timed out after 24000ms (default) — returning 504. GET /slow`
+
+The source reads `default` when `options.timeout` was omitted and `explicit options.timeout` when it
+was supplied.
+
+**`ctx.ip` reads empty with `trustProxy` off** — Edge has no raw socket to fall back to, so
+`ctx.ip` is only ever populated from a proxy header (`CF-Connecting-IP`, `X-Forwarded-For`, …),
+which is only trusted when `createApp({ proxy: true })` was set. Reading `ctx.ip` while `proxy` is
+unset returns `''`, and warns once per context, outside production:
+
+> `[nextrush/edge] ctx.ip is an empty string because trustProxy is false (the default) — Edge has no socket to fall back to, so no proxy headers means no IP. If this app runs behind a trusted proxy (e.g. Cloudflare, which sets cf-connecting-ip), pass { proxy: true } to createApp() to resolve it from headers. (This message appears in development only.)`
+
+See `createApp`'s `proxy` option in [`@nextrush/core`'s README](https://github.com/0xTanzim/nextRush/blob/main/packages/core/README.md)
+for what setting it does elsewhere in the framework; this warning exists only on this adapter,
+since Node/Bun/Deno have a real socket to fall back to and never hit an unconditionally-empty `ip`.
 
 ## Runtime detection
 
@@ -291,7 +352,7 @@ Result is cached after the first call within a given isolate.
 
 | Requirement | Version |
 | ----------- | ------- |
-| NextRush | `1.x` (`@nextrush/core`) |
+| NextRush | `3.x` (`@nextrush/core`) |
 | Node.js (local build/test only) | `>=22` |
 | TypeScript | `>=5.x` |
 
@@ -330,7 +391,9 @@ Edge runtimes share constraints this package does not paper over:
 No. `detectEdgeRuntime()` has no Lambda branch; it only distinguishes Cloudflare, Vercel, and
 Netlify, defaulting to the generic `'edge'` otherwise. `@nextrush/adapter-serverless` is built
 on this package and inherits the same detection, so Lambda deployments also report
-`runtime: 'edge'` -- verified in `packages/runtime/src/detection.ts`.
+`runtime: 'edge'` -- verified in `packages/runtime/src/detection.ts`. Use `ctx.platform`, which
+serverless's Tier-1 handlers set explicitly (`'lambda'`, `'gcf'`, `'azure'`), to identify the
+provider.
 
 **Why is this package tier "Internal" instead of "Public"?**
 Per [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md),

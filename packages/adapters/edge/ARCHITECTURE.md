@@ -145,7 +145,7 @@ src/
 | Module | Responsibility (the one thing it owns) |
 | ------ | ---------------------------------------- |
 | `adapter.ts` | The shared request runner and every platform-specific handler factory |
-| `context.ts` | `EdgeContext` — the per-request `Context` implementation for edge runtimes |
+| `context.ts` | `EdgeContext` — the per-request `Context` implementation for edge runtimes, including `ctx.platform` resolution (explicit value wins, else `detectPlatform()`) and the development-mode `ctx.waitUntil()` no-op warning |
 | `body-source.ts` | Re-export point for the cross-runtime body-reading implementation |
 | `utils.ts` | Re-export point for edge runtime detection; two deprecated header helpers |
 
@@ -202,12 +202,31 @@ runs lazily on the *first* request rather than eagerly at module load, because e
 have no `listen()`/`serve()` phase to hook into. The resulting `bootPromise` is memoized, so
 every request after the first awaits the same cached promise instead of re-running setup.
 
+### Platform identity and diagnostics on this path
+
+Two things ride along the same construction path, both added after the original design:
+
+- **`ctx.platform` (RFC-026).** The runner passes `options.platform` into `createEdgeContext`, and
+  `EdgeContext` resolves `platform ?? detectPlatform().platform`. `detectPlatform()` recognizes only
+  Cloudflare Workers, Vercel Edge, and Netlify Edge — the same three probes as
+  `detectEdgeRuntime()`, cached the same way. Serverless platforms are never detected: they arrive
+  only as an explicit literal from `@nextrush/adapter-serverless`'s Tier-1 handlers. `ctx.runtime` is
+  untouched by this.
+- **Boot-reuse detection.** Module-scope `bootedApps` (a `WeakSet<Application>`), `hasBootedAnyApp`,
+  and `warnedBootReuse` let the boot barrier notice that a *different* `Application` booted in this
+  isolate than the one that booted first — the mechanical signature of `createApp()` being called
+  inside the exported handler. It warns once, outside production only, and never changes behavior.
+  The timeout path additionally records `timeoutSource` (`'default'` vs
+  `'explicit options.timeout'`) so a 504 is attributable from the log alone. Exact message text is
+  in `README.md`'s Diagnostics section.
+
 ## State ownership
 
 | Owner | State it owns | Scope |
 | ----- | -------------- | ----- |
 | `createRequestRunner`'s closure | `bootPromise` (the memoized boot barrier) | isolate-lifetime, shared across requests |
-| `EdgeContext` | request/response state, `params`, `env`, `executionContext` | per-request |
+| `EdgeContext` | request/response state, `params`, `env`, `executionContext`, `platform`, the once-per-context `waitUntil` warning flag | per-request |
+| Module scope in `adapter.ts` | `bootedApps` (WeakSet), `hasBootedAnyApp`, `warnedBootReuse` — the once-per-module-instance boot-reuse warning bookkeeping | module instance (isolate) |
 | `@nextrush/runtime`'s `WebResponseBuilder` (composed into `EdgeContext`) | accumulated response headers/body/status | per-request |
 
 ---
@@ -252,7 +271,7 @@ forwarded-IP header by default — the caller must explicitly pass `trustProxy: 
 
 **Supported extension points:**
 - `FetchHandlerOptions.onError` — override the default JSON 500 error response.
-- `FetchHandlerOptions.timeout` — override the default 25s framework timeout, including
+- `FetchHandlerOptions.timeout` — override the default 24s framework timeout, including
   disabling it (`0`).
 - The generic `createFetchHandler`/`createHandler` — usable directly on any Fetch-API host not
   named Cloudflare, Vercel, or Netlify.
@@ -287,7 +306,7 @@ The following are part of the package architecture. They do not change without a
 
 | Decision | Chosen | Trade-off accepted | Reference |
 | -------- | ------ | -------------------- | --------- |
-| Default request timeout when unspecified | `25_000` ms (`DEFAULT_EDGE_TIMEOUT_MS`) | Below Cloudflare Workers' ~30s CPU limit but exactly at Vercel Edge's 25s wall limit — a slow handler on Vercel may still hit the platform's own limit before the framework's `504` fires | [ADR-0010](../../../docs/adr/ADR-0010-cross-runtime-parity-hardening.md) |
+| Default request timeout when unspecified | `24_000` ms (`DEFAULT_EDGE_TIMEOUT_MS`) | Below both Cloudflare Workers' ~30s CPU limit and Vercel Edge's 25s wall limit, with margin on the latter — the framework's `504` fires before the platform's own kill on either | [ADR-0010](../../../docs/adr/ADR-0010-cross-runtime-parity-hardening.md) |
 | Context implementation shared with Bun/Deno adapters | Extend `WebContextBase` from `@nextrush/runtime` rather than a bespoke `EdgeContext` implementation | Edge-specific behavior (env bindings, waitUntil) must be layered on top of a shared base rather than written in full isolation | [ADR-0010](../../../docs/adr/ADR-0010-cross-runtime-parity-hardening.md) |
 | Compile-time adapter-contract conformance | `satisfies`-style guard variables (`_edgeConformance`, `_edgeContextFactory`) in `adapter.ts` | Adds two unused-looking module-level `const`s that exist purely to fail the build on drift | [RFC-013](../../../docs/RFC/runtime-adapters/013-adapter-contract.md) |
 
@@ -307,7 +326,7 @@ parity hardening (ADR-0010) exist to prevent.
 - **Unit:** `adapter.test.ts` (handler factories), `context.test.ts` (`EdgeContext` behavior),
   `body-source.test.ts`, `utils.test.ts` (runtime detection re-exports).
 - **Invariant tests:** `public-surface.test.ts` locks the exported surface;
-  `default-timeout.test.ts` locks the `25_000` ms default and its override behavior.
+  `default-timeout.test.ts` locks the `24_000` ms default and its override behavior.
 - **Conformance / cross-adapter parity:** `packages/adapters/conformance` (out of scope for
   this document — private, internal test infrastructure) exercises this adapter alongside
   node/bun/deno for observable-behavior parity.
