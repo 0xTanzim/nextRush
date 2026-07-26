@@ -14,6 +14,10 @@
     "./class": {
       "types": "./dist/class.d.ts",
       "import": "./dist/class.js"
+    },
+    "./nextjs": {
+      "types": "./dist/nextjs.d.ts",
+      "import": "./dist/nextjs.js"
     }
   },
   "files": [
@@ -77,11 +81,15 @@
     "@nextrush/types": "workspace:*"
   },
   "peerDependencies": {
+    "@nextrush/adapter-nextjs": "workspace:*",
     "@nextrush/class": "workspace:*",
     "@nextrush/di": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
   "peerDependenciesMeta": {
+    "@nextrush/adapter-nextjs": {
+      "optional": true
+    },
     "@nextrush/class": {
       "optional": true
     },
@@ -93,6 +101,7 @@
     }
   },
   "devDependencies": {
+    "@nextrush/adapter-nextjs": "workspace:*",
     "@nextrush/body-parser": "workspace:*",
     "@nextrush/class": "workspace:*",
     "@nextrush/compression": "workspace:*",
