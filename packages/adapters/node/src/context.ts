@@ -29,6 +29,7 @@ import type {
     IncomingHeaders,
     NDJSONStreamWriter,
     NodeStreamLike,
+    PlatformId,
     QueryParams,
     RawHttp,
     ResponseBody,
@@ -135,6 +136,12 @@ export class NodeContext implements AdapterContext {
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly runtime: Runtime;
+
+  /**
+   * Named deployment platform (RFC-026). Always `undefined` on the Node.js
+   * adapter — no named FaaS platform reporting is defined for `adapter-node`.
+   */
+  readonly platform: PlatformId | undefined = undefined;
 
   /**
    * BP-F: backing field for the lazily-built {@link bodySource}. A body-method

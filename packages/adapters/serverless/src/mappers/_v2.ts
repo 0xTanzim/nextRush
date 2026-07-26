@@ -47,7 +47,17 @@ export function base64ToBytes(b64: string): Uint8Array {
 }
 
 export function v2ToRequest(event: ApiGatewayV2Event): Request {
-  const method = event.requestContext.http.method.toUpperCase();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- the type says non-optional, but this reads an untrusted external event that can violate its own type at runtime (see the guard below).
+  const rawMethod = event.requestContext?.http?.method;
+  if (typeof rawMethod !== 'string') {
+    throw new Error(
+      '[nextrush/serverless] Received an event with no requestContext.http.method — this mapper ' +
+        'expects payload format 2.0 (AWS Lambda Function URL or API Gateway HTTP API). This usually ' +
+        'means the event came from a different payload format (API Gateway v1, GCF, or Azure) or an ' +
+        'incomplete test fixture.'
+    );
+  }
+  const method = rawMethod.toUpperCase();
   const path = event.rawPath ?? '/';
   const qs = event.rawQueryString !== undefined && event.rawQueryString !== '' ? `?${event.rawQueryString}` : '';
 

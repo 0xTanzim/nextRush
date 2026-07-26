@@ -31,6 +31,13 @@ export interface GcfResult {
 }
 
 function toRequest(event: GcfEvent): Request {
+  if (typeof event.method !== 'string') {
+    throw new Error(
+      '[nextrush/serverless] The gcf mapper received an event with no method. This usually means the ' +
+        'request-to-event bridge at your function\'s entry point is incomplete — check that it maps ' +
+        "req.method onto the event's method field before calling the handler."
+    );
+  }
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(event.query ?? {})) {
     if (Array.isArray(value)) for (const v of value) params.append(key, v);

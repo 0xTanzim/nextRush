@@ -14,9 +14,13 @@ import type {
   ApiGatewayV2Result,
   AwsLambdaStreaming,
   AzureEvent,
+  AzureHttpRequestLike,
+  AzureHttpResponseLike,
   AzureResult,
   EventMapper,
   GcfEvent,
+  GcfHttpRequest,
+  GcfHttpResponse,
   GcfResult,
   LambdaEvent,
   LambdaFunctionUrlEvent,
@@ -39,11 +43,18 @@ describe('Public API surface (runtime exports)', () => {
       // Tier 1: per-provider handlers (what 95% of users import)
       'createLambdaHandler',
       'createGoogleHandler',
+      'createGcfHandler',
       'createAzureHandler',
       'createLambdaStreamingHandler',
 
       // Advanced / Runtime authors only (Tier 3)
       'createServerlessAdapter',
+      'createGoogleEventHandler',
+      'createAzureEventHandler',
+      'toGcfEvent',
+      'writeGcfResult',
+      'toAzureEvent',
+      'toAzureResponse',
 
       // Built-in mappers (Tier 3 building blocks)
       'lambdaFunctionUrl',
@@ -82,6 +93,10 @@ describe('Public API surface (type-only exports)', () => {
       GcfResult,
       AzureEvent,
       AzureResult,
+      GcfHttpRequest,
+      GcfHttpResponse,
+      AzureHttpRequestLike,
+      AzureHttpResponseLike,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

@@ -48,6 +48,13 @@ function buildQueryString(event: ApiGatewayV1Event): string {
 }
 
 function toRequest(event: ApiGatewayV1Event): Request {
+  if (typeof event.httpMethod !== 'string') {
+    throw new Error(
+      '[nextrush/serverless] The apigw-v1 mapper received an event with no httpMethod. This usually ' +
+        'means the event came from a different payload format (API Gateway v2, GCF, or Azure) or an ' +
+        'incomplete test fixture — pass a real API Gateway REST API (v1) event.'
+    );
+  }
   const method = event.httpMethod.toUpperCase();
   const url = `http://localhost${event.path ?? '/'}${buildQueryString(event)}`;
 

@@ -66,12 +66,15 @@ function resolveMapper<Event, Result, Ctx>(
 export function createServerlessAdapter<Event, Result, Ctx = unknown>(
   options: ServerlessAdapterOptions<Event, Result, Ctx>
 ): { createHandler(app: Application): ServerlessHandler<Event, Result, Ctx> } {
-  const { mappers, provider, timeout } = options;
+  const { mappers, provider, timeout, platform } = options;
   return {
     createHandler(app: Application): ServerlessHandler<Event, Result, Ctx> {
       // Reuse the edge fetch engine: boots ready() once (warm reuse), races the
       // per-invocation timeout to a 504, and runs the shared Context pipeline.
-      const engine = createEdgeFetchHandler(app, timeout !== undefined ? { timeout } : {});
+      const engine = createEdgeFetchHandler(app, {
+        ...(timeout !== undefined ? { timeout } : {}),
+        ...(platform !== undefined ? { platform } : {}),
+      });
       return async (event: Event, platformCtx?: Ctx): Promise<Result> => {
         const mapper = resolveMapper(mappers, provider, event);
         const request = mapper.toRequest(event, platformCtx);

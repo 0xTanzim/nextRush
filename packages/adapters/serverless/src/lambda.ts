@@ -51,6 +51,9 @@ const lambdaMappers: readonly EventMapper<LambdaEvent, LambdaResult>[] = [
  * @param options - Optional Tier-2 tuning ({@link ServerlessHandlerOptions}).
  * @returns A Lambda handler `(event, context?) => Promise<result>`.
  *
+ * @see {@link createLambdaStreamingHandler} for true Function URL response streaming —
+ * buffered vs. streaming is a different handler, not an option on this one.
+ *
  * @example
  * ```typescript
  * export const handler = createLambdaHandler(app);
@@ -64,6 +67,7 @@ export function createLambdaHandler(
 ): ServerlessHandler<LambdaEvent, LambdaResult> {
   return createServerlessAdapter<LambdaEvent, LambdaResult>({
     mappers: lambdaMappers,
+    platform: 'lambda',
     ...(options.timeout !== undefined ? { timeout: options.timeout } : {}),
   }).createHandler(app);
 }

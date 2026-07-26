@@ -31,6 +31,20 @@ export interface AzureResult {
 }
 
 function toRequest(event: AzureEvent): Request {
+  if (typeof event.method !== 'string') {
+    throw new Error(
+      '[nextrush/serverless] The azure mapper received an event with no method. This usually means ' +
+        "the request-to-event bridge at your function's entry point is incomplete — check that it maps " +
+        "req.method onto the event's method field before calling the handler."
+    );
+  }
+  if (typeof event.url !== 'string') {
+    throw new Error(
+      '[nextrush/serverless] The azure mapper received an event with no url. This usually means the ' +
+        "request-to-event bridge at your function's entry point is incomplete — check that it maps " +
+        "req.url onto the event's url field before calling the handler."
+    );
+  }
   const headers = new Headers();
   for (const [name, value] of Object.entries(event.headers ?? {})) {
     if (value !== undefined) headers.set(name, value);

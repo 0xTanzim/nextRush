@@ -8,6 +8,8 @@
  * @packageDocumentation
  */
 
+import type { PlatformId } from '@nextrush/types';
+
 /**
  * Maps a provider's native event to a Web `Request` and the produced `Response`
  * back to the provider's expected result shape.
@@ -55,6 +57,12 @@ export interface ServerlessAdapterOptions<Event, Result, Ctx = unknown> {
   readonly provider?: string;
   /** Per-invocation timeout in ms; races the handler and returns 504. */
   readonly timeout?: number;
+  /**
+   * The named platform this adapter runs on (RFC-026). Threaded onto
+   * `ctx.platform`; each Tier-1 handler passes its own known identity, so
+   * this is never detected here.
+   */
+  readonly platform?: PlatformId;
 }
 
 /** A serverless handler: platform event (+ context) → platform result. */
@@ -76,8 +84,7 @@ export interface ServerlessHandlerOptions {
    * produced instead of hanging the invocation.
    */
   readonly timeout?: number;
-  // NOTE: `streaming` is intentionally not exposed yet — true Function URL
-  // streaming (awslambda.streamifyResponse) is deferred (follow-up 5a.1); a
-  // no-op flag would be misleading DX. It lands here when the streamed result
-  // shape does.
+  // No `streaming` flag here — buffered vs. streaming is a different handler,
+  // not an option: see `createLambdaStreamingHandler` for true Function URL
+  // response streaming.
 }

@@ -67,6 +67,9 @@ function getAwsLambda(): AwsLambdaStreaming | undefined {
  * @param app - The NextRush application.
  * @param options - Optional Tier-2 tuning ({@link ServerlessHandlerOptions}).
  * @returns The streaming handler (streamify-wrapped on real Lambda).
+ *
+ * @see {@link createLambdaHandler} for the buffered (non-streaming) handler —
+ * use that one unless you specifically need true Function URL response streaming.
  */
 export function createLambdaStreamingHandler(
   app: Application,
