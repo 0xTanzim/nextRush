@@ -7,7 +7,30 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildDevArgs } from '../runtime/spawn.js';
+import { buildDevArgs, toDenoStdio } from '../runtime/spawn.js';
+
+describe('toDenoStdio', () => {
+  // Regression coverage for the bug found fixing this file's ESLint `any`-typing debt:
+  // this package's own `SpawnOptions.stdio` vocabulary (`inherit`/`pipe`/`ignore`,
+  // matching Node's `child_process`) was passed straight through to Deno's `Command`,
+  // which uses different literals (`inherit`/`piped`/`null`). `'pipe'` is not a valid
+  // Deno stdio value — this went undetected while `globalThis.Deno` was typed `any`.
+  it('maps this package\'s "pipe" to Deno\'s "piped"', () => {
+    expect(toDenoStdio('pipe')).toBe('piped');
+  });
+
+  it('maps this package\'s "ignore" to Deno\'s "null"', () => {
+    expect(toDenoStdio('ignore')).toBe('null');
+  });
+
+  it('passes "inherit" through unchanged (same literal on both sides)', () => {
+    expect(toDenoStdio('inherit')).toBe('inherit');
+  });
+
+  it('defaults to "inherit" when stdio is undefined', () => {
+    expect(toDenoStdio(undefined)).toBe('inherit');
+  });
+});
 
 describe('Process Spawning', () => {
   describe('buildDevArgs', () => {

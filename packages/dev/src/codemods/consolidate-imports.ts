@@ -25,7 +25,7 @@ interface ImportGroup {
  * Returns grouped imports by source package.
  */
 function parseImports(source: string): ImportGroup[] {
-  const groups: Map<string, ImportSpec[]> = new Map();
+  const groups = new Map<string, ImportSpec[]>();
 
   // Match: import [type] { ... } from '...';
   // Handles multi-line, aliases, and type imports
@@ -54,7 +54,7 @@ function parseImports(source: string): ImportGroup[] {
       })
       .filter((spec) => spec.name.length > 0);
 
-    const existing = groups.get(pkgSource) || [];
+    const existing = groups.get(pkgSource) ?? [];
     groups.set(pkgSource, [...existing, ...specs]);
   }
 

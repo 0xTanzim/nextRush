@@ -68,10 +68,7 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
   const resolvedEntry = entry ?? options.entry ?? findEntry();
   // Respect PORT env var if options.port is not explicitly set.
-  const port =
-    options.port !== undefined
-      ? options.port
-      : parseInt(process.env.PORT ?? '8080', 10) || 8080;
+  const port = options.port ?? (parseInt(process.env.PORT ?? '8080', 10) || 8080);
   const cwd = getCwd();
 
   // Clear screen unless disabled
@@ -229,7 +226,7 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
       // Otherwise surface a genuine crash instead of exiting 0 silently.
       if (exitCode !== 0 && exitCode !== null) {
-        error(`Dev process exited with code ${exitCode}.`);
+        error(`Dev process exited with code ${String(exitCode)}.`);
         exitProcess(exitCode);
       }
     });

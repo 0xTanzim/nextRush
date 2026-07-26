@@ -7,7 +7,8 @@
  */
 
 import { detectRuntime } from '../../runtime/detect.js';
-import { NODE_FS_PROMISES } from '../../runtime/node-modules.js';
+import { getDenoGlobal } from '../../runtime/runtime-globals.js';
+import { getNodeFsPromises } from '../../runtime/node-modules.js';
 
 const runtime = detectRuntime();
 
@@ -16,7 +17,7 @@ const runtime = detectRuntime();
  */
 function generateTempSuffix(): string {
   // Use Date.now + random number for better cross-runtime compatibility
-  return `${Date.now()}.${Math.random().toString(36).slice(2, 10)}`;
+  return `${String(Date.now())}.${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**
@@ -27,16 +28,14 @@ function generateTempSuffix(): string {
  */
 export async function writeFileAtomic(path: string, content: string): Promise<void> {
   if (runtime === 'deno') {
+    const Deno = getDenoGlobal();
     const tempPath = `${path}.${generateTempSuffix()}.tmp`;
     try {
-      // @ts-expect-error Deno.writeTextFile exists in Deno runtime
-      await globalThis.Deno.writeTextFile(tempPath, content);
-      // @ts-expect-error Deno.rename exists in Deno runtime
-      await globalThis.Deno.rename(tempPath, path);
+      await Deno.writeTextFile(tempPath, content);
+      await Deno.rename(tempPath, path);
     } catch (err) {
       try {
-        // @ts-expect-error Deno.remove exists in Deno runtime
-        await globalThis.Deno.remove(tempPath);
+        await Deno.remove(tempPath);
       } catch {
         // Ignore cleanup errors
       }
@@ -46,7 +45,7 @@ export async function writeFileAtomic(path: string, content: string): Promise<vo
   }
 
   // Node.js / Bun
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
+  const fs = await getNodeFsPromises();
 
   const suffix = generateTempSuffix();
   const tempPath = `${path}.${suffix}.tmp`;

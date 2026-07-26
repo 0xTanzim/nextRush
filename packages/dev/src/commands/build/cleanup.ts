@@ -9,12 +9,12 @@
  */
 
 import { getCwd } from '../../runtime/index.js';
-import { NODE_FS_PROMISES, NODE_PATH } from '../../runtime/node-modules.js';
+import { getNodeFsPromises, getNodePath } from '../../runtime/node-modules.js';
 import { error } from '../../utils/logger.js';
 
 export async function cleanDirectory(dir: string, cwd?: string): Promise<void> {
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-  const path = await import(/* @vite-ignore */ NODE_PATH);
+  const fs = await getNodeFsPromises();
+  const path = await getNodePath();
 
   const workingDir = cwd ?? getCwd();
   const resolvedDir = path.resolve(workingDir, dir);

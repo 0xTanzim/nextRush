@@ -17,7 +17,8 @@
  */
 
 import { detectRuntime, type Runtime } from './detect.js';
-import { NODE_FS, NODE_FS_PROMISES, NODE_PATH, getNodeModule, getNodePath } from './node-modules.js';
+import { getDenoGlobal } from './runtime-globals.js';
+import { NODE_PATH, getNodeFsPromises, getNodeModule, getNodePath } from './node-modules.js';
 
 // Cache the runtime detection (called once at module load)
 const runtime: Runtime = detectRuntime();
@@ -32,10 +33,14 @@ let cachedPath: typeof import('node:path') | null = null;
 function initPathSync(): void {
   if (cachedPath || runtime === 'deno') return;
 
-  // In Bun, require is available globally
+  // In Bun, require is available globally, and it is the ONLY synchronous module-loading
+  // primitive available in an ESM context — there is no synchronous `import()`. Bare
+  // `require()` is intentional here, not an oversight; scoped inline (not file-wide)
+  // because this is genuinely the one call site in this function that needs it.
   if (runtime === 'bun' && typeof require === 'function') {
     try {
-      cachedPath = require(NODE_PATH);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- see comment above
+      cachedPath = require(NODE_PATH) as typeof import('node:path');
     } catch {
       // Fallback to async
     }
@@ -49,10 +54,11 @@ function initPathSync(): void {
 function getFsSync(): typeof import('node:fs') {
   if (cachedFs) return cachedFs;
 
-  // In Bun, require is available globally
+  // In Bun, require is available globally — same rationale as initPathSync above.
   if (runtime === 'bun' && typeof require === 'function') {
-    cachedFs = require('node:fs');
-    return cachedFs!;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- see initPathSync's comment
+    cachedFs = require('node:fs') as typeof import('node:fs');
+    return cachedFs;
   }
 
   // In Node.js ESM, require is not available directly.
@@ -71,16 +77,14 @@ export async function initFsSync(): Promise<void> {
   // semantics (`..` collapse, absolute-segment reset) are identical across runtimes and
   // resolvePath/joinPath never diverge (RFC-019 F-13) — Deno's old manual string-join
   // doubled an absolute segment, breaking `nextrush build` there.
-  if (!cachedPath) {
-    cachedPath = await getNodePath();
-  }
+  cachedPath ??= await getNodePath();
 
   if (runtime === 'deno') return; // Deno uses Deno.* for fs; only node:path is needed above.
 
   cachedFs ??= await (async (): Promise<typeof import('node:fs')> => {
     const nodeModule = await getNodeModule();
     const require = nodeModule.createRequire(import.meta.url);
-    return require(NODE_FS) as typeof import('node:fs');
+    return require('node:fs') as typeof import('node:fs');
   })();
 }
 
@@ -92,15 +96,15 @@ initPathSync();
  */
 export async function exists(path: string): Promise<boolean> {
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return globalThis.Deno.stat(path)
+    return getDenoGlobal()
+      .stat(path)
       .then(() => true)
       .catch(() => false);
   }
 
   // Node.js and Bun use Node.js fs API
   // Use variable to prevent esbuild from stripping node: prefix
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
+  const fs = await getNodeFsPromises();
   return fs
     .access(path)
     .then(() => true)
@@ -117,8 +121,7 @@ export async function exists(path: string): Promise<boolean> {
 export function existsSync(path: string): boolean {
   if (runtime === 'deno') {
     try {
-      // @ts-expect-error Deno global exists in Deno runtime
-      globalThis.Deno.statSync(path);
+      getDenoGlobal().statSync(path);
       return true;
     } catch {
       return false;
@@ -139,12 +142,11 @@ export function existsSync(path: string): boolean {
  */
 export async function readFile(path: string): Promise<string> {
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return globalThis.Deno.readTextFile(path);
+    return getDenoGlobal().readTextFile(path);
   }
 
   // Node.js and Bun use Node.js fs API
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
+  const fs = await getNodeFsPromises();
   return fs.readFile(path, 'utf-8');
 }
 
@@ -153,8 +155,7 @@ export async function readFile(path: string): Promise<string> {
  */
 export function readFileSync(path: string): string {
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return globalThis.Deno.readTextFileSync(path);
+    return getDenoGlobal().readTextFileSync(path);
   }
 
   const fs = getFsSync();
@@ -166,8 +167,7 @@ export function readFileSync(path: string): string {
  */
 export function getCwd(): string {
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return globalThis.Deno.cwd();
+    return getDenoGlobal().cwd();
   }
 
   return process.cwd();
@@ -178,12 +178,11 @@ export function getCwd(): string {
  */
 export async function writeFile(path: string, content: string): Promise<void> {
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    await globalThis.Deno.writeTextFile(path, content);
+    await getDenoGlobal().writeTextFile(path, content);
     return;
   }
 
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
+  const fs = await getNodeFsPromises();
   await fs.writeFile(path, content, 'utf-8');
 }
 
@@ -192,12 +191,11 @@ export async function writeFile(path: string, content: string): Promise<void> {
  */
 export async function mkdir(path: string): Promise<void> {
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    await globalThis.Deno.mkdir(path, { recursive: true });
+    await getDenoGlobal().mkdir(path, { recursive: true });
     return;
   }
 
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
+  const fs = await getNodeFsPromises();
   await fs.mkdir(path, { recursive: true });
 }
 

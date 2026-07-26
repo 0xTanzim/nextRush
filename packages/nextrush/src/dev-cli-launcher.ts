@@ -11,6 +11,10 @@
  * @see docs/adr/ADR-0013-nextrush-cli-launcher-discoverability.md
  */
 
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
 /** The `@nextrush/dev` CLI surface this launcher depends on. `cli()` reads `process.argv` itself. */
 export interface DevCliModule {
   readonly cli: (argv?: string[]) => void;
@@ -24,6 +28,15 @@ export interface DevCliLauncherDeps {
   readonly importDevCli?: () => Promise<DevCliModule>;
   readonly detectPackageManager?: () => LauncherPackageManager | null;
   readonly writeError?: (message: string) => void;
+  /**
+   * Directory `@nextrush/dev` must resolve relative to — the CONSUMING app's own directory,
+   * never this package's. Defaults to `process.cwd()` at the real call site. A bare
+   * `import('@nextrush/dev')` from inside this file would resolve against `nextrush`'s own
+   * `node_modules`, which deliberately never has `@nextrush/dev` linked (ADR-0013) — so every
+   * consumer, regardless of what THEY have installed, would see "not installed." See ADR-0013
+   * addendum and the regression test covering this.
+   */
+  readonly baseDir?: string;
 }
 
 const MISSING_DEV_TOOLKIT_PATTERN = /Cannot find (?:module|package) ['"]@nextrush\/dev['"]/;
@@ -100,11 +113,34 @@ function detectPackageManagerFromEnv(): LauncherPackageManager | null {
   return null;
 }
 
-async function importDevCliModule(): Promise<DevCliModule> {
-  // Non-literal specifier: `@nextrush/dev` is an optional peer, deliberately absent from this
-  // package's manifest, so the compiler must not require it to resolve at build time.
-  const specifier = '@nextrush/dev';
-  return (await import(specifier)) as DevCliModule;
+async function importDevCliModule(baseDir: string): Promise<DevCliModule> {
+  // Resolve relative to `baseDir` (the consuming app's own directory), never this file's own
+  // location — a bare `import('@nextrush/dev')` here would resolve against `nextrush`'s own
+  // node_modules, which never has `@nextrush/dev` linked by design (see DevCliLauncherDeps.baseDir).
+  //
+  // Neither `createRequire(baseDir).resolve()` (CJS-only — `@nextrush/dev`'s `exports` map has no
+  // `require` condition, per the repo's ESM-only rule) nor `import.meta.resolve(specifier, parent)`
+  // (the `parent` override is unreliable across Node versions — verified empirically: it silently
+  // resolves against THIS file's own URL instead of `parent` on the Node version this was built
+  // against) can do this correctly. Reading the target package's own `package.json` `exports` map
+  // directly is the same information Node's resolver would use, without either broken path.
+  const manifestPath = path.join(baseDir, 'node_modules', '@nextrush', 'dev', 'package.json');
+  let manifestContents: string;
+  try {
+    manifestContents = await readFile(manifestPath, 'utf8');
+  } catch {
+    throw new Error(`Cannot find package '@nextrush/dev' imported from ${baseDir}`);
+  }
+
+  const manifest = JSON.parse(manifestContents) as { exports?: { '.'?: { import?: string } } };
+  const entryRelativePath = manifest.exports?.['.']?.import;
+  if (!entryRelativePath) {
+    throw new Error(`@nextrush/dev's package.json at ${manifestPath} has no "exports['.'].import" entry`);
+  }
+
+  const packageDir = path.dirname(manifestPath);
+  const entryAbsolutePath = path.join(packageDir, entryRelativePath);
+  return (await import(pathToFileURL(entryAbsolutePath).href)) as DevCliModule;
 }
 
 function defaultWriteError(message: string): void {
@@ -124,7 +160,8 @@ function defaultWriteError(message: string): void {
  * @returns The exit code the launcher itself controls (non-zero when the toolkit is absent).
  */
 export async function runDevCliLauncher(argv: string[], deps: DevCliLauncherDeps = {}): Promise<number> {
-  const importDevCli = deps.importDevCli ?? importDevCliModule;
+  const baseDir = deps.baseDir ?? process.cwd();
+  const importDevCli = deps.importDevCli ?? (() => importDevCliModule(baseDir));
   const detectPm = deps.detectPackageManager ?? detectPackageManagerFromEnv;
   const writeError = deps.writeError ?? defaultWriteError;
 

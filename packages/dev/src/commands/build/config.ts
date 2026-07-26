@@ -29,7 +29,7 @@ export function resolveBuildOptions(options: BuildOptions): {
 } {
   return {
     outDir: options.outDir ?? 'dist',
-    target: (options.target ?? 'es2022') as 'es2020' | 'es2021' | 'es2022' | 'esnext',
+    target: options.target ?? 'es2022',
     sourcemap: options.sourcemap ?? true,
     minify: options.minify ?? false,
     decoratorMetadata: options.decoratorMetadata ?? true,

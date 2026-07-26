@@ -58,6 +58,46 @@ describe('runDevCliLauncher — actionable message (toolkit absent)', () => {
   });
 });
 
+describe('runDevCliLauncher — resolves relative to the consuming app, not this package', () => {
+  it('resolves @nextrush/dev from the caller-provided base directory where it IS installed, even though `nextrush` itself never depends on it', async () => {
+    // Reproduces the real bug found running `nextrush build` from apps/playground on
+    // 2026-07-24: @nextrush/dev was genuinely installed and built for the CONSUMING app, but
+    // the launcher's bare `import('@nextrush/dev')` resolves relative to dev-cli-launcher.js's
+    // OWN location inside packages/nextrush/dist/ — which deliberately has no @nextrush/dev
+    // dependency (ADR-0013) — so it always reports "not installed" regardless of what the
+    // actual invoking app has. The fix resolves from an explicit base directory (the real bin
+    // entry point passes `process.cwd()`) via `createRequire(baseDir).resolve(...)`, then
+    // dynamically imports the resolved absolute path — never a bare specifier resolved from
+    // this package's own location. This exercises the REAL default resolver (no `importDevCli`
+    // override), only `baseDir` is supplied, proving resolution itself is fixed.
+    const { runDevCliLauncher } = await import('../dev-cli-launcher.js');
+    const playgroundDir = new URL('../../../../apps/playground/', import.meta.url).pathname;
+
+    const code = await runDevCliLauncher(['--help'], { baseDir: playgroundDir });
+
+    // `@nextrush/dev`'s real cli() handles `--help` and returns without exiting the process
+    // (per its own CLI contract) — reaching code 0 here proves the module was FOUND and its
+    // real cli() ran, not that resolution was mocked away.
+    expect(code).toBe(0);
+  });
+
+  it('reports "not installed" when resolving from a directory that genuinely lacks @nextrush/dev', async () => {
+    const { runDevCliLauncher } = await import('../dev-cli-launcher.js');
+    const messages: string[] = [];
+    // packages/errors has no @nextrush/dev dependency and never will — a real "absent" case,
+    // proving the fix doesn't just make every directory look installed.
+    const errorsPackageDir = new URL('../../../errors/', import.meta.url).pathname;
+
+    const code = await runDevCliLauncher(['build'], {
+      baseDir: errorsPackageDir,
+      writeError: (m) => messages.push(m),
+    });
+
+    expect(code).toBe(1);
+    expect(messages.join('\n')).toContain('@nextrush/dev');
+  });
+});
+
 describe('buildMissingToolkitMessage — package-manager-aware install command (design D4)', () => {
   it.each([
     ['pnpm', 'pnpm add -D @nextrush/dev'],

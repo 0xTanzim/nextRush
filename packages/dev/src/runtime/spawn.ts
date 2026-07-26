@@ -10,7 +10,8 @@
 
 import { detectRuntime, type Runtime } from './detect.js';
 import { getCwd } from './fs.js';
-import { getSwcNodeRegisterPath, NODE_CHILD_PROCESS } from './node-modules.js';
+import { getSwcNodeRegisterPath, getNodeChildProcess } from './node-modules.js';
+import { getBunGlobal, getDenoGlobal } from './runtime-globals.js';
 
 // Memoize runtime detection to avoid repeated calls
 const memoizedRuntime: Runtime = detectRuntime();
@@ -57,7 +58,7 @@ async function spawnNode(
   args: string[],
   options: SpawnOptions
 ): Promise<SpawnResult> {
-  const { spawn: nodeSpawn } = await import(/* @vite-ignore */ NODE_CHILD_PROCESS);
+  const { spawn: nodeSpawn } = await getNodeChildProcess();
 
   // Use process.execPath for 'node' command to avoid PATH/.cmd issues on Windows
   const actualCommand = command === 'node' ? process.execPath : command;
@@ -71,19 +72,26 @@ async function spawnNode(
     stdio: options.stdio ?? 'inherit',
   });
 
-  const exitCallbacks: Array<(code: number | null) => void> = [];
-  const errorCallbacks: Array<(error: Error) => void> = [];
+  const exitCallbacks: ((code: number | null) => void)[] = [];
+  const errorCallbacks: ((error: Error) => void)[] = [];
 
   child.on('exit', (code: number | null) => {
-    exitCallbacks.forEach((cb) => cb(code));
+    exitCallbacks.forEach((cb) => { cb(code); });
   });
 
   child.on('error', (error: Error) => {
-    errorCallbacks.forEach((cb) => cb(error));
+    errorCallbacks.forEach((cb) => { cb(error); });
   });
 
   return {
     kill: (signal = 'SIGTERM') => {
+      // `SpawnResult.kill`'s public contract takes a plain string (this package's
+      // cross-runtime vocabulary); Node's real `ChildProcess.kill()` wants the narrower
+      // `NodeJS.Signals` union. The cast is legitimate here — every caller of this
+      // `kill` either uses the 'SIGTERM' default or passes a real signal name — unlike
+      // the `any`-typed version before this fix, `nodeSpawn`'s return is now properly
+      // typed, so this assertion is checked against a real, specific parameter type
+      // instead of silently accepting anything.
       child.kill(signal as NodeJS.Signals);
     },
     onExit: (callback) => {
@@ -103,8 +111,7 @@ async function spawnBun(
   args: string[],
   options: SpawnOptions
 ): Promise<SpawnResult> {
-  // @ts-expect-error Bun global exists in Bun runtime
-  const Bun = globalThis.Bun;
+  const Bun = getBunGlobal();
 
   const proc = Bun.spawn([command, ...args], {
     cwd: options.cwd ?? getCwd(),
@@ -115,16 +122,21 @@ async function spawnBun(
     stdio: [options.stdio ?? 'inherit', options.stdio ?? 'inherit', options.stdio ?? 'inherit'],
   });
 
-  const exitCallbacks: Array<(code: number | null) => void> = [];
-  const errorCallbacks: Array<(error: Error) => void> = [];
+  const exitCallbacks: ((code: number | null) => void)[] = [];
+  const errorCallbacks: ((error: Error) => void)[] = [];
 
   // Bun's exited is a Promise
   proc.exited
     .then((code: number) => {
-      exitCallbacks.forEach((cb) => cb(code));
+      exitCallbacks.forEach((cb) => {
+        cb(code);
+      });
     })
-    .catch((error: Error) => {
-      errorCallbacks.forEach((cb) => cb(error));
+    .catch((error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error));
+      errorCallbacks.forEach((cb) => {
+        cb(err);
+      });
     });
 
   return {
@@ -141,6 +153,26 @@ async function spawnBun(
 }
 
 /**
+ * Translate this package's cross-runtime `stdio` vocabulary (`inherit`/`pipe`/`ignore`,
+ * matching Node's `child_process`) to Deno's own `Command` stdio literals
+ * (`inherit`/`piped`/`null`) — the two runtimes name the same three semantic modes
+ * differently. Passing this package's `'pipe'` straight through to Deno was a genuine
+ * bug hiding behind `any` typing before {@link getDenoGlobal} existed: Deno's `Command`
+ * has no `'pipe'` literal, only `'piped'`.
+ */
+export function toDenoStdio(stdio: SpawnOptions['stdio']): 'inherit' | 'piped' | 'null' {
+  switch (stdio) {
+    case 'pipe':
+      return 'piped';
+    case 'ignore':
+      return 'null';
+    case 'inherit':
+    default:
+      return 'inherit';
+  }
+}
+
+/**
  * Deno spawn implementation
  */
 async function spawnDeno(
@@ -148,8 +180,8 @@ async function spawnDeno(
   args: string[],
   options: SpawnOptions
 ): Promise<SpawnResult> {
-  // @ts-expect-error Deno global exists in Deno runtime
-  const Deno = globalThis.Deno;
+  const Deno = getDenoGlobal();
+  const stdio = toDenoStdio(options.stdio);
 
   const proc = new Deno.Command(command, {
     args,
@@ -158,20 +190,25 @@ async function spawnDeno(
       ...Deno.env.toObject(),
       ...options.env,
     },
-    stdin: options.stdio ?? 'inherit',
-    stdout: options.stdio ?? 'inherit',
-    stderr: options.stdio ?? 'inherit',
+    stdin: stdio,
+    stdout: stdio,
+    stderr: stdio,
   }).spawn();
 
-  const exitCallbacks: Array<(code: number | null) => void> = [];
-  const errorCallbacks: Array<(error: Error) => void> = [];
+  const exitCallbacks: ((code: number | null) => void)[] = [];
+  const errorCallbacks: ((error: Error) => void)[] = [];
 
   proc.status
-    .then((status: { code: number }) => {
-      exitCallbacks.forEach((cb) => cb(status.code));
+    .then((status) => {
+      exitCallbacks.forEach((cb) => {
+        cb(status.code);
+      });
     })
-    .catch((error: Error) => {
-      errorCallbacks.forEach((cb) => cb(error));
+    .catch((error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error));
+      errorCallbacks.forEach((cb) => {
+        cb(err);
+      });
     });
 
   return {
@@ -269,7 +306,7 @@ export function buildDevArgs(
       }
       return {
         command: 'bun',
-        args: ['--watch', ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []), entry],
+        args: ['--watch', ...(inspect ? [`--inspect=${String(inspectPort ?? 9229)}`] : []), entry],
       };
     }
 
@@ -282,7 +319,7 @@ export function buildDevArgs(
           'run',
           watchArg,
           ...permissions,
-          ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []),
+          ...(inspect ? [`--inspect=${String(inspectPort ?? 9229)}`] : []),
           entry,
         ],
       };
@@ -300,7 +337,7 @@ export function buildDevArgs(
           '--import',
           swcLoaderPath,
           ...watchArgs,
-          ...(inspect ? [`--inspect=${inspectPort ?? 9229}`] : []),
+          ...(inspect ? [`--inspect=${String(inspectPort ?? 9229)}`] : []),
           entry,
         ],
       };

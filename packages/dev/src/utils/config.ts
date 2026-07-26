@@ -116,8 +116,10 @@ export async function loadConfig(): Promise<NextRushConfig> {
   // Try nextrush.config.ts
   if (existsSync(configPath)) {
     try {
-      // Dynamic import for config file
-      const config = await import(configPath);
+      // Dynamic import for config file — its shape is genuinely unknowable at compile time
+      // (an arbitrary user-authored file), so `unknown` + a narrow default-export check is
+      // the correct type, not `any`.
+      const config = (await import(configPath)) as { default?: unknown } & Record<string, unknown>;
       return config.default ?? config;
     } catch {
       // Ignore import errors, use defaults
@@ -191,7 +193,7 @@ export function validateDecoratorConfig(options: ValidateDecoratorConfigOptions 
     const raw = readFileSync(tsconfigPath);
     // Strip single-line comments for JSON parsing
     const stripped = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-    const tsconfig = JSON.parse(stripped);
+    const tsconfig = JSON.parse(stripped) as { compilerOptions?: Record<string, unknown> };
     const co = tsconfig.compilerOptions ?? {};
 
     const hasExperimental = isTruthyCompilerFlag(co.experimentalDecorators);

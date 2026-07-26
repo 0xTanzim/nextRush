@@ -8,6 +8,8 @@
  * @packageDocumentation
  */
 
+import { getDenoGlobal, getBunGlobal } from './runtime-globals.js';
+
 /**
  * Supported runtime environments
  */
@@ -133,8 +135,7 @@ function getNodeVersion(): string {
 
 function getBunVersion(): string {
   try {
-    // @ts-expect-error Bun global exists in Bun runtime
-    return globalThis.Bun?.version ?? 'unknown';
+    return getBunGlobal().version;
   } catch {
     return 'unknown';
   }
@@ -142,8 +143,7 @@ function getBunVersion(): string {
 
 function getDenoVersion(): string {
   try {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return globalThis.Deno?.version?.deno ?? 'unknown';
+    return getDenoGlobal().version.deno;
   } catch {
     return 'unknown';
   }
@@ -156,8 +156,7 @@ export function exitProcess(code: number): never {
   const runtime = detectRuntime();
 
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    (globalThis.Deno as { exit: (code: number) => never }).exit(code);
+    getDenoGlobal().exit(code);
   }
 
   process.exit(code);
@@ -171,8 +170,7 @@ export function getEnv(name: string): string | undefined {
 
   if (runtime === 'deno') {
     try {
-      // @ts-expect-error Deno global exists in Deno runtime
-      return globalThis.Deno.env.get(name) as string | undefined;
+      return getDenoGlobal().env.get(name);
     } catch {
       return undefined;
     }
@@ -188,8 +186,7 @@ export function onSignal(signal: string, handler: () => void): void {
   const runtime = detectRuntime();
 
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    globalThis.Deno.addSignalListener(signal, handler);
+    getDenoGlobal().addSignalListener(signal, handler);
     return;
   }
 

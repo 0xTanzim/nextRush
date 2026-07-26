@@ -55,7 +55,7 @@ export async function build(entry?: string, options: BuildOptions = {}): Promise
   const startTime = Date.now();
   const cwd = getCwd();
   const entryOrConfig = entry ?? options.entry;
-  const resolvedEntry = entryOrConfig || findEntry();
+  const resolvedEntry = entryOrConfig ?? findEntry();
 
   // Get runtime info
   const runtimeInfo = getRuntimeInfo();
@@ -195,6 +195,7 @@ export function buildCli(args: string[]): void {
       case '-h': {
         buildHelp();
         exitProcess(0);
+        break;
       }
       default: {
         if (arg.startsWith('--') || arg.startsWith('-')) {
@@ -235,8 +236,9 @@ export function buildCli(args: string[]): void {
   }
 
   // Run build
-  build(entry, options).catch((err) => {
-    error(`Build failed: ${err.message}`);
+  build(entry, options).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    error(`Build failed: ${message}`);
     exitProcess(1);
   });
 }

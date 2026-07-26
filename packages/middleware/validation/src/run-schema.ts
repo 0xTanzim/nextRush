@@ -33,5 +33,5 @@ export async function runSchema<S extends StandardSchemaV1>(
     throw new ValidationError(mapIssues(result.issues, pathPrefix));
   }
 
-  return result.value as InferOutput<S>;
+  return result.value;
 }

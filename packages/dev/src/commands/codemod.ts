@@ -103,11 +103,11 @@ export async function codemodCli(args: string[]): Promise<void> {
       case 'consolidate-imports': {
         const { changed, files } = await runConsolidateImports(pattern, { dryRun });
         if (dryRun) {
-          log(`[DRY RUN] Would modify ${changed} file(s):`);
+          log(`[DRY RUN] Would modify ${String(changed)} file(s):`);
         } else {
-          success(`Modified ${changed} file(s):`);
+          success(`Modified ${String(changed)} file(s):`);
         }
-        files.forEach((f) => log(`  ${f}`));
+        files.forEach((f) => { log(`  ${f}`); });
         break;
       }
 

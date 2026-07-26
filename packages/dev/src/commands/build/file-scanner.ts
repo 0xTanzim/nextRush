@@ -7,7 +7,7 @@
  */
 
 import { resolvePath } from '../../runtime/index.js';
-import { NODE_FS_PROMISES, NODE_PATH } from '../../runtime/node-modules.js';
+import { getNodeFsPromises, getNodePath } from '../../runtime/node-modules.js';
 
 export interface TypeScriptFile {
   path: string;
@@ -27,8 +27,8 @@ export function mapExtension(ext: '.ts' | '.tsx' | '.mts' | '.cts'): '.js' | '.m
 }
 
 export async function findTypeScriptFiles(cwd: string, entry: string): Promise<TypeScriptFile[]> {
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-  const path = await import(/* @vite-ignore */ NODE_PATH);
+  const fs = await getNodeFsPromises();
+  const path = await getNodePath();
 
   const files: TypeScriptFile[] = [];
   const entryDir = path.dirname(resolvePath(cwd, entry));

@@ -59,6 +59,7 @@ export function devCli(args: string[]): void {
       case '-h': {
         devHelp();
         exitProcess(0);
+        break;
       }
       default: {
         if (arg.startsWith('--') || arg.startsWith('-')) {
@@ -106,8 +107,9 @@ export function devCli(args: string[]): void {
   }
 
   // Run dev server
-  dev(entry, options).catch((err) => {
-    error(`Failed to start dev server: ${err.message}`);
+  dev(entry, options).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    error(`Failed to start dev server: ${message}`);
     exitProcess(1);
   });
 }

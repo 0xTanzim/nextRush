@@ -150,7 +150,7 @@ export async function generateCli(args: string[]): Promise<void> {
     }
     try {
       const written = await generateAdapter(nameArg);
-      success(`Scaffolded adapter "${nameArg}" (${written.length} files):`);
+      success(`Scaffolded adapter "${nameArg}" (${String(written.length)} files):`);
       for (const file of written) success(`  ${file}`);
     } catch (err) {
       error((err as Error).message);

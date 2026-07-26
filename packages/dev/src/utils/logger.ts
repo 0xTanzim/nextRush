@@ -143,7 +143,7 @@ export function spinner(message: string): {
 
   const interval = setInterval(() => {
     if (!running) return;
-    writeStdout(`\r${colors.cyan}${frames[frameIndex]}${colors.reset} ${current}`);
+    writeStdout(`\r${colors.cyan}${frames[frameIndex] ?? ''}${colors.reset} ${current}`);
     frameIndex = (frameIndex + 1) % frames.length;
   }, 80);
 
@@ -163,7 +163,7 @@ export function spinner(message: string): {
  * Format file size for display
  */
 export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024) return `${String(bytes)} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
@@ -172,6 +172,6 @@ export function formatSize(bytes: number): string {
  * Format duration for display
  */
 export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) return `${String(ms)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
 }

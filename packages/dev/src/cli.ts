@@ -14,6 +14,7 @@
 import { buildCli, buildHelp, codemodCli, codemodHelp, devCli, devHelp } from './commands/index.js';
 import { generateCli, generateHelp } from './generators/index.js';
 import { exitProcess, getRuntimeInfo } from './runtime/index.js';
+import { getDenoGlobal } from './runtime/runtime-globals.js';
 import { error } from './utils/logger.js';
 
 // Version injected at build time via tsup define
@@ -25,8 +26,7 @@ const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.
  */
 function getCliArgs(): string[] {
   if ('Deno' in globalThis) {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return (globalThis.Deno as { args: string[] }).args;
+    return [...getDenoGlobal().args];
   }
 
   // Node.js and Bun both use process.argv
@@ -76,7 +76,7 @@ export function cli(): void {
       if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
         generateHelp();
       } else {
-        generateCli(commandArgs);
+        void generateCli(commandArgs);
       }
       break;
 
