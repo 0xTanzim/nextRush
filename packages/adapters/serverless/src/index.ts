@@ -19,7 +19,7 @@
 // ─── Tier 1: per-provider handlers (what 95% of users import) ───────────────
 export { createLambdaHandler } from './lambda';
 export type { LambdaEvent, LambdaResult } from './lambda';
-export { createGoogleHandler } from './google';
+export { createGoogleHandler, createGcfHandler } from './google';
 export { createAzureHandler } from './azure';
 export { createLambdaStreamingHandler } from './lambda-streaming';
 export type {
@@ -33,10 +33,23 @@ export type { ServerlessHandlerOptions } from './types';
 
 // ─── Advanced / Runtime authors only (Tier 3) ──────────────────────────────
 // You need these ONLY to add a platform NextRush doesn't ship (Oracle, Fly.io,
-// OpenFaaS, an internal platform). Application developers should use a Tier-1
-// handler above and never import from here.
+// OpenFaaS, an internal platform), to bridge a non-standard host that doesn't
+// match createGoogleHandler/createAzureHandler's real-SDK-shaped drop-in
+// contract, or to fixture-test a mapper directly. Application developers
+// should use a Tier-1 handler above and never import from here.
 export { createServerlessAdapter } from './adapter';
 export type { EventMapper, ServerlessAdapterOptions, ServerlessHandler } from './types';
+
+// The pre-RFC-027 struct-based handlers, kept unchanged under an honest name
+// (RFC-027) — fixture testing, a custom bridge, or a non-standard host.
+export { createGoogleEventHandler, toGcfEvent, writeGcfResult } from './google';
+export { createAzureEventHandler, toAzureEvent, toAzureResponse } from './azure';
+export type {
+  AzureHttpRequestLike,
+  AzureHttpResponseLike,
+  GcfHttpRequest,
+  GcfHttpResponse,
+} from './platform-shapes';
 
 // Built-in mappers (Tier 3 building blocks — the Tier-1 handlers wire these for you)
 export { lambdaFunctionUrl } from './mappers/lambda-function-url';
