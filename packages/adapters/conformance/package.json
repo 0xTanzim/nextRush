@@ -23,6 +23,7 @@
     "@nextrush/adapter-bun": "workspace:^",
     "@nextrush/adapter-deno": "workspace:^",
     "@nextrush/adapter-edge": "workspace:^",
+    "@nextrush/adapter-nextjs": "workspace:^",
     "@nextrush/adapter-node": "workspace:^",
     "@nextrush/adapter-serverless": "workspace:^",
     "@nextrush/core": "workspace:^",

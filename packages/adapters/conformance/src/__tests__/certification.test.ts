@@ -32,7 +32,7 @@ describe('certification matrix', () => {
   it('9.1 tags every feature and covers all conformance targets', () => {
     expect(FEATURES.length).toBe(10);
     const names = certInputs().map((i) => i.name);
-    expect(names).toEqual(['node', 'bun', 'deno', 'edge', 'serverless']);
+    expect(names).toEqual(['node', 'bun', 'deno', 'edge', 'serverless', 'nextjs']);
   });
 
   it('9.2 derives real per-runtime differences from capability/flag data', () => {

@@ -119,6 +119,7 @@ const REAL_RUNTIME_COVERAGE: Record<string, RealRuntimeCoverage> = {
   deno: 'full-suite', // deno-runner/ runs Deno in-process with the test — full defineConformanceSuite
   edge: 'curated-subset', // workerd-runner/: a genuinely separate isolate — closures can't cross the HTTP boundary
   serverless: 'n/a', // simulated only; real target is Node, covered by node's row
+  nextjs: 'n/a', // simulated only; App Router runs on Node (or workerd via OpenNext) — both already have real-runtime runners
 };
 
 /** Static fact about the harness's structure — not derived from driver data. */
@@ -128,6 +129,7 @@ const REAL_RUNTIME_RUNNER_EXISTS: Record<string, boolean> = {
   deno: true, // deno-runner/
   edge: true, // workerd-runner/ (real miniflare/workerd isolate)
   serverless: false, // real target is Node, already covered by `node`'s row
+  nextjs: false, // no separate runtime of its own — App Router runs on Node/workerd, both already covered
 };
 
 /** The capability inputs the matrix is computed from (one per conformance target). */
@@ -148,6 +150,7 @@ const RUNTIME_OF: Record<string, Runtime> = {
   deno: 'deno',
   edge: 'cloudflare-workers',
   serverless: 'node', // AWS Lambda / GCF / Azure run on Node
+  nextjs: 'node', // the App Router entry itself deploys on Node (or workerd via OpenNext)
 };
 
 /** Derive a single feature's support level from the capability inputs. */

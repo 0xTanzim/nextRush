@@ -5,6 +5,7 @@
  */
 
 import { nodeDriver } from './node-driver';
+import { nextjsDriver } from './nextjs-driver';
 import { serverlessDriver } from './serverless-driver';
 import { bunDriver, denoDriver, edgeDriver } from './web-driver';
 import type { ConformanceDriver } from './types';
@@ -16,6 +17,7 @@ export const drivers: readonly ConformanceDriver[] = [
   denoDriver,
   edgeDriver,
   serverlessDriver,
+  nextjsDriver,
 ];
 
 export type { ConformanceDriver, DispatchInit, DispatchResult } from './types';
