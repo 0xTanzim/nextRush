@@ -11,9 +11,12 @@ import { describe, expect, it } from 'vitest';
 import { createFetchHandler, DEFAULT_EDGE_TIMEOUT_MS } from '../adapter';
 
 describe('F-07: Edge default request timeout', () => {
-  it('DEFAULT_EDGE_TIMEOUT_MS is a documented constant under the tightest common edge wall limit', () => {
+  it('DEFAULT_EDGE_TIMEOUT_MS is a documented constant strictly under the tightest common edge wall limit', () => {
     // Vercel Edge Functions: 25s wall limit — the tightest common platform limit.
-    expect(DEFAULT_EDGE_TIMEOUT_MS).toBeLessThanOrEqual(25_000);
+    // Strictly below (not at) the limit (P2-2): equal to it means the framework's
+    // clean 504 races the platform's own kill with no margin, non-deterministically
+    // losing on Vercel.
+    expect(DEFAULT_EDGE_TIMEOUT_MS).toBeLessThan(25_000);
     expect(DEFAULT_EDGE_TIMEOUT_MS).toBeGreaterThan(0);
   });
 

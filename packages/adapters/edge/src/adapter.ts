@@ -18,7 +18,7 @@
 
 import type { Application } from '@nextrush/core';
 import { jsonErrorResponse } from '@nextrush/runtime';
-import type { AdapterContextFactory, FetchAdapter } from '@nextrush/types';
+import type { AdapterContextFactory, FetchAdapter, PlatformId } from '@nextrush/types';
 import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './context';
 
 /**
@@ -27,13 +27,35 @@ import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './con
  * default to a bounded timeout rather than none).
  *
  * @remarks
- * 25 000 ms — below the tightest common edge-platform wall limit (Vercel Edge
- * Functions: 25 s), comfortably above typical handler durations, so the
- * framework's clean `504` fires before the platform terminates the isolate.
+ * 24 000 ms — strictly below the tightest common edge-platform wall limit
+ * (Vercel Edge Functions: 25 s exactly), comfortably above typical handler
+ * durations, so the framework's clean `504` reliably fires before the
+ * platform terminates the isolate. A prior value of 25 000 ms sat exactly
+ * *at* that limit rather than below it, racing the platform's own kill with
+ * no margin — this constant is deliberately 1 000 ms under the tightest
+ * limit rather than per-platform-branched, since one shared constant is
+ * simpler to reason about than a platform switch inside a package whose
+ * whole point is one runner for every edge platform.
  * Pass `timeout: 0` to disable the framework timeout entirely (platform limit
  * alone applies) or a positive value to override the default.
  */
-export const DEFAULT_EDGE_TIMEOUT_MS = 25_000;
+export const DEFAULT_EDGE_TIMEOUT_MS = 24_000;
+
+/**
+ * Module-level tracking for the boot-reuse warning (P1-3a).
+ *
+ * @remarks
+ * `bootedApps` records every distinct `Application` that has completed at
+ * least one request through this module instance; `warnedBootReuse` ensures
+ * the warning fires at most once per module instance, not once per extra app.
+ * Module-level (not per-closure) is deliberate: the mistake this catches
+ * (calling `createApp()`/`createFetchHandler()` inside the exported handler)
+ * produces a NEW `createRequestRunner` closure on every invocation, so
+ * per-closure state could never observe a second app.
+ */
+const bootedApps = new WeakSet<Application>();
+let hasBootedAnyApp = false;
+let warnedBootReuse = false;
 
 /**
  * Options for the fetch handler
@@ -50,19 +72,34 @@ export interface FetchHandlerOptions {
    * first, cancelling the still-running handler via `ctx.signal`.
    *
    * @remarks
-   * Defaults to {@link DEFAULT_EDGE_TIMEOUT_MS} (25 000 ms) when omitted
-   * (F-07/ADR-0010) — below the tightest common edge-platform wall limit
-   * (Vercel Edge: 25 s), so the framework's clean `504` fires before the
-   * platform terminates the isolate. Pass `0` to disable the framework
+   * Defaults to {@link DEFAULT_EDGE_TIMEOUT_MS} (24 000 ms) when omitted
+   * (F-07/ADR-0010) — strictly below the tightest common edge-platform wall
+   * limit (Vercel Edge: 25 s), so the framework's clean `504` fires before
+   * the platform terminates the isolate. Pass `0` to disable the framework
    * timeout entirely (the platform's own limit still applies).
    *
    * Per-platform CPU/wall limits for context when overriding:
    * - Cloudflare Workers: 30 000 (30 s CPU limit)
    * - Vercel Edge:        25 000 (25 s wall limit)
    *
-   * @default DEFAULT_EDGE_TIMEOUT_MS (25000)
+   * @default DEFAULT_EDGE_TIMEOUT_MS (24000)
    */
   timeout?: number;
+
+  /**
+   * Explicit named platform, overriding detection (RFC-026).
+   *
+   * @remarks
+   * Internal — set by `@nextrush/adapter-serverless`'s Tier-1 handlers
+   * (`createLambdaHandler`, `createGoogleHandler`, `createAzureHandler`),
+   * which already know their own platform identity unambiguously and pass it
+   * through rather than relying on detection. Application code calling
+   * `createFetchHandler`/`createCloudflareHandler`/etc. directly should not
+   * normally need to set this — the three named edge platforms
+   * (Cloudflare Workers, Vercel Edge, Netlify Edge) are still auto-detected
+   * when omitted.
+   */
+  platform?: PlatformId;
 }
 
 /**
@@ -130,6 +167,7 @@ function createRequestRunner(
   // F-07/ADR-0010: default to DEFAULT_EDGE_TIMEOUT_MS when the caller specifies
   // none (`undefined`); `0` remains an explicit opt-out (no framework timeout).
   const timeout = options.timeout ?? DEFAULT_EDGE_TIMEOUT_MS;
+  const timeoutSource = options.timeout === undefined ? 'default' : 'explicit options.timeout';
   const trustProxy = app.options.proxy ?? false;
 
   /** Sentinel value returned by the timeout racer */
@@ -141,6 +179,24 @@ function createRequestRunner(
   let bootPromise: Promise<ReturnType<Application['callback']>> | null = null;
   const ensureBooted = (): Promise<ReturnType<Application['callback']>> => {
     bootPromise ??= app.ready().then(() => {
+      // P1-3a: outside production, warn once per module instance if a
+      // DIFFERENT Application already booted here — the mechanical signature
+      // of building the app inside the exported handler instead of at module
+      // scope (rebuilding the app on every invocation defeats warm reuse).
+      if (!app.isProduction && !warnedBootReuse && hasBootedAnyApp && !bootedApps.has(app)) {
+        warnedBootReuse = true;
+        console.warn(
+          '[nextrush/edge] A different Application booted in this process/isolate than the one ' +
+            'that booted first. This usually means createApp() (or createFetchHandler/createCloudflareHandler/' +
+            'createVercelHandler/createNetlifyHandler) is being called inside the exported handler ' +
+            'instead of at module scope — rebuilding the app on every invocation defeats warm-instance ' +
+            'reuse and increases cold-start-like latency on every request. Build the app once, at module ' +
+            'scope, above the export. (This message appears in development only.)'
+        );
+      }
+      bootedApps.add(app);
+      hasBootedAnyApp = true;
+
       const handler = app.callback();
       // F-14: mark the app running so `app.isRunning` is consistent with the
       // server adapters. Edge has no server lifetime, so close()/destroy() are
@@ -158,7 +214,7 @@ function createRequestRunner(
     env?: unknown
   ): Promise<Response> => {
     const handler = await ensureBooted();
-    const ctx = createEdgeContext(request, executionContext, trustProxy, env);
+    const ctx = createEdgeContext(request, executionContext, trustProxy, env, app.isProduction, options.platform);
 
     try {
       if (timeout > 0) {
@@ -176,6 +232,12 @@ function createRequestRunner(
           if (result === TIMEOUT_SENTINEL) {
             // F-08: cancel the still-running handler cooperatively via ctx.signal.
             ctx.triggerTimeout();
+            // P1-3b: name the effective timeout and its source so a 504 is
+            // attributable without reading this adapter's source.
+            app.logger.warn(
+              `[nextrush/edge] Request timed out after ${String(timeout)}ms (${timeoutSource}) — returning 504. ` +
+                `${ctx.method} ${ctx.path}`
+            );
             return jsonErrorResponse(504, 'Gateway Timeout');
           }
         } finally {
@@ -315,7 +377,15 @@ export function createNetlifyHandler(
   return createFetchHandler(app, options);
 }
 
-// Alias for backwards compatibility and consistency
+/**
+ * Alias of {@link createFetchHandler}.
+ *
+ * @deprecated Use {@link createFetchHandler} directly (P3-1) — two exported
+ * names for one function means autocomplete shows both with neither
+ * obviously canonical, on a package whose docs stress bundle discipline.
+ * `createFetchHandler` is the canonical name; this alias is kept for
+ * backwards compatibility and will be removed in a future major.
+ */
 export const createHandler = createFetchHandler;
 
 // F-01: compile-time conformance guard. If the exported fetch-adapter shape
@@ -327,7 +397,7 @@ void _edgeConformance;
 // AdapterContext over the shared Context contract. A drift in createEdgeContext's
 // return type stops compiling here.
 const _edgeContextFactory: AdapterContextFactory<
-  [Request, EdgeExecutionContext?, boolean?, unknown?],
+  [Request, EdgeExecutionContext?, boolean?, unknown?, boolean?, PlatformId?],
   EdgeContext
 > = createEdgeContext;
 void _edgeContextFactory;

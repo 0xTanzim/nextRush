@@ -15,6 +15,7 @@
 export {
   createCloudflareHandler,
   createFetchHandler,
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- barrel re-export of a deprecated alias is not a usage site; kept for backward compatibility until the next major (P3-1).
   createHandler,
   createNetlifyHandler,
   createVercelHandler,
