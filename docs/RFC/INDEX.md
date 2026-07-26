@@ -21,6 +21,7 @@ invent a new structure per RFC.
 | `dev-tooling/` | The `@nextrush/dev` toolchain: dev server, SWC build pipeline, watch/restart, CLI, generators, codemods |
 | `framework-composition/` | How NextRush's packages compose into one installable framework: the meta-package's dependency/install footprint, public-surface naming coherence, and manifest conventions |
 | `scaffolding/` | The `create-nextrush` project-generation contract: version resolution, template generation, the generated-project install/build/run guarantee |
+| `documentation/` | Docs-site information architecture: content structure, navigation, section placement rules for `apps/docs/content/docs/**` |
 
 ## All RFCs (by number)
 
@@ -49,6 +50,10 @@ invent a new structure per RFC.
 | [021](scaffolding/021-project-scaffolding-capability.md) | `create-nextrush` — the project-scaffolding capability & per-package version resolution | Approved — see ADR-0011 (Shipped) | scaffolding |
 | [022](class-runtime/022-bounded-teardown-lifecycle.md) | `@nextrush/core` — Bounded, cancellation-aware teardown lifecycle | Shipped — see ADR-0012 | class-runtime |
 | [023](dev-tooling/023-nextrush-doctor.md) | `@nextrush/dev` — `nextrush doctor` project health diagnostics | **Draft** — design-only, not built | dev-tooling |
+| [024](runtime-adapters/024-adapter-nextjs.md) | `@nextrush/adapter-nextjs` — mount a NextRush app in a Next.js App Router route handler | Shipped — see ADR-0014 | runtime-adapters |
+| [025](documentation/025-docs-ia-runtime-framework-platform-split.md) | Docs-site information architecture — split runtime, framework-integration, and deployment-platform axes | **Draft** — P0/P1 (Next.js tutorial + reference page) built; P2/P3 not built | documentation |
+| [026](runtime-adapters/026-serverless-ctx-runtime-honesty.md) | `ctx.runtime` honesty on `@nextrush/adapter-serverless` — add `ctx.platform` | **Draft** — design-only, not built | runtime-adapters |
+| [027](runtime-adapters/027-serverless-gcf-azure-drop-in-handlers.md) | `@nextrush/adapter-serverless` — true drop-in GCF & Azure handlers | **Draft** — design-only, not built | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 

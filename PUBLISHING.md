@@ -3,7 +3,7 @@
 Quick reference for NextRush's package tiers, current Changesets config, and the GitHub setup a
 release depends on. For the actual step-by-step release procedure — what to run, in what order,
 and every real mistake we've already hit and fixed — read the
-[Release Handbook](apps/docs/content/docs/internals/release-handbook.mdx) instead. This file is
+[Release Handbook](apps/docs/content/docs/architecture/release-handbook.mdx) instead. This file is
 the table you keep open in a second tab; that one is what you follow.
 
 ## Versioning model
@@ -188,7 +188,7 @@ pnpm changeset publish --tag pr-123 --no-git-tag
 
 ## Further reading
 
-- [Release Handbook](apps/docs/content/docs/internals/release-handbook.mdx) — the full lifecycle,
+- [Release Handbook](apps/docs/content/docs/architecture/release-handbook.mdx) — the full lifecycle,
   the CLI-vs-CI decision, mermaid diagrams for the release-time flow, and every real edge case
   found running this process for the first time. Read this before running any release.
 - [Hybrid Versioning RFC](report/RFC-HYBRID-VERSIONING-AND-RELEASE-STRATEGY.md)

@@ -78,6 +78,57 @@ MUST NOT decrease.
 
 #### Scenario: The conformance suite stays green
 - **WHEN** the `packages/adapters/conformance` suite runs across Node/Bun/Deno/Edge
+
+### Requirement: A Next.js App Router route handler can mount a NextRush application without rewriting the request
+
+`@nextrush/adapter-nextjs`'s `handle(app)` SHALL return the seven Next.js route-handler exports
+(`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`) by delegating to
+`@nextrush/adapter-edge`'s `createFetchHandler`, forwarding the incoming `Request` unmodified.
+Mount prefixes MUST be declared by the application itself (`app.route(prefix, router)`) and MUST
+NOT be inferred or stripped by the adapter. The package MUST import no runtime-specific API
+(`node:*`, `process`, `Buffer`, or a `Deno`/`Bun` global) and MUST support only the App Router on
+Next.js 14, 15, and 16.
+
+#### Scenario: A mounted app sees the true request
+
+- **WHEN** a request to `/api/hello` reaches a route handler built with `handle(app)`, and `app`
+  declares `app.route('/api', router)` with `router.get('/hello', …)`
+- **THEN** the handler's `ctx.path` is `/api/hello`, `ctx.url` is the full request URL, and
+  `ctx.raw.req` is the same `Request` object Next.js passed in — none of them show a stripped path
+
+#### Scenario: All seven methods are available from one call
+
+- **WHEN** `handle(app)` is called
+- **THEN** it returns an object with `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, and `OPTIONS`,
+  each dispatching to the same underlying `Application`
+
+#### Scenario: Background work reaches Next's `after()` when available
+
+- **WHEN** a handler calls `ctx.waitUntil(promise)` under a Next.js version exposing
+  `after` from `next/server`
+- **THEN** `promise` is scheduled through `after()`; when `next/server` cannot be imported or
+  exposes no `after`, `ctx.waitUntil()` no-ops without throwing
+
+#### Scenario: A mount-prefix mismatch is diagnosed, never silently rescued, in development
+
+- **WHEN** the underlying application produces a 404 for a request, `app.options.env` is not
+  `'production'`, and the app has a matching route once the route file's mount segments are
+  removed from the path
+- **THEN** the framework logs an actionable message naming the mounted prefix and the missing
+  `app.route()` call, and still returns the original 404 response — the alternate path is never
+  served
+
+#### Scenario: Cross-runtime parity holds for the Next.js entry point
+
+- **WHEN** the `packages/adapters/conformance` suite's `nextjs` driver runs under the node,
+  workerd, deno, and bun runners
+- **THEN** observable behavior (status, headers, body, error shape) is identical across all four,
+  matching the other Web adapters covered by this capability
+
+#### Scenario: The functional install path stays free of Next.js
+
+- **WHEN** a project runs `pnpm add nextrush` with no further installs
+- **THEN** neither `@nextrush/adapter-nextjs` nor `next` is resolved onto disk
 - **THEN** all cross-adapter behavior (query, headers, cookies, raw, responses) remains identical
 
 #### Scenario: Allocation micro-benchmarks document the removed work

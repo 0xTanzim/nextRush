@@ -7,7 +7,8 @@ HOW TO USE
   1. Copy this file to the right group folder with the next global number:
        docs/RFC/<group>/<NNN>-<kebab-title>.md
        e.g. docs/RFC/request-data/019-cookie-signing.md
-     Groups: release-process/ · request-data/ · class-runtime/ · runtime-adapters/
+     Groups: release-process/ · request-data/ · class-runtime/ · runtime-adapters/ ·
+             dev-tooling/ · framework-composition/ · scaffolding/ · documentation/
      (see docs/RFC/INDEX.md — add a new group only for a genuinely new area).
   2. Fill the sections. Rule (relaxed for small RFCs):
        - Every section must either contain content OR an explicit
