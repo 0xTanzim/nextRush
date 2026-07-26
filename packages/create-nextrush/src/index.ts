@@ -93,31 +93,52 @@ async function main(): Promise<void> {
   }
 
   const targetDir = resolve(options.directory);
+  await confirmNonEmptyTargetOrExit(options.directory, targetDir);
 
-  // Validate target directory
-  if (!isDirectoryEmpty(targetDir)) {
-    const shouldContinue = await p.confirm({
-      message: `Directory "${options.directory}" is not empty. Continue anyway?`,
-      initialValue: false,
-    });
-
-    if (p.isCancel(shouldContinue) || !shouldContinue) {
-      p.cancel('Operation cancelled.');
-      process.exit(0);
-    }
-  }
-
-  // Generate files
   const s = p.spinner();
   s.start('Scaffolding project...');
-
   const files = generateProject(options);
   writeFiles(targetDir, files);
-
   s.stop('Project scaffolded.');
 
-  // Initialize git
-  if (options.git) {
+  finishScaffold({
+    targetDir,
+    directory: options.directory,
+    packageManager: options.packageManager,
+    git: options.git,
+    install: options.install,
+    verificationUrl: getVerificationUrl(options.style),
+  });
+}
+
+/** Shared: warn and confirm before scaffolding into a non-empty directory. */
+async function confirmNonEmptyTargetOrExit(directoryLabel: string, targetDir: string): Promise<void> {
+  if (isDirectoryEmpty(targetDir)) return;
+
+  const shouldContinue = await p.confirm({
+    message: `Directory "${directoryLabel}" is not empty. Continue anyway?`,
+    initialValue: false,
+  });
+
+  if (p.isCancel(shouldContinue) || !shouldContinue) {
+    p.cancel('Operation cancelled.');
+    process.exit(0);
+  }
+}
+
+/** Shared tail: git init, dependency install, and the final "Next steps" note. */
+function finishScaffold(input: {
+  targetDir: string;
+  directory: string;
+  packageManager: Parameters<typeof getInstallArgv>[0];
+  git: boolean;
+  install: boolean;
+  verificationUrl: string;
+}): void {
+  const { targetDir, directory, packageManager, git, install, verificationUrl } = input;
+  const s = p.spinner();
+
+  if (git) {
     s.start('Initializing git repository...');
     const initOk = runCaptured(['git', 'init'], targetDir, 'git init', 'Git initialization');
     const addOk =
@@ -131,40 +152,34 @@ async function main(): Promise<void> {
         'Git initial commit'
       );
 
-    if (commitOk) {
-      s.stop('Git repository initialized.');
-    } else {
-      s.stop('Git initialization incomplete — see the error above.');
-    }
+    s.stop(
+      commitOk ? 'Git repository initialized.' : 'Git initialization incomplete — see the error above.'
+    );
   }
 
-  // Install dependencies
-  if (options.install) {
-    const argv = getInstallArgv(options.packageManager);
-    s.start(`Installing dependencies via ${options.packageManager}...`);
+  if (install) {
+    const argv = getInstallArgv(packageManager);
+    s.start(`Installing dependencies via ${packageManager}...`);
     const installOk = runCaptured(
       argv,
       targetDir,
-      getInstallCommandLabel(options.packageManager),
+      getInstallCommandLabel(packageManager),
       'Dependency installation'
     );
     s.stop(installOk ? 'Dependencies installed.' : 'Dependency installation failed — see the error above.');
   }
 
-  // Done
-  const runCmd = getRunCommand(options.packageManager);
+  const runCmd = getRunCommand(packageManager);
   const nextSteps = [];
 
-  if (options.directory !== '.') {
-    nextSteps.push(`cd ${options.directory}`);
+  if (directory !== '.') {
+    nextSteps.push(`cd ${directory}`);
   }
-
-  if (!options.install) {
-    nextSteps.push(getInstallCommandLabel(options.packageManager));
+  if (!install) {
+    nextSteps.push(getInstallCommandLabel(packageManager));
   }
-
   nextSteps.push(`${runCmd} dev`);
-  nextSteps.push(`# then open ${getVerificationUrl(options.style)}`);
+  nextSteps.push(`# then open ${verificationUrl}`);
 
   p.note(nextSteps.join('\n'), 'Next steps');
   p.outro('Happy coding with NextRush!');

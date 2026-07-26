@@ -14,7 +14,12 @@ import type { DependencySet, MiddlewarePreset, PackageManager, ProjectOptions, R
  * user's answers are known (task 3.2).
  */
 export function getAllPossiblePackageNames(): string[] {
-  const names = new Set<string>(['nextrush', '@nextrush/dev', '@nextrush/types', '@nextrush/class']);
+  const names = new Set<string>([
+    'nextrush',
+    '@nextrush/dev',
+    '@nextrush/types',
+    '@nextrush/class',
+  ]);
   for (const preset of Object.keys(MIDDLEWARE_PACKAGE_NAMES) as MiddlewarePreset[]) {
     for (const pkgName of MIDDLEWARE_PACKAGE_NAMES[preset]) {
       names.add(pkgName);

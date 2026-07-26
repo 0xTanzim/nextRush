@@ -12,7 +12,7 @@
  * package's fallback value.
  */
 
-declare const __FALLBACK_VERSIONS__: string;
+declare const __FALLBACK_VERSIONS__: Record<string, string> | undefined;
 
 /**
  * Dev-mode-only per-package fallback used when this module runs WITHOUT the tsup build
@@ -38,9 +38,15 @@ const DEV_FALLBACK_VERSIONS: Record<string, string> = {
 
 const FALLBACK_VERSIONS: Record<string, string> = (() => {
   try {
-    return typeof __FALLBACK_VERSIONS__ !== 'undefined'
-      ? (JSON.parse(__FALLBACK_VERSIONS__) as Record<string, string>)
-      : DEV_FALLBACK_VERSIONS;
+    // esbuild's `define` (via tsup.config.ts) substitutes this identifier as a JS
+    // EXPRESSION at build time — the value here is already a plain object, never a JSON
+    // string, so JSON.parse must NOT be called on it (calling JSON.parse on a non-string
+    // coerces it to `"[object Object]"`, which throws — silently falling through to the
+    // smaller, dev-only fallback map below for every package, in the published CLI,
+    // whenever a live registry probe failed. Found by actually running the built CLI
+    // end-to-end and observing a real resolution failure for a package present in the
+    // correctly-computed map but absent from the dev-only one).
+    return typeof __FALLBACK_VERSIONS__ !== 'undefined' ? __FALLBACK_VERSIONS__ : DEV_FALLBACK_VERSIONS;
   } catch {
     return DEV_FALLBACK_VERSIONS;
   }
