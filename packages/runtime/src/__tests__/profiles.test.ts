@@ -46,4 +46,11 @@ describe('named profiles', () => {
     // Derived, not duplicated:
     expect(NodeProfile.capabilities).toEqual(capabilitiesFor('node'));
   });
+
+  it('includes transport capability flags derived from capabilitiesFor', () => {
+    expect(NodeProfile.capabilities.secureServing).toBe(capabilitiesFor('node').secureServing);
+    expect(NodeProfile.capabilities.http2).toBe(capabilitiesFor('node').http2);
+    expect(CloudflareProfile.capabilities.secureServing).toBe(false);
+    expect(CloudflareProfile.capabilities.http2).toBe(false);
+  });
 });

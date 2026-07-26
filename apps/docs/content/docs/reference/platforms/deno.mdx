@@ -116,12 +116,20 @@ const server = serve(app, {
     },
     cert: {
       type: 'string',
-      description: 'TLS certificate in PEM format',
+      description:
+        'TLS certificate in PEM format. Deprecated — use tls.cert instead; removed in a future minor version.',
       optional: true,
     },
     key: {
       type: 'string',
-      description: 'TLS private key in PEM format',
+      description:
+        'TLS private key in PEM format. Deprecated — use tls.key instead; removed in a future minor version.',
+      optional: true,
+    },
+    tls: {
+      type: '{ cert: string; key: string; ca?: string }',
+      description:
+        'TLS configuration (canonical shape — matches @nextrush/adapter-bun). Deno.serve() negotiates HTTP/1.1 vs HTTP/2 via ALPN automatically once this is present. Prefer this over the deprecated flat cert/key fields.',
       optional: true,
     },
     shutdownTimeout: {
@@ -188,19 +196,35 @@ Deno.serve({ handler, port: 8080 });
 
 ---
 
-## TLS/HTTPS
+## TLS/HTTPS & HTTP/2
 
-Enable HTTPS with TLS certificates:
+Enable HTTPS with TLS certificates. `Deno.serve()` negotiates HTTP/1.1 vs HTTP/2 via ALPN
+automatically once TLS is configured — there is no separate protocol option.
 
 ```typescript
 import { serve } from '@nextrush/adapter-deno';
 
 const server = serve(app, {
   port: 443,
-  cert: await Deno.readTextFile('./cert.pem'),
-  key: await Deno.readTextFile('./key.pem'),
+  tls: {
+    cert: await Deno.readTextFile('./cert.pem'),
+    key: await Deno.readTextFile('./key.pem'),
+  },
 });
 ```
+
+<Callout type="warn" title="Migrating from the flat cert/key fields">
+  The top-level `cert`/`key` options are deprecated in favor of `tls` (matching
+  `@nextrush/adapter-bun`'s shape) and will be removed in a future minor version:
+
+  ```typescript
+  // Before (deprecated)
+  serve(app, { cert, key });
+
+  // After
+  serve(app, { tls: { cert, key } });
+  ```
+</Callout>
 
 ---
 

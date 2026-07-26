@@ -1,7 +1,12 @@
 # RFC — `@nextrush/router-radix` (a second, opt-in radix router behind the shared `Router` contract)
 
-> Status: **Proposed — deferred.** The design is specified; the package is **not** built by this
-> change. Go/no-go is gated on a confirmed driver (§9) and the T017 router benchmark (§3, §7).
+> Status: **Deferred — evidence-negative.** The design is specified; the package is **not** built.
+> T017 has run (§7, `report/route-params-profile.md`): the performance driver is not supported on
+> route-params workloads (matcher ≈4% CPU; the piece radix replaces ≈1.44%; the −7.4% vs-Fastify
+> gap lives in response/serialization, not routing). Only the familiarity driver (§9) remains, and
+> it alone does not clear the §8 single-maintainer cost. Reopens only on (a) a benchmarked win on
+> large route tables / deep shared prefixes — a workload shape T017 did not test — or (b) sustained,
+> actual Fastify-migrant demand. See ADR-0015 for the recorded decision.
 > Change: `fix-router-issues-and-author-radix-rfc` (Task group 4)
 > Models: `docs/RFC/runtime-adapters/013-adapter-contract.md` + the `packages/adapters/conformance` precedent.
 

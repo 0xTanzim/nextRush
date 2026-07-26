@@ -558,3 +558,26 @@ MUST NOT rely on the deprecated `req 'aborted'` event.
 - **WHEN** the adapter wires client-disconnect detection for `ctx.signal` and body reads
 - **THEN** it uses `req`/`res` `'close'` (with the destroyed/aborted checks) rather than the
   deprecated `req 'aborted'` event
+
+### Requirement: Node adapter supports TLS and negotiated HTTP/2
+`@nextrush/adapter-node`'s `ServeOptions` SHALL include an optional `tls: { cert: string | Buffer; key: string | Buffer; ca?: string | Buffer }` field, matching the shape already shipped in `@nextrush/adapter-bun`. When `tls` is present, `serve()` SHALL construct a `node:http2` secure server with ALPN negotiation, falling back to HTTP/1.1 for clients that do not negotiate `h2`. When `tls` is absent, `serve()` SHALL behave exactly as before this change (plain `node:http`, HTTP/1.1 only). The canonical host-binding field remains `host`; this requirement MUST NOT introduce a `hostname` field.
+
+#### Scenario: TLS absent preserves existing behavior
+- **WHEN** `serve(app)` is called with no `tls` option
+- **THEN** the adapter behaves identically to its pre-change implementation — plain `node:http`, HTTP/1.1 only
+
+#### Scenario: TLS present negotiates HTTP/2 via ALPN
+- **WHEN** `serve(app, { tls: { cert, key } })` is called and a connecting client supports ALPN with `h2`
+- **THEN** the connection negotiates HTTP/2 and the request reaches the same shared `Context` shape as an HTTP/1.1 request
+
+#### Scenario: TLS present falls back to HTTP/1.1 for non-h2 clients
+- **WHEN** `serve(app, { tls: { cert, key } })` is called and a connecting client does not offer `h2` in ALPN
+- **THEN** the connection serves HTTP/1.1 over TLS, with identical observable framework behavior to a plain HTTP/1.1 request
+
+#### Scenario: The tls option matches the Bun adapter's shape
+- **WHEN** the same `{ cert, key, ca? }` object is passed to both the Node and Bun adapters' `tls` option
+- **THEN** both adapters accept it without a shape difference
+
+#### Scenario: host remains the canonical field; hostname is not introduced
+- **WHEN** `ServeOptions` is inspected after this change
+- **THEN** it exposes `host` (unchanged) and does not gain a `hostname` field

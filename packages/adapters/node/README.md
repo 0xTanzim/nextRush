@@ -125,6 +125,30 @@ const server = await serve(app, {
 });
 ```
 
+### Serve over TLS with automatic HTTP/2 (new)
+
+```typescript
+import { serve } from '@nextrush/adapter-node';
+import { readFileSync } from 'node:fs';
+
+const server = await serve(app, {
+  port: 443,
+  tls: {
+    cert: readFileSync('certificate.pem'),
+    key: readFileSync('private-key.pem'),
+    // ca: readFileSync('ca-bundle.pem'),  // optional
+  },
+});
+```
+
+When `tls` is present, the adapter creates an `http2.createSecureServer` with
+`allowHTTP1: true` — clients that negotiate `h2` via ALPN get HTTP/2; clients that
+don't fall back to HTTP/1.1 over TLS transparently The framework behaves identically
+regardless of which transport a given request negotiated. No `protocol` option is needed.
+
+The `tls` shape matches the canonical shape shared across all NextRush server adapters
+(Bun, Deno, Node) — see RFC-028.
+
 ### Serve over HTTPS with a custom handler
 
 ```typescript
@@ -182,6 +206,7 @@ await serve(app, { port: 8080 });
 | ------ | ---- | -------- | ------- | ------------------- | ----------- |
 | `port` | `number` | No | `8080` | -- | Port to listen on |
 | `host` | `string` | No | `'0.0.0.0'` | Yes | Host to bind to |
+| `tls` | `{ cert: string \| Buffer; key: string \| Buffer; ca?: string \| Buffer }` | No | `undefined` (plain HTTP) | Yes | TLS cert+key for HTTPS + HTTP/2 via ALPN |
 | `timeout` | `number` | No | `30000` | -- | Handler-level request timeout (ms). Races the handler and returns a clean `504`, cancelling via `ctx.signal`. Also sets the socket-level `server.timeout` as an independent slow-client guard. `0` disables the handler-level race only |
 | `keepAliveTimeout` | `number` | No | `5000` | -- | Node `server.keepAliveTimeout` (ms) |
 | `shutdownTimeout` | `number` | No | `30000` | -- | Graceful shutdown drain timeout (ms); force-closes remaining connections after this |

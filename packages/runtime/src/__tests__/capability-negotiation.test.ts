@@ -25,6 +25,29 @@ describe('unknown-runtime probing (2.4)', () => {
   });
 });
 
+describe('transport capability flags are present (secureServing, http2)', () => {
+  it('exposes secureServing and http2 on every known runtime', () => {
+    for (const rt of ['node', 'bun', 'deno', 'deno-deploy', 'cloudflare-workers', 'vercel-edge', 'edge'] as const) {
+      const caps = capabilitiesFor(rt);
+      expect(caps).toHaveProperty('secureServing');
+      expect(caps).toHaveProperty('http2');
+      expect(typeof caps.secureServing).toBe('boolean');
+      expect(typeof caps.http2).toBe('boolean');
+    }
+  });
+
+  it('reports http2 false for edge/serverless runtimes (platform terminates TLS)', () => {
+    const edgeCaps = capabilitiesFor('cloudflare-workers');
+    expect(edgeCaps.http2).toBe(false);
+    expect(edgeCaps.secureServing).toBe(false);
+
+    // Node now reports true after TLS/HTTP2 implementation.
+    const nodeCaps = capabilitiesFor('node');
+    expect(nodeCaps.secureServing).toBe(true);
+    expect(nodeCaps.http2).toBe(true);
+  });
+});
+
 describe('capability data supports degrade-vs-refuse decisions (2.5)', () => {
   it('reports filesystem absence on edge so fs-dependent code can refuse', () => {
     expect(capabilitiesFor('cloudflare-workers').fileSystem).toBe(false);

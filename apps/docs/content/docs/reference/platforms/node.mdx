@@ -120,6 +120,12 @@ await server.close();
   types={{
     port: { type: 'number', description: 'Port to listen on', default: '8080' },
     host: { type: 'string', description: 'Host to bind to', default: "'0.0.0.0'" },
+    tls: {
+      type: '{ cert: string | Buffer; key: string | Buffer; ca?: string | Buffer }',
+      description:
+        'Enables HTTPS and negotiates HTTP/2 automatically via ALPN. Clients that do not offer h2 fall back to HTTP/1.1 over TLS.',
+      optional: true,
+    },
     timeout: { type: 'number', description: 'Request timeout in milliseconds', default: '30000' },
     keepAliveTimeout: {
       type: 'number',
@@ -204,26 +210,50 @@ const httpsServer = createHttpsServer(
 );
 ```
 
-## HTTPS Support
+## HTTPS & HTTP/2
 
-Use `createHandler()` with Node.js https:
+Pass a `tls` option to `serve()` to enable HTTPS. HTTP/2 is negotiated automatically via ALPN —
+clients that support it get `h2`; everything else falls back to HTTPS/1.1 transparently. There is
+no separate "protocol" option to configure — negotiation is the platform's job, not the
+application's.
 
 ```typescript
 import { createApp } from '@nextrush/core';
-import { createHandler } from '@nextrush/adapter-node';
-import { createServer } from 'node:https';
+import { serve } from '@nextrush/adapter-node';
 import { readFileSync } from 'node:fs';
 
 const app = createApp();
 // ... configure app
 
+await serve(app, {
+  port: 443,
+  tls: {
+    cert: readFileSync('certificate.pem'),
+    key: readFileSync('private-key.pem'),
+    ca: readFileSync('ca.pem'), // optional — custom trust chain
+  },
+});
+```
+
+<Callout type="info" title="See it end to end">
+  For a full local-cert-to-production walkthrough (generating a dev certificate, verifying HTTP/2
+  negotiated, deploying behind a reverse proxy), see the
+  [HTTPS & HTTP/2 guide](/docs/guides/https-http2).
+</Callout>
+
+Need a raw `(req, res)` handler instead — for example, to hand off to your own
+`node:https`/`node:http2` server setup, or a test harness that brings its own `http.Server`? Use
+`createHandler()`:
+
+```typescript
+import { createHandler } from '@nextrush/adapter-node';
+import { createServer } from 'node:https';
+import { readFileSync } from 'node:fs';
+
 const handler = createHandler(app);
 
 const server = createServer(
-  {
-    key: readFileSync('private-key.pem'),
-    cert: readFileSync('certificate.pem'),
-  },
+  { key: readFileSync('private-key.pem'), cert: readFileSync('certificate.pem') },
   handler
 );
 

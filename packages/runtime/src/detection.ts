@@ -230,6 +230,8 @@ function probeCapabilities(): RuntimeCapabilities {
     fetch: hasFetch,
     cryptoSubtle: typeof g.crypto === 'object' && g.crypto !== null && 'subtle' in g.crypto,
     workers: typeof g.Worker !== 'undefined',
+    secureServing: false, // Cannot be probed — requires server-construction API
+    http2: false, // Cannot be probed — requires server-construction API
   };
 }
 
@@ -256,6 +258,8 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         fetch: true, // Node.js 18+ has native fetch
         cryptoSubtle: true,
         workers: true,
+        secureServing: true,
+        http2: true,
       };
 
     case 'bun':
@@ -267,6 +271,8 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: true,
+        secureServing: true,
+        http2: false, // Bun.serve() TLS does not negotiate h2 via ALPN — see RFC-028 §Risks
       };
 
     case 'deno':
@@ -278,6 +284,8 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: true,
+        secureServing: true,
+        http2: true, // Deno.serve() negotiates HTTP/2 via ALPN automatically once cert is supplied
       };
 
     case 'deno-deploy':
@@ -289,6 +297,8 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: false, // Deno Deploy has limited worker support
+        secureServing: false,
+        http2: false,
       };
 
     case 'cloudflare-workers':
@@ -302,6 +312,8 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: false, // Limited worker support
+        secureServing: false, // Platform terminates TLS
+        http2: false, // Platform handles protocol negotiation
       };
 
     default:

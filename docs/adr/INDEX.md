@@ -27,6 +27,8 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0012](ADR-0012-bounded-teardown-lifecycle.md) | Bounded, per-hook-isolated `Application.close()` teardown | Accepted · Shipped | `docs/RFC/class-runtime/022-bounded-teardown-lifecycle.md` |
 | [ADR-0013](ADR-0013-nextrush-cli-launcher-discoverability.md) | Thin `nextrush` CLI launcher on the meta-package for dev-toolkit discoverability | Accepted | `docs/RFC/framework-composition/020-framework-composition-integrity.md` (§21 addendum) |
 | [ADR-0014](ADR-0014-adapter-nextjs-prepend-only.md) | `@nextrush/adapter-nextjs` — prepend-only Next.js App Router bridge | Accepted · Shipped | `docs/RFC/runtime-adapters/024-adapter-nextjs.md` |
+| [ADR-0015](ADR-0015-defer-router-radix.md) | Defer `@nextrush/router-radix` on evidence-negative T017 | Accepted | `docs/RFC/runtime-adapters/015-router-radix.md` |
+| [ADR-0016](ADR-0016-canonical-tls-shape.md) | Canonical nested TLS shape and ALPN-negotiated HTTP/2 for server adapters | Proposed | `docs/RFC/runtime-adapters/028-tls-transport-negotiation.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

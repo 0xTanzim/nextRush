@@ -54,6 +54,7 @@ invent a new structure per RFC.
 | [025](documentation/025-docs-ia-runtime-framework-platform-split.md) | Docs-site information architecture — split runtime, framework-integration, and deployment-platform axes | **Draft** — P0/P1 (Next.js tutorial + reference page) built; P2/P3 not built | documentation |
 | [026](runtime-adapters/026-serverless-ctx-runtime-honesty.md) | `ctx.runtime` honesty on `@nextrush/adapter-serverless` — add `ctx.platform` | **Draft** — design-only, not built | runtime-adapters |
 | [027](runtime-adapters/027-serverless-gcf-azure-drop-in-handlers.md) | `@nextrush/adapter-serverless` — true drop-in GCF & Azure handlers | **Draft** — design-only, not built | runtime-adapters |
+| [028](runtime-adapters/028-tls-transport-negotiation.md) | TLS & negotiated transport for runtime adapters (Node TLS/HTTP2, Bun/Deno shape standardization) | **In Review** — design-only, not built | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 

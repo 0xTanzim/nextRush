@@ -149,12 +149,23 @@ const handler = createHandler(app);
 Deno.serve({ port: 8080, handler });
 ```
 
-### Serve over TLS
+### Serve over TLS (canonical `tls` shape)
 
 ```typescript
+// Canonical shape — matches @nextrush/adapter-bun and @nextrush/adapter-node
 const cert = await Deno.readTextFile('./cert.pem');
 const key = await Deno.readTextFile('./key.pem');
 
+await serve(app, { port: 443, tls: { cert, key } });
+```
+
+> **Migration note:** The old flat `cert`/`key` fields are now deprecated and will be removed in a
+> future minor version. Replace `serve(app, { cert, key })` with `serve(app, { tls: { cert, key } })`.
+> Both forms are functional during the deprecation window; the canonical `tls` form takes precedence
+> when both are supplied.
+
+```typescript
+// Deprecated (still works, but emits a deprecation warning in editor tooling):
 await serve(app, { port: 443, cert, key });
 ```
 
@@ -181,7 +192,8 @@ await serve(app, { port: 443, cert, key });
 | `host` | `string` | No | `'0.0.0.0'` | Yes | Bind address; canonical name (wins over the deprecated `hostname` alias documented in code comments only) |
 | `onListen` | `(info) => void` | No | -- | -- | Called once the server is accepting connections |
 | `onError` | `(error: Error) => void` | No | Logs via `app.logger.error` | -- | Called on uncaught request errors |
-| `cert` / `key` | `string` | No | -- | Yes | PEM-encoded TLS certificate/key for HTTPS |
+| `tls` | `{ cert: string; key: string; ca?: string }` | No | -- | Yes | TLS configuration (canonical shape). `Deno.serve()` auto-negotiates HTTP/2 via ALPN when TLS is present |
+| `cert` / `key` | `string` | No | -- | Yes | **Deprecated** — use `tls: { cert, key }`. Still functional during deprecation window |
 | `shutdownTimeout` | `number` (ms) | No | `30000` | -- | Drain timeout guarding `server.shutdown()`, which has no built-in timeout |
 | `timeout` | `number` (ms) | No | `30000` | -- | Per-request handler timeout; `0` disables it |
 | `logger` | `Logger` | No | `app.logger` | -- | Logger used for adapter diagnostics |

@@ -55,12 +55,30 @@ export interface ServeOptions {
   onError?: (error: Error) => void;
 
   /**
+   * TLS configuration (canonical shape — matches @nextrush/adapter-bun).
+   *
+   * When present, `Deno.serve()` negotiates HTTP/1.1 vs HTTP/2 via ALPN
+   * automatically. Prefer this over the deprecated flat `cert`/`key` fields.
+   */
+  tls?: {
+    cert: string;
+    key: string;
+    ca?: string;
+  };
+
+  /**
    * TLS certificate (for HTTPS)
+   *
+   * @deprecated Use `tls: { cert, key }` instead. This field will be removed in
+   *   a future minor version. See `packages/adapters/deno/README.md` for migration.
    */
   cert?: string;
 
   /**
    * TLS private key (for HTTPS)
+   *
+   * @deprecated Use `tls: { cert, key }` instead. This field will be removed in
+   *   a future minor version. See `packages/adapters/deno/README.md` for migration.
    */
   key?: string;
 
@@ -349,12 +367,19 @@ export async function serve(
     port = 8080,
     onListen,
     onError,
+    tls,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- still functional during deprecation window
     cert,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- still functional during deprecation window
     key,
     shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
     timeout = DEFAULT_TIMEOUT_MS,
     gracefulShutdown,
   } = options;
+
+  // Canonical `tls` takes precedence over deprecated flat fields.
+  const effectiveCert = tls?.cert ?? cert;
+  const effectiveKey = tls?.key ?? key;
 
   const host = options.host ?? '0.0.0.0';
 
@@ -391,10 +416,10 @@ export async function serve(
     },
   };
 
-  // Add TLS if configured
-  if (cert && key) {
-    denoOptions.cert = cert;
-    denoOptions.key = key;
+  // Add TLS if configured (canonical `tls` or deprecated flat `cert`/`key`)
+  if (effectiveCert && effectiveKey) {
+    denoOptions.cert = effectiveCert;
+    denoOptions.key = effectiveKey;
   }
 
   // Start server

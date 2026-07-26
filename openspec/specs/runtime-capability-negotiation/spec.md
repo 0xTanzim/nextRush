@@ -65,3 +65,22 @@ The runtime SHALL expose a named `CapabilityProfile` per known runtime (at minim
 #### Scenario: Profiles do not become a runtime-identity branch
 - **WHEN** the lint rule scans capability decisions
 - **THEN** reading a `CapabilityProfile` for display/defaults is permitted, but branching logic on runtime identity still fails the rule
+
+### Requirement: Transport capability flags are negotiated, not asserted
+`RuntimeCapabilities` SHALL include `secureServing: boolean` and `http2: boolean` flags, produced by `capabilitiesFor()`/`probeCapabilities()` per runtime — the same negotiation mechanism as every existing capability flag. Neither flag MAY be hardcoded `true` for a runtime without empirical verification that the runtime's native serving primitive actually negotiates the corresponding transport.
+
+#### Scenario: Node reports secureServing and http2 once implemented
+- **WHEN** `capabilitiesFor('node')` is queried after Node's TLS/ALPN path ships
+- **THEN** it reports `secureServing: true` and `http2: true`, matching `node:http2`'s actual ALPN negotiation behavior
+
+#### Scenario: A runtime without verified HTTP/2 support reports false, not true
+- **WHEN** a runtime's native serving primitive has not been empirically confirmed to negotiate HTTP/2 (e.g., `Bun.serve()`'s TLS path pending verification)
+- **THEN** `capabilitiesFor()` reports `http2: false` for that runtime rather than assuming parity with another runtime
+
+#### Scenario: Named capability profiles expose the new flags
+- **WHEN** a `CapabilityProfile` (e.g. `NodeProfile`, `DenoProfile`) is read for documentation or defaults
+- **THEN** it includes `secureServing` and `http2`, derived from `capabilitiesFor()` and not hand-maintained separately
+
+#### Scenario: Application code queries the capability, never runtime identity
+- **WHEN** code needs to decide whether to offer a TLS-only feature
+- **THEN** it queries `getRuntimeCapabilities().secureServing`, and the existing lint rule (`no-runtime-identity-capability`) rejects any `runtime === 'node'`-style substitute for this decision

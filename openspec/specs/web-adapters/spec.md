@@ -235,3 +235,33 @@ deterministic allocation evidence and the conformance/unit suites, not an RPS A/
 #### Scenario: Coverage is maintained and changed branches are covered
 - **WHEN** the test suites run with coverage
 - **THEN** per-package line coverage stays at or above 90% and the changed `ip` / `next()` branches in each adapter are covered
+
+### Requirement: Bun and Deno standardize on the nested tls shape
+`@nextrush/adapter-bun` and `@nextrush/adapter-deno` SHALL expose the same `ServeOptions.tls: { cert: string | Buffer; key: string | Buffer; ca?: string | Buffer }` shape. Deno's pre-existing flat `cert`/`key` fields SHALL be retained as deprecated aliases for one minor version (each carrying a `@deprecated` JSDoc pointing at `tls`), then removed. `host` remains the canonical host-binding field name on both adapters.
+
+#### Scenario: Bun's existing tls shape is unchanged
+- **WHEN** `ServeOptions.tls` is inspected on `@nextrush/adapter-bun` after this change
+- **THEN** it is byte-identical to its pre-change shape — no consumer of Bun's `tls` option needs to change anything
+
+#### Scenario: Deno gains the nested tls field alongside deprecated aliases
+- **WHEN** `serve(app, { tls: { cert, key } })` is called on the Deno adapter
+- **THEN** it behaves identically to the pre-change `serve(app, { cert, key })` call
+
+#### Scenario: Deno's flat fields remain functional but marked deprecated
+- **WHEN** `serve(app, { cert, key })` (flat form) is called on the Deno adapter during the deprecation window
+- **THEN** the server starts successfully with a `@deprecated` JSDoc visible in editor tooling, and behavior is unchanged from before this change
+
+#### Scenario: Deno negotiates HTTP/2 automatically once tls is present
+- **WHEN** `tls`/`cert`+`key` is supplied to the Deno adapter and a connecting client offers `h2` via ALPN
+- **THEN** `Deno.serve()`'s native negotiation selects HTTP/2, with no separate protocol option required
+
+### Requirement: Edge adapter's non-involvement in TLS/protocol negotiation is explicit
+`@nextrush/adapter-edge` SHALL NOT expose a `tls` option. TLS termination and HTTP protocol negotiation for edge runtimes are the hosting platform's responsibility, occurring upstream of the adapter's isolate. The edge adapter's capability profile SHALL report `secureServing: false` and `http2: false` to reflect that the adapter itself performs neither — this is a statement about adapter responsibility, not a claim that the platform lacks TLS/HTTP2 (it typically has both, transparently).
+
+#### Scenario: Edge adapter has no tls option
+- **WHEN** the edge adapter's public options are inspected
+- **THEN** no `tls`/`cert`/`key` field exists, consistent with its documented "TLS is the platform's job" architecture
+
+#### Scenario: Edge capability profile does not overstate adapter responsibility
+- **WHEN** `EdgeProfile`/`CloudflareProfile`/`VercelEdgeProfile` are read
+- **THEN** `secureServing` and `http2` report `false`, reflecting that the adapter does not perform this negotiation itself

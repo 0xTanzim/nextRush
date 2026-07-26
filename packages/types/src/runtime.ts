@@ -73,6 +73,12 @@ export interface RuntimeCapabilities {
 
   /** Supports Web Workers / Worker Threads */
   workers: boolean;
+
+  /** Supports TLS (HTTPS) — the runtime can terminate TLS connections */
+  secureServing: boolean;
+
+  /** Supports HTTP/2 negotiation via ALPN (requires secureServing) */
+  http2: boolean;
 }
 
 /**

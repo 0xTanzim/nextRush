@@ -14,9 +14,16 @@ import {
   normalizeStartupError,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type { Http2SecureServer } from 'node:http2';
 import { createNodeContext } from './context';
 import type { NodeContext, NodeContextOptions } from './context';
+import {
+  createNodeServer,
+  isHttp2Server,
+  safeCloseAllConnections,
+  safeCloseIdleConnections,
+} from './tls-server';
 
 /**
  * TCP accept-queue depth for `server.listen()`.
@@ -39,6 +46,23 @@ const DEFAULT_LISTEN_BACKLOG = 1024;
  * Server options
  */
 export interface ServeOptions {
+  /**
+   * TLS certificate and key for HTTPS + HTTP/2 (ALPN).
+   *
+   * When provided, the server uses `node:http2`'s `createSecureServer` with
+   * ALPN negotiation — clients that negotiate `h2` get HTTP/2; clients that
+   * don't fall back to HTTP/1.1 over TLS. When omitted, the server uses
+   * plain `node:http` as before.
+   *
+   * Shape matches `@nextrush/adapter-bun`'s existing `tls` option (the
+   * canonical shape for all server adapters — see RFC-028).
+   */
+  tls?: {
+    cert: string | Buffer;
+    key: string | Buffer;
+    ca?: string | Buffer;
+  };
+
   /**
    * Port to listen on
    * @default 8080
@@ -138,8 +162,8 @@ const DEFAULT_GRACEFUL_SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM',
  * Server instance returned by serve()
  */
 export interface ServerInstance {
-  /** Node.js HTTP server */
-  server: Server;
+  /** Node.js HTTP server (plain `http.Server` or `http2.Http2SecureServer`) */
+  server: Server | Http2SecureServer;
 
   /** Port the server is listening on */
   port: number;
@@ -301,13 +325,13 @@ async function drainAndClose(
   drainState: DrainState
 ): Promise<void> {
   drainState.draining = true;
-  server.closeIdleConnections();
+  safeCloseIdleConnections(server);
 
   // 1. Stop accepting new connections with drain timeout
   await new Promise<void>((res) => {
     const forceTimer = setTimeout(() => {
-      // Force-close if connections don't drain in time
-      server.closeAllConnections();
+      // Force-close if connections don't drain in time.
+      safeCloseAllConnections(server);
       res();
     }, shutdownTimeout);
 
@@ -410,6 +434,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     keepAliveTimeout = DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
     shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
     gracefulShutdown,
+    tls,
   } = options;
 
   const host = options.host ?? '0.0.0.0';
@@ -449,13 +474,20 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
     }) as ServerResponse['writeHead'];
     handler(req, res);
   };
-  const server = createServer(wrappedHandler);
+
+  // D4: when `tls` is present, use `node:http2.createSecureServer` with
+  // `allowHTTP1: true` so clients that don't negotiate h2 via ALPN fall
+  // back to HTTP/1.1 over TLS transparently.
+  const server = createNodeServer(wrappedHandler, tls);
 
   // Configure timeouts. F-04/ADR-0010: server.timeout is the independent
   // socket-level slow-client/slow-loris guard; createHandler's own handler-race
   // (fed the same `timeout`) is what actually produces the clean 504.
-  server.timeout = timeout;
-  server.keepAliveTimeout = keepAliveTimeout;
+  // HTTP/2 servers manage timeouts per-session; skip server-level timeout.
+  if (!isHttp2Server(server)) {
+    server.timeout = timeout;
+    server.keepAliveTimeout = keepAliveTimeout;
+  }
 
   // Start listening
   return new Promise((resolve, reject) => {

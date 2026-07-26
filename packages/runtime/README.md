@@ -111,6 +111,14 @@ if (caps.webStreams) {
 } else {
   // buffer and send instead
 }
+
+// Check for transport capabilities:
+if (caps.secureServing) {
+  // the adapter can serve over TLS — offer HTTPS configuration
+}
+if (caps.http2) {
+  // the adapter negotiates HTTP/2 via ALPN when TLS is present
+}
 ```
 
 Detection is memoized after the first call, and the feature decision keys off `caps.webStreams` — not `runtime === 'node'` — so a capable-but-unrecognized runtime still gets the streaming path.
@@ -148,7 +156,7 @@ Detection is memoized after the first call, and the feature decision keys off `c
 
 ```text
                          detectRuntime()  ------->  'node'|'bun'|'deno'|'edge'|...
-  adapter startup ---->  capabilitiesFor() ------>  { webStreams, fetch, cryptoSubtle, ... }
+  adapter startup ---->  capabilitiesFor() ------>  { webStreams, fetch, cryptoSubtle, secureServing, http2, ... }
   (once, cached)         NodeProfile / ...  ----->  named capability data (defaults & docs)
 
                          parseQueryString(qs) ---->  safe QueryParams (no proto pollution)

@@ -48,15 +48,38 @@ export function capabilityProfileFor(runtime: Runtime): CapabilityProfile {
 export const NodeProfile: CapabilityProfile = capabilityProfileFor('node');
 /** Bun capability profile. */
 export const BunProfile: CapabilityProfile = capabilityProfileFor('bun');
-/** Deno capability profile. */
+/**
+ * Deno capability profile.
+ *
+ * Reports `secureServing: true` and `http2: true` because `Deno.serve()`
+ * negotiates HTTP/2 automatically via ALPN when a TLS certificate is supplied —
+ * no separate protocol option is needed (D2, RFC-028).
+ */
 export const DenoProfile: CapabilityProfile = capabilityProfileFor('deno');
 /** Deno Deploy capability profile. */
 export const DenoDeployProfile: CapabilityProfile = capabilityProfileFor('deno-deploy');
-/** Cloudflare Workers capability profile. */
+/**
+ * Cloudflare Workers capability profile.
+ *
+ * Reports `secureServing: false` and `http2: false` — TLS termination and
+ * HTTP/2 negotiation are the platform's responsibility, occurring upstream
+ * of the adapter's isolate. See `packages/adapters/edge/ARCHITECTURE.md`.
+ */
 export const CloudflareProfile: CapabilityProfile = capabilityProfileFor('cloudflare-workers');
-/** Vercel Edge capability profile. */
+/**
+ * Vercel Edge capability profile.
+ *
+ * Reports `secureServing: false` and `http2: false` — same reasoning as
+ * {@link CloudflareProfile}: TLS and protocol negotiation are platform-level
+ * concerns on edge/serverless runtimes.
+ */
 export const VercelEdgeProfile: CapabilityProfile = capabilityProfileFor('vercel-edge');
-/** Generic edge capability profile. */
+/**
+ * Generic edge capability profile.
+ *
+ * Reports `secureServing: false` and `http2: false` — edge/serverless platforms
+ * terminate TLS upstream of the adapter.
+ */
 export const EdgeProfile: CapabilityProfile = capabilityProfileFor('edge');
 
 /**

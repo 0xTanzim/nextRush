@@ -38,8 +38,16 @@ All adapters SHALL build the request `Context` through an `AdapterContextFactory
 - **THEN** it builds `Context` via the factory and invokes `app.callback()` rather than composing middleware or resolving routes itself
 
 ### Requirement: Observable parity across adapters
-For the shared `Context` contract, all adapters SHALL be observationally identical. The cross-adapter conformance suite MUST pass for every shipped adapter.
+For the shared `Context` contract, all adapters SHALL be observationally identical. The cross-adapter conformance suite MUST pass for every shipped adapter. Where an adapter reports the `http2` capability, observable parity MUST additionally hold across HTTP/1.1, HTTPS/1.1, and negotiated HTTP/2 for that adapter — routing, middleware execution, streaming, request-body handling, and error handling MUST produce byte-identical responses regardless of which transport a given request negotiated.
 
 #### Scenario: Retrofit preserves behavior
 - **WHEN** an existing adapter is retrofitted to the typed contract
 - **THEN** the conformance suite produces byte-identical responses (status, headers, body) before and after the retrofit
+
+#### Scenario: HTTP/2 parity holds where the capability is reported
+- **WHEN** an adapter reports `RuntimeCapabilities.http2: true` and the conformance suite runs the same request over HTTP/1.1 and negotiated HTTP/2
+- **THEN** status, headers, and body are byte-identical between the two transports
+
+#### Scenario: An adapter without http2 is not required to prove HTTP/2 parity
+- **WHEN** an adapter reports `RuntimeCapabilities.http2: false`
+- **THEN** the conformance suite does not require HTTP/2 scenarios for that adapter, consistent with `runtime-capability-negotiation`'s graceful-degradation requirement

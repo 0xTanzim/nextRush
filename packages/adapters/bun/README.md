@@ -148,6 +148,11 @@ await serve(app, {
 });
 ```
 
+> **Note:** Bun's `Bun.serve()` TLS provides HTTPS (HTTP/1.1 over TLS). HTTP/2 (h2) over TLS
+> on Bun requires the `node:http2` API per Bun's documentation — it is not negotiated via ALPN
+> through the native `tls` option. The framework's `RuntimeCapabilities.http2` reports `false`
+> for Bun until empirical verification confirms otherwise (see RFC-028 §Risks).
+
 ## API overview
 
 | Export | Signature | Since | Stability | Description |
