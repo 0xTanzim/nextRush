@@ -1,0 +1,76 @@
+{
+  "name": "@nextrush/adapter-nextjs",
+  "version": "1.0.0-beta.0",
+  "description": "Mount a NextRush app in a Next.js App Router route handler (Web-standard, App Router only, Next 14/15/16)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/adapter-edge": "workspace:^",
+    "@nextrush/core": "workspace:^",
+    "@nextrush/types": "workspace:^"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nextrush/router": "workspace:^",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "keywords": [
+    "nextrush",
+    "adapter",
+    "nextjs",
+    "next.js",
+    "app-router",
+    "route-handler",
+    "http",
+    "framework"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
+    "directory": "packages/adapters/nextjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/adapters/nextjs#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "sideEffects": false
+}
