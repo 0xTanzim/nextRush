@@ -1,7 +1,9 @@
 /**
  * @nextrush/cookies - Cookie Types
  *
- * Type definitions for cookie middleware and helpers.
+ * Wire-facing cookie types: `SameSiteValue`, `CookiePriority`,
+ * `CookieOptions`, `ParsedCookies`. Middleware option types and context
+ * extension interfaces live in `middleware-types.ts`.
  *
  * @packageDocumentation
  */
@@ -99,12 +101,19 @@ export interface CookieOptions {
   /**
    * Secure flag - only sent over HTTPS.
    *
-   * When true, the cookie is only sent with encrypted requests.
+   * When `true`, the cookie is only sent with encrypted requests. When
+   * `false`, the flag is never set (explicit opt-out, always honored). When
+   * `'auto'` (the default), `Secure` is emitted unless the request is
+   * demonstrably plaintext loopback — see `cookies({ trustProxy })` for how
+   * a trusted-forwarded HTTPS request is recognized (SEC-08). An untrusted
+   * `X-Forwarded-Proto: https` claim never suppresses `Secure` (fails
+   * closed).
+   *
    * **Required for `SameSite=None` and `__Secure-` / `__Host-` prefixes.**
    *
-   * @default false (set to true in production)
+   * @default 'auto'
    */
-  secure?: boolean;
+  secure?: boolean | 'auto';
 
   /**
    * Priority hint for the browser.
@@ -136,129 +145,8 @@ export interface CookieOptions {
 export type ParsedCookies = Record<string, string>;
 
 // ============================================================================
-// Middleware Options
+// See middleware-types.ts for CookieMiddlewareOptions,
+// SignedCookieMiddlewareOptions, CookieContext, SignedCookieContext,
+// CookieState, and SignedCookieState — split out to keep this file under
+// the file-size ceiling. Import from './middleware-types.js' directly.
 // ============================================================================
-
-/**
- * Cookie middleware options.
- *
- * For signed cookies, use `signedCookies()` with `SignedCookieMiddlewareOptions` instead.
- */
-export interface CookieMiddlewareOptions {
-  /**
-   * Custom decode function for cookie values.
-   *
-   * @default decodeURIComponent
-   */
-  decode?: (value: string) => string;
-}
-
-/**
- * Signed cookie middleware options.
- */
-export interface SignedCookieMiddlewareOptions {
-  /**
-   * Secret key for signing (required).
-   */
-  secret: string;
-
-  /**
-   * Previous secrets for key rotation.
-   */
-  previousSecrets?: string[];
-}
-
-// ============================================================================
-// Context Extensions
-// ============================================================================
-
-/**
- * Cookie context extension added to `ctx.state.cookies`.
- */
-export interface CookieContext {
-  /**
-   * Get a cookie value by name.
-   *
-   * @param name - Cookie name
-   * @returns Cookie value or undefined if not found
-   */
-  get(name: string): string | undefined;
-
-  /**
-   * Set a cookie.
-   *
-   * @param name - Cookie name
-   * @param value - Cookie value
-   * @param options - Cookie options
-   */
-  set(name: string, value: string, options?: CookieOptions): void;
-
-  /**
-   * Delete a cookie.
-   *
-   * @param name - Cookie name
-   * @param options - Path and domain must match the original cookie
-   */
-  delete(name: string, options?: Pick<CookieOptions, 'domain' | 'path'>): void;
-
-  /**
-   * Get all parsed cookies.
-   *
-   * @returns Object with all cookie name-value pairs
-   */
-  all(): ParsedCookies;
-
-  /**
-   * Check if a cookie exists.
-   *
-   * @param name - Cookie name
-   * @returns True if cookie exists
-   */
-  has(name: string): boolean;
-}
-
-/**
- * Signed cookie context extension.
- */
-export interface SignedCookieContext {
-  /**
-   * Get a signed cookie value (verified).
-   *
-   * @param name - Cookie name
-   * @returns Cookie value if valid, undefined if invalid/not found
-   */
-  get(name: string): Promise<string | undefined>;
-
-  /**
-   * Set a signed cookie.
-   *
-   * @param name - Cookie name
-   * @param value - Cookie value (will be signed)
-   * @param options - Cookie options
-   */
-  set(name: string, value: string, options?: CookieOptions): Promise<void>;
-
-  /**
-   * Delete a signed cookie.
-   *
-   * @param name - Cookie name
-   * @param options - Path and domain must match the original cookie
-   */
-  delete(name: string, options?: Pick<CookieOptions, 'domain' | 'path'>): void;
-}
-
-/**
- * Extended state with cookies.
- */
-export interface CookieState {
-  /** Regular cookies */
-  cookies: CookieContext;
-}
-
-/**
- * Extended state with signed cookies.
- */
-export interface SignedCookieState {
-  /** Signed cookies */
-  signedCookies: SignedCookieContext;
-}

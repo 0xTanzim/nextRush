@@ -11,7 +11,7 @@
 | **Depends on** | `@nextrush/types` (types only, erased at build) — no third-party runtime deps |
 | **Depended on by** | Application code that calls `app.use(cookies())` / `app.use(signedCookies(...))`; not depended on by any other `@nextrush/*` package |
 | **Public entry** | `src/index.ts` (barrel — exports only) |
-| **Internal modules** | 8 files (excl. tests) · 2,245 LOC · largest `validation.ts` 671 LOC (package cap 300 — see Contributor notes) |
+| **Internal modules** | 18 files (excl. tests) · 2,565 LOC · largest `serializer.ts` 278 LOC (package cap 300 — all files comply) |
 | **On the request hot path?** | Yes — parses the `Cookie` header on every request once registered; signing/verification runs per `get()`/`set()` call on a signed cookie |
 | **Runtime coupling** | None — zero `node:` imports; uses only `crypto.subtle`, `TextEncoder`, `btoa`/`atob` |
 | **State model** | Per-request parsed-cookie object; a small app-scoped bounded `CryptoKey` cache shared across requests |
@@ -80,19 +80,20 @@ flowchart TB
 
 ## Overview
 
-The package splits into four independent concerns that compose rather than couple: **parsing** (`parser.ts`) turns the raw `Cookie` header into a plain object; **validation** (`validation.ts`) is a set of pure predicate/throwing functions with no dependency on the other three modules; **serialization** (`serializer.ts`) builds a `Set-Cookie` string by calling into validation before emitting anything; and **signing** (`signing.ts`) is a self-contained HMAC layer that knows nothing about cookies, headers, or `Context` at all — it only signs and verifies strings.
+The package splits into five independent concerns that compose rather than couple: **parsing** (`parser.ts`) turns the raw `Cookie` header into a plain object; **validation** (`validation.ts` plus the domain/path/prefix/options modules split out of it) is a set of pure predicate/throwing functions with no dependency on the other four; **serialization** (`serializer.ts`) builds a `Set-Cookie` string by calling into validation before emitting anything; **secure resolution** (`secure-resolution.ts`) resolves the `secure: 'auto'` default per request; and **signing** (`signing.ts`, `signing-message.ts`, `signing-codec.ts`) is a self-contained HMAC layer that knows nothing about cookies, headers, or `Context` at all — it only signs and verifies a `(name, value, issuedAt)` tuple.
 
-`middleware.ts` is the only module that touches `Context`. It wires the other four together into two middleware factories — `cookies()` for plain read/write access, `signedCookies()` for the same shape with signing interposed on every `get()`/`set()`. The two are separate functions, not one function with a `signed: true` flag, because a signed cookie's `get()`/`set()` are necessarily `async` (they call into `crypto.subtle`), while a plain cookie's are not — merging them into one API would force every consumer to `await` even when no signing is happening.
+`middleware.ts` and `signed-middleware.ts` are the only two modules that touch `Context`. Between them they wire the other five concerns into two middleware factories — `cookies()` for plain read/write access, `signedCookies()` for the same shape with signing interposed on every `get()`/`set()`. The two are separate functions in separate files, not one function with a `signed: true` flag, because a signed cookie's `get()`/`set()` are necessarily `async` (they call into `crypto.subtle`), while a plain cookie's are not — merging them into one API would force every consumer to `await` even when no signing is happening.
 
 The most consequential design decision in the package is *when* `Set-Cookie` gets written. NextRush's response commits as soon as a handler calls `ctx.json()`/`ctx.send()`/etc — there is no post-handler "flush headers" phase this middleware can hook into after the fact. So `set()` and `delete()` on both `ctx.state.cookies` and `ctx.state.signedCookies` call `ctx.set('Set-Cookie', ...)` immediately, inside the same synchronous (or awaited) call, rather than deferring to a buffered array written out after `next()`. The middleware's own `await next()` at the end exists to let downstream handlers run and call `set()`/`delete()` themselves — it does not defer or batch anything this middleware itself wrote.
 
 ### Design principles
 
-1. **Signing has no HTTP or cookie knowledge.** `signCookie`/`unsignCookie`/`unsignCookieWithRotation` in `signing.ts` operate only on strings and a secret — enforced by the module never importing `Context`, `Middleware`, or anything from `types.ts` beyond its own `SigningKeys` type.
-2. **Set-Cookie is written eagerly, at `set()`/`delete()` call time, never buffered.** Every mutation path in `middleware.ts` (`cookies()` and `signedCookies()` alike) calls `ctx.set('Set-Cookie', ...)` in the same statement that computes the serialized value — there is no intermediate array flushed later, because NextRush's response can commit before any "later" would run.
-3. **Ambiguous verification failure resolves to `undefined`, never to a distinguishable error.** `unsignCookie()`'s `catch` block and its "missing separator"/"empty value or signature" branches all return the same `undefined` — a tampered signature, a malformed base64 payload, and a genuinely absent cookie are indistinguishable to the caller by construction.
-4. **Validation is layered: predicate functions for checking, throwing functions for enforcing.** `validateCookieName`/`validateDomain`/etc. return a `ValidationResult` for callers that want to inspect all errors; `validateCookieOptions`/`validateCookiePrefix` wrap the same checks and throw a `SecurityError` on the first failure — `serializeCookie()` uses only the throwing versions, so a caller cannot accidentally construct an invalid cookie by ignoring a boolean return value.
+1. **Signing has no HTTP or cookie knowledge, but it does know the cookie name.** `signCookie`/`unsignCookie`/`unsignCookieWithRotation` in `signing.ts` operate only on a `name`, a `value`, and a secret — enforced by the module never importing `Context`, `Middleware`, or anything from `types.ts` beyond its own `SigningKeys` type. `name` is a required first parameter specifically because RFC-031 binds it into the HMAC input (SEC-07) — it is data the signing layer consumes, not something it needs `Context` to obtain.
+2. **Set-Cookie is written eagerly, at `set()`/`delete()` call time, never buffered.** Every mutation path in `middleware.ts`/`signed-middleware.ts` (`cookies()` and `signedCookies()` alike) calls `ctx.set('Set-Cookie', ...)` in the same statement that computes the serialized value — there is no intermediate array flushed later, because NextRush's response can commit before any "later" would run.
+3. **Ambiguous verification failure resolves to `undefined`, never to a distinguishable error.** `unsignCookie()`'s `catch` block and its "wrong name"/"expired"/"malformed wire value"/"legacy format not accepted" branches all return the same `undefined` — a tampered signature, a value signed for a different cookie name, an expired issue time, a malformed base64 payload, and a genuinely absent cookie are indistinguishable to the caller by construction.
+4. **Validation is layered: predicate functions for checking, throwing functions for enforcing.** `validateCookieName`/`validateDomain`/etc. return a `ValidationResult` for callers that want to inspect all errors; `validateCookieOptions`/`validateCookiePrefix` wrap the same checks and throw a `SecurityError` on the first failure — `serializeCookie()` uses only the throwing versions, so a caller cannot accidentally construct an invalid cookie by ignoring a boolean return value. Both forms check `secure` for exact `true`, never truthiness — an unresolved `secure: 'auto'` must never satisfy a hard Secure requirement (see `secure-resolution.ts`).
 5. **Read-after-write is consistent within a single request.** `cookies()`'s `set()`/`delete()` mutate the in-memory `parsed` object in addition to writing the header, so a handler that calls `set('x', 'y')` and then `get('x')` later in the same request sees `'y'`, not the pre-request value — even though the actual header the browser receives is unaffected by this in-memory update.
+6. **`secure: 'auto'` fails closed, not open.** `resolveSecureOption()` emits `Secure` unless the request is demonstrably plaintext loopback; an untrusted `X-Forwarded-Proto: https` claim on a plaintext non-loopback request never suppresses `Secure` (SEC-08) — the function has exactly one path that returns `false`, every other path (including "don't know") returns `true`.
 
 ---
 
@@ -100,42 +101,71 @@ The most consequential design decision in the package is *when* `Set-Cookie` get
 
 ```text
 src/
-├── index.ts        # Public API barrel (exports only, no implementation)
-├── types.ts        # CookieOptions, CookieContext, SignedCookieContext, middleware option types
-├── constants.ts     # DEFAULT_COOKIE_OPTIONS, size/length limits, prefixes, HMAC config
-├── parser.ts        # parseCookies, getCookie, hasCookie, getCookieNames
-├── serializer.ts     # serializeCookie, createDeleteCookie, createSecurePrefixCookie, createHostPrefixCookie
-├── signing.ts         # signCookie, unsignCookie, unsignCookieWithRotation, timingSafeEqual, clearKeyCache
-├── validation.ts      # RFC 6265 + security validation — predicates and throwing enforcers
-└── middleware.ts       # cookies(), signedCookies(), secureOptions(), sessionOptions()
+├── index.ts               # Public API barrel (exports only, no implementation)
+├── types.ts                # CookieOptions, SameSiteValue, CookiePriority, ParsedCookies — wire-facing types only
+├── middleware-types.ts       # CookieMiddlewareOptions, SignedCookieMiddlewareOptions, CookieContext, SignedCookieContext
+├── constants.ts               # DEFAULT_COOKIE_OPTIONS, size/length limits, prefixes, HMAC config, COMMON_PUBLIC_SUFFIXES
+├── parser.ts                   # parseCookies, getCookie, hasCookie, getCookieNames
+├── serializer.ts                 # serializeCookie, createDeleteCookie, createSecurePrefixCookie, createHostPrefixCookie
+├── validation.ts                  # Cookie name/value validation, SecurityError, sanitizeCookieValue; re-exports the split-out validators below
+├── domain-validation.ts             # Domain/public-suffix validation (SEC-18) + publicSuffixList injection point
+├── path-validation.ts                # Path attribute validation
+├── prefix-validation.ts               # __Secure-/__Host- prefix rule validation (both ValidationResult and throwing forms)
+├── options-validation.ts               # validateCookieOptions() — the throwing aggregate serializeCookie() calls
+├── secure-resolution.ts                 # secure: 'auto' per-request resolution (SEC-08)
+├── option-presets.ts                     # secureOptions(), sessionOptions()
+├── signing.ts                              # signCookie, unsignCookie, unsignCookieWithRotation, timingSafeEqual, clearKeyCache
+├── signing-message.ts                       # Length-prefixed context-bound message construction + legacy-format split (RFC-031)
+├── signing-codec.ts                           # base64url encoding + HMAC verify plumbing, split out of signing.ts
+├── middleware.ts                                # cookies() — the plain-cookie middleware factory
+└── signed-middleware.ts                           # signedCookies() — the HMAC-signed middleware factory
 ```
 
 ### Module responsibilities
 
 | Module | Responsibility (the one thing it owns) |
 | ------ | -------------------------------------- |
-| `types.ts` | The public option/data contracts — no logic. |
+| `types.ts` | The wire-facing option/data contracts (`CookieOptions`, `SameSiteValue`, `ParsedCookies`) — no logic. |
+| `middleware-types.ts` | The middleware option and `ctx.state.*` context-extension contracts — no logic. |
 | `constants.ts` | Every literal default, size limit, and HMAC parameter, in one place. |
 | `parser.ts` | Turning a `Cookie` header string into a plain object — no serialization, no signing. |
-| `serializer.ts` | Turning a name/value/options triple into a valid `Set-Cookie` string — calls into `validation.ts`, never `signing.ts`. |
-| `signing.ts` | HMAC-SHA256 sign/verify over strings — no dependency on `Context`, cookies, or HTTP. |
-| `validation.ts` | RFC 6265 and security rule checking — pure predicates plus throwing enforcers, no dependency on `signing.ts` or `parser.ts`. |
-| `middleware.ts` | The only module that touches `Context` — wires parsing/serialization/signing/validation into the `cookies()`/`signedCookies()` middleware and the two option-preset helpers. |
+| `serializer.ts` | Turning a name/value/options triple into a valid `Set-Cookie` string — calls into validation, never signing. |
+| `validation.ts` | Cookie name/value validation, `SecurityError`, `sanitizeCookieValue`; re-exports the domain/path/prefix/options validators split into their own files below. |
+| `domain-validation.ts` | `Domain` attribute + public-suffix validation (SEC-18), including the `publicSuffixList` injection point and its once-per-process warning. |
+| `path-validation.ts` | `Path` attribute validation. |
+| `prefix-validation.ts` | `__Secure-`/`__Host-` prefix rule validation — both the `ValidationResult`-returning and throwing forms. |
+| `options-validation.ts` | `validateCookieOptions()` — the throwing aggregate `serializeCookie()` calls before emitting a header. |
+| `secure-resolution.ts` | Resolving `secure: 'auto'` per request (SEC-08) — transport detection and the trusted-forwarded-HTTPS check. |
+| `option-presets.ts` | `secureOptions()` / `sessionOptions()` attribute presets. |
+| `signing.ts` | HMAC-SHA256 sign/verify orchestration over strings — no dependency on `Context`, cookies, or HTTP. |
+| `signing-message.ts` | The length-prefixed context-bound message construction (RFC-031) and the legacy-format split, kept separate from the crypto calls. |
+| `signing-codec.ts` | base64url encoding and the `verifyHmac` plumbing — pure encoding/crypto helpers with no signing policy of their own. |
+| `middleware.ts` | `cookies()` — the only module (with `signed-middleware.ts`) that touches `Context`; wires parsing/serialization/`secure-resolution` into the plain-cookie API. |
+| `signed-middleware.ts` | `signedCookies()` — the same wiring as `middleware.ts`, with `signing.ts` interposed on every `get()`/`set()`. |
 
 ## Component relationships
 
 ```mermaid
 graph TD
-    Middleware[middleware.ts: cookies / signedCookies] --> Parser[parser.ts: parseCookies]
-    Middleware --> Serializer[serializer.ts: serializeCookie / createDeleteCookie]
-    Middleware --> Signing[signing.ts: signCookie / unsignCookieWithRotation]
-    Middleware --> Validation[validation.ts: sanitizeCookieValue]
-    Serializer --> Validation
+    MW1[middleware.ts: cookies] --> Parser[parser.ts: parseCookies]
+    MW1 --> Serializer[serializer.ts: serializeCookie / createDeleteCookie]
+    MW1 --> SecureRes[secure-resolution.ts: resolveSecureOption]
+    MW2[signed-middleware.ts: signedCookies] --> Parser
+    MW2 --> Serializer
+    MW2 --> SecureRes
+    MW2 --> Signing[signing.ts: signCookie / unsignCookieWithRotation]
+    Serializer --> OptionsVal[options-validation.ts]
+    Serializer --> Validation[validation.ts: sanitizeCookieValue]
+    OptionsVal --> DomainVal[domain-validation.ts]
+    OptionsVal --> PathVal[path-validation.ts]
+    Validation --> PrefixVal[prefix-validation.ts]
     Parser --> Validation
+    Signing --> SigningMsg[signing-message.ts: buildSignedMessage / splitNewFormat]
+    Signing --> SigningCodec[signing-codec.ts: toBase64Url / verifyHmac]
     Signing --> KeyCache[signing.ts: importKey — bounded CryptoKey cache]
 ```
 
-`signing.ts` never imports from `parser.ts`, `serializer.ts`, `validation.ts`, or `@nextrush/types` — it has no dependency on cookies or `Context` at all, so it can be reasoned about (and tested) purely as a string-signing primitive.
+`signing.ts`, `signing-message.ts`, and `signing-codec.ts` never import from `parser.ts`, `serializer.ts`, `validation.ts`, or `@nextrush/types` — the signing subsystem has no dependency on cookies or `Context` at all, so it can be reasoned about (and tested) purely as a string-signing primitive.
 
 ---
 
@@ -149,31 +179,36 @@ The states a single signed cookie value passes through, from a plain value being
 stateDiagram-v2
     [*] --> Plaintext: application calls set(name, value)
 
-    Plaintext --> Signed: signCookie(value, secret)\nHMAC-SHA256 over value, base64url signature appended
-    Signed --> CookieSet: Set-Cookie written immediately\n(value.signature)
+    Plaintext --> Signed: signCookie(name, value, secret)\nHMAC-SHA256 over <len>!name!<len>!value!<len>!issuedAt\n(RFC-031, SEC-07)
+    Signed --> CookieSet: Set-Cookie written immediately\n(value.issuedAt.signature)
 
     CookieSet --> Received: browser sends it back\non a later request
 
-    Received --> VerifyingCurrent: unsignCookieWithRotation()\ntries keys.current first
-    VerifyingCurrent --> Verified: signature matches current secret
+    Received --> VerifyingCurrent: unsignCookieWithRotation(name, ...)\ntries keys.current first, bound to name
+    VerifyingCurrent --> Verified: signature matches current secret\nAND the name matches AND (if maxAge given) not expired
     VerifyingCurrent --> VerifyingPrevious: signature does not match current\n(only if previousSecrets configured)
 
-    VerifyingPrevious --> Verified: signature matches a previous secret\n(tried in array order)
+    VerifyingPrevious --> Verified: signature matches a previous secret\n(tried in array order, still name-bound)
     VerifyingPrevious --> Rejected: no configured secret verifies
 
-    VerifyingCurrent --> Rejected: no previousSecrets configured\nand current secret does not match
+    VerifyingCurrent --> VerifyingLegacy: new format rejected AND\nacceptLegacySignatures is set
+    VerifyingLegacy --> Verified: legacy value-only signature matches\n(logs once-per-process deprecation warning)
+    VerifyingLegacy --> Rejected: legacy signature also fails,\nor acceptLegacySignatures not set
+
+    VerifyingCurrent --> Rejected: no previousSecrets configured,\nno acceptLegacySignatures,\nand current secret does not match
 
     Verified --> [*]: get() resolves to the original value
-    Rejected --> [*]: get() resolves to undefined\n(identical outcome to "cookie absent")
+    Rejected --> [*]: get() resolves to undefined\n(identical outcome to "cookie absent",\n"presented under the wrong name",\nand "expired")
 ```
 
 > [!NOTE]
-> There is no distinct `Tampered` end state in this diagram, and that absence is deliberate:
-> `Rejected` is reached by a tampered signature, a malformed base64 payload, a missing separator,
-> or a genuinely absent cookie — `unsignCookie()`'s `catch` block and its early-return branches
-> all converge on the same `undefined`. A contributor adding a new failure mode to `unsignCookie`
-> must route it through this same `Rejected` state, not a newly distinguishable one, or callers
-> gain an oracle for probing which failure occurred.
+> There is no distinct `Tampered`, `WrongName`, or `Expired` end state in this diagram, and that
+> absence is deliberate: `Rejected` is reached by a tampered signature, a value signed for a
+> *different* cookie name, an expired issue time, a malformed wire value, or a genuinely absent
+> cookie — `unsignCookie()`'s early-return branches and `catch` all converge on the same
+> `undefined`. A contributor adding a new failure mode to `unsignCookie` must route it through
+> this same `Rejected` state, not a newly distinguishable one, or callers gain an oracle for
+> probing which failure occurred.
 
 ### Request parse / signed get-set sequence
 
@@ -196,7 +231,7 @@ sequenceDiagram
     MW->>Handler: await next()
 
     Handler->>Verify: await ctx.state.signedCookies.get('role')
-    Verify->>Verify: unsignCookie(parsed.role, keys.current)
+    Verify->>Verify: unsignCookie('role', parsed.role, keys.current)\nbinds verification to the 'role' name
     Verify->>Crypto: importKey(current secret) [cached after first use]
     Crypto-->>Verify: CryptoKey
     Verify->>Crypto: crypto.subtle.verify(signature, value)
@@ -222,7 +257,7 @@ sequenceDiagram
     Crypto-->>Sign: CryptoKey
     Sign->>Crypto: crypto.subtle.sign(HMAC, key, value)
     Crypto-->>Sign: signature bytes
-    Sign->>Sign: toBase64Url(signature) -> "value.signature"
+    Sign->>Sign: toBase64Url(signature) -> "value.issuedAt.signature"
     Sign->>MW: ctx.set('Set-Cookie', serialized)
     Note over MW,Client: Set-Cookie written immediately here —\nnot deferred until the handler returns
     Handler-->>Client: response (already carries Set-Cookie)
@@ -244,14 +279,21 @@ There is no per-request mutable state shared *across* requests — `parsed` is r
 ## Data structures
 
 ```ts
-// The signed value format itself (signing.ts) — not a typed structure, but a fixed
-// string shape produced by signCookie() and consumed by unsignCookie():
-//   `${value}.${base64UrlSignature}`     e.g. "admin.k3F9x...Q1z_"
-// The separator is SIGNATURE_SEPARATOR ('.'); splitting uses lastIndexOf, so a
-// value containing '.' itself does not break parsing — only the final '.' is
-// treated as the separator.
+// The signed value format itself (signing.ts / signing-message.ts) — not a typed
+// structure, but a fixed string shape produced by signCookie() and consumed by
+// unsignCookie():
+//   `${value}.${issuedAt}.${base64UrlSignature}`   e.g. "admin.1706300000000.k3F9x...Q1z_"
+// The HMAC input itself binds the cookie name (RFC-031, SEC-07):
+//   `${name.length}!${name}!${value.length}!${value}!${issuedAt.length}!${issuedAt}`
+// SIGNATURE_SEPARATOR ('.') splits the wire value from the right: the final
+// segment is the signature, the one before it is the decimal issuedAt (validated
+// as all-digits), and everything before that is the value — which may itself
+// contain any number of '.' characters without breaking the split. A legacy
+// (pre-RFC-031) value has only one '.' and no name/issuedAt binding at all;
+// acceptLegacySignatures gates whether that shorter format is still accepted.
 
-// The two request-scoped context shapes this package attaches (types.ts):
+// The two request-scoped context shapes this package attaches
+// (middleware-types.ts):
 interface CookieContext {
   get(name: string): string | undefined;
   set(name: string, value: string, options?: CookieOptions): void;
@@ -310,7 +352,7 @@ For plain `cookies()`, every value returned by `get()`/`all()` is attacker-contr
 
 **Forbidden (sealed):**
 
-- **The signed-value format (`value.signature`, `SIGNATURE_SEPARATOR`)** — changing the separator or the base64 encoding breaks verification of every cookie signed before the change; RFC-gated.
+- **The signed-value format (`value.issuedAt.signature`, the name-bound HMAC input, `SIGNATURE_SEPARATOR`)** — changing the separator, the length-prefixed message construction, or the base64 encoding breaks verification of every cookie signed before the change; RFC-gated (RFC-031).
 - **Collapsing "tampered" and "absent" into distinguishable outcomes** — `unsignCookie()`'s single `undefined` return for every failure mode is a deliberate anti-oracle property, not an implementation gap to "improve."
 - **Deferring `Set-Cookie` writes past the `set()`/`delete()` call** — see Design principle 2; NextRush's response-commit timing makes any buffered/deferred write model incorrect for handlers that respond before a would-be flush point.
 
@@ -321,10 +363,13 @@ For plain `cookies()`, every value returned by `get()`/`all()` is attacker-contr
 These are part of the package's architecture. They do not change without an RFC:
 
 - **Signing provides integrity, never confidentiality** — a signed cookie's value remains plaintext-readable; there is no encryption path anywhere in this package.
+- **A signature is bound to the cookie name it was issued for** — verification always requires `name`, and a value signed under one name never verifies under another (RFC-031, SEC-07).
+- **`secure: 'auto'` fails closed** — it emits `Secure` in every case except a demonstrably plaintext-loopback request; an untrusted forwarded-protocol claim never suppresses it (SEC-08).
 - **`Set-Cookie` is written synchronously (or immediately upon promise resolution) inside `set()`/`delete()`, never buffered for a later flush.**
-- **Verification failure of every kind — missing cookie, malformed value, bad signature — resolves to `undefined`, with no distinguishable error surfaced to the caller.**
+- **Verification failure of every kind — missing cookie, wrong name, expired, malformed value, bad signature — resolves to `undefined`, with no distinguishable error surfaced to the caller.**
 - **`previousSecrets` are only ever consulted for verification, in array order, after `current` fails — they are never used for signing new values.**
-- **`__Secure-`/`__Host-` prefix constraints are validated together, synchronously, inside `serializeCookie()` before any header is built.**
+- **`acceptLegacySignatures` is opt-in and off by default** — the pre-RFC-031 value-only format is never accepted unless explicitly requested, and every `set()` always writes the current format regardless of this flag.
+- **`__Secure-`/`__Host-` prefix constraints (and `SameSite=None`'s Secure requirement) check `secure` for exact `true`, never truthiness** — an unresolved `secure: 'auto'` must never satisfy them, and are validated together, synchronously, inside `serializeCookie()` before any header is built.
 - **The package imports no runtime API** — zero `node:*` imports; the same code path runs identically on Node, Bun, Deno, and Edge runtimes.
 
 ## Engineering decisions
@@ -332,10 +377,12 @@ These are part of the package's architecture. They do not change without an RFC:
 | Decision | Chosen | Trade-off accepted | Reference |
 | -------- | ------ | ------------------ | --------- |
 | Signing scope | Integrity only (HMAC-SHA256), no encryption | Simpler package, single well-understood primitive — at the cost of not solving confidentiality; callers needing that must add their own encryption layer | `signing.ts` |
-| Plain vs. signed cookie API | Two separate middleware/context shapes, not one flag | Avoids forcing every plain-cookie caller to `await`, at the cost of two similar-looking APIs to choose between | `middleware.ts` |
-| `Set-Cookie` write timing | Eager, at `set()`/`delete()` call time | Correct under NextRush's commit-on-first-write response model, at the cost of no single place to see "all cookies set this request" without re-reading response headers | `middleware.ts` |
-| Verification failure surface | One undistinguishable `undefined` outcome | Removes an oracle for probing cookie presence vs. tampering, at the cost of harder debugging when a secret mismatch is the real cause (see Troubleshooting) | `signing.ts` |
-| Public suffix list | Curated common-suffix set, not the full PSL | Zero dependency, small bundle, catches the common footguns (`.com`, `github.io`, etc.) — at the cost of not catching every real-world public suffix | `constants.ts`, `validation.ts` |
+| Plain vs. signed cookie API | Two separate middleware/context shapes, not one flag | Avoids forcing every plain-cookie caller to `await`, at the cost of two similar-looking APIs to choose between | `middleware.ts`, `signed-middleware.ts` |
+| `Set-Cookie` write timing | Eager, at `set()`/`delete()` call time | Correct under NextRush's commit-on-first-write response model, at the cost of no single place to see "all cookies set this request" without re-reading response headers | `middleware.ts`, `signed-middleware.ts` |
+| Signature binding | Context-bound: name + issue time, length-prefixed (RFC-031) | Closes the cross-cookie substitution risk (SEC-07) at the cost of a breaking wire-format change and a required migration window (`acceptLegacySignatures`) | `signing-message.ts`, RFC-031 / ADR-0019 |
+| `secure` default | `'auto'` — resolved per request, fails closed | Removes the most common cookie-hardening footgun (shipping `secure: false` by omission) at the cost of a resolution step every `set()` now performs, and of the prefix/`SameSite=None` checks needing to check for exact `true` rather than truthiness (SEC-08) | `secure-resolution.ts` |
+| Verification failure surface | One undistinguishable `undefined` outcome | Removes an oracle for probing cookie presence vs. tampering vs. wrong-name vs. expiry, at the cost of harder debugging when a secret mismatch is the real cause (see Troubleshooting) | `signing.ts` |
+| Public suffix list | Curated common-suffix set, not the full PSL, with an injection point | Zero dependency, small bundle, catches the common footguns (`.com`, `github.io`, etc.) and lets callers extend it — at the cost of not catching every real-world public suffix without supplying `publicSuffixList` (SEC-18) | `constants.ts`, `domain-validation.ts` |
 | `CryptoKey` caching | Bounded `Map`, FIFO eviction at 10 entries | Avoids re-importing a key on every sign/verify call for the common single/rotating-secret case, mirroring `@nextrush/csrf`'s identical strategy | `signing.ts` (`importKey`) |
 
 ## Rejected alternatives
@@ -364,13 +411,13 @@ Rejected: returning something like `{ ok: false, reason: 'tampered' }` versus `{
 
 - **Stable (semver-guarded):** the sealed public surface — `cookies()`, `signedCookies()`, every serialization/parsing/signing/validation export, and every type in `types.ts` (ADR-0005).
 - **May change without notice:** `KEY_CACHE`'s exact eviction bookkeeping, the internal structure of `COMMON_PUBLIC_SUFFIXES`.
-- **Changes only via RFC:** the signed-value format (`value.signature`), the "verification failure is always `undefined`" contract, and the `__Secure-`/`__Host-` prefix enforcement rules.
+- **Changes only via RFC:** the signed-value format (`value.issuedAt.signature`, name-bound per RFC-031), the "verification failure is always `undefined`" contract, the `secure: 'auto'` fail-closed resolution rule, and the `__Secure-`/`__Host-` prefix enforcement rules.
 
-**Timeline:** 1.0 — initial release with RFC 6265 parsing/serialization, prefix validation, HMAC-SHA256 signing with rotation support, and the `cookies()`/`signedCookies()` middleware pair.
+**Timeline:** 1.0 (beta) — RFC 6265 parsing/serialization, prefix validation, HMAC-SHA256 signing with rotation support, and the `cookies()`/`signedCookies()` middleware pair, hardened pre-stable-release with RFC-031's context-bound (name + issue-time) signature format (SEC-07), `secure: 'auto'` as the default (SEC-08), and the `publicSuffixList` injection point (SEC-18).
 
 ## Contributor notes
 
-Before changing this package, read: `signing.ts`'s doc comment on `unsignCookie()`'s undistinguishable-`undefined` contract before adding any new failure path, and the `CK-*` inline comments in `middleware.ts` (each marks a specific hardening fix — eager `Set-Cookie` writes, read-after-write consistency, repeated-header joining, prefix-preserving deletion). Note also that `validation.ts` currently sits above the package's usual 300-line-per-file target (671 LOC) by consolidating name/value/prefix/domain/path validation into one file — a future split (e.g. extracting domain/path checks into their own module) is a reasonable non-breaking refactor, not an architectural change.
+Before changing this package, read: `signing.ts`'s and `signing-message.ts`'s doc comments on `unsignCookie()`'s undistinguishable-`undefined` contract and the name-bound message construction (RFC-031) before adding any new failure path or touching the wire format, and the `CK-*`/`SEC-*` inline comments in `middleware.ts`/`signed-middleware.ts` (each marks a specific hardening fix — eager `Set-Cookie` writes, read-after-write consistency, repeated-header joining, prefix-preserving deletion, name-bound signing). Domain/path/prefix/options validation was split out of the original single `validation.ts` into `domain-validation.ts`/`path-validation.ts`/`prefix-validation.ts`/`options-validation.ts` specifically to stay under the package's 300-line-per-file target — `validation.ts` itself now only owns name/value validation, `SecurityError`, and `sanitizeCookieValue`, and re-exports the split-out modules for barrel convenience.
 
 ## Architecture checklist
 
@@ -387,7 +434,8 @@ Before changing this package, confirm:
 ## References & see also
 
 - **README (how to use it):** [`./README.md`](./README.md)
-- **ADR:** [`ADR-0005 — package tiers & sealed surface`](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)
+- **Governing RFC:** [`RFC-031 — Context-bound signatures`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/request-data/031-context-bound-signatures.md)
+- **ADR:** [`ADR-0019 — Context-bound signatures`](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0019-context-bound-signatures.md) · [`ADR-0005 — package tiers & sealed surface`](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)
 - **Security boundary reference:** `.kiro/steering/project-rules.instructions.md` §4
 - **Documentation site:** [nextRush docs](https://0xtanzim.github.io/nextRush/docs)
 - **Repository:** [`packages/middleware/cookies`](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/cookies)

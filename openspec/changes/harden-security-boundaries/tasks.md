@@ -75,17 +75,17 @@
 
 ## 6. WS-D — Cookie integrity and transport (SEC-07, SEC-08, SEC-18)
 
-- [ ] 6.1 RED: failing test — a value signed as cookie `tier` verifies when presented as cookie `user` (the SEC-07 substitution).
-- [ ] 6.2 RED: failing tests — an expired signed payload is rejected; a value containing the separator round-trips byte-for-byte; a legacy value-only signature is rejected unless `acceptLegacySignatures` is set.
-- [ ] 6.3 GREEN: sign a length-prefixed `<len>!<name>!<len>!<value>!<len>!<issuedAt>` tuple, reusing the construction from `csrf/token.ts`; verify name match and optional embedded expiry.
-- [ ] 6.4 GREEN: add `acceptLegacySignatures` (default off) that accepts the previous value-only format and logs once per process; document the removal target.
-- [ ] 6.5 GREEN: thread the cookie name through `signedCookies.get/set` so verification always has it; keep key-rotation support working across both formats.
-- [ ] 6.6 RED: failing tests for `secure: 'auto'` — `Secure` emitted on TLS; emitted on trusted-forwarded HTTPS; omitted on plaintext loopback; **emitted anyway** when a plaintext non-loopback request carries an untrusted `X-Forwarded-Proto: https` (fail closed).
-- [ ] 6.7 GREEN: implement `secure: 'auto'` as the default in `DEFAULT_COOKIE_OPTIONS`, resolved per request; keep explicit `secure: false` honored.
-- [ ] 6.8 GREEN: add a `publicSuffixList` injection point and warn (not throw) on an unrecognized multi-label suffix; keep the curated heuristic as the default.
-- [ ] 6.9 Edge cases: signed value at exactly `MAX_COOKIE_SIZE`; a name that is a valid token but collides with a `__Host-`/`__Secure-` prefix rule; parse-then-unsign round trip when `sanitizeCookieValue` would alter the value; repeated `Cookie` headers joined by the middleware.
-- [ ] 6.10 Gate: coverage ≥ 90%, ESLint clean, `tsc` strict clean; `public-surface-lock` updated.
-- [ ] 6.11 Rewrite `packages/middleware/cookies/README.md` and `ARCHITECTURE.md` from the current templates; add the signed-cookie format migration section.
+- [x] 6.1 RED: failing test — a value signed as cookie `tier` verifies when presented as cookie `user` (the SEC-07 substitution).
+- [x] 6.2 RED: failing tests — an expired signed payload is rejected; a value containing the separator round-trips byte-for-byte; a legacy value-only signature is rejected unless `acceptLegacySignatures` is set.
+- [x] 6.3 GREEN: sign a length-prefixed `<len>!<name>!<len>!<value>!<len>!<issuedAt>` tuple, reusing the construction from `csrf/token.ts`; verify name match and optional embedded expiry.
+- [x] 6.4 GREEN: add `acceptLegacySignatures` (default off) that accepts the previous value-only format and logs once per process; document the removal target.
+- [x] 6.5 GREEN: thread the cookie name through `signedCookies.get/set` so verification always has it; keep key-rotation support working across both formats.
+- [x] 6.6 RED: failing tests for `secure: 'auto'` — `Secure` emitted on TLS; emitted on trusted-forwarded HTTPS; omitted on plaintext loopback; **emitted anyway** when a plaintext non-loopback request carries an untrusted `X-Forwarded-Proto: https` (fail closed).
+- [x] 6.7 GREEN: implement `secure: 'auto'` as the default in `DEFAULT_COOKIE_OPTIONS`, resolved per request; keep explicit `secure: false` honored. (This session found `DEFAULT_COOKIE_OPTIONS` had no `secure` key at all — added `secure: 'auto'`, then tightened `validateSecurePrefix`/`validateHostPrefix`/`validateCookiePrefix`/`validateSameSiteSecure`/the `SameSite=None` throwing check to require `options.secure === true` rather than truthiness, since an unresolved `'auto'` must never satisfy a hard Secure requirement — see the WS-D decisions log in the remediation index.)
+- [x] 6.8 GREEN: add a `publicSuffixList` injection point and warn (not throw) on an unrecognized multi-label suffix; keep the curated heuristic as the default.
+- [x] 6.9 Edge cases: signed value at exactly `MAX_COOKIE_SIZE`; a name that is a valid token but collides with a `__Host-`/`__Secure-` prefix rule; parse-then-unsign round trip when `sanitizeCookieValue` would alter the value; repeated `Cookie` headers joined by the middleware.
+- [x] 6.10 Gate: coverage ≥ 90%, ESLint clean, `tsc` strict clean; `public-surface-lock` updated. (No standalone `public-surface-lock` file exists in this package — `public-surface.test.ts` is the lock mechanism and required no change, since the barrel's export list was not altered, only a broken re-export path within it was fixed. Final: 400 tests / 15 files, coverage 98.3%/95.72%/98.5%/98.66% stmts/branches/funcs/lines, ESLint 0 errors/0 warnings, `tsc --noEmit` 0 errors.)
+- [x] 6.11 Rewrite `packages/middleware/cookies/README.md` and `ARCHITECTURE.md` from the current templates; add the signed-cookie format migration section.
 
 ## 7. WS-E — Response and content boundaries (SEC-10, SEC-11, SEC-12, SEC-13, SEC-14, SEC-17)
 

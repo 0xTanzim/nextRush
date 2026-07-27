@@ -129,11 +129,20 @@ export const SESSION_DEFAULTS: CookieOptions = {
 
 /**
  * Default cookie options (secure by default).
+ *
+ * `secure: 'auto'` (SEC-08) is the default so a bare `serializeCookie()` call
+ * — not just the `cookies()` middleware's `resolveSecureOption()` path — also
+ * fails closed instead of silently omitting `Secure`. `serializeCookie`
+ * itself has no request context to resolve `'auto'` against, so this default
+ * only takes effect for callers that pass an explicit `boolean`; the
+ * middleware always resolves `'auto'` to a concrete boolean before calling
+ * `serializeCookie`, per `secure-resolution.ts`.
  */
 export const DEFAULT_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   sameSite: 'lax',
   path: '/',
+  secure: 'auto',
 } as const;
 
 // ============================================================================

@@ -4,7 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { cookies, secureOptions, sessionOptions, signedCookies } from '../middleware';
-import type { CookieContext } from '../types';
+import type { CookieContext } from '../middleware-types';
 
 /**
  * Create a mock context for testing
