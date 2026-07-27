@@ -864,6 +864,19 @@ required for T060's own acceptance criteria.
 - **Risk if ignored:** Unassessed security posture entering v1.
 - **Acceptance Criteria:** `docs/audits/05-security-architecture-audit.md` with severity-tagged findings + remediations.
 - **Validation Steps:** Findings cross-checked against source; each has a tracked remediation task.
+- **Update (2026-07-27, `harden-security-boundaries` §9.6):** `report/security-review.md` and its
+  companion `report/security-review-remediation-index.md` now exist and cover 19 severity-tagged
+  findings (SEC-01…SEC-19) spanning proxy/IP-trust, header injection, CSRF, cookie signing, static
+  serving, and CORS — a real subset of this task's stated scope, remediated end to end across six
+  workstreams with passing tests. **T064 is not closed by this** — the two artifacts differ in
+  scope: `security-review.md` is a point-in-time review of specific findings (per
+  `~/.kiro/steering/architecture-review.md`'s report template), not the broader, durable threat
+  model / ReDoS / prototype-pollution / dependency-CVE / secret-handling audit T064 asks for. The
+  proxy/IP-trust and header-injection sub-areas T064 names are now substantially covered by
+  `security-review.md`'s SEC-01 and SEC-12 findings; ReDoS, prototype-pollution, dependency CVEs,
+  secret rotation, and the auth/session surface (blocked on T029 regardless) remain unaddressed by
+  either artifact. A future T064 pass should read `security-review-remediation-index.md` first to
+  avoid re-deriving what this change already fixed and verified.
 
 ### ☐ T065 · Produce `06-api-design-maintainability-audit.md`
 - **Domain:** API Design / Developer Experience · **Packages:** repo · **Priority:** P2 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
