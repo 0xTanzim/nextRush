@@ -76,7 +76,10 @@ export interface CsrfCookieOptions {
   /**
    * Max-Age in seconds.
    *
-   * If omitted, the cookie is a session cookie.
+   * Emitted verbatim as `Max-Age` only when explicitly set — an omitted
+   * `maxAge` produces a session cookie with no `Max-Age` attribute. Must be a
+   * non-negative, finite integer; negative, `NaN`, or `Infinity` values throw
+   * at construction.
    */
   maxAge?: number;
 }
@@ -105,11 +108,16 @@ export type TokenExtractor = (ctx: Context) => string | undefined | null;
  * attacks where an attacker could set their own cookie on the victim's browser.
  *
  * Common sources: session ID, JWT `jti` claim, or a random value stored in session.
- *
- * If not provided, session binding is disabled (less secure, but sufficient
- * when combined with `__Host-` prefix and `SameSite=Strict`).
  */
 export type SessionIdentifierExtractor = (ctx: Context) => string | undefined;
+
+/**
+ * Explicit acknowledgement that session binding is intentionally disabled.
+ *
+ * `csrf()` requires either `getSessionIdentifier` or `sessionBinding: 'none'` —
+ * the weaker unbound double-submit mode can never be reached by omission.
+ */
+export type SessionBinding = 'none';
 
 // ============================================================================
 // CSRF Options
@@ -132,8 +140,9 @@ export interface CsrfOptions {
   /**
    * Extract a session-dependent value to bind tokens to sessions.
    *
-   * Strongly recommended for apps with authenticated sessions.
-   * Prevents cookie injection attacks (subdomain takeover, MITM).
+   * Required unless `sessionBinding: 'none'` is explicitly set — session
+   * binding is an intentional decision, never a silent default. Prevents
+   * cookie injection attacks (subdomain takeover, MITM).
    *
    * @example
    * ```typescript
@@ -143,12 +152,23 @@ export interface CsrfOptions {
   getSessionIdentifier?: SessionIdentifierExtractor;
 
   /**
+   * Explicit opt-out of session binding.
+   *
+   * `csrf()` throws unless exactly one of `getSessionIdentifier` or
+   * `sessionBinding: 'none'` is supplied — the weaker unbound double-submit
+   * mode is never reached by omission. Only `'none'` is a valid value.
+   */
+  sessionBinding?: SessionBinding;
+
+  /**
    * Extract the CSRF token from the incoming request.
    *
-   * Must return the token from a header, form body, or query parameter.
+   * Must return the token from a header or parsed body.
    * **Never extract from the cookie** — that defeats the entire pattern.
    *
-   * @default Checks `x-csrf-token` header, then `_csrf` body field, then `_csrf` query param
+   * @default Checks `x-csrf-token` header, `x-xsrf-token` header, then `_csrf`
+   * body field. The query string is never read by default — pass an explicit
+   * extractor to opt in.
    */
   getTokenFromRequest?: TokenExtractor;
 
@@ -202,17 +222,23 @@ export interface CsrfOptions {
    * Whether to also check `Origin` and `Sec-Fetch-Site` headers
    * as defense-in-depth.
    *
-   * When enabled, requests with `Sec-Fetch-Site: cross-site` or
-   * mismatched `Origin` headers are rejected even if the token is valid.
+   * Validation compares `Origin` against `allowedOrigins` only — it never
+   * falls back to the attacker-controlled `Host` header. `Sec-Fetch-Site` is
+   * honored only as a reject signal (`cross-site` rejects early); it never
+   * overrides an allowlist rejection. A missing `Origin` on an unsafe method
+   * fails validation.
    *
-   * @default false
+   * @default true
    */
   originCheck?: boolean;
 
   /**
-   * Allowed origins when `originCheck` is enabled.
+   * Allowed origins when `originCheck` is enabled (the default).
    *
-   * If not specified, only same-origin requests are allowed.
+   * Required whenever origin checking is active — since `Origin` is never
+   * compared against `Host`, there is no other basis for the comparison.
+   * `csrf()` throws at construction if origin checking would run with no
+   * `allowedOrigins` configured.
    *
    * @example ['https://example.com', 'https://app.example.com']
    */

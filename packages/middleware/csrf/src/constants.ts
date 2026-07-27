@@ -57,4 +57,17 @@ export const ERRORS = {
   ORIGIN_MISMATCH: 'Request origin does not match allowed origins.',
   CROSS_SITE: 'Cross-site request blocked by CSRF protection.',
   SECRET_TOO_SHORT: 'CSRF secret must be at least 32 characters.',
+  MISSING_SESSION_DECISION:
+    'csrf() requires either a getSessionIdentifier function or an explicit ' +
+    "sessionBinding: 'none' acknowledgement. Provide getSessionIdentifier to bind " +
+    "tokens to sessions, or sessionBinding: 'none' to opt into the weaker unbound " +
+    'double-submit mode intentionally.',
+  INVALID_SESSION_BINDING: "sessionBinding must be 'none' when provided.",
+  MISSING_ALLOWED_ORIGINS:
+    'csrf() has origin checking active (originCheck is true by default) but no ' +
+    'allowedOrigins were configured. Origin validation never falls back to the ' +
+    'Host header, so allowedOrigins is required whenever origin checking runs. ' +
+    'Provide allowedOrigins, or set originCheck: false to disable origin checking.',
+  INVALID_MAX_AGE:
+    'cookie.maxAge must be a non-negative, finite integer (seconds). Received: ',
 } as const;

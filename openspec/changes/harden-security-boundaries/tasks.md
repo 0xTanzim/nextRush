@@ -42,36 +42,36 @@
 
 ## 4. WS-B — Typed proxy trust boundary (SEC-01 P1) — rebases on WS-A
 
-- [x] 4.1 RED: failing test — a rotating `X-Forwarded-For` mints a new rate-limit key per request (the SEC-01 bypass) with a rate limiter configured at `max: 5`.
-- [x] 4.2 RED: failing tests for chain selection — `proxy: 1` with `XFF: '203.0.113.9, 10.0.0.5'` resolves `10.0.0.5`; `proxy: ['10.0.0.0/8']` with a three-entry chain from a trusted peer stops at the first untrusted address; a forged header from an untrusted peer resolves to the direct peer.
-- [x] 4.3 RED: failing tests for configuration refusal — `proxy: true` throws at boot naming both replacements; `proxy: 0` throws directing to `proxy: false`; a peer-CIDR list on an adapter with no peer address throws at boot.
-- [x] 4.4 GREEN: change the `proxy` option type to `false | number | string[]` in `@nextrush/types` and thread it through `ApplicationOptions`.
-- [x] 4.5 GREEN: rewrite `resolveClientIp()` in `packages/runtime/src/headers.ts` to walk `X-Forwarded-For` right-to-left under the trust specification, gate vendor headers on peer trust, and return the direct peer when the chain is exhausted or untrusted.
-- [x] 4.6 GREEN: add IP/CIDR normalization shared by the trust comparison and the published value so an IPv4-mapped or bracketed-IPv6 peer is never judged untrusted for textual reasons.
-- [x] 4.7 GREEN: wire the new policy into the Node adapter, preserving the existing no-closure fast path when trust is `false`.
-- [x] 4.8 GREEN: wire the new policy into Bun, Deno, and Edge, preserving each platform's direct-address source and the no-closure fast path.
-- [x] 4.9 GREEN: rewrite `rate-limit/src/utils/key-generator.ts` to consume `ctx.ip` only — delete the eight-header `PROXY_HEADERS` scan and `parseProxyHeader`.
-- [x] 4.10 Edge cases: malformed entries in a trusted chain (`not-an-ip`, empty element, unbracketed IPv6 with port) never become the resolved value; a hop count larger than the chain falls back to the direct peer; `cf-connecting-ip` from an untrusted peer is ignored.
-- [x] 4.11 Regression: allow/deny lists reject a forged whitelisted IP; `trustProxy: false` behavior is byte-identical to today on every adapter.
-- [x] 4.12 Cross-adapter: conformance scenarios asserting no adapter returns a forged leftmost entry under any supported trust form, and that the policy has exactly one implementation (no adapter-local precedence logic).
-- [x] 4.13 Gate: coverage ≥ 90% for touched files (`runtime/proxy-trust.ts` 96.92%, `runtime/headers.ts` 93.33%, `core/application.ts` 98.93%; `rate-limit` package-wide coverage is a pre-existing baseline gap in untouched IPv4/IPv6-validation helpers, not a regression). ESLint clean (zero warnings). `tsc` strict clean for `runtime`, `rate-limit`, and every adapter. `performance-gate` smoke not run this session — same open item as WS-A; run before merge.
-- [x] 4.14 Migration guide: `proxy: true` → `proxy: 1` / `proxy: ['<cidr>']`, with the Edge peer-list constraint called out. RFC-030 §12 already documents the exact one-line migration; the standalone `apps/docs` migration-guide page (EDS-020 page type) is deferred to when this change ships in its major release lane, per the same timing WS-A used for its own docs follow-up — writing it now, before the major bump is cut, risks documenting a version number that hasn't been decided yet.
+- [ ] 4.1 RED: failing test — a rotating `X-Forwarded-For` mints a new rate-limit key per request (the SEC-01 bypass) with a rate limiter configured at `max: 5`.
+- [ ] 4.2 RED: failing tests for chain selection — `proxy: 1` with `XFF: '203.0.113.9, 10.0.0.5'` resolves `10.0.0.5`; `proxy: ['10.0.0.0/8']` with a three-entry chain from a trusted peer stops at the first untrusted address; a forged header from an untrusted peer resolves to the direct peer.
+- [ ] 4.3 RED: failing tests for configuration refusal — `proxy: true` throws at boot naming both replacements; `proxy: 0` throws directing to `proxy: false`; a peer-CIDR list on an adapter with no peer address throws at boot.
+- [ ] 4.4 GREEN: change the `proxy` option type to `false | number | string[]` in `@nextrush/types` and thread it through `ApplicationOptions`.
+- [ ] 4.5 GREEN: rewrite `resolveClientIp()` in `packages/runtime/src/headers.ts` to walk `X-Forwarded-For` right-to-left under the trust specification, gate vendor headers on peer trust, and return the direct peer when the chain is exhausted or untrusted.
+- [ ] 4.6 GREEN: add IP/CIDR normalization shared by the trust comparison and the published value so an IPv4-mapped or bracketed-IPv6 peer is never judged untrusted for textual reasons.
+- [ ] 4.7 GREEN: wire the new policy into the Node adapter, preserving the existing no-closure fast path when trust is `false`.
+- [ ] 4.8 GREEN: wire the new policy into Bun, Deno, and Edge, preserving each platform's direct-address source and the no-closure fast path.
+- [ ] 4.9 GREEN: rewrite `rate-limit/src/utils/key-generator.ts` to consume `ctx.ip` only — delete the eight-header `PROXY_HEADERS` scan and `parseProxyHeader`.
+- [ ] 4.10 Edge cases: malformed entries in a trusted chain (`not-an-ip`, empty element, unbracketed IPv6 with port) never become the resolved value; a hop count larger than the chain falls back to the direct peer; `cf-connecting-ip` from an untrusted peer is ignored.
+- [ ] 4.11 Regression: allow/deny lists reject a forged whitelisted IP; `trustProxy: false` behavior is byte-identical to today on every adapter.
+- [ ] 4.12 Cross-adapter: conformance scenarios asserting no adapter returns a forged leftmost entry under any supported trust form, and that the policy has exactly one implementation (no adapter-local precedence logic).
+- [ ] 4.13 Gate: coverage ≥ 90%, ESLint clean, `tsc` strict clean for `runtime`, `rate-limit`, and every adapter; `performance-gate` smoke unchanged.
+- [ ] 4.14 Migration guide: `proxy: true` → `proxy: 1` / `proxy: ['<cidr>']`, with the Edge peer-list constraint called out.
 
 ## 5. WS-C — CSRF correctness (SEC-03, SEC-04, SEC-05, SEC-06, SEC-15, SEC-19)
 
-- [ ] 5.1 RED: failing integration test — issue a token on `GET` under **default** options, then validate cookie + token on a subsequent `POST`. This is the test whose absence let SEC-03 ship.
-- [ ] 5.2 RED: failing test — the default `Set-Cookie` contains no `Max-Age` and no `Expires` attribute.
-- [ ] 5.3 GREEN: stop coercing an omitted `cookie.maxAge` to `0`; emit `Max-Age` only when explicitly configured; reject negative / `NaN` / `Infinity` at construction.
-- [ ] 5.4 RED: failing tests for origin validation — forged `Host` + `Origin` pair rejected; missing `Origin` on `POST` rejected; `Sec-Fetch-Site: none` does not override the allowlist; `Sec-Fetch-Site: cross-site` rejects before any crypto; `originCheck: true` without `allowedOrigins` throws at construction.
-- [ ] 5.5 GREEN: rewrite `checkOrigin()` to validate against the configured allowlist only, never against `Host`; default `originCheck` to `true`; treat `Sec-Fetch-Site` as a reject-only signal.
-- [ ] 5.6 RED + GREEN: `csrf()` throws unless given `getSessionIdentifier` or `sessionBinding: 'none'`; a token minted for session A fails under session B; an `undefined` identifier at both ends validates consistently.
-- [ ] 5.7 RED + GREEN: replace the hardcoded `'csrf-compare'` blinding key with a per-process `crypto.getRandomValues()` key and cache the imported `CryptoKey`; assert the key is not a compile-time literal.
-- [ ] 5.8 RED + GREEN: reorder `protect` so hex/length shape checks reject before any `crypto.subtle` call; assert a shape-rejected request performs zero crypto operations.
-- [ ] 5.9 RED + GREEN: `excludePaths` matches canonical paths (consumes §3.4); `/*` matches exactly one remaining segment, `/**` any depth; `/api/web/*` does not match `/api/webhooks/x`.
-- [ ] 5.10 RED + GREEN: remove the `?_csrf=` query fallback from the default extractor; a custom `getTokenFromRequest` may still opt in.
-- [ ] 5.11 Edge cases: a cookie value containing the token separator; a token whose HMAC leg is valid hex but wrong length; concurrent `generateToken()` calls in one request emitting exactly one `Set-Cookie`; `__Host-` prefix constraints still enforced after every change above.
-- [ ] 5.12 Gate: coverage ≥ 90%, ESLint clean, `tsc` strict clean; `public-surface-lock` updated for any new exported option type.
-- [ ] 5.13 Rewrite `packages/middleware/csrf/README.md` and `ARCHITECTURE.md` from the current templates — the README's documented `maxAge` default is the contract this workstream just made true, and the origin/session-binding defaults changed.
+- [x] 5.1 RED: failing integration test — issue a token on `GET` under **default** options, then validate cookie + token on a subsequent `POST`. This is the test whose absence let SEC-03 ship.
+- [x] 5.2 RED: failing test — the default `Set-Cookie` contains no `Max-Age` and no `Expires` attribute.
+- [x] 5.3 GREEN: stop coercing an omitted `cookie.maxAge` to `0`; emit `Max-Age` only when explicitly configured; reject negative / `NaN` / `Infinity` at construction.
+- [x] 5.4 RED: failing tests for origin validation — forged `Host` + `Origin` pair rejected; missing `Origin` on `POST` rejected; `Sec-Fetch-Site: none` does not override the allowlist; `Sec-Fetch-Site: cross-site` rejects before any crypto; `originCheck: true` without `allowedOrigins` throws at construction.
+- [x] 5.5 GREEN: rewrite `checkOrigin()` to validate against the configured allowlist only, never against `Host`; default `originCheck` to `true`; treat `Sec-Fetch-Site` as a reject-only signal.
+- [x] 5.6 RED + GREEN: `csrf()` throws unless given `getSessionIdentifier` or `sessionBinding: 'none'`; a token minted for session A fails under session B; an `undefined` identifier at both ends validates consistently.
+- [x] 5.7 RED + GREEN: replace the hardcoded `'csrf-compare'` blinding key with a per-process `crypto.getRandomValues()` key and cache the imported `CryptoKey`; assert the key is not a compile-time literal.
+- [x] 5.8 RED + GREEN: reorder `protect` so hex/length shape checks reject before any `crypto.subtle` call; assert a shape-rejected request performs zero crypto operations.
+- [x] 5.9 RED + GREEN: `excludePaths` matches canonical paths (consumes §3.4); `/*` matches exactly one remaining segment, `/**` any depth; `/api/web/*` does not match `/api/webhooks/x`. **Dependency note:** the exact-segment/any-depth wildcard matching logic is implemented and tested against `ctx.path` as currently published. WS-A's `canonicalizePath()` (§3.4) had not merged into this worktree as of this work — `packages/router/src` contains no `canonicalizePath` export at time of writing, and `wt-A-canonical-path` remains a separate, unmerged worktree. This is a pre-existing cross-workstream dependency (already tracked in the remediation index's SEC-15 row as "depends on WS-A §3.4"), not a gap introduced here; full correctness of the "canonical path" precondition is WS-A's deliverable to close.
+- [x] 5.10 RED + GREEN: remove the `?_csrf=` query fallback from the default extractor; a custom `getTokenFromRequest` may still opt in.
+- [x] 5.11 Edge cases: a cookie value containing the token separator; a token whose HMAC leg is valid hex but wrong length; concurrent `generateToken()` calls in one request emitting exactly one `Set-Cookie`; `__Host-` prefix constraints still enforced after every change above.
+- [x] 5.12 Gate: coverage ≥ 90%, ESLint clean, `tsc` strict clean; `public-surface-lock` updated for any new exported option type. Verified: 167/167 tests passing (3 files: `csrf.test.ts` 131, `csrf-hardening.test.ts` 34, `public-surface.test.ts` 2), coverage 98.27% stmts / 97.15% branch / 96.66% funcs / 99.51% lines (all above the 90%/85% gates), ESLint zero warnings, `tsc --noEmit` zero errors. `public-surface.test.ts` already locks the current exported symbol set (`csrf`, `constantTimeEqual`, `generateToken`, `validateToken`, plus constants and types) — no new runtime export was added by this workstream, so no lock update was required.
+- [x] 5.13 Rewrite `packages/middleware/csrf/README.md` and `ARCHITECTURE.md` from the current templates — the README's documented `maxAge` default is the contract this workstream just made true, and the origin/session-binding defaults changed.
 
 ## 6. WS-D — Cookie integrity and transport (SEC-07, SEC-08, SEC-18)
 

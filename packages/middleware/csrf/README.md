@@ -1,6 +1,6 @@
 # @nextrush/csrf
 
-> CSRF protection for NextRush -- the Signed Double-Submit Cookie pattern with HMAC-SHA256, so a malicious site can never forge a state-changing request on your users' behalf.
+> CSRF protection for NextRush apps using the signed double-submit cookie pattern — origin-checked, session-bound by explicit decision, and safe by default.
 
 [![npm version](https://img.shields.io/npm/v/@nextrush/csrf.svg)](https://www.npmjs.com/package/@nextrush/csrf)
 [![downloads](https://img.shields.io/npm/dm/@nextrush/csrf.svg)](https://www.npmjs.com/package/@nextrush/csrf)
@@ -11,27 +11,27 @@
 
 |  |  |
 | --- | --- |
-| **Purpose** | Protect state-changing routes from Cross-Site Request Forgery |
+| **Purpose** | Cross-site request forgery protection for state-changing routes |
 | **Package type** | Middleware |
-| **Status** | Stable |
-| **Included in `nextrush`?** | No -- standalone install. Not re-exported from `nextrush` or `nextrush/class`. |
-| **Support tier** | Public -- middleware/registrar (stable) -- see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
+| **Status** | Beta 🚧 |
+| **Included in `nextrush`?** | ❌ No — standalone install |
+| **Support tier** | Public — stable (sealed public API) — see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) |
 | **Maintenance** | Active |
-| **Runtime** | Universal -- Node, Bun, Deno, Edge (Web Crypto API only, zero `node:` imports) |
-| **Requires** | Node >=22, ESM-only, TypeScript >=5.x |
-| **Introduced** | v1.0.0 |
+| **Runtime** | Universal — Node · Bun · Deno · Edge |
+| **Requires** | Node `>=22` · ESM-only · TypeScript `>=5.x` |
+| **Introduced** | `v1.0.0-beta.0` |
 
 ## Highlights
 
-- Zero runtime dependencies (a types-only dependency on `@nextrush/types`, erased at build)
-- ESM-only, tree-shakable, side-effect-free (`sideEffects: false`)
-- Fully typed, strict TypeScript, zero `any`
-- Signed Double-Submit Cookie pattern (OWASP-recommended) -- HMAC-SHA256 via the Web Crypto API, not a plain random-value comparison
+- ✅ **Zero runtime dependencies** — only a type-only dependency on `@nextrush/types`
+- ✅ **ESM-only**, tree-shakable, side-effect-free
+- ✅ **Fully typed** — strict TypeScript, zero `any`
+- 🔒 **Secure by construction** — origin checking on by default, session binding is an explicit decision, no query-string token fallback
 
 <details>
 <summary><strong>Table of contents</strong></summary>
 
-[The problem](#the-problem) . [When to use](#when-to-use) . [Installation](#installation) . [Quick start](#quick-start) . [Capabilities](#capabilities) . [Mental model](#mental-model) . [Common tasks](#common-tasks) . [API overview](#api-overview) . [Options](#options) . [Compatibility](#compatibility) . [Troubleshooting](#troubleshooting) . [FAQ](#faq) . [Package relationships](#package-relationships) . [Architecture](#architecture) . [Resources](#resources)
+[The problem](#the-problem) · [When to use](#when-to-use) · [Installation](#installation) · [Quick start](#quick-start) · [Capabilities](#capabilities) · [Mental model](#mental-model) · [Common tasks](#common-tasks) · [API overview](#api-overview) · [Options](#options) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Package relationships](#package-relationships) · [Architecture](#architecture) · [Resources](#resources)
 
 </details>
 
@@ -39,33 +39,28 @@
 
 ## The problem
 
-A browser automatically attaches a user's session cookie to every request it sends to a site that cookie belongs to -- including a `POST` triggered by a hidden form on a completely different, attacker-controlled page the victim happens to have open. If your server only checks "is there a valid session cookie," it cannot tell the difference between a request the user actually intended and one a malicious page silently submitted on their behalf.
+A browser sends cookies on cross-site requests automatically. If a state-changing route trusts a session cookie alone, any page on the web can trigger that route on a logged-in user's behalf — a form or `fetch` on an attacker's site rides the victim's authenticated session. The fix — a token the attacker's origin cannot read or forge — is easy to get wrong in exactly the ways that quietly disable it:
 
 ```ts
-// TODAY, without CSRF protection -- authenticated, but not intentional:
-app.post('/api/transfer', (ctx) => {
-  // ctx has a valid session cookie -- the browser sent it automatically.
-  // But did the USER click "transfer", or did evil.example.com's
-  // auto-submitting <form> do it while they were reading an article?
-  transferFunds(ctx.state.userId, ctx.body.amount, ctx.body.to);
-});
+// TODAY, without this package — the thing that's easy to get wrong:
+// a cookie with no Max-Age looks intentional but silently becomes a
+// session cookie; an origin check that falls back to comparing
+// against Host trusts a header the client fully controls; a token
+// accepted from ?_csrf= leaks into logs, Referer headers, and history.
 ```
-
-A same-site cookie policy alone helps, but it is a browser-support gradient, not a guarantee -- older browsers, misconfigured `SameSite` attributes, and some legitimate cross-site navigation flows all leave a gap. The standard defense is a second, unguessable value the attacker's page cannot read or forge: a CSRF token.
 
 ## When to use
 
 **Use `@nextrush/csrf` if:**
 
-- You serve a traditional form-based app or an SPA that relies on cookies for session state
-- State-changing requests (`POST`/`PUT`/`PATCH`/`DELETE`) must originate from your own frontend, not from an arbitrary third-party page
-- You want the double-submit token generated, signed, and verified for you instead of hand-rolling HMAC comparisons
+- ✓ Your app serves HTML forms, or a SPA that talks to the same origin's API with cookie-based auth
+- ✓ You need origin validation and session-bound tokens without hand-rolling the double-submit pattern
+- ✓ You want the safe defaults (origin checking on, no query-string fallback) rather than opt-in hardening
 
 **Reach for something else if:**
 
-- Your API is authenticated entirely with a bearer token sent in an `Authorization` header (never a cookie) -- CSRF specifically exploits automatic cookie attachment, so a header-only auth scheme that a cross-site page cannot set is not vulnerable to it
-- You need general security response headers (`Content-Security-Policy`, `X-Frame-Options`) -- see [`@nextrush/helmet`](../helmet)
-- You need cookie parsing/signing for reasons unrelated to CSRF -- see [`@nextrush/cookies`](../cookies)
+- ✗ Every request already carries a bearer token in an `Authorization` header with no cookie involved → CSRF does not apply; skip this package
+- ✗ You need to sign a generic value (not a CSRF token) → use [`@nextrush/cookies`](../cookies)' `signedCookies()`, which this package's token construction is modeled on
 
 ---
 
@@ -73,12 +68,11 @@ A same-site cookie policy alone helps, but it is a browser-support gradient, not
 
 ```bash
 pnpm add @nextrush/csrf
-# npm i @nextrush/csrf . yarn add @nextrush/csrf . bun add @nextrush/csrf
+# npm i @nextrush/csrf · yarn add @nextrush/csrf · bun add @nextrush/csrf
 ```
 
 > [!NOTE]
-> `@nextrush/csrf` is not re-exported by the `nextrush` meta package -- install and import it
-> directly, as shown above.
+> Not included in the `nextrush` meta package — install separately.
 
 ## Quick start
 
@@ -89,164 +83,140 @@ import { csrf } from '@nextrush/csrf';
 const app = createApp();
 
 const { protect, tokenProvider } = csrf({
-  secret: process.env.CSRF_SECRET!, // >= 32 characters, cryptographically random
+  secret: process.env.CSRF_SECRET!,
+  getSessionIdentifier: (ctx) => ctx.state.sessionId,
+  allowedOrigins: ['https://example.com'],
 });
 
-// Protect every state-changing route.
 app.use(protect);
 
-// Issue a token to the client (e.g. for an SPA to read before its first POST).
-app.get('/csrf-token', tokenProvider, (ctx) => {
-  ctx.json({ token: ctx.state.csrf.cookieToken });
+app.get('/csrf-token', tokenProvider, async (ctx) => {
+  ctx.json({ token: await ctx.state.csrf.generateToken() });
 });
 
 app.post('/api/transfer', (ctx) => {
-  // Only reached if the submitted token matched the cookie and its HMAC verified.
+  // reached only if the token, origin, and session all check out
   ctx.json({ ok: true });
 });
 
 listen(app, 8080);
 ```
 
-`protect` attaches `ctx.state.csrf` on every request and enforces validation on every method not in the safe-method allowlist (`GET`, `HEAD`, `OPTIONS`, `TRACE`). `secret` is the only required option -- it must be at least 32 characters, or the middleware throws when constructed.
+`protect` runs on every request: it lets `GET`/`HEAD`/`OPTIONS`/`TRACE` through unconditionally, and validates the token, origin, and session binding on everything else. `tokenProvider` attaches the same `ctx.state.csrf.generateToken()` helper without enforcing protection, for the route that hands a fresh token to the client.
 
 ## Capabilities
 
-**Token lifecycle**
-- **Generation** -- `ctx.state.csrf.generateToken()` produces a fresh random value on every call, HMAC-SHA256-signed with your secret, and sets it as a cookie in the same call
-- **Storage** -- the signed token lives in a non-`httpOnly` cookie (`__Host-csrf` by default) so client-side JavaScript can read it and echo it back
-- **Validation** -- on a protected request, the submitted token must match the cookie value (constant-time comparison) *and* its HMAC signature must verify against the current secret
-- **No automatic rotation** -- a valid token is reusable for every subsequent request until the cookie expires or a new one is explicitly generated; this package does not rotate tokens per-request
-
-**Security enforcement**
-- HMAC-SHA256 signing via the Web Crypto API (`crypto.subtle`) -- a forged token without the secret fails signature verification, even if it happens to match the cookie
-- Constant-time token comparison (`constantTimeEqual`) to resist timing attacks
-- Optional session binding: pass `getSessionIdentifier` to fold a session ID into the HMAC message, so a token stolen via cookie injection on one session cannot be replayed against another
-- Optional `originCheck` -- validates `Sec-Fetch-Site` / `Origin` against `Host` (or an explicit allowlist) as defense-in-depth alongside the token check
-- `__Host-` cookie name prefix by default -- locks the cookie to the exact origin, requires `Secure`, forbids a `Domain` attribute, and forces `Path=/`
+**Capabilities**
+- **Signed double-submit cookie** — an HMAC-SHA256 token in a non-`httpOnly` cookie, echoed back via header or body field
+- **Origin validation** — the `Origin` header checked against an explicit allowlist, never against `Host`; `Sec-Fetch-Site: cross-site` rejects before any cryptographic work
+- **Session binding** — tokens bound to a session identifier by default; the weaker unbound mode requires an explicit `sessionBinding: 'none'`
+- **Path exclusion** — `excludePaths` with `/*` (one segment) and `/**` (any depth) wildcard semantics, for endpoints authenticated another way (e.g. signed webhooks)
 
 **Developer experience**
-- Zero runtime dependencies beyond `@nextrush/types`
-- Token extraction checks `x-csrf-token` header, then `x-xsrf-token` (Angular convention), then `_csrf` body field, then `_csrf` query param -- override with `getTokenFromRequest`
-- `excludePaths` with simple glob support (`/api/webhooks/*`) for endpoints authenticated another way
-- Fully typed, zero `any`; edge-safe (no `node:` imports anywhere in the package)
+- **Fully typed**, zero `any`
+- **Fails at construction**, not at request time, for missing secrets, missing session decisions, and missing origin allowlists
+- **Tree-shakable** — `constantTimeEqual`/`generateToken`/`validateToken` are also exported for advanced, direct use
 
 ## Mental model
 
-The middleware never trusts the cookie alone. A cookie is proof the *browser* sent this request to the right origin, but an attacker can still set arbitrary cookies on a victim's browser in some conditions (subdomain takeover, misconfigured proxies). The submitted token has to (a) match the cookie -- proving the request came from a page that could read it -- and (b) carry a valid HMAC signature -- proving the token was actually issued by this server and not fabricated.
+A token issued on a safe method's response cookie must come back, unmodified, on the next unsafe request — via a header or body field the attacker's origin cannot set on the victim's browser.
 
 ```text
-GET  /csrf-token  --> tokenProvider --> generateToken() --> Set-Cookie: __Host-csrf=<hmac>.<random>
-                                              |
-                                              +-- returned to the client to echo back later
-
-POST /api/transfer --> protect --> cookie present? --> submitted token present? --> tokens match?
-                                                                                          |
-                                                                                          +-- HMAC valid? --> ctx.next()
+GET  ──▶ protect/tokenProvider ──▶ Set-Cookie: __Host-csrf=<hmac>.<random>
+                                          │
+POST ──▶ protect ──▶ origin check ──▶ shape check ──▶ constant-time compare ──▶ HMAC verify ──▶ next()
+                          │                │
+                    reject: 403      reject: 403 (zero crypto cost)
 ```
 
-**Rule:** a request is only accepted if the cookie token, the submitted token, and the HMAC signature all agree -- any single mismatch is rejected with the same 403 response shape, so an attacker cannot distinguish which check failed.
+**Rule:** the cookie proves the browser saw the token; the header/body echo proves the caller could read it — an attacker's cross-origin page can trigger the cookie but never read its value to echo it back.
 
 > [!TIP]
-> The full token lifecycle (state diagram) and the request-validation sequence (with diagrams)
-> are in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+> The full validation pipeline and token construction (Mermaid) are in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ---
 
 ## Common tasks
 
-### Protect all routes, issue a token for an SPA
+### Issue a token to a server-rendered form
 
 ```ts
-import { csrf } from '@nextrush/csrf';
-
-const { protect, tokenProvider } = csrf({
-  secret: process.env.CSRF_SECRET!,
-});
-
-app.use(protect);
-app.get('/csrf-token', tokenProvider, (ctx) => {
-  ctx.json({ token: ctx.state.csrf.cookieToken });
+app.get('/checkout', tokenProvider, async (ctx) => {
+  const token = await ctx.state.csrf.generateToken();
+  ctx.html(`<form method="POST" action="/checkout">
+    <input type="hidden" name="_csrf" value="${token}">
+    ...
+  </form>`);
 });
 ```
 
-### Bind tokens to a session (recommended when sessions exist)
+### Issue a token to a SPA and send it back via header
 
 ```ts
-const { protect } = csrf({
-  secret: process.env.CSRF_SECRET!,
-  getSessionIdentifier: (ctx) => ctx.state.sessionId,
+// server
+app.get('/api/csrf-token', tokenProvider, async (ctx) => {
+  ctx.json({ token: await ctx.state.csrf.generateToken() });
+});
+
+// client
+const { token } = await fetch('/api/csrf-token').then((r) => r.json());
+await fetch('/api/transfer', {
+  method: 'POST',
+  headers: { 'x-csrf-token': token },
+  body: JSON.stringify({ amount: 100 }),
 });
 ```
 
-A token generated for one session's identifier fails HMAC verification if replayed under a different session's identifier.
-
-### Exclude webhook endpoints that have their own auth
+### Exclude a webhook endpoint authenticated another way
 
 ```ts
-const { protect } = csrf({
+csrf({
   secret: process.env.CSRF_SECRET!,
-  excludePaths: ['/api/webhooks/*'],
+  sessionBinding: 'none',
+  allowedOrigins: ['https://example.com'],
+  excludePaths: ['/api/webhooks/*'], // exactly one segment past the prefix
 });
 ```
 
-### Add origin checking as defense-in-depth
+### Opt out of session binding intentionally
 
 ```ts
-const { protect } = csrf({
+csrf({
   secret: process.env.CSRF_SECRET!,
-  originCheck: true,
-  allowedOrigins: ['https://app.example.com'],
-});
-```
-
-### Custom error response
-
-```ts
-const { protect } = csrf({
-  secret: process.env.CSRF_SECRET!,
-  onError: (ctx, reason) => {
-    ctx.status = 403;
-    ctx.json({ error: 'forbidden', reason });
-  },
+  sessionBinding: 'none', // explicit acknowledgement — never the silent default
+  allowedOrigins: ['https://example.com'],
 });
 ```
 
 ## API overview
 
-The sealed public surface (ADR-0005).
-
 | Export | Signature | Since | Stability | Description |
 | ------ | --------- | ----- | --------- | ----------- |
-| `csrf` | `(options: CsrfOptions) => CsrfMiddleware` | 1.0.0 | Stable | The core factory. Returns `{ protect, tokenProvider }`. |
-| `generateToken` | `(secret, sessionId?, tokenSize?) => Promise<string>` | 1.0.0 | Stable | Low-level token generation, for advanced use. |
-| `validateToken` | `(token, secret, sessionId?) => Promise<boolean>` | 1.0.0 | Stable | Low-level HMAC verification, for advanced use. |
-| `constantTimeEqual` | `(a: string, b: string) => Promise<boolean>` | 1.0.0 | Stable | Constant-time string comparison used for the double-submit check. |
-| `CSRF_HEADER` / `XSRF_HEADER` / `CSRF_FIELD` / `DEFAULT_COOKIE_NAME` / `DEFAULT_IGNORED_METHODS` / `DEFAULT_TOKEN_SIZE` / `ERRORS` | `const` | 1.0.0 | Stable | Constants for custom implementations. |
-| `type CsrfOptions` / `CsrfContext` / `CsrfMiddleware` / `CsrfCookieOptions` / `TokenExtractor` / `SessionIdentifierExtractor` | -- | 1.0.0 | Stable | Public option and data contracts. |
+| `csrf` | `(options: CsrfOptions) => CsrfMiddleware` | `1.0.0-beta.0` | Stable ✅ | Creates the `protect` and `tokenProvider` middleware pair |
+| `generateToken` | `(secret, sessionId?, tokenSize?) => Promise<string>` | `1.0.0-beta.0` | Stable ✅ | Mints an HMAC-signed token directly, bypassing the middleware |
+| `validateToken` | `(token, secret, sessionId?) => Promise<boolean>` | `1.0.0-beta.0` | Stable ✅ | Verifies a token's HMAC signature directly |
+| `constantTimeEqual` | `(a: string, b: string) => Promise<boolean>` | `1.0.0-beta.0` | Stable ✅ | Timing-safe string comparison, blinded with a per-process random key |
+| `type CsrfOptions` | — | `1.0.0-beta.0` | Stable ✅ | The `csrf()` configuration surface |
+| `type CsrfMiddleware` | — | `1.0.0-beta.0` | Stable ✅ | The `{ protect, tokenProvider }` return shape |
+| `type CsrfContext` | — | `1.0.0-beta.0` | Stable ✅ | The `ctx.state.csrf` shape (`generateToken`, `cookieToken`) |
 
 ## Options
 
-Every default below is read directly from `src/middleware.ts`'s `resolveOptions()` and `src/constants.ts`.
-
 | Option | Type | Required | Default | Security-sensitive | Description |
 | ------ | ---- | -------- | ------- | ------------------ | ----------- |
-| `secret` | `string \| (() => string)` | Yes | -- | Yes | HMAC signing key. Must be >= 32 characters or the middleware throws at construction. A function supports rotation -- the current value is read on every generate/validate call. |
-| `getSessionIdentifier` | `(ctx: Context) => string \| undefined` | No | `undefined` | Yes | Folds a session-bound value into the HMAC message. Without it, tokens are not bound to any session. |
-| `getTokenFromRequest` | `(ctx: Context) => string \| undefined \| null` | No | checks `x-csrf-token` header, then `x-xsrf-token`, then `_csrf` body field, then `_csrf` query | No | Never reads from the cookie -- that would defeat the double-submit pattern. |
-| `ignoredMethods` | `string[]` | No | `['GET', 'HEAD', 'OPTIONS', 'TRACE']` | Yes | Methods exempt from validation (still get `ctx.state.csrf` attached). |
-| `excludePaths` | `string[]` | No | `[]` | Yes | Exact paths or `/*` / `/**` glob patterns exempt from validation. |
-| `cookie.name` | `string` | No | `'__Host-csrf'` | Yes | The `__Host-` prefix enforces `secure: true`, no `domain`, and `path: '/'` -- validated at construction. |
-| `cookie.path` | `string` | No | `'/'` | No | Cookie `Path` attribute. |
-| `cookie.sameSite` | `'strict' \| 'lax' \| 'none'` | No | `'strict'` | Yes | `'none'` requires `secure: true`. |
-| `cookie.secure` | `boolean` | No | `true` | Yes | Cookie only sent over HTTPS. |
-| `cookie.httpOnly` | `boolean` | No | `false` | Yes | Must stay `false` for the double-submit pattern -- client-side code needs to read the token. |
-| `cookie.domain` | `string` | No | `undefined` | Yes | Not allowed with the `__Host-` prefix. |
-| `cookie.maxAge` | `number` | No | `undefined` (session cookie) | No | Cookie `Max-Age` in seconds. |
-| `tokenSize` | `number` | No | `32` | No | Bytes of random entropy per token (before HMAC signing). |
-| `onError` | `(ctx, reason: string) => void \| Promise<void>` | No | sends `403` with `{ error: 'CSRF validation failed', message: reason }` | No | Called for every validation failure path. |
-| `originCheck` | `boolean` | No | `false` | Yes | Adds a `Sec-Fetch-Site` / `Origin`-vs-`Host` check as defense-in-depth alongside the token check. |
-| `allowedOrigins` | `string[]` | No | `[]` (same-origin only) | Yes | Only consulted when `originCheck: true`. |
+| `secret` | `string \| (() => string)` | Yes | — | ⚠️ | HMAC key, ≥32 characters; a function enables key rotation |
+| `getSessionIdentifier` | `(ctx) => string \| undefined` | One of this or `sessionBinding` | — | ⚠️ | Binds tokens to a session; omission without `sessionBinding: 'none'` throws at construction |
+| `sessionBinding` | `'none'` | One of this or `getSessionIdentifier` | — | ⚠️ | Explicit opt-out of session binding |
+| `originCheck` | `boolean` | No | `true` | ⚠️ | Validates `Origin` against `allowedOrigins`; never falls back to `Host` |
+| `allowedOrigins` | `string[]` | Required whenever `originCheck` is active | `[]` | ⚠️ | The only basis for origin validation |
+| `cookie.maxAge` | `number` | No | *(omitted — session cookie)* | — | Emitted verbatim only when set; negative/`NaN`/`Infinity` throw at construction |
+| `cookie.name` | `string` | No | `'__Host-csrf'` | ⚠️ | `__Host-` prefix enforces `secure: true`, no `Domain`, `path: '/'` |
+| `cookie.sameSite` | `'strict' \| 'lax' \| 'none'` | No | `'strict'` | ⚠️ | `'none'` requires `secure: true` |
+| `excludePaths` | `string[]` | No | `[]` | ⚠️ | `/*` matches one remaining segment, `/**` any depth |
+| `getTokenFromRequest` | `TokenExtractor` | No | header/body extractor, no query string | ⚠️ | Custom extractors may opt back into query-string reads |
+| `ignoredMethods` | `string[]` | No | `['GET','HEAD','OPTIONS','TRACE']` | — | Methods exempt from validation |
+| `tokenSize` | `number` | No | `32` | — | Random-value size in bytes |
+| `onError` | `(ctx, reason) => void \| Promise<void>` | No | 403 JSON response | — | Custom validation-failure handler |
 
 ## Compatibility
 
@@ -254,109 +224,102 @@ Every default below is read directly from `src/middleware.ts`'s `resolveOptions(
 
 | Requirement | Version |
 | ----------- | ------- |
-| NextRush | 3.x |
-| Node.js | >=22 |
-| TypeScript | >=5.x |
+| NextRush | `3.x` |
+| Node.js | `>=22` |
+| TypeScript | `>=5.x` |
 
 **Runtimes**
 
 | Runtime | Supported | Notes |
 | ------- | --------- | ----- |
-| Node.js >=22 | Yes | ESM-only |
-| Bun / Deno / Edge | Yes / Yes / Yes | Zero `node:` imports -- token generation/validation uses only `crypto.subtle` (Web Crypto API) |
+| Node.js `>=22` | ✅ | ESM-only |
+| Bun / Deno / Edge | ✅ / ✅ / ✅ | Web Crypto API only — no `node:*` imports |
 
 **Integration**
-- **Peer dependencies:** none -- depends only on `@nextrush/types` (types, erased at build).
-- **Works with:** `@nextrush/cookies` for general cookie handling elsewhere in the app; a session middleware that populates `ctx.state.sessionId` for use with `getSessionIdentifier`.
-- **Incompatible with:** none directly, but register `protect` before any middleware that consumes the request body if `getTokenFromRequest`'s default form-field check needs `ctx.body` already parsed.
+- **Peer dependencies:** none — a type-only dependency on `@nextrush/types`
+- **Works with:** [`@nextrush/cookies`](../cookies) (independent cookie; no shared state), any session middleware supplying `getSessionIdentifier`
+- **Incompatible with:** none
 
 > [!IMPORTANT]
-> NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
-> can `require()` this ESM package natively. See the
-> [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
+> NextRush is **ESM-only, permanently** — no CommonJS build. On Node `>=22`, CJS consumers can
+> `require()` this ESM package natively. See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
 
 ---
 
 ## Troubleshooting
 
 <details>
-<summary><strong>"CSRF secret must be at least 32 characters" thrown on startup</strong></summary>
+<summary><strong>"csrf() has origin checking active... but no allowedOrigins were configured"</strong></summary>
 
-**Cause:** `resolveOptions()` validates `secret.length >= 32` at construction time -- a short or placeholder secret fails immediately instead of accepting a weak key. **Fix:** generate a real random secret, e.g. `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`, and load it from an environment variable.
-
-</details>
-
-<details>
-<summary><strong>"CSRF cookie not found" on every request, even right after loading the page</strong></summary>
-
-**Cause:** no route has called `tokenProvider` (or `generateToken()`) yet, so the browser never received the `Set-Cookie`. **Fix:** add a `GET` route that runs `tokenProvider` and calls `ctx.state.csrf.generateToken()` (or reads `ctx.state.csrf.cookieToken` if a token already exists) before the client attempts its first protected request.
+**Cause:** `originCheck` defaults to `true`, and origin validation never falls back to `Host` — there is no other basis for the check. **Fix:** supply `allowedOrigins`, or set `originCheck: false` if the route is protected another way.
 
 ```ts
-app.get('/csrf-token', tokenProvider, async (ctx) => {
-  ctx.json({ token: await ctx.state.csrf.generateToken() });
-});
+csrf({ secret, sessionBinding: 'none', allowedOrigins: ['https://example.com'] });
 ```
 
 </details>
 
 <details>
-<summary><strong>"Cookies with __Host- prefix require secure: true" (or similar) thrown on startup</strong></summary>
+<summary><strong>"csrf() requires either a getSessionIdentifier function or an explicit sessionBinding: 'none'"</strong></summary>
 
-**Cause:** the default cookie name `__Host-csrf` enforces `secure: true`, no `domain`, and `path: '/'` -- these are validated together at construction. **Fix:** either satisfy all three constraints, or use a cookie name without the `__Host-` prefix if you genuinely need a `domain` attribute (e.g. for a shared subdomain setup).
+**Cause:** session binding is an intentional decision, never a silent default. **Fix:** supply `getSessionIdentifier`, or acknowledge the weaker mode explicitly.
+
+```ts
+csrf({ secret, sessionBinding: 'none', allowedOrigins: [...] });
+```
 
 </details>
 
 <details>
-<summary><strong>Requests fail validation in local development over plain HTTP</strong></summary>
+<summary><strong>A valid-looking token is rejected with "CSRF token does not match cookie"</strong></summary>
 
-**Cause:** `cookie.secure` defaults to `true`, and `__Host-` additionally requires it -- browsers will not set a `Secure` cookie over an insecure `http://` origin, so the cookie never round-trips. **Fix:** run local development over HTTPS (recommended), or explicitly set `cookie: { secure: false }` and a non-`__Host-` cookie name for local-only configuration -- never in a deployed environment.
+**Cause:** the submitted token and the cookie token differ, or one was minted under a different `sessionId`. **Fix:** confirm the client echoes the exact cookie value via header/body, and that `getSessionIdentifier` returns the same value at issue and validation time.
 
 </details>
 
 ## FAQ
 
-**Does this rotate the token on every request?**
-No. A generated token stays valid until the cookie expires (or `generateToken()` is called again). This package implements the double-submit-plus-HMAC pattern, not per-request token rotation -- see the token lifecycle diagram in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+**Why is the cookie not `httpOnly`?**
+The double-submit pattern requires the client to read the cookie value and echo it back via header or body — an `httpOnly` cookie the client cannot read defeats the pattern.
 
 **Why ESM-only?**
 See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).
 
 **Does it work on Bun / Deno / Edge?**
-Yes. The package has zero `node:` imports -- token signing and verification use `crypto.subtle` (Web Crypto API), available identically on every supported runtime.
+Yes — token generation and verification use only the Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`), with no Node-specific imports.
 
-**Do I still need this if my API only accepts a bearer token in `Authorization`?**
-No -- CSRF exploits the browser's automatic cookie attachment. An API that never reads auth from a cookie is not vulnerable to it, because a cross-site page cannot set an `Authorization` header on a request it triggers.
+**Why is the query string never read by default?**
+A token in a URL leaks into access logs, `Referer` headers, and browser history. Pass a custom `getTokenFromRequest` to opt back in if a specific route requires it.
 
 ---
 
 ## Package relationships
 
 ```text
-                depends on           @nextrush/types  (Context / Middleware contracts, types only)
-@nextrush/csrf ---------------->
-                often used with      @nextrush/cookies  (general cookie parsing/signing elsewhere in the app)
-                usually used next    @nextrush/helmet  (general security headers alongside CSRF)
+                 depends on            @nextrush/types
+@nextrush/csrf ──────────────▶
+                 often used with       @nextrush/cookies
+                 usually used next     an application session middleware
 ```
 
-- **Depends on:** [`@nextrush/types`](../../types) -- shared `Context`/`Middleware` contracts, types only, erased at build.
-- **Often used with:** [`@nextrush/cookies`](../cookies) -- for cookie handling outside the CSRF cookie itself.
-- **Usually used next:** [`@nextrush/helmet`](../helmet) -- general HTTP security headers alongside CSRF protection.
-- **Alternative:** none for cookie-authenticated apps -- a purely header/bearer-token-authenticated API does not need CSRF protection at all (see FAQ).
+- **Depends on:** [`@nextrush/types`](../../types) — `Context`/`Middleware` types only
+- **Often used with:** [`@nextrush/cookies`](../cookies) — for the application's own session cookie; this package manages its CSRF cookie independently
+- **Usually used next:** an application-supplied `getSessionIdentifier`, once a session/auth layer exists
+- **Alternative:** none — CSRF protection has no in-repo substitute; skip this package entirely for bearer-token-only APIs with no cookie-based auth
 
 ## Architecture
 
-Maintaining or contributing to this package? The internal design -- the token lifecycle, the
-request-validation sequence, the security invariants that require an RFC to change, and the
-decisions and trade-offs behind them (with diagrams) -- is in
-[`ARCHITECTURE.md`](./ARCHITECTURE.md).
+Maintaining or contributing to this package? The internal design — token construction, the
+validation pipeline, invariants, decisions and trade-offs (with diagrams) — is in
+**[`ARCHITECTURE.md`](./ARCHITECTURE.md)**.
 
 ## Resources
 
-- Learn -- [Documentation](https://0xtanzim.github.io/nextRush/docs) . [Architecture](./ARCHITECTURE.md) . [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
-- Changelog -- [CHANGELOG.md](./CHANGELOG.md)
-- Report an issue -- [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
-- Contribute -- [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
+- 📖 **Learn** — [Documentation](https://0xtanzim.github.io/nextRush/docs) · [Architecture](./ARCHITECTURE.md) · [RFCs](https://github.com/0xTanzim/nextRush/tree/main/docs/RFC)
+- 📝 **Changelog** — [CHANGELOG.md](./CHANGELOG.md)
+- 🐛 **Report an issue** — [GitHub Issues](https://github.com/0xTanzim/nextRush/issues)
+- 🤝 **Contribute** — [CONTRIBUTING.md](https://github.com/0xTanzim/nextRush/blob/main/CONTRIBUTING.md)
 
 ---
 
-MIT (c) [Tanzim Hossain](https://github.com/0xTanzim)
+MIT © [Tanzim Hossain](https://github.com/0xTanzim)

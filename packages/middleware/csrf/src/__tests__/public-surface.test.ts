@@ -8,7 +8,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as csrfApi from '../index';
 import { CSRF_FIELD, CSRF_HEADER, DEFAULT_COOKIE_NAME, DEFAULT_IGNORED_METHODS, DEFAULT_TOKEN_SIZE, ERRORS, XSRF_HEADER } from '../index';
-import type { CsrfContext, CsrfCookieOptions, CsrfMiddleware, CsrfOptions, SessionIdentifierExtractor, TokenExtractor } from '../index';
+import type { CsrfContext, CsrfCookieOptions, CsrfMiddleware, CsrfOptions, SessionBinding, SessionIdentifierExtractor, TokenExtractor } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
   it('exports exactly the intended runtime symbols', () => {
@@ -44,7 +44,15 @@ describe('Public API surface (type-only exports)', () => {
   it('the type-only surface stays importable from the barrel', () => {
     // Compile-time only: removing/renaming any of these in src/index.ts fails
     // this file to type-check.
-    type Surface = [CsrfContext, CsrfCookieOptions, CsrfMiddleware, CsrfOptions, SessionIdentifierExtractor, TokenExtractor];
+    type Surface = [
+      CsrfContext,
+      CsrfCookieOptions,
+      CsrfMiddleware,
+      CsrfOptions,
+      SessionBinding,
+      SessionIdentifierExtractor,
+      TokenExtractor,
+    ];
     expectTypeOf<Surface>().not.toBeNever();
   });
 });

@@ -63,7 +63,7 @@ const TEST_SECRET = 'a-very-secure-secret-that-is-at-least-32-characters-long';
 const TEST_SESSION_ID = 'session-abc-123';
 
 function defaultOptions() {
-  return { secret: TEST_SECRET };
+  return { secret: TEST_SECRET, sessionBinding: 'none' as const, originCheck: false };
 }
 
 function sessionOptions() {
@@ -71,6 +71,7 @@ function sessionOptions() {
     secret: TEST_SECRET,
     getSessionIdentifier: (ctx: MockContext) =>
       (ctx.state as Record<string, string>).sessionId ?? TEST_SESSION_ID,
+    originCheck: false,
   };
 }
 
@@ -273,12 +274,22 @@ describe('CSRF Middleware', () => {
     });
 
     it('should accept a secret of exactly 32 characters', () => {
-      expect(() => csrf({ secret: '12345678901234567890123456789012' })).not.toThrow();
+      expect(() =>
+        csrf({
+          secret: '12345678901234567890123456789012',
+          sessionBinding: 'none',
+          originCheck: false,
+        })
+      ).not.toThrow();
     });
 
     it('should accept a function secret', () => {
       expect(() =>
-        csrf({ secret: () => 'a-dynamic-secret-that-is-at-least-32-chars-long' })
+        csrf({
+          secret: () => 'a-dynamic-secret-that-is-at-least-32-chars-long',
+          sessionBinding: 'none',
+          originCheck: false,
+        })
       ).not.toThrow();
     });
 
@@ -290,6 +301,8 @@ describe('CSRF Middleware', () => {
       expect(() =>
         csrf({
           secret: TEST_SECRET,
+          sessionBinding: 'none',
+          originCheck: false,
           cookie: { name: '__Host-csrf', secure: false },
         })
       ).toThrow('__Host- prefix require secure: true');
@@ -299,6 +312,8 @@ describe('CSRF Middleware', () => {
       expect(() =>
         csrf({
           secret: TEST_SECRET,
+          sessionBinding: 'none',
+          originCheck: false,
           cookie: { name: '__Host-csrf', domain: 'example.com' },
         })
       ).toThrow('__Host- prefix cannot have a Domain');
@@ -308,6 +323,8 @@ describe('CSRF Middleware', () => {
       expect(() =>
         csrf({
           secret: TEST_SECRET,
+          sessionBinding: 'none',
+          originCheck: false,
           cookie: { name: '__Host-csrf', path: '/api' },
         })
       ).toThrow('__Host- prefix must have path: "/"');
@@ -317,6 +334,8 @@ describe('CSRF Middleware', () => {
       expect(() =>
         csrf({
           secret: TEST_SECRET,
+          sessionBinding: 'none',
+          originCheck: false,
           cookie: { name: 'csrf-token', secure: false, path: '/api', domain: 'example.com' },
         })
       ).not.toThrow();
@@ -444,17 +463,9 @@ describe('CSRF Middleware', () => {
       expect(next).toHaveBeenCalledOnce();
     });
 
-    it('should extract token from query._csrf field', async () => {
-      const token = await generateToken(TEST_SECRET);
-      const { protect } = csrf(defaultOptions());
-      const ctx = createMockContext({
-        method: 'POST',
-        headers: { cookie: `${DEFAULT_COOKIE_NAME}=${token}` },
-        query: { [CSRF_FIELD]: token },
-      });
-      await protect(ctx as never, next);
-      expect(next).toHaveBeenCalledOnce();
-    });
+    // The query-string fallback was removed per SEC-19 (harden-security-boundaries
+    // §5.10) — see csrf-hardening.test.ts "5.10 default extractor drops the
+    // query-string fallback" for the current, correct behavior.
 
     it('should prefer header over body over query', async () => {
       const token = await generateToken(TEST_SECRET);
@@ -891,6 +902,7 @@ describe('CSRF Middleware', () => {
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
@@ -898,6 +910,7 @@ describe('CSRF Middleware', () => {
           cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
           [CSRF_HEADER]: token,
           'sec-fetch-site': 'cross-site',
+          origin: 'https://example.com',
         },
       });
       await protect(ctx as never, next);
@@ -905,11 +918,12 @@ describe('CSRF Middleware', () => {
       expect(ctx.status).toBe(403);
     });
 
-    it('should allow same-origin requests via Sec-Fetch-Site', async () => {
+    it('should allow same-origin requests whose Origin is in the allowlist', async () => {
       const token = await generateToken(TEST_SECRET);
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
@@ -917,61 +931,29 @@ describe('CSRF Middleware', () => {
           cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
           [CSRF_HEADER]: token,
           'sec-fetch-site': 'same-origin',
+          origin: 'https://example.com',
         },
       });
       await protect(ctx as never, next);
       expect(next).toHaveBeenCalledOnce();
     });
 
-    it('should allow same-site requests via Sec-Fetch-Site', async () => {
+    it('should reject Sec-Fetch-Site: same-origin when Origin is not in the allowlist', async () => {
+      // SEC-04: Sec-Fetch-Site is a reject-only signal — it never overrides
+      // the allowlist result on its own.
       const token = await generateToken(TEST_SECRET);
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
         headers: {
           cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
           [CSRF_HEADER]: token,
-          'sec-fetch-site': 'same-site',
-        },
-      });
-      await protect(ctx as never, next);
-      expect(next).toHaveBeenCalledOnce();
-    });
-
-    it('should allow direct navigation (Sec-Fetch-Site: none)', async () => {
-      const token = await generateToken(TEST_SECRET);
-      const { protect } = csrf({
-        ...defaultOptions(),
-        originCheck: true,
-      });
-      const ctx = createMockContext({
-        method: 'POST',
-        headers: {
-          cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
-          [CSRF_HEADER]: token,
-          'sec-fetch-site': 'none',
-        },
-      });
-      await protect(ctx as never, next);
-      expect(next).toHaveBeenCalledOnce();
-    });
-
-    it('should check Origin header against Host', async () => {
-      const token = await generateToken(TEST_SECRET);
-      const { protect } = csrf({
-        ...defaultOptions(),
-        originCheck: true,
-      });
-      const ctx = createMockContext({
-        method: 'POST',
-        headers: {
-          cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
-          [CSRF_HEADER]: token,
-          origin: 'https://evil.com',
-          host: 'example.com',
+          'sec-fetch-site': 'same-origin',
+          origin: 'https://not-allowlisted.example',
         },
       });
       await protect(ctx as never, next);
@@ -979,11 +961,55 @@ describe('CSRF Middleware', () => {
       expect(ctx.status).toBe(403);
     });
 
-    it('should accept matching Origin and Host', async () => {
+    it('should reject Sec-Fetch-Site: none when Origin is not in the allowlist', async () => {
       const token = await generateToken(TEST_SECRET);
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
+      });
+      const ctx = createMockContext({
+        method: 'POST',
+        headers: {
+          cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
+          [CSRF_HEADER]: token,
+          'sec-fetch-site': 'none',
+          origin: 'https://not-allowlisted.example',
+        },
+      });
+      await protect(ctx as never, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(ctx.status).toBe(403);
+    });
+
+    it('should never fall back to comparing Origin against Host', async () => {
+      // SEC-04: Host is attacker-controlled on any client-constructed request.
+      const token = await generateToken(TEST_SECRET);
+      const { protect } = csrf({
+        ...defaultOptions(),
+        originCheck: true,
+        allowedOrigins: ['https://example.com'],
+      });
+      const ctx = createMockContext({
+        method: 'POST',
+        headers: {
+          cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
+          [CSRF_HEADER]: token,
+          origin: 'https://evil.com',
+          host: 'evil.com', // Origin matches Host but neither is allowlisted
+        },
+      });
+      await protect(ctx as never, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(ctx.status).toBe(403);
+    });
+
+    it('should accept an Origin present in the allowlist regardless of Host', async () => {
+      const token = await generateToken(TEST_SECRET);
+      const { protect } = csrf({
+        ...defaultOptions(),
+        originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
@@ -991,7 +1017,7 @@ describe('CSRF Middleware', () => {
           cookie: `${DEFAULT_COOKIE_NAME}=${token}`,
           [CSRF_HEADER]: token,
           origin: 'https://example.com',
-          host: 'example.com',
+          host: 'internal-service', // deliberately mismatched — must not matter
         },
       });
       await protect(ctx as never, next);
@@ -1138,7 +1164,11 @@ describe('CSRF Middleware', () => {
     it('should call secret function on each validation', async () => {
       const secretFn = vi.fn(() => TEST_SECRET);
       const token = await generateToken(TEST_SECRET);
-      const { protect } = csrf({ secret: secretFn });
+      const { protect } = csrf({
+        secret: secretFn,
+        sessionBinding: 'none',
+        originCheck: false,
+      });
       const ctx = createMockContext({
         method: 'POST',
         headers: {
@@ -1350,6 +1380,7 @@ describe('CSRF Middleware', () => {
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
@@ -1370,6 +1401,7 @@ describe('CSRF Middleware', () => {
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
@@ -1484,11 +1516,12 @@ describe('CSRF Middleware', () => {
   // --------------------------------------------------------------------------
 
   describe('origin check without Sec-Fetch-Site', () => {
-    it('should reject cross-origin request via Origin/Host without Sec-Fetch-Site', async () => {
+    it('should reject cross-origin request via Origin without Sec-Fetch-Site', async () => {
       const token = await generateToken(TEST_SECRET);
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
@@ -1504,11 +1537,15 @@ describe('CSRF Middleware', () => {
       expect(next).not.toHaveBeenCalled();
     });
 
-    it('should allow request without Origin or Sec-Fetch-Site (same-origin assumed)', async () => {
+    it('should reject a request with no Origin and no Sec-Fetch-Site (fail closed, SEC-04)', async () => {
+      // Superseded characterization: the pre-fix middleware treated a missing
+      // Origin as same-origin and allowed the request. The new contract fails
+      // closed — see security-boundaries spec "A missing signal is not a pass".
       const token = await generateToken(TEST_SECRET);
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
@@ -1520,14 +1557,16 @@ describe('CSRF Middleware', () => {
         },
       });
       await protect(ctx as never, next);
-      expect(next).toHaveBeenCalledOnce();
+      expect(next).not.toHaveBeenCalled();
+      expect(ctx.status).toBe(403);
     });
 
-    it('should fall through to Origin check on unknown Sec-Fetch-Site value', async () => {
+    it('should evaluate the allowlist on an unrecognized Sec-Fetch-Site value', async () => {
       const token = await generateToken(TEST_SECRET);
       const { protect } = csrf({
         ...defaultOptions(),
         originCheck: true,
+        allowedOrigins: ['https://example.com'],
       });
       const ctx = createMockContext({
         method: 'POST',
