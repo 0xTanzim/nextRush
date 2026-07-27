@@ -19,6 +19,7 @@ describe('Public API surface (runtime exports)', () => {
       'getMimeType',
       'isDotfile',
       'isFresh',
+      'isScriptCapable',
       'normalizePrefix',
       'parseRange',
       'safeJoin',

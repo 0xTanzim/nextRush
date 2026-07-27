@@ -328,6 +328,23 @@ export function getMimeType(filePath: string): string {
 }
 
 /**
+ * Extensions whose default MIME type can execute script in a browser
+ * (SEC-11): `image/svg+xml` (inline `<script>`), `text/html`/`.htm`
+ * (arbitrary markup + script), and XHTML. Neutralized under
+ * `untrusted: true` regardless of which resolution path produced them
+ * (direct match, directory index, or extension fallback).
+ */
+const SCRIPT_CAPABLE_EXTENSIONS = new Set(['.svg', '.html', '.htm', '.xhtml']);
+
+/**
+ * Whether a file's extension maps to a script-capable content type that
+ * `untrusted: true` must neutralize (SEC-11).
+ */
+export function isScriptCapable(filePath: string): boolean {
+  return SCRIPT_CAPABLE_EXTENSIONS.has(extname(filePath).toLowerCase());
+}
+
+/**
  * Check if filename is a dotfile
  */
 export function isDotfile(filePath: string): boolean {

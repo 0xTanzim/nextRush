@@ -157,6 +157,22 @@ export interface StaticOptions {
   xContentTypeOptions?: boolean;
 
   /**
+   * Neutralize script-capable content types (SEC-11).
+   *
+   * @security When `true`, `image/svg+xml`, `text/html`, and `application/xhtml+xml`
+   * responses are downgraded to `application/octet-stream`, forced to
+   * `Content-Disposition: attachment`, and carry a sandboxing
+   * `Content-Security-Policy: sandbox; default-src 'none'` header — so a
+   * root that also accepts untrusted uploads (e.g. via `@nextrush/multipart`)
+   * cannot serve an attacker-supplied file that executes on the app's own
+   * origin. Applies to directory-index and extension-fallback resolutions
+   * too, not only a direct file match.
+   *
+   * @default false
+   */
+  untrusted?: boolean;
+
+  /**
    * Timeout for streaming operations in milliseconds
    * Set to 0 to disable timeout
    * @default 30000 (30 seconds)
@@ -184,6 +200,7 @@ export interface NormalizedStaticOptions {
   highWaterMark: number;
   followSymlinks: boolean;
   xContentTypeOptions: boolean;
+  untrusted: boolean;
   streamTimeout: number;
 }
 

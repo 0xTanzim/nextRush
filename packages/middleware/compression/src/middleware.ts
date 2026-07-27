@@ -72,6 +72,7 @@ function resolveOptions(options: CompressionOptions = {}): ResolvedCompressionOp
     contentTypes: options.contentTypes ?? DEFAULT_OPTIONS.contentTypes,
     exclude: options.exclude ?? DEFAULT_OPTIONS.exclude,
     filter: options.filter,
+    skip: options.skip,
     breachMitigation: options.breachMitigation ?? false,
   };
 }
@@ -114,8 +115,22 @@ function shouldCompressResponse(ctx: Context, options: ResolvedCompressionOption
     return false;
   }
 
+  // SEC-17: Cache-Control: no-transform is an explicit instruction that no
+  // intermediary may transform the entity body — compression is exactly
+  // such a transform.
+  const cacheControl = getResponseHeader(ctx, 'cache-control');
+  if (cacheControl && hasNoTransformDirective(cacheControl)) {
+    return false;
+  }
+
   // Check custom filter
   if (options.filter && !options.filter(ctx)) {
+    return false;
+  }
+
+  // SEC-17: per-response skip predicate — checked independently of filter
+  // so either one opting out is sufficient.
+  if (options.skip?.(ctx)) {
     return false;
   }
 
@@ -132,6 +147,17 @@ function shouldCompressResponse(ctx: Context, options: ResolvedCompressionOption
     contentTypes: options.contentTypes,
     exclude: options.exclude,
   });
+}
+
+/**
+ * Whether a `Cache-Control` header value contains the `no-transform`
+ * directive (SEC-17), matched case-insensitively and independent of
+ * neighboring directives or whitespace.
+ */
+function hasNoTransformDirective(cacheControl: string): boolean {
+  return cacheControl
+    .split(',')
+    .some((directive) => directive.trim().toLowerCase() === 'no-transform');
 }
 
 /**

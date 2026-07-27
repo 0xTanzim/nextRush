@@ -208,7 +208,7 @@ sequenceDiagram
     Handler-->>MW: (returns)
 
     MW->>Gate: shouldCompressResponse(ctx, options)
-    Gate->>Gate: check method, status, custom filter,\nexisting Content-Encoding, content-type
+    Gate->>Gate: check method, status, custom filter,\nCache-Control: no-transform, skip predicate,\nexisting Content-Encoding, content-type
     Gate-->>MW: true or false
 
     alt not compressible
@@ -321,11 +321,21 @@ compress()  -- operates on the SERVER's own response body, not client input     
 
 Unlike `@nextrush/csrf` or `@nextrush/cookies`, this package's primary untrusted-input surface (`Accept-Encoding`) is low-stakes — a malformed or adversarial header can, at worst, cause the client to receive an encoding it didn't ask for (mitigated by `negotiateEncoding()` only ever selecting from `serverSupported`, never from anything the client's header alone dictates) or no compression at all. The data being compressed is the application's own response body, not attacker-supplied bytes, which is why this package's security concerns (`MAX_COMPRESSION_RATIO`, `breachMitigation`) are about protecting the *response* from being an oracle, not about validating untrusted input.
 
+The one case where the response body itself becomes the trust boundary's concern is BREACH
+(SEC-17): if that body mixes a secret (a CSRF token, a session identifier) with attacker-influenced
+content (a reflected query parameter, echoed search input) in the same compressed stream, an
+attacker who can trigger repeated requests and observe the compressed *size* can recover the
+secret without ever touching TLS. This package cannot know which responses pair a secret with
+reflected input — `shouldCompressResponse()` provides the mechanism (`skip`, and the unconditional
+`Cache-Control: no-transform` honor), but the application is the one that knows which routes carry
+that pairing and must opt them out.
+
 ## Extension points
 
 **Supported extension points:**
 
 - **`filter`** — the sanctioned way to add per-request compress/skip logic beyond content-type and threshold (e.g. skipping specific routes).
+- **`skip`** — a second, independent per-response predicate (SEC-17), intended specifically for excluding a response from compression when its body pairs a secret with attacker-influenced input (the BREACH scenario above) — checked separately from `filter` so an existing `filter`-based policy doesn't need to be rewritten to add this check.
 - **`contentTypes` / `exclude`** — the sanctioned way to adjust the compressible/excluded MIME type lists without forking the middleware.
 - **The exported negotiation/content-type/compressor primitives** — exposed specifically so advanced integrations can build custom compression logic (e.g. a genuinely streaming variant) without re-implementing `Accept-Encoding` parsing or runtime detection.
 
@@ -358,6 +368,8 @@ These are part of the package's architecture. They do not change without an RFC:
 | Exclude-before-include | Exclude patterns checked first | Ambiguous content types (matching both lists) default to "don't compress" — the safer failure mode | `content-type.ts` |
 | Failure handling | Catch-and-degrade, never throw into the response | A compression bug can never fail a request, at the cost of a silent-by-default failure a caller must opt into observing via `ctx.state.compressionError` | `middleware.ts` |
 | `level` validation | Clamped at use, not validated at construction | Simpler option resolution, at the cost of an out-of-range `level` never producing a construction-time error the way `@nextrush/csrf`'s secret-length check does | `compressor.ts` |
+| `Cache-Control: no-transform` enforcement | A hard skip in `shouldCompressResponse()`, unconditional and not opt-out | Honors the HTTP spec's explicit "no intermediary may transform this body" directive even when the caller didn't think to add a `skip` predicate for it — a caller who genuinely wants compression on such a response must remove the directive, not configure around this check | `middleware.ts` |
+| `skip` as a second, independent predicate (not folded into `filter`) | Two separate hooks, both checked, either sufficient to skip (SEC-17) | A caller composing an existing `filter`-based policy with a new per-response secret-pairing check does not have to thread the two conditions into one function — at the cost of two configuration surfaces to document instead of one | `middleware.ts` |
 
 ## Rejected alternatives
 

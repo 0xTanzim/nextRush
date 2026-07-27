@@ -137,7 +137,7 @@ src/
 | `constants.ts` | Every literal default and header name, in one place. |
 | `security.ts` | Origin-string sanity/format checks and the dev-only warning sink — no policy decisions. |
 | `validation.ts` | The origin allow/deny decision for every `OriginOption` shape. |
-| `headers.ts` | Header string construction and the `Vary` accumulation strategy. |
+| `headers.ts` | Header string construction, the `Vary` accumulation strategy, and the default-allowlist intersection for `Access-Control-Allow-Headers` (`intersectRequestedHeaders`, SEC-10). |
 | `middleware.ts` | Wires validation + headers into the per-request middleware; owns the construction-time security checks. |
 | `presets.ts` | Named, pre-validated configurations for common deployment shapes. |
 
@@ -269,7 +269,7 @@ There is no app-scoped mutable state beyond the closed-over, immutable-after-con
 interface CorsOptions {
   origin?: boolean | string | string[] | RegExp | OriginValidator; // default: false
   methods?: string | string[];               // default: 'GET,HEAD,PUT,PATCH,POST,DELETE'
-  allowedHeaders?: string | string[];         // default: reflects the preflight request
+  allowedHeaders?: string | string[];         // default: intersects the requested headers against a conservative allowlist (SEC-10)
   exposedHeaders?: string | string[];         // default: none sent
   credentials?: boolean;                      // default: false
   maxAge?: number;                            // default: none sent
@@ -368,6 +368,7 @@ These are part of the package's architecture. They do not change without an RFC:
 | `Vary` tracking | Per-context `WeakMap`, not `ctx.get()` | Avoids reading request headers to infer response state, at the cost of an extra module-level data structure | `headers.ts` |
 | Validator error handling | `try/catch` around the custom-validator call, resolves to `false` | A silently-misbehaving validator degrades to "CORS denied" rather than surfacing the error to the caller | `validation.ts` |
 | Custom `CorsContext` shape | Narrower than full `Context` (no `set`/`next`) | An `OriginValidator` cannot short-circuit or mutate the response, but also cannot read anything beyond headers/method/path | `types.ts` |
+| Default `allowedHeaders` policy | Intersect the requested `Access-Control-Request-Headers` against a fixed default allowlist, never echo verbatim (SEC-10) | A legitimate custom header sent by an unconfigured client is silently dropped rather than allowed, pushing the developer toward an explicit `allowedHeaders` list | `constants.ts`, `headers.ts`, `middleware.ts` |
 
 ## Rejected alternatives
 

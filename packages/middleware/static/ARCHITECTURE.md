@@ -33,9 +33,11 @@
   evaluation, and `304` responses (`utils.ts`'s `generateETag()`/`isFresh()`)
 - **Range request handling** — parsing and validating a single `Range` header and serving `206`
   or `416` accordingly (`utils.ts`'s `parseRange()`, `send-file.ts`)
-- **Streaming the response body** — single-read for small files (with a TOCTOU re-check) or
-  `fs.createReadStream()` for larger ones, with timeout and disconnect handling (`send-file.ts`)
-- **MIME-type resolution from file extension** and the `X-Content-Type-Options` header
+- **Streaming the response body** — a single descriptor opened once per request, with a small-file
+  read or `handle.createReadStream()` for larger ones from that same descriptor (TOCTOU-safe,
+  SEC-13), timeout and disconnect handling (`send-file.ts`)
+- **MIME-type resolution from file extension**, the `X-Content-Type-Options` header, and — under
+  `untrusted: true` — neutralizing a script-capable type via `Content-Disposition`/CSP (SEC-11)
 
 **This package does NOT own:**
 
@@ -154,8 +156,9 @@ lookup) lives in `utils.ts`, independent of any `Context`.
    branch at all, avoiding an unnecessary disk read.
 4. **File size, not a configuration flag, decides read strategy.** The `stat.size <=
    highWaterMark` comparison in `sendFile()` is the single branch point between a one-shot
-   `readFile()` and a streamed `createReadStream()` — there is no separate "streaming mode" option
-   to misconfigure.
+   `handle.readFile()` and a streamed `handle.createReadStream()` — both against the one
+   descriptor opened for the request, so there is no separate "streaming mode" option to
+   misconfigure and no second path resolution to race (SEC-13).
 5. **A streamed response's lifecycle is fully owned by one `Promise`.** `streamToResponse()`'s
    `settle()` helper guarantees exactly one of `resolve`/`reject` fires exactly once, regardless of
    whether the stream ends, errors, times out, or the client disconnects first — preventing a
@@ -277,25 +280,28 @@ sequenceDiagram
     Static->>Static: isDotfile(finalPath)? apply dotfiles policy
     Static->>SendFile: sendFile(ctx, finalPath, stat, options)
     SendFile->>Ctx: set Content-Type, X-Content-Type-Options, Content-Length, Last-Modified, ETag, Accept-Ranges, Cache-Control
+    Note over SendFile: untrusted:true downgrades Content-Type to<br/>application/octet-stream and adds Content-Disposition/CSP<br/>for a script-capable extension (SEC-11)
     SendFile->>SendFile: isFresh(ctx, stat, etag)?
     alt conditional match
         SendFile->>Ctx: status = 304 (strip Content-Type/Content-Length)
         SendFile-->>Client: 304 Not Modified
     else not fresh
+        SendFile->>FS: open(absolutePath, 'r') — exactly once, one descriptor for the whole request (SEC-13)
         SendFile->>SendFile: parseRange(Range header, stat.size)?
         alt valid range
             SendFile->>Ctx: status = 206, Content-Range, Content-Length = range size
-            SendFile->>FS: createReadStream(path, {start, end})
-            SendFile-->>Client: 206 Partial Content (streamed)
+            SendFile->>FS: handle.createReadStream({start, end})
+            SendFile-->>Client: 206 Partial Content (streamed from the open handle)
         else no Range header
             alt stat.size <= highWaterMark
-                SendFile->>FS: readFile(absolutePath)
+                SendFile->>FS: handle.stat() + handle.readFile() — same descriptor, no re-resolve by path
                 SendFile-->>Client: 200 OK (single write)
             else
-                SendFile->>FS: createReadStream(absolutePath)
-                SendFile-->>Client: 200 OK (streamed)
+                SendFile->>FS: handle.createReadStream()
+                SendFile-->>Client: 200 OK (streamed from the open handle)
             end
         end
+        SendFile->>FS: handle.close() (in a finally — a stream that already closed it makes this a no-op)
     end
 ```
 
@@ -303,6 +309,17 @@ The ordering a reader would otherwise get wrong: **traversal rejection happens t
 different layers, before any `stat()` call** — `serveStatic()`'s early string check on the decoded
 URL, then `safeJoin()`'s independent containment check on the *resolved* absolute path. Either
 one failing is sufficient to reject the request; neither is skipped because the other already ran.
+
+A second ordering worth being explicit about: **the safety `lstat()` in `statSafe()` and the read
+in `sendFile()` are two separate filesystem calls, separated by an `await` boundary** — an
+attacker who can swap what `absolutePath` resolves to (e.g. replacing a regular file with a
+symlink to `/etc/passwd`) between those two calls could otherwise make the safety check pass
+against one file and the read return another (SEC-13, a classic TOCTOU race). `sendFile()` closes
+that window by calling `fs.open()` exactly once per request and performing every subsequent
+operation — the small-file `fstat`/`readFile`, and the streamed `createReadStream` for both the
+range and non-range paths — against that same open `FileHandle`, never re-resolving
+`absolutePath` by name again. A file swapped in after `open()` resolves cannot change what the
+already-open descriptor points to.
 
 ### Symlink resolution (the state a `statSafe()` call passes through)
 
@@ -397,15 +414,26 @@ object with the four fields this package actually uses.
 - **Per-request, never shared:** the resolved path, `stat` result, ETag string, and any read `Buffer`/stream for that request.
 - **Idempotency:** serving the same file with the same headers always produces the same response, except for `mtime`-derived values (`ETag`, `Last-Modified`) if the file changes on disk between requests — which is the intended behavior (cache invalidation on modification).
 - **Abort / disconnect / timeout:** `streamToResponse()` listens for `ctx.raw.res`'s `'close'` event and destroys the read stream if the client disconnects before the stream ends; a configured `streamTimeout` (default 30s, `0` disables it) independently destroys the stream and responds `504` if it fires first. The `settle()` helper guarantees only one of these (or a normal `'end'`/`'error'`) actually resolves the response `Promise`.
-- **TOCTOU (time-of-check-to-time-of-use):** two independent windows exist — (1) between the `stat()` used to decide small-vs-large-file handling and the actual `readFile()`/`createReadStream()` call, where `sendFile()` corrects `Content-Length` if the small-file read came back a different length than expected; (2) the symlink-resolution window noted in the [Lifecycle](#lifecycle) state diagram above. Neither window is eliminated, only narrowed and, in the small-file case, detected after the fact.
+- **TOCTOU (time-of-check-to-time-of-use):** the safety `lstat()` in `statSafe()` and the actual
+  read happen against **one file descriptor opened exactly once per request** (SEC-13) — `sendFile()`
+  calls `fs.open(absolutePath, 'r')` a single time, then performs the small-file `fstat`/`readFile`
+  or the streamed `createReadStream()` (both range and non-range) against that same open
+  `FileHandle`, never re-resolving `absolutePath` by name again. A file or symlink swapped in after
+  `open()` resolves cannot change what the already-open descriptor points to, closing the window
+  that previously existed between the safety check and the read. The remaining symlink-resolution
+  window is the one noted in the [Lifecycle](#lifecycle) state diagram above (a `followSymlinks:
+  true` target is validated against `root` at `statSafe()` time, before `sendFile()`'s own `open()`
+  call) — that check and the eventual `open()` are still two separate syscalls, but `open()` itself
+  does not re-run any symlink-following decision beyond the OS's own path resolution.
 
-> [!WARNING]
-> `sendFile()`'s TOCTOU correction only adjusts `Content-Length` for the **small-file** path (the
-> single `readFile()` branch) — the streamed (`createReadStream()`) path has no equivalent
-> re-check; a file that shrinks after `stat()` but before the stream finishes reading will end the
-> stream naturally at its new (shorter) length without correcting an already-sent `Content-Length`
-> header, since headers are sent before the stream body. A contributor addressing this gap should
-> treat it as a genuine limitation, not assume the existing small-file correction already covers it.
+> [!NOTE]
+> A file that changes size between the pre-`sendFile()` `stat()` and the `open()`/`fstat()` inside
+> `sendFile()` is still possible (this is normal filesystem concurrency, not a race this middleware
+> can or should prevent) — `sendFile()` handles it by trusting the **descriptor's own `fstat()`**,
+> not the earlier `stat()`, for `Content-Length` correction on the small-file path. What SEC-13
+> closes is specifically an attacker being able to make the safety check inspect one file and the
+> read return a *different* file (e.g. via a symlink swap) — not ordinary concurrent writes to the
+> same file.
 
 ## Trust boundaries
 
@@ -484,6 +512,13 @@ These are part of the package's architecture. They do not change without an RFC:
   `null` for anything but a single range.**
 - **A streamed response's completion `Promise` settles exactly once**, regardless of whether it
   ends normally, errors, times out, or the client disconnects first.
+- **`sendFile()` opens exactly one file descriptor per request and performs every read (small-file
+  or streamed, ranged or not) against that same descriptor** — no branch re-resolves
+  `absolutePath` by name after the initial `open()` (SEC-13).
+- **`untrusted: true` neutralizes every script-capable extension match uniformly across a direct
+  match, a directory-index resolution, and an extension-fallback resolution** — the neutralization
+  lives in `sendFile()`'s single `setFileHeaders()` call, the one point every resolution path
+  converges on, not duplicated per resolution branch (SEC-11).
 - **The package imports Node built-ins directly (`node:fs`, `node:path`, `node:http`) — it makes
   no cross-runtime portability claim**, unlike Web-Streams-based middleware in this repository
   (e.g. `@nextrush/multipart`, `@nextrush/body-parser`).
@@ -497,6 +532,8 @@ These are part of the package's architecture. They do not change without an RFC:
 | Read strategy selection | File size vs. `highWaterMark`, not a separate "streaming" option | A contributor can't force streaming for a small file without raising `highWaterMark` down to force it, or vice versa — the size threshold is the only lever | `send-file.ts`'s `sendFile()` |
 | ETag algorithm | Weak ETag (FNV-1a over `size-mtime`), not a content hash | Two different files that happen to share size and mtime (vanishingly unlikely in practice) would collide; chosen because it never requires reading the file to compute | `utils.ts`'s `generateETag()` |
 | Range support scope | Single range only; multi-range headers rejected entirely | A client requesting multiple ranges in one request gets a full response instead of a multi-part one — simpler implementation, no `multipart/byteranges` encoding needed | `utils.ts`'s `parseRange()` |
+| TOCTOU closure strategy | One `fs.open()` per request; every subsequent read against that descriptor (SEC-13) | An extra syscall (`open()` up front) versus the previous by-name `readFile()`/`createReadStream()`, in exchange for eliminating the symlink-swap race entirely rather than only detecting it after the fact | `send-file.ts`'s `sendFile()` |
+| Untrusted-content neutralization scope | Applied inside `sendFile()`'s single `setFileHeaders()` call, not per resolution branch (SEC-11) | Every resolution path (direct match, directory-index, extension-fallback) must funnel through `sendFile()` for the guarantee to hold — verified by dedicated tests per resolution path rather than assumed from the single choke point | `send-file.ts`'s `setFileHeaders()` |
 | Runtime targeting | Node-only, direct `node:fs`/`node:http` usage, no adapter abstraction | No Bun/Deno/Edge support without a rewrite; chosen because static file serving is inherently filesystem-bound and most Edge runtimes don't expose a comparable filesystem API anyway | package-wide |
 
 ## Rejected alternatives

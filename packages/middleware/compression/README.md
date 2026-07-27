@@ -121,7 +121,21 @@ listen(app, 8080);
 - A configurable `threshold` (default 1024 bytes) skips compressing bodies too small to benefit
 - A hard 10MB in-memory size cap skips compression for bodies larger than that, rather than risking an out-of-memory buffer
 - A compression-ratio ceiling (1000x) throws if exceeded, as a decompression-bomb sanity check on the *compression* side
+- A response carrying `Cache-Control: no-transform` is never compressed -- that directive is an explicit instruction that no intermediary may transform the entity body, and compression is exactly such a transform
+- An optional `skip` predicate lets a specific response opt out per-request, independent of `filter`
 - Optional `breachMitigation` adds a random-length `X-Pad` header, mitigating BREACH-style compression-oracle attacks on responses that reflect user input alongside secrets
+
+> [!WARNING]
+> **BREACH and CSRF tokens.** BREACH is a compression-oracle attack: if a response body contains
+> both a secret (a CSRF token, a session identifier) *and* attacker-influenced input (a reflected
+> query parameter, a search term echoed into the page) in the same compressed stream, an attacker
+> who can trigger many requests and observe the compressed response *size* can recover the secret
+> byte-by-byte, regardless of TLS. Enabling compression on any endpoint that reflects both a
+> CSRF token and user-controlled input reintroduces this risk even though the connection is
+> encrypted. Use the `skip` predicate to exclude such responses from compression entirely, or
+> enable `breachMitigation` to add randomized padding as a mitigation -- padding raises the cost
+> of the attack but does not make it theoretically impossible; excluding the response from
+> compression is the stronger guarantee.
 
 **Developer experience**
 - Zero runtime dependencies beyond `@nextrush/types`
@@ -236,7 +250,8 @@ Every default below is read directly from `src/constants.ts`'s `DEFAULT_OPTIONS`
 | `threshold` | `number` | No | `1024` (1KB) | No | Bodies smaller than this are never compressed. |
 | `contentTypes` | `readonly string[]` | No | `DEFAULT_COMPRESSIBLE_TYPES` | No | Supports exact matches and `text/*`/`*/json`-style wildcards. |
 | `exclude` | `readonly string[]` | No | `DEFAULT_EXCLUDED_TYPES` | No | Checked before `contentTypes` -- an exclusion always wins over an inclusion. |
-| `filter` | `(ctx: Context) => boolean` | No | `undefined` (no extra filter) | No | Runs after every other check; returning `false` skips compression for that response. |
+| `filter` | `(ctx: Context) => boolean` | No | `undefined` (no extra filter) | No | Runs after every other check; returning `false` skips compression for that response. Typically encodes a route/type-shaped policy decided once at construction. |
+| `skip` | `(ctx: Context) => boolean` | No | `undefined` (no skip predicate) | Yes | Checked independently of `filter` -- returning `true` skips compression for that response. Intended for opting out a specific response carrying a secret (e.g. a CSRF token) whose body also reflects attacker-influenced input; see the BREACH note below. Either `filter` returning `false` or `skip` returning `true` is sufficient to skip. |
 | `breachMitigation` | `boolean` | No | `false` | Yes | Adds a random-length `X-Pad` header (1-256 `x` characters) as defense-in-depth against BREACH-style compression-oracle attacks. |
 
 ## Performance

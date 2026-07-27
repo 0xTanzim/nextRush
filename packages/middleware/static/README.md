@@ -122,6 +122,7 @@ depending on `fallthrough`) for anything it doesn't find.
 - Symlinks are not followed by default (`followSymlinks: false`); when enabled, the resolved real path is independently checked against `root` before the file is served
 - Dotfiles (files/directories starting with `.`) default to `'ignore'` (404); can be set to `'deny'` (403) or `'allow'`
 - `X-Content-Type-Options: nosniff` is set by default, disabling MIME-type sniffing in browsers
+- `untrusted: true` neutralizes script-capable content (`.svg`, `.html`, `.htm`, `.xhtml`): downgrades `Content-Type` to `application/octet-stream`, forces `Content-Disposition: attachment`, and adds a sandboxing `Content-Security-Policy` -- applied uniformly across a direct match, directory-index, and extension-fallback resolution, since a root that also accepts untrusted uploads must not let one execute on the app's own origin
 
 **Caching & range support**
 - Weak `ETag` (FNV-1a hash of file size + mtime) and `Last-Modified`, both on by default; `If-None-Match`/`If-Modified-Since` requests get a `304` with content headers stripped
@@ -130,7 +131,7 @@ depending on `fallthrough`) for anything it doesn't find.
 
 **Performance**
 - Files at or under `highWaterMark` (default 1MB) are read with a single `fs.readFile()` call; larger files are streamed via `fs.createReadStream()`
-- Small-file reads include a TOCTOU (time-of-check-to-time-of-use) re-check: if the file's length at read time differs from the earlier `stat()`, `Content-Length` is corrected to the actual bytes sent
+- Every read opens exactly one file descriptor for the request and reads, `fstat`s, and streams from that same descriptor -- a symlink or file swapped in after the initial safety check cannot be followed, because nothing re-resolves the path by name after `open()`
 - Streaming responses honor a configurable `streamTimeout` (default 30s) and clean up the read stream on client disconnect
 
 ## Mental model
@@ -270,6 +271,7 @@ Every default below is read directly from `DEFAULT_OPTIONS` in `src/index.ts`.
 | `highWaterMark` | `number` | No | `1048576` (1 MB) | No | Files at or under this size use a single `readFile()`; larger files stream. |
 | `followSymlinks` | `boolean` | No | `false` | Yes | `false`: symlinks are treated as not found. `true`: resolved, but the target must still be inside `root`. |
 | `xContentTypeOptions` | `boolean` | No | `true` | Yes | Sets `X-Content-Type-Options: nosniff`. |
+| `untrusted` | `boolean` | No | `false` | Yes | Neutralizes script-capable content types (`.svg`/`.html`/`.htm`/`.xhtml`): forces `application/octet-stream`, `Content-Disposition: attachment`, and a sandboxing `Content-Security-Policy`. Applies to directory-index and extension-fallback resolutions too. Use for a root that also accepts untrusted uploads. |
 | `streamTimeout` | `number` | No | `30000` (30s) | No | Timeout for a streamed (non-small-file) response; `0` disables it. |
 
 ### Path traversal handling

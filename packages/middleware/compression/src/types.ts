@@ -94,6 +94,23 @@ export interface CompressionOptions {
   filter?: (ctx: Context) => boolean;
 
   /**
+   * Per-response skip predicate (SEC-17), distinct from `filter`.
+   *
+   * @remarks
+   * `filter` typically encodes a route/type-shaped policy decided once at
+   * middleware construction; `skip` is checked per response and is the
+   * intended hook for opting a specific response out — e.g. one carrying a
+   * CSRF token or other secret, where compressing a response whose body
+   * mixes a secret with attacker-reflected input creates a BREACH-class
+   * side channel (see the BREACH/CSRF-token-pairing note on
+   * {@link CompressionOptions.breachMitigation} and the package README).
+   * Return `true` to skip compression for this response.
+   * @param ctx - Request context
+   * @returns Whether to skip compression for this response
+   */
+  skip?: (ctx: Context) => boolean;
+
+  /**
    * Enable BREACH attack mitigation by adding random padding.
    * Recommended for responses that include user secrets and reflect user input.
    * @default false
@@ -113,6 +130,7 @@ export interface ResolvedCompressionOptions {
   contentTypes: readonly string[];
   exclude: readonly string[];
   filter?: (ctx: Context) => boolean;
+  skip?: (ctx: Context) => boolean;
   breachMitigation: boolean;
 }
 
