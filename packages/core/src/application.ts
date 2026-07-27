@@ -16,12 +16,39 @@ import type {
   ExtensionContext,
   Logger,
   Middleware,
+  ProxyTrust,
   RouteEntry,
   Router,
+  SecurityAuditCheck,
 } from '@nextrush/types';
+import { SECURITY_AUDIT } from '@nextrush/types';
 import { compose } from './middleware';
 import { writeDefaultErrorResponse } from './error-handler';
 import { createPrefixMount } from './route-mount';
+
+/**
+ * Rejects the two unsafe `proxy` configurations at boot (RFC-030 §8.5):
+ * `true` (equivalent to "trust everything," the SEC-01 vulnerability this
+ * type exists to close) and `0` (a hop count that can never be satisfied,
+ * so it always falls back — almost certainly not what was intended).
+ */
+function validateProxyTrust(proxy: ProxyTrust): ProxyTrust {
+  if ((proxy as unknown) === true) {
+    throw new Error(
+      "createApp({ proxy: true }) is no longer valid — trusting every proxy header lets a " +
+        'remote client forge its own IP. Use `proxy: <hopCount>` (e.g. `proxy: 1` for one ' +
+        "reverse proxy) or `proxy: ['<cidr>', ...]` (a list of trusted proxy IPs/ranges) instead."
+    );
+  }
+  if (proxy === 0) {
+    throw new Error(
+      'createApp({ proxy: 0 }) trusts zero hops, which is the same as `proxy: false` but ' +
+        'never falls back cleanly — use `proxy: false` to disable proxy trust, or a positive ' +
+        'hop count to trust that many proxies.'
+    );
+  }
+  return proxy;
+}
 
 /**
  * Error handler function type
@@ -127,10 +154,17 @@ export interface ApplicationOptions {
   env?: 'development' | 'production' | 'test';
 
   /**
-   * Whether to use proxy headers (X-Forwarded-For, etc.)
+   * Proxy-trust specification for `ctx.ip` resolution (RFC-030, SEC-01).
+   *
+   * @remarks
+   * `false` trusts nothing (the socket peer is always `ctx.ip`); a `number`
+   * trusts exactly that many reverse-proxy hops; a `string[]` of CIDR
+   * ranges/IPs trusts only a direct peer inside that set. `true` and `0`
+   * throw at construction — see {@link validateProxyTrust}.
+   *
    * @default false
    */
-  proxy?: boolean;
+  proxy?: ProxyTrust;
 
   /**
    * Custom logger. Defaults to no-op (silent).
@@ -168,6 +202,22 @@ export type ListenCallback = () => void;
  */
 export interface Routable {
   routes(): Middleware;
+  /**
+   * Test whether `path` falls under this router's mount prefix, using the
+   * SAME normalization the router itself matches with (case folding per its
+   * `caseSensitive` option, structural normalization) — never a raw
+   * `startsWith` comparison, which would apply a different rule than the
+   * router's own dispatch (RFC-029, SEC-02/SEC-15). Optional so a minimal
+   * `Routable` (e.g. a test double) still mounts; {@link createPrefixMount}
+   * falls back to a literal prefix test when this is absent.
+   *
+   * @param path - The full, still-query-stripped request path being tested.
+   * @param prefix - The normalized mount prefix (leading `/`, no trailing `/`).
+   * @returns The path's remainder past the prefix (e.g. `/users` for
+   *   `/Admin/Users` mounted at `/admin`), or `undefined` if `path` is not
+   *   under `prefix` per this router's own normalization.
+   */
+  matchesMountPrefix?(path: string, prefix: string): string | undefined;
 }
 
 /**
@@ -190,6 +240,13 @@ export interface Routable {
  */
 export class Application {
   private readonly middlewareStack: Middleware[] = [];
+
+  /**
+   * Boot-time security audit checks contributed by tagged middleware
+   * (`security-boundaries` capability, task 8.1). Collected as `use()`
+   * registers each middleware; run once by `_boot()`, production-only.
+   */
+  private readonly securityAudits: SecurityAuditCheck[] = [];
 
   /** Registered extensions, in registration order (setup runs at ready()) */
   private readonly extensions: Extension<unknown>[] = [];
@@ -241,9 +298,10 @@ export class Application {
   readonly container?: Container;
 
   constructor(options: ApplicationOptions = {}) {
+    const proxy = validateProxyTrust(options.proxy ?? false);
     this.options = {
       env: options.env ?? 'development',
-      proxy: options.proxy ?? false,
+      proxy,
     };
     this.logger = options.logger ?? NOOP_LOGGER;
     this.router = options.router;
@@ -311,6 +369,12 @@ export class Application {
         throw new TypeError('Middleware must be a function');
       }
       this.middlewareStack.push(mw);
+      const audit = (mw as Partial<Record<typeof SECURITY_AUDIT, SecurityAuditCheck>>)[
+        SECURITY_AUDIT
+      ];
+      if (typeof audit === 'function') {
+        this.securityAudits.push(audit);
+      }
     }
     return this;
   }
@@ -337,7 +401,9 @@ export class Application {
       normalizedPrefix = '/' + normalizedPrefix;
     }
 
-    this.middlewareStack.push(createPrefixMount(normalizedPrefix, routerMiddleware));
+    this.middlewareStack.push(
+      createPrefixMount(normalizedPrefix, routerMiddleware, router.matchesMountPrefix?.bind(router))
+    );
     return this;
   }
 
@@ -555,8 +621,32 @@ export class Application {
       this._routerMounted = true;
     }
 
+    if (this.isProduction) {
+      this._runSecurityAudits();
+    }
+
     this._isReady = true;
     return this;
+  }
+
+  /**
+   * Run every registered middleware's boot-time security audit check
+   * (`security-boundaries` capability, task 8.1/8.2). `throw`-level verdicts
+   * fail boot immediately; `warn`-level verdicts log once each via the app
+   * logger and never block boot. Production-only — `_boot()` calls this
+   * conditionally so a dev/test app never pays the cost or sees the noise.
+   */
+  private _runSecurityAudits(): void {
+    for (const audit of this.securityAudits) {
+      const verdict = audit();
+      if (verdict.level === 'ok') {
+        continue;
+      }
+      if (verdict.level === 'throw') {
+        throw new Error(`[security-boundaries] ${verdict.message}`);
+      }
+      this.logger.warn(`[security-boundaries] ${verdict.message}`);
+    }
   }
 
   /**

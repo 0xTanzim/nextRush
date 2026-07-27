@@ -112,8 +112,9 @@ export function serializeCookie(name: string, value: string, options: CookieOpti
     parts.push('Secure');
   }
 
-  // SameSite
-  if (opts.sameSite) {
+  // SameSite (checked for presence, not truthiness — `sameSite: false` is a
+  // legitimate value meaning "alias for None" and must not be dropped).
+  if (opts.sameSite !== undefined) {
     const sameSiteValue = normalizeSameSite(opts.sameSite);
     parts.push(`SameSite=${sameSiteValue}`);
   }

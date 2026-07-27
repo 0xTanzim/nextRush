@@ -16,6 +16,7 @@
  */
 
 import { getClientIp, getRuntime, WebContextBase } from '@nextrush/runtime';
+import type { ProxyTrust } from '@nextrush/types';
 import { runNDJSONStream, runSSEStream, runTextStream } from '@nextrush/stream';
 
 /**
@@ -34,16 +35,17 @@ import { runNDJSONStream, runSSEStream, runTextStream } from '@nextrush/stream';
  * ```
  */
 export class BunContext extends WebContextBase {
-  constructor(request: Request, clientIp?: string, trustProxy = false) {
+  constructor(request: Request, clientIp?: string, proxy: ProxyTrust = false) {
     // Get client IP (Bun provides this via server.requestIP).
     //
-    // HP-1 trim: when `trustProxy` is false (default) the Bun-supplied `clientIp`
+    // HP-1 trim: when `proxy` is false (default) the Bun-supplied `clientIp`
     // IS the client address, so it is returned directly — no per-request
-    // header-lookup closure, no `getClientIp` policy call — byte-identical to the
-    // policy's own `trustProxy: false` branch. When true, resolution goes through
-    // the shared policy (directIp = `clientIp ?? ''`) so precedence/validation
-    // match Node/Deno/Edge.
-    const ip = trustProxy ? getClientIp(request, clientIp ?? '', true) : (clientIp ?? '');
+    // header-lookup closure, no `getClientIp` policy call — byte-identical to
+    // the policy's own `trust: false` branch. Otherwise resolution goes
+    // through the shared policy (directIp = `clientIp ?? ''`) so
+    // precedence/validation match Node/Deno/Edge.
+    const directIp = clientIp ?? '';
+    const ip = proxy !== false ? getClientIp(request, directIp, proxy) : directIp;
 
     super(request, ip, getRuntime(), { runTextStream, runSSEStream, runNDJSONStream });
   }
@@ -59,7 +61,7 @@ export class BunContext extends WebContextBase {
 export function createBunContext(
   request: Request,
   clientIp?: string,
-  trustProxy = false
+  proxy: ProxyTrust = false
 ): BunContext {
-  return new BunContext(request, clientIp, trustProxy);
+  return new BunContext(request, clientIp, proxy);
 }

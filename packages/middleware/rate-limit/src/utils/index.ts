@@ -1,7 +1,6 @@
 export { LEGACY_HEADERS, STANDARD_HEADERS, setRateLimitHeaders } from './headers';
 export {
   defaultKeyGenerator,
-  extractClientIp,
   isIpInList,
   isValidIpv4,
   isValidIpv6,

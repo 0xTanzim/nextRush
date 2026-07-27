@@ -31,7 +31,7 @@
 <details>
 <summary><strong>Table of contents</strong></summary>
 
-[The problem](#the-problem) . [When to use](#when-to-use) . [Installation](#installation) . [Quick start](#quick-start) . [Capabilities](#capabilities) . [Mental model](#mental-model) . [Common tasks](#common-tasks) . [API overview](#api-overview) . [Options](#options) . [Compatibility](#compatibility) . [Troubleshooting](#troubleshooting) . [FAQ](#faq) . [Package relationships](#package-relationships) . [Architecture](#architecture) . [Resources](#resources)
+[The problem](#the-problem) . [When to use](#when-to-use) . [Installation](#installation) . [Quick start](#quick-start) . [Capabilities](#capabilities) . [Mental model](#mental-model) . [Common tasks](#common-tasks) . [API overview](#api-overview) . [Options](#options) . [Compatibility](#compatibility) . [Migrating signed cookies](#migrating-signed-cookies-to-the-name-bound-format) . [Troubleshooting](#troubleshooting) . [FAQ](#faq) . [Package relationships](#package-relationships) . [Architecture](#architecture) . [Resources](#resources)
 
 </details>
 
@@ -64,7 +64,7 @@ function setCookie(res, name, value) {
 
 - You need CSRF protection specifically -- the double-submit cookie pattern with token validation is [`@nextrush/csrf`](../csrf), which handles its own cookie internally
 - You need encrypted (confidential) cookie contents -- signing proves a value was not tampered with, it does not hide the value from the client; see [FAQ](#faq)
-- You need full session storage (server-side session data keyed by a session ID) -- this package only signs/verifies a value the client holds, it does not persist anything server-side
+- You need full session storage (server-side session data keyed by a session ID) -- this package only signs/verifies a value the client holds, it does not persist anything server-side. NextRush has no session package today; see the [session position](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/032-session-position.md) for what the framework commits to and when
 
 ---
 
@@ -122,9 +122,10 @@ listen(app, 8080);
 - `createSecurePrefixCookie()` / `createHostPrefixCookie()` add the `__Secure-`/`__Host-` prefix and force the attributes each prefix requires
 
 **Signing (integrity, not encryption)**
-- `signCookie()` / `unsignCookie()` sign and verify a value with HMAC-SHA256 via the Web Crypto API (`crypto.subtle`) -- the signed format is `value.signature`, base64url-encoded
+- `signCookie()` / `unsignCookie()` sign and verify a value with HMAC-SHA256 via the Web Crypto API (`crypto.subtle`), binding the signature to the cookie *name* and an issue time -- a value signed for one cookie name cannot be replayed under a different name (see [Migrating signed cookies](#migrating-signed-cookies-from-10x-to-the-name-bound-format))
 - `unsignCookieWithRotation()` tries the current secret first, then each `previousSecrets` entry in order, so an old signing key can still verify cookies issued before a rotation
-- Signing proves the value was not modified since it was signed; it does not hide the value -- a signed cookie's contents remain readable by anyone with cookie access
+- `acceptLegacySignatures` (off by default) accepts the pre-1.1 value-only format as a rotation fallback, logging a one-time deprecation warning per process
+- Signing proves the value was not modified since it was signed and was issued for this exact cookie name; it does not hide the value -- a signed cookie's contents remain readable by anyone with cookie access
 
 **Developer experience**
 - Zero runtime dependencies beyond `@nextrush/types`
@@ -239,11 +240,13 @@ The sealed public surface (ADR-0005).
 | `createSecurePrefixCookie` / `createHostPrefixCookie` | `(name, value, options?) => string` | 1.0.0 | Stable | Builds a `__Secure-`/`__Host-` prefixed `Set-Cookie` string with the prefix's required attributes forced. |
 | `parseCookies` | `(header, options?: ParseOptions) => ParsedCookies` | 1.0.0 | Stable | Parses a raw `Cookie` header string into a plain object. |
 | `getCookie` / `hasCookie` / `getCookieNames` | `(header, name?) => ...` | 1.0.0 | Stable | Convenience wrappers over `parseCookies`. |
-| `signCookie` / `unsignCookie` | `(value, secret) => Promise<string>` / `(signedValue, secret) => Promise<string \| undefined>` | 1.0.0 | Stable | Low-level HMAC-SHA256 sign/verify, for advanced use. |
-| `unsignCookieWithRotation` | `(signedValue, keys: SigningKeys) => Promise<string \| undefined>` | 1.0.0 | Stable | Verifies against `keys.current`, then each `keys.previous` entry in order. |
+| `signCookie` / `unsignCookie` | `(name, value, secret, options?) => Promise<string>` / `(name, signedValue, secret, options?) => Promise<string \| undefined>` | 1.0.0-beta.0 | Stable | Context-bound HMAC-SHA256 sign/verify -- `name` binds the signature to that exact cookie, for advanced use. |
+| `unsignCookieWithRotation` | `(name, signedValue, keys: SigningKeys, options?) => Promise<string \| undefined>` | 1.0.0-beta.0 | Stable | Verifies against `keys.current`, then each `keys.previous` entry in order, always bound to `name`. |
+| `resetLegacyAcceptanceWarning` | `() => void` | 1.0.0-beta.0 | Stable | Resets the once-per-process legacy-signature warning flag. Exposed for testing. |
 | `clearKeyCache` | `() => void` | 1.0.0 | Stable | Clears the internal `CryptoKey` cache. Exposed for testing. |
 | `timingSafeEqual` | `(a: string, b: string) => boolean` | 1.0.0 | Stable | Manual constant-time-shaped string comparison fallback -- the signing path itself uses `crypto.subtle.verify`, not this function. |
 | `isValidCookieName` / `isValidCookieValue` / `isValidDomain` / `isValidPath` / `isPublicSuffix` | `(input: string) => boolean` | 1.0.0 | Stable | Boolean validators used internally and exposed for custom implementations. |
+| `resetUnrecognizedSuffixWarning` | `() => void` | 1.0.0-beta.0 | Stable | Resets the once-per-process unrecognized-public-suffix warning flag. Exposed for testing. |
 | `sanitizeCookieValue` | `(value: string) => string` | 1.0.0 | Stable | Strips CRLF, URL-encoded CRLF, and control characters from a value. |
 | `validateCookieOptions` / `validateCookiePrefix` | `(options \| name, options) => void` | 1.0.0 | Stable | Throwing validators; `serializeCookie` calls both internally. |
 | `SecurityError` | `class extends Error` | 1.0.0 | Stable | Thrown by validation failures; carries a `code` property. |
@@ -257,10 +260,14 @@ Every default below is read directly from `src/constants.ts` and `src/types.ts`.
 | Option | Type | Required | Default | Security-sensitive | Description |
 | ------ | ---- | -------- | ------- | ------------------ | ----------- |
 | `cookies()`: `decode` | `(value: string) => string` | No | `decodeURIComponent` (built into the parser) | No | A custom decode is re-sanitized for CRLF after running, so a decode function cannot reintroduce header-injection characters. |
+| `cookies()` / `signedCookies()`: `trustProxy` | `boolean` | No | `false` | Yes | Trusts a `X-Forwarded-Proto: https` claim for `secure: 'auto'` resolution when the request itself is plaintext (TLS terminated upstream). An untrusted claim never suppresses `Secure` -- see [`secure: 'auto'`](#capabilities). |
+| `cookies()`: `publicSuffixList` | `Iterable<string>` | No | `undefined` | Yes | Additional suffixes consulted alongside `COMMON_PUBLIC_SUFFIXES` for the `Domain` public-suffix guard; an unrecognized multi-label suffix warns once per process rather than throwing. |
 | `signedCookies()`: `secret` | `string` | Yes | -- | Yes | Throws a `TypeError` at construction if missing or not a string. |
 | `signedCookies()`: `previousSecrets` | `string[]` | No | `undefined` | Yes | Checked in array order after `secret` fails to verify. |
+| `signedCookies()`: `maxAge` | `number` (seconds) | No | `undefined` | No | Enforced against the signed value's embedded issue time at verify time; a present issue time older than `maxAge` is rejected. Omit to skip expiry enforcement. |
+| `signedCookies()`: `acceptLegacySignatures` | `boolean` | No | `false` | Yes | Accepts the pre-1.1 value-only signature format as a rotation fallback; see [Migrating signed cookies](#migrating-signed-cookies-from-10x-to-the-name-bound-format). Logs a deprecation warning once per process when exercised. |
 | `CookieOptions.httpOnly` | `boolean` | No | `true` (via `DEFAULT_COOKIE_OPTIONS`, applied by `cookies()`'s `set()`/`serializeCookie`) | Yes | Prevents `document.cookie` access from JavaScript. |
-| `CookieOptions.secure` | `boolean` | No | `false` in `DEFAULT_COOKIE_OPTIONS`; forced `true` by `createSecurePrefixCookie`/`createHostPrefixCookie`/`secureOptions` | Yes | Required for `__Secure-`/`__Host-` prefixes and for `sameSite: 'none'`. |
+| `CookieOptions.secure` | `boolean \| 'auto'` | No | `'auto'` (via `DEFAULT_COOKIE_OPTIONS`) | Yes | `'auto'` resolves per request: `Secure` on TLS or a trusted-forwarded-HTTPS request, omitted only on plaintext loopback, and emitted anyway (fail closed) if a plaintext non-loopback request carries an *untrusted* forwarded-HTTPS claim. An explicit `true`/`false` is always honored as given, and is required (not `'auto'`) to satisfy `__Secure-`/`__Host-` prefixes or `sameSite: 'none'`. |
 | `CookieOptions.sameSite` | `'strict' \| 'lax' \| 'none' \| boolean` | No | `'lax'` | Yes | `'none'` (or `false`) requires `secure: true`, enforced by `validateCookieOptions`. |
 | `CookieOptions.path` | `string` | No | `'/'` | No | `__Host-` prefix forces this to `'/'` regardless of what is passed. |
 | `CookieOptions.domain` | `string` | No | `undefined` | Yes | Rejected if it resolves to a known public suffix (`isPublicSuffix`) or an invalid format; forbidden outright with `__Host-`. |
@@ -330,13 +337,58 @@ Every default below is read directly from `src/constants.ts` and `src/types.ts`.
 
 </details>
 
+## Migrating signed cookies to the name-bound format
+
+> [!IMPORTANT]
+> **The signed-cookie wire format changed pre-1.0.** If you deployed an
+> earlier `@nextrush/cookies` beta build, cookies it signed
+> (`value.signature`) are not verified by default going forward — set
+> `acceptLegacySignatures: true` during the rotation window, and plan to
+> remove it once every previously-issued cookie has expired or been
+> re-signed.
+
+**Why the format changed:** the earlier format signed only the value —
+`HMAC(value)` — so a signature computed for one cookie name verified equally
+well if an attacker presented the same value under a *different* cookie
+name on the same domain (e.g. copying a `tier=premium` signature onto a
+`role` cookie; SEC-07). The current format signs a length-prefixed tuple
+that binds the cookie's own name and an issue time into the HMAC input:
+
+```text
+before:  HMAC(value)                                          -> "value.signature"
+now:     HMAC(<len>!name!<len>!value!<len>!issuedAt)           -> "value.issuedAt.signature"
+```
+
+**Migration path — rotate, don't hard-cut:**
+
+```ts
+app.use(signedCookies({
+  secret: process.env.COOKIE_SECRET!,
+  acceptLegacySignatures: true, // accepts the earlier value-only format as a fallback; logs once per process
+}));
+```
+
+With `acceptLegacySignatures: true`, `get()` still tries the name-bound
+format first; only if that fails does it fall back to the legacy value-only
+check. Every `set()` always writes the new format, regardless of this flag —
+there is no way to opt back into writing the old format. Once you're
+confident every client has picked up a re-signed (or newly issued) cookie —
+typically one `maxAge` window after deploying this version — remove
+`acceptLegacySignatures` entirely; leaving it on indefinitely keeps the
+weaker format permanently accepted.
+
+> [!CAUTION]
+> `acceptLegacySignatures` is a rotation aid, not a permanent compatibility
+> mode. It reintroduces the cross-cookie substitution risk the name-bound
+> format exists to close, for exactly as long as it stays enabled.
+
 ## FAQ
 
 **Does signing encrypt the cookie value?**
 No. `signCookie()`/`unsignCookie()` provide integrity (tamper detection), not confidentiality -- the signed format is `value.signature`, and `value` itself is plainly readable by anyone with access to the cookie. Do not put secret data you need to hide from the client in a signed-only cookie.
 
 **Why does a tampered cookie and a missing cookie both return `undefined`?**
-`unsignCookie()`'s contract deliberately does not distinguish the two -- returning a different result for "signature invalid" versus "not present" would let an attacker use the distinction as an oracle to probe whether a given cookie name exists at all.
+`unsignCookie()`'s contract deliberately does not distinguish the two -- returning a different result for "signature invalid" versus "not present" would let an attacker use the distinction as an oracle to probe whether a given cookie name exists at all. This also covers a value signed for a *different* cookie name presented under this one, and an expired signed value when `maxAge` is enforced -- all resolve to the same `undefined`.
 
 **Why ESM-only?**
 See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-format-policy).

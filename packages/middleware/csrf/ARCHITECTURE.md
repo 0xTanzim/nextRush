@@ -1,6 +1,6 @@
 # @nextrush/csrf — Architecture
 
-> Internal design of the Signed Double-Submit Cookie pattern: HMAC-SHA256 token generation over the Web Crypto API, the double-submit comparison, and the security invariants (session binding, `__Host-` cookie constraints, fail-secure defaults) that turn a request into an accept/reject decision.
+> Internal design of the signed double-submit cookie pattern: HMAC-SHA256 token construction over the Web Crypto API, the origin/session/shape validation pipeline, and why each check runs in the order it does.
 
 ## At a glance
 
@@ -11,47 +11,41 @@
 | **Depends on** | `@nextrush/types` (types only, erased at build) — no third-party runtime deps |
 | **Depended on by** | Application code that calls `app.use(protect)`; not depended on by any other `@nextrush/*` package |
 | **Public entry** | `src/index.ts` (barrel — exports only) |
-| **Internal modules** | 4 files (excl. tests) · ~750 LOC · largest `middleware.ts` ~400 LOC (package cap 300 for a single unit — see Contributor notes) |
-| **On the request hot path?** | Yes — runs on every non-safe-method request once registered; token comparison and HMAC verification happen per request |
-| **Runtime coupling** | None — zero `node:` imports; uses only `crypto.subtle` (Web Crypto API), `TextEncoder`, `Uint8Array` |
-| **State model** | Stateless per request, except a small module-level bounded `CryptoKey` cache shared across requests |
+| **Internal modules** | 4 files (excl. tests) · largest `middleware.ts` ~424 LOC |
+| **On the request hot path?** | Yes — `protect` and `tokenProvider` run on every request once registered |
+| **Runtime coupling** | None — zero `node:*` imports; uses only `crypto.subtle` and `crypto.getRandomValues` |
+| **State model** | Stateless per request; a small app-scoped bounded `CryptoKey` cache (HMAC secret + the blinding key) shared across requests |
 
 ## Responsibilities
 
 **This package owns:**
-
-- **CSRF token generation** — a random value plus an HMAC-SHA256 signature over that value (and an optional session identifier)
-- **CSRF token validation** — the double-submit comparison (cookie value vs. submitted value) *and* the HMAC signature check
-- **The CSRF cookie** — serializing and setting the `Set-Cookie` header for the token, including `__Host-` prefix constraint enforcement
-- **Safe-method / excluded-path exemption** — deciding which requests skip validation
-- **Optional origin/`Sec-Fetch-Site` defense-in-depth check** — a secondary signal independent of the token
+- ✓ Signed double-submit token construction, issuance, and validation (HMAC-SHA256 over the Web Crypto API)
+- ✓ The CSRF-specific cookie (independent of the application's own session cookie)
+- ✓ `Origin`/`Sec-Fetch-Site` validation against an explicit allowlist
+- ✓ Session-binding enforcement (as an explicit configuration decision, never a silent default)
+- ✓ Path exclusion for endpoints authenticated another way (`excludePaths`)
 
 **This package does NOT own:**
-
-- Session management or session-store persistence → the application; this package only accepts an optional `getSessionIdentifier` callback
-- General-purpose cookie parsing/signing for non-CSRF cookies → [`@nextrush/cookies`](../cookies)
-- General HTTP security headers (`Content-Security-Policy`, `X-Frame-Options`) → [`@nextrush/helmet`](../helmet)
-- Request body parsing — `getTokenFromRequest`'s default form-field check reads `ctx.body`, but parsing it is [`@nextrush/body-parser`](../body-parser)'s job
-- The middleware execution engine (`compose`, `ctx.next()`) → `@nextrush/core`
+- ✗ General-purpose cookie signing for non-CSRF values → [`@nextrush/cookies`](../cookies)
+- ✗ Session storage or session-identifier issuance → the application; this package only *consumes* a `getSessionIdentifier` callback
+- ✗ Path canonicalization → [`@nextrush/router`](../../router); `excludePaths` matches against `ctx.path` as published by the router (see Trust boundaries)
+- ✗ Origin/CORS response headers for legitimate cross-origin requests → [`@nextrush/cors`](../cors)
 
 ## Non-goals
 
-The package intentionally does not:
-
-- Rotate the token automatically on every request — a token is valid until the cookie expires or `generateToken()` is called again (see Lifecycle below); building a rotate-per-request scheme is left to the application if it needs one
-- Provide server-side session storage — `getSessionIdentifier` is a pure extraction callback; the package never reads or writes a session store itself
-- Guarantee protection for a non-cookie-based auth scheme — a bearer-token-only API has nothing for this package to protect (see the README FAQ)
-- Implement a synchronizer-token (server-side token store) pattern — the design is exclusively the stateless double-submit variant
+- Encrypting the token — the token is signed (integrity/authenticity), not confidential; its structure is not meant to be secret
+- Storing tokens server-side — the double-submit pattern is intentionally stateless; nothing here persists a token
+- Rate-limiting validation failures — a repeated-failure throttle is an application/`@nextrush/rate-limit` concern, not this package's
+- A built-in session/JWT primitive — `getSessionIdentifier` is a callback into whatever session mechanism the application already has
 
 ## Constraints
 
 Must remain:
-
-- **Runtime-independent** — zero `node:*` imports; token crypto uses only the Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`), identical on Node, Bun, Deno, and Edge
+- **Runtime-independent** — zero `node:*` imports; token construction and comparison use only `crypto.subtle` / `crypto.getRandomValues`, identical on Node, Bun, Deno, and Edge
 - **Zero third-party dependency** — a types-only dependency on `@nextrush/types`
 - **ESM-only** — no CommonJS build
-- **Fail-secure by construction** — a missing cookie, missing submitted token, mismatched tokens, or invalid HMAC all reject the request; there is no code path that defaults to "allow" on ambiguity
-- **Public API sealed** — the exported surface is semver-guarded (ADR-0005)
+- **Fail closed** — a missing `Origin`, an unrecognized session identifier, or a malformed token shape all reject; nothing here falls back to trusting an attacker-controlled header
+- **Public API sealed** — the exported surface is semver-guarded (ADR-0005), locked by `__tests__/public-surface.test.ts`
 
 ## Position in the package hierarchy
 
@@ -68,8 +62,8 @@ flowchart TB
 > [!IMPORTANT]
 > Imports flow **downward only**. `@nextrush/csrf` imports from `@nextrush/types` only, and MUST
 > NOT be imported by `types`, `errors`, `core`, `router`, `class`, or any adapter (project-rules
-> §1). It sits at the middleware layer as a leaf: nothing in the framework core depends on it —
-> an application opts in by calling `app.use(protect)`.
+> §1). It sits at the middleware layer as a leaf: an application opts in by calling
+> `app.use(protect)`.
 
 **Dependency rules:**
 - **Allowed:** `csrf → types`
@@ -79,19 +73,29 @@ flowchart TB
 
 ## Overview
 
-The package implements one specific, well-studied CSRF defense: the **Signed Double-Submit Cookie pattern**. A random value is generated, signed with HMAC-SHA256 under a server-held secret, and stored client-side in a cookie that JavaScript can read (not `httpOnly`). A protected request must echo that same value back through a header, body field, or query parameter — proving the request originated from a page that could read the cookie — and the server independently re-verifies the HMAC signature over that value, proving the value was genuinely issued by this server rather than fabricated or substituted via a cookie-injection attack.
-
-The two checks are deliberately layered, not redundant: the double-submit comparison (`constantTimeEqual` in `token.ts`) proves the *request* carries the same value as the cookie; the HMAC verification (`validateToken`) proves that value was never tampered with and, if `getSessionIdentifier` is configured, that it was issued for *this* session. An attacker who can inject an arbitrary cookie (e.g. via a sibling subdomain without `__Host-` isolation) can pass the double-submit check but not the HMAC check, because they lack the server's secret.
-
-Token generation and validation are isolated in `token.ts` as pure, dependency-free functions operating only on strings and the Web Crypto API — no `Context`, no cookies, no HTTP concerns. `middleware.ts` is the only module that touches `Context`, cookies, and the request lifecycle; it composes the pure token functions with cookie parsing/serialization and the per-request decision sequence.
+The package implements one pattern — the signed double-submit cookie — with the validation
+order chosen so a malformed or unauthorized request is rejected as cheaply as possible: path
+exclusion and origin checks (string comparisons) run before any token shape check, and shape
+checks run before any `crypto.subtle` call. Every reject path is closed by default; a caller
+that wants a weaker mode (no session binding, a custom token source) must say so explicitly
+in `CsrfOptions`, never by omission.
 
 ### Design principles
 
-1. **Token validity is decoupled from request lifetime.** `generateToken()` is called explicitly (via `tokenProvider` or inside application code), not automatically per request — enforced by the fact that `protect` never calls `generateToken()` itself, only `createCsrfContext()`'s lazily-invoked method does.
-2. **Every rejection path returns the same generic failure shape.** All five distinct failure reasons (`MISSING_COOKIE`, `MISSING_TOKEN`, `TOKEN_MISMATCH`, `INVALID_TOKEN`, `ORIGIN_MISMATCH`) flow through the same `onError(ctx, reason)` call in `protect` — the *reason* is available to a custom handler, but the default handler's response shape does not otherwise vary by failure type.
-3. **Configuration errors fail at construction, not at request time.** A secret under 32 characters, or a `__Host-` cookie name paired with `secure: false` / a `domain` / a non-`/` path, all throw synchronously inside `resolveOptions()` when `csrf()` is called — enforced by explicit `if` checks before the middleware closures are created.
-4. **The HMAC message format is fixed and OWASP-shaped.** `buildMessage()` in `token.ts` always encodes `<sessionId.length>!<sessionId>!<random.length>!<randomHex>` (or the no-session variant) — length-prefixing each field prevents ambiguous concatenation attacks where a crafted session ID could be mistaken for part of the random value.
-5. **Comparison is constant-time by construction, not by convention.** `constantTimeEqual()` signs both operands with a fixed internal HMAC key and compares the signatures via `crypto.subtle.verify` — it never does a direct `===` or loop-based byte comparison that could leak timing information.
+1. **Fail closed on ambiguity.** A missing `Origin`, an unset `getSessionIdentifier` with no
+   `sessionBinding: 'none'` acknowledgement, and a missing `allowedOrigins` while `originCheck`
+   is active all throw or reject rather than silently degrading — enforced by `resolveOptions()`
+   at construction time and the `checkOrigin()`/session-comparison steps at request time.
+2. **Cheapest rejection first.** `protect` orders its checks: excluded path → origin → cookie
+   presence → token presence → **shape** → constant-time compare → HMAC verify. Shape checks
+   (`isValidTokenShape()`) run before the first `crypto.subtle` call, enforced by
+   `csrf-hardening.test.ts`'s spy assertions on `crypto.subtle.verify`/`sign`.
+3. **No compile-time secret ever gates a comparison.** The blinding key used by
+   `constantTimeEqual()` is generated once per process from `crypto.getRandomValues()`, never a
+   literal string — enforced by `getBlindingKey()`'s lazy, random-only construction.
+4. **The cookie is never the sole check.** `protect` requires the submitted token to arrive via
+   header or body (`getTokenFromRequest`), independent of the cookie — enforced by the extractor
+   never reading `Cookie` and validation requiring both a cookie token and a submitted token.
 
 ---
 
@@ -99,299 +103,228 @@ Token generation and validation are isolated in `token.ts` as pure, dependency-f
 
 ```text
 src/
-├── index.ts        # Public API barrel (exports only, no implementation)
-├── types.ts        # CsrfOptions, CsrfContext, CsrfMiddleware, CsrfCookieOptions, extractor types
-├── constants.ts     # DEFAULT_COOKIE_NAME, DEFAULT_TOKEN_SIZE, DEFAULT_IGNORED_METHODS, headers, ERRORS
-├── token.ts         # generateToken, validateToken, constantTimeEqual (pure, no Context dependency)
-└── middleware.ts    # csrf() factory — cookie parsing/serialization, origin check, path exclusion, protect/tokenProvider
+├── index.ts        # Public API exports (barrel only, no implementation)
+├── types.ts        # CsrfOptions, CsrfContext, CsrfMiddleware, extractor/session types
+├── constants.ts     # Defaults, header/field names, HMAC algorithm, error messages
+├── token.ts         # Token construction, HMAC sign/verify, constant-time comparison
+└── middleware.ts    # protect/tokenProvider, origin check, path exclusion, options resolution
 ```
 
 ### Module responsibilities
 
 | Module | Responsibility (the one thing it owns) |
 | ------ | -------------------------------------- |
-| `types.ts` | The public option/data contracts — no logic. |
-| `constants.ts` | Every literal default, header name, and error message, in one place. |
-| `token.ts` | HMAC-SHA256 token generation, validation, and constant-time comparison — pure functions over strings, independent of `Context`. |
-| `middleware.ts` | Cookie parsing/serialization, safe-method/path exemption, origin check, and the `protect`/`tokenProvider` middleware closures. |
+| `types.ts` | The public configuration and context shapes |
+| `constants.ts` | Every literal default, header name, and error message string |
+| `token.ts` | HMAC-SHA256 token generation/validation and the blinded constant-time comparison |
+| `middleware.ts` | Request-time orchestration: origin check, path exclusion, options resolution, the `protect`/`tokenProvider` middleware pair |
 
 ## Component relationships
 
 ```mermaid
 graph TD
-    Middleware[middleware.ts: csrf] --> ResolveOptions[middleware.ts: resolveOptions]
-    Middleware --> ParseCookie[middleware.ts: parseCookie / extractCookieToken]
-    Middleware --> SerializeCookie[middleware.ts: serializeCookie]
-    Middleware --> CheckOrigin[middleware.ts: checkOrigin]
-    Middleware --> PathExclusion[middleware.ts: isPathExcluded]
-    Middleware --> Token[token.ts: generateToken]
-    Middleware --> TokenValidate[token.ts: validateToken]
-    Middleware --> TokenCompare[token.ts: constantTimeEqual]
-    Token --> KeyCache[token.ts: importKey — bounded CryptoKey cache]
-    TokenValidate --> KeyCache
+    Middleware["middleware.ts: protect()"] --> Origin["checkOrigin()"]
+    Middleware --> Exclude["isPathExcluded()"]
+    Middleware --> Shape["token.ts: isValidTokenShape()"]
+    Middleware --> Compare["token.ts: constantTimeEqual()"]
+    Middleware --> Verify["token.ts: validateToken()"]
+    Verify --> KeyCache["token.ts: KEY_CACHE (per-secret CryptoKey)"]
+    Compare --> BlindKey["token.ts: blindingKeyPromise (per-process random)"]
 ```
-
-`token.ts` never imports from `middleware.ts` or `@nextrush/types` — it has no dependency on `Context` at all, so its correctness can be reasoned about (and tested) purely in terms of strings and the Web Crypto API.
 
 ---
 
 ## Lifecycle
 
-### Token lifecycle (state machine)
-
-The states a single generated token value passes through, from issuance to expiry:
-
-```mermaid
-stateDiagram-v2
-    [*] --> Issued: generateToken() called\n(tokenProvider route or app code)
-    Issued --> CookieSet: Set-Cookie written\n(__Host-csrf=<hmac>.<random>)
-
-    CookieSet --> SubmittedForValidation: client echoes the value\nvia header / body / query
-    CookieSet --> Expired: Max-Age elapses\n(or session ends, if no Max-Age set)
-
-    SubmittedForValidation --> DoubleSubmitChecked: constantTimeEqual(cookieToken, submittedToken)
-    DoubleSubmitChecked --> Rejected: mismatch
-    DoubleSubmitChecked --> HmacChecked: match
-
-    HmacChecked --> Rejected: validateToken() fails\n(bad signature, wrong session id, or format)
-    HmacChecked --> Validated: signature verifies
-
-    Validated --> CookieSet: token remains valid for reuse\n(no rotation on success)
-
-    Expired --> [*]
-    Rejected --> [*]: request denied via onError();\ntoken itself is untouched
-```
-
-> [!NOTE]
-> There is no `Rotated` state in this diagram because the package performs **no automatic
-> rotation**. `Validated --> CookieSet` is a self-loop: a successfully validated token stays
-> exactly as valid for the next request as it was for this one. The only way a new token comes
-> into existence is another explicit `generateToken()` call, which is a fresh `Issued` transition,
-> not a transition out of `Validated`.
-
-### Request validation (sequence)
-
-How a single protected request (e.g. `POST /api/transfer`) flows through `protect`:
-
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Protect as protect() middleware
-    participant Cookie as extractCookieToken()
-    participant Extract as getTokenFromRequest()
-    participant Compare as constantTimeEqual()
-    participant Verify as validateToken()
-    participant Next as downstream handler
+    participant Protect as protect middleware
+    participant Token as token.ts
 
-    Client->>Protect: POST /api/transfer\n(Cookie: __Host-csrf=H.R; X-CSRF-Token: H.R)
-    Protect->>Cookie: extractCookieToken(ctx)
-    Cookie-->>Protect: cookieToken ("H.R" or undefined)
-    Protect->>Protect: ctx.state.csrf = createCsrfContext(ctx, cookieToken)
+    Client->>Protect: GET (safe method)
+    Protect->>Protect: attach ctx.state.csrf
+    Protect-->>Client: next() — no validation
 
-    alt method is GET/HEAD/OPTIONS/TRACE
-        Protect->>Next: next()  (validation skipped)
-    else path matches excludePaths
-        Protect->>Next: next()  (validation skipped)
-    else
-        opt originCheck enabled
-            Protect->>Protect: checkOrigin(ctx, allowedOrigins)
-            Protect-->>Client: onError() if origin/Sec-Fetch-Site mismatch (403)
-        end
-
-        alt cookieToken is undefined
-            Protect-->>Client: onError(ctx, "MISSING_COOKIE") (403)
-        else
-            Protect->>Extract: getTokenFromRequest(ctx)
-            Extract-->>Protect: submittedToken (or undefined)
-
-            alt submittedToken is undefined
-                Protect-->>Client: onError(ctx, "MISSING_TOKEN") (403)
-            else
-                Protect->>Compare: constantTimeEqual(cookieToken, submittedToken)
-                Compare-->>Protect: tokensMatch
-
-                alt tokensMatch is false
-                    Protect-->>Client: onError(ctx, "TOKEN_MISMATCH") (403)
-                else
-                    Protect->>Verify: validateToken(cookieToken, secret, sessionId?)
-                    Verify-->>Protect: isValid
-
-                    alt isValid is false
-                        Protect-->>Client: onError(ctx, "INVALID_TOKEN") (403)
-                    else
-                        Protect->>Next: next()
-                        Next-->>Client: response
-                    end
-                end
-            end
+    Client->>Protect: POST + cookie + header token
+    Protect->>Protect: excluded path? origin allowed?
+    alt rejected early
+        Protect-->>Client: 403 (zero crypto cost)
+    else passes cheap checks
+        Protect->>Token: isValidTokenShape(cookie), isValidTokenShape(submitted)
+        alt malformed shape
+            Protect-->>Client: 403 (zero crypto.subtle calls)
+        else valid shape
+            Protect->>Token: constantTimeEqual(cookie, submitted)
+            Protect->>Token: validateToken(cookie, secret, sessionId)
+            Token-->>Protect: signature valid?
+            Protect-->>Client: next() or 403
         end
     end
 ```
 
-The ordering a reader would otherwise get wrong: the **double-submit comparison runs before the HMAC verification**, not the reverse. This means a request with a tampered cookie value that happens to also tamper the submitted value consistently still fails at the double-submit stage if the two do not match exactly, and only requests that clear the double-submit check ever pay the cost of an HMAC verify — a minor but deliberate ordering for the common-case reject-fast path (a request with no matching submitted token at all never reaches the crypto verification step).
+```mermaid
+stateDiagram-v2
+    [*] --> Unvalidated
+    Unvalidated --> ExcludedOrSafe: safe method or excludePaths match
+    Unvalidated --> OriginChecked: unsafe method, not excluded
+    OriginChecked --> Rejected: Origin missing/not allowlisted/cross-site
+    OriginChecked --> ShapeChecked: origin accepted
+    ShapeChecked --> Rejected: malformed hex/length
+    ShapeChecked --> Compared: valid shape
+    Compared --> Rejected: cookie ≠ submitted
+    Compared --> Verified: tokens match
+    Verified --> Rejected: HMAC invalid or session mismatch
+    Verified --> Accepted: HMAC valid
+    ExcludedOrSafe --> [*]
+    Rejected --> [*]
+    Accepted --> [*]
+```
+
+The two diagrams cover different things: the sequence diagram shows *what calls what*; the state
+diagram shows *why a given request ends up accepted or rejected* — the ordering between them
+matters because each earlier state is cheaper to fail at than the next.
 
 ## State ownership
 
 | Owner | State it owns | Scope |
 | ----- | ------------- | ----- |
-| `resolveOptions()` result (`csrf()` closure) | Normalized options — `getSecret`, `ignoredMethods` (as a `Set`), `cookie` config, `onError` | app — computed once per `csrf(options)` call |
-| `KEY_CACHE` (module-level `Map` in `token.ts`) | Up to 10 imported `CryptoKey` objects, keyed by secret string | app — shared across every `csrf()` instance and every request in the process |
-| `Context` (owned by `core`) | `ctx.status`, response headers (including `Set-Cookie`), `ctx.state.csrf` | per request |
-| Client's cookie store | The signed token value itself | per browser/client — outlives any single request |
+| `token.ts` module scope | `KEY_CACHE` (bounded `Map<secret, CryptoKey>`, max 10 entries) | app (shared across requests, imported lazily per secret) |
+| `token.ts` module scope | `blindingKeyPromise` (one `CryptoKey`, generated once from `crypto.getRandomValues()`) | app (process lifetime) |
+| `Context` (`ctx.state.csrf`) | `cookieToken`, `generateToken()` closure state (`generated` flag) | per-request |
 
-There is no per-request mutable module state; the `KEY_CACHE` is the one piece of app-scoped (not per-request) state, and it is bounded (`MAX_CACHED_KEYS = 10`) with FIFO eviction rather than growing unbounded across a long-running process.
+---
 
 ## Data structures
 
 ```ts
-// The token format itself (token.ts) — not a typed structure, but a fixed string shape:
-//   `${hmacHex}${TOKEN_SEPARATOR}${randomHex}`   e.g. "3af2...b9c1.7e40...02ab"
-// The HMAC covers a length-prefixed message, never the raw concatenation:
-//   with session:    `${sessionId.length}!${sessionId}!${randomHex.length}!${randomHex}`
-//   without session: `${randomHex.length}!${randomHex}`
-
-// The full configuration surface (types.ts). Every field has a security-conscious default.
-interface CsrfOptions {
-  secret: string | (() => string);                       // required, >= 32 chars
-  getSessionIdentifier?: (ctx: Context) => string | undefined;
-  getTokenFromRequest?: (ctx: Context) => string | undefined | null;
-  ignoredMethods?: string[];                              // default: GET, HEAD, OPTIONS, TRACE
-  excludePaths?: string[];
-  cookie?: CsrfCookieOptions;                             // name defaults to '__Host-csrf'
-  tokenSize?: number;                                      // default: 32 (bytes)
-  onError?: (ctx: Context, reason: string) => void | Promise<void>;
-  originCheck?: boolean;                                   // default: false
-  allowedOrigins?: string[];
-}
+// Token format: `<hmac-hex>.<random-hex>` — a flat string, not a structured
+// object, so it round-trips through a cookie value and a header/body field
+// without serialization. The HMAC covers a length-prefixed message
+// (`<len>!<value>!...`) rather than simple concatenation specifically so an
+// attacker cannot shift bytes between the session-id and random segments to
+// forge a different logical message with the same byte string.
+type Token = `${string}.${string}`; // hmacHex.randomHex
 ```
-
-The token format's length-prefixing (`<len>!<value>`) is the load-bearing choice: without it, an HMAC over a naive concatenation of `sessionId + randomHex` would let an attacker who controls part of the session identifier shift bytes between the two fields and potentially produce a colliding message for a different (sessionId, random) pair. Prefixing each field with its own length removes that ambiguity entirely — the message is unambiguously segmentable.
 
 ## Concurrency & edge behaviour
 
-- **Shared, immutable after construction:** the normalized `ignoredMethods` `Set`, `cookie` config object, and `getSecret`/`onError` closures held by the `csrf()` return value — computed once, read on every request, never mutated.
-- **Shared, mutable, bounded:** `KEY_CACHE` in `token.ts` — a `CryptoKey` is imported once per distinct secret string and reused; eviction is FIFO once the cache reaches 10 entries. Concurrent requests using the same secret share the same cached key with no lock (JS's single-threaded event loop makes the read-check-insert sequence safe without explicit synchronization).
-- **Per-request, never shared:** the `cookieToken` extracted from `Context`, the `CsrfContext` object created for that request, and the `generated` flag inside `createCsrfContext()` that prevents a second `Set-Cookie` write within the same request if `generateToken()` is somehow called twice.
-- **Idempotency:** a validation check is fully determined by the request's cookie/header/body values and the current secret — replaying an identical request produces an identical accept/reject outcome, as long as the secret and any session-identifier source haven't changed.
+- **Shared, immutable after first use:** `KEY_CACHE` entries and the blinding key — each `CryptoKey` is imported once and reused; concurrent `constantTimeEqual()`/`validateToken()` calls await the same cached promise rather than racing separate imports
+- **Per-request, never shared:** `ctx.state.csrf`, including the `generated` flag that ensures concurrent `generateToken()` calls within one request set `Set-Cookie` exactly once
+- **Abort / disconnect / timeout:** N/A — validation is synchronous relative to the request; no long-lived resource is held open
 
 > [!WARNING]
-> `getSecret` may be a function (for key rotation), and it is called fresh on every
-> `generateToken()`/`validateToken()` invocation rather than cached at `csrf()` construction time.
-> A contributor changing a rotating secret mid-flight must ensure tokens signed under the
-> *previous* secret are still verifiable during the rotation window (e.g. by accepting both old
-> and new secrets in the function), or in-flight tokens issued just before rotation will fail
-> validation immediately after.
+> `KEY_CACHE` evicts the oldest entry past 10 distinct secrets. An application rotating secrets
+> far more often than that within one process will pay a re-import cost on the evicted key —
+> expected, not a bug, but worth knowing before assuming the cache is unbounded.
 
 ## Trust boundaries
 
 ```text
-Browser-supplied cookie value + submitted token (header/body/query) — fully attacker-controlled
-   │
-   ▼
-extractCookieToken() / getTokenFromRequest()  -- read, not yet trusted           <- this package's entry point
-   │
-   ▼
-constantTimeEqual(cookieToken, submittedToken)  -- double-submit proof          <- proves the requester could read the cookie
-   │
-   ▼
-validateToken(cookieToken, secret, sessionId?)  -- HMAC signature verification  <- proves the server actually issued this value
-   │
-   ▼
-next()  -- only reached once both checks pass
+User input ──▶ HTTP ──▶ Context (ctx.path, ctx.get(header), ctx.body) ──▶ protect()
+                                                                              ▲
+                                                        the boundary THIS package enforces
 ```
 
-The package treats both the cookie value and the submitted token as fully untrusted input — neither is compared against anything server-side-stored (there is no session-keyed token table); trust is established entirely through the HMAC signature, which only the holder of `secret` could have produced. A request that supplies a syntactically well-formed but unsigned or wrongly-signed token is rejected at the `validateToken()` boundary regardless of whether it happens to match the cookie.
+This package treats `ctx.path`, every request header, the `Cookie` header, and the parsed body
+as fully untrusted. It does **not** treat `ctx.path` as pre-canonicalized on its own authority —
+`excludePaths` matching runs against whatever `ctx.path` the router currently publishes; full
+correctness of the exact-segment/any-depth wildcard contract depends on the router's
+canonicalization guarantee (tracked as a cross-workstream dependency — see Engineering decisions).
 
 ## Extension points
 
 **Supported extension points:**
-
-- **`getTokenFromRequest`** — the sanctioned way to change where the submitted token is read from (a custom header name, a different body shape); the default checks header, then Angular-style header, then body, then query, in that order.
-- **`getSessionIdentifier`** — the sanctioned way to bind tokens to session state without this package taking a dependency on any specific session implementation.
-- **`onError`** — the sanctioned way to customize the failure response shape; every rejection path in `protect` funnels through it with a specific `reason` string from `ERRORS`.
-- **The exported low-level primitives** (`generateToken`, `validateToken`, `constantTimeEqual`) — exposed specifically so advanced integrations can build a custom middleware shape without re-implementing the crypto.
+- `getTokenFromRequest` — a fully custom extractor, including opting back into query-string reads
+- `onError` — a fully custom validation-failure response
+- `secret` as a function — enables key rotation without restarting the process
 
 **Forbidden (sealed):**
-
-- **Reading the submitted token from the cookie itself** — this would collapse the double-submit pattern into a cookie-only check, which the package's own type documentation (`TokenExtractor`) explicitly calls out as insecure; not exposed as a configuration path.
-- **The HMAC message format (`buildMessage`)** — changing the length-prefix scheme breaks verification of every token issued before the change; RFC-gated.
-- **The constant-time comparison mechanism** — replacing `constantTimeEqual`'s HMAC-based approach with a direct `===` or naive loop would reintroduce a timing side-channel; sealed.
+- The token format (`<hmac-hex>.<random-hex>`) and the HMAC message construction — changing either breaks compatibility with tokens already issued to clients
+- Reading the submitted token from the `Cookie` header — would collapse the double-submit pattern back to cookie-only validation
 
 ---
 
 ## Architectural invariants
 
-These are part of the package's architecture. They do not change without an RFC:
+The following are part of the package architecture. They do not change without an RFC:
 
-- **A token is never trusted from the cookie alone** — every protected request requires both a matching submitted value *and* a valid HMAC signature.
-- **`secret` must be at least 32 characters, validated at construction** — enforced in `resolveOptions()`, not documentation-only guidance.
-- **The `__Host-` cookie prefix's constraints (`secure: true`, no `domain`, `path: '/'`) are validated together at construction when the default cookie name is used.**
-- **Token comparison is constant-time** — `constantTimeEqual()` never short-circuits on a byte-by-byte basis.
-- **There is no automatic token rotation** — a token remains valid until the cookie expires or `generateToken()` is explicitly called again.
-- **A throwing or missing token extractor path resolves to rejection, never to an implicit allow.**
-- **The package imports no runtime API** — zero `node:*` imports; the same code path runs identically on Node, Bun, Deno, and Edge runtimes.
+- Origin validation never compares against `Host` — only against the configured `allowedOrigins` allowlist
+- Session binding is never a silent default — `csrf()` throws unless `getSessionIdentifier` or `sessionBinding: 'none'` is supplied
+- Token shape validation runs before any `crypto.subtle` call
+- The comparison blinding key is a per-process random value, never a literal string
+- The default token extractor never reads the query string
+- `cookie.maxAge` is emitted only when explicitly configured — an omitted value never coerces to `Max-Age=0`
+- The public API is explicit and sealed (ADR-0005)
 
 ## Engineering decisions
 
 | Decision | Chosen | Trade-off accepted | Reference |
-| -------- | ------ | ------------------ | --------- |
-| CSRF defense pattern | Signed Double-Submit Cookie (stateless) | No server-side per-token revocation list; a leaked, still-signed token remains valid until the cookie expires | `middleware.ts`, `token.ts` |
-| Token rotation | None automatic — one token reused until re-generated | Simpler mental model and no extra round-trips, at the cost of a longer-lived token if never re-issued | `middleware.ts` (`createCsrfContext`) |
-| HMAC message shape | Length-prefixed fields (`<len>!<value>!...`) | Slightly larger message to sign, in exchange for unambiguous field boundaries | `token.ts` (`buildMessage`) |
-| Constant-time comparison | HMAC-based (`crypto.subtle.verify`), not a manual loop | Two extra `crypto.subtle` calls per comparison, in exchange for engine-independent timing safety | `token.ts` (`constantTimeEqual`) |
-| `CryptoKey` caching | Bounded `Map`, FIFO eviction at 10 entries | Avoids re-importing a key on every request for the common single/rotating-secret case, at the cost of a small shared cache to reason about | `token.ts` (`importKey`) |
-| Default cookie name | `__Host-csrf` | Strongest cookie-scoping guarantee, at the cost of forcing HTTPS and a fixed path in every deployment using the default | `constants.ts`, `middleware.ts` |
-| Origin check | Opt-in (`originCheck: false` by default) | Not enabled by default because it needs the app to reason about its own trusted origins; the token check alone is the primary defense | `middleware.ts` (`checkOrigin`) |
+| -------- | ------ | ------------------- | --------- |
+| Origin source of truth | `Origin` header against an explicit allowlist | Requires the application to enumerate `allowedOrigins`; no automatic same-origin inference | `openspec/changes/harden-security-boundaries/tasks.md` §5.4–5.5 |
+| Session binding default | Required decision (`getSessionIdentifier` or `sessionBinding: 'none'`) | A caller with no session layer yet must explicitly opt into the weaker mode, rather than getting it silently | tasks.md §5.6 |
+| `excludePaths` wildcard depth | `/*` exactly one segment, `/**` any depth | Two distinct wildcards to learn instead of one greedy pattern | tasks.md §5.9 |
+| `excludePaths` canonicalization precondition | Matches against `ctx.path` as published today | Full correctness of the exact-boundary contract is contingent on the router's canonicalization work landing (tracked cross-workstream dependency, not yet merged at time of writing) | tasks.md §5.9 note; `report/security-review-remediation-index.md` SEC-15 row |
+| Query-string token fallback | Removed from the default extractor | A caller who genuinely needs it must opt in via a custom `getTokenFromRequest` | tasks.md §5.10 |
 
 ## Rejected alternatives
 
-### Synchronizer token pattern (server-side token store)
-Rejected: storing issued tokens server-side (in a session store or database) would let the server invalidate a specific token on demand, but it requires session state and storage this package deliberately does not own (see Non-goals). The double-submit variant was chosen to keep the package stateless and usable with or without a session layer.
+### Comparing `Origin` against `Host` as a fallback
+Rejected because `Host` is attacker-controlled on any request the client fully constructs — a
+forged `Host` alongside a forged `Origin` would pass a same-value check while still being a
+cross-site forgery. The allowlist is the only trustworthy comparison basis.
 
-### Automatic per-request token rotation
-Rejected: rotating the token on every successful validation is a stronger defense against token replay within a session, but it requires the client to always read the freshest `Set-Cookie` before its next request — a race-prone requirement for concurrent tabs or rapid sequential requests from the same page. A single reusable, HMAC-signed token was chosen instead, accepting a longer replay window in exchange for a simpler, race-free client contract.
-
-### Direct `===` string comparison for the double-submit check
-Rejected: naive string comparison in JavaScript can leak timing information proportional to the position of the first mismatched character in some engines. An HMAC-based constant-time comparison (`constantTimeEqual`) was chosen instead, at the cost of two extra Web Crypto calls per validated request.
+### A hardcoded string as the constant-time comparison blinding key
+Rejected because a literal string is visible in the published source, making the "blinding"
+property purely cosmetic — anyone reading the package's source could reconstruct the comparison
+exactly. A per-process random key removes that reproducibility.
 
 ---
 
 ## Testing strategy
 
-- **Unit:** token generation/validation round-trips (with and without a session identifier), the double-submit comparison for matching/mismatching/malformed inputs, hex validation, and the `KEY_CACHE` eviction behavior.
-- **Integration:** the full `protect` and `tokenProvider` middleware against simulated `Context` objects, covering every rejection path (`MISSING_COOKIE`, `MISSING_TOKEN`, `TOKEN_MISMATCH`, `INVALID_TOKEN`, `ORIGIN_MISMATCH`), the `__Host-` prefix construction-time validation, and path exclusion glob matching.
-- **Public-surface test:** `__tests__/public-surface.test.ts` asserts the exported API shape stays in sync with the sealed surface (ADR-0005).
-- **Conformance / cross-adapter parity:** N/A directly — the package uses no runtime API; identical behavior across adapters follows from having zero `node:` imports, verified indirectly by `packages/adapters/conformance`.
-- **Coverage:** >=90% lines/functions (CI-enforced).
+- **Unit:** `token.ts` behavior (`csrf.test.ts`'s `Token Engine` suite) — generation shape,
+  validation branches, hex/length edge cases
+- **Integration:** `csrf.test.ts` and `csrf-hardening.test.ts` drive `protect`/`tokenProvider`
+  through a mock `Context`, exercising the full origin → shape → compare → verify pipeline
+- **Invariant tests:** `csrf-hardening.test.ts` §5.7–5.8 assert the blinding key is not a literal
+  and that shape-rejected requests perform zero `crypto.subtle` calls
+- **Conformance / cross-adapter parity:** N/A — this package touches no adapter-specific API
+- **Benchmark / regression:** N/A — not on the router/adapter hot-path tier tracked by
+  `apps/benchmark`
+- **Coverage:** ≥90% lines/functions, ≥85% branches (CI-enforced)
 
 ## Evolution strategy
 
-- **Stable (semver-guarded):** the sealed public surface — `csrf()`, `generateToken`, `validateToken`, `constantTimeEqual`, and every type in `types.ts` (ADR-0005).
-- **May change without notice:** the `KEY_CACHE` size/eviction implementation detail, the internal glob-matching implementation in `isPathExcluded`.
-- **Changes only via RFC:** the HMAC message format, the double-submit-plus-HMAC pattern itself (vs. an alternative CSRF strategy), the `__Host-` default and its enforced constraints, and the constant-time comparison mechanism.
+- **Stable (semver-guarded):** the public API — `csrf`, `generateToken`, `validateToken`,
+  `constantTimeEqual`, and all exported types
+- **May change without notice:** internal module layout, the exact key-cache eviction policy
+- **Changes only via RFC:** the architectural invariants above, and the token format
 
-**Timeline:** 1.0 — initial Signed Double-Submit Cookie implementation (HMAC-SHA256 signing, optional session binding, optional origin check, `__Host-` cookie default).
+**Timeline:** `1.0.0-beta.0` hardened defaults (origin, session binding, `Max-Age`, token
+extraction) → future: `@nextrush/session` integration once that package exists, tightening
+`getSessionIdentifier` from a bare callback to a typed session accessor.
 
 ## Contributor notes
 
-Before changing this package, read: the OWASP CSRF Prevention Cheat Sheet (the pattern this package implements), `token.ts`'s `buildMessage()` comment on the length-prefix format, and the construction-time validation in `resolveOptions()` — any change to the token format or the construction-time checks is a security-relevant change and should be treated as RFC-gated per this document's invariants. Note also that `middleware.ts` currently sits above the package's usual 300-line-per-file target (~400 LOC) by consolidating cookie parsing, origin checking, path exclusion, options resolution, and both middleware closures — a future split (e.g. extracting `resolveOptions`/`serializeCookie` into a dedicated `options.ts`) is a reasonable non-breaking refactor, not an architectural change.
+Before changing this package, read: `openspec/changes/harden-security-boundaries/tasks.md` §5,
+`report/security-review-remediation-index.md` (SEC-03, SEC-04, SEC-05, SEC-06, SEC-15, SEC-19
+rows), and the `csrf-hardening.test.ts` suite — each `describe` block maps to one numbered task.
 
 ## Architecture checklist
 
 Before changing this package, confirm:
-
-- [ ] Does this preserve the architectural invariants above (especially the no-rotation default and constant-time comparison)?
-- [ ] Does this increase coupling or cross a dependency rule (`csrf → types` only)?
-- [ ] Does this affect the request hot path (allocations/crypto calls in `protect`)?
-- [ ] Does this change the sealed public API (semver / ADR-0005)? Does it need an RFC?
-- [ ] If this touches token/security logic, does it remain fail-secure (deny on ambiguity or error)?
+- [ ] Does this preserve the architectural invariants?
+- [ ] Does this increase coupling or cross a dependency rule?
+- [ ] Does this affect a hot path (allocations / complexity)?
+- [ ] Does this change the public API (semver / ADR-0005)?
+- [ ] Does it need an RFC?
 
 ---
 
 ## References & see also
 
 - **README (how to use it):** [`./README.md`](./README.md)
-- **ADR:** [`ADR-0005 — package tiers & sealed surface`](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)
-- **Security boundary reference:** `.kiro/steering/project-rules.instructions.md` §4
-- **Documentation site:** [nextRush docs](https://0xtanzim.github.io/nextRush/docs)
-- **Repository:** [`packages/middleware/csrf`](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/csrf)
+- **Governing task list:** [`openspec/changes/harden-security-boundaries/tasks.md`](../../../openspec/changes/harden-security-boundaries/tasks.md) §5
+- **Remediation index:** [`report/security-review-remediation-index.md`](../../../report/security-review-remediation-index.md)
+- **Benchmarks:** N/A — not a benchmarked package

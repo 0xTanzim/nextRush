@@ -75,12 +75,13 @@ export type { ParseOptions } from './parser.js';
 // Signing
 export {
   clearKeyCache,
+  resetLegacyAcceptanceWarning,
   signCookie,
   timingSafeEqual,
   unsignCookie,
   unsignCookieWithRotation,
 } from './signing.js';
-export type { SigningKeys } from './signing.js';
+export type { SignCookieOptions, SigningKeys, UnsignCookieOptions } from './signing.js';
 
 // Validation
 export {
@@ -90,10 +91,12 @@ export {
   isValidCookieValue,
   isValidDomain,
   isValidPath,
+  resetUnrecognizedSuffixWarning,
   sanitizeCookieValue,
   validateCookieOptions,
   validateCookiePrefix,
 } from './validation.js';
+export type { PublicSuffixOptions } from './validation.js';
 
 // Constants
 export {
@@ -105,16 +108,15 @@ export {
   MAX_VALUE_LENGTH,
 } from './constants.js';
 
-// Types
+// Middleware option and context types
 export type {
   CookieContext,
   CookieMiddlewareOptions,
-  CookieOptions,
-  CookiePriority,
   CookieState,
-  ParsedCookies,
-  SameSiteValue,
   SignedCookieContext,
   SignedCookieMiddlewareOptions,
   SignedCookieState,
-} from './types.js';
+} from './middleware-types.js';
+
+// Types
+export type { CookieOptions, CookiePriority, ParsedCookies, SameSiteValue } from './types.js';

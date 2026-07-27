@@ -9,6 +9,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { HeaderValidationError } from '@nextrush/errors';
 import { assertHeaderSafe, isBodylessResponse, jsonErrorResponse, WebResponseBuilder } from '../response-builder.js';
 
 describe('isBodylessResponse', () => {
@@ -29,25 +30,98 @@ describe('isBodylessResponse', () => {
 
 describe('assertHeaderSafe', () => {
   it('rejects CRLF in the field name', () => {
-    expect(() => assertHeaderSafe('X-Bad\r\nInjected', 'v')).toThrow(
-      'Header field contains invalid characters'
-    );
+    expect(() => assertHeaderSafe('X-Bad\r\nInjected', 'v')).toThrow(HeaderValidationError);
   });
 
   it('rejects CRLF in a string value', () => {
-    expect(() => assertHeaderSafe('X-Ok', 'bad\nvalue')).toThrow(
-      'Header value contains invalid characters'
-    );
+    expect(() => assertHeaderSafe('X-Ok', 'bad\nvalue')).toThrow(HeaderValidationError);
   });
 
   it('rejects CRLF in any array value', () => {
-    expect(() => assertHeaderSafe('Set-Cookie', ['a=1', 'b=2\r\nx'])).toThrow(
-      'Header value contains invalid characters'
-    );
+    expect(() => assertHeaderSafe('Set-Cookie', ['a=1', 'b=2\r\nx'])).toThrow(HeaderValidationError);
   });
 
   it('accepts numeric values', () => {
     expect(() => assertHeaderSafe('X-Count', 42)).not.toThrow();
+  });
+
+  // SEC-12: full RFC 9110 field-name token grammar, not just CR/LF.
+  describe('field-name token grammar (SEC-12)', () => {
+    it.each([
+      ['a space in the name', 'X Foo'],
+      ['a colon in the name', 'X:Foo'],
+      ['a comma', 'X,Foo'],
+      ['a quote', 'X"Foo'],
+      ['a NUL byte', 'X\u0000Foo'],
+      ['a DEL byte', 'X\u007FFoo'],
+      ['an empty name', ''],
+    ])('rejects %s (%j)', (_label, field) => {
+      expect(() => assertHeaderSafe(field, 'v')).toThrow(HeaderValidationError);
+    });
+
+    it.each([
+      ['plain alphanumerics', 'X-Custom-Header'],
+      ['every RFC 9110 tchar', "!#$%&'*+-.^_`|~"],
+      ['digits', 'X123'],
+    ])('accepts %s (%j)', (_label, field) => {
+      expect(() => assertHeaderSafe(field, 'v')).not.toThrow();
+    });
+  });
+
+  // SEC-12: field-value grammar — control chars, NUL, leading/trailing
+  // whitespace (obs-fold precursor), not only CR/LF.
+  describe('field-value grammar (SEC-12)', () => {
+    it.each([
+      ['a NUL byte', 'X\u0000Y'],
+      ['a DEL byte (0x7F)', 'X\u007FY'],
+      ['a low control byte (0x1F)', 'X\u001FY'],
+      ['a leading space', ' value'],
+      ['a trailing space', 'value '],
+      ['a leading tab', '\tvalue'],
+      ['an obs-fold sequence', 'value\r\n\tcontinued'],
+    ])('rejects %s (%j)', (_label, value) => {
+      expect(() => assertHeaderSafe('X-Ok', value)).toThrow(HeaderValidationError);
+    });
+
+    it.each([
+      ['a plain ASCII value', 'application/json'],
+      ['an internal space', 'max-age=0, must-revalidate'],
+      ['high-byte (Latin-1) content', 'caf\u00e9'],
+      ['an empty value', ''],
+    ])('accepts %s (%j)', (_label, value) => {
+      expect(() => assertHeaderSafe('X-Ok', value)).not.toThrow();
+    });
+
+    it('validates array values element-wise — one bad element rejects the whole write', () => {
+      expect(() => assertHeaderSafe('Set-Cookie', ['a=1', ' bad-leading-space'])).toThrow(
+        HeaderValidationError
+      );
+    });
+
+    it('accepts a fully valid array', () => {
+      expect(() => assertHeaderSafe('Set-Cookie', ['a=1', 'b=2'])).not.toThrow();
+    });
+
+    // 7.10 edge case: the grammar validates character classes, not length —
+    // a value at Node's default maxHeaderSize (16KB) boundary must be
+    // accepted on grammar grounds alone; any length-based rejection is the
+    // HTTP server's own concern, not assertHeaderSafe()'s.
+    it('accepts a valid value at the platform header size limit (16KB) without a length-based rejection', () => {
+      const valueAtLimit = 'a'.repeat(16384);
+      expect(() => assertHeaderSafe('X-Large', valueAtLimit)).not.toThrow();
+    });
+  });
+
+  it('throws a typed HeaderValidationError, not a bare Error, for every rejection', () => {
+    expect(() => assertHeaderSafe('X Foo', 'v')).toThrow(HeaderValidationError);
+    expect(() => assertHeaderSafe('X-Ok', ' v')).toThrow(HeaderValidationError);
+    try {
+      assertHeaderSafe('X Foo', 'v');
+      expect.fail('expected assertHeaderSafe to throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(HeaderValidationError);
+      expect((err as Error).name).toBe('HeaderValidationError');
+    }
   });
 });
 

@@ -13,7 +13,7 @@ import {
   jsonErrorResponse,
   normalizeStartupError,
 } from '@nextrush/runtime';
-import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
+import type { AdapterContextFactory, HandlerOptions, ProxyTrust, ServerAdapter } from '@nextrush/types';
 import { createDenoContext } from './context';
 import type { DenoContext } from './context';
 
@@ -202,7 +202,7 @@ export function createHandler(
   options: HandlerOptions = {}
 ): (request: Request, info: DenoServeHandlerInfo) => Promise<Response> {
   const handler = app.callback();
-  const trustProxy = app.options.proxy ?? false;
+  const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
   const TIMEOUT_SENTINEL = Symbol('timeout');
@@ -213,7 +213,7 @@ export function createHandler(
       {
         remoteAddr: { hostname: info.remoteAddr.hostname },
       },
-      trustProxy
+      proxy
     );
 
     try {
@@ -488,7 +488,7 @@ void _denoConformance;
 // RFC-NEXTRUSH-ADAPTER-CONTRACT: prove the context factory produces an
 // AdapterContext over the shared Context contract.
 const _denoContextFactory: AdapterContextFactory<
-  [Request, { remoteAddr?: { hostname: string } }?, boolean?],
+  [Request, { remoteAddr?: { hostname: string } }?, ProxyTrust?],
   DenoContext
 > = createDenoContext;
 void _denoContextFactory;

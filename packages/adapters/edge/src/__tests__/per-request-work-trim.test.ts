@@ -7,15 +7,15 @@
  * (characterization tests, green before and after the trims) AND proves each
  * trim actually happened (optimization-assertion tests, RED before impl):
  *
- *  - HP-1: `trustProxy: false` sets `ctx.ip` to `''` directly (Edge has no
+ *  - HP-1: `proxy: false` sets `ctx.ip` to `''` directly (Edge has no
  *          socket) without invoking the edge header-lookup policy
- *          (`getEdgeClientIp`); `trustProxy: true` still resolves via it,
+ *          (`getEdgeClientIp`); a hop-count `proxy` still resolves via it,
  *          preserving the cf-connecting-ip → x-forwarded-for → x-real-ip
  *          precedence.
  *  - HP-7: `ctx.next()` forwards the wired dispatch thunk directly (returns its
  *          exact promise) rather than wrapping it in an extra `async` frame.
  *
- * Note: HP-4 does NOT apply — the Edge context factory takes `trustProxy`
+ * Note: HP-4 does NOT apply — the Edge context factory takes `proxy`
  * positionally, so there is no per-request options object to hoist.
  */
 
@@ -52,12 +52,12 @@ afterEach(() => {
 describe('HP-1: Edge ctx.ip resolution', () => {
   // ---- parity / characterization (green before and after) -----------------
 
-  it('2.4 trustProxy false → ctx.ip is the empty string (Edge has no socket)', () => {
+  it('2.4 proxy: false → ctx.ip is the empty string (Edge has no socket)', () => {
     const ctx = new EdgeContext(makeRequest(), undefined, false);
     expect(ctx.ip).toBe('');
   });
 
-  it('2.4 trustProxy true + cf-connecting-ip wins the Cloudflare precedence', () => {
+  it('2.4 proxy: 1 (hop count) + cf-connecting-ip wins the Cloudflare precedence', () => {
     const ctx = new EdgeContext(
       makeRequest({
         'cf-connecting-ip': '198.51.100.5',
@@ -65,24 +65,24 @@ describe('HP-1: Edge ctx.ip resolution', () => {
         'x-real-ip': '8.8.8.8',
       }),
       undefined,
-      true
+      1
     );
     expect(ctx.ip).toBe('198.51.100.5');
   });
 
-  it('2.4 trustProxy true + no cf-connecting-ip → x-forwarded-for → x-real-ip precedence', () => {
+  it('2.4 proxy: 1 (hop count) + no cf-connecting-ip → x-forwarded-for → x-real-ip precedence', () => {
     const xff = new EdgeContext(
       makeRequest({ 'x-forwarded-for': '9.9.9.9', 'x-real-ip': '8.8.8.8' }),
       undefined,
-      true
+      1
     );
     expect(xff.ip).toBe('9.9.9.9');
 
-    const real = new EdgeContext(makeRequest({ 'x-real-ip': '8.8.8.8' }), undefined, true);
+    const real = new EdgeContext(makeRequest({ 'x-real-ip': '8.8.8.8' }), undefined, 1);
     expect(real.ip).toBe('8.8.8.8');
   });
 
-  it('2.5 trustProxy false ignores cf-connecting-ip / x-forwarded-for / x-real-ip', () => {
+  it('2.5 proxy: false ignores cf-connecting-ip / x-forwarded-for / x-real-ip', () => {
     const ctx = new EdgeContext(
       makeRequest({
         'cf-connecting-ip': '198.51.100.5',
@@ -97,15 +97,15 @@ describe('HP-1: Edge ctx.ip resolution', () => {
 
   // ---- optimization assertion (RED before HP-1) ----------------------------
 
-  it('2.6 [trim] trustProxy false does NOT invoke getEdgeClientIp', () => {
+  it('2.6 [trim] proxy: false does NOT invoke getEdgeClientIp', () => {
     void new EdgeContext(makeRequest(), undefined, false);
     expect(getEdgeClientIpMock).not.toHaveBeenCalled();
   });
 
-  it('2.6 [trim] trustProxy true still resolves via getEdgeClientIp', () => {
-    void new EdgeContext(makeRequest({ 'cf-connecting-ip': '198.51.100.5' }), undefined, true);
+  it('2.6 [trim] proxy: 1 (hop count) still resolves via getEdgeClientIp', () => {
+    void new EdgeContext(makeRequest({ 'cf-connecting-ip': '198.51.100.5' }), undefined, 1);
     expect(getEdgeClientIpMock).toHaveBeenCalledTimes(1);
-    expect(getEdgeClientIpMock).toHaveBeenCalledWith(expect.any(Request), true);
+    expect(getEdgeClientIpMock).toHaveBeenCalledWith(expect.any(Request), 1);
   });
 });
 

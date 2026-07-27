@@ -15,6 +15,7 @@ import type {
   DispatchInit,
   DispatchResult,
 } from '../drivers/types';
+import type { ProxyTrust } from '@nextrush/types';
 
 /** The four primary runtime adapters used by security-parity gates. */
 export const PRIMARY_SECURITY_ADAPTERS = ['node', 'bun', 'deno', 'edge'] as const;
@@ -31,8 +32,8 @@ export interface SecurityScenarioInit {
   headers?: Record<string, string>;
   /** Optional body for non-GET probes. */
   body?: string;
-  /** Whether the app trusts proxy headers (`app.options.proxy`). */
-  proxy?: boolean;
+  /** Proxy-trust specification the app boots with (`app.options.proxy`, RFC-030). */
+  proxy?: ProxyTrust;
   /**
    * Platform direct/socket IP. Web drivers stub this; Node observes its real
    * loopback unless a future driver extension surfaces it.

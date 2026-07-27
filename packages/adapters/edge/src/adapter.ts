@@ -18,7 +18,7 @@
 
 import type { Application } from '@nextrush/core';
 import { jsonErrorResponse } from '@nextrush/runtime';
-import type { AdapterContextFactory, FetchAdapter, PlatformId } from '@nextrush/types';
+import type { AdapterContextFactory, FetchAdapter, PlatformId, ProxyTrust } from '@nextrush/types';
 import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './context';
 
 /**
@@ -168,7 +168,7 @@ function createRequestRunner(
   // none (`undefined`); `0` remains an explicit opt-out (no framework timeout).
   const timeout = options.timeout ?? DEFAULT_EDGE_TIMEOUT_MS;
   const timeoutSource = options.timeout === undefined ? 'default' : 'explicit options.timeout';
-  const trustProxy = app.options.proxy ?? false;
+  const proxy = app.options.proxy ?? false;
 
   /** Sentinel value returned by the timeout racer */
   const TIMEOUT_SENTINEL = Symbol('timeout');
@@ -214,7 +214,7 @@ function createRequestRunner(
     env?: unknown
   ): Promise<Response> => {
     const handler = await ensureBooted();
-    const ctx = createEdgeContext(request, executionContext, trustProxy, env, app.isProduction, options.platform);
+    const ctx = createEdgeContext(request, executionContext, proxy, env, app.isProduction, options.platform);
 
     try {
       if (timeout > 0) {
@@ -397,7 +397,7 @@ void _edgeConformance;
 // AdapterContext over the shared Context contract. A drift in createEdgeContext's
 // return type stops compiling here.
 const _edgeContextFactory: AdapterContextFactory<
-  [Request, EdgeExecutionContext?, boolean?, unknown?, boolean?, PlatformId?],
+  [Request, EdgeExecutionContext?, ProxyTrust?, unknown?, boolean?, PlatformId?],
   EdgeContext
 > = createEdgeContext;
 void _edgeContextFactory;

@@ -974,6 +974,105 @@ describe('Middleware', () => {
       expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(false);
     });
 
+    // SEC-17: `Cache-Control: no-transform` is an explicit instruction from
+    // the response author that no intermediary — including this middleware
+    // — may transform the entity body. Compression is exactly such a
+    // transform, so it must be skipped when the header is present.
+    describe('Cache-Control: no-transform (SEC-17)', () => {
+      it('does not compress a response carrying Cache-Control: no-transform', async () => {
+        const middleware = compression();
+        const ctx = createMockContext();
+        ctx._test.getResponseHeaders().set('cache-control', 'no-transform');
+        ctx._test.setBody('a'.repeat(2000));
+        ctx._test.getResponseHeaders().set('content-type', 'text/plain');
+
+        await middleware(ctx);
+
+        expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(false);
+      });
+
+      it('honors no-transform among other Cache-Control directives', async () => {
+        const middleware = compression();
+        const ctx = createMockContext();
+        ctx._test.getResponseHeaders().set('cache-control', 'private, no-transform, max-age=0');
+        ctx._test.setBody('a'.repeat(2000));
+        ctx._test.getResponseHeaders().set('content-type', 'text/plain');
+
+        await middleware(ctx);
+
+        expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(false);
+      });
+
+      it('still compresses when Cache-Control is present without no-transform', async () => {
+        const middleware = compression({ threshold: 0 });
+        const ctx = createMockContext();
+        ctx._test.getResponseHeaders().set('cache-control', 'public, max-age=3600');
+        ctx._test.setBody('a'.repeat(2000));
+        ctx._test.getResponseHeaders().set('content-type', 'text/plain');
+
+        await middleware(ctx);
+
+        expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(true);
+      });
+    });
+
+    // SEC-17: a dedicated `skip` predicate, distinct from `filter`, so an
+    // app can opt a specific response (e.g. one carrying a CSRF token) out
+    // of compression without redefining its whole filter policy — the
+    // BREACH-class risk this exists for is response-content-shaped, not
+    // route-shaped, so a per-response predicate is the right granularity.
+    describe('skip predicate (SEC-17)', () => {
+      it('skips compression when the skip predicate returns true', async () => {
+        const middleware = compression({ skip: () => true });
+        const ctx = createMockContext();
+        ctx._test.setBody('a'.repeat(2000));
+        ctx._test.getResponseHeaders().set('content-type', 'text/plain');
+
+        await middleware(ctx);
+
+        expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(false);
+      });
+
+      it('compresses when the skip predicate returns false', async () => {
+        const middleware = compression({ skip: () => false, threshold: 0 });
+        const ctx = createMockContext();
+        ctx._test.setBody('a'.repeat(2000));
+        ctx._test.getResponseHeaders().set('content-type', 'text/plain');
+
+        await middleware(ctx);
+
+        expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(true);
+      });
+
+      it('receives the context so it can inspect response state (e.g. a CSRF-token marker)', async () => {
+        const middleware = compression({
+          skip: (ctx) => ctx.state?.hasSecret === true,
+        });
+        const ctx = createMockContext();
+        ctx.state.hasSecret = true;
+        ctx._test.setBody('a'.repeat(2000));
+        ctx._test.getResponseHeaders().set('content-type', 'text/plain');
+
+        await middleware(ctx);
+
+        expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(false);
+      });
+
+      it('composes with filter — either one skipping is sufficient', async () => {
+        const middleware = compression({
+          filter: () => true,
+          skip: () => true,
+        });
+        const ctx = createMockContext();
+        ctx._test.setBody('a'.repeat(2000));
+        ctx._test.getResponseHeaders().set('content-type', 'text/plain');
+
+        await middleware(ctx);
+
+        expect(ctx._test.getResponseHeaders().has('content-encoding')).toBe(false);
+      });
+    });
+
     it('should handle missing accept-encoding header', async () => {
       const middleware = compression();
       const ctx = createMockContext({

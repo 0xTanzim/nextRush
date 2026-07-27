@@ -86,7 +86,6 @@ describe('Public API surface (runtime exports)', () => {
       'setRateLimitHeaders',
       'STANDARD_RATE_LIMIT_HEADERS',
       'defaultKeyGenerator',
-      'extractClientIp',
       'isIpInList',
       'isValidIpv4',
       'isValidIpv6',

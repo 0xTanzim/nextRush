@@ -21,6 +21,7 @@
 import type { Context, HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { NOOP_NEXT, type TrieNode } from './segment-trie';
 import { findAllowedMethods } from './find-node';
+import { canonicalizePath } from './canonicalize';
 
 /**
  * Shared resolved promise for the no-`next` miss path (NF-1). Reused rather than
@@ -32,19 +33,46 @@ const RESOLVED: Promise<void> = Promise.resolve();
 /**
  * Build the router's primary dispatch middleware.
  *
- * On each request it resolves the route via the injected `match` function,
- * sets `ctx.params`, and runs the pre-compiled executor (which already bakes
- * in any router-level middleware). A miss sets `ctx.status = 404` and yields
- * to the next middleware so `allowedMethods()`/a 404 handler can act.
+ * On each request it canonicalizes the path (RFC-029): a dot segment
+ * (`.`/`..`) is rejected with 400 before any route match or path-based
+ * middleware runs — resolving it locally would diverge from how a front-end
+ * proxy already handled the same segment, so it is never resolved, only
+ * rejected. Otherwise it resolves the route via the injected `match`
+ * function, publishes the canonical path onto `ctx.path` (preserving the raw
+ * target as `ctx.originalPath`), sets `ctx.params`, and runs the
+ * pre-compiled executor (which already bakes in any router-level
+ * middleware). A miss sets `ctx.status = 404` and yields to the next
+ * middleware so `allowedMethods()`/a 404 handler can act.
  *
  * @param match - Route resolver, supplied by `Router.match` so this factory
  *   never touches `Router` internals directly.
+ * @param caseSensitive - Router case-sensitivity option, forwarded to
+ *   canonicalization so the published `ctx.path` matches what `match` used.
+ * @param strict - Router strict-trailing-slash option, forwarded likewise.
  */
 export function createRoutesMiddleware(
-  match: (method: HttpMethod, path: string) => RouteMatch | null
+  match: (method: HttpMethod, path: string) => RouteMatch | null,
+  caseSensitive: boolean,
+  strict: boolean
 ): Middleware {
   return (ctx: Context, next?: () => Promise<void>): Promise<void> => {
-    const routeMatch = match(ctx.method, ctx.path);
+    const originalPath = ctx.path;
+    const canonical = canonicalizePath(originalPath, caseSensitive, strict);
+
+    if (canonical.rejected) {
+      // A dot segment is a request-shape violation, not a 404 — it stops the
+      // chain outright rather than falling through to a 404/allowedMethods
+      // handler, which would still leak information about the un-normalized
+      // target via ctx.path.
+      ctx.status = 400;
+      (ctx as { originalPath: string }).originalPath = originalPath;
+      return RESOLVED;
+    }
+
+    (ctx as { path: string }).path = canonical.path;
+    (ctx as { originalPath: string }).originalPath = originalPath;
+
+    const routeMatch = match(ctx.method, canonical.path);
 
     if (!routeMatch) {
       // No route matched — set 404 so allowedMethods()/notFoundHandler() can act,

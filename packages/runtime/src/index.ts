@@ -92,6 +92,8 @@ export {
   resolveClientIp,
 } from './headers';
 export type { ClientIpOptions, HeaderLookup } from './headers';
+export { isTrustedPeer, resolveByHopCount, resolveByPeerList } from './proxy-trust';
+export type { ProxyTrust } from '@nextrush/types';
 
 // ============================================================================
 // Request Signal (timeout ↔ ctx.signal combiner)

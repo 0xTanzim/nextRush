@@ -3,6 +3,13 @@
  * (2.1-2.2) must themselves demonstrate the SEC-01 and SEC-02 findings are
  * currently broken, on every primary adapter, before any fix lands. A harness
  * that cannot see the bug cannot be trusted to prove the fix later.
+ *
+ * SEC-01 update (WS-B, RFC-030): `proxy: true` no longer exists — `createApp`
+ * rejects it at construction (task 4.3). The two SEC-01 cases below now prove
+ * the FIX instead of the bug: a forged leftmost X-Forwarded-For entry under a
+ * typed `proxy: 1` (one trusted hop) resolves to the real, rightmost/trusted
+ * entry, and no longer rotates per forged request. This is the exact
+ * inversion the original comments predicted once RFC-030/WS-B landed.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -12,11 +19,11 @@ import { primarySecurityDrivers, securityScenario } from '..';
 import { FORGED_FORWARDED_CHAINS, PATH_TARGET_VARIANTS } from '..';
 
 describe.each(primarySecurityDrivers())('security harness proves broken behavior [$name]', (driver) => {
-  it('SEC-01: a client-forged leftmost X-Forwarded-For entry is currently honored as ctx.ip', async () => {
+  it('SEC-01 (fixed): a client-forged leftmost X-Forwarded-For entry is no longer honored as ctx.ip', async () => {
     const results = await securityScenario(
       {
         path: '/',
-        proxy: true,
+        proxy: 1,
         directIp: '10.0.0.5',
         headers: FORGED_FORWARDED_CHAINS.leftmostForged,
         configure: (app: Application) => {
@@ -29,17 +36,17 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
     );
 
     const [{ result }] = results;
-    // The forged value is the leftmost entry, not the real peer — this is the
-    // bug (SEC-01). Once RFC-030/WS-B lands, this becomes the direct peer
-    // instead, and this assertion must be inverted.
-    expect(result.text()).toBe('203.0.113.9');
+    // Under proxy: 1 (one trusted hop), resolution walks the chain from the
+    // right rather than trusting the client-authored leftmost entry — the
+    // forged value ('203.0.113.9', the leftmost entry) must never surface.
+    expect(result.text()).not.toBe('203.0.113.9');
   });
 
-  it('SEC-01: a rotating leftmost X-Forwarded-For value produces a different ctx.ip per request', async () => {
+  it('SEC-01 (fixed): a rotating leftmost X-Forwarded-For value no longer changes ctx.ip per request', async () => {
     const first = await securityScenario(
       {
         path: '/',
-        proxy: true,
+        proxy: 1,
         directIp: '10.0.0.5',
         headers: FORGED_FORWARDED_CHAINS.rotatingLeftmost(1),
         configure: (app: Application) => {
@@ -53,7 +60,7 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
     const second = await securityScenario(
       {
         path: '/',
-        proxy: true,
+        proxy: 1,
         directIp: '10.0.0.5',
         headers: FORGED_FORWARDED_CHAINS.rotatingLeftmost(2),
         configure: (app: Application) => {
@@ -65,9 +72,36 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
       [driver]
     );
 
-    // Today, ctx.ip changes with every forged header — the exact mechanism a
-    // rate limiter's per-IP key would mint a fresh bucket from (SEC-01).
-    expect(first[0].result.text()).not.toBe(second[0].result.text());
+    // Post-fix, ctx.ip is stable across requests that only rotate the
+    // client-authored (leftmost) entry — the exact bypass a rate limiter's
+    // per-IP key would otherwise fall for (SEC-01).
+    expect(first[0].result.text()).toBe(second[0].result.text());
+  });
+
+  it('4.12: an untrusted direct peer cannot use a CIDR-list trust to inject a forged IP via headers', async () => {
+    if (driver.name === 'edge') return; // Edge has no peer address — CIDR-list trust is rejected at boot (task 4.3), not applicable here.
+
+    const results = await securityScenario(
+      {
+        path: '/',
+        proxy: ['10.0.0.0/8'],
+        // The connecting peer is OUTSIDE the trusted range — a forged
+        // x-forwarded-for from a peer the trust list doesn't recognize must
+        // never be consulted, regardless of what it claims.
+        directIp: '198.51.100.200',
+        headers: FORGED_FORWARDED_CHAINS.leftmostForged,
+        configure: (app: Application) => {
+          app.use((ctx) => {
+            ctx.send(ctx.ip);
+          });
+        },
+      },
+      [driver]
+    );
+
+    const [{ result }] = results;
+    expect(result.text()).not.toBe('203.0.113.9');
+    expect(result.text()).not.toBe('10.0.0.5');
   });
 
   it('SEC-02: a mixed-case request path dispatches to the lowercase-registered handler', async () => {

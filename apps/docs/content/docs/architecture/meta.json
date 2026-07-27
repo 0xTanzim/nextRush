@@ -8,6 +8,7 @@
     "router-internals",
     "capability-composition",
     "package-hierarchy",
+    "session-position",
     "---Internals---",
     "di-internals",
     "middleware-internals",

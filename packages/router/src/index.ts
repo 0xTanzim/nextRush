@@ -15,6 +15,12 @@
 // Router
 export { createRouter, endpoint, Router } from './router';
 
+// Canonical request path (RFC-029) — the single normalization owner shared by
+// the router's own match, mounted-router prefix tests, and any consumer that
+// needs to know "what path does the router treat this request as".
+export { canonicalizePath, hasDotSegment } from './canonicalize';
+export type { CanonicalPathResult } from './canonicalize';
+
 // Route groups
 export type { RouteGroup } from './group-router';
 

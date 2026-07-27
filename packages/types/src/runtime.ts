@@ -46,6 +46,20 @@ export type PlatformId =
   | 'netlify-edge';
 
 /**
+ * Proxy-trust specification for client-IP resolution (RFC-030, SEC-01).
+ *
+ * @remarks
+ * `false` trusts nothing — the direct socket peer is always `ctx.ip`.
+ * A `number` trusts exactly that many proxy hops, selecting the
+ * corresponding `X-Forwarded-For` entry counting from the right rather than
+ * the client-authored leftmost entry. A `string[]` of CIDR ranges/literal
+ * IPs trusts only a direct peer (and every hop it names) falling inside the
+ * set. `true` and `0` are rejected at boot — see `resolveClientIp` in
+ * `@nextrush/runtime`.
+ */
+export type ProxyTrust = false | number | string[];
+
+/**
  * Runtime feature capabilities
  *
  * @remarks

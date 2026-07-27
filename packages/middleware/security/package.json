@@ -1,0 +1,68 @@
+{
+  "name": "@nextrush/security",
+  "version": "1.0.0",
+  "description": "Composite secure-by-default preset for NextRush — helmet + strict cookies + CSRF + rate limit in one call",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/core": "workspace:^",
+    "@nextrush/cookies": "workspace:^",
+    "@nextrush/csrf": "workspace:^",
+    "@nextrush/helmet": "workspace:^",
+    "@nextrush/rate-limit": "workspace:^",
+    "@nextrush/types": "workspace:^"
+  },
+  "devDependencies": {
+    "@nextrush/adapter-node": "workspace:^",
+    "@nextrush/router": "workspace:^",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "keywords": [
+    "nextrush",
+    "security",
+    "preset",
+    "middleware"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
+    "directory": "packages/middleware/security"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/security#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "sideEffects": false
+}

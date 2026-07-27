@@ -15,6 +15,7 @@
  */
 
 import type { NodeStreamLike, ResponseBody } from '@nextrush/types';
+import { HeaderValidationError } from '@nextrush/errors';
 
 /**
  * Detect a Node-style readable stream (duck-typed on `.pipe`) that is not a Web
@@ -87,29 +88,69 @@ export function isBodylessResponse(method: string, status: number): boolean {
 }
 
 /**
- * Guard a header field/value against CRLF injection (header splitting).
+ * RFC 9110 §5.6.2 `token` grammar for a header field name: one or more
+ * `tchar` — no separators, no whitespace, no control characters.
+ */
+const FIELD_NAME_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+
+/**
+ * RFC 9110 §5.5 field-value grammar (as a validation, not a permissive
+ * transport rule): printable ASCII plus the Latin-1 supplement range, no
+ * control characters (including NUL and DEL), and — checked separately
+ * below — no leading/trailing whitespace and no embedded CR/LF (obs-fold).
+ * `\t` and space are allowed *inside* the value but not at the edges.
+ */
+const FIELD_VALUE_CHARS = /^[\t\x20-\x7E\x80-\xFF]*$/;
+
+/**
+ * Validate one header value string against the RFC 9110 field-value
+ * grammar (SEC-12): no control characters (NUL, DEL, C0 controls), no
+ * leading/trailing whitespace, no embedded CR/LF (which also catches
+ * obs-fold, a CRLF followed by whitespace).
+ */
+function assertValueGrammar(value: string): void {
+  if (value.includes('\r') || value.includes('\n')) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+  if (value.startsWith(' ') || value.startsWith('\t')) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+  if (value !== '' && /[ \t]$/.test(value)) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+  if (!FIELD_VALUE_CHARS.test(value)) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+}
+
+/**
+ * Guard a header field/value against the full RFC 9110 field grammar
+ * (SEC-12), not only CRLF injection.
  *
  * @remarks
  * Shared by every adapter's `set()` so the guard — and its error messages —
- * cannot drift. Numeric values are always safe.
+ * cannot drift. Validates the field name against the `token` grammar
+ * (rejecting separators, whitespace, and control characters, not only
+ * `:`/CR/LF) and each value against the field-value grammar (rejecting
+ * control characters, leading/trailing whitespace, and obs-fold). Numeric
+ * values are always safe. Array values are validated element-wise — a
+ * single invalid element rejects the whole write, per the framework's
+ * fail-closed rule (`security-boundaries` capability).
  *
  * @param field - Header field name.
  * @param value - Header value (string, number, or array of strings).
- * @throws Error if the field or any value contains a CR or LF.
+ * @throws {HeaderValidationError} If the field or any value violates the
+ *   grammar.
  */
 export function assertHeaderSafe(field: string, value: string | number | string[]): void {
-  if (field.includes('\r') || field.includes('\n')) {
-    throw new Error('Header field contains invalid characters');
+  if (!FIELD_NAME_TOKEN.test(field)) {
+    throw new HeaderValidationError('Header field contains invalid characters');
   }
   if (typeof value === 'string') {
-    if (value.includes('\r') || value.includes('\n')) {
-      throw new Error('Header value contains invalid characters');
-    }
+    assertValueGrammar(value);
   } else if (Array.isArray(value)) {
     for (const v of value) {
-      if (v.includes('\r') || v.includes('\n')) {
-        throw new Error('Header value contains invalid characters');
-      }
+      assertValueGrammar(v);
     }
   }
 }

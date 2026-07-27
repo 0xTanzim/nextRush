@@ -14,6 +14,7 @@
  */
 
 import type { Middleware, Next } from '@nextrush/types';
+import { SECURITY_AUDIT, type SecurityAuditVerdict } from '@nextrush/types';
 import { join, resolve } from 'node:path';
 import { sendFile } from './send-file';
 import type { NodeContext, NodeMiddleware, NormalizedStaticOptions, StaticOptions } from './static.types';
@@ -43,6 +44,7 @@ export {
     getMimeType,
     isDotfile,
     isFresh,
+    isScriptCapable,
     normalizePrefix,
     parseRange,
     safeJoin,
@@ -70,6 +72,7 @@ const DEFAULT_OPTIONS: Omit<NormalizedStaticOptions, 'root'> = {
   highWaterMark: 1048576, // 1MB
   followSymlinks: false, // Security: don't follow symlinks by default
   xContentTypeOptions: true, // Security: prevent MIME sniffing
+  untrusted: false,
   streamTimeout: 30000, // 30 seconds default timeout
 };
 
@@ -264,6 +267,28 @@ export function serveStatic(options: StaticOptions): Middleware {
     // Serve the file
     return sendFile(ctx, finalPath, stat, opts);
   };
+
+  /**
+   * Boot-time verdict for `dotfiles: 'allow'` (task 8.1): a legitimate choice
+   * for some apps (serving `.well-known/`), so this warns rather than throws.
+   */
+  function auditVerdict(): SecurityAuditVerdict {
+    if (opts.dotfiles === 'allow') {
+      return {
+        level: 'warn',
+        message:
+          `serveStatic({ root: '${root}', dotfiles: 'allow' }) serves dotfiles (.env, ` +
+          '.git/, .htpasswd, …) if present under this root. Confirm the root never ' +
+          "contains secrets, or switch to 'ignore'/'deny'.",
+      };
+    }
+    return { level: 'ok' };
+  }
+
+  Object.defineProperty(staticMiddleware, SECURITY_AUDIT, {
+    value: auditVerdict,
+    enumerable: false,
+  });
 
   return staticMiddleware as Middleware;
 }

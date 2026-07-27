@@ -7,13 +7,13 @@
  * (characterization tests, green before and after the trims) AND proves each
  * trim actually happened (optimization-assertion tests, RED before impl):
  *
- *  - HP-1: `trustProxy: false` sets `ctx.ip` directly from the connection
+ *  - HP-1: `proxy: false` sets `ctx.ip` directly from the connection
  *          `remoteAddr.hostname` without invoking the shared header-lookup
  *          policy (`getClientIp`).
  *  - HP-7: `ctx.next()` forwards the wired dispatch thunk directly (returns its
  *          exact promise) rather than wrapping it in an extra `async` frame.
  *
- * Note: HP-4 does NOT apply — the Deno context factory takes `trustProxy`
+ * Note: HP-4 does NOT apply — the Deno context factory takes `proxy`
  * positionally, so there is no per-request options object to hoist.
  */
 
@@ -61,31 +61,31 @@ afterEach(() => {
 describe('HP-1: Deno ctx.ip resolution', () => {
   // ---- parity / characterization (green before and after) -----------------
 
-  it('2.3 trustProxy false → ctx.ip equals connInfo.remoteAddr.hostname', () => {
+  it('2.3 proxy: false → ctx.ip equals connInfo.remoteAddr.hostname', () => {
     const ctx = new DenoContext(makeRequest(), connInfo(DIRECT_IP), false);
     expect(ctx.ip).toBe(DIRECT_IP);
   });
 
-  it('2.3 trustProxy false + no connInfo → ctx.ip is the empty string', () => {
+  it('2.3 proxy: false + no connInfo → ctx.ip is the empty string', () => {
     const ctx = new DenoContext(makeRequest(), undefined, false);
     expect(ctx.ip).toBe('');
   });
 
-  it('2.3 trustProxy true + valid x-forwarded-for → policy result', () => {
+  it('2.3 proxy: 1 (hop count) + valid x-forwarded-for → policy result', () => {
     const ctx = new DenoContext(
       makeRequest({ 'x-forwarded-for': '9.9.9.9' }),
       connInfo(DIRECT_IP),
-      true
+      1
     );
     expect(ctx.ip).toBe('9.9.9.9');
   });
 
-  it('2.3 trustProxy true + no proxy header → directIp fallback', () => {
-    const ctx = new DenoContext(makeRequest(), connInfo(DIRECT_IP), true);
+  it('2.3 proxy: 1 (hop count) + no proxy header → directIp fallback', () => {
+    const ctx = new DenoContext(makeRequest(), connInfo(DIRECT_IP), 1);
     expect(ctx.ip).toBe(DIRECT_IP);
   });
 
-  it('2.5 trustProxy false ignores x-forwarded-for / x-real-ip (returns connection address)', () => {
+  it('2.5 proxy: false ignores x-forwarded-for / x-real-ip (returns connection address)', () => {
     const ctx = new DenoContext(
       makeRequest({ 'x-forwarded-for': '9.9.9.9', 'x-real-ip': '8.8.8.8' }),
       connInfo(DIRECT_IP),
@@ -96,15 +96,15 @@ describe('HP-1: Deno ctx.ip resolution', () => {
 
   // ---- optimization assertion (RED before HP-1) ----------------------------
 
-  it('2.6 [trim] trustProxy false does NOT invoke getClientIp', () => {
+  it('2.6 [trim] proxy: false does NOT invoke getClientIp', () => {
     void new DenoContext(makeRequest(), connInfo(DIRECT_IP), false);
     expect(getClientIpMock).not.toHaveBeenCalled();
   });
 
-  it('2.6 [trim] trustProxy true still resolves via getClientIp (directIp = remoteAddr.hostname)', () => {
-    void new DenoContext(makeRequest({ 'x-forwarded-for': '9.9.9.9' }), connInfo(DIRECT_IP), true);
+  it('2.6 [trim] proxy: 1 (hop count) still resolves via getClientIp (directIp = remoteAddr.hostname)', () => {
+    void new DenoContext(makeRequest({ 'x-forwarded-for': '9.9.9.9' }), connInfo(DIRECT_IP), 1);
     expect(getClientIpMock).toHaveBeenCalledTimes(1);
-    expect(getClientIpMock).toHaveBeenCalledWith(expect.any(Request), DIRECT_IP, true);
+    expect(getClientIpMock).toHaveBeenCalledWith(expect.any(Request), DIRECT_IP, 1);
   });
 });
 

@@ -21,12 +21,13 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as typesApi from '../index';
 
 // Runtime (value) exports — the only ones Object.keys() can see.
-import { ContentType, HTTP_METHODS, HttpStatus, ROUTE_METADATA } from '../index';
+import { ContentType, HTTP_METHODS, HttpStatus, ROUTE_METADATA, SECURITY_AUDIT } from '../index';
 
 // Type-only exports — locked by assignability, not Object.keys().
 import type {
   AdapterContext,
   AdapterContextFactory,
+  AuditableMiddleware,
   BaseStreamWriter,
   BodySource,
   BodySourceOptions,
@@ -80,6 +81,9 @@ import type {
   RuntimeCapabilities,
   RuntimeInfo,
   Scope,
+  SecurityAuditCheck,
+  SecurityAudited,
+  SecurityAuditVerdict,
   ServerAdapter,
   ServerAddress,
   ServerHandle,
@@ -104,7 +108,13 @@ describe('Public API surface (runtime exports)', () => {
     const actualExports = Object.keys(typesApi).sort();
 
     // SEALED: everything else in the barrel is `export type` and invisible here.
-    const expectedRuntime = ['ContentType', 'HTTP_METHODS', 'HttpStatus', 'ROUTE_METADATA'].sort();
+    const expectedRuntime = [
+      'ContentType',
+      'HTTP_METHODS',
+      'HttpStatus',
+      'ROUTE_METADATA',
+      'SECURITY_AUDIT',
+    ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
     // Reference the imports so an accidental removal is a compile error too.
@@ -112,6 +122,7 @@ describe('Public API surface (runtime exports)', () => {
     expect(typeof HttpStatus).toBe('object');
     expect(Array.isArray(HTTP_METHODS)).toBe(true);
     expect(typeof ROUTE_METADATA).toBe('symbol');
+    expect(typeof SECURITY_AUDIT).toBe('symbol');
   });
 });
 
@@ -130,6 +141,7 @@ describe('Public API surface (type-only exports, incl. runtime-adapter-contract)
     // this whole test file fails to compile — the surface-lock signal.
     type Surface = [
       AdapterContext,
+      AuditableMiddleware,
       BaseStreamWriter,
       BodySource,
       BodySourceOptions,
@@ -182,6 +194,9 @@ describe('Public API surface (type-only exports, incl. runtime-adapter-contract)
       RuntimeCapabilities,
       RuntimeInfo,
       Scope,
+      SecurityAuditCheck,
+      SecurityAudited,
+      SecurityAuditVerdict,
       ServerAddress,
       ServerHandle,
       ServiceOptions,

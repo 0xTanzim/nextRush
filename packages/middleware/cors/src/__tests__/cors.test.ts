@@ -407,7 +407,11 @@ describe('cors middleware', () => {
       );
     });
 
-    it('should reflect request headers when allowedHeaders not specified', async () => {
+    // SEC-10: a default-options preflight must never echo back whatever the
+    // client asked for — that turns Access-Control-Allow-Headers from an
+    // allowlist into an attacker-influenced passthrough (report/security-review.md
+    // SEC-10). The conservative default allowlist intersects the request instead.
+    it('does not echo an unlisted requested header under default options (SEC-10)', async () => {
       const middleware = cors({ origin: '*' });
       const ctx = createMockContext({
         method: 'OPTIONS',
@@ -415,7 +419,7 @@ describe('cors middleware', () => {
           const key = name.toLowerCase();
           if (key === 'origin') return 'https://example.com';
           if (key === 'access-control-request-method') return 'POST';
-          if (key === 'access-control-request-headers') return 'Content-Type, X-Custom';
+          if (key === 'access-control-request-headers') return 'X-Anything';
           return undefined;
         }),
       });
@@ -423,10 +427,98 @@ describe('cors middleware', () => {
 
       await middleware(ctx as any, next);
 
-      expect(ctx.set).toHaveBeenCalledWith(
-        'Access-Control-Allow-Headers',
-        'Content-Type, X-Custom'
+      const allowHeadersCall = ctx.set.mock.calls.find(
+        (call: unknown[]) => call[0] === 'Access-Control-Allow-Headers'
       );
+      expect(allowHeadersCall).toBeUndefined();
+    });
+
+    it('returns a listed default-allowlist header (Content-Type) under default options', async () => {
+      const middleware = cors({ origin: '*' });
+      const ctx = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          const key = name.toLowerCase();
+          if (key === 'origin') return 'https://example.com';
+          if (key === 'access-control-request-method') return 'POST';
+          if (key === 'access-control-request-headers') return 'Content-Type';
+          return undefined;
+        }),
+      });
+      const next = vi.fn();
+
+      await middleware(ctx as any, next);
+
+      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Headers', 'Content-Type');
+    });
+
+    it('intersects a mixed request against the default allowlist, dropping the unlisted entry', async () => {
+      const middleware = cors({ origin: '*' });
+      const ctx = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          const key = name.toLowerCase();
+          if (key === 'origin') return 'https://example.com';
+          if (key === 'access-control-request-method') return 'POST';
+          if (key === 'access-control-request-headers') return 'Content-Type, X-Anything';
+          return undefined;
+        }),
+      });
+      const next = vi.fn();
+
+      await middleware(ctx as any, next);
+
+      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Headers', 'Content-Type');
+    });
+
+    it('allows Authorization from the default allowlist only when credentials: true', async () => {
+      const withoutCreds = cors({ origin: 'https://example.com' });
+      const ctxWithout = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          const key = name.toLowerCase();
+          if (key === 'origin') return 'https://example.com';
+          if (key === 'access-control-request-method') return 'POST';
+          if (key === 'access-control-request-headers') return 'Authorization';
+          return undefined;
+        }),
+      });
+      await withoutCreds(ctxWithout as any, vi.fn());
+      const withoutCall = ctxWithout.set.mock.calls.find(
+        (call: unknown[]) => call[0] === 'Access-Control-Allow-Headers'
+      );
+      expect(withoutCall).toBeUndefined();
+
+      const withCreds = cors({ origin: 'https://example.com', credentials: true });
+      const ctxWith = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          const key = name.toLowerCase();
+          if (key === 'origin') return 'https://example.com';
+          if (key === 'access-control-request-method') return 'POST';
+          if (key === 'access-control-request-headers') return 'Authorization';
+          return undefined;
+        }),
+      });
+      await withCreds(ctxWith as any, vi.fn());
+      expect(ctxWith.set).toHaveBeenCalledWith('Access-Control-Allow-Headers', 'Authorization');
+    });
+
+    it('handles a duplicated Access-Control-Request-Headers entry without duplicating the response', async () => {
+      const middleware = cors({ origin: '*' });
+      const ctx = createMockContext({
+        method: 'OPTIONS',
+        get: vi.fn((name) => {
+          const key = name.toLowerCase();
+          if (key === 'origin') return 'https://example.com';
+          if (key === 'access-control-request-method') return 'POST';
+          if (key === 'access-control-request-headers') return 'Content-Type, Content-Type, Accept';
+          return undefined;
+        }),
+      });
+      await middleware(ctx as any, vi.fn());
+
+      expect(ctx.set).toHaveBeenCalledWith('Access-Control-Allow-Headers', 'Content-Type,Accept');
     });
 
     it('should set max age', async () => {
