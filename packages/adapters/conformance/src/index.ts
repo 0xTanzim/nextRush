@@ -51,3 +51,19 @@ export {
   type Feature,
   type Support,
 } from './certification';
+
+// Security-boundaries harness (tasks 2.1-2.2) and conformance tier (task 8.8)
+export {
+  CLIENT_IP_FIXTURES,
+  DOT_SEGMENT_PATHS,
+  FORGED_FORWARDED_CHAINS,
+  MALFORMED_HEADERS,
+  PATH_TARGET_VARIANTS,
+  PRIMARY_SECURITY_ADAPTERS,
+  primarySecurityDrivers,
+  securityScenario,
+  securityScenarioMap,
+  type PrimarySecurityAdapter,
+  type SecurityScenarioInit,
+  type SecurityScenarioResult,
+} from './security';

@@ -18,6 +18,7 @@
  */
 
 import type { Context, Middleware } from '@nextrush/types';
+import { SECURITY_AUDIT, type SecurityAuditVerdict } from '@nextrush/types';
 import {
   CSRF_FIELD,
   CSRF_HEADER,
@@ -419,6 +420,30 @@ export function csrf(options: CsrfOptions): CsrfMiddleware {
     state.csrf = createCsrfContext(ctx, cookieToken);
     return next();
   };
+
+  /**
+   * Boot-time verdict for `cookie.secure: false` (task 8.1): the CSRF cookie
+   * is the double-submit token itself — serving it without `Secure` lets it
+   * be intercepted or overwritten on a shared/plaintext network. Warns
+   * rather than throws (local plaintext development is a legitimate use).
+   */
+  function auditVerdict(): SecurityAuditVerdict {
+    if (!resolved.cookie.secure) {
+      return {
+        level: 'warn',
+        message:
+          "csrf({ cookie: { secure: false } }) serves the CSRF cookie without the 'Secure' " +
+          'attribute — it can be intercepted or overwritten over plaintext HTTP. Remove the ' +
+          'override to keep the secure default, or confirm this is intentional for local development.',
+      };
+    }
+    return { level: 'ok' };
+  }
+
+  Object.defineProperty(protect, SECURITY_AUDIT, {
+    value: auditVerdict,
+    enumerable: false,
+  });
 
   return { protect, tokenProvider };
 }

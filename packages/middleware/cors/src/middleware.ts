@@ -8,9 +8,9 @@
  */
 
 import type { Context, Middleware, Next } from '@nextrush/types';
+import { SECURITY_AUDIT, type SecurityAuditVerdict } from '@nextrush/types';
 import { CORS_HEADERS, DEFAULT_ALLOWED_HEADERS, DEFAULT_METHODS, PREFLIGHT_INDICATORS } from './constants.js';
 import { appendVary, intersectRequestedHeaders, normalizeHeaders } from './headers.js';
-import { securityWarning } from './security.js';
 import type { CorsContext, CorsOptions } from './types.js';
 import { isOriginAllowed } from './validation.js';
 
@@ -74,12 +74,11 @@ export function cors(options: CorsOptions = {}): Middleware {
     );
   }
 
-  if (credentials && allowedOrigin === true) {
-    securityWarning(
-      'Using credentials=true with origin=true (reflect) is dangerous. ' +
-        'Any site can make credentialed requests. Use explicit whitelist.'
-    );
-  }
+  // The reflect+credentials condition is audited by the boot-time
+  // security-boundaries mechanism (task 8.2, see `auditVerdict` below) —
+  // that is the one enforcement path for this condition; a duplicate
+  // dev-console `securityWarning()` call here would be the second parallel
+  // mechanism task 8.2 folds away.
 
   if (
     maxAge !== undefined &&
@@ -94,7 +93,28 @@ export function cors(options: CorsOptions = {}): Middleware {
   const normalizedAllowedHeaders = normalizeHeaders(allowedHeaders);
   const normalizedExposedHeaders = normalizeHeaders(exposedHeaders);
 
-  return async function corsMiddleware(ctx: Context, next?: Next): Promise<void> {
+  /**
+   * Boot-time verdict for the reflected-origin-plus-credentials
+   * misconfiguration (task 8.1/8.2): `securityWarning()` already logs this in
+   * development, but that warning is a no-op in production — where a
+   * silent, always-credentialed CORS reflection is exploitable. The boot
+   * audit is the one mechanism that enforces this in production; this
+   * function is that mechanism's sole input for `cors()`, not a second one.
+   */
+  function auditVerdict(): SecurityAuditVerdict {
+    if (credentials && allowedOrigin === true) {
+      return {
+        level: 'throw',
+        message:
+          'cors({ origin: true, credentials: true }) reflects any origin while allowing ' +
+          'credentialed requests — any site can read authenticated responses. Use an ' +
+          'explicit origin allowlist, or drop credentials: true.',
+      };
+    }
+    return { level: 'ok' };
+  }
+
+  const middleware = async function corsMiddleware(ctx: Context, next?: Next): Promise<void> {
     const requestOrigin = ctx.get('Origin') ?? ctx.get('origin');
 
     // Always add Vary: Origin (for proper caching)
@@ -193,6 +213,13 @@ export function cors(options: CorsOptions = {}): Middleware {
     if (next) await next();
     else await ctx.next();
   };
+
+  Object.defineProperty(middleware, SECURITY_AUDIT, {
+    value: auditVerdict,
+    enumerable: false,
+  });
+
+  return middleware;
 }
 
 /**

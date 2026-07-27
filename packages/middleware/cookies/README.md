@@ -64,7 +64,7 @@ function setCookie(res, name, value) {
 
 - You need CSRF protection specifically -- the double-submit cookie pattern with token validation is [`@nextrush/csrf`](../csrf), which handles its own cookie internally
 - You need encrypted (confidential) cookie contents -- signing proves a value was not tampered with, it does not hide the value from the client; see [FAQ](#faq)
-- You need full session storage (server-side session data keyed by a session ID) -- this package only signs/verifies a value the client holds, it does not persist anything server-side
+- You need full session storage (server-side session data keyed by a session ID) -- this package only signs/verifies a value the client holds, it does not persist anything server-side. NextRush has no session package today; see the [session position](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/032-session-position.md) for what the framework commits to and when
 
 ---
 

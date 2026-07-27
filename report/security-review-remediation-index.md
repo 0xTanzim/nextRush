@@ -21,24 +21,25 @@ checked) · N/A (documentation-only finding, no test applies).
 | SEC-09 no dot-segment normalization | P2 | `router` ADDED "Dot segments in a request path are rejected, not resolved" | RFC-029 / ADR-0017 | §3 (WS-A), 3.2, 3.5, 3.11 | WS-A / `wt-A-canonical-path` | 🔄 (3.1-3.12, 3.14-3.15 done; 3.13 performance-gate pending) |
 | SEC-10 CORS echoes `Access-Control-Request-Headers` | P2 | `security-boundaries` "CORS intersects requested headers against an allowlist" | — | §7 (WS-E), 7.1–7.2 | WS-E / `wt-E-response` | ✅ |
 | SEC-11 static serves SVG/HTML inline (stored XSS) | P2 | `security-boundaries` "Static serving can neutralize untrusted content" | — | §7 (WS-E), 7.3–7.4 | WS-E / `wt-E-response` | ✅ |
-| SEC-12 `assertHeaderSafe()` validates only CR/LF | P3 | `runtime-adapter-contract` ADDED "Header writes are validated against the full HTTP field grammar" | — | §7 (WS-E), 7.5, 7.11 | WS-E / `wt-E-response` | 🔄 (7.5 ✅ verified; 7.11 cross-adapter parity deferred — see WS-E decisions log) |
+| SEC-12 `assertHeaderSafe()` validates only CR/LF | P3 | `runtime-adapter-contract` ADDED "Header writes are validated against the full HTTP field grammar" | — | §7 (WS-E), 7.5, 7.11 | WS-E / `wt-E-response`; 7.11 closed by WS-F / `wt-F-enforcement` | ✅ (7.5 verified by WS-E; 7.11 cross-adapter parity closed by WS-F §8.8 — `security-boundaries-tier.test.ts`, 16/16 passing, proving Node's `ctx.set()` and the three Web adapters all throw the identical `HeaderValidationError` via the one shared `assertHeaderSafe()`) |
 | SEC-13 static file TOCTOU (lstat → open race) | P3 | `security-boundaries` "Static file reads are not vulnerable to a symlink swap" | — | §7 (WS-E), 7.6–7.7 | WS-E / `wt-E-response` | ✅ |
 | SEC-14 `includeStack` has no production guard | P3 | `security-boundaries` "Stack traces are never emitted in production" | — | §7 (WS-E), 7.8 | WS-E / `wt-E-response` | ✅ |
 | SEC-15 CSRF `excludePaths` `/*` matches unlimited depth | P3 | `router` ADDED "…prefix and mount matching…"; `security-boundaries` "Path-based security exemptions match canonical paths with exact wildcard depth" | RFC-029 / ADR-0017 | §5 (WS-C), 5.9 | WS-C / `wt-C-csrf` (depends on WS-A §3.4 — see WS-C decisions log) | 🔄 (wildcard depth logic ✅; canonicalization precondition ⬜, blocked on WS-A merge) |
-| SEC-16 no session/authentication/JWT primitive | P3 | Proposal position; not a spec requirement (documentation deliverable) | RFC-032 / ADR-0020 | §8 (WS-F), 8.6 | WS-F / `wt-F-enforcement` | N/A (docs) |
+| SEC-16 no session/authentication/JWT primitive | P3 | Proposal position; not a spec requirement (documentation deliverable) | RFC-032 / ADR-0020 | §8 (WS-F), 8.6 | WS-F / `wt-F-enforcement` | ✅ (docs-site page `apps/docs/content/docs/architecture/session-position.mdx`, linked from `architecture/rfcs.mdx` + `architecture/meta.json`; cross-referenced from `@nextrush/cookies`' README — RFC-032/ADR-0020 already existed, this task's deliverable was the documentation surface, not the RFC) |
 | SEC-17 compression BREACH-class surface, no guidance | P3 | `security-boundaries` (documented in the CORS/static/compression cross-cutting text; `no-transform` handling) | — | §7 (WS-E), 7.9 | WS-E / `wt-E-response` | ✅ |
 | SEC-18 partial public-suffix list for cookie `Domain` | P4 | `security-boundaries` cookies section (`publicSuffixList` injection point) | — | §6 (WS-D), 6.8 | WS-D / `wt-D-cookies` | ✅ |
 | SEC-19 CSRF token accepted from query string | P4 | `security-boundaries` "The CSRF token extractor does not read the query string" | — | §5 (WS-C), 5.10 | WS-C / `wt-C-csrf` | ✅ |
 
 ## Cross-cutting deliverables (not tied to one finding)
 
-| Deliverable | Spec requirement | Task | Workstream |
-| ----------- | ----------------- | ---- | ----------- |
-| Fail-closed as a stated rule (governs SEC-04's three branches as one violation, not three) | `security-boundaries` "Security decisions fail closed" | §5 (subsumed by 5.4–5.5) | WS-C |
-| Boot-time production security audit | `security-boundaries` "Production configuration is audited at boot" | §8.1–8.2 | WS-F |
-| `security()` composite preset | `security-boundaries` "A composite security preset exists" | §8.3 | WS-F |
-| Fuzz-hardened parsers (`parseCookies`, `parseUrlEncoded`/`setNestedValue`, `parseRange`, `extractBoundary`) | `security-boundaries` "Security-relevant parsers are fuzz-hardened" | §8.4 | WS-F |
-| Raw-socket malformed-request suite | `security-boundaries` "Malformed HTTP requests are covered by a raw-socket suite" | §8.5 | WS-F |
+| Deliverable | Spec requirement | Task | Workstream | Status |
+| ----------- | ----------------- | ---- | ----------- | ------ |
+| Fail-closed as a stated rule (governs SEC-04's three branches as one violation, not three) | `security-boundaries` "Security decisions fail closed" | §5 (subsumed by 5.4–5.5) | WS-C | ✅ |
+| Boot-time production security audit | `security-boundaries` "Production configuration is audited at boot" | §8.1–8.2 | WS-F | ✅ (6/6 new tests in `application.test.ts`, plus cors/static/csrf/errors contribution tests, all green) |
+| `security()` composite preset | `security-boundaries` "A composite security preset exists" | §8.3 | WS-F | ✅ (new `@nextrush/security` package, 6/6 tests, 100% coverage) |
+| Fuzz-hardened parsers (`parseCookies`, `parseUrlEncoded`/`setNestedValue`, `parseRange`, `extractBoundary`) | `security-boundaries` "Security-relevant parsers are fuzz-hardened" | §8.4 | WS-F | ✅ (4 new property-based suites, `fast-check`, all invariants held on first run) |
+| Raw-socket malformed-request suite | `security-boundaries` "Malformed HTTP requests are covered by a raw-socket suite" | §8.5 | WS-F | ✅ (7/7 tests against a real `net.Socket`; one initially-wrong assumption about duplicated `Host` corrected to match observed Node behavior) |
+| `security-boundaries` conformance tier | `security-boundaries` capability (cross-adapter parity for the fixes above) | §8.8 | WS-F | ✅ (16 new scenarios via `describe.each(primarySecurityDrivers())`; `security/` barrel surfaced at the package's public entry point) |
 | Cross-adapter security-parity conformance tier | `runtime-adapter-contract` MODIFIED "Observable parity across adapters" | §8.8 | WS-F |
 
 ## WS-A decisions log (task 3.15, and open items)
@@ -407,6 +408,240 @@ prose to reconcile.
   fresh, following the general documentation conventions already present elsewhere in these two
   files. Whoever performs the eventual multi-branch merge/integration (§9's verification and closure
   group) will need to reconcile six independently-edited copies of both files.
+
+## WS-F decisions log
+
+Recorded 2026-07-27, worktree `wt-F-enforcement` (branch `wt-F-enforcement-v2`, based on
+`integration/harden-security-boundaries` @ `a689bf08` — WS-A through WS-E already merged, no
+rebasing/merging required for this session, per the task brief).
+
+### RFC-vs-tasks.md conflicts resolved
+
+None found. Every task in §8 (8.1–8.9) either had no RFC scope (correctness/enforcement fixes) or
+was already fully specified by the `security-boundaries` capability's own spec.md (which reflects
+tasks.md's wording, not design.md's proposal-level prose) — no divergence between the two needed
+resolving in favor of either.
+
+### Stale findings from earlier workstreams' decisions logs, corrected against actual disk state
+
+Three "known open items" handed to WS-F by the task brief turned out to be **already resolved on
+this integration branch**, contrary to what WS-E's decisions log (written before A–E were merged
+into `integration/harden-security-boundaries`) still claims. Each was independently re-verified by
+reading the actual files in this worktree before relying on the claim, matching the task brief's
+own warning about a prior session's stale-claim false alarm:
+
+1. **Task 2.1's `securityScenario()` harness already exists.** WS-E's decisions log states
+   `packages/adapters/conformance/src/security/` has no `securityScenario()` export. On this
+   integration branch, `packages/adapters/conformance/src/security/{scenario,fixtures,index}.ts`
+   already exist, fully implemented, with two passing test files
+   (`harness-proves-broken-behavior.test.ts`, `canonical-path-parity.test.ts`) exercising them
+   against all four primary adapter drivers. Task 2.1/2.2/2.3 are checked `[x]` in this same
+   `tasks.md`. WS-F did not rebuild this harness — it (a) surfaced it through the package's public
+   `src/index.ts` barrel, which had never re-exported it, and (b) built the NEW `security-boundaries`
+   conformance tier (§8.8) on top of it.
+2. **`assertHeaderSafe()`'s RFC 9110 grammar enforcement already routes through Node's `ctx.set()`.**
+   WS-E's decisions log states this was "wired into exactly one of four adapters' header-setting
+   paths" and needed verification in `packages/adapters/node`. Direct source read confirms
+   `packages/adapters/node/src/context.ts` imports `assertHeaderSafe` from `@nextrush/runtime` and
+   calls it inside `set()` (line ~609) — the identical function the three Web adapters call via
+   `WebResponseBuilder.set()`. There is only one `assertHeaderSafe` in the entire codebase (confirmed
+   via symbol search); Node's own `ctx.set()` was already wired to it before WS-F started. What
+   genuinely did NOT exist was a **test proving** this parity — closed by §8.8's new
+   `security-boundaries-tier.test.ts`, which asserts all four adapters throw the identical
+   `HeaderValidationError` for the same malformed header write.
+3. **A code-intelligence graph query returned a stale, pre-hardening snapshot of `assertHeaderSafe`**
+   (a CR/LF-only check) when this task began investigating item 2 — the configured
+   `codebase-memory-mcp` index for this repository was pointed at an unrelated branch/commit
+   (`security/audit-review` @ `f2b92e10`, `is_worktree: false`), not this worktree. Per
+   `tool-preference.md`'s narrow exception for a genuinely non-current index, this task relied on
+   direct `read`/`grep` against the actual worktree files for every subsequent claim in this log,
+   rather than trusting the graph tool. This is exactly the "prior session hit a discovery false
+   alarm — verify carefully with a direct single-file target" pattern the task brief warned about,
+   confirmed and resolved the same way.
+
+### Design decision: the boot-time security audit's contribution mechanism
+
+Task 8.1/8.2's boot-time audit needs to inspect configuration owned by `@nextrush/{cors,static,
+csrf,errors}` — but `@nextrush/core` cannot import any of them (lower packages never import from
+higher ones). No existing hook let `Application` see a middleware instance's construction-time
+options. Design chosen: a `SECURITY_AUDIT` well-known symbol added to `@nextrush/types`
+(`security-audit.ts`), mirroring the existing `ROUTE_METADATA` "contribution protocol symbol"
+pattern exactly — a middleware factory optionally tags its returned `Middleware` function with a
+`SecurityAuditCheck`; `Application.use()` collects any tagged checks; `_boot()` runs them once,
+production-only, throwing on a `throw`-level verdict and logging once per `warn`-level verdict.
+
+This required small, additive touches to `@nextrush/types` (new export), `@nextrush/core`
+(collection + boot invocation — the only file in WS-F's own declared scope), and one-line tagging
+additions in `cors`, `static`, `csrf`, and `errors` (packages WS-C/D/E already finished and merged
+— not files any other workstream is still actively editing). Each tagging addition is TDD'd with
+its own dedicated `security-audit-contribution.test.ts` file, isolated from that package's existing
+test suites, and every touched package's full pre-existing test suite was re-run to confirm zero
+regressions (types 16/16, core 171/171, cors 87/87, static 129/129, csrf 170/170, errors 205/205).
+
+**What `proxy: true`'s throw did NOT need**: it already threw unconditionally at construction
+before this task (WS-B's `validateProxyTrust`, unconditional on `env`) — task 8.1 lists it as an
+audit case, but the existing behavior already satisfies "throws… silent outside production" is
+moot for this one case specifically, since a nonsensical config is rejected in every environment,
+not gated to production. No change was needed there; only a regression note.
+
+**What "cookies with `secure: false`" actually maps to**: `@nextrush/cookies`' own `secure`
+resolution (WS-D, `secure: 'auto'`) is computed per-request from TLS/proxy-trust state — there is
+no static, boot-inspectable `secure: false` on `cookies()`'s factory options to audit (the whole
+point of `'auto'` is that it isn't a static boolean). The one place in the cookie-adjacent surface
+where `secure: false` IS a static, boot-inspectable boolean is `csrf()`'s `cookie.secure` option
+(plain `boolean`, defaults `true`) — that is what the audit actually covers for this case.
+
+### `cors`'s `securityWarning()` fold-in (task 8.2)
+
+The reflect-origin-plus-credentials condition's dev-only `securityWarning()` call was removed from
+`cors()`'s middleware factory; that condition is now audited exclusively by the boot-time mechanism
+(throw in production, silent otherwise via the tagged `SECURITY_AUDIT` check). `securityWarning()`
+itself remains exported from `@nextrush/cors` (other call sites/tests reference it as a utility) —
+only this one condition's enforcement moved to the single mechanism, closing the "second parallel
+mechanism" gap 8.2 names.
+
+### New package: `@nextrush/security` (task 8.3)
+
+Placed at `packages/middleware/security`, following the sibling middleware packages' exact
+package.json/tsconfig/tsup layout (`helmet` was the closest structural match). `security()` builds
+`helmet()`, `cookies()`, `rateLimit()`, and `csrf().protect` eagerly (not lazily inside the returned
+middleware), so `csrf()`'s own required-config throw surfaces at `security()` call time — this is
+what satisfies "throws at construction on incomplete required configuration" without WS-F
+duplicating any of CSRF's own validation logic. Verified end-to-end against a real `listen()`
+server (helmet headers present, CSRF rejects an untokened POST, rate-limit 429 fires after the
+configured max) — not just unit-tested against mocked middleware. README + ARCHITECTURE authored
+from the current templates (§13/§21); this is a Tier-3 thin composite package per the tiering
+guide, so ARCHITECTURE covers at-a-glance + responsibilities + decisions + one sequence diagram,
+not full Tier-1 depth.
+
+### Fuzz suites (task 8.4) — `fast-check` added as a devDependency
+
+`fast-check@3.23.2` (pinned exact version, not a range, per `engineering-standards.md`'s dependency
+pinning rule) added to `cookies`, `body-parser`, `static`, and `multipart` as a devDependency only
+— no runtime dependency added to any package, keeping the zero-dependency-core rule intact. All
+four property suites passed on the first run against the already-hardened implementations; this is
+a legitimate outcome for a fuzz suite added after the underlying fixes, not evidence the suite is
+weak — each suite specifically targets the exact invariant its function must hold (prototype
+pollution, unhandled throw, bounded time on pathological/ReDoS-shaped input), verified by reading
+each function's actual guard logic before writing the property, not by guessing.
+
+### Raw-socket suite (task 8.5) — one wrong assumption corrected after running RED
+
+Placed in `packages/adapters/node/src/__tests__/raw-socket-malformed-request.test.ts`, using a real
+`net.Socket` against a real `serve()` — the task's own instruction ("assert observed behavior,
+rather than assuming Node's") was tested in practice: the duplicated-`Host`-header scenario was
+initially written expecting a 400 rejection. Running it RED-first showed Node's own HTTP/1.1 parser
+dispatches the request normally, using the first `Host` occurrence — not a NextRush decision, a
+platform behavior. The test was rewritten to assert that real, observed outcome (with a comment
+explaining what changed and why, so a future Node version that starts rejecting it is caught
+deliberately rather than silently). This mirrors WS-E's own documented pattern of correcting a
+wrong test assumption instead of changing the implementation to match a guess.
+
+### Conformance tier (task 8.8) — barrel surfacing + closing 7.11
+
+`packages/adapters/conformance/src/index.ts` (the package's public entrypoint) did not re-export
+the `security/` module at all before this task — every existing consumer of `securityScenario()`
+imported it via a relative `../` path from inside `src/security/__tests__/`, which works internally
+but is not a public API. WS-F added the barrel export. The new
+`security-boundaries-tier.test.ts` file closes WS-E's explicitly-deferred 7.11 gap: it dispatches a
+deliberately malformed header write (`ctx.set()` with a CR-containing value, and separately a
+malformed field name) through every primary adapter via `securityScenario()`, and asserts all four
+throw the identical `HeaderValidationError` — proving, not assuming, the parity 7.11 asked for. It
+also exercises the previously-unused `FORGED_FORWARDED_CHAINS.cloudflarePlusXff` fixture (defined by
+an earlier workstream, never asserted against post-fix behavior) for vendor-header-vs-XFF
+precedence parity across non-edge adapters.
+
+### Full-repo gate (task 8.9) — exact numbers and the one genuine pre-existing blocker
+
+**Methodology**: every number below was independently re-run, not carried over from an earlier
+claim — `pnpm turbo run {build,test,typecheck}` from the repo root, plus a direct `pnpm eslint
+packages --max-warnings=999999` (not every package has a wired `lint` script for turbo to invoke —
+confirmed by inspecting several `package.json`s; `cookies` has one, `cors`/`body-parser`/others do
+not, a pre-existing inconsistency not fixed here) and `pnpm validate:esm-only`. Every "pre-existing"
+claim below was verified with `git diff --stat`/`git stash -u` before/after comparisons, not
+assumed.
+
+- **Build**: 40/42 relevant tasks (`turbo run build`) succeed. The two failures are
+  `@nextrush/dev#build` and its sole dependent `api` (`apps/playground`) — a genuinely pre-existing,
+  unrelated defect: `packages/dev/src/commands/build/{deno,swc}-builder.ts` import a
+  `./swc-transform-options.js` module that does not exist anywhere in the package (confirmed via
+  `glob`). `packages/dev` has zero working-tree diff (`git status --short` empty) and is not in
+  WS-F's declared scope (`packages/core/src/application.ts`, `adapters/conformance/src/**`, new
+  preset/fuzz/raw-socket files, docs). Not fixed here, per the instruction not to silently expand
+  scope into unrelated package debt.
+- **Tests**: 76/78 relevant tasks (`turbo run test`, `@nextrush/dev`/`api`/`create-nextrush`
+  filtered out as build-blocked) pass. The one real test failure (`nextrush#test`,
+  `dev-cli-launcher.test.ts`) is a single pre-existing test that requires
+  `@nextrush/dev/dist/index.js` to exist — a direct cascade of the same pre-existing `packages/dev`
+  build defect, not an independent issue. Every package WS-F touched is fully green: `types` 16/16,
+  `core` 171/171, `cors` 87/87, `static` 129/129, `csrf` 170/170, `cookies` 405/405, `errors`
+  205/205, `body-parser` 284/284, `multipart` 78/78, `adapter-node` 234/234, `adapter-conformance`
+  290/290, `@nextrush/security` 6/6.
+- **Typecheck**: 60/63 relevant tasks pass. All three failures (`@nextrush/dev`'s build failure
+  cascading into its typecheck; `nextrush`'s two pre-existing `Context`-mock-missing-`platform`
+  errors in untouched integration test files; `@nextrush/adapter-conformance`'s 15 pre-existing
+  `noUncheckedIndexedAccess` errors in `nextjs-driver.ts`/`canonical-path-parity.test.ts`/
+  `harness-proves-broken-behavior.test.ts`) are confirmed pre-existing via `git stash -u`
+  before/after diff — WS-F's own new `security-boundaries-tier.test.ts` initially introduced the
+  same class of error (destructuring a possibly-empty array under `noUncheckedIndexedAccess`) and
+  was fixed with a small `single()` helper rather than left matching the pre-existing pattern.
+- **Lint**: a full `pnpm eslint packages` run shows 1929 pre-existing problems before WS-F's changes
+  and 1941 after — a net +12, and all +12 are the exact same "not found by the project service"
+  parsing error that affects **every** `*.test.ts`/`*.config.ts` file in the entire repository (433
+  files, confirmed) when linted via this exact whole-tree invocation; each of WS-F's 12 new test
+  files adds one such error, matching the pre-existing pattern exactly, not a new class of problem.
+  Every WS-F production source file (`application.ts`, the four packages' `middleware.ts`/
+  `index.ts` tagging additions, `@nextrush/security`'s `security.ts`/`index.ts`,
+  `adapters/conformance`'s `index.ts`) was independently verified lint-clean in isolation.
+- **`pnpm validate:esm-only`**: fails on `@nextrush/test-final-1721840000`
+  (`packages/middleware/test-final-1721840000/package.json`) — a genuinely pre-existing, tracked-in-
+  git orphan package (introduced by an unrelated earlier commit, `6c592a57`, "test(conformance): add
+  nextjs driver, azure verification app, update gcf app" — not any WS-A through WS-F work) with no
+  `type` field and no `private: true`. Confirmed by temporarily patching it to `private: true` (then
+  reverting — `git diff --stat` shows zero net change to this file in the final commit): with that
+  one file accounted for, all 39 real packages pass ESM-only validation cleanly. This orphan package
+  is outside WS-F's declared scope and was deliberately left unmodified rather than silently
+  "fixed" — flagged here as a genuine, pre-existing, repo-wide-blocking finding for whoever owns
+  general repo hygiene (or a future OpenSpec change) to resolve; it is not touched in WS-F's commit.
+- **Coverage** (per package, ≥90% stmts / ≥85% branch gate): `types` 100% (aggregate; per-file 0%
+  is the pre-existing convention for pure-type files with zero executable statements), `errors`
+  96.38%/90.4%, `core` 98.65%/92.56%, `cors` **fails** (73.27%/82.94% — `presets.ts` 29%/`security.ts`
+  73%, both zero-diff pre-existing per WS-E's own decisions log), `static` 94.18%/87.2%, `csrf`
+  98.3%/97.19%, `cookies` 98.3%/95.72%, `body-parser` 93.33%/86.88%, `multipart` **fails**
+  (79.73%/66.78% — `middleware.ts` 50%/`memory.ts` 65%, both zero-diff pre-existing, confirmed via
+  `git diff --stat`), `adapter-node` **fails** (79.22%/69.7% — `context.ts` 66.8%, zero-diff
+  pre-existing), `adapter-conformance` 96.34%/87.28%, `@nextrush/security` 100%. The three failures
+  are all in files WS-F never touched (confirmed zero-diff for each); WS-F's own new code in every
+  package it touched is fully covered by its own dedicated test file. Backfilling the pre-existing
+  gaps in `cors`/`multipart`/`adapter-node` is a package-wide test-debt remediation effort outside
+  SEC-16/§8's declared scope, matching the exact disposition WS-B/WS-E already established for
+  similar findings in their own decisions logs.
+- **CPU-pinned performance gate (tasks 3.13/4.13, and 8.9's own consideration of whether to attempt
+  it)**: **not run.** This environment has no isolated, CPU-pinned benchmark harness available, and
+  WS-A/WS-B already explicitly declined to run it for the same reason. Fabricating a pass/fail
+  result here would violate this repo's zero-fabricated-results standard; stating "not run in this
+  environment" is the honest disposition, matching WS-A's/WS-B's own precedent rather than silently
+  reusing their unresolved deferral without re-stating it.
+
+### §9.7 remediation-index completeness assertion
+
+Every finding SEC-01 through SEC-19 maps to a requirement (Spec requirement column), a task (Task
+group column), and a test-status verdict (Task status column) in the table above — no row has an
+empty column. Genuine remaining open items, stated plainly rather than marked closed:
+
+- SEC-01, SEC-02, SEC-09 (🔄): WS-B's and WS-A's own performance-gate items (4.13, 3.13) remain
+  pending — explicitly not run in this environment (see above), consistent with those workstreams'
+  own decisions logs.
+- SEC-15 (🔄): WS-C's wildcard-depth logic is done; the canonicalization precondition depends on
+  WS-A's `canonicalizePath()` being merged, which per this integration branch's own git log
+  (`de6387c7 merge: WS-A canonical request path into integration branch`) it now is — this row's
+  🔄 status predates that merge and should be re-verified by whoever runs §9.3's independent
+  validation pass (re-deriving from a fresh test run, not from this note).
+- Every other finding (SEC-03 through SEC-08, SEC-10 through SEC-14, SEC-16 through SEC-19) is ✅.
+
+This assertion is itself subject to §9.3's independent-reviewer requirement — a workstream marking
+its own findings closed is not, on its own, the closure mechanism; this log states what WS-F
+verified and how, for that independent reviewer to re-check against raw test output.
 
 
 

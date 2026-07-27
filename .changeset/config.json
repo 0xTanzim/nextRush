@@ -39,7 +39,8 @@
     "@nextrush/adapter-bun",
     "@nextrush/adapter-deno",
     "@nextrush/adapter-serverless",
-    "@nextrush/testing"
+    "@nextrush/testing",
+    "@nextrush/security"
   ],
   "privatePackages": {
     "version": false,
