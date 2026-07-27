@@ -13,7 +13,7 @@ import {
   jsonErrorResponse,
   normalizeStartupError,
 } from '@nextrush/runtime';
-import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
+import type { AdapterContextFactory, HandlerOptions, ProxyTrust, ServerAdapter } from '@nextrush/types';
 import { createBunContext } from './context';
 import type { BunContext } from './context';
 
@@ -198,14 +198,14 @@ function createBunRequestRunner(
   options: HandlerOptions
 ): BunFetchHandler {
   const handler = app.callback();
-  const trustProxy = app.options.proxy ?? false;
+  const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
   const TIMEOUT_SENTINEL = Symbol('timeout');
 
   return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
     const clientIp = server.requestIP(request)?.address ?? '';
-    const ctx = createBunContext(request, clientIp, trustProxy);
+    const ctx = createBunContext(request, clientIp, proxy);
 
     try {
       if (timeout > 0) {
@@ -553,6 +553,6 @@ void _bunConformance;
 
 // RFC-NEXTRUSH-ADAPTER-CONTRACT: prove the context factory produces an
 // AdapterContext over the shared Context contract.
-const _bunContextFactory: AdapterContextFactory<[Request, string?, boolean?], BunContext> =
+const _bunContextFactory: AdapterContextFactory<[Request, string?, ProxyTrust?], BunContext> =
   createBunContext;
 void _bunContextFactory;

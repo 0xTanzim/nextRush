@@ -380,8 +380,12 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
 
     const trusted = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.send(ctx.ip); });
-    }, { proxy: true, directIp: '10.0.0.1', headers: { 'x-forwarded-for': `${xff}, 70.41.3.18` } });
-    expect(trusted.text()).toBe(xff);
+    }, { proxy: 1, directIp: '10.0.0.1', headers: { 'x-forwarded-for': `${xff}, 70.41.3.18` } });
+    // proxy: 1 (one trusted hop) resolves the rightmost entry — the address
+    // the trusted hop itself observed — never the client-authored leftmost
+    // entry (SEC-01/RFC-030).
+    expect(trusted.text()).toBe('70.41.3.18');
+    expect(trusted.text()).not.toBe(xff);
 
     const untrusted = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.send(ctx.ip); });
@@ -391,7 +395,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     const validated = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.send(ctx.ip); });
     }, {
-      proxy: true,
+      proxy: 1,
       directIp: '10.0.0.1',
       headers: { 'x-forwarded-for': '<script>alert(1)</script>', 'x-real-ip': '198.51.100.2' },
     });
@@ -399,7 +403,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
   });
 
   it('#19 client IP: untrusted proxy headers are ignored on every adapter (HP-1 parity)', async () => {
-    // trustProxy false → the proxy headers are never consulted; ctx.ip is the
+    // proxy: false → the proxy headers are never consulted; ctx.ip is the
     // platform direct address (identical policy across adapters, differing only
     // in the platform-supplied value: socket for node/deno, clientIp for bun,
     // '' for edge). The invariant asserted here is "not the proxy value".
@@ -417,13 +421,13 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
 
   it('#19 client IP: Cloudflare cf-connecting-ip precedence is honored only by edge/serverless', async () => {
     // Pins design D2/D5: the edge trim must not drop cf-connecting-ip when
-    // trustProxy is true. Edge (and serverless, which reuses the edge context)
+    // proxy is a hop count. Edge (and serverless, which reuses the edge context)
     // put cf-connecting-ip at the front; Node/Bun/Deno ignore it and fall to
     // x-forwarded-for. An encoded difference so a future edit can't silently drop it.
     const res = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.send(ctx.ip); });
     }, {
-      proxy: true,
+      proxy: 1,
       directIp: '10.0.0.1',
       headers: { 'cf-connecting-ip': '198.51.100.7', 'x-forwarded-for': '203.0.113.9' },
     });

@@ -196,15 +196,15 @@ export function createHandler(
   options: HandlerOptions = {}
 ): (req: IncomingMessage, res: ServerResponse) => void {
   const handler = app.callback();
-  const trustProxy = app.options.proxy ?? false;
+  const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
 
   // Hoist the constant context-options object out of the per-request path
-  // (hot-path review HP-4): `trustProxy` is fixed for the server's lifetime, so the
+  // (hot-path review HP-4): `proxy` is fixed for the server's lifetime, so the
   // object is built once and reused. Frozen so a stray mutation cannot leak across
-  // requests; the NodeContext constructor only reads `options.trustProxy`.
-  const contextOptions: NodeContextOptions = Object.freeze({ trustProxy });
+  // requests; the NodeContext constructor only reads `options.proxy`.
+  const contextOptions: NodeContextOptions = Object.freeze({ proxy });
 
   return (req: IncomingMessage, res: ServerResponse): void => {
     const ctx = createNodeContext(req, res, contextOptions);

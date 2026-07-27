@@ -7,12 +7,12 @@
  * (characterization tests, green before and after the trims) AND proves each
  * trim actually happened (optimization-assertion tests, RED before impl):
  *
- *  - HP-1: `trustProxy: false` sets `ctx.ip` directly from Bun's `clientIp`
+ *  - HP-1: `proxy: false` sets `ctx.ip` directly from Bun's `clientIp`
  *          without invoking the shared header-lookup policy (`getClientIp`).
  *  - HP-7: `ctx.next()` forwards the wired dispatch thunk directly (returns its
  *          exact promise) rather than wrapping it in an extra `async` frame.
  *
- * Note: HP-4 does NOT apply — the Bun context factory takes `trustProxy`
+ * Note: HP-4 does NOT apply — the Bun context factory takes `proxy`
  * positionally, so there is no per-request options object to hoist.
  */
 
@@ -60,31 +60,31 @@ afterEach(() => {
 describe('HP-1: Bun ctx.ip resolution', () => {
   // ---- parity / characterization (green before and after) -----------------
 
-  it('2.1 trustProxy false + clientIp present → ctx.ip equals the clientIp', () => {
+  it('2.1 proxy: false + clientIp present → ctx.ip equals the clientIp', () => {
     const ctx = new BunContext(makeRequest(), CLIENT_IP, false);
     expect(ctx.ip).toBe(CLIENT_IP);
   });
 
-  it('2.1 trustProxy false + clientIp absent → ctx.ip is the empty string', () => {
+  it('2.1 proxy: false + clientIp absent → ctx.ip is the empty string', () => {
     const ctx = new BunContext(makeRequest(), undefined, false);
     expect(ctx.ip).toBe('');
   });
 
-  it('2.2 trustProxy true + clientIp present + valid x-forwarded-for → policy result', () => {
+  it('2.2 proxy: 1 (hop count) + clientIp present + valid x-forwarded-for → policy result', () => {
     const ctx = new BunContext(
       makeRequest({ 'x-forwarded-for': '9.9.9.9' }),
       CLIENT_IP,
-      true
+      1
     );
     expect(ctx.ip).toBe('9.9.9.9');
   });
 
-  it('2.2 trustProxy true + clientIp absent + no proxy header → directIp fallback ""', () => {
-    const ctx = new BunContext(makeRequest(), undefined, true);
+  it('2.2 proxy: 1 (hop count) + clientIp absent + no proxy header → directIp fallback ""', () => {
+    const ctx = new BunContext(makeRequest(), undefined, 1);
     expect(ctx.ip).toBe('');
   });
 
-  it('2.5 trustProxy false ignores x-forwarded-for / x-real-ip (returns clientIp)', () => {
+  it('2.5 proxy: false ignores x-forwarded-for / x-real-ip (returns clientIp)', () => {
     const ctx = new BunContext(
       makeRequest({ 'x-forwarded-for': '9.9.9.9', 'x-real-ip': '8.8.8.8' }),
       CLIENT_IP,
@@ -95,20 +95,20 @@ describe('HP-1: Bun ctx.ip resolution', () => {
 
   // ---- optimization assertion (RED before HP-1) ----------------------------
 
-  it('2.6 [trim] trustProxy false + clientIp present does NOT invoke getClientIp', () => {
+  it('2.6 [trim] proxy: false + clientIp present does NOT invoke getClientIp', () => {
     void new BunContext(makeRequest(), CLIENT_IP, false);
     expect(getClientIpMock).not.toHaveBeenCalled();
   });
 
-  it('2.6 [trim] trustProxy false + clientIp absent does NOT invoke getClientIp', () => {
+  it('2.6 [trim] proxy: false + clientIp absent does NOT invoke getClientIp', () => {
     void new BunContext(makeRequest(), undefined, false);
     expect(getClientIpMock).not.toHaveBeenCalled();
   });
 
-  it('2.6 [trim] trustProxy true still resolves via getClientIp (directIp = clientIp ?? "")', () => {
-    void new BunContext(makeRequest({ 'x-forwarded-for': '9.9.9.9' }), CLIENT_IP, true);
+  it('2.6 [trim] proxy: 1 (hop count) still resolves via getClientIp (directIp = clientIp ?? "")', () => {
+    void new BunContext(makeRequest({ 'x-forwarded-for': '9.9.9.9' }), CLIENT_IP, 1);
     expect(getClientIpMock).toHaveBeenCalledTimes(1);
-    expect(getClientIpMock).toHaveBeenCalledWith(expect.any(Request), CLIENT_IP, true);
+    expect(getClientIpMock).toHaveBeenCalledWith(expect.any(Request), CLIENT_IP, 1);
   });
 });
 

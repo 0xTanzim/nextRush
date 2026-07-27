@@ -30,6 +30,7 @@ import type {
   CombinedAbort,
   EdgeRuntimeInfo,
   HeaderLookup,
+  ProxyTrust,
   Runtime,
   RuntimeCapabilities,
   RuntimeInfo,
@@ -82,7 +83,10 @@ describe('Public API surface (runtime exports)', () => {
       'getClientIp',
       'getEdgeClientIp',
       'headersToRecord',
+      'isTrustedPeer',
       'isValidClientIp',
+      'resolveByHopCount',
+      'resolveByPeerList',
       'resolveClientIp',
 
       // Request signal
@@ -145,6 +149,7 @@ describe('Public API surface (type-only exports)', () => {
       CapabilityProfile,
       ClientIpOptions,
       HeaderLookup,
+      ProxyTrust,
       CombinedAbort,
       ServerStartErrorCode,
     ];

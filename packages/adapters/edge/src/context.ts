@@ -17,7 +17,7 @@
  */
 
 import { detectEdgeRuntime, detectPlatform, getEdgeClientIp, WebContextBase } from '@nextrush/runtime';
-import type { PlatformId } from '@nextrush/types';
+import type { PlatformId, ProxyTrust } from '@nextrush/types';
 import { runNDJSONStream, runSSEStream, runTextStream } from '@nextrush/stream';
 
 /**
@@ -74,25 +74,37 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
   /** Whether the empty-`ctx.ip` warning has already fired once on this context (P2-3). */
   private _ipWarned = false;
   /** Whether the caller opted into trusting proxy headers for IP resolution. */
-  private readonly _trustProxy: boolean;
+  private readonly _proxy: ProxyTrust;
 
   constructor(
     request: Request,
     executionContext?: EdgeExecutionContext,
-    trustProxy = false,
+    proxy: ProxyTrust = false,
     env?: Env,
     isProduction = true,
     platform?: PlatformId
   ) {
     // Get client IP from CF headers or standard headers.
     //
-    // HP-1 trim: Edge has no socket, so when `trustProxy` is false (default) the
+    // HP-1 trim: Edge has no socket, so when `proxy` is false (default) the
     // client IP is `''` — returned directly, with no per-request header-lookup
     // closure and no `getEdgeClientIp` policy call (byte-identical to
-    // `getEdgeClientIp(request, false)`, whose `directIp` is `''`). When true,
+    // `getEdgeClientIp(request, false)`, whose `directIp` is `''`). Otherwise
     // resolution still goes through `getEdgeClientIp`, preserving the Cloudflare
     // `cf-connecting-ip` → `x-forwarded-for` → `x-real-ip` precedence.
-    const ip = trustProxy ? getEdgeClientIp(request, true) : '';
+    //
+    // A `string[]` (CIDR peer list) trust is rejected here rather than at
+    // `createApp()` construction: Edge has no socket peer address to check
+    // that list against (RFC-030 §8.6), so the constraint is specific to this
+    // adapter, not the app-level `proxy` option in general.
+    if (Array.isArray(proxy)) {
+      throw new Error(
+        "proxy: ['<cidr>', ...] is not supported on the Edge adapter — there is no socket peer " +
+          'address to validate the trusted-peer list against. Use `proxy: <hopCount>` instead ' +
+          '(e.g. `proxy: 1` for one trusted reverse proxy such as Cloudflare).'
+      );
+    }
+    const ip = proxy !== false ? getEdgeClientIp(request, proxy) : '';
 
     // Detect specific edge runtime
     const runtime = detectEdgeRuntime().runtime;
@@ -108,7 +120,7 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
     this.executionContext = executionContext;
     this.env = env;
     this._isProduction = isProduction;
-    this._trustProxy = trustProxy;
+    this._proxy = proxy;
   }
 
   // ===========================================================================
@@ -127,13 +139,13 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
    * logging) with no signal that `trustProxy` is the fix.
    */
   override get ip(): string {
-    if (this._ip === '' && !this._trustProxy && !this._isProduction && !this._ipWarned) {
+    if (this._ip === '' && this._proxy === false && !this._isProduction && !this._ipWarned) {
       this._ipWarned = true;
       console.warn(
-        '[nextrush/edge] ctx.ip is an empty string because trustProxy is false (the default) — ' +
+        '[nextrush/edge] ctx.ip is an empty string because proxy is false (the default) — ' +
           'Edge has no socket to fall back to, so no proxy headers means no IP. If this app runs ' +
           'behind a trusted proxy (e.g. Cloudflare, which sets cf-connecting-ip), pass ' +
-          "{ proxy: true } to createApp() to resolve it from headers. (This message appears in " +
+          "{ proxy: 1 } to createApp() to resolve it from headers. (This message appears in " +
           'development only.)'
       );
     }
@@ -177,10 +189,10 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
 export function createEdgeContext<Env = unknown>(
   request: Request,
   executionContext?: EdgeExecutionContext,
-  trustProxy = false,
+  proxy: ProxyTrust = false,
   env?: Env,
   isProduction = true,
   platform?: PlatformId
 ): EdgeContext<Env> {
-  return new EdgeContext<Env>(request, executionContext, trustProxy, env, isProduction, platform);
+  return new EdgeContext<Env>(request, executionContext, proxy, env, isProduction, platform);
 }

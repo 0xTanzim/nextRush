@@ -15,6 +15,7 @@
  */
 
 import type { Application } from '@nextrush/core';
+import type { ProxyTrust } from '@nextrush/types';
 
 /** Options for a single conformance request. */
 export interface DispatchInit {
@@ -26,8 +27,8 @@ export interface DispatchInit {
   headers?: Record<string, string>;
   /** Request body (POST/PUT). */
   body?: string;
-  /** Whether the app trusts proxy headers (`app.options.proxy`). */
-  proxy?: boolean;
+  /** Proxy-trust specification the app boots with (`app.options.proxy`, RFC-030). */
+  proxy?: ProxyTrust;
   /**
    * The direct/socket IP the runtime reports. Node observes its real loopback
    * socket; the Web adapters take this stub so `ctx.ip` (no-proxy path) is

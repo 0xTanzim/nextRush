@@ -30,6 +30,7 @@ import type {
     NDJSONStreamWriter,
     NodeStreamLike,
     PlatformId,
+    ProxyTrust,
     QueryParams,
     RawHttp,
     ResponseBody,
@@ -54,11 +55,11 @@ type NodeRawHttp = RawHttp<IncomingMessage, ServerResponse>;
  */
 export interface NodeContextOptions {
   /**
-   * Whether to trust proxy headers (X-Forwarded-For, X-Forwarded-Proto, etc.)
-   * When false, IP is always read from the socket.
+   * Proxy-trust specification for `ctx.ip` resolution (RFC-030).
+   * When `false`, IP is always read from the socket.
    * @default false
    */
-  trustProxy?: boolean;
+  proxy?: ProxyTrust;
 }
 
 /** Shared empty params object — avoids allocation per request (overwritten by router) */
@@ -192,7 +193,7 @@ export class NodeContext implements AdapterContext {
     }
 
     this.headers = req.headers;
-    this.ip = this.getClientIp(req, options.trustProxy ?? false);
+    this.ip = this.getClientIp(req, options.proxy ?? false);
   }
 
   /**
@@ -213,19 +214,21 @@ export class NodeContext implements AdapterContext {
   }
 
   /**
-   * Resolve the client IP via the shared cross-adapter policy (audit F-11).
+   * Resolve the client IP via the shared cross-adapter policy (audit F-11, RFC-030).
    *
    * @remarks
-   * HP-1 trim: when `trustProxy` is false (default) the socket address IS the
+   * HP-1 trim: when `proxy` is `false` (default) the socket address IS the
    * client IP, so it is returned directly — no header-lookup closure, no
    * {@link resolveClientIp} call — byte-identical to the policy's own
-   * `trustProxy: false` branch. When true, resolution goes through the shared
-   * policy so precedence/validation match Bun/Deno/Edge. The socket address is
-   * read eagerly, so `ctx.ip` stays stable even after the socket is torn down.
+   * `trust: false` branch. Otherwise resolution goes through the shared
+   * policy so precedence/validation match Bun/Deno/Edge. The socket address
+   * doubles as both `directIp` and `peerIp` (Node's peer IS the direct
+   * connection) and is read eagerly, so `ctx.ip` stays stable even after the
+   * socket is torn down.
    */
-  private getClientIp(req: IncomingMessage, trustProxy: boolean): string {
+  private getClientIp(req: IncomingMessage, proxy: ProxyTrust): string {
     const directIp = req.socket.remoteAddress ?? '';
-    if (!trustProxy) {
+    if (proxy === false) {
       return directIp;
     }
     return resolveClientIp(
@@ -233,7 +236,7 @@ export class NodeContext implements AdapterContext {
         const value = req.headers[name];
         return Array.isArray(value) ? value[0] : value;
       },
-      { trustProxy: true, directIp }
+      { trust: proxy, directIp, peerIp: directIp }
     );
   }
 

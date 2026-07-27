@@ -7,9 +7,9 @@
  * AND proves each trim actually happened (the optimization-assertion tests,
  * RED before implementation):
  *
- *  - HP-1: `trustProxy: false` sets `ctx.ip` directly from the socket without
+ *  - HP-1: `proxy: false` sets `ctx.ip` directly from the socket without
  *          invoking the proxy-header resolution policy (`resolveClientIp`).
- *  - HP-4: `createHandler` reuses one frozen `{ trustProxy }` options object
+ *  - HP-4: `createHandler` reuses one frozen `{ proxy }` options object
  *          across requests instead of allocating per request.
  *  - HP-7: `ctx.next()` forwards the wired dispatch thunk directly (returns its
  *          exact promise) rather than wrapping it in an extra `async` frame.
@@ -93,39 +93,39 @@ afterEach(() => {
 describe('HP-1: ctx.ip resolution', () => {
   // ---- parity / characterization (green before and after) -----------------
 
-  it('2.1 trustProxy false → ctx.ip equals the socket remote address', () => {
-    const ctx = new NodeContext(makeReq(), makeRes(), { trustProxy: false });
+  it('2.1 proxy false → ctx.ip equals the socket remote address', () => {
+    const ctx = new NodeContext(makeReq(), makeRes(), { proxy: false });
     expect(ctx.ip).toBe(SOCKET_IP);
   });
 
-  it('2.2 trustProxy false ignores x-forwarded-for / x-real-ip (parity with today)', () => {
+  it('2.2 proxy false ignores x-forwarded-for / x-real-ip (parity with today)', () => {
     const ctx = new NodeContext(
       makeReq({ headers: { 'x-forwarded-for': '9.9.9.9', 'x-real-ip': '8.8.8.8' } }),
       makeRes(),
-      { trustProxy: false }
+      { proxy: false }
     );
     expect(ctx.ip).toBe(SOCKET_IP);
   });
 
-  it('2.3 trustProxy true with a valid x-forwarded-for resolves via the shared policy', () => {
+  it('2.3 proxy true (hop count 1) with a valid x-forwarded-for resolves via the shared policy', () => {
     const ctx = new NodeContext(
       makeReq({ headers: { 'x-forwarded-for': '9.9.9.9' } }),
       makeRes(),
-      { trustProxy: true }
+      { proxy: 1 }
     );
     expect(ctx.ip).toBe('9.9.9.9');
   });
 
   it('2.4 socket with no remoteAddress yields the empty string', () => {
     const ctx = new NodeContext(makeReq({ remoteAddress: undefined }), makeRes(), {
-      trustProxy: false,
+      proxy: false,
     });
     expect(ctx.ip).toBe('');
   });
 
   it('2.5 ctx.ip is stable and never undefined regardless of read timing', () => {
     const req = makeReq();
-    const ctx = new NodeContext(req, makeRes(), { trustProxy: false });
+    const ctx = new NodeContext(req, makeRes(), { proxy: false });
     const first = ctx.ip;
     // Simulate socket teardown after the request began.
     Object.defineProperty(req.socket, 'remoteAddress', { value: undefined, configurable: true });
@@ -137,16 +137,16 @@ describe('HP-1: ctx.ip resolution', () => {
 
   // ---- optimization assertion (RED before HP-1) ----------------------------
 
-  it('2.6 [trim] trustProxy false does NOT invoke the proxy-header resolution policy', () => {
-    void new NodeContext(makeReq(), makeRes(), { trustProxy: false });
+  it('2.6 [trim] proxy false does NOT invoke the proxy-header resolution policy', () => {
+    void new NodeContext(makeReq(), makeRes(), { proxy: false });
     expect(resolveClientIpMock).not.toHaveBeenCalled();
   });
 
-  it('2.7 [trim] trustProxy true still resolves via the shared policy', () => {
+  it('2.7 [trim] proxy true (hop count 1) still resolves via the shared policy', () => {
     void new NodeContext(
       makeReq({ headers: { 'x-forwarded-for': '9.9.9.9' } }),
       makeRes(),
-      { trustProxy: true }
+      { proxy: 1 }
     );
     expect(resolveClientIpMock).toHaveBeenCalledTimes(1);
   });
@@ -158,7 +158,7 @@ describe('HP-1: ctx.ip resolution', () => {
 
 describe('HP-4: context-options object is not allocated per request', () => {
   it('3.1 [trim] many requests share one frozen options object (no per-request allocation)', async () => {
-    const app = createApp({ proxy: true });
+    const app = createApp({ proxy: 1 });
     const seenIps: string[] = [];
     app.use(async (ctx) => {
       seenIps.push(ctx.ip);
@@ -180,12 +180,12 @@ describe('HP-4: context-options object is not allocated per request', () => {
       expect(opt).toBe(firstOptions);
       expect(Object.isFrozen(opt)).toBe(true);
     }
-    // Config parity: every request observed trustProxy=true behavior.
+    // Config parity: every request observed proxy: 1 (single-hop) behavior.
     expect(seenIps).toEqual(['9.9.9.9', '9.9.9.9', '9.9.9.9', '9.9.9.9', '9.9.9.9']);
   });
 
-  it('3.2 [trim] concurrent requests observe the same trustProxy value via the shared object', async () => {
-    const app = createApp({ proxy: true });
+  it('3.2 [trim] concurrent requests observe the same proxy trust value via the shared object', async () => {
+    const app = createApp({ proxy: 1 });
     const seenIps: string[] = [];
     app.use(async (ctx) => {
       seenIps.push(ctx.ip);

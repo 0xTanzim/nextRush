@@ -16,6 +16,7 @@
  */
 
 import { getClientIp, getRuntime, WebContextBase } from '@nextrush/runtime';
+import type { ProxyTrust } from '@nextrush/types';
 import { runNDJSONStream, runSSEStream, runTextStream } from '@nextrush/stream';
 
 /**
@@ -37,17 +38,19 @@ export class DenoContext extends WebContextBase {
   constructor(
     request: Request,
     connInfo?: { remoteAddr?: { hostname: string } },
-    trustProxy = false
+    proxy: ProxyTrust = false
   ) {
     // Get client IP from connection info or headers.
     //
-    // HP-1 trim: when `trustProxy` is false (default) the connection address IS
+    // HP-1 trim: when `proxy` is false (default) the connection address IS
     // the client IP, so it is returned directly — no per-request header-lookup
     // closure, no `getClientIp` policy call — byte-identical to the policy's own
-    // `trustProxy: false` branch. When true, resolution goes through the shared
-    // policy so precedence/validation match Node/Bun/Edge.
+    // `trust: false` branch. Otherwise resolution goes through the shared
+    // policy so precedence/validation match Node/Bun/Edge. The connection
+    // address doubles as `directIp` and `peerIp` (Deno's peer IS the direct
+    // connection).
     const directIp = connInfo?.remoteAddr?.hostname ?? '';
-    const ip = trustProxy ? getClientIp(request, directIp, true) : directIp;
+    const ip = proxy !== false ? getClientIp(request, directIp, proxy) : directIp;
 
     super(request, ip, getRuntime(), { runTextStream, runSSEStream, runNDJSONStream });
   }
@@ -59,7 +62,7 @@ export class DenoContext extends WebContextBase {
 export function createDenoContext(
   request: Request,
   connInfo?: { remoteAddr?: { hostname: string } },
-  trustProxy = false
+  proxy: ProxyTrust = false
 ): DenoContext {
-  return new DenoContext(request, connInfo, trustProxy);
+  return new DenoContext(request, connInfo, proxy);
 }

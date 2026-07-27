@@ -78,7 +78,7 @@ import type {
   TieredRateLimitOptions,
 } from './types';
 import {
-  extractClientIp,
+  defaultKeyGenerator,
   isIpInList,
   normalizeIp,
   parseCidr,
@@ -140,7 +140,6 @@ export {
 } from './utils/headers';
 export {
   defaultKeyGenerator,
-  extractClientIp,
   isIpInList,
   isValidIpv4,
   isValidIpv6,
@@ -181,7 +180,6 @@ const DEFAULT_OPTIONS: Required<
     | 'algorithm'
     | 'max'
     | 'window'
-    | 'trustProxy'
     | 'standardHeaders'
     | 'legacyHeaders'
     | 'includeRetryAfter'
@@ -196,7 +194,6 @@ const DEFAULT_OPTIONS: Required<
   algorithm: DEFAULT_ALGORITHM,
   max: DEFAULT_MAX,
   window: DEFAULT_WINDOW,
-  trustProxy: false,
   standardHeaders: true,
   legacyHeaders: true,
   includeRetryAfter: true,
@@ -253,10 +250,7 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
 
   const keyGenerator =
     config.keyGenerator ??
-    ((ctx: Context) => {
-      const ip = extractClientIp(ctx, config.trustProxy);
-      return `${DEFAULT_KEY_PREFIX}${ip}`;
-    });
+    ((ctx: Context) => defaultKeyGenerator(ctx));
 
   const defaultHandler = async (ctx: Context, info: RateLimitInfo): Promise<void> => {
     ctx.status = config.statusCode;
@@ -289,7 +283,7 @@ export function rateLimit(options: RateLimitOptions = {}): RateLimitMiddleware {
       return ctx.next();
     }
 
-    const clientIp = extractClientIp(ctx, config.trustProxy);
+    const clientIp = normalizeIp(ctx.ip || '127.0.0.1');
 
     if (compiledWhitelist && isIpInCompiledList(clientIp, compiledWhitelist)) {
       return ctx.next();
@@ -408,12 +402,7 @@ export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddl
     tierWindowMs.set(name, parseWindow(config.window));
   }
 
-  const keyGenerator =
-    baseOptions.keyGenerator ??
-    ((ctx: Context) => {
-      const ip = extractClientIp(ctx, baseOptions.trustProxy ?? false);
-      return `${DEFAULT_KEY_PREFIX}${ip}`;
-    });
+  const keyGenerator = baseOptions.keyGenerator ?? ((ctx: Context) => defaultKeyGenerator(ctx));
 
   const defaultHandler = async (ctx: Context, info: RateLimitInfo): Promise<void> => {
     ctx.status = baseOptions.statusCode ?? DEFAULT_STATUS_CODE;
@@ -430,7 +419,7 @@ export function tieredRateLimit(options: TieredRateLimitOptions): RateLimitMiddl
       return ctx.next();
     }
 
-    const clientIp = extractClientIp(ctx, baseOptions.trustProxy ?? false);
+    const clientIp = normalizeIp(ctx.ip || '127.0.0.1');
 
     if (baseOptions.whitelist && isIpInList(clientIp, baseOptions.whitelist)) {
       return ctx.next();

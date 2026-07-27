@@ -239,12 +239,6 @@ export interface RateLimitOptions {
   onRateLimited?: OnRateLimited;
 
   /**
-   * Trust proxy headers (X-Forwarded-For, CF-Connecting-IP)
-   * @default false
-   */
-  trustProxy?: boolean;
-
-  /**
    * Send standard rate limit headers (RateLimit-*)
    * IETF draft-compliant headers
    * @default true

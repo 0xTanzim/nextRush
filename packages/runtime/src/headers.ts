@@ -6,7 +6,8 @@
  * @packageDocumentation
  */
 
-import type { IncomingHeaders } from '@nextrush/types';
+import type { IncomingHeaders, ProxyTrust } from '@nextrush/types';
+import { isTrustedPeer, resolveByHopCount, resolveByPeerList } from './proxy-trust';
 
 /**
  * Convert a Web API Headers object to a plain record.
@@ -127,10 +128,22 @@ export type HeaderLookup = (name: string) => string | undefined;
  * Options for {@link resolveClientIp}.
  */
 export interface ClientIpOptions {
-  /** Whether proxy-supplied headers may be trusted. */
-  trustProxy: boolean;
-  /** The direct socket/connection IP (runtime-specific; used when not trusting proxies). */
+  /**
+   * Proxy trust specification (RFC-030): `false` trusts nothing (the socket
+   * peer is always `ctx.ip`); a `number` trusts exactly that many proxy
+   * hops, selecting the corresponding `X-Forwarded-For` entry from the
+   * right; a `string[]` of CIDR ranges/IPs trusts only requests whose
+   * immediate peer (and every hop it names) falls inside the set.
+   */
+  trust: ProxyTrust;
+  /** The direct socket/connection IP (runtime-specific; the fallback for every trust form). */
   directIp: string;
+  /**
+   * The immediate connecting peer's address, used to validate a `string[]`
+   * trust list. Defaults to `directIp` when omitted — the two are the same
+   * value on every adapter that doesn't sit behind its own internal proxy.
+   */
+  peerIp?: string;
   /**
    * When true, consult Cloudflare's `cf-connecting-ip` before the standard
    * proxy headers. Set by the edge adapter.
@@ -139,43 +152,49 @@ export interface ClientIpOptions {
 }
 
 /**
- * The single, shared client-IP resolution policy for every adapter (audit F-11).
+ * The single, shared client-IP resolution policy for every adapter (audit F-11, RFC-030).
  *
  * @remarks
- * Precedence when `trustProxy` is enabled:
- *   1. `cf-connecting-ip` (only when `cloudflare` is set)
- *   2. `x-forwarded-for` (first entry)
- *   3. `x-real-ip`
- * Each candidate is format-validated ({@link isValidClientIp}); a malformed
- * value is skipped rather than trusted. When `trustProxy` is false, or no
- * valid proxy header is present, the `directIp` is returned.
+ * `trust: false` (default) always returns `directIp` — no header lookup, no
+ * allocation, byte-identical to today. Otherwise the chain is walked from
+ * the right under the configured trust (hop count or CIDR peer list), never
+ * trusting the leftmost (client-authored) entry outright — the vulnerability
+ * this policy exists to close (SEC-01). `cf-connecting-ip` is still
+ * consulted first when `cloudflare` is set, but only once the peer/hop trust
+ * above has already been satisfied for the rest of the chain.
  *
  * Centralizing this here means Node, Bun, Deno, and Edge resolve `ctx.ip`
- * identically for a given header set — previously each adapter forked its own
- * precedence and validation and they had drifted.
+ * identically for a given header set and trust configuration.
  *
  * @param get - Case-insensitive header lookup.
  * @param options - Trust + direct-IP + platform options.
  * @returns The resolved client IP (may be empty if unavailable).
  */
 export function resolveClientIp(get: HeaderLookup, options: ClientIpOptions): string {
-  const { trustProxy, directIp, cloudflare = false } = options;
+  const { trust, directIp, cloudflare = false, peerIp = directIp } = options;
 
-  if (trustProxy) {
-    if (cloudflare) {
-      const cf = isValidClientIp(get('cf-connecting-ip'));
-      if (cf) return cf;
-    }
+  if (trust === false) return directIp;
 
-    const forwarded = get('x-forwarded-for');
-    if (forwarded) {
-      const first = isValidClientIp(forwarded.split(',')[0]);
-      if (first) return first;
-    }
+  const peerTrusted = typeof trust === 'number' || isTrustedPeer(peerIp, trust);
 
-    const realIp = isValidClientIp(get('x-real-ip'));
-    if (realIp) return realIp;
+  if (cloudflare && peerTrusted) {
+    const cf = isValidClientIp(get('cf-connecting-ip'));
+    if (cf) return cf;
   }
+
+  if (!peerTrusted) return directIp;
+
+  const forwarded = get('x-forwarded-for');
+  if (forwarded) {
+    const resolved =
+      typeof trust === 'number'
+        ? resolveByHopCount(forwarded, trust)
+        : resolveByPeerList(forwarded, trust, peerIp);
+    if (resolved) return resolved;
+  }
+
+  const realIp = isValidClientIp(get('x-real-ip'));
+  if (realIp) return realIp;
 
   return directIp;
 }
@@ -186,7 +205,7 @@ function webHeaderLookup(request: Request): HeaderLookup {
 }
 
 /**
- * Extract the client IP from a Web API Request, respecting trustProxy.
+ * Extract the client IP from a Web API Request under the given proxy trust.
  *
  * @remarks
  * Delegates to the shared {@link resolveClientIp} policy so Bun/Deno behave
@@ -194,27 +213,29 @@ function webHeaderLookup(request: Request): HeaderLookup {
  *
  * @param request - Web API Request
  * @param directIp - The direct socket/connection IP (runtime-specific)
- * @param trustProxy - Whether to trust proxy headers
+ * @param trust - Proxy trust specification (RFC-030); `directIp` also serves as the peer address
  * @returns Client IP string (may be empty if unavailable)
  */
-export function getClientIp(request: Request, directIp: string, trustProxy: boolean): string {
-  return resolveClientIp(webHeaderLookup(request), { trustProxy, directIp });
+export function getClientIp(request: Request, directIp: string, trust: ProxyTrust): string {
+  return resolveClientIp(webHeaderLookup(request), { trust, directIp });
 }
 
 /**
- * Extract the client IP for Cloudflare-style edge runtimes, respecting trustProxy.
+ * Extract the client IP for Cloudflare-style edge runtimes under the given proxy trust.
  *
  * @remarks
  * Adds Cloudflare's `cf-connecting-ip` to the front of the shared
- * {@link resolveClientIp} precedence.
+ * {@link resolveClientIp} precedence. Edge has no socket peer address, so a
+ * `string[]` (CIDR peer list) trust cannot be validated here — callers reject
+ * that combination at boot (RFC-030 §8.6).
  *
  * @param request - Web API Request
- * @param trustProxy - Whether to trust proxy headers
+ * @param trust - Proxy trust specification (RFC-030)
  * @returns Client IP string (may be empty if unavailable)
  */
-export function getEdgeClientIp(request: Request, trustProxy: boolean): string {
+export function getEdgeClientIp(request: Request, trust: ProxyTrust): string {
   return resolveClientIp(webHeaderLookup(request), {
-    trustProxy,
+    trust,
     directIp: '',
     cloudflare: true,
   });
