@@ -16,6 +16,7 @@ export type {
   CsrfCookieOptions,
   CsrfMiddleware,
   CsrfOptions,
+  SessionBinding,
   SessionIdentifierExtractor,
   TokenExtractor,
 } from './types.js';
