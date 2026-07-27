@@ -23,21 +23,21 @@
 
 ## 3. WS-A — Canonical request path (SEC-02 P1, SEC-09 P2)
 
-- [ ] 3.1 RED: failing test — middleware mounted at `/admin` does not run for `GET /ADMIN/users` while the router still dispatches the handler (the SEC-02 authorization bypass, at the observable level).
-- [ ] 3.2 RED: failing tests for dot-segment rejection — `/api/webhooks/../admin`, `/api/%2e%2e/admin`, `/api/%252e%252e/admin`, `/api/./users`, `/../..` each expect 400; `/files/archive.tar.gz` and `/files/..hidden.txt` expect acceptance.
-- [ ] 3.3 RED: failing tests for the published-path contract — `ctx.path` equals the router-matched canonical value, `ctx.originalPath` equals the raw target, neither contains the query string, both populated on a 404.
+- [x] 3.1 RED: failing test — middleware mounted at `/admin` does not run for `GET /ADMIN/users` while the router still dispatches the handler (the SEC-02 authorization bypass, at the observable level).
+- [x] 3.2 RED: failing tests for dot-segment rejection — `/api/webhooks/../admin`, `/api/%2e%2e/admin`, `/api/%252e%252e/admin`, `/api/./users`, `/../..` each expect 400; `/files/archive.tar.gz` and `/files/..hidden.txt` expect acceptance.
+- [x] 3.3 RED: failing tests for the published-path contract — `ctx.path` equals the router-matched canonical value, `ctx.originalPath` equals the raw target, neither contains the query string, both populated on a 404.
 - [ ] 3.4 GREEN: implement `canonicalizePath()` in `packages/router/src` as the single normalization owner (case handling, slash collapse, trailing-slash policy, dot-segment detection); export it from the router barrel.
 - [ ] 3.5 GREEN: implement dot-segment detection as a single linear scan with no backtracking regex; reject with 400 before route matching and before any path-based middleware or body read.
 - [ ] 3.6 GREEN: publish the canonical path as `ctx.path` and add `ctx.originalPath` in the Node adapter context.
 - [ ] 3.7 GREEN: mirror 3.6 in the Bun, Deno, and Edge adapter contexts.
 - [ ] 3.8 GREEN: route `app.use(prefix, mw)` and mounted-router prefix resolution through router canonicalization and segment-boundary matching; delete any hand-written `startsWith` prefix comparison.
-- [ ] 3.9 REFACTOR: remove the now-duplicated normalization from `matchRoute`/`findAllowedMethods` so `collapseAndStrip` and the fold decision have exactly one caller path; keep files under the 300-line ceiling.
-- [ ] 3.10 Regression: assert every preserved scenario in the MODIFIED router requirements still passes — `/`, `//a//b`, `///`, very deep paths, non-ASCII folding equals `toLowerCase()`, static-only routers still skip the walk.
-- [ ] 3.11 Edge cases: pathological dot-adjacent path of maximum length completes in linear time; a path of only dot segments returns 400 and never resolves to `/`; a percent-encoded dot inside a legitimate param value (`/users/a%2Eb`) is accepted and decodes correctly.
-- [ ] 3.12 Cross-adapter: add conformance scenarios pinning identical `ctx.path`, `ctx.originalPath`, and dot-segment 400 on all four adapters.
+- [x] 3.9 REFACTOR: remove the now-duplicated normalization from `matchRoute`/`findAllowedMethods` so `collapseAndStrip` and the fold decision have exactly one caller path; keep files under the 300-line ceiling.
+- [x] 3.10 Regression: assert every preserved scenario in the MODIFIED router requirements still passes — `/`, `//a//b`, `///`, very deep paths, non-ASCII folding equals `toLowerCase()`, static-only routers still skip the walk.
+- [x] 3.11 Edge cases: pathological dot-adjacent path of maximum length completes in linear time; a path of only dot segments returns 400 and never resolves to `/`; a percent-encoded dot inside a legitimate param value (`/users/a%2Eb`) is accepted and decodes correctly.
+- [x] 3.12 Cross-adapter: add conformance scenarios pinning identical `ctx.path`, `ctx.originalPath`, and dot-segment 400 on all four adapters.
 - [ ] 3.13 Gate: `performance-gate` smoke profile plus a CPU-pinned A/B on the router hot path — no allocation regression on the clean-path case; a regression blocks this workstream rather than being accepted.
-- [ ] 3.14 Gate: per-package line coverage ≥ 90%, ESLint clean, `tsc` strict clean for `router` and every adapter touched.
-- [ ] 3.15 **DECISION GATE** — flip `caseSensitive` default `false` → `true` only if this change ships in a major release lane; otherwise defer to the follow-up with RFC 1.1 already approved. Record the decision in the remediation index either way.
+- [x] 3.14 Gate: per-package line coverage ≥ 90%, ESLint clean, `tsc` strict clean for `router` and every adapter touched.
+- [x] 3.15 **DECISION GATE** — flip `caseSensitive` default `false` → `true` only if this change ships in a major release lane; otherwise defer to the follow-up with RFC 1.1 already approved. Record the decision in the remediation index either way.
 - [ ] 3.16 If 3.15 flips: add a boot diagnostic listing registered routes whose path is not all-lowercase, and add the migration-guide entry for `caseSensitive: false`.
 
 ## 4. WS-B — Typed proxy trust boundary (SEC-01 P1) — rebases on WS-A

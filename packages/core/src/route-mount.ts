@@ -17,6 +17,33 @@ const ORIGINAL_PATH = Symbol.for('nextrush.originalPath');
 const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
 
 /**
+ * Test whether `currentPath` falls under `normalizedPrefix`, delegating to
+ * the mounted router's own `matchesMountPrefix` when it implements one
+ * (RFC-029, task 3.8) so the mount boundary uses the SAME case-folding and
+ * structural normalization the router's own dispatch does — never a rule of
+ * its own. A `Routable` with no such method (e.g. a minimal test double)
+ * falls back to the literal, case-sensitive prefix + boundary check this
+ * function previously did inline.
+ */
+function resolveMountedPath(
+  currentPath: string,
+  normalizedPrefix: string,
+  matchesMountPrefix?: (path: string, prefix: string) => string | undefined
+): string | undefined {
+  if (matchesMountPrefix) {
+    return matchesMountPrefix(currentPath, normalizedPrefix);
+  }
+
+  const prefixLen = normalizedPrefix.length;
+  if (!currentPath.startsWith(normalizedPrefix)) return undefined;
+
+  const hasCharAfterPrefix = prefixLen < currentPath.length;
+  if (hasCharAfterPrefix && currentPath.charCodeAt(prefixLen) !== SLASH_CHAR_CODE) return undefined;
+
+  return currentPath.slice(prefixLen) || '/';
+}
+
+/**
  * Create a middleware that mounts `routerMiddleware` at `normalizedPrefix`.
  *
  * @remarks
@@ -28,29 +55,24 @@ const ROUTE_PREFIX = Symbol.for('nextrush.routePrefix');
  *
  * @param normalizedPrefix - The mount prefix (e.g. `/api/users`).
  * @param routerMiddleware - The mounted router's `routes()` middleware.
+ * @param matchesMountPrefix - The mounted router's own prefix test, when it
+ *   implements {@link import('./application').Routable.matchesMountPrefix} —
+ *   see {@link resolveMountedPath}.
  */
 export function createPrefixMount(
   normalizedPrefix: string,
-  routerMiddleware: Middleware
+  routerMiddleware: Middleware,
+  matchesMountPrefix?: (path: string, prefix: string) => string | undefined
 ): Middleware {
-  const prefixLen = normalizedPrefix.length;
-
   return async (ctx: Context, next): Promise<void> => {
     const currentPath = ctx.path;
 
-    // Fast prefix check
-    if (!currentPath.startsWith(normalizedPrefix)) {
-      return next();
-    }
-
-    // Check prefix boundary (avoid /api/usersxxx matching /api/users)
-    const hasCharAfterPrefix = prefixLen < currentPath.length;
-    if (hasCharAfterPrefix && currentPath.charCodeAt(prefixLen) !== SLASH_CHAR_CODE) {
+    const adjustedPath = resolveMountedPath(currentPath, normalizedPrefix, matchesMountPrefix);
+    if (adjustedPath === undefined) {
       return next();
     }
 
     // Direct path manipulation (no Proxy - fast!)
-    const adjustedPath = currentPath.slice(prefixLen) || '/';
     (ctx as { path: string }).path = adjustedPath;
 
     // Store original for recovery (Symbol keys avoid ctx.state pollution)

@@ -30,7 +30,20 @@ describe('Public API surface (runtime exports)', () => {
     // `createNode`/`NodeType`/`parseSegments` are internal segment-trie
     // helpers exposed for advanced usage (see the barrel's own comment) —
     // locked as-is here; renaming any of them is a separate breaking change.
-    const expectedRuntime = ['createRouter', 'endpoint', 'Router', 'createNode', 'NodeType', 'parseSegments'].sort();
+    // `canonicalizePath`/`hasDotSegment` are RFC-029's canonical-path surface:
+    // the single normalization owner every path-based consumer (mount-prefix
+    // matching, CSRF exclude paths, a hand-written policy guard) should call
+    // instead of re-deriving its own fold/collapse/strip.
+    const expectedRuntime = [
+      'createRouter',
+      'endpoint',
+      'Router',
+      'createNode',
+      'NodeType',
+      'parseSegments',
+      'canonicalizePath',
+      'hasDotSegment',
+    ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
     expect(typeof NodeType).toBe('object');

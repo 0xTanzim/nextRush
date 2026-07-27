@@ -86,11 +86,27 @@ export interface Context {
   readonly url: string;
 
   /**
-   * Request path without query string
+   * Request path without query string, canonicalized by the router (case
+   * folded per `caseSensitive`, structurally normalized) — the value the
+   * router actually matched on, and the one path-based policy middleware
+   * should compare against instead of hand-rolling its own normalization
+   * (RFC-029). See {@link originalPath} for the untouched raw target.
    * @example '/users/123'
    * @readonly
    */
   readonly path: string;
+
+  /**
+   * The raw request target as received, before router canonicalization —
+   * still query-string-free, but not case-folded or structurally normalized.
+   * Optional: populated once the router's dispatch middleware runs; absent
+   * (or equal to {@link path}) when no router has run yet, or when a caller
+   * constructs a `Context` directly (e.g. a test double) without one. Prefer
+   * `path` for any security- or routing-relevant comparison (RFC-029).
+   * @example '/Users/123' when a request for '/USERS/123' matched '/users/:id'
+   * @readonly
+   */
+  readonly originalPath?: string;
 
   /**
    * Parsed query string parameters

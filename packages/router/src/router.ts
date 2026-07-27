@@ -33,6 +33,10 @@ import {
 } from './registration';
 import { createAllowedMethodsMiddleware, createRoutesMiddleware } from './dispatch';
 import { createRouterState, resolveRouterOptions } from './state';
+import { canonicalizePath } from './canonicalize';
+
+/** '/'.charCodeAt(0) — used by {@link Router.matchesMountPrefix}'s boundary check. */
+const SLASH_CHAR_CODE = 0x2f;
 
 /** Inline route metadata declaration — re-exported from its own module (RT-3). */
 export { endpoint } from './route-metadata';
@@ -216,6 +220,36 @@ export class Router {
   }
 
   /**
+   * Test whether `path` falls under `prefix` using this router's OWN
+   * canonicalization (case folding per `caseSensitive`, structural
+   * normalization) — the mount-boundary counterpart to {@link match}, so a
+   * router mounted via `Application.route()` is tested with the identical
+   * rule it dispatches with (RFC-029, task 3.8). Implements the optional
+   * `Routable.matchesMountPrefix` contract from `@nextrush/core`.
+   *
+   * @param path - The full request path being tested for this mount.
+   * @param prefix - The normalized mount prefix (leading `/`, no trailing `/`).
+   * @returns The path's remainder past the prefix (e.g. `/users` for a
+   *   `/ADMIN/Users` request mounted at `/admin`), or `undefined` when `path`
+   *   is not under `prefix` per this router's canonicalization.
+   */
+  matchesMountPrefix(path: string, prefix: string): string | undefined {
+    const canonical = canonicalizePath(path, this.opts.caseSensitive, this.opts.strict);
+    if (canonical.rejected) return undefined;
+
+    const canonicalPrefix = canonicalizePath(prefix, this.opts.caseSensitive, this.opts.strict).path;
+    const prefixLen = canonicalPrefix.length;
+    if (!canonical.path.startsWith(canonicalPrefix)) return undefined;
+
+    const hasCharAfterPrefix = prefixLen < canonical.path.length;
+    if (hasCharAfterPrefix && canonical.path.charCodeAt(prefixLen) !== SLASH_CHAR_CODE) {
+      return undefined;
+    }
+
+    return canonical.path.slice(prefixLen) || '/';
+  }
+
+  /**
    * Return the router's dispatch middleware — mount this on the application.
    * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#routerroutes | README: router.routes()}
    */
@@ -226,7 +260,11 @@ export class Router {
       this._sealed = true;
       sealRouterMiddlewareImpl(this.root, this.staticRoutes, this.routerMiddleware);
     }
-    return createRoutesMiddleware((method, path) => this.match(method, path));
+    return createRoutesMiddleware(
+      (method, path) => this.match(method, path),
+      this.opts.caseSensitive,
+      this.opts.strict
+    );
   }
 
   /**
