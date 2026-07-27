@@ -16,6 +16,21 @@ export interface ErrorHandlerOptions {
   /** Include stack trace in development */
   includeStack?: boolean;
 
+  /**
+   * Whether the application is running in production (SEC-14).
+   *
+   * @remarks
+   * `@nextrush/errors` has no access to `app.isProduction` on its own — the
+   * caller threads it through explicitly, mirroring `@nextrush/core`'s
+   * `writeDefaultErrorResponse(opts.isProduction)`. When `true`, a truthy
+   * `includeStack` is ignored (fail closed) and a single warning is logged
+   * once per process, rather than once per request. Defaults to `false` so
+   * existing callers that don't pass this option keep today's behavior.
+   *
+   * @default false
+   */
+  isProduction?: boolean;
+
   /** Custom error logger */
   logger?: (error: Error, ctx: Context) => void;
 
@@ -54,7 +69,12 @@ function defaultLogger(error: Error, ctx: Context): void {
  * ```
  */
 export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
-  const { includeStack = false, logger = defaultLogger, transform, handlers } = options;
+  const { includeStack = false, isProduction = false, logger = defaultLogger, transform, handlers } = options;
+
+  // SEC-14: warn once per process, not once per request — a per-request
+  // warning on a hot error path floods logs for no added value once the
+  // misconfiguration is known.
+  let warnedIncludeStackInProduction = false;
 
   return async (ctx: Context, next: Next): Promise<void> => {
     try {
@@ -115,7 +135,20 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
       }
 
       if (includeStack && err.stack) {
-        body.stack = err.stack.split('\n').map((line) => line.trim());
+        // SEC-14: fail closed — a stack trace is ignored in production
+        // regardless of the caller's configuration, since it maps internal
+        // paths, package layout, and dependency versions for the client.
+        if (isProduction) {
+          if (!warnedIncludeStackInProduction) {
+            warnedIncludeStackInProduction = true;
+            console.warn(
+              '[@nextrush/errors] includeStack: true was ignored because isProduction is true. ' +
+                'Stack traces are never emitted in production regardless of configuration.'
+            );
+          }
+        } else {
+          body.stack = err.stack.split('\n').map((line) => line.trim());
+        }
       }
 
       ctx.json(body);

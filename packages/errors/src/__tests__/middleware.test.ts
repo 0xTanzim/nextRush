@@ -120,6 +120,88 @@ describe('errorHandler', () => {
       const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(jsonCall.stack).toBeUndefined();
     });
+
+    // SEC-14: includeStack: true must be a no-op in production, not honored
+    // unconditionally — a stack trace is a map of internal paths/dependency
+    // versions, and the previous behavior handed that map to any client the
+    // moment a deploy forgot to flip includeStack off.
+    describe('production guard (SEC-14)', () => {
+      it('ignores includeStack: true in production and logs exactly one warning', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const handler = errorHandler({ includeStack: true, isProduction: true });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new BadRequestError('Invalid');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeUndefined();
+        // The default 4xx logger also calls console.warn — isolate the
+        // SEC-14 guard's own warning by content rather than call count.
+        const sec14Warnings = warnSpy.mock.calls.filter((call) =>
+          String(call[0]).includes('includeStack')
+        );
+        expect(sec14Warnings).toHaveLength(1);
+        warnSpy.mockRestore();
+      });
+
+      it('warns only once across multiple requests in production, not once per request', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const handler = errorHandler({ includeStack: true, isProduction: true });
+
+        for (let i = 0; i < 3; i++) {
+          const ctx = createMockContext();
+          await handler(ctx, async () => {
+            throw new BadRequestError('Invalid');
+          });
+        }
+
+        const sec14Warnings = warnSpy.mock.calls.filter((call) =>
+          String(call[0]).includes('includeStack')
+        );
+        expect(sec14Warnings).toHaveLength(1);
+        warnSpy.mockRestore();
+      });
+
+      it('preserves development behavior — stack is present when isProduction is false', async () => {
+        const handler = errorHandler({ includeStack: true, isProduction: false });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new BadRequestError('Invalid');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeDefined();
+      });
+
+      it('preserves development behavior when isProduction is omitted (default)', async () => {
+        const handler = errorHandler({ includeStack: true });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new BadRequestError('Invalid');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeDefined();
+      });
+
+      it('a plain (non-HttpError) Error never exposes its message in production, with or without includeStack', async () => {
+        const handler = errorHandler({ includeStack: true, isProduction: true });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new Error('internal db connection string: postgres://secret');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeUndefined();
+        expect(JSON.stringify(jsonCall)).not.toContain('postgres://secret');
+        expect(jsonCall.message).toBe('Internal Server Error');
+      });
+    });
   });
 
   describe('logger option', () => {

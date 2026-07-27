@@ -8,8 +8,8 @@
  */
 
 import type { Context, Middleware, Next } from '@nextrush/types';
-import { CORS_HEADERS, DEFAULT_METHODS, PREFLIGHT_INDICATORS } from './constants.js';
-import { appendVary, normalizeHeaders } from './headers.js';
+import { CORS_HEADERS, DEFAULT_ALLOWED_HEADERS, DEFAULT_METHODS, PREFLIGHT_INDICATORS } from './constants.js';
+import { appendVary, intersectRequestedHeaders, normalizeHeaders } from './headers.js';
 import { securityWarning } from './security.js';
 import type { CorsContext, CorsOptions } from './types.js';
 import { isOriginAllowed } from './validation.js';
@@ -154,9 +154,18 @@ export function cors(options: CorsOptions = {}): Middleware {
       // Allowed methods
       ctx.set(CORS_HEADERS.allowMethods, normalizedMethods);
 
-      // Allowed headers - either configured or reflected from request
+      // Allowed headers (SEC-10): a configured allowlist is honored verbatim
+      // (developer's explicit choice). Otherwise intersect the requested
+      // headers against the conservative default allowlist rather than
+      // echoing the request back — Authorization only joins the default set
+      // when credentials are enabled, since it is meaningless without them.
       const requestHeaders = ctx.get(PREFLIGHT_INDICATORS.headers);
-      const headersToAllow = normalizedAllowedHeaders || requestHeaders;
+      const headersToAllow =
+        normalizedAllowedHeaders ??
+        intersectRequestedHeaders(
+          requestHeaders,
+          credentials ? [...DEFAULT_ALLOWED_HEADERS, 'Authorization'] : DEFAULT_ALLOWED_HEADERS
+        );
       if (headersToAllow) {
         ctx.set(CORS_HEADERS.allowHeaders, headersToAllow);
       }

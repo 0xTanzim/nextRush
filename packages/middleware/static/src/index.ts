@@ -43,6 +43,7 @@ export {
     getMimeType,
     isDotfile,
     isFresh,
+    isScriptCapable,
     normalizePrefix,
     parseRange,
     safeJoin,
@@ -70,6 +71,7 @@ const DEFAULT_OPTIONS: Omit<NormalizedStaticOptions, 'root'> = {
   highWaterMark: 1048576, // 1MB
   followSymlinks: false, // Security: don't follow symlinks by default
   xContentTypeOptions: true, // Security: prevent MIME sniffing
+  untrusted: false,
   streamTimeout: 30000, // 30 seconds default timeout
 };
 

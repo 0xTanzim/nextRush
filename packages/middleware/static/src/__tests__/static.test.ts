@@ -33,6 +33,15 @@ import {
     stripPrefix,
 } from '../index';
 
+// SEC-13: mock only `open` on `node:fs/promises`, keeping every other export
+// (readFile, lstat, stat, realpath, ...) as the real implementation, so the
+// TOCTOU test can deterministically interleave a file swap between the
+// descriptor open() call sendFile() makes and its subsequent fstat/read.
+vi.mock('node:fs/promises', async () => {
+  const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  return { ...actual, open: vi.fn(actual.open) };
+});
+
 // ============================================================================
 // Test Fixtures Setup
 // ============================================================================
@@ -923,8 +932,29 @@ describe('serveStatic Middleware', () => {
 
       expect(ctx._test.responseHeaders['Content-Length']).toBe(2 * 1024 * 1024);
     });
+
+    // Pre-existing streamTimeout branch in streamToResponse(), found
+    // uncovered while verifying WS-E's package coverage target — not a
+    // SEC-10-17 behavior change, closing a gap discovered in a file this
+    // workstream already touches (send-file.ts).
+    it('ends the response with 504 when streaming exceeds streamTimeout', async () => {
+      const middleware = serveStatic({
+        root: tempDir,
+        highWaterMark: 1024,
+        streamTimeout: 1,
+      });
+      const ctx = createMockContext({ path: '/large.txt' }) as TestContext;
+      const next = vi.fn();
+
+      // The read stream stays open past the 1ms timeout (nothing artificially
+      // finishes it first), so streamToResponse's timeout branch fires and
+      // rejects — sendFile() itself does not swallow that rejection.
+      await expect(middleware(ctx, next)).rejects.toThrow('Stream timeout');
+      expect(ctx._test.statusCode).toBe(504);
+    });
   });
 });
+
 
 // ============================================================================
 // Alias Tests
@@ -1283,6 +1313,241 @@ describe('Security', () => {
       } catch {
         console.log('Symlink test skipped');
       }
+    });
+  });
+
+  // ==========================================================================
+  // SEC-11: untrusted mode neutralizes script-capable content types
+  // ==========================================================================
+  describe('untrusted mode (SEC-11)', () => {
+    beforeAll(() => {
+      writeFileSync(
+        join(tempDir, 'avatar.svg'),
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+        'utf8'
+      );
+      writeFileSync(join(tempDir, 'upload.html'), '<script>alert(1)</script>', 'utf8');
+      mkdirSync(join(tempDir, 'uploads'), { recursive: true });
+      writeFileSync(
+        join(tempDir, 'uploads', 'index.html'),
+        '<script>alert(1)</script>',
+        'utf8'
+      );
+      writeFileSync(join(tempDir, 'uploads', 'evil'), '<script>alert(1)</script>', 'utf8');
+    });
+
+    it('serves an .svg inline as image/svg+xml when untrusted is not set (baseline)', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/avatar.svg' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('image/svg+xml');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBeUndefined();
+    });
+
+    it('neutralizes an .svg under untrusted: true (SEC-11)', async () => {
+      const middleware = serveStatic({ root: tempDir, untrusted: true });
+      const ctx = createMockContext({ path: '/avatar.svg' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('application/octet-stream');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+      expect(ctx._test.responseHeaders['Content-Security-Policy']).toBe(
+        "sandbox; default-src 'none'"
+      );
+    });
+
+    it('neutralizes an .html file under untrusted: true', async () => {
+      const middleware = serveStatic({ root: tempDir, untrusted: true });
+      const ctx = createMockContext({ path: '/upload.html' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('application/octet-stream');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+      expect(ctx._test.responseHeaders['Content-Security-Policy']).toBe(
+        "sandbox; default-src 'none'"
+      );
+    });
+
+    it('leaves a non-script-capable type (e.g. .txt) untouched under untrusted: true', async () => {
+      const middleware = serveStatic({ root: tempDir, untrusted: true });
+      const ctx = createMockContext({ path: '/test.txt' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('text/plain; charset=utf-8');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+      expect(ctx._test.responseHeaders['Content-Security-Policy']).toBe(
+        "sandbox; default-src 'none'"
+      );
+    });
+
+    it('applies neutralizing headers to a directory-index resolution under untrusted: true', async () => {
+      const middleware = serveStatic({ root: tempDir, untrusted: true, prefix: '/uploads' });
+      const ctx = createMockContext({ path: '/uploads/' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('application/octet-stream');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+    });
+
+    it('applies neutralizing headers to an extension-fallback resolution under untrusted: true', async () => {
+      const middleware = serveStatic({
+        root: tempDir,
+        untrusted: true,
+        extensions: ['html'],
+      });
+      const ctx = createMockContext({ path: '/upload' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('application/octet-stream');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+    });
+
+    it('trusted roots (untrusted unset) keep nosniff and unchanged content types', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/test.txt' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['X-Content-Type-Options']).toBe('nosniff');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBeUndefined();
+      expect(ctx._test.responseHeaders['Content-Security-Policy']).toBeUndefined();
+    });
+
+    // 7.10 edge case: a zero-byte file is still a real file resolution — the
+    // untrusted-mode headers must apply the same as any other size, since
+    // an empty upload is not a signal that the content is safe.
+    it('applies neutralizing headers to a zero-byte untrusted file', async () => {
+      writeFileSync(join(tempDir, 'empty.svg'), '', 'utf8');
+      const middleware = serveStatic({ root: tempDir, untrusted: true });
+      const ctx = createMockContext({ path: '/empty.svg' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('application/octet-stream');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+      expect(ctx._test.responseHeaders['Content-Length']).toBe(0);
+    });
+
+    // 7.10 edge case: a file with no extension is never script-capable by
+    // extension (isScriptCapable() only matches by extension), but
+    // untrusted mode's Content-Disposition/CSP still apply uniformly
+    // regardless of type — only the Content-Type downgrade is
+    // extension-gated. getMimeType() already falls back to
+    // application/octet-stream for an unrecognized extension independent of
+    // untrusted mode, so the type itself is not a useful signal here; the
+    // headers unconditional on untrusted are.
+    it('applies the attachment/CSP headers unconditionally to an extensionless untrusted file', async () => {
+      const middleware = serveStatic({ root: tempDir, untrusted: true });
+      const ctx = createMockContext({ path: '/page' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+      expect(ctx._test.responseHeaders['Content-Security-Policy']).toBe(
+        "sandbox; default-src 'none'"
+      );
+    });
+
+    // 7.10 edge case: a Range request against an untrusted resource must
+    // still carry the neutralizing headers on the 206 response — the range
+    // machinery and the untrusted-mode header logic are independent and
+    // must not disable each other.
+    it('keeps neutralizing headers on a 206 partial-content response for an untrusted file', async () => {
+      const middleware = serveStatic({ root: tempDir, untrusted: true });
+      const ctx = createMockContext({
+        path: '/avatar.svg',
+        headers: { range: 'bytes=0-5' },
+      }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      expect(ctx.status).toBe(206);
+      expect(ctx._test.responseHeaders['Content-Type']).toBe('application/octet-stream');
+      expect(ctx._test.responseHeaders['Content-Disposition']).toBe('attachment');
+      expect(ctx._test.responseHeaders['Content-Security-Policy']).toBe(
+        "sandbox; default-src 'none'"
+      );
+    });
+  });
+
+  // ==========================================================================
+  // SEC-13: sendFile() must not re-resolve the path between the safety check
+  // and the read — open a descriptor, fstat that descriptor, stream from it.
+  // ==========================================================================
+  describe('static file TOCTOU safety (SEC-13)', () => {
+    it('serves the descriptor opened for the request even if the path is swapped for a symlink right after open() resolves', async () => {
+      // Deterministic TOCTOU proof (a real filesystem race is inherently
+      // flaky in CI): swap the on-disk entry for a symlink to an
+      // outside-root secret the instant fsp.open() resolves, before
+      // sendFile's next await (fstat/read) runs. A by-descriptor
+      // implementation is unaffected because the descriptor already
+      // references the original inode; a by-name re-resolution would follow
+      // the new symlink.
+      const fsp = await import('node:fs/promises');
+      const { symlinkSync, unlinkSync, writeFileSync: write } = await import('node:fs');
+      const racePath = join(tempDir, 'race-target-2.txt');
+      const outsidePath = join(tempDir, '..', 'race-outside-secret-2.txt');
+      write(racePath, 'ORIGINAL-SAFE-CONTENT', 'utf8');
+      write(outsidePath, 'SECRET-OUTSIDE-ROOT', 'utf8');
+
+      const openMock = fsp.open as unknown as ReturnType<typeof vi.fn>;
+      const realOpen = openMock.getMockImplementation();
+      let swapped = false;
+      openMock.mockImplementation(async (...args: Parameters<typeof fsp.open>) => {
+        const handle = await realOpen!(...args);
+        if (!swapped && args[0] === racePath) {
+          swapped = true;
+          unlinkSync(racePath);
+          symlinkSync(outsidePath, racePath);
+        }
+        return handle;
+      });
+
+      try {
+        const middleware = serveStatic({ root: tempDir });
+        const ctx = createMockContext({ path: '/race-target-2.txt' }) as TestContext;
+        await middleware(ctx, vi.fn());
+
+        // The swap must actually have happened via fsp.open() for this test
+        // to prove anything — if sendFile() never calls fsp.open() (the
+        // pre-fix by-name read/stream path), this guard fails loudly instead
+        // of silently passing because the race never got a chance to fire.
+        expect(swapped).toBe(true);
+
+        const served = Buffer.concat(ctx._test.chunks).toString('utf8');
+        expect(served).toBe('ORIGINAL-SAFE-CONTENT');
+        expect(served).not.toContain('SECRET-OUTSIDE-ROOT');
+      } finally {
+        openMock.mockImplementation(realOpen!);
+        try { unlinkSync(racePath); } catch { /* ignore */ }
+        try { unlinkSync(outsidePath); } catch { /* ignore */ }
+      }
+    });
+
+    it('streams the small-file path from the same descriptor stat was taken from', async () => {
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/test.txt' }) as TestContext;
+      await middleware(ctx, vi.fn());
+
+      const served = Buffer.concat(ctx._test.chunks).toString('utf8');
+      expect(served).toBe('hello world');
+    });
+
+    it('terminates cleanly without an unhandled rejection when the file is unlinked mid-stream', async () => {
+      const { writeFileSync: write, unlinkSync } = await import('node:fs');
+      const midReadPath = join(tempDir, 'mid-read-unlink.txt');
+      write(midReadPath, 'x'.repeat(2 * 1024 * 1024), 'utf8'); // large enough to stream
+
+      const middleware = serveStatic({ root: tempDir });
+      const ctx = createMockContext({ path: '/mid-read-unlink.txt' }) as TestContext;
+
+      const donePromise = middleware(ctx, vi.fn());
+      // Unlink only after sendFile's own fsp.open() has resolved and the
+      // stream has started — an already-open fd keeps the inode alive on
+      // POSIX even after unlink, so this must not throw/reject the request.
+      // A microtask alone races the open() syscall itself; give the event
+      // loop a real turn first.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      try { unlinkSync(midReadPath); } catch { /* ignore */ }
+
+      await expect(donePromise).resolves.not.toThrow();
     });
   });
 });

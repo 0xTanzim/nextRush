@@ -120,6 +120,7 @@ listen(app, 8080);
 
 **Request handling**
 - Full preflight (`OPTIONS`) handling: `Access-Control-Allow-Methods`, `-Headers`, `-Max-Age`, and the terminal `204` (configurable) response
+- Default preflight header allowlist -- an unconfigured `allowedHeaders` intersects the client's requested headers against a fixed, conservative set rather than echoing the request verbatim, so a client cannot widen its own allowed-headers response by asking for more
 - `Vary: Origin` is set on every CORS-eligible response (plus `Access-Control-Request-Method` / `-Headers` on preflight) so origin-keyed responses are never cache-poisoned across origins
 - Private Network Access (`Access-Control-Allow-Private-Network`) support, opt-in via `privateNetworkAccess`
 
@@ -239,7 +240,7 @@ Every default below is read directly from `src/middleware.ts`'s destructuring de
 | ------ | ---- | -------- | ------- | ------------------ | ----------- |
 | `origin` | `boolean \| string \| string[] \| RegExp \| OriginValidator` | No | `false` | Yes | `false` disables CORS entirely (no headers set). `true` reflects the request origin. `'*'` allows any origin. See [Security](#security-enforcement-notes) below. |
 | `methods` | `string \| string[]` | No | `'GET,HEAD,PUT,PATCH,POST,DELETE'` | No | Methods advertised in `Access-Control-Allow-Methods` on preflight. |
-| `allowedHeaders` | `string \| string[]` | No | reflects `Access-Control-Request-Headers` from the preflight request | No | If unset, whatever the browser asked for is echoed back. |
+| `allowedHeaders` | `string \| string[]` | No | intersects the requested `Access-Control-Request-Headers` against a conservative default allowlist (`Content-Type`, `Accept`, `X-Requested-With`, plus `Authorization` when `credentials: true`) | No | If unset, an unlisted header the client asked for is dropped rather than echoed back; the response header is omitted entirely when nothing survives the intersection. Set explicitly to allow a specific header set verbatim. |
 | `exposedHeaders` | `string \| string[]` | No | `undefined` (no `Access-Control-Expose-Headers` header sent) | No | Response headers readable from client-side JavaScript. |
 | `credentials` | `boolean` | No | `false` | Yes | Sets `Access-Control-Allow-Credentials: true`. Throws if `origin === '*'`; warns if `origin === true`. |
 | `maxAge` | `number` | No | `undefined` (no `Access-Control-Max-Age` header sent) | No | Preflight cache duration in seconds. Must be a non-negative finite number or the middleware throws at construction. |
@@ -255,6 +256,7 @@ Verified directly against `src/middleware.ts`:
 - `credentials: true` with `origin: '*'` **throws a hard `Error`** when the middleware is constructed -- this is enforced code, not documentation-only advice. The app will not start with this combination.
 - `credentials: true` with `origin: true` (reflect) does **not** throw -- it calls `securityWarning()`, which logs to `console.warn` (or `console.error`/`console.info` depending on severity) only when `process.env.NODE_ENV !== 'production'`. In production, this warning is silent. Avoid this combination in any environment that handles real user sessions.
 - `maxAge` is validated at construction: a non-number, negative number, or non-finite value throws.
+- An unconfigured `allowedHeaders` never echoes the client's `Access-Control-Request-Headers` verbatim -- it intersects the request against a default allowlist (`Content-Type`, `Accept`, `X-Requested-With`, plus `Authorization` only when `credentials: true`), so a client cannot use a preflight to discover which arbitrary headers your server will accept.
 
 ## Compatibility
 

@@ -90,6 +90,38 @@ export function setVaryHeaders(ctx: Context, headers: string[]): void {
 }
 
 /**
+ * Intersect the client's requested preflight headers against an allowlist
+ * (SEC-10), preserving the allowlist's casing and order rather than the
+ * request's. `Authorization` is included only when the caller has already
+ * decided credentials are enabled — this function only performs the
+ * intersection, it does not know about `credentials`.
+ *
+ * @param requestedHeaders - Raw `Access-Control-Request-Headers` value.
+ * @param allowlist - The configured or default allowed header set.
+ * @returns A comma-joined allowed-headers string, or `undefined` when the
+ *   intersection is empty (the header must then be omitted entirely, not
+ *   sent as an empty value).
+ *
+ * @example
+ * ```typescript
+ * intersectRequestedHeaders('Content-Type, X-Anything', ['Content-Type', 'Accept'])
+ * // 'Content-Type'
+ * ```
+ */
+export function intersectRequestedHeaders(
+  requestedHeaders: string | undefined,
+  allowlist: readonly string[]
+): string | undefined {
+  const requested = parseHeaderList(requestedHeaders);
+  if (requested.length === 0) return undefined;
+
+  const requestedLower = new Set(requested.map((h) => h.toLowerCase()));
+  const allowed = allowlist.filter((h) => requestedLower.has(h.toLowerCase()));
+
+  return allowed.length > 0 ? allowed.join(',') : undefined;
+}
+
+/**
  * Build a method list string from array or string.
  *
  * @param methods - HTTP methods
