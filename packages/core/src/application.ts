@@ -19,7 +19,9 @@ import type {
   ProxyTrust,
   RouteEntry,
   Router,
+  SecurityAuditCheck,
 } from '@nextrush/types';
+import { SECURITY_AUDIT } from '@nextrush/types';
 import { compose } from './middleware';
 import { writeDefaultErrorResponse } from './error-handler';
 import { createPrefixMount } from './route-mount';
@@ -239,6 +241,13 @@ export interface Routable {
 export class Application {
   private readonly middlewareStack: Middleware[] = [];
 
+  /**
+   * Boot-time security audit checks contributed by tagged middleware
+   * (`security-boundaries` capability, task 8.1). Collected as `use()`
+   * registers each middleware; run once by `_boot()`, production-only.
+   */
+  private readonly securityAudits: SecurityAuditCheck[] = [];
+
   /** Registered extensions, in registration order (setup runs at ready()) */
   private readonly extensions: Extension<unknown>[] = [];
 
@@ -360,6 +369,12 @@ export class Application {
         throw new TypeError('Middleware must be a function');
       }
       this.middlewareStack.push(mw);
+      const audit = (mw as Partial<Record<typeof SECURITY_AUDIT, SecurityAuditCheck>>)[
+        SECURITY_AUDIT
+      ];
+      if (typeof audit === 'function') {
+        this.securityAudits.push(audit);
+      }
     }
     return this;
   }
@@ -606,8 +621,32 @@ export class Application {
       this._routerMounted = true;
     }
 
+    if (this.isProduction) {
+      this._runSecurityAudits();
+    }
+
     this._isReady = true;
     return this;
+  }
+
+  /**
+   * Run every registered middleware's boot-time security audit check
+   * (`security-boundaries` capability, task 8.1/8.2). `throw`-level verdicts
+   * fail boot immediately; `warn`-level verdicts log once each via the app
+   * logger and never block boot. Production-only — `_boot()` calls this
+   * conditionally so a dev/test app never pays the cost or sees the noise.
+   */
+  private _runSecurityAudits(): void {
+    for (const audit of this.securityAudits) {
+      const verdict = audit();
+      if (verdict.level === 'ok') {
+        continue;
+      }
+      if (verdict.level === 'throw') {
+        throw new Error(`[security-boundaries] ${verdict.message}`);
+      }
+      this.logger.warn(`[security-boundaries] ${verdict.message}`);
+    }
   }
 
   /**

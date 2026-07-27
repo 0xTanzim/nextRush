@@ -57,6 +57,77 @@ describe('Application', () => {
     });
   });
 
+  // ===========================================================================
+  // Boot-time production security audit (task 8.1/8.2, security-boundaries)
+  // ===========================================================================
+
+  describe('ready() — production security audit', () => {
+    function taggedMiddleware(
+      verdict: import('@nextrush/types').SecurityAuditVerdict
+    ): Middleware {
+      const mw: Middleware = vi.fn();
+      Object.defineProperty(mw, Symbol.for('nextrush.security.audit'), {
+        value: () => verdict,
+        enumerable: false,
+      });
+      return mw;
+    }
+
+    it('throws in production when a registered middleware reports a throw-level verdict', async () => {
+      const prodApp = createApp({ env: 'production' });
+      prodApp.use(taggedMiddleware({ level: 'throw', message: 'origin:true + credentials:true' }));
+
+      await expect(prodApp.ready()).rejects.toThrow(/origin:true \+ credentials:true/);
+    });
+
+    it('warns exactly once in production when a middleware reports a warn-level verdict', async () => {
+      const warn = vi.fn();
+      const prodApp = createApp({ env: 'production', logger: { warn } as never });
+      prodApp.use(taggedMiddleware({ level: 'warn', message: 'dotfiles: allow' }));
+
+      await prodApp.ready();
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('dotfiles: allow');
+    });
+
+    it('is silent outside production for the same warn/throw-worthy configuration', async () => {
+      const warn = vi.fn();
+      const devApp = createApp({ env: 'development', logger: { warn } as never });
+      devApp.use(taggedMiddleware({ level: 'throw', message: 'would throw in production' }));
+
+      await expect(devApp.ready()).resolves.toBe(devApp);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('an ok-level verdict never warns or throws in production', async () => {
+      const warn = vi.fn();
+      const prodApp = createApp({ env: 'production', logger: { warn } as never });
+      prodApp.use(taggedMiddleware({ level: 'ok' }));
+
+      await expect(prodApp.ready()).resolves.toBe(prodApp);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('an untagged middleware is never inspected (no [Symbol] property access assumed present)', async () => {
+      const prodApp = createApp({ env: 'production' });
+      prodApp.use(vi.fn() as Middleware);
+
+      await expect(prodApp.ready()).resolves.toBe(prodApp);
+    });
+
+    it('runs every tagged middleware\'s check, not just the first', async () => {
+      const warn = vi.fn();
+      const prodApp = createApp({ env: 'production', logger: { warn } as never });
+      prodApp.use(taggedMiddleware({ level: 'warn', message: 'first warning' }));
+      prodApp.use(taggedMiddleware({ level: 'warn', message: 'second warning' }));
+
+      await prodApp.ready();
+
+      expect(warn).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('use()', () => {
     it('should register a single middleware', () => {
       const middleware: Middleware = vi.fn();

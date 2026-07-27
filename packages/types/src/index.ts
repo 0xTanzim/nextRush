@@ -200,3 +200,16 @@ export {
   type RouteMetadata,
   type RouteMetaMarker,
 } from './route-metadata';
+
+// ============================================================================
+// Security Audit Contribution Contract (`security-boundaries` capability)
+// ============================================================================
+
+export {
+  // Contribution protocol symbol (value export)
+  SECURITY_AUDIT,
+  type AuditableMiddleware,
+  type SecurityAuditCheck,
+  type SecurityAudited,
+  type SecurityAuditVerdict,
+} from './security-audit';

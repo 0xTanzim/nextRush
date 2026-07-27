@@ -7,6 +7,7 @@
  */
 
 import type { Context, Middleware, Next } from '@nextrush/types';
+import { SECURITY_AUDIT, type SecurityAuditVerdict } from '@nextrush/types';
 import { HttpError, NextRushError, getHttpStatusMessage } from './base';
 
 /**
@@ -76,7 +77,7 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
   // misconfiguration is known.
   let warnedIncludeStackInProduction = false;
 
-  return async (ctx: Context, next: Next): Promise<void> => {
+  const handler: Middleware = async (ctx: Context, next: Next): Promise<void> => {
     try {
       await next();
     } catch (error) {
@@ -154,6 +155,34 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
       ctx.json(body);
     }
   };
+
+  /**
+   * Boot-time verdict for `includeStack: true` (task 8.1): the per-request
+   * guard (SEC-14, line ~140 above) only fires when `isProduction` is
+   * explicitly passed to this call — an app that never threads
+   * `app.options.env` through never gets that guard's warning even in a real
+   * production deployment. This is the gap the boot audit closes.
+   */
+  function auditVerdict(): SecurityAuditVerdict {
+    if (includeStack && !isProduction) {
+      return {
+        level: 'warn',
+        message:
+          'errorHandler({ includeStack: true }) was constructed without isProduction — the ' +
+          'per-request guard that ignores includeStack in production never fires unless ' +
+          "isProduction is explicitly threaded through (e.g. isProduction: app.isProduction). " +
+          'Wire it, or this instance will leak stack traces in production.',
+      };
+    }
+    return { level: 'ok' };
+  }
+
+  Object.defineProperty(handler, SECURITY_AUDIT, {
+    value: auditVerdict,
+    enumerable: false,
+  });
+
+  return handler;
 }
 
 /**

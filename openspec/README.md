@@ -30,7 +30,7 @@ The folder count stays flat no matter how many changes ship.
   (`*-fastpath`, `*-trim`, `*-cleanup`, `*-microtrims`).
 - Every capability spec has a **real `## Purpose`** — never a `TBD - created by archiving…` stub.
 
-## Capability registry (18)
+## Capability registry (19)
 
 Pick the target capability for any change from this list. If nothing fits, that is the signal to
 consider (and justify) a new capability — not to fall back to a change-shaped folder.
@@ -55,6 +55,7 @@ consider (and justify) a new capability — not to fall back to a change-shaped 
 | `gap-checklist-accuracy` | `docs/audits/03-gap-checklist.md` statuses verified against source, with citable notes. |
 | `framework-composition` | How NextRush's packages compose into one installable framework: the meta-package's dependency/install footprint matching its advertised footprint, the no-install-script rule, canonical publishable-manifest conventions, and satellite-package discoverability via a maintained catalog. |
 | `project-scaffolding` | The `create-nextrush` project-generation contract: per-package framework-version resolution with an offline fallback map, template generation across every style × runtime × middleware combination, the generate-then-install verifier gate, and the guarantee that a generated project installs, builds, and runs with working DI on its selected runtime, carrying production-ready defaults and honest, self-consistent documentation. |
+| `security-boundaries` | The framework's cross-package security contract: fail-closed decisions on missing/malformed input, canonical-path-based path exemptions, the boot-time production security audit (proxy/CORS/static/cookie misconfiguration), the `security()` composite preset, fuzz-hardened parsers, cross-adapter header-write/proxy-trust conformance, and the documented `@nextrush/session` position. |
 
 ## Archive retention
 

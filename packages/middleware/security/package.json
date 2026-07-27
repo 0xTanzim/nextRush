@@ -1,7 +1,7 @@
 {
-  "name": "@nextrush/multipart",
-  "version": "1.0.0-beta.2",
-  "description": "Streaming multipart/form-data parser and file upload middleware for NextRush",
+  "name": "@nextrush/security",
+  "version": "1.0.0",
+  "description": "Composite secure-by-default preset for NextRush — helmet + strict cookies + CSRF + rate limit in one call",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -14,6 +14,7 @@
   },
   "files": [
     "dist",
+    "src",
     "README.md"
   ],
   "scripts": {
@@ -21,25 +22,29 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@nextrush/core": "workspace:^",
+    "@nextrush/cookies": "workspace:^",
+    "@nextrush/csrf": "workspace:^",
+    "@nextrush/helmet": "workspace:^",
+    "@nextrush/rate-limit": "workspace:^",
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
-    "fast-check": "3.23.2",
+    "@nextrush/adapter-node": "workspace:^",
+    "@nextrush/router": "workspace:^",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   },
   "keywords": [
     "nextrush",
-    "multipart",
-    "file-upload",
-    "form-data",
-    "middleware",
-    "streaming"
+    "security",
+    "preset",
+    "middleware"
   ],
   "author": {
     "name": "Tanzim Hossain",
@@ -50,12 +55,12 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/0xTanzim/nextRush.git",
-    "directory": "packages/middleware/multipart"
+    "directory": "packages/middleware/security"
   },
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/multipart#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/security#readme",
   "engines": {
     "node": ">=22.0.0"
   },
