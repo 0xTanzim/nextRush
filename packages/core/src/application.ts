@@ -16,12 +16,37 @@ import type {
   ExtensionContext,
   Logger,
   Middleware,
+  ProxyTrust,
   RouteEntry,
   Router,
 } from '@nextrush/types';
 import { compose } from './middleware';
 import { writeDefaultErrorResponse } from './error-handler';
 import { createPrefixMount } from './route-mount';
+
+/**
+ * Rejects the two unsafe `proxy` configurations at boot (RFC-030 §8.5):
+ * `true` (equivalent to "trust everything," the SEC-01 vulnerability this
+ * type exists to close) and `0` (a hop count that can never be satisfied,
+ * so it always falls back — almost certainly not what was intended).
+ */
+function validateProxyTrust(proxy: ProxyTrust): ProxyTrust {
+  if ((proxy as unknown) === true) {
+    throw new Error(
+      "createApp({ proxy: true }) is no longer valid — trusting every proxy header lets a " +
+        'remote client forge its own IP. Use `proxy: <hopCount>` (e.g. `proxy: 1` for one ' +
+        "reverse proxy) or `proxy: ['<cidr>', ...]` (a list of trusted proxy IPs/ranges) instead."
+    );
+  }
+  if (proxy === 0) {
+    throw new Error(
+      'createApp({ proxy: 0 }) trusts zero hops, which is the same as `proxy: false` but ' +
+        'never falls back cleanly — use `proxy: false` to disable proxy trust, or a positive ' +
+        'hop count to trust that many proxies.'
+    );
+  }
+  return proxy;
+}
 
 /**
  * Error handler function type
@@ -127,10 +152,17 @@ export interface ApplicationOptions {
   env?: 'development' | 'production' | 'test';
 
   /**
-   * Whether to use proxy headers (X-Forwarded-For, etc.)
+   * Proxy-trust specification for `ctx.ip` resolution (RFC-030, SEC-01).
+   *
+   * @remarks
+   * `false` trusts nothing (the socket peer is always `ctx.ip`); a `number`
+   * trusts exactly that many reverse-proxy hops; a `string[]` of CIDR
+   * ranges/IPs trusts only a direct peer inside that set. `true` and `0`
+   * throw at construction — see {@link validateProxyTrust}.
+   *
    * @default false
    */
-  proxy?: boolean;
+  proxy?: ProxyTrust;
 
   /**
    * Custom logger. Defaults to no-op (silent).
@@ -257,9 +289,10 @@ export class Application {
   readonly container?: Container;
 
   constructor(options: ApplicationOptions = {}) {
+    const proxy = validateProxyTrust(options.proxy ?? false);
     this.options = {
       env: options.env ?? 'development',
-      proxy: options.proxy ?? false,
+      proxy,
     };
     this.logger = options.logger ?? NOOP_LOGGER;
     this.router = options.router;

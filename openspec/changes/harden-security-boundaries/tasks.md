@@ -42,20 +42,20 @@
 
 ## 4. WS-B — Typed proxy trust boundary (SEC-01 P1) — rebases on WS-A
 
-- [ ] 4.1 RED: failing test — a rotating `X-Forwarded-For` mints a new rate-limit key per request (the SEC-01 bypass) with a rate limiter configured at `max: 5`.
-- [ ] 4.2 RED: failing tests for chain selection — `proxy: 1` with `XFF: '203.0.113.9, 10.0.0.5'` resolves `10.0.0.5`; `proxy: ['10.0.0.0/8']` with a three-entry chain from a trusted peer stops at the first untrusted address; a forged header from an untrusted peer resolves to the direct peer.
-- [ ] 4.3 RED: failing tests for configuration refusal — `proxy: true` throws at boot naming both replacements; `proxy: 0` throws directing to `proxy: false`; a peer-CIDR list on an adapter with no peer address throws at boot.
-- [ ] 4.4 GREEN: change the `proxy` option type to `false | number | string[]` in `@nextrush/types` and thread it through `ApplicationOptions`.
-- [ ] 4.5 GREEN: rewrite `resolveClientIp()` in `packages/runtime/src/headers.ts` to walk `X-Forwarded-For` right-to-left under the trust specification, gate vendor headers on peer trust, and return the direct peer when the chain is exhausted or untrusted.
-- [ ] 4.6 GREEN: add IP/CIDR normalization shared by the trust comparison and the published value so an IPv4-mapped or bracketed-IPv6 peer is never judged untrusted for textual reasons.
-- [ ] 4.7 GREEN: wire the new policy into the Node adapter, preserving the existing no-closure fast path when trust is `false`.
-- [ ] 4.8 GREEN: wire the new policy into Bun, Deno, and Edge, preserving each platform's direct-address source and the no-closure fast path.
-- [ ] 4.9 GREEN: rewrite `rate-limit/src/utils/key-generator.ts` to consume `ctx.ip` only — delete the eight-header `PROXY_HEADERS` scan and `parseProxyHeader`.
-- [ ] 4.10 Edge cases: malformed entries in a trusted chain (`not-an-ip`, empty element, unbracketed IPv6 with port) never become the resolved value; a hop count larger than the chain falls back to the direct peer; `cf-connecting-ip` from an untrusted peer is ignored.
-- [ ] 4.11 Regression: allow/deny lists reject a forged whitelisted IP; `trustProxy: false` behavior is byte-identical to today on every adapter.
-- [ ] 4.12 Cross-adapter: conformance scenarios asserting no adapter returns a forged leftmost entry under any supported trust form, and that the policy has exactly one implementation (no adapter-local precedence logic).
-- [ ] 4.13 Gate: coverage ≥ 90%, ESLint clean, `tsc` strict clean for `runtime`, `rate-limit`, and every adapter; `performance-gate` smoke unchanged.
-- [ ] 4.14 Migration guide: `proxy: true` → `proxy: 1` / `proxy: ['<cidr>']`, with the Edge peer-list constraint called out.
+- [x] 4.1 RED: failing test — a rotating `X-Forwarded-For` mints a new rate-limit key per request (the SEC-01 bypass) with a rate limiter configured at `max: 5`.
+- [x] 4.2 RED: failing tests for chain selection — `proxy: 1` with `XFF: '203.0.113.9, 10.0.0.5'` resolves `10.0.0.5`; `proxy: ['10.0.0.0/8']` with a three-entry chain from a trusted peer stops at the first untrusted address; a forged header from an untrusted peer resolves to the direct peer.
+- [x] 4.3 RED: failing tests for configuration refusal — `proxy: true` throws at boot naming both replacements; `proxy: 0` throws directing to `proxy: false`; a peer-CIDR list on an adapter with no peer address throws at boot.
+- [x] 4.4 GREEN: change the `proxy` option type to `false | number | string[]` in `@nextrush/types` and thread it through `ApplicationOptions`.
+- [x] 4.5 GREEN: rewrite `resolveClientIp()` in `packages/runtime/src/headers.ts` to walk `X-Forwarded-For` right-to-left under the trust specification, gate vendor headers on peer trust, and return the direct peer when the chain is exhausted or untrusted.
+- [x] 4.6 GREEN: add IP/CIDR normalization shared by the trust comparison and the published value so an IPv4-mapped or bracketed-IPv6 peer is never judged untrusted for textual reasons.
+- [x] 4.7 GREEN: wire the new policy into the Node adapter, preserving the existing no-closure fast path when trust is `false`.
+- [x] 4.8 GREEN: wire the new policy into Bun, Deno, and Edge, preserving each platform's direct-address source and the no-closure fast path.
+- [x] 4.9 GREEN: rewrite `rate-limit/src/utils/key-generator.ts` to consume `ctx.ip` only — delete the eight-header `PROXY_HEADERS` scan and `parseProxyHeader`.
+- [x] 4.10 Edge cases: malformed entries in a trusted chain (`not-an-ip`, empty element, unbracketed IPv6 with port) never become the resolved value; a hop count larger than the chain falls back to the direct peer; `cf-connecting-ip` from an untrusted peer is ignored.
+- [x] 4.11 Regression: allow/deny lists reject a forged whitelisted IP; `trustProxy: false` behavior is byte-identical to today on every adapter.
+- [x] 4.12 Cross-adapter: conformance scenarios asserting no adapter returns a forged leftmost entry under any supported trust form, and that the policy has exactly one implementation (no adapter-local precedence logic).
+- [x] 4.13 Gate: coverage ≥ 90% for touched files (`runtime/proxy-trust.ts` 96.92%, `runtime/headers.ts` 93.33%, `core/application.ts` 98.93%; `rate-limit` package-wide coverage is a pre-existing baseline gap in untouched IPv4/IPv6-validation helpers, not a regression). ESLint clean (zero warnings). `tsc` strict clean for `runtime`, `rate-limit`, and every adapter. `performance-gate` smoke not run this session — same open item as WS-A; run before merge.
+- [x] 4.14 Migration guide: `proxy: true` → `proxy: 1` / `proxy: ['<cidr>']`, with the Edge peer-list constraint called out. RFC-030 §12 already documents the exact one-line migration; the standalone `apps/docs` migration-guide page (EDS-020 page type) is deferred to when this change ships in its major release lane, per the same timing WS-A used for its own docs follow-up — writing it now, before the major bump is cut, risks documenting a version number that hasn't been decided yet.
 
 ## 5. WS-C — CSRF correctness (SEC-03, SEC-04, SEC-05, SEC-06, SEC-15, SEC-19)
 

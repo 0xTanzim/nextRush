@@ -37,9 +37,23 @@ describe('Application', () => {
       expect(prodApp.isProduction).toBe(true);
     });
 
-    it('should accept proxy option', () => {
-      const proxyApp = createApp({ proxy: true });
-      expect(proxyApp.options.proxy).toBe(true);
+    it('should accept a hop-count proxy option', () => {
+      const proxyApp = createApp({ proxy: 1 });
+      expect(proxyApp.options.proxy).toBe(1);
+    });
+
+    it('should accept a trusted-peer CIDR list proxy option', () => {
+      const proxyApp = createApp({ proxy: ['10.0.0.0/8'] });
+      expect(proxyApp.options.proxy).toEqual(['10.0.0.0/8']);
+    });
+
+    it('4.3: rejects proxy: true at construction, naming both replacements', () => {
+      expect(() => createApp({ proxy: true as never })).toThrow(/proxy: <hopCount>/);
+      expect(() => createApp({ proxy: true as never })).toThrow(/'<cidr>'/);
+    });
+
+    it('4.3: rejects proxy: 0 at construction, directing to proxy: false', () => {
+      expect(() => createApp({ proxy: 0 })).toThrow(/proxy: false/);
     });
   });
 

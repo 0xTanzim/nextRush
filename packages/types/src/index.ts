@@ -150,6 +150,7 @@ export {
   type BodySourceOptions,
   // Runtime detection
   type PlatformId,
+  type ProxyTrust,
   type Runtime,
   type RuntimeCapabilities,
   type RuntimeInfo,
