@@ -29,6 +29,10 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0014](ADR-0014-adapter-nextjs-prepend-only.md) | `@nextrush/adapter-nextjs` — prepend-only Next.js App Router bridge | Accepted · Shipped | `docs/RFC/runtime-adapters/024-adapter-nextjs.md` |
 | [ADR-0015](ADR-0015-defer-router-radix.md) | Defer `@nextrush/router-radix` on evidence-negative T017 | Accepted | `docs/RFC/runtime-adapters/015-router-radix.md` |
 | [ADR-0016](ADR-0016-canonical-tls-shape.md) | Canonical nested TLS shape and ALPN-negotiated HTTP/2 for server adapters | Proposed | `docs/RFC/runtime-adapters/028-tls-transport-negotiation.md` |
+| [ADR-0017](ADR-0017-canonical-request-path.md) | Canonical request-path ownership in `@nextrush/router` (`ctx.path`/`ctx.originalPath`, dot-segment rejection) | Proposed | `docs/RFC/request-data/029-canonical-request-path.md` |
+| [ADR-0018](ADR-0018-typed-proxy-trust.md) | Typed proxy-trust boundary (`proxy: false \| number \| string[]`) replacing the boolean | Proposed | `docs/RFC/runtime-adapters/030-typed-proxy-trust.md` |
+| [ADR-0019](ADR-0019-context-bound-signatures.md) | Context-bound signature construction for signed cookies (name + issue time) | Proposed | `docs/RFC/request-data/031-context-bound-signatures.md` |
+| [ADR-0020](ADR-0020-session-position.md) | `@nextrush/session`: documented position, implementation deferred to a future RFC | Proposed | `docs/RFC/class-runtime/032-session-position.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

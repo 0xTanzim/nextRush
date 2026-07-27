@@ -55,6 +55,10 @@ invent a new structure per RFC.
 | [026](runtime-adapters/026-serverless-ctx-runtime-honesty.md) | `ctx.runtime` honesty on `@nextrush/adapter-serverless` — add `ctx.platform` | **Draft** — design-only, not built | runtime-adapters |
 | [027](runtime-adapters/027-serverless-gcf-azure-drop-in-handlers.md) | `@nextrush/adapter-serverless` — true drop-in GCF & Azure handlers | **Draft** — design-only, not built | runtime-adapters |
 | [028](runtime-adapters/028-tls-transport-negotiation.md) | TLS & negotiated transport for runtime adapters (Node TLS/HTTP2, Bun/Deno shape standardization) | **In Review** — design-only, not built | runtime-adapters |
+| [029](request-data/029-canonical-request-path.md) | Canonical request-path ownership, dot-segment rejection, and `caseSensitive` default flip | **Draft** — see ADR-0017 | request-data |
+| [030](runtime-adapters/030-typed-proxy-trust.md) | Typed proxy-trust boundary for client-IP resolution (`proxy: false \| number \| string[]`) | **Draft** — see ADR-0018 | runtime-adapters |
+| [031](request-data/031-context-bound-signatures.md) | Context-bound signature construction for signed cookies | **Draft** — see ADR-0019 | request-data |
+| [032](class-runtime/032-session-position.md) | `@nextrush/session` position — what the framework owns and what it defers | **Draft** — see ADR-0020, no code shipped | class-runtime |
 
 ## Note on RFC-005 (Plugin System)
 
